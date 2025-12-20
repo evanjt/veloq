@@ -30,7 +30,9 @@
       "bundler": "metro"
     },
     "plugins": [
-      "expo-router"
+      "expo-router",
+      "expo-localization",
+      "@maplibre/maplibre-react-native"
     ],
     "experiments": {
       "typedRoutes": true

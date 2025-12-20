@@ -9,6 +9,13 @@ export type ActivityType =
   | 'Workout'
   | 'WeightTraining'
   | 'Yoga'
+  | 'Snowboard'
+  | 'AlpineSki'
+  | 'NordicSki'
+  | 'BackcountrySki'
+  | 'Rowing'
+  | 'Kayaking'
+  | 'Canoeing'
   | 'Other';
 
 export interface Activity {

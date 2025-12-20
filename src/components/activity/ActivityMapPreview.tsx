@@ -1,20 +1,30 @@
-import React, { useMemo, useRef, useCallback } from 'react';
-import { View, StyleSheet, ActivityIndicator } from 'react-native';
-import MapView, { Polyline, PROVIDER_DEFAULT } from 'react-native-maps';
+import React, { useMemo } from 'react';
+import { View, StyleSheet, ActivityIndicator, useColorScheme } from 'react-native';
+import { MapView, Camera, ShapeSource, LineLayer, MarkerView } from '@maplibre/maplibre-react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { getRegion, convertLatLngTuples } from '@/lib/polyline';
+import { convertLatLngTuples } from '@/lib/polyline';
 import { getActivityColor } from '@/lib';
 import { colors } from '@/theme';
 import { useActivityStreams } from '@/hooks';
 import type { Activity } from '@/types';
 
+// Map styles - fully open source, no API key required
+const STYLE_LIGHT = 'https://tiles.openfreemap.org/styles/liberty';
+const STYLE_DARK = 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json';
+
 interface ActivityMapPreviewProps {
   activity: Activity;
   height?: number;
+  forceLight?: boolean;
 }
 
-export function ActivityMapPreview({ activity, height = 160 }: ActivityMapPreviewProps) {
-  const mapRef = useRef<MapView>(null);
+export function ActivityMapPreview({
+  activity,
+  height = 160,
+  forceLight = false,
+}: ActivityMapPreviewProps) {
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === 'dark' && !forceLight;
   const activityColor = getActivityColor(activity.type);
 
   // Check if activity has GPS data available
@@ -32,22 +42,40 @@ export function ActivityMapPreview({ activity, height = 160 }: ActivityMapPrevie
     return [];
   }, [streams?.latlng]);
 
-  const region = useMemo(() => {
-    if (coordinates.length > 0) {
-      return getRegion(coordinates, 0.2);
+  const bounds = useMemo(() => {
+    if (coordinates.length === 0) return null;
+
+    let minLat = Infinity, maxLat = -Infinity;
+    let minLng = Infinity, maxLng = -Infinity;
+
+    for (const coord of coordinates) {
+      minLat = Math.min(minLat, coord.latitude);
+      maxLat = Math.max(maxLat, coord.latitude);
+      minLng = Math.min(minLng, coord.longitude);
+      maxLng = Math.max(maxLng, coord.longitude);
     }
-    return null;
+
+    return {
+      ne: [maxLng, maxLat] as [number, number],
+      sw: [minLng, minLat] as [number, number],
+    };
   }, [coordinates]);
 
-  // Fit map to route when ready
-  const fitToRoute = useCallback(() => {
-    if (mapRef.current && coordinates.length > 0) {
-      mapRef.current.fitToCoordinates(coordinates, {
-        edgePadding: { top: 30, right: 30, bottom: 30, left: 30 },
-        animated: false,
-      });
-    }
+  const routeGeoJSON = useMemo(() => {
+    if (coordinates.length === 0) return null;
+    return {
+      type: 'Feature' as const,
+      properties: {},
+      geometry: {
+        type: 'LineString' as const,
+        coordinates: coordinates.map(c => [c.longitude, c.latitude]),
+      },
+    };
   }, [coordinates]);
+
+  const styleUrl = isDark ? STYLE_DARK : STYLE_LIGHT;
+  const startPoint = coordinates[0];
+  const endPoint = coordinates[coordinates.length - 1];
 
   // No GPS data available for this activity
   if (!hasGpsData) {
@@ -62,8 +90,8 @@ export function ActivityMapPreview({ activity, height = 160 }: ActivityMapPrevie
     );
   }
 
-  // Loading streams
-  if (isLoading || coordinates.length === 0) {
+  // Loading streams or no bounds
+  if (isLoading || !bounds || coordinates.length === 0) {
     return (
       <View style={[styles.placeholder, { height, backgroundColor: activityColor + '10' }]}>
         <ActivityIndicator size="small" color={activityColor} />
@@ -74,32 +102,58 @@ export function ActivityMapPreview({ activity, height = 160 }: ActivityMapPrevie
   return (
     <View style={[styles.container, { height }]}>
       <MapView
-        ref={mapRef}
         style={styles.map}
-        provider={PROVIDER_DEFAULT}
-        initialRegion={region!}
-        onMapReady={fitToRoute}
-        onLayout={fitToRoute}
+        mapStyle={styleUrl}
+        logoEnabled={false}
+        attributionEnabled={false}
+        compassEnabled={false}
         scrollEnabled={false}
         zoomEnabled={false}
         rotateEnabled={false}
         pitchEnabled={false}
-        toolbarEnabled={false}
-        showsUserLocation={false}
-        showsMyLocationButton={false}
-        showsCompass={false}
-        showsScale={false}
-        showsIndoors={false}
-        showsBuildings={false}
-        showsTraffic={false}
-        showsPointsOfInterest={false}
-        liteMode={true}
       >
-        <Polyline
-          coordinates={coordinates}
-          strokeColor={activityColor}
-          strokeWidth={3}
+        <Camera
+          bounds={bounds}
+          padding={{ paddingTop: 30, paddingRight: 30, paddingBottom: 30, paddingLeft: 30 }}
+          animationDuration={0}
         />
+
+        {/* Route line */}
+        {routeGeoJSON && (
+          <ShapeSource id="routeSource" shape={routeGeoJSON}>
+            <LineLayer
+              id="routeLine"
+              style={{
+                lineColor: activityColor,
+                lineWidth: 3,
+                lineCap: 'round',
+                lineJoin: 'round',
+              }}
+            />
+          </ShapeSource>
+        )}
+
+        {/* Start marker */}
+        {startPoint && (
+          <MarkerView coordinate={[startPoint.longitude, startPoint.latitude]}>
+            <View style={styles.markerContainer}>
+              <View style={[styles.marker, styles.startMarker]}>
+                <MaterialCommunityIcons name="play" size={10} color="#FFFFFF" />
+              </View>
+            </View>
+          </MarkerView>
+        )}
+
+        {/* End marker */}
+        {endPoint && (
+          <MarkerView coordinate={[endPoint.longitude, endPoint.latitude]}>
+            <View style={styles.markerContainer}>
+              <View style={[styles.marker, styles.endMarker]}>
+                <MaterialCommunityIcons name="flag-checkered" size={10} color="#FFFFFF" />
+              </View>
+            </View>
+          </MarkerView>
+        )}
       </MapView>
     </View>
   );
@@ -108,6 +162,7 @@ export function ActivityMapPreview({ activity, height = 160 }: ActivityMapPrevie
 const styles = StyleSheet.create({
   container: {
     overflow: 'hidden',
+    borderRadius: 8,
   },
   map: {
     flex: 1,
@@ -115,5 +170,30 @@ const styles = StyleSheet.create({
   placeholder: {
     justifyContent: 'center',
     alignItems: 'center',
+    borderRadius: 8,
+  },
+  markerContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  marker: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.3,
+    shadowRadius: 2,
+    elevation: 3,
+  },
+  startMarker: {
+    backgroundColor: colors.success,
+  },
+  endMarker: {
+    backgroundColor: colors.error,
   },
 });
