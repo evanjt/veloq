@@ -11,10 +11,23 @@ import type { SharedValue } from 'react-native-reanimated';
 // Offset correction for touch coordinate mismatch (pixels to shift left)
 const TOUCH_OFFSET_CORRECTION = 30;
 
-interface ElevationChartProps {
-  altitude?: number[];
-  distance?: number[];
+interface ActivityDataChartProps {
+  /** The metric values to display */
+  data: number[];
+  /** Distance values for X-axis (in meters) */
+  distance: number[];
+  /** Chart height in pixels */
   height?: number;
+  /** Label for the metric (e.g., "Heart Rate") */
+  label: string;
+  /** Unit for the metric (e.g., "bpm") */
+  unit: string;
+  /** Chart color for gradient */
+  color: string;
+  /** Custom value formatter */
+  formatValue?: (value: number, isMetric: boolean) => string;
+  /** Convert value to imperial units */
+  convertToImperial?: (value: number) => number;
   /** Called when user selects a point - returns the original data index */
   onPointSelect?: (index: number | null) => void;
   /** Called when interaction starts/ends - use to disable parent ScrollView */
@@ -33,19 +46,24 @@ function useMetricSystem(): boolean {
   }
 }
 
-export function ElevationChart({
-  altitude = [],
+export function ActivityDataChart({
+  data: rawData = [],
   distance = [],
-  height = 160,
+  height = 150,
+  label,
+  unit,
+  color: chartColor,
+  formatValue,
+  convertToImperial,
   onPointSelect,
   onInteractionChange,
-}: ElevationChartProps) {
+}: ActivityDataChartProps) {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const isMetric = useMetricSystem();
   const [tooltipValues, setTooltipValues] = React.useState<{ x: number; y: number } | null>(null);
-  // Store corrected elevation for dot positioning
-  const correctedElevationRef = useRef<number | null>(null);
+  // Store corrected value for dot positioning
+  const correctedValueRef = useRef<number | null>(null);
   const onPointSelectRef = useRef(onPointSelect);
   const onInteractionChangeRef = useRef(onInteractionChange);
   onPointSelectRef.current = onPointSelect;
@@ -64,31 +82,35 @@ export function ElevationChart({
     }
   }, [isActive]);
 
-  // Build data with original indices for mapping back
+  // Build chart data with downsampling
   const { data, indexMap } = useMemo(() => {
-    if (altitude.length === 0) return { data: [], indexMap: [] as number[] };
+    if (rawData.length === 0) return { data: [], indexMap: [] as number[] };
 
     const maxPoints = 200;
-    const step = Math.max(1, Math.floor(altitude.length / maxPoints));
+    const step = Math.max(1, Math.floor(rawData.length / maxPoints));
 
     const points: { x: number; y: number; idx: number }[] = [];
     const indices: number[] = [];
 
-    for (let i = 0; i < altitude.length; i += step) {
+    for (let i = 0; i < rawData.length; i += step) {
+      // X-axis: distance in km or mi
       const distKm = distance.length > i ? distance[i] / 1000 : i * 0.01;
-      const altM = altitude[i];
-      points.push({
-        x: isMetric ? distKm : distKm * 0.621371,
-        y: isMetric ? altM : altM * 3.28084,
-        idx: i,
-      });
+      const xValue = isMetric ? distKm : distKm * 0.621371;
+
+      // Y-axis: apply imperial conversion if needed
+      let yValue = rawData[i];
+      if (!isMetric && convertToImperial) {
+        yValue = convertToImperial(yValue);
+      }
+
+      points.push({ x: xValue, y: yValue, idx: i });
       indices.push(i);
     }
     return { data: points, indexMap: indices };
-  }, [altitude, distance, isMetric]);
+  }, [rawData, distance, isMetric, convertToImperial]);
 
   // Handle data lookup on JS thread with index offset correction
-  const handleDataLookup = React.useCallback((matchedIndex: number, xValue: number, yValue: number) => {
+  const handleDataLookup = React.useCallback((matchedIndex: number) => {
     if (data.length === 0) return;
 
     const bounds = chartBoundsRef.current;
@@ -96,11 +118,9 @@ export function ElevationChart({
 
     // Calculate how many data points the pixel offset corresponds to
     let indexOffset = 25; // Fallback offset
-    let debugInfo = `w:0`;
     if (chartWidth > 0 && data.length > 1) {
       const pixelsPerPoint = chartWidth / (data.length - 1);
       indexOffset = Math.round(TOUCH_OFFSET_CORRECTION / pixelsPerPoint);
-      debugInfo = `w:${Math.round(chartWidth)} off:${indexOffset}`;
     }
 
     // Apply the index offset (subtract because we're shifting left)
@@ -108,8 +128,8 @@ export function ElevationChart({
 
     const point = data[correctedIndex];
     if (point) {
-      // Store corrected elevation for dot positioning
-      correctedElevationRef.current = point.y;
+      // Store corrected value for dot positioning
+      correctedValueRef.current = point.y;
       setTooltipValues({ x: point.x, y: point.y });
       if (onPointSelectRef.current && correctedIndex < indexMap.length) {
         const originalIndex = indexMap[correctedIndex];
@@ -119,7 +139,7 @@ export function ElevationChart({
   }, [data, indexMap]);
 
   const handleClearSelection = React.useCallback(() => {
-    correctedElevationRef.current = null;
+    correctedValueRef.current = null;
     setTooltipValues(null);
     if (onPointSelectRef.current) {
       onPointSelectRef.current(null);
@@ -130,13 +150,11 @@ export function ElevationChart({
   useAnimatedReaction(
     () => ({
       matchedIndex: state.matchedIndex.value,
-      x: state.x.value.value,
-      y: state.y.y.value.value,
       active: isActive,
     }),
     (current) => {
       if (current.active) {
-        runOnJS(handleDataLookup)(current.matchedIndex, current.x, current.y);
+        runOnJS(handleDataLookup)(current.matchedIndex);
       } else {
         runOnJS(handleClearSelection)();
       }
@@ -144,42 +162,48 @@ export function ElevationChart({
     [isActive, handleDataLookup, handleClearSelection]
   );
 
-  const { minAlt, maxAlt, maxDist } = useMemo(() => {
+  const { minVal, maxVal, maxDist } = useMemo(() => {
     if (data.length === 0) {
-      return { minAlt: 0, maxAlt: 100, maxDist: 1 };
+      return { minVal: 0, maxVal: 100, maxDist: 1 };
     }
-    const altitudes = data.map((d) => d.y);
+    const values = data.map((d) => d.y);
     const distances = data.map((d) => d.x);
-    const min = Math.min(...altitudes);
-    const max = Math.max(...altitudes);
+    const min = Math.min(...values);
+    const max = Math.max(...values);
     const padding = (max - min) * 0.1 || 10;
     return {
-      minAlt: Math.floor(min - padding),
-      maxAlt: Math.ceil(max + padding),
+      minVal: Math.floor(min - padding),
+      maxVal: Math.ceil(max + padding),
       maxDist: Math.max(...distances),
     };
   }, [data]);
 
   const distanceUnit = isMetric ? 'km' : 'mi';
-  const elevationUnit = isMetric ? 'm' : 'ft';
+
+  // Format the display value
+  const formatDisplayValue = (value: number): string => {
+    if (formatValue) {
+      return formatValue(value, isMetric);
+    }
+    return Math.round(value).toString();
+  };
 
   if (data.length === 0) {
     return (
       <View style={[styles.placeholder, { height }]}>
-        <Text style={[styles.placeholderText, isDark && styles.textDark]}>No elevation data</Text>
+        <Text style={[styles.placeholderText, isDark && styles.textDark]}>No {label.toLowerCase()} data</Text>
       </View>
     );
   }
 
   return (
     <View style={[styles.container, { height }]}>
-      {/* Chart - optimized gesture handling for smooth tracking */}
       <View style={styles.chartWrapper}>
-        {/* Tooltip display - inside chartWrapper to avoid coordinate offset */}
+        {/* Tooltip display */}
         {isActive && tooltipValues && (
           <View style={[styles.tooltip, isDark && styles.tooltipDark]} pointerEvents="none">
             <Text style={[styles.tooltipText, isDark && styles.tooltipTextDark]}>
-              {tooltipValues.x.toFixed(2)} {distanceUnit}  •  {Math.round(tooltipValues.y)} {elevationUnit}
+              {tooltipValues.x.toFixed(2)} {distanceUnit}  •  {formatDisplayValue(tooltipValues.y)} {unit}
             </Text>
           </View>
         )}
@@ -187,55 +211,55 @@ export function ElevationChart({
           data={data}
           xKey="x"
           yKeys={['y']}
-          domain={{ y: [minAlt, maxAlt] }}
+          domain={{ y: [minVal, maxVal] }}
           padding={{ left: 0, right: 0, top: 4, bottom: 16 }}
           chartPressState={state}
           gestureLongPressDelay={50}
         >
           {({ points, chartBounds }) => {
-            // Store chart bounds for corrected index calculation in animated reaction
             chartBoundsRef.current = { left: chartBounds.left, right: chartBounds.right };
 
             return (
-            <>
-              <Area
-                points={points.y}
-                y0={chartBounds.bottom}
-                curveType="natural"
-              >
-                <LinearGradient
-                  start={vec(0, chartBounds.top)}
-                  end={vec(0, chartBounds.bottom)}
-                  colors={[colors.primary + 'AA', colors.primary + '20']}
-                />
-              </Area>
-              {isActive && (
-                <ActiveIndicator
-                  xPosition={state.x.position}
-                  top={chartBounds.top}
-                  bottom={chartBounds.bottom}
-                  isDark={isDark}
-                  correctedElevation={correctedElevationRef.current}
-                  minAlt={minAlt}
-                  maxAlt={maxAlt}
-                />
-              )}
-            </>
+              <>
+                <Area
+                  points={points.y}
+                  y0={chartBounds.bottom}
+                  curveType="natural"
+                >
+                  <LinearGradient
+                    start={vec(0, chartBounds.top)}
+                    end={vec(0, chartBounds.bottom)}
+                    colors={[chartColor + 'AA', chartColor + '20']}
+                  />
+                </Area>
+                {isActive && (
+                  <ActiveIndicator
+                    xPosition={state.x.position}
+                    top={chartBounds.top}
+                    bottom={chartBounds.bottom}
+                    isDark={isDark}
+                    correctedValue={correctedValueRef.current}
+                    minVal={minVal}
+                    maxVal={maxVal}
+                    color={chartColor}
+                  />
+                )}
+              </>
             );
           }}
         </CartesianChart>
 
-        {/* Y-axis labels overlaid on chart */}
+        {/* Y-axis labels */}
         <View style={styles.yAxisOverlay} pointerEvents="none">
           <Text style={[styles.overlayLabel, isDark && styles.overlayLabelDark]}>
-            {maxAlt}{elevationUnit}
+            {formatDisplayValue(maxVal)}{unit}
           </Text>
           <Text style={[styles.overlayLabel, isDark && styles.overlayLabelDark]}>
-            {minAlt}{elevationUnit}
+            {formatDisplayValue(minVal)}{unit}
           </Text>
         </View>
 
-        {/* X-axis labels overlaid on chart */}
+        {/* X-axis labels */}
         <View style={styles.xAxisOverlay} pointerEvents="none">
           <Text style={[styles.overlayLabel, isDark && styles.overlayLabelDark]}>0</Text>
           <Text style={[styles.overlayLabel, isDark && styles.overlayLabelDark]}>
@@ -253,30 +277,30 @@ function ActiveIndicator({
   top,
   bottom,
   isDark,
-  correctedElevation,
-  minAlt,
-  maxAlt,
+  correctedValue,
+  minVal,
+  maxVal,
+  color,
 }: {
   xPosition: SharedValue<number>;
   top: number;
   bottom: number;
   isDark: boolean;
-  correctedElevation: number | null;
-  minAlt: number;
-  maxAlt: number;
+  correctedValue: number | null;
+  minVal: number;
+  maxVal: number;
+  color: string;
 }) {
-  // Apply offset correction to align crosshair with finger position
   const correctedX = useDerivedValue(() => xPosition.value - TOUCH_OFFSET_CORRECTION);
   const lineStart = useDerivedValue(() => vec(correctedX.value, top));
   const lineEnd = useDerivedValue(() => vec(correctedX.value, bottom));
 
-  // Calculate Y position from corrected elevation value
+  // Calculate Y position from corrected value
   const chartHeight = bottom - top;
-  const yRange = maxAlt - minAlt;
-  let dotY = (top + bottom) / 2; // Default to center
-  if (correctedElevation !== null && yRange > 0) {
-    // Map elevation to pixel position (inverted: higher elevation = lower y pixel)
-    const normalizedY = (correctedElevation - minAlt) / yRange;
+  const yRange = maxVal - minVal;
+  let dotY = (top + bottom) / 2;
+  if (correctedValue !== null && yRange > 0) {
+    const normalizedY = (correctedValue - minVal) / yRange;
     dotY = bottom - (normalizedY * chartHeight);
   }
 
@@ -293,7 +317,7 @@ function ActiveIndicator({
         cx={correctedX}
         cy={dotY}
         r={6}
-        color={colors.primary}
+        color={color}
       />
       <Circle
         cx={correctedX}
@@ -306,9 +330,7 @@ function ActiveIndicator({
 }
 
 const styles = StyleSheet.create({
-  container: {
-    // No margin - let parent handle spacing to avoid touch coordinate issues
-  },
+  container: {},
   chartWrapper: {
     flex: 1,
     position: 'relative',

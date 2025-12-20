@@ -1,11 +1,11 @@
 import React, { useState, useCallback, useMemo, useRef } from 'react';
-import { View, ScrollView, StyleSheet, useColorScheme } from 'react-native';
+import { View, ScrollView, StyleSheet, useColorScheme, TouchableOpacity } from 'react-native';
 import { Text, IconButton, ActivityIndicator } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useActivity, useActivityStreams } from '@/hooks';
-import { ActivityMapView, ElevationChart } from '@/components';
+import { ActivityMapView, ActivityDataChart, ChartTypeSelector, CombinedDataChart } from '@/components';
 import {
   formatDistance,
   formatDuration,
@@ -20,8 +20,11 @@ import {
   isRunningActivity,
   decodePolyline,
   convertLatLngTuples,
+  getAvailableCharts,
+  CHART_CONFIGS,
 } from '@/lib';
 import { colors, spacing, layout, typography } from '@/theme';
+import type { ChartTypeId } from '@/lib/chartConfig';
 
 export default function ActivityDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -31,12 +34,33 @@ export default function ActivityDetailScreen() {
   const { data: activity, isLoading, error } = useActivity(id || '');
   const { data: streams } = useActivityStreams(id || '');
 
-  // Track the selected point index from elevation chart for map highlight
+  // Track the selected point index from charts for map highlight
   const [highlightIndex, setHighlightIndex] = useState<number | null>(null);
-  // Track whether chart is being interacted with to disable ScrollView
+  // Track whether any chart is being interacted with to disable ScrollView
   const [chartInteracting, setChartInteracting] = useState(false);
+  // Track which chart types are selected (multi-select)
+  const [selectedCharts, setSelectedCharts] = useState<ChartTypeId[]>(['elevation']);
+  // Track if charts are expanded (stacked) or combined (overlay)
+  const [chartsExpanded, setChartsExpanded] = useState(false);
 
-  // Handle elevation chart point selection
+  // Get available chart types based on stream data
+  const availableCharts = useMemo(() => {
+    return getAvailableCharts(streams);
+  }, [streams]);
+
+  // Toggle a chart type on/off
+  const handleChartToggle = useCallback((chartId: string) => {
+    setSelectedCharts((prev) => {
+      if (prev.includes(chartId as ChartTypeId)) {
+        // Don't allow deselecting the last chart
+        if (prev.length === 1) return prev;
+        return prev.filter((id) => id !== chartId);
+      }
+      return [...prev, chartId as ChartTypeId];
+    });
+  }, []);
+
+  // Handle chart point selection (shared by all charts)
   const handlePointSelect = useCallback((index: number | null) => {
     setHighlightIndex(index);
   }, []);
@@ -150,20 +174,72 @@ export default function ActivityDetailScreen() {
           </View>
         </View>
 
-        {/* Elevation Chart - syncs with map marker */}
-        {streams?.altitude && streams.altitude.length > 0 && (
-          <View style={[styles.statsCard, isDark && styles.cardDark]}>
-            <Text style={[styles.sectionTitle, isDark && styles.textLight]}>
-              Elevation Profile
-            </Text>
-            <ElevationChart
-              altitude={streams.altitude}
-              distance={streams.distance}
-              height={150}
-              onPointSelect={handlePointSelect}
-              onInteractionChange={handleInteractionChange}
+        {/* Chart Type Selector with expand toggle */}
+        {availableCharts.length > 0 && (
+          <View style={styles.chartControls}>
+            <TouchableOpacity
+              style={[styles.expandButton, isDark && styles.expandButtonDark]}
+              onPress={() => setChartsExpanded(!chartsExpanded)}
+              activeOpacity={0.7}
+            >
+              <MaterialCommunityIcons
+                name={chartsExpanded ? 'view-stream' : 'chart-multiple'}
+                size={20}
+                color={isDark ? '#FFF' : '#333'}
+              />
+            </TouchableOpacity>
+            <ChartTypeSelector
+              available={availableCharts}
+              selected={selectedCharts}
+              onToggle={handleChartToggle}
             />
           </View>
+        )}
+
+        {/* Combined or Expanded Charts */}
+        {streams && selectedCharts.length > 0 && (
+          chartsExpanded ? (
+            // Expanded view - stacked charts
+            selectedCharts.map((chartId) => {
+              const config = CHART_CONFIGS[chartId];
+              if (!config) return null;
+
+              const chartData = config.getStream(streams);
+              if (!chartData || chartData.length === 0) return null;
+
+              return (
+                <View key={chartId} style={[styles.statsCard, isDark && styles.cardDark]}>
+                  <Text style={[styles.sectionTitle, isDark && styles.textLight]}>
+                    {config.label}
+                  </Text>
+                  <ActivityDataChart
+                    data={chartData}
+                    distance={streams.distance || []}
+                    height={150}
+                    label={config.label}
+                    unit={config.unit}
+                    color={config.color}
+                    formatValue={config.formatValue}
+                    convertToImperial={config.convertToImperial}
+                    onPointSelect={handlePointSelect}
+                    onInteractionChange={handleInteractionChange}
+                  />
+                </View>
+              );
+            })
+          ) : (
+            // Combined view - overlay chart
+            <View style={[styles.statsCard, isDark && styles.cardDark]}>
+              <CombinedDataChart
+                streams={streams}
+                selectedCharts={selectedCharts}
+                chartConfigs={CHART_CONFIGS}
+                height={240}
+                onPointSelect={handlePointSelect}
+                onInteractionChange={handleInteractionChange}
+              />
+            </View>
+          )
         )}
 
         {/* Performance stats */}
@@ -371,5 +447,22 @@ const styles = StyleSheet.create({
   errorText: {
     ...typography.body,
     color: colors.error,
+  },
+  chartControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: spacing.md,
+  },
+  expandButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0, 0, 0, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: spacing.sm,
+  },
+  expandButtonDark: {
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
   },
 });
