@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useCallback, useMemo, useRef } from 'react';
 import { View, ScrollView, StyleSheet, useColorScheme } from 'react-native';
 import { Text, IconButton, ActivityIndicator } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -31,33 +31,20 @@ export default function ActivityDetailScreen() {
   const { data: activity, isLoading, error } = useActivity(id || '');
   const { data: streams } = useActivityStreams(id || '');
 
-  // DEBUG: Log API responses to identify field names
-  React.useEffect(() => {
-    if (activity) {
-      console.log('=== ACTIVITY DEBUG ===');
-      console.log('Activity ID:', activity.id);
-      console.log('Has polyline:', !!activity.polyline);
-      console.log('Has start_latlng:', !!activity.start_latlng);
-      console.log('Activity keys:', Object.keys(activity));
-      // Log the whole activity to see all fields
-      console.log('Full activity:', JSON.stringify(activity, null, 2));
-    }
-  }, [activity]);
+  // Track the selected point index from elevation chart for map highlight
+  const [highlightIndex, setHighlightIndex] = useState<number | null>(null);
+  // Track whether chart is being interacted with to disable ScrollView
+  const [chartInteracting, setChartInteracting] = useState(false);
 
-  React.useEffect(() => {
-    if (streams) {
-      console.log('=== STREAMS DEBUG ===');
-      console.log('Has latlng:', !!streams.latlng);
-      console.log('latlng length:', streams.latlng?.length || 0);
-      console.log('Streams keys:', Object.keys(streams));
-      // Log first few latlng entries to check format
-      if (streams.latlng && streams.latlng.length > 0) {
-        console.log('First latlng entry:', streams.latlng[0]);
-        console.log('latlng type:', typeof streams.latlng[0]);
-      }
-      console.log('Full streams:', JSON.stringify(streams, null, 2).slice(0, 2000));
-    }
-  }, [streams]);
+  // Handle elevation chart point selection
+  const handlePointSelect = useCallback((index: number | null) => {
+    setHighlightIndex(index);
+  }, []);
+
+  // Handle chart interaction state changes
+  const handleInteractionChange = useCallback((isInteracting: boolean) => {
+    setChartInteracting(isInteracting);
+  }, []);
 
   if (isLoading) {
     return (
@@ -87,9 +74,16 @@ export default function ActivityDetailScreen() {
   const showPace = isRunningActivity(activity.type);
 
   // Get coordinates from streams or polyline
-  const coordinates = streams?.latlng
-    ? convertLatLngTuples(streams.latlng)
-    : (activity.polyline ? decodePolyline(activity.polyline) : []);
+  const coordinates = useMemo(() => {
+    if (streams?.latlng) {
+      return convertLatLngTuples(streams.latlng);
+    }
+    if (activity.polyline) {
+      return decodePolyline(activity.polyline);
+    }
+    return [];
+  }, [streams?.latlng, activity.polyline]);
+
 
   return (
     <SafeAreaView style={[styles.container, isDark && styles.containerDark]}>
@@ -122,13 +116,17 @@ export default function ActivityDetailScreen() {
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        scrollEnabled={!chartInteracting}
       >
-        {/* Interactive Map */}
+        {/* Interactive Map - tap to go fullscreen */}
         <ActivityMapView
           coordinates={coordinates}
           polyline={activity.polyline}
           activityType={activity.type}
           height={280}
+          showStyleToggle={true}
+          highlightIndex={highlightIndex}
+          enableFullscreen={true}
         />
 
         {/* Primary stats */}
@@ -152,7 +150,7 @@ export default function ActivityDetailScreen() {
           </View>
         </View>
 
-        {/* Elevation Chart */}
+        {/* Elevation Chart - syncs with map marker */}
         {streams?.altitude && streams.altitude.length > 0 && (
           <View style={[styles.statsCard, isDark && styles.cardDark]}>
             <Text style={[styles.sectionTitle, isDark && styles.textLight]}>
@@ -162,6 +160,8 @@ export default function ActivityDetailScreen() {
               altitude={streams.altitude}
               distance={streams.distance}
               height={150}
+              onPointSelect={handlePointSelect}
+              onInteractionChange={handleInteractionChange}
             />
           </View>
         )}

@@ -44,10 +44,20 @@ export function getBounds(coordinates: LatLng[]): {
 }
 
 export function convertLatLngTuples(tuples: [number, number][]): LatLng[] {
-  return tuples.map(([lat, lng]) => ({
-    latitude: lat,
-    longitude: lng,
-  }));
+  return tuples
+    .filter(([lat, lng]) =>
+      // Filter out invalid coordinates
+      lat != null &&
+      lng != null &&
+      !isNaN(lat) &&
+      !isNaN(lng) &&
+      lat >= -90 && lat <= 90 &&
+      lng >= -180 && lng <= 180
+    )
+    .map(([lat, lng]) => ({
+      latitude: lat,
+      longitude: lng,
+    }));
 }
 
 export function getRegion(coordinates: LatLng[], padding = 0.1) {

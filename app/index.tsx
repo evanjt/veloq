@@ -31,18 +31,6 @@ export default function FeedScreen() {
     isRefetching,
   } = useActivities();
 
-  // DEBUG: Log activities to see if polyline is included
-  React.useEffect(() => {
-    if (activities && activities.length > 0) {
-      console.log('=== ACTIVITIES DEBUG ===');
-      console.log('Activities count:', activities.length);
-      console.log('First activity keys:', Object.keys(activities[0]));
-      console.log('First activity has polyline:', !!activities[0].polyline);
-      console.log('First activity has start_latlng:', !!activities[0].start_latlng);
-      console.log('First activity:', JSON.stringify(activities[0], null, 2));
-    }
-  }, [activities]);
-
   const renderActivity = ({ item }: { item: Activity }) => (
     <ActivityCard activity={item} />
   );

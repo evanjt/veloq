@@ -12,6 +12,13 @@ export function getActivityIcon(type: ActivityType): string {
     Workout: 'dumbbell',
     WeightTraining: 'weight-lifter',
     Yoga: 'yoga',
+    Snowboard: 'snowboard',
+    AlpineSki: 'ski',
+    NordicSki: 'ski-cross-country',
+    BackcountrySki: 'ski',
+    Rowing: 'rowing',
+    Kayaking: 'kayaking',
+    Canoeing: 'kayaking',
     Other: 'heart-pulse',
   };
   return iconMap[type] || 'heart-pulse';
@@ -29,6 +36,13 @@ export function getActivityColor(type: ActivityType): string {
     Workout: '#607D8B',
     WeightTraining: '#607D8B',
     Yoga: '#E91E63',
+    Snowboard: '#00BCD4',
+    AlpineSki: '#03A9F4',
+    NordicSki: '#00BCD4',
+    BackcountrySki: '#03A9F4',
+    Rowing: '#009688',
+    Kayaking: '#009688',
+    Canoeing: '#009688',
     Other: '#9E9E9E',
   };
   return colorMap[type] || '#9E9E9E';
