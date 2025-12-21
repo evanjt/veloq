@@ -10,6 +10,7 @@ import type {
   PowerCurve,
   PaceCurve,
   SportSettings,
+  ActivityMapData,
 } from '@/types';
 
 // Transform raw API streams array into usable ActivityStreams object
@@ -196,5 +197,53 @@ export const intervalsApi = {
     const athleteId = getAthleteId();
     const response = await apiClient.get(`/athlete/${athleteId}`);
     return response.data;
+  },
+
+  /**
+   * Get activity map data (bounds and/or coordinates)
+   * @param id - Activity ID
+   * @param boundsOnly - If true, only returns bounds (faster, smaller response)
+   */
+  async getActivityMap(id: string, boundsOnly = false): Promise<ActivityMapData> {
+    const response = await apiClient.get<ActivityMapData>(`/activity/${id}/map`, {
+      params: boundsOnly ? { boundsOnly: true } : undefined,
+    });
+    return response.data;
+  },
+
+  /**
+   * Batch fetch activity map bounds (respects rate limiting)
+   * @param ids - Activity IDs to fetch
+   * @param concurrency - Number of parallel requests (default 3, per API rate limits)
+   * @param onProgress - Callback for progress updates
+   * @see https://forum.intervals.icu/t/solved-guidance-on-api-rate-limits-for-bulk-activity-reloading/110818
+   */
+  async getActivityMapBounds(
+    ids: string[],
+    concurrency = 3,
+    onProgress?: (completed: number, total: number) => void
+  ): Promise<Map<string, ActivityMapData>> {
+    const results = new Map<string, ActivityMapData>();
+    let completed = 0;
+
+    // Process in batches
+    for (let i = 0; i < ids.length; i += concurrency) {
+      const batch = ids.slice(i, i + concurrency);
+      const promises = batch.map(async (id) => {
+        try {
+          const data = await this.getActivityMap(id, true);
+          results.set(id, data);
+        } catch {
+          // Skip failed requests
+          console.warn(`Failed to fetch map for activity ${id}`);
+        }
+      });
+
+      await Promise.all(promises);
+      completed += batch.length;
+      onProgress?.(completed, ids.length);
+    }
+
+    return results;
   },
 };

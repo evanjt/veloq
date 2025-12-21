@@ -7,3 +7,5 @@ export {
 } from './Shimmer';
 export { GradientText, GlowText, AnimatedNumber } from './GradientText';
 export { GradientCard, GlassCard } from './GradientCard';
+export { MapFAB } from './MapFAB';
+export { CompassArrow } from './CompassArrow';

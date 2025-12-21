@@ -2,21 +2,12 @@ import React, { useMemo, useState } from 'react';
 import { View, StyleSheet, useColorScheme, TouchableOpacity, Pressable, Modal, StatusBar } from 'react-native';
 import { MapView, Camera, ShapeSource, LineLayer, MarkerView } from '@maplibre/maplibre-react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { decodePolyline, getRegion, LatLng } from '@/lib/polyline';
+import { decodePolyline, LatLng } from '@/lib/polyline';
 import { getActivityColor } from '@/lib';
 import { colors } from '@/theme';
+import { BaseMapView } from './BaseMapView';
+import { type MapStyleType, getMapStyle, isDarkStyle, getNextStyle, getStyleIcon } from './mapStyles';
 import type { ActivityType } from '@/types';
-
-// Map style options
-export type MapStyleType = 'light' | 'dark' | 'satellite';
-
-// OpenFreeMap styles - fully open source, no API key required
-const MAP_STYLES: Record<MapStyleType, string> = {
-  light: 'https://tiles.openfreemap.org/styles/liberty',
-  dark: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
-  satellite: 'https://tiles.openfreemap.org/styles/liberty', // Fallback to light for now
-};
 
 interface ActivityMapViewProps {
   polyline?: string;
@@ -42,13 +33,12 @@ export function ActivityMapView({
   enableFullscreen = false,
 }: ActivityMapViewProps) {
   const colorScheme = useColorScheme();
-  const insets = useSafeAreaInsets();
   const systemStyle: MapStyleType = colorScheme === 'dark' ? 'dark' : 'light';
   const [mapStyle, setMapStyle] = useState<MapStyleType>(initialStyle ?? systemStyle);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
   const toggleMapStyle = () => {
-    setMapStyle(current => current === 'light' ? 'dark' : 'light');
+    setMapStyle(current => getNextStyle(current));
   };
 
   const openFullscreen = () => {
@@ -107,8 +97,12 @@ export function ActivityMapView({
     };
   }, [validCoordinates]);
 
+  // Route coordinates for BaseMapView/Map3DWebView [lng, lat] format
+  const routeCoords = useMemo(() => {
+    return validCoordinates.map(c => [c.longitude, c.latitude] as [number, number]);
+  }, [validCoordinates]);
+
   const activityColor = getActivityColor(activityType);
-  // Use first and last valid coordinates for start/end markers
   const startPoint = validCoordinates[0];
   const endPoint = validCoordinates[validCoordinates.length - 1];
 
@@ -116,7 +110,6 @@ export function ActivityMapView({
   const highlightPoint = useMemo(() => {
     if (highlightIndex != null && highlightIndex >= 0 && highlightIndex < coordinates.length) {
       const coord = coordinates[highlightIndex];
-      // Check for valid coordinates (NaN values indicate invalid/filtered points)
       if (coord && !isNaN(coord.latitude) && !isNaN(coord.longitude)) {
         return coord;
       }
@@ -124,8 +117,8 @@ export function ActivityMapView({
     return null;
   }, [highlightIndex, coordinates]);
 
-  const styleUrl = MAP_STYLES[mapStyle];
-  const isDarkMap = mapStyle === 'dark';
+  const mapStyleValue = getMapStyle(mapStyle);
+  const isDark = isDarkStyle(mapStyle);
 
   if (!bounds || validCoordinates.length === 0) {
     return (
@@ -141,11 +134,11 @@ export function ActivityMapView({
 
   return (
     <View style={[styles.container, { height }]}>
-      {/* Inline map - kept mounted but hidden when fullscreen to avoid canceling tile requests */}
+      {/* Inline preview map */}
       <View style={[styles.inlineMapWrapper, isFullscreen && styles.hiddenMap]}>
         <MapView
           style={styles.map}
-          mapStyle={styleUrl}
+          mapStyle={mapStyleValue}
           logoEnabled={false}
           attributionEnabled={false}
           compassEnabled={false}
@@ -193,7 +186,7 @@ export function ActivityMapView({
             </MarkerView>
           )}
 
-          {/* Highlight marker - shows current position from elevation chart */}
+          {/* Highlight marker from elevation chart */}
           {highlightPoint && (
             <MarkerView coordinate={[highlightPoint.longitude, highlightPoint.latitude]}>
               <View style={styles.markerContainer}>
@@ -206,120 +199,70 @@ export function ActivityMapView({
         </MapView>
 
         {/* Tap overlay for fullscreen */}
-        {enableFullscreen && !isFullscreen && (
-          <Pressable
-            style={styles.pressOverlay}
-            onPress={openFullscreen}
-          />
+        {enableFullscreen && (
+          <Pressable style={styles.pressOverlay} onPress={openFullscreen} />
         )}
 
-        {/* Map style toggle button */}
-        {showStyleToggle && !isFullscreen && (
+        {/* Map style toggle */}
+        {showStyleToggle && (
           <TouchableOpacity
-            style={[styles.toggleButton, isDarkMap && styles.toggleButtonDark]}
+            style={[styles.toggleButton, isDark && styles.toggleButtonDark]}
             onPress={toggleMapStyle}
             activeOpacity={0.8}
           >
             <MaterialCommunityIcons
-              name={isDarkMap ? 'weather-sunny' : 'weather-night'}
+              name={getStyleIcon(mapStyle)}
               size={20}
-              color={isDarkMap ? '#FFFFFF' : '#333333'}
+              color={isDark ? '#FFFFFF' : '#333333'}
             />
           </TouchableOpacity>
         )}
       </View>
 
-      {/* Fullscreen modal */}
+      {/* Fullscreen modal using BaseMapView */}
       <Modal
         visible={isFullscreen}
         animationType="fade"
         statusBarTranslucent
         onRequestClose={closeFullscreen}
       >
-        <View style={styles.fullscreenContainer}>
-          <StatusBar barStyle={isDarkMap ? 'light-content' : 'dark-content'} />
-
-          <MapView
-            style={styles.fullscreenMap}
-            mapStyle={styleUrl}
-            logoEnabled={false}
-            attributionEnabled={false}
-            compassEnabled={true}
-          >
-            <Camera
-              bounds={bounds}
-              padding={{ paddingTop: 80 + insets.top, paddingRight: 40, paddingBottom: 40 + insets.bottom, paddingLeft: 40 }}
-              animationDuration={300}
-            />
-
-            {/* Route line */}
-            {routeGeoJSON && (
-              <ShapeSource id="fullscreenRouteSource" shape={routeGeoJSON}>
-                <LineLayer
-                  id="fullscreenRouteLine"
-                  style={{
-                    lineColor: activityColor,
-                    lineWidth: 4,
-                    lineCap: 'round',
-                    lineJoin: 'round',
-                  }}
-                />
-              </ShapeSource>
-            )}
-
-            {/* Start marker */}
-            {startPoint && (
-              <MarkerView coordinate={[startPoint.longitude, startPoint.latitude]}>
-                <View style={styles.markerContainer}>
-                  <View style={[styles.marker, styles.startMarker]}>
-                    <MaterialCommunityIcons name="play" size={14} color="#FFFFFF" />
-                  </View>
+        <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
+        <BaseMapView
+          routeCoordinates={routeCoords}
+          routeColor={activityColor}
+          bounds={bounds}
+          initialStyle={mapStyle}
+          onClose={closeFullscreen}
+        >
+          {/* Start marker */}
+          {startPoint && (
+            <MarkerView coordinate={[startPoint.longitude, startPoint.latitude]}>
+              <View style={styles.markerContainer}>
+                <View style={[styles.marker, styles.startMarker]}>
+                  <MaterialCommunityIcons name="play" size={14} color="#FFFFFF" />
                 </View>
-              </MarkerView>
-            )}
+              </View>
+            </MarkerView>
+          )}
 
-            {/* End marker */}
-            {endPoint && (
-              <MarkerView coordinate={[endPoint.longitude, endPoint.latitude]}>
-                <View style={styles.markerContainer}>
-                  <View style={[styles.marker, styles.endMarker]}>
-                    <MaterialCommunityIcons name="flag-checkered" size={14} color="#FFFFFF" />
-                  </View>
+          {/* End marker */}
+          {endPoint && (
+            <MarkerView coordinate={[endPoint.longitude, endPoint.latitude]}>
+              <View style={styles.markerContainer}>
+                <View style={[styles.marker, styles.endMarker]}>
+                  <MaterialCommunityIcons name="flag-checkered" size={14} color="#FFFFFF" />
                 </View>
-              </MarkerView>
-            )}
-          </MapView>
-
-          {/* Close button */}
-          <TouchableOpacity
-            style={[styles.fullscreenButton, styles.closeButton, { top: insets.top + 12 }, isDarkMap && styles.fullscreenButtonDark]}
-            onPress={closeFullscreen}
-            activeOpacity={0.8}
-          >
-            <MaterialCommunityIcons
-              name="close"
-              size={24}
-              color={isDarkMap ? '#FFFFFF' : '#333333'}
-            />
-          </TouchableOpacity>
-
-          {/* Style toggle */}
-          <TouchableOpacity
-            style={[styles.fullscreenButton, styles.styleButton, { top: insets.top + 12 }, isDarkMap && styles.fullscreenButtonDark]}
-            onPress={toggleMapStyle}
-            activeOpacity={0.8}
-          >
-            <MaterialCommunityIcons
-              name={isDarkMap ? 'weather-sunny' : 'weather-night'}
-              size={24}
-              color={isDarkMap ? '#FFFFFF' : '#333333'}
-            />
-          </TouchableOpacity>
-        </View>
+              </View>
+            </MarkerView>
+          )}
+        </BaseMapView>
       </Modal>
     </View>
   );
 }
+
+// Re-export MapStyleType for backwards compatibility
+export type { MapStyleType };
 
 const styles = StyleSheet.create({
   container: {
@@ -408,35 +351,5 @@ const styles = StyleSheet.create({
   },
   pressOverlay: {
     ...StyleSheet.absoluteFillObject,
-  },
-  fullscreenContainer: {
-    flex: 1,
-    backgroundColor: '#000',
-  },
-  fullscreenMap: {
-    flex: 1,
-  },
-  fullscreenButton: {
-    position: 'absolute',
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 3,
-    elevation: 3,
-  },
-  fullscreenButtonDark: {
-    backgroundColor: 'rgba(50, 50, 50, 0.95)',
-  },
-  closeButton: {
-    left: 16,
-  },
-  styleButton: {
-    right: 16,
   },
 });

@@ -16,6 +16,11 @@ export type ActivityType =
   | 'Rowing'
   | 'Kayaking'
   | 'Canoeing'
+  | 'OpenWaterSwim'
+  | 'TrailRun'
+  | 'Snowshoe'
+  | 'Tennis'
+  | 'RockClimbing'
   | 'Other';
 
 export interface Activity {
@@ -234,4 +239,30 @@ export interface eFTPPoint {
   eftp: number;
   activity_id?: string;
   activity_name?: string;
+}
+
+// Activity bounds for regional map (lightweight cache)
+export interface ActivityBoundsItem {
+  id: string;
+  bounds: [[number, number], [number, number]]; // [[minLat, minLng], [maxLat, maxLng]]
+  type: ActivityType;
+  name: string;
+  date: string; // ISO date
+  distance: number; // meters
+  duration: number; // seconds
+}
+
+// Cache structure for activity bounds
+export interface ActivityBoundsCache {
+  lastSync: string; // ISO date of most recent sync
+  oldestSynced: string; // ISO date of oldest synced activity
+  activities: Record<string, ActivityBoundsItem>;
+}
+
+// Map data response from API
+export interface ActivityMapData {
+  bounds: [[number, number], [number, number]] | null;
+  latlngs: ([number, number] | null)[] | null;
+  route: unknown | null;
+  weather: unknown | null;
 }

@@ -71,3 +71,18 @@ export const glows = {
 } as const;
 
 export type ColorKey = keyof typeof colors;
+
+// Dark mode specific colors
+export const darkColors = {
+  background: '#121212',
+  surface: '#1E1E1E',
+  surfaceOverlay: 'rgba(30, 30, 30, 0.95)',
+  surfaceCard: 'rgba(50, 50, 50, 0.95)',
+  textPrimary: '#FFFFFF',
+  textSecondary: '#888888',
+  textMuted: '#888888',
+  border: '#333333',
+  divider: '#333333',
+} as const;
+
+export type DarkColorKey = keyof typeof darkColors;

@@ -48,7 +48,7 @@ export function ChartTypeSelector({
               activeOpacity={0.7}
             >
               <MaterialCommunityIcons
-                name={config.icon as any}
+                name={config.icon}
                 size={16}
                 color={isSelected ? '#FFFFFF' : (isDark ? '#AAA' : '#666')}
                 style={styles.chipIcon}
@@ -72,6 +72,9 @@ export function ChartTypeSelector({
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
+  },
+  scrollView: {
     flex: 1,
   },
   scrollContent: {

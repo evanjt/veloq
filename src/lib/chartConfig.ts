@@ -1,4 +1,5 @@
 import type { ActivityStreams } from '@/types';
+import type { MaterialIconName } from './activityUtils';
 
 export type ChartTypeId = 'elevation' | 'heartrate' | 'power' | 'pace' | 'cadence';
 
@@ -7,7 +8,7 @@ export interface ChartConfig {
   label: string;
   unit: string;
   unitImperial?: string;
-  icon: string;
+  icon: MaterialIconName;
   color: string;
   getStream: (streams: ActivityStreams) => number[] | undefined;
   formatValue?: (value: number, isMetric: boolean) => string;

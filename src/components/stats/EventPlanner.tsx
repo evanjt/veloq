@@ -3,6 +3,7 @@ import { View, StyleSheet, useColorScheme, TouchableOpacity } from 'react-native
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors, spacing } from '@/theme';
+import type { MaterialIconName } from '@/lib';
 
 interface Event {
   id: string;
@@ -38,7 +39,7 @@ const PRIORITY_COLORS = {
   C: '#9E9E9E', // Gray - training
 };
 
-const TYPE_ICONS: Record<Event['type'], string> = {
+const TYPE_ICONS: Record<Event['type'], MaterialIconName> = {
   race: 'flag-checkered',
   event: 'calendar-star',
   training: 'dumbbell',
@@ -108,7 +109,7 @@ export function EventPlanner({ events, onAddEvent }: EventPlannerProps) {
           <View key={event.id} style={[styles.eventItem, isDark && styles.eventItemDark]}>
             <View style={[styles.priorityDot, { backgroundColor: PRIORITY_COLORS[event.priority] }]} />
             <MaterialCommunityIcons
-              name={TYPE_ICONS[event.type] as any}
+              name={TYPE_ICONS[event.type]}
               size={16}
               color={isDark ? '#AAA' : colors.textSecondary}
               style={styles.eventIcon}

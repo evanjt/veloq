@@ -10,11 +10,11 @@ import {
 } from 'react-native';
 import { Text } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { router, Href } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useActivities, useAthlete, useWellness, getFormZone, FORM_ZONE_COLORS } from '@/hooks';
 import { ActivityCard } from '@/components/activity/ActivityCard';
-import { ActivityCardSkeleton, StatsPillSkeleton } from '@/components/ui';
+import { ActivityCardSkeleton, StatsPillSkeleton, MapFAB } from '@/components/ui';
 import { colors, spacing, layout, typography } from '@/theme';
 import type { Activity } from '@/types';
 
@@ -102,13 +102,19 @@ export default function FeedScreen() {
   const navigateToWellness = () => router.push('/wellness');
   const navigateToTraining = () => router.push('/training');
   const navigateToStats = () => router.push('/stats');
+  const navigateToMap = () => router.push('/map' as Href);
+  const navigateToSettings = () => router.push('/settings' as Href);
 
   const renderHeader = () => (
     <>
       {/* Header with profile and separate stat pills */}
       <View style={styles.header}>
-        {/* Profile photo (static for now) */}
-        <View style={[styles.profilePhoto, styles.profilePlaceholder, isDark && styles.profilePlaceholderDark]}>
+        {/* Profile photo - tap to open settings */}
+        <TouchableOpacity
+          onPress={navigateToSettings}
+          activeOpacity={0.7}
+          style={[styles.profilePhoto, styles.profilePlaceholder, isDark && styles.profilePlaceholderDark]}
+        >
           {hasValidProfileUrl && !profileImageError ? (
             <Image
               source={{ uri: profileUrl }}
@@ -123,7 +129,7 @@ export default function FeedScreen() {
               color={isDark ? '#AAA' : '#666'}
             />
           )}
-        </View>
+        </TouchableOpacity>
 
         {/* Separate pill buttons for each page */}
         <View style={styles.pillRow}>
@@ -278,6 +284,7 @@ export default function FeedScreen() {
         }
         showsVerticalScrollIndicator={false}
       />
+      <MapFAB onPress={navigateToMap} />
     </SafeAreaView>
   );
 }
@@ -431,8 +438,5 @@ const styles = StyleSheet.create({
   errorText: {
     ...typography.body,
     color: colors.error,
-  },
-  textDark: {
-    color: '#AAA',
   },
 });

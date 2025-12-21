@@ -138,7 +138,7 @@ export default function ActivityDetailScreen() {
         </View>
         <View style={[styles.iconContainer, { backgroundColor: activityColor }]}>
           <MaterialCommunityIcons
-            name={iconName as any}
+            name={iconName}
             size={20}
             color="#FFFFFF"
           />
@@ -353,6 +353,20 @@ export default function ActivityDetailScreen() {
             />
           </View>
         </View>
+
+        {/* Device attribution - required for Garmin compliance */}
+        {activity.device_name && (
+          <View style={[styles.deviceAttribution, isDark && styles.deviceAttributionDark]}>
+            <MaterialCommunityIcons
+              name="watch"
+              size={14}
+              color={isDark ? '#888' : colors.textSecondary}
+            />
+            <Text style={[styles.deviceText, isDark && styles.deviceTextDark]}>
+              {activity.device_name}
+            </Text>
+          </View>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -473,5 +487,23 @@ const styles = StyleSheet.create({
   },
   expandButtonDark: {
     backgroundColor: 'rgba(255, 255, 255, 0.15)',
+  },
+  deviceAttribution: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: spacing.lg,
+    paddingVertical: spacing.sm,
+  },
+  deviceAttributionDark: {
+    // Uses inherited styling
+  },
+  deviceText: {
+    fontSize: 12,
+    color: colors.textSecondary,
+  },
+  deviceTextDark: {
+    color: '#888',
   },
 });

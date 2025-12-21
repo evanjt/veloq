@@ -32,7 +32,8 @@
     "plugins": [
       "expo-router",
       "expo-localization",
-      "@maplibre/maplibre-react-native"
+      "@maplibre/maplibre-react-native",
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true
