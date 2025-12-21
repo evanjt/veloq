@@ -1,15 +1,13 @@
-import React, { useMemo, useRef, useEffect } from 'react';
+import React, { useMemo, useRef, useState, useCallback } from 'react';
 import { View, StyleSheet, useColorScheme } from 'react-native';
 import { Text } from 'react-native-paper';
-import { CartesianChart, Area, useChartPressState } from 'victory-native';
+import { CartesianChart, Area } from 'victory-native';
 import { Circle, Line as SkiaLine, LinearGradient, vec } from '@shopify/react-native-skia';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { useSharedValue, useAnimatedReaction, runOnJS, useDerivedValue } from 'react-native-reanimated';
 import { getLocales } from 'expo-localization';
-import { useDerivedValue, useAnimatedReaction, runOnJS } from 'react-native-reanimated';
-import { colors, spacing, typography } from '@/theme';
-import type { SharedValue } from 'react-native-reanimated';
+import { colors, typography } from '@/theme';
 
-// Offset correction for touch coordinate mismatch (pixels to shift left)
-const TOUCH_OFFSET_CORRECTION = 30;
 
 interface ActivityDataChartProps {
   /** The metric values to display */
@@ -61,26 +59,22 @@ export function ActivityDataChart({
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const isMetric = useMetricSystem();
-  const [tooltipValues, setTooltipValues] = React.useState<{ x: number; y: number } | null>(null);
-  // Store corrected value for dot positioning
-  const correctedValueRef = useRef<number | null>(null);
+
+  // Shared values for UI thread gesture tracking (native 120Hz performance)
+  const touchX = useSharedValue(-1);
+  const xValuesShared = useSharedValue<number[]>([]);
+  const chartBoundsShared = useSharedValue({ left: 0, right: 1 });
+
+  // React state for tooltip
+  const [tooltipData, setTooltipData] = useState<{ x: number; y: number } | null>(null);
+  const [isActive, setIsActive] = useState(false);
+
   const onPointSelectRef = useRef(onPointSelect);
   const onInteractionChangeRef = useRef(onInteractionChange);
   onPointSelectRef.current = onPointSelect;
   onInteractionChangeRef.current = onInteractionChange;
 
-  // Store chart bounds for corrected index calculation
-  const chartBoundsRef = useRef({ left: 0, right: 0 });
-
-  // Press state for interactive crosshair
-  const { state, isActive } = useChartPressState({ x: 0, y: { y: 0 } });
-
-  // Notify parent when interaction state changes
-  useEffect(() => {
-    if (onInteractionChangeRef.current) {
-      onInteractionChangeRef.current(isActive);
-    }
-  }, [isActive]);
+  const lastNotifiedIdx = useRef<number | null>(null);
 
   // Build chart data with downsampling
   const { data, indexMap } = useMemo(() => {
@@ -109,59 +103,6 @@ export function ActivityDataChart({
     return { data: points, indexMap: indices };
   }, [rawData, distance, isMetric, convertToImperial]);
 
-  // Handle data lookup on JS thread with index offset correction
-  const handleDataLookup = React.useCallback((matchedIndex: number) => {
-    if (data.length === 0) return;
-
-    const bounds = chartBoundsRef.current;
-    const chartWidth = bounds.right - bounds.left;
-
-    // Calculate how many data points the pixel offset corresponds to
-    let indexOffset = 25; // Fallback offset
-    if (chartWidth > 0 && data.length > 1) {
-      const pixelsPerPoint = chartWidth / (data.length - 1);
-      indexOffset = Math.round(TOUCH_OFFSET_CORRECTION / pixelsPerPoint);
-    }
-
-    // Apply the index offset (subtract because we're shifting left)
-    const correctedIndex = Math.max(0, Math.min(data.length - 1, matchedIndex - indexOffset));
-
-    const point = data[correctedIndex];
-    if (point) {
-      // Store corrected value for dot positioning
-      correctedValueRef.current = point.y;
-      setTooltipValues({ x: point.x, y: point.y });
-      if (onPointSelectRef.current && correctedIndex < indexMap.length) {
-        const originalIndex = indexMap[correctedIndex];
-        onPointSelectRef.current(originalIndex);
-      }
-    }
-  }, [data, indexMap]);
-
-  const handleClearSelection = React.useCallback(() => {
-    correctedValueRef.current = null;
-    setTooltipValues(null);
-    if (onPointSelectRef.current) {
-      onPointSelectRef.current(null);
-    }
-  }, []);
-
-  // Update tooltip and notify parent when selection changes
-  useAnimatedReaction(
-    () => ({
-      matchedIndex: state.matchedIndex.value,
-      active: isActive,
-    }),
-    (current) => {
-      if (current.active) {
-        runOnJS(handleDataLookup)(current.matchedIndex);
-      } else {
-        runOnJS(handleClearSelection)();
-      }
-    },
-    [isActive, handleDataLookup, handleClearSelection]
-  );
-
   const { minVal, maxVal, maxDist } = useMemo(() => {
     if (data.length === 0) {
       return { minVal: 0, maxVal: 100, maxDist: 1 };
@@ -177,6 +118,82 @@ export function ActivityDataChart({
       maxDist: Math.max(...distances),
     };
   }, [data]);
+
+  // Sync x-values to shared value for UI thread access
+  React.useEffect(() => {
+    xValuesShared.value = data.map(d => d.x);
+  }, [data, xValuesShared]);
+
+  // Derive selected index on UI thread using chartBounds
+  const selectedIdx = useDerivedValue(() => {
+    'worklet';
+    const len = xValuesShared.value.length;
+    const bounds = chartBoundsShared.value;
+    const chartWidth = bounds.right - bounds.left;
+
+    if (touchX.value < 0 || chartWidth <= 0 || len === 0) return -1;
+
+    const chartX = touchX.value - bounds.left;
+    const ratio = Math.max(0, Math.min(1, chartX / chartWidth));
+    const idx = Math.round(ratio * (len - 1));
+
+    return Math.min(Math.max(0, idx), len - 1);
+  }, []);
+
+  // Bridge to JS for tooltip updates
+  const updateTooltipOnJS = useCallback((idx: number) => {
+    if (idx < 0 || data.length === 0) {
+      if (lastNotifiedIdx.current !== null) {
+        setTooltipData(null);
+        setIsActive(false);
+        lastNotifiedIdx.current = null;
+        if (onPointSelectRef.current) onPointSelectRef.current(null);
+        if (onInteractionChangeRef.current) onInteractionChangeRef.current(false);
+      }
+      return;
+    }
+
+    if (idx === lastNotifiedIdx.current) return;
+    lastNotifiedIdx.current = idx;
+
+    if (!isActive) {
+      setIsActive(true);
+      if (onInteractionChangeRef.current) onInteractionChangeRef.current(true);
+    }
+
+    const point = data[idx];
+    if (point) {
+      setTooltipData({ x: point.x, y: point.y });
+    }
+
+    if (onPointSelectRef.current && idx < indexMap.length) {
+      onPointSelectRef.current(indexMap[idx]);
+    }
+  }, [data, indexMap, isActive]);
+
+  useAnimatedReaction(
+    () => selectedIdx.value,
+    (idx) => {
+      runOnJS(updateTooltipOnJS)(idx);
+    },
+    [updateTooltipOnJS]
+  );
+
+  // Gesture handler on UI thread
+  const gesture = Gesture.Pan()
+    .onStart((e) => {
+      'worklet';
+      touchX.value = e.x;
+    })
+    .onUpdate((e) => {
+      'worklet';
+      touchX.value = e.x;
+    })
+    .onEnd(() => {
+      'worklet';
+      touchX.value = -1;
+    })
+    .minDistance(0);
 
   const distanceUnit = isMetric ? 'km' : 'mi';
 
@@ -198,134 +215,96 @@ export function ActivityDataChart({
 
   return (
     <View style={[styles.container, { height }]}>
-      <View style={styles.chartWrapper}>
-        {/* Tooltip display */}
-        {isActive && tooltipValues && (
-          <View style={[styles.tooltip, isDark && styles.tooltipDark]} pointerEvents="none">
-            <Text style={[styles.tooltipText, isDark && styles.tooltipTextDark]}>
-              {tooltipValues.x.toFixed(2)} {distanceUnit}  •  {formatDisplayValue(tooltipValues.y)} {unit}
+      <GestureDetector gesture={gesture}>
+        <View style={styles.chartWrapper}>
+          {/* Tooltip display */}
+          {isActive && tooltipData && (
+            <View style={[styles.tooltip, isDark && styles.tooltipDark]} pointerEvents="none">
+              <Text style={[styles.tooltipText, isDark && styles.tooltipTextDark]}>
+                {tooltipData.x.toFixed(2)} {distanceUnit}  •  {formatDisplayValue(tooltipData.y)} {unit}
+              </Text>
+            </View>
+          )}
+
+          <CartesianChart
+            data={data}
+            xKey="x"
+            yKeys={['y']}
+            domain={{ y: [minVal, maxVal] }}
+            padding={{ left: 0, right: 0, top: 4, bottom: 16 }}
+          >
+            {({ points, chartBounds }) => {
+              // Capture chartBounds for touch calculations
+              if (chartBounds.left !== chartBoundsShared.value.left ||
+                  chartBounds.right !== chartBoundsShared.value.right) {
+                chartBoundsShared.value = { left: chartBounds.left, right: chartBounds.right };
+              }
+
+              const idx = selectedIdx.value;
+              let crosshairX: number | null = null;
+              let crosshairY: number | null = null;
+
+              if (idx >= 0 && idx < points.y.length) {
+                // Use Victory Native's actual rendered coordinates
+                crosshairX = points.y[idx]?.x ?? null;
+                crosshairY = points.y[idx]?.y ?? null;
+              }
+
+              return (
+                <>
+                  <Area
+                    points={points.y}
+                    y0={chartBounds.bottom}
+                    curveType="natural"
+                  >
+                    <LinearGradient
+                      start={vec(0, chartBounds.top)}
+                      end={vec(0, chartBounds.bottom)}
+                      colors={[chartColor + 'DD', chartColor + '50']}
+                    />
+                  </Area>
+
+                  {crosshairX !== null && (
+                    <>
+                      <SkiaLine
+                        p1={vec(crosshairX, chartBounds.top)}
+                        p2={vec(crosshairX, chartBounds.bottom)}
+                        color={isDark ? '#888' : '#666'}
+                        strokeWidth={1}
+                      />
+                      {crosshairY !== null && (
+                        <>
+                          <Circle cx={crosshairX} cy={crosshairY} r={6} color={chartColor} />
+                          <Circle cx={crosshairX} cy={crosshairY} r={4} color="#FFFFFF" />
+                        </>
+                      )}
+                    </>
+                  )}
+                </>
+              );
+            }}
+          </CartesianChart>
+
+          {/* Y-axis labels */}
+          <View style={styles.yAxisOverlay} pointerEvents="none">
+            <Text style={[styles.overlayLabel, isDark && styles.overlayLabelDark]}>
+              {formatDisplayValue(maxVal)}{unit}
+            </Text>
+            <Text style={[styles.overlayLabel, isDark && styles.overlayLabelDark]}>
+              {formatDisplayValue(minVal)}{unit}
             </Text>
           </View>
-        )}
-        <CartesianChart
-          data={data}
-          xKey="x"
-          yKeys={['y']}
-          domain={{ y: [minVal, maxVal] }}
-          padding={{ left: 0, right: 0, top: 4, bottom: 16 }}
-          chartPressState={state}
-          gestureLongPressDelay={50}
-        >
-          {({ points, chartBounds }) => {
-            chartBoundsRef.current = { left: chartBounds.left, right: chartBounds.right };
 
-            return (
-              <>
-                <Area
-                  points={points.y}
-                  y0={chartBounds.bottom}
-                  curveType="natural"
-                >
-                  <LinearGradient
-                    start={vec(0, chartBounds.top)}
-                    end={vec(0, chartBounds.bottom)}
-                    colors={[chartColor + 'AA', chartColor + '20']}
-                  />
-                </Area>
-                {isActive && (
-                  <ActiveIndicator
-                    xPosition={state.x.position}
-                    top={chartBounds.top}
-                    bottom={chartBounds.bottom}
-                    isDark={isDark}
-                    correctedValue={correctedValueRef.current}
-                    minVal={minVal}
-                    maxVal={maxVal}
-                    color={chartColor}
-                  />
-                )}
-              </>
-            );
-          }}
-        </CartesianChart>
-
-        {/* Y-axis labels */}
-        <View style={styles.yAxisOverlay} pointerEvents="none">
-          <Text style={[styles.overlayLabel, isDark && styles.overlayLabelDark]}>
-            {formatDisplayValue(maxVal)}{unit}
-          </Text>
-          <Text style={[styles.overlayLabel, isDark && styles.overlayLabelDark]}>
-            {formatDisplayValue(minVal)}{unit}
-          </Text>
+          {/* X-axis labels */}
+          <View style={styles.xAxisOverlay} pointerEvents="none">
+            <Text style={[styles.overlayLabel, isDark && styles.overlayLabelDark]}>0</Text>
+            <Text style={[styles.overlayLabel, isDark && styles.overlayLabelDark]}>
+              {maxDist.toFixed(1)} {distanceUnit}
+            </Text>
+          </View>
         </View>
-
-        {/* X-axis labels */}
-        <View style={styles.xAxisOverlay} pointerEvents="none">
-          <Text style={[styles.overlayLabel, isDark && styles.overlayLabelDark]}>0</Text>
-          <Text style={[styles.overlayLabel, isDark && styles.overlayLabelDark]}>
-            {maxDist.toFixed(1)} {distanceUnit}
-          </Text>
-        </View>
-      </View>
+      </GestureDetector>
     </View>
-  );
-}
-
-// Active crosshair indicator component
-function ActiveIndicator({
-  xPosition,
-  top,
-  bottom,
-  isDark,
-  correctedValue,
-  minVal,
-  maxVal,
-  color,
-}: {
-  xPosition: SharedValue<number>;
-  top: number;
-  bottom: number;
-  isDark: boolean;
-  correctedValue: number | null;
-  minVal: number;
-  maxVal: number;
-  color: string;
-}) {
-  const correctedX = useDerivedValue(() => xPosition.value - TOUCH_OFFSET_CORRECTION);
-  const lineStart = useDerivedValue(() => vec(correctedX.value, top));
-  const lineEnd = useDerivedValue(() => vec(correctedX.value, bottom));
-
-  // Calculate Y position from corrected value
-  const chartHeight = bottom - top;
-  const yRange = maxVal - minVal;
-  let dotY = (top + bottom) / 2;
-  if (correctedValue !== null && yRange > 0) {
-    const normalizedY = (correctedValue - minVal) / yRange;
-    dotY = bottom - (normalizedY * chartHeight);
-  }
-
-  return (
-    <>
-      <SkiaLine
-        p1={lineStart}
-        p2={lineEnd}
-        color={isDark ? '#888' : '#666'}
-        strokeWidth={1}
-        style="stroke"
-      />
-      <Circle
-        cx={correctedX}
-        cy={dotY}
-        r={6}
-        color={color}
-      />
-      <Circle
-        cx={correctedX}
-        cy={dotY}
-        r={4}
-        color="#FFFFFF"
-      />
-    </>
   );
 }
 

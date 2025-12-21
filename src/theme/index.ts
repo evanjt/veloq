@@ -1,7 +1,7 @@
 import { MD3LightTheme, MD3DarkTheme } from 'react-native-paper';
 import { colors } from './colors';
 
-export { colors } from './colors';
+export { colors, gradients, glows } from './colors';
 export { spacing, layout } from './spacing';
 export { typography } from './typography';
 

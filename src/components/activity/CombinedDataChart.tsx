@@ -1,16 +1,15 @@
-import React, { useMemo, useRef, useEffect } from 'react';
-import { View, StyleSheet, useColorScheme } from 'react-native';
+import React, { useMemo, useRef, useState, useCallback } from 'react';
+import { View, StyleSheet, useColorScheme, LayoutChangeEvent } from 'react-native';
 import { Text } from 'react-native-paper';
-import { CartesianChart, Area, useChartPressState } from 'victory-native';
-import { Circle, Line as SkiaLine, LinearGradient, vec } from '@shopify/react-native-skia';
+import { CartesianChart, Area } from 'victory-native';
+import { Line as SkiaLine, LinearGradient, vec } from '@shopify/react-native-skia';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import Animated, { useSharedValue, useAnimatedReaction, runOnJS, useDerivedValue } from 'react-native-reanimated';
 import { getLocales } from 'expo-localization';
-import { useDerivedValue, useAnimatedReaction, runOnJS } from 'react-native-reanimated';
 import { colors, typography } from '@/theme';
-import type { SharedValue } from 'react-native-reanimated';
 import type { ChartConfig, ChartTypeId } from '@/lib/chartConfig';
 import type { ActivityStreams } from '@/types';
 
-const TOUCH_OFFSET_CORRECTION = 30;
 
 interface DataSeries {
   id: ChartTypeId;
@@ -55,26 +54,29 @@ export function CombinedDataChart({
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const isMetric = useMetricSystem();
-  const [tooltipData, setTooltipData] = React.useState<TooltipData | null>(null);
+
+  // Shared values for UI thread gesture tracking (native 120Hz performance)
+  const touchX = useSharedValue(-1); // -1 means not touching
+  const xValuesShared = useSharedValue<number[]>([]);
+  const chartBoundsShared = useSharedValue({ left: 0, right: 1 });
+
+  // React state for tooltip (bridges to JS only for text updates)
+  const [tooltipData, setTooltipData] = useState<TooltipData | null>(null);
+  const [isActive, setIsActive] = useState(false);
+
   const onPointSelectRef = useRef(onPointSelect);
   const onInteractionChangeRef = useRef(onInteractionChange);
   onPointSelectRef.current = onPointSelect;
   onInteractionChangeRef.current = onInteractionChange;
 
-  const chartBoundsRef = useRef({ left: 0, right: 0 });
-  const { state, isActive } = useChartPressState({ x: 0, y: { y: 0 } });
-
-  useEffect(() => {
-    if (onInteractionChangeRef.current) {
-      onInteractionChangeRef.current(isActive);
-    }
-  }, [isActive]);
+  // Track last notified index to avoid redundant updates
+  const lastNotifiedIdx = useRef<number | null>(null);
 
   // Build normalized data for all selected series
   const { chartData, seriesInfo, indexMap, maxDist } = useMemo(() => {
     const distance = streams.distance || [];
     if (distance.length === 0) {
-      return { chartData: [], seriesInfo: [] as DataSeries[], indexMap: [] as number[], maxDist: 1 };
+      return { chartData: [], seriesInfo: [] as (DataSeries & { range: { min: number; max: number; range: number } })[], indexMap: [] as number[], maxDist: 1 };
     }
 
     // Collect all series data
@@ -93,7 +95,7 @@ export function CombinedDataChart({
     }
 
     if (series.length === 0) {
-      return { chartData: [], seriesInfo: [] as DataSeries[], indexMap: [] as number[], maxDist: 1 };
+      return { chartData: [], seriesInfo: [] as (DataSeries & { range: { min: number; max: number; range: number } })[], indexMap: [] as number[], maxDist: 1 };
     }
 
     // Downsample and normalize
@@ -129,93 +131,123 @@ export function CombinedDataChart({
     }
 
     const distances = points.map((p) => p.x);
+    const computedMaxDist = Math.max(...distances);
+
     return {
       chartData: points,
       seriesInfo: series.map((s, idx) => ({ ...s, range: seriesRanges[idx] })),
       indexMap: indices,
-      maxDist: Math.max(...distances),
+      maxDist: computedMaxDist,
+      xValues: distances,
     };
   }, [streams, selectedCharts, chartConfigs, isMetric]);
 
-  // Handle data lookup
-  const handleDataLookup = React.useCallback(
-    (matchedIndex: number) => {
-      if (chartData.length === 0 || seriesInfo.length === 0) return;
+  // Sync x-values to shared value for UI thread access
+  React.useEffect(() => {
+    xValuesShared.value = chartData.map(d => d.x);
+  }, [chartData, xValuesShared]);
 
-      const bounds = chartBoundsRef.current;
-      const chartWidth = bounds.right - bounds.left;
+  // Derive the selected index on UI thread using chartBounds
+  const selectedIdx = useDerivedValue(() => {
+    'worklet';
+    const len = xValuesShared.value.length;
+    const bounds = chartBoundsShared.value;
+    const chartWidth = bounds.right - bounds.left;
 
-      let indexOffset = 25;
-      if (chartWidth > 0 && chartData.length > 1) {
-        const pixelsPerPoint = chartWidth / (chartData.length - 1);
-        indexOffset = Math.round(TOUCH_OFFSET_CORRECTION / pixelsPerPoint);
-      }
+    if (touchX.value < 0 || chartWidth <= 0 || len === 0) return -1;
 
-      const correctedIndex = Math.max(0, Math.min(chartData.length - 1, matchedIndex - indexOffset));
-      const point = chartData[correctedIndex];
+    // Map touch position to chart area, then to array index
+    const chartX = touchX.value - bounds.left;
+    const ratio = Math.max(0, Math.min(1, chartX / chartWidth));
+    const idx = Math.round(ratio * (len - 1));
 
-      if (point) {
-        // Build tooltip data with actual values (not normalized)
-        const originalIdx = indexMap[correctedIndex];
-        const values = seriesInfo.map((s) => {
-          let rawVal = s.rawData[originalIdx] ?? 0;
-
-          // Apply imperial conversion if needed
-          if (!isMetric && s.config.convertToImperial) {
-            rawVal = s.config.convertToImperial(rawVal);
-          }
-
-          // Format the value
-          let formatted: string;
-          if (s.config.formatValue) {
-            formatted = s.config.formatValue(rawVal, isMetric);
-          } else {
-            formatted = Math.round(rawVal).toString();
-          }
-
-          return {
-            id: s.id,
-            label: s.config.label,
-            value: formatted,
-            unit: isMetric ? s.config.unit : (s.config.unitImperial || s.config.unit),
-            color: s.color,
-          };
-        });
-
-        setTooltipData({
-          distance: point.x,
-          values,
-        });
-
-        if (onPointSelectRef.current && correctedIndex < indexMap.length) {
-          onPointSelectRef.current(indexMap[correctedIndex]);
-        }
-      }
-    },
-    [chartData, seriesInfo, indexMap, isMetric]
-  );
-
-  const handleClearSelection = React.useCallback(() => {
-    setTooltipData(null);
-    if (onPointSelectRef.current) {
-      onPointSelectRef.current(null);
-    }
+    return Math.min(Math.max(0, idx), len - 1);
   }, []);
 
-  useAnimatedReaction(
-    () => ({
-      matchedIndex: state.matchedIndex.value,
-      active: isActive,
-    }),
-    (current) => {
-      if (current.active) {
-        runOnJS(handleDataLookup)(current.matchedIndex);
-      } else {
-        runOnJS(handleClearSelection)();
+  // Bridge to JS only when index changes (for tooltip text and parent notification)
+  const updateTooltipOnJS = useCallback((idx: number) => {
+    if (idx < 0 || chartData.length === 0 || seriesInfo.length === 0) {
+      if (lastNotifiedIdx.current !== null) {
+        setTooltipData(null);
+        setIsActive(false);
+        lastNotifiedIdx.current = null;
+        if (onPointSelectRef.current) onPointSelectRef.current(null);
+        if (onInteractionChangeRef.current) onInteractionChangeRef.current(false);
       }
+      return;
+    }
+
+    // Skip if same index
+    if (idx === lastNotifiedIdx.current) return;
+    lastNotifiedIdx.current = idx;
+
+    if (!isActive) {
+      setIsActive(true);
+      if (onInteractionChangeRef.current) onInteractionChangeRef.current(true);
+    }
+
+    // Build tooltip data with actual values (not normalized)
+    const originalIdx = indexMap[idx];
+    const values = seriesInfo.map((s) => {
+      let rawVal = s.rawData[originalIdx] ?? 0;
+
+      // Apply imperial conversion if needed
+      if (!isMetric && s.config.convertToImperial) {
+        rawVal = s.config.convertToImperial(rawVal);
+      }
+
+      // Format the value
+      let formatted: string;
+      if (s.config.formatValue) {
+        formatted = s.config.formatValue(rawVal, isMetric);
+      } else {
+        formatted = Math.round(rawVal).toString();
+      }
+
+      return {
+        id: s.id,
+        label: s.config.label,
+        value: formatted,
+        unit: isMetric ? s.config.unit : (s.config.unitImperial || s.config.unit),
+        color: s.color,
+      };
+    });
+
+    setTooltipData({
+      distance: chartData[idx]?.x ?? 0,
+      values,
+    });
+
+    // Notify parent of original data index for map sync
+    if (onPointSelectRef.current && idx < indexMap.length) {
+      onPointSelectRef.current(indexMap[idx]);
+    }
+  }, [chartData, seriesInfo, indexMap, isMetric, isActive]);
+
+  // React to index changes and bridge to JS for tooltip updates
+  useAnimatedReaction(
+    () => selectedIdx.value,
+    (idx) => {
+      runOnJS(updateTooltipOnJS)(idx);
     },
-    [isActive, handleDataLookup, handleClearSelection]
+    [updateTooltipOnJS]
   );
+
+  // Gesture handler - updates shared values on UI thread (no JS bridge for position)
+  const gesture = Gesture.Pan()
+    .onStart((e) => {
+      'worklet';
+      touchX.value = e.x;
+    })
+    .onUpdate((e) => {
+      'worklet';
+      touchX.value = e.x;
+    })
+    .onEnd(() => {
+      'worklet';
+      touchX.value = -1;
+    })
+    .minDistance(0);
 
   const distanceUnit = isMetric ? 'km' : 'mi';
 
@@ -232,121 +264,109 @@ export function CombinedDataChart({
 
   return (
     <View style={[styles.container, { height }]}>
-      <View style={styles.chartWrapper}>
-        {/* Combined tooltip */}
-        {isActive && tooltipData && (
-          <View style={[styles.tooltip, isDark && styles.tooltipDark]} pointerEvents="none">
-            <Text style={[styles.tooltipDistance, isDark && styles.tooltipTextDark]}>
-              {tooltipData.distance.toFixed(2)} {distanceUnit}
-            </Text>
-            <View style={styles.tooltipValues}>
-              {tooltipData.values.map((v) => (
-                <View key={v.id} style={styles.tooltipItem}>
-                  <View style={[styles.tooltipDot, { backgroundColor: v.color }]} />
-                  <Text style={[styles.tooltipValue, isDark && styles.tooltipTextDark]}>
-                    {v.value}
-                  </Text>
-                  <Text style={[styles.tooltipUnit, isDark && styles.tooltipUnitDark]}>
-                    {v.unit}
-                  </Text>
-                </View>
-              ))}
-            </View>
-          </View>
-        )}
-
-        <CartesianChart
-          data={chartData}
-          xKey="x"
-          yKeys={yKeys as any}
-          domain={{ y: [0, 1] }}
-          padding={{ left: 0, right: 0, top: 4, bottom: 16 }}
-          chartPressState={state}
-          gestureLongPressDelay={50}
-        >
-          {({ points, chartBounds }) => {
-            chartBoundsRef.current = { left: chartBounds.left, right: chartBounds.right };
-
-            return (
-              <>
-                {/* Render area for each series */}
-                {seriesInfo.map((series) => (
-                  <Area
-                    key={series.id}
-                    points={(points as any)[series.id]}
-                    y0={chartBounds.bottom}
-                    curveType="natural"
-                    opacity={0.6}
-                  >
-                    <LinearGradient
-                      start={vec(0, chartBounds.top)}
-                      end={vec(0, chartBounds.bottom)}
-                      colors={[series.color + '99', series.color + '10']}
-                    />
-                  </Area>
-                ))}
-
-                {/* Crosshair */}
-                {isActive && (
-                  <ActiveCrosshair
-                    xPosition={state.x.position}
-                    top={chartBounds.top}
-                    bottom={chartBounds.bottom}
-                    isDark={isDark}
-                  />
-                )}
-              </>
-            );
-          }}
-        </CartesianChart>
-
-        {/* Legend */}
-        <View style={styles.legend} pointerEvents="none">
-          {seriesInfo.map((s) => (
-            <View key={s.id} style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: s.color }]} />
-              <Text style={[styles.legendLabel, isDark && styles.legendLabelDark]}>
-                {s.config.label}
+      <GestureDetector gesture={gesture}>
+        <View style={styles.chartWrapper}>
+          {/* Combined tooltip */}
+          {isActive && tooltipData && (
+            <View style={[styles.tooltip, isDark && styles.tooltipDark]} pointerEvents="none">
+              <Text style={[styles.tooltipDistance, isDark && styles.tooltipTextDark]}>
+                {tooltipData.distance.toFixed(2)} {distanceUnit}
               </Text>
+              <View style={styles.tooltipValues}>
+                {tooltipData.values.map((v) => (
+                  <View key={v.id} style={styles.tooltipItem}>
+                    <View style={[styles.tooltipDot, { backgroundColor: v.color }]} />
+                    <Text style={[styles.tooltipValue, isDark && styles.tooltipTextDark]}>
+                      {v.value}
+                    </Text>
+                    <Text style={[styles.tooltipUnit, isDark && styles.tooltipUnitDark]}>
+                      {v.unit}
+                    </Text>
+                  </View>
+                ))}
+              </View>
             </View>
-          ))}
-        </View>
+          )}
 
-        {/* X-axis labels */}
-        <View style={styles.xAxisOverlay} pointerEvents="none">
-          <Text style={[styles.overlayLabel, isDark && styles.overlayLabelDark]}>0</Text>
-          <Text style={[styles.overlayLabel, isDark && styles.overlayLabelDark]}>
-            {maxDist.toFixed(1)} {distanceUnit}
-          </Text>
+          <CartesianChart
+            data={chartData}
+            xKey="x"
+            yKeys={yKeys as any}
+            domain={{ y: [0, 1] }}
+            padding={{ left: 0, right: 0, top: 4, bottom: 16 }}
+          >
+            {({ points, chartBounds }) => {
+              // Capture chartBounds for touch calculations (runs on each render)
+              if (chartBounds.left !== chartBoundsShared.value.left ||
+                  chartBounds.right !== chartBoundsShared.value.right) {
+                chartBoundsShared.value = { left: chartBounds.left, right: chartBounds.right };
+              }
+
+              // Calculate crosshair position using Victory Native's actual coordinates
+              const idx = selectedIdx.value;
+              let crosshairX: number | null = null;
+
+              if (idx >= 0 && seriesInfo.length > 0) {
+                // Use any series to get x coordinate (all series share same x)
+                const firstSeriesPoints = (points as any)[seriesInfo[0].id];
+                if (firstSeriesPoints && idx < firstSeriesPoints.length) {
+                  crosshairX = firstSeriesPoints[idx]?.x ?? null;
+                }
+              }
+
+              return (
+                <>
+                  {seriesInfo.map((series) => (
+                    <Area
+                      key={series.id}
+                      points={(points as any)[series.id]}
+                      y0={chartBounds.bottom}
+                      curveType="natural"
+                      opacity={0.85}
+                    >
+                      <LinearGradient
+                        start={vec(0, chartBounds.top)}
+                        end={vec(0, chartBounds.bottom)}
+                        colors={[series.color + 'DD', series.color + '50']}
+                      />
+                    </Area>
+                  ))}
+
+                  {crosshairX !== null && (
+                    <SkiaLine
+                      p1={vec(crosshairX, chartBounds.top)}
+                      p2={vec(crosshairX, chartBounds.bottom)}
+                      color={isDark ? '#888' : '#666'}
+                      strokeWidth={1.5}
+                    />
+                  )}
+                </>
+              );
+            }}
+          </CartesianChart>
+
+          {/* Legend */}
+          <View style={styles.legend} pointerEvents="none">
+            {seriesInfo.map((s) => (
+              <View key={s.id} style={styles.legendItem}>
+                <View style={[styles.legendDot, { backgroundColor: s.color }]} />
+                <Text style={[styles.legendLabel, isDark && styles.legendLabelDark]}>
+                  {s.config.label}
+                </Text>
+              </View>
+            ))}
+          </View>
+
+          {/* X-axis labels */}
+          <View style={styles.xAxisOverlay} pointerEvents="none">
+            <Text style={[styles.overlayLabel, isDark && styles.overlayLabelDark]}>0</Text>
+            <Text style={[styles.overlayLabel, isDark && styles.overlayLabelDark]}>
+              {maxDist.toFixed(1)} {distanceUnit}
+            </Text>
+          </View>
         </View>
-      </View>
+      </GestureDetector>
     </View>
-  );
-}
-
-function ActiveCrosshair({
-  xPosition,
-  top,
-  bottom,
-  isDark,
-}: {
-  xPosition: SharedValue<number>;
-  top: number;
-  bottom: number;
-  isDark: boolean;
-}) {
-  const correctedX = useDerivedValue(() => xPosition.value - TOUCH_OFFSET_CORRECTION);
-  const lineStart = useDerivedValue(() => vec(correctedX.value, top));
-  const lineEnd = useDerivedValue(() => vec(correctedX.value, bottom));
-
-  return (
-    <SkiaLine
-      p1={lineStart}
-      p2={lineEnd}
-      color={isDark ? '#888' : '#666'}
-      strokeWidth={1.5}
-      style="stroke"
-    />
   );
 }
 

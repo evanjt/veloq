@@ -1,11 +1,35 @@
 import { useQuery } from '@tanstack/react-query';
 import { intervalsApi } from '@/api';
+import { formatLocalDate } from '@/lib';
 import type { Activity } from '@/types';
 
-export function useActivities() {
+interface UseActivitiesOptions {
+  /** Number of days to fetch (from today backwards) */
+  days?: number;
+  /** Start date (YYYY-MM-DD) - overrides days */
+  oldest?: string;
+  /** End date (YYYY-MM-DD) - defaults to today */
+  newest?: string;
+}
+
+export function useActivities(options: UseActivitiesOptions = {}) {
+  const { days, oldest, newest } = options;
+
+  // Calculate date range
+  let queryOldest = oldest;
+  let queryNewest = newest;
+
+  if (!oldest) {
+    const today = new Date();
+    const daysAgo = new Date(today);
+    daysAgo.setDate(daysAgo.getDate() - (days || 30));
+    queryOldest = formatLocalDate(daysAgo);
+    queryNewest = newest || formatLocalDate(today);
+  }
+
   return useQuery<Activity[]>({
-    queryKey: ['activities'],
-    queryFn: () => intervalsApi.getActivities(),
+    queryKey: ['activities', queryOldest, queryNewest],
+    queryFn: () => intervalsApi.getActivities({ oldest: queryOldest, newest: queryNewest }),
     staleTime: 1000 * 60 * 5, // 5 minutes
     gcTime: 1000 * 60 * 60 * 24 * 7, // 7 days
   });

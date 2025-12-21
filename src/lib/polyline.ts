@@ -24,16 +24,21 @@ export function getBounds(coordinates: LatLng[]): {
   minLng: number;
   maxLng: number;
 } {
-  if (coordinates.length === 0) {
+  // Filter out invalid coordinates (NaN values)
+  const validCoords = coordinates.filter(
+    c => !isNaN(c.latitude) && !isNaN(c.longitude)
+  );
+
+  if (validCoords.length === 0) {
     return { minLat: 0, maxLat: 0, minLng: 0, maxLng: 0 };
   }
 
-  let minLat = coordinates[0].latitude;
-  let maxLat = coordinates[0].latitude;
-  let minLng = coordinates[0].longitude;
-  let maxLng = coordinates[0].longitude;
+  let minLat = validCoords[0].latitude;
+  let maxLat = validCoords[0].latitude;
+  let minLng = validCoords[0].longitude;
+  let maxLng = validCoords[0].longitude;
 
-  for (const coord of coordinates) {
+  for (const coord of validCoords) {
     minLat = Math.min(minLat, coord.latitude);
     maxLat = Math.max(maxLat, coord.latitude);
     minLng = Math.min(minLng, coord.longitude);
@@ -44,20 +49,23 @@ export function getBounds(coordinates: LatLng[]): {
 }
 
 export function convertLatLngTuples(tuples: [number, number][]): LatLng[] {
-  return tuples
-    .filter(([lat, lng]) =>
-      // Filter out invalid coordinates
-      lat != null &&
+  // Map directly without filtering to preserve index alignment with stream data
+  // Invalid coordinates are handled in the map view when displaying markers
+  return tuples.map(([lat, lng]) => {
+    // Check for valid coordinates
+    const isValid = lat != null &&
       lng != null &&
       !isNaN(lat) &&
       !isNaN(lng) &&
       lat >= -90 && lat <= 90 &&
-      lng >= -180 && lng <= 180
-    )
-    .map(([lat, lng]) => ({
-      latitude: lat,
-      longitude: lng,
-    }));
+      lng >= -180 && lng <= 180;
+
+    if (isValid) {
+      return { latitude: lat, longitude: lng };
+    }
+    // Return a sentinel value for invalid coordinates (will be filtered when used)
+    return { latitude: NaN, longitude: NaN };
+  });
 }
 
 export function getRegion(coordinates: LatLng[], padding = 0.1) {

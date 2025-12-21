@@ -1,5 +1,16 @@
 import { apiClient, getAthleteId } from './client';
-import type { Activity, ActivityDetail, ActivityStreams, RawStreamItem, Athlete } from '@/types';
+import { formatLocalDate } from '@/lib';
+import type {
+  Activity,
+  ActivityDetail,
+  ActivityStreams,
+  RawStreamItem,
+  Athlete,
+  WellnessData,
+  PowerCurve,
+  PaceCurve,
+  SportSettings,
+} from '@/types';
 
 // Transform raw API streams array into usable ActivityStreams object
 function parseStreams(rawStreams: RawStreamItem[]): ActivityStreams {
@@ -63,8 +74,8 @@ export const intervalsApi = {
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
     const queryParams = {
-      oldest: params?.oldest || thirtyDaysAgo.toISOString().split('T')[0],
-      newest: params?.newest || today.toISOString().split('T')[0],
+      oldest: params?.oldest || formatLocalDate(thirtyDaysAgo),
+      newest: params?.newest || formatLocalDate(today),
     };
 
     const response = await apiClient.get(`/athlete/${athleteId}/activities`, {
@@ -88,5 +99,102 @@ export const intervalsApi = {
     });
     // Transform raw streams array into usable object format
     return parseStreams(response.data);
+  },
+
+  async getWellness(params?: {
+    oldest?: string;
+    newest?: string;
+  }): Promise<WellnessData[]> {
+    const athleteId = getAthleteId();
+
+    // Default to last 90 days if no params provided
+    const today = new Date();
+    const ninetyDaysAgo = new Date(today);
+    ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+
+    const queryParams = {
+      oldest: params?.oldest || formatLocalDate(ninetyDaysAgo),
+      newest: params?.newest || formatLocalDate(today),
+    };
+
+    const response = await apiClient.get<WellnessData[]>(`/athlete/${athleteId}/wellness`, {
+      params: queryParams,
+    });
+    return response.data;
+  },
+
+  /**
+   * Get power curve (best efforts) for the athlete
+   * @param sport - Sport type filter (e.g., 'Ride', 'Run')
+   * @param oldest - Start date (YYYY-MM-DD)
+   * @param newest - End date (YYYY-MM-DD)
+   */
+  async getPowerCurve(params?: {
+    sport?: string;
+    oldest?: string;
+    newest?: string;
+  }): Promise<PowerCurve> {
+    const athleteId = getAthleteId();
+
+    // Default to this season (current year) if no dates
+    const today = new Date();
+    const yearStart = new Date(today.getFullYear(), 0, 1);
+
+    const queryParams = {
+      oldest: params?.oldest || formatLocalDate(yearStart),
+      newest: params?.newest || formatLocalDate(today),
+      ...(params?.sport && { sport: params.sport }),
+    };
+
+    const response = await apiClient.get<PowerCurve>(`/athlete/${athleteId}/power-curves.json`, {
+      params: queryParams,
+    });
+    return response.data;
+  },
+
+  /**
+   * Get pace curve (best efforts) for running
+   * @param sport - Sport type filter (e.g., 'Run')
+   * @param oldest - Start date (YYYY-MM-DD)
+   * @param newest - End date (YYYY-MM-DD)
+   */
+  async getPaceCurve(params?: {
+    sport?: string;
+    oldest?: string;
+    newest?: string;
+  }): Promise<PaceCurve> {
+    const athleteId = getAthleteId();
+
+    const today = new Date();
+    const yearStart = new Date(today.getFullYear(), 0, 1);
+
+    const queryParams = {
+      oldest: params?.oldest || formatLocalDate(yearStart),
+      newest: params?.newest || formatLocalDate(today),
+      ...(params?.sport && { sport: params.sport }),
+    };
+
+    const response = await apiClient.get<PaceCurve>(`/athlete/${athleteId}/pace-curves.json`, {
+      params: queryParams,
+    });
+    return response.data;
+  },
+
+  /**
+   * Get sport settings including zones
+   */
+  async getSportSettings(): Promise<SportSettings[]> {
+    const athleteId = getAthleteId();
+    const response = await apiClient.get<SportSettings[]>(`/athlete/${athleteId}/sport-settings`);
+    return response.data;
+  },
+
+  /**
+   * Get athlete profile with settings
+   */
+  async getAthleteProfile(): Promise<Athlete & { sport_settings?: SportSettings[] }> {
+    const athleteId = getAthleteId();
+    const response = await apiClient.get(`/athlete/${athleteId}`);
+    return response.data;
   },
 };

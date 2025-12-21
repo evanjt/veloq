@@ -72,3 +72,32 @@ export function formatDateTime(dateString: string): string {
     minute: '2-digit',
   });
 }
+
+export function formatTSS(load: number): string {
+  return `${Math.round(load)}`;
+}
+
+export function formatCalories(kcal: number): string {
+  if (kcal >= 1000) {
+    return `${(kcal / 1000).toFixed(1)}k`;
+  }
+  return `${Math.round(kcal)}`;
+}
+
+/**
+ * Format a date as YYYY-MM-DD using local timezone (not UTC).
+ * Use this instead of toISOString().split('T')[0] to avoid timezone issues.
+ */
+export function formatLocalDate(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+/**
+ * Get today's date as YYYY-MM-DD in local timezone
+ */
+export function getTodayLocalDate(): string {
+  return formatLocalDate(new Date());
+}

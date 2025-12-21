@@ -1,15 +1,13 @@
-import React, { useMemo, useRef, useEffect } from 'react';
+import React, { useMemo, useRef, useState, useCallback } from 'react';
 import { View, StyleSheet, useColorScheme } from 'react-native';
 import { Text } from 'react-native-paper';
-import { CartesianChart, Area, useChartPressState } from 'victory-native';
-import { Circle, Line as SkiaLine, LinearGradient, vec } from '@shopify/react-native-skia';
+import { CartesianChart, Area } from 'victory-native';
+import { LinearGradient, vec } from '@shopify/react-native-skia';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import Animated, { useSharedValue, useAnimatedReaction, runOnJS, useDerivedValue, useAnimatedStyle } from 'react-native-reanimated';
 import { getLocales } from 'expo-localization';
-import { useDerivedValue, useAnimatedReaction, runOnJS } from 'react-native-reanimated';
-import { colors, spacing, typography } from '@/theme';
-import type { SharedValue } from 'react-native-reanimated';
+import { colors, typography } from '@/theme';
 
-// Offset correction for touch coordinate mismatch (pixels to shift left)
-const TOUCH_OFFSET_CORRECTION = 30;
 
 interface ElevationChartProps {
   altitude?: number[];
@@ -43,26 +41,24 @@ export function ElevationChart({
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const isMetric = useMetricSystem();
-  const [tooltipValues, setTooltipValues] = React.useState<{ x: number; y: number } | null>(null);
-  // Store corrected elevation for dot positioning
-  const correctedElevationRef = useRef<number | null>(null);
+
+  // Shared values for UI thread gesture tracking
+  const touchX = useSharedValue(-1);
+  const xValuesShared = useSharedValue<number[]>([]);
+  const chartBoundsShared = useSharedValue({ left: 0, right: 1 });
+  // Store Victory Native's actual rendered x-coordinates for smooth crosshair
+  const pointXCoordsShared = useSharedValue<number[]>([]);
+
+  // React state for tooltip
+  const [tooltipData, setTooltipData] = useState<{ x: number; y: number } | null>(null);
+  const [isActive, setIsActive] = useState(false);
+
   const onPointSelectRef = useRef(onPointSelect);
   const onInteractionChangeRef = useRef(onInteractionChange);
   onPointSelectRef.current = onPointSelect;
   onInteractionChangeRef.current = onInteractionChange;
 
-  // Store chart bounds for corrected index calculation
-  const chartBoundsRef = useRef({ left: 0, right: 0 });
-
-  // Press state for interactive crosshair
-  const { state, isActive } = useChartPressState({ x: 0, y: { y: 0 } });
-
-  // Notify parent when interaction state changes
-  useEffect(() => {
-    if (onInteractionChangeRef.current) {
-      onInteractionChangeRef.current(isActive);
-    }
-  }, [isActive]);
+  const lastNotifiedIdx = useRef<number | null>(null);
 
   // Build data with original indices for mapping back
   const { data, indexMap } = useMemo(() => {
@@ -87,63 +83,6 @@ export function ElevationChart({
     return { data: points, indexMap: indices };
   }, [altitude, distance, isMetric]);
 
-  // Handle data lookup on JS thread with index offset correction
-  const handleDataLookup = React.useCallback((matchedIndex: number, xValue: number, yValue: number) => {
-    if (data.length === 0) return;
-
-    const bounds = chartBoundsRef.current;
-    const chartWidth = bounds.right - bounds.left;
-
-    // Calculate how many data points the pixel offset corresponds to
-    let indexOffset = 25; // Fallback offset
-    let debugInfo = `w:0`;
-    if (chartWidth > 0 && data.length > 1) {
-      const pixelsPerPoint = chartWidth / (data.length - 1);
-      indexOffset = Math.round(TOUCH_OFFSET_CORRECTION / pixelsPerPoint);
-      debugInfo = `w:${Math.round(chartWidth)} off:${indexOffset}`;
-    }
-
-    // Apply the index offset (subtract because we're shifting left)
-    const correctedIndex = Math.max(0, Math.min(data.length - 1, matchedIndex - indexOffset));
-
-    const point = data[correctedIndex];
-    if (point) {
-      // Store corrected elevation for dot positioning
-      correctedElevationRef.current = point.y;
-      setTooltipValues({ x: point.x, y: point.y });
-      if (onPointSelectRef.current && correctedIndex < indexMap.length) {
-        const originalIndex = indexMap[correctedIndex];
-        onPointSelectRef.current(originalIndex);
-      }
-    }
-  }, [data, indexMap]);
-
-  const handleClearSelection = React.useCallback(() => {
-    correctedElevationRef.current = null;
-    setTooltipValues(null);
-    if (onPointSelectRef.current) {
-      onPointSelectRef.current(null);
-    }
-  }, []);
-
-  // Update tooltip and notify parent when selection changes
-  useAnimatedReaction(
-    () => ({
-      matchedIndex: state.matchedIndex.value,
-      x: state.x.value.value,
-      y: state.y.y.value.value,
-      active: isActive,
-    }),
-    (current) => {
-      if (current.active) {
-        runOnJS(handleDataLookup)(current.matchedIndex, current.x, current.y);
-      } else {
-        runOnJS(handleClearSelection)();
-      }
-    },
-    [isActive, handleDataLookup, handleClearSelection]
-  );
-
   const { minAlt, maxAlt, maxDist } = useMemo(() => {
     if (data.length === 0) {
       return { minAlt: 0, maxAlt: 100, maxDist: 1 };
@@ -160,6 +99,98 @@ export function ElevationChart({
     };
   }, [data]);
 
+  // Sync x-values to shared value for UI thread access
+  React.useEffect(() => {
+    xValuesShared.value = data.map(d => d.x);
+  }, [data, xValuesShared]);
+
+  // Derive selected index on UI thread using chartBounds
+  const selectedIdx = useDerivedValue(() => {
+    'worklet';
+    const len = xValuesShared.value.length;
+    const bounds = chartBoundsShared.value;
+    const chartWidth = bounds.right - bounds.left;
+
+    if (touchX.value < 0 || chartWidth <= 0 || len === 0) return -1;
+
+    const chartX = touchX.value - bounds.left;
+    const ratio = Math.max(0, Math.min(1, chartX / chartWidth));
+    const idx = Math.round(ratio * (len - 1));
+
+    return Math.min(Math.max(0, idx), len - 1);
+  }, []);
+
+  // Bridge to JS for tooltip updates
+  const updateTooltipOnJS = useCallback((idx: number) => {
+    if (idx < 0 || data.length === 0) {
+      if (lastNotifiedIdx.current !== null) {
+        setTooltipData(null);
+        setIsActive(false);
+        lastNotifiedIdx.current = null;
+        if (onPointSelectRef.current) onPointSelectRef.current(null);
+        if (onInteractionChangeRef.current) onInteractionChangeRef.current(false);
+      }
+      return;
+    }
+
+    if (idx === lastNotifiedIdx.current) return;
+    lastNotifiedIdx.current = idx;
+
+    if (!isActive) {
+      setIsActive(true);
+      if (onInteractionChangeRef.current) onInteractionChangeRef.current(true);
+    }
+
+    const point = data[idx];
+    if (point) {
+      setTooltipData({ x: point.x, y: point.y });
+    }
+
+    if (onPointSelectRef.current && idx < indexMap.length) {
+      onPointSelectRef.current(indexMap[idx]);
+    }
+  }, [data, indexMap, isActive]);
+
+  useAnimatedReaction(
+    () => selectedIdx.value,
+    (idx) => {
+      runOnJS(updateTooltipOnJS)(idx);
+    },
+    [updateTooltipOnJS]
+  );
+
+  // Gesture handler on UI thread
+  const gesture = Gesture.Pan()
+    .onStart((e) => {
+      'worklet';
+      touchX.value = e.x;
+    })
+    .onUpdate((e) => {
+      'worklet';
+      touchX.value = e.x;
+    })
+    .onEnd(() => {
+      'worklet';
+      touchX.value = -1;
+    })
+    .minDistance(0);
+
+  // Animated crosshair style - uses actual point coordinates for accuracy, runs at 120Hz
+  const crosshairStyle = useAnimatedStyle(() => {
+    'worklet';
+    const idx = selectedIdx.value;
+    const coords = pointXCoordsShared.value;
+
+    if (idx < 0 || coords.length === 0 || idx >= coords.length) {
+      return { opacity: 0, transform: [{ translateX: 0 }] };
+    }
+
+    return {
+      opacity: 1,
+      transform: [{ translateX: coords[idx] }],
+    };
+  }, []);
+
   const distanceUnit = isMetric ? 'km' : 'mi';
   const elevationUnit = isMetric ? 'm' : 'ft';
 
@@ -173,142 +204,101 @@ export function ElevationChart({
 
   return (
     <View style={[styles.container, { height }]}>
-      {/* Chart - optimized gesture handling for smooth tracking */}
-      <View style={styles.chartWrapper}>
-        {/* Tooltip display - inside chartWrapper to avoid coordinate offset */}
-        {isActive && tooltipValues && (
-          <View style={[styles.tooltip, isDark && styles.tooltipDark]} pointerEvents="none">
-            <Text style={[styles.tooltipText, isDark && styles.tooltipTextDark]}>
-              {tooltipValues.x.toFixed(2)} {distanceUnit}  •  {Math.round(tooltipValues.y)} {elevationUnit}
+      <GestureDetector gesture={gesture}>
+        <View style={styles.chartWrapper}>
+          {/* Tooltip display */}
+          {isActive && tooltipData && (
+            <View style={[styles.tooltip, isDark && styles.tooltipDark]} pointerEvents="none">
+              <Text style={[styles.tooltipText, isDark && styles.tooltipTextDark]}>
+                {tooltipData.x.toFixed(2)} {distanceUnit}  •  {Math.round(tooltipData.y)} {elevationUnit}
+              </Text>
+            </View>
+          )}
+
+          <CartesianChart
+            data={data}
+            xKey="x"
+            yKeys={['y']}
+            domain={{ y: [minAlt, maxAlt] }}
+            padding={{ left: 0, right: 0, top: 4, bottom: 16 }}
+          >
+            {({ points, chartBounds }) => {
+              // Capture chartBounds for touch calculations
+              if (chartBounds.left !== chartBoundsShared.value.left ||
+                  chartBounds.right !== chartBoundsShared.value.right) {
+                chartBoundsShared.value = { left: chartBounds.left, right: chartBounds.right };
+              }
+
+              const idx = selectedIdx.value;
+              let crosshairX: number | null = null;
+              let crosshairY: number | null = null;
+
+              if (idx >= 0 && idx < points.y.length) {
+                // Use Victory Native's actual rendered coordinates
+                crosshairX = points.y[idx]?.x ?? null;
+                crosshairY = points.y[idx]?.y ?? null;
+              }
+
+              return (
+                <>
+                  <Area
+                    points={points.y}
+                    y0={chartBounds.bottom}
+                    curveType="natural"
+                  >
+                    <LinearGradient
+                      start={vec(0, chartBounds.top)}
+                      end={vec(0, chartBounds.bottom)}
+                      colors={[colors.primary + 'AA', colors.primary + '20']}
+                    />
+                  </Area>
+
+                  {crosshairX !== null && (
+                    <>
+                      <SkiaLine
+                        p1={vec(crosshairX, chartBounds.top)}
+                        p2={vec(crosshairX, chartBounds.bottom)}
+                        color={isDark ? '#888' : '#666'}
+                        strokeWidth={1}
+                      />
+                      {crosshairY !== null && (
+                        <>
+                          <Circle cx={crosshairX} cy={crosshairY} r={6} color={colors.primary} />
+                          <Circle cx={crosshairX} cy={crosshairY} r={4} color="#FFFFFF" />
+                        </>
+                      )}
+                    </>
+                  )}
+                </>
+              );
+            }}
+          </CartesianChart>
+
+          {/* Y-axis labels overlaid on chart */}
+          <View style={styles.yAxisOverlay} pointerEvents="none">
+            <Text style={[styles.overlayLabel, isDark && styles.overlayLabelDark]}>
+              {maxAlt}{elevationUnit}
+            </Text>
+            <Text style={[styles.overlayLabel, isDark && styles.overlayLabelDark]}>
+              {minAlt}{elevationUnit}
             </Text>
           </View>
-        )}
-        <CartesianChart
-          data={data}
-          xKey="x"
-          yKeys={['y']}
-          domain={{ y: [minAlt, maxAlt] }}
-          padding={{ left: 0, right: 0, top: 4, bottom: 16 }}
-          chartPressState={state}
-          gestureLongPressDelay={50}
-        >
-          {({ points, chartBounds }) => {
-            // Store chart bounds for corrected index calculation in animated reaction
-            chartBoundsRef.current = { left: chartBounds.left, right: chartBounds.right };
 
-            return (
-            <>
-              <Area
-                points={points.y}
-                y0={chartBounds.bottom}
-                curveType="natural"
-              >
-                <LinearGradient
-                  start={vec(0, chartBounds.top)}
-                  end={vec(0, chartBounds.bottom)}
-                  colors={[colors.primary + 'AA', colors.primary + '20']}
-                />
-              </Area>
-              {isActive && (
-                <ActiveIndicator
-                  xPosition={state.x.position}
-                  top={chartBounds.top}
-                  bottom={chartBounds.bottom}
-                  isDark={isDark}
-                  correctedElevation={correctedElevationRef.current}
-                  minAlt={minAlt}
-                  maxAlt={maxAlt}
-                />
-              )}
-            </>
-            );
-          }}
-        </CartesianChart>
-
-        {/* Y-axis labels overlaid on chart */}
-        <View style={styles.yAxisOverlay} pointerEvents="none">
-          <Text style={[styles.overlayLabel, isDark && styles.overlayLabelDark]}>
-            {maxAlt}{elevationUnit}
-          </Text>
-          <Text style={[styles.overlayLabel, isDark && styles.overlayLabelDark]}>
-            {minAlt}{elevationUnit}
-          </Text>
+          {/* X-axis labels overlaid on chart */}
+          <View style={styles.xAxisOverlay} pointerEvents="none">
+            <Text style={[styles.overlayLabel, isDark && styles.overlayLabelDark]}>0</Text>
+            <Text style={[styles.overlayLabel, isDark && styles.overlayLabelDark]}>
+              {maxDist.toFixed(1)} {distanceUnit}
+            </Text>
+          </View>
         </View>
-
-        {/* X-axis labels overlaid on chart */}
-        <View style={styles.xAxisOverlay} pointerEvents="none">
-          <Text style={[styles.overlayLabel, isDark && styles.overlayLabelDark]}>0</Text>
-          <Text style={[styles.overlayLabel, isDark && styles.overlayLabelDark]}>
-            {maxDist.toFixed(1)} {distanceUnit}
-          </Text>
-        </View>
-      </View>
+      </GestureDetector>
     </View>
   );
 }
 
-// Active crosshair indicator component
-function ActiveIndicator({
-  xPosition,
-  top,
-  bottom,
-  isDark,
-  correctedElevation,
-  minAlt,
-  maxAlt,
-}: {
-  xPosition: SharedValue<number>;
-  top: number;
-  bottom: number;
-  isDark: boolean;
-  correctedElevation: number | null;
-  minAlt: number;
-  maxAlt: number;
-}) {
-  // Apply offset correction to align crosshair with finger position
-  const correctedX = useDerivedValue(() => xPosition.value - TOUCH_OFFSET_CORRECTION);
-  const lineStart = useDerivedValue(() => vec(correctedX.value, top));
-  const lineEnd = useDerivedValue(() => vec(correctedX.value, bottom));
-
-  // Calculate Y position from corrected elevation value
-  const chartHeight = bottom - top;
-  const yRange = maxAlt - minAlt;
-  let dotY = (top + bottom) / 2; // Default to center
-  if (correctedElevation !== null && yRange > 0) {
-    // Map elevation to pixel position (inverted: higher elevation = lower y pixel)
-    const normalizedY = (correctedElevation - minAlt) / yRange;
-    dotY = bottom - (normalizedY * chartHeight);
-  }
-
-  return (
-    <>
-      <SkiaLine
-        p1={lineStart}
-        p2={lineEnd}
-        color={isDark ? '#888' : '#666'}
-        strokeWidth={1}
-        style="stroke"
-      />
-      <Circle
-        cx={correctedX}
-        cy={dotY}
-        r={6}
-        color={colors.primary}
-      />
-      <Circle
-        cx={correctedX}
-        cy={dotY}
-        r={4}
-        color="#FFFFFF"
-      />
-    </>
-  );
-}
-
 const styles = StyleSheet.create({
-  container: {
-    // No margin - let parent handle spacing to avoid touch coordinate issues
-  },
+  container: {},
   chartWrapper: {
     flex: 1,
     position: 'relative',

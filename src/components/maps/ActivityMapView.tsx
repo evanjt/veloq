@@ -71,13 +71,18 @@ export function ActivityMapView({
     return [];
   }, [encodedPolyline, providedCoordinates]);
 
+  // Filter valid coordinates for bounds and route display
+  const validCoordinates = useMemo(() => {
+    return coordinates.filter(c => !isNaN(c.latitude) && !isNaN(c.longitude));
+  }, [coordinates]);
+
   const bounds = useMemo(() => {
-    if (coordinates.length === 0) return null;
+    if (validCoordinates.length === 0) return null;
 
     let minLat = Infinity, maxLat = -Infinity;
     let minLng = Infinity, maxLng = -Infinity;
 
-    for (const coord of coordinates) {
+    for (const coord of validCoordinates) {
       minLat = Math.min(minLat, coord.latitude);
       maxLat = Math.max(maxLat, coord.latitude);
       minLng = Math.min(minLng, coord.longitude);
@@ -88,28 +93,33 @@ export function ActivityMapView({
       ne: [maxLng, maxLat] as [number, number],
       sw: [minLng, minLat] as [number, number],
     };
-  }, [coordinates]);
+  }, [validCoordinates]);
 
   const routeGeoJSON = useMemo(() => {
-    if (coordinates.length === 0) return null;
+    if (validCoordinates.length === 0) return null;
     return {
       type: 'Feature' as const,
       properties: {},
       geometry: {
         type: 'LineString' as const,
-        coordinates: coordinates.map(c => [c.longitude, c.latitude]),
+        coordinates: validCoordinates.map(c => [c.longitude, c.latitude]),
       },
     };
-  }, [coordinates]);
+  }, [validCoordinates]);
 
   const activityColor = getActivityColor(activityType);
-  const startPoint = coordinates[0];
-  const endPoint = coordinates[coordinates.length - 1];
+  // Use first and last valid coordinates for start/end markers
+  const startPoint = validCoordinates[0];
+  const endPoint = validCoordinates[validCoordinates.length - 1];
 
   // Get the highlighted point from elevation chart selection
   const highlightPoint = useMemo(() => {
     if (highlightIndex != null && highlightIndex >= 0 && highlightIndex < coordinates.length) {
-      return coordinates[highlightIndex];
+      const coord = coordinates[highlightIndex];
+      // Check for valid coordinates (NaN values indicate invalid/filtered points)
+      if (coord && !isNaN(coord.latitude) && !isNaN(coord.longitude)) {
+        return coord;
+      }
     }
     return null;
   }, [highlightIndex, coordinates]);
@@ -117,7 +127,7 @@ export function ActivityMapView({
   const styleUrl = MAP_STYLES[mapStyle];
   const isDarkMap = mapStyle === 'dark';
 
-  if (!bounds || coordinates.length === 0) {
+  if (!bounds || validCoordinates.length === 0) {
     return (
       <View style={[styles.placeholder, { height }]}>
         <MaterialCommunityIcons
@@ -131,92 +141,95 @@ export function ActivityMapView({
 
   return (
     <View style={[styles.container, { height }]}>
-      <MapView
-        style={styles.map}
-        mapStyle={styleUrl}
-        logoEnabled={false}
-        attributionEnabled={false}
-        compassEnabled={false}
-      >
-        <Camera
-          bounds={bounds}
-          padding={{ paddingTop: 50, paddingRight: 50, paddingBottom: 50, paddingLeft: 50 }}
-          animationDuration={0}
-        />
-
-        {/* Route line */}
-        {routeGeoJSON && (
-          <ShapeSource id="routeSource" shape={routeGeoJSON}>
-            <LineLayer
-              id="routeLine"
-              style={{
-                lineColor: activityColor,
-                lineWidth: 4,
-                lineCap: 'round',
-                lineJoin: 'round',
-              }}
-            />
-          </ShapeSource>
-        )}
-
-        {/* Start marker */}
-        {startPoint && (
-          <MarkerView coordinate={[startPoint.longitude, startPoint.latitude]}>
-            <View style={styles.markerContainer}>
-              <View style={[styles.marker, styles.startMarker]}>
-                <MaterialCommunityIcons name="play" size={14} color="#FFFFFF" />
-              </View>
-            </View>
-          </MarkerView>
-        )}
-
-        {/* End marker */}
-        {endPoint && (
-          <MarkerView coordinate={[endPoint.longitude, endPoint.latitude]}>
-            <View style={styles.markerContainer}>
-              <View style={[styles.marker, styles.endMarker]}>
-                <MaterialCommunityIcons name="flag-checkered" size={14} color="#FFFFFF" />
-              </View>
-            </View>
-          </MarkerView>
-        )}
-
-        {/* Highlight marker - shows current position from elevation chart */}
-        {highlightPoint && (
-          <MarkerView coordinate={[highlightPoint.longitude, highlightPoint.latitude]}>
-            <View style={styles.markerContainer}>
-              <View style={styles.highlightMarker}>
-                <View style={styles.highlightMarkerInner} />
-              </View>
-            </View>
-          </MarkerView>
-        )}
-      </MapView>
-
-      {/* Tap overlay for fullscreen - rendered first so buttons appear on top */}
-      {enableFullscreen && (
-        <Pressable
-          style={styles.pressOverlay}
-          onPress={openFullscreen}
-        />
-      )}
-
-      {/* Map style toggle button - rendered after overlay so it's on top */}
-      {showStyleToggle && (
-        <TouchableOpacity
-          style={[styles.toggleButton, isDarkMap && styles.toggleButtonDark]}
-          onPress={toggleMapStyle}
-          activeOpacity={0.8}
+      {/* Inline map - kept mounted but hidden when fullscreen to avoid canceling tile requests */}
+      <View style={[styles.inlineMapWrapper, isFullscreen && styles.hiddenMap]}>
+        <MapView
+          style={styles.map}
+          mapStyle={styleUrl}
+          logoEnabled={false}
+          attributionEnabled={false}
+          compassEnabled={false}
         >
-          <MaterialCommunityIcons
-            name={isDarkMap ? 'weather-sunny' : 'weather-night'}
-            size={20}
-            color={isDarkMap ? '#FFFFFF' : '#333333'}
+          <Camera
+            bounds={bounds}
+            padding={{ paddingTop: 50, paddingRight: 50, paddingBottom: 50, paddingLeft: 50 }}
+            animationDuration={0}
           />
-        </TouchableOpacity>
-      )}
 
-      {/* Fullscreen modal - uses same MapView so tiles are cached */}
+          {/* Route line */}
+          {routeGeoJSON && (
+            <ShapeSource id="routeSource" shape={routeGeoJSON}>
+              <LineLayer
+                id="routeLine"
+                style={{
+                  lineColor: activityColor,
+                  lineWidth: 4,
+                  lineCap: 'round',
+                  lineJoin: 'round',
+                }}
+              />
+            </ShapeSource>
+          )}
+
+          {/* Start marker */}
+          {startPoint && (
+            <MarkerView coordinate={[startPoint.longitude, startPoint.latitude]}>
+              <View style={styles.markerContainer}>
+                <View style={[styles.marker, styles.startMarker]}>
+                  <MaterialCommunityIcons name="play" size={14} color="#FFFFFF" />
+                </View>
+              </View>
+            </MarkerView>
+          )}
+
+          {/* End marker */}
+          {endPoint && (
+            <MarkerView coordinate={[endPoint.longitude, endPoint.latitude]}>
+              <View style={styles.markerContainer}>
+                <View style={[styles.marker, styles.endMarker]}>
+                  <MaterialCommunityIcons name="flag-checkered" size={14} color="#FFFFFF" />
+                </View>
+              </View>
+            </MarkerView>
+          )}
+
+          {/* Highlight marker - shows current position from elevation chart */}
+          {highlightPoint && (
+            <MarkerView coordinate={[highlightPoint.longitude, highlightPoint.latitude]}>
+              <View style={styles.markerContainer}>
+                <View style={styles.highlightMarker}>
+                  <View style={styles.highlightMarkerInner} />
+                </View>
+              </View>
+            </MarkerView>
+          )}
+        </MapView>
+
+        {/* Tap overlay for fullscreen */}
+        {enableFullscreen && !isFullscreen && (
+          <Pressable
+            style={styles.pressOverlay}
+            onPress={openFullscreen}
+          />
+        )}
+
+        {/* Map style toggle button */}
+        {showStyleToggle && !isFullscreen && (
+          <TouchableOpacity
+            style={[styles.toggleButton, isDarkMap && styles.toggleButtonDark]}
+            onPress={toggleMapStyle}
+            activeOpacity={0.8}
+          >
+            <MaterialCommunityIcons
+              name={isDarkMap ? 'weather-sunny' : 'weather-night'}
+              size={20}
+              color={isDarkMap ? '#FFFFFF' : '#333333'}
+            />
+          </TouchableOpacity>
+        )}
+      </View>
+
+      {/* Fullscreen modal */}
       <Modal
         visible={isFullscreen}
         animationType="fade"
@@ -312,6 +325,13 @@ const styles = StyleSheet.create({
   container: {
     borderRadius: 12,
     overflow: 'hidden',
+  },
+  inlineMapWrapper: {
+    flex: 1,
+  },
+  hiddenMap: {
+    opacity: 0,
+    pointerEvents: 'none',
   },
   map: {
     flex: 1,

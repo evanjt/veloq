@@ -1,0 +1,278 @@
+import React from 'react';
+import { View, StyleSheet, useColorScheme, TouchableOpacity } from 'react-native';
+import { Text } from 'react-native-paper';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { colors, spacing } from '@/theme';
+
+interface Event {
+  id: string;
+  name: string;
+  date: string;
+  type: 'race' | 'event' | 'training';
+  priority: 'A' | 'B' | 'C';
+  distance?: number;
+  notes?: string;
+}
+
+interface EventPlannerProps {
+  events?: Event[];
+  onAddEvent?: () => void;
+}
+
+function getDaysUntil(dateStr: string): number {
+  const target = new Date(dateStr);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const diff = target.getTime() - today.getTime();
+  return Math.ceil(diff / (1000 * 60 * 60 * 24));
+}
+
+function formatDate(dateStr: string): string {
+  const date = new Date(dateStr);
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+const PRIORITY_COLORS = {
+  A: '#E91E63', // Pink - priority race
+  B: '#F59E0B', // Orange - secondary
+  C: '#9E9E9E', // Gray - training
+};
+
+const TYPE_ICONS: Record<Event['type'], string> = {
+  race: 'flag-checkered',
+  event: 'calendar-star',
+  training: 'dumbbell',
+};
+
+export function EventPlanner({ events, onAddEvent }: EventPlannerProps) {
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === 'dark';
+
+  const sortedEvents = [...(events || [])]
+    .filter(e => getDaysUntil(e.date) >= 0)
+    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+  const nextEvent = sortedEvents[0];
+
+  return (
+    <View style={styles.container}>
+      {/* Header */}
+      <View style={styles.header}>
+        <Text style={[styles.title, isDark && styles.textLight]}>Upcoming Events</Text>
+        <TouchableOpacity onPress={onAddEvent} style={styles.addButton}>
+          <MaterialCommunityIcons
+            name="plus"
+            size={18}
+            color={colors.primary}
+          />
+        </TouchableOpacity>
+      </View>
+
+      {/* Featured next event */}
+      {nextEvent && (
+        <View style={[styles.featuredEvent, isDark && styles.featuredEventDark]}>
+          <View style={styles.featuredHeader}>
+            <View style={styles.priorityBadge}>
+              <Text style={[styles.priorityText, { color: PRIORITY_COLORS[nextEvent.priority] }]}>
+                {nextEvent.priority} Race
+              </Text>
+            </View>
+            <Text style={[styles.countdown, { color: PRIORITY_COLORS[nextEvent.priority] }]}>
+              {getDaysUntil(nextEvent.date)} days
+            </Text>
+          </View>
+          <Text style={[styles.eventName, isDark && styles.textLight]}>
+            {nextEvent.name}
+          </Text>
+          <View style={styles.eventDetails}>
+            <Text style={[styles.eventDate, isDark && styles.textDark]}>
+              {formatDate(nextEvent.date)}
+            </Text>
+            {nextEvent.distance && (
+              <Text style={[styles.eventDistance, isDark && styles.textDark]}>
+                {nextEvent.distance}km
+              </Text>
+            )}
+          </View>
+          {nextEvent.notes && (
+            <Text style={[styles.eventNotes, isDark && styles.textDark]}>
+              {nextEvent.notes}
+            </Text>
+          )}
+        </View>
+      )}
+
+      {/* Other events list */}
+      <View style={styles.eventsList}>
+        {sortedEvents.slice(1).map((event) => (
+          <View key={event.id} style={[styles.eventItem, isDark && styles.eventItemDark]}>
+            <View style={[styles.priorityDot, { backgroundColor: PRIORITY_COLORS[event.priority] }]} />
+            <MaterialCommunityIcons
+              name={TYPE_ICONS[event.type] as any}
+              size={16}
+              color={isDark ? '#AAA' : colors.textSecondary}
+              style={styles.eventIcon}
+            />
+            <View style={styles.eventInfo}>
+              <Text style={[styles.eventItemName, isDark && styles.textLight]} numberOfLines={1}>
+                {event.name}
+              </Text>
+              <Text style={[styles.eventItemDate, isDark && styles.textDark]}>
+                {formatDate(event.date)} ({getDaysUntil(event.date)}d)
+              </Text>
+            </View>
+            <Text style={[styles.eventPriority, { color: PRIORITY_COLORS[event.priority] }]}>
+              {event.priority}
+            </Text>
+          </View>
+        ))}
+      </View>
+
+      {sortedEvents.length === 0 && (
+        <View style={styles.emptyState}>
+          <MaterialCommunityIcons
+            name="calendar-plus"
+            size={32}
+            color={isDark ? '#666' : colors.textSecondary}
+          />
+          <Text style={[styles.emptyText, isDark && styles.textDark]}>
+            No upcoming events
+          </Text>
+          <Text style={[styles.emptySubtext, isDark && styles.textDark]}>
+            Add your target races to plan training
+          </Text>
+        </View>
+      )}
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {},
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+  },
+  title: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  textLight: {
+    color: '#FFFFFF',
+  },
+  textDark: {
+    color: '#AAA',
+  },
+  addButton: {
+    padding: 4,
+  },
+  featuredEvent: {
+    backgroundColor: 'rgba(0, 0, 0, 0.03)',
+    borderRadius: 12,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+  },
+  featuredEventDark: {
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  featuredHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.xs,
+  },
+  priorityBadge: {},
+  priorityText: {
+    fontSize: 10,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  countdown: {
+    fontSize: 24,
+    fontWeight: '700',
+  },
+  eventName: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: colors.textPrimary,
+    marginBottom: 4,
+  },
+  eventDetails: {
+    flexDirection: 'row',
+    gap: spacing.md,
+  },
+  eventDate: {
+    fontSize: 13,
+    color: colors.textSecondary,
+  },
+  eventDistance: {
+    fontSize: 13,
+    color: colors.textSecondary,
+  },
+  eventNotes: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    fontStyle: 'italic',
+    marginTop: spacing.xs,
+  },
+  eventsList: {
+    gap: spacing.xs,
+  },
+  eventItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: spacing.sm,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(0, 0, 0, 0.1)',
+  },
+  eventItemDark: {
+    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  priorityDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    marginRight: spacing.sm,
+  },
+  eventIcon: {
+    marginRight: spacing.sm,
+  },
+  eventInfo: {
+    flex: 1,
+  },
+  eventItemName: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: colors.textPrimary,
+  },
+  eventItemDate: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+  eventPriority: {
+    fontSize: 12,
+    fontWeight: '700',
+    width: 20,
+    textAlign: 'center',
+  },
+  emptyState: {
+    alignItems: 'center',
+    paddingVertical: spacing.xl,
+  },
+  emptyText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: colors.textSecondary,
+    marginTop: spacing.sm,
+  },
+  emptySubtext: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: 4,
+  },
+});

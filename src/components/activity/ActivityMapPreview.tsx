@@ -42,13 +42,18 @@ export function ActivityMapPreview({
     return [];
   }, [streams?.latlng]);
 
+  // Filter valid coordinates for bounds and route display
+  const validCoordinates = useMemo(() => {
+    return coordinates.filter(c => !isNaN(c.latitude) && !isNaN(c.longitude));
+  }, [coordinates]);
+
   const bounds = useMemo(() => {
-    if (coordinates.length === 0) return null;
+    if (validCoordinates.length === 0) return null;
 
     let minLat = Infinity, maxLat = -Infinity;
     let minLng = Infinity, maxLng = -Infinity;
 
-    for (const coord of coordinates) {
+    for (const coord of validCoordinates) {
       minLat = Math.min(minLat, coord.latitude);
       maxLat = Math.max(maxLat, coord.latitude);
       minLng = Math.min(minLng, coord.longitude);
@@ -59,23 +64,23 @@ export function ActivityMapPreview({
       ne: [maxLng, maxLat] as [number, number],
       sw: [minLng, minLat] as [number, number],
     };
-  }, [coordinates]);
+  }, [validCoordinates]);
 
   const routeGeoJSON = useMemo(() => {
-    if (coordinates.length === 0) return null;
+    if (validCoordinates.length === 0) return null;
     return {
       type: 'Feature' as const,
       properties: {},
       geometry: {
         type: 'LineString' as const,
-        coordinates: coordinates.map(c => [c.longitude, c.latitude]),
+        coordinates: validCoordinates.map(c => [c.longitude, c.latitude]),
       },
     };
-  }, [coordinates]);
+  }, [validCoordinates]);
 
   const styleUrl = isDark ? STYLE_DARK : STYLE_LIGHT;
-  const startPoint = coordinates[0];
-  const endPoint = coordinates[coordinates.length - 1];
+  const startPoint = validCoordinates[0];
+  const endPoint = validCoordinates[validCoordinates.length - 1];
 
   // No GPS data available for this activity
   if (!hasGpsData) {
@@ -91,7 +96,7 @@ export function ActivityMapPreview({
   }
 
   // Loading streams or no bounds
-  if (isLoading || !bounds || coordinates.length === 0) {
+  if (isLoading || !bounds || validCoordinates.length === 0) {
     return (
       <View style={[styles.placeholder, { height, backgroundColor: activityColor + '10' }]}>
         <ActivityIndicator size="small" color={activityColor} />

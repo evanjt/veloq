@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { View, ScrollView, StyleSheet, useColorScheme, TouchableOpacity } from 'react-native';
 import { Text, IconButton, ActivityIndicator } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -38,15 +38,25 @@ export default function ActivityDetailScreen() {
   const [highlightIndex, setHighlightIndex] = useState<number | null>(null);
   // Track whether any chart is being interacted with to disable ScrollView
   const [chartInteracting, setChartInteracting] = useState(false);
-  // Track which chart types are selected (multi-select)
-  const [selectedCharts, setSelectedCharts] = useState<ChartTypeId[]>(['elevation']);
+  // Track which chart types are selected (multi-select) - initialized dynamically
+  const [selectedCharts, setSelectedCharts] = useState<ChartTypeId[]>([]);
   // Track if charts are expanded (stacked) or combined (overlay)
   const [chartsExpanded, setChartsExpanded] = useState(false);
+  // Track if we've initialized the default chart selection
+  const [chartsInitialized, setChartsInitialized] = useState(false);
 
   // Get available chart types based on stream data
   const availableCharts = useMemo(() => {
     return getAvailableCharts(streams);
   }, [streams]);
+
+  // Initialize selected charts to first available when data loads
+  useEffect(() => {
+    if (!chartsInitialized && availableCharts.length > 0) {
+      setSelectedCharts([availableCharts[0].id]);
+      setChartsInitialized(true);
+    }
+  }, [availableCharts, chartsInitialized]);
 
   // Toggle a chart type on/off
   const handleChartToggle = useCallback((chartId: string) => {
@@ -69,6 +79,17 @@ export default function ActivityDetailScreen() {
   const handleInteractionChange = useCallback((isInteracting: boolean) => {
     setChartInteracting(isInteracting);
   }, []);
+
+  // Get coordinates from streams or polyline (must be before early returns)
+  const coordinates = useMemo(() => {
+    if (streams?.latlng) {
+      return convertLatLngTuples(streams.latlng);
+    }
+    if (activity?.polyline) {
+      return decodePolyline(activity.polyline);
+    }
+    return [];
+  }, [streams?.latlng, activity?.polyline]);
 
   if (isLoading) {
     return (
@@ -96,18 +117,6 @@ export default function ActivityDetailScreen() {
   const activityColor = getActivityColor(activity.type);
   const iconName = getActivityIcon(activity.type);
   const showPace = isRunningActivity(activity.type);
-
-  // Get coordinates from streams or polyline
-  const coordinates = useMemo(() => {
-    if (streams?.latlng) {
-      return convertLatLngTuples(streams.latlng);
-    }
-    if (activity.polyline) {
-      return decodePolyline(activity.polyline);
-    }
-    return [];
-  }, [streams?.latlng, activity.polyline]);
-
 
   return (
     <SafeAreaView style={[styles.container, isDark && styles.containerDark]}>
