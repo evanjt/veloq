@@ -223,56 +223,39 @@ export function ElevationChart({
             padding={{ left: 0, right: 0, top: 4, bottom: 16 }}
           >
             {({ points, chartBounds }) => {
-              // Capture chartBounds for touch calculations
+              // Sync chartBounds and point coordinates for UI thread crosshair
               if (chartBounds.left !== chartBoundsShared.value.left ||
                   chartBounds.right !== chartBoundsShared.value.right) {
                 chartBoundsShared.value = { left: chartBounds.left, right: chartBounds.right };
               }
-
-              const idx = selectedIdx.value;
-              let crosshairX: number | null = null;
-              let crosshairY: number | null = null;
-
-              if (idx >= 0 && idx < points.y.length) {
-                // Use Victory Native's actual rendered coordinates
-                crosshairX = points.y[idx]?.x ?? null;
-                crosshairY = points.y[idx]?.y ?? null;
+              // Sync actual point x-coordinates for accurate crosshair positioning
+              const newCoords = points.y.map(p => p.x);
+              if (newCoords.length !== pointXCoordsShared.value.length ||
+                  newCoords[0] !== pointXCoordsShared.value[0]) {
+                pointXCoordsShared.value = newCoords;
               }
 
               return (
-                <>
-                  <Area
-                    points={points.y}
-                    y0={chartBounds.bottom}
-                    curveType="natural"
-                  >
-                    <LinearGradient
-                      start={vec(0, chartBounds.top)}
-                      end={vec(0, chartBounds.bottom)}
-                      colors={[colors.primary + 'AA', colors.primary + '20']}
-                    />
-                  </Area>
-
-                  {crosshairX !== null && (
-                    <>
-                      <SkiaLine
-                        p1={vec(crosshairX, chartBounds.top)}
-                        p2={vec(crosshairX, chartBounds.bottom)}
-                        color={isDark ? '#888' : '#666'}
-                        strokeWidth={1}
-                      />
-                      {crosshairY !== null && (
-                        <>
-                          <Circle cx={crosshairX} cy={crosshairY} r={6} color={colors.primary} />
-                          <Circle cx={crosshairX} cy={crosshairY} r={4} color="#FFFFFF" />
-                        </>
-                      )}
-                    </>
-                  )}
-                </>
+                <Area
+                  points={points.y}
+                  y0={chartBounds.bottom}
+                  curveType="natural"
+                >
+                  <LinearGradient
+                    start={vec(0, chartBounds.top)}
+                    end={vec(0, chartBounds.bottom)}
+                    colors={[colors.primary + 'AA', colors.primary + '20']}
+                  />
+                </Area>
               );
             }}
           </CartesianChart>
+
+          {/* Animated crosshair - runs at native 120Hz using synced point coordinates */}
+          <Animated.View
+            style={[styles.crosshair, crosshairStyle, isDark && styles.crosshairDark]}
+            pointerEvents="none"
+          />
 
           {/* Y-axis labels overlaid on chart */}
           <View style={styles.yAxisOverlay} pointerEvents="none">
@@ -302,6 +285,16 @@ const styles = StyleSheet.create({
   chartWrapper: {
     flex: 1,
     position: 'relative',
+  },
+  crosshair: {
+    position: 'absolute',
+    top: 4,
+    bottom: 16,
+    width: 1,
+    backgroundColor: '#666',
+  },
+  crosshairDark: {
+    backgroundColor: '#AAA',
   },
   yAxisOverlay: {
     position: 'absolute',
