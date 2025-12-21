@@ -159,10 +159,6 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
 
     const map = window.map;
 
-    map.addControl(new maplibregl.NavigationControl({
-      visualizePitch: true,
-    }), 'top-right');
-
     map.on('load', () => {
       // Notify React Native that map is ready
       if (window.ReactNativeWebView) {

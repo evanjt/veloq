@@ -126,17 +126,17 @@ export function FTPTrendChart({
                 curveType="natural"
               />
               {/* Latest point indicator */}
-              {points.y.length > 0 && (
+              {points.y.length > 0 && points.y[points.y.length - 1].x != null && points.y[points.y.length - 1].y != null && (
                 <>
                   <Circle
-                    cx={points.y[points.y.length - 1].x}
-                    cy={points.y[points.y.length - 1].y}
+                    cx={points.y[points.y.length - 1].x!}
+                    cy={points.y[points.y.length - 1].y!}
                     r={6}
                     color={CHART_COLOR}
                   />
                   <Circle
-                    cx={points.y[points.y.length - 1].x}
-                    cy={points.y[points.y.length - 1].y}
+                    cx={points.y[points.y.length - 1].x!}
+                    cy={points.y[points.y.length - 1].y!}
                     r={3}
                     color="#FFFFFF"
                   />

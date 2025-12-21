@@ -12,7 +12,7 @@ import { Text } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, Href } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useActivities, useAthlete, useWellness, getFormZone, FORM_ZONE_COLORS } from '@/hooks';
+import { useActivities, useAthlete, useWellness, getFormZone, FORM_ZONE_COLORS, getLatestFTP } from '@/hooks';
 import { ActivityCard } from '@/components/activity/ActivityCard';
 import { ActivityCardSkeleton, StatsPillSkeleton, MapFAB } from '@/components/ui';
 import { colors, spacing, layout, typography } from '@/theme';
@@ -82,12 +82,16 @@ export default function FeedScreen() {
     const weekSeconds = weekActivities.reduce((sum, a) => sum + (a.moving_time || 0), 0);
     const weekHours = Math.round(weekSeconds / 3600 * 10) / 10;
 
+    // Get latest FTP from activities
+    const ftp = getLatestFTP(activities);
+
     return {
       fitness, fitnessTrend,
       form,
       hrv, hrvTrend,
       rhr, rhrTrend,
-      weekHours, weekCount
+      weekHours, weekCount,
+      ftp
     };
   }, [wellnessData, activities]);
 
@@ -209,13 +213,18 @@ export default function FeedScreen() {
             </View>
           </TouchableOpacity>
 
-          {/* Stats → Performance page */}
+          {/* FTP → Performance page */}
           <TouchableOpacity
-            style={[styles.pill, styles.pillPrimary]}
+            style={[styles.pill, isDark && styles.pillDark]}
             onPress={navigateToStats}
             activeOpacity={0.7}
           >
-            <Text style={styles.pillPrimaryText}>Stats</Text>
+            <View style={styles.pillItem}>
+              <Text style={[styles.pillLabel, isDark && styles.textDark]}>FTP</Text>
+              <Text style={[styles.pillValue, { color: '#5B9BD5' }]}>
+                {quickStats.ftp ? `${quickStats.ftp}W` : '-'}
+              </Text>
+            </View>
           </TouchableOpacity>
         </View>
       </View>
@@ -381,15 +390,6 @@ const styles = StyleSheet.create({
   trendArrowSmall: {
     fontSize: 8,
     marginLeft: 1,
-  },
-  pillPrimary: {
-    backgroundColor: colors.primary,
-    paddingVertical: 10,
-  },
-  pillPrimaryText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#FFFFFF',
   },
   textLight: {
     color: '#FFFFFF',

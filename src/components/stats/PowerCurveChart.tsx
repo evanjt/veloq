@@ -20,7 +20,7 @@ const CHART_COLOR_LIGHT = '#FF8F33';
 const CHART_GLOW = 'rgba(255, 107, 0, 0.35)';
 
 export function PowerCurveChart({
-  sport = 'Ride',
+  sport,
   oldest,
   newest,
   height = 200,
@@ -68,8 +68,13 @@ export function PowerCurveChart({
         <View style={styles.header}>
           <Text style={[styles.title, isDark && styles.textLight]}>Power Curve</Text>
         </View>
-        <View style={styles.loadingContainer}>
-          <Text style={[styles.errorText]}>Unable to load power curve</Text>
+        <View style={styles.emptyState}>
+          <Text style={[styles.emptyText, isDark && styles.textDark]}>
+            Power curve data unavailable
+          </Text>
+          <Text style={[styles.emptyHint, isDark && styles.textDark]}>
+            This feature requires power data from your rides
+          </Text>
         </View>
       </View>
     );

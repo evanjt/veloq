@@ -13,10 +13,16 @@ export function usePowerCurve(options: UsePowerCurveOptions = {}) {
   const { sport, oldest, newest, enabled = true } = options;
 
   return useQuery<PowerCurve>({
-    queryKey: ['powerCurve', sport, oldest, newest],
-    queryFn: () => intervalsApi.getPowerCurve({ sport, oldest, newest }),
+    queryKey: ['powerCurve', sport || null, oldest || null, newest || null],
+    queryFn: () => intervalsApi.getPowerCurve({
+      // Only pass sport if it's explicitly set
+      ...(sport && { sport }),
+      ...(oldest && { oldest }),
+      ...(newest && { newest }),
+    }),
     enabled,
     staleTime: 1000 * 60 * 5, // 5 minutes
+    retry: 1, // Only retry once on failure
   });
 }
 

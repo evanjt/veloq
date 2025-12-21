@@ -141,13 +141,17 @@ export const intervalsApi = {
     const today = new Date();
     const yearStart = new Date(today.getFullYear(), 0, 1);
 
-    const queryParams = {
+    const queryParams: Record<string, string> = {
       oldest: params?.oldest || formatLocalDate(yearStart),
       newest: params?.newest || formatLocalDate(today),
-      ...(params?.sport && { sport: params.sport }),
     };
 
-    const response = await apiClient.get<PowerCurve>(`/athlete/${athleteId}/power-curves.json`, {
+    // Only add sport filter if explicitly provided (API may not support it)
+    if (params?.sport) {
+      queryParams.type = params.sport; // Try 'type' instead of 'sport'
+    }
+
+    const response = await apiClient.get<PowerCurve>(`/athlete/${athleteId}/power-curves`, {
       params: queryParams,
     });
     return response.data;

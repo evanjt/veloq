@@ -16,8 +16,31 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { SegmentedButtons } from 'react-native-paper';
 import { useAthlete, useActivityBoundsCache } from '@/hooks';
 import { getAthleteId } from '@/api';
-import { getThemePreference, setThemePreference, type ThemePreference } from '@/providers';
+import {
+  getThemePreference,
+  setThemePreference,
+  useMapPreferences,
+  type ThemePreference,
+} from '@/providers';
+import { type MapStyleType } from '@/components/maps';
 import { colors, darkColors, spacing, layout } from '@/theme';
+import type { ActivityType } from '@/types';
+
+// Activity type groups for map settings
+// Each group applies the same map style to all its activity types
+// Covers ALL ActivityType values from types/activity.ts
+const MAP_ACTIVITY_GROUPS: { key: string; label: string; types: ActivityType[] }[] = [
+  { key: 'cycling', label: 'Cycling', types: ['Ride', 'VirtualRide'] },
+  { key: 'running', label: 'Running', types: ['Run', 'TrailRun', 'VirtualRun'] },
+  { key: 'hiking', label: 'Hiking', types: ['Hike', 'Snowshoe'] },
+  { key: 'walking', label: 'Walking', types: ['Walk'] },
+  { key: 'swimming', label: 'Swimming', types: ['Swim', 'OpenWaterSwim'] },
+  { key: 'snow', label: 'Snow Sports', types: ['AlpineSki', 'NordicSki', 'BackcountrySki', 'Snowboard'] },
+  { key: 'water', label: 'Water Sports', types: ['Rowing', 'Kayaking', 'Canoeing'] },
+  { key: 'climbing', label: 'Climbing', types: ['RockClimbing'] },
+  { key: 'racket', label: 'Racket Sports', types: ['Tennis'] },
+  { key: 'other', label: 'Other', types: ['Workout', 'WeightTraining', 'Yoga', 'Other'] },
+];
 
 function formatDate(dateStr: string | null): string {
   if (!dateStr) return '-';
@@ -40,8 +63,10 @@ export default function SettingsScreen() {
   const isDark = colorScheme === 'dark';
   const [profileImageError, setProfileImageError] = useState(false);
   const [themePreference, setThemePreferenceState] = useState<ThemePreference>('system');
+  const [showActivityStyles, setShowActivityStyles] = useState(false);
 
   const { data: athlete } = useAthlete();
+  const { preferences: mapPreferences, setDefaultStyle, setActivityGroupStyle } = useMapPreferences();
 
   // Load saved theme preference on mount
   useEffect(() => {
@@ -53,6 +78,20 @@ export default function SettingsScreen() {
     setThemePreferenceState(preference);
     await setThemePreference(preference);
   };
+
+  const handleDefaultMapStyleChange = async (value: string) => {
+    const style = value as MapStyleType;
+    await setDefaultStyle(style);
+  };
+
+  const handleActivityGroupMapStyleChange = async (groupKey: string, value: string) => {
+    const group = MAP_ACTIVITY_GROUPS.find(g => g.key === groupKey);
+    if (!group) return;
+
+    const style = value === 'default' ? null : (value as MapStyleType);
+    await setActivityGroupStyle(group.types, style);
+  };
+
   const {
     activities,
     progress,
@@ -186,6 +225,90 @@ export default function SettingsScreen() {
               style={styles.themePicker}
             />
           </View>
+        </View>
+
+        {/* Maps Section */}
+        <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>MAPS</Text>
+        <View style={[styles.section, isDark && styles.sectionDark]}>
+          <View style={styles.mapStyleRow}>
+            <Text style={[styles.mapStyleLabel, isDark && styles.textLight]}>Default Style</Text>
+          </View>
+          <View style={styles.themePickerContainer}>
+            <SegmentedButtons
+              value={mapPreferences.defaultStyle}
+              onValueChange={handleDefaultMapStyleChange}
+              buttons={[
+                {
+                  value: 'light',
+                  label: 'Light',
+                  icon: 'map',
+                },
+                {
+                  value: 'dark',
+                  label: 'Dark',
+                  icon: 'map',
+                },
+                {
+                  value: 'satellite',
+                  label: 'Satellite',
+                  icon: 'satellite-variant',
+                },
+              ]}
+              style={styles.themePicker}
+            />
+          </View>
+
+          {/* Per-activity-type styles toggle */}
+          <TouchableOpacity
+            style={[styles.actionRow, styles.actionRowBorder]}
+            onPress={() => setShowActivityStyles(!showActivityStyles)}
+          >
+            <MaterialCommunityIcons
+              name="tune-variant"
+              size={22}
+              color={colors.primary}
+            />
+            <Text style={[styles.actionText, isDark && styles.textLight]}>
+              Customize by Activity Type
+            </Text>
+            <MaterialCommunityIcons
+              name={showActivityStyles ? 'chevron-up' : 'chevron-down'}
+              size={20}
+              color={isDark ? '#666' : colors.textSecondary}
+            />
+          </TouchableOpacity>
+
+          {/* Per-activity-group pickers */}
+          {showActivityStyles && (
+            <View style={styles.activityStylesContainer}>
+              {MAP_ACTIVITY_GROUPS.map(({ key, label, types }) => {
+                // Use the first type in the group to determine current style
+                const currentStyle = mapPreferences.activityTypeStyles[types[0]] ?? 'default';
+                return (
+                  <View key={key} style={styles.activityStyleRow}>
+                    <Text style={[styles.activityStyleLabel, isDark && styles.textLight]}>
+                      {label}
+                    </Text>
+                    <SegmentedButtons
+                      value={currentStyle}
+                      onValueChange={(value) => handleActivityGroupMapStyleChange(key, value)}
+                      buttons={[
+                        { value: 'default', label: 'Default' },
+                        { value: 'light', label: 'Light' },
+                        { value: 'dark', label: 'Dark' },
+                        { value: 'satellite', label: 'Satellite' },
+                      ]}
+                      density="small"
+                      style={styles.activityStylePicker}
+                    />
+                  </View>
+                );
+              })}
+              <Text style={[styles.activityStyleHint, isDark && styles.textMuted]}>
+                'Default' uses the map style set above
+              </Text>
+            </View>
+          )}
         </View>
 
         {/* Cache Status Section */}
@@ -533,5 +656,41 @@ const styles = StyleSheet.create({
   },
   themePicker: {
     // React Native Paper SegmentedButtons handles styling
+  },
+  mapStyleRow: {
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.xs,
+  },
+  mapStyleLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: colors.textPrimary,
+  },
+  actionRowBorder: {
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  activityStylesContainer: {
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.md,
+  },
+  activityStyleRow: {
+    marginTop: spacing.md,
+  },
+  activityStyleLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: colors.textPrimary,
+    marginBottom: spacing.xs,
+  },
+  activityStylePicker: {
+    // Handled by React Native Paper
+  },
+  activityStyleHint: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: spacing.md,
+    fontStyle: 'italic',
   },
 });

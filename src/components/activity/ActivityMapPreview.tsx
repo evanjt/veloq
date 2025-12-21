@@ -1,30 +1,26 @@
 import React, { useMemo } from 'react';
-import { View, StyleSheet, ActivityIndicator, useColorScheme } from 'react-native';
+import { View, StyleSheet, ActivityIndicator } from 'react-native';
 import { MapView, Camera, ShapeSource, LineLayer, MarkerView } from '@maplibre/maplibre-react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { convertLatLngTuples } from '@/lib/polyline';
 import { getActivityColor } from '@/lib';
 import { colors } from '@/theme';
+import { useMapPreferences } from '@/providers';
+import { getMapStyle } from '@/components/maps';
 import { useActivityStreams } from '@/hooks';
 import type { Activity } from '@/types';
-
-// Map styles - fully open source, no API key required
-const STYLE_LIGHT = 'https://tiles.openfreemap.org/styles/liberty';
-const STYLE_DARK = 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json';
 
 interface ActivityMapPreviewProps {
   activity: Activity;
   height?: number;
-  forceLight?: boolean;
 }
 
 export function ActivityMapPreview({
   activity,
   height = 160,
-  forceLight = false,
 }: ActivityMapPreviewProps) {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark' && !forceLight;
+  const { getStyleForActivity } = useMapPreferences();
+  const mapStyle = getStyleForActivity(activity.type);
   const activityColor = getActivityColor(activity.type);
 
   // Check if activity has GPS data available
@@ -78,7 +74,7 @@ export function ActivityMapPreview({
     };
   }, [validCoordinates]);
 
-  const styleUrl = isDark ? STYLE_DARK : STYLE_LIGHT;
+  const styleUrl = getMapStyle(mapStyle);
   const startPoint = validCoordinates[0];
   const endPoint = validCoordinates[validCoordinates.length - 1];
 
@@ -112,6 +108,7 @@ export function ActivityMapPreview({
         logoEnabled={false}
         attributionEnabled={false}
         compassEnabled={false}
+        scaleBarEnabled={false}
         scrollEnabled={false}
         zoomEnabled={false}
         rotateEnabled={false}

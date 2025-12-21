@@ -1,10 +1,11 @@
 import React, { useMemo, useState } from 'react';
-import { View, StyleSheet, useColorScheme, TouchableOpacity, Pressable, Modal, StatusBar } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Pressable, Modal, StatusBar } from 'react-native';
 import { MapView, Camera, ShapeSource, LineLayer, MarkerView } from '@maplibre/maplibre-react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { decodePolyline, LatLng } from '@/lib/polyline';
 import { getActivityColor } from '@/lib';
 import { colors } from '@/theme';
+import { useMapPreferences } from '@/providers';
 import { BaseMapView } from './BaseMapView';
 import { type MapStyleType, getMapStyle, isDarkStyle, getNextStyle, getStyleIcon } from './mapStyles';
 import type { ActivityType } from '@/types';
@@ -32,12 +33,19 @@ export function ActivityMapView({
   highlightIndex,
   enableFullscreen = false,
 }: ActivityMapViewProps) {
-  const colorScheme = useColorScheme();
-  const systemStyle: MapStyleType = colorScheme === 'dark' ? 'dark' : 'light';
-  const [mapStyle, setMapStyle] = useState<MapStyleType>(initialStyle ?? systemStyle);
+  const { getStyleForActivity } = useMapPreferences();
+  const preferredStyle = getStyleForActivity(activityType);
+  const [mapStyle, setMapStyle] = useState<MapStyleType>(initialStyle ?? preferredStyle);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
+  // Update map style when preference changes (unless user manually toggled)
+  const [userOverride, setUserOverride] = useState(false);
+  if (!userOverride && !initialStyle && mapStyle !== preferredStyle) {
+    setMapStyle(preferredStyle);
+  }
+
   const toggleMapStyle = () => {
+    setUserOverride(true);
     setMapStyle(current => getNextStyle(current));
   };
 
@@ -142,6 +150,7 @@ export function ActivityMapView({
           logoEnabled={false}
           attributionEnabled={false}
           compassEnabled={false}
+          scaleBarEnabled={false}
         >
           <Camera
             bounds={bounds}
