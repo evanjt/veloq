@@ -1,8 +1,8 @@
 import React, { useEffect, useRef } from 'react';
-import { View, StyleSheet, Animated, useColorScheme, ViewStyle } from 'react-native';
+import { View, StyleSheet, Animated, useColorScheme, ViewStyle, DimensionValue } from 'react-native';
 
 interface ShimmerProps {
-  width?: number | string;
+  width?: DimensionValue;
   height?: number;
   borderRadius?: number;
   style?: ViewStyle;
@@ -50,7 +50,7 @@ export function Shimmer({
       style={[
         styles.container,
         {
-          width: width as any,
+          width,
           height,
           borderRadius,
           backgroundColor: baseColor,

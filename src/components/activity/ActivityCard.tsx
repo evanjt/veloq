@@ -52,7 +52,7 @@ export function ActivityCard({ activity }: ActivityCardProps) {
         <View style={styles.header}>
           <View style={[styles.iconContainer, { backgroundColor: activityColor }]}>
             <MaterialCommunityIcons
-              name={iconName as any}
+              name={iconName}
               size={20}
               color="#FFFFFF"
             />

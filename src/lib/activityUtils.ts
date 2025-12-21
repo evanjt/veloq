@@ -1,28 +1,35 @@
 import type { ActivityType } from '@/types';
+import type { ComponentProps } from 'react';
+import type { MaterialCommunityIcons } from '@expo/vector-icons';
 
-export function getActivityIcon(type: ActivityType): string {
-  const iconMap: Record<string, string> = {
-    Ride: 'bike',
-    Run: 'run',
-    Swim: 'swim',
-    OpenWaterSwim: 'swim',
-    Walk: 'walk',
-    Hike: 'hiking',
-    VirtualRide: 'bike',
-    VirtualRun: 'run',
-    Workout: 'dumbbell',
-    WeightTraining: 'weight-lifter',
-    Yoga: 'yoga',
-    Snowboard: 'snowboard',
-    AlpineSki: 'ski',
-    NordicSki: 'ski-cross-country',
-    BackcountrySki: 'ski',
-    Rowing: 'rowing',
-    Kayaking: 'kayaking',
-    Canoeing: 'kayaking',
-    Other: 'heart-pulse',
-  };
-  return iconMap[type] || 'heart-pulse';
+// Type for valid MaterialCommunityIcons names
+export type MaterialIconName = ComponentProps<typeof MaterialCommunityIcons>['name'];
+
+// Icon names used for activities - these are all valid MaterialCommunityIcons
+const ACTIVITY_ICONS = {
+  Ride: 'bike',
+  Run: 'run',
+  Swim: 'swim',
+  OpenWaterSwim: 'swim',
+  Walk: 'walk',
+  Hike: 'hiking',
+  VirtualRide: 'bike',
+  VirtualRun: 'run',
+  Workout: 'dumbbell',
+  WeightTraining: 'weight-lifter',
+  Yoga: 'yoga',
+  Snowboard: 'snowboard',
+  AlpineSki: 'ski',
+  NordicSki: 'ski-cross-country',
+  BackcountrySki: 'ski',
+  Rowing: 'rowing',
+  Kayaking: 'kayaking',
+  Canoeing: 'kayaking',
+  Other: 'heart-pulse',
+} as const satisfies Record<string, MaterialIconName>;
+
+export function getActivityIcon(type: ActivityType): MaterialIconName {
+  return ACTIVITY_ICONS[type as keyof typeof ACTIVITY_ICONS] ?? 'heart-pulse';
 }
 
 export function getActivityColor(type: ActivityType): string {

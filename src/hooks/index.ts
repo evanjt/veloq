@@ -26,3 +26,4 @@ export {
 } from './useSportSettings';
 export { useZoneDistribution } from './useZoneDistribution';
 export { useEFTPHistory, getLatestFTP } from './useEFTPHistory';
+export { useActivityBoundsCache } from './useActivityBoundsCache';
