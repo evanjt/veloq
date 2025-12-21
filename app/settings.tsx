@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { router, Href } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { SegmentedButtons } from 'react-native-paper';
 import { useAthlete, useActivityBoundsCache } from '@/hooks';
@@ -20,6 +20,7 @@ import {
   getThemePreference,
   setThemePreference,
   useMapPreferences,
+  useAuthStore,
   type ThemePreference,
 } from '@/providers';
 import { type MapStyleType } from '@/components/maps';
@@ -67,6 +68,7 @@ export default function SettingsScreen() {
 
   const { data: athlete } = useAthlete();
   const { preferences: mapPreferences, setDefaultStyle, setActivityGroupStyle } = useMapPreferences();
+  const clearCredentials = useAuthStore((state) => state.clearCredentials);
 
   // Load saved theme preference on mount
   useEffect(() => {
@@ -138,6 +140,24 @@ export default function SettingsScreen() {
         {
           text: 'Sync',
           onPress: syncAllHistory,
+        },
+      ]
+    );
+  };
+
+  const handleLogout = () => {
+    Alert.alert(
+      'Disconnect Account',
+      'This will remove your API credentials from the app. You will need to enter them again to use the app.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Disconnect',
+          style: 'destructive',
+          onPress: async () => {
+            await clearCredentials();
+            router.replace('/login' as Href);
+          },
         },
       ]
     );
@@ -401,6 +421,20 @@ export default function SettingsScreen() {
           The map cache stores activity bounds for quick access when viewing the regional map.
           Syncing all history will fetch bounds for activities up to 10 years in the background.
         </Text>
+
+        {/* Account Section */}
+        <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>ACCOUNT</Text>
+        <View style={[styles.section, isDark && styles.sectionDark]}>
+          <TouchableOpacity style={styles.actionRow} onPress={handleLogout}>
+            <MaterialCommunityIcons name="logout" size={22} color={colors.error} />
+            <Text style={[styles.actionText, styles.actionTextDanger]}>Disconnect Account</Text>
+            <MaterialCommunityIcons
+              name="chevron-right"
+              size={20}
+              color={isDark ? '#666' : colors.textSecondary}
+            />
+          </TouchableOpacity>
+        </View>
 
         {/* Support Section */}
         <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>SUPPORT</Text>

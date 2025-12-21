@@ -1,28 +1,24 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { intervalsApi } from '@/api';
 import type { PowerCurve } from '@/types';
 
 interface UsePowerCurveOptions {
   sport?: string;
-  oldest?: string;
-  newest?: string;
+  /** Number of days to include (default 365) */
+  days?: number;
   enabled?: boolean;
 }
 
 export function usePowerCurve(options: UsePowerCurveOptions = {}) {
-  const { sport, oldest, newest, enabled = true } = options;
+  const { sport = 'Ride', days = 365, enabled = true } = options;
 
   return useQuery<PowerCurve>({
-    queryKey: ['powerCurve', sport || null, oldest || null, newest || null],
-    queryFn: () => intervalsApi.getPowerCurve({
-      // Only pass sport if it's explicitly set
-      ...(sport && { sport }),
-      ...(oldest && { oldest }),
-      ...(newest && { newest }),
-    }),
+    queryKey: ['powerCurve', sport, days],
+    queryFn: () => intervalsApi.getPowerCurve({ sport, days }),
     enabled,
     staleTime: 1000 * 60 * 5, // 5 minutes
     retry: 1, // Only retry once on failure
+    placeholderData: keepPreviousData, // Keep previous data visible while fetching new range
   });
 }
 

@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet, useColorScheme, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, useColorScheme, TouchableOpacity, Linking } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors, spacing } from '@/theme';
@@ -17,7 +17,7 @@ interface Event {
 
 interface EventPlannerProps {
   events?: Event[];
-  onAddEvent?: () => void;
+  athleteId?: string;
 }
 
 function getDaysUntil(dateStr: string): number {
@@ -45,7 +45,7 @@ const TYPE_ICONS: Record<Event['type'], MaterialIconName> = {
   training: 'dumbbell',
 };
 
-export function EventPlanner({ events, onAddEvent }: EventPlannerProps) {
+export function EventPlanner({ events, athleteId }: EventPlannerProps) {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
 
@@ -55,16 +55,23 @@ export function EventPlanner({ events, onAddEvent }: EventPlannerProps) {
 
   const nextEvent = sortedEvents[0];
 
+  const openEventsPage = () => {
+    const url = athleteId
+      ? `https://intervals.icu/athlete/${athleteId}/calendar`
+      : 'https://intervals.icu';
+    Linking.openURL(url);
+  };
+
   return (
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
         <Text style={[styles.title, isDark && styles.textLight]}>Upcoming Events</Text>
-        <TouchableOpacity onPress={onAddEvent} style={styles.addButton}>
+        <TouchableOpacity onPress={openEventsPage} style={styles.addButton}>
           <MaterialCommunityIcons
-            name="plus"
-            size={18}
-            color={colors.primary}
+            name="open-in-new"
+            size={16}
+            color={isDark ? '#AAA' : colors.textSecondary}
           />
         </TouchableOpacity>
       </View>
@@ -140,7 +147,7 @@ export function EventPlanner({ events, onAddEvent }: EventPlannerProps) {
             No upcoming events
           </Text>
           <Text style={[styles.emptySubtext, isDark && styles.textDark]}>
-            Add your target races to plan training
+            Add events on intervals.icu to see them here
           </Text>
         </View>
       )}

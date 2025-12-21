@@ -47,6 +47,19 @@ export function DecouplingChart({ power, heartrate, height = 150 }: DecouplingCh
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
 
+  // All hooks must be called before any conditional returns
+  const analysis = useMemo(() => {
+    if (!power || !heartrate || power.length === 0 || heartrate.length === 0) {
+      return { firstHalfEf: 0, secondHalfEf: 0, decoupling: 0, isGood: true };
+    }
+    return calculateDecoupling(power, heartrate);
+  }, [power, heartrate]);
+
+  const midpoint = useMemo(() => {
+    if (!power) return 0;
+    return Math.floor(power.length / 2);
+  }, [power]);
+
   // Show empty state if no data
   if (!power || !heartrate || power.length === 0 || heartrate.length === 0) {
     return (
@@ -65,19 +78,6 @@ export function DecouplingChart({ power, heartrate, height = 150 }: DecouplingCh
       </View>
     );
   }
-
-  const analysis = useMemo(
-    () => calculateDecoupling(power, heartrate),
-    [power, heartrate]
-  );
-
-  // Calculate min/max for scaling
-  const hrMin = Math.min(...heartrate);
-  const hrMax = Math.max(...heartrate);
-  const powerMin = Math.min(...power);
-  const powerMax = Math.max(...power);
-
-  const midpoint = Math.floor(power.length / 2);
 
   return (
     <View style={styles.container}>

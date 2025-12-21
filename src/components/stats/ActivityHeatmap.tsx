@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { View, StyleSheet, useColorScheme } from 'react-native';
+import { View, StyleSheet, useColorScheme, ScrollView } from 'react-native';
 import { Text } from 'react-native-paper';
 import { colors, spacing } from '@/theme';
 import type { Activity } from '@/types';
@@ -129,62 +129,71 @@ export function ActivityHeatmap({
         </Text>
       </View>
 
-      {/* Month labels */}
-      <View style={[styles.monthLabels, { width: gridWidth, marginLeft: 24 }]}>
-        {monthLabels.map((m, idx) => (
-          <Text
-            key={idx}
-            style={[
-              styles.monthLabel,
-              isDark && styles.textDark,
-              { left: m.col * (cellSize + cellGap) },
-            ]}
-          >
-            {m.month}
-          </Text>
-        ))}
-      </View>
+      {/* Scrollable heatmap container */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+      >
+        <View>
+          {/* Month labels */}
+          <View style={[styles.monthLabels, { width: gridWidth, marginLeft: 24 }]}>
+            {monthLabels.map((m, idx) => (
+              <Text
+                key={idx}
+                style={[
+                  styles.monthLabel,
+                  isDark && styles.textDark,
+                  { left: m.col * (cellSize + cellGap) },
+                ]}
+              >
+                {m.month}
+              </Text>
+            ))}
+          </View>
 
-      {/* Grid with day labels */}
-      <View style={styles.gridContainer}>
-        {/* Day labels */}
-        <View style={styles.dayLabels}>
-          {DAYS.map((day, idx) => (
-            <Text
-              key={idx}
-              style={[
-                styles.dayLabel,
-                isDark && styles.textDark,
-                { height: cellSize + cellGap },
-              ]}
-            >
-              {day}
-            </Text>
-          ))}
-        </View>
-
-        {/* Heatmap grid */}
-        <View style={styles.grid}>
-          {grid.map((week, wIdx) => (
-            <View key={wIdx} style={styles.weekColumn}>
-              {week.map((day, dIdx) => (
-                <View
-                  key={`${wIdx}-${dIdx}`}
+          {/* Grid with day labels */}
+          <View style={styles.gridContainer}>
+            {/* Day labels */}
+            <View style={styles.dayLabels}>
+              {DAYS.map((day, idx) => (
+                <Text
+                  key={idx}
                   style={[
-                    styles.cell,
-                    {
-                      width: cellSize,
-                      height: cellSize,
-                      backgroundColor: intensityColors[day.intensity],
-                      marginBottom: cellGap,
-                    },
+                    styles.dayLabel,
+                    isDark && styles.textDark,
+                    { height: cellSize + cellGap },
                   ]}
-                />
+                >
+                  {day}
+                </Text>
               ))}
             </View>
-          ))}
+
+            {/* Heatmap grid */}
+            <View style={styles.grid}>
+              {grid.map((week, wIdx) => (
+                <View key={wIdx} style={styles.weekColumn}>
+                  {week.map((day, dIdx) => (
+                    <View
+                      key={`${wIdx}-${dIdx}`}
+                      style={[
+                        styles.cell,
+                        {
+                          width: cellSize,
+                          height: cellSize,
+                          backgroundColor: intensityColors[day.intensity],
+                          marginBottom: cellGap,
+                        },
+                      ]}
+                    />
+                  ))}
+                </View>
+              ))}
+            </View>
+          </View>
         </View>
-      </View>
+      </ScrollView>
 
       {/* Legend */}
       <View style={styles.legend}>
@@ -223,6 +232,9 @@ const styles = StyleSheet.create({
   },
   textDark: {
     color: '#AAA',
+  },
+  scrollContent: {
+    paddingRight: spacing.md,
   },
   monthLabels: {
     height: 16,

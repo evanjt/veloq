@@ -58,8 +58,10 @@ export default function FeedScreen() {
     const hrv = latest?.hrv ?? null;
     const rhr = latest?.restingHR ?? null;
 
-    // Calculate trends (compare to previous day)
+    // Calculate previous day's values for trends
     const prevFitness = Math.round(previous?.ctl ?? previous?.ctlLoad ?? fitness);
+    const prevFatigue = Math.round(previous?.atl ?? previous?.atlLoad ?? fatigue);
+    const prevForm = prevFitness - prevFatigue;
     const prevHrv = previous?.hrv ?? hrv;
     const prevRhr = previous?.restingHR ?? rhr;
 
@@ -71,27 +73,52 @@ export default function FeedScreen() {
     };
 
     const fitnessTrend = getTrend(fitness, prevFitness, 1);
+    const formTrend = getTrend(form, prevForm, 2);
     const hrvTrend = getTrend(hrv, prevHrv, 2);
     const rhrTrend = getTrend(rhr, prevRhr, 1);
 
     // Calculate week totals from activities
     const weekMs = 7 * 24 * 60 * 60 * 1000;
-    const weekAgo = new Date(Date.now() - weekMs);
+    const now = Date.now();
+    const weekAgo = new Date(now - weekMs);
+    const twoWeeksAgo = new Date(now - weekMs * 2);
+
+    // Current week activities
     const weekActivities = activities?.filter(a => new Date(a.start_date_local) >= weekAgo) ?? [];
     const weekCount = weekActivities.length;
     const weekSeconds = weekActivities.reduce((sum, a) => sum + (a.moving_time || 0), 0);
     const weekHours = Math.round(weekSeconds / 3600 * 10) / 10;
 
-    // Get latest FTP from activities
-    const ftp = getLatestFTP(activities);
+    // Previous week activities for trend
+    const prevWeekActivities = activities?.filter(a => {
+      const date = new Date(a.start_date_local);
+      return date >= twoWeeksAgo && date < weekAgo;
+    }) ?? [];
+    const prevWeekCount = prevWeekActivities.length;
+    const prevWeekSeconds = prevWeekActivities.reduce((sum, a) => sum + (a.moving_time || 0), 0);
+    const prevWeekHours = Math.round(prevWeekSeconds / 3600 * 10) / 10;
+
+    const weekHoursTrend = getTrend(weekHours, prevWeekHours, 0.5);
+    const weekCountTrend = getTrend(weekCount, prevWeekCount, 1);
+
+    // Get latest FTP from activities with trend
+    const ftp = getLatestFTP(activities) ?? null;
+    // Get FTP from ~30 days ago for trend
+    const thirtyDaysAgo = new Date(now - 30 * 24 * 60 * 60 * 1000);
+    const olderActivitiesWithFtp = activities?.filter(a =>
+      new Date(a.start_date_local) <= thirtyDaysAgo && a.icu_ftp
+    ).sort((a, b) => new Date(b.start_date_local).getTime() - new Date(a.start_date_local).getTime()) ?? [];
+    const prevFtp = olderActivitiesWithFtp[0]?.icu_ftp ?? ftp;
+    const ftpTrend = getTrend(ftp, prevFtp, 3);
 
     return {
       fitness, fitnessTrend,
-      form,
+      form, formTrend,
       hrv, hrvTrend,
       rhr, rhrTrend,
-      weekHours, weekCount,
-      ftp
+      weekHours, weekHoursTrend,
+      weekCount, weekCountTrend,
+      ftp, ftpTrend
     };
   }, [wellnessData, activities]);
 
@@ -137,30 +164,6 @@ export default function FeedScreen() {
 
         {/* Separate pill buttons for each page */}
         <View style={styles.pillRow}>
-          {/* Fitness + Form → Fitness page */}
-          <TouchableOpacity
-            style={[styles.pill, isDark && styles.pillDark]}
-            onPress={navigateToFitness}
-            activeOpacity={0.7}
-          >
-            <View style={styles.pillItem}>
-              <Text style={[styles.pillLabel, isDark && styles.textDark]}>Fit</Text>
-              <Text style={[styles.pillValue, { color: '#42A5F5' }]}>
-                {quickStats.fitness}
-                {quickStats.fitnessTrend && (
-                  <Text style={styles.trendArrow}>{quickStats.fitnessTrend}</Text>
-                )}
-              </Text>
-            </View>
-            <Text style={[styles.pillDivider, isDark && styles.pillDividerDark]}>|</Text>
-            <View style={styles.pillItem}>
-              <Text style={[styles.pillLabel, isDark && styles.textDark]}>Form</Text>
-              <Text style={[styles.pillValue, { color: formColor }]}>
-                {quickStats.form > 0 ? '+' : ''}{quickStats.form}
-              </Text>
-            </View>
-          </TouchableOpacity>
-
           {/* HRV + RHR → Wellness page */}
           <TouchableOpacity
             style={[styles.pill, isDark && styles.pillDark]}
@@ -202,6 +205,9 @@ export default function FeedScreen() {
               <Text style={[styles.pillLabel, isDark && styles.textDark]}>Week</Text>
               <Text style={[styles.pillValue, isDark && styles.textLight]}>
                 {quickStats.weekHours}h
+                {quickStats.weekHoursTrend && (
+                  <Text style={styles.trendArrow}>{quickStats.weekHoursTrend}</Text>
+                )}
               </Text>
             </View>
             <Text style={[styles.pillDivider, isDark && styles.pillDividerDark]}>|</Text>
@@ -209,6 +215,9 @@ export default function FeedScreen() {
               <Text style={[styles.pillLabel, isDark && styles.textDark]}>Acts</Text>
               <Text style={[styles.pillValueSmall, isDark && styles.textDark]}>
                 {quickStats.weekCount}
+                {quickStats.weekCountTrend && (
+                  <Text style={styles.trendArrowSmall}>{quickStats.weekCountTrend}</Text>
+                )}
               </Text>
             </View>
           </TouchableOpacity>
@@ -223,6 +232,36 @@ export default function FeedScreen() {
               <Text style={[styles.pillLabel, isDark && styles.textDark]}>FTP</Text>
               <Text style={[styles.pillValue, { color: '#5B9BD5' }]}>
                 {quickStats.ftp ? `${quickStats.ftp}W` : '-'}
+                {quickStats.ftpTrend && (
+                  <Text style={styles.trendArrow}>{quickStats.ftpTrend}</Text>
+                )}
+              </Text>
+            </View>
+          </TouchableOpacity>
+
+          {/* Fitness + Form → Fitness page (rightmost) */}
+          <TouchableOpacity
+            style={[styles.pill, isDark && styles.pillDark]}
+            onPress={navigateToFitness}
+            activeOpacity={0.7}
+          >
+            <View style={styles.pillItem}>
+              <Text style={[styles.pillLabel, isDark && styles.textDark]}>Fit</Text>
+              <Text style={[styles.pillValue, { color: '#42A5F5' }]}>
+                {quickStats.fitness}
+                {quickStats.fitnessTrend && (
+                  <Text style={styles.trendArrow}>{quickStats.fitnessTrend}</Text>
+                )}
+              </Text>
+            </View>
+            <Text style={[styles.pillDivider, isDark && styles.pillDividerDark]}>|</Text>
+            <View style={styles.pillItem}>
+              <Text style={[styles.pillLabel, isDark && styles.textDark]}>Form</Text>
+              <Text style={[styles.pillValue, { color: formColor }]}>
+                {quickStats.form > 0 ? '+' : ''}{quickStats.form}
+                {quickStats.formTrend && (
+                  <Text style={styles.trendArrow}>{quickStats.formTrend}</Text>
+                )}
               </Text>
             </View>
           </TouchableOpacity>

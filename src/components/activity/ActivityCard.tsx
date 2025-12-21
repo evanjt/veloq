@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, StyleSheet, Pressable, useColorScheme } from 'react-native';
-import { Text, Surface } from 'react-native-paper';
+import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import type { Activity } from '@/types';
@@ -15,10 +15,17 @@ import {
   formatCalories,
   getActivityIcon,
   getActivityColor,
-  isRunningActivity,
 } from '@/lib';
-import { colors, spacing, layout, typography } from '@/theme';
+import { colors, spacing, layout } from '@/theme';
 import { ActivityMapPreview } from './ActivityMapPreview';
+
+function formatLocation(activity: Activity): string | null {
+  if (!activity.locality) return null;
+  if (activity.country) {
+    return `${activity.locality}, ${activity.country}`;
+  }
+  return activity.locality;
+}
 
 interface ActivityCardProps {
   activity: Activity;
@@ -34,7 +41,7 @@ export function ActivityCard({ activity }: ActivityCardProps) {
 
   const activityColor = getActivityColor(activity.type);
   const iconName = getActivityIcon(activity.type);
-  const showPace = isRunningActivity(activity.type);
+  const location = formatLocation(activity);
 
   return (
     <Pressable
@@ -64,8 +71,9 @@ export function ActivityCard({ activity }: ActivityCardProps) {
             >
               {activity.name}
             </Text>
-            <Text style={[styles.date, isDark && styles.dateDark]}>
+            <Text style={[styles.date, isDark && styles.dateDark]} numberOfLines={1}>
               {formatRelativeDate(activity.start_date_local)}
+              {location && ` · ${location}`}
             </Text>
           </View>
         </View>

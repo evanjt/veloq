@@ -30,7 +30,8 @@ export function formatSpeed(metersPerSecond: number): string {
   return `${kmh.toFixed(1)} km/h`;
 }
 
-export function formatElevation(meters: number): string {
+export function formatElevation(meters: number | undefined | null): string {
+  if (meters == null || isNaN(meters)) return '0 m';
   return `${Math.round(meters)} m`;
 }
 

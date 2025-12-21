@@ -31,23 +31,9 @@ export function FTPTrendChart({
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
 
-  // Show empty state if no data
-  if (!data || data.length === 0) {
-    return (
-      <View style={[styles.container, { height }]}>
-        <View style={styles.emptyState}>
-          <Text style={[styles.emptyText, isDark && styles.textDark]}>
-            No FTP data available
-          </Text>
-          <Text style={[styles.emptyHint, isDark && styles.textDark]}>
-            Complete power-based activities to see your FTP trend
-          </Text>
-        </View>
-      </View>
-    );
-  }
-
+  // All hooks must be called before any conditional returns
   const chartData = useMemo(() => {
+    if (!data || data.length === 0) return [];
     return data.map((d, idx) => ({
       x: idx,
       y: d.eftp,
@@ -76,6 +62,22 @@ export function FTPTrendChart({
   }, [chartData, currentFTP]);
 
   const isImproving = ftpChange >= 0;
+
+  // Show empty state if no data
+  if (!data || data.length === 0) {
+    return (
+      <View style={[styles.container, { height }]}>
+        <View style={styles.emptyState}>
+          <Text style={[styles.emptyText, isDark && styles.textDark]}>
+            No FTP data available
+          </Text>
+          <Text style={[styles.emptyHint, isDark && styles.textDark]}>
+            Complete power-based activities to see your FTP trend
+          </Text>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.container, { height }]}>

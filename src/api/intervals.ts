@@ -63,9 +63,21 @@ export const intervalsApi = {
     return response.data;
   },
 
+  /**
+   * Get the current authenticated athlete using /athlete/me
+   * This endpoint works with just the API key (no athlete ID needed)
+   * Used during login to discover the athlete ID
+   */
+  async getCurrentAthlete(): Promise<Athlete> {
+    const response = await apiClient.get('/athlete/me');
+    return response.data;
+  },
+
   async getActivities(params?: {
     oldest?: string;
     newest?: string;
+    /** Include additional fields for stats (eFTP, zone times, etc.) */
+    includeStats?: boolean;
   }): Promise<Activity[]> {
     const athleteId = getAthleteId();
 
@@ -74,9 +86,30 @@ export const intervalsApi = {
     const thirtyDaysAgo = new Date(today);
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
+    // Base fields always included (most important for activity list)
+    const baseFields = [
+      'id', 'name', 'type', 'start_date_local', 'moving_time', 'elapsed_time',
+      'distance', 'total_elevation_gain', 'average_speed', 'max_speed',
+      'icu_average_hr', 'icu_max_hr', 'average_heartrate', 'average_watts', 'max_watts', 'icu_average_watts',
+      'average_cadence', 'calories', 'polyline', 'icu_training_load',
+      'has_weather', 'average_weather_temp', 'icu_ftp', 'stream_types',
+      'locality', 'country', // Location info
+    ];
+
+    // Stats fields for performance/stats page
+    // Note: icu_zone_times = power zones, icu_hr_zone_times = HR zones, icu_pm_ftp_watts = eFTP
+    const statsFields = [
+      'icu_pm_ftp_watts', 'icu_zone_times', 'icu_hr_zone_times', 'icu_power_zones', 'icu_hr_zones',
+    ];
+
+    const fields = params?.includeStats
+      ? [...baseFields, ...statsFields].join(',')
+      : baseFields.join(',');
+
     const queryParams = {
       oldest: params?.oldest || formatLocalDate(thirtyDaysAgo),
       newest: params?.newest || formatLocalDate(today),
+      fields,
     };
 
     const response = await apiClient.get(`/athlete/${athleteId}/activities`, {
@@ -127,34 +160,31 @@ export const intervalsApi = {
   /**
    * Get power curve (best efforts) for the athlete
    * @param sport - Sport type filter (e.g., 'Ride', 'Run')
-   * @param oldest - Start date (YYYY-MM-DD)
-   * @param newest - End date (YYYY-MM-DD)
+   * @param days - Number of days to include (default 365)
    */
   async getPowerCurve(params?: {
     sport?: string;
-    oldest?: string;
-    newest?: string;
+    days?: number;
   }): Promise<PowerCurve> {
     const athleteId = getAthleteId();
+    const sportType = params?.sport || 'Ride';
+    // Use curves parameter: 1y = 1 year, 90d = 90 days, etc.
+    const curvesParam = params?.days ? `${params.days}d` : '1y';
 
-    // Default to this season (current year) if no dates
-    const today = new Date();
-    const yearStart = new Date(today.getFullYear(), 0, 1);
+    // Response format: { list: [{ secs: [], values: [], ... }], activities: {} }
+    const response = await apiClient.get<{ list: Array<{ secs: number[]; values: number[] }> }>(
+      `/athlete/${athleteId}/power-curves.json`,
+      { params: { type: sportType, curves: curvesParam } }
+    );
 
-    const queryParams: Record<string, string> = {
-      oldest: params?.oldest || formatLocalDate(yearStart),
-      newest: params?.newest || formatLocalDate(today),
-    };
+    // Extract first curve from list and convert to our format
+    const curve = response.data?.list?.[0];
 
-    // Only add sport filter if explicitly provided (API may not support it)
-    if (params?.sport) {
-      queryParams.type = params.sport; // Try 'type' instead of 'sport'
-    }
-
-    const response = await apiClient.get<PowerCurve>(`/athlete/${athleteId}/power-curves`, {
-      params: queryParams,
-    });
-    return response.data;
+    // Return in expected format with watts (values renamed to watts for consistency)
+    return {
+      secs: curve?.secs || [],
+      watts: curve?.values || [],
+    } as PowerCurve;
   },
 
   /**

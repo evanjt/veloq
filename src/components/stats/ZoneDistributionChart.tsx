@@ -39,10 +39,27 @@ export function ZoneDistributionChart({
 
   const displayTitle = title || (type === 'power' ? 'Power Zones' : 'Heart Rate Zones');
 
+  // All hooks must be called before any conditional returns
+  // Calculate percentages if data is provided
+  const processedData = useMemo(() => {
+    if (!data || data.length === 0) return [];
+    const totalSeconds = data.reduce((sum, d) => sum + d.seconds, 0);
+    return data.map(d => ({
+      ...d,
+      percentage: totalSeconds > 0 ? Math.round((d.seconds / totalSeconds) * 100) : 0,
+    }));
+  }, [data]);
+
+  // Find max for bar scaling
+  const maxPercentage = useMemo(() => {
+    if (processedData.length === 0) return 1;
+    return Math.max(...processedData.map(d => d.percentage), 1);
+  }, [processedData]);
+
   // Show empty state if no data
   if (!data || data.length === 0) {
     return (
-      <View style={[styles.container, { height }]}>
+      <View style={styles.container}>
         <View style={styles.header}>
           <Text style={[styles.title, isDark && styles.textLight]}>{displayTitle}</Text>
           <Text style={[styles.subtitle, isDark && styles.textDark]}>{periodLabel}</Text>
@@ -59,22 +76,8 @@ export function ZoneDistributionChart({
     );
   }
 
-  const chartData = data;
-
-  // Calculate percentages if not provided
-  const processedData = useMemo(() => {
-    const totalSeconds = chartData.reduce((sum, d) => sum + d.seconds, 0);
-    return chartData.map(d => ({
-      ...d,
-      percentage: totalSeconds > 0 ? Math.round((d.seconds / totalSeconds) * 100) : 0,
-    }));
-  }, [chartData]);
-
-  // Find max for bar scaling
-  const maxPercentage = Math.max(...processedData.map(d => d.percentage), 1);
-
   return (
-    <View style={[styles.container, { height }]}>
+    <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
         <Text style={[styles.title, isDark && styles.textLight]}>{displayTitle}</Text>
@@ -152,8 +155,7 @@ const styles = StyleSheet.create({
     color: '#AAA',
   },
   barsContainer: {
-    flex: 1,
-    justifyContent: 'space-around',
+    marginBottom: spacing.sm,
   },
   barRow: {
     flexDirection: 'row',
@@ -205,7 +207,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: spacing.sm,
+    marginTop: spacing.md,
     paddingTop: spacing.sm,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.border,

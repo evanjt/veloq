@@ -33,7 +33,8 @@
       "expo-router",
       "expo-localization",
       "@maplibre/maplibre-react-native",
-      "expo-web-browser"
+      "expo-web-browser",
+      "expo-secure-store"
     ],
     "experiments": {
       "typedRoutes": true

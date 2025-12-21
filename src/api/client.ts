@@ -1,12 +1,10 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
+import { getStoredCredentials } from '@/providers';
 
 // Extended config type to track retry count
 interface RetryableAxiosRequestConfig extends InternalAxiosRequestConfig {
   __retryCount?: number;
 }
-
-const API_KEY = process.env.EXPO_PUBLIC_API_KEY || '';
-const ATHLETE_ID = process.env.EXPO_PUBLIC_ATHLETE_ID || '';
 
 export const apiClient = axios.create({
   baseURL: 'https://intervals.icu/api/v1',
@@ -14,10 +12,17 @@ export const apiClient = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
-  auth: {
-    username: 'API_KEY',
-    password: API_KEY,
-  },
+});
+
+// Add auth header dynamically from secure store
+apiClient.interceptors.request.use((config) => {
+  const { apiKey } = getStoredCredentials();
+  if (apiKey) {
+    // Basic auth with "API_KEY" as username and actual key as password
+    const encoded = btoa(`API_KEY:${apiKey}`);
+    config.headers.Authorization = `Basic ${encoded}`;
+  }
+  return config;
 });
 
 // Rate limiting configuration
@@ -92,4 +97,7 @@ apiClient.interceptors.response.use(
   }
 );
 
-export const getAthleteId = () => ATHLETE_ID;
+export const getAthleteId = () => {
+  const { athleteId } = getStoredCredentials();
+  return athleteId || '';
+};

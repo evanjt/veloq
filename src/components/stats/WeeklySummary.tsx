@@ -1,19 +1,23 @@
-import React, { useMemo } from 'react';
-import { View, StyleSheet, useColorScheme } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { View, StyleSheet, useColorScheme, TouchableOpacity } from 'react-native';
 import { Text } from 'react-native-paper';
-import { colors, spacing, typography } from '@/theme';
+import { colors, spacing } from '@/theme';
 import type { Activity } from '@/types';
 
+type TimeRange = 'week' | 'month' | '3m' | '6m' | 'year';
+
 interface WeeklySummaryProps {
-  /** Activities for the current week */
+  /** All activities (component will filter based on selected time range) */
   activities?: Activity[];
-  /** Total training load (TSS) for the week */
-  weeklyTSS?: number;
-  /** Previous week's TSS for comparison */
-  previousWeekTSS?: number;
-  /** Acute:Chronic ratio (if available) */
-  acuteChronicRatio?: number;
 }
+
+const TIME_RANGES: { id: TimeRange; label: string }[] = [
+  { id: 'week', label: 'Week' },
+  { id: 'month', label: 'Month' },
+  { id: '3m', label: '3M' },
+  { id: '6m', label: '6M' },
+  { id: 'year', label: 'Year' },
+];
 
 function formatDuration(seconds: number): string {
   const hours = Math.floor(seconds / 3600);
@@ -29,104 +33,224 @@ function formatDistance(meters: number): string {
   return `${km.toFixed(1)} km`;
 }
 
-export function WeeklySummary({
-  activities,
-  weeklyTSS,
-  previousWeekTSS,
-  acuteChronicRatio,
-}: WeeklySummaryProps) {
+function getTimeRangeLabel(range: TimeRange): { current: string; previous: string } {
+  switch (range) {
+    case 'week':
+      return { current: 'This Week', previous: 'vs last week' };
+    case 'month':
+      return { current: 'This Month', previous: 'vs last month' };
+    case '3m':
+      return { current: 'Last 3 Months', previous: 'vs previous 3 months' };
+    case '6m':
+      return { current: 'Last 6 Months', previous: 'vs previous 6 months' };
+    case 'year':
+      return { current: 'This Year', previous: 'vs last year' };
+  }
+}
+
+function getDateRanges(range: TimeRange): { currentStart: Date; currentEnd: Date; previousStart: Date; previousEnd: Date } {
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+  switch (range) {
+    case 'week': {
+      // Current week (last 7 days)
+      const currentStart = new Date(today);
+      currentStart.setDate(currentStart.getDate() - 6);
+      const currentEnd = today;
+      // Previous week (7-14 days ago)
+      const previousStart = new Date(currentStart);
+      previousStart.setDate(previousStart.getDate() - 7);
+      const previousEnd = new Date(currentStart);
+      previousEnd.setDate(previousEnd.getDate() - 1);
+      return { currentStart, currentEnd, previousStart, previousEnd };
+    }
+    case 'month': {
+      // Current month
+      const currentStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      const currentEnd = today;
+      // Previous month
+      const previousStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const previousEnd = new Date(now.getFullYear(), now.getMonth(), 0);
+      return { currentStart, currentEnd, previousStart, previousEnd };
+    }
+    case '3m': {
+      // Last 3 months
+      const currentStart = new Date(now.getFullYear(), now.getMonth() - 2, 1);
+      const currentEnd = today;
+      // Previous 3 months
+      const previousStart = new Date(now.getFullYear(), now.getMonth() - 5, 1);
+      const previousEnd = new Date(now.getFullYear(), now.getMonth() - 2, 0);
+      return { currentStart, currentEnd, previousStart, previousEnd };
+    }
+    case '6m': {
+      // Last 6 months
+      const currentStart = new Date(now.getFullYear(), now.getMonth() - 5, 1);
+      const currentEnd = today;
+      // Previous 6 months
+      const previousStart = new Date(now.getFullYear(), now.getMonth() - 11, 1);
+      const previousEnd = new Date(now.getFullYear(), now.getMonth() - 5, 0);
+      return { currentStart, currentEnd, previousStart, previousEnd };
+    }
+    case 'year': {
+      // This year
+      const currentStart = new Date(now.getFullYear(), 0, 1);
+      const currentEnd = today;
+      // Last year
+      const previousStart = new Date(now.getFullYear() - 1, 0, 1);
+      const previousEnd = new Date(now.getFullYear() - 1, 11, 31);
+      return { currentStart, currentEnd, previousStart, previousEnd };
+    }
+  }
+}
+
+function filterActivities(activities: Activity[], start: Date, end: Date): Activity[] {
+  return activities.filter(a => {
+    const date = new Date(a.start_date_local);
+    return date >= start && date <= end;
+  });
+}
+
+function calculateStats(activities: Activity[]) {
+  const count = activities.length;
+  const duration = activities.reduce((sum, a) => sum + (a.moving_time || 0), 0);
+  const distance = activities.reduce((sum, a) => sum + (a.distance || 0), 0);
+  const tss = Math.round(activities.reduce((sum, a) => sum + (a.icu_training_load || 0), 0));
+  return { count, duration, distance, tss };
+}
+
+export function WeeklySummary({ activities }: WeeklySummaryProps) {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
+  const [timeRange, setTimeRange] = useState<TimeRange>('week');
 
-  // Show empty state if no activities
-  if (!activities || activities.length === 0) {
+  const { currentStats, previousStats, labels } = useMemo(() => {
+    if (!activities || activities.length === 0) {
+      return {
+        currentStats: { count: 0, duration: 0, distance: 0, tss: 0 },
+        previousStats: { count: 0, duration: 0, distance: 0, tss: 0 },
+        labels: getTimeRangeLabel(timeRange),
+      };
+    }
+
+    const ranges = getDateRanges(timeRange);
+    const currentActivities = filterActivities(activities, ranges.currentStart, ranges.currentEnd);
+    const previousActivities = filterActivities(activities, ranges.previousStart, ranges.previousEnd);
+
+    return {
+      currentStats: calculateStats(currentActivities),
+      previousStats: calculateStats(previousActivities),
+      labels: getTimeRangeLabel(timeRange),
+    };
+  }, [activities, timeRange]);
+
+  const tssChange = previousStats.tss > 0
+    ? ((currentStats.tss - previousStats.tss) / previousStats.tss) * 100
+    : 0;
+
+  const isLoadIncreasing = tssChange > 0;
+
+  // Show empty state if no activities in current period
+  if (currentStats.count === 0) {
     return (
       <View style={styles.container}>
         <View style={styles.header}>
-          <Text style={[styles.title, isDark && styles.textLight]}>This Week</Text>
+          <Text style={[styles.title, isDark && styles.textLight]}>{labels.current}</Text>
+          <View style={styles.timeRangeSelector}>
+            {TIME_RANGES.map((range) => (
+              <TouchableOpacity
+                key={range.id}
+                style={[
+                  styles.timeRangeButton,
+                  isDark && styles.timeRangeButtonDark,
+                  timeRange === range.id && styles.timeRangeButtonActive,
+                ]}
+                onPress={() => setTimeRange(range.id)}
+              >
+                <Text
+                  style={[
+                    styles.timeRangeText,
+                    isDark && styles.textDark,
+                    timeRange === range.id && styles.timeRangeTextActive,
+                  ]}
+                >
+                  {range.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
         </View>
         <View style={styles.emptyState}>
           <Text style={[styles.emptyText, isDark && styles.textDark]}>
-            No activities this week
-          </Text>
-          <Text style={[styles.emptyHint, isDark && styles.textDark]}>
-            Complete activities to see your weekly summary
+            No activities in this period
           </Text>
         </View>
       </View>
     );
   }
 
-  const stats = useMemo(() => {
-    const count = activities.length;
-    const duration = activities.reduce((sum, a) => sum + (a.moving_time || 0), 0);
-    const distance = activities.reduce((sum, a) => sum + (a.distance || 0), 0);
-
-    return {
-      activities: count,
-      duration,
-      distance,
-      tss: weeklyTSS || 0,
-      previousTss: previousWeekTSS || 0,
-      acuteChronicRatio: acuteChronicRatio || 0,
-    };
-  }, [activities, weeklyTSS, previousWeekTSS, acuteChronicRatio]);
-
-  const tssChange = stats.previousTss > 0
-    ? ((stats.tss - stats.previousTss) / stats.previousTss) * 100
-    : 0;
-
-  const isLoadIncreasing = tssChange > 0;
-
-  // Acute:Chronic ratio warnings
-  const getACRStatus = (ratio: number) => {
-    if (ratio < 0.8) return { color: colors.warning, text: 'Undertrained', icon: '⚠️' };
-    if (ratio > 1.5) return { color: colors.error, text: 'High injury risk', icon: '🔴' };
-    if (ratio > 1.3) return { color: colors.warning, text: 'Elevated load', icon: '⚠️' };
-    return { color: colors.success, text: 'Optimal range', icon: '✓' };
-  };
-
-  const acrStatus = stats.acuteChronicRatio > 0 ? getACRStatus(stats.acuteChronicRatio) : null;
-
   return (
     <View style={styles.container}>
-      {/* Header */}
+      {/* Header with time range selector */}
       <View style={styles.header}>
-        <Text style={[styles.title, isDark && styles.textLight]}>This Week</Text>
+        <Text style={[styles.title, isDark && styles.textLight]}>{labels.current}</Text>
+        <View style={styles.timeRangeSelector}>
+          {TIME_RANGES.map((range) => (
+            <TouchableOpacity
+              key={range.id}
+              style={[
+                styles.timeRangeButton,
+                isDark && styles.timeRangeButtonDark,
+                timeRange === range.id && styles.timeRangeButtonActive,
+              ]}
+              onPress={() => setTimeRange(range.id)}
+            >
+              <Text
+                style={[
+                  styles.timeRangeText,
+                  isDark && styles.textDark,
+                  timeRange === range.id && styles.timeRangeTextActive,
+                ]}
+              >
+                {range.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
       </View>
 
       {/* Stats grid */}
       <View style={styles.statsGrid}>
         <View style={styles.statItem}>
-          <Text style={[styles.statValue, isDark && styles.textLight]}>{stats.activities}</Text>
+          <Text style={[styles.statValue, isDark && styles.textLight]}>{currentStats.count}</Text>
           <Text style={[styles.statLabel, isDark && styles.textDark]}>Activities</Text>
         </View>
 
         <View style={styles.statItem}>
           <Text style={[styles.statValue, isDark && styles.textLight]}>
-            {formatDuration(stats.duration)}
+            {formatDuration(currentStats.duration)}
           </Text>
           <Text style={[styles.statLabel, isDark && styles.textDark]}>Duration</Text>
         </View>
 
         <View style={styles.statItem}>
           <Text style={[styles.statValue, isDark && styles.textLight]}>
-            {formatDistance(stats.distance)}
+            {formatDistance(currentStats.distance)}
           </Text>
           <Text style={[styles.statLabel, isDark && styles.textDark]}>Distance</Text>
         </View>
 
         <View style={styles.statItem}>
-          <Text style={[styles.statValue, isDark && styles.textLight]}>{stats.tss}</Text>
+          <Text style={[styles.statValue, isDark && styles.textLight]}>{currentStats.tss}</Text>
           <Text style={[styles.statLabel, isDark && styles.textDark]}>Load (TSS)</Text>
         </View>
       </View>
 
-      {/* Comparison with last week */}
-      {stats.previousTss > 0 && (
+      {/* Comparison with previous period */}
+      {previousStats.tss > 0 && (
         <View style={styles.comparisonRow}>
           <Text style={[styles.comparisonLabel, isDark && styles.textDark]}>
-            vs last week
+            {labels.previous}
           </Text>
           <Text
             style={[
@@ -138,15 +262,6 @@ export function WeeklySummary({
           </Text>
         </View>
       )}
-
-      {/* Acute:Chronic ratio warning */}
-      {acrStatus && (
-        <View style={[styles.warningBox, { borderColor: acrStatus.color }]}>
-          <Text style={[styles.warningText, { color: acrStatus.color }]}>
-            {acrStatus.icon} A:C Ratio {stats.acuteChronicRatio.toFixed(2)} - {acrStatus.text}
-          </Text>
-        </View>
-      )}
     </View>
   );
 }
@@ -154,10 +269,13 @@ export function WeeklySummary({
 const styles = StyleSheet.create({
   container: {},
   header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: spacing.md,
   },
   title: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '700',
     color: colors.textPrimary,
   },
@@ -166,6 +284,30 @@ const styles = StyleSheet.create({
   },
   textDark: {
     color: '#AAA',
+  },
+  timeRangeSelector: {
+    flexDirection: 'row',
+    gap: 4,
+  },
+  timeRangeButton: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    backgroundColor: 'rgba(0, 0, 0, 0.05)',
+  },
+  timeRangeButtonDark: {
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  timeRangeButtonActive: {
+    backgroundColor: colors.primary,
+  },
+  timeRangeText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: colors.textSecondary,
+  },
+  timeRangeTextActive: {
+    color: '#FFFFFF',
   },
   statsGrid: {
     flexDirection: 'row',
@@ -203,18 +345,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
   },
-  warningBox: {
-    marginTop: spacing.sm,
-    padding: spacing.sm,
-    borderRadius: 8,
-    borderWidth: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.02)',
-  },
-  warningText: {
-    fontSize: 12,
-    fontWeight: '500',
-    textAlign: 'center',
-  },
   emptyState: {
     alignItems: 'center',
     paddingVertical: spacing.xl,
@@ -222,11 +352,5 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 14,
     color: colors.textSecondary,
-    marginBottom: spacing.xs,
-  },
-  emptyHint: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    textAlign: 'center',
   },
 });

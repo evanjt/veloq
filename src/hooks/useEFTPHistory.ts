@@ -4,17 +4,19 @@ import type { Activity, eFTPPoint } from '@/types';
 /**
  * Extract eFTP history from activities
  * Returns activities that have eFTP estimates, formatted for the chart
+ *
+ * Note: API uses icu_pm_ftp_watts for estimated FTP from activity
  */
 export function useEFTPHistory(activities: Activity[] | undefined): eFTPPoint[] | undefined {
   return useMemo(() => {
     if (!activities || activities.length === 0) return undefined;
 
-    // Filter activities that have eFTP estimates
+    // Filter activities that have eFTP estimates (icu_pm_ftp_watts)
     const withEFTP = activities
-      .filter(a => a.icu_eftp && a.icu_eftp > 0)
+      .filter(a => a.icu_pm_ftp_watts && a.icu_pm_ftp_watts > 0)
       .map(a => ({
         date: a.start_date_local.split('T')[0], // ISO date only
-        eftp: a.icu_eftp!,
+        eftp: a.icu_pm_ftp_watts!,
         activity_id: a.id,
         activity_name: a.name,
       }))
@@ -49,15 +51,30 @@ export function useEFTPHistory(activities: Activity[] | undefined): eFTPPoint[] 
 }
 
 /**
- * Get the current (latest) FTP from activities or sport settings
+ * Get the current (latest) FTP from activities
+ * Uses icu_ftp (the FTP setting used for the activity) as the source
  */
 export function getLatestFTP(activities: Activity[] | undefined): number | undefined {
   if (!activities || activities.length === 0) return undefined;
 
-  // Find most recent activity with FTP
+  // Find most recent activity with FTP setting
   const withFTP = activities
     .filter(a => a.icu_ftp && a.icu_ftp > 0)
     .sort((a, b) => b.start_date_local.localeCompare(a.start_date_local));
 
   return withFTP[0]?.icu_ftp;
+}
+
+/**
+ * Get the latest estimated FTP from power model
+ */
+export function getLatestEFTP(activities: Activity[] | undefined): number | undefined {
+  if (!activities || activities.length === 0) return undefined;
+
+  // Find most recent activity with eFTP estimate
+  const withEFTP = activities
+    .filter(a => a.icu_pm_ftp_watts && a.icu_pm_ftp_watts > 0)
+    .sort((a, b) => b.start_date_local.localeCompare(a.start_date_local));
+
+  return withEFTP[0]?.icu_pm_ftp_watts;
 }

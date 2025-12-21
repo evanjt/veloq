@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { intervalsApi } from '@/api';
 import { formatLocalDate } from '@/lib';
 import type { Activity } from '@/types';
@@ -10,10 +10,12 @@ interface UseActivitiesOptions {
   oldest?: string;
   /** End date (YYYY-MM-DD) - defaults to today */
   newest?: string;
+  /** Include additional stats fields (eFTP, zone times) - use for performance page */
+  includeStats?: boolean;
 }
 
 export function useActivities(options: UseActivitiesOptions = {}) {
-  const { days, oldest, newest } = options;
+  const { days, oldest, newest, includeStats = false } = options;
 
   // Calculate date range
   let queryOldest = oldest;
@@ -28,10 +30,16 @@ export function useActivities(options: UseActivitiesOptions = {}) {
   }
 
   return useQuery<Activity[]>({
-    queryKey: ['activities', queryOldest, queryNewest],
-    queryFn: () => intervalsApi.getActivities({ oldest: queryOldest, newest: queryNewest }),
+    // Include 'stats' in query key to cache separately from non-stats queries
+    queryKey: ['activities', queryOldest, queryNewest, includeStats ? 'stats' : 'base'],
+    queryFn: () => intervalsApi.getActivities({
+      oldest: queryOldest,
+      newest: queryNewest,
+      includeStats,
+    }),
     staleTime: 1000 * 60 * 5, // 5 minutes
     gcTime: 1000 * 60 * 60 * 24 * 7, // 7 days
+    placeholderData: keepPreviousData, // Keep previous data visible while fetching new range
   });
 }
 

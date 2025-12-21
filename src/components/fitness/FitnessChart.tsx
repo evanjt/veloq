@@ -1,13 +1,13 @@
-import React, { useMemo, useRef, useCallback, useEffect } from 'react';
+import React, { useMemo, useRef, useCallback, useState } from 'react';
 import { View, StyleSheet, useColorScheme, Pressable } from 'react-native';
 import { Text } from 'react-native-paper';
-import { CartesianChart, Line, Bar, Area, useChartPressState } from 'victory-native';
-import { Circle, Line as SkiaLine, LinearGradient, vec, Shadow } from '@shopify/react-native-skia';
-import { useDerivedValue, useAnimatedReaction, runOnJS } from 'react-native-reanimated';
+import { CartesianChart, Line, Area } from 'victory-native';
+import { LinearGradient, vec, Shadow } from '@shopify/react-native-skia';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import Animated, { useSharedValue, useAnimatedReaction, runOnJS, useDerivedValue, useAnimatedStyle } from 'react-native-reanimated';
 import { colors, typography, spacing } from '@/theme';
 import { calculateTSB, getFormZone, FORM_ZONE_COLORS } from '@/hooks';
 import type { WellnessData } from '@/types';
-import type { SharedValue } from 'react-native-reanimated';
 
 
 // Chart colors
@@ -32,6 +32,7 @@ interface ChartDataPoint {
   fatigue: number;
   form: number;
   load: number;
+  [key: string]: string | number;
 }
 
 function formatDate(dateStr: string): string {
@@ -42,8 +43,9 @@ function formatDate(dateStr: string): string {
 export function FitnessChart({ data, height = 200, onDateSelect, onInteractionChange }: FitnessChartProps) {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
-  const [tooltipData, setTooltipData] = React.useState<ChartDataPoint | null>(null);
-  const [visibleLines, setVisibleLines] = React.useState({
+  const [tooltipData, setTooltipData] = useState<ChartDataPoint | null>(null);
+  const [isActive, setIsActive] = useState(false);
+  const [visibleLines, setVisibleLines] = useState({
     fitness: true,
     fatigue: true,
     form: true,
@@ -52,20 +54,16 @@ export function FitnessChart({ data, height = 200, onDateSelect, onInteractionCh
   const onInteractionChangeRef = useRef(onInteractionChange);
   onDateSelectRef.current = onDateSelect;
   onInteractionChangeRef.current = onInteractionChange;
-  const chartBoundsRef = useRef({ left: 0, right: 0 });
+
+  // Shared values for UI thread gesture tracking
+  const touchX = useSharedValue(-1);
+  const chartBoundsShared = useSharedValue({ left: 0, right: 1 });
+  const pointXCoordsShared = useSharedValue<number[]>([]);
+  const lastNotifiedIdx = useRef<number | null>(null);
 
   const toggleLine = useCallback((line: 'fitness' | 'fatigue' | 'form') => {
     setVisibleLines(prev => ({ ...prev, [line]: !prev[line] }));
   }, []);
-
-  const { state, isActive } = useChartPressState({ x: 0, y: { fitness: 0 } });
-
-  // Notify parent when interaction state changes
-  useEffect(() => {
-    if (onInteractionChangeRef.current) {
-      onInteractionChangeRef.current(isActive);
-    }
-  }, [isActive]);
 
   // Process data for the chart
   const { chartData, indexMap, maxLoad, maxFitness, minForm, maxForm } = useMemo(() => {
@@ -121,14 +119,45 @@ export function FitnessChart({ data, height = 200, onDateSelect, onInteractionCh
     };
   }, [data]);
 
-  const handleDataLookup = useCallback(
-    (xValue: number) => {
-      if (chartData.length === 0) return;
+  // Derive selected index on UI thread using chartBounds
+  const selectedIdx = useDerivedValue(() => {
+    'worklet';
+    const len = chartData.length;
+    const bounds = chartBoundsShared.value;
+    const chartWidth = bounds.right - bounds.left;
 
-      // xValue is the index from Victory - round to nearest integer
-      const calculatedIndex = Math.max(0, Math.min(chartData.length - 1, Math.round(xValue)));
-      const point = chartData[calculatedIndex];
+    if (touchX.value < 0 || chartWidth <= 0 || len === 0) return -1;
 
+    const chartX = touchX.value - bounds.left;
+    const ratio = Math.max(0, Math.min(1, chartX / chartWidth));
+    const idx = Math.round(ratio * (len - 1));
+
+    return Math.min(Math.max(0, idx), len - 1);
+  }, [chartData.length]);
+
+  // Bridge to JS for tooltip updates
+  const updateTooltipOnJS = useCallback(
+    (idx: number) => {
+      if (idx < 0 || chartData.length === 0) {
+        if (lastNotifiedIdx.current !== null) {
+          setTooltipData(null);
+          setIsActive(false);
+          lastNotifiedIdx.current = null;
+          if (onDateSelectRef.current) onDateSelectRef.current(null, null);
+          if (onInteractionChangeRef.current) onInteractionChangeRef.current(false);
+        }
+        return;
+      }
+
+      if (idx === lastNotifiedIdx.current) return;
+      lastNotifiedIdx.current = idx;
+
+      if (!isActive) {
+        setIsActive(true);
+        if (onInteractionChangeRef.current) onInteractionChangeRef.current(true);
+      }
+
+      const point = chartData[idx];
       if (point) {
         setTooltipData(point);
         if (onDateSelectRef.current) {
@@ -140,30 +169,48 @@ export function FitnessChart({ data, height = 200, onDateSelect, onInteractionCh
         }
       }
     },
-    [chartData]
+    [chartData, isActive]
   );
-
-  const handleClearSelection = useCallback(() => {
-    setTooltipData(null);
-    if (onDateSelectRef.current) {
-      onDateSelectRef.current(null, null);
-    }
-  }, []);
 
   useAnimatedReaction(
-    () => ({
-      xValue: state.x.value.value,
-      active: isActive,
-    }),
-    (current) => {
-      if (current.active) {
-        runOnJS(handleDataLookup)(current.xValue);
-      } else {
-        runOnJS(handleClearSelection)();
-      }
+    () => selectedIdx.value,
+    (idx) => {
+      runOnJS(updateTooltipOnJS)(idx);
     },
-    [isActive, handleDataLookup, handleClearSelection]
+    [updateTooltipOnJS]
   );
+
+  // Gesture handler on UI thread
+  const gesture = Gesture.Pan()
+    .onStart((e) => {
+      'worklet';
+      touchX.value = e.x;
+    })
+    .onUpdate((e) => {
+      'worklet';
+      touchX.value = e.x;
+    })
+    .onEnd(() => {
+      'worklet';
+      touchX.value = -1;
+    })
+    .minDistance(0);
+
+  // Animated crosshair style - uses actual point coordinates for accuracy
+  const crosshairStyle = useAnimatedStyle(() => {
+    'worklet';
+    const idx = selectedIdx.value;
+    const coords = pointXCoordsShared.value;
+
+    if (idx < 0 || coords.length === 0 || idx >= coords.length) {
+      return { opacity: 0, transform: [{ translateX: 0 }] };
+    }
+
+    return {
+      opacity: 1,
+      transform: [{ translateX: coords[idx] }],
+    };
+  }, []);
 
   if (chartData.length === 0) {
     return (
@@ -210,96 +257,100 @@ export function FitnessChart({ data, height = 200, onDateSelect, onInteractionCh
       </View>
 
       {/* Chart */}
-      <View style={styles.chartWrapper}>
-        <CartesianChart
-          data={chartData}
-          xKey="x"
-          yKeys={['fitness', 'fatigue', 'form']}
-          domain={{ y: [Math.min(0, minForm * 1.1), maxFitness * 1.1] }}
-          padding={{ left: 0, right: 0, top: 8, bottom: 20 }}
-          chartPressState={state}
-          gestureLongPressDelay={50}
-        >
-          {({ points, chartBounds }) => {
-            chartBoundsRef.current = { left: chartBounds.left, right: chartBounds.right };
+      <GestureDetector gesture={gesture}>
+        <View style={styles.chartWrapper}>
+          <CartesianChart
+            data={chartData}
+            xKey="x"
+            yKeys={['fitness', 'fatigue', 'form']}
+            domain={{ y: [Math.min(0, minForm * 1.1), maxFitness * 1.1] }}
+            padding={{ left: 0, right: 0, top: 8, bottom: 20 }}
+          >
+            {({ points, chartBounds }) => {
+              // Sync chartBounds and point coordinates for UI thread crosshair
+              if (chartBounds.left !== chartBoundsShared.value.left ||
+                  chartBounds.right !== chartBoundsShared.value.right) {
+                chartBoundsShared.value = { left: chartBounds.left, right: chartBounds.right };
+              }
+              // Sync actual point x-coordinates for accurate crosshair positioning
+              const newCoords = points.fitness.map(p => p.x);
+              if (newCoords.length !== pointXCoordsShared.value.length ||
+                  newCoords[0] !== pointXCoordsShared.value[0]) {
+                pointXCoordsShared.value = newCoords;
+              }
 
-            return (
-              <>
-                {/* Fitness area fill with gradient */}
-                {visibleLines.fitness && (
-                  <Area
-                    points={points.fitness}
-                    y0={chartBounds.bottom}
-                    curveType="natural"
-                  >
-                    <LinearGradient
-                      start={vec(0, chartBounds.top)}
-                      end={vec(0, chartBounds.bottom)}
-                      colors={[COLORS.fitness + '40', COLORS.fitness + '05']}
+              return (
+                <>
+                  {/* Fitness area fill with gradient */}
+                  {visibleLines.fitness && (
+                    <Area
+                      points={points.fitness}
+                      y0={chartBounds.bottom}
+                      curveType="natural"
+                    >
+                      <LinearGradient
+                        start={vec(0, chartBounds.top)}
+                        end={vec(0, chartBounds.bottom)}
+                        colors={[COLORS.fitness + '40', COLORS.fitness + '05']}
+                      />
+                    </Area>
+                  )}
+
+                  {/* Form line (TSB) - drawn first so it's behind */}
+                  {visibleLines.form && (
+                    <Line
+                      points={points.form}
+                      color={COLORS.form}
+                      strokeWidth={2.5}
+                      curveType="natural"
                     />
-                  </Area>
-                )}
+                  )}
 
-                {/* Form line (TSB) - drawn first so it's behind */}
-                {visibleLines.form && (
-                  <Line
-                    points={points.form}
-                    color={COLORS.form}
-                    strokeWidth={2.5}
-                    curveType="natural"
-                  />
-                )}
+                  {/* Fitness line (CTL) with glow effect */}
+                  {visibleLines.fitness && (
+                    <Line
+                      points={points.fitness}
+                      color={COLORS.fitness}
+                      strokeWidth={3}
+                      curveType="natural"
+                    >
+                      <Shadow dx={0} dy={0} blur={6} color={COLORS.fitness + '60'} />
+                    </Line>
+                  )}
 
-                {/* Fitness line (CTL) with glow effect */}
-                {visibleLines.fitness && (
-                  <Line
-                    points={points.fitness}
-                    color={COLORS.fitness}
-                    strokeWidth={3}
-                    curveType="natural"
-                  >
-                    <Shadow dx={0} dy={0} blur={6} color={COLORS.fitness + '60'} />
-                  </Line>
-                )}
+                  {/* Fatigue line (ATL) */}
+                  {visibleLines.fatigue && (
+                    <Line
+                      points={points.fatigue}
+                      color={COLORS.fatigue}
+                      strokeWidth={2.5}
+                      curveType="natural"
+                    >
+                      <Shadow dx={0} dy={0} blur={4} color={COLORS.fatigue + '40'} />
+                    </Line>
+                  )}
+                </>
+              );
+            }}
+          </CartesianChart>
 
-                {/* Fatigue line (ATL) */}
-                {visibleLines.fatigue && (
-                  <Line
-                    points={points.fatigue}
-                    color={COLORS.fatigue}
-                    strokeWidth={2.5}
-                    curveType="natural"
-                  >
-                    <Shadow dx={0} dy={0} blur={4} color={COLORS.fatigue + '40'} />
-                  </Line>
-                )}
+          {/* Animated crosshair - runs at native 120Hz using synced point coordinates */}
+          <Animated.View
+            style={[styles.crosshair, crosshairStyle, isDark && styles.crosshairDark]}
+            pointerEvents="none"
+          />
 
-                {/* Crosshair when active */}
-                {isActive && (
-                  <ActiveCrosshair
-                    xPosition={state.x.position}
-                    top={chartBounds.top}
-                    bottom={chartBounds.bottom}
-                    left={chartBounds.left}
-                    right={chartBounds.right}
-                    isDark={isDark}
-                  />
-                )}
-              </>
-            );
-          }}
-        </CartesianChart>
-
-        {/* X-axis labels */}
-        <View style={styles.xAxisOverlay} pointerEvents="none">
-          <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
-            {chartData.length > 0 ? formatDate(chartData[0].date) : ''}
-          </Text>
-          <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
-            {chartData.length > 0 ? formatDate(chartData[chartData.length - 1].date) : ''}
-          </Text>
+          {/* X-axis labels */}
+          <View style={styles.xAxisOverlay} pointerEvents="none">
+            <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
+              {chartData.length > 0 ? formatDate(chartData[0].date) : ''}
+            </Text>
+            <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
+              {chartData.length > 0 ? formatDate(chartData[chartData.length - 1].date) : ''}
+            </Text>
+          </View>
         </View>
-      </View>
+      </GestureDetector>
 
       {/* Legend - pressable to toggle lines */}
       <View style={styles.legend}>
@@ -329,37 +380,6 @@ export function FitnessChart({ data, height = 200, onDateSelect, onInteractionCh
         </Pressable>
       </View>
     </View>
-  );
-}
-
-function ActiveCrosshair({
-  xPosition,
-  top,
-  bottom,
-  left,
-  right,
-  isDark,
-}: {
-  xPosition: SharedValue<number>;
-  top: number;
-  bottom: number;
-  left: number;
-  right: number;
-  isDark: boolean;
-}) {
-  // Use raw position for crosshair
-  const clampedX = useDerivedValue(() => Math.max(left, Math.min(right, xPosition.value)));
-  const lineStart = useDerivedValue(() => vec(clampedX.value, top));
-  const lineEnd = useDerivedValue(() => vec(clampedX.value, bottom));
-
-  return (
-    <SkiaLine
-      p1={lineStart}
-      p2={lineEnd}
-      color={isDark ? '#888' : '#666'}
-      strokeWidth={1.5}
-      style="stroke"
-    />
   );
 }
 
@@ -414,6 +434,16 @@ const styles = StyleSheet.create({
   chartWrapper: {
     flex: 1,
     position: 'relative',
+  },
+  crosshair: {
+    position: 'absolute',
+    top: 8,
+    bottom: 20,
+    width: 1.5,
+    backgroundColor: '#666',
+  },
+  crosshairDark: {
+    backgroundColor: '#AAA',
   },
   xAxisOverlay: {
     position: 'absolute',

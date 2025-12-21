@@ -11,41 +11,32 @@ export default function TrainingScreen() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
 
-  // Fetch activities for the past 6 months (for heatmap)
-  const { data: activities, isLoading } = useActivities({ days: 180 });
-
-  // Fetch activities for current year (for season comparison)
+  // Fetch activities for the past 2 years (for all comparisons including year-over-year)
   const currentYear = new Date().getFullYear();
-  const { data: currentYearActivities, isLoading: loadingCurrentYear } = useActivities({
-    oldest: `${currentYear}-01-01`,
-    newest: `${currentYear}-12-31`,
-  });
-
-  // Fetch activities for previous year (for season comparison)
-  const { data: previousYearActivities, isLoading: loadingPreviousYear } = useActivities({
+  const { data: activities, isLoading } = useActivities({
     oldest: `${currentYear - 1}-01-01`,
-    newest: `${currentYear - 1}-12-31`,
+    newest: `${currentYear}-12-31`,
+    includeStats: true,
   });
 
-  // Filter activities for this week
-  const thisWeekActivities = useMemo(() => {
-    if (!activities) return [];
-    const weekMs = 7 * 24 * 60 * 60 * 1000;
-    const weekAgo = new Date(Date.now() - weekMs);
-    return activities.filter(a => new Date(a.start_date_local) >= weekAgo);
-  }, [activities]);
+  // Split activities by year for season comparison
+  const { currentYearActivities, previousYearActivities } = useMemo(() => {
+    if (!activities) return { currentYearActivities: [], previousYearActivities: [] };
 
-  // Filter activities for last week (for comparison)
-  const lastWeekActivities = useMemo(() => {
-    if (!activities) return [];
-    const weekMs = 7 * 24 * 60 * 60 * 1000;
-    const weekAgo = new Date(Date.now() - weekMs);
-    const twoWeeksAgo = new Date(Date.now() - 2 * weekMs);
-    return activities.filter(a => {
-      const date = new Date(a.start_date_local);
-      return date >= twoWeeksAgo && date < weekAgo;
-    });
-  }, [activities]);
+    const current: typeof activities = [];
+    const previous: typeof activities = [];
+
+    for (const activity of activities) {
+      const year = new Date(activity.start_date_local).getFullYear();
+      if (year === currentYear) {
+        current.push(activity);
+      } else if (year === currentYear - 1) {
+        previous.push(activity);
+      }
+    }
+
+    return { currentYearActivities: current, previousYearActivities: previous };
+  }, [activities, currentYear]);
 
   return (
     <SafeAreaView style={[styles.container, isDark && styles.containerDark]}>
@@ -64,14 +55,14 @@ export default function TrainingScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Weekly Summary - using real activities data */}
+        {/* Summary with time range selector */}
         <View style={[styles.card, isDark && styles.cardDark]}>
           {isLoading ? (
             <View style={styles.loadingContainer}>
               <ActivityIndicator size="small" color={colors.primary} />
             </View>
           ) : (
-            <WeeklySummary activities={thisWeekActivities} />
+            <WeeklySummary activities={activities} />
           )}
         </View>
 
@@ -93,7 +84,7 @@ export default function TrainingScreen() {
 
         {/* Season Comparison */}
         <View style={[styles.card, isDark && styles.cardDark]}>
-          {loadingCurrentYear || loadingPreviousYear ? (
+          {isLoading ? (
             <View style={styles.loadingContainer}>
               <ActivityIndicator size="small" color={colors.primary} />
             </View>

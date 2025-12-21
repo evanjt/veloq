@@ -48,16 +48,24 @@ export interface Activity {
   start_latlng?: [number, number];
   end_latlng?: [number, number];
   polyline?: string;
+  // Location info
+  locality?: string; // City/town name from intervals.icu
+  country?: string; // Country name
   icu_athlete_id?: string;
   // Stream types available for this activity
   stream_types?: string[];
-  // Zone time distributions (seconds per zone)
-  power_zone_times?: number[];
-  hr_zone_times?: number[];
+  // Zone time distributions
+  // icu_zone_times is array of {id: 'Z1', secs: 123} objects (power zones)
+  icu_zone_times?: Array<{ id: string; secs: number }>;
+  // icu_hr_zone_times is flat array of seconds per HR zone
+  icu_hr_zone_times?: number[];
+  // Zone thresholds
+  icu_power_zones?: number[];
+  icu_hr_zones?: number[];
   // Training metrics
   icu_training_load?: number; // TSS
   icu_ftp?: number; // FTP used for this activity
-  icu_eftp?: number; // Estimated FTP from this activity
+  icu_pm_ftp_watts?: number; // Estimated FTP from this activity (eFTP)
   // Weather data (when available from intervals.icu)
   has_weather?: boolean;
   average_weather_temp?: number; // Temperature in Celsius

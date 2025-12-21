@@ -10,6 +10,10 @@ interface UseZoneDistributionOptions {
 /**
  * Aggregates zone time distribution from activities
  * Returns zone distribution data formatted for ZoneDistributionChart
+ *
+ * Note: API returns different formats for power vs HR zones:
+ * - icu_zone_times (power): Array of {id: 'Z1', secs: 123} objects
+ * - icu_hr_zone_times (HR): Flat array of seconds [123, 456, ...]
  */
 export function useZoneDistribution({
   type,
@@ -18,22 +22,41 @@ export function useZoneDistribution({
   return useMemo(() => {
     if (!activities || activities.length === 0) return undefined;
 
-    // Get zone times array based on type
-    const zoneTimes = type === 'power' ? 'power_zone_times' : 'hr_zone_times';
     const defaultZones = type === 'power' ? DEFAULT_POWER_ZONES : DEFAULT_HR_ZONES;
     const zoneColors = type === 'power' ? POWER_ZONE_COLORS : HR_ZONE_COLORS;
 
     // Aggregate zone times across all activities
-    const aggregatedTimes: number[] = [];
+    const aggregatedTimes: number[] = new Array(defaultZones.length).fill(0);
     let hasZoneData = false;
 
     for (const activity of activities) {
-      const times = activity[zoneTimes];
-      if (times && times.length > 0) {
-        hasZoneData = true;
-        times.forEach((seconds, idx) => {
-          aggregatedTimes[idx] = (aggregatedTimes[idx] || 0) + seconds;
-        });
+      if (type === 'power') {
+        // Power zones: icu_zone_times is array of {id: 'Z1', secs: 123} objects
+        const zoneTimes = activity.icu_zone_times;
+        if (zoneTimes && zoneTimes.length > 0) {
+          hasZoneData = true;
+          zoneTimes.forEach((zt) => {
+            // Map zone ID (Z1, Z2, etc.) to index
+            const match = zt.id.match(/Z(\d+)/);
+            if (match) {
+              const zoneIdx = parseInt(match[1], 10) - 1;
+              if (zoneIdx >= 0 && zoneIdx < aggregatedTimes.length) {
+                aggregatedTimes[zoneIdx] += zt.secs || 0;
+              }
+            }
+          });
+        }
+      } else {
+        // HR zones: icu_hr_zone_times is flat array of seconds
+        const hrTimes = activity.icu_hr_zone_times;
+        if (hrTimes && hrTimes.length > 0) {
+          hasZoneData = true;
+          hrTimes.forEach((secs, idx) => {
+            if (idx < aggregatedTimes.length) {
+              aggregatedTimes[idx] += secs || 0;
+            }
+          });
+        }
       }
     }
 

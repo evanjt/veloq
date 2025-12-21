@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { intervalsApi } from '@/api';
 import { formatLocalDate } from '@/lib';
 import type { WellnessData } from '@/types';
@@ -35,6 +35,7 @@ export function useWellness(range: TimeRange = '3m') {
     queryFn: () => intervalsApi.getWellness({ oldest, newest }),
     staleTime: 1000 * 60 * 15, // 15 minutes
     gcTime: 1000 * 60 * 60 * 24, // 24 hours
+    placeholderData: keepPreviousData, // Keep previous data visible while fetching new range
   });
 }
 

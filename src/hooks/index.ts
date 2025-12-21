@@ -25,5 +25,5 @@ export {
   getZoneColor,
 } from './useSportSettings';
 export { useZoneDistribution } from './useZoneDistribution';
-export { useEFTPHistory, getLatestFTP } from './useEFTPHistory';
+export { useEFTPHistory, getLatestFTP, getLatestEFTP } from './useEFTPHistory';
 export { useActivityBoundsCache } from './useActivityBoundsCache';

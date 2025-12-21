@@ -27,7 +27,7 @@ export default function FitnessScreen() {
     form: number;
   } | null>(null);
 
-  const { data: wellness, isLoading, isError, refetch } = useWellness(timeRange);
+  const { data: wellness, isLoading, isFetching, isError, refetch } = useWellness(timeRange);
 
   // Handle chart interaction state changes
   const handleInteractionChange = useCallback((isInteracting: boolean) => {
@@ -58,7 +58,8 @@ export default function FitnessScreen() {
   const displayDate = selectedDate || currentValues?.date;
   const formZone = displayValues ? getFormZone(displayValues.form) : null;
 
-  if (isLoading) {
+  // Only show full loading on initial load (no data yet)
+  if (isLoading && !wellness) {
     return (
       <SafeAreaView style={[styles.container, isDark && styles.containerDark]}>
         <View style={styles.header}>
@@ -106,7 +107,12 @@ export default function FitnessScreen() {
           iconColor={isDark ? '#FFFFFF' : colors.textPrimary}
           onPress={() => router.back()}
         />
-        <Text style={[styles.headerTitle, isDark && styles.textLight]}>Fitness & Form</Text>
+        <View style={styles.headerTitleRow}>
+          <Text style={[styles.headerTitle, isDark && styles.textLight]}>Fitness & Form</Text>
+          {isFetching && (
+            <ActivityIndicator size="small" color={colors.primary} style={styles.headerLoader} />
+          )}
+        </View>
         <View style={{ width: 48 }} />
       </View>
 
@@ -250,10 +256,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
+  headerTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
   headerTitle: {
     fontSize: 18,
     fontWeight: '600',
     color: colors.textPrimary,
+  },
+  headerLoader: {
+    marginLeft: spacing.xs,
   },
   textLight: {
     color: '#FFFFFF',

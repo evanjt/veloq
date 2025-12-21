@@ -99,11 +99,11 @@ export function SeasonComparison({
   const currentYear = new Date().getFullYear();
   const previousYear = currentYear - 1;
 
-  // Calculate totals
+  // Calculate totals - round to 1 decimal place
   const totals = useMemo(() => {
-    const currentTotal = data.reduce((sum, d) => sum + d.current, 0);
-    const previousTotal = data.reduce((sum, d) => sum + d.previous, 0);
-    const diff = currentTotal - previousTotal;
+    const currentTotal = Math.round(data.reduce((sum, d) => sum + d.current, 0) * 10) / 10;
+    const previousTotal = Math.round(data.reduce((sum, d) => sum + d.previous, 0) * 10) / 10;
+    const diff = Math.round((currentTotal - previousTotal) * 10) / 10;
     const pctChange = previousTotal > 0 ? ((diff / previousTotal) * 100).toFixed(0) : 0;
     return { currentTotal, previousTotal, diff, pctChange };
   }, [data]);

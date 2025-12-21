@@ -8,8 +8,8 @@ import { usePowerCurve, formatPowerCurveForChart, POWER_CURVE_DURATIONS } from '
 
 interface PowerCurveChartProps {
   sport?: string;
-  oldest?: string;
-  newest?: string;
+  /** Number of days to include (default 365) */
+  days?: number;
   height?: number;
   showWattsPerKg?: boolean;
 }
@@ -21,15 +21,14 @@ const CHART_GLOW = 'rgba(255, 107, 0, 0.35)';
 
 export function PowerCurveChart({
   sport,
-  oldest,
-  newest,
+  days = 365,
   height = 200,
   showWattsPerKg = false,
 }: PowerCurveChartProps) {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
 
-  const { data: curve, isLoading, error } = usePowerCurve({ sport, oldest, newest });
+  const { data: curve, isLoading, error } = usePowerCurve({ sport, days });
 
   // Format data for chart - using bar chart style
   const chartData = useMemo(() => {

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, useColorScheme, TouchableOpacity, ScrollView } from 'react-native';
+import { View, StyleSheet, useColorScheme, TouchableOpacity, ScrollView, Linking } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors, spacing } from '@/theme';
@@ -25,7 +25,7 @@ interface Workout {
 interface WorkoutLibraryProps {
   workouts?: Workout[];
   onSelectWorkout?: (workout: Workout) => void;
-  onCreateWorkout?: () => void;
+  athleteId?: string;
 }
 
 const STEP_COLORS = {
@@ -47,7 +47,7 @@ function formatDuration(seconds: number): string {
 export function WorkoutLibrary({
   workouts,
   onSelectWorkout,
-  onCreateWorkout,
+  athleteId,
 }: WorkoutLibraryProps) {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
@@ -62,14 +62,21 @@ export function WorkoutLibrary({
     ? displayWorkouts.filter(w => w.tags.includes(selectedCategory))
     : displayWorkouts;
 
+  const openWorkoutsPage = () => {
+    const url = athleteId
+      ? `https://intervals.icu/athlete/${athleteId}/workouts`
+      : 'https://intervals.icu';
+    Linking.openURL(url);
+  };
+
   // Show empty state if no workouts
   if (displayWorkouts.length === 0) {
     return (
       <View style={styles.container}>
         <View style={styles.header}>
           <Text style={[styles.title, isDark && styles.textLight]}>Workout Library</Text>
-          <TouchableOpacity onPress={onCreateWorkout} style={styles.addButton}>
-            <MaterialCommunityIcons name="plus" size={18} color={colors.primary} />
+          <TouchableOpacity onPress={openWorkoutsPage} style={styles.addButton}>
+            <MaterialCommunityIcons name="open-in-new" size={16} color={isDark ? '#AAA' : colors.textSecondary} />
           </TouchableOpacity>
         </View>
         <View style={styles.emptyState}>
@@ -82,7 +89,7 @@ export function WorkoutLibrary({
             No workouts available
           </Text>
           <Text style={[styles.emptyHint, isDark && styles.textDark]}>
-            Create structured workouts to plan your training
+            Create workouts on intervals.icu to see them here
           </Text>
         </View>
       </View>
@@ -94,8 +101,8 @@ export function WorkoutLibrary({
       {/* Header */}
       <View style={styles.header}>
         <Text style={[styles.title, isDark && styles.textLight]}>Workout Library</Text>
-        <TouchableOpacity onPress={onCreateWorkout} style={styles.addButton}>
-          <MaterialCommunityIcons name="plus" size={18} color={colors.primary} />
+        <TouchableOpacity onPress={openWorkoutsPage} style={styles.addButton}>
+          <MaterialCommunityIcons name="open-in-new" size={16} color={isDark ? '#AAA' : colors.textSecondary} />
         </TouchableOpacity>
       </View>
 
