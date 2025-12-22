@@ -277,7 +277,6 @@ export function BaseMapView({
           logoEnabled={false}
           attributionEnabled={false}
           compassEnabled={false}
-          scaleBarEnabled={false}
           onPress={onPress}
           onRegionIsChanging={handleRegionIsChanging}
         >

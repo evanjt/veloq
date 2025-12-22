@@ -58,8 +58,8 @@ export function QueryProvider({ children }: QueryProviderProps) {
           },
         },
       }}
-      onError={(error) => {
-        console.warn('Query persist error:', error);
+      onError={() => {
+        console.warn('Query persist error');
         // Clear corrupted cache
         AsyncStorage.removeItem('velox-query-cache').catch(() => {});
       }}
