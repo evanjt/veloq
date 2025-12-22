@@ -254,18 +254,25 @@ export const intervalsApi = {
    * @param ids - Activity IDs to fetch
    * @param concurrency - Number of parallel requests (default 3, per API rate limits)
    * @param onProgress - Callback for progress updates
+   * @param abortSignal - Optional abort signal to cancel the operation
    * @see https://forum.intervals.icu/t/solved-guidance-on-api-rate-limits-for-bulk-activity-reloading/110818
    */
   async getActivityMapBounds(
     ids: string[],
     concurrency = 3,
-    onProgress?: (completed: number, total: number) => void
+    onProgress?: (completed: number, total: number) => void,
+    abortSignal?: AbortSignal
   ): Promise<Map<string, ActivityMapData>> {
     const results = new Map<string, ActivityMapData>();
     let completed = 0;
 
     // Process in batches
     for (let i = 0; i < ids.length; i += concurrency) {
+      // Check if aborted before starting new batch
+      if (abortSignal?.aborted) {
+        throw new DOMException('Sync cancelled', 'AbortError');
+      }
+
       const batch = ids.slice(i, i + concurrency);
       const promises = batch.map(async (id) => {
         try {
@@ -279,6 +286,12 @@ export const intervalsApi = {
 
       await Promise.all(promises);
       completed += batch.length;
+
+      // Check again after batch completes
+      if (abortSignal?.aborted) {
+        throw new DOMException('Sync cancelled', 'AbortError');
+      }
+
       onProgress?.(completed, ids.length);
     }
 

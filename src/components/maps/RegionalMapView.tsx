@@ -129,6 +129,23 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
     }
   }, [selected, router]);
 
+  // Zoom to selected activity bounds
+  const handleZoomToActivity = useCallback(() => {
+    if (!selected) return;
+
+    const normalized = normalizeBounds(selected.activity.bounds);
+    const bounds = {
+      ne: [normalized.maxLng, normalized.maxLat] as [number, number],
+      sw: [normalized.minLng, normalized.minLat] as [number, number],
+    };
+
+    cameraRef.current?.setCamera({
+      bounds,
+      padding: { paddingTop: 100, paddingRight: 60, paddingBottom: 280, paddingLeft: 60 },
+      animationDuration: 500,
+    });
+  }, [selected]);
+
   // Toggle map style (cycles through light → dark → satellite)
   const toggleStyle = () => {
     setMapStyle(current => getNextStyle(current));
@@ -463,7 +480,7 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
       </TouchableOpacity>
 
       {/* Control button stack - positioned in middle of right side */}
-      <View style={[styles.controlStack, { top: insets.top + 140 }]}>
+      <View style={[styles.controlStack, { top: insets.top + 64 }]}>
         {/* 3D Toggle */}
         <TouchableOpacity
           style={[
@@ -513,13 +530,6 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
         </TouchableOpacity>
       </View>
 
-      {/* Activity count badge */}
-      <View style={[styles.countBadge, isDark && styles.countBadgeDark]}>
-        <Text style={[styles.countText, isDark && styles.countTextDark]}>
-          {activities.length} activities
-        </Text>
-      </View>
-
       {/* Attribution */}
       <View style={[styles.attribution, { bottom: insets.bottom + 8 }]}>
         <Text style={styles.attributionText}>{attributionText}</Text>
@@ -527,7 +537,7 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
 
       {/* Selected activity popup - positioned above the timeline slider */}
       {selected && (
-        <View style={[styles.popup, { bottom: insets.bottom + 160 }]}>
+        <View style={[styles.popup, { bottom: insets.bottom + 200 }]}>
           <View style={styles.popupHeader}>
             <View style={styles.popupInfo}>
               <Text style={styles.popupTitle} numberOfLines={1}>
@@ -542,9 +552,14 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
                 })}
               </Text>
             </View>
-            <TouchableOpacity onPress={handleClosePopup}>
-              <MaterialCommunityIcons name="close" size={24} color={colors.textSecondary} />
-            </TouchableOpacity>
+            <View style={styles.popupHeaderButtons}>
+              <TouchableOpacity onPress={handleZoomToActivity} style={styles.popupIconButton}>
+                <MaterialCommunityIcons name="crosshairs-gps" size={22} color={colors.primary} />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={handleClosePopup} style={styles.popupIconButton}>
+                <MaterialCommunityIcons name="close" size={22} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
           </View>
 
           <View style={styles.popupStats}>
@@ -653,31 +668,6 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: '#FFFFFF',
   },
-  countBadge: {
-    position: 'absolute',
-    top: 16,
-    alignSelf: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 16,
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 3,
-    elevation: 3,
-  },
-  countBadgeDark: {
-    backgroundColor: 'rgba(50, 50, 50, 0.95)',
-  },
-  countText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.textPrimary,
-  },
-  countTextDark: {
-    color: '#FFFFFF',
-  },
   marker: {
     justifyContent: 'center',
     alignItems: 'center',
@@ -713,9 +703,16 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     marginBottom: 12,
   },
+  popupHeaderButtons: {
+    flexDirection: 'row',
+    gap: 4,
+  },
+  popupIconButton: {
+    padding: 4,
+  },
   popupInfo: {
     flex: 1,
-    marginRight: 12,
+    marginRight: 8,
   },
   popupTitle: {
     fontSize: 18,

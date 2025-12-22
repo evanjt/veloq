@@ -1,25 +1,83 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '@/theme';
 import type { ActivityType } from '@/types';
 
-// Activity type configuration with colors and icons
-export const ACTIVITY_TYPE_CONFIG: Record<string, { color: string; icon: keyof typeof Ionicons.glyphMap; label: string }> = {
-  Run: { color: colors.run, icon: 'walk', label: 'Run' },
-  TrailRun: { color: colors.run, icon: 'walk', label: 'Trail' },
-  Ride: { color: colors.ride, icon: 'bicycle', label: 'Ride' },
-  VirtualRide: { color: colors.ride, icon: 'bicycle', label: 'Virtual' },
-  Walk: { color: colors.walk, icon: 'footsteps', label: 'Walk' },
-  Hike: { color: colors.hike, icon: 'trail-sign', label: 'Hike' },
-  Swim: { color: colors.swim, icon: 'water', label: 'Swim' },
-  OpenWaterSwim: { color: colors.swim, icon: 'water', label: 'OW Swim' },
-  Other: { color: colors.workout, icon: 'fitness', label: 'Other' },
+// Main activity categories (matching theme colors)
+export const ACTIVITY_CATEGORIES: Record<string, {
+  color: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  types: string[]; // API types that belong to this category
+}> = {
+  Ride: {
+    color: colors.ride,
+    icon: 'bicycle',
+    label: 'Ride',
+    types: ['Ride', 'VirtualRide', 'EBikeRide', 'MountainBikeRide', 'GravelRide', 'Velomobile'],
+  },
+  Run: {
+    color: colors.run,
+    icon: 'walk',
+    label: 'Run',
+    types: ['Run', 'TrailRun', 'VirtualRun', 'Treadmill'],
+  },
+  Swim: {
+    color: colors.swim,
+    icon: 'water',
+    label: 'Swim',
+    types: ['Swim', 'OpenWaterSwim'],
+  },
+  Walk: {
+    color: colors.walk,
+    icon: 'footsteps',
+    label: 'Walk',
+    types: ['Walk'],
+  },
+  Hike: {
+    color: colors.hike,
+    icon: 'trail-sign',
+    label: 'Hike',
+    types: ['Hike'],
+  },
+  Other: {
+    color: colors.workout,
+    icon: 'fitness',
+    label: 'Other',
+    types: [], // Catch-all for anything not in other categories
+  },
 };
 
-// Get config for any activity type, falling back to "Other" for unknown types
+// Map any activity type to its category
+export function getActivityCategory(type: string): string {
+  for (const [category, config] of Object.entries(ACTIVITY_CATEGORIES)) {
+    if (config.types.includes(type)) {
+      return category;
+    }
+  }
+  return 'Other';
+}
+
+// Get config for any activity type (returns the category config)
 export function getActivityTypeConfig(type: ActivityType | string) {
-  return ACTIVITY_TYPE_CONFIG[type] || ACTIVITY_TYPE_CONFIG.Other;
+  const category = getActivityCategory(type);
+  return ACTIVITY_CATEGORIES[category];
+}
+
+// Group activity types by category
+export function groupTypesByCategory(types: string[]): Map<string, string[]> {
+  const groups = new Map<string, string[]>();
+
+  for (const type of types) {
+    const category = getActivityCategory(type);
+    if (!groups.has(category)) {
+      groups.set(category, []);
+    }
+    groups.get(category)!.push(type);
+  }
+
+  return groups;
 }
 
 interface ActivityTypeFilterProps {
