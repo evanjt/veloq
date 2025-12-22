@@ -10,7 +10,6 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { RegionalMapView } from '@/components/maps/RegionalMapView';
 import { TimelineSlider } from '@/components/maps/TimelineSlider';
-import { ActivityTypeFilter } from '@/components/maps/ActivityTypeFilter';
 import { useActivityBoundsCache } from '@/hooks';
 import { colors } from '@/theme';
 import { formatLocalDate } from '@/lib';
@@ -136,19 +135,7 @@ export default function MapScreen() {
         onClose={handleClose}
       />
 
-      {/* Activity type filter (top overlay) */}
-      <View
-        style={[styles.filterContainer, { top: insets.top + 60 }]}
-        pointerEvents="box-none"
-      >
-        <ActivityTypeFilter
-          selectedTypes={selectedTypes}
-          availableTypes={availableTypes}
-          onSelectionChange={setSelectedTypes}
-        />
-      </View>
-
-      {/* Timeline slider (bottom overlay) */}
+      {/* Timeline slider with integrated filters (bottom overlay) */}
       <View
         style={[
           styles.sliderContainer,
@@ -168,6 +155,9 @@ export default function MapScreen() {
           syncProgress={isSyncing ? progress : null}
           cachedOldest={oldestSyncedDate ? new Date(oldestSyncedDate) : null}
           cachedNewest={newestSyncedDate ? new Date(newestSyncedDate) : null}
+          selectedTypes={selectedTypes}
+          availableTypes={availableTypes}
+          onTypeSelectionChange={setSelectedTypes}
         />
       </View>
 
@@ -201,12 +191,6 @@ const styles = StyleSheet.create({
     marginTop: 8,
     fontSize: 14,
     color: colors.textSecondary,
-  },
-  filterContainer: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    zIndex: 10,
   },
   sliderContainer: {
     position: 'absolute',
