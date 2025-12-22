@@ -328,7 +328,6 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
         logoEnabled={false}
         attributionEnabled={false}
         compassEnabled={false}
-        scaleBarEnabled={false}
         onPress={handleMapPress}
         onRegionIsChanging={handleRegionIsChanging}
       >

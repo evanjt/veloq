@@ -194,19 +194,19 @@ export function WellnessDashboard({ data }: WellnessDashboardProps) {
         label: 'HRV',
         arrow: getArrow(hrvMetric?.trend || 'stable'),
         color: getColor(hrvMetric?.trend || 'stable', 'up'),
-        value: hrvMetric?.current !== null ? Math.round(hrvMetric.current) : null,
+        value: hrvMetric?.current != null ? Math.round(hrvMetric.current) : null,
       },
       {
         label: 'RHR',
         arrow: getArrow(rhrMetric?.trend || 'stable'),
         color: getColor(rhrMetric?.trend || 'stable', 'down'),
-        value: rhrMetric?.current !== null ? Math.round(rhrMetric.current) : null,
+        value: rhrMetric?.current != null ? Math.round(rhrMetric.current) : null,
       },
       {
         label: 'Sleep',
         arrow: getArrow(sleepMetric?.trend || 'stable'),
         color: getColor(sleepMetric?.trend || 'stable', 'up'),
-        value: sleepMetric?.current !== null ? sleepMetric.current.toFixed(1) : null,
+        value: sleepMetric?.current != null ? sleepMetric.current.toFixed(1) : null,
       },
     ];
   }, [metrics]);

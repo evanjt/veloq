@@ -150,7 +150,6 @@ export function ActivityMapView({
           logoEnabled={false}
           attributionEnabled={false}
           compassEnabled={false}
-          scaleBarEnabled={false}
         >
           <Camera
             bounds={bounds}

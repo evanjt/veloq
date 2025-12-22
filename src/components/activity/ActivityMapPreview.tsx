@@ -108,7 +108,6 @@ export function ActivityMapPreview({
         logoEnabled={false}
         attributionEnabled={false}
         compassEnabled={false}
-        scaleBarEnabled={false}
         scrollEnabled={false}
         zoomEnabled={false}
         rotateEnabled={false}
