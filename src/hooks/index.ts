@@ -1,4 +1,9 @@
-export { useActivities, useActivity, useActivityStreams } from './useActivities';
+export {
+  useActivities,
+  useInfiniteActivities,
+  useActivity,
+  useActivityStreams,
+} from './useActivities';
 export { useAthlete } from './useAthlete';
 export {
   useWellness,

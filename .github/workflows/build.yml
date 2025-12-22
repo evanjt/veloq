@@ -1,0 +1,207 @@
+name: Build iOS & Android
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+  release:
+    types: [published]
+
+jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run TypeScript check
+        run: npx tsc --noEmit
+        continue-on-error: true
+
+      - name: Run tests
+        run: npm test
+
+  version:
+    name: Get Version Info
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      short_sha: ${{ steps.version.outputs.short_sha }}
+      build_type: ${{ steps.version.outputs.build_type }}
+      filename: ${{ steps.version.outputs.filename }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Get version info
+        id: version
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+          SHORT_SHA=$(git rev-parse --short HEAD)
+          echo "short_sha=$SHORT_SHA" >> $GITHUB_OUTPUT
+
+          if [[ "${{ github.event_name }}" == "release" ]]; then
+            echo "build_type=production" >> $GITHUB_OUTPUT
+            echo "filename=velox-${VERSION}" >> $GITHUB_OUTPUT
+          else
+            echo "build_type=preview" >> $GITHUB_OUTPUT
+            echo "filename=velox-${VERSION}-${SHORT_SHA}" >> $GITHUB_OUTPUT
+          fi
+
+  build-android:
+    name: Build Android APK
+    needs: [test, version]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Setup Expo
+        uses: expo/expo-github-action@v8
+        with:
+          expo-version: latest
+
+      - name: Generate native project
+        run: npx expo prebuild --platform android --clean
+
+      - name: Make gradlew executable
+        run: chmod +x android/gradlew
+
+      - name: Build APK
+        working-directory: android
+        run: ./gradlew assembleRelease
+
+      - name: Rename APK
+        run: |
+          mkdir -p artifacts
+          APK_PATH=$(find android/app/build/outputs/apk -name "*.apk" | head -1)
+          if [ -n "$APK_PATH" ]; then
+            cp "$APK_PATH" "artifacts/${{ needs.version.outputs.filename }}.apk"
+          fi
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-${{ needs.version.outputs.filename }}
+          path: artifacts/*.apk
+          retention-days: 30
+
+  build-ios:
+    name: Build iOS Simulator
+    needs: [test, version]
+    runs-on: macos-14
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Setup Expo
+        uses: expo/expo-github-action@v8
+        with:
+          expo-version: latest
+
+      - name: Install CocoaPods
+        run: sudo gem install cocoapods
+
+      - name: Generate native project
+        run: npx expo prebuild --platform ios --clean
+
+      - name: Install Pods
+        working-directory: ios
+        run: pod install
+
+      - name: Build iOS Simulator app
+        run: |
+          xcodebuild -workspace ios/velox.xcworkspace \
+            -scheme velox \
+            -configuration Release \
+            -sdk iphonesimulator \
+            -derivedDataPath ios/build \
+            -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO \
+            | xcpretty || true
+
+      - name: Package .app for Appetize
+        run: |
+          mkdir -p artifacts
+          APP_PATH=$(find ios/build -name "*.app" -type d | head -1)
+          if [ -n "$APP_PATH" ]; then
+            cd "$(dirname "$APP_PATH")"
+            zip -r "$GITHUB_WORKSPACE/artifacts/${{ needs.version.outputs.filename }}-ios-simulator.zip" "$(basename "$APP_PATH")"
+          fi
+
+      - name: Upload iOS artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-${{ needs.version.outputs.filename }}
+          path: artifacts/*.zip
+          retention-days: 30
+
+  release:
+    name: Upload to Release
+    if: github.event_name == 'release'
+    needs: [version, build-android, build-ios]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download Android artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: android-${{ needs.version.outputs.filename }}
+          path: artifacts/
+
+      - name: Download iOS artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ios-${{ needs.version.outputs.filename }}
+          path: artifacts/
+
+      - name: Upload to Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            artifacts/*.apk
+            artifacts/*.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

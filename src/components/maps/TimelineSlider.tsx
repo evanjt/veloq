@@ -11,7 +11,6 @@ import Animated, {
   useSharedValue,
   useAnimatedStyle,
   runOnJS,
-  withSpring,
 } from 'react-native-reanimated';
 import { colors } from '@/theme';
 
@@ -22,9 +21,9 @@ interface SyncProgress {
 }
 
 interface TimelineSliderProps {
-  /** Minimum date (oldest) */
+  /** Minimum date (oldest activity) */
   minDate: Date;
-  /** Maximum date (newest) */
+  /** Maximum date (today) */
   maxDate: Date;
   /** Currently selected start date */
   startDate: Date;
@@ -38,6 +37,10 @@ interface TimelineSliderProps {
   activityCount?: number;
   /** Sync progress for background sync */
   syncProgress?: SyncProgress | null;
+  /** Oldest date in cache */
+  cachedOldest?: Date | null;
+  /** Newest date in cache */
+  cachedNewest?: Date | null;
 }
 
 function formatShortDate(date: Date): string {
@@ -50,8 +53,8 @@ function formatShortDate(date: Date): string {
 
 // Larger touch area for handles
 const HANDLE_SIZE = 28;
-const HANDLE_HIT_SLOP = 20; // Extra touch area around handle
-const MIN_RANGE = 0.02; // Minimum 2% range between handles
+const HANDLE_HIT_SLOP = 20;
+const MIN_RANGE = 0.02;
 
 export function TimelineSlider({
   minDate,
@@ -62,9 +65,10 @@ export function TimelineSlider({
   isLoading,
   activityCount,
   syncProgress,
+  cachedOldest,
+  cachedNewest,
 }: TimelineSliderProps) {
   const [trackWidth, setTrackWidth] = useState(0);
-  const [trackLeft, setTrackLeft] = useState(0);
   const totalRange = maxDate.getTime() - minDate.getTime();
 
   // Convert dates to positions (0-1)
@@ -79,6 +83,16 @@ export function TimelineSlider({
   const startPosAtGestureStart = useSharedValue(0);
   const endPosAtGestureStart = useSharedValue(0);
 
+  // Calculate cached range positions
+  const cachedRange = useMemo(() => {
+    if (!cachedOldest || !cachedNewest || totalRange <= 0) {
+      return { start: 0, end: 0, hasCache: false };
+    }
+    const start = Math.max(0, (cachedOldest.getTime() - minDate.getTime()) / totalRange);
+    const end = Math.min(1, (cachedNewest.getTime() - minDate.getTime()) / totalRange);
+    return { start, end, hasCache: true };
+  }, [cachedOldest, cachedNewest, minDate, totalRange]);
+
   // Sync shared values when props change
   useEffect(() => {
     if (totalRange > 0) {
@@ -87,13 +101,10 @@ export function TimelineSlider({
     }
   }, [startDate, endDate, minDate, totalRange]);
 
-  // Handle layout to get track dimensions
   const onLayout = useCallback((e: LayoutChangeEvent) => {
     setTrackWidth(e.nativeEvent.layout.width);
-    setTrackLeft(e.nativeEvent.layout.x);
   }, []);
 
-  // Convert position to date
   const positionToDate = useCallback(
     (pos: number): Date => {
       const time = minDate.getTime() + pos * totalRange;
@@ -102,23 +113,19 @@ export function TimelineSlider({
     [minDate, totalRange]
   );
 
-  // Update dates callback (called from JS thread)
   const updateDatesFromPositions = useCallback((startPosValue: number, endPosValue: number) => {
     const start = positionToDate(startPosValue);
     const end = positionToDate(endPosValue);
     onRangeChange(start, end);
   }, [positionToDate, onRangeChange]);
 
-  // Start handle gesture - stores initial position and uses absolute movement
   const startGesture = Gesture.Pan()
     .hitSlop({ top: HANDLE_HIT_SLOP, bottom: HANDLE_HIT_SLOP, left: HANDLE_HIT_SLOP, right: HANDLE_HIT_SLOP })
     .onBegin(() => {
-      // Store the position when gesture begins
       startPosAtGestureStart.value = startPos.value;
     })
     .onUpdate((e) => {
       if (trackWidth === 0) return;
-      // Calculate new position based on stored start position + translation
       const delta = e.translationX / trackWidth;
       const newPos = Math.max(0, Math.min(endPos.value - MIN_RANGE, startPosAtGestureStart.value + delta));
       startPos.value = newPos;
@@ -127,7 +134,6 @@ export function TimelineSlider({
       runOnJS(updateDatesFromPositions)(startPos.value, endPos.value);
     });
 
-  // End handle gesture
   const endGesture = Gesture.Pan()
     .hitSlop({ top: HANDLE_HIT_SLOP, bottom: HANDLE_HIT_SLOP, left: HANDLE_HIT_SLOP, right: HANDLE_HIT_SLOP })
     .onBegin(() => {
@@ -143,30 +149,6 @@ export function TimelineSlider({
       runOnJS(updateDatesFromPositions)(startPos.value, endPos.value);
     });
 
-  // Tap on track to move nearest handle
-  const trackTapGesture = Gesture.Tap()
-    .onEnd((e) => {
-      if (trackWidth === 0) return;
-      const tapPos = e.x / trackWidth;
-
-      // Determine which handle is closer
-      const distToStart = Math.abs(tapPos - startPos.value);
-      const distToEnd = Math.abs(tapPos - endPos.value);
-
-      if (distToStart < distToEnd) {
-        // Move start handle (but don't pass end handle)
-        const newPos = Math.max(0, Math.min(endPos.value - MIN_RANGE, tapPos));
-        startPos.value = withSpring(newPos, { damping: 20, stiffness: 300 });
-        runOnJS(updateDatesFromPositions)(newPos, endPos.value);
-      } else {
-        // Move end handle (but don't pass start handle)
-        const newPos = Math.max(startPos.value + MIN_RANGE, Math.min(1, tapPos));
-        endPos.value = withSpring(newPos, { damping: 20, stiffness: 300 });
-        runOnJS(updateDatesFromPositions)(startPos.value, newPos);
-      }
-    });
-
-  // Animated styles for handles - center the handle on the position
   const startHandleStyle = useAnimatedStyle(() => ({
     left: startPos.value * trackWidth - HANDLE_SIZE / 2,
   }));
@@ -175,30 +157,29 @@ export function TimelineSlider({
     left: endPos.value * trackWidth - HANDLE_SIZE / 2,
   }));
 
-  // Animated style for selected range
   const rangeStyle = useAnimatedStyle(() => ({
     left: startPos.value * trackWidth,
     right: trackWidth - endPos.value * trackWidth,
   }));
 
-  // Quick presets
-  const presets = useMemo(() => {
-    return [
-      { label: '90d', days: 90 },
-      { label: '6mo', days: 180 },
-      { label: '1yr', days: 365 },
-      { label: 'All', days: 365 * 10 }, // 10 years - will be clamped to actual data
-    ];
-  }, []);
+  // Cached range style (static, not animated)
+  const cachedRangeStyle = useMemo(() => ({
+    left: cachedRange.start * trackWidth,
+    right: trackWidth - cachedRange.end * trackWidth,
+  }), [cachedRange, trackWidth]);
+
+  const presets = useMemo(() => [
+    { label: '90d', days: 90 },
+    { label: '6mo', days: 180 },
+    { label: '1yr', days: 365 },
+    { label: 'All', days: 365 * 10 },
+  ], []);
 
   const selectPreset = useCallback(
     (days: number) => {
       const now = new Date();
       const start = new Date(now);
       start.setDate(start.getDate() - days);
-
-      // Don't clamp - let onRangeChange trigger sync for the full range
-      // This allows fetching older data if the user selects 1yr or All
       onRangeChange(start, now);
     },
     [onRangeChange]
@@ -232,40 +213,75 @@ export function TimelineSlider({
         </View>
 
         {/* Slider track */}
-        <GestureDetector gesture={trackTapGesture}>
-          <View style={styles.sliderContainer} onLayout={onLayout}>
-            <View style={styles.track} />
+        <View style={styles.sliderContainer} onLayout={onLayout}>
+          {/* Base track - grey (no data) */}
+          <View style={styles.track} />
 
-            {/* Selected range highlight */}
-            <Animated.View style={[styles.selectedRange, rangeStyle]} />
+          {/* Cached range - striped pattern */}
+          {cachedRange.hasCache && trackWidth > 0 && (
+            <View style={[styles.cachedRange, cachedRangeStyle]}>
+              {/* Create stripe pattern with alternating views */}
+              <View style={styles.stripeContainer}>
+                {Array.from({ length: Math.ceil(trackWidth / 6) }).map((_, i) => (
+                  <View
+                    key={i}
+                    style={[
+                      styles.stripe,
+                      { backgroundColor: i % 2 === 0 ? colors.primary : 'rgba(255,255,255,0.8)' }
+                    ]}
+                  />
+                ))}
+              </View>
+            </View>
+          )}
 
-            {/* Start handle - larger touch target */}
-            <GestureDetector gesture={startGesture}>
-              <Animated.View style={[styles.handleContainer, startHandleStyle]}>
-                <View style={styles.handle}>
-                  <View style={styles.handleInner} />
-                </View>
-              </Animated.View>
-            </GestureDetector>
+          {/* Selected range - solid orange */}
+          <Animated.View style={[styles.selectedRange, rangeStyle]} />
 
-            {/* End handle - larger touch target */}
-            <GestureDetector gesture={endGesture}>
-              <Animated.View style={[styles.handleContainer, endHandleStyle]}>
-                <View style={styles.handle}>
-                  <View style={styles.handleInner} />
-                </View>
-              </Animated.View>
-            </GestureDetector>
-          </View>
-        </GestureDetector>
+          {/* Start handle */}
+          <GestureDetector gesture={startGesture}>
+            <Animated.View style={[styles.handleContainer, startHandleStyle]}>
+              <View style={styles.handle}>
+                <View style={styles.handleInner} />
+              </View>
+            </Animated.View>
+          </GestureDetector>
+
+          {/* End handle */}
+          <GestureDetector gesture={endGesture}>
+            <Animated.View style={[styles.handleContainer, endHandleStyle]}>
+              <View style={styles.handle}>
+                <View style={styles.handleInner} />
+              </View>
+            </Animated.View>
+          </GestureDetector>
+        </View>
 
         {/* Date labels */}
         <View style={styles.labels}>
-          <Text style={styles.dateLabel}>{formatShortDate(startDate)}</Text>
+          <Text style={styles.dateLabel}>{formatShortDate(minDate)}</Text>
           <Text style={styles.countLabel}>
             {isLoading ? 'Loading...' : `${activityCount || 0} activities`}
           </Text>
-          <Text style={styles.dateLabel}>{formatShortDate(endDate)}</Text>
+          <Text style={styles.dateLabel}>{formatShortDate(maxDate)}</Text>
+        </View>
+
+        {/* Legend */}
+        <View style={styles.legend}>
+          <View style={styles.legendItem}>
+            <View style={[styles.legendSwatch, styles.legendSelected]} />
+            <Text style={styles.legendText}>Selected</Text>
+          </View>
+          <View style={styles.legendItem}>
+            <View style={[styles.legendSwatch, styles.legendCached]}>
+              <View style={styles.legendStripe} />
+            </View>
+            <Text style={styles.legendText}>Cached</Text>
+          </View>
+          <View style={styles.legendItem}>
+            <View style={[styles.legendSwatch, styles.legendEmpty]} />
+            <Text style={styles.legendText}>Not synced</Text>
+          </View>
         </View>
       </View>
     </View>
@@ -273,9 +289,7 @@ export function TimelineSlider({
 }
 
 const styles = StyleSheet.create({
-  wrapper: {
-    // Wrapper contains optional sync banner + main container
-  },
+  wrapper: {},
   syncBanner: {
     backgroundColor: colors.primary,
     paddingVertical: 8,
@@ -314,17 +328,31 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   sliderContainer: {
-    height: 44, // Taller for easier touch
+    height: 44,
     justifyContent: 'center',
-    marginHorizontal: 14, // Account for handle overflow
+    marginHorizontal: 14,
   },
   track: {
     position: 'absolute',
     left: 0,
     right: 0,
-    height: 6, // Slightly thicker track
+    height: 6,
     backgroundColor: colors.border,
     borderRadius: 3,
+  },
+  cachedRange: {
+    position: 'absolute',
+    height: 6,
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  stripeContainer: {
+    flexDirection: 'row',
+    height: '100%',
+  },
+  stripe: {
+    width: 3,
+    height: '100%',
   },
   selectedRange: {
     position: 'absolute',
@@ -338,7 +366,6 @@ const styles = StyleSheet.create({
     height: HANDLE_SIZE,
     justifyContent: 'center',
     alignItems: 'center',
-    // The container provides the touch target
   },
   handle: {
     width: 24,
@@ -376,5 +403,45 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.textPrimary,
     fontWeight: '600',
+  },
+  legend: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 16,
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  legendSwatch: {
+    width: 16,
+    height: 8,
+    borderRadius: 2,
+  },
+  legendSelected: {
+    backgroundColor: colors.primary,
+  },
+  legendCached: {
+    backgroundColor: colors.primary,
+    flexDirection: 'row',
+    overflow: 'hidden',
+  },
+  legendStripe: {
+    width: 8,
+    height: '100%',
+    backgroundColor: 'rgba(255,255,255,0.8)',
+  },
+  legendEmpty: {
+    backgroundColor: colors.border,
+  },
+  legendText: {
+    fontSize: 10,
+    color: colors.textSecondary,
   },
 });

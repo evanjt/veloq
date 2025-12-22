@@ -1,60 +1,17 @@
 import { apiClient, getAthleteId } from './client';
-import { formatLocalDate } from '@/lib';
+import { formatLocalDate, parseStreams } from '@/lib';
 import type {
   Activity,
   ActivityDetail,
   ActivityStreams,
-  RawStreamItem,
   Athlete,
   WellnessData,
   PowerCurve,
   PaceCurve,
   SportSettings,
   ActivityMapData,
+  RawStreamItem,
 } from '@/types';
-
-// Transform raw API streams array into usable ActivityStreams object
-function parseStreams(rawStreams: RawStreamItem[]): ActivityStreams {
-  const streams: ActivityStreams = {};
-
-  for (const stream of rawStreams) {
-    switch (stream.type) {
-      case 'latlng':
-        // latlng uses data for lat, data2 for lng - combine into [lat, lng] tuples
-        if (stream.data && stream.data2) {
-          streams.latlng = stream.data.map((lat, i) => [lat, stream.data2![i]]);
-        }
-        break;
-      case 'time':
-        streams.time = stream.data;
-        break;
-      case 'altitude':
-      case 'fixed_altitude':
-        // Use fixed_altitude if available (corrected elevation), fallback to altitude
-        if (!streams.altitude || stream.type === 'fixed_altitude') {
-          streams.altitude = stream.data;
-        }
-        break;
-      case 'heartrate':
-        streams.heartrate = stream.data;
-        break;
-      case 'watts':
-        streams.watts = stream.data;
-        break;
-      case 'cadence':
-        streams.cadence = stream.data;
-        break;
-      case 'velocity_smooth':
-        streams.velocity_smooth = stream.data;
-        break;
-      case 'distance':
-        streams.distance = stream.data;
-        break;
-    }
-  }
-
-  return streams;
-}
 
 export const intervalsApi = {
   async getAthlete(): Promise<Athlete> {
@@ -87,11 +44,12 @@ export const intervalsApi = {
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
     // Base fields always included (most important for activity list)
+    // Note: polyline is NOT returned by the API (would need streams endpoint)
     const baseFields = [
       'id', 'name', 'type', 'start_date_local', 'moving_time', 'elapsed_time',
       'distance', 'total_elevation_gain', 'average_speed', 'max_speed',
       'icu_average_hr', 'icu_max_hr', 'average_heartrate', 'average_watts', 'max_watts', 'icu_average_watts',
-      'average_cadence', 'calories', 'polyline', 'icu_training_load',
+      'average_cadence', 'calories', 'icu_training_load',
       'has_weather', 'average_weather_temp', 'icu_ftp', 'stream_types',
       'locality', 'country', // Location info
     ];
@@ -121,6 +79,29 @@ export const intervalsApi = {
   async getActivity(id: string): Promise<ActivityDetail> {
     const response = await apiClient.get(`/activity/${id}`);
     return response.data;
+  },
+
+  /**
+   * Get the oldest activity date for the athlete
+   * Used to determine the full timeline range
+   */
+  async getOldestActivityDate(): Promise<string | null> {
+    const athleteId = getAthleteId();
+    // Query with a very old date to find the actual oldest activity
+    const response = await apiClient.get(`/athlete/${athleteId}/activities`, {
+      params: {
+        oldest: '2000-01-01',
+        newest: formatLocalDate(new Date()),
+        fields: 'id,start_date_local',
+      },
+    });
+    const activities = response.data as Activity[];
+    if (activities.length === 0) return null;
+    // Find the oldest activity date
+    return activities.reduce((oldest, a) =>
+      a.start_date_local < oldest ? a.start_date_local : oldest,
+      activities[0].start_date_local
+    );
   },
 
   async getActivityStreams(

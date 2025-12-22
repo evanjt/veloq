@@ -1,4 +1,5 @@
-import { useQuery, keepPreviousData } from '@tanstack/react-query';
+import { useQuery, useInfiniteQuery, keepPreviousData } from '@tanstack/react-query';
+import { useMemo } from 'react';
 import { intervalsApi } from '@/api';
 import { formatLocalDate } from '@/lib';
 import type { Activity } from '@/types';
@@ -14,6 +15,10 @@ interface UseActivitiesOptions {
   includeStats?: boolean;
 }
 
+/**
+ * Standard activities hook for fixed date ranges.
+ * Use this for specific date range queries (e.g., stats page, wellness).
+ */
 export function useActivities(options: UseActivitiesOptions = {}) {
   const { days, oldest, newest, includeStats = false } = options;
 
@@ -30,24 +35,107 @@ export function useActivities(options: UseActivitiesOptions = {}) {
   }
 
   return useQuery<Activity[]>({
-    // Include 'stats' in query key to cache separately from non-stats queries
     queryKey: ['activities', queryOldest, queryNewest, includeStats ? 'stats' : 'base'],
     queryFn: () => intervalsApi.getActivities({
       oldest: queryOldest,
       newest: queryNewest,
       includeStats,
     }),
-    staleTime: 1000 * 60 * 5, // 5 minutes
-    gcTime: 1000 * 60 * 60 * 24 * 7, // 7 days
-    placeholderData: keepPreviousData, // Keep previous data visible while fetching new range
+    // Thin client approach: always fetch fresh data
+    // staleTime 0 means data is immediately stale, triggering refetch on mount/focus
+    staleTime: 0,
+    gcTime: 1000 * 60 * 5, // Keep in memory 5 min for back navigation
+    placeholderData: keepPreviousData,
   });
 }
+
+/**
+ * Page size for infinite scroll (in days)
+ */
+const PAGE_SIZE_DAYS = 30;
+
+/**
+ * Infinite scroll for activity feed.
+ *
+ * Thin client approach:
+ * - Always fetch fresh data (staleTime: 0)
+ * - Refetch on focus/mount to ensure data is current
+ * - Simple pull-to-refresh using standard refetch
+ */
+export function useInfiniteActivities(options: { includeStats?: boolean } = {}) {
+  const { includeStats = false } = options;
+
+  const query = useInfiniteQuery<Activity[], Error>({
+    queryKey: ['activities-infinite', includeStats ? 'stats' : 'base'],
+    queryFn: async ({ pageParam }) => {
+      const { oldest, newest } = pageParam as {
+        oldest: string;
+        newest: string;
+      };
+
+      return intervalsApi.getActivities({
+        oldest,
+        newest,
+        includeStats,
+      });
+    },
+    initialPageParam: (() => {
+      const today = new Date();
+      const thirtyDaysAgo = new Date(today);
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - PAGE_SIZE_DAYS);
+      return {
+        oldest: formatLocalDate(thirtyDaysAgo),
+        newest: formatLocalDate(today),
+      };
+    })(),
+    getNextPageParam: (lastPage, _allPages, lastPageParam) => {
+      // Stop if no more activities
+      if (lastPage.length === 0) {
+        return undefined;
+      }
+
+      const pageParam = lastPageParam as { oldest: string };
+      const nextEnd = new Date(pageParam.oldest);
+      nextEnd.setDate(nextEnd.getDate() - 1);
+      const nextStart = new Date(nextEnd);
+      nextStart.setDate(nextStart.getDate() - PAGE_SIZE_DAYS);
+
+      return {
+        oldest: formatLocalDate(nextStart),
+        newest: formatLocalDate(nextEnd),
+      };
+    },
+    // Thin client: always fetch fresh data
+    staleTime: 0,
+    // Keep in memory briefly for back navigation
+    gcTime: 1000 * 60 * 5,
+    // Refetch on window/app focus for fresh data
+    refetchOnWindowFocus: true,
+  });
+
+  // All activities flattened from loaded pages
+  const allActivities = useMemo(() => {
+    if (!query.data?.pages) return [];
+    return query.data.pages.flat();
+  }, [query.data?.pages]);
+
+  return {
+    ...query,
+    allActivities,
+  };
+}
+
+/**
+ * Export the new hook as well for backwards compatibility
+ */
+export { useInfiniteActivities as useInfiniteActivityFeed };
 
 export function useActivity(id: string) {
   return useQuery({
     queryKey: ['activity', id],
     queryFn: () => intervalsApi.getActivity(id),
-    staleTime: 1000 * 60 * 60, // 1 hour
+    // Single activity - cache for 1 hour, rarely changes
+    staleTime: 1000 * 60 * 60,
     gcTime: 1000 * 60 * 60 * 24 * 30, // 30 days
     enabled: !!id,
   });
@@ -55,7 +143,6 @@ export function useActivity(id: string) {
 
 export function useActivityStreams(id: string) {
   return useQuery({
-    // v2: fixed parsing of latlng data (data + data2)
     queryKey: ['activity-streams-v2', id],
     queryFn: () =>
       intervalsApi.getActivityStreams(id, [
@@ -68,7 +155,8 @@ export function useActivityStreams(id: string) {
         'distance',
         'time',
       ]),
-    staleTime: Infinity, // Streams never change
+    // Streams NEVER change - infinite staleTime
+    staleTime: Infinity,
     gcTime: 1000 * 60 * 60 * 24 * 30, // 30 days
     enabled: !!id,
   });

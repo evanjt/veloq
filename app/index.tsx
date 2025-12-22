@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useCallback } from 'react';
 import {
   View,
   FlatList,
@@ -7,12 +7,14 @@ import {
   useColorScheme,
   TouchableOpacity,
   Image,
+  TextInput,
+  ActivityIndicator,
 } from 'react-native';
 import { Text } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, Href } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useActivities, useAthlete, useWellness, getFormZone, FORM_ZONE_COLORS, getLatestFTP, useSportSettings, getSettingsForSport, usePaceCurve } from '@/hooks';
+import { useInfiniteActivities, useAthlete, useWellness, getFormZone, FORM_ZONE_COLORS, getLatestFTP, useSportSettings, getSettingsForSport, usePaceCurve } from '@/hooks';
 import { useSportPreference, SPORT_COLORS } from '@/providers';
 import { formatPaceCompact, formatSwimPace } from '@/lib';
 import { ActivityCard } from '@/components/activity/ActivityCard';
@@ -20,10 +22,23 @@ import { ActivityCardSkeleton, StatsPillSkeleton, MapFAB } from '@/components/ui
 import { colors, spacing, layout, typography } from '@/theme';
 import type { Activity } from '@/types';
 
+// Activity type categories for filtering
+const ACTIVITY_TYPE_GROUPS = {
+  Cycling: ['Ride', 'VirtualRide', 'MountainBikeRide', 'GravelRide', 'EBikeRide'],
+  Running: ['Run', 'VirtualRun', 'TrailRun'],
+  Swimming: ['Swim'],
+  Other: ['Walk', 'Hike', 'Workout', 'WeightTraining', 'Yoga', 'Rowing', 'Elliptical', 'Ski', 'Snowboard'],
+};
+
+const ALL_TYPES = Object.values(ACTIVITY_TYPE_GROUPS).flat();
+
 export default function FeedScreen() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const [profileImageError, setProfileImageError] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showFilters, setShowFilters] = useState(false);
+  const [selectedTypeGroup, setSelectedTypeGroup] = useState<string | null>(null);
 
   const { data: athlete } = useAthlete();
   const { primarySport } = useSportPreference();
@@ -38,22 +53,63 @@ export default function FeedScreen() {
   // Validate profile URL - must be a non-empty string starting with http
   const profileUrl = athlete?.profile_medium || athlete?.profile;
   const hasValidProfileUrl = profileUrl && typeof profileUrl === 'string' && profileUrl.startsWith('http');
+
   const {
-    data: activities,
+    data,
     isLoading,
     isError,
     error,
-    refetch,
     isRefetching,
-  } = useActivities();
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    refetch,
+  } = useInfiniteActivities();
+
+  // Flatten all pages into a single array
+  const allActivities = useMemo(() => {
+    if (!data?.pages) return [];
+    return data.pages.flat();
+  }, [data?.pages]);
+
+  // Filter activities by search query and type
+  const filteredActivities = useMemo(() => {
+    let filtered = allActivities;
+
+    // Filter by search query
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase().trim();
+      filtered = filtered.filter(activity =>
+        activity.name?.toLowerCase().includes(query) ||
+        activity.type?.toLowerCase().includes(query) ||
+        activity.locality?.toLowerCase().includes(query) ||
+        activity.country?.toLowerCase().includes(query)
+      );
+    }
+
+    // Filter by activity type group
+    if (selectedTypeGroup) {
+      const types = ACTIVITY_TYPE_GROUPS[selectedTypeGroup as keyof typeof ACTIVITY_TYPE_GROUPS] || [];
+      filtered = filtered.filter(activity => types.includes(activity.type));
+    }
+
+    return filtered;
+  }, [allActivities, searchQuery, selectedTypeGroup]);
 
   // Fetch wellness data for the header badge (short range for quick load)
   const { data: wellnessData, isLoading: wellnessLoading, refetch: refetchWellness } = useWellness('7d');
 
-  // Combined refresh handler
+  // Combined refresh handler - fetches fresh data
   const handleRefresh = async () => {
     await Promise.all([refetch(), refetchWellness()]);
   };
+
+  // Load more when scrolling to the end
+  const handleEndReached = useCallback(() => {
+    if (hasNextPage && !isFetchingNextPage) {
+      fetchNextPage();
+    }
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   // Compute quick stats from wellness and activities data
   const quickStats = useMemo(() => {
@@ -94,13 +150,13 @@ export default function FeedScreen() {
     const twoWeeksAgo = new Date(now - weekMs * 2);
 
     // Current week activities
-    const weekActivities = activities?.filter(a => new Date(a.start_date_local) >= weekAgo) ?? [];
+    const weekActivities = allActivities?.filter(a => new Date(a.start_date_local) >= weekAgo) ?? [];
     const weekCount = weekActivities.length;
     const weekSeconds = weekActivities.reduce((sum, a) => sum + (a.moving_time || 0), 0);
     const weekHours = Math.round(weekSeconds / 3600 * 10) / 10;
 
     // Previous week activities for trend
-    const prevWeekActivities = activities?.filter(a => {
+    const prevWeekActivities = allActivities?.filter(a => {
       const date = new Date(a.start_date_local);
       return date >= twoWeeksAgo && date < weekAgo;
     }) ?? [];
@@ -112,10 +168,10 @@ export default function FeedScreen() {
     const weekCountTrend = getTrend(weekCount, prevWeekCount, 1);
 
     // Get latest FTP from activities with trend
-    const ftp = getLatestFTP(activities) ?? null;
+    const ftp = getLatestFTP(allActivities) ?? null;
     // Get FTP from ~30 days ago for trend
     const thirtyDaysAgo = new Date(now - 30 * 24 * 60 * 60 * 1000);
-    const olderActivitiesWithFtp = activities?.filter(a =>
+    const olderActivitiesWithFtp = allActivities?.filter(a =>
       new Date(a.start_date_local) <= thirtyDaysAgo && a.icu_ftp
     ).sort((a, b) => new Date(b.start_date_local).getTime() - new Date(a.start_date_local).getTime()) ?? [];
     const prevFtp = olderActivitiesWithFtp[0]?.icu_ftp ?? ftp;
@@ -130,7 +186,7 @@ export default function FeedScreen() {
       weekCount, weekCountTrend,
       ftp, ftpTrend
     };
-  }, [wellnessData, activities]);
+  }, [wellnessData, allActivities]);
 
   const formZone = getFormZone(quickStats.form);
   const formColor = formZone ? FORM_ZONE_COLORS[formZone] : colors.success;
@@ -163,6 +219,12 @@ export default function FeedScreen() {
   const navigateToStats = () => router.push('/stats');
   const navigateToMap = () => router.push('/map' as Href);
   const navigateToSettings = () => router.push('/settings' as Href);
+
+  const toggleFilters = () => setShowFilters(!showFilters);
+
+  const selectTypeGroup = (group: string | null) => {
+    setSelectedTypeGroup(selectedTypeGroup === group ? null : group);
+  };
 
   const renderHeader = () => (
     <>
@@ -313,9 +375,82 @@ export default function FeedScreen() {
         </View>
       </View>
 
+      {/* Search and Filter bar */}
+      <View style={styles.searchContainer}>
+        <View style={[styles.searchBar, isDark && styles.searchBarDark]}>
+          <MaterialCommunityIcons
+            name="magnify"
+            size={20}
+            color={isDark ? '#888' : colors.textSecondary}
+          />
+          <TextInput
+            style={[styles.searchInput, isDark && styles.searchInputDark]}
+            placeholder="Search activities..."
+            placeholderTextColor={isDark ? '#666' : '#999'}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            returnKeyType="search"
+            autoCorrect={false}
+            autoCapitalize="none"
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={() => setSearchQuery('')}>
+              <MaterialCommunityIcons
+                name="close-circle"
+                size={18}
+                color={isDark ? '#666' : '#999'}
+              />
+            </TouchableOpacity>
+          )}
+        </View>
+        <TouchableOpacity
+          style={[
+            styles.filterButton,
+            isDark && styles.filterButtonDark,
+            (showFilters || selectedTypeGroup) && styles.filterButtonActive,
+          ]}
+          onPress={toggleFilters}
+        >
+          <MaterialCommunityIcons
+            name="filter-variant"
+            size={20}
+            color={(showFilters || selectedTypeGroup) ? '#FFF' : (isDark ? '#AAA' : colors.textSecondary)}
+          />
+        </TouchableOpacity>
+      </View>
+
+      {/* Filter chips */}
+      {showFilters && (
+        <View style={styles.filterChips}>
+          {Object.keys(ACTIVITY_TYPE_GROUPS).map((group) => (
+            <TouchableOpacity
+              key={group}
+              style={[
+                styles.filterChip,
+                isDark && styles.filterChipDark,
+                selectedTypeGroup === group && styles.filterChipActive,
+              ]}
+              onPress={() => selectTypeGroup(group)}
+            >
+              <Text
+                style={[
+                  styles.filterChipText,
+                  isDark && styles.filterChipTextDark,
+                  selectedTypeGroup === group && styles.filterChipTextActive,
+                ]}
+              >
+                {group}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
+
       {/* Activities section header */}
       <View style={styles.sectionHeader}>
-        <Text style={[styles.sectionTitle, isDark && styles.textLight]}>Recent Activities</Text>
+        <Text style={[styles.sectionTitle, isDark && styles.textLight]}>
+          {searchQuery || selectedTypeGroup ? `${filteredActivities.length} Activities` : 'Recent Activities'}
+        </Text>
       </View>
     </>
   );
@@ -323,7 +458,7 @@ export default function FeedScreen() {
   const renderEmpty = () => (
     <View style={styles.emptyContainer}>
       <Text style={[styles.emptyText, isDark && styles.textLight]}>
-        No activities found
+        {searchQuery || selectedTypeGroup ? 'No matching activities' : 'No activities found'}
       </Text>
     </View>
   );
@@ -336,7 +471,17 @@ export default function FeedScreen() {
     </View>
   );
 
-  if (isLoading && !activities) {
+  const renderFooter = () => {
+    if (!isFetchingNextPage) return null;
+    return (
+      <View style={styles.footerLoader}>
+        <ActivityIndicator size="small" color={colors.primary} />
+        <Text style={[styles.footerText, isDark && styles.textDark]}>Loading more...</Text>
+      </View>
+    );
+  };
+
+  if (isLoading && !allActivities.length) {
     return (
       <SafeAreaView style={[styles.container, isDark && styles.containerDark]}>
         <View style={styles.skeletonContainer}>
@@ -361,11 +506,12 @@ export default function FeedScreen() {
   return (
     <SafeAreaView style={[styles.container, isDark && styles.containerDark]}>
       <FlatList
-        data={activities}
+        data={filteredActivities}
         renderItem={renderActivity}
         keyExtractor={(item) => item.id}
         ListHeaderComponent={renderHeader}
         ListEmptyComponent={isError ? renderError : renderEmpty}
+        ListFooterComponent={renderFooter}
         contentContainerStyle={styles.listContent}
         refreshControl={
           <RefreshControl
@@ -375,6 +521,8 @@ export default function FeedScreen() {
             tintColor={colors.primary}
           />
         }
+        onEndReached={handleEndReached}
+        onEndReachedThreshold={0.5}
         showsVerticalScrollIndicator={false}
       />
       <MapFAB onPress={navigateToMap} />
@@ -480,6 +628,82 @@ const styles = StyleSheet.create({
   textDark: {
     color: '#AAA',
   },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: layout.screenPadding,
+    paddingBottom: spacing.sm,
+    gap: 8,
+  },
+  searchBar: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.05)',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    gap: 8,
+  },
+  searchBarDark: {
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 15,
+    color: colors.textPrimary,
+    paddingVertical: 0,
+  },
+  searchInputDark: {
+    color: '#FFF',
+  },
+  filterButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    backgroundColor: 'rgba(0, 0, 0, 0.05)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  filterButtonDark: {
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  filterButtonActive: {
+    backgroundColor: colors.primary,
+  },
+  filterChips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    paddingHorizontal: layout.screenPadding,
+    paddingBottom: spacing.sm,
+    gap: 8,
+  },
+  filterChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 16,
+    backgroundColor: 'rgba(0, 0, 0, 0.05)',
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
+  filterChipDark: {
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  filterChipActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  filterChipText: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: colors.textSecondary,
+  },
+  filterChipTextDark: {
+    color: '#AAA',
+  },
+  filterChipTextActive: {
+    color: '#FFF',
+  },
   sectionHeader: {
     paddingHorizontal: layout.screenPadding,
     paddingBottom: spacing.sm,
@@ -521,5 +745,16 @@ const styles = StyleSheet.create({
   errorText: {
     ...typography.body,
     color: colors.error,
+  },
+  footerLoader: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: spacing.md,
+    gap: 8,
+  },
+  footerText: {
+    fontSize: 14,
+    color: colors.textSecondary,
   },
 });

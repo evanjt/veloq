@@ -21,13 +21,16 @@ export default function MapScreen() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
 
-  // Load cached bounds
+  // Load cached bounds - this is necessary because the API doesn't return
+  // polylines in the activities list, so we must fetch bounds individually
   const {
     activities,
     isReady,
     progress,
     syncDateRange,
     oldestSyncedDate,
+    newestSyncedDate,
+    oldestActivityDate,
   } = useActivityBoundsCache();
 
   const isSyncing = progress.status === 'syncing';
@@ -81,34 +84,32 @@ export default function MapScreen() {
     router.back();
   }, [router]);
 
-  // Calculate min/max dates for slider from activities
-  // The slider should span from the selected start (or oldest activity) to today
-  // NOTE: All hooks must be called before any conditional returns
+  // Calculate min/max dates for slider
+  // Use oldestActivityDate from API as the full timeline extent
   const { minDateForSlider, maxDateForSlider } = useMemo(() => {
     const now = new Date();
 
+    // Use the oldest activity date from API if available
+    if (oldestActivityDate) {
+      return {
+        minDateForSlider: new Date(oldestActivityDate),
+        maxDateForSlider: now,
+      };
+    }
+
+    // Fallback: use cached activities or selected date
     if (activities.length === 0) {
-      // No activities - use selected range
       return { minDateForSlider: startDate, maxDateForSlider: now };
     }
 
-    // Get min/max from activities
     const dates = activities.map(a => new Date(a.date).getTime());
     const oldestActivityTime = Math.min(...dates);
 
-    // Slider min should be the earliest of: selected start, oldest synced, or oldest activity
-    let minTime = oldestActivityTime;
-    if (oldestSyncedDate) {
-      minTime = Math.min(minTime, new Date(oldestSyncedDate).getTime());
-    }
-    // Also include selected startDate so slider can show the selected range properly
-    minTime = Math.min(minTime, startDate.getTime());
-
     return {
-      minDateForSlider: new Date(minTime),
-      maxDateForSlider: now, // Always use today as max
+      minDateForSlider: new Date(oldestActivityTime),
+      maxDateForSlider: now,
     };
-  }, [activities, oldestSyncedDate, startDate]);
+  }, [oldestActivityDate, activities, startDate]);
 
   // Show loading state if not ready
   if (!isReady) {
@@ -165,6 +166,8 @@ export default function MapScreen() {
           isLoading={isSyncing}
           activityCount={filteredActivities.length}
           syncProgress={isSyncing ? progress : null}
+          cachedOldest={oldestSyncedDate ? new Date(oldestSyncedDate) : null}
+          cachedNewest={newestSyncedDate ? new Date(newestSyncedDate) : null}
         />
       </View>
 

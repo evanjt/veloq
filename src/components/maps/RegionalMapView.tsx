@@ -101,19 +101,10 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
   // Use the stored initial bounds for the camera default
   const mapBounds = initialBoundsRef.current || calculateBounds(activities);
 
-  // Handle marker tap
+  // Handle marker tap - no auto-zoom to prevent jarring camera movements
   const handleMarkerTap = useCallback(async (activity: ActivityBoundsItem) => {
-    // Set loading state
+    // Set loading state - don't zoom, just show the popup
     setSelected({ activity, mapData: null, isLoading: true });
-
-    // Zoom to the selected activity's bounds
-    const normalized = normalizeBounds(activity.bounds);
-    cameraRef.current?.fitBounds(
-      [normalized.minLng, normalized.minLat],
-      [normalized.maxLng, normalized.maxLat],
-      50, // padding
-      300 // animation duration
-    );
 
     try {
       // Fetch full map data (with coordinates)

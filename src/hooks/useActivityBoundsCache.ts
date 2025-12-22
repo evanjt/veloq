@@ -5,6 +5,7 @@ import { formatLocalDate } from '@/lib';
 import type { Activity, ActivityBoundsCache, ActivityBoundsItem, ActivityType } from '@/types';
 
 const CACHE_KEY = 'activity_bounds_cache';
+const OLDEST_DATE_KEY = 'oldest_activity_date';
 const INITIAL_SYNC_DAYS = 90; // Initial sync period
 const BACKGROUND_SYNC_DAYS = 365 * 2; // Background sync for 2 years of history
 
@@ -39,6 +40,10 @@ interface UseActivityBoundsCacheReturn {
   syncDateRange: (oldest: string, newest: string) => Promise<void>;
   /** Get the oldest synced date */
   oldestSyncedDate: string | null;
+  /** Get the newest synced date (usually today or last sync) */
+  newestSyncedDate: string | null;
+  /** The oldest activity date from the API (full timeline extent) */
+  oldestActivityDate: string | null;
   /** Clear the cache */
   clearCache: () => Promise<void>;
   /** Cache statistics */
@@ -55,6 +60,7 @@ export function useActivityBoundsCache(): UseActivityBoundsCacheReturn {
     status: 'idle',
   });
   const [isReady, setIsReady] = useState(false);
+  const [oldestActivityDate, setOldestActivityDate] = useState<string | null>(null);
   const backgroundSyncRef = useRef<boolean>(false);
   const cacheRef = useRef<ActivityBoundsCache | null>(null);
 
@@ -71,6 +77,24 @@ export function useActivityBoundsCache(): UseActivityBoundsCacheReturn {
   const loadCache = useCallback(async () => {
     try {
       setProgress({ completed: 0, total: 0, status: 'loading', message: 'Loading cached data...' });
+
+      // Load cached oldest activity date (or fetch from API)
+      const cachedOldestDate = await AsyncStorage.getItem(OLDEST_DATE_KEY);
+      if (cachedOldestDate) {
+        setOldestActivityDate(cachedOldestDate);
+      } else {
+        // Fetch from API and cache it
+        try {
+          const oldest = await intervalsApi.getOldestActivityDate();
+          if (oldest) {
+            setOldestActivityDate(oldest);
+            await AsyncStorage.setItem(OLDEST_DATE_KEY, oldest);
+          }
+        } catch (e) {
+          console.warn('Failed to fetch oldest activity date:', e);
+        }
+      }
+
       const cached = await AsyncStorage.getItem(CACHE_KEY);
 
       if (cached) {
@@ -326,8 +350,10 @@ export function useActivityBoundsCache(): UseActivityBoundsCacheReturn {
   const clearCache = useCallback(async () => {
     try {
       await AsyncStorage.removeItem(CACHE_KEY);
+      await AsyncStorage.removeItem(OLDEST_DATE_KEY);
       setCache(null);
       cacheRef.current = null;
+      setOldestActivityDate(null);
       setProgress({ completed: 0, total: 0, status: 'idle' });
     } catch (error) {
       console.error('Failed to clear cache:', error);
@@ -364,6 +390,8 @@ export function useActivityBoundsCache(): UseActivityBoundsCacheReturn {
     isReady,
     syncDateRange,
     oldestSyncedDate: cache?.oldestSynced || null,
+    newestSyncedDate: cache?.lastSync || null,
+    oldestActivityDate,
     clearCache,
     cacheStats,
     syncAllHistory,

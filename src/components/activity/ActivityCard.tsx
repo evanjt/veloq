@@ -78,34 +78,26 @@ export function ActivityCard({ activity }: ActivityCardProps) {
           </View>
         </View>
 
-        {/* Map preview */}
-        <ActivityMapPreview activity={activity} height={160} />
-
-        {/* Stats with colored primary value */}
-        <View style={styles.statsContainer}>
-          <View style={styles.statItem}>
-            <Text style={[styles.statValue, { color: activityColor }]}>
-              {formatDistance(activity.distance)}
-            </Text>
-            <Text style={[styles.statLabel, isDark && styles.statLabelDark]}>DISTANCE</Text>
-          </View>
-
-          <View style={[styles.statDivider, isDark && styles.statDividerDark]} />
-
-          <View style={styles.statItem}>
-            <Text style={[styles.statValue, isDark && styles.textLight]}>
-              {formatDuration(activity.moving_time)}
-            </Text>
-            <Text style={[styles.statLabel, isDark && styles.statLabelDark]}>TIME</Text>
-          </View>
-
-          <View style={[styles.statDivider, isDark && styles.statDividerDark]} />
-
-          <View style={styles.statItem}>
-            <Text style={[styles.statValue, isDark && styles.textLight]}>
-              {formatElevation(activity.total_elevation_gain)}
-            </Text>
-            <Text style={[styles.statLabel, isDark && styles.statLabelDark]}>ELEVATION</Text>
+        {/* Map preview with stats overlay */}
+        <View style={styles.mapContainer}>
+          <ActivityMapPreview activity={activity} height={220} />
+          {/* Stats overlay at bottom of map */}
+          <View style={styles.statsOverlay}>
+            <View style={styles.statPill}>
+              <Text style={[styles.statValue, { color: activityColor }]}>
+                {formatDistance(activity.distance)}
+              </Text>
+            </View>
+            <View style={styles.statPill}>
+              <Text style={styles.statValue}>
+                {formatDuration(activity.moving_time)}
+              </Text>
+            </View>
+            <View style={styles.statPill}>
+              <Text style={styles.statValue}>
+                {formatElevation(activity.total_elevation_gain)}
+              </Text>
+            </View>
           </View>
         </View>
 
@@ -270,39 +262,28 @@ const styles = StyleSheet.create({
   dateDark: {
     color: '#888',
   },
-  statsContainer: {
-    flexDirection: 'row',
-    paddingHorizontal: layout.cardPadding,
-    paddingVertical: spacing.md,
-    backgroundColor: 'rgba(0,0,0,0.02)',
+  mapContainer: {
+    position: 'relative',
   },
-  statItem: {
-    flex: 1,
-    alignItems: 'center',
+  statsOverlay: {
+    position: 'absolute',
+    bottom: spacing.sm,
+    left: spacing.sm,
+    right: spacing.sm,
+    flexDirection: 'row',
+    gap: spacing.xs,
+  },
+  statPill: {
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: 8,
   },
   statValue: {
-    fontSize: 22,
+    fontSize: 14,
     fontWeight: '700',
-    color: colors.textPrimary,
-    letterSpacing: -0.5,
-  },
-  statLabel: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: colors.textSecondary,
-    marginTop: 4,
-    letterSpacing: 0.5,
-  },
-  statLabelDark: {
-    color: '#777',
-  },
-  statDivider: {
-    width: 1,
-    backgroundColor: 'rgba(0,0,0,0.08)',
-    marginVertical: spacing.xs,
-  },
-  statDividerDark: {
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    color: '#FFFFFF',
+    letterSpacing: -0.3,
   },
   secondaryStats: {
     flexDirection: 'row',
@@ -338,5 +319,8 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     letterSpacing: 0.3,
     marginTop: 1,
+  },
+  statLabelDark: {
+    color: '#777',
   },
 });

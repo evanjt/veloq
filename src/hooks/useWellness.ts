@@ -3,6 +3,15 @@ import { intervalsApi } from '@/api';
 import { formatLocalDate } from '@/lib';
 import type { WellnessData } from '@/types';
 
+// Re-export fitness utilities for backwards compatibility
+export {
+  calculateTSB,
+  getFormZone,
+  FORM_ZONE_COLORS,
+  FORM_ZONE_LABELS,
+  type FormZone,
+} from '@/lib/fitness';
+
 export type TimeRange = '7d' | '1m' | '42d' | '3m' | '6m' | '1y';
 
 function getDateRange(range: TimeRange): { oldest: string; newest: string } {
@@ -38,42 +47,3 @@ export function useWellness(range: TimeRange = '3m') {
     placeholderData: keepPreviousData, // Keep previous data visible while fetching new range
   });
 }
-
-// Helper to calculate TSB (Form) from CTL and ATL
-export function calculateTSB(wellness: WellnessData[]): (WellnessData & { tsb: number })[] {
-  return wellness.map((day) => {
-    const ctl = day.ctl ?? day.ctlLoad ?? 0;
-    const atl = day.atl ?? day.atlLoad ?? 0;
-    return {
-      ...day,
-      tsb: ctl - atl,
-    };
-  });
-}
-
-// Get the form zone based on TSB value
-export type FormZone = 'highRisk' | 'optimal' | 'grey' | 'fresh' | 'transition';
-
-export function getFormZone(tsb: number): FormZone {
-  if (tsb < -30) return 'highRisk';
-  if (tsb < -10) return 'optimal';
-  if (tsb < 5) return 'grey';
-  if (tsb < 25) return 'fresh';
-  return 'transition';
-}
-
-export const FORM_ZONE_COLORS: Record<FormZone, string> = {
-  highRisk: '#EF5350', // Red
-  optimal: '#66BB6A', // Green
-  grey: '#9E9E9E', // Grey
-  fresh: '#42A5F5', // Blue
-  transition: '#AB47BC', // Purple
-};
-
-export const FORM_ZONE_LABELS: Record<FormZone, string> = {
-  highRisk: 'High Risk',
-  optimal: 'Optimal',
-  grey: 'Grey Zone',
-  fresh: 'Fresh',
-  transition: 'Transition',
-};

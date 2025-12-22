@@ -175,3 +175,17 @@ export function getRegion(coordinates: LatLng[], padding = 0.1) {
     longitudeDelta: Math.max(lngDelta, 0.01),
   };
 }
+
+/**
+ * Compute bounds from a polyline string.
+ * Returns bounds in [[minLat, minLng], [maxLat, maxLng]] format for API compatibility.
+ */
+export function getBoundsFromPolyline(encoded: string): [[number, number], [number, number]] | null {
+  const coords = decodePolyline(encoded);
+  if (coords.length === 0) return null;
+
+  const { minLat, maxLat, minLng, maxLng } = getBounds(coords);
+  if (minLat === 0 && maxLat === 0 && minLng === 0 && maxLng === 0) return null;
+
+  return [[minLat, minLng], [maxLat, maxLng]];
+}
