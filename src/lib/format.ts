@@ -19,10 +19,28 @@ export function formatDuration(seconds: number): string {
 
 export function formatPace(metersPerSecond: number): string {
   if (metersPerSecond <= 0) return '--:--';
-  const secondsPerKm = 1000 / metersPerSecond;
-  const minutes = Math.floor(secondsPerKm / 60);
-  const seconds = Math.round(secondsPerKm % 60);
+  const totalSeconds = Math.round(1000 / metersPerSecond);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
   return `${minutes}:${seconds.toString().padStart(2, '0')} /km`;
+}
+
+// Compact pace format for pill display (no units)
+export function formatPaceCompact(metersPerSecond: number): string {
+  if (metersPerSecond <= 0) return '--:--';
+  const totalSeconds = Math.round(1000 / metersPerSecond);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+}
+
+// Format swim pace in min:sec per 100m
+export function formatSwimPace(metersPerSecond: number): string {
+  if (metersPerSecond <= 0) return '--:--';
+  const totalSeconds = Math.round(100 / metersPerSecond);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${seconds.toString().padStart(2, '0')}`;
 }
 
 export function formatSpeed(metersPerSecond: number): string {

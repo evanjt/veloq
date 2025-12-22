@@ -21,7 +21,9 @@ import {
   setThemePreference,
   useMapPreferences,
   useAuthStore,
+  useSportPreference,
   type ThemePreference,
+  type PrimarySport,
 } from '@/providers';
 import { type MapStyleType } from '@/components/maps';
 import { colors, darkColors, spacing, layout } from '@/theme';
@@ -69,6 +71,7 @@ export default function SettingsScreen() {
   const { data: athlete } = useAthlete();
   const { preferences: mapPreferences, setDefaultStyle, setActivityGroupStyle } = useMapPreferences();
   const clearCredentials = useAuthStore((state) => state.clearCredentials);
+  const { primarySport, setPrimarySport } = useSportPreference();
 
   // Load saved theme preference on mount
   useEffect(() => {
@@ -79,6 +82,10 @@ export default function SettingsScreen() {
     const preference = value as ThemePreference;
     setThemePreferenceState(preference);
     await setThemePreference(preference);
+  };
+
+  const handleSportChange = async (value: string) => {
+    await setPrimarySport(value as PrimarySport);
   };
 
   const handleDefaultMapStyleChange = async (value: string) => {
@@ -246,6 +253,38 @@ export default function SettingsScreen() {
             />
           </View>
         </View>
+
+        {/* Primary Sport Section */}
+        <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>PRIMARY SPORT</Text>
+        <View style={[styles.section, isDark && styles.sectionDark]}>
+          <View style={styles.themePickerContainer}>
+            <SegmentedButtons
+              value={primarySport}
+              onValueChange={handleSportChange}
+              buttons={[
+                {
+                  value: 'Cycling',
+                  label: 'Cycling',
+                  icon: 'bike',
+                },
+                {
+                  value: 'Running',
+                  label: 'Running',
+                  icon: 'run',
+                },
+                {
+                  value: 'Swimming',
+                  label: 'Swimming',
+                  icon: 'swim',
+                },
+              ]}
+              style={styles.themePicker}
+            />
+          </View>
+        </View>
+        <Text style={[styles.infoText, isDark && styles.textMuted]}>
+          Affects home screen metrics and default stats page view.
+        </Text>
 
         {/* Maps Section */}
         <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>MAPS</Text>

@@ -1,4 +1,6 @@
 export { PowerCurveChart } from './PowerCurveChart';
+export { PaceCurveChart } from './PaceCurveChart';
+export { SwimPaceCurveChart } from './SwimPaceCurveChart';
 export { ZoneDistributionChart } from './ZoneDistributionChart';
 export { FTPTrendChart } from './FTPTrendChart';
 export { WeeklySummary } from './WeeklySummary';

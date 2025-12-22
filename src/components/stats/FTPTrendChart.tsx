@@ -3,7 +3,7 @@ import { View, StyleSheet, useColorScheme } from 'react-native';
 import { Text } from 'react-native-paper';
 import { CartesianChart, Line, Area } from 'victory-native';
 import { Circle, LinearGradient, vec } from '@shopify/react-native-skia';
-import { colors, spacing, typography } from '@/theme';
+import { colors, spacing } from '@/theme';
 import type { eFTPPoint } from '@/types';
 
 interface FTPTrendChartProps {
@@ -106,7 +106,7 @@ export function FTPTrendChart({
           xKey="x"
           yKeys={['y']}
           domain={{ y: [minFTP, maxFTP] }}
-          padding={{ left: 0, right: 0, top: 8, bottom: 16 }}
+          padding={{ left: 0, right: 0, top: 8, bottom: 0 }}
         >
           {({ points, chartBounds }) => (
             <>
@@ -149,17 +149,24 @@ export function FTPTrendChart({
         </CartesianChart>
 
         {/* X-axis labels */}
-        <View style={styles.xAxisLabels}>
+        <View style={styles.xAxisOverlay} pointerEvents="none">
           {chartData.length > 0 && (
             <>
-              <Text style={[styles.axisLabel, isDark && styles.textDark]}>
+              <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
                 {formatDate(chartData[0].date)}
               </Text>
-              <Text style={[styles.axisLabel, isDark && styles.textDark]}>
+              <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
                 {formatDate(chartData[chartData.length - 1].date)}
               </Text>
             </>
           )}
+        </View>
+
+        {/* Y-axis labels */}
+        <View style={styles.yAxisOverlay} pointerEvents="none">
+          <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>{Math.round(maxFTP)}w</Text>
+          <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>{Math.round((minFTP + maxFTP) / 2)}w</Text>
+          <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>{Math.round(minFTP)}w</Text>
         </View>
       </View>
     </View>
@@ -212,7 +219,7 @@ const styles = StyleSheet.create({
     flex: 1,
     position: 'relative',
   },
-  xAxisLabels: {
+  xAxisOverlay: {
     position: 'absolute',
     bottom: 0,
     left: 4,
@@ -220,9 +227,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
+  yAxisOverlay: {
+    position: 'absolute',
+    top: 8,
+    bottom: 16,
+    left: 4,
+    justifyContent: 'space-between',
+  },
   axisLabel: {
-    fontSize: 9,
-    color: colors.textSecondary,
+    fontSize: 10,
+    color: '#666',
+    fontWeight: '500',
+  },
+  axisLabelDark: {
+    color: '#AAA',
   },
   emptyState: {
     flex: 1,

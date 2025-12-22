@@ -16,6 +16,18 @@ export {
   formatPowerCurveForChart,
 } from './usePowerCurve';
 export {
+  usePaceCurve,
+  PACE_CURVE_DISTANCES,
+  SWIM_PACE_CURVE_DISTANCES,
+  PACE_CURVE_DURATIONS,
+  SWIM_PACE_CURVE_DURATIONS,
+  getPaceAtDuration,
+  formatPaceCurveForChart,
+  formatSwimPaceCurveForChart,
+  paceToMinPerKm,
+  paceToMinPer100m,
+} from './usePaceCurve';
+export {
   useSportSettings,
   getSettingsForSport,
   POWER_ZONE_COLORS,

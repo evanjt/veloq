@@ -1,10 +1,13 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { View, ScrollView, StyleSheet, useColorScheme, TouchableOpacity } from 'react-native';
 import { Text, IconButton, ActivityIndicator } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import { PowerCurveChart, ZoneDistributionChart, FTPTrendChart, DecouplingChart } from '@/components/stats';
-import { useActivities, useActivityStreams, useZoneDistribution, useEFTPHistory, getLatestFTP, usePowerCurve } from '@/hooks';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { PowerCurveChart, PaceCurveChart, SwimPaceCurveChart, ZoneDistributionChart, FTPTrendChart, DecouplingChart } from '@/components/stats';
+import { useActivities, useActivityStreams, useZoneDistribution, useEFTPHistory, getLatestFTP, usePowerCurve, useSportSettings, getSettingsForSport, usePaceCurve } from '@/hooks';
+import { useSportPreference, SPORT_COLORS, type PrimarySport } from '@/providers';
+import { formatPaceCompact } from '@/lib';
 import { colors, spacing, layout } from '@/theme';
 
 type TimeRange = '30d' | '90d' | '180d' | '1y';
@@ -23,6 +26,15 @@ export default function StatsScreen() {
   // Time range state
   const [timeRange, setTimeRange] = useState<TimeRange>('90d');
   const selectedRange = TIME_RANGE_OPTIONS.find(r => r.value === timeRange)!;
+
+  // Sport mode state - defaults to primary sport from preferences
+  const { primarySport } = useSportPreference();
+  const [sportMode, setSportMode] = useState<PrimarySport>(primarySport);
+
+  // Update sport mode when primary sport preference changes
+  useEffect(() => {
+    setSportMode(primarySport);
+  }, [primarySport]);
 
   // Fetch activities with stats fields (eFTP, zone times, etc.)
   const { data: activities, isLoading: loadingActivities, isFetching: fetchingActivities } = useActivities({
@@ -43,6 +55,16 @@ export default function StatsScreen() {
   // Compute eFTP history
   const eftpHistory = useEFTPHistory(activities365d);
   const currentFTP = getLatestFTP(activities365d);
+
+  // Get sport settings for thresholds
+  const { data: sportSettings } = useSportSettings();
+  const runSettings = getSettingsForSport(sportSettings, 'Run');
+  const runLthr = runSettings?.lthr;
+  const runMaxHr = runSettings?.max_hr;
+
+  // Get pace curve for critical speed (threshold pace)
+  const { data: runPaceCurve } = usePaceCurve({ sport: 'Run', days: selectedRange.days });
+  const thresholdPace = runPaceCurve?.criticalSpeed;
 
   // Find a recent activity with power data for decoupling analysis
   const decouplingActivity = useMemo(() => {
@@ -106,63 +128,227 @@ export default function StatsScreen() {
         ))}
       </View>
 
+      {/* Sport Toggle */}
+      <View style={styles.sportToggleContainer}>
+        <TouchableOpacity
+          style={[
+            styles.sportToggleButton,
+            isDark && styles.sportToggleButtonDark,
+            sportMode === 'Cycling' && { backgroundColor: SPORT_COLORS.Cycling },
+          ]}
+          onPress={() => setSportMode('Cycling')}
+          activeOpacity={0.7}
+        >
+          <MaterialCommunityIcons
+            name="bike"
+            size={16}
+            color={sportMode === 'Cycling' ? '#FFF' : (isDark ? '#AAA' : colors.textSecondary)}
+          />
+          <Text
+            style={[
+              styles.sportToggleText,
+              isDark && styles.textDark,
+              sportMode === 'Cycling' && styles.sportToggleTextActive,
+            ]}
+          >
+            Cycling
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[
+            styles.sportToggleButton,
+            isDark && styles.sportToggleButtonDark,
+            sportMode === 'Running' && { backgroundColor: SPORT_COLORS.Running },
+          ]}
+          onPress={() => setSportMode('Running')}
+          activeOpacity={0.7}
+        >
+          <MaterialCommunityIcons
+            name="run"
+            size={16}
+            color={sportMode === 'Running' ? '#FFF' : (isDark ? '#AAA' : colors.textSecondary)}
+          />
+          <Text
+            style={[
+              styles.sportToggleText,
+              isDark && styles.textDark,
+              sportMode === 'Running' && styles.sportToggleTextActive,
+            ]}
+          >
+            Running
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[
+            styles.sportToggleButton,
+            isDark && styles.sportToggleButtonDark,
+            sportMode === 'Swimming' && { backgroundColor: SPORT_COLORS.Swimming },
+          ]}
+          onPress={() => setSportMode('Swimming')}
+          activeOpacity={0.7}
+        >
+          <MaterialCommunityIcons
+            name="swim"
+            size={16}
+            color={sportMode === 'Swimming' ? '#FFF' : (isDark ? '#AAA' : colors.textSecondary)}
+          />
+          <Text
+            style={[
+              styles.sportToggleText,
+              isDark && styles.textDark,
+              sportMode === 'Swimming' && styles.sportToggleTextActive,
+            ]}
+          >
+            Swimming
+          </Text>
+        </TouchableOpacity>
+      </View>
+
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Power Curve */}
-        <View style={[styles.card, isDark && styles.cardDark]}>
-          <PowerCurveChart height={220} days={selectedRange.days} />
-        </View>
-
-        {/* Zone Distribution - Power */}
-        <View style={[styles.card, isDark && styles.cardDark]}>
-          {loadingActivities && !activities ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="small" color={colors.primary} />
+        {/* Cycling Charts */}
+        {sportMode === 'Cycling' && (
+          <>
+            {/* Power Curve */}
+            <View style={[styles.card, isDark && styles.cardDark]}>
+              <PowerCurveChart height={220} days={selectedRange.days} ftp={currentFTP} />
             </View>
-          ) : (
-            <ZoneDistributionChart data={powerZones} type="power" periodLabel={selectedRange.label} />
-          )}
-        </View>
 
-        {/* Zone Distribution - HR */}
-        <View style={[styles.card, isDark && styles.cardDark]}>
-          {loadingActivities && !activities ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="small" color={colors.primary} />
+            {/* Zone Distribution - Power */}
+            <View style={[styles.card, isDark && styles.cardDark]}>
+              {loadingActivities && !activities ? (
+                <View style={styles.loadingContainer}>
+                  <ActivityIndicator size="small" color={colors.primary} />
+                </View>
+              ) : (
+                <ZoneDistributionChart data={powerZones} type="power" periodLabel={selectedRange.label} />
+              )}
             </View>
-          ) : (
-            <ZoneDistributionChart data={hrZones} type="hr" periodLabel={selectedRange.label} />
-          )}
-        </View>
 
-        {/* eFTP Trend */}
-        <View style={[styles.card, isDark && styles.cardDark]}>
-          {loadingActivities && !activities ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="small" color={colors.primary} />
+            {/* Zone Distribution - HR */}
+            <View style={[styles.card, isDark && styles.cardDark]}>
+              {loadingActivities && !activities ? (
+                <View style={styles.loadingContainer}>
+                  <ActivityIndicator size="small" color={colors.primary} />
+                </View>
+              ) : (
+                <ZoneDistributionChart data={hrZones} type="hr" periodLabel={selectedRange.label} />
+              )}
             </View>
-          ) : (
-            <FTPTrendChart data={eftpHistory} currentFTP={currentFTP} height={200} />
-          )}
-        </View>
 
-        {/* Aerobic Decoupling */}
-        <View style={[styles.card, isDark && styles.cardDark]}>
-          {loadingStreams && !decouplingStreams ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="small" color={colors.primary} />
+            {/* eFTP Trend */}
+            <View style={[styles.card, isDark && styles.cardDark]}>
+              {loadingActivities && !activities ? (
+                <View style={styles.loadingContainer}>
+                  <ActivityIndicator size="small" color={colors.primary} />
+                </View>
+              ) : (
+                <FTPTrendChart data={eftpHistory} currentFTP={currentFTP} height={200} />
+              )}
             </View>
-          ) : (
-            <DecouplingChart
-              power={decouplingStreams?.watts}
-              heartrate={decouplingStreams?.heartrate}
-              height={140}
-            />
-          )}
-        </View>
+
+            {/* Aerobic Decoupling */}
+            <View style={[styles.card, isDark && styles.cardDark]}>
+              {loadingStreams && !decouplingStreams ? (
+                <View style={styles.loadingContainer}>
+                  <ActivityIndicator size="small" color={colors.primary} />
+                </View>
+              ) : (
+                <DecouplingChart
+                  power={decouplingStreams?.watts}
+                  heartrate={decouplingStreams?.heartrate}
+                  height={140}
+                />
+              )}
+            </View>
+          </>
+        )}
+
+        {/* Running Charts */}
+        {sportMode === 'Running' && (
+          <>
+            {/* Threshold Stats */}
+            <View style={[styles.card, isDark && styles.cardDark]}>
+              <Text style={[styles.cardTitle, isDark && styles.textLight]}>Lactate Threshold</Text>
+              <View style={styles.thresholdRow}>
+                <View style={styles.thresholdItem}>
+                  <Text style={[styles.thresholdLabel, isDark && styles.textDark]}>Pace</Text>
+                  <Text style={[styles.thresholdValue, { color: SPORT_COLORS.Running }]}>
+                    {thresholdPace ? `${formatPaceCompact(thresholdPace)}/km` : '-'}
+                  </Text>
+                </View>
+                <View style={styles.thresholdDivider} />
+                <View style={styles.thresholdItem}>
+                  <Text style={[styles.thresholdLabel, isDark && styles.textDark]}>Heart Rate</Text>
+                  <Text style={[styles.thresholdValue, { color: SPORT_COLORS.Running }]}>
+                    {runLthr ? `${runLthr} bpm` : '-'}
+                  </Text>
+                </View>
+                {runMaxHr && (
+                  <>
+                    <View style={styles.thresholdDivider} />
+                    <View style={styles.thresholdItem}>
+                      <Text style={[styles.thresholdLabel, isDark && styles.textDark]}>Max HR</Text>
+                      <Text style={[styles.thresholdValueSmall, isDark && styles.textDark]}>
+                        {runMaxHr} bpm
+                      </Text>
+                    </View>
+                  </>
+                )}
+              </View>
+            </View>
+
+            {/* Pace Curve */}
+            <View style={[styles.card, isDark && styles.cardDark]}>
+              <PaceCurveChart height={220} days={selectedRange.days} />
+            </View>
+
+            {/* Power Curve (for runners with Stryd etc) */}
+            <View style={[styles.card, isDark && styles.cardDark]}>
+              <PowerCurveChart
+                height={220}
+                days={selectedRange.days}
+                sport="Run"
+                color={SPORT_COLORS.Running}
+              />
+            </View>
+
+            {/* Zone Distribution - HR */}
+            <View style={[styles.card, isDark && styles.cardDark]}>
+              {loadingActivities && !activities ? (
+                <View style={styles.loadingContainer}>
+                  <ActivityIndicator size="small" color={colors.primary} />
+                </View>
+              ) : (
+                <ZoneDistributionChart data={hrZones} type="hr" periodLabel={selectedRange.label} />
+              )}
+            </View>
+          </>
+        )}
+
+        {/* Swimming Charts */}
+        {sportMode === 'Swimming' && (
+          <>
+            {/* Swim Pace Curve */}
+            <View style={[styles.card, isDark && styles.cardDark]}>
+              <SwimPaceCurveChart height={220} days={selectedRange.days} />
+            </View>
+
+            {/* Zone Distribution - HR */}
+            <View style={[styles.card, isDark && styles.cardDark]}>
+              {loadingActivities && !activities ? (
+                <View style={styles.loadingContainer}>
+                  <ActivityIndicator size="small" color={colors.primary} />
+                </View>
+              ) : (
+                <ZoneDistributionChart data={hrZones} type="hr" periodLabel={selectedRange.label} />
+              )}
+            </View>
+          </>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -228,6 +414,34 @@ const styles = StyleSheet.create({
   timeRangeTextActive: {
     color: '#FFFFFF',
   },
+  sportToggleContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: layout.screenPadding,
+    paddingBottom: spacing.sm,
+    gap: 8,
+  },
+  sportToggleButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    backgroundColor: 'rgba(0, 0, 0, 0.05)',
+    gap: 6,
+  },
+  sportToggleButtonDark: {
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  sportToggleText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.textSecondary,
+  },
+  sportToggleTextActive: {
+    color: '#FFFFFF',
+  },
   scrollView: {
     flex: 1,
   },
@@ -248,5 +462,40 @@ const styles = StyleSheet.create({
     padding: spacing.xl,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  cardTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.textPrimary,
+    marginBottom: spacing.md,
+  },
+  thresholdRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  thresholdItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  thresholdLabel: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    marginBottom: 4,
+  },
+  thresholdValue: {
+    fontSize: 20,
+    fontWeight: '700',
+  },
+  thresholdValueSmall: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.textSecondary,
+  },
+  thresholdDivider: {
+    width: 1,
+    height: 40,
+    backgroundColor: 'rgba(0, 0, 0, 0.1)',
+    marginHorizontal: spacing.md,
   },
 });

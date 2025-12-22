@@ -188,31 +188,54 @@ export const intervalsApi = {
   },
 
   /**
-   * Get pace curve (best efforts) for running
-   * @param sport - Sport type filter (e.g., 'Run')
-   * @param oldest - Start date (YYYY-MM-DD)
-   * @param newest - End date (YYYY-MM-DD)
+   * Get pace curve (best efforts) for running/swimming
+   * @param sport - Sport type filter (e.g., 'Run', 'Swim')
+   * @param days - Number of days to include (default 365)
    */
   async getPaceCurve(params?: {
     sport?: string;
-    oldest?: string;
-    newest?: string;
+    days?: number;
   }): Promise<PaceCurve> {
     const athleteId = getAthleteId();
+    const sportType = params?.sport || 'Run';
+    // Use curves parameter similar to power curves
+    const curvesParam = params?.days ? `${params.days}d` : '1y';
 
-    const today = new Date();
-    const yearStart = new Date(today.getFullYear(), 0, 1);
+    // API returns: distance[] (meters) and values[] (time in seconds to cover that distance)
+    interface PaceCurveResponse {
+      list: Array<{
+        distance: number[];
+        values: number[]; // seconds to cover each distance
+        paceModels?: Array<{ type: string; criticalSpeed: number }>;
+      }>;
+    }
 
-    const queryParams = {
-      oldest: params?.oldest || formatLocalDate(yearStart),
-      newest: params?.newest || formatLocalDate(today),
-      ...(params?.sport && { sport: params.sport }),
-    };
+    const response = await apiClient.get<PaceCurveResponse>(
+      `/athlete/${athleteId}/pace-curves.json`,
+      { params: { type: sportType, curves: curvesParam } }
+    );
 
-    const response = await apiClient.get<PaceCurve>(`/athlete/${athleteId}/pace-curves.json`, {
-      params: queryParams,
+    const curve = response.data?.list?.[0];
+    const distances = curve?.distance || [];
+    const times = curve?.values || []; // seconds
+
+    // Convert distance/time pairs to pace (m/s) at each time duration
+    // We want: secs[] (durations) and pace[] (m/s at that duration)
+    const pace = distances.map((dist, i) => {
+      const time = times[i];
+      return time > 0 ? dist / time : 0; // pace in m/s
     });
-    return response.data;
+
+    // Extract critical speed from pace models if available (for threshold pace)
+    const criticalSpeed = curve?.paceModels?.find(m => m.type === 'CS')?.criticalSpeed;
+
+    return {
+      type: 'pace',
+      sport: sportType,
+      secs: times, // Use times as durations (secs)
+      pace, // Calculated pace in m/s
+      criticalSpeed, // Add critical speed for threshold pace
+    } as PaceCurve;
   },
 
   /**
