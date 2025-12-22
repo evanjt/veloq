@@ -12,7 +12,9 @@ import { Text } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, Href } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useActivities, useAthlete, useWellness, getFormZone, FORM_ZONE_COLORS, getLatestFTP } from '@/hooks';
+import { useActivities, useAthlete, useWellness, getFormZone, FORM_ZONE_COLORS, getLatestFTP, useSportSettings, getSettingsForSport, usePaceCurve } from '@/hooks';
+import { useSportPreference, SPORT_COLORS } from '@/providers';
+import { formatPaceCompact, formatSwimPace } from '@/lib';
 import { ActivityCard } from '@/components/activity/ActivityCard';
 import { ActivityCardSkeleton, StatsPillSkeleton, MapFAB } from '@/components/ui';
 import { colors, spacing, layout, typography } from '@/theme';
@@ -24,6 +26,14 @@ export default function FeedScreen() {
   const [profileImageError, setProfileImageError] = useState(false);
 
   const { data: athlete } = useAthlete();
+  const { primarySport } = useSportPreference();
+  const { data: sportSettings } = useSportSettings();
+
+  // Fetch pace curve for running threshold pace (only when running is selected)
+  const { data: runPaceCurve } = usePaceCurve({
+    sport: 'Run',
+    enabled: primarySport === 'Running'
+  });
 
   // Validate profile URL - must be a non-empty string starting with http
   const profileUrl = athlete?.profile_medium || athlete?.profile;
@@ -125,6 +135,24 @@ export default function FeedScreen() {
   const formZone = getFormZone(quickStats.form);
   const formColor = formZone ? FORM_ZONE_COLORS[formZone] : colors.success;
 
+  // Get sport-specific metrics from sport settings and pace curve
+  const sportMetrics = useMemo(() => {
+    const runSettings = getSettingsForSport(sportSettings, 'Run');
+    const swimSettings = getSettingsForSport(sportSettings, 'Swim');
+
+    // For running, use criticalSpeed from pace curve (threshold pace equivalent)
+    // criticalSpeed is in m/s, same as CSS
+    const thresholdPace = runPaceCurve?.criticalSpeed ?? null;
+
+    return {
+      // Running threshold metrics
+      thresholdPace, // m/s
+      runLthr: runSettings?.lthr ?? null, // Lactate Threshold HR
+      // Swimming CSS (Critical Swim Speed)
+      css: swimSettings?.threshold_pace ?? null, // m/s
+    };
+  }, [sportSettings, runPaceCurve]);
+
   const renderActivity = ({ item }: { item: Activity }) => (
     <ActivityCard activity={item} />
   );
@@ -162,7 +190,7 @@ export default function FeedScreen() {
           )}
         </TouchableOpacity>
 
-        {/* Separate pill buttons for each page */}
+        {/* Pill buttons for each page */}
         <View style={styles.pillRow}>
           {/* HRV + RHR → Wellness page */}
           <TouchableOpacity
@@ -174,9 +202,7 @@ export default function FeedScreen() {
               <Text style={[styles.pillLabel, isDark && styles.textDark]}>HRV</Text>
               <Text style={[styles.pillValue, { color: '#E91E63' }]}>
                 {quickStats.hrv ?? '-'}
-                {quickStats.hrvTrend && (
-                  <Text style={styles.trendArrow}>{quickStats.hrvTrend}</Text>
-                )}
+                {quickStats.hrvTrend && <Text style={styles.trendArrow}>{quickStats.hrvTrend}</Text>}
               </Text>
             </View>
             {quickStats.rhr && (
@@ -186,9 +212,7 @@ export default function FeedScreen() {
                   <Text style={[styles.pillLabel, isDark && styles.textDark]}>RHR</Text>
                   <Text style={[styles.pillValueSmall, isDark && styles.textDark]}>
                     {quickStats.rhr}
-                    {quickStats.rhrTrend && (
-                      <Text style={styles.trendArrowSmall}>{quickStats.rhrTrend}</Text>
-                    )}
+                    {quickStats.rhrTrend && <Text style={styles.trendArrowSmall}>{quickStats.rhrTrend}</Text>}
                   </Text>
                 </View>
               </>
@@ -205,41 +229,66 @@ export default function FeedScreen() {
               <Text style={[styles.pillLabel, isDark && styles.textDark]}>Week</Text>
               <Text style={[styles.pillValue, isDark && styles.textLight]}>
                 {quickStats.weekHours}h
-                {quickStats.weekHoursTrend && (
-                  <Text style={styles.trendArrow}>{quickStats.weekHoursTrend}</Text>
-                )}
+                {quickStats.weekHoursTrend && <Text style={styles.trendArrow}>{quickStats.weekHoursTrend}</Text>}
               </Text>
             </View>
             <Text style={[styles.pillDivider, isDark && styles.pillDividerDark]}>|</Text>
             <View style={styles.pillItem}>
-              <Text style={[styles.pillLabel, isDark && styles.textDark]}>Acts</Text>
+              <Text style={[styles.pillLabel, isDark && styles.textDark]}>#</Text>
               <Text style={[styles.pillValueSmall, isDark && styles.textDark]}>
                 {quickStats.weekCount}
-                {quickStats.weekCountTrend && (
-                  <Text style={styles.trendArrowSmall}>{quickStats.weekCountTrend}</Text>
-                )}
+                {quickStats.weekCountTrend && <Text style={styles.trendArrowSmall}>{quickStats.weekCountTrend}</Text>}
               </Text>
             </View>
           </TouchableOpacity>
 
-          {/* FTP → Performance page */}
+          {/* Sport-specific metric → Performance page */}
           <TouchableOpacity
             style={[styles.pill, isDark && styles.pillDark]}
             onPress={navigateToStats}
             activeOpacity={0.7}
           >
-            <View style={styles.pillItem}>
-              <Text style={[styles.pillLabel, isDark && styles.textDark]}>FTP</Text>
-              <Text style={[styles.pillValue, { color: '#FF6B00' }]}>
-                {quickStats.ftp ? `${quickStats.ftp}W` : '-'}
-                {quickStats.ftpTrend && (
-                  <Text style={styles.trendArrow}>{quickStats.ftpTrend}</Text>
+            {primarySport === 'Cycling' && (
+              <View style={styles.pillItem}>
+                <Text style={[styles.pillLabel, isDark && styles.textDark]}>FTP</Text>
+                <Text style={[styles.pillValue, { color: SPORT_COLORS.Cycling }]}>
+                  {quickStats.ftp ?? '-'}
+                  {quickStats.ftpTrend && <Text style={styles.trendArrow}>{quickStats.ftpTrend}</Text>}
+                </Text>
+              </View>
+            )}
+            {primarySport === 'Running' && (
+              <>
+                <View style={styles.pillItem}>
+                  <Text style={[styles.pillLabel, isDark && styles.textDark]}>Pace</Text>
+                  <Text style={[styles.pillValue, { color: SPORT_COLORS.Running }]}>
+                    {sportMetrics.thresholdPace ? formatPaceCompact(sportMetrics.thresholdPace) : '-'}
+                  </Text>
+                </View>
+                {sportMetrics.runLthr && (
+                  <>
+                    <Text style={[styles.pillDivider, isDark && styles.pillDividerDark]}>|</Text>
+                    <View style={styles.pillItem}>
+                      <Text style={[styles.pillLabel, isDark && styles.textDark]}>HR</Text>
+                      <Text style={[styles.pillValueSmall, isDark && styles.textDark]}>
+                        {sportMetrics.runLthr}
+                      </Text>
+                    </View>
+                  </>
                 )}
-              </Text>
-            </View>
+              </>
+            )}
+            {primarySport === 'Swimming' && (
+              <View style={styles.pillItem}>
+                <Text style={[styles.pillLabel, isDark && styles.textDark]}>CSS</Text>
+                <Text style={[styles.pillValue, { color: SPORT_COLORS.Swimming }]}>
+                  {sportMetrics.css ? formatSwimPace(sportMetrics.css) : '-'}
+                </Text>
+              </View>
+            )}
           </TouchableOpacity>
 
-          {/* Fitness + Form → Fitness page (rightmost) */}
+          {/* Fitness + Form → Fitness page */}
           <TouchableOpacity
             style={[styles.pill, isDark && styles.pillDark]}
             onPress={navigateToFitness}
@@ -249,9 +298,7 @@ export default function FeedScreen() {
               <Text style={[styles.pillLabel, isDark && styles.textDark]}>Fit</Text>
               <Text style={[styles.pillValue, { color: '#42A5F5' }]}>
                 {quickStats.fitness}
-                {quickStats.fitnessTrend && (
-                  <Text style={styles.trendArrow}>{quickStats.fitnessTrend}</Text>
-                )}
+                {quickStats.fitnessTrend && <Text style={styles.trendArrow}>{quickStats.fitnessTrend}</Text>}
               </Text>
             </View>
             <Text style={[styles.pillDivider, isDark && styles.pillDividerDark]}>|</Text>
@@ -259,9 +306,7 @@ export default function FeedScreen() {
               <Text style={[styles.pillLabel, isDark && styles.textDark]}>Form</Text>
               <Text style={[styles.pillValue, { color: formColor }]}>
                 {quickStats.form > 0 ? '+' : ''}{quickStats.form}
-                {quickStats.formTrend && (
-                  <Text style={styles.trendArrow}>{quickStats.formTrend}</Text>
-                )}
+                {quickStats.formTrend && <Text style={styles.trendArrow}>{quickStats.formTrend}</Text>}
               </Text>
             </View>
           </TouchableOpacity>
@@ -379,9 +424,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: 'rgba(255, 255, 255, 0.9)',
     borderRadius: 14,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    // Subtle shadow for depth
+    paddingHorizontal: 10,
+    paddingVertical: 6,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
@@ -405,7 +449,7 @@ const styles = StyleSheet.create({
     marginBottom: 1,
   },
   pillValue: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '700',
     color: colors.textPrimary,
   },
