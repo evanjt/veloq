@@ -6,62 +6,67 @@ import { DashPathEffect, Line as SkiaLine } from '@shopify/react-native-skia';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { useSharedValue, useAnimatedReaction, runOnJS, useDerivedValue, useAnimatedStyle } from 'react-native-reanimated';
 import { colors, spacing } from '@/theme';
-import { usePowerCurve } from '@/hooks';
+import { usePaceCurve, paceToMinPer100m } from '@/hooks';
 
-interface PowerCurveChartProps {
-  sport?: string;
+interface SwimPaceCurveChartProps {
   /** Number of days to include (default 365) */
   days?: number;
   height?: number;
-  /** Chart color override */
-  color?: string;
-  /** FTP value for threshold line */
-  ftp?: number | null;
 }
 
-// Chart colors
-const DEFAULT_COLOR = '#FF6B00';
-const FTP_LINE_COLOR = 'rgba(150, 150, 150, 0.6)';
+const CHART_COLOR = '#2196F3';
+const CSS_LINE_COLOR = 'rgba(150, 150, 150, 0.6)';
 
-// Format duration for display
-function formatDuration(secs: number): string {
-  if (secs < 60) return `${Math.round(secs)}s`;
-  if (secs < 3600) {
-    const mins = Math.floor(secs / 60);
-    const remainingSecs = Math.round(secs % 60);
-    return remainingSecs > 0 ? `${mins}:${remainingSecs.toString().padStart(2, '0')}` : `${mins}m`;
+// Format pace as min:sec per 100m
+function formatPace100m(metersPerSecond: number): string {
+  if (metersPerSecond <= 0 || !isFinite(metersPerSecond)) return '--:--';
+  const { minutes, seconds } = paceToMinPer100m(metersPerSecond);
+  return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+}
+
+// Format time as mm:ss or h:mm:ss
+function formatTime(totalSeconds: number): string {
+  if (totalSeconds <= 0 || !isFinite(totalSeconds)) return '--:--';
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = Math.round(totalSeconds % 60);
+  if (hours > 0) {
+    return `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
   }
-  const hours = Math.floor(secs / 3600);
-  const mins = Math.floor((secs % 3600) / 60);
-  return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
+  return `${minutes}:${seconds.toString().padStart(2, '0')}`;
 }
 
-// Format duration compact for axis labels
-function formatDurationCompact(secs: number): string {
-  if (secs < 60) return `${Math.round(secs)}s`;
-  if (secs < 3600) return `${Math.round(secs / 60)}m`;
-  return `${(secs / 3600).toFixed(1)}h`;
+// Format distance
+function formatDistance(meters: number): string {
+  if (meters < 1000) return `${Math.round(meters)}m`;
+  if (meters < 10000) return `${(meters / 1000).toFixed(1)}km`;
+  return `${Math.round(meters / 1000)}km`;
+}
+
+// Convert m/s to seconds per 100m
+function speedToSecsPer100m(metersPerSecond: number): number {
+  if (metersPerSecond <= 0) return 0;
+  return 100 / metersPerSecond;
 }
 
 interface ChartPoint {
   x: number;
   y: number;
-  secs: number;
-  watts: number;
+  distance: number;
+  time: number;
+  paceSecsPer100m: number;
+  paceMs: number; // Original m/s for display
   [key: string]: unknown;
 }
 
-export function PowerCurveChart({
-  sport,
+export function SwimPaceCurveChart({
   days = 365,
   height = 200,
-  color = DEFAULT_COLOR,
-  ftp,
-}: PowerCurveChartProps) {
+}: SwimPaceCurveChartProps) {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
 
-  const { data: curve, isLoading, error } = usePowerCurve({ sport, days });
+  const { data: curve, isLoading, error } = usePaceCurve({ sport: 'Swim', days });
 
   const [tooltipData, setTooltipData] = useState<ChartPoint | null>(null);
   const [isActive, setIsActive] = useState(false);
@@ -72,77 +77,65 @@ export function PowerCurveChart({
   const pointXCoordsShared = useSharedValue<number[]>([]);
   const lastNotifiedIdx = useRef<number | null>(null);
 
-  // Process curve data for the line chart
-  const { chartData, ftpValue, yDomain } = useMemo(() => {
-    if (!curve?.secs || !curve?.watts || curve.watts.length === 0) {
-      return { chartData: [], ftpValue: ftp ?? null, yDomain: [0, 400] as [number, number] };
+  // Process curve data
+  const { chartData, cssPace, yDomain } = useMemo(() => {
+    if (!curve?.secs || !curve?.pace || curve.pace.length === 0) {
+      return { chartData: [], cssPace: null, yDomain: [90, 180] as [number, number] };
     }
 
-    // Build data points from the curve
-    const points: { secs: number; watts: number }[] = [];
+    const points: ChartPoint[] = [];
 
     for (let i = 0; i < curve.secs.length; i++) {
-      const secs = curve.secs[i];
-      const watts = curve.watts[i];
-      if (watts > 0 && secs > 0) {
-        points.push({ secs, watts });
+      const time = curve.secs[i];
+      const speed = curve.pace[i];
+      if (speed > 0 && time > 0) {
+        const distance = time * speed;
+        const paceSecsPer100m = speedToSecsPer100m(speed);
+
+        // Filter reasonable swim paces (50s to 4min per 100m) and reasonable distances
+        if (paceSecsPer100m >= 50 && paceSecsPer100m <= 240 && distance >= 25) {
+          points.push({ x: 0, y: 0, distance, paceSecsPer100m, paceMs: speed, time });
+        }
       }
     }
 
     if (points.length === 0) {
-      return { chartData: [], ftpValue: ftp ?? null, yDomain: [0, 400] as [number, number] };
+      return { chartData: [], cssPace: null, yDomain: [90, 180] as [number, number] };
     }
 
-    // Sort by duration
-    points.sort((a, b) => a.secs - b.secs);
+    points.sort((a, b) => a.distance - b.distance);
 
-    // Sample points using logarithmic spacing for smooth curve
+    // Sample for smoother curve
     const sampled: typeof points = [];
-    const logMin = Math.log10(Math.max(1, points[0].secs));
-    const logMax = Math.log10(points[points.length - 1].secs);
-    const numSamples = 60;
-
-    for (let i = 0; i < numSamples; i++) {
-      const logVal = logMin + (logMax - logMin) * (i / (numSamples - 1));
-      const targetSecs = Math.pow(10, logVal);
-
-      // Find closest point
-      let closest = points[0];
-      let minDiff = Math.abs(points[0].secs - targetSecs);
-      for (const p of points) {
-        const diff = Math.abs(p.secs - targetSecs);
-        if (diff < minDiff) {
-          minDiff = diff;
-          closest = p;
-        }
-      }
-
-      // Avoid duplicates
-      if (sampled.length === 0 || sampled[sampled.length - 1].secs !== closest.secs) {
-        sampled.push(closest);
+    let lastDist = 0;
+    for (const p of points) {
+      const minGap = p.distance < 200 ? 10 : (p.distance < 1000 ? 50 : 100);
+      if (p.distance - lastDist >= minGap) {
+        sampled.push(p);
+        lastDist = p.distance;
       }
     }
 
-    // Convert to chart format (use log of duration for x to spread out short durations)
-    const data: ChartPoint[] = sampled.map(p => ({
-      x: Math.log10(p.secs),
-      y: p.watts,
-      secs: p.secs,
-      watts: p.watts,
+    // Use log scale for x-axis
+    const data = sampled.map(p => ({
+      ...p,
+      x: Math.log10(p.distance),
+      y: p.paceSecsPer100m,
     }));
 
-    // Calculate Y domain
-    const watts = data.map(d => d.y);
-    const minWatts = Math.min(...watts);
-    const maxWatts = Math.max(...watts);
-    const padding = (maxWatts - minWatts) * 0.1;
+    const cssSecsPer100m = curve.criticalSpeed ? speedToSecsPer100m(curve.criticalSpeed) : null;
+
+    const paces = data.map(d => d.y);
+    const minPace = Math.min(...paces);
+    const maxPace = Math.max(...paces);
+    const padding = (maxPace - minPace) * 0.1;
 
     return {
       chartData: data,
-      ftpValue: ftp ?? null,
-      yDomain: [Math.max(0, minWatts - padding), maxWatts + padding] as [number, number],
+      cssPace: cssSecsPer100m,
+      yDomain: [minPace - padding, maxPace + padding] as [number, number],
     };
-  }, [curve, ftp]);
+  }, [curve]);
 
   // Derive selected index
   const selectedIdx = useDerivedValue(() => {
@@ -209,7 +202,7 @@ export function PowerCurveChart({
   if (isLoading) {
     return (
       <View style={[styles.container, { height }]}>
-        <Text style={[styles.title, isDark && styles.textLight]}>Power Curve</Text>
+        <Text style={[styles.title, isDark && styles.textLight]}>Swim Pace Curve</Text>
         <View style={styles.loadingContainer}>
           <Text style={[styles.loadingText, isDark && styles.textDark]}>Loading...</Text>
         </View>
@@ -220,9 +213,9 @@ export function PowerCurveChart({
   if (error || chartData.length === 0) {
     return (
       <View style={[styles.container, { height }]}>
-        <Text style={[styles.title, isDark && styles.textLight]}>Power Curve</Text>
+        <Text style={[styles.title, isDark && styles.textLight]}>Swim Pace Curve</Text>
         <View style={styles.emptyState}>
-          <Text style={[styles.emptyText, isDark && styles.textDark]}>No power data available</Text>
+          <Text style={[styles.emptyText, isDark && styles.textDark]}>No swim pace data available</Text>
         </View>
       </View>
     );
@@ -235,18 +228,24 @@ export function PowerCurveChart({
     <View style={[styles.container, { height }]}>
       {/* Header with values */}
       <View style={styles.header}>
-        <Text style={[styles.title, isDark && styles.textLight]}>Power Curve</Text>
+        <Text style={[styles.title, isDark && styles.textLight]}>Swim Pace Curve</Text>
         <View style={styles.valuesRow}>
           <View style={styles.valueItem}>
-            <Text style={[styles.valueLabel, isDark && styles.textDark]}>Time</Text>
-            <Text style={[styles.valueNumber, { color }]}>
-              {formatDuration(displayData.secs)}
+            <Text style={[styles.valueLabel, isDark && styles.textDark]}>Distance</Text>
+            <Text style={[styles.valueNumber, { color: CHART_COLOR }]}>
+              {formatDistance(displayData.distance)}
             </Text>
           </View>
           <View style={styles.valueItem}>
-            <Text style={[styles.valueLabel, isDark && styles.textDark]}>Power</Text>
-            <Text style={[styles.valueNumber, { color }]}>
-              {Math.round(displayData.watts)}w
+            <Text style={[styles.valueLabel, isDark && styles.textDark]}>Time</Text>
+            <Text style={[styles.valueNumber, isDark && styles.textLight]}>
+              {formatTime(displayData.time)}
+            </Text>
+          </View>
+          <View style={styles.valueItem}>
+            <Text style={[styles.valueLabel, isDark && styles.textDark]}>Pace</Text>
+            <Text style={[styles.valueNumber, { color: CHART_COLOR }]}>
+              {formatPace100m(displayData.paceMs)}/100m
             </Text>
           </View>
         </View>
@@ -275,28 +274,28 @@ export function PowerCurveChart({
 
               return (
                 <>
-                  {/* FTP horizontal line */}
-                  {ftpValue && ftpValue >= yDomain[0] && ftpValue <= yDomain[1] && (
+                  {/* CSS line */}
+                  {cssPace && cssPace >= yDomain[0] && cssPace <= yDomain[1] && (
                     <SkiaLine
                       p1={{
                         x: chartBounds.left,
-                        y: chartBounds.top + ((yDomain[1] - ftpValue) / (yDomain[1] - yDomain[0])) * (chartBounds.bottom - chartBounds.top),
+                        y: chartBounds.top + ((cssPace - yDomain[0]) / (yDomain[1] - yDomain[0])) * (chartBounds.bottom - chartBounds.top),
                       }}
                       p2={{
                         x: chartBounds.right,
-                        y: chartBounds.top + ((yDomain[1] - ftpValue) / (yDomain[1] - yDomain[0])) * (chartBounds.bottom - chartBounds.top),
+                        y: chartBounds.top + ((cssPace - yDomain[0]) / (yDomain[1] - yDomain[0])) * (chartBounds.bottom - chartBounds.top),
                       }}
-                      color={FTP_LINE_COLOR}
+                      color={CSS_LINE_COLOR}
                       strokeWidth={1}
                     >
                       <DashPathEffect intervals={[6, 4]} />
                     </SkiaLine>
                   )}
 
-                  {/* Power curve line */}
+                  {/* Pace curve */}
                   <Line
                     points={points.y}
-                    color={color}
+                    color={CHART_COLOR}
                     strokeWidth={2.5}
                     curveType="natural"
                   />
@@ -313,28 +312,34 @@ export function PowerCurveChart({
 
           {/* X-axis labels */}
           <View style={styles.xAxisOverlay} pointerEvents="none">
-            <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>5s</Text>
-            <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>1m</Text>
-            <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>5m</Text>
-            <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>20m</Text>
-            <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>1h</Text>
+            <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>100m</Text>
+            <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>200m</Text>
+            <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>400m</Text>
+            <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>800m</Text>
+            <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>1.5K</Text>
           </View>
 
           {/* Y-axis labels */}
           <View style={styles.yAxisOverlay} pointerEvents="none">
-            <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>{Math.round(yDomain[1])}w</Text>
-            <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>{Math.round((yDomain[0] + yDomain[1]) / 2)}w</Text>
-            <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>{Math.round(yDomain[0])}w</Text>
+            <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
+              {Math.floor(yDomain[0] / 60)}:{Math.round(yDomain[0] % 60).toString().padStart(2, '0')}
+            </Text>
+            <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
+              {Math.floor((yDomain[0] + yDomain[1]) / 2 / 60)}:{Math.round((yDomain[0] + yDomain[1]) / 2 % 60).toString().padStart(2, '0')}
+            </Text>
+            <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
+              {Math.floor(yDomain[1] / 60)}:{Math.round(yDomain[1] % 60).toString().padStart(2, '0')}
+            </Text>
           </View>
         </View>
       </GestureDetector>
 
-      {/* FTP Legend */}
-      {ftpValue && (
+      {/* CSS Legend */}
+      {cssPace && (
         <View style={styles.legend}>
-          <View style={[styles.legendDash, { backgroundColor: FTP_LINE_COLOR }]} />
+          <View style={[styles.legendDash, { backgroundColor: CSS_LINE_COLOR }]} />
           <Text style={[styles.legendText, isDark && styles.textDark]}>
-            FTP {ftpValue}w
+            CSS {Math.floor(cssPace / 60)}:{Math.round(cssPace % 60).toString().padStart(2, '0')}/100m
           </Text>
         </View>
       )}

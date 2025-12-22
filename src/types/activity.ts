@@ -199,10 +199,11 @@ export interface PowerCurve {
 export interface PaceCurve {
   type: 'pace';
   sport: string;
-  secs: number[];         // Array of durations
+  secs: number[];         // Array of durations (seconds)
+  pace?: number[];        // Pace in m/s at each duration
   gap?: number[];         // Grade adjusted pace
-  pace?: number[];        // Pace in m/s
   activity_ids?: string[];
+  criticalSpeed?: number; // Critical speed from pace model (m/s) - use as threshold pace
 }
 
 // Sport settings including zones
