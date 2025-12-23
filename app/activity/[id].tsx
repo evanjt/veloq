@@ -365,20 +365,43 @@ export default function ActivityDetailScreen() {
       >
         <StatusBar hidden />
         <View style={[styles.fullscreenContainer, isDark && styles.fullscreenContainerDark]}>
+          {/* Close button */}
           <TouchableOpacity
             style={styles.fullscreenCloseButton}
             onPress={closeChartFullscreen}
             activeOpacity={0.7}
           >
-            <MaterialCommunityIcons name="close" size={24} color="#FFF" />
+            <MaterialCommunityIcons name="close" size={24} color={isDark ? '#FFF' : '#333'} />
           </TouchableOpacity>
+
+          {/* Chart type selector in fullscreen */}
+          <View style={styles.fullscreenControls}>
+            <TouchableOpacity
+              style={[styles.expandButton, isDark && styles.expandButtonDark]}
+              onPress={() => setChartsExpanded(!chartsExpanded)}
+              activeOpacity={0.7}
+            >
+              <MaterialCommunityIcons
+                name={chartsExpanded ? 'view-stream' : 'chart-multiple'}
+                size={14}
+                color={isDark ? '#FFF' : '#333'}
+              />
+            </TouchableOpacity>
+            <ChartTypeSelector
+              available={availableCharts}
+              selected={selectedCharts}
+              onToggle={handleChartToggle}
+            />
+          </View>
+
+          {/* Chart area - proper landscape sizing */}
           {streams && selectedCharts.length > 0 && (
             <View style={styles.fullscreenChartWrapper}>
               <CombinedPlot
                 streams={streams}
                 selectedCharts={selectedCharts}
                 chartConfigs={CHART_CONFIGS}
-                height={Dimensions.get('window').width - 60}
+                height={Math.min(SCREEN_WIDTH, SCREEN_HEIGHT) - 100}
                 onPointSelect={handlePointSelect}
                 onInteractionChange={handleInteractionChange}
               />
@@ -624,26 +647,34 @@ const styles = StyleSheet.create({
   fullscreenContainer: {
     flex: 1,
     backgroundColor: colors.surface,
-    justifyContent: 'center',
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.md,
   },
   fullscreenContainerDark: {
     backgroundColor: '#1E1E1E',
   },
   fullscreenCloseButton: {
     position: 'absolute',
-    top: spacing.lg,
-    right: spacing.lg,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    top: spacing.md,
+    left: spacing.md,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(0, 0, 0, 0.15)',
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 10,
   },
+  fullscreenControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.xs,
+  },
   fullscreenChartWrapper: {
     flex: 1,
     justifyContent: 'center',
+    paddingBottom: spacing.md,
   },
 });

@@ -24,6 +24,8 @@ export interface Map3DWebViewRef {
 interface Map3DWebViewPropsInternal extends Map3DWebViewProps {
   /** Called when the map has finished loading */
   onMapReady?: () => void;
+  /** Called when bearing changes (for compass sync) */
+  onBearingChange?: (bearing: number) => void;
 }
 
 /**
@@ -38,6 +40,7 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
   initialPitch = 60,
   terrainExaggeration = 1.5,
   onMapReady,
+  onBearingChange,
 }, ref) {
   const webViewRef = useRef<WebView>(null);
 
@@ -47,6 +50,8 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       const data = JSON.parse(event.nativeEvent.data);
       if (data.type === 'mapReady' && onMapReady) {
         onMapReady();
+      } else if (data.type === 'bearingChange' && onBearingChange) {
+        onBearingChange(data.bearing);
       }
     } catch {
       // Ignore parse errors
@@ -158,6 +163,16 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
     });
 
     const map = window.map;
+
+    // Track bearing changes and notify React Native
+    map.on('rotate', () => {
+      if (window.ReactNativeWebView) {
+        window.ReactNativeWebView.postMessage(JSON.stringify({
+          type: 'bearingChange',
+          bearing: map.getBearing()
+        }));
+      }
+    });
 
     map.on('load', () => {
       // Notify React Native that map is ready
