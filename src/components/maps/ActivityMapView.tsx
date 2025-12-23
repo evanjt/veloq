@@ -24,6 +24,8 @@ interface ActivityMapViewProps {
   highlightIndex?: number | null;
   /** Enable fullscreen on tap */
   enableFullscreen?: boolean;
+  /** Called when 3D mode is toggled - parent can disable scroll */
+  on3DModeChange?: (is3D: boolean) => void;
 }
 
 export function ActivityMapView({
@@ -35,6 +37,7 @@ export function ActivityMapView({
   initialStyle,
   highlightIndex,
   enableFullscreen = false,
+  on3DModeChange,
 }: ActivityMapViewProps) {
   const { getStyleForActivity } = useMapPreferences();
   const preferredStyle = getStyleForActivity(activityType);
@@ -63,8 +66,12 @@ export function ActivityMapView({
 
   // Toggle 3D mode
   const toggle3D = useCallback(() => {
-    setIs3DMode(current => !current);
-  }, []);
+    setIs3DMode(current => {
+      const newValue = !current;
+      on3DModeChange?.(newValue);
+      return newValue;
+    });
+  }, [on3DModeChange]);
 
   // Reset 3D ready state when toggling off
   useEffect(() => {
@@ -545,7 +552,7 @@ const styles = StyleSheet.create({
   },
   controlsContainer: {
     position: 'absolute',
-    top: 56,
+    top: 48,
     right: 12,
     gap: 8,
     zIndex: 100,

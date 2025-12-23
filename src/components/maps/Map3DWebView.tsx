@@ -275,6 +275,7 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
         scrollEnabled={false}
         bounces={false}
         overScrollMode="never"
+        nestedScrollEnabled={true}
         javaScriptEnabled={true}
         domStorageEnabled={true}
         startInLoadingState={false}
