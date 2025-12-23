@@ -1,12 +1,12 @@
 import React, { useMemo, useRef, useState, useCallback } from 'react';
-import { View, StyleSheet, useColorScheme } from 'react-native';
-import { Text } from 'react-native-paper';
+import { View, StyleSheet, useColorScheme, Text } from 'react-native';
 import { CartesianChart, Area } from 'victory-native';
 import { LinearGradient, vec } from '@shopify/react-native-skia';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Animated, { useSharedValue, useAnimatedReaction, runOnJS, useDerivedValue, useAnimatedStyle } from 'react-native-reanimated';
+import Animated, { useSharedValue, useAnimatedReaction, runOnJS, useDerivedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated';
+import * as Haptics from 'expo-haptics';
 import { getLocales } from 'expo-localization';
-import { colors, typography } from '@/theme';
+import { colors } from '@/theme';
 import type { ChartConfig, ChartTypeId } from '@/lib/chartConfig';
 import type { ActivityStreams } from '@/types';
 
@@ -27,9 +27,12 @@ interface CombinedDataChartProps {
   onInteractionChange?: (isInteracting: boolean) => void;
 }
 
-interface TooltipData {
-  distance: number;
-  values: { id: ChartTypeId; label: string; value: string; unit: string; color: string }[];
+interface MetricValue {
+  id: ChartTypeId;
+  label: string;
+  value: string;
+  unit: string;
+  color: string;
 }
 
 function useMetricSystem(): boolean {
@@ -62,8 +65,9 @@ export function CombinedDataChart({
   // Store Victory Native's actual rendered x-coordinates for smooth crosshair
   const pointXCoordsShared = useSharedValue<number[]>([]);
 
-  // React state for tooltip (bridges to JS only for text updates)
-  const [tooltipData, setTooltipData] = useState<TooltipData | null>(null);
+  // React state for metrics panel (bridges to JS only for text updates)
+  const [metricValues, setMetricValues] = useState<MetricValue[]>([]);
+  const [currentDistance, setCurrentDistance] = useState<number | null>(null);
   const [isActive, setIsActive] = useState(false);
 
   const onPointSelectRef = useRef(onPointSelect);
@@ -166,12 +170,12 @@ export function CombinedDataChart({
     return Math.min(Math.max(0, idx), len - 1);
   }, []);
 
-  // Bridge to JS only when index changes (for tooltip text and parent notification)
-  const updateTooltipOnJS = useCallback((idx: number) => {
+  // Bridge to JS only when index changes (for metrics panel and parent notification)
+  const updateMetricsOnJS = useCallback((idx: number) => {
     if (idx < 0 || chartData.length === 0 || seriesInfo.length === 0) {
       if (lastNotifiedIdx.current !== null) {
-        setTooltipData(null);
         setIsActive(false);
+        setCurrentDistance(null);
         lastNotifiedIdx.current = null;
         if (onPointSelectRef.current) onPointSelectRef.current(null);
         if (onInteractionChangeRef.current) onInteractionChangeRef.current(false);
@@ -186,9 +190,11 @@ export function CombinedDataChart({
     if (!isActive) {
       setIsActive(true);
       if (onInteractionChangeRef.current) onInteractionChangeRef.current(true);
+      // Haptic feedback on interaction start
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
 
-    // Build tooltip data with actual values (not normalized)
+    // Build metric values with actual data (not normalized)
     const originalIdx = indexMap[idx];
     const values = seriesInfo.map((s) => {
       let rawVal = s.rawData[originalIdx] ?? 0;
@@ -215,10 +221,8 @@ export function CombinedDataChart({
       };
     });
 
-    setTooltipData({
-      distance: chartData[idx]?.x ?? 0,
-      values,
-    });
+    setMetricValues(values);
+    setCurrentDistance(chartData[idx]?.x ?? 0);
 
     // Notify parent of original data index for map sync
     if (onPointSelectRef.current && idx < indexMap.length) {
@@ -226,13 +230,13 @@ export function CombinedDataChart({
     }
   }, [chartData, seriesInfo, indexMap, isMetric, isActive]);
 
-  // React to index changes and bridge to JS for tooltip updates
+  // React to index changes and bridge to JS for metrics updates
   useAnimatedReaction(
     () => selectedIdx.value,
     (idx) => {
-      runOnJS(updateTooltipOnJS)(idx);
+      runOnJS(updateMetricsOnJS)(idx);
     },
-    [updateTooltipOnJS]
+    [updateMetricsOnJS]
   );
 
   // Gesture handler - updates shared values on UI thread (no JS bridge for position)
@@ -269,6 +273,26 @@ export function CombinedDataChart({
 
   const distanceUnit = isMetric ? 'km' : 'mi';
 
+  // Calculate averages for display when not scrubbing
+  const averageValues = useMemo(() => {
+    return seriesInfo.map((s) => {
+      const validValues = s.rawData.filter(v => !isNaN(v) && isFinite(v));
+      if (validValues.length === 0) return { id: s.id, avg: 0, formatted: '-' };
+
+      let avg = validValues.reduce((sum, v) => sum + v, 0) / validValues.length;
+
+      if (!isMetric && s.config.convertToImperial) {
+        avg = s.config.convertToImperial(avg);
+      }
+
+      const formatted = s.config.formatValue
+        ? s.config.formatValue(avg, isMetric)
+        : Math.round(avg).toString();
+
+      return { id: s.id, avg, formatted };
+    });
+  }, [seriesInfo, isMetric]);
+
   if (chartData.length === 0 || seriesInfo.length === 0) {
     return (
       <View style={[styles.placeholder, { height }]}>
@@ -279,39 +303,46 @@ export function CombinedDataChart({
 
   // Build yKeys array for CartesianChart
   const yKeys = seriesInfo.map((s) => s.id);
+  const chartHeight = height - 48; // Reserve space for metrics panel
 
   return (
     <View style={[styles.container, { height }]}>
-      <GestureDetector gesture={gesture}>
-        <View style={styles.chartWrapper}>
-          {/* Combined tooltip */}
-          {isActive && tooltipData && (
-            <View style={[styles.tooltip, isDark && styles.tooltipDark]} pointerEvents="none">
-              <Text style={[styles.tooltipDistance, isDark && styles.tooltipTextDark]}>
-                {tooltipData.distance.toFixed(2)} {distanceUnit}
-              </Text>
-              <View style={styles.tooltipValues}>
-                {tooltipData.values.map((v) => (
-                  <View key={v.id} style={styles.tooltipItem}>
-                    <View style={[styles.tooltipDot, { backgroundColor: v.color }]} />
-                    <Text style={[styles.tooltipValue, isDark && styles.tooltipTextDark]}>
-                      {v.value}
-                    </Text>
-                    <Text style={[styles.tooltipUnit, isDark && styles.tooltipUnitDark]}>
-                      {v.unit}
-                    </Text>
-                  </View>
-                ))}
-              </View>
-            </View>
-          )}
+      {/* Hero Metrics Panel - shows current values when scrubbing, averages otherwise */}
+      <View style={styles.metricsPanel}>
+        {seriesInfo.map((series, idx) => {
+          const displayValue = isActive && metricValues.length > idx
+            ? metricValues[idx]
+            : null;
+          const avgData = averageValues[idx];
+          const unit = isMetric ? series.config.unit : (series.config.unitImperial || series.config.unit);
 
+          return (
+            <View key={series.id} style={styles.metricItem}>
+              <View style={styles.metricValueRow}>
+                <Text style={[styles.metricValue, { color: series.color }]}>
+                  {displayValue?.value ?? avgData?.formatted ?? '-'}
+                </Text>
+                <Text style={[styles.metricUnit, isDark && styles.metricUnitDark]}>
+                  {unit}
+                </Text>
+              </View>
+              <Text style={[styles.metricLabel, isDark && styles.metricLabelDark]}>
+                {isActive ? series.config.label : `avg`}
+              </Text>
+            </View>
+          );
+        })}
+      </View>
+
+      {/* Chart area */}
+      <GestureDetector gesture={gesture}>
+        <View style={[styles.chartWrapper, { height: chartHeight }]}>
           <CartesianChart
             data={chartData}
             xKey="x"
             yKeys={yKeys as any}
             domain={{ y: [0, 1] }}
-            padding={{ left: 0, right: 0, top: 4, bottom: 16 }}
+            padding={{ left: 0, right: 0, top: 8, bottom: 20 }}
           >
             {({ points, chartBounds }) => {
               // Sync chartBounds and point coordinates for UI thread crosshair
@@ -339,12 +370,12 @@ export function CombinedDataChart({
                       points={(points as any)[series.id]}
                       y0={chartBounds.bottom}
                       curveType="natural"
-                      opacity={0.85}
+                      opacity={seriesInfo.length > 1 ? 0.7 : 0.85}
                     >
                       <LinearGradient
                         start={vec(0, chartBounds.top)}
                         end={vec(0, chartBounds.bottom)}
-                        colors={[series.color + 'DD', series.color + '50']}
+                        colors={[series.color + 'CC', series.color + '30']}
                       />
                     </Area>
                   ))}
@@ -353,29 +384,27 @@ export function CombinedDataChart({
             }}
           </CartesianChart>
 
-          {/* Animated crosshair - runs at native 120Hz using synced point coordinates */}
+          {/* Animated crosshair */}
           <Animated.View
             style={[styles.crosshair, crosshairStyle, isDark && styles.crosshairDark]}
             pointerEvents="none"
           />
 
-          {/* Legend */}
-          <View style={styles.legend} pointerEvents="none">
-            {seriesInfo.map((s) => (
-              <View key={s.id} style={styles.legendItem}>
-                <View style={[styles.legendDot, { backgroundColor: s.color }]} />
-                <Text style={[styles.legendLabel, isDark && styles.legendLabelDark]}>
-                  {s.config.label}
-                </Text>
-              </View>
-            ))}
+          {/* X-axis labels */}
+          <View style={styles.xAxis} pointerEvents="none">
+            <Text style={[styles.xLabel, isDark && styles.xLabelDark]}>0</Text>
+            <Text style={[styles.xLabel, isDark && styles.xLabelDark]}>
+              {(maxDist / 2).toFixed(1)}
+            </Text>
           </View>
 
-          {/* X-axis labels */}
-          <View style={styles.xAxisOverlay} pointerEvents="none">
-            <Text style={[styles.overlayLabel, isDark && styles.overlayLabelDark]}>0</Text>
-            <Text style={[styles.overlayLabel, isDark && styles.overlayLabelDark]}>
-              {maxDist.toFixed(1)} {distanceUnit}
+          {/* Distance indicator - overlaid on bottom right of chart */}
+          <View style={[styles.distanceIndicator, isDark && styles.distanceIndicatorDark]} pointerEvents="none">
+            <Text style={[styles.distanceText, isDark && styles.distanceTextDark]}>
+              {isActive && currentDistance !== null
+                ? `${currentDistance.toFixed(2)} ${distanceUnit}`
+                : `${maxDist.toFixed(1)} ${distanceUnit}`
+              }
             </Text>
           </View>
         </View>
@@ -386,19 +415,86 @@ export function CombinedDataChart({
 
 const styles = StyleSheet.create({
   container: {},
+  metricsPanel: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+    minHeight: 48,
+  },
+  metricItem: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  metricValueRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+  },
+  metricValue: {
+    fontSize: 22,
+    fontWeight: '700',
+    letterSpacing: -0.5,
+  },
+  metricUnit: {
+    fontSize: 11,
+    fontWeight: '500',
+    color: colors.textSecondary,
+    marginLeft: 2,
+  },
+  metricUnitDark: {
+    color: '#888',
+  },
+  metricLabel: {
+    fontSize: 9,
+    fontWeight: '500',
+    color: colors.textSecondary,
+    marginTop: 1,
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
+  },
+  metricLabelDark: {
+    color: '#777',
+  },
+  distanceIndicator: {
+    position: 'absolute',
+    bottom: 24,
+    right: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  distanceIndicatorDark: {
+    backgroundColor: 'rgba(40, 40, 40, 0.9)',
+  },
+  distanceText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: colors.textPrimary,
+  },
+  distanceTextDark: {
+    color: '#EEE',
+  },
   chartWrapper: {
     flex: 1,
     position: 'relative',
   },
   crosshair: {
     position: 'absolute',
-    top: 4,
-    bottom: 16,
-    width: 1.5,
-    backgroundColor: '#666',
+    top: 8,
+    bottom: 20,
+    width: 2,
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    borderRadius: 1,
   },
   crosshairDark: {
-    backgroundColor: '#AAA',
+    backgroundColor: 'rgba(255, 255, 255, 0.5)',
   },
   placeholder: {
     backgroundColor: colors.background,
@@ -407,109 +503,26 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   placeholderText: {
-    ...typography.caption,
+    fontSize: 13,
     color: colors.textSecondary,
   },
   textDark: {
     color: '#AAA',
   },
-  tooltip: {
+  xAxis: {
     position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderRadius: 6,
-    zIndex: 10,
-  },
-  tooltipDark: {
-    backgroundColor: 'rgba(40, 40, 40, 0.95)',
-  },
-  tooltipDistance: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: colors.textSecondary,
-    marginBottom: 4,
-  },
-  tooltipValues: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-  },
-  tooltipItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  tooltipDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    marginRight: 4,
-  },
-  tooltipValue: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.textPrimary,
-  },
-  tooltipUnit: {
-    fontSize: 11,
-    color: colors.textSecondary,
-    marginLeft: 2,
-  },
-  tooltipTextDark: {
-    color: '#FFFFFF',
-  },
-  tooltipUnitDark: {
-    color: '#AAA',
-  },
-  legend: {
-    position: 'absolute',
-    top: 4,
+    bottom: 2,
+    left: 4,
     right: 4,
-    flexDirection: 'row',
-    gap: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.8)',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-  legendItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  legendDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    marginRight: 3,
-  },
-  legendLabel: {
-    fontSize: 9,
-    color: colors.textSecondary,
-  },
-  legendLabelDark: {
-    color: '#AAA',
-  },
-  xAxisOverlay: {
-    position: 'absolute',
-    bottom: 0,
-    left: 2,
-    right: 2,
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
-  overlayLabel: {
-    fontSize: 9,
+  xLabel: {
+    fontSize: 10,
+    fontWeight: '500',
     color: colors.textSecondary,
-    backgroundColor: 'rgba(255, 255, 255, 0.7)',
-    paddingHorizontal: 2,
-    borderRadius: 2,
-    overflow: 'hidden',
   },
-  overlayLabelDark: {
-    color: '#CCC',
-    backgroundColor: 'rgba(30, 30, 30, 0.7)',
+  xLabelDark: {
+    color: '#777',
   },
 });

@@ -6,7 +6,7 @@ import { useColorScheme, View, ActivityIndicator } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Logger } from '@maplibre/maplibre-react-native';
 import { configureReanimatedLogger, ReanimatedLogLevel } from 'react-native-reanimated';
-import { QueryProvider, MapPreferencesProvider, initializeTheme, useAuthStore, initializeSportPreference } from '@/providers';
+import { QueryProvider, MapPreferencesProvider, initializeTheme, useAuthStore, initializeSportPreference, initializeHRZones } from '@/providers';
 import { lightTheme, darkTheme, colors } from '@/theme';
 
 // Suppress MapLibre info/warning logs about canceled requests
@@ -53,9 +53,9 @@ export default function RootLayout() {
   const theme = colorScheme === 'dark' ? darkTheme : lightTheme;
   const initializeAuth = useAuthStore((state) => state.initialize);
 
-  // Initialize theme, auth, and sport preference on app start
+  // Initialize theme, auth, sport preference, and HR zones on app start
   useEffect(() => {
-    Promise.all([initializeTheme(), initializeAuth(), initializeSportPreference()]).finally(() => setAppReady(true));
+    Promise.all([initializeTheme(), initializeAuth(), initializeSportPreference(), initializeHRZones()]).finally(() => setAppReady(true));
   }, [initializeAuth]);
 
   // Show minimal loading while initializing

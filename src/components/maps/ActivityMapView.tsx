@@ -1,5 +1,5 @@
-import React, { useMemo, useState } from 'react';
-import { View, StyleSheet, TouchableOpacity, Pressable, Modal, StatusBar } from 'react-native';
+import React, { useMemo, useState, useRef } from 'react';
+import { View, StyleSheet, TouchableOpacity, Modal, StatusBar } from 'react-native';
 import { MapView, Camera, ShapeSource, LineLayer, MarkerView } from '@maplibre/maplibre-react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { decodePolyline, LatLng } from '@/lib/polyline';
@@ -150,6 +150,10 @@ export function ActivityMapView({
           logoEnabled={false}
           attributionEnabled={false}
           compassEnabled={false}
+          scrollEnabled={true}
+          zoomEnabled={true}
+          rotateEnabled={true}
+          pitchEnabled={false}
         >
           <Camera
             bounds={bounds}
@@ -206,9 +210,19 @@ export function ActivityMapView({
           )}
         </MapView>
 
-        {/* Tap overlay for fullscreen */}
+        {/* Fullscreen button */}
         {enableFullscreen && (
-          <Pressable style={styles.pressOverlay} onPress={openFullscreen} />
+          <TouchableOpacity
+            style={[styles.fullscreenButton, isDark && styles.toggleButtonDark]}
+            onPress={openFullscreen}
+            activeOpacity={0.8}
+          >
+            <MaterialCommunityIcons
+              name="fullscreen"
+              size={22}
+              color={isDark ? '#FFFFFF' : '#333333'}
+            />
+          </TouchableOpacity>
         )}
 
         {/* Map style toggle */}
@@ -340,7 +354,7 @@ const styles = StyleSheet.create({
   },
   toggleButton: {
     position: 'absolute',
-    top: 12,
+    top: 56,
     right: 12,
     width: 36,
     height: 36,
@@ -357,7 +371,20 @@ const styles = StyleSheet.create({
   toggleButtonDark: {
     backgroundColor: 'rgba(50, 50, 50, 0.95)',
   },
-  pressOverlay: {
-    ...StyleSheet.absoluteFillObject,
+  fullscreenButton: {
+    position: 'absolute',
+    top: 100,
+    right: 12,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 3,
   },
 });

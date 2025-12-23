@@ -44,3 +44,4 @@ export {
 export { useZoneDistribution } from './useZoneDistribution';
 export { useEFTPHistory, getLatestFTP, getLatestEFTP } from './useEFTPHistory';
 export { useActivityBoundsCache } from './useActivityBoundsCache';
+export { useTheme, type Theme, type ThemeColors } from './useTheme';

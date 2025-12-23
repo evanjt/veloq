@@ -1,8 +1,6 @@
 import React from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity, useColorScheme } from 'react-native';
-import { Text } from 'react-native-paper';
+import { View, StyleSheet, ScrollView, TouchableOpacity, useColorScheme, Text } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { spacing } from '@/theme';
 import type { ChartConfig } from '@/lib/chartConfig';
 
 interface ChartTypeSelectorProps {
@@ -12,6 +10,16 @@ interface ChartTypeSelectorProps {
   selected: string[];
   /** Toggle a chart type on/off */
   onToggle: (id: string) => void;
+}
+
+/** Convert hex color to rgba with opacity */
+function hexToRgba(hex: string, opacity: number): string {
+  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  if (!result) return hex;
+  const r = parseInt(result[1], 16);
+  const g = parseInt(result[2], 16);
+  const b = parseInt(result[3], 16);
+  return `rgba(${r}, ${g}, ${b}, ${opacity})`;
 }
 
 export function ChartTypeSelector({
@@ -27,85 +35,59 @@ export function ChartTypeSelector({
   }
 
   return (
-    <View style={styles.container}>
-      <ScrollView
-        style={styles.scrollView}
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
-      >
-        {available.map((config) => {
-          const isSelected = selected.includes(config.id);
-          return (
-            <TouchableOpacity
-              key={config.id}
-              style={[
-                styles.chip,
-                isDark && styles.chipDark,
-                isSelected && { backgroundColor: config.color },
-              ]}
-              onPress={() => onToggle(config.id)}
-              activeOpacity={0.7}
-            >
-              <MaterialCommunityIcons
-                name={config.icon}
-                size={16}
-                color={isSelected ? '#FFFFFF' : (isDark ? '#AAA' : '#666')}
-                style={styles.chipIcon}
-              />
-              <Text
-                style={[
-                  styles.chipLabel,
-                  isDark && styles.chipLabelDark,
-                  isSelected && styles.chipLabelSelected,
-                ]}
-              >
-                {config.label}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-      </ScrollView>
-    </View>
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={styles.scrollContent}
+    >
+      {available.map((config) => {
+        const isSelected = selected.includes(config.id);
+        // Use full color when selected, faded color when unselected
+        const bgColor = isSelected
+          ? config.color
+          : hexToRgba(config.color, isDark ? 0.25 : 0.15);
+        const textColor = isSelected
+          ? '#FFFFFF'
+          : config.color;
+
+        return (
+          <TouchableOpacity
+            key={config.id}
+            style={[styles.chip, { backgroundColor: bgColor }]}
+            onPress={() => onToggle(config.id)}
+            activeOpacity={0.7}
+          >
+            <MaterialCommunityIcons
+              name={config.icon}
+              size={12}
+              color={textColor}
+            />
+            <Text style={[styles.chipLabel, { color: textColor }]}>
+              {config.label}
+            </Text>
+          </TouchableOpacity>
+        );
+      })}
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  scrollView: {
-    flex: 1,
-  },
   scrollContent: {
-    paddingHorizontal: spacing.xs,
-    gap: spacing.xs,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
   chip: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 16,
-    backgroundColor: 'rgba(0, 0, 0, 0.08)',
-    borderWidth: 1,
-    borderColor: 'transparent',
-  },
-  chipDark: {
-    backgroundColor: 'rgba(255, 255, 255, 0.12)',
-  },
-  chipIcon: {
-    marginRight: 4,
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 12,
   },
   chipLabel: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '500',
-    color: '#666',
-  },
-  chipLabelDark: {
-    color: '#AAA',
-  },
-  chipLabelSelected: {
-    color: '#FFFFFF',
   },
 });

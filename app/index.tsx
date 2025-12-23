@@ -226,9 +226,66 @@ export default function FeedScreen() {
     setSelectedTypeGroup(selectedTypeGroup === group ? null : group);
   };
 
-  const renderHeader = () => (
-    <>
-      {/* Header with profile and separate stat pills */}
+  // Memoized section header for FlatList - only depends on filtered count
+  const renderListHeader = useCallback(() => (
+    <View style={styles.sectionHeader}>
+      <Text style={[styles.sectionTitle, isDark && styles.textLight]}>
+        {searchQuery || selectedTypeGroup ? `${filteredActivities.length} Activities` : 'Recent Activities'}
+      </Text>
+    </View>
+  ), [isDark, searchQuery, selectedTypeGroup, filteredActivities.length]);
+
+  const renderEmpty = () => (
+    <View style={styles.emptyContainer}>
+      <Text style={[styles.emptyText, isDark && styles.textLight]}>
+        {searchQuery || selectedTypeGroup ? 'No matching activities' : 'No activities found'}
+      </Text>
+    </View>
+  );
+
+  const renderError = () => (
+    <View style={styles.emptyContainer}>
+      <Text style={styles.errorText}>
+        {error instanceof Error ? error.message : 'Failed to load activities'}
+      </Text>
+    </View>
+  );
+
+  const renderFooter = () => {
+    if (!isFetchingNextPage) return null;
+    return (
+      <View style={styles.footerLoader}>
+        <ActivityIndicator size="small" color={colors.primary} />
+        <Text style={[styles.footerText, isDark && styles.textDark]}>Loading more...</Text>
+      </View>
+    );
+  };
+
+  if (isLoading && !allActivities.length) {
+    return (
+      <SafeAreaView style={[styles.container, isDark && styles.containerDark]}>
+        <View style={styles.skeletonContainer}>
+          {/* Header skeleton */}
+          <View style={styles.header}>
+            <View style={[styles.profilePhoto, styles.profilePlaceholder, isDark && styles.profilePlaceholderDark]} />
+            <StatsPillSkeleton />
+          </View>
+          {/* Section header skeleton */}
+          <View style={styles.sectionHeader}>
+            <Text style={[styles.sectionTitle, isDark && styles.textLight]}>Recent Activities</Text>
+          </View>
+          {/* Activity card skeletons */}
+          <ActivityCardSkeleton />
+          <ActivityCardSkeleton />
+          <ActivityCardSkeleton />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  return (
+    <SafeAreaView style={[styles.container, isDark && styles.containerDark]}>
+      {/* Header with profile and stat pills - outside FlatList */}
       <View style={styles.header}>
         {/* Profile photo - tap to open settings */}
         <TouchableOpacity
@@ -375,7 +432,7 @@ export default function FeedScreen() {
         </View>
       </View>
 
-      {/* Search and Filter bar */}
+      {/* Search and Filter bar - outside FlatList to preserve focus */}
       <View style={styles.searchContainer}>
         <View style={[styles.searchBar, isDark && styles.searchBarDark]}>
           <MaterialCommunityIcons
@@ -419,7 +476,7 @@ export default function FeedScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Filter chips */}
+      {/* Filter chips - outside FlatList */}
       {showFilters && (
         <View style={styles.filterChips}>
           {Object.keys(ACTIVITY_TYPE_GROUPS).map((group) => (
@@ -446,70 +503,11 @@ export default function FeedScreen() {
         </View>
       )}
 
-      {/* Activities section header */}
-      <View style={styles.sectionHeader}>
-        <Text style={[styles.sectionTitle, isDark && styles.textLight]}>
-          {searchQuery || selectedTypeGroup ? `${filteredActivities.length} Activities` : 'Recent Activities'}
-        </Text>
-      </View>
-    </>
-  );
-
-  const renderEmpty = () => (
-    <View style={styles.emptyContainer}>
-      <Text style={[styles.emptyText, isDark && styles.textLight]}>
-        {searchQuery || selectedTypeGroup ? 'No matching activities' : 'No activities found'}
-      </Text>
-    </View>
-  );
-
-  const renderError = () => (
-    <View style={styles.emptyContainer}>
-      <Text style={styles.errorText}>
-        {error instanceof Error ? error.message : 'Failed to load activities'}
-      </Text>
-    </View>
-  );
-
-  const renderFooter = () => {
-    if (!isFetchingNextPage) return null;
-    return (
-      <View style={styles.footerLoader}>
-        <ActivityIndicator size="small" color={colors.primary} />
-        <Text style={[styles.footerText, isDark && styles.textDark]}>Loading more...</Text>
-      </View>
-    );
-  };
-
-  if (isLoading && !allActivities.length) {
-    return (
-      <SafeAreaView style={[styles.container, isDark && styles.containerDark]}>
-        <View style={styles.skeletonContainer}>
-          {/* Header skeleton */}
-          <View style={styles.header}>
-            <View style={[styles.profilePhoto, styles.profilePlaceholder, isDark && styles.profilePlaceholderDark]} />
-            <StatsPillSkeleton />
-          </View>
-          {/* Section header skeleton */}
-          <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionTitle, isDark && styles.textLight]}>Recent Activities</Text>
-          </View>
-          {/* Activity card skeletons */}
-          <ActivityCardSkeleton />
-          <ActivityCardSkeleton />
-          <ActivityCardSkeleton />
-        </View>
-      </SafeAreaView>
-    );
-  }
-
-  return (
-    <SafeAreaView style={[styles.container, isDark && styles.containerDark]}>
       <FlatList
         data={filteredActivities}
         renderItem={renderActivity}
         keyExtractor={(item) => item.id}
-        ListHeaderComponent={renderHeader}
+        ListHeaderComponent={renderListHeader}
         ListEmptyComponent={isError ? renderError : renderEmpty}
         ListFooterComponent={renderFooter}
         contentContainerStyle={styles.listContent}
@@ -519,6 +517,7 @@ export default function FeedScreen() {
             onRefresh={handleRefresh}
             colors={[colors.primary]}
             tintColor={colors.primary}
+            progressBackgroundColor={isDark ? '#1E1E1E' : '#FFFFFF'}
           />
         }
         onEndReached={handleEndReached}

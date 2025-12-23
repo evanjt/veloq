@@ -1,7 +1,7 @@
 import type { ActivityStreams } from '@/types';
 import type { MaterialIconName } from './activityUtils';
 
-export type ChartTypeId = 'elevation' | 'heartrate' | 'power' | 'pace' | 'cadence';
+export type ChartTypeId = 'elevation' | 'heartrate' | 'power' | 'pace' | 'cadence' | 'speed' | 'grade';
 
 export interface ChartConfig {
   id: ChartTypeId;
@@ -46,12 +46,52 @@ function calculatePaceStream(streams: ActivityStreams): number[] | undefined {
   return paceData;
 }
 
+// Calculate grade/gradient from altitude and distance streams
+// Returns grade as percentage
+function calculateGradeStream(streams: ActivityStreams): number[] | undefined {
+  const { altitude, distance } = streams;
+  if (!altitude || !distance || altitude.length < 2) return undefined;
+
+  const gradeData: number[] = [];
+  const windowSize = 10; // Larger window for smoother grade
+
+  for (let i = 0; i < altitude.length; i++) {
+    const startIdx = Math.max(0, i - windowSize);
+    const endIdx = Math.min(altitude.length - 1, i + windowSize);
+
+    const altDelta = altitude[endIdx] - altitude[startIdx]; // meters
+    const distDelta = distance[endIdx] - distance[startIdx]; // meters
+
+    if (distDelta > 5) { // Need at least 5m to calculate meaningful grade
+      const grade = (altDelta / distDelta) * 100;
+      // Cap at reasonable values (-30% to +30%)
+      gradeData.push(Math.min(30, Math.max(-30, grade)));
+    } else {
+      gradeData.push(gradeData.length > 0 ? gradeData[gradeData.length - 1] : 0);
+    }
+  }
+
+  return gradeData;
+}
+
 // Format pace as mm:ss
 function formatPace(secsPerKm: number, isMetric: boolean): string {
   const secsPerUnit = isMetric ? secsPerKm : secsPerKm * 1.60934;
   const mins = Math.floor(secsPerUnit / 60);
   const secs = Math.round(secsPerUnit % 60);
   return `${mins}:${secs.toString().padStart(2, '0')}`;
+}
+
+// Format speed in km/h or mph
+function formatSpeed(mps: number, isMetric: boolean): string {
+  const speed = isMetric ? mps * 3.6 : mps * 2.23694;
+  return speed.toFixed(1);
+}
+
+// Format grade as percentage
+function formatGrade(grade: number): string {
+  const sign = grade >= 0 ? '+' : '';
+  return `${sign}${grade.toFixed(1)}`;
 }
 
 export const CHART_CONFIGS: Record<ChartTypeId, ChartConfig> = {
@@ -99,6 +139,26 @@ export const CHART_CONFIGS: Record<ChartTypeId, ChartConfig> = {
     icon: 'rotate-right',
     color: '#9C27B0',
     getStream: (s) => s.cadence,
+  },
+  speed: {
+    id: 'speed',
+    label: 'Speed',
+    unit: 'km/h',
+    unitImperial: 'mph',
+    icon: 'speedometer-medium',
+    color: '#00BCD4',
+    getStream: (s) => s.velocity_smooth,
+    formatValue: formatSpeed,
+    convertToImperial: (mps) => mps * 2.23694 / 3.6, // Keep in mps for conversion
+  },
+  grade: {
+    id: 'grade',
+    label: 'Grade',
+    unit: '%',
+    icon: 'slope-uphill',
+    color: '#795548',
+    getStream: calculateGradeStream,
+    formatValue: formatGrade,
   },
 };
 

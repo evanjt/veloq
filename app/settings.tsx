@@ -8,6 +8,7 @@ import {
   useColorScheme,
   Image,
   Alert,
+  TextInput,
 } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -22,6 +23,8 @@ import {
   useMapPreferences,
   useAuthStore,
   useSportPreference,
+  useHRZones,
+  DEFAULT_HR_ZONES,
   type ThemePreference,
   type PrimarySport,
 } from '@/providers';
@@ -72,11 +75,19 @@ export default function SettingsScreen() {
   const { preferences: mapPreferences, setDefaultStyle, setActivityGroupStyle } = useMapPreferences();
   const clearCredentials = useAuthStore((state) => state.clearCredentials);
   const { primarySport, setPrimarySport } = useSportPreference();
+  const { maxHR, zones, setMaxHR, setZoneThreshold, resetToDefaults } = useHRZones();
+  const [showHRZones, setShowHRZones] = useState(false);
+  const [maxHRInput, setMaxHRInput] = useState(maxHR.toString());
 
   // Load saved theme preference on mount
   useEffect(() => {
     getThemePreference().then(setThemePreferenceState);
   }, []);
+
+  // Sync maxHRInput when maxHR changes from store
+  useEffect(() => {
+    setMaxHRInput(maxHR.toString());
+  }, [maxHR]);
 
   const handleThemeChange = async (value: string) => {
     const preference = value as ThemePreference;
@@ -99,6 +110,44 @@ export default function SettingsScreen() {
 
     const style = value === 'default' ? null : (value as MapStyleType);
     await setActivityGroupStyle(group.types, style);
+  };
+
+  const handleMaxHRChange = async (text: string) => {
+    setMaxHRInput(text);
+    const value = parseInt(text, 10);
+    if (!isNaN(value) && value >= 100 && value <= 250) {
+      await setMaxHR(value);
+    }
+  };
+
+  const handleResetHRZones = () => {
+    Alert.alert(
+      'Reset HR Zones',
+      'This will reset your max HR to 190 and all zones to their default values.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Reset',
+          style: 'destructive',
+          onPress: async () => {
+            await resetToDefaults();
+            setMaxHRInput('190');
+          },
+        },
+      ]
+    );
+  };
+
+  // Helper to format zone range as BPM
+  const getZoneBPM = (zone: { min: number; max: number }) => {
+    const minBPM = Math.round(zone.min * maxHR);
+    const maxBPM = Math.round(zone.max * maxHR);
+    return `${minBPM} - ${maxBPM} bpm`;
+  };
+
+  // Helper to format zone range as percentage
+  const getZonePercent = (zone: { min: number; max: number }) => {
+    return `${Math.round(zone.min * 100)}% - ${Math.round(zone.max * 100)}%`;
   };
 
   const {
@@ -284,6 +333,77 @@ export default function SettingsScreen() {
         </View>
         <Text style={[styles.infoText, isDark && styles.textMuted]}>
           Affects home screen metrics and default stats page view.
+        </Text>
+
+        {/* HR Zones Section */}
+        <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>HR ZONES</Text>
+        <View style={[styles.section, isDark && styles.sectionDark]}>
+          {/* Max HR Input */}
+          <View style={styles.hrInputRow}>
+            <Text style={[styles.hrInputLabel, isDark && styles.textLight]}>Max Heart Rate</Text>
+            <View style={styles.hrInputContainer}>
+              <TextInput
+                style={[styles.hrInput, isDark && styles.hrInputDark]}
+                value={maxHRInput}
+                onChangeText={handleMaxHRChange}
+                keyboardType="number-pad"
+                maxLength={3}
+                selectTextOnFocus
+              />
+              <Text style={[styles.hrInputUnit, isDark && styles.textMuted]}>bpm</Text>
+            </View>
+          </View>
+
+          {/* Zone Details Toggle */}
+          <TouchableOpacity
+            style={[styles.actionRow, styles.actionRowBorder]}
+            onPress={() => setShowHRZones(!showHRZones)}
+          >
+            <MaterialCommunityIcons
+              name="heart-pulse"
+              size={22}
+              color="#E91E63"
+            />
+            <Text style={[styles.actionText, isDark && styles.textLight]}>
+              View Zone Details
+            </Text>
+            <MaterialCommunityIcons
+              name={showHRZones ? 'chevron-up' : 'chevron-down'}
+              size={20}
+              color={isDark ? '#666' : colors.textSecondary}
+            />
+          </TouchableOpacity>
+
+          {/* Zone Details */}
+          {showHRZones && (
+            <View style={styles.zonesContainer}>
+              {zones.map((zone) => (
+                <View key={zone.id} style={styles.zoneDetailRow}>
+                  <View style={[styles.zoneColorDot, { backgroundColor: zone.color }]} />
+                  <View style={styles.zoneInfo}>
+                    <Text style={[styles.zoneName, isDark && styles.textLight]}>
+                      Z{zone.id} {zone.name}
+                    </Text>
+                    <Text style={[styles.zoneRange, isDark && styles.textMuted]}>
+                      {getZonePercent(zone)} • {getZoneBPM(zone)}
+                    </Text>
+                  </View>
+                </View>
+              ))}
+
+              {/* Reset Button */}
+              <TouchableOpacity
+                style={styles.resetZonesButton}
+                onPress={handleResetHRZones}
+              >
+                <MaterialCommunityIcons name="restore" size={18} color={colors.error} />
+                <Text style={styles.resetZonesText}>Reset to Defaults</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
+        <Text style={[styles.infoText, isDark && styles.textMuted]}>
+          Used to calculate time in HR zones for activities.
         </Text>
 
         {/* Maps Section */}
@@ -765,5 +885,83 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     marginTop: spacing.md,
     fontStyle: 'italic',
+  },
+  // HR Zones styles
+  hrInputRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+  },
+  hrInputLabel: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: colors.textPrimary,
+  },
+  hrInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  hrInput: {
+    width: 60,
+    height: 36,
+    backgroundColor: colors.background,
+    borderRadius: 8,
+    paddingHorizontal: spacing.sm,
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.textPrimary,
+    textAlign: 'center',
+  },
+  hrInputDark: {
+    backgroundColor: '#333',
+    color: '#FFF',
+  },
+  hrInputUnit: {
+    fontSize: 14,
+    color: colors.textSecondary,
+  },
+  zonesContainer: {
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.md,
+  },
+  zoneDetailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: spacing.sm,
+    gap: spacing.sm,
+  },
+  zoneColorDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+  },
+  zoneInfo: {
+    flex: 1,
+  },
+  zoneName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.textPrimary,
+  },
+  zoneRange: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+  resetZonesButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    marginTop: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  resetZonesText: {
+    fontSize: 14,
+    color: colors.error,
+    fontWeight: '500',
   },
 });
