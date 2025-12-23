@@ -1,5 +1,5 @@
-import React, { useMemo, useState, useRef } from 'react';
-import { View, StyleSheet, TouchableOpacity, Modal, StatusBar } from 'react-native';
+import React, { useMemo, useState, useRef, useCallback } from 'react';
+import { View, StyleSheet, TouchableOpacity, Modal, StatusBar, Animated, Pressable } from 'react-native';
 import { MapView, Camera, ShapeSource, LineLayer, MarkerView } from '@maplibre/maplibre-react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { decodePolyline, LatLng } from '@/lib/polyline';
@@ -7,6 +7,7 @@ import { getActivityColor } from '@/lib';
 import { colors } from '@/theme';
 import { useMapPreferences } from '@/providers';
 import { BaseMapView } from './BaseMapView';
+import { CompassArrow } from '@/components/ui';
 import { type MapStyleType, getMapStyle, isDarkStyle, getNextStyle, getStyleIcon } from './mapStyles';
 import type { ActivityType } from '@/types';
 
@@ -58,6 +59,33 @@ export function ActivityMapView({
   const closeFullscreen = () => {
     setIsFullscreen(false);
   };
+
+  // Compass bearing state
+  const bearingAnim = useRef(new Animated.Value(0)).current;
+
+  // Handle map region change to update compass
+  const handleRegionIsChanging = useCallback((feature: GeoJSON.Feature) => {
+    const properties = feature.properties as { heading?: number } | undefined;
+    if (properties?.heading !== undefined) {
+      bearingAnim.setValue(-properties.heading);
+    }
+  }, [bearingAnim]);
+
+  // Camera ref for programmatic control
+  const cameraRef = useRef<React.ElementRef<typeof Camera>>(null);
+
+  // Reset bearing to north
+  const resetOrientation = useCallback(() => {
+    cameraRef.current?.setCamera({
+      heading: 0,
+      animationDuration: 300,
+    });
+    Animated.timing(bearingAnim, {
+      toValue: 0,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+  }, [bearingAnim]);
 
   const coordinates = useMemo(() => {
     if (providedCoordinates && providedCoordinates.length > 0) {
@@ -142,8 +170,11 @@ export function ActivityMapView({
 
   return (
     <View style={[styles.container, { height }]}>
-      {/* Inline preview map */}
-      <View style={[styles.inlineMapWrapper, isFullscreen && styles.hiddenMap]}>
+      {/* Inline preview map - tap anywhere to open fullscreen */}
+      <Pressable
+        style={[styles.inlineMapWrapper, isFullscreen && styles.hiddenMap]}
+        onPress={enableFullscreen ? openFullscreen : undefined}
+      >
         <MapView
           style={styles.map}
           mapStyle={mapStyleValue}
@@ -154,8 +185,10 @@ export function ActivityMapView({
           zoomEnabled={true}
           rotateEnabled={true}
           pitchEnabled={false}
+          onRegionIsChanging={handleRegionIsChanging}
         >
           <Camera
+            ref={cameraRef}
             bounds={bounds}
             padding={{ paddingTop: 50, paddingRight: 50, paddingBottom: 50, paddingLeft: 50 }}
             animationDuration={0}
@@ -210,38 +243,40 @@ export function ActivityMapView({
           )}
         </MapView>
 
-        {/* Map style toggle - top right */}
+        {/* Control buttons - right side, positioned lower */}
         {showStyleToggle && (
-          <TouchableOpacity
-            style={[styles.toggleButton, isDark && styles.toggleButtonDark]}
-            onPress={toggleMapStyle}
-            activeOpacity={0.8}
-            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-          >
-            <MaterialCommunityIcons
-              name={getStyleIcon(mapStyle)}
-              size={24}
-              color={isDark ? '#FFFFFF' : '#333333'}
-            />
-          </TouchableOpacity>
-        )}
+          <View style={styles.controlStack}>
+            {/* Map style toggle */}
+            <TouchableOpacity
+              style={[styles.controlButton, isDark && styles.controlButtonDark]}
+              onPress={toggleMapStyle}
+              activeOpacity={0.8}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <MaterialCommunityIcons
+                name={getStyleIcon(mapStyle)}
+                size={22}
+                color={isDark ? '#FFFFFF' : '#333333'}
+              />
+            </TouchableOpacity>
 
-        {/* Fullscreen button - bottom right, above info text */}
-        {enableFullscreen && (
-          <TouchableOpacity
-            style={[styles.fullscreenButton, isDark && styles.toggleButtonDark]}
-            onPress={openFullscreen}
-            activeOpacity={0.8}
-            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-          >
-            <MaterialCommunityIcons
-              name="fullscreen"
-              size={26}
-              color={isDark ? '#FFFFFF' : '#333333'}
-            />
-          </TouchableOpacity>
+            {/* Compass / North arrow */}
+            <TouchableOpacity
+              style={[styles.controlButton, isDark && styles.controlButtonDark]}
+              onPress={resetOrientation}
+              activeOpacity={0.8}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <CompassArrow
+                size={20}
+                rotation={bearingAnim}
+                northColor="#E53935"
+                southColor={isDark ? '#FFFFFF' : '#333333'}
+              />
+            </TouchableOpacity>
+          </View>
         )}
-      </View>
+      </Pressable>
 
       {/* Fullscreen modal using BaseMapView */}
       <Modal
@@ -354,39 +389,26 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     backgroundColor: '#FFFFFF',
   },
-  toggleButton: {
+  controlStack: {
     position: 'absolute',
-    top: 12,
+    top: 60, // Lower position - below any header overlap
     right: 12,
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    gap: 8,
+  },
+  controlButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: 'rgba(255, 255, 255, 0.95)',
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 4,
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 3,
   },
-  toggleButtonDark: {
+  controlButtonDark: {
     backgroundColor: 'rgba(50, 50, 50, 0.95)',
-  },
-  fullscreenButton: {
-    position: 'absolute',
-    bottom: 60, // Above bottom info text
-    right: 12,
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 4,
   },
 });

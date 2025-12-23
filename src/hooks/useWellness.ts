@@ -47,3 +47,22 @@ export function useWellness(range: TimeRange = '3m') {
     placeholderData: keepPreviousData, // Keep previous data visible while fetching new range
   });
 }
+
+/**
+ * Fetch wellness data for a specific date
+ * Used for showing Form (CTL/ATL/TSB) on activity detail pages
+ */
+export function useWellnessForDate(date: string | undefined) {
+  return useQuery<WellnessData | null>({
+    queryKey: ['wellness-date', date],
+    queryFn: async () => {
+      if (!date) return null;
+      // Fetch just this one day
+      const data = await intervalsApi.getWellness({ oldest: date, newest: date });
+      return data?.[0] || null;
+    },
+    enabled: !!date,
+    staleTime: 1000 * 60 * 60, // 1 hour - historical data doesn't change often
+    gcTime: 1000 * 60 * 60 * 24, // 24 hours
+  });
+}

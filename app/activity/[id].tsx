@@ -5,8 +5,8 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useLocalSearchParams, router } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useActivity, useActivityStreams } from '@/hooks';
-import { ActivityMapView, CombinedDataChart, ChartTypeSelector, HRZonesChart } from '@/components';
+import { useActivity, useActivityStreams, useWellnessForDate } from '@/hooks';
+import { ActivityMapView, CombinedDataChart, ChartTypeSelector, HRZonesChart, InsightfulStats } from '@/components';
 import {
   formatDistance,
   formatDuration,
@@ -37,6 +37,10 @@ export default function ActivityDetailScreen() {
 
   const { data: activity, isLoading, error } = useActivity(id || '');
   const { data: streams } = useActivityStreams(id || '');
+
+  // Get the activity date for wellness lookup
+  const activityDate = activity?.start_date_local?.split('T')[0];
+  const { data: activityWellness } = useWellnessForDate(activityDate);
 
   // Track the selected point index from charts for map highlight
   const [highlightIndex, setHighlightIndex] = useState<number | null>(null);
@@ -247,6 +251,46 @@ export default function ActivityDetailScreen() {
               )
             )}
 
+            {/* Compact Stats Row - averages */}
+            <View style={[styles.compactStats, isDark && styles.cardDark]}>
+              {showPace ? (
+                <CompactStat
+                  label="Avg Pace"
+                  value={formatPace(activity.average_speed)}
+                  isDark={isDark}
+                />
+              ) : (
+                <CompactStat
+                  label="Avg Speed"
+                  value={formatSpeed(activity.average_speed)}
+                  isDark={isDark}
+                />
+              )}
+              {(activity.average_heartrate || activity.icu_average_hr) && (
+                <CompactStat
+                  label="Avg HR"
+                  value={formatHeartRate(activity.average_heartrate || activity.icu_average_hr!)}
+                  isDark={isDark}
+                  color="#E91E63"
+                />
+              )}
+              {(activity.average_watts || activity.icu_average_watts) && (
+                <CompactStat
+                  label="Avg Power"
+                  value={formatPower(activity.average_watts || activity.icu_average_watts!)}
+                  isDark={isDark}
+                  color="#9C27B0"
+                />
+              )}
+              {activity.average_cadence && (
+                <CompactStat
+                  label="Cadence"
+                  value={`${Math.round(activity.average_cadence)}`}
+                  isDark={isDark}
+                />
+              )}
+            </View>
+
             {/* HR Zones Chart - show if heart rate data available */}
             {streams?.heartrate && streams.heartrate.length > 0 && (
               <View style={[styles.chartCard, isDark && styles.cardDark]}>
@@ -260,106 +304,8 @@ export default function ActivityDetailScreen() {
           </View>
         )}
 
-        {/* Compact Stats Row */}
-        <View style={[styles.compactStats, isDark && styles.cardDark]}>
-          {showPace ? (
-            <CompactStat
-              label="Avg Pace"
-              value={formatPace(activity.average_speed)}
-              isDark={isDark}
-            />
-          ) : (
-            <CompactStat
-              label="Avg Speed"
-              value={formatSpeed(activity.average_speed)}
-              isDark={isDark}
-            />
-          )}
-          {(activity.average_heartrate || activity.icu_average_hr) && (
-            <CompactStat
-              label="Avg HR"
-              value={formatHeartRate(activity.average_heartrate || activity.icu_average_hr!)}
-              isDark={isDark}
-              color="#E91E63"
-            />
-          )}
-          {(activity.average_watts || activity.icu_average_watts) && (
-            <CompactStat
-              label="Avg Power"
-              value={formatPower(activity.average_watts || activity.icu_average_watts!)}
-              isDark={isDark}
-              color="#9C27B0"
-            />
-          )}
-          {activity.average_cadence && (
-            <CompactStat
-              label="Cadence"
-              value={`${Math.round(activity.average_cadence)}`}
-              isDark={isDark}
-            />
-          )}
-        </View>
-
-        {/* Secondary Stats (collapsible) */}
-        <View style={[styles.secondaryStats, isDark && styles.cardDark]}>
-          <View style={styles.secondaryRow}>
-            <SecondaryStatItem
-              icon="clock-outline"
-              label="Moving"
-              value={formatDuration(activity.moving_time)}
-              isDark={isDark}
-            />
-            <SecondaryStatItem
-              icon="clock-fast"
-              label="Elapsed"
-              value={formatDuration(activity.elapsed_time)}
-              isDark={isDark}
-            />
-            {activity.calories && (
-              <SecondaryStatItem
-                icon="fire"
-                label="Calories"
-                value={`${Math.round(activity.calories)}`}
-                isDark={isDark}
-              />
-            )}
-          </View>
-          {(activity.max_speed || activity.max_heartrate || activity.icu_max_hr || activity.max_watts) && (
-            <View style={styles.secondaryRow}>
-              {showPace ? (
-                <SecondaryStatItem
-                  icon="speedometer"
-                  label="Max Pace"
-                  value={formatPace(activity.max_speed)}
-                  isDark={isDark}
-                />
-              ) : (
-                <SecondaryStatItem
-                  icon="speedometer"
-                  label="Max Speed"
-                  value={formatSpeed(activity.max_speed)}
-                  isDark={isDark}
-                />
-              )}
-              {(activity.max_heartrate || activity.icu_max_hr) && (
-                <SecondaryStatItem
-                  icon="heart"
-                  label="Max HR"
-                  value={formatHeartRate(activity.max_heartrate || activity.icu_max_hr!)}
-                  isDark={isDark}
-                />
-              )}
-              {activity.max_watts && (
-                <SecondaryStatItem
-                  icon="lightning-bolt"
-                  label="Max Power"
-                  value={formatPower(activity.max_watts)}
-                  isDark={isDark}
-                />
-              )}
-            </View>
-          )}
-        </View>
+        {/* Insightful Stats - Interactive stats with context and explanations */}
+        <InsightfulStats activity={activity} wellness={activityWellness} />
 
         {/* Device attribution */}
         {activity.device_name && (
@@ -401,32 +347,6 @@ function CompactStat({
   );
 }
 
-// Secondary stat with icon
-function SecondaryStatItem({
-  icon,
-  label,
-  value,
-  isDark,
-}: {
-  icon: string;
-  label: string;
-  value: string;
-  isDark: boolean;
-}) {
-  return (
-    <View style={styles.secondaryStatItem}>
-      <MaterialCommunityIcons
-        name={icon as any}
-        size={16}
-        color={isDark ? '#888' : colors.textSecondary}
-      />
-      <View style={styles.secondaryStatText}>
-        <Text style={[styles.secondaryStatValue, isDark && styles.textLight]}>{value}</Text>
-        <Text style={styles.secondaryStatLabel}>{label}</Text>
-      </View>
-    </View>
-  );
-}
 
 const styles = StyleSheet.create({
   container: {
@@ -581,8 +501,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-around',
     backgroundColor: colors.surface,
-    marginHorizontal: spacing.md,
-    marginTop: spacing.md,
+    marginBottom: spacing.sm,
     borderRadius: 16,
     paddingVertical: spacing.md,
     shadowColor: '#000',
@@ -604,42 +523,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: colors.textSecondary,
     marginTop: 2,
-  },
-
-  // Secondary stats
-  secondaryStats: {
-    backgroundColor: colors.surface,
-    marginHorizontal: spacing.md,
-    marginTop: spacing.sm,
-    borderRadius: 16,
-    padding: spacing.md,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  secondaryRow: {
-    flexDirection: 'row',
-    marginBottom: spacing.sm,
-  },
-  secondaryStatItem: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  secondaryStatText: {
-    flex: 1,
-  },
-  secondaryStatValue: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.textPrimary,
-  },
-  secondaryStatLabel: {
-    fontSize: 11,
-    color: colors.textSecondary,
   },
 
   // Device attribution
