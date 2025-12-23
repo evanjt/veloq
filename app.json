@@ -1,9 +1,9 @@
 {
   "expo": {
-    "name": "Velox",
-    "slug": "velox",
+    "name": "Veloq",
+    "slug": "veloq",
     "version": "0.0.1",
-    "scheme": "velox",
+    "scheme": "veloq",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
@@ -11,17 +11,17 @@
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#FC4C02"
+      "backgroundColor": "#1A1A1A"
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.velox.app"
+      "bundleIdentifier": "com.veloq.app"
     },
     "android": {
-      "package": "com.velox.app",
+      "package": "com.veloq.app",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#FC4C02"
+        "backgroundColor": "#1A1A1A"
       },
       "edgeToEdgeEnabled": true
     },

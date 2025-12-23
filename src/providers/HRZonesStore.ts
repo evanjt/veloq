@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const HR_ZONES_KEY = 'velox-hr-zones';
+const HR_ZONES_KEY = 'veloq-hr-zones';
 
 // Default HR Zone definitions (percentage of max HR)
 export interface HRZone {

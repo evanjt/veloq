@@ -17,7 +17,7 @@ const queryClient = new QueryClient({
 
 const asyncStoragePersister = createAsyncStoragePersister({
   storage: AsyncStorage,
-  key: 'velox-query-cache',
+  key: 'veloq-query-cache',
   // Throttle writes to prevent overwhelming storage
   throttleTime: 2000,
   // Serialize with size limit - skip large entries
@@ -61,7 +61,7 @@ export function QueryProvider({ children }: QueryProviderProps) {
       onError={() => {
         console.warn('Query persist error');
         // Clear corrupted cache
-        AsyncStorage.removeItem('velox-query-cache').catch(() => {});
+        AsyncStorage.removeItem('veloq-query-cache').catch(() => {});
       }}
     >
       {children}

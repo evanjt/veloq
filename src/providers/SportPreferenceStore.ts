@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const SPORT_PREFERENCE_KEY = 'velox-primary-sport';
+const SPORT_PREFERENCE_KEY = 'veloq-primary-sport';
 
 export type PrimarySport = 'Cycling' | 'Running' | 'Swimming';
 
