@@ -45,7 +45,6 @@ export function ActivityMapView({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [is3DMode, setIs3DMode] = useState(false);
   const [is3DReady, setIs3DReady] = useState(false);
-  const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
   const map3DRef = useRef<Map3DWebViewRef>(null);
   const map3DOpacity = useRef(new Animated.Value(0)).current;
 
@@ -91,7 +90,7 @@ export function ActivityMapView({
     }).start();
   }, [map3DOpacity]);
 
-  // Get user location
+  // Get user location and refocus camera
   const handleGetLocation = useCallback(async () => {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
@@ -102,15 +101,12 @@ export function ActivityMapView({
       });
 
       const coords: [number, number] = [location.coords.longitude, location.coords.latitude];
-      setUserLocation(coords);
 
       cameraRef.current?.setCamera({
         centerCoordinate: coords,
         zoomLevel: 14,
         animationDuration: 500,
       });
-
-      setTimeout(() => setUserLocation(null), 3000);
     } catch {
       // Silently fail
     }
@@ -136,6 +132,11 @@ export function ActivityMapView({
 
   // Compass bearing state
   const bearingAnim = useRef(new Animated.Value(0)).current;
+
+  // Handle 3D map bearing changes (for compass sync)
+  const handleBearingChange = useCallback((bearing: number) => {
+    bearingAnim.setValue(-bearing);
+  }, [bearingAnim]);
 
   // Handle map region change to update compass
   const handleRegionIsChanging = useCallback((feature: GeoJSON.Feature) => {
@@ -310,15 +311,6 @@ export function ActivityMapView({
             </MarkerView>
           )}
 
-          {/* User location marker */}
-          {userLocation && (
-            <MarkerView coordinate={userLocation} anchor={{ x: 0.5, y: 0.5 }}>
-              <View style={styles.userLocationMarker}>
-                <View style={styles.userLocationDot} />
-              </View>
-            </MarkerView>
-          )}
-
           {/* Highlight marker from elevation chart */}
           {highlightPoint && (
             <MarkerView coordinate={[highlightPoint.longitude, highlightPoint.latitude]}>
@@ -341,6 +333,7 @@ export function ActivityMapView({
               mapStyle={mapStyle}
               routeColor={activityColor}
               onMapReady={handleMap3DReady}
+              onBearingChange={handleBearingChange}
             />
           </Animated.View>
         )}
@@ -405,15 +398,15 @@ export function ActivityMapView({
 
           {/* GPS location */}
           <TouchableOpacity
-            style={[styles.controlButton, isDark && styles.controlButtonDark, userLocation && styles.controlButtonActive]}
-            onPressIn={handleGetLocation}
+            style={[styles.controlButton, isDark && styles.controlButtonDark]}
+            onPress={handleGetLocation}
             activeOpacity={0.6}
             hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
           >
             <MaterialCommunityIcons
               name="crosshairs-gps"
               size={22}
-              color={userLocation ? '#FFFFFF' : (isDark ? '#FFFFFF' : '#333333')}
+              color={isDark ? '#FFFFFF' : '#333333'}
             />
           </TouchableOpacity>
         </View>
@@ -533,22 +526,6 @@ const styles = StyleSheet.create({
     height: 8,
     borderRadius: 4,
     backgroundColor: '#FFFFFF',
-  },
-  userLocationMarker: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: 'rgba(66, 165, 245, 0.3)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  userLocationDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: '#42A5F5',
-    borderWidth: 2,
-    borderColor: '#FFFFFF',
   },
   controlsContainer: {
     position: 'absolute',

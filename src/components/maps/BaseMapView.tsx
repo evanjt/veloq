@@ -86,7 +86,6 @@ export function BaseMapView({
   const [mapStyle, setMapStyle] = useState<MapStyleType>(initialStyle ?? systemStyle);
   const [is3DMode, setIs3DMode] = useState(false);
   const [is3DReady, setIs3DReady] = useState(false);
-  const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
 
   const internalCameraRef = useRef<React.ElementRef<typeof Camera>>(null);
   const cameraRef = externalCameraRef || internalCameraRef;
@@ -115,6 +114,11 @@ export function BaseMapView({
       useNativeDriver: true,
     }).start();
   }, [map3DOpacity]);
+
+  // Handle 3D map bearing changes (for compass sync)
+  const handleBearingChange = useCallback((bearing: number) => {
+    bearingAnim.setValue(-bearing);
+  }, [bearingAnim]);
 
   // Toggle map style
   const toggleStyle = useCallback(() => {
@@ -151,7 +155,7 @@ export function BaseMapView({
     }
   }, [bearingAnim]);
 
-  // Get user location (one-time jump)
+  // Get user location and refocus camera
   const handleGetLocation = useCallback(async () => {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
@@ -162,15 +166,12 @@ export function BaseMapView({
       });
 
       const coords: [number, number] = [location.coords.longitude, location.coords.latitude];
-      setUserLocation(coords);
 
       cameraRef.current?.setCamera({
         centerCoordinate: coords,
         zoomLevel: 14,
         animationDuration: 500,
       });
-
-      setTimeout(() => setUserLocation(null), 3000);
     } catch {
       // Silently fail - location is optional
     }
@@ -251,7 +252,7 @@ export function BaseMapView({
 
         {showLocationButton && (
           <TouchableOpacity
-            style={[styles.controlButton, isDark && styles.controlButtonDark, userLocation && styles.controlButtonActive]}
+            style={[styles.controlButton, isDark && styles.controlButtonDark]}
             onPress={handleGetLocation}
             activeOpacity={0.8}
             accessibilityLabel="Go to my location"
@@ -260,7 +261,7 @@ export function BaseMapView({
             <MaterialCommunityIcons
               name="crosshairs-gps"
               size={22}
-              color={userLocation ? '#FFFFFF' : (isDark ? '#FFFFFF' : '#333333')}
+              color={isDark ? '#FFFFFF' : '#333333'}
             />
           </TouchableOpacity>
         )}
@@ -311,15 +312,6 @@ export function BaseMapView({
             </ShapeSource>
           )}
 
-          {/* User location marker */}
-          {userLocation && (
-            <MarkerView coordinate={userLocation} anchor={{ x: 0.5, y: 0.5 }}>
-              <View style={styles.userLocationMarker}>
-                <View style={styles.userLocationDot} />
-              </View>
-            </MarkerView>
-          )}
-
           {/* Custom children (markers, etc.) */}
           {children}
         </MapView>
@@ -334,6 +326,7 @@ export function BaseMapView({
             mapStyle={mapStyle}
             routeColor={routeColor}
             onMapReady={handleMap3DReady}
+            onBearingChange={handleBearingChange}
           />
         </Animated.View>
       )}
@@ -410,22 +403,6 @@ const styles = StyleSheet.create({
   },
   controlButtonActive: {
     backgroundColor: colors.primary,
-  },
-  userLocationMarker: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: 'rgba(66, 165, 245, 0.3)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  userLocationDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: '#42A5F5',
-    borderWidth: 2,
-    borderColor: '#FFFFFF',
   },
   attribution: {
     position: 'absolute',
