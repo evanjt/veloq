@@ -252,8 +252,8 @@ export default function ActivityDetailScreen() {
               <View style={[styles.chartCard, isDark && styles.cardDark]}>
                 <HRZonesChart
                   streams={streams}
-                  maxHR={activity.max_heartrate || activity.icu_max_hr || 190}
-                  height={140}
+                  activityType={activity.type}
+                  activity={activity}
                 />
               </View>
             )}
@@ -375,24 +375,6 @@ export default function ActivityDetailScreen() {
           </View>
         )}
       </ScrollView>
-    </View>
-  );
-}
-
-// Floating stat pill on map
-function StatPill({
-  value,
-  label,
-  color,
-}: {
-  value: string;
-  label: string;
-  color?: string;
-}) {
-  return (
-    <View style={styles.statPill}>
-      <Text style={[styles.statPillValue, color && { color }]}>{value}</Text>
-      <Text style={styles.statPillLabel}>{label}</Text>
     </View>
   );
 }

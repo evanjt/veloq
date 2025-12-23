@@ -82,6 +82,8 @@ export interface ActivityDetail extends Activity {
   icu_power_hr_z3?: number;
   icu_power_hr_z4?: number;
   icu_power_hr_z5?: number;
+  // HR zones - BPM thresholds (from intervals.icu)
+  icu_hr_zones?: number[];
 }
 
 // Raw stream object from API

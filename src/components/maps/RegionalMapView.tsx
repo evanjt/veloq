@@ -5,12 +5,10 @@ import {
   StyleSheet,
   useColorScheme,
   TouchableOpacity,
-  Pressable,
-  Modal,
   ActivityIndicator,
   Animated,
 } from 'react-native';
-import { MapView, Camera, MarkerView, ShapeSource, LineLayer } from '@maplibre/maplibre-react-native';
+import { MapView, Camera, MarkerView, ShapeSource, LineLayer, CircleLayer } from '@maplibre/maplibre-react-native';
 import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -58,9 +56,15 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
   const mapRef = useRef<React.ElementRef<typeof MapView>>(null);
   const map3DRef = useRef<Map3DWebViewRef>(null);
   const bearingAnim = useRef(new Animated.Value(0)).current;
-  const gestureInProgress = useRef(false);
-  const lastTouchCount = useRef(0);
   const initialBoundsRef = useRef<{ ne: [number, number]; sw: [number, number] } | null>(null);
+
+  // ===========================================
+  // GESTURE TRACKING - For compass updates
+  // ===========================================
+  // Note: Touch interception is NO LONGER AN ISSUE because we use native CircleLayer
+  // instead of React Pressable. CircleLayer doesn't capture touches - it only responds
+  // to taps AFTER the map's gesture system has processed them.
+  const currentZoomLevel = useRef(10); // Track current zoom for compass updates
 
   const isDark = isDarkStyle(mapStyle);
   const mapStyleValue = getMapStyle(mapStyle);
@@ -97,6 +101,9 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
       initialBoundsRef.current = calculateBounds(activities);
     }
   }, [activities, calculateBounds]);
+
+  // Note: Container touch handlers and interaction timeout cleanup removed
+  // Using native CircleLayer which doesn't intercept touches
 
   // Use the stored initial bounds for the camera default
   const mapBounds = initialBoundsRef.current || calculateBounds(activities);
@@ -177,12 +184,24 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
 
   // Handle map region change to update compass (real-time during gesture)
   const handleRegionIsChanging = useCallback((feature: GeoJSON.Feature) => {
-    const properties = feature.properties as { heading?: number } | undefined;
+    const properties = feature.properties as { heading?: number; zoomLevel?: number } | undefined;
     if (properties?.heading !== undefined) {
       // Update animated value directly - no re-render
       bearingAnim.setValue(-properties.heading);
     }
+    // Track zoom level for dynamic threshold calculation
+    if (properties?.zoomLevel !== undefined) {
+      currentZoomLevel.current = properties.zoomLevel;
+    }
   }, [bearingAnim]);
+
+  // Handle region change end - track zoom level for any features that need it
+  const handleRegionDidChange = useCallback((feature: GeoJSON.Feature) => {
+    const properties = feature.properties as { zoomLevel?: number } | undefined;
+    if (properties?.zoomLevel !== undefined) {
+      currentZoomLevel.current = properties.zoomLevel;
+    }
+  }, []);
 
   // Get user location (one-time jump, no tracking)
   const handleGetLocation = useCallback(async () => {
@@ -232,40 +251,61 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
     return getBoundsCenter(bounds);
   };
 
-  // Handle map press - find nearest marker or close popup
-  const handleMapPress = useCallback((event: any) => {
-    const { geometry } = event;
-    if (!geometry?.coordinates) return;
+  // ===========================================
+  // NATIVE MARKER RENDERING - Uses CircleLayer instead of React components
+  // ===========================================
+  // This completely avoids touch interception issues with Pressable
+  // Markers are rendered as native map features, preserving all gestures
 
-    const [tapLng, tapLat] = geometry.coordinates;
-
-    // Find the nearest activity marker
-    let nearestActivity: ActivityBoundsItem | null = null;
-    let minDistance = Infinity;
-
-    for (const activity of activities) {
+  // Build GeoJSON feature collection for activity markers
+  const markersGeoJSON = useMemo(() => {
+    const features = activities.map((activity) => {
       const center = getCenter(activity.bounds);
-      const [markerLng, markerLat] = center;
+      const config = getActivityTypeConfig(activity.type);
+      const size = getMarkerSize(activity.distance);
 
-      // Simple distance calculation (good enough for nearby points)
-      const distance = Math.sqrt(
-        Math.pow(tapLat - markerLat, 2) + Math.pow(tapLng - markerLng, 2)
-      );
+      return {
+        type: 'Feature' as const,
+        id: activity.id,
+        properties: {
+          id: activity.id,
+          type: activity.type,
+          color: config.color,
+          size: size,
+          isSelected: selected?.activity.id === activity.id,
+        },
+        geometry: {
+          type: 'Point' as const,
+          coordinates: center,
+        },
+      };
+    });
 
-      if (distance < minDistance) {
-        minDistance = distance;
-        nearestActivity = activity;
-      }
+    return {
+      type: 'FeatureCollection' as const,
+      features,
+    };
+  }, [activities, selected?.activity.id]);
+
+  // Handle marker tap via ShapeSource press - NO touch interception!
+  const handleMarkerPress = useCallback((event: any) => {
+    const feature = event.features?.[0];
+    if (!feature?.properties?.id) return;
+
+    const activityId = feature.properties.id;
+    const activity = activities.find(a => a.id === activityId);
+    if (activity) {
+      handleMarkerTap(activity);
     }
+  }, [activities, handleMarkerTap]);
 
-    // Threshold for "close enough" - about 0.02 degrees
-    if (nearestActivity && minDistance < 0.02) {
-      handleMarkerTap(nearestActivity);
-    } else if (selected) {
-      // Tapped on empty space - close popup
+  // Handle map press - close popup when tapping empty space
+  const handleMapPress = useCallback(() => {
+    // Close popup when tapping empty space
+    if (selected) {
       setSelected(null);
     }
-  }, [activities, handleMarkerTap, selected]);
+  }, [selected]);
 
   // Build route GeoJSON for selected activity
   // Uses the same coordinate conversion as ActivityMapView for consistency
@@ -308,8 +348,10 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
       .map(([lat, lng]) => [lng, lat] as [number, number]); // Convert to [lng, lat]
   }, [selected?.mapData]);
 
+  // 3D is available when we have route data to display
+  const can3D = selected && route3DCoords.length > 0;
   // Show 3D view when enabled and we have route data
-  const show3D = is3DMode && selected && route3DCoords.length > 0;
+  const show3D = is3DMode && can3D;
 
   return (
     <View style={styles.container}>
@@ -330,6 +372,7 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
         compassEnabled={false}
         onPress={handleMapPress}
         onRegionIsChanging={handleRegionIsChanging}
+        onRegionDidChange={handleRegionDidChange}
       >
         {/* Camera with ref for programmatic control */}
         <Camera
@@ -341,7 +384,28 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
           animationDuration={0}
         />
 
-        {/* Activity markers - render selected one last so it's on top */}
+        {/* Invisible ShapeSource for tap detection only - no visual rendering */}
+        {/* This handles taps without intercepting gestures */}
+        <ShapeSource
+          id="activity-markers"
+          shape={markersGeoJSON}
+          onPress={handleMarkerPress}
+          hitbox={{ width: 44, height: 44 }}
+        >
+          {/* Invisible circles just for hit detection */}
+          <CircleLayer
+            id="marker-hitarea"
+            style={{
+              circleRadius: ['/', ['get', 'size'], 2],
+              circleColor: 'transparent',
+              circleStrokeWidth: 0,
+            }}
+          />
+        </ShapeSource>
+
+        {/* Activity markers - visual only, rendered as MarkerView for correct z-ordering */}
+        {/* pointerEvents="none" ensures these don't intercept any touches */}
+        {/* Sorted to render selected activity last (on top) */}
         {[...activities]
           .sort((a, b) => {
             // Selected marker renders last (on top)
@@ -354,66 +418,43 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
           const center = getCenter(activity.bounds);
           const size = getMarkerSize(activity.distance);
           const isSelected = selected?.activity.id === activity.id;
+          const markerSize = isSelected ? size + 8 : size;
+          // Larger icon ratio to fill more of the marker
+          const iconSize = isSelected ? size * 0.75 : size * 0.7;
 
           return (
             <MarkerView
-              key={activity.id}
+              key={`marker-${activity.id}`}
               coordinate={center}
               anchor={{ x: 0.5, y: 0.5 }}
               allowOverlap={true}
             >
-              <Pressable
-                onPressIn={() => {
-                  // Mark that a press started - we'll check on release if it was valid
-                  gestureInProgress.current = false;
-                  lastTouchCount.current = 1;
+              {/* Single view with fixed dimensions - no flex/dynamic sizing */}
+              <View
+                pointerEvents="none"
+                style={{
+                  width: markerSize,
+                  height: markerSize,
+                  borderRadius: markerSize / 2,
+                  backgroundColor: config.color,
+                  // Thinner border to give more space for the icon
+                  borderWidth: isSelected ? 2 : 1.5,
+                  borderColor: isSelected ? colors.primary : '#FFFFFF',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  shadowColor: '#000',
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: 0.3,
+                  shadowRadius: 3,
+                  elevation: 4,
                 }}
-                onPressOut={() => {
-                  // Only trigger if it was a clean single tap (no multi-touch detected)
-                  if (!gestureInProgress.current && lastTouchCount.current === 1) {
-                    handleMarkerTap(activity);
-                  }
-                  // Reset
-                  gestureInProgress.current = false;
-                  lastTouchCount.current = 0;
-                }}
-                onTouchMove={(e) => {
-                  // If multiple touches detected during move, mark as gesture
-                  if (e.nativeEvent.touches && e.nativeEvent.touches.length > 1) {
-                    gestureInProgress.current = true;
-                    lastTouchCount.current = e.nativeEvent.touches.length;
-                  }
-                }}
-                // Smaller hitSlop for selected marker to allow tapping nearby markers
-                hitSlop={isSelected ? { top: 5, bottom: 5, left: 5, right: 5 } : { top: 15, bottom: 15, left: 15, right: 15 }}
-                style={({ pressed }) => [
-                  {
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    opacity: pressed ? 0.7 : 1,
-                  },
-                ]}
               >
-                <View
-                  style={[
-                    styles.marker,
-                    {
-                      // Selected markers are slightly larger
-                      width: isSelected ? size + 8 : size,
-                      height: isSelected ? size + 8 : size,
-                      borderRadius: (isSelected ? size + 8 : size) / 2,
-                      backgroundColor: config.color,
-                    },
-                    isSelected && styles.markerSelected,
-                  ]}
-                >
-                  <Ionicons
-                    name={config.icon}
-                    size={isSelected ? size * 0.55 : size * 0.5}
-                    color="#FFFFFF"
-                  />
-                </View>
-              </Pressable>
+                <Ionicons
+                  name={config.icon}
+                  size={iconSize}
+                  color="#FFFFFF"
+                />
+              </View>
             </MarkerView>
           );
         })}
@@ -480,20 +521,22 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
 
       {/* Control button stack - positioned in middle of right side */}
       <View style={[styles.controlStack, { top: insets.top + 64 }]}>
-        {/* 3D Toggle */}
+        {/* 3D Toggle - only active when activity with route is selected */}
         <TouchableOpacity
           style={[
             styles.controlButton,
             isDark && styles.controlButtonDark,
-            is3DMode && styles.controlButtonActive,
+            show3D && styles.controlButtonActive,
+            !can3D && styles.controlButtonDisabled,
           ]}
-          onPress={toggle3D}
-          activeOpacity={0.8}
+          onPress={can3D ? toggle3D : undefined}
+          activeOpacity={can3D ? 0.8 : 1}
+          disabled={!can3D}
         >
           <MaterialCommunityIcons
             name="terrain"
             size={22}
-            color={is3DMode ? '#FFFFFF' : (isDark ? '#FFFFFF' : '#333333')}
+            color={show3D ? '#FFFFFF' : (can3D ? (isDark ? '#FFFFFF' : '#333333') : (isDark ? '#666666' : '#AAAAAA'))}
           />
         </TouchableOpacity>
 
@@ -651,6 +694,9 @@ const styles = StyleSheet.create({
   controlButtonActive: {
     backgroundColor: colors.primary,
   },
+  controlButtonDisabled: {
+    opacity: 0.5,
+  },
   userLocationMarker: {
     width: 24,
     height: 24,
@@ -667,10 +713,13 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: '#FFFFFF',
   },
+  markerWrapper: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   marker: {
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 2,
     borderColor: '#FFFFFF',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },

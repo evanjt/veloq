@@ -210,31 +210,33 @@ export function ActivityMapView({
           )}
         </MapView>
 
-        {/* Fullscreen button */}
-        {enableFullscreen && (
-          <TouchableOpacity
-            style={[styles.fullscreenButton, isDark && styles.toggleButtonDark]}
-            onPress={openFullscreen}
-            activeOpacity={0.8}
-          >
-            <MaterialCommunityIcons
-              name="fullscreen"
-              size={22}
-              color={isDark ? '#FFFFFF' : '#333333'}
-            />
-          </TouchableOpacity>
-        )}
-
-        {/* Map style toggle */}
+        {/* Map style toggle - top right */}
         {showStyleToggle && (
           <TouchableOpacity
             style={[styles.toggleButton, isDark && styles.toggleButtonDark]}
             onPress={toggleMapStyle}
             activeOpacity={0.8}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
           >
             <MaterialCommunityIcons
               name={getStyleIcon(mapStyle)}
-              size={20}
+              size={24}
+              color={isDark ? '#FFFFFF' : '#333333'}
+            />
+          </TouchableOpacity>
+        )}
+
+        {/* Fullscreen button - bottom right, above info text */}
+        {enableFullscreen && (
+          <TouchableOpacity
+            style={[styles.fullscreenButton, isDark && styles.toggleButtonDark]}
+            onPress={openFullscreen}
+            activeOpacity={0.8}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          >
+            <MaterialCommunityIcons
+              name="fullscreen"
+              size={26}
               color={isDark ? '#FFFFFF' : '#333333'}
             />
           </TouchableOpacity>
@@ -354,37 +356,37 @@ const styles = StyleSheet.create({
   },
   toggleButton: {
     position: 'absolute',
-    top: 56,
+    top: 12,
     right: 12,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: 'rgba(255, 255, 255, 0.95)',
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 3,
-    elevation: 3,
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 4,
   },
   toggleButtonDark: {
     backgroundColor: 'rgba(50, 50, 50, 0.95)',
   },
   fullscreenButton: {
     position: 'absolute',
-    top: 100,
+    bottom: 60, // Above bottom info text
     right: 12,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: 'rgba(255, 255, 255, 0.95)',
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 3,
-    elevation: 3,
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 4,
   },
 });
