@@ -85,7 +85,7 @@ export default function LoginScreen() {
             <View style={[styles.logoContainer, { backgroundColor: colors.primary }]}>
               <MaterialCommunityIcons name="bike-fast" size={48} color="#FFFFFF" />
             </View>
-            <Text style={[styles.title, isDark && styles.textLight]}>Velox</Text>
+            <Text style={[styles.title, isDark && styles.textLight]}>Veloq</Text>
             <Text style={[styles.subtitle, isDark && styles.textDark]}>
               Connect to Intervals.icu
             </Text>

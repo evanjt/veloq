@@ -3,7 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { MapStyleType } from '@/components/maps/mapStyles';
 import type { ActivityType } from '@/types';
 
-const STORAGE_KEY = 'velox-map-preferences';
+const STORAGE_KEY = 'veloq-map-preferences';
 
 export interface MapPreferences {
   defaultStyle: MapStyleType;

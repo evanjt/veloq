@@ -2,7 +2,7 @@ import { Appearance } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export type ThemePreference = 'system' | 'light' | 'dark';
-const STORAGE_KEY = 'velox-theme-preference';
+const STORAGE_KEY = 'veloq-theme-preference';
 
 /**
  * Initialize theme on app start.

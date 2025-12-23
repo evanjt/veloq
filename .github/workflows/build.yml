@@ -56,10 +56,10 @@ jobs:
 
           if [[ "${{ github.event_name }}" == "release" ]]; then
             echo "build_type=production" >> $GITHUB_OUTPUT
-            echo "filename=velox-${VERSION}" >> $GITHUB_OUTPUT
+            echo "filename=veloq-${VERSION}" >> $GITHUB_OUTPUT
           else
             echo "build_type=preview" >> $GITHUB_OUTPUT
-            echo "filename=velox-${VERSION}-${SHORT_SHA}" >> $GITHUB_OUTPUT
+            echo "filename=veloq-${VERSION}-${SHORT_SHA}" >> $GITHUB_OUTPUT
           fi
 
   build-android:
@@ -164,12 +164,12 @@ jobs:
         run: pod install
 
       - name: List available schemes
-        run: xcodebuild -workspace ios/velox.xcworkspace -list
+        run: xcodebuild -workspace ios/veloq.xcworkspace -list
 
       - name: Build iOS Simulator app
         run: |
-          xcodebuild -workspace ios/velox.xcworkspace \
-            -scheme Velox \
+          xcodebuild -workspace ios/veloq.xcworkspace \
+            -scheme Veloq \
             -configuration Release \
             -sdk iphonesimulator \
             -arch x86_64 \
