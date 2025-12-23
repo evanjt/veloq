@@ -219,8 +219,8 @@ export function BaseMapView({
         </TouchableOpacity>
       )}
 
-      {/* Control stack */}
-      <View style={[styles.controlStack, { top: insets.top + 140 }]}>
+      {/* Control stack - positioned just below the style toggle button */}
+      <View style={[styles.controlStack, { top: insets.top + 64 }]}>
         {show3DToggle && has3DRoute && (
           <TouchableOpacity
             style={[styles.controlButton, isDark && styles.controlButtonDark, is3DMode && styles.controlButtonActive]}

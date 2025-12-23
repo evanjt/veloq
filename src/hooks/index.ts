@@ -7,6 +7,7 @@ export {
 export { useAthlete } from './useAthlete';
 export {
   useWellness,
+  useWellnessForDate,
   calculateTSB,
   getFormZone,
   FORM_ZONE_COLORS,
