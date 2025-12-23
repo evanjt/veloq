@@ -1,15 +1,16 @@
-import React, { useMemo, useState, useRef, useCallback } from 'react';
-import { View, StyleSheet, TouchableOpacity, Modal, StatusBar, Animated } from 'react-native';
+import React, { useMemo, useState, useRef, useCallback, useEffect } from 'react';
+import { View, StyleSheet, TouchableOpacity, Modal, StatusBar, Animated, Text } from 'react-native';
 import { MapView, Camera, ShapeSource, LineLayer, MarkerView } from '@maplibre/maplibre-react-native';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import * as Location from 'expo-location';
 import { decodePolyline, LatLng } from '@/lib/polyline';
 import { getActivityColor } from '@/lib';
 import { colors } from '@/theme';
 import { useMapPreferences } from '@/providers';
 import { BaseMapView } from './BaseMapView';
+import { Map3DWebView, type Map3DWebViewRef } from './Map3DWebView';
 import { CompassArrow } from '@/components/ui';
-import { type MapStyleType, getMapStyle, isDarkStyle, getNextStyle, getStyleIcon } from './mapStyles';
+import { type MapStyleType, getMapStyle, isDarkStyle, getNextStyle, getStyleIcon, MAP_ATTRIBUTIONS, TERRAIN_ATTRIBUTION } from './mapStyles';
 import type { ActivityType } from '@/types';
 
 interface ActivityMapViewProps {
@@ -39,17 +40,74 @@ export function ActivityMapView({
   const preferredStyle = getStyleForActivity(activityType);
   const [mapStyle, setMapStyle] = useState<MapStyleType>(initialStyle ?? preferredStyle);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [is3DMode, setIs3DMode] = useState(false);
+  const [is3DReady, setIs3DReady] = useState(false);
+  const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
+  const map3DRef = useRef<Map3DWebViewRef>(null);
+  const map3DOpacity = useRef(new Animated.Value(0)).current;
+
+  // Track if user manually overrode the style
+  const [userOverride, setUserOverride] = useState(false);
 
   // Update map style when preference changes (unless user manually toggled)
-  const [userOverride, setUserOverride] = useState(false);
-  if (!userOverride && !initialStyle && mapStyle !== preferredStyle) {
-    setMapStyle(preferredStyle);
-  }
+  useEffect(() => {
+    if (!userOverride && !initialStyle && mapStyle !== preferredStyle) {
+      setMapStyle(preferredStyle);
+    }
+  }, [userOverride, initialStyle, mapStyle, preferredStyle]);
 
-  const toggleMapStyle = () => {
+  const toggleMapStyle = useCallback(() => {
     setUserOverride(true);
     setMapStyle(current => getNextStyle(current));
-  };
+  }, []);
+
+  // Toggle 3D mode
+  const toggle3D = useCallback(() => {
+    setIs3DMode(current => !current);
+  }, []);
+
+  // Reset 3D ready state when toggling off
+  useEffect(() => {
+    if (!is3DMode) {
+      setIs3DReady(false);
+      map3DOpacity.setValue(0);
+    }
+  }, [is3DMode, map3DOpacity]);
+
+  // Handle 3D map ready
+  const handleMap3DReady = useCallback(() => {
+    setIs3DReady(true);
+    Animated.timing(map3DOpacity, {
+      toValue: 1,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+  }, [map3DOpacity]);
+
+  // Get user location
+  const handleGetLocation = useCallback(async () => {
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') return;
+
+      const location = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+
+      const coords: [number, number] = [location.coords.longitude, location.coords.latitude];
+      setUserLocation(coords);
+
+      cameraRef.current?.setCamera({
+        centerCoordinate: coords,
+        zoomLevel: 14,
+        animationDuration: 500,
+      });
+
+      setTimeout(() => setUserLocation(null), 3000);
+    } catch {
+      // Silently fail
+    }
+  }, []);
 
   const openFullscreen = useCallback(() => {
     if (enableFullscreen) {
@@ -61,14 +119,13 @@ export function ActivityMapView({
     setIsFullscreen(false);
   };
 
-  // Tap gesture - only triggers on actual taps, not after panning
-  const tapGesture = Gesture.Tap()
-    .onEnd(() => {
-      if (enableFullscreen) {
-        openFullscreen();
-      }
-    })
-    .runOnJS(true);
+  // Handle map press - using MapView's native onPress instead of gesture detector
+  // This properly distinguishes taps from zoom/pan gestures
+  const handleMapPress = useCallback(() => {
+    if (enableFullscreen) {
+      openFullscreen();
+    }
+  }, [enableFullscreen, openFullscreen]);
 
   // Compass bearing state
   const bearingAnim = useRef(new Animated.Value(0)).current;
@@ -86,16 +143,20 @@ export function ActivityMapView({
 
   // Reset bearing to north
   const resetOrientation = useCallback(() => {
-    cameraRef.current?.setCamera({
-      heading: 0,
-      animationDuration: 300,
-    });
+    if (is3DMode && is3DReady) {
+      map3DRef.current?.resetOrientation();
+    } else {
+      cameraRef.current?.setCamera({
+        heading: 0,
+        animationDuration: 300,
+      });
+    }
     Animated.timing(bearingAnim, {
       toValue: 0,
       duration: 300,
       useNativeDriver: true,
     }).start();
-  }, [bearingAnim]);
+  }, [bearingAnim, is3DMode, is3DReady]);
 
   const coordinates = useMemo(() => {
     if (providedCoordinates && providedCoordinates.length > 0) {
@@ -178,23 +239,26 @@ export function ActivityMapView({
     );
   }
 
+  const hasRoute = routeCoords.length > 0;
+
   return (
-    <View style={[styles.container, { height }]}>
-      {/* Inline preview map - tap anywhere to open fullscreen */}
-      <GestureDetector gesture={tapGesture}>
-        <View style={[styles.inlineMapWrapper, isFullscreen && styles.hiddenMap]}>
+    <View style={[styles.outerContainer, { height }]}>
+      <View style={styles.container}>
+        {/* 2D Map layer - hidden when 3D is ready */}
+        <View style={[styles.mapLayer, (is3DMode && is3DReady) && styles.hiddenLayer, isFullscreen && styles.hiddenLayer]}>
           <MapView
-          style={styles.map}
-          mapStyle={mapStyleValue}
-          logoEnabled={false}
-          attributionEnabled={false}
-          compassEnabled={false}
-          scrollEnabled={true}
-          zoomEnabled={true}
-          rotateEnabled={true}
-          pitchEnabled={false}
-          onRegionIsChanging={handleRegionIsChanging}
-        >
+            style={styles.map}
+            mapStyle={mapStyleValue}
+            logoEnabled={false}
+            attributionEnabled={false}
+            compassEnabled={false}
+            scrollEnabled={true}
+            zoomEnabled={true}
+            rotateEnabled={true}
+            pitchEnabled={false}
+            onRegionIsChanging={handleRegionIsChanging}
+            onPress={handleMapPress}
+          >
           <Camera
             ref={cameraRef}
             bounds={bounds}
@@ -239,6 +303,15 @@ export function ActivityMapView({
             </MarkerView>
           )}
 
+          {/* User location marker */}
+          {userLocation && (
+            <MarkerView coordinate={userLocation} anchor={{ x: 0.5, y: 0.5 }}>
+              <View style={styles.userLocationMarker}>
+                <View style={styles.userLocationDot} />
+              </View>
+            </MarkerView>
+          )}
+
           {/* Highlight marker from elevation chart */}
           {highlightPoint && (
             <MarkerView coordinate={[highlightPoint.longitude, highlightPoint.latitude]}>
@@ -249,43 +322,95 @@ export function ActivityMapView({
               </View>
             </MarkerView>
           )}
-        </MapView>
+          </MapView>
+        </View>
 
-        {/* Control buttons - right side, positioned lower */}
-        {showStyleToggle && (
-          <View style={styles.controlStack}>
-            {/* Map style toggle */}
-            <TouchableOpacity
-              style={[styles.controlButton, isDark && styles.controlButtonDark]}
-              onPress={toggleMapStyle}
-              activeOpacity={0.8}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            >
-              <MaterialCommunityIcons
-                name={getStyleIcon(mapStyle)}
-                size={22}
-                color={isDark ? '#FFFFFF' : '#333333'}
-              />
-            </TouchableOpacity>
+        {/* 3D Map layer */}
+        {is3DMode && hasRoute && !isFullscreen && (
+          <Animated.View style={[styles.mapLayer, styles.map3DLayer, { opacity: map3DOpacity }]}>
+            <Map3DWebView
+              ref={map3DRef}
+              coordinates={routeCoords}
+              mapStyle={mapStyle}
+              routeColor={activityColor}
+              onMapReady={handleMap3DReady}
+            />
+          </Animated.View>
+        )}
 
-            {/* Compass / North arrow */}
-            <TouchableOpacity
-              style={[styles.controlButton, isDark && styles.controlButtonDark]}
-              onPress={resetOrientation}
-              activeOpacity={0.8}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            >
-              <CompassArrow
-                size={20}
-                rotation={bearingAnim}
-                northColor="#E53935"
-                southColor={isDark ? '#FFFFFF' : '#333333'}
-              />
-            </TouchableOpacity>
+        {/* Attribution */}
+        {showStyleToggle && !isFullscreen && (
+          <View style={styles.attribution}>
+            <Text style={styles.attributionText}>
+              {is3DMode ? `${MAP_ATTRIBUTIONS[mapStyle]} | ${TERRAIN_ATTRIBUTION}` : MAP_ATTRIBUTIONS[mapStyle]}
+            </Text>
           </View>
         )}
+      </View>
+
+      {/* Control buttons - rendered OUTSIDE map container for reliable touch handling */}
+      {showStyleToggle && !isFullscreen && (
+        <View style={styles.controlsContainer}>
+          {/* Style toggle */}
+          <TouchableOpacity
+            style={[styles.controlButton, isDark && styles.controlButtonDark]}
+            onPressIn={toggleMapStyle}
+            activeOpacity={0.6}
+            hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
+          >
+            <MaterialCommunityIcons
+              name={getStyleIcon(mapStyle)}
+              size={22}
+              color={isDark ? '#FFFFFF' : '#333333'}
+            />
+          </TouchableOpacity>
+
+          {/* 3D toggle */}
+          {hasRoute && (
+            <TouchableOpacity
+              style={[styles.controlButton, isDark && styles.controlButtonDark, is3DMode && styles.controlButtonActive]}
+              onPressIn={toggle3D}
+              activeOpacity={0.6}
+              hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
+            >
+              <MaterialCommunityIcons
+                name="terrain"
+                size={22}
+                color={is3DMode ? '#FFFFFF' : (isDark ? '#FFFFFF' : '#333333')}
+              />
+            </TouchableOpacity>
+          )}
+
+          {/* Compass */}
+          <TouchableOpacity
+            style={[styles.controlButton, isDark && styles.controlButtonDark]}
+            onPressIn={resetOrientation}
+            activeOpacity={0.6}
+            hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
+          >
+            <CompassArrow
+              size={22}
+              rotation={bearingAnim}
+              northColor="#E53935"
+              southColor={isDark ? '#FFFFFF' : '#333333'}
+            />
+          </TouchableOpacity>
+
+          {/* GPS location */}
+          <TouchableOpacity
+            style={[styles.controlButton, isDark && styles.controlButtonDark, userLocation && styles.controlButtonActive]}
+            onPressIn={handleGetLocation}
+            activeOpacity={0.6}
+            hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
+          >
+            <MaterialCommunityIcons
+              name="crosshairs-gps"
+              size={22}
+              color={userLocation ? '#FFFFFF' : (isDark ? '#FFFFFF' : '#333333')}
+            />
+          </TouchableOpacity>
         </View>
-      </GestureDetector>
+      )}
 
       {/* Fullscreen modal using BaseMapView */}
       <Modal
@@ -329,18 +454,22 @@ export function ActivityMapView({
   );
 }
 
-// Re-export MapStyleType for backwards compatibility
-export type { MapStyleType };
-
 const styles = StyleSheet.create({
+  outerContainer: {
+    position: 'relative',
+  },
   container: {
+    flex: 1,
     borderRadius: 12,
     overflow: 'hidden',
   },
-  inlineMapWrapper: {
-    flex: 1,
+  mapLayer: {
+    ...StyleSheet.absoluteFillObject,
   },
-  hiddenMap: {
+  map3DLayer: {
+    zIndex: 1,
+  },
+  hiddenLayer: {
     opacity: 0,
     pointerEvents: 'none',
   },
@@ -398,26 +527,61 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     backgroundColor: '#FFFFFF',
   },
-  controlStack: {
+  userLocationMarker: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: 'rgba(66, 165, 245, 0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  userLocationDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#42A5F5',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+  },
+  controlsContainer: {
     position: 'absolute',
-    top: 60, // Lower position - below any header overlap
+    top: 56,
     right: 12,
     gap: 8,
+    zIndex: 100,
+    elevation: 100,
   },
   controlButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: 'rgba(255, 255, 255, 0.95)',
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 3,
-    elevation: 3,
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 8,
   },
   controlButtonDark: {
     backgroundColor: 'rgba(50, 50, 50, 0.95)',
+  },
+  controlButtonActive: {
+    backgroundColor: colors.primary,
+  },
+  attribution: {
+    position: 'absolute',
+    bottom: 8,
+    right: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.7)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    zIndex: 10,
+  },
+  attributionText: {
+    fontSize: 8,
+    color: '#333333',
   },
 });

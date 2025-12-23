@@ -1,12 +1,13 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
-import { View, ScrollView, StyleSheet, useColorScheme, TouchableOpacity, Dimensions } from 'react-native';
+import { View, ScrollView, StyleSheet, useColorScheme, TouchableOpacity, Dimensions, Modal, StatusBar } from 'react-native';
 import { Text, IconButton, ActivityIndicator } from 'react-native-paper';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as ScreenOrientation from 'expo-screen-orientation';
 import { useActivity, useActivityStreams, useWellnessForDate } from '@/hooks';
-import { ActivityMapView, CombinedDataChart, ChartTypeSelector, HRZonesChart, InsightfulStats } from '@/components';
+import { ActivityMapView, CombinedPlot, ChartTypeSelector, HRZonesChart, InsightfulStats } from '@/components';
 import {
   formatDistance,
   formatDuration,
@@ -52,6 +53,8 @@ export default function ActivityDetailScreen() {
   const [chartsExpanded, setChartsExpanded] = useState(false);
   // Track if we've initialized the default chart selection
   const [chartsInitialized, setChartsInitialized] = useState(false);
+  // Track fullscreen chart mode
+  const [isChartFullscreen, setIsChartFullscreen] = useState(false);
 
   // Get available chart types based on stream data
   const availableCharts = useMemo(() => {
@@ -85,6 +88,18 @@ export default function ActivityDetailScreen() {
   // Handle chart interaction state changes
   const handleInteractionChange = useCallback((isInteracting: boolean) => {
     setChartInteracting(isInteracting);
+  }, []);
+
+  // Open fullscreen chart with landscape orientation
+  const openChartFullscreen = useCallback(async () => {
+    setIsChartFullscreen(true);
+    await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE);
+  }, []);
+
+  // Close fullscreen chart and restore portrait orientation
+  const closeChartFullscreen = useCallback(async () => {
+    await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP);
+    setIsChartFullscreen(false);
   }, []);
 
   // Get coordinates from streams or polyline
@@ -211,6 +226,17 @@ export default function ActivityDetailScreen() {
                 selected={selectedCharts}
                 onToggle={handleChartToggle}
               />
+              <TouchableOpacity
+                style={[styles.fullscreenButton, isDark && styles.expandButtonDark]}
+                onPress={openChartFullscreen}
+                activeOpacity={0.7}
+              >
+                <MaterialCommunityIcons
+                  name="fullscreen"
+                  size={16}
+                  color={isDark ? '#FFF' : '#333'}
+                />
+              </TouchableOpacity>
             </View>
 
             {/* Charts - consistent height for both views */}
@@ -225,7 +251,7 @@ export default function ActivityDetailScreen() {
 
                   return (
                     <View key={chartId} style={[styles.chartCard, isDark && styles.cardDark]}>
-                      <CombinedDataChart
+                      <CombinedPlot
                         streams={streams}
                         selectedCharts={[chartId]}
                         chartConfigs={CHART_CONFIGS}
@@ -239,7 +265,7 @@ export default function ActivityDetailScreen() {
               ) : (
                 // Combined view - overlay chart
                 <View style={[styles.chartCard, isDark && styles.cardDark]}>
-                  <CombinedDataChart
+                  <CombinedPlot
                     streams={streams}
                     selectedCharts={selectedCharts}
                     chartConfigs={CHART_CONFIGS}
@@ -321,6 +347,37 @@ export default function ActivityDetailScreen() {
           </View>
         )}
       </ScrollView>
+
+      {/* Fullscreen Chart Modal - Landscape */}
+      <Modal
+        visible={isChartFullscreen}
+        animationType="fade"
+        statusBarTranslucent
+        onRequestClose={closeChartFullscreen}
+      >
+        <StatusBar hidden />
+        <View style={[styles.fullscreenContainer, isDark && styles.fullscreenContainerDark]}>
+          <TouchableOpacity
+            style={styles.fullscreenCloseButton}
+            onPress={closeChartFullscreen}
+            activeOpacity={0.7}
+          >
+            <MaterialCommunityIcons name="close" size={24} color="#FFF" />
+          </TouchableOpacity>
+          {streams && selectedCharts.length > 0 && (
+            <View style={styles.fullscreenChartWrapper}>
+              <CombinedPlot
+                streams={streams}
+                selectedCharts={selectedCharts}
+                chartConfigs={CHART_CONFIGS}
+                height={Dimensions.get('window').width - 60}
+                onPointSelect={handlePointSelect}
+                onInteractionChange={handleInteractionChange}
+              />
+            </View>
+          )}
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -481,7 +538,9 @@ const styles = StyleSheet.create({
   chartCard: {
     backgroundColor: colors.surface,
     borderRadius: 16,
-    padding: spacing.md,
+    paddingHorizontal: spacing.sm,
+    paddingTop: spacing.xs,
+    paddingBottom: spacing.sm,
     marginBottom: spacing.sm,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -540,5 +599,43 @@ const styles = StyleSheet.create({
   },
   deviceTextDark: {
     color: '#666',
+  },
+
+  // Fullscreen button
+  fullscreenButton: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(0, 0, 0, 0.08)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 'auto',
+  },
+
+  // Fullscreen chart modal
+  fullscreenContainer: {
+    flex: 1,
+    backgroundColor: colors.surface,
+    justifyContent: 'center',
+    paddingHorizontal: spacing.lg,
+  },
+  fullscreenContainerDark: {
+    backgroundColor: '#1E1E1E',
+  },
+  fullscreenCloseButton: {
+    position: 'absolute',
+    top: spacing.lg,
+    right: spacing.lg,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
+  },
+  fullscreenChartWrapper: {
+    flex: 1,
+    justifyContent: 'center',
   },
 });

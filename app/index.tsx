@@ -9,6 +9,7 @@ import {
   Image,
   TextInput,
   ActivityIndicator,
+  Keyboard,
 } from 'react-native';
 import { Text } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -446,12 +447,17 @@ export default function FeedScreen() {
             placeholderTextColor={isDark ? '#666' : '#999'}
             value={searchQuery}
             onChangeText={setSearchQuery}
+            onSubmitEditing={Keyboard.dismiss}
             returnKeyType="search"
             autoCorrect={false}
             autoCapitalize="none"
           />
           {searchQuery.length > 0 && (
-            <TouchableOpacity onPress={() => setSearchQuery('')}>
+            <TouchableOpacity
+              onPress={() => setSearchQuery('')}
+              accessibilityLabel="Clear search"
+              accessibilityRole="button"
+            >
               <MaterialCommunityIcons
                 name="close-circle"
                 size={18}
@@ -467,6 +473,8 @@ export default function FeedScreen() {
             (showFilters || selectedTypeGroup) && styles.filterButtonActive,
           ]}
           onPress={toggleFilters}
+          accessibilityLabel={showFilters ? 'Hide filters' : 'Show filters'}
+          accessibilityRole="button"
         >
           <MaterialCommunityIcons
             name="filter-variant"
@@ -511,6 +519,8 @@ export default function FeedScreen() {
         ListEmptyComponent={isError ? renderError : renderEmpty}
         ListFooterComponent={renderFooter}
         contentContainerStyle={styles.listContent}
+        keyboardDismissMode="on-drag"
+        keyboardShouldPersistTaps="handled"
         refreshControl={
           <RefreshControl
             refreshing={isRefetching}

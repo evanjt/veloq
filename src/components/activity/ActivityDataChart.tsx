@@ -5,8 +5,8 @@ import { CartesianChart, Area } from 'victory-native';
 import { LinearGradient, vec } from '@shopify/react-native-skia';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { useSharedValue, useAnimatedReaction, runOnJS, useDerivedValue, useAnimatedStyle } from 'react-native-reanimated';
-import { getLocales } from 'expo-localization';
 import { colors, typography } from '@/theme';
+import { useMetricSystem } from '@/hooks';
 
 
 interface ActivityDataChartProps {
@@ -30,18 +30,6 @@ interface ActivityDataChartProps {
   onPointSelect?: (index: number | null) => void;
   /** Called when interaction starts/ends - use to disable parent ScrollView */
   onInteractionChange?: (isInteracting: boolean) => void;
-}
-
-// Check if user's locale uses metric system
-function useMetricSystem(): boolean {
-  try {
-    const locales = getLocales();
-    const locale = locales[0];
-    const imperialCountries = ['US', 'LR', 'MM'];
-    return !imperialCountries.includes(locale?.regionCode || '');
-  } catch {
-    return true;
-  }
 }
 
 export function ActivityDataChart({
@@ -73,6 +61,7 @@ export function ActivityDataChart({
 
   const onPointSelectRef = useRef(onPointSelect);
   const onInteractionChangeRef = useRef(onInteractionChange);
+  const isActiveRef = useRef(false);
   onPointSelectRef.current = onPointSelect;
   onInteractionChangeRef.current = onInteractionChange;
 
@@ -148,6 +137,7 @@ export function ActivityDataChart({
       if (lastNotifiedIdx.current !== null) {
         setTooltipData(null);
         setIsActive(false);
+        isActiveRef.current = false;
         lastNotifiedIdx.current = null;
         if (onPointSelectRef.current) onPointSelectRef.current(null);
         if (onInteractionChangeRef.current) onInteractionChangeRef.current(false);
@@ -158,8 +148,9 @@ export function ActivityDataChart({
     if (idx === lastNotifiedIdx.current) return;
     lastNotifiedIdx.current = idx;
 
-    if (!isActive) {
+    if (!isActiveRef.current) {
       setIsActive(true);
+      isActiveRef.current = true;
       if (onInteractionChangeRef.current) onInteractionChangeRef.current(true);
     }
 
@@ -171,7 +162,7 @@ export function ActivityDataChart({
     if (onPointSelectRef.current && idx < indexMap.length) {
       onPointSelectRef.current(indexMap[idx]);
     }
-  }, [data, indexMap, isActive]);
+  }, [data, indexMap]);
 
   useAnimatedReaction(
     () => selectedIdx.value,
@@ -197,19 +188,21 @@ export function ActivityDataChart({
     })
     .minDistance(0);
 
-  // Animated crosshair style - uses actual point coordinates for accuracy, runs at 120Hz
+  // Animated crosshair style - follows finger directly for smooth tracking
   const crosshairStyle = useAnimatedStyle(() => {
     'worklet';
-    const idx = selectedIdx.value;
-    const coords = pointXCoordsShared.value;
-
-    if (idx < 0 || coords.length === 0 || idx >= coords.length) {
+    // Use touchX directly so crosshair always follows the finger exactly
+    if (touchX.value < 0) {
       return { opacity: 0, transform: [{ translateX: 0 }] };
     }
 
+    // Clamp to chart bounds
+    const bounds = chartBoundsShared.value;
+    const xPos = Math.max(bounds.left, Math.min(bounds.right, touchX.value));
+
     return {
       opacity: 1,
-      transform: [{ translateX: coords[idx] }],
+      transform: [{ translateX: xPos }],
     };
   }, []);
 

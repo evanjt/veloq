@@ -51,7 +51,7 @@ interface ChartPoint {
   [key: string]: unknown;
 }
 
-export function PowerCurveChart({
+export const PowerCurveChart = React.memo(function PowerCurveChart({
   sport,
   days = 365,
   height = 200,
@@ -340,7 +340,7 @@ export function PowerCurveChart({
       )}
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   container: {},

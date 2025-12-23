@@ -50,7 +50,7 @@ interface DotData {
   form: number;
 }
 
-export function ActivityDotsChart({
+export const ActivityDotsChart = React.memo(function ActivityDotsChart({
   data,
   activities = [],
   height = 40,
@@ -282,11 +282,18 @@ export function ActivityDotsChart({
     const len = dataLengthShared.value;
     const width = chartWidthShared.value;
 
-    let idx = selectedIdx.value;
-    if (idx < 0 && sharedSelectedIdx) {
+    // If user is touching this chart, use touch position directly
+    if (touchX.value >= 0 && width > 0) {
+      const xPos = Math.max(0, Math.min(width, touchX.value));
+      return { opacity: 1, transform: [{ translateX: xPos }] };
+    }
+
+    // Otherwise, check for external selection (from other charts)
+    let idx = -1;
+    if (sharedSelectedIdx && sharedSelectedIdx.value >= 0) {
       idx = sharedSelectedIdx.value;
     }
-    if (idx < 0) {
+    if (idx < 0 && externalSelectedIdx.value >= 0) {
       idx = externalSelectedIdx.value;
     }
 
@@ -294,6 +301,7 @@ export function ActivityDotsChart({
       return { opacity: 0, transform: [{ translateX: 0 }] };
     }
 
+    // For external selection, use index-based position
     const x = (idx / (len - 1)) * width;
     return {
       opacity: 1,
@@ -344,15 +352,26 @@ export function ActivityDotsChart({
 
   const displayData = selectedData || (selectedDate ? dotData.find(d => d.date === selectedDate) : null);
 
+  // Get activity color for the pill - use first activity's type color
+  const activityPillColor = displayActivities.length > 0
+    ? getActivityColor(displayActivities[0].type)
+    : colors.primary;
+
   return (
     <View style={styles.container}>
-      {/* Activity label when selected - tappable */}
+      {/* Activity label when selected - tappable, styled as pill with activity color */}
       <View style={styles.labelContainer}>
         {displayActivities.length > 0 ? (
           <TouchableOpacity onPress={handleActivityTap} activeOpacity={0.7}>
-            <Text style={[styles.activityLabel, styles.activityLabelTappable, isDark && styles.activityLabelDark]} numberOfLines={1}>
-              {getActivitySummary(displayActivities)} →
-            </Text>
+            <View style={[
+              styles.activityPill,
+              { backgroundColor: `${activityPillColor}20`, borderColor: `${activityPillColor}40` },
+              isDark && { backgroundColor: `${activityPillColor}30`, borderColor: `${activityPillColor}50` },
+            ]}>
+              <Text style={[styles.activityPillText, { color: activityPillColor }]} numberOfLines={1}>
+                {getActivitySummary(displayActivities)} →
+              </Text>
+            </View>
           </TouchableOpacity>
         ) : (
           <Text style={[styles.noActivityLabel, isDark && styles.noActivityLabelDark]}>
@@ -449,21 +468,23 @@ export function ActivityDotsChart({
       </GestureDetector>
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   container: {},
   labelContainer: {
-    height: 18,
+    height: 24,
     justifyContent: 'center',
   },
-  activityLabel: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: colors.textPrimary,
+  activityPill: {
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
   },
-  activityLabelDark: {
-    color: '#FFF',
+  activityPillText: {
+    fontSize: 12,
+    fontWeight: '600',
   },
   noActivityLabel: {
     fontSize: 11,
@@ -487,9 +508,6 @@ const styles = StyleSheet.create({
   },
   crosshairDark: {
     backgroundColor: '#AAA',
-  },
-  activityLabelTappable: {
-    color: colors.primary,
   },
   // Modal styles
   modalOverlay: {

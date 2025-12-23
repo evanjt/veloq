@@ -1,13 +1,20 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { intervalsApi } from '@/api';
-import { formatLocalDate } from '@/lib';
-import type { Activity, ActivityBoundsCache, ActivityBoundsItem, ActivityType } from '@/types';
+import { formatLocalDate, SYNC, TIME, RATE_LIMIT } from '@/lib';
+import {
+  buildCacheEntry,
+  filterGpsActivities,
+  filterUncachedActivities,
+  findOldestDate,
+  findNewestDate,
+  mergeCacheEntries,
+  sortActivitiesByDateDesc,
+} from '@/lib/activityBoundsUtils';
+import type { ActivityBoundsCache, ActivityBoundsItem } from '@/types';
 
 const CACHE_KEY = 'activity_bounds_cache';
 const OLDEST_DATE_KEY = 'oldest_activity_date';
-const INITIAL_SYNC_DAYS = 90; // Initial sync period
-const BACKGROUND_SYNC_DAYS = 365 * 2; // Background sync for 2 years of history
 
 interface SyncProgress {
   completed: number;
@@ -66,6 +73,8 @@ export function useActivityBoundsCache(): UseActivityBoundsCacheReturn {
   // Track current sync operation so we can cancel it
   const syncAbortRef = useRef<AbortController | null>(null);
   const syncIdRef = useRef<number>(0);
+  // Track historical sync timeout for cleanup
+  const historicalSyncTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Keep cacheRef in sync for background operations
   useEffect(() => {
@@ -75,6 +84,18 @@ export function useActivityBoundsCache(): UseActivityBoundsCacheReturn {
   // Load cache from AsyncStorage on mount
   useEffect(() => {
     loadCache();
+  }, []);
+
+  // Cleanup timeouts on unmount
+  useEffect(() => {
+    return () => {
+      if (historicalSyncTimeoutRef.current) {
+        clearTimeout(historicalSyncTimeoutRef.current);
+      }
+      if (syncAbortRef.current) {
+        syncAbortRef.current.abort();
+      }
+    };
   }, []);
 
   const loadCache = useCallback(async () => {
@@ -93,8 +114,8 @@ export function useActivityBoundsCache(): UseActivityBoundsCacheReturn {
             setOldestActivityDate(oldest);
             await AsyncStorage.setItem(OLDEST_DATE_KEY, oldest);
           }
-        } catch (e) {
-          console.warn('Failed to fetch oldest activity date:', e);
+        } catch {
+          // Silently fail - oldest date is optional
         }
       }
 
@@ -110,7 +131,7 @@ export function useActivityBoundsCache(): UseActivityBoundsCacheReturn {
         // Start background sync for any new activities since last sync
         const lastSync = new Date(parsed.lastSync);
         const now = new Date();
-        const daysSinceSync = Math.floor((now.getTime() - lastSync.getTime()) / (1000 * 60 * 60 * 24));
+        const daysSinceSync = Math.floor((now.getTime() - lastSync.getTime()) / TIME.DAY);
 
         if (daysSinceSync > 0) {
           // Background sync new activities
@@ -124,14 +145,13 @@ export function useActivityBoundsCache(): UseActivityBoundsCacheReturn {
         setIsReady(true);
         const today = new Date();
         const daysAgo = new Date(today);
-        daysAgo.setDate(daysAgo.getDate() - INITIAL_SYNC_DAYS);
+        daysAgo.setDate(daysAgo.getDate() - SYNC.INITIAL_DAYS);
         await syncDateRange(formatLocalDate(daysAgo), formatLocalDate(today));
 
         // Then start background sync for older data
         startHistoricalBackgroundSync();
       }
-    } catch (error) {
-      console.error('Failed to load bounds cache:', error);
+    } catch {
       setProgress({ completed: 0, total: 0, status: 'error', message: 'Failed to load cache' });
       setIsReady(true);
     }
@@ -142,8 +162,8 @@ export function useActivityBoundsCache(): UseActivityBoundsCacheReturn {
       await AsyncStorage.setItem(CACHE_KEY, JSON.stringify(newCache));
       setCache(newCache);
       cacheRef.current = newCache;
-    } catch (error) {
-      console.error('Failed to save bounds cache:', error);
+    } catch {
+      // Silently fail - cache save is not critical
     }
   }, []);
 
@@ -155,7 +175,7 @@ export function useActivityBoundsCache(): UseActivityBoundsCacheReturn {
     try {
       // Get activities for date range
       const activities = await intervalsApi.getActivities({ oldest, newest });
-      const gpsActivities = activities.filter((a) => a.stream_types?.includes('latlng'));
+      const gpsActivities = filterGpsActivities(activities);
 
       if (gpsActivities.length === 0) {
         backgroundSyncRef.current = false;
@@ -163,8 +183,7 @@ export function useActivityBoundsCache(): UseActivityBoundsCacheReturn {
       }
 
       // Filter out already cached
-      const existingIds = new Set(Object.keys(cacheRef.current?.activities || {}));
-      const newActivities = gpsActivities.filter((a) => !existingIds.has(a.id));
+      const newActivities = filterUncachedActivities(gpsActivities, cacheRef.current);
 
       if (newActivities.length === 0) {
         backgroundSyncRef.current = false;
@@ -198,35 +217,21 @@ export function useActivityBoundsCache(): UseActivityBoundsCacheReturn {
       for (const activity of newActivities) {
         const mapData = boundsMap.get(activity.id);
         if (mapData?.bounds) {
-          newEntries[activity.id] = {
-            id: activity.id,
-            bounds: mapData.bounds,
-            type: activity.type as ActivityType,
-            name: activity.name,
-            date: activity.start_date_local,
-            distance: activity.distance || 0,
-            duration: activity.moving_time || 0,
-          };
+          newEntries[activity.id] = buildCacheEntry(activity, mapData.bounds);
         }
       }
 
       // Merge with existing cache
-      const currentCache = cacheRef.current;
-      const updatedCache: ActivityBoundsCache = {
-        lastSync: formatLocalDate(new Date()),
-        oldestSynced: currentCache?.oldestSynced && currentCache.oldestSynced < oldest
-          ? currentCache.oldestSynced
-          : oldest,
-        activities: {
-          ...(currentCache?.activities || {}),
-          ...newEntries,
-        },
-      };
+      const updatedCache = mergeCacheEntries(
+        cacheRef.current,
+        newEntries,
+        formatLocalDate(new Date()),
+        oldest
+      );
 
       await saveCache(updatedCache);
       setProgress({ completed: 0, total: 0, status: 'idle' });
-    } catch (error) {
-      console.error('Background sync failed:', error);
+    } catch {
       setProgress({ completed: 0, total: 0, status: 'idle' });
     } finally {
       backgroundSyncRef.current = false;
@@ -240,14 +245,18 @@ export function useActivityBoundsCache(): UseActivityBoundsCacheReturn {
 
     const oldestSynced = new Date(currentCache.oldestSynced);
     const targetDate = new Date();
-    targetDate.setDate(targetDate.getDate() - BACKGROUND_SYNC_DAYS);
+    targetDate.setDate(targetDate.getDate() - SYNC.BACKGROUND_DAYS);
 
     // If we haven't synced back far enough, sync more
     if (oldestSynced > targetDate) {
       const syncFrom = formatLocalDate(targetDate);
       const syncTo = currentCache.oldestSynced;
+      // Clear any existing timeout
+      if (historicalSyncTimeoutRef.current) {
+        clearTimeout(historicalSyncTimeoutRef.current);
+      }
       // Delay to not compete with initial load
-      setTimeout(() => {
+      historicalSyncTimeoutRef.current = setTimeout(() => {
         syncInBackground(syncFrom, syncTo);
       }, 2000);
     }
@@ -276,14 +285,11 @@ export function useActivityBoundsCache(): UseActivityBoundsCacheReturn {
 
       // Check if cancelled after API call
       if (isCancelled()) {
-        console.log('Sync cancelled after fetching activities');
         return;
       }
 
       // Filter to only GPS-enabled activities
-      const gpsActivities = activities.filter(
-        (a) => a.stream_types?.includes('latlng')
-      );
+      const gpsActivities = filterGpsActivities(activities);
 
       if (gpsActivities.length === 0) {
         if (!isCancelled()) {
@@ -293,10 +299,9 @@ export function useActivityBoundsCache(): UseActivityBoundsCacheReturn {
       }
 
       // Filter out already cached activities
-      const existingIds = new Set(Object.keys(cacheRef.current?.activities || {}));
-      const newActivities = gpsActivities.filter((a) => !existingIds.has(a.id));
+      const uncachedActivities = filterUncachedActivities(gpsActivities, cacheRef.current);
 
-      if (newActivities.length === 0) {
+      if (uncachedActivities.length === 0) {
         if (!isCancelled()) {
           setProgress({ completed: 0, total: 0, status: 'complete', message: 'All activities already cached' });
         }
@@ -305,9 +310,7 @@ export function useActivityBoundsCache(): UseActivityBoundsCacheReturn {
 
       // Sort activities by date (newest first) so partial syncs are coherent
       // This ensures if we cancel, we have the most recent data complete
-      newActivities.sort((a, b) =>
-        new Date(b.start_date_local).getTime() - new Date(a.start_date_local).getTime()
-      );
+      const newActivities = sortActivitiesByDateDesc(uncachedActivities);
 
       if (!isCancelled()) {
         setProgress({
@@ -324,15 +327,13 @@ export function useActivityBoundsCache(): UseActivityBoundsCacheReturn {
       let wasAborted = false;
 
       // Fetch bounds for new activities in batches
-      // Concurrency of 8 - API allows 30 req/s, client rate-limits to 10 req/s
-      const concurrency = 8;
+      const concurrency = RATE_LIMIT.DEFAULT_CONCURRENCY;
       const ids = newActivities.map((a) => a.id);
 
       try {
         for (let i = 0; i < ids.length; i += concurrency) {
           // Check if cancelled before starting new batch
           if (isCancelled()) {
-            console.log('Sync cancelled, saving partial results');
             wasAborted = true;
             break;
           }
@@ -352,15 +353,7 @@ export function useActivityBoundsCache(): UseActivityBoundsCacheReturn {
           for (const activity of batchActivities) {
             const mapData = batchResults.get(activity.id);
             if (mapData?.bounds) {
-              newEntries[activity.id] = {
-                id: activity.id,
-                bounds: mapData.bounds,
-                type: activity.type as ActivityType,
-                name: activity.name,
-                date: activity.start_date_local,
-                distance: activity.distance || 0,
-                duration: activity.moving_time || 0,
-              };
+              newEntries[activity.id] = buildCacheEntry(activity, mapData.bounds);
             }
           }
 
@@ -376,10 +369,10 @@ export function useActivityBoundsCache(): UseActivityBoundsCacheReturn {
             });
           }
         }
-      } catch (batchError: any) {
+      } catch (batchError) {
         // If aborted, we'll save partial results below
-        if (batchError?.name === 'AbortError' || isCancelled()) {
-          console.log('Batch fetch aborted, will save partial results');
+        const isAbortError = batchError instanceof Error && batchError.name === 'AbortError';
+        if (isAbortError || isCancelled()) {
           wasAborted = true;
         } else {
           throw batchError; // Re-throw non-abort errors
@@ -388,30 +381,13 @@ export function useActivityBoundsCache(): UseActivityBoundsCacheReturn {
 
       // Always save whatever we've collected (even if partial)
       if (Object.keys(newEntries).length > 0) {
-        // Calculate actual oldest synced date from the entries we have
-        const currentCache = cacheRef.current;
-        const allEntries = {
-          ...(currentCache?.activities || {}),
-          ...newEntries,
-        };
-
-        // Find the actual oldest date in all cached activities
-        let actualOldestSynced: string | null = null;
-        for (const entry of Object.values(allEntries)) {
-          if (!actualOldestSynced || entry.date < actualOldestSynced) {
-            actualOldestSynced = entry.date;
-          }
-        }
-
-        // Merge with existing cache
-        const updatedCache: ActivityBoundsCache = {
-          lastSync: formatLocalDate(new Date()),
-          oldestSynced: actualOldestSynced || oldest,
-          activities: allEntries,
-        };
-
+        const updatedCache = mergeCacheEntries(
+          cacheRef.current,
+          newEntries,
+          formatLocalDate(new Date()),
+          oldest
+        );
         await saveCache(updatedCache);
-        console.log(`Saved ${Object.keys(newEntries).length} activities to cache`);
       }
 
       if (!wasAborted && !isCancelled()) {
@@ -425,14 +401,13 @@ export function useActivityBoundsCache(): UseActivityBoundsCacheReturn {
         // Reset progress since sync was cancelled/aborted
         setProgress({ completed: 0, total: 0, status: 'idle' });
       }
-    } catch (error: any) {
+    } catch (error) {
       // Don't report error if sync was cancelled
-      if (error?.name === 'AbortError' || isCancelled()) {
-        console.log('Sync was cancelled');
+      const isAbortError = error instanceof Error && error.name === 'AbortError';
+      if (isAbortError || isCancelled()) {
         setProgress({ completed: 0, total: 0, status: 'idle' });
         return;
       }
-      console.error('Failed to sync date range:', error);
       setProgress({
         completed: 0,
         total: 0,
@@ -450,8 +425,8 @@ export function useActivityBoundsCache(): UseActivityBoundsCacheReturn {
       cacheRef.current = null;
       setOldestActivityDate(null);
       setProgress({ completed: 0, total: 0, status: 'idle' });
-    } catch (error) {
-      console.error('Failed to clear cache:', error);
+    } catch {
+      // Silently fail - clearing cache is not critical
     }
   }, []);
 
@@ -459,7 +434,7 @@ export function useActivityBoundsCache(): UseActivityBoundsCacheReturn {
   const syncAllHistory = useCallback(() => {
     const today = new Date();
     const yearsAgo = new Date(today);
-    yearsAgo.setFullYear(yearsAgo.getFullYear() - 10); // Sync up to 10 years
+    yearsAgo.setFullYear(yearsAgo.getFullYear() - SYNC.MAX_HISTORY_YEARS);
     syncInBackground(formatLocalDate(yearsAgo), formatLocalDate(today));
   }, [syncInBackground]);
 
@@ -469,15 +444,11 @@ export function useActivityBoundsCache(): UseActivityBoundsCacheReturn {
   // Calculate cache stats from actual cached activities
   const cacheStats: CacheStats = useMemo(() => ({
     totalActivities: activities.length,
-    oldestDate: activities.length > 0
-      ? activities.reduce((oldest, a) => a.date < oldest ? a.date : oldest, activities[0].date)
-      : null,
-    newestDate: activities.length > 0
-      ? activities.reduce((newest, a) => a.date > newest ? a.date : newest, activities[0].date)
-      : null,
+    oldestDate: findOldestDate(cache?.activities || {}),
+    newestDate: findNewestDate(cache?.activities || {}),
     lastSync: cache?.lastSync || null,
     isSyncing: progress.status === 'syncing',
-  }), [activities, cache?.lastSync, progress.status]);
+  }), [activities.length, cache?.activities, cache?.lastSync, progress.status]);
 
   return {
     activities,

@@ -10,6 +10,9 @@ import {
   Linking,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import type { ComponentProps } from 'react';
+
+type IconName = ComponentProps<typeof MaterialCommunityIcons>['name'];
 import * as WebBrowser from 'expo-web-browser';
 import { colors, spacing } from '@/theme';
 import { formatDuration } from '@/lib';
@@ -18,11 +21,11 @@ import type { Activity, WellnessData } from '@/types';
 // Explanations for each metric - educational, not interpretive
 const METRIC_EXPLANATIONS: Record<string, string> = {
   'Training Load': 'Training Stress Score (TSS) quantifies training load based on duration and intensity relative to your threshold.',
-  'Heart Rate': 'Average heart rate during the activity. Tap for HR recovery and HRV data.',
+  'Heart Rate': 'Average heart rate during the activity.',
   'Energy': 'Estimated energy expenditure from heart rate, power, and duration.',
   'Conditions': 'Temperature from weather data or your device sensor.',
   'Your Form': 'Your Form (TSB) on this day. This is a daily value based on your overall training, not specific to this activity. TSB = Fitness (CTL) minus Fatigue (ATL).',
-  'Power': 'Average power output in watts. Tap for eFTP, efficiency factor, and decoupling.',
+  'Power': 'Average power output in watts.',
 };
 
 interface InsightfulStatsProps {
@@ -36,7 +39,7 @@ interface InsightfulStatsProps {
 interface StatDetail {
   title: string;
   value: string;
-  icon: string;
+  icon: IconName;
   color: string;
   comparison?: {
     label: string;
@@ -293,7 +296,7 @@ export function InsightfulStats({
             {/* Icon with colored background */}
             <View style={[styles.iconContainer, { backgroundColor: `${stat.color}20` }]}>
               <MaterialCommunityIcons
-                name={stat.icon as any}
+                name={stat.icon}
                 size={16}
                 color={stat.color}
               />
@@ -351,7 +354,7 @@ export function InsightfulStats({
                 <View style={styles.modalHeader}>
                   <View style={[styles.modalIconContainer, { backgroundColor: `${selectedStat.color}20` }]}>
                     <MaterialCommunityIcons
-                      name={selectedStat.icon as any}
+                      name={selectedStat.icon}
                       size={28}
                       color={selectedStat.color}
                     />

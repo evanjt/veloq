@@ -66,11 +66,6 @@ export default function TrainingScreen() {
           )}
         </View>
 
-        {/* Upcoming Events */}
-        <View style={[styles.card, isDark && styles.cardDark]}>
-          <EventPlanner />
-        </View>
-
         {/* Activity Heatmap - using real activities data */}
         <View style={[styles.card, isDark && styles.cardDark]}>
           {isLoading ? (
@@ -95,6 +90,11 @@ export default function TrainingScreen() {
               previousYearActivities={previousYearActivities}
             />
           )}
+        </View>
+
+        {/* Upcoming Events */}
+        <View style={[styles.card, isDark && styles.cardDark]}>
+          <EventPlanner />
         </View>
 
         {/* Workout Library */}

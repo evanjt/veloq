@@ -27,7 +27,7 @@ function formatDuration(seconds: number): string {
   return `${mins}m`;
 }
 
-export function ZoneDistributionChart({
+export const ZoneDistributionChart = React.memo(function ZoneDistributionChart({
   data,
   type = 'power',
   height = 200,
@@ -131,7 +131,7 @@ export function ZoneDistributionChart({
       </View>
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   container: {},

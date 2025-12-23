@@ -5,8 +5,8 @@ import { LinearGradient, vec } from '@shopify/react-native-skia';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { useSharedValue, useAnimatedReaction, runOnJS, useDerivedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
-import { getLocales } from 'expo-localization';
 import { colors } from '@/theme';
+import { useMetricSystem } from '@/hooks';
 import type { ChartConfig, ChartTypeId } from '@/lib/chartConfig';
 import type { ActivityStreams } from '@/types';
 
@@ -18,7 +18,7 @@ interface DataSeries {
   color: string;
 }
 
-interface CombinedDataChartProps {
+interface CombinedPlotProps {
   streams: ActivityStreams;
   selectedCharts: ChartTypeId[];
   chartConfigs: Record<ChartTypeId, ChartConfig>;
@@ -35,25 +35,22 @@ interface MetricValue {
   color: string;
 }
 
-function useMetricSystem(): boolean {
-  try {
-    const locales = getLocales();
-    const locale = locales[0];
-    const imperialCountries = ['US', 'LR', 'MM'];
-    return !imperialCountries.includes(locale?.regionCode || '');
-  } catch {
-    return true;
-  }
+/** Victory Native chart bounds structure */
+interface ChartBounds {
+  left: number;
+  right: number;
+  top: number;
+  bottom: number;
 }
 
-export function CombinedDataChart({
+export const CombinedPlot = React.memo(function CombinedPlot({
   streams,
   selectedCharts,
   chartConfigs,
   height = 180,
   onPointSelect,
   onInteractionChange,
-}: CombinedDataChartProps) {
+}: CombinedPlotProps) {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const isMetric = useMetricSystem();
@@ -72,6 +69,7 @@ export function CombinedDataChart({
 
   const onPointSelectRef = useRef(onPointSelect);
   const onInteractionChangeRef = useRef(onInteractionChange);
+  const isActiveRef = useRef(false);
   onPointSelectRef.current = onPointSelect;
   onInteractionChangeRef.current = onInteractionChange;
 
@@ -175,6 +173,7 @@ export function CombinedDataChart({
     if (idx < 0 || chartData.length === 0 || seriesInfo.length === 0) {
       if (lastNotifiedIdx.current !== null) {
         setIsActive(false);
+        isActiveRef.current = false;
         setCurrentDistance(null);
         lastNotifiedIdx.current = null;
         if (onPointSelectRef.current) onPointSelectRef.current(null);
@@ -187,8 +186,9 @@ export function CombinedDataChart({
     if (idx === lastNotifiedIdx.current) return;
     lastNotifiedIdx.current = idx;
 
-    if (!isActive) {
+    if (!isActiveRef.current) {
       setIsActive(true);
+      isActiveRef.current = true;
       if (onInteractionChangeRef.current) onInteractionChangeRef.current(true);
       // Haptic feedback on interaction start
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -228,7 +228,7 @@ export function CombinedDataChart({
     if (onPointSelectRef.current && idx < indexMap.length) {
       onPointSelectRef.current(indexMap[idx]);
     }
-  }, [chartData, seriesInfo, indexMap, isMetric, isActive]);
+  }, [chartData, seriesInfo, indexMap, isMetric]);
 
   // React to index changes and bridge to JS for metrics updates
   useAnimatedReaction(
@@ -255,19 +255,21 @@ export function CombinedDataChart({
     })
     .minDistance(0);
 
-  // Animated crosshair style - uses actual point coordinates for accuracy, runs at 120Hz
+  // Animated crosshair style - follows finger directly for smooth tracking
   const crosshairStyle = useAnimatedStyle(() => {
     'worklet';
-    const idx = selectedIdx.value;
-    const coords = pointXCoordsShared.value;
-
-    if (idx < 0 || coords.length === 0 || idx >= coords.length) {
+    // Use touchX directly so crosshair always follows the finger exactly
+    if (touchX.value < 0) {
       return { opacity: 0, transform: [{ translateX: 0 }] };
     }
 
+    // Clamp to chart bounds
+    const bounds = chartBoundsShared.value;
+    const xPos = Math.max(bounds.left, Math.min(bounds.right, touchX.value));
+
     return {
       opacity: 1,
-      transform: [{ translateX: coords[idx] }],
+      transform: [{ translateX: xPos }],
     };
   }, []);
 
@@ -303,7 +305,7 @@ export function CombinedDataChart({
 
   // Build yKeys array for CartesianChart
   const yKeys = seriesInfo.map((s) => s.id);
-  const chartHeight = height - 48; // Reserve space for metrics panel
+  const chartHeight = height - 40; // Reserve space for metrics panel
 
   return (
     <View style={[styles.container, { height }]}>
@@ -342,9 +344,9 @@ export function CombinedDataChart({
             xKey="x"
             yKeys={yKeys as any}
             domain={{ y: [0, 1] }}
-            padding={{ left: 0, right: 0, top: 8, bottom: 20 }}
+            padding={{ left: 0, right: 0, top: 2, bottom: 20 }}
           >
-            {({ points, chartBounds }) => {
+            {({ points, chartBounds }: { points: Record<string, Array<{ x: number }>>; chartBounds: ChartBounds }) => {
               // Sync chartBounds and point coordinates for UI thread crosshair
               if (chartBounds.left !== chartBoundsShared.value.left ||
                   chartBounds.right !== chartBoundsShared.value.right) {
@@ -352,9 +354,9 @@ export function CombinedDataChart({
               }
               // Sync actual point x-coordinates for accurate crosshair positioning
               if (seriesInfo.length > 0) {
-                const firstSeriesPoints = (points as any)[seriesInfo[0].id];
+                const firstSeriesPoints = points[seriesInfo[0].id];
                 if (firstSeriesPoints) {
-                  const newCoords = firstSeriesPoints.map((p: any) => p.x);
+                  const newCoords = firstSeriesPoints.map((p) => p.x);
                   if (newCoords.length !== pointXCoordsShared.value.length ||
                       newCoords[0] !== pointXCoordsShared.value[0]) {
                     pointXCoordsShared.value = newCoords;
@@ -367,7 +369,7 @@ export function CombinedDataChart({
                   {seriesInfo.map((series) => (
                     <Area
                       key={series.id}
-                      points={(points as any)[series.id]}
+                      points={points[series.id] as Parameters<typeof Area>[0]['points']}
                       y0={chartBounds.bottom}
                       curveType="natural"
                       opacity={seriesInfo.length > 1 ? 0.7 : 0.85}
@@ -411,7 +413,7 @@ export function CombinedDataChart({
       </GestureDetector>
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   container: {},
@@ -419,9 +421,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-around',
     alignItems: 'center',
-    paddingVertical: 8,
+    paddingVertical: 4,
     paddingHorizontal: 4,
-    minHeight: 48,
+    minHeight: 40,
   },
   metricItem: {
     alignItems: 'center',

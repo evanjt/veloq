@@ -53,3 +53,14 @@ export const FORM_ZONE_LABELS: Record<FormZone, string> = {
   fresh: 'Fresh',
   transition: 'Transition',
 };
+
+/**
+ * Zone boundaries (TSB values) for chart rendering
+ */
+export const FORM_ZONE_BOUNDARIES: Record<FormZone, { min: number; max: number }> = {
+  transition: { min: 25, max: 50 },
+  fresh: { min: 5, max: 25 },
+  grey: { min: -10, max: 5 },
+  optimal: { min: -30, max: -10 },
+  highRisk: { min: -50, max: -30 },
+};

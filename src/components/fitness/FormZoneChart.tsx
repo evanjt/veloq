@@ -7,18 +7,8 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { SharedValue, useSharedValue, useAnimatedReaction, runOnJS, useDerivedValue, useAnimatedStyle } from 'react-native-reanimated';
 import Animated from 'react-native-reanimated';
 import { colors, typography, spacing } from '@/theme';
-import { calculateTSB, getFormZone, FORM_ZONE_COLORS, FORM_ZONE_LABELS, type FormZone } from '@/hooks';
+import { calculateTSB, getFormZone, FORM_ZONE_COLORS, FORM_ZONE_LABELS, FORM_ZONE_BOUNDARIES, type FormZone } from '@/hooks';
 import type { WellnessData } from '@/types';
-
-
-// Zone boundaries (TSB values)
-const ZONES = {
-  transition: { min: 25, max: 50 },
-  fresh: { min: 5, max: 25 },
-  grey: { min: -10, max: 5 },
-  optimal: { min: -30, max: -10 },
-  highRisk: { min: -50, max: -30 },
-};
 
 interface FormZoneChartProps {
   data: WellnessData[];
@@ -43,7 +33,7 @@ function formatDate(dateStr: string): string {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
-export function FormZoneChart({ data, height = 100, selectedDate, sharedSelectedIdx, onDateSelect, onInteractionChange }: FormZoneChartProps) {
+export const FormZoneChart = React.memo(function FormZoneChart({ data, height = 100, selectedDate, sharedSelectedIdx, onDateSelect, onInteractionChange }: FormZoneChartProps) {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const [selectedData, setSelectedData] = useState<ChartDataPoint | null>(null);
@@ -278,32 +268,32 @@ export function FormZoneChart({ data, height = 100, selectedDate, sharedSelected
                   {/* Zone backgrounds */}
                   <ZoneBackground
                     bounds={chartBounds}
-                    minY={getZoneY(ZONES.transition.max)}
-                    maxY={getZoneY(ZONES.transition.min)}
+                    minY={getZoneY(FORM_ZONE_BOUNDARIES.transition.max)}
+                    maxY={getZoneY(FORM_ZONE_BOUNDARIES.transition.min)}
                     color={FORM_ZONE_COLORS.transition + '30'}
                   />
                   <ZoneBackground
                     bounds={chartBounds}
-                    minY={getZoneY(ZONES.fresh.max)}
-                    maxY={getZoneY(ZONES.fresh.min)}
+                    minY={getZoneY(FORM_ZONE_BOUNDARIES.fresh.max)}
+                    maxY={getZoneY(FORM_ZONE_BOUNDARIES.fresh.min)}
                     color={FORM_ZONE_COLORS.fresh + '30'}
                   />
                   <ZoneBackground
                     bounds={chartBounds}
-                    minY={getZoneY(ZONES.grey.max)}
-                    maxY={getZoneY(ZONES.grey.min)}
+                    minY={getZoneY(FORM_ZONE_BOUNDARIES.grey.max)}
+                    maxY={getZoneY(FORM_ZONE_BOUNDARIES.grey.min)}
                     color={FORM_ZONE_COLORS.grey + '20'}
                   />
                   <ZoneBackground
                     bounds={chartBounds}
-                    minY={getZoneY(ZONES.optimal.max)}
-                    maxY={getZoneY(ZONES.optimal.min)}
+                    minY={getZoneY(FORM_ZONE_BOUNDARIES.optimal.max)}
+                    maxY={getZoneY(FORM_ZONE_BOUNDARIES.optimal.min)}
                     color={FORM_ZONE_COLORS.optimal + '30'}
                   />
                   <ZoneBackground
                     bounds={chartBounds}
-                    minY={getZoneY(ZONES.highRisk.max)}
-                    maxY={getZoneY(ZONES.highRisk.min)}
+                    minY={getZoneY(FORM_ZONE_BOUNDARIES.highRisk.max)}
+                    maxY={getZoneY(FORM_ZONE_BOUNDARIES.highRisk.min)}
                     color={FORM_ZONE_COLORS.highRisk + '30'}
                   />
 
@@ -354,7 +344,7 @@ export function FormZoneChart({ data, height = 100, selectedDate, sharedSelected
       </View>
     </View>
   );
-}
+});
 
 function ZoneBackground({
   bounds,

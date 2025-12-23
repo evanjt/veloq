@@ -42,7 +42,7 @@ function formatDate(dateStr: string): string {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
-export function FitnessChart({ data, height = 200, selectedDate, sharedSelectedIdx, onDateSelect, onInteractionChange }: FitnessChartProps) {
+export const FitnessChart = React.memo(function FitnessChart({ data, height = 200, selectedDate, sharedSelectedIdx, onDateSelect, onInteractionChange }: FitnessChartProps) {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const [tooltipData, setTooltipData] = useState<ChartDataPoint | null>(null);
@@ -391,7 +391,7 @@ export function FitnessChart({ data, height = 200, selectedDate, sharedSelectedI
       </View>
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   container: {},

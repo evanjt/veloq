@@ -1,5 +1,5 @@
-import React, { useMemo, useState, useEffect } from 'react';
-import { View, ScrollView, StyleSheet, useColorScheme, TouchableOpacity } from 'react-native';
+import React, { useMemo, useState, useEffect, useCallback } from 'react';
+import { View, ScrollView, StyleSheet, useColorScheme, TouchableOpacity, Linking } from 'react-native';
 import { Text, IconButton, ActivityIndicator } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -10,10 +10,10 @@ import { useSportPreference, SPORT_COLORS, type PrimarySport } from '@/providers
 import { formatPaceCompact } from '@/lib';
 import { colors, spacing, layout } from '@/theme';
 
-type TimeRange = '30d' | '90d' | '180d' | '1y';
+type TimeRange = '42d' | '90d' | '180d' | '1y';
 
 const TIME_RANGE_OPTIONS: { value: TimeRange; label: string; days: number }[] = [
-  { value: '30d', label: '30 Days', days: 30 },
+  { value: '42d', label: '42 Days', days: 42 },
   { value: '90d', label: '3 Months', days: 90 },
   { value: '180d', label: '6 Months', days: 180 },
   { value: '1y', label: '1 Year', days: 365 },
@@ -23,9 +23,9 @@ export default function StatsScreen() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
 
-  // Time range state
-  const [timeRange, setTimeRange] = useState<TimeRange>('90d');
-  const selectedRange = TIME_RANGE_OPTIONS.find(r => r.value === timeRange)!;
+  // Time range state - default to 42d to match CTL/pace curve windows
+  const [timeRange, setTimeRange] = useState<TimeRange>('42d');
+  const selectedRange = TIME_RANGE_OPTIONS.find(r => r.value === timeRange) ?? TIME_RANGE_OPTIONS[0];
 
   // Sport mode state - defaults to primary sport from preferences
   const { primarySport } = useSportPreference();
@@ -264,6 +264,28 @@ export default function StatsScreen() {
                 />
               )}
             </View>
+
+            {/* Power Curve Info */}
+            <View style={styles.infoFooter}>
+              <Text style={[styles.infoText, isDark && styles.textDark]}>
+                Estimated FTP is calculated using power curves from FastFitness.Tips and Morton's 3 parameter critical power model.
+                The algorithm requires just 1 max effort of between 180 seconds and 30 minutes.
+                Note that all data for the selected power curves is used and there is no decay so the eFTP value on the chart may differ to your current eFTP.
+                W' is relative to eFTP.
+              </Text>
+              <View style={styles.refLinks}>
+                <TouchableOpacity onPress={() => Linking.openURL('https://intervals.icu/power')}>
+                  <Text style={styles.refLink}>intervals.icu/power</Text>
+                </TouchableOpacity>
+                <Text style={[styles.refSeparator, isDark && styles.textDark]}>•</Text>
+                <TouchableOpacity onPress={() => Linking.openURL('https://doi.org/10.1080/00140139608964484')}>
+                  <Text style={styles.refLink}>Ref</Text>
+                </TouchableOpacity>
+              </View>
+              <Text style={[styles.garminNote, isDark && styles.textDark]}>
+                Charts may include data from Garmin devices
+              </Text>
+            </View>
           </>
         )}
 
@@ -303,7 +325,7 @@ export default function StatsScreen() {
 
             {/* Pace Curve */}
             <View style={[styles.card, isDark && styles.cardDark]}>
-              <PaceCurveChart height={220} days={selectedRange.days} />
+              <PaceCurveChart height={280} days={selectedRange.days} />
             </View>
 
             {/* Power Curve (for runners with Stryd etc) */}
@@ -326,6 +348,50 @@ export default function StatsScreen() {
                 <ZoneDistributionChart data={hrZones} type="hr" periodLabel={selectedRange.label} />
               )}
             </View>
+
+            {/* Pace Curve Info */}
+            <View style={styles.infoFooter}>
+              <Text style={[styles.infoTextTitle, isDark && styles.textDark]}>Pace Curve</Text>
+              <Text style={[styles.infoText, isDark && styles.textDark]}>
+                CS (critical speed) and D' are calculated using the 2 parameter model.
+                Intervals.icu uses your best 1k, 2k, 3k, 4k and 5k times keeping those that take between 2 and 15+ minutes.
+              </Text>
+              <View style={styles.refLinks}>
+                <TouchableOpacity onPress={() => Linking.openURL('https://intervals.icu/pace')}>
+                  <Text style={styles.refLink}>intervals.icu/pace</Text>
+                </TouchableOpacity>
+                <Text style={[styles.refSeparator, isDark && styles.textDark]}>•</Text>
+                <TouchableOpacity onPress={() => Linking.openURL('https://www.tandfonline.com/doi/abs/10.1080/02640410500497642')}>
+                  <Text style={styles.refLink}>Ref</Text>
+                </TouchableOpacity>
+                <Text style={[styles.refSeparator, isDark && styles.textDark]}>•</Text>
+                <TouchableOpacity onPress={() => Linking.openURL('http://www.georgeron.com/2020/04/Critical-Power-Concept.html')}>
+                  <Text style={styles.refLink}>Ref</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* Power Curve Info (for runners with power meters) */}
+            <View style={styles.infoFooter}>
+              <Text style={[styles.infoTextTitle, isDark && styles.textDark]}>Power Curve</Text>
+              <Text style={[styles.infoText, isDark && styles.textDark]}>
+                Estimated FTP is calculated using power curves from FastFitness.Tips and Morton's 3 parameter critical power model.
+                The algorithm requires just 1 max effort of between 180 seconds and 30 minutes.
+                W' is relative to eFTP.
+              </Text>
+              <View style={styles.refLinks}>
+                <TouchableOpacity onPress={() => Linking.openURL('https://intervals.icu/power')}>
+                  <Text style={styles.refLink}>intervals.icu/power</Text>
+                </TouchableOpacity>
+                <Text style={[styles.refSeparator, isDark && styles.textDark]}>•</Text>
+                <TouchableOpacity onPress={() => Linking.openURL('https://doi.org/10.1080/00140139608964484')}>
+                  <Text style={styles.refLink}>Ref</Text>
+                </TouchableOpacity>
+              </View>
+              <Text style={[styles.garminNote, isDark && styles.textDark]}>
+                Charts may include data from Garmin devices
+              </Text>
+            </View>
           </>
         )}
 
@@ -334,7 +400,7 @@ export default function StatsScreen() {
           <>
             {/* Swim Pace Curve */}
             <View style={[styles.card, isDark && styles.cardDark]}>
-              <SwimPaceCurveChart height={220} days={selectedRange.days} />
+              <SwimPaceCurveChart height={280} days={selectedRange.days} />
             </View>
 
             {/* Zone Distribution - HR */}
@@ -346,6 +412,22 @@ export default function StatsScreen() {
               ) : (
                 <ZoneDistributionChart data={hrZones} type="hr" periodLabel={selectedRange.label} />
               )}
+            </View>
+
+            {/* Swim Pace Curve Info */}
+            <View style={styles.infoFooter}>
+              <Text style={[styles.infoText, isDark && styles.textDark]}>
+                CSS (critical swim speed) and D' are calculated using the 2 parameter model.
+                Based on your best swim efforts across various distances.
+              </Text>
+              <View style={styles.refLinks}>
+                <TouchableOpacity onPress={() => Linking.openURL('https://intervals.icu/pace')}>
+                  <Text style={styles.refLink}>intervals.icu/pace</Text>
+                </TouchableOpacity>
+              </View>
+              <Text style={[styles.garminNote, isDark && styles.textDark]}>
+                Charts may include data from Garmin devices
+              </Text>
             </View>
           </>
         )}
@@ -497,5 +579,44 @@ const styles = StyleSheet.create({
     height: 40,
     backgroundColor: 'rgba(0, 0, 0, 0.1)',
     marginHorizontal: spacing.md,
+  },
+  infoFooter: {
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.sm,
+  },
+  infoTextTitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+  infoText: {
+    fontSize: 11,
+    lineHeight: 16,
+    color: colors.textSecondary,
+    textAlign: 'center',
+  },
+  refLinks: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: spacing.xs,
+    gap: spacing.xs,
+  },
+  refLink: {
+    fontSize: 11,
+    color: colors.primary,
+  },
+  refSeparator: {
+    fontSize: 11,
+    color: colors.textSecondary,
+  },
+  garminNote: {
+    fontSize: 10,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginTop: spacing.xs,
+    fontStyle: 'italic',
   },
 });
