@@ -7,3 +7,6 @@ export * from './fitness';
 export * from './activityBoundsUtils';
 export * from './constants';
 export * from './activitySyncManager';
+export * from './routeSignature';
+export * from './routeMatching';
+export * from './routeStorage';
