@@ -1,6 +1,7 @@
 import React, { useMemo, useState, useRef, useCallback } from 'react';
-import { View, StyleSheet, TouchableOpacity, Modal, StatusBar, Animated, Pressable } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Modal, StatusBar, Animated } from 'react-native';
 import { MapView, Camera, ShapeSource, LineLayer, MarkerView } from '@maplibre/maplibre-react-native';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { decodePolyline, LatLng } from '@/lib/polyline';
 import { getActivityColor } from '@/lib';
@@ -50,15 +51,24 @@ export function ActivityMapView({
     setMapStyle(current => getNextStyle(current));
   };
 
-  const openFullscreen = () => {
+  const openFullscreen = useCallback(() => {
     if (enableFullscreen) {
       setIsFullscreen(true);
     }
-  };
+  }, [enableFullscreen]);
 
   const closeFullscreen = () => {
     setIsFullscreen(false);
   };
+
+  // Tap gesture - only triggers on actual taps, not after panning
+  const tapGesture = Gesture.Tap()
+    .onEnd(() => {
+      if (enableFullscreen) {
+        openFullscreen();
+      }
+    })
+    .runOnJS(true);
 
   // Compass bearing state
   const bearingAnim = useRef(new Animated.Value(0)).current;
@@ -171,11 +181,9 @@ export function ActivityMapView({
   return (
     <View style={[styles.container, { height }]}>
       {/* Inline preview map - tap anywhere to open fullscreen */}
-      <Pressable
-        style={[styles.inlineMapWrapper, isFullscreen && styles.hiddenMap]}
-        onPress={enableFullscreen ? openFullscreen : undefined}
-      >
-        <MapView
+      <GestureDetector gesture={tapGesture}>
+        <View style={[styles.inlineMapWrapper, isFullscreen && styles.hiddenMap]}>
+          <MapView
           style={styles.map}
           mapStyle={mapStyleValue}
           logoEnabled={false}
@@ -276,7 +284,8 @@ export function ActivityMapView({
             </TouchableOpacity>
           </View>
         )}
-      </Pressable>
+        </View>
+      </GestureDetector>
 
       {/* Fullscreen modal using BaseMapView */}
       <Modal

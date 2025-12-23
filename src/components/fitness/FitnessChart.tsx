@@ -4,9 +4,10 @@ import { Text } from 'react-native-paper';
 import { CartesianChart, Line, Area } from 'victory-native';
 import { LinearGradient, vec, Shadow } from '@shopify/react-native-skia';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Animated, { useSharedValue, useAnimatedReaction, runOnJS, useDerivedValue, useAnimatedStyle } from 'react-native-reanimated';
+import { SharedValue, useSharedValue, useAnimatedReaction, runOnJS, useDerivedValue, useAnimatedStyle } from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
 import { colors, typography, spacing } from '@/theme';
-import { calculateTSB, getFormZone, FORM_ZONE_COLORS } from '@/hooks';
+import { calculateTSB } from '@/hooks';
 import type { WellnessData } from '@/types';
 
 
@@ -14,13 +15,14 @@ import type { WellnessData } from '@/types';
 const COLORS = {
   fitness: '#42A5F5', // Blue - CTL
   fatigue: '#AB47BC', // Purple - ATL
-  form: '#66BB6A',    // Green - TSB
-  load: 'rgba(150, 150, 150, 0.5)', // Grey bars for daily load
 };
 
 interface FitnessChartProps {
   data: WellnessData[];
   height?: number;
+  selectedDate?: string | null;
+  /** Shared value for instant crosshair sync between charts */
+  sharedSelectedIdx?: SharedValue<number>;
   onDateSelect?: (date: string | null, values: { fitness: number; fatigue: number; form: number } | null) => void;
   onInteractionChange?: (isInteracting: boolean) => void;
 }
@@ -40,7 +42,7 @@ function formatDate(dateStr: string): string {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
-export function FitnessChart({ data, height = 200, onDateSelect, onInteractionChange }: FitnessChartProps) {
+export function FitnessChart({ data, height = 200, selectedDate, sharedSelectedIdx, onDateSelect, onInteractionChange }: FitnessChartProps) {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const [tooltipData, setTooltipData] = useState<ChartDataPoint | null>(null);
@@ -48,7 +50,6 @@ export function FitnessChart({ data, height = 200, onDateSelect, onInteractionCh
   const [visibleLines, setVisibleLines] = useState({
     fitness: true,
     fatigue: true,
-    form: true,
   });
   const onDateSelectRef = useRef(onDateSelect);
   const onInteractionChangeRef = useRef(onInteractionChange);
@@ -60,8 +61,9 @@ export function FitnessChart({ data, height = 200, onDateSelect, onInteractionCh
   const chartBoundsShared = useSharedValue({ left: 0, right: 1 });
   const pointXCoordsShared = useSharedValue<number[]>([]);
   const lastNotifiedIdx = useRef<number | null>(null);
+  const externalSelectedIdx = useSharedValue(-1);
 
-  const toggleLine = useCallback((line: 'fitness' | 'fatigue' | 'form') => {
+  const toggleLine = useCallback((line: 'fitness' | 'fatigue') => {
     setVisibleLines(prev => ({ ...prev, [line]: !prev[line] }));
   }, []);
 
@@ -118,6 +120,20 @@ export function FitnessChart({ data, height = 200, onDateSelect, onInteractionCh
       maxForm: Math.max(maxFm, 10),
     };
   }, [data]);
+
+  // Sync with external selectedDate (from other chart)
+  React.useEffect(() => {
+    if (selectedDate && chartData.length > 0 && !isActive) {
+      const idx = chartData.findIndex(d => d.date === selectedDate);
+      if (idx >= 0) {
+        setTooltipData(chartData[idx]);
+        externalSelectedIdx.value = idx;
+      }
+    } else if (!selectedDate && !isActive) {
+      setTooltipData(null);
+      externalSelectedIdx.value = -1;
+    }
+  }, [selectedDate, chartData, isActive, externalSelectedIdx]);
 
   // Derive selected index on UI thread using chartBounds
   const selectedIdx = useDerivedValue(() => {
@@ -196,11 +212,30 @@ export function FitnessChart({ data, height = 200, onDateSelect, onInteractionCh
     })
     .minDistance(0);
 
+  // Update shared selected index when local selection changes (for instant sync)
+  useAnimatedReaction(
+    () => selectedIdx.value,
+    (idx) => {
+      if (sharedSelectedIdx && idx >= 0) {
+        sharedSelectedIdx.value = idx;
+      }
+    },
+    [sharedSelectedIdx]
+  );
+
   // Animated crosshair style - uses actual point coordinates for accuracy
+  // Shows crosshair for either local touch, shared selection, or external selection
   const crosshairStyle = useAnimatedStyle(() => {
     'worklet';
-    const idx = selectedIdx.value;
     const coords = pointXCoordsShared.value;
+    // Priority: local touch > shared value > external selection
+    let idx = selectedIdx.value;
+    if (idx < 0 && sharedSelectedIdx) {
+      idx = sharedSelectedIdx.value;
+    }
+    if (idx < 0) {
+      idx = externalSelectedIdx.value;
+    }
 
     if (idx < 0 || coords.length === 0 || idx >= coords.length) {
       return { opacity: 0, transform: [{ translateX: 0 }] };
@@ -210,7 +245,7 @@ export function FitnessChart({ data, height = 200, onDateSelect, onInteractionCh
       opacity: 1,
       transform: [{ translateX: coords[idx] }],
     };
-  }, []);
+  }, [sharedSelectedIdx]);
 
   if (chartData.length === 0) {
     return (
@@ -223,7 +258,6 @@ export function FitnessChart({ data, height = 200, onDateSelect, onInteractionCh
   // Get current (latest) values
   const currentData = chartData[chartData.length - 1];
   const displayData = tooltipData || currentData;
-  const formZone = getFormZone(displayData.form);
 
   return (
     <View style={[styles.container, { height }]}>
@@ -231,7 +265,7 @@ export function FitnessChart({ data, height = 200, onDateSelect, onInteractionCh
       <View style={styles.header}>
         <View style={styles.dateContainer}>
           <Text style={[styles.dateText, isDark && styles.textLight]}>
-            {isActive && tooltipData ? formatDate(tooltipData.date) : 'Current'}
+            {(isActive && tooltipData) || selectedDate ? formatDate(tooltipData?.date || selectedDate || '') : 'Current'}
           </Text>
         </View>
         <View style={styles.valuesRow}>
@@ -247,12 +281,6 @@ export function FitnessChart({ data, height = 200, onDateSelect, onInteractionCh
               {Math.round(displayData.fatigue)}
             </Text>
           </View>
-          <View style={styles.valueItem}>
-            <Text style={[styles.valueLabel, isDark && styles.textDark]}>Form</Text>
-            <Text style={[styles.valueNumber, { color: FORM_ZONE_COLORS[formZone] }]}>
-              {displayData.form > 0 ? '+' : ''}{Math.round(displayData.form)}
-            </Text>
-          </View>
         </View>
       </View>
 
@@ -262,8 +290,8 @@ export function FitnessChart({ data, height = 200, onDateSelect, onInteractionCh
           <CartesianChart
             data={chartData}
             xKey="x"
-            yKeys={['fitness', 'fatigue', 'form']}
-            domain={{ y: [Math.min(0, minForm * 1.1), maxFitness * 1.1] }}
+            yKeys={['fitness', 'fatigue']}
+            domain={{ y: [0, maxFitness * 1.1] }}
             padding={{ left: 0, right: 0, top: 8, bottom: 20 }}
           >
             {({ points, chartBounds }) => {
@@ -294,16 +322,6 @@ export function FitnessChart({ data, height = 200, onDateSelect, onInteractionCh
                         colors={[COLORS.fitness + '40', COLORS.fitness + '05']}
                       />
                     </Area>
-                  )}
-
-                  {/* Form line (TSB) - drawn first so it's behind */}
-                  {visibleLines.form && (
-                    <Line
-                      points={points.form}
-                      color={COLORS.form}
-                      strokeWidth={2.5}
-                      curveType="natural"
-                    />
                   )}
 
                   {/* Fitness line (CTL) with glow effect */}
@@ -369,14 +387,6 @@ export function FitnessChart({ data, height = 200, onDateSelect, onInteractionCh
         >
           <View style={[styles.legendDot, { backgroundColor: COLORS.fatigue }, !visibleLines.fatigue && styles.legendDotDisabled]} />
           <Text style={[styles.legendText, isDark && styles.textDark, !visibleLines.fatigue && styles.legendTextDisabled]}>Fatigue (ATL)</Text>
-        </Pressable>
-        <Pressable
-          style={[styles.legendItem, !visibleLines.form && styles.legendItemDisabled]}
-          onPress={() => toggleLine('form')}
-          hitSlop={8}
-        >
-          <View style={[styles.legendDot, { backgroundColor: COLORS.form }, !visibleLines.form && styles.legendDotDisabled]} />
-          <Text style={[styles.legendText, isDark && styles.textDark, !visibleLines.form && styles.legendTextDisabled]}>Form (TSB)</Text>
         </Pressable>
       </View>
     </View>

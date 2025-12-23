@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="textGradAdaptive" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#FFD700"/>
+      <stop offset="100%" style="stop-color:#FFA500"/>
+    </linearGradient>
+  </defs>
+  <!-- Centered vq text - sized for adaptive icon safe zone (66% center) -->
+  <!-- Safe zone is roughly 170-854 on each axis -->
+  <text x="512" y="580" font-family="Verdana, Geneva, sans-serif" font-size="300" font-weight="bold" fill="url(#textGradAdaptive)" text-anchor="middle">vq</text>
+</svg>
