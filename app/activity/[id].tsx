@@ -47,6 +47,8 @@ export default function ActivityDetailScreen() {
   const [highlightIndex, setHighlightIndex] = useState<number | null>(null);
   // Track whether any chart is being interacted with to disable ScrollView
   const [chartInteracting, setChartInteracting] = useState(false);
+  // Track whether 3D map mode is active to disable ScrollView
+  const [is3DMapActive, setIs3DMapActive] = useState(false);
   // Track which chart types are selected (multi-select)
   const [selectedCharts, setSelectedCharts] = useState<ChartTypeId[]>([]);
   // Track if charts are expanded (stacked) or combined (overlay)
@@ -88,6 +90,11 @@ export default function ActivityDetailScreen() {
   // Handle chart interaction state changes
   const handleInteractionChange = useCallback((isInteracting: boolean) => {
     setChartInteracting(isInteracting);
+  }, []);
+
+  // Handle 3D map mode changes
+  const handle3DModeChange = useCallback((is3D: boolean) => {
+    setIs3DMapActive(is3D);
   }, []);
 
   // Open fullscreen chart with landscape orientation
@@ -149,7 +156,7 @@ export default function ActivityDetailScreen() {
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
-        scrollEnabled={!chartInteracting}
+        scrollEnabled={!chartInteracting && !is3DMapActive}
       >
         {/* Hero Map Section */}
         <View style={styles.heroSection}>
@@ -163,6 +170,7 @@ export default function ActivityDetailScreen() {
               showStyleToggle={true}
               highlightIndex={highlightIndex}
               enableFullscreen={true}
+              on3DModeChange={handle3DModeChange}
             />
           </View>
 
