@@ -66,6 +66,16 @@ export interface Activity {
   icu_training_load?: number; // TSS
   icu_ftp?: number; // FTP used for this activity
   icu_pm_ftp_watts?: number; // Estimated FTP from this activity (eFTP)
+  icu_intensity?: number; // Intensity Factor as percentage (e.g., 92.26 = 92%)
+  icu_efficiency_factor?: number; // Power:HR efficiency
+  trimp?: number; // Training impulse (HR-based load)
+  decoupling?: number; // Aerobic decoupling/drift percentage
+  strain_score?: number; // Strain score
+  icu_hrr?: { // Heart rate recovery
+    start_bpm: number;
+    end_bpm: number;
+    hrr: number; // BPM drop
+  };
   // Weather data (when available from intervals.icu)
   has_weather?: boolean;
   average_weather_temp?: number; // Temperature in Celsius
@@ -73,6 +83,8 @@ export interface Activity {
   average_wind_speed?: number; // Wind speed in m/s
   average_wind_gust?: number; // Wind gust in m/s
   average_clouds?: number; // Cloud cover percentage
+  // Device temperature (from watch sensor, not weather)
+  average_temp?: number;
 }
 
 export interface ActivityDetail extends Activity {

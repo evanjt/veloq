@@ -144,18 +144,12 @@ export function HRZonesChart({
   // Dynamic sizing based on number of zones
   // For many zones (6+), we use a slightly tighter layout but keep text readable
   const isCompact = zones.length > 5;
-  // Each zone row needs: bar height + padding + text
-  // Compact: 14px bar + 4px padding = ~24px per zone
-  // Normal: 16px bar + 6px padding = ~28px per zone
-  const rowHeight = isCompact ? 24 : 28;
   const barHeight = isCompact ? 14 : 16;
   const rowPadding = isCompact ? 2 : 3;
-  // Plus header (~24px) and container padding (16px)
-  const height = Math.max(100, zones.length * rowHeight + 50);
 
   if (!zoneData) {
     return (
-      <View style={[styles.placeholder, { height }]}>
+      <View style={styles.placeholder}>
         <Text style={[styles.placeholderText, isDark && styles.textDark]}>
           No heart rate data
         </Text>
@@ -172,7 +166,7 @@ export function HRZonesChart({
   const dataSource = settings?.max_hr ? 'intervals.icu' : 'local';
 
   return (
-    <View style={[styles.container, { height }]}>
+    <View style={styles.container}>
       <View style={styles.headerRow}>
         <Text style={[styles.title, isDark && styles.titleDark]}>Time in HR Zones</Text>
         <Text style={[styles.maxHRLabel, isDark && styles.maxHRLabelDark]}>
@@ -246,8 +240,7 @@ const styles = StyleSheet.create({
     color: '#888',
   },
   zonesContainer: {
-    flex: 1,
-    justifyContent: 'space-around',
+    // No flex: 1 - let it size based on content
   },
   zoneRow: {
     flexDirection: 'row',
@@ -324,6 +317,7 @@ const styles = StyleSheet.create({
     color: '#888',
   },
   placeholder: {
+    minHeight: 100,
     justifyContent: 'center',
     alignItems: 'center',
   },
