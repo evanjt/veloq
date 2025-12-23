@@ -213,11 +213,18 @@ export interface PowerCurve {
 export interface PaceCurve {
   type: 'pace';
   sport: string;
-  secs: number[];         // Array of durations (seconds)
-  pace?: number[];        // Pace in m/s at each duration
-  gap?: number[];         // Grade adjusted pace
+  distances: number[];    // Array of distances in meters
+  times: number[];        // Array of times in seconds to cover each distance
+  pace: number[];         // Pace in m/s at each distance (distance/time)
   activity_ids?: string[];
+  // Critical Speed model data
   criticalSpeed?: number; // Critical speed from pace model (m/s) - use as threshold pace
+  dPrime?: number;        // D' (anaerobic distance capacity) in meters
+  r2?: number;            // R² (model fit quality)
+  // Date range
+  startDate?: string;     // Start date of the curve period (ISO string)
+  endDate?: string;       // End date of the curve period (ISO string)
+  days?: number;          // Number of days in the period
 }
 
 // Sport settings including zones

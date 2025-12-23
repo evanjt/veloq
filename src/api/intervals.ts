@@ -171,52 +171,71 @@ export const intervalsApi = {
   /**
    * Get pace curve (best efforts) for running/swimming
    * @param sport - Sport type filter (e.g., 'Run', 'Swim')
-   * @param days - Number of days to include (default 365)
+   * @param days - Number of days to include (default 42 to match intervals.icu default)
+   * @param gap - If true, return gradient adjusted pace data (running only)
    */
   async getPaceCurve(params?: {
     sport?: string;
     days?: number;
+    gap?: boolean;
   }): Promise<PaceCurve> {
     const athleteId = getAthleteId();
     const sportType = params?.sport || 'Run';
-    // Use curves parameter similar to power curves
-    const curvesParam = params?.days ? `${params.days}d` : '1y';
+    // Use curves parameter - default to 42 days to match intervals.icu default
+    const curvesParam = params?.days ? `${params.days}d` : '42d';
+    // GAP (gradient adjusted pace) is only available for running
+    const useGap = params?.gap && sportType === 'Run';
 
-    // API returns: distance[] (meters) and values[] (time in seconds to cover that distance)
+    // API returns: distance[] (meters), values[] (seconds), paceModels[], and date range
     interface PaceCurveResponse {
       list: Array<{
         distance: number[];
-        values: number[]; // seconds to cover each distance
-        paceModels?: Array<{ type: string; criticalSpeed: number }>;
+        values: number[]; // seconds to cover each distance (or GAP-adjusted seconds if gap=true)
+        activity_id?: string[];
+        start_date_local?: string;
+        end_date_local?: string;
+        days?: number;
+        paceModels?: Array<{
+          type: string;
+          criticalSpeed?: number;
+          dPrime?: number;
+          r2?: number;
+        }>;
       }>;
     }
 
     const response = await apiClient.get<PaceCurveResponse>(
       `/athlete/${athleteId}/pace-curves.json`,
-      { params: { type: sportType, curves: curvesParam } }
+      { params: { type: sportType, curves: curvesParam, gap: useGap || undefined } }
     );
 
     const curve = response.data?.list?.[0];
     const distances = curve?.distance || [];
-    const times = curve?.values || []; // seconds
+    const times = curve?.values || []; // seconds to cover each distance
 
-    // Convert distance/time pairs to pace (m/s) at each time duration
-    // We want: secs[] (durations) and pace[] (m/s at that duration)
+    // Calculate pace (m/s) at each distance
     const pace = distances.map((dist, i) => {
       const time = times[i];
       return time > 0 ? dist / time : 0; // pace in m/s
     });
 
-    // Extract critical speed from pace models if available (for threshold pace)
-    const criticalSpeed = curve?.paceModels?.find(m => m.type === 'CS')?.criticalSpeed;
+    // Extract critical speed model data
+    const csModel = curve?.paceModels?.find(m => m.type === 'CS');
 
     return {
       type: 'pace',
       sport: sportType,
-      secs: times, // Use times as durations (secs)
-      pace, // Calculated pace in m/s
-      criticalSpeed, // Add critical speed for threshold pace
-    } as PaceCurve;
+      distances,
+      times,
+      pace,
+      activity_ids: curve?.activity_id,
+      criticalSpeed: csModel?.criticalSpeed,
+      dPrime: csModel?.dPrime,
+      r2: csModel?.r2,
+      startDate: curve?.start_date_local,
+      endDate: curve?.end_date_local,
+      days: curve?.days,
+    };
   },
 
   /**
@@ -270,7 +289,9 @@ export const intervalsApi = {
     for (let i = 0; i < ids.length; i += concurrency) {
       // Check if aborted before starting new batch
       if (abortSignal?.aborted) {
-        throw new DOMException('Sync cancelled', 'AbortError');
+        const error = new Error('Sync cancelled');
+        error.name = 'AbortError';
+        throw error;
       }
 
       const batch = ids.slice(i, i + concurrency);
@@ -279,8 +300,7 @@ export const intervalsApi = {
           const data = await this.getActivityMap(id, true);
           results.set(id, data);
         } catch {
-          // Skip failed requests
-          console.warn(`Failed to fetch map for activity ${id}`);
+          // Skip failed requests silently
         }
       });
 
@@ -289,7 +309,9 @@ export const intervalsApi = {
 
       // Check again after batch completes
       if (abortSignal?.aborted) {
-        throw new DOMException('Sync cancelled', 'AbortError');
+        const error = new Error('Sync cancelled');
+        error.name = 'AbortError';
+        throw error;
       }
 
       onProgress?.(completed, ids.length);

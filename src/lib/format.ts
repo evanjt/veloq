@@ -128,3 +128,10 @@ export function formatLocalDate(date: Date): string {
 export function getTodayLocalDate(): string {
   return formatLocalDate(new Date());
 }
+
+/**
+ * Clamp a value between min and max bounds
+ */
+export function clamp(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), max);
+}

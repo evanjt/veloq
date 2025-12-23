@@ -12,6 +12,7 @@ export {
   getFormZone,
   FORM_ZONE_COLORS,
   FORM_ZONE_LABELS,
+  FORM_ZONE_BOUNDARIES,
   type TimeRange,
   type FormZone,
 } from './useWellness';
@@ -25,11 +26,7 @@ export {
   usePaceCurve,
   PACE_CURVE_DISTANCES,
   SWIM_PACE_CURVE_DISTANCES,
-  PACE_CURVE_DURATIONS,
-  SWIM_PACE_CURVE_DURATIONS,
-  getPaceAtDuration,
-  formatPaceCurveForChart,
-  formatSwimPaceCurveForChart,
+  getPaceAtDistance,
   paceToMinPerKm,
   paceToMinPer100m,
 } from './usePaceCurve';
@@ -46,3 +43,4 @@ export { useZoneDistribution } from './useZoneDistribution';
 export { useEFTPHistory, getLatestFTP, getLatestEFTP } from './useEFTPHistory';
 export { useActivityBoundsCache } from './useActivityBoundsCache';
 export { useTheme, type Theme, type ThemeColors } from './useTheme';
+export { useMetricSystem } from './useMetricSystem';

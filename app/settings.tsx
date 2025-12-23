@@ -125,8 +125,12 @@ export default function SettingsScreen() {
           text: 'Clear',
           style: 'destructive',
           onPress: async () => {
-            await clearCache();
-            Alert.alert('Cache Cleared', 'Activity bounds cache has been cleared.');
+            try {
+              await clearCache();
+              Alert.alert('Cache Cleared', 'Activity bounds cache has been cleared.');
+            } catch {
+              Alert.alert('Error', 'Failed to clear cache. Please try again.');
+            }
           },
         },
       ]
@@ -162,8 +166,12 @@ export default function SettingsScreen() {
           text: 'Disconnect',
           style: 'destructive',
           onPress: async () => {
-            await clearCredentials();
-            router.replace('/login' as Href);
+            try {
+              await clearCredentials();
+              router.replace('/login' as Href);
+            } catch {
+              Alert.alert('Error', 'Failed to disconnect. Please try again.');
+            }
           },
         },
       ]
@@ -175,7 +183,12 @@ export default function SettingsScreen() {
       <ScrollView contentContainerStyle={styles.content}>
         {/* Header with back button */}
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+          <TouchableOpacity
+            onPress={() => router.back()}
+            style={styles.backButton}
+            accessibilityLabel="Go back"
+            accessibilityRole="button"
+          >
             <MaterialCommunityIcons
               name="arrow-left"
               size={24}

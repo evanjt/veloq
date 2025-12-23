@@ -12,8 +12,7 @@ export function decodePolyline(encoded: string): LatLng[] {
       latitude: lat,
       longitude: lng,
     }));
-  } catch (error) {
-    console.warn('Failed to decode polyline:', error);
+  } catch {
     return [];
   }
 }

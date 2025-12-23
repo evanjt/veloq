@@ -55,8 +55,7 @@ export const useHRZones = create<HRZonesState>((set, get) => ({
       } else {
         set({ isLoaded: true });
       }
-    } catch (error) {
-      console.error('Failed to load HR zones:', error);
+    } catch {
       set({ isLoaded: true });
     }
   },
@@ -68,7 +67,6 @@ export const useHRZones = create<HRZonesState>((set, get) => ({
       await AsyncStorage.setItem(HR_ZONES_KEY, JSON.stringify(settings));
       set({ maxHR });
     } catch (error) {
-      console.error('Failed to save max HR:', error);
       throw error;
     }
   },
@@ -83,7 +81,6 @@ export const useHRZones = create<HRZonesState>((set, get) => ({
       await AsyncStorage.setItem(HR_ZONES_KEY, JSON.stringify(settings));
       set({ zones: updatedZones });
     } catch (error) {
-      console.error('Failed to save zone threshold:', error);
       throw error;
     }
   },
@@ -96,7 +93,6 @@ export const useHRZones = create<HRZonesState>((set, get) => ({
         zones: DEFAULT_HR_ZONES,
       });
     } catch (error) {
-      console.error('Failed to reset HR zones:', error);
       throw error;
     }
   },

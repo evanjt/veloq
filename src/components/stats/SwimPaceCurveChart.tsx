@@ -77,19 +77,19 @@ export function SwimPaceCurveChart({
   const pointXCoordsShared = useSharedValue<number[]>([]);
   const lastNotifiedIdx = useRef<number | null>(null);
 
-  // Process curve data
+  // Process curve data - use distances directly from API
   const { chartData, cssPace, yDomain } = useMemo(() => {
-    if (!curve?.secs || !curve?.pace || curve.pace.length === 0) {
+    if (!curve?.distances || !curve?.times || curve.distances.length === 0) {
       return { chartData: [], cssPace: null, yDomain: [90, 180] as [number, number] };
     }
 
     const points: ChartPoint[] = [];
 
-    for (let i = 0; i < curve.secs.length; i++) {
-      const time = curve.secs[i];
+    for (let i = 0; i < curve.distances.length; i++) {
+      const distance = curve.distances[i];
+      const time = curve.times[i];
       const speed = curve.pace[i];
-      if (speed > 0 && time > 0) {
-        const distance = time * speed;
+      if (distance > 0 && time > 0 && speed > 0) {
         const paceSecsPer100m = speedToSecsPer100m(speed);
 
         // Filter reasonable swim paces (50s to 4min per 100m) and reasonable distances
@@ -126,14 +126,15 @@ export function SwimPaceCurveChart({
     const cssSecsPer100m = curve.criticalSpeed ? speedToSecsPer100m(curve.criticalSpeed) : null;
 
     const paces = data.map(d => d.y);
-    const minPace = Math.min(...paces);
-    const maxPace = Math.max(...paces);
+    const minPace = Math.min(...paces);  // fastest
+    const maxPace = Math.max(...paces);  // slowest
     const padding = (maxPace - minPace) * 0.1;
 
     return {
       chartData: data,
       cssPace: cssSecsPer100m,
-      yDomain: [minPace - padding, maxPace + padding] as [number, number],
+      // Invert y domain: [max, min] puts faster paces (lower values) at TOP
+      yDomain: [maxPace + padding, minPace - padding] as [number, number],
     };
   }, [curve]);
 
@@ -189,14 +190,16 @@ export function SwimPaceCurveChart({
 
   const crosshairStyle = useAnimatedStyle(() => {
     'worklet';
-    const idx = selectedIdx.value;
-    const coords = pointXCoordsShared.value;
-
-    if (idx < 0 || coords.length === 0 || idx >= coords.length) {
+    // Use touchX directly so crosshair always follows the finger exactly
+    if (touchX.value < 0) {
       return { opacity: 0, transform: [{ translateX: 0 }] };
     }
 
-    return { opacity: 1, transform: [{ translateX: coords[idx] }] };
+    // Clamp to chart bounds
+    const bounds = chartBoundsShared.value;
+    const xPos = Math.max(bounds.left, Math.min(bounds.right, touchX.value));
+
+    return { opacity: 1, transform: [{ translateX: xPos }] };
   }, []);
 
   if (isLoading) {
@@ -319,16 +322,16 @@ export function SwimPaceCurveChart({
             <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>1.5K</Text>
           </View>
 
-          {/* Y-axis labels */}
+          {/* Y-axis labels - note: axis is inverted so top is fastest (yDomain[1]), bottom is slowest (yDomain[0]) */}
           <View style={styles.yAxisOverlay} pointerEvents="none">
             <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
-              {Math.floor(yDomain[0] / 60)}:{Math.round(yDomain[0] % 60).toString().padStart(2, '0')}
+              {Math.floor(yDomain[1] / 60)}:{Math.round(yDomain[1] % 60).toString().padStart(2, '0')}
             </Text>
             <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
               {Math.floor((yDomain[0] + yDomain[1]) / 2 / 60)}:{Math.round((yDomain[0] + yDomain[1]) / 2 % 60).toString().padStart(2, '0')}
             </Text>
             <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
-              {Math.floor(yDomain[1] / 60)}:{Math.round(yDomain[1] % 60).toString().padStart(2, '0')}
+              {Math.floor(yDomain[0] / 60)}:{Math.round(yDomain[0] % 60).toString().padStart(2, '0')}
             </Text>
           </View>
         </View>

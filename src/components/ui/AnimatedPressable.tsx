@@ -1,5 +1,5 @@
 import React, { useCallback } from 'react';
-import { Pressable, PressableProps, StyleProp, ViewStyle } from 'react-native';
+import { GestureResponderEvent, Pressable, PressableProps, StyleProp, ViewStyle } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -48,7 +48,7 @@ export function AnimatedPressable({
   }));
 
   const handlePressIn = useCallback(
-    (e: any) => {
+    (e: GestureResponderEvent) => {
       scale.value = withSpring(pressScale, springConfig);
 
       if (hapticFeedback && !disabled) {
@@ -71,7 +71,7 @@ export function AnimatedPressable({
   );
 
   const handlePressOut = useCallback(
-    (e: any) => {
+    (e: GestureResponderEvent) => {
       scale.value = withSpring(1, springConfig);
       onPressOut?.(e);
     },

@@ -26,12 +26,10 @@ const asyncStoragePersister = createAsyncStoragePersister({
       const serialized = JSON.stringify(data);
       // If cache is over 1MB, clear it and return empty
       if (serialized.length > 1024 * 1024) {
-        console.warn('Cache too large, skipping persist');
         return JSON.stringify({ clientState: { queries: [], mutations: [] } });
       }
       return serialized;
-    } catch (e) {
-      console.warn('Failed to serialize cache:', e);
+    } catch {
       return JSON.stringify({ clientState: { queries: [], mutations: [] } });
     }
   },
@@ -59,8 +57,7 @@ export function QueryProvider({ children }: QueryProviderProps) {
         },
       }}
       onError={() => {
-        console.warn('Query persist error');
-        // Clear corrupted cache
+        // Clear corrupted cache silently
         AsyncStorage.removeItem('veloq-query-cache').catch(() => {});
       }}
     >

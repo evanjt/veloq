@@ -38,6 +38,20 @@ interface MetricConfig {
   formatValue: (v: number) => string;
 }
 
+/** Victory Native chart bounds structure */
+interface ChartBounds {
+  left: number;
+  right: number;
+  top: number;
+  bottom: number;
+}
+
+/** Victory Native chart point - we only need x and y for our rendering */
+interface ChartPoint {
+  x: number;
+  y: number | undefined;
+}
+
 function formatSleepDuration(hours: number): string {
   const h = Math.floor(hours);
   const m = Math.round((hours - h) * 60);
@@ -104,10 +118,10 @@ function MetricSparkline({
             yKeys: ['value'],
             domain: { x: [0, totalDays - 1], y: [yMin, yMax] },
             padding: { left: 4, right: 4, top: 8, bottom: 8 },
-            children: ({ points, chartBounds }: { points: { value: any[] }; chartBounds: any }) => (
+            children: ({ points, chartBounds }: { points: { value: Array<{ x: number; y: number | undefined }> }; chartBounds: ChartBounds }) => (
               <>
                 <Line
-                  points={points.value}
+                  points={points.value as Parameters<typeof Line>[0]['points']}
                   color={color}
                   strokeWidth={2}
                   curveType="natural"
@@ -153,7 +167,7 @@ function MetricSparkline({
   );
 }
 
-export function WellnessTrendsChart({ data, height = 200 }: WellnessTrendsChartProps) {
+export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({ data, height = 200 }: WellnessTrendsChartProps) {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
@@ -370,7 +384,7 @@ export function WellnessTrendsChart({ data, height = 200 }: WellnessTrendsChartP
       </Text>
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   container: {},

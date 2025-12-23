@@ -37,8 +37,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         isAuthenticated,
         isLoading: false,
       });
-    } catch (error) {
-      console.error('Failed to load credentials:', error);
+    } catch {
       set({ isLoading: false, isAuthenticated: false });
     }
   },
@@ -60,7 +59,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         isAuthenticated: true,
       });
     } catch (error) {
-      console.error('Failed to save credentials:', error);
       throw error;
     }
   },
@@ -78,7 +76,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         isAuthenticated: false,
       });
     } catch (error) {
-      console.error('Failed to clear credentials:', error);
       throw error;
     }
   },

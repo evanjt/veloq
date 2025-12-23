@@ -171,8 +171,8 @@ export function BaseMapView({
       });
 
       setTimeout(() => setUserLocation(null), 3000);
-    } catch (error) {
-      console.error('Failed to get location:', error);
+    } catch {
+      // Silently fail - location is optional
     }
   }, [cameraRef]);
 
@@ -203,6 +203,8 @@ export function BaseMapView({
           style={[styles.button, styles.closeButton, { top: insets.top + 12 }, isDark && styles.buttonDark]}
           onPress={onClose}
           activeOpacity={0.8}
+          accessibilityLabel="Close map"
+          accessibilityRole="button"
         >
           <MaterialCommunityIcons name="close" size={24} color={isDark ? '#FFFFFF' : '#333333'} />
         </TouchableOpacity>
@@ -214,6 +216,8 @@ export function BaseMapView({
           style={[styles.button, styles.styleButton, { top: insets.top + 12 }, isDark && styles.buttonDark]}
           onPress={toggleStyle}
           activeOpacity={0.8}
+          accessibilityLabel="Toggle map style"
+          accessibilityRole="button"
         >
           <MaterialCommunityIcons name={getStyleIcon(mapStyle)} size={24} color={isDark ? '#FFFFFF' : '#333333'} />
         </TouchableOpacity>
@@ -226,6 +230,8 @@ export function BaseMapView({
             style={[styles.controlButton, isDark && styles.controlButtonDark, is3DMode && styles.controlButtonActive]}
             onPress={toggle3D}
             activeOpacity={0.8}
+            accessibilityLabel={is3DMode ? 'Disable 3D view' : 'Enable 3D view'}
+            accessibilityRole="button"
           >
             <MaterialCommunityIcons name="terrain" size={22} color={is3DMode ? '#FFFFFF' : (isDark ? '#FFFFFF' : '#333333')} />
           </TouchableOpacity>
@@ -236,6 +242,8 @@ export function BaseMapView({
             style={[styles.controlButton, isDark && styles.controlButtonDark]}
             onPress={resetOrientation}
             activeOpacity={0.8}
+            accessibilityLabel="Reset map orientation"
+            accessibilityRole="button"
           >
             <CompassArrow size={22} rotation={bearingAnim} northColor="#E53935" southColor={isDark ? '#FFFFFF' : '#333333'} />
           </TouchableOpacity>
@@ -246,6 +254,8 @@ export function BaseMapView({
             style={[styles.controlButton, isDark && styles.controlButtonDark, userLocation && styles.controlButtonActive]}
             onPress={handleGetLocation}
             activeOpacity={0.8}
+            accessibilityLabel="Go to my location"
+            accessibilityRole="button"
           >
             <MaterialCommunityIcons
               name="crosshairs-gps"

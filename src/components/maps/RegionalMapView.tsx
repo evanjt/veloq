@@ -57,6 +57,7 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
   const map3DRef = useRef<Map3DWebViewRef>(null);
   const bearingAnim = useRef(new Animated.Value(0)).current;
   const initialBoundsRef = useRef<{ ne: [number, number]; sw: [number, number] } | null>(null);
+  const userLocationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ===========================================
   // GESTURE TRACKING - For compass updates
@@ -102,6 +103,15 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
     }
   }, [activities, calculateBounds]);
 
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (userLocationTimeoutRef.current) {
+        clearTimeout(userLocationTimeoutRef.current);
+      }
+    };
+  }, []);
+
   // Note: Container touch handlers and interaction timeout cleanup removed
   // Using native CircleLayer which doesn't intercept touches
 
@@ -117,8 +127,7 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
       // Fetch full map data (with coordinates)
       const mapData = await intervalsApi.getActivityMap(activity.id, false);
       setSelected({ activity, mapData, isLoading: false });
-    } catch (error) {
-      console.error('Failed to load activity route:', error);
+    } catch {
       setSelected({ activity, mapData: null, isLoading: false });
     }
   }, []);
@@ -209,7 +218,6 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
       // Request permission
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
-        console.warn('Location permission denied');
         return;
       }
 
@@ -230,10 +238,15 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
         animationDuration: 500,
       });
 
+      // Clear any existing timeout
+      if (userLocationTimeoutRef.current) {
+        clearTimeout(userLocationTimeoutRef.current);
+      }
+
       // Clear the marker after a few seconds (one-time location, not tracking)
-      setTimeout(() => setUserLocation(null), 3000);
-    } catch (error) {
-      console.error('Failed to get location:', error);
+      userLocationTimeoutRef.current = setTimeout(() => setUserLocation(null), 3000);
+    } catch {
+      // Silently fail - location is optional
     }
   }, []);
 
@@ -288,7 +301,7 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
   }, [activities, selected?.activity.id]);
 
   // Handle marker tap via ShapeSource press - NO touch interception!
-  const handleMarkerPress = useCallback((event: any) => {
+  const handleMarkerPress = useCallback((event: { features?: GeoJSON.Feature[] }) => {
     const feature = event.features?.[0];
     if (!feature?.properties?.id) return;
 
@@ -498,6 +511,8 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
         style={[styles.button, styles.closeButton, { top: insets.top + 12 }, isDark && styles.buttonDark]}
         onPress={onClose}
         activeOpacity={0.8}
+        accessibilityLabel="Close map"
+        accessibilityRole="button"
       >
         <MaterialCommunityIcons
           name="close"
@@ -511,6 +526,8 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
         style={[styles.button, styles.styleButton, { top: insets.top + 12 }, isDark && styles.buttonDark]}
         onPress={toggleStyle}
         activeOpacity={0.8}
+        accessibilityLabel="Toggle map style"
+        accessibilityRole="button"
       >
         <MaterialCommunityIcons
           name={getStyleIcon(mapStyle)}
@@ -532,6 +549,9 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
           onPress={can3D ? toggle3D : undefined}
           activeOpacity={can3D ? 0.8 : 1}
           disabled={!can3D}
+          accessibilityLabel={show3D ? 'Disable 3D view' : 'Enable 3D view'}
+          accessibilityRole="button"
+          accessibilityState={{ disabled: !can3D }}
         >
           <MaterialCommunityIcons
             name="terrain"
@@ -545,6 +565,8 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
           style={[styles.controlButton, isDark && styles.controlButtonDark]}
           onPress={resetOrientation}
           activeOpacity={0.8}
+          accessibilityLabel="Reset map orientation"
+          accessibilityRole="button"
         >
           <CompassArrow
             size={22}
@@ -563,6 +585,8 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
           ]}
           onPress={handleGetLocation}
           activeOpacity={0.8}
+          accessibilityLabel="Go to my location"
+          accessibilityRole="button"
         >
           <MaterialCommunityIcons
             name="crosshairs-gps"
@@ -595,10 +619,20 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
               </Text>
             </View>
             <View style={styles.popupHeaderButtons}>
-              <TouchableOpacity onPress={handleZoomToActivity} style={styles.popupIconButton}>
+              <TouchableOpacity
+                onPress={handleZoomToActivity}
+                style={styles.popupIconButton}
+                accessibilityLabel="Zoom to activity"
+                accessibilityRole="button"
+              >
                 <MaterialCommunityIcons name="crosshairs-gps" size={22} color={colors.primary} />
               </TouchableOpacity>
-              <TouchableOpacity onPress={handleClosePopup} style={styles.popupIconButton}>
+              <TouchableOpacity
+                onPress={handleClosePopup}
+                style={styles.popupIconButton}
+                accessibilityLabel="Close activity popup"
+                accessibilityRole="button"
+              >
                 <MaterialCommunityIcons name="close" size={22} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>

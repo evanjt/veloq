@@ -43,8 +43,7 @@ export const useSportPreference = create<SportPreferenceState>((set) => ({
       } else {
         set({ isLoaded: true });
       }
-    } catch (error) {
-      console.error('Failed to load sport preference:', error);
+    } catch {
       set({ isLoaded: true });
     }
   },
@@ -54,7 +53,6 @@ export const useSportPreference = create<SportPreferenceState>((set) => ({
       await AsyncStorage.setItem(SPORT_PREFERENCE_KEY, sport);
       set({ primarySport: sport });
     } catch (error) {
-      console.error('Failed to save sport preference:', error);
       throw error;
     }
   },
