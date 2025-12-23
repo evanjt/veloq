@@ -85,6 +85,16 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
+      - name: Cache Gradle dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            gradle-${{ runner.os }}-
+
       - name: Install dependencies
         run: npm ci
 
@@ -101,7 +111,10 @@ jobs:
 
       - name: Build APK
         working-directory: android
-        run: ./gradlew assembleRelease
+        env:
+          # Build only arm64 to speed up CI (most modern devices)
+          ORG_GRADLE_PROJECT_reactNativeArchitectures: arm64-v8a
+        run: ./gradlew assembleRelease --no-daemon --parallel
 
       - name: Rename APK
         run: |
