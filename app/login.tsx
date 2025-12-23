@@ -82,9 +82,6 @@ export default function LoginScreen() {
         >
           {/* Logo/Header */}
           <View style={styles.header}>
-            <View style={[styles.logoContainer, { backgroundColor: colors.primary }]}>
-              <MaterialCommunityIcons name="bike-fast" size={48} color="#FFFFFF" />
-            </View>
             <Text style={[styles.title, isDark && styles.textLight]}>Veloq</Text>
             <Text style={[styles.subtitle, isDark && styles.textDark]}>
               Connect to Intervals.icu
@@ -180,19 +177,6 @@ const styles = StyleSheet.create({
   header: {
     alignItems: 'center',
     marginBottom: spacing.xl,
-  },
-  logoContainer: {
-    width: 96,
-    height: 96,
-    borderRadius: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: spacing.md,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 6,
   },
   title: {
     fontSize: 32,

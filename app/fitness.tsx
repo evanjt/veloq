@@ -3,8 +3,11 @@ import { View, ScrollView, StyleSheet, useColorScheme, TouchableOpacity } from '
 import { Text, IconButton, ActivityIndicator } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import { FitnessChart, FormZoneChart } from '@/components/fitness';
-import { useWellness, getFormZone, FORM_ZONE_COLORS, FORM_ZONE_LABELS, type TimeRange } from '@/hooks';
+import * as WebBrowser from 'expo-web-browser';
+import { useSharedValue } from 'react-native-reanimated';
+import { FitnessChart, FormZoneChart, ActivityDotsChart } from '@/components/fitness';
+import { useWellness, useActivities, getFormZone, FORM_ZONE_COLORS, FORM_ZONE_LABELS, type TimeRange } from '@/hooks';
+import { formatLocalDate } from '@/lib';
 import { colors, spacing, layout, typography } from '@/theme';
 
 const TIME_RANGES: { id: TimeRange; label: string }[] = [
@@ -14,6 +17,18 @@ const TIME_RANGES: { id: TimeRange; label: string }[] = [
   { id: '6m', label: '6M' },
   { id: '1y', label: '1Y' },
 ];
+
+// Convert TimeRange to days for activity fetching
+const timeRangeToDays = (range: TimeRange): number => {
+  switch (range) {
+    case '7d': return 7;
+    case '1m': return 30;
+    case '3m': return 90;
+    case '6m': return 180;
+    case '1y': return 365;
+    default: return 90;
+  }
+};
 
 export default function FitnessScreen() {
   const colorScheme = useColorScheme();
@@ -27,7 +42,23 @@ export default function FitnessScreen() {
     form: number;
   } | null>(null);
 
+  // Shared value for instant crosshair sync between charts
+  const sharedSelectedIdx = useSharedValue(-1);
+
+  // Reset selection when time range changes
+  React.useEffect(() => {
+    sharedSelectedIdx.value = -1;
+    setSelectedDate(null);
+    setSelectedValues(null);
+  }, [timeRange, sharedSelectedIdx]);
+
   const { data: wellness, isLoading, isFetching, isError, refetch } = useWellness(timeRange);
+
+  // Fetch activities for the selected time range
+  const { data: activities } = useActivities({ days: timeRangeToDays(timeRange) });
+
+  // Background sync: prefetch 1 year of activities on first load for cache
+  useActivities({ days: 365 });
 
   // Handle chart interaction state changes
   const handleInteractionChange = useCallback((isInteracting: boolean) => {
@@ -180,57 +211,94 @@ export default function FitnessScreen() {
           ))}
         </View>
 
-        {/* Fitness/Fatigue chart */}
+        {/* Combined fitness charts card */}
         <View style={[styles.chartCard, isDark && styles.cardDark]}>
+          {/* Fitness/Fatigue chart */}
           <Text style={[styles.chartTitle, isDark && styles.textLight]}>Fitness & Fatigue</Text>
           <FitnessChart
             data={wellness}
             height={220}
+            selectedDate={selectedDate}
+            sharedSelectedIdx={sharedSelectedIdx}
             onDateSelect={handleDateSelect}
             onInteractionChange={handleInteractionChange}
           />
-        </View>
 
-        {/* Form zone chart */}
-        <View style={[styles.chartCard, isDark && styles.cardDark]}>
-          <Text style={[styles.chartTitle, isDark && styles.textLight]}>Form (Training Stress Balance)</Text>
-          <FormZoneChart
-            data={wellness}
-            height={140}
-            onDateSelect={handleDateSelect}
-            onInteractionChange={handleInteractionChange}
-          />
+          {/* Activity dots chart */}
+          <View style={[styles.dotsSection, isDark && styles.sectionDark]}>
+            <ActivityDotsChart
+              data={wellness}
+              activities={activities || []}
+              height={32}
+              selectedDate={selectedDate}
+              sharedSelectedIdx={sharedSelectedIdx}
+              onDateSelect={handleDateSelect}
+              onInteractionChange={handleInteractionChange}
+            />
+          </View>
+
+          {/* Form zone chart */}
+          <View style={[styles.formSection, isDark && styles.sectionDark]}>
+            <Text style={[styles.chartTitle, isDark && styles.textLight]}>Form</Text>
+            <FormZoneChart
+              data={wellness}
+              height={140}
+              selectedDate={selectedDate}
+              sharedSelectedIdx={sharedSelectedIdx}
+              onDateSelect={handleDateSelect}
+              onInteractionChange={handleInteractionChange}
+            />
+          </View>
         </View>
 
         {/* Info section */}
         <View style={[styles.infoCard, isDark && styles.cardDark]}>
           <Text style={[styles.infoTitle, isDark && styles.textLight]}>Understanding the Metrics</Text>
-          <View style={styles.infoItem}>
+
+          <View style={styles.infoRow}>
             <View style={[styles.infoDot, { backgroundColor: '#42A5F5' }]} />
-            <View style={styles.infoContent}>
-              <Text style={[styles.infoLabel, isDark && styles.textLight]}>Fitness (CTL)</Text>
-              <Text style={[styles.infoText, isDark && styles.textDark]}>
-                42-day exponentially weighted average of training load. Higher = more fit.
-              </Text>
-            </View>
+            <Text style={[styles.infoText, isDark && styles.textDark]}>
+              <Text style={[styles.infoHighlight, isDark && styles.infoHighlightDark]}>Fitness</Text> is a 42-day exponentially weighted moving average of your training load.
+            </Text>
           </View>
-          <View style={styles.infoItem}>
+
+          <View style={styles.infoRow}>
             <View style={[styles.infoDot, { backgroundColor: '#AB47BC' }]} />
-            <View style={styles.infoContent}>
-              <Text style={[styles.infoLabel, isDark && styles.textLight]}>Fatigue (ATL)</Text>
-              <Text style={[styles.infoText, isDark && styles.textDark]}>
-                7-day exponentially weighted average of training load. Higher = more tired.
-              </Text>
-            </View>
+            <Text style={[styles.infoText, isDark && styles.textDark]}>
+              <Text style={[styles.infoHighlight, isDark && styles.infoHighlightDark]}>Fatigue</Text> is a 7-day exponentially weighted moving average of your training load.
+            </Text>
           </View>
-          <View style={styles.infoItem}>
+
+          <View style={styles.infoRow}>
             <View style={[styles.infoDot, { backgroundColor: FORM_ZONE_COLORS.optimal }]} />
-            <View style={styles.infoContent}>
-              <Text style={[styles.infoLabel, isDark && styles.textLight]}>Form (TSB)</Text>
-              <Text style={[styles.infoText, isDark && styles.textDark]}>
-                Fitness minus Fatigue. Negative = building fitness. Positive = fresh/recovered.
-              </Text>
-            </View>
+            <Text style={[styles.infoText, isDark && styles.textDark]}>
+              <Text style={[styles.infoHighlight, isDark && styles.infoHighlightDark]}>Form</Text> is fitness minus fatigue. Train in the{' '}
+              <Text style={{ color: FORM_ZONE_COLORS.optimal }}>optimal zone</Text> to build fitness. Be{' '}
+              <Text style={{ color: FORM_ZONE_COLORS.fresh }}>fresh</Text> for races. Avoid the{' '}
+              <Text style={{ color: FORM_ZONE_COLORS.highRisk }}>high risk zone</Text> to prevent overtraining.
+            </Text>
+          </View>
+
+          <View style={[styles.referencesSection, isDark && styles.referencesSectionDark]}>
+            <Text style={[styles.referencesLabel, isDark && styles.textDark]}>Learn more</Text>
+            <TouchableOpacity
+              onPress={() => WebBrowser.openBrowserAsync('https://intervals.icu/fitness')}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.infoLink}>intervals.icu Fitness Page</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => WebBrowser.openBrowserAsync('https://www.sciencetosport.com/monitoring-training-load/')}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.infoLink}>Monitoring Training Load (Science2Sport)</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => WebBrowser.openBrowserAsync('https://www.joefrielsblog.com/2015/12/managing-training-using-tsb.html')}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.infoLink}>Managing Training Using TSB (Joe Friel)</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </ScrollView>
@@ -354,6 +422,21 @@ const styles = StyleSheet.create({
     padding: layout.cardPadding,
     marginBottom: spacing.md,
   },
+  dotsSection: {
+    marginTop: spacing.sm,
+    paddingTop: spacing.sm,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: 'rgba(0, 0, 0, 0.1)',
+  },
+  formSection: {
+    marginTop: spacing.sm,
+    paddingTop: spacing.sm,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: 'rgba(0, 0, 0, 0.1)',
+  },
+  sectionDark: {
+    borderTopColor: 'rgba(255, 255, 255, 0.1)',
+  },
   chartTitle: {
     fontSize: 14,
     fontWeight: '600',
@@ -372,7 +455,7 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     marginBottom: spacing.md,
   },
-  infoItem: {
+  infoRow: {
     flexDirection: 'row',
     marginBottom: spacing.sm,
   },
@@ -380,22 +463,42 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    marginTop: 4,
-    marginRight: spacing.sm,
-  },
-  infoContent: {
-    flex: 1,
-  },
-  infoLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.textPrimary,
-    marginBottom: 2,
+    marginTop: 5,
+    marginRight: 4,
   },
   infoText: {
-    fontSize: 11,
+    flex: 1,
+    fontSize: 12,
     color: colors.textSecondary,
-    lineHeight: 16,
+    lineHeight: 18,
+  },
+  infoHighlight: {
+    fontWeight: '600',
+  },
+  infoHighlightDark: {
+    color: '#FFF',
+  },
+  referencesSection: {
+    marginTop: spacing.md,
+    paddingTop: spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0, 0, 0, 0.08)',
+  },
+  referencesSectionDark: {
+    borderTopColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  referencesLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    marginBottom: spacing.xs,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  infoLink: {
+    fontSize: 12,
+    color: colors.primary,
+    paddingVertical: 4,
   },
   loadingContainer: {
     flex: 1,

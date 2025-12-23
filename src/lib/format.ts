@@ -66,6 +66,7 @@ export function formatRelativeDate(dateString: string): string {
   const now = new Date();
   const diffMs = now.getTime() - date.getTime();
   const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  const isCurrentYear = date.getFullYear() === now.getFullYear();
 
   if (diffDays === 0) {
     return 'Today';
@@ -73,10 +74,16 @@ export function formatRelativeDate(dateString: string): string {
     return 'Yesterday';
   } else if (diffDays < 7) {
     return date.toLocaleDateString('en-US', { weekday: 'long' });
+  } else if (isCurrentYear) {
+    return date.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+    });
   } else {
     return date.toLocaleDateString('en-US', {
       month: 'short',
       day: 'numeric',
+      year: 'numeric',
     });
   }
 }
@@ -87,6 +94,7 @@ export function formatDateTime(dateString: string): string {
     weekday: 'short',
     month: 'short',
     day: 'numeric',
+    year: 'numeric',
     hour: 'numeric',
     minute: '2-digit',
   });

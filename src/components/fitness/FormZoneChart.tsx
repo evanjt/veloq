@@ -4,7 +4,8 @@ import { Text } from 'react-native-paper';
 import { CartesianChart, Line } from 'victory-native';
 import { Line as SkiaLine, Rect, vec } from '@shopify/react-native-skia';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Animated, { useSharedValue, useAnimatedReaction, runOnJS, useDerivedValue, useAnimatedStyle } from 'react-native-reanimated';
+import { SharedValue, useSharedValue, useAnimatedReaction, runOnJS, useDerivedValue, useAnimatedStyle } from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
 import { colors, typography, spacing } from '@/theme';
 import { calculateTSB, getFormZone, FORM_ZONE_COLORS, FORM_ZONE_LABELS, type FormZone } from '@/hooks';
 import type { WellnessData } from '@/types';
@@ -22,6 +23,9 @@ const ZONES = {
 interface FormZoneChartProps {
   data: WellnessData[];
   height?: number;
+  selectedDate?: string | null;
+  /** Shared value for instant crosshair sync between charts */
+  sharedSelectedIdx?: SharedValue<number>;
   onDateSelect?: (date: string | null, values: { fitness: number; fatigue: number; form: number } | null) => void;
   onInteractionChange?: (isInteracting: boolean) => void;
 }
@@ -39,7 +43,7 @@ function formatDate(dateStr: string): string {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
-export function FormZoneChart({ data, height = 100, onDateSelect, onInteractionChange }: FormZoneChartProps) {
+export function FormZoneChart({ data, height = 100, selectedDate, sharedSelectedIdx, onDateSelect, onInteractionChange }: FormZoneChartProps) {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const [selectedData, setSelectedData] = useState<ChartDataPoint | null>(null);
@@ -54,6 +58,7 @@ export function FormZoneChart({ data, height = 100, onDateSelect, onInteractionC
   const chartBoundsShared = useSharedValue({ left: 0, right: 1 });
   const pointXCoordsShared = useSharedValue<number[]>([]);
   const lastNotifiedIdx = useRef<number | null>(null);
+  const externalSelectedIdx = useSharedValue(-1);
 
   // Process data for the chart
   const chartData = useMemo(() => {
@@ -78,6 +83,20 @@ export function FormZoneChart({ data, height = 100, onDateSelect, onInteractionC
       };
     });
   }, [data]);
+
+  // Sync with external selectedDate (from other chart)
+  React.useEffect(() => {
+    if (selectedDate && chartData.length > 0 && !isActive) {
+      const idx = chartData.findIndex(d => d.date === selectedDate);
+      if (idx >= 0) {
+        setSelectedData(chartData[idx]);
+        externalSelectedIdx.value = idx;
+      }
+    } else if (!selectedDate && !isActive) {
+      setSelectedData(null);
+      externalSelectedIdx.value = -1;
+    }
+  }, [selectedDate, chartData, isActive, externalSelectedIdx]);
 
   // Derive selected index on UI thread using chartBounds
   const selectedIdx = useDerivedValue(() => {
@@ -156,11 +175,30 @@ export function FormZoneChart({ data, height = 100, onDateSelect, onInteractionC
     })
     .minDistance(0);
 
+  // Update shared selected index when local selection changes (for instant sync)
+  useAnimatedReaction(
+    () => selectedIdx.value,
+    (idx) => {
+      if (sharedSelectedIdx && idx >= 0) {
+        sharedSelectedIdx.value = idx;
+      }
+    },
+    [sharedSelectedIdx]
+  );
+
   // Animated crosshair style - uses actual point coordinates for accuracy
+  // Shows crosshair for either local touch, shared selection, or external selection
   const crosshairStyle = useAnimatedStyle(() => {
     'worklet';
-    const idx = selectedIdx.value;
     const coords = pointXCoordsShared.value;
+    // Priority: local touch > shared value > external selection
+    let idx = selectedIdx.value;
+    if (idx < 0 && sharedSelectedIdx) {
+      idx = sharedSelectedIdx.value;
+    }
+    if (idx < 0) {
+      idx = externalSelectedIdx.value;
+    }
 
     if (idx < 0 || coords.length === 0 || idx >= coords.length) {
       return { opacity: 0, transform: [{ translateX: 0 }] };
@@ -170,7 +208,7 @@ export function FormZoneChart({ data, height = 100, onDateSelect, onInteractionC
       opacity: 1,
       transform: [{ translateX: coords[idx] }],
     };
-  }, []);
+  }, [sharedSelectedIdx]);
 
   if (chartData.length === 0) {
     return null;
@@ -191,7 +229,7 @@ export function FormZoneChart({ data, height = 100, onDateSelect, onInteractionC
       <View style={styles.header}>
         <View style={styles.dateContainer}>
           <Text style={[styles.dateText, isDark && styles.textLight]}>
-            {isActive && selectedData ? formatDate(selectedData.date) : 'Current'}
+            {(isActive && selectedData) || selectedDate ? formatDate(selectedData?.date || selectedDate || '') : 'Current'}
           </Text>
         </View>
         <View style={styles.valuesRow}>
