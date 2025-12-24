@@ -11,6 +11,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter, useSegments } from 'expo-router';
 import { useActivityBoundsCache } from '@/hooks';
+import { useAuthStore } from '@/providers';
 import { colors } from '@/theme';
 
 export function CacheLoadingBanner() {
@@ -18,12 +19,13 @@ export function CacheLoadingBanner() {
   const router = useRouter();
   const routeParts = useSegments();
   const { progress } = useActivityBoundsCache();
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
 
   // Don't show on map screen - it has its own sync indicator
   const isOnMapScreen = routeParts.includes('map' as never);
 
-  // Only show when actively syncing and not on map
-  const isLoading = progress.status === 'syncing' && !isOnMapScreen;
+  // Only show when authenticated, actively syncing, and not on map
+  const isLoading = isAuthenticated && progress.status === 'syncing' && !isOnMapScreen;
 
   // Animated values
   const heightAnim = useRef(new Animated.Value(0)).current;

@@ -243,6 +243,14 @@ class ActivitySyncManager {
     this.setProgress({ completed: 0, total: 0, status: 'idle' });
   }
 
+  /** Reset initialization state (call on logout to allow re-initialization on next login) */
+  reset(): void {
+    this.cancelSync();
+    this.isInitialized = false;
+    this.hasCompletedInitialSync = false;
+    this.setProgress({ completed: 0, total: 0, status: 'idle' });
+  }
+
   /** Trigger sync for all history (10 years) */
   syncAllHistory(): void {
     const today = new Date();

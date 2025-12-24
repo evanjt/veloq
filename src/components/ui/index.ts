@@ -25,3 +25,4 @@ export {
   OfflineState,
 } from './EmptyState';
 export { CacheLoadingBanner } from './CacheLoadingBanner';
+export { GarminAttribution, DeviceAttribution, isGarminDevice } from './GarminAttribution';

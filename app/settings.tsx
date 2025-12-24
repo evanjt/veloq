@@ -123,7 +123,7 @@ export default function SettingsScreen() {
   const handleClearCache = () => {
     Alert.alert(
       'Clear & Reload Cache',
-      'This will clear all cached activity data and GPS traces, then start reloading the last year. This may take a few minutes.',
+      'This will clear all cached activity data, GPS traces, and route matching data, then start reloading. This may take a few minutes.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -131,7 +131,9 @@ export default function SettingsScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
+              // Clear both map cache and route cache together
               await clearCache();
+              await clearRouteCache();
               // Immediately start resyncing last year only
               syncOneYear();
             } catch {
@@ -507,7 +509,7 @@ export default function SettingsScreen() {
 
         {/* Cache info text */}
         <Text style={[styles.infoText, isDark && styles.textMuted]}>
-          Caches activity locations and GPS traces for the World Map and route matching. By default, we sync 1 year of activities.
+          Caches activity locations and GPS traces for the World Map and route matching. By default, we sync 3 months of activities.
           Use "Sync All History" to enable deeper route analysis across your history.
         </Text>
 
@@ -539,6 +541,26 @@ export default function SettingsScreen() {
               <Text style={[styles.statLabel, isDark && styles.textMuted]}>Activities</Text>
             </View>
           </View>
+
+          {/* Link to Routes screen */}
+          <TouchableOpacity
+            style={[styles.actionRow, styles.actionRowBorder]}
+            onPress={() => router.push('/routes' as Href)}
+          >
+            <MaterialCommunityIcons
+              name="map-marker-path"
+              size={22}
+              color={colors.primary}
+            />
+            <Text style={[styles.actionText, isDark && styles.textLight]}>
+              View Routes
+            </Text>
+            <MaterialCommunityIcons
+              name="chevron-right"
+              size={20}
+              color={isDark ? '#666' : colors.textSecondary}
+            />
+          </TouchableOpacity>
         </View>
 
         {/* Route Cache Actions */}
@@ -595,6 +617,37 @@ export default function SettingsScreen() {
               color={isDark ? '#666' : colors.textSecondary}
             />
           </TouchableOpacity>
+        </View>
+
+        {/* Data Sources Section */}
+        <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>DATA SOURCES</Text>
+        <View style={[styles.section, isDark && styles.sectionDark]}>
+          <View style={styles.dataSourcesContent}>
+            <Text style={[styles.dataSourcesText, isDark && styles.textMuted]}>
+              Activity and wellness data is synced from intervals.icu, which integrates with various fitness platforms and devices.
+            </Text>
+            <View style={styles.dataSourcesLogos}>
+              <View style={styles.dataSourceItem}>
+                <MaterialCommunityIcons name="watch" size={20} color={isDark ? '#888' : colors.textSecondary} />
+                <Text style={[styles.dataSourceName, isDark && styles.textLight]}>Garmin</Text>
+              </View>
+              <View style={styles.dataSourceItem}>
+                <MaterialCommunityIcons name="run" size={20} color={isDark ? '#888' : colors.textSecondary} />
+                <Text style={[styles.dataSourceName, isDark && styles.textLight]}>Strava</Text>
+              </View>
+              <View style={styles.dataSourceItem}>
+                <MaterialCommunityIcons name="watch" size={20} color={isDark ? '#888' : colors.textSecondary} />
+                <Text style={[styles.dataSourceName, isDark && styles.textLight]}>Polar</Text>
+              </View>
+              <View style={styles.dataSourceItem}>
+                <MaterialCommunityIcons name="watch" size={20} color={isDark ? '#888' : colors.textSecondary} />
+                <Text style={[styles.dataSourceName, isDark && styles.textLight]}>Wahoo</Text>
+              </View>
+            </View>
+            <Text style={[styles.trademarkText, isDark && styles.textMuted]}>
+              Garmin and the Garmin logo are trademarks of Garmin Ltd. or its subsidiaries.
+            </Text>
+          </View>
         </View>
 
         {/* Support Section */}
@@ -887,5 +940,36 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     marginTop: spacing.md,
     fontStyle: 'italic',
+  },
+  dataSourcesContent: {
+    padding: spacing.md,
+  },
+  dataSourcesText: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    lineHeight: 18,
+    marginBottom: spacing.md,
+  },
+  dataSourcesLogos: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.md,
+    marginBottom: spacing.md,
+  },
+  dataSourceItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  dataSourceName: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: colors.textPrimary,
+  },
+  trademarkText: {
+    fontSize: 10,
+    color: colors.textSecondary,
+    opacity: 0.7,
+    lineHeight: 14,
   },
 });

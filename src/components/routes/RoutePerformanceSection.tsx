@@ -19,6 +19,9 @@ import { colors, spacing } from '@/theme';
 import type { ActivityType } from '@/types';
 import type { RoutePerformancePoint } from '@/hooks/routes/useRoutePerformances';
 
+// Color for reverse direction runs
+const REVERSE_COLOR = '#9C27B0'; // Purple
+
 interface RoutePerformanceSectionProps {
   activityId: string;
   activityType: ActivityType;
@@ -79,8 +82,14 @@ export function RoutePerformanceSection({ activityId, activityType }: RoutePerfo
       isCurrent: p.isCurrent,
       isBest: best?.activityId === p.activityId,
       activityId: p.activityId,
+      direction: p.direction,
     }));
   }, [performances, best]);
+
+  // Check if we have any reverse runs for legend
+  const hasReverseRuns = useMemo(() => {
+    return performances.some(p => p.direction === 'reverse');
+  }, [performances]);
 
   // Find indices
   const { currentIndex, bestIndex, minSpeed, maxSpeed } = useMemo(() => {
@@ -101,6 +110,10 @@ export function RoutePerformanceSection({ activityId, activityType }: RoutePerfo
 
   const showPace = isRunningActivity(activityType);
   const activityColor = getActivityColor(activityType);
+
+  // Use a distinct color for "this activity" that won't conflict with other colors
+  // Cyan/teal stands out from gold (best), green (match badges), and activity colors
+  const currentActivityColor = '#00BCD4'; // Cyan
 
   // Format speed/pace for display
   const formatSpeedValue = useCallback((speed: number) => {
@@ -286,51 +299,55 @@ export function RoutePerformanceSection({ activityId, activityType }: RoutePerfo
         <MaterialCommunityIcons name="chevron-right" size={20} color={isDark ? '#555' : '#CCC'} />
       </TouchableOpacity>
 
+      {/* Selected activity info - OUTSIDE gesture area so it's tappable */}
+      {(isActive || isPersisted) && tooltipData && (
+        <TouchableOpacity
+          style={[styles.selectedActivity, isDark && styles.selectedActivityDark]}
+          onPress={handleActivityPress}
+          activeOpacity={0.7}
+        >
+          <View style={styles.selectedActivityLeft}>
+            <View style={[styles.selectedActivityIcon, { backgroundColor: currentActivityColor + '20' }]}>
+              <MaterialCommunityIcons name="lightning-bolt" size={16} color={currentActivityColor} />
+            </View>
+            <View style={styles.selectedActivityInfo}>
+              <Text style={[styles.selectedActivityName, isDark && styles.textLight]} numberOfLines={1}>
+                {tooltipData.name}
+              </Text>
+              <View style={styles.selectedActivityMeta}>
+                <Text style={[styles.selectedActivityDate, isDark && styles.textMuted]}>
+                  {formatShortDate(tooltipData.date)}
+                </Text>
+                <View style={[styles.selectedMatchBadge, { backgroundColor: colors.success + '20' }]}>
+                  <Text style={[styles.selectedMatchText, { color: colors.success }]}>
+                    {Math.round(tooltipData.matchPercentage)}%
+                  </Text>
+                </View>
+                {tooltipData.direction !== 'same' && (
+                  <View style={[styles.directionBadge, tooltipData.direction === 'reverse' && styles.directionReverse]}>
+                    <MaterialCommunityIcons
+                      name={getDirectionIcon(tooltipData.direction) as any}
+                      size={10}
+                      color={tooltipData.direction === 'reverse' ? '#E91E63' : '#F59E0B'}
+                    />
+                  </View>
+                )}
+              </View>
+            </View>
+          </View>
+          <View style={styles.selectedActivityRight}>
+            <Text style={[styles.selectedActivitySpeed, { color: currentActivityColor }]}>
+              {formatSpeedValue(tooltipData.speed)}
+            </Text>
+            <MaterialCommunityIcons name="chevron-right" size={18} color={isDark ? '#555' : '#CCC'} />
+          </View>
+        </TouchableOpacity>
+      )}
+
       {/* Performance Chart */}
       {chartData.length > 1 && (
         <GestureDetector gesture={gesture}>
           <View style={styles.chartContainer}>
-            {/* Tooltip showing selected activity - persists after gesture for tapping */}
-            {(isActive || isPersisted) && tooltipData && (
-              <TouchableOpacity
-                style={[styles.tooltip, isDark && styles.tooltipDark]}
-                onPress={handleActivityPress}
-                activeOpacity={0.7}
-              >
-                <View style={styles.tooltipContent}>
-                  <View style={styles.tooltipHeader}>
-                    <Text style={[styles.tooltipValue, { color: activityColor }]}>
-                      {formatSpeedValue(tooltipData.speed)}
-                    </Text>
-                    {tooltipData.direction !== 'same' && (
-                      <View style={[styles.directionBadge, tooltipData.direction === 'reverse' && styles.directionReverse]}>
-                        <MaterialCommunityIcons
-                          name={getDirectionIcon(tooltipData.direction) as any}
-                          size={10}
-                          color={tooltipData.direction === 'reverse' ? '#E91E63' : '#F59E0B'}
-                        />
-                        <Text style={styles.directionText}>
-                          {getDirectionLabel(tooltipData.direction)}
-                        </Text>
-                      </View>
-                    )}
-                  </View>
-                  <Text style={[styles.tooltipLabel, isDark && styles.textMuted]} numberOfLines={1}>
-                    {tooltipData.name}
-                  </Text>
-                  <View style={styles.tooltipFooter}>
-                    <Text style={[styles.tooltipDate, isDark && styles.textMuted]}>
-                      {formatShortDate(tooltipData.date)}
-                    </Text>
-                    <Text style={[styles.tooltipMatch, { color: colors.success }]}>
-                      {Math.round(tooltipData.matchPercentage)}%
-                    </Text>
-                    <Text style={styles.tooltipArrow}>→</Text>
-                  </View>
-                </View>
-              </TouchableOpacity>
-            )}
-
             <CartesianChart
               data={chartData}
               xKey="x"
@@ -359,18 +376,19 @@ export function RoutePerformanceSection({ activityId, activityType }: RoutePerfo
                       strokeWidth={1.5}
                       curveType="monotoneX"
                     />
-                    {/* Regular points */}
+                    {/* Regular points - colored by direction */}
                     {points.speed.map((point, idx) => {
                       if (point.x == null || point.y == null) return null;
                       const d = chartData[idx];
                       if (d?.isBest || d?.isCurrent) return null; // Skip, render separately
+                      const pointColor = d?.direction === 'reverse' ? REVERSE_COLOR : activityColor;
                       return (
                         <Circle
                           key={`point-${idx}`}
                           cx={point.x}
                           cy={point.y}
                           r={5}
-                          color={activityColor}
+                          color={pointColor}
                         />
                       );
                     })}
@@ -392,7 +410,7 @@ export function RoutePerformanceSection({ activityId, activityType }: RoutePerfo
                         />
                       </>
                     )}
-                    {/* Current activity - highlighted */}
+                    {/* Current activity - highlighted with distinct cyan color */}
                     {currentIndex >= 0 && currentIndex !== bestIndex &&
                      points.speed[currentIndex] &&
                      points.speed[currentIndex].x != null && points.speed[currentIndex].y != null && (
@@ -401,14 +419,14 @@ export function RoutePerformanceSection({ activityId, activityType }: RoutePerfo
                           cx={points.speed[currentIndex].x!}
                           cy={points.speed[currentIndex].y!}
                           r={8}
-                          color={activityColor}
+                          color={currentActivityColor}
                           opacity={0.3}
                         />
                         <Circle
                           cx={points.speed[currentIndex].x!}
                           cy={points.speed[currentIndex].y!}
                           r={5}
-                          color={activityColor}
+                          color={currentActivityColor}
                         />
                       </>
                     )}
@@ -462,7 +480,7 @@ export function RoutePerformanceSection({ activityId, activityType }: RoutePerfo
       {/* Stats Row */}
       <View style={[styles.statsRow, isDark && styles.statsRowDark]}>
         <View style={styles.stat}>
-          <Text style={[styles.statValue, isDark && styles.textLight]}>
+          <Text style={[styles.statValue, { color: currentActivityColor }]}>
             {displayPerformance ? formatSpeedValue(displayPerformance.speed) : '-'}
           </Text>
           <Text style={[styles.statLabel, isDark && styles.textMuted]}>
@@ -492,9 +510,19 @@ export function RoutePerformanceSection({ activityId, activityType }: RoutePerfo
           <Text style={[styles.legendText, isDark && styles.textMuted]}>Best</Text>
         </View>
         <View style={styles.legendItem}>
-          <View style={[styles.legendDot, { backgroundColor: activityColor }]} />
-          <Text style={[styles.legendText, isDark && styles.textMuted]}>This activity</Text>
+          <View style={[styles.legendDot, { backgroundColor: currentActivityColor }]} />
+          <Text style={[styles.legendText, isDark && styles.textMuted]}>This</Text>
         </View>
+        <View style={styles.legendItem}>
+          <View style={[styles.legendDot, { backgroundColor: activityColor }]} />
+          <Text style={[styles.legendText, isDark && styles.textMuted]}>Same</Text>
+        </View>
+        {hasReverseRuns && (
+          <View style={styles.legendItem}>
+            <View style={[styles.legendDot, { backgroundColor: REVERSE_COLOR }]} />
+            <Text style={[styles.legendText, isDark && styles.textMuted]}>Reverse</Text>
+          </View>
+        )}
       </View>
     </View>
   );
@@ -574,61 +602,74 @@ const styles = StyleSheet.create({
   textMuted: {
     color: '#888',
   },
-  chartContainer: {
-    height: CHART_HEIGHT,
-    position: 'relative',
+  selectedActivity: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(0, 188, 212, 0.08)',
+    marginHorizontal: spacing.md,
+    marginBottom: spacing.sm,
+    padding: spacing.sm,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 188, 212, 0.2)',
   },
-  tooltip: {
-    position: 'absolute',
-    top: 4,
-    right: spacing.md,
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+  selectedActivityDark: {
+    backgroundColor: 'rgba(0, 188, 212, 0.12)',
+    borderColor: 'rgba(0, 188, 212, 0.3)',
+  },
+  selectedActivityLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    gap: spacing.sm,
+  },
+  selectedActivityIcon: {
+    width: 32,
+    height: 32,
     borderRadius: 8,
-    zIndex: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  tooltipDark: {
-    backgroundColor: 'rgba(40, 40, 40, 0.95)',
+  selectedActivityInfo: {
+    flex: 1,
   },
-  tooltipContent: {
-    alignItems: 'flex-end',
+  selectedActivityName: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.textPrimary,
   },
-  tooltipHeader: {
+  selectedActivityMeta: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-  },
-  tooltipValue: {
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  tooltipLabel: {
-    fontSize: 11,
-    color: colors.textSecondary,
-    maxWidth: 120,
-  },
-  tooltipFooter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
+    gap: spacing.xs,
     marginTop: 2,
   },
-  tooltipDate: {
-    fontSize: 10,
+  selectedActivityDate: {
+    fontSize: 11,
     color: colors.textSecondary,
   },
-  tooltipMatch: {
+  selectedMatchBadge: {
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: 6,
+  },
+  selectedMatchText: {
     fontSize: 10,
     fontWeight: '600',
   },
-  tooltipArrow: {
-    fontSize: 10,
-    color: colors.primary,
+  selectedActivityRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  selectedActivitySpeed: {
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  chartContainer: {
+    height: CHART_HEIGHT,
+    position: 'relative',
   },
   directionBadge: {
     flexDirection: 'row',

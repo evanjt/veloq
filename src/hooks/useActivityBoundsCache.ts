@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { activitySyncManager, type SyncProgress } from '@/lib/activitySyncManager';
 import { findOldestDate, findNewestDate } from '@/lib/activityBoundsUtils';
+import { useAuthStore } from '@/providers';
 import type { ActivityBoundsCache, ActivityBoundsItem } from '@/types';
 
 interface CacheStats {
@@ -44,13 +45,15 @@ interface UseActivityBoundsCacheReturn {
 /**
  * Hook for accessing the activity bounds cache.
  * Uses the singleton ActivitySyncManager for all sync operations.
+ * Only initializes when user is authenticated.
  */
 export function useActivityBoundsCache(): UseActivityBoundsCacheReturn {
   const [cache, setCache] = useState<ActivityBoundsCache | null>(null);
   const [progress, setProgress] = useState<SyncProgress>({ completed: 0, total: 0, status: 'idle' });
   const [isReady, setIsReady] = useState(false);
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
 
-  // Initialize sync manager and subscribe to updates
+  // Initialize sync manager and subscribe to updates - only when authenticated
   useEffect(() => {
     // Subscribe to progress updates
     const unsubProgress = activitySyncManager.onProgress((p) => {
@@ -66,14 +69,19 @@ export function useActivityBoundsCache(): UseActivityBoundsCacheReturn {
       setCache(c);
     });
 
-    // Initialize the manager (will load cache and start syncing)
-    activitySyncManager.initialize();
+    // Only initialize when authenticated - this triggers the initial 3-month sync
+    if (isAuthenticated) {
+      activitySyncManager.initialize();
+    } else {
+      // Reset on logout so we can re-initialize on next login
+      activitySyncManager.reset();
+    }
 
     return () => {
       unsubProgress();
       unsubCache();
     };
-  }, []);
+  }, [isAuthenticated]);
 
   // Sync date range (debounced by default in the manager)
   const syncDateRange = useCallback((oldest: string, newest: string) => {
