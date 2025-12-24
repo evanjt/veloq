@@ -112,7 +112,8 @@ export default function SettingsScreen() {
 
   // Route matching cache
   const { progress: routeProgress, isProcessing: isRouteProcessing, clearCache: clearRouteCache, cancel: cancelRouteProcessing } = useRouteProcessing();
-  const { groups: routeGroups, processedCount: routeProcessedCount } = useRouteGroups({ minActivities: 1 });
+  // Use minActivities: 2 to show actual routes (groups with 2+ activities), not signatures
+  const { groups: routeGroups, processedCount: routeProcessedCount } = useRouteGroups({ minActivities: 2 });
 
   const profileUrl = athlete?.profile_medium || athlete?.profile;
   const hasValidProfileUrl = profileUrl && typeof profileUrl === 'string' && profileUrl.startsWith('http');

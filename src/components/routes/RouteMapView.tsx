@@ -62,15 +62,12 @@ export function RouteMapView({
     return traces;
   }, [routeGroup.activityIds, signatures]);
 
-  // Use consensus points if available, otherwise fall back to representative signature
-  const consensusPoints = routeGroup.consensusPoints;
-  const hasConsensus = consensusPoints && consensusPoints.length > 1;
-  const displayPoints = hasConsensus ? consensusPoints : (routeGroup.signature?.points || []);
+  // Always use the representative signature (the full route)
+  // Consensus points are only for internal lap detection, not for display
+  const displayPoints = routeGroup.signature?.points || [];
 
-  // Calculate bounds from CONSENSUS route (the common core), not all traces
-  // This focuses the view on what matters most
+  // Calculate bounds from the representative route
   const bounds = useMemo(() => {
-    // Use consensus/display points for primary bounds
     const primaryPoints = displayPoints;
     if (primaryPoints.length === 0) return null;
 
@@ -160,8 +157,39 @@ export function RouteMapView({
   }, [displayPoints]);
 
   const styleUrl = getMapStyle(mapStyle);
-  const startPoint = displayPoints[0];
-  const endPoint = displayPoints[displayPoints.length - 1];
+
+  // Determine which points to use for start/end markers
+  // If an activity is highlighted, show that activity's actual start/end
+  // Otherwise, show the route's start/end
+  const markerPoints = useMemo(() => {
+    // If we have highlighted lap points, use those
+    if (highlightedLapPoints && highlightedLapPoints.length > 1) {
+      return {
+        start: highlightedLapPoints[0],
+        end: highlightedLapPoints[highlightedLapPoints.length - 1],
+      };
+    }
+
+    // If we have a highlighted activity, find its trace and use those points
+    if (highlightedActivityId) {
+      const highlightedTrace = activityTracesWithIds.find(t => t.id === highlightedActivityId);
+      if (highlightedTrace && highlightedTrace.points.length > 1) {
+        return {
+          start: highlightedTrace.points[0],
+          end: highlightedTrace.points[highlightedTrace.points.length - 1],
+        };
+      }
+    }
+
+    // Default to route's start/end
+    return {
+      start: displayPoints[0],
+      end: displayPoints[displayPoints.length - 1],
+    };
+  }, [highlightedLapPoints, highlightedActivityId, activityTracesWithIds, displayPoints]);
+
+  const startPoint = markerPoints.start;
+  const endPoint = markerPoints.end;
 
   if (!bounds || displayPoints.length === 0) {
     return (

@@ -14,6 +14,10 @@ interface UseRouteGroupsOptions {
   minActivities?: number;
   /** Sort order */
   sortBy?: 'count' | 'recent' | 'name';
+  /** Filter routes by date range - only show routes with activities in this range */
+  startDate?: Date;
+  /** Filter routes by date range - only show routes with activities in this range */
+  endDate?: Date;
 }
 
 interface UseRouteGroupsResult {
@@ -28,7 +32,7 @@ interface UseRouteGroupsResult {
 }
 
 export function useRouteGroups(options: UseRouteGroupsOptions = {}): UseRouteGroupsResult {
-  const { type, minActivities = 2, sortBy = 'count' } = options;
+  const { type, minActivities = 2, sortBy = 'count', startDate, endDate } = options;
 
   const cache = useRouteMatchStore((s) => s.cache);
   const isInitialized = useRouteMatchStore((s) => s.isInitialized);
@@ -48,6 +52,18 @@ export function useRouteGroups(options: UseRouteGroupsOptions = {}): UseRouteGro
     // Filter by type
     if (type) {
       filtered = filtered.filter((g) => g.type === type);
+    }
+
+    // Filter by date range - use group's firstDate/lastDate for quick filtering
+    // A group overlaps with the range if: lastDate >= startDate AND firstDate <= endDate
+    if (startDate || endDate) {
+      filtered = filtered.filter((group) => {
+        const groupFirstDate = new Date(group.firstDate);
+        const groupLastDate = new Date(group.lastDate);
+        const afterStart = !startDate || groupLastDate >= startDate;
+        const beforeEnd = !endDate || groupFirstDate <= endDate;
+        return afterStart && beforeEnd;
+      });
     }
 
     // Filter by minimum activities
@@ -73,7 +89,7 @@ export function useRouteGroups(options: UseRouteGroupsOptions = {}): UseRouteGro
       processedCount: cache.processedActivityIds.length,
       isReady: isInitialized,
     };
-  }, [cache, type, minActivities, sortBy, isInitialized]);
+  }, [cache, type, minActivities, sortBy, startDate, endDate, isInitialized]);
 
   return result;
 }
