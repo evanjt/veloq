@@ -35,8 +35,10 @@ interface UseActivityBoundsCacheReturn {
   clearCache: () => Promise<void>;
   /** Cache statistics */
   cacheStats: CacheStats;
-  /** Trigger full historical sync */
+  /** Trigger full historical sync (10 years) */
   syncAllHistory: () => void;
+  /** Trigger sync for last year only */
+  syncOneYear: () => void;
 }
 
 /**
@@ -88,6 +90,11 @@ export function useActivityBoundsCache(): UseActivityBoundsCacheReturn {
     activitySyncManager.syncAllHistory();
   }, []);
 
+  // Sync last year only
+  const syncOneYear = useCallback(() => {
+    activitySyncManager.syncOneYear();
+  }, []);
+
   // Convert cache to array for rendering
   const activities = useMemo(() => {
     return cache ? Object.values(cache.activities) : [];
@@ -114,5 +121,6 @@ export function useActivityBoundsCache(): UseActivityBoundsCacheReturn {
     clearCache,
     cacheStats,
     syncAllHistory,
+    syncOneYear,
   };
 }
