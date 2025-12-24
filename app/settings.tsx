@@ -14,7 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, Href } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { SegmentedButtons } from 'react-native-paper';
-import { useAthlete, useActivityBoundsCache } from '@/hooks';
+import { useAthlete, useActivityBoundsCache, useRouteProcessing, useRouteGroups } from '@/hooks';
 import { getAthleteId } from '@/api';
 import {
   getThemePreference,
@@ -107,7 +107,12 @@ export default function SettingsScreen() {
     cacheStats,
     clearCache,
     syncAllHistory,
+    syncOneYear,
   } = useActivityBoundsCache();
+
+  // Route matching cache
+  const { progress: routeProgress, isProcessing: isRouteProcessing, clearCache: clearRouteCache, cancel: cancelRouteProcessing } = useRouteProcessing();
+  const { groups: routeGroups, processedCount: routeProcessedCount } = useRouteGroups({ minActivities: 1 });
 
   const profileUrl = athlete?.profile_medium || athlete?.profile;
   const hasValidProfileUrl = profileUrl && typeof profileUrl === 'string' && profileUrl.startsWith('http');
@@ -117,19 +122,50 @@ export default function SettingsScreen() {
 
   const handleClearCache = () => {
     Alert.alert(
-      'Clear Cache',
-      'This will remove all cached activity bounds. They will be re-synced when you open the map.',
+      'Clear & Reload Cache',
+      'This will clear all cached activity data and GPS traces, then start reloading the last year. This may take a few minutes.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Clear',
+          text: 'Clear & Reload',
           style: 'destructive',
           onPress: async () => {
             try {
               await clearCache();
-              Alert.alert('Cache Cleared', 'Activity bounds cache has been cleared.');
+              // Immediately start resyncing last year only
+              syncOneYear();
             } catch {
               Alert.alert('Error', 'Failed to clear cache. Please try again.');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleClearRouteCache = () => {
+    Alert.alert(
+      'Clear & Reload Route Cache',
+      'This will clear all route matching data and re-analyze GPS traces. Make sure activities are synced first (visit World Map).',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Clear & Reload',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await clearRouteCache();
+              // Check if we have bounds data to work with
+              if (activities.length > 0) {
+                Alert.alert('Route Cache Cleared', 'Routes will be re-analyzed when you visit the Routes screen.');
+              } else {
+                Alert.alert(
+                  'Route Cache Cleared',
+                  'No activities synced yet. Visit the World Map first to sync activity data, then return to Routes.'
+                );
+              }
+            } catch {
+              Alert.alert('Error', 'Failed to clear route cache. Please try again.');
             }
           },
         },
@@ -145,7 +181,7 @@ export default function SettingsScreen() {
 
     Alert.alert(
       'Sync All History',
-      'This will sync up to 10 years of activity bounds in the background. This may take a while.',
+      'This will sync up to 10 years of activity data in the background. This enables deeper route analysis and comparison.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -460,7 +496,7 @@ export default function SettingsScreen() {
 
           <TouchableOpacity style={styles.actionRow} onPress={handleClearCache}>
             <MaterialCommunityIcons name="delete-outline" size={22} color={colors.error} />
-            <Text style={[styles.actionText, styles.actionTextDanger]}>Clear Cache</Text>
+            <Text style={[styles.actionText, styles.actionTextDanger]}>Clear & Reload Cache</Text>
             <MaterialCommunityIcons
               name="chevron-right"
               size={20}
@@ -471,8 +507,80 @@ export default function SettingsScreen() {
 
         {/* Cache info text */}
         <Text style={[styles.infoText, isDark && styles.textMuted]}>
-          The map cache stores activity bounds for quick access when viewing the regional map.
-          Syncing all history will fetch bounds for activities up to 10 years in the background.
+          Caches activity locations and GPS traces for the World Map and route matching. By default, we sync 1 year of activities.
+          Use "Sync All History" to enable deeper route analysis across your history.
+        </Text>
+
+        {/* Route Cache Section */}
+        <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>ROUTE CACHE</Text>
+        <View style={[styles.section, isDark && styles.sectionDark]}>
+          {/* Processing Status */}
+          {isRouteProcessing && (
+            <View style={styles.syncBanner}>
+              <MaterialCommunityIcons name="map-marker-path" size={18} color="#FFF" />
+              <Text style={styles.syncBannerText}>
+                {routeProgress.message || `Analysing ${routeProgress.current}/${routeProgress.total}`}
+              </Text>
+            </View>
+          )}
+
+          <View style={styles.statRow}>
+            <View style={styles.statItem}>
+              <Text style={[styles.statValue, isDark && styles.textLight]}>
+                {routeGroups.length}
+              </Text>
+              <Text style={[styles.statLabel, isDark && styles.textMuted]}>Routes</Text>
+            </View>
+            <View style={styles.statDivider} />
+            <View style={styles.statItem}>
+              <Text style={[styles.statValue, isDark && styles.textLight]}>
+                {routeProcessedCount}
+              </Text>
+              <Text style={[styles.statLabel, isDark && styles.textMuted]}>Activities</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Route Cache Actions */}
+        <View style={[styles.section, styles.sectionSpaced, isDark && styles.sectionDark]}>
+          {isRouteProcessing && (
+            <>
+              <TouchableOpacity
+                style={styles.actionRow}
+                onPress={cancelRouteProcessing}
+              >
+                <MaterialCommunityIcons
+                  name="pause-circle-outline"
+                  size={22}
+                  color={colors.warning}
+                />
+                <Text style={[styles.actionText, isDark && styles.textLight]}>
+                  Pause Processing
+                </Text>
+                <MaterialCommunityIcons
+                  name="chevron-right"
+                  size={20}
+                  color={isDark ? '#666' : colors.textSecondary}
+                />
+              </TouchableOpacity>
+              <View style={[styles.divider, isDark && styles.dividerDark]} />
+            </>
+          )}
+
+          <TouchableOpacity style={styles.actionRow} onPress={handleClearRouteCache}>
+            <MaterialCommunityIcons name="delete-outline" size={22} color={colors.error} />
+            <Text style={[styles.actionText, styles.actionTextDanger]}>Clear & Reload Routes</Text>
+            <MaterialCommunityIcons
+              name="chevron-right"
+              size={20}
+              color={isDark ? '#666' : colors.textSecondary}
+            />
+          </TouchableOpacity>
+        </View>
+
+        <Text style={[styles.infoText, isDark && styles.textMuted]}>
+          Routes are automatically detected by analysing GPS tracks from your activities.
+          Activities on similar paths are grouped together.
         </Text>
 
         {/* Account Section */}

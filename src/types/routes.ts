@@ -111,14 +111,74 @@ export interface RouteMatchCache {
   matches: Record<string, RouteMatch>;
   /** Activity IDs that have been processed */
   processedActivityIds: string[];
+  /** Reverse index: activity ID → route group ID (for O(1) lookup) */
+  activityToRouteId: Record<string, string>;
+}
+
+/** Status of an individual activity being processed */
+export interface ProcessedActivityStatus {
+  id: string;
+  name: string;
+  type: string;
+  status: 'pending' | 'checking' | 'matched' | 'no-match' | 'error';
+  matchedWith?: string; // Name of activity it matched with
+}
+
+/** A match discovered during processing (pair of activities) */
+export interface DiscoveredMatchInfo {
+  id: string;
+  activity1: { id: string; name: string };
+  activity2: { id: string; name: string };
+  type: string;
+  matchPercentage: number;
+  /** Simplified preview points (normalized 0-1) */
+  previewPoints?: { x: number; y: number }[];
+  distance?: number;
+  /** Whether this is the most recent match */
+  isNew?: boolean;
+}
+
+/** A route discovered during processing (group of matching activities) */
+export interface DiscoveredRouteInfo {
+  id: string;
+  /** Name from the first/primary activity */
+  name: string;
+  /** Activity type (Ride, Run, etc.) */
+  type: string;
+  /** IDs of all activities in this route */
+  activityIds: string[];
+  /** Names of activities for display */
+  activityNames: string[];
+  /** Number of activities grouped */
+  activityCount: number;
+  /** Average match percentage across all pairs */
+  avgMatchPercentage: number;
+  /** Route preview points */
+  previewPoints?: { x: number; y: number }[];
+  /** Route distance in meters */
+  distance?: number;
 }
 
 /** Progress state for route processing */
 export interface RouteProcessingProgress {
-  status: 'idle' | 'fetching' | 'processing' | 'matching' | 'complete' | 'error';
+  status: 'idle' | 'filtering' | 'fetching' | 'processing' | 'matching' | 'complete' | 'error';
   current: number;
   total: number;
   message?: string;
+  /** For filtering phase: total activities being considered */
+  totalActivities?: number;
+  /** For filtering phase: number of candidates found */
+  candidatesFound?: number;
+  /** Individual activity statuses for live UI */
+  processedActivities?: ProcessedActivityStatus[];
+  /** Running count of matches found */
+  matchesFound?: number;
+  /** Routes discovered so far (grouped activities) */
+  discoveredRoutes?: DiscoveredRouteInfo[];
+  /** Currently processing activity name */
+  currentActivity?: string;
+  /** Number of cached signatures we're matching against */
+  cachedSignatureCount?: number;
 }
 
 /** Configuration for route matching algorithm */

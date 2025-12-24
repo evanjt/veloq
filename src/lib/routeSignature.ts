@@ -121,11 +121,22 @@ export function simplifyRoute(
 
 /**
  * Calculate total route distance in meters.
+ * Filters out outlier gaps (> 10km between consecutive points) that likely indicate GPS errors.
  */
 export function calculateRouteDistance(points: RoutePoint[]): number {
   let total = 0;
+  const MAX_STEP_DISTANCE = 10000; // 10km - any step longer than this is likely GPS error
+
   for (let i = 1; i < points.length; i++) {
-    total += haversineDistance(points[i - 1], points[i]);
+    const stepDistance = haversineDistance(points[i - 1], points[i]);
+
+    // Skip outlier gaps (GPS errors, gaps, etc.)
+    if (stepDistance > MAX_STEP_DISTANCE) {
+      console.warn(`[RouteSignature] Skipping outlier gap ${i-1}->${i}: ${(stepDistance/1000).toFixed(1)}km`);
+      continue;
+    }
+
+    total += stepDistance;
   }
   return total;
 }
@@ -189,8 +200,30 @@ export function generateRouteSignature(
 ): RouteSignature {
   const cfg = { ...DEFAULT_ROUTE_MATCH_CONFIG, ...config };
 
-  // Convert to RoutePoint format
-  const points: RoutePoint[] = latlngs.map(([lat, lng]) => ({ lat, lng }));
+  // Convert to RoutePoint format, filtering out invalid points
+  const originalCount = latlngs.length;
+  const points: RoutePoint[] = latlngs
+    .filter(([lat, lng]) => {
+      // Validate that values are reasonable lat/lng
+      const validLat = typeof lat === 'number' && !isNaN(lat) && lat >= -90 && lat <= 90;
+      const validLng = typeof lng === 'number' && !isNaN(lng) && lng >= -180 && lng <= 180;
+      return validLat && validLng;
+    })
+    .map(([lat, lng]) => ({ lat, lng }));
+
+  // Log if any points were filtered out
+  if (points.length < originalCount) {
+    console.warn(`[RouteSignature] Filtered out ${originalCount - points.length} invalid points (${points.length}/${originalCount} valid)`);
+    // Log first invalid point for debugging
+    const firstInvalid = latlngs.find(([lat, lng]) => {
+      const validLat = typeof lat === 'number' && !isNaN(lat) && lat >= -90 && lat <= 90;
+      const validLng = typeof lng === 'number' && !isNaN(lng) && lng >= -180 && lng <= 180;
+      return !(validLat && validLng);
+    });
+    if (firstInvalid) {
+      console.warn(`  First invalid point: [${firstInvalid[0]}, ${firstInvalid[1]}]`);
+    }
+  }
 
   if (points.length === 0) {
     return {
@@ -205,11 +238,25 @@ export function generateRouteSignature(
   }
 
   // Simplify the route
-  const simplifiedPoints = simplifyRoute(points, cfg.targetPoints, cfg.simplificationTolerance);
+  let simplifiedPoints = simplifyRoute(points, cfg.targetPoints, cfg.simplificationTolerance);
+
+  // Safety: ensure we have at least 3 points for a meaningful shape
+  // If simplification reduced too aggressively, use uniform sampling instead
+  if (simplifiedPoints.length < 3 && points.length >= 3) {
+    console.warn(`[RouteSignature] Simplification too aggressive (${simplifiedPoints.length} points), using uniform sampling`);
+    const step = Math.max(1, Math.floor(points.length / Math.min(cfg.targetPoints, points.length)));
+    simplifiedPoints = points.filter((_, i) => i % step === 0 || i === points.length - 1);
+    console.log(`[RouteSignature] Uniform sampling: ${simplifiedPoints.length} points`);
+  }
 
   // Calculate metrics
   const distance = calculateRouteDistance(points); // Use original points for accurate distance
   const bounds = calculateBounds(simplifiedPoints);
+
+  // Log suspicious distances (> 500km for a single activity is unusual)
+  if (distance > 500000) {
+    console.warn(`[RouteSignature] Activity ${activityId}: Unusually large distance ${(distance/1000).toFixed(1)}km from ${points.length} points`);
+  }
 
   // Generate region hashes for start and end
   const startRegionHash = generateRegionHash(simplifiedPoints[0], cfg.regionGridSize);

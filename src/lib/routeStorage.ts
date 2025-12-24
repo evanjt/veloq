@@ -70,6 +70,7 @@ export function createEmptyCache(): RouteMatchCache {
     groups: [],
     matches: {},
     processedActivityIds: [],
+    activityToRouteId: {},
   };
 }
 
@@ -174,6 +175,7 @@ export function updateRouteGroups(
 ): RouteMatchCache {
   const newGroups: RouteGroup[] = [];
   const newMatches: Record<string, RouteMatch> = { ...cache.matches };
+  const newActivityToRouteId: Record<string, string> = {};
 
   for (const [, activityIds] of groupedIds) {
     if (activityIds.length === 0) continue;
@@ -182,9 +184,12 @@ export function updateRouteGroups(
     const group = createRouteGroup(activityIds, cache.signatures, activityMetadata);
     newGroups.push(group);
 
-    // Create matches for all activities in group
+    // Create matches and reverse index for all activities in group
     for (const activityId of activityIds) {
-      // Skip the representative (first) activity
+      // Add to reverse index (all activities, including representative)
+      newActivityToRouteId[activityId] = group.id;
+
+      // Skip the representative (first) activity for matches
       if (activityId === activityIds[0]) continue;
 
       newMatches[activityId] = {
@@ -201,6 +206,7 @@ export function updateRouteGroups(
     ...cache,
     groups: newGroups,
     matches: newMatches,
+    activityToRouteId: newActivityToRouteId,
     lastUpdated: new Date().toISOString(),
   };
 }

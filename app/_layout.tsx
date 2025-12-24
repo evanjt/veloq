@@ -6,8 +6,9 @@ import { useColorScheme, View, ActivityIndicator } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Logger } from '@maplibre/maplibre-react-native';
 import { configureReanimatedLogger, ReanimatedLogLevel } from 'react-native-reanimated';
-import { QueryProvider, MapPreferencesProvider, initializeTheme, useAuthStore, initializeSportPreference, initializeHRZones } from '@/providers';
+import { QueryProvider, MapPreferencesProvider, initializeTheme, useAuthStore, initializeSportPreference, initializeHRZones, initializeRouteMatching } from '@/providers';
 import { lightTheme, darkTheme, colors } from '@/theme';
+import { CacheLoadingBanner } from '@/components/ui';
 
 // Suppress MapLibre info/warning logs about canceled requests
 // These occur when switching between map views but don't affect functionality
@@ -21,6 +22,14 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   const routeParts = useSegments();
   const router = useRouter();
   const { isAuthenticated, isLoading } = useAuthStore();
+
+  // Initialize route matching when authenticated
+  // This subscribes to bounds sync completion to auto-trigger route processing
+  useEffect(() => {
+    if (isAuthenticated) {
+      initializeRouteMatching();
+    }
+  }, [isAuthenticated]);
 
   useEffect(() => {
     if (isLoading) return;
@@ -44,7 +53,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
     );
   }
 
-  return <>{children}</>;
+  return <View style={{ flex: 1 }}>{children}</View>;
 }
 
 export default function RootLayout() {
@@ -74,6 +83,7 @@ export default function RootLayout() {
           <PaperProvider theme={theme}>
             <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
             <AuthGate>
+              <CacheLoadingBanner />
               <Stack
                 screenOptions={{
                   headerShown: false,

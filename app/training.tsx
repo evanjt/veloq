@@ -1,10 +1,11 @@
 import React, { useMemo } from 'react';
-import { View, ScrollView, StyleSheet, useColorScheme } from 'react-native';
+import { View, ScrollView, StyleSheet, useColorScheme, TouchableOpacity } from 'react-native';
 import { Text, IconButton, ActivityIndicator } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { router, Href } from 'expo-router';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { WeeklySummary, ActivityHeatmap, SeasonComparison, EventPlanner, WorkoutLibrary } from '@/components/stats';
-import { useActivities } from '@/hooks';
+import { useActivities, useRouteGroups, useRouteProcessing } from '@/hooks';
 import { colors, spacing, layout } from '@/theme';
 
 export default function TrainingScreen() {
@@ -18,6 +19,10 @@ export default function TrainingScreen() {
     newest: `${currentYear}-12-31`,
     includeStats: true,
   });
+
+  // Get route groups count and processing status
+  const { groups: routeGroups, processedCount } = useRouteGroups({ minActivities: 2 });
+  const { progress: routeProgress, isProcessing: isRouteProcessing } = useRouteProcessing();
 
   // Split activities by year for season comparison
   const { currentYearActivities, previousYearActivities } = useMemo(() => {
@@ -65,6 +70,63 @@ export default function TrainingScreen() {
             <WeeklySummary activities={activities} />
           )}
         </View>
+
+        {/* Routes Section */}
+        <TouchableOpacity
+          style={[styles.card, isDark && styles.cardDark]}
+          onPress={() => router.push('/routes' as Href)}
+          activeOpacity={0.7}
+        >
+          <View style={styles.routesSectionRow}>
+            <View style={[styles.routesIcon, isDark && styles.routesIconDark]}>
+              <MaterialCommunityIcons
+                name="map-marker-path"
+                size={22}
+                color={colors.primary}
+              />
+            </View>
+            <View style={styles.routesSectionInfo}>
+              <Text style={[styles.routesSectionTitle, isDark && styles.textLight]}>
+                Routes
+              </Text>
+              <Text style={[styles.routesSectionSubtitle, isDark && styles.textMuted]}>
+                {isRouteProcessing
+                  ? routeProgress.status === 'filtering'
+                    ? routeProgress.candidatesFound !== undefined
+                      ? `Found ${routeProgress.candidatesFound} potential matches`
+                      : `Checking ${routeProgress.total} activities...`
+                    : routeProgress.status === 'matching'
+                      ? 'Grouping routes...'
+                      : `Fetching GPS: ${routeProgress.current}/${routeProgress.total}`
+                  : routeGroups.length > 0
+                    ? `${routeGroups.length} routes from ${processedCount} activities`
+                    : 'Discover your common routes'}
+              </Text>
+            </View>
+            {isRouteProcessing ? (
+              <View style={styles.routesProgressContainer}>
+                <ActivityIndicator size="small" color={colors.primary} />
+              </View>
+            ) : (
+              <MaterialCommunityIcons
+                name="chevron-right"
+                size={22}
+                color={isDark ? '#666' : colors.textSecondary}
+              />
+            )}
+          </View>
+          {/* Progress bar when processing */}
+          {isRouteProcessing && routeProgress.total > 0 && (
+            <View style={styles.routesProgressBar}>
+              <View
+                style={[
+                  styles.routesProgressFill,
+                  { width: `${(routeProgress.current / routeProgress.total) * 100}%` },
+                ]}
+              />
+            </View>
+          )}
+        </TouchableOpacity>
 
         {/* Activity Heatmap - using real activities data */}
         <View style={[styles.card, isDark && styles.cardDark]}>
@@ -147,5 +209,55 @@ const styles = StyleSheet.create({
     padding: spacing.xl,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  routesSectionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  routesIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: colors.primary + '15',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  routesIconDark: {
+    backgroundColor: colors.primary + '25',
+  },
+  routesSectionInfo: {
+    flex: 1,
+  },
+  routesSectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.textPrimary,
+  },
+  routesSectionSubtitle: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+  textMuted: {
+    color: '#888',
+  },
+  routesProgressContainer: {
+    width: 24,
+    height: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  routesProgressBar: {
+    height: 3,
+    backgroundColor: 'rgba(0, 0, 0, 0.08)',
+    borderRadius: 1.5,
+    marginTop: spacing.md,
+    overflow: 'hidden',
+  },
+  routesProgressFill: {
+    height: '100%',
+    backgroundColor: colors.primary,
+    borderRadius: 1.5,
   },
 });

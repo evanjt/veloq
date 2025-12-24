@@ -24,3 +24,4 @@ export {
   NoDataState,
   OfflineState,
 } from './EmptyState';
+export { CacheLoadingBanner } from './CacheLoadingBanner';
