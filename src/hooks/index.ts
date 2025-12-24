@@ -44,3 +44,7 @@ export { useEFTPHistory, getLatestFTP, getLatestEFTP } from './useEFTPHistory';
 export { useActivityBoundsCache } from './useActivityBoundsCache';
 export { useTheme, type Theme, type ThemeColors } from './useTheme';
 export { useMetricSystem } from './useMetricSystem';
+export { useRouteGroups } from './routes/useRouteGroups';
+export { useRouteMatch } from './routes/useRouteMatch';
+export { useRoutePerformances } from './routes/useRoutePerformances';
+export { useRouteProcessing } from './routes/useRouteProcessing';

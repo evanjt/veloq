@@ -5,6 +5,7 @@
  * - Checkpoint persistence (resume after app close)
  * - Debounced timeline syncs
  * - Progress events for UI
+ * - Spatial index maintenance for O(log n) queries
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -17,6 +18,7 @@ import {
   mergeCacheEntries,
   sortActivitiesByDateDesc,
 } from '@/lib/activityBoundsUtils';
+import { activitySpatialIndex } from '@/lib/spatialIndex';
 import type { Activity, ActivityBoundsCache, ActivityBoundsItem } from '@/types';
 
 // Storage keys
@@ -46,6 +48,7 @@ interface SyncCheckpoint {
 
 type ProgressListener = (progress: SyncProgress) => void;
 type CacheListener = (cache: ActivityBoundsCache | null) => void;
+type CompletionListener = () => void;
 
 class ActivitySyncManager {
   private static instance: ActivitySyncManager;
@@ -54,6 +57,7 @@ class ActivitySyncManager {
   private oldestActivityDate: string | null = null;
   private progress: SyncProgress = { completed: 0, total: 0, status: 'idle' };
   private isInitialized = false;
+  private hasCompletedInitialSync = false;
 
   // Sync state
   private currentSyncId = 0;
@@ -63,6 +67,7 @@ class ActivitySyncManager {
   // Listeners
   private progressListeners: Set<ProgressListener> = new Set();
   private cacheListeners: Set<CacheListener> = new Set();
+  private completionListeners: Set<CompletionListener> = new Set();
 
   private constructor() {}
 
@@ -101,8 +106,15 @@ class ActivitySyncManager {
       // Load cache
       const cached = await AsyncStorage.getItem(CACHE_KEY);
       if (cached) {
-        this.cache = JSON.parse(cached);
+        const parsedCache: ActivityBoundsCache = JSON.parse(cached);
+        this.cache = parsedCache;
         this.notifyCacheListeners();
+
+        // Build spatial index from cached activities
+        const activities = Object.values(parsedCache.activities);
+        if (activities.length > 0) {
+          activitySpatialIndex.buildFromActivities(activities);
+        }
       }
 
       this.isInitialized = true;
@@ -163,6 +175,28 @@ class ActivitySyncManager {
     return () => this.cacheListeners.delete(listener);
   }
 
+  /** Subscribe to initial sync completion (for triggering route processing) */
+  onInitialSyncComplete(listener: CompletionListener): () => void {
+    this.completionListeners.add(listener);
+    // If already completed, call immediately
+    if (this.hasCompletedInitialSync) {
+      listener();
+    }
+    return () => this.completionListeners.delete(listener);
+  }
+
+  /** Check if initial sync has completed */
+  hasInitialSyncCompleted(): boolean {
+    return this.hasCompletedInitialSync;
+  }
+
+  private notifyCompletionListeners(): void {
+    this.hasCompletedInitialSync = true;
+    for (const listener of this.completionListeners) {
+      listener();
+    }
+  }
+
   /**
    * Sync a date range. Debounced by default for timeline scrubbing.
    * @param oldest - Start date (YYYY-MM-DD)
@@ -198,22 +232,31 @@ class ActivitySyncManager {
     this.setProgress({ completed: 0, total: 0, status: 'idle' });
   }
 
-  /** Clear all cached data */
+  /** Clear all cached data (preserves oldest activity date for timeline) */
   async clearCache(): Promise<void> {
     this.cancelSync();
-    await AsyncStorage.multiRemove([CACHE_KEY, OLDEST_DATE_KEY, SYNC_CHECKPOINT_KEY]);
+    // Don't clear OLDEST_DATE_KEY - that's API metadata for timeline extent, not cache
+    await AsyncStorage.multiRemove([CACHE_KEY, SYNC_CHECKPOINT_KEY]);
     this.cache = null;
-    this.oldestActivityDate = null;
+    activitySpatialIndex.clear();
     this.notifyCacheListeners();
     this.setProgress({ completed: 0, total: 0, status: 'idle' });
   }
 
-  /** Trigger sync for all history */
+  /** Trigger sync for all history (10 years) */
   syncAllHistory(): void {
     const today = new Date();
     const yearsAgo = new Date(today);
     yearsAgo.setFullYear(yearsAgo.getFullYear() - SYNC.MAX_HISTORY_YEARS);
     this.syncDateRange(formatLocalDate(yearsAgo), formatLocalDate(today), false);
+  }
+
+  /** Trigger sync for the last year only */
+  syncOneYear(): void {
+    const today = new Date();
+    const oneYearAgo = new Date(today);
+    oneYearAgo.setDate(oneYearAgo.getDate() - SYNC.INITIAL_DAYS);
+    this.syncDateRange(formatLocalDate(oneYearAgo), formatLocalDate(today), false);
   }
 
   // --- Private methods ---
@@ -287,6 +330,8 @@ class ActivitySyncManager {
           status: 'complete',
           message: 'Sync complete',
         });
+        // Notify listeners that initial sync is complete (triggers route processing)
+        this.notifyCompletionListeners();
       }
     } catch (error) {
       const isAbortError = error instanceof Error && error.name === 'AbortError';
@@ -372,6 +417,12 @@ class ActivitySyncManager {
     await AsyncStorage.setItem(CACHE_KEY, JSON.stringify(updatedCache));
     this.cache = updatedCache;
     this.notifyCacheListeners();
+
+    // Update spatial index incrementally with new entries
+    const newActivities = Object.values(entries);
+    if (newActivities.length > 0) {
+      activitySpatialIndex.bulkInsert(newActivities);
+    }
   }
 
   private async saveCheckpoint(checkpoint: SyncCheckpoint): Promise<void> {

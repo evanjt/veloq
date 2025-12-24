@@ -27,3 +27,8 @@ export {
   type HRZone,
   type HRZonesSettings,
 } from './HRZonesStore';
+export {
+  useRouteMatchStore,
+  initializeRouteMatching,
+  getRouteMatchCache,
+} from './RouteMatchStore';

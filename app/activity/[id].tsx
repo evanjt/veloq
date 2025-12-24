@@ -7,7 +7,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ScreenOrientation from 'expo-screen-orientation';
 import { useActivity, useActivityStreams, useWellnessForDate } from '@/hooks';
-import { ActivityMapView, CombinedPlot, ChartTypeSelector, HRZonesChart, InsightfulStats } from '@/components';
+import { ActivityMapView, CombinedPlot, ChartTypeSelector, HRZonesChart, InsightfulStats, RoutePerformanceSection } from '@/components';
 import {
   formatDistance,
   formatDuration,
@@ -337,6 +337,9 @@ export default function ActivityDetailScreen() {
             )}
           </View>
         )}
+
+        {/* Route Performance Section - show if activity matches a route */}
+        <RoutePerformanceSection activityId={activity.id} activityType={activity.type} />
 
         {/* Insightful Stats - Interactive stats with context and explanations */}
         <InsightfulStats activity={activity} wellness={activityWellness} />

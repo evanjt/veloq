@@ -132,7 +132,7 @@ function compareRoutes(
   // Walk sig2 and find matches on sig1 (bidirectional check)
   const result2 = walkAndMatch(sig2.points, sig1.points, distanceThreshold);
 
-  // Use the better match percentage from either direction
+  // Calculate match percentages from each perspective
   const matchPct1 = result1.totalPoints > 0
     ? (result1.matchedCount / result1.totalPoints) * 100
     : 0;
@@ -140,8 +140,10 @@ function compareRoutes(
     ? (result2.matchedCount / result2.totalPoints) * 100
     : 0;
 
-  // Take the better match (covers case where one route is subset of other)
-  const matchPercentage = Math.max(matchPct1, matchPct2);
+  // Use MINIMUM to ensure both routes mostly overlap
+  // This prevents a small route from matching 100% when it's only a fraction of the other route
+  // For truly matching routes, both should be high
+  const matchPercentage = Math.min(matchPct1, matchPct2);
 
   // Calculate overlap position (as percentage along the route)
   let overlapStart = 0;

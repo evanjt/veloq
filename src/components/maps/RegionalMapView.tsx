@@ -15,7 +15,7 @@ import { useRouter } from 'expo-router';
 import * as Location from 'expo-location';
 import { colors, darkColors } from '@/theme';
 import { intervalsApi } from '@/api';
-import { formatDistance, formatDuration, convertLatLngTuples, normalizeBounds, getBoundsCenter } from '@/lib';
+import { formatDistance, formatDuration, convertLatLngTuples, normalizeBounds, getBoundsCenter, activitySpatialIndex, mapBoundsToViewport } from '@/lib';
 import { getActivityTypeConfig } from './ActivityTypeFilter';
 import { Map3DWebView, type Map3DWebViewRef } from './Map3DWebView';
 import { CompassArrow } from '@/components/ui';
@@ -28,7 +28,8 @@ import {
   MAP_ATTRIBUTIONS,
   TERRAIN_ATTRIBUTION,
 } from './mapStyles';
-import type { ActivityBoundsItem, ActivityMapData } from '@/types';
+import type { ActivityBoundsItem, ActivityMapData, RouteSignature } from '@/types';
+import { useRouteMatchStore } from '@/providers';
 
 interface RegionalMapViewProps {
   /** Activities to display */
@@ -52,7 +53,15 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
   const [selected, setSelected] = useState<SelectedActivity | null>(null);
   const [is3DMode, setIs3DMode] = useState(false);
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
+  const [visibleActivityIds, setVisibleActivityIds] = useState<Set<string> | null>(null);
+  const [currentZoom, setCurrentZoom] = useState(10);
   const cameraRef = useRef<React.ElementRef<typeof Camera>>(null);
+
+  // Access route signatures for GPS trace rendering
+  const routeSignatures = useRouteMatchStore((s) => s.cache?.signatures ?? {});
+
+  // Show GPS traces when zoomed in past this level
+  const TRACE_ZOOM_THRESHOLD = 11;
   const mapRef = useRef<React.ElementRef<typeof MapView>>(null);
   const map3DRef = useRef<Map3DWebViewRef>(null);
   const bearingAnim = useRef(new Animated.Value(0)).current;
@@ -204,11 +213,24 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
     }
   }, [bearingAnim]);
 
-  // Handle region change end - track zoom level for any features that need it
+  // Handle region change end - track zoom level and update visible activities
   const handleRegionDidChange = useCallback((feature: GeoJSON.Feature) => {
-    const properties = feature.properties as { zoomLevel?: number } | undefined;
+    const properties = feature.properties as {
+      zoomLevel?: number;
+      visibleBounds?: [[number, number], [number, number]]; // [[sw_lng, sw_lat], [ne_lng, ne_lat]]
+    } | undefined;
+
     if (properties?.zoomLevel !== undefined) {
       currentZoomLevel.current = properties.zoomLevel;
+      setCurrentZoom(properties.zoomLevel);
+    }
+
+    // Query spatial index for visible activities if we have bounds
+    if (properties?.visibleBounds && activitySpatialIndex.ready) {
+      const [[swLng, swLat], [neLng, neLat]] = properties.visibleBounds;
+      const viewport = mapBoundsToViewport([swLng, swLat], [neLng, neLat]);
+      const visibleIds = activitySpatialIndex.queryViewport(viewport);
+      setVisibleActivityIds(new Set(visibleIds));
     }
   }, []);
 
@@ -250,6 +272,17 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
     }
   }, []);
 
+  // Filter activities to only those visible in viewport (for performance)
+  // Falls back to all activities if viewport not yet determined
+  const visibleActivities = useMemo(() => {
+    if (!visibleActivityIds) {
+      // No viewport info yet - show all activities
+      return activities;
+    }
+    // Filter to only visible activities
+    return activities.filter((a) => visibleActivityIds.has(a.id));
+  }, [activities, visibleActivityIds]);
+
   // Calculate marker size based on distance
   const getMarkerSize = (distance: number): number => {
     if (distance < 5000) return 20; // < 5km
@@ -265,14 +298,56 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
   };
 
   // ===========================================
+  // GPS TRACE RENDERING - Show simplified routes when zoomed in
+  // ===========================================
+  // Uses route signatures (simplified ~100 point tracks) for performance
+  // Only renders when zoom > TRACE_ZOOM_THRESHOLD
+
+  const showTraces = currentZoom >= TRACE_ZOOM_THRESHOLD;
+
+  // Build GeoJSON for GPS traces from route signatures
+  const tracesGeoJSON = useMemo(() => {
+    if (!showTraces) return null;
+
+    const features = visibleActivities
+      .filter((activity) => routeSignatures[activity.id]) // Only activities with signatures
+      .map((activity) => {
+        const signature = routeSignatures[activity.id];
+        const config = getActivityTypeConfig(activity.type);
+
+        // Convert signature points to GeoJSON coordinates [lng, lat]
+        const coordinates = signature.points.map((pt) => [pt.lng, pt.lat]);
+
+        return {
+          type: 'Feature' as const,
+          id: `trace-${activity.id}`,
+          properties: {
+            id: activity.id,
+            color: config.color,
+            isSelected: selected?.activity.id === activity.id,
+          },
+          geometry: {
+            type: 'LineString' as const,
+            coordinates,
+          },
+        };
+      });
+
+    return {
+      type: 'FeatureCollection' as const,
+      features,
+    };
+  }, [showTraces, visibleActivities, routeSignatures, selected?.activity.id]);
+
+  // ===========================================
   // NATIVE MARKER RENDERING - Uses CircleLayer instead of React components
   // ===========================================
   // This completely avoids touch interception issues with Pressable
   // Markers are rendered as native map features, preserving all gestures
 
-  // Build GeoJSON feature collection for activity markers
+  // Build GeoJSON feature collection for activity markers (only visible ones)
   const markersGeoJSON = useMemo(() => {
-    const features = activities.map((activity) => {
+    const features = visibleActivities.map((activity) => {
       const center = getCenter(activity.bounds);
       const config = getActivityTypeConfig(activity.type);
       const size = getMarkerSize(activity.distance);
@@ -298,7 +373,7 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
       type: 'FeatureCollection' as const,
       features,
     };
-  }, [activities, selected?.activity.id]);
+  }, [visibleActivities, selected?.activity.id]);
 
   // Handle marker tap via ShapeSource press - NO touch interception!
   const handleMarkerPress = useCallback((event: { features?: GeoJSON.Feature[] }) => {
@@ -419,7 +494,8 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
         {/* Activity markers - visual only, rendered as MarkerView for correct z-ordering */}
         {/* pointerEvents="none" ensures these don't intercept any touches */}
         {/* Sorted to render selected activity last (on top) */}
-        {[...activities]
+        {/* Only renders visible activities for performance (viewport culling) */}
+        {[...visibleActivities]
           .sort((a, b) => {
             // Selected marker renders last (on top)
             if (selected?.activity.id === a.id) return 1;
@@ -471,6 +547,30 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
             </MarkerView>
           );
         })}
+
+        {/* GPS traces - simplified routes shown when zoomed in */}
+        {/* Rendered with low opacity, below the selected activity route */}
+        {tracesGeoJSON && tracesGeoJSON.features.length > 0 && (
+          <ShapeSource
+            id="activity-traces"
+            shape={tracesGeoJSON}
+          >
+            <LineLayer
+              id="tracesLine"
+              style={{
+                lineColor: ['get', 'color'],
+                lineWidth: [
+                  'case',
+                  ['get', 'isSelected'], 0, // Hide selected trace (full route shown instead)
+                  2,
+                ],
+                lineOpacity: 0.4,
+                lineCap: 'round',
+                lineJoin: 'round',
+              }}
+            />
+          </ShapeSource>
+        )}
 
         {/* Selected activity route */}
         {/* Key forces re-render when activity changes to ensure proper positioning */}
