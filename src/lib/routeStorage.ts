@@ -120,10 +120,11 @@ export function addSignaturesToCache(
 }
 
 /**
- * Generate a unique route group ID.
+ * Generate a stable route group ID based on the representative activity.
+ * Using the activity ID ensures the same group keeps the same ID across re-processing.
  */
-function generateGroupId(): string {
-  return `route_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+function generateGroupId(representativeActivityId: string): string {
+  return `route_${representativeActivityId}`;
 }
 
 /**
@@ -171,7 +172,7 @@ export function createRouteGroup(
   }
 
   return {
-    id: generateGroupId(),
+    id: generateGroupId(representativeId),
     name,
     signature,
     consensusPoints,

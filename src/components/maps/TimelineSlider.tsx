@@ -51,6 +51,8 @@ interface TimelineSliderProps {
   availableTypes?: string[];
   /** Activity type filter - callback when selection changes */
   onTypeSelectionChange?: (types: Set<string>) => void;
+  /** Dark mode */
+  isDark?: boolean;
 }
 
 function formatShortDate(date: Date): string {
@@ -84,6 +86,7 @@ export function TimelineSlider({
   selectedTypes,
   availableTypes,
   onTypeSelectionChange,
+  isDark = false,
 }: TimelineSliderProps) {
   const [trackWidth, setTrackWidth] = useState(0);
 
@@ -382,7 +385,7 @@ export function TimelineSlider({
         </View>
       )}
 
-      <View style={styles.container}>
+      <View style={[styles.container, isDark && styles.containerDark]}>
         {/* Activity category filter chips */}
         {availableCategories.length > 0 && selectedTypes && (
           <ScrollView
@@ -393,10 +396,10 @@ export function TimelineSlider({
           >
             {/* All/Clear toggle */}
             <TouchableOpacity
-              style={styles.controlChip}
+              style={[styles.controlChip, isDark && styles.controlChipDark]}
               onPress={toggleAllTypes}
             >
-              <Text style={styles.controlText}>
+              <Text style={[styles.controlText, isDark && styles.controlTextDark]}>
                 {selectedTypes.size === availableTypes?.length ? 'Clear' : 'All'}
               </Text>
             </TouchableOpacity>
@@ -413,6 +416,7 @@ export function TimelineSlider({
                     styles.filterChip,
                     isSelected && { backgroundColor: config.color },
                     !isSelected && styles.filterChipUnselected,
+                    !isSelected && isDark && styles.filterChipUnselectedDark,
                   ]}
                   onPress={() => toggleCategory(category)}
                 >
@@ -441,7 +445,7 @@ export function TimelineSlider({
         <GestureDetector gesture={trackTapGesture}>
           <View style={styles.sliderContainer} onLayout={onLayout}>
             {/* Base track - grey (no data) */}
-            <View style={styles.track} />
+            <View style={[styles.track, isDark && styles.trackDark]} />
 
             {/* Cached range - striped pattern */}
             {cachedRange.hasCache && trackWidth > 0 && cachedRangeStyle.width > 0 && (
@@ -453,7 +457,7 @@ export function TimelineSlider({
                       key={i}
                       style={[
                         styles.stripe,
-                        { backgroundColor: i % 2 === 0 ? colors.primary : 'rgba(255,255,255,0.8)' }
+                        { backgroundColor: i % 2 === 0 ? colors.primary : (isDark ? 'rgba(60,60,60,0.8)' : 'rgba(255,255,255,0.8)') }
                       ]}
                     />
                   ))}
@@ -467,7 +471,7 @@ export function TimelineSlider({
             {/* Start handle */}
             <GestureDetector gesture={startGesture}>
               <Animated.View style={[styles.handleContainer, startHandleStyle]}>
-                <View style={styles.handle}>
+                <View style={[styles.handle, isDark && styles.handleDark]}>
                   <View style={styles.handleInner} />
                 </View>
               </Animated.View>
@@ -476,7 +480,7 @@ export function TimelineSlider({
             {/* End handle */}
             <GestureDetector gesture={endGesture}>
               <Animated.View style={[styles.handleContainer, endHandleStyle]}>
-                <View style={styles.handle}>
+                <View style={[styles.handle, isDark && styles.handleDark]}>
                   <View style={styles.handleInner} />
                 </View>
               </Animated.View>
@@ -497,10 +501,10 @@ export function TimelineSlider({
               return (
                 <React.Fragment key={`${point.label}-${index}`}>
                   {/* Tick mark */}
-                  <View style={[styles.tickMark, { left: pixelPos - 0.5 }]} />
+                  <View style={[styles.tickMark, isDark && styles.tickMarkDark, { left: pixelPos - 0.5 }]} />
                   {/* Label - all centered under tick */}
                   <Text
-                    style={[styles.tickLabelBase, { left: pixelPos - 14, width: 28, textAlign: 'center' }]}
+                    style={[styles.tickLabelBase, isDark && styles.tickLabelDark, { left: pixelPos - 14, width: 28, textAlign: 'center' }]}
                     numberOfLines={1}
                   >
                     {labelText}
@@ -513,26 +517,26 @@ export function TimelineSlider({
 
         {/* Activity count */}
         <View style={styles.countContainer}>
-          <Text style={styles.countLabel}>
+          <Text style={[styles.countLabel, isDark && styles.countLabelDark]}>
             {isLoading ? 'Loading...' : `${activityCount || 0} activities`}
           </Text>
         </View>
 
         {/* Legend */}
-        <View style={styles.legend}>
+        <View style={[styles.legend, isDark && styles.legendDark]}>
           <View style={styles.legendItem}>
             <View style={[styles.legendSwatch, styles.legendSelected]} />
-            <Text style={styles.legendText}>Selected</Text>
+            <Text style={[styles.legendText, isDark && styles.legendTextDark]}>Selected</Text>
           </View>
           <View style={styles.legendItem}>
             <View style={[styles.legendSwatch, styles.legendCached]}>
               <View style={styles.legendStripe} />
             </View>
-            <Text style={styles.legendText}>Cached</Text>
+            <Text style={[styles.legendText, isDark && styles.legendTextDark]}>Cached</Text>
           </View>
           <View style={styles.legendItem}>
-            <View style={[styles.legendSwatch, styles.legendEmpty]} />
-            <Text style={styles.legendText}>Not synced</Text>
+            <View style={[styles.legendSwatch, styles.legendEmpty, isDark && styles.legendEmptyDark]} />
+            <Text style={[styles.legendText, isDark && styles.legendTextDark]}>Not synced</Text>
           </View>
         </View>
       </View>
@@ -749,5 +753,45 @@ const styles = StyleSheet.create({
   countContainer: {
     alignItems: 'center',
     marginTop: 4,
+  },
+  // Dark mode styles
+  containerDark: {
+    backgroundColor: 'rgba(30, 30, 30, 0.95)',
+    borderTopColor: '#333',
+  },
+  trackDark: {
+    backgroundColor: '#444',
+  },
+  handleDark: {
+    backgroundColor: '#2a2a2a',
+  },
+  tickMarkDark: {
+    backgroundColor: '#888',
+  },
+  tickLabelDark: {
+    color: '#888',
+  },
+  countLabelDark: {
+    color: '#FFFFFF',
+  },
+  legendDark: {
+    borderTopColor: '#333',
+  },
+  legendTextDark: {
+    color: '#888',
+  },
+  legendEmptyDark: {
+    backgroundColor: '#444',
+  },
+  controlChipDark: {
+    backgroundColor: '#2a2a2a',
+    borderColor: '#444',
+  },
+  controlTextDark: {
+    color: '#888',
+  },
+  filterChipUnselectedDark: {
+    backgroundColor: '#2a2a2a',
+    borderColor: '#444',
   },
 });

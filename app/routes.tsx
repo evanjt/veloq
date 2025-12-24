@@ -1,23 +1,14 @@
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
-import { View, StyleSheet, useColorScheme, TouchableOpacity } from 'react-native';
-import { Text, IconButton, ActivityIndicator } from 'react-native-paper';
+import { View, StyleSheet, useColorScheme } from 'react-native';
+import { Text, IconButton } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { RoutesList } from '@/components';
+import { RoutesList, TimelineSlider } from '@/components';
 import { useRouteProcessing, useActivities, useActivityBoundsCache, useRouteGroups } from '@/hooks';
+import { useRouteMatchStore } from '@/providers';
 import { colors, spacing } from '@/theme';
 import type { ActivityType } from '@/types';
-
-// Date range presets
-type DatePreset = '3m' | '6m' | '1y' | 'all';
-
-function formatShortDate(date: Date): string {
-  return date.toLocaleDateString('en-US', {
-    month: 'short',
-    year: 'numeric',
-  });
-}
 
 export default function RoutesScreen() {
   const colorScheme = useColorScheme();
@@ -25,11 +16,17 @@ export default function RoutesScreen() {
 
   const { queueActivities, isProcessing, progress: routeProgress } = useRouteProcessing();
 
+  // Get processed activity IDs from cache to skip already-analyzed activities
+  const processedActivityIds = useRouteMatchStore((s) => s.cache?.processedActivityIds || []);
+  const processedSet = useMemo(() => new Set(processedActivityIds), [processedActivityIds]);
+
   // Get cached bounds for pre-filtering (avoids API calls for isolated routes)
   const {
     activities: boundsData,
     isReady: boundsReady,
     oldestActivityDate,
+    oldestSyncedDate,
+    newestSyncedDate,
     progress: syncProgress,
     syncDateRange,
   } = useActivityBoundsCache();
@@ -37,36 +34,30 @@ export default function RoutesScreen() {
   // Get route groups to count (use minActivities: 2 to match the list)
   const { groups: routeGroups } = useRouteGroups({ minActivities: 2 });
 
-  // Date range state
+  // Date range state - default to last 3 months
   const now = useMemo(() => new Date(), []);
-  const [selectedPreset, setSelectedPreset] = useState<DatePreset>('3m');
+  const defaultStart = useMemo(() => {
+    const d = new Date(now);
+    d.setMonth(d.getMonth() - 3);
+    return d;
+  }, [now]);
 
-  // Calculate dates from preset
-  const { startDate, endDate } = useMemo(() => {
-    const end = now;
-    let start: Date;
+  const [startDate, setStartDate] = useState<Date>(defaultStart);
+  const [endDate, setEndDate] = useState<Date>(now);
 
-    switch (selectedPreset) {
-      case '3m':
-        start = new Date(now);
-        start.setMonth(start.getMonth() - 3);
-        break;
-      case '6m':
-        start = new Date(now);
-        start.setMonth(start.getMonth() - 6);
-        break;
-      case '1y':
-        start = new Date(now);
-        start.setFullYear(start.getFullYear() - 1);
-        break;
-      case 'all':
-        // Use oldest activity date from API
-        start = oldestActivityDate ? new Date(oldestActivityDate) : new Date(now.getFullYear() - 10, 0, 1);
-        break;
-    }
+  // Min/max dates for timeline
+  const minDate = useMemo(() => {
+    return oldestActivityDate ? new Date(oldestActivityDate) : new Date(now.getFullYear() - 5, 0, 1);
+  }, [oldestActivityDate, now]);
 
-    return { startDate: start, endDate: end };
-  }, [selectedPreset, now, oldestActivityDate]);
+  // Max date is always "now" (today)
+  const maxDate = now;
+
+  // Handle timeline range changes
+  const handleRangeChange = useCallback((start: Date, end: Date) => {
+    setStartDate(start);
+    setEndDate(end);
+  }, []);
 
   // Format dates for API
   const oldestStr = useMemo(() => startDate.toISOString().split('T')[0], [startDate]);
@@ -87,13 +78,55 @@ export default function RoutesScreen() {
     });
   }, [boundsData, startDate, endDate]);
 
-  // Queue activities for processing when they load and bounds are ready
+  // Track if we've already queued for the current date range to avoid duplicate calls
+  const lastQueuedRange = React.useRef<string | null>(null);
+  const rangeKey = `${oldestStr}-${newestStr}`;
+
+  // Trigger bounds sync when date range changes
   useEffect(() => {
-    if (activities && activities.length > 0 && boundsReady) {
-      const activityIds = activities.map((a) => a.id);
+    if (boundsReady) {
+      // Sync the full date range to ensure we have bounds for all activities
+      syncDateRange(oldestStr, newestStr);
+    }
+  }, [oldestStr, newestStr, boundsReady, syncDateRange]);
+
+  // Queue activities for processing ONLY when:
+  // 1. Activities have loaded
+  // 2. Bounds are ready (initial load complete)
+  // 3. Sync is NOT currently in progress (wait for bounds to finish)
+  // 4. We haven't already queued for this date range
+  const isSyncing = syncProgress.status === 'syncing';
+
+  useEffect(() => {
+    // Don't queue while bounds are still syncing - wait for complete data
+    if (isSyncing) {
+      return;
+    }
+
+    // Don't queue if we've already processed this range
+    if (lastQueuedRange.current === rangeKey) {
+      return;
+    }
+
+    if (activities && activities.length > 0 && boundsReady && !isProcessing) {
+      // Filter out already-processed activities - no need to re-analyze cached data
+      const unprocessedActivities = activities.filter((a) => !processedSet.has(a.id));
+
+      // Mark this range as queued (even if all are processed, to avoid re-checking)
+      lastQueuedRange.current = rangeKey;
+
+      // If all activities are already processed, skip queueing entirely
+      if (unprocessedActivities.length === 0) {
+        console.log(`[Routes] All ${activities.length} activities already processed, skipping analysis`);
+        return;
+      }
+
+      console.log(`[Routes] Queueing ${unprocessedActivities.length} unprocessed activities (${activities.length - unprocessedActivities.length} already cached)`);
+
+      const activityIds = unprocessedActivities.map((a) => a.id);
       const metadata: Record<string, { name: string; date: string; type: ActivityType; hasGps: boolean }> = {};
 
-      for (const activity of activities) {
+      for (const activity of unprocessedActivities) {
         metadata[activity.id] = {
           name: activity.name,
           date: activity.start_date_local,
@@ -102,22 +135,25 @@ export default function RoutesScreen() {
         };
       }
 
+      // Filter bounds data to only include unprocessed activities
+      const unprocessedBoundsData = filteredBoundsData.filter((b) => !processedSet.has(b.id));
+
       // Pass filtered bounds data for pre-filtering
-      queueActivities(activityIds, metadata, filteredBoundsData);
+      queueActivities(activityIds, metadata, unprocessedBoundsData);
     }
-  }, [activities, queueActivities, filteredBoundsData, boundsReady]);
+  }, [activities, queueActivities, filteredBoundsData, boundsReady, isSyncing, isProcessing, rangeKey, processedSet]);
 
-  const handlePresetChange = useCallback((preset: DatePreset) => {
-    setSelectedPreset(preset);
-  }, []);
-
-  // Trigger bounds sync when date range changes to a larger range
-  useEffect(() => {
-    if (boundsReady) {
-      // Sync the full date range to ensure we have bounds for all activities
-      syncDateRange(oldestStr, newestStr);
-    }
-  }, [oldestStr, newestStr, boundsReady, syncDateRange]);
+  // Convert sync progress to timeline format
+  const timelineSyncProgress = useMemo(() => {
+    if (syncProgress.status !== 'syncing') return null;
+    return {
+      completed: syncProgress.completed,
+      total: syncProgress.total,
+      message: isProcessing
+        ? `Analyzing routes ${routeProgress.current}/${routeProgress.total}`
+        : undefined,
+    };
+  }, [syncProgress, isProcessing, routeProgress]);
 
   return (
     <SafeAreaView style={[styles.container, isDark && styles.containerDark]}>
@@ -128,91 +164,34 @@ export default function RoutesScreen() {
           onPress={() => router.back()}
         />
         <Text style={[styles.headerTitle, isDark && styles.textLight]}>Routes</Text>
-        <View style={{ width: 48 }} />
-      </View>
-
-      {/* Simple date range picker */}
-      <View style={[styles.dateRangeContainer, isDark && styles.dateRangeContainerDark]}>
-        <View style={styles.presetRow}>
-          {(['3m', '6m', '1y', 'all'] as DatePreset[]).map((preset) => (
-            <TouchableOpacity
-              key={preset}
-              style={[
-                styles.presetButton,
-                selectedPreset === preset && styles.presetButtonActive,
-                isDark && styles.presetButtonDark,
-                selectedPreset === preset && isDark && styles.presetButtonActiveDark,
-              ]}
-              onPress={() => handlePresetChange(preset)}
-            >
-              <Text
-                style={[
-                  styles.presetText,
-                  selectedPreset === preset && styles.presetTextActive,
-                  isDark && styles.presetTextDark,
-                ]}
-              >
-                {preset === 'all' ? 'All' : preset.toUpperCase()}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        {/* Date range display */}
-        <View style={styles.dateRangeInfo}>
-          <Text style={[styles.dateRangeText, isDark && styles.textMuted]}>
-            {formatShortDate(startDate)} — {formatShortDate(endDate)}
-          </Text>
-          {(isLoading || isProcessing || syncProgress.status === 'syncing') && (
-            <View style={styles.loadingRow}>
-              <ActivityIndicator size="small" color={colors.primary} />
-              <Text style={[styles.loadingText, isDark && styles.textMuted]}>
-                {syncProgress.status === 'syncing'
-                  ? `Syncing GPS traces ${syncProgress.completed}/${syncProgress.total}`
-                  : isProcessing
-                    ? `Analyzing ${routeProgress.current}/${routeProgress.total}`
-                    : 'Loading...'}
-              </Text>
-            </View>
-          )}
-        </View>
-
-        {/* Route count */}
-        <View style={styles.statsRow}>
-          <View style={styles.statItem}>
-            <MaterialCommunityIcons
-              name="map-marker-path"
-              size={16}
-              color={colors.primary}
-            />
-            <Text style={[styles.statValue, isDark && styles.textLight]}>
-              {routeGroups.length}
-            </Text>
-            <Text style={[styles.statLabel, isDark && styles.textMuted]}>
-              routes found
-            </Text>
+        <View style={styles.headerRight}>
+          <View style={styles.routeCountBadge}>
+            <MaterialCommunityIcons name="map-marker-path" size={14} color="#FFFFFF" />
+            <Text style={styles.routeCountText}>{routeGroups.length}</Text>
           </View>
-          {activities && (
-            <View style={styles.statItem}>
-              <MaterialCommunityIcons
-                name="lightning-bolt"
-                size={16}
-                color={isDark ? '#888' : colors.textSecondary}
-              />
-              <Text style={[styles.statValue, isDark && styles.textLight]}>
-                {activities.length}
-              </Text>
-              <Text style={[styles.statLabel, isDark && styles.textMuted]}>
-                activities
-              </Text>
-            </View>
-          )}
         </View>
       </View>
+
+      {/* Timeline slider - same as world map */}
+      <TimelineSlider
+        minDate={minDate}
+        maxDate={maxDate}
+        startDate={startDate}
+        endDate={endDate}
+        onRangeChange={handleRangeChange}
+        isLoading={isLoading || isProcessing}
+        activityCount={activities?.length || 0}
+        syncProgress={timelineSyncProgress}
+        cachedOldest={oldestSyncedDate ? new Date(oldestSyncedDate) : null}
+        cachedNewest={newestSyncedDate ? new Date(newestSyncedDate) : null}
+        isDark={isDark}
+      />
 
       <RoutesList
         onRefresh={() => refetch()}
         isRefreshing={isRefetching}
+        startDate={startDate}
+        endDate={endDate}
       />
     </SafeAreaView>
   );
@@ -236,93 +215,26 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.textPrimary,
   },
-  textLight: {
-    color: '#FFFFFF',
+  headerRight: {
+    width: 48,
+    alignItems: 'flex-end',
+    paddingRight: spacing.sm,
   },
-  textMuted: {
-    color: '#888',
-  },
-  dateRangeContainer: {
-    backgroundColor: colors.surface,
-    marginHorizontal: spacing.md,
-    marginBottom: spacing.md,
+  routeCountBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.primary,
     borderRadius: 12,
-    padding: spacing.md,
-  },
-  dateRangeContainerDark: {
-    backgroundColor: '#1E1E1E',
-  },
-  presetRow: {
-    flexDirection: 'row',
-    gap: spacing.xs,
-  },
-  presetButton: {
-    flex: 1,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderRadius: 8,
-    backgroundColor: 'rgba(0, 0, 0, 0.05)',
-    alignItems: 'center',
-  },
-  presetButtonDark: {
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-  },
-  presetButtonActive: {
-    backgroundColor: colors.primary,
-  },
-  presetButtonActiveDark: {
-    backgroundColor: colors.primary,
-  },
-  presetText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.textSecondary,
-  },
-  presetTextDark: {
-    color: '#888',
-  },
-  presetTextActive: {
-    color: '#FFFFFF',
-  },
-  dateRangeInfo: {
-    marginTop: spacing.sm,
-    alignItems: 'center',
-  },
-  dateRangeText: {
-    fontSize: 13,
-    color: colors.textSecondary,
-  },
-  loadingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    marginTop: spacing.xs,
-  },
-  loadingText: {
-    fontSize: 12,
-    color: colors.textSecondary,
-  },
-  statsRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: spacing.lg,
-    marginTop: spacing.sm,
-    paddingTop: spacing.sm,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(0, 0, 0, 0.05)',
-  },
-  statItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
     gap: 4,
   },
-  statValue: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: colors.textPrimary,
-  },
-  statLabel: {
+  routeCountText: {
     fontSize: 13,
-    color: colors.textSecondary,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  textLight: {
+    color: '#FFFFFF',
   },
 });

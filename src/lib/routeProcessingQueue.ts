@@ -16,8 +16,8 @@ import type {
   ActivityType,
 } from '@/types';
 import { DEFAULT_ROUTE_MATCH_CONFIG } from '@/types';
-import { generateRouteSignature, haversineDistance } from './routeSignature';
-import { groupSignatures, matchRoutes, createRouteMatch } from './routeMatching';
+import { generateRouteSignature } from './routeSignature';
+import { groupSignatures, matchRoutes, createRouteMatch, shouldGroupRoutes } from './routeMatching';
 import {
   loadRouteCache,
   saveRouteCache,
@@ -37,85 +37,6 @@ const ROUTE_PROCESSING_CHECKPOINT_KEY = 'veloq_route_processing_checkpoint';
 const BATCH_SIZE = 5; // Activities per batch
 const INTER_BATCH_DELAY = 100; // ms between batches
 const API_CONCURRENCY = 3; // Concurrent API requests (lower than default to preserve UX)
-
-/**
- * Check if two route signatures should be GROUPED into the same route.
- *
- * PHILOSOPHY: A "route" is a complete, repeated JOURNEY - not a shared section.
- * Two activities are the same route only if they represent the same end-to-end trip.
- *
- * This is MUCH stricter than matching (which shows partial overlaps).
- *
- * Criteria for grouping:
- * 1. High path coverage (80%+) - most of the path must be shared
- * 2. Similar total distance (within 25%) - same journey = similar length
- * 3. Same endpoints (within 200m) - same start AND end location
- *
- * If any of these fail, the activities are DIFFERENT routes that may share a section.
- */
-function shouldGroupRoutes(
-  sig1: RouteSignature,
-  sig2: RouteSignature,
-  matchPercentage: number
-): boolean {
-  const { minGroupingPercentage, loopThreshold } = DEFAULT_ROUTE_MATCH_CONFIG;
-
-  // ═══════════════════════════════════════════════════════════════════════════
-  // CHECK 1: Path coverage must be high (80%+)
-  // ═══════════════════════════════════════════════════════════════════════════
-  // The matchPercentage already uses min(both directions), so this ensures
-  // that BOTH activities cover most of each other, not just one covering the other.
-  if (matchPercentage < minGroupingPercentage) {
-    return false;
-  }
-
-  // ═══════════════════════════════════════════════════════════════════════════
-  // CHECK 2: Total distance must be similar (within 25%)
-  // ═══════════════════════════════════════════════════════════════════════════
-  // If Route A is 10km and Route B is 15km, they're different journeys even if
-  // 100% of A is contained within B. The same journey should have similar length.
-  const maxGroupingDistanceDiff = 0.25; // 25% - stricter than matching's 50%
-  const distanceDiff = Math.abs(sig1.distance - sig2.distance);
-  const maxDistance = Math.max(sig1.distance, sig2.distance);
-  if (maxDistance > 0 && distanceDiff / maxDistance > maxGroupingDistanceDiff) {
-    return false;
-  }
-
-  // ═══════════════════════════════════════════════════════════════════════════
-  // CHECK 3: Endpoints must match (for non-loops)
-  // ═══════════════════════════════════════════════════════════════════════════
-  // Routes with different start/end points are different journeys, even if they
-  // share a large middle section.
-
-  // For loops, high match + similar distance is sufficient (no distinct endpoints)
-  if (sig1.isLoop && sig2.isLoop) {
-    return true;
-  }
-
-  // For point-to-point routes, BOTH start AND end must be close
-  const endpointThreshold = loopThreshold * 2; // ~200m
-
-  const start1 = sig1.points[0];
-  const end1 = sig1.points[sig1.points.length - 1];
-  const start2 = sig2.points[0];
-  const end2 = sig2.points[sig2.points.length - 1];
-
-  if (!start1 || !end1 || !start2 || !end2) {
-    return false;
-  }
-
-  // Same direction: start1≈start2 AND end1≈end2
-  const sameStartDist = haversineDistance(start1, start2);
-  const sameEndDist = haversineDistance(end1, end2);
-  const sameDirectionOk = sameStartDist < endpointThreshold && sameEndDist < endpointThreshold;
-
-  // Reverse direction: start1≈end2 AND end1≈start2 (out-and-back or opposite direction)
-  const reverseStartDist = haversineDistance(start1, end2);
-  const reverseEndDist = haversineDistance(end1, start2);
-  const reverseDirectionOk = reverseStartDist < endpointThreshold && reverseEndDist < endpointThreshold;
-
-  return sameDirectionOk || reverseDirectionOk;
-}
 
 /**
  * Union-Find helper for grouping activities into routes.
@@ -279,6 +200,13 @@ class RouteProcessingQueue {
   private pendingProgressNotify: ReturnType<typeof setTimeout> | null = null;
   private lastRouteCount = 0;
 
+  // Pending queue for activities that arrive while processing
+  private pendingQueue: {
+    activityIds: string[];
+    metadata: Record<string, { name: string; date: string; type: ActivityType; hasGps: boolean }>;
+    boundsData?: ActivityBoundsItem[];
+  } | null = null;
+
   private constructor() {}
 
   static getInstance(): RouteProcessingQueue {
@@ -330,6 +258,9 @@ class RouteProcessingQueue {
    * Queue activities for processing.
    * Uses bounding box pre-filter to only fetch GPS for potential matches.
    *
+   * If processing is already in progress, the request is queued and will be
+   * processed after the current batch completes.
+   *
    * @param activityIds - Activity IDs to process
    * @param metadata - Activity metadata (name, date, type) for grouping
    * @param boundsData - Cached bounds for quick pre-filtering (avoids API calls for isolated routes)
@@ -339,6 +270,13 @@ class RouteProcessingQueue {
     metadata: Record<string, { name: string; date: string; type: ActivityType; hasGps: boolean }>,
     boundsData?: ActivityBoundsItem[]
   ): Promise<void> {
+    // If already processing, queue this request for later
+    if (this.isProcessing) {
+      console.log(`[RouteProcessing] Already processing, queuing ${activityIds.length} activities for later`);
+      this.pendingQueue = { activityIds, metadata, boundsData };
+      return;
+    }
+
     if (!this.cache) {
       this.cache = createEmptyCache();
     }
@@ -349,6 +287,8 @@ class RouteProcessingQueue {
 
     if (unprocessedIds.length === 0) {
       this.setProgress({ status: 'complete', current: 0, total: 0, message: 'All activities processed' });
+      // Check if there's a pending queue
+      await this.processPendingQueue();
       return;
     }
 
@@ -386,16 +326,9 @@ class RouteProcessingQueue {
         message: `Found ${candidateIds.length} candidates from ${unprocessedWithBounds.length} activities with cached bounds`,
       });
 
-      // Mark non-candidates (with bounds but no matches) as processed - they have no route matches
-      const nonCandidates = unprocessedWithBounds.filter((id) => !candidateSet.has(id));
-      if (nonCandidates.length > 0 && this.cache) {
-        console.log(`[RouteProcessing] Marking ${nonCandidates.length} non-candidates as processed (no matches)`);
-        this.cache = {
-          ...this.cache,
-          processedActivityIds: [...this.cache.processedActivityIds, ...nonCandidates],
-        };
-        await saveRouteCache(this.cache);
-      }
+      // NOTE: Don't mark non-candidates as "processed" here!
+      // They might match with activities from future syncs.
+      // Only mark activities as processed AFTER we've analyzed them.
 
       if (candidateIds.length === 0) {
         this.setProgress({
@@ -404,6 +337,8 @@ class RouteProcessingQueue {
           total: unprocessedWithBounds.length,
           message: 'No matching routes found (no overlapping activities)',
         });
+        // Check if there's a pending queue
+        await this.processPendingQueue();
         return;
       }
     } else {
@@ -429,6 +364,19 @@ class RouteProcessingQueue {
 
     // Start processing only the candidates
     await this.processActivities(candidateIds, metadata);
+
+    // After processing completes, check if there's a pending queue
+    await this.processPendingQueue();
+  }
+
+  /** Process any pending queue that accumulated while we were busy */
+  private async processPendingQueue(): Promise<void> {
+    if (this.pendingQueue) {
+      const { activityIds, metadata, boundsData } = this.pendingQueue;
+      this.pendingQueue = null;
+      console.log(`[RouteProcessing] Processing pending queue of ${activityIds.length} activities`);
+      await this.queueActivities(activityIds, metadata, boundsData);
+    }
   }
 
   /** Process a single new activity immediately */
@@ -668,7 +616,7 @@ class RouteProcessingQueue {
 
                   // Only GROUP if routes are truly the same (high match + similar endpoints)
                   // This prevents routes with shared sections from merging together
-                  if (shouldGroupRoutes(signature, existing, match.matchPercentage)) {
+                  if (shouldGroupRoutes(signature, existing, match.matchPercentage, DEFAULT_ROUTE_MATCH_CONFIG)) {
                     routeUnion.union(id, existing.activityId, match.matchPercentage);
                   }
 
@@ -740,13 +688,14 @@ class RouteProcessingQueue {
         return;
       }
 
-      // Now group and match all signatures
+      // Now group ONLY the new signatures with existing ones
+      // This is incremental - we don't rebuild everything from scratch
       const signatureCount = this.cache ? Object.keys(this.cache.signatures).length : 0;
       this.setProgress({
         status: 'matching',
         current: processed,
         total,
-        message: `Grouping ${signatureCount} signatures into routes...`,
+        message: `Grouping ${newSignatures.length} new signatures...`,
         processedActivities: [...processedActivities],
         matchesFound,
         discoveredRoutes: routeUnion.getRoutes(),
@@ -756,11 +705,16 @@ class RouteProcessingQueue {
       // Allow UI to update before heavy computation
       await new Promise(resolve => setTimeout(resolve, 50));
 
-      if (this.cache && Object.keys(this.cache.signatures).length > 0) {
-        const allSignatures = Object.values(this.cache.signatures);
+      if (this.cache && newSignatures.length > 0) {
+        // Get existing signatures (already processed before this batch)
+        const existingSignatures = Object.values(this.cache.signatures).filter(
+          sig => !newSignatures.some(newSig => newSig.activityId === sig.activityId)
+        );
 
-        // Group signatures
-        const groups = groupSignatures(allSignatures);
+        // Only group new signatures with each other AND with existing ones
+        // This avoids O(n²) on the entire dataset when adding a few new activities
+        const signaturesToGroup = [...existingSignatures, ...newSignatures];
+        const groups = groupSignatures(signaturesToGroup);
 
         this.setProgress({
           status: 'matching',
@@ -784,6 +738,10 @@ class RouteProcessingQueue {
 
         this.cache = updateRouteGroups(this.cache, groups, metadataForGroups);
         await saveRouteCache(this.cache);
+        this.notifyCacheListeners();
+      } else if (this.cache && newSignatures.length === 0) {
+        // No new signatures, but we still need to ensure groups are up to date
+        // This can happen when all candidates were already in cache
         this.notifyCacheListeners();
       }
 

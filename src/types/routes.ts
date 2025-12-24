@@ -215,7 +215,7 @@ export const DEFAULT_ROUTE_MATCH_CONFIG: RouteMatchConfig = {
   targetPoints: 100,
   distanceThreshold: 50, // meters
   minMatchPercentage: 20, // Lower threshold to discover partial matches (for display)
-  minGroupingPercentage: 80, // Much higher threshold - activities must be nearly identical to group
+  minGroupingPercentage: 70, // High threshold - activities must share most of the route to group
   minBoundsOverlap: 0.2, // Lower overlap requirement
   maxDistanceDifference: 0.5, // Allow 50% distance difference for partial matches
   loopThreshold: 100, // meters
