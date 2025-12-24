@@ -1,6 +1,6 @@
 /**
- * Route matching algorithm for comparing GPS routes.
- * Handles forward, reverse, and partial matches.
+ * Route matching algorithm using Dynamic Time Warping (DTW).
+ * Handles forward, reverse, and partial matches with proper similarity calculation.
  */
 
 import type {
@@ -28,92 +28,161 @@ interface MatchResult {
 }
 
 /**
- * Find the nearest point on a route to a given point.
- * Returns the index and distance.
+ * Dynamic Time Warping distance between two route sequences.
+ * Uses haversine distance as the point-to-point cost.
+ *
+ * DTW finds the optimal alignment between two sequences that may:
+ * - Have different lengths
+ * - Have different speeds/sampling rates
+ * - Have GPS jitter
+ *
+ * Returns the normalized DTW distance (lower = more similar).
  */
-function findNearestPoint(
-  point: RoutePoint,
-  route: RoutePoint[]
-): { index: number; distance: number } {
-  let minDistance = Infinity;
-  let nearestIndex = 0;
+function dtwDistance(
+  route1: RoutePoint[],
+  route2: RoutePoint[],
+  maxPointDistance: number
+): { distance: number; path: [number, number][] } {
+  const n = route1.length;
+  const m = route2.length;
 
-  for (let i = 0; i < route.length; i++) {
-    const dist = haversineDistance(point, route[i]);
-    if (dist < minDistance) {
-      minDistance = dist;
-      nearestIndex = i;
+  if (n === 0 || m === 0) {
+    return { distance: Infinity, path: [] };
+  }
+
+  // Create cost matrix with infinity initialization
+  const dtw: number[][] = Array(n + 1)
+    .fill(null)
+    .map(() => Array(m + 1).fill(Infinity));
+
+  dtw[0][0] = 0;
+
+  // Fill the DTW matrix
+  for (let i = 1; i <= n; i++) {
+    for (let j = 1; j <= m; j++) {
+      const pointDist = haversineDistance(route1[i - 1], route2[j - 1]);
+
+      // Penalize large distances exponentially but cap at maxPointDistance
+      const cost = Math.min(pointDist, maxPointDistance);
+
+      dtw[i][j] = cost + Math.min(
+        dtw[i - 1][j],     // insertion (skip point in route1)
+        dtw[i][j - 1],     // deletion (skip point in route2)
+        dtw[i - 1][j - 1]  // match
+      );
     }
   }
 
-  return { index: nearestIndex, distance: minDistance };
+  // Backtrack to find the optimal path
+  const path: [number, number][] = [];
+  let i = n, j = m;
+  while (i > 0 && j > 0) {
+    path.unshift([i - 1, j - 1]);
+    const candidates = [
+      { val: dtw[i - 1][j - 1], ni: i - 1, nj: j - 1 },
+      { val: dtw[i - 1][j], ni: i - 1, nj: j },
+      { val: dtw[i][j - 1], ni: i, nj: j - 1 },
+    ];
+    candidates.sort((a, b) => a.val - b.val);
+    i = candidates[0].ni;
+    j = candidates[0].nj;
+  }
+
+  // Normalize by path length
+  const normalizedDistance = dtw[n][m] / path.length;
+
+  return { distance: normalizedDistance, path };
 }
 
 /**
- * Walk along route1 and find matching ranges on route2.
- * Returns match statistics.
+ * Calculate what percentage of route1 is covered by the DTW alignment.
+ * This gives us the match quality from route1's perspective.
  */
-function walkAndMatch(
+function calculateCoverageFromPath(
   route1: RoutePoint[],
   route2: RoutePoint[],
+  path: [number, number][],
   distanceThreshold: number
 ): {
-  matchedCount: number;
+  matchedPoints: number;
   totalPoints: number;
-  matchedRanges: Array<{ start: number; end: number }>;
-  totalMatchedDistance: number;
+  matchedDistance: number;
+  matchedRanges: { start: number; end: number }[];
 } {
-  const matchedIndices: boolean[] = new Array(route1.length).fill(false);
-  const route1Distance = calculateRouteDistance(route1);
+  const n = route1.length;
+  const matched = new Array(n).fill(false);
 
-  // For each point in route1, check if there's a nearby point in route2
-  for (let i = 0; i < route1.length; i++) {
-    const { distance } = findNearestPoint(route1[i], route2);
-    if (distance <= distanceThreshold) {
-      matchedIndices[i] = true;
+  // Mark points in route1 that have close matches via the DTW path
+  for (const [i, j] of path) {
+    if (i < n && j < route2.length) {
+      const dist = haversineDistance(route1[i], route2[j]);
+      if (dist <= distanceThreshold) {
+        matched[i] = true;
+      }
     }
   }
 
   // Find continuous matched sections
-  const matchedRanges: Array<{ start: number; end: number }> = [];
+  const matchedRanges: { start: number; end: number }[] = [];
   let rangeStart = -1;
 
-  for (let i = 0; i < matchedIndices.length; i++) {
-    if (matchedIndices[i] && rangeStart === -1) {
+  for (let i = 0; i < matched.length; i++) {
+    if (matched[i] && rangeStart === -1) {
       rangeStart = i;
-    } else if (!matchedIndices[i] && rangeStart !== -1) {
+    } else if (!matched[i] && rangeStart !== -1) {
       matchedRanges.push({ start: rangeStart, end: i - 1 });
       rangeStart = -1;
     }
   }
-
-  // Close final range if needed
   if (rangeStart !== -1) {
-    matchedRanges.push({ start: rangeStart, end: matchedIndices.length - 1 });
+    matchedRanges.push({ start: rangeStart, end: matched.length - 1 });
   }
 
   // Calculate matched distance
-  let totalMatchedDistance = 0;
+  let matchedDistance = 0;
   for (const range of matchedRanges) {
     const rangePoints = route1.slice(range.start, range.end + 1);
-    totalMatchedDistance += calculateRouteDistance(rangePoints);
+    matchedDistance += calculateRouteDistance(rangePoints);
   }
 
-  const matchedCount = matchedIndices.filter(Boolean).length;
-
   return {
-    matchedCount,
-    totalPoints: route1.length,
+    matchedPoints: matched.filter(Boolean).length,
+    totalPoints: n,
+    matchedDistance,
     matchedRanges,
-    totalMatchedDistance,
   };
 }
 
 /**
- * Compare two route signatures in one direction.
- * Returns match statistics.
+ * Fréchet distance-inspired similarity score.
+ * Measures the maximum distance between aligned points.
+ * Lower Fréchet = routes are more similar in shape.
  */
-function compareRoutes(
+function frechetSimilarity(
+  route1: RoutePoint[],
+  route2: RoutePoint[],
+  path: [number, number][],
+  maxDistance: number
+): number {
+  if (path.length === 0) return 0;
+
+  let maxAlignedDist = 0;
+  for (const [i, j] of path) {
+    const dist = haversineDistance(route1[i], route2[j]);
+    if (dist > maxAlignedDist) {
+      maxAlignedDist = dist;
+    }
+  }
+
+  // Convert to 0-100 score: 100 = identical, 0 = completely different
+  return Math.max(0, 100 * (1 - maxAlignedDist / maxDistance));
+}
+
+/**
+ * Compare two route signatures using DTW.
+ * Returns match statistics from both perspectives.
+ */
+function compareRoutesWithDTW(
   sig1: RouteSignature,
   sig2: RouteSignature,
   config: RouteMatchConfig
@@ -123,49 +192,77 @@ function compareRoutes(
   overlapEnd: number;
   overlapDistance: number;
   confidence: number;
+  frechetScore: number;
 } {
   const { distanceThreshold } = config;
 
-  // Walk sig1 and find matches on sig2
-  const result1 = walkAndMatch(sig1.points, sig2.points, distanceThreshold);
+  // Run DTW
+  const { distance: dtwDist, path } = dtwDistance(
+    sig1.points,
+    sig2.points,
+    distanceThreshold * 3 // Allow some slack in DTW alignment
+  );
 
-  // Walk sig2 and find matches on sig1 (bidirectional check)
-  const result2 = walkAndMatch(sig2.points, sig1.points, distanceThreshold);
+  // Calculate coverage from both perspectives
+  const coverage1 = calculateCoverageFromPath(
+    sig1.points,
+    sig2.points,
+    path,
+    distanceThreshold
+  );
 
-  // Calculate match percentages from each perspective
-  const matchPct1 = result1.totalPoints > 0
-    ? (result1.matchedCount / result1.totalPoints) * 100
+  const coverage2 = calculateCoverageFromPath(
+    sig2.points,
+    sig1.points,
+    path.map(([i, j]) => [j, i] as [number, number]), // Reverse perspective
+    distanceThreshold
+  );
+
+  // Match percentage: use the MINIMUM of both coverages
+  // This ensures a small route can't claim 100% match with a longer route
+  const pct1 = coverage1.totalPoints > 0
+    ? (coverage1.matchedPoints / coverage1.totalPoints) * 100
     : 0;
-  const matchPct2 = result2.totalPoints > 0
-    ? (result2.matchedCount / result2.totalPoints) * 100
+  const pct2 = coverage2.totalPoints > 0
+    ? (coverage2.matchedPoints / coverage2.totalPoints) * 100
     : 0;
 
-  // Use MINIMUM to ensure both routes mostly overlap
-  // This prevents a small route from matching 100% when it's only a fraction of the other route
-  // For truly matching routes, both should be high
-  const matchPercentage = Math.min(matchPct1, matchPct2);
+  // Use minimum to prevent small routes from inflating match percentage
+  const matchPercentage = Math.min(pct1, pct2);
 
-  // Calculate overlap position (as percentage along the route)
+  // Calculate overlap position
   let overlapStart = 0;
   let overlapEnd = 100;
-  if (result1.matchedRanges.length > 0) {
-    const firstRange = result1.matchedRanges[0];
-    const lastRange = result1.matchedRanges[result1.matchedRanges.length - 1];
-    overlapStart = (firstRange.start / result1.totalPoints) * 100;
-    overlapEnd = ((lastRange.end + 1) / result1.totalPoints) * 100;
+  if (coverage1.matchedRanges.length > 0) {
+    const first = coverage1.matchedRanges[0];
+    const last = coverage1.matchedRanges[coverage1.matchedRanges.length - 1];
+    overlapStart = (first.start / coverage1.totalPoints) * 100;
+    overlapEnd = ((last.end + 1) / coverage1.totalPoints) * 100;
   }
 
-  // Use the larger matched distance
-  const overlapDistance = Math.max(result1.totalMatchedDistance, result2.totalMatchedDistance);
+  // Overlap distance
+  const overlapDistance = Math.max(coverage1.matchedDistance, coverage2.matchedDistance);
+
+  // Fréchet-inspired shape similarity
+  const frechetScore = frechetSimilarity(
+    sig1.points,
+    sig2.points,
+    path,
+    distanceThreshold * 5
+  );
 
   // Confidence based on:
-  // - Point density (more points = more confident)
-  // - Consistency of matching (fewer gaps = more confident)
-  const pointDensityScore = Math.min(1, sig1.points.length / 50);
-  const gapPenalty = result1.matchedRanges.length > 1
-    ? 0.1 * (result1.matchedRanges.length - 1)
+  // - Point density
+  // - Range continuity
+  // - DTW alignment quality
+  const minPoints = Math.min(sig1.points.length, sig2.points.length);
+  const pointDensityScore = Math.min(1, minPoints / 30);
+  const gapPenalty = coverage1.matchedRanges.length > 2
+    ? 0.1 * (coverage1.matchedRanges.length - 1)
     : 0;
-  const confidence = Math.max(0, pointDensityScore - gapPenalty);
+  const dtwQuality = dtwDist < distanceThreshold ? 1 : Math.max(0, 1 - (dtwDist / (distanceThreshold * 3)));
+
+  const confidence = Math.max(0, (pointDensityScore + dtwQuality) / 2 - gapPenalty);
 
   return {
     matchPercentage,
@@ -173,12 +270,13 @@ function compareRoutes(
     overlapEnd,
     overlapDistance,
     confidence,
+    frechetScore,
   };
 }
 
 /**
  * Match two route signatures, checking both forward and reverse directions.
- * Returns the best match result.
+ * Returns the best match result using DTW algorithm.
  */
 export function matchRoutes(
   sig1: RouteSignature,
@@ -187,17 +285,17 @@ export function matchRoutes(
 ): MatchResult | null {
   const cfg = { ...DEFAULT_ROUTE_MATCH_CONFIG, ...config };
 
-  // Quick filter first
+  // Quick filter first (bounding boxes, distance check)
   if (!quickFilterMatch(sig1, sig2, cfg)) {
     return null;
   }
 
   // Compare in same direction
-  const sameResult = compareRoutes(sig1, sig2, cfg);
+  const sameResult = compareRoutesWithDTW(sig1, sig2, cfg);
 
   // Compare in reverse direction
   const reversedSig2 = reverseSignature(sig2);
-  const reverseResult = compareRoutes(sig1, reversedSig2, cfg);
+  const reverseResult = compareRoutesWithDTW(sig1, reversedSig2, cfg);
 
   // Determine which is better
   const useSame = sameResult.matchPercentage >= reverseResult.matchPercentage;
@@ -210,7 +308,8 @@ export function matchRoutes(
 
   // Determine direction type
   let direction: MatchDirection;
-  if (bestResult.matchPercentage >= 90) {
+  if (bestResult.matchPercentage >= 85 && bestResult.frechetScore >= 70) {
+    // High match AND good shape similarity = same/reverse
     direction = useSame ? 'same' : 'reverse';
   } else {
     direction = 'partial';
@@ -257,7 +356,7 @@ export function findMatches(
 
 /**
  * Group signatures into route groups based on matching.
- * Returns grouped route IDs.
+ * Returns grouped route IDs using Union-Find.
  */
 export function groupSignatures(
   signatures: RouteSignature[],
@@ -299,7 +398,8 @@ export function groupSignatures(
   for (let i = 0; i < signatures.length; i++) {
     for (let j = i + 1; j < signatures.length; j++) {
       const match = matchRoutes(signatures[i], signatures[j], cfg);
-      if (match && match.matchPercentage >= 75) { // Higher threshold for grouping
+      // Higher threshold for grouping - routes must be very similar
+      if (match && match.matchPercentage >= 70 && match.direction !== 'partial') {
         union(signatures[i].activityId, signatures[j].activityId);
       }
     }
