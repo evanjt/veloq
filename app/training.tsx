@@ -6,11 +6,16 @@ import { router, Href } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { WeeklySummary, ActivityHeatmap, SeasonComparison, EventPlanner, WorkoutLibrary } from '@/components/stats';
 import { useActivities, useRouteGroups, useRouteProcessing } from '@/hooks';
+import { useRouteSettings } from '@/providers';
 import { colors, spacing, layout } from '@/theme';
 
 export default function TrainingScreen() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
+
+  // Check if route matching is enabled
+  const { settings: routeSettings } = useRouteSettings();
+  const isRouteMatchingEnabled = routeSettings.enabled;
 
   // Fetch activities for the past 2 years (for all comparisons including year-over-year)
   const currentYear = new Date().getFullYear();
@@ -90,17 +95,19 @@ export default function TrainingScreen() {
                 Routes
               </Text>
               <Text style={[styles.routesSectionSubtitle, isDark && styles.textMuted]}>
-                {isRouteProcessing
-                  ? routeProgress.status === 'filtering'
-                    ? routeProgress.candidatesFound !== undefined
-                      ? `Found ${routeProgress.candidatesFound} potential matches`
-                      : `Checking ${routeProgress.total} activities...`
-                    : routeProgress.status === 'matching'
-                      ? 'Grouping routes...'
-                      : `Fetching GPS: ${routeProgress.current}/${routeProgress.total}`
-                  : routeGroups.length > 0
-                    ? `${routeGroups.length} routes from ${processedCount} activities`
-                    : 'Discover your common routes'}
+                {!isRouteMatchingEnabled
+                  ? 'Disabled - Enable in Settings'
+                  : isRouteProcessing
+                    ? routeProgress.status === 'filtering'
+                      ? routeProgress.candidatesFound !== undefined
+                        ? `Found ${routeProgress.candidatesFound} potential matches`
+                        : `Checking ${routeProgress.total} activities...`
+                      : routeProgress.status === 'matching'
+                        ? 'Grouping routes...'
+                        : `Fetching GPS: ${routeProgress.current}/${routeProgress.total}`
+                    : routeGroups.length > 0
+                      ? `${routeGroups.length} routes from ${processedCount} activities`
+                      : 'Discover your common routes'}
               </Text>
             </View>
             {isRouteProcessing ? (

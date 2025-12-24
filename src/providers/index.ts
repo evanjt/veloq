@@ -32,3 +32,8 @@ export {
   initializeRouteMatching,
   getRouteMatchCache,
 } from './RouteMatchStore';
+export {
+  useRouteSettings,
+  isRouteMatchingEnabled,
+  initializeRouteSettings,
+} from './RouteSettingsStore';

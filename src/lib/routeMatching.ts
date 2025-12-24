@@ -498,11 +498,15 @@ function checkMiddlePointsMatch(
  *
  * Uses strict grouping criteria - only activities that represent
  * the SAME JOURNEY (not just shared sections) are grouped together.
+ *
+ * This function is async to yield to the main thread during expensive
+ * O(n²) comparisons, preventing UI freezes for large activity sets.
  */
-export function groupSignatures(
+export async function groupSignatures(
   signatures: RouteSignature[],
-  config: Partial<RouteMatchConfig> = {}
-): Map<string, string[]> {
+  config: Partial<RouteMatchConfig> = {},
+  onProgress?: (completed: number, total: number) => void
+): Promise<Map<string, string[]>> {
   const cfg = { ...DEFAULT_ROUTE_MATCH_CONFIG, ...config };
 
   // Union-find data structure for grouping
@@ -536,6 +540,12 @@ export function groupSignatures(
   }
 
   // Compare all pairs (O(n²) but typically n is small after quick filtering)
+  // Yield to main thread every BATCH_SIZE comparisons to keep UI responsive
+  const BATCH_SIZE = 50;
+  const totalComparisons = (signatures.length * (signatures.length - 1)) / 2;
+  let comparisonCount = 0;
+  let lastYield = Date.now();
+
   for (let i = 0; i < signatures.length; i++) {
     for (let j = i + 1; j < signatures.length; j++) {
       const match = matchRoutes(signatures[i], signatures[j], cfg);
@@ -544,6 +554,21 @@ export function groupSignatures(
       // This prevents activities with shared sections from being merged
       if (match && shouldGroupRoutes(signatures[i], signatures[j], match.matchPercentage, cfg)) {
         union(signatures[i].activityId, signatures[j].activityId);
+      }
+
+      comparisonCount++;
+
+      // Yield to main thread periodically to keep UI responsive
+      // Use time-based yielding to ensure we don't block for too long
+      const now = Date.now();
+      if (now - lastYield > 16) { // ~60fps frame budget
+        await new Promise(resolve => setTimeout(resolve, 0));
+        lastYield = Date.now();
+
+        // Report progress if callback provided
+        if (onProgress) {
+          onProgress(comparisonCount, totalComparisons);
+        }
       }
     }
   }

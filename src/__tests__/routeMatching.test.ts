@@ -151,12 +151,12 @@ function createSignature(
 // ============================================================================
 
 describe('haversineDistance', () => {
-  it('should return 0 for identical points', () => {
+  it('should return 0 for identical points', async () => {
     const point = { lat: 51.5074, lng: -0.1278 };
     expect(haversineDistance(point, point)).toBe(0);
   });
 
-  it('should calculate ~111km for 1 degree latitude difference', () => {
+  it('should calculate ~111km for 1 degree latitude difference', async () => {
     const p1 = { lat: 0, lng: 0 };
     const p2 = { lat: 1, lng: 0 };
     const distance = haversineDistance(p1, p2);
@@ -165,7 +165,7 @@ describe('haversineDistance', () => {
     expect(distance).toBeLessThan(112000);
   });
 
-  it('should calculate correct short distance (~100m)', () => {
+  it('should calculate correct short distance (~100m)', async () => {
     const p1 = { lat: 51.5074, lng: -0.1278 };
     const p2 = { lat: 51.5084, lng: -0.1275 }; // ~100m north
     const distance = haversineDistance(p1, p2);
@@ -179,19 +179,19 @@ describe('haversineDistance', () => {
 // ============================================================================
 
 describe('calculateRouteDistance', () => {
-  it('should return 0 for empty or single point routes', () => {
+  it('should return 0 for empty or single point routes', async () => {
     expect(calculateRouteDistance([])).toBe(0);
     expect(calculateRouteDistance([{ lat: 51.5, lng: -0.1 }])).toBe(0);
   });
 
-  it('should calculate correct total distance for a route', () => {
+  it('should calculate correct total distance for a route', async () => {
     const distance = calculateRouteDistance(ROUTE_A_POINTS);
     // Route A is roughly 1km
     expect(distance).toBeGreaterThan(900);
     expect(distance).toBeLessThan(1200);
   });
 
-  it('should skip invalid GPS points', () => {
+  it('should skip invalid GPS points', async () => {
     const pointsWithInvalid: RoutePoint[] = [
       { lat: 51.5074, lng: -0.1278 },
       { lat: 51.5084, lng: -0.1275 },
@@ -205,7 +205,7 @@ describe('calculateRouteDistance', () => {
     expect(isFinite(distance)).toBe(true);
   });
 
-  it('should skip outlier gaps (GPS errors)', () => {
+  it('should skip outlier gaps (GPS errors)', async () => {
     const pointsWithOutlier: RoutePoint[] = [
       { lat: 51.5074, lng: -0.1278 },
       { lat: 52.5074, lng: -0.1278 }, // 100km+ jump - GPS error
@@ -222,7 +222,7 @@ describe('calculateRouteDistance', () => {
 // ============================================================================
 
 describe('matchRoutes', () => {
-  it('should return high match for identical routes', () => {
+  it('should return high match for identical routes', async () => {
     const sig1 = createSignature('activity-1', ROUTE_A_POINTS);
     const sig2 = createSignature('activity-2', ROUTE_A_POINTS);
 
@@ -233,7 +233,7 @@ describe('matchRoutes', () => {
     expect(match!.direction).toBe('same');
   });
 
-  it('should return high match for routes with GPS noise', () => {
+  it('should return high match for routes with GPS noise', async () => {
     const sig1 = createSignature('activity-1', ROUTE_A_POINTS);
     const sig2 = createSignature('activity-2', ROUTE_A_NOISY_POINTS);
 
@@ -244,7 +244,7 @@ describe('matchRoutes', () => {
     expect(match!.direction).toBe('same');
   });
 
-  it('should detect reverse direction with high match', () => {
+  it('should detect reverse direction with high match', async () => {
     const sig1 = createSignature('activity-1', ROUTE_A_POINTS);
     const sig2 = createSignature('activity-2', ROUTE_A_REVERSED_POINTS);
 
@@ -257,7 +257,7 @@ describe('matchRoutes', () => {
     expect(match!.direction).toBe('reverse');
   });
 
-  it('should match reversed routes with high percentage and correct direction', () => {
+  it('should match reversed routes with high percentage and correct direction', async () => {
     // An L-shaped route (makes direction more obvious)
     const lShapedRoute: RoutePoint[] = [
       { lat: 51.5074, lng: -0.1278 },
@@ -281,7 +281,7 @@ describe('matchRoutes', () => {
     expect(match!.direction).toBe('reverse');
   });
 
-  it('should return null for completely different routes', () => {
+  it('should return null for completely different routes', async () => {
     const sig1 = createSignature('activity-1', ROUTE_A_POINTS);
     const sig2 = createSignature('activity-2', ROUTE_B_POINTS);
 
@@ -293,7 +293,7 @@ describe('matchRoutes', () => {
     }
   });
 
-  it('should match loops correctly', () => {
+  it('should match loops correctly', async () => {
     const sig1 = createSignature('activity-1', ROUTE_LOOP_POINTS);
     const sig2 = createSignature('activity-2', ROUTE_LOOP_NOISY_POINTS);
 
@@ -303,7 +303,7 @@ describe('matchRoutes', () => {
     expect(match!.matchPercentage).toBeGreaterThanOrEqual(80);
   });
 
-  it('should detect partial match with lower percentage', () => {
+  it('should detect partial match with lower percentage', async () => {
     const sig1 = createSignature('activity-1', ROUTE_A_POINTS);
     const sig2 = createSignature('activity-2', ROUTE_PARTIAL_OVERLAP_POINTS);
 
@@ -324,28 +324,28 @@ describe('matchRoutes', () => {
 describe('shouldGroupRoutes', () => {
   const config = DEFAULT_ROUTE_MATCH_CONFIG;
 
-  it('should group identical routes', () => {
+  it('should group identical routes', async () => {
     const sig1 = createSignature('activity-1', ROUTE_A_POINTS);
     const sig2 = createSignature('activity-2', ROUTE_A_POINTS);
 
     expect(shouldGroupRoutes(sig1, sig2, 95, config)).toBe(true);
   });
 
-  it('should group routes with GPS noise', () => {
+  it('should group routes with GPS noise', async () => {
     const sig1 = createSignature('activity-1', ROUTE_A_POINTS);
     const sig2 = createSignature('activity-2', ROUTE_A_NOISY_POINTS);
 
     expect(shouldGroupRoutes(sig1, sig2, 90, config)).toBe(true);
   });
 
-  it('should group reverse direction routes', () => {
+  it('should group reverse direction routes', async () => {
     const sig1 = createSignature('activity-1', ROUTE_A_POINTS);
     const sig2 = createSignature('activity-2', ROUTE_A_REVERSED_POINTS);
 
     expect(shouldGroupRoutes(sig1, sig2, 92, config)).toBe(true);
   });
 
-  it('should NOT group routes with only partial overlap', () => {
+  it('should NOT group routes with only partial overlap', async () => {
     const sig1 = createSignature('activity-1', ROUTE_A_POINTS);
     const sig2 = createSignature('activity-2', ROUTE_PARTIAL_OVERLAP_POINTS);
 
@@ -353,14 +353,14 @@ describe('shouldGroupRoutes', () => {
     expect(shouldGroupRoutes(sig1, sig2, 50, config)).toBe(false);
   });
 
-  it('should NOT group routes below minGroupingPercentage', () => {
+  it('should NOT group routes below minGroupingPercentage', async () => {
     const sig1 = createSignature('activity-1', ROUTE_A_POINTS);
     const sig2 = createSignature('activity-2', ROUTE_B_POINTS);
 
     expect(shouldGroupRoutes(sig1, sig2, 30, config)).toBe(false);
   });
 
-  it('should NOT group routes with very different distances', () => {
+  it('should NOT group routes with very different distances', async () => {
     const sig1 = createSignature('activity-1', ROUTE_A_POINTS);
     // Create a route with same shape but double the length (different distance)
     const sig2: RouteSignature = {
@@ -371,7 +371,7 @@ describe('shouldGroupRoutes', () => {
     expect(shouldGroupRoutes(sig1, sig2, 80, config)).toBe(false);
   });
 
-  it('should group loops with same path', () => {
+  it('should group loops with same path', async () => {
     const sig1 = createSignature('activity-1', ROUTE_LOOP_POINTS);
     const sig2 = createSignature('activity-2', ROUTE_LOOP_NOISY_POINTS);
 
@@ -384,7 +384,7 @@ describe('shouldGroupRoutes', () => {
 // ============================================================================
 
 describe('findMatches', () => {
-  it('should find all matching candidates', () => {
+  it('should find all matching candidates', async () => {
     const signature = createSignature('activity-1', ROUTE_A_POINTS);
     const candidates = [
       createSignature('activity-2', ROUTE_A_NOISY_POINTS), // Should match
@@ -405,7 +405,7 @@ describe('findMatches', () => {
     }
   });
 
-  it('should not match with self', () => {
+  it('should not match with self', async () => {
     const signature = createSignature('activity-1', ROUTE_A_POINTS);
     const candidates = [
       signature, // Same activity ID
@@ -418,7 +418,7 @@ describe('findMatches', () => {
     expect(matches.every(m => m.candidateId !== 'activity-1')).toBe(true);
   });
 
-  it('should return empty array when no matches', () => {
+  it('should return empty array when no matches', async () => {
     const signature = createSignature('activity-1', ROUTE_A_POINTS);
     const candidates = [
       createSignature('activity-2', ROUTE_B_POINTS), // Different area
@@ -438,14 +438,14 @@ describe('findMatches', () => {
 // ============================================================================
 
 describe('groupSignatures', () => {
-  it('should group identical routes together', () => {
+  it('should group identical routes together', async () => {
     const signatures = [
       createSignature('activity-1', ROUTE_A_POINTS),
       createSignature('activity-2', ROUTE_A_NOISY_POINTS),
       createSignature('activity-3', ROUTE_A_POINTS),
     ];
 
-    const groups = groupSignatures(signatures);
+    const groups = await groupSignatures(signatures);
 
     // All 3 activities should be in the same group
     expect(groups.size).toBe(1);
@@ -456,13 +456,13 @@ describe('groupSignatures', () => {
     expect(group).toContain('activity-3');
   });
 
-  it('should group reverse direction routes together', () => {
+  it('should group reverse direction routes together', async () => {
     const signatures = [
       createSignature('activity-1', ROUTE_A_POINTS),
       createSignature('activity-2', ROUTE_A_REVERSED_POINTS),
     ];
 
-    const groups = groupSignatures(signatures);
+    const groups = await groupSignatures(signatures);
 
     // Both should be in the same group
     expect(groups.size).toBe(1);
@@ -470,37 +470,37 @@ describe('groupSignatures', () => {
     expect(group.length).toBe(2);
   });
 
-  it('should keep different routes in separate groups', () => {
+  it('should keep different routes in separate groups', async () => {
     const signatures = [
       createSignature('activity-1', ROUTE_A_POINTS),
       createSignature('activity-2', ROUTE_B_POINTS),
     ];
 
-    const groups = groupSignatures(signatures);
+    const groups = await groupSignatures(signatures);
 
     // Should be 2 separate groups
     expect(groups.size).toBe(2);
   });
 
-  it('should NOT group partially overlapping routes', () => {
+  it('should NOT group partially overlapping routes', async () => {
     const signatures = [
       createSignature('activity-1', ROUTE_A_POINTS),
       createSignature('activity-2', ROUTE_PARTIAL_OVERLAP_POINTS),
     ];
 
-    const groups = groupSignatures(signatures);
+    const groups = await groupSignatures(signatures);
 
     // Should be 2 separate groups (different journeys)
     expect(groups.size).toBe(2);
   });
 
-  it('should group multiple loops together', () => {
+  it('should group multiple loops together', async () => {
     const signatures = [
       createSignature('activity-1', ROUTE_LOOP_POINTS),
       createSignature('activity-2', ROUTE_LOOP_NOISY_POINTS),
     ];
 
-    const groups = groupSignatures(signatures);
+    const groups = await groupSignatures(signatures);
 
     // Both loops should be in the same group
     expect(groups.size).toBe(1);
@@ -508,7 +508,7 @@ describe('groupSignatures', () => {
     expect(group.length).toBe(2);
   });
 
-  it('should handle mixed routes correctly', () => {
+  it('should handle mixed routes correctly', async () => {
     const signatures = [
       createSignature('activity-1', ROUTE_A_POINTS),
       createSignature('activity-2', ROUTE_A_NOISY_POINTS),
@@ -517,7 +517,7 @@ describe('groupSignatures', () => {
       createSignature('activity-5', ROUTE_LOOP_NOISY_POINTS),
     ];
 
-    const groups = groupSignatures(signatures);
+    const groups = await groupSignatures(signatures);
 
     // Should have 3 groups:
     // 1. activity-1, activity-2 (Route A)
@@ -539,18 +539,18 @@ describe('groupSignatures', () => {
     expect(loopGroup).toContain('activity-5');
   });
 
-  it('should handle single activity', () => {
+  it('should handle single activity', async () => {
     const signatures = [createSignature('activity-1', ROUTE_A_POINTS)];
 
-    const groups = groupSignatures(signatures);
+    const groups = await groupSignatures(signatures);
 
     expect(groups.size).toBe(1);
     const group = Array.from(groups.values())[0];
     expect(group).toEqual(['activity-1']);
   });
 
-  it('should handle empty array', () => {
-    const groups = groupSignatures([]);
+  it('should handle empty array', async () => {
+    const groups = await groupSignatures([]);
     expect(groups.size).toBe(0);
   });
 });
@@ -626,7 +626,7 @@ describe('Shared section scenarios', () => {
     lng: p.lng + (Math.random() - 0.5) * 0.0001,
   }));
 
-  it('should NOT group runs that only share the "path to river" section', () => {
+  it('should NOT group runs that only share the "path to river" section', async () => {
     const sigA = createSignature('run-a', RUN_A_FULL);
     const sigB = createSignature('run-b', RUN_B_FULL);
 
@@ -641,7 +641,7 @@ describe('Shared section scenarios', () => {
     }
   });
 
-  it('should group actual repeats of the same full run', () => {
+  it('should group actual repeats of the same full run', async () => {
     const sigA = createSignature('run-a', RUN_A_FULL);
     const sigARepeat = createSignature('run-a-repeat', RUN_A_REPEAT);
 
@@ -652,14 +652,14 @@ describe('Shared section scenarios', () => {
     expect(shouldGroupRoutes(sigA, sigARepeat, match!.matchPercentage, DEFAULT_ROUTE_MATCH_CONFIG)).toBe(true);
   });
 
-  it('should keep different runs in separate groups even with shared section', () => {
+  it('should keep different runs in separate groups even with shared section', async () => {
     const signatures = [
       createSignature('run-a-1', RUN_A_FULL),
       createSignature('run-a-2', RUN_A_REPEAT),
       createSignature('run-b-1', RUN_B_FULL),
     ];
 
-    const groups = groupSignatures(signatures);
+    const groups = await groupSignatures(signatures);
 
     // Should have 2 groups:
     // 1. Run A instances (run-a-1, run-a-2)
@@ -674,7 +674,7 @@ describe('Shared section scenarios', () => {
 });
 
 describe('Edge cases', () => {
-  it('should handle routes with very few points', () => {
+  it('should handle routes with very few points', async () => {
     const shortRoute: RoutePoint[] = [
       { lat: 51.5074, lng: -0.1278 },
       { lat: 51.5094, lng: -0.1272 },
@@ -688,7 +688,7 @@ describe('Edge cases', () => {
     expect(match!.matchPercentage).toBeGreaterThan(80);
   });
 
-  it('should handle routes with many points', () => {
+  it('should handle routes with many points', async () => {
     // Create a dense route with 500 points
     const densePoints: RoutePoint[] = [];
     for (let i = 0; i < 500; i++) {
@@ -706,7 +706,7 @@ describe('Edge cases', () => {
     expect(match!.matchPercentage).toBeGreaterThan(90);
   });
 
-  it('should handle routes at different locations on Earth', () => {
+  it('should handle routes at different locations on Earth', async () => {
     // Route in Sydney, Australia
     const sydneyRoute: RoutePoint[] = [
       { lat: -33.8688, lng: 151.2093 },
@@ -730,7 +730,7 @@ describe('Edge cases', () => {
     expect(match).toBeNull();
   });
 
-  it('should handle near-equator routes correctly', () => {
+  it('should handle near-equator routes correctly', async () => {
     const equatorRoute: RoutePoint[] = [
       { lat: 0.001, lng: 100.000 },
       { lat: 0.002, lng: 100.001 },
@@ -742,7 +742,7 @@ describe('Edge cases', () => {
     expect(isFinite(distance)).toBe(true);
   });
 
-  it('should handle routes near the poles', () => {
+  it('should handle routes near the poles', async () => {
     const arcticRoute: RoutePoint[] = [
       { lat: 89.999, lng: 0 },
       { lat: 89.998, lng: 10 },

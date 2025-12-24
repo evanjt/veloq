@@ -6,13 +6,17 @@ import { router } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { RoutesList, TimelineSlider } from '@/components';
 import { useRouteProcessing, useActivities, useActivityBoundsCache, useRouteGroups } from '@/hooks';
-import { useRouteMatchStore } from '@/providers';
+import { useRouteMatchStore, useRouteSettings } from '@/providers';
 import { colors, spacing } from '@/theme';
 import type { ActivityType } from '@/types';
 
 export default function RoutesScreen() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
+
+  // Check if route matching is enabled
+  const { settings: routeSettings } = useRouteSettings();
+  const isRouteMatchingEnabled = routeSettings.enabled;
 
   const { queueActivities, isProcessing, progress: routeProgress } = useRouteProcessing();
 
@@ -34,16 +38,32 @@ export default function RoutesScreen() {
   // Get route groups to count (use minActivities: 2 to match the list)
   const { groups: routeGroups } = useRouteGroups({ minActivities: 2 });
 
-  // Date range state - default to last 3 months
+  // Date range state - default to full cached range, or last 3 months if no cache
   const now = useMemo(() => new Date(), []);
-  const defaultStart = useMemo(() => {
+  const fallbackStart = useMemo(() => {
     const d = new Date(now);
     d.setMonth(d.getMonth() - 3);
     return d;
   }, [now]);
 
-  const [startDate, setStartDate] = useState<Date>(defaultStart);
+  // Track if we've initialized from cache
+  const [hasInitialized, setHasInitialized] = useState(false);
+
+  // Calculate default dates from cache
+  const cachedStart = oldestSyncedDate ? new Date(oldestSyncedDate) : null;
+  const cachedEnd = newestSyncedDate ? new Date(newestSyncedDate) : null;
+
+  const [startDate, setStartDate] = useState<Date>(fallbackStart);
   const [endDate, setEndDate] = useState<Date>(now);
+
+  // Initialize to full cached range once available
+  useEffect(() => {
+    if (!hasInitialized && boundsReady && cachedStart && cachedEnd) {
+      setStartDate(cachedStart);
+      setEndDate(cachedEnd);
+      setHasInitialized(true);
+    }
+  }, [hasInitialized, boundsReady, cachedStart, cachedEnd]);
 
   // Min/max dates for timeline
   const minDate = useMemo(() => {
@@ -98,6 +118,11 @@ export default function RoutesScreen() {
   const isSyncing = syncProgress.status === 'syncing';
 
   useEffect(() => {
+    // Don't queue if route matching is disabled
+    if (!isRouteMatchingEnabled) {
+      return;
+    }
+
     // Don't queue while bounds are still syncing - wait for complete data
     if (isSyncing) {
       return;
@@ -141,19 +166,69 @@ export default function RoutesScreen() {
       // Pass filtered bounds data for pre-filtering
       queueActivities(activityIds, metadata, unprocessedBoundsData);
     }
-  }, [activities, queueActivities, filteredBoundsData, boundsReady, isSyncing, isProcessing, rangeKey, processedSet]);
+  }, [activities, queueActivities, filteredBoundsData, boundsReady, isSyncing, isProcessing, rangeKey, processedSet, isRouteMatchingEnabled]);
 
-  // Convert sync progress to timeline format
+  // Convert sync/processing progress to timeline format
+  // Show banner for both bounds syncing AND route processing
   const timelineSyncProgress = useMemo(() => {
-    if (syncProgress.status !== 'syncing') return null;
-    return {
-      completed: syncProgress.completed,
-      total: syncProgress.total,
-      message: isProcessing
-        ? `Analyzing routes ${routeProgress.current}/${routeProgress.total}`
-        : undefined,
-    };
+    // Show bounds syncing progress
+    if (syncProgress.status === 'syncing') {
+      return {
+        completed: syncProgress.completed,
+        total: syncProgress.total,
+        message: undefined,
+      };
+    }
+    // Show route processing progress after syncing is done
+    if (isProcessing && routeProgress.total > 0) {
+      return {
+        completed: routeProgress.current,
+        total: routeProgress.total,
+        message: `Analyzing routes ${routeProgress.current}/${routeProgress.total}`,
+      };
+    }
+    return null;
   }, [syncProgress, isProcessing, routeProgress]);
+
+  // Show disabled state if route matching is not enabled
+  if (!isRouteMatchingEnabled) {
+    return (
+      <SafeAreaView style={[styles.container, isDark && styles.containerDark]}>
+        <View style={styles.header}>
+          <IconButton
+            icon="arrow-left"
+            iconColor={isDark ? '#FFFFFF' : colors.textPrimary}
+            onPress={() => router.back()}
+          />
+          <Text style={[styles.headerTitle, isDark && styles.textLight]}>Routes</Text>
+          <View style={styles.headerRight} />
+        </View>
+
+        <View style={styles.disabledContainer}>
+          <MaterialCommunityIcons
+            name="map-marker-off"
+            size={64}
+            color={isDark ? '#444' : '#CCC'}
+          />
+          <Text style={[styles.disabledTitle, isDark && styles.textLight]}>
+            Route Matching Disabled
+          </Text>
+          <Text style={[styles.disabledText, isDark && styles.textMuted]}>
+            Enable route matching in Settings to automatically detect repeated routes from your activities.
+          </Text>
+          <IconButton
+            icon="cog"
+            iconColor={colors.primary}
+            size={32}
+            onPress={() => router.push('/settings')}
+          />
+          <Text style={[styles.disabledHint, isDark && styles.textMuted]}>
+            Go to Settings
+          </Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={[styles.container, isDark && styles.containerDark]}>
@@ -236,5 +311,33 @@ const styles = StyleSheet.create({
   },
   textLight: {
     color: '#FFFFFF',
+  },
+  textMuted: {
+    color: '#888',
+  },
+  disabledContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: spacing.xl,
+  },
+  disabledTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: colors.textPrimary,
+    marginTop: spacing.lg,
+    textAlign: 'center',
+  },
+  disabledText: {
+    fontSize: 15,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginTop: spacing.sm,
+    lineHeight: 22,
+  },
+  disabledHint: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    marginTop: -spacing.sm,
   },
 });
