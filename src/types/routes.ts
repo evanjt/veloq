@@ -46,6 +46,8 @@ export interface RouteGroup {
   name: string;
   /** Representative route signature (from the first/best activity) */
   signature: RouteSignature;
+  /** Consensus route - the common core that 80%+ of activities share */
+  consensusPoints?: RoutePoint[];
   /** Activity IDs in this group */
   activityIds: string[];
   /** Total count of activities */
@@ -189,11 +191,17 @@ export interface RouteMatchConfig {
   targetPoints: number;
   /** Maximum distance between matched points (meters) */
   distanceThreshold: number;
-  /** Minimum match percentage to consider a match */
+  /** Minimum match percentage to consider a match (for showing in activity view) */
   minMatchPercentage: number;
+  /**
+   * Minimum match percentage to GROUP activities into the same route.
+   * This is intentionally much higher than minMatchPercentage because grouping
+   * should only happen for truly identical journeys, not shared sections.
+   */
+  minGroupingPercentage: number;
   /** Minimum bounds overlap required (0-1) */
   minBoundsOverlap: number;
-  /** Maximum distance difference to consider (fraction, e.g., 0.2 = 20%) */
+  /** Maximum distance difference to consider (fraction, e.g., 0.5 = 50%) for MATCHING */
   maxDistanceDifference: number;
   /** Distance threshold for loop detection (meters) */
   loopThreshold: number;
@@ -206,9 +214,10 @@ export const DEFAULT_ROUTE_MATCH_CONFIG: RouteMatchConfig = {
   simplificationTolerance: 15, // meters
   targetPoints: 100,
   distanceThreshold: 50, // meters
-  minMatchPercentage: 60,
-  minBoundsOverlap: 0.3,
-  maxDistanceDifference: 0.2,
+  minMatchPercentage: 20, // Lower threshold to discover partial matches (for display)
+  minGroupingPercentage: 80, // Much higher threshold - activities must be nearly identical to group
+  minBoundsOverlap: 0.2, // Lower overlap requirement
+  maxDistanceDifference: 0.5, // Allow 50% distance difference for partial matches
   loopThreshold: 100, // meters
   regionGridSize: 0.005, // ~500m
 };

@@ -25,6 +25,7 @@ import {
   CHART_CONFIGS,
 } from '@/lib';
 import { colors, spacing, typography } from '@/theme';
+import { DeviceAttribution } from '@/components/ui';
 import type { ChartTypeId } from '@/lib/chartConfig';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -344,17 +345,10 @@ export default function ActivityDetailScreen() {
         {/* Insightful Stats - Interactive stats with context and explanations */}
         <InsightfulStats activity={activity} wellness={activityWellness} />
 
-        {/* Device attribution */}
+        {/* Device attribution with Garmin branding when applicable */}
         {activity.device_name && (
-          <View style={styles.deviceAttribution}>
-            <MaterialCommunityIcons
-              name="watch"
-              size={14}
-              color={isDark ? '#666' : colors.textSecondary}
-            />
-            <Text style={[styles.deviceText, isDark && styles.deviceTextDark]}>
-              {activity.device_name}
-            </Text>
+          <View style={styles.deviceAttributionContainer}>
+            <DeviceAttribution deviceName={activity.device_name} />
           </View>
         )}
       </ScrollView>
@@ -618,21 +612,11 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
 
-  // Device attribution
-  deviceAttribution: {
-    flexDirection: 'row',
+  // Device attribution container
+  deviceAttributionContainer: {
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
     marginTop: spacing.lg,
     paddingVertical: spacing.sm,
-  },
-  deviceText: {
-    fontSize: 12,
-    color: colors.textSecondary,
-  },
-  deviceTextDark: {
-    color: '#666',
   },
 
   // Fullscreen button

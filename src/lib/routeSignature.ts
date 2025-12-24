@@ -124,15 +124,26 @@ export function simplifyRoute(
  * Filters out outlier gaps (> 10km between consecutive points) that likely indicate GPS errors.
  */
 export function calculateRouteDistance(points: RoutePoint[]): number {
+  if (!points || points.length < 2) {
+    return 0;
+  }
+
   let total = 0;
   const MAX_STEP_DISTANCE = 10000; // 10km - any step longer than this is likely GPS error
 
   for (let i = 1; i < points.length; i++) {
-    const stepDistance = haversineDistance(points[i - 1], points[i]);
+    const p1 = points[i - 1];
+    const p2 = points[i];
 
-    // Skip outlier gaps (GPS errors, gaps, etc.)
-    if (stepDistance > MAX_STEP_DISTANCE) {
-      console.warn(`[RouteSignature] Skipping outlier gap ${i-1}->${i}: ${(stepDistance/1000).toFixed(1)}km`);
+    // Skip if points are invalid
+    if (!p1 || !p2 || !isFinite(p1.lat) || !isFinite(p1.lng) || !isFinite(p2.lat) || !isFinite(p2.lng)) {
+      continue;
+    }
+
+    const stepDistance = haversineDistance(p1, p2);
+
+    // Skip outlier gaps (GPS errors, etc.) or invalid distances
+    if (!isFinite(stepDistance) || stepDistance > MAX_STEP_DISTANCE) {
       continue;
     }
 

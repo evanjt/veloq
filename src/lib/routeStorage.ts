@@ -10,7 +10,9 @@ import type {
   RouteMatch,
   RouteMatchCache,
   ActivityType,
+  RoutePoint,
 } from '@/types';
+import { matchRoutes, calculateConsensusRoute } from './routeMatching';
 
 // Storage keys
 const ROUTE_CACHE_KEY = 'veloq_route_match_cache';
@@ -126,6 +128,7 @@ function generateGroupId(): string {
 
 /**
  * Create a new route group from a set of activity IDs.
+ * Calculates the consensus route - the common core that 80%+ of activities share.
  */
 export function createRouteGroup(
   activityIds: string[],
@@ -152,10 +155,26 @@ export function createRouteGroup(
     name = name.split(' - ').pop() || name;
   }
 
+  // Calculate consensus route from all signatures in the group
+  // This is the "common core" that 80%+ of activities pass through
+  const groupSignatures = activityIds
+    .map(id => signatures[id])
+    .filter((sig): sig is RouteSignature => sig != null);
+
+  let consensusPoints: RoutePoint[] | undefined;
+  if (groupSignatures.length >= 2) {
+    consensusPoints = calculateConsensusRoute(groupSignatures);
+    // Only keep if we have a meaningful consensus (at least 10 points)
+    if (consensusPoints.length < 10) {
+      consensusPoints = undefined;
+    }
+  }
+
   return {
     id: generateGroupId(),
     name,
     signature,
+    consensusPoints,
     activityIds,
     activityCount: activityIds.length,
     firstDate: dates[0] || new Date().toISOString(),
@@ -167,6 +186,7 @@ export function createRouteGroup(
 
 /**
  * Update route groups with new groupings.
+ * Calculates actual match percentages for each activity against the representative.
  */
 export function updateRouteGroups(
   cache: RouteMatchCache,
@@ -184,21 +204,53 @@ export function updateRouteGroups(
     const group = createRouteGroup(activityIds, cache.signatures, activityMetadata);
     newGroups.push(group);
 
+    // Get the representative signature (first activity)
+    const representativeId = activityIds[0];
+    const representativeSignature = cache.signatures[representativeId];
+
+    // Track match percentages for calculating average
+    const matchPercentages: number[] = [];
+
     // Create matches and reverse index for all activities in group
     for (const activityId of activityIds) {
       // Add to reverse index (all activities, including representative)
       newActivityToRouteId[activityId] = group.id;
 
       // Skip the representative (first) activity for matches
-      if (activityId === activityIds[0]) continue;
+      if (activityId === representativeId) continue;
+
+      // Get the signature for this activity
+      const signature = cache.signatures[activityId];
+
+      // Calculate actual match against representative
+      let matchPercentage = 100;
+      let direction: 'same' | 'reverse' | 'partial' = 'same';
+      let confidence = 1;
+
+      if (signature && representativeSignature) {
+        const match = matchRoutes(signature, representativeSignature);
+        if (match) {
+          matchPercentage = match.matchPercentage;
+          direction = match.direction;
+          confidence = match.confidence;
+          matchPercentages.push(matchPercentage);
+        }
+      }
 
       newMatches[activityId] = {
         activityId,
         routeGroupId: group.id,
-        matchPercentage: 100, // Will be refined when detailed match is done
-        direction: 'same',
-        confidence: 1,
+        matchPercentage,
+        direction,
+        confidence,
       };
+    }
+
+    // Update group's average match quality
+    if (matchPercentages.length > 0) {
+      group.averageMatchQuality = Math.round(
+        matchPercentages.reduce((a, b) => a + b, 0) / matchPercentages.length
+      );
     }
   }
 

@@ -15,7 +15,8 @@ import type {
   DiscoveredRouteInfo,
   ActivityType,
 } from '@/types';
-import { generateRouteSignature } from './routeSignature';
+import { DEFAULT_ROUTE_MATCH_CONFIG } from '@/types';
+import { generateRouteSignature, haversineDistance } from './routeSignature';
 import { groupSignatures, matchRoutes, createRouteMatch } from './routeMatching';
 import {
   loadRouteCache,
@@ -36,6 +37,85 @@ const ROUTE_PROCESSING_CHECKPOINT_KEY = 'veloq_route_processing_checkpoint';
 const BATCH_SIZE = 5; // Activities per batch
 const INTER_BATCH_DELAY = 100; // ms between batches
 const API_CONCURRENCY = 3; // Concurrent API requests (lower than default to preserve UX)
+
+/**
+ * Check if two route signatures should be GROUPED into the same route.
+ *
+ * PHILOSOPHY: A "route" is a complete, repeated JOURNEY - not a shared section.
+ * Two activities are the same route only if they represent the same end-to-end trip.
+ *
+ * This is MUCH stricter than matching (which shows partial overlaps).
+ *
+ * Criteria for grouping:
+ * 1. High path coverage (80%+) - most of the path must be shared
+ * 2. Similar total distance (within 25%) - same journey = similar length
+ * 3. Same endpoints (within 200m) - same start AND end location
+ *
+ * If any of these fail, the activities are DIFFERENT routes that may share a section.
+ */
+function shouldGroupRoutes(
+  sig1: RouteSignature,
+  sig2: RouteSignature,
+  matchPercentage: number
+): boolean {
+  const { minGroupingPercentage, loopThreshold } = DEFAULT_ROUTE_MATCH_CONFIG;
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // CHECK 1: Path coverage must be high (80%+)
+  // ═══════════════════════════════════════════════════════════════════════════
+  // The matchPercentage already uses min(both directions), so this ensures
+  // that BOTH activities cover most of each other, not just one covering the other.
+  if (matchPercentage < minGroupingPercentage) {
+    return false;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // CHECK 2: Total distance must be similar (within 25%)
+  // ═══════════════════════════════════════════════════════════════════════════
+  // If Route A is 10km and Route B is 15km, they're different journeys even if
+  // 100% of A is contained within B. The same journey should have similar length.
+  const maxGroupingDistanceDiff = 0.25; // 25% - stricter than matching's 50%
+  const distanceDiff = Math.abs(sig1.distance - sig2.distance);
+  const maxDistance = Math.max(sig1.distance, sig2.distance);
+  if (maxDistance > 0 && distanceDiff / maxDistance > maxGroupingDistanceDiff) {
+    return false;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // CHECK 3: Endpoints must match (for non-loops)
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Routes with different start/end points are different journeys, even if they
+  // share a large middle section.
+
+  // For loops, high match + similar distance is sufficient (no distinct endpoints)
+  if (sig1.isLoop && sig2.isLoop) {
+    return true;
+  }
+
+  // For point-to-point routes, BOTH start AND end must be close
+  const endpointThreshold = loopThreshold * 2; // ~200m
+
+  const start1 = sig1.points[0];
+  const end1 = sig1.points[sig1.points.length - 1];
+  const start2 = sig2.points[0];
+  const end2 = sig2.points[sig2.points.length - 1];
+
+  if (!start1 || !end1 || !start2 || !end2) {
+    return false;
+  }
+
+  // Same direction: start1≈start2 AND end1≈end2
+  const sameStartDist = haversineDistance(start1, start2);
+  const sameEndDist = haversineDistance(end1, end2);
+  const sameDirectionOk = sameStartDist < endpointThreshold && sameEndDist < endpointThreshold;
+
+  // Reverse direction: start1≈end2 AND end1≈start2 (out-and-back or opposite direction)
+  const reverseStartDist = haversineDistance(start1, end2);
+  const reverseEndDist = haversineDistance(end1, start2);
+  const reverseDirectionOk = reverseStartDist < endpointThreshold && reverseEndDist < endpointThreshold;
+
+  return sameDirectionOk || reverseDirectionOk;
+}
 
 /**
  * Union-Find helper for grouping activities into routes.
@@ -586,8 +666,11 @@ class RouteProcessingQueue {
                     routeUnion.setRoutePreview(existing.activityId, existingPreview, existing.distance);
                   }
 
-                  // Union the two activities into the same route
-                  routeUnion.union(id, existing.activityId, match.matchPercentage);
+                  // Only GROUP if routes are truly the same (high match + similar endpoints)
+                  // This prevents routes with shared sections from merging together
+                  if (shouldGroupRoutes(signature, existing, match.matchPercentage)) {
+                    routeUnion.union(id, existing.activityId, match.matchPercentage);
+                  }
 
                   // Don't break - find ALL matches for this activity
                 }

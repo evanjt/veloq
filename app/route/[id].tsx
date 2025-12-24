@@ -1,9 +1,16 @@
-import React, { useMemo } from 'react';
-import { View, ScrollView, StyleSheet, useColorScheme, Pressable } from 'react-native';
+import React, { useMemo, useCallback, useState, useEffect, useRef } from 'react';
+import { View, ScrollView, StyleSheet, useColorScheme, Pressable, Dimensions, StatusBar, TouchableOpacity } from 'react-native';
 import { Text, IconButton, ActivityIndicator } from 'react-native-paper';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useLocalSearchParams, router } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useLocalSearchParams, router, Href } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import { CartesianChart, Line } from 'victory-native';
+import { Circle } from '@shopify/react-native-skia';
+import Svg, { Polyline } from 'react-native-svg';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { useSharedValue, useDerivedValue, useAnimatedStyle, useAnimatedReaction, runOnJS } from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
 import { useRouteMatchStore } from '@/providers';
 import { useActivities } from '@/hooks';
 import { RouteMapView } from '@/components/routes';
@@ -13,23 +20,802 @@ import {
   getActivityIcon,
   getActivityColor,
   formatDuration,
+  formatSpeed,
+  formatPace,
+  isRunningActivity,
+  detectLaps,
 } from '@/lib';
+import type { RouteLap } from '@/lib/routeMatching';
 import { colors, spacing, layout } from '@/theme';
-import type { Activity } from '@/types';
+import type { Activity, ActivityType, RoutePoint } from '@/types';
+
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const MAP_HEIGHT = Math.round(SCREEN_HEIGHT * 0.45); // 45% of screen for hero map
+
+// Color for reverse direction activities
+const REVERSE_COLOR = '#9C27B0'; // Purple
+const SAME_COLOR_DEFAULT = '#4CAF50'; // Green (same direction)
+const CONSENSUS_COLOR = '#F59E0B'; // Orange for the consensus/main route
 
 interface ActivityRowProps {
   activity: Activity;
   isDark: boolean;
   matchPercentage?: number;
   direction?: string;
+  /** Route points for this activity's GPS trace */
+  activityPoints?: RoutePoint[];
+  /** Consensus route points (the common core) */
+  consensusPoints?: RoutePoint[];
+  /** Whether this row is currently highlighted */
+  isHighlighted?: boolean;
+  /** Distance of the overlapping section in meters */
+  overlapDistance?: number;
+  /** Total distance of the route in meters (for context) */
+  routeDistance?: number;
 }
 
-function ActivityRow({ activity, isDark, matchPercentage, direction }: ActivityRowProps) {
+/** Mini route trace component for activity list - shows both consensus route and activity trace */
+function MiniRouteTrace({
+  activityPoints,
+  consensusPoints,
+  activityColor,
+  consensusColor,
+  isHighlighted,
+}: {
+  /** Points from the individual activity's GPS trace */
+  activityPoints: RoutePoint[];
+  /** Points from the consensus/main route */
+  consensusPoints?: RoutePoint[];
+  /** Color for the activity trace */
+  activityColor: string;
+  /** Color for the consensus route (shown underneath) */
+  consensusColor: string;
+  isHighlighted?: boolean;
+}) {
+  if (activityPoints.length < 2) return null;
+
+  const width = 36;
+  const height = 36;
+  const padding = 3;
+
+  // Combine all points to calculate shared bounds
+  const allPoints = consensusPoints && consensusPoints.length > 0
+    ? [...activityPoints, ...consensusPoints]
+    : activityPoints;
+
+  const lats = allPoints.map(p => p.lat);
+  const lngs = allPoints.map(p => p.lng);
+  const minLat = Math.min(...lats);
+  const maxLat = Math.max(...lats);
+  const minLng = Math.min(...lngs);
+  const maxLng = Math.max(...lngs);
+
+  const latRange = maxLat - minLat || 1;
+  const lngRange = maxLng - minLng || 1;
+
+  // Scale function using shared bounds
+  const scalePoints = (points: RoutePoint[]) =>
+    points.map(p => ({
+      x: ((p.lng - minLng) / lngRange) * (width - padding * 2) + padding,
+      y: (1 - (p.lat - minLat) / latRange) * (height - padding * 2) + padding,
+    }));
+
+  const activityScaled = scalePoints(activityPoints);
+  const activityString = activityScaled.map(p => `${p.x},${p.y}`).join(' ');
+
+  const consensusScaled = consensusPoints && consensusPoints.length > 1
+    ? scalePoints(consensusPoints)
+    : null;
+  const consensusString = consensusScaled
+    ? consensusScaled.map(p => `${p.x},${p.y}`).join(' ')
+    : null;
+
+  return (
+    <View style={[
+      miniTraceStyles.container,
+      isHighlighted && miniTraceStyles.highlighted,
+    ]}>
+      <Svg width={width} height={height}>
+        {/* Activity trace underneath (faded - this is the individual activity's path) */}
+        <Polyline
+          points={activityString}
+          fill="none"
+          stroke={activityColor}
+          strokeWidth={2}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          opacity={isHighlighted ? 0.5 : 0.25}
+        />
+        {/* Consensus route on top (prominent - this is the route we're viewing) */}
+        {consensusString && (
+          <Polyline
+            points={consensusString}
+            fill="none"
+            stroke={consensusColor}
+            strokeWidth={isHighlighted ? 3 : 2.5}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            opacity={0.85}
+          />
+        )}
+      </Svg>
+    </View>
+  );
+}
+
+const miniTraceStyles = StyleSheet.create({
+  container: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    backgroundColor: 'rgba(0, 0, 0, 0.03)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  highlighted: {
+    backgroundColor: 'rgba(0, 188, 212, 0.15)',
+    borderWidth: 1,
+    borderColor: '#00BCD4',
+  },
+});
+
+/** Data point for the performance chart - can be an activity or a lap */
+interface PerformanceDataPoint {
+  /** Unique ID for this data point */
+  id: string;
+  /** Activity ID this point belongs to */
+  activityId: string;
+  /** Lap number (1 if single lap per activity) */
+  lapNumber: number;
+  /** Total laps in this activity */
+  totalLaps: number;
+  /** Speed in m/s */
+  speed: number;
+  /** Date of the activity */
+  date: Date;
+  /** Activity name */
+  activityName: string;
+  /** Direction (same/reverse) */
+  direction: 'same' | 'reverse';
+  /** Match percentage (0-100) */
+  matchPercentage: number;
+  /** Points for this lap (for map highlighting) */
+  lapPoints?: RoutePoint[];
+}
+
+interface PerformanceChartProps {
+  activities: Activity[];
+  activityType: ActivityType;
+  isDark: boolean;
+  matches: Record<string, { matchPercentage?: number; direction?: string }>;
+  /** Signatures for lap detection */
+  signatures: Record<string, { points?: RoutePoint[] }>;
+  /** Consensus route for lap detection */
+  consensusPoints?: RoutePoint[];
+  /** Callback when a lap is selected via scrubbing */
+  onLapSelect?: (lapId: string | null, lapPoints?: RoutePoint[]) => void;
+  /** Currently selected/highlighted lap ID */
+  selectedLapId?: string | null;
+}
+
+function formatShortDate(date: Date): string {
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+// Chart constants
+const CHART_HEIGHT = 160;
+const MIN_POINT_WIDTH = 40; // Minimum width per data point
+
+function PerformanceProgressionChart({
+  activities,
+  activityType,
+  isDark,
+  matches,
+  signatures,
+  consensusPoints,
+  onLapSelect,
+  selectedLapId,
+}: PerformanceChartProps) {
+  const showPace = isRunningActivity(activityType);
+  const activityColor = getActivityColor(activityType);
+
+  // Tooltip state - persists after scrubbing ends so user can tap
+  const [tooltipData, setTooltipData] = useState<PerformanceDataPoint | null>(null);
+  const [isActive, setIsActive] = useState(false);
+  const [isPersisted, setIsPersisted] = useState(false);
+
+  // Gesture tracking
+  const touchX = useSharedValue(-1);
+  const chartBoundsShared = useSharedValue({ left: 0, right: 1 });
+  const lastNotifiedIdx = useRef<number | null>(null);
+
+  // Prepare chart data with lap detection
+  const { chartData, minSpeed, maxSpeed, bestIndex, hasMultipleLaps, hasReverseRuns } = useMemo(() => {
+    const dataPoints: (PerformanceDataPoint & { x: number })[] = [];
+
+    // Sort activities by date first
+    const sortedActivities = [...activities].sort(
+      (a, b) => new Date(a.start_date_local).getTime() - new Date(b.start_date_local).getTime()
+    );
+
+    let hasAnyMultipleLaps = false;
+    let hasAnyReverse = false;
+
+    for (const activity of sortedActivities) {
+      const activityPoints = signatures[activity.id]?.points;
+      const match = matches[activity.id];
+      const direction = (match?.direction as 'same' | 'reverse') ?? 'same';
+      const matchPercentage = match?.matchPercentage ?? 100;
+
+      if (direction === 'reverse') hasAnyReverse = true;
+
+      // Calculate activity speed (with safety check for division by zero)
+      const activitySpeed = activity.moving_time > 0
+        ? activity.distance / activity.moving_time
+        : 0;
+
+      // Try to detect laps if we have valid data
+      const canDetectLaps = consensusPoints &&
+        consensusPoints.length > 3 &&
+        activityPoints &&
+        activityPoints.length > 3 &&
+        activity.distance > 0 &&
+        activity.moving_time > 0;
+
+      if (canDetectLaps) {
+        try {
+          const laps = detectLaps(
+            activityPoints,
+            consensusPoints,
+            activity.distance,
+            activity.moving_time,
+            50, // distance threshold
+            100 // min lap distance
+          );
+
+          if (laps.length > 1) {
+            hasAnyMultipleLaps = true;
+            // Multiple laps detected - add each as a separate point
+            for (const lap of laps) {
+              if (lap.direction === 'reverse') hasAnyReverse = true;
+              dataPoints.push({
+                x: 0, // Will be set after sort
+                id: `${activity.id}-lap-${lap.lapNumber}`,
+                activityId: activity.id,
+                lapNumber: lap.lapNumber,
+                totalLaps: laps.length,
+                speed: lap.speed,
+                date: new Date(activity.start_date_local),
+                activityName: activity.name,
+                direction: lap.direction,
+                matchPercentage,
+                lapPoints: lap.points,
+              });
+            }
+          } else {
+            // Single lap or no laps detected - use activity overall
+            dataPoints.push({
+              x: 0,
+              id: `${activity.id}-lap-1`,
+              activityId: activity.id,
+              lapNumber: 1,
+              totalLaps: 1,
+              speed: activitySpeed,
+              date: new Date(activity.start_date_local),
+              activityName: activity.name,
+              direction,
+              matchPercentage,
+              lapPoints: activityPoints,
+            });
+          }
+        } catch (e) {
+          // Lap detection failed - fall back to activity overall
+          console.warn('Lap detection failed for activity', activity.id, e);
+          dataPoints.push({
+            x: 0,
+            id: `${activity.id}-lap-1`,
+            activityId: activity.id,
+            lapNumber: 1,
+            totalLaps: 1,
+            speed: activitySpeed,
+            date: new Date(activity.start_date_local),
+            activityName: activity.name,
+            direction,
+            matchPercentage,
+          });
+        }
+      } else {
+        // No lap detection possible - use activity overall
+        dataPoints.push({
+          x: 0,
+          id: `${activity.id}-lap-1`,
+          activityId: activity.id,
+          lapNumber: 1,
+          totalLaps: 1,
+          speed: activitySpeed,
+          date: new Date(activity.start_date_local),
+          activityName: activity.name,
+          direction,
+          matchPercentage,
+        });
+      }
+    }
+
+    // Re-index after collecting all points
+    const indexed = dataPoints.map((d, idx) => ({ ...d, x: idx }));
+
+    const speeds = indexed.map(d => d.speed);
+    const min = speeds.length > 0 ? Math.min(...speeds) : 0;
+    const max = speeds.length > 0 ? Math.max(...speeds) : 1;
+    const padding = (max - min) * 0.15 || 0.5;
+
+    // Find best (fastest)
+    let bestIdx = 0;
+    for (let i = 1; i < indexed.length; i++) {
+      if (indexed[i].speed > indexed[bestIdx].speed) {
+        bestIdx = i;
+      }
+    }
+
+    return {
+      chartData: indexed,
+      minSpeed: Math.max(0, min - padding),
+      maxSpeed: max + padding,
+      bestIndex: bestIdx,
+      hasMultipleLaps: hasAnyMultipleLaps,
+      hasReverseRuns: hasAnyReverse,
+    };
+  }, [activities, matches, signatures, consensusPoints]);
+
+  // Calculate chart width based on number of points (for scrolling)
+  const chartWidth = useMemo(() => {
+    const screenWidth = SCREEN_WIDTH - 32; // Account for padding
+    const dataWidth = chartData.length * MIN_POINT_WIDTH;
+    return Math.max(screenWidth, dataWidth);
+  }, [chartData.length]);
+
+  const needsScrolling = chartWidth > SCREEN_WIDTH - 32;
+
+  // Find currently selected index for highlighting
+  const selectedIndex = useMemo(() => {
+    if (!selectedLapId) return -1;
+    return chartData.findIndex(d => d.id === selectedLapId);
+  }, [selectedLapId, chartData]);
+
+  const formatSpeedValue = useCallback((speed: number) => {
+    if (showPace) {
+      return formatPace(speed);
+    }
+    return formatSpeed(speed);
+  }, [showPace]);
+
+  // Derive selected index on UI thread
+  const selectedIdx = useDerivedValue(() => {
+    'worklet';
+    const len = chartData.length;
+    const bounds = chartBoundsShared.value;
+    const chartWidthPx = bounds.right - bounds.left;
+
+    if (touchX.value < 0 || chartWidthPx <= 0 || len === 0) return -1;
+
+    const chartX = touchX.value - bounds.left;
+    const ratio = Math.max(0, Math.min(1, chartX / chartWidthPx));
+    const idx = Math.round(ratio * (len - 1));
+
+    return Math.min(Math.max(0, idx), len - 1);
+  }, [chartData.length]);
+
+  // Update tooltip on JS thread
+  const updateTooltipOnJS = useCallback((idx: number, gestureEnded = false) => {
+    // Gesture ended - persist the current tooltip for tapping
+    if (gestureEnded) {
+      if (tooltipData) {
+        setIsActive(false);
+        setIsPersisted(true);
+        // Notify parent of final selection
+        if (onLapSelect && tooltipData) {
+          onLapSelect(tooltipData.id, tooltipData.lapPoints);
+        }
+      }
+      lastNotifiedIdx.current = null;
+      return;
+    }
+
+    // Invalid index during active gesture - ignore (don't clear)
+    if (idx < 0 || chartData.length === 0) {
+      return;
+    }
+
+    // New gesture started - clear persisted state
+    if (isPersisted) {
+      setIsPersisted(false);
+    }
+
+    if (idx === lastNotifiedIdx.current) return;
+    lastNotifiedIdx.current = idx;
+
+    if (!isActive) {
+      setIsActive(true);
+    }
+
+    const point = chartData[idx];
+    if (point) {
+      setTooltipData(point);
+      // Notify parent for map highlighting
+      if (onLapSelect) {
+        onLapSelect(point.id, point.lapPoints);
+      }
+    }
+  }, [chartData, isActive, isPersisted, tooltipData, onLapSelect]);
+
+  // Handle gesture end - persist tooltip
+  const handleGestureEnd = useCallback(() => {
+    updateTooltipOnJS(-1, true);
+  }, [updateTooltipOnJS]);
+
+  useAnimatedReaction(
+    () => selectedIdx.value,
+    (idx) => {
+      if (idx >= 0) {
+        runOnJS(updateTooltipOnJS)(idx, false);
+      }
+    },
+    [updateTooltipOnJS]
+  );
+
+  // Clear persisted tooltip
+  const clearPersistedTooltip = useCallback(() => {
+    if (isPersisted) {
+      setIsPersisted(false);
+      setTooltipData(null);
+      if (onLapSelect) {
+        onLapSelect(null, undefined);
+      }
+    }
+  }, [isPersisted, onLapSelect]);
+
+  // Pan gesture with long press activation for scrubbing
+  // Quick swipes pass through to ScrollView for horizontal scrolling
+  const panGesture = Gesture.Pan()
+    .activateAfterLongPress(300) // Only activate after 300ms hold
+    .onStart((e) => {
+      'worklet';
+      touchX.value = e.x;
+    })
+    .onUpdate((e) => {
+      'worklet';
+      touchX.value = e.x;
+    })
+    .onEnd(() => {
+      'worklet';
+      touchX.value = -1;
+      runOnJS(handleGestureEnd)();
+    });
+
+  // Tap gesture to dismiss persisted tooltip
+  const tapGesture = Gesture.Tap()
+    .onEnd(() => {
+      'worklet';
+      runOnJS(clearPersistedTooltip)();
+    });
+
+  const gesture = Gesture.Race(panGesture, tapGesture);
+
+  // Animated crosshair - calculate position from selected index
+  const crosshairStyle = useAnimatedStyle(() => {
+    'worklet';
+    const idx = selectedIdx.value;
+    const bounds = chartBoundsShared.value;
+    const len = chartData.length;
+
+    if (idx < 0 || len === 0) {
+      return { opacity: 0, transform: [{ translateX: 0 }] };
+    }
+
+    // Calculate x position from index
+    const chartWidthPx = bounds.right - bounds.left;
+    const xPos = bounds.left + (idx / (len - 1)) * chartWidthPx;
+
+    return {
+      opacity: 1,
+      transform: [{ translateX: xPos }],
+    };
+  }, [chartData.length]);
+
+  if (chartData.length < 2) return null;
+
+  // Get point color based on direction
+  const getPointColor = (direction: 'same' | 'reverse') => {
+    return direction === 'reverse' ? REVERSE_COLOR : activityColor;
+  };
+
+  const chartContent = (
+    <GestureDetector gesture={gesture}>
+      <View style={[styles.chartInner, { width: chartWidth }]}>
+        <CartesianChart
+          data={chartData}
+          xKey="x"
+          yKeys={['speed']}
+          domain={{ y: [minSpeed, maxSpeed] }}
+          padding={{ left: 35, right: 16, top: 40, bottom: 24 }}
+        >
+          {({ points, chartBounds }) => {
+            // Sync chartBounds for gesture handling
+            if (chartBounds.left !== chartBoundsShared.value.left ||
+                chartBounds.right !== chartBoundsShared.value.right) {
+              chartBoundsShared.value = { left: chartBounds.left, right: chartBounds.right };
+            }
+
+            return (
+              <>
+                {/* Line connecting points */}
+                <Line
+                  points={points.speed}
+                  color={isDark ? '#444' : '#DDD'}
+                  strokeWidth={1.5}
+                  curveType="monotoneX"
+                />
+                {/* Regular points - colored by direction */}
+                {points.speed.map((point, idx) => {
+                  if (point.x == null || point.y == null) return null;
+                  const isSelected = idx === selectedIndex;
+                  const isBest = idx === bestIndex;
+                  // Skip if selected or best (render separately for layering)
+                  if (isSelected || isBest) return null;
+                  const d = chartData[idx];
+                  const pointColor = d ? getPointColor(d.direction) : activityColor;
+                  return (
+                    <Circle
+                      key={`point-${idx}`}
+                      cx={point.x}
+                      cy={point.y}
+                      r={5}
+                      color={pointColor}
+                    />
+                  );
+                })}
+                {/* Best performance - gold (render after regular) */}
+                {bestIndex !== selectedIndex &&
+                 points.speed[bestIndex] &&
+                 points.speed[bestIndex].x != null && points.speed[bestIndex].y != null && (
+                  <>
+                    <Circle
+                      cx={points.speed[bestIndex].x!}
+                      cy={points.speed[bestIndex].y!}
+                      r={8}
+                      color="#FFB300"
+                    />
+                    <Circle
+                      cx={points.speed[bestIndex].x!}
+                      cy={points.speed[bestIndex].y!}
+                      r={4}
+                      color="#FFFFFF"
+                    />
+                  </>
+                )}
+                {/* Selected activity - cyan (render on top) */}
+                {selectedIndex >= 0 &&
+                 points.speed[selectedIndex] &&
+                 points.speed[selectedIndex].x != null && points.speed[selectedIndex].y != null && (
+                  <>
+                    <Circle
+                      cx={points.speed[selectedIndex].x!}
+                      cy={points.speed[selectedIndex].y!}
+                      r={10}
+                      color="#00BCD4"
+                    />
+                    <Circle
+                      cx={points.speed[selectedIndex].x!}
+                      cy={points.speed[selectedIndex].y!}
+                      r={5}
+                      color="#FFFFFF"
+                    />
+                  </>
+                )}
+              </>
+            );
+          }}
+        </CartesianChart>
+
+        {/* Crosshair */}
+        <Animated.View
+          style={[styles.crosshair, crosshairStyle, isDark && styles.crosshairDark]}
+          pointerEvents="none"
+        />
+
+        {/* Y-axis labels */}
+        <View style={styles.yAxisOverlay} pointerEvents="none">
+          <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
+            {formatSpeedValue(maxSpeed)}
+          </Text>
+          <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
+            {formatSpeedValue((minSpeed + maxSpeed) / 2)}
+          </Text>
+          <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
+            {formatSpeedValue(minSpeed)}
+          </Text>
+        </View>
+
+        {/* X-axis labels (dates) */}
+        <View style={[styles.xAxisOverlay, { width: chartWidth - 35 - 16, left: 35 }]} pointerEvents="none">
+          {chartData.length > 0 && (
+            <>
+              <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
+                {formatShortDate(chartData[0].date)}
+              </Text>
+              {chartData.length >= 5 && (
+                <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
+                  {formatShortDate(chartData[Math.floor(chartData.length / 2)].date)}
+                </Text>
+              )}
+              <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
+                {formatShortDate(chartData[chartData.length - 1].date)}
+              </Text>
+            </>
+          )}
+        </View>
+      </View>
+    </GestureDetector>
+  );
+
+  return (
+    <View style={[styles.chartCard, isDark && styles.chartCardDark]}>
+      <View style={styles.chartHeader}>
+        <View style={styles.chartTitleRow}>
+          <Text style={[styles.chartTitle, isDark && styles.textLight]}>
+            Performance Over Time
+          </Text>
+          {hasMultipleLaps && (
+            <View style={styles.lapsBadge}>
+              <Text style={styles.lapsBadgeText}>
+                {chartData.length} laps
+              </Text>
+            </View>
+          )}
+        </View>
+        <View style={styles.chartLegend}>
+          <View style={styles.legendItem}>
+            <View style={[styles.legendDot, { backgroundColor: '#FFB300' }]} />
+            <Text style={[styles.legendText, isDark && styles.textMuted]}>Best</Text>
+          </View>
+          <View style={styles.legendItem}>
+            <View style={[styles.legendDot, { backgroundColor: activityColor }]} />
+            <Text style={[styles.legendText, isDark && styles.textMuted]}>Same</Text>
+          </View>
+          {hasReverseRuns && (
+            <View style={styles.legendItem}>
+              <View style={[styles.legendDot, { backgroundColor: REVERSE_COLOR }]} />
+              <Text style={[styles.legendText, isDark && styles.textMuted]}>Reverse</Text>
+            </View>
+          )}
+        </View>
+      </View>
+
+      {/* Hint for interaction */}
+      {!isActive && !isPersisted && (
+        <Text style={[styles.chartHint, isDark && styles.textMuted]}>
+          {needsScrolling ? 'Swipe to scroll • Hold to scrub' : 'Hold to scrub through activities'}
+        </Text>
+      )}
+
+      {/* Selected activity info - tappable */}
+      {(isActive || isPersisted) && tooltipData && (
+        <TouchableOpacity
+          style={[styles.selectedTooltip, isDark && styles.selectedTooltipDark]}
+          onPress={() => router.push(`/activity/${tooltipData.activityId}` as Href)}
+          activeOpacity={0.7}
+        >
+          <View style={styles.tooltipLeft}>
+            <Text style={[styles.tooltipName, isDark && styles.textLight]} numberOfLines={1}>
+              {tooltipData.activityName}
+            </Text>
+            <View style={styles.tooltipMeta}>
+              <Text style={[styles.tooltipDate, isDark && styles.textMuted]}>
+                {formatShortDate(tooltipData.date)}
+              </Text>
+              {tooltipData.totalLaps > 1 && (
+                <Text style={[styles.tooltipLap, isDark && styles.textMuted]}>
+                  Lap {tooltipData.lapNumber}/{tooltipData.totalLaps}
+                </Text>
+              )}
+              <View style={[styles.matchBadgeSmall, { backgroundColor: colors.success + '20' }]}>
+                <Text style={[styles.matchBadgeText, { color: colors.success }]}>
+                  {Math.round(tooltipData.matchPercentage)}%
+                </Text>
+              </View>
+              {tooltipData.direction === 'reverse' && (
+                <View style={styles.reverseBadge}>
+                  <MaterialCommunityIcons name="swap-horizontal" size={10} color={REVERSE_COLOR} />
+                </View>
+              )}
+            </View>
+          </View>
+          <View style={styles.tooltipRight}>
+            <Text style={[styles.tooltipSpeed, { color: tooltipData.direction === 'reverse' ? REVERSE_COLOR : activityColor }]}>
+              {formatSpeedValue(tooltipData.speed)}
+            </Text>
+            <MaterialCommunityIcons name="chevron-right" size={16} color={isDark ? '#555' : '#CCC'} />
+          </View>
+        </TouchableOpacity>
+      )}
+
+      {/* Chart with optional horizontal scrolling */}
+      <View style={styles.chartContainer}>
+        {needsScrolling ? (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={true}
+            contentContainerStyle={{ width: chartWidth }}
+          >
+            {chartContent}
+          </ScrollView>
+        ) : (
+          chartContent
+        )}
+      </View>
+
+      {/* Best stats */}
+      {chartData[bestIndex] && (
+        <View style={[styles.bestStats, isDark && styles.bestStatsDark]}>
+          <View style={styles.bestStatItem}>
+            <Text style={[styles.bestStatValue, { color: '#FFB300' }]}>
+              {formatSpeedValue(chartData[bestIndex].speed)}
+            </Text>
+            <Text style={[styles.bestStatLabel, isDark && styles.textMuted]}>
+              Best {showPace ? 'pace' : 'speed'}
+            </Text>
+          </View>
+          <View style={styles.bestStatItem}>
+            <Text style={[styles.bestStatValue, isDark && styles.textLight]}>
+              {formatShortDate(chartData[bestIndex].date)}
+            </Text>
+            <Text style={[styles.bestStatLabel, isDark && styles.textMuted]}>
+              {chartData[bestIndex].totalLaps > 1
+                ? `Lap ${chartData[bestIndex].lapNumber}/${chartData[bestIndex].totalLaps}`
+                : 'Date'}
+            </Text>
+          </View>
+        </View>
+      )}
+    </View>
+  );
+}
+
+function ActivityRow({
+  activity,
+  isDark,
+  matchPercentage,
+  direction,
+  activityPoints,
+  consensusPoints,
+  isHighlighted,
+  overlapDistance,
+  routeDistance,
+}: ActivityRowProps) {
   const handlePress = () => {
     router.push(`/activity/${activity.id}`);
   };
 
-  const activityColor = getActivityColor(activity.type);
+  // Determine trace color based on direction
+  const isReverse = direction === 'reverse';
+  // Activity trace: cyan for highlighted, purple for reverse, blue for same
+  const traceColor = isHighlighted ? '#00BCD4' : (isReverse ? REVERSE_COLOR : '#2196F3');
+  const badgeColor = isReverse ? REVERSE_COLOR : colors.success;
+
+  // Format overlap distance for display (e.g., "200m / 1.0km")
+  const overlapDisplay = useMemo(() => {
+    if (!overlapDistance || !routeDistance) return null;
+    const overlapKm = overlapDistance / 1000;
+    const routeKm = routeDistance / 1000;
+    // Show in meters if < 1km, otherwise km
+    const overlapStr = overlapKm < 1
+      ? `${Math.round(overlapDistance)}m`
+      : `${overlapKm.toFixed(1)}km`;
+    const routeStr = routeKm < 1
+      ? `${Math.round(routeDistance)}m`
+      : `${routeKm.toFixed(1)}km`;
+    return `${overlapStr} / ${routeStr}`;
+  }, [overlapDistance, routeDistance]);
 
   return (
     <Pressable
@@ -37,36 +823,56 @@ function ActivityRow({ activity, isDark, matchPercentage, direction }: ActivityR
       style={({ pressed }) => [
         styles.activityRow,
         isDark && styles.activityRowDark,
+        isHighlighted && styles.activityRowHighlighted,
         pressed && styles.activityRowPressed,
       ]}
     >
-      <View style={[styles.activityIcon, { backgroundColor: activityColor + '20' }]}>
-        <MaterialCommunityIcons
-          name={getActivityIcon(activity.type)}
-          size={18}
-          color={activityColor}
+      {/* Mini route trace showing consensus (orange) vs activity trace */}
+      {activityPoints && activityPoints.length > 1 ? (
+        <MiniRouteTrace
+          activityPoints={activityPoints}
+          consensusPoints={consensusPoints}
+          activityColor={traceColor}
+          consensusColor={CONSENSUS_COLOR}
+          isHighlighted={isHighlighted}
         />
-      </View>
+      ) : (
+        <View style={[styles.activityIcon, { backgroundColor: traceColor + '20' }]}>
+          <MaterialCommunityIcons
+            name={getActivityIcon(activity.type)}
+            size={18}
+            color={traceColor}
+          />
+        </View>
+      )}
       <View style={styles.activityInfo}>
         <View style={styles.activityNameRow}>
           <Text style={[styles.activityName, isDark && styles.textLight]} numberOfLines={1}>
             {activity.name}
           </Text>
-          {/* Match percentage badge */}
+          {/* Match percentage badge with direction-based color */}
           {matchPercentage !== undefined && (
-            <View style={[styles.matchBadge, { backgroundColor: colors.success + '15' }]}>
-              <Text style={[styles.matchText, { color: colors.success }]}>
+            <View style={[styles.matchBadge, { backgroundColor: badgeColor + '15' }]}>
+              <Text style={[styles.matchText, { color: badgeColor }]}>
                 {Math.round(matchPercentage)}%
               </Text>
-              {direction === 'reverse' && (
-                <MaterialCommunityIcons name="swap-horizontal" size={10} color={colors.success} />
+              {isReverse && (
+                <MaterialCommunityIcons name="swap-horizontal" size={10} color={badgeColor} />
               )}
             </View>
           )}
         </View>
-        <Text style={[styles.activityDate, isDark && styles.textMuted]}>
-          {formatRelativeDate(activity.start_date_local)}
-        </Text>
+        <View style={styles.activityMetaRow}>
+          <Text style={[styles.activityDate, isDark && styles.textMuted]}>
+            {formatRelativeDate(activity.start_date_local)}
+          </Text>
+          {/* Overlap distance indicator - shows matched section vs route distance */}
+          {overlapDisplay && (
+            <Text style={[styles.overlapText, isDark && styles.textMuted]}>
+              {overlapDisplay}
+            </Text>
+          )}
+        </View>
       </View>
       <View style={styles.activityStats}>
         <Text style={[styles.activityDistance, isDark && styles.textLight]}>
@@ -89,6 +895,25 @@ export default function RouteDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
+  const insets = useSafeAreaInsets();
+
+  // State for highlighted activity/lap
+  const [highlightedActivityId, setHighlightedActivityId] = useState<string | null>(null);
+  const [highlightedLapId, setHighlightedLapId] = useState<string | null>(null);
+  const [highlightedLapPoints, setHighlightedLapPoints] = useState<RoutePoint[] | undefined>(undefined);
+
+  // Handle lap selection from chart scrubbing
+  const handleLapSelect = useCallback((lapId: string | null, lapPoints?: RoutePoint[]) => {
+    setHighlightedLapId(lapId);
+    setHighlightedLapPoints(lapPoints);
+    // Also extract activity ID for activity list highlighting
+    if (lapId) {
+      const activityId = lapId.split('-lap-')[0];
+      setHighlightedActivityId(activityId);
+    } else {
+      setHighlightedActivityId(null);
+    }
+  }, []);
 
   const routeGroup = useRouteMatchStore((s) =>
     s.cache?.groups.find((g) => g.id === id) || null
@@ -96,6 +921,9 @@ export default function RouteDetailScreen() {
 
   // Get match data for all activities in this route
   const matches = useRouteMatchStore((s) => s.cache?.matches || {});
+
+  // Get signatures for route points
+  const signatures = useRouteMatchStore((s) => s.cache?.signatures || {});
 
   // Fetch activities for this route
   const { data: allActivities, isLoading } = useActivities({
@@ -113,15 +941,15 @@ export default function RouteDetailScreen() {
 
   if (!routeGroup) {
     return (
-      <SafeAreaView style={[styles.container, isDark && styles.containerDark]}>
-        <View style={styles.header}>
-          <IconButton
-            icon="arrow-left"
-            iconColor={isDark ? '#FFFFFF' : colors.textPrimary}
+      <View style={[styles.container, isDark && styles.containerDark]}>
+        <View style={[styles.floatingHeader, { paddingTop: insets.top }]}>
+          <TouchableOpacity
+            style={styles.backButton}
             onPress={() => router.back()}
-          />
-          <Text style={[styles.headerTitle, isDark && styles.textLight]}>Route</Text>
-          <View style={{ width: 48 }} />
+            activeOpacity={0.7}
+          >
+            <MaterialCommunityIcons name="arrow-left" size={24} color={isDark ? '#FFFFFF' : colors.textPrimary} />
+          </TouchableOpacity>
         </View>
         <View style={styles.emptyContainer}>
           <MaterialCommunityIcons
@@ -133,97 +961,102 @@ export default function RouteDetailScreen() {
             Route not found
           </Text>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
   const activityColor = getActivityColor(routeGroup.type);
   const iconName = getActivityIcon(routeGroup.type);
+  const hasMapData = routeGroup.signature?.points && routeGroup.signature.points.length > 1;
 
   return (
-    <SafeAreaView style={[styles.container, isDark && styles.containerDark]}>
-      <View style={styles.header}>
-        <IconButton
-          icon="arrow-left"
-          iconColor={isDark ? '#FFFFFF' : colors.textPrimary}
-          onPress={() => router.back()}
-        />
-        <Text style={[styles.headerTitle, isDark && styles.textLight]} numberOfLines={1}>
-          {routeGroup.name}
-        </Text>
-        <View style={{ width: 48 }} />
-      </View>
-
+    <View style={[styles.container, isDark && styles.containerDark]}>
+      <StatusBar barStyle="light-content" />
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Route summary card */}
-        <View style={[styles.summaryCard, isDark && styles.summaryCardDark]}>
-          <View style={[styles.accentBar, { backgroundColor: activityColor + '80' }]} />
-
-          <View style={styles.summaryHeader}>
-            <View style={[styles.iconContainer, { backgroundColor: activityColor }]}>
-              <MaterialCommunityIcons
-                name={iconName}
-                size={24}
-                color="#FFFFFF"
+        {/* Hero Map Section */}
+        <View style={styles.heroSection}>
+          {/* Map - full bleed */}
+          <View style={styles.mapContainer}>
+            {hasMapData ? (
+              <RouteMapView
+                routeGroup={routeGroup}
+                height={MAP_HEIGHT}
+                interactive={false}
+                highlightedActivityId={highlightedActivityId}
+                highlightedLapPoints={highlightedLapPoints}
+                enableFullscreen={true}
               />
-            </View>
-            <View style={styles.summaryInfo}>
-              <Text style={[styles.routeName, isDark && styles.textLight]}>
-                {routeGroup.name}
-              </Text>
-              <Text style={[styles.routeMeta, isDark && styles.textMuted]}>
-                {formatDistance(routeGroup.signature.distance)}
-              </Text>
-            </View>
+            ) : (
+              <View style={[styles.mapPlaceholder, { height: MAP_HEIGHT, backgroundColor: activityColor + '20' }]}>
+                <MaterialCommunityIcons name="map-marker-path" size={48} color={activityColor} />
+              </View>
+            )}
           </View>
 
-          {/* Stats row */}
-          <View style={[styles.statsRow, isDark && styles.statsRowDark]}>
-            <View style={styles.stat}>
-              <Text style={[styles.statValue, { color: activityColor }]}>
-                {routeGroup.activityCount}
-              </Text>
-              <Text style={[styles.statLabel, isDark && styles.textMuted]}>
-                Activities
+          {/* Gradient overlay at bottom */}
+          <LinearGradient
+            colors={['transparent', 'rgba(0,0,0,0.7)']}
+            style={styles.mapGradient}
+            pointerEvents="none"
+          />
+
+          {/* Floating header - just back button */}
+          <View style={[styles.floatingHeader, { paddingTop: insets.top }]}>
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={() => router.back()}
+              activeOpacity={0.7}
+            >
+              <MaterialCommunityIcons name="arrow-left" size={24} color="#FFFFFF" />
+            </TouchableOpacity>
+          </View>
+
+          {/* Route info overlay at bottom */}
+          <View style={styles.infoOverlay}>
+            <View style={styles.routeNameRow}>
+              <View style={[styles.typeIcon, { backgroundColor: activityColor }]}>
+                <MaterialCommunityIcons name={iconName} size={16} color="#FFFFFF" />
+              </View>
+              <Text style={styles.heroRouteName} numberOfLines={1}>
+                {routeGroup.name}
               </Text>
             </View>
-            <View style={[styles.statDivider, isDark && styles.statDividerDark]} />
-            <View style={styles.stat}>
-              <Text style={[styles.statValue, isDark && styles.textLight]}>
-                {formatRelativeDate(routeGroup.firstDate)}
-              </Text>
-              <Text style={[styles.statLabel, isDark && styles.textMuted]}>
-                First
-              </Text>
-            </View>
-            <View style={[styles.statDivider, isDark && styles.statDividerDark]} />
-            <View style={styles.stat}>
-              <Text style={[styles.statValue, isDark && styles.textLight]}>
-                {formatRelativeDate(routeGroup.lastDate)}
-              </Text>
-              <Text style={[styles.statLabel, isDark && styles.textMuted]}>
-                Last
-              </Text>
+
+            {/* Stats row */}
+            <View style={styles.heroStatsRow}>
+              <Text style={styles.heroStat}>{formatDistance(routeGroup.signature.distance)}</Text>
+              <Text style={styles.heroStatDivider}>·</Text>
+              <Text style={styles.heroStat}>{routeGroup.activityCount} activities</Text>
+              <Text style={styles.heroStatDivider}>·</Text>
+              <Text style={styles.heroStat}>{formatRelativeDate(routeGroup.lastDate)}</Text>
             </View>
           </View>
         </View>
 
-        {/* Hero map */}
-        {routeGroup.signature?.points && routeGroup.signature.points.length > 1 && (
-          <View style={styles.mapSection}>
-            <Text style={[styles.sectionTitle, isDark && styles.textLight]}>
-              Route
-            </Text>
-            <RouteMapView routeGroup={routeGroup} height={180} />
-          </View>
-        )}
+        {/* Content below hero */}
+        <View style={styles.contentSection}>
+          {/* Performance progression chart - scrubbing highlights map with lap-level granularity */}
+          {routeActivities.length >= 2 && (
+            <View style={styles.chartSection}>
+              <PerformanceProgressionChart
+                activities={routeActivities}
+                activityType={routeGroup.type}
+                isDark={isDark}
+                matches={matches}
+                signatures={signatures}
+                consensusPoints={routeGroup.consensusPoints}
+                onLapSelect={handleLapSelect}
+                selectedLapId={highlightedLapId}
+              />
+            </View>
+          )}
 
-        {/* Activities list */}
-        <View style={styles.activitiesSection}>
+          {/* Activities list */}
+          <View style={styles.activitiesSection}>
           <Text style={[styles.sectionTitle, isDark && styles.textLight]}>
             Activities
           </Text>
@@ -244,14 +1077,32 @@ export default function RouteDetailScreen() {
                 const isRepresentative = routeGroup?.activityIds[0] === activity.id;
                 const matchPercentage = match?.matchPercentage ?? (isRepresentative ? 100 : undefined);
                 const direction = match?.direction ?? (isRepresentative ? 'same' : undefined);
+                // Get overlap distance - for representative, use route distance
+                const overlapDistance = match?.overlapDistance ?? (isRepresentative ? routeGroup?.signature?.distance : undefined);
+                const routeDistance = routeGroup?.signature?.distance;
+                // Get route points from signature for this activity
+                const activityPoints = signatures[activity.id]?.points;
+                // Get consensus points from the route group
+                const consensusPoints = routeGroup?.consensusPoints;
+                const isHighlighted = highlightedActivityId === activity.id;
                 return (
                   <React.Fragment key={activity.id}>
-                    <ActivityRow
-                      activity={activity}
-                      isDark={isDark}
-                      matchPercentage={matchPercentage}
-                      direction={direction}
-                    />
+                    <Pressable
+                      onPressIn={() => setHighlightedActivityId(activity.id)}
+                      onPressOut={() => setHighlightedActivityId(null)}
+                    >
+                      <ActivityRow
+                        activity={activity}
+                        isDark={isDark}
+                        matchPercentage={matchPercentage}
+                        direction={direction}
+                        activityPoints={activityPoints}
+                        consensusPoints={consensusPoints}
+                        isHighlighted={isHighlighted}
+                        overlapDistance={overlapDistance}
+                        routeDistance={routeDistance}
+                      />
+                    </Pressable>
                     {index < routeActivities.length - 1 && (
                       <View style={[styles.divider, isDark && styles.dividerDark]} />
                     )}
@@ -260,9 +1111,10 @@ export default function RouteDetailScreen() {
               })}
             </View>
           )}
+          </View>
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -274,19 +1126,6 @@ const styles = StyleSheet.create({
   containerDark: {
     backgroundColor: '#121212',
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  headerTitle: {
-    flex: 1,
-    fontSize: 18,
-    fontWeight: '600',
-    color: colors.textPrimary,
-    textAlign: 'center',
-    marginHorizontal: spacing.sm,
-  },
   textLight: {
     color: '#FFFFFF',
   },
@@ -297,8 +1136,97 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
+    paddingBottom: spacing.xl,
+  },
+  // Hero section styles
+  heroSection: {
+    height: MAP_HEIGHT,
+    position: 'relative',
+  },
+  mapContainer: {
+    flex: 1,
+  },
+  mapPlaceholder: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  mapGradient: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 120,
+  },
+  floatingHeader: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.sm,
+    paddingBottom: spacing.sm,
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  infoOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.md,
+  },
+  routeNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  typeIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  heroRouteName: {
+    flex: 1,
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    textShadowColor: 'rgba(0, 0, 0, 0.5)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
+  },
+  heroStatsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 6,
+    flexWrap: 'wrap',
+  },
+  heroStat: {
+    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.9)',
+    textShadowColor: 'rgba(0, 0, 0, 0.5)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+  },
+  heroStatDivider: {
+    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.5)',
+    marginHorizontal: spacing.xs,
+  },
+  // Content section below hero
+  contentSection: {
     padding: layout.screenPadding,
-    paddingTop: spacing.sm,
+    paddingTop: spacing.lg,
   },
   emptyContainer: {
     flex: 1,
@@ -310,82 +1238,201 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     marginTop: spacing.md,
   },
-  summaryCard: {
+  chartSection: {
+    marginBottom: spacing.lg,
+  },
+  chartCard: {
     backgroundColor: colors.surface,
     borderRadius: layout.borderRadius,
     overflow: 'hidden',
-    marginBottom: spacing.lg,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
     shadowRadius: 8,
     elevation: 2,
   },
-  summaryCardDark: {
+  chartCardDark: {
     backgroundColor: '#1E1E1E',
   },
-  accentBar: {
-    height: 3,
-    width: '100%',
-  },
-  summaryHeader: {
+  chartHeader: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    padding: layout.cardPadding,
-    gap: spacing.md,
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.xs,
   },
-  iconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 14,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  summaryInfo: {
-    flex: 1,
-  },
-  routeName: {
-    fontSize: 18,
+  chartTitle: {
+    fontSize: 14,
     fontWeight: '600',
     color: colors.textPrimary,
   },
-  routeMeta: {
-    fontSize: 14,
+  chartTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  lapsBadge: {
+    backgroundColor: colors.primary + '20',
+    borderRadius: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  lapsBadgeText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: colors.primary,
+  },
+  chartLegend: {
+    flexDirection: 'row',
+    gap: spacing.md,
+  },
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  legendDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  legendText: {
+    fontSize: 10,
     color: colors.textSecondary,
+  },
+  chartHint: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.xs,
+  },
+  chartContainer: {
+    height: CHART_HEIGHT,
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  chartInner: {
+    height: CHART_HEIGHT,
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  crosshair: {
+    position: 'absolute',
+    top: 40,
+    bottom: 24,
+    width: 1.5,
+    backgroundColor: '#666',
+  },
+  crosshairDark: {
+    backgroundColor: '#AAA',
+  },
+  selectedTooltip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(0, 188, 212, 0.08)',
+    marginHorizontal: spacing.md,
+    marginBottom: spacing.sm,
+    padding: spacing.sm,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 188, 212, 0.2)',
+  },
+  selectedTooltipDark: {
+    backgroundColor: 'rgba(0, 188, 212, 0.12)',
+    borderColor: 'rgba(0, 188, 212, 0.3)',
+  },
+  tooltipLeft: {
+    flex: 1,
+  },
+  tooltipName: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.textPrimary,
+  },
+  tooltipMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
     marginTop: 2,
   },
-  statsRow: {
+  tooltipDate: {
+    fontSize: 11,
+    color: colors.textSecondary,
+  },
+  tooltipLap: {
+    fontSize: 11,
+    color: colors.textSecondary,
+  },
+  reverseBadge: {
+    backgroundColor: 'rgba(156, 39, 176, 0.15)',
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    borderRadius: 4,
+  },
+  matchBadgeSmall: {
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: 6,
+  },
+  matchBadgeText: {
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  tooltipRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  tooltipSpeed: {
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  yAxisOverlay: {
+    position: 'absolute',
+    top: 40,
+    bottom: 24,
+    left: 4,
+    justifyContent: 'space-between',
+  },
+  xAxisOverlay: {
+    position: 'absolute',
+    bottom: 4,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  axisLabel: {
+    fontSize: 9,
+    color: colors.textSecondary,
+  },
+  axisLabelDark: {
+    color: '#888',
+  },
+  bestStats: {
     flexDirection: 'row',
     borderTopWidth: 1,
     borderTopColor: 'rgba(0, 0, 0, 0.05)',
-    paddingVertical: spacing.md,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    gap: spacing.lg,
   },
-  statsRowDark: {
+  bestStatsDark: {
     borderTopColor: 'rgba(255, 255, 255, 0.08)',
   },
-  stat: {
+  bestStatItem: {
     flex: 1,
-    alignItems: 'center',
   },
-  statValue: {
-    fontSize: 16,
+  bestStatValue: {
+    fontSize: 15,
     fontWeight: '700',
     color: colors.textPrimary,
   },
-  statLabel: {
+  bestStatLabel: {
     fontSize: 11,
     color: colors.textSecondary,
     marginTop: 2,
-  },
-  statDivider: {
-    width: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.1)',
-  },
-  statDividerDark: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  mapSection: {
-    marginBottom: spacing.lg,
   },
   activitiesSection: {
     marginBottom: spacing.xl,
@@ -421,6 +1468,9 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   activityRowDark: {},
+  activityRowHighlighted: {
+    backgroundColor: 'rgba(0, 188, 212, 0.1)',
+  },
   activityRowPressed: {
     opacity: 0.7,
   },
@@ -460,7 +1510,17 @@ const styles = StyleSheet.create({
   activityDate: {
     fontSize: 12,
     color: colors.textSecondary,
+  },
+  activityMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
     marginTop: 1,
+  },
+  overlapText: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    opacity: 0.7,
   },
   activityStats: {
     alignItems: 'flex-end',
