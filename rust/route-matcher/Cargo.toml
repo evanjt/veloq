@@ -1,0 +1,79 @@
+[package]
+name = "route-matcher"
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+description = "High-performance GPS route matching using Fréchet distance and spatial indexing"
+repository = "https://github.com/ejthomas/route-matcher"
+keywords = ["gps", "route", "matching", "frechet", "geospatial"]
+categories = ["algorithms", "science::geo"]
+
+[lib]
+name = "route_matcher"
+# Include all crate types - rlib for Rust, staticlib for iOS, cdylib for Android
+# FFI exports are only compiled when "ffi" feature is enabled
+crate-type = ["rlib", "staticlib", "cdylib"]
+
+[features]
+default = []
+# Enable FFI bindings for mobile (iOS/Android)
+ffi = ["uniffi"]
+# Enable parallel processing (recommended for batch operations)
+parallel = ["rayon"]
+# Enable all features
+full = ["ffi", "parallel"]
+
+[dependencies]
+# Geospatial algorithms
+geo = "0.29"
+rstar = "0.12"
+
+# Logging
+log = "0.4"
+
+# Serialization (optional but useful)
+serde = { version = "1.0", features = ["derive"], optional = true }
+
+# Parallel processing (optional)
+rayon = { version = "1.10", optional = true }
+
+# Mobile FFI bindings (optional)
+uniffi = { version = "0.29", features = ["cli"], optional = true }
+
+# Android logging (optional, for mobile builds)
+android_logger = { version = "0.14", optional = true }
+
+[target.'cfg(target_os = "android")'.dependencies]
+android_logger = "0.14"
+
+[dev-dependencies]
+serde_json = "1.0"
+
+[build-dependencies]
+uniffi = { version = "0.29", features = ["build"], optional = true }
+
+# Profile for smaller binary size (used when building for mobile)
+[profile.release]
+lto = true
+codegen-units = 1
+opt-level = "s"
+# Don't strip - needed for UniFFI metadata
+strip = false
+
+[profile.release-mobile]
+inherits = "release"
+panic = "abort"
+
+[[example]]
+name = "basic_matching"
+path = "examples/basic_matching.rs"
+
+[[example]]
+name = "batch_grouping"
+path = "examples/batch_grouping.rs"
+required-features = ["parallel"]
+
+[[bin]]
+name = "uniffi-bindgen"
+path = "uniffi-bindgen.rs"
+required-features = ["ffi"]

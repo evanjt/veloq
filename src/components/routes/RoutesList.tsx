@@ -4,7 +4,7 @@
  */
 
 import React, { useEffect, useRef, memo, useMemo } from 'react';
-import { View, StyleSheet, FlatList, RefreshControl, useColorScheme, Animated, LayoutAnimation, Platform, UIManager } from 'react-native';
+import { View, StyleSheet, FlatList, RefreshControl, useColorScheme, LayoutAnimation, Platform, UIManager } from 'react-native';
 
 // Enable LayoutAnimation for Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -84,39 +84,6 @@ const DiscoveredRoutesList = memo(function DiscoveredRoutesList({
   return true;
 });
 
-// Memoized stats bar - only updates when values change
-const StatsBar = memo(function StatsBar({
-  routeCount,
-  current,
-  total,
-  isDark,
-}: {
-  routeCount: number;
-  current: number;
-  total: number;
-  isDark: boolean;
-}) {
-  return (
-    <View style={[styles.statsBar, isDark && styles.statsBarDark]}>
-      <View style={styles.statItem}>
-        <MaterialCommunityIcons name="map-marker-path" size={16} color={colors.success} />
-        <Text style={[styles.statValue, { color: colors.success }]}>
-          {routeCount}
-        </Text>
-        <Text style={[styles.statLabel, isDark && styles.textMuted]}>routes</Text>
-      </View>
-      <View style={styles.statDivider} />
-      <View style={styles.statItem}>
-        <MaterialCommunityIcons name="timer-outline" size={16} color={isDark ? '#888' : colors.textSecondary} />
-        <Text style={[styles.statValue, isDark && styles.textLight]}>
-          {current}/{total}
-        </Text>
-        <Text style={[styles.statLabel, isDark && styles.textMuted]}>checked</Text>
-      </View>
-    </View>
-  );
-});
-
 export function RoutesList({ onRefresh, isRefreshing = false, startDate, endDate }: RoutesListProps) {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
@@ -130,30 +97,11 @@ export function RoutesList({ onRefresh, isRefreshing = false, startDate, endDate
 
   const { progress } = useRouteProcessing();
 
-  // Animated progress value for smooth transitions
-  const animatedProgress = useRef(new Animated.Value(0)).current;
-
-  // Update animated progress smoothly
-  useEffect(() => {
-    const targetValue = progress.total > 0 ? progress.current / progress.total : 0;
-    Animated.timing(animatedProgress, {
-      toValue: targetValue,
-      duration: 300,
-      useNativeDriver: false,
-    }).start();
-  }, [progress.current, progress.total, animatedProgress]);
-
   const showProcessing =
     progress.status === 'filtering' ||
     progress.status === 'fetching' ||
     progress.status === 'processing' ||
     progress.status === 'matching';
-
-  // Interpolate width as percentage string
-  const progressWidth = animatedProgress.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0%', '100%'],
-  });
 
   const showActivityList =
     progress.status === 'processing' ||
@@ -167,63 +115,9 @@ export function RoutesList({ onRefresh, isRefreshing = false, startDate, endDate
 
   const renderHeader = () => (
     <View>
-      {/* Progress banner header */}
-      {(showProcessing || progress.status === 'complete') && (
-        <View style={[styles.progressBanner, isDark && styles.progressBannerDark]}>
-          <View style={styles.progressHeader}>
-            <MaterialCommunityIcons
-              name={progress.status === 'complete' ? 'check-circle' : 'map-marker-path'}
-              size={18}
-              color={progress.status === 'complete' ? colors.success : colors.primary}
-            />
-            <Text style={[styles.progressTitle, isDark && styles.textLight]}>
-              {progress.status === 'complete'
-                ? groups.length > 0
-                  ? `Found ${groups.length} repeated route${groups.length === 1 ? '' : 's'}`
-                  : 'No repeated routes found'
-                : progress.status === 'filtering'
-                  ? 'Finding candidates...'
-                  : 'Analysing routes'}
-            </Text>
-            {showProcessing && (
-              <Text style={[styles.progressCount, isDark && styles.textMuted]}>
-                {progress.status === 'filtering'
-                  ? progress.candidatesFound !== undefined
-                    ? `${progress.candidatesFound} found`
-                    : `Checking...`
-                  : `${progress.current}/${progress.total}`}
-              </Text>
-            )}
-          </View>
-          {showProcessing && (
-            <View style={[styles.progressBar, isDark && styles.progressBarDark]}>
-              <Animated.View
-                style={[
-                  styles.progressFill,
-                  { width: progressWidth },
-                ]}
-              />
-            </View>
-          )}
-          {progress.status === 'filtering' && (
-            <Text style={[styles.progressSubtext, isDark && styles.textMuted]}>
-              Comparing bounding boxes (no network)...
-            </Text>
-          )}
-        </View>
-      )}
-
-      {/* Discovered routes during processing */}
+      {/* Discovered routes during processing - show current activity being checked */}
       {showActivityList && (
         <View style={styles.discoveredSection}>
-          {/* Stats bar */}
-          <StatsBar
-            routeCount={routes.length}
-            current={progress.current}
-            total={progress.total}
-            isDark={isDark}
-          />
-
           {/* Current activity - fixed height to prevent jumps */}
           <View style={[styles.currentActivity, isDark && styles.currentActivityDark]}>
             <MaterialCommunityIcons name="magnify" size={14} color={colors.primary} />
@@ -238,11 +132,25 @@ export function RoutesList({ onRefresh, isRefreshing = false, startDate, endDate
       )}
 
       {/* Cache scope notice - show when idle */}
-      {!showProcessing && progress.status !== 'complete' && isReady && processedCount > 0 && (
+      {!showProcessing && isReady && processedCount > 0 && (
         <CacheScopeNotice
           processedCount={processedCount}
           groupCount={totalCount}
         />
+      )}
+
+      {/* Timeline info notice - show when idle and no processing */}
+      {!showProcessing && isReady && (
+        <View style={[styles.infoNotice, isDark && styles.infoNoticeDark]}>
+          <MaterialCommunityIcons
+            name="timeline-clock-outline"
+            size={14}
+            color={isDark ? '#666' : '#999'}
+          />
+          <Text style={[styles.infoText, isDark && styles.infoTextDark]}>
+            Expand the timeline to analyze more activities. Route matching will continue in the background until complete.
+          </Text>
+        </View>
       )}
     </View>
   );
@@ -374,88 +282,8 @@ const styles = StyleSheet.create({
   textMuted: {
     color: '#888',
   },
-  progressBanner: {
-    backgroundColor: 'rgba(0, 0, 0, 0.03)',
-    marginHorizontal: spacing.md,
-    marginBottom: spacing.md,
-    borderRadius: 12,
-    padding: spacing.md,
-  },
-  progressBannerDark: {
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-  },
-  progressHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  progressTitle: {
-    flex: 1,
-    fontSize: 15,
-    fontWeight: '600',
-    color: colors.textPrimary,
-  },
-  progressCount: {
-    fontSize: 13,
-    color: colors.textSecondary,
-    fontWeight: '500',
-  },
-  progressBar: {
-    marginTop: spacing.sm,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: 'rgba(0, 0, 0, 0.1)',
-    overflow: 'hidden',
-  },
-  progressBarDark: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  progressFill: {
-    height: '100%',
-    backgroundColor: colors.primary,
-    borderRadius: 2,
-  },
-  progressSubtext: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    marginTop: spacing.xs,
-  },
   discoveredSection: {
     marginBottom: spacing.md,
-  },
-  statsBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.02)',
-    marginHorizontal: spacing.md,
-    borderRadius: 10,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    gap: spacing.md,
-    marginBottom: spacing.sm,
-  },
-  statsBarDark: {
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
-  },
-  statItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  statValue: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: colors.textPrimary,
-  },
-  statLabel: {
-    fontSize: 12,
-    color: colors.textSecondary,
-  },
-  statDivider: {
-    width: 1,
-    height: 16,
-    backgroundColor: 'rgba(0, 0, 0, 0.1)',
   },
   currentActivity: {
     flexDirection: 'row',
@@ -489,5 +317,24 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.textSecondary,
     marginTop: spacing.sm,
+  },
+  infoNotice: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    marginHorizontal: spacing.md,
+    marginBottom: spacing.sm,
+  },
+  infoNoticeDark: {},
+  infoText: {
+    flex: 1,
+    fontSize: 12,
+    color: '#999',
+    lineHeight: 16,
+  },
+  infoTextDark: {
+    color: '#666',
   },
 });

@@ -163,7 +163,8 @@ export const FormZoneChart = React.memo(function FormZoneChart({ data, height = 
       'worklet';
       touchX.value = -1;
     })
-    .minDistance(0);
+    .minDistance(0)
+    .activateAfterLongPress(300);
 
   // Update shared selected index when local selection changes (for instant sync)
   useAnimatedReaction(

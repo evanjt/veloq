@@ -214,7 +214,8 @@ export function RoutePerformanceSection({ activityId, activityType }: RoutePerfo
       touchX.value = -1;
       runOnJS(handleGestureEnd)();
     })
-    .minDistance(0);
+    .minDistance(0)
+    .activateAfterLongPress(300);
 
   // Tap gesture to dismiss persisted tooltip when tapping on chart
   const tapGesture = Gesture.Tap()

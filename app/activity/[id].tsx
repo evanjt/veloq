@@ -1,11 +1,12 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
-import { View, ScrollView, StyleSheet, useColorScheme, TouchableOpacity, Dimensions, Modal, StatusBar } from 'react-native';
+import { View, ScrollView, StyleSheet, useColorScheme, TouchableOpacity, Dimensions, Modal, StatusBar, useWindowDimensions } from 'react-native';
 import { Text, IconButton, ActivityIndicator } from 'react-native-paper';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ScreenOrientation from 'expo-screen-orientation';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useActivity, useActivityStreams, useWellnessForDate } from '@/hooks';
 import { ActivityMapView, CombinedPlot, ChartTypeSelector, HRZonesChart, InsightfulStats, RoutePerformanceSection } from '@/components';
 import {
@@ -36,6 +37,8 @@ export default function ActivityDetailScreen() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const insets = useSafeAreaInsets();
+  // Use dynamic dimensions for fullscreen chart (updates after rotation)
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
 
   const { data: activity, isLoading, error } = useActivity(id || '');
   const { data: streams } = useActivityStreams(id || '');
@@ -360,6 +363,7 @@ export default function ActivityDetailScreen() {
         statusBarTranslucent
         onRequestClose={closeChartFullscreen}
       >
+        <GestureHandlerRootView style={{ flex: 1 }}>
         <StatusBar hidden />
         <View style={[styles.fullscreenContainer, isDark && styles.fullscreenContainerDark]}>
           {/* Close button */}
@@ -398,13 +402,14 @@ export default function ActivityDetailScreen() {
                 streams={streams}
                 selectedCharts={selectedCharts}
                 chartConfigs={CHART_CONFIGS}
-                height={Math.min(SCREEN_WIDTH, SCREEN_HEIGHT) - 100}
+                height={windowHeight - 100}
                 onPointSelect={handlePointSelect}
                 onInteractionChange={handleInteractionChange}
               />
             </View>
           )}
         </View>
+        </GestureHandlerRootView>
       </Modal>
     </View>
   );

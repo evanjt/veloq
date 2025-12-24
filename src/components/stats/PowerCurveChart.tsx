@@ -192,7 +192,8 @@ export const PowerCurveChart = React.memo(function PowerCurveChart({
     .onStart((e) => { 'worklet'; touchX.value = e.x; })
     .onUpdate((e) => { 'worklet'; touchX.value = e.x; })
     .onEnd(() => { 'worklet'; touchX.value = -1; })
-    .minDistance(0);
+    .minDistance(0)
+    .activateAfterLongPress(300);
 
   const crosshairStyle = useAnimatedStyle(() => {
     'worklet';

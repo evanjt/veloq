@@ -14,10 +14,12 @@ import type {
   ProcessedActivityStatus,
   DiscoveredRouteInfo,
   ActivityType,
+  ActivityBoundsItem,
 } from '@/types';
 import { DEFAULT_ROUTE_MATCH_CONFIG } from '@/types';
 import { generateRouteSignature } from './routeSignature';
-import { groupSignatures, matchRoutes, createRouteMatch, shouldGroupRoutes } from './routeMatching';
+import { matchRoutes, createRouteMatch, shouldGroupRoutes } from './routeMatching';
+import { groupSignatures as groupSignaturesJS } from './routeMatching';
 import {
   loadRouteCache,
   saveRouteCache,
@@ -28,7 +30,55 @@ import {
   getUnprocessedActivityIds,
 } from './routeStorage';
 import { findActivitiesWithPotentialMatchesFast } from './activityBoundsUtils';
-import type { ActivityBoundsItem } from '@/types';
+import NativeRouteMatcher from 'route-matcher-native';
+import type { RouteSignature as NativeRouteSignature, RouteGroup as NativeRouteGroup } from 'route-matcher-native';
+
+/**
+ * Convert app RouteSignature format (lat/lng) to native format (latitude/longitude)
+ */
+function toNativeSignature(sig: RouteSignature): NativeRouteSignature {
+  return {
+    activityId: sig.activityId,
+    points: sig.points.map(p => ({ latitude: p.lat, longitude: p.lng })),
+    totalDistance: sig.distance,
+    startPoint: { latitude: sig.points[0]?.lat || 0, longitude: sig.points[0]?.lng || 0 },
+    endPoint: { latitude: sig.points[sig.points.length - 1]?.lat || 0, longitude: sig.points[sig.points.length - 1]?.lng || 0 },
+  };
+}
+
+/**
+ * Try to use native route grouping, fall back to JS if native isn't available.
+ * The native module handles the Rust/JS decision internally.
+ */
+async function groupSignatures(
+  signatures: RouteSignature[],
+  config: Record<string, unknown>,
+  onProgress?: (completed: number, total: number) => void
+): Promise<Map<string, string[]>> {
+  // Convert to native format
+  const nativeSignatures = signatures.map(toNativeSignature);
+
+  try {
+    // Try native implementation (which includes Rust and JS fallback)
+    const nativeGroups: NativeRouteGroup[] = NativeRouteMatcher.groupSignatures(nativeSignatures, config);
+
+    // Convert to Map format expected by the rest of the app
+    const result = new Map<string, string[]>();
+    for (const group of nativeGroups) {
+      result.set(group.groupId, group.activityIds);
+    }
+
+    if (onProgress) {
+      onProgress(signatures.length, signatures.length);
+    }
+
+    return result;
+  } catch (e) {
+    console.log('[RouteProcessing] Native groupSignatures failed, using JS implementation:', e);
+    // Fall back to pure JS implementation
+    return groupSignaturesJS(signatures, config, onProgress);
+  }
+}
 
 // Storage key for processing checkpoint
 const ROUTE_PROCESSING_CHECKPOINT_KEY = 'veloq_route_processing_checkpoint';
@@ -714,7 +764,22 @@ class RouteProcessingQueue {
         // Only group new signatures with each other AND with existing ones
         // This avoids O(n²) on the entire dataset when adding a few new activities
         const signaturesToGroup = [...existingSignatures, ...newSignatures];
-        const groups = groupSignatures(signaturesToGroup);
+        const groups = await groupSignatures(signaturesToGroup, {}, (completed, total) => {
+          // Update progress during grouping to show the UI is responsive
+          if (completed % 1000 === 0 || completed === total) {
+            const percent = Math.round((completed / total) * 100);
+            this.setProgress({
+              status: 'matching',
+              current: processed,
+              total,
+              message: `Matching routes... ${percent}%`,
+              processedActivities: [...processedActivities],
+              matchesFound,
+              discoveredRoutes: routeUnion.getRoutes(),
+              cachedSignatureCount: cachedSignatureCount + newSignatures.length,
+            });
+          }
+        });
 
         this.setProgress({
           status: 'matching',

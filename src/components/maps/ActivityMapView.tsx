@@ -149,6 +149,9 @@ export function ActivityMapView({
   // Camera ref for programmatic control
   const cameraRef = useRef<React.ElementRef<typeof Camera>>(null);
 
+  // Track if initial bounds have been applied - prevents camera reset on parent re-renders
+  const [initialBoundsApplied, setInitialBoundsApplied] = useState(false);
+
   // Reset bearing to north
   const resetOrientation = useCallback(() => {
     if (is3DMode && is3DReady) {
@@ -199,6 +202,17 @@ export function ActivityMapView({
       sw: [minLng, minLat] as [number, number],
     };
   }, [validCoordinates]);
+
+  // Mark initial bounds as applied after first render with valid bounds
+  useEffect(() => {
+    if (bounds && !initialBoundsApplied) {
+      // Small delay to ensure camera has time to apply bounds
+      const timer = setTimeout(() => {
+        setInitialBoundsApplied(true);
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [bounds, initialBoundsApplied]);
 
   const routeGeoJSON = useMemo(() => {
     if (validCoordinates.length === 0) return null;
@@ -269,8 +283,12 @@ export function ActivityMapView({
           >
           <Camera
             ref={cameraRef}
-            bounds={bounds}
-            padding={{ paddingTop: 50, paddingRight: 50, paddingBottom: 50, paddingLeft: 50 }}
+            // Only apply bounds on initial mount - prevents camera reset on parent re-renders
+            // After initial bounds are applied, user can freely pan/zoom
+            {...(!initialBoundsApplied && bounds ? {
+              bounds,
+              padding: { paddingTop: 50, paddingRight: 50, paddingBottom: 50, paddingLeft: 50 },
+            } : {})}
             animationDuration={0}
           />
 
