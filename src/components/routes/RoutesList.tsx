@@ -23,6 +23,10 @@ interface RoutesListProps {
   onRefresh?: () => void;
   /** Whether refresh is in progress */
   isRefreshing?: boolean;
+  /** Filter by start date (only show routes with activities after this date) */
+  startDate?: Date;
+  /** Filter by end date (only show routes with activities before this date) */
+  endDate?: Date;
 }
 
 // Memoized routes list - only updates when route count changes
@@ -85,13 +89,11 @@ const StatsBar = memo(function StatsBar({
   routeCount,
   current,
   total,
-  cachedCount,
   isDark,
 }: {
   routeCount: number;
   current: number;
   total: number;
-  cachedCount: number;
   isDark: boolean;
 }) {
   return (
@@ -111,29 +113,19 @@ const StatsBar = memo(function StatsBar({
         </Text>
         <Text style={[styles.statLabel, isDark && styles.textMuted]}>checked</Text>
       </View>
-      {cachedCount > 0 && (
-        <>
-          <View style={styles.statDivider} />
-          <View style={styles.statItem}>
-            <MaterialCommunityIcons name="database-outline" size={16} color={isDark ? '#888' : colors.textSecondary} />
-            <Text style={[styles.statValue, isDark && styles.textLight]}>
-              {cachedCount}
-            </Text>
-            <Text style={[styles.statLabel, isDark && styles.textMuted]}>cached</Text>
-          </View>
-        </>
-      )}
     </View>
   );
 });
 
-export function RoutesList({ onRefresh, isRefreshing = false }: RoutesListProps) {
+export function RoutesList({ onRefresh, isRefreshing = false, startDate, endDate }: RoutesListProps) {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
 
   const { groups, totalCount, processedCount, isReady } = useRouteGroups({
     minActivities: 2,
     sortBy: 'count',
+    startDate,
+    endDate,
   });
 
   const { progress } = useRouteProcessing();
@@ -186,7 +178,9 @@ export function RoutesList({ onRefresh, isRefreshing = false }: RoutesListProps)
             />
             <Text style={[styles.progressTitle, isDark && styles.textLight]}>
               {progress.status === 'complete'
-                ? `Found ${progress.matchesFound || 0} matches`
+                ? groups.length > 0
+                  ? `Found ${groups.length} repeated route${groups.length === 1 ? '' : 's'}`
+                  : 'No repeated routes found'
                 : progress.status === 'filtering'
                   ? 'Finding candidates...'
                   : 'Analysing routes'}
@@ -227,7 +221,6 @@ export function RoutesList({ onRefresh, isRefreshing = false }: RoutesListProps)
             routeCount={routes.length}
             current={progress.current}
             total={progress.total}
-            cachedCount={progress.cachedSignatureCount || 0}
             isDark={isDark}
           />
 

@@ -144,13 +144,11 @@ function RouteRowComponent({ route, navigable = false }: RouteRowProps) {
   // Get activity color for the route type
   const activityColor = getActivityColor(route.type as any);
 
-  // Get preview points - prefer consensus points (the common core), fall back to signature
+  // Get preview points - use the representative signature (full route)
+  // NOT consensus points, which can be truncated to just the common core
   const previewPoints = useMemo(() => {
     if (isRouteGroup(route)) {
-      // RouteGroup - prefer consensus points if available, otherwise use signature
-      if (route.consensusPoints && route.consensusPoints.length > 1) {
-        return normalizePoints(route.consensusPoints);
-      }
+      // RouteGroup - always use the representative signature (the full route)
       return route.signature?.points ? normalizePoints(route.signature.points) : [];
     } else {
       // DiscoveredRouteInfo - use previewPoints directly

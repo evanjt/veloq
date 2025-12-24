@@ -327,7 +327,10 @@ export function calculateBoundsOverlap(
 
 /**
  * Quick filter to check if two routes might match.
- * Uses bounds overlap and distance comparison.
+ * Uses bounds overlap, distance comparison, and endpoint proximity.
+ *
+ * Updated to use actual haversine distance for endpoint comparison instead of
+ * region hashes, which were too coarse (500m grid) for routes 5-10m apart.
  */
 export function quickFilterMatch(
   sig1: RouteSignature,
@@ -349,19 +352,38 @@ export function quickFilterMatch(
     return false;
   }
 
-  // Check if at least one endpoint region matches (for partial routes)
-  const startMatch = sig1.startRegionHash === sig2.startRegionHash ||
-                     sig1.startRegionHash === sig2.endRegionHash;
-  const endMatch = sig1.endRegionHash === sig2.endRegionHash ||
-                   sig1.endRegionHash === sig2.startRegionHash;
-
   // For loops, we're more lenient - just check bounds/distance
   if (sig1.isLoop && sig2.isLoop) {
     return true;
   }
 
-  // At least one endpoint should match for non-loops
-  return startMatch || endMatch;
+  // Get actual endpoint coordinates for precise comparison
+  const start1 = sig1.points[0];
+  const end1 = sig1.points[sig1.points.length - 1];
+  const start2 = sig2.points[0];
+  const end2 = sig2.points[sig2.points.length - 1];
+
+  if (!start1 || !end1 || !start2 || !end2) {
+    return false;
+  }
+
+  // Check if at least one endpoint pair is within 500m
+  // This is more precise than region hashes which could miss routes at grid boundaries
+  const ENDPOINT_THRESHOLD = 500; // meters
+
+  const startToStart = haversineDistance(start1, start2);
+  const startToEnd = haversineDistance(start1, end2);
+  const endToStart = haversineDistance(end1, start2);
+  const endToEnd = haversineDistance(end1, end2);
+
+  // For same direction: start-to-start AND end-to-end should be close
+  const sameDirection = startToStart < ENDPOINT_THRESHOLD && endToEnd < ENDPOINT_THRESHOLD;
+
+  // For reverse direction: start-to-end AND end-to-start should be close
+  const reverseDirection = startToEnd < ENDPOINT_THRESHOLD && endToStart < ENDPOINT_THRESHOLD;
+
+  // At least one direction should match
+  return sameDirection || reverseDirection;
 }
 
 /**

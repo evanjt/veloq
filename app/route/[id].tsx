@@ -23,9 +23,7 @@ import {
   formatSpeed,
   formatPace,
   isRunningActivity,
-  detectLaps,
 } from '@/lib';
-import type { RouteLap } from '@/lib/routeMatching';
 import { colors, spacing, layout } from '@/theme';
 import type { Activity, ActivityType, RoutePoint } from '@/types';
 
@@ -44,8 +42,8 @@ interface ActivityRowProps {
   direction?: string;
   /** Route points for this activity's GPS trace */
   activityPoints?: RoutePoint[];
-  /** Consensus route points (the common core) */
-  consensusPoints?: RoutePoint[];
+  /** Representative route points (full route for comparison) */
+  routePoints?: RoutePoint[];
   /** Whether this row is currently highlighted */
   isHighlighted?: boolean;
   /** Distance of the overlapping section in meters */
@@ -54,22 +52,22 @@ interface ActivityRowProps {
   routeDistance?: number;
 }
 
-/** Mini route trace component for activity list - shows both consensus route and activity trace */
+/** Mini route trace component for activity list - shows both route reference and activity trace */
 function MiniRouteTrace({
   activityPoints,
-  consensusPoints,
+  routePoints,
   activityColor,
-  consensusColor,
+  routeColor,
   isHighlighted,
 }: {
   /** Points from the individual activity's GPS trace */
   activityPoints: RoutePoint[];
-  /** Points from the consensus/main route */
-  consensusPoints?: RoutePoint[];
+  /** Points from the representative route (full route) */
+  routePoints?: RoutePoint[];
   /** Color for the activity trace */
   activityColor: string;
-  /** Color for the consensus route (shown underneath) */
-  consensusColor: string;
+  /** Color for the route reference (shown underneath) */
+  routeColor: string;
   isHighlighted?: boolean;
 }) {
   if (activityPoints.length < 2) return null;
@@ -79,8 +77,8 @@ function MiniRouteTrace({
   const padding = 3;
 
   // Combine all points to calculate shared bounds
-  const allPoints = consensusPoints && consensusPoints.length > 0
-    ? [...activityPoints, ...consensusPoints]
+  const allPoints = routePoints && routePoints.length > 0
+    ? [...activityPoints, ...routePoints]
     : activityPoints;
 
   const lats = allPoints.map(p => p.lat);
@@ -103,11 +101,11 @@ function MiniRouteTrace({
   const activityScaled = scalePoints(activityPoints);
   const activityString = activityScaled.map(p => `${p.x},${p.y}`).join(' ');
 
-  const consensusScaled = consensusPoints && consensusPoints.length > 1
-    ? scalePoints(consensusPoints)
+  const routeScaled = routePoints && routePoints.length > 1
+    ? scalePoints(routePoints)
     : null;
-  const consensusString = consensusScaled
-    ? consensusScaled.map(p => `${p.x},${p.y}`).join(' ')
+  const routeString = routeScaled
+    ? routeScaled.map(p => `${p.x},${p.y}`).join(' ')
     : null;
 
   return (
@@ -116,28 +114,28 @@ function MiniRouteTrace({
       isHighlighted && miniTraceStyles.highlighted,
     ]}>
       <Svg width={width} height={height}>
-        {/* Activity trace underneath (faded - this is the individual activity's path) */}
+        {/* Route reference underneath (faded - the full route for comparison) */}
+        {routeString && (
+          <Polyline
+            points={routeString}
+            fill="none"
+            stroke={routeColor}
+            strokeWidth={2}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            opacity={isHighlighted ? 0.3 : 0.2}
+          />
+        )}
+        {/* Activity trace on top (prominent - this activity's actual path) */}
         <Polyline
           points={activityString}
           fill="none"
           stroke={activityColor}
-          strokeWidth={2}
+          strokeWidth={isHighlighted ? 3 : 2.5}
           strokeLinecap="round"
           strokeLinejoin="round"
-          opacity={isHighlighted ? 0.5 : 0.25}
+          opacity={0.85}
         />
-        {/* Consensus route on top (prominent - this is the route we're viewing) */}
-        {consensusString && (
-          <Polyline
-            points={consensusString}
-            fill="none"
-            stroke={consensusColor}
-            strokeWidth={isHighlighted ? 3 : 2.5}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            opacity={0.85}
-          />
-        )}
       </Svg>
     </View>
   );
@@ -188,14 +186,12 @@ interface PerformanceChartProps {
   activityType: ActivityType;
   isDark: boolean;
   matches: Record<string, { matchPercentage?: number; direction?: string }>;
-  /** Signatures for lap detection */
+  /** Signatures for getting activity GPS traces */
   signatures: Record<string, { points?: RoutePoint[] }>;
-  /** Consensus route for lap detection */
-  consensusPoints?: RoutePoint[];
-  /** Callback when a lap is selected via scrubbing */
-  onLapSelect?: (lapId: string | null, lapPoints?: RoutePoint[]) => void;
-  /** Currently selected/highlighted lap ID */
-  selectedLapId?: string | null;
+  /** Callback when an activity is selected via scrubbing */
+  onActivitySelect?: (activityId: string | null, activityPoints?: RoutePoint[]) => void;
+  /** Currently selected/highlighted activity ID */
+  selectedActivityId?: string | null;
 }
 
 function formatShortDate(date: Date): string {
@@ -212,9 +208,8 @@ function PerformanceProgressionChart({
   isDark,
   matches,
   signatures,
-  consensusPoints,
-  onLapSelect,
-  selectedLapId,
+  onActivitySelect,
+  selectedActivityId,
 }: PerformanceChartProps) {
   const showPace = isRunningActivity(activityType);
   const activityColor = getActivityColor(activityType);
@@ -229,8 +224,9 @@ function PerformanceProgressionChart({
   const chartBoundsShared = useSharedValue({ left: 0, right: 1 });
   const lastNotifiedIdx = useRef<number | null>(null);
 
-  // Prepare chart data with lap detection
-  const { chartData, minSpeed, maxSpeed, bestIndex, hasMultipleLaps, hasReverseRuns } = useMemo(() => {
+  // Prepare chart data - ONE point per activity
+  // Direction comes from route matching (whole activity), NOT segment detection
+  const { chartData, minSpeed, maxSpeed, bestIndex, hasReverseRuns } = useMemo(() => {
     const dataPoints: (PerformanceDataPoint & { x: number })[] = [];
 
     // Sort activities by date first
@@ -238,12 +234,12 @@ function PerformanceProgressionChart({
       (a, b) => new Date(a.start_date_local).getTime() - new Date(b.start_date_local).getTime()
     );
 
-    let hasAnyMultipleLaps = false;
     let hasAnyReverse = false;
 
     for (const activity of sortedActivities) {
       const activityPoints = signatures[activity.id]?.points;
       const match = matches[activity.id];
+      // Direction comes from route matching algorithm - the WHOLE activity direction
       const direction = (match?.direction as 'same' | 'reverse') ?? 'same';
       const matchPercentage = match?.matchPercentage ?? 100;
 
@@ -254,91 +250,21 @@ function PerformanceProgressionChart({
         ? activity.distance / activity.moving_time
         : 0;
 
-      // Try to detect laps if we have valid data
-      const canDetectLaps = consensusPoints &&
-        consensusPoints.length > 3 &&
-        activityPoints &&
-        activityPoints.length > 3 &&
-        activity.distance > 0 &&
-        activity.moving_time > 0;
-
-      if (canDetectLaps) {
-        try {
-          const laps = detectLaps(
-            activityPoints,
-            consensusPoints,
-            activity.distance,
-            activity.moving_time,
-            50, // distance threshold
-            100 // min lap distance
-          );
-
-          if (laps.length > 1) {
-            hasAnyMultipleLaps = true;
-            // Multiple laps detected - add each as a separate point
-            for (const lap of laps) {
-              if (lap.direction === 'reverse') hasAnyReverse = true;
-              dataPoints.push({
-                x: 0, // Will be set after sort
-                id: `${activity.id}-lap-${lap.lapNumber}`,
-                activityId: activity.id,
-                lapNumber: lap.lapNumber,
-                totalLaps: laps.length,
-                speed: lap.speed,
-                date: new Date(activity.start_date_local),
-                activityName: activity.name,
-                direction: lap.direction,
-                matchPercentage,
-                lapPoints: lap.points,
-              });
-            }
-          } else {
-            // Single lap or no laps detected - use activity overall
-            dataPoints.push({
-              x: 0,
-              id: `${activity.id}-lap-1`,
-              activityId: activity.id,
-              lapNumber: 1,
-              totalLaps: 1,
-              speed: activitySpeed,
-              date: new Date(activity.start_date_local),
-              activityName: activity.name,
-              direction,
-              matchPercentage,
-              lapPoints: activityPoints,
-            });
-          }
-        } catch (e) {
-          // Lap detection failed - fall back to activity overall
-          console.warn('Lap detection failed for activity', activity.id, e);
-          dataPoints.push({
-            x: 0,
-            id: `${activity.id}-lap-1`,
-            activityId: activity.id,
-            lapNumber: 1,
-            totalLaps: 1,
-            speed: activitySpeed,
-            date: new Date(activity.start_date_local),
-            activityName: activity.name,
-            direction,
-            matchPercentage,
-          });
-        }
-      } else {
-        // No lap detection possible - use activity overall
-        dataPoints.push({
-          x: 0,
-          id: `${activity.id}-lap-1`,
-          activityId: activity.id,
-          lapNumber: 1,
-          totalLaps: 1,
-          speed: activitySpeed,
-          date: new Date(activity.start_date_local),
-          activityName: activity.name,
-          direction,
-          matchPercentage,
-        });
-      }
+      // Each activity = ONE data point
+      // No lap/segment detection - the route is a complete journey
+      dataPoints.push({
+        x: 0,
+        id: activity.id,
+        activityId: activity.id,
+        lapNumber: 1,
+        totalLaps: 1,
+        speed: activitySpeed,
+        date: new Date(activity.start_date_local),
+        activityName: activity.name,
+        direction,
+        matchPercentage,
+        lapPoints: activityPoints, // Full activity trace for map highlighting
+      });
     }
 
     // Re-index after collecting all points
@@ -362,10 +288,9 @@ function PerformanceProgressionChart({
       minSpeed: Math.max(0, min - padding),
       maxSpeed: max + padding,
       bestIndex: bestIdx,
-      hasMultipleLaps: hasAnyMultipleLaps,
       hasReverseRuns: hasAnyReverse,
     };
-  }, [activities, matches, signatures, consensusPoints]);
+  }, [activities, matches, signatures]);
 
   // Calculate chart width based on number of points (for scrolling)
   const chartWidth = useMemo(() => {
@@ -378,9 +303,9 @@ function PerformanceProgressionChart({
 
   // Find currently selected index for highlighting
   const selectedIndex = useMemo(() => {
-    if (!selectedLapId) return -1;
-    return chartData.findIndex(d => d.id === selectedLapId);
-  }, [selectedLapId, chartData]);
+    if (!selectedActivityId) return -1;
+    return chartData.findIndex(d => d.id === selectedActivityId);
+  }, [selectedActivityId, chartData]);
 
   const formatSpeedValue = useCallback((speed: number) => {
     if (showPace) {
@@ -413,8 +338,8 @@ function PerformanceProgressionChart({
         setIsActive(false);
         setIsPersisted(true);
         // Notify parent of final selection
-        if (onLapSelect && tooltipData) {
-          onLapSelect(tooltipData.id, tooltipData.lapPoints);
+        if (onActivitySelect && tooltipData) {
+          onActivitySelect(tooltipData.id, tooltipData.lapPoints);
         }
       }
       lastNotifiedIdx.current = null;
@@ -442,11 +367,11 @@ function PerformanceProgressionChart({
     if (point) {
       setTooltipData(point);
       // Notify parent for map highlighting
-      if (onLapSelect) {
-        onLapSelect(point.id, point.lapPoints);
+      if (onActivitySelect) {
+        onActivitySelect(point.id, point.lapPoints);
       }
     }
-  }, [chartData, isActive, isPersisted, tooltipData, onLapSelect]);
+  }, [chartData, isActive, isPersisted, tooltipData, onActivitySelect]);
 
   // Handle gesture end - persist tooltip
   const handleGestureEnd = useCallback(() => {
@@ -468,11 +393,11 @@ function PerformanceProgressionChart({
     if (isPersisted) {
       setIsPersisted(false);
       setTooltipData(null);
-      if (onLapSelect) {
-        onLapSelect(null, undefined);
+      if (onActivitySelect) {
+        onActivitySelect(null, undefined);
       }
     }
-  }, [isPersisted, onLapSelect]);
+  }, [isPersisted, onActivitySelect]);
 
   // Pan gesture with long press activation for scrubbing
   // Quick swipes pass through to ScrollView for horizontal scrolling
@@ -546,15 +471,32 @@ function PerformanceProgressionChart({
               chartBoundsShared.value = { left: chartBounds.left, right: chartBounds.right };
             }
 
+            // Separate points by direction for distinct lines
+            const samePoints = points.speed.filter((_, idx) => chartData[idx]?.direction === 'same');
+            const reversePoints = points.speed.filter((_, idx) => chartData[idx]?.direction === 'reverse');
+
             return (
               <>
-                {/* Line connecting points */}
-                <Line
-                  points={points.speed}
-                  color={isDark ? '#444' : '#DDD'}
-                  strokeWidth={1.5}
-                  curveType="monotoneX"
-                />
+                {/* Line connecting 'same' direction points */}
+                {samePoints.length > 1 && (
+                  <Line
+                    points={samePoints}
+                    color={activityColor}
+                    strokeWidth={1.5}
+                    curveType="monotoneX"
+                    opacity={0.4}
+                  />
+                )}
+                {/* Line connecting 'reverse' direction points */}
+                {reversePoints.length > 1 && (
+                  <Line
+                    points={reversePoints}
+                    color={REVERSE_COLOR}
+                    strokeWidth={1.5}
+                    curveType="monotoneX"
+                    opacity={0.4}
+                  />
+                )}
                 {/* Regular points - colored by direction */}
                 {points.speed.map((point, idx) => {
                   if (point.x == null || point.y == null) return null;
@@ -661,18 +603,9 @@ function PerformanceProgressionChart({
   return (
     <View style={[styles.chartCard, isDark && styles.chartCardDark]}>
       <View style={styles.chartHeader}>
-        <View style={styles.chartTitleRow}>
-          <Text style={[styles.chartTitle, isDark && styles.textLight]}>
-            Performance Over Time
-          </Text>
-          {hasMultipleLaps && (
-            <View style={styles.lapsBadge}>
-              <Text style={styles.lapsBadgeText}>
-                {chartData.length} laps
-              </Text>
-            </View>
-          )}
-        </View>
+        <Text style={[styles.chartTitle, isDark && styles.textLight]}>
+          Performance Over Time
+        </Text>
         <View style={styles.chartLegend}>
           <View style={styles.legendItem}>
             <View style={[styles.legendDot, { backgroundColor: '#FFB300' }]} />
@@ -713,11 +646,6 @@ function PerformanceProgressionChart({
               <Text style={[styles.tooltipDate, isDark && styles.textMuted]}>
                 {formatShortDate(tooltipData.date)}
               </Text>
-              {tooltipData.totalLaps > 1 && (
-                <Text style={[styles.tooltipLap, isDark && styles.textMuted]}>
-                  Lap {tooltipData.lapNumber}/{tooltipData.totalLaps}
-                </Text>
-              )}
               <View style={[styles.matchBadgeSmall, { backgroundColor: colors.success + '20' }]}>
                 <Text style={[styles.matchBadgeText, { color: colors.success }]}>
                   {Math.round(tooltipData.matchPercentage)}%
@@ -770,9 +698,7 @@ function PerformanceProgressionChart({
               {formatShortDate(chartData[bestIndex].date)}
             </Text>
             <Text style={[styles.bestStatLabel, isDark && styles.textMuted]}>
-              {chartData[bestIndex].totalLaps > 1
-                ? `Lap ${chartData[bestIndex].lapNumber}/${chartData[bestIndex].totalLaps}`
-                : 'Date'}
+              Date
             </Text>
           </View>
         </View>
@@ -787,7 +713,7 @@ function ActivityRow({
   matchPercentage,
   direction,
   activityPoints,
-  consensusPoints,
+  routePoints,
   isHighlighted,
   overlapDistance,
   routeDistance,
@@ -827,13 +753,13 @@ function ActivityRow({
         pressed && styles.activityRowPressed,
       ]}
     >
-      {/* Mini route trace showing consensus (orange) vs activity trace */}
+      {/* Mini route trace showing route reference (orange) vs activity trace */}
       {activityPoints && activityPoints.length > 1 ? (
         <MiniRouteTrace
           activityPoints={activityPoints}
-          consensusPoints={consensusPoints}
+          routePoints={routePoints}
           activityColor={traceColor}
-          consensusColor={CONSENSUS_COLOR}
+          routeColor={CONSENSUS_COLOR}
           isHighlighted={isHighlighted}
         />
       ) : (
@@ -897,22 +823,14 @@ export default function RouteDetailScreen() {
   const isDark = colorScheme === 'dark';
   const insets = useSafeAreaInsets();
 
-  // State for highlighted activity/lap
+  // State for highlighted activity
   const [highlightedActivityId, setHighlightedActivityId] = useState<string | null>(null);
-  const [highlightedLapId, setHighlightedLapId] = useState<string | null>(null);
-  const [highlightedLapPoints, setHighlightedLapPoints] = useState<RoutePoint[] | undefined>(undefined);
+  const [highlightedActivityPoints, setHighlightedActivityPoints] = useState<RoutePoint[] | undefined>(undefined);
 
-  // Handle lap selection from chart scrubbing
-  const handleLapSelect = useCallback((lapId: string | null, lapPoints?: RoutePoint[]) => {
-    setHighlightedLapId(lapId);
-    setHighlightedLapPoints(lapPoints);
-    // Also extract activity ID for activity list highlighting
-    if (lapId) {
-      const activityId = lapId.split('-lap-')[0];
-      setHighlightedActivityId(activityId);
-    } else {
-      setHighlightedActivityId(null);
-    }
+  // Handle activity selection from chart scrubbing
+  const handleActivitySelect = useCallback((activityId: string | null, activityPoints?: RoutePoint[]) => {
+    setHighlightedActivityId(activityId);
+    setHighlightedActivityPoints(activityPoints);
   }, []);
 
   const routeGroup = useRouteMatchStore((s) =>
@@ -932,11 +850,17 @@ export default function RouteDetailScreen() {
     includeStats: false,
   });
 
-  // Filter to only activities in this route group
+  // Filter to only activities in this route group (deduplicated)
   const routeActivities = React.useMemo(() => {
     if (!routeGroup || !allActivities) return [];
     const idsSet = new Set(routeGroup.activityIds);
-    return allActivities.filter((a) => idsSet.has(a.id));
+    // Filter and deduplicate by ID (in case API returns duplicates)
+    const seen = new Set<string>();
+    return allActivities.filter((a) => {
+      if (!idsSet.has(a.id) || seen.has(a.id)) return false;
+      seen.add(a.id);
+      return true;
+    });
   }, [routeGroup, allActivities]);
 
   if (!routeGroup) {
@@ -987,7 +911,7 @@ export default function RouteDetailScreen() {
                 height={MAP_HEIGHT}
                 interactive={false}
                 highlightedActivityId={highlightedActivityId}
-                highlightedLapPoints={highlightedLapPoints}
+                highlightedLapPoints={highlightedActivityPoints}
                 enableFullscreen={true}
               />
             ) : (
@@ -1048,9 +972,8 @@ export default function RouteDetailScreen() {
                 isDark={isDark}
                 matches={matches}
                 signatures={signatures}
-                consensusPoints={routeGroup.consensusPoints}
-                onLapSelect={handleLapSelect}
-                selectedLapId={highlightedLapId}
+                onActivitySelect={handleActivitySelect}
+                selectedActivityId={highlightedActivityId}
               />
             </View>
           )}
@@ -1082,8 +1005,8 @@ export default function RouteDetailScreen() {
                 const routeDistance = routeGroup?.signature?.distance;
                 // Get route points from signature for this activity
                 const activityPoints = signatures[activity.id]?.points;
-                // Get consensus points from the route group
-                const consensusPoints = routeGroup?.consensusPoints;
+                // Get representative route points (full route, not truncated consensus)
+                const routePoints = routeGroup?.signature?.points;
                 const isHighlighted = highlightedActivityId === activity.id;
                 return (
                   <React.Fragment key={activity.id}>
@@ -1097,7 +1020,7 @@ export default function RouteDetailScreen() {
                         matchPercentage={matchPercentage}
                         direction={direction}
                         activityPoints={activityPoints}
-                        consensusPoints={consensusPoints}
+                        routePoints={routePoints}
                         isHighlighted={isHighlighted}
                         overlapDistance={overlapDistance}
                         routeDistance={routeDistance}
@@ -1267,22 +1190,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.textPrimary,
   },
-  chartTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  lapsBadge: {
-    backgroundColor: colors.primary + '20',
-    borderRadius: 10,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-  },
-  lapsBadgeText: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: colors.primary,
-  },
   chartLegend: {
     flexDirection: 'row',
     gap: spacing.md,
@@ -1359,10 +1266,6 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   tooltipDate: {
-    fontSize: 11,
-    color: colors.textSecondary,
-  },
-  tooltipLap: {
     fontSize: 11,
     color: colors.textSecondary,
   },
