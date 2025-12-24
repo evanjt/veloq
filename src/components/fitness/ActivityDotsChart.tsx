@@ -275,7 +275,8 @@ export const ActivityDotsChart = React.memo(function ActivityDotsChart({
       runOnJS(onPanEnd)();
       touchX.value = -1;
     })
-    .minDistance(0);
+    .minDistance(0)
+    .activateAfterLongPress(300);
 
   const crosshairStyle = useAnimatedStyle(() => {
     'worklet';

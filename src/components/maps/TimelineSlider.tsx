@@ -378,9 +378,11 @@ export function TimelineSlider({
       {syncProgress && (
         <View style={styles.syncBanner}>
           <Text style={styles.syncText}>
-            {syncProgress.total > 0
-              ? `Syncing ${syncProgress.completed}/${syncProgress.total} activities`
-              : syncProgress.message || 'Syncing...'}
+            {syncProgress.message
+              ? syncProgress.message
+              : syncProgress.total > 0
+                ? `Syncing ${syncProgress.completed}/${syncProgress.total} activities`
+                : 'Syncing...'}
           </Text>
         </View>
       )}

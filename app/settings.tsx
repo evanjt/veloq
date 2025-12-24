@@ -13,7 +13,7 @@ import * as WebBrowser from 'expo-web-browser';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, Href } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { SegmentedButtons } from 'react-native-paper';
+import { SegmentedButtons, Switch } from 'react-native-paper';
 import { useAthlete, useActivityBoundsCache, useRouteProcessing, useRouteGroups } from '@/hooks';
 import { getAthleteId } from '@/api';
 import {
@@ -22,6 +22,7 @@ import {
   useMapPreferences,
   useAuthStore,
   useSportPreference,
+  useRouteSettings,
   type ThemePreference,
   type PrimarySport,
 } from '@/providers';
@@ -114,6 +115,9 @@ export default function SettingsScreen() {
   const { progress: routeProgress, isProcessing: isRouteProcessing, clearCache: clearRouteCache, cancel: cancelRouteProcessing } = useRouteProcessing();
   // Use minActivities: 2 to show actual routes (groups with 2+ activities), not signatures
   const { groups: routeGroups, processedCount: routeProcessedCount } = useRouteGroups({ minActivities: 2 });
+
+  // Route matching settings
+  const { settings: routeSettings, setEnabled: setRouteMatchingEnabled } = useRouteSettings();
 
   const profileUrl = athlete?.profile_medium || athlete?.profile;
   const hasValidProfileUrl = profileUrl && typeof profileUrl === 'string' && profileUrl.startsWith('http');
@@ -514,71 +518,72 @@ export default function SettingsScreen() {
           Use "Sync All History" to enable deeper route analysis across your history.
         </Text>
 
-        {/* Route Cache Section */}
-        <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>ROUTE CACHE</Text>
+        {/* Route Matching Section */}
+        <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>ROUTE MATCHING</Text>
         <View style={[styles.section, isDark && styles.sectionDark]}>
-          {/* Processing Status */}
-          {isRouteProcessing && (
-            <View style={styles.syncBanner}>
-              <MaterialCommunityIcons name="map-marker-path" size={18} color="#FFF" />
-              <Text style={styles.syncBannerText}>
-                {routeProgress.message || `Analysing ${routeProgress.current}/${routeProgress.total}`}
+          <View style={styles.toggleRow}>
+            <View style={styles.toggleInfo}>
+              <Text style={[styles.toggleLabel, isDark && styles.textLight]}>
+                Enable Route Matching
+              </Text>
+              <Text style={[styles.toggleDescription, isDark && styles.textMuted]}>
+                Automatically detect repeated routes from your activities
               </Text>
             </View>
-          )}
-
-          <View style={styles.statRow}>
-            <View style={styles.statItem}>
-              <Text style={[styles.statValue, isDark && styles.textLight]}>
-                {routeGroups.length}
-              </Text>
-              <Text style={[styles.statLabel, isDark && styles.textMuted]}>Routes</Text>
-            </View>
-            <View style={styles.statDivider} />
-            <View style={styles.statItem}>
-              <Text style={[styles.statValue, isDark && styles.textLight]}>
-                {routeProcessedCount}
-              </Text>
-              <Text style={[styles.statLabel, isDark && styles.textMuted]}>Activities</Text>
-            </View>
-          </View>
-
-          {/* Link to Routes screen */}
-          <TouchableOpacity
-            style={[styles.actionRow, styles.actionRowBorder]}
-            onPress={() => router.push('/routes' as Href)}
-          >
-            <MaterialCommunityIcons
-              name="map-marker-path"
-              size={22}
+            <Switch
+              value={routeSettings.enabled}
+              onValueChange={setRouteMatchingEnabled}
               color={colors.primary}
             />
-            <Text style={[styles.actionText, isDark && styles.textLight]}>
-              View Routes
-            </Text>
-            <MaterialCommunityIcons
-              name="chevron-right"
-              size={20}
-              color={isDark ? '#666' : colors.textSecondary}
-            />
-          </TouchableOpacity>
+          </View>
         </View>
+        <Text style={[styles.infoText, isDark && styles.textMuted]}>
+          When enabled, GPS tracks are analysed to find similar routes. This runs in the background and may take time depending on the number of activities in your history.
+        </Text>
 
-        {/* Route Cache Actions */}
-        <View style={[styles.section, styles.sectionSpaced, isDark && styles.sectionDark]}>
-          {isRouteProcessing && (
-            <>
+        {/* Route Cache Section - only show when enabled */}
+        {routeSettings.enabled && (
+          <>
+            <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>ROUTE CACHE</Text>
+            <View style={[styles.section, isDark && styles.sectionDark]}>
+              {/* Processing Status */}
+              {isRouteProcessing && (
+                <View style={styles.syncBanner}>
+                  <MaterialCommunityIcons name="map-marker-path" size={18} color="#FFF" />
+                  <Text style={styles.syncBannerText}>
+                    {routeProgress.message || `Analysing ${routeProgress.current}/${routeProgress.total}`}
+                  </Text>
+                </View>
+              )}
+
+              <View style={styles.statRow}>
+                <View style={styles.statItem}>
+                  <Text style={[styles.statValue, isDark && styles.textLight]}>
+                    {routeGroups.length}
+                  </Text>
+                  <Text style={[styles.statLabel, isDark && styles.textMuted]}>Routes</Text>
+                </View>
+                <View style={styles.statDivider} />
+                <View style={styles.statItem}>
+                  <Text style={[styles.statValue, isDark && styles.textLight]}>
+                    {routeProcessedCount}
+                  </Text>
+                  <Text style={[styles.statLabel, isDark && styles.textMuted]}>Activities</Text>
+                </View>
+              </View>
+
+              {/* Link to Routes screen */}
               <TouchableOpacity
-                style={styles.actionRow}
-                onPress={cancelRouteProcessing}
+                style={[styles.actionRow, styles.actionRowBorder]}
+                onPress={() => router.push('/routes' as Href)}
               >
                 <MaterialCommunityIcons
-                  name="pause-circle-outline"
+                  name="map-marker-path"
                   size={22}
-                  color={colors.warning}
+                  color={colors.primary}
                 />
                 <Text style={[styles.actionText, isDark && styles.textLight]}>
-                  Pause Processing
+                  View Routes
                 </Text>
                 <MaterialCommunityIcons
                   name="chevron-right"
@@ -586,25 +591,51 @@ export default function SettingsScreen() {
                   color={isDark ? '#666' : colors.textSecondary}
                 />
               </TouchableOpacity>
-              <View style={[styles.divider, isDark && styles.dividerDark]} />
-            </>
-          )}
+            </View>
 
-          <TouchableOpacity style={styles.actionRow} onPress={handleClearRouteCache}>
-            <MaterialCommunityIcons name="delete-outline" size={22} color={colors.error} />
-            <Text style={[styles.actionText, styles.actionTextDanger]}>Clear & Reload Routes</Text>
-            <MaterialCommunityIcons
-              name="chevron-right"
-              size={20}
-              color={isDark ? '#666' : colors.textSecondary}
-            />
-          </TouchableOpacity>
-        </View>
+            {/* Route Cache Actions */}
+            <View style={[styles.section, styles.sectionSpaced, isDark && styles.sectionDark]}>
+              {isRouteProcessing && (
+                <>
+                  <TouchableOpacity
+                    style={styles.actionRow}
+                    onPress={cancelRouteProcessing}
+                  >
+                    <MaterialCommunityIcons
+                      name="pause-circle-outline"
+                      size={22}
+                      color={colors.warning}
+                    />
+                    <Text style={[styles.actionText, isDark && styles.textLight]}>
+                      Pause Processing
+                    </Text>
+                    <MaterialCommunityIcons
+                      name="chevron-right"
+                      size={20}
+                      color={isDark ? '#666' : colors.textSecondary}
+                    />
+                  </TouchableOpacity>
+                  <View style={[styles.divider, isDark && styles.dividerDark]} />
+                </>
+              )}
 
-        <Text style={[styles.infoText, isDark && styles.textMuted]}>
-          Routes are automatically detected by analysing GPS tracks from your activities.
-          Activities on similar paths are grouped together.
-        </Text>
+              <TouchableOpacity style={styles.actionRow} onPress={handleClearRouteCache}>
+                <MaterialCommunityIcons name="delete-outline" size={22} color={colors.error} />
+                <Text style={[styles.actionText, styles.actionTextDanger]}>Clear & Reload Routes</Text>
+                <MaterialCommunityIcons
+                  name="chevron-right"
+                  size={20}
+                  color={isDark ? '#666' : colors.textSecondary}
+                />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={[styles.infoText, isDark && styles.textMuted]}>
+              Routes are automatically detected by analysing GPS tracks from your activities.
+              Activities on similar paths are grouped together.
+            </Text>
+          </>
+        )}
 
         {/* Account Section */}
         <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>ACCOUNT</Text>
@@ -893,6 +924,27 @@ const styles = StyleSheet.create({
   supportSubtitle: {
     fontSize: 12,
     color: colors.textSecondary,
+  },
+  toggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+  },
+  toggleInfo: {
+    flex: 1,
+    marginRight: spacing.md,
+  },
+  toggleLabel: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: colors.textPrimary,
+  },
+  toggleDescription: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    marginTop: 2,
   },
   textLight: {
     color: '#FFF',

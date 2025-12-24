@@ -209,7 +209,8 @@ export function FitnessFormChart({
       'worklet';
       touchX.value = -1;
     })
-    .minDistance(0);
+    .minDistance(0)
+    .activateAfterLongPress(300);
 
   // Crosshair style
   const crosshairStyle = useAnimatedStyle(() => {

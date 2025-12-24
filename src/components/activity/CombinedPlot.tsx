@@ -240,6 +240,8 @@ export const CombinedPlot = React.memo(function CombinedPlot({
   );
 
   // Gesture handler - updates shared values on UI thread (no JS bridge for position)
+  // Use activateAfterLongPress to require a brief hold before scrubbing starts
+  // This prevents accidental scrubbing when scrolling the page
   const gesture = Gesture.Pan()
     .onStart((e) => {
       'worklet';
@@ -253,7 +255,8 @@ export const CombinedPlot = React.memo(function CombinedPlot({
       'worklet';
       touchX.value = -1;
     })
-    .minDistance(0);
+    .minDistance(0)
+    .activateAfterLongPress(300); // 300ms hold before scrubbing activates
 
   // Animated crosshair style - follows finger directly for smooth tracking
   const crosshairStyle = useAnimatedStyle(() => {
