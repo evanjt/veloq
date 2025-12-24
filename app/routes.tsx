@@ -25,26 +25,28 @@ export default function RoutesScreen() {
   // Get route groups to count
   const { groups: routeGroups } = useRouteGroups({ minActivities: 1 });
 
-  // Date range state - default to last year
+  // Date range state - default to last 3 months
   const now = useMemo(() => new Date(), []);
-  const oneYearAgo = useMemo(() => {
+  const threeMonthsAgo = useMemo(() => {
     const d = new Date(now);
-    d.setFullYear(d.getFullYear() - 1);
+    d.setMonth(d.getMonth() - 3);
     return d;
   }, [now]);
 
-  const [startDate, setStartDate] = useState(oneYearAgo);
+  const [startDate, setStartDate] = useState(threeMonthsAgo);
   const [endDate, setEndDate] = useState(now);
 
-  // Calculate min/max dates from cache
+  // Calculate min/max dates from cache - use cache's full range, not just default window
   const { minDate, maxDate } = useMemo(() => {
-    const oldest = cacheStats.oldestDate ? new Date(cacheStats.oldestDate) : oneYearAgo;
+    // Use cache's oldest date if available, otherwise use 3 months ago
+    const oldest = cacheStats.oldestDate ? new Date(cacheStats.oldestDate) : threeMonthsAgo;
     const newest = cacheStats.newestDate ? new Date(cacheStats.newestDate) : now;
     return {
-      minDate: new Date(Math.min(oldest.getTime(), oneYearAgo.getTime())),
+      // Allow slider to go back to cache's oldest date
+      minDate: oldest,
       maxDate: newest,
     };
-  }, [cacheStats.oldestDate, cacheStats.newestDate, oneYearAgo, now]);
+  }, [cacheStats.oldestDate, cacheStats.newestDate, threeMonthsAgo, now]);
 
   // Cached date range for timeline display
   const cachedOldest = useMemo(

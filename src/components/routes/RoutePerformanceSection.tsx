@@ -128,18 +128,18 @@ export function RoutePerformanceSection({ activityId, activityType }: RoutePerfo
 
   // Update tooltip on JS thread
   const updateTooltipOnJS = useCallback((idx: number, gestureEnded = false) => {
-    if (idx < 0 || performances.length === 0) {
-      if (gestureEnded && tooltipData) {
-        // Gesture ended - persist the last tooltip for tapping
+    // Gesture ended - persist the current tooltip for tapping
+    if (gestureEnded) {
+      if (tooltipData) {
         setIsActive(false);
         setIsPersisted(true);
-        lastNotifiedIdx.current = null;
-      } else if (!isPersisted) {
-        // Only clear if not in persisted mode
-        setTooltipData(null);
-        setIsActive(false);
-        lastNotifiedIdx.current = null;
       }
+      lastNotifiedIdx.current = null;
+      return;
+    }
+
+    // Invalid index during active gesture - ignore (don't clear)
+    if (idx < 0 || performances.length === 0) {
       return;
     }
 
@@ -169,13 +169,25 @@ export function RoutePerformanceSection({ activityId, activityType }: RoutePerfo
   useAnimatedReaction(
     () => selectedIdx.value,
     (idx) => {
-      runOnJS(updateTooltipOnJS)(idx, false);
+      // Only update tooltip for valid indices during active gesture
+      // Skip idx === -1 here - let handleGestureEnd manage that case to avoid race condition
+      if (idx >= 0) {
+        runOnJS(updateTooltipOnJS)(idx, false);
+      }
     },
     [updateTooltipOnJS]
   );
 
-  // Gesture handler
-  const gesture = Gesture.Pan()
+  // Clear persisted tooltip
+  const clearPersistedTooltip = useCallback(() => {
+    if (isPersisted) {
+      setIsPersisted(false);
+      setTooltipData(null);
+    }
+  }, [isPersisted]);
+
+  // Gesture handler - combines pan for scrubbing and tap to dismiss
+  const panGesture = Gesture.Pan()
     .onStart((e) => {
       'worklet';
       touchX.value = e.x;
@@ -190,6 +202,15 @@ export function RoutePerformanceSection({ activityId, activityType }: RoutePerfo
       runOnJS(handleGestureEnd)();
     })
     .minDistance(0);
+
+  // Tap gesture to dismiss persisted tooltip when tapping on chart
+  const tapGesture = Gesture.Tap()
+    .onEnd(() => {
+      'worklet';
+      runOnJS(clearPersistedTooltip)();
+    });
+
+  const gesture = Gesture.Race(panGesture, tapGesture);
 
   // Animated crosshair
   const crosshairStyle = useAnimatedStyle(() => {
