@@ -88,11 +88,12 @@ export function RoutesList({ onRefresh, isRefreshing = false, startDate, endDate
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
 
+  // Don't filter by date - routes span multiple dates and should always be shown
+  // The timeline on the Routes page is for selecting which activities to ANALYZE,
+  // not for filtering which discovered routes to DISPLAY
   const { groups, totalCount, processedCount, isReady } = useRouteGroups({
     minActivities: 2,
     sortBy: 'count',
-    startDate,
-    endDate,
   });
 
   const { progress } = useRouteProcessing();
@@ -135,7 +136,7 @@ export function RoutesList({ onRefresh, isRefreshing = false, startDate, endDate
       {!showProcessing && isReady && processedCount > 0 && (
         <CacheScopeNotice
           processedCount={processedCount}
-          groupCount={totalCount}
+          groupCount={groups.length}  // Only show groups with 2+ activities (actual routes)
         />
       )}
 

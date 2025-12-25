@@ -16,10 +16,17 @@ import type {
   ActivityType,
   ActivityBoundsItem,
 } from '@/types';
-import { DEFAULT_ROUTE_MATCH_CONFIG } from '@/types';
-import { generateRouteSignature } from './routeSignature';
-import { matchRoutes, createRouteMatch, shouldGroupRoutes } from './routeMatching';
-import { groupSignatures as groupSignaturesJS } from './routeMatching';
+import { DEFAULT_ROUTE_MATCH_CONFIG, RouteMatch, MatchDirection } from '@/types';
+
+/** Internal match result from Rust comparison */
+interface MatchResult {
+  matchPercentage: number;
+  direction: MatchDirection;
+  overlapStart: number;
+  overlapEnd: number;
+  overlapDistance: number;
+  confidence: number;
+}
 import {
   loadRouteCache,
   saveRouteCache,
@@ -31,7 +38,211 @@ import {
 } from './routeStorage';
 import { findActivitiesWithPotentialMatchesFast } from './activityBoundsUtils';
 import NativeRouteMatcher from 'route-matcher-native';
-import type { RouteSignature as NativeRouteSignature, RouteGroup as NativeRouteGroup } from 'route-matcher-native';
+import type { RouteSignature as NativeRouteSignature, RouteGroup as NativeRouteGroup, GpsPoint, GpsTrack } from 'route-matcher-native';
+
+/** Batch size for parallel processing */
+const BATCH_SIZE = 30;
+/** Max concurrent API requests (API allows 30/s, use 10 for better throughput) */
+const MAX_CONCURRENT = 10;
+
+/**
+ * Process items in parallel with concurrency limit and progress callback.
+ * Returns results in same order as input.
+ */
+async function parallelMap<T, R>(
+  items: T[],
+  fn: (item: T, index: number) => Promise<R>,
+  concurrency: number,
+  onProgress?: (completed: number, total: number) => void
+): Promise<R[]> {
+  const results: R[] = new Array(items.length);
+  let nextIndex = 0;
+  let completed = 0;
+
+  async function worker() {
+    while (nextIndex < items.length) {
+      const index = nextIndex++;
+      results[index] = await fn(items[index], index);
+      completed++;
+      onProgress?.(completed, items.length);
+    }
+  }
+
+  // Start `concurrency` workers
+  const workers = Array(Math.min(concurrency, items.length))
+    .fill(null)
+    .map(() => worker());
+
+  await Promise.all(workers);
+  return results;
+}
+
+/**
+ * Encode lat/lng to a simple geohash (~500m precision).
+ */
+function encodeGeohash(lat: number, lng: number): string {
+  // Simple geohash approximation using grid cells
+  const latCell = Math.floor((lat + 90) * 200); // ~500m resolution
+  const lngCell = Math.floor((lng + 180) * 200);
+  return `${latCell.toString(36)}_${lngCell.toString(36)}`;
+}
+
+/**
+ * Calculate haversine distance between two points in meters.
+ */
+function haversineDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371000; // Earth's radius in meters
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+/**
+ * Generate a route signature using native Rust implementation.
+ * Rust handles: point simplification, distance calculation.
+ * JS computes: bounds, hashes, loop detection (from Rust output).
+ */
+function generateRouteSignature(
+  activityId: string,
+  latlngs: [number, number][],
+  config: Record<string, unknown> = {}
+): RouteSignature | null {
+  // Convert raw arrays to GpsPoint format, filtering invalid points
+  const points: GpsPoint[] = latlngs
+    .filter(([lat, lng]) => {
+      const validLat = typeof lat === 'number' && !isNaN(lat) && lat >= -90 && lat <= 90;
+      const validLng = typeof lng === 'number' && !isNaN(lng) && lng >= -180 && lng <= 180;
+      return validLat && validLng;
+    })
+    .map(([lat, lng]) => ({ latitude: lat, longitude: lng }));
+
+  if (points.length < 2) {
+    console.warn(`🦀 [RouteMatcher] Not enough valid points for ${activityId}: ${points.length}`);
+    return null;
+  }
+
+  // Call native Rust createSignature
+  const nativeSig = NativeRouteMatcher.createSignature(activityId, points, config);
+
+  if (!nativeSig) {
+    console.warn(`🦀 [RouteMatcher] Rust createSignature returned null for ${activityId}`);
+    return null;
+  }
+
+  // Convert to app format and compute additional metadata
+  const routePoints = nativeSig.points.map(p => ({ lat: p.latitude, lng: p.longitude }));
+
+  // Compute bounds from simplified points
+  const lats = routePoints.map(p => p.lat);
+  const lngs = routePoints.map(p => p.lng);
+  const bounds = {
+    minLat: Math.min(...lats),
+    maxLat: Math.max(...lats),
+    minLng: Math.min(...lngs),
+    maxLng: Math.max(...lngs),
+  };
+
+  // Compute start/end region hashes
+  const startPoint = routePoints[0];
+  const endPoint = routePoints[routePoints.length - 1];
+  const startRegionHash = encodeGeohash(startPoint.lat, startPoint.lng);
+  const endRegionHash = encodeGeohash(endPoint.lat, endPoint.lng);
+
+  // Detect if loop (start/end within 200m)
+  const startEndDistance = haversineDistance(
+    startPoint.lat, startPoint.lng,
+    endPoint.lat, endPoint.lng
+  );
+  const isLoop = startEndDistance < 200;
+
+  return {
+    activityId: nativeSig.activityId,
+    points: routePoints,
+    distance: nativeSig.totalDistance,
+    bounds,
+    startRegionHash,
+    endRegionHash,
+    isLoop,
+  };
+}
+
+/**
+ * GPS data to be processed in batch.
+ */
+interface GpsData {
+  activityId: string;
+  latlngs: [number, number][];
+}
+
+/**
+ * Generate route signatures in batch using native Rust parallel processing.
+ * MUCH faster than calling generateRouteSignature repeatedly:
+ * - Single FFI call instead of N calls
+ * - Parallel processing in Rust using rayon
+ */
+function generateRouteSignaturesBatch(
+  gpsDataList: GpsData[],
+  config: Record<string, unknown> = {}
+): RouteSignature[] {
+  // Convert to GpsTracks for Rust
+  const tracks: GpsTrack[] = gpsDataList.map(({ activityId, latlngs }) => ({
+    activityId,
+    points: latlngs
+      .filter(([lat, lng]) => {
+        const validLat = typeof lat === 'number' && !isNaN(lat) && lat >= -90 && lat <= 90;
+        const validLng = typeof lng === 'number' && !isNaN(lng) && lng >= -180 && lng <= 180;
+        return validLat && validLng;
+      })
+      .map(([lat, lng]) => ({ latitude: lat, longitude: lng })),
+  })).filter(track => track.points.length >= 2);
+
+  if (tracks.length === 0) return [];
+
+  console.log(`🦀🦀🦀 [RouteMatcher] Batch processing ${tracks.length} tracks...`);
+
+  // Call Rust batch processing - parallel in Rust!
+  const nativeSignatures = NativeRouteMatcher.createSignaturesBatch(tracks, config);
+
+  // Convert to app format with computed metadata
+  return nativeSignatures.map(nativeSig => {
+    const routePoints = nativeSig.points.map(p => ({ lat: p.latitude, lng: p.longitude }));
+
+    // Compute bounds
+    const lats = routePoints.map(p => p.lat);
+    const lngs = routePoints.map(p => p.lng);
+    const bounds = {
+      minLat: Math.min(...lats),
+      maxLat: Math.max(...lats),
+      minLng: Math.min(...lngs),
+      maxLng: Math.max(...lngs),
+    };
+
+    // Compute hashes
+    const startPoint = routePoints[0];
+    const endPoint = routePoints[routePoints.length - 1];
+    const startRegionHash = encodeGeohash(startPoint.lat, startPoint.lng);
+    const endRegionHash = encodeGeohash(endPoint.lat, endPoint.lng);
+
+    // Detect loop
+    const startEndDistance = haversineDistance(
+      startPoint.lat, startPoint.lng,
+      endPoint.lat, endPoint.lng
+    );
+    const isLoop = startEndDistance < 200;
+
+    return {
+      activityId: nativeSig.activityId,
+      points: routePoints,
+      distance: nativeSig.totalDistance,
+      bounds,
+      startRegionHash,
+      endRegionHash,
+      isLoop,
+    };
+  });
+}
 
 /**
  * Convert app RouteSignature format (lat/lng) to native format (latitude/longitude)
@@ -47,8 +258,73 @@ function toNativeSignature(sig: RouteSignature): NativeRouteSignature {
 }
 
 /**
- * Try to use native route grouping, fall back to JS if native isn't available.
- * The native module handles the Rust/JS decision internally.
+ * Match two routes using native Rust implementation.
+ */
+function matchRoutes(
+  sig1: RouteSignature,
+  sig2: RouteSignature,
+  config: Record<string, unknown> = {}
+): MatchResult | null {
+  const nativeSig1 = toNativeSignature(sig1);
+  const nativeSig2 = toNativeSignature(sig2);
+
+  const result = NativeRouteMatcher.compareRoutes(nativeSig1, nativeSig2, config);
+
+  if (!result) {
+    return null;
+  }
+
+  // Map Rust direction to app direction ('forward' -> 'same')
+  const direction: MatchDirection = result.direction === 'forward' ? 'same' : result.direction as MatchDirection;
+
+  return {
+    matchPercentage: result.matchPercentage,
+    direction,
+    overlapStart: 0,
+    overlapEnd: 1,
+    overlapDistance: Math.min(sig1.distance, sig2.distance),
+    confidence: result.matchPercentage / 100,
+  };
+}
+
+/**
+ * Determine if two routes should be grouped together.
+ */
+function shouldGroupRoutes(
+  sig1: RouteSignature,
+  sig2: RouteSignature,
+  matchPercentage: number,
+  config: { minMatchPercentage: number; loopThreshold?: number }
+): boolean {
+  const MIN_ROUTE_DISTANCE = 500; // meters
+  if (sig1.distance < MIN_ROUTE_DISTANCE || sig2.distance < MIN_ROUTE_DISTANCE) {
+    return false;
+  }
+  return matchPercentage >= config.minMatchPercentage;
+}
+
+/**
+ * Create a RouteMatch object from match result.
+ */
+function createRouteMatch(
+  activityId: string,
+  routeGroupId: string,
+  result: MatchResult
+): RouteMatch {
+  return {
+    activityId,
+    routeGroupId,
+    matchPercentage: result.matchPercentage,
+    direction: result.direction,
+    overlapStart: result.direction === 'partial' ? result.overlapStart : undefined,
+    overlapEnd: result.direction === 'partial' ? result.overlapEnd : undefined,
+    confidence: result.confidence,
+  };
+}
+
+/**
+ * Group signatures using native Rust implementation.
+ * No JS fallback - Rust is required.
  */
 async function groupSignatures(
   signatures: RouteSignature[],
@@ -58,35 +334,24 @@ async function groupSignatures(
   // Convert to native format
   const nativeSignatures = signatures.map(toNativeSignature);
 
-  try {
-    // Try native implementation (which includes Rust and JS fallback)
-    const nativeGroups: NativeRouteGroup[] = NativeRouteMatcher.groupSignatures(nativeSignatures, config);
+  // Use native Rust implementation (no fallback)
+  const nativeGroups: NativeRouteGroup[] = NativeRouteMatcher.groupSignatures(nativeSignatures, config);
 
-    // Convert to Map format expected by the rest of the app
-    const result = new Map<string, string[]>();
-    for (const group of nativeGroups) {
-      result.set(group.groupId, group.activityIds);
-    }
-
-    if (onProgress) {
-      onProgress(signatures.length, signatures.length);
-    }
-
-    return result;
-  } catch (e) {
-    console.log('[RouteProcessing] Native groupSignatures failed, using JS implementation:', e);
-    // Fall back to pure JS implementation
-    return groupSignaturesJS(signatures, config, onProgress);
+  // Convert to Map format expected by the rest of the app
+  const result = new Map<string, string[]>();
+  for (const group of nativeGroups) {
+    result.set(group.groupId, group.activityIds);
   }
+
+  if (onProgress) {
+    onProgress(signatures.length, signatures.length);
+  }
+
+  return result;
 }
 
 // Storage key for processing checkpoint
 const ROUTE_PROCESSING_CHECKPOINT_KEY = 'veloq_route_processing_checkpoint';
-
-// Processing configuration
-const BATCH_SIZE = 5; // Activities per batch
-const INTER_BATCH_DELAY = 100; // ms between batches
-const API_CONCURRENCY = 3; // Concurrent API requests (lower than default to preserve UX)
 
 /**
  * Union-Find helper for grouping activities into routes.
@@ -460,6 +725,11 @@ class RouteProcessingQueue {
       // Generate signature
       const signature = generateRouteSignature(activityId, latlngs);
 
+      if (!signature) {
+        console.warn(`🦀 [RouteMatcher] Failed to generate signature for ${activityId}`);
+        return;
+      }
+
       // Add to cache
       this.cache = addSignaturesToCache(this.cache, [signature]);
 
@@ -592,138 +862,149 @@ class RouteProcessingQueue {
     });
 
     try {
-      // Process one at a time for better UI feedback
-      for (let i = 0; i < activityIds.length; i++) {
-        if (this.shouldCancel) break;
+      // Process in batches for much faster throughput
+      // - Parallel API fetching (5 concurrent)
+      // - Batch signature creation in Rust (parallel with rayon)
+      console.log(`🚀 [RouteProcessing] Starting batch processing: ${activityIds.length} activities, batch size ${BATCH_SIZE}, ${MAX_CONCURRENT} concurrent fetches`);
 
-        const id = activityIds[i];
-        const meta = metadata[id];
+      for (let batchStart = 0; batchStart < activityIds.length && !this.shouldCancel; batchStart += BATCH_SIZE) {
+        const batchEnd = Math.min(batchStart + BATCH_SIZE, activityIds.length);
+        const batchIds = activityIds.slice(batchStart, batchEnd);
+        const batchNum = Math.floor(batchStart / BATCH_SIZE) + 1;
+        const totalBatches = Math.ceil(activityIds.length / BATCH_SIZE);
 
-        // Update status to checking
-        const activityStatus = processedActivities.find(a => a.id === id);
-        if (activityStatus) {
-          activityStatus.status = 'checking';
+        // Mark batch as checking
+        for (const id of batchIds) {
+          const activityStatus = processedActivities.find(a => a.id === id);
+          if (activityStatus) {
+            activityStatus.status = 'checking';
+          }
         }
 
         this.setProgress({
           status: 'processing',
           current: processed,
           total,
-          message: `Checking: ${meta?.name || id}`,
+          message: `Batch ${batchNum}/${totalBatches}: Fetching ${batchIds.length} GPS streams...`,
           processedActivities: [...processedActivities],
           matchesFound,
           discoveredRoutes: routeUnion.getRoutes(),
-          currentActivity: meta?.name,
           cachedSignatureCount: cachedSignatureCount + newSignatures.length,
         });
 
-        // Wait for UI interactions to complete
+        // Wait for UI before heavy work
         await new Promise<void>((resolve) => {
           InteractionManager.runAfterInteractions(() => resolve());
         });
 
-        try {
-          // Fetch GPS stream
-          const streams = await intervalsApi.getActivityStreams(id, ['latlng']);
-          const latlngs = streams.latlng;
-
-          if (latlngs && latlngs.length > 0) {
-            // Validate latlng data format
-            const first = latlngs[0];
-            if (first && (Math.abs(first[0]) > 90 || Math.abs(first[1]) > 180)) {
-              console.warn(`[RouteProcessing] Activity ${id}: Invalid latlng values - lat=${first[0]}, lng=${first[1]}`);
-            }
-
-            // Generate signature
-            const signature = generateRouteSignature(id, latlngs);
-            newSignatures.push(signature);
-
-            // Set preview for this activity
-            const previewPoints = getPreviewPoints(signature);
-            routeUnion.setRoutePreview(id, previewPoints, signature.distance);
-
-            // Check if it matches any existing signature
-            let foundMatch = false;
-            let matchedWithName: string | undefined;
-
-            if (this.cache) {
-              const existingSignatures = Object.values(this.cache.signatures);
-              for (const existing of existingSignatures) {
-                if (existing.activityId === id) continue;
-                const match = matchRoutes(signature, existing);
-                if (match) {
-                  foundMatch = true;
-                  matchedWithName = metadata[existing.activityId]?.name;
-                  matchesFound++;
-
-                  // Set preview for existing signature if not set
-                  const existingMeta = metadata[existing.activityId];
-                  if (existingMeta) {
-                    routeUnion.setActivityData(existing.activityId, existingMeta.name, existingMeta.type);
-                    const existingPreview = getPreviewPoints(existing);
-                    routeUnion.setRoutePreview(existing.activityId, existingPreview, existing.distance);
-                  }
-
-                  // Only GROUP if routes are truly the same (high match + similar endpoints)
-                  // This prevents routes with shared sections from merging together
-                  if (shouldGroupRoutes(signature, existing, match.matchPercentage, DEFAULT_ROUTE_MATCH_CONFIG)) {
-                    routeUnion.union(id, existing.activityId, match.matchPercentage);
-                  }
-
-                  // Don't break - find ALL matches for this activity
-                }
+        // Fetch GPS streams in parallel (5 concurrent) with real-time progress
+        const gpsDataList: GpsData[] = [];
+        let batchFetched = 0;
+        const fetchResults = await parallelMap(
+          batchIds,
+          async (id) => {
+            try {
+              const streams = await intervalsApi.getActivityStreams(id, ['latlng']);
+              const latlngs = streams.latlng;
+              if (latlngs && latlngs.length > 0) {
+                return { activityId: id, latlngs };
               }
+              return null;
+            } catch {
+              return null;
             }
-
-            // Update activity status
-            if (activityStatus) {
-              activityStatus.status = foundMatch ? 'matched' : 'no-match';
-              activityStatus.matchedWith = matchedWithName;
-            }
-          } else {
-            if (activityStatus) {
-              activityStatus.status = 'no-match';
-            }
+          },
+          MAX_CONCURRENT,
+          (completedInBatch) => {
+            // Real-time progress update within batch
+            batchFetched = completedInBatch;
+            this.setProgress({
+              status: 'processing',
+              current: processed + batchFetched,
+              total,
+              message: `Fetching GPS: ${processed + batchFetched}/${total}`,
+              processedActivities: [...processedActivities],
+              matchesFound,
+              discoveredRoutes: routeUnion.getRoutes(),
+              cachedSignatureCount: cachedSignatureCount + newSignatures.length,
+            });
           }
-        } catch {
-          if (activityStatus) {
+        );
+
+        // Collect successful fetches
+        for (let i = 0; i < batchIds.length; i++) {
+          const id = batchIds[i];
+          const result = fetchResults[i];
+          const activityStatus = processedActivities.find(a => a.id === id);
+
+          if (result) {
+            gpsDataList.push(result);
+          } else if (activityStatus) {
             activityStatus.status = 'error';
           }
         }
 
-        // Remove from pending
-        const idx = pendingIds.indexOf(id);
-        if (idx >= 0) pendingIds.splice(idx, 1);
+        // Create signatures in batch using Rust parallel processing
+        if (gpsDataList.length > 0) {
+          const batchSignatures = generateRouteSignaturesBatch(gpsDataList);
 
-        processed++;
+          for (const signature of batchSignatures) {
+            newSignatures.push(signature);
 
-        // Update progress with latest status
+            // Set preview for this activity
+            const previewPoints = getPreviewPoints(signature);
+            routeUnion.setRoutePreview(signature.activityId, previewPoints, signature.distance);
+
+            // Mark as processed
+            const activityStatus = processedActivities.find(a => a.id === signature.activityId);
+            if (activityStatus) {
+              activityStatus.status = 'no-match'; // Will be updated after batch matching
+            }
+          }
+
+          // Track which activities had no GPS or failed signature creation
+          const signatureIds = new Set(batchSignatures.map(s => s.activityId));
+          for (const gpsData of gpsDataList) {
+            if (!signatureIds.has(gpsData.activityId)) {
+              const activityStatus = processedActivities.find(a => a.id === gpsData.activityId);
+              if (activityStatus && activityStatus.status === 'checking') {
+                activityStatus.status = 'error';
+              }
+            }
+          }
+        }
+
+        // Update pending list and counters
+        for (const id of batchIds) {
+          const idx = pendingIds.indexOf(id);
+          if (idx >= 0) pendingIds.splice(idx, 1);
+        }
+        processed += batchIds.length;
+
+        // Update progress
         this.setProgress({
           status: 'processing',
           current: processed,
           total,
-          message: `Processed ${processed}/${total}`,
+          message: `Batch ${batchNum}/${totalBatches} complete (${gpsDataList.length} signatures created)`,
           processedActivities: [...processedActivities],
           matchesFound,
           discoveredRoutes: routeUnion.getRoutes(),
-          currentActivity: meta?.name,
           cachedSignatureCount: cachedSignatureCount + newSignatures.length,
         });
 
-        // Save signatures periodically
-        if (newSignatures.length > 0 && processed % 5 === 0 && this.cache) {
+        // Save signatures after each batch
+        if (newSignatures.length > 0 && this.cache) {
           this.cache = addSignaturesToCache(this.cache, newSignatures);
           await saveRouteCache(this.cache);
           this.notifyCacheListeners();
         }
 
-        // Update checkpoint periodically
-        if (processed % 10 === 0) {
-          await this.updateCheckpointPendingIds(pendingIds, metadata);
-        }
+        // Update checkpoint
+        await this.updateCheckpointPendingIds(pendingIds, metadata);
 
-        // Small delay for UI responsiveness
-        await new Promise((resolve) => setTimeout(resolve, 50));
+        // Small delay for UI responsiveness between batches
+        await new Promise((resolve) => setTimeout(resolve, 100));
       }
 
       // Save remaining signatures
@@ -849,8 +1130,8 @@ class RouteProcessingQueue {
 
     // Process with limited concurrency
     const chunks: string[][] = [];
-    for (let i = 0; i < activityIds.length; i += API_CONCURRENCY) {
-      chunks.push(activityIds.slice(i, i + API_CONCURRENCY));
+    for (let i = 0; i < activityIds.length; i += MAX_CONCURRENT) {
+      chunks.push(activityIds.slice(i, i + MAX_CONCURRENT));
     }
 
     for (const chunk of chunks) {
