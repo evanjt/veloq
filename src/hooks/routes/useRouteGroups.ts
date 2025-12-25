@@ -37,6 +37,11 @@ export function useRouteGroups(options: UseRouteGroupsOptions = {}): UseRouteGro
   const cache = useRouteMatchStore((s) => s.cache);
   const isInitialized = useRouteMatchStore((s) => s.isInitialized);
 
+  // Convert Date objects to timestamps for stable dependency comparison
+  // Date objects create new references on every render unless memoized
+  const startTimestamp = startDate?.getTime();
+  const endTimestamp = endDate?.getTime();
+
   const result = useMemo(() => {
     if (!cache) {
       return {
@@ -56,12 +61,12 @@ export function useRouteGroups(options: UseRouteGroupsOptions = {}): UseRouteGro
 
     // Filter by date range - use group's firstDate/lastDate for quick filtering
     // A group overlaps with the range if: lastDate >= startDate AND firstDate <= endDate
-    if (startDate || endDate) {
+    if (startTimestamp || endTimestamp) {
       filtered = filtered.filter((group) => {
-        const groupFirstDate = new Date(group.firstDate);
-        const groupLastDate = new Date(group.lastDate);
-        const afterStart = !startDate || groupLastDate >= startDate;
-        const beforeEnd = !endDate || groupFirstDate <= endDate;
+        const groupFirstTime = new Date(group.firstDate).getTime();
+        const groupLastTime = new Date(group.lastDate).getTime();
+        const afterStart = !startTimestamp || groupLastTime >= startTimestamp;
+        const beforeEnd = !endTimestamp || groupFirstTime <= endTimestamp;
         return afterStart && beforeEnd;
       });
     }
@@ -89,7 +94,7 @@ export function useRouteGroups(options: UseRouteGroupsOptions = {}): UseRouteGro
       processedCount: cache.processedActivityIds.length,
       isReady: isInitialized,
     };
-  }, [cache, type, minActivities, sortBy, startDate, endDate, isInitialized]);
+  }, [cache, type, minActivities, sortBy, startTimestamp, endTimestamp, isInitialized]);
 
   return result;
 }

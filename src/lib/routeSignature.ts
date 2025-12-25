@@ -5,6 +5,9 @@
 
 import type { RoutePoint, RouteSignature, RouteMatchConfig } from '@/types';
 import { DEFAULT_ROUTE_MATCH_CONFIG } from '@/types';
+import { debug } from './debug';
+
+const log = debug.create('RouteSignature');
 
 /**
  * Calculate the perpendicular distance from a point to a line.
@@ -224,7 +227,7 @@ export function generateRouteSignature(
 
   // Log if any points were filtered out
   if (points.length < originalCount) {
-    console.warn(`[RouteSignature] Filtered out ${originalCount - points.length} invalid points (${points.length}/${originalCount} valid)`);
+    log.warn(`Filtered out ${originalCount - points.length} invalid points (${points.length}/${originalCount} valid)`);
     // Log first invalid point for debugging
     const firstInvalid = latlngs.find(([lat, lng]) => {
       const validLat = typeof lat === 'number' && !isNaN(lat) && lat >= -90 && lat <= 90;
@@ -232,7 +235,7 @@ export function generateRouteSignature(
       return !(validLat && validLng);
     });
     if (firstInvalid) {
-      console.warn(`  First invalid point: [${firstInvalid[0]}, ${firstInvalid[1]}]`);
+      log.warn(`  First invalid point: [${firstInvalid[0]}, ${firstInvalid[1]}]`);
     }
   }
 
@@ -254,10 +257,10 @@ export function generateRouteSignature(
   // Safety: ensure we have at least 3 points for a meaningful shape
   // If simplification reduced too aggressively, use uniform sampling instead
   if (simplifiedPoints.length < 3 && points.length >= 3) {
-    console.warn(`[RouteSignature] Simplification too aggressive (${simplifiedPoints.length} points), using uniform sampling`);
+    log.warn(`Simplification too aggressive (${simplifiedPoints.length} points), using uniform sampling`);
     const step = Math.max(1, Math.floor(points.length / Math.min(cfg.targetPoints, points.length)));
     simplifiedPoints = points.filter((_, i) => i % step === 0 || i === points.length - 1);
-    console.log(`[RouteSignature] Uniform sampling: ${simplifiedPoints.length} points`);
+    log.log(`Uniform sampling: ${simplifiedPoints.length} points`);
   }
 
   // Calculate metrics
@@ -266,7 +269,7 @@ export function generateRouteSignature(
 
   // Log suspicious distances (> 500km for a single activity is unusual)
   if (distance > 500000) {
-    console.warn(`[RouteSignature] Activity ${activityId}: Unusually large distance ${(distance/1000).toFixed(1)}km from ${points.length} points`);
+    log.warn(`Activity ${activityId}: Unusually large distance ${(distance/1000).toFixed(1)}km from ${points.length} points`);
   }
 
   // Generate region hashes for start and end

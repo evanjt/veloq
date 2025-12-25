@@ -144,11 +144,15 @@ export function ProcessingActivityList({
 
   // Auto-scroll to bottom when new items are added
   useEffect(() => {
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
     if (scrollViewRef.current && activities.length > 0) {
-      setTimeout(() => {
+      timeoutId = setTimeout(() => {
         scrollViewRef.current?.scrollToEnd({ animated: true });
       }, 100);
     }
+    return () => {
+      if (timeoutId) clearTimeout(timeoutId);
+    };
   }, [activities.length]);
 
   // Show most recent activities (last 10)

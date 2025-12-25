@@ -42,19 +42,13 @@ export default function StatsScreen() {
     includeStats: true,
   });
 
-  // Alias for backward compatibility
-  const activities30d = activities;
-  const activities365d = activities;
-  const loading30d = loadingActivities;
-  const loading365d = loadingActivities;
-
   // Compute zone distributions
-  const powerZones = useZoneDistribution({ type: 'power', activities: activities30d });
-  const hrZones = useZoneDistribution({ type: 'hr', activities: activities30d });
+  const powerZones = useZoneDistribution({ type: 'power', activities });
+  const hrZones = useZoneDistribution({ type: 'hr', activities });
 
   // Compute eFTP history
-  const eftpHistory = useEFTPHistory(activities365d);
-  const currentFTP = getLatestFTP(activities365d);
+  const eftpHistory = useEFTPHistory(activities);
+  const currentFTP = getLatestFTP(activities);
 
   // Get sport settings for thresholds
   const { data: sportSettings } = useSportSettings();

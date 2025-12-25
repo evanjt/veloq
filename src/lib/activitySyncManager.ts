@@ -6,11 +6,24 @@
  * - Debounced timeline syncs
  * - Progress events for UI
  * - Spatial index maintenance for O(log n) queries
+ *
+ * State Machine:
+ * ```
+ * UNINITIALIZED ─────► INITIALIZING ─────► IDLE ◄──────► SYNCING
+ *                            │               │              │
+ *                            └───────► ERROR ◄──────────────┘
+ * ```
+ * - UNINITIALIZED: Initial state, hasn't loaded from storage
+ * - INITIALIZING: Loading cached data from AsyncStorage
+ * - IDLE: Ready, no sync in progress
+ * - SYNCING: Actively fetching activity bounds
+ * - ERROR: A recoverable error occurred (can retry)
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { intervalsApi } from '@/api';
-import { formatLocalDate, SYNC, RATE_LIMIT } from '@/lib';
+import { getStoredCredentials } from '@/providers';
+import { formatLocalDate, SYNC, debug } from '@/lib';
 import {
   buildCacheEntry,
   filterGpsActivities,
@@ -20,7 +33,10 @@ import {
 } from '@/lib/activityBoundsUtils';
 import { storeGpsTracks, clearAllGpsTracks } from '@/lib/gpsStorage';
 import { activitySpatialIndex } from '@/lib/spatialIndex';
+import { fetchActivityMaps } from 'route-matcher-native';
 import type { Activity, ActivityBoundsCache, ActivityBoundsItem } from '@/types';
+
+const log = debug.create('SyncManager');
 
 // Storage keys
 const CACHE_KEY = 'activity_bounds_cache';
@@ -29,6 +45,23 @@ const SYNC_CHECKPOINT_KEY = 'activity_sync_checkpoint';
 
 // Debounce delay for timeline-triggered syncs
 const DEBOUNCE_MS = 300;
+
+/**
+ * Sync manager state machine states.
+ * Each state has clear entry/exit conditions and valid transitions.
+ */
+export type SyncState = 'uninitialized' | 'initializing' | 'idle' | 'syncing' | 'error';
+
+/**
+ * Valid state transitions - used to validate and log state changes.
+ */
+const VALID_TRANSITIONS: Record<SyncState, SyncState[]> = {
+  uninitialized: ['initializing'],
+  initializing: ['idle', 'error'],
+  idle: ['syncing', 'uninitialized'], // uninitialized for reset()
+  syncing: ['idle', 'error', 'syncing'], // syncing→syncing for new sync cancelling old
+  error: ['idle', 'syncing', 'uninitialized'], // can retry or reset
+};
 
 export interface SyncProgress {
   completed: number;
@@ -57,11 +90,12 @@ class ActivitySyncManager {
   private cache: ActivityBoundsCache | null = null;
   private oldestActivityDate: string | null = null;
   private progress: SyncProgress = { completed: 0, total: 0, status: 'idle' };
-  private isInitialized = false;
-  private isInitializing = false;
+
+  // State machine - single source of truth for manager state
+  private state: SyncState = 'uninitialized';
   private hasCompletedInitialSync = false;
 
-  // Sync state
+  // Sync operation tracking
   private currentSyncId = 0;
   private abortController: AbortController | null = null;
   private debounceTimer: ReturnType<typeof setTimeout> | null = null;
@@ -72,6 +106,26 @@ class ActivitySyncManager {
   private completionListeners: Set<CompletionListener> = new Set();
 
   private constructor() {}
+
+  /**
+   * Transition to a new state with validation.
+   * Logs invalid transitions in dev mode for debugging.
+   */
+  private transition(newState: SyncState): boolean {
+    const validNextStates = VALID_TRANSITIONS[this.state];
+    if (!validNextStates.includes(newState)) {
+      log.warn(`Invalid state transition: ${this.state} → ${newState}`);
+      return false;
+    }
+    log.log(`State: ${this.state} → ${newState}`);
+    this.state = newState;
+    return true;
+  }
+
+  /** Get current state machine state */
+  getState(): SyncState {
+    return this.state;
+  }
 
   static getInstance(): ActivitySyncManager {
     if (!ActivitySyncManager.instance) {
@@ -84,12 +138,14 @@ class ActivitySyncManager {
 
   /** Initialize the manager and load cached data */
   async initialize(): Promise<void> {
-    // Prevent concurrent initialization
-    if (this.isInitializing || this.isInitialized) {
+    // Prevent concurrent initialization - only proceed from uninitialized state
+    if (this.state !== 'uninitialized') {
       return;
     }
 
-    this.isInitializing = true;
+    if (!this.transition('initializing')) {
+      return;
+    }
     this.setProgress({ completed: 0, total: 0, status: 'loading', message: 'Loading cached data...' });
 
     try {
@@ -123,8 +179,7 @@ class ActivitySyncManager {
         }
       }
 
-      this.isInitialized = true;
-      this.isInitializing = false;
+      this.transition('idle');
       this.setProgress({ completed: 0, total: 0, status: 'idle' });
 
       // Check for interrupted sync and resume
@@ -147,7 +202,7 @@ class ActivitySyncManager {
         await this.syncDateRange(formatLocalDate(daysAgo), formatLocalDate(today), false);
       }
     } catch {
-      this.isInitializing = false;
+      this.transition('error');
       this.setProgress({ completed: 0, total: 0, status: 'error', message: 'Failed to initialize' });
     }
   }
@@ -237,6 +292,10 @@ class ActivitySyncManager {
       clearTimeout(this.debounceTimer);
       this.debounceTimer = null;
     }
+    // Only transition if we were syncing
+    if (this.state === 'syncing') {
+      this.transition('idle');
+    }
     this.setProgress({ completed: 0, total: 0, status: 'idle' });
   }
 
@@ -256,7 +315,7 @@ class ActivitySyncManager {
   /** Reset initialization state (call on logout to allow re-initialization on next login) */
   reset(): void {
     this.cancelSync();
-    this.isInitialized = false;
+    this.transition('uninitialized');
     this.hasCompletedInitialSync = false;
     this.setProgress({ completed: 0, total: 0, status: 'idle' });
   }
@@ -285,6 +344,9 @@ class ActivitySyncManager {
       this.abortController.abort();
     }
 
+    // Transition to syncing state
+    this.transition('syncing');
+
     const abortController = new AbortController();
     this.abortController = abortController;
     this.currentSyncId += 1;
@@ -305,6 +367,7 @@ class ActivitySyncManager {
 
       if (gpsActivities.length === 0) {
         if (!isCancelled()) {
+          this.transition('idle');
           this.setProgress({ completed: 0, total: 0, status: 'complete', message: 'No GPS activities found' });
         }
         return;
@@ -315,6 +378,7 @@ class ActivitySyncManager {
 
       if (uncachedActivities.length === 0) {
         if (!isCancelled()) {
+          this.transition('idle');
           this.setProgress({ completed: 0, total: 0, status: 'complete', message: 'All activities already cached' });
         }
         return;
@@ -342,6 +406,7 @@ class ActivitySyncManager {
       // Clear checkpoint on successful completion
       if (!isCancelled()) {
         await this.clearCheckpoint();
+        this.transition('idle');
         this.setProgress({
           completed: newActivities.length,
           total: newActivities.length,
@@ -354,9 +419,11 @@ class ActivitySyncManager {
     } catch (error) {
       const isAbortError = error instanceof Error && error.name === 'AbortError';
       if (isAbortError || isCancelled()) {
+        this.transition('idle');
         this.setProgress({ completed: 0, total: 0, status: 'idle' });
         return;
       }
+      this.transition('error');
       this.setProgress({ completed: 0, total: 0, status: 'error', message: 'Failed to sync activities' });
     }
   }
@@ -373,42 +440,67 @@ class ActivitySyncManager {
     const activityMap = new Map(activities.map(a => [a.id, a]));
 
     try {
-      // Fetch ALL activities in one call - adaptive rate limiter handles concurrency
+      // Get API key for Rust HTTP client
+      const { apiKey } = getStoredCredentials();
+      if (!apiKey) {
+        throw new Error('No API key available');
+      }
+
+      // Fetch ALL activities using Rust HTTP client (high performance)
       const allIds = activities.map(a => a.id);
-      const results = await intervalsApi.getActivityMapBounds(
-        allIds,
-        0, // Ignored - adaptive rate limiter controls concurrency
-        (completed, total) => {
-          // Progress callback - just update UI (can't save here, results not available yet)
-          this.setProgress({
-            completed,
-            total,
-            status: 'syncing',
-            message: `Syncing ${completed}/${total} activities...`,
-          });
-        },
-        abortController.signal
-      );
+      log.log(`Fetching ${allIds.length} activities via Rust HTTP client...`);
+      const startTime = Date.now();
+
+      // Call Rust - this handles rate limiting and parallel fetching internally
+      const results = fetchActivityMaps(apiKey, allIds);
+
+      const elapsed = Date.now() - startTime;
+      const successCount = results.filter(r => r.success).length;
+      log.log(`Rust fetch complete: ${successCount}/${allIds.length} in ${elapsed}ms (${(allIds.length / (elapsed / 1000)).toFixed(1)} req/s)`);
+
+      if (isCancelled()) return;
 
       // Process all results - store GPS tracks separately to avoid size limits
       const gpsTracks = new Map<string, [number, number][]>();
 
-      for (const activity of activities) {
-        const mapData = results.get(activity.id);
-        if (mapData?.bounds) {
+      for (const result of results) {
+        const activity = activityMap.get(result.activityId);
+        if (!activity) continue;
+
+        if (result.success && result.bounds.length === 4) {
+          // Convert flat bounds [ne_lat, ne_lng, sw_lat, sw_lng] to [[minLat, minLng], [maxLat, maxLng]]
+          const [neLat, neLng, swLat, swLng] = result.bounds;
+          // sw is min, ne is max
+          const bounds: [[number, number], [number, number]] = [
+            [swLat, swLng], // [minLat, minLng]
+            [neLat, neLng], // [maxLat, maxLng]
+          ];
+
           // Store bounds/metadata in main cache (small)
-          newEntries[activity.id] = buildCacheEntry(activity, mapData.bounds);
+          newEntries[activity.id] = buildCacheEntry(activity, bounds);
 
           // Collect GPS tracks for separate storage (large)
-          if (mapData.latlngs && mapData.latlngs.length > 0) {
-            const cleanLatlngs = mapData.latlngs.filter((p): p is [number, number] => p !== null);
-            if (cleanLatlngs.length > 0) {
-              gpsTracks.set(activity.id, cleanLatlngs);
+          if (result.latlngs.length > 0) {
+            const latlngs: [number, number][] = [];
+            for (let i = 0; i < result.latlngs.length; i += 2) {
+              latlngs.push([result.latlngs[i], result.latlngs[i + 1]]);
+            }
+            if (latlngs.length > 0) {
+              gpsTracks.set(activity.id, latlngs);
             }
           }
         }
+
         const idx = pendingIds.indexOf(activity.id);
         if (idx >= 0) pendingIds.splice(idx, 1);
+
+        // Update progress
+        this.setProgress({
+          completed: activities.length - pendingIds.length,
+          total: activities.length,
+          status: 'syncing',
+          message: `Processing ${activities.length - pendingIds.length}/${activities.length} activities...`,
+        });
       }
 
       // Final save - GPS tracks stored separately to avoid AsyncStorage size limits
@@ -431,6 +523,7 @@ class ActivitySyncManager {
         }
         throw error;
       }
+      log.error('Sync error:', error);
       // Non-abort error - save partial and continue
       if (Object.keys(newEntries).length > 0) {
         await this.savePartialResults(newEntries, oldestDate);
@@ -487,7 +580,8 @@ class ActivitySyncManager {
         return;
       }
 
-      // Resume sync - fetch pending activities and process them
+      // Transition to syncing for resume
+      this.transition('syncing');
       this.setProgress({
         completed: 0,
         total: checkpoint.pendingIds.length,
@@ -517,6 +611,7 @@ class ActivitySyncManager {
 
       if (pendingActivities.length === 0) {
         await this.clearCheckpoint();
+        this.transition('idle');
         this.setProgress({ completed: 0, total: 0, status: 'idle' });
         return;
       }
@@ -525,6 +620,7 @@ class ActivitySyncManager {
 
       if (!isCancelled()) {
         await this.clearCheckpoint();
+        this.transition('idle');
         this.setProgress({
           completed: pendingActivities.length,
           total: pendingActivities.length,
@@ -535,6 +631,7 @@ class ActivitySyncManager {
     } catch {
       // Failed to resume - clear checkpoint and continue
       await this.clearCheckpoint();
+      this.transition('idle');
       this.setProgress({ completed: 0, total: 0, status: 'idle' });
     }
   }
