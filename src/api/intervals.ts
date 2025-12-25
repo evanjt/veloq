@@ -1,6 +1,7 @@
 import { apiClient, getAthleteId } from './client';
-import { formatLocalDate, parseStreams } from '@/lib';
-import { rateLimiter, executeWithWorkerPool } from '@/lib/adaptiveRateLimiter';
+import { formatLocalDate, parseStreams, debug } from '@/lib';
+
+const log = debug.create('API');
 import type {
   Activity,
   ActivityDetail,
@@ -269,62 +270,4 @@ export const intervalsApi = {
     return response.data;
   },
 
-  /**
-   * Fetch activity map data with full GPS tracks using worker pool.
-   *
-   * This function adheres to the API rate limits stated here:
-   * https://forum.intervals.icu/t/solved-guidance-on-api-rate-limits-for-bulk-activity-reloading/110818
-   *
-   * Uses a worker pool model where N workers constantly pull from a queue.
-   * As soon as one request completes, that worker immediately starts the next.
-   * This maximizes throughput - slow requests don't block others.
-   *
-   * Rate limits enforced:
-   * - 30 req/s burst (hard limit)
-   * - 132 req/10s sustained (sliding window)
-   * - Automatic backoff and retry on 429 errors
-   *
-   * @param ids - Activity IDs to fetch
-   * @param _concurrency - Ignored, uses adaptive rate limiter (starts at 20 workers)
-   * @param onProgress - Callback for progress updates
-   * @param abortSignal - Optional abort signal to cancel the operation
-   */
-  async getActivityMapBounds(
-    ids: string[],
-    _concurrency = 3,
-    onProgress?: (completed: number, total: number) => void,
-    abortSignal?: AbortSignal
-  ): Promise<Map<string, ActivityMapData>> {
-    // Reset rate limiter for fresh sync
-    rateLimiter.reset();
-
-    const startTime = Date.now();
-    const workerCount = rateLimiter.getConcurrency();
-    console.log(`🚀 [API] Starting worker pool: ${ids.length} activities, ${workerCount} workers`);
-
-    // Use worker pool - each worker continuously processes items
-    const indexedResults = await executeWithWorkerPool(
-      ids,
-      async (id: string) => {
-        // Fetch FULL map data including GPS track (not boundsOnly)
-        const data = await this.getActivityMap(id, false);
-        return { id, data };
-      },
-      onProgress,
-      abortSignal
-    );
-
-    // Convert indexed results to Map<id, data>
-    const results = new Map<string, ActivityMapData>();
-    for (const [_index, result] of indexedResults) {
-      results.set(result.id, result.data);
-    }
-
-    const elapsed = Date.now() - startTime;
-    const stats = rateLimiter.getStats();
-    const reqPerSec = (stats.total / (elapsed / 1000)).toFixed(1);
-    console.log(`✅ [API] Fetched ${results.size}/${ids.length} in ${elapsed}ms (${reqPerSec} req/s, ${stats.retries} retries, ${stats.rateLimits} rate limits)`);
-
-    return results;
-  },
 };

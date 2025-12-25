@@ -9,6 +9,9 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { debug } from './debug';
+
+const log = debug.create('GpsStorage');
 
 const GPS_KEY_PREFIX = 'gps_track_';
 const GPS_INDEX_KEY = 'gps_track_index';
@@ -51,7 +54,7 @@ export async function storeGpsTracks(
     pairs.push([getGpsKey(activityId), data]);
   }
 
-  console.log(`[GpsStorage] Storing ${tracks.size} GPS tracks, total ${Math.round(totalBytes / 1024)}KB`);
+  log.log(`Storing ${tracks.size} GPS tracks, total ${Math.round(totalBytes / 1024)}KB`);
 
   // Store in batches to avoid memory issues
   const BATCH_SIZE = 20;
@@ -60,7 +63,7 @@ export async function storeGpsTracks(
     try {
       await AsyncStorage.multiSet(batch);
     } catch (error) {
-      console.error(`[GpsStorage] Failed to store batch ${i / BATCH_SIZE + 1}:`, error);
+      log.error(`Failed to store batch ${i / BATCH_SIZE + 1}:`, error);
       throw error;
     }
   }

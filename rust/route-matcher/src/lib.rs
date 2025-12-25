@@ -1,23 +1,17 @@
 //! # Route Matcher
 //!
-//! High-performance GPS route matching using Average Minimum Distance (AMD) and spatial indexing.
+//! High-performance GPS route matching and activity fetching for intervals.icu.
 //!
-//! This library provides algorithms for:
-//! - Comparing GPS routes to find similarities
-//! - Detecting forward/reverse route matches
-//! - Grouping similar routes together efficiently
-//!
-//! ## Algorithm
-//!
-//! Uses Average Minimum Distance (AMD) - a modified Hausdorff distance that is:
-//! - Robust to GPS noise (5-10m variance typical)
-//! - Symmetric and handles reversed routes naturally
-//! - Proven effective for GPS trajectory matching
+//! This library provides:
+//! - GPS route matching using Average Minimum Distance (AMD)
+//! - High-speed activity fetching with rate limiting
+//! - Parallel processing for batch operations
 //!
 //! ## Features
 //!
-//! - **`parallel`** - Enable parallel processing with rayon (recommended for batch operations)
-//! - **`ffi`** - Enable FFI bindings for mobile platforms (iOS/Android) via UniFFI
+//! - **`parallel`** - Enable parallel processing with rayon
+//! - **`http`** - Enable HTTP client for activity fetching
+//! - **`ffi`** - Enable FFI bindings for mobile platforms (iOS/Android)
 //! - **`full`** - Enable all features
 //!
 //! ## Quick Start
@@ -43,21 +37,6 @@
 //!     }
 //! }
 //! ```
-//!
-//! ## Batch Grouping
-//!
-//! For grouping many routes efficiently, use `group_signatures`:
-//!
-//! ```rust,ignore
-//! use route_matcher::{RouteSignature, MatchConfig, group_signatures};
-//!
-//! let signatures: Vec<RouteSignature> = /* ... */;
-//! let groups = group_signatures(&signatures, &MatchConfig::default());
-//!
-//! for group in groups {
-//!     println!("Group {}: {:?}", group.group_id, group.activity_ids);
-//! }
-//! ```
 
 use geo::{
     Coord, LineString, Point,
@@ -67,6 +46,13 @@ use geo::{
 use log::{info, debug};
 use rstar::{RTree, RTreeObject, AABB};
 use std::collections::HashMap;
+
+// HTTP module for activity fetching
+#[cfg(feature = "http")]
+pub mod http;
+
+#[cfg(feature = "http")]
+pub use http::{ActivityFetcher, ActivityMapResult, MapBounds};
 
 #[cfg(feature = "ffi")]
 uniffi::setup_scaffolding!();
@@ -1101,6 +1087,123 @@ mod ffi {
               signatures.len(), groups.len(), elapsed);
 
         groups
+    }
+
+    // ========================================================================
+    // HTTP Activity Fetching (requires "http" feature)
+    // ========================================================================
+
+    /// Result of fetching activity map data from intervals.icu
+    #[cfg(feature = "http")]
+    #[derive(Debug, Clone, uniffi::Record)]
+    pub struct FfiActivityMapResult {
+        pub activity_id: String,
+        /// Bounds as [ne_lat, ne_lng, sw_lat, sw_lng] or empty if no bounds
+        pub bounds: Vec<f64>,
+        /// GPS coordinates as flat array [lat1, lng1, lat2, lng2, ...]
+        pub latlngs: Vec<f64>,
+        pub success: bool,
+        pub error: Option<String>,
+    }
+
+    /// Fetch map data for multiple activities in parallel.
+    ///
+    /// This function respects intervals.icu rate limits:
+    /// - 30 req/s burst limit
+    /// - 131 req/10s sustained limit
+    ///
+    /// Uses connection pooling and parallel fetching for maximum performance.
+    /// Automatically retries on 429 errors with exponential backoff.
+    #[cfg(feature = "http")]
+    #[uniffi::export]
+    pub fn fetch_activity_maps(
+        api_key: String,
+        activity_ids: Vec<String>,
+    ) -> Vec<FfiActivityMapResult> {
+        init_logging();
+        info!("[RouteMatcherRust] 🦀 fetch_activity_maps called for {} activities", activity_ids.len());
+
+        let results = crate::http::fetch_activity_maps_sync(api_key, activity_ids, None);
+
+        // Convert to FFI-friendly format
+        results
+            .into_iter()
+            .map(|r| FfiActivityMapResult {
+                activity_id: r.activity_id,
+                bounds: r.bounds.map_or(vec![], |b| vec![b.ne[0], b.ne[1], b.sw[0], b.sw[1]]),
+                latlngs: r.latlngs.map_or(vec![], |coords| {
+                    coords.into_iter().flat_map(|p| vec![p[0], p[1]]).collect()
+                }),
+                success: r.success,
+                error: r.error,
+            })
+            .collect()
+    }
+
+    /// Result of fetch_and_process_activities
+    #[cfg(feature = "http")]
+    #[derive(Debug, Clone, uniffi::Record)]
+    pub struct FetchAndProcessResult {
+        pub map_results: Vec<FfiActivityMapResult>,
+        pub signatures: Vec<RouteSignature>,
+    }
+
+    /// Fetch map data AND create route signatures in one call.
+    /// Most efficient for initial sync - fetches from API and processes GPS data.
+    #[cfg(feature = "http")]
+    #[uniffi::export]
+    pub fn fetch_and_process_activities(
+        api_key: String,
+        activity_ids: Vec<String>,
+        config: MatchConfig,
+    ) -> FetchAndProcessResult {
+        init_logging();
+        info!("[RouteMatcherRust] 🦀 fetch_and_process_activities for {} activities", activity_ids.len());
+
+        let start = std::time::Instant::now();
+
+        // Fetch all activity maps
+        let results = crate::http::fetch_activity_maps_sync(api_key, activity_ids, None);
+
+        // Convert to FFI format and create signatures from successful fetches
+        let mut map_results = Vec::with_capacity(results.len());
+        let mut signatures = Vec::new();
+
+        for r in results {
+            let bounds_vec = r.bounds.as_ref().map_or(vec![], |b| {
+                vec![b.ne[0], b.ne[1], b.sw[0], b.sw[1]]
+            });
+
+            let latlngs_flat: Vec<f64> = r.latlngs.as_ref().map_or(vec![], |coords| {
+                coords.iter().flat_map(|p| vec![p[0], p[1]]).collect()
+            });
+
+            // Create signature if we have GPS data
+            if r.success && r.latlngs.is_some() {
+                let points: Vec<GpsPoint> = r.latlngs.as_ref().unwrap()
+                    .iter()
+                    .map(|p| GpsPoint::new(p[0], p[1]))
+                    .collect();
+
+                if let Some(sig) = RouteSignature::from_points(&r.activity_id, &points, &config) {
+                    signatures.push(sig);
+                }
+            }
+
+            map_results.push(FfiActivityMapResult {
+                activity_id: r.activity_id,
+                bounds: bounds_vec,
+                latlngs: latlngs_flat,
+                success: r.success,
+                error: r.error,
+            });
+        }
+
+        let elapsed = start.elapsed();
+        info!("[RouteMatcherRust] 🦀 Fetched {} activities, created {} signatures in {:?}",
+              map_results.len(), signatures.len(), elapsed);
+
+        FetchAndProcessResult { map_results, signatures }
     }
 }
 

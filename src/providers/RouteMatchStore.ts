@@ -10,6 +10,9 @@ import type { RouteMatchCache, RouteProcessingProgress, RouteGroup, RouteMatch, 
 import { routeProcessingQueue } from '@/lib/routeProcessingQueue';
 import { activitySyncManager } from '@/lib/activitySyncManager';
 import { isRouteMatchingEnabled } from './RouteSettingsStore';
+import { debug } from '@/lib/debug';
+
+const log = debug.create('RouteMatchStore');
 
 interface RouteMatchState {
   // State
@@ -48,7 +51,7 @@ export const useRouteMatchStore = create<RouteMatchState>((set, get) => ({
     activitySyncManager.onInitialSyncComplete(() => {
       // Check if route matching is enabled
       if (!isRouteMatchingEnabled()) {
-        console.log('[RouteMatchStore] Route matching disabled, skipping auto-processing');
+        log.log('Route matching disabled, skipping auto-processing');
         return;
       }
 
@@ -71,7 +74,7 @@ export const useRouteMatchStore = create<RouteMatchState>((set, get) => ({
         };
       }
 
-      console.log(`[RouteMatchStore] Bounds sync complete, triggering route processing for ${activities.length} activities`);
+      log.log(`Bounds sync complete, triggering route processing for ${activities.length} activities`);
 
       // Trigger route processing with bounds data for pre-filtering
       routeProcessingQueue.queueActivities(activityIds, metadata, activities);
@@ -101,7 +104,7 @@ export const useRouteMatchStore = create<RouteMatchState>((set, get) => ({
         const unprocessedActivities = allBoundsActivities.filter(a => !processedSet.has(a.id));
 
         if (unprocessedActivities.length > 0) {
-          console.log(`[RouteMatchStore] Found ${unprocessedActivities.length} unprocessed activities, auto-resuming route analysis`);
+          log.log(`Found ${unprocessedActivities.length} unprocessed activities, auto-resuming route analysis`);
 
           // Build metadata for unprocessed activities
           const activityIds = unprocessedActivities.map((a) => a.id);
@@ -118,11 +121,11 @@ export const useRouteMatchStore = create<RouteMatchState>((set, get) => ({
           // Queue unprocessed activities for analysis
           routeProcessingQueue.queueActivities(activityIds, metadata, unprocessedActivities);
         } else {
-          console.log(`[RouteMatchStore] All ${allBoundsActivities.length} cached activities already processed`);
+          log.log(`All ${allBoundsActivities.length} cached activities already processed`);
         }
       }
     } else {
-      console.log('[RouteMatchStore] Route matching disabled, skipping auto-resume');
+      log.log('Route matching disabled, skipping auto-resume');
     }
   },
 

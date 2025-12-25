@@ -26,19 +26,19 @@ echo "Building for all Android architectures..."
 
 # arm64-v8a (most modern Android devices)
 echo "Building for aarch64-linux-android (arm64-v8a)..."
-cargo ndk -t arm64-v8a build --release --features ffi,parallel
+cargo ndk -t arm64-v8a build --release --features full
 
 # armeabi-v7a (older 32-bit devices)
 echo "Building for armv7-linux-androideabi (armeabi-v7a)..."
-cargo ndk -t armeabi-v7a build --release --features ffi,parallel
+cargo ndk -t armeabi-v7a build --release --features full
 
 # x86_64 (emulator on Intel/AMD)
 echo "Building for x86_64-linux-android (x86_64)..."
-cargo ndk -t x86_64 build --release --features ffi,parallel
+cargo ndk -t x86_64 build --release --features full
 
 # x86 (older emulators)
 echo "Building for i686-linux-android (x86)..."
-cargo ndk -t x86 build --release --features ffi,parallel
+cargo ndk -t x86 build --release --features full
 
 # Create output directory structure (matches Android's jniLibs)
 mkdir -p "$OUTPUT_DIR/jniLibs/arm64-v8a"

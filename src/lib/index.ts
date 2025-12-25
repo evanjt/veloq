@@ -13,3 +13,4 @@ export * from './routeMatching';
 export * from './routeStorage';
 export * from './routeProcessingQueue';
 export * from './geocoding';
+export * from './debug';
