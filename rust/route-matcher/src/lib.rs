@@ -953,6 +953,89 @@ mod ffi {
         pub points: Vec<GpsPoint>,
     }
 
+    /// Input for flat buffer batch processing (zero-copy from JS TypedArray)
+    #[derive(Debug, Clone, uniffi::Record)]
+    pub struct FlatGpsTrack {
+        pub activity_id: String,
+        /// Flat array of coordinates: [lat1, lng1, lat2, lng2, ...]
+        pub coords: Vec<f64>,
+    }
+
+    /// Create signatures from flat coordinate buffers (optimized for TypedArray input).
+    /// Each track's coords array contains [lat1, lng1, lat2, lng2, ...].
+    /// This avoids the overhead of deserializing GpsPoint objects.
+    #[uniffi::export]
+    pub fn create_signatures_from_flat(tracks: Vec<FlatGpsTrack>, config: MatchConfig) -> Vec<RouteSignature> {
+        init_logging();
+        info!("[RouteMatcherRust] 🦀🦀🦀 FLAT BUFFER createSignatures called with {} tracks 🦀🦀🦀", tracks.len());
+
+        let start = std::time::Instant::now();
+
+        #[cfg(feature = "parallel")]
+        let signatures: Vec<RouteSignature> = {
+            use rayon::prelude::*;
+            info!("[RouteMatcherRust] 🦀 Using PARALLEL flat buffer processing (rayon)");
+            tracks
+                .par_iter()
+                .filter_map(|track| {
+                    // Convert flat coords to GpsPoints
+                    let points: Vec<GpsPoint> = track.coords
+                        .chunks_exact(2)
+                        .map(|chunk| GpsPoint::new(chunk[0], chunk[1]))
+                        .collect();
+                    RouteSignature::from_points(&track.activity_id, &points, &config)
+                })
+                .collect()
+        };
+
+        #[cfg(not(feature = "parallel"))]
+        let signatures: Vec<RouteSignature> = {
+            info!("[RouteMatcherRust] 🦀 Using sequential flat buffer processing");
+            tracks
+                .iter()
+                .filter_map(|track| {
+                    let points: Vec<GpsPoint> = track.coords
+                        .chunks_exact(2)
+                        .map(|chunk| GpsPoint::new(chunk[0], chunk[1]))
+                        .collect();
+                    RouteSignature::from_points(&track.activity_id, &points, &config)
+                })
+                .collect()
+        };
+
+        let elapsed = start.elapsed();
+        info!("[RouteMatcherRust] 🦀 FLAT created {} signatures from {} tracks in {:?}",
+              signatures.len(), tracks.len(), elapsed);
+
+        signatures
+    }
+
+    /// Process routes end-to-end from flat buffers: create signatures AND group them.
+    /// Most efficient way to process many activities from TypedArray input.
+    #[uniffi::export]
+    pub fn process_routes_from_flat(tracks: Vec<FlatGpsTrack>, config: MatchConfig) -> Vec<RouteGroup> {
+        init_logging();
+        info!("[RouteMatcherRust] 🦀🦀🦀 FLAT BATCH process_routes called with {} tracks 🦀🦀🦀", tracks.len());
+
+        let start = std::time::Instant::now();
+
+        // Step 1: Create all signatures from flat buffers
+        let signatures = create_signatures_from_flat(tracks.clone(), config.clone());
+
+        // Step 2: Group signatures
+        #[cfg(feature = "parallel")]
+        let groups = group_signatures_parallel(&signatures, &config);
+
+        #[cfg(not(feature = "parallel"))]
+        let groups = group_signatures(&signatures, &config);
+
+        let elapsed = start.elapsed();
+        info!("[RouteMatcherRust] 🦀 FLAT batch processing: {} signatures -> {} groups in {:?}",
+              signatures.len(), groups.len(), elapsed);
+
+        groups
+    }
+
     /// Create multiple route signatures in parallel (batch processing).
     /// Much faster than calling create_signature repeatedly due to:
     /// 1. Single FFI call instead of N calls

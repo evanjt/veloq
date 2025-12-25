@@ -97,29 +97,72 @@ export function hasCustomRouteName(routeId: string): boolean {
 export async function loadRouteCache(): Promise<RouteMatchCache | null> {
   try {
     const cached = await AsyncStorage.getItem(ROUTE_CACHE_KEY);
-    if (!cached) return null;
+    if (!cached) {
+      console.log('[RouteStorage] No route cache found');
+      return null;
+    }
 
+    console.log(`[RouteStorage] Loading route cache: ${cached.length} bytes`);
     const data: RouteMatchCache = JSON.parse(cached);
 
     // Version check - if outdated, return null to force rebuild
     if (data.version !== ROUTE_CACHE_VERSION) {
+      console.log(`[RouteStorage] Cache version mismatch: ${data.version} vs ${ROUTE_CACHE_VERSION}`);
       return null;
     }
 
+    console.log(`[RouteStorage] Loaded ${data.processedActivityIds.length} processed activities, ${data.groups.length} groups`);
     return data;
-  } catch {
+  } catch (error) {
+    console.error('[RouteStorage] Failed to load route cache:', error);
     return null;
   }
 }
 
 /**
+ * Create a storage-optimized version of the cache by stripping large point arrays.
+ * Points can be regenerated from GPS data when needed.
+ */
+function createLiteCache(cache: RouteMatchCache): RouteMatchCache {
+  // Strip points from signatures (keep metadata only)
+  const liteSignatures: Record<string, RouteSignature> = {};
+  for (const [id, sig] of Object.entries(cache.signatures)) {
+    liteSignatures[id] = {
+      ...sig,
+      points: [], // Strip points - can regenerate from GPS
+    };
+  }
+
+  // Strip points from groups (keep metadata only)
+  const liteGroups = cache.groups.map(group => ({
+    ...group,
+    signature: {
+      ...group.signature,
+      points: [], // Strip points
+    },
+    consensusPoints: undefined, // Strip consensus points
+  }));
+
+  return {
+    ...cache,
+    signatures: liteSignatures,
+    groups: liteGroups,
+  };
+}
+
+/**
  * Save route match cache to storage.
+ * Strips large point arrays to reduce size (475KB → ~50KB).
  */
 export async function saveRouteCache(cache: RouteMatchCache): Promise<void> {
   try {
-    await AsyncStorage.setItem(ROUTE_CACHE_KEY, JSON.stringify(cache));
-  } catch {
-    // Silently fail - storage is not critical
+    // Create lite version for storage
+    const liteCache = createLiteCache(cache);
+    const data = JSON.stringify(liteCache);
+    console.log(`[RouteStorage] Saving route cache: ${data.length} bytes (lite), ${cache.processedActivityIds.length} activities, ${cache.groups.length} groups`);
+    await AsyncStorage.setItem(ROUTE_CACHE_KEY, data);
+  } catch (error) {
+    console.error('[RouteStorage] Failed to save route cache:', error);
   }
 }
 

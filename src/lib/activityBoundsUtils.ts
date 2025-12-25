@@ -5,7 +5,8 @@ import { activitySpatialIndex } from './spatialIndex';
 type Bounds = [[number, number], [number, number]];
 
 /**
- * Build a cache entry from an activity and its map bounds
+ * Build a cache entry from an activity and its map data.
+ * Note: GPS tracks (latlngs) are stored separately via gpsStorage to avoid size limits.
  */
 export function buildCacheEntry(
   activity: Activity,
@@ -19,6 +20,7 @@ export function buildCacheEntry(
     date: activity.start_date_local,
     distance: activity.distance || 0,
     duration: activity.moving_time || 0,
+    // latlngs stored separately via gpsStorage
   };
 }
 

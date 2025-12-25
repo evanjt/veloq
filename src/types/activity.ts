@@ -271,7 +271,7 @@ export interface eFTPPoint {
   activity_name?: string;
 }
 
-// Activity bounds for regional map (lightweight cache)
+// Activity bounds for regional map (includes GPS for route matching)
 export interface ActivityBoundsItem {
   id: string;
   bounds: [[number, number], [number, number]]; // [[minLat, minLng], [maxLat, maxLng]]
@@ -280,6 +280,8 @@ export interface ActivityBoundsItem {
   date: string; // ISO date
   distance: number; // meters
   duration: number; // seconds
+  /** Full GPS track - stored during sync for instant route matching */
+  latlngs?: [number, number][];
 }
 
 // Cache structure for activity bounds
