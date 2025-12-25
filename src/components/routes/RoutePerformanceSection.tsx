@@ -19,8 +19,9 @@ import { colors, spacing } from '@/theme';
 import type { ActivityType } from '@/types';
 import type { RoutePerformancePoint } from '@/hooks/routes/useRoutePerformances';
 
-// Color for reverse direction runs
-const REVERSE_COLOR = '#9C27B0'; // Purple
+// Colors for direction in chart
+const SAME_COLOR = '#2196F3'; // Blue - distinct from green/yellow/purple
+const REVERSE_COLOR = '#E91E63'; // Pink - distinct from blue
 
 interface RoutePerformanceSectionProps {
   activityId: string;
@@ -400,7 +401,7 @@ export function RoutePerformanceSection({ activityId, activityType }: RoutePerfo
                       if (point.x == null || point.y == null) return null;
                       const d = chartData[idx];
                       if (d?.isBest || d?.isCurrent) return null; // Skip, render separately
-                      const pointColor = d?.direction === 'reverse' ? REVERSE_COLOR : activityColor;
+                      const pointColor = d?.direction === 'reverse' ? REVERSE_COLOR : SAME_COLOR;
                       return (
                         <Circle
                           key={`point-${idx}`}
@@ -534,7 +535,7 @@ export function RoutePerformanceSection({ activityId, activityType }: RoutePerfo
           <Text style={[styles.legendText, isDark && styles.textMuted]}>This</Text>
         </View>
         <View style={styles.legendItem}>
-          <View style={[styles.legendDot, { backgroundColor: activityColor }]} />
+          <View style={[styles.legendDot, { backgroundColor: SAME_COLOR }]} />
           <Text style={[styles.legendText, isDark && styles.textMuted]}>Same</Text>
         </View>
         {hasReverseRuns && (

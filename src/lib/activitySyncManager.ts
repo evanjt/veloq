@@ -20,7 +20,6 @@
  * - ERROR: A recoverable error occurred (can retry)
  */
 
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { intervalsApi } from '@/api';
 import { getStoredCredentials } from '@/providers';
 import { formatLocalDate } from '@/lib/format';
@@ -33,17 +32,27 @@ import {
   mergeCacheEntries,
   sortActivitiesByDateDesc,
 } from '@/lib/activityBoundsUtils';
-import { storeGpsTracks, clearAllGpsTracks } from '@/lib/gpsStorage';
+import {
+  storeGpsTracks,
+  clearAllGpsTracks,
+  storeBoundsCache,
+  loadBoundsCache,
+  storeOldestDate,
+  loadOldestDate,
+  storeCheckpoint,
+  loadCheckpoint,
+  clearCheckpoint as clearCheckpointFile,
+  clearBoundsCache,
+} from '@/lib/gpsStorage';
 import { activitySpatialIndex } from '@/lib/spatialIndex';
-import { fetchActivityMaps } from 'route-matcher-native';
+import {
+  fetchActivityMapsWithProgress,
+  addFetchProgressListener,
+  type FetchProgressEvent,
+} from 'route-matcher-native';
 import type { Activity, ActivityBoundsCache, ActivityBoundsItem } from '@/types';
 
 const log = debug.create('SyncManager');
-
-// Storage keys
-const CACHE_KEY = 'activity_bounds_cache';
-const OLDEST_DATE_KEY = 'oldest_activity_date';
-const SYNC_CHECKPOINT_KEY = 'activity_sync_checkpoint';
 
 // Debounce delay for timeline-triggered syncs
 const DEBOUNCE_MS = 300;
@@ -152,7 +161,7 @@ class ActivitySyncManager {
 
     try {
       // Load oldest activity date
-      const cachedOldestDate = await AsyncStorage.getItem(OLDEST_DATE_KEY);
+      const cachedOldestDate = await loadOldestDate();
       if (cachedOldestDate) {
         this.oldestActivityDate = cachedOldestDate;
       } else {
@@ -160,17 +169,16 @@ class ActivitySyncManager {
           const oldest = await intervalsApi.getOldestActivityDate();
           if (oldest) {
             this.oldestActivityDate = oldest;
-            await AsyncStorage.setItem(OLDEST_DATE_KEY, oldest);
+            await storeOldestDate(oldest);
           }
         } catch {
           // Silently fail - oldest date is optional
         }
       }
 
-      // Load cache
-      const cached = await AsyncStorage.getItem(CACHE_KEY);
-      if (cached) {
-        const parsedCache: ActivityBoundsCache = JSON.parse(cached);
+      // Load cache from FileSystem
+      const parsedCache = await loadBoundsCache<ActivityBoundsCache>();
+      if (parsedCache) {
         this.cache = parsedCache;
         this.notifyCacheListeners();
 
@@ -304,8 +312,9 @@ class ActivitySyncManager {
   /** Clear all cached data (preserves oldest activity date for timeline) */
   async clearCache(): Promise<void> {
     this.cancelSync();
-    // Don't clear OLDEST_DATE_KEY - that's API metadata for timeline extent, not cache
-    await AsyncStorage.multiRemove([CACHE_KEY, SYNC_CHECKPOINT_KEY]);
+    // Clear bounds cache and checkpoint (keep oldest date for timeline extent)
+    await clearBoundsCache();
+    await clearCheckpointFile();
     // Also clear GPS tracks stored separately
     await clearAllGpsTracks();
     this.cache = null;
@@ -334,8 +343,16 @@ class ActivitySyncManager {
   syncOneYear(): void {
     const today = new Date();
     const oneYearAgo = new Date(today);
-    oneYearAgo.setDate(oneYearAgo.getDate() - SYNC.INITIAL_DAYS);
+    oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
     this.syncDateRange(formatLocalDate(oneYearAgo), formatLocalDate(today), false);
+  }
+
+  /** Trigger sync for the last 90 days (used for cache reload) */
+  sync90Days(): void {
+    const today = new Date();
+    const daysAgo = new Date(today);
+    daysAgo.setDate(daysAgo.getDate() - 90);
+    this.syncDateRange(formatLocalDate(daysAgo), formatLocalDate(today), false);
   }
 
   // --- Private methods ---
@@ -448,13 +465,30 @@ class ActivitySyncManager {
         throw new Error('No API key available');
       }
 
-      // Fetch ALL activities using Rust HTTP client (high performance)
+      // Fetch ALL activities using Rust HTTP client with real-time progress
       const allIds = activities.map(a => a.id);
       log.log(`Fetching ${allIds.length} activities via Rust HTTP client...`);
       const startTime = Date.now();
 
-      // Call Rust - this handles rate limiting and parallel fetching internally
-      const results = fetchActivityMaps(apiKey, allIds);
+      // Set up progress listener for real-time updates during fetch
+      const progressSubscription = addFetchProgressListener((event: FetchProgressEvent) => {
+        this.setProgress({
+          completed: event.completed,
+          total: event.total,
+          status: 'syncing',
+          message: `Downloading ${event.completed}/${event.total} activities...`,
+        });
+      });
+
+      // Call Rust with progress - this handles rate limiting and parallel fetching internally
+      // Note: This is async so JS thread is free to process progress events
+      let results;
+      try {
+        results = await fetchActivityMapsWithProgress(apiKey, allIds);
+      } finally {
+        // Always clean up the listener
+        progressSubscription.remove();
+      }
 
       const elapsed = Date.now() - startTime;
       const successCount = results.filter(r => r.success).length;
@@ -472,10 +506,14 @@ class ActivitySyncManager {
         if (result.success && result.bounds.length === 4) {
           // Convert flat bounds [ne_lat, ne_lng, sw_lat, sw_lng] to [[minLat, minLng], [maxLat, maxLng]]
           const [neLat, neLng, swLat, swLng] = result.bounds;
-          // sw is min, ne is max
+          // Compute actual min/max (API might have ne/sw swapped for southern hemisphere)
+          const minLat = Math.min(neLat, swLat);
+          const maxLat = Math.max(neLat, swLat);
+          const minLng = Math.min(neLng, swLng);
+          const maxLng = Math.max(neLng, swLng);
           const bounds: [[number, number], [number, number]] = [
-            [swLat, swLng], // [minLat, minLng]
-            [neLat, neLng], // [maxLat, maxLng]
+            [minLat, minLng],
+            [maxLat, maxLng],
           ];
 
           // Store bounds/metadata in main cache (small)
@@ -540,7 +578,7 @@ class ActivitySyncManager {
       formatLocalDate(new Date()),
       oldest
     );
-    await AsyncStorage.setItem(CACHE_KEY, JSON.stringify(updatedCache));
+    await storeBoundsCache(updatedCache);
     this.cache = updatedCache;
     this.notifyCacheListeners();
 
@@ -552,29 +590,26 @@ class ActivitySyncManager {
   }
 
   private async saveCheckpoint(checkpoint: SyncCheckpoint): Promise<void> {
-    await AsyncStorage.setItem(SYNC_CHECKPOINT_KEY, JSON.stringify(checkpoint));
+    await storeCheckpoint(checkpoint);
   }
 
   private async updateCheckpointPendingIds(pendingIds: string[]): Promise<void> {
-    const checkpointStr = await AsyncStorage.getItem(SYNC_CHECKPOINT_KEY);
-    if (checkpointStr) {
-      const checkpoint: SyncCheckpoint = JSON.parse(checkpointStr);
+    const checkpoint = await loadCheckpoint<SyncCheckpoint>();
+    if (checkpoint) {
       checkpoint.pendingIds = pendingIds;
       checkpoint.timestamp = new Date().toISOString();
-      await AsyncStorage.setItem(SYNC_CHECKPOINT_KEY, JSON.stringify(checkpoint));
+      await storeCheckpoint(checkpoint);
     }
   }
 
   private async clearCheckpoint(): Promise<void> {
-    await AsyncStorage.removeItem(SYNC_CHECKPOINT_KEY);
+    await clearCheckpointFile();
   }
 
   private async resumeFromCheckpoint(): Promise<void> {
     try {
-      const checkpointStr = await AsyncStorage.getItem(SYNC_CHECKPOINT_KEY);
-      if (!checkpointStr) return;
-
-      const checkpoint: SyncCheckpoint = JSON.parse(checkpointStr);
+      const checkpoint = await loadCheckpoint<SyncCheckpoint>();
+      if (!checkpoint) return;
 
       // Only resume if there are pending items
       if (checkpoint.pendingIds.length === 0) {

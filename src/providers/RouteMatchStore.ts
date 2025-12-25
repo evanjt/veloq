@@ -161,6 +161,32 @@ export const useRouteMatchStore = create<RouteMatchState>((set, get) => ({
   clearCache: async () => {
     await routeProcessingQueue.clearCache();
     set({ cache: routeProcessingQueue.getCache() });
+
+    // Immediately trigger reprocessing using ALL cached bounds data
+    if (isRouteMatchingEnabled()) {
+      const boundsCache = activitySyncManager.getCache();
+      if (boundsCache) {
+        const activities = Object.values(boundsCache.activities);
+        if (activities.length > 0) {
+          log.log(`Cache cleared, triggering immediate reprocessing of ${activities.length} activities`);
+
+          // Build metadata from bounds cache
+          const activityIds = activities.map((a) => a.id);
+          const metadata: Record<string, { name: string; date: string; type: ActivityType; hasGps: boolean }> = {};
+          for (const a of activities) {
+            metadata[a.id] = {
+              name: a.name,
+              date: a.date,
+              type: a.type,
+              hasGps: true,
+            };
+          }
+
+          // Queue all activities for reprocessing
+          routeProcessingQueue.queueActivities(activityIds, metadata, activities);
+        }
+      }
+    }
   },
 }));
 

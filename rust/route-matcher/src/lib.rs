@@ -855,6 +855,20 @@ pub fn group_signatures_parallel(
 mod ffi {
     use super::*;
 
+    // ========================================================================
+    // Progress Callback Interface (for real-time updates to mobile)
+    // ========================================================================
+
+    /// Callback interface for receiving progress updates during fetch operations.
+    /// Implement this in Kotlin/Swift to receive real-time updates.
+    #[uniffi::export(callback_interface)]
+    pub trait FetchProgressCallback: Send + Sync {
+        /// Called when a single activity fetch completes.
+        /// - completed: Number of activities fetched so far
+        /// - total: Total number of activities to fetch
+        fn on_progress(&self, completed: u32, total: u32);
+    }
+
     /// Create a route signature from GPS points.
     #[uniffi::export]
     pub fn create_signature(activity_id: String, points: Vec<GpsPoint>) -> Option<RouteSignature> {
@@ -1140,6 +1154,49 @@ mod ffi {
             .collect()
     }
 
+    /// Fetch map data with real-time progress callbacks.
+    ///
+    /// Same as fetch_activity_maps but calls the progress callback after each
+    /// activity is fetched, allowing the UI to show real-time progress.
+    #[cfg(feature = "http")]
+    #[uniffi::export]
+    pub fn fetch_activity_maps_with_progress(
+        api_key: String,
+        activity_ids: Vec<String>,
+        callback: Box<dyn FetchProgressCallback>,
+    ) -> Vec<FfiActivityMapResult> {
+        use std::sync::Arc;
+
+        init_logging();
+        info!("[RouteMatcherRust] 🦀 fetch_activity_maps_with_progress called for {} activities", activity_ids.len());
+
+        // Wrap the callback to match the expected type
+        let callback = Arc::new(callback);
+        let progress_callback: crate::http::ProgressCallback = Arc::new(move |completed, total| {
+            callback.on_progress(completed, total);
+        });
+
+        let results = crate::http::fetch_activity_maps_sync(
+            api_key,
+            activity_ids,
+            Some(progress_callback),
+        );
+
+        // Convert to FFI-friendly format
+        results
+            .into_iter()
+            .map(|r| FfiActivityMapResult {
+                activity_id: r.activity_id,
+                bounds: r.bounds.map_or(vec![], |b| vec![b.ne[0], b.ne[1], b.sw[0], b.sw[1]]),
+                latlngs: r.latlngs.map_or(vec![], |coords| {
+                    coords.into_iter().flat_map(|p| vec![p[0], p[1]]).collect()
+                }),
+                success: r.success,
+                error: r.error,
+            })
+            .collect()
+    }
+
     /// Result of fetch_and_process_activities
     #[cfg(feature = "http")]
     #[derive(Debug, Clone, uniffi::Record)]
@@ -1343,9 +1400,10 @@ mod tests {
         let fast = MatchConfig::fast();
         let precise = MatchConfig::precise();
 
-        assert!(fast.max_frechet_distance > default.max_frechet_distance);
-        assert!(precise.max_frechet_distance < default.max_frechet_distance);
-        assert!(fast.max_simplified_points < default.max_simplified_points);
-        assert!(precise.max_simplified_points > default.max_simplified_points);
+        // Fast config is more lenient (higher thresholds)
+        assert!(fast.zero_threshold > default.zero_threshold);
+        assert!(precise.zero_threshold < default.zero_threshold);
+        // Fast uses fewer points for speed
+        assert!(fast.resample_count < default.resample_count);
     }
 }

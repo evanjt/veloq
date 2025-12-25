@@ -248,17 +248,34 @@ export function findActivitiesWithPotentialMatchesFast(
   let checkedCount = 0;
   let matchedCount = 0;
   let spatialQueriesTotal = 0;
+  let noBoundsCount = 0;
+  let emptyBoundsCount = 0;
 
   // For each unprocessed activity, use spatial index to find overlapping activities
   for (const id of unprocessedIds) {
     const activity1 = boundsMap.get(id);
-    if (!activity1) continue;
+    if (!activity1) {
+      noBoundsCount++;
+      continue;
+    }
+
+    // Check if bounds are valid
+    if (!activity1.bounds || activity1.bounds.length !== 2) {
+      emptyBoundsCount++;
+      continue;
+    }
 
     checkedCount++;
 
     // Use spatial index to get candidates (O(log n) instead of O(n))
     const spatialCandidates = activitySpatialIndex.findPotentialMatches(activity1);
     spatialQueriesTotal += spatialCandidates.length;
+
+    // Debug: Log first few activities with no spatial candidates
+    if (spatialCandidates.length === 0 && checkedCount <= 3) {
+      const [[minLat, minLng], [maxLat, maxLng]] = activity1.bounds;
+      log.log(`No spatial candidates for ${activity1.name} (${activity1.type}): bounds=[${minLat.toFixed(4)},${minLng.toFixed(4)} - ${maxLat.toFixed(4)},${maxLng.toFixed(4)}]`);
+    }
 
     // Check the spatial candidates for type/distance match
     for (const candidateId of spatialCandidates) {
@@ -274,7 +291,11 @@ export function findActivitiesWithPotentialMatchesFast(
     }
   }
 
-  log.log(`Spatial: ${checkedCount} checked, ${matchedCount} matches, avg ${(spatialQueriesTotal / checkedCount || 0).toFixed(1)} candidates/activity`);
+  log.log(`Spatial: ${checkedCount} checked, ${matchedCount} matches, avg ${(spatialQueriesTotal / Math.max(1, checkedCount)).toFixed(1)} candidates/activity`);
+  if (noBoundsCount > 0 || emptyBoundsCount > 0) {
+    log.log(`Skipped: ${noBoundsCount} no bounds in map, ${emptyBoundsCount} empty bounds`);
+  }
+  log.log(`Spatial index size: ${activitySpatialIndex.size}, ready: ${activitySpatialIndex.ready}`);
 
   return candidateIds;
 }

@@ -37,8 +37,8 @@ fn main() {
     let sig4 = RouteSignature::from_points("route-4", &route4, &config).unwrap();
 
     println!("Route Matching Examples\n");
-    println!("Config: max_frechet_distance={}m, min_match={}%\n",
-        config.max_frechet_distance, config.min_match_percentage);
+    println!("Config: perfect_threshold={}m, zero_threshold={}m, min_match={}%\n",
+        config.perfect_threshold, config.zero_threshold, config.min_match_percentage);
 
     // Compare identical routes
     println!("1. Identical routes (route-1 vs route-2):");
@@ -46,7 +46,7 @@ fn main() {
         Some(result) => {
             println!("   Match: {:.1}%", result.match_percentage);
             println!("   Direction: {}", result.direction);
-            println!("   Fréchet distance: {:.2}m\n", result.frechet_distance);
+            println!("   AMD: {:.2}m\n", result.amd);
         }
         None => println!("   No match\n"),
     }
@@ -57,7 +57,7 @@ fn main() {
         Some(result) => {
             println!("   Match: {:.1}%", result.match_percentage);
             println!("   Direction: {}", result.direction);
-            println!("   Fréchet distance: {:.2}m\n", result.frechet_distance);
+            println!("   AMD: {:.2}m\n", result.amd);
         }
         None => println!("   No match\n"),
     }
@@ -68,7 +68,7 @@ fn main() {
         Some(result) => {
             println!("   Match: {:.1}%", result.match_percentage);
             println!("   Direction: {}", result.direction);
-            println!("   Fréchet distance: {:.2}m\n", result.frechet_distance);
+            println!("   AMD: {:.2}m\n", result.amd);
         }
         None => println!("   No match (routes too different)\n"),
     }

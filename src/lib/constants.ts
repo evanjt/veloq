@@ -60,8 +60,8 @@ export const CHART = {
  * Sync configuration constants
  */
 export const SYNC = {
-  /** Initial sync period in days (90 days - GPS traces fetched for route matching) */
-  INITIAL_DAYS: 90,
+  /** Initial sync period in days (1 year - GPS traces fetched for route matching) */
+  INITIAL_DAYS: 365,
   /** Background sync history in days */
   BACKGROUND_DAYS: 365 * 2,
   /** Max history to sync in years */
