@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -16,6 +16,8 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { SegmentedButtons, Switch } from 'react-native-paper';
 import { useAthlete, useActivityBoundsCache, useRouteProcessing, useRouteGroups } from '@/hooks';
 import { getAthleteId } from '@/api';
+import { estimateBoundsCacheSize, estimateGpsStorageSize } from '@/lib/gpsStorage';
+import { estimateRouteCacheSize } from '@/lib/routeStorage';
 import {
   getThemePreference,
   setThemePreference,
@@ -108,8 +110,29 @@ export default function SettingsScreen() {
     cacheStats,
     clearCache,
     syncAllHistory,
-    syncOneYear,
+    sync90Days,
   } = useActivityBoundsCache();
+
+  // Cache sizes state
+  const [cacheSizes, setCacheSizes] = useState<{
+    bounds: number;
+    gps: number;
+    routes: number;
+  }>({ bounds: 0, gps: 0, routes: 0 });
+
+  // Fetch cache sizes on mount and when caches change
+  const refreshCacheSizes = useCallback(async () => {
+    const [bounds, gps, routes] = await Promise.all([
+      estimateBoundsCacheSize(),
+      estimateGpsStorageSize(),
+      estimateRouteCacheSize(),
+    ]);
+    setCacheSizes({ bounds, gps, routes });
+  }, []);
+
+  useEffect(() => {
+    refreshCacheSizes();
+  }, [refreshCacheSizes, activities.length, routeProcessedCount]);
 
   // Route matching cache
   const { progress: routeProgress, isProcessing: isRouteProcessing, clearCache: clearRouteCache, cancel: cancelRouteProcessing } = useRouteProcessing();
@@ -121,9 +144,6 @@ export default function SettingsScreen() {
 
   const profileUrl = athlete?.profile_medium || athlete?.profile;
   const hasValidProfileUrl = profileUrl && typeof profileUrl === 'string' && profileUrl.startsWith('http');
-
-  // Estimate cache size (rough approximation)
-  const estimatedCacheBytes = activities.length * 200; // ~200 bytes per activity entry
 
   const handleClearCache = () => {
     Alert.alert(
@@ -139,8 +159,10 @@ export default function SettingsScreen() {
               // Clear both map cache and route cache together
               await clearCache();
               await clearRouteCache();
-              // Immediately start resyncing last year only
-              syncOneYear();
+              // Immediately start resyncing last 90 days
+              sync90Days();
+              // Refresh cache sizes
+              refreshCacheSizes();
             } catch {
               Alert.alert('Error', 'Failed to clear cache. Please try again.');
             }
@@ -153,7 +175,7 @@ export default function SettingsScreen() {
   const handleClearRouteCache = () => {
     Alert.alert(
       'Clear & Reload Route Cache',
-      'This will clear all route matching data and re-analyze GPS traces. Make sure activities are synced first (visit World Map).',
+      'This will clear all route matching data and immediately re-analyze GPS traces.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -162,15 +184,8 @@ export default function SettingsScreen() {
           onPress: async () => {
             try {
               await clearRouteCache();
-              // Check if we have bounds data to work with
-              if (activities.length > 0) {
-                Alert.alert('Route Cache Cleared', 'Routes will be re-analyzed when you visit the Routes screen.');
-              } else {
-                Alert.alert(
-                  'Route Cache Cleared',
-                  'No activities synced yet. Visit the World Map first to sync activity data, then return to Routes.'
-                );
-              }
+              // Reprocessing starts immediately via RouteMatchStore.clearCache()
+              refreshCacheSizes();
             } catch {
               Alert.alert('Error', 'Failed to clear route cache. Please try again.');
             }
@@ -427,10 +442,10 @@ export default function SettingsScreen() {
           )}
         </View>
 
-        {/* Cache Status Section */}
-        <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>MAP CACHE</Text>
+        {/* Data Cache Section - Consolidated */}
+        <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>DATA CACHE</Text>
         <View style={[styles.section, isDark && styles.sectionDark]}>
-          {/* Sync Status */}
+          {/* Sync Status Banners */}
           {progress.status === 'syncing' && (
             <View style={styles.syncBanner}>
               <MaterialCommunityIcons name="sync" size={18} color="#FFF" />
@@ -439,42 +454,16 @@ export default function SettingsScreen() {
               </Text>
             </View>
           )}
-
-          <View style={styles.statRow}>
-            <View style={styles.statItem}>
-              <Text style={[styles.statValue, isDark && styles.textLight]}>
-                {cacheStats.totalActivities}
+          {isRouteProcessing && (
+            <View style={[styles.syncBanner, { backgroundColor: colors.secondary }]}>
+              <MaterialCommunityIcons name="map-marker-path" size={18} color="#FFF" />
+              <Text style={styles.syncBannerText}>
+                {routeProgress.message || `Analysing ${routeProgress.current}/${routeProgress.total}`}
               </Text>
-              <Text style={[styles.statLabel, isDark && styles.textMuted]}>Activities</Text>
             </View>
-            <View style={styles.statDivider} />
-            <View style={styles.statItem}>
-              <Text style={[styles.statValue, isDark && styles.textLight]}>
-                {formatBytes(estimatedCacheBytes)}
-              </Text>
-              <Text style={[styles.statLabel, isDark && styles.textMuted]}>Cache Size</Text>
-            </View>
-          </View>
+          )}
 
-          <View style={[styles.infoRow, isDark && styles.infoRowDark]}>
-            <Text style={[styles.infoLabel, isDark && styles.textMuted]}>Date Range</Text>
-            <Text style={[styles.infoValue, isDark && styles.textLight]}>
-              {cacheStats.oldestDate && cacheStats.newestDate
-                ? `${formatDate(cacheStats.oldestDate)} - ${formatDate(cacheStats.newestDate)}`
-                : 'No data'}
-            </Text>
-          </View>
-
-          <View style={[styles.infoRow, isDark && styles.infoRowDark]}>
-            <Text style={[styles.infoLabel, isDark && styles.textMuted]}>Last Synced</Text>
-            <Text style={[styles.infoValue, isDark && styles.textLight]}>
-              {formatDate(cacheStats.lastSync)}
-            </Text>
-          </View>
-        </View>
-
-        {/* Cache Actions */}
-        <View style={[styles.section, styles.sectionSpaced, isDark && styles.sectionDark]}>
+          {/* Actions */}
           <TouchableOpacity
             style={styles.actionRow}
             onPress={handleSyncAll}
@@ -501,24 +490,149 @@ export default function SettingsScreen() {
 
           <View style={[styles.divider, isDark && styles.dividerDark]} />
 
+          {routeSettings.enabled && (
+            <>
+              <TouchableOpacity
+                style={styles.actionRow}
+                onPress={() => router.push('/routes' as Href)}
+              >
+                <MaterialCommunityIcons
+                  name="map-marker-path"
+                  size={22}
+                  color={colors.primary}
+                />
+                <Text style={[styles.actionText, isDark && styles.textLight]}>
+                  View Routes
+                </Text>
+                <MaterialCommunityIcons
+                  name="chevron-right"
+                  size={20}
+                  color={isDark ? '#666' : colors.textSecondary}
+                />
+              </TouchableOpacity>
+
+              <View style={[styles.divider, isDark && styles.dividerDark]} />
+
+              {isRouteProcessing && (
+                <>
+                  <TouchableOpacity
+                    style={styles.actionRow}
+                    onPress={cancelRouteProcessing}
+                  >
+                    <MaterialCommunityIcons
+                      name="pause-circle-outline"
+                      size={22}
+                      color={colors.warning}
+                    />
+                    <Text style={[styles.actionText, isDark && styles.textLight]}>
+                      Pause Route Processing
+                    </Text>
+                    <MaterialCommunityIcons
+                      name="chevron-right"
+                      size={20}
+                      color={isDark ? '#666' : colors.textSecondary}
+                    />
+                  </TouchableOpacity>
+                  <View style={[styles.divider, isDark && styles.dividerDark]} />
+                </>
+              )}
+            </>
+          )}
+
           <TouchableOpacity style={styles.actionRow} onPress={handleClearCache}>
             <MaterialCommunityIcons name="delete-outline" size={22} color={colors.error} />
-            <Text style={[styles.actionText, styles.actionTextDanger]}>Clear & Reload Cache</Text>
+            <Text style={[styles.actionText, styles.actionTextDanger]}>Clear All & Reload</Text>
             <MaterialCommunityIcons
               name="chevron-right"
               size={20}
               color={isDark ? '#666' : colors.textSecondary}
             />
           </TouchableOpacity>
+
+          {routeSettings.enabled && (
+            <>
+              <View style={[styles.divider, isDark && styles.dividerDark]} />
+              <TouchableOpacity style={styles.actionRow} onPress={handleClearRouteCache}>
+                <MaterialCommunityIcons name="refresh" size={22} color={colors.warning} />
+                <Text style={[styles.actionText, isDark && styles.textLight]}>Re-analyze Routes Only</Text>
+                <MaterialCommunityIcons
+                  name="chevron-right"
+                  size={20}
+                  color={isDark ? '#666' : colors.textSecondary}
+                />
+              </TouchableOpacity>
+            </>
+          )}
         </View>
 
-        {/* Cache info text */}
+        {/* Cache Stats */}
+        <View style={[styles.section, styles.sectionSpaced, isDark && styles.sectionDark]}>
+          <View style={styles.statRow}>
+            <View style={styles.statItem}>
+              <Text style={[styles.statValue, isDark && styles.textLight]}>
+                {cacheStats.totalActivities}
+              </Text>
+              <Text style={[styles.statLabel, isDark && styles.textMuted]}>Activities</Text>
+            </View>
+            <View style={styles.statDivider} />
+            <View style={styles.statItem}>
+              <Text style={[styles.statValue, isDark && styles.textLight]}>
+                {routeSettings.enabled ? routeGroups.length : '-'}
+              </Text>
+              <Text style={[styles.statLabel, isDark && styles.textMuted]}>Routes</Text>
+            </View>
+            <View style={styles.statDivider} />
+            <View style={styles.statItem}>
+              <Text style={[styles.statValue, isDark && styles.textLight]}>
+                {formatBytes(cacheSizes.bounds + cacheSizes.gps + cacheSizes.routes)}
+              </Text>
+              <Text style={[styles.statLabel, isDark && styles.textMuted]}>Total</Text>
+            </View>
+          </View>
+
+          <View style={[styles.infoRow, isDark && styles.infoRowDark]}>
+            <Text style={[styles.infoLabel, isDark && styles.textMuted]}>Date Range</Text>
+            <Text style={[styles.infoValue, isDark && styles.textLight]}>
+              {cacheStats.oldestDate && cacheStats.newestDate
+                ? `${formatDate(cacheStats.oldestDate)} - ${formatDate(cacheStats.newestDate)}`
+                : 'No data'}
+            </Text>
+          </View>
+
+          <View style={[styles.infoRow, isDark && styles.infoRowDark]}>
+            <Text style={[styles.infoLabel, isDark && styles.textMuted]}>Last Synced</Text>
+            <Text style={[styles.infoValue, isDark && styles.textLight]}>
+              {formatDate(cacheStats.lastSync)}
+            </Text>
+          </View>
+
+          <View style={[styles.infoRow, isDark && styles.infoRowDark]}>
+            <Text style={[styles.infoLabel, isDark && styles.textMuted]}>Bounds</Text>
+            <Text style={[styles.infoValue, isDark && styles.textLight]}>
+              {formatBytes(cacheSizes.bounds)}
+            </Text>
+          </View>
+
+          <View style={[styles.infoRow, isDark && styles.infoRowDark]}>
+            <Text style={[styles.infoLabel, isDark && styles.textMuted]}>GPS Traces</Text>
+            <Text style={[styles.infoValue, isDark && styles.textLight]}>
+              {formatBytes(cacheSizes.gps)}
+            </Text>
+          </View>
+
+          <View style={[styles.infoRow, isDark && styles.infoRowDark]}>
+            <Text style={[styles.infoLabel, isDark && styles.textMuted]}>Routes</Text>
+            <Text style={[styles.infoValue, isDark && styles.textLight]}>
+              {formatBytes(cacheSizes.routes)}
+            </Text>
+          </View>
+        </View>
+
         <Text style={[styles.infoText, isDark && styles.textMuted]}>
-          Caches activity locations and GPS traces for the World Map and route matching. By default, we sync 3 months of activities.
-          Use "Sync All History" to enable deeper route analysis across your history.
+          Caches activity locations and GPS traces for World Map and route matching. By default, syncs 3 months. Use "Sync All History" for deeper analysis.
         </Text>
 
-        {/* Route Matching Section */}
+        {/* Route Matching Toggle */}
         <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>ROUTE MATCHING</Text>
         <View style={[styles.section, isDark && styles.sectionDark]}>
           <View style={styles.toggleRow}>
@@ -537,105 +651,6 @@ export default function SettingsScreen() {
             />
           </View>
         </View>
-        <Text style={[styles.infoText, isDark && styles.textMuted]}>
-          When enabled, GPS tracks are analysed to find similar routes. This runs in the background and may take time depending on the number of activities in your history.
-        </Text>
-
-        {/* Route Cache Section - only show when enabled */}
-        {routeSettings.enabled && (
-          <>
-            <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>ROUTE CACHE</Text>
-            <View style={[styles.section, isDark && styles.sectionDark]}>
-              {/* Processing Status */}
-              {isRouteProcessing && (
-                <View style={styles.syncBanner}>
-                  <MaterialCommunityIcons name="map-marker-path" size={18} color="#FFF" />
-                  <Text style={styles.syncBannerText}>
-                    {routeProgress.message || `Analysing ${routeProgress.current}/${routeProgress.total}`}
-                  </Text>
-                </View>
-              )}
-
-              <View style={styles.statRow}>
-                <View style={styles.statItem}>
-                  <Text style={[styles.statValue, isDark && styles.textLight]}>
-                    {routeGroups.length}
-                  </Text>
-                  <Text style={[styles.statLabel, isDark && styles.textMuted]}>Routes</Text>
-                </View>
-                <View style={styles.statDivider} />
-                <View style={styles.statItem}>
-                  <Text style={[styles.statValue, isDark && styles.textLight]}>
-                    {routeProcessedCount}
-                  </Text>
-                  <Text style={[styles.statLabel, isDark && styles.textMuted]}>Activities</Text>
-                </View>
-              </View>
-
-              {/* Link to Routes screen */}
-              <TouchableOpacity
-                style={[styles.actionRow, styles.actionRowBorder]}
-                onPress={() => router.push('/routes' as Href)}
-              >
-                <MaterialCommunityIcons
-                  name="map-marker-path"
-                  size={22}
-                  color={colors.primary}
-                />
-                <Text style={[styles.actionText, isDark && styles.textLight]}>
-                  View Routes
-                </Text>
-                <MaterialCommunityIcons
-                  name="chevron-right"
-                  size={20}
-                  color={isDark ? '#666' : colors.textSecondary}
-                />
-              </TouchableOpacity>
-            </View>
-
-            {/* Route Cache Actions */}
-            <View style={[styles.section, styles.sectionSpaced, isDark && styles.sectionDark]}>
-              {isRouteProcessing && (
-                <>
-                  <TouchableOpacity
-                    style={styles.actionRow}
-                    onPress={cancelRouteProcessing}
-                  >
-                    <MaterialCommunityIcons
-                      name="pause-circle-outline"
-                      size={22}
-                      color={colors.warning}
-                    />
-                    <Text style={[styles.actionText, isDark && styles.textLight]}>
-                      Pause Processing
-                    </Text>
-                    <MaterialCommunityIcons
-                      name="chevron-right"
-                      size={20}
-                      color={isDark ? '#666' : colors.textSecondary}
-                    />
-                  </TouchableOpacity>
-                  <View style={[styles.divider, isDark && styles.dividerDark]} />
-                </>
-              )}
-
-              <TouchableOpacity style={styles.actionRow} onPress={handleClearRouteCache}>
-                <MaterialCommunityIcons name="delete-outline" size={22} color={colors.error} />
-                <Text style={[styles.actionText, styles.actionTextDanger]}>Clear & Reload Routes</Text>
-                <MaterialCommunityIcons
-                  name="chevron-right"
-                  size={20}
-                  color={isDark ? '#666' : colors.textSecondary}
-                />
-              </TouchableOpacity>
-            </View>
-
-            <Text style={[styles.infoText, isDark && styles.textMuted]}>
-              Routes are automatically detected by analysing GPS tracks from your activities.
-              Activities on similar paths are grouped together.
-            </Text>
-          </>
-        )}
 
         {/* Account Section */}
         <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>ACCOUNT</Text>

@@ -40,6 +40,8 @@ interface UseActivityBoundsCacheReturn {
   syncAllHistory: () => void;
   /** Trigger sync for last year only */
   syncOneYear: () => void;
+  /** Trigger sync for last 90 days (used for cache reload) */
+  sync90Days: () => void;
 }
 
 /**
@@ -103,6 +105,11 @@ export function useActivityBoundsCache(): UseActivityBoundsCacheReturn {
     activitySyncManager.syncOneYear();
   }, []);
 
+  // Sync last 90 days only (for cache reload)
+  const sync90Days = useCallback(() => {
+    activitySyncManager.sync90Days();
+  }, []);
+
   // Convert cache to array for rendering
   const activities = useMemo(() => {
     return cache ? Object.values(cache.activities) : [];
@@ -130,5 +137,6 @@ export function useActivityBoundsCache(): UseActivityBoundsCacheReturn {
     cacheStats,
     syncAllHistory,
     syncOneYear,
+    sync90Days,
   };
 }

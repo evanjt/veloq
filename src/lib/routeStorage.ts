@@ -1,9 +1,10 @@
 /**
- * Route matching AsyncStorage operations.
+ * Route matching storage operations.
  * Handles persistence of signatures, groups, and matches.
+ * Uses FileSystem instead of AsyncStorage to avoid SQLite size limits.
  */
 
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as FileSystem from 'expo-file-system/legacy';
 import type {
   RouteSignature,
   RouteGroup,
@@ -12,15 +13,26 @@ import type {
   ActivityType,
   RoutePoint,
 } from '@/types';
+import { getGpsTrack } from './gpsStorage';
 import { matchRoutes, calculateConsensusRoute } from './routeMatching';
 import { debug } from './debug';
 
 const log = debug.create('RouteStorage');
 
-// Storage keys
-const ROUTE_CACHE_KEY = 'veloq_route_match_cache';
+// Storage paths (FileSystem-based)
+const ROUTE_DIR = `${FileSystem.documentDirectory}route_cache/`;
+const ROUTE_CACHE_FILE = `${ROUTE_DIR}cache.json`;
+const CUSTOM_NAMES_FILE = `${ROUTE_DIR}custom_names.json`;
 const ROUTE_CACHE_VERSION = 1;
-const CUSTOM_ROUTE_NAMES_KEY = 'veloq_custom_route_names';
+
+/** Ensure the route cache directory exists */
+async function ensureRouteDir(): Promise<void> {
+  const dirInfo = await FileSystem.getInfoAsync(ROUTE_DIR);
+  if (!dirInfo.exists) {
+    await FileSystem.makeDirectoryAsync(ROUTE_DIR, { intermediates: true });
+    log.log('Created route cache directory');
+  }
+}
 
 // In-memory cache for custom route names
 let customRouteNamesCache: Record<string, string> | null = null;
@@ -35,8 +47,10 @@ export async function loadCustomRouteNames(): Promise<Record<string, string>> {
   }
 
   try {
-    const stored = await AsyncStorage.getItem(CUSTOM_ROUTE_NAMES_KEY);
-    if (stored) {
+    await ensureRouteDir();
+    const info = await FileSystem.getInfoAsync(CUSTOM_NAMES_FILE);
+    if (info.exists) {
+      const stored = await FileSystem.readAsStringAsync(CUSTOM_NAMES_FILE);
       customRouteNamesCache = JSON.parse(stored);
       return customRouteNamesCache!;
     }
@@ -67,7 +81,8 @@ export async function saveCustomRouteName(
   customRouteNamesCache = names;
 
   try {
-    await AsyncStorage.setItem(CUSTOM_ROUTE_NAMES_KEY, JSON.stringify(names));
+    await ensureRouteDir();
+    await FileSystem.writeAsStringAsync(CUSTOM_NAMES_FILE, JSON.stringify(names));
   } catch {
     // Ignore save errors
   }
@@ -96,15 +111,19 @@ export function hasCustomRouteName(routeId: string): boolean {
 
 /**
  * Load route match cache from storage.
+ * Note: Points are stripped from signatures to save space.
+ * Use restoreSignaturePoints() to regenerate them from GPS cache when needed.
  */
 export async function loadRouteCache(): Promise<RouteMatchCache | null> {
   try {
-    const cached = await AsyncStorage.getItem(ROUTE_CACHE_KEY);
-    if (!cached) {
+    await ensureRouteDir();
+    const info = await FileSystem.getInfoAsync(ROUTE_CACHE_FILE);
+    if (!info.exists) {
       log.log('No route cache found');
       return null;
     }
 
+    const cached = await FileSystem.readAsStringAsync(ROUTE_CACHE_FILE);
     log.log(`Loading route cache: ${cached.length} bytes`);
     const data: RouteMatchCache = JSON.parse(cached);
 
@@ -120,6 +139,69 @@ export async function loadRouteCache(): Promise<RouteMatchCache | null> {
     log.error('Failed to load route cache:', error);
     return null;
   }
+}
+
+/**
+ * Restore points to a signature from GPS cache.
+ * Returns the signature with points populated, or null if GPS data not available.
+ */
+export async function restoreSignaturePoints(
+  signature: RouteSignature,
+  getGpsTrack: (activityId: string) => Promise<[number, number][] | null>
+): Promise<RouteSignature | null> {
+  // If already has points, return as-is
+  if (signature.points && signature.points.length > 0) {
+    return signature;
+  }
+
+  // Try to get GPS data from cache
+  const latlngs = await getGpsTrack(signature.activityId);
+  if (!latlngs || latlngs.length < 2) {
+    return null;
+  }
+
+  // Regenerate simplified points (similar to signature creation)
+  // Use a simple sampling approach for display purposes
+  const sampleStep = Math.max(1, Math.floor(latlngs.length / 100));
+  const points: RoutePoint[] = [];
+
+  for (let i = 0; i < latlngs.length; i += sampleStep) {
+    const [lat, lng] = latlngs[i];
+    points.push({ lat, lng });
+  }
+
+  // Ensure we include the last point
+  const lastPoint = latlngs[latlngs.length - 1];
+  if (points.length === 0 || points[points.length - 1].lat !== lastPoint[0]) {
+    points.push({ lat: lastPoint[0], lng: lastPoint[1] });
+  }
+
+  return {
+    ...signature,
+    points,
+  };
+}
+
+/**
+ * Restore points to a route group's signature from GPS cache.
+ */
+export async function restoreGroupSignaturePoints(
+  group: RouteGroup,
+  getGpsTrack: (activityId: string) => Promise<[number, number][] | null>
+): Promise<RouteGroup> {
+  if (group.signature.points && group.signature.points.length > 0) {
+    return group;
+  }
+
+  const restoredSig = await restoreSignaturePoints(group.signature, getGpsTrack);
+  if (restoredSig) {
+    return {
+      ...group,
+      signature: restoredSig,
+    };
+  }
+
+  return group;
 }
 
 /**
@@ -159,11 +241,12 @@ function createLiteCache(cache: RouteMatchCache): RouteMatchCache {
  */
 export async function saveRouteCache(cache: RouteMatchCache): Promise<void> {
   try {
+    await ensureRouteDir();
     // Create lite version for storage
     const liteCache = createLiteCache(cache);
     const data = JSON.stringify(liteCache);
     log.log(`Saving route cache: ${data.length} bytes (lite), ${cache.processedActivityIds.length} activities, ${cache.groups.length} groups`);
-    await AsyncStorage.setItem(ROUTE_CACHE_KEY, data);
+    await FileSystem.writeAsStringAsync(ROUTE_CACHE_FILE, data);
   } catch (error) {
     log.error('Failed to save route cache:', error);
   }
@@ -174,10 +257,29 @@ export async function saveRouteCache(cache: RouteMatchCache): Promise<void> {
  */
 export async function clearRouteCache(): Promise<void> {
   try {
-    await AsyncStorage.removeItem(ROUTE_CACHE_KEY);
+    const info = await FileSystem.getInfoAsync(ROUTE_CACHE_FILE);
+    if (info.exists) {
+      await FileSystem.deleteAsync(ROUTE_CACHE_FILE, { idempotent: true });
+      log.log('Cleared route cache');
+    }
   } catch {
     // Silently fail
   }
+}
+
+/**
+ * Estimate route cache size in bytes.
+ */
+export async function estimateRouteCacheSize(): Promise<number> {
+  try {
+    const info = await FileSystem.getInfoAsync(ROUTE_CACHE_FILE);
+    if (info.exists && 'size' in info) {
+      return info.size || 0;
+    }
+  } catch {
+    // Ignore
+  }
+  return 0;
 }
 
 /**

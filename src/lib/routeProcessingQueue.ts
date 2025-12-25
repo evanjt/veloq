@@ -35,6 +35,7 @@ import {
   updateRouteGroups,
   addMatchToCache,
   getUnprocessedActivityIds,
+  restoreSignaturePoints,
 } from './routeStorage';
 import { debug } from './debug';
 
@@ -569,10 +570,83 @@ class RouteProcessingQueue {
     if (!this.cache) {
       this.cache = createEmptyCache();
     }
+
+    // Restore points that were stripped when saving (to reduce storage size)
+    // Points are regenerated from cached GPS data
+    await this.restorePointsFromGps();
+
     this.notifyCacheListeners();
 
     // Check for interrupted processing
     await this.resumeFromCheckpoint();
+  }
+
+  /**
+   * Restore signature points from GPS cache.
+   * Points are stripped when saving to reduce storage size.
+   * This regenerates them from the cached GPS tracks.
+   */
+  private async restorePointsFromGps(): Promise<void> {
+    if (!this.cache) return;
+
+    const startTime = Date.now();
+
+    // Collect all activity IDs that need point restoration
+    const idsNeedingPoints: string[] = [];
+
+    // Check group signatures
+    for (const group of this.cache.groups) {
+      if (!group.signature.points || group.signature.points.length === 0) {
+        idsNeedingPoints.push(group.signature.activityId);
+      }
+    }
+
+    // Check individual signatures
+    for (const [id, sig] of Object.entries(this.cache.signatures)) {
+      if (!sig.points || sig.points.length === 0) {
+        if (!idsNeedingPoints.includes(id)) {
+          idsNeedingPoints.push(id);
+        }
+      }
+    }
+
+    if (idsNeedingPoints.length === 0) {
+      return;
+    }
+
+    log.log(`Restoring points for ${idsNeedingPoints.length} signatures from GPS cache...`);
+
+    // Batch fetch all GPS tracks
+    const gpsTracks = await getGpsTracks(idsNeedingPoints);
+    let restoredCount = 0;
+
+    // Helper to get GPS track from the fetched map
+    const getTrack = async (activityId: string) => gpsTracks.get(activityId) || null;
+
+    // Restore group signature points
+    for (const group of this.cache.groups) {
+      if (!group.signature.points || group.signature.points.length === 0) {
+        const restored = await restoreSignaturePoints(group.signature, getTrack);
+        if (restored) {
+          group.signature = restored;
+          restoredCount++;
+        }
+      }
+    }
+
+    // Restore individual signature points
+    for (const [id, sig] of Object.entries(this.cache.signatures)) {
+      if (!sig.points || sig.points.length === 0) {
+        const restored = await restoreSignaturePoints(sig, getTrack);
+        if (restored) {
+          this.cache.signatures[id] = restored;
+          restoredCount++;
+        }
+      }
+    }
+
+    const elapsed = Date.now() - startTime;
+    log.log(`Restored points for ${restoredCount} signatures in ${elapsed}ms`);
   }
 
   /** Get current cache */
@@ -649,13 +723,28 @@ class RouteProcessingQueue {
         message: `Checking ${unprocessedIds.length} activities for potential matches...`,
       });
 
-      // Build spatial index if not ready (ensures O(n log n) instead of O(n²))
-      if (!activitySpatialIndex.ready) {
-        const indexStart = Date.now();
-        log.log(`Building spatial index from ${boundsData.length} bounds`);
-        activitySpatialIndex.buildFromActivities(boundsData);
-        log.log(`Spatial index build took ${Date.now() - indexStart}ms`);
+      // Always rebuild spatial index with current bounds data
+      // (Previous index might have stale/incomplete data)
+      const indexStart = Date.now();
+      log.log(`Building spatial index from ${boundsData.length} bounds`);
+
+      // Debug: Check bounds validity
+      const validBounds = boundsData.filter(b => b.bounds && b.bounds.length === 2);
+      const invalidBounds = boundsData.filter(b => !b.bounds || b.bounds.length !== 2);
+      if (invalidBounds.length > 0) {
+        log.log(`WARNING: ${invalidBounds.length} activities have invalid/missing bounds`);
+        invalidBounds.slice(0, 3).forEach(b => log.log(`  Invalid: ${b.id} - ${b.name}, bounds=${JSON.stringify(b.bounds)}`));
       }
+
+      // Debug: Sample a few bounds to verify format
+      if (validBounds.length > 0) {
+        const sample = validBounds[0];
+        log.log(`Sample bounds: ${sample.name} = ${JSON.stringify(sample.bounds)}`);
+      }
+
+      activitySpatialIndex.buildFromActivities(boundsData);
+      log.log(`Spatial index build took ${Date.now() - indexStart}ms`);
+      log.log(`Spatial index now has ${activitySpatialIndex.size} entries, ready=${activitySpatialIndex.ready}`);
 
       // Only consider activities that have cached bounds
       const boundsById = new Map(boundsData.map(b => [b.id, b]));
