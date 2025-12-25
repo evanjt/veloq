@@ -34,14 +34,14 @@ export const CACHE = {
  * API rate limiting constants
  */
 export const RATE_LIMIT = {
-  /** Minimum ms between requests (10 req/s) */
-  MIN_INTERVAL: 100,
+  /** Minimum ms between requests */
+  MIN_INTERVAL: 50,
   /** Sliding window size in ms */
   WINDOW_SIZE: 10000,
-  /** Max requests per window */
-  MAX_PER_WINDOW: 80,
-  /** Default batch concurrency */
-  DEFAULT_CONCURRENCY: 8,
+  /** Max requests per window (API allows 132/10s, use 120 to be safe) */
+  MAX_PER_WINDOW: 120,
+  /** Default batch concurrency (API recommends 10/s for bulk, use 12) */
+  DEFAULT_CONCURRENCY: 12,
 } as const;
 
 /**

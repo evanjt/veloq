@@ -18,6 +18,7 @@ import {
   mergeCacheEntries,
   sortActivitiesByDateDesc,
 } from '@/lib/activityBoundsUtils';
+import { storeGpsTracks, clearAllGpsTracks } from '@/lib/gpsStorage';
 import { activitySpatialIndex } from '@/lib/spatialIndex';
 import type { Activity, ActivityBoundsCache, ActivityBoundsItem } from '@/types';
 
@@ -57,6 +58,7 @@ class ActivitySyncManager {
   private oldestActivityDate: string | null = null;
   private progress: SyncProgress = { completed: 0, total: 0, status: 'idle' };
   private isInitialized = false;
+  private isInitializing = false;
   private hasCompletedInitialSync = false;
 
   // Sync state
@@ -82,8 +84,12 @@ class ActivitySyncManager {
 
   /** Initialize the manager and load cached data */
   async initialize(): Promise<void> {
-    if (this.isInitialized) return;
+    // Prevent concurrent initialization
+    if (this.isInitializing || this.isInitialized) {
+      return;
+    }
 
+    this.isInitializing = true;
     this.setProgress({ completed: 0, total: 0, status: 'loading', message: 'Loading cached data...' });
 
     try {
@@ -118,6 +124,7 @@ class ActivitySyncManager {
       }
 
       this.isInitialized = true;
+      this.isInitializing = false;
       this.setProgress({ completed: 0, total: 0, status: 'idle' });
 
       // Check for interrupted sync and resume
@@ -140,6 +147,7 @@ class ActivitySyncManager {
         await this.syncDateRange(formatLocalDate(daysAgo), formatLocalDate(today), false);
       }
     } catch {
+      this.isInitializing = false;
       this.setProgress({ completed: 0, total: 0, status: 'error', message: 'Failed to initialize' });
     }
   }
@@ -237,6 +245,8 @@ class ActivitySyncManager {
     this.cancelSync();
     // Don't clear OLDEST_DATE_KEY - that's API metadata for timeline extent, not cache
     await AsyncStorage.multiRemove([CACHE_KEY, SYNC_CHECKPOINT_KEY]);
+    // Also clear GPS tracks stored separately
+    await clearAllGpsTracks();
     this.cache = null;
     activitySpatialIndex.clear();
     this.notifyCacheListeners();
@@ -358,59 +368,72 @@ class ActivitySyncManager {
     syncId: number
   ): Promise<void> {
     const isCancelled = () => abortController.signal.aborted || syncId !== this.currentSyncId;
-    const concurrency = RATE_LIMIT.DEFAULT_CONCURRENCY;
     const newEntries: Record<string, ActivityBoundsItem> = {};
-    let completed = 0;
     const pendingIds = activities.map(a => a.id);
+    const activityMap = new Map(activities.map(a => [a.id, a]));
 
-    for (let i = 0; i < activities.length; i += concurrency) {
-      if (isCancelled()) break;
-
-      const batch = activities.slice(i, i + concurrency);
-      const batchIds = batch.map(a => a.id);
-
-      try {
-        const batchResults = await intervalsApi.getActivityMapBounds(
-          batchIds,
-          concurrency,
-          undefined,
-          abortController.signal
-        );
-
-        for (const activity of batch) {
-          const mapData = batchResults.get(activity.id);
-          if (mapData?.bounds) {
-            newEntries[activity.id] = buildCacheEntry(activity, mapData.bounds);
-          }
-          // Remove from pending
-          const idx = pendingIds.indexOf(activity.id);
-          if (idx >= 0) pendingIds.splice(idx, 1);
-        }
-
-        completed += batchIds.length;
-
-        // Save partial results and checkpoint after each batch
-        if (Object.keys(newEntries).length > 0 && !isCancelled()) {
-          await this.savePartialResults(newEntries, oldestDate);
-          await this.updateCheckpointPendingIds(pendingIds);
-
+    try {
+      // Fetch ALL activities in one call - adaptive rate limiter handles concurrency
+      const allIds = activities.map(a => a.id);
+      const results = await intervalsApi.getActivityMapBounds(
+        allIds,
+        0, // Ignored - adaptive rate limiter controls concurrency
+        (completed, total) => {
+          // Progress callback - just update UI (can't save here, results not available yet)
           this.setProgress({
             completed,
-            total: activities.length,
+            total,
             status: 'syncing',
-            message: `Syncing ${completed}/${activities.length} activities...`,
+            message: `Syncing ${completed}/${total} activities...`,
           });
-        }
-      } catch (error) {
-        const isAbortError = error instanceof Error && error.name === 'AbortError';
-        if (isAbortError || isCancelled()) {
-          // Save what we have before exiting
-          if (Object.keys(newEntries).length > 0) {
-            await this.savePartialResults(newEntries, oldestDate);
+        },
+        abortController.signal
+      );
+
+      // Process all results - store GPS tracks separately to avoid size limits
+      const gpsTracks = new Map<string, [number, number][]>();
+
+      for (const activity of activities) {
+        const mapData = results.get(activity.id);
+        if (mapData?.bounds) {
+          // Store bounds/metadata in main cache (small)
+          newEntries[activity.id] = buildCacheEntry(activity, mapData.bounds);
+
+          // Collect GPS tracks for separate storage (large)
+          if (mapData.latlngs && mapData.latlngs.length > 0) {
+            const cleanLatlngs = mapData.latlngs.filter((p): p is [number, number] => p !== null);
+            if (cleanLatlngs.length > 0) {
+              gpsTracks.set(activity.id, cleanLatlngs);
+            }
           }
-          throw error;
         }
-        // Non-abort error - continue with next batch
+        const idx = pendingIds.indexOf(activity.id);
+        if (idx >= 0) pendingIds.splice(idx, 1);
+      }
+
+      // Final save - GPS tracks stored separately to avoid AsyncStorage size limits
+      if (Object.keys(newEntries).length > 0 && !isCancelled()) {
+        // Store GPS tracks first (in batches, won't exceed size limit)
+        if (gpsTracks.size > 0) {
+          await storeGpsTracks(gpsTracks);
+        }
+
+        // Store metadata cache (small, fast)
+        await this.savePartialResults(newEntries, oldestDate);
+        await this.updateCheckpointPendingIds(pendingIds);
+      }
+    } catch (error) {
+      const isAbortError = error instanceof Error && error.name === 'AbortError';
+      if (isAbortError || isCancelled()) {
+        // Save what we have before exiting
+        if (Object.keys(newEntries).length > 0) {
+          await this.savePartialResults(newEntries, oldestDate);
+        }
+        throw error;
+      }
+      // Non-abort error - save partial and continue
+      if (Object.keys(newEntries).length > 0) {
+        await this.savePartialResults(newEntries, oldestDate);
       }
     }
   }

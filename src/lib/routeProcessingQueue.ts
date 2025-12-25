@@ -38,14 +38,15 @@ import {
 } from './routeStorage';
 import { findActivitiesWithPotentialMatchesFast } from './activityBoundsUtils';
 import { activitySpatialIndex } from './spatialIndex';
+import { getGpsTracks } from './gpsStorage';
 import { generateRouteName } from './geocoding';
-import NativeRouteMatcher from 'route-matcher-native';
+import NativeRouteMatcher, { createSignaturesFlatBuffer } from 'route-matcher-native';
 import type { RouteSignature as NativeRouteSignature, RouteGroup as NativeRouteGroup, GpsPoint, GpsTrack } from 'route-matcher-native';
 
 /** Batch size for parallel processing */
-const BATCH_SIZE = 30;
-/** Max concurrent API requests (API allows 30/s, use 10 for better throughput) */
-const MAX_CONCURRENT = 10;
+const BATCH_SIZE = 50;
+/** Max concurrent API requests (API allows 30/s, use 20 for faster throughput) */
+const MAX_CONCURRENT = 20;
 
 /**
  * Process items in parallel with concurrency limit and progress callback.
@@ -188,24 +189,38 @@ function generateRouteSignaturesBatch(
   gpsDataList: GpsData[],
   config: Record<string, unknown> = {}
 ): RouteSignature[] {
-  // Convert to GpsTracks for Rust
-  const tracks: GpsTrack[] = gpsDataList.map(({ activityId, latlngs }) => ({
-    activityId,
-    points: latlngs
-      .filter(([lat, lng]) => {
-        const validLat = typeof lat === 'number' && !isNaN(lat) && lat >= -90 && lat <= 90;
-        const validLng = typeof lng === 'number' && !isNaN(lng) && lng >= -180 && lng <= 180;
-        return validLat && validLng;
-      })
-      .map(([lat, lng]) => ({ latitude: lat, longitude: lng })),
-  })).filter(track => track.points.length >= 2);
+  // OPTIMIZED: Pack coordinates into flat buffers to avoid GpsPoint object serialization
+  const activityIds: string[] = [];
+  const allCoords: number[] = [];
+  const offsets: number[] = [];
 
-  if (tracks.length === 0) return [];
+  for (const { activityId, latlngs } of gpsDataList) {
+    // Filter valid points and count them
+    const validPoints: number[] = [];
+    for (const [lat, lng] of latlngs) {
+      const validLat = typeof lat === 'number' && !isNaN(lat) && lat >= -90 && lat <= 90;
+      const validLng = typeof lng === 'number' && !isNaN(lng) && lng >= -180 && lng <= 180;
+      if (validLat && validLng) {
+        validPoints.push(lat, lng); // Flat: [lat, lng, lat, lng, ...]
+      }
+    }
 
-  console.log(`🦀🦀🦀 [RouteMatcher] Batch processing ${tracks.length} tracks...`);
+    // Only include tracks with at least 2 valid points (4 coords)
+    if (validPoints.length >= 4) {
+      activityIds.push(activityId);
+      offsets.push(allCoords.length);
+      // Push all coords into the single flat buffer
+      allCoords.push(...validPoints);
+    }
+  }
 
-  // Call Rust batch processing - parallel in Rust!
-  const nativeSignatures = NativeRouteMatcher.createSignaturesBatch(tracks, config);
+  if (activityIds.length === 0) return [];
+
+  console.log(`🦀🦀🦀 [RouteMatcher] Batch processing ${activityIds.length} tracks (${allCoords.length} coords in flat buffer)...`);
+
+  // Call Rust with flat buffer - avoids GpsPoint object serialization overhead!
+  // This is ~3x faster than the object format for large batches
+  const nativeSignatures = createSignaturesFlatBuffer(activityIds, allCoords, offsets, config);
 
   // Convert to app format with computed metadata
   return nativeSignatures.map(nativeSig => {
@@ -276,8 +291,8 @@ function matchRoutes(
     return null;
   }
 
-  // Map Rust direction to app direction ('forward' -> 'same')
-  const direction: MatchDirection = result.direction === 'forward' ? 'same' : result.direction as MatchDirection;
+  // Rust now returns 'same' | 'reverse' | 'partial' directly
+  const direction: MatchDirection = result.direction as MatchDirection;
 
   return {
     matchPercentage: result.matchPercentage,
@@ -612,6 +627,7 @@ class RouteProcessingQueue {
     // Pre-filter using bounding boxes to identify potential matches
     let candidateIds: string[] = [];
     if (boundsData && boundsData.length > 0) {
+      const preFilterStart = Date.now();
       this.setProgress({
         status: 'filtering',
         current: 0,
@@ -622,8 +638,10 @@ class RouteProcessingQueue {
 
       // Build spatial index if not ready (ensures O(n log n) instead of O(n²))
       if (!activitySpatialIndex.ready) {
+        const indexStart = Date.now();
         console.log(`[RouteProcessing] Building spatial index from ${boundsData.length} bounds`);
         activitySpatialIndex.buildFromActivities(boundsData);
+        console.log(`⏱️ [Timing] Spatial index build took ${Date.now() - indexStart}ms`);
       }
 
       // Only consider activities that have cached bounds
@@ -638,7 +656,9 @@ class RouteProcessingQueue {
       const candidateSet = findActivitiesWithPotentialMatchesFast(unprocessedSet, boundsData);
       candidateIds = unprocessedWithBounds.filter((id) => candidateSet.has(id));
 
+      const preFilterElapsed = Date.now() - preFilterStart;
       console.log(`[RouteProcessing] Candidates after filtering: ${candidateIds.length}`);
+      console.log(`⏱️ [Timing] Pre-filtering took ${preFilterElapsed}ms`);
 
       this.setProgress({
         status: 'filtering',
@@ -685,8 +705,8 @@ class RouteProcessingQueue {
     }
     await this.saveCheckpoint({ pendingIds: candidateIds, metadata: pendingMetadata, timestamp: new Date().toISOString() });
 
-    // Start processing only the candidates
-    await this.processActivities(candidateIds, metadata);
+    // Start processing only the candidates - pass boundsData for cached GPS
+    await this.processActivities(candidateIds, metadata, boundsData);
 
     // After processing completes, check if there's a pending queue
     await this.processPendingQueue();
@@ -815,7 +835,8 @@ class RouteProcessingQueue {
 
   private async processActivities(
     activityIds: string[],
-    metadata: Record<string, { name: string; date: string; type: ActivityType; hasGps: boolean }>
+    metadata: Record<string, { name: string; date: string; type: ActivityType; hasGps: boolean }>,
+    boundsData?: ActivityBoundsItem[]
   ): Promise<void> {
     if (this.isProcessing) return;
     this.isProcessing = true;
@@ -858,11 +879,14 @@ class RouteProcessingQueue {
       }
     }
 
+    // Build lookup map for cached GPS data
+    const boundsById = new Map(boundsData?.map(b => [b.id, b]) || []);
+
     this.setProgress({
-      status: 'fetching',
+      status: 'processing',
       current: 0,
       total,
-      message: `Fetching GPS for ${total} candidates...`,
+      message: `Processing ${total} candidates using cached GPS...`,
       processedActivities: processedActivities.slice(-10),
       matchesFound: 0,
       discoveredRoutes: [],
@@ -870,10 +894,14 @@ class RouteProcessingQueue {
     });
 
     try {
-      // Process in batches for much faster throughput
-      // - Parallel API fetching (5 concurrent)
-      // - Batch signature creation in Rust (parallel with rayon)
-      console.log(`🚀 [RouteProcessing] Starting batch processing: ${activityIds.length} activities, batch size ${BATCH_SIZE}, ${MAX_CONCURRENT} concurrent fetches`);
+      // Process in batches using CACHED GPS data (no API fetching!)
+      console.log(`🚀 [RouteProcessing] Starting batch processing: ${activityIds.length} activities, batch size ${BATCH_SIZE} (using cached GPS)`);
+      const totalStartTime = Date.now();
+      let totalFetchTime = 0;
+      let totalSignatureTime = 0;
+      let totalCacheSaveTime = 0;
+      let cachedHits = 0;
+      let apiFetches = 0;
 
       for (let batchStart = 0; batchStart < activityIds.length && !this.shouldCancel; batchStart += BATCH_SIZE) {
         const batchEnd = Math.min(batchStart + BATCH_SIZE, activityIds.length);
@@ -893,7 +921,7 @@ class RouteProcessingQueue {
           status: 'processing',
           current: processed,
           total,
-          message: `Batch ${batchNum}/${totalBatches}: Fetching ${batchIds.length} GPS streams...`,
+          message: `Batch ${batchNum}/${totalBatches}: Processing ${batchIds.length} activities...`,
           processedActivities: [...processedActivities],
           matchesFound,
           discoveredRoutes: routeUnion.getRoutes(),
@@ -905,56 +933,71 @@ class RouteProcessingQueue {
           InteractionManager.runAfterInteractions(() => resolve());
         });
 
-        // Fetch GPS streams in parallel (5 concurrent) with real-time progress
+        // Use cached GPS data from separate storage (avoids AsyncStorage size limits)
         const gpsDataList: GpsData[] = [];
-        let batchFetched = 0;
-        const fetchResults = await parallelMap(
-          batchIds,
-          async (id) => {
-            try {
-              const streams = await intervalsApi.getActivityStreams(id, ['latlng']);
-              const latlngs = streams.latlng;
-              if (latlngs && latlngs.length > 0) {
-                return { activityId: id, latlngs };
-              }
-              return null;
-            } catch {
-              return null;
-            }
-          },
-          MAX_CONCURRENT,
-          (completedInBatch) => {
-            // Real-time progress update within batch
-            batchFetched = completedInBatch;
-            this.setProgress({
-              status: 'processing',
-              current: processed + batchFetched,
-              total,
-              message: `Fetching GPS: ${processed + batchFetched}/${total}`,
-              processedActivities: [...processedActivities],
-              matchesFound,
-              discoveredRoutes: routeUnion.getRoutes(),
-              cachedSignatureCount: cachedSignatureCount + newSignatures.length,
-            });
+        const fetchStartTime = Date.now();
+        const needsFetch: string[] = [];
+
+        // Fetch GPS tracks from separate storage (batched for efficiency)
+        const cachedGps = await getGpsTracks(batchIds);
+        for (const id of batchIds) {
+          const latlngs = cachedGps.get(id);
+          if (latlngs && latlngs.length > 0) {
+            gpsDataList.push({ activityId: id, latlngs });
+            cachedHits++;
+          } else {
+            needsFetch.push(id);
           }
-        );
+        }
 
-        // Collect successful fetches
-        for (let i = 0; i < batchIds.length; i++) {
-          const id = batchIds[i];
-          const result = fetchResults[i];
+        // Fetch any missing GPS data from API (should be rare after sync)
+        if (needsFetch.length > 0) {
+          console.log(`⏱️ [Timing] Batch ${batchNum}: ${needsFetch.length} activities need API fetch (not in cache)`);
+          apiFetches += needsFetch.length;
+          const fetchResults = await parallelMap(
+            needsFetch,
+            async (id) => {
+              try {
+                const streams = await intervalsApi.getActivityStreams(id, ['latlng']);
+                const latlngs = streams.latlng;
+                if (latlngs && latlngs.length > 0) {
+                  return { activityId: id, latlngs };
+                }
+                return null;
+              } catch {
+                return null;
+              }
+            },
+            MAX_CONCURRENT
+          );
+
+          for (const result of fetchResults) {
+            if (result) {
+              gpsDataList.push(result);
+            }
+          }
+        }
+
+        const fetchElapsed = Date.now() - fetchStartTime;
+        totalFetchTime += fetchElapsed;
+        console.log(`⏱️ [Timing] Batch ${batchNum}: GPS lookup took ${fetchElapsed}ms (${gpsDataList.length} from cache, ${needsFetch.length} from API)`);
+
+        // Update activity statuses
+        const gpsDataIds = new Set(gpsDataList.map(g => g.activityId));
+        for (const id of batchIds) {
           const activityStatus = processedActivities.find(a => a.id === id);
-
-          if (result) {
-            gpsDataList.push(result);
-          } else if (activityStatus) {
+          if (activityStatus && !gpsDataIds.has(id)) {
             activityStatus.status = 'error';
           }
         }
 
         // Create signatures in batch using Rust parallel processing
         if (gpsDataList.length > 0) {
+          const sigStartTime = Date.now();
           const batchSignatures = generateRouteSignaturesBatch(gpsDataList);
+          const sigElapsed = Date.now() - sigStartTime;
+          totalSignatureTime += sigElapsed;
+          console.log(`⏱️ [Timing] Batch ${batchNum}: Signature creation took ${sigElapsed}ms for ${gpsDataList.length} tracks`);
 
           for (const signature of batchSignatures) {
             newSignatures.push(signature);
@@ -1003,8 +1046,12 @@ class RouteProcessingQueue {
 
         // Save signatures after each batch
         if (newSignatures.length > 0 && this.cache) {
+          const saveStartTime = Date.now();
           this.cache = addSignaturesToCache(this.cache, newSignatures);
           await saveRouteCache(this.cache);
+          const saveElapsed = Date.now() - saveStartTime;
+          totalCacheSaveTime += saveElapsed;
+          console.log(`⏱️ [Timing] Batch ${batchNum}: Cache save took ${saveElapsed}ms`);
           this.notifyCacheListeners();
         }
 
@@ -1017,10 +1064,20 @@ class RouteProcessingQueue {
 
       // Save remaining signatures
       if (newSignatures.length > 0 && this.cache) {
+        const saveStartTime = Date.now();
         this.cache = addSignaturesToCache(this.cache, newSignatures);
         await saveRouteCache(this.cache);
+        totalCacheSaveTime += Date.now() - saveStartTime;
         this.notifyCacheListeners();
       }
+
+      const batchPhaseElapsed = Date.now() - totalStartTime;
+      console.log(`⏱️ [Timing] === BATCH PHASE COMPLETE ===`);
+      console.log(`⏱️ [Timing] Total batch phase: ${batchPhaseElapsed}ms`);
+      console.log(`⏱️ [Timing]   - GPS lookup: ${totalFetchTime}ms (${Math.round(totalFetchTime / batchPhaseElapsed * 100)}%) - ${cachedHits} cached, ${apiFetches} API`);
+      console.log(`⏱️ [Timing]   - Signature creation: ${totalSignatureTime}ms (${Math.round(totalSignatureTime / batchPhaseElapsed * 100)}%)`);
+      console.log(`⏱️ [Timing]   - Cache saves: ${totalCacheSaveTime}ms (${Math.round(totalCacheSaveTime / batchPhaseElapsed * 100)}%)`);
+      console.log(`⏱️ [Timing]   - Other overhead: ${batchPhaseElapsed - totalFetchTime - totalSignatureTime - totalCacheSaveTime}ms`);
 
       if (this.shouldCancel) {
         this.setProgress({ status: 'idle', current: processed, total });
@@ -1045,6 +1102,8 @@ class RouteProcessingQueue {
       await new Promise(resolve => setTimeout(resolve, 50));
 
       if (this.cache && newSignatures.length > 0) {
+        const groupingStartTime = Date.now();
+
         // Get existing signatures (already processed before this batch)
         const existingSignatures = Object.values(this.cache.signatures).filter(
           sig => !newSignatures.some(newSig => newSig.activityId === sig.activityId)
@@ -1053,6 +1112,7 @@ class RouteProcessingQueue {
         // Only group new signatures with each other AND with existing ones
         // This avoids O(n²) on the entire dataset when adding a few new activities
         const signaturesToGroup = [...existingSignatures, ...newSignatures];
+        console.log(`⏱️ [Timing] Starting grouping: ${signaturesToGroup.length} signatures (${existingSignatures.length} existing + ${newSignatures.length} new)`);
         const groups = await groupSignatures(signaturesToGroup, {}, (completed, total) => {
           // Update progress during grouping to show the UI is responsive
           if (completed % 1000 === 0 || completed === total) {
@@ -1084,7 +1144,11 @@ class RouteProcessingQueue {
         // Allow UI to update
         await new Promise(resolve => setTimeout(resolve, 50));
 
+        const groupingElapsed = Date.now() - groupingStartTime;
+        console.log(`⏱️ [Timing] Grouping took ${groupingElapsed}ms for ${groups.size} groups`);
+
         // Update cache with groups
+        const finalSaveStart = Date.now();
         const metadataForGroups: Record<string, { name: string; date: string; type: ActivityType }> = {};
         for (const [id, meta] of Object.entries(metadata)) {
           metadataForGroups[id] = { name: meta.name, date: meta.date, type: meta.type };
@@ -1092,6 +1156,8 @@ class RouteProcessingQueue {
 
         this.cache = updateRouteGroups(this.cache, groups, metadataForGroups);
         await saveRouteCache(this.cache);
+        const finalSaveElapsed = Date.now() - finalSaveStart;
+        console.log(`⏱️ [Timing] Final cache save took ${finalSaveElapsed}ms`);
         this.notifyCacheListeners();
 
         // Geocode routes with "Unknown Route" names in background (non-blocking)
