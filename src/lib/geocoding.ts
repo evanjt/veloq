@@ -4,6 +4,9 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { debug } from './debug';
+
+const log = debug.create('Geocoding');
 
 const NOMINATIM_BASE_URL = 'https://nominatim.openstreetmap.org';
 const GEOCODE_CACHE_KEY = 'veloq_geocode_cache';
@@ -178,7 +181,7 @@ export async function reverseGeocode(lat: number, lng: number): Promise<string |
     });
 
     if (!response.ok) {
-      console.warn(`[Geocoding] Nominatim returned ${response.status}`);
+      log.warn(`Nominatim returned ${response.status}`);
       return null;
     }
 
@@ -197,7 +200,7 @@ export async function reverseGeocode(lat: number, lng: number): Promise<string |
 
     return name;
   } catch (error) {
-    console.warn('[Geocoding] Failed to reverse geocode:', error);
+    log.warn('Failed to reverse geocode:', error);
     return null;
   }
 }

@@ -15,15 +15,15 @@ cd "$PROJECT_DIR"
 
 # Build for iOS device (arm64)
 echo "Building for aarch64-apple-ios (device)..."
-cargo build --release --target aarch64-apple-ios --features ffi,parallel
+cargo build --release --target aarch64-apple-ios --features full
 
 # Build for iOS simulator (arm64 - Apple Silicon)
 echo "Building for aarch64-apple-ios-sim (Apple Silicon simulator)..."
-cargo build --release --target aarch64-apple-ios-sim --features ffi,parallel
+cargo build --release --target aarch64-apple-ios-sim --features full
 
 # Build for iOS simulator (x86_64 - Intel)
 echo "Building for x86_64-apple-ios (Intel simulator)..."
-cargo build --release --target x86_64-apple-ios --features ffi,parallel
+cargo build --release --target x86_64-apple-ios --features full
 
 # Create output directory
 mkdir -p "$OUTPUT_DIR"

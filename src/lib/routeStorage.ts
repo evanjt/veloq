@@ -13,6 +13,9 @@ import type {
   RoutePoint,
 } from '@/types';
 import { matchRoutes, calculateConsensusRoute } from './routeMatching';
+import { debug } from './debug';
+
+const log = debug.create('RouteStorage');
 
 // Storage keys
 const ROUTE_CACHE_KEY = 'veloq_route_match_cache';
@@ -98,23 +101,23 @@ export async function loadRouteCache(): Promise<RouteMatchCache | null> {
   try {
     const cached = await AsyncStorage.getItem(ROUTE_CACHE_KEY);
     if (!cached) {
-      console.log('[RouteStorage] No route cache found');
+      log.log('No route cache found');
       return null;
     }
 
-    console.log(`[RouteStorage] Loading route cache: ${cached.length} bytes`);
+    log.log(`Loading route cache: ${cached.length} bytes`);
     const data: RouteMatchCache = JSON.parse(cached);
 
     // Version check - if outdated, return null to force rebuild
     if (data.version !== ROUTE_CACHE_VERSION) {
-      console.log(`[RouteStorage] Cache version mismatch: ${data.version} vs ${ROUTE_CACHE_VERSION}`);
+      log.log(`Cache version mismatch: ${data.version} vs ${ROUTE_CACHE_VERSION}`);
       return null;
     }
 
-    console.log(`[RouteStorage] Loaded ${data.processedActivityIds.length} processed activities, ${data.groups.length} groups`);
+    log.log(`Loaded ${data.processedActivityIds.length} processed activities, ${data.groups.length} groups`);
     return data;
   } catch (error) {
-    console.error('[RouteStorage] Failed to load route cache:', error);
+    log.error('Failed to load route cache:', error);
     return null;
   }
 }
@@ -159,10 +162,10 @@ export async function saveRouteCache(cache: RouteMatchCache): Promise<void> {
     // Create lite version for storage
     const liteCache = createLiteCache(cache);
     const data = JSON.stringify(liteCache);
-    console.log(`[RouteStorage] Saving route cache: ${data.length} bytes (lite), ${cache.processedActivityIds.length} activities, ${cache.groups.length} groups`);
+    log.log(`Saving route cache: ${data.length} bytes (lite), ${cache.processedActivityIds.length} activities, ${cache.groups.length} groups`);
     await AsyncStorage.setItem(ROUTE_CACHE_KEY, data);
   } catch (error) {
-    console.error('[RouteStorage] Failed to save route cache:', error);
+    log.error('Failed to save route cache:', error);
   }
 }
 

@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import * as SecureStore from 'expo-secure-store';
+import type { Athlete } from '@/types';
 
 const API_KEY_STORAGE_KEY = 'intervals_api_key';
 const ATHLETE_ID_STORAGE_KEY = 'intervals_athlete_id';
@@ -7,6 +8,7 @@ const ATHLETE_ID_STORAGE_KEY = 'intervals_athlete_id';
 interface AuthState {
   apiKey: string | null;
   athleteId: string | null;
+  athlete: Athlete | null;
   isLoading: boolean;
   isAuthenticated: boolean;
 
@@ -14,11 +16,13 @@ interface AuthState {
   initialize: () => Promise<void>;
   setCredentials: (apiKey: string, athleteId: string) => Promise<void>;
   clearCredentials: () => Promise<void>;
+  setAthlete: (athlete: Athlete) => void;
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
   apiKey: null,
   athleteId: null,
+  athlete: null,
   isLoading: true,
   isAuthenticated: false,
 
@@ -73,11 +77,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       set({
         apiKey: null,
         athleteId: null,
+        athlete: null,
         isAuthenticated: false,
       });
     } catch (error) {
       throw error;
     }
+  },
+
+  setAthlete: (athlete: Athlete) => {
+    set({ athlete });
   },
 }));
 

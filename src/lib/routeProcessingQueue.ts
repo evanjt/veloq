@@ -36,6 +36,19 @@ import {
   addMatchToCache,
   getUnprocessedActivityIds,
 } from './routeStorage';
+import { debug } from './debug';
+
+const log = debug.create('RouteProcessing');
+
+/**
+ * Safely extract error message from unknown error type.
+ * Handles Error objects, strings, and unknown types.
+ */
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  if (typeof error === 'string') return error;
+  return 'Unknown error';
+}
 import { findActivitiesWithPotentialMatchesFast } from './activityBoundsUtils';
 import { activitySpatialIndex } from './spatialIndex';
 import { getGpsTracks } from './gpsStorage';
@@ -122,7 +135,7 @@ function generateRouteSignature(
     .map(([lat, lng]) => ({ latitude: lat, longitude: lng }));
 
   if (points.length < 2) {
-    console.warn(`🦀 [RouteMatcher] Not enough valid points for ${activityId}: ${points.length}`);
+    log.warn(`Not enough valid points for ${activityId}: ${points.length}`);
     return null;
   }
 
@@ -130,7 +143,7 @@ function generateRouteSignature(
   const nativeSig = NativeRouteMatcher.createSignature(activityId, points, config);
 
   if (!nativeSig) {
-    console.warn(`🦀 [RouteMatcher] Rust createSignature returned null for ${activityId}`);
+    log.warn(`Rust createSignature returned null for ${activityId}`);
     return null;
   }
 
@@ -216,7 +229,7 @@ function generateRouteSignaturesBatch(
 
   if (activityIds.length === 0) return [];
 
-  console.log(`🦀🦀🦀 [RouteMatcher] Batch processing ${activityIds.length} tracks (${allCoords.length} coords in flat buffer)...`);
+  log.log(`Batch processing ${activityIds.length} tracks (${allCoords.length} coords in flat buffer)...`);
 
   // Call Rust with flat buffer - avoids GpsPoint object serialization overhead!
   // This is ~3x faster than the object format for large batches
@@ -604,7 +617,7 @@ class RouteProcessingQueue {
   ): Promise<void> {
     // If already processing, queue this request for later
     if (this.isProcessing) {
-      console.log(`[RouteProcessing] Already processing, queuing ${activityIds.length} activities for later`);
+      log.log(`Already processing, queuing ${activityIds.length} activities for later`);
       this.pendingQueue = { activityIds, metadata, boundsData };
       return;
     }
@@ -639,16 +652,16 @@ class RouteProcessingQueue {
       // Build spatial index if not ready (ensures O(n log n) instead of O(n²))
       if (!activitySpatialIndex.ready) {
         const indexStart = Date.now();
-        console.log(`[RouteProcessing] Building spatial index from ${boundsData.length} bounds`);
+        log.log(`Building spatial index from ${boundsData.length} bounds`);
         activitySpatialIndex.buildFromActivities(boundsData);
-        console.log(`⏱️ [Timing] Spatial index build took ${Date.now() - indexStart}ms`);
+        log.log(`Spatial index build took ${Date.now() - indexStart}ms`);
       }
 
       // Only consider activities that have cached bounds
       const boundsById = new Map(boundsData.map(b => [b.id, b]));
       const unprocessedWithBounds = unprocessedIds.filter(id => boundsById.has(id));
 
-      console.log(`[RouteProcessing] Total unprocessed: ${unprocessedIds.length}, with bounds: ${unprocessedWithBounds.length}`);
+      log.log(`Total unprocessed: ${unprocessedIds.length}, with bounds: ${unprocessedWithBounds.length}`);
 
       // Find activities with overlapping bounds (potential route matches)
       // Uses spatial index for O(n log n) instead of O(n²)
@@ -657,8 +670,8 @@ class RouteProcessingQueue {
       candidateIds = unprocessedWithBounds.filter((id) => candidateSet.has(id));
 
       const preFilterElapsed = Date.now() - preFilterStart;
-      console.log(`[RouteProcessing] Candidates after filtering: ${candidateIds.length}`);
-      console.log(`⏱️ [Timing] Pre-filtering took ${preFilterElapsed}ms`);
+      log.log(`Candidates after filtering: ${candidateIds.length}`);
+      log.log(`Pre-filtering took ${preFilterElapsed}ms`);
 
       this.setProgress({
         status: 'filtering',
@@ -686,7 +699,7 @@ class RouteProcessingQueue {
       }
     } else {
       // No bounds data - can't pre-filter, skip processing
-      console.log(`[RouteProcessing] No bounds data available, skipping processing`);
+      log.log(`No bounds data available, skipping processing`);
       this.setProgress({
         status: 'complete',
         current: 0,
@@ -717,7 +730,7 @@ class RouteProcessingQueue {
     if (this.pendingQueue) {
       const { activityIds, metadata, boundsData } = this.pendingQueue;
       this.pendingQueue = null;
-      console.log(`[RouteProcessing] Processing pending queue of ${activityIds.length} activities`);
+      log.log(`Processing pending queue of ${activityIds.length} activities`);
       await this.queueActivities(activityIds, metadata, boundsData);
     }
   }
@@ -754,7 +767,7 @@ class RouteProcessingQueue {
       const signature = generateRouteSignature(activityId, latlngs);
 
       if (!signature) {
-        console.warn(`🦀 [RouteMatcher] Failed to generate signature for ${activityId}`);
+        log.warn(`Failed to generate signature for ${activityId}`);
         return;
       }
 
@@ -798,11 +811,13 @@ class RouteProcessingQueue {
 
       this.setProgress({ status: 'complete', current: 1, total: 1 });
     } catch (error) {
+      const errorMsg = getErrorMessage(error);
+      log.error(`Failed to process activity ${activityId}: ${errorMsg}`);
       this.setProgress({
         status: 'error',
         current: 0,
         total: 1,
-        message: error instanceof Error ? error.message : 'Failed to process activity',
+        message: errorMsg,
       });
     }
   }
@@ -895,7 +910,7 @@ class RouteProcessingQueue {
 
     try {
       // Process in batches using CACHED GPS data (no API fetching!)
-      console.log(`🚀 [RouteProcessing] Starting batch processing: ${activityIds.length} activities, batch size ${BATCH_SIZE} (using cached GPS)`);
+      log.log(`Starting batch processing: ${activityIds.length} activities, batch size ${BATCH_SIZE} (using cached GPS)`);
       const totalStartTime = Date.now();
       let totalFetchTime = 0;
       let totalSignatureTime = 0;
@@ -952,7 +967,7 @@ class RouteProcessingQueue {
 
         // Fetch any missing GPS data from API (should be rare after sync)
         if (needsFetch.length > 0) {
-          console.log(`⏱️ [Timing] Batch ${batchNum}: ${needsFetch.length} activities need API fetch (not in cache)`);
+          log.log(`Batch ${batchNum}: ${needsFetch.length} activities need API fetch (not in cache)`);
           apiFetches += needsFetch.length;
           const fetchResults = await parallelMap(
             needsFetch,
@@ -964,7 +979,8 @@ class RouteProcessingQueue {
                   return { activityId: id, latlngs };
                 }
                 return null;
-              } catch {
+              } catch (error) {
+                log.warn(`Failed to fetch GPS for ${id}: ${getErrorMessage(error)}`);
                 return null;
               }
             },
@@ -980,7 +996,7 @@ class RouteProcessingQueue {
 
         const fetchElapsed = Date.now() - fetchStartTime;
         totalFetchTime += fetchElapsed;
-        console.log(`⏱️ [Timing] Batch ${batchNum}: GPS lookup took ${fetchElapsed}ms (${gpsDataList.length} from cache, ${needsFetch.length} from API)`);
+        log.log(`Batch ${batchNum}: GPS lookup took ${fetchElapsed}ms (${gpsDataList.length} from cache, ${needsFetch.length} from API)`);
 
         // Update activity statuses
         const gpsDataIds = new Set(gpsDataList.map(g => g.activityId));
@@ -997,7 +1013,7 @@ class RouteProcessingQueue {
           const batchSignatures = generateRouteSignaturesBatch(gpsDataList);
           const sigElapsed = Date.now() - sigStartTime;
           totalSignatureTime += sigElapsed;
-          console.log(`⏱️ [Timing] Batch ${batchNum}: Signature creation took ${sigElapsed}ms for ${gpsDataList.length} tracks`);
+          log.log(`Batch ${batchNum}: Signature creation took ${sigElapsed}ms for ${gpsDataList.length} tracks`);
 
           for (const signature of batchSignatures) {
             newSignatures.push(signature);
@@ -1051,7 +1067,7 @@ class RouteProcessingQueue {
           await saveRouteCache(this.cache);
           const saveElapsed = Date.now() - saveStartTime;
           totalCacheSaveTime += saveElapsed;
-          console.log(`⏱️ [Timing] Batch ${batchNum}: Cache save took ${saveElapsed}ms`);
+          log.log(`Batch ${batchNum}: Cache save took ${saveElapsed}ms`);
           this.notifyCacheListeners();
         }
 
@@ -1072,12 +1088,12 @@ class RouteProcessingQueue {
       }
 
       const batchPhaseElapsed = Date.now() - totalStartTime;
-      console.log(`⏱️ [Timing] === BATCH PHASE COMPLETE ===`);
-      console.log(`⏱️ [Timing] Total batch phase: ${batchPhaseElapsed}ms`);
-      console.log(`⏱️ [Timing]   - GPS lookup: ${totalFetchTime}ms (${Math.round(totalFetchTime / batchPhaseElapsed * 100)}%) - ${cachedHits} cached, ${apiFetches} API`);
-      console.log(`⏱️ [Timing]   - Signature creation: ${totalSignatureTime}ms (${Math.round(totalSignatureTime / batchPhaseElapsed * 100)}%)`);
-      console.log(`⏱️ [Timing]   - Cache saves: ${totalCacheSaveTime}ms (${Math.round(totalCacheSaveTime / batchPhaseElapsed * 100)}%)`);
-      console.log(`⏱️ [Timing]   - Other overhead: ${batchPhaseElapsed - totalFetchTime - totalSignatureTime - totalCacheSaveTime}ms`);
+      log.log(`=== BATCH PHASE COMPLETE ===`);
+      log.log(`Total batch phase: ${batchPhaseElapsed}ms`);
+      log.log(`  - GPS lookup: ${totalFetchTime}ms (${Math.round(totalFetchTime / batchPhaseElapsed * 100)}%) - ${cachedHits} cached, ${apiFetches} API`);
+      log.log(`  - Signature creation: ${totalSignatureTime}ms (${Math.round(totalSignatureTime / batchPhaseElapsed * 100)}%)`);
+      log.log(`  - Cache saves: ${totalCacheSaveTime}ms (${Math.round(totalCacheSaveTime / batchPhaseElapsed * 100)}%)`);
+      log.log(`  - Other overhead: ${batchPhaseElapsed - totalFetchTime - totalSignatureTime - totalCacheSaveTime}ms`);
 
       if (this.shouldCancel) {
         this.setProgress({ status: 'idle', current: processed, total });
@@ -1112,7 +1128,7 @@ class RouteProcessingQueue {
         // Only group new signatures with each other AND with existing ones
         // This avoids O(n²) on the entire dataset when adding a few new activities
         const signaturesToGroup = [...existingSignatures, ...newSignatures];
-        console.log(`⏱️ [Timing] Starting grouping: ${signaturesToGroup.length} signatures (${existingSignatures.length} existing + ${newSignatures.length} new)`);
+        log.log(`Starting grouping: ${signaturesToGroup.length} signatures (${existingSignatures.length} existing + ${newSignatures.length} new)`);
         const groups = await groupSignatures(signaturesToGroup, {}, (completed, total) => {
           // Update progress during grouping to show the UI is responsive
           if (completed % 1000 === 0 || completed === total) {
@@ -1145,7 +1161,7 @@ class RouteProcessingQueue {
         await new Promise(resolve => setTimeout(resolve, 50));
 
         const groupingElapsed = Date.now() - groupingStartTime;
-        console.log(`⏱️ [Timing] Grouping took ${groupingElapsed}ms for ${groups.size} groups`);
+        log.log(`Grouping took ${groupingElapsed}ms for ${groups.size} groups`);
 
         // Update cache with groups
         const finalSaveStart = Date.now();
@@ -1157,7 +1173,7 @@ class RouteProcessingQueue {
         this.cache = updateRouteGroups(this.cache, groups, metadataForGroups);
         await saveRouteCache(this.cache);
         const finalSaveElapsed = Date.now() - finalSaveStart;
-        console.log(`⏱️ [Timing] Final cache save took ${finalSaveElapsed}ms`);
+        log.log(`Final cache save took ${finalSaveElapsed}ms`);
         this.notifyCacheListeners();
 
         // Geocode routes with "Unknown Route" names in background (non-blocking)
@@ -1187,11 +1203,13 @@ class RouteProcessingQueue {
         cachedSignatureCount: finalSignatureCount,
       });
     } catch (error) {
+      const errorMsg = getErrorMessage(error);
+      log.error(`Processing failed: ${errorMsg}`);
       this.setProgress({
         status: 'error',
         current: processed,
         total,
-        message: error instanceof Error ? error.message : 'Processing failed',
+        message: errorMsg,
         processedActivities: [...processedActivities],
         matchesFound,
         discoveredRoutes: routeUnion.getRoutes(),
@@ -1225,8 +1243,8 @@ class RouteProcessingQueue {
           if (latlngs && latlngs.length > 0) {
             return generateRouteSignature(id, latlngs);
           }
-        } catch {
-          // Skip failed fetches
+        } catch (error) {
+          log.warn(`Failed to process ${id}: ${getErrorMessage(error)}`);
         }
         return null;
       });
@@ -1243,8 +1261,8 @@ class RouteProcessingQueue {
   private async saveCheckpoint(checkpoint: ProcessingCheckpoint): Promise<void> {
     try {
       await AsyncStorage.setItem(ROUTE_PROCESSING_CHECKPOINT_KEY, JSON.stringify(checkpoint));
-    } catch {
-      // Silently fail
+    } catch (error) {
+      log.warn(`Failed to save checkpoint: ${getErrorMessage(error)}`);
     }
   }
 
@@ -1267,16 +1285,16 @@ class RouteProcessingQueue {
         checkpoint.timestamp = new Date().toISOString();
         await AsyncStorage.setItem(ROUTE_PROCESSING_CHECKPOINT_KEY, JSON.stringify(checkpoint));
       }
-    } catch {
-      // Silently fail
+    } catch (error) {
+      log.warn(`Failed to update checkpoint: ${getErrorMessage(error)}`);
     }
   }
 
   private async clearCheckpoint(): Promise<void> {
     try {
       await AsyncStorage.removeItem(ROUTE_PROCESSING_CHECKPOINT_KEY);
-    } catch {
-      // Silently fail
+    } catch (error) {
+      log.warn(`Failed to clear checkpoint: ${getErrorMessage(error)}`);
     }
   }
 
@@ -1290,7 +1308,7 @@ class RouteProcessingQueue {
       // Clear old checkpoints from before the pre-filter optimization
       // (they would have too many activities)
       if (checkpoint.pendingIds.length > 200) {
-        console.log(`[RouteProcessing] Clearing stale checkpoint with ${checkpoint.pendingIds.length} activities (pre-filter not applied)`);
+        log.log(`Clearing stale checkpoint with ${checkpoint.pendingIds.length} activities (pre-filter not applied)`);
         await this.clearCheckpoint();
         return;
       }
@@ -1301,7 +1319,7 @@ class RouteProcessingQueue {
           (id) => checkpoint.metadata[id] && !this.cache?.processedActivityIds.includes(id)
         );
 
-        console.log(`[RouteProcessing] Resuming from checkpoint: ${stillPending.length} of ${checkpoint.pendingIds.length} still pending`);
+        log.log(`Resuming from checkpoint: ${stillPending.length} of ${checkpoint.pendingIds.length} still pending`);
 
         if (stillPending.length > 0) {
           this.setProgress({
@@ -1317,8 +1335,8 @@ class RouteProcessingQueue {
           }, 1000);
         }
       }
-    } catch {
-      // Silently fail - clear invalid checkpoint
+    } catch (error) {
+      log.warn(`Failed to resume from checkpoint: ${getErrorMessage(error)}`);
       await this.clearCheckpoint();
     }
   }
@@ -1399,7 +1417,7 @@ class RouteProcessingQueue {
     const maxToGeocode = 5;
     const routesBatch = routesToGeocode.slice(0, maxToGeocode);
 
-    console.log(`[RouteProcessing] Geocoding ${routesBatch.length} of ${routesToGeocode.length} routes with unknown names`);
+    log.log(`Geocoding ${routesBatch.length} of ${routesToGeocode.length} routes with unknown names`);
 
     let geocodedCount = 0;
 
@@ -1426,7 +1444,7 @@ class RouteProcessingQueue {
           // Update the group name
           group.name = name;
           geocodedCount++;
-          console.log(`[RouteProcessing] Geocoded route: "${name}"`);
+          log.log(`Geocoded route: "${name}"`);
 
           // Save cache after each successful geocode
           await saveRouteCache(this.cache);
@@ -1436,12 +1454,12 @@ class RouteProcessingQueue {
         // Small delay to respect Nominatim rate limits (reduced to 500ms for responsiveness)
         await new Promise((resolve) => setTimeout(resolve, 500));
       } catch (error) {
-        console.warn(`[RouteProcessing] Failed to geocode route ${group.id}:`, error);
+        log.warn(`Failed to geocode route ${group.id}:`, error);
       }
     }
 
     if (geocodedCount > 0) {
-      console.log(`[RouteProcessing] Geocoded ${geocodedCount} routes`);
+      log.log(`Geocoded ${geocodedCount} routes`);
     }
   }
 }

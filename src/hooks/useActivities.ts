@@ -125,11 +125,6 @@ export function useInfiniteActivities(options: { includeStats?: boolean } = {}) 
   };
 }
 
-/**
- * Export the new hook as well for backwards compatibility
- */
-export { useInfiniteActivities as useInfiniteActivityFeed };
-
 export function useActivity(id: string) {
   return useQuery({
     queryKey: ['activity', id],

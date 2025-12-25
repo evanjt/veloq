@@ -10,6 +10,9 @@
 
 import RBush from 'rbush';
 import type { ActivityBoundsItem } from '@/types';
+import { debug } from './debug';
+
+const log = debug.create('SpatialIndex');
 
 /**
  * R-tree item with activity reference
@@ -69,7 +72,7 @@ class ActivitySpatialIndex {
     this.tree.load(items);
     this.isBuilt = true;
 
-    console.log(`[SpatialIndex] Built index with ${items.length} activities`);
+    log.log(`Built index with ${items.length} activities`);
   }
 
   /**

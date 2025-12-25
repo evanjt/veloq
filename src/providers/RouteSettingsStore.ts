@@ -5,6 +5,9 @@
 
 import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { debug } from '@/lib/debug';
+
+const log = debug.create('RouteSettings');
 
 const ROUTE_SETTINGS_KEY = 'veloq-route-settings';
 
@@ -53,7 +56,7 @@ export const useRouteSettings = create<RouteSettingsState>((set, get) => ({
       await AsyncStorage.setItem(ROUTE_SETTINGS_KEY, JSON.stringify(newSettings));
       set({ settings: newSettings });
     } catch (error) {
-      console.error('[RouteSettings] Failed to save settings:', error);
+      log.error('Failed to save settings:', error);
     }
   },
 }));

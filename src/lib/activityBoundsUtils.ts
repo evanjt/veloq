@@ -1,5 +1,8 @@
 import type { Activity, ActivityBoundsItem, ActivityBoundsCache, ActivityType } from '@/types';
 import { activitySpatialIndex } from './spatialIndex';
+import { debug } from './debug';
+
+const log = debug.create('PreFilter');
 
 /** Bounds type: [[minLat, minLng], [maxLat, maxLng]] */
 type Bounds = [[number, number], [number, number]];
@@ -176,7 +179,7 @@ export function findActivitiesWithPotentialMatches(
     boundsMap.set(b.id, b);
   }
 
-  console.log(`[PreFilter] Checking ${unprocessedIds.size} unprocessed against ${allBounds.length} total bounds`);
+  log.log(`Checking ${unprocessedIds.size} unprocessed against ${allBounds.length} total bounds`);
 
   let checkedCount = 0;
   let matchedCount = 0;
@@ -185,7 +188,7 @@ export function findActivitiesWithPotentialMatches(
   for (const id of unprocessedIds) {
     const activity1 = boundsMap.get(id);
     if (!activity1) {
-      console.log(`[PreFilter] Activity ${id} has no cached bounds, skipping`);
+      log.log(`Activity ${id} has no cached bounds, skipping`);
       continue;
     }
 
@@ -205,11 +208,11 @@ export function findActivitiesWithPotentialMatches(
     }
 
     if (!foundMatch && checkedCount <= 5) {
-      console.log(`[PreFilter] ${activity1.name} (${activity1.type}, ${Math.round(activity1.distance/1000)}km) - no overlapping activities`);
+      log.log(`${activity1.name} (${activity1.type}, ${Math.round(activity1.distance/1000)}km) - no overlapping activities`);
     }
   }
 
-  console.log(`[PreFilter] Result: ${checkedCount} checked, ${matchedCount} have potential matches`);
+  log.log(`Result: ${checkedCount} checked, ${matchedCount} have potential matches`);
 
   return candidateIds;
 }
@@ -228,7 +231,7 @@ export function findActivitiesWithPotentialMatchesFast(
 ): Set<string> {
   // Fall back to brute force if spatial index not ready
   if (!activitySpatialIndex.ready) {
-    console.log('[PreFilter] Spatial index not ready, using brute force');
+    log.log('Spatial index not ready, using brute force');
     return findActivitiesWithPotentialMatches(unprocessedIds, allBounds);
   }
 
@@ -240,7 +243,7 @@ export function findActivitiesWithPotentialMatchesFast(
     boundsMap.set(b.id, b);
   }
 
-  console.log(`[PreFilter] Checking ${unprocessedIds.size} unprocessed using spatial index`);
+  log.log(`Checking ${unprocessedIds.size} unprocessed using spatial index`);
 
   let checkedCount = 0;
   let matchedCount = 0;
@@ -271,7 +274,7 @@ export function findActivitiesWithPotentialMatchesFast(
     }
   }
 
-  console.log(`[PreFilter] Spatial: ${checkedCount} checked, ${matchedCount} matches, avg ${(spatialQueriesTotal / checkedCount || 0).toFixed(1)} candidates/activity`);
+  log.log(`Spatial: ${checkedCount} checked, ${matchedCount} matches, avg ${(spatialQueriesTotal / checkedCount || 0).toFixed(1)} candidates/activity`);
 
   return candidateIds;
 }

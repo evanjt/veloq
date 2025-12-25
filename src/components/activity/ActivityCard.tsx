@@ -31,7 +31,7 @@ interface ActivityCardProps {
   activity: Activity;
 }
 
-export function ActivityCard({ activity }: ActivityCardProps) {
+export const ActivityCard = React.memo(function ActivityCard({ activity }: ActivityCardProps) {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
 
@@ -192,7 +192,7 @@ export function ActivityCard({ activity }: ActivityCardProps) {
       </View>
     </Pressable>
   );
-}
+});
 
 const styles = StyleSheet.create({
   pressable: {

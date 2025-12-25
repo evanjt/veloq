@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { intervalsApi } from '@/api';
-import { useAuthStore } from '@/store';
+import { useAuthStore } from '@/providers';
 import { useEffect } from 'react';
 
 export function useAthlete() {

@@ -345,6 +345,15 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
   // This completely avoids touch interception issues with Pressable
   // Markers are rendered as native map features, preserving all gestures
 
+  // Sort activities so selected is rendered last (on top)
+  const sortedVisibleActivities = useMemo(() => {
+    return [...visibleActivities].sort((a, b) => {
+      if (selected?.activity.id === a.id) return 1;
+      if (selected?.activity.id === b.id) return -1;
+      return 0;
+    });
+  }, [visibleActivities, selected?.activity.id]);
+
   // Build GeoJSON feature collection for activity markers (only visible ones)
   const markersGeoJSON = useMemo(() => {
     const features = visibleActivities.map((activity) => {
@@ -495,14 +504,7 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
         {/* pointerEvents="none" ensures these don't intercept any touches */}
         {/* Sorted to render selected activity last (on top) */}
         {/* Only renders visible activities for performance (viewport culling) */}
-        {[...visibleActivities]
-          .sort((a, b) => {
-            // Selected marker renders last (on top)
-            if (selected?.activity.id === a.id) return 1;
-            if (selected?.activity.id === b.id) return -1;
-            return 0;
-          })
-          .map((activity) => {
+        {sortedVisibleActivities.map((activity) => {
           const config = getActivityTypeConfig(activity.type);
           const center = getCenter(activity.bounds);
           const size = getMarkerSize(activity.distance);
