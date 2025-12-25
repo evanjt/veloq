@@ -187,7 +187,7 @@ export function SwimPaceCurveChart({
     .onUpdate((e) => { 'worklet'; touchX.value = e.x; })
     .onEnd(() => { 'worklet'; touchX.value = -1; })
     .minDistance(0)
-    .activateAfterLongPress(300);
+    .activateAfterLongPress(700);
 
   const crosshairStyle = useAnimatedStyle(() => {
     'worklet';

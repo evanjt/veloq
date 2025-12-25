@@ -3,14 +3,14 @@
  * Displays the route with activity count and preview polyline.
  */
 
-import React, { memo, useState, useMemo } from 'react';
+import React, { memo, useState, useMemo, useEffect } from 'react';
 import { View, StyleSheet, useColorScheme, TouchableOpacity } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Svg, { Polyline, Defs, LinearGradient, Stop, Rect, Circle } from 'react-native-svg';
 import { router, Href } from 'expo-router';
 import { colors, spacing } from '@/theme';
-import { getActivityColor } from '@/lib';
+import { getActivityColor, loadCustomRouteNames, getRouteDisplayName } from '@/lib';
 import type { DiscoveredRouteInfo, RouteGroup } from '@/types';
 
 interface RouteRowProps {
@@ -140,6 +140,19 @@ function RouteRowComponent({ route, navigable = false }: RouteRowProps) {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const [expanded, setExpanded] = useState(false);
+  const [customName, setCustomName] = useState<string | null>(null);
+
+  // Load custom route name if available
+  useEffect(() => {
+    loadCustomRouteNames().then((names) => {
+      if (names[route.id]) {
+        setCustomName(names[route.id]);
+      }
+    });
+  }, [route.id]);
+
+  // Display name uses custom name if set, otherwise auto-generated name
+  const displayName = customName || route.name;
 
   // Get activity color for the route type
   const activityColor = getActivityColor(route.type as any);
@@ -218,7 +231,7 @@ function RouteRowComponent({ route, navigable = false }: RouteRowProps) {
         {/* Route info */}
         <View style={styles.infoContainer}>
           <Text style={[styles.routeName, isDark && styles.textLight]} numberOfLines={1}>
-            {route.name}
+            {displayName}
           </Text>
           <View style={styles.metaRow}>
             {distance && distance > 0 && (

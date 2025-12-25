@@ -72,9 +72,30 @@ export function useRoutePerformances(
   }, [cache, routeGroupId, activityId]);
 
   // Fetch activities for the route's date range
+  // Extend date range by 1 day on each side to handle timezone edge cases
+  const { oldest, newest } = useMemo(() => {
+    if (!routeGroup) return { oldest: undefined, newest: undefined };
+
+    // Parse first date and go back 1 day
+    const firstDate = new Date(routeGroup.firstDate);
+    firstDate.setDate(firstDate.getDate() - 1);
+
+    // Parse last date and go forward 1 day
+    const lastDate = new Date(routeGroup.lastDate);
+    lastDate.setDate(lastDate.getDate() + 1);
+
+    // Format as YYYY-MM-DD
+    const formatDate = (d: Date) => d.toISOString().split('T')[0];
+
+    return {
+      oldest: formatDate(firstDate),
+      newest: formatDate(lastDate),
+    };
+  }, [routeGroup?.firstDate, routeGroup?.lastDate]);
+
   const { data: activities, isLoading } = useActivities({
-    oldest: routeGroup?.firstDate?.split('T')[0],
-    newest: routeGroup?.lastDate?.split('T')[0],
+    oldest,
+    newest,
     includeStats: false,
   });
 

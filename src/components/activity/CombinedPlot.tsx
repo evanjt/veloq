@@ -256,7 +256,7 @@ export const CombinedPlot = React.memo(function CombinedPlot({
       touchX.value = -1;
     })
     .minDistance(0)
-    .activateAfterLongPress(300); // 300ms hold before scrubbing activates
+    .activateAfterLongPress(700); // 700ms hold before scrubbing activates
 
   // Animated crosshair style - follows finger directly for smooth tracking
   const crosshairStyle = useAnimatedStyle(() => {
