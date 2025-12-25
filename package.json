@@ -3,13 +3,19 @@
   "version": "0.0.1",
   "main": "expo-router/entry",
   "scripts": {
-    "start": "expo start",
-    "android": "expo run:android",
-    "ios": "expo run:ios",
-    "web": "expo start --web",
+    "start": "npx expo start",
+    "android": "npm run build:rust:android && npx expo run:android",
+    "ios": "npm run build:rust:ios && npx expo run:ios",
+    "android:quick": "npx expo run:android",
+    "ios:quick": "npx expo run:ios",
+    "web": "npx expo start --web",
     "test": "jest",
     "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage"
+    "test:coverage": "jest --coverage",
+    "build:rust:android": "cd rust/route-matcher && ./scripts/build-android.sh && ./scripts/install-android.sh",
+    "build:rust:ios": "cd rust/route-matcher && ./scripts/build-ios.sh && ./scripts/install-ios.sh",
+    "build:rust": "npm run build:rust:android && npm run build:rust:ios",
+    "prebuild": "npm run build:rust && npx expo prebuild"
   },
   "dependencies": {
     "@expo/ngrok": "^4.1.3",

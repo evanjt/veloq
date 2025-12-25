@@ -263,6 +263,56 @@ class RouteMatcherModule : Module() {
         )
       }
     }
+
+    // HTTP: Fetch activity map data from intervals.icu API
+    // Uses Rust HTTP client with rate limiting (30 req/s burst, 131 req/10s sustained)
+    Function("fetchActivityMaps") { apiKey: String, activityIds: List<String> ->
+      Log.i(TAG, "🦀🦀🦀 HTTP fetchActivityMaps called for ${activityIds.size} activities 🦀🦀🦀")
+
+      val startTime = System.currentTimeMillis()
+      val results = fetchActivityMaps(apiKey, activityIds)
+      val elapsed = System.currentTimeMillis() - startTime
+
+      val successCount = results.count { it.success }
+      Log.i(TAG, "🦀 HTTP: Fetched $successCount/${activityIds.size} activities in ${elapsed}ms")
+
+      results.map { result ->
+        mapOf(
+          "activityId" to result.activityId,
+          "bounds" to result.bounds,
+          "latlngs" to result.latlngs,
+          "success" to result.success,
+          "error" to result.error
+        )
+      }
+    }
+
+    // HTTP: Fetch and process activities in one call (fetch maps + create signatures)
+    Function("fetchAndProcessActivities") { apiKey: String, activityIds: List<String>, config: Map<String, Any>? ->
+      Log.i(TAG, "🦀🦀🦀 HTTP fetchAndProcessActivities called for ${activityIds.size} activities 🦀🦀🦀")
+
+      val matchConfig = parseConfig(config)
+
+      val startTime = System.currentTimeMillis()
+      val result = fetchAndProcessActivities(apiKey, activityIds, matchConfig)
+      val elapsed = System.currentTimeMillis() - startTime
+
+      val successCount = result.mapResults.count { it.success }
+      Log.i(TAG, "🦀 HTTP+Process: $successCount/${activityIds.size} fetched, ${result.signatures.size} signatures in ${elapsed}ms")
+
+      mapOf(
+        "mapResults" to result.mapResults.map { r ->
+          mapOf(
+            "activityId" to r.activityId,
+            "bounds" to r.bounds,
+            "latlngs" to r.latlngs,
+            "success" to r.success,
+            "error" to r.error
+          )
+        },
+        "signatures" to result.signatures.map { signatureToMap(it) }
+      )
+    }
   }
 
   private fun parseConfig(map: Map<String, Any>?): MatchConfig {

@@ -23,7 +23,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { intervalsApi } from '@/api';
 import { getStoredCredentials } from '@/providers';
-import { formatLocalDate, SYNC, debug } from '@/lib';
+import { formatLocalDate } from '@/lib/format';
+import { SYNC } from '@/lib/constants';
+import { debug } from '@/lib/debug';
 import {
   buildCacheEntry,
   filterGpsActivities,
