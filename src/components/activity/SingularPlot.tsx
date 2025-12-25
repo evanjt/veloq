@@ -165,7 +165,7 @@ export function SingularPlot({
       touchX.value = -1;
     })
     .minDistance(0)
-    .activateAfterLongPress(300);
+    .activateAfterLongPress(700);
 
   // Animated crosshair style - follows finger directly for smooth tracking
   const crosshairStyle = useAnimatedStyle(() => {

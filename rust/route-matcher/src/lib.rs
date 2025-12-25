@@ -1,11 +1,18 @@
 //! # Route Matcher
 //!
-//! High-performance GPS route matching using Fréchet distance and spatial indexing.
+//! High-performance GPS route matching using Average Minimum Distance (AMD) and spatial indexing.
 //!
 //! This library provides algorithms for:
 //! - Comparing GPS routes to find similarities
 //! - Detecting forward/reverse route matches
 //! - Grouping similar routes together efficiently
+//!
+//! ## Algorithm
+//!
+//! Uses Average Minimum Distance (AMD) - a modified Hausdorff distance that is:
+//! - Robust to GPS noise (5-10m variance typical)
+//! - Symmetric and handles reversed routes naturally
+//! - Proven effective for GPS trajectory matching
 //!
 //! ## Features
 //!
@@ -55,10 +62,9 @@
 use geo::{
     Coord, LineString, Point,
     Haversine, Distance,
-    algorithm::frechet_distance::FrechetDistance,
     algorithm::simplify::Simplify,
 };
-use log::{info, debug, warn};
+use log::{info, debug};
 use rstar::{RTree, RTreeObject, AABB};
 use std::collections::HashMap;
 
@@ -193,12 +199,12 @@ impl RouteSignature {
             return None;
         }
 
-        let total_distance = calculate_line_distance(&final_coords);
-
         let simplified_points: Vec<GpsPoint> = final_coords
             .iter()
             .map(|c| GpsPoint::new(c.y, c.x))
             .collect();
+
+        let total_distance = calculate_route_distance(&simplified_points);
 
         Some(Self {
             activity_id: activity_id.to_string(),
@@ -233,40 +239,65 @@ pub struct MatchResult {
     pub activity_id_2: String,
     /// Match percentage (0-100, higher = better match)
     pub match_percentage: f64,
-    /// Direction: "forward", "reverse", or "partial"
+    /// Direction: "same", "reverse", or "partial"
     pub direction: String,
-    /// Raw Fréchet distance in meters
-    pub frechet_distance: f64,
+    /// Average Minimum Distance in meters (lower = better match)
+    pub amd: f64,
 }
 
 /// Configuration for route matching algorithms.
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "ffi", derive(uniffi::Record))]
 pub struct MatchConfig {
-    /// Maximum Fréchet distance in meters for routes to be considered similar.
-    /// Default: 100.0 meters
-    pub max_frechet_distance: f64,
+    /// AMD threshold for perfect match (100%). Routes with AMD below this are considered identical.
+    /// Default: 30.0 meters (accounts for GPS variance of 5-10m)
+    pub perfect_threshold: f64,
+
+    /// AMD threshold for no match (0%). Routes with AMD above this are considered different.
+    /// Default: 250.0 meters
+    pub zero_threshold: f64,
 
     /// Minimum match percentage to consider routes similar.
-    /// Default: 80.0%
+    /// Default: 65.0% (lowered from 80% to account for GPS variance)
     pub min_match_percentage: f64,
+
+    /// Minimum route distance to be considered for grouping.
+    /// Default: 500.0 meters
+    pub min_route_distance: f64,
+
+    /// Maximum distance difference ratio for grouping (within 20%).
+    /// Default: 0.20
+    pub max_distance_diff_ratio: f64,
+
+    /// Endpoint threshold for matching start/end points.
+    /// Default: 200.0 meters
+    pub endpoint_threshold: f64,
+
+    /// Number of points to resample routes to for comparison.
+    /// Default: 50
+    pub resample_count: u32,
 
     /// Tolerance for Douglas-Peucker simplification (in degrees).
     /// Smaller values preserve more detail. Default: 0.0001 (~11 meters)
     pub simplification_tolerance: f64,
 
     /// Maximum points after simplification.
-    /// Fewer points = faster comparison. Default: 50
+    /// Fewer points = faster comparison. Default: 100
     pub max_simplified_points: u32,
 }
 
 impl Default for MatchConfig {
     fn default() -> Self {
         Self {
-            max_frechet_distance: 100.0,
-            min_match_percentage: 80.0,
+            perfect_threshold: 30.0,
+            zero_threshold: 250.0,
+            min_match_percentage: 65.0,
+            min_route_distance: 500.0,
+            max_distance_diff_ratio: 0.20,
+            endpoint_threshold: 200.0,
+            resample_count: 50,
             simplification_tolerance: 0.0001,
-            max_simplified_points: 50,
+            max_simplified_points: 100,
         }
     }
 }
@@ -274,36 +305,39 @@ impl Default for MatchConfig {
 impl MatchConfig {
     /// Create a new configuration with custom values.
     pub fn new(
-        max_frechet_distance: f64,
+        perfect_threshold: f64,
+        zero_threshold: f64,
         min_match_percentage: f64,
-        simplification_tolerance: f64,
-        max_simplified_points: u32,
+        resample_count: u32,
     ) -> Self {
         Self {
-            max_frechet_distance,
+            perfect_threshold,
+            zero_threshold,
             min_match_percentage,
-            simplification_tolerance,
-            max_simplified_points,
+            resample_count,
+            ..Default::default()
         }
     }
 
-    /// Configuration optimized for speed (fewer points, larger tolerance).
+    /// Configuration optimized for speed (fewer points, more lenient thresholds).
     pub fn fast() -> Self {
         Self {
-            max_frechet_distance: 150.0,
-            min_match_percentage: 70.0,
-            simplification_tolerance: 0.0002,
-            max_simplified_points: 30,
+            perfect_threshold: 40.0,
+            zero_threshold: 300.0,
+            min_match_percentage: 60.0,
+            resample_count: 30,
+            ..Default::default()
         }
     }
 
-    /// Configuration optimized for accuracy (more points, smaller tolerance).
+    /// Configuration optimized for accuracy (stricter thresholds).
     pub fn precise() -> Self {
         Self {
-            max_frechet_distance: 50.0,
-            min_match_percentage: 90.0,
-            simplification_tolerance: 0.00005,
-            max_simplified_points: 100,
+            perfect_threshold: 20.0,
+            zero_threshold: 200.0,
+            min_match_percentage: 75.0,
+            resample_count: 75,
+            ..Default::default()
         }
     }
 }
@@ -344,10 +378,11 @@ impl RTreeObject for RouteBounds {
 // Core Functions
 // ============================================================================
 
-/// Compare two routes and return a match result.
+/// Compare two routes and return a match result using Average Minimum Distance (AMD).
 ///
-/// This uses the Fréchet distance algorithm to measure similarity,
-/// checking both forward and reverse directions.
+/// AMD is robust to GPS noise and doesn't require point ordering.
+/// For each point in route1, we find the minimum distance to any point in route2,
+/// then average all those distances.
 ///
 /// Returns `None` if the routes don't meet the minimum match threshold.
 ///
@@ -383,51 +418,284 @@ pub fn compare_routes(
         return None;
     }
 
-    // Convert to LineStrings
-    let line1 = points_to_linestring(&sig1.points);
-    let line2 = points_to_linestring(&sig2.points);
-    let line2_reversed = reverse_linestring(&line2);
+    // Resample both routes to same number of points for fair comparison
+    let resampled1 = resample_route(&sig1.points, config.resample_count as usize);
+    let resampled2 = resample_route(&sig2.points, config.resample_count as usize);
 
-    // Calculate Fréchet distance for forward and reverse
-    let frechet_forward = line1.frechet_distance(&line2);
-    let frechet_reverse = line1.frechet_distance(&line2_reversed);
+    // Calculate AMD in both directions (AMD is asymmetric)
+    let amd_1_to_2 = average_min_distance(&resampled1, &resampled2);
+    let amd_2_to_1 = average_min_distance(&resampled2, &resampled1);
 
-    // Use the better match
-    let (frechet_distance, direction) = if frechet_forward <= frechet_reverse {
-        (frechet_forward, "forward")
-    } else {
-        (frechet_reverse, "reverse")
-    };
+    // Use average of both directions
+    let avg_amd = (amd_1_to_2 + amd_2_to_1) / 2.0;
 
-    // Convert Fréchet distance from degrees to approximate meters
-    // (rough conversion: 1 degree ≈ 111km at equator)
-    let frechet_meters = frechet_distance * 111_000.0;
+    // Convert AMD to percentage using thresholds
+    let match_percentage = amd_to_percentage(avg_amd, config.perfect_threshold, config.zero_threshold);
 
-    if frechet_meters > config.max_frechet_distance {
-        return None;
-    }
-
-    // Calculate match percentage based on Fréchet distance
-    let match_percentage = ((1.0 - (frechet_meters / config.max_frechet_distance)) * 100.0)
-        .clamp(0.0, 100.0);
-
+    // Check if meets minimum threshold
     if match_percentage < config.min_match_percentage {
         return None;
     }
+
+    // Determine direction using endpoint comparison (AMD is symmetric)
+    let direction = determine_direction_by_endpoints(sig1, sig2, config.endpoint_threshold);
+
+    // Direction type based on match quality
+    let direction_str = if match_percentage >= 70.0 {
+        direction
+    } else {
+        "partial".to_string()
+    };
 
     Some(MatchResult {
         activity_id_1: sig1.activity_id.clone(),
         activity_id_2: sig2.activity_id.clone(),
         match_percentage,
-        direction: direction.to_string(),
-        frechet_distance: frechet_meters,
+        direction: direction_str,
+        amd: avg_amd,
     })
+}
+
+/// Calculate Average Minimum Distance from route1 to route2.
+/// For each point in route1, find the minimum distance to any point in route2.
+/// Return the average of these minimum distances.
+fn average_min_distance(route1: &[GpsPoint], route2: &[GpsPoint]) -> f64 {
+    if route1.is_empty() || route2.is_empty() {
+        return f64::INFINITY;
+    }
+
+    let total_min_dist: f64 = route1
+        .iter()
+        .map(|p1| {
+            route2
+                .iter()
+                .map(|p2| haversine_distance(p1, p2))
+                .fold(f64::INFINITY, f64::min)
+        })
+        .sum();
+
+    total_min_dist / route1.len() as f64
+}
+
+/// Convert AMD to a match percentage using thresholds.
+/// - AMD <= perfect_threshold → 100% match
+/// - AMD >= zero_threshold → 0% match
+/// - Linear interpolation between
+fn amd_to_percentage(amd: f64, perfect_threshold: f64, zero_threshold: f64) -> f64 {
+    if amd <= perfect_threshold {
+        return 100.0;
+    }
+    if amd >= zero_threshold {
+        return 0.0;
+    }
+
+    // Linear interpolation
+    100.0 * (1.0 - (amd - perfect_threshold) / (zero_threshold - perfect_threshold))
+}
+
+/// Resample a route to have exactly n points, evenly spaced by distance.
+fn resample_route(points: &[GpsPoint], target_count: usize) -> Vec<GpsPoint> {
+    if points.len() < 2 {
+        return points.to_vec();
+    }
+    if points.len() == target_count {
+        return points.to_vec();
+    }
+
+    // Calculate total distance
+    let total_dist = calculate_route_distance(points);
+    if total_dist == 0.0 {
+        return points[..target_count.min(points.len())].to_vec();
+    }
+
+    let step_dist = total_dist / (target_count - 1) as f64;
+    let mut resampled: Vec<GpsPoint> = vec![points[0]];
+
+    let mut accumulated = 0.0;
+    let mut next_threshold = step_dist;
+    let mut prev_point = &points[0];
+
+    for curr in points.iter().skip(1) {
+        let seg_dist = haversine_distance(prev_point, curr);
+
+        while accumulated + seg_dist >= next_threshold && resampled.len() < target_count - 1 {
+            // Interpolate point at the threshold distance
+            let ratio = (next_threshold - accumulated) / seg_dist;
+            let new_lat = prev_point.latitude + ratio * (curr.latitude - prev_point.latitude);
+            let new_lng = prev_point.longitude + ratio * (curr.longitude - prev_point.longitude);
+            resampled.push(GpsPoint::new(new_lat, new_lng));
+            next_threshold += step_dist;
+        }
+
+        accumulated += seg_dist;
+        prev_point = curr;
+    }
+
+    // Always include the last point
+    if resampled.len() < target_count {
+        resampled.push(*points.last().unwrap());
+    }
+
+    resampled
+}
+
+/// Calculate the total distance of a route in meters.
+fn calculate_route_distance(points: &[GpsPoint]) -> f64 {
+    points
+        .windows(2)
+        .map(|w| haversine_distance(&w[0], &w[1]))
+        .sum()
+}
+
+/// Calculate haversine distance between two GPS points in meters.
+fn haversine_distance(p1: &GpsPoint, p2: &GpsPoint) -> f64 {
+    let point1 = Point::new(p1.longitude, p1.latitude);
+    let point2 = Point::new(p2.longitude, p2.latitude);
+    Haversine::distance(point1, point2)
+}
+
+/// Determine direction using endpoint comparison.
+/// Returns "same" if sig2 starts near sig1's start, "reverse" if near sig1's end.
+fn determine_direction_by_endpoints(
+    sig1: &RouteSignature,
+    sig2: &RouteSignature,
+    loop_threshold: f64,
+) -> String {
+    let start1 = &sig1.start_point;
+    let end1 = &sig1.end_point;
+    let start2 = &sig2.start_point;
+    let end2 = &sig2.end_point;
+
+    // Check if either route is a loop (start ≈ end)
+    let sig1_is_loop = haversine_distance(start1, end1) < loop_threshold;
+    let sig2_is_loop = haversine_distance(start2, end2) < loop_threshold;
+
+    // If both are loops, direction is meaningless
+    if sig1_is_loop && sig2_is_loop {
+        return "same".to_string();
+    }
+
+    // Score for same direction: start2→start1 + end2→end1
+    let same_score = haversine_distance(start2, start1) + haversine_distance(end2, end1);
+    // Score for reverse direction: start2→end1 + end2→start1
+    let reverse_score = haversine_distance(start2, end1) + haversine_distance(end2, start1);
+
+    // Require a significant difference (100m) to call it 'reverse'
+    let min_direction_diff = 100.0;
+
+    if reverse_score < same_score - min_direction_diff {
+        "reverse".to_string()
+    } else {
+        "same".to_string()
+    }
+}
+
+/// Check if two routes should be GROUPED into the same route.
+///
+/// A "route" is a complete, repeated JOURNEY - not just a shared section.
+/// Two activities are the same route only if they represent the same end-to-end trip.
+///
+/// Criteria:
+/// 1. Both routes must be at least min_route_distance
+/// 2. Match percentage meets threshold
+/// 3. Similar total distance (within max_distance_diff_ratio)
+/// 4. Same endpoints (within endpoint_threshold)
+/// 5. Middle points must also match
+fn should_group_routes(
+    sig1: &RouteSignature,
+    sig2: &RouteSignature,
+    match_result: &MatchResult,
+    config: &MatchConfig,
+) -> bool {
+    // CHECK 0: Both routes must be meaningful length
+    if sig1.total_distance < config.min_route_distance || sig2.total_distance < config.min_route_distance {
+        return false;
+    }
+
+    // CHECK 1: Match percentage must be high enough
+    if match_result.match_percentage < config.min_match_percentage {
+        return false;
+    }
+
+    // CHECK 2: Total distance must be similar
+    let distance_diff = (sig1.total_distance - sig2.total_distance).abs();
+    let max_distance = sig1.total_distance.max(sig2.total_distance);
+    if max_distance > 0.0 && distance_diff / max_distance > config.max_distance_diff_ratio {
+        return false;
+    }
+
+    // CHECK 3: Endpoints must match closely
+    let start1 = &sig1.start_point;
+    let end1 = &sig1.end_point;
+    let start2 = &sig2.start_point;
+    let end2 = &sig2.end_point;
+
+    // Check if routes are loops
+    let sig1_is_loop = haversine_distance(start1, end1) < config.endpoint_threshold;
+    let sig2_is_loop = haversine_distance(start2, end2) < config.endpoint_threshold;
+
+    // For loops, check that starts are close and both are actually loops
+    if sig1_is_loop && sig2_is_loop {
+        let start_dist = haversine_distance(start1, start2);
+        if start_dist > config.endpoint_threshold {
+            return false;
+        }
+        return check_middle_points_match(&sig1.points, &sig2.points, config.endpoint_threshold * 2.0);
+    }
+
+    // Determine direction by checking which endpoint pairing is closer
+    let same_start_dist = haversine_distance(start1, start2);
+    let same_end_dist = haversine_distance(end1, end2);
+    let reverse_start_dist = haversine_distance(start1, end2);
+    let reverse_end_dist = haversine_distance(end1, start2);
+
+    let same_direction_ok = same_start_dist < config.endpoint_threshold && same_end_dist < config.endpoint_threshold;
+    let reverse_direction_ok = reverse_start_dist < config.endpoint_threshold && reverse_end_dist < config.endpoint_threshold;
+
+    if !same_direction_ok && !reverse_direction_ok {
+        return false;
+    }
+
+    // CHECK 4: Middle points must also match
+    let points2_for_middle: Vec<GpsPoint> = if reverse_direction_ok && !same_direction_ok {
+        sig2.points.iter().rev().cloned().collect()
+    } else {
+        sig2.points.clone()
+    };
+
+    check_middle_points_match(&sig1.points, &points2_for_middle, config.endpoint_threshold * 2.0)
+}
+
+/// Check that the middle portions of two routes also match.
+fn check_middle_points_match(points1: &[GpsPoint], points2: &[GpsPoint], threshold: f64) -> bool {
+    if points1.len() < 5 || points2.len() < 5 {
+        return true; // Not enough points to check middle
+    }
+
+    // Check points at 25%, 50%, and 75% along each route
+    let check_positions = [0.25, 0.5, 0.75];
+
+    for pos in check_positions {
+        let idx1 = (points1.len() as f64 * pos) as usize;
+        let idx2 = (points2.len() as f64 * pos) as usize;
+
+        let p1 = &points1[idx1];
+        let p2 = &points2[idx2];
+
+        let dist = haversine_distance(p1, p2);
+        if dist > threshold {
+            return false;
+        }
+    }
+
+    true
 }
 
 /// Group similar routes together.
 ///
 /// Uses an R-tree spatial index for pre-filtering and Union-Find
-/// for efficient grouping. Routes that match are grouped together.
+/// for efficient grouping. Routes that match are grouped together
+/// only if they pass strict grouping criteria (same journey, not just shared sections).
 ///
 /// # Example
 /// ```
@@ -490,8 +758,11 @@ pub fn group_signatures(signatures: &[RouteSignature], config: &MatchConfig) -> 
             }
 
             if let Some(sig2) = sig_map.get(bounds.activity_id.as_str()) {
-                if compare_routes(sig1, sig2, config).is_some() {
-                    union(&mut parent, &sig1.activity_id, &sig2.activity_id);
+                // Only group if match exists AND passes strict grouping criteria
+                if let Some(match_result) = compare_routes(sig1, sig2, config) {
+                    if should_group_routes(sig1, sig2, &match_result, config) {
+                        union(&mut parent, &sig1.activity_id, &sig2.activity_id);
+                    }
                 }
             }
         }
@@ -535,7 +806,7 @@ pub fn group_signatures_parallel(
         .map(|s| (s.activity_id.as_str(), s))
         .collect();
 
-    // Find matches in parallel
+    // Find matches in parallel (with strict grouping criteria)
     let tolerance = 0.01;
     let matches: Vec<(String, String)> = signatures
         .par_iter()
@@ -555,8 +826,13 @@ pub fn group_signatures_parallel(
                 })
                 .filter_map(|b| {
                     let sig2 = sig_map.get(b.activity_id.as_str())?;
-                    compare_routes(sig1, sig2, config)?;
-                    Some((sig1.activity_id.clone(), sig2.activity_id.clone()))
+                    let match_result = compare_routes(sig1, sig2, config)?;
+                    // Only group if passes strict grouping criteria
+                    if should_group_routes(sig1, sig2, &match_result, config) {
+                        Some((sig1.activity_id.clone(), sig2.activity_id.clone()))
+                    } else {
+                        None
+                    }
                 })
                 .collect::<Vec<_>>()
         })
@@ -748,31 +1024,6 @@ mod ffi {
 // ============================================================================
 // Helper Functions
 // ============================================================================
-
-fn points_to_linestring(points: &[GpsPoint]) -> LineString {
-    let coords: Vec<Coord> = points
-        .iter()
-        .map(|p| Coord { x: p.longitude, y: p.latitude })
-        .collect();
-    LineString::new(coords)
-}
-
-fn reverse_linestring(line: &LineString) -> LineString {
-    let mut coords = line.0.clone();
-    coords.reverse();
-    LineString::new(coords)
-}
-
-fn calculate_line_distance(coords: &[Coord]) -> f64 {
-    coords
-        .windows(2)
-        .map(|w| {
-            let p1 = Point::new(w[0].x, w[0].y);
-            let p2 = Point::new(w[1].x, w[1].y);
-            Haversine::distance(p1, p2)
-        })
-        .sum()
-}
 
 fn calculate_bounds(points: &[GpsPoint]) -> (f64, f64, f64, f64) {
     let mut min_lat = f64::MAX;

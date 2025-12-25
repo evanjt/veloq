@@ -1,0 +1,20 @@
+{
+  "name": "route-matcher-native",
+  "version": "0.1.0",
+  "description": "Native Rust-powered route matching for Expo/React Native",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "build:rust:ios": "../rust/route-matcher/scripts/build-ios.sh",
+    "build:rust:android": "../rust/route-matcher/scripts/build-android.sh",
+    "build:rust": "npm run build:rust:ios && npm run build:rust:android"
+  },
+  "peerDependencies": {
+    "expo": "*",
+    "react": "*",
+    "react-native": "*"
+  },
+  "devDependencies": {
+    "expo-modules-core": "*"
+  }
+}

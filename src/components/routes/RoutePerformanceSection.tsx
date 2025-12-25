@@ -4,7 +4,7 @@
  */
 
 import React, { useMemo, useRef, useCallback, useState } from 'react';
-import { View, StyleSheet, useColorScheme, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, useColorScheme, TouchableOpacity, ScrollView, Dimensions } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router, type Href } from 'expo-router';
@@ -28,6 +28,8 @@ interface RoutePerformanceSectionProps {
 }
 
 const CHART_HEIGHT = 160;
+const MIN_POINT_WIDTH = 40; // Minimum pixels per data point
+const SCREEN_WIDTH = Dimensions.get('window').width;
 
 function formatShortDate(date: Date): string {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
@@ -90,6 +92,15 @@ export function RoutePerformanceSection({ activityId, activityType }: RoutePerfo
   const hasReverseRuns = useMemo(() => {
     return performances.some(p => p.direction === 'reverse');
   }, [performances]);
+
+  // Calculate chart width - ensure enough space for each data point
+  const chartWidth = useMemo(() => {
+    const containerWidth = SCREEN_WIDTH - spacing.md * 2; // Account for margins
+    const minWidth = chartData.length * MIN_POINT_WIDTH;
+    return Math.max(containerWidth, minWidth);
+  }, [chartData.length]);
+
+  const needsScroll = chartWidth > SCREEN_WIDTH - spacing.md * 2;
 
   // Find indices
   const { currentIndex, bestIndex, minSpeed, maxSpeed } = useMemo(() => {
@@ -215,7 +226,7 @@ export function RoutePerformanceSection({ activityId, activityType }: RoutePerfo
       runOnJS(handleGestureEnd)();
     })
     .minDistance(0)
-    .activateAfterLongPress(300);
+    .activateAfterLongPress(700);
 
   // Tap gesture to dismiss persisted tooltip when tapping on chart
   const tapGesture = Gesture.Tap()
@@ -347,9 +358,16 @@ export function RoutePerformanceSection({ activityId, activityType }: RoutePerfo
 
       {/* Performance Chart */}
       {chartData.length > 1 && (
-        <GestureDetector gesture={gesture}>
-          <View style={styles.chartContainer}>
-            <CartesianChart
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={needsScroll}
+          scrollEnabled={needsScroll}
+          contentContainerStyle={{ width: chartWidth }}
+          style={styles.chartScrollContainer}
+        >
+          <GestureDetector gesture={gesture}>
+            <View style={[styles.chartContainer, { width: chartWidth }]}>
+              <CartesianChart
               data={chartData}
               xKey="x"
               yKeys={['speed']}
@@ -476,6 +494,7 @@ export function RoutePerformanceSection({ activityId, activityType }: RoutePerfo
             </View>
           </View>
         </GestureDetector>
+        </ScrollView>
       )}
 
       {/* Stats Row */}
@@ -667,6 +686,9 @@ const styles = StyleSheet.create({
   selectedActivitySpeed: {
     fontSize: 15,
     fontWeight: '700',
+  },
+  chartScrollContainer: {
+    maxHeight: CHART_HEIGHT,
   },
   chartContainer: {
     height: CHART_HEIGHT,

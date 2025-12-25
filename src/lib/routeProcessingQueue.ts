@@ -37,6 +37,8 @@ import {
   getUnprocessedActivityIds,
 } from './routeStorage';
 import { findActivitiesWithPotentialMatchesFast } from './activityBoundsUtils';
+import { activitySpatialIndex } from './spatialIndex';
+import { generateRouteName } from './geocoding';
 import NativeRouteMatcher from 'route-matcher-native';
 import type { RouteSignature as NativeRouteSignature, RouteGroup as NativeRouteGroup, GpsPoint, GpsTrack } from 'route-matcher-native';
 
@@ -618,6 +620,12 @@ class RouteProcessingQueue {
         message: `Checking ${unprocessedIds.length} activities for potential matches...`,
       });
 
+      // Build spatial index if not ready (ensures O(n log n) instead of O(n²))
+      if (!activitySpatialIndex.ready) {
+        console.log(`[RouteProcessing] Building spatial index from ${boundsData.length} bounds`);
+        activitySpatialIndex.buildFromActivities(boundsData);
+      }
+
       // Only consider activities that have cached bounds
       const boundsById = new Map(boundsData.map(b => [b.id, b]));
       const unprocessedWithBounds = unprocessedIds.filter(id => boundsById.has(id));
@@ -1085,6 +1093,12 @@ class RouteProcessingQueue {
         this.cache = updateRouteGroups(this.cache, groups, metadataForGroups);
         await saveRouteCache(this.cache);
         this.notifyCacheListeners();
+
+        // Geocode routes with "Unknown Route" names in background (non-blocking)
+        // This runs after cache is saved so UI updates immediately
+        this.geocodeUnknownRoutes().catch(() => {
+          // Ignore geocoding errors - it's a nice-to-have
+        });
       } else if (this.cache && newSignatures.length === 0) {
         // No new signatures, but we still need to ensure groups are up to date
         // This can happen when all candidates were already in cache
@@ -1299,6 +1313,70 @@ class RouteProcessingQueue {
         // Ignore listener errors
       }
     });
+  }
+
+  /**
+   * Geocode routes that have "Unknown Route" as their name.
+   * Uses the start and end points of the route to generate a meaningful name.
+   * Runs in background and saves after each successful geocode.
+   */
+  private async geocodeUnknownRoutes(): Promise<void> {
+    if (!this.cache) return;
+
+    const routesToGeocode = this.cache.groups.filter(
+      (g) => g.name === 'Unknown Route' || g.name.toLowerCase().includes('unknown')
+    );
+
+    if (routesToGeocode.length === 0) return;
+
+    // Limit to 5 routes per batch to avoid long delays
+    const maxToGeocode = 5;
+    const routesBatch = routesToGeocode.slice(0, maxToGeocode);
+
+    console.log(`[RouteProcessing] Geocoding ${routesBatch.length} of ${routesToGeocode.length} routes with unknown names`);
+
+    let geocodedCount = 0;
+
+    // Process one at a time to respect Nominatim rate limits (1 req/sec)
+    for (const group of routesBatch) {
+      if (this.shouldCancel) break;
+
+      const sig = group.signature;
+      if (!sig || !sig.points || sig.points.length < 2) continue;
+
+      const startPoint = sig.points[0];
+      const endPoint = sig.points[sig.points.length - 1];
+
+      try {
+        const name = await generateRouteName(
+          startPoint.lat,
+          startPoint.lng,
+          endPoint.lat,
+          endPoint.lng,
+          sig.isLoop ?? false
+        );
+
+        if (name) {
+          // Update the group name
+          group.name = name;
+          geocodedCount++;
+          console.log(`[RouteProcessing] Geocoded route: "${name}"`);
+
+          // Save cache after each successful geocode
+          await saveRouteCache(this.cache);
+          this.notifyCacheListeners();
+        }
+
+        // Small delay to respect Nominatim rate limits (reduced to 500ms for responsiveness)
+        await new Promise((resolve) => setTimeout(resolve, 500));
+      } catch (error) {
+        console.warn(`[RouteProcessing] Failed to geocode route ${group.id}:`, error);
+      }
+    }
+
+    if (geocodedCount > 0) {
+      console.log(`[RouteProcessing] Geocoded ${geocodedCount} routes`);
+    }
   }
 }
 

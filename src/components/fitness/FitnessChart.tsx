@@ -211,7 +211,7 @@ export const FitnessChart = React.memo(function FitnessChart({ data, height = 20
       touchX.value = -1;
     })
     .minDistance(0)
-    .activateAfterLongPress(300);
+    .activateAfterLongPress(700);
 
   // Update shared selected index when local selection changes (for instant sync)
   useAnimatedReaction(
