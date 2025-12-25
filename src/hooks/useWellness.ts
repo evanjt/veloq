@@ -3,16 +3,6 @@ import { intervalsApi } from '@/api';
 import { formatLocalDate } from '@/lib';
 import type { WellnessData } from '@/types';
 
-// Re-export fitness utilities for backwards compatibility
-export {
-  calculateTSB,
-  getFormZone,
-  FORM_ZONE_COLORS,
-  FORM_ZONE_LABELS,
-  FORM_ZONE_BOUNDARIES,
-  type FormZone,
-} from '@/lib/fitness';
-
 export type TimeRange = '7d' | '1m' | '42d' | '3m' | '6m' | '1y';
 
 function getDateRange(range: TimeRange): { oldest: string; newest: string } {

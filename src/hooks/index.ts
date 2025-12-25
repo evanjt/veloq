@@ -5,17 +5,15 @@ export {
   useActivityStreams,
 } from './useActivities';
 export { useAthlete } from './useAthlete';
+export { useWellness, useWellnessForDate, type TimeRange } from './useWellness';
 export {
-  useWellness,
-  useWellnessForDate,
   calculateTSB,
   getFormZone,
   FORM_ZONE_COLORS,
   FORM_ZONE_LABELS,
   FORM_ZONE_BOUNDARIES,
-  type TimeRange,
   type FormZone,
-} from './useWellness';
+} from '@/lib/fitness';
 export {
   usePowerCurve,
   POWER_CURVE_DURATIONS,

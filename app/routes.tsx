@@ -8,7 +8,10 @@ import { RoutesList, TimelineSlider } from '@/components';
 import { useRouteProcessing, useActivities, useActivityBoundsCache, useRouteGroups } from '@/hooks';
 import { useRouteMatchStore, useRouteSettings } from '@/providers';
 import { colors, spacing } from '@/theme';
+import { debug } from '@/lib';
 import type { ActivityType } from '@/types';
+
+const log = debug.create('Routes');
 
 export default function RoutesScreen() {
   const colorScheme = useColorScheme();
@@ -150,11 +153,11 @@ export default function RoutesScreen() {
 
       // If all activities are already processed, skip queueing entirely
       if (unprocessedActivities.length === 0) {
-        console.log(`[Routes] All ${activities.length} activities already processed, skipping analysis`);
+        log.log(`All ${activities.length} activities already processed, skipping analysis`);
         return;
       }
 
-      console.log(`[Routes] Queueing ${unprocessedActivities.length} unprocessed activities (${activities.length - unprocessedActivities.length} already cached)`);
+      log.log(`Queueing ${unprocessedActivities.length} unprocessed activities (${activities.length - unprocessedActivities.length} already cached)`);
 
       const activityIds = unprocessedActivities.map((a) => a.id);
       const metadata: Record<string, { name: string; date: string; type: ActivityType; hasGps: boolean }> = {};

@@ -1,5 +1,8 @@
 import NativeModule from './RouteMatcherModule';
 
+// Simple debug logging for native module - only in dev mode
+const nativeLog = __DEV__ ? (...args: unknown[]) => console.log('[RouteMatcher]', ...args) : () => {};
+
 export interface GpsPoint {
   latitude: number;
   longitude: number;
@@ -56,12 +59,34 @@ export interface GpsTrack {
   points: GpsPoint[];
 }
 
+/**
+ * Result from fetching activity map data via Rust HTTP client.
+ * Returns bounds and GPS coordinates for an activity.
+ */
+export interface ActivityMapResult {
+  activityId: string;
+  /** Bounds as [ne_lat, ne_lng, sw_lat, sw_lng] or empty if unavailable */
+  bounds: number[];
+  /** GPS coordinates as flat array [lat1, lng1, lat2, lng2, ...] */
+  latlngs: number[];
+  success: boolean;
+  error: string | null;
+}
+
+/**
+ * Result from fetch_and_process_activities - includes both map data and signatures.
+ */
+export interface FetchAndProcessResult {
+  mapResults: ActivityMapResult[];
+  signatures: RouteSignature[];
+}
+
 // Verify native module is available on load
 const config = NativeModule.getDefaultConfig();
 if (config === null) {
   throw new Error('🦀 [RouteMatcher] Native Rust module failed to initialize!');
 }
-console.log('🦀🦀🦀 [RouteMatcher] Native Rust module loaded successfully! 🦀🦀🦀');
+nativeLog('Native Rust module loaded successfully!');
 
 /**
  * Create a route signature from GPS points.
@@ -72,10 +97,10 @@ export function createSignature(
   points: GpsPoint[],
   config?: Partial<MatchConfig>
 ): RouteSignature | null {
-  console.log(`🦀 [RouteMatcher] createSignature called for ${activityId} with ${points.length} points`);
+  nativeLog(`createSignature called for ${activityId} with ${points.length} points`);
   const result = NativeModule.createSignature(activityId, points, config ?? null);
   if (result) {
-    console.log(`🦀 [RouteMatcher] createSignature returned ${result.points.length} simplified points`);
+    nativeLog(`createSignature returned ${result.points.length} simplified points`);
   }
   return result;
 }
@@ -89,10 +114,10 @@ export function compareRoutes(
   sig2: RouteSignature,
   config?: Partial<MatchConfig>
 ): MatchResult | null {
-  console.log(`🦀 [RouteMatcher] compareRoutes: ${sig1.activityId} vs ${sig2.activityId}`);
+  nativeLog(`compareRoutes: ${sig1.activityId} vs ${sig2.activityId}`);
   const result = NativeModule.compareRoutes(sig1, sig2, config ?? null);
   if (result) {
-    console.log(`🦀 [RouteMatcher] compareRoutes: ${result.matchPercentage.toFixed(1)}% match (${result.direction})`);
+    nativeLog(`compareRoutes: ${result.matchPercentage.toFixed(1)}% match (${result.direction})`);
   }
   return result;
 }
@@ -105,11 +130,11 @@ export function groupSignatures(
   signatures: RouteSignature[],
   config?: Partial<MatchConfig>
 ): RouteGroup[] {
-  console.log(`🦀🦀🦀 [RouteMatcher] RUST groupSignatures called with ${signatures.length} signatures 🦀🦀🦀`);
+  nativeLog(`RUST groupSignatures called with ${signatures.length} signatures`);
   const startTime = Date.now();
   const result = NativeModule.groupSignatures(signatures, config ?? null);
   const elapsed = Date.now() - startTime;
-  console.log(`🦀 [RouteMatcher] RUST groupSignatures returned ${result?.length || 0} groups in ${elapsed}ms`);
+  nativeLog(`RUST groupSignatures returned ${result?.length || 0} groups in ${elapsed}ms`);
   return result || [];
 }
 
@@ -130,11 +155,11 @@ export function createSignaturesBatch(
   tracks: GpsTrack[],
   config?: Partial<MatchConfig>
 ): RouteSignature[] {
-  console.log(`🦀🦀🦀 [RouteMatcher] BATCH createSignatures called with ${tracks.length} tracks 🦀🦀🦀`);
+  nativeLog(`BATCH createSignatures called with ${tracks.length} tracks`);
   const startTime = Date.now();
   const result = NativeModule.createSignaturesBatch(tracks, config ?? null);
   const elapsed = Date.now() - startTime;
-  console.log(`🦀 [RouteMatcher] BATCH createSignatures returned ${result?.length || 0} signatures in ${elapsed}ms`);
+  nativeLog(`BATCH createSignatures returned ${result?.length || 0} signatures in ${elapsed}ms`);
   return result || [];
 }
 
@@ -149,11 +174,11 @@ export function processRoutesBatch(
   tracks: GpsTrack[],
   config?: Partial<MatchConfig>
 ): RouteGroup[] {
-  console.log(`🦀🦀🦀 [RouteMatcher] FULL BATCH processRoutes called with ${tracks.length} tracks 🦀🦀🦀`);
+  nativeLog(`FULL BATCH processRoutes called with ${tracks.length} tracks`);
   const startTime = Date.now();
   const result = NativeModule.processRoutesBatch(tracks, config ?? null);
   const elapsed = Date.now() - startTime;
-  console.log(`🦀 [RouteMatcher] FULL BATCH processRoutes returned ${result?.length || 0} groups in ${elapsed}ms`);
+  nativeLog(`FULL BATCH processRoutes returned ${result?.length || 0} groups in ${elapsed}ms`);
   return result || [];
 }
 
@@ -170,11 +195,11 @@ export function processRoutesFlat(
   coordArrays: number[][],
   config?: Partial<MatchConfig>
 ): RouteGroup[] {
-  console.log(`🦀🦀🦀 [RouteMatcher] FLAT processRoutes called with ${activityIds.length} tracks 🦀🦀🦀`);
+  nativeLog(`FLAT processRoutes called with ${activityIds.length} tracks`);
   const startTime = Date.now();
   const result = NativeModule.processRoutesFlat(activityIds, coordArrays, config ?? null);
   const elapsed = Date.now() - startTime;
-  console.log(`🦀 [RouteMatcher] FLAT processRoutes returned ${result?.length || 0} groups in ${elapsed}ms`);
+  nativeLog(`FLAT processRoutes returned ${result?.length || 0} groups in ${elapsed}ms`);
   return result || [];
 }
 
@@ -194,11 +219,11 @@ export function createSignaturesFlatBuffer(
   offsets: number[],
   config?: Partial<MatchConfig>
 ): RouteSignature[] {
-  console.log(`🦀🦀🦀 [RouteMatcher] FLAT BUFFER createSignatures: ${activityIds.length} tracks, ${coords.length} coords 🦀🦀🦀`);
+  nativeLog(`FLAT BUFFER createSignatures: ${activityIds.length} tracks, ${coords.length} coords`);
   const startTime = Date.now();
   const result = NativeModule.createSignaturesFlatBuffer(activityIds, coords, offsets, config ?? null);
   const elapsed = Date.now() - startTime;
-  console.log(`🦀 [RouteMatcher] FLAT BUFFER returned ${result?.length || 0} signatures in ${elapsed}ms`);
+  nativeLog(`FLAT BUFFER returned ${result?.length || 0} signatures in ${elapsed}ms`);
   return result || [];
 }
 
@@ -218,11 +243,11 @@ export function processRoutesFlatBuffer(
   offsets: number[],
   config?: Partial<MatchConfig>
 ): RouteGroup[] {
-  console.log(`🦀🦀🦀 [RouteMatcher] FLAT BUFFER processRoutes: ${activityIds.length} tracks, ${coords.length} coords 🦀🦀🦀`);
+  nativeLog(`FLAT BUFFER processRoutes: ${activityIds.length} tracks, ${coords.length} coords`);
   const startTime = Date.now();
   const result = NativeModule.processRoutesFlatBuffer(activityIds, coords, offsets, config ?? null);
   const elapsed = Date.now() - startTime;
-  console.log(`🦀 [RouteMatcher] FLAT BUFFER returned ${result?.length || 0} groups in ${elapsed}ms`);
+  nativeLog(`FLAT BUFFER returned ${result?.length || 0} groups in ${elapsed}ms`);
   return result || [];
 }
 
@@ -257,6 +282,83 @@ export function isNative(): boolean {
   return true;
 }
 
+// =============================================================================
+// Activity Fetching (Rust HTTP Client)
+// =============================================================================
+
+/**
+ * Fetch activity map data for multiple activities using Rust HTTP client.
+ * Uses connection pooling and parallel fetching for maximum performance.
+ * Respects intervals.icu rate limits (30 req/s burst, 131 req/10s sustained).
+ *
+ * @param apiKey - intervals.icu API key
+ * @param activityIds - Array of activity IDs to fetch
+ * @returns Array of ActivityMapResult with bounds and GPS coordinates
+ */
+export function fetchActivityMaps(
+  apiKey: string,
+  activityIds: string[]
+): ActivityMapResult[] {
+  nativeLog(`RUST fetchActivityMaps called for ${activityIds.length} activities`);
+  const startTime = Date.now();
+  const result = NativeModule.fetchActivityMaps(apiKey, activityIds);
+  const elapsed = Date.now() - startTime;
+  const successCount = result?.filter((r: ActivityMapResult) => r.success).length || 0;
+  nativeLog(`RUST fetchActivityMaps: ${successCount}/${activityIds.length} successful in ${elapsed}ms`);
+  return result || [];
+}
+
+/**
+ * Fetch activity map data AND create route signatures in one call.
+ * Most efficient for initial sync - combines fetching and processing.
+ *
+ * @param apiKey - intervals.icu API key
+ * @param activityIds - Array of activity IDs to fetch
+ * @param config - Optional match configuration for signature creation
+ * @returns FetchAndProcessResult with map results and signatures
+ */
+export function fetchAndProcessActivities(
+  apiKey: string,
+  activityIds: string[],
+  config?: Partial<MatchConfig>
+): FetchAndProcessResult {
+  nativeLog(`RUST fetchAndProcessActivities called for ${activityIds.length} activities`);
+  const startTime = Date.now();
+  const result = NativeModule.fetchAndProcessActivities(apiKey, activityIds, config ?? null);
+  const elapsed = Date.now() - startTime;
+  nativeLog(`RUST fetchAndProcessActivities: ${result?.mapResults?.length || 0} maps, ${result?.signatures?.length || 0} signatures in ${elapsed}ms`);
+  return result || { mapResults: [], signatures: [] };
+}
+
+/**
+ * Convert flat coordinate array from fetchActivityMaps to GpsPoint array.
+ * Use this to convert latlngs from ActivityMapResult.
+ *
+ * @param flatCoords - Flat array [lat1, lng1, lat2, lng2, ...]
+ * @returns Array of GpsPoint objects
+ */
+export function flatCoordsToPoints(flatCoords: number[]): GpsPoint[] {
+  const points: GpsPoint[] = [];
+  for (let i = 0; i < flatCoords.length; i += 2) {
+    points.push({ latitude: flatCoords[i], longitude: flatCoords[i + 1] });
+  }
+  return points;
+}
+
+/**
+ * Convert ActivityMapResult bounds array to a structured bounds object.
+ *
+ * @param bounds - Array [ne_lat, ne_lng, sw_lat, sw_lng]
+ * @returns Bounds object or null if empty
+ */
+export function parseBounds(bounds: number[]): { ne: [number, number]; sw: [number, number] } | null {
+  if (bounds.length !== 4) return null;
+  return {
+    ne: [bounds[0], bounds[1]],
+    sw: [bounds[2], bounds[3]],
+  };
+}
+
 export default {
   createSignature,
   createSignaturesBatch,
@@ -269,4 +371,9 @@ export default {
   tracksToFlatBuffer,
   getDefaultConfig,
   isNative,
+  // Activity fetching (Rust HTTP client)
+  fetchActivityMaps,
+  fetchAndProcessActivities,
+  flatCoordsToPoints,
+  parseBounds,
 };
