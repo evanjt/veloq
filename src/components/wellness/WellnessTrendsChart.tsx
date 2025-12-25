@@ -255,7 +255,7 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({ dat
       runOnJS(clearSelection)();
     })
     .minDistance(0)
-    .activateAfterLongPress(300);
+    .activateAfterLongPress(700);
 
   const onLayout = useCallback((e: LayoutChangeEvent) => {
     setContainerWidth(e.nativeEvent.layout.width);

@@ -210,7 +210,7 @@ export function FitnessFormChart({
       touchX.value = -1;
     })
     .minDistance(0)
-    .activateAfterLongPress(300);
+    .activateAfterLongPress(700);
 
   // Crosshair style
   const crosshairStyle = useAnimatedStyle(() => {

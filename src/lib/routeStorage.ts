@@ -17,6 +17,79 @@ import { matchRoutes, calculateConsensusRoute } from './routeMatching';
 // Storage keys
 const ROUTE_CACHE_KEY = 'veloq_route_match_cache';
 const ROUTE_CACHE_VERSION = 1;
+const CUSTOM_ROUTE_NAMES_KEY = 'veloq_custom_route_names';
+
+// In-memory cache for custom route names
+let customRouteNamesCache: Record<string, string> | null = null;
+
+/**
+ * Load custom route names from storage.
+ * These persist separately from the route cache so they survive cache clears.
+ */
+export async function loadCustomRouteNames(): Promise<Record<string, string>> {
+  if (customRouteNamesCache !== null) {
+    return customRouteNamesCache;
+  }
+
+  try {
+    const stored = await AsyncStorage.getItem(CUSTOM_ROUTE_NAMES_KEY);
+    if (stored) {
+      customRouteNamesCache = JSON.parse(stored);
+      return customRouteNamesCache!;
+    }
+  } catch {
+    // Ignore errors
+  }
+
+  customRouteNamesCache = {};
+  return customRouteNamesCache;
+}
+
+/**
+ * Save a custom route name.
+ * Pass null to remove the custom name (reverts to auto-generated name).
+ */
+export async function saveCustomRouteName(
+  routeId: string,
+  name: string | null
+): Promise<void> {
+  const names = await loadCustomRouteNames();
+
+  if (name === null) {
+    delete names[routeId];
+  } else {
+    names[routeId] = name;
+  }
+
+  customRouteNamesCache = names;
+
+  try {
+    await AsyncStorage.setItem(CUSTOM_ROUTE_NAMES_KEY, JSON.stringify(names));
+  } catch {
+    // Ignore save errors
+  }
+}
+
+/**
+ * Get the display name for a route.
+ * Returns custom name if set, otherwise the auto-generated name.
+ */
+export function getRouteDisplayName(
+  routeId: string,
+  autoName: string
+): string {
+  if (customRouteNamesCache && customRouteNamesCache[routeId]) {
+    return customRouteNamesCache[routeId];
+  }
+  return autoName;
+}
+
+/**
+ * Check if a route has a custom name set.
+ */
+export function hasCustomRouteName(routeId: string): boolean {
+  return !!(customRouteNamesCache && customRouteNamesCache[routeId]);
+}
 
 /**
  * Load route match cache from storage.

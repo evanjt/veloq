@@ -56,6 +56,14 @@ modules/route-matcher-native/ios/*.xcframework/
 # UniFFI generated bindings (regenerated from Rust source)
 modules/route-matcher-native/android/src/main/java/uniffi/
 
+# Android build cache
+modules/route-matcher-native/android/build/
+modules/route-matcher-native/android/.gradle/
+modules/route-matcher-native/android/.cxx/
+
+# iOS build cache
+modules/route-matcher-native/ios/build/
+
 # Temporary build outputs
 /tmp/
 *.so

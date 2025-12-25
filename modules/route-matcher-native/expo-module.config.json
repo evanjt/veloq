@@ -1,0 +1,9 @@
+{
+  "platforms": ["ios", "android"],
+  "ios": {
+    "modules": ["RouteMatcherModule"]
+  },
+  "android": {
+    "modules": ["expo.modules.routematcher.RouteMatcherModule"]
+  }
+}

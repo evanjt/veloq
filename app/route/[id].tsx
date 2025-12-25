@@ -1,5 +1,5 @@
 import React, { useMemo, useCallback, useState, useEffect, useRef } from 'react';
-import { View, ScrollView, StyleSheet, useColorScheme, Pressable, Dimensions, StatusBar, TouchableOpacity } from 'react-native';
+import { View, ScrollView, StyleSheet, useColorScheme, Pressable, Dimensions, StatusBar, TouchableOpacity, TextInput, Alert, Keyboard } from 'react-native';
 import { Text, IconButton, ActivityIndicator } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router, Href } from 'expo-router';
@@ -23,6 +23,9 @@ import {
   formatSpeed,
   formatPace,
   isRunningActivity,
+  saveCustomRouteName,
+  loadCustomRouteNames,
+  getRouteDisplayName,
 } from '@/lib';
 import { colors, spacing, layout } from '@/theme';
 import type { Activity, ActivityType, RoutePoint } from '@/types';
@@ -827,10 +830,54 @@ export default function RouteDetailScreen() {
   const [highlightedActivityId, setHighlightedActivityId] = useState<string | null>(null);
   const [highlightedActivityPoints, setHighlightedActivityPoints] = useState<RoutePoint[] | undefined>(undefined);
 
+  // State for route renaming
+  const [isEditing, setIsEditing] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [customName, setCustomName] = useState<string | null>(null);
+  const nameInputRef = useRef<TextInput>(null);
+
+  // Load custom route names on mount
+  useEffect(() => {
+    loadCustomRouteNames().then((names) => {
+      if (id && names[id]) {
+        setCustomName(names[id]);
+      }
+    });
+  }, [id]);
+
   // Handle activity selection from chart scrubbing
   const handleActivitySelect = useCallback((activityId: string | null, activityPoints?: RoutePoint[]) => {
     setHighlightedActivityId(activityId);
     setHighlightedActivityPoints(activityPoints);
+  }, []);
+
+  // Handle starting to edit the route name
+  const handleStartEditing = useCallback(() => {
+    const currentName = customName || routeGroup?.name || '';
+    setEditName(currentName);
+    setIsEditing(true);
+    // Focus input after a short delay to ensure it's rendered
+    setTimeout(() => {
+      nameInputRef.current?.focus();
+    }, 100);
+  }, [customName, routeGroup?.name]);
+
+  // Handle saving the edited route name
+  const handleSaveName = useCallback(async () => {
+    const trimmedName = editName.trim();
+    if (trimmedName && id) {
+      await saveCustomRouteName(id, trimmedName);
+      setCustomName(trimmedName);
+    }
+    setIsEditing(false);
+    Keyboard.dismiss();
+  }, [editName, id]);
+
+  // Handle canceling the edit
+  const handleCancelEdit = useCallback(() => {
+    setIsEditing(false);
+    setEditName('');
+    Keyboard.dismiss();
   }, []);
 
   const routeGroup = useRouteMatchStore((s) =>
@@ -844,9 +891,31 @@ export default function RouteDetailScreen() {
   const signatures = useRouteMatchStore((s) => s.cache?.signatures || {});
 
   // Fetch activities for this route
+  // Extend date range by 1 day on each side to handle timezone edge cases
+  // and ensure we capture all activities in the group
+  const { oldest, newest } = React.useMemo(() => {
+    if (!routeGroup) return { oldest: undefined, newest: undefined };
+
+    // Parse first date and go back 1 day
+    const firstDate = new Date(routeGroup.firstDate);
+    firstDate.setDate(firstDate.getDate() - 1);
+
+    // Parse last date and go forward 1 day
+    const lastDate = new Date(routeGroup.lastDate);
+    lastDate.setDate(lastDate.getDate() + 1);
+
+    // Format as YYYY-MM-DD
+    const formatDate = (d: Date) => d.toISOString().split('T')[0];
+
+    return {
+      oldest: formatDate(firstDate),
+      newest: formatDate(lastDate),
+    };
+  }, [routeGroup?.firstDate, routeGroup?.lastDate]);
+
   const { data: allActivities, isLoading } = useActivities({
-    oldest: routeGroup?.firstDate?.split('T')[0] || undefined,
-    newest: routeGroup?.lastDate?.split('T')[0] || undefined,
+    oldest,
+    newest,
     includeStats: false,
   });
 
@@ -945,9 +1014,36 @@ export default function RouteDetailScreen() {
               <View style={[styles.typeIcon, { backgroundColor: activityColor }]}>
                 <MaterialCommunityIcons name={iconName} size={16} color="#FFFFFF" />
               </View>
-              <Text style={styles.heroRouteName} numberOfLines={1}>
-                {routeGroup.name}
-              </Text>
+              {isEditing ? (
+                <View style={styles.editNameContainer}>
+                  <TextInput
+                    ref={nameInputRef}
+                    style={styles.editNameInput}
+                    value={editName}
+                    onChangeText={setEditName}
+                    onSubmitEditing={handleSaveName}
+                    onBlur={handleCancelEdit}
+                    placeholder="Route name"
+                    placeholderTextColor="rgba(255,255,255,0.5)"
+                    returnKeyType="done"
+                    autoFocus
+                    selectTextOnFocus
+                  />
+                  <TouchableOpacity onPress={handleSaveName} style={styles.editNameButton}>
+                    <MaterialCommunityIcons name="check" size={20} color="#4CAF50" />
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={handleCancelEdit} style={styles.editNameButton}>
+                    <MaterialCommunityIcons name="close" size={20} color="#FF5252" />
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <TouchableOpacity onPress={handleStartEditing} style={styles.nameEditTouchable} activeOpacity={0.7}>
+                  <Text style={styles.heroRouteName} numberOfLines={1}>
+                    {customName || routeGroup.name}
+                  </Text>
+                  <MaterialCommunityIcons name="pencil" size={14} color="rgba(255,255,255,0.6)" style={styles.editIcon} />
+                </TouchableOpacity>
+              )}
             </View>
 
             {/* Stats row */}
@@ -1127,6 +1223,36 @@ const styles = StyleSheet.create({
     textShadowColor: 'rgba(0, 0, 0, 0.5)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 3,
+  },
+  nameEditTouchable: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  editIcon: {
+    marginLeft: 4,
+  },
+  editNameContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    borderRadius: 8,
+    paddingHorizontal: spacing.sm,
+    gap: spacing.xs,
+  },
+  editNameInput: {
+    flex: 1,
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    paddingVertical: 8,
+  },
+  editNameButton: {
+    padding: 6,
+    borderRadius: 6,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
   },
   heroStatsRow: {
     flexDirection: 'row',
