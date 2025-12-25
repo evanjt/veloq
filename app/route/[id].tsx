@@ -851,6 +851,10 @@ export default function RouteDetailScreen() {
     setHighlightedActivityPoints(activityPoints);
   }, []);
 
+  const routeGroup = useRouteMatchStore((s) =>
+    s.cache?.groups.find((g) => g.id === id) || null
+  );
+
   // Handle starting to edit the route name
   const handleStartEditing = useCallback(() => {
     const currentName = customName || routeGroup?.name || '';
@@ -879,10 +883,6 @@ export default function RouteDetailScreen() {
     setEditName('');
     Keyboard.dismiss();
   }, []);
-
-  const routeGroup = useRouteMatchStore((s) =>
-    s.cache?.groups.find((g) => g.id === id) || null
-  );
 
   // Get match data for all activities in this route
   const matches = useRouteMatchStore((s) => s.cache?.matches || {});

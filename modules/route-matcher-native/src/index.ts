@@ -158,6 +158,99 @@ export function processRoutesBatch(
 }
 
 /**
+ * OPTIMIZED: Process routes using flat coordinate arrays.
+ * Avoids the overhead of serializing GpsPoint objects.
+ *
+ * @param activityIds - Array of activity IDs
+ * @param coordArrays - Array of flat coordinate arrays [lat1, lng1, lat2, lng2, ...]
+ * @param config - Optional match configuration
+ */
+export function processRoutesFlat(
+  activityIds: string[],
+  coordArrays: number[][],
+  config?: Partial<MatchConfig>
+): RouteGroup[] {
+  console.log(`🦀🦀🦀 [RouteMatcher] FLAT processRoutes called with ${activityIds.length} tracks 🦀🦀🦀`);
+  const startTime = Date.now();
+  const result = NativeModule.processRoutesFlat(activityIds, coordArrays, config ?? null);
+  const elapsed = Date.now() - startTime;
+  console.log(`🦀 [RouteMatcher] FLAT processRoutes returned ${result?.length || 0} groups in ${elapsed}ms`);
+  return result || [];
+}
+
+/**
+ * OPTIMIZED: Create signatures using a single flat buffer with offsets.
+ * Returns signatures (not groups) for incremental caching.
+ * All coordinates in one contiguous array, with offsets marking track boundaries.
+ *
+ * @param activityIds - Array of activity IDs
+ * @param coords - Single flat array of ALL coordinates [lat1, lng1, lat2, lng2, ...]
+ * @param offsets - Index offsets where each track starts in the coords array
+ * @param config - Optional match configuration
+ */
+export function createSignaturesFlatBuffer(
+  activityIds: string[],
+  coords: number[],
+  offsets: number[],
+  config?: Partial<MatchConfig>
+): RouteSignature[] {
+  console.log(`🦀🦀🦀 [RouteMatcher] FLAT BUFFER createSignatures: ${activityIds.length} tracks, ${coords.length} coords 🦀🦀🦀`);
+  const startTime = Date.now();
+  const result = NativeModule.createSignaturesFlatBuffer(activityIds, coords, offsets, config ?? null);
+  const elapsed = Date.now() - startTime;
+  console.log(`🦀 [RouteMatcher] FLAT BUFFER returned ${result?.length || 0} signatures in ${elapsed}ms`);
+  return result || [];
+}
+
+/**
+ * MOST OPTIMIZED: Process routes using a single flat buffer with offsets.
+ * All coordinates in one contiguous array, with offsets marking track boundaries.
+ * Minimizes memory allocations and serialization overhead.
+ *
+ * @param activityIds - Array of activity IDs
+ * @param coords - Single flat array of ALL coordinates [lat1, lng1, lat2, lng2, ...]
+ * @param offsets - Index offsets where each track starts in the coords array
+ * @param config - Optional match configuration
+ */
+export function processRoutesFlatBuffer(
+  activityIds: string[],
+  coords: number[],
+  offsets: number[],
+  config?: Partial<MatchConfig>
+): RouteGroup[] {
+  console.log(`🦀🦀🦀 [RouteMatcher] FLAT BUFFER processRoutes: ${activityIds.length} tracks, ${coords.length} coords 🦀🦀🦀`);
+  const startTime = Date.now();
+  const result = NativeModule.processRoutesFlatBuffer(activityIds, coords, offsets, config ?? null);
+  const elapsed = Date.now() - startTime;
+  console.log(`🦀 [RouteMatcher] FLAT BUFFER returned ${result?.length || 0} groups in ${elapsed}ms`);
+  return result || [];
+}
+
+/**
+ * Helper to convert GpsTrack[] to flat buffer format.
+ * Use with processRoutesFlatBuffer for maximum performance.
+ */
+export function tracksToFlatBuffer(tracks: GpsTrack[]): {
+  activityIds: string[];
+  coords: number[];
+  offsets: number[];
+} {
+  const activityIds: string[] = [];
+  const coords: number[] = [];
+  const offsets: number[] = [];
+
+  for (const track of tracks) {
+    activityIds.push(track.activityId);
+    offsets.push(coords.length);
+    for (const point of track.points) {
+      coords.push(point.latitude, point.longitude);
+    }
+  }
+
+  return { activityIds, coords, offsets };
+}
+
+/**
  * Always returns true - we only use native Rust implementation.
  */
 export function isNative(): boolean {
@@ -167,9 +260,13 @@ export function isNative(): boolean {
 export default {
   createSignature,
   createSignaturesBatch,
+  createSignaturesFlatBuffer,
   compareRoutes,
   groupSignatures,
   processRoutesBatch,
+  processRoutesFlat,
+  processRoutesFlatBuffer,
+  tracksToFlatBuffer,
   getDefaultConfig,
   isNative,
 };

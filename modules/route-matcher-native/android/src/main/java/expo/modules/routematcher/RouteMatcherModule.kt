@@ -166,6 +166,103 @@ class RouteMatcherModule : Module() {
         )
       }
     }
+
+    // OPTIMIZED: Process routes using flat coordinate arrays (TypedArray from JS)
+    // Each track has activityId (String) and coords (DoubleArray: [lat1, lng1, lat2, lng2, ...])
+    // This avoids the overhead of Map<String, Double> for each GPS point
+    Function("processRoutesFlat") { activityIds: List<String>, coordArrays: List<DoubleArray>, config: Map<String, Any>? ->
+      Log.i(TAG, "🦀🦀🦀 FLAT processRoutes called with ${activityIds.size} tracks 🦀🦀🦀")
+
+      if (activityIds.size != coordArrays.size) {
+        Log.e(TAG, "🦀 ERROR: activityIds.size (${activityIds.size}) != coordArrays.size (${coordArrays.size})")
+        return@Function emptyList<Map<String, Any>>()
+      }
+
+      // Convert to FlatGpsTrack for Rust
+      val flatTracks = activityIds.mapIndexed { index, activityId ->
+        FlatGpsTrack(activityId, coordArrays[index].toList())
+      }
+
+      val matchConfig = parseConfig(config)
+
+      val startTime = System.currentTimeMillis()
+      val groups = processRoutesFromFlat(flatTracks, matchConfig)
+      val elapsed = System.currentTimeMillis() - startTime
+
+      Log.i(TAG, "🦀 FLAT BATCH: ${flatTracks.size} tracks -> ${groups.size} groups in ${elapsed}ms")
+
+      groups.map { group ->
+        mapOf(
+          "groupId" to group.groupId,
+          "activityIds" to group.activityIds
+        )
+      }
+    }
+
+    // OPTIMIZED: Create signatures from flat buffer (returns signatures, not groups)
+    // Used when we need signatures for incremental caching
+    Function("createSignaturesFlatBuffer") { activityIds: List<String>, coords: DoubleArray, offsets: IntArray, config: Map<String, Any>? ->
+      Log.i(TAG, "🦀🦀🦀 FLAT BUFFER createSignatures: ${activityIds.size} tracks, ${coords.size} coords 🦀🦀🦀")
+
+      if (activityIds.size != offsets.size) {
+        Log.e(TAG, "🦀 ERROR: activityIds.size (${activityIds.size}) != offsets.size (${offsets.size})")
+        return@Function emptyList<Map<String, Any>>()
+      }
+
+      // Split the flat buffer into individual track coords using offsets
+      val flatTracks = activityIds.mapIndexed { index, activityId ->
+        val start = offsets[index]
+        val end = if (index + 1 < offsets.size) offsets[index + 1] else coords.size
+        val trackCoords = coords.slice(start until end)
+        FlatGpsTrack(activityId, trackCoords)
+      }
+
+      val matchConfig = parseConfig(config)
+
+      val startTime = System.currentTimeMillis()
+      val signatures = createSignaturesFromFlat(flatTracks, matchConfig)
+      val elapsed = System.currentTimeMillis() - startTime
+
+      Log.i(TAG, "🦀 FLAT BUFFER: ${flatTracks.size} tracks -> ${signatures.size} signatures in ${elapsed}ms")
+
+      signatures.map { signatureToMap(it) }
+    }
+
+    // OPTIMIZED V2: Single flat buffer with offsets (most efficient)
+    // coords: flat DoubleArray [lat1, lng1, lat2, lng2, ...]
+    // offsets: IntArray marking where each track starts in the coords array
+    // activityIds: List<String> of activity IDs in same order as offsets
+    Function("processRoutesFlatBuffer") { activityIds: List<String>, coords: DoubleArray, offsets: IntArray, config: Map<String, Any>? ->
+      Log.i(TAG, "🦀🦀🦀 FLAT BUFFER processRoutes: ${activityIds.size} tracks, ${coords.size} coords 🦀🦀🦀")
+
+      if (activityIds.size != offsets.size) {
+        Log.e(TAG, "🦀 ERROR: activityIds.size (${activityIds.size}) != offsets.size (${offsets.size})")
+        return@Function emptyList<Map<String, Any>>()
+      }
+
+      // Split the flat buffer into individual track coords using offsets
+      val flatTracks = activityIds.mapIndexed { index, activityId ->
+        val start = offsets[index]
+        val end = if (index + 1 < offsets.size) offsets[index + 1] else coords.size
+        val trackCoords = coords.slice(start until end)
+        FlatGpsTrack(activityId, trackCoords)
+      }
+
+      val matchConfig = parseConfig(config)
+
+      val startTime = System.currentTimeMillis()
+      val groups = processRoutesFromFlat(flatTracks, matchConfig)
+      val elapsed = System.currentTimeMillis() - startTime
+
+      Log.i(TAG, "🦀 FLAT BUFFER: ${flatTracks.size} tracks -> ${groups.size} groups in ${elapsed}ms")
+
+      groups.map { group ->
+        mapOf(
+          "groupId" to group.groupId,
+          "activityIds" to group.activityIds
+        )
+      }
+    }
   }
 
   private fun parseConfig(map: Map<String, Any>?): MatchConfig {
