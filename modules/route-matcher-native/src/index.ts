@@ -617,6 +617,80 @@ export function getDefaultSectionConfig(): SectionConfig {
   };
 }
 
+/**
+ * Incremental section detection: efficiently update sections when new activities are added.
+ * Only compares new vs existing signatures - O(m×n) instead of O(n²).
+ *
+ * For 500 existing + 1 new: O(500) comparisons instead of O(250,000)
+ *
+ * Use this when adding new activities to avoid re-comparing all existing signatures.
+ *
+ * @param newSignatures - New signatures to add
+ * @param existingSections - Current detected sections
+ * @param existingSignatures - All existing signatures (for comparison)
+ * @param groups - Route groups (for linking sections to routes)
+ * @param sportTypes - Map of activity_id -> sport_type (for all activities)
+ * @param config - Optional section detection configuration
+ * @returns Updated array of frequent sections
+ */
+export function detectSectionsIncremental(
+  newSignatures: RouteSignature[],
+  existingSections: FrequentSection[],
+  existingSignatures: RouteSignature[],
+  groups: RouteGroup[],
+  sportTypes: ActivitySportType[],
+  config?: Partial<SectionConfig>
+): FrequentSection[] {
+  nativeLog(`INCREMENTAL sections: ${newSignatures.length} new + ${existingSignatures.length} existing signatures`);
+  const startTime = Date.now();
+
+  // Convert to native format
+  const nativeConfig = config ? {
+    proximity_threshold: config.proximityThreshold ?? 30.0,
+    min_section_length: config.minSectionLength ?? 200.0,
+    min_activities: config.minActivities ?? 3,
+    cluster_tolerance: config.clusterTolerance ?? 50.0,
+    sample_points: config.samplePoints ?? 50,
+  } : NativeModule.defaultSectionConfig();
+
+  // Convert existing sections to native format
+  const nativeExistingSections = existingSections.map(s => ({
+    id: s.id,
+    sport_type: s.sportType,
+    polyline: s.polyline,
+    activity_ids: s.activityIds,
+    route_ids: s.routeIds,
+    visit_count: s.visitCount,
+    distance_meters: s.distanceMeters,
+  }));
+
+  const result = NativeModule.detectSectionsIncremental(
+    newSignatures,
+    nativeExistingSections,
+    existingSignatures,
+    groups,
+    sportTypes.map(st => ({
+      activity_id: st.activityId,
+      sport_type: st.sportType,
+    })),
+    nativeConfig
+  );
+
+  const elapsed = Date.now() - startTime;
+  nativeLog(`INCREMENTAL sections returned ${result?.length || 0} sections in ${elapsed}ms`);
+
+  // Convert from snake_case to camelCase
+  return (result || []).map((s: Record<string, unknown>) => ({
+    id: s.id as string,
+    sportType: s.sport_type as string,
+    polyline: (s.polyline as GpsPoint[]),
+    activityIds: s.activity_ids as string[],
+    routeIds: s.route_ids as string[],
+    visitCount: s.visit_count as number,
+    distanceMeters: s.distance_meters as number,
+  }));
+}
+
 
 // =============================================================================
 // Heatmap Generation
@@ -911,6 +985,7 @@ export default {
   parseBounds,
   // Frequent sections detection
   detectFrequentSections,
+  detectSectionsIncremental,
   getDefaultSectionConfig,
   // Heatmap generation
   generateHeatmap,
