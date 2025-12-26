@@ -85,6 +85,57 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
+      # ============================================
+      # Rust Setup and Build
+      # ============================================
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Rust Android targets
+        run: rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android i686-linux-android
+
+      - name: Install cargo-ndk
+        run: cargo install cargo-ndk
+
+      - name: Cache Rust build
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            rust/route-matcher/target
+          key: rust-android-${{ runner.os }}-${{ hashFiles('rust/route-matcher/Cargo.lock') }}
+          restore-keys: |
+            rust-android-${{ runner.os }}-
+
+      - name: Build Rust library for Android
+        run: |
+          cd rust/route-matcher
+          ./scripts/build-android.sh
+
+      - name: Install Rust library to native module
+        run: |
+          cd rust/route-matcher
+          ./scripts/install-android.sh
+
+      - name: Verify native module installation
+        run: |
+          echo "=== Checking native module installation ==="
+          MODULE_DIR="modules/route-matcher-native/android/src/main/jniLibs"
+
+          for arch in arm64-v8a armeabi-v7a x86_64 x86; do
+            if [ -f "$MODULE_DIR/$arch/libroute_matcher.so" ]; then
+              echo "✓ $arch library found"
+              ls -lh "$MODULE_DIR/$arch/libroute_matcher.so"
+            else
+              echo "✗ $arch library NOT found"
+              exit 1
+            fi
+          done
+
+      # ============================================
+      # Gradle and Android Build
+      # ============================================
       - name: Cache Gradle dependencies
         uses: actions/cache@v4
         with:
@@ -149,9 +200,7 @@ jobs:
       # Rust Setup and Build
       # ============================================
       - name: Setup Rust
-        uses: dtolnay/rust-action@stable
-        with:
-          toolchain: stable
+        uses: dtolnay/rust-toolchain@stable
 
       - name: Install Rust iOS targets
         run: rustup target add aarch64-apple-ios aarch64-apple-ios-sim x86_64-apple-ios
