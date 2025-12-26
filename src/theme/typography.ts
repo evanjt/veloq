@@ -1,30 +1,39 @@
 import { Platform, TextStyle } from 'react-native';
 
-// Base font family - uses system fonts for maximum compatibility
+// iOS uses San Francisco (SF Pro) via system font with specific weights
+// Using -apple-system ensures proper SF Pro rendering with optical sizing
 const fontFamily = Platform.select({
-  ios: 'System',
+  ios: '-apple-system',
+  android: 'Roboto',
+  default: 'System',
+});
+
+// SF Pro Display for large headlines (optimized for 20pt+)
+const displayFamily = Platform.select({
+  ios: '-apple-system',
   android: 'Roboto',
   default: 'System',
 });
 
 // Monospace for metrics (tabular numbers)
+// SF Mono on iOS for consistency with system
 const monoFamily = Platform.select({
-  ios: 'Menlo',
+  ios: 'SF Mono',
   android: 'monospace',
   default: 'monospace',
 });
 
 export const typography = {
-  // Headlines & Titles
+  // Headlines & Titles (use displayFamily for optimal rendering at large sizes)
   screenTitle: {
-    fontFamily,
+    fontFamily: displayFamily,
     fontSize: 28,
     fontWeight: '700' as const,
     lineHeight: 34,
     letterSpacing: -0.5,
   },
   sectionTitle: {
-    fontFamily,
+    fontFamily: displayFamily,
     fontSize: 22,
     fontWeight: '700' as const,
     lineHeight: 28,
@@ -58,16 +67,16 @@ export const typography = {
     lineHeight: 20,
   },
 
-  // Stats & Metrics
+  // Stats & Metrics (large numbers use displayFamily)
   heroNumber: {
-    fontFamily,
+    fontFamily: displayFamily,
     fontSize: 48,
     fontWeight: '700' as const,
     lineHeight: 56,
     letterSpacing: -1,
   },
   largeNumber: {
-    fontFamily,
+    fontFamily: displayFamily,
     fontSize: 36,
     fontWeight: '700' as const,
     lineHeight: 42,
