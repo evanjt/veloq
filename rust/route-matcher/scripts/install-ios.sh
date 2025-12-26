@@ -34,51 +34,41 @@ if [ -d "$SOURCE_DIR/RouteMatcherFFI.xcframework" ]; then
     cp -r "$SOURCE_DIR/RouteMatcherFFI.xcframework" "$MODULE_DIR/Frameworks/"
     echo "  ✓ RouteMatcherFFI.xcframework"
 else
-    echo "WARNING: XCFramework not found - native module will use fallback"
+    echo "  ✗ XCFramework NOT FOUND at $SOURCE_DIR/RouteMatcherFFI.xcframework"
 fi
 
 # Install Swift bindings
-if [ -d "$SWIFT_SOURCE" ]; then
-    echo ""
-    echo "Installing Swift bindings..."
+echo ""
+echo "Installing Swift bindings..."
 
-    # Copy the generated Swift file (UniFFI generates route_matcher.swift)
-    if [ -f "$SWIFT_SOURCE/route_matcher.swift" ]; then
-        cp "$SWIFT_SOURCE/route_matcher.swift" "$MODULE_DIR/Generated/"
-        echo "  ✓ route_matcher.swift (UniFFI bindings)"
-    fi
+HEADERS_DIR="${SOURCE_DIR}/headers"
+INSTALL_ERRORS=0
 
-    # Copy the C header (needed for bridging)
-    if [ -f "$SWIFT_SOURCE/route_matcherFFI.h" ]; then
-        cp "$SWIFT_SOURCE/route_matcherFFI.h" "$MODULE_DIR/Generated/"
-        echo "  ✓ route_matcherFFI.h (C header)"
-    fi
-
-    # Copy the module.modulemap from headers directory (needed for Swift imports)
-    HEADERS_DIR="${SOURCE_DIR}/headers"
-    if [ -f "$HEADERS_DIR/module.modulemap" ]; then
-        cp "$HEADERS_DIR/module.modulemap" "$MODULE_DIR/Generated/"
-        echo "  ✓ module.modulemap (Swift module definition)"
-    fi
-
-    # Create bridging header if it doesn't exist
-    BRIDGING_HEADER="$MODULE_DIR/RouteMatcherNative-Bridging-Header.h"
-    if [ ! -f "$BRIDGING_HEADER" ]; then
-        echo "Creating bridging header..."
-        cat > "$BRIDGING_HEADER" << 'EOF'
-//
-//  RouteMatcherNative-Bridging-Header.h
-//  Bridges the Rust FFI C header for Swift
-//
-
-#import "Generated/route_matcherFFI.h"
-EOF
-        echo "  ✓ RouteMatcherNative-Bridging-Header.h"
-    fi
+# Copy the generated Swift file (UniFFI generates route_matcher.swift)
+if [ -f "$SWIFT_SOURCE/route_matcher.swift" ]; then
+    cp "$SWIFT_SOURCE/route_matcher.swift" "$MODULE_DIR/Generated/"
+    echo "  ✓ route_matcher.swift (UniFFI bindings)"
 else
-    echo ""
-    echo "WARNING: Swift bindings not found at $SWIFT_SOURCE"
-    echo "The module will use JavaScript fallback implementation."
+    echo "  ✗ route_matcher.swift NOT FOUND"
+    INSTALL_ERRORS=$((INSTALL_ERRORS + 1))
+fi
+
+# Copy the C header (needed for FFI)
+if [ -f "$SWIFT_SOURCE/route_matcherFFI.h" ]; then
+    cp "$SWIFT_SOURCE/route_matcherFFI.h" "$MODULE_DIR/Generated/"
+    echo "  ✓ route_matcherFFI.h (C header)"
+else
+    echo "  ✗ route_matcherFFI.h NOT FOUND"
+    INSTALL_ERRORS=$((INSTALL_ERRORS + 1))
+fi
+
+# Copy the module.modulemap from headers directory (needed for Swift imports)
+if [ -f "$HEADERS_DIR/module.modulemap" ]; then
+    cp "$HEADERS_DIR/module.modulemap" "$MODULE_DIR/Generated/"
+    echo "  ✓ module.modulemap (Swift module definition)"
+else
+    echo "  ✗ module.modulemap NOT FOUND"
+    INSTALL_ERRORS=$((INSTALL_ERRORS + 1))
 fi
 
 echo ""
@@ -95,16 +85,21 @@ echo "Generated:"
 ls -la "$MODULE_DIR/Generated/" 2>/dev/null || echo "  (none)"
 echo ""
 
-# Check if we have everything needed for native implementation
-if [ -d "$MODULE_DIR/Frameworks/RouteMatcherFFI.xcframework" ] && \
-   [ -f "$MODULE_DIR/Generated/route_matcher.swift" ]; then
+# Validate all required files are present
+MISSING=""
+[ ! -d "$MODULE_DIR/Frameworks/RouteMatcherFFI.xcframework" ] && MISSING="$MISSING RouteMatcherFFI.xcframework"
+[ ! -f "$MODULE_DIR/Generated/route_matcher.swift" ] && MISSING="$MISSING route_matcher.swift"
+[ ! -f "$MODULE_DIR/Generated/route_matcherFFI.h" ] && MISSING="$MISSING route_matcherFFI.h"
+[ ! -f "$MODULE_DIR/Generated/module.modulemap" ] && MISSING="$MISSING module.modulemap"
+
+if [ -z "$MISSING" ]; then
     echo "✓ Native implementation ready!"
-    echo ""
-    echo "Update RouteMatcherModule.swift to import and use the generated bindings."
 else
-    echo "⚠ Native implementation incomplete - will use JavaScript fallback"
+    echo "ERROR: Native implementation incomplete!"
     echo ""
-    echo "Missing components:"
-    [ ! -d "$MODULE_DIR/Frameworks/RouteMatcherFFI.xcframework" ] && echo "  - RouteMatcherFFI.xcframework"
-    [ ! -f "$MODULE_DIR/Generated/route_matcher.swift" ] && echo "  - route_matcher.swift"
+    echo "Missing components:$MISSING"
+    echo ""
+    echo "The iOS build WILL FAIL without these files."
+    echo "Run build-ios.sh first to generate all required artifacts."
+    exit 1
 fi
