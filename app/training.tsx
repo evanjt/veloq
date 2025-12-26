@@ -135,6 +135,38 @@ export default function TrainingScreen() {
           )}
         </TouchableOpacity>
 
+        {/* Heatmap Section */}
+        <TouchableOpacity
+          style={[styles.card, isDark && styles.cardDark]}
+          onPress={() => router.push('/heatmap' as Href)}
+          activeOpacity={0.7}
+        >
+          <View style={styles.routesSectionRow}>
+            <View style={[styles.routesIcon, { backgroundColor: '#FF572215' }, isDark && { backgroundColor: '#FF572230' }]}>
+              <MaterialCommunityIcons
+                name="fire"
+                size={22}
+                color="#FF5722"
+              />
+            </View>
+            <View style={styles.routesSectionInfo}>
+              <Text style={[styles.routesSectionTitle, isDark && styles.textLight]}>
+                Heatmap
+              </Text>
+              <Text style={[styles.routesSectionSubtitle, isDark && styles.textMuted]}>
+                {routeGroups.length > 0
+                  ? `Visualize ${processedCount} activities`
+                  : 'See where you travel most'}
+              </Text>
+            </View>
+            <MaterialCommunityIcons
+              name="chevron-right"
+              size={22}
+              color={isDark ? '#666' : colors.textSecondary}
+            />
+          </View>
+        </TouchableOpacity>
+
         {/* Activity Heatmap - using real activities data */}
         <View style={[styles.card, isDark && styles.cardDark]}>
           {isLoading ? (
