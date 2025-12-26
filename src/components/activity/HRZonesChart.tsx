@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { View, StyleSheet, useColorScheme, Text } from 'react-native';
-import { colors, darkColors, opacity, typography, spacing } from '@/theme';
+import { colors, darkColors, opacity, typography, spacing, layout } from '@/theme';
 import { useHRZones } from '@/providers';
 import { useSportSettings, getSettingsForSport, HR_ZONE_COLORS } from '@/hooks';
 import type { ActivityStreams, ActivityDetail } from '@/types';

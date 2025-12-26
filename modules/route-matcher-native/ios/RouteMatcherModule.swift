@@ -436,7 +436,14 @@ public class RouteMatcherModule: Module {
             "points": sig.points.map { ["latitude": $0.latitude, "longitude": $0.longitude] },
             "totalDistance": sig.totalDistance,
             "startPoint": ["latitude": sig.startPoint.latitude, "longitude": sig.startPoint.longitude],
-            "endPoint": ["latitude": sig.endPoint.latitude, "longitude": sig.endPoint.longitude]
+            "endPoint": ["latitude": sig.endPoint.latitude, "longitude": sig.endPoint.longitude],
+            "bounds": [
+                "minLat": sig.bounds.minLat,
+                "maxLat": sig.bounds.maxLat,
+                "minLng": sig.bounds.minLng,
+                "maxLng": sig.bounds.maxLng
+            ],
+            "center": ["latitude": sig.center.latitude, "longitude": sig.center.longitude]
         ]
     }
 
@@ -445,7 +452,9 @@ public class RouteMatcherModule: Module {
               let pointMaps = map["points"] as? [[String: Double]],
               let totalDistance = map["totalDistance"] as? Double,
               let startMap = map["startPoint"] as? [String: Double],
-              let endMap = map["endPoint"] as? [String: Double] else {
+              let endMap = map["endPoint"] as? [String: Double],
+              let boundsMap = map["bounds"] as? [String: Double],
+              let centerMap = map["center"] as? [String: Double] else {
             return nil
         }
 
@@ -455,19 +464,26 @@ public class RouteMatcherModule: Module {
         }
 
         guard let startLat = startMap["latitude"], let startLng = startMap["longitude"],
-              let endLat = endMap["latitude"], let endLng = endMap["longitude"] else {
+              let endLat = endMap["latitude"], let endLng = endMap["longitude"],
+              let minLat = boundsMap["minLat"], let maxLat = boundsMap["maxLat"],
+              let minLng = boundsMap["minLng"], let maxLng = boundsMap["maxLng"],
+              let centerLat = centerMap["latitude"], let centerLng = centerMap["longitude"] else {
             return nil
         }
 
         let startPoint = GpsPoint(latitude: startLat, longitude: startLng)
         let endPoint = GpsPoint(latitude: endLat, longitude: endLng)
+        let bounds = Bounds(minLat: minLat, maxLat: maxLat, minLng: minLng, maxLng: maxLng)
+        let center = GpsPoint(latitude: centerLat, longitude: centerLng)
 
         return RouteSignature(
             activityId: activityId,
             points: points,
             totalDistance: totalDistance,
             startPoint: startPoint,
-            endPoint: endPoint
+            endPoint: endPoint,
+            bounds: bounds,
+            center: center
         )
     }
 }

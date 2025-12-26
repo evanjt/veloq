@@ -64,36 +64,40 @@ task buildRustLibraries {
   def jniLibsDir = file("src/main/jniLibs/arm64-v8a")
   def rustLibrary = new File(jniLibsDir, "libroute_matcher.so")
   def kotlinBindings = file("src/main/java/uniffi/route_matcher/route_matcher.kt")
-  def buildScript = file("${project.rootDir}/../rust/route-matcher/scripts/build-android.sh")
-  def installScript = file("${project.rootDir}/../rust/route-matcher/scripts/install-android.sh")
+  // Path from module's android dir to repo root's rust dir
+  def repoRoot = file("${projectDir}/../../..").canonicalFile
+  def buildScript = new File(repoRoot, "rust/route-matcher/scripts/build-android.sh")
+  def installScript = new File(repoRoot, "rust/route-matcher/scripts/install-android.sh")
 
   outputs.files(rustLibrary)
 
   doLast {
     def needsBuild = !rustLibrary.exists()
 
-    // Also check if bindings have the HTTP functions (fetchActivityMaps)
+    // Check if bindings have the latest features (bounds in RouteSignature)
     if (!needsBuild && kotlinBindings.exists()) {
       def bindingsContent = kotlinBindings.text
-      if (!bindingsContent.contains("fetchActivityMaps")) {
-        println "Rust bindings missing HTTP functions, rebuilding..."
+      if (!bindingsContent.contains("data class Bounds")) {
+        println "Rust bindings missing Bounds type, rebuilding..."
         needsBuild = true
       }
     }
 
     if (needsBuild) {
-      println "Building Rust library with full features..."
+      println "Building Rust library..."
+      println "Build script: ${buildScript.absolutePath}"
+      println "Install script: ${installScript.absolutePath}"
       if (buildScript.exists() && installScript.exists()) {
         exec {
-          workingDir buildScript.parentFile.parentFile
+          workingDir repoRoot.absolutePath + "/rust/route-matcher"
           commandLine 'bash', buildScript.absolutePath
         }
         exec {
-          workingDir installScript.parentFile.parentFile
+          workingDir repoRoot.absolutePath + "/rust/route-matcher"
           commandLine 'bash', installScript.absolutePath
         }
       } else {
-        throw new GradleException("Rust build scripts not found. Run 'npm run build:rust:android' first.")
+        throw new GradleException("Rust build scripts not found at ${buildScript}. Please ensure Rust toolchain is set up.")
       }
     } else {
       println "Rust library up to date, skipping build."

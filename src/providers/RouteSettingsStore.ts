@@ -17,7 +17,7 @@ interface RouteSettings {
 }
 
 const DEFAULT_SETTINGS: RouteSettings = {
-  enabled: false, // Disabled by default - user must opt-in
+  enabled: true, // Enabled by default - efficient Rust implementation
 };
 
 interface RouteSettingsState {
