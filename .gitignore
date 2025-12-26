@@ -68,4 +68,8 @@ modules/route-matcher-native/ios/build/
 /tmp/
 *.so
 *.dylib
-*.md
+
+# Keystores and signing
+*.keystore
+android/keystore.properties
+!android/app/debug.keystore
