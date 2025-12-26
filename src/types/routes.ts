@@ -232,14 +232,14 @@ export const DEFAULT_ROUTE_MATCH_CONFIG: RouteMatchConfig = {
 
 /**
  * A frequently-traveled road section, detected automatically from GPS tracks.
- * Even when full routes differ, common sections are identified.
+ * Uses vector-first algorithm for smooth polylines from actual GPS data.
  */
 export interface FrequentSection {
   /** Unique section ID */
   id: string;
   /** Sport type this section is for ("Run", "Ride", etc.) */
   sportType: string;
-  /** Simplified polyline for rendering (ordered path through cells) */
+  /** Smooth polyline from actual GPS tracks */
   polyline: RoutePoint[];
   /** Activity IDs that traverse this section */
   activityIds: string[];
@@ -247,7 +247,7 @@ export interface FrequentSection {
   routeIds: string[];
   /** Total number of traversals */
   visitCount: number;
-  /** Estimated section length in meters */
+  /** Section length in meters */
   distanceMeters: number;
   /** Display name (auto-generated or user-set) */
   name?: string;
@@ -255,20 +255,23 @@ export interface FrequentSection {
 
 /** Configuration for section detection */
 export interface SectionConfig {
-  /** Grid cell size in meters (default: 100m) */
-  cellSizeMeters: number;
-  /** Minimum visits to a cell to be considered frequent (default: 3) */
-  minVisits: number;
-  /** Minimum cells in a cluster to form a section (default: 5, ~500m) */
-  minCells: number;
-  /** Whether to use 8-directional flood-fill (default: true) */
-  diagonalConnect: boolean;
+  /** Maximum distance between tracks to consider overlapping (meters). Default: 30m */
+  proximityThreshold: number;
+  /** Minimum overlap length to consider a section (meters). Default: 200m */
+  minSectionLength: number;
+  /** Minimum number of activities that must share an overlap. Default: 3 */
+  minActivities: number;
+  /** Tolerance for clustering similar overlaps (meters). Default: 50m */
+  clusterTolerance: number;
+  /** Number of sample points for polyline normalization. Default: 50 */
+  samplePoints: number;
 }
 
 /** Default section detection configuration */
 export const DEFAULT_SECTION_CONFIG: SectionConfig = {
-  cellSizeMeters: 100,
-  minVisits: 3,
-  minCells: 5,
-  diagonalConnect: true,
+  proximityThreshold: 30,
+  minSectionLength: 200,
+  minActivities: 3,
+  clusterTolerance: 50,
+  samplePoints: 50,
 };

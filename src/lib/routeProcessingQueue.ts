@@ -58,7 +58,7 @@ import { generateRouteName } from './geocoding';
 import NativeRouteMatcher, {
   createSignaturesFlatBuffer,
   groupIncremental as nativeGroupIncremental,
-  detectFrequentSectionsV2 as nativeDetectFrequentSectionsV2,
+  detectFrequentSections as nativeDetectFrequentSections,
 } from 'route-matcher-native';
 import type {
   RouteSignature as NativeRouteSignature,
@@ -1244,8 +1244,8 @@ class RouteProcessingQueue {
             activityIds: g.activityIds,
           }));
 
-          // Detect frequent sections using v2 vector-first algorithm (runs in Rust)
-          const sections = nativeDetectFrequentSectionsV2(
+          // Detect frequent sections using vector-first algorithm (runs in Rust)
+          const sections = nativeDetectFrequentSections(
             nativeSigs,
             nativeGroups,
             sportTypes
