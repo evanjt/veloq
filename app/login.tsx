@@ -10,7 +10,7 @@ import {
   Alert,
 } from 'react-native';
 import { Text, TextInput, Button, HelperText, ActivityIndicator } from 'react-native-paper';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router, Href } from 'expo-router';
 import { useAuthStore } from '@/providers';
@@ -20,6 +20,7 @@ import { colors, spacing, layout } from '@/theme';
 export default function LoginScreen() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
+  const insets = useSafeAreaInsets();
   const setCredentials = useAuthStore((state) => state.setCredentials);
 
   const [apiKey, setApiKey] = useState('');
@@ -75,6 +76,7 @@ export default function LoginScreen() {
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? insets.bottom + 10 : 0}
       >
         <ScrollView
           contentContainerStyle={styles.scrollContent}

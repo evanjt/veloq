@@ -10,6 +10,7 @@ import {
   TextInput,
   ActivityIndicator,
   Keyboard,
+  Platform,
 } from 'react-native';
 import { Text } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -20,7 +21,7 @@ import { useSportPreference, SPORT_COLORS } from '@/providers';
 import { formatPaceCompact, formatSwimPace } from '@/lib';
 import { ActivityCard } from '@/components/activity/ActivityCard';
 import { ActivityCardSkeleton, StatsPillSkeleton, MapFAB } from '@/components/ui';
-import { colors, spacing, layout, typography } from '@/theme';
+import { colors, spacing, layout, typography, shadows } from '@/theme';
 import type { Activity } from '@/types';
 
 // Activity type categories for filtering
@@ -451,6 +452,10 @@ export default function FeedScreen() {
             returnKeyType="search"
             autoCorrect={false}
             autoCapitalize="none"
+            // iOS-specific keyboard optimizations
+            keyboardAppearance={isDark ? 'dark' : 'light'}
+            enablesReturnKeyAutomatically={Platform.OS === 'ios'}
+            clearButtonMode={Platform.OS === 'ios' ? 'while-editing' : undefined}
           />
           {searchQuery.length > 0 && (
             <TouchableOpacity
@@ -528,11 +533,18 @@ export default function FeedScreen() {
             colors={[colors.primary]}
             tintColor={colors.primary}
             progressBackgroundColor={isDark ? '#1E1E1E' : '#FFFFFF'}
+            title={Platform.OS === 'ios' ? 'Pull to refresh' : undefined}
+            titleColor={Platform.OS === 'ios' ? (isDark ? '#888' : '#666') : undefined}
           />
         }
         onEndReached={handleEndReached}
         onEndReachedThreshold={0.5}
         showsVerticalScrollIndicator={false}
+        // iOS scroll performance optimizations
+        removeClippedSubviews={Platform.OS === 'ios'}
+        maxToRenderPerBatch={Platform.OS === 'ios' ? 15 : 10}
+        windowSize={Platform.OS === 'ios' ? 21 : 11}
+        initialNumToRender={10}
       />
       <MapFAB onPress={navigateToMap} />
     </SafeAreaView>
@@ -583,18 +595,15 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     paddingHorizontal: 8,
     paddingVertical: 6,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 4,
-    elevation: 2,
     borderWidth: 1,
     borderColor: 'rgba(0, 0, 0, 0.04)',
+    // Platform-optimized subtle shadow for pills
+    ...shadows.pill,
   },
   pillDark: {
     backgroundColor: 'rgba(40, 40, 40, 0.9)',
     borderColor: 'rgba(255, 255, 255, 0.08)',
-    shadowOpacity: 0,
+    ...shadows.none,
   },
   pillItem: {
     alignItems: 'center',

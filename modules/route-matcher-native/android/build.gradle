@@ -101,9 +101,11 @@ task buildRustLibraries {
   }
 }
 
-// Make sure Rust is built before compiling
-tasks.matching { it.name.startsWith('compile') && it.name.contains('Kotlin') }.configureEach {
-  dependsOn buildRustLibraries
+// Make sure Rust is built before any tasks that need the JNI libraries
+afterEvaluate {
+  tasks.matching { it.name.contains('mergeDebugJniLibFolders') || it.name.contains('mergeReleaseJniLibFolders') }.configureEach {
+    dependsOn buildRustLibraries
+  }
 }
 
 dependencies {

@@ -4,6 +4,7 @@ import { colors, darkColors } from './colors';
 export { colors, darkColors, gradients, glows } from './colors';
 export { spacing, layout } from './spacing';
 export { typography } from './typography';
+export { shadows, createShadow, cardShadow, smallElementShadow } from './shadows';
 
 export const lightTheme = {
   ...MD3LightTheme,

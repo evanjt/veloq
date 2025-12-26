@@ -1,7 +1,22 @@
+import type { EventSubscription } from 'expo-modules-core';
 import NativeModule from './RouteMatcherModule';
 
 // Simple debug logging for native module - only in dev mode
 const nativeLog = __DEV__ ? (...args: unknown[]) => console.log('[RouteMatcher]', ...args) : () => {};
+
+/**
+ * Progress event from Rust HTTP fetch operations.
+ */
+export interface FetchProgressEvent {
+  completed: number;
+  total: number;
+}
+
+// The native module is already an EventEmitter in SDK 52+
+// We need to use type assertion to get the typed addListener method
+interface NativeModuleWithEvents {
+  addListener(eventName: 'onFetchProgress', listener: (event: FetchProgressEvent) => void): EventSubscription;
+}
 
 export interface GpsPoint {
   latitude: number;
@@ -299,13 +314,65 @@ export function fetchActivityMaps(
   apiKey: string,
   activityIds: string[]
 ): ActivityMapResult[] {
-  nativeLog(`RUST fetchActivityMaps called for ${activityIds.length} activities`);
+  nativeLog(`RUST fetchActivityMaps [v6-sustained] called for ${activityIds.length} activities`);
   const startTime = Date.now();
   const result = NativeModule.fetchActivityMaps(apiKey, activityIds);
   const elapsed = Date.now() - startTime;
   const successCount = result?.filter((r: ActivityMapResult) => r.success).length || 0;
-  nativeLog(`RUST fetchActivityMaps: ${successCount}/${activityIds.length} successful in ${elapsed}ms`);
+  const errorCount = result?.filter((r: ActivityMapResult) => !r.success).length || 0;
+  const totalPoints = result?.reduce((sum: number, r: ActivityMapResult) => sum + (r.latlngs?.length || 0) / 2, 0) || 0;
+  const rate = (activityIds.length / (elapsed / 1000)).toFixed(1);
+  nativeLog(`RUST fetchActivityMaps [v6-sustained]: ${successCount}/${activityIds.length} (${errorCount} errors) in ${elapsed}ms (${rate} req/s, ${totalPoints} points)`);
   return result || [];
+}
+
+/**
+ * Fetch activity map data with real-time progress updates.
+ * Emits "onFetchProgress" events as each activity is fetched.
+ *
+ * Use addFetchProgressListener to receive progress updates.
+ *
+ * @param apiKey - intervals.icu API key
+ * @param activityIds - Array of activity IDs to fetch
+ * @returns Promise of ActivityMapResult array with bounds and GPS coordinates
+ */
+export async function fetchActivityMapsWithProgress(
+  apiKey: string,
+  activityIds: string[]
+): Promise<ActivityMapResult[]> {
+  nativeLog(`RUST fetchActivityMapsWithProgress called for ${activityIds.length} activities`);
+  const startTime = Date.now();
+  // AsyncFunction returns a Promise - await it so JS thread is free to process events
+  const result = await NativeModule.fetchActivityMapsWithProgress(apiKey, activityIds);
+  const elapsed = Date.now() - startTime;
+  const successCount = result?.filter((r: ActivityMapResult) => r.success).length || 0;
+  const errorCount = result?.filter((r: ActivityMapResult) => !r.success).length || 0;
+  const rate = (activityIds.length / (elapsed / 1000)).toFixed(1);
+  nativeLog(`RUST fetchActivityMapsWithProgress: ${successCount}/${activityIds.length} (${errorCount} errors) in ${elapsed}ms (${rate} req/s)`);
+  return result || [];
+}
+
+/**
+ * Subscribe to fetch progress events.
+ * Returns a subscription that should be removed when no longer needed.
+ *
+ * @param listener - Callback function receiving progress events
+ * @returns Subscription to remove when done
+ *
+ * @example
+ * ```ts
+ * const subscription = addFetchProgressListener(({ completed, total }) => {
+ *   console.log(`Progress: ${completed}/${total}`);
+ * });
+ *
+ * // When done:
+ * subscription.remove();
+ * ```
+ */
+export function addFetchProgressListener(
+  listener: (event: FetchProgressEvent) => void
+): EventSubscription {
+  return (NativeModule as unknown as NativeModuleWithEvents).addListener('onFetchProgress', listener);
 }
 
 /**
@@ -373,7 +440,9 @@ export default {
   isNative,
   // Activity fetching (Rust HTTP client)
   fetchActivityMaps,
+  fetchActivityMapsWithProgress,
   fetchAndProcessActivities,
+  addFetchProgressListener,
   flatCoordsToPoints,
   parseBounds,
 };

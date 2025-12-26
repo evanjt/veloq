@@ -19,6 +19,9 @@ class RouteMatcherModule : Module() {
   override fun definition() = ModuleDefinition {
     Name("RouteMatcher")
 
+    // Define events that can be sent to JS
+    Events("onFetchProgress")
+
     // Create a route signature from GPS points
     Function("createSignature") { activityId: String, points: List<Map<String, Double>>, config: Map<String, Any>? ->
       Log.i(TAG, "🦀 createSignature called for $activityId with ${points.size} points")
@@ -265,18 +268,30 @@ class RouteMatcherModule : Module() {
     }
 
     // HTTP: Fetch activity map data from intervals.icu API
-    // Uses Rust HTTP client with rate limiting (30 req/s burst, 131 req/10s sustained)
+    // Uses Rust HTTP client with dispatch rate limiting (12.5 req/s, 80ms intervals)
     Function("fetchActivityMaps") { apiKey: String, activityIds: List<String> ->
-      Log.i(TAG, "🦀🦀🦀 HTTP fetchActivityMaps called for ${activityIds.size} activities 🦀🦀🦀")
+      Log.i(TAG, "🦀🦀🦀 HTTP fetchActivityMaps [v6-sustained] called for ${activityIds.size} activities 🦀🦀🦀")
 
-      val startTime = System.currentTimeMillis()
+      val totalStart = System.currentTimeMillis()
+
+      // Time the Rust call (network + parsing)
+      val rustStart = System.currentTimeMillis()
       val results = fetchActivityMaps(apiKey, activityIds)
-      val elapsed = System.currentTimeMillis() - startTime
+      val rustElapsed = System.currentTimeMillis() - rustStart
 
       val successCount = results.count { it.success }
-      Log.i(TAG, "🦀 HTTP: Fetched $successCount/${activityIds.size} activities in ${elapsed}ms")
+      val errorCount = results.count { !it.success }
+      val totalPoints = results.sumOf { it.latlngs.size / 2 }
+      val totalBytes = results.sumOf { it.latlngs.size * 8 }  // 8 bytes per f64
+      val rate = activityIds.size.toDouble() / (rustElapsed / 1000.0)
 
-      results.map { result ->
+      Log.i(TAG, "🦀 [TIMING] Rust fetch+parse: ${rustElapsed}ms (${String.format("%.1f", rate)} req/s)")
+      Log.i(TAG, "🦀 [DATA] $successCount success ($errorCount errors), $totalPoints points, ${totalBytes / 1024}KB")
+
+      // Time FFI: Rust -> Kotlin object conversion (this is in the Rust call above)
+      // Time the Kotlin->JS map conversion
+      val convertStart = System.currentTimeMillis()
+      val converted = results.map { result ->
         mapOf(
           "activityId" to result.activityId,
           "bounds" to result.bounds,
@@ -285,6 +300,61 @@ class RouteMatcherModule : Module() {
           "error" to result.error
         )
       }
+      val convertElapsed = System.currentTimeMillis() - convertStart
+
+      val totalElapsed = System.currentTimeMillis() - totalStart
+      Log.i(TAG, "🦀 [TIMING] Kotlin->Map: ${convertElapsed}ms | Total: ${totalElapsed}ms")
+
+      converted
+    }
+
+    // HTTP: Fetch activity map data WITH real-time progress events
+    // Emits "onFetchProgress" event after each activity is fetched
+    // Uses AsyncFunction so JS isn't blocked and can receive events
+    AsyncFunction("fetchActivityMapsWithProgress") { apiKey: String, activityIds: List<String> ->
+      Log.i(TAG, "🦀🦀🦀 HTTP fetchActivityMapsWithProgress called for ${activityIds.size} activities 🦀🦀🦀")
+
+      val totalStart = System.currentTimeMillis()
+      val module = this@RouteMatcherModule
+
+      // Create a callback that sends progress events to JS
+      val progressCallback = object : FetchProgressCallback {
+        override fun onProgress(completed: UInt, total: UInt) {
+          Log.d(TAG, "🦀 Progress: $completed/$total")
+          module.sendEvent("onFetchProgress", mapOf(
+            "completed" to completed.toInt(),
+            "total" to total.toInt()
+          ))
+        }
+      }
+
+      // Time the Rust call with progress callback
+      val rustStart = System.currentTimeMillis()
+      val results = fetchActivityMapsWithProgress(apiKey, activityIds, progressCallback)
+      val rustElapsed = System.currentTimeMillis() - rustStart
+
+      val successCount = results.count { it.success }
+      val errorCount = results.count { !it.success }
+      val rate = activityIds.size.toDouble() / (rustElapsed / 1000.0)
+
+      Log.i(TAG, "🦀 [TIMING] Rust fetch+progress: ${rustElapsed}ms (${String.format("%.1f", rate)} req/s)")
+      Log.i(TAG, "🦀 [DATA] $successCount success ($errorCount errors)")
+
+      // Convert to JS maps
+      val converted = results.map { result ->
+        mapOf(
+          "activityId" to result.activityId,
+          "bounds" to result.bounds,
+          "latlngs" to result.latlngs,
+          "success" to result.success,
+          "error" to result.error
+        )
+      }
+
+      val totalElapsed = System.currentTimeMillis() - totalStart
+      Log.i(TAG, "🦀 [TIMING] Total: ${totalElapsed}ms")
+
+      converted
     }
 
     // HTTP: Fetch and process activities in one call (fetch maps + create signatures)

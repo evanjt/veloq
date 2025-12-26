@@ -22,12 +22,16 @@ interface RouteMatchState {
 
   // Actions
   initialize: () => Promise<void>;
+  cleanup: () => void;
   getRouteGroups: () => RouteGroup[];
   getRouteGroupById: (groupId: string) => RouteGroup | null;
   getRouteGroupForActivity: (activityId: string) => RouteGroup | null;
   getMatchForActivity: (activityId: string) => RouteMatch | null;
   clearCache: () => Promise<void>;
 }
+
+// Store unsubscribe functions to prevent memory leaks
+let listenerCleanups: (() => void)[] = [];
 
 export const useRouteMatchStore = create<RouteMatchState>((set, get) => ({
   cache: null,
@@ -37,18 +41,24 @@ export const useRouteMatchStore = create<RouteMatchState>((set, get) => ({
   initialize: async () => {
     if (get().isInitialized) return;
 
-    // Subscribe to cache updates
-    routeProcessingQueue.onCacheUpdate((cache) => {
+    // Clean up any existing listeners first (in case of re-init)
+    listenerCleanups.forEach(cleanup => cleanup());
+    listenerCleanups = [];
+
+    // Subscribe to cache updates - store cleanup function
+    const unsubCache = routeProcessingQueue.onCacheUpdate((cache) => {
       set({ cache });
     });
+    listenerCleanups.push(unsubCache);
 
-    // Subscribe to progress updates
-    routeProcessingQueue.onProgress((progress) => {
+    // Subscribe to progress updates - store cleanup function
+    const unsubProgress = routeProcessingQueue.onProgress((progress) => {
       set({ progress });
     });
+    listenerCleanups.push(unsubProgress);
 
     // Subscribe to bounds sync completion to auto-trigger route processing
-    activitySyncManager.onInitialSyncComplete(() => {
+    const unsubSync = activitySyncManager.onInitialSyncComplete(() => {
       // Check if route matching is enabled
       if (!isRouteMatchingEnabled()) {
         log.log('Route matching disabled, skipping auto-processing');
@@ -79,6 +89,7 @@ export const useRouteMatchStore = create<RouteMatchState>((set, get) => ({
       // Trigger route processing with bounds data for pre-filtering
       routeProcessingQueue.queueActivities(activityIds, metadata, activities);
     });
+    listenerCleanups.push(unsubSync);
 
     // Initialize the queue (loads cache from storage)
     await routeProcessingQueue.initialize();
@@ -127,6 +138,14 @@ export const useRouteMatchStore = create<RouteMatchState>((set, get) => ({
     } else {
       log.log('Route matching disabled, skipping auto-resume');
     }
+  },
+
+  cleanup: () => {
+    // Clean up all listeners to prevent memory leaks
+    listenerCleanups.forEach(cleanup => cleanup());
+    listenerCleanups = [];
+    set({ isInitialized: false });
+    log.log('RouteMatchStore cleaned up');
   },
 
   getRouteGroups: () => {

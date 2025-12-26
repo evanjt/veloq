@@ -8,7 +8,7 @@ import { View, StyleSheet, Pressable, useColorScheme } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router, Href } from 'expo-router';
-import { colors, spacing, layout } from '@/theme';
+import { colors, spacing, layout, shadows } from '@/theme';
 import { formatDistance, formatRelativeDate, getActivityIcon, getActivityColor } from '@/lib';
 import type { RouteGroup } from '@/types';
 
@@ -100,15 +100,12 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     backgroundColor: colors.surface,
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 2,
+    // Platform-optimized shadow
+    ...shadows.card,
   },
   cardDark: {
     backgroundColor: '#1A1A1A',
-    shadowOpacity: 0.2,
+    ...shadows.elevated,
   },
   accentBar: {
     height: 2,

@@ -12,7 +12,6 @@ import type {
   RouteMatchCache,
   RouteProcessingProgress,
   ProcessedActivityStatus,
-  DiscoveredRouteInfo,
   ActivityType,
   ActivityBoundsItem,
 } from '@/types';
@@ -36,6 +35,7 @@ import {
   addMatchToCache,
   getUnprocessedActivityIds,
   restoreSignaturePoints,
+  markActivitiesAsProcessed,
 } from './routeStorage';
 import { debug } from './debug';
 
@@ -384,139 +384,6 @@ async function groupSignatures(
 // Storage key for processing checkpoint
 const ROUTE_PROCESSING_CHECKPOINT_KEY = 'veloq_route_processing_checkpoint';
 
-/**
- * Union-Find helper for grouping activities into routes.
- * When a match is found between A and B, they get merged into the same route.
- */
-class RouteUnionFind {
-  private parent: Map<string, string> = new Map();
-  private activityData: Map<string, { name: string; type: string }> = new Map();
-  private routeData: Map<string, {
-    previewPoints?: { x: number; y: number }[];
-    distance?: number;
-    matchPercentages: number[];
-  }> = new Map();
-
-  find(id: string): string {
-    if (!this.parent.has(id)) {
-      this.parent.set(id, id);
-    }
-    let root = id;
-    while (this.parent.get(root) !== root) {
-      root = this.parent.get(root)!;
-    }
-    // Path compression
-    let current = id;
-    while (current !== root) {
-      const next = this.parent.get(current)!;
-      this.parent.set(current, root);
-      current = next;
-    }
-    return root;
-  }
-
-  union(id1: string, id2: string, matchPercentage: number): void {
-    const root1 = this.find(id1);
-    const root2 = this.find(id2);
-    if (root1 !== root2) {
-      this.parent.set(root2, root1);
-      // Merge route data
-      const data1 = this.routeData.get(root1) || { matchPercentages: [] };
-      const data2 = this.routeData.get(root2) || { matchPercentages: [] };
-      data1.matchPercentages.push(...data2.matchPercentages, matchPercentage);
-      // Preserve previewPoints and distance from either route
-      if (!data1.previewPoints && data2.previewPoints) {
-        data1.previewPoints = data2.previewPoints;
-      }
-      if (!data1.distance && data2.distance) {
-        data1.distance = data2.distance;
-      }
-      this.routeData.set(root1, data1);
-    } else {
-      // Same route, just add the match percentage
-      const data = this.routeData.get(root1) || { matchPercentages: [] };
-      data.matchPercentages.push(matchPercentage);
-      this.routeData.set(root1, data);
-    }
-  }
-
-  setActivityData(id: string, name: string, type: string): void {
-    this.activityData.set(id, { name, type });
-  }
-
-  setRoutePreview(id: string, previewPoints: { x: number; y: number }[], distance: number): void {
-    const root = this.find(id);
-    const data = this.routeData.get(root) || { matchPercentages: [] };
-    if (!data.previewPoints) {
-      data.previewPoints = previewPoints;
-      data.distance = distance;
-    }
-    this.routeData.set(root, data);
-  }
-
-  getRoutes(): DiscoveredRouteInfo[] {
-    // Group all activities by their root
-    const groups = new Map<string, string[]>();
-    for (const id of this.parent.keys()) {
-      const root = this.find(id);
-      if (!groups.has(root)) {
-        groups.set(root, []);
-      }
-      groups.get(root)!.push(id);
-    }
-
-    // Convert to DiscoveredRouteInfo
-    const routes: DiscoveredRouteInfo[] = [];
-    for (const [root, activityIds] of groups) {
-      if (activityIds.length < 2) continue; // Skip solo activities
-
-      const data = this.routeData.get(root);
-      const firstActivity = this.activityData.get(activityIds[0]);
-      const avgMatch = data?.matchPercentages.length
-        ? data.matchPercentages.reduce((a, b) => a + b, 0) / data.matchPercentages.length
-        : 0;
-
-      routes.push({
-        id: root,
-        name: firstActivity?.name || 'Unknown Route',
-        type: firstActivity?.type || 'Ride',
-        activityIds,
-        activityNames: activityIds.map(id => this.activityData.get(id)?.name || id),
-        activityCount: activityIds.length,
-        avgMatchPercentage: avgMatch,
-        previewPoints: data?.previewPoints,
-        distance: data?.distance,
-      });
-    }
-
-    // Sort by activity count descending
-    return routes.sort((a, b) => b.activityCount - a.activityCount);
-  }
-}
-
-/** Extract preview points from a signature (normalized to 0-1 range) */
-function getPreviewPoints(signature: RouteSignature): { x: number; y: number }[] {
-  if (!signature.points || signature.points.length < 2) return [];
-
-  const { minLat, maxLat, minLng, maxLng } = signature.bounds;
-  const latRange = maxLat - minLat || 1;
-  const lngRange = maxLng - minLng || 1;
-
-  // Sample ~20 points for preview
-  const step = Math.max(1, Math.floor(signature.points.length / 20));
-  const points: { x: number; y: number }[] = [];
-
-  for (let i = 0; i < signature.points.length; i += step) {
-    const pt = signature.points[i];
-    points.push({
-      x: (pt.lng - minLng) / lngRange,
-      y: 1 - (pt.lat - minLat) / latRange, // Flip Y for screen coords
-    });
-  }
-
-  return points;
-}
-
 interface ProcessingCheckpoint {
   pendingIds: string[];
   metadata: Record<string, { name: string; date: string; type: ActivityType; hasGps: boolean }>;
@@ -553,6 +420,10 @@ class RouteProcessingQueue {
     boundsData?: ActivityBoundsItem[];
   } | null = null;
 
+  // Lock for cache operations to prevent race conditions
+  private cacheOperationLock: Promise<void> = Promise.resolve();
+  private isInitialized = false;
+
   private constructor() {}
 
   static getInstance(): RouteProcessingQueue {
@@ -566,18 +437,26 @@ class RouteProcessingQueue {
 
   /** Initialize and load existing cache */
   async initialize(): Promise<void> {
-    this.cache = await loadRouteCache();
-    if (!this.cache) {
-      this.cache = createEmptyCache();
-    }
+    if (this.isInitialized) return;
 
-    // Restore points that were stripped when saving (to reduce storage size)
-    // Points are regenerated from cached GPS data
-    await this.restorePointsFromGps();
+    // Use lock to prevent race conditions during initialization
+    this.cacheOperationLock = this.cacheOperationLock.then(async () => {
+      this.cache = await loadRouteCache();
+      if (!this.cache) {
+        this.cache = createEmptyCache();
+      }
 
-    this.notifyCacheListeners();
+      // Restore points that were stripped when saving (to reduce storage size)
+      // Points are regenerated from cached GPS data
+      await this.restorePointsFromGps();
 
-    // Check for interrupted processing
+      this.isInitialized = true;
+      this.notifyCacheListeners();
+    });
+
+    await this.cacheOperationLock;
+
+    // Check for interrupted processing (after init is complete)
     await this.resumeFromCheckpoint();
   }
 
@@ -619,6 +498,8 @@ class RouteProcessingQueue {
     // Batch fetch all GPS tracks
     const gpsTracks = await getGpsTracks(idsNeedingPoints);
     let restoredCount = 0;
+    let failedCount = 0;
+    const failedIds: string[] = [];
 
     // Helper to get GPS track from the fetched map
     const getTrack = async (activityId: string) => gpsTracks.get(activityId) || null;
@@ -630,6 +511,9 @@ class RouteProcessingQueue {
         if (restored) {
           group.signature = restored;
           restoredCount++;
+        } else {
+          failedCount++;
+          failedIds.push(group.signature.activityId);
         }
       }
     }
@@ -641,12 +525,20 @@ class RouteProcessingQueue {
         if (restored) {
           this.cache.signatures[id] = restored;
           restoredCount++;
+        } else if (!failedIds.includes(id)) {
+          // Only count if not already counted from groups
+          failedCount++;
+          failedIds.push(id);
         }
       }
     }
 
     const elapsed = Date.now() - startTime;
-    log.log(`Restored points for ${restoredCount} signatures in ${elapsed}ms`);
+    if (failedCount > 0) {
+      log.log(`Warning: Failed to restore points for ${failedCount} signatures (GPS data missing)`);
+      log.log(`Failed IDs: ${failedIds.slice(0, 5).join(', ')}${failedIds.length > 5 ? ` and ${failedIds.length - 5} more` : ''}`);
+    }
+    log.log(`Restored points for ${restoredCount}/${idsNeedingPoints.length} signatures in ${elapsed}ms`);
   }
 
   /** Get current cache */
@@ -689,6 +581,9 @@ class RouteProcessingQueue {
     metadata: Record<string, { name: string; date: string; type: ActivityType; hasGps: boolean }>,
     boundsData?: ActivityBoundsItem[]
   ): Promise<void> {
+    // Wait for any pending cache operations (initialization, restoration) to complete
+    await this.cacheOperationLock;
+
     // If already processing, queue this request for later
     if (this.isProcessing) {
       log.log(`Already processing, queuing ${activityIds.length} activities for later`);
@@ -918,8 +813,12 @@ class RouteProcessingQueue {
 
   /** Clear all route data */
   async clearCache(): Promise<void> {
+    // Wait for any pending cache operations to complete
+    await this.cacheOperationLock;
+
     this.cancel();
     this.cache = createEmptyCache();
+    this.isInitialized = false; // Allow re-initialization
     await saveRouteCache(this.cache);
     await this.clearCheckpoint();
     this.notifyCacheListeners();
@@ -953,21 +852,8 @@ class RouteProcessingQueue {
     const pendingIds = [...activityIds];
     const processedActivities: ProcessedActivityStatus[] = [];
 
-    // Union-Find for grouping matches into routes
-    const routeUnion = new RouteUnionFind();
-
     // Count existing cached signatures we'll match against
     const cachedSignatureCount = this.cache ? Object.keys(this.cache.signatures).length : 0;
-
-    // Pre-populate activity data for cached signatures
-    if (this.cache) {
-      for (const sig of Object.values(this.cache.signatures)) {
-        const meta = metadata[sig.activityId];
-        if (meta) {
-          routeUnion.setActivityData(sig.activityId, meta.name, meta.type);
-        }
-      }
-    }
 
     // Initialize all activities as pending
     for (const id of activityIds) {
@@ -979,7 +865,6 @@ class RouteProcessingQueue {
           type: meta.type,
           status: 'pending',
         });
-        routeUnion.setActivityData(id, meta.name, meta.type);
       }
     }
 
@@ -1028,7 +913,7 @@ class RouteProcessingQueue {
           message: `Batch ${batchNum}/${totalBatches}: Processing ${batchIds.length} activities...`,
           processedActivities: [...processedActivities],
           matchesFound,
-          discoveredRoutes: routeUnion.getRoutes(),
+          discoveredRoutes: [],
           cachedSignatureCount: cachedSignatureCount + newSignatures.length,
         });
 
@@ -1107,10 +992,6 @@ class RouteProcessingQueue {
           for (const signature of batchSignatures) {
             newSignatures.push(signature);
 
-            // Set preview for this activity
-            const previewPoints = getPreviewPoints(signature);
-            routeUnion.setRoutePreview(signature.activityId, previewPoints, signature.distance);
-
             // Mark as processed
             const activityStatus = processedActivities.find(a => a.id === signature.activityId);
             if (activityStatus) {
@@ -1145,11 +1026,12 @@ class RouteProcessingQueue {
           message: `Batch ${batchNum}/${totalBatches} complete (${gpsDataList.length} signatures created)`,
           processedActivities: [...processedActivities],
           matchesFound,
-          discoveredRoutes: routeUnion.getRoutes(),
+          discoveredRoutes: [],
           cachedSignatureCount: cachedSignatureCount + newSignatures.length,
         });
 
-        // Save signatures after each batch
+        // Save signatures after each batch (for crash recovery)
+        // Don't notify listeners yet - wait until groups are computed
         if (newSignatures.length > 0 && this.cache) {
           const saveStartTime = Date.now();
           this.cache = addSignaturesToCache(this.cache, newSignatures);
@@ -1157,7 +1039,13 @@ class RouteProcessingQueue {
           const saveElapsed = Date.now() - saveStartTime;
           totalCacheSaveTime += saveElapsed;
           log.log(`Batch ${batchNum}: Cache save took ${saveElapsed}ms`);
-          this.notifyCacheListeners();
+          // NOTE: Don't notify listeners here - premature notification causes UI issues
+        }
+
+        // Mark ALL activities in this batch as processed (even failed ones)
+        // This prevents re-processing on every app launch
+        if (this.cache) {
+          this.cache = markActivitiesAsProcessed(this.cache, batchIds);
         }
 
         // Update checkpoint
@@ -1167,14 +1055,8 @@ class RouteProcessingQueue {
         await new Promise((resolve) => setTimeout(resolve, 100));
       }
 
-      // Save remaining signatures
-      if (newSignatures.length > 0 && this.cache) {
-        const saveStartTime = Date.now();
-        this.cache = addSignaturesToCache(this.cache, newSignatures);
-        await saveRouteCache(this.cache);
-        totalCacheSaveTime += Date.now() - saveStartTime;
-        this.notifyCacheListeners();
-      }
+      // Signatures are already saved in the batch loop above
+      // No need to save again here - just proceed to grouping
 
       const batchPhaseElapsed = Date.now() - totalStartTime;
       log.log(`=== BATCH PHASE COMPLETE ===`);
@@ -1199,7 +1081,7 @@ class RouteProcessingQueue {
         message: `Grouping ${newSignatures.length} new signatures...`,
         processedActivities: [...processedActivities],
         matchesFound,
-        discoveredRoutes: routeUnion.getRoutes(),
+        discoveredRoutes: [],
         cachedSignatureCount: cachedSignatureCount + newSignatures.length,
       });
 
@@ -1229,7 +1111,7 @@ class RouteProcessingQueue {
               message: `Matching routes... ${percent}%`,
               processedActivities: [...processedActivities],
               matchesFound,
-              discoveredRoutes: routeUnion.getRoutes(),
+              discoveredRoutes: [],
               cachedSignatureCount: cachedSignatureCount + newSignatures.length,
             });
           }
@@ -1242,7 +1124,7 @@ class RouteProcessingQueue {
           message: `Saving ${groups.size} route groups...`,
           processedActivities: [...processedActivities],
           matchesFound,
-          discoveredRoutes: routeUnion.getRoutes(),
+          discoveredRoutes: [],
           cachedSignatureCount: cachedSignatureCount + newSignatures.length,
         });
 
@@ -1288,7 +1170,7 @@ class RouteProcessingQueue {
         message: `Found ${routeCount} routes from ${matchesFound} matches`,
         processedActivities: [...processedActivities],
         matchesFound,
-        discoveredRoutes: routeUnion.getRoutes(),
+        discoveredRoutes: [],
         cachedSignatureCount: finalSignatureCount,
       });
     } catch (error) {
@@ -1301,7 +1183,7 @@ class RouteProcessingQueue {
         message: errorMsg,
         processedActivities: [...processedActivities],
         matchesFound,
-        discoveredRoutes: routeUnion.getRoutes(),
+        discoveredRoutes: [],
         cachedSignatureCount: cachedSignatureCount + newSignatures.length,
       });
     } finally {

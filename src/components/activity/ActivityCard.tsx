@@ -1,8 +1,9 @@
-import React from 'react';
-import { View, StyleSheet, Pressable, useColorScheme } from 'react-native';
-import { Text } from 'react-native-paper';
+import React, { useState, useCallback } from 'react';
+import { View, StyleSheet, Pressable, useColorScheme, Platform, Share } from 'react-native';
+import { Text, Menu } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import * as Haptics from 'expo-haptics';
 import type { Activity } from '@/types';
 import {
   formatDistance,
@@ -16,7 +17,7 @@ import {
   getActivityIcon,
   getActivityColor,
 } from '@/lib';
-import { colors, spacing, layout } from '@/theme';
+import { colors, spacing, layout, shadows } from '@/theme';
 import { ActivityMapPreview } from './ActivityMapPreview';
 
 function formatLocation(activity: Activity): string | null {
@@ -207,16 +208,13 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     backgroundColor: colors.surface,
     overflow: 'hidden',
-    // Better shadow for depth
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 4,
+    // Platform-optimized shadows
+    ...shadows.elevated,
   },
   cardDark: {
     backgroundColor: '#1A1A1A',
-    shadowOpacity: 0.3,
+    // Dark mode: stronger shadow for contrast
+    ...shadows.modal,
   },
   accentBar: {
     height: 2,
@@ -234,12 +232,8 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
-    // Subtle shadow on icon
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 2,
+    // Platform-optimized subtle shadow
+    ...shadows.button,
   },
   headerText: {
     flex: 1,
