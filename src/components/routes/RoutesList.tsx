@@ -12,7 +12,7 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 }
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { colors, spacing, layout } from '@/theme';
+import { colors, darkColors, opacity, spacing, layout, typography } from '@/theme';
 import { useRouteGroups, useRouteProcessing } from '@/hooks';
 import { CacheScopeNotice } from './CacheScopeNotice';
 import { RouteRow } from './RouteRow';
@@ -271,17 +271,17 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   emptySubtitle: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     color: colors.textSecondary,
     marginTop: spacing.sm,
     textAlign: 'center',
-    lineHeight: 20,
+    lineHeight: typography.bodySmall.lineHeight,
   },
   textLight: {
-    color: '#FFFFFF',
+    color: colors.textOnDark,
   },
   textMuted: {
-    color: '#888',
+    color: darkColors.textMuted,
   },
   discoveredSection: {
     marginBottom: spacing.md,
@@ -292,18 +292,18 @@ const styles = StyleSheet.create({
     marginHorizontal: spacing.md,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
-    backgroundColor: 'rgba(0, 0, 0, 0.02)',
+    backgroundColor: opacity.overlay.subtle,
     borderRadius: 6,
     marginBottom: spacing.sm,
     gap: spacing.xs,
     height: 32, // Fixed height to prevent jumps
   },
   currentActivityDark: {
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    backgroundColor: opacity.overlayDark.subtle,
   },
   currentActivityText: {
     flex: 1,
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
   },
   routesList: {
@@ -315,7 +315,7 @@ const styles = StyleSheet.create({
     marginHorizontal: spacing.md,
   },
   noRoutesText: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     color: colors.textSecondary,
     marginTop: spacing.sm,
   },
@@ -331,11 +331,11 @@ const styles = StyleSheet.create({
   infoNoticeDark: {},
   infoText: {
     flex: 1,
-    fontSize: 12,
-    color: '#999',
-    lineHeight: 16,
+    fontSize: typography.caption.fontSize,
+    color: colors.textDisabled,
+    lineHeight: typography.caption.lineHeight,
   },
   infoTextDark: {
-    color: '#666',
+    color: darkColors.textSecondary,
   },
 });

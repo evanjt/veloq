@@ -1,7 +1,7 @@
 import { MD3LightTheme, MD3DarkTheme } from 'react-native-paper';
 import { colors, darkColors } from './colors';
 
-export { colors, darkColors, gradients, glows } from './colors';
+export { colors, darkColors, gradients, glows, opacity } from './colors';
 export { spacing, layout } from './spacing';
 export { typography } from './typography';
 export { shadows, createShadow, cardShadow, smallElementShadow } from './shadows';
@@ -16,7 +16,7 @@ export const lightTheme = {
     background: colors.background,
     surface: colors.surface,
     error: colors.error,
-    onPrimary: '#FFFFFF',
+    onPrimary: colors.textOnDark,
     onBackground: colors.textPrimary,
     onSurface: colors.textPrimary,
     outline: colors.border,
@@ -33,7 +33,7 @@ export const darkTheme = {
     background: darkColors.background,
     surface: darkColors.surface,
     error: colors.error,
-    onPrimary: '#FFFFFF',
+    onPrimary: colors.textOnDark,
     onBackground: darkColors.textPrimary,
     onSurface: darkColors.textPrimary,
     outline: darkColors.border,

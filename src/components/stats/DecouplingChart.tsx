@@ -1,7 +1,9 @@
 import React, { useMemo } from 'react';
 import { View, StyleSheet, useColorScheme } from 'react-native';
 import { Text } from 'react-native-paper';
-import { colors, spacing } from '@/theme';
+import { colors, darkColors } from '@/theme/colors';
+import { typography } from '@/theme/typography';
+import { spacing, layout } from '@/theme/spacing';
 
 interface DecouplingChartProps {
   /** Power or pace data */
@@ -185,15 +187,15 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   title: {
-    fontSize: 18,
+    fontSize: typography.cardTitle.fontSize,
     fontWeight: '700',
     color: colors.textPrimary,
   },
   textLight: {
-    color: '#FFFFFF',
+    color: colors.textOnDark,
   },
   textDark: {
-    color: '#AAA',
+    color: darkColors.textSecondary,
   },
   decouplingValue: {
     fontSize: 28,
@@ -207,16 +209,16 @@ const styles = StyleSheet.create({
   },
   statusBadge: {
     paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
+    paddingVertical: spacing.xs,
+    borderRadius: layout.borderRadius,
   },
   statusText: {
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: colors.textOnDark,
   },
   targetText: {
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     color: colors.textSecondary,
   },
   chartContainer: {
@@ -227,16 +229,16 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: spacing.sm,
     backgroundColor: 'rgba(0, 0, 0, 0.02)',
-    borderRadius: 8,
+    borderRadius: layout.borderRadiusSm,
   },
   firstHalf: {
-    marginRight: 4,
+    marginRight: spacing.xs,
   },
   secondHalf: {
-    marginLeft: 4,
+    marginLeft: spacing.xs,
   },
   halfLabel: {
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     fontWeight: '600',
     color: colors.textSecondary,
     marginBottom: spacing.xs,
@@ -245,21 +247,21 @@ const styles = StyleSheet.create({
   dataRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 4,
+    marginBottom: spacing.xs,
   },
   dataLabel: {
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     color: colors.textSecondary,
   },
   dataValue: {
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     fontWeight: '600',
     color: colors.textPrimary,
   },
   divider: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 4,
+    paddingHorizontal: spacing.xs,
   },
   dividerLine: {
     width: 1,
@@ -270,14 +272,14 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
   },
   arrow: {
-    fontSize: 16,
+    fontSize: typography.body.fontSize,
     color: colors.textSecondary,
-    marginVertical: 4,
+    marginVertical: spacing.xs,
   },
   explanation: {
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     color: colors.textSecondary,
-    lineHeight: 16,
+    lineHeight: typography.caption.lineHeight,
     marginTop: spacing.md,
   },
   emptyState: {
@@ -285,12 +287,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   emptyText: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     color: colors.textSecondary,
     marginBottom: spacing.xs,
   },
   emptyHint: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
     textAlign: 'center',
     paddingHorizontal: spacing.md,

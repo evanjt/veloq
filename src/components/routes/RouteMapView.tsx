@@ -10,7 +10,7 @@ import { View, StyleSheet, TouchableOpacity, Modal, StatusBar } from 'react-nati
 import MapLibreGL, { Camera, ShapeSource, LineLayer, MarkerView } from '@maplibre/maplibre-react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { getActivityColor } from '@/lib';
-import { colors } from '@/theme';
+import { colors, spacing, layout } from '@/theme';
 import { useMapPreferences, useRouteMatchStore } from '@/providers';
 import { getMapStyle, BaseMapView, isDarkStyle } from '@/components/maps';
 import type { RouteGroup, RoutePoint } from '@/types';
@@ -414,7 +414,7 @@ export function RouteMapView({
 const styles = StyleSheet.create({
   container: {
     overflow: 'hidden',
-    borderRadius: 12,
+    borderRadius: layout.borderRadius,
   },
   map: {
     flex: 1,
@@ -422,7 +422,7 @@ const styles = StyleSheet.create({
   placeholder: {
     justifyContent: 'center',
     alignItems: 'center',
-    borderRadius: 12,
+    borderRadius: layout.borderRadius,
   },
   markerContainer: {
     alignItems: 'center',
@@ -431,11 +431,11 @@ const styles = StyleSheet.create({
   marker: {
     width: 24,
     height: 24,
-    borderRadius: 12,
+    borderRadius: layout.borderRadius,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: '#FFFFFF',
+    borderColor: colors.textOnDark,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.3,
@@ -450,10 +450,10 @@ const styles = StyleSheet.create({
   },
   expandOverlay: {
     position: 'absolute',
-    bottom: 8,
-    right: 8,
+    bottom: spacing.sm,
+    right: spacing.sm,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     borderRadius: 6,
-    padding: 4,
+    padding: spacing.xs,
   },
 });

@@ -5,7 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { WellnessDashboard, WellnessTrendsChart } from '@/components/wellness';
 import { useWellness, type TimeRange } from '@/hooks';
-import { colors, spacing, layout } from '@/theme';
+import { colors, darkColors, spacing, layout, typography, opacity } from '@/theme';
 
 const TIME_RANGES: { id: TimeRange; label: string }[] = [
   { id: '7d', label: '1W' },
@@ -132,7 +132,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   containerDark: {
-    backgroundColor: '#121212',
+    backgroundColor: darkColors.background,
   },
   header: {
     flexDirection: 'row',
@@ -140,15 +140,15 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: typography.cardTitle.fontSize,
     fontWeight: '600',
     color: colors.textPrimary,
   },
   textLight: {
-    color: '#FFFFFF',
+    color: colors.textOnDark,
   },
   textDark: {
-    color: '#AAA',
+    color: darkColors.textSecondary,
   },
   loadingContainer: {
     flex: 1,
@@ -169,10 +169,10 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   cardDark: {
-    backgroundColor: '#1E1E1E',
+    backgroundColor: darkColors.surface,
   },
   sectionTitle: {
-    fontSize: 16,
+    fontSize: typography.body.fontSize,
     fontWeight: '600',
     color: colors.textPrimary,
     marginBottom: spacing.md,
@@ -185,26 +185,26 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   timeRangeButton: {
-    paddingHorizontal: 12,
+    paddingHorizontal: spacing.sm + 4,
     paddingVertical: 6,
     borderRadius: 14,
-    backgroundColor: 'rgba(0, 0, 0, 0.05)',
+    backgroundColor: opacity.overlay.light,
   },
   timeRangeButtonDark: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: opacity.overlayDark.medium,
   },
   timeRangeButtonActive: {
     backgroundColor: colors.primary,
   },
   timeRangeText: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     fontWeight: '500',
     color: colors.textSecondary,
   },
   timeRangeTextDark: {
-    color: '#AAA',
+    color: darkColors.textSecondary,
   },
   timeRangeTextActive: {
-    color: '#FFFFFF',
+    color: colors.textOnDark,
   },
 });

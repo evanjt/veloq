@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity, useColorScheme, Text } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { colors, typography, layout, spacing } from '@/theme';
 import type { ChartConfig } from '@/lib/chartConfig';
 
 interface ChartTypeSelectorProps {
@@ -47,7 +48,7 @@ export function ChartTypeSelector({
           ? config.color
           : hexToRgba(config.color, isDark ? 0.25 : 0.15);
         const textColor = isSelected
-          ? '#FFFFFF'
+          ? colors.textOnDark
           : config.color;
 
         return (
@@ -81,13 +82,13 @@ const styles = StyleSheet.create({
   chip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: spacing.xs,
     paddingHorizontal: 10,
     paddingVertical: 5,
-    borderRadius: 12,
+    borderRadius: layout.borderRadius,
   },
   chipLabel: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     fontWeight: '500',
   },
 });

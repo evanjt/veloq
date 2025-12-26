@@ -6,15 +6,15 @@ import { LinearGradient, vec, Shadow } from '@shopify/react-native-skia';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { SharedValue, useSharedValue, useAnimatedReaction, runOnJS, useDerivedValue, useAnimatedStyle } from 'react-native-reanimated';
 import Animated from 'react-native-reanimated';
-import { colors, typography, spacing } from '@/theme';
+import { colors, darkColors, opacity, typography, spacing, layout } from '@/theme';
 import { calculateTSB } from '@/hooks';
 import type { WellnessData } from '@/types';
 
 
 // Chart colors
 const COLORS = {
-  fitness: '#42A5F5', // Blue - CTL
-  fatigue: '#AB47BC', // Purple - ATL
+  fitness: colors.fitness, // Blue - CTL
+  fatigue: colors.chartPurple, // Purple - ATL
 };
 
 interface FitnessChartProps {
@@ -400,17 +400,17 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
     justifyContent: 'center',
     alignItems: 'center',
-    borderRadius: 8,
+    borderRadius: layout.borderRadiusSm,
   },
   placeholderText: {
     ...typography.caption,
     color: colors.textSecondary,
   },
   textDark: {
-    color: '#AAA',
+    color: darkColors.textSecondary,
   },
   textLight: {
-    color: '#FFF',
+    color: colors.textOnDark,
   },
   header: {
     flexDirection: 'row',
@@ -422,7 +422,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   dateText: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     fontWeight: '600',
     color: colors.textPrimary,
   },
@@ -434,12 +434,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   valueLabel: {
-    fontSize: 10,
+    fontSize: typography.micro.fontSize,
     color: colors.textSecondary,
     marginBottom: 2,
   },
   valueNumber: {
-    fontSize: 18,
+    fontSize: typography.cardTitle.fontSize,
     fontWeight: '700',
   },
   chartWrapper: {
@@ -451,10 +451,10 @@ const styles = StyleSheet.create({
     top: 8,
     bottom: 20,
     width: 1.5,
-    backgroundColor: '#666',
+    backgroundColor: colors.textSecondary,
   },
   crosshairDark: {
-    backgroundColor: '#AAA',
+    backgroundColor: darkColors.textSecondary,
   },
   xAxisOverlay: {
     position: 'absolute',
@@ -465,15 +465,15 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   axisLabel: {
-    fontSize: 9,
+    fontSize: typography.pillLabel.fontSize,
     color: colors.textSecondary,
     backgroundColor: 'rgba(255, 255, 255, 0.7)',
     paddingHorizontal: 2,
     borderRadius: 2,
   },
   axisLabelDark: {
-    color: '#CCC',
-    backgroundColor: 'rgba(30, 30, 30, 0.7)',
+    color: darkColors.textPrimary,
+    backgroundColor: darkColors.surfaceOverlay,
   },
   legend: {
     flexDirection: 'row',
@@ -492,7 +492,7 @@ const styles = StyleSheet.create({
     marginRight: 4,
   },
   legendText: {
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     color: colors.textSecondary,
   },
   legendItemDisabled: {

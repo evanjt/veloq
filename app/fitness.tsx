@@ -8,7 +8,7 @@ import { useSharedValue } from 'react-native-reanimated';
 import { FitnessChart, FormZoneChart, ActivityDotsChart } from '@/components/fitness';
 import { useWellness, useActivities, getFormZone, FORM_ZONE_COLORS, FORM_ZONE_LABELS, type TimeRange } from '@/hooks';
 import { formatLocalDate } from '@/lib';
-import { colors, spacing, layout, typography } from '@/theme';
+import { colors, darkColors, spacing, layout, typography, opacity } from '@/theme';
 
 const TIME_RANGES: { id: TimeRange; label: string }[] = [
   { id: '7d', label: '1W' },
@@ -317,7 +317,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   containerDark: {
-    backgroundColor: '#121212',
+    backgroundColor: darkColors.background,
   },
   header: {
     flexDirection: 'row',
@@ -330,7 +330,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: typography.cardTitle.fontSize,
     fontWeight: '600',
     color: colors.textPrimary,
   },
@@ -338,10 +338,10 @@ const styles = StyleSheet.create({
     marginLeft: spacing.xs,
   },
   textLight: {
-    color: '#FFFFFF',
+    color: colors.textOnDark,
   },
   textDark: {
-    color: '#AAA',
+    color: darkColors.textSecondary,
   },
   scrollView: {
     flex: 1,
@@ -357,10 +357,10 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   cardDark: {
-    backgroundColor: '#1E1E1E',
+    backgroundColor: darkColors.surface,
   },
   statsDate: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
     textAlign: 'center',
     marginBottom: spacing.sm,
@@ -373,16 +373,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   statLabel: {
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     color: colors.textSecondary,
-    marginBottom: 4,
+    marginBottom: spacing.xs,
   },
   statValue: {
     fontSize: 28,
     fontWeight: '700',
   },
   statSubtext: {
-    fontSize: 10,
+    fontSize: typography.micro.fontSize,
     color: colors.textSecondary,
     marginTop: 2,
   },
@@ -394,27 +394,27 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   timeRangeButton: {
-    paddingHorizontal: 12,
+    paddingHorizontal: spacing.sm + 4,
     paddingVertical: 6,
     borderRadius: 14,
-    backgroundColor: 'rgba(0, 0, 0, 0.05)',
+    backgroundColor: opacity.overlay.light,
   },
   timeRangeButtonDark: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: opacity.overlayDark.medium,
   },
   timeRangeButtonActive: {
     backgroundColor: colors.primary,
   },
   timeRangeText: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     fontWeight: '500',
     color: colors.textSecondary,
   },
   timeRangeTextDark: {
-    color: '#AAA',
+    color: darkColors.textSecondary,
   },
   timeRangeTextActive: {
-    color: '#FFFFFF',
+    color: colors.textOnDark,
   },
   chartCard: {
     backgroundColor: colors.surface,
@@ -426,19 +426,19 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
     paddingTop: spacing.sm,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: 'rgba(0, 0, 0, 0.1)',
+    borderTopColor: opacity.overlay.medium,
   },
   formSection: {
     marginTop: spacing.sm,
     paddingTop: spacing.sm,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: 'rgba(0, 0, 0, 0.1)',
+    borderTopColor: opacity.overlay.medium,
   },
   sectionDark: {
-    borderTopColor: 'rgba(255, 255, 255, 0.1)',
+    borderTopColor: opacity.overlayDark.medium,
   },
   chartTitle: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     fontWeight: '600',
     color: colors.textPrimary,
     marginBottom: spacing.sm,
@@ -450,7 +450,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   infoTitle: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     fontWeight: '600',
     color: colors.textPrimary,
     marginBottom: spacing.md,
@@ -460,15 +460,15 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   infoDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    width: spacing.sm,
+    height: spacing.sm,
+    borderRadius: spacing.xs,
     marginTop: 5,
-    marginRight: 4,
+    marginRight: spacing.xs,
   },
   infoText: {
     flex: 1,
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
     lineHeight: 18,
   },
@@ -476,19 +476,19 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   infoHighlightDark: {
-    color: '#FFF',
+    color: colors.textOnDark,
   },
   referencesSection: {
     marginTop: spacing.md,
     paddingTop: spacing.md,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(0, 0, 0, 0.08)',
+    borderTopColor: opacity.overlay.light,
   },
   referencesSectionDark: {
-    borderTopColor: 'rgba(255, 255, 255, 0.1)',
+    borderTopColor: opacity.overlayDark.medium,
   },
   referencesLabel: {
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     fontWeight: '600',
     color: colors.textSecondary,
     marginBottom: spacing.xs,
@@ -496,9 +496,9 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   infoLink: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: colors.primary,
-    paddingVertical: 4,
+    paddingVertical: spacing.xs,
   },
   loadingContainer: {
     flex: 1,
@@ -506,12 +506,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   loadingText: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     color: colors.textSecondary,
     marginTop: spacing.md,
   },
   errorText: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     color: colors.error,
   },
 });

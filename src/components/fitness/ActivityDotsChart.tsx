@@ -6,7 +6,7 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { SharedValue, useSharedValue, useAnimatedReaction, runOnJS, useDerivedValue, useAnimatedStyle } from 'react-native-reanimated';
 import Animated from 'react-native-reanimated';
 import { router } from 'expo-router';
-import { colors, spacing } from '@/theme';
+import { colors, darkColors, opacity, spacing, layout, typography } from '@/theme';
 import { getActivityColor } from '@/lib';
 import type { Activity, ActivityType, WellnessData } from '@/types';
 
@@ -478,21 +478,21 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   activityPill: {
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
+    paddingHorizontal: spacing.sm + 4,
+    paddingVertical: spacing.xs,
+    borderRadius: layout.borderRadius,
     borderWidth: 1,
   },
   activityPillText: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     fontWeight: '600',
   },
   noActivityLabel: {
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     color: colors.textSecondary,
   },
   noActivityLabelDark: {
-    color: '#888',
+    color: darkColors.textSecondary,
   },
   chartWrapper: {
     position: 'relative',
@@ -505,52 +505,52 @@ const styles = StyleSheet.create({
     top: 0,
     bottom: 0,
     width: 1.5,
-    backgroundColor: '#666',
+    backgroundColor: colors.textSecondary,
   },
   crosshairDark: {
-    backgroundColor: '#AAA',
+    backgroundColor: darkColors.textSecondary,
   },
   // Modal styles
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: opacity.overlay.heavy,
     justifyContent: 'center',
     alignItems: 'center',
     padding: spacing.lg,
   },
   modalContent: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
+    backgroundColor: colors.surface,
+    borderRadius: layout.borderRadius,
     padding: spacing.md,
     width: '100%',
     maxWidth: 320,
   },
   modalContentDark: {
-    backgroundColor: '#1E1E1E',
+    backgroundColor: darkColors.surface,
   },
   modalTitle: {
-    fontSize: 16,
+    fontSize: typography.body.fontSize,
     fontWeight: '600',
     color: colors.textPrimary,
     marginBottom: spacing.md,
     textAlign: 'center',
   },
   textLight: {
-    color: '#FFFFFF',
+    color: colors.textOnDark,
   },
   textDark: {
-    color: '#AAA',
+    color: darkColors.textSecondary,
   },
   activityRow: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.sm,
-    borderRadius: 8,
+    borderRadius: layout.borderRadiusSm,
     marginBottom: spacing.xs,
   },
   activityRowDark: {
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    backgroundColor: opacity.overlayDark.light,
   },
   activityIcon: {
     width: 32,
@@ -561,18 +561,18 @@ const styles = StyleSheet.create({
     marginRight: spacing.sm,
   },
   activityIconText: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
   },
   activityInfo: {
     flex: 1,
   },
   activityName: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     fontWeight: '500',
     color: colors.textPrimary,
   },
   activityLoad: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
     marginTop: 2,
   },
@@ -582,7 +582,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   cancelButtonText: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     color: colors.textSecondary,
   },
 });

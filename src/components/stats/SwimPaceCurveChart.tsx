@@ -5,7 +5,9 @@ import { CartesianChart, Line } from 'victory-native';
 import { DashPathEffect, Line as SkiaLine } from '@shopify/react-native-skia';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { useSharedValue, useAnimatedReaction, runOnJS, useDerivedValue, useAnimatedStyle } from 'react-native-reanimated';
-import { colors, spacing } from '@/theme';
+import { colors, darkColors } from '@/theme/colors';
+import { typography } from '@/theme/typography';
+import { spacing } from '@/theme/spacing';
 import { usePaceCurve, paceToMinPer100m } from '@/hooks';
 
 interface SwimPaceCurveChartProps {
@@ -354,12 +356,12 @@ export function SwimPaceCurveChart({
 const styles = StyleSheet.create({
   container: {},
   title: {
-    fontSize: 16,
+    fontSize: typography.body.fontSize,
     fontWeight: '700',
     color: colors.textPrimary,
   },
-  textLight: { color: '#FFFFFF' },
-  textDark: { color: '#888' },
+  textLight: { color: colors.textOnDark },
+  textDark: { color: darkColors.textSecondary },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -374,12 +376,12 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
   },
   valueLabel: {
-    fontSize: 9,
+    fontSize: typography.pillLabel.fontSize,
     color: colors.textSecondary,
     marginBottom: 1,
   },
   valueNumber: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     fontWeight: '700',
   },
   chartWrapper: {
@@ -392,7 +394,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   loadingText: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
   },
   emptyState: {
@@ -401,18 +403,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   emptyText: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     color: colors.textSecondary,
   },
   crosshair: {
     position: 'absolute',
-    top: 4,
+    top: spacing.xs,
     bottom: 20,
     width: 1.5,
-    backgroundColor: '#666',
+    backgroundColor: colors.textSecondary,
   },
   crosshairDark: {
-    backgroundColor: '#AAA',
+    backgroundColor: darkColors.textSecondary,
   },
   xAxisOverlay: {
     position: 'absolute',
@@ -421,22 +423,22 @@ const styles = StyleSheet.create({
     right: 0,
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingHorizontal: 4,
+    paddingHorizontal: spacing.xs,
   },
   yAxisOverlay: {
     position: 'absolute',
-    top: 4,
+    top: spacing.xs,
     bottom: 20,
-    left: 4,
+    left: spacing.xs,
     justifyContent: 'space-between',
   },
   axisLabel: {
-    fontSize: 10,
-    color: '#666',
+    fontSize: typography.micro.fontSize,
+    color: colors.textSecondary,
     fontWeight: '500',
   },
   axisLabelDark: {
-    color: '#AAA',
+    color: darkColors.textSecondary,
   },
   legend: {
     flexDirection: 'row',
@@ -446,12 +448,12 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   legendDash: {
-    width: 16,
+    width: spacing.md,
     height: 2,
     borderRadius: 1,
   },
   legendText: {
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     color: colors.textSecondary,
   },
 });

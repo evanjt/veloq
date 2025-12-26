@@ -21,7 +21,7 @@ import { useSportPreference, SPORT_COLORS } from '@/providers';
 import { formatPaceCompact, formatSwimPace } from '@/lib';
 import { ActivityCard } from '@/components/activity/ActivityCard';
 import { ActivityCardSkeleton, StatsPillSkeleton, MapFAB } from '@/components/ui';
-import { colors, spacing, layout, typography, shadows } from '@/theme';
+import { colors, darkColors, opacity, spacing, layout, typography, shadows } from '@/theme';
 import type { Activity } from '@/types';
 
 // Activity type categories for filtering
@@ -557,7 +557,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   containerDark: {
-    backgroundColor: '#121212',
+    backgroundColor: darkColors.background,
   },
   header: {
     flexDirection: 'row',
@@ -573,15 +573,15 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   profilePlaceholder: {
-    backgroundColor: '#E8E8E8',
+    backgroundColor: colors.divider,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(0, 0, 0, 0.1)',
+    borderColor: opacity.overlay.medium,
   },
   profilePlaceholderDark: {
-    backgroundColor: '#333',
-    borderColor: 'rgba(255, 255, 255, 0.15)',
+    backgroundColor: darkColors.border,
+    borderColor: opacity.overlayDark.heavy,
   },
   pillRow: {
     flexDirection: 'row',
@@ -641,10 +641,10 @@ const styles = StyleSheet.create({
     marginLeft: 1,
   },
   textLight: {
-    color: '#FFFFFF',
+    color: colors.textOnDark,
   },
   textDark: {
-    color: '#AAA',
+    color: darkColors.textSecondary,
   },
   searchContainer: {
     flexDirection: 'row',
@@ -657,14 +657,14 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.05)',
+    backgroundColor: opacity.overlay.light,
     borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    gap: 8,
+    paddingHorizontal: layout.cardMargin,
+    paddingVertical: spacing.sm,
+    gap: spacing.sm,
   },
   searchBarDark: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: opacity.overlayDark.medium,
   },
   searchInput: {
     flex: 1,
@@ -673,18 +673,18 @@ const styles = StyleSheet.create({
     paddingVertical: 0,
   },
   searchInputDark: {
-    color: '#FFF',
+    color: colors.textOnDark,
   },
   filterButton: {
     width: 40,
     height: 40,
     borderRadius: 10,
-    backgroundColor: 'rgba(0, 0, 0, 0.05)',
+    backgroundColor: opacity.overlay.light,
     justifyContent: 'center',
     alignItems: 'center',
   },
   filterButtonDark: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: opacity.overlayDark.medium,
   },
   filterButtonActive: {
     backgroundColor: colors.primary,
@@ -699,35 +699,35 @@ const styles = StyleSheet.create({
   filterChip: {
     paddingHorizontal: 14,
     paddingVertical: 6,
-    borderRadius: 16,
-    backgroundColor: 'rgba(0, 0, 0, 0.05)',
+    borderRadius: spacing.md,
+    backgroundColor: opacity.overlay.light,
     borderWidth: 1,
     borderColor: 'transparent',
   },
   filterChipDark: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: opacity.overlayDark.medium,
   },
   filterChipActive: {
     backgroundColor: colors.primary,
     borderColor: colors.primary,
   },
   filterChipText: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     fontWeight: '500',
     color: colors.textSecondary,
   },
   filterChipTextDark: {
-    color: '#AAA',
+    color: darkColors.textSecondary,
   },
   filterChipTextActive: {
-    color: '#FFF',
+    color: colors.textOnDark,
   },
   sectionHeader: {
     paddingHorizontal: layout.screenPadding,
     paddingBottom: spacing.sm,
   },
   sectionTitle: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     fontWeight: '600',
     color: colors.textSecondary,
     textTransform: 'uppercase',
@@ -772,7 +772,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   footerText: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     color: colors.textSecondary,
   },
 });
