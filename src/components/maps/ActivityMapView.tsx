@@ -68,12 +68,13 @@ export function ActivityMapView({
 
   // Toggle 3D mode
   const toggle3D = useCallback(() => {
-    setIs3DMode(current => {
-      const newValue = !current;
-      on3DModeChange?.(newValue);
-      return newValue;
-    });
-  }, [on3DModeChange]);
+    setIs3DMode(current => !current);
+  }, []);
+
+  // Notify parent when 3D mode changes (outside of render cycle)
+  useEffect(() => {
+    on3DModeChange?.(is3DMode);
+  }, [is3DMode, on3DModeChange]);
 
   // Reset 3D ready state when toggling off
   useEffect(() => {

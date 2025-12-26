@@ -1,5 +1,5 @@
 import React, { useMemo, useRef, useState, useCallback } from 'react';
-import { View, StyleSheet, useColorScheme, Text, Platform } from 'react-native';
+import { View, StyleSheet, useColorScheme, Text } from 'react-native';
 import { CartesianChart, Area } from 'victory-native';
 import { LinearGradient, vec } from '@shopify/react-native-skia';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
@@ -242,8 +242,8 @@ export const CombinedPlot = React.memo(function CombinedPlot({
   // Gesture handler - updates shared values on UI thread (no JS bridge for position)
   // Use activateAfterLongPress to require a brief hold before scrubbing starts
   // This prevents accidental scrubbing when scrolling the page
-  // iOS: require small movement to avoid blocking swipe-back navigation
   const gesture = Gesture.Pan()
+    .activateAfterLongPress(300) // 300ms hold before scrubbing activates (matches route page)
     .onStart((e) => {
       'worklet';
       touchX.value = e.x;
@@ -255,10 +255,7 @@ export const CombinedPlot = React.memo(function CombinedPlot({
     .onEnd(() => {
       'worklet';
       touchX.value = -1;
-    })
-    .minDistance(Platform.OS === 'ios' ? 10 : 0)
-    .activeOffsetX(Platform.OS === 'ios' ? [-15, 15] : 0)
-    .activateAfterLongPress(700); // 700ms hold before scrubbing activates
+    });
 
   // Animated crosshair style - follows finger directly for smooth tracking
   const crosshairStyle = useAnimatedStyle(() => {
