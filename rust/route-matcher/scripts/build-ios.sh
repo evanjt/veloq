@@ -58,16 +58,27 @@ cargo build --release --target x86_64-apple-ios --features full
 mkdir -p "$OUTPUT_DIR"
 mkdir -p "$SWIFT_DIR"
 
+# Create separate directories for device and simulator static libraries
+# CocoaPods requires the library to have the SAME NAME in both slices of an XCFramework
+DEVICE_LIB_DIR="$OUTPUT_DIR/device"
+SIM_LIB_DIR="$OUTPUT_DIR/simulator"
+mkdir -p "$DEVICE_LIB_DIR"
+mkdir -p "$SIM_LIB_DIR"
+
 # Create universal library for simulator (combines arm64 and x86_64)
 echo ""
 echo "Creating universal simulator library..."
 lipo -create \
     target/aarch64-apple-ios-sim/release/libroute_matcher.a \
     target/x86_64-apple-ios/release/libroute_matcher.a \
-    -output "$OUTPUT_DIR/libroute_matcher_sim.a"
+    -output "$SIM_LIB_DIR/libroute_matcher.a"
 
-# Copy device library
-cp target/aarch64-apple-ios/release/libroute_matcher.a "$OUTPUT_DIR/libroute_matcher_device.a"
+# Copy device library (same name as simulator for XCFramework compatibility)
+cp target/aarch64-apple-ios/release/libroute_matcher.a "$DEVICE_LIB_DIR/libroute_matcher.a"
+
+# Also keep legacy named copies for backwards compatibility
+cp "$DEVICE_LIB_DIR/libroute_matcher.a" "$OUTPUT_DIR/libroute_matcher_device.a"
+cp "$SIM_LIB_DIR/libroute_matcher.a" "$OUTPUT_DIR/libroute_matcher_sim.a"
 
 # Generate Swift bindings using the embedded uniffi-bindgen
 echo ""
@@ -128,19 +139,21 @@ EOF
     rm -rf "$OUTPUT_DIR/RouteMatcherFFI.xcframework"
 
     # Create XCFramework with headers
+    # Use libraries from subdirectories so they have the same name (libroute_matcher.a)
+    # This is required by CocoaPods for vendored XCFrameworks
     if [ -d "$HEADERS_DIR" ] && [ -f "$HEADERS_DIR/route_matcherFFI.h" ]; then
         xcodebuild -create-xcframework \
-            -library "$OUTPUT_DIR/libroute_matcher_device.a" \
+            -library "$DEVICE_LIB_DIR/libroute_matcher.a" \
             -headers "$HEADERS_DIR" \
-            -library "$OUTPUT_DIR/libroute_matcher_sim.a" \
+            -library "$SIM_LIB_DIR/libroute_matcher.a" \
             -headers "$HEADERS_DIR" \
             -output "$OUTPUT_DIR/RouteMatcherFFI.xcframework"
         echo "XCFramework created successfully ✓"
     else
         # Create without headers
         xcodebuild -create-xcframework \
-            -library "$OUTPUT_DIR/libroute_matcher_device.a" \
-            -library "$OUTPUT_DIR/libroute_matcher_sim.a" \
+            -library "$DEVICE_LIB_DIR/libroute_matcher.a" \
+            -library "$SIM_LIB_DIR/libroute_matcher.a" \
             -output "$OUTPUT_DIR/RouteMatcherFFI.xcframework"
         echo "XCFramework created (without headers) ✓"
     fi

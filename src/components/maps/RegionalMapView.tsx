@@ -269,11 +269,18 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
     }
 
     // Query spatial index for visible activities if we have bounds
+    // Note: MapLibre RN may not provide visibleBounds - skip culling if unavailable
     if (properties?.visibleBounds && activitySpatialIndex.ready) {
       const [[swLng, swLat], [neLng, neLat]] = properties.visibleBounds;
       const viewport = mapBoundsToViewport([swLng, swLat], [neLng, neLat]);
       const visibleIds = activitySpatialIndex.queryViewport(viewport);
-      setVisibleActivityIds(new Set(visibleIds));
+
+      // Only apply culling if we got results - empty results with non-empty index
+      // suggests a coordinate mismatch, so fall back to showing all activities
+      if (visibleIds.length > 0 || activitySpatialIndex.size === 0) {
+        setVisibleActivityIds(new Set(visibleIds));
+      }
+      // If query returned empty but index has activities, keep showing all (visibleActivityIds stays null)
     }
   }, []);
 
