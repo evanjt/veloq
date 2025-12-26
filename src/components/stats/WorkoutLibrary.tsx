@@ -2,7 +2,9 @@ import React, { useState } from 'react';
 import { View, StyleSheet, useColorScheme, TouchableOpacity, ScrollView, Linking } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { colors, spacing } from '@/theme';
+import { colors, darkColors, opacity } from '@/theme/colors';
+import { typography } from '@/theme/typography';
+import { spacing, layout } from '@/theme/spacing';
 
 interface WorkoutStep {
   type: 'warmup' | 'work' | 'recovery' | 'cooldown';
@@ -76,14 +78,14 @@ export function WorkoutLibrary({
         <View style={styles.header}>
           <Text style={[styles.title, isDark && styles.textLight]}>Workout Library</Text>
           <TouchableOpacity onPress={openWorkoutsPage} style={styles.addButton}>
-            <MaterialCommunityIcons name="open-in-new" size={16} color={isDark ? '#AAA' : colors.textSecondary} />
+            <MaterialCommunityIcons name="open-in-new" size={16} color={isDark ? darkColors.textSecondary : colors.textSecondary} />
           </TouchableOpacity>
         </View>
         <View style={styles.emptyState}>
           <MaterialCommunityIcons
             name="dumbbell"
             size={32}
-            color={isDark ? '#666' : colors.textSecondary}
+            color={isDark ? darkColors.border : colors.textSecondary}
           />
           <Text style={[styles.emptyText, isDark && styles.textDark]}>
             No workouts available
@@ -102,7 +104,7 @@ export function WorkoutLibrary({
       <View style={styles.header}>
         <Text style={[styles.title, isDark && styles.textLight]}>Workout Library</Text>
         <TouchableOpacity onPress={openWorkoutsPage} style={styles.addButton}>
-          <MaterialCommunityIcons name="open-in-new" size={16} color={isDark ? '#AAA' : colors.textSecondary} />
+          <MaterialCommunityIcons name="open-in-new" size={16} color={isDark ? darkColors.textSecondary : colors.textSecondary} />
         </TouchableOpacity>
       </View>
 
@@ -216,18 +218,18 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   title: {
-    fontSize: 18,
+    fontSize: typography.cardTitle.fontSize,
     fontWeight: '700',
     color: colors.textPrimary,
   },
   textLight: {
-    color: '#FFFFFF',
+    color: colors.textOnDark,
   },
   textDark: {
-    color: '#AAA',
+    color: darkColors.textSecondary,
   },
   addButton: {
-    padding: 4,
+    padding: spacing.xs,
   },
   chipScroll: {
     marginBottom: spacing.md,
@@ -236,32 +238,32 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   chip: {
-    paddingHorizontal: 12,
+    paddingHorizontal: layout.borderRadius,
     paddingVertical: 6,
-    borderRadius: 16,
-    backgroundColor: 'rgba(0, 0, 0, 0.05)',
+    borderRadius: spacing.md,
+    backgroundColor: opacity.overlay.light,
     marginRight: spacing.xs,
   },
   chipDark: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: opacity.overlayDark.medium,
   },
   chipActive: {
     backgroundColor: colors.primary,
   },
   chipText: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
     textTransform: 'capitalize',
   },
   chipTextActive: {
-    color: '#FFFFFF',
+    color: colors.textOnDark,
   },
   workoutList: {
     gap: spacing.sm,
   },
   workoutCard: {
     backgroundColor: 'rgba(0, 0, 0, 0.03)',
-    borderRadius: 12,
+    borderRadius: layout.borderRadius,
     padding: spacing.sm,
   },
   workoutCardDark: {
@@ -271,10 +273,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 4,
+    marginBottom: spacing.xs,
   },
   workoutName: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     fontWeight: '600',
     color: colors.textPrimary,
     flex: 1,
@@ -284,15 +286,15 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   workoutDuration: {
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     color: colors.textSecondary,
   },
   workoutTss: {
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     fontWeight: '600',
   },
   workoutDesc: {
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     color: colors.textSecondary,
     marginBottom: spacing.sm,
   },
@@ -300,8 +302,8 @@ const styles = StyleSheet.create({
     height: 30,
     flexDirection: 'row',
     alignItems: 'flex-end',
-    backgroundColor: 'rgba(0, 0, 0, 0.05)',
-    borderRadius: 4,
+    backgroundColor: opacity.overlay.light,
+    borderRadius: spacing.xs,
     overflow: 'hidden',
   },
   stepBar: {
@@ -312,15 +314,15 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xl,
   },
   emptyText: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     fontWeight: '500',
     color: colors.textSecondary,
     marginTop: spacing.sm,
   },
   emptyHint: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
-    marginTop: 4,
+    marginTop: spacing.xs,
     textAlign: 'center',
   },
 });

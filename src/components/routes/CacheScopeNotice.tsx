@@ -7,7 +7,7 @@ import React from 'react';
 import { View, StyleSheet, useColorScheme, TouchableOpacity } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { colors, spacing } from '@/theme';
+import { colors, darkColors, opacity, spacing, layout, typography } from '@/theme';
 
 interface CacheScopeNoticeProps {
   /** Number of processed activities */
@@ -63,22 +63,22 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-    backgroundColor: 'rgba(0, 0, 0, 0.03)',
+    backgroundColor: opacity.overlay.subtle,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
-    borderRadius: 8,
+    borderRadius: layout.borderRadiusSm,
     marginHorizontal: spacing.md,
     marginBottom: spacing.md,
   },
   containerDark: {
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    backgroundColor: opacity.overlayDark.light,
   },
   text: {
     flex: 1,
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     color: colors.textSecondary,
   },
   textDark: {
-    color: '#888',
+    color: darkColors.textMuted,
   },
 });

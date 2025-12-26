@@ -11,7 +11,10 @@ import { MapView, Camera, ShapeSource, LineLayer, MarkerView } from '@maplibre/m
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
-import { colors } from '@/theme';
+import { colors, darkColors, opacity } from '@/theme/colors';
+import { typography } from '@/theme/typography';
+import { spacing, layout } from '@/theme/spacing';
+import { shadows } from '@/theme/shadows';
 import { Map3DWebView, type Map3DWebViewRef } from './Map3DWebView';
 import { CompassArrow } from '@/components/ui';
 import {
@@ -207,7 +210,7 @@ export function BaseMapView({
           accessibilityLabel="Close map"
           accessibilityRole="button"
         >
-          <MaterialCommunityIcons name="close" size={24} color={isDark ? '#FFFFFF' : '#333333'} />
+          <MaterialCommunityIcons name="close" size={24} color={isDark ? colors.textOnDark : colors.textSecondary} />
         </TouchableOpacity>
       )}
 
@@ -220,7 +223,7 @@ export function BaseMapView({
           accessibilityLabel="Toggle map style"
           accessibilityRole="button"
         >
-          <MaterialCommunityIcons name={getStyleIcon(mapStyle)} size={24} color={isDark ? '#FFFFFF' : '#333333'} />
+          <MaterialCommunityIcons name={getStyleIcon(mapStyle)} size={24} color={isDark ? colors.textOnDark : colors.textSecondary} />
         </TouchableOpacity>
       )}
 
@@ -234,7 +237,7 @@ export function BaseMapView({
             accessibilityLabel={is3DMode ? 'Disable 3D view' : 'Enable 3D view'}
             accessibilityRole="button"
           >
-            <MaterialCommunityIcons name="terrain" size={22} color={is3DMode ? '#FFFFFF' : (isDark ? '#FFFFFF' : '#333333')} />
+            <MaterialCommunityIcons name="terrain" size={22} color={is3DMode ? colors.textOnDark : (isDark ? colors.textOnDark : colors.textSecondary)} />
           </TouchableOpacity>
         )}
 
@@ -246,7 +249,7 @@ export function BaseMapView({
             accessibilityLabel="Reset map orientation"
             accessibilityRole="button"
           >
-            <CompassArrow size={22} rotation={bearingAnim} northColor="#E53935" southColor={isDark ? '#FFFFFF' : '#333333'} />
+            <CompassArrow size={22} rotation={bearingAnim} northColor={colors.error} southColor={isDark ? colors.textOnDark : colors.textSecondary} />
           </TouchableOpacity>
         )}
 
@@ -261,7 +264,7 @@ export function BaseMapView({
             <MaterialCommunityIcons
               name="crosshairs-gps"
               size={22}
-              color={isDark ? '#FFFFFF' : '#333333'}
+              color={isDark ? colors.textOnDark : colors.textSecondary}
             />
           </TouchableOpacity>
         )}
@@ -340,7 +343,7 @@ export function BaseMapView({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000',
+    backgroundColor: darkColors.background,
   },
   mapLayer: {
     ...StyleSheet.absoluteFillObject,
@@ -357,32 +360,28 @@ const styles = StyleSheet.create({
   },
   button: {
     position: 'absolute',
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: layout.minTapTarget,
+    height: layout.minTapTarget,
+    borderRadius: layout.minTapTarget / 2,
     backgroundColor: 'rgba(255, 255, 255, 0.95)',
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 3,
-    elevation: 3,
+    ...shadows.mapOverlay,
     zIndex: 10,
   },
   buttonDark: {
-    backgroundColor: 'rgba(50, 50, 50, 0.95)',
+    backgroundColor: darkColors.surfaceCard,
   },
   closeButton: {
-    left: 16,
+    left: spacing.md,
   },
   styleButton: {
-    right: 16,
+    right: spacing.md,
   },
   controlStack: {
     position: 'absolute',
-    right: 16,
-    gap: 8,
+    right: spacing.md,
+    gap: spacing.sm,
     zIndex: 10,
   },
   controlButton: {
@@ -392,29 +391,25 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.95)',
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 3,
-    elevation: 3,
+    ...shadows.mapOverlay,
   },
   controlButtonDark: {
-    backgroundColor: 'rgba(50, 50, 50, 0.95)',
+    backgroundColor: darkColors.surfaceCard,
   },
   controlButtonActive: {
     backgroundColor: colors.primary,
   },
   attribution: {
     position: 'absolute',
-    right: 8,
+    right: spacing.sm,
     backgroundColor: 'rgba(255, 255, 255, 0.7)',
     paddingHorizontal: 6,
     paddingVertical: 2,
-    borderRadius: 4,
+    borderRadius: spacing.xs,
     zIndex: 10,
   },
   attributionText: {
-    fontSize: 9,
-    color: '#333333',
+    fontSize: typography.pillLabel.fontSize,
+    color: colors.textSecondary,
   },
 });

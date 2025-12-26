@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { View, StyleSheet, useColorScheme, Text } from 'react-native';
-import { colors } from '@/theme';
+import { colors, darkColors, opacity, typography, spacing } from '@/theme';
 import { useHRZones } from '@/providers';
 import { useSportSettings, getSettingsForSport, HR_ZONE_COLORS } from '@/hooks';
 import type { ActivityStreams, ActivityDetail } from '@/types';
@@ -216,28 +216,28 @@ export function HRZonesChart({
 
 const styles = StyleSheet.create({
   container: {
-    paddingVertical: 8,
+    paddingVertical: spacing.sm,
   },
   headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: spacing.sm,
   },
   title: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     fontWeight: '600',
     color: colors.textPrimary,
   },
   titleDark: {
-    color: '#FFF',
+    color: colors.textOnDark,
   },
   maxHRLabel: {
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     color: colors.textSecondary,
   },
   maxHRLabelDark: {
-    color: '#888',
+    color: darkColors.textSecondary,
   },
   zonesContainer: {
     // No flex: 1 - let it size based on content
@@ -248,16 +248,16 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
   },
   zoneNumber: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     fontWeight: '700',
     width: 24,
   },
   zoneNumberCompact: {
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     width: 22,
   },
   zonePercent: {
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     fontWeight: '600',
     width: 32,
     textAlign: 'right',
@@ -265,26 +265,26 @@ const styles = StyleSheet.create({
     marginRight: 6,
   },
   zonePercentCompact: {
-    fontSize: 10,
+    fontSize: typography.micro.fontSize,
     width: 28,
-    marginRight: 4,
+    marginRight: spacing.xs,
   },
   zonePercentDark: {
-    color: '#FFF',
+    color: colors.textOnDark,
   },
   barContainer: {
     flex: 1,
     height: 16,
-    backgroundColor: 'rgba(0, 0, 0, 0.08)',
-    borderRadius: 8,
+    backgroundColor: opacity.overlay.medium,
+    borderRadius: layout.borderRadiusSm,
     overflow: 'hidden',
   },
   barContainerDark: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: opacity.overlayDark.medium,
   },
   bar: {
     height: '100%',
-    borderRadius: 8,
+    borderRadius: layout.borderRadiusSm,
   },
   zoneStats: {
     width: 75,
@@ -293,28 +293,28 @@ const styles = StyleSheet.create({
   },
   zoneStatsCompact: {
     width: 65,
-    marginLeft: 4,
+    marginLeft: spacing.xs,
   },
   zoneTime: {
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     fontWeight: '600',
     color: colors.textPrimary,
   },
   zoneTimeCompact: {
-    fontSize: 10,
+    fontSize: typography.micro.fontSize,
   },
   zoneTimeDark: {
-    color: '#FFF',
+    color: colors.textOnDark,
   },
   zoneBPM: {
-    fontSize: 9,
+    fontSize: typography.pillLabel.fontSize,
     color: colors.textSecondary,
   },
   zoneBPMCompact: {
-    fontSize: 9,
+    fontSize: typography.pillLabel.fontSize,
   },
   zoneBPMDark: {
-    color: '#888',
+    color: darkColors.textSecondary,
   },
   placeholder: {
     minHeight: 100,
@@ -322,10 +322,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   placeholderText: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     color: colors.textSecondary,
   },
   textDark: {
-    color: '#888',
+    color: darkColors.textSecondary,
   },
 });

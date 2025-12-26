@@ -6,7 +6,9 @@ import { Circle, DashPathEffect, Line as SkiaLine } from '@shopify/react-native-
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { useSharedValue, useAnimatedReaction, runOnJS, useDerivedValue, useAnimatedStyle } from 'react-native-reanimated';
 import { router } from 'expo-router';
-import { colors, spacing } from '@/theme';
+import { colors, darkColors } from '@/theme/colors';
+import { typography } from '@/theme/typography';
+import { spacing, layout } from '@/theme/spacing';
 import { usePaceCurve } from '@/hooks';
 import { useActivities } from '@/hooks';
 
@@ -379,7 +381,7 @@ export function PaceCurveChart({
               value={showGap}
               onValueChange={setShowGap}
               trackColor={{ false: isDark ? '#444' : '#DDD', true: colors.primary }}
-              thumbColor={showGap ? '#FFF' : (isDark ? '#AAA' : '#FFF')}
+              thumbColor={showGap ? colors.textOnDark : (isDark ? darkColors.textSecondary : colors.textOnDark)}
               style={styles.gapSwitch}
             />
           </View>
@@ -525,12 +527,12 @@ export function PaceCurveChart({
 const styles = StyleSheet.create({
   container: {},
   title: {
-    fontSize: 16,
+    fontSize: typography.body.fontSize,
     fontWeight: '700',
     color: colors.textPrimary,
   },
-  textLight: { color: '#FFFFFF' },
-  textDark: { color: '#888' },
+  textLight: { color: colors.textOnDark },
+  textDark: { color: darkColors.textSecondary },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -543,7 +545,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   gapLabel: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     fontWeight: '500',
     color: colors.textSecondary,
   },
@@ -559,12 +561,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   valueLabel: {
-    fontSize: 9,
+    fontSize: typography.pillLabel.fontSize,
     color: colors.textSecondary,
     marginBottom: 1,
   },
   valueNumber: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     fontWeight: '700',
   },
   activityRow: {
@@ -573,9 +575,9 @@ const styles = StyleSheet.create({
   },
   activityPill: {
     backgroundColor: 'rgba(76, 175, 80, 0.15)',
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
+    paddingHorizontal: layout.borderRadius,
+    paddingVertical: spacing.xs,
+    borderRadius: layout.borderRadius,
     borderWidth: 1,
     borderColor: 'rgba(76, 175, 80, 0.3)',
   },
@@ -584,9 +586,9 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(76, 175, 80, 0.4)',
   },
   activityLabel: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     fontWeight: '600',
-    color: '#4CAF50',
+    color: colors.run,
   },
   chartWrapper: {
     flex: 1,
@@ -598,7 +600,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   loadingText: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
   },
   emptyState: {
@@ -607,40 +609,40 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   emptyText: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     color: colors.textSecondary,
   },
   crosshair: {
     position: 'absolute',
-    top: 4,
+    top: spacing.xs,
     bottom: 20,
     width: 1.5,
-    backgroundColor: '#666',
+    backgroundColor: colors.textSecondary,
   },
   crosshairDark: {
-    backgroundColor: '#AAA',
+    backgroundColor: darkColors.textSecondary,
   },
   xAxisOverlay: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    height: 16,
+    height: spacing.md,
   },
   yAxisOverlay: {
     position: 'absolute',
-    top: 4,
+    top: spacing.xs,
     bottom: 20,
-    left: 4,
+    left: spacing.xs,
     justifyContent: 'space-between',
   },
   axisLabel: {
-    fontSize: 10,
-    color: '#666',
+    fontSize: typography.micro.fontSize,
+    color: colors.textSecondary,
     fontWeight: '500',
   },
   axisLabelDark: {
-    color: '#AAA',
+    color: darkColors.textSecondary,
   },
   footer: {
     marginTop: spacing.xs,
@@ -649,12 +651,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   dateRange: {
-    fontSize: 10,
+    fontSize: typography.micro.fontSize,
     color: colors.textSecondary,
     marginBottom: 2,
   },
   modelStats: {
-    fontSize: 10,
+    fontSize: typography.micro.fontSize,
     color: colors.textSecondary,
   },
 });

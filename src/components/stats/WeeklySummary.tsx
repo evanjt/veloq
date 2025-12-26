@@ -1,7 +1,9 @@
 import React, { useMemo, useState } from 'react';
 import { View, StyleSheet, useColorScheme, TouchableOpacity } from 'react-native';
 import { Text } from 'react-native-paper';
-import { colors, spacing } from '@/theme';
+import { colors, darkColors, opacity } from '@/theme/colors';
+import { typography } from '@/theme/typography';
+import { spacing, layout } from '@/theme/spacing';
 import type { Activity } from '@/types';
 
 type TimeRange = 'week' | 'month' | '3m' | '6m' | 'year';
@@ -275,39 +277,39 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   title: {
-    fontSize: 16,
+    fontSize: typography.body.fontSize,
     fontWeight: '700',
     color: colors.textPrimary,
   },
   textLight: {
-    color: '#FFFFFF',
+    color: colors.textOnDark,
   },
   textDark: {
-    color: '#AAA',
+    color: darkColors.textSecondary,
   },
   timeRangeSelector: {
     flexDirection: 'row',
-    gap: 4,
+    gap: spacing.xs,
   },
   timeRangeButton: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-    backgroundColor: 'rgba(0, 0, 0, 0.05)',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: layout.borderRadiusSm,
+    backgroundColor: opacity.overlay.light,
   },
   timeRangeButtonDark: {
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: opacity.overlayDark.medium,
   },
   timeRangeButtonActive: {
     backgroundColor: colors.primary,
   },
   timeRangeText: {
-    fontSize: 10,
+    fontSize: typography.micro.fontSize,
     fontWeight: '600',
     color: colors.textSecondary,
   },
   timeRangeTextActive: {
-    color: '#FFFFFF',
+    color: colors.textOnDark,
   },
   statsGrid: {
     flexDirection: 'row',
@@ -325,7 +327,7 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
   statLabel: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
     marginTop: 2,
   },
@@ -338,11 +340,11 @@ const styles = StyleSheet.create({
     borderTopColor: colors.border,
   },
   comparisonLabel: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
   },
   comparisonValue: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     fontWeight: '600',
   },
   emptyState: {
@@ -350,7 +352,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xl,
   },
   emptyText: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     color: colors.textSecondary,
   },
 });

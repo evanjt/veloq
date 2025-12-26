@@ -4,7 +4,7 @@ import { MapView, Camera, ShapeSource, LineLayer, MarkerView } from '@maplibre/m
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { convertLatLngTuples } from '@/lib/polyline';
 import { getActivityColor } from '@/lib';
-import { colors } from '@/theme';
+import { colors, layout } from '@/theme';
 import { useMapPreferences } from '@/providers';
 import { getMapStyle } from '@/components/maps';
 import { useActivityStreams } from '@/hooks';
@@ -139,7 +139,7 @@ export function ActivityMapPreview({
           <MarkerView coordinate={[startPoint.longitude, startPoint.latitude]}>
             <View style={styles.markerContainer}>
               <View style={[styles.marker, styles.startMarker]}>
-                <MaterialCommunityIcons name="play" size={10} color="#FFFFFF" />
+                <MaterialCommunityIcons name="play" size={10} color={colors.textOnDark} />
               </View>
             </View>
           </MarkerView>
@@ -150,7 +150,7 @@ export function ActivityMapPreview({
           <MarkerView coordinate={[endPoint.longitude, endPoint.latitude]}>
             <View style={styles.markerContainer}>
               <View style={[styles.marker, styles.endMarker]}>
-                <MaterialCommunityIcons name="flag-checkered" size={10} color="#FFFFFF" />
+                <MaterialCommunityIcons name="flag-checkered" size={10} color={colors.textOnDark} />
               </View>
             </View>
           </MarkerView>
@@ -163,7 +163,7 @@ export function ActivityMapPreview({
 const styles = StyleSheet.create({
   container: {
     overflow: 'hidden',
-    borderRadius: 8,
+    borderRadius: layout.borderRadiusSm,
   },
   map: {
     flex: 1,
@@ -171,7 +171,7 @@ const styles = StyleSheet.create({
   placeholder: {
     justifyContent: 'center',
     alignItems: 'center',
-    borderRadius: 8,
+    borderRadius: layout.borderRadiusSm,
   },
   markerContainer: {
     alignItems: 'center',
@@ -184,7 +184,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: '#FFFFFF',
+    borderColor: colors.textOnDark,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.3,

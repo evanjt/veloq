@@ -6,7 +6,7 @@ import { Line as SkiaLine, Rect, vec } from '@shopify/react-native-skia';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { SharedValue, useSharedValue, useAnimatedReaction, runOnJS, useDerivedValue, useAnimatedStyle } from 'react-native-reanimated';
 import Animated from 'react-native-reanimated';
-import { colors, typography, spacing } from '@/theme';
+import { colors, darkColors, opacity, typography, spacing, layout } from '@/theme';
 import { calculateTSB, getFormZone, FORM_ZONE_COLORS, FORM_ZONE_LABELS, FORM_ZONE_BOUNDARIES, type FormZone } from '@/hooks';
 import type { WellnessData } from '@/types';
 
@@ -384,12 +384,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   dateText: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     fontWeight: '600',
     color: colors.textPrimary,
   },
   textLight: {
-    color: '#FFFFFF',
+    color: colors.textOnDark,
   },
   valuesRow: {
     flexDirection: 'row',
@@ -401,7 +401,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   zoneText: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     fontWeight: '500',
   },
   chartWrapper: {
@@ -413,10 +413,10 @@ const styles = StyleSheet.create({
     top: 4,
     bottom: 4,
     width: 1.5,
-    backgroundColor: '#666',
+    backgroundColor: colors.textSecondary,
   },
   crosshairDark: {
-    backgroundColor: '#AAA',
+    backgroundColor: darkColors.textSecondary,
   },
   yAxisOverlay: {
     position: 'absolute',
@@ -433,8 +433,8 @@ const styles = StyleSheet.create({
     borderRadius: 2,
   },
   axisLabelDark: {
-    color: '#CCC',
-    backgroundColor: 'rgba(30, 30, 30, 0.7)',
+    color: darkColors.textPrimary,
+    backgroundColor: darkColors.surfaceOverlay,
   },
   zoneLegend: {
     flexDirection: 'row',
@@ -454,10 +454,10 @@ const styles = StyleSheet.create({
     marginRight: 3,
   },
   zoneLabel: {
-    fontSize: 9,
+    fontSize: typography.pillLabel.fontSize,
     color: colors.textSecondary,
   },
   textDark: {
-    color: '#AAA',
+    color: darkColors.textSecondary,
   },
 });

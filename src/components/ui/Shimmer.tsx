@@ -1,5 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { View, StyleSheet, Animated, useColorScheme, ViewStyle, DimensionValue } from 'react-native';
+import { colors, darkColors, opacity } from '@/theme/colors';
+import { layout, spacing } from '@/theme/spacing';
 
 interface ShimmerProps {
   width?: DimensionValue;
@@ -42,8 +44,9 @@ export function Shimmer({
     outputRange: [0.3, 0.7],
   });
 
-  const baseColor = isDark ? '#2A2A2A' : '#E0E0E0';
-  const highlightColor = isDark ? '#3A3A3A' : '#F0F0F0';
+  // Use theme-aware shimmer colors
+  const baseColor = isDark ? darkColors.surface : colors.border;
+  const highlightColor = isDark ? darkColors.border : colors.divider;
 
   return (
     <View
@@ -156,29 +159,29 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   card: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
+    backgroundColor: colors.surface,
+    borderRadius: layout.borderRadius,
+    padding: spacing.md,
+    marginBottom: layout.cardMargin,
   },
   cardDark: {
-    backgroundColor: '#1E1E1E',
+    backgroundColor: darkColors.surface,
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   headerText: {
-    marginLeft: 12,
+    marginLeft: layout.cardMargin,
     flex: 1,
   },
   statsRow: {
     flexDirection: 'row',
     justifyContent: 'space-around',
-    marginTop: 16,
-    paddingTop: 12,
+    marginTop: spacing.md,
+    paddingTop: layout.cardMargin,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(0,0,0,0.05)',
+    borderTopColor: opacity.overlay.light,
   },
   stat: {
     alignItems: 'center',
@@ -194,7 +197,7 @@ const styles = StyleSheet.create({
   wellnessGrid: {
     flexDirection: 'row',
     justifyContent: 'space-around',
-    marginTop: 16,
+    marginTop: spacing.md,
   },
   wellnessItem: {
     alignItems: 'center',

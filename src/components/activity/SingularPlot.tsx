@@ -5,7 +5,7 @@ import { CartesianChart, Area } from 'victory-native';
 import { LinearGradient, vec } from '@shopify/react-native-skia';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { useSharedValue, useAnimatedReaction, runOnJS, useDerivedValue, useAnimatedStyle } from 'react-native-reanimated';
-import { colors, typography } from '@/theme';
+import { colors, darkColors, typography, layout } from '@/theme';
 import { useMetricSystem } from '@/hooks';
 
 
@@ -285,10 +285,10 @@ const styles = StyleSheet.create({
     top: 4,
     bottom: 16,
     width: 1,
-    backgroundColor: '#666',
+    backgroundColor: colors.textSecondary,
   },
   crosshairDark: {
-    backgroundColor: '#AAA',
+    backgroundColor: darkColors.textPrimary,
   },
   yAxisOverlay: {
     position: 'absolute',
@@ -306,7 +306,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   overlayLabel: {
-    fontSize: 9,
+    fontSize: typography.pillLabel.fontSize,
     color: colors.textSecondary,
     backgroundColor: 'rgba(255, 255, 255, 0.7)',
     paddingHorizontal: 2,
@@ -314,21 +314,21 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   overlayLabelDark: {
-    color: '#CCC',
-    backgroundColor: 'rgba(30, 30, 30, 0.7)',
+    color: darkColors.textPrimary,
+    backgroundColor: darkColors.surfaceOverlay,
   },
   placeholder: {
     backgroundColor: colors.background,
     justifyContent: 'center',
     alignItems: 'center',
-    borderRadius: 8,
+    borderRadius: layout.borderRadiusSm,
   },
   placeholderText: {
     ...typography.caption,
     color: colors.textSecondary,
   },
   textDark: {
-    color: '#AAA',
+    color: darkColors.textSecondary,
   },
   tooltip: {
     position: 'absolute',
@@ -343,14 +343,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   tooltipDark: {
-    backgroundColor: 'rgba(40, 40, 40, 0.95)',
+    backgroundColor: darkColors.surfaceOverlay,
   },
   tooltipText: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     fontWeight: '600',
     color: colors.textPrimary,
   },
   tooltipTextDark: {
-    color: '#FFFFFF',
+    color: colors.textOnDark,
   },
 });

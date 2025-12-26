@@ -9,6 +9,8 @@ export const colors = {
   textPrimary: '#1A1A1A',
   textSecondary: '#666666',
   textDisabled: '#9E9E9E',
+  textOnDark: '#FFFFFF',      // White text for dark backgrounds
+  textOnPrimary: '#FFFFFF',   // White text on primary color
 
   success: '#4CAF50',
   successLight: '#66BB6A',
@@ -86,3 +88,22 @@ export const darkColors = {
 } as const;
 
 export type DarkColorKey = keyof typeof darkColors;
+
+// Opacity scale for overlays and backgrounds
+export const opacity = {
+  // Light mode overlays (black with opacity)
+  overlay: {
+    subtle: 'rgba(0, 0, 0, 0.03)',    // Barely visible tint
+    light: 'rgba(0, 0, 0, 0.05)',     // Divider lines
+    medium: 'rgba(0, 0, 0, 0.1)',     // Disabled states
+    heavy: 'rgba(0, 0, 0, 0.5)',      // Modal backdrops
+    full: 'rgba(0, 0, 0, 0.65)',      // Map stat pills
+  },
+  // Dark mode overlays (white with opacity)
+  overlayDark: {
+    subtle: 'rgba(255, 255, 255, 0.03)',
+    light: 'rgba(255, 255, 255, 0.05)',
+    medium: 'rgba(255, 255, 255, 0.1)',
+    heavy: 'rgba(255, 255, 255, 0.15)',
+  },
+} as const;

@@ -3,7 +3,7 @@ import { View, StyleSheet, TouchableOpacity, useColorScheme } from 'react-native
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { getFormZone, FORM_ZONE_COLORS, FORM_ZONE_LABELS, type FormZone } from '@/hooks';
-import { colors, spacing } from '@/theme';
+import { colors, darkColors, opacity, spacing, layout, typography } from '@/theme';
 import type { WellnessData } from '@/types';
 
 interface FitnessSummaryBadgeProps {
@@ -94,12 +94,12 @@ export function FitnessSummaryInline({ data }: { data: WellnessData[] | undefine
     <View style={[styles.inlineContainer, isDark && styles.inlineContainerDark]}>
       <View style={styles.inlineRow}>
         <Text style={[styles.inlineLabel, isDark && styles.textDark]}>Fit</Text>
-        <Text style={[styles.inlineValue, { color: '#42A5F5' }]}>{fitness}</Text>
+        <Text style={[styles.inlineValue, { color: colors.fitness }]}>{fitness}</Text>
       </View>
       <View style={[styles.inlineDivider, isDark && styles.inlineDividerDark]} />
       <View style={styles.inlineRow}>
         <Text style={[styles.inlineLabel, isDark && styles.textDark]}>Fat</Text>
-        <Text style={[styles.inlineValue, { color: '#AB47BC' }]}>{fatigue}</Text>
+        <Text style={[styles.inlineValue, { color: colors.chartPurple }]}>{fatigue}</Text>
       </View>
       <View style={[styles.inlineDivider, isDark && styles.inlineDividerDark]} />
       <View style={styles.inlineRow}>
@@ -115,18 +115,18 @@ export function FitnessSummaryInline({ data }: { data: WellnessData[] | undefine
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: 'rgba(0, 0, 0, 0.05)',
+    backgroundColor: opacity.overlay.light,
     borderRadius: 20,
-    paddingHorizontal: 12,
+    paddingHorizontal: spacing.sm + 4,
     paddingVertical: 6,
   },
   containerDark: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: opacity.overlayDark.medium,
   },
   content: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: spacing.sm,
   },
   indicator: {
     width: 8,
@@ -139,56 +139,56 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   fitnessValue: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     fontWeight: '700',
     color: colors.textPrimary,
   },
   formValue: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     fontWeight: '600',
   },
   loadingText: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
   },
   textLight: {
-    color: '#FFFFFF',
+    color: colors.textOnDark,
   },
   textDark: {
-    color: '#AAA',
+    color: darkColors.textSecondary,
   },
   // Inline styles
   inlineContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.05)',
-    borderRadius: 16,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    backgroundColor: opacity.overlay.light,
+    borderRadius: spacing.md,
+    paddingHorizontal: spacing.sm + 4,
+    paddingVertical: spacing.sm,
   },
   inlineContainerDark: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: opacity.overlayDark.medium,
   },
   inlineRow: {
     alignItems: 'center',
   },
   inlineLabel: {
-    fontSize: 9,
+    fontSize: typography.pillLabel.fontSize,
     color: colors.textSecondary,
     marginBottom: 1,
   },
   inlineValue: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     fontWeight: '700',
   },
   inlineDivider: {
     width: 1,
     height: 24,
-    backgroundColor: 'rgba(0, 0, 0, 0.1)',
+    backgroundColor: opacity.overlay.medium,
     marginHorizontal: spacing.sm,
   },
   inlineDividerDark: {
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    backgroundColor: opacity.overlayDark.heavy,
   },
   zoneIndicator: {
     width: 6,
