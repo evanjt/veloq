@@ -55,7 +55,7 @@ pub use http::{ActivityFetcher, ActivityMapResult, MapBounds};
 
 // Frequent sections detection (vector-first algorithm for smooth polylines)
 pub mod sections;
-pub use sections::{FrequentSection, SectionConfig, detect_frequent_sections};
+pub use sections::{FrequentSection, SectionConfig, detect_frequent_sections, detect_sections_incremental};
 
 // Heatmap generation module
 pub mod heatmap;
@@ -1452,6 +1452,54 @@ mod ffi {
     #[uniffi::export]
     pub fn default_section_config() -> crate::SectionConfig {
         crate::SectionConfig::default()
+    }
+
+    /// Incremental section detection: efficiently update sections when new activities are added.
+    /// Only compares new vs existing signatures - O(m×n) instead of O(n²).
+    ///
+    /// For 500 existing + 1 new: O(500) comparisons instead of O(250,000)
+    #[uniffi::export]
+    pub fn ffi_detect_sections_incremental(
+        new_signatures: Vec<RouteSignature>,
+        existing_sections: Vec<crate::FrequentSection>,
+        existing_signatures: Vec<RouteSignature>,
+        groups: Vec<RouteGroup>,
+        sport_types: Vec<ActivitySportType>,
+        config: crate::SectionConfig,
+    ) -> Vec<crate::FrequentSection> {
+        init_logging();
+        info!(
+            "[RouteMatcherRust] 🦀 detect_sections_incremental: {} new + {} existing signatures, {} existing sections",
+            new_signatures.len(),
+            existing_signatures.len(),
+            existing_sections.len()
+        );
+
+        let start = std::time::Instant::now();
+
+        // Convert sport types to HashMap
+        let sport_map: std::collections::HashMap<String, String> = sport_types
+            .into_iter()
+            .map(|st| (st.activity_id, st.sport_type))
+            .collect();
+
+        let sections = crate::sections::detect_sections_incremental(
+            &new_signatures,
+            &existing_sections,
+            &existing_signatures,
+            &groups,
+            &sport_map,
+            &config,
+        );
+
+        let elapsed = start.elapsed();
+        info!(
+            "[RouteMatcherRust] 🦀 Incremental sections: {} sections in {:?}",
+            sections.len(),
+            elapsed
+        );
+
+        sections
     }
 
     /// Fetch map data AND create route signatures in one call.
