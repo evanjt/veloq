@@ -145,6 +145,99 @@ jobs:
           node-version: '20'
           cache: 'npm'
 
+      # ============================================
+      # Rust Setup and Build
+      # ============================================
+      - name: Setup Rust
+        uses: dtolnay/rust-action@stable
+        with:
+          toolchain: stable
+
+      - name: Install Rust iOS targets
+        run: rustup target add aarch64-apple-ios aarch64-apple-ios-sim x86_64-apple-ios
+
+      - name: Cache Rust build
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            rust/route-matcher/target
+          key: rust-ios-${{ runner.os }}-${{ hashFiles('rust/route-matcher/Cargo.lock') }}
+          restore-keys: |
+            rust-ios-${{ runner.os }}-
+
+      - name: Build Rust library for iOS
+        run: |
+          cd rust/route-matcher
+          ./scripts/build-ios.sh
+
+      - name: Verify Rust build artifacts
+        run: |
+          echo "=== Checking Rust build artifacts ==="
+
+          # Check XCFramework
+          if [ -d "rust/route-matcher/target/ios/RouteMatcherFFI.xcframework" ]; then
+            echo "✓ XCFramework found"
+            ls -la rust/route-matcher/target/ios/RouteMatcherFFI.xcframework/
+          else
+            echo "✗ XCFramework NOT found"
+            exit 1
+          fi
+
+          # Check Swift bindings
+          if [ -f "rust/route-matcher/target/ios/swift/route_matcher.swift" ]; then
+            echo "✓ Swift bindings found"
+            head -20 rust/route-matcher/target/ios/swift/route_matcher.swift
+          else
+            echo "✗ Swift bindings NOT found"
+            exit 1
+          fi
+
+          # Check C header
+          if [ -f "rust/route-matcher/target/ios/swift/route_matcherFFI.h" ]; then
+            echo "✓ C header found"
+          else
+            echo "✗ C header NOT found"
+            exit 1
+          fi
+
+      - name: Install Rust library to native module
+        run: |
+          cd rust/route-matcher
+          ./scripts/install-ios.sh
+
+      - name: Verify native module installation
+        run: |
+          echo "=== Checking native module installation ==="
+
+          MODULE_DIR="modules/route-matcher-native/ios"
+
+          # Check XCFramework in module
+          if [ -d "$MODULE_DIR/Frameworks/RouteMatcherFFI.xcframework" ]; then
+            echo "✓ XCFramework installed in module"
+          else
+            echo "✗ XCFramework NOT installed"
+            exit 1
+          fi
+
+          # Check Generated Swift bindings
+          if [ -f "$MODULE_DIR/Generated/route_matcher.swift" ]; then
+            echo "✓ Swift bindings installed"
+          else
+            echo "✗ Swift bindings NOT installed"
+            exit 1
+          fi
+
+          echo ""
+          echo "=== Module contents ==="
+          ls -la "$MODULE_DIR/"
+          ls -la "$MODULE_DIR/Frameworks/" 2>/dev/null || true
+          ls -la "$MODULE_DIR/Generated/" 2>/dev/null || true
+
+      # ============================================
+      # Node.js and iOS Build
+      # ============================================
       - name: Install dependencies
         run: npm ci
 
@@ -195,6 +288,18 @@ jobs:
           name: ios-simulator-${{ needs.version.outputs.filename }}
           path: artifacts/*-ios-simulator.zip
           retention-days: 30
+
+      # Upload Rust artifacts for debugging if build fails
+      - name: Upload Rust build artifacts (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rust-ios-build-artifacts
+          path: |
+            rust/route-matcher/target/ios/
+            modules/route-matcher-native/ios/Frameworks/
+            modules/route-matcher-native/ios/Generated/
+          retention-days: 7
 
   release:
     name: Upload to Release

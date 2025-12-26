@@ -15,7 +15,19 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.veloq.app"
+      "bundleIdentifier": "com.veloq.app",
+      "buildNumber": "1",
+      "deploymentTarget": "14.0",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Veloq uses your location to display activity maps and track your routes.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Veloq uses your location to display activity maps and track your routes.",
+        "UIBackgroundModes": ["location", "fetch"],
+        "ITSAppUsesNonExemptEncryption": false
+      },
+      "config": {
+        "usesNonExemptEncryption": false
+      },
+      "associatedDomains": ["applinks:intervals.icu"]
     },
     "android": {
       "package": "com.veloq.app",
