@@ -46,3 +46,5 @@ export { useRouteGroups } from './routes/useRouteGroups';
 export { useRouteMatch } from './routes/useRouteMatch';
 export { useRoutePerformances } from './routes/useRoutePerformances';
 export { useRouteProcessing } from './routes/useRouteProcessing';
+export { useFrequentSections } from './routes/useFrequentSections';
+export { useHeatmap, type UseHeatmapOptions, type UseHeatmapResult } from './useHeatmap';

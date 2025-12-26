@@ -28,6 +28,8 @@ export interface RouteSignature {
     minLng: number;
     maxLng: number;
   };
+  /** Pre-computed center point for 120Hz map rendering */
+  center: RoutePoint;
   /** Geohash of start region (~500m grid) for fast matching */
   startRegionHash: string;
   /** Geohash of end region (~500m grid) for fast matching */
@@ -115,6 +117,8 @@ export interface RouteMatchCache {
   processedActivityIds: string[];
   /** Reverse index: activity ID → route group ID (for O(1) lookup) */
   activityToRouteId: Record<string, string>;
+  /** Frequently traveled sections (auto-detected) */
+  frequentSections?: FrequentSection[];
 }
 
 /** Status of an individual activity being processed */
@@ -220,4 +224,51 @@ export const DEFAULT_ROUTE_MATCH_CONFIG: RouteMatchConfig = {
   maxDistanceDifference: 0.5, // Allow 50% distance difference for partial matches
   loopThreshold: 100, // meters
   regionGridSize: 0.005, // ~500m
+};
+
+// =============================================================================
+// Frequent Sections
+// =============================================================================
+
+/**
+ * A frequently-traveled road section, detected automatically from GPS tracks.
+ * Even when full routes differ, common sections are identified.
+ */
+export interface FrequentSection {
+  /** Unique section ID */
+  id: string;
+  /** Sport type this section is for ("Run", "Ride", etc.) */
+  sportType: string;
+  /** Simplified polyline for rendering (ordered path through cells) */
+  polyline: RoutePoint[];
+  /** Activity IDs that traverse this section */
+  activityIds: string[];
+  /** Route group IDs that include this section */
+  routeIds: string[];
+  /** Total number of traversals */
+  visitCount: number;
+  /** Estimated section length in meters */
+  distanceMeters: number;
+  /** Display name (auto-generated or user-set) */
+  name?: string;
+}
+
+/** Configuration for section detection */
+export interface SectionConfig {
+  /** Grid cell size in meters (default: 100m) */
+  cellSizeMeters: number;
+  /** Minimum visits to a cell to be considered frequent (default: 3) */
+  minVisits: number;
+  /** Minimum cells in a cluster to form a section (default: 5, ~500m) */
+  minCells: number;
+  /** Whether to use 8-directional flood-fill (default: true) */
+  diagonalConnect: boolean;
+}
+
+/** Default section detection configuration */
+export const DEFAULT_SECTION_CONFIG: SectionConfig = {
+  cellSizeMeters: 100,
+  minVisits: 3,
+  minCells: 5,
+  diagonalConnect: true,
 };

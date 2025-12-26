@@ -1,15 +1,17 @@
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
-import { View, StyleSheet, useColorScheme } from 'react-native';
+import { View, StyleSheet, useColorScheme, Pressable } from 'react-native';
 import { Text, IconButton } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { RoutesList, TimelineSlider } from '@/components';
-import { useRouteProcessing, useActivities, useActivityBoundsCache, useRouteGroups } from '@/hooks';
+import { RoutesList, SectionsList, TimelineSlider } from '@/components';
+import { useRouteProcessing, useActivities, useActivityBoundsCache, useRouteGroups, useFrequentSections } from '@/hooks';
 import { useRouteMatchStore, useRouteSettings } from '@/providers';
 import { colors, spacing } from '@/theme';
 import { debug } from '@/lib';
 import type { ActivityType } from '@/types';
+
+type TabType = 'routes' | 'sections';
 
 const log = debug.create('Routes');
 
@@ -40,6 +42,12 @@ export default function RoutesScreen() {
 
   // Get route groups to count (use minActivities: 2 to match the list)
   const { groups: routeGroups } = useRouteGroups({ minActivities: 2 });
+
+  // Get frequent sections count
+  const { sections, totalCount: totalSections } = useFrequentSections({ minVisits: 3 });
+
+  // Tab state
+  const [activeTab, setActiveTab] = useState<TabType>('routes');
 
   // Date range state - default to full cached range, or last 3 months if no cache
   const now = useMemo(() => new Date(), []);
@@ -250,12 +258,64 @@ export default function RoutesScreen() {
           onPress={() => router.back()}
         />
         <Text style={[styles.headerTitle, isDark && styles.textLight]}>Routes</Text>
-        <View style={styles.headerRight}>
-          <View style={styles.routeCountBadge}>
-            <MaterialCommunityIcons name="map-marker-path" size={14} color="#FFFFFF" />
-            <Text style={styles.routeCountText}>{routeGroups.length}</Text>
+        <View style={styles.headerRight} />
+      </View>
+
+      {/* Tab Bar */}
+      <View style={[styles.tabBar, isDark && styles.tabBarDark]}>
+        <Pressable
+          style={[
+            styles.tab,
+            activeTab === 'routes' && styles.tabActive,
+            activeTab === 'routes' && isDark && styles.tabActiveDark,
+          ]}
+          onPress={() => setActiveTab('routes')}
+        >
+          <MaterialCommunityIcons
+            name="map-marker-path"
+            size={16}
+            color={activeTab === 'routes' ? colors.primary : (isDark ? '#888' : colors.textSecondary)}
+          />
+          <Text style={[
+            styles.tabText,
+            activeTab === 'routes' && styles.tabTextActive,
+            isDark && styles.tabTextDark,
+          ]}>
+            Routes
+          </Text>
+          <View style={[styles.tabBadge, activeTab === 'routes' && styles.tabBadgeActive]}>
+            <Text style={[styles.tabBadgeText, activeTab === 'routes' && styles.tabBadgeTextActive]}>
+              {routeGroups.length}
+            </Text>
           </View>
-        </View>
+        </Pressable>
+
+        <Pressable
+          style={[
+            styles.tab,
+            activeTab === 'sections' && styles.tabActive,
+            activeTab === 'sections' && isDark && styles.tabActiveDark,
+          ]}
+          onPress={() => setActiveTab('sections')}
+        >
+          <MaterialCommunityIcons
+            name="road-variant"
+            size={16}
+            color={activeTab === 'sections' ? colors.primary : (isDark ? '#888' : colors.textSecondary)}
+          />
+          <Text style={[
+            styles.tabText,
+            activeTab === 'sections' && styles.tabTextActive,
+            isDark && styles.tabTextDark,
+          ]}>
+            Sections
+          </Text>
+          <View style={[styles.tabBadge, activeTab === 'sections' && styles.tabBadgeActive]}>
+            <Text style={[styles.tabBadgeText, activeTab === 'sections' && styles.tabBadgeTextActive]}>
+              {sections.length}
+            </Text>
+          </View>
+        </Pressable>
       </View>
 
       {/* Timeline slider - same as world map */}
@@ -273,12 +333,16 @@ export default function RoutesScreen() {
         isDark={isDark}
       />
 
-      <RoutesList
-        onRefresh={() => refetch()}
-        isRefreshing={isRefetching}
-        startDate={startDate}
-        endDate={endDate}
-      />
+      {activeTab === 'routes' ? (
+        <RoutesList
+          onRefresh={() => refetch()}
+          isRefreshing={isRefetching}
+          startDate={startDate}
+          endDate={endDate}
+        />
+      ) : (
+        <SectionsList />
+      )}
     </SafeAreaView>
   );
 }
@@ -306,18 +370,62 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     paddingRight: spacing.sm,
   },
-  routeCountBadge: {
+  tabBar: {
+    flexDirection: 'row',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    gap: spacing.sm,
+    backgroundColor: colors.background,
+  },
+  tabBarDark: {
+    backgroundColor: '#121212',
+  },
+  tab: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.primary,
-    borderRadius: 12,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    gap: 4,
+    justifyContent: 'center',
+    gap: spacing.xs,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: 10,
+    backgroundColor: '#F0F0F0',
   },
-  routeCountText: {
-    fontSize: 13,
-    fontWeight: '700',
+  tabActive: {
+    backgroundColor: '#FFF3ED',
+  },
+  tabActiveDark: {
+    backgroundColor: 'rgba(252, 76, 2, 0.15)',
+  },
+  tabText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: colors.textSecondary,
+  },
+  tabTextActive: {
+    color: colors.primary,
+    fontWeight: '600',
+  },
+  tabTextDark: {
+    color: '#888',
+  },
+  tabBadge: {
+    backgroundColor: '#E0E0E0',
+    borderRadius: 10,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    minWidth: 22,
+    alignItems: 'center',
+  },
+  tabBadgeActive: {
+    backgroundColor: colors.primary,
+  },
+  tabBadgeText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: colors.textSecondary,
+  },
+  tabBadgeTextActive: {
     color: '#FFFFFF',
   },
   textLight: {
