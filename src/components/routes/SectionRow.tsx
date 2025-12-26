@@ -5,7 +5,7 @@
  */
 
 import React, { memo, useMemo } from 'react';
-import { View, StyleSheet, Pressable, useColorScheme } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, useColorScheme } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Svg, { Polyline, G } from 'react-native-svg';
@@ -64,6 +64,20 @@ export const SectionRow = memo(function SectionRow({
 }: SectionRowProps) {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
+
+  // Debug: log touch events
+  const handlePressIn = () => {
+    console.log('[SectionRow] PressIn! Section:', section.id);
+  };
+
+  const handlePressOut = () => {
+    console.log('[SectionRow] PressOut! Section:', section.id);
+  };
+
+  const handlePress = () => {
+    console.log('[SectionRow] Press! Section:', section.id, 'onPress defined:', !!onPress);
+    onPress?.();
+  };
 
   // Compute bounds that encompass section polyline and all activity traces
   const bounds = useMemo(() => {
@@ -145,51 +159,20 @@ export const SectionRow = memo(function SectionRow({
   const icon = sportIcons[section.sportType] || 'map-marker-path';
 
   return (
-    <Pressable
-      style={({ pressed }) => [
-        styles.container,
-        isDark && styles.containerDark,
-        pressed && styles.pressed,
-      ]}
-      onPress={onPress}
+    <TouchableOpacity
+      style={[styles.container, isDark && styles.containerDark]}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+      onPress={handlePress}
+      activeOpacity={0.7}
     >
-      {/* Polyline preview with activity traces */}
-      <View style={[styles.preview, isDark && styles.previewDark]}>
-        {hasSectionPolyline || hasTraces ? (
-          <Svg width={PREVIEW_WIDTH} height={PREVIEW_HEIGHT}>
-            <G>
-              {/* Activity traces (background, faded) */}
-              {normalizedTraces.map((trace) => (
-                <Polyline
-                  key={trace.id}
-                  points={trace.points}
-                  fill="none"
-                  stroke={trace.color}
-                  strokeWidth={2.5}
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              ))}
-              {/* Section polyline (foreground, prominent) */}
-              {hasSectionPolyline && (
-                <Polyline
-                  points={sectionPolylineString}
-                  fill="none"
-                  stroke={colors.primary}
-                  strokeWidth={2}
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              )}
-            </G>
-          </Svg>
-        ) : (
-          <MaterialCommunityIcons
-            name="map-marker-path"
-            size={24}
-            color={isDark ? '#444' : '#CCC'}
-          />
-        )}
+      {/* Simple icon preview - SVG disabled for debugging */}
+      <View style={[styles.preview, isDark && styles.previewDark]} pointerEvents="none">
+        <MaterialCommunityIcons
+          name={icon}
+          size={24}
+          color={isDark ? '#666' : colors.primary}
+        />
       </View>
 
       {/* Section info */}
@@ -256,7 +239,7 @@ export const SectionRow = memo(function SectionRow({
           color={isDark ? '#444' : '#CCC'}
         />
       )}
-    </Pressable>
+    </TouchableOpacity>
   );
 });
 
@@ -277,9 +260,6 @@ const styles = StyleSheet.create({
   },
   containerDark: {
     backgroundColor: '#1E1E1E',
-  },
-  pressed: {
-    opacity: 0.7,
   },
   preview: {
     width: PREVIEW_WIDTH,

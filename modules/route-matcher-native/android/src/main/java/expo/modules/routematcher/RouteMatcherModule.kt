@@ -3,6 +3,8 @@ package expo.modules.routematcher
 import android.util.Log
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
+import org.json.JSONArray
+import org.json.JSONObject
 import uniffi.route_matcher.*
 
 /**
@@ -417,10 +419,11 @@ class RouteMatcherModule : Module() {
     Function("defaultSectionConfig") {
       val config = defaultSectionConfig()
       mapOf(
-        "cell_size_meters" to config.cellSizeMeters.toInt(),
-        "min_visits" to config.minVisits.toInt(),
-        "min_cells" to config.minCells.toInt(),
-        "diagonal_connect" to config.diagonalConnect
+        "proximity_threshold" to config.proximityThreshold,
+        "min_section_length" to config.minSectionLength,
+        "min_activities" to config.minActivities.toInt(),
+        "cluster_tolerance" to config.clusterTolerance,
+        "sample_points" to config.samplePoints.toInt()
       )
     }
 
@@ -442,16 +445,7 @@ class RouteMatcherModule : Module() {
         )
       }
 
-      val sectionConfig = if (config != null) {
-        SectionConfig(
-          cellSizeMeters = (config["cell_size_meters"] as? Number)?.toDouble() ?: 100.0,
-          minVisits = (config["min_visits"] as? Number)?.toInt()?.toUInt() ?: 3u,
-          minCells = (config["min_cells"] as? Number)?.toInt()?.toUInt() ?: 5u,
-          diagonalConnect = (config["diagonal_connect"] as? Boolean) ?: true
-        )
-      } else {
-        defaultSectionConfig()
-      }
+      val sectionConfig = parseSectionConfig(config)
 
       val startTime = System.currentTimeMillis()
       val result = ffiDetectFrequentSections(signatures, groups, sportTypes, sectionConfig)
@@ -459,20 +453,50 @@ class RouteMatcherModule : Module() {
 
       Log.i(TAG, "🦀 detectFrequentSections returned ${result.size} sections in ${elapsed}ms")
 
-      result.map { section ->
-        mapOf(
-          "id" to section.id,
-          "sport_type" to section.sportType,
-          "cells" to section.cells.map { mapOf("row" to it.row.toInt(), "col" to it.col.toInt()) },
-          "polyline" to section.polyline.map { mapOf("latitude" to it.latitude, "longitude" to it.longitude) },
-          "activity_ids" to section.activityIds,
-          "route_ids" to section.routeIds,
-          "visit_count" to section.visitCount.toInt(),
-          "distance_meters" to section.distanceMeters,
-          "first_visit" to section.firstVisit.toLong(),
-          "last_visit" to section.lastVisit.toLong()
+      result.map { sectionToMap(it) }
+    }
+
+    // Section detection from FULL GPS tracks (medoid-based)
+    // Returns JSON string for efficient bridge serialization (avoids slow Map conversion)
+    Function("detectSectionsFromTracks") { activityIds: List<String>, allCoords: DoubleArray, offsets: IntArray, sportTypeMaps: List<Map<String, Any>>, groupMaps: List<Map<String, Any>>, config: Map<String, Any>? ->
+      Log.i(TAG, "🦀 detectSectionsFromTracks: ${activityIds.size} activities, ${allCoords.size / 2} coords")
+
+      val groups = groupMaps.map { m ->
+        @Suppress("UNCHECKED_CAST")
+        RouteGroup(
+          groupId = m["groupId"] as String,
+          activityIds = m["activityIds"] as List<String>
         )
       }
+      val sportTypes = sportTypeMaps.map { m ->
+        ActivitySportType(
+          activityId = m["activity_id"] as String,
+          sportType = m["sport_type"] as String
+        )
+      }
+
+      val sectionConfig = parseSectionConfig(config)
+      val offsetsU32 = offsets.map { it.toUInt() }
+
+      val startTime = System.currentTimeMillis()
+      val result = ffiDetectSectionsFromTracks(
+        activityIds,
+        allCoords.toList(),
+        offsetsU32,
+        sportTypes,
+        groups,
+        sectionConfig
+      )
+      val rustElapsed = System.currentTimeMillis() - startTime
+      Log.i(TAG, "🦀 detectSectionsFromTracks Rust: ${result.size} sections in ${rustElapsed}ms")
+
+      // Serialize to JSON for efficient bridge transfer
+      val jsonStart = System.currentTimeMillis()
+      val jsonResult = sectionsToJson(result)
+      val jsonElapsed = System.currentTimeMillis() - jsonStart
+      Log.i(TAG, "🦀 detectSectionsFromTracks JSON: ${jsonElapsed}ms, ${jsonResult.length} chars")
+
+      jsonResult
     }
 
     // Heatmap generation
@@ -486,10 +510,14 @@ class RouteMatcherModule : Module() {
       )
     }
 
-    Function("generateHeatmap") { sigMaps: List<Map<String, Any>>, activityDataMaps: List<Map<String, Any>>, config: Map<String, Any>? ->
-      Log.i(TAG, "🦀 generateHeatmap: ${sigMaps.size} signatures")
+    Function("generateHeatmap") { signaturesJson: String, activityDataMaps: List<Map<String, Any>>, config: Map<String, Any>? ->
+      // Parse signatures from JSON string (avoids Expo Modules bridge serialization issues)
+      val sigArray = JSONArray(signaturesJson)
+      Log.i(TAG, "🦀 generateHeatmap: ${sigArray.length()} signatures")
 
-      val signatures = sigMaps.mapNotNull { mapToSignature(it) }
+      val signatures = (0 until sigArray.length()).mapNotNull { i ->
+        jsonToSignature(sigArray.getJSONObject(i))
+      }
       val activityData = activityDataMaps.map { m ->
         ActivityHeatmapData(
           activityId = m["activity_id"] as String,
@@ -624,6 +652,53 @@ class RouteMatcherModule : Module() {
     }
   }
 
+  private fun parseSectionConfig(map: Map<String, Any>?): SectionConfig {
+    if (map == null) return defaultSectionConfig()
+
+    val defaults = defaultSectionConfig()
+
+    return SectionConfig(
+      proximityThreshold = (map["proximity_threshold"] as? Number)?.toDouble()
+        ?: defaults.proximityThreshold,
+      minSectionLength = (map["min_section_length"] as? Number)?.toDouble()
+        ?: defaults.minSectionLength,
+      maxSectionLength = (map["max_section_length"] as? Number)?.toDouble()
+        ?: defaults.maxSectionLength,
+      minActivities = (map["min_activities"] as? Number)?.toInt()?.toUInt()
+        ?: defaults.minActivities,
+      clusterTolerance = (map["cluster_tolerance"] as? Number)?.toDouble()
+        ?: defaults.clusterTolerance,
+      samplePoints = (map["sample_points"] as? Number)?.toInt()?.toUInt()
+        ?: defaults.samplePoints
+    )
+  }
+
+  private fun sectionToMap(section: FrequentSection): Map<String, Any> {
+    return mapOf(
+      "id" to section.id,
+      "sport_type" to section.sportType,
+      "polyline" to section.polyline.map { mapOf("latitude" to it.latitude, "longitude" to it.longitude) },
+      "representative_activity_id" to section.representativeActivityId,
+      "activity_ids" to section.activityIds,
+      "activity_portions" to section.activityPortions.map { portion ->
+        mapOf(
+          "activity_id" to portion.activityId,
+          "start_index" to portion.startIndex.toInt(),
+          "end_index" to portion.endIndex.toInt(),
+          "distance_meters" to portion.distanceMeters,
+          "direction" to portion.direction
+        )
+      },
+      "route_ids" to section.routeIds,
+      "visit_count" to section.visitCount.toInt(),
+      "distance_meters" to section.distanceMeters,
+      // Pre-computed activity traces: map of activityId -> GPS points overlapping with section
+      "activity_traces" to section.activityTraces.mapValues { (_, points) ->
+        points.map { mapOf("latitude" to it.latitude, "longitude" to it.longitude) }
+      }
+    )
+  }
+
   private fun parseConfig(map: Map<String, Any>?): MatchConfig {
     if (map == null) return defaultConfig()
 
@@ -715,5 +790,132 @@ class RouteMatcherModule : Module() {
       bounds = bounds,
       center = center
     )
+  }
+
+  /**
+   * Serialize FrequentSection list to JSON string.
+   * Much faster than Map conversion for complex nested structures.
+   */
+  private fun sectionsToJson(sections: List<FrequentSection>): String {
+    val jsonArray = JSONArray()
+    for (section in sections) {
+      val sectionJson = JSONObject()
+      sectionJson.put("id", section.id)
+      sectionJson.put("sport_type", section.sportType)
+      sectionJson.put("representative_activity_id", section.representativeActivityId)
+      sectionJson.put("visit_count", section.visitCount.toInt())
+      sectionJson.put("distance_meters", section.distanceMeters)
+
+      // Polyline as array of {latitude, longitude}
+      val polylineArray = JSONArray()
+      for (point in section.polyline) {
+        val pointJson = JSONObject()
+        pointJson.put("latitude", point.latitude)
+        pointJson.put("longitude", point.longitude)
+        polylineArray.put(pointJson)
+      }
+      sectionJson.put("polyline", polylineArray)
+
+      // Activity IDs as simple array
+      val activityIdsArray = JSONArray()
+      for (id in section.activityIds) {
+        activityIdsArray.put(id)
+      }
+      sectionJson.put("activity_ids", activityIdsArray)
+
+      // Activity portions
+      val portionsArray = JSONArray()
+      for (portion in section.activityPortions) {
+        val portionJson = JSONObject()
+        portionJson.put("activity_id", portion.activityId)
+        portionJson.put("start_index", portion.startIndex.toInt())
+        portionJson.put("end_index", portion.endIndex.toInt())
+        portionJson.put("distance_meters", portion.distanceMeters)
+        portionJson.put("direction", portion.direction)
+        portionsArray.put(portionJson)
+      }
+      sectionJson.put("activity_portions", portionsArray)
+
+      // Route IDs
+      val routeIdsArray = JSONArray()
+      for (id in section.routeIds) {
+        routeIdsArray.put(id)
+      }
+      sectionJson.put("route_ids", routeIdsArray)
+
+      // Activity traces - map of activityId -> GPS points
+      val tracesJson = JSONObject()
+      for ((activityId, points) in section.activityTraces) {
+        val pointsArray = JSONArray()
+        for (point in points) {
+          val pointJson = JSONObject()
+          pointJson.put("latitude", point.latitude)
+          pointJson.put("longitude", point.longitude)
+          pointsArray.put(pointJson)
+        }
+        tracesJson.put(activityId, pointsArray)
+      }
+      sectionJson.put("activity_traces", tracesJson)
+
+      jsonArray.put(sectionJson)
+    }
+    return jsonArray.toString()
+  }
+
+  /**
+   * Parse a RouteSignature from a JSONObject.
+   * Used for generateHeatmap which receives signatures as JSON string
+   * to avoid Expo Modules bridge serialization issues.
+   */
+  private fun jsonToSignature(json: JSONObject): RouteSignature? {
+    try {
+      val activityId = json.getString("activityId")
+      val totalDistance = json.getDouble("totalDistance")
+
+      val pointsArray = json.getJSONArray("points")
+      val points = (0 until pointsArray.length()).mapNotNull { i ->
+        val pt = pointsArray.getJSONObject(i)
+        GpsPoint(pt.getDouble("latitude"), pt.getDouble("longitude"))
+      }
+
+      val startJson = json.getJSONObject("startPoint")
+      val startPoint = GpsPoint(
+        startJson.getDouble("latitude"),
+        startJson.getDouble("longitude")
+      )
+
+      val endJson = json.getJSONObject("endPoint")
+      val endPoint = GpsPoint(
+        endJson.getDouble("latitude"),
+        endJson.getDouble("longitude")
+      )
+
+      val boundsJson = json.getJSONObject("bounds")
+      val bounds = Bounds(
+        minLat = boundsJson.getDouble("minLat"),
+        maxLat = boundsJson.getDouble("maxLat"),
+        minLng = boundsJson.getDouble("minLng"),
+        maxLng = boundsJson.getDouble("maxLng")
+      )
+
+      val centerJson = json.getJSONObject("center")
+      val center = GpsPoint(
+        centerJson.getDouble("latitude"),
+        centerJson.getDouble("longitude")
+      )
+
+      return RouteSignature(
+        activityId = activityId,
+        points = points,
+        totalDistance = totalDistance,
+        startPoint = startPoint,
+        endPoint = endPoint,
+        bounds = bounds,
+        center = center
+      )
+    } catch (e: Exception) {
+      Log.w(TAG, "Failed to parse signature from JSON: ${e.message}")
+      return null
+    }
   }
 }
