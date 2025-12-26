@@ -257,7 +257,7 @@ export const CombinedPlot = React.memo(function CombinedPlot({
       touchX.value = -1;
     })
     .minDistance(Platform.OS === 'ios' ? 10 : 0)
-    .activeOffsetX(Platform.OS === 'ios' ? [-15, 15] : undefined)
+    .activeOffsetX(Platform.OS === 'ios' ? [-15, 15] : 0)
     .activateAfterLongPress(700); // 700ms hold before scrubbing activates
 
   // Animated crosshair style - follows finger directly for smooth tracking

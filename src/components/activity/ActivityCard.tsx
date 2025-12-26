@@ -35,10 +35,42 @@ interface ActivityCardProps {
 export const ActivityCard = React.memo(function ActivityCard({ activity }: ActivityCardProps) {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
+  const [menuVisible, setMenuVisible] = useState(false);
+  const [menuAnchor, setMenuAnchor] = useState({ x: 0, y: 0 });
 
   const handlePress = () => {
     router.push(`/activity/${activity.id}`);
   };
+
+  const handleLongPress = useCallback((event: { nativeEvent: { pageX: number; pageY: number } }) => {
+    // iOS-style context menu on long press
+    if (Platform.OS === 'ios') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    }
+    setMenuAnchor({ x: event.nativeEvent.pageX, y: event.nativeEvent.pageY });
+    setMenuVisible(true);
+  }, []);
+
+  const handleShare = useCallback(async () => {
+    setMenuVisible(false);
+    const url = `https://intervals.icu/activities/${activity.id}`;
+    try {
+      await Share.share({
+        message: Platform.OS === 'ios'
+          ? activity.name
+          : `${activity.name}\n${url}`,
+        url: Platform.OS === 'ios' ? url : undefined,
+        title: activity.name,
+      });
+    } catch {
+      // User cancelled or error
+    }
+  }, [activity.id, activity.name]);
+
+  const handleViewDetails = useCallback(() => {
+    setMenuVisible(false);
+    router.push(`/activity/${activity.id}`);
+  }, [activity.id]);
 
   const activityColor = getActivityColor(activity.type);
   const iconName = getActivityIcon(activity.type);
@@ -47,6 +79,8 @@ export const ActivityCard = React.memo(function ActivityCard({ activity }: Activ
   return (
     <Pressable
       onPress={handlePress}
+      onLongPress={handleLongPress}
+      delayLongPress={500}
       style={({ pressed }) => [
         styles.pressable,
         pressed && styles.pressed,
@@ -191,6 +225,25 @@ export const ActivityCard = React.memo(function ActivityCard({ activity }: Activ
           )}
         </View>
       </View>
+
+      {/* Context menu for long press */}
+      <Menu
+        visible={menuVisible}
+        onDismiss={() => setMenuVisible(false)}
+        anchor={menuAnchor}
+        contentStyle={[styles.menuContent, isDark && styles.menuContentDark]}
+      >
+        <Menu.Item
+          onPress={handleShare}
+          title="Share"
+          leadingIcon="share-variant"
+        />
+        <Menu.Item
+          onPress={handleViewDetails}
+          title="View Details"
+          leadingIcon="information-outline"
+        />
+      </Menu>
     </Pressable>
   );
 });
@@ -316,5 +369,12 @@ const styles = StyleSheet.create({
   },
   statLabelDark: {
     color: '#777',
+  },
+  menuContent: {
+    backgroundColor: colors.surface,
+    borderRadius: 12,
+  },
+  menuContentDark: {
+    backgroundColor: '#2A2A2A',
   },
 });
