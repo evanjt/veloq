@@ -59,10 +59,12 @@ import NativeRouteMatcher, {
   createSignaturesFlatBuffer,
   groupIncremental as nativeGroupIncremental,
   detectFrequentSections as nativeDetectFrequentSections,
+  detectSectionsIncremental as nativeDetectSectionsIncremental,
 } from 'route-matcher-native';
 import type {
   RouteSignature as NativeRouteSignature,
   RouteGroup as NativeRouteGroup,
+  FrequentSection as NativeFrequentSection,
   GpsPoint,
   GpsTrack,
   ActivitySportType,
@@ -1221,13 +1223,14 @@ class RouteProcessingQueue {
 
         this.cache = updateRouteGroups(this.cache, groups, metadataForGroups);
 
-        // Detect frequent sections using Rust v2 (vector-first algorithm)
-        // This identifies road sections that are frequently traveled, using actual GPS traces
-        // for smooth polylines instead of grid-derived blocky paths
+        // Detect frequent sections using Rust (vector-first algorithm)
+        // Uses INCREMENTAL detection when adding new activities to existing sections
+        // This is O(m×n) instead of O(n²) - much faster for adding 1 activity to 500 existing
         const sectionStartTime = Date.now();
         const allSignatures = Object.values(this.cache.signatures);
         if (allSignatures.length >= 3) {  // Need at least 3 activities for meaningful sections
-          log.log(`Detecting frequent sections (v2) from ${allSignatures.length} signatures...`);
+          const existingSections = this.cache.frequentSections || [];
+          const hasExistingSections = existingSections.length > 0;
 
           // Build sport type mapping for section detection
           const sportTypes: ActivitySportType[] = allSignatures
@@ -1237,21 +1240,52 @@ class RouteProcessingQueue {
               sportType: metadataForGroups[sig.activityId]?.type || 'Unknown',
             }));
 
-          // Convert signatures and groups to native format
-          const nativeSigs = allSignatures.map(toNativeSignature);
+          // Convert groups to native format
           const nativeGroups = this.cache.groups.map(g => ({
             groupId: g.id,
             activityIds: g.activityIds,
           }));
 
-          // Detect frequent sections using vector-first algorithm (runs in Rust)
-          const sections = nativeDetectFrequentSections(
-            nativeSigs,
-            nativeGroups,
-            sportTypes
-          );
+          let sections: NativeFrequentSection[];
 
-          // Convert to app format and store (v2 returns smoother polylines)
+          if (hasExistingSections && newSignatures.length > 0 && existingSignatures.length > 0) {
+            // INCREMENTAL: Only compare new signatures against existing
+            // O(m×n) where m = new, n = existing - much faster!
+            log.log(`INCREMENTAL section detection: ${newSignatures.length} new + ${existingSignatures.length} existing signatures`);
+
+            const nativeNewSigs = newSignatures.map(toNativeSignature);
+            const nativeExistingSigs = existingSignatures.map(toNativeSignature);
+
+            // Convert existing sections to native format
+            const nativeExistingSections: NativeFrequentSection[] = existingSections.map(s => ({
+              id: s.id,
+              sportType: s.sportType,
+              polyline: s.polyline.map(p => ({ latitude: p.lat, longitude: p.lng })),
+              activityIds: s.activityIds,
+              routeIds: s.routeIds,
+              visitCount: s.visitCount,
+              distanceMeters: s.distanceMeters,
+            }));
+
+            sections = nativeDetectSectionsIncremental(
+              nativeNewSigs,
+              nativeExistingSections,
+              nativeExistingSigs,
+              nativeGroups,
+              sportTypes
+            );
+          } else {
+            // FULL: First-time detection or no existing sections
+            log.log(`Full section detection from ${allSignatures.length} signatures...`);
+            const nativeSigs = allSignatures.map(toNativeSignature);
+            sections = nativeDetectFrequentSections(
+              nativeSigs,
+              nativeGroups,
+              sportTypes
+            );
+          }
+
+          // Convert to app format and store (vector-first returns smooth polylines)
           this.cache.frequentSections = sections.map(s => ({
             id: s.id,
             sportType: s.sportType,
@@ -1263,7 +1297,7 @@ class RouteProcessingQueue {
           }));
 
           const sectionElapsed = Date.now() - sectionStartTime;
-          log.log(`Found ${this.cache.frequentSections.length} frequent sections (v2) in ${sectionElapsed}ms`);
+          log.log(`Found ${this.cache.frequentSections.length} frequent sections in ${sectionElapsed}ms`);
         }
 
         await saveRouteCache(this.cache);
