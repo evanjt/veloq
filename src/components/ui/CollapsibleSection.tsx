@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { StyleSheet, View, Text, StyleProp, ViewStyle } from 'react-native';
+import { StyleSheet, View, Text, StyleProp, ViewStyle, useColorScheme } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -12,7 +12,6 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors, darkColors } from '@/theme/colors';
 import { typography } from '@/theme/typography';
 import { spacing } from '@/theme/spacing';
-import { useTheme } from '@/providers/ThemeContext';
 import { AnimatedPressable } from './AnimatedPressable';
 
 interface CollapsibleSectionProps {
@@ -47,7 +46,8 @@ export function CollapsibleSection({
   estimatedHeight = 200,
   showDivider = false,
 }: CollapsibleSectionProps) {
-  const { isDark } = useTheme();
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === 'dark';
 
   const animation = useSharedValue(expanded ? 1 : 0);
   const measuredHeight = useSharedValue(estimatedHeight);

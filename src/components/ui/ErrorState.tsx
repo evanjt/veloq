@@ -1,10 +1,9 @@
 import React from 'react';
-import { StyleSheet, View, Text, StyleProp, ViewStyle } from 'react-native';
+import { StyleSheet, View, Text, StyleProp, ViewStyle, useColorScheme } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors, darkColors } from '@/theme/colors';
 import { typography } from '@/theme/typography';
 import { spacing } from '@/theme/spacing';
-import { useTheme } from '@/providers/ThemeContext';
 import { Button } from './Button';
 
 interface ErrorStateProps {
@@ -33,7 +32,8 @@ export function ErrorState({
   style,
   compact = false,
 }: ErrorStateProps) {
-  const { isDark } = useTheme();
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === 'dark';
 
   if (compact) {
     return (

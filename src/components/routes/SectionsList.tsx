@@ -3,13 +3,15 @@
  * Displays frequently-traveled road sections.
  */
 
-import React from 'react';
+import React, { useCallback } from 'react';
 import { View, StyleSheet, FlatList, useColorScheme } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { router, Href } from 'expo-router';
 import { colors, spacing, layout } from '@/theme';
 import { useFrequentSections } from '@/hooks/routes/useFrequentSections';
 import { SectionRow } from './SectionRow';
+import type { FrequentSection } from '@/types';
 
 interface SectionsListProps {
   /** Filter by sport type */
@@ -25,6 +27,11 @@ export function SectionsList({ sportType }: SectionsListProps) {
     minVisits: 3,
     sortBy: 'visits',
   });
+
+  // Navigate to section detail page
+  const handleSectionPress = useCallback((section: FrequentSection) => {
+    router.push(`/section/${section.id}` as Href);
+  }, []);
 
   const renderEmpty = () => {
     if (!isReady) {
@@ -98,7 +105,7 @@ export function SectionsList({ sportType }: SectionsListProps) {
       data={sections}
       keyExtractor={(item) => item.id}
       renderItem={({ item }) => (
-        <SectionRow section={item} />
+        <SectionRow section={item} onPress={() => handleSectionPress(item)} />
       )}
       ListHeaderComponent={renderHeader}
       ListEmptyComponent={renderEmpty}
