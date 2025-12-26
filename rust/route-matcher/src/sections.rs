@@ -233,11 +233,26 @@ pub fn detect_frequent_sections(
         }
     }
 
+    // Build sport_type -> signatures mapping for polyline extraction
+    let mut sport_signatures: HashMap<String, Vec<&RouteSignature>> = HashMap::new();
+    for sig in signatures {
+        let sport = sport_types
+            .get(&sig.activity_id)
+            .cloned()
+            .unwrap_or_else(|| "Unknown".to_string());
+        sport_signatures.entry(sport).or_default().push(sig);
+    }
+
     // Find clusters in each sport grid
     let mut all_sections: Vec<FrequentSection> = Vec::new();
 
     for (sport_type, grid) in sport_grids {
-        let sections = find_clusters(&grid, &sport_type, config);
+        // Get signatures for this sport type
+        let sigs: Vec<RouteSignature> = sport_signatures
+            .get(&sport_type)
+            .map(|refs| refs.iter().map(|&s| s.clone()).collect())
+            .unwrap_or_default();
+        let sections = find_clusters(&grid, &sport_type, config, &sigs);
         all_sections.extend(sections);
     }
 
@@ -253,6 +268,7 @@ fn find_clusters(
     grid: &SportGrid,
     sport_type: &str,
     config: &SectionConfig,
+    signatures: &[RouteSignature],
 ) -> Vec<FrequentSection> {
     let mut sections = Vec::new();
     let mut visited: HashSet<(i32, i32)> = HashSet::new();
@@ -295,7 +311,7 @@ fn find_clusters(
         }
 
         // Build the section from this cluster
-        if let Some(section) = build_section(grid, &cluster_cells, sport_type, config) {
+        if let Some(section) = build_section(grid, &cluster_cells, sport_type, config, signatures) {
             sections.push(section);
         }
     }
@@ -309,6 +325,7 @@ fn build_section(
     cluster_cells: &[(i32, i32)],
     sport_type: &str,
     _config: &SectionConfig,
+    signatures: &[RouteSignature],
 ) -> Option<FrequentSection> {
     if cluster_cells.is_empty() {
         return None;
@@ -331,14 +348,13 @@ fn build_section(
     let first_cell = cluster_cells[0];
     let id = format!("sec_{}_{}_{}", sport_type, first_cell.0, first_cell.1);
 
-    // Order cells to form a path (simple: sort by row then col, then use traveling salesman-ish)
-    let ordered_cells = order_cells_for_polyline(cluster_cells, grid);
-
-    // Generate polyline from ordered cell centers
-    let polyline: Vec<GpsPoint> = ordered_cells
-        .iter()
-        .map(|&(row, col)| grid.cell_center(row, col))
-        .collect();
+    // Build a smooth polyline from actual GPS tracks (not cell centers)
+    let polyline = build_smooth_polyline_from_tracks(
+        cluster_cells,
+        signatures,
+        grid,
+        &all_activity_ids,
+    );
 
     // Estimate distance (sum of distances between consecutive points)
     let distance_meters = polyline
@@ -404,6 +420,351 @@ fn order_cells_for_polyline(cells: &[(i32, i32)], _grid: &SportGrid) -> Vec<(i32
     }
 
     ordered
+}
+
+/// A track chunk - contiguous GPS points from one activity that pass through a cluster
+#[derive(Debug, Clone)]
+#[allow(dead_code)] // activity_id kept for potential debugging
+struct TrackChunk {
+    activity_id: String,
+    points: Vec<GpsPoint>,
+}
+
+/// Extract actual GPS track chunks that pass through a cluster of cells
+fn extract_track_chunks(
+    cluster_cells: &HashSet<(i32, i32)>,
+    signatures: &[RouteSignature],
+    grid: &SportGrid,
+    activity_ids: &HashSet<String>,
+) -> Vec<TrackChunk> {
+    let mut chunks = Vec::new();
+
+    for sig in signatures {
+        if !activity_ids.contains(&sig.activity_id) {
+            continue;
+        }
+
+        // Find contiguous sequences of points that fall within cluster cells
+        let mut current_chunk: Vec<GpsPoint> = Vec::new();
+
+        for point in &sig.points {
+            let cell = grid.point_to_cell(point);
+            if cluster_cells.contains(&cell) {
+                current_chunk.push(point.clone());
+            } else if !current_chunk.is_empty() {
+                // End of a chunk - save it if substantial
+                if current_chunk.len() >= 3 {
+                    chunks.push(TrackChunk {
+                        activity_id: sig.activity_id.clone(),
+                        points: current_chunk.clone(),
+                    });
+                }
+                current_chunk.clear();
+            }
+        }
+
+        // Don't forget the last chunk
+        if current_chunk.len() >= 3 {
+            chunks.push(TrackChunk {
+                activity_id: sig.activity_id.clone(),
+                points: current_chunk,
+            });
+        }
+    }
+
+    chunks
+}
+
+/// Determine the dominant direction of track chunks (to align them)
+fn compute_dominant_direction(chunks: &[TrackChunk]) -> (f64, f64) {
+    // Compute weighted average direction vector
+    let mut total_dx = 0.0;
+    let mut total_dy = 0.0;
+
+    for chunk in chunks {
+        if chunk.points.len() < 2 {
+            continue;
+        }
+        let start = &chunk.points[0];
+        let end = &chunk.points[chunk.points.len() - 1];
+        let dx = end.longitude - start.longitude;
+        let dy = end.latitude - start.latitude;
+        let len = (dx * dx + dy * dy).sqrt();
+        if len > 0.0001 {
+            total_dx += dx / len;
+            total_dy += dy / len;
+        }
+    }
+
+    let total_len = (total_dx * total_dx + total_dy * total_dy).sqrt();
+    if total_len > 0.0001 {
+        (total_dx / total_len, total_dy / total_len)
+    } else {
+        (1.0, 0.0) // Default to east
+    }
+}
+
+/// Normalize chunks to the same direction and resample
+fn normalize_and_resample_chunks(
+    chunks: &[TrackChunk],
+    target_direction: (f64, f64),
+    num_samples: usize,
+) -> Vec<Vec<GpsPoint>> {
+    let mut normalized = Vec::new();
+
+    for chunk in chunks {
+        if chunk.points.len() < 2 {
+            continue;
+        }
+
+        // Check if chunk goes in opposite direction
+        let start = &chunk.points[0];
+        let end = &chunk.points[chunk.points.len() - 1];
+        let dx = end.longitude - start.longitude;
+        let dy = end.latitude - start.latitude;
+
+        let dot = dx * target_direction.0 + dy * target_direction.1;
+        let mut points = chunk.points.clone();
+        if dot < 0.0 {
+            points.reverse();
+        }
+
+        // Resample to fixed number of points
+        let resampled = resample_polyline(&points, num_samples);
+        normalized.push(resampled);
+    }
+
+    normalized
+}
+
+/// Resample a polyline to a fixed number of evenly-spaced points
+fn resample_polyline(points: &[GpsPoint], num_samples: usize) -> Vec<GpsPoint> {
+    if points.len() < 2 || num_samples < 2 {
+        return points.to_vec();
+    }
+
+    // Calculate cumulative distances
+    let mut cumulative: Vec<f64> = vec![0.0];
+    for i in 1..points.len() {
+        let d = haversine_distance(&points[i - 1], &points[i]);
+        cumulative.push(cumulative.last().unwrap() + d);
+    }
+
+    let total_length = *cumulative.last().unwrap();
+    if total_length < 1.0 {
+        return points.to_vec();
+    }
+
+    // Resample at even intervals
+    let mut resampled = Vec::with_capacity(num_samples);
+    for i in 0..num_samples {
+        let target_dist = (i as f64 / (num_samples - 1) as f64) * total_length;
+
+        // Find the segment containing this distance
+        let mut seg_idx = 0;
+        for j in 1..cumulative.len() {
+            if cumulative[j] >= target_dist {
+                seg_idx = j - 1;
+                break;
+            }
+            seg_idx = j - 1;
+        }
+
+        // Interpolate within segment
+        let seg_start = cumulative[seg_idx];
+        let seg_end = cumulative.get(seg_idx + 1).copied().unwrap_or(seg_start);
+        let seg_len = seg_end - seg_start;
+
+        let t = if seg_len > 0.001 {
+            (target_dist - seg_start) / seg_len
+        } else {
+            0.0
+        };
+
+        let p1 = &points[seg_idx];
+        let p2 = points.get(seg_idx + 1).unwrap_or(p1);
+
+        resampled.push(GpsPoint::new(
+            p1.latitude + t * (p2.latitude - p1.latitude),
+            p1.longitude + t * (p2.longitude - p1.longitude),
+        ));
+    }
+
+    resampled
+}
+
+/// Compute median polyline from multiple aligned polylines
+fn compute_median_polyline(polylines: &[Vec<GpsPoint>], num_points: usize) -> Vec<GpsPoint> {
+    if polylines.is_empty() {
+        return vec![];
+    }
+    if polylines.len() == 1 {
+        return polylines[0].clone();
+    }
+
+    let mut result = Vec::with_capacity(num_points);
+
+    for i in 0..num_points {
+        let mut lats: Vec<f64> = Vec::new();
+        let mut lngs: Vec<f64> = Vec::new();
+
+        for polyline in polylines {
+            if i < polyline.len() {
+                lats.push(polyline[i].latitude);
+                lngs.push(polyline[i].longitude);
+            }
+        }
+
+        if lats.is_empty() {
+            continue;
+        }
+
+        // Compute median (more robust than mean against outliers)
+        lats.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+        lngs.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+
+        let median_lat = lats[lats.len() / 2];
+        let median_lng = lngs[lngs.len() / 2];
+
+        result.push(GpsPoint::new(median_lat, median_lng));
+    }
+
+    result
+}
+
+/// Smooth a polyline using moving average
+fn smooth_polyline(points: &[GpsPoint], window: usize) -> Vec<GpsPoint> {
+    if points.len() <= window || window < 1 {
+        return points.to_vec();
+    }
+
+    let half = window / 2;
+    let mut smoothed = Vec::with_capacity(points.len());
+
+    for i in 0..points.len() {
+        let start = i.saturating_sub(half);
+        let end = (i + half + 1).min(points.len());
+        let count = end - start;
+
+        let avg_lat: f64 = points[start..end].iter().map(|p| p.latitude).sum::<f64>() / count as f64;
+        let avg_lng: f64 = points[start..end].iter().map(|p| p.longitude).sum::<f64>() / count as f64;
+
+        smoothed.push(GpsPoint::new(avg_lat, avg_lng));
+    }
+
+    smoothed
+}
+
+/// Build a smooth polyline from actual GPS tracks (not cell centers)
+fn build_smooth_polyline_from_tracks(
+    cluster_cells: &[(i32, i32)],
+    signatures: &[RouteSignature],
+    grid: &SportGrid,
+    activity_ids: &HashSet<String>,
+) -> Vec<GpsPoint> {
+    let cluster_set: HashSet<(i32, i32)> = cluster_cells.iter().copied().collect();
+
+    // Extract actual GPS chunks from tracks
+    let chunks = extract_track_chunks(&cluster_set, signatures, grid, activity_ids);
+
+    if chunks.is_empty() {
+        // Fallback to cell centers
+        let ordered = order_cells_for_polyline(cluster_cells, grid);
+        return ordered.iter().map(|&(r, c)| grid.cell_center(r, c)).collect();
+    }
+
+    // Find dominant direction
+    let direction = compute_dominant_direction(&chunks);
+
+    // Normalize and resample all chunks
+    let num_samples = 50; // Fixed number of sample points
+    let normalized = normalize_and_resample_chunks(&chunks, direction, num_samples);
+
+    if normalized.is_empty() {
+        let ordered = order_cells_for_polyline(cluster_cells, grid);
+        return ordered.iter().map(|&(r, c)| grid.cell_center(r, c)).collect();
+    }
+
+    // Compute median polyline
+    let median = compute_median_polyline(&normalized, num_samples);
+
+    // Smooth the result
+    let smoothed = smooth_polyline(&median, 5);
+
+    // Simplify using Douglas-Peucker
+    simplify_polyline(&smoothed, 5.0) // 5 meter tolerance
+}
+
+/// Douglas-Peucker polyline simplification
+fn simplify_polyline(points: &[GpsPoint], tolerance_meters: f64) -> Vec<GpsPoint> {
+    if points.len() <= 2 {
+        return points.to_vec();
+    }
+
+    fn perpendicular_distance(point: &GpsPoint, line_start: &GpsPoint, line_end: &GpsPoint) -> f64 {
+        let dx = line_end.longitude - line_start.longitude;
+        let dy = line_end.latitude - line_start.latitude;
+
+        let line_len = (dx * dx + dy * dy).sqrt();
+        if line_len < 1e-10 {
+            return haversine_distance(point, line_start);
+        }
+
+        // Cross product gives signed area of triangle, divide by base for height
+        let cross = (point.longitude - line_start.longitude) * dy
+            - (point.latitude - line_start.latitude) * dx;
+
+        // Convert to approximate meters (using average latitude)
+        let avg_lat = (line_start.latitude + line_end.latitude) / 2.0;
+        let lng_scale = (avg_lat.to_radians()).cos();
+        let cross_meters = cross.abs() * METERS_PER_LAT_DEGREE * lng_scale / line_len;
+
+        cross_meters
+    }
+
+    fn rdp_recursive(
+        points: &[GpsPoint],
+        start: usize,
+        end: usize,
+        tolerance: f64,
+        keep: &mut Vec<bool>,
+    ) {
+        if end <= start + 1 {
+            return;
+        }
+
+        let line_start = &points[start];
+        let line_end = &points[end];
+
+        let mut max_dist = 0.0;
+        let mut max_idx = start;
+
+        for i in (start + 1)..end {
+            let dist = perpendicular_distance(&points[i], line_start, line_end);
+            if dist > max_dist {
+                max_dist = dist;
+                max_idx = i;
+            }
+        }
+
+        if max_dist > tolerance {
+            keep[max_idx] = true;
+            rdp_recursive(points, start, max_idx, tolerance, keep);
+            rdp_recursive(points, max_idx, end, tolerance, keep);
+        }
+    }
+
+    let mut keep = vec![false; points.len()];
+    keep[0] = true;
+    keep[points.len() - 1] = true;
+
+    rdp_recursive(points, 0, points.len() - 1, tolerance_meters, &mut keep);
+
+    points
+        .iter()
+        .enumerate()
+        .filter_map(|(i, p)| if keep[i] { Some(p.clone()) } else { None })
+        .collect()
 }
 
 /// Calculate haversine distance between two GPS points in meters
