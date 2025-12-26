@@ -104,6 +104,44 @@ if (config === null) {
 nativeLog('Native Rust module loaded successfully!');
 
 /**
+ * Result from verifyRustAvailable test.
+ */
+export interface RustVerificationResult {
+  success: boolean;
+  rustVersion?: string;
+  error?: string;
+  configValues?: {
+    perfectThreshold: number;
+    zeroThreshold: number;
+    minMatchPercentage: number;
+  };
+  testSignature?: {
+    pointCount: number;
+    totalDistance: number;
+  };
+}
+
+/**
+ * Verify that the Rust library is properly linked and functional.
+ * This runs a series of tests to ensure:
+ * 1. FFI bridge is working (can call defaultConfig)
+ * 2. Algorithm is working (can create a signature)
+ * 3. Results are valid (signature has expected properties)
+ *
+ * Use this in CI/CD to verify the Rust build is working correctly.
+ */
+export function verifyRustAvailable(): RustVerificationResult {
+  nativeLog('verifyRustAvailable: Running Rust verification tests');
+  const result = NativeModule.verifyRustAvailable();
+  if (result.success) {
+    nativeLog('verifyRustAvailable: All tests passed!');
+  } else {
+    nativeLog(`verifyRustAvailable: FAILED - ${result.error}`);
+  }
+  return result;
+}
+
+/**
  * Create a route signature from GPS points.
  * Uses native Rust implementation.
  */
@@ -438,6 +476,7 @@ export default {
   tracksToFlatBuffer,
   getDefaultConfig,
   isNative,
+  verifyRustAvailable,
   // Activity fetching (Rust HTTP client)
   fetchActivityMaps,
   fetchActivityMapsWithProgress,
