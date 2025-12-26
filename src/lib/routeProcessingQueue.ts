@@ -14,6 +14,7 @@ import type {
   ProcessedActivityStatus,
   ActivityType,
   ActivityBoundsItem,
+  FrequentSection,
 } from '@/types';
 import { DEFAULT_ROUTE_MATCH_CONFIG, RouteMatch, MatchDirection } from '@/types';
 
@@ -54,8 +55,18 @@ import { findActivitiesWithPotentialMatchesFast } from './activityBoundsUtils';
 import { activitySpatialIndex } from './spatialIndex';
 import { getGpsTracks } from './gpsStorage';
 import { generateRouteName } from './geocoding';
-import NativeRouteMatcher, { createSignaturesFlatBuffer } from 'route-matcher-native';
-import type { RouteSignature as NativeRouteSignature, RouteGroup as NativeRouteGroup, GpsPoint, GpsTrack } from 'route-matcher-native';
+import NativeRouteMatcher, {
+  createSignaturesFlatBuffer,
+  groupIncremental as nativeGroupIncremental,
+  detectFrequentSections as nativeDetectFrequentSections,
+} from 'route-matcher-native';
+import type {
+  RouteSignature as NativeRouteSignature,
+  RouteGroup as NativeRouteGroup,
+  GpsPoint,
+  GpsTrack,
+  ActivitySportType,
+} from 'route-matcher-native';
 
 /** Batch size for parallel processing */
 const BATCH_SIZE = 50;
@@ -148,18 +159,19 @@ function generateRouteSignature(
     return null;
   }
 
-  // Convert to app format and compute additional metadata
+  // Convert to app format - use pre-computed bounds/center from Rust for 120Hz performance
   const routePoints = nativeSig.points.map(p => ({ lat: p.latitude, lng: p.longitude }));
 
-  // Compute bounds from simplified points
-  const lats = routePoints.map(p => p.lat);
-  const lngs = routePoints.map(p => p.lng);
+  // Use pre-computed bounds from Rust (no JS calculation needed!)
   const bounds = {
-    minLat: Math.min(...lats),
-    maxLat: Math.max(...lats),
-    minLng: Math.min(...lngs),
-    maxLng: Math.max(...lngs),
+    minLat: nativeSig.bounds.minLat,
+    maxLat: nativeSig.bounds.maxLat,
+    minLng: nativeSig.bounds.minLng,
+    maxLng: nativeSig.bounds.maxLng,
   };
+
+  // Use pre-computed center from Rust (for 120Hz map rendering)
+  const center = { lat: nativeSig.center.latitude, lng: nativeSig.center.longitude };
 
   // Compute start/end region hashes
   const startPoint = routePoints[0];
@@ -179,6 +191,7 @@ function generateRouteSignature(
     points: routePoints,
     distance: nativeSig.totalDistance,
     bounds,
+    center,
     startRegionHash,
     endRegionHash,
     isLoop,
@@ -209,12 +222,12 @@ function generateRouteSignaturesBatch(
   const offsets: number[] = [];
 
   for (const { activityId, latlngs } of gpsDataList) {
-    // Filter valid points and count them
+    // Minimal JS validation - just ensure values are finite numbers
+    // Range validation (lat -90..90, lng -180..180) is handled by Rust's is_valid()
     const validPoints: number[] = [];
     for (const [lat, lng] of latlngs) {
-      const validLat = typeof lat === 'number' && !isNaN(lat) && lat >= -90 && lat <= 90;
-      const validLng = typeof lng === 'number' && !isNaN(lng) && lng >= -180 && lng <= 180;
-      if (validLat && validLng) {
+      // Only check if finite number - Rust validates ranges
+      if (Number.isFinite(lat) && Number.isFinite(lng)) {
         validPoints.push(lat, lng); // Flat: [lat, lng, lat, lng, ...]
       }
     }
@@ -236,19 +249,20 @@ function generateRouteSignaturesBatch(
   // This is ~3x faster than the object format for large batches
   const nativeSignatures = createSignaturesFlatBuffer(activityIds, allCoords, offsets, config);
 
-  // Convert to app format with computed metadata
+  // Convert to app format - use pre-computed bounds/center from Rust for 120Hz performance
   return nativeSignatures.map(nativeSig => {
     const routePoints = nativeSig.points.map(p => ({ lat: p.latitude, lng: p.longitude }));
 
-    // Compute bounds
-    const lats = routePoints.map(p => p.lat);
-    const lngs = routePoints.map(p => p.lng);
+    // Use pre-computed bounds from Rust (no JS calculation needed!)
     const bounds = {
-      minLat: Math.min(...lats),
-      maxLat: Math.max(...lats),
-      minLng: Math.min(...lngs),
-      maxLng: Math.max(...lngs),
+      minLat: nativeSig.bounds.minLat,
+      maxLat: nativeSig.bounds.maxLat,
+      minLng: nativeSig.bounds.minLng,
+      maxLng: nativeSig.bounds.maxLng,
     };
+
+    // Use pre-computed center from Rust (for 120Hz map rendering)
+    const center = { lat: nativeSig.center.latitude, lng: nativeSig.center.longitude };
 
     // Compute hashes
     const startPoint = routePoints[0];
@@ -268,6 +282,7 @@ function generateRouteSignaturesBatch(
       points: routePoints,
       distance: nativeSig.totalDistance,
       bounds,
+      center,
       startRegionHash,
       endRegionHash,
       isLoop,
@@ -285,6 +300,13 @@ function toNativeSignature(sig: RouteSignature): NativeRouteSignature {
     totalDistance: sig.distance,
     startPoint: { latitude: sig.points[0]?.lat || 0, longitude: sig.points[0]?.lng || 0 },
     endPoint: { latitude: sig.points[sig.points.length - 1]?.lat || 0, longitude: sig.points[sig.points.length - 1]?.lng || 0 },
+    bounds: {
+      minLat: sig.bounds.minLat,
+      maxLat: sig.bounds.maxLat,
+      minLng: sig.bounds.minLng,
+      maxLng: sig.bounds.maxLng,
+    },
+    center: { latitude: sig.center.lat, longitude: sig.center.lng },
   };
 }
 
@@ -1096,26 +1118,52 @@ class RouteProcessingQueue {
           sig => !newSignatures.some(newSig => newSig.activityId === sig.activityId)
         );
 
-        // Only group new signatures with each other AND with existing ones
-        // This avoids O(n²) on the entire dataset when adding a few new activities
-        const signaturesToGroup = [...existingSignatures, ...newSignatures];
-        log.log(`Starting grouping: ${signaturesToGroup.length} signatures (${existingSignatures.length} existing + ${newSignatures.length} new)`);
-        const groups = await groupSignatures(signaturesToGroup, {}, (completed, total) => {
-          // Update progress during grouping to show the UI is responsive
-          if (completed % 1000 === 0 || completed === total) {
-            const percent = Math.round((completed / total) * 100);
-            this.setProgress({
-              status: 'matching',
-              current: processed,
-              total,
-              message: `Matching routes... ${percent}%`,
-              processedActivities: [...processedActivities],
-              matchesFound,
-              discoveredRoutes: [],
-              cachedSignatureCount: cachedSignatureCount + newSignatures.length,
-            });
+        // Use INCREMENTAL grouping: O(n×m) instead of O(n²)
+        // Only compares: new vs existing AND new vs new
+        // Existing signatures are NOT re-compared against each other
+        log.log(`Starting INCREMENTAL grouping: ${newSignatures.length} new + ${existingSignatures.length} existing signatures`);
+
+        let groups: Map<string, string[]>;
+
+        if (existingSignatures.length > 0) {
+          // Use incremental grouping - much faster!
+          const nativeNewSigs = newSignatures.map(toNativeSignature);
+          const nativeExistingSigs = existingSignatures.map(toNativeSignature);
+          const nativeExistingGroups = this.cache.groups.map(g => ({
+            groupId: g.id,
+            activityIds: g.activityIds,
+          }));
+
+          const nativeGroups = nativeGroupIncremental(
+            nativeNewSigs,
+            nativeExistingGroups,
+            nativeExistingSigs,
+            {}
+          );
+
+          groups = new Map<string, string[]>();
+          for (const group of nativeGroups) {
+            groups.set(group.groupId, group.activityIds);
           }
-        });
+        } else {
+          // No existing signatures - use full grouping
+          const signaturesToGroup = [...newSignatures];
+          groups = await groupSignatures(signaturesToGroup, {}, (completed, total) => {
+            if (completed % 1000 === 0 || completed === total) {
+              const percent = Math.round((completed / total) * 100);
+              this.setProgress({
+                status: 'matching',
+                current: processed,
+                total,
+                message: `Matching routes... ${percent}%`,
+                processedActivities: [...processedActivities],
+                matchesFound,
+                discoveredRoutes: [],
+                cachedSignatureCount: cachedSignatureCount + newSignatures.length,
+              });
+            }
+          });
+        }
 
         this.setProgress({
           status: 'matching',
@@ -1142,6 +1190,51 @@ class RouteProcessingQueue {
         }
 
         this.cache = updateRouteGroups(this.cache, groups, metadataForGroups);
+
+        // Detect frequent sections using Rust
+        // This identifies road sections that are frequently traveled, even when full routes differ
+        const sectionStartTime = Date.now();
+        const allSignatures = Object.values(this.cache.signatures);
+        if (allSignatures.length >= 3) {  // Need at least 3 activities for meaningful sections
+          log.log(`Detecting frequent sections from ${allSignatures.length} signatures...`);
+
+          // Build sport type mapping for section detection
+          const sportTypes: ActivitySportType[] = allSignatures
+            .filter(sig => metadataForGroups[sig.activityId])
+            .map(sig => ({
+              activityId: sig.activityId,
+              sportType: metadataForGroups[sig.activityId]?.type || 'Unknown',
+            }));
+
+          // Convert signatures and groups to native format
+          const nativeSigs = allSignatures.map(toNativeSignature);
+          const nativeGroups = this.cache.groups.map(g => ({
+            groupId: g.id,
+            activityIds: g.activityIds,
+          }));
+
+          // Detect frequent sections (runs in Rust)
+          const sections = nativeDetectFrequentSections(
+            nativeSigs,
+            nativeGroups,
+            sportTypes
+          );
+
+          // Convert to app format and store
+          this.cache.frequentSections = sections.map(s => ({
+            id: s.id,
+            sportType: s.sportType,
+            polyline: s.polyline.map(p => ({ lat: p.latitude, lng: p.longitude })),
+            activityIds: s.activityIds,
+            routeIds: s.routeIds,
+            visitCount: s.visitCount,
+            distanceMeters: s.distanceMeters,
+          }));
+
+          const sectionElapsed = Date.now() - sectionStartTime;
+          log.log(`Found ${this.cache.frequentSections.length} frequent sections in ${sectionElapsed}ms`);
+        }
+
         await saveRouteCache(this.cache);
         const finalSaveElapsed = Date.now() - finalSaveStart;
         log.log(`Final cache save took ${finalSaveElapsed}ms`);
