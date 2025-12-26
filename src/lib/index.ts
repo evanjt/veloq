@@ -12,6 +12,7 @@ export * from './routeSignature';
 export * from './routeMatching';
 export * from './routeStorage';
 export * from './routeProcessingQueue';
+export * from './gpsStorage';
 export * from './geocoding';
 export * from './debug';
 export * from './haptics';
