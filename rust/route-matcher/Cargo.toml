@@ -17,7 +17,8 @@ crate-type = ["rlib", "staticlib", "cdylib"]
 [features]
 default = []
 # Enable FFI bindings for mobile (iOS/Android)
-ffi = ["uniffi"]
+# Includes parallel for section detection performance
+ffi = ["uniffi", "parallel"]
 # Enable parallel processing (recommended for batch operations)
 parallel = ["rayon"]
 # Enable HTTP client for activity fetching
