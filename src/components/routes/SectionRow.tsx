@@ -1,18 +1,28 @@
 /**
  * Section row component.
  * Displays a frequently-traveled road section with polyline preview and stats.
+ * Now shows activity traces overlaid on section for richer visualization.
  */
 
 import React, { memo, useMemo } from 'react';
 import { View, StyleSheet, Pressable, useColorScheme } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import Svg, { Polyline } from 'react-native-svg';
+import Svg, { Polyline, G } from 'react-native-svg';
 import { colors, spacing, layout } from '@/theme';
-import type { FrequentSection } from '@/types';
+import type { FrequentSection, RoutePoint } from '@/types';
+
+/** A single activity's trace through the section */
+export interface ActivityTrace {
+  activityId: string;
+  /** The portion of the GPS track that overlaps with the section */
+  points: [number, number][];
+}
 
 interface SectionRowProps {
   section: FrequentSection;
+  /** Optional pre-loaded activity traces for this section */
+  activityTraces?: ActivityTrace[];
   onPress?: () => void;
 }
 
@@ -35,40 +45,103 @@ function formatDistance(meters: number): string {
   return `${Math.round(meters)} m`;
 }
 
-export const SectionRow = memo(function SectionRow({ section, onPress }: SectionRowProps) {
+// Activity trace colors - muted versions of the primary color
+const TRACE_COLORS = [
+  'rgba(252, 76, 2, 0.15)',   // Primary orange, very muted
+  'rgba(252, 76, 2, 0.20)',
+  'rgba(252, 76, 2, 0.25)',
+  'rgba(252, 76, 2, 0.30)',
+];
+
+const PREVIEW_WIDTH = 60;
+const PREVIEW_HEIGHT = 40;
+const PREVIEW_PADDING = 4;
+
+export const SectionRow = memo(function SectionRow({
+  section,
+  activityTraces,
+  onPress,
+}: SectionRowProps) {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
 
-  // Normalize polyline points to fit in preview
-  const normalizedPoints = useMemo(() => {
-    if (!section.polyline || section.polyline.length < 2) {
-      return [];
+  // Compute bounds that encompass section polyline and all activity traces
+  const bounds = useMemo(() => {
+    let minLat = Infinity;
+    let maxLat = -Infinity;
+    let minLng = Infinity;
+    let maxLng = -Infinity;
+
+    // Include section polyline
+    if (section.polyline?.length) {
+      for (const p of section.polyline) {
+        minLat = Math.min(minLat, p.lat);
+        maxLat = Math.max(maxLat, p.lat);
+        minLng = Math.min(minLng, p.lng);
+        maxLng = Math.max(maxLng, p.lng);
+      }
     }
 
-    const lats = section.polyline.map((p) => p.lat);
-    const lngs = section.polyline.map((p) => p.lng);
-    const minLat = Math.min(...lats);
-    const maxLat = Math.max(...lats);
-    const minLng = Math.min(...lngs);
-    const maxLng = Math.max(...lngs);
+    // Include activity traces
+    if (activityTraces?.length) {
+      for (const trace of activityTraces) {
+        for (const [lat, lng] of trace.points) {
+          minLat = Math.min(minLat, lat);
+          maxLat = Math.max(maxLat, lat);
+          minLng = Math.min(minLng, lng);
+          maxLng = Math.max(maxLng, lng);
+        }
+      }
+    }
+
+    if (!isFinite(minLat)) {
+      return null;
+    }
 
     const latRange = maxLat - minLat || 0.001;
     const lngRange = maxLng - minLng || 0.001;
     const range = Math.max(latRange, lngRange);
 
-    // Normalize to 0-1, center in the larger dimension
-    const width = 60;
-    const height = 40;
-    const padding = 4;
+    return { minLat, maxLat, minLng, maxLng, range };
+  }, [section.polyline, activityTraces]);
 
-    return section.polyline.map((p) => ({
-      x: padding + ((p.lng - minLng) / range) * (width - 2 * padding),
-      y: padding + (1 - (p.lat - minLat) / range) * (height - 2 * padding),
+  // Normalize point to SVG coordinates
+  const normalizePoint = (lat: number, lng: number): { x: number; y: number } => {
+    if (!bounds) return { x: 0, y: 0 };
+    return {
+      x: PREVIEW_PADDING + ((lng - bounds.minLng) / bounds.range) * (PREVIEW_WIDTH - 2 * PREVIEW_PADDING),
+      y: PREVIEW_PADDING + (1 - (lat - bounds.minLat) / bounds.range) * (PREVIEW_HEIGHT - 2 * PREVIEW_PADDING),
+    };
+  };
+
+  // Normalize section polyline
+  const sectionPolylineString = useMemo(() => {
+    if (!section.polyline?.length || !bounds) return '';
+    return section.polyline
+      .map((p) => {
+        const { x, y } = normalizePoint(p.lat, p.lng);
+        return `${x},${y}`;
+      })
+      .join(' ');
+  }, [section.polyline, bounds]);
+
+  // Normalize activity traces
+  const normalizedTraces = useMemo(() => {
+    if (!activityTraces?.length || !bounds) return [];
+    return activityTraces.slice(0, 4).map((trace, idx) => ({
+      id: trace.activityId,
+      points: trace.points
+        .map(([lat, lng]) => {
+          const { x, y } = normalizePoint(lat, lng);
+          return `${x},${y}`;
+        })
+        .join(' '),
+      color: TRACE_COLORS[idx % TRACE_COLORS.length],
     }));
-  }, [section.polyline]);
+  }, [activityTraces, bounds]);
 
-  const polylineString = normalizedPoints.map((p) => `${p.x},${p.y}`).join(' ');
-
+  const hasTraces = normalizedTraces.length > 0;
+  const hasSectionPolyline = sectionPolylineString.length > 0;
   const icon = sportIcons[section.sportType] || 'map-marker-path';
 
   return (
@@ -80,18 +153,35 @@ export const SectionRow = memo(function SectionRow({ section, onPress }: Section
       ]}
       onPress={onPress}
     >
-      {/* Polyline preview */}
+      {/* Polyline preview with activity traces */}
       <View style={[styles.preview, isDark && styles.previewDark]}>
-        {normalizedPoints.length > 1 ? (
-          <Svg width={60} height={40}>
-            <Polyline
-              points={polylineString}
-              fill="none"
-              stroke={colors.primary}
-              strokeWidth={2}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
+        {hasSectionPolyline || hasTraces ? (
+          <Svg width={PREVIEW_WIDTH} height={PREVIEW_HEIGHT}>
+            <G>
+              {/* Activity traces (background, faded) */}
+              {normalizedTraces.map((trace) => (
+                <Polyline
+                  key={trace.id}
+                  points={trace.points}
+                  fill="none"
+                  stroke={trace.color}
+                  strokeWidth={2.5}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              ))}
+              {/* Section polyline (foreground, prominent) */}
+              {hasSectionPolyline && (
+                <Polyline
+                  points={sectionPolylineString}
+                  fill="none"
+                  stroke={colors.primary}
+                  strokeWidth={2}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              )}
+            </G>
           </Svg>
         ) : (
           <MaterialCommunityIcons
@@ -192,8 +282,8 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   preview: {
-    width: 60,
-    height: 40,
+    width: PREVIEW_WIDTH,
+    height: PREVIEW_HEIGHT,
     borderRadius: 6,
     backgroundColor: '#F5F5F5',
     alignItems: 'center',
