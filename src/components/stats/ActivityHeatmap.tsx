@@ -1,7 +1,9 @@
 import React, { useMemo } from 'react';
 import { View, StyleSheet, useColorScheme, ScrollView } from 'react-native';
 import { Text } from 'react-native-paper';
-import { colors, spacing } from '@/theme';
+import { colors, darkColors } from '@/theme/colors';
+import { typography } from '@/theme/typography';
+import { spacing, layout } from '@/theme/spacing';
 import type { Activity } from '@/types';
 
 interface ActivityHeatmapProps {
@@ -137,7 +139,7 @@ export function ActivityHeatmap({
       >
         <View>
           {/* Month labels */}
-          <View style={[styles.monthLabels, { width: gridWidth, marginLeft: 24 }]}>
+          <View style={[styles.monthLabels, { width: gridWidth, marginLeft: spacing.lg }]}>
             {monthLabels.map((m, idx) => (
               <Text
                 key={idx}
@@ -219,31 +221,31 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   title: {
-    fontSize: 18,
+    fontSize: typography.cardTitle.fontSize,
     fontWeight: '700',
     color: colors.textPrimary,
   },
   subtitle: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
   },
   textLight: {
-    color: '#FFFFFF',
+    color: colors.textOnDark,
   },
   textDark: {
-    color: '#AAA',
+    color: darkColors.textSecondary,
   },
   scrollContent: {
     paddingRight: spacing.md,
   },
   monthLabels: {
-    height: 16,
+    height: spacing.md,
     position: 'relative',
-    marginBottom: 4,
+    marginBottom: spacing.xs,
   },
   monthLabel: {
     position: 'absolute',
-    fontSize: 9,
+    fontSize: typography.pillLabel.fontSize,
     color: colors.textSecondary,
   },
   gridContainer: {
@@ -251,13 +253,13 @@ const styles = StyleSheet.create({
   },
   dayLabels: {
     width: 20,
-    marginRight: 4,
+    marginRight: spacing.xs,
   },
   dayLabel: {
-    fontSize: 9,
+    fontSize: typography.pillLabel.fontSize,
     color: colors.textSecondary,
     textAlign: 'right',
-    lineHeight: 12,
+    lineHeight: typography.caption.lineHeight,
   },
   grid: {
     flexDirection: 'row',
@@ -273,12 +275,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'flex-end',
     marginTop: spacing.sm,
-    gap: 4,
+    gap: spacing.xs,
   },
   legendLabel: {
-    fontSize: 9,
+    fontSize: typography.pillLabel.fontSize,
     color: colors.textSecondary,
-    marginHorizontal: 4,
+    marginHorizontal: spacing.xs,
   },
   legendCell: {
     borderRadius: 2,
@@ -288,12 +290,12 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xl,
   },
   emptyText: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     color: colors.textSecondary,
     marginBottom: spacing.xs,
   },
   emptyHint: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
     textAlign: 'center',
   },

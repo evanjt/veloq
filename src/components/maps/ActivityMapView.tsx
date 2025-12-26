@@ -5,7 +5,10 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import { decodePolyline, LatLng } from '@/lib/polyline';
 import { getActivityColor } from '@/lib';
-import { colors } from '@/theme';
+import { colors, darkColors } from '@/theme/colors';
+import { typography } from '@/theme/typography';
+import { spacing, layout } from '@/theme/spacing';
+import { shadows } from '@/theme/shadows';
 import { useMapPreferences } from '@/providers';
 import { BaseMapView } from './BaseMapView';
 import { Map3DWebView, type Map3DWebViewRef } from './Map3DWebView';
@@ -312,7 +315,7 @@ export function ActivityMapView({
             <MarkerView coordinate={[startPoint.longitude, startPoint.latitude]}>
               <View style={styles.markerContainer}>
                 <View style={[styles.marker, styles.startMarker]}>
-                  <MaterialCommunityIcons name="play" size={14} color="#FFFFFF" />
+                  <MaterialCommunityIcons name="play" size={14} color={colors.textOnDark} />
                 </View>
               </View>
             </MarkerView>
@@ -323,7 +326,7 @@ export function ActivityMapView({
             <MarkerView coordinate={[endPoint.longitude, endPoint.latitude]}>
               <View style={styles.markerContainer}>
                 <View style={[styles.marker, styles.endMarker]}>
-                  <MaterialCommunityIcons name="flag-checkered" size={14} color="#FFFFFF" />
+                  <MaterialCommunityIcons name="flag-checkered" size={14} color={colors.textOnDark} />
                 </View>
               </View>
             </MarkerView>
@@ -379,7 +382,7 @@ export function ActivityMapView({
             <MaterialCommunityIcons
               name={getStyleIcon(mapStyle)}
               size={22}
-              color={isDark ? '#FFFFFF' : '#333333'}
+              color={isDark ? colors.textOnDark : colors.textSecondary}
             />
           </TouchableOpacity>
 
@@ -394,7 +397,7 @@ export function ActivityMapView({
               <MaterialCommunityIcons
                 name="terrain"
                 size={22}
-                color={is3DMode ? '#FFFFFF' : (isDark ? '#FFFFFF' : '#333333')}
+                color={is3DMode ? colors.textOnDark : (isDark ? colors.textOnDark : colors.textSecondary)}
               />
             </TouchableOpacity>
           )}
@@ -409,8 +412,8 @@ export function ActivityMapView({
             <CompassArrow
               size={22}
               rotation={bearingAnim}
-              northColor="#E53935"
-              southColor={isDark ? '#FFFFFF' : '#333333'}
+              northColor={colors.error}
+              southColor={isDark ? colors.textOnDark : colors.textSecondary}
             />
           </TouchableOpacity>
 
@@ -424,7 +427,7 @@ export function ActivityMapView({
             <MaterialCommunityIcons
               name="crosshairs-gps"
               size={22}
-              color={isDark ? '#FFFFFF' : '#333333'}
+              color={isDark ? colors.textOnDark : colors.textSecondary}
             />
           </TouchableOpacity>
         </View>
@@ -450,7 +453,7 @@ export function ActivityMapView({
             <MarkerView coordinate={[startPoint.longitude, startPoint.latitude]}>
               <View style={styles.markerContainer}>
                 <View style={[styles.marker, styles.startMarker]}>
-                  <MaterialCommunityIcons name="play" size={14} color="#FFFFFF" />
+                  <MaterialCommunityIcons name="play" size={14} color={colors.textOnDark} />
                 </View>
               </View>
             </MarkerView>
@@ -461,7 +464,7 @@ export function ActivityMapView({
             <MarkerView coordinate={[endPoint.longitude, endPoint.latitude]}>
               <View style={styles.markerContainer}>
                 <View style={[styles.marker, styles.endMarker]}>
-                  <MaterialCommunityIcons name="flag-checkered" size={14} color="#FFFFFF" />
+                  <MaterialCommunityIcons name="flag-checkered" size={14} color={colors.textOnDark} />
                 </View>
               </View>
             </MarkerView>
@@ -478,7 +481,7 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    borderRadius: 12,
+    borderRadius: layout.borderRadius,
     overflow: 'hidden',
   },
   mapLayer: {
@@ -498,7 +501,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
     justifyContent: 'center',
     alignItems: 'center',
-    borderRadius: 12,
+    borderRadius: layout.borderRadius,
   },
   markerContainer: {
     alignItems: 'center',
@@ -511,12 +514,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 3,
-    borderColor: '#FFFFFF',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 3,
-    elevation: 4,
+    borderColor: colors.textOnDark,
+    ...shadows.elevated,
   },
   startMarker: {
     backgroundColor: colors.success,
@@ -532,58 +531,50 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 3,
-    borderColor: '#FFFFFF',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.4,
-    shadowRadius: 4,
-    elevation: 5,
+    borderColor: colors.textOnDark,
+    ...shadows.elevated,
   },
   highlightMarkerInner: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#FFFFFF',
+    width: spacing.sm,
+    height: spacing.sm,
+    borderRadius: spacing.xs,
+    backgroundColor: colors.textOnDark,
   },
   controlsContainer: {
     position: 'absolute',
     top: 48,
-    right: 12,
-    gap: 8,
+    right: layout.cardMargin,
+    gap: spacing.sm,
     zIndex: 100,
     elevation: 100,
   },
   controlButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: layout.minTapTarget,
+    height: layout.minTapTarget,
+    borderRadius: layout.minTapTarget / 2,
     backgroundColor: 'rgba(255, 255, 255, 0.95)',
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 8,
+    ...shadows.modal,
   },
   controlButtonDark: {
-    backgroundColor: 'rgba(50, 50, 50, 0.95)',
+    backgroundColor: darkColors.surfaceCard,
   },
   controlButtonActive: {
     backgroundColor: colors.primary,
   },
   attribution: {
     position: 'absolute',
-    bottom: 8,
-    right: 8,
+    bottom: spacing.sm,
+    right: spacing.sm,
     backgroundColor: 'rgba(255, 255, 255, 0.7)',
     paddingHorizontal: 6,
     paddingVertical: 2,
-    borderRadius: 4,
+    borderRadius: spacing.xs,
     zIndex: 10,
   },
   attributionText: {
     fontSize: 8,
-    color: '#333333',
+    color: colors.textSecondary,
   },
 });

@@ -16,7 +16,10 @@ import Animated, {
 } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { colors, shadows, smallElementShadow } from '@/theme';
+import { colors, darkColors } from '@/theme/colors';
+import { typography } from '@/theme/typography';
+import { spacing, layout } from '@/theme/spacing';
+import { shadows, smallElementShadow } from '@/theme/shadows';
 import { ACTIVITY_CATEGORIES, getActivityCategory, groupTypesByCategory } from './ActivityTypeFilter';
 
 interface SyncProgress {
@@ -557,19 +560,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   syncText: {
-    color: '#FFFFFF',
-    fontSize: 13,
+    color: colors.textOnDark,
+    fontSize: typography.bodyCompact.fontSize,
     fontWeight: '600',
   },
   container: {
     backgroundColor: 'rgba(255, 255, 255, 0.95)',
     paddingVertical: 10,
-    paddingHorizontal: 12,
+    paddingHorizontal: layout.cardMargin,
     borderTopWidth: 1,
     borderTopColor: colors.border,
   },
   sliderContainer: {
-    height: 44,
+    height: layout.minTapTarget,
     justifyContent: 'center',
     marginHorizontal: 14,
   },
@@ -633,12 +636,12 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   dateLabel: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
     fontWeight: '500',
   },
   countLabel: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: colors.textPrimary,
     fontWeight: '600',
   },
@@ -646,16 +649,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 16,
-    marginTop: 8,
-    paddingTop: 8,
+    gap: spacing.md,
+    marginTop: spacing.sm,
+    paddingTop: spacing.sm,
     borderTopWidth: 1,
     borderTopColor: colors.border,
   },
   legendItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: spacing.xs,
   },
   legendSwatch: {
     width: 16,
@@ -679,7 +682,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.border,
   },
   legendText: {
-    fontSize: 10,
+    fontSize: typography.micro.fontSize,
     color: colors.textSecondary,
   },
   tickContainer: {
@@ -699,28 +702,28 @@ const styles = StyleSheet.create({
   tickLabelBase: {
     position: 'absolute',
     top: 6,
-    fontSize: 10,
+    fontSize: typography.micro.fontSize,
     color: colors.textSecondary,
     fontWeight: '500',
   },
   filterScroll: {
-    marginBottom: 8,
+    marginBottom: spacing.sm,
   },
   filterScrollContent: {
-    paddingHorizontal: 4,
+    paddingHorizontal: spacing.xs,
     gap: 6,
     flexDirection: 'row',
   },
   controlChip: {
     paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
+    paddingVertical: spacing.xs,
+    borderRadius: layout.cardMargin,
     backgroundColor: colors.background,
     borderWidth: 1,
     borderColor: colors.border,
   },
   controlText: {
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     fontWeight: '500',
     color: colors.textSecondary,
   },
@@ -728,9 +731,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 3,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: layout.cardMargin,
     borderWidth: 1,
     borderColor: 'transparent',
   },
@@ -739,7 +742,7 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   filterChipText: {
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     fontWeight: '500',
   },
   filterChipTextSelected: {
@@ -749,50 +752,50 @@ const styles = StyleSheet.create({
     width: 1,
     height: 20,
     backgroundColor: colors.border,
-    marginHorizontal: 4,
+    marginHorizontal: spacing.xs,
   },
   countContainer: {
     alignItems: 'center',
-    marginTop: 4,
+    marginTop: spacing.xs,
   },
   // Dark mode styles
   containerDark: {
-    backgroundColor: 'rgba(30, 30, 30, 0.95)',
-    borderTopColor: '#333',
+    backgroundColor: darkColors.surfaceOverlay,
+    borderTopColor: darkColors.border,
   },
   trackDark: {
-    backgroundColor: '#444',
+    backgroundColor: darkColors.border,
   },
   handleDark: {
-    backgroundColor: '#2a2a2a',
+    backgroundColor: darkColors.surface,
   },
   tickMarkDark: {
-    backgroundColor: '#888',
+    backgroundColor: darkColors.textMuted,
   },
   tickLabelDark: {
-    color: '#888',
+    color: darkColors.textMuted,
   },
   countLabelDark: {
-    color: '#FFFFFF',
+    color: colors.textOnDark,
   },
   legendDark: {
-    borderTopColor: '#333',
+    borderTopColor: darkColors.border,
   },
   legendTextDark: {
-    color: '#888',
+    color: darkColors.textMuted,
   },
   legendEmptyDark: {
-    backgroundColor: '#444',
+    backgroundColor: darkColors.border,
   },
   controlChipDark: {
-    backgroundColor: '#2a2a2a',
-    borderColor: '#444',
+    backgroundColor: darkColors.surface,
+    borderColor: darkColors.border,
   },
   controlTextDark: {
-    color: '#888',
+    color: darkColors.textMuted,
   },
   filterChipUnselectedDark: {
-    backgroundColor: '#2a2a2a',
-    borderColor: '#444',
+    backgroundColor: darkColors.surface,
+    borderColor: darkColors.border,
   },
 });

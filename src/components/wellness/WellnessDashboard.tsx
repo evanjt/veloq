@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { View, StyleSheet, useColorScheme } from 'react-native';
 import { Text } from 'react-native-paper';
-import { colors, spacing } from '@/theme';
+import { colors, darkColors, spacing, typography, layout, opacity } from '@/theme';
 import type { WellnessData } from '@/types';
 
 interface WellnessDashboardProps {
@@ -249,7 +249,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   trendLabel: {
-    fontSize: 10,
+    fontSize: typography.micro.fontSize,
     fontWeight: '500',
     color: colors.textSecondary,
     marginBottom: 2,
@@ -259,14 +259,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   trendValue: {
-    fontSize: 18,
+    fontSize: typography.cardTitle.fontSize,
     fontWeight: '700',
     color: colors.textPrimary,
   },
   trendArrow: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     fontWeight: '700',
-    marginLeft: 4,
+    marginLeft: spacing.xs,
   },
   header: {
     flexDirection: 'row',
@@ -275,19 +275,19 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   title: {
-    fontSize: 18,
+    fontSize: typography.cardTitle.fontSize,
     fontWeight: '700',
     color: colors.textPrimary,
   },
   date: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
   },
   textLight: {
-    color: '#FFFFFF',
+    color: colors.textOnDark,
   },
   textDark: {
-    color: '#AAA',
+    color: darkColors.textSecondary,
   },
   metricsGrid: {
     flexDirection: 'row',
@@ -303,14 +303,14 @@ const styles = StyleSheet.create({
   metricHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 4,
+    marginBottom: spacing.xs,
   },
   metricIcon: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     marginRight: 6,
   },
   metricLabel: {
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     color: colors.textSecondary,
   },
   metricValueRow: {
@@ -323,24 +323,24 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
   metricUnit: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
-    marginLeft: 4,
+    marginLeft: spacing.xs,
   },
   metricChange: {
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     fontWeight: '500',
     marginTop: 2,
   },
   insightBox: {
     marginTop: spacing.xs,
     padding: spacing.sm,
-    borderRadius: 8,
+    borderRadius: layout.borderRadiusSm,
     borderWidth: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.02)',
+    backgroundColor: opacity.overlay.subtle,
   },
   insightText: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     fontWeight: '500',
     textAlign: 'center',
   },
@@ -349,12 +349,12 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xl,
   },
   emptyText: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     color: colors.textSecondary,
     marginBottom: spacing.xs,
   },
   emptyHint: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
     textAlign: 'center',
   },

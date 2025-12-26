@@ -8,7 +8,7 @@ import { View, StyleSheet, useColorScheme, Animated } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Svg, { Polyline } from 'react-native-svg';
-import { colors, spacing } from '@/theme';
+import { colors, darkColors, opacity, spacing, layout, typography } from '@/theme';
 
 export interface DiscoveredRoute {
   id: string;
@@ -234,8 +234,8 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
+    backgroundColor: colors.surface,
+    borderRadius: layout.borderRadius,
     padding: spacing.sm,
     marginHorizontal: spacing.md,
     marginBottom: spacing.sm,
@@ -246,7 +246,7 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   containerDark: {
-    backgroundColor: '#1E1E1E',
+    backgroundColor: darkColors.surface,
   },
   containerActive: {
     borderWidth: 1,
@@ -255,17 +255,17 @@ const styles = StyleSheet.create({
   previewContainer: {
     width: 60,
     height: 40,
-    borderRadius: 8,
-    backgroundColor: 'rgba(0, 0, 0, 0.03)',
+    borderRadius: layout.borderRadiusSm,
+    backgroundColor: opacity.overlay.subtle,
     overflow: 'hidden',
     justifyContent: 'center',
     alignItems: 'center',
   },
   previewContainerDark: {
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    backgroundColor: opacity.overlayDark.light,
   },
   placeholderPreview: {
-    backgroundColor: 'rgba(0, 0, 0, 0.02)',
+    backgroundColor: opacity.overlay.subtle,
   },
   infoContainer: {
     flex: 1,
@@ -277,7 +277,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   routeName: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     fontWeight: '600',
     color: colors.textPrimary,
     flex: 1,
@@ -297,24 +297,24 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   countText: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     fontWeight: '600',
     color: colors.primary,
   },
   distanceText: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
   },
   activitiesText: {
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     color: colors.textSecondary,
     marginTop: 2,
   },
   textLight: {
-    color: '#FFFFFF',
+    color: colors.textOnDark,
   },
   textMuted: {
-    color: '#888',
+    color: darkColors.textMuted,
   },
   matchIndicator: {
     width: 28,

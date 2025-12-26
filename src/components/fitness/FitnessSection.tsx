@@ -5,7 +5,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { FitnessChart } from './FitnessChart';
 import { FormZoneChart } from './FormZoneChart';
 import { useWellness, type TimeRange } from '@/hooks';
-import { colors, spacing, layout } from '@/theme';
+import { colors, darkColors, opacity, spacing, layout, typography } from '@/theme';
 
 const TIME_RANGES: { id: TimeRange; label: string }[] = [
   { id: '7d', label: '7 days' },
@@ -126,7 +126,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   containerDark: {
-    backgroundColor: '#1E1E1E',
+    backgroundColor: darkColors.surface,
   },
   header: {
     flexDirection: 'row',
@@ -140,15 +140,15 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   title: {
-    fontSize: 16,
+    fontSize: typography.body.fontSize,
     fontWeight: '600',
     color: colors.textPrimary,
   },
   textLight: {
-    color: '#FFFFFF',
+    color: colors.textOnDark,
   },
   textDark: {
-    color: '#AAA',
+    color: darkColors.textSecondary,
   },
   expandButton: {
     padding: 4,
@@ -162,39 +162,39 @@ const styles = StyleSheet.create({
   timeRangeButton: {
     paddingHorizontal: 10,
     paddingVertical: 5,
-    borderRadius: 12,
-    backgroundColor: 'rgba(0, 0, 0, 0.05)',
+    borderRadius: layout.borderRadius,
+    backgroundColor: opacity.overlay.light,
   },
   timeRangeButtonDark: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: opacity.overlayDark.medium,
   },
   timeRangeButtonActive: {
     backgroundColor: colors.primary,
   },
   timeRangeText: {
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     fontWeight: '500',
     color: colors.textSecondary,
   },
   timeRangeTextDark: {
-    color: '#AAA',
+    color: darkColors.textSecondary,
   },
   timeRangeTextActive: {
-    color: '#FFFFFF',
+    color: colors.textOnDark,
   },
   chartContainer: {
     marginBottom: spacing.md,
   },
   formChartContainer: {
-    backgroundColor: 'rgba(0, 0, 0, 0.03)',
-    borderRadius: 8,
+    backgroundColor: opacity.overlay.subtle,
+    borderRadius: layout.borderRadiusSm,
     padding: spacing.sm,
   },
   formChartContainerDark: {
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    backgroundColor: opacity.overlayDark.light,
   },
   formTitle: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     fontWeight: '600',
     color: colors.textPrimary,
     marginBottom: spacing.xs,
@@ -205,7 +205,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   loadingText: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
     marginTop: spacing.sm,
   },
@@ -215,7 +215,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   errorText: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: colors.error,
   },
   emptyContainer: {
@@ -224,7 +224,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   emptyText: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
   },
 });

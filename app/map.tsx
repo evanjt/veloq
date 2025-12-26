@@ -11,7 +11,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { RegionalMapView } from '@/components/maps/RegionalMapView';
 import { TimelineSlider } from '@/components/maps/TimelineSlider';
 import { useActivityBoundsCache } from '@/hooks';
-import { colors } from '@/theme';
+import { colors, darkColors, spacing, typography } from '@/theme';
 import { formatLocalDate } from '@/lib';
 
 export default function MapScreen() {
@@ -177,19 +177,19 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   loadingContainerDark: {
-    backgroundColor: '#121212',
+    backgroundColor: darkColors.background,
   },
   loadingText: {
-    marginTop: 16,
-    fontSize: 16,
+    marginTop: spacing.md,
+    fontSize: typography.body.fontSize,
     color: colors.textSecondary,
   },
   loadingTextDark: {
-    color: '#AAA',
+    color: darkColors.textSecondary,
   },
   progressText: {
-    marginTop: 8,
-    fontSize: 14,
+    marginTop: spacing.sm,
+    fontSize: typography.bodySmall.fontSize,
     color: colors.textSecondary,
   },
   sliderContainer: {

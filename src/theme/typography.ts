@@ -57,6 +57,12 @@ export const typography = {
     fontWeight: '400' as const,
     lineHeight: 20,
   },
+  bodyCompact: {
+    fontFamily,
+    fontSize: 13,
+    fontWeight: '400' as const,
+    lineHeight: 18,
+  },
 
   // Stats & Metrics
   heroNumber: {

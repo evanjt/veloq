@@ -5,10 +5,10 @@
  * - Simpler and more robust than DTW for GPS data with noise
  * - Uses normalized point sampling for consistent comparison
  * - Checks both directions (asymmetric distance)
+ * - Quick filtering by start/end points, direction, and distance
  *
- * References:
+ * Reference:
  * - https://www.tandfonline.com/doi/full/10.1080/15481603.2021.1908927
- * - Strava's approach: start/end + direction + distance
  */
 
 import type {
@@ -41,7 +41,6 @@ interface MatchResult {
  * Return the average of these minimum distances.
  *
  * This is a modified Hausdorff distance - more robust than DTW for GPS data.
- * Reference: https://matt-leach.github.io/blog/strava.html
  */
 function averageMinDistance(route1: RoutePoint[], route2: RoutePoint[]): number {
   if (route1.length === 0 || route2.length === 0) return Infinity;

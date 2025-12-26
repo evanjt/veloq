@@ -1,7 +1,9 @@
 import React, { useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors } from '@/theme';
+import { colors } from '@/theme/colors';
+import { typography } from '@/theme/typography';
+import { spacing, layout } from '@/theme/spacing';
 import type { ActivityType } from '@/types';
 
 // Main activity categories (matching theme colors)
@@ -169,35 +171,35 @@ export function ActivityTypeFilter({
 const styles = StyleSheet.create({
   container: {
     backgroundColor: 'rgba(255, 255, 255, 0.95)',
-    paddingVertical: 8,
+    paddingVertical: spacing.sm,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
   scrollContent: {
-    paddingHorizontal: 12,
-    gap: 8,
+    paddingHorizontal: layout.cardMargin,
+    gap: spacing.sm,
     flexDirection: 'row',
   },
   controlChip: {
-    paddingHorizontal: 12,
+    paddingHorizontal: layout.cardMargin,
     paddingVertical: 6,
-    borderRadius: 16,
+    borderRadius: spacing.md,
     backgroundColor: colors.background,
     borderWidth: 1,
     borderColor: colors.border,
   },
   controlText: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     fontWeight: '500',
     color: colors.textSecondary,
   },
   chip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 12,
+    gap: spacing.xs,
+    paddingHorizontal: layout.cardMargin,
     paddingVertical: 6,
-    borderRadius: 16,
+    borderRadius: spacing.md,
     borderWidth: 1,
     borderColor: 'transparent',
   },
@@ -206,7 +208,7 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   chipText: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     fontWeight: '500',
   },
   chipTextSelected: {

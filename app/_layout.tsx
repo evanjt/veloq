@@ -7,7 +7,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Logger } from '@maplibre/maplibre-react-native';
 import { configureReanimatedLogger, ReanimatedLogLevel } from 'react-native-reanimated';
 import { QueryProvider, MapPreferencesProvider, initializeTheme, useAuthStore, initializeSportPreference, initializeHRZones, initializeRouteMatching, initializeRouteSettings } from '@/providers';
-import { lightTheme, darkTheme, colors } from '@/theme';
+import { lightTheme, darkTheme, colors, darkColors } from '@/theme';
 import { CacheLoadingBanner } from '@/components/ui';
 
 // Suppress MapLibre info/warning logs about canceled requests
@@ -47,7 +47,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
 
   if (isLoading) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#121212' }}>
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: darkColors.background }}>
         <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
@@ -70,7 +70,7 @@ export default function RootLayout() {
   // Show minimal loading while initializing
   if (!appReady) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#121212' }}>
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: darkColors.background }}>
         <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );

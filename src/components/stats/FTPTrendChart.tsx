@@ -3,7 +3,9 @@ import { View, StyleSheet, useColorScheme } from 'react-native';
 import { Text } from 'react-native-paper';
 import { CartesianChart, Line, Area } from 'victory-native';
 import { Circle, LinearGradient, vec } from '@shopify/react-native-skia';
-import { colors, spacing } from '@/theme';
+import { colors, darkColors } from '@/theme/colors';
+import { typography } from '@/theme/typography';
+import { spacing, layout } from '@/theme/spacing';
 import type { eFTPPoint } from '@/types';
 
 interface FTPTrendChartProps {
@@ -140,7 +142,7 @@ export function FTPTrendChart({
                     cx={points.y[points.y.length - 1].x!}
                     cy={points.y[points.y.length - 1].y!}
                     r={3}
-                    color="#FFFFFF"
+                    color={colors.textOnDark}
                   />
                 </>
               )}
@@ -179,22 +181,22 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   label: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
   },
   ftpRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: spacing.sm,
   },
   ftpValue: {
     fontSize: 32,
     fontWeight: '700',
   },
   changeBadge: {
-    paddingHorizontal: 8,
+    paddingHorizontal: spacing.sm,
     paddingVertical: 2,
-    borderRadius: 12,
+    borderRadius: layout.borderRadius,
   },
   positive: {
     backgroundColor: colors.success + '20',
@@ -203,17 +205,17 @@ const styles = StyleSheet.create({
     backgroundColor: colors.error + '20',
   },
   changeText: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     fontWeight: '600',
     color: colors.success,
   },
   changeSubtext: {
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     color: colors.textSecondary,
     marginTop: 2,
   },
   textDark: {
-    color: '#AAA',
+    color: darkColors.textSecondary,
   },
   chartWrapper: {
     flex: 1,
@@ -222,25 +224,25 @@ const styles = StyleSheet.create({
   xAxisOverlay: {
     position: 'absolute',
     bottom: 0,
-    left: 4,
-    right: 4,
+    left: spacing.xs,
+    right: spacing.xs,
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
   yAxisOverlay: {
     position: 'absolute',
-    top: 8,
-    bottom: 16,
-    left: 4,
+    top: spacing.sm,
+    bottom: spacing.md,
+    left: spacing.xs,
     justifyContent: 'space-between',
   },
   axisLabel: {
-    fontSize: 10,
-    color: '#666',
+    fontSize: typography.micro.fontSize,
+    color: colors.textSecondary,
     fontWeight: '500',
   },
   axisLabelDark: {
-    color: '#AAA',
+    color: darkColors.textSecondary,
   },
   emptyState: {
     flex: 1,
@@ -248,12 +250,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   emptyText: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     color: colors.textSecondary,
     marginBottom: spacing.xs,
   },
   emptyHint: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
     textAlign: 'center',
   },

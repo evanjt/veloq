@@ -8,7 +8,7 @@ import { View, StyleSheet, useColorScheme } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Svg, { Polyline } from 'react-native-svg';
-import { colors, spacing } from '@/theme';
+import { colors, darkColors, opacity, spacing, layout, typography } from '@/theme';
 import type { DiscoveredMatchInfo } from '@/types';
 
 interface MatchRowProps {
@@ -125,7 +125,7 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     borderRadius: 10,
     padding: spacing.sm,
     marginHorizontal: spacing.md,
@@ -137,19 +137,19 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   containerDark: {
-    backgroundColor: '#1A1A1A',
+    backgroundColor: darkColors.surface,
   },
   previewBox: {
     width: 50,
     height: 32,
     borderRadius: 6,
-    backgroundColor: 'rgba(0, 0, 0, 0.03)',
+    backgroundColor: opacity.overlay.subtle,
     justifyContent: 'center',
     alignItems: 'center',
     overflow: 'hidden',
   },
   previewBoxDark: {
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    backgroundColor: opacity.overlayDark.light,
   },
   infoContainer: {
     flex: 1,
@@ -161,13 +161,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   activityName: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     fontWeight: '500',
     color: colors.textPrimary,
     flex: 1,
   },
   matchIcon: {
-    marginHorizontal: 4,
+    marginHorizontal: spacing.xs,
   },
   metaRow: {
     flexDirection: 'row',
@@ -176,18 +176,18 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   metaText: {
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     color: colors.textSecondary,
   },
   matchPercent: {
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     fontWeight: '600',
   },
   textLight: {
-    color: '#FFFFFF',
+    color: colors.textOnDark,
   },
   textMuted: {
-    color: '#777',
+    color: darkColors.textSecondary,
   },
   checkIcon: {
     width: 24,
