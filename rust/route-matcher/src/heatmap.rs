@@ -8,7 +8,7 @@
 //! Optimized for 120Hz rendering by pre-computing all data.
 
 use std::collections::HashMap;
-use crate::{GpsPoint, RouteSignature};
+use crate::RouteSignature;
 
 /// Configuration for heatmap generation
 #[derive(Debug, Clone)]

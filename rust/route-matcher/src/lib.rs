@@ -43,7 +43,6 @@ use geo::{
     Haversine, Distance,
     algorithm::simplify::Simplify,
 };
-use log::{info, debug};
 use rstar::{RTree, RTreeObject, AABB};
 use std::collections::HashMap;
 
@@ -69,8 +68,8 @@ pub use heatmap::{
 #[cfg(feature = "ffi")]
 uniffi::setup_scaffolding!();
 
-/// Initialize logging for Android
-#[cfg(target_os = "android")]
+/// Initialize logging for Android (only used in FFI)
+#[cfg(all(feature = "ffi", target_os = "android"))]
 fn init_logging() {
     use android_logger::Config;
     use log::LevelFilter;
@@ -82,7 +81,7 @@ fn init_logging() {
     );
 }
 
-#[cfg(not(target_os = "android"))]
+#[cfg(all(feature = "ffi", not(target_os = "android")))]
 fn init_logging() {
     // No-op on non-Android platforms
 }
@@ -345,46 +344,6 @@ impl Default for MatchConfig {
             resample_count: 50,
             simplification_tolerance: 0.0001,
             max_simplified_points: 100,
-        }
-    }
-}
-
-impl MatchConfig {
-    /// Create a new configuration with custom values.
-    pub fn new(
-        perfect_threshold: f64,
-        zero_threshold: f64,
-        min_match_percentage: f64,
-        resample_count: u32,
-    ) -> Self {
-        Self {
-            perfect_threshold,
-            zero_threshold,
-            min_match_percentage,
-            resample_count,
-            ..Default::default()
-        }
-    }
-
-    /// Configuration optimized for speed (fewer points, more lenient thresholds).
-    pub fn fast() -> Self {
-        Self {
-            perfect_threshold: 40.0,
-            zero_threshold: 300.0,
-            min_match_percentage: 60.0,
-            resample_count: 30,
-            ..Default::default()
-        }
-    }
-
-    /// Configuration optimized for accuracy (stricter thresholds).
-    pub fn precise() -> Self {
-        Self {
-            perfect_threshold: 20.0,
-            zero_threshold: 200.0,
-            min_match_percentage: 75.0,
-            resample_count: 75,
-            ..Default::default()
         }
     }
 }
@@ -1748,16 +1707,4 @@ mod tests {
         assert!(!group_with_1.activity_ids.contains(&"test-3".to_string()));
     }
 
-    #[test]
-    fn test_config_presets() {
-        let default = MatchConfig::default();
-        let fast = MatchConfig::fast();
-        let precise = MatchConfig::precise();
-
-        // Fast config is more lenient (higher thresholds)
-        assert!(fast.zero_threshold > default.zero_threshold);
-        assert!(precise.zero_threshold < default.zero_threshold);
-        // Fast uses fewer points for speed
-        assert!(fast.resample_count < default.resample_count);
-    }
 }

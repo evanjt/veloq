@@ -383,6 +383,245 @@ class RouteMatcherModule : Module() {
         "signatures" to result.signatures.map { signatureToMap(it) }
       )
     }
+
+    // Incremental grouping - add new signatures to existing groups
+    Function("groupIncremental") { newSigMaps: List<Map<String, Any>>, existingGroupMaps: List<Map<String, Any>>, existingSigMaps: List<Map<String, Any>>, config: Map<String, Any>? ->
+      Log.i(TAG, "🦀 groupIncremental: ${newSigMaps.size} new + ${existingSigMaps.size} existing")
+
+      val newSignatures = newSigMaps.mapNotNull { mapToSignature(it) }
+      val existingSignatures = existingSigMaps.mapNotNull { mapToSignature(it) }
+      val existingGroups = existingGroupMaps.map { m ->
+        @Suppress("UNCHECKED_CAST")
+        RouteGroup(
+          groupId = m["groupId"] as String,
+          activityIds = m["activityIds"] as List<String>
+        )
+      }
+
+      val matchConfig = parseConfig(config)
+      val startTime = System.currentTimeMillis()
+      val result = ffiGroupIncremental(newSignatures, existingGroups, existingSignatures, matchConfig)
+      val elapsed = System.currentTimeMillis() - startTime
+
+      Log.i(TAG, "🦀 groupIncremental returned ${result.size} groups in ${elapsed}ms")
+
+      result.map { group ->
+        mapOf(
+          "groupId" to group.groupId,
+          "activityIds" to group.activityIds
+        )
+      }
+    }
+
+    // Section detection
+    Function("defaultSectionConfig") {
+      val config = defaultSectionConfig()
+      mapOf(
+        "cell_size_meters" to config.cellSizeMeters.toInt(),
+        "min_visits" to config.minVisits.toInt(),
+        "min_cells" to config.minCells.toInt(),
+        "diagonal_connect" to config.diagonalConnect
+      )
+    }
+
+    Function("detectFrequentSections") { sigMaps: List<Map<String, Any>>, groupMaps: List<Map<String, Any>>, sportTypeMaps: List<Map<String, Any>>, config: Map<String, Any>? ->
+      Log.i(TAG, "🦀 detectFrequentSections: ${sigMaps.size} signatures")
+
+      val signatures = sigMaps.mapNotNull { mapToSignature(it) }
+      val groups = groupMaps.map { m ->
+        @Suppress("UNCHECKED_CAST")
+        RouteGroup(
+          groupId = m["groupId"] as String,
+          activityIds = m["activityIds"] as List<String>
+        )
+      }
+      val sportTypes = sportTypeMaps.map { m ->
+        ActivitySportType(
+          activityId = m["activity_id"] as String,
+          sportType = m["sport_type"] as String
+        )
+      }
+
+      val sectionConfig = if (config != null) {
+        SectionConfig(
+          cellSizeMeters = (config["cell_size_meters"] as? Number)?.toDouble() ?: 100.0,
+          minVisits = (config["min_visits"] as? Number)?.toInt()?.toUInt() ?: 3u,
+          minCells = (config["min_cells"] as? Number)?.toInt()?.toUInt() ?: 5u,
+          diagonalConnect = (config["diagonal_connect"] as? Boolean) ?: true
+        )
+      } else {
+        defaultSectionConfig()
+      }
+
+      val startTime = System.currentTimeMillis()
+      val result = ffiDetectFrequentSections(signatures, groups, sportTypes, sectionConfig)
+      val elapsed = System.currentTimeMillis() - startTime
+
+      Log.i(TAG, "🦀 detectFrequentSections returned ${result.size} sections in ${elapsed}ms")
+
+      result.map { section ->
+        mapOf(
+          "id" to section.id,
+          "sport_type" to section.sportType,
+          "cells" to section.cells.map { mapOf("row" to it.row.toInt(), "col" to it.col.toInt()) },
+          "polyline" to section.polyline.map { mapOf("latitude" to it.latitude, "longitude" to it.longitude) },
+          "activity_ids" to section.activityIds,
+          "route_ids" to section.routeIds,
+          "visit_count" to section.visitCount.toInt(),
+          "distance_meters" to section.distanceMeters,
+          "first_visit" to section.firstVisit.toLong(),
+          "last_visit" to section.lastVisit.toLong()
+        )
+      }
+    }
+
+    // Heatmap generation
+    Function("defaultHeatmapConfig") {
+      val config = defaultHeatmapConfig()
+      mapOf(
+        "cell_size_meters" to config.cellSizeMeters.toInt(),
+        "bounds" to config.bounds?.let { b ->
+          mapOf("min_lat" to b.minLat, "max_lat" to b.maxLat, "min_lng" to b.minLng, "max_lng" to b.maxLng)
+        }
+      )
+    }
+
+    Function("generateHeatmap") { sigMaps: List<Map<String, Any>>, activityDataMaps: List<Map<String, Any>>, config: Map<String, Any>? ->
+      Log.i(TAG, "🦀 generateHeatmap: ${sigMaps.size} signatures")
+
+      val signatures = sigMaps.mapNotNull { mapToSignature(it) }
+      val activityData = activityDataMaps.map { m ->
+        ActivityHeatmapData(
+          activityId = m["activity_id"] as String,
+          routeId = m["route_id"] as? String,
+          routeName = m["route_name"] as? String,
+          timestamp = (m["timestamp"] as? Number)?.toLong()
+        )
+      }
+
+      @Suppress("UNCHECKED_CAST")
+      val boundsMap = config?.get("bounds") as? Map<String, Double>
+      val heatmapConfig = HeatmapConfig(
+        cellSizeMeters = (config?.get("cell_size_meters") as? Number)?.toDouble() ?: 100.0,
+        bounds = boundsMap?.let { b ->
+          HeatmapBounds(
+            minLat = b["min_lat"]!!,
+            maxLat = b["max_lat"]!!,
+            minLng = b["min_lng"]!!,
+            maxLng = b["max_lng"]!!
+          )
+        }
+      )
+
+      val startTime = System.currentTimeMillis()
+      val result = ffiGenerateHeatmap(signatures, activityData, heatmapConfig)
+      val elapsed = System.currentTimeMillis() - startTime
+
+      Log.i(TAG, "🦀 generateHeatmap returned ${result.cells.size} cells in ${elapsed}ms")
+
+      mapOf(
+        "cells" to result.cells.map { cell ->
+          mapOf(
+            "row" to cell.row.toInt(),
+            "col" to cell.col.toInt(),
+            "center_lat" to cell.centerLat,
+            "center_lng" to cell.centerLng,
+            "density" to cell.density,
+            "visit_count" to cell.visitCount.toInt(),
+            "route_refs" to cell.routeRefs.map { r ->
+              mapOf("route_id" to r.routeId, "activity_count" to r.activityCount.toInt(), "name" to r.name)
+            },
+            "unique_route_count" to cell.uniqueRouteCount.toInt(),
+            "activity_ids" to cell.activityIds,
+            "first_visit" to cell.firstVisit?.toLong(),
+            "last_visit" to cell.lastVisit?.toLong(),
+            "is_common_path" to cell.isCommonPath
+          )
+        },
+        "bounds" to mapOf(
+          "min_lat" to result.bounds.minLat,
+          "max_lat" to result.bounds.maxLat,
+          "min_lng" to result.bounds.minLng,
+          "max_lng" to result.bounds.maxLng
+        ),
+        "cell_size_meters" to result.cellSizeMeters.toInt(),
+        "grid_rows" to result.gridRows.toInt(),
+        "grid_cols" to result.gridCols.toInt(),
+        "max_density" to result.maxDensity,
+        "total_routes" to result.totalRoutes.toInt(),
+        "total_activities" to result.totalActivities.toInt()
+      )
+    }
+
+    Function("queryHeatmapCell") { heatmapMap: Map<String, Any>, lat: Double, lng: Double ->
+      @Suppress("UNCHECKED_CAST")
+      val cellMaps = heatmapMap["cells"] as List<Map<String, Any>>
+      val boundsMap = heatmapMap["bounds"] as Map<String, Double>
+
+      val cells = cellMaps.map { c ->
+        @Suppress("UNCHECKED_CAST")
+        val routeRefMaps = c["route_refs"] as List<Map<String, Any>>
+        HeatmapCell(
+          row = (c["row"] as Number).toInt(),
+          col = (c["col"] as Number).toInt(),
+          centerLat = c["center_lat"] as Double,
+          centerLng = c["center_lng"] as Double,
+          density = (c["density"] as Number).toFloat(),
+          visitCount = (c["visit_count"] as Number).toInt().toUInt(),
+          routeRefs = routeRefMaps.map { r ->
+            RouteRef(
+              routeId = r["route_id"] as String,
+              activityCount = (r["activity_count"] as Number).toInt().toUInt(),
+              name = r["name"] as? String
+            )
+          },
+          uniqueRouteCount = (c["unique_route_count"] as Number).toInt().toUInt(),
+          activityIds = c["activity_ids"] as List<String>,
+          firstVisit = (c["first_visit"] as? Number)?.toLong(),
+          lastVisit = (c["last_visit"] as? Number)?.toLong(),
+          isCommonPath = c["is_common_path"] as Boolean
+        )
+      }
+
+      val heatmap = HeatmapResult(
+        cells = cells,
+        bounds = HeatmapBounds(
+          minLat = boundsMap["min_lat"]!!,
+          maxLat = boundsMap["max_lat"]!!,
+          minLng = boundsMap["min_lng"]!!,
+          maxLng = boundsMap["max_lng"]!!
+        ),
+        cellSizeMeters = (heatmapMap["cell_size_meters"] as Number).toDouble(),
+        gridRows = (heatmapMap["grid_rows"] as Number).toInt().toUInt(),
+        gridCols = (heatmapMap["grid_cols"] as Number).toInt().toUInt(),
+        maxDensity = (heatmapMap["max_density"] as Number).toFloat(),
+        totalRoutes = (heatmapMap["total_routes"] as Number).toInt().toUInt(),
+        totalActivities = (heatmapMap["total_activities"] as Number).toInt().toUInt()
+      )
+
+      val result = ffiQueryHeatmapCell(heatmap, lat, lng)
+      result?.let { r ->
+        mapOf(
+          "cell" to mapOf(
+            "row" to r.cell.row.toInt(),
+            "col" to r.cell.col.toInt(),
+            "center_lat" to r.cell.centerLat,
+            "center_lng" to r.cell.centerLng,
+            "density" to r.cell.density,
+            "visit_count" to r.cell.visitCount.toInt(),
+            "route_refs" to r.cell.routeRefs.map { ref ->
+              mapOf("route_id" to ref.routeId, "activity_count" to ref.activityCount.toInt(), "name" to ref.name)
+            },
+            "unique_route_count" to r.cell.uniqueRouteCount.toInt(),
+            "activity_ids" to r.cell.activityIds,
+            "first_visit" to r.cell.firstVisit?.toLong(),
+            "last_visit" to r.cell.lastVisit?.toLong(),
+            "is_common_path" to r.cell.isCommonPath
+          ),
+          "suggested_label" to r.suggestedLabel
+        )
+      }
+    }
   }
 
   private fun parseConfig(map: Map<String, Any>?): MatchConfig {
@@ -418,7 +657,14 @@ class RouteMatcherModule : Module() {
       "points" to sig.points.map { mapOf("latitude" to it.latitude, "longitude" to it.longitude) },
       "totalDistance" to sig.totalDistance,
       "startPoint" to mapOf("latitude" to sig.startPoint.latitude, "longitude" to sig.startPoint.longitude),
-      "endPoint" to mapOf("latitude" to sig.endPoint.latitude, "longitude" to sig.endPoint.longitude)
+      "endPoint" to mapOf("latitude" to sig.endPoint.latitude, "longitude" to sig.endPoint.longitude),
+      "bounds" to mapOf(
+        "minLat" to sig.bounds.minLat,
+        "maxLat" to sig.bounds.maxLat,
+        "minLng" to sig.bounds.minLng,
+        "maxLng" to sig.bounds.maxLng
+      ),
+      "center" to mapOf("latitude" to sig.center.latitude, "longitude" to sig.center.longitude)
     )
   }
 
@@ -429,6 +675,8 @@ class RouteMatcherModule : Module() {
     val totalDistance = (map["totalDistance"] as? Number)?.toDouble() ?: return null
     val startMap = map["startPoint"] as? Map<String, Double> ?: return null
     val endMap = map["endPoint"] as? Map<String, Double> ?: return null
+    val boundsMap = map["bounds"] as? Map<String, Double> ?: return null
+    val centerMap = map["center"] as? Map<String, Double> ?: return null
 
     val points = pointMaps.mapNotNull { dict ->
       val lat = dict["latitude"] ?: return@mapNotNull null
@@ -446,12 +694,26 @@ class RouteMatcherModule : Module() {
       endMap["longitude"] ?: return null
     )
 
+    val bounds = Bounds(
+      minLat = boundsMap["minLat"] ?: return null,
+      maxLat = boundsMap["maxLat"] ?: return null,
+      minLng = boundsMap["minLng"] ?: return null,
+      maxLng = boundsMap["maxLng"] ?: return null
+    )
+
+    val center = GpsPoint(
+      centerMap["latitude"] ?: return null,
+      centerMap["longitude"] ?: return null
+    )
+
     return RouteSignature(
       activityId = activityId,
       points = points,
       totalDistance = totalDistance,
       startPoint = startPoint,
-      endPoint = endPoint
+      endPoint = endPoint,
+      bounds = bounds,
+      center = center
     )
   }
 }

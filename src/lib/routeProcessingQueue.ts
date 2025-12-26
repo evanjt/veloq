@@ -162,16 +162,31 @@ function generateRouteSignature(
   // Convert to app format - use pre-computed bounds/center from Rust for 120Hz performance
   const routePoints = nativeSig.points.map(p => ({ lat: p.latitude, lng: p.longitude }));
 
-  // Use pre-computed bounds from Rust (no JS calculation needed!)
-  const bounds = {
-    minLat: nativeSig.bounds.minLat,
-    maxLat: nativeSig.bounds.maxLat,
-    minLng: nativeSig.bounds.minLng,
-    maxLng: nativeSig.bounds.maxLng,
-  };
+  // Use pre-computed bounds from Rust (with fallback for old native binaries)
+  let bounds: { minLat: number; maxLat: number; minLng: number; maxLng: number };
+  let center: { lat: number; lng: number };
 
-  // Use pre-computed center from Rust (for 120Hz map rendering)
-  const center = { lat: nativeSig.center.latitude, lng: nativeSig.center.longitude };
+  if (nativeSig.bounds && nativeSig.center) {
+    // Fast path: use pre-computed values from Rust
+    bounds = {
+      minLat: nativeSig.bounds.minLat,
+      maxLat: nativeSig.bounds.maxLat,
+      minLng: nativeSig.bounds.minLng,
+      maxLng: nativeSig.bounds.maxLng,
+    };
+    center = { lat: nativeSig.center.latitude, lng: nativeSig.center.longitude };
+  } else {
+    // Fallback: compute bounds from points (old native binary without bounds)
+    let minLat = Infinity, maxLat = -Infinity, minLng = Infinity, maxLng = -Infinity;
+    for (const p of routePoints) {
+      minLat = Math.min(minLat, p.lat);
+      maxLat = Math.max(maxLat, p.lat);
+      minLng = Math.min(minLng, p.lng);
+      maxLng = Math.max(maxLng, p.lng);
+    }
+    bounds = { minLat, maxLat, minLng, maxLng };
+    center = { lat: (minLat + maxLat) / 2, lng: (minLng + maxLng) / 2 };
+  }
 
   // Compute start/end region hashes
   const startPoint = routePoints[0];
@@ -253,16 +268,31 @@ function generateRouteSignaturesBatch(
   return nativeSignatures.map(nativeSig => {
     const routePoints = nativeSig.points.map(p => ({ lat: p.latitude, lng: p.longitude }));
 
-    // Use pre-computed bounds from Rust (no JS calculation needed!)
-    const bounds = {
-      minLat: nativeSig.bounds.minLat,
-      maxLat: nativeSig.bounds.maxLat,
-      minLng: nativeSig.bounds.minLng,
-      maxLng: nativeSig.bounds.maxLng,
-    };
+    // Use pre-computed bounds from Rust (with fallback for old native binaries)
+    let bounds: { minLat: number; maxLat: number; minLng: number; maxLng: number };
+    let center: { lat: number; lng: number };
 
-    // Use pre-computed center from Rust (for 120Hz map rendering)
-    const center = { lat: nativeSig.center.latitude, lng: nativeSig.center.longitude };
+    if (nativeSig.bounds && nativeSig.center) {
+      // Fast path: use pre-computed values from Rust
+      bounds = {
+        minLat: nativeSig.bounds.minLat,
+        maxLat: nativeSig.bounds.maxLat,
+        minLng: nativeSig.bounds.minLng,
+        maxLng: nativeSig.bounds.maxLng,
+      };
+      center = { lat: nativeSig.center.latitude, lng: nativeSig.center.longitude };
+    } else {
+      // Fallback: compute bounds from points (old native binary without bounds)
+      let minLat = Infinity, maxLat = -Infinity, minLng = Infinity, maxLng = -Infinity;
+      for (const p of routePoints) {
+        minLat = Math.min(minLat, p.lat);
+        maxLat = Math.max(maxLat, p.lat);
+        minLng = Math.min(minLng, p.lng);
+        maxLng = Math.max(maxLng, p.lng);
+      }
+      bounds = { minLat, maxLat, minLng, maxLng };
+      center = { lat: (minLat + maxLat) / 2, lng: (minLng + maxLng) / 2 };
+    }
 
     // Compute hashes
     const startPoint = routePoints[0];

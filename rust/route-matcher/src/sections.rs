@@ -91,8 +91,6 @@ struct CellData {
     route_ids: HashSet<String>,
     /// Total visit count (points that landed in this cell)
     visit_count: u32,
-    /// Center point of the cell (for polyline generation)
-    center: GpsPoint,
 }
 
 /// Grid for a specific sport type
@@ -101,8 +99,6 @@ struct SportGrid {
     cell_size_lat: f64,
     /// Cell size in degrees (longitude) - varies by latitude
     cell_size_lng: f64,
-    /// Reference latitude for longitude scaling
-    ref_lat: f64,
     /// Grid cells indexed by (row, col)
     cells: HashMap<(i32, i32), CellData>,
 }
@@ -118,7 +114,6 @@ impl SportGrid {
         Self {
             cell_size_lat,
             cell_size_lng,
-            ref_lat,
             cells: HashMap::new(),
         }
     }
@@ -141,14 +136,10 @@ impl SportGrid {
     fn add_point(&mut self, point: &GpsPoint, activity_id: &str, route_id: Option<&str>) {
         let (row, col) = self.point_to_cell(point);
 
-        // Compute center before borrowing cells mutably
-        let center = self.cell_center(row, col);
-
         let cell = self.cells.entry((row, col)).or_insert_with(|| CellData {
             activity_ids: HashSet::new(),
             route_ids: HashSet::new(),
             visit_count: 0,
-            center,
         });
 
         cell.activity_ids.insert(activity_id.to_string());
@@ -421,23 +412,6 @@ fn haversine_distance(p1: &GpsPoint, p2: &GpsPoint) -> f64 {
     let point1 = Point::new(p1.longitude, p1.latitude);
     let point2 = Point::new(p2.longitude, p2.latitude);
     Haversine::distance(point1, point2)
-}
-
-// ============================================================================
-// Parallel Processing
-// ============================================================================
-
-/// Detect frequent sections using parallel processing
-#[cfg(feature = "parallel")]
-pub fn detect_frequent_sections_parallel(
-    signatures: &[RouteSignature],
-    groups: &[RouteGroup],
-    sport_types: &HashMap<String, String>,
-    config: &SectionConfig,
-) -> Vec<FrequentSection> {
-    // The grid building is mostly sequential due to HashMap mutation
-    // But we can parallelize the cluster building per sport
-    detect_frequent_sections(signatures, groups, sport_types, config)
 }
 
 // ============================================================================

@@ -5,6 +5,7 @@
 
 import { useMemo, useCallback } from 'react';
 import { useRouteMatchStore } from '@/providers';
+import { useShallow } from 'zustand/react/shallow';
 import {
   generateHeatmap as nativeGenerateHeatmap,
   queryHeatmapCell as nativeQueryHeatmapCell,
@@ -15,6 +16,11 @@ import {
   type ActivityHeatmapData,
   type RouteSignature,
 } from 'route-matcher-native';
+
+// Stable empty defaults to prevent infinite loops in Zustand selectors
+const EMPTY_SIGNATURES: Record<string, RouteSignature> = {};
+const EMPTY_GROUPS: { groupId: string; activityIds: string[] }[] = [];
+const EMPTY_METADATA: Record<string, { name: string; date: string; type: string }> = {};
 
 export interface UseHeatmapOptions {
   /** Grid cell size in meters (default: 100m) */
@@ -42,9 +48,10 @@ export function useHeatmap(options: UseHeatmapOptions = {}): UseHeatmapResult {
   const { cellSizeMeters = 100, sportType } = options;
 
   // Get cached data from route match store
-  const signatures = useRouteMatchStore((s) => s.cache?.signatures ?? {});
-  const groups = useRouteMatchStore((s) => s.cache?.groups ?? []);
-  const activityMetadata = useRouteMatchStore((s) => s.cache?.activityMetadata ?? {});
+  // Use stable empty defaults to prevent infinite re-renders when cache is null
+  const signatures = useRouteMatchStore((s) => s.cache?.signatures ?? EMPTY_SIGNATURES);
+  const groups = useRouteMatchStore((s) => s.cache?.groups ?? EMPTY_GROUPS);
+  const activityMetadata = useRouteMatchStore((s) => s.cache?.activityMetadata ?? EMPTY_METADATA);
 
   // Build activity -> route mapping
   const activityToRoute = useMemo(() => {
