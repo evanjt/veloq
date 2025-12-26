@@ -341,6 +341,25 @@ export function addSignaturesToCache(
 }
 
 /**
+ * Mark activities as processed (even if they failed to generate signatures).
+ * This prevents them from being re-processed on every app launch.
+ */
+export function markActivitiesAsProcessed(
+  cache: RouteMatchCache,
+  activityIds: string[]
+): RouteMatchCache {
+  const newProcessedIds = new Set(cache.processedActivityIds);
+  for (const id of activityIds) {
+    newProcessedIds.add(id);
+  }
+  return {
+    ...cache,
+    processedActivityIds: Array.from(newProcessedIds),
+    lastUpdated: new Date().toISOString(),
+  };
+}
+
+/**
  * Generate a stable route group ID based on the representative activity.
  * Using the activity ID ensures the same group keeps the same ID across re-processing.
  */

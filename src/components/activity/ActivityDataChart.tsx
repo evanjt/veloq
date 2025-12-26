@@ -1,5 +1,5 @@
 import React, { useMemo, useRef, useState, useCallback } from 'react';
-import { View, StyleSheet, useColorScheme } from 'react-native';
+import { View, StyleSheet, useColorScheme, Platform } from 'react-native';
 import { Text } from 'react-native-paper';
 import { CartesianChart, Area } from 'victory-native';
 import { LinearGradient, vec } from '@shopify/react-native-skia';
@@ -173,6 +173,7 @@ export function ActivityDataChart({
   );
 
   // Gesture handler on UI thread
+  // iOS: require small movement to avoid blocking swipe-back navigation
   const gesture = Gesture.Pan()
     .onStart((e) => {
       'worklet';
@@ -186,7 +187,8 @@ export function ActivityDataChart({
       'worklet';
       touchX.value = -1;
     })
-    .minDistance(0)
+    .minDistance(Platform.OS === 'ios' ? 10 : 0)
+    .activeOffsetX(Platform.OS === 'ios' ? [-15, 15] : 0)
     .activateAfterLongPress(700);
 
   // Animated crosshair style - follows finger directly for smooth tracking

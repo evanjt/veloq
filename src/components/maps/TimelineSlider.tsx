@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   LayoutChangeEvent,
   ScrollView,
+  Platform,
 } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
@@ -15,7 +16,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { colors } from '@/theme';
+import { colors, shadows, smallElementShadow } from '@/theme';
 import { ACTIVITY_CATEGORIES, getActivityCategory, groupTypesByCategory } from './ActivityTypeFilter';
 
 interface SyncProgress {
@@ -64,8 +65,9 @@ function formatShortDate(date: Date): string {
 }
 
 // Larger touch area for handles
+// iOS needs larger hit areas for reliable touch detection on high-DPI screens
 const HANDLE_SIZE = 28;
-const HANDLE_HIT_SLOP = 20;
+const HANDLE_HIT_SLOP = Platform.select({ ios: 30, default: 20 });
 const MIN_RANGE = 0.02;
 
 // Non-linear scale constants
@@ -615,11 +617,8 @@ const styles = StyleSheet.create({
     borderColor: colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 5,
+    // Platform-optimized shadow for small interactive elements
+    ...smallElementShadow(),
   },
   handleInner: {
     width: 8,

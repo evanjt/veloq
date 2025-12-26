@@ -1,5 +1,5 @@
 import React, { useCallback } from 'react';
-import { GestureResponderEvent, Pressable, PressableProps, StyleProp, ViewStyle } from 'react-native';
+import { GestureResponderEvent, Platform, Pressable, PressableProps, StyleProp, ViewStyle } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -23,11 +23,20 @@ interface AnimatedPressableProps extends Omit<PressableProps, 'style'> {
   children?: React.ReactNode;
 }
 
-const springConfig: WithSpringConfig = {
-  damping: 15,
-  stiffness: 400,
-  mass: 0.5,
-};
+// Platform-specific spring configurations
+// iOS feels snappier with lower damping and higher stiffness
+const springConfig: WithSpringConfig = Platform.select({
+  ios: {
+    damping: 12,
+    stiffness: 500,
+    mass: 0.3,
+  },
+  default: {
+    damping: 15,
+    stiffness: 400,
+    mass: 0.5,
+  },
+}) as WithSpringConfig;
 
 export function AnimatedPressable({
   pressScale = 0.97,

@@ -1,11 +1,11 @@
 import React, { useMemo, useRef, useState, useCallback } from 'react';
-import { View, StyleSheet, useColorScheme, Text } from 'react-native';
+import { View, StyleSheet, useColorScheme, Text, Platform } from 'react-native';
 import { CartesianChart, Area } from 'victory-native';
 import { LinearGradient, vec } from '@shopify/react-native-skia';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { useSharedValue, useAnimatedReaction, runOnJS, useDerivedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
-import { colors } from '@/theme';
+import { colors, shadows } from '@/theme';
 import { useMetricSystem } from '@/hooks';
 import type { ChartConfig, ChartTypeId } from '@/lib/chartConfig';
 import type { ActivityStreams } from '@/types';
@@ -242,6 +242,7 @@ export const CombinedPlot = React.memo(function CombinedPlot({
   // Gesture handler - updates shared values on UI thread (no JS bridge for position)
   // Use activateAfterLongPress to require a brief hold before scrubbing starts
   // This prevents accidental scrubbing when scrolling the page
+  // iOS: require small movement to avoid blocking swipe-back navigation
   const gesture = Gesture.Pan()
     .onStart((e) => {
       'worklet';
@@ -255,7 +256,8 @@ export const CombinedPlot = React.memo(function CombinedPlot({
       'worklet';
       touchX.value = -1;
     })
-    .minDistance(0)
+    .minDistance(Platform.OS === 'ios' ? 10 : 0)
+    .activeOffsetX(Platform.OS === 'ios' ? [-15, 15] : undefined)
     .activateAfterLongPress(700); // 700ms hold before scrubbing activates
 
   // Animated crosshair style - follows finger directly for smooth tracking
@@ -469,11 +471,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    // Platform-optimized shadow
+    ...shadows.pill,
   },
   distanceIndicatorDark: {
     backgroundColor: 'rgba(40, 40, 40, 0.9)',

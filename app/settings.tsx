@@ -113,6 +113,14 @@ export default function SettingsScreen() {
     sync90Days,
   } = useActivityBoundsCache();
 
+  // Route matching cache
+  const { progress: routeProgress, isProcessing: isRouteProcessing, clearCache: clearRouteCache, cancel: cancelRouteProcessing } = useRouteProcessing();
+  // Use minActivities: 2 to show actual routes (groups with 2+ activities), not signatures
+  const { groups: routeGroups, processedCount: routeProcessedCount } = useRouteGroups({ minActivities: 2 });
+
+  // Route matching settings
+  const { settings: routeSettings, setEnabled: setRouteMatchingEnabled } = useRouteSettings();
+
   // Cache sizes state
   const [cacheSizes, setCacheSizes] = useState<{
     bounds: number;
@@ -133,14 +141,6 @@ export default function SettingsScreen() {
   useEffect(() => {
     refreshCacheSizes();
   }, [refreshCacheSizes, activities.length, routeProcessedCount]);
-
-  // Route matching cache
-  const { progress: routeProgress, isProcessing: isRouteProcessing, clearCache: clearRouteCache, cancel: cancelRouteProcessing } = useRouteProcessing();
-  // Use minActivities: 2 to show actual routes (groups with 2+ activities), not signatures
-  const { groups: routeGroups, processedCount: routeProcessedCount } = useRouteGroups({ minActivities: 2 });
-
-  // Route matching settings
-  const { settings: routeSettings, setEnabled: setRouteMatchingEnabled } = useRouteSettings();
 
   const profileUrl = athlete?.profile_medium || athlete?.profile;
   const hasValidProfileUrl = profileUrl && typeof profileUrl === 'string' && profileUrl.startsWith('http');
@@ -455,7 +455,7 @@ export default function SettingsScreen() {
             </View>
           )}
           {isRouteProcessing && (
-            <View style={[styles.syncBanner, { backgroundColor: colors.secondary }]}>
+            <View style={[styles.syncBanner, { backgroundColor: colors.chartPurple }]}>
               <MaterialCommunityIcons name="map-marker-path" size={18} color="#FFF" />
               <Text style={styles.syncBannerText}>
                 {routeProgress.message || `Analysing ${routeProgress.current}/${routeProgress.total}`}
