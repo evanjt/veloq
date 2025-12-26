@@ -34,6 +34,25 @@ import {
 import type { ActivityBoundsItem, ActivityMapData, RouteSignature } from '@/types';
 import { useRouteMatchStore } from '@/providers';
 
+/**
+ * 120Hz OPTIMIZATION SUMMARY:
+ *
+ * This component has been optimized for smooth 120fps pan/zoom by:
+ *
+ * 1. Pre-computed centers: Activity centers are computed once in a useMemo
+ *    (using Rust-computed centers from RouteSignature when available),
+ *    avoiding getBoundsCenter() format detection during render.
+ *
+ * 2. Stable GeoJSON: markersGeoJSON and tracesGeoJSON no longer depend on
+ *    selection state. Instead, MapLibre expressions use selectedActivityId
+ *    directly, preventing GeoJSON rebuilds on selection change.
+ *
+ * 3. Efficient sorting: sortedVisibleActivities skips sorting when no
+ *    selection, and uses stable ID comparison.
+ *
+ * 4. Viewport culling: Uses spatial index (R-tree) to filter activities
+ *    to only those in current viewport before rendering.
+ */
 interface RegionalMapViewProps {
   /** Activities to display */
   activities: ActivityBoundsItem[];
@@ -60,8 +79,29 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
   const [currentZoom, setCurrentZoom] = useState(10);
   const cameraRef = useRef<React.ElementRef<typeof Camera>>(null);
 
-  // Access route signatures for GPS trace rendering
+  // Access route signatures for GPS trace rendering and pre-computed centers
   const routeSignatures = useRouteMatchStore((s) => s.cache?.signatures ?? {});
+
+  // ===========================================
+  // 120HZ OPTIMIZATION: Pre-compute and cache activity centers
+  // ===========================================
+  // Uses centers from RouteSignature when available (already computed in Rust)
+  // Falls back to computing from bounds for activities without signatures
+  // This avoids calling getBoundsCenter() (which does format detection) during render
+  const activityCenters = useMemo(() => {
+    const centers: Record<string, [number, number]> = {};
+    for (const activity of activities) {
+      // Try to use pre-computed center from RouteSignature (computed in Rust)
+      const signature = routeSignatures[activity.id];
+      if (signature?.center) {
+        centers[activity.id] = [signature.center.lng, signature.center.lat];
+      } else {
+        // Fallback: compute from bounds (only for activities without signatures)
+        centers[activity.id] = getBoundsCenter(activity.bounds);
+      }
+    }
+    return centers;
+  }, [activities, routeSignatures]);
 
   // Show GPS traces when zoomed in past this level
   const TRACE_ZOOM_THRESHOLD = 11;
@@ -294,12 +334,6 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
     return 32; // > 30km
   };
 
-  // Get center of bounds - uses getBoundsCenter which auto-detects format
-  // Returns [longitude, latitude] for MapLibre
-  const getCenter = (bounds: [[number, number], [number, number]]): [number, number] => {
-    return getBoundsCenter(bounds);
-  };
-
   // ===========================================
   // GPS TRACE RENDERING - Show simplified routes when zoomed in
   // ===========================================
@@ -308,7 +342,11 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
 
   const showTraces = currentZoom >= TRACE_ZOOM_THRESHOLD;
 
+  // ===========================================
+  // 120HZ OPTIMIZATION: Stable traces GeoJSON
+  // ===========================================
   // Build GeoJSON for GPS traces from route signatures
+  // NOTE: Does NOT include isSelected - use MapLibre expressions with selectedActivityId
   const tracesGeoJSON = useMemo(() => {
     if (!showTraces) return null;
 
@@ -327,7 +365,6 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
           properties: {
             id: activity.id,
             color: config.color,
-            isSelected: selected?.activity.id === activity.id,
           },
           geometry: {
             type: 'LineString' as const,
@@ -340,7 +377,7 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
       type: 'FeatureCollection' as const,
       features,
     };
-  }, [showTraces, visibleActivities, routeSignatures, selected?.activity.id]);
+  }, [showTraces, visibleActivities, routeSignatures]);
 
   // ===========================================
   // NATIVE MARKER RENDERING - Uses CircleLayer instead of React components
@@ -348,19 +385,30 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
   // This completely avoids touch interception issues with Pressable
   // Markers are rendered as native map features, preserving all gestures
 
+  // ===========================================
+  // 120HZ OPTIMIZATION: Stable sort order
+  // ===========================================
   // Sort activities so selected is rendered last (on top)
+  // Uses selectedActivityId to avoid re-sorting when other selection properties change
   const sortedVisibleActivities = useMemo(() => {
+    const selId = selected?.activity.id;
+    if (!selId) return visibleActivities; // No selection, no need to sort
     return [...visibleActivities].sort((a, b) => {
-      if (selected?.activity.id === a.id) return 1;
-      if (selected?.activity.id === b.id) return -1;
+      if (selId === a.id) return 1;
+      if (selId === b.id) return -1;
       return 0;
     });
   }, [visibleActivities, selected?.activity.id]);
 
+  // ===========================================
+  // 120HZ OPTIMIZATION: Stable GeoJSON that doesn't rebuild on selection
+  // ===========================================
   // Build GeoJSON feature collection for activity markers (only visible ones)
+  // NOTE: Does NOT include isSelected - use MapLibre expressions with selectedActivityId
   const markersGeoJSON = useMemo(() => {
     const features = visibleActivities.map((activity) => {
-      const center = getCenter(activity.bounds);
+      // Use pre-computed center (no format detection during render!)
+      const center = activityCenters[activity.id];
       const config = getActivityTypeConfig(activity.type);
       const size = getMarkerSize(activity.distance);
 
@@ -372,7 +420,6 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
           type: activity.type,
           color: config.color,
           size: size,
-          isSelected: selected?.activity.id === activity.id,
         },
         geometry: {
           type: 'Point' as const,
@@ -385,7 +432,10 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
       type: 'FeatureCollection' as const,
       features,
     };
-  }, [visibleActivities, selected?.activity.id]);
+  }, [visibleActivities, activityCenters]);
+
+  // Selected activity ID for MapLibre expressions (cheap to pass, doesn't trigger GeoJSON rebuild)
+  const selectedActivityId = selected?.activity.id ?? null;
 
   // Handle marker tap via ShapeSource press - NO touch interception!
   const handleMarkerPress = useCallback((event: { features?: GeoJSON.Feature[] }) => {
@@ -509,9 +559,10 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
         {/* Only renders visible activities for performance (viewport culling) */}
         {sortedVisibleActivities.map((activity) => {
           const config = getActivityTypeConfig(activity.type);
-          const center = getCenter(activity.bounds);
+          // Use pre-computed center (no format detection during render!)
+          const center = activityCenters[activity.id];
           const size = getMarkerSize(activity.distance);
-          const isSelected = selected?.activity.id === activity.id;
+          const isSelected = selectedActivityId === activity.id;
           const markerSize = isSelected ? size + 8 : size;
           // Larger icon ratio to fill more of the marker
           const iconSize = isSelected ? size * 0.75 : size * 0.7;
@@ -562,7 +613,9 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
                 lineColor: ['get', 'color'],
                 lineWidth: [
                   'case',
-                  ['get', 'isSelected'], 0, // Hide selected trace (full route shown instead)
+                  // Hide selected trace (full route shown instead)
+                  // Uses selectedActivityId variable instead of isSelected property for 120Hz
+                  ['==', ['get', 'id'], selectedActivityId ?? ''], 0,
                   2,
                 ],
                 lineOpacity: 0.4,
