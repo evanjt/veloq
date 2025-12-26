@@ -506,37 +506,30 @@ export function parseBounds(bounds: number[]): { ne: [number, number]; sw: [numb
 
 /**
  * Configuration for section detection.
+ * Uses vector-first approach for smooth, natural section polylines.
  */
 export interface SectionConfig {
-  /** Grid cell size in meters (default: 100m) */
-  cellSizeMeters: number;
-  /** Minimum visits to a cell to be considered frequent (default: 3) */
-  minVisits: number;
-  /** Minimum cells in a cluster to form a section (default: 5, ~500m) */
-  minCells: number;
-  /** Whether to use 8-directional (true) or 4-directional (false) flood-fill */
-  diagonalConnect: boolean;
+  /** Maximum distance between tracks to consider overlapping (meters). Default: 30m */
+  proximityThreshold: number;
+  /** Minimum overlap length to consider a section (meters). Default: 200m */
+  minSectionLength: number;
+  /** Minimum number of activities that must share an overlap. Default: 3 */
+  minActivities: number;
+  /** Tolerance for clustering similar overlaps (meters). Default: 50m */
+  clusterTolerance: number;
+  /** Number of sample points for polyline normalization. Default: 50 */
+  samplePoints: number;
 }
 
 /**
- * Grid cell coordinate.
- */
-export interface CellCoord {
-  row: number;
-  col: number;
-}
-
-/**
- * A frequently-traveled section (~100m grid cells).
+ * A frequently-traveled section with smooth polyline from actual GPS tracks.
  */
 export interface FrequentSection {
   /** Unique section ID */
   id: string;
   /** Sport type this section is for ("Run", "Ride", etc.) */
   sportType: string;
-  /** Grid cell coordinates that make up this section */
-  cells: CellCoord[];
-  /** Simplified polyline for rendering (ordered path through cells) */
+  /** Smooth polyline from actual GPS tracks */
   polyline: GpsPoint[];
   /** Activity IDs that traverse this section */
   activityIds: string[];
@@ -544,12 +537,8 @@ export interface FrequentSection {
   routeIds: string[];
   /** Total number of traversals */
   visitCount: number;
-  /** Estimated section length in meters */
+  /** Section length in meters */
   distanceMeters: number;
-  /** Timestamp of first visit (Unix seconds, 0 if unknown) */
-  firstVisit: number;
-  /** Timestamp of last visit (Unix seconds, 0 if unknown) */
-  lastVisit: number;
 }
 
 /**
@@ -562,8 +551,8 @@ export interface ActivitySportType {
 
 /**
  * Detect frequent sections from route signatures.
- * Uses a grid-based algorithm to find road sections that are frequently traveled,
- * even when full routes differ.
+ * Uses vector-first algorithm to find road sections that are frequently traveled.
+ * Produces smooth polylines from actual GPS tracks.
  *
  * @param signatures - Route signatures with GPS points
  * @param groups - Route groups (for linking sections to routes)
@@ -582,10 +571,11 @@ export function detectFrequentSections(
 
   // Convert to native format
   const nativeConfig = config ? {
-    cell_size_meters: config.cellSizeMeters ?? 100,
-    min_visits: config.minVisits ?? 3,
-    min_cells: config.minCells ?? 5,
-    diagonal_connect: config.diagonalConnect ?? true,
+    proximity_threshold: config.proximityThreshold ?? 30.0,
+    min_section_length: config.minSectionLength ?? 200.0,
+    min_activities: config.minActivities ?? 3,
+    cluster_tolerance: config.clusterTolerance ?? 50.0,
+    sample_points: config.samplePoints ?? 50,
   } : NativeModule.defaultSectionConfig();
 
   const result = NativeModule.detectFrequentSections(
@@ -605,14 +595,11 @@ export function detectFrequentSections(
   return (result || []).map((s: Record<string, unknown>) => ({
     id: s.id as string,
     sportType: s.sport_type as string,
-    cells: (s.cells as Array<{ row: number; col: number }>).map(c => ({ row: c.row, col: c.col })),
     polyline: (s.polyline as GpsPoint[]),
     activityIds: s.activity_ids as string[],
     routeIds: s.route_ids as string[],
     visitCount: s.visit_count as number,
     distanceMeters: s.distance_meters as number,
-    firstVisit: s.first_visit as number,
-    lastVisit: s.last_visit as number,
   }));
 }
 
@@ -622,123 +609,6 @@ export function detectFrequentSections(
 export function getDefaultSectionConfig(): SectionConfig {
   const config = NativeModule.defaultSectionConfig();
   return {
-    cellSizeMeters: config.cell_size_meters,
-    minVisits: config.min_visits,
-    minCells: config.min_cells,
-    diagonalConnect: config.diagonal_connect,
-  };
-}
-
-// =============================================================================
-// Frequent Sections V2 - Vector-First Detection (Smooth Polylines)
-// =============================================================================
-
-/**
- * Configuration for v2 section detection.
- * Uses vector-first approach for smoother, more natural section polylines.
- */
-export interface SectionConfigV2 {
-  /** Maximum distance between tracks to consider overlapping (meters). Default: 30m */
-  proximityThreshold: number;
-  /** Minimum overlap length to consider a section (meters). Default: 200m */
-  minSectionLength: number;
-  /** Minimum number of activities that must share an overlap. Default: 3 */
-  minActivities: number;
-  /** Tolerance for clustering similar overlaps (meters). Default: 50m */
-  clusterTolerance: number;
-  /** Number of sample points for polyline normalization. Default: 50 */
-  samplePoints: number;
-}
-
-/**
- * A frequently-traveled section (v2 - smooth polylines).
- * Unlike v1 which uses grid cells, v2 produces smooth polylines
- * that are actual portions of real GPS tracks.
- */
-export interface FrequentSectionV2 {
-  /** Unique section ID */
-  id: string;
-  /** Sport type this section is for ("Run", "Ride", etc.) */
-  sportType: string;
-  /** Smooth polyline from actual GPS tracks (not grid-derived) */
-  polyline: GpsPoint[];
-  /** Activity IDs that traverse this section */
-  activityIds: string[];
-  /** Route group IDs that include this section */
-  routeIds: string[];
-  /** Total number of traversals */
-  visitCount: number;
-  /** Section length in meters */
-  distanceMeters: number;
-}
-
-/**
- * Detect frequent sections using vector-first approach (v2).
- * This produces smoother, more natural section polylines that are actual
- * portions of real GPS tracks, rather than grid-cell derived paths.
- *
- * Algorithm:
- * 1. For each pair of activities (same sport), find overlapping portions
- * 2. An overlap is where tracks stay within proximity threshold for sustained distance
- * 3. Cluster overlaps that are geographically similar
- * 4. Keep clusters appearing in 3+ activities
- * 5. Use median of overlapping portions as section polyline
- *
- * @param signatures - Route signatures with GPS points
- * @param groups - Route groups (for linking sections to routes)
- * @param sportTypes - Map of activity_id -> sport_type
- * @param config - Optional section detection configuration
- * @returns Array of detected frequent sections, sorted by visit count (descending)
- */
-export function detectFrequentSectionsV2(
-  signatures: RouteSignature[],
-  groups: RouteGroup[],
-  sportTypes: ActivitySportType[],
-  config?: Partial<SectionConfigV2>
-): FrequentSectionV2[] {
-  nativeLog(`RUST detectFrequentSectionsV2 called with ${signatures.length} signatures`);
-  const startTime = Date.now();
-
-  // Convert to native format (snake_case)
-  const nativeConfig = config ? {
-    proximity_threshold: config.proximityThreshold ?? 30.0,
-    min_section_length: config.minSectionLength ?? 200.0,
-    min_activities: config.minActivities ?? 3,
-    cluster_tolerance: config.clusterTolerance ?? 50.0,
-    sample_points: config.samplePoints ?? 50,
-  } : NativeModule.defaultSectionConfigV2();
-
-  const result = NativeModule.detectSectionsV2(
-    signatures,
-    groups,
-    sportTypes.map(st => ({
-      activity_id: st.activityId,
-      sport_type: st.sportType,
-    })),
-    nativeConfig
-  );
-
-  const elapsed = Date.now() - startTime;
-  nativeLog(`RUST detectFrequentSectionsV2 returned ${result?.length || 0} sections in ${elapsed}ms`);
-
-  // Convert from snake_case to camelCase
-  return (result || []).map((s: Record<string, unknown>) => ({
-    id: s.id as string,
-    sportType: s.sport_type as string,
-    polyline: (s.polyline as GpsPoint[]),
-    activityIds: s.activity_ids as string[],
-    routeIds: s.route_ids as string[],
-    visitCount: s.visit_count as number,
-    distanceMeters: s.distance_meters as number,
-  }));
-}
-
-/**
- * Get default v2 section detection configuration from Rust.
- */
-export function getDefaultSectionConfigV2(): SectionConfigV2 {
-  const config = NativeModule.defaultSectionConfigV2();
-  return {
     proximityThreshold: config.proximity_threshold,
     minSectionLength: config.min_section_length,
     minActivities: config.min_activities,
@@ -746,6 +616,7 @@ export function getDefaultSectionConfigV2(): SectionConfigV2 {
     samplePoints: config.sample_points,
   };
 }
+
 
 // =============================================================================
 // Heatmap Generation
@@ -1038,12 +909,9 @@ export default {
   addFetchProgressListener,
   flatCoordsToPoints,
   parseBounds,
-  // Frequent sections detection (v1 - grid-based)
+  // Frequent sections detection
   detectFrequentSections,
   getDefaultSectionConfig,
-  // Frequent sections detection (v2 - vector-first, smooth polylines)
-  detectFrequentSectionsV2,
-  getDefaultSectionConfigV2,
   // Heatmap generation
   generateHeatmap,
   queryHeatmapCell,

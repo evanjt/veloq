@@ -53,13 +53,9 @@ pub mod http;
 #[cfg(feature = "http")]
 pub use http::{ActivityFetcher, ActivityMapResult, MapBounds};
 
-// Frequent sections detection module (v1 - grid-based)
+// Frequent sections detection (vector-first algorithm for smooth polylines)
 pub mod sections;
-pub use sections::{FrequentSection, SectionConfig, CellCoord, detect_frequent_sections};
-
-// Frequent sections detection v2 (vector-first - smooth polylines)
-pub mod sections_v2;
-pub use sections_v2::{FrequentSectionV2, SectionConfigV2, detect_sections_v2};
+pub use sections::{FrequentSection, SectionConfig, detect_frequent_sections};
 
 // Heatmap generation module
 pub mod heatmap;
@@ -1456,57 +1452,6 @@ mod ffi {
     #[uniffi::export]
     pub fn default_section_config() -> crate::SectionConfig {
         crate::SectionConfig::default()
-    }
-
-    // ========================================================================
-    // Frequent Sections V2 - Vector-First Detection
-    // ========================================================================
-
-    /// Detect frequent sections using vector-first approach (smooth polylines).
-    /// This produces smoother, more natural section polylines that are actual
-    /// portions of real GPS tracks, rather than grid-cell derived paths.
-    #[uniffi::export]
-    pub fn ffi_detect_sections_v2(
-        signatures: Vec<RouteSignature>,
-        groups: Vec<RouteGroup>,
-        sport_types: Vec<ActivitySportType>,
-        config: crate::SectionConfigV2,
-    ) -> Vec<crate::FrequentSectionV2> {
-        init_logging();
-        info!(
-            "[RouteMatcherRust] 🦀 detect_sections_v2: {} signatures (vector-first)",
-            signatures.len()
-        );
-
-        let start = std::time::Instant::now();
-
-        // Convert sport types to HashMap
-        let sport_map: std::collections::HashMap<String, String> = sport_types
-            .into_iter()
-            .map(|st| (st.activity_id, st.sport_type))
-            .collect();
-
-        let sections = crate::sections_v2::detect_sections_v2(
-            &signatures,
-            &groups,
-            &sport_map,
-            &config,
-        );
-
-        let elapsed = start.elapsed();
-        info!(
-            "[RouteMatcherRust] 🦀 V2: Found {} sections in {:?}",
-            sections.len(),
-            elapsed
-        );
-
-        sections
-    }
-
-    /// Get default v2 section detection configuration
-    #[uniffi::export]
-    pub fn default_section_config_v2() -> crate::SectionConfigV2 {
-        crate::SectionConfigV2::default()
     }
 
     /// Fetch map data AND create route signatures in one call.
