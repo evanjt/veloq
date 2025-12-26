@@ -65,29 +65,49 @@ export async function storeGpsTracks(
   await ensureGpsDir();
 
   let totalBytes = 0;
-  const activityIds: string[] = [];
+  const trackEntries: { activityId: string; path: string; data: string }[] = [];
 
-  // Store all tracks in parallel (FileSystem handles this well)
-  const promises: Promise<void>[] = [];
-
+  // Prepare all tracks for writing
   for (const [activityId, latlngs] of tracks) {
     const data = JSON.stringify(latlngs);
     totalBytes += data.length;
-    activityIds.push(activityId);
-
-    const path = getGpsPath(activityId);
-    promises.push(FileSystem.writeAsStringAsync(path, data));
+    trackEntries.push({
+      activityId,
+      path: getGpsPath(activityId),
+      data,
+    });
   }
 
   log.log(`Storing ${tracks.size} GPS tracks, total ${Math.round(totalBytes / 1024)}KB`);
 
-  // Write all files in parallel
-  await Promise.all(promises);
+  // Write all files in parallel, using allSettled to handle individual failures
+  const results = await Promise.allSettled(
+    trackEntries.map(entry =>
+      FileSystem.writeAsStringAsync(entry.path, entry.data).then(() => entry.activityId)
+    )
+  );
 
-  // Update index
-  await updateGpsIndex(activityIds);
+  // Collect successfully written activity IDs
+  const successfulIds: string[] = [];
+  let failedCount = 0;
+  for (const result of results) {
+    if (result.status === 'fulfilled') {
+      successfulIds.push(result.value);
+    } else {
+      failedCount++;
+    }
+  }
 
-  log.log(`Successfully stored ${tracks.size} GPS tracks`);
+  if (failedCount > 0) {
+    log.log(`Warning: ${failedCount} GPS track writes failed`);
+  }
+
+  // Update index with only the successfully written tracks
+  if (successfulIds.length > 0) {
+    await updateGpsIndex(successfulIds);
+  }
+
+  log.log(`Successfully stored ${successfulIds.length} GPS tracks`);
 }
 
 /**

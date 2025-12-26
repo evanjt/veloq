@@ -13,7 +13,7 @@ import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import * as Location from 'expo-location';
-import { colors, darkColors } from '@/theme';
+import { colors, darkColors, shadows } from '@/theme';
 import { intervalsApi } from '@/api';
 import { formatDistance, formatDuration, convertLatLngTuples, normalizeBounds, getBoundsCenter, activitySpatialIndex, mapBoundsToViewport } from '@/lib';
 import { getActivityTypeConfig } from './ActivityTypeFilter';
@@ -791,11 +791,8 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.95)',
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 3,
-    elevation: 3,
+    // Platform-optimized shadow for map overlays
+    ...shadows.mapOverlay,
   },
   buttonDark: {
     backgroundColor: 'rgba(50, 50, 50, 0.95)',
@@ -818,11 +815,8 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.95)',
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 3,
-    elevation: 3,
+    // Platform-optimized shadow for map overlays
+    ...shadows.mapOverlay,
   },
   controlButtonDark: {
     backgroundColor: 'rgba(50, 50, 50, 0.95)',

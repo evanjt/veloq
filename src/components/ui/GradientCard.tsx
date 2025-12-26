@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, StyleSheet, ViewStyle, useColorScheme, Platform } from 'react-native';
+import { View, StyleSheet, ViewStyle, useColorScheme } from 'react-native';
+import { shadows } from '@/theme';
 
 interface GradientCardProps {
   children: React.ReactNode;
@@ -24,11 +25,8 @@ export function GradientCard({
       case 'elevated':
         return {
           backgroundColor: isDark ? '#252525' : '#FFFFFF',
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: 4 },
-          shadowOpacity: isDark ? 0.3 : 0.1,
-          shadowRadius: 12,
-          elevation: 6,
+          // Platform-optimized shadows
+          ...(isDark ? shadows.modal : shadows.elevated),
         };
       case 'glass':
         return {

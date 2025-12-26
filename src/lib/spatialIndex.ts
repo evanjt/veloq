@@ -230,14 +230,22 @@ class ActivitySpatialIndex {
     const bounds = activity.bounds;
     if (!bounds || bounds.length !== 2) return null;
 
-    const [[minLat, minLng], [maxLat, maxLng]] = bounds;
+    let [[minLat, minLng], [maxLat, maxLng]] = bounds;
 
-    // Validate coordinates
+    // Validate coordinates are finite
     if (
       !isFinite(minLat) || !isFinite(maxLat) ||
       !isFinite(minLng) || !isFinite(maxLng)
     ) {
       return null;
+    }
+
+    // Fix inverted bounds (ensure min < max)
+    if (minLat > maxLat) {
+      [minLat, maxLat] = [maxLat, minLat];
+    }
+    if (minLng > maxLng) {
+      [minLng, maxLng] = [maxLng, minLng];
     }
 
     return {

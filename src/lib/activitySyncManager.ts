@@ -44,6 +44,7 @@ import {
   clearCheckpoint as clearCheckpointFile,
   clearBoundsCache,
 } from '@/lib/gpsStorage';
+import { clearRouteCache } from '@/lib/routeStorage';
 import { activitySpatialIndex } from '@/lib/spatialIndex';
 import {
   fetchActivityMapsWithProgress,
@@ -317,6 +318,9 @@ class ActivitySyncManager {
     await clearCheckpointFile();
     // Also clear GPS tracks stored separately
     await clearAllGpsTracks();
+    // Clear route cache too - GPS data is needed for route signatures
+    // If GPS is cleared but routes remain, signatures can't restore their points
+    await clearRouteCache();
     this.cache = null;
     activitySpatialIndex.clear();
     this.notifyCacheListeners();
