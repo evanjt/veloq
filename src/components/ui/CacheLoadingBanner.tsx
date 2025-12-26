@@ -97,9 +97,13 @@ export function CacheLoadingBanner() {
     outputRange: ['0%', '100%'],
   });
 
-  // Calculate banner height - use display cutout area on Android
+  // Calculate banner height - handle display cutout on Android and Dynamic Island on iOS
   const bannerContentHeight = 36;
-  const topPadding = Platform.OS === 'android' ? Math.max(insets.top, 24) : insets.top;
+  // iOS: Use insets.top directly (accounts for Dynamic Island/notch)
+  // Android: Ensure minimum padding for display cutouts
+  const topPadding = Platform.OS === 'android'
+    ? Math.max(insets.top, 24)
+    : Math.max(insets.top, 20); // iOS minimum for status bar
 
   const handlePress = () => {
     router.push('/settings');

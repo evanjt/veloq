@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Stack, useSegments, useRouter, Href } from 'expo-router';
 import { PaperProvider } from 'react-native-paper';
 import { StatusBar } from 'expo-status-bar';
-import { useColorScheme, View, ActivityIndicator } from 'react-native';
+import { useColorScheme, View, ActivityIndicator, Platform } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Logger } from '@maplibre/maplibre-react-native';
 import { configureReanimatedLogger, ReanimatedLogLevel } from 'react-native-reanimated';
@@ -81,13 +81,25 @@ export default function RootLayout() {
       <QueryProvider>
         <MapPreferencesProvider>
           <PaperProvider theme={theme}>
-            <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
+            <StatusBar
+              style={colorScheme === 'dark' ? 'light' : 'dark'}
+              translucent={Platform.OS === 'ios'}
+              animated
+            />
             <AuthGate>
               <CacheLoadingBanner />
               <Stack
                 screenOptions={{
                   headerShown: false,
-                  animation: 'slide_from_right',
+                  // iOS: Use default animation for native feel with gesture support
+                  // Android: Slide from right for Material Design
+                  animation: Platform.OS === 'ios' ? 'default' : 'slide_from_right',
+                  // iOS: Enable native swipe-back gesture
+                  gestureEnabled: Platform.OS === 'ios',
+                  gestureDirection: 'horizontal',
+                  // iOS: Blur effect for any translucent headers
+                  headerBlurEffect: Platform.OS === 'ios' ? 'prominent' : undefined,
+                  headerTransparent: Platform.OS === 'ios',
                 }}
               />
             </AuthGate>
