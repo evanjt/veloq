@@ -58,7 +58,7 @@ import { generateRouteName } from './geocoding';
 import NativeRouteMatcher, {
   createSignaturesFlatBuffer,
   groupIncremental as nativeGroupIncremental,
-  detectFrequentSections as nativeDetectFrequentSections,
+  detectFrequentSectionsV2 as nativeDetectFrequentSectionsV2,
 } from 'route-matcher-native';
 import type {
   RouteSignature as NativeRouteSignature,
@@ -1221,12 +1221,13 @@ class RouteProcessingQueue {
 
         this.cache = updateRouteGroups(this.cache, groups, metadataForGroups);
 
-        // Detect frequent sections using Rust
-        // This identifies road sections that are frequently traveled, even when full routes differ
+        // Detect frequent sections using Rust v2 (vector-first algorithm)
+        // This identifies road sections that are frequently traveled, using actual GPS traces
+        // for smooth polylines instead of grid-derived blocky paths
         const sectionStartTime = Date.now();
         const allSignatures = Object.values(this.cache.signatures);
         if (allSignatures.length >= 3) {  // Need at least 3 activities for meaningful sections
-          log.log(`Detecting frequent sections from ${allSignatures.length} signatures...`);
+          log.log(`Detecting frequent sections (v2) from ${allSignatures.length} signatures...`);
 
           // Build sport type mapping for section detection
           const sportTypes: ActivitySportType[] = allSignatures
@@ -1243,14 +1244,14 @@ class RouteProcessingQueue {
             activityIds: g.activityIds,
           }));
 
-          // Detect frequent sections (runs in Rust)
-          const sections = nativeDetectFrequentSections(
+          // Detect frequent sections using v2 vector-first algorithm (runs in Rust)
+          const sections = nativeDetectFrequentSectionsV2(
             nativeSigs,
             nativeGroups,
             sportTypes
           );
 
-          // Convert to app format and store
+          // Convert to app format and store (v2 returns smoother polylines)
           this.cache.frequentSections = sections.map(s => ({
             id: s.id,
             sportType: s.sportType,
@@ -1262,7 +1263,7 @@ class RouteProcessingQueue {
           }));
 
           const sectionElapsed = Date.now() - sectionStartTime;
-          log.log(`Found ${this.cache.frequentSections.length} frequent sections in ${sectionElapsed}ms`);
+          log.log(`Found ${this.cache.frequentSections.length} frequent sections (v2) in ${sectionElapsed}ms`);
         }
 
         await saveRouteCache(this.cache);
