@@ -27,7 +27,7 @@ import {
   loadCustomRouteNames,
   getRouteDisplayName,
 } from '@/lib';
-import { colors, spacing, layout } from '@/theme';
+import { colors, darkColors, spacing, layout, typography, opacity } from '@/theme';
 import type { Activity, ActivityType, RoutePoint } from '@/types';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -1143,13 +1143,13 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   containerDark: {
-    backgroundColor: '#121212',
+    backgroundColor: darkColors.background,
   },
   textLight: {
-    color: '#FFFFFF',
+    color: colors.textOnDark,
   },
   textMuted: {
-    color: '#888',
+    color: darkColors.textSecondary,
   },
   scrollView: {
     flex: 1,
@@ -1217,9 +1217,9 @@ const styles = StyleSheet.create({
   },
   heroRouteName: {
     flex: 1,
-    fontSize: 20,
+    fontSize: typography.statsValue.fontSize,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: colors.textOnDark,
     textShadowColor: 'rgba(0, 0, 0, 0.5)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 3,
@@ -1244,10 +1244,10 @@ const styles = StyleSheet.create({
   },
   editNameInput: {
     flex: 1,
-    fontSize: 18,
+    fontSize: typography.cardTitle.fontSize,
     fontWeight: '600',
-    color: '#FFFFFF',
-    paddingVertical: 8,
+    color: colors.textOnDark,
+    paddingVertical: spacing.sm,
   },
   editNameButton: {
     padding: 6,
@@ -1261,14 +1261,14 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   heroStat: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     color: 'rgba(255, 255, 255, 0.9)',
     textShadowColor: 'rgba(0, 0, 0, 0.5)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,
   },
   heroStatDivider: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     color: 'rgba(255, 255, 255, 0.5)',
     marginHorizontal: spacing.xs,
   },
@@ -1283,7 +1283,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   emptyText: {
-    fontSize: 16,
+    fontSize: typography.body.fontSize,
     color: colors.textPrimary,
     marginTop: spacing.md,
   },
@@ -1297,11 +1297,11 @@ const styles = StyleSheet.create({
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
-    shadowRadius: 8,
+    shadowRadius: spacing.sm,
     elevation: 2,
   },
   chartCardDark: {
-    backgroundColor: '#1E1E1E',
+    backgroundColor: darkColors.surface,
   },
   chartHeader: {
     flexDirection: 'row',
@@ -1312,7 +1312,7 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xs,
   },
   chartTitle: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     fontWeight: '600',
     color: colors.textPrimary,
   },
@@ -1323,19 +1323,19 @@ const styles = StyleSheet.create({
   legendItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: spacing.xs,
   },
   legendDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    width: spacing.sm,
+    height: spacing.sm,
+    borderRadius: spacing.xs,
   },
   legendText: {
-    fontSize: 10,
+    fontSize: typography.micro.fontSize,
     color: colors.textSecondary,
   },
   chartHint: {
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     color: colors.textSecondary,
     textAlign: 'center',
     paddingHorizontal: spacing.md,
@@ -1381,7 +1381,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   tooltipName: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     fontWeight: '600',
     color: colors.textPrimary,
   },
@@ -1392,7 +1392,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   tooltipDate: {
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     color: colors.textSecondary,
   },
   reverseBadge: {
@@ -1407,7 +1407,7 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   matchBadgeText: {
-    fontSize: 10,
+    fontSize: typography.micro.fontSize,
     fontWeight: '600',
   },
   tooltipRight: {
@@ -1416,7 +1416,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   tooltipSpeed: {
-    fontSize: 15,
+    fontSize: typography.bodySmall.fontSize + 1,
     fontWeight: '700',
   },
   yAxisOverlay: {
@@ -1433,33 +1433,33 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   axisLabel: {
-    fontSize: 9,
+    fontSize: typography.pillLabel.fontSize,
     color: colors.textSecondary,
   },
   axisLabelDark: {
-    color: '#888',
+    color: darkColors.textSecondary,
   },
   bestStats: {
     flexDirection: 'row',
     borderTopWidth: 1,
-    borderTopColor: 'rgba(0, 0, 0, 0.05)',
+    borderTopColor: opacity.overlay.light,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
     gap: spacing.lg,
   },
   bestStatsDark: {
-    borderTopColor: 'rgba(255, 255, 255, 0.08)',
+    borderTopColor: opacity.overlayDark.light,
   },
   bestStatItem: {
     flex: 1,
   },
   bestStatValue: {
-    fontSize: 15,
+    fontSize: typography.bodySmall.fontSize + 1,
     fontWeight: '700',
     color: colors.textPrimary,
   },
   bestStatLabel: {
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     color: colors.textSecondary,
     marginTop: 2,
   },
@@ -1467,7 +1467,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xl,
   },
   sectionTitle: {
-    fontSize: 16,
+    fontSize: typography.body.fontSize,
     fontWeight: '600',
     color: colors.textPrimary,
     marginBottom: spacing.sm,
@@ -1477,7 +1477,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   emptyActivities: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     color: colors.textSecondary,
     textAlign: 'center',
     paddingVertical: spacing.lg,
@@ -1488,7 +1488,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   activitiesCardDark: {
-    backgroundColor: '#1E1E1E',
+    backgroundColor: darkColors.surface,
   },
   activityRow: {
     flexDirection: 'row',
@@ -1519,7 +1519,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   activityName: {
-    fontSize: 15,
+    fontSize: typography.bodySmall.fontSize + 1,
     fontWeight: '500',
     color: colors.textPrimary,
     flex: 1,
@@ -1529,15 +1529,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 6,
     paddingVertical: 2,
-    borderRadius: 8,
+    borderRadius: layout.borderRadiusSm,
     gap: 2,
   },
   matchText: {
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     fontWeight: '600',
   },
   activityDate: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
   },
   activityMetaRow: {
@@ -1547,7 +1547,7 @@ const styles = StyleSheet.create({
     marginTop: 1,
   },
   overlapText: {
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     color: colors.textSecondary,
     opacity: 0.7,
   },
@@ -1555,20 +1555,20 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
   },
   activityDistance: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     fontWeight: '600',
     color: colors.textPrimary,
   },
   activityTime: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
   },
   divider: {
     height: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.05)',
+    backgroundColor: opacity.overlay.light,
     marginLeft: 36 + spacing.md + spacing.md,
   },
   dividerDark: {
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: opacity.overlayDark.light,
   },
 });

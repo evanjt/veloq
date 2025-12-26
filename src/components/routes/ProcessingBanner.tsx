@@ -7,7 +7,7 @@ import React from 'react';
 import { View, StyleSheet, useColorScheme, TouchableOpacity } from 'react-native';
 import { Text, ProgressBar } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { colors, spacing } from '@/theme';
+import { colors, darkColors, opacity, spacing, layout, typography } from '@/theme';
 import type { RouteProcessingProgress } from '@/types';
 
 interface ProcessingBannerProps {
@@ -166,14 +166,14 @@ export function ProcessingBanner({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: 'rgba(0, 0, 0, 0.03)',
-    borderRadius: 12,
+    backgroundColor: opacity.overlay.subtle,
+    borderRadius: layout.borderRadius,
     padding: spacing.md,
     marginHorizontal: spacing.md,
     marginBottom: spacing.md,
   },
   containerDark: {
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    backgroundColor: opacity.overlayDark.light,
   },
   header: {
     flexDirection: 'row',
@@ -187,26 +187,26 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   statusText: {
-    fontSize: 15,
+    fontSize: typography.bodySmall.fontSize,
     fontWeight: '600',
     color: colors.textPrimary,
   },
   textLight: {
-    color: '#FFFFFF',
+    color: colors.textOnDark,
   },
   textMuted: {
-    color: '#888',
+    color: darkColors.textMuted,
   },
   textDark: {
-    color: '#AAA',
+    color: darkColors.textSecondary,
   },
   progressBar: {
     height: 4,
     borderRadius: 2,
-    backgroundColor: 'rgba(0, 0, 0, 0.1)',
+    backgroundColor: opacity.overlay.medium,
   },
   progressText: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     color: colors.textSecondary,
     marginTop: spacing.sm,
   },
@@ -214,13 +214,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
-    backgroundColor: 'rgba(0, 0, 0, 0.03)',
+    backgroundColor: opacity.overlay.subtle,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
-    borderRadius: 8,
+    borderRadius: layout.borderRadiusSm,
   },
   compactText: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
   },
   compactProgress: {
@@ -230,6 +230,6 @@ const styles = StyleSheet.create({
   progressBarCompact: {
     height: 3,
     borderRadius: 1.5,
-    backgroundColor: 'rgba(0, 0, 0, 0.1)',
+    backgroundColor: opacity.overlay.medium,
   },
 });

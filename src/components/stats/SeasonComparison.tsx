@@ -1,7 +1,9 @@
 import React, { useMemo, useState } from 'react';
 import { View, StyleSheet, useColorScheme, TouchableOpacity } from 'react-native';
 import { Text } from 'react-native-paper';
-import { colors, spacing } from '@/theme';
+import { colors, darkColors } from '@/theme/colors';
+import { typography } from '@/theme/typography';
+import { spacing, layout } from '@/theme/spacing';
 import type { Activity } from '@/types';
 
 interface SeasonComparisonProps {
@@ -234,41 +236,41 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   title: {
-    fontSize: 18,
+    fontSize: typography.cardTitle.fontSize,
     fontWeight: '700',
     color: colors.textPrimary,
   },
   textLight: {
-    color: '#FFFFFF',
+    color: colors.textOnDark,
   },
   textDark: {
-    color: '#AAA',
+    color: darkColors.textSecondary,
   },
   metricSelector: {
     flexDirection: 'row',
-    gap: 4,
+    gap: spacing.xs,
   },
   metricButton: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: layout.borderRadiusSm,
   },
   metricButtonActive: {
     backgroundColor: colors.primary,
   },
   metricButtonText: {
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     color: colors.textSecondary,
   },
   metricButtonTextActive: {
-    color: '#FFFFFF',
+    color: colors.textOnDark,
   },
   summary: {
     flexDirection: 'row',
     justifyContent: 'space-around',
     marginBottom: spacing.md,
     paddingVertical: spacing.sm,
-    borderRadius: 8,
+    borderRadius: layout.borderRadiusSm,
     backgroundColor: 'rgba(0, 0, 0, 0.02)',
   },
   summaryItem: {
@@ -277,16 +279,16 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   legendDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    width: spacing.sm,
+    height: spacing.sm,
+    borderRadius: spacing.xs,
   },
   summaryLabel: {
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     color: colors.textSecondary,
   },
   summaryValue: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     fontWeight: '600',
     color: colors.textPrimary,
   },
@@ -306,12 +308,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   bar: {
-    borderRadius: 4,
+    borderRadius: spacing.xs,
   },
   monthLabel: {
     position: 'absolute',
     bottom: -16,
-    fontSize: 9,
+    fontSize: typography.pillLabel.fontSize,
     color: colors.textSecondary,
   },
   emptyState: {
@@ -319,12 +321,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   emptyText: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     color: colors.textSecondary,
     marginBottom: spacing.xs,
   },
   emptyHint: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
     textAlign: 'center',
   },

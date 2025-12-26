@@ -7,7 +7,7 @@ import React from 'react';
 import { View, StyleSheet, useColorScheme } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { colors, spacing } from '@/theme';
+import { colors, darkColors, spacing, typography, layout } from '@/theme';
 import type { MatchDirection } from '@/types';
 
 interface MatchQualityIndicatorProps {
@@ -140,11 +140,11 @@ const styles = StyleSheet.create({
     alignItems: 'baseline',
   },
   percentage: {
-    fontSize: 18,
+    fontSize: typography.metricValue.fontSize,
     fontWeight: '700',
   },
   percentSign: {
-    fontSize: 10,
+    fontSize: typography.micro.fontSize,
     fontWeight: '600',
   },
   details: {
@@ -156,24 +156,24 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   directionLabel: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     color: colors.textSecondary,
   },
   textMuted: {
-    color: '#888',
+    color: darkColors.textMuted,
   },
   overlapText: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
     marginTop: 2,
   },
   compactContainer: {
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
-    borderRadius: 12,
+    borderRadius: layout.borderRadius,
   },
   compactPercentage: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     fontWeight: '700',
   },
 });

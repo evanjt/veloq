@@ -5,7 +5,7 @@ import { CartesianChart, Line } from 'victory-native';
 import { Circle, Line as SkiaLine } from '@shopify/react-native-skia';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { useSharedValue, useAnimatedStyle, runOnJS } from 'react-native-reanimated';
-import { colors, spacing } from '@/theme';
+import { colors, darkColors, spacing, typography, opacity } from '@/theme';
 import type { WellnessData } from '@/types';
 
 interface WellnessTrendsChartProps {
@@ -397,12 +397,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.xs,
   },
   dateText: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     fontWeight: '600',
     color: colors.textPrimary,
   },
   dateHint: {
-    fontSize: 10,
+    fontSize: typography.micro.fontSize,
     color: colors.textSecondary,
     fontStyle: 'italic',
   },
@@ -413,30 +413,30 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xl,
   },
   emptyText: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     color: colors.textSecondary,
     marginBottom: spacing.xs,
   },
   emptyHint: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
     textAlign: 'center',
   },
   textLight: {
-    color: '#FFFFFF',
+    color: colors.textOnDark,
   },
   textDark: {
-    color: '#AAA',
+    color: darkColors.textSecondary,
   },
   metricRow: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: spacing.xs,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(0, 0, 0, 0.08)',
+    borderBottomColor: opacity.overlay.light,
   },
   metricRowDark: {
-    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+    borderBottomColor: opacity.overlayDark.medium,
   },
   metricInfo: {
     flexDirection: 'row',
@@ -444,13 +444,13 @@ const styles = StyleSheet.create({
     width: 75,
   },
   metricDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    width: spacing.sm,
+    height: spacing.sm,
+    borderRadius: spacing.xs,
     marginRight: spacing.xs,
   },
   metricLabel: {
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     color: colors.textSecondary,
     fontWeight: '500',
   },
@@ -464,22 +464,22 @@ const styles = StyleSheet.create({
     width: 55,
   },
   metricValue: {
-    fontSize: 15,
+    fontSize: typography.bodySmall.fontSize + 1,
     fontWeight: '700',
     color: colors.textPrimary,
   },
   metricUnit: {
-    fontSize: 9,
+    fontSize: typography.pillLabel.fontSize,
     color: colors.textSecondary,
     marginTop: -2,
   },
   metricAvg: {
-    fontSize: 8,
+    fontSize: typography.pillLabel.fontSize - 1,
     color: colors.textSecondary,
     marginTop: 2,
   },
   periodLabel: {
-    fontSize: 10,
+    fontSize: typography.micro.fontSize,
     color: colors.textSecondary,
     textAlign: 'center',
     marginTop: spacing.sm,

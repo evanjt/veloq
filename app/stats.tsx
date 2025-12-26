@@ -8,7 +8,7 @@ import { PowerCurveChart, PaceCurveChart, SwimPaceCurveChart, ZoneDistributionCh
 import { useActivities, useActivityStreams, useZoneDistribution, useEFTPHistory, getLatestFTP, usePowerCurve, useSportSettings, getSettingsForSport, usePaceCurve } from '@/hooks';
 import { useSportPreference, SPORT_COLORS, type PrimarySport } from '@/providers';
 import { formatPaceCompact } from '@/lib';
-import { colors, spacing, layout } from '@/theme';
+import { colors, darkColors, spacing, layout, typography, opacity } from '@/theme';
 
 type TimeRange = '42d' | '90d' | '180d' | '1y';
 
@@ -436,7 +436,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   containerDark: {
-    backgroundColor: '#121212',
+    backgroundColor: darkColors.background,
   },
   header: {
     flexDirection: 'row',
@@ -446,77 +446,77 @@ const styles = StyleSheet.create({
   headerTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: spacing.sm,
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: typography.cardTitle.fontSize,
     fontWeight: '600',
     color: colors.textPrimary,
   },
   headerLoader: {
-    marginLeft: 4,
+    marginLeft: spacing.xs,
   },
   textLight: {
-    color: '#FFFFFF',
+    color: colors.textOnDark,
   },
   textDark: {
-    color: '#AAA',
+    color: darkColors.textSecondary,
   },
   timeRangeContainer: {
     flexDirection: 'row',
     paddingHorizontal: layout.screenPadding,
     paddingBottom: spacing.sm,
-    gap: 8,
+    gap: spacing.sm,
   },
   timeRangeButton: {
     flex: 1,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    backgroundColor: 'rgba(0, 0, 0, 0.05)',
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.sm + 4,
+    borderRadius: layout.borderRadiusSm,
+    backgroundColor: opacity.overlay.light,
     alignItems: 'center',
   },
   timeRangeButtonDark: {
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: opacity.overlayDark.light,
   },
   timeRangeButtonActive: {
-    backgroundColor: '#FF6B00',
+    backgroundColor: colors.primary,
   },
   timeRangeText: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     fontWeight: '600',
     color: colors.textSecondary,
   },
   timeRangeTextActive: {
-    color: '#FFFFFF',
+    color: colors.textOnDark,
   },
   sportToggleContainer: {
     flexDirection: 'row',
     paddingHorizontal: layout.screenPadding,
     paddingBottom: spacing.sm,
-    gap: 8,
+    gap: spacing.sm,
   },
   sportToggleButton: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    backgroundColor: 'rgba(0, 0, 0, 0.05)',
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.sm + 4,
+    borderRadius: layout.borderRadiusSm,
+    backgroundColor: opacity.overlay.light,
     gap: 6,
   },
   sportToggleButtonDark: {
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: opacity.overlayDark.light,
   },
   sportToggleText: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     fontWeight: '600',
     color: colors.textSecondary,
   },
   sportToggleTextActive: {
-    color: '#FFFFFF',
+    color: colors.textOnDark,
   },
   scrollView: {
     flex: 1,
@@ -532,7 +532,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   cardDark: {
-    backgroundColor: '#1E1E1E',
+    backgroundColor: darkColors.surface,
   },
   loadingContainer: {
     padding: spacing.xl,
@@ -540,7 +540,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   cardTitle: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     fontWeight: '600',
     color: colors.textPrimary,
     marginBottom: spacing.md,
@@ -555,23 +555,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   thresholdLabel: {
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     color: colors.textSecondary,
-    marginBottom: 4,
+    marginBottom: spacing.xs,
   },
   thresholdValue: {
-    fontSize: 20,
+    fontSize: typography.statsValue.fontSize,
     fontWeight: '700',
   },
   thresholdValueSmall: {
-    fontSize: 16,
+    fontSize: typography.body.fontSize,
     fontWeight: '600',
     color: colors.textSecondary,
   },
   thresholdDivider: {
     width: 1,
     height: 40,
-    backgroundColor: 'rgba(0, 0, 0, 0.1)',
+    backgroundColor: opacity.overlay.medium,
     marginHorizontal: spacing.md,
   },
   infoFooter: {
@@ -579,14 +579,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
   },
   infoTextTitle: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     fontWeight: '600',
     color: colors.textSecondary,
     textAlign: 'center',
-    marginBottom: 4,
+    marginBottom: spacing.xs,
   },
   infoText: {
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     lineHeight: 16,
     color: colors.textSecondary,
     textAlign: 'center',
@@ -599,15 +599,15 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   refLink: {
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     color: colors.primary,
   },
   refSeparator: {
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     color: colors.textSecondary,
   },
   garminNote: {
-    fontSize: 10,
+    fontSize: typography.micro.fontSize,
     color: colors.textSecondary,
     textAlign: 'center',
     marginTop: spacing.xs,

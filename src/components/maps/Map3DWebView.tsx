@@ -1,6 +1,7 @@
 import React, { useMemo, useRef, useImperativeHandle, forwardRef } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { WebView } from 'react-native-webview';
+import { colors, darkColors } from '@/theme/colors';
 import type { MapStyleType } from './mapStyles';
 
 interface Map3DWebViewProps {
@@ -36,7 +37,7 @@ interface Map3DWebViewPropsInternal extends Map3DWebViewProps {
 export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInternal>(function Map3DWebView({
   coordinates,
   mapStyle,
-  routeColor = '#FC4C02',
+  routeColor = colors.primary,
   initialPitch = 60,
   terrainExaggeration = 1.5,
   onMapReady,
@@ -307,7 +308,7 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000',
+    backgroundColor: darkColors.background,
   },
   webview: {
     flex: 1,

@@ -15,7 +15,7 @@ import { useSharedValue, useDerivedValue, useAnimatedStyle, useAnimatedReaction,
 import Animated from 'react-native-reanimated';
 import { useRoutePerformances } from '@/hooks';
 import { formatSpeed, formatPace, formatRelativeDate, isRunningActivity, getActivityColor } from '@/lib';
-import { colors, spacing } from '@/theme';
+import { colors, darkColors, opacity, spacing, layout, typography } from '@/theme';
 import type { ActivityType } from '@/types';
 import type { RoutePerformancePoint } from '@/hooks/routes/useRoutePerformances';
 
@@ -563,7 +563,7 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   containerDark: {
-    backgroundColor: '#1E1E1E',
+    backgroundColor: darkColors.surface,
   },
   sectionTitle: {
     flexDirection: 'row',
@@ -574,18 +574,18 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xs,
   },
   sectionTitleText: {
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     fontWeight: '600',
     letterSpacing: 0.5,
     color: colors.textSecondary,
   },
   matchBadge: {
-    paddingHorizontal: 8,
+    paddingHorizontal: spacing.sm,
     paddingVertical: 2,
     borderRadius: 10,
   },
   matchText: {
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     fontWeight: '600',
   },
   header: {
@@ -603,25 +603,25 @@ const styles = StyleSheet.create({
   iconBadge: {
     width: 32,
     height: 32,
-    borderRadius: 8,
+    borderRadius: layout.borderRadiusSm,
     justifyContent: 'center',
     alignItems: 'center',
   },
   routeName: {
-    fontSize: 15,
+    fontSize: typography.bodySmall.fontSize,
     fontWeight: '600',
     color: colors.textPrimary,
   },
   routeMeta: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
     marginTop: 1,
   },
   textLight: {
-    color: '#FFFFFF',
+    color: colors.textOnDark,
   },
   textMuted: {
-    color: '#888',
+    color: darkColors.textMuted,
   },
   selectedActivity: {
     flexDirection: 'row',
@@ -648,7 +648,7 @@ const styles = StyleSheet.create({
   selectedActivityIcon: {
     width: 32,
     height: 32,
-    borderRadius: 8,
+    borderRadius: layout.borderRadiusSm,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -656,7 +656,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   selectedActivityName: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     fontWeight: '600',
     color: colors.textPrimary,
   },
@@ -667,7 +667,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   selectedActivityDate: {
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     color: colors.textSecondary,
   },
   selectedMatchBadge: {
@@ -676,7 +676,7 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   selectedMatchText: {
-    fontSize: 10,
+    fontSize: typography.micro.fontSize,
     fontWeight: '600',
   },
   selectedActivityRight: {
@@ -685,7 +685,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   selectedActivitySpeed: {
-    fontSize: 15,
+    fontSize: typography.bodySmall.fontSize,
     fontWeight: '700',
   },
   chartScrollContainer: {
@@ -699,16 +699,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'rgba(255, 152, 0, 0.15)',
-    paddingHorizontal: 4,
+    paddingHorizontal: spacing.xs,
     paddingVertical: 1,
-    borderRadius: 4,
+    borderRadius: spacing.xs,
     gap: 2,
   },
   directionReverse: {
     backgroundColor: 'rgba(233, 30, 99, 0.15)',
   },
   directionText: {
-    fontSize: 9,
+    fontSize: typography.pillLabel.fontSize,
     fontWeight: '600',
     color: '#FF9800',
   },
@@ -717,62 +717,62 @@ const styles = StyleSheet.create({
     top: 40,
     bottom: 24,
     width: 1.5,
-    backgroundColor: '#666',
+    backgroundColor: colors.textSecondary,
   },
   crosshairDark: {
-    backgroundColor: '#AAA',
+    backgroundColor: darkColors.textSecondary,
   },
   yAxisOverlay: {
     position: 'absolute',
     top: 40,
     bottom: 24,
-    left: 4,
+    left: spacing.xs,
     justifyContent: 'space-between',
   },
   xAxisOverlay: {
     position: 'absolute',
-    bottom: 4,
+    bottom: spacing.xs,
     left: 35,
-    right: 8,
+    right: spacing.sm,
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
   axisLabel: {
-    fontSize: 9,
+    fontSize: typography.pillLabel.fontSize,
     color: colors.textSecondary,
   },
   axisLabelDark: {
-    color: '#888',
+    color: darkColors.textMuted,
   },
   statsRow: {
     flexDirection: 'row',
     borderTopWidth: 1,
-    borderTopColor: 'rgba(0, 0, 0, 0.05)',
+    borderTopColor: opacity.overlay.light,
     paddingVertical: spacing.md,
   },
   statsRowDark: {
-    borderTopColor: 'rgba(255, 255, 255, 0.08)',
+    borderTopColor: opacity.overlayDark.medium,
   },
   stat: {
     flex: 1,
     alignItems: 'center',
   },
   statValue: {
-    fontSize: 15,
+    fontSize: typography.bodySmall.fontSize,
     fontWeight: '700',
     color: colors.textPrimary,
   },
   statLabel: {
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     color: colors.textSecondary,
     marginTop: 2,
   },
   statDivider: {
     width: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.08)',
+    backgroundColor: opacity.overlay.medium,
   },
   statDividerDark: {
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: opacity.overlayDark.medium,
   },
   legend: {
     flexDirection: 'row',
@@ -783,15 +783,15 @@ const styles = StyleSheet.create({
   legendItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: spacing.xs,
   },
   legendDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    width: spacing.sm,
+    height: spacing.sm,
+    borderRadius: spacing.xs,
   },
   legendText: {
-    fontSize: 10,
+    fontSize: typography.micro.fontSize,
     color: colors.textSecondary,
   },
 });

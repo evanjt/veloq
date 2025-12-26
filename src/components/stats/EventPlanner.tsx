@@ -2,7 +2,9 @@ import React from 'react';
 import { View, StyleSheet, useColorScheme, TouchableOpacity, Linking } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { colors, spacing } from '@/theme';
+import { colors, darkColors } from '@/theme/colors';
+import { typography } from '@/theme/typography';
+import { spacing, layout } from '@/theme/spacing';
 import type { MaterialIconName } from '@/lib';
 
 interface Event {
@@ -71,7 +73,7 @@ export function EventPlanner({ events, athleteId }: EventPlannerProps) {
           <MaterialCommunityIcons
             name="open-in-new"
             size={16}
-            color={isDark ? '#AAA' : colors.textSecondary}
+            color={isDark ? darkColors.textSecondary : colors.textSecondary}
           />
         </TouchableOpacity>
       </View>
@@ -118,7 +120,7 @@ export function EventPlanner({ events, athleteId }: EventPlannerProps) {
             <MaterialCommunityIcons
               name={TYPE_ICONS[event.type]}
               size={16}
-              color={isDark ? '#AAA' : colors.textSecondary}
+              color={isDark ? darkColors.textSecondary : colors.textSecondary}
               style={styles.eventIcon}
             />
             <View style={styles.eventInfo}>
@@ -141,7 +143,7 @@ export function EventPlanner({ events, athleteId }: EventPlannerProps) {
           <MaterialCommunityIcons
             name="calendar-plus"
             size={32}
-            color={isDark ? '#666' : colors.textSecondary}
+            color={isDark ? darkColors.border : colors.textSecondary}
           />
           <Text style={[styles.emptyText, isDark && styles.textDark]}>
             No upcoming events
@@ -164,22 +166,22 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   title: {
-    fontSize: 18,
+    fontSize: typography.cardTitle.fontSize,
     fontWeight: '700',
     color: colors.textPrimary,
   },
   textLight: {
-    color: '#FFFFFF',
+    color: colors.textOnDark,
   },
   textDark: {
-    color: '#AAA',
+    color: darkColors.textSecondary,
   },
   addButton: {
-    padding: 4,
+    padding: spacing.xs,
   },
   featuredEvent: {
     backgroundColor: 'rgba(0, 0, 0, 0.03)',
-    borderRadius: 12,
+    borderRadius: layout.borderRadius,
     padding: spacing.md,
     marginBottom: spacing.md,
   },
@@ -194,7 +196,7 @@ const styles = StyleSheet.create({
   },
   priorityBadge: {},
   priorityText: {
-    fontSize: 10,
+    fontSize: typography.micro.fontSize,
     fontWeight: '600',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
@@ -204,25 +206,25 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   eventName: {
-    fontSize: 18,
+    fontSize: typography.cardTitle.fontSize,
     fontWeight: '600',
     color: colors.textPrimary,
-    marginBottom: 4,
+    marginBottom: spacing.xs,
   },
   eventDetails: {
     flexDirection: 'row',
     gap: spacing.md,
   },
   eventDate: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     color: colors.textSecondary,
   },
   eventDistance: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     color: colors.textSecondary,
   },
   eventNotes: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
     fontStyle: 'italic',
     marginTop: spacing.xs,
@@ -253,17 +255,17 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   eventItemName: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     fontWeight: '500',
     color: colors.textPrimary,
   },
   eventItemDate: {
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     color: colors.textSecondary,
     marginTop: 2,
   },
   eventPriority: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     fontWeight: '700',
     width: 20,
     textAlign: 'center',
@@ -273,14 +275,14 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xl,
   },
   emptyText: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     fontWeight: '500',
     color: colors.textSecondary,
     marginTop: spacing.sm,
   },
   emptySubtext: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
-    marginTop: 4,
+    marginTop: spacing.xs,
   },
 });

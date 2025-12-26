@@ -1,7 +1,9 @@
 import React, { useMemo } from 'react';
 import { View, StyleSheet, useColorScheme, Pressable } from 'react-native';
 import { Text } from 'react-native-paper';
-import { colors, spacing, typography } from '@/theme';
+import { colors, darkColors } from '@/theme/colors';
+import { typography } from '@/theme/typography';
+import { spacing, layout } from '@/theme/spacing';
 import { POWER_ZONE_COLORS, HR_ZONE_COLORS, DEFAULT_POWER_ZONES, DEFAULT_HR_ZONES } from '@/hooks';
 import type { ZoneDistribution } from '@/types';
 
@@ -139,20 +141,20 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   title: {
-    fontSize: 18,
+    fontSize: typography.cardTitle.fontSize,
     fontWeight: '700',
     color: colors.textPrimary,
   },
   subtitle: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
     marginTop: 2,
   },
   textLight: {
-    color: '#FFFFFF',
+    color: colors.textOnDark,
   },
   textDark: {
-    color: '#AAA',
+    color: darkColors.textSecondary,
   },
   barsContainer: {
     marginBottom: spacing.sm,
@@ -174,33 +176,33 @@ const styles = StyleSheet.create({
     marginRight: 6,
   },
   zoneName: {
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     color: colors.textSecondary,
     flex: 1,
   },
   barWrapper: {
     flex: 1,
-    height: 16,
+    height: spacing.md,
     backgroundColor: 'rgba(150, 150, 150, 0.1)',
-    borderRadius: 8,
+    borderRadius: layout.borderRadiusSm,
     overflow: 'hidden',
-    marginHorizontal: 8,
+    marginHorizontal: spacing.sm,
   },
   bar: {
     height: '100%',
-    borderRadius: 8,
-    minWidth: 4,
+    borderRadius: layout.borderRadiusSm,
+    minWidth: spacing.xs,
   },
   barValue: {
     width: 60,
     alignItems: 'flex-end',
   },
   percentage: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     fontWeight: '700',
   },
   duration: {
-    fontSize: 9,
+    fontSize: typography.pillLabel.fontSize,
     color: colors.textSecondary,
   },
   totalRow: {
@@ -213,11 +215,11 @@ const styles = StyleSheet.create({
     borderTopColor: colors.border,
   },
   totalLabel: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
   },
   totalValue: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     fontWeight: '600',
     color: colors.textPrimary,
   },
@@ -227,12 +229,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   emptyText: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     color: colors.textSecondary,
     marginBottom: spacing.xs,
   },
   emptyHint: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
     textAlign: 'center',
   },

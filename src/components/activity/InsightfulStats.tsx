@@ -14,7 +14,7 @@ import type { ComponentProps } from 'react';
 
 type IconName = ComponentProps<typeof MaterialCommunityIcons>['name'];
 import * as WebBrowser from 'expo-web-browser';
-import { colors, spacing } from '@/theme';
+import { colors, darkColors, opacity, typography, spacing, layout } from '@/theme';
 import { formatDuration } from '@/lib';
 import type { Activity, WellnessData } from '@/types';
 
@@ -446,16 +446,16 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     marginHorizontal: spacing.md,
     marginTop: spacing.sm,
-    borderRadius: 16,
+    borderRadius: spacing.md,
     padding: spacing.md,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
-    shadowRadius: 8,
+    shadowRadius: spacing.sm,
     elevation: 2,
   },
   containerDark: {
-    backgroundColor: '#1E1E1E',
+    backgroundColor: darkColors.surface,
   },
   headerRow: {
     flexDirection: 'row',
@@ -464,7 +464,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   sectionTitle: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     fontWeight: '600',
     color: colors.textSecondary,
     textTransform: 'uppercase',
@@ -473,20 +473,20 @@ const styles = StyleSheet.create({
   intervalsLink: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: spacing.xs,
   },
   intervalsLinkText: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: colors.primary,
     fontWeight: '500',
   },
   textLight: {
-    color: '#FFFFFF',
+    color: colors.textOnDark,
   },
   statsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    gap: spacing.sm,
   },
   statCard: {
     width: '31%', // 3 columns with gaps
@@ -496,7 +496,7 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   statCardDark: {
-    backgroundColor: '#2A2A2A',
+    backgroundColor: darkColors.surfaceCard,
   },
   statCardPressed: {
     opacity: 0.8,
@@ -505,7 +505,7 @@ const styles = StyleSheet.create({
   iconContainer: {
     width: 28,
     height: 28,
-    borderRadius: 8,
+    borderRadius: layout.borderRadiusSm,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 6,
@@ -514,22 +514,22 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   statValue: {
-    fontSize: 18,
+    fontSize: typography.metricValue.fontSize,
     fontWeight: '700',
     color: colors.textPrimary,
   },
   statTitle: {
-    fontSize: 10,
+    fontSize: typography.micro.fontSize,
     color: colors.textSecondary,
   },
   comparisonBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 2,
-    backgroundColor: 'rgba(0,0,0,0.05)',
+    backgroundColor: opacity.overlay.light,
     paddingHorizontal: 6,
     paddingVertical: 2,
-    borderRadius: 8,
+    borderRadius: layout.borderRadiusSm,
     alignSelf: 'flex-start',
   },
   comparisonGood: {
@@ -539,7 +539,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(244, 67, 54, 0.15)',
   },
   comparisonText: {
-    fontSize: 10,
+    fontSize: typography.micro.fontSize,
     fontWeight: '600',
     color: colors.textSecondary,
   },
@@ -550,7 +550,7 @@ const styles = StyleSheet.create({
     color: colors.error,
   },
   contextText: {
-    fontSize: 10,
+    fontSize: typography.micro.fontSize,
     color: colors.textSecondary,
   },
 
@@ -570,7 +570,7 @@ const styles = StyleSheet.create({
     maxWidth: 340,
   },
   modalContentDark: {
-    backgroundColor: '#1E1E1E',
+    backgroundColor: darkColors.surface,
   },
   modalHeader: {
     flexDirection: 'row',
@@ -580,7 +580,7 @@ const styles = StyleSheet.create({
   modalIconContainer: {
     width: 56,
     height: 56,
-    borderRadius: 16,
+    borderRadius: spacing.md,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: spacing.md,
@@ -594,7 +594,7 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
   modalTitle: {
-    fontSize: 16,
+    fontSize: typography.body.fontSize,
     color: colors.textSecondary,
   },
   contextBanner: {
@@ -603,12 +603,12 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   contextBannerText: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     fontWeight: '600',
     textAlign: 'center',
   },
   explanationBox: {
-    backgroundColor: 'rgba(0,0,0,0.03)',
+    backgroundColor: opacity.overlay.subtle,
     borderRadius: 10,
     padding: spacing.sm,
     marginBottom: spacing.md,
@@ -617,15 +617,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    marginBottom: 4,
+    marginBottom: spacing.xs,
   },
   explanationTitle: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     fontWeight: '600',
     color: colors.textSecondary,
   },
   explanationText: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     color: colors.textSecondary,
     lineHeight: 18,
   },
@@ -635,16 +635,16 @@ const styles = StyleSheet.create({
   detailRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingVertical: 8,
+    paddingVertical: spacing.sm,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0,0,0,0.05)',
+    borderBottomColor: opacity.overlay.light,
   },
   detailLabel: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     color: colors.textSecondary,
   },
   detailValue: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     fontWeight: '600',
     color: colors.textPrimary,
   },
@@ -653,26 +653,26 @@ const styles = StyleSheet.create({
     paddingTop: spacing.sm,
   },
   comparisonLabel: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
-    marginBottom: 4,
+    marginBottom: spacing.xs,
   },
   comparisonLarge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    backgroundColor: 'rgba(0,0,0,0.05)',
-    paddingHorizontal: 12,
+    gap: spacing.xs,
+    backgroundColor: opacity.overlay.light,
+    paddingHorizontal: layout.borderRadius,
     paddingVertical: 6,
-    borderRadius: 12,
+    borderRadius: layout.borderRadius,
   },
   comparisonLargeText: {
-    fontSize: 16,
+    fontSize: typography.body.fontSize,
     fontWeight: '700',
     color: colors.textSecondary,
   },
   closeHint: {
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     color: colors.textSecondary,
     textAlign: 'center',
     marginTop: spacing.md,
