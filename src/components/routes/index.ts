@@ -5,3 +5,5 @@ export { ProcessingBanner } from './ProcessingBanner';
 export { RouteRow } from './RouteRow';
 export { RoutePerformanceSection } from './RoutePerformanceSection';
 export { RouteMapView } from './RouteMapView';
+export { SectionRow } from './SectionRow';
+export { SectionsList } from './SectionsList';

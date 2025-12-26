@@ -54,6 +54,18 @@ pub mod http;
 #[cfg(feature = "http")]
 pub use http::{ActivityFetcher, ActivityMapResult, MapBounds};
 
+// Frequent sections detection module
+pub mod sections;
+pub use sections::{FrequentSection, SectionConfig, CellCoord, detect_frequent_sections};
+
+// Heatmap generation module
+pub mod heatmap;
+pub use heatmap::{
+    HeatmapConfig, HeatmapBounds, HeatmapCell, HeatmapResult,
+    RouteRef, CellQueryResult, ActivityHeatmapData,
+    generate_heatmap, query_heatmap_cell,
+};
+
 #[cfg(feature = "ffi")]
 uniffi::setup_scaffolding!();
 
@@ -110,6 +122,46 @@ impl GpsPoint {
     }
 }
 
+/// Bounding box for a route.
+#[derive(Debug, Clone, Copy, PartialEq)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Record))]
+pub struct Bounds {
+    pub min_lat: f64,
+    pub max_lat: f64,
+    pub min_lng: f64,
+    pub max_lng: f64,
+}
+
+impl Bounds {
+    /// Create bounds from GPS points.
+    pub fn from_points(points: &[GpsPoint]) -> Option<Self> {
+        if points.is_empty() {
+            return None;
+        }
+        let mut min_lat = f64::MAX;
+        let mut max_lat = f64::MIN;
+        let mut min_lng = f64::MAX;
+        let mut max_lng = f64::MIN;
+
+        for p in points {
+            min_lat = min_lat.min(p.latitude);
+            max_lat = max_lat.max(p.latitude);
+            min_lng = min_lng.min(p.longitude);
+            max_lng = max_lng.max(p.longitude);
+        }
+
+        Some(Self { min_lat, max_lat, min_lng, max_lng })
+    }
+
+    /// Get the center point of the bounds.
+    pub fn center(&self) -> GpsPoint {
+        GpsPoint::new(
+            (self.min_lat + self.max_lat) / 2.0,
+            (self.min_lng + self.max_lng) / 2.0,
+        )
+    }
+}
+
 /// A simplified route signature for efficient matching.
 ///
 /// The signature contains a simplified version of the original GPS track,
@@ -127,6 +179,10 @@ pub struct RouteSignature {
     pub start_point: GpsPoint,
     /// Ending point of the route
     pub end_point: GpsPoint,
+    /// Pre-computed bounding box (normalized, ready for use)
+    pub bounds: Bounds,
+    /// Pre-computed center point (for map rendering without JS calculation)
+    pub center: GpsPoint,
 }
 
 impl RouteSignature {
@@ -192,24 +248,29 @@ impl RouteSignature {
 
         let total_distance = calculate_route_distance(&simplified_points);
 
+        // Pre-compute bounds and center for 120Hz map rendering
+        let bounds = Bounds::from_points(&simplified_points)?;
+        let center = bounds.center();
+
         Some(Self {
             activity_id: activity_id.to_string(),
             start_point: simplified_points[0],
             end_point: simplified_points[simplified_points.len() - 1],
             points: simplified_points,
             total_distance,
+            bounds,
+            center,
         })
     }
 
-    /// Get the bounding box of this route.
-    pub fn bounds(&self) -> RouteBounds {
-        let (min_lat, max_lat, min_lng, max_lng) = calculate_bounds(&self.points);
+    /// Get the bounding box of this route as RouteBounds (for R-tree indexing).
+    pub fn route_bounds(&self) -> RouteBounds {
         RouteBounds {
             activity_id: self.activity_id.clone(),
-            min_lat,
-            max_lat,
-            min_lng,
-            max_lng,
+            min_lat: self.bounds.min_lat,
+            max_lat: self.bounds.max_lat,
+            min_lng: self.bounds.min_lng,
+            max_lng: self.bounds.max_lng,
             distance: self.total_distance,
         }
     }
@@ -687,10 +748,11 @@ fn check_middle_points_match(points1: &[GpsPoint], points2: &[GpsPoint], thresho
 /// ```
 /// use route_matcher::{GpsPoint, RouteSignature, MatchConfig, group_signatures};
 ///
-/// let points = vec![
-///     GpsPoint::new(51.5074, -0.1278),
-///     GpsPoint::new(51.5090, -0.1300),
-/// ];
+/// // Create a route long enough to meet min_route_distance (500m)
+/// // Each point is ~111m apart (0.001 degrees latitude)
+/// let points: Vec<GpsPoint> = (0..10)
+///     .map(|i| GpsPoint::new(51.5074 + i as f64 * 0.001, -0.1278))
+///     .collect();
 ///
 /// let sig1 = RouteSignature::from_points("a", &points, &MatchConfig::default()).unwrap();
 /// let sig2 = RouteSignature::from_points("b", &points, &MatchConfig::default()).unwrap();
@@ -704,7 +766,7 @@ pub fn group_signatures(signatures: &[RouteSignature], config: &MatchConfig) -> 
     }
 
     // Build spatial index
-    let bounds: Vec<RouteBounds> = signatures.iter().map(|s| s.bounds()).collect();
+    let bounds: Vec<RouteBounds> = signatures.iter().map(|s| s.route_bounds()).collect();
     let rtree = RTree::bulk_load(bounds.clone());
 
     // Create signature lookup
@@ -783,7 +845,7 @@ pub fn group_signatures_parallel(
     }
 
     // Build spatial index
-    let bounds: Vec<RouteBounds> = signatures.iter().map(|s| s.bounds()).collect();
+    let bounds: Vec<RouteBounds> = signatures.iter().map(|s| s.route_bounds()).collect();
     let rtree = RTree::bulk_load(bounds.clone());
 
     // Create signature lookup
@@ -837,6 +899,138 @@ pub fn group_signatures_parallel(
     // Build groups
     let mut groups: HashMap<String, Vec<String>> = HashMap::new();
     for sig in signatures {
+        let root = find(&mut parent, &sig.activity_id);
+        groups.entry(root).or_default().push(sig.activity_id.clone());
+    }
+
+    groups
+        .into_iter()
+        .map(|(group_id, activity_ids)| RouteGroup { group_id, activity_ids })
+        .collect()
+}
+
+/// Incremental grouping: efficiently add new signatures to existing groups.
+///
+/// This is much faster than re-grouping all signatures when adding new activities:
+/// - O(n×m) instead of O(n²) where n = existing, m = new
+/// - Only compares: new vs existing AND new vs new
+/// - Existing signatures are NOT compared against each other (already grouped)
+///
+/// # Arguments
+/// * `new_signatures` - New signatures to add
+/// * `existing_groups` - Current group structure
+/// * `existing_signatures` - All existing signatures (for comparison)
+/// * `config` - Matching configuration
+///
+/// # Returns
+/// Updated groups including new signatures
+#[cfg(feature = "parallel")]
+pub fn group_incremental(
+    new_signatures: &[RouteSignature],
+    existing_groups: &[RouteGroup],
+    existing_signatures: &[RouteSignature],
+    config: &MatchConfig,
+) -> Vec<RouteGroup> {
+    use rayon::prelude::*;
+
+    if new_signatures.is_empty() {
+        return existing_groups.to_vec();
+    }
+
+    if existing_groups.is_empty() {
+        // No existing groups - just group the new signatures
+        return group_signatures_parallel(new_signatures, config);
+    }
+
+    // Combine all signatures for R-tree indexing
+    let all_signatures: Vec<&RouteSignature> = existing_signatures
+        .iter()
+        .chain(new_signatures.iter())
+        .collect();
+
+    // Build spatial index from all signatures
+    let all_bounds: Vec<RouteBounds> = all_signatures.iter().map(|s| s.route_bounds()).collect();
+    let rtree = RTree::bulk_load(all_bounds);
+
+    // Create signature lookup
+    let sig_map: HashMap<&str, &RouteSignature> = all_signatures
+        .iter()
+        .map(|s| (s.activity_id.as_str(), *s))
+        .collect();
+
+    // Set of new signature IDs for fast lookup
+    let new_ids: std::collections::HashSet<&str> = new_signatures
+        .iter()
+        .map(|s| s.activity_id.as_str())
+        .collect();
+
+    // Initialize Union-Find with existing group structure
+    let mut parent: HashMap<String, String> = HashMap::new();
+
+    // For existing groups: point all members to the group's representative (first member)
+    for group in existing_groups {
+        if !group.activity_ids.is_empty() {
+            let representative = &group.activity_ids[0];
+            for id in &group.activity_ids {
+                parent.insert(id.clone(), representative.clone());
+            }
+        }
+    }
+
+    // For new signatures: each is its own parent initially
+    for sig in new_signatures {
+        parent.insert(sig.activity_id.clone(), sig.activity_id.clone());
+    }
+
+    // Find matches in parallel - but ONLY where at least one signature is new
+    let tolerance = 0.01;
+    let matches: Vec<(String, String)> = new_signatures
+        .par_iter()
+        .flat_map(|new_sig| {
+            let search_bounds = AABB::from_corners(
+                [new_sig.bounds.min_lng - tolerance, new_sig.bounds.min_lat - tolerance],
+                [new_sig.bounds.max_lng + tolerance, new_sig.bounds.max_lat + tolerance],
+            );
+
+            rtree
+                .locate_in_envelope_intersecting(&search_bounds)
+                .filter(|b| {
+                    b.activity_id != new_sig.activity_id
+                        && distance_ratio_ok(new_sig.total_distance, b.distance)
+                })
+                .filter_map(|b| {
+                    let other_sig = sig_map.get(b.activity_id.as_str())?;
+
+                    // Skip if both are existing (they're already grouped)
+                    let other_is_new = new_ids.contains(b.activity_id.as_str());
+                    if !other_is_new {
+                        // new vs existing - always check
+                    } else {
+                        // new vs new - only check once (lexicographic ordering)
+                        if new_sig.activity_id >= b.activity_id {
+                            return None;
+                        }
+                    }
+
+                    let match_result = compare_routes(new_sig, other_sig, config)?;
+                    if should_group_routes(new_sig, other_sig, &match_result, config) {
+                        Some((new_sig.activity_id.clone(), b.activity_id.clone()))
+                    } else {
+                        None
+                    }
+                })
+                .collect::<Vec<_>>()
+        })
+        .collect();
+
+    // Apply matches to Union-Find
+    for (id1, id2) in matches {
+        union(&mut parent, &id1, &id2);
+    }
+
+    // Build groups from all signatures
+    let mut groups: HashMap<String, Vec<String>> = HashMap::new();
+    for sig in all_signatures {
         let root = find(&mut parent, &sig.activity_id);
         groups.entry(root).or_default().push(sig.activity_id.clone());
     }
@@ -934,6 +1128,43 @@ mod ffi {
 
         let elapsed = start.elapsed();
         info!("[RouteMatcherRust] 🦀 Grouped into {} groups in {:?}", groups.len(), elapsed);
+
+        groups
+    }
+
+    /// Incremental grouping: efficiently add new signatures to existing groups.
+    /// Only compares new vs existing and new vs new - O(n×m) instead of O(n²).
+    #[uniffi::export]
+    pub fn ffi_group_incremental(
+        new_signatures: Vec<RouteSignature>,
+        existing_groups: Vec<RouteGroup>,
+        existing_signatures: Vec<RouteSignature>,
+        config: MatchConfig,
+    ) -> Vec<RouteGroup> {
+        init_logging();
+        info!(
+            "[RouteMatcherRust] 🦀 INCREMENTAL grouping: {} new + {} existing signatures",
+            new_signatures.len(),
+            existing_signatures.len()
+        );
+
+        let start = std::time::Instant::now();
+
+        #[cfg(feature = "parallel")]
+        let groups = group_incremental(&new_signatures, &existing_groups, &existing_signatures, &config);
+
+        #[cfg(not(feature = "parallel"))]
+        let groups = {
+            // Fallback to full re-grouping if parallel feature not enabled
+            let all_sigs: Vec<RouteSignature> = existing_signatures
+                .into_iter()
+                .chain(new_signatures.into_iter())
+                .collect();
+            group_signatures(&all_sigs, &config)
+        };
+
+        let elapsed = start.elapsed();
+        info!("[RouteMatcherRust] 🦀 Incremental grouped into {} groups in {:?}", groups.len(), elapsed);
 
         groups
     }
@@ -1205,6 +1436,64 @@ mod ffi {
         pub signatures: Vec<RouteSignature>,
     }
 
+    // ========================================================================
+    // Frequent Sections Detection
+    // ========================================================================
+
+    /// Input mapping activity IDs to sport types
+    #[derive(Debug, Clone, uniffi::Record)]
+    pub struct ActivitySportType {
+        pub activity_id: String,
+        pub sport_type: String,
+    }
+
+    /// Detect frequent sections from route signatures.
+    /// Returns sections sorted by visit count (most visited first).
+    #[uniffi::export]
+    pub fn ffi_detect_frequent_sections(
+        signatures: Vec<RouteSignature>,
+        groups: Vec<RouteGroup>,
+        sport_types: Vec<ActivitySportType>,
+        config: crate::SectionConfig,
+    ) -> Vec<crate::FrequentSection> {
+        init_logging();
+        info!(
+            "[RouteMatcherRust] 🦀 detect_frequent_sections: {} signatures, {} sport types",
+            signatures.len(),
+            sport_types.len()
+        );
+
+        let start = std::time::Instant::now();
+
+        // Convert sport types to HashMap
+        let sport_map: std::collections::HashMap<String, String> = sport_types
+            .into_iter()
+            .map(|st| (st.activity_id, st.sport_type))
+            .collect();
+
+        let sections = crate::sections::detect_frequent_sections(
+            &signatures,
+            &groups,
+            &sport_map,
+            &config,
+        );
+
+        let elapsed = start.elapsed();
+        info!(
+            "[RouteMatcherRust] 🦀 Found {} frequent sections in {:?}",
+            sections.len(),
+            elapsed
+        );
+
+        sections
+    }
+
+    /// Get default section detection configuration
+    #[uniffi::export]
+    pub fn default_section_config() -> crate::SectionConfig {
+        crate::SectionConfig::default()
+    }
+
     /// Fetch map data AND create route signatures in one call.
     /// Most efficient for initial sync - fetches from API and processes GPS data.
     #[cfg(feature = "http")]
@@ -1261,6 +1550,63 @@ mod ffi {
               map_results.len(), signatures.len(), elapsed);
 
         FetchAndProcessResult { map_results, signatures }
+    }
+
+    // ========================================================================
+    // Heatmap Generation FFI
+    // ========================================================================
+
+    /// Generate a heatmap from route signatures.
+    /// Uses the simplified GPS traces (~100 points each) for efficient generation.
+    #[uniffi::export]
+    pub fn ffi_generate_heatmap(
+        signatures: Vec<RouteSignature>,
+        activity_data: Vec<crate::ActivityHeatmapData>,
+        config: crate::HeatmapConfig,
+    ) -> crate::HeatmapResult {
+        init_logging();
+        info!(
+            "[RouteMatcherRust] 🦀 generate_heatmap: {} signatures, {}m cells",
+            signatures.len(),
+            config.cell_size_meters
+        );
+
+        let start = std::time::Instant::now();
+
+        // Convert Vec to HashMap for efficient lookup
+        let data_map: std::collections::HashMap<String, crate::ActivityHeatmapData> =
+            activity_data.into_iter()
+                .map(|d| (d.activity_id.clone(), d))
+                .collect();
+
+        let result = crate::generate_heatmap(&signatures, &data_map, &config);
+
+        let elapsed = start.elapsed();
+        info!(
+            "[RouteMatcherRust] 🦀 Heatmap generated: {} cells, {} routes, {} activities in {:?}",
+            result.cells.len(),
+            result.total_routes,
+            result.total_activities,
+            elapsed
+        );
+
+        result
+    }
+
+    /// Query the heatmap at a specific location.
+    #[uniffi::export]
+    pub fn ffi_query_heatmap_cell(
+        heatmap: crate::HeatmapResult,
+        lat: f64,
+        lng: f64,
+    ) -> Option<crate::CellQueryResult> {
+        crate::query_heatmap_cell(&heatmap, lat, lng, heatmap.cell_size_meters)
+    }
+
+    /// Get default heatmap configuration.
+    #[uniffi::export]
+    pub fn default_heatmap_config() -> crate::HeatmapConfig {
+        crate::HeatmapConfig::default()
     }
 }
 
@@ -1357,7 +1703,8 @@ mod tests {
         assert!(result.is_some());
         let result = result.unwrap();
         assert!(result.match_percentage > 95.0);
-        assert_eq!(result.direction, "forward");
+        // Direction is "same" when routes go the same direction
+        assert_eq!(result.direction, "same");
     }
 
     #[test]
@@ -1376,22 +1723,29 @@ mod tests {
 
     #[test]
     fn test_group_signatures() {
-        let route1 = sample_route();
-        let route2 = route1.clone();
-        let different_route = vec![
-            GpsPoint::new(40.7128, -74.0060),
-            GpsPoint::new(40.7138, -74.0070),
-            GpsPoint::new(40.7148, -74.0080),
-        ];
+        // Create a longer route that meets min_route_distance (500m)
+        // Each point is about 100m apart, 10 points = ~1km
+        let long_route: Vec<GpsPoint> = (0..10)
+            .map(|i| GpsPoint::new(51.5074 + i as f64 * 0.001, -0.1278))
+            .collect();
 
-        let sig1 = RouteSignature::from_points("test-1", &route1, &MatchConfig::default()).unwrap();
-        let sig2 = RouteSignature::from_points("test-2", &route2, &MatchConfig::default()).unwrap();
+        let different_route: Vec<GpsPoint> = (0..10)
+            .map(|i| GpsPoint::new(40.7128 + i as f64 * 0.001, -74.0060))
+            .collect();
+
+        let sig1 = RouteSignature::from_points("test-1", &long_route, &MatchConfig::default()).unwrap();
+        let sig2 = RouteSignature::from_points("test-2", &long_route, &MatchConfig::default()).unwrap();
         let sig3 = RouteSignature::from_points("test-3", &different_route, &MatchConfig::default()).unwrap();
 
         let groups = group_signatures(&[sig1, sig2, sig3], &MatchConfig::default());
 
         // Should have 2 groups: one with test-1 and test-2, one with test-3
         assert_eq!(groups.len(), 2);
+
+        // Verify the grouping is correct
+        let group_with_1 = groups.iter().find(|g| g.activity_ids.contains(&"test-1".to_string())).unwrap();
+        assert!(group_with_1.activity_ids.contains(&"test-2".to_string()));
+        assert!(!group_with_1.activity_ids.contains(&"test-3".to_string()));
     }
 
     #[test]

@@ -23,12 +23,23 @@ export interface GpsPoint {
   longitude: number;
 }
 
+export interface Bounds {
+  minLat: number;
+  maxLat: number;
+  minLng: number;
+  maxLng: number;
+}
+
 export interface RouteSignature {
   activityId: string;
   points: GpsPoint[];
   totalDistance: number;
   startPoint: GpsPoint;
   endPoint: GpsPoint;
+  /** Pre-computed bounding box (normalized, ready for use) */
+  bounds: Bounds;
+  /** Pre-computed center point (for map rendering without JS calculation) */
+  center: GpsPoint;
 }
 
 export interface MatchResult {
@@ -188,6 +199,31 @@ export function groupSignatures(
   const result = NativeModule.groupSignatures(signatures, config ?? null);
   const elapsed = Date.now() - startTime;
   nativeLog(`RUST groupSignatures returned ${result?.length || 0} groups in ${elapsed}ms`);
+  return result || [];
+}
+
+/**
+ * Incremental grouping: efficiently add new signatures to existing groups.
+ * Only compares new vs existing and new vs new - O(n×m) instead of O(n²).
+ *
+ * Use this when adding new activities to avoid re-comparing all existing signatures.
+ */
+export function groupIncremental(
+  newSignatures: RouteSignature[],
+  existingGroups: RouteGroup[],
+  existingSignatures: RouteSignature[],
+  config?: Partial<MatchConfig>
+): RouteGroup[] {
+  nativeLog(`INCREMENTAL grouping: ${newSignatures.length} new + ${existingSignatures.length} existing`);
+  const startTime = Date.now();
+  const result = NativeModule.groupIncremental(
+    newSignatures,
+    existingGroups,
+    existingSignatures,
+    config ?? null
+  );
+  const elapsed = Date.now() - startTime;
+  nativeLog(`INCREMENTAL returned ${result?.length || 0} groups in ${elapsed}ms`);
   return result || [];
 }
 
@@ -464,12 +500,412 @@ export function parseBounds(bounds: number[]): { ne: [number, number]; sw: [numb
   };
 }
 
+// =============================================================================
+// Frequent Sections Detection
+// =============================================================================
+
+/**
+ * Configuration for section detection.
+ */
+export interface SectionConfig {
+  /** Grid cell size in meters (default: 100m) */
+  cellSizeMeters: number;
+  /** Minimum visits to a cell to be considered frequent (default: 3) */
+  minVisits: number;
+  /** Minimum cells in a cluster to form a section (default: 5, ~500m) */
+  minCells: number;
+  /** Whether to use 8-directional (true) or 4-directional (false) flood-fill */
+  diagonalConnect: boolean;
+}
+
+/**
+ * Grid cell coordinate.
+ */
+export interface CellCoord {
+  row: number;
+  col: number;
+}
+
+/**
+ * A frequently-traveled section (~100m grid cells).
+ */
+export interface FrequentSection {
+  /** Unique section ID */
+  id: string;
+  /** Sport type this section is for ("Run", "Ride", etc.) */
+  sportType: string;
+  /** Grid cell coordinates that make up this section */
+  cells: CellCoord[];
+  /** Simplified polyline for rendering (ordered path through cells) */
+  polyline: GpsPoint[];
+  /** Activity IDs that traverse this section */
+  activityIds: string[];
+  /** Route group IDs that include this section */
+  routeIds: string[];
+  /** Total number of traversals */
+  visitCount: number;
+  /** Estimated section length in meters */
+  distanceMeters: number;
+  /** Timestamp of first visit (Unix seconds, 0 if unknown) */
+  firstVisit: number;
+  /** Timestamp of last visit (Unix seconds, 0 if unknown) */
+  lastVisit: number;
+}
+
+/**
+ * Input mapping activity IDs to sport types.
+ */
+export interface ActivitySportType {
+  activityId: string;
+  sportType: string;
+}
+
+/**
+ * Detect frequent sections from route signatures.
+ * Uses a grid-based algorithm to find road sections that are frequently traveled,
+ * even when full routes differ.
+ *
+ * @param signatures - Route signatures with GPS points
+ * @param groups - Route groups (for linking sections to routes)
+ * @param sportTypes - Map of activity_id -> sport_type
+ * @param config - Optional section detection configuration
+ * @returns Array of detected frequent sections, sorted by visit count (descending)
+ */
+export function detectFrequentSections(
+  signatures: RouteSignature[],
+  groups: RouteGroup[],
+  sportTypes: ActivitySportType[],
+  config?: Partial<SectionConfig>
+): FrequentSection[] {
+  nativeLog(`RUST detectFrequentSections called with ${signatures.length} signatures`);
+  const startTime = Date.now();
+
+  // Convert to native format
+  const nativeConfig = config ? {
+    cell_size_meters: config.cellSizeMeters ?? 100,
+    min_visits: config.minVisits ?? 3,
+    min_cells: config.minCells ?? 5,
+    diagonal_connect: config.diagonalConnect ?? true,
+  } : NativeModule.defaultSectionConfig();
+
+  const result = NativeModule.detectFrequentSections(
+    signatures,
+    groups,
+    sportTypes.map(st => ({
+      activity_id: st.activityId,
+      sport_type: st.sportType,
+    })),
+    nativeConfig
+  );
+
+  const elapsed = Date.now() - startTime;
+  nativeLog(`RUST detectFrequentSections returned ${result?.length || 0} sections in ${elapsed}ms`);
+
+  // Convert from snake_case to camelCase
+  return (result || []).map((s: Record<string, unknown>) => ({
+    id: s.id as string,
+    sportType: s.sport_type as string,
+    cells: (s.cells as Array<{ row: number; col: number }>).map(c => ({ row: c.row, col: c.col })),
+    polyline: (s.polyline as GpsPoint[]),
+    activityIds: s.activity_ids as string[],
+    routeIds: s.route_ids as string[],
+    visitCount: s.visit_count as number,
+    distanceMeters: s.distance_meters as number,
+    firstVisit: s.first_visit as number,
+    lastVisit: s.last_visit as number,
+  }));
+}
+
+/**
+ * Get default section detection configuration from Rust.
+ */
+export function getDefaultSectionConfig(): SectionConfig {
+  const config = NativeModule.defaultSectionConfig();
+  return {
+    cellSizeMeters: config.cell_size_meters,
+    minVisits: config.min_visits,
+    minCells: config.min_cells,
+    diagonalConnect: config.diagonal_connect,
+  };
+}
+
+// =============================================================================
+// Heatmap Generation
+// =============================================================================
+
+/**
+ * Configuration for heatmap generation.
+ */
+export interface HeatmapConfig {
+  /** Grid cell size in meters (default: 100m) */
+  cellSizeMeters: number;
+  /** Optional bounds to limit computation */
+  bounds?: HeatmapBounds;
+}
+
+/**
+ * Bounding box for heatmap computation.
+ */
+export interface HeatmapBounds {
+  minLat: number;
+  maxLat: number;
+  minLng: number;
+  maxLng: number;
+}
+
+/**
+ * Reference to a route group passing through a cell.
+ */
+export interface RouteRef {
+  /** Route group ID */
+  routeId: string;
+  /** How many activities from this route pass through this cell */
+  activityCount: number;
+  /** User-defined or auto-generated route name */
+  name: string | null;
+}
+
+/**
+ * A single cell in the heatmap grid.
+ */
+export interface HeatmapCell {
+  /** Grid row index */
+  row: number;
+  /** Grid column index */
+  col: number;
+  /** Cell center latitude */
+  centerLat: number;
+  /** Cell center longitude */
+  centerLng: number;
+  /** Normalized density (0.0-1.0) for color mapping */
+  density: number;
+  /** Total visit count (sum of all point traversals) */
+  visitCount: number;
+  /** Routes passing through this cell */
+  routeRefs: RouteRef[];
+  /** Number of unique routes */
+  uniqueRouteCount: number;
+  /** All activity IDs that pass through */
+  activityIds: string[];
+  /** Earliest visit (Unix timestamp, null if unknown) */
+  firstVisit: number | null;
+  /** Most recent visit (Unix timestamp, null if unknown) */
+  lastVisit: number | null;
+  /** True if 2+ routes share this cell (intersection/common path) */
+  isCommonPath: boolean;
+}
+
+/**
+ * Complete heatmap result.
+ */
+export interface HeatmapResult {
+  /** Non-empty cells only (sparse representation) */
+  cells: HeatmapCell[];
+  /** Computed bounds */
+  bounds: HeatmapBounds;
+  /** Cell size used */
+  cellSizeMeters: number;
+  /** Grid dimensions */
+  gridRows: number;
+  gridCols: number;
+  /** Maximum density for normalization */
+  maxDensity: number;
+  /** Summary stats */
+  totalRoutes: number;
+  totalActivities: number;
+}
+
+/**
+ * Query result when user taps a location.
+ */
+export interface CellQueryResult {
+  /** The cell at the queried location */
+  cell: HeatmapCell;
+  /** Suggested label based on patterns */
+  suggestedLabel: string;
+}
+
+/**
+ * Activity metadata for heatmap generation.
+ */
+export interface ActivityHeatmapData {
+  activityId: string;
+  routeId: string | null;
+  routeName: string | null;
+  timestamp: number | null;
+}
+
+/**
+ * Generate a heatmap from route signatures.
+ * Uses the simplified GPS traces (~100 points each) for efficient generation.
+ *
+ * @param signatures - Route signatures with GPS points
+ * @param activityData - Activity metadata (route association, timestamps)
+ * @param config - Optional heatmap configuration
+ * @returns Heatmap result with cells and metadata
+ */
+export function generateHeatmap(
+  signatures: RouteSignature[],
+  activityData: ActivityHeatmapData[],
+  config?: Partial<HeatmapConfig>
+): HeatmapResult {
+  nativeLog(`RUST generateHeatmap called with ${signatures.length} signatures`);
+  const startTime = Date.now();
+
+  const nativeConfig = {
+    cell_size_meters: config?.cellSizeMeters ?? 100,
+    bounds: config?.bounds ? {
+      min_lat: config.bounds.minLat,
+      max_lat: config.bounds.maxLat,
+      min_lng: config.bounds.minLng,
+      max_lng: config.bounds.maxLng,
+    } : null,
+  };
+
+  const nativeActivityData = activityData.map(d => ({
+    activity_id: d.activityId,
+    route_id: d.routeId,
+    route_name: d.routeName,
+    timestamp: d.timestamp,
+  }));
+
+  const result = NativeModule.generateHeatmap(signatures, nativeActivityData, nativeConfig);
+
+  const elapsed = Date.now() - startTime;
+  nativeLog(`RUST generateHeatmap returned ${result?.cells?.length || 0} cells in ${elapsed}ms`);
+
+  // Convert from snake_case to camelCase
+  return {
+    cells: (result?.cells || []).map((c: Record<string, unknown>) => ({
+      row: c.row as number,
+      col: c.col as number,
+      centerLat: c.center_lat as number,
+      centerLng: c.center_lng as number,
+      density: c.density as number,
+      visitCount: c.visit_count as number,
+      routeRefs: (c.route_refs as Array<Record<string, unknown>>).map(r => ({
+        routeId: r.route_id as string,
+        activityCount: r.activity_count as number,
+        name: r.name as string | null,
+      })),
+      uniqueRouteCount: c.unique_route_count as number,
+      activityIds: c.activity_ids as string[],
+      firstVisit: c.first_visit as number | null,
+      lastVisit: c.last_visit as number | null,
+      isCommonPath: c.is_common_path as boolean,
+    })),
+    bounds: {
+      minLat: result?.bounds?.min_lat ?? 0,
+      maxLat: result?.bounds?.max_lat ?? 0,
+      minLng: result?.bounds?.min_lng ?? 0,
+      maxLng: result?.bounds?.max_lng ?? 0,
+    },
+    cellSizeMeters: result?.cell_size_meters ?? 100,
+    gridRows: result?.grid_rows ?? 0,
+    gridCols: result?.grid_cols ?? 0,
+    maxDensity: result?.max_density ?? 0,
+    totalRoutes: result?.total_routes ?? 0,
+    totalActivities: result?.total_activities ?? 0,
+  };
+}
+
+/**
+ * Query the heatmap at a specific location.
+ *
+ * @param heatmap - Heatmap result from generateHeatmap
+ * @param lat - Latitude to query
+ * @param lng - Longitude to query
+ * @returns Cell query result or null if no cell at that location
+ */
+export function queryHeatmapCell(
+  heatmap: HeatmapResult,
+  lat: number,
+  lng: number
+): CellQueryResult | null {
+  // Convert to native format
+  const nativeHeatmap = {
+    cells: heatmap.cells.map(c => ({
+      row: c.row,
+      col: c.col,
+      center_lat: c.centerLat,
+      center_lng: c.centerLng,
+      density: c.density,
+      visit_count: c.visitCount,
+      route_refs: c.routeRefs.map(r => ({
+        route_id: r.routeId,
+        activity_count: r.activityCount,
+        name: r.name,
+      })),
+      unique_route_count: c.uniqueRouteCount,
+      activity_ids: c.activityIds,
+      first_visit: c.firstVisit,
+      last_visit: c.lastVisit,
+      is_common_path: c.isCommonPath,
+    })),
+    bounds: {
+      min_lat: heatmap.bounds.minLat,
+      max_lat: heatmap.bounds.maxLat,
+      min_lng: heatmap.bounds.minLng,
+      max_lng: heatmap.bounds.maxLng,
+    },
+    cell_size_meters: heatmap.cellSizeMeters,
+    grid_rows: heatmap.gridRows,
+    grid_cols: heatmap.gridCols,
+    max_density: heatmap.maxDensity,
+    total_routes: heatmap.totalRoutes,
+    total_activities: heatmap.totalActivities,
+  };
+
+  const result = NativeModule.queryHeatmapCell(nativeHeatmap, lat, lng);
+  if (!result) return null;
+
+  const cell = result.cell;
+  return {
+    cell: {
+      row: cell.row,
+      col: cell.col,
+      centerLat: cell.center_lat,
+      centerLng: cell.center_lng,
+      density: cell.density,
+      visitCount: cell.visit_count,
+      routeRefs: (cell.route_refs || []).map((r: Record<string, unknown>) => ({
+        routeId: r.route_id as string,
+        activityCount: r.activity_count as number,
+        name: r.name as string | null,
+      })),
+      uniqueRouteCount: cell.unique_route_count,
+      activityIds: cell.activity_ids,
+      firstVisit: cell.first_visit,
+      lastVisit: cell.last_visit,
+      isCommonPath: cell.is_common_path,
+    },
+    suggestedLabel: result.suggested_label,
+  };
+}
+
+/**
+ * Get default heatmap configuration from Rust.
+ */
+export function getDefaultHeatmapConfig(): HeatmapConfig {
+  const config = NativeModule.defaultHeatmapConfig();
+  return {
+    cellSizeMeters: config.cell_size_meters,
+    bounds: config.bounds ? {
+      minLat: config.bounds.min_lat,
+      maxLat: config.bounds.max_lat,
+      minLng: config.bounds.min_lng,
+      maxLng: config.bounds.max_lng,
+    } : undefined,
+  };
+}
+
 export default {
   createSignature,
   createSignaturesBatch,
   createSignaturesFlatBuffer,
   compareRoutes,
   groupSignatures,
+  groupIncremental,
   processRoutesBatch,
   processRoutesFlat,
   processRoutesFlatBuffer,
@@ -484,4 +920,11 @@ export default {
   addFetchProgressListener,
   flatCoordsToPoints,
   parseBounds,
+  // Frequent sections detection
+  detectFrequentSections,
+  getDefaultSectionConfig,
+  // Heatmap generation
+  generateHeatmap,
+  queryHeatmapCell,
+  getDefaultHeatmapConfig,
 };
