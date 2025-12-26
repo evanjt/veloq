@@ -160,7 +160,7 @@ export default function ActivityDetailScreen() {
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
-        scrollEnabled={!chartInteracting && !is3DMapActive}
+        scrollEnabled={!chartInteracting}
       >
         {/* Hero Map Section */}
         <View style={styles.heroSection}>

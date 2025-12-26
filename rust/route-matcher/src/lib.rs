@@ -1007,6 +1007,7 @@ pub fn group_incremental(
 #[cfg(feature = "ffi")]
 mod ffi {
     use super::*;
+    use log::{info, debug};
 
     // ========================================================================
     // Progress Callback Interface (for real-time updates to mobile)
