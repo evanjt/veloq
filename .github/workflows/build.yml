@@ -2,12 +2,23 @@ name: Build iOS & Android
 
 on:
   push:
-    branches: [main]
+    branches: [main, beta]
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
   pull_request:
     branches: [main]
   workflow_dispatch:
-  release:
-    types: [published]
+    inputs:
+      build_type:
+        description: 'Build type override'
+        required: false
+        default: 'auto'
+        type: choice
+        options:
+          - auto
+          - preview
+          - beta
+          - production
 
 jobs:
   test:
@@ -38,9 +49,12 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.version.outputs.version }}
+      version_code: ${{ steps.version.outputs.version_code }}
       short_sha: ${{ steps.version.outputs.short_sha }}
       build_type: ${{ steps.version.outputs.build_type }}
       filename: ${{ steps.version.outputs.filename }}
+      is_release: ${{ steps.version.outputs.is_release }}
+      is_prerelease: ${{ steps.version.outputs.is_prerelease }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -51,16 +65,54 @@ jobs:
           VERSION=$(node -p "require('./package.json').version")
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
+          # Calculate version code from semver (major * 10000 + minor * 100 + patch)
+          MAJOR=$(echo $VERSION | cut -d. -f1)
+          MINOR=$(echo $VERSION | cut -d. -f2)
+          PATCH=$(echo $VERSION | cut -d. -f3)
+          VERSION_CODE=$((MAJOR * 10000 + MINOR * 100 + PATCH))
+          echo "version_code=$VERSION_CODE" >> $GITHUB_OUTPUT
+
           SHORT_SHA=$(git rev-parse --short HEAD)
           echo "short_sha=$SHORT_SHA" >> $GITHUB_OUTPUT
 
-          if [[ "${{ github.event_name }}" == "release" ]]; then
-            echo "build_type=production" >> $GITHUB_OUTPUT
-            echo "filename=veloq-${VERSION}" >> $GITHUB_OUTPUT
-          else
-            echo "build_type=preview" >> $GITHUB_OUTPUT
-            echo "filename=veloq-${VERSION}-${SHORT_SHA}" >> $GITHUB_OUTPUT
+          # Determine build type
+          BUILD_TYPE="preview"
+          IS_RELEASE="false"
+          IS_PRERELEASE="false"
+
+          # Check for manual override
+          if [[ "${{ inputs.build_type }}" != "" && "${{ inputs.build_type }}" != "auto" ]]; then
+            BUILD_TYPE="${{ inputs.build_type }}"
+          # Tag push = production release
+          elif [[ "${{ github.ref_type }}" == "tag" ]]; then
+            BUILD_TYPE="production"
+            IS_RELEASE="true"
+          # Beta branch = beta release
+          elif [[ "${{ github.ref }}" == "refs/heads/beta" ]]; then
+            BUILD_TYPE="beta"
+            IS_RELEASE="true"
+            IS_PRERELEASE="true"
           fi
+
+          echo "build_type=$BUILD_TYPE" >> $GITHUB_OUTPUT
+          echo "is_release=$IS_RELEASE" >> $GITHUB_OUTPUT
+          echo "is_prerelease=$IS_PRERELEASE" >> $GITHUB_OUTPUT
+
+          # Set filename based on build type
+          case $BUILD_TYPE in
+            production)
+              echo "filename=veloq-${VERSION}" >> $GITHUB_OUTPUT
+              ;;
+            beta)
+              echo "filename=veloq-${VERSION}-beta-${SHORT_SHA}" >> $GITHUB_OUTPUT
+              ;;
+            *)
+              echo "filename=veloq-${VERSION}-${SHORT_SHA}" >> $GITHUB_OUTPUT
+              ;;
+          esac
+
+          echo "Build type: $BUILD_TYPE"
+          echo "Version: $VERSION (code: $VERSION_CODE)"
 
   build-android:
     name: Build Android APK
@@ -134,6 +186,32 @@ jobs:
           done
 
       # ============================================
+      # Signing Setup (for releases)
+      # ============================================
+      - name: Decode keystore
+        if: needs.version.outputs.is_release == 'true' && env.ANDROID_KEYSTORE_BASE64 != ''
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > android/app/release.keystore
+          echo "Keystore decoded successfully"
+
+      - name: Create keystore.properties
+        if: needs.version.outputs.is_release == 'true' && env.ANDROID_KEYSTORE_BASE64 != ''
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          cat > android/keystore.properties << EOF
+          storeFile=release.keystore
+          storePassword=$ANDROID_KEYSTORE_PASSWORD
+          keyAlias=$ANDROID_KEY_ALIAS
+          keyPassword=$ANDROID_KEY_PASSWORD
+          EOF
+
+      # ============================================
       # Gradle and Android Build
       # ============================================
       - name: Cache Gradle dependencies
@@ -163,8 +241,8 @@ jobs:
       - name: Build APK
         working-directory: android
         env:
-          # Build only arm64 to speed up CI (most modern devices)
-          ORG_GRADLE_PROJECT_reactNativeArchitectures: arm64-v8a
+          # Build all architectures for releases, arm64 only for previews
+          ORG_GRADLE_PROJECT_reactNativeArchitectures: ${{ needs.version.outputs.is_release == 'true' && 'arm64-v8a,armeabi-v7a,x86_64,x86' || 'arm64-v8a' }}
         run: ./gradlew assembleRelease --no-daemon --parallel
 
       - name: Rename APK
@@ -360,13 +438,16 @@ jobs:
           retention-days: 7
 
   release:
-    name: Upload to Release
-    if: github.event_name == 'release'
+    name: Create Release
+    if: needs.version.outputs.is_release == 'true'
     needs: [version, build-android, build-ios]
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - name: Download Android artifact
         uses: actions/download-artifact@v4
         with:
@@ -379,9 +460,62 @@ jobs:
           name: ios-simulator-${{ needs.version.outputs.filename }}
           path: artifacts/
 
-      - name: Upload to Release
+      - name: Generate release notes
+        id: notes
+        run: |
+          VERSION="${{ needs.version.outputs.version }}"
+          BUILD_TYPE="${{ needs.version.outputs.build_type }}"
+
+          if [[ "$BUILD_TYPE" == "beta" ]]; then
+            TITLE="Veloq v${VERSION} Beta"
+            PRERELEASE_NOTE="> **Beta Release:** This is a pre-release version for testing. Use at your own risk."
+          else
+            TITLE="Veloq v${VERSION}"
+            PRERELEASE_NOTE=""
+          fi
+
+          # Try to get changelog from fastlane metadata
+          CHANGELOG_FILE="fastlane/metadata/android/en-US/changelogs/${{ needs.version.outputs.version_code }}.txt"
+          if [ -f "$CHANGELOG_FILE" ]; then
+            CHANGELOG=$(cat "$CHANGELOG_FILE")
+          else
+            CHANGELOG="See commit history for changes."
+          fi
+
+          cat > release-notes.md << EOF
+          # $TITLE
+
+          $PRERELEASE_NOTE
+
+          ## What's New
+
+          $CHANGELOG
+
+          ## Downloads
+
+          - **Android APK:** \`${{ needs.version.outputs.filename }}.apk\`
+          - **iOS Simulator:** \`${{ needs.version.outputs.filename }}-ios-simulator.zip\`
+
+          ## Installation
+
+          ### Android
+          Download the APK and install directly on your device. You may need to enable "Install from unknown sources" in your device settings.
+
+          ### iOS Simulator
+          Unzip and drag the .app file onto the iOS Simulator.
+
+          ---
+
+          Built from commit: ${{ github.sha }}
+          EOF
+
+      - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          name: Veloq v${{ needs.version.outputs.version }}${{ needs.version.outputs.build_type == 'beta' && ' Beta' || '' }}
+          tag_name: ${{ github.ref_type == 'tag' && github.ref_name || format('v{0}-beta', needs.version.outputs.version) }}
+          body_path: release-notes.md
+          prerelease: ${{ needs.version.outputs.is_prerelease }}
           files: |
             artifacts/*.apk
             artifacts/*.zip
