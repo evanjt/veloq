@@ -59,7 +59,7 @@ import NativeRouteMatcher, {
   createSignaturesFlatBuffer,
   groupIncremental as nativeGroupIncremental,
   detectFrequentSections as nativeDetectFrequentSections,
-  detectSectionsIncremental as nativeDetectSectionsIncremental,
+  detectSectionsFromTracks as nativeDetectSectionsFromTracks,
 } from 'route-matcher-native';
 import type {
   RouteSignature as NativeRouteSignature,
@@ -1223,81 +1223,84 @@ class RouteProcessingQueue {
 
         this.cache = updateRouteGroups(this.cache, groups, metadataForGroups);
 
-        // Detect frequent sections using Rust (vector-first algorithm)
-        // Uses INCREMENTAL detection when adding new activities to existing sections
-        // This is O(m×n) instead of O(n²) - much faster for adding 1 activity to 500 existing
+        // Detect frequent sections using FULL GPS tracks (medoid-based algorithm)
+        // This produces smooth, natural section shapes using actual GPS traces
         const sectionStartTime = Date.now();
         const allSignatures = Object.values(this.cache.signatures);
         if (allSignatures.length >= 3) {  // Need at least 3 activities for meaningful sections
-          const existingSections = this.cache.frequentSections || [];
-          const hasExistingSections = existingSections.length > 0;
+          log.log(`Loading full GPS tracks for ${allSignatures.length} activities...`);
 
-          // Build sport type mapping for section detection
-          const sportTypes: ActivitySportType[] = allSignatures
-            .filter(sig => metadataForGroups[sig.activityId])
-            .map(sig => ({
-              activityId: sig.activityId,
-              sportType: metadataForGroups[sig.activityId]?.type || 'Unknown',
-            }));
+          // Load FULL GPS tracks from storage
+          const activityIds = allSignatures.map(sig => sig.activityId);
+          const gpsTracks = await getGpsTracks(activityIds);
 
-          // Convert groups to native format
-          const nativeGroups = this.cache.groups.map(g => ({
-            groupId: g.id,
-            activityIds: g.activityIds,
-          }));
-
-          let sections: NativeFrequentSection[];
-
-          if (hasExistingSections && newSignatures.length > 0 && existingSignatures.length > 0) {
-            // INCREMENTAL: Only compare new signatures against existing
-            // O(m×n) where m = new, n = existing - much faster!
-            log.log(`INCREMENTAL section detection: ${newSignatures.length} new + ${existingSignatures.length} existing signatures`);
-
-            const nativeNewSigs = newSignatures.map(toNativeSignature);
-            const nativeExistingSigs = existingSignatures.map(toNativeSignature);
-
-            // Convert existing sections to native format
-            const nativeExistingSections: NativeFrequentSection[] = existingSections.map(s => ({
-              id: s.id,
-              sportType: s.sportType,
-              polyline: s.polyline.map(p => ({ latitude: p.lat, longitude: p.lng })),
-              activityIds: s.activityIds,
-              routeIds: s.routeIds,
-              visitCount: s.visitCount,
-              distanceMeters: s.distanceMeters,
-            }));
-
-            sections = nativeDetectSectionsIncremental(
-              nativeNewSigs,
-              nativeExistingSections,
-              nativeExistingSigs,
-              nativeGroups,
-              sportTypes
-            );
-          } else {
-            // FULL: First-time detection or no existing sections
-            log.log(`Full section detection from ${allSignatures.length} signatures...`);
-            const nativeSigs = allSignatures.map(toNativeSignature);
-            sections = nativeDetectFrequentSections(
-              nativeSigs,
-              nativeGroups,
-              sportTypes
-            );
+          // Convert to format needed by Rust
+          const tracks: Array<{ activityId: string; points: GpsPoint[] }> = [];
+          for (const [activityId, coords] of gpsTracks) {
+            if (coords && coords.length > 0) {
+              tracks.push({
+                activityId,
+                points: coords.map(([lat, lng]) => ({ latitude: lat, longitude: lng })),
+              });
+            }
           }
 
-          // Convert to app format and store (vector-first returns smooth polylines)
-          this.cache.frequentSections = sections.map(s => ({
-            id: s.id,
-            sportType: s.sportType,
-            polyline: s.polyline.map(p => ({ lat: p.latitude, lng: p.longitude })),
-            activityIds: s.activityIds,
-            routeIds: s.routeIds,
-            visitCount: s.visitCount,
-            distanceMeters: s.distanceMeters,
-          }));
+          log.log(`Loaded ${tracks.length} GPS tracks with full resolution`);
 
-          const sectionElapsed = Date.now() - sectionStartTime;
-          log.log(`Found ${this.cache.frequentSections.length} frequent sections in ${sectionElapsed}ms`);
+          if (tracks.length >= 3) {
+            // Limit tracks to prevent extremely long processing times
+            // Section detection is O(n²) for pairwise comparisons, so limit to 100 tracks
+            const MAX_SECTION_TRACKS = 100;
+            const tracksToProcess = tracks.length > MAX_SECTION_TRACKS
+              ? tracks.slice(0, MAX_SECTION_TRACKS)
+              : tracks;
+
+            if (tracks.length > MAX_SECTION_TRACKS) {
+              log.log(`Limiting section detection to ${MAX_SECTION_TRACKS} most recent tracks (of ${tracks.length})`);
+            }
+
+            // Notify UI that section detection is starting
+            this.setProgress({
+              status: 'detecting-sections',
+              current: processed,
+              total,
+              message: `Detecting sections from ${tracksToProcess.length} tracks...`,
+              processedActivities: [...processedActivities],
+              matchesFound,
+              discoveredRoutes: [],
+              cachedSignatureCount: cachedSignatureCount + newSignatures.length,
+            });
+
+            // Build sport type mapping for section detection
+            const sportTypes: ActivitySportType[] = tracksToProcess
+              .filter(t => metadataForGroups[t.activityId])
+              .map(t => ({
+                activityId: t.activityId,
+                sportType: metadataForGroups[t.activityId]?.type || 'Unknown',
+              }));
+
+            // Convert groups to native format (only include groups with 2+ activities
+            // to match the Routes list filter)
+            const nativeGroups = this.cache.groups
+              .filter(g => g.activityIds.length >= 2)
+              .map(g => ({
+                groupId: g.id,
+                activityIds: g.activityIds,
+              }));
+
+            // Detect sections using full GPS tracks (medoid-based)
+            const sections = nativeDetectSectionsFromTracks(
+              tracksToProcess,
+              sportTypes,
+              nativeGroups
+            );
+
+            // Store sections (native module already converts polyline to lat/lng format)
+            this.cache.frequentSections = sections;
+
+            const sectionElapsed = Date.now() - sectionStartTime;
+            log.log(`Found ${this.cache.frequentSections.length} frequent sections (medoid-based) in ${sectionElapsed}ms`);
+          }
         }
 
         await saveRouteCache(this.cache);

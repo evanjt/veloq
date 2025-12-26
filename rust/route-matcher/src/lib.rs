@@ -53,9 +53,9 @@ pub mod http;
 #[cfg(feature = "http")]
 pub use http::{ActivityFetcher, ActivityMapResult, MapBounds};
 
-// Frequent sections detection (vector-first algorithm for smooth polylines)
+// Frequent sections detection (medoid-based algorithm for smooth polylines)
 pub mod sections;
-pub use sections::{FrequentSection, SectionConfig, detect_frequent_sections, detect_sections_incremental};
+pub use sections::{FrequentSection, SectionConfig, SectionPortion, detect_frequent_sections, detect_sections_from_tracks};
 
 // Heatmap generation module
 pub mod heatmap;
@@ -1454,28 +1454,59 @@ mod ffi {
         crate::SectionConfig::default()
     }
 
-    /// Incremental section detection: efficiently update sections when new activities are added.
-    /// Only compares new vs existing signatures - O(m×n) instead of O(n²).
+    /// Detect frequent sections from FULL GPS tracks.
+    /// Uses medoid-based algorithm to select actual GPS traces as representative polylines.
+    /// This produces smooth, natural section shapes that follow real roads.
     ///
-    /// For 500 existing + 1 new: O(500) comparisons instead of O(250,000)
+    /// # Arguments
+    /// * `activity_ids` - List of activity IDs (in same order as coordinates)
+    /// * `all_coords` - Flat array of coordinates: [lat1, lng1, lat2, lng2, ...]
+    /// * `offsets` - Start offset for each activity in all_coords (length = activity count + 1)
+    /// * `sport_types` - Sport type for each activity
+    /// * `groups` - Route groups (for linking sections to routes)
+    /// * `config` - Section detection configuration
     #[uniffi::export]
-    pub fn ffi_detect_sections_incremental(
-        new_signatures: Vec<RouteSignature>,
-        existing_sections: Vec<crate::FrequentSection>,
-        existing_signatures: Vec<RouteSignature>,
-        groups: Vec<RouteGroup>,
+    pub fn ffi_detect_sections_from_tracks(
+        activity_ids: Vec<String>,
+        all_coords: Vec<f64>,
+        offsets: Vec<u32>,
         sport_types: Vec<ActivitySportType>,
+        groups: Vec<RouteGroup>,
         config: crate::SectionConfig,
     ) -> Vec<crate::FrequentSection> {
         init_logging();
         info!(
-            "[RouteMatcherRust] 🦀 detect_sections_incremental: {} new + {} existing signatures, {} existing sections",
-            new_signatures.len(),
-            existing_signatures.len(),
-            existing_sections.len()
+            "[RouteMatcherRust] 🦀 detect_sections_from_tracks: {} activities, {} coords",
+            activity_ids.len(),
+            all_coords.len() / 2
         );
 
         let start = std::time::Instant::now();
+
+        // Convert flat coordinates to tracks
+        let mut tracks: Vec<(String, Vec<GpsPoint>)> = Vec::with_capacity(activity_ids.len());
+
+        for (i, activity_id) in activity_ids.iter().enumerate() {
+            let start_offset = offsets[i] as usize;
+            let end_offset = offsets.get(i + 1).map(|&o| o as usize).unwrap_or(all_coords.len() / 2);
+
+            let mut points = Vec::with_capacity(end_offset - start_offset);
+            for j in start_offset..end_offset {
+                let coord_idx = j * 2;
+                if coord_idx + 1 < all_coords.len() {
+                    points.push(GpsPoint::new(all_coords[coord_idx], all_coords[coord_idx + 1]));
+                }
+            }
+
+            if !points.is_empty() {
+                tracks.push((activity_id.clone(), points));
+            }
+        }
+
+        info!(
+            "[RouteMatcherRust] 🦀 Converted to {} tracks with full GPS data",
+            tracks.len()
+        );
 
         // Convert sport types to HashMap
         let sport_map: std::collections::HashMap<String, String> = sport_types
@@ -1483,18 +1514,16 @@ mod ffi {
             .map(|st| (st.activity_id, st.sport_type))
             .collect();
 
-        let sections = crate::sections::detect_sections_incremental(
-            &new_signatures,
-            &existing_sections,
-            &existing_signatures,
-            &groups,
+        let sections = crate::sections::detect_sections_from_tracks(
+            &tracks,
             &sport_map,
+            &groups,
             &config,
         );
 
         let elapsed = start.elapsed();
         info!(
-            "[RouteMatcherRust] 🦀 Incremental sections: {} sections in {:?}",
+            "[RouteMatcherRust] 🦀 Found {} sections (medoid-based) in {:?}",
             sections.len(),
             elapsed
         );
