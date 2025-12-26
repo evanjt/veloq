@@ -9,7 +9,7 @@ import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Svg, { Polyline, Defs, LinearGradient, Stop, Rect, Circle } from 'react-native-svg';
 import { router, Href } from 'expo-router';
-import { colors, spacing } from '@/theme';
+import { colors, darkColors, opacity, spacing, layout, typography } from '@/theme';
 import { getActivityColor, loadCustomRouteNames, getRouteDisplayName } from '@/lib';
 import type { DiscoveredRouteInfo, RouteGroup } from '@/types';
 
@@ -301,7 +301,7 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     borderRadius: 10,
     padding: spacing.sm,
     shadowColor: '#000',
@@ -311,7 +311,7 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   containerDark: {
-    backgroundColor: '#1A1A1A',
+    backgroundColor: darkColors.surface,
   },
   previewBox: {
     width: 56,
@@ -323,12 +323,12 @@ const styles = StyleSheet.create({
     width: 56,
     height: 40,
     borderRadius: 6,
-    backgroundColor: 'rgba(0, 0, 0, 0.03)',
+    backgroundColor: opacity.overlay.subtle,
     justifyContent: 'center',
     alignItems: 'center',
   },
   previewPlaceholderDark: {
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    backgroundColor: opacity.overlayDark.light,
   },
   infoContainer: {
     flex: 1,
@@ -336,7 +336,7 @@ const styles = StyleSheet.create({
     marginRight: spacing.xs,
   },
   routeName: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     fontWeight: '600',
     color: colors.textPrimary,
   },
@@ -347,35 +347,35 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   metaText: {
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     color: colors.textSecondary,
   },
   matchPercent: {
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     fontWeight: '500',
   },
   countBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.primary,
-    borderRadius: 12,
-    paddingHorizontal: 8,
+    borderRadius: layout.borderRadius,
+    paddingHorizontal: spacing.sm,
     paddingVertical: 2,
     gap: 2,
   },
   countText: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: colors.textOnDark,
   },
   textLight: {
-    color: '#FFFFFF',
+    color: colors.textOnDark,
   },
   textMuted: {
-    color: '#777',
+    color: darkColors.textSecondary,
   },
   expandedList: {
-    backgroundColor: 'rgba(0, 0, 0, 0.02)',
+    backgroundColor: opacity.overlay.subtle,
     borderBottomLeftRadius: 10,
     borderBottomRightRadius: 10,
     paddingHorizontal: spacing.md,
@@ -383,7 +383,7 @@ const styles = StyleSheet.create({
     marginTop: -2,
   },
   expandedListDark: {
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    backgroundColor: opacity.overlayDark.subtle,
   },
   activityItem: {
     flexDirection: 'row',
@@ -393,13 +393,13 @@ const styles = StyleSheet.create({
   },
   activityName: {
     flex: 1,
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
   },
   moreText: {
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     color: colors.textSecondary,
-    marginTop: 4,
+    marginTop: spacing.xs,
     fontStyle: 'italic',
   },
 });

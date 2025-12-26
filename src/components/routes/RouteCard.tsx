@@ -8,7 +8,7 @@ import { View, StyleSheet, Pressable, useColorScheme } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router, Href } from 'expo-router';
-import { colors, spacing, layout, shadows } from '@/theme';
+import { colors, darkColors, opacity, spacing, layout, shadows, typography } from '@/theme';
 import { formatDistance, formatRelativeDate, getActivityIcon, getActivityColor } from '@/lib';
 import type { RouteGroup } from '@/types';
 
@@ -97,14 +97,14 @@ const styles = StyleSheet.create({
     opacity: 0.9,
   },
   card: {
-    borderRadius: 12,
+    borderRadius: layout.borderRadius,
     backgroundColor: colors.surface,
     overflow: 'hidden',
     // Platform-optimized shadow
     ...shadows.card,
   },
   cardDark: {
-    backgroundColor: '#1A1A1A',
+    backgroundColor: darkColors.surface,
     ...shadows.elevated,
   },
   accentBar: {
@@ -128,20 +128,20 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   routeName: {
-    fontSize: 16,
+    fontSize: typography.body.fontSize,
     fontWeight: '600',
     color: colors.textPrimary,
   },
   textLight: {
-    color: '#FFFFFF',
+    color: colors.textOnDark,
   },
   subtitle: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     color: colors.textSecondary,
     marginTop: 2,
   },
   subtitleDark: {
-    color: '#888',
+    color: darkColors.textMuted,
   },
   stats: {
     alignItems: 'flex-end',
@@ -150,10 +150,10 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary + '15',
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
-    borderRadius: 12,
+    borderRadius: layout.borderRadius,
   },
   countText: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     fontWeight: '700',
     color: colors.primary,
   },
@@ -164,16 +164,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(0, 0, 0, 0.05)',
+    borderTopColor: opacity.overlay.light,
   },
   footerDark: {
-    borderTopColor: 'rgba(255, 255, 255, 0.08)',
+    borderTopColor: opacity.overlayDark.medium,
   },
   dateRange: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
   },
   dateRangeDark: {
-    color: '#666',
+    color: darkColors.textSecondary,
   },
 });

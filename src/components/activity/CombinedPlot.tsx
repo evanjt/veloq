@@ -5,7 +5,7 @@ import { LinearGradient, vec } from '@shopify/react-native-skia';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { useSharedValue, useAnimatedReaction, runOnJS, useDerivedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
-import { colors, shadows } from '@/theme';
+import { colors, darkColors, typography, layout, shadows } from '@/theme';
 import { useMetricSystem } from '@/hooks';
 import type { ChartConfig, ChartTypeId } from '@/lib/chartConfig';
 import type { ActivityStreams } from '@/types';
@@ -444,16 +444,16 @@ const styles = StyleSheet.create({
     letterSpacing: -0.5,
   },
   metricUnit: {
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     fontWeight: '500',
     color: colors.textSecondary,
     marginLeft: 2,
   },
   metricUnitDark: {
-    color: '#888',
+    color: darkColors.textSecondary,
   },
   metricLabel: {
-    fontSize: 9,
+    fontSize: typography.pillLabel.fontSize,
     fontWeight: '500',
     color: colors.textSecondary,
     marginTop: 1,
@@ -461,7 +461,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
   },
   metricLabelDark: {
-    color: '#777',
+    color: darkColors.textMuted,
   },
   distanceIndicator: {
     position: 'absolute',
@@ -475,15 +475,15 @@ const styles = StyleSheet.create({
     ...shadows.pill,
   },
   distanceIndicatorDark: {
-    backgroundColor: 'rgba(40, 40, 40, 0.9)',
+    backgroundColor: darkColors.surfaceOverlay,
   },
   distanceText: {
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     fontWeight: '600',
     color: colors.textPrimary,
   },
   distanceTextDark: {
-    color: '#EEE',
+    color: darkColors.textPrimary,
   },
   chartWrapper: {
     flex: 1,
@@ -504,14 +504,14 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
     justifyContent: 'center',
     alignItems: 'center',
-    borderRadius: 8,
+    borderRadius: layout.borderRadiusSm,
   },
   placeholderText: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     color: colors.textSecondary,
   },
   textDark: {
-    color: '#AAA',
+    color: darkColors.textSecondary,
   },
   xAxis: {
     position: 'absolute',
@@ -522,11 +522,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   xLabel: {
-    fontSize: 10,
+    fontSize: typography.micro.fontSize,
     fontWeight: '500',
     color: colors.textSecondary,
   },
   xLabelDark: {
-    color: '#777',
+    color: darkColors.textMuted,
   },
 });

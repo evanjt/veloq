@@ -25,7 +25,7 @@ import {
   getAvailableCharts,
   CHART_CONFIGS,
 } from '@/lib';
-import { colors, spacing, typography } from '@/theme';
+import { colors, darkColors, spacing, typography, layout, opacity } from '@/theme';
 import { DeviceAttribution } from '@/components/ui';
 import type { ChartTypeId } from '@/lib/chartConfig';
 
@@ -444,7 +444,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   containerDark: {
-    backgroundColor: '#121212',
+    backgroundColor: darkColors.background,
   },
   scrollView: {
     flex: 1,
@@ -511,9 +511,9 @@ const styles = StyleSheet.create({
     zIndex: 5,
   },
   activityName: {
-    fontSize: 20,
+    fontSize: typography.statsValue.fontSize,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: colors.textOnDark,
     textShadowColor: 'rgba(0,0,0,0.6)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 3,
@@ -522,10 +522,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 4,
+    marginTop: spacing.xs,
   },
   activityDate: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     color: 'rgba(255,255,255,0.85)',
   },
   inlineStats: {
@@ -533,15 +533,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   inlineStat: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: colors.textOnDark,
     textShadowColor: 'rgba(0,0,0,0.5)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,
   },
   inlineStatDivider: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     color: 'rgba(255,255,255,0.5)',
     marginHorizontal: 6,
   },
@@ -559,18 +559,18 @@ const styles = StyleSheet.create({
   expandButton: {
     width: 24,
     height: 24,
-    borderRadius: 12,
-    backgroundColor: 'rgba(0, 0, 0, 0.08)',
+    borderRadius: layout.borderRadius,
+    backgroundColor: opacity.overlay.light,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 6,
   },
   expandButtonDark: {
-    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    backgroundColor: opacity.overlayDark.heavy,
   },
   chartCard: {
     backgroundColor: colors.surface,
-    borderRadius: 16,
+    borderRadius: layout.cardPadding,
     paddingHorizontal: spacing.sm,
     paddingTop: spacing.xs,
     paddingBottom: spacing.sm,
@@ -578,14 +578,14 @@ const styles = StyleSheet.create({
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
-    shadowRadius: 8,
+    shadowRadius: spacing.sm,
     elevation: 2,
   },
   cardDark: {
-    backgroundColor: '#1E1E1E',
+    backgroundColor: darkColors.surface,
   },
   textLight: {
-    color: '#FFFFFF',
+    color: colors.textOnDark,
   },
 
   // Compact stats
@@ -594,12 +594,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-around',
     backgroundColor: colors.surface,
     marginBottom: spacing.sm,
-    borderRadius: 16,
+    borderRadius: layout.cardPadding,
     paddingVertical: spacing.md,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
-    shadowRadius: 8,
+    shadowRadius: spacing.sm,
     elevation: 2,
   },
   compactStatItem: {
@@ -607,12 +607,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   compactStatValue: {
-    fontSize: 18,
+    fontSize: typography.cardTitle.fontSize,
     fontWeight: '700',
     color: colors.textPrimary,
   },
   compactStatLabel: {
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     color: colors.textSecondary,
     marginTop: 2,
   },
@@ -629,7 +629,7 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: 'rgba(0, 0, 0, 0.08)',
+    backgroundColor: opacity.overlay.light,
     justifyContent: 'center',
     alignItems: 'center',
     marginLeft: 'auto',
@@ -643,7 +643,7 @@ const styles = StyleSheet.create({
     paddingTop: spacing.md,
   },
   fullscreenContainerDark: {
-    backgroundColor: '#1E1E1E',
+    backgroundColor: darkColors.surface,
   },
   fullscreenCloseButton: {
     position: 'absolute',
@@ -652,7 +652,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: 'rgba(0, 0, 0, 0.15)',
+    backgroundColor: opacity.overlay.medium,
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 10,

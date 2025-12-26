@@ -13,7 +13,10 @@ import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import * as Location from 'expo-location';
-import { colors, darkColors, shadows } from '@/theme';
+import { colors, darkColors } from '@/theme/colors';
+import { typography } from '@/theme/typography';
+import { spacing, layout } from '@/theme/spacing';
+import { shadows } from '@/theme/shadows';
 import { intervalsApi } from '@/api';
 import { formatDistance, formatDuration, convertLatLngTuples, normalizeBounds, getBoundsCenter, activitySpatialIndex, mapBoundsToViewport } from '@/lib';
 import { getActivityTypeConfig } from './ActivityTypeFilter';
@@ -530,20 +533,16 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
                   backgroundColor: config.color,
                   // Thinner border to give more space for the icon
                   borderWidth: isSelected ? 2 : 1.5,
-                  borderColor: isSelected ? colors.primary : '#FFFFFF',
+                  borderColor: isSelected ? colors.primary : colors.textOnDark,
                   justifyContent: 'center',
                   alignItems: 'center',
-                  shadowColor: '#000',
-                  shadowOffset: { width: 0, height: 2 },
-                  shadowOpacity: 0.3,
-                  shadowRadius: 3,
-                  elevation: 4,
+                  ...shadows.elevated,
                 }}
               >
                 <Ionicons
                   name={config.icon}
                   size={iconSize}
-                  color="#FFFFFF"
+                  color={colors.textOnDark}
                 />
               </View>
             </MarkerView>
@@ -619,7 +618,7 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
         <MaterialCommunityIcons
           name="close"
           size={24}
-          color={isDark ? '#FFFFFF' : '#333333'}
+          color={isDark ? colors.textOnDark : colors.textSecondary}
         />
       </TouchableOpacity>
 
@@ -634,7 +633,7 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
         <MaterialCommunityIcons
           name={getStyleIcon(mapStyle)}
           size={24}
-          color={isDark ? '#FFFFFF' : '#333333'}
+          color={isDark ? colors.textOnDark : colors.textSecondary}
         />
       </TouchableOpacity>
 
@@ -658,7 +657,7 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
           <MaterialCommunityIcons
             name="terrain"
             size={22}
-            color={show3D ? '#FFFFFF' : (can3D ? (isDark ? '#FFFFFF' : '#333333') : (isDark ? '#666666' : '#AAAAAA'))}
+            color={show3D ? colors.textOnDark : (can3D ? (isDark ? colors.textOnDark : colors.textSecondary) : (isDark ? darkColors.textMuted : colors.textDisabled))}
           />
         </TouchableOpacity>
 
@@ -673,8 +672,8 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
           <CompassArrow
             size={22}
             rotation={bearingAnim}
-            northColor="#E53935"
-            southColor={isDark ? '#FFFFFF' : '#333333'}
+            northColor={colors.error}
+            southColor={isDark ? colors.textOnDark : colors.textSecondary}
           />
         </TouchableOpacity>
 
@@ -693,7 +692,7 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
           <MaterialCommunityIcons
             name="crosshairs-gps"
             size={22}
-            color={userLocation ? '#FFFFFF' : (isDark ? '#FFFFFF' : '#333333')}
+            color={userLocation ? colors.textOnDark : (isDark ? colors.textOnDark : colors.textSecondary)}
           />
         </TouchableOpacity>
       </View>
@@ -778,35 +777,34 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000',
+    backgroundColor: darkColors.background,
   },
   map: {
     flex: 1,
   },
   button: {
     position: 'absolute',
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: layout.minTapTarget,
+    height: layout.minTapTarget,
+    borderRadius: layout.minTapTarget / 2,
     backgroundColor: 'rgba(255, 255, 255, 0.95)',
     justifyContent: 'center',
     alignItems: 'center',
-    // Platform-optimized shadow for map overlays
     ...shadows.mapOverlay,
   },
   buttonDark: {
-    backgroundColor: 'rgba(50, 50, 50, 0.95)',
+    backgroundColor: darkColors.surfaceCard,
   },
   closeButton: {
-    left: 16,
+    left: spacing.md,
   },
   styleButton: {
-    right: 16,
+    right: spacing.md,
   },
   controlStack: {
     position: 'absolute',
-    right: 16,
-    gap: 8,
+    right: spacing.md,
+    gap: spacing.sm,
   },
   controlButton: {
     width: 40,
@@ -815,11 +813,10 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.95)',
     justifyContent: 'center',
     alignItems: 'center',
-    // Platform-optimized shadow for map overlays
     ...shadows.mapOverlay,
   },
   controlButtonDark: {
-    backgroundColor: 'rgba(50, 50, 50, 0.95)',
+    backgroundColor: darkColors.surfaceCard,
   },
   controlButtonActive: {
     backgroundColor: colors.primary,
@@ -839,9 +836,9 @@ const styles = StyleSheet.create({
     width: 12,
     height: 12,
     borderRadius: 6,
-    backgroundColor: '#42A5F5',
+    backgroundColor: colors.chartBlue,
     borderWidth: 2,
-    borderColor: '#FFFFFF',
+    borderColor: colors.textOnDark,
   },
   markerWrapper: {
     alignItems: 'center',
@@ -850,67 +847,58 @@ const styles = StyleSheet.create({
   marker: {
     justifyContent: 'center',
     alignItems: 'center',
-    borderColor: '#FFFFFF',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 3,
-    elevation: 4,
+    borderColor: colors.textOnDark,
+    ...shadows.elevated,
   },
   markerSelected: {
     borderWidth: 3,
     borderColor: colors.primary,
-    // Don't use scale transform - it causes clipping in MarkerView
   },
   popup: {
     position: 'absolute',
-    left: 16,
-    right: 16,
+    left: spacing.md,
+    right: spacing.md,
     backgroundColor: colors.surface,
-    borderRadius: 16,
-    padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 8,
+    borderRadius: spacing.md,
+    padding: spacing.md,
+    ...shadows.modal,
   },
   popupHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 12,
+    marginBottom: layout.cardMargin,
   },
   popupHeaderButtons: {
     flexDirection: 'row',
-    gap: 4,
+    gap: spacing.xs,
   },
   popupIconButton: {
-    padding: 4,
+    padding: spacing.xs,
   },
   popupInfo: {
     flex: 1,
-    marginRight: 8,
+    marginRight: spacing.sm,
   },
   popupTitle: {
-    fontSize: 18,
+    fontSize: typography.cardTitle.fontSize,
     fontWeight: '600',
     color: colors.textPrimary,
-    marginBottom: 4,
+    marginBottom: spacing.xs,
   },
   popupDate: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     color: colors.textSecondary,
   },
   popupStats: {
     flexDirection: 'row',
     justifyContent: 'space-around',
-    paddingVertical: 12,
+    paddingVertical: layout.cardMargin,
     borderTopWidth: 1,
     borderTopColor: colors.divider,
     borderBottomWidth: 1,
     borderBottomColor: colors.divider,
-    marginBottom: 12,
+    marginBottom: layout.cardMargin,
   },
   popupStat: {
     flexDirection: 'row',
@@ -918,7 +906,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   popupStatValue: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     fontWeight: '500',
     color: colors.textPrimary,
   },
@@ -926,35 +914,35 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    marginBottom: 12,
+    gap: spacing.sm,
+    marginBottom: layout.cardMargin,
   },
   popupLoadingText: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     color: colors.textSecondary,
   },
   viewDetailsButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 4,
-    paddingVertical: 8,
+    gap: spacing.xs,
+    paddingVertical: spacing.sm,
   },
   viewDetailsText: {
-    fontSize: 16,
+    fontSize: typography.body.fontSize,
     fontWeight: '600',
     color: colors.primary,
   },
   attribution: {
     position: 'absolute',
-    right: 8,
+    right: spacing.sm,
     backgroundColor: 'rgba(255, 255, 255, 0.7)',
     paddingHorizontal: 6,
     paddingVertical: 2,
-    borderRadius: 4,
+    borderRadius: spacing.xs,
   },
   attributionText: {
-    fontSize: 9,
-    color: '#333333',
+    fontSize: typography.pillLabel.fontSize,
+    color: colors.textSecondary,
   },
 });

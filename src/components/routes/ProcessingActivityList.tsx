@@ -7,7 +7,7 @@ import React, { useEffect, useRef } from 'react';
 import { View, StyleSheet, useColorScheme, Animated, ScrollView } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { colors, spacing } from '@/theme';
+import { colors, darkColors, opacity, spacing, layout, typography } from '@/theme';
 import type { ProcessedActivityStatus } from '@/types';
 
 interface ProcessingActivityListProps {
@@ -220,15 +220,15 @@ export function ProcessingActivityList({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: 'rgba(0, 0, 0, 0.02)',
-    borderRadius: 12,
+    backgroundColor: opacity.overlay.subtle,
+    borderRadius: layout.borderRadius,
     marginHorizontal: spacing.md,
     marginBottom: spacing.md,
     padding: spacing.md,
     maxHeight: 350,
   },
   containerDark: {
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    backgroundColor: opacity.overlayDark.subtle,
   },
   statsHeader: {
     flexDirection: 'row',
@@ -236,7 +236,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingBottom: spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0, 0, 0, 0.05)',
+    borderBottomColor: opacity.overlay.light,
     marginBottom: spacing.sm,
     gap: spacing.lg,
   },
@@ -246,18 +246,18 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   statValue: {
-    fontSize: 18,
+    fontSize: typography.metricValue.fontSize,
     fontWeight: '700',
     color: colors.textPrimary,
   },
   statLabel: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     color: colors.textSecondary,
   },
   statDivider: {
     width: 1,
     height: 24,
-    backgroundColor: 'rgba(0, 0, 0, 0.1)',
+    backgroundColor: opacity.overlay.medium,
   },
   scrollView: {
     flex: 1,
@@ -270,7 +270,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.sm,
-    borderRadius: 8,
+    borderRadius: layout.borderRadiusSm,
     backgroundColor: 'transparent',
   },
   activityRowDark: {
@@ -286,7 +286,7 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: 'rgba(0, 0, 0, 0.05)',
+    backgroundColor: opacity.overlay.light,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: spacing.sm,
@@ -296,20 +296,20 @@ const styles = StyleSheet.create({
     marginRight: spacing.sm,
   },
   activityName: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     fontWeight: '500',
     color: colors.textPrimary,
   },
   matchedWith: {
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     color: colors.success,
     marginTop: 2,
   },
   textLight: {
-    color: '#FFFFFF',
+    color: colors.textOnDark,
   },
   textMuted: {
-    color: '#888',
+    color: darkColors.textMuted,
   },
   statusIcon: {
     width: 24,
@@ -317,7 +317,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   moreText: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
     textAlign: 'center',
     marginTop: spacing.sm,

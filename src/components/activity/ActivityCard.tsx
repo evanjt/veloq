@@ -17,7 +17,7 @@ import {
   getActivityIcon,
   getActivityColor,
 } from '@/lib';
-import { colors, spacing, layout, shadows } from '@/theme';
+import { colors, darkColors, opacity, typography, spacing, layout, shadows } from '@/theme';
 import { ActivityMapPreview } from './ActivityMapPreview';
 
 function formatLocation(activity: Activity): string | null {
@@ -96,7 +96,7 @@ export const ActivityCard = React.memo(function ActivityCard({ activity }: Activ
             <MaterialCommunityIcons
               name={iconName}
               size={20}
-              color="#FFFFFF"
+              color={colors.textOnDark}
             />
           </View>
           <View style={styles.headerText}>
@@ -258,14 +258,14 @@ const styles = StyleSheet.create({
     opacity: 0.9,
   },
   card: {
-    borderRadius: 16,
+    borderRadius: spacing.md,
     backgroundColor: colors.surface,
     overflow: 'hidden',
     // Platform-optimized shadows
     ...shadows.elevated,
   },
   cardDark: {
-    backgroundColor: '#1A1A1A',
+    backgroundColor: darkColors.surface,
     // Dark mode: stronger shadow for contrast
     ...shadows.modal,
   },
@@ -282,7 +282,7 @@ const styles = StyleSheet.create({
   iconContainer: {
     width: 40,
     height: 40,
-    borderRadius: 12,
+    borderRadius: layout.borderRadius,
     justifyContent: 'center',
     alignItems: 'center',
     // Platform-optimized subtle shadow
@@ -299,15 +299,15 @@ const styles = StyleSheet.create({
     letterSpacing: -0.3,
   },
   textLight: {
-    color: '#FFFFFF',
+    color: colors.textOnDark,
   },
   date: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     color: colors.textSecondary,
     marginTop: 2,
   },
   dateDark: {
-    color: '#888',
+    color: darkColors.textSecondary,
   },
   mapContainer: {
     position: 'relative',
@@ -321,15 +321,15 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   statPill: {
-    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+    backgroundColor: opacity.overlay.full,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
-    borderRadius: 8,
+    borderRadius: layout.borderRadiusSm,
   },
   statValue: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: colors.textOnDark,
     letterSpacing: -0.3,
   },
   secondaryStats: {
@@ -338,10 +338,10 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
     gap: spacing.lg,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(0,0,0,0.05)',
+    borderTopColor: opacity.overlay.light,
   },
   secondaryStatsDark: {
-    borderTopColor: 'rgba(255,255,255,0.08)',
+    borderTopColor: opacity.overlayDark.medium,
   },
   secondaryStat: {
     flexDirection: 'row',
@@ -351,24 +351,24 @@ const styles = StyleSheet.create({
   secondaryStatIcon: {
     width: 28,
     height: 28,
-    borderRadius: 8,
+    borderRadius: layout.borderRadiusSm,
     justifyContent: 'center',
     alignItems: 'center',
   },
   secondaryStatValue: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     fontWeight: '700',
     color: colors.textPrimary,
   },
   secondaryStatLabel: {
-    fontSize: 9,
+    fontSize: typography.pillLabel.fontSize,
     fontWeight: '600',
     color: colors.textSecondary,
     letterSpacing: 0.3,
     marginTop: 1,
   },
   statLabelDark: {
-    color: '#777',
+    color: darkColors.textMuted,
   },
   menuContent: {
     backgroundColor: colors.surface,
