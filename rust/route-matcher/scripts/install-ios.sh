@@ -54,6 +54,13 @@ if [ -d "$SWIFT_SOURCE" ]; then
         echo "  ✓ route_matcherFFI.h (C header)"
     fi
 
+    # Copy the module.modulemap from headers directory (needed for Swift imports)
+    HEADERS_DIR="${SOURCE_DIR}/headers"
+    if [ -f "$HEADERS_DIR/module.modulemap" ]; then
+        cp "$HEADERS_DIR/module.modulemap" "$MODULE_DIR/Generated/"
+        echo "  ✓ module.modulemap (Swift module definition)"
+    fi
+
     # Create bridging header if it doesn't exist
     BRIDGING_HEADER="$MODULE_DIR/RouteMatcherNative-Bridging-Header.h"
     if [ ! -f "$BRIDGING_HEADER" ]; then
