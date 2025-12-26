@@ -31,6 +31,8 @@ function getStatusIcon(
       return 'cog-outline';
     case 'matching':
       return 'vector-intersection';
+    case 'detecting-sections':
+      return 'road-variant';
     case 'complete':
       return 'check-circle-outline';
     case 'error':
@@ -56,6 +58,8 @@ function getStatusMessage(progress: RouteProcessingProgress): string {
       return `Step 2: Analysing ${progress.current} of ${progress.total} activities`;
     case 'matching':
       return 'Step 3: Grouping routes...';
+    case 'detecting-sections':
+      return 'Step 4: Detecting frequent sections...';
     case 'complete':
       return 'Analysis complete';
     case 'error':
@@ -75,7 +79,8 @@ export function ProcessingBanner({
     progress.status === 'filtering' ||
     progress.status === 'fetching' ||
     progress.status === 'processing' ||
-    progress.status === 'matching';
+    progress.status === 'matching' ||
+    progress.status === 'detecting-sections';
 
   const progressValue = progress.total > 0 ? progress.current / progress.total : 0;
   const statusIcon = getStatusIcon(progress.status);

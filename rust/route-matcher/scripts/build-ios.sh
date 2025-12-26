@@ -85,33 +85,59 @@ echo ""
 echo "Generating Swift bindings..."
 
 # First, build the uniffi-bindgen binary for the host platform
-cargo build --release --features ffi --bin uniffi-bindgen 2>/dev/null || true
+echo "Building uniffi-bindgen..."
+if ! cargo build --release --features ffi --bin uniffi-bindgen; then
+    echo "ERROR: Failed to build uniffi-bindgen"
+    exit 1
+fi
 
-# Try to generate Swift bindings
+# Generate Swift bindings
+BINDGEN_SUCCESS=false
+
 if cargo run --release --features ffi --bin uniffi-bindgen generate \
     --library target/aarch64-apple-ios/release/libroute_matcher.a \
     --language swift \
-    --out-dir "$SWIFT_DIR" 2>/dev/null; then
+    --out-dir "$SWIFT_DIR"; then
+    BINDGEN_SUCCESS=true
     echo "Swift bindings generated successfully ✓"
 else
     # Fallback: try uniffi-bindgen from PATH
     if command -v uniffi-bindgen &> /dev/null; then
-        echo "Using system uniffi-bindgen..."
-        uniffi-bindgen generate \
+        echo "Falling back to system uniffi-bindgen..."
+        if uniffi-bindgen generate \
             --library target/aarch64-apple-ios/release/libroute_matcher.a \
             --language swift \
-            --out-dir "$SWIFT_DIR"
-        echo "Swift bindings generated successfully ✓"
-    else
-        echo ""
-        echo "WARNING: Could not generate Swift bindings."
-        echo "The iOS module will fall back to JavaScript implementation."
-        echo ""
-        echo "To generate Swift bindings, install uniffi-bindgen:"
-        echo "  cargo install uniffi_bindgen@0.29"
-        echo ""
+            --out-dir "$SWIFT_DIR"; then
+            BINDGEN_SUCCESS=true
+            echo "Swift bindings generated successfully ✓"
+        fi
     fi
 fi
+
+if [ "$BINDGEN_SUCCESS" = false ]; then
+    echo ""
+    echo "ERROR: Failed to generate Swift bindings."
+    echo ""
+    echo "This is required for iOS builds. To fix:"
+    echo "  1. Ensure uniffi feature is enabled in Cargo.toml"
+    echo "  2. Try: cargo install uniffi_bindgen@0.29"
+    echo ""
+    exit 1
+fi
+
+# Validate generated files
+echo ""
+echo "Validating generated bindings..."
+if [ ! -f "$SWIFT_DIR/route_matcher.swift" ]; then
+    echo "ERROR: route_matcher.swift not generated"
+    exit 1
+fi
+if [ ! -f "$SWIFT_DIR/route_matcherFFI.h" ]; then
+    echo "ERROR: route_matcherFFI.h not generated"
+    exit 1
+fi
+echo "  ✓ route_matcher.swift"
+echo "  ✓ route_matcherFFI.h"
 
 # Create XCFramework (requires macOS with Xcode)
 echo ""
@@ -128,8 +154,12 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
         cp "$SWIFT_DIR/route_matcherFFI.h" "$HEADERS_DIR/"
 
         # Create module.modulemap
+        # IMPORTANT: The module name must be "route_matcherFFI" (lowercase with underscore)
+        # to match what UniFFI generates in the Swift bindings:
+        #   #if canImport(route_matcherFFI)
+        #   import route_matcherFFI
         cat > "$HEADERS_DIR/module.modulemap" << 'EOF'
-module RouteMatcherFFI {
+module route_matcherFFI {
     header "route_matcherFFI.h"
     export *
 }
