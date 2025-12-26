@@ -1,191 +1,103 @@
-//! # Frequent Sections Detection
+//! # Vector-First Section Detection
 //!
-//! Automatically detects frequently-traveled road sections, even when full routes differ.
-//! Uses a grid-based approach with flood-fill clustering.
+//! Detects frequently-traveled road sections by analyzing GPS track overlaps directly.
+//! This produces smooth, natural polylines that are actual portions of real GPS tracks.
 //!
 //! ## Algorithm
-//! 1. Grid all GPS points into ~100m cells, per activity type
-//! 2. Count visits per cell - track which activities pass through each cell
-//! 3. Find contiguous clusters via flood-fill with ≥min_visits
-//! 4. Filter by length - keep clusters with ≥min_cells (~500m minimum)
-//! 5. Extract polyline - generate simplified path through cluster
-//! 6. Link to routes - associate sections with RouteGroups that use them
+//! 1. For each pair of activities (same sport), find overlapping portions
+//! 2. An overlap is where tracks stay within proximity threshold for sustained distance
+//! 3. Cluster overlaps that are geographically similar
+//! 4. Keep clusters appearing in 3+ activities
+//! 5. Use median of overlapping portions as section polyline
+//!
+//! Works with actual GPS coordinates throughout, only using spatial indexing
+//! for efficiency, not for defining section shapes.
 
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::collections::{HashMap, HashSet};
 use crate::{GpsPoint, RouteSignature, RouteGroup};
+use geo::{Point, Haversine, Distance};
 
-/// Meters per degree of latitude (approximately constant)
-const METERS_PER_LAT_DEGREE: f64 = 111_319.0;
-
-/// Configuration for section detection
+/// Configuration for v2 section detection
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "ffi", derive(uniffi::Record))]
 pub struct SectionConfig {
-    /// Grid cell size in meters (default: 100m)
-    pub cell_size_meters: f64,
-    /// Minimum visits to a cell to be considered frequent (default: 3)
-    pub min_visits: u32,
-    /// Minimum cells in a cluster to form a section (default: 5, ~500m)
-    pub min_cells: u32,
-    /// Whether to use 8-directional (true) or 4-directional (false) flood-fill
-    pub diagonal_connect: bool,
+    /// Maximum distance between tracks to consider overlapping (meters)
+    pub proximity_threshold: f64,
+    /// Minimum overlap length to consider a section (meters)
+    pub min_section_length: f64,
+    /// Minimum number of activities that must share an overlap
+    pub min_activities: u32,
+    /// Tolerance for clustering similar overlaps (meters)
+    pub cluster_tolerance: f64,
+    /// Number of sample points for polyline normalization
+    pub sample_points: u32,
 }
 
 impl Default for SectionConfig {
     fn default() -> Self {
         Self {
-            cell_size_meters: 100.0,
-            min_visits: 3,
-            min_cells: 5,
-            diagonal_connect: true,
+            proximity_threshold: 30.0,   // 30m - tight enough for road-level matching
+            min_section_length: 200.0,   // 200m minimum section
+            min_activities: 3,           // Need 3+ activities
+            cluster_tolerance: 50.0,     // 50m for clustering similar overlaps
+            sample_points: 50,           // Sample points for normalization
         }
     }
 }
 
-/// A frequently-traveled section (~100m grid cells)
+/// A detected track overlap between two activities
+#[derive(Debug, Clone)]
+struct TrackOverlap {
+    /// First activity ID
+    activity_a: String,
+    /// Second activity ID
+    activity_b: String,
+    /// GPS points from activity A that overlap
+    points_a: Vec<GpsPoint>,
+    /// GPS points from activity B that overlap
+    points_b: Vec<GpsPoint>,
+    /// Estimated overlap length in meters
+    length: f64,
+    /// Center point of overlap (for spatial clustering)
+    center: GpsPoint,
+}
+
+/// A cluster of overlapping track portions
+#[derive(Debug, Clone)]
+struct OverlapCluster {
+    /// All overlaps in this cluster
+    overlaps: Vec<TrackOverlap>,
+    /// Activity IDs that have overlaps in this cluster
+    activity_ids: HashSet<String>,
+    /// Representative polyline (median of all overlaps)
+    polyline: Vec<GpsPoint>,
+    /// Estimated length in meters
+    length: f64,
+    /// Center point
+    center: GpsPoint,
+}
+
+/// A frequently-traveled section (v2)
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "ffi", derive(uniffi::Record))]
 pub struct FrequentSection {
-    /// Unique section ID (generated from first cell coordinates)
+    /// Unique section ID
     pub id: String,
-    /// Sport type this section is for ("Run", "Ride", etc.)
+    /// Sport type ("Run", "Ride", etc.)
     pub sport_type: String,
-    /// Grid cell coordinates that make up this section
-    pub cells: Vec<CellCoord>,
-    /// Simplified polyline for rendering (ordered path through cells)
+    /// Smooth polyline from actual GPS tracks
     pub polyline: Vec<GpsPoint>,
     /// Activity IDs that traverse this section
     pub activity_ids: Vec<String>,
     /// Route group IDs that include this section
     pub route_ids: Vec<String>,
-    /// Total number of traversals (may be > activity count if same activity crosses multiple times)
+    /// Number of times traversed
     pub visit_count: u32,
-    /// Estimated section length in meters
+    /// Section length in meters
     pub distance_meters: f64,
-    /// Timestamp of first visit (Unix seconds, 0 if unknown)
-    pub first_visit: i64,
-    /// Timestamp of last visit (Unix seconds, 0 if unknown)
-    pub last_visit: i64,
 }
 
-/// Grid cell coordinate
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "ffi", derive(uniffi::Record))]
-pub struct CellCoord {
-    pub row: i32,
-    pub col: i32,
-}
-
-impl CellCoord {
-    pub fn new(row: i32, col: i32) -> Self {
-        Self { row, col }
-    }
-}
-
-/// Internal cell data during processing
-#[derive(Debug, Clone)]
-struct CellData {
-    /// Activities that pass through this cell
-    activity_ids: HashSet<String>,
-    /// Route groups that include this cell
-    route_ids: HashSet<String>,
-    /// Total visit count (points that landed in this cell)
-    visit_count: u32,
-}
-
-/// Grid for a specific sport type
-struct SportGrid {
-    /// Cell size in degrees (latitude)
-    cell_size_lat: f64,
-    /// Cell size in degrees (longitude) - varies by latitude
-    cell_size_lng: f64,
-    /// Grid cells indexed by (row, col)
-    cells: HashMap<(i32, i32), CellData>,
-}
-
-impl SportGrid {
-    fn new(cell_size_meters: f64, ref_lat: f64) -> Self {
-        // Convert meters to degrees
-        let cell_size_lat = cell_size_meters / METERS_PER_LAT_DEGREE;
-        // Longitude degrees are smaller at higher latitudes
-        let lng_scale = (ref_lat.to_radians()).cos().abs().max(0.1);
-        let cell_size_lng = cell_size_lat / lng_scale;
-
-        Self {
-            cell_size_lat,
-            cell_size_lng,
-            cells: HashMap::new(),
-        }
-    }
-
-    /// Convert a GPS point to cell coordinates
-    fn point_to_cell(&self, point: &GpsPoint) -> (i32, i32) {
-        let row = (point.latitude / self.cell_size_lat).floor() as i32;
-        let col = (point.longitude / self.cell_size_lng).floor() as i32;
-        (row, col)
-    }
-
-    /// Get the center point of a cell
-    fn cell_center(&self, row: i32, col: i32) -> GpsPoint {
-        let lat = (row as f64 + 0.5) * self.cell_size_lat;
-        let lng = (col as f64 + 0.5) * self.cell_size_lng;
-        GpsPoint::new(lat, lng)
-    }
-
-    /// Add a point from an activity to the grid
-    fn add_point(&mut self, point: &GpsPoint, activity_id: &str, route_id: Option<&str>) {
-        let (row, col) = self.point_to_cell(point);
-
-        let cell = self.cells.entry((row, col)).or_insert_with(|| CellData {
-            activity_ids: HashSet::new(),
-            route_ids: HashSet::new(),
-            visit_count: 0,
-        });
-
-        cell.activity_ids.insert(activity_id.to_string());
-        if let Some(rid) = route_id {
-            cell.route_ids.insert(rid.to_string());
-        }
-        cell.visit_count += 1;
-    }
-
-    /// Get neighbors of a cell (4 or 8 directional)
-    fn neighbors(&self, row: i32, col: i32, diagonal: bool) -> Vec<(i32, i32)> {
-        let mut result = vec![
-            (row - 1, col),     // up
-            (row + 1, col),     // down
-            (row, col - 1),     // left
-            (row, col + 1),     // right
-        ];
-
-        if diagonal {
-            result.extend([
-                (row - 1, col - 1), // up-left
-                (row - 1, col + 1), // up-right
-                (row + 1, col - 1), // down-left
-                (row + 1, col + 1), // down-right
-            ]);
-        }
-
-        result
-    }
-}
-
-/// Detect frequent sections from route signatures and groups.
-///
-/// This function analyzes GPS tracks to find road sections that are frequently
-/// traveled, even when the full routes differ. For example, if 5 different running
-/// routes all pass through the same 1km stretch of road, that stretch becomes
-/// a "frequent section".
-///
-/// # Arguments
-/// * `signatures` - Route signatures with GPS points
-/// * `groups` - Route groups (for linking sections to routes)
-/// * `sport_types` - Map of activity_id -> sport_type (e.g., "Run", "Ride")
-/// * `config` - Section detection configuration
-///
-/// # Returns
-/// Vector of detected frequent sections, sorted by visit count (descending)
+/// Detect frequent sections using vector-first approach
 pub fn detect_frequent_sections(
     signatures: &[RouteSignature],
     groups: &[RouteGroup],
@@ -193,9 +105,9 @@ pub fn detect_frequent_sections(
     config: &SectionConfig,
 ) -> Vec<FrequentSection> {
     use log::info;
-    info!("[Sections] Detecting frequent sections from {} signatures", signatures.len());
+    info!("[SectionsV2] Detecting sections from {} signatures (vector-first)", signatures.len());
 
-    if signatures.is_empty() {
+    if signatures.len() < config.min_activities as usize {
         return vec![];
     }
 
@@ -205,35 +117,7 @@ pub fn detect_frequent_sections(
         .flat_map(|g| g.activity_ids.iter().map(|aid| (aid.as_str(), g.group_id.as_str())))
         .collect();
 
-    // Group signatures by sport type and build grids
-    let mut sport_grids: HashMap<String, SportGrid> = HashMap::new();
-
-    // Calculate reference latitude from all signatures (for consistent grid)
-    let ref_lat = signatures
-        .iter()
-        .flat_map(|s| s.points.iter())
-        .map(|p| p.latitude)
-        .sum::<f64>() / signatures.iter().map(|s| s.points.len()).sum::<usize>() as f64;
-
-    // Populate grids
-    for sig in signatures {
-        let sport = sport_types
-            .get(&sig.activity_id)
-            .cloned()
-            .unwrap_or_else(|| "Unknown".to_string());
-
-        let grid = sport_grids
-            .entry(sport.clone())
-            .or_insert_with(|| SportGrid::new(config.cell_size_meters, ref_lat));
-
-        let route_id = activity_to_route.get(sig.activity_id.as_str()).copied();
-
-        for point in &sig.points {
-            grid.add_point(point, &sig.activity_id, route_id);
-        }
-    }
-
-    // Build sport_type -> signatures mapping for polyline extraction
+    // Group signatures by sport type
     let mut sport_signatures: HashMap<String, Vec<&RouteSignature>> = HashMap::new();
     for sig in signatures {
         let sport = sport_types
@@ -243,308 +127,377 @@ pub fn detect_frequent_sections(
         sport_signatures.entry(sport).or_default().push(sig);
     }
 
-    // Find clusters in each sport grid
     let mut all_sections: Vec<FrequentSection> = Vec::new();
 
-    for (sport_type, grid) in sport_grids {
-        // Get signatures for this sport type
-        let sigs: Vec<RouteSignature> = sport_signatures
-            .get(&sport_type)
-            .map(|refs| refs.iter().map(|&s| s.clone()).collect())
-            .unwrap_or_default();
-        let sections = find_clusters(&grid, &sport_type, config, &sigs);
-        all_sections.extend(sections);
+    // Process each sport type
+    for (sport_type, sigs) in &sport_signatures {
+        if sigs.len() < config.min_activities as usize {
+            continue;
+        }
+
+        // Find all pairwise overlaps
+        let overlaps = find_pairwise_overlaps(sigs, config);
+        info!("[SectionsV2] Found {} overlaps for {}", overlaps.len(), sport_type);
+
+        if overlaps.is_empty() {
+            continue;
+        }
+
+        // Cluster overlaps by geographic similarity
+        let clusters = cluster_overlaps(&overlaps, config);
+        info!("[SectionsV2] Clustered into {} groups", clusters.len());
+
+        // Convert clusters to sections
+        for (idx, cluster) in clusters.iter().enumerate() {
+            if cluster.activity_ids.len() < config.min_activities as usize {
+                continue;
+            }
+
+            // Get route IDs for activities in this section
+            let route_ids: Vec<String> = cluster.activity_ids
+                .iter()
+                .filter_map(|aid| activity_to_route.get(aid.as_str()).map(|s| s.to_string()))
+                .collect::<HashSet<_>>()
+                .into_iter()
+                .collect();
+
+            let section = FrequentSection {
+                id: format!("sec2_{}_{}", sport_type.to_lowercase(), idx),
+                sport_type: sport_type.clone(),
+                polyline: cluster.polyline.clone(),
+                activity_ids: cluster.activity_ids.iter().cloned().collect(),
+                route_ids,
+                visit_count: cluster.activity_ids.len() as u32,
+                distance_meters: cluster.length,
+            };
+
+            all_sections.push(section);
+        }
     }
 
-    // Sort by visit count (most visited first)
+    // Sort by visit count
     all_sections.sort_by(|a, b| b.visit_count.cmp(&a.visit_count));
 
-    info!("[Sections] Found {} frequent sections", all_sections.len());
+    info!("[SectionsV2] Found {} frequent sections", all_sections.len());
     all_sections
 }
 
-/// Find clusters of frequently-visited cells using flood-fill
-fn find_clusters(
-    grid: &SportGrid,
-    sport_type: &str,
+/// Find overlapping portions between all pairs of tracks
+fn find_pairwise_overlaps(
+    signatures: &[&RouteSignature],
     config: &SectionConfig,
-    signatures: &[RouteSignature],
-) -> Vec<FrequentSection> {
-    let mut sections = Vec::new();
-    let mut visited: HashSet<(i32, i32)> = HashSet::new();
+) -> Vec<TrackOverlap> {
+    let mut overlaps = Vec::new();
 
-    // Get cells that meet minimum visit threshold
-    let frequent_cells: HashSet<(i32, i32)> = grid
-        .cells
-        .iter()
-        .filter(|(_, data)| data.activity_ids.len() >= config.min_visits as usize)
-        .map(|(coord, _)| *coord)
-        .collect();
+    // Compare all pairs
+    for i in 0..signatures.len() {
+        for j in (i + 1)..signatures.len() {
+            let sig_a = signatures[i];
+            let sig_b = signatures[j];
 
-    // Flood-fill from each unvisited frequent cell
-    for &start_cell in &frequent_cells {
-        if visited.contains(&start_cell) {
-            continue;
-        }
+            // Quick bounds check - skip if bounding boxes don't overlap
+            if !bounds_overlap(&sig_a.bounds, &sig_b.bounds, config.proximity_threshold) {
+                continue;
+            }
 
-        // BFS flood-fill
-        let mut cluster_cells: Vec<(i32, i32)> = Vec::new();
-        let mut queue: VecDeque<(i32, i32)> = VecDeque::new();
-        queue.push_back(start_cell);
-        visited.insert(start_cell);
-
-        while let Some(cell) = queue.pop_front() {
-            cluster_cells.push(cell);
-
-            // Check neighbors
-            for neighbor in grid.neighbors(cell.0, cell.1, config.diagonal_connect) {
-                if !visited.contains(&neighbor) && frequent_cells.contains(&neighbor) {
-                    visited.insert(neighbor);
-                    queue.push_back(neighbor);
-                }
+            // Find overlapping portions
+            if let Some(overlap) = find_track_overlap(sig_a, sig_b, config) {
+                overlaps.push(overlap);
             }
         }
-
-        // Check if cluster is big enough
-        if cluster_cells.len() < config.min_cells as usize {
-            continue;
-        }
-
-        // Build the section from this cluster
-        if let Some(section) = build_section(grid, &cluster_cells, sport_type, config, signatures) {
-            sections.push(section);
-        }
     }
 
-    sections
+    overlaps
 }
 
-/// Build a FrequentSection from a cluster of cells
-fn build_section(
-    grid: &SportGrid,
-    cluster_cells: &[(i32, i32)],
-    sport_type: &str,
-    _config: &SectionConfig,
-    signatures: &[RouteSignature],
-) -> Option<FrequentSection> {
-    if cluster_cells.is_empty() {
-        return None;
-    }
+/// Check if two bounding boxes overlap (with buffer)
+fn bounds_overlap(a: &crate::Bounds, b: &crate::Bounds, buffer_meters: f64) -> bool {
+    // Convert buffer to approximate degrees
+    let buffer_deg = buffer_meters / 111_319.0;
 
-    // Collect all activity IDs and route IDs from the cluster
-    let mut all_activity_ids: HashSet<String> = HashSet::new();
-    let mut all_route_ids: HashSet<String> = HashSet::new();
-    let mut total_visits: u32 = 0;
+    !(a.max_lat + buffer_deg < b.min_lat ||
+      b.max_lat + buffer_deg < a.min_lat ||
+      a.max_lng + buffer_deg < b.min_lng ||
+      b.max_lng + buffer_deg < a.min_lng)
+}
 
-    for &(row, col) in cluster_cells {
-        if let Some(data) = grid.cells.get(&(row, col)) {
-            all_activity_ids.extend(data.activity_ids.iter().cloned());
-            all_route_ids.extend(data.route_ids.iter().cloned());
-            total_visits += data.visit_count;
+/// Find overlapping portion between two tracks using sliding window
+fn find_track_overlap(
+    sig_a: &RouteSignature,
+    sig_b: &RouteSignature,
+    config: &SectionConfig,
+) -> Option<TrackOverlap> {
+    // For each point in track A, find nearest point in track B
+    // Track contiguous sequences where distance < threshold
+
+    let mut best_overlap: Option<(Vec<usize>, Vec<usize>)> = None;
+    let mut best_length = 0.0;
+
+    let mut current_a_indices: Vec<usize> = Vec::new();
+    let mut current_b_indices: Vec<usize> = Vec::new();
+    let mut current_length = 0.0;
+
+    for (i, point_a) in sig_a.points.iter().enumerate() {
+        // Find nearest point in B
+        let (nearest_j, min_dist) = find_nearest_point(point_a, &sig_b.points);
+
+        if min_dist <= config.proximity_threshold {
+            // Point is within threshold - add to current overlap
+            current_a_indices.push(i);
+            if !current_b_indices.contains(&nearest_j) {
+                current_b_indices.push(nearest_j);
+            }
+
+            // Add distance from previous point
+            if i > 0 && !current_a_indices.is_empty() {
+                let prev_i = current_a_indices[current_a_indices.len().saturating_sub(2)];
+                if prev_i < sig_a.points.len() {
+                    current_length += haversine_distance(&sig_a.points[prev_i], point_a);
+                }
+            }
+        } else {
+            // Gap in overlap - check if current sequence is substantial
+            if current_length >= config.min_section_length && current_length > best_length {
+                best_overlap = Some((current_a_indices.clone(), current_b_indices.clone()));
+                best_length = current_length;
+            }
+            current_a_indices.clear();
+            current_b_indices.clear();
+            current_length = 0.0;
         }
     }
 
-    // Generate ID from first cell
-    let first_cell = cluster_cells[0];
-    let id = format!("sec_{}_{}_{}", sport_type, first_cell.0, first_cell.1);
+    // Check final sequence
+    if current_length >= config.min_section_length && current_length > best_length {
+        best_overlap = Some((current_a_indices, current_b_indices));
+        best_length = current_length;
+    }
 
-    // Build a smooth polyline from actual GPS tracks (not cell centers)
-    let polyline = build_smooth_polyline_from_tracks(
-        cluster_cells,
-        signatures,
-        grid,
-        &all_activity_ids,
-    );
+    // Convert to TrackOverlap
+    best_overlap.map(|(a_indices, b_indices)| {
+        let points_a: Vec<GpsPoint> = a_indices.iter()
+            .map(|&i| sig_a.points[i].clone())
+            .collect();
+        let points_b: Vec<GpsPoint> = b_indices.iter()
+            .filter(|&&i| i < sig_b.points.len())
+            .map(|&i| sig_b.points[i].clone())
+            .collect();
 
-    // Estimate distance (sum of distances between consecutive points)
-    let distance_meters = polyline
-        .windows(2)
-        .map(|w| haversine_distance(&w[0], &w[1]))
-        .sum();
+        let center = compute_center(&points_a);
 
-    // Convert cells to CellCoord
-    let cells: Vec<CellCoord> = cluster_cells
-        .iter()
-        .map(|&(row, col)| CellCoord::new(row, col))
-        .collect();
-
-    Some(FrequentSection {
-        id,
-        sport_type: sport_type.to_string(),
-        cells,
-        polyline,
-        activity_ids: all_activity_ids.into_iter().collect(),
-        route_ids: all_route_ids.into_iter().collect(),
-        visit_count: total_visits,
-        distance_meters,
-        first_visit: 0, // Could be populated if we had timestamp data
-        last_visit: 0,
+        TrackOverlap {
+            activity_a: sig_a.activity_id.clone(),
+            activity_b: sig_b.activity_id.clone(),
+            points_a,
+            points_b,
+            length: best_length,
+            center,
+        }
     })
 }
 
-/// Order cells to form a reasonable polyline path
-/// Uses a greedy nearest-neighbor approach starting from the cell with minimum row,col
-fn order_cells_for_polyline(cells: &[(i32, i32)], _grid: &SportGrid) -> Vec<(i32, i32)> {
-    if cells.is_empty() {
-        return vec![];
-    }
-    if cells.len() == 1 {
-        return cells.to_vec();
-    }
+/// Find nearest point in a list and return (index, distance)
+fn find_nearest_point(target: &GpsPoint, points: &[GpsPoint]) -> (usize, f64) {
+    let mut min_dist = f64::MAX;
+    let mut min_idx = 0;
 
-    // Find the "start" cell (minimum row, then minimum col)
-    let mut remaining: HashSet<(i32, i32)> = cells.iter().copied().collect();
-    let start = *cells.iter().min_by_key(|&&(r, c)| (r, c)).unwrap();
-
-    let mut ordered = vec![start];
-    remaining.remove(&start);
-
-    // Greedy nearest neighbor
-    while !remaining.is_empty() {
-        let current = *ordered.last().unwrap();
-
-        // Find nearest remaining cell (Manhattan distance for grid)
-        let nearest = remaining
-            .iter()
-            .min_by_key(|&&(r, c)| {
-                (current.0 - r).abs() + (current.1 - c).abs()
-            })
-            .copied();
-
-        if let Some(next) = nearest {
-            ordered.push(next);
-            remaining.remove(&next);
-        } else {
-            break;
+    for (i, point) in points.iter().enumerate() {
+        let dist = haversine_distance(target, point);
+        if dist < min_dist {
+            min_dist = dist;
+            min_idx = i;
         }
     }
 
-    ordered
+    (min_idx, min_dist)
 }
 
-/// A track chunk - contiguous GPS points from one activity that pass through a cluster
-#[derive(Debug, Clone)]
-#[allow(dead_code)] // activity_id kept for potential debugging
-struct TrackChunk {
-    activity_id: String,
-    points: Vec<GpsPoint>,
+/// Compute center point of a polyline
+fn compute_center(points: &[GpsPoint]) -> GpsPoint {
+    if points.is_empty() {
+        return GpsPoint::new(0.0, 0.0);
+    }
+
+    let sum_lat: f64 = points.iter().map(|p| p.latitude).sum();
+    let sum_lng: f64 = points.iter().map(|p| p.longitude).sum();
+    let n = points.len() as f64;
+
+    GpsPoint::new(sum_lat / n, sum_lng / n)
 }
 
-/// Extract actual GPS track chunks that pass through a cluster of cells
-fn extract_track_chunks(
-    cluster_cells: &HashSet<(i32, i32)>,
-    signatures: &[RouteSignature],
-    grid: &SportGrid,
-    activity_ids: &HashSet<String>,
-) -> Vec<TrackChunk> {
-    let mut chunks = Vec::new();
+/// Cluster overlaps by geographic similarity
+fn cluster_overlaps(
+    overlaps: &[TrackOverlap],
+    config: &SectionConfig,
+) -> Vec<OverlapCluster> {
+    if overlaps.is_empty() {
+        return vec![];
+    }
 
-    for sig in signatures {
-        if !activity_ids.contains(&sig.activity_id) {
+    let mut clusters: Vec<OverlapCluster> = Vec::new();
+    let mut assigned: HashSet<usize> = HashSet::new();
+
+    for (i, overlap) in overlaps.iter().enumerate() {
+        if assigned.contains(&i) {
             continue;
         }
 
-        // Find contiguous sequences of points that fall within cluster cells
-        let mut current_chunk: Vec<GpsPoint> = Vec::new();
+        // Start new cluster with this overlap
+        let mut cluster_overlaps = vec![overlap.clone()];
+        let mut cluster_activities: HashSet<String> = HashSet::new();
+        cluster_activities.insert(overlap.activity_a.clone());
+        cluster_activities.insert(overlap.activity_b.clone());
+        assigned.insert(i);
 
-        for point in &sig.points {
-            let cell = grid.point_to_cell(point);
-            if cluster_cells.contains(&cell) {
-                current_chunk.push(point.clone());
-            } else if !current_chunk.is_empty() {
-                // End of a chunk - save it if substantial
-                if current_chunk.len() >= 3 {
-                    chunks.push(TrackChunk {
-                        activity_id: sig.activity_id.clone(),
-                        points: current_chunk.clone(),
-                    });
+        // Find other overlaps that belong to this cluster
+        for (j, other) in overlaps.iter().enumerate() {
+            if assigned.contains(&j) {
+                continue;
+            }
+
+            // Check if this overlap is geographically similar
+            let center_dist = haversine_distance(&overlap.center, &other.center);
+            if center_dist <= config.cluster_tolerance {
+                // Additional check: do the polylines actually overlap?
+                if polylines_overlap(&overlap.points_a, &other.points_a, config.cluster_tolerance) {
+                    cluster_overlaps.push(other.clone());
+                    cluster_activities.insert(other.activity_a.clone());
+                    cluster_activities.insert(other.activity_b.clone());
+                    assigned.insert(j);
                 }
-                current_chunk.clear();
             }
         }
 
-        // Don't forget the last chunk
-        if current_chunk.len() >= 3 {
-            chunks.push(TrackChunk {
-                activity_id: sig.activity_id.clone(),
-                points: current_chunk,
-            });
-        }
+        // Build cluster
+        let polyline = build_median_polyline(&cluster_overlaps, config.sample_points as usize);
+        let length = compute_polyline_length(&polyline);
+        let center = compute_center(&polyline);
+
+        clusters.push(OverlapCluster {
+            overlaps: cluster_overlaps,
+            activity_ids: cluster_activities,
+            polyline,
+            length,
+            center,
+        });
     }
 
-    chunks
+    clusters
 }
 
-/// Determine the dominant direction of track chunks (to align them)
-fn compute_dominant_direction(chunks: &[TrackChunk]) -> (f64, f64) {
-    // Compute weighted average direction vector
-    let mut total_dx = 0.0;
-    let mut total_dy = 0.0;
+/// Check if two polylines overlap geographically
+fn polylines_overlap(a: &[GpsPoint], b: &[GpsPoint], tolerance: f64) -> bool {
+    if a.is_empty() || b.is_empty() {
+        return false;
+    }
 
-    for chunk in chunks {
-        if chunk.points.len() < 2 {
-            continue;
-        }
-        let start = &chunk.points[0];
-        let end = &chunk.points[chunk.points.len() - 1];
-        let dx = end.longitude - start.longitude;
-        let dy = end.latitude - start.latitude;
-        let len = (dx * dx + dy * dy).sqrt();
-        if len > 0.0001 {
-            total_dx += dx / len;
-            total_dy += dy / len;
+    // Check if any points in A are within tolerance of any points in B
+    let mut matches = 0;
+    let check_count = a.len().min(10); // Sample up to 10 points
+    let step = a.len() / check_count.max(1);
+
+    for i in (0..a.len()).step_by(step.max(1)) {
+        let (_, dist) = find_nearest_point(&a[i], b);
+        if dist <= tolerance {
+            matches += 1;
         }
     }
 
-    let total_len = (total_dx * total_dx + total_dy * total_dy).sqrt();
-    if total_len > 0.0001 {
-        (total_dx / total_len, total_dy / total_len)
+    // Need at least 50% of sampled points to match
+    matches >= check_count / 2
+}
+
+/// Build median polyline from multiple overlaps
+fn build_median_polyline(overlaps: &[TrackOverlap], num_samples: usize) -> Vec<GpsPoint> {
+    if overlaps.is_empty() {
+        return vec![];
+    }
+
+    if overlaps.len() == 1 {
+        // Just return the first track's points, simplified
+        return simplify_polyline(&overlaps[0].points_a, num_samples);
+    }
+
+    // Collect all point sequences, normalized to same direction
+    let mut all_points: Vec<Vec<GpsPoint>> = Vec::new();
+
+    // Use first overlap as reference direction
+    let ref_start = &overlaps[0].points_a[0];
+    let ref_end = &overlaps[0].points_a[overlaps[0].points_a.len() - 1];
+
+    for overlap in overlaps {
+        // Add points from track A
+        let points_a = normalize_direction(&overlap.points_a, ref_start, ref_end);
+        all_points.push(points_a);
+
+        // Add points from track B
+        let points_b = normalize_direction(&overlap.points_b, ref_start, ref_end);
+        all_points.push(points_b);
+    }
+
+    // Resample all to same number of points
+    let resampled: Vec<Vec<GpsPoint>> = all_points
+        .iter()
+        .map(|pts| resample_polyline(pts, num_samples))
+        .collect();
+
+    // Compute median at each sample point
+    let mut median = Vec::with_capacity(num_samples);
+    for i in 0..num_samples {
+        let mut lats: Vec<f64> = Vec::new();
+        let mut lngs: Vec<f64> = Vec::new();
+
+        for poly in &resampled {
+            if i < poly.len() {
+                lats.push(poly[i].latitude);
+                lngs.push(poly[i].longitude);
+            }
+        }
+
+        if !lats.is_empty() {
+            lats.sort_by(|a, b| a.partial_cmp(b).unwrap());
+            lngs.sort_by(|a, b| a.partial_cmp(b).unwrap());
+
+            median.push(GpsPoint::new(
+                lats[lats.len() / 2],
+                lngs[lngs.len() / 2],
+            ));
+        }
+    }
+
+    // Apply smoothing
+    smooth_polyline(&median, 3)
+}
+
+/// Normalize polyline direction to match reference
+fn normalize_direction(points: &[GpsPoint], ref_start: &GpsPoint, ref_end: &GpsPoint) -> Vec<GpsPoint> {
+    if points.len() < 2 {
+        return points.to_vec();
+    }
+
+    let start = &points[0];
+    let end = &points[points.len() - 1];
+
+    // Check if going same direction (start near ref_start, end near ref_end)
+    let same_dir = haversine_distance(start, ref_start) + haversine_distance(end, ref_end);
+    let reverse_dir = haversine_distance(start, ref_end) + haversine_distance(end, ref_start);
+
+    if reverse_dir < same_dir {
+        // Reverse the points
+        points.iter().rev().cloned().collect()
     } else {
-        (1.0, 0.0) // Default to east
+        points.to_vec()
     }
 }
 
-/// Normalize chunks to the same direction and resample
-fn normalize_and_resample_chunks(
-    chunks: &[TrackChunk],
-    target_direction: (f64, f64),
-    num_samples: usize,
-) -> Vec<Vec<GpsPoint>> {
-    let mut normalized = Vec::new();
-
-    for chunk in chunks {
-        if chunk.points.len() < 2 {
-            continue;
-        }
-
-        // Check if chunk goes in opposite direction
-        let start = &chunk.points[0];
-        let end = &chunk.points[chunk.points.len() - 1];
-        let dx = end.longitude - start.longitude;
-        let dy = end.latitude - start.latitude;
-
-        let dot = dx * target_direction.0 + dy * target_direction.1;
-        let mut points = chunk.points.clone();
-        if dot < 0.0 {
-            points.reverse();
-        }
-
-        // Resample to fixed number of points
-        let resampled = resample_polyline(&points, num_samples);
-        normalized.push(resampled);
-    }
-
-    normalized
-}
-
-/// Resample a polyline to a fixed number of evenly-spaced points
+/// Resample polyline to fixed number of points
 fn resample_polyline(points: &[GpsPoint], num_samples: usize) -> Vec<GpsPoint> {
     if points.len() < 2 || num_samples < 2 {
         return points.to_vec();
     }
 
-    // Calculate cumulative distances
-    let mut cumulative: Vec<f64> = vec![0.0];
+    // Compute cumulative distances
+    let mut cumulative = vec![0.0];
     for i in 1..points.len() {
         let d = haversine_distance(&points[i - 1], &points[i]);
         cumulative.push(cumulative.last().unwrap() + d);
@@ -555,12 +508,11 @@ fn resample_polyline(points: &[GpsPoint], num_samples: usize) -> Vec<GpsPoint> {
         return points.to_vec();
     }
 
-    // Resample at even intervals
     let mut resampled = Vec::with_capacity(num_samples);
     for i in 0..num_samples {
         let target_dist = (i as f64 / (num_samples - 1) as f64) * total_length;
 
-        // Find the segment containing this distance
+        // Find segment
         let mut seg_idx = 0;
         for j in 1..cumulative.len() {
             if cumulative[j] >= target_dist {
@@ -570,7 +522,7 @@ fn resample_polyline(points: &[GpsPoint], num_samples: usize) -> Vec<GpsPoint> {
             seg_idx = j - 1;
         }
 
-        // Interpolate within segment
+        // Interpolate
         let seg_start = cumulative[seg_idx];
         let seg_end = cumulative.get(seg_idx + 1).copied().unwrap_or(seg_start);
         let seg_len = seg_end - seg_start;
@@ -593,48 +545,24 @@ fn resample_polyline(points: &[GpsPoint], num_samples: usize) -> Vec<GpsPoint> {
     resampled
 }
 
-/// Compute median polyline from multiple aligned polylines
-fn compute_median_polyline(polylines: &[Vec<GpsPoint>], num_points: usize) -> Vec<GpsPoint> {
-    if polylines.is_empty() {
-        return vec![];
-    }
-    if polylines.len() == 1 {
-        return polylines[0].clone();
+/// Simplify polyline to target number of points
+fn simplify_polyline(points: &[GpsPoint], target: usize) -> Vec<GpsPoint> {
+    if points.len() <= target {
+        return points.to_vec();
     }
 
-    let mut result = Vec::with_capacity(num_points);
-
-    for i in 0..num_points {
-        let mut lats: Vec<f64> = Vec::new();
-        let mut lngs: Vec<f64> = Vec::new();
-
-        for polyline in polylines {
-            if i < polyline.len() {
-                lats.push(polyline[i].latitude);
-                lngs.push(polyline[i].longitude);
-            }
-        }
-
-        if lats.is_empty() {
-            continue;
-        }
-
-        // Compute median (more robust than mean against outliers)
-        lats.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
-        lngs.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
-
-        let median_lat = lats[lats.len() / 2];
-        let median_lng = lngs[lngs.len() / 2];
-
-        result.push(GpsPoint::new(median_lat, median_lng));
-    }
-
-    result
+    // Simple uniform sampling for now
+    let step = points.len() / target;
+    points.iter()
+        .step_by(step.max(1))
+        .take(target)
+        .cloned()
+        .collect()
 }
 
-/// Smooth a polyline using moving average
+/// Smooth polyline with moving average
 fn smooth_polyline(points: &[GpsPoint], window: usize) -> Vec<GpsPoint> {
-    if points.len() <= window || window < 1 {
+    if points.len() <= window {
         return points.to_vec();
     }
 
@@ -644,10 +572,10 @@ fn smooth_polyline(points: &[GpsPoint], window: usize) -> Vec<GpsPoint> {
     for i in 0..points.len() {
         let start = i.saturating_sub(half);
         let end = (i + half + 1).min(points.len());
-        let count = end - start;
+        let count = (end - start) as f64;
 
-        let avg_lat: f64 = points[start..end].iter().map(|p| p.latitude).sum::<f64>() / count as f64;
-        let avg_lng: f64 = points[start..end].iter().map(|p| p.longitude).sum::<f64>() / count as f64;
+        let avg_lat: f64 = points[start..end].iter().map(|p| p.latitude).sum::<f64>() / count;
+        let avg_lng: f64 = points[start..end].iter().map(|p| p.longitude).sum::<f64>() / count;
 
         smoothed.push(GpsPoint::new(avg_lat, avg_lng));
     }
@@ -655,272 +583,78 @@ fn smooth_polyline(points: &[GpsPoint], window: usize) -> Vec<GpsPoint> {
     smoothed
 }
 
-/// Build a smooth polyline from actual GPS tracks (not cell centers)
-fn build_smooth_polyline_from_tracks(
-    cluster_cells: &[(i32, i32)],
-    signatures: &[RouteSignature],
-    grid: &SportGrid,
-    activity_ids: &HashSet<String>,
-) -> Vec<GpsPoint> {
-    let cluster_set: HashSet<(i32, i32)> = cluster_cells.iter().copied().collect();
-
-    // Extract actual GPS chunks from tracks
-    let chunks = extract_track_chunks(&cluster_set, signatures, grid, activity_ids);
-
-    if chunks.is_empty() {
-        // Fallback to cell centers
-        let ordered = order_cells_for_polyline(cluster_cells, grid);
-        return ordered.iter().map(|&(r, c)| grid.cell_center(r, c)).collect();
+/// Compute polyline length in meters
+fn compute_polyline_length(points: &[GpsPoint]) -> f64 {
+    if points.len() < 2 {
+        return 0.0;
     }
 
-    // Find dominant direction
-    let direction = compute_dominant_direction(&chunks);
-
-    // Normalize and resample all chunks
-    let num_samples = 50; // Fixed number of sample points
-    let normalized = normalize_and_resample_chunks(&chunks, direction, num_samples);
-
-    if normalized.is_empty() {
-        let ordered = order_cells_for_polyline(cluster_cells, grid);
-        return ordered.iter().map(|&(r, c)| grid.cell_center(r, c)).collect();
-    }
-
-    // Compute median polyline
-    let median = compute_median_polyline(&normalized, num_samples);
-
-    // Smooth the result
-    let smoothed = smooth_polyline(&median, 5);
-
-    // Simplify using Douglas-Peucker
-    simplify_polyline(&smoothed, 5.0) // 5 meter tolerance
+    points.windows(2)
+        .map(|w| haversine_distance(&w[0], &w[1]))
+        .sum()
 }
 
-/// Douglas-Peucker polyline simplification
-fn simplify_polyline(points: &[GpsPoint], tolerance_meters: f64) -> Vec<GpsPoint> {
-    if points.len() <= 2 {
-        return points.to_vec();
-    }
-
-    fn perpendicular_distance(point: &GpsPoint, line_start: &GpsPoint, line_end: &GpsPoint) -> f64 {
-        let dx = line_end.longitude - line_start.longitude;
-        let dy = line_end.latitude - line_start.latitude;
-
-        let line_len = (dx * dx + dy * dy).sqrt();
-        if line_len < 1e-10 {
-            return haversine_distance(point, line_start);
-        }
-
-        // Cross product gives signed area of triangle, divide by base for height
-        let cross = (point.longitude - line_start.longitude) * dy
-            - (point.latitude - line_start.latitude) * dx;
-
-        // Convert to approximate meters (using average latitude)
-        let avg_lat = (line_start.latitude + line_end.latitude) / 2.0;
-        let lng_scale = (avg_lat.to_radians()).cos();
-        let cross_meters = cross.abs() * METERS_PER_LAT_DEGREE * lng_scale / line_len;
-
-        cross_meters
-    }
-
-    fn rdp_recursive(
-        points: &[GpsPoint],
-        start: usize,
-        end: usize,
-        tolerance: f64,
-        keep: &mut Vec<bool>,
-    ) {
-        if end <= start + 1 {
-            return;
-        }
-
-        let line_start = &points[start];
-        let line_end = &points[end];
-
-        let mut max_dist = 0.0;
-        let mut max_idx = start;
-
-        for i in (start + 1)..end {
-            let dist = perpendicular_distance(&points[i], line_start, line_end);
-            if dist > max_dist {
-                max_dist = dist;
-                max_idx = i;
-            }
-        }
-
-        if max_dist > tolerance {
-            keep[max_idx] = true;
-            rdp_recursive(points, start, max_idx, tolerance, keep);
-            rdp_recursive(points, max_idx, end, tolerance, keep);
-        }
-    }
-
-    let mut keep = vec![false; points.len()];
-    keep[0] = true;
-    keep[points.len() - 1] = true;
-
-    rdp_recursive(points, 0, points.len() - 1, tolerance_meters, &mut keep);
-
-    points
-        .iter()
-        .enumerate()
-        .filter_map(|(i, p)| if keep[i] { Some(p.clone()) } else { None })
-        .collect()
-}
-
-/// Calculate haversine distance between two GPS points in meters
+/// Haversine distance between two points in meters
 fn haversine_distance(p1: &GpsPoint, p2: &GpsPoint) -> f64 {
-    use geo::{Point, Haversine, Distance};
     let point1 = Point::new(p1.longitude, p1.latitude);
     let point2 = Point::new(p2.longitude, p2.latitude);
     Haversine::distance(point1, point2)
 }
 
-// ============================================================================
-// Tests
-// ============================================================================
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    fn make_signature(id: &str, points: Vec<(f64, f64)>) -> RouteSignature {
-        let gps_points: Vec<GpsPoint> = points
-            .iter()
-            .map(|(lat, lng)| GpsPoint::new(*lat, *lng))
-            .collect();
-
-        let bounds = crate::Bounds::from_points(&gps_points).unwrap();
-        let center = bounds.center();
-
-        RouteSignature {
-            activity_id: id.to_string(),
-            points: gps_points.clone(),
-            total_distance: 1000.0,
-            start_point: gps_points[0],
-            end_point: gps_points[gps_points.len() - 1],
-            bounds,
-            center,
-        }
+    fn make_point(lat: f64, lng: f64) -> GpsPoint {
+        GpsPoint::new(lat, lng)
     }
 
     #[test]
-    fn test_empty_input() {
-        let sections = detect_frequent_sections(
-            &[],
-            &[],
-            &HashMap::new(),
-            &SectionConfig::default(),
-        );
-        assert!(sections.is_empty());
+    fn test_haversine_distance() {
+        let p1 = make_point(51.5, -0.1);
+        let p2 = make_point(51.501, -0.1);
+        let dist = haversine_distance(&p1, &p2);
+        // ~111m per 0.001 degree latitude
+        assert!(dist > 100.0 && dist < 120.0);
     }
 
     #[test]
-    fn test_single_activity_no_sections() {
-        // A single activity shouldn't create sections (needs multiple visits)
-        let sig = make_signature("a1", vec![
-            (51.5, -0.1),
-            (51.501, -0.1),
-            (51.502, -0.1),
-        ]);
+    fn test_resample_polyline() {
+        let points = vec![
+            make_point(51.5, -0.1),
+            make_point(51.501, -0.1),
+            make_point(51.502, -0.1),
+            make_point(51.503, -0.1),
+        ];
 
-        let mut sport_types = HashMap::new();
-        sport_types.insert("a1".to_string(), "Run".to_string());
+        let resampled = resample_polyline(&points, 10);
+        assert_eq!(resampled.len(), 10);
 
-        let sections = detect_frequent_sections(
-            &[sig],
-            &[],
-            &sport_types,
-            &SectionConfig::default(),
-        );
-
-        assert!(sections.is_empty());
+        // First and last should be close to original
+        assert!((resampled[0].latitude - 51.5).abs() < 0.0001);
+        assert!((resampled[9].latitude - 51.503).abs() < 0.0001);
     }
 
     #[test]
-    fn test_multiple_activities_same_path() {
-        // Three activities on the same path should create a section
-        let path = vec![
-            (51.5, -0.1),
-            (51.501, -0.1),
-            (51.502, -0.1),
-            (51.503, -0.1),
-            (51.504, -0.1),
-            (51.505, -0.1),
+    fn test_normalize_direction() {
+        let forward = vec![
+            make_point(51.5, -0.1),
+            make_point(51.501, -0.1),
+            make_point(51.502, -0.1),
         ];
 
-        let sigs = vec![
-            make_signature("a1", path.clone()),
-            make_signature("a2", path.clone()),
-            make_signature("a3", path.clone()),
+        let backward = vec![
+            make_point(51.502, -0.1),
+            make_point(51.501, -0.1),
+            make_point(51.5, -0.1),
         ];
 
-        let mut sport_types = HashMap::new();
-        sport_types.insert("a1".to_string(), "Run".to_string());
-        sport_types.insert("a2".to_string(), "Run".to_string());
-        sport_types.insert("a3".to_string(), "Run".to_string());
+        let ref_start = make_point(51.5, -0.1);
+        let ref_end = make_point(51.502, -0.1);
 
-        let config = SectionConfig {
-            cell_size_meters: 100.0,
-            min_visits: 3,
-            min_cells: 3, // Lower for test
-            diagonal_connect: true,
-        };
+        let normalized = normalize_direction(&backward, &ref_start, &ref_end);
 
-        let sections = detect_frequent_sections(&sigs, &[], &sport_types, &config);
-
-        // Should find at least one section
-        assert!(!sections.is_empty());
-
-        // Section should contain all 3 activities
-        let section = &sections[0];
-        assert!(section.activity_ids.contains(&"a1".to_string()));
-        assert!(section.activity_ids.contains(&"a2".to_string()));
-        assert!(section.activity_ids.contains(&"a3".to_string()));
-    }
-
-    #[test]
-    fn test_different_sports_separate_sections() {
-        // Same path but different sports should create separate sections
-        let path = vec![
-            (51.5, -0.1),
-            (51.501, -0.1),
-            (51.502, -0.1),
-            (51.503, -0.1),
-            (51.504, -0.1),
-            (51.505, -0.1),
-        ];
-
-        let sigs = vec![
-            make_signature("r1", path.clone()),
-            make_signature("r2", path.clone()),
-            make_signature("r3", path.clone()),
-            make_signature("c1", path.clone()),
-            make_signature("c2", path.clone()),
-            make_signature("c3", path.clone()),
-        ];
-
-        let mut sport_types = HashMap::new();
-        sport_types.insert("r1".to_string(), "Run".to_string());
-        sport_types.insert("r2".to_string(), "Run".to_string());
-        sport_types.insert("r3".to_string(), "Run".to_string());
-        sport_types.insert("c1".to_string(), "Ride".to_string());
-        sport_types.insert("c2".to_string(), "Ride".to_string());
-        sport_types.insert("c3".to_string(), "Ride".to_string());
-
-        let config = SectionConfig {
-            cell_size_meters: 100.0,
-            min_visits: 3,
-            min_cells: 3,
-            diagonal_connect: true,
-        };
-
-        let sections = detect_frequent_sections(&sigs, &[], &sport_types, &config);
-
-        // Should find sections for both sports
-        let run_sections: Vec<_> = sections.iter().filter(|s| s.sport_type == "Run").collect();
-        let ride_sections: Vec<_> = sections.iter().filter(|s| s.sport_type == "Ride").collect();
-
-        assert!(!run_sections.is_empty());
-        assert!(!ride_sections.is_empty());
+        // Should now start near ref_start
+        assert!((normalized[0].latitude - 51.5).abs() < 0.001);
     }
 }
