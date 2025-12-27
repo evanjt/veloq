@@ -381,6 +381,23 @@
     "routeNamePlaceholder": "Nombre de la ruta"
   },
 
+  "sections": {
+    "performanceOverTime": "Rendimiento a lo Largo del Tiempo",
+    "best": "Mejor",
+    "same": "Igual",
+    "reverse": "Inverso",
+    "scrubHint": "Mantén pulsado para desplazarte por las actividades",
+    "scrubHintScrollable": "Desliza para desplazarte • Mantén para navegar",
+    "bestPace": "Mejor ritmo",
+    "bestSpeed": "Mejor velocidad",
+    "date": "Fecha",
+    "sectionNotFound": "Sección no encontrada",
+    "traversals": "recorridos",
+    "routesCount": "rutas",
+    "activities": "Actividades",
+    "noActivitiesFound": "No se encontraron actividades"
+  },
+
   "errorState": {
     "defaultTitle": "Algo salió mal",
     "defaultMessage": "Error al cargar los datos. Por favor, inténtalo de nuevo.",

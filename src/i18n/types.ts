@@ -348,6 +348,23 @@ export interface TranslationResource {
     routeNamePlaceholder: string;
   };
 
+  sections: {
+    performanceOverTime: string;
+    best: string;
+    same: string;
+    reverse: string;
+    scrubHint: string;
+    scrubHintScrollable: string;
+    bestPace: string;
+    bestSpeed: string;
+    date: string;
+    sectionNotFound: string;
+    traversals: string;
+    routesCount: string;
+    activities: string;
+    noActivitiesFound: string;
+  };
+
   stats: {
     activityCalendar: string;
     activitiesCount: string;
