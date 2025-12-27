@@ -10,7 +10,10 @@ import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Svg, { Polyline, G } from 'react-native-svg';
 import { colors, spacing, layout } from '@/theme';
+import { debug } from '@/lib/debug';
 import type { FrequentSection, RoutePoint } from '@/types';
+
+const log = debug.create('SectionRow');
 
 /** A single activity's trace through the section */
 export interface ActivityTrace {
@@ -67,15 +70,15 @@ export const SectionRow = memo(function SectionRow({
 
   // Debug: log touch events
   const handlePressIn = () => {
-    console.log('[SectionRow] PressIn! Section:', section.id);
+    log.log('PressIn! Section:', section.id);
   };
 
   const handlePressOut = () => {
-    console.log('[SectionRow] PressOut! Section:', section.id);
+    log.log('PressOut! Section:', section.id);
   };
 
   const handlePress = () => {
-    console.log('[SectionRow] Press! Section:', section.id, 'onPress defined:', !!onPress);
+    log.log('Press! Section:', section.id, 'onPress defined:', !!onPress);
     onPress?.();
   };
 
