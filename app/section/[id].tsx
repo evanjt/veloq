@@ -18,6 +18,7 @@ import { Text, ActivityIndicator } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router, Href } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { LinearGradient } from 'expo-linear-gradient';
 import { CartesianChart, Line } from 'victory-native';
 import { Circle } from '@shopify/react-native-skia';
@@ -206,6 +207,7 @@ function SectionPerformanceChart({
   onActivitySelect,
   selectedActivityId,
 }: PerformanceChartProps) {
+  const { t } = useTranslation();
   const showPace = isRunningActivity(activityType);
   const activityColor = getActivityColor(activityType);
 
@@ -580,21 +582,21 @@ function SectionPerformanceChart({
     <View style={[styles.chartCard, isDark && styles.chartCardDark]}>
       <View style={styles.chartHeader}>
         <Text style={[styles.chartTitle, isDark && styles.textLight]}>
-          Performance Over Time
+          {t('sections.performanceOverTime')}
         </Text>
         <View style={styles.chartLegend}>
           <View style={styles.legendItem}>
             <View style={[styles.legendDot, { backgroundColor: '#FFB300' }]} />
-            <Text style={[styles.legendText, isDark && styles.textMuted]}>Best</Text>
+            <Text style={[styles.legendText, isDark && styles.textMuted]}>{t('sections.best')}</Text>
           </View>
           <View style={styles.legendItem}>
             <View style={[styles.legendDot, { backgroundColor: activityColor }]} />
-            <Text style={[styles.legendText, isDark && styles.textMuted]}>Same</Text>
+            <Text style={[styles.legendText, isDark && styles.textMuted]}>{t('sections.same')}</Text>
           </View>
           {hasReverseRuns && (
             <View style={styles.legendItem}>
               <View style={[styles.legendDot, { backgroundColor: REVERSE_COLOR }]} />
-              <Text style={[styles.legendText, isDark && styles.textMuted]}>Reverse</Text>
+              <Text style={[styles.legendText, isDark && styles.textMuted]}>{t('sections.reverse')}</Text>
             </View>
           )}
         </View>
@@ -602,7 +604,7 @@ function SectionPerformanceChart({
 
       {!isActive && !isPersisted && (
         <Text style={[styles.chartHint, isDark && styles.textMuted]}>
-          {needsScrolling ? 'Swipe to scroll • Hold to scrub' : 'Hold to scrub through activities'}
+          {needsScrolling ? t('sections.scrubHintScrollable') : t('sections.scrubHint')}
         </Text>
       )}
 
@@ -662,7 +664,7 @@ function SectionPerformanceChart({
               {formatSpeedValue(chartData[bestIndex].speed)}
             </Text>
             <Text style={[styles.bestStatLabel, isDark && styles.textMuted]}>
-              Best {showPace ? 'pace' : 'speed'}
+              {showPace ? t('sections.bestPace') : t('sections.bestSpeed')}
             </Text>
           </View>
           <View style={styles.bestStatItem}>
@@ -670,7 +672,7 @@ function SectionPerformanceChart({
               {formatShortDate(chartData[bestIndex].date)}
             </Text>
             <Text style={[styles.bestStatLabel, isDark && styles.textMuted]}>
-              Date
+              {t('sections.date')}
             </Text>
           </View>
         </View>
@@ -764,6 +766,7 @@ function ActivityRow({
 }
 
 export default function SectionDetailScreen() {
+  const { t } = useTranslation();
   const { id } = useLocalSearchParams<{ id: string }>();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
@@ -856,7 +859,7 @@ export default function SectionDetailScreen() {
             color={isDark ? '#444' : '#CCC'}
           />
           <Text style={[styles.emptyText, isDark && styles.textLight]}>
-            Section not found
+            {t('sections.sectionNotFound')}
           </Text>
         </View>
       </View>
@@ -915,9 +918,9 @@ export default function SectionDetailScreen() {
             <View style={styles.heroStatsRow}>
               <Text style={styles.heroStat}>{formatDistance(section.distanceMeters)}</Text>
               <Text style={styles.heroStatDivider}>·</Text>
-              <Text style={styles.heroStat}>{section.visitCount} traversals</Text>
+              <Text style={styles.heroStat}>{section.visitCount} {t('sections.traversals')}</Text>
               <Text style={styles.heroStatDivider}>·</Text>
-              <Text style={styles.heroStat}>{section.routeIds.length} routes</Text>
+              <Text style={styles.heroStat}>{section.routeIds.length} {t('sections.routesCount')}</Text>
             </View>
           </View>
         </View>
@@ -941,7 +944,7 @@ export default function SectionDetailScreen() {
           {/* Activities list */}
           <View style={styles.activitiesSection}>
             <Text style={[styles.sectionTitle, isDark && styles.textLight]}>
-              Activities
+              {t('sections.activities')}
             </Text>
 
             {isLoading ? (
@@ -950,7 +953,7 @@ export default function SectionDetailScreen() {
               </View>
             ) : sectionActivities.length === 0 ? (
               <Text style={[styles.emptyActivities, isDark && styles.textMuted]}>
-                No activities found
+                {t('sections.noActivitiesFound')}
               </Text>
             ) : (
               <View style={[styles.activitiesCard, isDark && styles.activitiesCardDark]}>

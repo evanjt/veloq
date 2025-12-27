@@ -4,6 +4,7 @@ import { Text, IconButton, ActivityIndicator } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router, Href } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { LinearGradient } from 'expo-linear-gradient';
 import { CartesianChart, Line } from 'victory-native';
 import { Circle } from '@shopify/react-native-skia';
@@ -821,6 +822,7 @@ function ActivityRow({
 }
 
 export default function RouteDetailScreen() {
+  const { t } = useTranslation();
   const { id } = useLocalSearchParams<{ id: string }>();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
@@ -951,7 +953,7 @@ export default function RouteDetailScreen() {
             color={isDark ? '#444' : '#CCC'}
           />
           <Text style={[styles.emptyText, isDark && styles.textLight]}>
-            Route not found
+            {t('routeDetail.routeNotFound')}
           </Text>
         </View>
       </View>
@@ -1023,7 +1025,7 @@ export default function RouteDetailScreen() {
                     onChangeText={setEditName}
                     onSubmitEditing={handleSaveName}
                     onBlur={handleCancelEdit}
-                    placeholder="Route name"
+                    placeholder={t('routes.routeNamePlaceholder')}
                     placeholderTextColor="rgba(255,255,255,0.5)"
                     returnKeyType="done"
                     autoFocus
@@ -1077,7 +1079,7 @@ export default function RouteDetailScreen() {
           {/* Activities list */}
           <View style={styles.activitiesSection}>
           <Text style={[styles.sectionTitle, isDark && styles.textLight]}>
-            Activities
+            {t('settings.activities')}
           </Text>
 
           {isLoading ? (
@@ -1086,7 +1088,7 @@ export default function RouteDetailScreen() {
             </View>
           ) : routeActivities.length === 0 ? (
             <Text style={[styles.emptyActivities, isDark && styles.textMuted]}>
-              No activities found
+              {t('feed.noActivities')}
             </Text>
           ) : (
             <View style={[styles.activitiesCard, isDark && styles.activitiesCardDark]}>

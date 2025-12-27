@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { View, StyleSheet, useColorScheme } from 'react-native';
 import { Text } from 'react-native-paper';
+import { useTranslation } from 'react-i18next';
 import { CartesianChart, Line, Area } from 'victory-native';
 import { Circle, LinearGradient, vec } from '@shopify/react-native-skia';
 import { colors, darkColors } from '@/theme/colors';
@@ -30,6 +31,7 @@ export function FTPTrendChart({
   currentFTP,
   height = 180,
 }: FTPTrendChartProps) {
+  const { t } = useTranslation();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
 
@@ -71,10 +73,10 @@ export function FTPTrendChart({
       <View style={[styles.container, { height }]}>
         <View style={styles.emptyState}>
           <Text style={[styles.emptyText, isDark && styles.textDark]}>
-            No FTP data available
+            {t('stats.noFtpData')}
           </Text>
           <Text style={[styles.emptyHint, isDark && styles.textDark]}>
-            Complete power-based activities to see your FTP trend
+            {t('stats.completePowerActivities')}
           </Text>
         </View>
       </View>
@@ -86,7 +88,7 @@ export function FTPTrendChart({
       {/* Header with current FTP */}
       <View style={styles.header}>
         <View>
-          <Text style={[styles.label, isDark && styles.textDark]}>Estimated FTP</Text>
+          <Text style={[styles.label, isDark && styles.textDark]}>{t('stats.estimatedFtp')}</Text>
           <View style={styles.ftpRow}>
             <Text style={[styles.ftpValue, { color: CHART_COLOR }]}>{latestFTP}W</Text>
             <View style={[styles.changeBadge, isImproving ? styles.positive : styles.negative]}>
@@ -96,7 +98,7 @@ export function FTPTrendChart({
             </View>
           </View>
           <Text style={[styles.changeSubtext, isDark && styles.textDark]}>
-            {isImproving ? '+' : ''}{changePercent.toFixed(1)}% from 3 months ago
+            {isImproving ? '+' : ''}{changePercent.toFixed(1)}% {t('stats.from3MonthsAgo')}
           </Text>
         </View>
       </View>

@@ -6,6 +6,7 @@
 import React from 'react';
 import { View, StyleSheet, TouchableOpacity, useColorScheme } from 'react-native';
 import { Text } from 'react-native-paper';
+import { useTranslation } from 'react-i18next';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors, spacing } from '@/theme';
 import type { CellQueryResult, HeatmapCell } from '@/hooks/useHeatmap';
@@ -27,6 +28,7 @@ export function HeatmapCellPopup({
   onRoutePress,
   onActivitiesPress,
 }: HeatmapCellPopupProps) {
+  const { t } = useTranslation();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
 
