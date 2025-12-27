@@ -66,10 +66,8 @@ Then run 'pod install' again.
     'DEFINES_MODULE' => 'YES',
     'SWIFT_COMPILATION_MODE' => 'wholemodule',
     # Search paths for the framework
-    'FRAMEWORK_SEARCH_PATHS' => '$(inherited) "$(PODS_TARGET_SRCROOT)/Frameworks"',
-    # Header search paths for UniFFI-generated headers
-    'HEADER_SEARCH_PATHS' => '$(inherited) "$(PODS_TARGET_SRCROOT)/Generated"',
-    # Swift module search path
-    'SWIFT_INCLUDE_PATHS' => '$(inherited) "$(PODS_TARGET_SRCROOT)/Generated"'
+    'FRAMEWORK_SEARCH_PATHS' => '$(inherited) "$(PODS_TARGET_SRCROOT)/Frameworks"'
+    # Note: HEADER_SEARCH_PATHS and SWIFT_INCLUDE_PATHS removed to avoid
+    # module redefinition conflict with XCFramework's internal modulemap
   }
 end

@@ -126,9 +126,13 @@ export default function RoutesScreen() {
   // 2. Bounds are ready (initial load complete)
   // 3. Sync is NOT currently in progress (wait for bounds to finish)
   // 4. We haven't already queued for this date range
-  // 5. Route processing is idle (not processing or just completed)
+  // 5. No route processing is happening (checking both store state AND hook)
   const isSyncing = syncProgress.status === 'syncing';
   const isIdle = routeProgress.status === 'idle';
+  const isComplete = routeProgress.status === 'complete';
+  const hasError = routeProgress.status === 'error';
+  // Only allow queuing when truly idle, complete, or errored
+  const canQueue = isIdle || isComplete || hasError;
 
   useEffect(() => {
     // Don't queue if route matching is disabled
@@ -146,13 +150,20 @@ export default function RoutesScreen() {
       return;
     }
 
-    // Don't queue if route processing is in progress or just completed
-    // Only queue when status is 'idle' to avoid race conditions
-    if (!isIdle) {
+    // Don't queue if route processing is currently active
+    // isProcessing from hook includes all active states (filtering, fetching, processing, matching, detecting-sections)
+    if (isProcessing) {
+      log.log(`Skipping queue: processing in progress (status: ${routeProgress.status})`);
       return;
     }
 
-    if (activities && activities.length > 0 && boundsReady && !isProcessing) {
+    // Only queue when we can (idle, complete, or error - not during active processing)
+    if (!canQueue) {
+      log.log(`Skipping queue: status is ${routeProgress.status}`);
+      return;
+    }
+
+    if (activities && activities.length > 0 && boundsReady) {
       // Filter out already-processed activities - no need to re-analyze cached data
       const unprocessedActivities = activities.filter((a) => !processedSet.has(a.id));
 
@@ -185,7 +196,7 @@ export default function RoutesScreen() {
       // Pass filtered bounds data for pre-filtering
       queueActivities(activityIds, metadata, unprocessedBoundsData);
     }
-  }, [activities, queueActivities, filteredBoundsData, boundsReady, isSyncing, isProcessing, isIdle, rangeKey, processedSet, isRouteMatchingEnabled]);
+  }, [activities, queueActivities, filteredBoundsData, boundsReady, isSyncing, isProcessing, canQueue, rangeKey, processedSet, isRouteMatchingEnabled, routeProgress.status]);
 
   // Convert sync/processing progress to timeline format
   // Show banner for both bounds syncing AND route processing

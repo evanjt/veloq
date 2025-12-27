@@ -40,7 +40,8 @@ export function useRouteProcessing(): UseRouteProcessingResult {
     progress.status === 'filtering' ||
     progress.status === 'fetching' ||
     progress.status === 'processing' ||
-    progress.status === 'matching';
+    progress.status === 'matching' ||
+    progress.status === 'detecting-sections';
 
   const isFiltering = progress.status === 'filtering';
 

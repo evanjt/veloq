@@ -863,16 +863,64 @@ export interface ActivityHeatmapData {
 }
 
 /**
+ * Input signature format - accepts both app format (lat/lng, distance)
+ * and native format (latitude/longitude, totalDistance)
+ */
+interface InputSignature {
+  activityId: string;
+  // App format uses lat/lng, native uses latitude/longitude
+  points: Array<{ lat?: number; lng?: number; latitude?: number; longitude?: number }>;
+  // App format uses 'distance', native uses 'totalDistance'
+  distance?: number;
+  totalDistance?: number;
+  // App format uses center with lat/lng
+  center?: { lat?: number; lng?: number; latitude?: number; longitude?: number };
+  startPoint?: GpsPoint;
+  endPoint?: GpsPoint;
+  bounds: { minLat: number; maxLat: number; minLng: number; maxLng: number };
+}
+
+/**
+ * Normalize a point from either format to native format (latitude/longitude)
+ */
+function normalizePoint(p: { lat?: number; lng?: number; latitude?: number; longitude?: number }): GpsPoint {
+  return {
+    latitude: p.latitude ?? p.lat ?? 0,
+    longitude: p.longitude ?? p.lng ?? 0,
+  };
+}
+
+/**
+ * Normalize signature from app format to native format expected by Kotlin
+ */
+function normalizeSignature(sig: InputSignature): RouteSignature {
+  const points = sig.points.map(normalizePoint);
+  const startPoint = sig.startPoint ?? (points.length > 0 ? points[0] : { latitude: 0, longitude: 0 });
+  const endPoint = sig.endPoint ?? (points.length > 0 ? points[points.length - 1] : { latitude: 0, longitude: 0 });
+  const center = sig.center ? normalizePoint(sig.center) : startPoint;
+
+  return {
+    activityId: sig.activityId,
+    points,
+    totalDistance: sig.totalDistance ?? sig.distance ?? 0,
+    startPoint,
+    endPoint,
+    bounds: sig.bounds,
+    center,
+  };
+}
+
+/**
  * Generate a heatmap from route signatures.
  * Uses the simplified GPS traces (~100 points each) for efficient generation.
  *
- * @param signatures - Route signatures with GPS points
+ * @param signatures - Route signatures with GPS points (accepts app or native format)
  * @param activityData - Activity metadata (route association, timestamps)
  * @param config - Optional heatmap configuration
  * @returns Heatmap result with cells and metadata
  */
 export function generateHeatmap(
-  signatures: RouteSignature[],
+  signatures: InputSignature[] | RouteSignature[],
   activityData: ActivityHeatmapData[],
   config?: Partial<HeatmapConfig>
 ): HeatmapResult {
@@ -896,9 +944,10 @@ export function generateHeatmap(
     timestamp: d.timestamp,
   }));
 
-  // Serialize signatures to JSON string to avoid Expo Modules bridge serialization issues
-  // with complex nested objects (arrays of objects with nested arrays)
-  const signaturesJson = JSON.stringify(signatures);
+  // Normalize signatures to native format and serialize to JSON string
+  // This handles both app format (lat/lng, distance) and native format (latitude/longitude, totalDistance)
+  const normalizedSignatures = (signatures as InputSignature[]).map(normalizeSignature);
+  const signaturesJson = JSON.stringify(normalizedSignatures);
 
   const result = NativeModule.generateHeatmap(signaturesJson, nativeActivityData, nativeConfig);
 
