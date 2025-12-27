@@ -2,9 +2,9 @@ name: Build iOS & Android
 
 on:
   push:
-    branches: [main, beta]
+    branches: [main]
     tags:
-      - 'v[0-9]+.[0-9]+.[0-9]+'
+      - '[0-9]+.[0-9]+.[0-9]+'
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -17,7 +17,6 @@ on:
         options:
           - auto
           - preview
-          - beta
           - production
 
 jobs:
@@ -39,7 +38,6 @@ jobs:
 
       - name: Run TypeScript check
         run: npx tsc --noEmit
-        continue-on-error: true
 
       - name: Run tests
         run: npm test
@@ -54,7 +52,6 @@ jobs:
       build_type: ${{ steps.version.outputs.build_type }}
       filename: ${{ steps.version.outputs.filename }}
       is_release: ${{ steps.version.outputs.is_release }}
-      is_prerelease: ${{ steps.version.outputs.is_prerelease }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -78,7 +75,6 @@ jobs:
           # Determine build type
           BUILD_TYPE="preview"
           IS_RELEASE="false"
-          IS_PRERELEASE="false"
 
           # Check for manual override
           if [[ "${{ inputs.build_type }}" != "" && "${{ inputs.build_type }}" != "auto" ]]; then
@@ -87,29 +83,17 @@ jobs:
           elif [[ "${{ github.ref_type }}" == "tag" ]]; then
             BUILD_TYPE="production"
             IS_RELEASE="true"
-          # Beta branch = beta release
-          elif [[ "${{ github.ref }}" == "refs/heads/beta" ]]; then
-            BUILD_TYPE="beta"
-            IS_RELEASE="true"
-            IS_PRERELEASE="true"
           fi
 
           echo "build_type=$BUILD_TYPE" >> $GITHUB_OUTPUT
           echo "is_release=$IS_RELEASE" >> $GITHUB_OUTPUT
-          echo "is_prerelease=$IS_PRERELEASE" >> $GITHUB_OUTPUT
 
           # Set filename based on build type
-          case $BUILD_TYPE in
-            production)
-              echo "filename=veloq-${VERSION}" >> $GITHUB_OUTPUT
-              ;;
-            beta)
-              echo "filename=veloq-${VERSION}-beta-${SHORT_SHA}" >> $GITHUB_OUTPUT
-              ;;
-            *)
-              echo "filename=veloq-${VERSION}-${SHORT_SHA}" >> $GITHUB_OUTPUT
-              ;;
-          esac
+          if [[ "$BUILD_TYPE" == "production" ]]; then
+            echo "filename=veloq-${VERSION}" >> $GITHUB_OUTPUT
+          else
+            echo "filename=veloq-${VERSION}-${SHORT_SHA}" >> $GITHUB_OUTPUT
+          fi
 
           echo "Build type: $BUILD_TYPE"
           echo "Version: $VERSION (code: $VERSION_CODE)"
@@ -256,8 +240,34 @@ jobs:
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: android-${{ needs.version.outputs.filename }}
+          name: android-apk-${{ needs.version.outputs.filename }}
           path: artifacts/*.apk
+          retention-days: 30
+
+      # ============================================
+      # AAB Build (for Play Store releases)
+      # ============================================
+      - name: Build AAB
+        if: needs.version.outputs.is_release == 'true'
+        working-directory: android
+        env:
+          ORG_GRADLE_PROJECT_reactNativeArchitectures: 'arm64-v8a,armeabi-v7a,x86_64,x86'
+        run: ./gradlew bundleRelease --no-daemon --parallel
+
+      - name: Rename AAB
+        if: needs.version.outputs.is_release == 'true'
+        run: |
+          AAB_PATH=$(find android/app/build/outputs/bundle -name "*.aab" | head -1)
+          if [ -n "$AAB_PATH" ]; then
+            cp "$AAB_PATH" "artifacts/${{ needs.version.outputs.filename }}.aab"
+          fi
+
+      - name: Upload AAB artifact
+        if: needs.version.outputs.is_release == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-aab-${{ needs.version.outputs.filename }}
+          path: artifacts/*.aab
           retention-days: 30
 
   build-ios:
@@ -448,10 +458,16 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Download Android artifact
+      - name: Download Android APK artifact
         uses: actions/download-artifact@v4
         with:
-          name: android-${{ needs.version.outputs.filename }}
+          name: android-apk-${{ needs.version.outputs.filename }}
+          path: artifacts/
+
+      - name: Download Android AAB artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: android-aab-${{ needs.version.outputs.filename }}
           path: artifacts/
 
       - name: Download iOS artifact
@@ -464,15 +480,6 @@ jobs:
         id: notes
         run: |
           VERSION="${{ needs.version.outputs.version }}"
-          BUILD_TYPE="${{ needs.version.outputs.build_type }}"
-
-          if [[ "$BUILD_TYPE" == "beta" ]]; then
-            TITLE="Veloq v${VERSION} Beta"
-            PRERELEASE_NOTE="> **Beta Release:** This is a pre-release version for testing. Use at your own risk."
-          else
-            TITLE="Veloq v${VERSION}"
-            PRERELEASE_NOTE=""
-          fi
 
           # Try to get changelog from fastlane metadata
           CHANGELOG_FILE="fastlane/metadata/android/en-US/changelogs/${{ needs.version.outputs.version_code }}.txt"
@@ -483,9 +490,7 @@ jobs:
           fi
 
           cat > release-notes.md << EOF
-          # $TITLE
-
-          $PRERELEASE_NOTE
+          # Veloq v${VERSION}
 
           ## What's New
 
@@ -493,7 +498,8 @@ jobs:
 
           ## Downloads
 
-          - **Android APK:** \`${{ needs.version.outputs.filename }}.apk\`
+          - **Android APK:** \`${{ needs.version.outputs.filename }}.apk\` (direct install)
+          - **Android AAB:** \`${{ needs.version.outputs.filename }}.aab\` (Play Store format)
           - **iOS Simulator:** \`${{ needs.version.outputs.filename }}-ios-simulator.zip\`
 
           ## Installation
@@ -512,12 +518,12 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          name: Veloq v${{ needs.version.outputs.version }}${{ needs.version.outputs.build_type == 'beta' && ' Beta' || '' }}
-          tag_name: ${{ github.ref_type == 'tag' && github.ref_name || format('v{0}-beta', needs.version.outputs.version) }}
+          name: Veloq v${{ needs.version.outputs.version }}
+          tag_name: ${{ github.ref_name }}
           body_path: release-notes.md
-          prerelease: ${{ needs.version.outputs.is_prerelease }}
           files: |
             artifacts/*.apk
+            artifacts/*.aab
             artifacts/*.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -61,40 +61,28 @@ export const useHRZones = create<HRZonesState>((set, get) => ({
   },
 
   setMaxHR: async (maxHR: number) => {
-    try {
-      const { zones } = get();
-      const settings: HRZonesSettings = { maxHR, zones };
-      await AsyncStorage.setItem(HR_ZONES_KEY, JSON.stringify(settings));
-      set({ maxHR });
-    } catch (error) {
-      throw error;
-    }
+    const { zones } = get();
+    const settings: HRZonesSettings = { maxHR, zones };
+    await AsyncStorage.setItem(HR_ZONES_KEY, JSON.stringify(settings));
+    set({ maxHR });
   },
 
   setZoneThreshold: async (zoneId: number, min: number, max: number) => {
-    try {
-      const { maxHR, zones } = get();
-      const updatedZones = zones.map(zone =>
-        zone.id === zoneId ? { ...zone, min, max } : zone
-      );
-      const settings: HRZonesSettings = { maxHR, zones: updatedZones };
-      await AsyncStorage.setItem(HR_ZONES_KEY, JSON.stringify(settings));
-      set({ zones: updatedZones });
-    } catch (error) {
-      throw error;
-    }
+    const { maxHR, zones } = get();
+    const updatedZones = zones.map(zone =>
+      zone.id === zoneId ? { ...zone, min, max } : zone
+    );
+    const settings: HRZonesSettings = { maxHR, zones: updatedZones };
+    await AsyncStorage.setItem(HR_ZONES_KEY, JSON.stringify(settings));
+    set({ zones: updatedZones });
   },
 
   resetToDefaults: async () => {
-    try {
-      await AsyncStorage.removeItem(HR_ZONES_KEY);
-      set({
-        maxHR: 190,
-        zones: DEFAULT_HR_ZONES,
-      });
-    } catch (error) {
-      throw error;
-    }
+    await AsyncStorage.removeItem(HR_ZONES_KEY);
+    set({
+      maxHR: 190,
+      zones: DEFAULT_HR_ZONES,
+    });
   },
 }));
 

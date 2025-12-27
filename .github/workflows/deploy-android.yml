@@ -1,0 +1,132 @@
+name: Deploy to Google Play
+
+on:
+  workflow_run:
+    workflows: ["Build iOS & Android"]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: 'Build workflow run ID to deploy from'
+        required: true
+        type: string
+      track:
+        description: 'Play Store track'
+        required: true
+        default: 'internal'
+        type: choice
+        options:
+          - internal
+          - beta
+          - production
+
+jobs:
+  deploy:
+    name: Upload to Google Play
+    runs-on: ubuntu-latest
+    # Only run if build succeeded and it was a release (tag push)
+    if: |
+      (github.event_name == 'workflow_dispatch') ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push' &&
+       startsWith(github.event.workflow_run.head_branch, '') &&
+       contains(github.event.workflow_run.head_branch, '.'))
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.2'
+          working-directory: fastlane
+          bundler-cache: true
+
+      - name: Get workflow run info
+        id: run_info
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            RUN_ID="${{ inputs.run_id }}"
+            TRACK="${{ inputs.track }}"
+          else
+            RUN_ID="${{ github.event.workflow_run.id }}"
+            TRACK="internal"
+          fi
+          echo "run_id=$RUN_ID" >> $GITHUB_OUTPUT
+          echo "track=$TRACK" >> $GITHUB_OUTPUT
+
+      - name: Get version from build run
+        id: version
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Get the version from the build workflow run
+          VERSION=$(gh run view ${{ steps.run_info.outputs.run_id }} --json jobs -q '.jobs[] | select(.name == "Get Version Info") | .steps[] | select(.name == "Get version info") | .conclusion' || echo "")
+
+          # List artifacts from the build run to find the AAB
+          ARTIFACTS=$(gh api repos/${{ github.repository }}/actions/runs/${{ steps.run_info.outputs.run_id }}/artifacts)
+          AAB_ARTIFACT=$(echo "$ARTIFACTS" | jq -r '.artifacts[] | select(.name | startswith("android-aab-")) | .name' | head -1)
+
+          if [ -z "$AAB_ARTIFACT" ]; then
+            echo "No AAB artifact found in run ${{ steps.run_info.outputs.run_id }}"
+            exit 1
+          fi
+
+          echo "artifact_name=$AAB_ARTIFACT" >> $GITHUB_OUTPUT
+          echo "Found AAB artifact: $AAB_ARTIFACT"
+
+      - name: Download AAB artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ steps.version.outputs.artifact_name }}
+          path: artifacts/
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: ${{ steps.run_info.outputs.run_id }}
+
+      - name: Find AAB file
+        id: aab
+        run: |
+          AAB_PATH=$(find artifacts -name "*.aab" | head -1)
+          if [ -z "$AAB_PATH" ]; then
+            echo "No AAB file found in artifacts"
+            ls -la artifacts/
+            exit 1
+          fi
+          echo "path=$AAB_PATH" >> $GITHUB_OUTPUT
+          echo "Found AAB: $AAB_PATH"
+
+      - name: Setup Google Play credentials
+        env:
+          GOOGLE_PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
+        run: |
+          if [ -z "$GOOGLE_PLAY_SERVICE_ACCOUNT_JSON" ]; then
+            echo "Error: GOOGLE_PLAY_SERVICE_ACCOUNT_JSON secret not set"
+            echo "Please add your Google Play service account JSON to repository secrets"
+            exit 1
+          fi
+          echo "$GOOGLE_PLAY_SERVICE_ACCOUNT_JSON" > play_store_credentials.json
+
+      - name: Upload to Play Store
+        working-directory: fastlane
+        env:
+          SUPPLY_JSON_KEY: ../play_store_credentials.json
+        run: |
+          bundle exec fastlane android deploy \
+            track:${{ steps.run_info.outputs.track }} \
+            aab:../${{ steps.aab.outputs.path }}
+
+      - name: Cleanup credentials
+        if: always()
+        run: rm -f play_store_credentials.json
+
+      - name: Summary
+        run: |
+          echo "## Play Store Deployment" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Track:** ${{ steps.run_info.outputs.track }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **AAB:** ${{ steps.aab.outputs.path }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "The build has been uploaded to the **${{ steps.run_info.outputs.track }}** track." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "To promote to production, go to [Google Play Console](https://play.google.com/console)." >> $GITHUB_STEP_SUMMARY

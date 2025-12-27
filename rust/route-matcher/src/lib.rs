@@ -39,12 +39,14 @@
 //! ```
 
 use geo::{
-    Coord, LineString, Point,
-    Haversine, Distance,
+    Coord, LineString,
     algorithm::simplify::Simplify,
 };
 use rstar::{RTree, RTreeObject, AABB};
 use std::collections::HashMap;
+
+// Geographic utilities (distance, bounds, center calculations)
+pub mod geo_utils;
 
 // HTTP module for activity fetching
 #[cfg(feature = "http")]
@@ -553,12 +555,8 @@ fn calculate_route_distance(points: &[GpsPoint]) -> f64 {
         .sum()
 }
 
-/// Calculate haversine distance between two GPS points in meters.
-fn haversine_distance(p1: &GpsPoint, p2: &GpsPoint) -> f64 {
-    let point1 = Point::new(p1.longitude, p1.latitude);
-    let point2 = Point::new(p2.longitude, p2.latitude);
-    Haversine::distance(point1, point2)
-}
+// Use shared haversine_distance from geo_utils
+use crate::geo_utils::haversine_distance;
 
 /// Determine direction using endpoint comparison.
 /// Returns "same" if sig2 starts near sig1's start, "reverse" if near sig1's end.
@@ -1027,10 +1025,10 @@ mod ffi {
     #[uniffi::export]
     pub fn create_signature(activity_id: String, points: Vec<GpsPoint>) -> Option<RouteSignature> {
         init_logging();
-        info!("[RouteMatcherRust] 🦀 create_signature called for {} with {} points", activity_id, points.len());
+        info!("[RouteMatcherRust] create_signature called for {} with {} points", activity_id, points.len());
         let result = RouteSignature::from_points(&activity_id, &points, &MatchConfig::default());
         if let Some(ref sig) = result {
-            info!("[RouteMatcherRust] 🦀 Created signature: {} points, {:.0}m distance", sig.points.len(), sig.total_distance);
+            info!("[RouteMatcherRust] Created signature: {} points, {:.0}m distance", sig.points.len(), sig.total_distance);
         }
         result
     }
@@ -1043,7 +1041,7 @@ mod ffi {
         config: MatchConfig,
     ) -> Option<RouteSignature> {
         init_logging();
-        info!("[RouteMatcherRust] 🦀 create_signature_with_config for {} ({} points)", activity_id, points.len());
+        info!("[RouteMatcherRust] create_signature_with_config for {} ({} points)", activity_id, points.len());
         RouteSignature::from_points(&activity_id, &points, &config)
     }
 
@@ -1055,10 +1053,10 @@ mod ffi {
         config: MatchConfig,
     ) -> Option<MatchResult> {
         init_logging();
-        debug!("[RouteMatcherRust] 🦀 Comparing {} vs {}", sig1.activity_id, sig2.activity_id);
+        debug!("[RouteMatcherRust] Comparing {} vs {}", sig1.activity_id, sig2.activity_id);
         let result = compare_routes(sig1, sig2, &config);
         if let Some(ref r) = result {
-            info!("[RouteMatcherRust] 🦀 Match found: {:.1}% ({})", r.match_percentage, r.direction);
+            info!("[RouteMatcherRust] Match found: {:.1}% ({})", r.match_percentage, r.direction);
         }
         result
     }
@@ -1070,24 +1068,24 @@ mod ffi {
         config: MatchConfig,
     ) -> Vec<RouteGroup> {
         init_logging();
-        info!("[RouteMatcherRust] 🦀🦀🦀 RUST groupSignatures called with {} signatures 🦀🦀🦀", signatures.len());
+        info!("[RouteMatcherRust] RUST groupSignatures called with {} signatures", signatures.len());
 
         let start = std::time::Instant::now();
 
         #[cfg(feature = "parallel")]
         let groups = {
-            info!("[RouteMatcherRust] 🦀 Using PARALLEL processing (rayon)");
+            info!("[RouteMatcherRust] Using PARALLEL processing (rayon)");
             group_signatures_parallel(&signatures, &config)
         };
 
         #[cfg(not(feature = "parallel"))]
         let groups = {
-            info!("[RouteMatcherRust] 🦀 Using sequential processing");
+            info!("[RouteMatcherRust] Using sequential processing");
             group_signatures(&signatures, &config)
         };
 
         let elapsed = start.elapsed();
-        info!("[RouteMatcherRust] 🦀 Grouped into {} groups in {:?}", groups.len(), elapsed);
+        info!("[RouteMatcherRust] Grouped into {} groups in {:?}", groups.len(), elapsed);
 
         groups
     }
@@ -1103,7 +1101,7 @@ mod ffi {
     ) -> Vec<RouteGroup> {
         init_logging();
         info!(
-            "[RouteMatcherRust] 🦀 INCREMENTAL grouping: {} new + {} existing signatures",
+            "[RouteMatcherRust] INCREMENTAL grouping: {} new + {} existing signatures",
             new_signatures.len(),
             existing_signatures.len()
         );
@@ -1124,7 +1122,7 @@ mod ffi {
         };
 
         let elapsed = start.elapsed();
-        info!("[RouteMatcherRust] 🦀 Incremental grouped into {} groups in {:?}", groups.len(), elapsed);
+        info!("[RouteMatcherRust] Incremental grouped into {} groups in {:?}", groups.len(), elapsed);
 
         groups
     }
@@ -1133,7 +1131,7 @@ mod ffi {
     #[uniffi::export]
     pub fn default_config() -> MatchConfig {
         init_logging();
-        info!("[RouteMatcherRust] 🦀 default_config called - Rust is active!");
+        info!("[RouteMatcherRust] default_config called - Rust is active!");
         MatchConfig::default()
     }
 
@@ -1158,14 +1156,14 @@ mod ffi {
     #[uniffi::export]
     pub fn create_signatures_from_flat(tracks: Vec<FlatGpsTrack>, config: MatchConfig) -> Vec<RouteSignature> {
         init_logging();
-        info!("[RouteMatcherRust] 🦀🦀🦀 FLAT BUFFER createSignatures called with {} tracks 🦀🦀🦀", tracks.len());
+        info!("[RouteMatcherRust] FLAT BUFFER createSignatures called with {} tracks", tracks.len());
 
         let start = std::time::Instant::now();
 
         #[cfg(feature = "parallel")]
         let signatures: Vec<RouteSignature> = {
             use rayon::prelude::*;
-            info!("[RouteMatcherRust] 🦀 Using PARALLEL flat buffer processing (rayon)");
+            info!("[RouteMatcherRust] Using PARALLEL flat buffer processing (rayon)");
             tracks
                 .par_iter()
                 .filter_map(|track| {
@@ -1181,7 +1179,7 @@ mod ffi {
 
         #[cfg(not(feature = "parallel"))]
         let signatures: Vec<RouteSignature> = {
-            info!("[RouteMatcherRust] 🦀 Using sequential flat buffer processing");
+            info!("[RouteMatcherRust] Using sequential flat buffer processing");
             tracks
                 .iter()
                 .filter_map(|track| {
@@ -1195,7 +1193,7 @@ mod ffi {
         };
 
         let elapsed = start.elapsed();
-        info!("[RouteMatcherRust] 🦀 FLAT created {} signatures from {} tracks in {:?}",
+        info!("[RouteMatcherRust] FLAT created {} signatures from {} tracks in {:?}",
               signatures.len(), tracks.len(), elapsed);
 
         signatures
@@ -1206,7 +1204,7 @@ mod ffi {
     #[uniffi::export]
     pub fn process_routes_from_flat(tracks: Vec<FlatGpsTrack>, config: MatchConfig) -> Vec<RouteGroup> {
         init_logging();
-        info!("[RouteMatcherRust] 🦀🦀🦀 FLAT BATCH process_routes called with {} tracks 🦀🦀🦀", tracks.len());
+        info!("[RouteMatcherRust] FLAT BATCH process_routes called with {} tracks", tracks.len());
 
         let start = std::time::Instant::now();
 
@@ -1221,7 +1219,7 @@ mod ffi {
         let groups = group_signatures(&signatures, &config);
 
         let elapsed = start.elapsed();
-        info!("[RouteMatcherRust] 🦀 FLAT batch processing: {} signatures -> {} groups in {:?}",
+        info!("[RouteMatcherRust] FLAT batch processing: {} signatures -> {} groups in {:?}",
               signatures.len(), groups.len(), elapsed);
 
         groups
@@ -1234,14 +1232,14 @@ mod ffi {
     #[uniffi::export]
     pub fn create_signatures_batch(tracks: Vec<GpsTrack>, config: MatchConfig) -> Vec<RouteSignature> {
         init_logging();
-        info!("[RouteMatcherRust] 🦀🦀🦀 BATCH create_signatures called with {} tracks 🦀🦀🦀", tracks.len());
+        info!("[RouteMatcherRust] BATCH create_signatures called with {} tracks", tracks.len());
 
         let start = std::time::Instant::now();
 
         #[cfg(feature = "parallel")]
         let signatures: Vec<RouteSignature> = {
             use rayon::prelude::*;
-            info!("[RouteMatcherRust] 🦀 Using PARALLEL signature creation (rayon)");
+            info!("[RouteMatcherRust] Using PARALLEL signature creation (rayon)");
             tracks
                 .par_iter()
                 .filter_map(|track| {
@@ -1252,7 +1250,7 @@ mod ffi {
 
         #[cfg(not(feature = "parallel"))]
         let signatures: Vec<RouteSignature> = {
-            info!("[RouteMatcherRust] 🦀 Using sequential signature creation");
+            info!("[RouteMatcherRust] Using sequential signature creation");
             tracks
                 .iter()
                 .filter_map(|track| {
@@ -1262,7 +1260,7 @@ mod ffi {
         };
 
         let elapsed = start.elapsed();
-        info!("[RouteMatcherRust] 🦀 Created {} signatures from {} tracks in {:?}",
+        info!("[RouteMatcherRust] Created {} signatures from {} tracks in {:?}",
               signatures.len(), tracks.len(), elapsed);
 
         signatures
@@ -1273,7 +1271,7 @@ mod ffi {
     #[uniffi::export]
     pub fn process_routes_batch(tracks: Vec<GpsTrack>, config: MatchConfig) -> Vec<RouteGroup> {
         init_logging();
-        info!("[RouteMatcherRust] 🦀🦀🦀 FULL BATCH process_routes called with {} tracks 🦀🦀🦀", tracks.len());
+        info!("[RouteMatcherRust] FULL BATCH process_routes called with {} tracks", tracks.len());
 
         let start = std::time::Instant::now();
 
@@ -1288,7 +1286,7 @@ mod ffi {
         let groups = group_signatures(&signatures, &config);
 
         let elapsed = start.elapsed();
-        info!("[RouteMatcherRust] 🦀 Full batch processing: {} signatures -> {} groups in {:?}",
+        info!("[RouteMatcherRust] Full batch processing: {} signatures -> {} groups in {:?}",
               signatures.len(), groups.len(), elapsed);
 
         groups
@@ -1326,7 +1324,7 @@ mod ffi {
         activity_ids: Vec<String>,
     ) -> Vec<FfiActivityMapResult> {
         init_logging();
-        info!("[RouteMatcherRust] 🦀 fetch_activity_maps called for {} activities", activity_ids.len());
+        info!("[RouteMatcherRust] fetch_activity_maps called for {} activities", activity_ids.len());
 
         let results = crate::http::fetch_activity_maps_sync(api_key, activity_ids, None);
 
@@ -1359,7 +1357,7 @@ mod ffi {
         use std::sync::Arc;
 
         init_logging();
-        info!("[RouteMatcherRust] 🦀 fetch_activity_maps_with_progress called for {} activities", activity_ids.len());
+        info!("[RouteMatcherRust] fetch_activity_maps_with_progress called for {} activities", activity_ids.len());
 
         // Wrap the callback to match the expected type
         let callback = Arc::new(callback);
@@ -1418,7 +1416,7 @@ mod ffi {
     ) -> Vec<crate::FrequentSection> {
         init_logging();
         info!(
-            "[RouteMatcherRust] 🦀 detect_frequent_sections: {} signatures, {} sport types",
+            "[RouteMatcherRust] detect_frequent_sections: {} signatures, {} sport types",
             signatures.len(),
             sport_types.len()
         );
@@ -1440,7 +1438,7 @@ mod ffi {
 
         let elapsed = start.elapsed();
         info!(
-            "[RouteMatcherRust] 🦀 Found {} frequent sections in {:?}",
+            "[RouteMatcherRust] Found {} frequent sections in {:?}",
             sections.len(),
             elapsed
         );
@@ -1476,7 +1474,7 @@ mod ffi {
     ) -> Vec<crate::FrequentSection> {
         init_logging();
         info!(
-            "[RouteMatcherRust] 🦀 detect_sections_from_tracks: {} activities, {} coords",
+            "[RouteMatcherRust] detect_sections_from_tracks: {} activities, {} coords",
             activity_ids.len(),
             all_coords.len() / 2
         );
@@ -1504,7 +1502,7 @@ mod ffi {
         }
 
         info!(
-            "[RouteMatcherRust] 🦀 Converted to {} tracks with full GPS data",
+            "[RouteMatcherRust] Converted to {} tracks with full GPS data",
             tracks.len()
         );
 
@@ -1523,7 +1521,7 @@ mod ffi {
 
         let elapsed = start.elapsed();
         info!(
-            "[RouteMatcherRust] 🦀 Found {} sections (medoid-based) in {:?}",
+            "[RouteMatcherRust] Found {} sections (medoid-based) in {:?}",
             sections.len(),
             elapsed
         );
@@ -1541,7 +1539,7 @@ mod ffi {
         config: MatchConfig,
     ) -> FetchAndProcessResult {
         init_logging();
-        info!("[RouteMatcherRust] 🦀 fetch_and_process_activities for {} activities", activity_ids.len());
+        info!("[RouteMatcherRust] fetch_and_process_activities for {} activities", activity_ids.len());
 
         let start = std::time::Instant::now();
 
@@ -1583,7 +1581,7 @@ mod ffi {
         }
 
         let elapsed = start.elapsed();
-        info!("[RouteMatcherRust] 🦀 Fetched {} activities, created {} signatures in {:?}",
+        info!("[RouteMatcherRust] Fetched {} activities, created {} signatures in {:?}",
               map_results.len(), signatures.len(), elapsed);
 
         FetchAndProcessResult { map_results, signatures }
@@ -1603,7 +1601,7 @@ mod ffi {
     ) -> crate::HeatmapResult {
         init_logging();
         info!(
-            "[RouteMatcherRust] 🦀 generate_heatmap: {} signatures, {}m cells",
+            "[RouteMatcherRust] generate_heatmap: {} signatures, {}m cells",
             signatures.len(),
             config.cell_size_meters
         );
@@ -1620,7 +1618,7 @@ mod ffi {
 
         let elapsed = start.elapsed();
         info!(
-            "[RouteMatcherRust] 🦀 Heatmap generated: {} cells, {} routes, {} activities in {:?}",
+            "[RouteMatcherRust] Heatmap generated: {} cells, {} routes, {} activities in {:?}",
             result.cells.len(),
             result.total_routes,
             result.total_activities,
@@ -1651,20 +1649,9 @@ mod ffi {
 // Helper Functions
 // ============================================================================
 
+// Use shared bounds calculation from geo_utils
 fn calculate_bounds(points: &[GpsPoint]) -> (f64, f64, f64, f64) {
-    let mut min_lat = f64::MAX;
-    let mut max_lat = f64::MIN;
-    let mut min_lng = f64::MAX;
-    let mut max_lng = f64::MIN;
-
-    for p in points {
-        min_lat = min_lat.min(p.latitude);
-        max_lat = max_lat.max(p.latitude);
-        min_lng = min_lng.min(p.longitude);
-        max_lng = max_lng.max(p.longitude);
-    }
-
-    (min_lat, max_lat, min_lng, max_lng)
+    crate::geo_utils::compute_bounds_tuple(points)
 }
 
 fn distance_ratio_ok(d1: f64, d2: f64) -> bool {

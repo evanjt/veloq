@@ -575,6 +575,8 @@ export interface FrequentSection {
   observationCount: number;
   /** Average spread (meters) of track observations from the consensus line */
   averageSpread: number;
+  /** Per-point observation density (how many activities pass through each point) */
+  pointDensity?: number[];
 }
 
 /**
@@ -758,6 +760,12 @@ export function detectSectionsFromTracks(
     distanceMeters: s.distance_meters as number,
     // Pre-computed activity traces (converted from native format)
     activityTraces: convertActivityTraces(s.activity_traces as Record<string, GpsPoint[]>),
+    // Consensus polyline metrics (with defaults for backwards compatibility)
+    confidence: (s.confidence as number) ?? 0.0,
+    observationCount: (s.observation_count as number) ?? 0,
+    averageSpread: (s.average_spread as number) ?? 0.0,
+    // Per-point density for section splitting
+    pointDensity: s.point_density as number[] | undefined,
   }));
 }
 
