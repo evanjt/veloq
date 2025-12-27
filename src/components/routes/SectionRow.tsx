@@ -166,13 +166,43 @@ export const SectionRow = memo(function SectionRow({
       onPress={handlePress}
       activeOpacity={0.7}
     >
-      {/* Simple icon preview - SVG disabled for debugging */}
+      {/* Section polyline preview with activity traces */}
       <View style={[styles.preview, isDark && styles.previewDark]} pointerEvents="none">
-        <MaterialCommunityIcons
-          name={icon}
-          size={24}
-          color={isDark ? '#666' : colors.primary}
-        />
+        {hasSectionPolyline ? (
+          <Svg width={PREVIEW_WIDTH} height={PREVIEW_HEIGHT}>
+            {/* Activity traces underneath (if any) */}
+            {hasTraces && (
+              <G>
+                {normalizedTraces.map((trace) => (
+                  <Polyline
+                    key={trace.id}
+                    points={trace.points}
+                    fill="none"
+                    stroke={trace.color}
+                    strokeWidth={3}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                ))}
+              </G>
+            )}
+            {/* Section polyline on top */}
+            <Polyline
+              points={sectionPolylineString}
+              fill="none"
+              stroke={isDark ? '#5B9BD5' : colors.primary}
+              strokeWidth={2}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </Svg>
+        ) : (
+          <MaterialCommunityIcons
+            name={icon}
+            size={24}
+            color={isDark ? '#666' : colors.primary}
+          />
+        )}
       </View>
 
       {/* Section info */}
