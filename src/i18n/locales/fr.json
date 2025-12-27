@@ -381,6 +381,23 @@
     "routeNamePlaceholder": "Nom du parcours"
   },
 
+  "sections": {
+    "performanceOverTime": "Performance au Fil du Temps",
+    "best": "Meilleur",
+    "same": "Même sens",
+    "reverse": "Sens inverse",
+    "scrubHint": "Maintenez pour parcourir les activités",
+    "scrubHintScrollable": "Glissez pour défiler • Maintenez pour naviguer",
+    "bestPace": "Meilleure allure",
+    "bestSpeed": "Meilleure vitesse",
+    "date": "Date",
+    "sectionNotFound": "Section introuvable",
+    "traversals": "passages",
+    "routesCount": "parcours",
+    "activities": "Activités",
+    "noActivitiesFound": "Aucune activité trouvée"
+  },
+
   "errorState": {
     "defaultTitle": "Une erreur s'est produite",
     "defaultMessage": "Échec du chargement des données. Veuillez réessayer.",

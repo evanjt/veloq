@@ -455,6 +455,23 @@
     "routeNamePlaceholder": "Route name"
   },
 
+  "sections": {
+    "performanceOverTime": "Performance Over Time",
+    "best": "Best",
+    "same": "Same",
+    "reverse": "Reverse",
+    "scrubHint": "Hold to scrub through activities",
+    "scrubHintScrollable": "Swipe to scroll • Hold to scrub",
+    "bestPace": "Best pace",
+    "bestSpeed": "Best speed",
+    "date": "Date",
+    "sectionNotFound": "Section not found",
+    "traversals": "traversals",
+    "routesCount": "routes",
+    "activities": "Activities",
+    "noActivitiesFound": "No activities found"
+  },
+
   "errorState": {
     "defaultTitle": "Something went wrong",
     "defaultMessage": "Failed to load data. Please try again.",
