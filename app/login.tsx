@@ -17,6 +17,7 @@ import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '@/providers';
 import { intervalsApi } from '@/api/intervals';
 import { colors, spacing, layout } from '@/theme';
+import { useQueryClient } from '@tanstack/react-query';
 
 export default function LoginScreen() {
   const { t } = useTranslation();
@@ -24,10 +25,21 @@ export default function LoginScreen() {
   const isDark = colorScheme === 'dark';
   const insets = useSafeAreaInsets();
   const setCredentials = useAuthStore((state) => state.setCredentials);
+  const enterDemoMode = useAuthStore((state) => state.enterDemoMode);
+  const queryClient = useQueryClient();
 
   const [apiKey, setApiKey] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const handleTryDemo = () => {
+    // Clear any cached data from previous sessions
+    queryClient.clear();
+    // Enter demo mode
+    enterDemoMode();
+    // Navigate to main app
+    router.replace('/' as Href);
+  };
 
   const handleOpenSettings = () => {
     Linking.openURL('https://intervals.icu/settings');
@@ -141,6 +153,16 @@ export default function LoginScreen() {
             >
               {isLoading ? t('login.connecting') : t('login.connect')}
             </Button>
+
+            <Button
+              mode="outlined"
+              onPress={handleTryDemo}
+              disabled={isLoading}
+              style={styles.demoButton}
+              icon="play-circle-outline"
+            >
+              {t('login.tryDemo', { defaultValue: 'Try Demo' })}
+            </Button>
           </View>
 
           {/* Security note */}
@@ -229,6 +251,9 @@ const styles = StyleSheet.create({
   },
   loginButtonContent: {
     paddingVertical: spacing.xs,
+  },
+  demoButton: {
+    marginTop: spacing.md,
   },
   securityNote: {
     flexDirection: 'row',

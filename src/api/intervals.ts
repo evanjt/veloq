@@ -1,5 +1,7 @@
 import { apiClient, getAthleteId } from './client';
 import { formatLocalDate, parseStreams, debug } from '@/lib';
+import { useAuthStore, DEMO_ATHLETE_ID } from '@/providers/AuthStore';
+import { mockIntervalsApi } from './mockIntervals';
 
 const log = debug.create('API');
 import type {
@@ -15,8 +17,15 @@ import type {
   RawStreamItem,
 } from '@/types';
 
+// Check if we're in demo mode
+function isDemoMode(): boolean {
+  const state = useAuthStore.getState();
+  return state.isDemoMode || state.athleteId === DEMO_ATHLETE_ID;
+}
+
 export const intervalsApi = {
   async getAthlete(): Promise<Athlete> {
+    if (isDemoMode()) return mockIntervalsApi.getAthlete();
     const athleteId = getAthleteId();
     const response = await apiClient.get(`/athlete/${athleteId}`);
     return response.data;
@@ -28,6 +37,7 @@ export const intervalsApi = {
    * Used during login to discover the athlete ID
    */
   async getCurrentAthlete(): Promise<Athlete> {
+    if (isDemoMode()) return mockIntervalsApi.getCurrentAthlete();
     const response = await apiClient.get('/athlete/me');
     return response.data;
   },
@@ -38,6 +48,7 @@ export const intervalsApi = {
     /** Include additional fields for stats (eFTP, zone times, etc.) */
     includeStats?: boolean;
   }): Promise<Activity[]> {
+    if (isDemoMode()) return mockIntervalsApi.getActivities(params);
     const athleteId = getAthleteId();
 
     // Default to last 30 days if no params provided
@@ -79,6 +90,7 @@ export const intervalsApi = {
   },
 
   async getActivity(id: string): Promise<ActivityDetail> {
+    if (isDemoMode()) return mockIntervalsApi.getActivity(id);
     const response = await apiClient.get(`/activity/${id}`);
     return response.data;
   },
@@ -88,6 +100,7 @@ export const intervalsApi = {
    * Used to determine the full timeline range
    */
   async getOldestActivityDate(): Promise<string | null> {
+    if (isDemoMode()) return mockIntervalsApi.getOldestActivityDate();
     const athleteId = getAthleteId();
     // Query with a very old date to find the actual oldest activity
     const response = await apiClient.get(`/athlete/${athleteId}/activities`, {
@@ -110,6 +123,7 @@ export const intervalsApi = {
     id: string,
     types?: string[]
   ): Promise<ActivityStreams> {
+    if (isDemoMode()) return mockIntervalsApi.getActivityStreams(id, types);
     // Note: intervals.icu requires .json suffix for streams endpoint
     const response = await apiClient.get<RawStreamItem[]>(`/activity/${id}/streams.json`, {
       params: types ? { types: types.join(',') } : undefined,
@@ -122,6 +136,7 @@ export const intervalsApi = {
     oldest?: string;
     newest?: string;
   }): Promise<WellnessData[]> {
+    if (isDemoMode()) return mockIntervalsApi.getWellness(params);
     const athleteId = getAthleteId();
 
     // Default to last 90 days if no params provided
@@ -149,6 +164,7 @@ export const intervalsApi = {
     sport?: string;
     days?: number;
   }): Promise<PowerCurve> {
+    if (isDemoMode()) return mockIntervalsApi.getPowerCurve(params);
     const athleteId = getAthleteId();
     const sportType = params?.sport || 'Ride';
     // Use curves parameter: 1y = 1 year, 90d = 90 days, etc.
@@ -181,6 +197,7 @@ export const intervalsApi = {
     days?: number;
     gap?: boolean;
   }): Promise<PaceCurve> {
+    if (isDemoMode()) return mockIntervalsApi.getPaceCurve(params);
     const athleteId = getAthleteId();
     const sportType = params?.sport || 'Run';
     // Use curves parameter - default to 42 days to match intervals.icu default
@@ -244,6 +261,7 @@ export const intervalsApi = {
    * Get sport settings including zones
    */
   async getSportSettings(): Promise<SportSettings[]> {
+    if (isDemoMode()) return mockIntervalsApi.getSportSettings();
     const athleteId = getAthleteId();
     const response = await apiClient.get<SportSettings[]>(`/athlete/${athleteId}/sport-settings`);
     return response.data;
@@ -253,6 +271,7 @@ export const intervalsApi = {
    * Get athlete profile with settings
    */
   async getAthleteProfile(): Promise<Athlete & { sport_settings?: SportSettings[] }> {
+    if (isDemoMode()) return mockIntervalsApi.getAthleteProfile();
     const athleteId = getAthleteId();
     const response = await apiClient.get(`/athlete/${athleteId}`);
     return response.data;
@@ -264,6 +283,7 @@ export const intervalsApi = {
    * @param boundsOnly - If true, only returns bounds (faster, smaller response)
    */
   async getActivityMap(id: string, boundsOnly = false): Promise<ActivityMapData> {
+    if (isDemoMode()) return mockIntervalsApi.getActivityMap(id, boundsOnly);
     const response = await apiClient.get<ActivityMapData>(`/activity/${id}/map`, {
       params: boundsOnly ? { boundsOnly: true } : undefined,
     });

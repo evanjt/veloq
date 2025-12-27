@@ -9,7 +9,7 @@ import { configureReanimatedLogger, ReanimatedLogLevel } from 'react-native-rean
 import { QueryProvider, MapPreferencesProvider, initializeTheme, useAuthStore, initializeSportPreference, initializeHRZones, initializeRouteMatching, initializeRouteSettings, initializeLanguage } from '@/providers';
 import { initializeI18n } from '@/i18n';
 import { lightTheme, darkTheme, colors, darkColors } from '@/theme';
-import { CacheLoadingBanner } from '@/components/ui';
+import { CacheLoadingBanner, DemoBanner } from '@/components/ui';
 import { activitySyncManager } from '@/lib/activitySyncManager';
 import { formatLocalDate } from '@/lib/format';
 
@@ -127,6 +127,7 @@ export default function RootLayout() {
               animated
             />
             <AuthGate>
+              <DemoBanner />
               <CacheLoadingBanner />
               <Stack
                 screenOptions={{
