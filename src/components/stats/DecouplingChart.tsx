@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { View, StyleSheet, useColorScheme } from 'react-native';
 import { Text } from 'react-native-paper';
+import { useTranslation } from 'react-i18next';
 import { colors, darkColors } from '@/theme/colors';
 import { typography } from '@/theme/typography';
 import { spacing, layout } from '@/theme/spacing';
@@ -46,6 +47,7 @@ function calculateDecoupling(power: number[], heartrate: number[]): {
 }
 
 export function DecouplingChart({ power, heartrate, height = 150 }: DecouplingChartProps) {
+  const { t } = useTranslation();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
 
@@ -67,14 +69,14 @@ export function DecouplingChart({ power, heartrate, height = 150 }: DecouplingCh
     return (
       <View style={styles.container}>
         <View style={styles.header}>
-          <Text style={[styles.title, isDark && styles.textLight]}>Aerobic Decoupling</Text>
+          <Text style={[styles.title, isDark && styles.textLight]}>{t('stats.aerobicDecoupling')}</Text>
         </View>
         <View style={[styles.emptyState, { height }]}>
           <Text style={[styles.emptyText, isDark && styles.textDark]}>
-            No decoupling data available
+            {t('stats.noDecouplingData')}
           </Text>
           <Text style={[styles.emptyHint, isDark && styles.textDark]}>
-            Complete a sustained effort with power and heart rate data to see decoupling analysis
+            {t('stats.completeDecouplingHint')}
           </Text>
         </View>
       </View>
@@ -85,7 +87,7 @@ export function DecouplingChart({ power, heartrate, height = 150 }: DecouplingCh
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={[styles.title, isDark && styles.textLight]}>Aerobic Decoupling</Text>
+        <Text style={[styles.title, isDark && styles.textLight]}>{t('stats.aerobicDecoupling')}</Text>
         <Text
           style={[
             styles.decouplingValue,
@@ -105,11 +107,11 @@ export function DecouplingChart({ power, heartrate, height = 150 }: DecouplingCh
           ]}
         >
           <Text style={styles.statusText}>
-            {analysis.isGood ? 'Good Aerobic Fitness' : 'Needs Improvement'}
+            {analysis.isGood ? t('stats.goodAerobicFitness') : t('stats.needsImprovement')}
           </Text>
         </View>
         <Text style={[styles.targetText, isDark && styles.textDark]}>
-          Target: &lt; 5%
+          {t('stats.targetLessThan5')}
         </Text>
       </View>
 
@@ -117,21 +119,21 @@ export function DecouplingChart({ power, heartrate, height = 150 }: DecouplingCh
       <View style={[styles.chartContainer, { height }]}>
         {/* First half */}
         <View style={[styles.halfSection, styles.firstHalf]}>
-          <Text style={[styles.halfLabel, isDark && styles.textDark]}>First Half</Text>
+          <Text style={[styles.halfLabel, isDark && styles.textDark]}>{t('stats.firstHalf')}</Text>
           <View style={styles.dataRow}>
-            <Text style={[styles.dataLabel, isDark && styles.textDark]}>Avg Power</Text>
+            <Text style={[styles.dataLabel, isDark && styles.textDark]}>{t('stats.avgPower')}</Text>
             <Text style={[styles.dataValue, isDark && styles.textLight]}>
               {Math.round(power.slice(0, midpoint).reduce((a, b) => a + b, 0) / midpoint)}W
             </Text>
           </View>
           <View style={styles.dataRow}>
-            <Text style={[styles.dataLabel, isDark && styles.textDark]}>Avg HR</Text>
+            <Text style={[styles.dataLabel, isDark && styles.textDark]}>{t('stats.avgHr')}</Text>
             <Text style={[styles.dataValue, isDark && styles.textLight]}>
               {Math.round(heartrate.slice(0, midpoint).reduce((a, b) => a + b, 0) / midpoint)} bpm
             </Text>
           </View>
           <View style={styles.dataRow}>
-            <Text style={[styles.dataLabel, isDark && styles.textDark]}>Efficiency</Text>
+            <Text style={[styles.dataLabel, isDark && styles.textDark]}>{t('stats.efficiency')}</Text>
             <Text style={[styles.dataValue, { color: colors.primary }]}>
               {analysis.firstHalfEf.toFixed(2)}
             </Text>
@@ -147,21 +149,21 @@ export function DecouplingChart({ power, heartrate, height = 150 }: DecouplingCh
 
         {/* Second half */}
         <View style={[styles.halfSection, styles.secondHalf]}>
-          <Text style={[styles.halfLabel, isDark && styles.textDark]}>Second Half</Text>
+          <Text style={[styles.halfLabel, isDark && styles.textDark]}>{t('stats.secondHalf')}</Text>
           <View style={styles.dataRow}>
-            <Text style={[styles.dataLabel, isDark && styles.textDark]}>Avg Power</Text>
+            <Text style={[styles.dataLabel, isDark && styles.textDark]}>{t('stats.avgPower')}</Text>
             <Text style={[styles.dataValue, isDark && styles.textLight]}>
               {Math.round(power.slice(midpoint).reduce((a, b) => a + b, 0) / (power.length - midpoint))}W
             </Text>
           </View>
           <View style={styles.dataRow}>
-            <Text style={[styles.dataLabel, isDark && styles.textDark]}>Avg HR</Text>
+            <Text style={[styles.dataLabel, isDark && styles.textDark]}>{t('stats.avgHr')}</Text>
             <Text style={[styles.dataValue, isDark && styles.textLight]}>
               {Math.round(heartrate.slice(midpoint).reduce((a, b) => a + b, 0) / (heartrate.length - midpoint))} bpm
             </Text>
           </View>
           <View style={styles.dataRow}>
-            <Text style={[styles.dataLabel, isDark && styles.textDark]}>Efficiency</Text>
+            <Text style={[styles.dataLabel, isDark && styles.textDark]}>{t('stats.efficiency')}</Text>
             <Text style={[styles.dataValue, { color: analysis.isGood ? colors.primary : colors.warning }]}>
               {analysis.secondHalfEf.toFixed(2)}
             </Text>
@@ -171,8 +173,7 @@ export function DecouplingChart({ power, heartrate, height = 150 }: DecouplingCh
 
       {/* Explanation */}
       <Text style={[styles.explanation, isDark && styles.textDark]}>
-        Decoupling measures cardiac drift - how much your heart rate rises relative to power output during sustained efforts.
-        Lower is better, indicating efficient aerobic energy production.
+        {t('stats.decouplingExplanation')}
       </Text>
     </View>
   );

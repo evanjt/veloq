@@ -1,6 +1,7 @@
 import React, { useMemo, useRef, useCallback, useState } from 'react';
 import { View, StyleSheet, useColorScheme, TouchableOpacity, Modal, Pressable } from 'react-native';
 import { Text } from 'react-native-paper';
+import { useTranslation } from 'react-i18next';
 import { Canvas, Circle, Group } from '@shopify/react-native-skia';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { SharedValue, useSharedValue, useAnimatedReaction, runOnJS, useDerivedValue, useAnimatedStyle } from 'react-native-reanimated';
@@ -59,6 +60,7 @@ export const ActivityDotsChart = React.memo(function ActivityDotsChart({
   onDateSelect,
   onInteractionChange,
 }: ActivityDotsChartProps) {
+  const { t } = useTranslation();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const [selectedData, setSelectedData] = useState<DotData | null>(null);
@@ -327,7 +329,7 @@ export const ActivityDotsChart = React.memo(function ActivityDotsChart({
     if (acts.length === 1) {
       return acts[0].name;
     }
-    return `${acts.length} activities`;
+    return t('fitness.activitiesCount', { count: acts.length });
   };
 
   // Handle tap on activity label
@@ -376,7 +378,7 @@ export const ActivityDotsChart = React.memo(function ActivityDotsChart({
           </TouchableOpacity>
         ) : (
           <Text style={[styles.noActivityLabel, isDark && styles.noActivityLabelDark]}>
-            {displayData ? 'Rest day' : 'Activities'}
+            {displayData ? t('fitness.restDay') : t('navigation.activities')}
           </Text>
         )}
       </View>
@@ -390,7 +392,7 @@ export const ActivityDotsChart = React.memo(function ActivityDotsChart({
       >
         <Pressable style={styles.modalOverlay} onPress={() => setShowPicker(false)}>
           <View style={[styles.modalContent, isDark && styles.modalContentDark]}>
-            <Text style={[styles.modalTitle, isDark && styles.textLight]}>Select Activity</Text>
+            <Text style={[styles.modalTitle, isDark && styles.textLight]}>{t('fitness.selectActivity')}</Text>
             {displayActivities.map((activity) => (
               <TouchableOpacity
                 key={activity.id}
@@ -418,7 +420,7 @@ export const ActivityDotsChart = React.memo(function ActivityDotsChart({
               onPress={() => setShowPicker(false)}
               activeOpacity={0.7}
             >
-              <Text style={styles.cancelButtonText}>Cancel</Text>
+              <Text style={styles.cancelButtonText}>{t('common.cancel')}</Text>
             </TouchableOpacity>
           </View>
         </Pressable>

@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { View, StyleSheet, useColorScheme } from 'react-native';
 import { Text } from 'react-native-paper';
+import { useTranslation } from 'react-i18next';
 import { colors, darkColors, spacing, typography, layout, opacity } from '@/theme';
 import type { WellnessData } from '@/types';
 
@@ -34,6 +35,7 @@ function getAverage(data: WellnessData[], key: keyof WellnessData, days: number)
 }
 
 export function WellnessDashboard({ data }: WellnessDashboardProps) {
+  const { t } = useTranslation();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
 
@@ -42,14 +44,14 @@ export function WellnessDashboard({ data }: WellnessDashboardProps) {
     return (
       <View style={styles.container}>
         <View style={styles.header}>
-          <Text style={[styles.title, isDark && styles.textLight]}>Wellness</Text>
+          <Text style={[styles.title, isDark && styles.textLight]}>{t('navigation.wellness')}</Text>
         </View>
         <View style={styles.emptyState}>
           <Text style={[styles.emptyText, isDark && styles.textDark]}>
-            No wellness data available
+            {t('wellness.noData')}
           </Text>
           <Text style={[styles.emptyHint, isDark && styles.textDark]}>
-            Connect a wearable or log wellness data in Intervals.icu
+            {t('wellness.connectHint')}
           </Text>
         </View>
       </View>
@@ -92,7 +94,7 @@ export function WellnessDashboard({ data }: WellnessDashboardProps) {
 
     return [
       {
-        label: 'HRV',
+        label: t('metrics.hrv'),
         current: currentHRV,
         previous: prevHRV,
         change: getChange(currentHRV, prevHRV),
@@ -102,27 +104,27 @@ export function WellnessDashboard({ data }: WellnessDashboardProps) {
         goodDirection: 'up',
       },
       {
-        label: 'Resting HR',
+        label: t('wellness.restingHR'),
         current: currentRHR,
         previous: prevRHR,
         change: getChange(currentRHR, prevRHR),
         trend: getTrend(currentRHR, prevRHR),
-        unit: 'bpm',
+        unit: t('units.bpm'),
         icon: '❤️',
         goodDirection: 'down',
       },
       {
-        label: 'Sleep',
+        label: t('wellness.sleep'),
         current: currentSleep ? currentSleep / 3600 : null,
         previous: prevSleep ? prevSleep / 3600 : null,
         change: getChange(currentSleep ? currentSleep / 3600 : null, prevSleep ? prevSleep / 3600 : null),
         trend: getTrend(currentSleep, prevSleep),
-        unit: 'hrs',
+        unit: t('wellness.hrs'),
         icon: '😴',
         goodDirection: 'up',
       },
       {
-        label: 'Sleep Score',
+        label: t('wellness.sleepScore'),
         current: currentSleepScore,
         previous: prevSleepScore,
         change: getChange(currentSleepScore, prevSleepScore),
@@ -132,7 +134,7 @@ export function WellnessDashboard({ data }: WellnessDashboardProps) {
         goodDirection: 'up',
       },
       {
-        label: 'Weight',
+        label: t('wellness.weight'),
         current: currentWeight,
         previous: prevWeight,
         change: getChange(currentWeight, prevWeight),
@@ -142,7 +144,7 @@ export function WellnessDashboard({ data }: WellnessDashboardProps) {
         goodDirection: 'stable',
       },
     ];
-  }, [sourceData]);
+  }, [sourceData, t]);
 
   const getTrendColor = (metric: MetricTrend): string => {
     if (metric.trend === 'stable') return colors.textSecondary;
@@ -159,23 +161,28 @@ export function WellnessDashboard({ data }: WellnessDashboardProps) {
 
   // Get insight based on metrics
   const insight = useMemo(() => {
-    const hrvMetric = metrics.find(m => m.label === 'HRV');
-    const rhrMetric = metrics.find(m => m.label === 'Resting HR');
+    const hrvLabel = t('metrics.hrv');
+    const rhrLabel = t('wellness.restingHR');
+    const hrvMetric = metrics.find(m => m.label === hrvLabel);
+    const rhrMetric = metrics.find(m => m.label === rhrLabel);
 
     if (hrvMetric?.trend === 'up' && rhrMetric?.trend === 'down') {
-      return { text: 'Good recovery - you\'re adapting well', color: colors.success };
+      return { text: t('wellness.insightGoodRecovery'), color: colors.success };
     }
     if (hrvMetric?.trend === 'down' && rhrMetric?.trend === 'up') {
-      return { text: 'Consider extra recovery today', color: colors.warning };
+      return { text: t('wellness.insightExtraRecovery'), color: colors.warning };
     }
-    return { text: 'Metrics look stable', color: colors.textSecondary };
-  }, [metrics]);
+    return { text: t('wellness.insightStable'), color: colors.textSecondary };
+  }, [metrics, t]);
 
   // Visual trend indicators for key metrics
   const trendIndicators = useMemo(() => {
-    const hrvMetric = metrics.find(m => m.label === 'HRV');
-    const rhrMetric = metrics.find(m => m.label === 'Resting HR');
-    const sleepMetric = metrics.find(m => m.label === 'Sleep');
+    const hrvLabel = t('metrics.hrv');
+    const rhrLabel = t('wellness.restingHR');
+    const sleepLabel = t('wellness.sleep');
+    const hrvMetric = metrics.find(m => m.label === hrvLabel);
+    const rhrMetric = metrics.find(m => m.label === rhrLabel);
+    const sleepMetric = metrics.find(m => m.label === sleepLabel);
 
     const getArrow = (trend: 'up' | 'down' | 'stable') => {
       if (trend === 'up') return '▲';
@@ -191,25 +198,25 @@ export function WellnessDashboard({ data }: WellnessDashboardProps) {
 
     return [
       {
-        label: 'HRV',
+        label: t('metrics.hrv'),
         arrow: getArrow(hrvMetric?.trend || 'stable'),
         color: getColor(hrvMetric?.trend || 'stable', 'up'),
         value: hrvMetric?.current != null ? Math.round(hrvMetric.current) : null,
       },
       {
-        label: 'RHR',
+        label: t('metrics.rhr'),
         arrow: getArrow(rhrMetric?.trend || 'stable'),
         color: getColor(rhrMetric?.trend || 'stable', 'down'),
         value: rhrMetric?.current != null ? Math.round(rhrMetric.current) : null,
       },
       {
-        label: 'Sleep',
+        label: t('wellness.sleep'),
         arrow: getArrow(sleepMetric?.trend || 'stable'),
         color: getColor(sleepMetric?.trend || 'stable', 'up'),
         value: sleepMetric?.current != null ? sleepMetric.current.toFixed(1) : null,
       },
     ];
-  }, [metrics]);
+  }, [metrics, t]);
 
   return (
     <View style={styles.container}>

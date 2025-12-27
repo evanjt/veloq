@@ -5,6 +5,7 @@ import { CartesianChart, Area } from 'victory-native';
 import { LinearGradient, vec } from '@shopify/react-native-skia';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { useSharedValue, useAnimatedReaction, runOnJS, useDerivedValue, useAnimatedStyle } from 'react-native-reanimated';
+import { useTranslation } from 'react-i18next';
 import { colors, darkColors, typography, layout } from '@/theme';
 import { useMetricSystem } from '@/hooks';
 
@@ -26,6 +27,7 @@ export function SingularPlot({
   onPointSelect,
   onInteractionChange,
 }: SingularPlotProps) {
+  const { t } = useTranslation();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const isMetric = useMetricSystem();
@@ -191,7 +193,7 @@ export function SingularPlot({
   if (data.length === 0) {
     return (
       <View style={[styles.placeholder, { height }]}>
-        <Text style={[styles.placeholderText, isDark && styles.textDark]}>No elevation data</Text>
+        <Text style={[styles.placeholderText, isDark && styles.textDark]}>{t('activity.noElevationData')}</Text>
       </View>
     );
   }

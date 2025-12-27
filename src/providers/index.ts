@@ -37,3 +37,9 @@ export {
   isRouteMatchingEnabled,
   initializeRouteSettings,
 } from './RouteSettingsStore';
+export {
+  useLanguageStore,
+  initializeLanguage,
+  getEffectiveLanguage,
+  getAvailableLanguages,
+} from './LanguageStore';

@@ -7,6 +7,7 @@ import React from 'react';
 import { View, StyleSheet, useColorScheme } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { colors, darkColors, spacing, typography, layout } from '@/theme';
 import type { MatchDirection } from '@/types';
 
@@ -38,25 +39,26 @@ function getDirectionIcon(direction: MatchDirection): keyof typeof MaterialCommu
   }
 }
 
-function getDirectionLabel(direction: MatchDirection): string {
-  switch (direction) {
-    case 'same':
-      return 'Same direction';
-    case 'reverse':
-      return 'Reverse';
-    case 'partial':
-      return 'Partial';
-  }
-}
-
 export function MatchQualityIndicator({
   percentage,
   direction,
   overlapDistance,
   compact = false,
 }: MatchQualityIndicatorProps) {
+  const { t } = useTranslation();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
+
+  const getDirectionLabel = (dir: MatchDirection): string => {
+    switch (dir) {
+      case 'same':
+        return t('routes.sameDirection');
+      case 'reverse':
+        return t('routes.reverse');
+      case 'partial':
+        return t('routes.partial');
+    }
+  };
 
   const matchColor = getMatchColor(percentage);
   const directionIcon = getDirectionIcon(direction);
@@ -104,7 +106,7 @@ export function MatchQualityIndicator({
 
         {direction === 'partial' && overlapDistance != null && (
           <Text style={[styles.overlapText, isDark && styles.textMuted]}>
-            {(overlapDistance / 1000).toFixed(1)}km overlap
+            {t('routes.overlap', { distance: (overlapDistance / 1000).toFixed(1) })}
           </Text>
         )}
       </View>

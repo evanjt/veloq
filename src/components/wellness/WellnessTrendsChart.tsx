@@ -1,6 +1,7 @@
 import React, { useMemo, useState, useCallback } from 'react';
 import { View, StyleSheet, useColorScheme, LayoutChangeEvent } from 'react-native';
 import { Text } from 'react-native-paper';
+import { useTranslation } from 'react-i18next';
 import { CartesianChart, Line } from 'victory-native';
 import { Circle, Line as SkiaLine } from '@shopify/react-native-skia';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
@@ -168,6 +169,7 @@ function MetricSparkline({
 }
 
 export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({ data, height = 200 }: WellnessTrendsChartProps) {
+  const { t } = useTranslation();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
@@ -272,10 +274,10 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({ dat
       <View style={[styles.container, { height }]}>
         <View style={styles.emptyState}>
           <Text style={[styles.emptyText, isDark && styles.textDark]}>
-            No trend data available
+            {t('wellness.noTrendData')}
           </Text>
           <Text style={[styles.emptyHint, isDark && styles.textDark]}>
-            HRV, sleep, and resting HR trends will appear here when data is logged
+            {t('wellness.trendHint')}
           </Text>
         </View>
       </View>
@@ -291,11 +293,11 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({ dat
         <Text style={[styles.dateText, isDark && styles.textLight]}>
           {selectedDate
             ? new Date(selectedDate).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
-            : 'Today'}
+            : t('time.today')}
         </Text>
         {selectedIdx !== null && (
           <Text style={[styles.dateHint, isDark && styles.textDark]}>
-            Drag to explore
+            {t('wellness.dragToExplore')}
           </Text>
         )}
       </View>
@@ -309,7 +311,7 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({ dat
               color={METRIC_COLORS.hrv}
               height={sparklineHeight}
               isDark={isDark}
-              label="HRV"
+              label={t('metrics.hrv')}
               unit="ms"
               formatValue={(v) => Math.round(v).toString()}
               selectedIdx={selectedIdx}
@@ -324,8 +326,8 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({ dat
               color={METRIC_COLORS.rhr}
               height={sparklineHeight}
               isDark={isDark}
-              label="Resting HR"
-              unit="bpm"
+              label={t('wellness.restingHR')}
+              unit={t('units.bpm')}
               formatValue={(v) => Math.round(v).toString()}
               selectedIdx={selectedIdx}
               totalDays={totalDays}
@@ -339,7 +341,7 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({ dat
               color={METRIC_COLORS.sleep}
               height={sparklineHeight}
               isDark={isDark}
-              label="Sleep"
+              label={t('wellness.sleep')}
               unit=""
               formatValue={(v) => formatSleepDuration(v)}
               selectedIdx={selectedIdx}
@@ -354,7 +356,7 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({ dat
               color={METRIC_COLORS.sleepScore}
               height={sparklineHeight}
               isDark={isDark}
-              label="Sleep Score"
+              label={t('wellness.sleepScore')}
               unit=""
               formatValue={(v) => Math.round(v).toString()}
               selectedIdx={selectedIdx}
@@ -369,7 +371,7 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({ dat
               color={METRIC_COLORS.weight}
               height={sparklineHeight}
               isDark={isDark}
-              label="Weight"
+              label={t('wellness.weight')}
               unit="kg"
               formatValue={(v) => v.toFixed(1)}
               selectedIdx={selectedIdx}
@@ -381,7 +383,7 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({ dat
 
       {/* Period label */}
       <Text style={[styles.periodLabel, isDark && styles.textDark]}>
-        Last {data.length} days
+        {t('wellness.lastDays', { count: data.length })}
       </Text>
     </View>
   );

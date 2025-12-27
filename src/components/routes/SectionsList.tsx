@@ -10,6 +10,7 @@ import React, { useCallback, useMemo } from 'react';
 import { View, StyleSheet, FlatList, useColorScheme } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { router, Href } from 'expo-router';
 import { colors, spacing, layout } from '@/theme';
 import { useFrequentSections } from '@/hooks/routes/useFrequentSections';
@@ -28,6 +29,7 @@ interface SectionsListProps {
 type SectionTracesMap = Map<string, ActivityTrace[]>;
 
 export function SectionsList({ sportType }: SectionsListProps) {
+  const { t } = useTranslation();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
 
@@ -84,7 +86,7 @@ export function SectionsList({ sportType }: SectionsListProps) {
             color={isDark ? '#444' : '#CCC'}
           />
           <Text style={[styles.emptyTitle, isDark && styles.textLight]}>
-            Loading sections...
+            {t('routes.loadingSections')}
           </Text>
         </View>
       );
@@ -99,11 +101,10 @@ export function SectionsList({ sportType }: SectionsListProps) {
             color={isDark ? '#444' : '#CCC'}
           />
           <Text style={[styles.emptyTitle, isDark && styles.textLight]}>
-            No frequent sections yet
+            {t('routes.noFrequentSections')}
           </Text>
           <Text style={[styles.emptySubtitle, isDark && styles.textMuted]}>
-            Sections are detected when you travel the same roads multiple times,
-            even on different routes
+            {t('routes.sectionsDescription')}
           </Text>
         </View>
       );
@@ -117,10 +118,10 @@ export function SectionsList({ sportType }: SectionsListProps) {
           color={isDark ? '#444' : '#CCC'}
         />
         <Text style={[styles.emptyTitle, isDark && styles.textLight]}>
-          No sections match filter
+          {t('routes.noSectionsMatchFilter')}
         </Text>
         <Text style={[styles.emptySubtitle, isDark && styles.textMuted]}>
-          Try adjusting the sport type filter
+          {t('routes.adjustSportTypeFilter')}
         </Text>
       </View>
     );
@@ -135,7 +136,7 @@ export function SectionsList({ sportType }: SectionsListProps) {
           color={isDark ? '#666' : '#999'}
         />
         <Text style={[styles.infoText, isDark && styles.infoTextDark]}>
-          Frequent sections are road segments you travel often, detected automatically from your GPS tracks.
+          {t('routes.frequentSectionsInfo')}
         </Text>
       </View>
     </View>

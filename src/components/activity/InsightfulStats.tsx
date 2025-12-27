@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import type { ComponentProps } from 'react';
+import { useTranslation } from 'react-i18next';
 
 type IconName = ComponentProps<typeof MaterialCommunityIcons>['name'];
 import * as WebBrowser from 'expo-web-browser';
@@ -18,14 +19,14 @@ import { colors, darkColors, opacity, typography, spacing, layout } from '@/them
 import { formatDuration } from '@/lib';
 import type { Activity, WellnessData } from '@/types';
 
-// Explanations for each metric - educational, not interpretive
-const METRIC_EXPLANATIONS: Record<string, string> = {
-  'Training Load': 'Training Stress Score (TSS) quantifies training load based on duration and intensity relative to your threshold.',
-  'Heart Rate': 'Average heart rate during the activity.',
-  'Energy': 'Estimated energy expenditure from heart rate, power, and duration.',
-  'Conditions': 'Temperature from weather data or your device sensor.',
-  'Your Form': 'Your Form (TSB) on this day. This is a daily value based on your overall training, not specific to this activity. TSB = Fitness (CTL) minus Fatigue (ATL).',
-  'Power': 'Average power output in watts.',
+// Explanation keys for each metric - educational, not interpretive
+const METRIC_EXPLANATION_KEYS: Record<string, string> = {
+  'Training Load': 'activity.explanations.trainingLoad',
+  'Heart Rate': 'activity.explanations.heartRate',
+  'Energy': 'activity.explanations.energy',
+  'Conditions': 'activity.explanations.conditions',
+  'Your Form': 'activity.explanations.yourForm',
+  'Power': 'activity.explanations.power',
 };
 
 interface InsightfulStatsProps {
@@ -57,6 +58,7 @@ export function InsightfulStats({
   wellness,
   recentActivities = [],
 }: InsightfulStatsProps) {
+  const { t } = useTranslation();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const [selectedStat, setSelectedStat] = useState<StatDetail | null>(null);
@@ -81,7 +83,7 @@ export function InsightfulStats({
     const load = activity.icu_training_load;
     const loadComparison = avgLoad && avgLoad > 0
       ? {
-          label: 'vs your avg',
+          label: t('activity.vsYourAvg'),
           value: `${load > avgLoad ? '+' : ''}${Math.round(((load - avgLoad) / avgLoad) * 100)}%`,
           trend: load > avgLoad ? 'up' as const : load < avgLoad ? 'down' as const : 'same' as const,
           isGood: undefined, // Load being higher isn't inherently good or bad
@@ -96,19 +98,19 @@ export function InsightfulStats({
       : colors.success;
 
     stats.push({
-      title: 'Training Load',
+      title: t('activity.stats.trainingLoad'),
       value: `${Math.round(load)}`,
       icon: 'lightning-bolt',
       color: loadColor,
       comparison: loadComparison,
       context: `IF ${Math.round(intensity)}%`,
-      explanation: METRIC_EXPLANATIONS['Training Load'],
+      explanation: t(METRIC_EXPLANATION_KEYS['Training Load']),
       details: [
-        { label: 'Intensity Factor', value: `${Math.round(activity.icu_intensity || 0)}%` },
-        activity.trimp ? { label: 'TRIMP', value: `${Math.round(activity.trimp)}` } : null,
-        activity.strain_score ? { label: 'Strain', value: `${Math.round(activity.strain_score)}` } : null,
-        wellness?.ctl ? { label: 'Your Fitness (CTL)', value: `${Math.round(wellness.ctl)}` } : null,
-        wellness?.atl ? { label: 'Your Fatigue (ATL)', value: `${Math.round(wellness.atl)}` } : null,
+        { label: t('activity.stats.intensityFactor'), value: `${Math.round(activity.icu_intensity || 0)}%` },
+        activity.trimp ? { label: t('activity.stats.trimp'), value: `${Math.round(activity.trimp)}` } : null,
+        activity.strain_score ? { label: t('activity.stats.strain'), value: `${Math.round(activity.strain_score)}` } : null,
+        wellness?.ctl ? { label: t('activity.stats.yourFitness'), value: `${Math.round(wellness.ctl)}` } : null,
+        wellness?.atl ? { label: t('activity.stats.yourFatigue'), value: `${Math.round(wellness.atl)}` } : null,
       ].filter(Boolean) as { label: string; value: string }[],
     });
   }
@@ -123,7 +125,7 @@ export function InsightfulStats({
 
     const hrComparison = avgHR && avgHR > 0
       ? {
-          label: 'vs typical',
+          label: t('activity.vsTypical'),
           value: `${avgHRValue > avgHR ? '+' : ''}${Math.round(avgHRValue - avgHR)} bpm`,
           trend: avgHRValue > avgHR ? 'up' as const : avgHRValue < avgHR ? 'down' as const : 'same' as const,
           isGood: avgHRValue < avgHR, // Lower HR for same effort = fitter
@@ -131,20 +133,20 @@ export function InsightfulStats({
       : undefined;
 
     stats.push({
-      title: 'Heart Rate',
+      title: t('activity.heartRate'),
       value: `${Math.round(avgHRValue)}`,
       icon: 'heart-pulse',
       color: hrPercent > 90 ? colors.error : hrPercent > 80 ? '#FF9800' : '#E91E63',
       comparison: hrComparison,
-      context: `${hrPercent}% of max HR`,
-      explanation: METRIC_EXPLANATIONS['Heart Rate'],
+      context: t('activity.stats.percentOfMaxHR', { percent: hrPercent }),
+      explanation: t(METRIC_EXPLANATION_KEYS['Heart Rate']),
       details: [
-        { label: 'Average', value: `${Math.round(avgHRValue)} bpm` },
-        maxHRValue ? { label: 'Peak', value: `${Math.round(maxHRValue)} bpm` } : null,
-        { label: '% of Max HR', value: `${hrPercent}%` },
-        activity.icu_hrr ? { label: 'HR Recovery', value: `${activity.icu_hrr.hrr} bpm drop` } : null,
-        wellness?.restingHR ? { label: 'Resting HR today', value: `${wellness.restingHR} bpm` } : null,
-        wellness?.hrv ? { label: 'HRV today', value: `${Math.round(wellness.hrv)} ms` } : null,
+        { label: t('activity.stats.average'), value: `${Math.round(avgHRValue)} bpm` },
+        maxHRValue ? { label: t('activity.stats.peak'), value: `${Math.round(maxHRValue)} bpm` } : null,
+        { label: t('activity.stats.percentOfMaxHRLabel'), value: `${hrPercent}%` },
+        activity.icu_hrr ? { label: t('activity.stats.hrRecovery'), value: t('activity.stats.bpmDrop', { value: activity.icu_hrr.hrr }) } : null,
+        wellness?.restingHR ? { label: t('activity.stats.restingHRToday'), value: `${wellness.restingHR} bpm` } : null,
+        wellness?.hrv ? { label: t('activity.stats.hrvToday'), value: `${Math.round(wellness.hrv)} ms` } : null,
       ].filter(Boolean) as { label: string; value: string }[],
     });
   }
@@ -153,16 +155,16 @@ export function InsightfulStats({
   if (activity.calories && activity.calories > 0) {
     const calPerHour = Math.round((activity.calories / activity.moving_time) * 3600);
     stats.push({
-      title: 'Energy',
+      title: t('activity.stats.energy'),
       value: `${Math.round(activity.calories)}`,
       icon: 'fire',
       color: '#FF9800',
       context: `${calPerHour} kcal/hr`,
-      explanation: METRIC_EXPLANATIONS['Energy'],
+      explanation: t(METRIC_EXPLANATION_KEYS['Energy']),
       details: [
-        { label: 'Calories burned', value: `${Math.round(activity.calories)} kcal` },
-        { label: 'Duration', value: formatDuration(activity.moving_time) },
-        { label: 'Burn rate', value: `${calPerHour} kcal/hr` },
+        { label: t('activity.stats.caloriesBurned'), value: `${Math.round(activity.calories)} kcal` },
+        { label: t('activity.duration'), value: formatDuration(activity.moving_time) },
+        { label: t('activity.stats.burnRate'), value: `${calPerHour} kcal/hr` },
       ],
     });
   }
@@ -175,24 +177,24 @@ export function InsightfulStats({
     // Build context from available weather data
     const conditionParts: string[] = [];
     if (activity.average_feels_like != null && Math.abs(activity.average_feels_like - temp) >= 2) {
-      conditionParts.push(`Feels ${Math.round(activity.average_feels_like)}°`);
+      conditionParts.push(t('activity.stats.feelsLike', { temp: Math.round(activity.average_feels_like) }));
     }
     if (activity.average_wind_speed != null && activity.average_wind_speed > 2) {
-      conditionParts.push(`${(activity.average_wind_speed * 3.6).toFixed(0)} km/h wind`);
+      conditionParts.push(t('activity.stats.windSpeed', { speed: (activity.average_wind_speed * 3.6).toFixed(0) }));
     }
-    const contextStr = conditionParts.length > 0 ? conditionParts.join(', ') : (activity.has_weather ? 'Weather data' : 'Device sensor');
+    const contextStr = conditionParts.length > 0 ? conditionParts.join(', ') : (activity.has_weather ? t('activity.stats.weatherData') : t('activity.stats.deviceSensor'));
 
     stats.push({
-      title: 'Conditions',
+      title: t('activity.stats.conditions'),
       value: `${Math.round(temp)}°`,
       icon: activity.has_weather ? 'weather-partly-cloudy' : 'thermometer',
       color: isHot ? '#FF9800' : isCold ? colors.chartBlue : colors.success,
       context: contextStr,
-      explanation: METRIC_EXPLANATIONS['Conditions'],
+      explanation: t(METRIC_EXPLANATION_KEYS['Conditions']),
       details: [
-        { label: 'Temperature', value: `${Math.round(temp)}°C` },
-        activity.average_feels_like != null ? { label: 'Feels like', value: `${Math.round(activity.average_feels_like)}°C` } : null,
-        activity.average_wind_speed != null ? { label: 'Wind', value: `${(activity.average_wind_speed * 3.6).toFixed(0)} km/h` } : null,
+        { label: t('activity.stats.temperature'), value: `${Math.round(temp)}°C` },
+        activity.average_feels_like != null ? { label: t('activity.stats.feelsLikeLabel'), value: `${Math.round(activity.average_feels_like)}°C` } : null,
+        activity.average_wind_speed != null ? { label: t('activity.stats.wind'), value: `${(activity.average_wind_speed * 3.6).toFixed(0)} km/h` } : null,
       ].filter(Boolean) as { label: string; value: string }[],
     });
   }
@@ -205,18 +207,18 @@ export function InsightfulStats({
       : colors.error;
 
     stats.push({
-      title: 'Your Form',
+      title: t('activity.stats.yourForm'),
       value: `${tsb > 0 ? '+' : ''}${Math.round(tsb)}`,
       icon: 'account-heart',
       color: formColor,
-      context: 'Daily value',
-      explanation: METRIC_EXPLANATIONS['Your Form'],
+      context: t('activity.stats.dailyValue'),
+      explanation: t(METRIC_EXPLANATION_KEYS['Your Form']),
       details: [
-        { label: 'Form (TSB)', value: `${tsb > 0 ? '+' : ''}${Math.round(tsb)}` },
-        { label: 'Fitness (CTL)', value: `${Math.round(wellness.ctl)}` },
-        { label: 'Fatigue (ATL)', value: `${Math.round(wellness.atl)}` },
-        wellness.hrv ? { label: 'HRV', value: `${Math.round(wellness.hrv)} ms` } : null,
-        wellness.sleepScore ? { label: 'Sleep Score', value: `${wellness.sleepScore}%` } : null,
+        { label: t('activity.stats.formTSB'), value: `${tsb > 0 ? '+' : ''}${Math.round(tsb)}` },
+        { label: t('activity.stats.fitnessCTL'), value: `${Math.round(wellness.ctl)}` },
+        { label: t('activity.stats.fatigueATL'), value: `${Math.round(wellness.atl)}` },
+        wellness.hrv ? { label: t('metrics.hrv'), value: `${Math.round(wellness.hrv)} ms` } : null,
+        wellness.sleepScore ? { label: t('activity.stats.sleepScore'), value: `${wellness.sleepScore}%` } : null,
       ].filter(Boolean) as { label: string; value: string }[],
     });
   }
@@ -226,19 +228,19 @@ export function InsightfulStats({
   if (avgPower && avgPower > 0) {
     const eftp = activity.icu_pm_ftp_watts;
     stats.push({
-      title: 'Power',
+      title: t('activity.power'),
       value: `${Math.round(avgPower)}`,
       icon: 'lightning-bolt-circle',
       color: '#9C27B0',
-      context: eftp ? `eFTP ${Math.round(eftp)}W` : (activity.max_watts ? `Max ${Math.round(activity.max_watts)}W` : undefined),
-      explanation: METRIC_EXPLANATIONS['Power'],
+      context: eftp ? `eFTP ${Math.round(eftp)}W` : (activity.max_watts ? t('activity.stats.max', { value: Math.round(activity.max_watts) }) + 'W' : undefined),
+      explanation: t(METRIC_EXPLANATION_KEYS['Power']),
       details: [
-        { label: 'Average', value: `${Math.round(avgPower)}W` },
-        activity.max_watts ? { label: 'Max', value: `${Math.round(activity.max_watts)}W` } : null,
-        activity.icu_ftp ? { label: '% of FTP', value: `${Math.round((avgPower / activity.icu_ftp) * 100)}%` } : null,
-        eftp ? { label: 'eFTP (estimated)', value: `${Math.round(eftp)}W` } : null,
-        activity.icu_efficiency_factor ? { label: 'Efficiency Factor', value: activity.icu_efficiency_factor.toFixed(2) } : null,
-        activity.decoupling != null ? { label: 'Decoupling', value: `${activity.decoupling.toFixed(1)}%` } : null,
+        { label: t('activity.stats.average'), value: `${Math.round(avgPower)}W` },
+        activity.max_watts ? { label: t('activity.stats.maxLabel'), value: `${Math.round(activity.max_watts)}W` } : null,
+        activity.icu_ftp ? { label: t('activity.stats.percentOfFTP'), value: `${Math.round((avgPower / activity.icu_ftp) * 100)}%` } : null,
+        eftp ? { label: t('activity.stats.eftpEstimated'), value: `${Math.round(eftp)}W` } : null,
+        activity.icu_efficiency_factor ? { label: t('activity.stats.efficiencyFactor'), value: activity.icu_efficiency_factor.toFixed(2) } : null,
+        activity.decoupling != null ? { label: t('activity.stats.decoupling'), value: `${activity.decoupling.toFixed(1)}%` } : null,
       ].filter(Boolean) as { label: string; value: string }[],
     });
   }
@@ -268,14 +270,14 @@ export function InsightfulStats({
     <View style={[styles.container, isDark && styles.containerDark]}>
       <View style={styles.headerRow}>
         <Text style={[styles.sectionTitle, isDark && styles.textLight]}>
-          Activity Stats
+          {t('activity.activityStats')}
         </Text>
         <TouchableOpacity
           style={styles.intervalsLink}
           onPress={openInIntervalsICU}
           activeOpacity={0.7}
         >
-          <Text style={styles.intervalsLinkText}>View in intervals.icu</Text>
+          <Text style={styles.intervalsLinkText}>{t('activity.viewInIntervalsICU')}</Text>
           <MaterialCommunityIcons name="open-in-new" size={14} color={colors.primary} />
         </TouchableOpacity>
       </View>
@@ -383,7 +385,7 @@ export function InsightfulStats({
                   <View style={styles.explanationBox}>
                     <View style={styles.explanationHeader}>
                       <MaterialCommunityIcons name="information-outline" size={16} color={colors.textSecondary} />
-                      <Text style={styles.explanationTitle}>What is this?</Text>
+                      <Text style={styles.explanationTitle}>{t('activity.whatIsThis')}</Text>
                     </View>
                     <Text style={styles.explanationText}>{selectedStat.explanation}</Text>
                   </View>
@@ -431,7 +433,7 @@ export function InsightfulStats({
                 )}
 
                 {/* Close hint */}
-                <Text style={styles.closeHint}>Tap anywhere to close</Text>
+                <Text style={styles.closeHint}>{t('activity.tapToClose')}</Text>
               </>
             )}
           </View>

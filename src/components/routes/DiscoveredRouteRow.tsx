@@ -8,6 +8,7 @@ import { View, StyleSheet, useColorScheme, Animated } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Svg, { Polyline } from 'react-native-svg';
+import { useTranslation } from 'react-i18next';
 import { colors, darkColors, opacity, spacing, layout, typography } from '@/theme';
 
 export interface DiscoveredRoute {
@@ -97,6 +98,7 @@ function PlaceholderPreview({ type }: { type: string }) {
 }
 
 export function DiscoveredRouteRow({ route, index }: DiscoveredRouteRowProps) {
+  const { t } = useTranslation();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
 
@@ -180,7 +182,7 @@ export function DiscoveredRouteRow({ route, index }: DiscoveredRouteRowProps) {
             style={[styles.routeName, isDark && styles.textLight]}
             numberOfLines={1}
           >
-            {route.name || 'New Route'}
+            {route.name || t('routes.newRoute')}
           </Text>
           {route.isActive && (
             <View style={styles.activeBadge}>
@@ -213,7 +215,7 @@ export function DiscoveredRouteRow({ route, index }: DiscoveredRouteRowProps) {
             numberOfLines={1}
           >
             {route.activityNames.slice(0, 3).join(', ')}
-            {route.activityNames.length > 3 && ` +${route.activityNames.length - 3} more`}
+            {route.activityNames.length > 3 && ` ${t('routes.more', { count: route.activityNames.length - 3 })}`}
           </Text>
         )}
       </View>

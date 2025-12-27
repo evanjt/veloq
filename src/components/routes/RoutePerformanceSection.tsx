@@ -13,6 +13,7 @@ import { Circle } from '@shopify/react-native-skia';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { useSharedValue, useDerivedValue, useAnimatedStyle, useAnimatedReaction, runOnJS } from 'react-native-reanimated';
 import Animated from 'react-native-reanimated';
+import { useTranslation } from 'react-i18next';
 import { useRoutePerformances } from '@/hooks';
 import { formatSpeed, formatPace, formatRelativeDate, isRunningActivity, getActivityColor } from '@/lib';
 import { colors, darkColors, opacity, spacing, layout, typography } from '@/theme';
@@ -47,18 +48,8 @@ function getDirectionIcon(direction: string) {
   }
 }
 
-function getDirectionLabel(direction: string): string {
-  switch (direction) {
-    case 'reverse':
-      return 'Reverse';
-    case 'partial':
-      return 'Partial';
-    default:
-      return '';
-  }
-}
-
 export function RoutePerformanceSection({ activityId, activityType }: RoutePerformanceSectionProps) {
+  const { t } = useTranslation();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
 
@@ -283,11 +274,11 @@ export function RoutePerformanceSection({ activityId, activityType }: RoutePerfo
     <View style={[styles.container, isDark && styles.containerDark]}>
       {/* Section Title */}
       <View style={styles.sectionTitle}>
-        <Text style={[styles.sectionTitleText, isDark && styles.textMuted]}>MATCHED ROUTE</Text>
+        <Text style={[styles.sectionTitleText, isDark && styles.textMuted]}>{t('routes.matchedRoute')}</Text>
         {currentMatch !== undefined && (
           <View style={[styles.matchBadge, { backgroundColor: colors.success + '20' }]}>
             <Text style={[styles.matchText, { color: colors.success }]}>
-              {Math.round(currentMatch)}% match
+              {Math.round(currentMatch)}% {t('routes.match')}
             </Text>
           </View>
         )}
@@ -304,8 +295,8 @@ export function RoutePerformanceSection({ activityId, activityType }: RoutePerfo
               {routeGroup.name}
             </Text>
             <Text style={[styles.routeMeta, isDark && styles.textMuted]}>
-              {routeGroup.activityCount} activities
-              {currentRank && ` · #${currentRank} fastest`}
+              {routeGroup.activityCount} {t('routes.activities')}
+              {currentRank && ` · ${t('routes.fastest', { rank: currentRank })}`}
             </Text>
           </View>
         </View>
@@ -505,7 +496,7 @@ export function RoutePerformanceSection({ activityId, activityType }: RoutePerfo
             {displayPerformance ? formatSpeedValue(displayPerformance.speed) : '-'}
           </Text>
           <Text style={[styles.statLabel, isDark && styles.textMuted]}>
-            {(isActive || isPersisted) && tooltipData ? 'Selected' : `This ${showPace ? 'pace' : 'speed'}`}
+            {(isActive || isPersisted) && tooltipData ? t('routes.selected') : (showPace ? t('routes.thisPace') : t('routes.thisSpeed'))}
           </Text>
         </View>
         <View style={[styles.statDivider, isDark && styles.statDividerDark]} />
@@ -513,14 +504,14 @@ export function RoutePerformanceSection({ activityId, activityType }: RoutePerfo
           <Text style={[styles.statValue, { color: '#FFB300' }]}>
             {best ? formatSpeedValue(best.speed) : '-'}
           </Text>
-          <Text style={[styles.statLabel, isDark && styles.textMuted]}>Best</Text>
+          <Text style={[styles.statLabel, isDark && styles.textMuted]}>{t('routes.best')}</Text>
         </View>
         <View style={[styles.statDivider, isDark && styles.statDividerDark]} />
         <View style={styles.stat}>
           <Text style={[styles.statValue, isDark && styles.textLight]}>
             {best ? formatRelativeDate(best.date.toISOString()) : '-'}
           </Text>
-          <Text style={[styles.statLabel, isDark && styles.textMuted]}>Best on</Text>
+          <Text style={[styles.statLabel, isDark && styles.textMuted]}>{t('routes.bestOn')}</Text>
         </View>
       </View>
 
@@ -528,20 +519,20 @@ export function RoutePerformanceSection({ activityId, activityType }: RoutePerfo
       <View style={styles.legend}>
         <View style={styles.legendItem}>
           <View style={[styles.legendDot, { backgroundColor: '#FFB300' }]} />
-          <Text style={[styles.legendText, isDark && styles.textMuted]}>Best</Text>
+          <Text style={[styles.legendText, isDark && styles.textMuted]}>{t('routes.best')}</Text>
         </View>
         <View style={styles.legendItem}>
           <View style={[styles.legendDot, { backgroundColor: currentActivityColor }]} />
-          <Text style={[styles.legendText, isDark && styles.textMuted]}>This</Text>
+          <Text style={[styles.legendText, isDark && styles.textMuted]}>{t('routes.thisActivity')}</Text>
         </View>
         <View style={styles.legendItem}>
           <View style={[styles.legendDot, { backgroundColor: SAME_COLOR }]} />
-          <Text style={[styles.legendText, isDark && styles.textMuted]}>Same</Text>
+          <Text style={[styles.legendText, isDark && styles.textMuted]}>{t('routes.same')}</Text>
         </View>
         {hasReverseRuns && (
           <View style={styles.legendItem}>
             <View style={[styles.legendDot, { backgroundColor: REVERSE_COLOR }]} />
-            <Text style={[styles.legendText, isDark && styles.textMuted]}>Reverse</Text>
+            <Text style={[styles.legendText, isDark && styles.textMuted]}>{t('routes.reverse')}</Text>
           </View>
         )}
       </View>
