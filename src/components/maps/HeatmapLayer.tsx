@@ -5,10 +5,8 @@
 
 import React, { useMemo } from 'react';
 import { ShapeSource, CircleLayer } from '@maplibre/maplibre-react-native';
+import type { Expression } from '@maplibre/maplibre-react-native/lib/typescript/module/src/types/MapLibreRNStyles';
 import type { HeatmapResult } from '@/hooks/useHeatmap';
-
-// MapLibre expression type - allows style expressions that TypeScript types don't fully support
-type MapLibreExpression = (string | number | (string | number)[])[];
 
 interface HeatmapLayerProps {
   /** Heatmap data from useHeatmap */
@@ -22,25 +20,33 @@ interface HeatmapLayerProps {
 }
 
 // Color stops for density gradient (yellow -> orange -> red)
-const DENSITY_COLORS: MapLibreExpression = [
+const DENSITY_COLORS: Expression = [
   'interpolate',
   ['linear'],
   ['get', 'density'],
-  0, '#FFEB3B',      // Yellow - low density
-  0.3, '#FFC107',    // Amber
-  0.5, '#FF9800',    // Orange
-  0.7, '#FF5722',    // Deep orange
-  1.0, '#F44336',    // Red - high density
+  0,
+  '#FFEB3B', // Yellow - low density
+  0.3,
+  '#FFC107', // Amber
+  0.5,
+  '#FF9800', // Orange
+  0.7,
+  '#FF5722', // Deep orange
+  1.0,
+  '#F44336', // Red - high density
 ];
 
 // Circle radius based on cell size and density
-const CIRCLE_RADIUS: MapLibreExpression = [
+const CIRCLE_RADIUS: Expression = [
   'interpolate',
   ['linear'],
   ['get', 'density'],
-  0, 4,
-  0.5, 6,
-  1.0, 8,
+  0,
+  4,
+  0.5,
+  6,
+  1.0,
+  8,
 ];
 
 export function HeatmapLayer({
@@ -81,10 +87,7 @@ export function HeatmapLayer({
     if (!onCellPress) return;
     const feature = event.features?.[0];
     if (feature?.properties) {
-      onCellPress(
-        feature.properties.row as number,
-        feature.properties.col as number
-      );
+      onCellPress(feature.properties.row as number, feature.properties.col as number);
     }
   };
 
@@ -104,15 +107,12 @@ export function HeatmapLayer({
       <CircleLayer
         id="heatmap-circles"
         style={{
-          circleRadius: CIRCLE_RADIUS as number,
-          circleColor: DENSITY_COLORS as string,
+          circleRadius: CIRCLE_RADIUS,
+          circleColor: DENSITY_COLORS,
           circleOpacity: opacity,
-          circleStrokeWidth: (highlightCommonPaths ? [
-            'case',
-            ['get', 'isCommonPath'],
-            1.5,
-            0,
-          ] : 0) as number,
+          circleStrokeWidth: highlightCommonPaths
+            ? (['case', ['get', 'isCommonPath'], 1.5, 0] as Expression)
+            : 0,
           circleStrokeColor: '#FFFFFF',
         }}
       />
