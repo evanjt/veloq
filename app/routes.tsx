@@ -4,6 +4,7 @@ import { Text, IconButton } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { RoutesList, SectionsList, TimelineSlider } from '@/components';
 import { useRouteProcessing, useActivities, useActivityBoundsCache, useRouteGroups, useFrequentSections } from '@/hooks';
 import { useRouteMatchStore, useRouteSettings } from '@/providers';
@@ -16,6 +17,7 @@ type TabType = 'routes' | 'sections';
 const log = debug.create('Routes');
 
 export default function RoutesScreen() {
+  const { t } = useTranslation();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
 
@@ -203,11 +205,11 @@ export default function RoutesScreen() {
       return {
         completed: routeProgress.current,
         total: routeProgress.total,
-        message: `Analyzing routes ${routeProgress.current}/${routeProgress.total}`,
+        message: t('routesScreen.analysingRoutes', { current: routeProgress.current, total: routeProgress.total }),
       };
     }
     return null;
-  }, [syncProgress, isProcessing, routeProgress]);
+  }, [syncProgress, isProcessing, routeProgress, t]);
 
   // Show disabled state if route matching is not enabled
   if (!isRouteMatchingEnabled) {
@@ -219,7 +221,7 @@ export default function RoutesScreen() {
             iconColor={isDark ? '#FFFFFF' : colors.textPrimary}
             onPress={() => router.back()}
           />
-          <Text style={[styles.headerTitle, isDark && styles.textLight]}>Routes</Text>
+          <Text style={[styles.headerTitle, isDark && styles.textLight]}>{t('routesScreen.title')}</Text>
           <View style={styles.headerRight} />
         </View>
 
@@ -230,10 +232,10 @@ export default function RoutesScreen() {
             color={isDark ? '#444' : '#CCC'}
           />
           <Text style={[styles.disabledTitle, isDark && styles.textLight]}>
-            Route Matching Disabled
+            {t('routesScreen.matchingDisabled')}
           </Text>
           <Text style={[styles.disabledText, isDark && styles.textMuted]}>
-            Enable route matching in Settings to automatically detect repeated routes from your activities.
+            {t('routesScreen.enableInSettings')}
           </Text>
           <IconButton
             icon="cog"
@@ -242,7 +244,7 @@ export default function RoutesScreen() {
             onPress={() => router.push('/settings')}
           />
           <Text style={[styles.disabledHint, isDark && styles.textMuted]}>
-            Go to Settings
+            {t('routesScreen.goToSettings')}
           </Text>
         </View>
       </SafeAreaView>
@@ -257,7 +259,7 @@ export default function RoutesScreen() {
           iconColor={isDark ? '#FFFFFF' : colors.textPrimary}
           onPress={() => router.back()}
         />
-        <Text style={[styles.headerTitle, isDark && styles.textLight]}>Routes</Text>
+        <Text style={[styles.headerTitle, isDark && styles.textLight]}>{t('routesScreen.title')}</Text>
         <View style={styles.headerRight} />
       </View>
 
@@ -281,7 +283,7 @@ export default function RoutesScreen() {
             activeTab === 'routes' && styles.tabTextActive,
             isDark && styles.tabTextDark,
           ]}>
-            Routes
+            {t('trainingScreen.routes')}
           </Text>
           <View style={[styles.tabBadge, activeTab === 'routes' && styles.tabBadgeActive]}>
             <Text style={[styles.tabBadgeText, activeTab === 'routes' && styles.tabBadgeTextActive]}>
@@ -308,7 +310,7 @@ export default function RoutesScreen() {
             activeTab === 'sections' && styles.tabTextActive,
             isDark && styles.tabTextDark,
           ]}>
-            Sections
+            {t('trainingScreen.sections')}
           </Text>
           <View style={[styles.tabBadge, activeTab === 'sections' && styles.tabBadgeActive]}>
             <Text style={[styles.tabBadgeText, activeTab === 'sections' && styles.tabBadgeTextActive]}>

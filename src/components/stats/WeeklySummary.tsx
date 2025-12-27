@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { View, StyleSheet, useColorScheme, TouchableOpacity } from 'react-native';
 import { Text } from 'react-native-paper';
+import { useTranslation } from 'react-i18next';
 import { colors, darkColors, opacity } from '@/theme/colors';
 import { typography } from '@/theme/typography';
 import { spacing, layout } from '@/theme/spacing';
@@ -13,13 +14,7 @@ interface WeeklySummaryProps {
   activities?: Activity[];
 }
 
-const TIME_RANGES: { id: TimeRange; label: string }[] = [
-  { id: 'week', label: 'Week' },
-  { id: 'month', label: 'Month' },
-  { id: '3m', label: '3M' },
-  { id: '6m', label: '6M' },
-  { id: 'year', label: 'Year' },
-];
+const TIME_RANGE_IDS: TimeRange[] = ['week', 'month', '3m', '6m', 'year'];
 
 function formatDuration(seconds: number): string {
   const hours = Math.floor(seconds / 3600);
@@ -35,18 +30,33 @@ function formatDistance(meters: number): string {
   return `${km.toFixed(1)} km`;
 }
 
-function getTimeRangeLabel(range: TimeRange): { current: string; previous: string } {
+function getTimeRangeLabel(range: TimeRange, t: ReturnType<typeof useTranslation>['t']): { current: string; previous: string } {
   switch (range) {
     case 'week':
-      return { current: 'This Week', previous: 'vs last week' };
+      return { current: t('stats.thisWeek'), previous: t('stats.vsLastWeek') };
     case 'month':
-      return { current: 'This Month', previous: 'vs last month' };
+      return { current: t('stats.thisMonth'), previous: t('stats.vsLastMonth') };
     case '3m':
-      return { current: 'Last 3 Months', previous: 'vs previous 3 months' };
+      return { current: t('stats.last3Months'), previous: t('stats.vsPrevious3Months') };
     case '6m':
-      return { current: 'Last 6 Months', previous: 'vs previous 6 months' };
+      return { current: t('stats.last6Months'), previous: t('stats.vsPrevious6Months') };
     case 'year':
-      return { current: 'This Year', previous: 'vs last year' };
+      return { current: t('stats.thisYear'), previous: t('stats.vsLastYear') };
+  }
+}
+
+function getTimeRangeButtonLabel(range: TimeRange, t: ReturnType<typeof useTranslation>['t']): string {
+  switch (range) {
+    case 'week':
+      return t('stats.week');
+    case 'month':
+      return t('stats.month');
+    case '3m':
+      return t('stats.threeMonths');
+    case '6m':
+      return t('stats.sixMonths');
+    case 'year':
+      return t('stats.year');
   }
 }
 
@@ -122,6 +132,7 @@ function calculateStats(activities: Activity[]) {
 }
 
 export function WeeklySummary({ activities }: WeeklySummaryProps) {
+  const { t } = useTranslation();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const [timeRange, setTimeRange] = useState<TimeRange>('week');
@@ -131,7 +142,7 @@ export function WeeklySummary({ activities }: WeeklySummaryProps) {
       return {
         currentStats: { count: 0, duration: 0, distance: 0, tss: 0 },
         previousStats: { count: 0, duration: 0, distance: 0, tss: 0 },
-        labels: getTimeRangeLabel(timeRange),
+        labels: getTimeRangeLabel(timeRange, t),
       };
     }
 
@@ -142,9 +153,9 @@ export function WeeklySummary({ activities }: WeeklySummaryProps) {
     return {
       currentStats: calculateStats(currentActivities),
       previousStats: calculateStats(previousActivities),
-      labels: getTimeRangeLabel(timeRange),
+      labels: getTimeRangeLabel(timeRange, t),
     };
-  }, [activities, timeRange]);
+  }, [activities, timeRange, t]);
 
   const tssChange = previousStats.tss > 0
     ? ((currentStats.tss - previousStats.tss) / previousStats.tss) * 100
@@ -159,24 +170,24 @@ export function WeeklySummary({ activities }: WeeklySummaryProps) {
         <View style={styles.header}>
           <Text style={[styles.title, isDark && styles.textLight]}>{labels.current}</Text>
           <View style={styles.timeRangeSelector}>
-            {TIME_RANGES.map((range) => (
+            {TIME_RANGE_IDS.map((rangeId) => (
               <TouchableOpacity
-                key={range.id}
+                key={rangeId}
                 style={[
                   styles.timeRangeButton,
                   isDark && styles.timeRangeButtonDark,
-                  timeRange === range.id && styles.timeRangeButtonActive,
+                  timeRange === rangeId && styles.timeRangeButtonActive,
                 ]}
-                onPress={() => setTimeRange(range.id)}
+                onPress={() => setTimeRange(rangeId)}
               >
                 <Text
                   style={[
                     styles.timeRangeText,
                     isDark && styles.textDark,
-                    timeRange === range.id && styles.timeRangeTextActive,
+                    timeRange === rangeId && styles.timeRangeTextActive,
                   ]}
                 >
-                  {range.label}
+                  {getTimeRangeButtonLabel(rangeId, t)}
                 </Text>
               </TouchableOpacity>
             ))}
@@ -184,7 +195,7 @@ export function WeeklySummary({ activities }: WeeklySummaryProps) {
         </View>
         <View style={styles.emptyState}>
           <Text style={[styles.emptyText, isDark && styles.textDark]}>
-            No activities in this period
+            {t('stats.noActivitiesInPeriod')}
           </Text>
         </View>
       </View>
@@ -197,24 +208,24 @@ export function WeeklySummary({ activities }: WeeklySummaryProps) {
       <View style={styles.header}>
         <Text style={[styles.title, isDark && styles.textLight]}>{labels.current}</Text>
         <View style={styles.timeRangeSelector}>
-          {TIME_RANGES.map((range) => (
+          {TIME_RANGE_IDS.map((rangeId) => (
             <TouchableOpacity
-              key={range.id}
+              key={rangeId}
               style={[
                 styles.timeRangeButton,
                 isDark && styles.timeRangeButtonDark,
-                timeRange === range.id && styles.timeRangeButtonActive,
+                timeRange === rangeId && styles.timeRangeButtonActive,
               ]}
-              onPress={() => setTimeRange(range.id)}
+              onPress={() => setTimeRange(rangeId)}
             >
               <Text
                 style={[
                   styles.timeRangeText,
                   isDark && styles.textDark,
-                  timeRange === range.id && styles.timeRangeTextActive,
+                  timeRange === rangeId && styles.timeRangeTextActive,
                 ]}
               >
-                {range.label}
+                {getTimeRangeButtonLabel(rangeId, t)}
               </Text>
             </TouchableOpacity>
           ))}
@@ -225,26 +236,26 @@ export function WeeklySummary({ activities }: WeeklySummaryProps) {
       <View style={styles.statsGrid}>
         <View style={styles.statItem}>
           <Text style={[styles.statValue, isDark && styles.textLight]}>{currentStats.count}</Text>
-          <Text style={[styles.statLabel, isDark && styles.textDark]}>Activities</Text>
+          <Text style={[styles.statLabel, isDark && styles.textDark]}>{t('stats.activities')}</Text>
         </View>
 
         <View style={styles.statItem}>
           <Text style={[styles.statValue, isDark && styles.textLight]}>
             {formatDuration(currentStats.duration)}
           </Text>
-          <Text style={[styles.statLabel, isDark && styles.textDark]}>Duration</Text>
+          <Text style={[styles.statLabel, isDark && styles.textDark]}>{t('activity.duration')}</Text>
         </View>
 
         <View style={styles.statItem}>
           <Text style={[styles.statValue, isDark && styles.textLight]}>
             {formatDistance(currentStats.distance)}
           </Text>
-          <Text style={[styles.statLabel, isDark && styles.textDark]}>Distance</Text>
+          <Text style={[styles.statLabel, isDark && styles.textDark]}>{t('activity.distance')}</Text>
         </View>
 
         <View style={styles.statItem}>
           <Text style={[styles.statValue, isDark && styles.textLight]}>{currentStats.tss}</Text>
-          <Text style={[styles.statLabel, isDark && styles.textDark]}>Load (TSS)</Text>
+          <Text style={[styles.statLabel, isDark && styles.textDark]}>{t('stats.loadTss')}</Text>
         </View>
       </View>
 

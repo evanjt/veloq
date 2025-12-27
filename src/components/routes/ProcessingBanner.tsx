@@ -7,6 +7,7 @@ import React from 'react';
 import { View, StyleSheet, useColorScheme, TouchableOpacity } from 'react-native';
 import { Text, ProgressBar } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { colors, darkColors, opacity, spacing, layout, typography } from '@/theme';
 import type { RouteProcessingProgress } from '@/types';
 
@@ -40,36 +41,37 @@ function getStatusIcon(
   }
 }
 
-function getStatusMessage(progress: RouteProcessingProgress): string {
-  if (progress.message) return progress.message;
-
-  switch (progress.status) {
-    case 'idle':
-      return 'Ready to process';
-    case 'filtering':
-      return progress.candidatesFound !== undefined
-        ? `Found ${progress.candidatesFound} potential matches`
-        : `Step 1: Checking ${progress.total} activities...`;
-    case 'fetching':
-      return `Step 2: Fetching GPS data...`;
-    case 'processing':
-      return `Step 2: Analysing ${progress.current} of ${progress.total} activities`;
-    case 'matching':
-      return 'Step 3: Grouping routes...';
-    case 'complete':
-      return 'Analysis complete';
-    case 'error':
-      return 'An error occurred';
-  }
-}
-
 export function ProcessingBanner({
   progress,
   onCancel,
   compact = false,
 }: ProcessingBannerProps) {
+  const { t } = useTranslation();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
+
+  const getStatusMessage = (prog: RouteProcessingProgress): string => {
+    if (prog.message) return prog.message;
+
+    switch (prog.status) {
+      case 'idle':
+        return t('routes.readyToProcess');
+      case 'filtering':
+        return prog.candidatesFound !== undefined
+          ? t('routes.foundPotentialMatches', { count: prog.candidatesFound })
+          : t('routes.checkingActivities', { count: prog.total });
+      case 'fetching':
+        return t('routes.fetchingGpsData');
+      case 'processing':
+        return t('routes.analysingActivities', { current: prog.current, total: prog.total });
+      case 'matching':
+        return t('routes.groupingRoutes');
+      case 'complete':
+        return t('routes.analysisComplete');
+      case 'error':
+        return t('routes.errorOccurred');
+    }
+  };
 
   const isActive =
     progress.status === 'filtering' ||
@@ -118,7 +120,7 @@ export function ProcessingBanner({
         <View style={styles.statusRow}>
           <MaterialCommunityIcons name={statusIcon} size={20} color={statusColor} />
           <Text style={[styles.statusText, isDark && styles.textLight]}>
-            Analysing routes
+            {t('routes.analysingRoutes')}
           </Text>
         </View>
 

@@ -5,6 +5,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useLocalSearchParams, router } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useTranslation } from 'react-i18next';
 import * as ScreenOrientation from 'expo-screen-orientation';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useActivity, useActivityStreams, useWellnessForDate } from '@/hooks';
@@ -33,6 +34,7 @@ const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const MAP_HEIGHT = Math.round(SCREEN_HEIGHT * 0.55); // 55% of screen
 
 export default function ActivityDetailScreen() {
+  const { t } = useTranslation();
   const { id } = useLocalSearchParams<{ id: string }>();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
@@ -145,7 +147,7 @@ export default function ActivityDetailScreen() {
           />
         </View>
         <View style={styles.loadingContainer}>
-          <Text style={styles.errorText}>Failed to load activity</Text>
+          <Text style={styles.errorText}>{t('activityDetail.failedToLoad')}</Text>
         </View>
       </SafeAreaView>
     );
@@ -293,20 +295,20 @@ export default function ActivityDetailScreen() {
             <View style={[styles.compactStats, isDark && styles.cardDark]}>
               {showPace ? (
                 <CompactStat
-                  label="Avg Pace"
+                  label={t('activityDetail.avgPace')}
                   value={formatPace(activity.average_speed)}
                   isDark={isDark}
                 />
               ) : (
                 <CompactStat
-                  label="Avg Speed"
+                  label={t('activityDetail.avgSpeed')}
                   value={formatSpeed(activity.average_speed)}
                   isDark={isDark}
                 />
               )}
               {(activity.average_heartrate || activity.icu_average_hr) && (
                 <CompactStat
-                  label="Avg HR"
+                  label={t('activityDetail.avgHR')}
                   value={formatHeartRate(activity.average_heartrate || activity.icu_average_hr!)}
                   isDark={isDark}
                   color="#E91E63"
@@ -314,7 +316,7 @@ export default function ActivityDetailScreen() {
               )}
               {(activity.average_watts || activity.icu_average_watts) && (
                 <CompactStat
-                  label="Avg Power"
+                  label={t('activityDetail.avgPower')}
                   value={formatPower(activity.average_watts || activity.icu_average_watts!)}
                   isDark={isDark}
                   color="#9C27B0"
@@ -322,7 +324,7 @@ export default function ActivityDetailScreen() {
               )}
               {activity.average_cadence && (
                 <CompactStat
-                  label="Cadence"
+                  label={t('activity.cadence')}
                   value={`${Math.round(activity.average_cadence)}`}
                   isDark={isDark}
                 />

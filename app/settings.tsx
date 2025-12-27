@@ -14,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, Href } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { SegmentedButtons, Switch } from 'react-native-paper';
+import { useTranslation } from 'react-i18next';
 import { useAthlete, useActivityBoundsCache, useRouteProcessing, useRouteGroups } from '@/hooks';
 import { getAthleteId } from '@/api';
 import { estimateBoundsCacheSize, estimateGpsStorageSize } from '@/lib/gpsStorage';
@@ -25,9 +26,12 @@ import {
   useAuthStore,
   useSportPreference,
   useRouteSettings,
+  useLanguageStore,
+  getAvailableLanguages,
   type ThemePreference,
   type PrimarySport,
 } from '@/providers';
+import { type SupportedLocale } from '@/i18n';
 import { type MapStyleType } from '@/components/maps';
 import { colors, spacing, layout } from '@/theme';
 import type { ActivityType } from '@/types';
@@ -35,17 +39,17 @@ import type { ActivityType } from '@/types';
 // Activity type groups for map settings
 // Each group applies the same map style to all its activity types
 // Covers ALL ActivityType values from types/activity.ts
-const MAP_ACTIVITY_GROUPS: { key: string; label: string; types: ActivityType[] }[] = [
-  { key: 'cycling', label: 'Cycling', types: ['Ride', 'VirtualRide'] },
-  { key: 'running', label: 'Running', types: ['Run', 'TrailRun', 'VirtualRun'] },
-  { key: 'hiking', label: 'Hiking', types: ['Hike', 'Snowshoe'] },
-  { key: 'walking', label: 'Walking', types: ['Walk'] },
-  { key: 'swimming', label: 'Swimming', types: ['Swim', 'OpenWaterSwim'] },
-  { key: 'snow', label: 'Snow Sports', types: ['AlpineSki', 'NordicSki', 'BackcountrySki', 'Snowboard'] },
-  { key: 'water', label: 'Water Sports', types: ['Rowing', 'Kayaking', 'Canoeing'] },
-  { key: 'climbing', label: 'Climbing', types: ['RockClimbing'] },
-  { key: 'racket', label: 'Racket Sports', types: ['Tennis'] },
-  { key: 'other', label: 'Other', types: ['Workout', 'WeightTraining', 'Yoga', 'Other'] },
+const MAP_ACTIVITY_GROUPS: { key: string; labelKey: string; types: ActivityType[] }[] = [
+  { key: 'cycling', labelKey: 'filters.cycling', types: ['Ride', 'VirtualRide'] },
+  { key: 'running', labelKey: 'filters.running', types: ['Run', 'TrailRun', 'VirtualRun'] },
+  { key: 'hiking', labelKey: 'filters.hiking', types: ['Hike', 'Snowshoe'] },
+  { key: 'walking', labelKey: 'filters.walking', types: ['Walk'] },
+  { key: 'swimming', labelKey: 'filters.swimming', types: ['Swim', 'OpenWaterSwim'] },
+  { key: 'snow', labelKey: 'filters.snowSports', types: ['AlpineSki', 'NordicSki', 'BackcountrySki', 'Snowboard'] },
+  { key: 'water', labelKey: 'filters.waterSports', types: ['Rowing', 'Kayaking', 'Canoeing'] },
+  { key: 'climbing', labelKey: 'filters.climbing', types: ['RockClimbing'] },
+  { key: 'racket', labelKey: 'filters.racketSports', types: ['Tennis'] },
+  { key: 'other', labelKey: 'filters.other', types: ['Workout', 'WeightTraining', 'Yoga', 'Other'] },
 ];
 
 function formatDate(dateStr: string | null): string {
@@ -65,6 +69,7 @@ function formatBytes(bytes: number): string {
 }
 
 export default function SettingsScreen() {
+  const { t } = useTranslation();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const [profileImageError, setProfileImageError] = useState(false);
@@ -75,6 +80,8 @@ export default function SettingsScreen() {
   const { preferences: mapPreferences, setDefaultStyle, setActivityGroupStyle } = useMapPreferences();
   const clearCredentials = useAuthStore((state) => state.clearCredentials);
   const { primarySport, setPrimarySport } = useSportPreference();
+  const { language, setLanguage } = useLanguageStore();
+  const availableLanguages = getAvailableLanguages();
 
   // Load saved theme preference on mount
   useEffect(() => {
@@ -89,6 +96,11 @@ export default function SettingsScreen() {
 
   const handleSportChange = async (value: string) => {
     await setPrimarySport(value as PrimarySport);
+  };
+
+  const handleLanguageChange = async (value: string) => {
+    const locale = value === 'system' ? null : (value as SupportedLocale);
+    await setLanguage(locale);
   };
 
   const handleDefaultMapStyleChange = async (value: string) => {
@@ -147,12 +159,12 @@ export default function SettingsScreen() {
 
   const handleClearCache = () => {
     Alert.alert(
-      'Clear & Reload Cache',
-      'This will clear all cached activity data, GPS traces, and route matching data, then start reloading. This may take a few minutes.',
+      t('alerts.clearCacheTitle'),
+      t('alerts.clearCacheMessage'),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Clear & Reload',
+          text: t('alerts.clearReload'),
           style: 'destructive',
           onPress: async () => {
             try {
@@ -164,7 +176,7 @@ export default function SettingsScreen() {
               // Refresh cache sizes
               refreshCacheSizes();
             } catch {
-              Alert.alert('Error', 'Failed to clear cache. Please try again.');
+              Alert.alert(t('alerts.error'), t('alerts.failedToClear'));
             }
           },
         },
@@ -174,12 +186,12 @@ export default function SettingsScreen() {
 
   const handleClearRouteCache = () => {
     Alert.alert(
-      'Clear & Reload Route Cache',
-      'This will clear all route matching data and immediately re-analyze GPS traces.',
+      t('alerts.clearRouteCacheTitle'),
+      t('alerts.clearRouteCacheMessage'),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Clear & Reload',
+          text: t('alerts.clearReload'),
           style: 'destructive',
           onPress: async () => {
             try {
@@ -187,7 +199,7 @@ export default function SettingsScreen() {
               // Reprocessing starts immediately via RouteMatchStore.clearCache()
               refreshCacheSizes();
             } catch {
-              Alert.alert('Error', 'Failed to clear route cache. Please try again.');
+              Alert.alert(t('alerts.error'), t('alerts.failedToClear'));
             }
           },
         },
@@ -197,17 +209,17 @@ export default function SettingsScreen() {
 
   const handleSyncAll = () => {
     if (progress.status === 'syncing') {
-      Alert.alert('Sync in Progress', 'Please wait for the current sync to complete.');
+      Alert.alert(t('settings.syncInProgress'), t('settings.syncInProgress'));
       return;
     }
 
     Alert.alert(
-      'Sync All History',
-      'This will sync up to 10 years of activity data in the background. This enables deeper route analysis and comparison.',
+      t('alerts.syncAllTitle'),
+      t('alerts.syncAllMessage'),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Sync',
+          text: t('alerts.sync'),
           onPress: syncAllHistory,
         },
       ]
@@ -216,19 +228,19 @@ export default function SettingsScreen() {
 
   const handleLogout = () => {
     Alert.alert(
-      'Disconnect Account',
-      'This will remove your API credentials from the app. You will need to enter them again to use the app.',
+      t('alerts.disconnectTitle'),
+      t('alerts.disconnectMessage'),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Disconnect',
+          text: t('alerts.disconnect'),
           style: 'destructive',
           onPress: async () => {
             try {
               await clearCredentials();
               router.replace('/login' as Href);
             } catch {
-              Alert.alert('Error', 'Failed to disconnect. Please try again.');
+              Alert.alert(t('alerts.error'), t('alerts.failedToDisconnect'));
             }
           },
         },
@@ -244,7 +256,7 @@ export default function SettingsScreen() {
           <TouchableOpacity
             onPress={() => router.back()}
             style={styles.backButton}
-            accessibilityLabel="Go back"
+            accessibilityLabel={t('common.back')}
             accessibilityRole="button"
           >
             <MaterialCommunityIcons
@@ -253,7 +265,7 @@ export default function SettingsScreen() {
               color={isDark ? '#FFF' : colors.textPrimary}
             />
           </TouchableOpacity>
-          <Text style={[styles.headerTitle, isDark && styles.textLight]}>Settings</Text>
+          <Text style={[styles.headerTitle, isDark && styles.textLight]}>{t('settings.title')}</Text>
           <View style={styles.headerSpacer} />
         </View>
 
@@ -297,7 +309,7 @@ export default function SettingsScreen() {
         </TouchableOpacity>
 
         {/* Appearance Section */}
-        <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>APPEARANCE</Text>
+        <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>{t('settings.appearance').toUpperCase()}</Text>
         <View style={[styles.section, isDark && styles.sectionDark]}>
           <View style={styles.themePickerContainer}>
             <SegmentedButtons
@@ -306,17 +318,17 @@ export default function SettingsScreen() {
               buttons={[
                 {
                   value: 'system',
-                  label: 'System',
+                  label: t('settings.system'),
                   icon: 'cellphone',
                 },
                 {
                   value: 'light',
-                  label: 'Light',
+                  label: t('settings.light'),
                   icon: 'white-balance-sunny',
                 },
                 {
                   value: 'dark',
-                  label: 'Dark',
+                  label: t('settings.dark'),
                   icon: 'moon-waning-crescent',
                 },
               ]}
@@ -325,8 +337,35 @@ export default function SettingsScreen() {
           </View>
         </View>
 
+        {/* Language Section */}
+        <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>{t('settings.language').toUpperCase()}</Text>
+        <View style={[styles.section, isDark && styles.sectionDark]}>
+          {availableLanguages.map((lang, index) => (
+            <TouchableOpacity
+              key={lang.value ?? 'system'}
+              style={[
+                styles.languageRow,
+                index > 0 && styles.languageRowBorder,
+                isDark && styles.languageRowDark,
+              ]}
+              onPress={() => handleLanguageChange(lang.value ?? 'system')}
+            >
+              <Text style={[styles.languageLabel, isDark && styles.textLight]}>
+                {lang.label}
+              </Text>
+              {(language === lang.value || (language === null && lang.value === null)) && (
+                <MaterialCommunityIcons
+                  name="check"
+                  size={20}
+                  color={colors.primary}
+                />
+              )}
+            </TouchableOpacity>
+          ))}
+        </View>
+
         {/* Primary Sport Section */}
-        <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>PRIMARY SPORT</Text>
+        <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>{t('settings.primarySport').toUpperCase()}</Text>
         <View style={[styles.section, isDark && styles.sectionDark]}>
           <View style={styles.themePickerContainer}>
             <SegmentedButtons
@@ -335,17 +374,17 @@ export default function SettingsScreen() {
               buttons={[
                 {
                   value: 'Cycling',
-                  label: 'Cycling',
+                  label: t('filters.cycling'),
                   icon: 'bike',
                 },
                 {
                   value: 'Running',
-                  label: 'Running',
+                  label: t('filters.running'),
                   icon: 'run',
                 },
                 {
                   value: 'Swimming',
-                  label: 'Swimming',
+                  label: t('filters.swimming'),
                   icon: 'swim',
                 },
               ]}
@@ -354,15 +393,15 @@ export default function SettingsScreen() {
           </View>
         </View>
         <Text style={[styles.infoText, isDark && styles.textMuted]}>
-          Affects home screen metrics and default stats page view.
+          {t('settings.primarySportHint')}
         </Text>
 
 
         {/* Maps Section */}
-        <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>MAPS</Text>
+        <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>{t('settings.maps').toUpperCase()}</Text>
         <View style={[styles.section, isDark && styles.sectionDark]}>
           <View style={styles.mapStyleRow}>
-            <Text style={[styles.mapStyleLabel, isDark && styles.textLight]}>Default Style</Text>
+            <Text style={[styles.mapStyleLabel, isDark && styles.textLight]}>{t('settings.defaultStyle')}</Text>
           </View>
           <View style={styles.themePickerContainer}>
             <SegmentedButtons
@@ -371,17 +410,17 @@ export default function SettingsScreen() {
               buttons={[
                 {
                   value: 'light',
-                  label: 'Light',
+                  label: t('settings.light'),
                   icon: 'map',
                 },
                 {
                   value: 'dark',
-                  label: 'Dark',
+                  label: t('settings.dark'),
                   icon: 'map',
                 },
                 {
                   value: 'satellite',
-                  label: 'Satellite',
+                  label: t('settings.satellite'),
                   icon: 'satellite-variant',
                 },
               ]}
@@ -400,7 +439,7 @@ export default function SettingsScreen() {
               color={colors.primary}
             />
             <Text style={[styles.actionText, isDark && styles.textLight]}>
-              Customize by Activity Type
+              {t('settings.customiseByActivity')}
             </Text>
             <MaterialCommunityIcons
               name={showActivityStyles ? 'chevron-up' : 'chevron-down'}
@@ -412,22 +451,22 @@ export default function SettingsScreen() {
           {/* Per-activity-group pickers */}
           {showActivityStyles && (
             <View style={styles.activityStylesContainer}>
-              {MAP_ACTIVITY_GROUPS.map(({ key, label, types }) => {
+              {MAP_ACTIVITY_GROUPS.map(({ key, labelKey, types }) => {
                 // Use the first type in the group to determine current style
                 const currentStyle = mapPreferences.activityTypeStyles[types[0]] ?? 'default';
                 return (
                   <View key={key} style={styles.activityStyleRow}>
                     <Text style={[styles.activityStyleLabel, isDark && styles.textLight]}>
-                      {label}
+                      {t(labelKey)}
                     </Text>
                     <SegmentedButtons
                       value={currentStyle}
                       onValueChange={(value) => handleActivityGroupMapStyleChange(key, value)}
                       buttons={[
-                        { value: 'default', label: 'Default' },
-                        { value: 'light', label: 'Light' },
-                        { value: 'dark', label: 'Dark' },
-                        { value: 'satellite', label: 'Satellite' },
+                        { value: 'default', label: t('settings.default') },
+                        { value: 'light', label: t('settings.light') },
+                        { value: 'dark', label: t('settings.dark') },
+                        { value: 'satellite', label: t('settings.satellite') },
                       ]}
                       density="small"
                       style={styles.activityStylePicker}
@@ -436,14 +475,14 @@ export default function SettingsScreen() {
                 );
               })}
               <Text style={[styles.activityStyleHint, isDark && styles.textMuted]}>
-                'Default' uses the map style set above
+                {t('settings.defaultMapHint')}
               </Text>
             </View>
           )}
         </View>
 
         {/* Data Cache Section - Consolidated */}
-        <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>DATA CACHE</Text>
+        <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>{t('settings.dataCache').toUpperCase()}</Text>
         <View style={[styles.section, isDark && styles.sectionDark]}>
           {/* Sync Status Banners */}
           {progress.status === 'syncing' && (
@@ -479,7 +518,7 @@ export default function SettingsScreen() {
               isDark && styles.textLight,
               progress.status === 'syncing' && styles.actionTextDisabled,
             ]}>
-              Sync All History
+              {t('settings.syncAllHistory')}
             </Text>
             <MaterialCommunityIcons
               name="chevron-right"
@@ -502,7 +541,7 @@ export default function SettingsScreen() {
                   color={colors.primary}
                 />
                 <Text style={[styles.actionText, isDark && styles.textLight]}>
-                  View Routes
+                  {t('settings.viewRoutes')}
                 </Text>
                 <MaterialCommunityIcons
                   name="chevron-right"
@@ -525,7 +564,7 @@ export default function SettingsScreen() {
                       color={colors.warning}
                     />
                     <Text style={[styles.actionText, isDark && styles.textLight]}>
-                      Pause Route Processing
+                      {t('settings.pauseRouteProcessing')}
                     </Text>
                     <MaterialCommunityIcons
                       name="chevron-right"
@@ -541,7 +580,7 @@ export default function SettingsScreen() {
 
           <TouchableOpacity style={styles.actionRow} onPress={handleClearCache}>
             <MaterialCommunityIcons name="delete-outline" size={22} color={colors.error} />
-            <Text style={[styles.actionText, styles.actionTextDanger]}>Clear All & Reload</Text>
+            <Text style={[styles.actionText, styles.actionTextDanger]}>{t('settings.clearAllReload')}</Text>
             <MaterialCommunityIcons
               name="chevron-right"
               size={20}
@@ -554,7 +593,7 @@ export default function SettingsScreen() {
               <View style={[styles.divider, isDark && styles.dividerDark]} />
               <TouchableOpacity style={styles.actionRow} onPress={handleClearRouteCache}>
                 <MaterialCommunityIcons name="refresh" size={22} color={colors.warning} />
-                <Text style={[styles.actionText, isDark && styles.textLight]}>Re-analyze Routes Only</Text>
+                <Text style={[styles.actionText, isDark && styles.textLight]}>{t('settings.reanalyseRoutes')}</Text>
                 <MaterialCommunityIcons
                   name="chevron-right"
                   size={20}
@@ -572,56 +611,56 @@ export default function SettingsScreen() {
               <Text style={[styles.statValue, isDark && styles.textLight]}>
                 {cacheStats.totalActivities}
               </Text>
-              <Text style={[styles.statLabel, isDark && styles.textMuted]}>Activities</Text>
+              <Text style={[styles.statLabel, isDark && styles.textMuted]}>{t('settings.activities')}</Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
               <Text style={[styles.statValue, isDark && styles.textLight]}>
                 {routeSettings.enabled ? routeGroups.length : '-'}
               </Text>
-              <Text style={[styles.statLabel, isDark && styles.textMuted]}>Routes</Text>
+              <Text style={[styles.statLabel, isDark && styles.textMuted]}>{t('settings.routesCount')}</Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
               <Text style={[styles.statValue, isDark && styles.textLight]}>
                 {formatBytes(cacheSizes.bounds + cacheSizes.gps + cacheSizes.routes)}
               </Text>
-              <Text style={[styles.statLabel, isDark && styles.textMuted]}>Total</Text>
+              <Text style={[styles.statLabel, isDark && styles.textMuted]}>{t('settings.total')}</Text>
             </View>
           </View>
 
           <View style={[styles.infoRow, isDark && styles.infoRowDark]}>
-            <Text style={[styles.infoLabel, isDark && styles.textMuted]}>Date Range</Text>
+            <Text style={[styles.infoLabel, isDark && styles.textMuted]}>{t('settings.dateRange')}</Text>
             <Text style={[styles.infoValue, isDark && styles.textLight]}>
               {cacheStats.oldestDate && cacheStats.newestDate
                 ? `${formatDate(cacheStats.oldestDate)} - ${formatDate(cacheStats.newestDate)}`
-                : 'No data'}
+                : t('settings.noData')}
             </Text>
           </View>
 
           <View style={[styles.infoRow, isDark && styles.infoRowDark]}>
-            <Text style={[styles.infoLabel, isDark && styles.textMuted]}>Last Synced</Text>
+            <Text style={[styles.infoLabel, isDark && styles.textMuted]}>{t('settings.lastSynced')}</Text>
             <Text style={[styles.infoValue, isDark && styles.textLight]}>
               {formatDate(cacheStats.lastSync)}
             </Text>
           </View>
 
           <View style={[styles.infoRow, isDark && styles.infoRowDark]}>
-            <Text style={[styles.infoLabel, isDark && styles.textMuted]}>Bounds</Text>
+            <Text style={[styles.infoLabel, isDark && styles.textMuted]}>{t('settings.bounds')}</Text>
             <Text style={[styles.infoValue, isDark && styles.textLight]}>
               {formatBytes(cacheSizes.bounds)}
             </Text>
           </View>
 
           <View style={[styles.infoRow, isDark && styles.infoRowDark]}>
-            <Text style={[styles.infoLabel, isDark && styles.textMuted]}>GPS Traces</Text>
+            <Text style={[styles.infoLabel, isDark && styles.textMuted]}>{t('settings.gpsTraces')}</Text>
             <Text style={[styles.infoValue, isDark && styles.textLight]}>
               {formatBytes(cacheSizes.gps)}
             </Text>
           </View>
 
           <View style={[styles.infoRow, isDark && styles.infoRowDark]}>
-            <Text style={[styles.infoLabel, isDark && styles.textMuted]}>Routes</Text>
+            <Text style={[styles.infoLabel, isDark && styles.textMuted]}>{t('settings.routesCount')}</Text>
             <Text style={[styles.infoValue, isDark && styles.textLight]}>
               {formatBytes(cacheSizes.routes)}
             </Text>
@@ -629,19 +668,19 @@ export default function SettingsScreen() {
         </View>
 
         <Text style={[styles.infoText, isDark && styles.textMuted]}>
-          Caches activity locations and GPS traces for World Map and route matching. By default, syncs 3 months. Use "Sync All History" for deeper analysis.
+          {t('settings.cacheHint')}
         </Text>
 
         {/* Route Matching Toggle */}
-        <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>ROUTE MATCHING</Text>
+        <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>{t('settings.routeMatching').toUpperCase()}</Text>
         <View style={[styles.section, isDark && styles.sectionDark]}>
           <View style={styles.toggleRow}>
             <View style={styles.toggleInfo}>
               <Text style={[styles.toggleLabel, isDark && styles.textLight]}>
-                Enable Route Matching
+                {t('settings.enableRouteMatching')}
               </Text>
               <Text style={[styles.toggleDescription, isDark && styles.textMuted]}>
-                Automatically detect repeated routes from your activities
+                {t('settings.routeMatchingDescription')}
               </Text>
             </View>
             <Switch
@@ -653,11 +692,11 @@ export default function SettingsScreen() {
         </View>
 
         {/* Account Section */}
-        <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>ACCOUNT</Text>
+        <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>{t('settings.account').toUpperCase()}</Text>
         <View style={[styles.section, isDark && styles.sectionDark]}>
           <TouchableOpacity style={styles.actionRow} onPress={handleLogout}>
             <MaterialCommunityIcons name="logout" size={22} color={colors.error} />
-            <Text style={[styles.actionText, styles.actionTextDanger]}>Disconnect Account</Text>
+            <Text style={[styles.actionText, styles.actionTextDanger]}>{t('settings.disconnectAccount')}</Text>
             <MaterialCommunityIcons
               name="chevron-right"
               size={20}
@@ -667,11 +706,11 @@ export default function SettingsScreen() {
         </View>
 
         {/* Data Sources Section */}
-        <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>DATA SOURCES</Text>
+        <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>{t('settings.dataSources').toUpperCase()}</Text>
         <View style={[styles.section, isDark && styles.sectionDark]}>
           <View style={styles.dataSourcesContent}>
             <Text style={[styles.dataSourcesText, isDark && styles.textMuted]}>
-              Activity and wellness data is synced from intervals.icu, which integrates with various fitness platforms and devices.
+              {t('settings.dataSourcesDescription')}
             </Text>
             <View style={styles.dataSourcesLogos}>
               <View style={styles.dataSourceItem}>
@@ -692,13 +731,13 @@ export default function SettingsScreen() {
               </View>
             </View>
             <Text style={[styles.trademarkText, isDark && styles.textMuted]}>
-              Garmin and the Garmin logo are trademarks of Garmin Ltd. or its subsidiaries.
+              {t('attribution.garminTrademark')}
             </Text>
           </View>
         </View>
 
         {/* Support Section */}
-        <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>SUPPORT</Text>
+        <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>{t('settings.support').toUpperCase()}</Text>
         <View style={styles.supportRow}>
           <TouchableOpacity
             style={[styles.supportCard, isDark && styles.supportCardDark]}
@@ -709,7 +748,7 @@ export default function SettingsScreen() {
               <MaterialCommunityIcons name="heart" size={24} color="#E91E63" />
             </View>
             <Text style={[styles.supportTitle, isDark && styles.textLight]}>intervals.icu</Text>
-            <Text style={[styles.supportSubtitle, isDark && styles.textMuted]}>Subscribe</Text>
+            <Text style={[styles.supportSubtitle, isDark && styles.textMuted]}>{t('settings.subscribe')}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -721,7 +760,7 @@ export default function SettingsScreen() {
               <MaterialCommunityIcons name="github" size={24} color={isDark ? '#FFF' : '#333'} />
             </View>
             <Text style={[styles.supportTitle, isDark && styles.textLight]}>@evanjt</Text>
-            <Text style={[styles.supportSubtitle, isDark && styles.textMuted]}>Sponsor dev</Text>
+            <Text style={[styles.supportSubtitle, isDark && styles.textMuted]}>{t('settings.sponsorDev')}</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -1008,6 +1047,24 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     marginTop: spacing.md,
     fontStyle: 'italic',
+  },
+  languageRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+  },
+  languageRowBorder: {
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  languageRowDark: {
+    borderTopColor: '#333',
+  },
+  languageLabel: {
+    fontSize: 16,
+    color: colors.textPrimary,
   },
   dataSourcesContent: {
     padding: spacing.md,

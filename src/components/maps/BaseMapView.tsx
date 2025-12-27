@@ -10,6 +10,7 @@ import {
 import { MapView, Camera, ShapeSource, LineLayer, MarkerView } from '@maplibre/maplibre-react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
 import * as Location from 'expo-location';
 import { colors, darkColors, opacity } from '@/theme/colors';
 import { typography } from '@/theme/typography';
@@ -82,6 +83,7 @@ export function BaseMapView({
   cameraRef: externalCameraRef,
   onClose,
 }: BaseMapViewProps) {
+  const { t } = useTranslation();
   const colorScheme = useColorScheme();
   const insets = useSafeAreaInsets();
   const systemStyle: MapStyleType = colorScheme === 'dark' ? 'dark' : 'light';
@@ -207,7 +209,7 @@ export function BaseMapView({
           style={[styles.button, styles.closeButton, { top: insets.top + 12 }, isDark && styles.buttonDark]}
           onPress={onClose}
           activeOpacity={0.8}
-          accessibilityLabel="Close map"
+          accessibilityLabel={t('maps.closeMap')}
           accessibilityRole="button"
         >
           <MaterialCommunityIcons name="close" size={24} color={isDark ? colors.textOnDark : colors.textSecondary} />
@@ -220,7 +222,7 @@ export function BaseMapView({
           style={[styles.button, styles.styleButton, { top: insets.top + 12 }, isDark && styles.buttonDark]}
           onPress={toggleStyle}
           activeOpacity={0.8}
-          accessibilityLabel="Toggle map style"
+          accessibilityLabel={t('maps.toggleStyle')}
           accessibilityRole="button"
         >
           <MaterialCommunityIcons name={getStyleIcon(mapStyle)} size={24} color={isDark ? colors.textOnDark : colors.textSecondary} />
@@ -234,7 +236,7 @@ export function BaseMapView({
             style={[styles.controlButton, isDark && styles.controlButtonDark, is3DMode && styles.controlButtonActive]}
             onPress={toggle3D}
             activeOpacity={0.8}
-            accessibilityLabel={is3DMode ? 'Disable 3D view' : 'Enable 3D view'}
+            accessibilityLabel={is3DMode ? t('maps.disable3D') : t('maps.enable3D')}
             accessibilityRole="button"
           >
             <MaterialCommunityIcons name="terrain" size={22} color={is3DMode ? colors.textOnDark : (isDark ? colors.textOnDark : colors.textSecondary)} />
@@ -246,7 +248,7 @@ export function BaseMapView({
             style={[styles.controlButton, isDark && styles.controlButtonDark]}
             onPress={resetOrientation}
             activeOpacity={0.8}
-            accessibilityLabel="Reset map orientation"
+            accessibilityLabel={t('maps.resetOrientation')}
             accessibilityRole="button"
           >
             <CompassArrow size={22} rotation={bearingAnim} northColor={colors.error} southColor={isDark ? colors.textOnDark : colors.textSecondary} />
@@ -258,7 +260,7 @@ export function BaseMapView({
             style={[styles.controlButton, isDark && styles.controlButtonDark]}
             onPress={handleGetLocation}
             activeOpacity={0.8}
-            accessibilityLabel="Go to my location"
+            accessibilityLabel={t('maps.goToLocation')}
             accessibilityRole="button"
           >
             <MaterialCommunityIcons

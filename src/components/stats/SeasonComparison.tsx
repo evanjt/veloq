@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { View, StyleSheet, useColorScheme, TouchableOpacity } from 'react-native';
 import { Text } from 'react-native-paper';
+import { useTranslation } from 'react-i18next';
 import { colors, darkColors } from '@/theme/colors';
 import { typography } from '@/theme/typography';
 import { spacing, layout } from '@/theme/spacing';
@@ -57,6 +58,7 @@ export function SeasonComparison({
   currentYearActivities,
   previousYearActivities,
 }: SeasonComparisonProps) {
+  const { t } = useTranslation();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const [metric, setMetric] = useState<'hours' | 'distance' | 'tss'>('hours');
@@ -80,14 +82,14 @@ export function SeasonComparison({
     return (
       <View style={styles.container}>
         <View style={styles.header}>
-          <Text style={[styles.title, isDark && styles.textLight]}>Season Comparison</Text>
+          <Text style={[styles.title, isDark && styles.textLight]}>{t('stats.seasonComparison')}</Text>
         </View>
         <View style={[styles.emptyState, { height }]}>
           <Text style={[styles.emptyText, isDark && styles.textDark]}>
-            No activity data available
+            {t('stats.noActivityData')}
           </Text>
           <Text style={[styles.emptyHint, isDark && styles.textDark]}>
-            Complete activities to see year-over-year comparison
+            {t('stats.completeActivitiesYearComparison')}
           </Text>
         </View>
       </View>
@@ -115,16 +117,16 @@ export function SeasonComparison({
   const groupGap = 4;
 
   const metricLabels = {
-    hours: { label: 'Hours', unit: 'h' },
-    distance: { label: 'Distance', unit: 'km' },
-    tss: { label: 'TSS', unit: '' },
+    hours: { label: t('stats.hours'), unit: 'h' },
+    distance: { label: t('activity.distance'), unit: 'km' },
+    tss: { label: t('stats.tss'), unit: '' },
   };
 
   return (
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={[styles.title, isDark && styles.textLight]}>Season Comparison</Text>
+        <Text style={[styles.title, isDark && styles.textLight]}>{t('stats.seasonComparison')}</Text>
         <View style={styles.metricSelector}>
           {(['hours', 'distance', 'tss'] as const).map((m) => (
             <TouchableOpacity

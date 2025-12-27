@@ -1,6 +1,7 @@
 import React, { useMemo, useRef, useCallback, useState } from 'react';
 import { View, StyleSheet, useColorScheme } from 'react-native';
 import { Text } from 'react-native-paper';
+import { useTranslation } from 'react-i18next';
 import { CartesianChart, Line, Area, Bar } from 'victory-native';
 import { LinearGradient, vec, Shadow, Rect } from '@shopify/react-native-skia';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
@@ -69,6 +70,7 @@ export function FitnessFormChart({
   onDateSelect,
   onInteractionChange,
 }: FitnessFormChartProps) {
+  const { t } = useTranslation();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const [tooltipData, setTooltipData] = useState<ChartDataPoint | null>(null);
@@ -231,7 +233,7 @@ export function FitnessFormChart({
   if (chartData.length === 0) {
     return (
       <View style={[styles.placeholder, { height: fitnessHeight + formHeight }]}>
-        <Text style={[styles.placeholderText, isDark && styles.textDark]}>No fitness data available</Text>
+        <Text style={[styles.placeholderText, isDark && styles.textDark]}>{t('fitness.noData')}</Text>
       </View>
     );
   }
@@ -253,19 +255,19 @@ export function FitnessFormChart({
         </Text>
         <View style={styles.valuesRow}>
           <View style={styles.valueItem}>
-            <Text style={[styles.valueLabel, isDark && styles.textMuted]}>Fitness</Text>
+            <Text style={[styles.valueLabel, isDark && styles.textMuted]}>{t('metrics.fitness')}</Text>
             <Text style={[styles.valueNumber, { color: COLORS.fitness }]}>
               {Math.round(displayData.fitness)}
             </Text>
           </View>
           <View style={styles.valueItem}>
-            <Text style={[styles.valueLabel, isDark && styles.textMuted]}>Fatigue</Text>
+            <Text style={[styles.valueLabel, isDark && styles.textMuted]}>{t('metrics.fatigue')}</Text>
             <Text style={[styles.valueNumber, { color: COLORS.fatigue }]}>
               {Math.round(displayData.fatigue)}
             </Text>
           </View>
           <View style={styles.valueItem}>
-            <Text style={[styles.valueLabel, isDark && styles.textMuted]}>Form</Text>
+            <Text style={[styles.valueLabel, isDark && styles.textMuted]}>{t('metrics.form')}</Text>
             <Text style={[styles.valueNumber, { color: FORM_ZONE_COLORS[formZone] }]}>
               {displayData.form > 0 ? '+' : ''}{Math.round(displayData.form)}
             </Text>
@@ -350,7 +352,7 @@ export function FitnessFormChart({
 
           {/* Form Chart with colored zones */}
           <View style={styles.formChartSection}>
-            <Text style={[styles.formLabel, isDark && styles.textMuted]}>Form</Text>
+            <Text style={[styles.formLabel, isDark && styles.textMuted]}>{t('metrics.form')}</Text>
             <View style={[styles.chartWrapper, { height: formHeight }]}>
               <CartesianChart
                 data={chartData}
@@ -444,11 +446,11 @@ export function FitnessFormChart({
 
               {/* Form zone labels on right */}
               <View style={styles.zoneLabels} pointerEvents="none">
-                <Text style={[styles.zoneLabelText, { color: '#64B5F6' }]}>Transition</Text>
-                <Text style={[styles.zoneLabelText, { color: '#81C784' }]}>Fresh</Text>
-                <Text style={[styles.zoneLabelText, { color: '#9E9E9E' }]}>Grey Zone</Text>
-                <Text style={[styles.zoneLabelText, { color: '#66BB6A' }]}>Optimal</Text>
-                <Text style={[styles.zoneLabelText, { color: '#EF5350' }]}>High Risk</Text>
+                <Text style={[styles.zoneLabelText, { color: '#64B5F6' }]}>{t('formZones.transition')}</Text>
+                <Text style={[styles.zoneLabelText, { color: '#81C784' }]}>{t('formZones.fresh')}</Text>
+                <Text style={[styles.zoneLabelText, { color: '#9E9E9E' }]}>{t('formZones.greyZone')}</Text>
+                <Text style={[styles.zoneLabelText, { color: '#66BB6A' }]}>{t('formZones.optimal')}</Text>
+                <Text style={[styles.zoneLabelText, { color: '#EF5350' }]}>{t('formZones.highRisk')}</Text>
               </View>
             </View>
           </View>
@@ -469,11 +471,11 @@ export function FitnessFormChart({
       <View style={styles.legend}>
         <View style={styles.legendItem}>
           <View style={[styles.legendLine, { backgroundColor: COLORS.fitness }]} />
-          <Text style={[styles.legendText, isDark && styles.textMuted]}>Fitness</Text>
+          <Text style={[styles.legendText, isDark && styles.textMuted]}>{t('metrics.fitness')}</Text>
         </View>
         <View style={styles.legendItem}>
           <View style={[styles.legendLine, { backgroundColor: COLORS.fatigue }]} />
-          <Text style={[styles.legendText, isDark && styles.textMuted]}>Fatigue</Text>
+          <Text style={[styles.legendText, isDark && styles.textMuted]}>{t('metrics.fatigue')}</Text>
         </View>
       </View>
     </View>

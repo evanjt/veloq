@@ -1,6 +1,7 @@
 import React, { useMemo, useCallback, useState, useRef } from 'react';
 import { View, StyleSheet, useColorScheme } from 'react-native';
 import { Text } from 'react-native-paper';
+import { useTranslation } from 'react-i18next';
 import { CartesianChart, Line } from 'victory-native';
 import { DashPathEffect, Line as SkiaLine } from '@shopify/react-native-skia';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
@@ -65,6 +66,7 @@ export function SwimPaceCurveChart({
   days = 365,
   height = 200,
 }: SwimPaceCurveChartProps) {
+  const { t } = useTranslation();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
 
@@ -208,9 +210,9 @@ export function SwimPaceCurveChart({
   if (isLoading) {
     return (
       <View style={[styles.container, { height }]}>
-        <Text style={[styles.title, isDark && styles.textLight]}>Swim Pace Curve</Text>
+        <Text style={[styles.title, isDark && styles.textLight]}>{t('stats.swimPaceCurve')}</Text>
         <View style={styles.loadingContainer}>
-          <Text style={[styles.loadingText, isDark && styles.textDark]}>Loading...</Text>
+          <Text style={[styles.loadingText, isDark && styles.textDark]}>{t('common.loading')}</Text>
         </View>
       </View>
     );
@@ -219,9 +221,9 @@ export function SwimPaceCurveChart({
   if (error || chartData.length === 0) {
     return (
       <View style={[styles.container, { height }]}>
-        <Text style={[styles.title, isDark && styles.textLight]}>Swim Pace Curve</Text>
+        <Text style={[styles.title, isDark && styles.textLight]}>{t('stats.swimPaceCurve')}</Text>
         <View style={styles.emptyState}>
-          <Text style={[styles.emptyText, isDark && styles.textDark]}>No swim pace data available</Text>
+          <Text style={[styles.emptyText, isDark && styles.textDark]}>{t('stats.noSwimPaceData')}</Text>
         </View>
       </View>
     );
@@ -234,22 +236,22 @@ export function SwimPaceCurveChart({
     <View style={[styles.container, { height }]}>
       {/* Header with values */}
       <View style={styles.header}>
-        <Text style={[styles.title, isDark && styles.textLight]}>Swim Pace Curve</Text>
+        <Text style={[styles.title, isDark && styles.textLight]}>{t('stats.swimPaceCurve')}</Text>
         <View style={styles.valuesRow}>
           <View style={styles.valueItem}>
-            <Text style={[styles.valueLabel, isDark && styles.textDark]}>Distance</Text>
+            <Text style={[styles.valueLabel, isDark && styles.textDark]}>{t('activity.distance')}</Text>
             <Text style={[styles.valueNumber, { color: CHART_COLOR }]}>
               {formatDistance(displayData.distance)}
             </Text>
           </View>
           <View style={styles.valueItem}>
-            <Text style={[styles.valueLabel, isDark && styles.textDark]}>Time</Text>
+            <Text style={[styles.valueLabel, isDark && styles.textDark]}>{t('stats.time')}</Text>
             <Text style={[styles.valueNumber, isDark && styles.textLight]}>
               {formatTime(displayData.time)}
             </Text>
           </View>
           <View style={styles.valueItem}>
-            <Text style={[styles.valueLabel, isDark && styles.textDark]}>Pace</Text>
+            <Text style={[styles.valueLabel, isDark && styles.textDark]}>{t('metrics.pace')}</Text>
             <Text style={[styles.valueNumber, { color: CHART_COLOR }]}>
               {formatPace100m(displayData.paceMs)}/100m
             </Text>
