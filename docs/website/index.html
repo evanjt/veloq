@@ -1,0 +1,982 @@
+<!DOCTYPE html>
+<html lang="en" id="html-root">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Veloq - Mobile Intervals.icu Client</title>
+  <meta name="description" content="Fast, offline-first mobile client for Intervals.icu with maps and visual analytics.">
+  <meta name="theme-color" content="#D4AF37">
+  <link rel="icon" type="image/png" href="icon.png">
+
+  <meta property="og:title" content="Veloq - Mobile Intervals.icu Client">
+  <meta property="og:description" content="Fast, offline-first mobile client for Intervals.icu with maps and visual analytics.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://veloq.evanjt.com">
+
+  <style>
+    :root {
+      --primary: #D4AF37;
+      --primary-dark: #E04400;
+      --primary-glow: rgba(252, 76, 2, 0.3);
+      --bg: #FAFAFA;
+      --bg-dark: #0D1117;
+      --text: #1A1A1A;
+      --text-muted: #666666;
+      --text-dark: #E6EDF3;
+      --text-muted-dark: #8B949E;
+      --card: #FFFFFF;
+      --card-dark: #161B22;
+      --border: #E5E7EB;
+      --border-dark: #30363D;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: var(--bg-dark);
+        --text: var(--text-dark);
+        --text-muted: var(--text-muted-dark);
+        --card: var(--card-dark);
+        --border: var(--border-dark);
+      }
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+    }
+
+    .container { max-width: 1200px; margin: 0 auto; padding: 0 24px; }
+
+    /* Animations */
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(30px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    @keyframes slideInLeft {
+      from { opacity: 0; transform: translateX(-50px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+
+    @keyframes slideInRight {
+      from { opacity: 0; transform: translateX(50px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+
+    @keyframes pulse {
+      0%, 100% { box-shadow: 0 0 0 0 var(--primary-glow); }
+      50% { box-shadow: 0 0 0 15px transparent; }
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-10px); }
+    }
+
+    .animate-fade-up { animation: fadeInUp 0.8s ease-out forwards; opacity: 0; }
+    .animate-fade { animation: fadeIn 0.6s ease-out forwards; opacity: 0; }
+    .animate-slide-left { animation: slideInLeft 0.8s ease-out forwards; opacity: 0; }
+    .animate-slide-right { animation: slideInRight 0.8s ease-out forwards; opacity: 0; }
+    .delay-1 { animation-delay: 0.1s; }
+    .delay-2 { animation-delay: 0.2s; }
+    .delay-3 { animation-delay: 0.3s; }
+    .delay-4 { animation-delay: 0.4s; }
+    .delay-5 { animation-delay: 0.5s; }
+
+    /* Header */
+    header {
+      padding: 20px 0;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      background: var(--bg);
+      border-bottom: 1px solid var(--border);
+      z-index: 100;
+      backdrop-filter: blur(10px);
+      background: rgba(250, 250, 250, 0.9);
+    }
+
+    @media (prefers-color-scheme: dark) {
+      header { background: rgba(13, 17, 23, 0.9); }
+    }
+
+    .header-inner {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      text-decoration: none;
+      color: var(--text);
+    }
+
+    .logo img { width: 40px; height: 40px; border-radius: 10px; }
+    .logo span { font-size: 24px; font-weight: 700; }
+
+    .nav-links { display: flex; gap: 24px; align-items: center; }
+
+    .nav-links a {
+      color: var(--text-muted);
+      text-decoration: none;
+      font-weight: 500;
+      transition: color 0.2s;
+    }
+
+    .nav-links a:hover { color: var(--primary); }
+
+    /* Language Selector */
+    .lang-selector { position: relative; }
+
+    .lang-btn {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 6px 12px;
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: border-color 0.2s;
+    }
+
+    .lang-btn:hover { border-color: var(--primary); }
+
+    .lang-dropdown {
+      position: absolute;
+      top: 100%;
+      right: 0;
+      margin-top: 4px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+      min-width: 140px;
+      display: none;
+      z-index: 100;
+    }
+
+    .lang-dropdown.open { display: block; }
+
+    .lang-option {
+      display: block;
+      width: 100%;
+      padding: 10px 16px;
+      border: none;
+      background: none;
+      text-align: left;
+      font-size: 14px;
+      color: var(--text);
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .lang-option:hover { background: var(--bg); }
+    .lang-option.active { color: var(--primary); font-weight: 600; }
+
+    /* Hero */
+    .hero {
+      padding: 140px 0 80px;
+      text-align: center;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    .hero h1 {
+      font-size: clamp(2.5rem, 6vw, 4.5rem);
+      font-weight: 800;
+      margin-bottom: 24px;
+      letter-spacing: -0.03em;
+      line-height: 1.1;
+    }
+
+    .hero h1 span { color: var(--primary); }
+
+    .hero p {
+      font-size: 1.25rem;
+      color: var(--text-muted);
+      max-width: 600px;
+      margin: 0 auto 48px;
+    }
+
+    .cta-buttons {
+      display: flex;
+      gap: 16px;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-bottom: 60px;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 16px 32px;
+      border-radius: 12px;
+      font-weight: 600;
+      font-size: 16px;
+      text-decoration: none;
+      transition: all 0.3s ease;
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: white;
+      box-shadow: 0 4px 20px var(--primary-glow);
+    }
+
+    .btn-primary:hover {
+      background: var(--primary-dark);
+      transform: translateY(-3px);
+      box-shadow: 0 8px 30px var(--primary-glow);
+    }
+
+    .btn-secondary {
+      background: var(--card);
+      color: var(--text);
+      border: 2px solid var(--border);
+    }
+
+    .btn-secondary:hover {
+      border-color: var(--primary);
+      color: var(--primary);
+      transform: translateY(-3px);
+    }
+
+    /* Media Showcase */
+    .showcase {
+      padding: 40px 0 100px;
+      position: relative;
+    }
+
+    .showcase-container {
+      max-width: 400px;
+      margin: 0 auto;
+      position: relative;
+    }
+
+    .phone-frame {
+      background: #1a1a1a;
+      border-radius: 40px;
+      padding: 12px;
+      box-shadow: 0 30px 80px rgba(0,0,0,0.3);
+      animation: float 6s ease-in-out infinite;
+    }
+
+    .phone-screen {
+      background: #000;
+      border-radius: 32px;
+      overflow: hidden;
+      aspect-ratio: 9/19.5;
+      position: relative;
+    }
+
+    .phone-notch {
+      position: absolute;
+      top: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 120px;
+      height: 28px;
+      background: #1a1a1a;
+      border-radius: 0 0 20px 20px;
+      z-index: 10;
+    }
+
+    .carousel {
+      width: 100%;
+      height: 100%;
+      position: relative;
+    }
+
+    .carousel-slide {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      opacity: 0;
+      transition: opacity 0.5s ease;
+    }
+
+    .carousel-slide.active { opacity: 1; }
+
+    .carousel-slide img,
+    .carousel-slide video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .carousel-placeholder {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+      color: #666;
+      text-align: center;
+      padding: 20px;
+    }
+
+    .carousel-placeholder .icon {
+      font-size: 48px;
+      margin-bottom: 16px;
+    }
+
+    .carousel-placeholder .title {
+      font-size: 18px;
+      font-weight: 600;
+      color: #999;
+      margin-bottom: 8px;
+    }
+
+    .carousel-placeholder .desc {
+      font-size: 14px;
+      color: #666;
+    }
+
+    .carousel-controls {
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+      margin-top: 24px;
+    }
+
+    .carousel-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--border);
+      border: none;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    .carousel-dot.active {
+      background: var(--primary);
+      transform: scale(1.2);
+    }
+
+    .carousel-dot:hover { background: var(--primary); }
+
+    .carousel-nav {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: var(--card);
+      border: 1px solid var(--border);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.3s;
+      z-index: 10;
+    }
+
+    .carousel-nav:hover {
+      background: var(--primary);
+      color: white;
+      border-color: var(--primary);
+    }
+
+    .carousel-nav.prev { left: -60px; }
+    .carousel-nav.next { right: -60px; }
+
+    .carousel-caption {
+      text-align: center;
+      margin-top: 16px;
+      color: var(--text-muted);
+      font-size: 14px;
+      min-height: 20px;
+    }
+
+    /* Features */
+    .features {
+      padding: 100px 0;
+      background: var(--card);
+      border-top: 1px solid var(--border);
+    }
+
+    .features h2 {
+      text-align: center;
+      font-size: 2.5rem;
+      margin-bottom: 16px;
+      font-weight: 800;
+    }
+
+    .features .subtitle {
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 1.1rem;
+      margin-bottom: 64px;
+    }
+
+    .feature-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 40px;
+    }
+
+    .feature {
+      padding: 32px;
+      background: var(--bg);
+      border-radius: 20px;
+      transition: transform 0.3s, box-shadow 0.3s;
+    }
+
+    .feature:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+    }
+
+    .feature-icon {
+      width: 56px;
+      height: 56px;
+      background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+      border-radius: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 20px;
+      font-size: 28px;
+    }
+
+    .feature h3 { font-size: 1.25rem; margin-bottom: 12px; font-weight: 700; }
+    .feature p { color: var(--text-muted); font-size: 0.95rem; line-height: 1.7; }
+
+    /* Getting Started */
+    .getting-started {
+      padding: 100px 0;
+    }
+
+    .getting-started h2 {
+      text-align: center;
+      font-size: 2.5rem;
+      margin-bottom: 16px;
+      font-weight: 800;
+    }
+
+    .getting-started .subtitle {
+      text-align: center;
+      color: var(--text-muted);
+      margin-bottom: 64px;
+    }
+
+    .steps {
+      display: flex;
+      justify-content: center;
+      gap: 60px;
+      flex-wrap: wrap;
+    }
+
+    .step {
+      text-align: center;
+      max-width: 280px;
+    }
+
+    .step-number {
+      width: 64px;
+      height: 64px;
+      background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+      color: white;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 1.5rem;
+      margin: 0 auto 20px;
+      box-shadow: 0 10px 30px var(--primary-glow);
+    }
+
+    .step h3 { margin-bottom: 12px; font-size: 1.2rem; }
+    .step p { color: var(--text-muted); font-size: 0.95rem; }
+    .step a { color: var(--primary); text-decoration: none; font-weight: 500; }
+    .step a:hover { text-decoration: underline; }
+
+    /* Footer */
+    footer {
+      padding: 60px 0;
+      border-top: 1px solid var(--border);
+      text-align: center;
+    }
+
+    .footer-links {
+      display: flex;
+      justify-content: center;
+      gap: 40px;
+      margin-bottom: 32px;
+      flex-wrap: wrap;
+    }
+
+    .footer-links a {
+      color: var(--text-muted);
+      text-decoration: none;
+      font-weight: 500;
+      transition: color 0.2s;
+    }
+
+    .footer-links a:hover { color: var(--primary); }
+
+    .copyright { color: var(--text-muted); font-size: 0.875rem; }
+
+    /* Mobile */
+    @media (max-width: 768px) {
+      .nav-links a:not(:last-child) { display: none; }
+      .hero { padding: 120px 0 60px; min-height: auto; }
+      .hero h1 { font-size: 2.2rem; }
+      .showcase-container { max-width: 300px; }
+      .phone-frame { border-radius: 30px; padding: 8px; }
+      .phone-screen { border-radius: 24px; }
+      .phone-notch { width: 90px; height: 22px; }
+      .carousel-nav { display: none; }
+      .features, .getting-started { padding: 60px 0; }
+      .feature-grid { grid-template-columns: 1fr; gap: 24px; }
+      .steps { flex-direction: column; align-items: center; gap: 40px; }
+    }
+  </style>
+</head>
+<body>
+  <header class="animate-fade">
+    <div class="container header-inner">
+      <a href="/" class="logo">
+        <img src="icon.png" alt="Veloq">
+        <span>Veloq</span>
+      </a>
+      <nav class="nav-links">
+        <a href="#features" data-i18n="nav.features">Features</a>
+        <a href="#download" data-i18n="nav.download">Download</a>
+        <a href="https://github.com/evanjt/veloq" target="_blank">GitHub</a>
+        <div class="lang-selector">
+          <button class="lang-btn" id="lang-btn">
+            <span id="current-lang">EN</span>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div class="lang-dropdown" id="lang-dropdown">
+            <button class="lang-option" data-lang="en">English</button>
+            <button class="lang-option" data-lang="es">Español</button>
+            <button class="lang-option" data-lang="fr">Français</button>
+          </div>
+        </div>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="container">
+        <h1 class="animate-fade-up" data-i18n="hero.title">Your training data,<br><span>in your pocket</span></h1>
+        <p class="animate-fade-up delay-1" data-i18n="hero.subtitle">Fast, offline-first mobile client for Intervals.icu with interactive maps and visual analytics.</p>
+        <div class="cta-buttons animate-fade-up delay-2" id="download">
+          <a href="https://github.com/evanjt/veloq/releases" class="btn btn-primary" target="_blank">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            <span data-i18n="cta.download">Download</span>
+          </a>
+          <a href="https://github.com/evanjt/veloq" class="btn btn-secondary" target="_blank">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+            <span data-i18n="cta.viewSource">View Source</span>
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <section class="showcase animate-fade-up delay-3">
+      <div class="showcase-container">
+        <button class="carousel-nav prev" onclick="prevSlide()">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+        </button>
+        <button class="carousel-nav next" onclick="nextSlide()">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+        </button>
+
+        <div class="phone-frame">
+          <div class="phone-screen">
+            <div class="phone-notch"></div>
+            <div class="carousel" id="carousel">
+              <!-- Slides will be populated by JS - add your media files to screenshots/ -->
+            </div>
+          </div>
+        </div>
+
+        <div class="carousel-controls" id="carousel-dots"></div>
+        <p class="carousel-caption" id="carousel-caption"></p>
+      </div>
+    </section>
+
+    <section class="features" id="features">
+      <div class="container">
+        <h2 data-i18n="features.title">Built for athletes</h2>
+        <p class="subtitle" data-i18n="features.subtitle">Everything you need to analyze your training, right in your pocket.</p>
+        <div class="feature-grid">
+          <div class="feature">
+            <div class="feature-icon">&#127758;</div>
+            <h3 data-i18n="features.maps.title">Map-First Visualization</h3>
+            <p data-i18n="features.maps.desc">View all your activities on an interactive regional map with timeline filtering. Explore heatmaps showing your most traveled routes.</p>
+          </div>
+          <div class="feature">
+            <div class="feature-icon">&#128200;</div>
+            <h3 data-i18n="features.analysis.title">Rich Activity Analysis</h3>
+            <p data-i18n="features.analysis.desc">Multi-metric charts for heart rate, power, pace, elevation, and cadence. Scrub through your activity with synchronized map highlighting.</p>
+          </div>
+          <div class="feature">
+            <div class="feature-icon">&#128736;</div>
+            <h3 data-i18n="features.routes.title">Route Intelligence</h3>
+            <p data-i18n="features.routes.desc">Automatically detect repeated routes and track your performance over time. Compare efforts on the same course to measure progress.</p>
+          </div>
+          <div class="feature">
+            <div class="feature-icon">&#128170;</div>
+            <h3 data-i18n="features.fitness.title">Fitness Tracking</h3>
+            <p data-i18n="features.fitness.desc">Monitor your CTL/ATL/TSB fitness model with form zone analysis. Know when you're fresh, fatigued, or peaked.</p>
+          </div>
+          <div class="feature">
+            <div class="feature-icon">&#128247;</div>
+            <h3 data-i18n="features.offline.title">Offline-First</h3>
+            <p data-i18n="features.offline.desc">Aggressive caching ensures your data is always available. Sync once and access anywhere without an internet connection.</p>
+          </div>
+          <div class="feature">
+            <div class="feature-icon">&#128274;</div>
+            <h3 data-i18n="features.privacy.title">Privacy Focused</h3>
+            <p data-i18n="features.privacy.desc">All data stays on your device. No analytics, no tracking, no data collection. Your data is yours alone.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="getting-started">
+      <div class="container">
+        <h2 data-i18n="getStarted.title">Getting Started</h2>
+        <p class="subtitle" data-i18n="getStarted.subtitle">Connect to your Intervals.icu account in three simple steps.</p>
+        <div class="steps">
+          <div class="step">
+            <div class="step-number">1</div>
+            <h3 data-i18n="getStarted.step1.title">Get API Key</h3>
+            <p data-i18n="getStarted.step1.desc">Go to <a href="https://intervals.icu/settings" target="_blank">Intervals.icu Settings</a> &rarr; Developer Settings</p>
+          </div>
+          <div class="step">
+            <div class="step-number">2</div>
+            <h3 data-i18n="getStarted.step2.title">Install Veloq</h3>
+            <p data-i18n="getStarted.step2.desc">Download from GitHub Releases</p>
+          </div>
+          <div class="step">
+            <div class="step-number">3</div>
+            <h3 data-i18n="getStarted.step3.title">Connect</h3>
+            <p data-i18n="getStarted.step3.desc">Enter your API key and start exploring</p>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="container">
+      <div class="footer-links">
+        <a href="https://github.com/evanjt/veloq" target="_blank">GitHub</a>
+        <a href="https://github.com/evanjt/veloq/releases" target="_blank" data-i18n="footer.releases">Releases</a>
+        <a href="/privacy/" data-i18n="footer.privacy">Privacy Policy</a>
+        <a href="mailto:veloq@evanjt.com" data-i18n="footer.contact">Contact</a>
+      </div>
+      <p class="copyright">&copy; 2025 Evan Thomas. Apache License 2.0.</p>
+    </div>
+  </footer>
+
+  <script>
+    // Media configuration - add your screenshots and videos here
+    // Supported: images (.png, .jpg, .webp) and videos (.mp4, .webm)
+    const mediaItems = [
+      { type: 'placeholder', icon: '&#128197;', title: 'Activity Feed', desc: 'Your recent activities at a glance' },
+      { type: 'placeholder', icon: '&#127758;', title: 'Activity Map', desc: 'GPS routes with elevation profile' },
+      { type: 'placeholder', icon: '&#128200;', title: 'Multi-Metric Charts', desc: 'Heart rate, power, pace & more' },
+      { type: 'placeholder', icon: '&#128170;', title: 'Fitness Tracking', desc: 'CTL/ATL/TSB fitness model' },
+      { type: 'placeholder', icon: '&#127759;', title: 'Regional Map', desc: 'All your activities in one view' },
+      { type: 'placeholder', icon: '&#128293;', title: 'Heatmap', desc: 'Your most traveled routes' },
+      { type: 'placeholder', icon: '&#128739;', title: 'Routes', desc: 'Automatic route detection' },
+      { type: 'placeholder', icon: '&#9881;', title: 'Settings', desc: 'Customize your experience' },
+      // Example of how to add real media:
+      // { type: 'image', src: 'screenshots/feed.png', caption: 'Activity Feed' },
+      // { type: 'video', src: 'screenshots/demo.mp4', caption: 'App Demo' },
+    ];
+
+    let currentSlide = 0;
+    let autoplayInterval;
+
+    function initCarousel() {
+      const carousel = document.getElementById('carousel');
+      const dotsContainer = document.getElementById('carousel-dots');
+
+      mediaItems.forEach((item, index) => {
+        // Create slide
+        const slide = document.createElement('div');
+        slide.className = 'carousel-slide' + (index === 0 ? ' active' : '');
+
+        if (item.type === 'placeholder') {
+          slide.innerHTML = `
+            <div class="carousel-placeholder">
+              <div class="icon">${item.icon}</div>
+              <div class="title">${item.title}</div>
+              <div class="desc">${item.desc}</div>
+            </div>
+          `;
+        } else if (item.type === 'image') {
+          slide.innerHTML = `<img src="${item.src}" alt="${item.caption || ''}" loading="lazy">`;
+        } else if (item.type === 'video') {
+          slide.innerHTML = `<video src="${item.src}" muted loop playsinline></video>`;
+        }
+
+        carousel.appendChild(slide);
+
+        // Create dot
+        const dot = document.createElement('button');
+        dot.className = 'carousel-dot' + (index === 0 ? ' active' : '');
+        dot.onclick = () => goToSlide(index);
+        dotsContainer.appendChild(dot);
+      });
+
+      updateCaption();
+      startAutoplay();
+    }
+
+    function goToSlide(index) {
+      const slides = document.querySelectorAll('.carousel-slide');
+      const dots = document.querySelectorAll('.carousel-dot');
+
+      slides[currentSlide].classList.remove('active');
+      dots[currentSlide].classList.remove('active');
+
+      // Pause video on current slide
+      const currentVideo = slides[currentSlide].querySelector('video');
+      if (currentVideo) currentVideo.pause();
+
+      currentSlide = index;
+      if (currentSlide >= slides.length) currentSlide = 0;
+      if (currentSlide < 0) currentSlide = slides.length - 1;
+
+      slides[currentSlide].classList.add('active');
+      dots[currentSlide].classList.add('active');
+
+      // Play video on new slide
+      const newVideo = slides[currentSlide].querySelector('video');
+      if (newVideo) newVideo.play();
+
+      updateCaption();
+      resetAutoplay();
+    }
+
+    function nextSlide() { goToSlide(currentSlide + 1); }
+    function prevSlide() { goToSlide(currentSlide - 1); }
+
+    function updateCaption() {
+      const caption = document.getElementById('carousel-caption');
+      const item = mediaItems[currentSlide];
+      caption.textContent = item.caption || item.title || '';
+    }
+
+    function startAutoplay() {
+      autoplayInterval = setInterval(nextSlide, 4000);
+    }
+
+    function resetAutoplay() {
+      clearInterval(autoplayInterval);
+      startAutoplay();
+    }
+
+    // Translations
+    const translations = {
+      en: {
+        'nav.features': 'Features',
+        'nav.download': 'Download',
+        'hero.title': 'Your training data,<br><span>in your pocket</span>',
+        'hero.subtitle': 'Fast, offline-first mobile client for Intervals.icu with interactive maps and visual analytics.',
+        'cta.download': 'Download',
+        'cta.viewSource': 'View Source',
+        'features.title': 'Built for athletes',
+        'features.subtitle': 'Everything you need to analyze your training, right in your pocket.',
+        'features.maps.title': 'Map-First Visualization',
+        'features.maps.desc': 'View all your activities on an interactive regional map with timeline filtering. Explore heatmaps showing your most traveled routes.',
+        'features.analysis.title': 'Rich Activity Analysis',
+        'features.analysis.desc': 'Multi-metric charts for heart rate, power, pace, elevation, and cadence. Scrub through your activity with synchronized map highlighting.',
+        'features.routes.title': 'Route Intelligence',
+        'features.routes.desc': 'Automatically detect repeated routes and track your performance over time. Compare efforts on the same course to measure progress.',
+        'features.fitness.title': 'Fitness Tracking',
+        'features.fitness.desc': 'Monitor your CTL/ATL/TSB fitness model with form zone analysis. Know when you\'re fresh, fatigued, or peaked.',
+        'features.offline.title': 'Offline-First',
+        'features.offline.desc': 'Aggressive caching ensures your data is always available. Sync once and access anywhere without an internet connection.',
+        'features.privacy.title': 'Privacy Focused',
+        'features.privacy.desc': 'All data stays on your device. No analytics, no tracking, no data collection. Your data is yours alone.',
+        'getStarted.title': 'Getting Started',
+        'getStarted.subtitle': 'Connect to your Intervals.icu account in three simple steps.',
+        'getStarted.step1.title': 'Get API Key',
+        'getStarted.step1.desc': 'Go to <a href="https://intervals.icu/settings" target="_blank">Intervals.icu Settings</a> &rarr; Developer Settings',
+        'getStarted.step2.title': 'Install Veloq',
+        'getStarted.step2.desc': 'Download from GitHub Releases',
+        'getStarted.step3.title': 'Connect',
+        'getStarted.step3.desc': 'Enter your API key and start exploring',
+        'footer.releases': 'Releases',
+        'footer.privacy': 'Privacy Policy',
+        'footer.contact': 'Contact'
+      },
+      es: {
+        'nav.features': 'Funciones',
+        'nav.download': 'Descargar',
+        'hero.title': 'Tus datos de entrenamiento,<br><span>en tu bolsillo</span>',
+        'hero.subtitle': 'Cliente móvil rápido y offline-first para Intervals.icu con mapas interactivos y análisis visual.',
+        'cta.download': 'Descargar',
+        'cta.viewSource': 'Ver código',
+        'features.title': 'Diseñado para atletas',
+        'features.subtitle': 'Todo lo que necesitas para analizar tu entrenamiento, en tu bolsillo.',
+        'features.maps.title': 'Visualización con mapas',
+        'features.maps.desc': 'Ve todas tus actividades en un mapa regional interactivo. Explora mapas de calor mostrando tus rutas más frecuentes.',
+        'features.analysis.title': 'Análisis de actividad',
+        'features.analysis.desc': 'Gráficos multi-métrica para frecuencia cardíaca, potencia, ritmo, elevación y cadencia.',
+        'features.routes.title': 'Inteligencia de rutas',
+        'features.routes.desc': 'Detecta automáticamente rutas repetidas y rastrea tu rendimiento a lo largo del tiempo.',
+        'features.fitness.title': 'Seguimiento de fitness',
+        'features.fitness.desc': 'Monitorea tu modelo de fitness CTL/ATL/TSB con análisis de zonas de forma.',
+        'features.offline.title': 'Offline-First',
+        'features.offline.desc': 'El caché agresivo asegura que tus datos siempre estén disponibles.',
+        'features.privacy.title': 'Enfocado en privacidad',
+        'features.privacy.desc': 'Todos los datos permanecen en tu dispositivo. Sin análisis, sin seguimiento.',
+        'getStarted.title': 'Primeros pasos',
+        'getStarted.subtitle': 'Conecta tu cuenta de Intervals.icu en tres simples pasos.',
+        'getStarted.step1.title': 'Obtener clave API',
+        'getStarted.step1.desc': 'Ve a <a href="https://intervals.icu/settings" target="_blank">Configuración</a> &rarr; Desarrollador',
+        'getStarted.step2.title': 'Instalar Veloq',
+        'getStarted.step2.desc': 'Descarga desde GitHub Releases',
+        'getStarted.step3.title': 'Conectar',
+        'getStarted.step3.desc': 'Ingresa tu clave API y comienza a explorar',
+        'footer.releases': 'Versiones',
+        'footer.privacy': 'Privacidad',
+        'footer.contact': 'Contacto'
+      },
+      fr: {
+        'nav.features': 'Fonctionnalités',
+        'nav.download': 'Télécharger',
+        'hero.title': 'Vos données d\'entraînement,<br><span>dans votre poche</span>',
+        'hero.subtitle': 'Client mobile rapide et offline-first pour Intervals.icu avec cartes interactives et analyses visuelles.',
+        'cta.download': 'Télécharger',
+        'cta.viewSource': 'Voir le code',
+        'features.title': 'Conçu pour les athlètes',
+        'features.subtitle': 'Tout ce dont vous avez besoin pour analyser votre entraînement, dans votre poche.',
+        'features.maps.title': 'Visualisation cartographique',
+        'features.maps.desc': 'Visualisez toutes vos activités sur une carte régionale interactive. Explorez les cartes de chaleur.',
+        'features.analysis.title': 'Analyse d\'activité',
+        'features.analysis.desc': 'Graphiques multi-métriques pour la fréquence cardiaque, la puissance, l\'allure et la cadence.',
+        'features.routes.title': 'Intelligence d\'itinéraire',
+        'features.routes.desc': 'Détectez automatiquement les itinéraires répétés et suivez vos performances.',
+        'features.fitness.title': 'Suivi de forme',
+        'features.fitness.desc': 'Surveillez votre modèle de forme CTL/ATL/TSB avec analyse des zones.',
+        'features.offline.title': 'Offline-First',
+        'features.offline.desc': 'La mise en cache garantit que vos données sont toujours disponibles.',
+        'features.privacy.title': 'Axé sur la confidentialité',
+        'features.privacy.desc': 'Toutes les données restent sur votre appareil. Pas d\'analytique, pas de suivi.',
+        'getStarted.title': 'Premiers pas',
+        'getStarted.subtitle': 'Connectez votre compte Intervals.icu en trois étapes simples.',
+        'getStarted.step1.title': 'Obtenir la clé API',
+        'getStarted.step1.desc': 'Allez dans <a href="https://intervals.icu/settings" target="_blank">Paramètres</a> &rarr; Développeur',
+        'getStarted.step2.title': 'Installer Veloq',
+        'getStarted.step2.desc': 'Téléchargez depuis GitHub Releases',
+        'getStarted.step3.title': 'Connecter',
+        'getStarted.step3.desc': 'Entrez votre clé API et commencez à explorer',
+        'footer.releases': 'Versions',
+        'footer.privacy': 'Confidentialité',
+        'footer.contact': 'Contact'
+      }
+    };
+
+    const langNames = { en: 'EN', es: 'ES', fr: 'FR' };
+
+    function getInitialLanguage() {
+      const stored = localStorage.getItem('veloq-lang');
+      if (stored && translations[stored]) return stored;
+      const browserLang = navigator.language.split('-')[0];
+      if (translations[browserLang]) return browserLang;
+      return 'en';
+    }
+
+    let currentLang = getInitialLanguage();
+
+    function applyTranslations(lang) {
+      const t = translations[lang];
+      document.querySelectorAll('[data-i18n]').forEach(el => {
+        const key = el.getAttribute('data-i18n');
+        if (t[key]) el.innerHTML = t[key];
+      });
+      document.getElementById('current-lang').textContent = langNames[lang];
+      document.getElementById('html-root').setAttribute('lang', lang);
+      document.querySelectorAll('.lang-option').forEach(btn => {
+        btn.classList.toggle('active', btn.getAttribute('data-lang') === lang);
+      });
+    }
+
+    function setLanguage(lang) {
+      currentLang = lang;
+      localStorage.setItem('veloq-lang', lang);
+      applyTranslations(lang);
+      document.getElementById('lang-dropdown').classList.remove('open');
+    }
+
+    // Initialize
+    document.addEventListener('DOMContentLoaded', () => {
+      initCarousel();
+      applyTranslations(currentLang);
+
+      document.getElementById('lang-btn').addEventListener('click', (e) => {
+        e.stopPropagation();
+        document.getElementById('lang-dropdown').classList.toggle('open');
+      });
+
+      document.querySelectorAll('.lang-option').forEach(btn => {
+        btn.addEventListener('click', () => setLanguage(btn.getAttribute('data-lang')));
+      });
+
+      document.addEventListener('click', () => {
+        document.getElementById('lang-dropdown').classList.remove('open');
+      });
+
+      // Keyboard navigation for carousel
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'ArrowLeft') prevSlide();
+        if (e.key === 'ArrowRight') nextSlide();
+      });
+
+      // Touch swipe for carousel
+      let touchStartX = 0;
+      const carousel = document.getElementById('carousel');
+      carousel.addEventListener('touchstart', (e) => { touchStartX = e.touches[0].clientX; });
+      carousel.addEventListener('touchend', (e) => {
+        const touchEndX = e.changedTouches[0].clientX;
+        const diff = touchStartX - touchEndX;
+        if (Math.abs(diff) > 50) {
+          if (diff > 0) nextSlide();
+          else prevSlide();
+        }
+      });
+    });
+  </script>
+</body>
+</html>
