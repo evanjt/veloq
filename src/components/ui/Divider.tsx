@@ -1,9 +1,8 @@
 import React from 'react';
-import { StyleSheet, View, StyleProp, ViewStyle, Text } from 'react-native';
+import { StyleSheet, View, StyleProp, ViewStyle, Text, useColorScheme } from 'react-native';
 import { colors, darkColors, opacity } from '@/theme/colors';
 import { spacing } from '@/theme/spacing';
 import { typography } from '@/theme/typography';
-import { useTheme } from '@/providers/ThemeContext';
 
 type DividerVariant = 'full' | 'inset' | 'middle';
 
@@ -24,7 +23,8 @@ export function Divider({
   spacing: spacingProp = 'small',
   style,
 }: DividerProps) {
-  const { isDark } = useTheme();
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === 'dark';
 
   const dividerColor = isDark ? darkColors.divider : colors.divider;
   const verticalSpacing = getSpacing(spacingProp);
