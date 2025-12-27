@@ -552,9 +552,9 @@ export interface FrequentSection {
   id: string;
   /** Sport type this section is for ("Run", "Ride", etc.) */
   sportType: string;
-  /** The medoid polyline - an ACTUAL GPS trace from one activity (converted to lat/lng) */
+  /** The consensus polyline - refined from all overlapping GPS tracks */
   polyline: RoutePoint[];
-  /** Which activity provided the representative polyline */
+  /** Which activity provided the initial representative polyline (medoid) */
   representativeActivityId: string;
   /** Activity IDs that traverse this section */
   activityIds: string[];
@@ -569,6 +569,12 @@ export interface FrequentSection {
   /** Pre-computed GPS traces for each activity's overlapping portion
    * Key is activity ID, value is the GPS points within proximity of section */
   activityTraces: Record<string, RoutePoint[]>;
+  /** Confidence score (0.0-1.0) based on observation density and track alignment */
+  confidence: number;
+  /** Number of tracks used to compute the consensus polyline */
+  observationCount: number;
+  /** Average spread (meters) of track observations from the consensus line */
+  averageSpread: number;
 }
 
 /**
@@ -948,8 +954,11 @@ export function generateHeatmap(
   // This handles both app format (lat/lng, distance) and native format (latitude/longitude, totalDistance)
   const normalizedSignatures = (signatures as InputSignature[]).map(normalizeSignature);
   const signaturesJson = JSON.stringify(normalizedSignatures);
+  // Serialize all parameters to JSON to avoid Expo Modules bridge serialization issues with nulls
+  const activityDataJson = JSON.stringify(nativeActivityData);
+  const configJson = JSON.stringify(nativeConfig);
 
-  const result = NativeModule.generateHeatmap(signaturesJson, nativeActivityData, nativeConfig);
+  const result = NativeModule.generateHeatmap(signaturesJson, activityDataJson, configJson);
 
   const elapsed = Date.now() - startTime;
   nativeLog(`RUST generateHeatmap returned ${result?.cells?.length || 0} cells in ${elapsed}ms`);
@@ -1002,7 +1011,7 @@ export function queryHeatmapCell(
   lat: number,
   lng: number
 ): CellQueryResult | null {
-  // Convert to native format
+  // Convert to native format and serialize to JSON to avoid Expo Modules bridge issues with nulls
   const nativeHeatmap = {
     cells: heatmap.cells.map(c => ({
       row: c.row,
@@ -1035,8 +1044,9 @@ export function queryHeatmapCell(
     total_routes: heatmap.totalRoutes,
     total_activities: heatmap.totalActivities,
   };
+  const heatmapJson = JSON.stringify(nativeHeatmap);
 
-  const result = NativeModule.queryHeatmapCell(nativeHeatmap, lat, lng);
+  const result = NativeModule.queryHeatmapCell(heatmapJson, lat, lng);
   if (!result) return null;
 
   const cell = result.cell;

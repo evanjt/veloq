@@ -22,6 +22,8 @@ interface SectionMapViewProps {
   interactive?: boolean;
   /** Enable tap to fullscreen */
   enableFullscreen?: boolean;
+  /** Optional full activity track to show as a shadow behind the section */
+  shadowTrack?: [number, number][];
 }
 
 export function SectionMapView({
@@ -29,6 +31,7 @@ export function SectionMapView({
   height = 200,
   interactive = false,
   enableFullscreen = false,
+  shadowTrack,
 }: SectionMapViewProps) {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const { getStyleForActivity } = useMapPreferences();
@@ -75,6 +78,19 @@ export function SectionMapView({
     };
   }, [displayPoints]);
 
+  // Create GeoJSON for the shadow track (full activity route)
+  const shadowGeoJSON = useMemo(() => {
+    if (!shadowTrack || shadowTrack.length < 2) return null;
+    return {
+      type: 'Feature' as const,
+      properties: {},
+      geometry: {
+        type: 'LineString' as const,
+        coordinates: shadowTrack.map(([lat, lng]) => [lng, lat]),
+      },
+    };
+  }, [shadowTrack]);
+
   const styleUrl = getMapStyle(mapStyle);
 
   const startPoint = displayPoints[0];
@@ -110,6 +126,22 @@ export function SectionMapView({
         padding={{ paddingTop: 40, paddingRight: 40, paddingBottom: 40, paddingLeft: 40 }}
         animationDuration={0}
       />
+
+      {/* Shadow track (full activity route) - rendered first so it's behind */}
+      {shadowGeoJSON && (
+        <ShapeSource id="shadowSource" shape={shadowGeoJSON}>
+          <LineLayer
+            id="shadowLine"
+            style={{
+              lineColor: '#6B7280', // Neutral gray - distinct from section color
+              lineOpacity: 0.5,
+              lineWidth: 3,
+              lineCap: 'round',
+              lineJoin: 'round',
+            }}
+          />
+        </ShapeSource>
+      )}
 
       {/* Section polyline */}
       {sectionGeoJSON && (
