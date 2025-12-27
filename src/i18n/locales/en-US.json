@@ -518,6 +518,18 @@
     "analyzingRoutes": "Analyzing routes"
   },
 
+  "activityDetail": {
+    "failedToLoad": "Failed to load activity",
+    "avgPace": "Avg Pace",
+    "avgSpeed": "Avg Speed",
+    "avgHR": "Avg HR",
+    "avgPower": "Avg Power"
+  },
+
+  "routeDetail": {
+    "routeNotFound": "Route not found"
+  },
+
   "attribution": {
     "recordedWith": "Recorded with {{device}}",
     "garminTrademark": "Garmin and the Garmin logo are trademarks of Garmin Ltd."

@@ -137,6 +137,12 @@ export interface TranslationResource {
     invalidApiKey: string;
     connectionFailed: string;
     securityNote: string;
+    tryDemo: string;
+  };
+
+  demo: {
+    banner: string;
+    tapToSignIn: string;
   };
 
   settings: {
@@ -214,6 +220,70 @@ export interface TranslationResource {
     power: string;
     cadence: string;
     calories: string;
+    tss: string;
+    pwr: string;
+    cal: string;
+    temp: string;
+    noHeartRateData: string;
+    timeInHRZones: string;
+    maxHR: string;
+    noDataAvailable: string;
+    avg: string;
+    noMetricData: string;
+    noElevationData: string;
+    activityStats: string;
+    viewInIntervalsICU: string;
+    whatIsThis: string;
+    tapToClose: string;
+    vsYourAvg: string;
+    vsTypical: string;
+    explanations: {
+      trainingLoad: string;
+      heartRate: string;
+      energy: string;
+      conditions: string;
+      yourForm: string;
+      power: string;
+    };
+    stats: {
+      trainingLoad: string;
+      intensityFactor: string;
+      trimp: string;
+      strain: string;
+      yourFitness: string;
+      yourFatigue: string;
+      average: string;
+      peak: string;
+      percentOfMaxHR: string;
+      percentOfMaxHRLabel: string;
+      hrRecovery: string;
+      bpmDrop: string;
+      restingHRToday: string;
+      hrvToday: string;
+      energy: string;
+      caloriesBurned: string;
+      burnRate: string;
+      conditions: string;
+      feelsLike: string;
+      feelsLikeLabel: string;
+      windSpeed: string;
+      weatherData: string;
+      deviceSensor: string;
+      temperature: string;
+      wind: string;
+      yourForm: string;
+      dailyValue: string;
+      formTSB: string;
+      fitnessCTL: string;
+      fatigueATL: string;
+      sleepScore: string;
+      max: string;
+      maxLabel: string;
+      percentOfFTP: string;
+      eftpEstimated: string;
+      efficiencyFactor: string;
+      decoupling: string;
+    };
   };
 
   time: {
@@ -294,6 +364,35 @@ export interface TranslationResource {
     analysingRoutes: string;
   };
 
+  statsScreen: {
+    title: string;
+    days42: string;
+    months3: string;
+    months6: string;
+    year1: string;
+    lactateThreshold: string;
+    pace: string;
+    heartRate: string;
+    maxHr: string;
+    paceCurve: string;
+    powerCurve: string;
+    garminNote: string;
+  };
+
+  heatmapScreen: {
+    title: string;
+    noActivityData: string;
+    processFirstHint: string;
+    goToRoutes: string;
+    generatingHeatmap: string;
+    activitiesCount: string;
+  };
+
+  mapScreen: {
+    loadingActivities: string;
+    syncing: string;
+  };
+
   routes: {
     basedOnActivities: string;
     routesFound: string;
@@ -363,6 +462,63 @@ export interface TranslationResource {
     routesCount: string;
     activities: string;
     noActivitiesFound: string;
+  };
+
+  errorState: {
+    defaultTitle: string;
+    defaultMessage: string;
+    tryAgain: string;
+  };
+
+  emptyState: {
+    refresh: string;
+    clearFilters: string;
+    noActivities: {
+      title: string;
+      description: string;
+    };
+    noResults: {
+      title: string;
+      description: string;
+    };
+    networkError: {
+      title: string;
+      description: string;
+    };
+    error: {
+      title: string;
+      description: string;
+    };
+    noData: {
+      title: string;
+      description: string;
+    };
+    offline: {
+      title: string;
+      description: string;
+    };
+  };
+
+  cache: {
+    syncingActivities: string;
+    analyzingRoutes: string;
+  };
+
+  activityDetail: {
+    failedToLoad: string;
+    avgPace: string;
+    avgSpeed: string;
+    avgHR: string;
+    avgPower: string;
+  };
+
+  routeDetail: {
+    routeNotFound: string;
+  };
+
+  attribution: {
+    recordedWith: string;
+    garminTrademark: string;
   };
 
   stats: {

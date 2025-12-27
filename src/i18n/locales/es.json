@@ -447,6 +447,18 @@
     "analyzingRoutes": "Analizando rutas"
   },
 
+  "activityDetail": {
+    "failedToLoad": "Error al cargar la actividad",
+    "avgPace": "Ritmo Prom",
+    "avgSpeed": "Vel Prom",
+    "avgHR": "FC Prom",
+    "avgPower": "Pot Prom"
+  },
+
+  "routeDetail": {
+    "routeNotFound": "Ruta no encontrada"
+  },
+
   "attribution": {
     "recordedWith": "Grabado con {{device}}",
     "garminTrademark": "Garmin y el logotipo de Garmin son marcas registradas de Garmin Ltd."
