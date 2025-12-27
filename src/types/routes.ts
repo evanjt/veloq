@@ -295,10 +295,10 @@ export interface SectionConfig {
 
 /** Default section detection configuration */
 export const DEFAULT_SECTION_CONFIG: SectionConfig = {
-  proximityThreshold: 30,
+  proximityThreshold: 40,  // 40m - handles GPS error + opposite sides of street
   minSectionLength: 200,
   maxSectionLength: 5000,
   minActivities: 3,
-  clusterTolerance: 50,
+  clusterTolerance: 60,    // 60m for clustering similar overlaps
   samplePoints: 50,
 };
