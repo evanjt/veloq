@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Veloq - Mobile Intervals.icu Client</title>
+  <meta name="description" content="Fast, offline-first mobile client for Intervals.icu with maps and visual analytics.">
+  <meta name="theme-color" content="#FC4C02">
+  <link rel="icon" type="image/png" href="icon.png">
+
+  <!-- Open Graph -->
+  <meta property="og:title" content="Veloq - Mobile Intervals.icu Client">
+  <meta property="og:description" content="Fast, offline-first mobile client for Intervals.icu with maps and visual analytics.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://veloq.evanjt.com">
+
+  <style>
+    :root {
+      --primary: #FC4C02;
+      --primary-dark: #E04400;
+      --bg: #FAFAFA;
+      --bg-dark: #0D1117;
+      --text: #1A1A1A;
+      --text-muted: #666666;
+      --text-dark: #E6EDF3;
+      --text-muted-dark: #8B949E;
+      --card: #FFFFFF;
+      --card-dark: #161B22;
+      --border: #E5E7EB;
+      --border-dark: #30363D;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: var(--bg-dark);
+        --text: var(--text-dark);
+        --text-muted: var(--text-muted-dark);
+        --card: var(--card-dark);
+        --border: var(--border-dark);
+      }
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    /* Header */
+    header {
+      padding: 24px 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .header-inner {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      text-decoration: none;
+      color: var(--text);
+    }
+
+    .logo img {
+      width: 40px;
+      height: 40px;
+      border-radius: 8px;
+    }
+
+    .logo span {
+      font-size: 24px;
+      font-weight: 700;
+    }
+
+    .nav-links {
+      display: flex;
+      gap: 24px;
+    }
+
+    .nav-links a {
+      color: var(--text-muted);
+      text-decoration: none;
+      font-weight: 500;
+      transition: color 0.2s;
+    }
+
+    .nav-links a:hover {
+      color: var(--primary);
+    }
+
+    /* Hero */
+    .hero {
+      padding: 80px 0;
+      text-align: center;
+    }
+
+    .hero h1 {
+      font-size: clamp(2.5rem, 5vw, 4rem);
+      font-weight: 800;
+      margin-bottom: 24px;
+      letter-spacing: -0.02em;
+    }
+
+    .hero h1 span {
+      color: var(--primary);
+    }
+
+    .hero p {
+      font-size: 1.25rem;
+      color: var(--text-muted);
+      max-width: 600px;
+      margin: 0 auto 40px;
+    }
+
+    .cta-buttons {
+      display: flex;
+      gap: 16px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 14px 28px;
+      border-radius: 8px;
+      font-weight: 600;
+      text-decoration: none;
+      transition: all 0.2s;
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background: var(--primary-dark);
+      transform: translateY(-2px);
+    }
+
+    .btn-secondary {
+      background: var(--card);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+
+    .btn-secondary:hover {
+      border-color: var(--primary);
+      color: var(--primary);
+    }
+
+    /* Screenshots */
+    .screenshots {
+      padding: 40px 0 80px;
+      overflow-x: auto;
+    }
+
+    .screenshot-track {
+      display: flex;
+      gap: 24px;
+      padding: 0 24px;
+      scroll-snap-type: x mandatory;
+    }
+
+    .screenshot {
+      flex: 0 0 280px;
+      scroll-snap-align: center;
+    }
+
+    .screenshot img {
+      width: 100%;
+      border-radius: 24px;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+    }
+
+    .screenshot-placeholder {
+      width: 280px;
+      height: 560px;
+      background: var(--card);
+      border: 2px dashed var(--border);
+      border-radius: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-muted);
+      font-size: 14px;
+    }
+
+    /* Features */
+    .features {
+      padding: 80px 0;
+      background: var(--card);
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .features h2 {
+      text-align: center;
+      font-size: 2rem;
+      margin-bottom: 48px;
+    }
+
+    .feature-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 32px;
+    }
+
+    .feature {
+      padding: 24px;
+    }
+
+    .feature-icon {
+      width: 48px;
+      height: 48px;
+      background: var(--primary);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 16px;
+      font-size: 24px;
+    }
+
+    .feature h3 {
+      font-size: 1.25rem;
+      margin-bottom: 8px;
+    }
+
+    .feature p {
+      color: var(--text-muted);
+      font-size: 0.95rem;
+    }
+
+    /* Requirements */
+    .requirements {
+      padding: 80px 0;
+    }
+
+    .requirements h2 {
+      text-align: center;
+      font-size: 2rem;
+      margin-bottom: 16px;
+    }
+
+    .requirements > p {
+      text-align: center;
+      color: var(--text-muted);
+      margin-bottom: 40px;
+    }
+
+    .steps {
+      display: flex;
+      justify-content: center;
+      gap: 48px;
+      flex-wrap: wrap;
+    }
+
+    .step {
+      text-align: center;
+      max-width: 280px;
+    }
+
+    .step-number {
+      width: 48px;
+      height: 48px;
+      background: var(--primary);
+      color: white;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 1.25rem;
+      margin: 0 auto 16px;
+    }
+
+    .step h3 {
+      margin-bottom: 8px;
+    }
+
+    .step p {
+      color: var(--text-muted);
+      font-size: 0.95rem;
+    }
+
+    .step a {
+      color: var(--primary);
+    }
+
+    /* Footer */
+    footer {
+      padding: 40px 0;
+      border-top: 1px solid var(--border);
+      text-align: center;
+    }
+
+    .footer-links {
+      display: flex;
+      justify-content: center;
+      gap: 32px;
+      margin-bottom: 24px;
+      flex-wrap: wrap;
+    }
+
+    .footer-links a {
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 0.95rem;
+    }
+
+    .footer-links a:hover {
+      color: var(--primary);
+    }
+
+    .copyright {
+      color: var(--text-muted);
+      font-size: 0.875rem;
+    }
+
+    /* Mobile */
+    @media (max-width: 640px) {
+      .hero {
+        padding: 48px 0;
+      }
+
+      .nav-links {
+        display: none;
+      }
+
+      .features {
+        padding: 48px 0;
+      }
+
+      .feature-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .steps {
+        flex-direction: column;
+        align-items: center;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="container header-inner">
+      <a href="/" class="logo">
+        <img src="icon.png" alt="Veloq">
+        <span>Veloq</span>
+      </a>
+      <nav class="nav-links">
+        <a href="#features">Features</a>
+        <a href="#download">Download</a>
+        <a href="https://github.com/evanjt/veloq">GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="container">
+        <h1>Your training data,<br><span>in your pocket</span></h1>
+        <p>Fast, offline-first mobile client for Intervals.icu with interactive maps and visual analytics.</p>
+        <div class="cta-buttons" id="download">
+          <a href="https://github.com/evanjt/veloq/releases" class="btn btn-primary">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Download
+          </a>
+          <a href="https://github.com/evanjt/veloq" class="btn btn-secondary">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+            View Source
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <section class="screenshots">
+      <div class="screenshot-track">
+        <div class="screenshot">
+          <div class="screenshot-placeholder">Activity Feed<br>(screenshot pending)</div>
+        </div>
+        <div class="screenshot">
+          <div class="screenshot-placeholder">Activity Map<br>(screenshot pending)</div>
+        </div>
+        <div class="screenshot">
+          <div class="screenshot-placeholder">Multi-Metric Charts<br>(screenshot pending)</div>
+        </div>
+        <div class="screenshot">
+          <div class="screenshot-placeholder">Fitness Tracking<br>(screenshot pending)</div>
+        </div>
+        <div class="screenshot">
+          <div class="screenshot-placeholder">Regional Map<br>(screenshot pending)</div>
+        </div>
+        <div class="screenshot">
+          <div class="screenshot-placeholder">Heatmap<br>(screenshot pending)</div>
+        </div>
+        <div class="screenshot">
+          <div class="screenshot-placeholder">Routes<br>(screenshot pending)</div>
+        </div>
+        <div class="screenshot">
+          <div class="screenshot-placeholder">Settings<br>(screenshot pending)</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="features" id="features">
+      <div class="container">
+        <h2>Built for athletes</h2>
+        <div class="feature-grid">
+          <div class="feature">
+            <div class="feature-icon">&#127758;</div>
+            <h3>Map-First Visualization</h3>
+            <p>View all your activities on an interactive regional map with timeline filtering. Explore heatmaps showing your most traveled routes.</p>
+          </div>
+          <div class="feature">
+            <div class="feature-icon">&#128200;</div>
+            <h3>Rich Activity Analysis</h3>
+            <p>Multi-metric charts for heart rate, power, pace, elevation, and cadence. Scrub through your activity with synchronized map highlighting.</p>
+          </div>
+          <div class="feature">
+            <div class="feature-icon">&#128736;</div>
+            <h3>Route Intelligence</h3>
+            <p>Automatically detect repeated routes and track your performance over time. Compare efforts on the same course to measure progress.</p>
+          </div>
+          <div class="feature">
+            <div class="feature-icon">&#128170;</div>
+            <h3>Fitness Tracking</h3>
+            <p>Monitor your CTL/ATL/TSB fitness model with form zone analysis. Know when you're fresh, fatigued, or peaked.</p>
+          </div>
+          <div class="feature">
+            <div class="feature-icon">&#128247;</div>
+            <h3>Offline-First</h3>
+            <p>Aggressive caching ensures your data is always available. Sync once and access anywhere without an internet connection.</p>
+          </div>
+          <div class="feature">
+            <div class="feature-icon">&#128274;</div>
+            <h3>Privacy Focused</h3>
+            <p>All data stays on your device. No analytics, no tracking, no data collection. The developer has no access to your data.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="requirements">
+      <div class="container">
+        <h2>Getting Started</h2>
+        <p>Veloq connects to your Intervals.icu account using an API key.</p>
+        <div class="steps">
+          <div class="step">
+            <div class="step-number">1</div>
+            <h3>Get API Key</h3>
+            <p>Go to <a href="https://intervals.icu/settings" target="_blank">Intervals.icu Settings</a> &rarr; Developer Settings</p>
+          </div>
+          <div class="step">
+            <div class="step-number">2</div>
+            <h3>Install Veloq</h3>
+            <p>Download from GitHub Releases or F-Droid</p>
+          </div>
+          <div class="step">
+            <div class="step-number">3</div>
+            <h3>Connect</h3>
+            <p>Enter your athlete ID and API key to start syncing</p>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="container">
+      <div class="footer-links">
+        <a href="https://github.com/evanjt/veloq">GitHub</a>
+        <a href="https://github.com/evanjt/veloq/releases">Releases</a>
+        <a href="https://github.com/evanjt/veloq#privacy-policy">Privacy Policy</a>
+        <a href="mailto:veloq@evanjt.com">Contact</a>
+      </div>
+      <p class="copyright">&copy; 2025 Evan Thomas. Apache License 2.0.</p>
+    </div>
+  </footer>
+</body>
+</html>
