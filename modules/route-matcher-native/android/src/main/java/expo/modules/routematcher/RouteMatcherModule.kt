@@ -510,33 +510,36 @@ class RouteMatcherModule : Module() {
       )
     }
 
-    Function("generateHeatmap") { signaturesJson: String, activityDataMaps: List<Map<String, Any>>, config: Map<String, Any>? ->
-      // Parse signatures from JSON string (avoids Expo Modules bridge serialization issues)
+    Function("generateHeatmap") { signaturesJson: String, activityDataJson: String, configJson: String ->
+      // Parse all parameters from JSON strings (avoids Expo Modules bridge serialization issues with nulls)
       val sigArray = JSONArray(signaturesJson)
       Log.i(TAG, "🦀 generateHeatmap: ${sigArray.length()} signatures")
 
       val signatures = (0 until sigArray.length()).mapNotNull { i ->
         jsonToSignature(sigArray.getJSONObject(i))
       }
-      val activityData = activityDataMaps.map { m ->
+
+      val activityDataArray = JSONArray(activityDataJson)
+      val activityData = (0 until activityDataArray.length()).map { i ->
+        val obj = activityDataArray.getJSONObject(i)
         ActivityHeatmapData(
-          activityId = m["activity_id"] as String,
-          routeId = m["route_id"] as? String,
-          routeName = m["route_name"] as? String,
-          timestamp = (m["timestamp"] as? Number)?.toLong()
+          activityId = obj.getString("activity_id"),
+          routeId = if (obj.isNull("route_id")) null else obj.getString("route_id"),
+          routeName = if (obj.isNull("route_name")) null else obj.getString("route_name"),
+          timestamp = if (obj.isNull("timestamp")) null else obj.getLong("timestamp")
         )
       }
 
-      @Suppress("UNCHECKED_CAST")
-      val boundsMap = config?.get("bounds") as? Map<String, Double>
+      val configObj = JSONObject(configJson)
       val heatmapConfig = HeatmapConfig(
-        cellSizeMeters = (config?.get("cell_size_meters") as? Number)?.toDouble() ?: 100.0,
-        bounds = boundsMap?.let { b ->
+        cellSizeMeters = if (configObj.has("cell_size_meters")) configObj.getDouble("cell_size_meters") else 100.0,
+        bounds = if (configObj.isNull("bounds")) null else {
+          val boundsObj = configObj.getJSONObject("bounds")
           HeatmapBounds(
-            minLat = b["min_lat"]!!,
-            maxLat = b["max_lat"]!!,
-            minLng = b["min_lng"]!!,
-            maxLng = b["max_lng"]!!
+            minLat = boundsObj.getDouble("min_lat"),
+            maxLat = boundsObj.getDouble("max_lat"),
+            minLng = boundsObj.getDouble("min_lng"),
+            maxLng = boundsObj.getDouble("max_lng")
           )
         }
       )
@@ -581,50 +584,54 @@ class RouteMatcherModule : Module() {
       )
     }
 
-    Function("queryHeatmapCell") { heatmapMap: Map<String, Any>, lat: Double, lng: Double ->
-      @Suppress("UNCHECKED_CAST")
-      val cellMaps = heatmapMap["cells"] as List<Map<String, Any>>
-      val boundsMap = heatmapMap["bounds"] as Map<String, Double>
+    Function("queryHeatmapCell") { heatmapJson: String, lat: Double, lng: Double ->
+      // Parse heatmap from JSON string to avoid Expo Modules bridge issues with nulls
+      val heatmapObj = JSONObject(heatmapJson)
+      val cellsArray = heatmapObj.getJSONArray("cells")
+      val boundsObj = heatmapObj.getJSONObject("bounds")
 
-      val cells = cellMaps.map { c ->
-        @Suppress("UNCHECKED_CAST")
-        val routeRefMaps = c["route_refs"] as List<Map<String, Any>>
+      val cells = (0 until cellsArray.length()).map { i ->
+        val c = cellsArray.getJSONObject(i)
+        val routeRefsArray = c.getJSONArray("route_refs")
         HeatmapCell(
-          row = (c["row"] as Number).toInt(),
-          col = (c["col"] as Number).toInt(),
-          centerLat = c["center_lat"] as Double,
-          centerLng = c["center_lng"] as Double,
-          density = (c["density"] as Number).toFloat(),
-          visitCount = (c["visit_count"] as Number).toInt().toUInt(),
-          routeRefs = routeRefMaps.map { r ->
+          row = c.getInt("row"),
+          col = c.getInt("col"),
+          centerLat = c.getDouble("center_lat"),
+          centerLng = c.getDouble("center_lng"),
+          density = c.getDouble("density").toFloat(),
+          visitCount = c.getInt("visit_count").toUInt(),
+          routeRefs = (0 until routeRefsArray.length()).map { j ->
+            val r = routeRefsArray.getJSONObject(j)
             RouteRef(
-              routeId = r["route_id"] as String,
-              activityCount = (r["activity_count"] as Number).toInt().toUInt(),
-              name = r["name"] as? String
+              routeId = r.getString("route_id"),
+              activityCount = r.getInt("activity_count").toUInt(),
+              name = if (r.isNull("name")) null else r.getString("name")
             )
           },
-          uniqueRouteCount = (c["unique_route_count"] as Number).toInt().toUInt(),
-          activityIds = c["activity_ids"] as List<String>,
-          firstVisit = (c["first_visit"] as? Number)?.toLong(),
-          lastVisit = (c["last_visit"] as? Number)?.toLong(),
-          isCommonPath = c["is_common_path"] as Boolean
+          uniqueRouteCount = c.getInt("unique_route_count").toUInt(),
+          activityIds = (0 until c.getJSONArray("activity_ids").length()).map { j ->
+            c.getJSONArray("activity_ids").getString(j)
+          },
+          firstVisit = if (c.isNull("first_visit")) null else c.getLong("first_visit"),
+          lastVisit = if (c.isNull("last_visit")) null else c.getLong("last_visit"),
+          isCommonPath = c.getBoolean("is_common_path")
         )
       }
 
       val heatmap = HeatmapResult(
         cells = cells,
         bounds = HeatmapBounds(
-          minLat = boundsMap["min_lat"]!!,
-          maxLat = boundsMap["max_lat"]!!,
-          minLng = boundsMap["min_lng"]!!,
-          maxLng = boundsMap["max_lng"]!!
+          minLat = boundsObj.getDouble("min_lat"),
+          maxLat = boundsObj.getDouble("max_lat"),
+          minLng = boundsObj.getDouble("min_lng"),
+          maxLng = boundsObj.getDouble("max_lng")
         ),
-        cellSizeMeters = (heatmapMap["cell_size_meters"] as Number).toDouble(),
-        gridRows = (heatmapMap["grid_rows"] as Number).toInt().toUInt(),
-        gridCols = (heatmapMap["grid_cols"] as Number).toInt().toUInt(),
-        maxDensity = (heatmapMap["max_density"] as Number).toFloat(),
-        totalRoutes = (heatmapMap["total_routes"] as Number).toInt().toUInt(),
-        totalActivities = (heatmapMap["total_activities"] as Number).toInt().toUInt()
+        cellSizeMeters = heatmapObj.getDouble("cell_size_meters"),
+        gridRows = heatmapObj.getInt("grid_rows").toUInt(),
+        gridCols = heatmapObj.getInt("grid_cols").toUInt(),
+        maxDensity = heatmapObj.getDouble("max_density").toFloat(),
+        totalRoutes = heatmapObj.getInt("total_routes").toUInt(),
+        totalActivities = heatmapObj.getInt("total_activities").toUInt()
       )
 
       val result = ffiQueryHeatmapCell(heatmap, lat, lng)
@@ -695,7 +702,11 @@ class RouteMatcherModule : Module() {
       // Pre-computed activity traces: map of activityId -> GPS points overlapping with section
       "activity_traces" to section.activityTraces.mapValues { (_, points) ->
         points.map { mapOf("latitude" to it.latitude, "longitude" to it.longitude) }
-      }
+      },
+      // Consensus polyline metrics
+      "confidence" to section.confidence,
+      "observation_count" to section.observationCount.toInt(),
+      "average_spread" to section.averageSpread
     )
   }
 
