@@ -95,6 +95,8 @@ interface SyncCheckpoint {
 type ProgressListener = (progress: SyncProgress) => void;
 type CacheListener = (cache: ActivityBoundsCache | null) => void;
 type CompletionListener = () => void;
+/** Called when new activities are synced (with their IDs) */
+type NewActivitiesListener = (activityIds: string[]) => void;
 
 class ActivitySyncManager {
   private static instance: ActivitySyncManager;
@@ -116,6 +118,7 @@ class ActivitySyncManager {
   private progressListeners: Set<ProgressListener> = new Set();
   private cacheListeners: Set<CacheListener> = new Set();
   private completionListeners: Set<CompletionListener> = new Set();
+  private newActivitiesListeners: Set<NewActivitiesListener> = new Set();
 
   private constructor() {}
 
@@ -259,6 +262,12 @@ class ActivitySyncManager {
     return () => this.completionListeners.delete(listener);
   }
 
+  /** Subscribe to new activities being synced (fires after each sync with new activities) */
+  onNewActivitiesSynced(listener: NewActivitiesListener): () => void {
+    this.newActivitiesListeners.add(listener);
+    return () => this.newActivitiesListeners.delete(listener);
+  }
+
   /** Check if initial sync has completed */
   hasInitialSyncCompleted(): boolean {
     return this.hasCompletedInitialSync;
@@ -268,6 +277,15 @@ class ActivitySyncManager {
     this.hasCompletedInitialSync = true;
     for (const listener of this.completionListeners) {
       listener();
+    }
+  }
+
+  /** Notify listeners of newly synced activities (triggers route processing for new activities) */
+  private notifyNewActivitiesListeners(activityIds: string[]): void {
+    if (activityIds.length === 0) return;
+    log.log(`Notifying ${this.newActivitiesListeners.size} listeners of ${activityIds.length} new activities`);
+    for (const listener of this.newActivitiesListeners) {
+      listener(activityIds);
     }
   }
 
@@ -557,6 +575,10 @@ class ActivitySyncManager {
         // Store metadata cache (small, fast)
         await this.savePartialResults(newEntries, oldestDate);
         await this.updateCheckpointPendingIds(pendingIds);
+
+        // Notify listeners of newly synced activities (for route processing)
+        const newActivityIds = Object.keys(newEntries);
+        this.notifyNewActivitiesListeners(newActivityIds);
       }
     } catch (error) {
       const isAbortError = error instanceof Error && error.name === 'AbortError';

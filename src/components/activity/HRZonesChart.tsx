@@ -49,8 +49,10 @@ export function HRZonesChart({
     const activityZoneTimes = (activity as { icu_hr_zone_times?: number[] })?.icu_hr_zone_times;
 
     // Determine which zones to use (activity > sport settings > local)
-    const apiZones = activityZones ?? (settings?.hr_zones as unknown as number[] | undefined);
-    const zoneNames = (settings as { hr_zone_names?: string[] })?.hr_zone_names;
+    // Note: hr_zones from API may be Zone[] or number[] depending on endpoint
+    const apiZones = activityZones ?? (settings?.hr_zones as number[] | undefined);
+    // hr_zone_names is an optional field on some sport settings responses
+    const zoneNames = (settings as { hr_zone_names?: string[] } | undefined)?.hr_zone_names;
 
     let builtZones: Array<{
       id: number;

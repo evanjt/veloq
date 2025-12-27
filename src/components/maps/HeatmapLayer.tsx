@@ -7,6 +7,9 @@ import React, { useMemo } from 'react';
 import { ShapeSource, CircleLayer } from '@maplibre/maplibre-react-native';
 import type { HeatmapResult } from '@/hooks/useHeatmap';
 
+// MapLibre expression type - allows style expressions that TypeScript types don't fully support
+type MapLibreExpression = (string | number | (string | number)[])[];
+
 interface HeatmapLayerProps {
   /** Heatmap data from useHeatmap */
   heatmap: HeatmapResult;
@@ -19,7 +22,7 @@ interface HeatmapLayerProps {
 }
 
 // Color stops for density gradient (yellow -> orange -> red)
-const DENSITY_COLORS = [
+const DENSITY_COLORS: MapLibreExpression = [
   'interpolate',
   ['linear'],
   ['get', 'density'],
@@ -31,7 +34,7 @@ const DENSITY_COLORS = [
 ];
 
 // Circle radius based on cell size and density
-const CIRCLE_RADIUS = [
+const CIRCLE_RADIUS: MapLibreExpression = [
   'interpolate',
   ['linear'],
   ['get', 'density'],
@@ -97,18 +100,19 @@ export function HeatmapLayer({
       hitbox={{ width: 20, height: 20 }}
     >
       {/* Main heatmap circles */}
+      {/* Note: MapLibre style expressions are arrays but TS types expect primitives */}
       <CircleLayer
         id="heatmap-circles"
         style={{
-          circleRadius: CIRCLE_RADIUS as unknown as number,
-          circleColor: DENSITY_COLORS as unknown as string,
+          circleRadius: CIRCLE_RADIUS as number,
+          circleColor: DENSITY_COLORS as string,
           circleOpacity: opacity,
-          circleStrokeWidth: highlightCommonPaths ? [
+          circleStrokeWidth: (highlightCommonPaths ? [
             'case',
             ['get', 'isCommonPath'],
             1.5,
             0,
-          ] as unknown as number : 0,
+          ] : 0) as number,
           circleStrokeColor: '#FFFFFF',
         }}
       />

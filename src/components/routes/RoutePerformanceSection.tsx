@@ -36,14 +36,14 @@ function formatShortDate(date: Date): string {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
-function getDirectionIcon(direction: string): string {
+function getDirectionIcon(direction: string) {
   switch (direction) {
     case 'reverse':
-      return 'swap-horizontal';
+      return 'swap-horizontal' as const;
     case 'partial':
-      return 'arrow-split-vertical';
+      return 'arrow-split-vertical' as const;
     default:
-      return 'arrow-right';
+      return 'arrow-right' as const;
   }
 }
 
@@ -339,7 +339,7 @@ export function RoutePerformanceSection({ activityId, activityType }: RoutePerfo
                 {tooltipData.direction !== 'same' && (
                   <View style={[styles.directionBadge, tooltipData.direction === 'reverse' && styles.directionReverse]}>
                     <MaterialCommunityIcons
-                      name={getDirectionIcon(tooltipData.direction) as any}
+                      name={getDirectionIcon(tooltipData.direction)}
                       size={10}
                       color={tooltipData.direction === 'reverse' ? '#E91E63' : '#FF9800'}
                     />

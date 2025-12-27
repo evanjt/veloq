@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { ComponentProps } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -8,7 +8,7 @@ import { spacing } from '@/theme';
 
 interface EmptyStateProps {
   /** Icon name from MaterialCommunityIcons */
-  icon: string;
+  icon: ComponentProps<typeof MaterialCommunityIcons>['name'];
   /** Main title text */
   title: string;
   /** Description text */
@@ -41,7 +41,7 @@ export function EmptyState({
         ]}
       >
         <MaterialCommunityIcons
-          name={icon as any}
+          name={icon}
           size={compact ? 32 : 48}
           color={isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.3)'}
         />
