@@ -167,7 +167,7 @@ export interface DiscoveredRouteInfo {
 
 /** Progress state for route processing */
 export interface RouteProcessingProgress {
-  status: 'idle' | 'filtering' | 'fetching' | 'processing' | 'matching' | 'complete' | 'error';
+  status: 'idle' | 'filtering' | 'fetching' | 'processing' | 'matching' | 'detecting-sections' | 'complete' | 'error';
   current: number;
   total: number;
   message?: string;
@@ -231,44 +231,74 @@ export const DEFAULT_ROUTE_MATCH_CONFIG: RouteMatchConfig = {
 // =============================================================================
 
 /**
- * A frequently-traveled road section, detected automatically from GPS tracks.
- * Even when full routes differ, common sections are identified.
+ * Each activity's portion of a section (for pace comparison).
+ */
+export interface SectionPortion {
+  /** Activity ID */
+  activityId: string;
+  /** Start index into the activity's FULL GPS track */
+  startIndex: number;
+  /** End index into the activity's FULL GPS track */
+  endIndex: number;
+  /** Distance of this portion in meters */
+  distanceMeters: number;
+  /** Direction relative to representative: "same" or "reverse" */
+  direction: string;
+}
+
+/**
+ * A frequently-traveled road section with medoid representation.
+ * The polyline is an ACTUAL GPS trace (medoid), not artificial interpolation.
+ * This produces smooth, natural section shapes that follow real roads.
  */
 export interface FrequentSection {
   /** Unique section ID */
   id: string;
   /** Sport type this section is for ("Run", "Ride", etc.) */
   sportType: string;
-  /** Simplified polyline for rendering (ordered path through cells) */
+  /** The medoid polyline - an ACTUAL GPS trace from one activity */
   polyline: RoutePoint[];
+  /** Which activity provided the representative polyline */
+  representativeActivityId?: string;
   /** Activity IDs that traverse this section */
   activityIds: string[];
+  /** Each activity's portion (start/end indices, distance, direction) for pace comparison */
+  activityPortions?: SectionPortion[];
   /** Route group IDs that include this section */
   routeIds: string[];
   /** Total number of traversals */
   visitCount: number;
-  /** Estimated section length in meters */
+  /** Section length in meters */
   distanceMeters: number;
   /** Display name (auto-generated or user-set) */
   name?: string;
+  /** Pre-computed GPS traces for each activity's overlapping portion
+   * Key is activity ID, value is the GPS points within proximity of section */
+  activityTraces?: Record<string, RoutePoint[]>;
 }
 
 /** Configuration for section detection */
 export interface SectionConfig {
-  /** Grid cell size in meters (default: 100m) */
-  cellSizeMeters: number;
-  /** Minimum visits to a cell to be considered frequent (default: 3) */
-  minVisits: number;
-  /** Minimum cells in a cluster to form a section (default: 5, ~500m) */
-  minCells: number;
-  /** Whether to use 8-directional flood-fill (default: true) */
-  diagonalConnect: boolean;
+  /** Maximum distance between tracks to consider overlapping (meters). Default: 30m */
+  proximityThreshold: number;
+  /** Minimum overlap length to consider a section (meters). Default: 200m */
+  minSectionLength: number;
+  /** Maximum section length (meters) - prevents sections from becoming full routes. Default: 5000m */
+  maxSectionLength: number;
+  /** Minimum number of activities that must share an overlap. Default: 3 */
+  minActivities: number;
+  /** Tolerance for clustering similar overlaps (meters). Default: 50m */
+  clusterTolerance: number;
+  /** Number of sample points for polyline normalization. Default: 50 */
+  samplePoints: number;
 }
 
 /** Default section detection configuration */
 export const DEFAULT_SECTION_CONFIG: SectionConfig = {
-  cellSizeMeters: 100,
-  minVisits: 3,
-  minCells: 5,
-  diagonalConnect: true,
+  proximityThreshold: 40,  // 40m - handles GPS error + opposite sides of street
+  minSectionLength: 200,
+  maxSectionLength: 5000,
+  minActivities: 3,
+  clusterTolerance: 60,    // 60m for clustering similar overlaps
+  samplePoints: 50,
 };
