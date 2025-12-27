@@ -79,7 +79,13 @@
     "apiKeyRequired": "La clave API es obligatoria",
     "invalidApiKey": "Clave API inválida. Por favor, verifica tu clave e inténtalo de nuevo.",
     "connectionFailed": "Error de conexión. Por favor, verifica tu clave API e inténtalo de nuevo.",
-    "securityNote": "Tus credenciales se guardan de forma segura en tu dispositivo"
+    "securityNote": "Tus credenciales se guardan de forma segura en tu dispositivo",
+    "tryDemo": "Probar Demo"
+  },
+
+  "demo": {
+    "banner": "Modo Demo",
+    "tapToSignIn": "Toca para iniciar sesión"
   },
 
   "settings": {

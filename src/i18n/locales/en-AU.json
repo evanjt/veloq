@@ -79,7 +79,13 @@
     "apiKeyRequired": "API Key is required",
     "invalidApiKey": "Invalid API Key. Please check your key and try again.",
     "connectionFailed": "Failed to connect. Please check your API key and try again.",
-    "securityNote": "Your credentials are stored securely on your device"
+    "securityNote": "Your credentials are stored securely on your device",
+    "tryDemo": "Try Demo"
+  },
+
+  "demo": {
+    "banner": "Demo Mode",
+    "tapToSignIn": "Tap to sign in"
   },
 
   "settings": {
