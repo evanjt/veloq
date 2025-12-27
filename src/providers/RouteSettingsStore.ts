@@ -5,7 +5,7 @@
 
 import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { debug } from '@/lib/debug';
+import { debug } from '@/lib';
 
 const log = debug.create('RouteSettings');
 

@@ -15,12 +15,12 @@ import {
   shouldGroupRoutes,
   findMatches,
   groupSignatures,
-} from '../lib/routeMatching';
+} from '../lib/algorithms/routeMatching';
 import {
   haversineDistance,
   generateRouteSignature,
   calculateRouteDistance,
-} from '../lib/routeSignature';
+} from '../lib/algorithms/routeSignature';
 import type { RouteSignature, RoutePoint } from '../types';
 import { DEFAULT_ROUTE_MATCH_CONFIG } from '../types';
 

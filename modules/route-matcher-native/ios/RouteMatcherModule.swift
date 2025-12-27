@@ -167,95 +167,7 @@ public class RouteMatcherModule: Module {
             ]
         }
 
-        // BATCH: Create multiple signatures in parallel
-        Function("createSignaturesBatch") { (tracks: [[String: Any]], config: [String: Any]?) -> [[String: Any]] in
-            logger.info("BATCH createSignatures called with \(tracks.count) tracks")
-
-            let gpsTracks = tracks.compactMap { track -> GpsTrack? in
-                guard let activityId = track["activityId"] as? String,
-                      let pointMaps = track["points"] as? [[String: Double]] else { return nil }
-
-                let gpsPoints = pointMaps.compactMap { dict -> GpsPoint? in
-                    guard let lat = dict["latitude"], let lng = dict["longitude"] else { return nil }
-                    return GpsPoint(latitude: lat, longitude: lng)
-                }
-
-                return GpsTrack(activityId: activityId, points: gpsPoints)
-            }
-
-            let matchConfig = self.parseConfig(config)
-
-            let startTime = CFAbsoluteTimeGetCurrent()
-            let signatures = createSignaturesBatch(tracks: gpsTracks, config: matchConfig)
-            let elapsed = (CFAbsoluteTimeGetCurrent() - startTime) * 1000
-
-            logger.info("BATCH created \(signatures.count) signatures in \(Int(elapsed))ms")
-
-            return signatures.map { self.signatureToMap($0) }
-        }
-
-        // BATCH: Full end-to-end processing (signatures + grouping)
-        Function("processRoutesBatch") { (tracks: [[String: Any]], config: [String: Any]?) -> [[String: Any]] in
-            logger.info("FULL BATCH processRoutes called with \(tracks.count) tracks")
-
-            let gpsTracks = tracks.compactMap { track -> GpsTrack? in
-                guard let activityId = track["activityId"] as? String,
-                      let pointMaps = track["points"] as? [[String: Double]] else { return nil }
-
-                let gpsPoints = pointMaps.compactMap { dict -> GpsPoint? in
-                    guard let lat = dict["latitude"], let lng = dict["longitude"] else { return nil }
-                    return GpsPoint(latitude: lat, longitude: lng)
-                }
-
-                return GpsTrack(activityId: activityId, points: gpsPoints)
-            }
-
-            let matchConfig = self.parseConfig(config)
-
-            let startTime = CFAbsoluteTimeGetCurrent()
-            let groups = processRoutesBatch(tracks: gpsTracks, config: matchConfig)
-            let elapsed = (CFAbsoluteTimeGetCurrent() - startTime) * 1000
-
-            logger.info("FULL BATCH: \(gpsTracks.count) tracks -> \(groups.count) groups in \(Int(elapsed))ms")
-
-            return groups.map { group in
-                [
-                    "groupId": group.groupId,
-                    "activityIds": group.activityIds
-                ]
-            }
-        }
-
-        // OPTIMIZED: Process routes using flat coordinate arrays
-        Function("processRoutesFlat") { (activityIds: [String], coordArrays: [[Double]], config: [String: Any]?) -> [[String: Any]] in
-            logger.info("FLAT processRoutes called with \(activityIds.count) tracks")
-
-            guard activityIds.count == coordArrays.count else {
-                logger.error("ERROR: activityIds.count (\(activityIds.count)) != coordArrays.count (\(coordArrays.count))")
-                return []
-            }
-
-            let flatTracks = zip(activityIds, coordArrays).map { (activityId, coords) in
-                FlatGpsTrack(activityId: activityId, coords: coords)
-            }
-
-            let matchConfig = self.parseConfig(config)
-
-            let startTime = CFAbsoluteTimeGetCurrent()
-            let groups = processRoutesFromFlat(tracks: flatTracks, config: matchConfig)
-            let elapsed = (CFAbsoluteTimeGetCurrent() - startTime) * 1000
-
-            logger.info("FLAT BATCH: \(flatTracks.count) tracks -> \(groups.count) groups in \(Int(elapsed))ms")
-
-            return groups.map { group in
-                [
-                    "groupId": group.groupId,
-                    "activityIds": group.activityIds
-                ]
-            }
-        }
-
-        // OPTIMIZED: Create signatures from flat buffer
+        // Create signatures from flat buffer
         Function("createSignaturesFlatBuffer") { (activityIds: [String], coords: [Double], offsets: [Int], config: [String: Any]?) -> [[String: Any]] in
             logger.info("FLAT BUFFER createSignatures: \(activityIds.count) tracks, \(coords.count) coords")
 
@@ -282,7 +194,7 @@ public class RouteMatcherModule: Module {
             return signatures.map { self.signatureToMap($0) }
         }
 
-        // OPTIMIZED V2: Single flat buffer with offsets
+        // Process routes using flat buffer with offsets
         Function("processRoutesFlatBuffer") { (activityIds: [String], coords: [Double], offsets: [Int], config: [String: Any]?) -> [[String: Any]] in
             logger.info("FLAT BUFFER processRoutes: \(activityIds.count) tracks, \(coords.count) coords")
 
@@ -421,29 +333,7 @@ public class RouteMatcherModule: Module {
             ]
         }
 
-        // Section detection from route signatures (legacy)
-        Function("detectFrequentSections") { (signatures: [[String: Any]], groups: [[String: Any]], sportTypes: [[String: Any]], config: [String: Any]?) -> [[String: Any]] in
-            logger.info("detectFrequentSections: \(signatures.count) signatures")
-
-            let sigs = signatures.compactMap { self.mapToSignature($0) }
-            let routeGroups = groups.compactMap { dict -> RouteGroup? in
-                guard let groupId = dict["groupId"] as? String,
-                      let activityIds = dict["activityIds"] as? [String] else { return nil }
-                return RouteGroup(groupId: groupId, activityIds: activityIds)
-            }
-            let types = sportTypes.compactMap { dict -> ActivitySportType? in
-                guard let activityId = dict["activity_id"] as? String,
-                      let sportType = dict["sport_type"] as? String else { return nil }
-                return ActivitySportType(activityId: activityId, sportType: sportType)
-            }
-
-            let sectionConfig = self.parseSectionConfig(config)
-            let result = ffiDetectFrequentSections(signatures: sigs, groups: routeGroups, sportTypes: types, config: sectionConfig)
-
-            return result.map { self.sectionToMap($0) }
-        }
-
-        // Section detection from FULL GPS tracks (medoid-based)
+        // Section detection from GPS tracks
         // Returns JSON string for efficient bridge serialization
         Function("detectSectionsFromTracks") { (activityIds: [String], allCoords: [Double], offsets: [Int], sportTypes: [[String: Any]], groups: [[String: Any]], config: [String: Any]?) -> String in
             logger.info("detectSectionsFromTracks: \(activityIds.count) activities, \(allCoords.count / 2) coords")

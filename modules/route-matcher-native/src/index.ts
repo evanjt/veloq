@@ -235,64 +235,6 @@ export function getDefaultConfig(): MatchConfig {
 }
 
 /**
- * Create multiple route signatures in parallel (batch processing).
- * MUCH faster than calling createSignature repeatedly:
- * - Single FFI call instead of N calls
- * - Parallel processing with rayon in Rust
- */
-export function createSignaturesBatch(
-  tracks: GpsTrack[],
-  config?: Partial<MatchConfig>
-): RouteSignature[] {
-  nativeLog(`BATCH createSignatures called with ${tracks.length} tracks`);
-  const startTime = Date.now();
-  const result = NativeModule.createSignaturesBatch(tracks, config ?? null);
-  const elapsed = Date.now() - startTime;
-  nativeLog(`BATCH createSignatures returned ${result?.length || 0} signatures in ${elapsed}ms`);
-  return result || [];
-}
-
-/**
- * Process routes end-to-end: create signatures AND group them in one call.
- * This is the MOST efficient way to process many activities:
- * - Single FFI call for everything
- * - Parallel signature creation
- * - Parallel grouping with spatial indexing
- */
-export function processRoutesBatch(
-  tracks: GpsTrack[],
-  config?: Partial<MatchConfig>
-): RouteGroup[] {
-  nativeLog(`FULL BATCH processRoutes called with ${tracks.length} tracks`);
-  const startTime = Date.now();
-  const result = NativeModule.processRoutesBatch(tracks, config ?? null);
-  const elapsed = Date.now() - startTime;
-  nativeLog(`FULL BATCH processRoutes returned ${result?.length || 0} groups in ${elapsed}ms`);
-  return result || [];
-}
-
-/**
- * OPTIMIZED: Process routes using flat coordinate arrays.
- * Avoids the overhead of serializing GpsPoint objects.
- *
- * @param activityIds - Array of activity IDs
- * @param coordArrays - Array of flat coordinate arrays [lat1, lng1, lat2, lng2, ...]
- * @param config - Optional match configuration
- */
-export function processRoutesFlat(
-  activityIds: string[],
-  coordArrays: number[][],
-  config?: Partial<MatchConfig>
-): RouteGroup[] {
-  nativeLog(`FLAT processRoutes called with ${activityIds.length} tracks`);
-  const startTime = Date.now();
-  const result = NativeModule.processRoutesFlat(activityIds, coordArrays, config ?? null);
-  const elapsed = Date.now() - startTime;
-  nativeLog(`FLAT processRoutes returned ${result?.length || 0} groups in ${elapsed}ms`);
-  return result || [];
-}
-
-/**
  * OPTIMIZED: Create signatures using a single flat buffer with offsets.
  * Returns signatures (not groups) for incremental caching.
  * All coordinates in one contiguous array, with offsets marking track boundaries.
@@ -588,70 +530,6 @@ export interface ActivitySportType {
 }
 
 /**
- * Detect frequent sections from route signatures.
- * Uses vector-first algorithm to find road sections that are frequently traveled.
- * Produces smooth polylines from actual GPS tracks.
- *
- * @param signatures - Route signatures with GPS points
- * @param groups - Route groups (for linking sections to routes)
- * @param sportTypes - Map of activity_id -> sport_type
- * @param config - Optional section detection configuration
- * @returns Array of detected frequent sections, sorted by visit count (descending)
- */
-export function detectFrequentSections(
-  signatures: RouteSignature[],
-  groups: RouteGroup[],
-  sportTypes: ActivitySportType[],
-  config?: Partial<SectionConfig>
-): FrequentSection[] {
-  nativeLog(`RUST detectFrequentSections called with ${signatures.length} signatures`);
-  const startTime = Date.now();
-
-  // Convert to native format
-  const nativeConfig = config ? {
-    proximity_threshold: config.proximityThreshold ?? 30.0,
-    min_section_length: config.minSectionLength ?? 200.0,
-    min_activities: config.minActivities ?? 3,
-    cluster_tolerance: config.clusterTolerance ?? 50.0,
-    sample_points: config.samplePoints ?? 50,
-  } : NativeModule.defaultSectionConfig();
-
-  const result = NativeModule.detectFrequentSections(
-    signatures,
-    groups,
-    sportTypes.map(st => ({
-      activity_id: st.activityId,
-      sport_type: st.sportType,
-    })),
-    nativeConfig
-  );
-
-  const elapsed = Date.now() - startTime;
-  nativeLog(`RUST detectFrequentSections returned ${result?.length || 0} sections in ${elapsed}ms`);
-
-  // Convert from snake_case to camelCase
-  return (result || []).map((s: Record<string, unknown>) => ({
-    id: s.id as string,
-    sportType: s.sport_type as string,
-    polyline: ((s.polyline as GpsPoint[]) || []).map(p => ({ lat: p.latitude, lng: p.longitude })),
-    representativeActivityId: (s.representative_activity_id as string) || '',
-    activityIds: s.activity_ids as string[],
-    activityPortions: ((s.activity_portions as Array<Record<string, unknown>>) || []).map(p => ({
-      activityId: p.activity_id as string,
-      startIndex: p.start_index as number,
-      endIndex: p.end_index as number,
-      distanceMeters: p.distance_meters as number,
-      direction: p.direction as string,
-    })),
-    routeIds: s.route_ids as string[],
-    visitCount: s.visit_count as number,
-    distanceMeters: s.distance_meters as number,
-    // Pre-computed activity traces (converted from native format)
-    activityTraces: convertActivityTraces(s.activity_traces as Record<string, GpsPoint[]>),
-  }));
-}
-
-/**
  * Helper to convert activity traces from native format
  */
 function convertActivityTraces(traces: Record<string, GpsPoint[]> | undefined): Record<string, RoutePoint[]> {
@@ -760,7 +638,7 @@ export function detectSectionsFromTracks(
     distanceMeters: s.distance_meters as number,
     // Pre-computed activity traces (converted from native format)
     activityTraces: convertActivityTraces(s.activity_traces as Record<string, GpsPoint[]>),
-    // Consensus polyline metrics (with defaults for backwards compatibility)
+    // Consensus polyline metrics
     confidence: (s.confidence as number) ?? 0.0,
     observationCount: (s.observation_count as number) ?? 0,
     averageSpread: (s.average_spread as number) ?? 0.0,
@@ -1099,13 +977,10 @@ export function getDefaultHeatmapConfig(): HeatmapConfig {
 
 export default {
   createSignature,
-  createSignaturesBatch,
   createSignaturesFlatBuffer,
   compareRoutes,
   groupSignatures,
   groupIncremental,
-  processRoutesBatch,
-  processRoutesFlat,
   processRoutesFlatBuffer,
   tracksToFlatBuffer,
   getDefaultConfig,
@@ -1119,7 +994,6 @@ export default {
   flatCoordsToPoints,
   parseBounds,
   // Frequent sections detection
-  detectFrequentSections,
   detectSectionsFromTracks,
   getDefaultSectionConfig,
   // Heatmap generation

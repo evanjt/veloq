@@ -28,7 +28,7 @@ import {
 } from '@/lib';
 import { colors, darkColors, spacing, typography, layout, opacity } from '@/theme';
 import { DeviceAttribution } from '@/components/ui';
-import type { ChartTypeId } from '@/lib/chartConfig';
+import type { ChartTypeId } from '@/lib';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const MAP_HEIGHT = Math.round(SCREEN_HEIGHT * 0.55); // 55% of screen

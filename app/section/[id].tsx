@@ -45,7 +45,7 @@ import {
   formatPace,
   isRunningActivity,
 } from '@/lib';
-import { getGpsTrack } from '@/lib/gpsStorage';
+import { getGpsTrack } from '@/lib';
 import { colors, darkColors, spacing, layout, typography, opacity } from '@/theme';
 import type { Activity, ActivityType, RoutePoint, FrequentSection } from '@/types';
 

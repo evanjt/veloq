@@ -7,10 +7,10 @@
 
 import { create } from 'zustand';
 import type { RouteMatchCache, RouteProcessingProgress, RouteGroup, RouteMatch, ActivityType } from '@/types';
-import { routeProcessingQueue } from '@/lib/routeProcessingQueue';
-import { activitySyncManager } from '@/lib/activitySyncManager';
+import { routeProcessingQueue } from '@/lib';
+import { activitySyncManager } from '@/lib';
 import { isRouteMatchingEnabled } from './RouteSettingsStore';
-import { debug } from '@/lib/debug';
+import { debug } from '@/lib';
 
 const log = debug.create('RouteMatchStore');
 

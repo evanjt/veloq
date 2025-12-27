@@ -13,7 +13,7 @@
 
 // Use legacy API for SDK 54 compatibility (new API uses File/Directory classes)
 import * as FileSystem from 'expo-file-system/legacy';
-import { debug } from './debug';
+import { debug } from '../utils/debug';
 
 const log = debug.create('GpsStorage');
 

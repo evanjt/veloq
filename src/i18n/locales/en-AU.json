@@ -444,7 +444,7 @@
 
   "cache": {
     "syncingActivities": "Syncing activities",
-    "analysingRoutes": "Analysing routes"
+    "analyzingRoutes": "Analysing routes"
   },
 
   "activityDetail": {

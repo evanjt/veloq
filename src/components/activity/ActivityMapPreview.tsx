@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { View, StyleSheet, ActivityIndicator } from 'react-native';
 import { MapView, Camera, ShapeSource, LineLayer, MarkerView } from '@maplibre/maplibre-react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { convertLatLngTuples } from '@/lib/polyline';
+import { convertLatLngTuples } from '@/lib';
 import { getActivityColor } from '@/lib';
 import { colors, layout } from '@/theme';
 import { useMapPreferences } from '@/providers';

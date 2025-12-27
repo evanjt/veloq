@@ -1015,27 +1015,6 @@ pub fn detect_sections_from_tracks(
 }
 
 // =============================================================================
-// Legacy API Compatibility
-// =============================================================================
-
-/// Legacy entry point using RouteSignatures (for backwards compatibility)
-/// This wraps the new algorithm but uses pre-simplified points
-pub fn detect_frequent_sections(
-    signatures: &[crate::RouteSignature],
-    groups: &[RouteGroup],
-    sport_types: &HashMap<String, String>,
-    config: &SectionConfig,
-) -> Vec<FrequentSection> {
-    // Convert signatures to tracks format
-    let tracks: Vec<(String, Vec<GpsPoint>)> = signatures
-        .iter()
-        .map(|sig| (sig.activity_id.clone(), sig.points.clone()))
-        .collect();
-
-    detect_sections_from_tracks(&tracks, sport_types, groups, config)
-}
-
-// =============================================================================
 // Consensus Polyline Computation
 // =============================================================================
 

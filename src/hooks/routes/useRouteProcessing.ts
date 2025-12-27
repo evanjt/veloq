@@ -5,7 +5,7 @@
 
 import { useCallback } from 'react';
 import { useRouteMatchStore } from '@/providers/RouteMatchStore';
-import { routeProcessingQueue } from '@/lib/routeProcessingQueue';
+import { routeProcessingQueue } from '@/lib';
 import type { RouteProcessingProgress, ActivityType, ActivityBoundsItem } from '@/types';
 
 interface UseRouteProcessingResult {

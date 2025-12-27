@@ -109,102 +109,7 @@ class RouteMatcherModule : Module() {
       )
     }
 
-    // BATCH: Create multiple signatures in parallel (MUCH faster for many activities)
-    Function("createSignaturesBatch") { tracks: List<Map<String, Any>>, config: Map<String, Any>? ->
-      Log.i(TAG, "BATCH createSignatures called with ${tracks.size} tracks")
-
-      @Suppress("UNCHECKED_CAST")
-      val gpsTracks = tracks.mapNotNull { track ->
-        val activityId = track["activityId"] as? String ?: return@mapNotNull null
-        val pointMaps = track["points"] as? List<Map<String, Double>> ?: return@mapNotNull null
-
-        val gpsPoints = pointMaps.mapNotNull { dict ->
-          val lat = dict["latitude"] ?: return@mapNotNull null
-          val lng = dict["longitude"] ?: return@mapNotNull null
-          GpsPoint(lat, lng)
-        }
-
-        GpsTrack(activityId, gpsPoints)
-      }
-
-      val matchConfig = parseConfig(config)
-
-      val startTime = System.currentTimeMillis()
-      val signatures = createSignaturesBatch(gpsTracks, matchConfig)
-      val elapsed = System.currentTimeMillis() - startTime
-
-      Log.i(TAG, "BATCH created ${signatures.size} signatures in ${elapsed}ms")
-
-      signatures.map { signatureToMap(it) }
-    }
-
-    // BATCH: Full end-to-end processing (signatures + grouping) in one call
-    Function("processRoutesBatch") { tracks: List<Map<String, Any>>, config: Map<String, Any>? ->
-      Log.i(TAG, "FULL BATCH processRoutes called with ${tracks.size} tracks")
-
-      @Suppress("UNCHECKED_CAST")
-      val gpsTracks = tracks.mapNotNull { track ->
-        val activityId = track["activityId"] as? String ?: return@mapNotNull null
-        val pointMaps = track["points"] as? List<Map<String, Double>> ?: return@mapNotNull null
-
-        val gpsPoints = pointMaps.mapNotNull { dict ->
-          val lat = dict["latitude"] ?: return@mapNotNull null
-          val lng = dict["longitude"] ?: return@mapNotNull null
-          GpsPoint(lat, lng)
-        }
-
-        GpsTrack(activityId, gpsPoints)
-      }
-
-      val matchConfig = parseConfig(config)
-
-      val startTime = System.currentTimeMillis()
-      val groups = processRoutesBatch(gpsTracks, matchConfig)
-      val elapsed = System.currentTimeMillis() - startTime
-
-      Log.i(TAG, "FULL BATCH: ${gpsTracks.size} tracks -> ${groups.size} groups in ${elapsed}ms")
-
-      groups.map { group ->
-        mapOf(
-          "groupId" to group.groupId,
-          "activityIds" to group.activityIds
-        )
-      }
-    }
-
-    // OPTIMIZED: Process routes using flat coordinate arrays (TypedArray from JS)
-    // Each track has activityId (String) and coords (DoubleArray: [lat1, lng1, lat2, lng2, ...])
-    // This avoids the overhead of Map<String, Double> for each GPS point
-    Function("processRoutesFlat") { activityIds: List<String>, coordArrays: List<DoubleArray>, config: Map<String, Any>? ->
-      Log.i(TAG, "FLAT processRoutes called with ${activityIds.size} tracks")
-
-      if (activityIds.size != coordArrays.size) {
-        Log.e(TAG, "ERROR: activityIds.size (${activityIds.size}) != coordArrays.size (${coordArrays.size})")
-        return@Function emptyList<Map<String, Any>>()
-      }
-
-      // Convert to FlatGpsTrack for Rust
-      val flatTracks = activityIds.mapIndexed { index, activityId ->
-        FlatGpsTrack(activityId, coordArrays[index].toList())
-      }
-
-      val matchConfig = parseConfig(config)
-
-      val startTime = System.currentTimeMillis()
-      val groups = processRoutesFromFlat(flatTracks, matchConfig)
-      val elapsed = System.currentTimeMillis() - startTime
-
-      Log.i(TAG, "FLAT BATCH: ${flatTracks.size} tracks -> ${groups.size} groups in ${elapsed}ms")
-
-      groups.map { group ->
-        mapOf(
-          "groupId" to group.groupId,
-          "activityIds" to group.activityIds
-        )
-      }
-    }
-
-    // OPTIMIZED: Create signatures from flat buffer (returns signatures, not groups)
+    // Create signatures from flat buffer (returns signatures, not groups)
     // Used when we need signatures for incremental caching
     Function("createSignaturesFlatBuffer") { activityIds: List<String>, coords: DoubleArray, offsets: IntArray, config: Map<String, Any>? ->
       Log.i(TAG, "FLAT BUFFER createSignatures: ${activityIds.size} tracks, ${coords.size} coords")
@@ -233,7 +138,7 @@ class RouteMatcherModule : Module() {
       signatures.map { signatureToMap(it) }
     }
 
-    // OPTIMIZED V2: Single flat buffer with offsets (most efficient)
+    // Process routes using flat buffer with offsets
     // coords: flat DoubleArray [lat1, lng1, lat2, lng2, ...]
     // offsets: IntArray marking where each track starts in the coords array
     // activityIds: List<String> of activity IDs in same order as offsets
@@ -427,37 +332,8 @@ class RouteMatcherModule : Module() {
       )
     }
 
-    Function("detectFrequentSections") { sigMaps: List<Map<String, Any>>, groupMaps: List<Map<String, Any>>, sportTypeMaps: List<Map<String, Any>>, config: Map<String, Any>? ->
-      Log.i(TAG, "detectFrequentSections: ${sigMaps.size} signatures")
-
-      val signatures = sigMaps.mapNotNull { mapToSignature(it) }
-      val groups = groupMaps.map { m ->
-        @Suppress("UNCHECKED_CAST")
-        RouteGroup(
-          groupId = m["groupId"] as String,
-          activityIds = m["activityIds"] as List<String>
-        )
-      }
-      val sportTypes = sportTypeMaps.map { m ->
-        ActivitySportType(
-          activityId = m["activity_id"] as String,
-          sportType = m["sport_type"] as String
-        )
-      }
-
-      val sectionConfig = parseSectionConfig(config)
-
-      val startTime = System.currentTimeMillis()
-      val result = ffiDetectFrequentSections(signatures, groups, sportTypes, sectionConfig)
-      val elapsed = System.currentTimeMillis() - startTime
-
-      Log.i(TAG, "detectFrequentSections returned ${result.size} sections in ${elapsed}ms")
-
-      result.map { sectionToMap(it) }
-    }
-
-    // Section detection from FULL GPS tracks (medoid-based)
-    // Returns JSON string for efficient bridge serialization (avoids slow Map conversion)
+    // Section detection from GPS tracks
+    // Returns JSON string for efficient bridge serialization
     Function("detectSectionsFromTracks") { activityIds: List<String>, allCoords: DoubleArray, offsets: IntArray, sportTypeMaps: List<Map<String, Any>>, groupMaps: List<Map<String, Any>>, config: Map<String, Any>? ->
       Log.i(TAG, "detectSectionsFromTracks: ${activityIds.size} activities, ${allCoords.size / 2} coords")
 

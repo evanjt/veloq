@@ -17,8 +17,8 @@ import { SegmentedButtons, Switch } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { useAthlete, useActivityBoundsCache, useRouteProcessing, useRouteGroups } from '@/hooks';
 import { getAthleteId } from '@/api';
-import { estimateBoundsCacheSize, estimateGpsStorageSize } from '@/lib/gpsStorage';
-import { estimateRouteCacheSize } from '@/lib/routeStorage';
+import { estimateBoundsCacheSize, estimateGpsStorageSize } from '@/lib';
+import { estimateRouteCacheSize } from '@/lib';
 import {
   getThemePreference,
   setThemePreference,
