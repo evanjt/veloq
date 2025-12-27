@@ -509,6 +509,181 @@ public class RouteMatcherModule: Module {
                 "signatures": result.signatures.map { self.signatureToMap($0) }
             ]
         }
+
+        // Heatmap: Get default config
+        Function("defaultHeatmapConfig") { () -> [String: Any] in
+            let config = defaultHeatmapConfig()
+            return [
+                "cell_size_meters": Int(config.cellSizeMeters),
+                "bounds": config.bounds.map { b in
+                    ["min_lat": b.minLat, "max_lat": b.maxLat, "min_lng": b.minLng, "max_lng": b.maxLng]
+                } as Any
+            ]
+        }
+
+        // Heatmap: Generate heatmap from signatures
+        // All parameters are JSON strings to avoid Expo Modules bridge serialization issues with nulls
+        Function("generateHeatmap") { (signaturesJson: String, activityDataJson: String, configJson: String) -> [String: Any] in
+            guard let sigData = signaturesJson.data(using: .utf8),
+                  let sigArray = try? JSONSerialization.jsonObject(with: sigData) as? [[String: Any]] else {
+                logger.error("generateHeatmap: Failed to parse signatures JSON")
+                return [:]
+            }
+            logger.info("generateHeatmap: \(sigArray.count) signatures")
+
+            let signatures = sigArray.compactMap { self.mapToSignature($0) }
+
+            guard let activityData = activityDataJson.data(using: .utf8),
+                  let activityArray = try? JSONSerialization.jsonObject(with: activityData) as? [[String: Any]] else {
+                logger.error("generateHeatmap: Failed to parse activityData JSON")
+                return [:]
+            }
+
+            let heatmapActivityData = activityArray.map { obj -> ActivityHeatmapData in
+                ActivityHeatmapData(
+                    activityId: obj["activity_id"] as? String ?? "",
+                    routeId: obj["route_id"] as? String,
+                    routeName: obj["route_name"] as? String,
+                    timestamp: (obj["timestamp"] as? NSNumber)?.int64Value
+                )
+            }
+
+            guard let configData = configJson.data(using: .utf8),
+                  let configObj = try? JSONSerialization.jsonObject(with: configData) as? [String: Any] else {
+                logger.error("generateHeatmap: Failed to parse config JSON")
+                return [:]
+            }
+
+            var heatmapBounds: HeatmapBounds? = nil
+            if let boundsDict = configObj["bounds"] as? [String: Double] {
+                heatmapBounds = HeatmapBounds(
+                    minLat: boundsDict["min_lat"] ?? 0,
+                    maxLat: boundsDict["max_lat"] ?? 0,
+                    minLng: boundsDict["min_lng"] ?? 0,
+                    maxLng: boundsDict["max_lng"] ?? 0
+                )
+            }
+
+            let heatmapConfig = HeatmapConfig(
+                cellSizeMeters: (configObj["cell_size_meters"] as? Double) ?? 100.0,
+                bounds: heatmapBounds
+            )
+
+            let startTime = CFAbsoluteTimeGetCurrent()
+            let result = ffiGenerateHeatmap(signatures: signatures, activityData: heatmapActivityData, config: heatmapConfig)
+            let elapsed = (CFAbsoluteTimeGetCurrent() - startTime) * 1000
+
+            logger.info("generateHeatmap returned \(result.cells.count) cells in \(Int(elapsed))ms")
+
+            return [
+                "cells": result.cells.map { cell in
+                    [
+                        "row": Int(cell.row),
+                        "col": Int(cell.col),
+                        "center_lat": cell.centerLat,
+                        "center_lng": cell.centerLng,
+                        "density": cell.density,
+                        "visit_count": Int(cell.visitCount),
+                        "route_refs": cell.routeRefs.map { r in
+                            ["route_id": r.routeId, "activity_count": Int(r.activityCount), "name": r.name as Any]
+                        },
+                        "unique_route_count": Int(cell.uniqueRouteCount),
+                        "activity_ids": cell.activityIds,
+                        "first_visit": cell.firstVisit as Any,
+                        "last_visit": cell.lastVisit as Any,
+                        "is_common_path": cell.isCommonPath
+                    ] as [String: Any]
+                },
+                "bounds": [
+                    "min_lat": result.bounds.minLat,
+                    "max_lat": result.bounds.maxLat,
+                    "min_lng": result.bounds.minLng,
+                    "max_lng": result.bounds.maxLng
+                ],
+                "cell_size_meters": Int(result.cellSizeMeters),
+                "grid_rows": Int(result.gridRows),
+                "grid_cols": Int(result.gridCols),
+                "max_density": result.maxDensity,
+                "total_routes": Int(result.totalRoutes),
+                "total_activities": Int(result.totalActivities)
+            ]
+        }
+
+        // Heatmap: Query cell at location
+        // heatmapJson is a JSON string to avoid Expo Modules bridge issues with nulls
+        Function("queryHeatmapCell") { (heatmapJson: String, lat: Double, lng: Double) -> [String: Any]? in
+            guard let heatmapData = heatmapJson.data(using: .utf8),
+                  let heatmapObj = try? JSONSerialization.jsonObject(with: heatmapData) as? [String: Any],
+                  let cellMaps = heatmapObj["cells"] as? [[String: Any]],
+                  let boundsMap = heatmapObj["bounds"] as? [String: Double] else {
+                logger.error("queryHeatmapCell: Failed to parse heatmap JSON")
+                return nil
+            }
+
+            let cells = cellMaps.compactMap { c -> HeatmapCell? in
+                guard let routeRefMaps = c["route_refs"] as? [[String: Any]] else { return nil }
+                return HeatmapCell(
+                    row: Int32((c["row"] as? Int) ?? 0),
+                    col: Int32((c["col"] as? Int) ?? 0),
+                    centerLat: (c["center_lat"] as? Double) ?? 0,
+                    centerLng: (c["center_lng"] as? Double) ?? 0,
+                    density: Float((c["density"] as? Double) ?? 0),
+                    visitCount: UInt32((c["visit_count"] as? Int) ?? 0),
+                    routeRefs: routeRefMaps.map { r in
+                        RouteRef(
+                            routeId: r["route_id"] as? String ?? "",
+                            activityCount: UInt32((r["activity_count"] as? Int) ?? 0),
+                            name: r["name"] as? String
+                        )
+                    },
+                    uniqueRouteCount: UInt32((c["unique_route_count"] as? Int) ?? 0),
+                    activityIds: c["activity_ids"] as? [String] ?? [],
+                    firstVisit: c["first_visit"] as? Int64,
+                    lastVisit: c["last_visit"] as? Int64,
+                    isCommonPath: (c["is_common_path"] as? Bool) ?? false
+                )
+            }
+
+            let heatmap = HeatmapResult(
+                cells: cells,
+                bounds: HeatmapBounds(
+                    minLat: boundsMap["min_lat"] ?? 0,
+                    maxLat: boundsMap["max_lat"] ?? 0,
+                    minLng: boundsMap["min_lng"] ?? 0,
+                    maxLng: boundsMap["max_lng"] ?? 0
+                ),
+                cellSizeMeters: (heatmapObj["cell_size_meters"] as? Double) ?? 100,
+                gridRows: UInt32((heatmapObj["grid_rows"] as? Int) ?? 0),
+                gridCols: UInt32((heatmapObj["grid_cols"] as? Int) ?? 0),
+                maxDensity: Float((heatmapObj["max_density"] as? Double) ?? 0),
+                totalRoutes: UInt32((heatmapObj["total_routes"] as? Int) ?? 0),
+                totalActivities: UInt32((heatmapObj["total_activities"] as? Int) ?? 0)
+            )
+
+            guard let queryResult = ffiQueryHeatmapCell(heatmap: heatmap, lat: lat, lng: lng) else {
+                return nil
+            }
+
+            return [
+                "cell": [
+                    "row": Int(queryResult.cell.row),
+                    "col": Int(queryResult.cell.col),
+                    "center_lat": queryResult.cell.centerLat,
+                    "center_lng": queryResult.cell.centerLng,
+                    "density": queryResult.cell.density,
+                    "visit_count": Int(queryResult.cell.visitCount),
+                    "route_refs": queryResult.cell.routeRefs.map { ref in
+                        ["route_id": ref.routeId, "activity_count": Int(ref.activityCount), "name": ref.name as Any]
+                    },
+                    "unique_route_count": Int(queryResult.cell.uniqueRouteCount),
+                    "activity_ids": queryResult.cell.activityIds,
+                    "first_visit": queryResult.cell.firstVisit as Any,
+                    "last_visit": queryResult.cell.lastVisit as Any,
+                    "is_common_path": queryResult.cell.isCommonPath
+                ],
+                "suggested_label": queryResult.suggestedLabel
+            ]
+        }
     }
 
     // MARK: - Helper Functions
@@ -585,7 +760,11 @@ public class RouteMatcherModule: Module {
             // Pre-computed activity traces: map of activityId -> GPS points overlapping with section
             "activity_traces": section.activityTraces.mapValues { points in
                 points.map { ["latitude": $0.latitude, "longitude": $0.longitude] }
-            }
+            },
+            // Consensus polyline metrics
+            "confidence": section.confidence,
+            "observation_count": section.observationCount,
+            "average_spread": section.averageSpread
         ]
     }
 

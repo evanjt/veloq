@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useRef, useEffect } from 'react';
 import { View, StyleSheet, useColorScheme, ScrollView } from 'react-native';
 import { Text } from 'react-native-paper';
 import { colors, darkColors } from '@/theme/colors';
@@ -37,12 +37,22 @@ const DAYS = ['', 'Mon', '', 'Wed', '', 'Fri', ''];
 
 export function ActivityHeatmap({
   activities,
-  weeks = 26, // 6 months by default
+  weeks = 104, // 2 years by default (matches training page data fetch)
   cellSize = 12,
 }: ActivityHeatmapProps) {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const intensityColors = isDark ? INTENSITY_COLORS : INTENSITY_COLORS_LIGHT;
+  const scrollViewRef = useRef<ScrollView>(null);
+
+  // Scroll to the right (current week) on mount
+  useEffect(() => {
+    // Small delay to ensure layout is complete
+    const timer = setTimeout(() => {
+      scrollViewRef.current?.scrollToEnd({ animated: false });
+    }, 100);
+    return () => clearTimeout(timer);
+  }, []);
 
   // Show empty state if no activities
   if (!activities || activities.length === 0) {
@@ -133,6 +143,7 @@ export function ActivityHeatmap({
 
       {/* Scrollable heatmap container */}
       <ScrollView
+        ref={scrollViewRef}
         horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
