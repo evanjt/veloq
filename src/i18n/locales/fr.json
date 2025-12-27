@@ -26,7 +26,8 @@
     "routes": "Parcours",
     "heatmap": "Carte thermique",
     "map": "Carte",
-    "settings": "Paramètres"
+    "settings": "Paramètres",
+    "activities": "Activités"
   },
 
   "feed": {
@@ -228,7 +229,9 @@
     "daysAgo": "Il y a {{count}} jours",
     "weeksAgo": "Il y a {{count}} semaines",
     "monthsAgo": "Il y a {{count}} mois",
-    "yearsAgo": "Il y a {{count}} ans"
+    "yearsAgo": "Il y a {{count}} ans",
+    "current": "Actuel",
+    "now": "Maintenant"
   },
 
   "units": {
@@ -441,5 +444,156 @@
   "attribution": {
     "recordedWith": "Enregistré avec {{device}}",
     "garminTrademark": "Garmin et le logo Garmin sont des marques déposées de Garmin Ltd."
+  },
+
+  "stats": {
+    "activityCalendar": "Calendrier d'activités",
+    "activitiesCount": "{{count}} activités",
+    "noActivityData": "Aucune donnée d'activité",
+    "completeActivitiesHeatmap": "Complétez des activités pour voir votre calendrier thermique",
+    "less": "Moins",
+    "more": "Plus",
+    "swimPaceCurve": "Courbe d'allure natation",
+    "noSwimPaceData": "Aucune donnée d'allure natation",
+    "paceCurve": "Courbe d'allure",
+    "noPaceData": "Aucune donnée d'allure",
+    "gap": "DAP",
+    "time": "Temps",
+    "powerCurve": "Courbe de puissance",
+    "noPowerData": "Aucune donnée de puissance",
+    "estimatedFtp": "FTP estimé",
+    "from3MonthsAgo": "d'il y a 3 mois",
+    "noFtpData": "Aucune donnée de FTP",
+    "completePowerActivities": "Complétez des activités avec puissance pour voir votre tendance FTP",
+    "upcomingEvents": "Événements à venir",
+    "race": "Course",
+    "daysCount": "{{count}} jours",
+    "noUpcomingEvents": "Aucun événement à venir",
+    "addEventsHint": "Ajoutez des événements sur intervals.icu pour les voir ici",
+    "powerZones": "Zones de puissance",
+    "heartRateZones": "Zones de fréquence cardiaque",
+    "last30Days": "30 derniers jours",
+    "noZoneData": "Aucune donnée de zone",
+    "completeActivitiesPower": "Complétez des activités avec capteur de puissance pour voir la distribution des zones",
+    "completeActivitiesHr": "Complétez des activités avec fréquence cardiaque pour voir la distribution des zones",
+    "totalTime": "Temps total",
+    "seasonComparison": "Comparaison de saisons",
+    "completeActivitiesYearComparison": "Complétez des activités pour voir la comparaison annuelle",
+    "hours": "Heures",
+    "tss": "TSS",
+    "thisWeek": "Cette semaine",
+    "vsLastWeek": "vs semaine dernière",
+    "thisMonth": "Ce mois",
+    "vsLastMonth": "vs mois dernier",
+    "last3Months": "3 derniers mois",
+    "vsPrevious3Months": "vs 3 mois précédents",
+    "last6Months": "6 derniers mois",
+    "vsPrevious6Months": "vs 6 mois précédents",
+    "thisYear": "Cette année",
+    "vsLastYear": "vs année dernière",
+    "week": "Semaine",
+    "month": "Mois",
+    "threeMonths": "3M",
+    "sixMonths": "6M",
+    "year": "Année",
+    "noActivitiesInPeriod": "Aucune activité sur cette période",
+    "activities": "Activités",
+    "loadTss": "Charge (TSS)",
+    "workoutLibrary": "Bibliothèque d'entraînements",
+    "noWorkoutsAvailable": "Aucun entraînement disponible",
+    "createWorkoutsHint": "Créez des entraînements sur intervals.icu pour les voir ici",
+    "all": "Tous",
+    "aerobicDecoupling": "Découplage aérobie",
+    "noDecouplingData": "Aucune donnée de découplage",
+    "completeDecouplingHint": "Complétez un effort soutenu avec puissance et FC pour voir l'analyse de découplage",
+    "goodAerobicFitness": "Bonne forme aérobie",
+    "needsImprovement": "À améliorer",
+    "targetLessThan5": "Objectif : < 5%",
+    "firstHalf": "Première moitié",
+    "secondHalf": "Deuxième moitié",
+    "avgPower": "Puissance moy",
+    "avgHr": "FC moy",
+    "efficiency": "Efficacité",
+    "decouplingExplanation": "Le découplage mesure la dérive cardiaque - combien votre fréquence cardiaque augmente par rapport à la puissance lors d'efforts soutenus. Plus bas est mieux, indiquant une production d'énergie aérobie efficace."
+  },
+
+  "wellness": {
+    "noData": "Aucune donnée de bien-être",
+    "connectHint": "Connectez un wearable ou enregistrez des données de bien-être dans Intervals.icu",
+    "restingHR": "FC au repos",
+    "sleep": "Sommeil",
+    "sleepScore": "Score de sommeil",
+    "weight": "Poids",
+    "hrs": "hrs",
+    "insightGoodRecovery": "Bonne récupération - vous vous adaptez bien",
+    "insightExtraRecovery": "Envisagez une récupération supplémentaire aujourd'hui",
+    "insightStable": "Les métriques semblent stables",
+    "noTrendData": "Aucune donnée de tendance",
+    "trendHint": "Les tendances VFC, sommeil et FC au repos apparaîtront ici lorsque des données seront enregistrées",
+    "dragToExplore": "Glissez pour explorer",
+    "lastDays": "{{count}} derniers jours"
+  },
+
+  "fitness": {
+    "noData": "Aucune donnée de forme",
+    "formTSB": "Forme (TSB)",
+    "fitnessCTL": "Forme (CTL)",
+    "fatigueATL": "Fatigue (ATL)",
+    "fitAbbrev": "For",
+    "fatAbbrev": "Fat",
+    "activitiesCount": "{{count}} activités",
+    "restDay": "Jour de repos",
+    "selectActivity": "Sélectionner l'activité",
+    "timeRange": {
+      "7d": "7 jours",
+      "1m": "1 mois",
+      "42d": "42 jours",
+      "3m": "3 mois",
+      "6m": "6 mois",
+      "1y": "1 an"
+    }
+  },
+
+  "formZones": {
+    "transition": "Transition",
+    "fresh": "Frais",
+    "greyZone": "Zone grise",
+    "optimal": "Optimal",
+    "highRisk": "Haut risque"
+  },
+
+  "maps": {
+    "closeMap": "Fermer la carte",
+    "toggleStyle": "Changer le style de carte",
+    "enable3D": "Activer la vue 3D",
+    "disable3D": "Désactiver la vue 3D",
+    "resetOrientation": "Réinitialiser l'orientation de la carte",
+    "goToLocation": "Aller à ma position",
+    "zoomToActivity": "Zoom sur l'activité",
+    "closePopup": "Fermer le popup d'activité",
+    "loadingRoute": "Chargement du parcours...",
+    "viewDetails": "Voir les détails",
+    "allClear": "Tous",
+    "clear": "Effacer",
+    "syncingActivities": "Synchronisation {{completed}}/{{total}} activités",
+    "activitiesCount": "{{count}} activités",
+    "selected": "Sélectionné",
+    "cached": "En cache",
+    "notSynced": "Non synchronisé",
+    "activityTypes": {
+      "ride": "Vélo",
+      "run": "Course",
+      "swim": "Natation",
+      "walk": "Marche",
+      "hike": "Randonnée",
+      "other": "Autre"
+    }
+  },
+
+  "heatmap": {
+    "visitedTimes": "Visité {{count}} fois",
+    "uniqueRoutes": "{{count}} parcours uniques",
+    "lastVisit": "Dernière visite",
+    "showActivities": "Afficher les activités"
   }
 }

@@ -26,7 +26,8 @@
     "routes": "Routes",
     "heatmap": "Heatmap",
     "map": "Map",
-    "settings": "Settings"
+    "settings": "Settings",
+    "activities": "Activities"
   },
 
   "feed": {
@@ -228,7 +229,9 @@
     "daysAgo": "{{count}} days ago",
     "weeksAgo": "{{count}} weeks ago",
     "monthsAgo": "{{count}} months ago",
-    "yearsAgo": "{{count}} years ago"
+    "yearsAgo": "{{count}} years ago",
+    "current": "Current",
+    "now": "Now"
   },
 
   "units": {
@@ -441,5 +444,156 @@
   "attribution": {
     "recordedWith": "Recorded with {{device}}",
     "garminTrademark": "Garmin and the Garmin logo are trademarks of Garmin Ltd."
+  },
+
+  "stats": {
+    "activityCalendar": "Activity Calendar",
+    "activitiesCount": "{{count}} activities",
+    "noActivityData": "No activity data available",
+    "completeActivitiesHeatmap": "Complete activities to see your calendar heatmap",
+    "less": "Less",
+    "more": "More",
+    "swimPaceCurve": "Swim Pace Curve",
+    "noSwimPaceData": "No swim pace data available",
+    "paceCurve": "Pace Curve",
+    "noPaceData": "No pace data available",
+    "gap": "GAP",
+    "time": "Time",
+    "powerCurve": "Power Curve",
+    "noPowerData": "No power data available",
+    "estimatedFtp": "Estimated FTP",
+    "from3MonthsAgo": "from 3 months ago",
+    "noFtpData": "No FTP data available",
+    "completePowerActivities": "Complete power-based activities to see your FTP trend",
+    "upcomingEvents": "Upcoming Events",
+    "race": "Race",
+    "daysCount": "{{count}} days",
+    "noUpcomingEvents": "No upcoming events",
+    "addEventsHint": "Add events on intervals.icu to see them here",
+    "powerZones": "Power Zones",
+    "heartRateZones": "Heart Rate Zones",
+    "last30Days": "Last 30 days",
+    "noZoneData": "No zone data available",
+    "completeActivitiesPower": "Complete activities with power meter data to see zone distribution",
+    "completeActivitiesHr": "Complete activities with heart rate data to see zone distribution",
+    "totalTime": "Total Time",
+    "seasonComparison": "Season Comparison",
+    "completeActivitiesYearComparison": "Complete activities to see year-over-year comparison",
+    "hours": "Hours",
+    "tss": "TSS",
+    "thisWeek": "This Week",
+    "vsLastWeek": "vs last week",
+    "thisMonth": "This Month",
+    "vsLastMonth": "vs last month",
+    "last3Months": "Last 3 Months",
+    "vsPrevious3Months": "vs previous 3 months",
+    "last6Months": "Last 6 Months",
+    "vsPrevious6Months": "vs previous 6 months",
+    "thisYear": "This Year",
+    "vsLastYear": "vs last year",
+    "week": "Week",
+    "month": "Month",
+    "threeMonths": "3M",
+    "sixMonths": "6M",
+    "year": "Year",
+    "noActivitiesInPeriod": "No activities in this period",
+    "activities": "Activities",
+    "loadTss": "Load (TSS)",
+    "workoutLibrary": "Workout Library",
+    "noWorkoutsAvailable": "No workouts available",
+    "createWorkoutsHint": "Create workouts on intervals.icu to see them here",
+    "all": "All",
+    "aerobicDecoupling": "Aerobic Decoupling",
+    "noDecouplingData": "No decoupling data available",
+    "completeDecouplingHint": "Complete a sustained effort with power and heart rate data to see decoupling analysis",
+    "goodAerobicFitness": "Good Aerobic Fitness",
+    "needsImprovement": "Needs Improvement",
+    "targetLessThan5": "Target: < 5%",
+    "firstHalf": "First Half",
+    "secondHalf": "Second Half",
+    "avgPower": "Avg Power",
+    "avgHr": "Avg HR",
+    "efficiency": "Efficiency",
+    "decouplingExplanation": "Decoupling measures cardiac drift - how much your heart rate rises relative to power output during sustained efforts. Lower is better, indicating efficient aerobic energy production."
+  },
+
+  "wellness": {
+    "noData": "No wellness data available",
+    "connectHint": "Connect a wearable or log wellness data in Intervals.icu",
+    "restingHR": "Resting HR",
+    "sleep": "Sleep",
+    "sleepScore": "Sleep Score",
+    "weight": "Weight",
+    "hrs": "hrs",
+    "insightGoodRecovery": "Good recovery - you're adapting well",
+    "insightExtraRecovery": "Consider extra recovery today",
+    "insightStable": "Metrics look stable",
+    "noTrendData": "No trend data available",
+    "trendHint": "HRV, sleep, and resting HR trends will appear here when data is logged",
+    "dragToExplore": "Drag to explore",
+    "lastDays": "Last {{count}} days"
+  },
+
+  "fitness": {
+    "noData": "No fitness data available",
+    "formTSB": "Form (TSB)",
+    "fitnessCTL": "Fitness (CTL)",
+    "fatigueATL": "Fatigue (ATL)",
+    "fitAbbrev": "Fit",
+    "fatAbbrev": "Fat",
+    "activitiesCount": "{{count}} activities",
+    "restDay": "Rest day",
+    "selectActivity": "Select Activity",
+    "timeRange": {
+      "7d": "7 days",
+      "1m": "1 month",
+      "42d": "42 days",
+      "3m": "3 months",
+      "6m": "6 months",
+      "1y": "1 year"
+    }
+  },
+
+  "formZones": {
+    "transition": "Transition",
+    "fresh": "Fresh",
+    "greyZone": "Grey Zone",
+    "optimal": "Optimal",
+    "highRisk": "High Risk"
+  },
+
+  "maps": {
+    "closeMap": "Close map",
+    "toggleStyle": "Toggle map style",
+    "enable3D": "Enable 3D view",
+    "disable3D": "Disable 3D view",
+    "resetOrientation": "Reset map orientation",
+    "goToLocation": "Go to my location",
+    "zoomToActivity": "Zoom to activity",
+    "closePopup": "Close activity popup",
+    "loadingRoute": "Loading route...",
+    "viewDetails": "View Details",
+    "allClear": "All",
+    "clear": "Clear",
+    "syncingActivities": "Syncing {{completed}}/{{total}} activities",
+    "activitiesCount": "{{count}} activities",
+    "selected": "Selected",
+    "cached": "Cached",
+    "notSynced": "Not synced",
+    "activityTypes": {
+      "ride": "Ride",
+      "run": "Run",
+      "swim": "Swim",
+      "walk": "Walk",
+      "hike": "Hike",
+      "other": "Other"
+    }
+  },
+
+  "heatmap": {
+    "visitedTimes": "Visited {{count}} times",
+    "uniqueRoutes": "{{count}} unique routes",
+    "lastVisit": "Last visit",
+    "showActivities": "Show Activities"
   }
 }
