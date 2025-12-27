@@ -11,7 +11,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Svg, { Polyline, G } from 'react-native-svg';
 import { useTranslation } from 'react-i18next';
 import { colors, spacing, layout } from '@/theme';
-import { debug } from '@/lib/debug';
+import { debug } from '@/lib';
 import type { FrequentSection, RoutePoint } from '@/types';
 
 const log = debug.create('SectionRow');

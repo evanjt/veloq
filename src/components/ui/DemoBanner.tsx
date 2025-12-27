@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '@/providers';
+import { activitySyncManager } from '@/lib';
 
 export function DemoBanner() {
   const { t } = useTranslation();
@@ -20,9 +21,13 @@ export function DemoBanner() {
   // Don't render if not in demo mode
   if (!isDemoMode) return null;
 
-  const handlePress = () => {
-    // Clear cached demo data
+  const handlePress = async () => {
+    // Clear cached demo data - TanStack Query cache
     queryClient.clear();
+    // Clear activity sync manager cache (bounds, GPS tracks, routes)
+    await activitySyncManager.clearCache();
+    // Reset sync manager state so it can re-initialize with real data
+    activitySyncManager.reset();
     // Exit demo mode (sets isAuthenticated to false)
     exitDemoMode();
     // Navigate to login - use replace to prevent going back to demo
@@ -40,15 +45,8 @@ export function DemoBanner() {
       ]}
     >
       <View style={styles.content}>
-        <MaterialCommunityIcons
-          name="information"
-          size={18}
-          color="#FFFFFF"
-          style={styles.icon}
-        />
-        <Text style={styles.text}>
-          {t('demo.banner', { defaultValue: 'Demo Mode' })}
-        </Text>
+        <MaterialCommunityIcons name="information" size={18} color="#FFFFFF" style={styles.icon} />
+        <Text style={styles.text}>{t('demo.banner', { defaultValue: 'Demo Mode' })}</Text>
         <Text style={styles.subtext}>
           {t('demo.tapToSignIn', { defaultValue: 'Tap to sign in' })}
         </Text>

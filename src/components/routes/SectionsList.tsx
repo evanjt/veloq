@@ -15,7 +15,7 @@ import { router, Href } from 'expo-router';
 import { colors, spacing, layout } from '@/theme';
 import { useFrequentSections } from '@/hooks/routes/useFrequentSections';
 import { SectionRow, ActivityTrace } from './SectionRow';
-import { debug } from '@/lib/debug';
+import { debug } from '@/lib';
 import type { FrequentSection } from '@/types';
 
 const log = debug.create('SectionsList');

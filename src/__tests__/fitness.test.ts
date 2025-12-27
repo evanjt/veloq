@@ -1,4 +1,4 @@
-import { calculateTSB, getFormZone, type FormZone } from '../lib/fitness';
+import { calculateTSB, getFormZone, type FormZone } from '../lib/algorithms/fitness';
 import type { WellnessData } from '../types';
 
 // Helper to create mock wellness data

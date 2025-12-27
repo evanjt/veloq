@@ -13,7 +13,7 @@ export {
   FORM_ZONE_LABELS,
   FORM_ZONE_BOUNDARIES,
   type FormZone,
-} from '@/lib/fitness';
+} from '@/lib';
 export {
   usePowerCurve,
   POWER_CURVE_DURATIONS,
@@ -47,4 +47,5 @@ export { useRouteMatch } from './routes/useRouteMatch';
 export { useRoutePerformances } from './routes/useRoutePerformances';
 export { useRouteProcessing } from './routes/useRouteProcessing';
 export { useFrequentSections } from './routes/useFrequentSections';
+export { useSectionMatches } from './routes/useSectionMatches';
 export { useHeatmap, type UseHeatmapOptions, type UseHeatmapResult } from './useHeatmap';

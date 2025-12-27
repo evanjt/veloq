@@ -15,9 +15,6 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::Mutex;
 
-// Version for debugging - increment when making changes
-const HTTP_VERSION: &str = "v6-sustained";
-
 // Rate limits from intervals.icu API: 30/s burst, 131/10s sustained
 // Target: 12.5 req/s (80ms intervals) to respect sustained limit
 // Math: 131/10s = 13.1 req/s max sustained. Use 12.5 for safety margin.
@@ -164,8 +161,8 @@ impl ActivityFetcher {
         let total_bytes = Arc::new(AtomicU32::new(0));
 
         info!(
-            "[ActivityFetcher {}] Starting fetch of {} activities (dispatch interval: {}ms, max concurrent: {})",
-            HTTP_VERSION, total, DISPATCH_INTERVAL_MS, MAX_CONCURRENCY
+            "[ActivityFetcher] Starting fetch of {} activities (dispatch interval: {}ms, max concurrent: {})",
+            total, DISPATCH_INTERVAL_MS, MAX_CONCURRENCY
         );
 
         let start = Instant::now();
@@ -227,8 +224,8 @@ impl ActivityFetcher {
         let total_kb = total_bytes.load(Ordering::Relaxed) / 1024;
 
         info!(
-            "[ActivityFetcher {}] DONE: {}/{} success ({} errors) in {:.2}s ({:.1} req/s, {}KB)",
-            HTTP_VERSION, success_count, total, error_count, elapsed.as_secs_f64(), rate, total_kb
+            "[ActivityFetcher] DONE: {}/{} success ({} errors) in {:.2}s ({:.1} req/s, {}KB)",
+            success_count, total, error_count, elapsed.as_secs_f64(), rate, total_kb
         );
 
         results
@@ -396,7 +393,7 @@ pub fn fetch_activity_maps_sync(
 ) -> Vec<ActivityMapResult> {
     use tokio::runtime::Builder;
 
-    info!("[FFI {}] fetch_activity_maps_sync called for {} activities", HTTP_VERSION, activity_ids.len());
+    info!("[FFI] fetch_activity_maps_sync called for {} activities", activity_ids.len());
 
     // Create a multi-threaded runtime with enough workers for high concurrency
     let rt = match Builder::new_multi_thread()

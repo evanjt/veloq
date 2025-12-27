@@ -1,4 +1,4 @@
-import { parseStreams } from '../lib/streams';
+import { parseStreams } from '../lib/utils/streams';
 import type { RawStreamItem } from '../types';
 
 describe('parseStreams', () => {

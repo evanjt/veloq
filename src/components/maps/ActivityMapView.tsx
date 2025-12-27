@@ -3,7 +3,7 @@ import { View, StyleSheet, TouchableOpacity, Modal, StatusBar, Animated, Text } 
 import { MapView, Camera, ShapeSource, LineLayer, MarkerView } from '@maplibre/maplibre-react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
-import { decodePolyline, LatLng } from '@/lib/polyline';
+import { decodePolyline, LatLng } from '@/lib';
 import { getActivityColor } from '@/lib';
 import { colors, darkColors } from '@/theme/colors';
 import { typography } from '@/theme/typography';

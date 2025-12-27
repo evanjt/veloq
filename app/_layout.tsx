@@ -10,8 +10,8 @@ import { QueryProvider, MapPreferencesProvider, initializeTheme, useAuthStore, i
 import { initializeI18n } from '@/i18n';
 import { lightTheme, darkTheme, colors, darkColors } from '@/theme';
 import { CacheLoadingBanner, DemoBanner } from '@/components/ui';
-import { activitySyncManager } from '@/lib/activitySyncManager';
-import { formatLocalDate } from '@/lib/format';
+import { activitySyncManager } from '@/lib';
+import { formatLocalDate } from '@/lib';
 
 // Suppress MapLibre info/warning logs about canceled requests
 // These occur when switching between map views but don't affect functionality

@@ -10,8 +10,10 @@ import type { Activity } from '@/types';
 interface ActivityHeatmapProps {
   /** Activities to display */
   activities?: Activity[];
-  /** Number of weeks to show (default: 52 for a year) */
-  weeks?: number;
+  /** Maximum number of weeks to show (default: 104 for 2 years) */
+  maxWeeks?: number;
+  /** Minimum number of weeks to show even with limited data (default: 12) */
+  minWeeks?: number;
   /** Height of each cell */
   cellSize?: number;
 }
@@ -38,7 +40,8 @@ const DAYS = ['', 'Mon', '', 'Wed', '', 'Fri', ''];
 
 export function ActivityHeatmap({
   activities,
-  weeks = 104, // 2 years by default (matches training page data fetch)
+  maxWeeks = 104, // 2 years maximum
+  minWeeks = 12, // At least 3 months
   cellSize = 12,
 }: ActivityHeatmapProps) {
   const { t } = useTranslation();
@@ -46,6 +49,87 @@ export function ActivityHeatmap({
   const isDark = colorScheme === 'dark';
   const intensityColors = isDark ? INTENSITY_COLORS : INTENSITY_COLORS_LIGHT;
   const scrollViewRef = useRef<ScrollView>(null);
+
+  // Calculate the actual number of weeks to display based on activity data
+  const { activityMap, weeksToShow } = useMemo(() => {
+    if (!activities || activities.length === 0) {
+      return {
+        activityMap: new Map<string, number>(),
+        weeksToShow: minWeeks,
+      };
+    }
+
+    const map = new Map<string, number>();
+    let oldestDate: Date | null = null;
+
+    activities.forEach((activity) => {
+      const date = activity.start_date_local.split('T')[0];
+      const activityDate = new Date(date);
+
+      // Track oldest activity
+      if (!oldestDate || activityDate < oldestDate) {
+        oldestDate = activityDate;
+      }
+
+      const current = map.get(date) || 0;
+      // Intensity based on moving time (rough categorization)
+      const duration = activity.moving_time || 0;
+      let intensity = 1;
+      if (duration > 3600) intensity = 2; // > 1 hour
+      if (duration > 5400) intensity = 3; // > 1.5 hours
+      if (duration > 7200) intensity = 4; // > 2 hours
+
+      map.set(date, Math.max(current, intensity));
+    });
+
+    // Calculate weeks from oldest activity to today
+    const today = new Date();
+    let calculatedWeeks = minWeeks;
+
+    if (oldestDate) {
+      const msPerWeek = 7 * 24 * 60 * 60 * 1000;
+      const weeksSinceOldest = Math.ceil((today.getTime() - oldestDate.getTime()) / msPerWeek);
+      // Add 1 week buffer to ensure the oldest activity is visible
+      calculatedWeeks = Math.min(Math.max(weeksSinceOldest + 1, minWeeks), maxWeeks);
+    }
+
+    return { activityMap: map, weeksToShow: calculatedWeeks };
+  }, [activities, minWeeks, maxWeeks]);
+
+  // Generate grid data
+  const { grid, monthLabels, totalActivities } = useMemo(() => {
+    const today = new Date();
+    const grid: { date: string; intensity: number }[][] = [];
+    const monthPositions: { month: string; col: number }[] = [];
+
+    let lastMonth = -1;
+
+    for (let w = weeksToShow - 1; w >= 0; w--) {
+      const week: { date: string; intensity: number }[] = [];
+
+      for (let d = 0; d < 7; d++) {
+        const date = new Date(today);
+        date.setDate(date.getDate() - (w * 7 + (6 - d)));
+        const dateStr = date.toISOString().split('T')[0];
+        const intensity = activityMap.get(dateStr) || 0;
+
+        week.push({ date: dateStr, intensity });
+
+        // Track month labels
+        const month = date.getMonth();
+        if (month !== lastMonth && d === 0) {
+          monthPositions.push({ month: MONTHS[month], col: weeksToShow - 1 - w });
+          lastMonth = month;
+        }
+      }
+
+      grid.push(week);
+    }
+
+    const total = Array.from(activityMap.values()).filter((v) => v > 0).length;
+
+    return { grid, monthLabels: monthPositions, totalActivities: total };
+  }, [activityMap, weeksToShow]);
 
   // Scroll to the right (current week) on mount
   useEffect(() => {
@@ -61,7 +145,9 @@ export function ActivityHeatmap({
     return (
       <View style={styles.container}>
         <View style={styles.header}>
-          <Text style={[styles.title, isDark && styles.textLight]}>{t('stats.activityCalendar')}</Text>
+          <Text style={[styles.title, isDark && styles.textLight]}>
+            {t('stats.activityCalendar')}
+          </Text>
         </View>
         <View style={styles.emptyState}>
           <Text style={[styles.emptyText, isDark && styles.textDark]}>
@@ -75,69 +161,16 @@ export function ActivityHeatmap({
     );
   }
 
-  // Process activities into a date -> intensity map
-  const activityMap = useMemo(() => {
-    const map = new Map<string, number>();
-
-    activities.forEach(activity => {
-      const date = activity.start_date_local.split('T')[0];
-      const current = map.get(date) || 0;
-      // Intensity based on moving time (rough categorization)
-      const duration = activity.moving_time || 0;
-      let intensity = 1;
-      if (duration > 3600) intensity = 2; // > 1 hour
-      if (duration > 5400) intensity = 3; // > 1.5 hours
-      if (duration > 7200) intensity = 4; // > 2 hours
-
-      map.set(date, Math.max(current, intensity));
-    });
-
-    return map;
-  }, [activities, weeks]);
-
-  // Generate grid data
-  const { grid, monthLabels, totalActivities } = useMemo(() => {
-    const today = new Date();
-    const grid: { date: string; intensity: number }[][] = [];
-    const monthPositions: { month: string; col: number }[] = [];
-
-    let lastMonth = -1;
-
-    for (let w = weeks - 1; w >= 0; w--) {
-      const week: { date: string; intensity: number }[] = [];
-
-      for (let d = 0; d < 7; d++) {
-        const date = new Date(today);
-        date.setDate(date.getDate() - (w * 7 + (6 - d)));
-        const dateStr = date.toISOString().split('T')[0];
-        const intensity = activityMap.get(dateStr) || 0;
-
-        week.push({ date: dateStr, intensity });
-
-        // Track month labels
-        const month = date.getMonth();
-        if (month !== lastMonth && d === 0) {
-          monthPositions.push({ month: MONTHS[month], col: weeks - 1 - w });
-          lastMonth = month;
-        }
-      }
-
-      grid.push(week);
-    }
-
-    const total = Array.from(activityMap.values()).filter(v => v > 0).length;
-
-    return { grid, monthLabels: monthPositions, totalActivities: total };
-  }, [activityMap, weeks]);
-
   const cellGap = 2;
-  const gridWidth = weeks * (cellSize + cellGap);
+  const gridWidth = weeksToShow * (cellSize + cellGap);
 
   return (
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={[styles.title, isDark && styles.textLight]}>{t('stats.activityCalendar')}</Text>
+        <Text style={[styles.title, isDark && styles.textLight]}>
+          {t('stats.activityCalendar')}
+        </Text>
         <Text style={[styles.subtitle, isDark && styles.textDark]}>
           {t('stats.activitiesCount', { count: totalActivities })}
         </Text>
@@ -216,7 +249,10 @@ export function ActivityHeatmap({
         {intensityColors.map((color, idx) => (
           <View
             key={idx}
-            style={[styles.legendCell, { backgroundColor: color, width: cellSize, height: cellSize }]}
+            style={[
+              styles.legendCell,
+              { backgroundColor: color, width: cellSize, height: cellSize },
+            ]}
           />
         ))}
         <Text style={[styles.legendLabel, isDark && styles.textDark]}>{t('stats.more')}</Text>

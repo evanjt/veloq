@@ -123,6 +123,35 @@ const DEMO_ATHLETE: ApiAthlete = {
 };
 
 /**
+ * Generate activity name based on type, time of day, and workout style
+ */
+function generateActivityName(
+  type: string,
+  hour: number,
+  isLong: boolean,
+  isHard: boolean
+): string {
+  const timeOfDay = hour < 12 ? 'Morning' : hour < 17 ? 'Afternoon' : 'Evening';
+
+  switch (type) {
+    case 'Ride':
+      if (isLong) return `${timeOfDay} Endurance Ride`;
+      if (isHard) return `${timeOfDay} Interval Ride`;
+      return `${timeOfDay} Ride`;
+    case 'Run':
+      if (isLong) return `${timeOfDay} Long Run`;
+      if (isHard) return `${timeOfDay} Tempo Run`;
+      return `${timeOfDay} Run`;
+    case 'VirtualRide':
+      return `${timeOfDay} Zwift Session`;
+    case 'Swim':
+      return `${timeOfDay} Swim`;
+    default:
+      return `${timeOfDay} ${type}`;
+  }
+}
+
+/**
  * Generate a year of activities in API format
  */
 function generateActivities(): ApiActivity[] {
@@ -130,13 +159,97 @@ function generateActivities(): ApiActivity[] {
   const now = new Date();
 
   const templates = [
-    { type: 'Ride', name: 'Morning Ride', dist: 45000, time: 5400, elev: 450, speed: 30, hr: 145, watts: 180, tss: 65, route: 'route-coastal-loop' },
-    { type: 'Ride', name: 'Endurance Ride', dist: 80000, time: 10800, elev: 800, speed: 27, hr: 135, watts: 165, tss: 120, route: 'route-endurance' },
-    { type: 'Ride', name: 'Hill Repeats', dist: 35000, time: 4500, elev: 650, speed: 28, hr: 155, watts: 210, tss: 80, route: 'route-hill-climb' },
-    { type: 'Run', name: 'Easy Run', dist: 8000, time: 2700, elev: 50, speed: 10.7, hr: 140, watts: 0, tss: 35, route: 'route-riverside' },
-    { type: 'Run', name: 'Long Run', dist: 15000, time: 4800, elev: 120, speed: 11.2, hr: 145, watts: 0, tss: 70, route: 'route-trail' },
-    { type: 'VirtualRide', name: 'Zwift Session', dist: 30000, time: 3600, elev: 350, speed: 30, hr: 150, watts: 195, tss: 55, route: null },
-    { type: 'Swim', name: 'Pool Swim', dist: 2500, time: 3000, elev: 0, speed: 3, hr: 130, watts: 0, tss: 40, route: null },
+    {
+      type: 'Ride',
+      dist: 45000,
+      time: 5400,
+      elev: 450,
+      speed: 30,
+      hr: 145,
+      watts: 180,
+      tss: 65,
+      route: 'route-coastal-loop',
+      isLong: false,
+      isHard: false,
+    },
+    {
+      type: 'Ride',
+      dist: 80000,
+      time: 10800,
+      elev: 800,
+      speed: 27,
+      hr: 135,
+      watts: 165,
+      tss: 120,
+      route: 'route-endurance',
+      isLong: true,
+      isHard: false,
+    },
+    {
+      type: 'Ride',
+      dist: 35000,
+      time: 4500,
+      elev: 650,
+      speed: 28,
+      hr: 155,
+      watts: 210,
+      tss: 80,
+      route: 'route-hill-climb',
+      isLong: false,
+      isHard: true,
+    },
+    {
+      type: 'Run',
+      dist: 8000,
+      time: 2700,
+      elev: 50,
+      speed: 10.7,
+      hr: 140,
+      watts: 0,
+      tss: 35,
+      route: 'route-riverside',
+      isLong: false,
+      isHard: false,
+    },
+    {
+      type: 'Run',
+      dist: 15000,
+      time: 4800,
+      elev: 120,
+      speed: 11.2,
+      hr: 145,
+      watts: 0,
+      tss: 70,
+      route: 'route-trail',
+      isLong: true,
+      isHard: false,
+    },
+    {
+      type: 'VirtualRide',
+      dist: 30000,
+      time: 3600,
+      elev: 350,
+      speed: 30,
+      hr: 150,
+      watts: 195,
+      tss: 55,
+      route: null,
+      isLong: false,
+      isHard: false,
+    },
+    {
+      type: 'Swim',
+      dist: 2500,
+      time: 3000,
+      elev: 0,
+      speed: 3,
+      hr: 130,
+      watts: 0,
+      tss: 40,
+      route: null,
+      isLong: false,
+      isHard: false,
+    },
   ];
 
   // Track CTL/ATL for realistic values
@@ -151,15 +264,20 @@ function generateActivities(): ApiActivity[] {
 
     // Seasonal variation
     const month = date.getMonth();
-    const seasonMult = month >= 11 || month <= 1 ? 0.7 :
-                       month >= 2 && month <= 4 ? 0.9 :
-                       month >= 5 && month <= 7 ? 1.15 : 1.0;
+    const seasonMult =
+      month >= 11 || month <= 1
+        ? 0.7
+        : month >= 2 && month <= 4
+          ? 0.9
+          : month >= 5 && month <= 7
+            ? 1.15
+            : 1.0;
 
     const dayOfWeek = date.getDay();
 
     // Rest days
-    const isRest = (dayOfWeek === 1 && Math.random() < 0.8) ||
-                   (dayOfWeek === 4 && Math.random() < 0.5);
+    const isRest =
+      (dayOfWeek === 1 && Math.random() < 0.8) || (dayOfWeek === 4 && Math.random() < 0.5);
     if (isRest) {
       // Update CTL/ATL even on rest days
       atl = atl + (0 - atl) / 7;
@@ -187,11 +305,20 @@ function generateActivities(): ApiActivity[] {
     atl = atl + (tss - atl) / 7;
     ctl = ctl + (tss - ctl) / 42;
 
+    // Generate name based on type and time of day
+    const hour = date.getHours();
+    const activityName = generateActivityName(
+      template.type,
+      hour,
+      template.isLong,
+      template.isHard
+    );
+
     activities.push({
       id: `demo-${activityId++}`,
       start_date_local: date.toISOString(),
       type: template.type,
-      name: template.name,
+      name: activityName,
       description: null,
       distance: Math.round(template.dist * variance),
       moving_time: Math.round(template.time * variance),
@@ -202,23 +329,32 @@ function generateActivities(): ApiActivity[] {
       max_speed: template.speed * variance * 1.3,
       average_heartrate: Math.round(template.hr * (0.95 + Math.random() * 0.1)),
       max_heartrate: Math.round(template.hr * 1.2),
-      average_cadence: template.type === 'Run' ? 85 + Math.random() * 10 :
-                       template.type === 'Ride' ? 85 + Math.random() * 15 : null,
+      average_cadence:
+        template.type === 'Run'
+          ? 85 + Math.random() * 10
+          : template.type === 'Ride'
+            ? 85 + Math.random() * 15
+            : null,
       average_temp: 18 + Math.random() * 10,
       calories: Math.round(tss * 8),
       device_name: 'Demo Device',
       trainer: template.type === 'VirtualRide',
       commute: false,
       icu_training_load: tss,
-      icu_intensity: template.watts ? Math.round(template.watts / 250 * 100) : null,
+      icu_intensity: template.watts ? Math.round((template.watts / 250) * 100) : null,
       icu_ftp: 250,
       icu_atl: Math.round(atl * 10) / 10,
       icu_ctl: Math.round(ctl * 10) / 10,
       icu_hr_zones: [130, 145, 160, 170, 180, 190],
       icu_power_zones: [125, 170, 210, 250, 290, 350],
-      stream_types: template.type === 'Swim'
-        ? ['time', 'heartrate', 'distance']
-        : ['time', 'latlng', 'heartrate', 'altitude', 'cadence', 'velocity_smooth'],
+      stream_types:
+        template.type === 'Swim'
+          ? ['time', 'heartrate', 'distance']
+          : template.type === 'VirtualRide'
+            ? ['time', 'heartrate', 'altitude', 'cadence', 'watts', 'velocity_smooth']
+            : template.type === 'Ride'
+              ? ['time', 'latlng', 'heartrate', 'altitude', 'cadence', 'watts', 'velocity_smooth']
+              : ['time', 'latlng', 'heartrate', 'altitude', 'cadence', 'velocity_smooth'],
       locality: 'Coastal City',
       country: 'AU',
       // Store route ID for map lookups (not part of real API)
@@ -249,16 +385,23 @@ function generateWellness(): ApiWellness[] {
 
     // Seasonal target CTL
     const month = date.getMonth();
-    const targetCtl = month >= 11 || month <= 1 ? 35 :
-                      month >= 2 && month <= 4 ? 45 :
-                      month >= 5 && month <= 7 ? 55 : 45;
+    const targetCtl =
+      month >= 11 || month <= 1
+        ? 35
+        : month >= 2 && month <= 4
+          ? 45
+          : month >= 5 && month <= 7
+            ? 55
+            : 45;
 
     // Simulate daily load
     const dayOfWeek = date.getDay();
     const isRest = dayOfWeek === 1 || (dayOfWeek === 4 && Math.random() < 0.5);
-    const dailyTss = isRest ? 0 :
-                     dayOfWeek === 0 || dayOfWeek === 6 ? 80 + Math.random() * 50 :
-                     40 + Math.random() * 40;
+    const dailyTss = isRest
+      ? 0
+      : dayOfWeek === 0 || dayOfWeek === 6
+        ? 80 + Math.random() * 50
+        : 40 + Math.random() * 40;
 
     // Update CTL/ATL
     atl = atl + (dailyTss - atl) / 7;
@@ -313,22 +456,19 @@ export const fixtures = {
 // ============================================================================
 
 export function getActivity(id: string): ApiActivity | undefined {
-  return fixtures.activities.find(a => a.id === id);
+  return fixtures.activities.find((a) => a.id === id);
 }
 
-export function getActivities(params?: {
-  oldest?: string;
-  newest?: string;
-}): ApiActivity[] {
+export function getActivities(params?: { oldest?: string; newest?: string }): ApiActivity[] {
   let result = [...fixtures.activities];
 
   if (params?.oldest) {
     const oldest = new Date(params.oldest);
-    result = result.filter(a => new Date(a.start_date_local) >= oldest);
+    result = result.filter((a) => new Date(a.start_date_local) >= oldest);
   }
   if (params?.newest) {
     const newest = new Date(params.newest);
-    result = result.filter(a => new Date(a.start_date_local) <= newest);
+    result = result.filter((a) => new Date(a.start_date_local) <= newest);
   }
 
   return result.reverse(); // Newest first
@@ -345,7 +485,7 @@ export function getActivityMap(id: string, boundsOnly = false): ApiActivityMap |
 
   // Get route coordinates
   const routeId = activity._routeId;
-  const route = routeId ? demoRoutes.find(r => r.id === routeId) : null;
+  const route = routeId ? demoRoutes.find((r) => r.id === routeId) : null;
 
   if (route) {
     const coords = getRouteCoordinates(routeId, true);
@@ -361,7 +501,7 @@ export function getActivityMap(id: string, boundsOnly = false): ApiActivityMap |
   // Fallback: generate simple route around demo location
   const coords: [number, number][] = [];
   const baseLat = -33.89;
-  const baseLng = 151.20;
+  const baseLng = 151.2;
   const points = 50;
   for (let i = 0; i < points; i++) {
     const angle = (i / points) * Math.PI * 2;
@@ -385,75 +525,108 @@ export function getActivityStreams(id: string): ApiActivityStreams | null {
   if (!activity) return null;
 
   const duration = activity.moving_time;
-  const points = Math.min(duration, 1000); // Max 1000 points
+  const points = Math.min(Math.max(duration / 5, 100), 1000); // 100-1000 points, ~5 sec intervals
   const interval = Math.ceil(duration / points);
 
   const streams: ApiActivityStreams = {
     time: Array.from({ length: points }, (_, i) => i * interval),
   };
 
-  // Heart rate stream
-  if (activity.average_heartrate) {
-    const baseHr = activity.average_heartrate;
-    streams.heartrate = streams.time.map((t) => {
-      const progress = t / duration;
-      const warmup = Math.min(1, progress * 5); // Warmup effect
-      const fatigue = progress * 5; // Cardiac drift
-      return Math.round(baseHr * 0.85 * warmup + fatigue + (Math.random() - 0.5) * 10);
-    });
-  }
+  // Heart rate stream - always include for activities with HR data
+  const baseHr = activity.average_heartrate || 140; // Default to 140 if not set
+  streams.heartrate = streams.time.map((t) => {
+    const progress = t / duration;
+    const warmup = Math.min(1, progress * 5); // Warmup effect
+    const fatigue = progress * 5; // Cardiac drift
+    const variation = (Math.random() - 0.5) * 10;
+    return Math.round(Math.max(80, Math.min(200, baseHr * 0.85 * warmup + fatigue + variation)));
+  });
 
   // Power stream (for rides)
   if (activity.type === 'Ride' || activity.type === 'VirtualRide') {
-    const ftp = 250;
-    streams.watts = streams.time.map(() => {
-      return Math.round(ftp * 0.7 + Math.random() * ftp * 0.4);
+    const ftp = activity.icu_ftp || 250;
+    streams.watts = streams.time.map((t) => {
+      const progress = t / duration;
+      // Create some intervals/variability
+      const intervalPhase = Math.sin(progress * Math.PI * 8) * 0.2;
+      const base = ftp * (0.65 + intervalPhase);
+      return Math.round(Math.max(50, base + (Math.random() - 0.5) * ftp * 0.3));
     });
   }
 
-  // GPS stream
-  if (activity.stream_types.includes('latlng')) {
+  // GPS stream - only for outdoor activities with routes
+  if (activity.stream_types?.includes('latlng')) {
     const map = getActivityMap(id, false);
-    if (map?.latlngs) {
+    if (map?.latlngs && map.latlngs.length > 0) {
       // Interpolate to match time points
       const coords = map.latlngs;
       streams.latlng = streams.time.map((_, i) => {
-        const idx = Math.floor((i / points) * (coords.length - 1));
+        const idx = Math.min(Math.floor((i / points) * coords.length), coords.length - 1);
         return coords[idx];
       });
     }
   }
 
-  // Altitude stream
-  if (activity.stream_types.includes('altitude')) {
-    const maxElev = activity.total_elevation_gain;
+  // Altitude stream - generate realistic elevation profile
+  if (activity.stream_types?.includes('altitude')) {
+    const maxElev = activity.total_elevation_gain || 100;
+    const baseAltitude = 50; // Starting altitude in meters
+
+    // Create a more realistic elevation profile with multiple hills
     streams.altitude = streams.time.map((t) => {
       const progress = t / duration;
-      return Math.round(50 + Math.sin(progress * Math.PI * 2) * maxElev / 2);
+      // Multiple hills with different frequencies
+      const hill1 = Math.sin(progress * Math.PI * 2) * (maxElev / 3);
+      const hill2 = Math.sin(progress * Math.PI * 4 + 1) * (maxElev / 4);
+      const hill3 = Math.sin(progress * Math.PI * 6 + 2) * (maxElev / 6);
+      const noise = (Math.random() - 0.5) * 5;
+      return Math.round(Math.max(0, baseAltitude + hill1 + hill2 + hill3 + noise));
+    });
+
+    // Also create fixed_altitude (same as altitude for demo)
+    streams.fixed_altitude = [...streams.altitude];
+  }
+
+  // Cadence stream - always include for cycling and running
+  if (activity.type === 'Ride' || activity.type === 'VirtualRide') {
+    const baseCadence = activity.average_cadence || 85;
+    streams.cadence = streams.time.map((t) => {
+      const progress = t / duration;
+      // Simulate cadence variation (lower on climbs, higher on descents)
+      const hillEffect = Math.sin(progress * Math.PI * 2) * 5;
+      const variation = (Math.random() - 0.5) * 8;
+      return Math.round(Math.max(60, Math.min(120, baseCadence + hillEffect + variation)));
+    });
+  } else if (activity.type === 'Run') {
+    const baseCadence = activity.average_cadence || 170; // Running cadence in spm
+    streams.cadence = streams.time.map(() => {
+      const variation = (Math.random() - 0.5) * 6;
+      return Math.round(Math.max(150, Math.min(190, baseCadence + variation)));
     });
   }
 
-  // Cadence stream
-  if (activity.average_cadence) {
-    streams.cadence = streams.time.map(() => {
-      return Math.round(activity.average_cadence! + (Math.random() - 0.5) * 10);
+  // Velocity/speed stream
+  if (activity.average_speed) {
+    streams.velocity_smooth = streams.time.map((t) => {
+      const progress = t / duration;
+      // Slower on uphills, faster on downhills
+      const hillEffect = -Math.sin(progress * Math.PI * 2) * (activity.average_speed * 0.15);
+      const variation = (Math.random() - 0.5) * 2;
+      return Math.max(1, activity.average_speed + hillEffect + variation);
     });
   }
 
   return streams;
 }
 
-export function getWellness(params?: {
-  oldest?: string;
-  newest?: string;
-}): ApiWellness[] {
+export function getWellness(params?: { oldest?: string; newest?: string }): ApiWellness[] {
   let result = [...fixtures.wellness];
 
   if (params?.oldest) {
-    result = result.filter(w => w.id >= params.oldest!);
+    result = result.filter((w) => w.id >= params.oldest!);
   }
   if (params?.newest) {
-    result = result.filter(w => w.id <= params.newest!);
+    result = result.filter((w) => w.id <= params.newest!);
   }
 
   return result;

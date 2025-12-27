@@ -2,7 +2,7 @@ import React from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity, useColorScheme, Text } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors, typography, layout, spacing } from '@/theme';
-import type { ChartConfig } from '@/lib/chartConfig';
+import type { ChartConfig } from '@/lib';
 
 interface ChartTypeSelectorProps {
   /** Available chart types (only those with data) */

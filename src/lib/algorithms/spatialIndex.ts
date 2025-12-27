@@ -10,7 +10,7 @@
 
 import RBush from 'rbush';
 import type { ActivityBoundsItem } from '@/types';
-import { debug } from './debug';
+import { debug } from '../utils/debug';
 
 const log = debug.create('SpatialIndex');
 

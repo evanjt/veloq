@@ -9,8 +9,7 @@ import {
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { RegionalMapView } from '@/components/maps/RegionalMapView';
-import { TimelineSlider } from '@/components/maps/TimelineSlider';
+import { RegionalMapView, TimelineSlider } from '@/components/maps';
 import { useActivityBoundsCache } from '@/hooks';
 import { colors, darkColors, spacing, typography } from '@/theme';
 import { formatLocalDate } from '@/lib';
