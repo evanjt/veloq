@@ -447,6 +447,18 @@
     "analyzingRoutes": "Analyse des parcours"
   },
 
+  "activityDetail": {
+    "failedToLoad": "Échec du chargement de l'activité",
+    "avgPace": "Allure Moy",
+    "avgSpeed": "Vit Moy",
+    "avgHR": "FC Moy",
+    "avgPower": "Puiss Moy"
+  },
+
+  "routeDetail": {
+    "routeNotFound": "Itinéraire non trouvé"
+  },
+
   "attribution": {
     "recordedWith": "Enregistré avec {{device}}",
     "garminTrademark": "Garmin et le logo Garmin sont des marques déposées de Garmin Ltd."
