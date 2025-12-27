@@ -1,0 +1,9 @@
+# Match configuration for iOS code signing
+# Set up when Apple Developer account is ready
+
+git_url(ENV["MATCH_GIT_URL"])
+storage_mode("git")
+type("appstore")
+app_identifier("com.veloq.app")
+username(ENV["FASTLANE_USER"])
+team_id(ENV["FASTLANE_TEAM_ID"])
