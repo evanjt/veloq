@@ -1,25 +1,34 @@
-//! # Medoid-Based Section Detection
+//! # Adaptive Consensus Section Detection
 //!
 //! Detects frequently-traveled road sections using FULL GPS tracks.
-//! Produces smooth, natural polylines by selecting actual GPS traces (medoids)
-//! rather than computing artificial median points.
+//! Produces smooth, natural polylines that evolve and refine over time
+//! as more tracks are observed.
 //!
 //! ## Algorithm
 //! 1. Load full GPS tracks (1000s of points per activity)
 //! 2. Find overlapping portions using R-tree spatial indexing
 //! 3. Cluster overlaps that represent the same physical section
-//! 4. Select medoid: the actual trace with minimum AMD to all others
-//! 5. Store each activity's portion indices for pace comparison
+//! 4. Select initial medoid as the starting reference
+//! 5. Compute consensus polyline via weighted averaging of all tracks
+//! 6. Track per-point confidence based on observation density
+//! 7. Adapt section boundaries based on where tracks consistently overlap
 //!
-//! ## Key Difference from Previous Approach
-//! - Uses FULL GPS tracks, not pre-simplified RouteSignatures
-//! - Medoid selection: picks an ACTUAL trace, no artificial interpolation
-//! - Stores activity portions for pace comparison
+//! ## Consensus Algorithm
+//! - Normalize all tracks to common parameterization (by distance)
+//! - At each position, collect nearby points from all tracks
+//! - Compute weighted average: weight = 1 / (distance_to_reference + epsilon)
+//! - Higher observation density → higher confidence → tighter future matching
+//!
+//! ## Adaptive Boundaries
+//! - Track where each activity's overlap starts/ends relative to section
+//! - Section can grow if tracks consistently extend beyond current bounds
+//! - Section contracts if tracks consistently end before current bounds
 
 use std::collections::{HashMap, HashSet};
 use crate::{GpsPoint, RouteGroup, Bounds};
 use geo::{Point, Haversine, Distance};
 use rstar::{RTree, RTreeObject, PointDistance, AABB};
+#[cfg(feature = "parallel")]
 use rayon::prelude::*;
 use log::info;
 
@@ -44,11 +53,11 @@ pub struct SectionConfig {
 impl Default for SectionConfig {
     fn default() -> Self {
         Self {
-            proximity_threshold: 40.0,   // 40m - handles GPS error + opposite sides of street
+            proximity_threshold: 50.0,   // 50m - handles GPS error + wide roads + opposite sides
             min_section_length: 200.0,   // 200m minimum section
             max_section_length: 5000.0,  // 5km max - longer is likely a route, not a section
             min_activities: 3,           // Need 3+ activities
-            cluster_tolerance: 60.0,     // 60m for clustering similar overlaps
+            cluster_tolerance: 80.0,     // 80m for clustering similar overlaps
             sample_points: 50,           // For AMD comparison only
         }
     }
@@ -70,7 +79,7 @@ pub struct SectionPortion {
     pub direction: String,
 }
 
-/// A frequently-traveled section with medoid representation
+/// A frequently-traveled section with adaptive consensus representation
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "ffi", derive(uniffi::Record))]
 pub struct FrequentSection {
@@ -78,9 +87,10 @@ pub struct FrequentSection {
     pub id: String,
     /// Sport type ("Run", "Ride", etc.)
     pub sport_type: String,
-    /// The medoid polyline - an ACTUAL GPS trace from one activity
+    /// The consensus polyline - refined from all overlapping tracks
+    /// Initially the medoid, evolves via weighted averaging as more tracks are added
     pub polyline: Vec<GpsPoint>,
-    /// Which activity provided the representative polyline
+    /// Which activity provided the initial representative polyline (medoid)
     pub representative_activity_id: String,
     /// All activity IDs that traverse this section
     pub activity_ids: Vec<String>,
@@ -95,6 +105,17 @@ pub struct FrequentSection {
     /// Pre-computed GPS traces for each activity's overlapping portion
     /// Key is activity ID, value is the GPS points within proximity of section
     pub activity_traces: HashMap<String, Vec<GpsPoint>>,
+    /// Confidence score (0.0-1.0) based on observation density
+    /// Higher confidence = more tracks observed, tighter consensus
+    pub confidence: f64,
+    /// Number of observations (tracks) used to compute consensus
+    pub observation_count: u32,
+    /// Average spread (meters) of track observations from consensus line
+    /// Lower spread = more consistent track alignment
+    pub average_spread: f64,
+    /// Per-point observation density (how many activities pass through each point)
+    /// Used for detecting high-traffic portions that should become separate sections
+    pub point_density: Vec<u32>,
 }
 
 // =============================================================================
@@ -623,24 +644,149 @@ fn find_track_portion(
     }
 
     start_idx.map(|start| {
-        // Determine direction by comparing start/end points
-        let track_start = &track[start];
-        let track_end = &track[end_idx.saturating_sub(1).max(start)];
-        let ref_start = &reference[0];
-        let ref_end = &reference[reference.len() - 1];
-
-        let same_dir = haversine_distance(track_start, ref_start) +
-                       haversine_distance(track_end, ref_end);
-        let reverse_dir = haversine_distance(track_start, ref_end) +
-                         haversine_distance(track_end, ref_start);
-
-        let direction = if reverse_dir < same_dir {
-            "reverse".to_string()
-        } else {
-            "same".to_string()
-        };
-
+        let direction = detect_direction_robust(
+            &track[start..end_idx],
+            reference,
+            &ref_tree,
+        );
         (start, end_idx, direction)
+    })
+}
+
+/// Detect direction by sampling multiple points along the track and checking
+/// their positions on the reference polyline. More robust than just comparing endpoints.
+fn detect_direction_robust(
+    track_portion: &[GpsPoint],
+    reference: &[GpsPoint],
+    ref_tree: &RTree<IndexedPoint>,
+) -> String {
+    if track_portion.len() < 3 || reference.len() < 3 {
+        return "same".to_string();
+    }
+
+    // Sample 5 points along the track portion
+    let sample_count = 5.min(track_portion.len());
+    let step = track_portion.len() / sample_count;
+
+    let mut ref_indices: Vec<usize> = Vec::with_capacity(sample_count);
+
+    for i in 0..sample_count {
+        let track_idx = (i * step).min(track_portion.len() - 1);
+        let point = &track_portion[track_idx];
+        let query = [point.latitude, point.longitude];
+
+        if let Some(nearest) = ref_tree.nearest_neighbor(&query) {
+            ref_indices.push(nearest.idx);
+        }
+    }
+
+    if ref_indices.len() < 2 {
+        return "same".to_string();
+    }
+
+    // Count how many times consecutive samples go forward vs backward on the reference
+    let mut forward_count = 0;
+    let mut backward_count = 0;
+
+    for i in 1..ref_indices.len() {
+        let prev_idx = ref_indices[i - 1];
+        let curr_idx = ref_indices[i];
+
+        if curr_idx > prev_idx {
+            forward_count += 1;
+        } else if curr_idx < prev_idx {
+            backward_count += 1;
+        }
+        // Equal indices don't count (could be same point, noise)
+    }
+
+    if backward_count > forward_count {
+        "reverse".to_string()
+    } else {
+        "same".to_string()
+    }
+}
+
+// =============================================================================
+// Cluster Processing Helper
+// =============================================================================
+
+/// Process a single cluster into a FrequentSection.
+/// Extracted as a helper to support both parallel and sequential execution.
+fn process_cluster(
+    idx: usize,
+    cluster: OverlapCluster,
+    sport_type: &str,
+    track_map: &HashMap<String, Vec<GpsPoint>>,
+    activity_to_route: &HashMap<&str, &str>,
+    config: &SectionConfig,
+) -> Option<FrequentSection> {
+    // Select medoid - an ACTUAL GPS trace
+    let (representative_id, representative_polyline) = select_medoid(&cluster);
+
+    if representative_polyline.is_empty() {
+        return None;
+    }
+
+    let distance_meters = compute_polyline_length(&representative_polyline);
+
+    // Filter by max length - sections shouldn't be whole routes
+    if distance_meters > config.max_section_length {
+        return None;
+    }
+
+    // Compute activity portions for pace comparison
+    let activity_portions = compute_activity_portions(
+        &cluster,
+        &representative_id,
+        &representative_polyline,
+        track_map,
+        config,
+    );
+
+    // Collect route IDs
+    let route_ids: Vec<String> = cluster.activity_ids
+        .iter()
+        .filter_map(|aid| activity_to_route.get(aid.as_str()).map(|s| s.to_string()))
+        .collect::<HashSet<_>>()
+        .into_iter()
+        .collect();
+
+    // Pre-compute activity traces
+    let activity_id_vec: Vec<String> = cluster.activity_ids.iter().cloned().collect();
+    let activity_traces = extract_all_activity_traces(
+        &activity_id_vec,
+        &representative_polyline,
+        track_map,
+    );
+
+    // Collect all traces for consensus computation
+    let all_traces: Vec<Vec<GpsPoint>> = activity_traces.values().cloned().collect();
+
+    // Compute consensus polyline from all overlapping tracks
+    let consensus = compute_consensus_polyline(
+        &representative_polyline,
+        &all_traces,
+        config.proximity_threshold,
+    );
+
+    // Use consensus polyline and update distance
+    let consensus_distance = compute_polyline_length(&consensus.polyline);
+
+    Some(FrequentSection {
+        id: format!("sec_{}_{}", sport_type.to_lowercase(), idx),
+        sport_type: sport_type.to_string(),
+        polyline: consensus.polyline,
+        representative_activity_id: representative_id,
+        activity_ids: cluster.activity_ids.into_iter().collect(),
+        activity_portions,
+        route_ids,
+        visit_count: cluster.overlaps.len() as u32 + 1,
+        distance_meters: consensus_distance,
+        activity_traces,
+        confidence: consensus.confidence,
+        observation_count: consensus.observation_count,
+        average_spread: consensus.average_spread,
     })
 }
 
@@ -737,9 +883,32 @@ pub fn detect_sections_from_tracks(
 
         let total_pairs = pairs.len();
 
-        // Process pairs in parallel
+        // Process pairs (parallel if feature enabled)
+        #[cfg(feature = "parallel")]
         let overlaps: Vec<FullTrackOverlap> = pairs
             .into_par_iter()
+            .filter_map(|(i, j)| {
+                let (id_a, track_a) = sport_tracks[i];
+                let (id_b, track_b) = sport_tracks[j];
+
+                // Quick bounding box check
+                if !bounds_overlap_tracks(track_a, track_b, config.proximity_threshold) {
+                    return None;
+                }
+
+                // Find overlap using R-tree
+                find_full_track_overlap(
+                    id_a, track_a,
+                    id_b, track_b,
+                    &rtrees[j],
+                    config,
+                )
+            })
+            .collect();
+
+        #[cfg(not(feature = "parallel"))]
+        let overlaps: Vec<FullTrackOverlap> = pairs
+            .into_iter()
             .filter_map(|(i, j)| {
                 let (id_a, track_a) = sport_tracks[i];
                 let (id_b, track_b) = sport_tracks[j];
@@ -794,61 +963,20 @@ pub fn detect_sections_from_tracks(
             .enumerate()
             .collect();
 
-        // Process clusters in parallel
+        // Process clusters (parallel if feature enabled)
+        #[cfg(feature = "parallel")]
         let sport_sections: Vec<FrequentSection> = cluster_data
             .into_par_iter()
             .filter_map(|(idx, cluster)| {
-                // Select medoid - an ACTUAL GPS trace
-                let (representative_id, representative_polyline) = select_medoid(&cluster);
+                process_cluster(idx, cluster, &sport_type, &track_map, &activity_to_route, config)
+            })
+            .collect();
 
-                if representative_polyline.is_empty() {
-                    return None;
-                }
-
-                let distance_meters = compute_polyline_length(&representative_polyline);
-
-                // Filter by max length - sections shouldn't be whole routes
-                if distance_meters > config.max_section_length {
-                    return None;
-                }
-
-                // Compute activity portions for pace comparison
-                let activity_portions = compute_activity_portions(
-                    &cluster,
-                    &representative_id,
-                    &representative_polyline,
-                    &track_map,
-                    config,
-                );
-
-                // Collect route IDs
-                let route_ids: Vec<String> = cluster.activity_ids
-                    .iter()
-                    .filter_map(|aid| activity_to_route.get(aid.as_str()).map(|s| s.to_string()))
-                    .collect::<HashSet<_>>()
-                    .into_iter()
-                    .collect();
-
-                // Pre-compute activity traces
-                let activity_id_vec: Vec<String> = cluster.activity_ids.iter().cloned().collect();
-                let activity_traces = extract_all_activity_traces(
-                    &activity_id_vec,
-                    &representative_polyline,
-                    &track_map,
-                );
-
-                Some(FrequentSection {
-                    id: format!("sec_{}_{}", sport_type.to_lowercase(), idx),
-                    sport_type: sport_type.clone(),
-                    polyline: representative_polyline,
-                    representative_activity_id: representative_id,
-                    activity_ids: cluster.activity_ids.into_iter().collect(),
-                    activity_portions,
-                    route_ids,
-                    visit_count: cluster.overlaps.len() as u32 + 1,
-                    distance_meters,
-                    activity_traces,
-                })
+        #[cfg(not(feature = "parallel"))]
+        let sport_sections: Vec<FrequentSection> = cluster_data
+            .into_iter()
+            .filter_map(|(idx, cluster)| {
+                process_cluster(idx, cluster, &sport_type, &track_map, &activity_to_route, config)
             })
             .collect();
 
@@ -868,11 +996,11 @@ pub fn detect_sections_from_tracks(
             fold_start.elapsed().as_millis()
         );
 
-        // Post-process step 2: Merge sections that are essentially reversed versions
+        // Post-process step 2: Merge sections that are nearby (reversed, parallel, GPS drift)
         let merge_start = std::time::Instant::now();
-        let merged_sections = merge_reversed_sections(split_sections, config);
+        let merged_sections = merge_nearby_sections(split_sections, config);
         info!(
-            "[Sections] After reverse merge: {} sections in {}ms",
+            "[Sections] After nearby merge: {} sections in {}ms",
             merged_sections.len(),
             merge_start.elapsed().as_millis()
         );
@@ -924,6 +1052,203 @@ pub fn detect_frequent_sections(
         .collect();
 
     detect_sections_from_tracks(&tracks, sport_types, groups, config)
+}
+
+// =============================================================================
+// Consensus Polyline Computation
+// =============================================================================
+
+/// Result of consensus computation including confidence metrics
+struct ConsensusResult {
+    /// The refined consensus polyline
+    polyline: Vec<GpsPoint>,
+    /// Confidence score (0.0-1.0)
+    confidence: f64,
+    /// Number of tracks that contributed
+    observation_count: u32,
+    /// Average spread of observations from consensus (meters)
+    average_spread: f64,
+    /// Per-point observation count (how many tracks contributed to each point)
+    point_density: Vec<u32>,
+}
+
+/// Compute a consensus polyline from multiple overlapping tracks.
+/// Uses weighted averaging where weight = 1 / (distance_to_reference + epsilon).
+///
+/// Algorithm:
+/// 1. Normalize each track to distance parameterization
+/// 2. For each position along the reference, find nearby points from all tracks
+/// 3. Compute weighted centroid of nearby points
+/// 4. Track observation density for confidence scoring
+fn compute_consensus_polyline(
+    reference: &[GpsPoint],
+    all_traces: &[Vec<GpsPoint>],
+    proximity_threshold: f64,
+) -> ConsensusResult {
+    if reference.is_empty() || all_traces.is_empty() {
+        return ConsensusResult {
+            polyline: reference.to_vec(),
+            confidence: 0.0,
+            observation_count: 0,
+            average_spread: 0.0,
+            point_density: vec![0; reference.len()],
+        };
+    }
+
+    // Build R-trees for all traces for efficient spatial queries
+    let trace_trees: Vec<RTree<IndexedPoint>> = all_traces
+        .iter()
+        .map(|trace| build_rtree(trace))
+        .collect();
+
+    let threshold_deg = proximity_threshold / 111_000.0;
+    let threshold_deg_sq = threshold_deg * threshold_deg;
+    let epsilon = 0.000001; // Small constant to avoid division by zero
+
+    let mut consensus_points = Vec::with_capacity(reference.len());
+    let mut point_density = Vec::with_capacity(reference.len());
+    let mut total_spread = 0.0;
+    let mut total_point_observations = 0u32;
+
+    for ref_point in reference {
+        let ref_coords = [ref_point.latitude, ref_point.longitude];
+
+        // Collect nearby points from all traces
+        let mut weighted_lat = 0.0;
+        let mut weighted_lng = 0.0;
+        let mut total_weight = 0.0;
+        let mut nearby_distances: Vec<f64> = Vec::new();
+        let mut this_point_observations = 0u32;
+
+        for (trace_idx, tree) in trace_trees.iter().enumerate() {
+            if let Some(nearest) = tree.nearest_neighbor(&ref_coords) {
+                let dist_sq = nearest.distance_2(&ref_coords);
+
+                if dist_sq <= threshold_deg_sq {
+                    // Point is within threshold - include in weighted average
+                    let trace = &all_traces[trace_idx];
+                    let trace_point = &trace[nearest.idx];
+
+                    // Weight inversely proportional to distance
+                    let dist_deg = dist_sq.sqrt();
+                    let dist_meters = dist_deg * 111_000.0;
+                    let weight = 1.0 / (dist_meters + epsilon);
+
+                    weighted_lat += trace_point.latitude * weight;
+                    weighted_lng += trace_point.longitude * weight;
+                    total_weight += weight;
+                    nearby_distances.push(dist_meters);
+                    this_point_observations += 1;
+                }
+            }
+        }
+
+        // Track per-point density
+        point_density.push(this_point_observations);
+
+        if total_weight > 0.0 {
+            // Compute weighted centroid
+            let consensus_lat = weighted_lat / total_weight;
+            let consensus_lng = weighted_lng / total_weight;
+            consensus_points.push(GpsPoint::new(consensus_lat, consensus_lng));
+
+            // Track spread (average distance of observations from consensus)
+            if !nearby_distances.is_empty() {
+                let avg_dist: f64 = nearby_distances.iter().sum::<f64>() / nearby_distances.len() as f64;
+                total_spread += avg_dist;
+                total_point_observations += nearby_distances.len() as u32;
+            }
+        } else {
+            // No nearby points - keep reference point
+            consensus_points.push(ref_point.clone());
+        }
+    }
+
+    // Compute overall metrics
+    let observation_count = trace_trees.len() as u32;
+    let average_spread = if point_observations > 0 {
+        total_spread / (reference.len() as f64)
+    } else {
+        proximity_threshold // Default to max threshold if no observations
+    };
+
+    // Confidence based on observation count and spread
+    // More observations + tighter spread = higher confidence
+    let obs_factor = (observation_count as f64).min(10.0) / 10.0; // Saturates at 10 observations
+    let spread_factor = 1.0 - (average_spread / proximity_threshold).min(1.0); // Lower spread = higher factor
+    let confidence = (obs_factor * 0.5 + spread_factor * 0.5).min(1.0).max(0.0);
+
+    ConsensusResult {
+        polyline: consensus_points,
+        confidence,
+        observation_count,
+        average_spread,
+    }
+}
+
+/// Adapt section boundaries based on where tracks consistently overlap.
+/// Returns (new_start_offset, new_end_extension) in number of points.
+fn compute_adaptive_boundaries(
+    reference: &[GpsPoint],
+    all_traces: &[Vec<GpsPoint>],
+    proximity_threshold: f64,
+) -> (usize, usize) {
+    if reference.is_empty() || all_traces.is_empty() {
+        return (0, 0);
+    }
+
+    let threshold_deg = proximity_threshold / 111_000.0;
+    let threshold_deg_sq = threshold_deg * threshold_deg;
+
+    // For each trace, find where it starts and ends overlapping the reference
+    let mut start_offsets: Vec<usize> = Vec::new();
+    let mut end_extensions: Vec<usize> = Vec::new();
+
+    let ref_tree = build_rtree(reference);
+
+    for trace in all_traces {
+        // Find first point in trace that's close to reference
+        let mut first_overlap = None;
+        let mut last_overlap = None;
+
+        for (i, point) in trace.iter().enumerate() {
+            let query = [point.latitude, point.longitude];
+            if let Some(nearest) = ref_tree.nearest_neighbor(&query) {
+                if nearest.distance_2(&query) <= threshold_deg_sq {
+                    if first_overlap.is_none() {
+                        first_overlap = Some(i);
+                    }
+                    last_overlap = Some(i);
+                }
+            }
+        }
+
+        // Record how the overlap boundaries compare to the trace boundaries
+        if let (Some(first), Some(last)) = (first_overlap, last_overlap) {
+            // Points before first_overlap could extend the start
+            start_offsets.push(first);
+            // Points after last_overlap could extend the end
+            end_extensions.push(trace.len().saturating_sub(last + 1));
+        }
+    }
+
+    // Use median values to determine boundary adjustments
+    // (avoids outliers from GPS errors)
+    let median_start = if start_offsets.is_empty() {
+        0
+    } else {
+        start_offsets.sort();
+        start_offsets[start_offsets.len() / 2]
+    };
+
+    let median_end = if end_extensions.is_empty() {
+        0
+    } else {
+        end_extensions.sort();
+        end_extensions[end_extensions.len() / 2]
+    };
+
+    (median_start, median_end)
 }
 
 // =============================================================================
@@ -1133,9 +1458,9 @@ fn split_folding_sections(
     result
 }
 
-/// Merge sections that are geometrically similar (even if one is reversed).
-/// This prevents having duplicate sections for forward/reverse travel.
-fn merge_reversed_sections(
+/// Merge sections that are geometrically close to each other.
+/// This handles: reversed sections, parallel tracks (opposite sides of road), GPS drift.
+fn merge_nearby_sections(
     mut sections: Vec<FrequentSection>,
     config: &SectionConfig,
 ) -> Vec<FrequentSection> {
@@ -1143,40 +1468,54 @@ fn merge_reversed_sections(
         return sections;
     }
 
-    // Sort by visit count descending
+    // Sort by visit count descending - keep the most visited version
     sections.sort_by(|a, b| b.visit_count.cmp(&a.visit_count));
 
     let mut keep: Vec<bool> = vec![true; sections.len()];
+
+    // Use a very generous threshold for merging nearby sections
+    // Wide roads can be 30m+, GPS error can add 20m, so use 2x the base threshold
+    let merge_threshold = config.proximity_threshold * 2.0;
 
     for i in 0..sections.len() {
         if !keep[i] {
             continue;
         }
 
+        let section_i = &sections[i];
+        let tree_i = build_rtree(&section_i.polyline);
+
         for j in (i + 1)..sections.len() {
             if !keep[j] {
                 continue;
             }
 
-            // Check if j is the reverse of i
-            let section_i = &sections[i];
             let section_j = &sections[j];
 
-            // Reverse section_j's polyline and check overlap
+            // Skip if sections are very different lengths (>3x difference)
+            let length_ratio = section_i.distance_meters / section_j.distance_meters.max(1.0);
+            if length_ratio > 3.0 || length_ratio < 0.33 {
+                continue;
+            }
+
+            // Check forward containment with generous threshold
+            let forward_containment = compute_containment(&section_j.polyline, &tree_i, merge_threshold);
+
+            // Check reverse containment
             let reversed_j: Vec<GpsPoint> = section_j.polyline.iter().rev().cloned().collect();
-            let tree_i = build_rtree(&section_i.polyline);
+            let reverse_containment = compute_containment(&reversed_j, &tree_i, merge_threshold);
 
-            let forward_containment = compute_containment(&section_j.polyline, &tree_i, config.proximity_threshold);
-            let reverse_containment = compute_containment(&reversed_j, &tree_i, config.proximity_threshold);
+            let max_containment = forward_containment.max(reverse_containment);
 
-            // If either forward or reverse is >60% contained, merge
-            if forward_containment > 0.6 || reverse_containment > 0.6 {
-                // Merge j's activities into i
-                // (In practice, we just remove j since the activities should already be shared)
+            // Merge if either direction shows overlap (lower threshold since we're using generous distance)
+            if max_containment > 0.4 {
                 keep[j] = false;
+
+                let direction = if reverse_containment > forward_containment { "reverse" } else { "same" };
+
                 info!(
-                    "[Sections] Merged reversed section {} into {} (fwd={:.2}, rev={:.2})",
-                    section_j.id, section_i.id, forward_containment, reverse_containment
+                    "[Sections] Merged nearby {} section {} into {} ({:.0}% overlap @ {}m threshold)",
+                    direction, section_j.id, section_i.id, max_containment * 100.0, merge_threshold as i32
                 );
             }
         }
@@ -1193,9 +1532,10 @@ fn merge_reversed_sections(
 // Section Deduplication
 // =============================================================================
 
-/// Remove sections that contain or are contained by others.
-/// When sections overlap significantly, keep the one with more visits.
-/// This ensures each section is unique and non-redundant.
+/// Remove sections that overlap significantly.
+/// Strategy: Prefer SHORTER sections over longer ones that contain them.
+/// A short section (like an intersection or bridge) is more specific and useful
+/// than a long section that happens to include it.
 fn remove_overlapping_sections(
     mut sections: Vec<FrequentSection>,
     config: &SectionConfig,
@@ -1204,12 +1544,20 @@ fn remove_overlapping_sections(
         return sections;
     }
 
-    // Sort by visit count descending (prefer more visited sections)
-    sections.sort_by(|a, b| b.visit_count.cmp(&a.visit_count));
+    // Sort by LENGTH ascending (shorter sections first), then by visit count descending
+    // This ensures shorter, more specific sections are preferred
+    sections.sort_by(|a, b| {
+        match a.distance_meters.partial_cmp(&b.distance_meters) {
+            Some(std::cmp::Ordering::Equal) => b.visit_count.cmp(&a.visit_count),
+            Some(ord) => ord,
+            None => std::cmp::Ordering::Equal,
+        }
+    });
 
     let mut keep: Vec<bool> = vec![true; sections.len()];
 
-    // Check each pair
+    // For each section, check if it's mostly contained in a shorter section
+    // If so, the longer section should be removed (or trimmed)
     for i in 0..sections.len() {
         if !keep[i] {
             continue;
@@ -1224,27 +1572,43 @@ fn remove_overlapping_sections(
             }
 
             let section_j = &sections[j];
+            let tree_j = build_rtree(&section_j.polyline);
 
-            // Check if section_j is mostly contained within section_i
-            let containment = compute_containment(&section_j.polyline, &tree_i, config.proximity_threshold);
+            // Check mutual containment
+            let j_in_i = compute_containment(&section_j.polyline, &tree_i, config.proximity_threshold);
+            let i_in_j = compute_containment(&section_i.polyline, &tree_j, config.proximity_threshold);
 
-            if containment > 0.7 {
-                // section_j is >70% contained in section_i - remove it
+            // If j is largely contained in i (j is the longer one since we sorted by length)
+            // j should be removed because i is the more specific section
+            if j_in_i > 0.6 {
+                info!(
+                    "[Sections] Removing {} ({}m) - {}% contained in {} ({}m)",
+                    section_j.id, section_j.distance_meters as u32,
+                    (j_in_i * 100.0) as u32,
+                    section_i.id, section_i.distance_meters as u32
+                );
                 keep[j] = false;
-            } else if containment > 0.3 {
-                // Significant overlap - check the reverse direction
-                let tree_j = build_rtree(&section_j.polyline);
-                let reverse_containment = compute_containment(&section_i.polyline, &tree_j, config.proximity_threshold);
-
-                if reverse_containment > 0.7 {
-                    // section_i is mostly contained in section_j
-                    // But we prefer section_i (more visits), so keep it and remove j
-                    keep[j] = false;
-                } else if containment > 0.5 || reverse_containment > 0.5 {
-                    // Mutual overlap > 50% - they're essentially the same section
-                    // Keep the one with more visits (section_i, since we sorted)
-                    keep[j] = false;
-                }
+            } else if i_in_j > 0.8 {
+                // If i is almost entirely contained in j, remove i (the smaller one)
+                // This handles edge cases where the "smaller" section by length
+                // is actually just a subset of another section
+                info!(
+                    "[Sections] Removing {} ({}m) - {}% contained in {} ({}m)",
+                    section_i.id, section_i.distance_meters as u32,
+                    (i_in_j * 100.0) as u32,
+                    section_j.id, section_j.distance_meters as u32
+                );
+                keep[i] = false;
+                break; // Stop checking j's against removed i
+            } else if j_in_i > 0.4 && i_in_j > 0.4 {
+                // Significant mutual overlap - they're essentially the same
+                // Keep the shorter one (i, since sorted by length)
+                info!(
+                    "[Sections] Removing {} due to mutual overlap with {} ({}% vs {}%)",
+                    section_j.id, section_i.id,
+                    (j_in_i * 100.0) as u32, (i_in_j * 100.0) as u32
+                );
+                keep[j] = false;
             }
         }
     }
@@ -1289,23 +1653,26 @@ const TRACE_PROXIMITY_THRESHOLD: f64 = 50.0;
 /// Minimum points to consider a valid overlap trace
 const MIN_TRACE_POINTS: usize = 3;
 
-/// Extract the portion of a GPS track that overlaps with a section.
-/// Returns the longest contiguous sequence of points within TRACE_PROXIMITY_THRESHOLD
-/// of the section polyline.
-/// Uses R-tree for efficient O(log n) proximity lookups instead of O(n) linear search.
+/// Extract the portion(s) of a GPS track that overlap with a section.
+/// Returns ALL passes over the section (not just the longest) merged together.
+/// This handles out-and-back routes where the activity crosses the section twice.
+/// Uses R-tree for efficient O(log n) proximity lookups.
+/// Tolerates small gaps (up to 3 points) due to GPS noise.
 fn extract_activity_trace(track: &[GpsPoint], section_polyline: &[GpsPoint], polyline_tree: &RTree<IndexedPoint>) -> Vec<GpsPoint> {
     if track.len() < MIN_TRACE_POINTS || section_polyline.len() < 2 {
         return Vec::new();
     }
 
     // Convert threshold from meters to approximate degrees for R-tree comparison
-    // 1 degree ≈ 111km, so 50m ≈ 0.00045 degrees
-    let threshold_deg = TRACE_PROXIMITY_THRESHOLD / 111_000.0;
+    // Use a slightly larger threshold to catch GPS variations
+    let threshold_deg = (TRACE_PROXIMITY_THRESHOLD * 1.2) / 111_000.0;
     let threshold_deg_sq = threshold_deg * threshold_deg;
 
-    // Find contiguous sequences of points near the section
+    // Find ALL contiguous sequences of points near the section
     let mut sequences: Vec<Vec<GpsPoint>> = Vec::new();
     let mut current_sequence: Vec<GpsPoint> = Vec::new();
+    let mut gap_count = 0;
+    const MAX_GAP: usize = 3; // Allow small gaps due to GPS noise
 
     for point in track {
         let query = [point.latitude, point.longitude];
@@ -1318,14 +1685,22 @@ fn extract_activity_trace(track: &[GpsPoint], section_polyline: &[GpsPoint], pol
         };
 
         if is_near {
-            // Point is near section
+            // Point is near section - reset gap counter
+            gap_count = 0;
             current_sequence.push(point.clone());
         } else {
-            // Point is far from section - end current sequence if valid
-            if current_sequence.len() >= MIN_TRACE_POINTS {
-                sequences.push(std::mem::take(&mut current_sequence));
-            } else {
-                current_sequence.clear();
+            gap_count += 1;
+            // Allow small gaps but still add the point if we're in a sequence
+            if gap_count <= MAX_GAP && !current_sequence.is_empty() {
+                current_sequence.push(point.clone());
+            } else if gap_count > MAX_GAP {
+                // End current sequence if valid
+                if current_sequence.len() >= MIN_TRACE_POINTS {
+                    sequences.push(std::mem::take(&mut current_sequence));
+                } else {
+                    current_sequence.clear();
+                }
+                gap_count = 0;
             }
         }
     }
@@ -1335,10 +1710,48 @@ fn extract_activity_trace(track: &[GpsPoint], section_polyline: &[GpsPoint], pol
         sequences.push(current_sequence);
     }
 
-    // Return the longest sequence
-    sequences.into_iter()
-        .max_by_key(|s| s.len())
-        .unwrap_or_default()
+    // Merge all sequences instead of just returning the longest
+    // This captures both forward and reverse passes over the section
+    if sequences.is_empty() {
+        return Vec::new();
+    }
+
+    // If there's only one sequence, return it
+    if sequences.len() == 1 {
+        return sequences.into_iter().next().unwrap();
+    }
+
+    // Multiple sequences - merge them all
+    // Sort sequences by their first point's position along the section
+    // This helps visualization show the correct order
+    let section_tree = build_rtree(section_polyline);
+
+    // For each sequence, find where it starts on the section
+    let mut sequence_with_position: Vec<(usize, Vec<GpsPoint>)> = sequences
+        .into_iter()
+        .map(|seq| {
+            let start_pos = if let Some(first) = seq.first() {
+                let query = [first.latitude, first.longitude];
+                section_tree.nearest_neighbor(&query)
+                    .map(|n| n.idx)
+                    .unwrap_or(0)
+            } else {
+                0
+            };
+            (start_pos, seq)
+        })
+        .collect();
+
+    // Sort by position on section
+    sequence_with_position.sort_by_key(|(pos, _)| *pos);
+
+    // Concatenate all sequences
+    let mut merged: Vec<GpsPoint> = Vec::new();
+    for (_, seq) in sequence_with_position {
+        merged.extend(seq);
+    }
+
+    merged
 }
 
 /// Extract activity traces for all activities in a section.

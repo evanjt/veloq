@@ -44,6 +44,7 @@ import {
   formatPace,
   isRunningActivity,
 } from '@/lib';
+import { getGpsTrack } from '@/lib/gpsStorage';
 import { colors, darkColors, spacing, layout, typography, opacity } from '@/theme';
 import type { Activity, ActivityType, RoutePoint, FrequentSection } from '@/types';
 
@@ -175,6 +176,10 @@ interface PerformanceDataPoint {
   activityName: string;
   direction: 'same' | 'reverse';
   lapPoints?: RoutePoint[];
+  /** Estimated section time in seconds (proportional to distance ratio) */
+  sectionTime?: number;
+  /** Section distance in meters */
+  sectionDistance?: number;
 }
 
 const CHART_HEIGHT = 160;
@@ -212,7 +217,10 @@ function SectionPerformanceChart({
   const chartBoundsShared = useSharedValue({ left: 0, right: 1 });
   const lastNotifiedIdx = useRef<number | null>(null);
 
-  // Prepare chart data - use section portion data for speed calculation
+  // Prepare chart data - use section portion data for pace calculation
+  // Note: We use proportional time estimate (section_time = moving_time × section_dist/total_dist)
+  // This assumes constant pace throughout the activity. For accurate section timing,
+  // we would need timestamp data from activity streams.
   const { chartData, minSpeed, maxSpeed, bestIndex, hasReverseRuns } = useMemo(() => {
     const dataPoints: (PerformanceDataPoint & { x: number })[] = [];
 
@@ -232,16 +240,23 @@ function SectionPerformanceChart({
       const portion = portionMap.get(activity.id);
       const tracePoints = section.activityTraces?.[activity.id];
 
-      // Use section portion distance and calculate speed from that
+      // Use section portion distance for calculations
       const sectionDistance = portion?.distanceMeters || section.distanceMeters;
       const direction = (portion?.direction as 'same' | 'reverse') || 'same';
 
       if (direction === 'reverse') hasAnyReverse = true;
 
-      // Estimate speed for this section (assuming proportional time)
-      // Full activity speed as approximation
+      // Calculate section-specific pace using proportional time estimate
+      // sectionTime = moving_time × (sectionDistance / totalDistance)
+      // sectionSpeed = sectionDistance / sectionTime = totalDistance / moving_time = activitySpeed
+      // (proportional estimate yields same pace as full activity - mathematically equivalent)
       const activitySpeed = activity.moving_time > 0
         ? activity.distance / activity.moving_time
+        : 0;
+
+      // Calculate estimated section time for display
+      const sectionTime = activity.distance > 0
+        ? Math.round(activity.moving_time * (sectionDistance / activity.distance))
         : 0;
 
       dataPoints.push({
@@ -253,6 +268,8 @@ function SectionPerformanceChart({
         activityName: activity.name,
         direction,
         lapPoints: tracePoints,
+        sectionTime,
+        sectionDistance,
       });
     }
 
@@ -603,6 +620,11 @@ function SectionPerformanceChart({
               <Text style={[styles.tooltipDate, isDark && styles.textMuted]}>
                 {formatShortDate(tooltipData.date)}
               </Text>
+              {tooltipData.sectionTime != null && (
+                <Text style={[styles.tooltipDate, isDark && styles.textMuted]}>
+                  {' · '}{formatDuration(tooltipData.sectionTime)}
+                </Text>
+              )}
               {tooltipData.direction === 'reverse' && (
                 <View style={styles.reverseBadge}>
                   <MaterialCommunityIcons name="swap-horizontal" size={10} color={REVERSE_COLOR} />
@@ -674,6 +696,14 @@ function ActivityRow({
   const traceColor = isHighlighted ? '#00BCD4' : (isReverse ? REVERSE_COLOR : '#2196F3');
   const activityColor = getActivityColor(activity.type);
 
+  // Calculate section-specific time and pace (proportional estimate)
+  const displayDistance = sectionDistance || activity.distance;
+  const sectionTime = sectionDistance && activity.distance > 0
+    ? Math.round(activity.moving_time * (sectionDistance / activity.distance))
+    : activity.moving_time;
+  const sectionSpeed = sectionTime > 0 ? displayDistance / sectionTime : 0;
+  const showPace = isRunningActivity(activity.type);
+
   return (
     <Pressable
       onPress={handlePress}
@@ -718,10 +748,10 @@ function ActivityRow({
       </View>
       <View style={styles.activityStats}>
         <Text style={[styles.activityDistance, isDark && styles.textLight]}>
-          {formatDistance(activity.distance)}
+          {showPace ? formatPace(sectionSpeed) : formatSpeed(sectionSpeed)}
         </Text>
         <Text style={[styles.activityTime, isDark && styles.textMuted]}>
-          {formatDuration(activity.moving_time)}
+          {formatDuration(sectionTime)}
         </Text>
       </View>
       <MaterialCommunityIcons
@@ -741,6 +771,26 @@ export default function SectionDetailScreen() {
 
   const [highlightedActivityId, setHighlightedActivityId] = useState<string | null>(null);
   const [highlightedActivityPoints, setHighlightedActivityPoints] = useState<RoutePoint[] | undefined>(undefined);
+  const [shadowTrack, setShadowTrack] = useState<[number, number][] | undefined>(undefined);
+
+  // Load full GPS track when an activity is highlighted (for shadow display)
+  useEffect(() => {
+    if (!highlightedActivityId) {
+      setShadowTrack(undefined);
+      return;
+    }
+
+    // Load the full GPS track for the highlighted activity
+    getGpsTrack(highlightedActivityId).then((track) => {
+      if (track && track.length > 0) {
+        setShadowTrack(track);
+      } else {
+        setShadowTrack(undefined);
+      }
+    }).catch(() => {
+      setShadowTrack(undefined);
+    });
+  }, [highlightedActivityId]);
 
   const handleActivitySelect = useCallback((activityId: string | null, activityPoints?: RoutePoint[]) => {
     setHighlightedActivityId(activityId);
@@ -832,6 +882,7 @@ export default function SectionDetailScreen() {
               height={MAP_HEIGHT}
               interactive={false}
               enableFullscreen={true}
+              shadowTrack={shadowTrack}
             />
           </View>
 

@@ -247,18 +247,18 @@ export interface SectionPortion {
 }
 
 /**
- * A frequently-traveled road section with medoid representation.
- * The polyline is an ACTUAL GPS trace (medoid), not artificial interpolation.
- * This produces smooth, natural section shapes that follow real roads.
+ * A frequently-traveled road section with adaptive consensus representation.
+ * The polyline is refined from all overlapping GPS tracks using weighted averaging.
+ * As more tracks are observed, the consensus polyline converges to the true path.
  */
 export interface FrequentSection {
   /** Unique section ID */
   id: string;
   /** Sport type this section is for ("Run", "Ride", etc.) */
   sportType: string;
-  /** The medoid polyline - an ACTUAL GPS trace from one activity */
+  /** The consensus polyline - refined from all overlapping tracks */
   polyline: RoutePoint[];
-  /** Which activity provided the representative polyline */
+  /** Which activity provided the initial representative polyline (medoid) */
   representativeActivityId?: string;
   /** Activity IDs that traverse this section */
   activityIds: string[];
@@ -275,6 +275,14 @@ export interface FrequentSection {
   /** Pre-computed GPS traces for each activity's overlapping portion
    * Key is activity ID, value is the GPS points within proximity of section */
   activityTraces?: Record<string, RoutePoint[]>;
+  /** Confidence score (0.0-1.0) based on observation density and track alignment.
+   * Higher confidence = more tracks observed with tighter consensus. */
+  confidence?: number;
+  /** Number of tracks used to compute the consensus polyline */
+  observationCount?: number;
+  /** Average spread (meters) of track observations from the consensus line.
+   * Lower spread = more consistent track alignment. */
+  averageSpread?: number;
 }
 
 /** Configuration for section detection */
@@ -295,10 +303,10 @@ export interface SectionConfig {
 
 /** Default section detection configuration */
 export const DEFAULT_SECTION_CONFIG: SectionConfig = {
-  proximityThreshold: 40,  // 40m - handles GPS error + opposite sides of street
+  proximityThreshold: 50,  // 50m - handles GPS error + wide roads + opposite sides
   minSectionLength: 200,
   maxSectionLength: 5000,
   minActivities: 3,
-  clusterTolerance: 60,    // 60m for clustering similar overlaps
+  clusterTolerance: 80,    // 80m for clustering similar overlaps
   samplePoints: 50,
 };

@@ -33,6 +33,10 @@ import {
 } from './mapStyles';
 import type { ActivityBoundsItem, ActivityMapData, RouteSignature } from '@/types';
 import { useRouteMatchStore } from '@/providers';
+import { HeatmapLayer } from './HeatmapLayer';
+import { useHeatmap, type CellQueryResult } from '@/hooks/useHeatmap';
+import { useFrequentSections } from '@/hooks/routes/useFrequentSections';
+import type { FrequentSection } from '@/types';
 
 /**
  * 120Hz OPTIMIZATION SUMMARY:
@@ -74,13 +78,23 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
   const [mapStyle, setMapStyle] = useState<MapStyleType>(systemStyle);
   const [selected, setSelected] = useState<SelectedActivity | null>(null);
   const [is3DMode, setIs3DMode] = useState(false);
+  const [isHeatmapMode, setIsHeatmapMode] = useState(false);
+  const [showSections, setShowSections] = useState(true);
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
   const [visibleActivityIds, setVisibleActivityIds] = useState<Set<string> | null>(null);
   const [currentZoom, setCurrentZoom] = useState(10);
+  const [selectedCell, setSelectedCell] = useState<CellQueryResult | null>(null);
+  const [selectedSection, setSelectedSection] = useState<FrequentSection | null>(null);
   const cameraRef = useRef<React.ElementRef<typeof Camera>>(null);
 
   // Access route signatures for GPS trace rendering and pre-computed centers
   const routeSignatures = useRouteMatchStore((s) => s.cache?.signatures ?? {});
+
+  // Heatmap data from route matching cache
+  const { heatmap, queryCell } = useHeatmap();
+
+  // Frequent sections from route matching
+  const { sections } = useFrequentSections({ minVisits: 2 });
 
   // ===========================================
   // 120HZ OPTIMIZATION: Pre-compute and cache activity centers
@@ -223,6 +237,48 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
   const toggle3D = () => {
     setIs3DMode(current => !current);
   };
+
+  // Toggle heatmap mode
+  const toggleHeatmap = useCallback(() => {
+    setIsHeatmapMode(current => !current);
+    // Clear activity selection when switching to heatmap
+    if (!isHeatmapMode) {
+      setSelected(null);
+    }
+    // Clear cell selection when switching to activities
+    if (isHeatmapMode) {
+      setSelectedCell(null);
+    }
+  }, [isHeatmapMode]);
+
+  // Handle heatmap cell press
+  const handleHeatmapCellPress = useCallback((row: number, col: number) => {
+    // Find the cell in the heatmap data
+    if (!heatmap) return;
+    const cell = heatmap.cells.find(c => c.row === row && c.col === col);
+    if (cell) {
+      // Query for cell details
+      const result = queryCell(cell.centerLat, cell.centerLng);
+      setSelectedCell(result);
+    }
+  }, [heatmap, queryCell]);
+
+  // Toggle sections visibility
+  const toggleSections = useCallback(() => {
+    setShowSections(current => !current);
+  }, []);
+
+  // Handle section press
+  const handleSectionPress = useCallback((event: { features?: GeoJSON.Feature[] }) => {
+    const feature = event.features?.[0];
+    if (!feature?.properties?.id) return;
+
+    const sectionId = feature.properties.id;
+    const section = sections.find(s => s.id === sectionId);
+    if (section) {
+      setSelectedSection(section);
+    }
+  }, [sections]);
 
   // Reset bearing to north (and pitch in 3D mode)
   const resetOrientation = () => {
@@ -387,6 +443,40 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
   }, [showTraces, visibleActivities, routeSignatures]);
 
   // ===========================================
+  // SECTIONS GEOJSON - Frequent road/trail sections
+  // ===========================================
+  const sectionsGeoJSON = useMemo(() => {
+    if (sections.length === 0) return null;
+
+    const features = sections.map((section) => {
+      const coordinates = section.polyline.map((pt) => [pt.lng, pt.lat]);
+      const config = getActivityTypeConfig(section.sportType);
+
+      return {
+        type: 'Feature' as const,
+        id: section.id,
+        properties: {
+          id: section.id,
+          name: section.name || `Section ${section.id.slice(-6)}`,
+          sportType: section.sportType,
+          visitCount: section.visitCount,
+          distanceMeters: section.distanceMeters,
+          color: config.color,
+        },
+        geometry: {
+          type: 'LineString' as const,
+          coordinates,
+        },
+      };
+    });
+
+    return {
+      type: 'FeatureCollection' as const,
+      features,
+    };
+  }, [sections]);
+
+  // ===========================================
   // NATIVE MARKER RENDERING - Uses CircleLayer instead of React components
   // ===========================================
   // This completely avoids touch interception issues with Pressable
@@ -543,28 +633,32 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
 
         {/* Invisible ShapeSource for tap detection only - no visual rendering */}
         {/* This handles taps without intercepting gestures */}
-        <ShapeSource
-          id="activity-markers"
-          shape={markersGeoJSON}
-          onPress={handleMarkerPress}
-          hitbox={{ width: 44, height: 44 }}
-        >
-          {/* Invisible circles just for hit detection */}
-          <CircleLayer
-            id="marker-hitarea"
-            style={{
-              circleRadius: ['/', ['get', 'size'], 2],
-              circleColor: 'transparent',
-              circleStrokeWidth: 0,
-            }}
-          />
-        </ShapeSource>
+        {/* Hidden in heatmap mode */}
+        {!isHeatmapMode && (
+          <ShapeSource
+            id="activity-markers"
+            shape={markersGeoJSON}
+            onPress={handleMarkerPress}
+            hitbox={{ width: 44, height: 44 }}
+          >
+            {/* Invisible circles just for hit detection */}
+            <CircleLayer
+              id="marker-hitarea"
+              style={{
+                circleRadius: ['/', ['get', 'size'], 2],
+                circleColor: 'transparent',
+                circleStrokeWidth: 0,
+              }}
+            />
+          </ShapeSource>
+        )}
 
         {/* Activity markers - visual only, rendered as MarkerView for correct z-ordering */}
         {/* pointerEvents="none" ensures these don't intercept any touches */}
         {/* Sorted to render selected activity last (on top) */}
         {/* Only renders visible activities for performance (viewport culling) */}
-        {sortedVisibleActivities.map((activity) => {
+        {/* Hidden in heatmap mode */}
+        {!isHeatmapMode && sortedVisibleActivities.map((activity) => {
           const config = getActivityTypeConfig(activity.type);
           // Use pre-computed center (no format detection during render!)
           const center = activityCenters[activity.id];
@@ -607,9 +701,63 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
           );
         })}
 
-        {/* GPS traces - simplified routes shown when zoomed in */}
+        {/* Sections layer - frequent road/trail sections */}
+        {showSections && !isHeatmapMode && sectionsGeoJSON && sectionsGeoJSON.features.length > 0 && (
+          <ShapeSource
+            id="sections"
+            shape={sectionsGeoJSON}
+            onPress={handleSectionPress}
+            hitbox={{ width: 20, height: 20 }}
+          >
+            {/* Section lines - thicker and more prominent than traces */}
+            <LineLayer
+              id="sectionsLine"
+              style={{
+                lineColor: ['get', 'color'],
+                lineWidth: [
+                  'interpolate', ['linear'], ['zoom'],
+                  10, 3,
+                  14, 5,
+                  18, 7,
+                ],
+                lineOpacity: 0.85,
+                lineCap: 'round',
+                lineJoin: 'round',
+              }}
+            />
+            {/* Section outline for better visibility */}
+            <LineLayer
+              id="sectionsOutline"
+              style={{
+                lineColor: '#FFFFFF',
+                lineWidth: [
+                  'interpolate', ['linear'], ['zoom'],
+                  10, 5,
+                  14, 7,
+                  18, 9,
+                ],
+                lineOpacity: 0.4,
+                lineCap: 'round',
+                lineJoin: 'round',
+              }}
+              belowLayerID="sectionsLine"
+            />
+          </ShapeSource>
+        )}
+
+        {/* Heatmap layer - shown when heatmap mode is active */}
+        {isHeatmapMode && heatmap && (
+          <HeatmapLayer
+            heatmap={heatmap}
+            onCellPress={handleHeatmapCellPress}
+            opacity={0.7}
+            highlightCommonPaths={true}
+          />
+        )}
+
+        {/* GPS traces - simplified routes shown when zoomed in (hidden in heatmap mode) */}
         {/* Rendered with low opacity, below the selected activity route */}
-        {tracesGeoJSON && tracesGeoJSON.features.length > 0 && (
+        {!isHeatmapMode && tracesGeoJSON && tracesGeoJSON.features.length > 0 && (
           <ShapeSource
             id="activity-traces"
             shape={tracesGeoJSON}
@@ -755,6 +903,48 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
             color={userLocation ? colors.textOnDark : (isDark ? colors.textOnDark : colors.textSecondary)}
           />
         </TouchableOpacity>
+
+        {/* Heatmap toggle - only shown when heatmap data is available */}
+        {heatmap && heatmap.cells.length > 0 && (
+          <TouchableOpacity
+            style={[
+              styles.controlButton,
+              isDark && styles.controlButtonDark,
+              isHeatmapMode && styles.controlButtonActive,
+            ]}
+            onPress={toggleHeatmap}
+            activeOpacity={0.8}
+            accessibilityLabel={isHeatmapMode ? 'Show activities' : 'Show heatmap'}
+            accessibilityRole="button"
+          >
+            <MaterialCommunityIcons
+              name="fire"
+              size={22}
+              color={isHeatmapMode ? colors.textOnDark : (isDark ? colors.textOnDark : colors.textSecondary)}
+            />
+          </TouchableOpacity>
+        )}
+
+        {/* Sections toggle - only shown when sections exist and not in heatmap mode */}
+        {sections.length > 0 && !isHeatmapMode && (
+          <TouchableOpacity
+            style={[
+              styles.controlButton,
+              isDark && styles.controlButtonDark,
+              showSections && styles.controlButtonActive,
+            ]}
+            onPress={toggleSections}
+            activeOpacity={0.8}
+            accessibilityLabel={showSections ? 'Hide sections' : 'Show sections'}
+            accessibilityRole="button"
+          >
+            <MaterialCommunityIcons
+              name="road-variant"
+              size={22}
+              color={showSections ? colors.textOnDark : (isDark ? colors.textOnDark : colors.textSecondary)}
+            />
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* Attribution */}
@@ -828,6 +1018,105 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
             <Text style={styles.viewDetailsText}>View Details</Text>
             <MaterialCommunityIcons name="chevron-right" size={20} color={colors.primary} />
           </TouchableOpacity>
+        </View>
+      )}
+
+      {/* Heatmap cell popup - shows when a heatmap cell is selected */}
+      {isHeatmapMode && selectedCell && (
+        <View style={[styles.popup, { bottom: insets.bottom + 200 }]}>
+          <View style={styles.popupHeader}>
+            <View style={styles.popupInfo}>
+              <Text style={styles.popupTitle}>
+                {selectedCell.suggestedLabel || 'Heatmap Cell'}
+              </Text>
+              <Text style={styles.popupDate}>
+                {selectedCell.cell.visitCount} visits • {selectedCell.cell.uniqueRouteCount} unique routes
+              </Text>
+            </View>
+            <TouchableOpacity
+              onPress={() => setSelectedCell(null)}
+              style={styles.popupIconButton}
+              accessibilityLabel="Close heatmap popup"
+              accessibilityRole="button"
+            >
+              <MaterialCommunityIcons name="close" size={22} color={colors.textSecondary} />
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.popupStats}>
+            <View style={styles.popupStat}>
+              <MaterialCommunityIcons name="fire" size={20} color={colors.chartOrange} />
+              <Text style={styles.popupStatValue}>
+                {Math.round(selectedCell.cell.density * 100)}% density
+              </Text>
+            </View>
+            <View style={styles.popupStat}>
+              <MaterialCommunityIcons name="run" size={20} color={colors.chartBlue} />
+              <Text style={styles.popupStatValue}>
+                {selectedCell.cell.activityIds.length} activities
+              </Text>
+            </View>
+          </View>
+
+          {/* Route references */}
+          {selectedCell.cell.routeRefs.length > 0 && (
+            <View style={styles.heatmapRoutes}>
+              <Text style={styles.heatmapRoutesTitle}>Routes:</Text>
+              {selectedCell.cell.routeRefs.slice(0, 3).map((ref, i) => (
+                <Text key={i} style={styles.heatmapRouteItem} numberOfLines={1}>
+                  • {ref.name || ref.routeId} ({ref.activityCount}x)
+                </Text>
+              ))}
+              {selectedCell.cell.routeRefs.length > 3 && (
+                <Text style={styles.heatmapRouteItem}>
+                  +{selectedCell.cell.routeRefs.length - 3} more
+                </Text>
+              )}
+            </View>
+          )}
+        </View>
+      )}
+
+      {/* Section popup - shows when a section is tapped */}
+      {selectedSection && (
+        <View style={[styles.popup, { bottom: insets.bottom + 200 }]}>
+          <View style={styles.popupHeader}>
+            <View style={styles.popupInfo}>
+              <Text style={styles.popupTitle} numberOfLines={1}>
+                {selectedSection.name || `Section ${selectedSection.id.slice(-6)}`}
+              </Text>
+              <Text style={styles.popupDate}>
+                {selectedSection.visitCount} visits • {Math.round(selectedSection.distanceMeters)}m
+              </Text>
+            </View>
+            <TouchableOpacity
+              onPress={() => setSelectedSection(null)}
+              style={styles.popupIconButton}
+              accessibilityLabel="Close section popup"
+              accessibilityRole="button"
+            >
+              <MaterialCommunityIcons name="close" size={22} color={colors.textSecondary} />
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.popupStats}>
+            <View style={styles.popupStat}>
+              <Ionicons name={getActivityTypeConfig(selectedSection.sportType).icon} size={20} color={getActivityTypeConfig(selectedSection.sportType).color} />
+              <Text style={styles.popupStatValue}>{selectedSection.sportType}</Text>
+            </View>
+            <View style={styles.popupStat}>
+              <MaterialCommunityIcons name="run" size={20} color={colors.chartBlue} />
+              <Text style={styles.popupStatValue}>
+                {selectedSection.activityIds.length} activities
+              </Text>
+            </View>
+            <View style={styles.popupStat}>
+              <MaterialCommunityIcons name="map-marker-path" size={20} color={colors.chartOrange} />
+              <Text style={styles.popupStatValue}>
+                {selectedSection.routeIds.length} routes
+              </Text>
+            </View>
+          </View>
         </View>
       )}
     </View>
@@ -1004,5 +1293,22 @@ const styles = StyleSheet.create({
   attributionText: {
     fontSize: typography.pillLabel.fontSize,
     color: colors.textSecondary,
+  },
+  heatmapRoutes: {
+    marginTop: spacing.sm,
+    paddingTop: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: colors.divider,
+  },
+  heatmapRoutesTitle: {
+    fontSize: typography.bodySmall.fontSize,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    marginBottom: spacing.xs,
+  },
+  heatmapRouteItem: {
+    fontSize: typography.bodySmall.fontSize,
+    color: colors.textPrimary,
+    marginBottom: 2,
   },
 });
