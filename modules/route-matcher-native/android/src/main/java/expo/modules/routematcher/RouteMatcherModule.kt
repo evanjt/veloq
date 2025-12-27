@@ -11,7 +11,7 @@ import uniffi.route_matcher.*
  * Route Matcher native module powered by Rust.
  *
  * Uses the compiled Rust library via UniFFI for high-performance
- * GPS route matching with Fréchet distance and parallel processing.
+ * GPS route matching with Average Minimum Distance (AMD) and parallel processing.
  */
 class RouteMatcherModule : Module() {
   companion object {
@@ -26,7 +26,7 @@ class RouteMatcherModule : Module() {
 
     // Create a route signature from GPS points
     Function("createSignature") { activityId: String, points: List<Map<String, Double>>, config: Map<String, Any>? ->
-      Log.i(TAG, "🦀 createSignature called for $activityId with ${points.size} points")
+      Log.i(TAG, "createSignature called for $activityId with ${points.size} points")
 
       val gpsPoints = points.mapNotNull { dict ->
         val lat = dict["latitude"] ?: return@mapNotNull null
@@ -39,10 +39,10 @@ class RouteMatcherModule : Module() {
       val signature = createSignatureWithConfig(activityId, gpsPoints, matchConfig)
 
       if (signature != null) {
-        Log.i(TAG, "🦀 Created signature: ${signature.points.size} points, ${signature.totalDistance.toInt()}m")
+        Log.i(TAG, "Created signature: ${signature.points.size} points, ${signature.totalDistance.toInt()}m")
         signatureToMap(signature)
       } else {
-        Log.w(TAG, "🦀 Failed to create signature for $activityId")
+        Log.w(TAG, "Failed to create signature for $activityId")
         null
       }
     }
@@ -53,12 +53,12 @@ class RouteMatcherModule : Module() {
       val sig2 = mapToSignature(sig2Map) ?: return@Function null
       val matchConfig = parseConfig(config)
 
-      Log.d(TAG, "🦀 Comparing ${sig1.activityId} vs ${sig2.activityId}")
+      Log.d(TAG, "Comparing ${sig1.activityId} vs ${sig2.activityId}")
 
       val result = ffiCompareRoutes(sig1, sig2, matchConfig)
 
       if (result != null) {
-        Log.i(TAG, "🦀 Match found: ${result.matchPercentage.toInt()}% (${result.direction})")
+        Log.i(TAG, "Match found: ${result.matchPercentage.toInt()}% (${result.direction})")
         mapOf(
           "activityId1" to result.activityId1,
           "activityId2" to result.activityId2,
@@ -73,7 +73,7 @@ class RouteMatcherModule : Module() {
 
     // Group similar routes together
     Function("groupSignatures") { signatureMaps: List<Map<String, Any>>, config: Map<String, Any>? ->
-      Log.i(TAG, "🦀🦀🦀 RUST groupSignatures called with ${signatureMaps.size} signatures 🦀🦀🦀")
+      Log.i(TAG, "RUST groupSignatures called with ${signatureMaps.size} signatures")
 
       val signatures = signatureMaps.mapNotNull { mapToSignature(it) }
       val matchConfig = parseConfig(config)
@@ -82,7 +82,7 @@ class RouteMatcherModule : Module() {
       val groups = ffiGroupSignatures(signatures, matchConfig)
       val elapsed = System.currentTimeMillis() - startTime
 
-      Log.i(TAG, "🦀 Grouped into ${groups.size} groups in ${elapsed}ms")
+      Log.i(TAG, "Grouped into ${groups.size} groups in ${elapsed}ms")
 
       groups.map { group ->
         mapOf(
@@ -94,7 +94,7 @@ class RouteMatcherModule : Module() {
 
     // Get default configuration
     Function("getDefaultConfig") {
-      Log.i(TAG, "🦀 getDefaultConfig called - Rust is active!")
+      Log.i(TAG, "getDefaultConfig called - Rust is active!")
       val config = defaultConfig()
       mapOf(
         "perfectThreshold" to config.perfectThreshold,
@@ -111,7 +111,7 @@ class RouteMatcherModule : Module() {
 
     // BATCH: Create multiple signatures in parallel (MUCH faster for many activities)
     Function("createSignaturesBatch") { tracks: List<Map<String, Any>>, config: Map<String, Any>? ->
-      Log.i(TAG, "🦀🦀🦀 BATCH createSignatures called with ${tracks.size} tracks 🦀🦀🦀")
+      Log.i(TAG, "BATCH createSignatures called with ${tracks.size} tracks")
 
       @Suppress("UNCHECKED_CAST")
       val gpsTracks = tracks.mapNotNull { track ->
@@ -133,14 +133,14 @@ class RouteMatcherModule : Module() {
       val signatures = createSignaturesBatch(gpsTracks, matchConfig)
       val elapsed = System.currentTimeMillis() - startTime
 
-      Log.i(TAG, "🦀 BATCH created ${signatures.size} signatures in ${elapsed}ms")
+      Log.i(TAG, "BATCH created ${signatures.size} signatures in ${elapsed}ms")
 
       signatures.map { signatureToMap(it) }
     }
 
     // BATCH: Full end-to-end processing (signatures + grouping) in one call
     Function("processRoutesBatch") { tracks: List<Map<String, Any>>, config: Map<String, Any>? ->
-      Log.i(TAG, "🦀🦀🦀 FULL BATCH processRoutes called with ${tracks.size} tracks 🦀🦀🦀")
+      Log.i(TAG, "FULL BATCH processRoutes called with ${tracks.size} tracks")
 
       @Suppress("UNCHECKED_CAST")
       val gpsTracks = tracks.mapNotNull { track ->
@@ -162,7 +162,7 @@ class RouteMatcherModule : Module() {
       val groups = processRoutesBatch(gpsTracks, matchConfig)
       val elapsed = System.currentTimeMillis() - startTime
 
-      Log.i(TAG, "🦀 FULL BATCH: ${gpsTracks.size} tracks -> ${groups.size} groups in ${elapsed}ms")
+      Log.i(TAG, "FULL BATCH: ${gpsTracks.size} tracks -> ${groups.size} groups in ${elapsed}ms")
 
       groups.map { group ->
         mapOf(
@@ -176,10 +176,10 @@ class RouteMatcherModule : Module() {
     // Each track has activityId (String) and coords (DoubleArray: [lat1, lng1, lat2, lng2, ...])
     // This avoids the overhead of Map<String, Double> for each GPS point
     Function("processRoutesFlat") { activityIds: List<String>, coordArrays: List<DoubleArray>, config: Map<String, Any>? ->
-      Log.i(TAG, "🦀🦀🦀 FLAT processRoutes called with ${activityIds.size} tracks 🦀🦀🦀")
+      Log.i(TAG, "FLAT processRoutes called with ${activityIds.size} tracks")
 
       if (activityIds.size != coordArrays.size) {
-        Log.e(TAG, "🦀 ERROR: activityIds.size (${activityIds.size}) != coordArrays.size (${coordArrays.size})")
+        Log.e(TAG, "ERROR: activityIds.size (${activityIds.size}) != coordArrays.size (${coordArrays.size})")
         return@Function emptyList<Map<String, Any>>()
       }
 
@@ -194,7 +194,7 @@ class RouteMatcherModule : Module() {
       val groups = processRoutesFromFlat(flatTracks, matchConfig)
       val elapsed = System.currentTimeMillis() - startTime
 
-      Log.i(TAG, "🦀 FLAT BATCH: ${flatTracks.size} tracks -> ${groups.size} groups in ${elapsed}ms")
+      Log.i(TAG, "FLAT BATCH: ${flatTracks.size} tracks -> ${groups.size} groups in ${elapsed}ms")
 
       groups.map { group ->
         mapOf(
@@ -207,10 +207,10 @@ class RouteMatcherModule : Module() {
     // OPTIMIZED: Create signatures from flat buffer (returns signatures, not groups)
     // Used when we need signatures for incremental caching
     Function("createSignaturesFlatBuffer") { activityIds: List<String>, coords: DoubleArray, offsets: IntArray, config: Map<String, Any>? ->
-      Log.i(TAG, "🦀🦀🦀 FLAT BUFFER createSignatures: ${activityIds.size} tracks, ${coords.size} coords 🦀🦀🦀")
+      Log.i(TAG, "FLAT BUFFER createSignatures: ${activityIds.size} tracks, ${coords.size} coords")
 
       if (activityIds.size != offsets.size) {
-        Log.e(TAG, "🦀 ERROR: activityIds.size (${activityIds.size}) != offsets.size (${offsets.size})")
+        Log.e(TAG, "ERROR: activityIds.size (${activityIds.size}) != offsets.size (${offsets.size})")
         return@Function emptyList<Map<String, Any>>()
       }
 
@@ -228,7 +228,7 @@ class RouteMatcherModule : Module() {
       val signatures = createSignaturesFromFlat(flatTracks, matchConfig)
       val elapsed = System.currentTimeMillis() - startTime
 
-      Log.i(TAG, "🦀 FLAT BUFFER: ${flatTracks.size} tracks -> ${signatures.size} signatures in ${elapsed}ms")
+      Log.i(TAG, "FLAT BUFFER: ${flatTracks.size} tracks -> ${signatures.size} signatures in ${elapsed}ms")
 
       signatures.map { signatureToMap(it) }
     }
@@ -238,10 +238,10 @@ class RouteMatcherModule : Module() {
     // offsets: IntArray marking where each track starts in the coords array
     // activityIds: List<String> of activity IDs in same order as offsets
     Function("processRoutesFlatBuffer") { activityIds: List<String>, coords: DoubleArray, offsets: IntArray, config: Map<String, Any>? ->
-      Log.i(TAG, "🦀🦀🦀 FLAT BUFFER processRoutes: ${activityIds.size} tracks, ${coords.size} coords 🦀🦀🦀")
+      Log.i(TAG, "FLAT BUFFER processRoutes: ${activityIds.size} tracks, ${coords.size} coords")
 
       if (activityIds.size != offsets.size) {
-        Log.e(TAG, "🦀 ERROR: activityIds.size (${activityIds.size}) != offsets.size (${offsets.size})")
+        Log.e(TAG, "ERROR: activityIds.size (${activityIds.size}) != offsets.size (${offsets.size})")
         return@Function emptyList<Map<String, Any>>()
       }
 
@@ -259,7 +259,7 @@ class RouteMatcherModule : Module() {
       val groups = processRoutesFromFlat(flatTracks, matchConfig)
       val elapsed = System.currentTimeMillis() - startTime
 
-      Log.i(TAG, "🦀 FLAT BUFFER: ${flatTracks.size} tracks -> ${groups.size} groups in ${elapsed}ms")
+      Log.i(TAG, "FLAT BUFFER: ${flatTracks.size} tracks -> ${groups.size} groups in ${elapsed}ms")
 
       groups.map { group ->
         mapOf(
@@ -272,7 +272,7 @@ class RouteMatcherModule : Module() {
     // HTTP: Fetch activity map data from intervals.icu API
     // Uses Rust HTTP client with dispatch rate limiting (12.5 req/s, 80ms intervals)
     Function("fetchActivityMaps") { apiKey: String, activityIds: List<String> ->
-      Log.i(TAG, "🦀🦀🦀 HTTP fetchActivityMaps [v6-sustained] called for ${activityIds.size} activities 🦀🦀🦀")
+      Log.i(TAG, "HTTP fetchActivityMaps [v6-sustained] called for ${activityIds.size} activities")
 
       val totalStart = System.currentTimeMillis()
 
@@ -287,8 +287,8 @@ class RouteMatcherModule : Module() {
       val totalBytes = results.sumOf { it.latlngs.size * 8 }  // 8 bytes per f64
       val rate = activityIds.size.toDouble() / (rustElapsed / 1000.0)
 
-      Log.i(TAG, "🦀 [TIMING] Rust fetch+parse: ${rustElapsed}ms (${String.format("%.1f", rate)} req/s)")
-      Log.i(TAG, "🦀 [DATA] $successCount success ($errorCount errors), $totalPoints points, ${totalBytes / 1024}KB")
+      Log.i(TAG, "[TIMING] Rust fetch+parse: ${rustElapsed}ms (${String.format("%.1f", rate)} req/s)")
+      Log.i(TAG, "[DATA] $successCount success ($errorCount errors), $totalPoints points, ${totalBytes / 1024}KB")
 
       // Time FFI: Rust -> Kotlin object conversion (this is in the Rust call above)
       // Time the Kotlin->JS map conversion
@@ -305,7 +305,7 @@ class RouteMatcherModule : Module() {
       val convertElapsed = System.currentTimeMillis() - convertStart
 
       val totalElapsed = System.currentTimeMillis() - totalStart
-      Log.i(TAG, "🦀 [TIMING] Kotlin->Map: ${convertElapsed}ms | Total: ${totalElapsed}ms")
+      Log.i(TAG, "[TIMING] Kotlin->Map: ${convertElapsed}ms | Total: ${totalElapsed}ms")
 
       converted
     }
@@ -314,7 +314,7 @@ class RouteMatcherModule : Module() {
     // Emits "onFetchProgress" event after each activity is fetched
     // Uses AsyncFunction so JS isn't blocked and can receive events
     AsyncFunction("fetchActivityMapsWithProgress") { apiKey: String, activityIds: List<String> ->
-      Log.i(TAG, "🦀🦀🦀 HTTP fetchActivityMapsWithProgress called for ${activityIds.size} activities 🦀🦀🦀")
+      Log.i(TAG, "HTTP fetchActivityMapsWithProgress called for ${activityIds.size} activities")
 
       val totalStart = System.currentTimeMillis()
       val module = this@RouteMatcherModule
@@ -322,7 +322,7 @@ class RouteMatcherModule : Module() {
       // Create a callback that sends progress events to JS
       val progressCallback = object : FetchProgressCallback {
         override fun onProgress(completed: UInt, total: UInt) {
-          Log.d(TAG, "🦀 Progress: $completed/$total")
+          Log.d(TAG, "Progress: $completed/$total")
           module.sendEvent("onFetchProgress", mapOf(
             "completed" to completed.toInt(),
             "total" to total.toInt()
@@ -339,8 +339,8 @@ class RouteMatcherModule : Module() {
       val errorCount = results.count { !it.success }
       val rate = activityIds.size.toDouble() / (rustElapsed / 1000.0)
 
-      Log.i(TAG, "🦀 [TIMING] Rust fetch+progress: ${rustElapsed}ms (${String.format("%.1f", rate)} req/s)")
-      Log.i(TAG, "🦀 [DATA] $successCount success ($errorCount errors)")
+      Log.i(TAG, "[TIMING] Rust fetch+progress: ${rustElapsed}ms (${String.format("%.1f", rate)} req/s)")
+      Log.i(TAG, "[DATA] $successCount success ($errorCount errors)")
 
       // Convert to JS maps
       val converted = results.map { result ->
@@ -354,14 +354,14 @@ class RouteMatcherModule : Module() {
       }
 
       val totalElapsed = System.currentTimeMillis() - totalStart
-      Log.i(TAG, "🦀 [TIMING] Total: ${totalElapsed}ms")
+      Log.i(TAG, "[TIMING] Total: ${totalElapsed}ms")
 
       converted
     }
 
     // HTTP: Fetch and process activities in one call (fetch maps + create signatures)
     Function("fetchAndProcessActivities") { apiKey: String, activityIds: List<String>, config: Map<String, Any>? ->
-      Log.i(TAG, "🦀🦀🦀 HTTP fetchAndProcessActivities called for ${activityIds.size} activities 🦀🦀🦀")
+      Log.i(TAG, "HTTP fetchAndProcessActivities called for ${activityIds.size} activities")
 
       val matchConfig = parseConfig(config)
 
@@ -370,7 +370,7 @@ class RouteMatcherModule : Module() {
       val elapsed = System.currentTimeMillis() - startTime
 
       val successCount = result.mapResults.count { it.success }
-      Log.i(TAG, "🦀 HTTP+Process: $successCount/${activityIds.size} fetched, ${result.signatures.size} signatures in ${elapsed}ms")
+      Log.i(TAG, "HTTP+Process: $successCount/${activityIds.size} fetched, ${result.signatures.size} signatures in ${elapsed}ms")
 
       mapOf(
         "mapResults" to result.mapResults.map { r ->
@@ -388,7 +388,7 @@ class RouteMatcherModule : Module() {
 
     // Incremental grouping - add new signatures to existing groups
     Function("groupIncremental") { newSigMaps: List<Map<String, Any>>, existingGroupMaps: List<Map<String, Any>>, existingSigMaps: List<Map<String, Any>>, config: Map<String, Any>? ->
-      Log.i(TAG, "🦀 groupIncremental: ${newSigMaps.size} new + ${existingSigMaps.size} existing")
+      Log.i(TAG, "groupIncremental: ${newSigMaps.size} new + ${existingSigMaps.size} existing")
 
       val newSignatures = newSigMaps.mapNotNull { mapToSignature(it) }
       val existingSignatures = existingSigMaps.mapNotNull { mapToSignature(it) }
@@ -405,7 +405,7 @@ class RouteMatcherModule : Module() {
       val result = ffiGroupIncremental(newSignatures, existingGroups, existingSignatures, matchConfig)
       val elapsed = System.currentTimeMillis() - startTime
 
-      Log.i(TAG, "🦀 groupIncremental returned ${result.size} groups in ${elapsed}ms")
+      Log.i(TAG, "groupIncremental returned ${result.size} groups in ${elapsed}ms")
 
       result.map { group ->
         mapOf(
@@ -428,7 +428,7 @@ class RouteMatcherModule : Module() {
     }
 
     Function("detectFrequentSections") { sigMaps: List<Map<String, Any>>, groupMaps: List<Map<String, Any>>, sportTypeMaps: List<Map<String, Any>>, config: Map<String, Any>? ->
-      Log.i(TAG, "🦀 detectFrequentSections: ${sigMaps.size} signatures")
+      Log.i(TAG, "detectFrequentSections: ${sigMaps.size} signatures")
 
       val signatures = sigMaps.mapNotNull { mapToSignature(it) }
       val groups = groupMaps.map { m ->
@@ -451,7 +451,7 @@ class RouteMatcherModule : Module() {
       val result = ffiDetectFrequentSections(signatures, groups, sportTypes, sectionConfig)
       val elapsed = System.currentTimeMillis() - startTime
 
-      Log.i(TAG, "🦀 detectFrequentSections returned ${result.size} sections in ${elapsed}ms")
+      Log.i(TAG, "detectFrequentSections returned ${result.size} sections in ${elapsed}ms")
 
       result.map { sectionToMap(it) }
     }
@@ -459,7 +459,7 @@ class RouteMatcherModule : Module() {
     // Section detection from FULL GPS tracks (medoid-based)
     // Returns JSON string for efficient bridge serialization (avoids slow Map conversion)
     Function("detectSectionsFromTracks") { activityIds: List<String>, allCoords: DoubleArray, offsets: IntArray, sportTypeMaps: List<Map<String, Any>>, groupMaps: List<Map<String, Any>>, config: Map<String, Any>? ->
-      Log.i(TAG, "🦀 detectSectionsFromTracks: ${activityIds.size} activities, ${allCoords.size / 2} coords")
+      Log.i(TAG, "detectSectionsFromTracks: ${activityIds.size} activities, ${allCoords.size / 2} coords")
 
       val groups = groupMaps.map { m ->
         @Suppress("UNCHECKED_CAST")
@@ -488,13 +488,13 @@ class RouteMatcherModule : Module() {
         sectionConfig
       )
       val rustElapsed = System.currentTimeMillis() - startTime
-      Log.i(TAG, "🦀 detectSectionsFromTracks Rust: ${result.size} sections in ${rustElapsed}ms")
+      Log.i(TAG, "detectSectionsFromTracks Rust: ${result.size} sections in ${rustElapsed}ms")
 
       // Serialize to JSON for efficient bridge transfer
       val jsonStart = System.currentTimeMillis()
       val jsonResult = sectionsToJson(result)
       val jsonElapsed = System.currentTimeMillis() - jsonStart
-      Log.i(TAG, "🦀 detectSectionsFromTracks JSON: ${jsonElapsed}ms, ${jsonResult.length} chars")
+      Log.i(TAG, "detectSectionsFromTracks JSON: ${jsonElapsed}ms, ${jsonResult.length} chars")
 
       jsonResult
     }
@@ -513,7 +513,7 @@ class RouteMatcherModule : Module() {
     Function("generateHeatmap") { signaturesJson: String, activityDataJson: String, configJson: String ->
       // Parse all parameters from JSON strings (avoids Expo Modules bridge serialization issues with nulls)
       val sigArray = JSONArray(signaturesJson)
-      Log.i(TAG, "🦀 generateHeatmap: ${sigArray.length()} signatures")
+      Log.i(TAG, "generateHeatmap: ${sigArray.length()} signatures")
 
       val signatures = (0 until sigArray.length()).mapNotNull { i ->
         jsonToSignature(sigArray.getJSONObject(i))
@@ -548,7 +548,7 @@ class RouteMatcherModule : Module() {
       val result = ffiGenerateHeatmap(signatures, activityData, heatmapConfig)
       val elapsed = System.currentTimeMillis() - startTime
 
-      Log.i(TAG, "🦀 generateHeatmap returned ${result.cells.size} cells in ${elapsed}ms")
+      Log.i(TAG, "generateHeatmap returned ${result.cells.size} cells in ${elapsed}ms")
 
       mapOf(
         "cells" to result.cells.map { cell ->
@@ -706,7 +706,8 @@ class RouteMatcherModule : Module() {
       // Consensus polyline metrics
       "confidence" to section.confidence,
       "observation_count" to section.observationCount.toInt(),
-      "average_spread" to section.averageSpread
+      "average_spread" to section.averageSpread,
+      "point_density" to section.pointDensity.map { it.toInt() }
     )
   }
 

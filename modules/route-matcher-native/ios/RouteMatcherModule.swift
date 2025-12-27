@@ -11,7 +11,7 @@ private let logger = Logger(subsystem: "com.veloq.app", category: "RouteMatcher"
  * GPS route matching with Average Minimum Distance (AMD) and parallel processing.
  *
  * IMPORTANT: This module REQUIRES the Rust library. There is no JavaScript fallback.
- * Build the Rust library with: npm run build:rust:ios
+ * Build the Rust library with: npm run rust:ios
  */
 public class RouteMatcherModule: Module {
 
@@ -764,7 +764,9 @@ public class RouteMatcherModule: Module {
             // Consensus polyline metrics
             "confidence": section.confidence,
             "observation_count": section.observationCount,
-            "average_spread": section.averageSpread
+            "average_spread": section.averageSpread,
+            // Per-point density for section splitting
+            "point_density": section.pointDensity.map { Int($0) }
         ]
     }
 
@@ -808,6 +810,12 @@ public class RouteMatcherModule: Module {
                 }
             }
             sectionDict["activity_traces"] = tracesDict
+
+            // Consensus metrics
+            sectionDict["confidence"] = section.confidence
+            sectionDict["observation_count"] = section.observationCount
+            sectionDict["average_spread"] = section.averageSpread
+            sectionDict["point_density"] = section.pointDensity.map { Int($0) }
 
             jsonArray.append(sectionDict)
         }

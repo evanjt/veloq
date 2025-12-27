@@ -283,6 +283,9 @@ export interface FrequentSection {
   /** Average spread (meters) of track observations from the consensus line.
    * Lower spread = more consistent track alignment. */
   averageSpread?: number;
+  /** Per-point observation density (how many activities pass through each point).
+   * Used for detecting high-traffic portions that may be split into separate sections. */
+  pointDensity?: number[];
 }
 
 /** Configuration for section detection */

@@ -1,0 +1,134 @@
+# Deploy to Apple TestFlight
+#
+# DISABLED: This workflow requires an Apple Developer account.
+#
+# To enable:
+# 1. Enroll in Apple Developer Program ($99/year)
+# 2. Create a private git repo for Match certificates
+# 3. Run `fastlane match init` and `fastlane match appstore` locally
+# 4. Create an App Store Connect API Key
+# 5. Add the following secrets to GitHub:
+#    - MATCH_GIT_URL: Private repo URL for certificates
+#    - MATCH_SSH_PRIVATE_KEY: SSH key with access to Match repo
+#    - MATCH_PASSWORD: Encryption password for Match
+#    - ASC_KEY_ID: App Store Connect API Key ID
+#    - ASC_ISSUER_ID: App Store Connect Issuer ID
+#    - ASC_API_KEY: API Key content (base64 encoded)
+# 6. Change `if: false` to `if: true` below
+
+name: Deploy to TestFlight
+
+on:
+  workflow_run:
+    workflows: ["Build iOS & Android"]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: 'Build workflow run ID to deploy from'
+        required: true
+        type: string
+
+jobs:
+  deploy:
+    name: Upload to TestFlight
+    runs-on: macos-15
+    # DISABLED - change to: if: github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch'
+    if: false
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.2'
+          working-directory: fastlane
+          bundler-cache: true
+
+      - name: Install dependencies
+        run: npm ci
+
+      # ============================================
+      # Rust Build (same as build.yml)
+      # ============================================
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Rust iOS targets
+        run: rustup target add aarch64-apple-ios aarch64-apple-ios-sim x86_64-apple-ios
+
+      - name: Cache Rust build
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            rust/route-matcher/target
+          key: rust-ios-${{ runner.os }}-${{ hashFiles('rust/route-matcher/Cargo.lock') }}
+          restore-keys: |
+            rust-ios-${{ runner.os }}-
+
+      - name: Build Rust library for iOS
+        run: |
+          cd rust/route-matcher
+          ./scripts/build-ios.sh
+          ./scripts/install-ios.sh
+
+      # ============================================
+      # Code Signing via Match
+      # ============================================
+      - name: Setup SSH for Match
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.MATCH_SSH_PRIVATE_KEY }}
+
+      - name: Install certificates via Match
+        working-directory: fastlane
+        env:
+          MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
+          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+          FASTLANE_USER: ${{ secrets.APPLE_ID }}
+          FASTLANE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: bundle exec fastlane match appstore --readonly
+
+      # ============================================
+      # Build and Upload
+      # ============================================
+      - name: Setup Expo
+        uses: expo/expo-github-action@v8
+        with:
+          expo-version: latest
+
+      - name: Generate native project
+        run: npx expo prebuild --platform ios --clean
+
+      - name: Install CocoaPods
+        run: sudo gem install cocoapods
+
+      - name: Install Pods
+        working-directory: ios
+        run: pod install
+
+      - name: Build and upload to TestFlight
+        working-directory: fastlane
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_API_KEY: ${{ secrets.ASC_API_KEY }}
+        run: bundle exec fastlane ios beta
+
+      - name: Summary
+        run: |
+          echo "## TestFlight Deployment" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "The build has been uploaded to TestFlight." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "To submit to App Store, go to [App Store Connect](https://appstoreconnect.apple.com)." >> $GITHUB_STEP_SUMMARY

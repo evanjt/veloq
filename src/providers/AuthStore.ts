@@ -47,42 +47,34 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   setCredentials: async (apiKey: string, athleteId: string) => {
-    try {
-      await Promise.all([
-        SecureStore.setItemAsync(API_KEY_STORAGE_KEY, apiKey, {
-          keychainAccessible: SecureStore.WHEN_UNLOCKED,
-        }),
-        SecureStore.setItemAsync(ATHLETE_ID_STORAGE_KEY, athleteId, {
-          keychainAccessible: SecureStore.WHEN_UNLOCKED,
-        }),
-      ]);
+    await Promise.all([
+      SecureStore.setItemAsync(API_KEY_STORAGE_KEY, apiKey, {
+        keychainAccessible: SecureStore.WHEN_UNLOCKED,
+      }),
+      SecureStore.setItemAsync(ATHLETE_ID_STORAGE_KEY, athleteId, {
+        keychainAccessible: SecureStore.WHEN_UNLOCKED,
+      }),
+    ]);
 
-      set({
-        apiKey,
-        athleteId,
-        isAuthenticated: true,
-      });
-    } catch (error) {
-      throw error;
-    }
+    set({
+      apiKey,
+      athleteId,
+      isAuthenticated: true,
+    });
   },
 
   clearCredentials: async () => {
-    try {
-      await Promise.all([
-        SecureStore.deleteItemAsync(API_KEY_STORAGE_KEY),
-        SecureStore.deleteItemAsync(ATHLETE_ID_STORAGE_KEY),
-      ]);
+    await Promise.all([
+      SecureStore.deleteItemAsync(API_KEY_STORAGE_KEY),
+      SecureStore.deleteItemAsync(ATHLETE_ID_STORAGE_KEY),
+    ]);
 
-      set({
-        apiKey: null,
-        athleteId: null,
-        athlete: null,
-        isAuthenticated: false,
-      });
-    } catch (error) {
-      throw error;
-    }
+    set({
+      apiKey: null,
+      athleteId: null,
+      athlete: null,
+      isAuthenticated: false,
+    });
   },
 
   setAthlete: (athlete: Athlete) => {

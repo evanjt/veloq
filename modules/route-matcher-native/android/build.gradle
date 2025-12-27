@@ -86,10 +86,10 @@ task buildRustLibraries(type: Exec) {
   outputs.dir(jniLibsDir)
 
   doFirst {
-    println "🦀 Building Rust native library (dev mode)..."
+    println "Building Rust native library (dev mode)..."
   }
   doLast {
-    println "🦀 Rust build complete"
+    println "Rust build complete"
   }
 }
 
