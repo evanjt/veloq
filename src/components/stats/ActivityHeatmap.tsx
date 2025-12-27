@@ -1,6 +1,7 @@
 import React, { useMemo, useRef, useEffect } from 'react';
 import { View, StyleSheet, useColorScheme, ScrollView } from 'react-native';
 import { Text } from 'react-native-paper';
+import { useTranslation } from 'react-i18next';
 import { colors, darkColors } from '@/theme/colors';
 import { typography } from '@/theme/typography';
 import { spacing, layout } from '@/theme/spacing';
@@ -40,6 +41,7 @@ export function ActivityHeatmap({
   weeks = 104, // 2 years by default (matches training page data fetch)
   cellSize = 12,
 }: ActivityHeatmapProps) {
+  const { t } = useTranslation();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const intensityColors = isDark ? INTENSITY_COLORS : INTENSITY_COLORS_LIGHT;
@@ -59,14 +61,14 @@ export function ActivityHeatmap({
     return (
       <View style={styles.container}>
         <View style={styles.header}>
-          <Text style={[styles.title, isDark && styles.textLight]}>Activity Calendar</Text>
+          <Text style={[styles.title, isDark && styles.textLight]}>{t('stats.activityCalendar')}</Text>
         </View>
         <View style={styles.emptyState}>
           <Text style={[styles.emptyText, isDark && styles.textDark]}>
-            No activity data available
+            {t('stats.noActivityData')}
           </Text>
           <Text style={[styles.emptyHint, isDark && styles.textDark]}>
-            Complete activities to see your calendar heatmap
+            {t('stats.completeActivitiesHeatmap')}
           </Text>
         </View>
       </View>
@@ -135,9 +137,9 @@ export function ActivityHeatmap({
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={[styles.title, isDark && styles.textLight]}>Activity Calendar</Text>
+        <Text style={[styles.title, isDark && styles.textLight]}>{t('stats.activityCalendar')}</Text>
         <Text style={[styles.subtitle, isDark && styles.textDark]}>
-          {totalActivities} activities
+          {t('stats.activitiesCount', { count: totalActivities })}
         </Text>
       </View>
 
@@ -210,14 +212,14 @@ export function ActivityHeatmap({
 
       {/* Legend */}
       <View style={styles.legend}>
-        <Text style={[styles.legendLabel, isDark && styles.textDark]}>Less</Text>
+        <Text style={[styles.legendLabel, isDark && styles.textDark]}>{t('stats.less')}</Text>
         {intensityColors.map((color, idx) => (
           <View
             key={idx}
             style={[styles.legendCell, { backgroundColor: color, width: cellSize, height: cellSize }]}
           />
         ))}
-        <Text style={[styles.legendLabel, isDark && styles.textDark]}>More</Text>
+        <Text style={[styles.legendLabel, isDark && styles.textDark]}>{t('stats.more')}</Text>
       </View>
     </View>
   );

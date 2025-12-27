@@ -1,19 +1,20 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, TouchableOpacity, useColorScheme } from 'react-native';
 import { Text, ActivityIndicator } from 'react-native-paper';
+import { useTranslation } from 'react-i18next';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { FitnessChart } from './FitnessChart';
 import { FormZoneChart } from './FormZoneChart';
 import { useWellness, type TimeRange } from '@/hooks';
 import { colors, darkColors, opacity, spacing, layout, typography } from '@/theme';
 
-const TIME_RANGES: { id: TimeRange; label: string }[] = [
-  { id: '7d', label: '7 days' },
-  { id: '1m', label: '1 month' },
-  { id: '42d', label: '42 days' },
-  { id: '3m', label: '3 months' },
-  { id: '6m', label: '6 months' },
-  { id: '1y', label: '1 year' },
+const TIME_RANGE_KEYS: { id: TimeRange; key: string }[] = [
+  { id: '7d', key: 'fitness.timeRange.7d' },
+  { id: '1m', key: 'fitness.timeRange.1m' },
+  { id: '42d', key: 'fitness.timeRange.42d' },
+  { id: '3m', key: 'fitness.timeRange.3m' },
+  { id: '6m', key: 'fitness.timeRange.6m' },
+  { id: '1y', key: 'fitness.timeRange.1y' },
 ];
 
 interface FitnessSectionProps {
@@ -22,6 +23,7 @@ interface FitnessSectionProps {
 }
 
 export function FitnessSection({ expanded = true, onToggleExpand }: FitnessSectionProps) {
+  const { t } = useTranslation();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const [timeRange, setTimeRange] = useState<TimeRange>('3m');
@@ -42,7 +44,7 @@ export function FitnessSection({ expanded = true, onToggleExpand }: FitnessSecti
             size={20}
             color={isDark ? '#FFF' : colors.textPrimary}
           />
-          <Text style={[styles.title, isDark && styles.textLight]}>Fitness & Form</Text>
+          <Text style={[styles.title, isDark && styles.textLight]}>{t('fitnessScreen.title')}</Text>
         </View>
         {onToggleExpand && (
           <TouchableOpacity onPress={onToggleExpand} style={styles.expandButton}>
@@ -57,7 +59,7 @@ export function FitnessSection({ expanded = true, onToggleExpand }: FitnessSecti
 
       {/* Time range selector */}
       <View style={styles.timeRangeContainer}>
-        {TIME_RANGES.map((range) => (
+        {TIME_RANGE_KEYS.map((range) => (
           <TouchableOpacity
             key={range.id}
             style={[
@@ -75,7 +77,7 @@ export function FitnessSection({ expanded = true, onToggleExpand }: FitnessSecti
                 timeRange === range.id && styles.timeRangeTextActive,
               ]}
             >
-              {range.label}
+              {t(range.key)}
             </Text>
           </TouchableOpacity>
         ))}
@@ -86,12 +88,12 @@ export function FitnessSection({ expanded = true, onToggleExpand }: FitnessSecti
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="small" color={colors.primary} />
           <Text style={[styles.loadingText, isDark && styles.textDark]}>
-            Loading fitness data...
+            {t('fitnessScreen.loadingData')}
           </Text>
         </View>
       ) : isError ? (
         <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>Failed to load fitness data</Text>
+          <Text style={styles.errorText}>{t('fitnessScreen.failedToLoad')}</Text>
         </View>
       ) : wellness && wellness.length > 0 ? (
         <>
@@ -102,14 +104,14 @@ export function FitnessSection({ expanded = true, onToggleExpand }: FitnessSecti
 
           {/* Form zone chart */}
           <View style={[styles.formChartContainer, isDark && styles.formChartContainerDark]}>
-            <Text style={[styles.formTitle, isDark && styles.textLight]}>Form (TSB)</Text>
+            <Text style={[styles.formTitle, isDark && styles.textLight]}>{t('fitness.formTSB')}</Text>
             <FormZoneChart data={wellness} height={100} />
           </View>
         </>
       ) : (
         <View style={styles.emptyContainer}>
           <Text style={[styles.emptyText, isDark && styles.textDark]}>
-            No fitness data available
+            {t('fitness.noData')}
           </Text>
         </View>
       )}
