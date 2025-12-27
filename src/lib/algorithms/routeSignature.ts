@@ -5,7 +5,7 @@
 
 import type { RoutePoint, RouteSignature, RouteMatchConfig } from '@/types';
 import { DEFAULT_ROUTE_MATCH_CONFIG } from '@/types';
-import { debug } from './debug';
+import { debug } from '../utils/debug';
 
 const log = debug.create('RouteSignature');
 

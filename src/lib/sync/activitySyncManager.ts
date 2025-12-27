@@ -21,17 +21,17 @@
  */
 
 import { intervalsApi } from '@/api';
-import { getStoredCredentials } from '@/providers';
-import { formatLocalDate } from '@/lib/format';
-import { SYNC } from '@/lib/constants';
-import { debug } from '@/lib/debug';
+import { getStoredCredentials, useAuthStore, DEMO_ATHLETE_ID } from '@/providers';
+import { formatLocalDate } from '../utils/format';
+import { SYNC } from '../utils/constants';
+import { debug } from '../utils/debug';
 import {
   buildCacheEntry,
   filterGpsActivities,
   filterUncachedActivities,
   mergeCacheEntries,
   sortActivitiesByDateDesc,
-} from '@/lib/activityBoundsUtils';
+} from '../geo/activityBoundsUtils';
 import {
   storeGpsTracks,
   clearAllGpsTracks,
@@ -43,20 +43,29 @@ import {
   loadCheckpoint,
   clearCheckpoint as clearCheckpointFile,
   clearBoundsCache,
-} from '@/lib/gpsStorage';
-import { clearRouteCache } from '@/lib/routeStorage';
-import { activitySpatialIndex } from '@/lib/spatialIndex';
+} from '../storage/gpsStorage';
+import { clearRouteCache } from '../storage/routeStorage';
+import { activitySpatialIndex } from '../algorithms/spatialIndex';
 import {
   fetchActivityMapsWithProgress,
   addFetchProgressListener,
   type FetchProgressEvent,
 } from 'route-matcher-native';
 import type { Activity, ActivityBoundsCache, ActivityBoundsItem } from '@/types';
+import { fixtures, getActivityMap as getDemoActivityMap } from '@/data/demo/fixtures';
 
 const log = debug.create('SyncManager');
 
 // Debounce delay for timeline-triggered syncs
 const DEBOUNCE_MS = 300;
+
+/**
+ * Check if app is in demo mode
+ */
+function isDemoMode(): boolean {
+  const state = useAuthStore.getState();
+  return state.isDemoMode || state.athleteId === DEMO_ATHLETE_ID;
+}
 
 /**
  * Sync manager state machine states.
@@ -161,13 +170,25 @@ class ActivitySyncManager {
     if (!this.transition('initializing')) {
       return;
     }
-    this.setProgress({ completed: 0, total: 0, status: 'loading', message: 'Loading cached data...' });
+    this.setProgress({
+      completed: 0,
+      total: 0,
+      status: 'loading',
+      message: 'Loading cached data...',
+    });
 
     try {
       // Load oldest activity date
       const cachedOldestDate = await loadOldestDate();
       if (cachedOldestDate) {
         this.oldestActivityDate = cachedOldestDate;
+      } else if (isDemoMode()) {
+        // In demo mode, calculate oldest date from fixtures
+        if (fixtures.activities.length > 0) {
+          const oldest = fixtures.activities[0].start_date_local.split('T')[0];
+          this.oldestActivityDate = oldest;
+          await storeOldestDate(oldest);
+        }
       } else {
         try {
           const oldest = await intervalsApi.getOldestActivityDate();
@@ -203,7 +224,9 @@ class ActivitySyncManager {
       if (this.cache) {
         const lastSync = new Date(this.cache.lastSync);
         const now = new Date();
-        const daysSinceSync = Math.floor((now.getTime() - lastSync.getTime()) / (1000 * 60 * 60 * 24));
+        const daysSinceSync = Math.floor(
+          (now.getTime() - lastSync.getTime()) / (1000 * 60 * 60 * 24)
+        );
 
         if (daysSinceSync > 0) {
           this.syncDateRange(this.cache.lastSync, formatLocalDate(now), false);
@@ -217,7 +240,12 @@ class ActivitySyncManager {
       }
     } catch {
       this.transition('error');
-      this.setProgress({ completed: 0, total: 0, status: 'error', message: 'Failed to initialize' });
+      this.setProgress({
+        completed: 0,
+        total: 0,
+        status: 'error',
+        message: 'Failed to initialize',
+      });
     }
   }
 
@@ -283,7 +311,9 @@ class ActivitySyncManager {
   /** Notify listeners of newly synced activities (triggers route processing for new activities) */
   private notifyNewActivitiesListeners(activityIds: string[]): void {
     if (activityIds.length === 0) return;
-    log.log(`Notifying ${this.newActivitiesListeners.size} listeners of ${activityIds.length} new activities`);
+    log.log(
+      `Notifying ${this.newActivitiesListeners.size} listeners of ${activityIds.length} new activities`
+    );
     for (const listener of this.newActivitiesListeners) {
       listener(activityIds);
     }
@@ -385,6 +415,13 @@ class ActivitySyncManager {
       this.abortController.abort();
     }
 
+    // In demo mode, populate cache from fixture data instead of API calls
+    if (isDemoMode()) {
+      log.log('Demo mode: populating cache from fixtures');
+      await this.populateDemoCache();
+      return;
+    }
+
     // Transition to syncing state
     this.transition('syncing');
 
@@ -396,7 +433,12 @@ class ActivitySyncManager {
     const isCancelled = () => abortController.signal.aborted || syncId !== this.currentSyncId;
 
     try {
-      this.setProgress({ completed: 0, total: 0, status: 'syncing', message: 'Fetching activities...' });
+      this.setProgress({
+        completed: 0,
+        total: 0,
+        status: 'syncing',
+        message: 'Fetching activities...',
+      });
 
       // Get activities for date range
       const activities = await intervalsApi.getActivities({ oldest, newest });
@@ -409,7 +451,12 @@ class ActivitySyncManager {
       if (gpsActivities.length === 0) {
         if (!isCancelled()) {
           this.transition('idle');
-          this.setProgress({ completed: 0, total: 0, status: 'complete', message: 'No GPS activities found' });
+          this.setProgress({
+            completed: 0,
+            total: 0,
+            status: 'complete',
+            message: 'No GPS activities found',
+          });
         }
         return;
       }
@@ -420,17 +467,27 @@ class ActivitySyncManager {
       if (uncachedActivities.length === 0) {
         if (!isCancelled()) {
           this.transition('idle');
-          this.setProgress({ completed: 0, total: 0, status: 'complete', message: 'All activities already cached' });
+          this.setProgress({
+            completed: 0,
+            total: 0,
+            status: 'complete',
+            message: 'All activities already cached',
+          });
         }
         return;
       }
 
       // Sort by date (newest first) for coherent partial syncs
       const newActivities = sortActivitiesByDateDesc(uncachedActivities);
-      const pendingIds = newActivities.map(a => a.id);
+      const pendingIds = newActivities.map((a) => a.id);
 
       // Save checkpoint for resume
-      await this.saveCheckpoint({ oldest, newest, pendingIds, timestamp: new Date().toISOString() });
+      await this.saveCheckpoint({
+        oldest,
+        newest,
+        pendingIds,
+        timestamp: new Date().toISOString(),
+      });
 
       if (!isCancelled()) {
         this.setProgress({
@@ -465,7 +522,12 @@ class ActivitySyncManager {
         return;
       }
       this.transition('error');
-      this.setProgress({ completed: 0, total: 0, status: 'error', message: 'Failed to sync activities' });
+      this.setProgress({
+        completed: 0,
+        total: 0,
+        status: 'error',
+        message: 'Failed to sync activities',
+      });
     }
   }
 
@@ -477,8 +539,8 @@ class ActivitySyncManager {
   ): Promise<void> {
     const isCancelled = () => abortController.signal.aborted || syncId !== this.currentSyncId;
     const newEntries: Record<string, ActivityBoundsItem> = {};
-    const pendingIds = activities.map(a => a.id);
-    const activityMap = new Map(activities.map(a => [a.id, a]));
+    const pendingIds = activities.map((a) => a.id);
+    const activityMap = new Map(activities.map((a) => [a.id, a]));
 
     try {
       // Get API key for Rust HTTP client
@@ -488,7 +550,7 @@ class ActivitySyncManager {
       }
 
       // Fetch ALL activities using Rust HTTP client with real-time progress
-      const allIds = activities.map(a => a.id);
+      const allIds = activities.map((a) => a.id);
       log.log(`Fetching ${allIds.length} activities via Rust HTTP client...`);
       const startTime = Date.now();
 
@@ -513,8 +575,10 @@ class ActivitySyncManager {
       }
 
       const elapsed = Date.now() - startTime;
-      const successCount = results.filter(r => r.success).length;
-      log.log(`Rust fetch complete: ${successCount}/${allIds.length} in ${elapsed}ms (${(allIds.length / (elapsed / 1000)).toFixed(1)} req/s)`);
+      const successCount = results.filter((r) => r.success).length;
+      log.log(
+        `Rust fetch complete: ${successCount}/${allIds.length} in ${elapsed}ms (${(allIds.length / (elapsed / 1000)).toFixed(1)} req/s)`
+      );
 
       if (isCancelled()) return;
 
@@ -597,7 +661,10 @@ class ActivitySyncManager {
     }
   }
 
-  private async savePartialResults(entries: Record<string, ActivityBoundsItem>, oldest: string): Promise<void> {
+  private async savePartialResults(
+    entries: Record<string, ActivityBoundsItem>,
+    oldest: string
+  ): Promise<void> {
     const updatedCache = mergeCacheEntries(
       this.cache,
       entries,
@@ -633,6 +700,9 @@ class ActivitySyncManager {
   }
 
   private async resumeFromCheckpoint(): Promise<void> {
+    // Skip checkpoint resume in demo mode - demo data is always fresh
+    if (isDemoMode()) return;
+
     try {
       const checkpoint = await loadCheckpoint<SyncCheckpoint>();
       if (!checkpoint) return;
@@ -670,7 +740,7 @@ class ActivitySyncManager {
 
       // Filter to only pending IDs
       const pendingSet = new Set(checkpoint.pendingIds);
-      const pendingActivities = activities.filter(a => pendingSet.has(a.id));
+      const pendingActivities = activities.filter((a) => pendingSet.has(a.id));
 
       if (pendingActivities.length === 0) {
         await this.clearCheckpoint();
@@ -722,6 +792,129 @@ class ActivitySyncManager {
         // Ignore listener errors
       }
     });
+  }
+
+  /**
+   * Populate cache from demo fixtures instead of fetching from API.
+   * This allows routes/sections to work in demo mode.
+   */
+  private async populateDemoCache(): Promise<void> {
+    this.transition('syncing');
+    this.setProgress({
+      completed: 0,
+      total: 0,
+      status: 'syncing',
+      message: 'Loading demo data...',
+    });
+
+    try {
+      // Get all demo activities
+      const activities = fixtures.activities;
+
+      // Filter to GPS activities (Ride, Run - not VirtualRide or Swim without latlng)
+      const gpsActivities = activities.filter((a) => a.stream_types?.includes('latlng'));
+
+      log.log(`Demo mode: processing ${gpsActivities.length} GPS activities`);
+
+      const entries: Record<string, ActivityBoundsItem> = {};
+      const gpsTracks = new Map<string, [number, number][]>();
+      let processed = 0;
+
+      for (const activity of gpsActivities) {
+        // Get map data from fixtures
+        const mapData = getDemoActivityMap(activity.id, false);
+
+        if (mapData && mapData.bounds) {
+          // Build cache entry - convert ApiActivity to Activity-like object
+          const activityForCache = {
+            id: activity.id,
+            type: activity.type,
+            name: activity.name,
+            start_date_local: activity.start_date_local,
+            distance: activity.distance,
+            moving_time: activity.moving_time,
+            stream_types: activity.stream_types,
+          } as Activity;
+
+          entries[activity.id] = buildCacheEntry(activityForCache, mapData.bounds);
+
+          // Store GPS tracks if available
+          if (mapData.latlngs && mapData.latlngs.length > 0) {
+            gpsTracks.set(activity.id, mapData.latlngs);
+          }
+        }
+
+        processed++;
+        if (processed % 50 === 0) {
+          this.setProgress({
+            completed: processed,
+            total: gpsActivities.length,
+            status: 'syncing',
+            message: `Loading demo activities: ${processed}/${gpsActivities.length}`,
+          });
+        }
+      }
+
+      log.log(
+        `Demo mode: built ${Object.keys(entries).length} cache entries, ${gpsTracks.size} GPS tracks`
+      );
+
+      // Store GPS tracks
+      if (gpsTracks.size > 0) {
+        await storeGpsTracks(gpsTracks);
+      }
+
+      // Find oldest date for cache metadata
+      const oldestDate =
+        gpsActivities.length > 0
+          ? gpsActivities[gpsActivities.length - 1].start_date_local.split('T')[0]
+          : formatLocalDate(new Date());
+
+      // Build and store cache
+      const newCache = mergeCacheEntries(
+        this.cache,
+        entries,
+        formatLocalDate(new Date()),
+        oldestDate
+      );
+
+      await storeBoundsCache(newCache);
+      this.cache = newCache;
+      this.notifyCacheListeners();
+
+      // Build spatial index
+      const allActivities = Object.values(newCache.activities);
+      if (allActivities.length > 0) {
+        activitySpatialIndex.buildFromActivities(allActivities);
+      }
+
+      // Notify listeners
+      this.transition('idle');
+      this.setProgress({
+        completed: gpsActivities.length,
+        total: gpsActivities.length,
+        status: 'complete',
+        message: 'Demo data loaded',
+      });
+
+      // Trigger completion listeners (for route processing)
+      this.notifyCompletionListeners();
+
+      // Notify new activities listeners
+      const activityIds = Object.keys(entries);
+      if (activityIds.length > 0) {
+        this.notifyNewActivitiesListeners(activityIds);
+      }
+    } catch (error) {
+      log.error('Failed to populate demo cache:', error);
+      this.transition('error');
+      this.setProgress({
+        completed: 0,
+        total: 0,
+        status: 'error',
+        message: 'Failed to load demo data',
+      });
+    }
   }
 }
 

@@ -5,7 +5,6 @@ import {
   StyleSheet,
   useColorScheme,
   TouchableOpacity,
-  ActivityIndicator,
   Animated,
 } from 'react-native';
 import { MapView, Camera, MarkerView, ShapeSource, LineLayer, CircleLayer } from '@maplibre/maplibre-react-native';
@@ -19,7 +18,7 @@ import { typography } from '@/theme/typography';
 import { spacing, layout } from '@/theme/spacing';
 import { shadows } from '@/theme/shadows';
 import { intervalsApi } from '@/api';
-import { formatDistance, formatDuration, convertLatLngTuples, normalizeBounds, getBoundsCenter, activitySpatialIndex, mapBoundsToViewport } from '@/lib';
+import { convertLatLngTuples, normalizeBounds, getBoundsCenter, activitySpatialIndex, mapBoundsToViewport } from '@/lib';
 import { getActivityTypeConfig } from './ActivityTypeFilter';
 import { Map3DWebView, type Map3DWebViewRef } from './Map3DWebView';
 import { CompassArrow } from '@/components/ui';
@@ -38,6 +37,7 @@ import { HeatmapLayer } from './HeatmapLayer';
 import { useHeatmap, type CellQueryResult } from '@/hooks/useHeatmap';
 import { useFrequentSections } from '@/hooks/routes/useFrequentSections';
 import type { FrequentSection } from '@/types';
+import { ActivityPopup, HeatmapCellInfo, SectionPopup, type SelectedActivity } from './regional';
 
 /**
  * 120Hz OPTIMIZATION SUMMARY:
@@ -63,12 +63,6 @@ interface RegionalMapViewProps {
   activities: ActivityBoundsItem[];
   /** Callback to go back */
   onClose: () => void;
-}
-
-interface SelectedActivity {
-  activity: ActivityBoundsItem;
-  mapData: ActivityMapData | null;
-  isLoading: boolean;
 }
 
 export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
@@ -956,170 +950,31 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
 
       {/* Selected activity popup - positioned above the timeline slider */}
       {selected && (
-        <View style={[styles.popup, { bottom: insets.bottom + 200 }]}>
-          <View style={styles.popupHeader}>
-            <View style={styles.popupInfo}>
-              <Text style={styles.popupTitle} numberOfLines={1}>
-                {selected.activity.name}
-              </Text>
-              <Text style={styles.popupDate}>
-                {new Date(selected.activity.date).toLocaleDateString('en-US', {
-                  weekday: 'short',
-                  month: 'short',
-                  day: 'numeric',
-                  year: 'numeric',
-                })}
-              </Text>
-            </View>
-            <View style={styles.popupHeaderButtons}>
-              <TouchableOpacity
-                onPress={handleZoomToActivity}
-                style={styles.popupIconButton}
-                accessibilityLabel={t('maps.zoomToActivity')}
-                accessibilityRole="button"
-              >
-                <MaterialCommunityIcons name="crosshairs-gps" size={22} color={colors.primary} />
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={handleClosePopup}
-                style={styles.popupIconButton}
-                accessibilityLabel={t('maps.closePopup')}
-                accessibilityRole="button"
-              >
-                <MaterialCommunityIcons name="close" size={22} color={colors.textSecondary} />
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          <View style={styles.popupStats}>
-            <View style={styles.popupStat}>
-              <Ionicons name={getActivityTypeConfig(selected.activity.type).icon} size={20} color={getActivityTypeConfig(selected.activity.type).color} />
-              <Text style={styles.popupStatValue}>{selected.activity.type}</Text>
-            </View>
-            <View style={styles.popupStat}>
-              <MaterialCommunityIcons name="map-marker-distance" size={20} color={colors.chartBlue} />
-              <Text style={styles.popupStatValue}>{formatDistance(selected.activity.distance)}</Text>
-            </View>
-            <View style={styles.popupStat}>
-              <MaterialCommunityIcons name="clock-outline" size={20} color={colors.chartOrange} />
-              <Text style={styles.popupStatValue}>{formatDuration(selected.activity.duration)}</Text>
-            </View>
-          </View>
-
-          {selected.isLoading && (
-            <View style={styles.popupLoading}>
-              <ActivityIndicator size="small" color={colors.primary} />
-              <Text style={styles.popupLoadingText}>{t('maps.loadingRoute')}</Text>
-            </View>
-          )}
-
-          <TouchableOpacity
-            style={styles.viewDetailsButton}
-            onPress={handleViewDetails}
-          >
-            <Text style={styles.viewDetailsText}>{t('maps.viewDetails')}</Text>
-            <MaterialCommunityIcons name="chevron-right" size={20} color={colors.primary} />
-          </TouchableOpacity>
-        </View>
+        <ActivityPopup
+          selected={selected}
+          bottom={insets.bottom + 200}
+          onZoom={handleZoomToActivity}
+          onClose={handleClosePopup}
+          onViewDetails={handleViewDetails}
+        />
       )}
 
       {/* Heatmap cell popup - shows when a heatmap cell is selected */}
       {isHeatmapMode && selectedCell && (
-        <View style={[styles.popup, { bottom: insets.bottom + 200 }]}>
-          <View style={styles.popupHeader}>
-            <View style={styles.popupInfo}>
-              <Text style={styles.popupTitle}>
-                {selectedCell.suggestedLabel || 'Heatmap Cell'}
-              </Text>
-              <Text style={styles.popupDate}>
-                {selectedCell.cell.visitCount} visits • {selectedCell.cell.uniqueRouteCount} unique routes
-              </Text>
-            </View>
-            <TouchableOpacity
-              onPress={() => setSelectedCell(null)}
-              style={styles.popupIconButton}
-              accessibilityLabel="Close heatmap popup"
-              accessibilityRole="button"
-            >
-              <MaterialCommunityIcons name="close" size={22} color={colors.textSecondary} />
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.popupStats}>
-            <View style={styles.popupStat}>
-              <MaterialCommunityIcons name="fire" size={20} color={colors.chartOrange} />
-              <Text style={styles.popupStatValue}>
-                {Math.round(selectedCell.cell.density * 100)}% density
-              </Text>
-            </View>
-            <View style={styles.popupStat}>
-              <MaterialCommunityIcons name="run" size={20} color={colors.chartBlue} />
-              <Text style={styles.popupStatValue}>
-                {selectedCell.cell.activityIds.length} activities
-              </Text>
-            </View>
-          </View>
-
-          {/* Route references */}
-          {selectedCell.cell.routeRefs.length > 0 && (
-            <View style={styles.heatmapRoutes}>
-              <Text style={styles.heatmapRoutesTitle}>Routes:</Text>
-              {selectedCell.cell.routeRefs.slice(0, 3).map((ref, i) => (
-                <Text key={i} style={styles.heatmapRouteItem} numberOfLines={1}>
-                  • {ref.name || ref.routeId} ({ref.activityCount}x)
-                </Text>
-              ))}
-              {selectedCell.cell.routeRefs.length > 3 && (
-                <Text style={styles.heatmapRouteItem}>
-                  +{selectedCell.cell.routeRefs.length - 3} more
-                </Text>
-              )}
-            </View>
-          )}
-        </View>
+        <HeatmapCellInfo
+          cell={selectedCell}
+          bottom={insets.bottom + 200}
+          onClose={() => setSelectedCell(null)}
+        />
       )}
 
       {/* Section popup - shows when a section is tapped */}
       {selectedSection && (
-        <View style={[styles.popup, { bottom: insets.bottom + 200 }]}>
-          <View style={styles.popupHeader}>
-            <View style={styles.popupInfo}>
-              <Text style={styles.popupTitle} numberOfLines={1}>
-                {selectedSection.name || `Section ${selectedSection.id.slice(-6)}`}
-              </Text>
-              <Text style={styles.popupDate}>
-                {selectedSection.visitCount} visits • {Math.round(selectedSection.distanceMeters)}m
-              </Text>
-            </View>
-            <TouchableOpacity
-              onPress={() => setSelectedSection(null)}
-              style={styles.popupIconButton}
-              accessibilityLabel="Close section popup"
-              accessibilityRole="button"
-            >
-              <MaterialCommunityIcons name="close" size={22} color={colors.textSecondary} />
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.popupStats}>
-            <View style={styles.popupStat}>
-              <Ionicons name={getActivityTypeConfig(selectedSection.sportType).icon} size={20} color={getActivityTypeConfig(selectedSection.sportType).color} />
-              <Text style={styles.popupStatValue}>{selectedSection.sportType}</Text>
-            </View>
-            <View style={styles.popupStat}>
-              <MaterialCommunityIcons name="run" size={20} color={colors.chartBlue} />
-              <Text style={styles.popupStatValue}>
-                {selectedSection.activityIds.length} activities
-              </Text>
-            </View>
-            <View style={styles.popupStat}>
-              <MaterialCommunityIcons name="map-marker-path" size={20} color={colors.chartOrange} />
-              <Text style={styles.popupStatValue}>
-                {selectedSection.routeIds.length} routes
-              </Text>
-            </View>
-          </View>
-        </View>
+        <SectionPopup
+          section={selectedSection}
+          bottom={insets.bottom + 200}
+          onClose={() => setSelectedSection(null)}
+        />
       )}
     </View>
   );
@@ -1205,85 +1060,6 @@ const styles = StyleSheet.create({
     borderWidth: 3,
     borderColor: colors.primary,
   },
-  popup: {
-    position: 'absolute',
-    left: spacing.md,
-    right: spacing.md,
-    backgroundColor: colors.surface,
-    borderRadius: spacing.md,
-    padding: spacing.md,
-    ...shadows.modal,
-  },
-  popupHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: layout.cardMargin,
-  },
-  popupHeaderButtons: {
-    flexDirection: 'row',
-    gap: spacing.xs,
-  },
-  popupIconButton: {
-    padding: spacing.xs,
-  },
-  popupInfo: {
-    flex: 1,
-    marginRight: spacing.sm,
-  },
-  popupTitle: {
-    fontSize: typography.cardTitle.fontSize,
-    fontWeight: '600',
-    color: colors.textPrimary,
-    marginBottom: spacing.xs,
-  },
-  popupDate: {
-    fontSize: typography.bodySmall.fontSize,
-    color: colors.textSecondary,
-  },
-  popupStats: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    paddingVertical: layout.cardMargin,
-    borderTopWidth: 1,
-    borderTopColor: colors.divider,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.divider,
-    marginBottom: layout.cardMargin,
-  },
-  popupStat: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  popupStatValue: {
-    fontSize: typography.bodySmall.fontSize,
-    fontWeight: '500',
-    color: colors.textPrimary,
-  },
-  popupLoading: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.sm,
-    marginBottom: layout.cardMargin,
-  },
-  popupLoadingText: {
-    fontSize: typography.bodySmall.fontSize,
-    color: colors.textSecondary,
-  },
-  viewDetailsButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.xs,
-    paddingVertical: spacing.sm,
-  },
-  viewDetailsText: {
-    fontSize: typography.body.fontSize,
-    fontWeight: '600',
-    color: colors.primary,
-  },
   attribution: {
     position: 'absolute',
     right: spacing.sm,
@@ -1295,22 +1071,5 @@ const styles = StyleSheet.create({
   attributionText: {
     fontSize: typography.pillLabel.fontSize,
     color: colors.textSecondary,
-  },
-  heatmapRoutes: {
-    marginTop: spacing.sm,
-    paddingTop: spacing.sm,
-    borderTopWidth: 1,
-    borderTopColor: colors.divider,
-  },
-  heatmapRoutesTitle: {
-    fontSize: typography.bodySmall.fontSize,
-    fontWeight: '600',
-    color: colors.textSecondary,
-    marginBottom: spacing.xs,
-  },
-  heatmapRouteItem: {
-    fontSize: typography.bodySmall.fontSize,
-    color: colors.textPrimary,
-    marginBottom: 2,
   },
 });

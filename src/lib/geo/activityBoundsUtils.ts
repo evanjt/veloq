@@ -1,6 +1,6 @@
 import type { Activity, ActivityBoundsItem, ActivityBoundsCache, ActivityType } from '@/types';
-import { activitySpatialIndex } from './spatialIndex';
-import { debug } from './debug';
+import { activitySpatialIndex } from '../algorithms/spatialIndex';
+import { debug } from '../utils/debug';
 
 const log = debug.create('PreFilter');
 

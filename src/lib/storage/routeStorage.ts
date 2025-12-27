@@ -14,8 +14,8 @@ import type {
   RoutePoint,
 } from '@/types';
 import { getGpsTrack } from './gpsStorage';
-import { matchRoutes, calculateConsensusRoute } from './routeMatching';
-import { debug } from './debug';
+import { matchRoutes, calculateConsensusRoute } from '../algorithms/routeMatching';
+import { debug } from '../utils/debug';
 
 const log = debug.create('RouteStorage');
 

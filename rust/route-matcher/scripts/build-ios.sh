@@ -76,10 +76,6 @@ lipo -create \
 # Copy device library (same name as simulator for XCFramework compatibility)
 cp target/aarch64-apple-ios/release/libroute_matcher.a "$DEVICE_LIB_DIR/libroute_matcher.a"
 
-# Also keep legacy named copies for backwards compatibility
-cp "$DEVICE_LIB_DIR/libroute_matcher.a" "$OUTPUT_DIR/libroute_matcher_device.a"
-cp "$SIM_LIB_DIR/libroute_matcher.a" "$OUTPUT_DIR/libroute_matcher_sim.a"
-
 # Generate Swift bindings using the embedded uniffi-bindgen
 echo ""
 echo "Generating Swift bindings..."
@@ -190,8 +186,8 @@ EOF
 else
     echo "Skipping XCFramework creation (requires macOS)"
     echo "The static libraries are available at:"
-    echo "  - $OUTPUT_DIR/libroute_matcher_device.a (device)"
-    echo "  - $OUTPUT_DIR/libroute_matcher_sim.a (simulator)"
+    echo "  - $DEVICE_LIB_DIR/libroute_matcher.a (device)"
+    echo "  - $SIM_LIB_DIR/libroute_matcher.a (simulator)"
 fi
 
 echo ""

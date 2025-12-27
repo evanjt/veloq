@@ -4,7 +4,7 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { debug } from './debug';
+import { debug } from '../utils/debug';
 
 const log = debug.create('Geocoding');
 

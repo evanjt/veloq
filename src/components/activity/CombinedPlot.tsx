@@ -8,7 +8,7 @@ import * as Haptics from 'expo-haptics';
 import { useTranslation } from 'react-i18next';
 import { colors, darkColors, typography, layout, shadows } from '@/theme';
 import { useMetricSystem } from '@/hooks';
-import type { ChartConfig, ChartTypeId } from '@/lib/chartConfig';
+import type { ChartConfig, ChartTypeId } from '@/lib';
 import type { ActivityStreams } from '@/types';
 
 

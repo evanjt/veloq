@@ -1135,14 +1135,7 @@ mod ffi {
         MatchConfig::default()
     }
 
-    /// Input for batch signature creation
-    #[derive(Debug, Clone, uniffi::Record)]
-    pub struct GpsTrack {
-        pub activity_id: String,
-        pub points: Vec<GpsPoint>,
-    }
-
-    /// Input for flat buffer batch processing (zero-copy from JS TypedArray)
+    /// Input for flat buffer processing (zero-copy from JS TypedArray)
     #[derive(Debug, Clone, uniffi::Record)]
     pub struct FlatGpsTrack {
         pub activity_id: String,
@@ -1220,73 +1213,6 @@ mod ffi {
 
         let elapsed = start.elapsed();
         info!("[RouteMatcherRust] FLAT batch processing: {} signatures -> {} groups in {:?}",
-              signatures.len(), groups.len(), elapsed);
-
-        groups
-    }
-
-    /// Create multiple route signatures in parallel (batch processing).
-    /// Much faster than calling create_signature repeatedly due to:
-    /// 1. Single FFI call instead of N calls
-    /// 2. Parallel processing with rayon
-    #[uniffi::export]
-    pub fn create_signatures_batch(tracks: Vec<GpsTrack>, config: MatchConfig) -> Vec<RouteSignature> {
-        init_logging();
-        info!("[RouteMatcherRust] BATCH create_signatures called with {} tracks", tracks.len());
-
-        let start = std::time::Instant::now();
-
-        #[cfg(feature = "parallel")]
-        let signatures: Vec<RouteSignature> = {
-            use rayon::prelude::*;
-            info!("[RouteMatcherRust] Using PARALLEL signature creation (rayon)");
-            tracks
-                .par_iter()
-                .filter_map(|track| {
-                    RouteSignature::from_points(&track.activity_id, &track.points, &config)
-                })
-                .collect()
-        };
-
-        #[cfg(not(feature = "parallel"))]
-        let signatures: Vec<RouteSignature> = {
-            info!("[RouteMatcherRust] Using sequential signature creation");
-            tracks
-                .iter()
-                .filter_map(|track| {
-                    RouteSignature::from_points(&track.activity_id, &track.points, &config)
-                })
-                .collect()
-        };
-
-        let elapsed = start.elapsed();
-        info!("[RouteMatcherRust] Created {} signatures from {} tracks in {:?}",
-              signatures.len(), tracks.len(), elapsed);
-
-        signatures
-    }
-
-    /// Process routes end-to-end: create signatures AND group them in one call.
-    /// This is the most efficient way to process many activities.
-    #[uniffi::export]
-    pub fn process_routes_batch(tracks: Vec<GpsTrack>, config: MatchConfig) -> Vec<RouteGroup> {
-        init_logging();
-        info!("[RouteMatcherRust] FULL BATCH process_routes called with {} tracks", tracks.len());
-
-        let start = std::time::Instant::now();
-
-        // Step 1: Create all signatures in parallel
-        let signatures = create_signatures_batch(tracks, config.clone());
-
-        // Step 2: Group signatures (also parallel if feature enabled)
-        #[cfg(feature = "parallel")]
-        let groups = group_signatures_parallel(&signatures, &config);
-
-        #[cfg(not(feature = "parallel"))]
-        let groups = group_signatures(&signatures, &config);
-
-        let elapsed = start.elapsed();
-        info!("[RouteMatcherRust] Full batch processing: {} signatures -> {} groups in {:?}",
               signatures.len(), groups.len(), elapsed);
 
         groups
@@ -1403,47 +1329,6 @@ mod ffi {
     pub struct ActivitySportType {
         pub activity_id: String,
         pub sport_type: String,
-    }
-
-    /// Detect frequent sections from route signatures.
-    /// Returns sections sorted by visit count (most visited first).
-    #[uniffi::export]
-    pub fn ffi_detect_frequent_sections(
-        signatures: Vec<RouteSignature>,
-        groups: Vec<RouteGroup>,
-        sport_types: Vec<ActivitySportType>,
-        config: crate::SectionConfig,
-    ) -> Vec<crate::FrequentSection> {
-        init_logging();
-        info!(
-            "[RouteMatcherRust] detect_frequent_sections: {} signatures, {} sport types",
-            signatures.len(),
-            sport_types.len()
-        );
-
-        let start = std::time::Instant::now();
-
-        // Convert sport types to HashMap
-        let sport_map: std::collections::HashMap<String, String> = sport_types
-            .into_iter()
-            .map(|st| (st.activity_id, st.sport_type))
-            .collect();
-
-        let sections = crate::sections::detect_frequent_sections(
-            &signatures,
-            &groups,
-            &sport_map,
-            &config,
-        );
-
-        let elapsed = start.elapsed();
-        info!(
-            "[RouteMatcherRust] Found {} frequent sections in {:?}",
-            sections.len(),
-            elapsed
-        );
-
-        sections
     }
 
     /// Get default section detection configuration

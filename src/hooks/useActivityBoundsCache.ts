@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { activitySyncManager, type SyncProgress } from '@/lib/activitySyncManager';
-import { findOldestDate, findNewestDate } from '@/lib/activityBoundsUtils';
+import { activitySyncManager, type SyncProgress } from '@/lib';
+import { findOldestDate, findNewestDate } from '@/lib';
 import { useAuthStore } from '@/providers';
 import type { ActivityBoundsCache, ActivityBoundsItem } from '@/types';
 
