@@ -100,6 +100,49 @@ export const useRouteMatchStore = create<RouteMatchState>((set, get) => ({
     });
     listenerCleanups.push(unsubSync);
 
+    // Subscribe to NEW activities being synced (fires after each sync, not just initial)
+    const unsubNewActivities = activitySyncManager.onNewActivitiesSynced((newActivityIds) => {
+      // Skip if we're already processing after a cache clear
+      if (isProcessingAfterClear) {
+        log.log('Skipping new activity processing: already processing after cache clear');
+        return;
+      }
+
+      // Check if route matching is enabled
+      if (!isRouteMatchingEnabled()) {
+        log.log('Route matching disabled, skipping new activity processing');
+        return;
+      }
+
+      // Get the bounds cache to get activity metadata
+      const boundsCache = activitySyncManager.getCache();
+      if (!boundsCache) return;
+
+      // Filter to only the new activities that are in the cache
+      const newActivities = newActivityIds
+        .map(id => boundsCache.activities[id])
+        .filter((a): a is typeof boundsCache.activities[string] => !!a);
+
+      if (newActivities.length === 0) return;
+
+      // Build metadata for new activities
+      const metadata: Record<string, { name: string; date: string; type: ActivityType; hasGps: boolean }> = {};
+      for (const a of newActivities) {
+        metadata[a.id] = {
+          name: a.name,
+          date: a.date,
+          type: a.type,
+          hasGps: true,
+        };
+      }
+
+      log.log(`New activities synced, triggering route processing for ${newActivities.length} activities`);
+
+      // Queue new activities for route processing
+      routeProcessingQueue.queueActivities(newActivityIds, metadata, newActivities);
+    });
+    listenerCleanups.push(unsubNewActivities);
+
     // Initialize the queue (loads cache from storage)
     await routeProcessingQueue.initialize();
 

@@ -49,12 +49,8 @@ export const useSportPreference = create<SportPreferenceState>((set) => ({
   },
 
   setPrimarySport: async (sport: PrimarySport) => {
-    try {
-      await AsyncStorage.setItem(SPORT_PREFERENCE_KEY, sport);
-      set({ primarySport: sport });
-    } catch (error) {
-      throw error;
-    }
+    await AsyncStorage.setItem(SPORT_PREFERENCE_KEY, sport);
+    set({ primarySport: sport });
   },
 }));
 

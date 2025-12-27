@@ -14,7 +14,10 @@ import { router, Href } from 'expo-router';
 import { colors, spacing, layout } from '@/theme';
 import { useFrequentSections } from '@/hooks/routes/useFrequentSections';
 import { SectionRow, ActivityTrace } from './SectionRow';
+import { debug } from '@/lib/debug';
 import type { FrequentSection } from '@/types';
+
+const log = debug.create('SectionsList');
 
 interface SectionsListProps {
   /** Filter by sport type */
@@ -67,7 +70,7 @@ export function SectionsList({ sportType }: SectionsListProps) {
 
   // Navigate to section detail page
   const handleSectionPress = useCallback((section: FrequentSection) => {
-    console.log('[SectionsList] Section pressed:', section.id);
+    log.log('Section pressed:', section.id);
     router.push(`/section/${section.id}` as Href);
   }, []);
 

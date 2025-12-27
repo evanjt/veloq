@@ -25,8 +25,8 @@
 //! - Section contracts if tracks consistently end before current bounds
 
 use std::collections::{HashMap, HashSet};
-use crate::{GpsPoint, RouteGroup, Bounds};
-use geo::{Point, Haversine, Distance};
+use crate::{GpsPoint, RouteGroup};
+use crate::geo_utils::{haversine_distance, compute_bounds, compute_center, polyline_length, bounds_overlap};
 use rstar::{RTree, RTreeObject, PointDistance, AABB};
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
@@ -155,20 +155,10 @@ impl PointDistance for IndexedPoint {
 struct FullTrackOverlap {
     activity_a: String,
     activity_b: String,
-    /// Start index in activity A's full track
-    a_start: usize,
-    /// End index in activity A's full track
-    a_end: usize,
-    /// Start index in activity B's full track
-    b_start: usize,
-    /// End index in activity B's full track
-    b_end: usize,
     /// The actual GPS points from track A (for medoid selection)
     points_a: Vec<GpsPoint>,
     /// The actual GPS points from track B
     points_b: Vec<GpsPoint>,
-    /// Overlap length in meters
-    length_meters: f64,
     /// Center point for clustering
     center: GpsPoint,
 }
@@ -278,13 +268,8 @@ fn find_full_track_overlap(
         FullTrackOverlap {
             activity_a: activity_a.to_string(),
             activity_b: activity_b.to_string(),
-            a_start: start_a,
-            a_end,
-            b_start,
-            b_end,
             points_a,
             points_b,
-            length_meters: best_length,
             center,
         }
     })
@@ -301,8 +286,6 @@ struct OverlapCluster {
     overlaps: Vec<FullTrackOverlap>,
     /// Unique activity IDs in this cluster
     activity_ids: HashSet<String>,
-    /// Center point (average of overlap centers)
-    center: GpsPoint,
 }
 
 /// Cluster overlaps that represent the same physical section
@@ -348,20 +331,9 @@ fn cluster_overlaps(
             }
         }
 
-        // Compute cluster center
-        let center = if cluster_overlaps.len() == 1 {
-            cluster_overlaps[0].center.clone()
-        } else {
-            let sum_lat: f64 = cluster_overlaps.iter().map(|o| o.center.latitude).sum();
-            let sum_lng: f64 = cluster_overlaps.iter().map(|o| o.center.longitude).sum();
-            let n = cluster_overlaps.len() as f64;
-            GpsPoint::new(sum_lat / n, sum_lng / n)
-        };
-
         clusters.push(OverlapCluster {
             overlaps: cluster_overlaps,
             activity_ids: cluster_activities,
-            center,
         });
     }
 
@@ -575,7 +547,6 @@ fn resample_by_distance(points: &[GpsPoint], n: usize) -> Vec<GpsPoint> {
 /// Compute each activity's portion of a section
 fn compute_activity_portions(
     cluster: &OverlapCluster,
-    representative_id: &str,
     representative_polyline: &[GpsPoint],
     all_tracks: &HashMap<String, Vec<GpsPoint>>,
     config: &SectionConfig,
@@ -590,7 +561,7 @@ fn compute_activity_portions(
                 representative_polyline,
                 config.proximity_threshold,
             ) {
-                let distance = compute_polyline_length(&track[start_idx..end_idx]);
+                let distance = polyline_length(&track[start_idx..end_idx]);
 
                 portions.push(SectionPortion {
                     activity_id: activity_id.clone(),
@@ -728,7 +699,7 @@ fn process_cluster(
         return None;
     }
 
-    let distance_meters = compute_polyline_length(&representative_polyline);
+    let distance_meters = polyline_length(&representative_polyline);
 
     // Filter by max length - sections shouldn't be whole routes
     if distance_meters > config.max_section_length {
@@ -738,7 +709,6 @@ fn process_cluster(
     // Compute activity portions for pace comparison
     let activity_portions = compute_activity_portions(
         &cluster,
-        &representative_id,
         &representative_polyline,
         track_map,
         config,
@@ -771,7 +741,7 @@ fn process_cluster(
     );
 
     // Use consensus polyline and update distance
-    let consensus_distance = compute_polyline_length(&consensus.polyline);
+    let consensus_distance = polyline_length(&consensus.polyline);
 
     Some(FrequentSection {
         id: format!("sec_{}_{}", sport_type.to_lowercase(), idx),
@@ -787,6 +757,7 @@ fn process_cluster(
         confidence: consensus.confidence,
         observation_count: consensus.observation_count,
         average_spread: consensus.average_spread,
+        point_density: consensus.point_density,
     })
 }
 
@@ -1014,8 +985,18 @@ pub fn detect_sections_from_tracks(
             dedup_start.elapsed().as_millis()
         );
 
+        // Post-process step 4: Split sections with high-traffic portions
+        // This creates new sections from portions that are used by many activities
+        let split_start = std::time::Instant::now();
+        let final_sections = split_high_variance_sections(deduped_sections, &track_map, config);
+        info!(
+            "[Sections] After density splitting: {} sections in {}ms",
+            final_sections.len(),
+            split_start.elapsed().as_millis()
+        );
+
         // Re-number sections
-        for (i, mut section) in deduped_sections.into_iter().enumerate() {
+        for (i, mut section) in final_sections.into_iter().enumerate() {
             section.id = format!("sec_{}_{}", sport_type.to_lowercase(), section_counter + i);
             all_sections.push(section);
         }
@@ -1166,7 +1147,7 @@ fn compute_consensus_polyline(
 
     // Compute overall metrics
     let observation_count = trace_trees.len() as u32;
-    let average_spread = if point_observations > 0 {
+    let average_spread = if total_point_observations > 0 {
         total_spread / (reference.len() as f64)
     } else {
         proximity_threshold // Default to max threshold if no observations
@@ -1183,77 +1164,259 @@ fn compute_consensus_polyline(
         confidence,
         observation_count,
         average_spread,
+        point_density,
     }
 }
 
-/// Adapt section boundaries based on where tracks consistently overlap.
-/// Returns (new_start_offset, new_end_extension) in number of points.
-fn compute_adaptive_boundaries(
-    reference: &[GpsPoint],
-    all_traces: &[Vec<GpsPoint>],
-    proximity_threshold: f64,
-) -> (usize, usize) {
-    if reference.is_empty() || all_traces.is_empty() {
-        return (0, 0);
+// =============================================================================
+// Density-Based Section Splitting
+// =============================================================================
+//
+// Based on concepts from:
+// - TRACLUS: "Trajectory Clustering: A Partition-and-Group Framework" (Lee, Han, Whang 2007)
+//   https://hanj.cs.illinois.edu/pdf/sigmod07_jglee.pdf
+// - GPS Segment Averaging (MDPI 2019)
+//   https://mdpi.com/2076-3417/9/22/4899/htm
+//
+// The algorithm detects when part of a section has significantly higher traffic
+// than the rest, indicating it should become its own section for better insights.
+
+/// Minimum density ratio to trigger a split (high-traffic portion / endpoint density)
+const SPLIT_DENSITY_RATIO: f64 = 2.0;
+
+/// Minimum length (meters) for a split portion to become its own section
+const MIN_SPLIT_LENGTH: f64 = 100.0;
+
+/// Minimum number of points in a high-density region to consider splitting
+const MIN_SPLIT_POINTS: usize = 10;
+
+/// Result of analyzing a section for potential splits
+#[derive(Debug)]
+struct SplitCandidate {
+    /// Start index of the high-density portion
+    start_idx: usize,
+    /// End index of the high-density portion
+    end_idx: usize,
+    /// Average density in this portion
+    avg_density: f64,
+    /// Density ratio compared to endpoints
+    density_ratio: f64,
+}
+
+/// Analyze a section's point density to find high-traffic portions.
+/// Returns split candidates if the section should be divided.
+fn find_split_candidates(section: &FrequentSection) -> Vec<SplitCandidate> {
+    let density = &section.point_density;
+
+    if density.len() < MIN_SPLIT_POINTS * 2 {
+        return vec![]; // Too short to split meaningfully
     }
 
-    let threshold_deg = proximity_threshold / 111_000.0;
-    let threshold_deg_sq = threshold_deg * threshold_deg;
+    // Compute endpoint density (average of first/last 10% of points)
+    let endpoint_window = (density.len() / 10).max(3);
+    let start_density: f64 = density[..endpoint_window].iter().map(|&d| d as f64).sum::<f64>()
+        / endpoint_window as f64;
+    let end_density: f64 = density[density.len() - endpoint_window..].iter().map(|&d| d as f64).sum::<f64>()
+        / endpoint_window as f64;
+    let endpoint_density = (start_density + end_density) / 2.0;
 
-    // For each trace, find where it starts and ends overlapping the reference
-    let mut start_offsets: Vec<usize> = Vec::new();
-    let mut end_extensions: Vec<usize> = Vec::new();
+    if endpoint_density < 1.0 {
+        return vec![]; // No meaningful endpoint density to compare against
+    }
 
-    let ref_tree = build_rtree(reference);
+    // Sliding window to find high-density regions
+    let window_size = (density.len() / 5).max(MIN_SPLIT_POINTS);
+    let mut candidates = Vec::new();
 
-    for trace in all_traces {
-        // Find first point in trace that's close to reference
-        let mut first_overlap = None;
-        let mut last_overlap = None;
+    let mut i = window_size;
+    while i < density.len() - window_size {
+        // Compute density in current window
+        let window_density: f64 = density[i - window_size / 2..i + window_size / 2]
+            .iter()
+            .map(|&d| d as f64)
+            .sum::<f64>() / window_size as f64;
 
-        for (i, point) in trace.iter().enumerate() {
-            let query = [point.latitude, point.longitude];
-            if let Some(nearest) = ref_tree.nearest_neighbor(&query) {
-                if nearest.distance_2(&query) <= threshold_deg_sq {
-                    if first_overlap.is_none() {
-                        first_overlap = Some(i);
+        let ratio = window_density / endpoint_density;
+
+        if ratio >= SPLIT_DENSITY_RATIO {
+            // Found a high-density region - expand to find boundaries
+            let mut start_idx = i - window_size / 2;
+            let mut end_idx = i + window_size / 2;
+
+            // Expand start backward while density remains high
+            while start_idx > 0 {
+                let local_density = density[start_idx - 1] as f64;
+                if local_density < endpoint_density * 1.5 {
+                    break;
+                }
+                start_idx -= 1;
+            }
+
+            // Expand end forward while density remains high
+            while end_idx < density.len() - 1 {
+                let local_density = density[end_idx + 1] as f64;
+                if local_density < endpoint_density * 1.5 {
+                    break;
+                }
+                end_idx += 1;
+            }
+
+            // Compute distance of this portion
+            let portion_distance = if end_idx > start_idx {
+                polyline_length(&section.polyline[start_idx..=end_idx])
+            } else {
+                0.0
+            };
+
+            // Only consider if long enough
+            if portion_distance >= MIN_SPLIT_LENGTH && end_idx - start_idx >= MIN_SPLIT_POINTS {
+                let portion_density: f64 = density[start_idx..=end_idx]
+                    .iter()
+                    .map(|&d| d as f64)
+                    .sum::<f64>() / (end_idx - start_idx + 1) as f64;
+
+                candidates.push(SplitCandidate {
+                    start_idx,
+                    end_idx,
+                    avg_density: portion_density,
+                    density_ratio: portion_density / endpoint_density,
+                });
+
+                // Skip past this region
+                i = end_idx + window_size;
+            } else {
+                i += 1;
+            }
+        } else {
+            i += 1;
+        }
+    }
+
+    candidates
+}
+
+/// Split a section into multiple sections based on density analysis.
+/// Returns the original section plus any new sections created from high-density portions.
+fn split_section_by_density(
+    section: FrequentSection,
+    track_map: &HashMap<String, Vec<GpsPoint>>,
+    config: &SectionConfig,
+) -> Vec<FrequentSection> {
+    let candidates = find_split_candidates(&section);
+
+    if candidates.is_empty() {
+        return vec![section];
+    }
+
+    info!(
+        "[Sections] Found {} split candidates for section {} (len={}m)",
+        candidates.len(),
+        section.id,
+        section.distance_meters as i32
+    );
+
+    let mut result = Vec::new();
+
+    // Create new sections from high-density portions
+    for (split_idx, candidate) in candidates.iter().enumerate() {
+        // Extract the high-density portion
+        let split_polyline = section.polyline[candidate.start_idx..=candidate.end_idx].to_vec();
+        let split_density = section.point_density[candidate.start_idx..=candidate.end_idx].to_vec();
+        let split_distance = polyline_length(&split_polyline);
+
+        // Re-compute which activities overlap with this portion
+        let mut split_activity_ids = Vec::new();
+        let mut split_activity_traces = HashMap::new();
+
+        let split_tree = build_rtree(&split_polyline);
+        let threshold_deg = config.proximity_threshold / 111_000.0;
+        let threshold_deg_sq = threshold_deg * threshold_deg;
+
+        for activity_id in &section.activity_ids {
+            if let Some(track) = track_map.get(activity_id) {
+                // Check if this activity overlaps with the split portion
+                let mut overlap_points = Vec::new();
+
+                for point in track {
+                    let query = [point.latitude, point.longitude];
+                    if let Some(nearest) = split_tree.nearest_neighbor(&query) {
+                        if nearest.distance_2(&query) <= threshold_deg_sq {
+                            overlap_points.push(point.clone());
+                        }
                     }
-                    last_overlap = Some(i);
+                }
+
+                // Need substantial overlap to count
+                let overlap_distance = polyline_length(&overlap_points);
+                if overlap_distance >= split_distance * 0.5 {
+                    split_activity_ids.push(activity_id.clone());
+                    if !overlap_points.is_empty() {
+                        split_activity_traces.insert(activity_id.clone(), overlap_points);
+                    }
                 }
             }
         }
 
-        // Record how the overlap boundaries compare to the trace boundaries
-        if let (Some(first), Some(last)) = (first_overlap, last_overlap) {
-            // Points before first_overlap could extend the start
-            start_offsets.push(first);
-            // Points after last_overlap could extend the end
-            end_extensions.push(trace.len().saturating_sub(last + 1));
+        // Only create the split section if it has enough activities
+        if split_activity_ids.len() >= config.min_activities as usize {
+            let split_section = FrequentSection {
+                id: format!("{}_split{}", section.id, split_idx),
+                sport_type: section.sport_type.clone(),
+                polyline: split_polyline,
+                representative_activity_id: section.representative_activity_id.clone(),
+                activity_ids: split_activity_ids,
+                activity_portions: Vec::new(), // Will be recomputed later if needed
+                route_ids: section.route_ids.clone(),
+                visit_count: candidate.avg_density as u32,
+                distance_meters: split_distance,
+                activity_traces: split_activity_traces,
+                confidence: section.confidence,
+                observation_count: candidate.avg_density as u32,
+                average_spread: section.average_spread,
+                point_density: split_density,
+            };
+
+            info!(
+                "[Sections] Created split section {} with {} activities (density ratio {:.1}x)",
+                split_section.id,
+                split_section.activity_ids.len(),
+                candidate.density_ratio
+            );
+
+            result.push(split_section);
         }
     }
 
-    // Use median values to determine boundary adjustments
-    // (avoids outliers from GPS errors)
-    let median_start = if start_offsets.is_empty() {
-        0
-    } else {
-        start_offsets.sort();
-        start_offsets[start_offsets.len() / 2]
-    };
+    // Keep the original section too (it still represents the full route)
+    result.push(section);
 
-    let median_end = if end_extensions.is_empty() {
-        0
-    } else {
-        end_extensions.sort();
-        end_extensions[end_extensions.len() / 2]
-    };
+    result
+}
 
-    (median_start, median_end)
+/// Post-processing step: Split sections with high density variance.
+/// Called after initial section detection to break up sections that have
+/// high-traffic portions used by many other activities.
+fn split_high_variance_sections(
+    sections: Vec<FrequentSection>,
+    track_map: &HashMap<String, Vec<GpsPoint>>,
+    config: &SectionConfig,
+) -> Vec<FrequentSection> {
+    let mut result = Vec::new();
+
+    for section in sections {
+        let split = split_section_by_density(section, track_map, config);
+        result.extend(split);
+    }
+
+    result
 }
 
 // =============================================================================
 // Helper Functions
 // =============================================================================
+//
+// Core geographic utilities (haversine_distance, compute_bounds, compute_center,
+// polyline_length, bounds_overlap) are imported from crate::geo_utils
 
 /// Check if two tracks' bounding boxes overlap
 fn bounds_overlap_tracks(track_a: &[GpsPoint], track_b: &[GpsPoint], buffer: f64) -> bool {
@@ -1264,61 +1427,9 @@ fn bounds_overlap_tracks(track_a: &[GpsPoint], track_b: &[GpsPoint], buffer: f64
     let bounds_a = compute_bounds(track_a);
     let bounds_b = compute_bounds(track_b);
 
-    // Convert buffer from meters to degrees (approximate)
-    let buffer_deg = buffer / 111_000.0;
-
-    !(bounds_a.max_lat + buffer_deg < bounds_b.min_lat ||
-      bounds_b.max_lat + buffer_deg < bounds_a.min_lat ||
-      bounds_a.max_lng + buffer_deg < bounds_b.min_lng ||
-      bounds_b.max_lng + buffer_deg < bounds_a.min_lng)
-}
-
-/// Compute bounding box of track
-fn compute_bounds(points: &[GpsPoint]) -> Bounds {
-    let mut min_lat = f64::MAX;
-    let mut max_lat = f64::MIN;
-    let mut min_lng = f64::MAX;
-    let mut max_lng = f64::MIN;
-
-    for p in points {
-        min_lat = min_lat.min(p.latitude);
-        max_lat = max_lat.max(p.latitude);
-        min_lng = min_lng.min(p.longitude);
-        max_lng = max_lng.max(p.longitude);
-    }
-
-    Bounds { min_lat, max_lat, min_lng, max_lng }
-}
-
-/// Compute center point of polyline
-fn compute_center(points: &[GpsPoint]) -> GpsPoint {
-    if points.is_empty() {
-        return GpsPoint::new(0.0, 0.0);
-    }
-
-    let sum_lat: f64 = points.iter().map(|p| p.latitude).sum();
-    let sum_lng: f64 = points.iter().map(|p| p.longitude).sum();
-    let n = points.len() as f64;
-
-    GpsPoint::new(sum_lat / n, sum_lng / n)
-}
-
-/// Compute polyline length in meters
-fn compute_polyline_length(points: &[GpsPoint]) -> f64 {
-    if points.len() < 2 {
-        return 0.0;
-    }
-
-    points.windows(2)
-        .map(|w| haversine_distance(&w[0], &w[1]))
-        .sum()
-}
-
-/// Haversine distance between two points in meters
-fn haversine_distance(p1: &GpsPoint, p2: &GpsPoint) -> f64 {
-    let point1 = Point::new(p1.longitude, p1.latitude);
-    let point2 = Point::new(p2.longitude, p2.latitude);
-    Haversine::distance(point1, point2)
+    // Use reference latitude from center of bounds_a for meter-to-degree conversion
+    let ref_lat = (bounds_a.min_lat + bounds_a.max_lat) / 2.0;
+    bounds_overlap(&bounds_a, &bounds_b, buffer, ref_lat)
 }
 
 // =============================================================================
@@ -1416,7 +1527,7 @@ fn split_folding_sections(
             if let Some(fold_idx) = detect_fold_point(&section.polyline, config.proximity_threshold) {
                 // Create outbound section (start to fold point)
                 let outbound_polyline = section.polyline[..fold_idx].to_vec();
-                let outbound_length = compute_polyline_length(&outbound_polyline);
+                let outbound_length = polyline_length(&outbound_polyline);
 
                 if outbound_length >= config.min_section_length {
                     let mut outbound = section.clone();
@@ -1430,7 +1541,7 @@ fn split_folding_sections(
 
                 // Create return section (fold point to end)
                 let return_polyline = section.polyline[fold_idx..].to_vec();
-                let return_length = compute_polyline_length(&return_polyline);
+                let return_length = polyline_length(&return_polyline);
 
                 if return_length >= config.min_section_length {
                     let mut return_section = section.clone();
