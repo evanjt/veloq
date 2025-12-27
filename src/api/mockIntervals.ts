@@ -1,15 +1,19 @@
 /**
  * Mock API for demo mode
- * Returns static demo data instead of making real API calls
+ *
+ * Returns fixture data that matches the real Intervals.icu API response format.
+ * This ensures demo mode behaves identically to real mode, and can be used
+ * for end-to-end testing as well.
  */
 import {
-  demoAthlete,
-  demoActivities,
-  demoWellness,
-  demoPowerCurve,
-  demoPaceCurve,
-  demoSportSettings,
-} from '@/data/demo';
+  fixtures,
+  getActivity,
+  getActivities,
+  getActivityMap,
+  getActivityStreams,
+  getWellness,
+} from '@/data/demo/fixtures';
+import { demoPowerCurve, demoPaceCurve, demoSportSettings } from '@/data/demo';
 import type {
   Activity,
   ActivityDetail,
@@ -22,104 +26,100 @@ import type {
   ActivityMapData,
 } from '@/types';
 
-// Helper to filter by date range
-function filterByDateRange<T extends { id?: string; start_date_local?: string }>(
-  items: T[],
-  oldest?: string,
-  newest?: string
-): T[] {
-  return items.filter((item) => {
-    const dateStr = item.start_date_local || item.id;
-    if (!dateStr) return true;
-    const date = new Date(dateStr);
-    if (oldest && date < new Date(oldest)) return false;
-    if (newest && date > new Date(newest)) return false;
-    return true;
-  });
-}
-
-// Simulate network delay
+// Simulate network delay for realistic UX
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+/**
+ * Mock implementation of the Intervals.icu API
+ *
+ * All methods return data in the same format as the real API,
+ * making this suitable for both demo mode and testing.
+ */
 export const mockIntervalsApi = {
+  /**
+   * Get athlete profile
+   */
   async getAthlete(): Promise<Athlete> {
     await delay(100);
-    return demoAthlete;
+    return fixtures.athlete as Athlete;
   },
 
+  /**
+   * Get current athlete (same as getAthlete for demo)
+   */
   async getCurrentAthlete(): Promise<Athlete> {
     await delay(100);
-    return demoAthlete;
+    return fixtures.athlete as Athlete;
   },
 
+  /**
+   * Get activities with optional date filtering
+   */
   async getActivities(params?: {
     oldest?: string;
     newest?: string;
     includeStats?: boolean;
   }): Promise<Activity[]> {
     await delay(200);
-    return filterByDateRange(demoActivities, params?.oldest, params?.newest);
+    const activities = getActivities({
+      oldest: params?.oldest,
+      newest: params?.newest,
+    });
+    return activities as Activity[];
   },
 
+  /**
+   * Get a single activity by ID
+   */
   async getActivity(id: string): Promise<ActivityDetail> {
     await delay(150);
-    const activity = demoActivities.find((a) => a.id === id);
+    const activity = getActivity(id);
     if (!activity) throw new Error('Activity not found');
     return activity as ActivityDetail;
   },
 
+  /**
+   * Get the oldest activity date
+   */
   async getOldestActivityDate(): Promise<string | null> {
     await delay(50);
-    if (demoActivities.length === 0) return null;
-    return demoActivities[0].start_date_local;
+    const activities = fixtures.activities;
+    if (activities.length === 0) return null;
+    return activities[0].start_date_local;
   },
 
-  async getActivityStreams(id: string, types?: string[]): Promise<ActivityStreams> {
+  /**
+   * Get activity streams (time series data)
+   */
+  async getActivityStreams(id: string, _types?: string[]): Promise<ActivityStreams> {
     await delay(200);
-    // Generate fake stream data for demo
-    const activity = demoActivities.find((a) => a.id === id);
-    const points = activity?.moving_time ? Math.floor(activity.moving_time / 5) : 100;
-
-    // Generate realistic-looking data
-    const time = Array.from({ length: points }, (_, i) => i * 5);
-    const heartrate = time.map((_, i) => {
-      const base = activity?.icu_average_hr || 140;
-      const warmup = Math.min(i / 20, 1);
-      return Math.round(base * 0.7 + base * 0.3 * warmup + (Math.random() * 10 - 5));
-    });
-    const watts = activity?.icu_average_watts
-      ? time.map(() => {
-          const base = activity.icu_average_watts || 180;
-          return Math.round(base + (Math.random() * 40 - 20));
-        })
-      : undefined;
-    const altitude = time.map((_, i) => {
-      return 100 + Math.sin(i / 20) * 50 + Math.random() * 10;
-    });
-    // Simple lat/lng around a central point (demo location) as [lat, lng] tuples
-    const latlng: [number, number][] = time.map((_, i) => [
-      -33.8688 + Math.sin(i / 30) * 0.01,
-      151.2093 + Math.cos(i / 30) * 0.01,
-    ]);
-
-    return {
-      time,
-      heartrate,
-      watts,
-      altitude,
-      latlng,
-    };
+    const streams = getActivityStreams(id);
+    if (!streams) {
+      // Return empty streams if activity not found
+      return { time: [] };
+    }
+    return streams as ActivityStreams;
   },
 
+  /**
+   * Get wellness data with optional date filtering
+   */
   async getWellness(params?: {
     oldest?: string;
     newest?: string;
   }): Promise<WellnessData[]> {
     await delay(150);
-    return filterByDateRange(demoWellness, params?.oldest, params?.newest);
+    const wellness = getWellness({
+      oldest: params?.oldest,
+      newest: params?.newest,
+    });
+    return wellness as WellnessData[];
   },
 
-  async getPowerCurve(params?: {
+  /**
+   * Get power curve data
+   */
+  async getPowerCurve(_params?: {
     sport?: string;
     days?: number;
   }): Promise<PowerCurve> {
@@ -127,7 +127,10 @@ export const mockIntervalsApi = {
     return demoPowerCurve;
   },
 
-  async getPaceCurve(params?: {
+  /**
+   * Get pace curve data
+   */
+  async getPaceCurve(_params?: {
     sport?: string;
     days?: number;
     gap?: boolean;
@@ -136,40 +139,51 @@ export const mockIntervalsApi = {
     return demoPaceCurve;
   },
 
+  /**
+   * Get sport settings (power zones, HR zones, etc.)
+   */
   async getSportSettings(): Promise<SportSettings[]> {
     await delay(100);
     return demoSportSettings as SportSettings[];
   },
 
+  /**
+   * Get athlete profile with sport settings
+   */
   async getAthleteProfile(): Promise<Athlete & { sport_settings?: SportSettings[] }> {
     await delay(100);
     return {
-      ...demoAthlete,
+      ...(fixtures.athlete as Athlete),
       sport_settings: demoSportSettings as SportSettings[],
     };
   },
 
-  async getActivityMap(id: string, boundsOnly = false): Promise<ActivityMapData> {
+  /**
+   * Get activity map data (GPS coordinates and bounds)
+   */
+  async getActivityMap(id: string, boundsOnly = false): Promise<ActivityMapData | null> {
     await delay(100);
-    // Return bounds centered on Sydney for demo: [[minLat, minLng], [maxLat, maxLng]]
-    const bounds: [[number, number], [number, number]] = [
-      [-33.88, 151.20],
-      [-33.86, 151.22],
-    ];
-    const latlngs: [number, number][] = boundsOnly
-      ? []
-      : [
-          [-33.8688, 151.2093],
-          [-33.87, 151.21],
-          [-33.868, 151.211],
-          [-33.867, 151.21],
-          [-33.8688, 151.2093],
-        ];
-    return {
-      bounds,
-      latlngs: boundsOnly ? null : latlngs,
-      route: null,
-      weather: null,
-    };
+    const map = getActivityMap(id, boundsOnly);
+    return map as ActivityMapData | null;
   },
 };
+
+// ============================================================================
+// Test utilities
+// ============================================================================
+
+/**
+ * Get all fixture data for testing purposes
+ */
+export function getTestFixtures() {
+  return fixtures;
+}
+
+/**
+ * Reset fixtures (for test isolation)
+ * Note: Since fixtures are generated at module load, this requires reimporting
+ */
+export function resetFixtures() {
+  // Fixtures are stateless, no reset needed
+  return true;
+}
