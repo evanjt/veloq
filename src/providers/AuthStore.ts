@@ -5,18 +5,24 @@ import type { Athlete } from '@/types';
 const API_KEY_STORAGE_KEY = 'intervals_api_key';
 const ATHLETE_ID_STORAGE_KEY = 'intervals_athlete_id';
 
+// Demo mode athlete ID
+export const DEMO_ATHLETE_ID = 'demo';
+
 interface AuthState {
   apiKey: string | null;
   athleteId: string | null;
   athlete: Athlete | null;
   isLoading: boolean;
   isAuthenticated: boolean;
+  isDemoMode: boolean;
 
   // Actions
   initialize: () => Promise<void>;
   setCredentials: (apiKey: string, athleteId: string) => Promise<void>;
   clearCredentials: () => Promise<void>;
   setAthlete: (athlete: Athlete) => void;
+  enterDemoMode: () => void;
+  exitDemoMode: () => void;
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -25,6 +31,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   athlete: null,
   isLoading: true,
   isAuthenticated: false,
+  isDemoMode: false,
 
   initialize: async () => {
     try {
@@ -40,9 +47,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         athleteId,
         isAuthenticated,
         isLoading: false,
+        isDemoMode: false,
       });
     } catch {
-      set({ isLoading: false, isAuthenticated: false });
+      set({ isLoading: false, isAuthenticated: false, isDemoMode: false });
     }
   },
 
@@ -60,6 +68,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       apiKey,
       athleteId,
       isAuthenticated: true,
+      isDemoMode: false,
     });
   },
 
@@ -74,11 +83,30 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       athleteId: null,
       athlete: null,
       isAuthenticated: false,
+      isDemoMode: false,
     });
   },
 
   setAthlete: (athlete: Athlete) => {
     set({ athlete });
+  },
+
+  enterDemoMode: () => {
+    set({
+      athleteId: DEMO_ATHLETE_ID,
+      isAuthenticated: true,
+      isDemoMode: true,
+      athlete: null,
+    });
+  },
+
+  exitDemoMode: () => {
+    set({
+      athleteId: null,
+      isAuthenticated: false,
+      isDemoMode: false,
+      athlete: null,
+    });
   },
 }));
 

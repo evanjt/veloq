@@ -79,7 +79,13 @@
     "apiKeyRequired": "La clé API est requise",
     "invalidApiKey": "Clé API invalide. Veuillez vérifier votre clé et réessayer.",
     "connectionFailed": "Échec de la connexion. Veuillez vérifier votre clé API et réessayer.",
-    "securityNote": "Vos identifiants sont stockés en toute sécurité sur votre appareil"
+    "securityNote": "Vos identifiants sont stockés en toute sécurité sur votre appareil",
+    "tryDemo": "Essayer la Démo"
+  },
+
+  "demo": {
+    "banner": "Mode Démo",
+    "tapToSignIn": "Appuyez pour vous connecter"
   },
 
   "settings": {
