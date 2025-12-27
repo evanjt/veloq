@@ -59,49 +59,37 @@ repositories {
   mavenCentral()
 }
 
-// Task to build Rust libraries if needed
-task buildRustLibraries {
-  def jniLibsDir = file("src/main/jniLibs/arm64-v8a")
-  def rustLibrary = new File(jniLibsDir, "libroute_matcher.so")
-  def kotlinBindings = file("src/main/java/uniffi/route_matcher/route_matcher.kt")
-  // Path from module's android dir to repo root's rust dir
-  def repoRoot = file("${projectDir}/../../..").canonicalFile
-  def buildScript = new File(repoRoot, "rust/route-matcher/scripts/build-android.sh")
-  def installScript = new File(repoRoot, "rust/route-matcher/scripts/install-android.sh")
+// =============================================================================
+// Rust Native Library Build - Automatic incremental builds
+// =============================================================================
+// Uses the dev script (arm64 + x86_64 only) for fast iteration.
+// Gradle tracks source file changes and only rebuilds when needed.
 
-  outputs.files(rustLibrary)
+def repoRoot = file("${projectDir}/../../..").canonicalFile
+def rustSrcDir = file("${repoRoot}/rust/route-matcher/src")
+def rustCargoToml = file("${repoRoot}/rust/route-matcher/Cargo.toml")
+def devBuildScript = file("${repoRoot}/rust/route-matcher/scripts/build-android-dev.sh")
+def jniLibsDir = file("src/main/jniLibs")
 
+task buildRustLibraries(type: Exec) {
+  description = "Build Rust native library for Android (dev mode)"
+  group = "rust"
+
+  workingDir "${repoRoot}/rust/route-matcher"
+  commandLine 'bash', devBuildScript.absolutePath
+
+  // Track inputs for incremental builds
+  inputs.dir(rustSrcDir).withPathSensitivity(PathSensitivity.RELATIVE)
+  inputs.file(rustCargoToml)
+
+  // Track outputs
+  outputs.dir(jniLibsDir)
+
+  doFirst {
+    println "🦀 Building Rust native library (dev mode)..."
+  }
   doLast {
-    def needsBuild = !rustLibrary.exists()
-
-    // Check if bindings have the latest features (bounds in RouteSignature)
-    if (!needsBuild && kotlinBindings.exists()) {
-      def bindingsContent = kotlinBindings.text
-      if (!bindingsContent.contains("data class Bounds")) {
-        println "Rust bindings missing Bounds type, rebuilding..."
-        needsBuild = true
-      }
-    }
-
-    if (needsBuild) {
-      println "Building Rust library..."
-      println "Build script: ${buildScript.absolutePath}"
-      println "Install script: ${installScript.absolutePath}"
-      if (buildScript.exists() && installScript.exists()) {
-        exec {
-          workingDir repoRoot.absolutePath + "/rust/route-matcher"
-          commandLine 'bash', buildScript.absolutePath
-        }
-        exec {
-          workingDir repoRoot.absolutePath + "/rust/route-matcher"
-          commandLine 'bash', installScript.absolutePath
-        }
-      } else {
-        throw new GradleException("Rust build scripts not found at ${buildScript}. Please ensure Rust toolchain is set up.")
-      }
-    } else {
-      println "Rust library up to date, skipping build."
-    }
+    println "🦀 Rust build complete"
   }
 }
 

@@ -44,11 +44,11 @@ pub struct SectionConfig {
 impl Default for SectionConfig {
     fn default() -> Self {
         Self {
-            proximity_threshold: 30.0,   // 30m - tight enough for road-level matching
+            proximity_threshold: 40.0,   // 40m - handles GPS error + opposite sides of street
             min_section_length: 200.0,   // 200m minimum section
             max_section_length: 5000.0,  // 5km max - longer is likely a route, not a section
             min_activities: 3,           // Need 3+ activities
-            cluster_tolerance: 50.0,     // 50m for clustering similar overlaps
+            cluster_tolerance: 60.0,     // 60m for clustering similar overlaps
             sample_points: 50,           // For AMD comparison only
         }
     }
@@ -859,11 +859,29 @@ pub fn detect_sections_from_tracks(
             section_convert_start.elapsed().as_millis()
         );
 
-        // Post-process: remove sections that contain or are contained by others
-        let dedup_start = std::time::Instant::now();
-        let deduped_sections = remove_overlapping_sections(sport_sections, config);
+        // Post-process step 1: Split sections that fold back on themselves (out-and-back)
+        let fold_start = std::time::Instant::now();
+        let split_sections = split_folding_sections(sport_sections, config);
         info!(
-            "[Sections] Deduplicated to {} unique sections in {}ms",
+            "[Sections] After fold splitting: {} sections in {}ms",
+            split_sections.len(),
+            fold_start.elapsed().as_millis()
+        );
+
+        // Post-process step 2: Merge sections that are essentially reversed versions
+        let merge_start = std::time::Instant::now();
+        let merged_sections = merge_reversed_sections(split_sections, config);
+        info!(
+            "[Sections] After reverse merge: {} sections in {}ms",
+            merged_sections.len(),
+            merge_start.elapsed().as_millis()
+        );
+
+        // Post-process step 3: Remove sections that contain or are contained by others
+        let dedup_start = std::time::Instant::now();
+        let deduped_sections = remove_overlapping_sections(merged_sections, config);
+        info!(
+            "[Sections] After dedup: {} unique sections in {}ms",
             deduped_sections.len(),
             dedup_start.elapsed().as_millis()
         );
@@ -976,6 +994,199 @@ fn haversine_distance(p1: &GpsPoint, p2: &GpsPoint) -> f64 {
     let point1 = Point::new(p1.longitude, p1.latitude);
     let point2 = Point::new(p2.longitude, p2.latitude);
     Haversine::distance(point1, point2)
+}
+
+// =============================================================================
+// Self-Folding Section Detection
+// =============================================================================
+
+/// Detect if a polyline folds back on itself (out-and-back pattern).
+/// Returns the index of the fold point if found, or None if no fold.
+fn detect_fold_point(polyline: &[GpsPoint], threshold: f64) -> Option<usize> {
+    if polyline.len() < 10 {
+        return None;
+    }
+
+    let threshold_deg = threshold / 111_000.0;
+    let threshold_deg_sq = threshold_deg * threshold_deg;
+
+    // Build R-tree of the first half of the polyline
+    let half = polyline.len() / 2;
+    let first_half_tree = build_rtree(&polyline[..half]);
+
+    // Check each point in the second half against the first half
+    // Looking for where the track returns close to earlier points
+    let mut fold_candidates: Vec<(usize, f64)> = Vec::new();
+
+    for (i, point) in polyline[half..].iter().enumerate() {
+        let idx = half + i;
+        let query = [point.latitude, point.longitude];
+
+        if let Some(nearest) = first_half_tree.nearest_neighbor(&query) {
+            let dist_sq = nearest.distance_2(&query);
+            if dist_sq <= threshold_deg_sq {
+                // This point is close to an earlier point - potential fold
+                // Track the earliest point where this happens
+                fold_candidates.push((idx, dist_sq));
+            }
+        }
+    }
+
+    // Find the first substantial fold (where a sequence of points return)
+    // We want the point where the track genuinely turns back, not random noise
+    if fold_candidates.len() >= 3 {
+        // The fold point is approximately where the return starts
+        // Use the first candidate that has at least 2 more following candidates
+        Some(fold_candidates[0].0)
+    } else {
+        None
+    }
+}
+
+/// Check if a section is "folding" - meaning it goes out and comes back
+/// on essentially the same path. Returns fold ratio (0.0 = no fold, 1.0 = perfect fold)
+fn compute_fold_ratio(polyline: &[GpsPoint], threshold: f64) -> f64 {
+    if polyline.len() < 6 {
+        return 0.0;
+    }
+
+    let threshold_deg = threshold / 111_000.0;
+    let threshold_deg_sq = threshold_deg * threshold_deg;
+
+    // Compare first third to last third (reversed)
+    let third = polyline.len() / 3;
+    let first_third = &polyline[..third];
+    let last_third: Vec<GpsPoint> = polyline[(polyline.len() - third)..].iter().cloned().collect();
+
+    // Build tree from first third
+    let first_tree = build_rtree(first_third);
+
+    // Count how many points in last third are close to points in first third
+    let mut close_count = 0;
+    for point in last_third.iter().rev() {  // Reversed order for out-and-back
+        let query = [point.latitude, point.longitude];
+        if let Some(nearest) = first_tree.nearest_neighbor(&query) {
+            if nearest.distance_2(&query) <= threshold_deg_sq {
+                close_count += 1;
+            }
+        }
+    }
+
+    close_count as f64 / third as f64
+}
+
+/// Split sections that fold back on themselves into separate one-way sections.
+/// For out-and-back routes, this creates two sections: outbound and return.
+fn split_folding_sections(
+    sections: Vec<FrequentSection>,
+    config: &SectionConfig,
+) -> Vec<FrequentSection> {
+    let mut result = Vec::new();
+
+    for section in sections {
+        let fold_ratio = compute_fold_ratio(&section.polyline, config.proximity_threshold);
+
+        if fold_ratio > 0.5 {
+            // This section folds back on itself - split it
+            if let Some(fold_idx) = detect_fold_point(&section.polyline, config.proximity_threshold) {
+                // Create outbound section (start to fold point)
+                let outbound_polyline = section.polyline[..fold_idx].to_vec();
+                let outbound_length = compute_polyline_length(&outbound_polyline);
+
+                if outbound_length >= config.min_section_length {
+                    let mut outbound = section.clone();
+                    outbound.id = format!("{}_out", section.id);
+                    outbound.polyline = outbound_polyline;
+                    outbound.distance_meters = outbound_length;
+                    // Update activity traces to only include outbound portion
+                    outbound.activity_traces = HashMap::new();  // Will be recomputed
+                    result.push(outbound);
+                }
+
+                // Create return section (fold point to end)
+                let return_polyline = section.polyline[fold_idx..].to_vec();
+                let return_length = compute_polyline_length(&return_polyline);
+
+                if return_length >= config.min_section_length {
+                    let mut return_section = section.clone();
+                    return_section.id = format!("{}_ret", section.id);
+                    return_section.polyline = return_polyline;
+                    return_section.distance_meters = return_length;
+                    return_section.activity_traces = HashMap::new();
+                    result.push(return_section);
+                }
+
+                info!(
+                    "[Sections] Split folding section {} at index {} (fold_ratio={:.2})",
+                    section.id, fold_idx, fold_ratio
+                );
+            } else {
+                // Couldn't find fold point, keep original
+                result.push(section);
+            }
+        } else {
+            // Not folding, keep as-is
+            result.push(section);
+        }
+    }
+
+    result
+}
+
+/// Merge sections that are geometrically similar (even if one is reversed).
+/// This prevents having duplicate sections for forward/reverse travel.
+fn merge_reversed_sections(
+    mut sections: Vec<FrequentSection>,
+    config: &SectionConfig,
+) -> Vec<FrequentSection> {
+    if sections.len() < 2 {
+        return sections;
+    }
+
+    // Sort by visit count descending
+    sections.sort_by(|a, b| b.visit_count.cmp(&a.visit_count));
+
+    let mut keep: Vec<bool> = vec![true; sections.len()];
+
+    for i in 0..sections.len() {
+        if !keep[i] {
+            continue;
+        }
+
+        for j in (i + 1)..sections.len() {
+            if !keep[j] {
+                continue;
+            }
+
+            // Check if j is the reverse of i
+            let section_i = &sections[i];
+            let section_j = &sections[j];
+
+            // Reverse section_j's polyline and check overlap
+            let reversed_j: Vec<GpsPoint> = section_j.polyline.iter().rev().cloned().collect();
+            let tree_i = build_rtree(&section_i.polyline);
+
+            let forward_containment = compute_containment(&section_j.polyline, &tree_i, config.proximity_threshold);
+            let reverse_containment = compute_containment(&reversed_j, &tree_i, config.proximity_threshold);
+
+            // If either forward or reverse is >60% contained, merge
+            if forward_containment > 0.6 || reverse_containment > 0.6 {
+                // Merge j's activities into i
+                // (In practice, we just remove j since the activities should already be shared)
+                keep[j] = false;
+                info!(
+                    "[Sections] Merged reversed section {} into {} (fwd={:.2}, rev={:.2})",
+                    section_j.id, section_i.id, forward_containment, reverse_containment
+                );
+            }
+        }
+    }
+
+    sections
+        .into_iter()
+        .zip(keep)
+        .filter_map(|(s, k)| if k { Some(s) } else { None })
+        .collect()
 }
 
 // =============================================================================
