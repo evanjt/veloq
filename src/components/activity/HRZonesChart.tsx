@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { View, StyleSheet, useColorScheme, Text } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { colors, darkColors, opacity, typography, spacing, layout } from '@/theme';
 import { useHRZones } from '@/providers';
 import { useSportSettings, getSettingsForSport, HR_ZONE_COLORS } from '@/hooks';
@@ -28,6 +29,7 @@ export function HRZonesChart({
   activityType = 'Ride',
   activity,
 }: HRZonesChartProps) {
+  const { t } = useTranslation();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
 
@@ -151,7 +153,7 @@ export function HRZonesChart({
     return (
       <View style={styles.placeholder}>
         <Text style={[styles.placeholderText, isDark && styles.textDark]}>
-          No heart rate data
+          {t('activity.noHeartRateData')}
         </Text>
       </View>
     );
@@ -168,9 +170,9 @@ export function HRZonesChart({
   return (
     <View style={styles.container}>
       <View style={styles.headerRow}>
-        <Text style={[styles.title, isDark && styles.titleDark]}>Time in HR Zones</Text>
+        <Text style={[styles.title, isDark && styles.titleDark]}>{t('activity.timeInHRZones')}</Text>
         <Text style={[styles.maxHRLabel, isDark && styles.maxHRLabelDark]}>
-          Max: {maxHR} bpm
+          {t('activity.maxHR', { value: maxHR })}
         </Text>
       </View>
       <View style={styles.zonesContainer}>

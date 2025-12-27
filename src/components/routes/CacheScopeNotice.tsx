@@ -7,6 +7,7 @@ import React from 'react';
 import { View, StyleSheet, useColorScheme, TouchableOpacity } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { colors, darkColors, opacity, spacing, layout, typography } from '@/theme';
 
 interface CacheScopeNoticeProps {
@@ -23,6 +24,7 @@ export function CacheScopeNotice({
   groupCount,
   onPress,
 }: CacheScopeNoticeProps) {
+  const { t } = useTranslation();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
 
@@ -34,8 +36,8 @@ export function CacheScopeNotice({
         color={isDark ? '#888' : colors.textSecondary}
       />
       <Text style={[styles.text, isDark && styles.textDark]}>
-        Based on {processedCount} activities
-        {groupCount > 0 && ` · ${groupCount} routes found`}
+        {t('routes.basedOnActivities', { count: processedCount })}
+        {groupCount > 0 && ` · ${t('routes.routesFound', { count: groupCount })}`}
       </Text>
       {onPress && (
         <MaterialCommunityIcons

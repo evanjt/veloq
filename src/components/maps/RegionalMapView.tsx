@@ -12,6 +12,7 @@ import { MapView, Camera, MarkerView, ShapeSource, LineLayer, CircleLayer } from
 import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import * as Location from 'expo-location';
 import { colors, darkColors } from '@/theme/colors';
 import { typography } from '@/theme/typography';
@@ -67,6 +68,7 @@ interface SelectedActivity {
 }
 
 export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
+  const { t } = useTranslation();
   const colorScheme = useColorScheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -665,7 +667,7 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
         style={[styles.button, styles.closeButton, { top: insets.top + 12 }, isDark && styles.buttonDark]}
         onPress={onClose}
         activeOpacity={0.8}
-        accessibilityLabel="Close map"
+        accessibilityLabel={t('maps.closeMap')}
         accessibilityRole="button"
       >
         <MaterialCommunityIcons
@@ -680,7 +682,7 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
         style={[styles.button, styles.styleButton, { top: insets.top + 12 }, isDark && styles.buttonDark]}
         onPress={toggleStyle}
         activeOpacity={0.8}
-        accessibilityLabel="Toggle map style"
+        accessibilityLabel={t('maps.toggleStyle')}
         accessibilityRole="button"
       >
         <MaterialCommunityIcons
@@ -703,7 +705,7 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
           onPress={can3D ? toggle3D : undefined}
           activeOpacity={can3D ? 0.8 : 1}
           disabled={!can3D}
-          accessibilityLabel={show3D ? 'Disable 3D view' : 'Enable 3D view'}
+          accessibilityLabel={show3D ? t('maps.disable3D') : t('maps.enable3D')}
           accessibilityRole="button"
           accessibilityState={{ disabled: !can3D }}
         >
@@ -719,7 +721,7 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
           style={[styles.controlButton, isDark && styles.controlButtonDark]}
           onPress={resetOrientation}
           activeOpacity={0.8}
-          accessibilityLabel="Reset map orientation"
+          accessibilityLabel={t('maps.resetOrientation')}
           accessibilityRole="button"
         >
           <CompassArrow
@@ -739,7 +741,7 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
           ]}
           onPress={handleGetLocation}
           activeOpacity={0.8}
-          accessibilityLabel="Go to my location"
+          accessibilityLabel={t('maps.goToLocation')}
           accessibilityRole="button"
         >
           <MaterialCommunityIcons
@@ -776,7 +778,7 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
               <TouchableOpacity
                 onPress={handleZoomToActivity}
                 style={styles.popupIconButton}
-                accessibilityLabel="Zoom to activity"
+                accessibilityLabel={t('maps.zoomToActivity')}
                 accessibilityRole="button"
               >
                 <MaterialCommunityIcons name="crosshairs-gps" size={22} color={colors.primary} />
@@ -784,7 +786,7 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
               <TouchableOpacity
                 onPress={handleClosePopup}
                 style={styles.popupIconButton}
-                accessibilityLabel="Close activity popup"
+                accessibilityLabel={t('maps.closePopup')}
                 accessibilityRole="button"
               >
                 <MaterialCommunityIcons name="close" size={22} color={colors.textSecondary} />
@@ -810,7 +812,7 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
           {selected.isLoading && (
             <View style={styles.popupLoading}>
               <ActivityIndicator size="small" color={colors.primary} />
-              <Text style={styles.popupLoadingText}>Loading route...</Text>
+              <Text style={styles.popupLoadingText}>{t('maps.loadingRoute')}</Text>
             </View>
           )}
 
@@ -818,7 +820,7 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
             style={styles.viewDetailsButton}
             onPress={handleViewDetails}
           >
-            <Text style={styles.viewDetailsText}>View Details</Text>
+            <Text style={styles.viewDetailsText}>{t('maps.viewDetails')}</Text>
             <MaterialCommunityIcons name="chevron-right" size={20} color={colors.primary} />
           </TouchableOpacity>
         </View>

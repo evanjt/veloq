@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, useColorScheme, TouchableOpacity, ScrollView, Linking } from 'react-native';
 import { Text } from 'react-native-paper';
+import { useTranslation } from 'react-i18next';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors, darkColors, opacity } from '@/theme/colors';
 import { typography } from '@/theme/typography';
@@ -51,6 +52,7 @@ export function WorkoutLibrary({
   onSelectWorkout,
   athleteId,
 }: WorkoutLibraryProps) {
+  const { t } = useTranslation();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -76,7 +78,7 @@ export function WorkoutLibrary({
     return (
       <View style={styles.container}>
         <View style={styles.header}>
-          <Text style={[styles.title, isDark && styles.textLight]}>Workout Library</Text>
+          <Text style={[styles.title, isDark && styles.textLight]}>{t('stats.workoutLibrary')}</Text>
           <TouchableOpacity onPress={openWorkoutsPage} style={styles.addButton}>
             <MaterialCommunityIcons name="open-in-new" size={16} color={isDark ? darkColors.textSecondary : colors.textSecondary} />
           </TouchableOpacity>
@@ -88,10 +90,10 @@ export function WorkoutLibrary({
             color={isDark ? darkColors.border : colors.textSecondary}
           />
           <Text style={[styles.emptyText, isDark && styles.textDark]}>
-            No workouts available
+            {t('stats.noWorkoutsAvailable')}
           </Text>
           <Text style={[styles.emptyHint, isDark && styles.textDark]}>
-            Create workouts on intervals.icu to see them here
+            {t('stats.createWorkoutsHint')}
           </Text>
         </View>
       </View>
@@ -102,7 +104,7 @@ export function WorkoutLibrary({
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={[styles.title, isDark && styles.textLight]}>Workout Library</Text>
+        <Text style={[styles.title, isDark && styles.textLight]}>{t('stats.workoutLibrary')}</Text>
         <TouchableOpacity onPress={openWorkoutsPage} style={styles.addButton}>
           <MaterialCommunityIcons name="open-in-new" size={16} color={isDark ? darkColors.textSecondary : colors.textSecondary} />
         </TouchableOpacity>
@@ -130,7 +132,7 @@ export function WorkoutLibrary({
               !selectedCategory && styles.chipTextActive,
             ]}
           >
-            All
+            {t('stats.all')}
           </Text>
         </TouchableOpacity>
         {allTags.slice(0, 5).map(tag => (

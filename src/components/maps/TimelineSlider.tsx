@@ -15,6 +15,7 @@ import Animated, {
   runOnJS,
 } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import * as Haptics from 'expo-haptics';
 import { colors, darkColors } from '@/theme/colors';
 import { typography } from '@/theme/typography';
@@ -93,6 +94,7 @@ export function TimelineSlider({
   onTypeSelectionChange,
   isDark = false,
 }: TimelineSliderProps) {
+  const { t } = useTranslation();
   const [trackWidth, setTrackWidth] = useState(0);
 
   // Group available types into categories
@@ -248,13 +250,13 @@ export function TimelineSlider({
     // Add today at position 1.0
     points.push({
       position: 1,
-      label: 'Now',
+      label: t('time.now'),
       date: maxDate,
       showLabel: true,
     });
 
     return points;
-  }, [olderYears, maxDate]);
+  }, [olderYears, maxDate, t]);
 
   // Snap position to nearest snap point with haptic feedback
   const snapToNearest = useCallback((pos: number): { position: number; snapped: boolean } => {
@@ -386,8 +388,8 @@ export function TimelineSlider({
             {syncProgress.message
               ? syncProgress.message
               : syncProgress.total > 0
-                ? `Syncing ${syncProgress.completed}/${syncProgress.total} activities`
-                : 'Syncing...'}
+                ? t('maps.syncingActivities', { completed: syncProgress.completed, total: syncProgress.total })
+                : t('common.loading')}
           </Text>
         </View>
       )}
@@ -407,7 +409,7 @@ export function TimelineSlider({
               onPress={toggleAllTypes}
             >
               <Text style={[styles.controlText, isDark && styles.controlTextDark]}>
-                {selectedTypes.size === availableTypes?.length ? 'Clear' : 'All'}
+                {selectedTypes.size === availableTypes?.length ? t('maps.clear') : t('maps.allClear')}
               </Text>
             </TouchableOpacity>
 
@@ -525,7 +527,7 @@ export function TimelineSlider({
         {/* Activity count */}
         <View style={styles.countContainer}>
           <Text style={[styles.countLabel, isDark && styles.countLabelDark]}>
-            {isLoading ? 'Loading...' : `${activityCount || 0} activities`}
+            {isLoading ? t('common.loading') : t('maps.activitiesCount', { count: activityCount || 0 })}
           </Text>
         </View>
 
@@ -533,17 +535,17 @@ export function TimelineSlider({
         <View style={[styles.legend, isDark && styles.legendDark]}>
           <View style={styles.legendItem}>
             <View style={[styles.legendSwatch, styles.legendSelected]} />
-            <Text style={[styles.legendText, isDark && styles.legendTextDark]}>Selected</Text>
+            <Text style={[styles.legendText, isDark && styles.legendTextDark]}>{t('maps.selected')}</Text>
           </View>
           <View style={styles.legendItem}>
             <View style={[styles.legendSwatch, styles.legendCached]}>
               <View style={styles.legendStripe} />
             </View>
-            <Text style={[styles.legendText, isDark && styles.legendTextDark]}>Cached</Text>
+            <Text style={[styles.legendText, isDark && styles.legendTextDark]}>{t('maps.cached')}</Text>
           </View>
           <View style={styles.legendItem}>
             <View style={[styles.legendSwatch, styles.legendEmpty, isDark && styles.legendEmptyDark]} />
-            <Text style={[styles.legendText, isDark && styles.legendTextDark]}>Not synced</Text>
+            <Text style={[styles.legendText, isDark && styles.legendTextDark]}>{t('maps.notSynced')}</Text>
           </View>
         </View>
       </View>

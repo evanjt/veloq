@@ -1,5 +1,6 @@
 import React from 'react';
 import { StyleSheet, View, Text, StyleProp, ViewStyle } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors, darkColors } from '@/theme/colors';
 import { typography } from '@/theme/typography';
@@ -25,15 +26,19 @@ interface ErrorStateProps {
 }
 
 export function ErrorState({
-  title = 'Something went wrong',
-  message = 'Failed to load data. Please try again.',
+  title,
+  message,
   onRetry,
   isRetrying = false,
   icon = 'alert-circle-outline',
   style,
   compact = false,
 }: ErrorStateProps) {
+  const { t } = useTranslation();
   const { isDark } = useTheme();
+
+  const displayTitle = title ?? t('errorState.defaultTitle');
+  const displayMessage = message ?? t('errorState.defaultMessage');
 
   if (compact) {
     return (
@@ -51,7 +56,7 @@ export function ErrorState({
           ]}
           numberOfLines={1}
         >
-          {message}
+          {displayMessage}
         </Text>
         {onRetry && (
           <Button
@@ -60,7 +65,7 @@ export function ErrorState({
             onPress={onRetry}
             loading={isRetrying}
           >
-            Retry
+            {t('common.retry')}
           </Button>
         )}
       </View>
@@ -78,11 +83,11 @@ export function ErrorState({
       </View>
 
       <Text style={[styles.title, { color: isDark ? darkColors.textPrimary : colors.textPrimary }]}>
-        {title}
+        {displayTitle}
       </Text>
 
       <Text style={[styles.message, { color: isDark ? darkColors.textSecondary : colors.textSecondary }]}>
-        {message}
+        {displayMessage}
       </Text>
 
       {onRetry && (
@@ -93,7 +98,7 @@ export function ErrorState({
           icon={<MaterialCommunityIcons name="refresh" size={18} color={isDark ? darkColors.textPrimary : colors.textPrimary} />}
           style={styles.retryButton}
         >
-          Try Again
+          {t('errorState.tryAgain')}
         </Button>
       )}
     </View>

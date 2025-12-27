@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, StyleSheet, useColorScheme, TouchableOpacity, Linking } from 'react-native';
 import { Text } from 'react-native-paper';
+import { useTranslation } from 'react-i18next';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors, darkColors } from '@/theme/colors';
 import { typography } from '@/theme/typography';
@@ -48,6 +49,7 @@ const TYPE_ICONS: Record<Event['type'], MaterialIconName> = {
 };
 
 export function EventPlanner({ events, athleteId }: EventPlannerProps) {
+  const { t } = useTranslation();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
 
@@ -68,7 +70,7 @@ export function EventPlanner({ events, athleteId }: EventPlannerProps) {
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={[styles.title, isDark && styles.textLight]}>Upcoming Events</Text>
+        <Text style={[styles.title, isDark && styles.textLight]}>{t('stats.upcomingEvents')}</Text>
         <TouchableOpacity onPress={openEventsPage} style={styles.addButton}>
           <MaterialCommunityIcons
             name="open-in-new"
@@ -84,11 +86,11 @@ export function EventPlanner({ events, athleteId }: EventPlannerProps) {
           <View style={styles.featuredHeader}>
             <View style={styles.priorityBadge}>
               <Text style={[styles.priorityText, { color: PRIORITY_COLORS[nextEvent.priority] }]}>
-                {nextEvent.priority} Race
+                {nextEvent.priority} {t('stats.race')}
               </Text>
             </View>
             <Text style={[styles.countdown, { color: PRIORITY_COLORS[nextEvent.priority] }]}>
-              {getDaysUntil(nextEvent.date)} days
+              {t('stats.daysCount', { count: getDaysUntil(nextEvent.date) })}
             </Text>
           </View>
           <Text style={[styles.eventName, isDark && styles.textLight]}>
@@ -146,10 +148,10 @@ export function EventPlanner({ events, athleteId }: EventPlannerProps) {
             color={isDark ? darkColors.border : colors.textSecondary}
           />
           <Text style={[styles.emptyText, isDark && styles.textDark]}>
-            No upcoming events
+            {t('stats.noUpcomingEvents')}
           </Text>
           <Text style={[styles.emptySubtext, isDark && styles.textDark]}>
-            Add events on intervals.icu to see them here
+            {t('stats.addEventsHint')}
           </Text>
         </View>
       )}

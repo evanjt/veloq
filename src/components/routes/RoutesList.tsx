@@ -12,6 +12,7 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 }
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { colors, darkColors, opacity, spacing, layout, typography } from '@/theme';
 import { useRouteGroups, useRouteProcessing } from '@/hooks';
 import { CacheScopeNotice } from './CacheScopeNotice';
@@ -33,9 +34,11 @@ interface RoutesListProps {
 const DiscoveredRoutesList = memo(function DiscoveredRoutesList({
   routes,
   isDark,
+  t,
 }: {
   routes: DiscoveredRouteInfo[];
   isDark: boolean;
+  t: (key: string) => string;
 }) {
   const prevCountRef = useRef(routes.length);
 
@@ -60,7 +63,7 @@ const DiscoveredRoutesList = memo(function DiscoveredRoutesList({
           color={isDark ? '#444' : '#CCC'}
         />
         <Text style={[styles.noRoutesText, isDark && styles.textMuted]}>
-          Looking for matching routes...
+          {t('routes.lookingForRoutes')}
         </Text>
       </View>
     );
@@ -85,6 +88,7 @@ const DiscoveredRoutesList = memo(function DiscoveredRoutesList({
 });
 
 export function RoutesList({ onRefresh, isRefreshing = false, startDate, endDate }: RoutesListProps) {
+  const { t } = useTranslation();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
 
@@ -123,12 +127,12 @@ export function RoutesList({ onRefresh, isRefreshing = false, startDate, endDate
           <View style={[styles.currentActivity, isDark && styles.currentActivityDark]}>
             <MaterialCommunityIcons name="magnify" size={14} color={colors.primary} />
             <Text style={[styles.currentActivityText, isDark && styles.textMuted]} numberOfLines={1}>
-              {progress.currentActivity ? `Checking: ${progress.currentActivity}` : 'Waiting...'}
+              {progress.currentActivity ? t('routes.checking', { name: progress.currentActivity }) : t('routes.waiting')}
             </Text>
           </View>
 
           {/* Discovered routes list */}
-          <DiscoveredRoutesList routes={routes} isDark={isDark} />
+          <DiscoveredRoutesList routes={routes} isDark={isDark} t={t} />
         </View>
       )}
 
@@ -149,7 +153,7 @@ export function RoutesList({ onRefresh, isRefreshing = false, startDate, endDate
             color={isDark ? '#666' : '#999'}
           />
           <Text style={[styles.infoText, isDark && styles.infoTextDark]}>
-            Expand the timeline to analyze more activities. Route matching will continue in the background until complete.
+            {t('routes.expandTimeline')}
           </Text>
         </View>
       )}
@@ -166,7 +170,7 @@ export function RoutesList({ onRefresh, isRefreshing = false, startDate, endDate
             color={isDark ? '#444' : '#CCC'}
           />
           <Text style={[styles.emptyTitle, isDark && styles.textLight]}>
-            Loading routes...
+            {t('routes.loadingRoutes')}
           </Text>
         </View>
       );
@@ -181,10 +185,10 @@ export function RoutesList({ onRefresh, isRefreshing = false, startDate, endDate
             color={isDark ? '#444' : '#CCC'}
           />
           <Text style={[styles.emptyTitle, isDark && styles.textLight]}>
-            Analysing routes
+            {t('routes.analysingRoutes')}
           </Text>
           <Text style={[styles.emptySubtitle, isDark && styles.textMuted]}>
-            This may take a moment...
+            {t('routes.thisMayTakeMoment')}
           </Text>
         </View>
       );
@@ -199,10 +203,10 @@ export function RoutesList({ onRefresh, isRefreshing = false, startDate, endDate
             color={isDark ? '#444' : '#CCC'}
           />
           <Text style={[styles.emptyTitle, isDark && styles.textLight]}>
-            No routes yet
+            {t('routes.noRoutesYet')}
           </Text>
           <Text style={[styles.emptySubtitle, isDark && styles.textMuted]}>
-            Routes will appear after your activities are analyzed
+            {t('routes.routesWillAppear')}
           </Text>
         </View>
       );
@@ -216,10 +220,10 @@ export function RoutesList({ onRefresh, isRefreshing = false, startDate, endDate
           color={isDark ? '#444' : '#CCC'}
         />
         <Text style={[styles.emptyTitle, isDark && styles.textLight]}>
-          No matching routes found
+          {t('routes.noMatchingRoutes')}
         </Text>
         <Text style={[styles.emptySubtitle, isDark && styles.textMuted]}>
-          Routes with 2+ activities on similar paths will appear here
+          {t('routes.routesWithTwoPlus')}
         </Text>
       </View>
     );

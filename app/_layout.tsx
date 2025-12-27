@@ -6,7 +6,8 @@ import { useColorScheme, View, ActivityIndicator, Platform } from 'react-native'
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Logger } from '@maplibre/maplibre-react-native';
 import { configureReanimatedLogger, ReanimatedLogLevel } from 'react-native-reanimated';
-import { QueryProvider, MapPreferencesProvider, initializeTheme, useAuthStore, initializeSportPreference, initializeHRZones, initializeRouteMatching, initializeRouteSettings } from '@/providers';
+import { QueryProvider, MapPreferencesProvider, initializeTheme, useAuthStore, initializeSportPreference, initializeHRZones, initializeRouteMatching, initializeRouteSettings, initializeLanguage } from '@/providers';
+import { initializeI18n } from '@/i18n';
 import { lightTheme, darkTheme, colors, darkColors } from '@/theme';
 import { CacheLoadingBanner } from '@/components/ui';
 
@@ -62,9 +63,23 @@ export default function RootLayout() {
   const theme = colorScheme === 'dark' ? darkTheme : lightTheme;
   const initializeAuth = useAuthStore((state) => state.initialize);
 
-  // Initialize theme, auth, sport preference, HR zones, and route settings on app start
+  // Initialize theme, auth, sport preference, HR zones, route settings, and i18n on app start
   useEffect(() => {
-    Promise.all([initializeTheme(), initializeAuth(), initializeSportPreference(), initializeHRZones(), initializeRouteSettings()]).finally(() => setAppReady(true));
+    async function initialize() {
+      // Initialize language first to get the saved locale
+      const savedLocale = await initializeLanguage();
+      // Then initialize i18n with the saved locale
+      await initializeI18n(savedLocale);
+      // Initialize other providers in parallel
+      await Promise.all([
+        initializeTheme(),
+        initializeAuth(),
+        initializeSportPreference(),
+        initializeHRZones(),
+        initializeRouteSettings(),
+      ]);
+    }
+    initialize().finally(() => setAppReady(true));
   }, [initializeAuth]);
 
   // Show minimal loading while initializing

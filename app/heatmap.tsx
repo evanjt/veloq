@@ -10,6 +10,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { router } from 'expo-router';
 import { MapView, Camera } from '@maplibre/maplibre-react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { colors, spacing, shadows } from '@/theme';
 import { useHeatmap, type CellQueryResult } from '@/hooks/useHeatmap';
 import { HeatmapLayer, HeatmapCellPopup } from '@/components/maps';
@@ -31,6 +32,7 @@ const CELL_SIZES = [
 ];
 
 export default function HeatmapScreen() {
+  const { t } = useTranslation();
   const colorScheme = useColorScheme();
   const insets = useSafeAreaInsets();
   const systemStyle: MapStyleType = colorScheme === 'dark' ? 'dark' : 'light';
@@ -104,7 +106,7 @@ export default function HeatmapScreen() {
             iconColor={isDark ? '#FFFFFF' : colors.textPrimary}
             onPress={() => router.back()}
           />
-          <Text style={[styles.headerTitle, isDark && styles.textLight]}>Heatmap</Text>
+          <Text style={[styles.headerTitle, isDark && styles.textLight]}>{t('heatmapScreen.title')}</Text>
           <View style={styles.headerRight} />
         </View>
 
@@ -115,16 +117,16 @@ export default function HeatmapScreen() {
             color={isDark ? '#444' : '#CCC'}
           />
           <Text style={[styles.emptyTitle, isDark && styles.textLight]}>
-            No Activity Data
+            {t('heatmapScreen.noActivityData')}
           </Text>
           <Text style={[styles.emptyText, isDark && styles.textMuted]}>
-            Process some activities in the Routes screen first to generate a heatmap.
+            {t('heatmapScreen.processFirstHint')}
           </Text>
           <TouchableOpacity
             style={styles.emptyButton}
             onPress={() => router.push('/routes')}
           >
-            <Text style={styles.emptyButtonText}>Go to Routes</Text>
+            <Text style={styles.emptyButtonText}>{t('heatmapScreen.goToRoutes')}</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -181,11 +183,11 @@ export default function HeatmapScreen() {
             color={colors.primary}
           />
           <Text style={[styles.titleText, isDark && styles.textLight]}>
-            Heatmap
+            {t('heatmapScreen.title')}
           </Text>
           {heatmap && (
             <Text style={[styles.statsBadge, isDark && styles.textMuted]}>
-              {heatmap.totalActivities} activities
+              {t('heatmapScreen.activitiesCount', { count: heatmap.totalActivities })}
             </Text>
           )}
         </View>
@@ -241,7 +243,7 @@ export default function HeatmapScreen() {
               color={colors.primary}
             />
             <Text style={[styles.loadingText, isDark && styles.textLight]}>
-              Generating heatmap...
+              {t('heatmapScreen.generatingHeatmap')}
             </Text>
           </View>
         </View>

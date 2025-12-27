@@ -4,6 +4,7 @@ import { Text, IconButton, ActivityIndicator } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { PowerCurveChart, PaceCurveChart, SwimPaceCurveChart, ZoneDistributionChart, FTPTrendChart, DecouplingChart } from '@/components/stats';
 import { useActivities, useActivityStreams, useZoneDistribution, useEFTPHistory, getLatestFTP, usePowerCurve, useSportSettings, getSettingsForSport, usePaceCurve } from '@/hooks';
 import { useSportPreference, SPORT_COLORS, type PrimarySport } from '@/providers';
@@ -12,16 +13,17 @@ import { colors, darkColors, spacing, layout, typography, opacity } from '@/them
 
 type TimeRange = '42d' | '90d' | '180d' | '1y';
 
-const TIME_RANGE_OPTIONS: { value: TimeRange; label: string; days: number }[] = [
-  { value: '42d', label: '42 Days', days: 42 },
-  { value: '90d', label: '3 Months', days: 90 },
-  { value: '180d', label: '6 Months', days: 180 },
-  { value: '1y', label: '1 Year', days: 365 },
-];
-
 export default function StatsScreen() {
+  const { t } = useTranslation();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
+
+  const TIME_RANGE_OPTIONS: { value: TimeRange; label: string; days: number }[] = [
+    { value: '42d', label: t('statsScreen.days42'), days: 42 },
+    { value: '90d', label: t('statsScreen.months3'), days: 90 },
+    { value: '180d', label: t('statsScreen.months6'), days: 180 },
+    { value: '1y', label: t('statsScreen.year1'), days: 365 },
+  ];
 
   // Time range state - default to 42d to match CTL/pace curve windows
   const [timeRange, setTimeRange] = useState<TimeRange>('42d');
@@ -88,7 +90,7 @@ export default function StatsScreen() {
           onPress={() => router.back()}
         />
         <View style={styles.headerTitleRow}>
-          <Text style={[styles.headerTitle, isDark && styles.textLight]}>Performance</Text>
+          <Text style={[styles.headerTitle, isDark && styles.textLight]}>{t('statsScreen.title')}</Text>
           {fetchingActivities && (
             <ActivityIndicator size="small" color={colors.primary} style={styles.headerLoader} />
           )}
@@ -145,7 +147,7 @@ export default function StatsScreen() {
               sportMode === 'Cycling' && styles.sportToggleTextActive,
             ]}
           >
-            Cycling
+            {t('filters.cycling')}
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -169,7 +171,7 @@ export default function StatsScreen() {
               sportMode === 'Running' && styles.sportToggleTextActive,
             ]}
           >
-            Running
+            {t('filters.running')}
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -193,7 +195,7 @@ export default function StatsScreen() {
               sportMode === 'Swimming' && styles.sportToggleTextActive,
             ]}
           >
-            Swimming
+            {t('filters.swimming')}
           </Text>
         </TouchableOpacity>
       </View>
@@ -277,7 +279,7 @@ export default function StatsScreen() {
                 </TouchableOpacity>
               </View>
               <Text style={[styles.garminNote, isDark && styles.textDark]}>
-                Charts may include data from Garmin devices
+                {t('statsScreen.garminNote')}
               </Text>
             </View>
           </>
@@ -288,17 +290,17 @@ export default function StatsScreen() {
           <>
             {/* Threshold Stats */}
             <View style={[styles.card, isDark && styles.cardDark]}>
-              <Text style={[styles.cardTitle, isDark && styles.textLight]}>Lactate Threshold</Text>
+              <Text style={[styles.cardTitle, isDark && styles.textLight]}>{t('statsScreen.lactateThreshold')}</Text>
               <View style={styles.thresholdRow}>
                 <View style={styles.thresholdItem}>
-                  <Text style={[styles.thresholdLabel, isDark && styles.textDark]}>Pace</Text>
+                  <Text style={[styles.thresholdLabel, isDark && styles.textDark]}>{t('statsScreen.pace')}</Text>
                   <Text style={[styles.thresholdValue, { color: SPORT_COLORS.Running }]}>
                     {thresholdPace ? `${formatPaceCompact(thresholdPace)}/km` : '-'}
                   </Text>
                 </View>
                 <View style={styles.thresholdDivider} />
                 <View style={styles.thresholdItem}>
-                  <Text style={[styles.thresholdLabel, isDark && styles.textDark]}>Heart Rate</Text>
+                  <Text style={[styles.thresholdLabel, isDark && styles.textDark]}>{t('statsScreen.heartRate')}</Text>
                   <Text style={[styles.thresholdValue, { color: SPORT_COLORS.Running }]}>
                     {runLthr ? `${runLthr} bpm` : '-'}
                   </Text>
@@ -307,7 +309,7 @@ export default function StatsScreen() {
                   <>
                     <View style={styles.thresholdDivider} />
                     <View style={styles.thresholdItem}>
-                      <Text style={[styles.thresholdLabel, isDark && styles.textDark]}>Max HR</Text>
+                      <Text style={[styles.thresholdLabel, isDark && styles.textDark]}>{t('statsScreen.maxHr')}</Text>
                       <Text style={[styles.thresholdValueSmall, isDark && styles.textDark]}>
                         {runMaxHr} bpm
                       </Text>
@@ -383,7 +385,7 @@ export default function StatsScreen() {
                 </TouchableOpacity>
               </View>
               <Text style={[styles.garminNote, isDark && styles.textDark]}>
-                Charts may include data from Garmin devices
+                {t('statsScreen.garminNote')}
               </Text>
             </View>
           </>
@@ -420,7 +422,7 @@ export default function StatsScreen() {
                 </TouchableOpacity>
               </View>
               <Text style={[styles.garminNote, isDark && styles.textDark]}>
-                Charts may include data from Garmin devices
+                {t('statsScreen.garminNote')}
               </Text>
             </View>
           </>

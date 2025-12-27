@@ -9,6 +9,7 @@ import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Svg, { Polyline, Defs, LinearGradient, Stop, Rect, Circle } from 'react-native-svg';
 import { router, Href } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { colors, darkColors, opacity, spacing, layout, typography } from '@/theme';
 import { getActivityColor, loadCustomRouteNames, getRouteDisplayName } from '@/lib';
 import type { DiscoveredRouteInfo, RouteGroup } from '@/types';
@@ -137,6 +138,7 @@ const RoutePreview = memo(function RoutePreview({ points, color, isDark }: Route
 });
 
 function RouteRowComponent({ route, navigable = false }: RouteRowProps) {
+  const { t } = useTranslation();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const [expanded, setExpanded] = useState(false);
@@ -241,7 +243,7 @@ function RouteRowComponent({ route, navigable = false }: RouteRowProps) {
             )}
             {avgMatchPercentage !== undefined && avgMatchPercentage > 0 && (
               <Text style={[styles.matchPercent, { color: colors.success }]}>
-                {Math.round(avgMatchPercentage)}% match
+                {Math.round(avgMatchPercentage)}% {t('routes.match')}
               </Text>
             )}
           </View>
@@ -275,7 +277,7 @@ function RouteRowComponent({ route, navigable = false }: RouteRowProps) {
           ))}
           {route.activityCount > 5 && (
             <Text style={[styles.moreText, isDark && styles.textMuted]}>
-              +{route.activityCount - 5} more
+              {t('routes.more', { count: route.activityCount - 5 })}
             </Text>
           )}
         </View>
