@@ -17,10 +17,11 @@ import {
   type RouteSignature,
 } from 'route-matcher-native';
 
+import type { RouteGroup } from '@/types';
+
 // Stable empty defaults to prevent infinite loops in Zustand selectors
 const EMPTY_SIGNATURES: Record<string, RouteSignature> = {};
-const EMPTY_GROUPS: { groupId: string; activityIds: string[] }[] = [];
-const EMPTY_METADATA: Record<string, { name: string; date: string; type: string }> = {};
+const EMPTY_GROUPS: RouteGroup[] = [];
 
 export interface UseHeatmapOptions {
   /** Grid cell size in meters (default: 100m) */
@@ -51,14 +52,13 @@ export function useHeatmap(options: UseHeatmapOptions = {}): UseHeatmapResult {
   // Use stable empty defaults to prevent infinite re-renders when cache is null
   const signatures = useRouteMatchStore((s) => s.cache?.signatures ?? EMPTY_SIGNATURES);
   const groups = useRouteMatchStore((s) => s.cache?.groups ?? EMPTY_GROUPS);
-  const activityMetadata = useRouteMatchStore((s) => s.cache?.activityMetadata ?? EMPTY_METADATA);
 
   // Build activity -> route mapping
   const activityToRoute = useMemo(() => {
     const map: Record<string, string> = {};
     for (const group of groups) {
       for (const activityId of group.activityIds) {
-        map[activityId] = group.groupId;
+        map[activityId] = group.id;
       }
     }
     return map;
@@ -66,33 +66,29 @@ export function useHeatmap(options: UseHeatmapOptions = {}): UseHeatmapResult {
 
   // Build activity data for heatmap generation
   const activityData = useMemo((): ActivityHeatmapData[] => {
-    return Object.entries(signatures).map(([activityId, sig]) => {
-      const meta = activityMetadata[activityId];
+    return Object.entries(signatures).map(([activityId]) => {
       const routeId = activityToRoute[activityId] ?? null;
 
       // Find route name from group
-      const group = groups.find(g => g.groupId === routeId);
-      const routeName = group ? `Route ${group.groupId.slice(-6)}` : null;
+      const group = groups.find(g => g.id === routeId);
+      const routeName = group ? group.name : null;
 
       return {
         activityId,
         routeId,
         routeName,
-        timestamp: meta?.date ? new Date(meta.date).getTime() / 1000 : null,
+        timestamp: null, // Timestamp not available in cache
       };
     });
-  }, [signatures, activityMetadata, activityToRoute, groups]);
+  }, [signatures, activityToRoute, groups]);
 
   // Filter signatures by sport type if specified
+  // Note: Sport type filtering not available without activity metadata
   const filteredSignatures = useMemo((): RouteSignature[] => {
     const allSigs = Object.values(signatures);
-    if (!sportType) return allSigs;
-
-    return allSigs.filter(sig => {
-      const meta = activityMetadata[sig.activityId];
-      return meta?.type === sportType;
-    });
-  }, [signatures, activityMetadata, sportType]);
+    // Can't filter by sportType without metadata - return all
+    return allSigs;
+  }, [signatures]);
 
   // Generate heatmap
   const heatmap = useMemo((): HeatmapResult | null => {

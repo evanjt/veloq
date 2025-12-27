@@ -506,50 +506,69 @@ export function parseBounds(bounds: number[]): { ne: [number, number]; sw: [numb
 
 /**
  * Configuration for section detection.
+ * Uses vector-first approach for smooth, natural section polylines.
  */
 export interface SectionConfig {
-  /** Grid cell size in meters (default: 100m) */
-  cellSizeMeters: number;
-  /** Minimum visits to a cell to be considered frequent (default: 3) */
-  minVisits: number;
-  /** Minimum cells in a cluster to form a section (default: 5, ~500m) */
-  minCells: number;
-  /** Whether to use 8-directional (true) or 4-directional (false) flood-fill */
-  diagonalConnect: boolean;
+  /** Maximum distance between tracks to consider overlapping (meters). Default: 30m */
+  proximityThreshold: number;
+  /** Minimum overlap length to consider a section (meters). Default: 200m */
+  minSectionLength: number;
+  /** Minimum number of activities that must share an overlap. Default: 3 */
+  minActivities: number;
+  /** Tolerance for clustering similar overlaps (meters). Default: 50m */
+  clusterTolerance: number;
+  /** Number of sample points for polyline normalization. Default: 50 */
+  samplePoints: number;
 }
 
 /**
- * Grid cell coordinate.
+ * Each activity's portion of a section (for pace comparison).
  */
-export interface CellCoord {
-  row: number;
-  col: number;
+export interface SectionPortion {
+  /** Activity ID */
+  activityId: string;
+  /** Start index into the activity's FULL GPS track */
+  startIndex: number;
+  /** End index into the activity's FULL GPS track */
+  endIndex: number;
+  /** Distance of this portion in meters */
+  distanceMeters: number;
+  /** Direction relative to representative: "same" or "reverse" */
+  direction: string;
 }
 
 /**
- * A frequently-traveled section (~100m grid cells).
+ * A frequently-traveled section with medoid representation.
+ * The polyline is an ACTUAL GPS trace (medoid), not artificial interpolation.
  */
+/** Point with lat/lng format (matches app's RoutePoint type) */
+export interface RoutePoint {
+  lat: number;
+  lng: number;
+}
+
 export interface FrequentSection {
   /** Unique section ID */
   id: string;
   /** Sport type this section is for ("Run", "Ride", etc.) */
   sportType: string;
-  /** Grid cell coordinates that make up this section */
-  cells: CellCoord[];
-  /** Simplified polyline for rendering (ordered path through cells) */
-  polyline: GpsPoint[];
+  /** The medoid polyline - an ACTUAL GPS trace from one activity (converted to lat/lng) */
+  polyline: RoutePoint[];
+  /** Which activity provided the representative polyline */
+  representativeActivityId: string;
   /** Activity IDs that traverse this section */
   activityIds: string[];
+  /** Each activity's portion (start/end indices, distance, direction) */
+  activityPortions: SectionPortion[];
   /** Route group IDs that include this section */
   routeIds: string[];
   /** Total number of traversals */
   visitCount: number;
-  /** Estimated section length in meters */
+  /** Section length in meters */
   distanceMeters: number;
-  /** Timestamp of first visit (Unix seconds, 0 if unknown) */
-  firstVisit: number;
-  /** Timestamp of last visit (Unix seconds, 0 if unknown) */
-  lastVisit: number;
+  /** Pre-computed GPS traces for each activity's overlapping portion
+   * Key is activity ID, value is the GPS points within proximity of section */
+  activityTraces: Record<string, RoutePoint[]>;
 }
 
 /**
@@ -562,8 +581,8 @@ export interface ActivitySportType {
 
 /**
  * Detect frequent sections from route signatures.
- * Uses a grid-based algorithm to find road sections that are frequently traveled,
- * even when full routes differ.
+ * Uses vector-first algorithm to find road sections that are frequently traveled.
+ * Produces smooth polylines from actual GPS tracks.
  *
  * @param signatures - Route signatures with GPS points
  * @param groups - Route groups (for linking sections to routes)
@@ -582,10 +601,11 @@ export function detectFrequentSections(
 
   // Convert to native format
   const nativeConfig = config ? {
-    cell_size_meters: config.cellSizeMeters ?? 100,
-    min_visits: config.minVisits ?? 3,
-    min_cells: config.minCells ?? 5,
-    diagonal_connect: config.diagonalConnect ?? true,
+    proximity_threshold: config.proximityThreshold ?? 30.0,
+    min_section_length: config.minSectionLength ?? 200.0,
+    min_activities: config.minActivities ?? 3,
+    cluster_tolerance: config.clusterTolerance ?? 50.0,
+    sample_points: config.samplePoints ?? 50,
   } : NativeModule.defaultSectionConfig();
 
   const result = NativeModule.detectFrequentSections(
@@ -605,15 +625,34 @@ export function detectFrequentSections(
   return (result || []).map((s: Record<string, unknown>) => ({
     id: s.id as string,
     sportType: s.sport_type as string,
-    cells: (s.cells as Array<{ row: number; col: number }>).map(c => ({ row: c.row, col: c.col })),
-    polyline: (s.polyline as GpsPoint[]),
+    polyline: ((s.polyline as GpsPoint[]) || []).map(p => ({ lat: p.latitude, lng: p.longitude })),
+    representativeActivityId: (s.representative_activity_id as string) || '',
     activityIds: s.activity_ids as string[],
+    activityPortions: ((s.activity_portions as Array<Record<string, unknown>>) || []).map(p => ({
+      activityId: p.activity_id as string,
+      startIndex: p.start_index as number,
+      endIndex: p.end_index as number,
+      distanceMeters: p.distance_meters as number,
+      direction: p.direction as string,
+    })),
     routeIds: s.route_ids as string[],
     visitCount: s.visit_count as number,
     distanceMeters: s.distance_meters as number,
-    firstVisit: s.first_visit as number,
-    lastVisit: s.last_visit as number,
+    // Pre-computed activity traces (converted from native format)
+    activityTraces: convertActivityTraces(s.activity_traces as Record<string, GpsPoint[]>),
   }));
+}
+
+/**
+ * Helper to convert activity traces from native format
+ */
+function convertActivityTraces(traces: Record<string, GpsPoint[]> | undefined): Record<string, RoutePoint[]> {
+  if (!traces) return {};
+  const result: Record<string, RoutePoint[]> = {};
+  for (const [activityId, points] of Object.entries(traces)) {
+    result[activityId] = (points || []).map(p => ({ lat: p.latitude, lng: p.longitude }));
+  }
+  return result;
 }
 
 /**
@@ -622,12 +661,100 @@ export function detectFrequentSections(
 export function getDefaultSectionConfig(): SectionConfig {
   const config = NativeModule.defaultSectionConfig();
   return {
-    cellSizeMeters: config.cell_size_meters,
-    minVisits: config.min_visits,
-    minCells: config.min_cells,
-    diagonalConnect: config.diagonal_connect,
+    proximityThreshold: config.proximity_threshold,
+    minSectionLength: config.min_section_length,
+    minActivities: config.min_activities,
+    clusterTolerance: config.cluster_tolerance,
+    samplePoints: config.sample_points,
   };
 }
+
+/**
+ * Detect frequent sections from FULL GPS tracks.
+ * Uses medoid-based algorithm to select actual GPS traces as representative polylines.
+ * This produces smooth, natural section shapes that follow real roads.
+ *
+ * @param tracks - Array of { activityId, points } with FULL GPS tracks
+ * @param sportTypes - Map of activity_id -> sport_type
+ * @param groups - Route groups (for linking sections to routes)
+ * @param config - Optional section detection configuration
+ * @returns Array of detected frequent sections with medoid polylines
+ */
+export function detectSectionsFromTracks(
+  tracks: Array<{ activityId: string; points: GpsPoint[] }>,
+  sportTypes: ActivitySportType[],
+  groups: RouteGroup[],
+  config?: Partial<SectionConfig>
+): FrequentSection[] {
+  const totalPoints = tracks.reduce((sum, t) => sum + t.points.length, 0);
+  nativeLog(`detectSectionsFromTracks: ${tracks.length} tracks, ${totalPoints} total points`);
+  const startTime = Date.now();
+
+  // Convert to native format (flat arrays for efficiency)
+  const activityIds: string[] = [];
+  const allCoords: number[] = [];
+  const offsets: number[] = [0];
+
+  for (const track of tracks) {
+    activityIds.push(track.activityId);
+    for (const point of track.points) {
+      allCoords.push(point.latitude, point.longitude);
+    }
+    offsets.push(allCoords.length / 2);
+  }
+
+  // Convert to native format
+  const nativeConfig = config ? {
+    proximity_threshold: config.proximityThreshold ?? 30.0,
+    min_section_length: config.minSectionLength ?? 200.0,
+    min_activities: config.minActivities ?? 3,
+    cluster_tolerance: config.clusterTolerance ?? 50.0,
+    sample_points: config.samplePoints ?? 50,
+  } : NativeModule.defaultSectionConfig();
+
+  // Native returns JSON string for efficient bridge transfer
+  const jsonResult = NativeModule.detectSectionsFromTracks(
+    activityIds,
+    allCoords,
+    offsets,
+    sportTypes.map(st => ({
+      activity_id: st.activityId,
+      sport_type: st.sportType,
+    })),
+    groups,
+    nativeConfig
+  ) as string;
+
+  // Parse JSON in TypeScript (fast)
+  const parseStart = Date.now();
+  const result = JSON.parse(jsonResult || '[]') as Array<Record<string, unknown>>;
+  const parseElapsed = Date.now() - parseStart;
+
+  const elapsed = Date.now() - startTime;
+  nativeLog(`detectSectionsFromTracks: ${result.length} sections in ${elapsed}ms (JSON parse: ${parseElapsed}ms)`);
+
+  // Convert from snake_case to camelCase
+  return result.map((s: Record<string, unknown>) => ({
+    id: s.id as string,
+    sportType: s.sport_type as string,
+    polyline: ((s.polyline as GpsPoint[]) || []).map(p => ({ lat: p.latitude, lng: p.longitude })),
+    representativeActivityId: (s.representative_activity_id as string) || '',
+    activityIds: s.activity_ids as string[],
+    activityPortions: ((s.activity_portions as Array<Record<string, unknown>>) || []).map(p => ({
+      activityId: p.activity_id as string,
+      startIndex: p.start_index as number,
+      endIndex: p.end_index as number,
+      distanceMeters: p.distance_meters as number,
+      direction: p.direction as string,
+    })),
+    routeIds: s.route_ids as string[],
+    visitCount: s.visit_count as number,
+    distanceMeters: s.distance_meters as number,
+    // Pre-computed activity traces (converted from native format)
+    activityTraces: convertActivityTraces(s.activity_traces as Record<string, GpsPoint[]>),
+  }));
+}
+
 
 // =============================================================================
 // Heatmap Generation
@@ -736,16 +863,64 @@ export interface ActivityHeatmapData {
 }
 
 /**
+ * Input signature format - accepts both app format (lat/lng, distance)
+ * and native format (latitude/longitude, totalDistance)
+ */
+interface InputSignature {
+  activityId: string;
+  // App format uses lat/lng, native uses latitude/longitude
+  points: Array<{ lat?: number; lng?: number; latitude?: number; longitude?: number }>;
+  // App format uses 'distance', native uses 'totalDistance'
+  distance?: number;
+  totalDistance?: number;
+  // App format uses center with lat/lng
+  center?: { lat?: number; lng?: number; latitude?: number; longitude?: number };
+  startPoint?: GpsPoint;
+  endPoint?: GpsPoint;
+  bounds: { minLat: number; maxLat: number; minLng: number; maxLng: number };
+}
+
+/**
+ * Normalize a point from either format to native format (latitude/longitude)
+ */
+function normalizePoint(p: { lat?: number; lng?: number; latitude?: number; longitude?: number }): GpsPoint {
+  return {
+    latitude: p.latitude ?? p.lat ?? 0,
+    longitude: p.longitude ?? p.lng ?? 0,
+  };
+}
+
+/**
+ * Normalize signature from app format to native format expected by Kotlin
+ */
+function normalizeSignature(sig: InputSignature): RouteSignature {
+  const points = sig.points.map(normalizePoint);
+  const startPoint = sig.startPoint ?? (points.length > 0 ? points[0] : { latitude: 0, longitude: 0 });
+  const endPoint = sig.endPoint ?? (points.length > 0 ? points[points.length - 1] : { latitude: 0, longitude: 0 });
+  const center = sig.center ? normalizePoint(sig.center) : startPoint;
+
+  return {
+    activityId: sig.activityId,
+    points,
+    totalDistance: sig.totalDistance ?? sig.distance ?? 0,
+    startPoint,
+    endPoint,
+    bounds: sig.bounds,
+    center,
+  };
+}
+
+/**
  * Generate a heatmap from route signatures.
  * Uses the simplified GPS traces (~100 points each) for efficient generation.
  *
- * @param signatures - Route signatures with GPS points
+ * @param signatures - Route signatures with GPS points (accepts app or native format)
  * @param activityData - Activity metadata (route association, timestamps)
  * @param config - Optional heatmap configuration
  * @returns Heatmap result with cells and metadata
  */
 export function generateHeatmap(
-  signatures: RouteSignature[],
+  signatures: InputSignature[] | RouteSignature[],
   activityData: ActivityHeatmapData[],
   config?: Partial<HeatmapConfig>
 ): HeatmapResult {
@@ -769,7 +944,12 @@ export function generateHeatmap(
     timestamp: d.timestamp,
   }));
 
-  const result = NativeModule.generateHeatmap(signatures, nativeActivityData, nativeConfig);
+  // Normalize signatures to native format and serialize to JSON string
+  // This handles both app format (lat/lng, distance) and native format (latitude/longitude, totalDistance)
+  const normalizedSignatures = (signatures as InputSignature[]).map(normalizeSignature);
+  const signaturesJson = JSON.stringify(normalizedSignatures);
+
+  const result = NativeModule.generateHeatmap(signaturesJson, nativeActivityData, nativeConfig);
 
   const elapsed = Date.now() - startTime;
   nativeLog(`RUST generateHeatmap returned ${result?.cells?.length || 0} cells in ${elapsed}ms`);
@@ -922,6 +1102,7 @@ export default {
   parseBounds,
   // Frequent sections detection
   detectFrequentSections,
+  detectSectionsFromTracks,
   getDefaultSectionConfig,
   // Heatmap generation
   generateHeatmap,

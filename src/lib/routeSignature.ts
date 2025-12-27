@@ -245,6 +245,7 @@ export function generateRouteSignature(
       points: [],
       distance: 0,
       bounds: { minLat: 0, maxLat: 0, minLng: 0, maxLng: 0 },
+      center: { lat: 0, lng: 0 },
       startRegionHash: '',
       endRegionHash: '',
       isLoop: false,
@@ -282,11 +283,18 @@ export function generateRouteSignature(
   // Check if loop
   const routeIsLoop = isLoop(simplifiedPoints, cfg.loopThreshold);
 
+  // Calculate center point from bounds
+  const center = {
+    lat: (bounds.minLat + bounds.maxLat) / 2,
+    lng: (bounds.minLng + bounds.maxLng) / 2,
+  };
+
   return {
     activityId,
     points: simplifiedPoints,
     distance,
     bounds,
+    center,
     startRegionHash,
     endRegionHash,
     isLoop: routeIsLoop,

@@ -33,6 +33,9 @@ interface RouteMatchState {
 // Store unsubscribe functions to prevent memory leaks
 let listenerCleanups: (() => void)[] = [];
 
+// Flag to prevent double-processing during cache clear
+let isProcessingAfterClear = false;
+
 export const useRouteMatchStore = create<RouteMatchState>((set, get) => ({
   cache: null,
   progress: { status: 'idle', current: 0, total: 0 },
@@ -59,6 +62,12 @@ export const useRouteMatchStore = create<RouteMatchState>((set, get) => ({
 
     // Subscribe to bounds sync completion to auto-trigger route processing
     const unsubSync = activitySyncManager.onInitialSyncComplete(() => {
+      // Skip if we're already processing after a cache clear
+      if (isProcessingAfterClear) {
+        log.log('Skipping auto-processing: already processing after cache clear');
+        return;
+      }
+
       // Check if route matching is enabled
       if (!isRouteMatchingEnabled()) {
         log.log('Route matching disabled, skipping auto-processing');
@@ -178,33 +187,50 @@ export const useRouteMatchStore = create<RouteMatchState>((set, get) => ({
   },
 
   clearCache: async () => {
-    await routeProcessingQueue.clearCache();
-    set({ cache: routeProcessingQueue.getCache() });
+    // Set flag to prevent other listeners from triggering duplicate processing
+    isProcessingAfterClear = true;
 
-    // Immediately trigger reprocessing using ALL cached bounds data
-    if (isRouteMatchingEnabled()) {
-      const boundsCache = activitySyncManager.getCache();
-      if (boundsCache) {
-        const activities = Object.values(boundsCache.activities);
-        if (activities.length > 0) {
-          log.log(`Cache cleared, triggering immediate reprocessing of ${activities.length} activities`);
+    try {
+      // Check if already processing - if so, cancel first
+      const currentProgress = routeProcessingQueue.getProgress();
+      if (currentProgress.status !== 'idle' && currentProgress.status !== 'complete' && currentProgress.status !== 'error') {
+        log.log('Cancelling current processing before clearing cache');
+        routeProcessingQueue.cancel();
+        // Small delay to let cancellation take effect
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
 
-          // Build metadata from bounds cache
-          const activityIds = activities.map((a) => a.id);
-          const metadata: Record<string, { name: string; date: string; type: ActivityType; hasGps: boolean }> = {};
-          for (const a of activities) {
-            metadata[a.id] = {
-              name: a.name,
-              date: a.date,
-              type: a.type,
-              hasGps: true,
-            };
+      await routeProcessingQueue.clearCache();
+      set({ cache: routeProcessingQueue.getCache() });
+
+      // Immediately trigger reprocessing using ALL cached bounds data
+      if (isRouteMatchingEnabled()) {
+        const boundsCache = activitySyncManager.getCache();
+        if (boundsCache) {
+          const activities = Object.values(boundsCache.activities);
+          if (activities.length > 0) {
+            log.log(`Cache cleared, triggering immediate reprocessing of ${activities.length} activities`);
+
+            // Build metadata from bounds cache
+            const activityIds = activities.map((a) => a.id);
+            const metadata: Record<string, { name: string; date: string; type: ActivityType; hasGps: boolean }> = {};
+            for (const a of activities) {
+              metadata[a.id] = {
+                name: a.name,
+                date: a.date,
+                type: a.type,
+                hasGps: true,
+              };
+            }
+
+            // Queue all activities for reprocessing (queueActivities handles deduplication)
+            await routeProcessingQueue.queueActivities(activityIds, metadata, activities);
           }
-
-          // Queue all activities for reprocessing
-          routeProcessingQueue.queueActivities(activityIds, metadata, activities);
         }
       }
+    } finally {
+      // Clear flag after processing completes or fails
+      isProcessingAfterClear = false;
     }
   },
 }));

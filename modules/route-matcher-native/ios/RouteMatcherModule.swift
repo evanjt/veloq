@@ -382,6 +382,107 @@ public class RouteMatcherModule: Module {
             }
         }
 
+        // INCREMENTAL: Efficiently add new signatures to existing groups
+        Function("groupIncremental") { (newSignatures: [[String: Any]], existingGroups: [[String: Any]], existingSignatures: [[String: Any]], config: [String: Any]?) -> [[String: Any]] in
+            logger.info("INCREMENTAL grouping: \(newSignatures.count) new + \(existingSignatures.count) existing")
+
+            let newSigs = newSignatures.compactMap { self.mapToSignature($0) }
+            let existingSigs = existingSignatures.compactMap { self.mapToSignature($0) }
+            let groups = existingGroups.compactMap { dict -> RouteGroup? in
+                guard let groupId = dict["groupId"] as? String,
+                      let activityIds = dict["activityIds"] as? [String] else { return nil }
+                return RouteGroup(groupId: groupId, activityIds: activityIds)
+            }
+
+            let matchConfig = self.parseConfig(config)
+            let startTime = CFAbsoluteTimeGetCurrent()
+            let result = ffiGroupIncremental(newSignatures: newSigs, existingGroups: groups, existingSignatures: existingSigs, config: matchConfig)
+            let elapsed = (CFAbsoluteTimeGetCurrent() - startTime) * 1000
+
+            logger.info("INCREMENTAL returned \(result.count) groups in \(Int(elapsed))ms")
+
+            return result.map { group in
+                [
+                    "groupId": group.groupId,
+                    "activityIds": group.activityIds
+                ]
+            }
+        }
+
+        // Section detection: Get default section config
+        Function("defaultSectionConfig") { () -> [String: Any] in
+            let config = defaultSectionConfig()
+            return [
+                "proximity_threshold": config.proximityThreshold,
+                "min_section_length": config.minSectionLength,
+                "min_activities": config.minActivities,
+                "cluster_tolerance": config.clusterTolerance,
+                "sample_points": config.samplePoints
+            ]
+        }
+
+        // Section detection from route signatures (legacy)
+        Function("detectFrequentSections") { (signatures: [[String: Any]], groups: [[String: Any]], sportTypes: [[String: Any]], config: [String: Any]?) -> [[String: Any]] in
+            logger.info("detectFrequentSections: \(signatures.count) signatures")
+
+            let sigs = signatures.compactMap { self.mapToSignature($0) }
+            let routeGroups = groups.compactMap { dict -> RouteGroup? in
+                guard let groupId = dict["groupId"] as? String,
+                      let activityIds = dict["activityIds"] as? [String] else { return nil }
+                return RouteGroup(groupId: groupId, activityIds: activityIds)
+            }
+            let types = sportTypes.compactMap { dict -> ActivitySportType? in
+                guard let activityId = dict["activity_id"] as? String,
+                      let sportType = dict["sport_type"] as? String else { return nil }
+                return ActivitySportType(activityId: activityId, sportType: sportType)
+            }
+
+            let sectionConfig = self.parseSectionConfig(config)
+            let result = ffiDetectFrequentSections(signatures: sigs, groups: routeGroups, sportTypes: types, config: sectionConfig)
+
+            return result.map { self.sectionToMap($0) }
+        }
+
+        // Section detection from FULL GPS tracks (medoid-based)
+        // Returns JSON string for efficient bridge serialization
+        Function("detectSectionsFromTracks") { (activityIds: [String], allCoords: [Double], offsets: [Int], sportTypes: [[String: Any]], groups: [[String: Any]], config: [String: Any]?) -> String in
+            logger.info("detectSectionsFromTracks: \(activityIds.count) activities, \(allCoords.count / 2) coords")
+
+            let routeGroups = groups.compactMap { dict -> RouteGroup? in
+                guard let groupId = dict["groupId"] as? String,
+                      let actIds = dict["activityIds"] as? [String] else { return nil }
+                return RouteGroup(groupId: groupId, activityIds: actIds)
+            }
+            let types = sportTypes.compactMap { dict -> ActivitySportType? in
+                guard let activityId = dict["activity_id"] as? String,
+                      let sportType = dict["sport_type"] as? String else { return nil }
+                return ActivitySportType(activityId: activityId, sportType: sportType)
+            }
+
+            let sectionConfig = self.parseSectionConfig(config)
+            let offsetsU32 = offsets.map { UInt32($0) }
+
+            let startTime = CFAbsoluteTimeGetCurrent()
+            let result = ffiDetectSectionsFromTracks(
+                activityIds: activityIds,
+                allCoords: allCoords,
+                offsets: offsetsU32,
+                sportTypes: types,
+                groups: routeGroups,
+                config: sectionConfig
+            )
+            let rustElapsed = (CFAbsoluteTimeGetCurrent() - startTime) * 1000
+            logger.info("detectSectionsFromTracks Rust: \(result.count) sections in \(Int(rustElapsed))ms")
+
+            // Serialize to JSON for efficient bridge transfer
+            let jsonStart = CFAbsoluteTimeGetCurrent()
+            let jsonResult = self.sectionsToJson(result)
+            let jsonElapsed = (CFAbsoluteTimeGetCurrent() - jsonStart) * 1000
+            logger.info("detectSectionsFromTracks JSON: \(Int(jsonElapsed))ms, \(jsonResult.count) chars")
+
+            return jsonResult
+        }
+
         // HTTP: Fetch and process activities in one call
         Function("fetchAndProcessActivities") { (apiKey: String, activityIds: [String], config: [String: Any]?) -> [String: Any] in
             logger.info("HTTP fetchAndProcessActivities called for \(activityIds.count) activities")
@@ -445,6 +546,101 @@ public class RouteMatcherModule: Module {
             ],
             "center": ["latitude": sig.center.latitude, "longitude": sig.center.longitude]
         ]
+    }
+
+    private func parseSectionConfig(_ map: [String: Any]?) -> SectionConfig {
+        guard let map = map else { return defaultSectionConfig() }
+
+        let defaults = defaultSectionConfig()
+
+        return SectionConfig(
+            proximityThreshold: (map["proximity_threshold"] as? Double) ?? defaults.proximityThreshold,
+            minSectionLength: (map["min_section_length"] as? Double) ?? defaults.minSectionLength,
+            maxSectionLength: (map["max_section_length"] as? Double) ?? defaults.maxSectionLength,
+            minActivities: UInt32((map["min_activities"] as? Int) ?? Int(defaults.minActivities)),
+            clusterTolerance: (map["cluster_tolerance"] as? Double) ?? defaults.clusterTolerance,
+            samplePoints: UInt32((map["sample_points"] as? Int) ?? Int(defaults.samplePoints))
+        )
+    }
+
+    private func sectionToMap(_ section: FrequentSection) -> [String: Any] {
+        return [
+            "id": section.id,
+            "sport_type": section.sportType,
+            "polyline": section.polyline.map { ["latitude": $0.latitude, "longitude": $0.longitude] },
+            "representative_activity_id": section.representativeActivityId,
+            "activity_ids": section.activityIds,
+            "activity_portions": section.activityPortions.map { portion in
+                [
+                    "activity_id": portion.activityId,
+                    "start_index": portion.startIndex,
+                    "end_index": portion.endIndex,
+                    "distance_meters": portion.distanceMeters,
+                    "direction": portion.direction
+                ] as [String: Any]
+            },
+            "route_ids": section.routeIds,
+            "visit_count": section.visitCount,
+            "distance_meters": section.distanceMeters,
+            // Pre-computed activity traces: map of activityId -> GPS points overlapping with section
+            "activity_traces": section.activityTraces.mapValues { points in
+                points.map { ["latitude": $0.latitude, "longitude": $0.longitude] }
+            }
+        ]
+    }
+
+    /// Serialize FrequentSection list to JSON string.
+    /// Much faster than dictionary conversion for complex nested structures.
+    private func sectionsToJson(_ sections: [FrequentSection]) -> String {
+        var jsonArray: [[String: Any]] = []
+
+        for section in sections {
+            var sectionDict: [String: Any] = [
+                "id": section.id,
+                "sport_type": section.sportType,
+                "representative_activity_id": section.representativeActivityId,
+                "visit_count": section.visitCount,
+                "distance_meters": section.distanceMeters,
+                "activity_ids": section.activityIds,
+                "route_ids": section.routeIds
+            ]
+
+            // Polyline
+            sectionDict["polyline"] = section.polyline.map { point in
+                ["latitude": point.latitude, "longitude": point.longitude]
+            }
+
+            // Activity portions
+            sectionDict["activity_portions"] = section.activityPortions.map { portion in
+                [
+                    "activity_id": portion.activityId,
+                    "start_index": portion.startIndex,
+                    "end_index": portion.endIndex,
+                    "distance_meters": portion.distanceMeters,
+                    "direction": portion.direction
+                ] as [String: Any]
+            }
+
+            // Activity traces
+            var tracesDict: [String: [[String: Double]]] = [:]
+            for (activityId, points) in section.activityTraces {
+                tracesDict[activityId] = points.map { point in
+                    ["latitude": point.latitude, "longitude": point.longitude]
+                }
+            }
+            sectionDict["activity_traces"] = tracesDict
+
+            jsonArray.append(sectionDict)
+        }
+
+        // Serialize to JSON string
+        do {
+            let jsonData = try JSONSerialization.data(withJSONObject: jsonArray, options: [])
+            return String(data: jsonData, encoding: .utf8) ?? "[]"
+        } catch {
+            logger.error("Failed to serialize sections to JSON: \(error.localizedDescription)")
+            return "[]"
+        }
     }
 
     private func mapToSignature(_ map: [String: Any]) -> RouteSignature? {

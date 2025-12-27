@@ -1,21 +1,29 @@
 /**
  * Sections list component.
- * Displays frequently-traveled road sections.
+ * Displays frequently-traveled road sections with activity trace overlays.
+ *
+ * Activity traces are pre-computed in Rust during section detection,
+ * so no expensive on-the-fly computation is needed here.
  */
 
-import React from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { View, StyleSheet, FlatList, useColorScheme } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
+import { router, Href } from 'expo-router';
 import { colors, spacing, layout } from '@/theme';
 import { useFrequentSections } from '@/hooks/routes/useFrequentSections';
-import { SectionRow } from './SectionRow';
+import { SectionRow, ActivityTrace } from './SectionRow';
+import type { FrequentSection } from '@/types';
 
 interface SectionsListProps {
   /** Filter by sport type */
   sportType?: string;
 }
+
+/** Map of section ID to activity traces for that section */
+type SectionTracesMap = Map<string, ActivityTrace[]>;
 
 export function SectionsList({ sportType }: SectionsListProps) {
   const { t } = useTranslation();
@@ -27,6 +35,43 @@ export function SectionsList({ sportType }: SectionsListProps) {
     minVisits: 3,
     sortBy: 'visits',
   });
+
+  // Convert pre-computed activity traces from sections to the format expected by SectionRow
+  // This is instant since traces are already computed by Rust during section detection
+  const sectionTraces = useMemo((): SectionTracesMap => {
+    const tracesMap = new Map<string, ActivityTrace[]>();
+
+    for (const section of sections) {
+      if (!section.activityTraces) continue;
+
+      const traces: ActivityTrace[] = [];
+      // Use first 4 activities for preview (same as before)
+      const activityIds = section.activityIds.slice(0, 4);
+
+      for (const activityId of activityIds) {
+        const points = section.activityTraces[activityId];
+        if (points && points.length > 2) {
+          // Convert RoutePoint[] to [lat, lng][] format expected by SectionRow
+          traces.push({
+            activityId,
+            points: points.map(p => [p.lat, p.lng] as [number, number]),
+          });
+        }
+      }
+
+      if (traces.length > 0) {
+        tracesMap.set(section.id, traces);
+      }
+    }
+
+    return tracesMap;
+  }, [sections]);
+
+  // Navigate to section detail page
+  const handleSectionPress = useCallback((section: FrequentSection) => {
+    console.log('[SectionsList] Section pressed:', section.id);
+    router.push(`/section/${section.id}` as Href);
+  }, []);
 
   const renderEmpty = () => {
     if (!isReady) {
@@ -94,17 +139,27 @@ export function SectionsList({ sportType }: SectionsListProps) {
     </View>
   );
 
+  const renderItem = useCallback(
+    ({ item }: { item: FrequentSection }) => (
+      <SectionRow
+        section={item}
+        activityTraces={sectionTraces.get(item.id)}
+        onPress={() => handleSectionPress(item)}
+      />
+    ),
+    [sectionTraces, handleSectionPress]
+  );
+
   return (
     <FlatList
       data={sections}
       keyExtractor={(item) => item.id}
-      renderItem={({ item }) => (
-        <SectionRow section={item} />
-      )}
+      renderItem={renderItem}
       ListHeaderComponent={renderHeader}
       ListEmptyComponent={renderEmpty}
       contentContainerStyle={sections.length === 0 ? styles.emptyList : styles.list}
       showsVerticalScrollIndicator={false}
+      keyboardShouldPersistTaps="handled"
     />
   );
 }
