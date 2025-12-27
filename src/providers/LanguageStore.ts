@@ -2,7 +2,6 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import {
   SUPPORTED_LOCALES,
-  LOCALE_DISPLAY_NAMES,
   type SupportedLocale,
   getDeviceLocale,
   changeLanguage,
@@ -10,33 +9,65 @@ import {
 
 const STORAGE_KEY = 'veloq-language-preference';
 
+/** Simplified language choice - 'en', 'es', 'fr', or null for system */
+type LanguageChoice = string | null;
+
 interface LanguageState {
-  /** Current language. null means 'system' (auto-detect) */
-  language: SupportedLocale | null;
+  /** Current language choice. null means 'system' (auto-detect) */
+  language: LanguageChoice;
   /** Whether the store has been initialized */
   isInitialized: boolean;
-  /** Set a specific language or null for system default */
-  setLanguage: (language: SupportedLocale | null) => Promise<void>;
+  /** Set a language choice or null for system default */
+  setLanguage: (language: LanguageChoice) => Promise<void>;
+}
+
+/**
+ * Map a simplified language choice to the appropriate locale
+ * For English, uses device region to pick the right variant (AU/US/UK)
+ */
+export function resolveLanguageToLocale(language: LanguageChoice): SupportedLocale {
+  if (language === null) {
+    return getDeviceLocale();
+  }
+
+  if (language === 'en') {
+    // For English, check device region to pick the right variant
+    const deviceLocale = getDeviceLocale();
+    if (deviceLocale.startsWith('en-')) {
+      return deviceLocale;
+    }
+    return 'en-AU';
+  }
+
+  if (language === 'es') return 'es';
+  if (language === 'fr') return 'fr';
+
+  // If it's already a full locale (legacy), use it directly
+  if (SUPPORTED_LOCALES.includes(language as SupportedLocale)) {
+    return language as SupportedLocale;
+  }
+
+  return 'en-AU';
 }
 
 /**
  * Zustand store for language preference
  */
-export const useLanguageStore = create<LanguageState>((set, get) => ({
+export const useLanguageStore = create<LanguageState>((set) => ({
   language: null,
   isInitialized: false,
 
   setLanguage: async (language) => {
-    // Save preference
+    // Save preference (can be 'en', 'es', 'fr', or null for system)
     if (language === null) {
       await AsyncStorage.removeItem(STORAGE_KEY);
     } else {
       await AsyncStorage.setItem(STORAGE_KEY, language);
     }
 
-    // Update i18n
-    const effectiveLanguage = language || getDeviceLocale();
-    await changeLanguage(effectiveLanguage);
+    // Resolve to the appropriate locale (handles English variants based on device region)
+    const effectiveLocale = resolveLanguageToLocale(language);
+    await changeLanguage(effectiveLocale);
 
     set({ language });
   },
@@ -50,9 +81,10 @@ export async function initializeLanguage(): Promise<SupportedLocale> {
   try {
     const saved = await AsyncStorage.getItem(STORAGE_KEY);
 
-    if (saved && SUPPORTED_LOCALES.includes(saved as SupportedLocale)) {
-      useLanguageStore.setState({ language: saved as SupportedLocale, isInitialized: true });
-      return saved as SupportedLocale;
+    if (saved) {
+      // Handle both old full locale values and new simplified values
+      useLanguageStore.setState({ language: saved, isInitialized: true });
+      return resolveLanguageToLocale(saved);
     }
 
     // No saved preference - use system locale
@@ -69,18 +101,27 @@ export async function initializeLanguage(): Promise<SupportedLocale> {
  */
 export function getEffectiveLanguage(): SupportedLocale {
   const { language } = useLanguageStore.getState();
-  return language || getDeviceLocale();
+  return resolveLanguageToLocale(language);
 }
 
 /**
- * Get all available languages with display names
+ * Language option for UI
  */
-export function getAvailableLanguages(): { value: SupportedLocale | null; label: string }[] {
+type LanguageOption = {
+  value: string | null;
+  label: string;
+  description?: string;
+};
+
+/**
+ * Get simplified language options
+ * English variants are combined - device region determines which variant to use
+ */
+export function getAvailableLanguages(): LanguageOption[] {
   return [
-    { value: null, label: 'System' },
-    ...SUPPORTED_LOCALES.map((locale) => ({
-      value: locale,
-      label: LOCALE_DISPLAY_NAMES[locale],
-    })),
+    { value: null, label: 'System', description: 'Auto-detect from device' },
+    { value: 'en', label: 'English' },
+    { value: 'es', label: 'Español' },
+    { value: 'fr', label: 'Français' },
   ];
 }

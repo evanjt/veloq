@@ -5,6 +5,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router, Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '@/providers';
 
 export function DemoBanner() {
@@ -13,12 +14,19 @@ export function DemoBanner() {
   const isDark = colorScheme === 'dark';
   const insets = useSafeAreaInsets();
   const isDemoMode = useAuthStore((state) => state.isDemoMode);
+  const exitDemoMode = useAuthStore((state) => state.exitDemoMode);
+  const queryClient = useQueryClient();
 
   // Don't render if not in demo mode
   if (!isDemoMode) return null;
 
   const handlePress = () => {
-    router.push('/login' as Href);
+    // Clear cached demo data
+    queryClient.clear();
+    // Exit demo mode (sets isAuthenticated to false)
+    exitDemoMode();
+    // Navigate to login - use replace to prevent going back to demo
+    router.replace('/login' as Href);
   };
 
   return (
