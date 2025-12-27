@@ -1,56 +1,60 @@
 import type { WellnessData } from '@/types';
 
-// Generate demo wellness data for the last 90 days
+/**
+ * Generate demo wellness data for the past year
+ * This provides enough data for trends and season comparison
+ */
 function generateDemoWellness(): WellnessData[] {
   const wellness: WellnessData[] = [];
   const now = new Date();
 
   // Base values with realistic progression
-  const baseCtl = 60;
-  const baseAtl = 40;
-  const baseHrv = 55;
-  const baseRhr = 52;
-  const baseSleepHours = 7.5;
-  const baseSleepScore = 80;
+  let ctl = 35;
+  let atl = 35;
+  const baseWeight = 75;
+  const baseRhr = 55;
+  const baseHrv = 50;
 
-  for (let daysAgo = 90; daysAgo >= 0; daysAgo--) {
+  for (let daysAgo = 365; daysAgo >= 0; daysAgo--) {
     const date = new Date(now);
     date.setDate(date.getDate() - daysAgo);
 
-    // Simulate training block progression
-    const weekNum = Math.floor(daysAgo / 7);
+    // Seasonal target CTL
+    const month = date.getMonth();
+    const targetCtl = month >= 11 || month <= 1 ? 35 :
+                      month >= 2 && month <= 4 ? 45 :
+                      month >= 5 && month <= 7 ? 55 : 45;
+
+    // Simulate daily load
     const dayOfWeek = date.getDay();
+    const isRest = dayOfWeek === 1 || (dayOfWeek === 4 && Math.random() < 0.5);
+    const dailyTss = isRest ? 0 :
+                     dayOfWeek === 0 || dayOfWeek === 6 ? 80 + Math.random() * 50 :
+                     40 + Math.random() * 40;
 
-    // CTL increases gradually over training block
-    const ctlTrend = baseCtl + (90 - daysAgo) * 0.1;
-    // ATL fluctuates with weekly pattern (higher mid-week)
-    const atlVariation = dayOfWeek >= 2 && dayOfWeek <= 4 ? 10 : -5;
-    const atl = baseAtl + atlVariation + (Math.random() * 10 - 5);
+    // Update CTL/ATL
+    atl = atl + (dailyTss - atl) / 7;
+    ctl = ctl + (dailyTss - ctl) / 42;
+    ctl += (targetCtl - ctl) * 0.01;
 
-    // HRV is inversely related to fatigue
-    const hrvVariation = atl > 50 ? -5 : 5;
-    const hrv = baseHrv + hrvVariation + (Math.random() * 8 - 4);
-
-    // RHR slightly elevated when fatigued
-    const rhrVariation = atl > 50 ? 3 : 0;
-    const rhr = baseRhr + rhrVariation + Math.floor(Math.random() * 4 - 2);
-
-    // Sleep varies by day
-    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
-    const sleepHours = baseSleepHours + (isWeekend ? 1 : 0) + (Math.random() - 0.5);
-    const sleepScore = baseSleepScore + (isWeekend ? 5 : 0) + Math.floor(Math.random() * 15 - 7);
+    // Derived metrics
+    const fatigueFactor = atl / 50;
+    const rhr = Math.round(baseRhr + fatigueFactor * 5 + (Math.random() - 0.5) * 4);
+    const hrv = Math.round(baseHrv - fatigueFactor * 5 + (Math.random() - 0.5) * 10);
+    const sleepHours = 7 + (isRest ? 0.5 : 0) + (Math.random() - 0.5) * 1.5;
+    const sleepScore = Math.round(70 + (sleepHours - 6) * 10 + Math.random() * 10);
 
     wellness.push({
       id: date.toISOString().split('T')[0],
-      ctl: Math.round(ctlTrend * 10) / 10,
+      ctl: Math.round(ctl * 10) / 10,
       atl: Math.round(atl * 10) / 10,
-      rampRate: Math.round((ctlTrend - (baseCtl + (90 - daysAgo - 7) * 0.1)) * 10) / 10,
-      hrv: Math.round(hrv),
+      rampRate: Math.round((ctl - (wellness[wellness.length - 1]?.ctl || ctl)) * 100) / 100,
+      hrv: Math.max(20, Math.min(100, hrv)),
       hrvSDNN: Math.round(hrv * 1.2),
       restingHR: Math.round(rhr),
       sleepSecs: Math.round(sleepHours * 3600),
-      sleepScore: Math.min(100, Math.max(50, Math.round(sleepScore))),
-      weight: 75 + (Math.random() * 0.6 - 0.3),
+      sleepScore: Math.min(100, Math.max(50, sleepScore)),
+      weight: Math.round((baseWeight + Math.sin(daysAgo * 0.1) * 1.5) * 10) / 10,
       updated: date.toISOString(),
     } as WellnessData);
   }
