@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text } from 'react-native-paper';
+import { useTranslation } from 'react-i18next';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '@/hooks';
@@ -91,12 +92,13 @@ export function EmptyState({
 
 // Preset for no activities
 export function NoActivitiesState({ onRefresh }: { onRefresh?: () => void }) {
+  const { t } = useTranslation();
   return (
     <EmptyState
       icon="run"
-      title="No activities yet"
-      description="Your activities will appear here once you sync with Intervals.icu"
-      actionLabel={onRefresh ? "Refresh" : undefined}
+      title={t('emptyState.noActivities.title')}
+      description={t('emptyState.noActivities.description')}
+      actionLabel={onRefresh ? t('emptyState.refresh') : undefined}
       onAction={onRefresh}
     />
   );
@@ -104,12 +106,13 @@ export function NoActivitiesState({ onRefresh }: { onRefresh?: () => void }) {
 
 // Preset for no results (search/filter)
 export function NoResultsState({ onClear }: { onClear?: () => void }) {
+  const { t } = useTranslation();
   return (
     <EmptyState
       icon="magnify-close"
-      title="No results found"
-      description="Try adjusting your search or filters"
-      actionLabel={onClear ? "Clear filters" : undefined}
+      title={t('emptyState.noResults.title')}
+      description={t('emptyState.noResults.description')}
+      actionLabel={onClear ? t('emptyState.clearFilters') : undefined}
       onAction={onClear}
     />
   );
@@ -117,31 +120,33 @@ export function NoResultsState({ onClear }: { onClear?: () => void }) {
 
 // Preset for network error
 export function NetworkErrorState({ onRetry }: { onRetry?: () => void }) {
+  const { t } = useTranslation();
   return (
     <EmptyState
       icon="wifi-off"
-      title="Connection error"
-      description="Check your internet connection and try again"
-      actionLabel={onRetry ? "Retry" : undefined}
+      title={t('emptyState.networkError.title')}
+      description={t('emptyState.networkError.description')}
+      actionLabel={onRetry ? t('common.retry') : undefined}
       onAction={onRetry}
     />
   );
 }
 
 // Preset for generic error
-export function ErrorState({
+export function ErrorStatePreset({
   message,
   onRetry,
 }: {
   message?: string;
   onRetry?: () => void;
 }) {
+  const { t } = useTranslation();
   return (
     <EmptyState
       icon="alert-circle-outline"
-      title="Something went wrong"
-      description={message || "We couldn't load this content"}
-      actionLabel={onRetry ? "Try again" : undefined}
+      title={t('emptyState.error.title')}
+      description={message || t('emptyState.error.description')}
+      actionLabel={onRetry ? t('errorState.tryAgain') : undefined}
       onAction={onRetry}
     />
   );
@@ -149,11 +154,12 @@ export function ErrorState({
 
 // Preset for no data in chart/stats
 export function NoDataState({ compact = true }: { compact?: boolean }) {
+  const { t } = useTranslation();
   return (
     <EmptyState
       icon="chart-line-variant"
-      title="No data available"
-      description="Complete some activities to see your stats"
+      title={t('emptyState.noData.title')}
+      description={t('emptyState.noData.description')}
       compact={compact}
     />
   );
@@ -161,11 +167,12 @@ export function NoDataState({ compact = true }: { compact?: boolean }) {
 
 // Preset for offline mode
 export function OfflineState() {
+  const { t } = useTranslation();
   return (
     <EmptyState
       icon="cloud-off-outline"
-      title="You're offline"
-      description="Some features may be limited"
+      title={t('emptyState.offline.title')}
+      description={t('emptyState.offline.description')}
       compact
     />
   );

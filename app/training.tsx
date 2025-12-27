@@ -4,12 +4,14 @@ import { Text, IconButton, ActivityIndicator } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, Href } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { WeeklySummary, ActivityHeatmap, SeasonComparison, EventPlanner, WorkoutLibrary } from '@/components/stats';
 import { useActivities, useRouteGroups, useRouteProcessing } from '@/hooks';
 import { useRouteSettings } from '@/providers';
 import { colors, spacing, layout } from '@/theme';
 
 export default function TrainingScreen() {
+  const { t } = useTranslation();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
 
@@ -56,7 +58,7 @@ export default function TrainingScreen() {
           iconColor={isDark ? '#FFFFFF' : colors.textPrimary}
           onPress={() => router.back()}
         />
-        <Text style={[styles.headerTitle, isDark && styles.textLight]}>Training</Text>
+        <Text style={[styles.headerTitle, isDark && styles.textLight]}>{t('trainingScreen.title')}</Text>
         <View style={{ width: 48 }} />
       </View>
 
@@ -92,22 +94,22 @@ export default function TrainingScreen() {
             </View>
             <View style={styles.routesSectionInfo}>
               <Text style={[styles.routesSectionTitle, isDark && styles.textLight]}>
-                Routes
+                {t('trainingScreen.routes')}
               </Text>
               <Text style={[styles.routesSectionSubtitle, isDark && styles.textMuted]}>
                 {!isRouteMatchingEnabled
-                  ? 'Disabled - Enable in Settings'
+                  ? t('trainingScreen.disabledInSettings')
                   : isRouteProcessing
                     ? routeProgress.status === 'filtering'
                       ? routeProgress.candidatesFound !== undefined
-                        ? `Found ${routeProgress.candidatesFound} potential matches`
-                        : `Checking ${routeProgress.total} activities...`
+                        ? t('trainingScreen.potentialMatches', { count: routeProgress.candidatesFound })
+                        : t('trainingScreen.checkingActivities', { count: routeProgress.total })
                       : routeProgress.status === 'matching'
-                        ? 'Grouping routes...'
-                        : `Fetching GPS: ${routeProgress.current}/${routeProgress.total}`
+                        ? t('trainingScreen.groupingRoutes')
+                        : t('trainingScreen.fetchingGps', { current: routeProgress.current, total: routeProgress.total })
                     : routeGroups.length > 0
-                      ? `${routeGroups.length} routes from ${processedCount} activities`
-                      : 'Discover your common routes'}
+                      ? t('trainingScreen.routesFromActivities', { routes: routeGroups.length, activities: processedCount })
+                      : t('trainingScreen.discoverRoutes')}
               </Text>
             </View>
             {isRouteProcessing ? (
@@ -151,12 +153,12 @@ export default function TrainingScreen() {
             </View>
             <View style={styles.routesSectionInfo}>
               <Text style={[styles.routesSectionTitle, isDark && styles.textLight]}>
-                Heatmap
+                {t('trainingScreen.heatmap')}
               </Text>
               <Text style={[styles.routesSectionSubtitle, isDark && styles.textMuted]}>
                 {routeGroups.length > 0
-                  ? `Visualize ${processedCount} activities`
-                  : 'See where you travel most'}
+                  ? t('trainingScreen.visualizeActivities', { count: processedCount })
+                  : t('trainingScreen.seeWhereYouTravel')}
               </Text>
             </View>
             <MaterialCommunityIcons

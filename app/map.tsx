@@ -7,6 +7,7 @@ import {
   useColorScheme,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { RegionalMapView } from '@/components/maps/RegionalMapView';
 import { TimelineSlider } from '@/components/maps/TimelineSlider';
@@ -15,6 +16,7 @@ import { colors, darkColors, spacing, typography } from '@/theme';
 import { formatLocalDate } from '@/lib';
 
 export default function MapScreen() {
+  const { t } = useTranslation();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const colorScheme = useColorScheme();
@@ -116,11 +118,11 @@ export default function MapScreen() {
       <View style={[styles.loadingContainer, isDark && styles.loadingContainerDark]}>
         <ActivityIndicator size="large" color={colors.primary} />
         <Text style={[styles.loadingText, isDark && styles.loadingTextDark]}>
-          Loading activities...
+          {t('mapScreen.loadingActivities')}
         </Text>
         {isSyncing && progress && (
           <Text style={[styles.progressText, isDark && styles.loadingTextDark]}>
-            Syncing: {progress.completed}/{progress.total}
+            {t('mapScreen.syncing', { completed: progress.completed, total: progress.total })}
           </Text>
         )}
       </View>

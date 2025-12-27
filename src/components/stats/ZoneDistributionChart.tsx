@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { View, StyleSheet, useColorScheme, Pressable } from 'react-native';
 import { Text } from 'react-native-paper';
+import { useTranslation } from 'react-i18next';
 import { colors, darkColors } from '@/theme/colors';
 import { typography } from '@/theme/typography';
 import { spacing, layout } from '@/theme/spacing';
@@ -34,12 +35,14 @@ export const ZoneDistributionChart = React.memo(function ZoneDistributionChart({
   type = 'power',
   height = 200,
   title,
-  periodLabel = 'Last 30 days',
+  periodLabel,
 }: ZoneDistributionChartProps) {
+  const { t } = useTranslation();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
 
-  const displayTitle = title || (type === 'power' ? 'Power Zones' : 'Heart Rate Zones');
+  const displayTitle = title || (type === 'power' ? t('stats.powerZones') : t('stats.heartRateZones'));
+  const displayPeriodLabel = periodLabel || t('stats.last30Days');
 
   // All hooks must be called before any conditional returns
   // Calculate percentages if data is provided
@@ -64,14 +67,14 @@ export const ZoneDistributionChart = React.memo(function ZoneDistributionChart({
       <View style={styles.container}>
         <View style={styles.header}>
           <Text style={[styles.title, isDark && styles.textLight]}>{displayTitle}</Text>
-          <Text style={[styles.subtitle, isDark && styles.textDark]}>{periodLabel}</Text>
+          <Text style={[styles.subtitle, isDark && styles.textDark]}>{displayPeriodLabel}</Text>
         </View>
         <View style={styles.emptyState}>
           <Text style={[styles.emptyText, isDark && styles.textDark]}>
-            No zone data available
+            {t('stats.noZoneData')}
           </Text>
           <Text style={[styles.emptyHint, isDark && styles.textDark]}>
-            Complete activities with {type === 'power' ? 'power meter' : 'heart rate'} data to see zone distribution
+            {type === 'power' ? t('stats.completeActivitiesPower') : t('stats.completeActivitiesHr')}
           </Text>
         </View>
       </View>
@@ -83,7 +86,7 @@ export const ZoneDistributionChart = React.memo(function ZoneDistributionChart({
       {/* Header */}
       <View style={styles.header}>
         <Text style={[styles.title, isDark && styles.textLight]}>{displayTitle}</Text>
-        <Text style={[styles.subtitle, isDark && styles.textDark]}>{periodLabel}</Text>
+        <Text style={[styles.subtitle, isDark && styles.textDark]}>{displayPeriodLabel}</Text>
       </View>
 
       {/* Zone bars */}
@@ -126,7 +129,7 @@ export const ZoneDistributionChart = React.memo(function ZoneDistributionChart({
 
       {/* Total time */}
       <View style={styles.totalRow}>
-        <Text style={[styles.totalLabel, isDark && styles.textDark]}>Total Time</Text>
+        <Text style={[styles.totalLabel, isDark && styles.textDark]}>{t('stats.totalTime')}</Text>
         <Text style={[styles.totalValue, isDark && styles.textLight]}>
           {formatDuration(processedData.reduce((sum, d) => sum + d.seconds, 0))}
         </Text>

@@ -8,6 +8,7 @@ import { View, StyleSheet, useColorScheme } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Svg, { Polyline } from 'react-native-svg';
+import { useTranslation } from 'react-i18next';
 import { colors, darkColors, opacity, spacing, layout, typography } from '@/theme';
 import type { DiscoveredMatchInfo } from '@/types';
 
@@ -44,15 +45,16 @@ const RoutePreview = memo(function RoutePreview({ points }: { points: { x: numbe
 });
 
 function MatchRowComponent({ match }: MatchRowProps) {
+  const { t } = useTranslation();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
 
   const getTypeIcon = (): 'bike' | 'run' | 'swim' | 'walk' | 'map-marker' => {
-    const t = match.type?.toLowerCase() || '';
-    if (t.includes('ride') || t.includes('cycling')) return 'bike';
-    if (t.includes('run')) return 'run';
-    if (t.includes('swim')) return 'swim';
-    if (t.includes('walk') || t.includes('hike')) return 'walk';
+    const type = match.type?.toLowerCase() || '';
+    if (type.includes('ride') || type.includes('cycling')) return 'bike';
+    if (type.includes('run')) return 'run';
+    if (type.includes('swim')) return 'swim';
+    if (type.includes('walk') || type.includes('hike')) return 'walk';
     return 'map-marker';
   };
 
@@ -99,7 +101,7 @@ function MatchRowComponent({ match }: MatchRowProps) {
             </Text>
           )}
           <Text style={[styles.matchPercent, { color: colors.success }]}>
-            {Math.round(match.matchPercentage)}% match
+            {Math.round(match.matchPercentage)}% {t('routes.match')}
           </Text>
         </View>
       </View>

@@ -1,0 +1,428 @@
+{
+  "common": {
+    "loading": "Cargando...",
+    "loadingMore": "Cargando más...",
+    "error": "Error",
+    "retry": "Reintentar",
+    "cancel": "Cancelar",
+    "save": "Guardar",
+    "delete": "Eliminar",
+    "confirm": "Confirmar",
+    "back": "Atrás",
+    "next": "Siguiente",
+    "done": "Hecho",
+    "search": "Buscar",
+    "clearSearch": "Borrar búsqueda",
+    "noResults": "Sin resultados",
+    "pullToRefresh": "Desliza para actualizar"
+  },
+
+  "navigation": {
+    "feed": "Inicio",
+    "fitness": "Forma física",
+    "stats": "Estadísticas",
+    "training": "Entrenamiento",
+    "wellness": "Bienestar",
+    "routes": "Rutas",
+    "heatmap": "Mapa de calor",
+    "map": "Mapa",
+    "settings": "Ajustes"
+  },
+
+  "feed": {
+    "recentActivities": "Actividades recientes",
+    "activitiesCount": "{{count}} Actividades",
+    "noActivities": "No se encontraron actividades",
+    "noMatchingActivities": "No hay actividades coincidentes",
+    "failedToLoad": "Error al cargar actividades",
+    "searchPlaceholder": "Buscar actividades..."
+  },
+
+  "filters": {
+    "showFilters": "Mostrar filtros",
+    "hideFilters": "Ocultar filtros",
+    "cycling": "Ciclismo",
+    "running": "Carrera",
+    "swimming": "Natación",
+    "hiking": "Senderismo",
+    "walking": "Caminata",
+    "snowSports": "Deportes de nieve",
+    "waterSports": "Deportes acuáticos",
+    "climbing": "Escalada",
+    "racketSports": "Deportes de raqueta",
+    "other": "Otros"
+  },
+
+  "metrics": {
+    "hrv": "VFC",
+    "rhr": "FCR",
+    "week": "Semana",
+    "ftp": "FTP",
+    "pace": "Ritmo",
+    "css": "VNC",
+    "form": "Forma",
+    "fitness": "Forma física",
+    "fatigue": "Fatiga",
+    "hr": "FC"
+  },
+
+  "login": {
+    "title": "Veloq",
+    "subtitle": "Conectar con Intervals.icu",
+    "gettingStarted": "Comenzar",
+    "instructions": "1. Abre los Ajustes de Intervals.icu\n2. Ve a \"Configuración de desarrollador\"\n3. Copia tu clave API",
+    "openSettings": "Abrir Ajustes de Intervals.icu",
+    "apiKey": "Clave API",
+    "connect": "Conectar",
+    "connecting": "Conectando...",
+    "apiKeyRequired": "La clave API es obligatoria",
+    "invalidApiKey": "Clave API inválida. Por favor, verifica tu clave e inténtalo de nuevo.",
+    "connectionFailed": "Error de conexión. Por favor, verifica tu clave API e inténtalo de nuevo.",
+    "securityNote": "Tus credenciales se guardan de forma segura en tu dispositivo"
+  },
+
+  "settings": {
+    "title": "Ajustes",
+    "appearance": "Apariencia",
+    "system": "Sistema",
+    "light": "Claro",
+    "dark": "Oscuro",
+    "language": "Idioma",
+    "primarySport": "Deporte principal",
+    "primarySportHint": "Afecta las métricas de la pantalla de inicio y la vista predeterminada de estadísticas.",
+    "maps": "Mapas",
+    "defaultStyle": "Estilo predeterminado",
+    "satellite": "Satélite",
+    "customiseByActivity": "Personalizar por tipo de actividad",
+    "default": "Predeterminado",
+    "defaultMapHint": "'Predeterminado' usa el estilo de mapa configurado arriba",
+    "dataCache": "Caché de datos",
+    "syncAllHistory": "Sincronizar todo el historial",
+    "syncAllHistoryDescription": "Esto sincronizará hasta 10 años de datos de actividades en segundo plano. Permite un análisis de rutas más profundo.",
+    "syncInProgress": "Por favor, espera a que termine la sincronización actual.",
+    "viewRoutes": "Ver rutas",
+    "pauseRouteProcessing": "Pausar procesamiento de rutas",
+    "clearAllReload": "Borrar todo y recargar",
+    "clearAllReloadDescription": "Esto borrará todos los datos de actividades en caché, trazas GPS y datos de coincidencia de rutas, luego comenzará a recargar. Puede tardar unos minutos.",
+    "reanalyseRoutes": "Re-analizar solo rutas",
+    "clearRouteDescription": "Esto borrará todos los datos de coincidencia de rutas y re-analizará inmediatamente las trazas GPS.",
+    "activities": "Actividades",
+    "routesCount": "Rutas",
+    "total": "Total",
+    "dateRange": "Rango de fechas",
+    "noData": "Sin datos",
+    "lastSynced": "Última sincronización",
+    "bounds": "Límites",
+    "gpsTraces": "Trazas GPS",
+    "cacheHint": "Almacena en caché las ubicaciones de actividades y trazas GPS para el Mapa Mundial y coincidencia de rutas. Por defecto, sincroniza 3 meses. Usa \"Sincronizar todo el historial\" para un análisis más profundo.",
+    "routeMatching": "Coincidencia de rutas",
+    "enableRouteMatching": "Activar coincidencia de rutas",
+    "routeMatchingDescription": "Detecta automáticamente rutas repetidas de tus actividades",
+    "account": "Cuenta",
+    "disconnectAccount": "Desconectar cuenta",
+    "disconnectDescription": "Esto eliminará tus credenciales API de la app. Tendrás que ingresarlas de nuevo para usar la app.",
+    "dataSources": "Fuentes de datos",
+    "dataSourcesDescription": "Los datos de actividad y bienestar se sincronizan desde intervals.icu, que se integra con varias plataformas y dispositivos de fitness.",
+    "support": "Soporte",
+    "subscribe": "Suscribirse",
+    "sponsorDev": "Patrocinar desarrollo"
+  },
+
+  "alerts": {
+    "error": "Error",
+    "clearCacheTitle": "Borrar y recargar caché",
+    "clearCacheMessage": "Esto borrará todos los datos de actividades en caché, trazas GPS y datos de coincidencia de rutas, luego comenzará a recargar. Puede tardar unos minutos.",
+    "clearReload": "Borrar y recargar",
+    "clearRouteCacheTitle": "Borrar y recargar caché de rutas",
+    "clearRouteCacheMessage": "Esto borrará todos los datos de coincidencia de rutas y re-analizará inmediatamente las trazas GPS.",
+    "syncAllTitle": "Sincronizar todo el historial",
+    "syncAllMessage": "Esto sincronizará hasta 10 años de datos de actividades en segundo plano. Permite un análisis de rutas más profundo.",
+    "sync": "Sincronizar",
+    "disconnectTitle": "Desconectar cuenta",
+    "disconnectMessage": "Esto eliminará tus credenciales API de la app. Tendrás que ingresarlas de nuevo para usar la app.",
+    "disconnect": "Desconectar",
+    "failedToClear": "Error al borrar la caché. Por favor, inténtalo de nuevo.",
+    "failedToDisconnect": "Error al desconectar. Por favor, inténtalo de nuevo."
+  },
+
+  "activity": {
+    "viewDetails": "Ver detalles",
+    "share": "Compartir",
+    "distance": "Distancia",
+    "duration": "Duración",
+    "elevation": "Elevación",
+    "speed": "Velocidad",
+    "heartRate": "Frecuencia cardíaca",
+    "power": "Potencia",
+    "cadence": "Cadencia",
+    "calories": "Calorías",
+    "tss": "TSS",
+    "pwr": "POT",
+    "cal": "CAL",
+    "temp": "TEMP",
+    "noHeartRateData": "Sin datos de frecuencia cardíaca",
+    "timeInHRZones": "Tiempo en zonas de FC",
+    "maxHR": "Máx: {{value}} lpm",
+    "noDataAvailable": "Sin datos disponibles",
+    "avg": "prom",
+    "noMetricData": "Sin datos de {{metric}}",
+    "noElevationData": "Sin datos de elevación",
+    "activityStats": "Estadísticas de actividad",
+    "viewInIntervalsICU": "Ver en intervals.icu",
+    "whatIsThis": "¿Qué es esto?",
+    "tapToClose": "Toca en cualquier lugar para cerrar",
+    "vsYourAvg": "vs tu promedio",
+    "vsTypical": "vs típico",
+    "explanations": {
+      "trainingLoad": "Training Stress Score (TSS) cuantifica la carga de entrenamiento basándose en la duración e intensidad relativa a tu umbral.",
+      "heartRate": "Frecuencia cardíaca promedio durante la actividad.",
+      "energy": "Gasto energético estimado a partir de frecuencia cardíaca, potencia y duración.",
+      "conditions": "Temperatura de datos meteorológicos o del sensor de tu dispositivo.",
+      "yourForm": "Tu Forma (TSB) en este día. Es un valor diario basado en tu entrenamiento general, no específico de esta actividad. TSB = Forma física (CTL) menos Fatiga (ATL).",
+      "power": "Potencia media en vatios."
+    },
+    "stats": {
+      "trainingLoad": "Carga de entrenamiento",
+      "intensityFactor": "Factor de intensidad",
+      "trimp": "TRIMP",
+      "strain": "Tensión",
+      "yourFitness": "Tu forma física (CTL)",
+      "yourFatigue": "Tu fatiga (ATL)",
+      "average": "Promedio",
+      "peak": "Pico",
+      "percentOfMaxHR": "{{percent}}% de FC máx",
+      "percentOfMaxHRLabel": "% de FC Máx",
+      "hrRecovery": "Recuperación de FC",
+      "bpmDrop": "{{value}} lpm de caída",
+      "restingHRToday": "FC en reposo hoy",
+      "hrvToday": "VFC hoy",
+      "energy": "Energía",
+      "caloriesBurned": "Calorías quemadas",
+      "burnRate": "Tasa de quema",
+      "conditions": "Condiciones",
+      "feelsLike": "Sensación {{temp}}°",
+      "feelsLikeLabel": "Sensación térmica",
+      "windSpeed": "{{speed}} km/h viento",
+      "weatherData": "Datos meteorológicos",
+      "deviceSensor": "Sensor del dispositivo",
+      "temperature": "Temperatura",
+      "wind": "Viento",
+      "yourForm": "Tu forma",
+      "dailyValue": "Valor diario",
+      "formTSB": "Forma (TSB)",
+      "fitnessCTL": "Forma física (CTL)",
+      "fatigueATL": "Fatiga (ATL)",
+      "sleepScore": "Puntuación de sueño",
+      "max": "Máx {{value}}",
+      "maxLabel": "Máx",
+      "percentOfFTP": "% de FTP",
+      "eftpEstimated": "eFTP (estimado)",
+      "efficiencyFactor": "Factor de eficiencia",
+      "decoupling": "Desacoplamiento"
+    }
+  },
+
+  "time": {
+    "today": "Hoy",
+    "yesterday": "Ayer",
+    "daysAgo": "Hace {{count}} días",
+    "weeksAgo": "Hace {{count}} semanas",
+    "monthsAgo": "Hace {{count}} meses",
+    "yearsAgo": "Hace {{count}} años"
+  },
+
+  "units": {
+    "km": "km",
+    "mi": "mi",
+    "m": "m",
+    "ft": "pies",
+    "kmh": "km/h",
+    "mph": "mph",
+    "bpm": "lpm",
+    "watts": "W",
+    "rpm": "rpm",
+    "kcal": "kcal",
+    "hours": "h",
+    "minutes": "min",
+    "seconds": "s"
+  },
+
+  "fitnessScreen": {
+    "title": "Forma física",
+    "loadingData": "Cargando datos de forma física...",
+    "failedToLoad": "Error al cargar datos de forma física",
+    "current": "Actual",
+    "ctl": "CTL",
+    "atl": "ATL",
+    "tsb": "TSB",
+    "fitnessAndFatigue": "Forma física y fatiga",
+    "understandingMetrics": "Entendiendo las métricas",
+    "fitnessDescription": "es un promedio móvil ponderado exponencialmente de 42 días de tu carga de entrenamiento.",
+    "fatigueDescription": "es un promedio móvil ponderado exponencialmente de 7 días de tu carga de entrenamiento.",
+    "formDescription": "es la forma física menos la fatiga. Entrena en la",
+    "optimalZone": "zona óptima",
+    "toBuildFitness": "para ganar forma. Mantente",
+    "fresh": "fresco",
+    "forRaces": "para las carreras. Evita la",
+    "highRiskZone": "zona de alto riesgo",
+    "toPreventOvertraining": "para prevenir el sobreentrenamiento.",
+    "learnMore": "Saber más"
+  },
+
+  "wellnessScreen": {
+    "title": "Bienestar",
+    "trends": "Tendencias de bienestar"
+  },
+
+  "trainingScreen": {
+    "title": "Entrenamiento",
+    "routes": "Rutas",
+    "sections": "Secciones",
+    "heatmap": "Mapa de calor",
+    "disabledInSettings": "Desactivado - Activar en Ajustes",
+    "potentialMatches": "Encontradas {{count}} coincidencias potenciales",
+    "checkingActivities": "Comprobando {{count}} actividades...",
+    "groupingRoutes": "Agrupando rutas...",
+    "fetchingGps": "Obteniendo GPS: {{current}}/{{total}}",
+    "routesFromActivities": "{{routes}} rutas de {{activities}} actividades",
+    "discoverRoutes": "Descubre tus rutas habituales",
+    "visualizeActivities": "Visualiza {{count}} actividades",
+    "seeWhereYouTravel": "Ve dónde viajas más"
+  },
+
+  "routesScreen": {
+    "title": "Rutas",
+    "matchingDisabled": "Coincidencia de rutas desactivada",
+    "enableInSettings": "Activa la coincidencia de rutas en Ajustes para detectar automáticamente rutas repetidas de tus actividades.",
+    "goToSettings": "Ir a Ajustes",
+    "analysingRoutes": "Analizando rutas {{current}}/{{total}}"
+  },
+
+  "statsScreen": {
+    "title": "Rendimiento",
+    "days42": "42 Días",
+    "months3": "3 Meses",
+    "months6": "6 Meses",
+    "year1": "1 Año",
+    "lactateThreshold": "Umbral de lactato",
+    "pace": "Ritmo",
+    "heartRate": "Frecuencia cardíaca",
+    "maxHr": "FC Máx",
+    "paceCurve": "Curva de ritmo",
+    "powerCurve": "Curva de potencia",
+    "garminNote": "Los gráficos pueden incluir datos de dispositivos Garmin"
+  },
+
+  "heatmapScreen": {
+    "title": "Mapa de calor",
+    "noActivityData": "Sin datos de actividad",
+    "processFirstHint": "Procesa algunas actividades en la pantalla de Rutas primero para generar un mapa de calor.",
+    "goToRoutes": "Ir a Rutas",
+    "generatingHeatmap": "Generando mapa de calor...",
+    "activitiesCount": "{{count}} actividades"
+  },
+
+  "mapScreen": {
+    "loadingActivities": "Cargando actividades...",
+    "syncing": "Sincronizando: {{completed}}/{{total}}"
+  },
+
+  "routes": {
+    "basedOnActivities": "Basado en {{count}} actividades",
+    "routesFound": "{{count}} rutas encontradas",
+    "sameDirection": "Misma dirección",
+    "reverse": "Inversa",
+    "partial": "Parcial",
+    "overlap": "{{distance}}km de superposición",
+    "lookingForRoutes": "Buscando rutas coincidentes...",
+    "checking": "Comprobando: {{name}}",
+    "waiting": "Esperando...",
+    "expandTimeline": "Expande la línea de tiempo para analizar más actividades. La coincidencia de rutas continuará en segundo plano hasta completarse.",
+    "loadingRoutes": "Cargando rutas...",
+    "analysingRoutes": "Analizando rutas",
+    "thisMayTakeMoment": "Esto puede tardar un momento...",
+    "noRoutesYet": "Sin rutas todavía",
+    "routesWillAppear": "Las rutas aparecerán después de analizar tus actividades",
+    "noMatchingRoutes": "No se encontraron rutas coincidentes",
+    "routesWithTwoPlus": "Las rutas con 2+ actividades en caminos similares aparecerán aquí",
+    "readyToProcess": "Listo para procesar",
+    "foundPotentialMatches": "Se encontraron {{count}} coincidencias potenciales",
+    "checkingActivities": "Paso 1: Comprobando {{count}} actividades...",
+    "fetchingGpsData": "Paso 2: Obteniendo datos GPS...",
+    "analysingActivities": "Paso 2: Analizando {{current}} de {{total}} actividades",
+    "groupingRoutes": "Paso 3: Agrupando rutas...",
+    "analysisComplete": "Análisis completo",
+    "errorOccurred": "Ocurrió un error",
+    "newRoute": "Nueva ruta",
+    "matches": "Coincide con: {{name}}",
+    "moreActivitiesProcessed": "+ {{count}} más actividades procesadas",
+    "matchesLabel": "coincidencias",
+    "checkedLabel": "comprobadas",
+    "match": "coincidencia",
+    "more": "+{{count}} más",
+    "loadingSections": "Cargando secciones...",
+    "noFrequentSections": "Sin secciones frecuentes todavía",
+    "sectionsDescription": "Las secciones se detectan cuando recorres las mismas carreteras varias veces, incluso en rutas diferentes",
+    "noSectionsMatchFilter": "Ninguna sección coincide con el filtro",
+    "adjustSportTypeFilter": "Intenta ajustar el filtro de tipo de deporte",
+    "frequentSectionsInfo": "Las secciones frecuentes son segmentos de carretera que recorres a menudo, detectados automáticamente de tus trazas GPS.",
+    "activities": "actividades",
+    "partOfRoutes": "Parte de {{count}} ruta",
+    "partOfRoutesPlural": "Parte de {{count}} rutas",
+    "matchedRoute": "RUTA COINCIDENTE",
+    "thisActivity": "Esta actividad",
+    "selected": "Seleccionado",
+    "thisPace": "Este ritmo",
+    "thisSpeed": "Esta velocidad",
+    "best": "Mejor",
+    "bestOn": "Mejor el",
+    "same": "Mismo",
+    "fastest": "#{{rank}} más rápido",
+    "routeNamePlaceholder": "Nombre de la ruta"
+  },
+
+  "errorState": {
+    "defaultTitle": "Algo salió mal",
+    "defaultMessage": "Error al cargar los datos. Por favor, inténtalo de nuevo.",
+    "tryAgain": "Reintentar"
+  },
+
+  "emptyState": {
+    "refresh": "Actualizar",
+    "clearFilters": "Borrar filtros",
+    "noActivities": {
+      "title": "Sin actividades todavía",
+      "description": "Tus actividades aparecerán aquí una vez que sincronices con Intervals.icu"
+    },
+    "noResults": {
+      "title": "No se encontraron resultados",
+      "description": "Intenta ajustar tu búsqueda o filtros"
+    },
+    "networkError": {
+      "title": "Error de conexión",
+      "description": "Comprueba tu conexión a internet e inténtalo de nuevo"
+    },
+    "error": {
+      "title": "Algo salió mal",
+      "description": "No pudimos cargar este contenido"
+    },
+    "noData": {
+      "title": "Sin datos disponibles",
+      "description": "Completa algunas actividades para ver tus estadísticas"
+    },
+    "offline": {
+      "title": "Estás sin conexión",
+      "description": "Algunas funciones pueden estar limitadas"
+    }
+  },
+
+  "cache": {
+    "syncingActivities": "Sincronizando actividades",
+    "analyzingRoutes": "Analizando rutas"
+  },
+
+  "attribution": {
+    "recordedWith": "Grabado con {{device}}",
+    "garminTrademark": "Garmin y el logotipo de Garmin son marcas registradas de Garmin Ltd."
+  }
+}

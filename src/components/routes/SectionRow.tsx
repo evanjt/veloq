@@ -8,6 +8,7 @@ import { View, StyleSheet, Pressable, useColorScheme } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Svg, { Polyline } from 'react-native-svg';
+import { useTranslation } from 'react-i18next';
 import { colors, spacing, layout } from '@/theme';
 import type { FrequentSection } from '@/types';
 
@@ -36,6 +37,7 @@ function formatDistance(meters: number): string {
 }
 
 export const SectionRow = memo(function SectionRow({ section, onPress }: SectionRowProps) {
+  const { t } = useTranslation();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
 
@@ -145,7 +147,7 @@ export const SectionRow = memo(function SectionRow({ section, onPress }: Section
               color={isDark ? '#666' : '#999'}
             />
             <Text style={[styles.statText, isDark && styles.textMuted]}>
-              {section.activityIds.length} activities
+              {section.activityIds.length} {t('routes.activities')}
             </Text>
           </View>
         </View>
@@ -153,7 +155,9 @@ export const SectionRow = memo(function SectionRow({ section, onPress }: Section
         {/* Routes using this section */}
         {section.routeIds.length > 0 && (
           <Text style={[styles.routes, isDark && styles.textMuted]} numberOfLines={1}>
-            Part of {section.routeIds.length} route{section.routeIds.length > 1 ? 's' : ''}
+            {section.routeIds.length > 1
+              ? t('routes.partOfRoutesPlural', { count: section.routeIds.length })
+              : t('routes.partOfRoutes', { count: section.routeIds.length })}
           </Text>
         )}
       </View>

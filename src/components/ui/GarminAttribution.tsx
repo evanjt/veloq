@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, useColorScheme } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors, spacing } from '@/theme';
 
@@ -85,6 +86,7 @@ interface DeviceAttributionProps {
 }
 
 export function DeviceAttribution({ deviceName }: DeviceAttributionProps) {
+  const { t } = useTranslation();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
 
@@ -101,12 +103,12 @@ export function DeviceAttribution({ deviceName }: DeviceAttributionProps) {
           color={isDark ? '#666' : colors.textSecondary}
         />
         <Text style={[styles.deviceText, isDark && styles.deviceTextDark]}>
-          Recorded with {deviceName}
+          {t('attribution.recordedWith', { device: deviceName })}
         </Text>
       </View>
       {isGarmin && (
         <Text style={[styles.attributionText, isDark && styles.attributionTextDark]}>
-          Garmin and the Garmin logo are trademarks of Garmin Ltd.
+          {t('attribution.garminTrademark')}
         </Text>
       )}
     </View>
