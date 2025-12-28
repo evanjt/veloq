@@ -6,7 +6,20 @@
  */
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
-import { routeEngine, type RouteGroup, type FrequentSection, type EngineStats } from 'route-matcher-native';
+import type { RouteGroup, FrequentSection, EngineStats } from 'route-matcher-native';
+
+// Lazy load native module to avoid bundler errors
+let _routeEngine: typeof import('route-matcher-native').routeEngine | null = null;
+function getRouteEngine() {
+  if (!_routeEngine) {
+    try {
+      _routeEngine = require('route-matcher-native').routeEngine;
+    } catch {
+      return null;
+    }
+  }
+  return _routeEngine;
+}
 
 // ============================================================================
 // useRouteEngine - Main hook for engine access
@@ -46,20 +59,26 @@ export function useRouteEngine(): UseRouteEngineResult {
   const [activityCount, setActivityCount] = useState(0);
 
   const init = useCallback(() => {
-    routeEngine.init();
+    const engine = getRouteEngine();
+    if (!engine) return;
+    engine.init();
     setIsReady(true);
-    setActivityCount(routeEngine.getActivityCount());
+    setActivityCount(engine.getActivityCount());
   }, []);
 
   const clear = useCallback(() => {
-    routeEngine.clear();
+    const engine = getRouteEngine();
+    if (engine) engine.clear();
     setActivityCount(0);
   }, []);
 
   // Subscribe to activity changes
   useEffect(() => {
-    const unsubscribe = routeEngine.subscribe('activities', () => {
-      setActivityCount(routeEngine.getActivityCount());
+    const engine = getRouteEngine();
+    if (!engine) return;
+    const unsubscribe = engine.subscribe('activities', () => {
+      const eng = getRouteEngine();
+      setActivityCount(eng ? eng.getActivityCount() : 0);
     });
     return unsubscribe;
   }, []);
@@ -113,7 +132,8 @@ export function useEngineGroups(options: UseEngineGroupsOptions = {}): UseEngine
 
   const refresh = useCallback(() => {
     try {
-      const allGroups = routeEngine.getGroups();
+      const engine = getRouteEngine();
+      const allGroups = engine ? engine.getGroups() : [];
       setGroups(allGroups || []);
     } catch (e) {
       console.error('[useEngineGroups] Error getting groups:', e);
@@ -124,7 +144,9 @@ export function useEngineGroups(options: UseEngineGroupsOptions = {}): UseEngine
   // Subscribe to group changes
   useEffect(() => {
     refresh();
-    const unsubscribe = routeEngine.subscribe('groups', refresh);
+    const engine = getRouteEngine();
+    if (!engine) return;
+    const unsubscribe = engine.subscribe('groups', refresh);
     return unsubscribe;
   }, [refresh]);
 
@@ -189,14 +211,17 @@ export function useEngineSections(options: UseEngineSectionsOptions = {}): UseEn
   const [sections, setSections] = useState<FrequentSection[]>([]);
 
   const refresh = useCallback(() => {
-    const allSections = routeEngine.getSections();
+    const engine = getRouteEngine();
+    const allSections = engine ? engine.getSections() : [];
     setSections(allSections);
   }, []);
 
   // Subscribe to section changes
   useEffect(() => {
     refresh();
-    const unsubscribe = routeEngine.subscribe('sections', refresh);
+    const engine = getRouteEngine();
+    if (!engine) return;
+    const unsubscribe = engine.subscribe('sections', refresh);
     return unsubscribe;
   }, [refresh]);
 
@@ -263,12 +288,13 @@ export function useViewportActivities(bounds: Bounds | null): UseViewportActivit
 
   useEffect(() => {
     if (bounds) {
-      const ids = routeEngine.queryViewport(
+      const engine = getRouteEngine();
+      const ids = engine ? engine.queryViewport(
         bounds.minLat,
         bounds.maxLat,
         bounds.minLng,
         bounds.maxLng
-      );
+      ) : [];
       setActivityIds(ids);
     } else {
       setActivityIds([]);
@@ -314,15 +340,18 @@ export function useEngineStats(): EngineStats {
   });
 
   const refresh = useCallback(() => {
-    setStats(routeEngine.getStats());
+    const engine = getRouteEngine();
+    if (engine) setStats(engine.getStats());
   }, []);
 
   // Refresh on any engine change
   useEffect(() => {
     refresh();
-    const unsub1 = routeEngine.subscribe('activities', refresh);
-    const unsub2 = routeEngine.subscribe('groups', refresh);
-    const unsub3 = routeEngine.subscribe('sections', refresh);
+    const engine = getRouteEngine();
+    if (!engine) return;
+    const unsub1 = engine.subscribe('activities', refresh);
+    const unsub2 = engine.subscribe('groups', refresh);
+    const unsub3 = engine.subscribe('sections', refresh);
     return () => {
       unsub1();
       unsub2();
@@ -369,7 +398,8 @@ export function useConsensusRoute(groupId: string | null): UseConsensusRouteResu
     }
 
     setIsLoading(true);
-    const gpsPoints = routeEngine.getConsensusRoutePoints(groupId);
+    const engine = getRouteEngine();
+    const gpsPoints = engine ? engine.getConsensusRoutePoints(groupId) : [];
 
     if (gpsPoints.length > 0) {
       setPoints(gpsPoints.map(p => ({ lat: p.latitude, lng: p.longitude })));

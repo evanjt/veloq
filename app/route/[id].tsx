@@ -13,7 +13,15 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { useSharedValue, useDerivedValue, useAnimatedStyle, useAnimatedReaction, runOnJS } from 'react-native-reanimated';
 import Animated from 'react-native-reanimated';
 import { useActivities, useRouteGroups, useConsensusRoute } from '@/hooks';
-import { routeEngine } from 'route-matcher-native';
+
+// Lazy load native module to avoid bundler errors
+function getRouteEngine() {
+  try {
+    return require('route-matcher-native').routeEngine;
+  } catch {
+    return null;
+  }
+}
 import { RouteMapView } from '@/components/routes';
 import {
   formatDistance,
@@ -838,7 +846,8 @@ export default function RouteDetailScreen() {
   // Load custom route name from Rust engine on mount
   useEffect(() => {
     if (id) {
-      const name = routeEngine.getRouteName(id);
+      const engine = getRouteEngine();
+      const name = engine?.getRouteName(id);
       if (name) {
         setCustomName(name);
       }
@@ -892,7 +901,8 @@ export default function RouteDetailScreen() {
   const handleSaveName = useCallback(() => {
     const trimmedName = editName.trim();
     if (trimmedName && id) {
-      routeEngine.setRouteName(id, trimmedName);
+      const engine = getRouteEngine();
+      if (engine) engine.setRouteName(id, trimmedName);
       setCustomName(trimmedName);
     }
     setIsEditing(false);
@@ -914,7 +924,9 @@ export default function RouteDetailScreen() {
   const signatures = useMemo(() => {
     if (!id || !engineGroup) return {};
     try {
-      const sigMap = routeEngine.getSignaturesForGroup(id);
+      const engine = getRouteEngine();
+      if (!engine) return {};
+      const sigMap = engine.getSignaturesForGroup(id);
       // Convert to expected format: { activity_id: { points: [{lat, lng}, ...] } }
       const result: Record<string, { points: Array<{ lat: number; lng: number }> }> = {};
       for (const [activityId, points] of Object.entries(sigMap)) {
@@ -1019,6 +1031,7 @@ export default function RouteDetailScreen() {
                 highlightedActivityId={highlightedActivityId}
                 highlightedLapPoints={highlightedActivityPoints}
                 enableFullscreen={true}
+                activitySignatures={signatures}
               />
             ) : (
               <View style={[styles.mapPlaceholder, { height: MAP_HEIGHT, backgroundColor: activityColor + '20' }]}>

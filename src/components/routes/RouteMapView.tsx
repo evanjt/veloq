@@ -30,6 +30,8 @@ interface RouteMapViewProps {
   enableFullscreen?: boolean;
   /** Callback when map is tapped (only if enableFullscreen is false) */
   onPress?: () => void;
+  /** Activity signatures for trace rendering (activity ID -> points) */
+  activitySignatures?: Record<string, { points: RoutePoint[] }>;
 }
 
 export function RouteMapView({
@@ -40,6 +42,7 @@ export function RouteMapView({
   highlightedLapPoints,
   enableFullscreen = false,
   onPress,
+  activitySignatures = {},
 }: RouteMapViewProps) {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const { getStyleForActivity } = useMapPreferences();
@@ -47,9 +50,12 @@ export function RouteMapView({
   const activityColor = getActivityColor(routeGroup.type);
   const mapRef = useRef(null);
 
-  // Individual activity traces not available from engine (signatures are internal)
-  // Only the main route display is shown
-  const activityTracesWithIds: { id: string; points: RoutePoint[] }[] = [];
+  // Build activity traces from signatures prop
+  const activityTracesWithIds = useMemo(() => {
+    return Object.entries(activitySignatures)
+      .filter(([_, sig]) => sig.points && sig.points.length > 1)
+      .map(([id, sig]) => ({ id, points: sig.points }));
+  }, [activitySignatures]);
 
   // Always use the representative signature (the full route)
   // Consensus points are only for internal lap detection, not for display
