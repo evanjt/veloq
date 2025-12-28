@@ -170,8 +170,8 @@ export default function SettingsScreen() {
               // Clear both map cache and route cache together
               await clearCache();
               await clearRouteCache();
-              // Immediately start resyncing last 90 days
-              sync90Days();
+              // Actively refetch activities for last 90 days (awaited)
+              await sync90Days();
               // Refresh cache sizes
               refreshCacheSizes();
             } catch {

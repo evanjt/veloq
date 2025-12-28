@@ -315,7 +315,8 @@ class RouteMatcherModule : Module() {
           representativeId = (m["representativeId"] as? String) ?: activityIds.firstOrNull() ?: "",
           activityIds = activityIds,
           sportType = (m["sportType"] as? String) ?: "",
-          bounds = null
+          bounds = null,
+          customName = (m["customName"] as? String)
         )
       }
 
@@ -334,7 +335,8 @@ class RouteMatcherModule : Module() {
           "sportType" to group.sportType,
           "bounds" to group.bounds?.let { b ->
             mapOf("minLat" to b.minLat, "maxLat" to b.maxLat, "minLng" to b.minLng, "maxLng" to b.maxLng)
-          }
+          },
+          "customName" to group.customName
         )
       }
     }
@@ -364,7 +366,8 @@ class RouteMatcherModule : Module() {
           representativeId = (m["representativeId"] as? String) ?: activityIds.firstOrNull() ?: "",
           activityIds = activityIds,
           sportType = (m["sportType"] as? String) ?: "",
-          bounds = null
+          bounds = null,
+          customName = (m["customName"] as? String)
         )
       }
       val sportTypes = sportTypeMaps.map { m ->
@@ -499,9 +502,9 @@ class RouteMatcherModule : Module() {
       Log.i(TAG, "RouteEngine: Cleared")
     }
 
-    // Engine: Add activities from flat buffers
-    Function("engineAddActivities") { activityIds: List<String>, allCoords: DoubleArray, offsets: IntArray, sportTypes: List<String> ->
-      Log.i(TAG, "RouteEngine: Adding ${activityIds.size} activities")
+    // Engine: Add activities from flat buffers (async to avoid blocking UI thread)
+    AsyncFunction("engineAddActivities") { activityIds: List<String>, allCoords: DoubleArray, offsets: IntArray, sportTypes: List<String> ->
+      Log.i(TAG, "RouteEngine: Adding ${activityIds.size} activities (async)")
       val offsetsU32 = offsets.map { it.toUInt() }
       engineAddActivities(activityIds, allCoords.toList(), offsetsU32, sportTypes)
     }
@@ -530,6 +533,21 @@ class RouteMatcherModule : Module() {
     // Engine: Get sections as JSON
     Function("engineGetSectionsJson") {
       engineGetSectionsJson()
+    }
+
+    // Engine: Get signature points for all activities in a group
+    Function("engineGetSignaturesForGroupJson") { groupId: String ->
+      engineGetSignaturesForGroupJson(groupId)
+    }
+
+    // Engine: Set custom route name
+    Function("engineSetRouteName") { routeId: String, name: String ->
+      engineSetRouteName(routeId, name)
+    }
+
+    // Engine: Get custom route name
+    Function("engineGetRouteName") { routeId: String ->
+      engineGetRouteName(routeId)
     }
 
     // Engine: Query viewport

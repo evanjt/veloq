@@ -93,11 +93,15 @@ export function useActivityBoundsCache(): UseActivityBoundsCacheReturn {
     // Sync handled by Rust engine
   }, []);
 
-  const sync90Days = useCallback(() => {
+  const sync90Days = useCallback(async () => {
     // Clear the Rust engine state
     routeEngine.clear();
-    // Invalidate React Query cache to trigger refetch of activities
-    queryClient.invalidateQueries({ queryKey: ['activities'] });
+    // Actively refetch activities (not just invalidate, which only marks stale)
+    // Using 'all' type ensures refetch even when no component is watching
+    await queryClient.refetchQueries({
+      queryKey: ['activities'],
+      type: 'all',
+    });
   }, [queryClient]);
 
   return {

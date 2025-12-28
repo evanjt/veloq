@@ -867,7 +867,7 @@ export default function RouteDetailScreen() {
     if (!engineGroup) return null;
     return {
       id: engineGroup.groupId,
-      name: engineGroup.groupId, // Will be overridden by customName if set
+      name: engineGroup.name || `${engineGroup.type || 'Ride'} Route`, // Use the generated name from useRouteGroups
       type: engineGroup.type || 'Ride',
       activityIds: engineGroup.activityIds,
       activityCount: engineGroup.activityCount,
@@ -906,12 +906,29 @@ export default function RouteDetailScreen() {
     Keyboard.dismiss();
   }, []);
 
-  // Match data and signatures are now internal to Rust engine
+  // Match data is not yet available from Rust engine
   const matches: Record<string, { direction: string; matchPercentage: number }> = {};
-  const signatures: Record<string, { points: any[] }> = {};
 
-  // Fetch all activities (we filter by IDs from the route group)
+  // Get signature points for all activities in this group from Rust engine
+  // Depends on engineGroup to ensure we re-fetch when engine data is ready
+  const signatures = useMemo(() => {
+    if (!id || !engineGroup) return {};
+    try {
+      const sigMap = routeEngine.getSignaturesForGroup(id);
+      // Convert to expected format: { activity_id: { points: [{lat, lng}, ...] } }
+      const result: Record<string, { points: Array<{ lat: number; lng: number }> }> = {};
+      for (const [activityId, points] of Object.entries(sigMap)) {
+        result[activityId] = { points };
+      }
+      return result;
+    } catch {
+      return {};
+    }
+  }, [id, engineGroup]);
+
+  // Fetch activities for the past year (route groups can contain older activities)
   const { data: allActivities, isLoading } = useActivities({
+    days: 365,
     includeStats: false,
   });
 

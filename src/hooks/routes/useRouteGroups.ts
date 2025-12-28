@@ -4,7 +4,6 @@
  */
 
 import { useMemo } from 'react';
-import { routeEngine } from 'route-matcher-native';
 import { useEngineGroups } from './useRouteEngine';
 import type { ActivityType } from '@/types';
 
@@ -56,19 +55,11 @@ export function useRouteGroups(options: UseRouteGroupsOptions = {}): UseRouteGro
 
   const result = useMemo(() => {
     // Convert engine groups to extended format
+    // NOTE: Signature is NOT loaded here to avoid blocking render with sync FFI calls.
+    // Use useConsensusRoute hook to load signature lazily when needed.
     const extended: RouteGroupExtended[] = rawGroups.map((g, index) => {
       const sportType = g.sportType || 'Ride';
       const activityCount = g.activityIds.length;
-
-      // Fetch consensus points for mini-trace preview
-      const consensusPoints = routeEngine.getConsensusRoutePoints(g.groupId);
-      const signature =
-        consensusPoints.length > 0
-          ? {
-              points: consensusPoints.map((p) => ({ lat: p.latitude, lng: p.longitude })),
-              distance: 0, // We don't have distance readily available
-            }
-          : null;
 
       // Use custom name from Rust engine if set, otherwise generate default
       const name = g.customName || `${sportType} Route ${index + 1}`;
@@ -79,7 +70,8 @@ export function useRouteGroups(options: UseRouteGroupsOptions = {}): UseRouteGro
         name,
         activityCount,
         type: sportType as ActivityType,
-        signature,
+        // Signature loaded lazily via useConsensusRoute to avoid blocking render
+        signature: undefined,
       };
     });
 

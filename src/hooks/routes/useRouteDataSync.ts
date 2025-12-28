@@ -10,8 +10,6 @@ import {
   routeEngine,
   fetchActivityMapsWithProgress,
   addFetchProgressListener,
-  flatCoordsToPoints,
-  type ActivityMapResult,
 } from 'route-matcher-native';
 import { useAuthStore } from '@/providers';
 import { getStoredCredentials } from '@/providers';
@@ -55,7 +53,6 @@ export function useRouteDataSync(
 
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const isDemoMode = useAuthStore((s) => s.isDemoMode);
-  const syncedIdsRef = useRef<Set<string>>(new Set());
   const isSyncingRef = useRef(false);
 
   const syncActivities = useCallback(async (activitiesToSync: Activity[]) => {
@@ -64,9 +61,13 @@ export function useRouteDataSync(
       return;
     }
 
-    // Filter to activities with GPS that aren't already synced
+    // Use engine state for synced IDs - more robust than JS ref
+    // This persists across component remounts and correctly resets after clear()
+    const engineActivityIds = new Set(routeEngine.getActivityIds());
+
+    // Filter to activities with GPS that aren't already in the engine
     const withGps = activitiesToSync.filter(
-      (a) => a.stream_types?.includes('latlng') && !syncedIdsRef.current.has(a.id)
+      (a) => a.stream_types?.includes('latlng') && !engineActivityIds.has(a.id)
     );
 
     if (withGps.length === 0) {
@@ -133,14 +134,12 @@ export function useRouteDataSync(
 
             // Add coordinates (already in lat, lng format from Rust)
             allCoords.push(...result.latlngs);
-
-            // Mark as synced
-            syncedIdsRef.current.add(result.activityId);
+            // Note: No need to track synced IDs in JS - the engine tracks them
           }
 
-          // Add to engine
+          // Add to engine (async to avoid blocking UI)
           if (ids.length > 0) {
-            routeEngine.addActivities(ids, allCoords, offsets, sportTypes);
+            await routeEngine.addActivities(ids, allCoords, offsets, sportTypes);
           }
         }
 

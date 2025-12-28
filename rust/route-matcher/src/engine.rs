@@ -98,6 +98,9 @@ pub struct RouteEngine {
     // Caches
     consensus_cache: HashMap<String, Vec<GpsPoint>>,
 
+    // Custom route names (route_id -> custom_name)
+    route_names: HashMap<String, String>,
+
     // Dirty tracking for incremental updates
     dirty_signatures: HashSet<String>,
     groups_dirty: bool,
@@ -119,6 +122,7 @@ impl RouteEngine {
             sections: Vec::new(),
             spatial_index: RTree::new(),
             consensus_cache: HashMap::new(),
+            route_names: HashMap::new(),
             dirty_signatures: HashSet::new(),
             groups_dirty: false,
             sections_dirty: false,
@@ -298,6 +302,39 @@ impl RouteEngine {
         self.signatures.values().collect()
     }
 
+    /// Get signature points for an activity as JSON.
+    /// Returns empty string if activity not found.
+    pub fn get_signature_points_json(&mut self, id: &str) -> String {
+        if let Some(sig) = self.get_signature(id) {
+            serde_json::to_string(&sig.points).unwrap_or_else(|_| "[]".to_string())
+        } else {
+            "[]".to_string()
+        }
+    }
+
+    /// Get signature points for multiple activities as JSON.
+    /// Returns a map of activity_id -> points array.
+    pub fn get_signatures_for_group_json(&mut self, group_id: &str) -> String {
+        self.ensure_groups();
+
+        // Find the group
+        let activity_ids: Vec<String> = self.groups
+            .iter()
+            .find(|g| g.group_id == group_id)
+            .map(|g| g.activity_ids.clone())
+            .unwrap_or_default();
+
+        // Build map of activity_id -> points
+        let mut result: std::collections::HashMap<String, Vec<GpsPoint>> = std::collections::HashMap::new();
+        for id in &activity_ids {
+            if let Some(sig) = self.get_signature(id) {
+                result.insert(id.clone(), sig.points.clone());
+            }
+        }
+
+        serde_json::to_string(&result).unwrap_or_else(|_| "{}".to_string())
+    }
+
     // ========================================================================
     // Grouping
     // ========================================================================
@@ -322,6 +359,17 @@ impl RouteEngine {
             self.groups = group_signatures(&signatures, &self.match_config);
         }
 
+        // Populate sport_type and custom_name for each group
+        for group in &mut self.groups {
+            if let Some(activity) = self.activities.get(&group.representative_id) {
+                group.sport_type = activity.sport_type.clone();
+            }
+            // Apply custom name if one exists
+            if let Some(name) = self.route_names.get(&group.group_id) {
+                group.custom_name = Some(name.clone());
+            }
+        }
+
         self.groups_dirty = false;
     }
 
@@ -329,6 +377,34 @@ impl RouteEngine {
     pub fn get_groups(&mut self) -> &[RouteGroup] {
         self.ensure_groups();
         &self.groups
+    }
+
+    // ========================================================================
+    // Route Names
+    // ========================================================================
+
+    /// Set a custom name for a route.
+    /// Pass empty string to clear the custom name.
+    pub fn set_route_name(&mut self, route_id: &str, name: &str) {
+        if name.is_empty() {
+            self.route_names.remove(route_id);
+            // Update in-memory group
+            if let Some(group) = self.groups.iter_mut().find(|g| g.group_id == route_id) {
+                group.custom_name = None;
+            }
+        } else {
+            self.route_names.insert(route_id.to_string(), name.to_string());
+            // Update in-memory group
+            if let Some(group) = self.groups.iter_mut().find(|g| g.group_id == route_id) {
+                group.custom_name = Some(name.to_string());
+            }
+        }
+    }
+
+    /// Get the custom name for a route.
+    /// Returns None if no custom name is set.
+    pub fn get_route_name(&self, route_id: &str) -> Option<&String> {
+        self.route_names.get(route_id)
     }
 
     /// Get the group containing a specific activity.
@@ -713,6 +789,27 @@ pub mod engine_ffi {
     #[uniffi::export]
     pub fn engine_get_sections_json() -> String {
         with_engine(|e| e.get_sections_json())
+    }
+
+    /// Get signature points for all activities in a group.
+    /// Returns JSON: { "activity_id": [{"latitude": x, "longitude": y}, ...], ... }
+    #[uniffi::export]
+    pub fn engine_get_signatures_for_group_json(group_id: String) -> String {
+        with_engine(|e| e.get_signatures_for_group_json(&group_id))
+    }
+
+    /// Set a custom name for a route.
+    /// Pass empty string to clear the custom name.
+    #[uniffi::export]
+    pub fn engine_set_route_name(route_id: String, name: String) {
+        with_engine(|e| e.set_route_name(&route_id, &name))
+    }
+
+    /// Get the custom name for a route.
+    /// Returns empty string if no custom name is set.
+    #[uniffi::export]
+    pub fn engine_get_route_name(route_id: String) -> String {
+        with_engine(|e| e.get_route_name(&route_id).cloned().unwrap_or_default())
     }
 
     /// Query activities in viewport.
