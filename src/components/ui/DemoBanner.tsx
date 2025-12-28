@@ -7,7 +7,15 @@ import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '@/providers';
-import { routeEngine } from 'route-matcher-native';
+
+// Lazy load native module to avoid bundler errors
+function getRouteEngine() {
+  try {
+    return require('route-matcher-native').routeEngine;
+  } catch {
+    return null;
+  }
+}
 
 export function DemoBanner() {
   const { t } = useTranslation();
@@ -25,7 +33,8 @@ export function DemoBanner() {
     // Clear cached demo data - TanStack Query cache
     queryClient.clear();
     // Clear Rust engine cache
-    routeEngine.clear();
+    const routeEngine = getRouteEngine();
+    if (routeEngine) routeEngine.clear();
     // Exit demo mode (sets isAuthenticated to false)
     exitDemoMode();
     // Navigate to login - use replace to prevent going back to demo

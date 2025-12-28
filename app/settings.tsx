@@ -15,7 +15,7 @@ import { router, Href } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { SegmentedButtons, Switch } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
-import { useAthlete, useActivityBoundsCache, useRouteProcessing, useRouteGroups } from '@/hooks';
+import { useAthlete, useActivityBoundsCache, useRouteProcessing, useRouteGroups, useActivities } from '@/hooks';
 import { getAthleteId } from '@/api';
 import { estimateBoundsCacheSize, estimateGpsStorageSize } from '@/lib';
 import {
@@ -115,14 +115,16 @@ export default function SettingsScreen() {
     await setActivityGroupStyle(group.types, style);
   };
 
+  // Fetch activities to get date range for cache stats
+  const { data: allActivities } = useActivities({ days: 365 * 10, includeStats: false });
+
   const {
-    activities,
     progress,
     cacheStats,
     clearCache,
     syncAllHistory,
     sync90Days,
-  } = useActivityBoundsCache();
+  } = useActivityBoundsCache({ activitiesWithDates: allActivities });
 
   // Route matching cache
   const { progress: routeProgress, isProcessing: isRouteProcessing, clearCache: clearRouteCache, cancel: cancelRouteProcessing } = useRouteProcessing();
@@ -151,7 +153,7 @@ export default function SettingsScreen() {
 
   useEffect(() => {
     refreshCacheSizes();
-  }, [refreshCacheSizes, activities.length, routeProcessedCount]);
+  }, [refreshCacheSizes, cacheStats.totalActivities, routeProcessedCount]);
 
   const profileUrl = athlete?.profile_medium || athlete?.profile;
   const hasValidProfileUrl = profileUrl && typeof profileUrl === 'string' && profileUrl.startsWith('http');

@@ -6,12 +6,20 @@
  */
 
 import { useEffect, useState, useRef, useCallback } from 'react';
-import {
-  routeEngine,
-  fetchActivityMapsWithProgress,
-  addFetchProgressListener,
-} from 'route-matcher-native';
 import { useAuthStore } from '@/providers';
+
+// Lazy load native module to avoid bundler errors
+let _nativeModule: typeof import('route-matcher-native') | null = null;
+function getNativeModule() {
+  if (!_nativeModule) {
+    try {
+      _nativeModule = require('route-matcher-native');
+    } catch {
+      return null;
+    }
+  }
+  return _nativeModule;
+}
 import { getStoredCredentials } from '@/providers';
 import type { Activity } from '@/types';
 
@@ -63,7 +71,9 @@ export function useRouteDataSync(
 
     // Use engine state for synced IDs - more robust than JS ref
     // This persists across component remounts and correctly resets after clear()
-    const engineActivityIds = new Set(routeEngine.getActivityIds());
+    const nativeModule = getNativeModule();
+    if (!nativeModule) return;
+    const engineActivityIds = new Set(nativeModule.routeEngine.getActivityIds());
 
     // Filter to activities with GPS that aren't already in the engine
     const withGps = activitiesToSync.filter(
@@ -95,7 +105,7 @@ export function useRouteDataSync(
       });
 
       // Set up progress listener
-      const subscription = addFetchProgressListener((event) => {
+      const subscription = nativeModule.addFetchProgressListener((event) => {
         setProgress((p) => ({
           ...p,
           completed: event.completed,
@@ -106,7 +116,7 @@ export function useRouteDataSync(
       try {
         // Fetch GPS data using Rust HTTP client
         const activityIds = withGps.map((a) => a.id);
-        const results = await fetchActivityMapsWithProgress(creds.apiKey, activityIds);
+        const results = await nativeModule.fetchActivityMapsWithProgress(creds.apiKey, activityIds);
 
         setProgress({
           status: 'processing',
@@ -139,7 +149,7 @@ export function useRouteDataSync(
 
           // Add to engine (async to avoid blocking UI)
           if (ids.length > 0) {
-            await routeEngine.addActivities(ids, allCoords, offsets, sportTypes);
+            await nativeModule.routeEngine.addActivities(ids, allCoords, offsets, sportTypes);
           }
         }
 
@@ -149,6 +159,22 @@ export function useRouteDataSync(
           total: withGps.length,
           message: `Synced ${successfulResults.length} activities`,
         });
+
+        // Pre-trigger lazy computation when we have sufficient activities
+        // This ensures routes are ready for immediate use
+        const activityCount = nativeModule.routeEngine.getActivityCount();
+        if (activityCount >= 90) {
+          // Trigger group computation in background
+          // This makes the data available faster when user navigates to routes
+          setTimeout(() => {
+            try {
+              const mod = getNativeModule();
+              if (mod) mod.routeEngine.getGroups();
+            } catch {
+              // Ignore errors during background computation
+            }
+          }, 100);
+        }
       } finally {
         subscription.remove();
       }
