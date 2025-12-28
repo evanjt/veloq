@@ -224,6 +224,12 @@ impl PersistentRouteEngine {
                 data BLOB NOT NULL
             );
 
+            -- Custom route names (user-defined)
+            CREATE TABLE IF NOT EXISTS route_names (
+                route_id TEXT PRIMARY KEY,
+                custom_name TEXT NOT NULL
+            );
+
             -- Indexes
             CREATE INDEX IF NOT EXISTS idx_activities_sport ON activities(sport_type);
             CREATE INDEX IF NOT EXISTS idx_activities_bounds ON activities(min_lat, max_lat, min_lng, max_lng);
@@ -288,46 +294,74 @@ impl PersistentRouteEngine {
     fn load_groups(&mut self) -> SqlResult<()> {
         self.groups.clear();
 
-        let mut stmt = self.db.prepare(
-            "SELECT id, representative_id, activity_ids, sport_type,
-                    bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng
-             FROM route_groups",
-        )?;
+        // Scope the statement to release the borrow before load_route_names
+        {
+            let mut stmt = self.db.prepare(
+                "SELECT id, representative_id, activity_ids, sport_type,
+                        bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng
+                 FROM route_groups",
+            )?;
 
-        self.groups = stmt
-            .query_map([], |row| {
-                let activity_ids_json: String = row.get(2)?;
-                let activity_ids: Vec<String> =
-                    serde_json::from_str(&activity_ids_json).unwrap_or_default();
+            self.groups = stmt
+                .query_map([], |row| {
+                    let activity_ids_json: String = row.get(2)?;
+                    let activity_ids: Vec<String> =
+                        serde_json::from_str(&activity_ids_json).unwrap_or_default();
 
-                let bounds = if let (Some(min_lat), Some(max_lat), Some(min_lng), Some(max_lng)) = (
-                    row.get::<_, Option<f64>>(4)?,
-                    row.get::<_, Option<f64>>(5)?,
-                    row.get::<_, Option<f64>>(6)?,
-                    row.get::<_, Option<f64>>(7)?,
-                ) {
-                    Some(Bounds {
-                        min_lat,
-                        max_lat,
-                        min_lng,
-                        max_lng,
+                    let bounds = if let (Some(min_lat), Some(max_lat), Some(min_lng), Some(max_lng)) = (
+                        row.get::<_, Option<f64>>(4)?,
+                        row.get::<_, Option<f64>>(5)?,
+                        row.get::<_, Option<f64>>(6)?,
+                        row.get::<_, Option<f64>>(7)?,
+                    ) {
+                        Some(Bounds {
+                            min_lat,
+                            max_lat,
+                            min_lng,
+                            max_lng,
+                        })
+                    } else {
+                        None
+                    };
+
+                    Ok(RouteGroup {
+                        group_id: row.get(0)?,
+                        representative_id: row.get(1)?,
+                        activity_ids,
+                        sport_type: row.get(3)?,
+                        bounds,
+                        custom_name: None, // Will be loaded separately from route_names table
                     })
-                } else {
-                    None
-                };
+                })?
+                .filter_map(|r| r.ok())
+                .collect();
+        }
 
-                Ok(RouteGroup {
-                    group_id: row.get(0)?,
-                    representative_id: row.get(1)?,
-                    activity_ids,
-                    sport_type: row.get(3)?,
-                    bounds,
-                })
+        // Load custom names and apply to groups
+        self.load_route_names()?;
+
+        self.groups_dirty = false;
+        Ok(())
+    }
+
+    /// Load custom route names and apply them to groups.
+    fn load_route_names(&mut self) -> SqlResult<()> {
+        let mut stmt = self.db.prepare("SELECT route_id, custom_name FROM route_names")?;
+
+        let names: HashMap<String, String> = stmt
+            .query_map([], |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
             })?
             .filter_map(|r| r.ok())
             .collect();
 
-        self.groups_dirty = false;
+        // Apply names to groups
+        for group in &mut self.groups {
+            if let Some(name) = names.get(&group.group_id) {
+                group.custom_name = Some(name.clone());
+            }
+        }
+
         Ok(())
     }
 
@@ -907,6 +941,55 @@ impl PersistentRouteEngine {
     }
 
     // ========================================================================
+    // Route Names
+    // ========================================================================
+
+    /// Set a custom name for a route.
+    /// Pass None to clear the custom name.
+    pub fn set_route_name(&mut self, route_id: &str, name: Option<&str>) -> SqlResult<()> {
+        match name {
+            Some(n) => {
+                self.db.execute(
+                    "INSERT OR REPLACE INTO route_names (route_id, custom_name) VALUES (?, ?)",
+                    params![route_id, n],
+                )?;
+                // Update in-memory group
+                if let Some(group) = self.groups.iter_mut().find(|g| g.group_id == route_id) {
+                    group.custom_name = Some(n.to_string());
+                }
+            }
+            None => {
+                self.db.execute(
+                    "DELETE FROM route_names WHERE route_id = ?",
+                    params![route_id],
+                )?;
+                // Update in-memory group
+                if let Some(group) = self.groups.iter_mut().find(|g| g.group_id == route_id) {
+                    group.custom_name = None;
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// Get the custom name for a route (if any).
+    pub fn get_route_name(&self, route_id: &str) -> Option<String> {
+        // Check in-memory groups first
+        self.groups
+            .iter()
+            .find(|g| g.group_id == route_id)
+            .and_then(|g| g.custom_name.clone())
+    }
+
+    /// Get all custom route names.
+    pub fn get_all_route_names(&self) -> HashMap<String, String> {
+        self.groups
+            .iter()
+            .filter_map(|g| g.custom_name.as_ref().map(|n| (g.group_id.clone(), n.clone())))
+            .collect()
+    }
+
+    // ========================================================================
     // Configuration
     // ========================================================================
 
@@ -1105,6 +1188,32 @@ pub mod persistent_engine_ffi {
     #[uniffi::export]
     pub fn persistent_engine_get_groups_json() -> String {
         with_persistent_engine(|e| e.get_groups_json()).unwrap_or_else(|| "[]".to_string())
+    }
+
+    /// Set a custom name for a route.
+    /// Pass empty string to clear the custom name.
+    #[uniffi::export]
+    pub fn persistent_engine_set_route_name(route_id: String, name: String) {
+        let name_opt = if name.is_empty() { None } else { Some(name.as_str()) };
+        with_persistent_engine(|e| {
+            e.set_route_name(&route_id, name_opt).ok();
+        });
+    }
+
+    /// Get the custom name for a route.
+    /// Returns empty string if no custom name is set.
+    #[uniffi::export]
+    pub fn persistent_engine_get_route_name(route_id: String) -> String {
+        with_persistent_engine(|e| e.get_route_name(&route_id))
+            .flatten()
+            .unwrap_or_default()
+    }
+
+    /// Get all custom route names as JSON.
+    #[uniffi::export]
+    pub fn persistent_engine_get_all_route_names_json() -> String {
+        with_persistent_engine(|e| serde_json::to_string(&e.get_all_route_names()).unwrap_or_else(|_| "{}".to_string()))
+            .unwrap_or_else(|| "{}".to_string())
     }
 
     /// Get sections as JSON.

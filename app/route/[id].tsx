@@ -12,7 +12,8 @@ import Svg, { Polyline } from 'react-native-svg';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { useSharedValue, useDerivedValue, useAnimatedStyle, useAnimatedReaction, runOnJS } from 'react-native-reanimated';
 import Animated from 'react-native-reanimated';
-import { useActivities, useRouteGroups } from '@/hooks';
+import { useActivities, useRouteGroups, useConsensusRoute } from '@/hooks';
+import { routeEngine } from 'route-matcher-native';
 import { RouteMapView } from '@/components/routes';
 import {
   formatDistance,
@@ -23,9 +24,6 @@ import {
   formatSpeed,
   formatPace,
   isRunningActivity,
-  saveCustomRouteName,
-  loadCustomRouteNames,
-  getRouteDisplayName,
 } from '@/lib';
 import { colors, darkColors, spacing, layout, typography, opacity } from '@/theme';
 import type { Activity, ActivityType, RoutePoint } from '@/types';
@@ -837,13 +835,14 @@ export default function RouteDetailScreen() {
   const [customName, setCustomName] = useState<string | null>(null);
   const nameInputRef = useRef<TextInput>(null);
 
-  // Load custom route names on mount
+  // Load custom route name from Rust engine on mount
   useEffect(() => {
-    loadCustomRouteNames().then((names) => {
-      if (id && names[id]) {
-        setCustomName(names[id]);
+    if (id) {
+      const name = routeEngine.getRouteName(id);
+      if (name) {
+        setCustomName(name);
       }
-    });
+    }
   }, [id]);
 
   // Handle activity selection from chart scrubbing
@@ -859,8 +858,12 @@ export default function RouteDetailScreen() {
     [allGroups, id]
   );
 
+  // Get consensus route points from Rust engine
+  const { points: consensusPoints } = useConsensusRoute(id);
+
   // Create a compatible routeGroup object with expected properties
-  const routeGroup = useMemo(() => {
+  // Note: signature is populated later once routeStats is computed
+  const routeGroupBase = useMemo(() => {
     if (!engineGroup) return null;
     return {
       id: engineGroup.groupId,
@@ -876,20 +879,20 @@ export default function RouteDetailScreen() {
 
   // Handle starting to edit the route name
   const handleStartEditing = useCallback(() => {
-    const currentName = customName || routeGroup?.name || '';
+    const currentName = customName || routeGroupBase?.name || '';
     setEditName(currentName);
     setIsEditing(true);
     // Focus input after a short delay to ensure it's rendered
     setTimeout(() => {
       nameInputRef.current?.focus();
     }, 100);
-  }, [customName, routeGroup?.name]);
+  }, [customName, routeGroupBase?.name]);
 
   // Handle saving the edited route name
-  const handleSaveName = useCallback(async () => {
+  const handleSaveName = useCallback(() => {
     const trimmedName = editName.trim();
     if (trimmedName && id) {
-      await saveCustomRouteName(id, trimmedName);
+      routeEngine.setRouteName(id, trimmedName);
       setCustomName(trimmedName);
     }
     setIsEditing(false);
@@ -914,8 +917,8 @@ export default function RouteDetailScreen() {
 
   // Filter to only activities in this route group (deduplicated)
   const routeActivities = React.useMemo(() => {
-    if (!routeGroup || !allActivities) return [];
-    const idsSet = new Set(routeGroup.activityIds);
+    if (!routeGroupBase || !allActivities) return [];
+    const idsSet = new Set(routeGroupBase.activityIds);
     // Filter and deduplicate by ID (in case API returns duplicates)
     const seen = new Set<string>();
     return allActivities.filter((a) => {
@@ -923,7 +926,7 @@ export default function RouteDetailScreen() {
       seen.add(a.id);
       return true;
     });
-  }, [routeGroup, allActivities]);
+  }, [routeGroupBase, allActivities]);
 
   // Compute stats from activities since signature data isn't available
   // Must be called before any early return to maintain hooks order
@@ -935,6 +938,18 @@ export default function RouteDetailScreen() {
     const lastDate = new Date(Math.max(...dates)).toISOString();
     return { distance: avgDistance, lastDate };
   }, [routeActivities]);
+
+  // Final routeGroup with signature populated from consensus points
+  const routeGroup = useMemo(() => {
+    if (!routeGroupBase) return null;
+    return {
+      ...routeGroupBase,
+      signature: consensusPoints ? {
+        points: consensusPoints,
+        distance: routeStats.distance,
+      } : null,
+    };
+  }, [routeGroupBase, consensusPoints, routeStats.distance]);
 
   if (!routeGroup) {
     return (

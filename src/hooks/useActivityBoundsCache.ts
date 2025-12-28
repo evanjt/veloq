@@ -1,4 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { routeEngine } from 'route-matcher-native';
 import { findOldestDate, findNewestDate } from '@/lib';
 import { useAuthStore } from '@/providers';
 import type { ActivityBoundsCache, ActivityBoundsItem } from '@/types';
@@ -58,6 +60,7 @@ export function useActivityBoundsCache(): UseActivityBoundsCacheReturn {
   const [progress, setProgress] = useState<SyncProgress>({ completed: 0, total: 0, status: 'idle' });
   const [isReady, setIsReady] = useState(true);
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const queryClient = useQueryClient();
 
   // Convert cache to array for rendering
   const activities = useMemo(() => {
@@ -91,8 +94,11 @@ export function useActivityBoundsCache(): UseActivityBoundsCacheReturn {
   }, []);
 
   const sync90Days = useCallback(() => {
-    // Sync handled by Rust engine
-  }, []);
+    // Clear the Rust engine state
+    routeEngine.clear();
+    // Invalidate React Query cache to trigger refetch of activities
+    queryClient.invalidateQueries({ queryKey: ['activities'] });
+  }, [queryClient]);
 
   return {
     activities,

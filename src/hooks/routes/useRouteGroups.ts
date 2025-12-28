@@ -4,6 +4,7 @@
  */
 
 import { useMemo } from 'react';
+import { routeEngine } from 'route-matcher-native';
 import { useEngineGroups } from './useRouteEngine';
 import type { ActivityType } from '@/types';
 
@@ -33,6 +34,8 @@ interface RouteGroupExtended {
   bounds: { minLat: number; maxLat: number; minLng: number; maxLng: number } | null;
   activityCount: number;
   type: ActivityType;
+  /** Route signature with points for mini-trace preview */
+  signature?: { points: Array<{ lat: number; lng: number }>; distance: number } | null;
 }
 
 interface UseRouteGroupsResult {
@@ -56,12 +59,27 @@ export function useRouteGroups(options: UseRouteGroupsOptions = {}): UseRouteGro
     const extended: RouteGroupExtended[] = rawGroups.map((g, index) => {
       const sportType = g.sportType || 'Ride';
       const activityCount = g.activityIds.length;
+
+      // Fetch consensus points for mini-trace preview
+      const consensusPoints = routeEngine.getConsensusRoutePoints(g.groupId);
+      const signature =
+        consensusPoints.length > 0
+          ? {
+              points: consensusPoints.map((p) => ({ lat: p.latitude, lng: p.longitude })),
+              distance: 0, // We don't have distance readily available
+            }
+          : null;
+
+      // Use custom name from Rust engine if set, otherwise generate default
+      const name = g.customName || `${sportType} Route ${index + 1}`;
+
       return {
         ...g,
         id: g.groupId, // Compatibility alias
-        name: `${sportType} Route ${index + 1}`, // Default name
+        name,
         activityCount,
         type: sportType as ActivityType,
+        signature,
       };
     });
 

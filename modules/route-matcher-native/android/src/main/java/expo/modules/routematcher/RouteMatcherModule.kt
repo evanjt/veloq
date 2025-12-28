@@ -672,6 +672,21 @@ class RouteMatcherModule : Module() {
       persistentEngineCancelSectionDetection()
     }
 
+    // PersistentEngine: Set custom route name
+    Function("persistentEngineSetRouteName") { routeId: String, name: String ->
+      persistentEngineSetRouteName(routeId, name)
+    }
+
+    // PersistentEngine: Get custom route name
+    Function("persistentEngineGetRouteName") { routeId: String ->
+      persistentEngineGetRouteName(routeId)
+    }
+
+    // PersistentEngine: Get all custom route names as JSON
+    Function("persistentEngineGetAllRouteNamesJson") {
+      persistentEngineGetAllRouteNamesJson()
+    }
+
     Function("queryHeatmapCell") { heatmapJson: String, lat: Double, lng: Double ->
       // Parse heatmap from JSON string to avoid Expo Modules bridge issues with nulls
       val heatmapObj = JSONObject(heatmapJson)
