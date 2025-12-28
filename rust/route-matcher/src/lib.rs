@@ -43,10 +43,31 @@ use geo::{
     algorithm::simplify::Simplify,
 };
 use rstar::{RTree, RTreeObject, AABB};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 // Geographic utilities (distance, bounds, center calculations)
 pub mod geo_utils;
+
+// Algorithm toolbox - modular access to all algorithms
+// Use route_matcher::algorithms::{...} for standalone algorithm access
+pub mod algorithms;
+
+// LRU cache for efficient memory management
+pub mod lru_cache;
+
+// Stateful route engine (singleton with all route state)
+pub mod engine;
+pub use engine::{RouteEngine, EngineStats, ENGINE, with_engine};
+
+// Persistent route engine with tiered storage
+#[cfg(feature = "persistence")]
+pub mod persistence;
+#[cfg(feature = "persistence")]
+pub use persistence::{
+    PersistentRouteEngine, PersistentEngineStats, SectionDetectionHandle,
+    PERSISTENT_ENGINE, with_persistent_engine,
+};
 
 // HTTP module for activity fetching
 #[cfg(feature = "http")]
@@ -57,7 +78,7 @@ pub use http::{ActivityFetcher, ActivityMapResult, MapBounds};
 
 // Frequent sections detection (medoid-based algorithm for smooth polylines)
 pub mod sections;
-pub use sections::{FrequentSection, SectionConfig, SectionPortion, detect_frequent_sections, detect_sections_from_tracks};
+pub use sections::{FrequentSection, SectionConfig, SectionPortion, detect_sections_from_tracks};
 
 // Heatmap generation module
 pub mod heatmap;
@@ -99,7 +120,7 @@ fn init_logging() {
 /// use route_matcher::GpsPoint;
 /// let point = GpsPoint::new(51.5074, -0.1278); // London
 /// ```
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "ffi", derive(uniffi::Record))]
 pub struct GpsPoint {
     pub latitude: f64,
@@ -124,7 +145,7 @@ impl GpsPoint {
 }
 
 /// Bounding box for a route.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "ffi", derive(uniffi::Record))]
 pub struct Bounds {
     pub min_lat: f64,
@@ -351,13 +372,19 @@ impl Default for MatchConfig {
 }
 
 /// A group of similar routes.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "ffi", derive(uniffi::Record))]
 pub struct RouteGroup {
     /// Unique identifier for this group (typically the first activity ID)
     pub group_id: String,
+    /// ID of the representative activity (the medoid)
+    pub representative_id: String,
     /// All activity IDs that belong to this group
     pub activity_ids: Vec<String>,
+    /// Sport type for this group (e.g., "Ride", "Run")
+    pub sport_type: String,
+    /// Bounding box for all activities in the group
+    pub bounds: Option<Bounds>,
 }
 
 /// Bounding box for a route (used for spatial indexing).
@@ -773,17 +800,14 @@ pub fn group_signatures(signatures: &[RouteSignature], config: &MatchConfig) -> 
         }
     }
 
-    // Build groups
-    let mut groups: HashMap<String, Vec<String>> = HashMap::new();
+    // Build groups with full metadata
+    let mut groups_map: HashMap<String, Vec<String>> = HashMap::new();
     for sig in signatures {
         let root = find(&mut parent, &sig.activity_id);
-        groups.entry(root).or_default().push(sig.activity_id.clone());
+        groups_map.entry(root).or_default().push(sig.activity_id.clone());
     }
 
-    groups
-        .into_iter()
-        .map(|(group_id, activity_ids)| RouteGroup { group_id, activity_ids })
-        .collect()
+    build_route_groups(groups_map, &sig_map)
 }
 
 /// Group signatures using parallel processing.
@@ -853,17 +877,14 @@ pub fn group_signatures_parallel(
         union(&mut parent, &id1, &id2);
     }
 
-    // Build groups
-    let mut groups: HashMap<String, Vec<String>> = HashMap::new();
+    // Build groups with full metadata
+    let mut groups_map: HashMap<String, Vec<String>> = HashMap::new();
     for sig in signatures {
         let root = find(&mut parent, &sig.activity_id);
-        groups.entry(root).or_default().push(sig.activity_id.clone());
+        groups_map.entry(root).or_default().push(sig.activity_id.clone());
     }
 
-    groups
-        .into_iter()
-        .map(|(group_id, activity_ids)| RouteGroup { group_id, activity_ids })
-        .collect()
+    build_route_groups(groups_map, &sig_map)
 }
 
 /// Incremental grouping: efficiently add new signatures to existing groups.
@@ -985,16 +1006,69 @@ pub fn group_incremental(
         union(&mut parent, &id1, &id2);
     }
 
-    // Build groups from all signatures
-    let mut groups: HashMap<String, Vec<String>> = HashMap::new();
+    // Build groups with full metadata
+    let mut groups_map: HashMap<String, Vec<String>> = HashMap::new();
     for sig in all_signatures {
         let root = find(&mut parent, &sig.activity_id);
-        groups.entry(root).or_default().push(sig.activity_id.clone());
+        groups_map.entry(root).or_default().push(sig.activity_id.clone());
     }
 
-    groups
+    build_route_groups(groups_map, &sig_map)
+}
+
+/// Build RouteGroup instances with full metadata from grouped activity IDs.
+fn build_route_groups(
+    groups_map: HashMap<String, Vec<String>>,
+    sig_map: &HashMap<&str, &RouteSignature>,
+) -> Vec<RouteGroup> {
+    groups_map
         .into_iter()
-        .map(|(group_id, activity_ids)| RouteGroup { group_id, activity_ids })
+        .map(|(group_id, activity_ids)| {
+            // Find representative signature (first in group)
+            let representative_id = activity_ids.first().cloned().unwrap_or_default();
+
+            // Get sport type from first signature (empty for now - caller should set)
+            let sport_type = String::new();
+
+            // Compute combined bounds from all signatures in group
+            let bounds = {
+                let group_sigs: Vec<_> = activity_ids
+                    .iter()
+                    .filter_map(|id| sig_map.get(id.as_str()))
+                    .collect();
+
+                if group_sigs.is_empty() {
+                    None
+                } else {
+                    let mut min_lat = f64::MAX;
+                    let mut max_lat = f64::MIN;
+                    let mut min_lng = f64::MAX;
+                    let mut max_lng = f64::MIN;
+
+                    for sig in group_sigs {
+                        min_lat = min_lat.min(sig.bounds.min_lat);
+                        max_lat = max_lat.max(sig.bounds.max_lat);
+                        min_lng = min_lng.min(sig.bounds.min_lng);
+                        max_lng = max_lng.max(sig.bounds.max_lng);
+                    }
+
+                    Some(Bounds {
+                        min_lat,
+                        max_lat,
+                        min_lng,
+                        max_lng,
+                    })
+                }
+            };
+
+            RouteGroup {
+                group_id,
+                representative_id,
+                activity_ids,
+                sport_type,
+                bounds,
+            }
+        })
         .collect()
 }
 

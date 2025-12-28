@@ -32,8 +32,7 @@ import {
   runOnJS,
 } from 'react-native-reanimated';
 import Animated from 'react-native-reanimated';
-import { useRouteMatchStore } from '@/providers';
-import { useActivities } from '@/hooks';
+import { useActivities, useFrequentSections } from '@/hooks';
 import { SectionMapView } from '@/components/routes';
 import {
   formatDistance,
@@ -800,9 +799,11 @@ export default function SectionDetailScreen() {
     setHighlightedActivityPoints(activityPoints);
   }, []);
 
-  // Get section from cache
-  const section = useRouteMatchStore((s) =>
-    s.cache?.frequentSections?.find((sec) => sec.id === id) || null
+  // Get section from engine
+  const { sections: allSections } = useFrequentSections({ minVisits: 1 });
+  const section = useMemo(() =>
+    allSections.find((sec) => sec.id === id) || null,
+    [allSections, id]
   );
 
   // Get date range for fetching activities

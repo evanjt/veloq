@@ -4,7 +4,7 @@
  */
 
 import { useMemo } from 'react';
-import { useRouteMatchStore } from '@/providers/RouteMatchStore';
+import { useEngineGroups } from './useRouteEngine';
 import { useActivities } from '@/hooks/useActivities';
 import type { RouteGroup, Activity, MatchDirection } from '@/types';
 
@@ -51,68 +51,53 @@ export function useRoutePerformances(
   activityId: string | undefined,
   routeGroupId?: string
 ): UseRoutePerformancesResult {
-  const cache = useRouteMatchStore((s) => s.cache);
+  const { groups } = useEngineGroups({ minActivities: 1 });
 
   // Find route group - either from provided ID or by looking up activity
-  const routeGroup = useMemo(() => {
-    if (!cache) return null;
-
+  const engineGroup = useMemo(() => {
     if (routeGroupId) {
-      return cache.groups.find((g) => g.id === routeGroupId) || null;
+      return groups.find((g) => g.groupId === routeGroupId) || null;
     }
 
     if (activityId) {
-      const groupId = cache.activityToRouteId?.[activityId];
-      if (groupId) {
-        return cache.groups.find((g) => g.id === groupId) || null;
-      }
+      return groups.find((g) => g.activityIds.includes(activityId)) || null;
     }
 
     return null;
-  }, [cache, routeGroupId, activityId]);
+  }, [groups, routeGroupId, activityId]);
 
-  // Fetch activities for the route's date range
-  // Extend date range by 1 day on each side to handle timezone edge cases
-  const { oldest, newest } = useMemo(() => {
-    if (!routeGroup) return { oldest: undefined, newest: undefined };
-
-    // Parse first date and go back 1 day
-    const firstDate = new Date(routeGroup.firstDate);
-    firstDate.setDate(firstDate.getDate() - 1);
-
-    // Parse last date and go forward 1 day
-    const lastDate = new Date(routeGroup.lastDate);
-    lastDate.setDate(lastDate.getDate() + 1);
-
-    // Format as YYYY-MM-DD
-    const formatDate = (d: Date) => d.toISOString().split('T')[0];
-
+  // Convert to RouteGroup type
+  const routeGroup = useMemo((): RouteGroup | null => {
+    if (!engineGroup) return null;
     return {
-      oldest: formatDate(firstDate),
-      newest: formatDate(lastDate),
+      id: engineGroup.groupId,
+      name: engineGroup.groupId,
+      type: engineGroup.sportType as any,
+      activityIds: engineGroup.activityIds,
+      activityCount: engineGroup.activityIds.length,
+      firstDate: '',
+      lastDate: '',
     };
-  }, [routeGroup?.firstDate, routeGroup?.lastDate]);
+  }, [engineGroup]);
 
+  // Fetch all activities (we'll filter to just those in the group)
   const { data: activities, isLoading } = useActivities({
-    oldest,
-    newest,
     includeStats: false,
   });
 
   // Filter and map to performance points
   const { performances, best, currentRank } = useMemo(() => {
-    if (!routeGroup || !activities || !cache) {
+    if (!engineGroup || !activities) {
       return { performances: [], best: null, currentRank: null };
     }
 
-    const activityIdsSet = new Set(routeGroup.activityIds);
+    const activityIdsSet = new Set(engineGroup.activityIds);
 
     // Filter to only activities in this route
     const routeActivities = activities.filter((a) => activityIdsSet.has(a.id));
 
-    // Map to performance points with match info
+    // Map to performance points
     const points: RoutePerformancePoint[] = routeActivities.map((a: Activity) => {
-      const match = cache.matches[a.id];
       return {
         activityId: a.id,
         date: new Date(a.start_date_local),
@@ -125,8 +110,8 @@ export function useRoutePerformances(
         avgHr: a.average_heartrate,
         avgPower: a.average_watts,
         isCurrent: a.id === activityId,
-        direction: match?.direction || 'same',
-        matchPercentage: match?.matchPercentage || 100,
+        direction: 'same', // Direction not stored in engine
+        matchPercentage: 100, // Not available from engine
       };
     });
 
@@ -156,7 +141,7 @@ export function useRoutePerformances(
       best: bestPoint,
       currentRank: rank,
     };
-  }, [routeGroup, activities, activityId, cache]);
+  }, [engineGroup, activities, activityId]);
 
   return {
     routeGroup,

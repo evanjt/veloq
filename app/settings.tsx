@@ -18,7 +18,6 @@ import { useTranslation } from 'react-i18next';
 import { useAthlete, useActivityBoundsCache, useRouteProcessing, useRouteGroups } from '@/hooks';
 import { getAthleteId } from '@/api';
 import { estimateBoundsCacheSize, estimateGpsStorageSize } from '@/lib';
-import { estimateRouteCacheSize } from '@/lib';
 import {
   getThemePreference,
   setThemePreference,
@@ -142,12 +141,12 @@ export default function SettingsScreen() {
 
   // Fetch cache sizes on mount and when caches change
   const refreshCacheSizes = useCallback(async () => {
-    const [bounds, gps, routes] = await Promise.all([
+    const [bounds, gps] = await Promise.all([
       estimateBoundsCacheSize(),
       estimateGpsStorageSize(),
-      estimateRouteCacheSize(),
     ]);
-    setCacheSizes({ bounds, gps, routes });
+    // Routes cache is now in Rust SQLite, size estimation not available
+    setCacheSizes({ bounds, gps, routes: 0 });
   }, []);
 
   useEffect(() => {
@@ -196,7 +195,7 @@ export default function SettingsScreen() {
           onPress: async () => {
             try {
               await clearRouteCache();
-              // Reprocessing starts immediately via RouteMatchStore.clearCache()
+              // Cache cleared via Rust engine
               refreshCacheSizes();
             } catch {
               Alert.alert(t('alerts.error'), t('alerts.failedToClear'));

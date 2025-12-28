@@ -12,7 +12,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter, useSegments } from 'expo-router';
 import { useActivityBoundsCache } from '@/hooks';
-import { useAuthStore, useRouteMatchStore } from '@/providers';
+import { useAuthStore } from '@/providers';
 import { colors } from '@/theme';
 
 export function CacheLoadingBanner() {
@@ -21,7 +21,8 @@ export function CacheLoadingBanner() {
   const router = useRouter();
   const routeParts = useSegments();
   const { progress: boundsProgress } = useActivityBoundsCache();
-  const routeProgress = useRouteMatchStore((s) => s.progress);
+  // Route processing is now instant in Rust engine, no progress tracking needed
+  const routeProgress = { status: 'idle', current: 0, total: 0 };
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
 
   // Don't show on map screen - it has its own sync indicator
