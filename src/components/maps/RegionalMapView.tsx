@@ -32,7 +32,6 @@ import {
   TERRAIN_ATTRIBUTION,
 } from './mapStyles';
 import type { ActivityBoundsItem, ActivityMapData, RouteSignature } from '@/types';
-import { useRouteMatchStore } from '@/providers';
 import { HeatmapLayer } from './HeatmapLayer';
 import { useHeatmap, type CellQueryResult } from '@/hooks/useHeatmap';
 import { useFrequentSections } from '@/hooks/routes/useFrequentSections';
@@ -83,8 +82,8 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
   const [selectedSection, setSelectedSection] = useState<FrequentSection | null>(null);
   const cameraRef = useRef<React.ElementRef<typeof Camera>>(null);
 
-  // Access route signatures for GPS trace rendering and pre-computed centers
-  const routeSignatures = useRouteMatchStore((s) => s.cache?.signatures ?? {});
+  // Signatures are now internal to Rust engine - use bounds-based centers
+  const routeSignatures: Record<string, RouteSignature> = {};
 
   // Heatmap data from route matching cache
   const { heatmap, queryCell } = useHeatmap();

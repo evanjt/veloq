@@ -1,14 +1,14 @@
 /**
  * Hook for generating and querying heatmaps.
  * Uses Rust for efficient grid computation.
+ *
+ * Note: Heatmap generation currently requires signatures which are internal
+ * to the Rust engine. This hook is a placeholder for future implementation.
  */
 
 import { useMemo, useCallback } from 'react';
-import { useRouteMatchStore } from '@/providers';
-import { useShallow } from 'zustand/react/shallow';
+import { useEngineGroups } from './routes/useRouteEngine';
 import {
-  generateHeatmap as nativeGenerateHeatmap,
-  queryHeatmapCell as nativeQueryHeatmapCell,
   type HeatmapResult,
   type HeatmapConfig,
   type HeatmapCell,
@@ -16,12 +16,6 @@ import {
   type ActivityHeatmapData,
   type RouteSignature,
 } from 'route-matcher-native';
-
-import type { RouteGroup } from '@/types';
-
-// Stable empty defaults to prevent infinite loops in Zustand selectors
-const EMPTY_SIGNATURES: Record<string, RouteSignature> = {};
-const EMPTY_GROUPS: RouteGroup[] = [];
 
 export interface UseHeatmapOptions {
   /** Grid cell size in meters (default: 100m) */
@@ -43,99 +37,29 @@ export interface UseHeatmapResult {
 
 /**
  * Hook for generating and querying activity heatmaps.
- * Uses cached route signatures from RouteMatchStore.
+ *
+ * TODO: Implement heatmap generation using the persistent Rust engine.
+ * Currently returns null as signatures are internal to the engine.
  */
 export function useHeatmap(options: UseHeatmapOptions = {}): UseHeatmapResult {
   const { cellSizeMeters = 100, sportType } = options;
 
-  // Get cached data from route match store
-  // Use stable empty defaults to prevent infinite re-renders when cache is null
-  const signatures = useRouteMatchStore((s) => s.cache?.signatures ?? EMPTY_SIGNATURES);
-  const groups = useRouteMatchStore((s) => s.cache?.groups ?? EMPTY_GROUPS);
+  // Get groups from engine (heatmap would need internal signatures)
+  const { groups } = useEngineGroups({ minActivities: 1 });
 
-  // Build activity -> route mapping
-  const activityToRoute = useMemo(() => {
-    const map: Record<string, string> = {};
-    for (const group of groups) {
-      for (const activityId of group.activityIds) {
-        map[activityId] = group.id;
-      }
-    }
-    return map;
-  }, [groups]);
-
-  // Build activity data for heatmap generation
-  const activityData = useMemo((): ActivityHeatmapData[] => {
-    return Object.entries(signatures).map(([activityId]) => {
-      const routeId = activityToRoute[activityId] ?? null;
-
-      // Find route name from group
-      const group = groups.find(g => g.id === routeId);
-      const routeName = group ? group.name : null;
-
-      return {
-        activityId,
-        routeId,
-        routeName,
-        timestamp: null, // Timestamp not available in cache
-      };
-    });
-  }, [signatures, activityToRoute, groups]);
-
-  // Filter signatures by sport type if specified
-  // Note: Sport type filtering not available without activity metadata
-  const filteredSignatures = useMemo((): RouteSignature[] => {
-    const allSigs = Object.values(signatures);
-    // Can't filter by sportType without metadata - return all
-    return allSigs;
-  }, [signatures]);
-
-  // Generate heatmap
-  const heatmap = useMemo((): HeatmapResult | null => {
-    if (filteredSignatures.length === 0) return null;
-
-    const config: Partial<HeatmapConfig> = {
-      cellSizeMeters,
-    };
-
-    return nativeGenerateHeatmap(filteredSignatures, activityData, config);
-  }, [filteredSignatures, activityData, cellSizeMeters]);
-
-  const isReady = heatmap !== null && heatmap.cells.length > 0;
+  // Heatmap is not currently available without direct signature access
+  const heatmap = null;
+  const isReady = false;
 
   // Query cell at location
   const queryCell = useCallback((lat: number, lng: number): CellQueryResult | null => {
-    if (!heatmap) return null;
-    return nativeQueryHeatmapCell(heatmap, lat, lng);
-  }, [heatmap]);
+    return null;
+  }, []);
 
   // Convert to GeoJSON for MapLibre rendering
   const toGeoJSON = useCallback((): GeoJSON.FeatureCollection | null => {
-    if (!heatmap || heatmap.cells.length === 0) return null;
-
-    const features: GeoJSON.Feature[] = heatmap.cells.map((cell) => ({
-      type: 'Feature',
-      id: `cell-${cell.row}-${cell.col}`,
-      properties: {
-        row: cell.row,
-        col: cell.col,
-        density: cell.density,
-        visitCount: cell.visitCount,
-        uniqueRouteCount: cell.uniqueRouteCount,
-        activityCount: cell.activityIds.length,
-        isCommonPath: cell.isCommonPath,
-      },
-      geometry: {
-        type: 'Point',
-        coordinates: [cell.centerLng, cell.centerLat],
-      },
-    }));
-
-    return {
-      type: 'FeatureCollection',
-      features,
-    };
-  }, [heatmap]);
+    return null;
+  }, []);
 
   return {
     heatmap,

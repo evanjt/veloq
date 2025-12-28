@@ -25,6 +25,7 @@
 //! - Section contracts if tracks consistently end before current bounds
 
 use std::collections::{HashMap, HashSet};
+use serde::{Deserialize, Serialize};
 use crate::{GpsPoint, RouteGroup};
 use crate::geo_utils::{haversine_distance, compute_bounds, compute_center, polyline_length, bounds_overlap};
 use rstar::{RTree, RTreeObject, PointDistance, AABB};
@@ -33,7 +34,7 @@ use rayon::prelude::*;
 use log::info;
 
 /// Configuration for section detection
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "ffi", derive(uniffi::Record))]
 pub struct SectionConfig {
     /// Maximum distance between tracks to consider overlapping (meters)
@@ -64,7 +65,7 @@ impl Default for SectionConfig {
 }
 
 /// Each activity's portion of a section (for pace comparison)
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "ffi", derive(uniffi::Record))]
 pub struct SectionPortion {
     /// Activity ID
@@ -80,7 +81,7 @@ pub struct SectionPortion {
 }
 
 /// A frequently-traveled section with adaptive consensus representation
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "ffi", derive(uniffi::Record))]
 pub struct FrequentSection {
     /// Unique section ID

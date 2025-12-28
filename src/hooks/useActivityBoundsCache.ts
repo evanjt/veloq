@@ -1,8 +1,13 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { activitySyncManager, type SyncProgress } from '@/lib';
 import { findOldestDate, findNewestDate } from '@/lib';
 import { useAuthStore } from '@/providers';
 import type { ActivityBoundsCache, ActivityBoundsItem } from '@/types';
+
+export interface SyncProgress {
+  completed: number;
+  total: number;
+  status: 'idle' | 'loading' | 'syncing' | 'complete' | 'error';
+}
 
 interface CacheStats {
   /** Total number of cached activities */
@@ -46,69 +51,13 @@ interface UseActivityBoundsCacheReturn {
 
 /**
  * Hook for accessing the activity bounds cache.
- * Uses the singleton ActivitySyncManager for all sync operations.
- * Only initializes when user is authenticated.
+ * Simplified version - sync operations are now handled by the Rust engine.
  */
 export function useActivityBoundsCache(): UseActivityBoundsCacheReturn {
   const [cache, setCache] = useState<ActivityBoundsCache | null>(null);
   const [progress, setProgress] = useState<SyncProgress>({ completed: 0, total: 0, status: 'idle' });
-  const [isReady, setIsReady] = useState(false);
+  const [isReady, setIsReady] = useState(true);
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
-
-  // Initialize sync manager and subscribe to updates - only when authenticated
-  useEffect(() => {
-    // Subscribe to progress updates
-    const unsubProgress = activitySyncManager.onProgress((p) => {
-      setProgress(p);
-      // Mark as ready once we're past loading
-      if (p.status !== 'loading') {
-        setIsReady(true);
-      }
-    });
-
-    // Subscribe to cache updates
-    const unsubCache = activitySyncManager.onCacheUpdate((c) => {
-      setCache(c);
-    });
-
-    // Only initialize when authenticated - this triggers the initial 3-month sync
-    if (isAuthenticated) {
-      activitySyncManager.initialize();
-    } else {
-      // Reset on logout so we can re-initialize on next login
-      activitySyncManager.reset();
-    }
-
-    return () => {
-      unsubProgress();
-      unsubCache();
-    };
-  }, [isAuthenticated]);
-
-  // Sync date range (debounced by default in the manager)
-  const syncDateRange = useCallback((oldest: string, newest: string) => {
-    activitySyncManager.syncDateRange(oldest, newest, true);
-  }, []);
-
-  // Clear cache
-  const clearCache = useCallback(async () => {
-    await activitySyncManager.clearCache();
-  }, []);
-
-  // Sync all history
-  const syncAllHistory = useCallback(() => {
-    activitySyncManager.syncAllHistory();
-  }, []);
-
-  // Sync last year only
-  const syncOneYear = useCallback(() => {
-    activitySyncManager.syncOneYear();
-  }, []);
-
-  // Sync last 90 days only (for cache reload)
-  const sync90Days = useCallback(() => {
-    activitySyncManager.sync90Days();
-  }, []);
 
   // Convert cache to array for rendering
   const activities = useMemo(() => {
@@ -124,15 +73,35 @@ export function useActivityBoundsCache(): UseActivityBoundsCacheReturn {
     isSyncing: progress.status === 'syncing',
   }), [activities.length, cache?.activities, cache?.lastSync, progress.status]);
 
+  // Sync operations are now no-ops - handled by Rust engine
+  const syncDateRange = useCallback((oldest: string, newest: string) => {
+    // Sync handled by Rust engine
+  }, []);
+
+  const clearCache = useCallback(async () => {
+    setCache(null);
+  }, []);
+
+  const syncAllHistory = useCallback(() => {
+    // Sync handled by Rust engine
+  }, []);
+
+  const syncOneYear = useCallback(() => {
+    // Sync handled by Rust engine
+  }, []);
+
+  const sync90Days = useCallback(() => {
+    // Sync handled by Rust engine
+  }, []);
+
   return {
     activities,
     progress,
     isReady,
     syncDateRange,
-    // Use actual activity dates for the cached range display
     oldestSyncedDate: cacheStats.oldestDate,
     newestSyncedDate: cacheStats.newestDate,
-    oldestActivityDate: activitySyncManager.getOldestActivityDate(),
+    oldestActivityDate: null, // Will be populated when activities are synced
     clearCache,
     cacheStats,
     syncAllHistory,

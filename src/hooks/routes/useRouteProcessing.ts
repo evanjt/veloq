@@ -1,12 +1,18 @@
 /**
  * Hook for route processing status and controls.
- * Used in settings and processing banner components.
+ * Processing is now handled by the Rust engine.
  */
 
-import { useCallback } from 'react';
-import { useRouteMatchStore } from '@/providers/RouteMatchStore';
-import { routeProcessingQueue } from '@/lib';
-import type { RouteProcessingProgress, ActivityType, ActivityBoundsItem } from '@/types';
+import { useCallback, useState } from 'react';
+import { routeEngine } from 'route-matcher-native';
+import type { ActivityType } from '@/types';
+
+interface RouteProcessingProgress {
+  status: 'idle' | 'processing' | 'complete' | 'error';
+  current: number;
+  total: number;
+  message: string;
+}
 
 interface UseRouteProcessingResult {
   /** Current processing progress */
@@ -19,64 +25,73 @@ interface UseRouteProcessingResult {
   cancel: () => void;
   /** Clear all route cache and start fresh */
   clearCache: () => Promise<void>;
-  /** Queue activities for processing (with optional bounds for pre-filtering) */
-  queueActivities: (
+  /** Add activities to the engine */
+  addActivities: (
     activityIds: string[],
-    metadata: Record<string, { name: string; date: string; type: ActivityType; hasGps: boolean }>,
-    boundsData?: ActivityBoundsItem[]
-  ) => Promise<void>;
-  /** Re-analyze all activities */
-  reanalyzeAll: (
-    activityIds: string[],
-    metadata: Record<string, { name: string; date: string; type: ActivityType; hasGps: boolean }>
+    allCoords: number[],
+    offsets: number[],
+    sportTypes: string[]
   ) => Promise<void>;
 }
 
 export function useRouteProcessing(): UseRouteProcessingResult {
-  const progress = useRouteMatchStore((s) => s.progress);
-  const clearCacheAction = useRouteMatchStore((s) => s.clearCache);
+  const [progress, setProgress] = useState<RouteProcessingProgress>({
+    status: 'idle',
+    current: 0,
+    total: 0,
+    message: '',
+  });
 
-  const isProcessing =
-    progress.status === 'filtering' ||
-    progress.status === 'fetching' ||
-    progress.status === 'processing' ||
-    progress.status === 'matching' ||
-    progress.status === 'detecting-sections';
-
-  const isFiltering = progress.status === 'filtering';
+  const isProcessing = progress.status === 'processing';
+  const isFiltering = false; // No longer used
 
   const cancel = useCallback(() => {
-    routeProcessingQueue.cancel();
+    // Rust engine doesn't support cancellation yet
+    setProgress(p => ({ ...p, status: 'idle' }));
   }, []);
 
-  const queueActivities = useCallback(
-    async (
-      activityIds: string[],
-      metadata: Record<string, { name: string; date: string; type: ActivityType; hasGps: boolean }>,
-      boundsData?: ActivityBoundsItem[]
-    ) => {
-      await routeProcessingQueue.queueActivities(activityIds, metadata, boundsData);
-    },
-    []
-  );
+  const clearCache = useCallback(async () => {
+    routeEngine.clear();
+    setProgress({ status: 'idle', current: 0, total: 0, message: '' });
+  }, []);
 
-  const reanalyzeAll = useCallback(
-    async (
-      activityIds: string[],
-      metadata: Record<string, { name: string; date: string; type: ActivityType; hasGps: boolean }>
-    ) => {
-      await routeProcessingQueue.reanalyzeAll(activityIds, metadata);
-    },
-    []
-  );
+  const addActivities = useCallback(async (
+    activityIds: string[],
+    allCoords: number[],
+    offsets: number[],
+    sportTypes: string[]
+  ) => {
+    setProgress({
+      status: 'processing',
+      current: 0,
+      total: activityIds.length,
+      message: 'Adding activities...',
+    });
+
+    try {
+      routeEngine.addActivities(activityIds, allCoords, offsets, sportTypes);
+      setProgress({
+        status: 'complete',
+        current: activityIds.length,
+        total: activityIds.length,
+        message: 'Complete',
+      });
+    } catch (error) {
+      setProgress({
+        status: 'error',
+        current: 0,
+        total: 0,
+        message: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+  }, []);
 
   return {
     progress,
     isProcessing,
     isFiltering,
     cancel,
-    clearCache: clearCacheAction,
-    queueActivities,
-    reanalyzeAll,
+    clearCache,
+    addActivities,
   };
 }

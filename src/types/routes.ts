@@ -46,22 +46,22 @@ export interface RouteGroup {
   id: string;
   /** Display name (auto-generated or user-set) */
   name: string;
-  /** Representative route signature (from the first/best activity) */
-  signature: RouteSignature;
+  /** Representative route signature (from the first/best activity) - optional for engine groups */
+  signature?: RouteSignature | null;
   /** Consensus route - the common core that 80%+ of activities share */
   consensusPoints?: RoutePoint[];
   /** Activity IDs in this group */
   activityIds: string[];
   /** Total count of activities */
   activityCount: number;
-  /** Date of first activity on this route */
-  firstDate: string;
-  /** Date of most recent activity */
-  lastDate: string;
+  /** Date of first activity on this route - optional for engine groups */
+  firstDate?: string;
+  /** Date of most recent activity - optional for engine groups */
+  lastDate?: string;
   /** Activity type (Ride, Run, etc.) */
   type: ActivityType;
-  /** Average match quality for grouped activities (0-100) */
-  averageMatchQuality: number;
+  /** Average match quality for grouped activities (0-100) - optional for engine groups */
+  averageMatchQuality?: number;
 }
 
 /** Direction of route match */

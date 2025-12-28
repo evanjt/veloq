@@ -1,17 +1,16 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { Stack, useSegments, useRouter, Href } from 'expo-router';
 import { PaperProvider } from 'react-native-paper';
 import { StatusBar } from 'expo-status-bar';
-import { useColorScheme, View, ActivityIndicator, Platform, AppState, type AppStateStatus } from 'react-native';
+import { useColorScheme, View, ActivityIndicator, Platform } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Logger } from '@maplibre/maplibre-react-native';
 import { configureReanimatedLogger, ReanimatedLogLevel } from 'react-native-reanimated';
-import { QueryProvider, MapPreferencesProvider, initializeTheme, useAuthStore, initializeSportPreference, initializeHRZones, initializeRouteMatching, initializeRouteSettings, initializeLanguage } from '@/providers';
+import { QueryProvider, MapPreferencesProvider, initializeTheme, useAuthStore, initializeSportPreference, initializeHRZones, initializeRouteSettings, initializeLanguage } from '@/providers';
 import { initializeI18n } from '@/i18n';
 import { lightTheme, darkTheme, colors, darkColors } from '@/theme';
 import { CacheLoadingBanner, DemoBanner } from '@/components/ui';
-import { activitySyncManager } from '@/lib';
-import { formatLocalDate } from '@/lib';
+import { routeEngine } from 'route-matcher-native';
 
 // Suppress MapLibre info/warning logs about canceled requests
 // These occur when switching between map views but don't affect functionality
@@ -25,36 +24,12 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   const routeParts = useSegments();
   const router = useRouter();
   const { isAuthenticated, isLoading } = useAuthStore();
-  const appState = useRef(AppState.currentState);
 
-  // Initialize route matching when authenticated
-  // This subscribes to bounds sync completion to auto-trigger route processing
+  // Initialize Rust route engine when authenticated
   useEffect(() => {
     if (isAuthenticated) {
-      initializeRouteMatching();
+      routeEngine.init();
     }
-  }, [isAuthenticated]);
-
-  // Check for new activities when app comes to foreground
-  useEffect(() => {
-    if (!isAuthenticated) return;
-
-    const subscription = AppState.addEventListener('change', (nextAppState: AppStateStatus) => {
-      // Detect transition from background/inactive to active (foreground)
-      if (
-        appState.current.match(/inactive|background/) &&
-        nextAppState === 'active'
-      ) {
-        // Sync recent activities (last 7 days) to catch any new ones
-        const today = new Date();
-        const weekAgo = new Date(today);
-        weekAgo.setDate(weekAgo.getDate() - 7);
-        activitySyncManager.syncDateRange(formatLocalDate(weekAgo), formatLocalDate(today), false);
-      }
-      appState.current = nextAppState;
-    });
-
-    return () => subscription.remove();
   }, [isAuthenticated]);
 
   useEffect(() => {

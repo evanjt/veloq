@@ -49,3 +49,13 @@ export { useRouteProcessing } from './routes/useRouteProcessing';
 export { useFrequentSections } from './routes/useFrequentSections';
 export { useSectionMatches } from './routes/useSectionMatches';
 export { useHeatmap, type UseHeatmapOptions, type UseHeatmapResult } from './useHeatmap';
+// Route Engine hooks (stateful Rust backend)
+export {
+  useRouteEngine,
+  useEngineGroups,
+  useEngineSections,
+  useViewportActivities,
+  useEngineStats,
+  useConsensusRoute,
+} from './routes/useRouteEngine';
+export { useRouteDataSync } from './routes/useRouteDataSync';

@@ -396,3 +396,45 @@ export async function estimateBoundsCacheSize(): Promise<number> {
   }
   return 0;
 }
+
+// =============================================================================
+// Custom Route Names Storage
+// =============================================================================
+
+const ROUTE_NAMES_FILE = `${CACHE_DIR}route_names.json`;
+
+/**
+ * Load custom route names
+ */
+export async function loadCustomRouteNames(): Promise<Record<string, string>> {
+  try {
+    await ensureCacheDir();
+    const info = await FileSystem.getInfoAsync(ROUTE_NAMES_FILE);
+    if (!info.exists) return {};
+
+    const data = await FileSystem.readAsStringAsync(ROUTE_NAMES_FILE);
+    return JSON.parse(data);
+  } catch {
+    return {};
+  }
+}
+
+/**
+ * Save a custom route name
+ */
+export async function saveCustomRouteName(routeId: string, name: string): Promise<void> {
+  await ensureCacheDir();
+  const names = await loadCustomRouteNames();
+  names[routeId] = name;
+  await FileSystem.writeAsStringAsync(ROUTE_NAMES_FILE, JSON.stringify(names));
+}
+
+/**
+ * Get display name for a route (custom name or generated)
+ */
+export function getRouteDisplayName(
+  route: { id: string; name?: string },
+  customNames: Record<string, string>
+): string {
+  return customNames[route.id] || route.name || 'Unnamed Route';
+}

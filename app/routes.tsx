@@ -6,8 +6,8 @@ import { router } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { RoutesList, SectionsList, TimelineSlider } from '@/components';
-import { useRouteProcessing, useActivities, useActivityBoundsCache, useRouteGroups, useFrequentSections } from '@/hooks';
-import { useRouteMatchStore, useRouteSettings } from '@/providers';
+import { useRouteProcessing, useActivities, useActivityBoundsCache, useRouteGroups, useFrequentSections, useEngineStats, useRouteDataSync } from '@/hooks';
+import { useRouteSettings } from '@/providers';
 import { colors, spacing } from '@/theme';
 import { debug } from '@/lib';
 import type { ActivityType } from '@/types';
@@ -25,15 +25,13 @@ export default function RoutesScreen() {
   const { settings: routeSettings } = useRouteSettings();
   const isRouteMatchingEnabled = routeSettings.enabled;
 
-  const { queueActivities, isProcessing, progress: routeProgress } = useRouteProcessing();
+  const { clearCache: clearRouteCache } = useRouteProcessing();
 
-  // Get processed activity IDs from cache to skip already-analyzed activities
-  const processedActivityIds = useRouteMatchStore((s) => s.cache?.processedActivityIds || []);
-  const processedSet = useMemo(() => new Set(processedActivityIds), [processedActivityIds]);
+  // Get engine stats
+  const engineStats = useEngineStats();
 
-  // Get cached bounds for pre-filtering (avoids API calls for isolated routes)
+  // Get cached bounds for timeline limits
   const {
-    activities: boundsData,
     isReady: boundsReady,
     oldestActivityDate,
     oldestSyncedDate,
@@ -103,105 +101,17 @@ export default function RoutesScreen() {
     includeStats: false,
   });
 
-  // Filter bounds data to selected date range
-  const filteredBoundsData = useMemo(() => {
-    return boundsData.filter((b) => {
-      const date = new Date(b.date);
-      return date >= startDate && date <= endDate;
-    });
-  }, [boundsData, startDate, endDate]);
+  // Sync activity GPS data to Rust engine
+  const { progress: dataSyncProgress, isSyncing: isDataSyncing } = useRouteDataSync(
+    activities,
+    isRouteMatchingEnabled
+  );
 
-  // Track if we've already queued for the current date range to avoid duplicate calls
-  const lastQueuedRange = React.useRef<string | null>(null);
-  const rangeKey = `${oldestStr}-${newestStr}`;
-
-  // Trigger bounds sync when date range changes
-  useEffect(() => {
-    if (boundsReady) {
-      // Sync the full date range to ensure we have bounds for all activities
-      syncDateRange(oldestStr, newestStr);
-    }
-  }, [oldestStr, newestStr, boundsReady, syncDateRange]);
-
-  // Queue activities for processing ONLY when:
-  // 1. Activities have loaded
-  // 2. Bounds are ready (initial load complete)
-  // 3. Sync is NOT currently in progress (wait for bounds to finish)
-  // 4. We haven't already queued for this date range
-  // 5. No route processing is happening (checking both store state AND hook)
-  const isSyncing = syncProgress.status === 'syncing';
-  const isIdle = routeProgress.status === 'idle';
-  const isComplete = routeProgress.status === 'complete';
-  const hasError = routeProgress.status === 'error';
-  // Only allow queuing when truly idle, complete, or errored
-  const canQueue = isIdle || isComplete || hasError;
-
-  useEffect(() => {
-    // Don't queue if route matching is disabled
-    if (!isRouteMatchingEnabled) {
-      return;
-    }
-
-    // Don't queue while bounds are still syncing - wait for complete data
-    if (isSyncing) {
-      return;
-    }
-
-    // Don't queue if we've already processed this range
-    if (lastQueuedRange.current === rangeKey) {
-      return;
-    }
-
-    // Don't queue if route processing is currently active
-    // isProcessing from hook includes all active states (filtering, fetching, processing, matching, detecting-sections)
-    if (isProcessing) {
-      log.log(`Skipping queue: processing in progress (status: ${routeProgress.status})`);
-      return;
-    }
-
-    // Only queue when we can (idle, complete, or error - not during active processing)
-    if (!canQueue) {
-      log.log(`Skipping queue: status is ${routeProgress.status}`);
-      return;
-    }
-
-    if (activities && activities.length > 0 && boundsReady) {
-      // Filter out already-processed activities - no need to re-analyze cached data
-      const unprocessedActivities = activities.filter((a) => !processedSet.has(a.id));
-
-      // Mark this range as queued (even if all are processed, to avoid re-checking)
-      lastQueuedRange.current = rangeKey;
-
-      // If all activities are already processed, skip queueing entirely
-      if (unprocessedActivities.length === 0) {
-        log.log(`All ${activities.length} activities already processed, skipping analysis`);
-        return;
-      }
-
-      log.log(`Queueing ${unprocessedActivities.length} unprocessed activities (${activities.length - unprocessedActivities.length} already cached)`);
-
-      const activityIds = unprocessedActivities.map((a) => a.id);
-      const metadata: Record<string, { name: string; date: string; type: ActivityType; hasGps: boolean }> = {};
-
-      for (const activity of unprocessedActivities) {
-        metadata[activity.id] = {
-          name: activity.name,
-          date: activity.start_date_local,
-          type: activity.type,
-          hasGps: activity.stream_types?.includes('latlng') ?? false,
-        };
-      }
-
-      // Filter bounds data to only include unprocessed activities
-      const unprocessedBoundsData = filteredBoundsData.filter((b) => !processedSet.has(b.id));
-
-      // Pass filtered bounds data for pre-filtering
-      queueActivities(activityIds, metadata, unprocessedBoundsData);
-    }
-  }, [activities, queueActivities, filteredBoundsData, boundsReady, isSyncing, isProcessing, canQueue, rangeKey, processedSet, isRouteMatchingEnabled, routeProgress.status]);
+  // Sync status for UI
+  const isSyncing = syncProgress.status === 'syncing' || isDataSyncing;
 
   // Convert sync/processing progress to timeline format
-  // Show banner for both bounds syncing AND route processing
+  // Show banner for syncing AND data fetching
   const timelineSyncProgress = useMemo(() => {
     // Show bounds syncing progress
     if (syncProgress.status === 'syncing') {
@@ -211,16 +121,16 @@ export default function RoutesScreen() {
         message: undefined,
       };
     }
-    // Show route processing progress after syncing is done
-    if (isProcessing && routeProgress.total > 0) {
+    // Show GPS data fetching progress
+    if (isDataSyncing && dataSyncProgress.total > 0) {
       return {
-        completed: routeProgress.current,
-        total: routeProgress.total,
-        message: t('routesScreen.analysingRoutes', { current: routeProgress.current, total: routeProgress.total }),
+        completed: dataSyncProgress.completed,
+        total: dataSyncProgress.total,
+        message: t('routesScreen.analysingRoutes', { current: dataSyncProgress.completed, total: dataSyncProgress.total }),
       };
     }
     return null;
-  }, [syncProgress, isProcessing, routeProgress, t]);
+  }, [syncProgress, isDataSyncing, dataSyncProgress, t]);
 
   // Show disabled state if route matching is not enabled
   if (!isRouteMatchingEnabled) {
@@ -338,7 +248,7 @@ export default function RoutesScreen() {
         startDate={startDate}
         endDate={endDate}
         onRangeChange={handleRangeChange}
-        isLoading={isLoading || isProcessing}
+        isLoading={isLoading || isDataSyncing}
         activityCount={activities?.length || 0}
         syncProgress={timelineSyncProgress}
         cachedOldest={oldestSyncedDate ? new Date(oldestSyncedDate) : null}

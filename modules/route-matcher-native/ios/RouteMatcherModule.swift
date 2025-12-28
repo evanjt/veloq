@@ -499,6 +499,193 @@ public class RouteMatcherModule: Module {
             ]
         }
 
+        // ==========================================================================
+        // Route Engine (Stateful Rust Backend)
+        // ==========================================================================
+
+        // Engine: Initialize
+        Function("engineInit") { () -> Void in
+            engineInit()
+            logger.info("RouteEngine: Initialized")
+        }
+
+        // Engine: Clear all state
+        Function("engineClear") { () -> Void in
+            engineClear()
+            logger.info("RouteEngine: Cleared")
+        }
+
+        // Engine: Add activities from flat buffers
+        Function("engineAddActivities") { (activityIds: [String], allCoords: [Double], offsets: [Int], sportTypes: [String]) -> Void in
+            logger.info("RouteEngine: Adding \(activityIds.count) activities")
+            let offsetsU32 = offsets.map { UInt32($0) }
+            engineAddActivities(activityIds: activityIds, allCoords: allCoords, offsets: offsetsU32, sportTypes: sportTypes)
+        }
+
+        // Engine: Remove activities
+        Function("engineRemoveActivities") { (activityIds: [String]) -> Void in
+            logger.info("RouteEngine: Removing \(activityIds.count) activities")
+            engineRemoveActivities(activityIds: activityIds)
+        }
+
+        // Engine: Get all activity IDs
+        Function("engineGetActivityIds") { () -> [String] in
+            return engineGetActivityIds()
+        }
+
+        // Engine: Get activity count
+        Function("engineGetActivityCount") { () -> Int in
+            return Int(engineGetActivityCount())
+        }
+
+        // Engine: Get groups as JSON
+        Function("engineGetGroupsJson") { () -> String in
+            return engineGetGroupsJson()
+        }
+
+        // Engine: Get sections as JSON
+        Function("engineGetSectionsJson") { () -> String in
+            return engineGetSectionsJson()
+        }
+
+        // Engine: Query viewport
+        Function("engineQueryViewport") { (minLat: Double, maxLat: Double, minLng: Double, maxLng: Double) -> [String] in
+            return engineQueryViewport(minLat: minLat, maxLat: maxLat, minLng: minLng, maxLng: maxLng)
+        }
+
+        // Engine: Find nearby
+        Function("engineFindNearby") { (lat: Double, lng: Double, radiusDegrees: Double) -> [String] in
+            return engineFindNearby(lat: lat, lng: lng, radiusDegrees: radiusDegrees)
+        }
+
+        // Engine: Get consensus route
+        Function("engineGetConsensusRoute") { (groupId: String) -> [Double] in
+            return engineGetConsensusRoute(groupId: groupId)
+        }
+
+        // Engine: Get stats
+        Function("engineGetStats") { () -> [String: Any] in
+            let stats = engineGetStats()
+            return [
+                "activity_count": Int(stats.activityCount),
+                "signature_count": Int(stats.signatureCount),
+                "group_count": Int(stats.groupCount),
+                "section_count": Int(stats.sectionCount),
+                "cached_consensus_count": Int(stats.cachedConsensusCount)
+            ]
+        }
+
+        // Engine: Set match config
+        Function("engineSetMatchConfig") { (config: [String: Any]) -> Void in
+            let matchConfig = self.parseConfig(config)
+            engineSetMatchConfig(config: matchConfig)
+        }
+
+        // Engine: Set section config
+        Function("engineSetSectionConfig") { (config: [String: Any]) -> Void in
+            let sectionConfig = self.parseSectionConfig(config)
+            engineSetSectionConfig(config: sectionConfig)
+        }
+
+        // ==========================================================================
+        // Persistent Route Engine (SQLite-backed, memory efficient)
+        // ==========================================================================
+
+        // PersistentEngine: Initialize with database path
+        Function("persistentEngineInit") { (dbPath: String) -> Bool in
+            let result = persistentEngineInit(dbPath: dbPath)
+            logger.info("PersistentEngine: Initialized = \(result)")
+            return result
+        }
+
+        // PersistentEngine: Check if initialized
+        Function("persistentEngineIsInitialized") { () -> Bool in
+            return persistentEngineIsInitialized()
+        }
+
+        // PersistentEngine: Clear all state
+        Function("persistentEngineClear") { () -> Void in
+            persistentEngineClear()
+            logger.info("PersistentEngine: Cleared")
+        }
+
+        // PersistentEngine: Add activities from flat buffers
+        Function("persistentEngineAddActivities") { (activityIds: [String], allCoords: [Double], offsets: [Int], sportTypes: [String]) -> Void in
+            logger.info("PersistentEngine: Adding \(activityIds.count) activities")
+            let offsetsU32 = offsets.map { UInt32($0) }
+            persistentEngineAddActivities(activityIds: activityIds, allCoords: allCoords, offsets: offsetsU32, sportTypes: sportTypes)
+        }
+
+        // PersistentEngine: Remove activities
+        Function("persistentEngineRemoveActivities") { (activityIds: [String]) -> Void in
+            logger.info("PersistentEngine: Removing \(activityIds.count) activities")
+            persistentEngineRemoveActivities(activityIds: activityIds)
+        }
+
+        // PersistentEngine: Get all activity IDs
+        Function("persistentEngineGetActivityIds") { () -> [String] in
+            return persistentEngineGetActivityIds()
+        }
+
+        // PersistentEngine: Get activity count
+        Function("persistentEngineGetActivityCount") { () -> Int in
+            return Int(persistentEngineGetActivityCount())
+        }
+
+        // PersistentEngine: Get groups as JSON
+        Function("persistentEngineGetGroupsJson") { () -> String in
+            return persistentEngineGetGroupsJson()
+        }
+
+        // PersistentEngine: Get sections as JSON
+        Function("persistentEngineGetSectionsJson") { () -> String in
+            return persistentEngineGetSectionsJson()
+        }
+
+        // PersistentEngine: Query viewport
+        Function("persistentEngineQueryViewport") { (minLat: Double, maxLat: Double, minLng: Double, maxLng: Double) -> [String] in
+            return persistentEngineQueryViewport(minLat: minLat, maxLat: maxLat, minLng: minLng, maxLng: maxLng)
+        }
+
+        // PersistentEngine: Get consensus route as flat coords
+        Function("persistentEngineGetConsensusRoute") { (groupId: String) -> [Double] in
+            return persistentEngineGetConsensusRoute(groupId: groupId)
+        }
+
+        // PersistentEngine: Get GPS track as flat coords
+        Function("persistentEngineGetGpsTrack") { (activityId: String) -> [Double] in
+            return persistentEngineGetGpsTrack(activityId: activityId)
+        }
+
+        // PersistentEngine: Get stats
+        Function("persistentEngineGetStats") { () -> [String: Any]? in
+            guard let stats = persistentEngineGetStats() else { return nil }
+            return [
+                "activity_count": Int(stats.activityCount),
+                "signature_cache_size": Int(stats.signatureCacheSize),
+                "consensus_cache_size": Int(stats.consensusCacheSize),
+                "group_count": Int(stats.groupCount),
+                "section_count": Int(stats.sectionCount),
+                "groups_dirty": stats.groupsDirty,
+                "sections_dirty": stats.sectionsDirty
+            ]
+        }
+
+        // PersistentEngine: Start background section detection
+        Function("persistentEngineStartSectionDetection") { (sportFilter: String?) -> Bool in
+            return persistentEngineStartSectionDetection(sportFilter: sportFilter)
+        }
+
+        // PersistentEngine: Poll section detection status
+        Function("persistentEnginePollSections") { () -> String in
+            return persistentEnginePollSections()
+        }
+
+        // PersistentEngine: Cancel section detection
+        Function("persistentEngineCancelSectionDetection") { () -> Void in
+            persistentEngineCancelSectionDetection()
+        }
+
         // Heatmap: Query cell at location
         // heatmapJson is a JSON string to avoid Expo Modules bridge issues with nulls
         Function("queryHeatmapCell") { (heatmapJson: String, lat: Double, lng: Double) -> [String: Any]? in

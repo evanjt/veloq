@@ -7,7 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '@/providers';
-import { activitySyncManager } from '@/lib';
+import { routeEngine } from 'route-matcher-native';
 
 export function DemoBanner() {
   const { t } = useTranslation();
@@ -24,10 +24,8 @@ export function DemoBanner() {
   const handlePress = async () => {
     // Clear cached demo data - TanStack Query cache
     queryClient.clear();
-    // Clear activity sync manager cache (bounds, GPS tracks, routes)
-    await activitySyncManager.clearCache();
-    // Reset sync manager state so it can re-initialize with real data
-    activitySyncManager.reset();
+    // Clear Rust engine cache
+    routeEngine.clear();
     // Exit demo mode (sets isAuthenticated to false)
     exitDemoMode();
     // Navigate to login - use replace to prevent going back to demo
