@@ -4,7 +4,7 @@
  */
 
 import { useMemo } from 'react';
-import { useRouteMatchStore } from '@/providers/RouteMatchStore';
+import { useEngineSections } from './useRouteEngine';
 import type { FrequentSection, SectionPortion } from '@/types';
 
 export interface SectionMatch {
@@ -31,25 +31,25 @@ export interface UseSectionMatchesResult {
  * Get all sections that contain a given activity.
  */
 export function useSectionMatches(activityId: string | undefined): UseSectionMatchesResult {
-  const cache = useRouteMatchStore((s) => s.cache);
-  const isReady = cache !== null;
+  const { sections: allSections, totalCount } = useEngineSections();
+  const isReady = totalCount > 0;
 
   const sections = useMemo(() => {
-    if (!activityId || !cache?.frequentSections) {
+    if (!activityId || allSections.length === 0) {
       return [];
     }
 
     const matches: SectionMatch[] = [];
 
-    for (const section of cache.frequentSections) {
+    for (const section of allSections) {
       // Check if activity is in this section's activity list
       if (section.activityIds.includes(activityId)) {
         // Find the portion data for this activity
         const portion = section.activityPortions?.find((p) => p.activityId === activityId);
 
         matches.push({
-          section,
-          portion,
+          section: section as unknown as FrequentSection,
+          portion: portion as unknown as SectionPortion,
           direction: (portion?.direction as 'same' | 'reverse') || 'same',
           distance: portion?.distanceMeters || section.distanceMeters,
         });
@@ -60,7 +60,7 @@ export function useSectionMatches(activityId: string | undefined): UseSectionMat
     matches.sort((a, b) => b.section.visitCount - a.section.visitCount);
 
     return matches;
-  }, [activityId, cache?.frequentSections]);
+  }, [activityId, allSections]);
 
   return {
     sections,

@@ -11,7 +11,7 @@ import MapLibreGL, { Camera, ShapeSource, LineLayer, MarkerView } from '@maplibr
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { getActivityColor } from '@/lib';
 import { colors, spacing, layout } from '@/theme';
-import { useMapPreferences, useRouteMatchStore } from '@/providers';
+import { useMapPreferences } from '@/providers';
 import { getMapStyle, BaseMapView, isDarkStyle } from '@/components/maps';
 import type { RouteGroup, RoutePoint } from '@/types';
 
@@ -47,20 +47,9 @@ export function RouteMapView({
   const activityColor = getActivityColor(routeGroup.type);
   const mapRef = useRef(null);
 
-  // Get all signatures for activities in this group
-  const signatures = useRouteMatchStore((s) => s.cache?.signatures || {});
-
-  // Collect all activity traces with their IDs for highlighting
-  const activityTracesWithIds = useMemo(() => {
-    const traces: { id: string; points: RoutePoint[] }[] = [];
-    for (const activityId of routeGroup.activityIds) {
-      const sig = signatures[activityId];
-      if (sig?.points && sig.points.length > 1) {
-        traces.push({ id: activityId, points: sig.points });
-      }
-    }
-    return traces;
-  }, [routeGroup.activityIds, signatures]);
+  // Individual activity traces not available from engine (signatures are internal)
+  // Only the main route display is shown
+  const activityTracesWithIds: { id: string; points: RoutePoint[] }[] = [];
 
   // Always use the representative signature (the full route)
   // Consensus points are only for internal lap detection, not for display

@@ -1,5 +1,5 @@
 import type { Activity, ActivityBoundsItem, ActivityBoundsCache, ActivityType } from '@/types';
-import { activitySpatialIndex } from '../algorithms/spatialIndex';
+// Spatial indexing now handled by Rust persistent engine
 import { debug } from '../utils/debug';
 
 const log = debug.create('PreFilter');
@@ -229,73 +229,8 @@ export function findActivitiesWithPotentialMatchesFast(
   unprocessedIds: Set<string>,
   allBounds: ActivityBoundsItem[]
 ): Set<string> {
-  // Fall back to brute force if spatial index not ready
-  if (!activitySpatialIndex.ready) {
-    log.log('Spatial index not ready, using brute force');
-    return findActivitiesWithPotentialMatches(unprocessedIds, allBounds);
-  }
-
-  const candidateIds = new Set<string>();
-
-  // Build a map for quick lookup
-  const boundsMap = new Map<string, ActivityBoundsItem>();
-  for (const b of allBounds) {
-    boundsMap.set(b.id, b);
-  }
-
-  log.log(`Checking ${unprocessedIds.size} unprocessed using spatial index`);
-
-  let checkedCount = 0;
-  let matchedCount = 0;
-  let spatialQueriesTotal = 0;
-  let noBoundsCount = 0;
-  let emptyBoundsCount = 0;
-
-  // For each unprocessed activity, use spatial index to find overlapping activities
-  for (const id of unprocessedIds) {
-    const activity1 = boundsMap.get(id);
-    if (!activity1) {
-      noBoundsCount++;
-      continue;
-    }
-
-    // Check if bounds are valid
-    if (!activity1.bounds || activity1.bounds.length !== 2) {
-      emptyBoundsCount++;
-      continue;
-    }
-
-    checkedCount++;
-
-    // Use spatial index to get candidates (O(log n) instead of O(n))
-    const spatialCandidates = activitySpatialIndex.findPotentialMatches(activity1);
-    spatialQueriesTotal += spatialCandidates.length;
-
-    // Debug: Log first few activities with no spatial candidates
-    if (spatialCandidates.length === 0 && checkedCount <= 3) {
-      const [[minLat, minLng], [maxLat, maxLng]] = activity1.bounds;
-      log.log(`No spatial candidates for ${activity1.name} (${activity1.type}): bounds=[${minLat.toFixed(4)},${minLng.toFixed(4)} - ${maxLat.toFixed(4)},${maxLng.toFixed(4)}]`);
-    }
-
-    // Check the spatial candidates for type/distance match
-    for (const candidateId of spatialCandidates) {
-      const activity2 = boundsMap.get(candidateId);
-      if (!activity2) continue;
-
-      // Detailed check: type, bounds overlap ratio, distance similarity
-      if (couldBeRouteMatch(activity1, activity2)) {
-        candidateIds.add(activity1.id);
-        matchedCount++;
-        break; // Found a match, no need to check more
-      }
-    }
-  }
-
-  log.log(`Spatial: ${checkedCount} checked, ${matchedCount} matches, avg ${(spatialQueriesTotal / Math.max(1, checkedCount)).toFixed(1)} candidates/activity`);
-  if (noBoundsCount > 0 || emptyBoundsCount > 0) {
-    log.log(`Skipped: ${noBoundsCount} no bounds in map, ${emptyBoundsCount} empty bounds`);
-  }
-  log.log(`Spatial index size: ${activitySpatialIndex.size}, ready: ${activitySpatialIndex.ready}`);
-
-  return candidateIds;
+  // Spatial indexing now handled by Rust persistent engine
+  // Fall back to brute force for JS-side filtering
+  log.log('Using brute force matching (Rust handles spatial indexing)');
+  return findActivitiesWithPotentialMatches(unprocessedIds, allBounds);
 }

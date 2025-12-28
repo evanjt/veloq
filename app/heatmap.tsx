@@ -14,7 +14,7 @@ import { useTranslation } from 'react-i18next';
 import { colors, spacing, shadows } from '@/theme';
 import { useHeatmap, type CellQueryResult } from '@/hooks/useHeatmap';
 import { HeatmapLayer, HeatmapCellPopup } from '@/components/maps';
-import { useRouteMatchStore } from '@/providers';
+import { useEngineStats } from '@/hooks';
 import {
   type MapStyleType,
   getMapStyle,
@@ -45,7 +45,8 @@ export default function HeatmapScreen() {
   const mapStyleValue = getMapStyle(mapStyle);
 
   // Check if we have any data
-  const hasData = useRouteMatchStore((s) => Object.keys(s.cache?.signatures ?? {}).length > 0);
+  const stats = useEngineStats();
+  const hasData = stats.activityCount > 0;
 
   // Generate heatmap
   const { heatmap, isReady, queryCell } = useHeatmap({ cellSizeMeters: cellSize });

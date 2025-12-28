@@ -73,7 +73,10 @@ export interface MatchConfig {
 
 export interface RouteGroup {
   groupId: string;
+  representativeId: string;
   activityIds: string[];
+  sportType: string;
+  bounds: Bounds | null;
 }
 
 /**
@@ -975,6 +978,301 @@ export function getDefaultHeatmapConfig(): HeatmapConfig {
   };
 }
 
+// =============================================================================
+// Route Engine (Stateful Rust Backend)
+// =============================================================================
+
+/**
+ * Engine statistics for monitoring.
+ */
+export interface EngineStats {
+  activityCount: number;
+  signatureCount: number;
+  groupCount: number;
+  sectionCount: number;
+  cachedConsensusCount: number;
+}
+
+/**
+ * Route Engine Client - wraps the stateful Rust engine.
+ *
+ * This is the recommended way to use route matching for most cases.
+ * Instead of passing all data through FFI on every call, the engine
+ * keeps state in Rust and only returns results.
+ *
+ * Benefits:
+ * - Minimal FFI overhead (only transfer what's needed)
+ * - Automatic signature computation
+ * - Automatic grouping and section detection
+ * - Spatial queries without data transfer
+ */
+class RouteEngineClient {
+  private static instance: RouteEngineClient;
+  private listeners: Map<string, Set<() => void>> = new Map();
+  private initialized = false;
+
+  private constructor() {}
+
+  static getInstance(): RouteEngineClient {
+    if (!this.instance) {
+      this.instance = new RouteEngineClient();
+    }
+    return this.instance;
+  }
+
+  /**
+   * Initialize the engine. Call once at app startup.
+   */
+  init(): void {
+    if (this.initialized) return;
+    NativeModule.engineInit();
+    this.initialized = true;
+    nativeLog('[Engine] Initialized');
+  }
+
+  /**
+   * Clear all engine state.
+   */
+  clear(): void {
+    NativeModule.engineClear();
+    this.notify('activities');
+    this.notify('groups');
+    this.notify('sections');
+    nativeLog('[Engine] Cleared');
+  }
+
+  /**
+   * Add activities from flat coordinate buffers.
+   *
+   * @param activityIds - Array of activity IDs
+   * @param allCoords - Single flat array of ALL coordinates [lat1, lng1, lat2, lng2, ...]
+   * @param offsets - Index offsets where each track starts
+   * @param sportTypes - Sport type for each activity
+   */
+  addActivities(
+    activityIds: string[],
+    allCoords: number[],
+    offsets: number[],
+    sportTypes: string[]
+  ): void {
+    nativeLog(`[Engine] Adding ${activityIds.length} activities`);
+    NativeModule.engineAddActivities(activityIds, allCoords, offsets, sportTypes);
+    this.notify('activities');
+    this.notify('groups');
+    this.notify('sections');
+  }
+
+  /**
+   * Add activities from GpsTrack format (convenience method).
+   */
+  addActivitiesFromTracks(tracks: Array<{ activityId: string; points: GpsPoint[]; sportType: string }>): void {
+    const activityIds: string[] = [];
+    const allCoords: number[] = [];
+    const offsets: number[] = [];
+    const sportTypes: string[] = [];
+
+    for (const track of tracks) {
+      activityIds.push(track.activityId);
+      offsets.push(allCoords.length / 2);
+      sportTypes.push(track.sportType);
+      for (const point of track.points) {
+        allCoords.push(point.latitude, point.longitude);
+      }
+    }
+
+    this.addActivities(activityIds, allCoords, offsets, sportTypes);
+  }
+
+  /**
+   * Remove activities.
+   */
+  removeActivities(activityIds: string[]): void {
+    nativeLog(`[Engine] Removing ${activityIds.length} activities`);
+    NativeModule.engineRemoveActivities(activityIds);
+    this.notify('activities');
+    this.notify('groups');
+    this.notify('sections');
+  }
+
+  /**
+   * Get all activity IDs.
+   */
+  getActivityIds(): string[] {
+    return NativeModule.engineGetActivityIds();
+  }
+
+  /**
+   * Get activity count.
+   */
+  getActivityCount(): number {
+    return NativeModule.engineGetActivityCount();
+  }
+
+  /**
+   * Get route groups.
+   * Groups are computed lazily and cached.
+   */
+  getGroups(): RouteGroup[] {
+    const json = NativeModule.engineGetGroupsJson();
+    const parsed = JSON.parse(json) as Array<Record<string, unknown>>;
+    // Convert from snake_case to camelCase
+    return parsed.map(g => {
+      const rawBounds = g.bounds as Record<string, number> | null;
+      return {
+        groupId: (g.group_id as string) || '',
+        representativeId: (g.representative_id as string) || '',
+        activityIds: (g.activity_ids as string[]) || [],
+        sportType: (g.sport_type as string) || 'Ride',
+        bounds: rawBounds ? {
+          minLat: rawBounds.min_lat,
+          maxLat: rawBounds.max_lat,
+          minLng: rawBounds.min_lng,
+          maxLng: rawBounds.max_lng,
+        } : null,
+      };
+    });
+  }
+
+  /**
+   * Get detected sections.
+   * Sections are computed lazily and cached.
+   */
+  getSections(): FrequentSection[] {
+    const json = NativeModule.engineGetSectionsJson();
+    const result = JSON.parse(json) as Array<Record<string, unknown>>;
+
+    // Convert from snake_case to camelCase
+    return result.map((s: Record<string, unknown>) => ({
+      id: s.id as string,
+      sportType: s.sport_type as string,
+      polyline: ((s.polyline as GpsPoint[]) || []).map(p => ({ lat: p.latitude, lng: p.longitude })),
+      representativeActivityId: (s.representative_activity_id as string) || '',
+      activityIds: s.activity_ids as string[],
+      activityPortions: ((s.activity_portions as Array<Record<string, unknown>>) || []).map(p => ({
+        activityId: p.activity_id as string,
+        startIndex: p.start_index as number,
+        endIndex: p.end_index as number,
+        distanceMeters: p.distance_meters as number,
+        direction: p.direction as string,
+      })),
+      routeIds: s.route_ids as string[],
+      visitCount: s.visit_count as number,
+      distanceMeters: s.distance_meters as number,
+      activityTraces: {},
+      confidence: (s.confidence as number) ?? 0.0,
+      observationCount: (s.observation_count as number) ?? 0,
+      averageSpread: (s.average_spread as number) ?? 0.0,
+      pointDensity: s.point_density as number[] | undefined,
+    }));
+  }
+
+  /**
+   * Query activities in a viewport.
+   * Returns activity IDs that intersect the given bounds.
+   */
+  queryViewport(minLat: number, maxLat: number, minLng: number, maxLng: number): string[] {
+    return NativeModule.engineQueryViewport(minLat, maxLat, minLng, maxLng);
+  }
+
+  /**
+   * Find activities near a point.
+   */
+  findNearby(lat: number, lng: number, radiusDegrees: number): string[] {
+    return NativeModule.engineFindNearby(lat, lng, radiusDegrees);
+  }
+
+  /**
+   * Get consensus route for a group as flat coordinates.
+   * Returns [lat1, lng1, lat2, lng2, ...] or empty array if not found.
+   */
+  getConsensusRoute(groupId: string): number[] {
+    return NativeModule.engineGetConsensusRoute(groupId);
+  }
+
+  /**
+   * Get consensus route as GpsPoint array.
+   */
+  getConsensusRoutePoints(groupId: string): GpsPoint[] {
+    const flat = this.getConsensusRoute(groupId);
+    return flatCoordsToPoints(flat);
+  }
+
+  /**
+   * Get engine statistics.
+   */
+  getStats(): EngineStats {
+    const stats = NativeModule.engineGetStats();
+    return {
+      activityCount: stats.activity_count,
+      signatureCount: stats.signature_count,
+      groupCount: stats.group_count,
+      sectionCount: stats.section_count,
+      cachedConsensusCount: stats.cached_consensus_count,
+    };
+  }
+
+  /**
+   * Set match configuration.
+   * This invalidates all computed state (signatures, groups, sections).
+   */
+  setMatchConfig(config: Partial<MatchConfig>): void {
+    const fullConfig = { ...getDefaultConfig(), ...config };
+    NativeModule.engineSetMatchConfig({
+      perfect_threshold: fullConfig.perfectThreshold,
+      zero_threshold: fullConfig.zeroThreshold,
+      min_match_percentage: fullConfig.minMatchPercentage,
+      min_route_distance: fullConfig.minRouteDistance,
+      max_distance_diff_ratio: fullConfig.maxDistanceDiffRatio,
+      endpoint_threshold: fullConfig.endpointThreshold,
+      resample_count: fullConfig.resampleCount,
+      simplification_tolerance: fullConfig.simplificationTolerance,
+      max_simplified_points: fullConfig.maxSimplifiedPoints,
+    });
+    this.notify('groups');
+    this.notify('sections');
+  }
+
+  /**
+   * Set section detection configuration.
+   */
+  setSectionConfig(config: Partial<SectionConfig>): void {
+    const fullConfig = { ...getDefaultSectionConfig(), ...config };
+    NativeModule.engineSetSectionConfig({
+      proximity_threshold: fullConfig.proximityThreshold,
+      min_section_length: fullConfig.minSectionLength,
+      min_activities: fullConfig.minActivities,
+      cluster_tolerance: fullConfig.clusterTolerance,
+      sample_points: fullConfig.samplePoints,
+    });
+    this.notify('sections');
+  }
+
+  /**
+   * Subscribe to engine events.
+   *
+   * @param event - Event type: 'activities', 'groups', 'sections'
+   * @param callback - Called when the event occurs
+   * @returns Unsubscribe function
+   */
+  subscribe(event: 'activities' | 'groups' | 'sections', callback: () => void): () => void {
+    if (!this.listeners.has(event)) {
+      this.listeners.set(event, new Set());
+    }
+    this.listeners.get(event)!.add(callback);
+    return () => this.listeners.get(event)!.delete(callback);
+  }
+
+  private notify(event: string) {
+    this.listeners.get(event)?.forEach(cb => cb());
+  }
+}
+
+/**
+ * Get the singleton Route Engine instance.
+ * Use this for stateful route management with minimal FFI overhead.
+ */
+export const routeEngine = RouteEngineClient.getInstance();
+
 export default {
   createSignature,
   createSignaturesFlatBuffer,
@@ -1000,4 +1298,6 @@ export default {
   generateHeatmap,
   queryHeatmapCell,
   getDefaultHeatmapConfig,
+  // Route Engine (stateful)
+  routeEngine,
 };

@@ -12,8 +12,7 @@ import Svg, { Polyline } from 'react-native-svg';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { useSharedValue, useDerivedValue, useAnimatedStyle, useAnimatedReaction, runOnJS } from 'react-native-reanimated';
 import Animated from 'react-native-reanimated';
-import { useRouteMatchStore } from '@/providers';
-import { useActivities } from '@/hooks';
+import { useActivities, useRouteGroups } from '@/hooks';
 import { RouteMapView } from '@/components/routes';
 import {
   formatDistance,
@@ -853,9 +852,27 @@ export default function RouteDetailScreen() {
     setHighlightedActivityPoints(activityPoints);
   }, []);
 
-  const routeGroup = useRouteMatchStore((s) =>
-    s.cache?.groups.find((g) => g.id === id) || null
+  // Get route groups from engine
+  const { groups: allGroups } = useRouteGroups({ minActivities: 1 });
+  const engineGroup = useMemo(() =>
+    allGroups.find((g) => g.groupId === id) || null,
+    [allGroups, id]
   );
+
+  // Create a compatible routeGroup object with expected properties
+  const routeGroup = useMemo(() => {
+    if (!engineGroup) return null;
+    return {
+      id: engineGroup.groupId,
+      name: engineGroup.groupId, // Will be overridden by customName if set
+      type: engineGroup.type || 'Ride',
+      activityIds: engineGroup.activityIds,
+      activityCount: engineGroup.activityCount,
+      firstDate: '', // Not available from engine
+      lastDate: '', // Will be computed from activities
+      signature: null as { points: any[]; distance: number } | null,
+    };
+  }, [engineGroup]);
 
   // Handle starting to edit the route name
   const handleStartEditing = useCallback(() => {
@@ -886,38 +903,12 @@ export default function RouteDetailScreen() {
     Keyboard.dismiss();
   }, []);
 
-  // Get match data for all activities in this route
-  const matches = useRouteMatchStore((s) => s.cache?.matches || {});
+  // Match data and signatures are now internal to Rust engine
+  const matches: Record<string, { direction: string; matchPercentage: number }> = {};
+  const signatures: Record<string, { points: any[] }> = {};
 
-  // Get signatures for route points
-  const signatures = useRouteMatchStore((s) => s.cache?.signatures || {});
-
-  // Fetch activities for this route
-  // Extend date range by 1 day on each side to handle timezone edge cases
-  // and ensure we capture all activities in the group
-  const { oldest, newest } = React.useMemo(() => {
-    if (!routeGroup) return { oldest: undefined, newest: undefined };
-
-    // Parse first date and go back 1 day
-    const firstDate = new Date(routeGroup.firstDate);
-    firstDate.setDate(firstDate.getDate() - 1);
-
-    // Parse last date and go forward 1 day
-    const lastDate = new Date(routeGroup.lastDate);
-    lastDate.setDate(lastDate.getDate() + 1);
-
-    // Format as YYYY-MM-DD
-    const formatDate = (d: Date) => d.toISOString().split('T')[0];
-
-    return {
-      oldest: formatDate(firstDate),
-      newest: formatDate(lastDate),
-    };
-  }, [routeGroup?.firstDate, routeGroup?.lastDate]);
-
+  // Fetch all activities (we filter by IDs from the route group)
   const { data: allActivities, isLoading } = useActivities({
-    oldest,
-    newest,
     includeStats: false,
   });
 
@@ -933,6 +924,17 @@ export default function RouteDetailScreen() {
       return true;
     });
   }, [routeGroup, allActivities]);
+
+  // Compute stats from activities since signature data isn't available
+  // Must be called before any early return to maintain hooks order
+  const routeStats = useMemo(() => {
+    if (routeActivities.length === 0) return { distance: 0, lastDate: '' };
+    const distances = routeActivities.map(a => a.distance || 0);
+    const avgDistance = distances.reduce((a, b) => a + b, 0) / distances.length;
+    const dates = routeActivities.map(a => new Date(a.start_date_local).getTime());
+    const lastDate = new Date(Math.max(...dates)).toISOString();
+    return { distance: avgDistance, lastDate };
+  }, [routeActivities]);
 
   if (!routeGroup) {
     return (
@@ -962,7 +964,8 @@ export default function RouteDetailScreen() {
 
   const activityColor = getActivityColor(routeGroup.type);
   const iconName = getActivityIcon(routeGroup.type);
-  const hasMapData = routeGroup.signature?.points && routeGroup.signature.points.length > 1;
+  // Map data check - without signatures, assume we have map data if we have activities
+  const hasMapData = routeActivities.length > 0;
 
   return (
     <View style={[styles.container, isDark && styles.containerDark]}>
@@ -1050,11 +1053,11 @@ export default function RouteDetailScreen() {
 
             {/* Stats row */}
             <View style={styles.heroStatsRow}>
-              <Text style={styles.heroStat}>{formatDistance(routeGroup.signature.distance)}</Text>
+              <Text style={styles.heroStat}>{formatDistance(routeStats.distance)}</Text>
               <Text style={styles.heroStatDivider}>·</Text>
               <Text style={styles.heroStat}>{routeGroup.activityCount} activities</Text>
               <Text style={styles.heroStatDivider}>·</Text>
-              <Text style={styles.heroStat}>{formatRelativeDate(routeGroup.lastDate)}</Text>
+              <Text style={styles.heroStat}>{routeStats.lastDate ? formatRelativeDate(routeStats.lastDate) : '-'}</Text>
             </View>
           </View>
         </View>
