@@ -385,6 +385,8 @@ pub struct RouteGroup {
     pub sport_type: String,
     /// Bounding box for all activities in the group
     pub bounds: Option<Bounds>,
+    /// User-defined custom name for this route (None = use auto-generated name)
+    pub custom_name: Option<String>,
 }
 
 /// Bounding box for a route (used for spatial indexing).
@@ -1067,6 +1069,7 @@ fn build_route_groups(
                 activity_ids,
                 sport_type,
                 bounds,
+                custom_name: None,
             }
         })
         .collect()

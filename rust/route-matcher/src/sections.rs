@@ -251,7 +251,7 @@ fn find_full_track_overlap(
             best_end_a = track_a.len();
             best_min_b = current_min_b;
             best_max_b = current_max_b;
-            best_length = current_length;
+            // best_length not needed after this point
         }
     }
 

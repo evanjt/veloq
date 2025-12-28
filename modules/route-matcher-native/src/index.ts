@@ -77,6 +77,8 @@ export interface RouteGroup {
   activityIds: string[];
   sportType: string;
   bounds: Bounds | null;
+  /** User-defined custom name (empty string if not set) */
+  customName: string;
 }
 
 /**
@@ -1129,6 +1131,7 @@ class RouteEngineClient {
           minLng: rawBounds.min_lng,
           maxLng: rawBounds.max_lng,
         } : null,
+        customName: (g.custom_name as string) || '',
       };
     });
   }
@@ -1158,7 +1161,7 @@ class RouteEngineClient {
       routeIds: s.route_ids as string[],
       visitCount: s.visit_count as number,
       distanceMeters: s.distance_meters as number,
-      activityTraces: {},
+      activityTraces: convertActivityTraces(s.activity_traces as Record<string, GpsPoint[]>),
       confidence: (s.confidence as number) ?? 0.0,
       observationCount: (s.observation_count as number) ?? 0,
       averageSpread: (s.average_spread as number) ?? 0.0,
@@ -1245,6 +1248,32 @@ class RouteEngineClient {
       sample_points: fullConfig.samplePoints,
     });
     this.notify('sections');
+  }
+
+  /**
+   * Set a custom name for a route.
+   * Pass empty string to clear the custom name.
+   */
+  setRouteName(routeId: string, name: string): void {
+    NativeModule.persistentEngineSetRouteName(routeId, name);
+    this.notify('groups');
+  }
+
+  /**
+   * Get the custom name for a route.
+   * Returns empty string if no custom name is set.
+   */
+  getRouteName(routeId: string): string {
+    return NativeModule.persistentEngineGetRouteName(routeId) || '';
+  }
+
+  /**
+   * Get all custom route names.
+   * Returns a map of routeId -> customName.
+   */
+  getAllRouteNames(): Record<string, string> {
+    const json = NativeModule.persistentEngineGetAllRouteNamesJson();
+    return JSON.parse(json) as Record<string, string>;
   }
 
   /**
