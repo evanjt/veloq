@@ -137,38 +137,6 @@ export default function TrainingScreen() {
           )}
         </TouchableOpacity>
 
-        {/* Heatmap Section */}
-        <TouchableOpacity
-          style={[styles.card, isDark && styles.cardDark]}
-          onPress={() => router.push('/heatmap' as Href)}
-          activeOpacity={0.7}
-        >
-          <View style={styles.routesSectionRow}>
-            <View style={[styles.routesIcon, { backgroundColor: '#5B9BD515' }, isDark && { backgroundColor: '#5B9BD530' }]}>
-              <MaterialCommunityIcons
-                name="fire"
-                size={22}
-                color="#5B9BD5"
-              />
-            </View>
-            <View style={styles.routesSectionInfo}>
-              <Text style={[styles.routesSectionTitle, isDark && styles.textLight]}>
-                {t('trainingScreen.heatmap')}
-              </Text>
-              <Text style={[styles.routesSectionSubtitle, isDark && styles.textMuted]}>
-                {routeGroups.length > 0
-                  ? t('trainingScreen.visualizeActivities', { count: processedCount })
-                  : t('trainingScreen.seeWhereYouTravel')}
-              </Text>
-            </View>
-            <MaterialCommunityIcons
-              name="chevron-right"
-              size={22}
-              color={isDark ? '#666' : colors.textSecondary}
-            />
-          </View>
-        </TouchableOpacity>
-
         {/* Activity Heatmap - using real activities data */}
         <View style={[styles.card, isDark && styles.cardDark]}>
           {isLoading ? (

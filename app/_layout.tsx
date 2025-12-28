@@ -10,7 +10,15 @@ import { QueryProvider, MapPreferencesProvider, initializeTheme, useAuthStore, i
 import { initializeI18n } from '@/i18n';
 import { lightTheme, darkTheme, colors, darkColors } from '@/theme';
 import { CacheLoadingBanner, DemoBanner } from '@/components/ui';
-import { routeEngine } from 'route-matcher-native';
+
+// Lazy load native module to avoid bundler errors
+function getRouteEngine() {
+  try {
+    return require('route-matcher-native').routeEngine;
+  } catch {
+    return null;
+  }
+}
 
 // Suppress MapLibre info/warning logs about canceled requests
 // These occur when switching between map views but don't affect functionality
@@ -28,7 +36,8 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   // Initialize Rust route engine when authenticated
   useEffect(() => {
     if (isAuthenticated) {
-      routeEngine.init();
+      const engine = getRouteEngine();
+      if (engine) engine.init();
     }
   }, [isAuthenticated]);
 
