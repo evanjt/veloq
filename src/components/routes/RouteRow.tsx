@@ -12,6 +12,7 @@ import { router, Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { colors, darkColors, opacity, spacing, layout, typography } from '@/theme';
 import { getActivityColor, loadCustomRouteNames, getRouteDisplayName } from '@/lib';
+import { useConsensusRoute } from '@/hooks/routes/useRouteEngine';
 import type { DiscoveredRouteInfo, RouteGroup } from '@/types';
 
 interface RouteRowProps {
@@ -144,6 +145,11 @@ function RouteRowComponent({ route, navigable = false }: RouteRowProps) {
   const [expanded, setExpanded] = useState(false);
   const [customName, setCustomName] = useState<string | null>(null);
 
+  // Lazy load consensus route for RouteGroup (non-blocking)
+  const { points: consensusPoints } = useConsensusRoute(
+    isRouteGroup(route) ? route.id : null
+  );
+
   // Load custom route name if available
   useEffect(() => {
     loadCustomRouteNames().then((names) => {
@@ -154,22 +160,22 @@ function RouteRowComponent({ route, navigable = false }: RouteRowProps) {
   }, [route.id]);
 
   // Display name uses custom name if set, otherwise auto-generated name
-  const displayName = customName || route.name;
+  // Ensure it's always a valid string to avoid React Native text rendering errors
+  const displayName = customName || route.name || `${route.type} Route`;
 
   // Get activity color for the route type
   const activityColor = getActivityColor(route.type as any);
 
-  // Get preview points - use the representative signature (full route)
-  // NOT consensus points, which can be truncated to just the common core
+  // Get preview points - use lazy-loaded consensus for RouteGroup
   const previewPoints = useMemo(() => {
     if (isRouteGroup(route)) {
-      // RouteGroup - always use the representative signature (the full route)
-      return route.signature?.points ? normalizePoints(route.signature.points) : [];
+      // RouteGroup - use lazy-loaded consensus points
+      return consensusPoints ? normalizePoints(consensusPoints) : [];
     } else {
       // DiscoveredRouteInfo - use previewPoints directly
       return route.previewPoints || [];
     }
-  }, [route]);
+  }, [route, consensusPoints]);
 
   // Get activity names for expansion
   const activityNames = useMemo(() => {
@@ -195,7 +201,8 @@ function RouteRowComponent({ route, navigable = false }: RouteRowProps) {
   };
 
   // Get distance from either type
-  const distance = isRouteGroup(route) ? route.signature?.distance : route.distance;
+  // Note: RouteGroup no longer has signature.distance since we lazy-load consensus
+  const distance = isRouteGroup(route) ? undefined : route.distance;
 
   // Get match percentage (only available on DiscoveredRouteInfo)
   const avgMatchPercentage = isRouteGroup(route) ? route.averageMatchQuality : route.avgMatchPercentage;

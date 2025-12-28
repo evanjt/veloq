@@ -701,6 +701,13 @@ impl PersistentRouteEngine {
             self.groups = crate::group_signatures(&signatures, &self.match_config);
         }
 
+        // Populate sport_type for each group from the representative activity
+        for group in &mut self.groups {
+            if let Some(meta) = self.activity_metadata.get(&group.representative_id) {
+                group.sport_type = meta.sport_type.clone();
+            }
+        }
+
         // Save to database
         self.save_groups().ok();
         self.groups_dirty = false;

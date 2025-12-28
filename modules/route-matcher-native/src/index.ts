@@ -1034,31 +1034,34 @@ class RouteEngineClient {
 
   /**
    * Clear all engine state.
+   * Notifies all subscribers that a full reset has occurred.
    */
   clear(): void {
     NativeModule.engineClear();
     this.notify('activities');
     this.notify('groups');
     this.notify('sections');
+    this.notify('syncReset'); // Signal that a full resync is needed
     nativeLog('[Engine] Cleared');
   }
 
   /**
    * Add activities from flat coordinate buffers.
+   * Runs asynchronously to avoid blocking the UI thread.
    *
    * @param activityIds - Array of activity IDs
    * @param allCoords - Single flat array of ALL coordinates [lat1, lng1, lat2, lng2, ...]
    * @param offsets - Index offsets where each track starts
    * @param sportTypes - Sport type for each activity
    */
-  addActivities(
+  async addActivities(
     activityIds: string[],
     allCoords: number[],
     offsets: number[],
     sportTypes: string[]
-  ): void {
-    nativeLog(`[Engine] Adding ${activityIds.length} activities`);
-    NativeModule.engineAddActivities(activityIds, allCoords, offsets, sportTypes);
+  ): Promise<void> {
+    nativeLog(`[Engine] Adding ${activityIds.length} activities (async)`);
+    await NativeModule.engineAddActivities(activityIds, allCoords, offsets, sportTypes);
     this.notify('activities');
     this.notify('groups');
     this.notify('sections');
@@ -1067,7 +1070,7 @@ class RouteEngineClient {
   /**
    * Add activities from GpsTrack format (convenience method).
    */
-  addActivitiesFromTracks(tracks: Array<{ activityId: string; points: GpsPoint[]; sportType: string }>): void {
+  async addActivitiesFromTracks(tracks: Array<{ activityId: string; points: GpsPoint[]; sportType: string }>): Promise<void> {
     const activityIds: string[] = [];
     const allCoords: number[] = [];
     const offsets: number[] = [];
@@ -1082,7 +1085,7 @@ class RouteEngineClient {
       }
     }
 
-    this.addActivities(activityIds, allCoords, offsets, sportTypes);
+    await this.addActivities(activityIds, allCoords, offsets, sportTypes);
   }
 
   /**
@@ -1255,7 +1258,7 @@ class RouteEngineClient {
    * Pass empty string to clear the custom name.
    */
   setRouteName(routeId: string, name: string): void {
-    NativeModule.persistentEngineSetRouteName(routeId, name);
+    NativeModule.engineSetRouteName(routeId, name);
     this.notify('groups');
   }
 
@@ -1264,7 +1267,7 @@ class RouteEngineClient {
    * Returns empty string if no custom name is set.
    */
   getRouteName(routeId: string): string {
-    return NativeModule.persistentEngineGetRouteName(routeId) || '';
+    return NativeModule.engineGetRouteName(routeId) || '';
   }
 
   /**
@@ -1277,13 +1280,28 @@ class RouteEngineClient {
   }
 
   /**
+   * Get signature points for all activities in a group.
+   * Returns a map of activityId -> array of {lat, lng} points.
+   */
+  getSignaturesForGroup(groupId: string): Record<string, Array<{ lat: number; lng: number }>> {
+    const json = NativeModule.engineGetSignaturesForGroupJson(groupId);
+    const raw = JSON.parse(json) as Record<string, Array<{ latitude: number; longitude: number }>>;
+    // Convert from rust format {latitude, longitude} to JS format {lat, lng}
+    const result: Record<string, Array<{ lat: number; lng: number }>> = {};
+    for (const [activityId, points] of Object.entries(raw)) {
+      result[activityId] = points.map(p => ({ lat: p.latitude, lng: p.longitude }));
+    }
+    return result;
+  }
+
+  /**
    * Subscribe to engine events.
    *
-   * @param event - Event type: 'activities', 'groups', 'sections'
+   * @param event - Event type: 'activities', 'groups', 'sections', 'syncReset'
    * @param callback - Called when the event occurs
    * @returns Unsubscribe function
    */
-  subscribe(event: 'activities' | 'groups' | 'sections', callback: () => void): () => void {
+  subscribe(event: 'activities' | 'groups' | 'sections' | 'syncReset', callback: () => void): () => void {
     if (!this.listeners.has(event)) {
       this.listeners.set(event, new Set());
     }

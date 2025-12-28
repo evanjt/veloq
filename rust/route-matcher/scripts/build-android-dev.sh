@@ -67,4 +67,34 @@ mkdir -p "$MODULE_DIR/jniLibs/x86_64"
 [ -f "$OUTPUT_DIR/jniLibs/x86_64/libroute_matcher.so" ] && \
     cp -v "$OUTPUT_DIR/jniLibs/x86_64/libroute_matcher.so" "$MODULE_DIR/jniLibs/x86_64/"
 
+# Generate and install Kotlin bindings
+echo "🔧 Generating Kotlin bindings..."
+mkdir -p "$OUTPUT_DIR/kotlin"
+
+# Use the arm64 library to generate bindings (any arch works)
+SO_FILE="$OUTPUT_DIR/jniLibs/arm64-v8a/libroute_matcher.so"
+if [ -f "$SO_FILE" ]; then
+    cargo run --features ffi --bin uniffi-bindgen generate \
+        --library "$SO_FILE" \
+        --language kotlin \
+        --out-dir "$OUTPUT_DIR/kotlin" 2>/dev/null || {
+        # Fallback: use uniffi-bindgen-cli if available
+        uniffi-bindgen generate \
+            --library "$SO_FILE" \
+            --language kotlin \
+            --out-dir "$OUTPUT_DIR/kotlin" 2>/dev/null || {
+            echo "⚠️  Kotlin bindings generation skipped (uniffi-bindgen not available)"
+        }
+    }
+
+    # Copy bindings to module
+    BINDINGS_SRC="$OUTPUT_DIR/kotlin/uniffi/route_matcher/route_matcher.kt"
+    BINDINGS_DEST="$MODULE_DIR/java/uniffi/route_matcher/"
+    if [ -f "$BINDINGS_SRC" ]; then
+        mkdir -p "$BINDINGS_DEST"
+        cp -v "$BINDINGS_SRC" "$BINDINGS_DEST"
+        echo "✅ Kotlin bindings installed"
+    fi
+fi
+
 echo "✅ Dev build complete!"
