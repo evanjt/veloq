@@ -74,3 +74,4 @@ modules/route-matcher-native/ios/build/
 android/keystore.properties
 !android/app/debug.keystore
 coverage/
+CLAUDE.md
