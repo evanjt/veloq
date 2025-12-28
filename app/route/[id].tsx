@@ -926,7 +926,7 @@ export default function RouteDetailScreen() {
     try {
       const engine = getRouteEngine();
       if (!engine) return {};
-      const sigMap = engine.getSignaturesForGroup(id);
+      const sigMap = engine.getSignaturesForGroup(id) as Record<string, Array<{ lat: number; lng: number }>>;
       // Convert to expected format: { activity_id: { points: [{lat, lng}, ...] } }
       const result: Record<string, { points: Array<{ lat: number; lng: number }> }> = {};
       for (const [activityId, points] of Object.entries(sigMap)) {
