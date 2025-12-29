@@ -32,7 +32,7 @@ import {
   runOnJS,
 } from 'react-native-reanimated';
 import Animated from 'react-native-reanimated';
-import { useActivities, useFrequentSections } from '@/hooks';
+import { useActivities, useFrequentSections, useSectionPerformances, type ActivitySectionRecord } from '@/hooks';
 import { SectionMapView } from '@/components/routes';
 import {
   formatDistance,
@@ -66,6 +66,12 @@ interface ActivityRowProps {
   isHighlighted?: boolean;
   /** Distance of this activity's section traversal */
   sectionDistance?: number;
+  /** Number of laps/traversals (for multi-lap display) */
+  lapCount?: number;
+  /** Actual section time in seconds (from stream data) */
+  actualSectionTime?: number;
+  /** Actual section pace in m/s (from stream data) */
+  actualSectionPace?: number;
 }
 
 /** Mini trace component showing activity path over section */
@@ -180,6 +186,8 @@ interface PerformanceDataPoint {
   sectionTime?: number;
   /** Section distance in meters */
   sectionDistance?: number;
+  /** Number of laps/traversals (for multi-lap activities) */
+  lapCount?: number;
 }
 
 const CHART_HEIGHT = 160;
@@ -196,6 +204,10 @@ interface PerformanceChartProps {
   isDark: boolean;
   onActivitySelect?: (activityId: string | null, activityPoints?: RoutePoint[]) => void;
   selectedActivityId?: string | null;
+  /** Performance records with actual section times (from useSectionPerformances) */
+  records?: ActivitySectionRecord[];
+  /** Whether records are still loading */
+  isLoadingRecords?: boolean;
 }
 
 function SectionPerformanceChart({
@@ -205,6 +217,8 @@ function SectionPerformanceChart({
   isDark,
   onActivitySelect,
   selectedActivityId,
+  records,
+  isLoadingRecords,
 }: PerformanceChartProps) {
   const { t } = useTranslation();
   const showPace = isRunningActivity(activityType);
@@ -218,16 +232,19 @@ function SectionPerformanceChart({
   const chartBoundsShared = useSharedValue({ left: 0, right: 1 });
   const lastNotifiedIdx = useRef<number | null>(null);
 
-  // Prepare chart data - use section portion data for pace calculation
-  // Note: We use proportional time estimate (section_time = moving_time × section_dist/total_dist)
-  // This assumes constant pace throughout the activity. For accurate section timing,
-  // we would need timestamp data from activity streams.
+  // Prepare chart data - use actual section times from records when available,
+  // otherwise fall back to proportional estimate
   const { chartData, minSpeed, maxSpeed, bestIndex, hasReverseRuns } = useMemo(() => {
     const dataPoints: (PerformanceDataPoint & { x: number })[] = [];
 
     // Map activity portions for quick lookup
     const portionMap = new Map(
       section.activityPortions?.map(p => [p.activityId, p]) || []
+    );
+
+    // Create a map of records by activity ID for quick lookup
+    const recordMap = new Map(
+      records?.map(r => [r.activityId, r]) || []
     );
 
     // Sort activities by date
@@ -240,37 +257,46 @@ function SectionPerformanceChart({
     for (const activity of sortedActivities) {
       const portion = portionMap.get(activity.id);
       const tracePoints = section.activityTraces?.[activity.id];
+      const record = recordMap.get(activity.id);
 
-      // Use section portion distance for calculations
-      const sectionDistance = portion?.distanceMeters || section.distanceMeters;
-      const direction = (portion?.direction as 'same' | 'reverse') || 'same';
+      // Use actual data from record if available, otherwise use proportional estimate
+      const sectionDistance = record?.sectionDistance || portion?.distanceMeters || section.distanceMeters;
+      const direction = record?.direction || (portion?.direction as 'same' | 'reverse') || 'same';
 
       if (direction === 'reverse') hasAnyReverse = true;
 
-      // Calculate section-specific pace using proportional time estimate
-      // sectionTime = moving_time × (sectionDistance / totalDistance)
-      // sectionSpeed = sectionDistance / sectionTime = totalDistance / moving_time = activitySpeed
-      // (proportional estimate yields same pace as full activity - mathematically equivalent)
-      const activitySpeed = activity.moving_time > 0
-        ? activity.distance / activity.moving_time
-        : 0;
+      // Use actual section pace/time from record, or fall back to proportional estimate
+      let sectionSpeed: number;
+      let sectionTime: number;
+      let lapCount = 1;
 
-      // Calculate estimated section time for display
-      const sectionTime = activity.distance > 0
-        ? Math.round(activity.moving_time * (sectionDistance / activity.distance))
-        : 0;
+      if (record) {
+        // Use actual measured values from stream data
+        sectionSpeed = record.bestPace;
+        sectionTime = Math.round(record.bestTime);
+        lapCount = record.lapCount;
+      } else {
+        // Fall back to proportional estimate
+        sectionSpeed = activity.moving_time > 0
+          ? activity.distance / activity.moving_time
+          : 0;
+        sectionTime = activity.distance > 0
+          ? Math.round(activity.moving_time * (sectionDistance / activity.distance))
+          : 0;
+      }
 
       dataPoints.push({
         x: 0,
         id: activity.id,
         activityId: activity.id,
-        speed: activitySpeed,
+        speed: sectionSpeed,
         date: new Date(activity.start_date_local),
         activityName: activity.name,
         direction,
         lapPoints: tracePoints,
         sectionTime,
         sectionDistance,
+        lapCount,
       });
     }
 
@@ -295,7 +321,7 @@ function SectionPerformanceChart({
       bestIndex: bestIdx,
       hasReverseRuns: hasAnyReverse,
     };
-  }, [activities, section]);
+  }, [activities, section, records]);
 
   const chartWidth = useMemo(() => {
     const screenWidth = SCREEN_WIDTH - 32;
@@ -688,6 +714,9 @@ function ActivityRow({
   sectionPoints,
   isHighlighted,
   sectionDistance,
+  lapCount,
+  actualSectionTime,
+  actualSectionPace,
 }: ActivityRowProps) {
   const handlePress = () => {
     router.push(`/activity/${activity.id}`);
@@ -697,13 +726,25 @@ function ActivityRow({
   const traceColor = isHighlighted ? '#00BCD4' : (isReverse ? REVERSE_COLOR : '#2196F3');
   const activityColor = getActivityColor(activity.type);
 
-  // Calculate section-specific time and pace (proportional estimate)
+  // Use actual section time/pace if available, otherwise fall back to proportional estimate
   const displayDistance = sectionDistance || activity.distance;
-  const sectionTime = sectionDistance && activity.distance > 0
-    ? Math.round(activity.moving_time * (sectionDistance / activity.distance))
-    : activity.moving_time;
-  const sectionSpeed = sectionTime > 0 ? displayDistance / sectionTime : 0;
+  let sectionTime: number;
+  let sectionSpeed: number;
+
+  if (actualSectionTime !== undefined && actualSectionPace !== undefined) {
+    // Use actual measured values
+    sectionTime = Math.round(actualSectionTime);
+    sectionSpeed = actualSectionPace;
+  } else {
+    // Fall back to proportional estimate
+    sectionTime = sectionDistance && activity.distance > 0
+      ? Math.round(activity.moving_time * (sectionDistance / activity.distance))
+      : activity.moving_time;
+    sectionSpeed = sectionTime > 0 ? displayDistance / sectionTime : 0;
+  }
+
   const showPace = isRunningActivity(activity.type);
+  const showLapCount = lapCount !== undefined && lapCount > 1;
 
   return (
     <Pressable
@@ -740,6 +781,13 @@ function ActivityRow({
           {isReverse && (
             <View style={[styles.directionBadge, { backgroundColor: REVERSE_COLOR + '15' }]}>
               <MaterialCommunityIcons name="swap-horizontal" size={10} color={REVERSE_COLOR} />
+            </View>
+          )}
+          {showLapCount && (
+            <View style={[styles.lapBadge, isDark && styles.lapBadgeDark]}>
+              <Text style={[styles.lapBadgeText, isDark && styles.lapBadgeTextDark]}>
+                {lapCount}x
+              </Text>
             </View>
           )}
         </View>
@@ -834,6 +882,12 @@ export default function SectionDetailScreen() {
       return true;
     });
   }, [section, allActivities]);
+
+  // Fetch actual section performance times from activity streams
+  const { records: performanceRecords, isLoading: isLoadingRecords } = useSectionPerformances(
+    section,
+    sectionActivities
+  );
 
   // Map of activity portions for direction lookup
   const portionMap = useMemo(() => {
@@ -938,6 +992,8 @@ export default function SectionDetailScreen() {
                 isDark={isDark}
                 onActivitySelect={handleActivitySelect}
                 selectedActivityId={highlightedActivityId}
+                records={performanceRecords}
+                isLoadingRecords={isLoadingRecords}
               />
             </View>
           )}
@@ -962,6 +1018,8 @@ export default function SectionDetailScreen() {
                   const portion = portionMap.get(activity.id);
                   const tracePoints = section.activityTraces?.[activity.id];
                   const isHighlighted = highlightedActivityId === activity.id;
+                  // Look up actual performance record for this activity
+                  const record = performanceRecords?.find((r: ActivitySectionRecord) => r.activityId === activity.id);
 
                   return (
                     <React.Fragment key={activity.id}>
@@ -972,11 +1030,14 @@ export default function SectionDetailScreen() {
                         <ActivityRow
                           activity={activity}
                           isDark={isDark}
-                          direction={portion?.direction}
+                          direction={record?.direction || portion?.direction}
                           activityPoints={tracePoints}
                           sectionPoints={section.polyline}
                           isHighlighted={isHighlighted}
-                          sectionDistance={portion?.distanceMeters}
+                          sectionDistance={record?.sectionDistance || portion?.distanceMeters}
+                          lapCount={record?.lapCount}
+                          actualSectionTime={record?.bestTime}
+                          actualSectionPace={record?.bestPace}
                         />
                       </Pressable>
                       {index < sectionActivities.length - 1 && (
@@ -1342,6 +1403,24 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
     borderRadius: layout.borderRadiusSm,
     gap: 2,
+  },
+  lapBadge: {
+    backgroundColor: colors.primary + '15',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: layout.borderRadiusSm,
+    marginLeft: 4,
+  },
+  lapBadgeDark: {
+    backgroundColor: colors.primary + '25',
+  },
+  lapBadgeText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: colors.primary,
+  },
+  lapBadgeTextDark: {
+    color: colors.primaryLight,
   },
   activityDate: {
     fontSize: typography.caption.fontSize,

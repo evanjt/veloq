@@ -304,7 +304,8 @@
     "matchingDisabled": "Route Matching Disabled",
     "enableInSettings": "Enable route matching in Settings to automatically detect repeated routes from your activities.",
     "goToSettings": "Go to Settings",
-    "analysingRoutes": "Analyzing routes {{current}}/{{total}}"
+    "analysingRoutes": "Analyzing routes {{current}}/{{total}}",
+    "computingRoutes": "Computing routes..."
   },
 
   "statsScreen": {

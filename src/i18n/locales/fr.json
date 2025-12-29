@@ -304,7 +304,8 @@
     "matchingDisabled": "Correspondance de parcours désactivée",
     "enableInSettings": "Activez la correspondance de parcours dans les Paramètres pour détecter automatiquement les parcours répétés de vos activités.",
     "goToSettings": "Aller aux Paramètres",
-    "analysingRoutes": "Analyse des parcours {{current}}/{{total}}"
+    "analysingRoutes": "Analyse des parcours {{current}}/{{total}}",
+    "computingRoutes": "Calcul des parcours..."
   },
 
   "statsScreen": {
