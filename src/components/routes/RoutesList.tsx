@@ -60,7 +60,7 @@ const DiscoveredRoutesList = memo(function DiscoveredRoutesList({
         <MaterialCommunityIcons
           name="map-search-outline"
           size={32}
-          color={isDark ? '#444' : '#CCC'}
+          color={isDark ? darkColors.iconDisabled : colors.gray400}
         />
         <Text style={[styles.noRoutesText, isDark && styles.textMuted]}>
           {t('routes.lookingForRoutes')}
@@ -150,7 +150,7 @@ export function RoutesList({ onRefresh, isRefreshing = false, startDate, endDate
           <MaterialCommunityIcons
             name="timeline-clock-outline"
             size={14}
-            color={isDark ? '#666' : '#999'}
+            color={isDark ? darkColors.textDisabled : colors.textDisabled}
           />
           <Text style={[styles.infoText, isDark && styles.infoTextDark]}>
             {t('routes.expandTimeline')}
@@ -167,7 +167,7 @@ export function RoutesList({ onRefresh, isRefreshing = false, startDate, endDate
           <MaterialCommunityIcons
             name="loading"
             size={48}
-            color={isDark ? '#444' : '#CCC'}
+            color={isDark ? darkColors.iconDisabled : colors.gray400}
           />
           <Text style={[styles.emptyTitle, isDark && styles.textLight]}>
             {t('routes.loadingRoutes')}
@@ -182,7 +182,7 @@ export function RoutesList({ onRefresh, isRefreshing = false, startDate, endDate
           <MaterialCommunityIcons
             name="map-search-outline"
             size={48}
-            color={isDark ? '#444' : '#CCC'}
+            color={isDark ? darkColors.iconDisabled : colors.gray400}
           />
           <Text style={[styles.emptyTitle, isDark && styles.textLight]}>
             {t('routes.analysingRoutes')}
@@ -200,7 +200,7 @@ export function RoutesList({ onRefresh, isRefreshing = false, startDate, endDate
           <MaterialCommunityIcons
             name="map-marker-path"
             size={48}
-            color={isDark ? '#444' : '#CCC'}
+            color={isDark ? darkColors.iconDisabled : colors.gray400}
           />
           <Text style={[styles.emptyTitle, isDark && styles.textLight]}>
             {t('routes.noRoutesYet')}
@@ -217,7 +217,7 @@ export function RoutesList({ onRefresh, isRefreshing = false, startDate, endDate
         <MaterialCommunityIcons
           name="map-marker-question-outline"
           size={48}
-          color={isDark ? '#444' : '#CCC'}
+          color={isDark ? darkColors.iconDisabled : colors.gray400}
         />
         <Text style={[styles.emptyTitle, isDark && styles.textLight]}>
           {t('routes.noMatchingRoutes')}
@@ -238,6 +238,11 @@ export function RoutesList({ onRefresh, isRefreshing = false, startDate, endDate
       ListEmptyComponent={renderEmpty}
       contentContainerStyle={groups.length === 0 ? styles.emptyList : styles.list}
       showsVerticalScrollIndicator={false}
+      // Performance optimizations
+      removeClippedSubviews={Platform.OS === 'ios'}
+      maxToRenderPerBatch={10}
+      windowSize={5}
+      initialNumToRender={8}
       refreshControl={
         onRefresh ? (
           <RefreshControl

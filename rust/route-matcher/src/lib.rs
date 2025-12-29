@@ -88,6 +88,30 @@ pub use heatmap::{
     generate_heatmap, query_heatmap_cell,
 };
 
+// Zone distribution calculations (power/HR zones)
+pub mod zones;
+pub use zones::{
+    PowerZoneConfig, HRZoneConfig,
+    PowerZoneDistribution, HRZoneDistribution,
+    calculate_power_zones, calculate_hr_zones,
+};
+#[cfg(feature = "parallel")]
+pub use zones::{calculate_power_zones_parallel, calculate_hr_zones_parallel};
+
+// Power/pace curve computation
+pub mod curves;
+pub use curves::{
+    PowerCurve, PaceCurve, CurvePoint,
+    compute_power_curve, compute_pace_curve,
+};
+
+// Achievement/PR detection
+pub mod achievements;
+pub use achievements::{
+    Achievement, AchievementType, ActivityRecord,
+    detect_achievements,
+};
+
 #[cfg(feature = "ffi")]
 uniffi::setup_scaffolding!();
 
@@ -1604,6 +1628,223 @@ mod ffi {
     #[uniffi::export]
     pub fn default_heatmap_config() -> crate::HeatmapConfig {
         crate::HeatmapConfig::default()
+    }
+
+    // ========================================================================
+    // Zone Distribution FFI
+    // ========================================================================
+
+    /// Calculate power zone distribution from power data.
+    ///
+    /// # Arguments
+    /// * `power_data` - Power values in watts (1Hz sampling)
+    /// * `ftp` - Functional Threshold Power in watts
+    /// * `zone_thresholds` - Optional custom zone thresholds as % of FTP [Z1, Z2, Z3, Z4, Z5, Z6]
+    ///
+    /// # Returns
+    /// JSON string with zone distribution results
+    #[uniffi::export]
+    pub fn ffi_calculate_power_zones(
+        power_data: Vec<u16>,
+        ftp: u16,
+        zone_thresholds: Option<Vec<f32>>,
+    ) -> String {
+        init_logging();
+        info!("[RouteMatcherRust] calculate_power_zones: {} samples, FTP={}W", power_data.len(), ftp);
+
+        let config = match zone_thresholds {
+            Some(thresholds) if thresholds.len() == 6 => {
+                let mut arr = [0.0f32; 6];
+                arr.copy_from_slice(&thresholds);
+                crate::zones::PowerZoneConfig::with_thresholds(ftp, arr)
+            }
+            _ => crate::zones::PowerZoneConfig::from_ftp(ftp),
+        };
+
+        #[cfg(feature = "parallel")]
+        let result = crate::zones::calculate_power_zones_parallel(&power_data, &config);
+        #[cfg(not(feature = "parallel"))]
+        let result = crate::zones::calculate_power_zones(&power_data, &config);
+
+        info!(
+            "[RouteMatcherRust] Power zones: {} samples, avg={}W, peak={}W",
+            result.total_samples, result.average_power, result.peak_power
+        );
+
+        serde_json::to_string(&result).unwrap_or_else(|_| "{}".to_string())
+    }
+
+    /// Calculate HR zone distribution from heart rate data.
+    ///
+    /// # Arguments
+    /// * `hr_data` - Heart rate values in BPM (1Hz sampling)
+    /// * `threshold_hr` - Max HR or LTHR
+    /// * `zone_thresholds` - Optional custom zone thresholds as % of threshold [Z1, Z2, Z3, Z4]
+    ///
+    /// # Returns
+    /// JSON string with zone distribution results
+    #[uniffi::export]
+    pub fn ffi_calculate_hr_zones(
+        hr_data: Vec<u8>,
+        threshold_hr: u8,
+        zone_thresholds: Option<Vec<f32>>,
+    ) -> String {
+        init_logging();
+        info!("[RouteMatcherRust] calculate_hr_zones: {} samples, threshold={}bpm", hr_data.len(), threshold_hr);
+
+        let config = match zone_thresholds {
+            Some(thresholds) if thresholds.len() == 4 => {
+                let mut arr = [0.0f32; 4];
+                arr.copy_from_slice(&thresholds);
+                crate::zones::HRZoneConfig::with_thresholds(threshold_hr, arr)
+            }
+            _ => crate::zones::HRZoneConfig::from_max_hr(threshold_hr),
+        };
+
+        #[cfg(feature = "parallel")]
+        let result = crate::zones::calculate_hr_zones_parallel(&hr_data, &config);
+        #[cfg(not(feature = "parallel"))]
+        let result = crate::zones::calculate_hr_zones(&hr_data, &config);
+
+        info!(
+            "[RouteMatcherRust] HR zones: {} samples, avg={}bpm, peak={}bpm",
+            result.total_samples, result.average_hr, result.peak_hr
+        );
+
+        serde_json::to_string(&result).unwrap_or_else(|_| "{}".to_string())
+    }
+
+    // ========================================================================
+    // Power/Pace Curve FFI
+    // ========================================================================
+
+    /// Compute power curve for a single activity.
+    ///
+    /// # Arguments
+    /// * `power_data` - Power values in watts (1Hz sampling)
+    /// * `durations` - Durations to compute in seconds [1, 5, 60, 300, 1200, 3600]
+    ///
+    /// # Returns
+    /// JSON string with power curve results
+    #[uniffi::export]
+    pub fn ffi_compute_power_curve(power_data: Vec<u16>, durations: Vec<u32>) -> String {
+        init_logging();
+        info!("[RouteMatcherRust] compute_power_curve: {} samples, {} durations", power_data.len(), durations.len());
+
+        let result = crate::curves::compute_power_curve(&power_data, &durations);
+
+        info!(
+            "[RouteMatcherRust] Power curve computed, peak 1s={}W",
+            result.get_power_at(1).unwrap_or(0.0)
+        );
+
+        serde_json::to_string(&result).unwrap_or_else(|_| "{}".to_string())
+    }
+
+    /// Compute power curve from multiple activities (all-time bests).
+    ///
+    /// # Arguments
+    /// * `activity_ids` - Activity IDs
+    /// * `power_data_flat` - Flat array of all power data
+    /// * `offsets` - Start offset for each activity in power_data_flat
+    /// * `timestamps` - Unix timestamps for each activity
+    /// * `durations` - Durations to compute in seconds
+    ///
+    /// # Returns
+    /// JSON string with power curve results including activity attribution
+    #[uniffi::export]
+    pub fn ffi_compute_power_curve_multi(
+        activity_ids: Vec<String>,
+        power_data_flat: Vec<u16>,
+        offsets: Vec<u32>,
+        timestamps: Vec<i64>,
+        durations: Vec<u32>,
+    ) -> String {
+        init_logging();
+        info!(
+            "[RouteMatcherRust] compute_power_curve_multi: {} activities, {} total samples",
+            activity_ids.len(),
+            power_data_flat.len()
+        );
+
+        // Reconstruct activities from flat data
+        let mut activities: Vec<(String, Vec<u16>, i64)> = Vec::new();
+
+        for (i, activity_id) in activity_ids.iter().enumerate() {
+            let start = offsets[i] as usize;
+            let end = offsets.get(i + 1).map(|&o| o as usize).unwrap_or(power_data_flat.len());
+            let power = power_data_flat[start..end].to_vec();
+            let ts = timestamps.get(i).copied().unwrap_or(0);
+            activities.push((activity_id.clone(), power, ts));
+        }
+
+        #[cfg(feature = "parallel")]
+        let result = crate::curves::compute_power_curve_multi_parallel(&activities, &durations);
+        #[cfg(not(feature = "parallel"))]
+        let result = crate::curves::compute_power_curve_multi(&activities, &durations);
+
+        info!(
+            "[RouteMatcherRust] Multi-activity power curve computed from {} activities",
+            result.activities_analyzed
+        );
+
+        serde_json::to_string(&result).unwrap_or_else(|_| "{}".to_string())
+    }
+
+    /// Compute pace curve for a single activity.
+    ///
+    /// # Arguments
+    /// * `distances` - Cumulative distance at each second in meters
+    /// * `target_distances` - Distances to compute pace for in meters
+    ///
+    /// # Returns
+    /// JSON string with pace curve results
+    #[uniffi::export]
+    pub fn ffi_compute_pace_curve(distances: Vec<f32>, target_distances: Vec<f32>) -> String {
+        init_logging();
+        info!(
+            "[RouteMatcherRust] compute_pace_curve: {} samples, {} target distances",
+            distances.len(),
+            target_distances.len()
+        );
+
+        let result = crate::curves::compute_pace_curve(&distances, &target_distances);
+
+        serde_json::to_string(&result).unwrap_or_else(|_| "{}".to_string())
+    }
+
+    // ========================================================================
+    // Achievement Detection FFI
+    // ========================================================================
+
+    /// Detect achievements by comparing a new activity against historical records.
+    ///
+    /// # Arguments
+    /// * `new_activity` - The newly completed activity record
+    /// * `history` - Historical activity records for comparison
+    ///
+    /// # Returns
+    /// Vector of detected achievements, sorted by importance
+    #[uniffi::export]
+    pub fn ffi_detect_achievements(
+        new_activity: crate::achievements::ActivityRecord,
+        history: Vec<crate::achievements::ActivityRecord>,
+    ) -> Vec<crate::achievements::Achievement> {
+        init_logging();
+        info!(
+            "[RouteMatcherRust] detect_achievements for activity {}, comparing against {} historical activities",
+            new_activity.activity_id,
+            history.len()
+        );
+
+        let achievements = crate::achievements::detect_achievements(&new_activity, &history);
+
+        info!(
+            "[RouteMatcherRust] Detected {} achievements",
+            achievements.len()
+        );
+
+        achievements
     }
 }
 
