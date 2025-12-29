@@ -48,6 +48,7 @@ export { useRoutePerformances } from './routes/useRoutePerformances';
 export { useRouteProcessing } from './routes/useRouteProcessing';
 export { useFrequentSections } from './routes/useFrequentSections';
 export { useSectionMatches } from './routes/useSectionMatches';
+export { useSectionPerformances, type SectionLap, type ActivitySectionRecord } from './routes/useSectionPerformances';
 export { useHeatmap, type UseHeatmapOptions, type UseHeatmapResult } from './useHeatmap';
 // Route Engine hooks (stateful Rust backend)
 export {

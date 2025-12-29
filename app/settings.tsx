@@ -122,8 +122,7 @@ export default function SettingsScreen() {
     progress,
     cacheStats,
     clearCache,
-    syncAllHistory,
-    sync90Days,
+    sync,
   } = useActivityBoundsCache({ activitiesWithDates: allActivities });
 
   // Route matching cache
@@ -172,8 +171,9 @@ export default function SettingsScreen() {
               // Clear both map cache and route cache together
               await clearCache();
               await clearRouteCache();
-              // Actively refetch activities for last 90 days (awaited)
-              await sync90Days();
+              // Actively refetch activities for last 90 days
+              // GlobalDataSync will automatically download GPS data
+              await sync(90);
               // Refresh cache sizes
               refreshCacheSizes();
             } catch {
@@ -221,7 +221,7 @@ export default function SettingsScreen() {
         { text: t('common.cancel'), style: 'cancel' },
         {
           text: t('alerts.sync'),
-          onPress: syncAllHistory,
+          onPress: () => sync('all'),
         },
       ]
     );

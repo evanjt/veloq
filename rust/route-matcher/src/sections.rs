@@ -578,7 +578,15 @@ fn compute_activity_portions(
     portions
 }
 
-/// Find the portion of a track that overlaps with a reference polyline
+/// A contiguous segment of a track that overlaps with the reference
+struct OverlapSegment {
+    start_idx: usize,
+    end_idx: usize,
+    distance: f64,
+}
+
+/// Find the portion of a track that overlaps with a reference polyline.
+/// Returns the segment that best matches the section length, not just any overlap.
 fn find_track_portion(
     track: &[GpsPoint],
     reference: &[GpsPoint],
@@ -591,37 +599,106 @@ fn find_track_portion(
     let ref_tree = build_rtree(reference);
     let threshold_deg = threshold / 111_000.0;
     let threshold_deg_sq = threshold_deg * threshold_deg;
+    let ref_length = polyline_length(reference);
 
-    let mut start_idx: Option<usize> = None;
-    let mut end_idx = 0;
-    let mut in_overlap = false;
+    // Find all contiguous overlapping segments
+    let mut segments: Vec<OverlapSegment> = Vec::new();
+    let mut current_start: Option<usize> = None;
+    let mut gap_count = 0;
+    const MAX_GAP: usize = 3; // Allow small gaps for GPS noise
 
     for (i, point) in track.iter().enumerate() {
         let query = [point.latitude, point.longitude];
 
-        if let Some(nearest) = ref_tree.nearest_neighbor(&query) {
-            let dist_sq = nearest.distance_2(&query);
+        let is_near = ref_tree
+            .nearest_neighbor(&query)
+            .map(|nearest| nearest.distance_2(&query) <= threshold_deg_sq)
+            .unwrap_or(false);
 
-            if dist_sq <= threshold_deg_sq {
-                if !in_overlap {
-                    start_idx = Some(i);
-                    in_overlap = true;
+        if is_near {
+            if current_start.is_none() {
+                current_start = Some(i);
+            }
+            gap_count = 0;
+        } else if current_start.is_some() {
+            gap_count += 1;
+            if gap_count > MAX_GAP {
+                // End this segment
+                let start = current_start.unwrap();
+                let end = i - gap_count;
+                if end > start {
+                    let distance = polyline_length(&track[start..end]);
+                    segments.push(OverlapSegment {
+                        start_idx: start,
+                        end_idx: end,
+                        distance,
+                    });
                 }
-                end_idx = i + 1;
-            } else if in_overlap {
-                // Gap - but continue to find longest overlap
-                in_overlap = false;
+                current_start = None;
+                gap_count = 0;
             }
         }
     }
 
-    start_idx.map(|start| {
+    // Handle final segment
+    if let Some(start) = current_start {
+        let end = track.len() - gap_count.min(track.len() - start - 1);
+        if end > start {
+            let distance = polyline_length(&track[start..end]);
+            segments.push(OverlapSegment {
+                start_idx: start,
+                end_idx: end,
+                distance,
+            });
+        }
+    }
+
+    if segments.is_empty() {
+        return None;
+    }
+
+    // Select the best segment:
+    // 1. Distance should be close to section length (within 50% tolerance)
+    // 2. If multiple segments match, pick the one closest to section length
+    let tolerance = 0.5; // 50% tolerance
+    let min_dist = ref_length * (1.0 - tolerance);
+    let max_dist = ref_length * (1.0 + tolerance);
+
+    // First try to find segments within tolerance
+    let mut best_segment: Option<&OverlapSegment> = None;
+    let mut best_diff = f64::MAX;
+
+    for segment in &segments {
+        if segment.distance >= min_dist && segment.distance <= max_dist {
+            let diff = (segment.distance - ref_length).abs();
+            if diff < best_diff {
+                best_diff = diff;
+                best_segment = Some(segment);
+            }
+        }
+    }
+
+    // If no segment within tolerance, pick the closest one to section length
+    // (but only if it's at least 50% of the section length)
+    if best_segment.is_none() {
+        for segment in &segments {
+            if segment.distance >= ref_length * 0.5 {
+                let diff = (segment.distance - ref_length).abs();
+                if diff < best_diff {
+                    best_diff = diff;
+                    best_segment = Some(segment);
+                }
+            }
+        }
+    }
+
+    best_segment.map(|seg| {
         let direction = detect_direction_robust(
-            &track[start..end_idx],
+            &track[seg.start_idx..seg.end_idx],
             reference,
             &ref_tree,
         );
-        (start, end_idx, direction)
+        (seg.start_idx, seg.end_idx, direction)
     })
 }
 
