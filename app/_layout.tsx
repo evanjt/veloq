@@ -9,7 +9,7 @@ import { configureReanimatedLogger, ReanimatedLogLevel } from 'react-native-rean
 import { QueryProvider, MapPreferencesProvider, initializeTheme, useAuthStore, initializeSportPreference, initializeHRZones, initializeRouteSettings, initializeLanguage } from '@/providers';
 import { initializeI18n } from '@/i18n';
 import { lightTheme, darkTheme, colors, darkColors } from '@/theme';
-import { CacheLoadingBanner, DemoBanner } from '@/components/ui';
+import { CacheLoadingBanner, DemoBanner, GlobalDataSync } from '@/components/ui';
 
 // Lazy load native module to avoid bundler errors
 function getRouteEngine() {
@@ -111,6 +111,7 @@ export default function RootLayout() {
               animated
             />
             <AuthGate>
+              <GlobalDataSync />
               <DemoBanner />
               <CacheLoadingBanner />
               <Stack

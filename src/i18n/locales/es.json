@@ -304,7 +304,8 @@
     "matchingDisabled": "Coincidencia de rutas desactivada",
     "enableInSettings": "Activa la coincidencia de rutas en Ajustes para detectar automáticamente rutas repetidas de tus actividades.",
     "goToSettings": "Ir a Ajustes",
-    "analysingRoutes": "Analizando rutas {{current}}/{{total}}"
+    "analysingRoutes": "Analizando rutas {{current}}/{{total}}",
+    "computingRoutes": "Calculando rutas..."
   },
 
   "statsScreen": {

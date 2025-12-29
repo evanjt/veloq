@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '@/providers';
+import { clearAllGpsTracks, clearBoundsCache } from '@/lib/storage/gpsStorage';
 import type { ActivityBoundsCache, ActivityBoundsItem } from '@/types';
 
 // Lazy load route engine to avoid native module errors during bundling
@@ -60,12 +61,11 @@ interface UseActivityBoundsCacheReturn {
   clearCache: () => Promise<void>;
   /** Cache statistics */
   cacheStats: CacheStats;
-  /** Trigger full historical sync (10 years) */
-  syncAllHistory: () => void;
-  /** Trigger sync for last year only */
-  syncOneYear: () => void;
-  /** Trigger sync for last 90 days (used for cache reload) */
-  sync90Days: () => void;
+  /**
+   * Trigger sync for specified number of days or all history.
+   * @param days - Number of days to sync (default 90), or 'all' for full history
+   */
+  sync: (days?: number | 'all') => Promise<void>;
 }
 
 /**
@@ -154,26 +154,28 @@ export function useActivityBoundsCache(options: UseActivityBoundsCacheOptions = 
   }, []);
 
   const clearCache = useCallback(async () => {
+    // Clear Rust engine state
     const engine = getRouteEngine();
     if (engine) engine.clear();
+
+    // Clear FileSystem caches (GPS tracks and bounds)
+    await Promise.all([
+      clearAllGpsTracks(),
+      clearBoundsCache(),
+    ]);
+
     setActivityCount(0);
   }, []);
 
-  const syncAllHistory = useCallback(() => {
-    // Sync handled by Rust engine
-  }, []);
-
-  const syncOneYear = useCallback(() => {
-    // Sync handled by Rust engine
-  }, []);
-
-  const sync90Days = useCallback(async () => {
+  const sync = useCallback(async (days: number | 'all' = 90) => {
     // Clear the Rust engine state
     const engine = getRouteEngine();
     if (engine) engine.clear();
     setActivityCount(0);
+
     // Actively refetch activities (not just invalidate, which only marks stale)
     // Using 'all' type ensures refetch even when no component is watching
+    // This triggers GlobalDataSync to automatically download GPS data
     await queryClient.refetchQueries({
       queryKey: ['activities'],
       type: 'all',
@@ -190,8 +192,6 @@ export function useActivityBoundsCache(options: UseActivityBoundsCacheOptions = 
     oldestActivityDate: null,
     clearCache,
     cacheStats,
-    syncAllHistory,
-    syncOneYear,
-    sync90Days,
+    sync,
   };
 }

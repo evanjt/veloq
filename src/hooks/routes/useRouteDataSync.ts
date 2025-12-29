@@ -24,7 +24,7 @@ import { getStoredCredentials } from '@/providers';
 import type { Activity } from '@/types';
 
 interface SyncProgress {
-  status: 'idle' | 'fetching' | 'processing' | 'complete' | 'error';
+  status: 'idle' | 'fetching' | 'processing' | 'computing' | 'complete' | 'error';
   completed: number;
   total: number;
   message: string;
@@ -74,6 +74,9 @@ export function useRouteDataSync(
     const nativeModule = getNativeModule();
     if (!nativeModule) return;
     const engineActivityIds = new Set(nativeModule.routeEngine.getActivityIds());
+
+    // Detect if this is initial sync (engine empty) vs incremental (engine has data)
+    const isInitialSync = engineActivityIds.size === 0;
 
     // Filter to activities with GPS that aren't already in the engine
     const withGps = activitiesToSync.filter(
@@ -153,28 +156,32 @@ export function useRouteDataSync(
           }
         }
 
+        // Compute routes after adding activities
+        // For initial sync: we've downloaded all 90 days, now compute routes
+        // For incremental: just a few new activities, still recompute to include them
+        if (successfulResults.length > 0) {
+          setProgress({
+            status: 'computing',
+            completed: 0,
+            total: 0,
+            message: isInitialSync ? 'Computing routes...' : 'Updating routes...',
+          });
+
+          // Trigger route computation (non-blocking, runs in Rust)
+          // This ensures routes are ready when user navigates to routes screen
+          try {
+            nativeModule.routeEngine.getGroups();
+          } catch {
+            // Ignore errors during route computation
+          }
+        }
+
         setProgress({
           status: 'complete',
           completed: successfulResults.length,
           total: withGps.length,
           message: `Synced ${successfulResults.length} activities`,
         });
-
-        // Pre-trigger lazy computation when we have sufficient activities
-        // This ensures routes are ready for immediate use
-        const activityCount = nativeModule.routeEngine.getActivityCount();
-        if (activityCount >= 90) {
-          // Trigger group computation in background
-          // This makes the data available faster when user navigates to routes
-          setTimeout(() => {
-            try {
-              const mod = getNativeModule();
-              if (mod) mod.routeEngine.getGroups();
-            } catch {
-              // Ignore errors during background computation
-            }
-          }, 100);
-        }
       } finally {
         subscription.remove();
       }
@@ -190,18 +197,36 @@ export function useRouteDataSync(
     }
   }, [isAuthenticated, isDemoMode]);
 
-  // Auto-sync when activities change
+  // Counter to force re-sync after engine reset
+  const [syncTrigger, setSyncTrigger] = useState(0);
+
+  // Listen for engine reset (cache clear) and force a resync
+  useEffect(() => {
+    const nativeModule = getNativeModule();
+    if (!nativeModule) return;
+
+    const unsubscribe = nativeModule.routeEngine.subscribe('syncReset', () => {
+      // Reset syncing state so next sync can proceed
+      isSyncingRef.current = false;
+      // Increment trigger to force useEffect to re-run after activities are refetched
+      setSyncTrigger(prev => prev + 1);
+    });
+
+    return unsubscribe;
+  }, []);
+
+  // Auto-sync when activities change or after engine reset
   useEffect(() => {
     if (!enabled || !activities || activities.length === 0) {
       return;
     }
 
     syncActivities(activities);
-  }, [enabled, activities, syncActivities]);
+  }, [enabled, activities, syncActivities, syncTrigger]);
 
   return {
     progress,
-    isSyncing: progress.status === 'fetching' || progress.status === 'processing',
+    isSyncing: progress.status === 'fetching' || progress.status === 'processing' || progress.status === 'computing',
     syncActivities,
   };
 }

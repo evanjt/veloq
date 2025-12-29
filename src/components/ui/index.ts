@@ -27,3 +27,5 @@ export {
 export { CacheLoadingBanner } from './CacheLoadingBanner';
 export { GarminAttribution, DeviceAttribution, isGarminDevice } from './GarminAttribution';
 export { DemoBanner } from './DemoBanner';
+export { SwipeableTabs, type SwipeableTab } from './SwipeableTabs';
+export { GlobalDataSync } from './GlobalDataSync';
