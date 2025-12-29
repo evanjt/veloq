@@ -240,7 +240,7 @@ export default function FeedScreen() {
   ), [isDark, searchQuery, selectedTypeGroup, filteredActivities.length, t]);
 
   const renderEmpty = () => (
-    <View style={styles.emptyContainer}>
+    <View testID="home-empty-state" style={styles.emptyContainer}>
       <Text style={[styles.emptyText, isDark && styles.textLight]}>
         {searchQuery || selectedTypeGroup ? t('feed.noMatchingActivities') : t('feed.noActivities')}
       </Text>
@@ -288,11 +288,12 @@ export default function FeedScreen() {
   }
 
   return (
-    <SafeAreaView style={[styles.container, isDark && styles.containerDark]}>
+    <SafeAreaView style={[styles.container, isDark && styles.containerDark]} testID="home-screen">
       {/* Header with profile and stat pills - outside FlatList */}
       <View style={styles.header}>
         {/* Profile photo - tap to open settings */}
         <TouchableOpacity
+          testID="nav-settings-button"
           onPress={navigateToSettings}
           activeOpacity={0.7}
           style={[styles.profilePhoto, styles.profilePlaceholder, isDark && styles.profilePlaceholderDark]}
@@ -445,6 +446,7 @@ export default function FeedScreen() {
             color={isDark ? '#888' : colors.textSecondary}
           />
           <TextInput
+            testID="home-search-input"
             style={[styles.searchInput, isDark && styles.searchInputDark]}
             placeholder={t('feed.searchPlaceholder')}
             placeholderTextColor={isDark ? '#666' : '#999'}
@@ -474,6 +476,7 @@ export default function FeedScreen() {
           )}
         </View>
         <TouchableOpacity
+          testID="home-filter-button"
           style={[
             styles.filterButton,
             isDark && styles.filterButtonDark,
@@ -519,6 +522,7 @@ export default function FeedScreen() {
       )}
 
       <FlatList
+        testID="home-activity-list"
         data={filteredActivities}
         renderItem={renderActivity}
         keyExtractor={(item) => item.id}

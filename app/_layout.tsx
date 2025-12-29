@@ -120,8 +120,8 @@ export default function RootLayout() {
                   // iOS: Use default animation for native feel with gesture support
                   // Android: Slide from right for Material Design
                   animation: Platform.OS === 'ios' ? 'default' : 'slide_from_right',
-                  // iOS: Enable native swipe-back gesture
-                  gestureEnabled: Platform.OS === 'ios',
+                  // Enable swipe-back gesture on both platforms
+                  gestureEnabled: true,
                   gestureDirection: 'horizontal',
                   // iOS: Blur effect for any translucent headers
                   headerBlurEffect: Platform.OS === 'ios' ? 'prominent' : undefined,

@@ -86,7 +86,7 @@ export default function LoginScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.container, isDark && styles.containerDark]}>
+    <SafeAreaView style={[styles.container, isDark && styles.containerDark]} testID="login-screen">
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
@@ -125,6 +125,7 @@ export default function LoginScreen() {
           {/* Credentials Form */}
           <View style={[styles.card, isDark && styles.cardDark]}>
             <TextInput
+              testID="login-api-key-input"
               label={t('login.apiKey')}
               value={apiKey}
               onChangeText={setApiKey}
@@ -138,12 +139,13 @@ export default function LoginScreen() {
             />
 
             {error && (
-              <HelperText type="error" visible={true}>
+              <HelperText type="error" visible={true} testID="login-error-text">
                 {error}
               </HelperText>
             )}
 
             <Button
+              testID="login-button"
               mode="contained"
               onPress={handleLogin}
               loading={isLoading}
@@ -155,6 +157,7 @@ export default function LoginScreen() {
             </Button>
 
             <Button
+              testID="login-demo-button"
               mode="outlined"
               onPress={handleTryDemo}
               disabled={isLoading}

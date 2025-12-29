@@ -7,12 +7,12 @@
  */
 
 import React, { useCallback, useMemo } from 'react';
-import { View, StyleSheet, FlatList, useColorScheme } from 'react-native';
+import { View, StyleSheet, FlatList, useColorScheme, Platform } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { router, Href } from 'expo-router';
-import { colors, spacing, layout } from '@/theme';
+import { colors, darkColors, spacing, layout } from '@/theme';
 import { useFrequentSections } from '@/hooks/routes/useFrequentSections';
 import { SectionRow, ActivityTrace } from './SectionRow';
 import { debug } from '@/lib';
@@ -83,7 +83,7 @@ export function SectionsList({ sportType }: SectionsListProps) {
           <MaterialCommunityIcons
             name="loading"
             size={48}
-            color={isDark ? '#444' : '#CCC'}
+            color={isDark ? darkColors.iconDisabled : colors.gray400}
           />
           <Text style={[styles.emptyTitle, isDark && styles.textLight]}>
             {t('routes.loadingSections')}
@@ -98,7 +98,7 @@ export function SectionsList({ sportType }: SectionsListProps) {
           <MaterialCommunityIcons
             name="road-variant"
             size={48}
-            color={isDark ? '#444' : '#CCC'}
+            color={isDark ? darkColors.iconDisabled : colors.gray400}
           />
           <Text style={[styles.emptyTitle, isDark && styles.textLight]}>
             {t('routes.noFrequentSections')}
@@ -115,7 +115,7 @@ export function SectionsList({ sportType }: SectionsListProps) {
         <MaterialCommunityIcons
           name="filter-remove-outline"
           size={48}
-          color={isDark ? '#444' : '#CCC'}
+          color={isDark ? darkColors.iconDisabled : colors.gray400}
         />
         <Text style={[styles.emptyTitle, isDark && styles.textLight]}>
           {t('routes.noSectionsMatchFilter')}
@@ -133,7 +133,7 @@ export function SectionsList({ sportType }: SectionsListProps) {
         <MaterialCommunityIcons
           name="information-outline"
           size={14}
-          color={isDark ? '#666' : '#999'}
+          color={isDark ? darkColors.textDisabled : colors.textDisabled}
         />
         <Text style={[styles.infoText, isDark && styles.infoTextDark]}>
           {t('routes.frequentSectionsInfo')}
@@ -163,6 +163,11 @@ export function SectionsList({ sportType }: SectionsListProps) {
       contentContainerStyle={sections.length === 0 ? styles.emptyList : styles.list}
       showsVerticalScrollIndicator={false}
       keyboardShouldPersistTaps="handled"
+      // Performance optimizations
+      removeClippedSubviews={Platform.OS === 'ios'}
+      maxToRenderPerBatch={10}
+      windowSize={5}
+      initialNumToRender={8}
     />
   );
 }
@@ -202,10 +207,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
   },
   textLight: {
-    color: '#FFFFFF',
+    color: colors.textOnDark,
   },
   textMuted: {
-    color: '#888',
+    color: darkColors.textMuted,
   },
   infoNotice: {
     flexDirection: 'row',
@@ -219,10 +224,10 @@ const styles = StyleSheet.create({
   infoText: {
     flex: 1,
     fontSize: 12,
-    color: '#999',
+    color: colors.textDisabled,
     lineHeight: 16,
   },
   infoTextDark: {
-    color: '#666',
+    color: darkColors.textDisabled,
   },
 });
