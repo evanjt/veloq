@@ -60,3 +60,11 @@ export {
   useConsensusRoute,
 } from './routes/useRouteEngine';
 export { useRouteDataSync } from './routes/useRouteDataSync';
+export {
+  useChartColors,
+  useChartColor,
+  useZoneColors,
+  useFitnessColors,
+  type ChartColorScheme,
+  type ChartMetricType,
+} from './useChartColors';

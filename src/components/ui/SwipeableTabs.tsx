@@ -12,7 +12,7 @@ import Animated, {
   Easing,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
-import { colors, spacing } from '@/theme';
+import { colors, darkColors, spacing } from '@/theme';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.2;
@@ -142,7 +142,7 @@ export function SwipeableTabs({
           <MaterialCommunityIcons
             name={tabs[0].icon}
             size={18}
-            color={activeTab === tabs[0].key ? colors.primary : (isDark ? '#888' : colors.textSecondary)}
+            color={activeTab === tabs[0].key ? colors.primary : (isDark ? darkColors.textMuted : colors.textSecondary)}
           />
           <Text style={[
             styles.tabText,
@@ -171,7 +171,7 @@ export function SwipeableTabs({
           <MaterialCommunityIcons
             name={tabs[1].icon}
             size={18}
-            color={activeTab === tabs[1].key ? colors.primary : (isDark ? '#888' : colors.textSecondary)}
+            color={activeTab === tabs[1].key ? colors.primary : (isDark ? darkColors.textMuted : colors.textSecondary)}
           />
           <Text style={[
             styles.tabText,
@@ -217,12 +217,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     backgroundColor: colors.background,
     borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0',
+    borderBottomColor: colors.border,
     position: 'relative',
   },
   tabBarDark: {
-    backgroundColor: '#121212',
-    borderBottomColor: '#333',
+    backgroundColor: darkColors.background,
+    borderBottomColor: darkColors.border,
   },
   tab: {
     flex: 1,
@@ -243,10 +243,10 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   tabTextDark: {
-    color: '#888',
+    color: darkColors.textMuted,
   },
   tabBadge: {
-    backgroundColor: '#E8E8E8',
+    backgroundColor: colors.gray200,
     borderRadius: 10,
     paddingHorizontal: 6,
     paddingVertical: 2,
@@ -254,7 +254,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   tabBadgeDark: {
-    backgroundColor: '#333',
+    backgroundColor: darkColors.border,
   },
   tabBadgeActive: {
     backgroundColor: colors.primary,
@@ -265,7 +265,7 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   tabBadgeTextActive: {
-    color: '#FFFFFF',
+    color: colors.textOnPrimary,
   },
   indicator: {
     position: 'absolute',

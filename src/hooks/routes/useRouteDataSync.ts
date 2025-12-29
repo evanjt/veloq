@@ -156,25 +156,10 @@ export function useRouteDataSync(
           }
         }
 
-        // Compute routes after adding activities
-        // For initial sync: we've downloaded all 90 days, now compute routes
-        // For incremental: just a few new activities, still recompute to include them
-        if (successfulResults.length > 0) {
-          setProgress({
-            status: 'computing',
-            completed: 0,
-            total: 0,
-            message: isInitialSync ? 'Computing routes...' : 'Updating routes...',
-          });
-
-          // Trigger route computation (non-blocking, runs in Rust)
-          // This ensures routes are ready when user navigates to routes screen
-          try {
-            nativeModule.routeEngine.getGroups();
-          } catch {
-            // Ignore errors during route computation
-          }
-        }
+        // Note: Route computation is now deferred to when user navigates to routes screen
+        // This avoids the O(n²) full grouping computation during sync
+        // The Rust engine uses lazy computation - groups are computed on first access
+        // TODO: Implement incremental grouping in Rust engine for true O(n×m) updates
 
         setProgress({
           status: 'complete',
