@@ -1,4 +1,7 @@
 export function formatDistance(meters: number): string {
+  if (!Number.isFinite(meters) || meters < 0) {
+    return '0 m';
+  }
   if (meters < 1000) {
     return `${Math.round(meters)} m`;
   }
@@ -7,6 +10,9 @@ export function formatDistance(meters: number): string {
 }
 
 export function formatDuration(seconds: number): string {
+  if (!Number.isFinite(seconds) || seconds < 0) {
+    return '0:00';
+  }
   const hours = Math.floor(seconds / 3600);
   const minutes = Math.floor((seconds % 3600) / 60);
   const secs = Math.floor(seconds % 60);
@@ -18,7 +24,7 @@ export function formatDuration(seconds: number): string {
 }
 
 export function formatPace(metersPerSecond: number): string {
-  if (metersPerSecond <= 0) return '--:--';
+  if (!Number.isFinite(metersPerSecond) || metersPerSecond <= 0) return '--:--';
   const totalSeconds = Math.round(1000 / metersPerSecond);
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
@@ -27,7 +33,7 @@ export function formatPace(metersPerSecond: number): string {
 
 // Compact pace format for pill display (no units)
 export function formatPaceCompact(metersPerSecond: number): string {
-  if (metersPerSecond <= 0) return '--:--';
+  if (!Number.isFinite(metersPerSecond) || metersPerSecond <= 0) return '--:--';
   const totalSeconds = Math.round(1000 / metersPerSecond);
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
@@ -36,7 +42,7 @@ export function formatPaceCompact(metersPerSecond: number): string {
 
 // Format swim pace in min:sec per 100m
 export function formatSwimPace(metersPerSecond: number): string {
-  if (metersPerSecond <= 0) return '--:--';
+  if (!Number.isFinite(metersPerSecond) || metersPerSecond <= 0) return '--:--';
   const totalSeconds = Math.round(100 / metersPerSecond);
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
@@ -44,6 +50,9 @@ export function formatSwimPace(metersPerSecond: number): string {
 }
 
 export function formatSpeed(metersPerSecond: number): string {
+  if (!Number.isFinite(metersPerSecond) || metersPerSecond < 0) {
+    return '0.0 km/h';
+  }
   const kmh = metersPerSecond * 3.6;
   return `${kmh.toFixed(1)} km/h`;
 }
@@ -54,10 +63,16 @@ export function formatElevation(meters: number | undefined | null): string {
 }
 
 export function formatHeartRate(bpm: number): string {
+  if (!Number.isFinite(bpm) || bpm < 0) {
+    return '0 bpm';
+  }
   return `${Math.round(bpm)} bpm`;
 }
 
 export function formatPower(watts: number): string {
+  if (!Number.isFinite(watts) || watts < 0) {
+    return '0 W';
+  }
   return `${Math.round(watts)} W`;
 }
 
@@ -105,6 +120,9 @@ export function formatTSS(load: number): string {
 }
 
 export function formatCalories(kcal: number): string {
+  if (!Number.isFinite(kcal) || kcal < 0) {
+    return '0';
+  }
   if (kcal >= 1000) {
     return `${(kcal / 1000).toFixed(1)}k`;
   }

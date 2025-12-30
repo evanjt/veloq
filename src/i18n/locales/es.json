@@ -132,7 +132,8 @@
     "dataSourcesDescription": "Los datos de actividad y bienestar se sincronizan desde intervals.icu, que se integra con varias plataformas y dispositivos de fitness.",
     "support": "Soporte",
     "subscribe": "Suscribirse",
-    "sponsorDev": "Patrocinar desarrollo"
+    "sponsorDev": "Patrocinar desarrollo",
+    "version": "Versión"
   },
 
   "alerts": {

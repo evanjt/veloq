@@ -31,7 +31,7 @@ use crate::{
 use crate::group_signatures;
 
 #[cfg(feature = "parallel")]
-use crate::group_signatures_parallel;
+use crate::{group_signatures_parallel, group_incremental};
 
 // ============================================================================
 // Core Types
@@ -103,6 +103,8 @@ pub struct RouteEngine {
 
     // Dirty tracking for incremental updates
     dirty_signatures: HashSet<String>,
+    /// Track which signatures are "new" (just computed, not yet grouped)
+    new_signatures: HashSet<String>,
     groups_dirty: bool,
     sections_dirty: bool,
     spatial_dirty: bool,
@@ -124,6 +126,7 @@ impl RouteEngine {
             consensus_cache: HashMap::new(),
             route_names: HashMap::new(),
             dirty_signatures: HashSet::new(),
+            new_signatures: HashSet::new(),
             groups_dirty: false,
             sections_dirty: false,
             spatial_dirty: false,
@@ -208,10 +211,16 @@ impl RouteEngine {
     }
 
     /// Remove an activity.
+    ///
+    /// Note: Removal requires full recomputation of groups (can't be done incrementally).
     pub fn remove_activity(&mut self, id: &str) {
         self.activities.remove(id);
         self.signatures.remove(id);
         self.dirty_signatures.remove(id);
+        self.new_signatures.remove(id);
+        // Force full recomputation by clearing new_signatures and groups
+        self.new_signatures.clear();
+        self.groups.clear();
         self.consensus_cache.clear(); // Invalidate all consensus caches
         self.groups_dirty = true;
         self.sections_dirty = true;
@@ -219,13 +228,19 @@ impl RouteEngine {
     }
 
     /// Remove multiple activities.
+    ///
+    /// Note: Removal requires full recomputation of groups (can't be done incrementally).
     pub fn remove_activities(&mut self, ids: &[String]) {
         for id in ids {
             self.activities.remove(id);
             self.signatures.remove(id);
             self.dirty_signatures.remove(id);
+            self.new_signatures.remove(id);
         }
         if !ids.is_empty() {
+            // Force full recomputation
+            self.new_signatures.clear();
+            self.groups.clear();
             self.consensus_cache.clear();
             self.groups_dirty = true;
             self.sections_dirty = true;
@@ -242,6 +257,7 @@ impl RouteEngine {
         self.spatial_index = RTree::new();
         self.consensus_cache.clear();
         self.dirty_signatures.clear();
+        self.new_signatures.clear();
         self.groups_dirty = false;
         self.sections_dirty = false;
         self.spatial_dirty = false;
@@ -267,6 +283,7 @@ impl RouteEngine {
     // ========================================================================
 
     /// Ensure all dirty signatures are computed.
+    /// Newly computed signatures are tracked in `new_signatures` for incremental grouping.
     fn ensure_signatures(&mut self) {
         if self.dirty_signatures.is_empty() {
             return;
@@ -281,7 +298,9 @@ impl RouteEngine {
                     &activity.coords,
                     &self.match_config,
                 ) {
-                    self.signatures.insert(id, sig);
+                    self.signatures.insert(id.clone(), sig);
+                    // Track as new signature for incremental grouping
+                    self.new_signatures.insert(id);
                 }
             }
         }
@@ -340,6 +359,14 @@ impl RouteEngine {
     // ========================================================================
 
     /// Ensure groups are computed.
+    ///
+    /// Uses incremental grouping when:
+    /// - We have existing groups (not starting fresh)
+    /// - We have new signatures to add
+    ///
+    /// Falls back to full grouping when:
+    /// - No existing groups (first computation)
+    /// - Activity removal requires full recomputation
     fn ensure_groups(&mut self) {
         if !self.groups_dirty {
             return;
@@ -347,17 +374,49 @@ impl RouteEngine {
 
         self.ensure_signatures();
 
-        let signatures: Vec<RouteSignature> = self.signatures.values().cloned().collect();
-
         #[cfg(feature = "parallel")]
         {
-            self.groups = group_signatures_parallel(&signatures, &self.match_config);
+            // Check if we can use incremental grouping
+            let can_use_incremental = !self.groups.is_empty()
+                && !self.new_signatures.is_empty()
+                && self.signatures.len() > self.new_signatures.len();
+
+            if can_use_incremental {
+                // Incremental: only compare new signatures vs existing + new vs new
+                // This is O(n×m) instead of O(n²)
+                let new_sigs: Vec<RouteSignature> = self.new_signatures
+                    .iter()
+                    .filter_map(|id| self.signatures.get(id).cloned())
+                    .collect();
+
+                let existing_sigs: Vec<RouteSignature> = self.signatures
+                    .iter()
+                    .filter(|(id, _)| !self.new_signatures.contains(*id))
+                    .map(|(_, sig)| sig.clone())
+                    .collect();
+
+                self.groups = group_incremental(
+                    &new_sigs,
+                    &self.groups,
+                    &existing_sigs,
+                    &self.match_config,
+                );
+            } else {
+                // Full recomputation needed
+                let signatures: Vec<RouteSignature> = self.signatures.values().cloned().collect();
+                self.groups = group_signatures_parallel(&signatures, &self.match_config);
+            }
         }
 
         #[cfg(not(feature = "parallel"))]
         {
+            // Non-parallel: always use full grouping (incremental requires rayon)
+            let signatures: Vec<RouteSignature> = self.signatures.values().cloned().collect();
             self.groups = group_signatures(&signatures, &self.match_config);
         }
+
+        // Clear new signatures tracker - they're now part of groups
+        self.new_signatures.clear();
 
         // Populate sport_type and custom_name for each group
         for group in &mut self.groups {
@@ -637,10 +696,14 @@ impl RouteEngine {
     // ========================================================================
 
     /// Update match configuration.
+    ///
+    /// This invalidates all computed state and requires full recomputation.
     pub fn set_match_config(&mut self, config: MatchConfig) {
         self.match_config = config;
         // Invalidate all computed state
         self.dirty_signatures = self.activities.keys().cloned().collect();
+        self.new_signatures.clear();
+        self.groups.clear();
         self.groups_dirty = true;
         self.sections_dirty = true;
     }
@@ -953,5 +1016,63 @@ mod tests {
         engine.clear();
 
         assert_eq!(engine.activity_count(), 0);
+    }
+
+    #[test]
+    fn test_engine_incremental_grouping() {
+        let mut engine = RouteEngine::new();
+        let coords = sample_coords();
+
+        // Add initial activities and trigger grouping
+        engine.add_activity("test-1".to_string(), coords.clone(), "cycling".to_string());
+        engine.add_activity("test-2".to_string(), coords.clone(), "cycling".to_string());
+
+        // Trigger initial grouping
+        let groups = engine.get_groups();
+        assert_eq!(groups.len(), 1);
+        assert_eq!(groups[0].activity_ids.len(), 2);
+
+        // Add more activities (should use incremental grouping)
+        engine.add_activity("test-3".to_string(), coords.clone(), "cycling".to_string());
+
+        // Add a different route that shouldn't match
+        let different_coords: Vec<GpsPoint> = (0..10)
+            .map(|i| GpsPoint::new(40.7128 + i as f64 * 0.001, -74.0060))  // NYC instead of London
+            .collect();
+        engine.add_activity("test-4".to_string(), different_coords, "cycling".to_string());
+
+        // Verify grouping results
+        let groups = engine.get_groups();
+
+        // Should have 2 groups: one with test-1,2,3 (similar routes) and one with test-4 (different location)
+        assert_eq!(groups.len(), 2);
+
+        // Find the group with more activities (the London routes)
+        let large_group = groups.iter().find(|g| g.activity_ids.len() == 3);
+        assert!(large_group.is_some(), "Should have a group with 3 activities");
+
+        // Find the group with single activity (the NYC route)
+        let small_group = groups.iter().find(|g| g.activity_ids.len() == 1);
+        assert!(small_group.is_some(), "Should have a group with 1 activity");
+        assert!(small_group.unwrap().activity_ids.contains(&"test-4".to_string()));
+    }
+
+    #[test]
+    fn test_engine_new_signatures_tracking() {
+        let mut engine = RouteEngine::new();
+        let coords = sample_coords();
+
+        // Add activity - should be tracked as new
+        engine.add_activity("test-1".to_string(), coords.clone(), "cycling".to_string());
+        assert!(engine.dirty_signatures.contains("test-1"));
+
+        // Trigger signature computation
+        let _sig = engine.get_signature("test-1");
+        assert!(engine.dirty_signatures.is_empty());
+        assert!(engine.new_signatures.contains("test-1"));
+
+        // Trigger grouping - should clear new_signatures
+        let _groups = engine.get_groups();
+        assert!(engine.new_signatures.is_empty());
     }
 }
