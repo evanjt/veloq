@@ -13,6 +13,8 @@ import {
   Dimensions,
   StatusBar,
   TouchableOpacity,
+  TextInput,
+  Keyboard,
 } from 'react-native';
 import { Text, ActivityIndicator } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -34,6 +36,15 @@ import {
 import Animated from 'react-native-reanimated';
 import { useActivities, useFrequentSections, useSectionPerformances, type ActivitySectionRecord } from '@/hooks';
 import { SectionMapView } from '@/components/routes';
+
+// Lazy load native module to avoid bundler errors
+function getRouteEngine() {
+  try {
+    return require('route-matcher-native').routeEngine;
+  } catch {
+    return null;
+  }
+}
 import {
   formatDistance,
   formatRelativeDate,
@@ -823,6 +834,52 @@ export default function SectionDetailScreen() {
   const [highlightedActivityPoints, setHighlightedActivityPoints] = useState<RoutePoint[] | undefined>(undefined);
   const [shadowTrack, setShadowTrack] = useState<[number, number][] | undefined>(undefined);
 
+  // State for section renaming
+  const [isEditing, setIsEditing] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [customName, setCustomName] = useState<string | null>(null);
+  const nameInputRef = useRef<TextInput>(null);
+
+  // Load custom section name from Rust engine on mount
+  useEffect(() => {
+    if (id) {
+      const engine = getRouteEngine();
+      const name = engine?.getSectionName(id);
+      if (name) {
+        setCustomName(name);
+      }
+    }
+  }, [id]);
+
+  // Handle starting to edit the section name
+  const handleStartEditing = useCallback(() => {
+    const currentName = customName || section?.name || '';
+    setEditName(currentName);
+    setIsEditing(true);
+    setTimeout(() => {
+      nameInputRef.current?.focus();
+    }, 100);
+  }, [customName, section?.name]);
+
+  // Handle saving the edited section name
+  const handleSaveName = useCallback(() => {
+    const trimmedName = editName.trim();
+    if (trimmedName && id) {
+      const engine = getRouteEngine();
+      if (engine) engine.setSectionName(id, trimmedName);
+      setCustomName(trimmedName);
+    }
+    setIsEditing(false);
+    Keyboard.dismiss();
+  }, [editName, id]);
+
+  // Handle canceling the edit
+  const handleCancelEdit = useCallback(() => {
+    setIsEditing(false);
+    setEditName('');
+    Keyboard.dismiss();
+  }, []);
+
   // Load full GPS track when an activity is highlighted (for shadow display)
   useEffect(() => {
     if (!highlightedActivityId) {
@@ -965,9 +1022,35 @@ export default function SectionDetailScreen() {
               <View style={[styles.typeIcon, { backgroundColor: activityColor }]}>
                 <MaterialCommunityIcons name={iconName} size={16} color="#FFFFFF" />
               </View>
-              <Text style={styles.heroSectionName} numberOfLines={1}>
-                {section.name || `Section ${section.id.split('_').pop()}`}
-              </Text>
+              {isEditing ? (
+                <View style={styles.editNameContainer}>
+                  <TextInput
+                    ref={nameInputRef}
+                    style={styles.editNameInput}
+                    value={editName}
+                    onChangeText={setEditName}
+                    onSubmitEditing={handleSaveName}
+                    placeholder={t('sections.sectionNamePlaceholder')}
+                    placeholderTextColor="rgba(255,255,255,0.5)"
+                    returnKeyType="done"
+                    autoFocus
+                    selectTextOnFocus
+                  />
+                  <TouchableOpacity onPress={handleSaveName} style={styles.editNameButton}>
+                    <MaterialCommunityIcons name="check" size={20} color="#4CAF50" />
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={handleCancelEdit} style={styles.editNameButton}>
+                    <MaterialCommunityIcons name="close" size={20} color="#FF5252" />
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <TouchableOpacity onPress={handleStartEditing} style={styles.nameEditTouchable} activeOpacity={0.7}>
+                  <Text style={styles.heroSectionName} numberOfLines={1}>
+                    {customName || section.name || `Section ${section.id.split('_').pop()}`}
+                  </Text>
+                  <MaterialCommunityIcons name="pencil" size={14} color="rgba(255,255,255,0.6)" style={styles.editIcon} />
+                </TouchableOpacity>
+              )}
             </View>
 
             <View style={styles.heroStatsRow}>
@@ -1135,6 +1218,36 @@ const styles = StyleSheet.create({
     textShadowColor: 'rgba(0, 0, 0, 0.5)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 3,
+  },
+  nameEditTouchable: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  editIcon: {
+    marginLeft: 4,
+  },
+  editNameContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    borderRadius: 8,
+    paddingHorizontal: spacing.sm,
+    gap: spacing.xs,
+  },
+  editNameInput: {
+    flex: 1,
+    fontSize: typography.cardTitle.fontSize,
+    fontWeight: '600',
+    color: colors.textOnDark,
+    paddingVertical: spacing.sm,
+  },
+  editNameButton: {
+    padding: 6,
+    borderRadius: 6,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
   },
   heroStatsRow: {
     flexDirection: 'row',

@@ -1256,18 +1256,20 @@ class RouteEngineClient {
   /**
    * Set a custom name for a route.
    * Pass empty string to clear the custom name.
+   * Uses persistent engine for durability across app restarts.
    */
   setRouteName(routeId: string, name: string): void {
-    NativeModule.engineSetRouteName(routeId, name);
+    NativeModule.persistentEngineSetRouteName(routeId, name);
     this.notify('groups');
   }
 
   /**
    * Get the custom name for a route.
    * Returns empty string if no custom name is set.
+   * Uses persistent engine for consistency with setRouteName.
    */
   getRouteName(routeId: string): string {
-    return NativeModule.engineGetRouteName(routeId) || '';
+    return NativeModule.persistentEngineGetRouteName(routeId) || '';
   }
 
   /**
@@ -1276,6 +1278,34 @@ class RouteEngineClient {
    */
   getAllRouteNames(): Record<string, string> {
     const json = NativeModule.persistentEngineGetAllRouteNamesJson();
+    return JSON.parse(json) as Record<string, string>;
+  }
+
+  /**
+   * Set a custom name for a section.
+   * Pass empty string to clear the custom name.
+   * Uses persistent engine for durability across app restarts.
+   */
+  setSectionName(sectionId: string, name: string): void {
+    NativeModule.persistentEngineSetSectionName(sectionId, name);
+    this.notify('sections');
+  }
+
+  /**
+   * Get the custom name for a section.
+   * Returns empty string if no custom name is set.
+   * Uses persistent engine for consistency with setSectionName.
+   */
+  getSectionName(sectionId: string): string {
+    return NativeModule.persistentEngineGetSectionName(sectionId) || '';
+  }
+
+  /**
+   * Get all custom section names.
+   * Returns a map of sectionId -> customName.
+   */
+  getAllSectionNames(): Record<string, string> {
+    const json = NativeModule.persistentEngineGetAllSectionNamesJson();
     return JSON.parse(json) as Record<string, string>;
   }
 

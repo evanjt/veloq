@@ -132,7 +132,8 @@
     "dataSourcesDescription": "Activity and wellness data is synced from intervals.icu, which integrates with various fitness platforms and devices.",
     "support": "Support",
     "subscribe": "Subscribe",
-    "sponsorDev": "Sponsor dev"
+    "sponsorDev": "Sponsor dev",
+    "version": "Version"
   },
 
   "alerts": {
@@ -476,7 +477,8 @@
     "traversals": "traversals",
     "routesCount": "routes",
     "activities": "Activities",
-    "noActivitiesFound": "No activities found"
+    "noActivitiesFound": "No activities found",
+    "sectionNamePlaceholder": "Section name"
   },
 
   "errorState": {

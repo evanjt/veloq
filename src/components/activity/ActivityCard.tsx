@@ -80,6 +80,7 @@ export const ActivityCard = React.memo(function ActivityCard({ activity }: Activ
 
   return (
     <Pressable
+      testID="activity-card"
       onPress={handlePress}
       onLongPress={handleLongPress}
       delayLongPress={500}
@@ -103,6 +104,7 @@ export const ActivityCard = React.memo(function ActivityCard({ activity }: Activ
           </View>
           <View style={styles.headerText}>
             <Text
+              testID="activity-card-title"
               style={[styles.activityName, isDark && styles.textLight]}
               numberOfLines={1}
             >

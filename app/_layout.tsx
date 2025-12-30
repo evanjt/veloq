@@ -66,6 +66,9 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   return <View style={{ flex: 1 }}>{children}</View>;
 }
 
+// Set to true when capturing screenshots (hides status bar)
+const SCREENSHOT_MODE = __DEV__ && false;
+
 export default function RootLayout() {
   const [appReady, setAppReady] = useState(false);
   const colorScheme = useColorScheme();
@@ -108,6 +111,7 @@ export default function RootLayout() {
             <StatusBar
               style={colorScheme === 'dark' ? 'light' : 'dark'}
               translucent={Platform.OS === 'ios'}
+              hidden={SCREENSHOT_MODE}
               animated
             />
             <AuthGate>

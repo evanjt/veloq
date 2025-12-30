@@ -230,6 +230,12 @@ impl PersistentRouteEngine {
                 custom_name TEXT NOT NULL
             );
 
+            -- Custom section names (user-defined)
+            CREATE TABLE IF NOT EXISTS section_names (
+                section_id TEXT PRIMARY KEY,
+                custom_name TEXT NOT NULL
+            );
+
             -- Indexes
             CREATE INDEX IF NOT EXISTS idx_activities_sport ON activities(sport_type);
             CREATE INDEX IF NOT EXISTS idx_activities_bounds ON activities(min_lat, max_lat, min_lng, max_lng);
@@ -379,6 +385,7 @@ impl PersistentRouteEngine {
                         // Return a default/empty section if deserialization fails
                         FrequentSection {
                             id: String::new(),
+                            name: None,
                             sport_type: String::new(),
                             polyline: vec![],
                             representative_activity_id: String::new(),
@@ -997,6 +1004,55 @@ impl PersistentRouteEngine {
     }
 
     // ========================================================================
+    // Section Names
+    // ========================================================================
+
+    /// Set a custom name for a section.
+    /// Pass None to clear the custom name.
+    pub fn set_section_name(&mut self, section_id: &str, name: Option<&str>) -> SqlResult<()> {
+        match name {
+            Some(n) => {
+                self.db.execute(
+                    "INSERT OR REPLACE INTO section_names (section_id, custom_name) VALUES (?, ?)",
+                    params![section_id, n],
+                )?;
+                // Update in-memory section
+                if let Some(section) = self.sections.iter_mut().find(|s| s.id == section_id) {
+                    section.name = Some(n.to_string());
+                }
+            }
+            None => {
+                self.db.execute(
+                    "DELETE FROM section_names WHERE section_id = ?",
+                    params![section_id],
+                )?;
+                // Update in-memory section
+                if let Some(section) = self.sections.iter_mut().find(|s| s.id == section_id) {
+                    section.name = None;
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// Get the custom name for a section (if any).
+    pub fn get_section_name(&self, section_id: &str) -> Option<String> {
+        // Check in-memory sections first
+        self.sections
+            .iter()
+            .find(|s| s.id == section_id)
+            .and_then(|s| s.name.clone())
+    }
+
+    /// Get all custom section names.
+    pub fn get_all_section_names(&self) -> HashMap<String, String> {
+        self.sections
+            .iter()
+            .filter_map(|s| s.name.as_ref().map(|n| (s.id.clone(), n.clone())))
+            .collect()
+    }
+
+    // ========================================================================
     // Configuration
     // ========================================================================
 
@@ -1220,6 +1276,32 @@ pub mod persistent_engine_ffi {
     #[uniffi::export]
     pub fn persistent_engine_get_all_route_names_json() -> String {
         with_persistent_engine(|e| serde_json::to_string(&e.get_all_route_names()).unwrap_or_else(|_| "{}".to_string()))
+            .unwrap_or_else(|| "{}".to_string())
+    }
+
+    /// Set a custom name for a section.
+    /// Pass empty string to clear the custom name.
+    #[uniffi::export]
+    pub fn persistent_engine_set_section_name(section_id: String, name: String) {
+        let name_opt = if name.is_empty() { None } else { Some(name.as_str()) };
+        with_persistent_engine(|e| {
+            e.set_section_name(&section_id, name_opt).ok();
+        });
+    }
+
+    /// Get the custom name for a section.
+    /// Returns empty string if no custom name is set.
+    #[uniffi::export]
+    pub fn persistent_engine_get_section_name(section_id: String) -> String {
+        with_persistent_engine(|e| e.get_section_name(&section_id))
+            .flatten()
+            .unwrap_or_default()
+    }
+
+    /// Get all custom section names as JSON.
+    #[uniffi::export]
+    pub fn persistent_engine_get_all_section_names_json() -> String {
+        with_persistent_engine(|e| serde_json::to_string(&e.get_all_section_names()).unwrap_or_else(|_| "{}".to_string()))
             .unwrap_or_else(|| "{}".to_string())
     }
 
