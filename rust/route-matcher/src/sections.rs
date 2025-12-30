@@ -86,6 +86,8 @@ pub struct SectionPortion {
 pub struct FrequentSection {
     /// Unique section ID
     pub id: String,
+    /// Custom name (user-defined, None if not set)
+    pub name: Option<String>,
     /// Sport type ("Run", "Ride", etc.)
     pub sport_type: String,
     /// The consensus polyline - refined from all overlapping tracks
@@ -823,6 +825,7 @@ fn process_cluster(
 
     Some(FrequentSection {
         id: format!("sec_{}_{}", sport_type.to_lowercase(), idx),
+        name: None,
         sport_type: sport_type.to_string(),
         polyline: consensus.polyline,
         representative_activity_id: representative_id,
@@ -1418,6 +1421,7 @@ fn split_section_by_density(
         if split_activity_ids.len() >= config.min_activities as usize {
             let split_section = FrequentSection {
                 id: format!("{}_split{}", section.id, split_idx),
+                name: None,
                 sport_type: section.sport_type.clone(),
                 polyline: split_polyline,
                 representative_activity_id: section.representative_activity_id.clone(),

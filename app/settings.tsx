@@ -30,6 +30,7 @@ import {
   type ThemePreference,
   type PrimarySport,
 } from '@/providers';
+import Constants from 'expo-constants';
 import { type SupportedLocale } from '@/i18n';
 import { type MapStyleType } from '@/components/maps';
 import { colors, spacing, layout } from '@/theme';
@@ -250,11 +251,12 @@ export default function SettingsScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.container, isDark && styles.containerDark]}>
+    <SafeAreaView testID="settings-screen" style={[styles.container, isDark && styles.containerDark]}>
       <ScrollView contentContainerStyle={styles.content}>
         {/* Header with back button */}
         <View style={styles.header}>
           <TouchableOpacity
+            testID="nav-back-button"
             onPress={() => router.back()}
             style={styles.backButton}
             accessibilityLabel={t('common.back')}
@@ -312,7 +314,7 @@ export default function SettingsScreen() {
         {/* Appearance Section */}
         <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>{t('settings.appearance').toUpperCase()}</Text>
         <View style={[styles.section, isDark && styles.sectionDark]}>
-          <View style={styles.themePickerContainer}>
+          <View testID="settings-theme-toggle" style={styles.themePickerContainer}>
             <SegmentedButtons
               value={themePreference}
               onValueChange={handleThemeChange}
@@ -579,7 +581,7 @@ export default function SettingsScreen() {
             </>
           )}
 
-          <TouchableOpacity style={styles.actionRow} onPress={handleClearCache}>
+          <TouchableOpacity testID="settings-clear-cache" style={styles.actionRow} onPress={handleClearCache}>
             <MaterialCommunityIcons name="delete-outline" size={22} color={colors.error} />
             <Text style={[styles.actionText, styles.actionTextDanger]}>{t('settings.clearAllReload')}</Text>
             <MaterialCommunityIcons
@@ -695,7 +697,7 @@ export default function SettingsScreen() {
         {/* Account Section */}
         <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>{t('settings.account').toUpperCase()}</Text>
         <View style={[styles.section, isDark && styles.sectionDark]}>
-          <TouchableOpacity style={styles.actionRow} onPress={handleLogout}>
+          <TouchableOpacity testID="settings-logout-button" style={styles.actionRow} onPress={handleLogout}>
             <MaterialCommunityIcons name="logout" size={22} color={colors.error} />
             <Text style={[styles.actionText, styles.actionTextDanger]}>{t('settings.disconnectAccount')}</Text>
             <MaterialCommunityIcons
@@ -764,6 +766,11 @@ export default function SettingsScreen() {
             <Text style={[styles.supportSubtitle, isDark && styles.textMuted]}>{t('settings.sponsorDev')}</Text>
           </TouchableOpacity>
         </View>
+
+        {/* Version */}
+        <Text testID="settings-version-text" style={[styles.versionText, isDark && styles.textMuted]}>
+          {t('settings.version')} {Constants.expoConfig?.version ?? '0.0.1'}
+        </Text>
       </ScrollView>
     </SafeAreaView>
   );
@@ -1097,5 +1104,12 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     opacity: 0.7,
     lineHeight: 14,
+  },
+  versionText: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginTop: spacing.xl,
+    marginBottom: spacing.md,
   },
 });

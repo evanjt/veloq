@@ -157,7 +157,7 @@ export default function ActivityDetailScreen() {
   const showPace = isRunningActivity(activity.type);
 
   return (
-    <View style={[styles.container, isDark && styles.containerDark]}>
+    <View testID="activity-detail-screen" style={[styles.container, isDark && styles.containerDark]}>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -190,6 +190,7 @@ export default function ActivityDetailScreen() {
           {/* Floating header - just back button */}
           <View style={[styles.floatingHeader, { paddingTop: insets.top }]}>
             <TouchableOpacity
+              testID="activity-detail-back"
               style={styles.backButton}
               onPress={() => router.back()}
               activeOpacity={0.7}

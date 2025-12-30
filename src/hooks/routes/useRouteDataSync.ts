@@ -157,9 +157,10 @@ export function useRouteDataSync(
         }
 
         // Note: Route computation is now deferred to when user navigates to routes screen
-        // This avoids the O(n²) full grouping computation during sync
         // The Rust engine uses lazy computation - groups are computed on first access
-        // TODO: Implement incremental grouping in Rust engine for true O(n×m) updates
+        // When new activities are added to an engine with existing groups, incremental
+        // grouping is used (O(n×m) instead of O(n²)), comparing only new signatures
+        // against existing + new signatures, not re-comparing all existing pairs.
 
         setProgress({
           status: 'complete',

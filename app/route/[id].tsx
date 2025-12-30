@@ -1072,7 +1072,6 @@ export default function RouteDetailScreen() {
                     value={editName}
                     onChangeText={setEditName}
                     onSubmitEditing={handleSaveName}
-                    onBlur={handleCancelEdit}
                     placeholder={t('routes.routeNamePlaceholder')}
                     placeholderTextColor="rgba(255,255,255,0.5)"
                     returnKeyType="done"

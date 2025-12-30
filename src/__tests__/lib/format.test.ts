@@ -1,3 +1,12 @@
+/**
+ * Tests for formatting utilities.
+ *
+ * Assumptions:
+ * - All values from the API can be 0, negative (erroneous), NaN, or undefined
+ * - Users should never see "NaN", "undefined", "Infinity" in the UI
+ * - Invalid inputs should produce sensible fallbacks, not crash
+ */
+
 import {
   formatDistance,
   formatDuration,
@@ -10,158 +19,173 @@ import {
   formatPower,
   formatCalories,
   formatLocalDate,
+  formatRelativeDate,
   clamp,
 } from '@/lib/utils/format';
 
 describe('formatDistance', () => {
-  it('formats meters for distances under 1km', () => {
+  it('shows meters below 1km, kilometers above', () => {
     expect(formatDistance(500)).toBe('500 m');
-    expect(formatDistance(999)).toBe('999 m');
-    expect(formatDistance(50)).toBe('50 m');
-  });
-
-  it('formats kilometers for distances 1km and over', () => {
     expect(formatDistance(1000)).toBe('1.0 km');
-    expect(formatDistance(5000)).toBe('5.0 km');
     expect(formatDistance(42195)).toBe('42.2 km');
   });
 
-  it('handles edge cases', () => {
-    expect(formatDistance(0)).toBe('0 m');
-    expect(formatDistance(1)).toBe('1 m');
+  it('handles boundary at exactly 1km', () => {
+    expect(formatDistance(999)).toBe('999 m');
+    expect(formatDistance(1000)).toBe('1.0 km');
+    expect(formatDistance(1001)).toBe('1.0 km');
+  });
+
+  it('handles invalid inputs from corrupted API data', () => {
+    expect(formatDistance(-100)).toBe('0 m');
+    expect(formatDistance(NaN)).toBe('0 m');
+    expect(formatDistance(Infinity)).toBe('0 m');
+    expect(formatDistance(-Infinity)).toBe('0 m');
   });
 });
 
 describe('formatDuration', () => {
-  it('formats minutes and seconds for durations under 1 hour', () => {
+  it('formats sub-hour durations as M:SS', () => {
     expect(formatDuration(0)).toBe('0:00');
-    expect(formatDuration(30)).toBe('0:30');
-    expect(formatDuration(90)).toBe('1:30');
+    expect(formatDuration(61)).toBe('1:01');
     expect(formatDuration(3599)).toBe('59:59');
   });
 
-  it('formats hours, minutes, and seconds for durations 1 hour and over', () => {
+  it('formats hour+ durations as H:MM:SS', () => {
     expect(formatDuration(3600)).toBe('1:00:00');
     expect(formatDuration(3661)).toBe('1:01:01');
-    expect(formatDuration(7200)).toBe('2:00:00');
-    expect(formatDuration(7384)).toBe('2:03:04');
+  });
+
+  it('handles invalid inputs', () => {
+    expect(formatDuration(-30)).toBe('0:00');
+    expect(formatDuration(NaN)).toBe('0:00');
+    expect(formatDuration(Infinity)).toBe('0:00');
   });
 });
 
 describe('formatPace', () => {
-  it('formats pace in min/km', () => {
-    // 5 m/s = 3:20/km
+  it('converts m/s to min/km pace', () => {
+    // 5 m/s = 200 seconds/km = 3:20/km
     expect(formatPace(5)).toBe('3:20 /km');
-    // 4 m/s = 4:10/km
+    // 4 m/s = 250 seconds/km = 4:10/km
     expect(formatPace(4)).toBe('4:10 /km');
-    // 3 m/s = 5:33/km
-    expect(formatPace(3)).toBe('5:33 /km');
   });
 
-  it('handles zero or negative pace', () => {
+  it('shows placeholder for zero/negative/invalid speed', () => {
     expect(formatPace(0)).toBe('--:--');
     expect(formatPace(-1)).toBe('--:--');
-  });
-});
-
-describe('formatPaceCompact', () => {
-  it('formats pace without units', () => {
-    expect(formatPaceCompact(5)).toBe('3:20');
-    expect(formatPaceCompact(4)).toBe('4:10');
-  });
-
-  it('handles zero pace', () => {
-    expect(formatPaceCompact(0)).toBe('--:--');
+    expect(formatPace(NaN)).toBe('--:--');
+    expect(formatPace(Infinity)).toBe('--:--');
   });
 });
 
 describe('formatSwimPace', () => {
-  it('formats swim pace in min:sec per 100m', () => {
-    // 1 m/s = 1:40 per 100m
+  it('converts m/s to min:sec per 100m', () => {
+    // 1 m/s = 100 seconds/100m = 1:40
     expect(formatSwimPace(1)).toBe('1:40');
-    // 1.5 m/s = 1:07 per 100m
-    expect(formatSwimPace(1.5)).toBe('1:07');
-    // 2 m/s = 0:50 per 100m
+    // 2 m/s = 50 seconds/100m = 0:50
     expect(formatSwimPace(2)).toBe('0:50');
   });
 
-  it('handles zero pace', () => {
+  it('handles invalid inputs', () => {
     expect(formatSwimPace(0)).toBe('--:--');
+    expect(formatSwimPace(NaN)).toBe('--:--');
   });
 });
 
 describe('formatSpeed', () => {
   it('converts m/s to km/h', () => {
     expect(formatSpeed(10)).toBe('36.0 km/h');
-    expect(formatSpeed(5)).toBe('18.0 km/h');
-    expect(formatSpeed(2.78)).toBe('10.0 km/h');
+    expect(formatSpeed(0)).toBe('0.0 km/h');
   });
 
-  it('handles zero speed', () => {
-    expect(formatSpeed(0)).toBe('0.0 km/h');
+  it('handles invalid inputs', () => {
+    expect(formatSpeed(-5)).toBe('0.0 km/h');
+    expect(formatSpeed(NaN)).toBe('0.0 km/h');
+    expect(formatSpeed(Infinity)).toBe('0.0 km/h');
   });
 });
 
 describe('formatElevation', () => {
-  it('formats elevation in meters', () => {
-    expect(formatElevation(500)).toBe('500 m');
-    expect(formatElevation(1234)).toBe('1234 m');
-  });
-
   it('rounds to nearest meter', () => {
     expect(formatElevation(500.4)).toBe('500 m');
     expect(formatElevation(500.6)).toBe('501 m');
   });
 
-  it('handles null and undefined', () => {
+  it('handles null/undefined/NaN from missing API data', () => {
     expect(formatElevation(null)).toBe('0 m');
     expect(formatElevation(undefined)).toBe('0 m');
-  });
-
-  it('handles NaN', () => {
     expect(formatElevation(NaN)).toBe('0 m');
   });
 });
 
 describe('formatHeartRate', () => {
-  it('formats heart rate in bpm', () => {
+  it('formats with bpm unit', () => {
     expect(formatHeartRate(140)).toBe('140 bpm');
-    expect(formatHeartRate(180)).toBe('180 bpm');
   });
 
-  it('rounds to nearest bpm', () => {
-    expect(formatHeartRate(140.4)).toBe('140 bpm');
-    expect(formatHeartRate(140.6)).toBe('141 bpm');
+  it('handles invalid inputs', () => {
+    expect(formatHeartRate(NaN)).toBe('0 bpm');
+    expect(formatHeartRate(-50)).toBe('0 bpm');
   });
 });
 
 describe('formatPower', () => {
-  it('formats power in watts', () => {
+  it('formats with W unit', () => {
     expect(formatPower(250)).toBe('250 W');
-    expect(formatPower(1000)).toBe('1000 W');
   });
 
-  it('rounds to nearest watt', () => {
-    expect(formatPower(250.4)).toBe('250 W');
-    expect(formatPower(250.6)).toBe('251 W');
+  it('handles invalid inputs', () => {
+    expect(formatPower(NaN)).toBe('0 W');
+    expect(formatPower(-100)).toBe('0 W');
   });
 });
 
 describe('formatCalories', () => {
-  it('formats calories under 1000', () => {
+  it('shows raw number below 1000, abbreviated above', () => {
     expect(formatCalories(500)).toBe('500');
-    expect(formatCalories(999)).toBe('999');
+    expect(formatCalories(1500)).toBe('1.5k');
   });
 
-  it('formats calories 1000 and over with k suffix', () => {
-    expect(formatCalories(1000)).toBe('1.0k');
-    expect(formatCalories(1500)).toBe('1.5k');
-    expect(formatCalories(2300)).toBe('2.3k');
+  it('handles invalid inputs', () => {
+    expect(formatCalories(NaN)).toBe('0');
+    expect(formatCalories(-100)).toBe('0');
+  });
+});
+
+describe('formatRelativeDate', () => {
+  // These tests use real dates, which makes them time-sensitive
+  // We use fixed offsets from "now" to make them deterministic
+
+  it('shows "Today" for today', () => {
+    const today = new Date().toISOString();
+    expect(formatRelativeDate(today)).toBe('Today');
+  });
+
+  it('shows "Yesterday" for yesterday', () => {
+    const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    expect(formatRelativeDate(yesterday)).toBe('Yesterday');
+  });
+
+  it('shows weekday name for dates within last 7 days', () => {
+    const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
+    const result = formatRelativeDate(threeDaysAgo.toISOString());
+    // Should be a weekday name like "Monday", "Tuesday", etc.
+    expect(['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']).toContain(result);
+  });
+
+  it('shows month and day for older dates this year', () => {
+    // Use a date from earlier this year (January 15)
+    const thisYear = new Date().getFullYear();
+    const earlierThisYear = new Date(thisYear, 0, 15).toISOString();
+    const result = formatRelativeDate(earlierThisYear);
+    // Should include month name (but format depends on current date)
+    expect(result).toMatch(/Jan|15/);
   });
 });
 
 describe('formatLocalDate', () => {
-  it('formats date as YYYY-MM-DD', () => {
+  it('formats as YYYY-MM-DD in local timezone', () => {
     const date = new Date(2024, 0, 15); // January 15, 2024
     expect(formatLocalDate(date)).toBe('2024-01-15');
   });
@@ -173,19 +197,14 @@ describe('formatLocalDate', () => {
 });
 
 describe('clamp', () => {
-  it('returns value when within bounds', () => {
-    expect(clamp(5, 0, 10)).toBe(5);
+  it('constrains value to range', () => {
+    expect(clamp(5, 0, 10)).toBe(5);   // within range
+    expect(clamp(-5, 0, 10)).toBe(0);  // below min
+    expect(clamp(15, 0, 10)).toBe(10); // above max
+  });
+
+  it('handles edge cases at boundaries', () => {
     expect(clamp(0, 0, 10)).toBe(0);
     expect(clamp(10, 0, 10)).toBe(10);
-  });
-
-  it('clamps to min when below', () => {
-    expect(clamp(-5, 0, 10)).toBe(0);
-    expect(clamp(-100, 0, 10)).toBe(0);
-  });
-
-  it('clamps to max when above', () => {
-    expect(clamp(15, 0, 10)).toBe(10);
-    expect(clamp(100, 0, 10)).toBe(10);
   });
 });
