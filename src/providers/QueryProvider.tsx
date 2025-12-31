@@ -56,9 +56,18 @@ export function QueryProvider({ children }: QueryProviderProps) {
           },
         },
       }}
-      onError={() => {
-        // Clear corrupted cache silently
-        AsyncStorage.removeItem('veloq-query-cache').catch(() => {});
+      onError={(error) => {
+        // Log cache error for debugging
+        console.warn('[QueryProvider] Cache persistence error:', error);
+        // Clear corrupted cache and reset query client state
+        AsyncStorage.removeItem('veloq-query-cache')
+          .then(() => {
+            // Reset query client to ensure consistent state
+            queryClient.clear();
+          })
+          .catch((clearError) => {
+            console.error('[QueryProvider] Failed to clear corrupted cache:', clearError);
+          });
       }}
     >
       {children}
