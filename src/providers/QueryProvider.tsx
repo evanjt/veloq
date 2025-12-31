@@ -57,9 +57,9 @@ export function QueryProvider({ children }: QueryProviderProps) {
           },
         },
       }}
-      onError={(error) => {
+      onError={() => {
         // Log cache error for debugging
-        console.warn('[QueryProvider] Cache persistence error:', error);
+        console.warn('[QueryProvider] Cache persistence error occurred');
         // Clear corrupted cache and reset query client state
         AsyncStorage.removeItem('veloq-query-cache')
           .then(() => {
