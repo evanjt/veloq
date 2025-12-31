@@ -15,14 +15,21 @@ import * as Haptics from 'expo-haptics';
 import { colors, darkColors, spacing } from '@/theme';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.2;
-const VELOCITY_THRESHOLD = 400;
+
+// Gesture thresholds
+const SWIPE_THRESHOLD_RATIO = 0.2; // 20% of screen width
+const SWIPE_THRESHOLD = SCREEN_WIDTH * SWIPE_THRESHOLD_RATIO;
+const VELOCITY_THRESHOLD = 400; // pixels per second
 
 // Timing config for smooth, non-bouncy animation
+const ANIMATION_DURATION_MS = 250;
 const TIMING_CONFIG = {
-  duration: 250,
+  duration: ANIMATION_DURATION_MS,
   easing: Easing.out(Easing.cubic),
 };
+
+// Gesture activation offset (prevents accidental swipes)
+const GESTURE_ACTIVATION_OFFSET = 10;
 
 export interface SwipeableTab {
   key: string;
@@ -71,7 +78,7 @@ export function SwipeableTabs({
 
   // Memoize pan gesture to prevent recreation on every render
   const panGesture = useMemo(() => Gesture.Pan()
-    .activeOffsetX([-10, 10])
+    .activeOffsetX([-GESTURE_ACTIVATION_OFFSET, GESTURE_ACTIVATION_OFFSET])
     .onUpdate((event) => {
       'worklet';
       const currentOffset = activeTabIndex.value === 0 ? 0 : -SCREEN_WIDTH;
