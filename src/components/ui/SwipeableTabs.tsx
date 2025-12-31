@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect } from 'react';
+import React, { useCallback, useEffect, useMemo } from 'react';
 import { View, StyleSheet, Dimensions, Pressable } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -48,6 +48,8 @@ export function SwipeableTabs({
 }: SwipeableTabsProps) {
   const translateX = useSharedValue(activeTab === tabs[0].key ? 0 : -SCREEN_WIDTH);
   const indicatorProgress = useSharedValue(activeTab === tabs[0].key ? 0 : 1);
+  // Track active tab index in shared value for worklet access
+  const activeTabIndex = useSharedValue(activeTab === tabs[0].key ? 0 : 1);
 
   const triggerHaptic = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -59,17 +61,20 @@ export function SwipeableTabs({
 
   // Sync animation with activeTab state changes (e.g., from tab press)
   useEffect(() => {
-    const targetX = activeTab === tabs[0].key ? 0 : -SCREEN_WIDTH;
-    const targetIndicator = activeTab === tabs[0].key ? 0 : 1;
+    const isFirstTab = activeTab === tabs[0].key;
+    const targetX = isFirstTab ? 0 : -SCREEN_WIDTH;
+    const targetIndicator = isFirstTab ? 0 : 1;
+    activeTabIndex.value = isFirstTab ? 0 : 1;
     translateX.value = withTiming(targetX, TIMING_CONFIG);
     indicatorProgress.value = withTiming(targetIndicator, TIMING_CONFIG);
-  }, [activeTab, tabs, translateX, indicatorProgress]);
+  }, [activeTab, tabs, translateX, indicatorProgress, activeTabIndex]);
 
-  const panGesture = Gesture.Pan()
+  // Memoize pan gesture to prevent recreation on every render
+  const panGesture = useMemo(() => Gesture.Pan()
     .activeOffsetX([-10, 10])
     .onUpdate((event) => {
       'worklet';
-      const currentOffset = activeTab === tabs[0].key ? 0 : -SCREEN_WIDTH;
+      const currentOffset = activeTabIndex.value === 0 ? 0 : -SCREEN_WIDTH;
       let newTranslateX = currentOffset + event.translationX;
       // Clamp between -SCREEN_WIDTH and 0
       newTranslateX = Math.max(-SCREEN_WIDTH, Math.min(0, newTranslateX));
@@ -84,32 +89,32 @@ export function SwipeableTabs({
     .onEnd((event) => {
       'worklet';
       const velocity = event.velocityX;
-      const currentOffset = activeTab === tabs[0].key ? 0 : -SCREEN_WIDTH;
+      const currentOffset = activeTabIndex.value === 0 ? 0 : -SCREEN_WIDTH;
       const distance = translateX.value - currentOffset;
 
-      let targetTab = activeTab;
+      let targetTabIndex = activeTabIndex.value;
 
       // Determine target based on swipe distance or velocity
       if (Math.abs(distance) > SWIPE_THRESHOLD || Math.abs(velocity) > VELOCITY_THRESHOLD) {
         if (distance < 0 && velocity <= 0) {
-          // Swiped left -> go to sections (second tab)
-          targetTab = tabs[1].key;
+          // Swiped left -> go to second tab
+          targetTabIndex = 1;
         } else if (distance > 0 && velocity >= 0) {
-          // Swiped right -> go to routes (first tab)
-          targetTab = tabs[0].key;
+          // Swiped right -> go to first tab
+          targetTabIndex = 0;
         }
       }
 
-      const targetX = targetTab === tabs[0].key ? 0 : -SCREEN_WIDTH;
-      const targetIndicator = targetTab === tabs[0].key ? 0 : 1;
+      const targetX = targetTabIndex === 0 ? 0 : -SCREEN_WIDTH;
+      const targetIndicator = targetTabIndex === 0 ? 0 : 1;
       translateX.value = withTiming(targetX, TIMING_CONFIG);
       indicatorProgress.value = withTiming(targetIndicator, TIMING_CONFIG);
 
-      if (targetTab !== activeTab) {
+      if (targetTabIndex !== activeTabIndex.value) {
         runOnJS(triggerHaptic)();
-        runOnJS(updateTab)(targetTab);
+        runOnJS(updateTab)(targetTabIndex === 0 ? tabs[0].key : tabs[1].key);
       }
-    });
+    }), [translateX, indicatorProgress, activeTabIndex, triggerHaptic, updateTab, tabs]);
 
   const contentStyle = useAnimatedStyle(() => ({
     transform: [{ translateX: translateX.value }],
