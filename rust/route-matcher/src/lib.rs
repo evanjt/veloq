@@ -46,6 +46,14 @@ use rstar::{RTree, RTreeObject, AABB};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
+// Unified error handling
+pub mod error;
+pub use error::{RouteMatchError, Result, OptionExt};
+
+// Union-Find data structure for grouping
+pub mod union_find;
+pub use union_find::UnionFind;
+
 // Geographic utilities (distance, bounds, center calculations)
 pub mod geo_utils;
 
