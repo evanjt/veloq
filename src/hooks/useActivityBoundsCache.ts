@@ -103,6 +103,15 @@ export function useActivityBoundsCache(options: UseActivityBoundsCacheOptions = 
   const [cachedActivitiesVersion, setCachedActivitiesVersion] = useState(0);
   const queryClient = useQueryClient();
 
+  // Track mount state to prevent setState after unmount
+  const isMountedRef = useRef(true);
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
   // Subscribe to activities query cache changes
   // Only update when query data actually changes (success state)
   // Use a ref to debounce rapid updates
@@ -117,7 +126,9 @@ export function useActivityBoundsCache(options: UseActivityBoundsCacheOptions = 
           clearTimeout(updateTimeoutRef.current);
         }
         updateTimeoutRef.current = setTimeout(() => {
-          setCachedActivitiesVersion((v) => v + 1);
+          if (isMountedRef.current) {
+            setCachedActivitiesVersion((v) => v + 1);
+          }
         }, 100);
       }
     });
@@ -141,8 +152,9 @@ export function useActivityBoundsCache(options: UseActivityBoundsCacheOptions = 
       setActivityCount(0);
     }
 
-    // Subscribe to updates
+    // Subscribe to updates with mount guard
     const unsubscribe = engine.subscribe('activities', () => {
+      if (!isMountedRef.current) return;
       try {
         const eng = getRouteEngine();
         setActivityCount(eng ? eng.getActivityCount() : 0);
