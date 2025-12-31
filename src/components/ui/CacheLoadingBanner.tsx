@@ -7,19 +7,22 @@
 import React, { useEffect, useRef, useMemo } from 'react';
 import { View, StyleSheet, Animated, TouchableOpacity, Platform } from 'react-native';
 import { Text } from 'react-native-paper';
+import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter, useSegments } from 'expo-router';
 import { useActivityBoundsCache } from '@/hooks';
-import { useAuthStore, useRouteMatchStore } from '@/providers';
+import { useAuthStore } from '@/providers';
 import { colors } from '@/theme';
 
 export function CacheLoadingBanner() {
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const routeParts = useSegments();
   const { progress: boundsProgress } = useActivityBoundsCache();
-  const routeProgress = useRouteMatchStore((s) => s.progress);
+  // Route processing is now instant in Rust engine, no progress tracking needed
+  const routeProgress = { status: 'idle', current: 0, total: 0 };
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
 
   // Don't show on map screen - it has its own sync indicator
@@ -42,7 +45,7 @@ export function CacheLoadingBanner() {
     if (isSyncingBounds) {
       return {
         icon: 'cloud-sync-outline' as const,
-        text: 'Syncing activities',
+        text: t('cache.syncingActivities'),
         completed: boundsProgress.completed,
         total: boundsProgress.total,
       };
@@ -50,13 +53,13 @@ export function CacheLoadingBanner() {
     if (isProcessingRoutes) {
       return {
         icon: 'map-marker-path' as const,
-        text: 'Analyzing routes',
+        text: t('cache.analyzingRoutes'),
         completed: routeProgress.current,
         total: routeProgress.total,
       };
     }
     return null;
-  }, [isSyncingBounds, isProcessingRoutes, boundsProgress, routeProgress]);
+  }, [isSyncingBounds, isProcessingRoutes, boundsProgress, routeProgress, t]);
 
   // Animated values
   const heightAnim = useRef(new Animated.Value(0)).current;

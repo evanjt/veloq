@@ -16,6 +16,7 @@ import { Text } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, Href } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { useInfiniteActivities, useAthlete, useWellness, getFormZone, FORM_ZONE_COLORS, getLatestFTP, useSportSettings, getSettingsForSport, usePaceCurve } from '@/hooks';
 import { useSportPreference, SPORT_COLORS } from '@/providers';
 import { formatPaceCompact, formatSwimPace } from '@/lib';
@@ -35,6 +36,7 @@ const ACTIVITY_TYPE_GROUPS = {
 const ALL_TYPES = Object.values(ACTIVITY_TYPE_GROUPS).flat();
 
 export default function FeedScreen() {
+  const { t } = useTranslation();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const [profileImageError, setProfileImageError] = useState(false);
@@ -232,15 +234,15 @@ export default function FeedScreen() {
   const renderListHeader = useCallback(() => (
     <View style={styles.sectionHeader}>
       <Text style={[styles.sectionTitle, isDark && styles.textLight]}>
-        {searchQuery || selectedTypeGroup ? `${filteredActivities.length} Activities` : 'Recent Activities'}
+        {searchQuery || selectedTypeGroup ? t('feed.activitiesCount', { count: filteredActivities.length }) : t('feed.recentActivities')}
       </Text>
     </View>
-  ), [isDark, searchQuery, selectedTypeGroup, filteredActivities.length]);
+  ), [isDark, searchQuery, selectedTypeGroup, filteredActivities.length, t]);
 
   const renderEmpty = () => (
-    <View style={styles.emptyContainer}>
+    <View testID="home-empty-state" style={styles.emptyContainer}>
       <Text style={[styles.emptyText, isDark && styles.textLight]}>
-        {searchQuery || selectedTypeGroup ? 'No matching activities' : 'No activities found'}
+        {searchQuery || selectedTypeGroup ? t('feed.noMatchingActivities') : t('feed.noActivities')}
       </Text>
     </View>
   );
@@ -248,7 +250,7 @@ export default function FeedScreen() {
   const renderError = () => (
     <View style={styles.emptyContainer}>
       <Text style={styles.errorText}>
-        {error instanceof Error ? error.message : 'Failed to load activities'}
+        {error instanceof Error ? error.message : t('feed.failedToLoad')}
       </Text>
     </View>
   );
@@ -258,7 +260,7 @@ export default function FeedScreen() {
     return (
       <View style={styles.footerLoader}>
         <ActivityIndicator size="small" color={colors.primary} />
-        <Text style={[styles.footerText, isDark && styles.textDark]}>Loading more...</Text>
+        <Text style={[styles.footerText, isDark && styles.textDark]}>{t('common.loadingMore')}</Text>
       </View>
     );
   };
@@ -274,7 +276,7 @@ export default function FeedScreen() {
           </View>
           {/* Section header skeleton */}
           <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionTitle, isDark && styles.textLight]}>Recent Activities</Text>
+            <Text style={[styles.sectionTitle, isDark && styles.textLight]}>{t('feed.recentActivities')}</Text>
           </View>
           {/* Activity card skeletons */}
           <ActivityCardSkeleton />
@@ -286,11 +288,12 @@ export default function FeedScreen() {
   }
 
   return (
-    <SafeAreaView style={[styles.container, isDark && styles.containerDark]}>
+    <SafeAreaView style={[styles.container, isDark && styles.containerDark]} testID="home-screen">
       {/* Header with profile and stat pills - outside FlatList */}
       <View style={styles.header}>
         {/* Profile photo - tap to open settings */}
         <TouchableOpacity
+          testID="nav-settings-button"
           onPress={navigateToSettings}
           activeOpacity={0.7}
           style={[styles.profilePhoto, styles.profilePlaceholder, isDark && styles.profilePlaceholderDark]}
@@ -320,7 +323,7 @@ export default function FeedScreen() {
             activeOpacity={0.7}
           >
             <View style={styles.pillItem}>
-              <Text style={[styles.pillLabel, isDark && styles.textDark]}>HRV</Text>
+              <Text style={[styles.pillLabel, isDark && styles.textDark]}>{t('metrics.hrv')}</Text>
               <Text style={[styles.pillValue, { color: '#E91E63' }]}>
                 {quickStats.hrv ?? '-'}
                 {quickStats.hrvTrend && <Text style={styles.trendArrow}>{quickStats.hrvTrend}</Text>}
@@ -330,7 +333,7 @@ export default function FeedScreen() {
               <>
                 <Text style={[styles.pillDivider, isDark && styles.pillDividerDark]}>|</Text>
                 <View style={styles.pillItem}>
-                  <Text style={[styles.pillLabel, isDark && styles.textDark]}>RHR</Text>
+                  <Text style={[styles.pillLabel, isDark && styles.textDark]}>{t('metrics.rhr')}</Text>
                   <Text style={[styles.pillValueSmall, isDark && styles.textDark]}>
                     {quickStats.rhr}
                     {quickStats.rhrTrend && <Text style={styles.trendArrowSmall}>{quickStats.rhrTrend}</Text>}
@@ -347,7 +350,7 @@ export default function FeedScreen() {
             activeOpacity={0.7}
           >
             <View style={styles.pillItem}>
-              <Text style={[styles.pillLabel, isDark && styles.textDark]}>Week</Text>
+              <Text style={[styles.pillLabel, isDark && styles.textDark]}>{t('metrics.week')}</Text>
               <Text style={[styles.pillValue, isDark && styles.textLight]}>
                 {quickStats.weekHours}h
                 {quickStats.weekHoursTrend && <Text style={styles.trendArrow}>{quickStats.weekHoursTrend}</Text>}
@@ -371,7 +374,7 @@ export default function FeedScreen() {
           >
             {primarySport === 'Cycling' && (
               <View style={styles.pillItem}>
-                <Text style={[styles.pillLabel, isDark && styles.textDark]}>FTP</Text>
+                <Text style={[styles.pillLabel, isDark && styles.textDark]}>{t('metrics.ftp')}</Text>
                 <Text style={[styles.pillValue, { color: SPORT_COLORS.Cycling }]}>
                   {quickStats.ftp ?? '-'}
                   {quickStats.ftpTrend && <Text style={styles.trendArrow}>{quickStats.ftpTrend}</Text>}
@@ -381,7 +384,7 @@ export default function FeedScreen() {
             {primarySport === 'Running' && (
               <>
                 <View style={styles.pillItem}>
-                  <Text style={[styles.pillLabel, isDark && styles.textDark]}>Pace</Text>
+                  <Text style={[styles.pillLabel, isDark && styles.textDark]}>{t('metrics.pace')}</Text>
                   <Text style={[styles.pillValue, { color: SPORT_COLORS.Running }]}>
                     {sportMetrics.thresholdPace ? formatPaceCompact(sportMetrics.thresholdPace) : '-'}
                   </Text>
@@ -390,7 +393,7 @@ export default function FeedScreen() {
                   <>
                     <Text style={[styles.pillDivider, isDark && styles.pillDividerDark]}>|</Text>
                     <View style={styles.pillItem}>
-                      <Text style={[styles.pillLabel, isDark && styles.textDark]}>HR</Text>
+                      <Text style={[styles.pillLabel, isDark && styles.textDark]}>{t('metrics.hr')}</Text>
                       <Text style={[styles.pillValueSmall, isDark && styles.textDark]}>
                         {sportMetrics.runLthr}
                       </Text>
@@ -401,7 +404,7 @@ export default function FeedScreen() {
             )}
             {primarySport === 'Swimming' && (
               <View style={styles.pillItem}>
-                <Text style={[styles.pillLabel, isDark && styles.textDark]}>CSS</Text>
+                <Text style={[styles.pillLabel, isDark && styles.textDark]}>{t('metrics.css')}</Text>
                 <Text style={[styles.pillValue, { color: SPORT_COLORS.Swimming }]}>
                   {sportMetrics.css ? formatSwimPace(sportMetrics.css) : '-'}
                 </Text>
@@ -416,7 +419,7 @@ export default function FeedScreen() {
             activeOpacity={0.7}
           >
             <View style={styles.pillItem}>
-              <Text style={[styles.pillLabel, isDark && styles.textDark]}>Fit</Text>
+              <Text style={[styles.pillLabel, isDark && styles.textDark]}>{t('metrics.fitness')}</Text>
               <Text style={[styles.pillValue, { color: '#42A5F5' }]}>
                 {quickStats.fitness}
                 {quickStats.fitnessTrend && <Text style={styles.trendArrow}>{quickStats.fitnessTrend}</Text>}
@@ -424,7 +427,7 @@ export default function FeedScreen() {
             </View>
             <Text style={[styles.pillDivider, isDark && styles.pillDividerDark]}>|</Text>
             <View style={styles.pillItem}>
-              <Text style={[styles.pillLabel, isDark && styles.textDark]}>Form</Text>
+              <Text style={[styles.pillLabel, isDark && styles.textDark]}>{t('metrics.form')}</Text>
               <Text style={[styles.pillValue, { color: formColor }]}>
                 {quickStats.form > 0 ? '+' : ''}{quickStats.form}
                 {quickStats.formTrend && <Text style={styles.trendArrow}>{quickStats.formTrend}</Text>}
@@ -443,8 +446,9 @@ export default function FeedScreen() {
             color={isDark ? '#888' : colors.textSecondary}
           />
           <TextInput
+            testID="home-search-input"
             style={[styles.searchInput, isDark && styles.searchInputDark]}
-            placeholder="Search activities..."
+            placeholder={t('feed.searchPlaceholder')}
             placeholderTextColor={isDark ? '#666' : '#999'}
             value={searchQuery}
             onChangeText={setSearchQuery}
@@ -460,7 +464,7 @@ export default function FeedScreen() {
           {searchQuery.length > 0 && (
             <TouchableOpacity
               onPress={() => setSearchQuery('')}
-              accessibilityLabel="Clear search"
+              accessibilityLabel={t('common.clearSearch')}
               accessibilityRole="button"
             >
               <MaterialCommunityIcons
@@ -472,13 +476,14 @@ export default function FeedScreen() {
           )}
         </View>
         <TouchableOpacity
+          testID="home-filter-button"
           style={[
             styles.filterButton,
             isDark && styles.filterButtonDark,
             (showFilters || selectedTypeGroup) && styles.filterButtonActive,
           ]}
           onPress={toggleFilters}
-          accessibilityLabel={showFilters ? 'Hide filters' : 'Show filters'}
+          accessibilityLabel={showFilters ? t('filters.hideFilters') : t('filters.showFilters')}
           accessibilityRole="button"
         >
           <MaterialCommunityIcons
@@ -517,6 +522,7 @@ export default function FeedScreen() {
       )}
 
       <FlatList
+        testID="home-activity-list"
         data={filteredActivities}
         renderItem={renderActivity}
         keyExtractor={(item) => item.id}
@@ -533,7 +539,7 @@ export default function FeedScreen() {
             colors={[colors.primary]}
             tintColor={colors.primary}
             progressBackgroundColor={isDark ? '#1E1E1E' : '#FFFFFF'}
-            title={Platform.OS === 'ios' ? 'Pull to refresh' : undefined}
+            title={Platform.OS === 'ios' ? t('common.pullToRefresh') : undefined}
             titleColor={Platform.OS === 'ios' ? (isDark ? '#888' : '#666') : undefined}
           />
         }

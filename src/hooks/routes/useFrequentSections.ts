@@ -1,11 +1,11 @@
 /**
- * Hook for accessing frequent sections from the route cache.
+ * Hook for accessing frequent sections from the Rust engine.
  * Sections are auto-detected road segments that are frequently traveled,
  * even when the full routes differ.
  */
 
 import { useMemo } from 'react';
-import { useRouteMatchStore } from '@/providers';
+import { useEngineSections } from './useRouteEngine';
 import type { FrequentSection } from '@/types';
 
 export interface UseFrequentSectionsOptions {
@@ -31,17 +31,13 @@ export function useFrequentSections(
 ): UseFrequentSectionsResult {
   const { sportType, minVisits = 3, sortBy = 'visits' } = options;
 
-  const cache = useRouteMatchStore((s) => s.cache);
-  const isReady = cache !== null;
+  const { sections: rawSections, totalCount } = useEngineSections({ sportType, minVisits: 1 });
+  const isReady = true;
 
   const sections = useMemo(() => {
-    if (!cache?.frequentSections) {
-      return [];
-    }
+    let filtered = rawSections.map(s => s as unknown as FrequentSection);
 
-    let filtered = [...cache.frequentSections];
-
-    // Filter by sport type
+    // Filter by sport type (already done by useEngineSections, but double-check)
     if (sportType) {
       filtered = filtered.filter((s) => s.sportType === sportType);
     }
@@ -58,16 +54,16 @@ export function useFrequentSections(
         filtered.sort((a, b) => b.distanceMeters - a.distanceMeters);
         break;
       case 'name':
-        filtered.sort((a, b) => (a.name || a.id).localeCompare(b.name || b.id));
+        filtered.sort((a, b) => (a.id).localeCompare(b.id));
         break;
     }
 
     return filtered;
-  }, [cache?.frequentSections, sportType, minVisits, sortBy]);
+  }, [rawSections, sportType, minVisits, sortBy]);
 
   return {
     sections,
-    totalCount: cache?.frequentSections?.length || 0,
+    totalCount,
     isReady,
   };
 }

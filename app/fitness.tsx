@@ -1,10 +1,11 @@
 import React, { useState, useCallback } from 'react';
-import { View, ScrollView, StyleSheet, useColorScheme, TouchableOpacity } from 'react-native';
+import { View, ScrollView, StyleSheet, useColorScheme, TouchableOpacity, RefreshControl } from 'react-native';
 import { Text, IconButton, ActivityIndicator } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { useSharedValue } from 'react-native-reanimated';
+import { useTranslation } from 'react-i18next';
 import { FitnessChart, FormZoneChart, ActivityDotsChart } from '@/components/fitness';
 import { useWellness, useActivities, getFormZone, FORM_ZONE_COLORS, FORM_ZONE_LABELS, type TimeRange } from '@/hooks';
 import { formatLocalDate } from '@/lib';
@@ -31,10 +32,12 @@ const timeRangeToDays = (range: TimeRange): number => {
 };
 
 export default function FitnessScreen() {
+  const { t } = useTranslation();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const [timeRange, setTimeRange] = useState<TimeRange>('3m');
   const [chartInteracting, setChartInteracting] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [selectedValues, setSelectedValues] = useState<{
     fitness: number;
@@ -71,6 +74,13 @@ export default function FitnessScreen() {
     setSelectedValues(values);
   }, []);
 
+  // Handle pull-to-refresh
+  const onRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    await refetch();
+    setIsRefreshing(false);
+  }, [refetch]);
+
   // Get current (latest) values for display when not selecting
   const getCurrentValues = () => {
     if (!wellness || wellness.length === 0) return null;
@@ -99,12 +109,12 @@ export default function FitnessScreen() {
             iconColor={isDark ? '#FFFFFF' : colors.textPrimary}
             onPress={() => router.back()}
           />
-          <Text style={[styles.headerTitle, isDark && styles.textLight]}>Fitness & Form</Text>
+          <Text style={[styles.headerTitle, isDark && styles.textLight]}>{t('fitnessScreen.title')}</Text>
           <View style={{ width: 48 }} />
         </View>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={[styles.loadingText, isDark && styles.textDark]}>Loading fitness data...</Text>
+          <Text style={[styles.loadingText, isDark && styles.textDark]}>{t('fitnessScreen.loadingData')}</Text>
         </View>
       </SafeAreaView>
     );
@@ -119,11 +129,11 @@ export default function FitnessScreen() {
             iconColor={isDark ? '#FFFFFF' : colors.textPrimary}
             onPress={() => router.back()}
           />
-          <Text style={[styles.headerTitle, isDark && styles.textLight]}>Fitness & Form</Text>
+          <Text style={[styles.headerTitle, isDark && styles.textLight]}>{t('fitnessScreen.title')}</Text>
           <View style={{ width: 48 }} />
         </View>
         <View style={styles.loadingContainer}>
-          <Text style={styles.errorText}>Failed to load fitness data</Text>
+          <Text style={styles.errorText}>{t('fitnessScreen.failedToLoad')}</Text>
         </View>
       </SafeAreaView>
     );
@@ -139,12 +149,14 @@ export default function FitnessScreen() {
           onPress={() => router.back()}
         />
         <View style={styles.headerTitleRow}>
-          <Text style={[styles.headerTitle, isDark && styles.textLight]}>Fitness & Form</Text>
-          {isFetching && (
-            <ActivityIndicator size="small" color={colors.primary} style={styles.headerLoader} />
+          <Text style={[styles.headerTitle, isDark && styles.textLight]}>{t('fitnessScreen.title')}</Text>
+        </View>
+        {/* Subtle loading indicator in header when fetching in background (not during pull-to-refresh) */}
+        <View style={{ width: 48, alignItems: 'center' }}>
+          {isFetching && !isRefreshing && (
+            <ActivityIndicator size="small" color={colors.primary} />
           )}
         </View>
-        <View style={{ width: 48 }} />
       </View>
 
       <ScrollView
@@ -152,34 +164,42 @@ export default function FitnessScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
         scrollEnabled={!chartInteracting}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
+          />
+        }
       >
         {/* Current stats card */}
         <View style={[styles.statsCard, isDark && styles.cardDark]}>
           <Text style={[styles.statsDate, isDark && styles.textDark]}>
-            {displayDate ? formatDisplayDate(displayDate) : 'Current'}
+            {displayDate ? formatDisplayDate(displayDate) : t('fitnessScreen.current')}
           </Text>
           <View style={styles.statsRow}>
             <View style={styles.statItem}>
-              <Text style={[styles.statLabel, isDark && styles.textDark]}>Fitness</Text>
+              <Text style={[styles.statLabel, isDark && styles.textDark]}>{t('metrics.fitness')}</Text>
               <Text style={[styles.statValue, { color: '#42A5F5' }]}>
                 {displayValues ? Math.round(displayValues.fitness) : '-'}
               </Text>
-              <Text style={[styles.statSubtext, isDark && styles.textDark]}>CTL</Text>
+              <Text style={[styles.statSubtext, isDark && styles.textDark]}>{t('fitnessScreen.ctl')}</Text>
             </View>
             <View style={styles.statItem}>
-              <Text style={[styles.statLabel, isDark && styles.textDark]}>Fatigue</Text>
+              <Text style={[styles.statLabel, isDark && styles.textDark]}>{t('metrics.fatigue')}</Text>
               <Text style={[styles.statValue, { color: '#AB47BC' }]}>
                 {displayValues ? Math.round(displayValues.fatigue) : '-'}
               </Text>
-              <Text style={[styles.statSubtext, isDark && styles.textDark]}>ATL</Text>
+              <Text style={[styles.statSubtext, isDark && styles.textDark]}>{t('fitnessScreen.atl')}</Text>
             </View>
             <View style={styles.statItem}>
-              <Text style={[styles.statLabel, isDark && styles.textDark]}>Form</Text>
+              <Text style={[styles.statLabel, isDark && styles.textDark]}>{t('metrics.form')}</Text>
               <Text style={[styles.statValue, { color: formZone ? FORM_ZONE_COLORS[formZone] : colors.textPrimary }]}>
                 {displayValues ? `${displayValues.form > 0 ? '+' : ''}${Math.round(displayValues.form)}` : '-'}
               </Text>
               <Text style={[styles.statSubtext, { color: formZone ? FORM_ZONE_COLORS[formZone] : colors.textSecondary }]}>
-                {formZone ? FORM_ZONE_LABELS[formZone] : 'TSB'}
+                {formZone ? FORM_ZONE_LABELS[formZone] : t('fitnessScreen.tsb')}
               </Text>
             </View>
           </View>
@@ -214,7 +234,7 @@ export default function FitnessScreen() {
         {/* Combined fitness charts card */}
         <View style={[styles.chartCard, isDark && styles.cardDark]}>
           {/* Fitness/Fatigue chart */}
-          <Text style={[styles.chartTitle, isDark && styles.textLight]}>Fitness & Fatigue</Text>
+          <Text style={[styles.chartTitle, isDark && styles.textLight]}>{t('fitnessScreen.fitnessAndFatigue')}</Text>
           <FitnessChart
             data={wellness}
             height={220}
@@ -239,7 +259,7 @@ export default function FitnessScreen() {
 
           {/* Form zone chart */}
           <View style={[styles.formSection, isDark && styles.sectionDark]}>
-            <Text style={[styles.chartTitle, isDark && styles.textLight]}>Form</Text>
+            <Text style={[styles.chartTitle, isDark && styles.textLight]}>{t('metrics.form')}</Text>
             <FormZoneChart
               data={wellness}
               height={140}
@@ -253,34 +273,34 @@ export default function FitnessScreen() {
 
         {/* Info section */}
         <View style={[styles.infoCard, isDark && styles.cardDark]}>
-          <Text style={[styles.infoTitle, isDark && styles.textLight]}>Understanding the Metrics</Text>
+          <Text style={[styles.infoTitle, isDark && styles.textLight]}>{t('fitnessScreen.understandingMetrics')}</Text>
 
           <View style={styles.infoRow}>
             <View style={[styles.infoDot, { backgroundColor: '#42A5F5' }]} />
             <Text style={[styles.infoText, isDark && styles.textDark]}>
-              <Text style={[styles.infoHighlight, isDark && styles.infoHighlightDark]}>Fitness</Text> is a 42-day exponentially weighted moving average of your training load.
+              <Text style={[styles.infoHighlight, isDark && styles.infoHighlightDark]}>{t('metrics.fitness')}</Text> {t('fitnessScreen.fitnessDescription')}
             </Text>
           </View>
 
           <View style={styles.infoRow}>
             <View style={[styles.infoDot, { backgroundColor: '#AB47BC' }]} />
             <Text style={[styles.infoText, isDark && styles.textDark]}>
-              <Text style={[styles.infoHighlight, isDark && styles.infoHighlightDark]}>Fatigue</Text> is a 7-day exponentially weighted moving average of your training load.
+              <Text style={[styles.infoHighlight, isDark && styles.infoHighlightDark]}>{t('metrics.fatigue')}</Text> {t('fitnessScreen.fatigueDescription')}
             </Text>
           </View>
 
           <View style={styles.infoRow}>
             <View style={[styles.infoDot, { backgroundColor: FORM_ZONE_COLORS.optimal }]} />
             <Text style={[styles.infoText, isDark && styles.textDark]}>
-              <Text style={[styles.infoHighlight, isDark && styles.infoHighlightDark]}>Form</Text> is fitness minus fatigue. Train in the{' '}
-              <Text style={{ color: FORM_ZONE_COLORS.optimal }}>optimal zone</Text> to build fitness. Be{' '}
-              <Text style={{ color: FORM_ZONE_COLORS.fresh }}>fresh</Text> for races. Avoid the{' '}
-              <Text style={{ color: FORM_ZONE_COLORS.highRisk }}>high risk zone</Text> to prevent overtraining.
+              <Text style={[styles.infoHighlight, isDark && styles.infoHighlightDark]}>{t('metrics.form')}</Text> {t('fitnessScreen.formDescription')}{' '}
+              <Text style={{ color: FORM_ZONE_COLORS.optimal }}>{t('fitnessScreen.optimalZone')}</Text> {t('fitnessScreen.toBuildFitness')}{' '}
+              <Text style={{ color: FORM_ZONE_COLORS.fresh }}>{t('fitnessScreen.fresh')}</Text> {t('fitnessScreen.forRaces')}{' '}
+              <Text style={{ color: FORM_ZONE_COLORS.highRisk }}>{t('fitnessScreen.highRiskZone')}</Text> {t('fitnessScreen.toPreventOvertraining')}
             </Text>
           </View>
 
           <View style={[styles.referencesSection, isDark && styles.referencesSectionDark]}>
-            <Text style={[styles.referencesLabel, isDark && styles.textDark]}>Learn more</Text>
+            <Text style={[styles.referencesLabel, isDark && styles.textDark]}>{t('fitnessScreen.learnMore')}</Text>
             <TouchableOpacity
               onPress={() => WebBrowser.openBrowserAsync('https://intervals.icu/fitness')}
               activeOpacity={0.7}
@@ -333,9 +353,6 @@ const styles = StyleSheet.create({
     fontSize: typography.cardTitle.fontSize,
     fontWeight: '600',
     color: colors.textPrimary,
-  },
-  headerLoader: {
-    marginLeft: spacing.xs,
   },
   textLight: {
     color: colors.textOnDark,

@@ -8,6 +8,7 @@ import { View, StyleSheet, Pressable, useColorScheme } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router, Href } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { colors, darkColors, opacity, spacing, layout, shadows, typography } from '@/theme';
 import { formatDistance, formatRelativeDate, getActivityIcon, getActivityColor } from '@/lib';
 import type { RouteGroup } from '@/types';
@@ -18,6 +19,7 @@ interface RouteCardProps {
 }
 
 export function RouteCard({ route }: RouteCardProps) {
+  const { t } = useTranslation();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
 
@@ -59,7 +61,7 @@ export function RouteCard({ route }: RouteCardProps) {
               {route.name}
             </Text>
             <Text style={[styles.subtitle, isDark && styles.subtitleDark]} numberOfLines={1}>
-              {formatDistance(route.signature.distance)} · {route.activityCount} activities
+              {formatDistance(route.signature.distance)} · {route.activityCount} {t('routes.activities')}
             </Text>
           </View>
 

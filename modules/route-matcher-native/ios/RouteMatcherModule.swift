@@ -167,95 +167,7 @@ public class RouteMatcherModule: Module {
             ]
         }
 
-        // BATCH: Create multiple signatures in parallel
-        Function("createSignaturesBatch") { (tracks: [[String: Any]], config: [String: Any]?) -> [[String: Any]] in
-            logger.info("BATCH createSignatures called with \(tracks.count) tracks")
-
-            let gpsTracks = tracks.compactMap { track -> GpsTrack? in
-                guard let activityId = track["activityId"] as? String,
-                      let pointMaps = track["points"] as? [[String: Double]] else { return nil }
-
-                let gpsPoints = pointMaps.compactMap { dict -> GpsPoint? in
-                    guard let lat = dict["latitude"], let lng = dict["longitude"] else { return nil }
-                    return GpsPoint(latitude: lat, longitude: lng)
-                }
-
-                return GpsTrack(activityId: activityId, points: gpsPoints)
-            }
-
-            let matchConfig = self.parseConfig(config)
-
-            let startTime = CFAbsoluteTimeGetCurrent()
-            let signatures = createSignaturesBatch(tracks: gpsTracks, config: matchConfig)
-            let elapsed = (CFAbsoluteTimeGetCurrent() - startTime) * 1000
-
-            logger.info("BATCH created \(signatures.count) signatures in \(Int(elapsed))ms")
-
-            return signatures.map { self.signatureToMap($0) }
-        }
-
-        // BATCH: Full end-to-end processing (signatures + grouping)
-        Function("processRoutesBatch") { (tracks: [[String: Any]], config: [String: Any]?) -> [[String: Any]] in
-            logger.info("FULL BATCH processRoutes called with \(tracks.count) tracks")
-
-            let gpsTracks = tracks.compactMap { track -> GpsTrack? in
-                guard let activityId = track["activityId"] as? String,
-                      let pointMaps = track["points"] as? [[String: Double]] else { return nil }
-
-                let gpsPoints = pointMaps.compactMap { dict -> GpsPoint? in
-                    guard let lat = dict["latitude"], let lng = dict["longitude"] else { return nil }
-                    return GpsPoint(latitude: lat, longitude: lng)
-                }
-
-                return GpsTrack(activityId: activityId, points: gpsPoints)
-            }
-
-            let matchConfig = self.parseConfig(config)
-
-            let startTime = CFAbsoluteTimeGetCurrent()
-            let groups = processRoutesBatch(tracks: gpsTracks, config: matchConfig)
-            let elapsed = (CFAbsoluteTimeGetCurrent() - startTime) * 1000
-
-            logger.info("FULL BATCH: \(gpsTracks.count) tracks -> \(groups.count) groups in \(Int(elapsed))ms")
-
-            return groups.map { group in
-                [
-                    "groupId": group.groupId,
-                    "activityIds": group.activityIds
-                ]
-            }
-        }
-
-        // OPTIMIZED: Process routes using flat coordinate arrays
-        Function("processRoutesFlat") { (activityIds: [String], coordArrays: [[Double]], config: [String: Any]?) -> [[String: Any]] in
-            logger.info("FLAT processRoutes called with \(activityIds.count) tracks")
-
-            guard activityIds.count == coordArrays.count else {
-                logger.error("ERROR: activityIds.count (\(activityIds.count)) != coordArrays.count (\(coordArrays.count))")
-                return []
-            }
-
-            let flatTracks = zip(activityIds, coordArrays).map { (activityId, coords) in
-                FlatGpsTrack(activityId: activityId, coords: coords)
-            }
-
-            let matchConfig = self.parseConfig(config)
-
-            let startTime = CFAbsoluteTimeGetCurrent()
-            let groups = processRoutesFromFlat(tracks: flatTracks, config: matchConfig)
-            let elapsed = (CFAbsoluteTimeGetCurrent() - startTime) * 1000
-
-            logger.info("FLAT BATCH: \(flatTracks.count) tracks -> \(groups.count) groups in \(Int(elapsed))ms")
-
-            return groups.map { group in
-                [
-                    "groupId": group.groupId,
-                    "activityIds": group.activityIds
-                ]
-            }
-        }
-
-        // OPTIMIZED: Create signatures from flat buffer
+        // Create signatures from flat buffer
         Function("createSignaturesFlatBuffer") { (activityIds: [String], coords: [Double], offsets: [Int], config: [String: Any]?) -> [[String: Any]] in
             logger.info("FLAT BUFFER createSignatures: \(activityIds.count) tracks, \(coords.count) coords")
 
@@ -282,7 +194,7 @@ public class RouteMatcherModule: Module {
             return signatures.map { self.signatureToMap($0) }
         }
 
-        // OPTIMIZED V2: Single flat buffer with offsets
+        // Process routes using flat buffer with offsets
         Function("processRoutesFlatBuffer") { (activityIds: [String], coords: [Double], offsets: [Int], config: [String: Any]?) -> [[String: Any]] in
             logger.info("FLAT BUFFER processRoutes: \(activityIds.count) tracks, \(coords.count) coords")
 
@@ -421,29 +333,7 @@ public class RouteMatcherModule: Module {
             ]
         }
 
-        // Section detection from route signatures (legacy)
-        Function("detectFrequentSections") { (signatures: [[String: Any]], groups: [[String: Any]], sportTypes: [[String: Any]], config: [String: Any]?) -> [[String: Any]] in
-            logger.info("detectFrequentSections: \(signatures.count) signatures")
-
-            let sigs = signatures.compactMap { self.mapToSignature($0) }
-            let routeGroups = groups.compactMap { dict -> RouteGroup? in
-                guard let groupId = dict["groupId"] as? String,
-                      let activityIds = dict["activityIds"] as? [String] else { return nil }
-                return RouteGroup(groupId: groupId, activityIds: activityIds)
-            }
-            let types = sportTypes.compactMap { dict -> ActivitySportType? in
-                guard let activityId = dict["activity_id"] as? String,
-                      let sportType = dict["sport_type"] as? String else { return nil }
-                return ActivitySportType(activityId: activityId, sportType: sportType)
-            }
-
-            let sectionConfig = self.parseSectionConfig(config)
-            let result = ffiDetectFrequentSections(signatures: sigs, groups: routeGroups, sportTypes: types, config: sectionConfig)
-
-            return result.map { self.sectionToMap($0) }
-        }
-
-        // Section detection from FULL GPS tracks (medoid-based)
+        // Section detection from GPS tracks
         // Returns JSON string for efficient bridge serialization
         Function("detectSectionsFromTracks") { (activityIds: [String], allCoords: [Double], offsets: [Int], sportTypes: [[String: Any]], groups: [[String: Any]], config: [String: Any]?) -> String in
             logger.info("detectSectionsFromTracks: \(activityIds.count) activities, \(allCoords.count / 2) coords")
@@ -607,6 +497,208 @@ public class RouteMatcherModule: Module {
                 "total_routes": Int(result.totalRoutes),
                 "total_activities": Int(result.totalActivities)
             ]
+        }
+
+        // ==========================================================================
+        // Route Engine (Stateful Rust Backend)
+        // ==========================================================================
+
+        // Engine: Initialize
+        Function("engineInit") { () -> Void in
+            engineInit()
+            logger.info("RouteEngine: Initialized")
+        }
+
+        // Engine: Clear all state
+        Function("engineClear") { () -> Void in
+            engineClear()
+            logger.info("RouteEngine: Cleared")
+        }
+
+        // Engine: Add activities from flat buffers
+        Function("engineAddActivities") { (activityIds: [String], allCoords: [Double], offsets: [Int], sportTypes: [String]) -> Void in
+            logger.info("RouteEngine: Adding \(activityIds.count) activities")
+            let offsetsU32 = offsets.map { UInt32($0) }
+            engineAddActivities(activityIds: activityIds, allCoords: allCoords, offsets: offsetsU32, sportTypes: sportTypes)
+        }
+
+        // Engine: Remove activities
+        Function("engineRemoveActivities") { (activityIds: [String]) -> Void in
+            logger.info("RouteEngine: Removing \(activityIds.count) activities")
+            engineRemoveActivities(activityIds: activityIds)
+        }
+
+        // Engine: Get all activity IDs
+        Function("engineGetActivityIds") { () -> [String] in
+            return engineGetActivityIds()
+        }
+
+        // Engine: Get activity count
+        Function("engineGetActivityCount") { () -> Int in
+            return Int(engineGetActivityCount())
+        }
+
+        // Engine: Get groups as JSON
+        Function("engineGetGroupsJson") { () -> String in
+            return engineGetGroupsJson()
+        }
+
+        // Engine: Get sections as JSON
+        Function("engineGetSectionsJson") { () -> String in
+            return engineGetSectionsJson()
+        }
+
+        // Engine: Query viewport
+        Function("engineQueryViewport") { (minLat: Double, maxLat: Double, minLng: Double, maxLng: Double) -> [String] in
+            return engineQueryViewport(minLat: minLat, maxLat: maxLat, minLng: minLng, maxLng: maxLng)
+        }
+
+        // Engine: Find nearby
+        Function("engineFindNearby") { (lat: Double, lng: Double, radiusDegrees: Double) -> [String] in
+            return engineFindNearby(lat: lat, lng: lng, radiusDegrees: radiusDegrees)
+        }
+
+        // Engine: Get consensus route
+        Function("engineGetConsensusRoute") { (groupId: String) -> [Double] in
+            return engineGetConsensusRoute(groupId: groupId)
+        }
+
+        // Engine: Get stats
+        Function("engineGetStats") { () -> [String: Any] in
+            let stats = engineGetStats()
+            return [
+                "activity_count": Int(stats.activityCount),
+                "signature_count": Int(stats.signatureCount),
+                "group_count": Int(stats.groupCount),
+                "section_count": Int(stats.sectionCount),
+                "cached_consensus_count": Int(stats.cachedConsensusCount)
+            ]
+        }
+
+        // Engine: Set match config
+        Function("engineSetMatchConfig") { (config: [String: Any]) -> Void in
+            let matchConfig = self.parseConfig(config)
+            engineSetMatchConfig(config: matchConfig)
+        }
+
+        // Engine: Set section config
+        Function("engineSetSectionConfig") { (config: [String: Any]) -> Void in
+            let sectionConfig = self.parseSectionConfig(config)
+            engineSetSectionConfig(config: sectionConfig)
+        }
+
+        // Engine: Get all activity bounds as JSON (for map display)
+        Function("engineGetAllActivityBoundsJson") { () -> String in
+            return engineGetAllActivityBoundsJson()
+        }
+
+        // Engine: Get all signatures as JSON (for trace rendering)
+        Function("engineGetAllSignaturesJson") { () -> String in
+            return engineGetAllSignaturesJson()
+        }
+
+        // Engine: Get signature points for a group (existing function)
+        Function("engineGetSignaturesForGroupJson") { (groupId: String) -> String in
+            return engineGetSignaturesForGroupJson(groupId: groupId)
+        }
+
+        // ==========================================================================
+        // Persistent Route Engine (SQLite-backed, memory efficient)
+        // ==========================================================================
+
+        // PersistentEngine: Initialize with database path
+        Function("persistentEngineInit") { (dbPath: String) -> Bool in
+            let result = persistentEngineInit(dbPath: dbPath)
+            logger.info("PersistentEngine: Initialized = \(result)")
+            return result
+        }
+
+        // PersistentEngine: Check if initialized
+        Function("persistentEngineIsInitialized") { () -> Bool in
+            return persistentEngineIsInitialized()
+        }
+
+        // PersistentEngine: Clear all state
+        Function("persistentEngineClear") { () -> Void in
+            persistentEngineClear()
+            logger.info("PersistentEngine: Cleared")
+        }
+
+        // PersistentEngine: Add activities from flat buffers
+        Function("persistentEngineAddActivities") { (activityIds: [String], allCoords: [Double], offsets: [Int], sportTypes: [String]) -> Void in
+            logger.info("PersistentEngine: Adding \(activityIds.count) activities")
+            let offsetsU32 = offsets.map { UInt32($0) }
+            persistentEngineAddActivities(activityIds: activityIds, allCoords: allCoords, offsets: offsetsU32, sportTypes: sportTypes)
+        }
+
+        // PersistentEngine: Remove activities
+        Function("persistentEngineRemoveActivities") { (activityIds: [String]) -> Void in
+            logger.info("PersistentEngine: Removing \(activityIds.count) activities")
+            persistentEngineRemoveActivities(activityIds: activityIds)
+        }
+
+        // PersistentEngine: Get all activity IDs
+        Function("persistentEngineGetActivityIds") { () -> [String] in
+            return persistentEngineGetActivityIds()
+        }
+
+        // PersistentEngine: Get activity count
+        Function("persistentEngineGetActivityCount") { () -> Int in
+            return Int(persistentEngineGetActivityCount())
+        }
+
+        // PersistentEngine: Get groups as JSON
+        Function("persistentEngineGetGroupsJson") { () -> String in
+            return persistentEngineGetGroupsJson()
+        }
+
+        // PersistentEngine: Get sections as JSON
+        Function("persistentEngineGetSectionsJson") { () -> String in
+            return persistentEngineGetSectionsJson()
+        }
+
+        // PersistentEngine: Query viewport
+        Function("persistentEngineQueryViewport") { (minLat: Double, maxLat: Double, minLng: Double, maxLng: Double) -> [String] in
+            return persistentEngineQueryViewport(minLat: minLat, maxLat: maxLat, minLng: minLng, maxLng: maxLng)
+        }
+
+        // PersistentEngine: Get consensus route as flat coords
+        Function("persistentEngineGetConsensusRoute") { (groupId: String) -> [Double] in
+            return persistentEngineGetConsensusRoute(groupId: groupId)
+        }
+
+        // PersistentEngine: Get GPS track as flat coords
+        Function("persistentEngineGetGpsTrack") { (activityId: String) -> [Double] in
+            return persistentEngineGetGpsTrack(activityId: activityId)
+        }
+
+        // PersistentEngine: Get stats
+        Function("persistentEngineGetStats") { () -> [String: Any]? in
+            guard let stats = persistentEngineGetStats() else { return nil }
+            return [
+                "activity_count": Int(stats.activityCount),
+                "signature_cache_size": Int(stats.signatureCacheSize),
+                "consensus_cache_size": Int(stats.consensusCacheSize),
+                "group_count": Int(stats.groupCount),
+                "section_count": Int(stats.sectionCount),
+                "groups_dirty": stats.groupsDirty,
+                "sections_dirty": stats.sectionsDirty
+            ]
+        }
+
+        // PersistentEngine: Start background section detection
+        Function("persistentEngineStartSectionDetection") { (sportFilter: String?) -> Bool in
+            return persistentEngineStartSectionDetection(sportFilter: sportFilter)
+        }
+
+        // PersistentEngine: Poll section detection status
+        Function("persistentEnginePollSections") { () -> String in
+            return persistentEnginePollSections()
+        }
+
+        // PersistentEngine: Cancel section detection
+        Function("persistentEngineCancelSectionDetection") { () -> Void in
+            persistentEngineCancelSectionDetection()
         }
 
         // Heatmap: Query cell at location

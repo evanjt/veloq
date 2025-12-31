@@ -1,0 +1,12 @@
+Initial release of Veloq.
+
+- Activity feed with search and filtering
+- Interactive activity maps with multi-metric charts
+- CTL/ATL/TSB fitness tracking
+- Wellness metrics (HRV, RHR, sleep)
+- Power and pace curves by sport
+- Regional activity map with timeline
+- Route heatmap visualization
+- Automatic route matching and performance tracking
+- Offline-first data caching
+- Light, dark, and satellite map styles

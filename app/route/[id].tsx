@@ -4,6 +4,7 @@ import { Text, IconButton, ActivityIndicator } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router, Href } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { LinearGradient } from 'expo-linear-gradient';
 import { CartesianChart, Line } from 'victory-native';
 import { Circle } from '@shopify/react-native-skia';
@@ -11,8 +12,16 @@ import Svg, { Polyline } from 'react-native-svg';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { useSharedValue, useDerivedValue, useAnimatedStyle, useAnimatedReaction, runOnJS } from 'react-native-reanimated';
 import Animated from 'react-native-reanimated';
-import { useRouteMatchStore } from '@/providers';
-import { useActivities } from '@/hooks';
+import { useActivities, useRouteGroups, useConsensusRoute } from '@/hooks';
+
+// Lazy load native module to avoid bundler errors
+function getRouteEngine() {
+  try {
+    return require('route-matcher-native').routeEngine;
+  } catch {
+    return null;
+  }
+}
 import { RouteMapView } from '@/components/routes';
 import {
   formatDistance,
@@ -23,9 +32,6 @@ import {
   formatSpeed,
   formatPace,
   isRunningActivity,
-  saveCustomRouteName,
-  loadCustomRouteNames,
-  getRouteDisplayName,
 } from '@/lib';
 import { colors, darkColors, spacing, layout, typography, opacity } from '@/theme';
 import type { Activity, ActivityType, RoutePoint } from '@/types';
@@ -821,6 +827,7 @@ function ActivityRow({
 }
 
 export default function RouteDetailScreen() {
+  const { t } = useTranslation();
   const { id } = useLocalSearchParams<{ id: string }>();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
@@ -836,13 +843,15 @@ export default function RouteDetailScreen() {
   const [customName, setCustomName] = useState<string | null>(null);
   const nameInputRef = useRef<TextInput>(null);
 
-  // Load custom route names on mount
+  // Load custom route name from Rust engine on mount
   useEffect(() => {
-    loadCustomRouteNames().then((names) => {
-      if (id && names[id]) {
-        setCustomName(names[id]);
+    if (id) {
+      const engine = getRouteEngine();
+      const name = engine?.getRouteName(id);
+      if (name) {
+        setCustomName(name);
       }
-    });
+    }
   }, [id]);
 
   // Handle activity selection from chart scrubbing
@@ -851,26 +860,49 @@ export default function RouteDetailScreen() {
     setHighlightedActivityPoints(activityPoints);
   }, []);
 
-  const routeGroup = useRouteMatchStore((s) =>
-    s.cache?.groups.find((g) => g.id === id) || null
+  // Get route groups from engine
+  const { groups: allGroups } = useRouteGroups({ minActivities: 1 });
+  const engineGroup = useMemo(() =>
+    allGroups.find((g) => g.groupId === id) || null,
+    [allGroups, id]
   );
+
+  // Get consensus route points from Rust engine
+  const { points: consensusPoints } = useConsensusRoute(id);
+
+  // Create a compatible routeGroup object with expected properties
+  // Note: signature is populated later once routeStats is computed
+  const routeGroupBase = useMemo(() => {
+    if (!engineGroup) return null;
+    return {
+      id: engineGroup.groupId,
+      name: engineGroup.name || `${engineGroup.type || 'Ride'} Route`, // Use the generated name from useRouteGroups
+      type: engineGroup.type || 'Ride',
+      activityIds: engineGroup.activityIds,
+      activityCount: engineGroup.activityCount,
+      firstDate: '', // Not available from engine
+      lastDate: '', // Will be computed from activities
+      signature: null as { points: any[]; distance: number } | null,
+    };
+  }, [engineGroup]);
 
   // Handle starting to edit the route name
   const handleStartEditing = useCallback(() => {
-    const currentName = customName || routeGroup?.name || '';
+    const currentName = customName || routeGroupBase?.name || '';
     setEditName(currentName);
     setIsEditing(true);
     // Focus input after a short delay to ensure it's rendered
     setTimeout(() => {
       nameInputRef.current?.focus();
     }, 100);
-  }, [customName, routeGroup?.name]);
+  }, [customName, routeGroupBase?.name]);
 
   // Handle saving the edited route name
-  const handleSaveName = useCallback(async () => {
+  const handleSaveName = useCallback(() => {
     const trimmedName = editName.trim();
     if (trimmedName && id) {
-      await saveCustomRouteName(id, trimmedName);
+      const engine = getRouteEngine();
+      if (engine) engine.setRouteName(id, trimmedName);
       setCustomName(trimmedName);
     }
     setIsEditing(false);
@@ -884,45 +916,38 @@ export default function RouteDetailScreen() {
     Keyboard.dismiss();
   }, []);
 
-  // Get match data for all activities in this route
-  const matches = useRouteMatchStore((s) => s.cache?.matches || {});
+  // Match data is not yet available from Rust engine
+  const matches: Record<string, { direction: string; matchPercentage: number }> = {};
 
-  // Get signatures for route points
-  const signatures = useRouteMatchStore((s) => s.cache?.signatures || {});
+  // Get signature points for all activities in this group from Rust engine
+  // Depends on engineGroup to ensure we re-fetch when engine data is ready
+  const signatures = useMemo(() => {
+    if (!id || !engineGroup) return {};
+    try {
+      const engine = getRouteEngine();
+      if (!engine) return {};
+      const sigMap = engine.getSignaturesForGroup(id) as Record<string, Array<{ lat: number; lng: number }>>;
+      // Convert to expected format: { activity_id: { points: [{lat, lng}, ...] } }
+      const result: Record<string, { points: Array<{ lat: number; lng: number }> }> = {};
+      for (const [activityId, points] of Object.entries(sigMap)) {
+        result[activityId] = { points };
+      }
+      return result;
+    } catch {
+      return {};
+    }
+  }, [id, engineGroup]);
 
-  // Fetch activities for this route
-  // Extend date range by 1 day on each side to handle timezone edge cases
-  // and ensure we capture all activities in the group
-  const { oldest, newest } = React.useMemo(() => {
-    if (!routeGroup) return { oldest: undefined, newest: undefined };
-
-    // Parse first date and go back 1 day
-    const firstDate = new Date(routeGroup.firstDate);
-    firstDate.setDate(firstDate.getDate() - 1);
-
-    // Parse last date and go forward 1 day
-    const lastDate = new Date(routeGroup.lastDate);
-    lastDate.setDate(lastDate.getDate() + 1);
-
-    // Format as YYYY-MM-DD
-    const formatDate = (d: Date) => d.toISOString().split('T')[0];
-
-    return {
-      oldest: formatDate(firstDate),
-      newest: formatDate(lastDate),
-    };
-  }, [routeGroup?.firstDate, routeGroup?.lastDate]);
-
+  // Fetch activities for the past year (route groups can contain older activities)
   const { data: allActivities, isLoading } = useActivities({
-    oldest,
-    newest,
+    days: 365,
     includeStats: false,
   });
 
   // Filter to only activities in this route group (deduplicated)
   const routeActivities = React.useMemo(() => {
-    if (!routeGroup || !allActivities) return [];
-    const idsSet = new Set(routeGroup.activityIds);
+    if (!routeGroupBase || !allActivities) return [];
+    const idsSet = new Set(routeGroupBase.activityIds);
     // Filter and deduplicate by ID (in case API returns duplicates)
     const seen = new Set<string>();
     return allActivities.filter((a) => {
@@ -930,7 +955,30 @@ export default function RouteDetailScreen() {
       seen.add(a.id);
       return true;
     });
-  }, [routeGroup, allActivities]);
+  }, [routeGroupBase, allActivities]);
+
+  // Compute stats from activities since signature data isn't available
+  // Must be called before any early return to maintain hooks order
+  const routeStats = useMemo(() => {
+    if (routeActivities.length === 0) return { distance: 0, lastDate: '' };
+    const distances = routeActivities.map(a => a.distance || 0);
+    const avgDistance = distances.reduce((a, b) => a + b, 0) / distances.length;
+    const dates = routeActivities.map(a => new Date(a.start_date_local).getTime());
+    const lastDate = new Date(Math.max(...dates)).toISOString();
+    return { distance: avgDistance, lastDate };
+  }, [routeActivities]);
+
+  // Final routeGroup with signature populated from consensus points
+  const routeGroup = useMemo(() => {
+    if (!routeGroupBase) return null;
+    return {
+      ...routeGroupBase,
+      signature: consensusPoints ? {
+        points: consensusPoints,
+        distance: routeStats.distance,
+      } : null,
+    };
+  }, [routeGroupBase, consensusPoints, routeStats.distance]);
 
   if (!routeGroup) {
     return (
@@ -951,7 +999,7 @@ export default function RouteDetailScreen() {
             color={isDark ? '#444' : '#CCC'}
           />
           <Text style={[styles.emptyText, isDark && styles.textLight]}>
-            Route not found
+            {t('routeDetail.routeNotFound')}
           </Text>
         </View>
       </View>
@@ -960,7 +1008,8 @@ export default function RouteDetailScreen() {
 
   const activityColor = getActivityColor(routeGroup.type);
   const iconName = getActivityIcon(routeGroup.type);
-  const hasMapData = routeGroup.signature?.points && routeGroup.signature.points.length > 1;
+  // Map data check - without signatures, assume we have map data if we have activities
+  const hasMapData = routeActivities.length > 0;
 
   return (
     <View style={[styles.container, isDark && styles.containerDark]}>
@@ -982,6 +1031,7 @@ export default function RouteDetailScreen() {
                 highlightedActivityId={highlightedActivityId}
                 highlightedLapPoints={highlightedActivityPoints}
                 enableFullscreen={true}
+                activitySignatures={signatures}
               />
             ) : (
               <View style={[styles.mapPlaceholder, { height: MAP_HEIGHT, backgroundColor: activityColor + '20' }]}>
@@ -1022,8 +1072,7 @@ export default function RouteDetailScreen() {
                     value={editName}
                     onChangeText={setEditName}
                     onSubmitEditing={handleSaveName}
-                    onBlur={handleCancelEdit}
-                    placeholder="Route name"
+                    placeholder={t('routes.routeNamePlaceholder')}
                     placeholderTextColor="rgba(255,255,255,0.5)"
                     returnKeyType="done"
                     autoFocus
@@ -1048,11 +1097,11 @@ export default function RouteDetailScreen() {
 
             {/* Stats row */}
             <View style={styles.heroStatsRow}>
-              <Text style={styles.heroStat}>{formatDistance(routeGroup.signature.distance)}</Text>
+              <Text style={styles.heroStat}>{formatDistance(routeStats.distance)}</Text>
               <Text style={styles.heroStatDivider}>·</Text>
               <Text style={styles.heroStat}>{routeGroup.activityCount} activities</Text>
               <Text style={styles.heroStatDivider}>·</Text>
-              <Text style={styles.heroStat}>{formatRelativeDate(routeGroup.lastDate)}</Text>
+              <Text style={styles.heroStat}>{routeStats.lastDate ? formatRelativeDate(routeStats.lastDate) : '-'}</Text>
             </View>
           </View>
         </View>
@@ -1077,7 +1126,7 @@ export default function RouteDetailScreen() {
           {/* Activities list */}
           <View style={styles.activitiesSection}>
           <Text style={[styles.sectionTitle, isDark && styles.textLight]}>
-            Activities
+            {t('settings.activities')}
           </Text>
 
           {isLoading ? (
@@ -1086,7 +1135,7 @@ export default function RouteDetailScreen() {
             </View>
           ) : routeActivities.length === 0 ? (
             <Text style={[styles.emptyActivities, isDark && styles.textMuted]}>
-              No activities found
+              {t('feed.noActivities')}
             </Text>
           ) : (
             <View style={[styles.activitiesCard, isDark && styles.activitiesCardDark]}>

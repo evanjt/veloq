@@ -7,6 +7,7 @@ import React, { useEffect, useRef } from 'react';
 import { View, StyleSheet, useColorScheme, Animated, ScrollView } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { colors, darkColors, opacity, spacing, layout, typography } from '@/theme';
 import type { ProcessedActivityStatus } from '@/types';
 
@@ -18,6 +19,7 @@ interface ProcessingActivityListProps {
 }
 
 function ActivityRow({ activity, index }: { activity: ProcessedActivityStatus; index: number }) {
+  const { t } = useTranslation();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
 
@@ -120,7 +122,7 @@ function ActivityRow({ activity, index }: { activity: ProcessedActivityStatus; i
         </Text>
         {isMatched && activity.matchedWith && (
           <Text style={[styles.matchedWith, isDark && styles.textMuted]} numberOfLines={1}>
-            Matches: {activity.matchedWith}
+            {t('routes.matches', { name: activity.matchedWith })}
           </Text>
         )}
       </View>
@@ -138,6 +140,7 @@ export function ProcessingActivityList({
   totalProcessed,
   total,
 }: ProcessingActivityListProps) {
+  const { t } = useTranslation();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const scrollViewRef = useRef<ScrollView>(null);
@@ -172,7 +175,7 @@ export function ProcessingActivityList({
             {matchesFound}
           </Text>
           <Text style={[styles.statLabel, isDark && styles.textMuted]}>
-            matches
+            {t('routes.matchesLabel')}
           </Text>
         </View>
 
@@ -188,7 +191,7 @@ export function ProcessingActivityList({
             {totalProcessed}/{total}
           </Text>
           <Text style={[styles.statLabel, isDark && styles.textMuted]}>
-            checked
+            {t('routes.checkedLabel')}
           </Text>
         </View>
       </View>
@@ -211,7 +214,7 @@ export function ProcessingActivityList({
 
       {activities.length > 10 && (
         <Text style={[styles.moreText, isDark && styles.textMuted]}>
-          + {activities.length - 10} more activities processed
+          {t('routes.moreActivitiesProcessed', { count: activities.length - 10 })}
         </Text>
       )}
     </View>

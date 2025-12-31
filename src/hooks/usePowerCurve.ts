@@ -16,7 +16,7 @@ export function usePowerCurve(options: UsePowerCurveOptions = {}) {
     queryKey: ['powerCurve', sport, days],
     queryFn: () => intervalsApi.getPowerCurve({ sport, days }),
     enabled,
-    staleTime: 1000 * 60 * 5, // 5 minutes
+    staleTime: 1000 * 60 * 15, // 15 minutes - curves change infrequently
     retry: 1, // Only retry once on failure
     placeholderData: keepPreviousData, // Keep previous data visible while fetching new range
   });

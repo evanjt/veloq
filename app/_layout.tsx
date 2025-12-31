@@ -1,16 +1,24 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { Stack, useSegments, useRouter, Href } from 'expo-router';
 import { PaperProvider } from 'react-native-paper';
 import { StatusBar } from 'expo-status-bar';
-import { useColorScheme, View, ActivityIndicator, Platform, AppState, type AppStateStatus } from 'react-native';
+import { useColorScheme, View, ActivityIndicator, Platform } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Logger } from '@maplibre/maplibre-react-native';
 import { configureReanimatedLogger, ReanimatedLogLevel } from 'react-native-reanimated';
-import { QueryProvider, MapPreferencesProvider, initializeTheme, useAuthStore, initializeSportPreference, initializeHRZones, initializeRouteMatching, initializeRouteSettings } from '@/providers';
+import { QueryProvider, MapPreferencesProvider, initializeTheme, useAuthStore, initializeSportPreference, initializeHRZones, initializeRouteSettings, initializeLanguage } from '@/providers';
+import { initializeI18n } from '@/i18n';
 import { lightTheme, darkTheme, colors, darkColors } from '@/theme';
-import { CacheLoadingBanner } from '@/components/ui';
-import { activitySyncManager } from '@/lib/activitySyncManager';
-import { formatLocalDate } from '@/lib/format';
+import { CacheLoadingBanner, DemoBanner, GlobalDataSync } from '@/components/ui';
+
+// Lazy load native module to avoid bundler errors
+function getRouteEngine() {
+  try {
+    return require('route-matcher-native').routeEngine;
+  } catch {
+    return null;
+  }
+}
 
 // Suppress MapLibre info/warning logs about canceled requests
 // These occur when switching between map views but don't affect functionality
@@ -24,36 +32,13 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   const routeParts = useSegments();
   const router = useRouter();
   const { isAuthenticated, isLoading } = useAuthStore();
-  const appState = useRef(AppState.currentState);
 
-  // Initialize route matching when authenticated
-  // This subscribes to bounds sync completion to auto-trigger route processing
+  // Initialize Rust route engine when authenticated
   useEffect(() => {
     if (isAuthenticated) {
-      initializeRouteMatching();
+      const engine = getRouteEngine();
+      if (engine) engine.init();
     }
-  }, [isAuthenticated]);
-
-  // Check for new activities when app comes to foreground
-  useEffect(() => {
-    if (!isAuthenticated) return;
-
-    const subscription = AppState.addEventListener('change', (nextAppState: AppStateStatus) => {
-      // Detect transition from background/inactive to active (foreground)
-      if (
-        appState.current.match(/inactive|background/) &&
-        nextAppState === 'active'
-      ) {
-        // Sync recent activities (last 7 days) to catch any new ones
-        const today = new Date();
-        const weekAgo = new Date(today);
-        weekAgo.setDate(weekAgo.getDate() - 7);
-        activitySyncManager.syncDateRange(formatLocalDate(weekAgo), formatLocalDate(today), false);
-      }
-      appState.current = nextAppState;
-    });
-
-    return () => subscription.remove();
   }, [isAuthenticated]);
 
   useEffect(() => {
@@ -81,15 +66,32 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   return <View style={{ flex: 1 }}>{children}</View>;
 }
 
+// Set to true when capturing screenshots (hides status bar)
+const SCREENSHOT_MODE = __DEV__ && false;
+
 export default function RootLayout() {
   const [appReady, setAppReady] = useState(false);
   const colorScheme = useColorScheme();
   const theme = colorScheme === 'dark' ? darkTheme : lightTheme;
   const initializeAuth = useAuthStore((state) => state.initialize);
 
-  // Initialize theme, auth, sport preference, HR zones, and route settings on app start
+  // Initialize theme, auth, sport preference, HR zones, route settings, and i18n on app start
   useEffect(() => {
-    Promise.all([initializeTheme(), initializeAuth(), initializeSportPreference(), initializeHRZones(), initializeRouteSettings()]).finally(() => setAppReady(true));
+    async function initialize() {
+      // Initialize language first to get the saved locale
+      const savedLocale = await initializeLanguage();
+      // Then initialize i18n with the saved locale
+      await initializeI18n(savedLocale);
+      // Initialize other providers in parallel
+      await Promise.all([
+        initializeTheme(),
+        initializeAuth(),
+        initializeSportPreference(),
+        initializeHRZones(),
+        initializeRouteSettings(),
+      ]);
+    }
+    initialize().finally(() => setAppReady(true));
   }, [initializeAuth]);
 
   // Show minimal loading while initializing
@@ -109,9 +111,12 @@ export default function RootLayout() {
             <StatusBar
               style={colorScheme === 'dark' ? 'light' : 'dark'}
               translucent={Platform.OS === 'ios'}
+              hidden={SCREENSHOT_MODE}
               animated
             />
             <AuthGate>
+              <GlobalDataSync />
+              <DemoBanner />
               <CacheLoadingBanner />
               <Stack
                 screenOptions={{
@@ -119,8 +124,8 @@ export default function RootLayout() {
                   // iOS: Use default animation for native feel with gesture support
                   // Android: Slide from right for Material Design
                   animation: Platform.OS === 'ios' ? 'default' : 'slide_from_right',
-                  // iOS: Enable native swipe-back gesture
-                  gestureEnabled: Platform.OS === 'ios',
+                  // Enable swipe-back gesture on both platforms
+                  gestureEnabled: true,
                   gestureDirection: 'horizontal',
                   // iOS: Blur effect for any translucent headers
                   headerBlurEffect: Platform.OS === 'ios' ? 'prominent' : undefined,

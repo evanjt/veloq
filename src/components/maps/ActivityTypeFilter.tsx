@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '@/theme/colors';
 import { typography } from '@/theme/typography';
@@ -96,6 +97,8 @@ export function ActivityTypeFilter({
   availableTypes,
   onSelectionChange,
 }: ActivityTypeFilterProps) {
+  const { t } = useTranslation();
+
   const toggleType = (type: string) => {
     const newSelection = new Set(selectedTypes);
     if (newSelection.has(type)) {
@@ -127,7 +130,7 @@ export function ActivityTypeFilter({
           onPress={selectedTypes.size === availableTypes.length ? deselectAll : selectAll}
         >
           <Text style={styles.controlText}>
-            {selectedTypes.size === availableTypes.length ? 'Clear' : 'All'}
+            {selectedTypes.size === availableTypes.length ? t('maps.clear') : t('maps.allClear')}
           </Text>
         </TouchableOpacity>
 

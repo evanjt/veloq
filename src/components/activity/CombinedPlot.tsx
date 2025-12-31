@@ -5,9 +5,10 @@ import { LinearGradient, vec } from '@shopify/react-native-skia';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { useSharedValue, useAnimatedReaction, runOnJS, useDerivedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
+import { useTranslation } from 'react-i18next';
 import { colors, darkColors, typography, layout, shadows } from '@/theme';
 import { useMetricSystem } from '@/hooks';
-import type { ChartConfig, ChartTypeId } from '@/lib/chartConfig';
+import type { ChartConfig, ChartTypeId } from '@/lib';
 import type { ActivityStreams } from '@/types';
 
 
@@ -51,6 +52,7 @@ export const CombinedPlot = React.memo(function CombinedPlot({
   onPointSelect,
   onInteractionChange,
 }: CombinedPlotProps) {
+  const { t } = useTranslation();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const isMetric = useMetricSystem();
@@ -300,7 +302,7 @@ export const CombinedPlot = React.memo(function CombinedPlot({
   if (chartData.length === 0 || seriesInfo.length === 0) {
     return (
       <View style={[styles.placeholder, { height }]}>
-        <Text style={[styles.placeholderText, isDark && styles.textDark]}>No data available</Text>
+        <Text style={[styles.placeholderText, isDark && styles.textDark]}>{t('activity.noDataAvailable')}</Text>
       </View>
     );
   }
@@ -331,7 +333,7 @@ export const CombinedPlot = React.memo(function CombinedPlot({
                 </Text>
               </View>
               <Text style={[styles.metricLabel, isDark && styles.metricLabelDark]}>
-                {isActive ? series.config.label : `avg`}
+                {isActive ? series.config.label : t('activity.avg')}
               </Text>
             </View>
           );

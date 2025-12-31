@@ -4,15 +4,13 @@
  */
 
 import { useMemo } from 'react';
-import { useRouteMatchStore } from '@/providers/RouteMatchStore';
-import type { RouteMatch, RouteGroup } from '@/types';
+import { useEngineGroups } from './useRouteEngine';
+import type { RouteGroup } from '@/types';
 
 interface UseRouteMatchResult {
-  /** The match info for this activity */
-  match: RouteMatch | null;
   /** The route group this activity belongs to */
   routeGroup: RouteGroup | null;
-  /** Activity's rank within the route group (by date, 1 = earliest) */
+  /** Activity's rank within the route group (by position in list) */
   rank: number | null;
   /** Total activities in the route group */
   totalInGroup: number;
@@ -21,12 +19,11 @@ interface UseRouteMatchResult {
 }
 
 export function useRouteMatch(activityId: string | undefined): UseRouteMatchResult {
-  const cache = useRouteMatchStore((s) => s.cache);
+  const { groups } = useEngineGroups({ minActivities: 1 });
 
   return useMemo(() => {
-    if (!activityId || !cache) {
+    if (!activityId) {
       return {
-        match: null,
         routeGroup: null,
         rank: null,
         totalInGroup: 0,
@@ -34,40 +31,38 @@ export function useRouteMatch(activityId: string | undefined): UseRouteMatchResu
       };
     }
 
-    const isProcessed = cache.processedActivityIds.includes(activityId);
+    // Find the group containing this activity
+    const routeGroup = groups.find(g => g.activityIds.includes(activityId));
 
-    // Use reverse index for O(1) lookup
-    const routeGroupId = cache.activityToRouteId?.[activityId];
-
-    if (!routeGroupId) {
-      // Activity not in any route group
+    if (!routeGroup) {
       return {
-        match: null,
         routeGroup: null,
         rank: null,
         totalInGroup: 0,
-        isProcessed,
+        isProcessed: true, // It was processed but not in a group
       };
     }
 
-    const routeGroup = cache.groups.find((g) => g.id === routeGroupId) || null;
-    const match = cache.matches[activityId] || null;
-
     // Calculate rank (position in group's activity list)
-    let rank: number | null = null;
-    if (routeGroup) {
-      const idx = routeGroup.activityIds.indexOf(activityId);
-      if (idx >= 0) {
-        rank = idx + 1;
-      }
-    }
+    const idx = routeGroup.activityIds.indexOf(activityId);
+    const rank = idx >= 0 ? idx + 1 : null;
+
+    // Convert to RouteGroup type
+    const typedGroup: RouteGroup = {
+      id: routeGroup.groupId,
+      name: routeGroup.groupId, // Use groupId as name for now
+      type: routeGroup.sportType as any,
+      activityIds: routeGroup.activityIds,
+      activityCount: routeGroup.activityIds.length,
+      firstDate: '', // Not available from engine
+      lastDate: '', // Not available from engine
+    };
 
     return {
-      match,
-      routeGroup,
+      routeGroup: typedGroup,
       rank,
-      totalInGroup: routeGroup?.activityCount || 0,
-      isProcessed,
+      totalInGroup: routeGroup.activityIds.length,
+      isProcessed: true,
     };
-  }, [activityId, cache]);
+  }, [activityId, groups]);
 }

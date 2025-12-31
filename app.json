@@ -8,6 +8,13 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
+    "locales": {
+      "en-AU": "./src/i18n/locales/en-AU.json",
+      "en-US": "./src/i18n/locales/en-US.json",
+      "en-GB": "./src/i18n/locales/en-GB.json",
+      "es": "./src/i18n/locales/es.json",
+      "fr": "./src/i18n/locales/fr.json"
+    },
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
@@ -19,6 +26,8 @@
       "buildNumber": "1",
       "deploymentTarget": "14.0",
       "infoPlist": {
+        "CFBundleDevelopmentRegion": "en-AU",
+        "CFBundleLocalizations": ["en-AU", "en-US", "en-GB", "es", "fr"],
         "NSLocationWhenInUseUsageDescription": "Veloq uses your location to display activity maps and track your routes.",
         "NSLocationAlwaysAndWhenInUseUsageDescription": "Veloq uses your location to display activity maps and track your routes.",
         "UIBackgroundModes": ["location", "fetch"],

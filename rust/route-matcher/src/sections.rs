@@ -25,6 +25,7 @@
 //! - Section contracts if tracks consistently end before current bounds
 
 use std::collections::{HashMap, HashSet};
+use serde::{Deserialize, Serialize};
 use crate::{GpsPoint, RouteGroup};
 use crate::geo_utils::{haversine_distance, compute_bounds, compute_center, polyline_length, bounds_overlap};
 use rstar::{RTree, RTreeObject, PointDistance, AABB};
@@ -33,7 +34,7 @@ use rayon::prelude::*;
 use log::info;
 
 /// Configuration for section detection
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "ffi", derive(uniffi::Record))]
 pub struct SectionConfig {
     /// Maximum distance between tracks to consider overlapping (meters)
@@ -64,7 +65,7 @@ impl Default for SectionConfig {
 }
 
 /// Each activity's portion of a section (for pace comparison)
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "ffi", derive(uniffi::Record))]
 pub struct SectionPortion {
     /// Activity ID
@@ -80,11 +81,13 @@ pub struct SectionPortion {
 }
 
 /// A frequently-traveled section with adaptive consensus representation
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "ffi", derive(uniffi::Record))]
 pub struct FrequentSection {
     /// Unique section ID
     pub id: String,
+    /// Custom name (user-defined, None if not set)
+    pub name: Option<String>,
     /// Sport type ("Run", "Ride", etc.)
     pub sport_type: String,
     /// The consensus polyline - refined from all overlapping tracks
@@ -250,7 +253,7 @@ fn find_full_track_overlap(
             best_end_a = track_a.len();
             best_min_b = current_min_b;
             best_max_b = current_max_b;
-            best_length = current_length;
+            // best_length not needed after this point
         }
     }
 
@@ -577,7 +580,15 @@ fn compute_activity_portions(
     portions
 }
 
-/// Find the portion of a track that overlaps with a reference polyline
+/// A contiguous segment of a track that overlaps with the reference
+struct OverlapSegment {
+    start_idx: usize,
+    end_idx: usize,
+    distance: f64,
+}
+
+/// Find the portion of a track that overlaps with a reference polyline.
+/// Returns the segment that best matches the section length, not just any overlap.
 fn find_track_portion(
     track: &[GpsPoint],
     reference: &[GpsPoint],
@@ -590,37 +601,106 @@ fn find_track_portion(
     let ref_tree = build_rtree(reference);
     let threshold_deg = threshold / 111_000.0;
     let threshold_deg_sq = threshold_deg * threshold_deg;
+    let ref_length = polyline_length(reference);
 
-    let mut start_idx: Option<usize> = None;
-    let mut end_idx = 0;
-    let mut in_overlap = false;
+    // Find all contiguous overlapping segments
+    let mut segments: Vec<OverlapSegment> = Vec::new();
+    let mut current_start: Option<usize> = None;
+    let mut gap_count = 0;
+    const MAX_GAP: usize = 3; // Allow small gaps for GPS noise
 
     for (i, point) in track.iter().enumerate() {
         let query = [point.latitude, point.longitude];
 
-        if let Some(nearest) = ref_tree.nearest_neighbor(&query) {
-            let dist_sq = nearest.distance_2(&query);
+        let is_near = ref_tree
+            .nearest_neighbor(&query)
+            .map(|nearest| nearest.distance_2(&query) <= threshold_deg_sq)
+            .unwrap_or(false);
 
-            if dist_sq <= threshold_deg_sq {
-                if !in_overlap {
-                    start_idx = Some(i);
-                    in_overlap = true;
+        if is_near {
+            if current_start.is_none() {
+                current_start = Some(i);
+            }
+            gap_count = 0;
+        } else if current_start.is_some() {
+            gap_count += 1;
+            if gap_count > MAX_GAP {
+                // End this segment
+                let start = current_start.unwrap();
+                let end = i - gap_count;
+                if end > start {
+                    let distance = polyline_length(&track[start..end]);
+                    segments.push(OverlapSegment {
+                        start_idx: start,
+                        end_idx: end,
+                        distance,
+                    });
                 }
-                end_idx = i + 1;
-            } else if in_overlap {
-                // Gap - but continue to find longest overlap
-                in_overlap = false;
+                current_start = None;
+                gap_count = 0;
             }
         }
     }
 
-    start_idx.map(|start| {
+    // Handle final segment
+    if let Some(start) = current_start {
+        let end = track.len() - gap_count.min(track.len() - start - 1);
+        if end > start {
+            let distance = polyline_length(&track[start..end]);
+            segments.push(OverlapSegment {
+                start_idx: start,
+                end_idx: end,
+                distance,
+            });
+        }
+    }
+
+    if segments.is_empty() {
+        return None;
+    }
+
+    // Select the best segment:
+    // 1. Distance should be close to section length (within 50% tolerance)
+    // 2. If multiple segments match, pick the one closest to section length
+    let tolerance = 0.5; // 50% tolerance
+    let min_dist = ref_length * (1.0 - tolerance);
+    let max_dist = ref_length * (1.0 + tolerance);
+
+    // First try to find segments within tolerance
+    let mut best_segment: Option<&OverlapSegment> = None;
+    let mut best_diff = f64::MAX;
+
+    for segment in &segments {
+        if segment.distance >= min_dist && segment.distance <= max_dist {
+            let diff = (segment.distance - ref_length).abs();
+            if diff < best_diff {
+                best_diff = diff;
+                best_segment = Some(segment);
+            }
+        }
+    }
+
+    // If no segment within tolerance, pick the closest one to section length
+    // (but only if it's at least 50% of the section length)
+    if best_segment.is_none() {
+        for segment in &segments {
+            if segment.distance >= ref_length * 0.5 {
+                let diff = (segment.distance - ref_length).abs();
+                if diff < best_diff {
+                    best_diff = diff;
+                    best_segment = Some(segment);
+                }
+            }
+        }
+    }
+
+    best_segment.map(|seg| {
         let direction = detect_direction_robust(
-            &track[start..end_idx],
+            &track[seg.start_idx..seg.end_idx],
             reference,
             &ref_tree,
         );
-        (start, end_idx, direction)
+        (seg.start_idx, seg.end_idx, direction)
     })
 }
 
@@ -745,6 +825,7 @@ fn process_cluster(
 
     Some(FrequentSection {
         id: format!("sec_{}_{}", sport_type.to_lowercase(), idx),
+        name: None,
         sport_type: sport_type.to_string(),
         polyline: consensus.polyline,
         representative_activity_id: representative_id,
@@ -1012,27 +1093,6 @@ pub fn detect_sections_from_tracks(
     );
 
     all_sections
-}
-
-// =============================================================================
-// Legacy API Compatibility
-// =============================================================================
-
-/// Legacy entry point using RouteSignatures (for backwards compatibility)
-/// This wraps the new algorithm but uses pre-simplified points
-pub fn detect_frequent_sections(
-    signatures: &[crate::RouteSignature],
-    groups: &[RouteGroup],
-    sport_types: &HashMap<String, String>,
-    config: &SectionConfig,
-) -> Vec<FrequentSection> {
-    // Convert signatures to tracks format
-    let tracks: Vec<(String, Vec<GpsPoint>)> = signatures
-        .iter()
-        .map(|sig| (sig.activity_id.clone(), sig.points.clone()))
-        .collect();
-
-    detect_sections_from_tracks(&tracks, sport_types, groups, config)
 }
 
 // =============================================================================
@@ -1361,6 +1421,7 @@ fn split_section_by_density(
         if split_activity_ids.len() >= config.min_activities as usize {
             let split_section = FrequentSection {
                 id: format!("{}_split{}", section.id, split_idx),
+                name: None,
                 sport_type: section.sport_type.clone(),
                 polyline: split_polyline,
                 representative_activity_id: section.representative_activity_id.clone(),

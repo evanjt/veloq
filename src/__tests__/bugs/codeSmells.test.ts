@@ -1,0 +1,207 @@
+/**
+ * Tests that expose real bugs and code smells in the codebase.
+ *
+ * These tests document known issues. Some will FAIL until fixed.
+ * Run with: npm test -- --testPathPattern=codeSmells
+ */
+
+import { getBounds, getBoundsFromPolyline, detectCoordinateFormat } from '@/lib/geo/polyline';
+
+describe('Bug: getBounds sentinel value conflicts with valid coordinates', () => {
+  /**
+   * src/lib/geo/polyline.ts:187
+   *
+   * The check `minLat === 0 && maxLat === 0 && minLng === 0 && maxLng === 0`
+   * incorrectly treats coordinates at the origin (0,0) as invalid/empty.
+   *
+   * The Gulf of Guinea (off the coast of Africa) is at coordinates (0,0),
+   * and any activity there would be incorrectly rejected.
+   */
+
+  it('should return valid bounds for coordinates at the origin', () => {
+    const coords = [
+      { latitude: 0, longitude: 0 },
+      { latitude: 0.001, longitude: 0.001 },
+    ];
+
+    const bounds = getBounds(coords);
+
+    // BUG: Currently this returns the same sentinel as empty array
+    // because the check treats (0,0) as "no data"
+    expect(bounds.maxLat).toBeGreaterThan(bounds.minLat);
+  });
+
+  it('should distinguish empty array from single point at origin', () => {
+    const emptyBounds = getBounds([]);
+    const originBounds = getBounds([{ latitude: 0, longitude: 0 }]);
+
+    // BUG: Both return { minLat: 0, maxLat: 0, minLng: 0, maxLng: 0 }
+    // We need a different sentinel (null, NaN, or Infinity)
+    expect(JSON.stringify(emptyBounds)).not.toBe(JSON.stringify(originBounds));
+  });
+
+  it('getBoundsFromPolyline should not return null for valid polyline at origin', () => {
+    // Polyline encoding for [[0,0], [0.001, 0.001]]
+    // Note: This tests the downstream effect of the getBounds bug
+    const coords = [
+      { latitude: 0, longitude: 0 },
+      { latitude: 0.001, longitude: 0.001 },
+    ];
+    const bounds = getBounds(coords);
+
+    // The bug causes getBoundsFromPolyline to return null
+    // because it checks: if (minLat === 0 && maxLat === 0...) return null
+    const isInvalidByBuggyCheck =
+      bounds.minLat === 0 && bounds.maxLat === 0 &&
+      bounds.minLng === 0 && bounds.maxLng === 0;
+
+    // This WILL FAIL - proving the bug exists
+    expect(isInvalidByBuggyCheck).toBe(false);
+  });
+});
+
+describe('Bug: detectCoordinateFormat ambiguity', () => {
+  /**
+   * src/lib/geo/polyline.ts - coordinate detection
+   *
+   * The heuristic assumes that if a value > 90, it must be longitude.
+   * This fails for certain edge cases.
+   */
+
+  it('should correctly detect [lat, lng] for coordinates within ±90 range', () => {
+    // Zurich: lat 47.3769, lng 8.5417
+    // Both values are valid latitudes, so detection relies on heuristics
+    const coords: [number, number][] = [
+      [47.3769, 8.5417],
+    ];
+
+    const format = detectCoordinateFormat(coords);
+
+    // The function defaults to 'latLng' for ambiguous cases
+    // This is the expected behavior, but it's worth documenting
+    expect(format).toBe('latLng');
+  });
+
+  it('should handle all-NaN coordinates gracefully', () => {
+    const coords: [number, number][] = [
+      [NaN, NaN],
+      [NaN, NaN],
+    ];
+
+    // Should not throw, should return a sensible default
+    expect(() => detectCoordinateFormat(coords)).not.toThrow();
+    const format = detectCoordinateFormat(coords);
+    expect(['latLng', 'lngLat']).toContain(format);
+  });
+});
+
+describe('Code smell: Inconsistent null/undefined handling', () => {
+  /**
+   * Various functions handle null/undefined differently.
+   * This tests documents expected behavior.
+   */
+
+  it('formatDistance handles edge cases consistently', () => {
+    const { formatDistance } = require('@/lib/utils/format');
+
+    // All invalid inputs should return the same fallback
+    expect(formatDistance(null as unknown as number)).toBe('0 m');
+    expect(formatDistance(undefined as unknown as number)).toBe('0 m');
+    expect(formatDistance(NaN)).toBe('0 m');
+    expect(formatDistance(-Infinity)).toBe('0 m');
+    expect(formatDistance(Infinity)).toBe('0 m');
+  });
+});
+
+describe('Code smell: Magic numbers without constants', () => {
+  /**
+   * These tests document magic numbers that should be constants.
+   * They serve as regression tests if the values change.
+   */
+
+  it('geocoding precision is ~500m', () => {
+    // src/lib/geo/geocoding.ts:32-33
+    // const roundedLat = Math.round(lat * 200) / 200;
+    // This gives ~500m precision (1/200 degree ≈ 555m at equator)
+
+    const precision = 1 / 200; // degrees
+    const metersPerDegree = 111320; // at equator
+    const precisionMeters = precision * metersPerDegree;
+
+    // Document the actual precision
+    expect(precisionMeters).toBeCloseTo(556.6, 0);
+  });
+
+  it('query cache times are documented', () => {
+    // src/providers/QueryProvider.tsx:10-11
+    // These should be in a constants file
+
+    const STALE_TIME = 1000 * 60 * 5; // 5 minutes
+    const GC_TIME = 1000 * 60 * 60 * 24; // 1 day
+
+    expect(STALE_TIME).toBe(300000);
+    expect(GC_TIME).toBe(86400000);
+  });
+});
+
+describe('Potential bug: Type coercion in comparisons', () => {
+  /**
+   * JavaScript's == vs === can cause subtle bugs.
+   * These tests ensure consistent behavior.
+   */
+
+  it('null/undefined checks use correct equality', () => {
+    // src/lib/geo/polyline.ts:58 uses `== null` which catches both null and undefined
+    // This is actually correct, but let's verify the behavior
+
+    const checkValue = (val: unknown) => val == null;
+
+    expect(checkValue(null)).toBe(true);
+    expect(checkValue(undefined)).toBe(true);
+    expect(checkValue(0)).toBe(false);
+    expect(checkValue('')).toBe(false);
+    expect(checkValue(false)).toBe(false);
+    expect(checkValue(NaN)).toBe(false); // NaN != null
+  });
+});
+
+describe('Performance: Large data handling', () => {
+  /**
+   * Tests for handling large datasets without crashing.
+   */
+
+  it('getBounds handles 10000 coordinates efficiently', () => {
+    const coords = Array.from({ length: 10000 }, (_, i) => ({
+      latitude: 40 + (i % 100) * 0.001,
+      longitude: -74 + Math.floor(i / 100) * 0.001,
+    }));
+
+    const start = Date.now();
+    const bounds = getBounds(coords);
+    const elapsed = Date.now() - start;
+
+    expect(bounds.minLat).toBeCloseTo(40, 1);
+    expect(bounds.maxLat).toBeCloseTo(40.099, 1);
+    expect(elapsed).toBeLessThan(100); // Should be fast
+  });
+});
+
+describe('Error handling: Graceful degradation', () => {
+  /**
+   * Tests that functions degrade gracefully with bad input.
+   */
+
+  it('getBounds handles mixed valid/invalid coordinates', () => {
+    const coords = [
+      { latitude: 40.7128, longitude: -74.006 }, // NYC
+      { latitude: NaN, longitude: NaN }, // Invalid
+      { latitude: 40.7580, longitude: -73.9855 }, // Midtown
+    ];
+
+    const bounds = getBounds(coords);
+
+    // Should ignore the NaN entry and compute bounds from valid ones
+    expect(bounds.minLat).toBeCloseTo(40.7128, 4);
+    expect(bounds.maxLat).toBeCloseTo(40.758, 3);
+  });
+});

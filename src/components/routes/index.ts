@@ -3,7 +3,7 @@ export { MatchQualityIndicator } from './MatchQualityIndicator';
 export { CacheScopeNotice } from './CacheScopeNotice';
 export { ProcessingBanner } from './ProcessingBanner';
 export { RouteRow } from './RouteRow';
-export { RoutePerformanceSection } from './RoutePerformanceSection';
+export { RoutePerformanceSection } from './performance';
 export { RouteMapView } from './RouteMapView';
 export { SectionRow } from './SectionRow';
 export { SectionsList } from './SectionsList';

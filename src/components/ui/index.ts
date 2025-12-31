@@ -26,3 +26,22 @@ export {
 } from './EmptyState';
 export { CacheLoadingBanner } from './CacheLoadingBanner';
 export { GarminAttribution, DeviceAttribution, isGarminDevice } from './GarminAttribution';
+export { DemoBanner } from './DemoBanner';
+export { SwipeableTabs, type SwipeableTab } from './SwipeableTabs';
+export { GlobalDataSync } from './GlobalDataSync';
+export { Confetti, ConfettiCelebration, type ConfettiRef } from './Confetti';
+export {
+  AchievementToast,
+  useAchievementToast,
+  achievements,
+  type AchievementToastRef,
+  type AchievementType,
+} from './AchievementToast';
+export {
+  ScreenTransition,
+  StaggeredItem,
+  AnimatedSection,
+  AnimatedCardEntrance,
+  HeroStatEntrance,
+  type AnimationPreset,
+} from './ScreenTransition';
