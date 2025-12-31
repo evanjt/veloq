@@ -1,4 +1,5 @@
 import React from 'react';
+import { Alert } from 'react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
 import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persister';
@@ -64,6 +65,12 @@ export function QueryProvider({ children }: QueryProviderProps) {
           .then(() => {
             // Reset query client to ensure consistent state
             queryClient.clear();
+            // Notify user that cache was cleared
+            Alert.alert(
+              'Cache Cleared',
+              'Local data cache was corrupted and has been cleared. Your data will be refreshed from the server.',
+              [{ text: 'OK' }]
+            );
           })
           .catch((clearError) => {
             console.error('[QueryProvider] Failed to clear corrupted cache:', clearError);
