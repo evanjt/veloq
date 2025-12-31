@@ -121,6 +121,7 @@
     "lastSynced": "Última sincronización",
     "bounds": "Límites",
     "gpsTraces": "Trazas GPS",
+    "cachedQueries": "Consultas en caché",
     "cacheHint": "Almacena en caché las ubicaciones de actividades y trazas GPS para el Mapa Mundial y coincidencia de rutas. Por defecto, sincroniza 3 meses. Usa \"Sincronizar todo el historial\" para un análisis más profundo.",
     "routeMatching": "Coincidencia de rutas",
     "enableRouteMatching": "Activar coincidencia de rutas",
@@ -130,6 +131,9 @@
     "disconnectDescription": "Esto eliminará tus credenciales API de la app. Tendrás que ingresarlas de nuevo para usar la app.",
     "dataSources": "Fuentes de datos",
     "dataSourcesDescription": "Los datos de actividad y bienestar se sincronizan desde intervals.icu, que se integra con varias plataformas y dispositivos de fitness.",
+    "demoDataSources": "Fuentes de datos demo",
+    "hideDemoBanner": "Ocultar banner demo",
+    "hideDemoBannerHint": "Ocultar el banner para capturas de pantalla",
     "support": "Soporte",
     "subscribe": "Suscribirse",
     "sponsorDev": "Patrocinar desarrollo",
@@ -463,7 +467,10 @@
 
   "attribution": {
     "recordedWith": "Grabado con {{device}}",
-    "garminTrademark": "Garmin y el logotipo de Garmin son marcas registradas de Garmin Ltd."
+    "garminTrademark": "Garmin y el logotipo de Garmin son marcas registradas de Garmin Ltd.",
+    "demoData": "El modo demo utiliza rutas GPS reales de conjuntos de datos abiertos.",
+    "osm": "Colaboradores de OpenStreetMap",
+    "osmLicense": "Datos de rutas bajo licencia Open Database License (ODbL)"
   },
 
   "stats": {

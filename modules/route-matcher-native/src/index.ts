@@ -1,8 +1,9 @@
 import type { EventSubscription } from 'expo-modules-core';
 import NativeModule from './RouteMatcherModule';
 
-// Simple debug logging for native module - only in dev mode
-const nativeLog = __DEV__ ? (...args: unknown[]) => console.log('[RouteMatcher]', ...args) : () => {};
+// Debug logging disabled - uncomment for development debugging
+// const nativeLog = __DEV__ ? (...args: unknown[]) => console.log('[RouteMatcher]', ...args) : () => {};
+const nativeLog = (..._args: unknown[]) => {};
 
 /**
  * Progress event from Rust HTTP fetch operations.
@@ -1307,6 +1308,53 @@ class RouteEngineClient {
   getAllSectionNames(): Record<string, string> {
     const json = NativeModule.persistentEngineGetAllSectionNamesJson();
     return JSON.parse(json) as Record<string, string>;
+  }
+
+  /**
+   * Get all activity bounds info for map display.
+   * Returns array of { id, bounds, type, distance }.
+   */
+  getAllActivityBounds(): Array<{
+    id: string;
+    bounds: [[number, number], [number, number]];  // [[minLat, minLng], [maxLat, maxLng]]
+    type: string;
+    distance: number;
+  }> {
+    const json = NativeModule.engineGetAllActivityBoundsJson();
+    const raw = JSON.parse(json) as Array<{
+      id: string;
+      bounds: [[number, number], [number, number]];
+      activity_type: string;
+      distance: number;
+    }>;
+    // Convert from Rust format (snake_case) to JS format (camelCase)
+    return raw.map(item => ({
+      id: item.id,
+      bounds: item.bounds,
+      type: item.activity_type,
+      distance: item.distance,
+    }));
+  }
+
+  /**
+   * Get all route signatures for trace rendering.
+   * Returns a map of activityId -> { points: [{lat, lng}], center: {lat, lng} }.
+   */
+  getAllSignatures(): Record<string, { points: Array<{ lat: number; lng: number }>; center: { lat: number; lng: number } }> {
+    const json = NativeModule.engineGetAllSignaturesJson();
+    const raw = JSON.parse(json) as Record<string, {
+      points: Array<{ latitude: number; longitude: number }>;
+      center: { latitude: number; longitude: number };
+    }>;
+    // Convert from Rust format {latitude, longitude} to JS format {lat, lng}
+    const result: Record<string, { points: Array<{ lat: number; lng: number }>; center: { lat: number; lng: number } }> = {};
+    for (const [activityId, sig] of Object.entries(raw)) {
+      result[activityId] = {
+        points: sig.points.map(p => ({ lat: p.latitude, lng: p.longitude })),
+        center: { lat: sig.center.latitude, lng: sig.center.longitude },
+      };
+    }
+    return result;
   }
 
   /**

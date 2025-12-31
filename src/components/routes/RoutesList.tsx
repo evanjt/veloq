@@ -4,12 +4,7 @@
  */
 
 import React, { useEffect, useRef, memo, useMemo } from 'react';
-import { View, StyleSheet, FlatList, RefreshControl, useColorScheme, LayoutAnimation, Platform, UIManager } from 'react-native';
-
-// Enable LayoutAnimation for Android
-if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
-}
+import { View, StyleSheet, FlatList, RefreshControl, useColorScheme, LayoutAnimation } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';

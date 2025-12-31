@@ -8,7 +8,7 @@ const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       staleTime: 1000 * 60 * 5, // 5 minutes
-      gcTime: 1000 * 60 * 60 * 24, // 1 day (reduced from 7)
+      gcTime: 1000 * 60 * 60 * 24 * 7, // 7 days - keep in memory longer for offline
       retry: 2,
       networkMode: 'offlineFirst',
     },
@@ -45,7 +45,7 @@ export function QueryProvider({ children }: QueryProviderProps) {
       client={queryClient}
       persistOptions={{
         persister: asyncStoragePersister,
-        maxAge: 1000 * 60 * 60 * 24, // 1 day max age
+        maxAge: 1000 * 60 * 60 * 24 * 7, // 7 days max age - match gcTime
         // Don't persist activity streams (large data)
         dehydrateOptions: {
           shouldDehydrateQuery: (query) => {

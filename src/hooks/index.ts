@@ -68,3 +68,4 @@ export {
   type ChartColorScheme,
   type ChartMetricType,
 } from './useChartColors';
+export { useOldestActivityDate } from './useOldestActivityDate';

@@ -64,15 +64,14 @@ export function useRouteDataSync(
   const isSyncingRef = useRef(false);
 
   const syncActivities = useCallback(async (activitiesToSync: Activity[]) => {
-    // Don't sync if not authenticated or in demo mode
-    if (!isAuthenticated || isDemoMode) {
-      return;
-    }
+    // Don't sync if not authenticated
+    if (!isAuthenticated) return;
 
     // Use engine state for synced IDs - more robust than JS ref
     // This persists across component remounts and correctly resets after clear()
     const nativeModule = getNativeModule();
     if (!nativeModule) return;
+
     const engineActivityIds = new Set(nativeModule.routeEngine.getActivityIds());
 
     // Detect if this is initial sync (engine empty) vs incremental (engine has data)
@@ -83,9 +82,7 @@ export function useRouteDataSync(
       (a) => a.stream_types?.includes('latlng') && !engineActivityIds.has(a.id)
     );
 
-    if (withGps.length === 0) {
-      return;
-    }
+    if (withGps.length === 0) return;
 
     // Prevent concurrent syncs
     if (isSyncingRef.current) {
@@ -94,6 +91,56 @@ export function useRouteDataSync(
     isSyncingRef.current = true;
 
     try {
+      // Handle demo mode differently - use fixtures instead of API
+      if (isDemoMode) {
+        setProgress({
+          status: 'fetching',
+          completed: 0,
+          total: withGps.length,
+          message: 'Loading demo GPS data...',
+        });
+
+        // Import demo fixtures
+        const { getActivityMap } = require('@/data/demo/fixtures');
+
+        const ids: string[] = [];
+        const allCoords: number[] = [];
+        const offsets: number[] = [];
+        const sportTypes: string[] = [];
+
+        for (const activity of withGps) {
+          const map = getActivityMap(activity.id, false);
+          if (!map?.latlngs || map.latlngs.length < 4) {
+            continue;
+          }
+
+          ids.push(activity.id);
+          offsets.push(allCoords.length / 2);
+          sportTypes.push(activity.type || 'Ride');
+
+          // Add coordinates (latlngs are [[lat, lng], ...])
+          for (const coord of map.latlngs) {
+            if (coord && coord.length >= 2) {
+              allCoords.push(coord[0], coord[1]);
+            }
+          }
+        }
+
+        if (ids.length > 0) {
+          await nativeModule.routeEngine.addActivities(ids, allCoords, offsets, sportTypes);
+        }
+
+        setProgress({
+          status: 'complete',
+          completed: ids.length,
+          total: withGps.length,
+          message: `Synced ${ids.length} demo activities`,
+        });
+
+        return;
+      }
+
+      // Real API mode
       // Get API credentials
       const creds = await getStoredCredentials();
       if (!creds?.apiKey) {
