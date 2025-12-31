@@ -5,6 +5,7 @@
 
 import { useMemo, useCallback, useEffect, useState } from 'react';
 import { useEngineGroups } from './routes/useRouteEngine';
+import { getNativeModule } from '@/lib/native/routeEngine';
 import type {
   HeatmapResult,
   HeatmapConfig,
@@ -14,19 +15,6 @@ import type {
   RouteSignature,
   GpsPoint,
 } from 'route-matcher-native';
-
-// Lazy load native module to avoid bundler errors
-let _nativeModule: typeof import('route-matcher-native') | null = null;
-function getNativeModule() {
-  if (!_nativeModule) {
-    try {
-      _nativeModule = require('route-matcher-native');
-    } catch {
-      return null;
-    }
-  }
-  return _nativeModule;
-}
 
 export interface UseHeatmapOptions {
   /** Grid cell size in meters (default: 100m) */
@@ -100,13 +88,13 @@ export function useHeatmap(options: UseHeatmapOptions = {}): UseHeatmapResult {
       const allSignatures: RouteSignature[] = [];
       const activityData: ActivityHeatmapData[] = [];
 
-      // Collect signatures from all groups
-      for (const group of groups) {
-        // Skip if filtering by sport type and doesn't match
-        if (sportType && group.sportType !== sportType) {
-          continue;
-        }
+      // Pre-filter groups by sport type before iterating
+      const filteredGroups = sportType
+        ? groups.filter(g => g.sportType === sportType)
+        : groups;
 
+      // Collect signatures from all groups
+      for (const group of filteredGroups) {
         // Get signatures for this group
         const sigMap = nativeModule.routeEngine.getSignaturesForGroup(group.groupId);
 

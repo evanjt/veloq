@@ -5,7 +5,7 @@
 
 import { useMemo } from 'react';
 import { useEngineGroups } from './useRouteEngine';
-import type { RouteGroup } from '@/types';
+import type { RouteGroup, ActivityType } from '@/types';
 
 interface UseRouteMatchResult {
   /** The route group this activity belongs to */
@@ -51,7 +51,7 @@ export function useRouteMatch(activityId: string | undefined): UseRouteMatchResu
     const typedGroup: RouteGroup = {
       id: routeGroup.groupId,
       name: routeGroup.groupId, // Use groupId as name for now
-      type: routeGroup.sportType as any,
+      type: routeGroup.sportType as ActivityType,
       activityIds: routeGroup.activityIds,
       activityCount: routeGroup.activityIds.length,
       firstDate: '', // Not available from engine

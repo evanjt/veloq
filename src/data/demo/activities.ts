@@ -164,8 +164,6 @@ function generateDemoActivities(): Activity[] {
       icu_average_hr: Math.round(template.avgHr * (0.95 + Math.random() * 0.1)),
       icu_average_watts: template.avgWatts ? Math.round(template.avgWatts * variance) : undefined,
       icu_training_load: Math.round(template.tss * variance),
-      locality: 'Coastal City',
-      country: 'AU',
       stream_types: template.type === 'Swim'
         ? ['heartrate', 'distance']
         : ['latlng', 'heartrate', 'watts', 'altitude', 'cadence'],

@@ -6,7 +6,7 @@
 import { useMemo } from 'react';
 import { useEngineGroups } from './useRouteEngine';
 import { useActivities } from '@/hooks/useActivities';
-import type { RouteGroup, Activity, MatchDirection } from '@/types';
+import type { RouteGroup, Activity, MatchDirection, ActivityType } from '@/types';
 
 export interface RoutePerformancePoint {
   activityId: string;
@@ -72,7 +72,7 @@ export function useRoutePerformances(
     return {
       id: engineGroup.groupId,
       name: engineGroup.groupId,
-      type: engineGroup.sportType as any,
+      type: engineGroup.sportType as ActivityType,
       activityIds: engineGroup.activityIds,
       activityCount: engineGroup.activityIds.length,
       firstDate: '',

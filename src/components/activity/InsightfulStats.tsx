@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -63,17 +63,18 @@ export function InsightfulStats({
   const isDark = colorScheme === 'dark';
   const [selectedStat, setSelectedStat] = useState<StatDetail | null>(null);
 
-  // Calculate averages from recent activities of same type
-  const sameTypeActivities = recentActivities.filter(a => a.type === activity.type);
-  const avgLoad = sameTypeActivities.length > 0
-    ? sameTypeActivities.reduce((sum, a) => sum + (a.icu_training_load || 0), 0) / sameTypeActivities.length
-    : null;
-  const avgIntensity = sameTypeActivities.length > 0
-    ? sameTypeActivities.reduce((sum, a) => sum + (a.icu_intensity || 0), 0) / sameTypeActivities.length
-    : null;
-  const avgHR = sameTypeActivities.length > 0
-    ? sameTypeActivities.reduce((sum, a) => sum + (a.average_heartrate || a.icu_average_hr || 0), 0) / sameTypeActivities.length
-    : null;
+  // Calculate averages from recent activities of same type (memoized)
+  const { avgLoad, avgIntensity, avgHR } = useMemo(() => {
+    const sameType = recentActivities.filter(a => a.type === activity.type);
+    if (sameType.length === 0) {
+      return { avgLoad: null, avgIntensity: null, avgHR: null };
+    }
+    return {
+      avgLoad: sameType.reduce((sum, a) => sum + (a.icu_training_load || 0), 0) / sameType.length,
+      avgIntensity: sameType.reduce((sum, a) => sum + (a.icu_intensity || 0), 0) / sameType.length,
+      avgHR: sameType.reduce((sum, a) => sum + (a.average_heartrate || a.icu_average_hr || 0), 0) / sameType.length,
+    };
+  }, [recentActivities, activity.type]);
 
   // Build insightful stats
   const stats: StatDetail[] = [];

@@ -2,6 +2,7 @@ import { apiClient, getAthleteId } from './client';
 import { formatLocalDate, parseStreams, debug } from '@/lib';
 import { useAuthStore, DEMO_ATHLETE_ID } from '@/providers/AuthStore';
 import { mockIntervalsApi } from './mockIntervals';
+import { API_DEFAULTS } from '@/lib/utils/constants';
 
 const log = debug.create('API');
 import type {
@@ -51,10 +52,10 @@ export const intervalsApi = {
     if (isDemoMode()) return mockIntervalsApi.getActivities(params);
     const athleteId = getAthleteId();
 
-    // Default to last 30 days if no params provided
+    // Default to last N days if no params provided
     const today = new Date();
-    const thirtyDaysAgo = new Date(today);
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const defaultStart = new Date(today);
+    defaultStart.setDate(defaultStart.getDate() - API_DEFAULTS.ACTIVITY_DAYS);
 
     // Base fields always included (most important for activity list)
     // Note: polyline is NOT returned by the API (would need streams endpoint)
@@ -78,7 +79,7 @@ export const intervalsApi = {
       : baseFields.join(',');
 
     const queryParams = {
-      oldest: params?.oldest || formatLocalDate(thirtyDaysAgo),
+      oldest: params?.oldest || formatLocalDate(defaultStart),
       newest: params?.newest || formatLocalDate(today),
       fields,
     };
@@ -105,7 +106,7 @@ export const intervalsApi = {
     // Query with a very old date to find the actual oldest activity
     const response = await apiClient.get(`/athlete/${athleteId}/activities`, {
       params: {
-        oldest: '2000-01-01',
+        oldest: API_DEFAULTS.OLDEST_DATE_FALLBACK,
         newest: formatLocalDate(new Date()),
         fields: 'id,start_date_local',
       },
@@ -139,13 +140,13 @@ export const intervalsApi = {
     if (isDemoMode()) return mockIntervalsApi.getWellness(params);
     const athleteId = getAthleteId();
 
-    // Default to last 90 days if no params provided
+    // Default to last N days if no params provided
     const today = new Date();
-    const ninetyDaysAgo = new Date(today);
-    ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+    const defaultStart = new Date(today);
+    defaultStart.setDate(defaultStart.getDate() - API_DEFAULTS.WELLNESS_DAYS);
 
     const queryParams = {
-      oldest: params?.oldest || formatLocalDate(ninetyDaysAgo),
+      oldest: params?.oldest || formatLocalDate(defaultStart),
       newest: params?.newest || formatLocalDate(today),
     };
 

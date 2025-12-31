@@ -2,20 +2,8 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
 import { useAuthStore, useSyncDateRange } from '@/providers';
 import { clearAllGpsTracks, clearBoundsCache } from '@/lib/storage/gpsStorage';
+import { getRouteEngine } from '@/lib/native/routeEngine';
 import type { ActivityBoundsCache, ActivityBoundsItem, Activity } from '@/types';
-
-// Lazy load route engine to avoid native module errors during bundling
-let _routeEngine: typeof import('route-matcher-native').routeEngine | null = null;
-function getRouteEngine() {
-  if (!_routeEngine) {
-    try {
-      _routeEngine = require('route-matcher-native').routeEngine;
-    } catch {
-      return null;
-    }
-  }
-  return _routeEngine;
-}
 
 export interface SyncProgress {
   completed: number;

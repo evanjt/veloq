@@ -67,3 +67,23 @@ export const SYNC = {
   /** Max history to sync in years */
   MAX_HISTORY_YEARS: 10,
 } as const;
+
+/**
+ * UI layout constants
+ */
+export const UI = {
+  /** Max height for routes list container */
+  ROUTES_LIST_MAX_HEIGHT: 400,
+} as const;
+
+/**
+ * API default values
+ */
+export const API_DEFAULTS = {
+  /** Default activity fetch period in days */
+  ACTIVITY_DAYS: 30,
+  /** Default wellness fetch period in days */
+  WELLNESS_DAYS: 90,
+  /** Fallback date for finding oldest activity */
+  OLDEST_DATE_FALLBACK: '2000-01-01',
+} as const;

@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { safeJsonParse } from '@/lib/utils/validation';
 import type { MapStyleType } from '@/components/maps/mapStyles';
 import type { ActivityType } from '@/types';
 
@@ -34,10 +35,8 @@ export function MapPreferencesProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     AsyncStorage.getItem(STORAGE_KEY)
       .then((saved) => {
-        if (saved) {
-          const parsed = JSON.parse(saved);
-          setPreferences({ ...DEFAULT_PREFERENCES, ...parsed });
-        }
+        const parsed = safeJsonParse(saved, DEFAULT_PREFERENCES);
+        setPreferences({ ...DEFAULT_PREFERENCES, ...parsed });
         setIsLoaded(true);
       })
       .catch(() => {
