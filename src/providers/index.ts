@@ -39,4 +39,7 @@ export {
   initializeLanguage,
   getEffectiveLanguage,
   getAvailableLanguages,
+  isEnglishVariant,
+  getEnglishVariantValue,
 } from './LanguageStore';
+export { useSyncDateRange } from './SyncDateRangeStore';

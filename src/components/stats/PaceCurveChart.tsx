@@ -438,9 +438,11 @@ export function PaceCurveChart({
               if (chartBounds.left !== chartBoundsShared.value.left ||
                   chartBounds.right !== chartBoundsShared.value.right) {
                 chartBoundsShared.value = { left: chartBounds.left, right: chartBounds.right };
-                // Also sync to React state for x-axis labels (only if changed to avoid loops)
+                // Also sync to React state for x-axis labels (defer to avoid setState during render)
                 if (chartBounds.left !== actualChartBounds.left || chartBounds.right !== actualChartBounds.right) {
-                  setActualChartBounds({ left: chartBounds.left, right: chartBounds.right });
+                  queueMicrotask(() => {
+                    setActualChartBounds({ left: chartBounds.left, right: chartBounds.right });
+                  });
                 }
               }
 

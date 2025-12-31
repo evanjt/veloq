@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -15,6 +15,8 @@ import { router, Href } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { SegmentedButtons, Switch } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
+import { useQueryClient } from '@tanstack/react-query';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAthlete, useActivityBoundsCache, useRouteProcessing, useRouteGroups, useActivities } from '@/hooks';
 import { getAthleteId } from '@/api';
 import { estimateBoundsCacheSize, estimateGpsStorageSize } from '@/lib';
@@ -27,6 +29,8 @@ import {
   useRouteSettings,
   useLanguageStore,
   getAvailableLanguages,
+  isEnglishVariant,
+  getEnglishVariantValue,
   type ThemePreference,
   type PrimarySport,
 } from '@/providers';
@@ -79,6 +83,9 @@ export default function SettingsScreen() {
   const { data: athlete } = useAthlete();
   const { preferences: mapPreferences, setDefaultStyle, setActivityGroupStyle } = useMapPreferences();
   const clearCredentials = useAuthStore((state) => state.clearCredentials);
+  const isDemoMode = useAuthStore((state) => state.isDemoMode);
+  const hideDemoBanner = useAuthStore((state) => state.hideDemoBanner);
+  const setHideDemoBanner = useAuthStore((state) => state.setHideDemoBanner);
   const { primarySport, setPrimarySport } = useSportPreference();
   const { language, setLanguage } = useLanguageStore();
   const availableLanguages = getAvailableLanguages();
@@ -134,6 +141,20 @@ export default function SettingsScreen() {
   // Route matching settings
   const { settings: routeSettings, setEnabled: setRouteMatchingEnabled } = useRouteSettings();
 
+  // TanStack Query cache for clearing and stats
+  const queryClient = useQueryClient();
+
+  // Compute query cache stats
+  const queryCacheStats = useMemo(() => {
+    const queries = queryClient.getQueryCache().getAll();
+    return {
+      activities: queries.filter(q => q.queryKey[0] === 'activities' || q.queryKey[0] === 'activities-infinite').length,
+      wellness: queries.filter(q => q.queryKey[0] === 'wellness').length,
+      curves: queries.filter(q => q.queryKey[0] === 'powerCurve' || q.queryKey[0] === 'paceCurve').length,
+      totalQueries: queries.length,
+    };
+  }, [queryClient, cacheStats.totalActivities]); // Re-compute when activities change
+
   // Cache sizes state
   const [cacheSizes, setCacheSizes] = useState<{
     bounds: number;
@@ -169,12 +190,24 @@ export default function SettingsScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
-              // Clear both map cache and route cache together
+              // Clear GPS/bounds cache and route cache
               await clearCache();
               await clearRouteCache();
-              // Actively refetch activities for last 90 days
-              // GlobalDataSync will automatically download GPS data
+
+              // Clear TanStack Query cache (in-memory and persisted)
+              queryClient.clear();
+              await AsyncStorage.removeItem('veloq-query-cache');
+
+              // Refetch all core queries in background
+              queryClient.refetchQueries({ queryKey: ['activities'] });
+              queryClient.refetchQueries({ queryKey: ['wellness'] });
+              queryClient.refetchQueries({ queryKey: ['powerCurve'] });
+              queryClient.refetchQueries({ queryKey: ['paceCurve'] });
+              queryClient.refetchQueries({ queryKey: ['athlete'] });
+
+              // Sync activities for last 90 days (downloads GPS data)
               await sync(90);
+
               // Refresh cache sizes
               refreshCacheSizes();
             } catch {
@@ -343,28 +376,68 @@ export default function SettingsScreen() {
         {/* Language Section */}
         <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>{t('settings.language').toUpperCase()}</Text>
         <View style={[styles.section, isDark && styles.sectionDark]}>
-          {availableLanguages.map((lang, index) => (
-            <TouchableOpacity
-              key={lang.value ?? 'system'}
-              style={[
-                styles.languageRow,
-                index > 0 && styles.languageRowBorder,
-                isDark && styles.languageRowDark,
-              ]}
-              onPress={() => handleLanguageChange(lang.value ?? 'system')}
-            >
-              <Text style={[styles.languageLabel, isDark && styles.textLight]}>
-                {lang.label}
-              </Text>
-              {(language === lang.value || (language === null && lang.value === null)) && (
-                <MaterialCommunityIcons
-                  name="check"
-                  size={20}
-                  color={colors.primary}
-                />
-              )}
-            </TouchableOpacity>
-          ))}
+          {availableLanguages.map((lang, index) => {
+            const isSelected = language === lang.value || (language === null && lang.value === null);
+            const isEnglishSelected = lang.value === 'en' && isEnglishVariant(language);
+            const showCheck = isSelected || isEnglishSelected;
+
+            return (
+              <TouchableOpacity
+                key={lang.value ?? 'system'}
+                style={[
+                  styles.languageRow,
+                  index > 0 && styles.languageRowBorder,
+                  isDark && styles.languageRowDark,
+                ]}
+                onPress={() => handleLanguageChange(lang.value ?? 'system')}
+              >
+                <Text style={[styles.languageLabel, isDark && styles.textLight]}>
+                  {lang.label}
+                </Text>
+                {/* Show regional variant chips for English */}
+                {lang.variants && (
+                  <View style={styles.variantChips}>
+                    {lang.variants.map((variant) => {
+                      const isVariantSelected = isEnglishVariant(language) &&
+                        getEnglishVariantValue(language) === variant.value;
+                      return (
+                        <TouchableOpacity
+                          key={variant.value}
+                          style={[
+                            styles.variantChip,
+                            isVariantSelected && styles.variantChipSelected,
+                            isDark && styles.variantChipDark,
+                            isVariantSelected && isDark && styles.variantChipSelectedDark,
+                          ]}
+                          onPress={(e) => {
+                            e.stopPropagation();
+                            handleLanguageChange(variant.value);
+                          }}
+                        >
+                          <Text
+                            style={[
+                              styles.variantChipText,
+                              isVariantSelected && styles.variantChipTextSelected,
+                              isDark && !isVariantSelected && styles.textMuted,
+                            ]}
+                          >
+                            {variant.label}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                )}
+                {showCheck && !lang.variants && (
+                  <MaterialCommunityIcons
+                    name="check"
+                    size={20}
+                    color={colors.primary}
+                  />
+                )}
+              </TouchableOpacity>
+            );
+          })}
         </View>
 
         {/* Primary Sport Section */}
@@ -668,6 +741,13 @@ export default function SettingsScreen() {
               {formatBytes(cacheSizes.routes)}
             </Text>
           </View>
+
+          <View style={[styles.infoRow, isDark && styles.infoRowDark]}>
+            <Text style={[styles.infoLabel, isDark && styles.textMuted]}>{t('settings.cachedQueries')}</Text>
+            <Text style={[styles.infoValue, isDark && styles.textLight]}>
+              {queryCacheStats.totalQueries}
+            </Text>
+          </View>
         </View>
 
         <Text style={[styles.infoText, isDark && styles.textMuted]}>
@@ -738,6 +818,51 @@ export default function SettingsScreen() {
             </Text>
           </View>
         </View>
+
+        {/* Demo Data Sources Section - Only visible in demo mode */}
+        {isDemoMode && (
+          <>
+            <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>{t('settings.demoDataSources').toUpperCase()}</Text>
+            <View style={[styles.section, isDark && styles.sectionDark]}>
+              <View style={styles.toggleRow}>
+                <View style={styles.toggleInfo}>
+                  <Text style={[styles.toggleLabel, isDark && styles.textLight]}>
+                    {t('settings.hideDemoBanner')}
+                  </Text>
+                  <Text style={[styles.toggleDescription, isDark && styles.textMuted]}>
+                    {t('settings.hideDemoBannerHint')}
+                  </Text>
+                </View>
+                <Switch
+                  value={hideDemoBanner}
+                  onValueChange={setHideDemoBanner}
+                  color={colors.primary}
+                />
+              </View>
+              <View style={[styles.divider, isDark && styles.dividerDark]} />
+              <View style={styles.dataSourcesContent}>
+                <Text style={[styles.dataSourcesText, isDark && styles.textMuted]}>
+                  {t('attribution.demoData')}
+                </Text>
+                <TouchableOpacity
+                  onPress={() => WebBrowser.openBrowserAsync('https://www.openstreetmap.org/copyright')}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.dataSourceItem}>
+                    <MaterialCommunityIcons name="map-marker-path" size={20} color={colors.primary} />
+                    <Text style={[styles.dataSourceName, isDark && styles.textLight]}>
+                      {t('attribution.osm')}
+                    </Text>
+                    <MaterialCommunityIcons name="open-in-new" size={14} color={isDark ? '#666' : colors.textSecondary} />
+                  </View>
+                </TouchableOpacity>
+                <Text style={[styles.trademarkText, isDark && styles.textMuted]}>
+                  {t('attribution.osmLicense')}
+                </Text>
+              </View>
+            </View>
+          </>
+        )}
 
         {/* Support Section */}
         <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>{t('settings.support').toUpperCase()}</Text>
@@ -1073,6 +1198,39 @@ const styles = StyleSheet.create({
   languageLabel: {
     fontSize: 16,
     color: colors.textPrimary,
+  },
+  variantChips: {
+    flexDirection: 'row',
+    gap: 6,
+    marginLeft: 'auto',
+  },
+  variantChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  variantChipDark: {
+    backgroundColor: '#2a2a2a',
+    borderColor: '#444',
+  },
+  variantChipSelected: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  variantChipSelectedDark: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  variantChipText: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    fontWeight: '500',
+  },
+  variantChipTextSelected: {
+    color: '#fff',
   },
   dataSourcesContent: {
     padding: spacing.md,

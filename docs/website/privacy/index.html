@@ -5,23 +5,26 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Privacy Policy - Veloq</title>
   <meta name="description" content="Veloq privacy policy. All data stays on your device.">
-  <meta name="theme-color" content="#FC4C02">
+  <meta name="theme-color" content="#5B8DB8">
   <link rel="icon" type="image/png" href="../icon.png">
 
   <style>
     :root {
-      --primary: #FC4C02;
-      --primary-dark: #E04400;
+      /* Logo colors: blue background, gold text */
+      --primary: #5B8DB8;
+      --primary-dark: #4A7A9E;
+      --accent: #F5A623;
+      --accent-dark: #D4900E;
       --bg: #FAFAFA;
-      --bg-dark: #0D1117;
+      --bg-dark: #121212;
       --text: #1A1A1A;
       --text-muted: #666666;
-      --text-dark: #E6EDF3;
-      --text-muted-dark: #8B949E;
+      --text-dark: #FFFFFF;
+      --text-muted-dark: #AAAAAA;
       --card: #FFFFFF;
-      --card-dark: #161B22;
-      --border: #E5E7EB;
-      --border-dark: #30363D;
+      --card-dark: #1E1E1E;
+      --border: #E0E0E0;
+      --border-dark: #333333;
     }
 
     @media (prefers-color-scheme: dark) {
@@ -277,13 +280,13 @@
 <body>
   <header>
     <div class="header-inner">
-      <a href="/" class="logo">
+      <a href="https://veloq.fit" class="logo">
         <img src="../icon.png" alt="Veloq">
         <span>Veloq</span>
       </a>
       <nav class="nav-links">
-        <a href="/" data-i18n="nav.home">Home</a>
-        <a href="https://github.com/evanjt/veloq">GitHub</a>
+        <a href="https://veloq.fit" data-i18n="nav.home">Home</a>
+        <a href="https://github.com/evanjt/veloq" target="_blank">GitHub</a>
         <div class="lang-selector">
           <button class="lang-btn" id="lang-btn">
             <span id="current-lang">EN</span>
@@ -330,6 +333,9 @@
       </ul>
       <p data-i18n="thirdParty.noTracking">No analytics, ads, crash reporting, or tracking SDKs.</p>
 
+      <h2 data-i18n="disclaimer.title">Disclaimer</h2>
+      <p data-i18n="disclaimer.content">Veloq is an independent, open-source project and is <strong>not affiliated with, endorsed by, or officially connected to Intervals.icu</strong> in any way. For information about how Intervals.icu handles your data, please refer to their <a href="https://intervals.icu/privacy" target="_blank">privacy policy</a>.</p>
+
       <h2 data-i18n="dataSharing.title">Data Sharing</h2>
       <p data-i18n="dataSharing.content">None. The developer has no access to your data.</p>
 
@@ -352,7 +358,7 @@
       <h2 data-i18n="contact.title">Contact</h2>
       <p data-i18n="contact.content">
         <a href="https://github.com/evanjt/veloq/issues">GitHub Issues</a> or
-        <a href="mailto:veloq@evanjt.com">veloq@evanjt.com</a>
+        <a href="mailto:developer@veloq.fit">developer@veloq.fit</a>
       </p>
     </div>
   </main>
@@ -360,10 +366,10 @@
   <footer>
     <div class="container">
       <div class="footer-links">
-        <a href="/" data-i18n="nav.home">Home</a>
-        <a href="https://github.com/evanjt/veloq">GitHub</a>
-        <a href="https://github.com/evanjt/veloq/releases" data-i18n="footer.releases">Releases</a>
-        <a href="mailto:veloq@evanjt.com" data-i18n="footer.contact">Contact</a>
+        <a href="https://veloq.fit" data-i18n="nav.home">Home</a>
+        <a href="https://github.com/evanjt/veloq" target="_blank">GitHub</a>
+        <a href="https://github.com/evanjt/veloq/releases" target="_blank" data-i18n="footer.releases">Releases</a>
+        <a href="mailto:developer@veloq.fit" data-i18n="footer.contact">Contact</a>
       </div>
       <p class="copyright">&copy; 2025 Evan Thomas. Apache License 2.0.</p>
     </div>
@@ -391,6 +397,8 @@
         'thirdParty.item1': '<strong>Intervals.icu</strong> - Your fitness data source (<a href="https://intervals.icu/privacy" target="_blank">privacy policy</a>)',
         'thirdParty.item2': '<strong>Map tiles</strong> - OpenStreetMap, Carto, Stadia (standard web requests)',
         'thirdParty.noTracking': 'No analytics, ads, crash reporting, or tracking SDKs.',
+        'disclaimer.title': 'Disclaimer',
+        'disclaimer.content': 'Veloq is an independent, open-source project and is <strong>not affiliated with, endorsed by, or officially connected to Intervals.icu</strong> in any way. For information about how Intervals.icu handles your data, please refer to their <a href="https://intervals.icu/privacy" target="_blank">privacy policy</a>.',
         'dataSharing.title': 'Data Sharing',
         'dataSharing.content': 'None. The developer has no access to your data.',
         'security.title': 'Security',
@@ -404,7 +412,7 @@
         'changes.title': 'Changes',
         'changes.content': 'This policy may be updated. Check the "Last updated" date above.',
         'contact.title': 'Contact',
-        'contact.content': '<a href="https://github.com/evanjt/veloq/issues">GitHub Issues</a> or <a href="mailto:veloq@evanjt.com">veloq@evanjt.com</a>'
+        'contact.content': '<a href="https://github.com/evanjt/veloq/issues">GitHub Issues</a> or <a href="mailto:developer@veloq.fit">developer@veloq.fit</a>'
       },
       es: {
         'nav.home': 'Inicio',
@@ -426,6 +434,8 @@
         'thirdParty.item1': '<strong>Intervals.icu</strong> - Tu fuente de datos de fitness (<a href="https://intervals.icu/privacy" target="_blank">política de privacidad</a>)',
         'thirdParty.item2': '<strong>Mapas</strong> - OpenStreetMap, Carto, Stadia (solicitudes web estándar)',
         'thirdParty.noTracking': 'Sin análisis, anuncios, reportes de errores o SDKs de seguimiento.',
+        'disclaimer.title': 'Aviso Legal',
+        'disclaimer.content': 'Veloq es un proyecto independiente de código abierto y <strong>no está afiliado, respaldado ni conectado oficialmente con Intervals.icu</strong> de ninguna manera. Para obtener información sobre cómo Intervals.icu maneja tus datos, consulta su <a href="https://intervals.icu/privacy" target="_blank">política de privacidad</a>.',
         'dataSharing.title': 'Compartir Datos',
         'dataSharing.content': 'Ninguno. El desarrollador no tiene acceso a tus datos.',
         'security.title': 'Seguridad',
@@ -439,7 +449,7 @@
         'changes.title': 'Cambios',
         'changes.content': 'Esta política puede actualizarse. Consulta la fecha de "Última actualización" arriba.',
         'contact.title': 'Contacto',
-        'contact.content': '<a href="https://github.com/evanjt/veloq/issues">GitHub Issues</a> o <a href="mailto:veloq@evanjt.com">veloq@evanjt.com</a>'
+        'contact.content': '<a href="https://github.com/evanjt/veloq/issues">GitHub Issues</a> o <a href="mailto:developer@veloq.fit">developer@veloq.fit</a>'
       },
       fr: {
         'nav.home': 'Accueil',
@@ -461,6 +471,8 @@
         'thirdParty.item1': '<strong>Intervals.icu</strong> - Votre source de données fitness (<a href="https://intervals.icu/privacy" target="_blank">politique de confidentialité</a>)',
         'thirdParty.item2': '<strong>Tuiles cartographiques</strong> - OpenStreetMap, Carto, Stadia (requêtes web standard)',
         'thirdParty.noTracking': 'Pas d\'analytique, de publicités, de rapports d\'erreurs ou de SDKs de suivi.',
+        'disclaimer.title': 'Avertissement',
+        'disclaimer.content': 'Veloq est un projet open-source indépendant et n\'est <strong>pas affilié, approuvé ou officiellement connecté à Intervals.icu</strong> de quelque manière que ce soit. Pour plus d\'informations sur la façon dont Intervals.icu gère vos données, veuillez consulter leur <a href="https://intervals.icu/privacy" target="_blank">politique de confidentialité</a>.',
         'dataSharing.title': 'Partage de Données',
         'dataSharing.content': 'Aucun. Le développeur n\'a pas accès à vos données.',
         'security.title': 'Sécurité',
@@ -474,7 +486,7 @@
         'changes.title': 'Modifications',
         'changes.content': 'Cette politique peut être mise à jour. Vérifiez la date de "Dernière mise à jour" ci-dessus.',
         'contact.title': 'Contact',
-        'contact.content': '<a href="https://github.com/evanjt/veloq/issues">GitHub Issues</a> ou <a href="mailto:veloq@evanjt.com">veloq@evanjt.com</a>'
+        'contact.content': '<a href="https://github.com/evanjt/veloq/issues">GitHub Issues</a> ou <a href="mailto:developer@veloq.fit">developer@veloq.fit</a>'
       }
     };
 

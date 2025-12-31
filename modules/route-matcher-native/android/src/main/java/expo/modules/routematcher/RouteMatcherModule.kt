@@ -589,6 +589,16 @@ class RouteMatcherModule : Module() {
       engineSetSectionConfig(sectionConfig)
     }
 
+    // Engine: Get all activity bounds as JSON (for map display)
+    Function("engineGetAllActivityBoundsJson") {
+      engineGetAllActivityBoundsJson()
+    }
+
+    // Engine: Get all signatures as JSON (for trace rendering)
+    Function("engineGetAllSignaturesJson") {
+      engineGetAllSignaturesJson()
+    }
+
     // ==========================================================================
     // Persistent Route Engine (SQLite-backed, memory efficient)
     // ==========================================================================
@@ -703,6 +713,21 @@ class RouteMatcherModule : Module() {
     // PersistentEngine: Get all custom route names as JSON
     Function("persistentEngineGetAllRouteNamesJson") {
       persistentEngineGetAllRouteNamesJson()
+    }
+
+    // PersistentEngine: Set custom section name
+    Function("persistentEngineSetSectionName") { sectionId: String, name: String ->
+      persistentEngineSetSectionName(sectionId, name)
+    }
+
+    // PersistentEngine: Get custom section name
+    Function("persistentEngineGetSectionName") { sectionId: String ->
+      persistentEngineGetSectionName(sectionId)
+    }
+
+    // PersistentEngine: Get all custom section names as JSON
+    Function("persistentEngineGetAllSectionNamesJson") {
+      persistentEngineGetAllSectionNamesJson()
     }
 
     Function("queryHeatmapCell") { heatmapJson: String, lat: Double, lng: Double ->

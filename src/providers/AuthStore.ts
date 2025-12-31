@@ -15,6 +15,7 @@ interface AuthState {
   isLoading: boolean;
   isAuthenticated: boolean;
   isDemoMode: boolean;
+  hideDemoBanner: boolean;
 
   // Actions
   initialize: () => Promise<void>;
@@ -23,6 +24,7 @@ interface AuthState {
   setAthlete: (athlete: Athlete) => void;
   enterDemoMode: () => void;
   exitDemoMode: () => void;
+  setHideDemoBanner: (hide: boolean) => void;
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -32,6 +34,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   isLoading: true,
   isAuthenticated: false,
   isDemoMode: false,
+  hideDemoBanner: false,
 
   initialize: async () => {
     try {
@@ -105,8 +108,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       athleteId: null,
       isAuthenticated: false,
       isDemoMode: false,
+      hideDemoBanner: false,
       athlete: null,
     });
+  },
+
+  setHideDemoBanner: (hide: boolean) => {
+    set({ hideDemoBanner: hide });
   },
 }));
 

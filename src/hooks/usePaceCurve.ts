@@ -18,7 +18,7 @@ export function usePaceCurve(options: UsePaceCurveOptions = {}) {
     queryKey: ['paceCurve', sport, days, gap],
     queryFn: () => intervalsApi.getPaceCurve({ sport, days, gap }),
     enabled,
-    staleTime: 1000 * 60 * 5, // 5 minutes
+    staleTime: 1000 * 60 * 15, // 15 minutes - curves change infrequently
     retry: 1,
     placeholderData: keepPreviousData,
   });

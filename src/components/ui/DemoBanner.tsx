@@ -6,7 +6,9 @@ import { router, Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQueryClient } from '@tanstack/react-query';
-import { useAuthStore } from '@/providers';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useAuthStore, useSyncDateRange } from '@/providers';
+import { clearAllGpsTracks, clearBoundsCache } from '@/lib/storage/gpsStorage';
 
 // Lazy load native module to avoid bundler errors
 function getRouteEngine() {
@@ -23,20 +25,39 @@ export function DemoBanner() {
   const isDark = colorScheme === 'dark';
   const insets = useSafeAreaInsets();
   const isDemoMode = useAuthStore((state) => state.isDemoMode);
+  const hideDemoBanner = useAuthStore((state) => state.hideDemoBanner);
   const exitDemoMode = useAuthStore((state) => state.exitDemoMode);
   const queryClient = useQueryClient();
+  const resetSyncDateRange = useSyncDateRange((state) => state.reset);
 
-  // Don't render if not in demo mode
-  if (!isDemoMode) return null;
+  // Don't render if not in demo mode or if banner is hidden
+  if (!isDemoMode || hideDemoBanner) return null;
 
   const handlePress = async () => {
-    // Clear cached demo data - TanStack Query cache
+    // Clear ALL cached demo data:
+
+    // 1. Clear TanStack Query in-memory cache
     queryClient.clear();
-    // Clear Rust engine cache
+
+    // 2. Clear persisted query cache in AsyncStorage (critical!)
+    await AsyncStorage.removeItem('veloq-query-cache');
+
+    // 3. Clear Rust engine cache
     const routeEngine = getRouteEngine();
     if (routeEngine) routeEngine.clear();
+
+    // 4. Clear FileSystem caches (GPS tracks and bounds)
+    await Promise.all([
+      clearAllGpsTracks(),
+      clearBoundsCache(),
+    ]);
+
+    // 5. Reset sync date range to default 90 days
+    resetSyncDateRange();
+
     // Exit demo mode (sets isAuthenticated to false)
     exitDemoMode();
+
     // Navigate to login - use replace to prevent going back to demo
     router.replace('/login' as Href);
   };

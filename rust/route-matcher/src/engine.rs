@@ -725,6 +725,72 @@ impl RouteEngine {
     }
 
     // ========================================================================
+    // Activity Bounds & Signatures Export
+    // ========================================================================
+
+    /// Get all activity bounds info for map display.
+    /// Returns activity id, bounds, type, and distance.
+    pub fn get_all_activity_bounds_info(&self) -> Vec<ActivityBoundsInfo> {
+        self.activities
+            .values()
+            .filter_map(|activity| {
+                let bounds = activity.bounds?;
+                let distance = self.compute_track_distance(&activity.coords);
+                Some(ActivityBoundsInfo {
+                    id: activity.id.clone(),
+                    bounds: [
+                        [bounds.min_lat, bounds.min_lng],
+                        [bounds.max_lat, bounds.max_lng],
+                    ],
+                    activity_type: activity.sport_type.clone(),
+                    distance,
+                })
+            })
+            .collect()
+    }
+
+    /// Get all activity bounds as JSON.
+    pub fn get_all_activity_bounds_json(&self) -> String {
+        let info = self.get_all_activity_bounds_info();
+        serde_json::to_string(&info).unwrap_or_else(|_| "[]".to_string())
+    }
+
+    /// Get all signatures info for trace rendering.
+    /// Returns activity_id -> {points, center}.
+    pub fn get_all_signatures_info(&mut self) -> std::collections::HashMap<String, SignatureInfo> {
+        self.ensure_signatures();
+        self.signatures
+            .iter()
+            .map(|(id, sig)| {
+                (
+                    id.clone(),
+                    SignatureInfo {
+                        points: sig.points.clone(),
+                        center: sig.center.clone(),
+                    },
+                )
+            })
+            .collect()
+    }
+
+    /// Get all signatures as JSON.
+    pub fn get_all_signatures_json(&mut self) -> String {
+        let info = self.get_all_signatures_info();
+        serde_json::to_string(&info).unwrap_or_else(|_| "{}".to_string())
+    }
+
+    /// Compute total distance of a GPS track in meters.
+    fn compute_track_distance(&self, coords: &[GpsPoint]) -> f64 {
+        if coords.len() < 2 {
+            return 0.0;
+        }
+        coords
+            .windows(2)
+            .map(|pair| crate::geo_utils::haversine_distance(&pair[0], &pair[1]))
+            .sum()
+    }
+
+    // ========================================================================
     // Statistics
     // ========================================================================
 
@@ -758,6 +824,22 @@ pub struct EngineStats {
     pub group_count: u32,
     pub section_count: u32,
     pub cached_consensus_count: u32,
+}
+
+/// Activity bounds info for map display
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct ActivityBoundsInfo {
+    pub id: String,
+    pub bounds: [[f64; 2]; 2],  // [[minLat, minLng], [maxLat, maxLng]]
+    pub activity_type: String,
+    pub distance: f64,  // meters, computed from coords
+}
+
+/// Signature info for trace rendering
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct SignatureInfo {
+    pub points: Vec<GpsPoint>,
+    pub center: GpsPoint,
 }
 
 // ============================================================================
@@ -920,6 +1002,20 @@ pub mod engine_ffi {
     #[uniffi::export]
     pub fn engine_set_section_config(config: crate::SectionConfig) {
         with_engine(|e| e.set_section_config(config));
+    }
+
+    /// Get all activity bounds info as JSON for map display.
+    /// Returns: [{"id": "...", "bounds": [[minLat, minLng], [maxLat, maxLng]], "activity_type": "...", "distance": ...}, ...]
+    #[uniffi::export]
+    pub fn engine_get_all_activity_bounds_json() -> String {
+        with_engine(|e| e.get_all_activity_bounds_json())
+    }
+
+    /// Get all signatures as JSON for trace rendering.
+    /// Returns: {"activity_id": {"points": [{latitude, longitude}, ...], "center": {latitude, longitude}}, ...}
+    #[uniffi::export]
+    pub fn engine_get_all_signatures_json() -> String {
+        with_engine(|e| e.get_all_signatures_json())
     }
 }
 

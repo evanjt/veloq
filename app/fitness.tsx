@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { View, ScrollView, StyleSheet, useColorScheme, TouchableOpacity } from 'react-native';
+import { View, ScrollView, StyleSheet, useColorScheme, TouchableOpacity, RefreshControl } from 'react-native';
 import { Text, IconButton, ActivityIndicator } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -37,6 +37,7 @@ export default function FitnessScreen() {
   const isDark = colorScheme === 'dark';
   const [timeRange, setTimeRange] = useState<TimeRange>('3m');
   const [chartInteracting, setChartInteracting] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [selectedValues, setSelectedValues] = useState<{
     fitness: number;
@@ -72,6 +73,13 @@ export default function FitnessScreen() {
     setSelectedDate(date);
     setSelectedValues(values);
   }, []);
+
+  // Handle pull-to-refresh
+  const onRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    await refetch();
+    setIsRefreshing(false);
+  }, [refetch]);
 
   // Get current (latest) values for display when not selecting
   const getCurrentValues = () => {
@@ -142,11 +150,13 @@ export default function FitnessScreen() {
         />
         <View style={styles.headerTitleRow}>
           <Text style={[styles.headerTitle, isDark && styles.textLight]}>{t('fitnessScreen.title')}</Text>
-          {isFetching && (
-            <ActivityIndicator size="small" color={colors.primary} style={styles.headerLoader} />
+        </View>
+        {/* Subtle loading indicator in header when fetching in background (not during pull-to-refresh) */}
+        <View style={{ width: 48, alignItems: 'center' }}>
+          {isFetching && !isRefreshing && (
+            <ActivityIndicator size="small" color={colors.primary} />
           )}
         </View>
-        <View style={{ width: 48 }} />
       </View>
 
       <ScrollView
@@ -154,6 +164,14 @@ export default function FitnessScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
         scrollEnabled={!chartInteracting}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
+          />
+        }
       >
         {/* Current stats card */}
         <View style={[styles.statsCard, isDark && styles.cardDark]}>
@@ -335,9 +353,6 @@ const styles = StyleSheet.create({
     fontSize: typography.cardTitle.fontSize,
     fontWeight: '600',
     color: colors.textPrimary,
-  },
-  headerLoader: {
-    marginLeft: spacing.xs,
   },
   textLight: {
     color: colors.textOnDark,
