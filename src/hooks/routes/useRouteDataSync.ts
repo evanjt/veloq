@@ -60,41 +60,46 @@ export function useRouteDataSync(
   }, []);
 
   const syncActivities = useCallback(async (activitiesToSync: Activity[]) => {
-    // Don't sync if not authenticated
-    if (!isAuthenticated) return;
+    // Don't sync if not authenticated or already unmounted
+    if (!isAuthenticated || !isMountedRef.current) return;
+
+    // Prevent concurrent syncs - atomic check-and-set
+    if (isSyncingRef.current) {
+      return;
+    }
+    isSyncingRef.current = true;
 
     // Use engine state for synced IDs - more robust than JS ref
     // This persists across component remounts and correctly resets after clear()
     const nativeModule = getNativeModule();
-    if (!nativeModule) return;
+    if (!nativeModule) {
+      isSyncingRef.current = false;
+      return;
+    }
 
     const engineActivityIds = new Set(nativeModule.routeEngine.getActivityIds());
-
-    // Detect if this is initial sync (engine empty) vs incremental (engine has data)
-    const isInitialSync = engineActivityIds.size === 0;
 
     // Filter to activities with GPS that aren't already in the engine
     const withGps = activitiesToSync.filter(
       (a) => a.stream_types?.includes('latlng') && !engineActivityIds.has(a.id)
     );
 
-    if (withGps.length === 0) return;
-
-    // Prevent concurrent syncs
-    if (isSyncingRef.current) {
+    if (withGps.length === 0) {
+      isSyncingRef.current = false;
       return;
     }
-    isSyncingRef.current = true;
 
     try {
       // Handle demo mode differently - use fixtures instead of API
       if (isDemoMode) {
-        setProgress({
-          status: 'fetching',
-          completed: 0,
-          total: withGps.length,
-          message: 'Loading demo GPS data...',
-        });
+        if (isMountedRef.current) {
+          setProgress({
+            status: 'fetching',
+            completed: 0,
+            total: withGps.length,
+            message: 'Loading demo GPS data...',
+          });
+        }
 
         // Import demo fixtures
         const { getActivityMap } = require('@/data/demo/fixtures');
@@ -122,16 +127,18 @@ export function useRouteDataSync(
           }
         }
 
-        if (ids.length > 0) {
+        if (ids.length > 0 && isMountedRef.current) {
           await nativeModule.routeEngine.addActivities(ids, allCoords, offsets, sportTypes);
         }
 
-        setProgress({
-          status: 'complete',
-          completed: ids.length,
-          total: withGps.length,
-          message: `Synced ${ids.length} demo activities`,
-        });
+        if (isMountedRef.current) {
+          setProgress({
+            status: 'complete',
+            completed: ids.length,
+            total: withGps.length,
+            message: `Synced ${ids.length} demo activities`,
+          });
+        }
 
         return;
       }
@@ -139,6 +146,8 @@ export function useRouteDataSync(
       // Real API mode
       // Get API credentials
       const creds = await getStoredCredentials();
+      if (!isMountedRef.current) return;
+
       if (!creds?.apiKey) {
         throw new Error('No API key available');
       }
@@ -166,6 +175,9 @@ export function useRouteDataSync(
         const activityIds = withGps.map((a) => a.id);
         const results = await nativeModule.fetchActivityMapsWithProgress(creds.apiKey, activityIds);
 
+        // Check mount state after async operation
+        if (!isMountedRef.current) return;
+
         setProgress({
           status: 'processing',
           completed: 0,
@@ -176,7 +188,7 @@ export function useRouteDataSync(
         // Build flat coordinate arrays for the engine
         const successfulResults = results.filter((r) => r.success && r.latlngs.length >= 4);
 
-        if (successfulResults.length > 0) {
+        if (successfulResults.length > 0 && isMountedRef.current) {
           const ids: string[] = [];
           const allCoords: number[] = [];
           const offsets: number[] = [];
@@ -192,11 +204,10 @@ export function useRouteDataSync(
 
             // Add coordinates (already in lat, lng format from Rust)
             allCoords.push(...result.latlngs);
-            // Note: No need to track synced IDs in JS - the engine tracks them
           }
 
           // Add to engine (async to avoid blocking UI)
-          if (ids.length > 0) {
+          if (ids.length > 0 && isMountedRef.current) {
             await nativeModule.routeEngine.addActivities(ids, allCoords, offsets, sportTypes);
           }
         }
@@ -207,22 +218,26 @@ export function useRouteDataSync(
         // grouping is used (O(n×m) instead of O(n²)), comparing only new signatures
         // against existing + new signatures, not re-comparing all existing pairs.
 
-        setProgress({
-          status: 'complete',
-          completed: successfulResults.length,
-          total: withGps.length,
-          message: `Synced ${successfulResults.length} activities`,
-        });
+        if (isMountedRef.current) {
+          setProgress({
+            status: 'complete',
+            completed: successfulResults.length,
+            total: withGps.length,
+            message: `Synced ${successfulResults.length} activities`,
+          });
+        }
       } finally {
         subscription.remove();
       }
     } catch (error) {
-      setProgress({
-        status: 'error',
-        completed: 0,
-        total: 0,
-        message: error instanceof Error ? error.message : 'Sync failed',
-      });
+      if (isMountedRef.current) {
+        setProgress({
+          status: 'error',
+          completed: 0,
+          total: 0,
+          message: error instanceof Error ? error.message : 'Sync failed',
+        });
+      }
     } finally {
       isSyncingRef.current = false;
     }
