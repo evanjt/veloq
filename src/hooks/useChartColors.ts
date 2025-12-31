@@ -5,6 +5,7 @@
  * providing better visibility and contrast on dark backgrounds.
  */
 
+import { useMemo } from 'react';
 import { useColorScheme } from 'react-native';
 import { colors, darkColors } from '@/theme';
 
@@ -46,12 +47,13 @@ export interface ChartColorScheme {
 
 /**
  * Returns chart colors appropriate for the current color scheme.
+ * Memoized to prevent unnecessary re-renders in consumers.
  */
 export function useChartColors(): ChartColorScheme {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
 
-  return {
+  return useMemo(() => ({
     // Fitness metrics - brighter in dark mode
     fitness: isDark ? darkColors.chartFitness : colors.fitness,
     fatigue: isDark ? darkColors.chartFatigue : colors.fatigue,
@@ -85,7 +87,7 @@ export function useChartColors(): ChartColorScheme {
     zone5: '#F44336', // VO2max - Red
     zone6: '#9C27B0', // Anaerobic - Purple
     zone7: '#E91E63', // Neuromuscular - Pink
-  };
+  }), [isDark]);
 }
 
 /**

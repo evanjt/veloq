@@ -6,20 +6,8 @@
  */
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
+import { getRouteEngine } from '@/lib/native/routeEngine';
 import type { RouteGroup, FrequentSection, EngineStats } from 'route-matcher-native';
-
-// Lazy load native module to avoid bundler errors
-let _routeEngine: typeof import('route-matcher-native').routeEngine | null = null;
-function getRouteEngine() {
-  if (!_routeEngine) {
-    try {
-      _routeEngine = require('route-matcher-native').routeEngine;
-    } catch {
-      return null;
-    }
-  }
-  return _routeEngine;
-}
 
 // ============================================================================
 // useRouteEngine - Main hook for engine access

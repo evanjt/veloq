@@ -123,12 +123,13 @@ export function useSectionPerformances(
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Get activity IDs that need streams
+  // Get activity IDs that need streams (using Set for O(1) lookup)
   const activityIdsToFetch = useMemo(() => {
     if (!section?.activityPortions || !activities) return [];
+    const activityIdSet = new Set(activities.map(a => a.id));
     return section.activityPortions
       .map(p => p.activityId)
-      .filter(id => activities.some(a => a.id === id));
+      .filter(id => activityIdSet.has(id));
   }, [section?.activityPortions, activities]);
 
   // Fetch streams for all activities in the section

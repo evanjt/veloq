@@ -380,8 +380,6 @@ function generateActivities(): ApiActivity[] {
               : template.type === 'Ride'
                 ? ['time', 'latlng', 'heartrate', 'altitude', 'cadence', 'watts', 'velocity_smooth']
                 : ['time', 'latlng', 'heartrate', 'altitude', 'cadence', 'velocity_smooth'],
-      locality: 'Coastal City',
-      country: 'AU',
       // Store route ID for map lookups (not part of real API)
       _routeId: template.route,
     } as ApiActivity & { _routeId: string | null });

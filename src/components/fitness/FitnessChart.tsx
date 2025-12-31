@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useCallback, useState } from 'react';
+import React, { useMemo, useRef, useCallback, useState, useEffect } from 'react';
 import { View, StyleSheet, useColorScheme, Pressable } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
@@ -55,8 +55,10 @@ export const FitnessChart = React.memo(function FitnessChart({ data, height = 20
   });
   const onDateSelectRef = useRef(onDateSelect);
   const onInteractionChangeRef = useRef(onInteractionChange);
-  onDateSelectRef.current = onDateSelect;
-  onInteractionChangeRef.current = onInteractionChange;
+  useEffect(() => {
+    onDateSelectRef.current = onDateSelect;
+    onInteractionChangeRef.current = onInteractionChange;
+  }, [onDateSelect, onInteractionChange]);
 
   // Shared values for UI thread gesture tracking
   const touchX = useSharedValue(-1);

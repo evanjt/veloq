@@ -4,11 +4,12 @@
  */
 
 import React, { useEffect, useRef, memo, useMemo } from 'react';
-import { View, StyleSheet, FlatList, RefreshControl, useColorScheme, LayoutAnimation } from 'react-native';
+import { View, StyleSheet, FlatList, RefreshControl, useColorScheme, LayoutAnimation, Platform } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { colors, darkColors, opacity, spacing, layout, typography } from '@/theme';
+import { UI } from '@/lib/utils/constants';
 import { useRouteGroups, useRouteProcessing } from '@/hooks';
 import { CacheScopeNotice } from './CacheScopeNotice';
 import { RouteRow } from './RouteRow';
@@ -311,7 +312,7 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   routesList: {
-    maxHeight: 400,
+    maxHeight: UI.ROUTES_LIST_MAX_HEIGHT,
   },
   noRoutesYet: {
     alignItems: 'center',

@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState, useCallback } from 'react';
+import React, { useMemo, useRef, useState, useCallback, useEffect } from 'react';
 import { View, StyleSheet, useColorScheme, Platform } from 'react-native';
 import { Text } from 'react-native-paper';
 import { CartesianChart, Area } from 'victory-native';
@@ -64,8 +64,10 @@ export function ActivityDataChart({
   const onPointSelectRef = useRef(onPointSelect);
   const onInteractionChangeRef = useRef(onInteractionChange);
   const isActiveRef = useRef(false);
-  onPointSelectRef.current = onPointSelect;
-  onInteractionChangeRef.current = onInteractionChange;
+  useEffect(() => {
+    onPointSelectRef.current = onPointSelect;
+    onInteractionChangeRef.current = onInteractionChange;
+  }, [onPointSelect, onInteractionChange]);
 
   const lastNotifiedIdx = useRef<number | null>(null);
 

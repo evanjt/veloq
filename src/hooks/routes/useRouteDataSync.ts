@@ -6,21 +6,8 @@
  */
 
 import { useEffect, useState, useRef, useCallback } from 'react';
-import { useAuthStore } from '@/providers';
-
-// Lazy load native module to avoid bundler errors
-let _nativeModule: typeof import('route-matcher-native') | null = null;
-function getNativeModule() {
-  if (!_nativeModule) {
-    try {
-      _nativeModule = require('route-matcher-native');
-    } catch {
-      return null;
-    }
-  }
-  return _nativeModule;
-}
-import { getStoredCredentials } from '@/providers';
+import { useAuthStore, getStoredCredentials } from '@/providers';
+import { getNativeModule } from '@/lib/native/routeEngine';
 import type { Activity } from '@/types';
 
 interface SyncProgress {
@@ -62,6 +49,15 @@ export function useRouteDataSync(
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const isDemoMode = useAuthStore((s) => s.isDemoMode);
   const isSyncingRef = useRef(false);
+  const isMountedRef = useRef(true);
+
+  // Track component mount state to prevent state updates after unmount
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   const syncActivities = useCallback(async (activitiesToSync: Activity[]) => {
     // Don't sync if not authenticated
@@ -154,13 +150,15 @@ export function useRouteDataSync(
         message: 'Fetching GPS data...',
       });
 
-      // Set up progress listener
+      // Set up progress listener with mount guard
       const subscription = nativeModule.addFetchProgressListener((event) => {
-        setProgress((p) => ({
-          ...p,
-          completed: event.completed,
-          total: event.total,
-        }));
+        if (isMountedRef.current) {
+          setProgress((p) => ({
+            ...p,
+            completed: event.completed,
+            total: event.total,
+          }));
+        }
       });
 
       try {
