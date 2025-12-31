@@ -27,13 +27,19 @@ export {
   type HRZone,
   type HRZonesSettings,
 } from './HRZonesStore';
-export {
-  useRouteMatchStore,
-  initializeRouteMatching,
-  getRouteMatchCache,
-} from './RouteMatchStore';
+// RouteMatchStore has been replaced by Rust persistent engine.
+// Use hooks from src/hooks/routes/useRouteEngine.ts instead.
 export {
   useRouteSettings,
   isRouteMatchingEnabled,
   initializeRouteSettings,
 } from './RouteSettingsStore';
+export {
+  useLanguageStore,
+  initializeLanguage,
+  getEffectiveLanguage,
+  getAvailableLanguages,
+  isEnglishVariant,
+  getEnglishVariantValue,
+} from './LanguageStore';
+export { useSyncDateRange } from './SyncDateRangeStore';

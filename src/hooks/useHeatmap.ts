@@ -3,25 +3,30 @@
  * Uses Rust for efficient grid computation.
  */
 
-import { useMemo, useCallback } from 'react';
-import { useRouteMatchStore } from '@/providers';
-import { useShallow } from 'zustand/react/shallow';
-import {
-  generateHeatmap as nativeGenerateHeatmap,
-  queryHeatmapCell as nativeQueryHeatmapCell,
-  type HeatmapResult,
-  type HeatmapConfig,
-  type HeatmapCell,
-  type CellQueryResult,
-  type ActivityHeatmapData,
-  type RouteSignature,
+import { useMemo, useCallback, useEffect, useState } from 'react';
+import { useEngineGroups } from './routes/useRouteEngine';
+import type {
+  HeatmapResult,
+  HeatmapConfig,
+  HeatmapCell,
+  CellQueryResult,
+  ActivityHeatmapData,
+  RouteSignature,
+  GpsPoint,
 } from 'route-matcher-native';
 
-import type { RouteGroup } from '@/types';
-
-// Stable empty defaults to prevent infinite loops in Zustand selectors
-const EMPTY_SIGNATURES: Record<string, RouteSignature> = {};
-const EMPTY_GROUPS: RouteGroup[] = [];
+// Lazy load native module to avoid bundler errors
+let _nativeModule: typeof import('route-matcher-native') | null = null;
+function getNativeModule() {
+  if (!_nativeModule) {
+    try {
+      _nativeModule = require('route-matcher-native');
+    } catch {
+      return null;
+    }
+  }
+  return _nativeModule;
+}
 
 export interface UseHeatmapOptions {
   /** Grid cell size in meters (default: 100m) */
@@ -42,97 +47,197 @@ export interface UseHeatmapResult {
 }
 
 /**
+ * Calculate distance between two GPS points using Haversine formula
+ */
+function haversineDistance(p1: { lat: number; lng: number }, p2: { lat: number; lng: number }): number {
+  const R = 6371000; // Earth radius in meters
+  const dLat = (p2.lat - p1.lat) * Math.PI / 180;
+  const dLng = (p2.lng - p1.lng) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(p1.lat * Math.PI / 180) * Math.cos(p2.lat * Math.PI / 180) *
+    Math.sin(dLng / 2) * Math.sin(dLng / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+/**
+ * Calculate total distance of a route
+ */
+function calculateRouteDistance(points: Array<{ lat: number; lng: number }>): number {
+  let total = 0;
+  for (let i = 1; i < points.length; i++) {
+    total += haversineDistance(points[i - 1], points[i]);
+  }
+  return total;
+}
+
+/**
  * Hook for generating and querying activity heatmaps.
- * Uses cached route signatures from RouteMatchStore.
+ * Uses the Rust engine to get signatures and generate the heatmap.
  */
 export function useHeatmap(options: UseHeatmapOptions = {}): UseHeatmapResult {
   const { cellSizeMeters = 100, sportType } = options;
+  const { groups } = useEngineGroups({ minActivities: 1 });
+  const [heatmap, setHeatmap] = useState<HeatmapResult | null>(null);
+  const [isReady, setIsReady] = useState(false);
 
-  // Get cached data from route match store
-  // Use stable empty defaults to prevent infinite re-renders when cache is null
-  const signatures = useRouteMatchStore((s) => s.cache?.signatures ?? EMPTY_SIGNATURES);
-  const groups = useRouteMatchStore((s) => s.cache?.groups ?? EMPTY_GROUPS);
-
-  // Build activity -> route mapping
-  const activityToRoute = useMemo(() => {
-    const map: Record<string, string> = {};
-    for (const group of groups) {
-      for (const activityId of group.activityIds) {
-        map[activityId] = group.id;
-      }
+  // Generate heatmap when groups change
+  useEffect(() => {
+    if (groups.length === 0) {
+      setHeatmap(null);
+      setIsReady(false);
+      return;
     }
-    return map;
-  }, [groups]);
 
-  // Build activity data for heatmap generation
-  const activityData = useMemo((): ActivityHeatmapData[] => {
-    return Object.entries(signatures).map(([activityId]) => {
-      const routeId = activityToRoute[activityId] ?? null;
+    const nativeModule = getNativeModule();
+    if (!nativeModule) {
+      setHeatmap(null);
+      setIsReady(false);
+      return;
+    }
 
-      // Find route name from group
-      const group = groups.find(g => g.id === routeId);
-      const routeName = group ? group.name : null;
+    try {
+      const allSignatures: RouteSignature[] = [];
+      const activityData: ActivityHeatmapData[] = [];
 
-      return {
-        activityId,
-        routeId,
-        routeName,
-        timestamp: null, // Timestamp not available in cache
-      };
-    });
-  }, [signatures, activityToRoute, groups]);
+      // Collect signatures from all groups
+      for (const group of groups) {
+        // Skip if filtering by sport type and doesn't match
+        if (sportType && group.sportType !== sportType) {
+          continue;
+        }
 
-  // Filter signatures by sport type if specified
-  // Note: Sport type filtering not available without activity metadata
-  const filteredSignatures = useMemo((): RouteSignature[] => {
-    const allSigs = Object.values(signatures);
-    // Can't filter by sportType without metadata - return all
-    return allSigs;
-  }, [signatures]);
+        // Get signatures for this group
+        const sigMap = nativeModule.routeEngine.getSignaturesForGroup(group.groupId);
 
-  // Generate heatmap
-  const heatmap = useMemo((): HeatmapResult | null => {
-    if (filteredSignatures.length === 0) return null;
+        for (const [activityId, points] of Object.entries(sigMap)) {
+          if (points.length < 2) continue;
 
-    const config: Partial<HeatmapConfig> = {
-      cellSizeMeters,
-    };
+          // Calculate bounds
+          let minLat = Infinity, maxLat = -Infinity;
+          let minLng = Infinity, maxLng = -Infinity;
+          for (const p of points) {
+            minLat = Math.min(minLat, p.lat);
+            maxLat = Math.max(maxLat, p.lat);
+            minLng = Math.min(minLng, p.lng);
+            maxLng = Math.max(maxLng, p.lng);
+          }
 
-    return nativeGenerateHeatmap(filteredSignatures, activityData, config);
-  }, [filteredSignatures, activityData, cellSizeMeters]);
+          // Convert to GpsPoint format
+          const gpsPoints: GpsPoint[] = points.map(p => ({
+            latitude: p.lat,
+            longitude: p.lng,
+          }));
 
-  const isReady = heatmap !== null && heatmap.cells.length > 0;
+          // Build signature
+          const signature: RouteSignature = {
+            activityId,
+            points: gpsPoints,
+            totalDistance: calculateRouteDistance(points),
+            startPoint: gpsPoints[0],
+            endPoint: gpsPoints[gpsPoints.length - 1],
+            bounds: { minLat, maxLat, minLng, maxLng },
+            center: {
+              latitude: (minLat + maxLat) / 2,
+              longitude: (minLng + maxLng) / 2,
+            },
+          };
+
+          allSignatures.push(signature);
+
+          // Build activity data
+          activityData.push({
+            activityId,
+            routeId: group.groupId,
+            routeName: group.customName || null,
+            timestamp: null,
+          });
+        }
+      }
+
+      if (allSignatures.length > 0) {
+        const result = nativeModule.generateHeatmap(allSignatures, activityData, { cellSizeMeters });
+        setHeatmap(result);
+        setIsReady(true);
+      } else {
+        setHeatmap(null);
+        setIsReady(false);
+      }
+    } catch (error) {
+      console.error('[useHeatmap] Error generating heatmap:', error);
+      setHeatmap(null);
+      setIsReady(false);
+    }
+  }, [groups, cellSizeMeters, sportType]);
 
   // Query cell at location
   const queryCell = useCallback((lat: number, lng: number): CellQueryResult | null => {
     if (!heatmap) return null;
-    return nativeQueryHeatmapCell(heatmap, lat, lng);
+
+    // Find cell containing the point
+    const { bounds, gridRows, gridCols, cells } = heatmap;
+    const cellHeight = (bounds.maxLat - bounds.minLat) / gridRows;
+    const cellWidth = (bounds.maxLng - bounds.minLng) / gridCols;
+
+    const row = Math.floor((lat - bounds.minLat) / cellHeight);
+    const col = Math.floor((lng - bounds.minLng) / cellWidth);
+
+    if (row < 0 || row >= gridRows || col < 0 || col >= gridCols) {
+      return null;
+    }
+
+    // Find cell
+    const cell = cells.find(c => c.row === row && c.col === col);
+    if (!cell) return null;
+
+    return {
+      cell,
+      activities: cell.activities.map(a => ({
+        activityId: a.activityId,
+        routeId: a.routeId,
+        routeName: a.routeName,
+        timestamp: a.timestamp,
+      })),
+    };
   }, [heatmap]);
 
   // Convert to GeoJSON for MapLibre rendering
   const toGeoJSON = useCallback((): GeoJSON.FeatureCollection | null => {
     if (!heatmap || heatmap.cells.length === 0) return null;
 
-    const features: GeoJSON.Feature[] = heatmap.cells.map((cell) => ({
-      type: 'Feature',
-      id: `cell-${cell.row}-${cell.col}`,
-      properties: {
-        row: cell.row,
-        col: cell.col,
-        density: cell.density,
-        visitCount: cell.visitCount,
-        uniqueRouteCount: cell.uniqueRouteCount,
-        activityCount: cell.activityIds.length,
-        isCommonPath: cell.isCommonPath,
-      },
-      geometry: {
-        type: 'Point',
-        coordinates: [cell.centerLng, cell.centerLat],
-      },
-    }));
+    const { bounds, gridRows, gridCols, maxDensity, cells } = heatmap;
+    const cellHeight = (bounds.maxLat - bounds.minLat) / gridRows;
+    const cellWidth = (bounds.maxLng - bounds.minLng) / gridCols;
+
+    const features: GeoJSON.Feature[] = cells.map(cell => {
+      const minLat = bounds.minLat + cell.row * cellHeight;
+      const minLng = bounds.minLng + cell.col * cellWidth;
+      const maxLat = minLat + cellHeight;
+      const maxLng = minLng + cellWidth;
+
+      return {
+        type: 'Feature' as const,
+        properties: {
+          density: cell.density,
+          normalizedDensity: maxDensity > 0 ? cell.density / maxDensity : 0,
+          activityCount: cell.activityCount,
+          routeCount: cell.routeCount,
+        },
+        geometry: {
+          type: 'Polygon' as const,
+          coordinates: [[
+            [minLng, minLat],
+            [maxLng, minLat],
+            [maxLng, maxLat],
+            [minLng, maxLat],
+            [minLng, minLat],
+          ]],
+        },
+      };
+    });
 
     return {
-      type: 'FeatureCollection',
+      type: 'FeatureCollection' as const,
       features,
     };
   }, [heatmap]);

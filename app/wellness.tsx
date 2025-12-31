@@ -3,6 +3,7 @@ import { View, ScrollView, StyleSheet, useColorScheme, RefreshControl, Touchable
 import { Text, IconButton, ActivityIndicator } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { WellnessDashboard, WellnessTrendsChart } from '@/components/wellness';
 import { useWellness, type TimeRange } from '@/hooks';
 import { colors, darkColors, spacing, layout, typography, opacity } from '@/theme';
@@ -16,6 +17,7 @@ const TIME_RANGES: { id: TimeRange; label: string }[] = [
 ];
 
 export default function WellnessScreen() {
+  const { t } = useTranslation();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -44,7 +46,7 @@ export default function WellnessScreen() {
             iconColor={isDark ? '#FFFFFF' : colors.textPrimary}
             onPress={() => router.back()}
           />
-          <Text style={[styles.headerTitle, isDark && styles.textLight]}>Wellness</Text>
+          <Text style={[styles.headerTitle, isDark && styles.textLight]}>{t('wellnessScreen.title')}</Text>
           <View style={{ width: 48 }} />
         </View>
         <View style={styles.loadingContainer}>
@@ -62,7 +64,7 @@ export default function WellnessScreen() {
           iconColor={isDark ? '#FFFFFF' : colors.textPrimary}
           onPress={() => router.back()}
         />
-        <Text style={[styles.headerTitle, isDark && styles.textLight]}>Wellness</Text>
+        <Text style={[styles.headerTitle, isDark && styles.textLight]}>{t('wellnessScreen.title')}</Text>
         {/* Subtle loading indicator in header when fetching in background */}
         <View style={{ width: 48, alignItems: 'center' }}>
           {showBackgroundLoading && (
@@ -117,7 +119,7 @@ export default function WellnessScreen() {
 
         {/* Wellness Trends Chart */}
         <View style={[styles.card, isDark && styles.cardDark]}>
-          <Text style={[styles.sectionTitle, isDark && styles.textLight]}>Wellness Trends</Text>
+          <Text style={[styles.sectionTitle, isDark && styles.textLight]}>{t('wellnessScreen.trends')}</Text>
           <WellnessTrendsChart data={wellness} height={200} />
         </View>
 

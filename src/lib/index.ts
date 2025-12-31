@@ -1,18 +1,17 @@
-export * from './format';
-export * from './activityUtils';
-export * from './polyline';
-export * from './chartConfig';
-export * from './streams';
-export * from './fitness';
-export * from './activityBoundsUtils';
-export * from './constants';
-export * from './activitySyncManager';
-export * from './spatialIndex';
-export * from './routeSignature';
-export * from './routeMatching';
-export * from './routeStorage';
-export * from './routeProcessingQueue';
-export * from './gpsStorage';
-export * from './geocoding';
-export * from './debug';
-export * from './haptics';
+// Algorithms
+export * from './algorithms';
+
+// Geo utilities
+export * from './geo';
+
+// Spatial indexing (wrapper for Rust engine)
+export { activitySpatialIndex, mapBoundsToViewport, type Viewport } from './spatialIndex';
+
+// Storage
+export * from './storage';
+
+// Sync
+export * from './sync';
+
+// Utilities
+export * from './utils';

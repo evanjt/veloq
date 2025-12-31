@@ -1,34 +1,27 @@
 /**
- * Spatial index for activity bounds using R-tree (rbush).
- * Provides O(log n) spatial queries instead of O(n) scans.
+ * Compatibility wrapper around the Rust engine's spatial query.
+ * Provides the same interface as the deleted JS spatial index.
  *
- * Use cases:
- * - Viewport culling: find activities visible in current map bounds
- * - Route matching: find activities with overlapping bounds
- * - Clustering: group nearby activities for zoom levels
+ * The Rust engine (route-matcher-native) now handles all spatial
+ * indexing internally using an R-tree. This wrapper proxies calls
+ * to the engine while maintaining the original API surface.
  */
 
-import RBush from 'rbush';
-import type { ActivityBoundsItem } from '@/types';
-import { debug } from './debug';
+// Lazy import to avoid loading native module during bundling
+let _routeEngine: typeof import('route-matcher-native').routeEngine | null = null;
 
-const log = debug.create('SpatialIndex');
-
-/**
- * R-tree item with activity reference
- */
-export interface SpatialIndexItem {
-  minX: number; // minLng
-  minY: number; // minLat
-  maxX: number; // maxLng
-  maxY: number; // maxLat
-  activityId: string;
+function getRouteEngine() {
+  if (!_routeEngine) {
+    try {
+      _routeEngine = require('route-matcher-native').routeEngine;
+    } catch {
+      return null;
+    }
+  }
+  return _routeEngine;
 }
 
-/**
- * Viewport bounds for spatial queries
- */
-export interface ViewportBounds {
+export interface Viewport {
   minLat: number;
   maxLat: number;
   minLng: number;
@@ -36,243 +29,69 @@ export interface ViewportBounds {
 }
 
 /**
- * Spatial index singleton for activity bounds.
- * Maintains an R-tree that can be queried for activities in a viewport.
+ * Activity spatial index wrapper.
+ * Proxies to the Rust engine's R-tree spatial index.
  */
-class ActivitySpatialIndex {
-  private tree: RBush<SpatialIndexItem>;
-  private activityMap: Map<string, SpatialIndexItem>;
-  private isBuilt = false;
-
-  constructor() {
-    this.tree = new RBush<SpatialIndexItem>();
-    this.activityMap = new Map();
-  }
-
+export const activitySpatialIndex = {
   /**
-   * Build index from activity bounds cache.
-   * Call this when cache is loaded or significantly updated.
-   */
-  buildFromActivities(activities: ActivityBoundsItem[]): void {
-    // Clear existing
-    this.tree.clear();
-    this.activityMap.clear();
-
-    // Convert to R-tree items
-    const items: SpatialIndexItem[] = [];
-    for (const activity of activities) {
-      const item = this.activityToItem(activity);
-      if (item) {
-        items.push(item);
-        this.activityMap.set(activity.id, item);
-      }
-    }
-
-    // Bulk load is much faster than individual inserts
-    this.tree.load(items);
-    this.isBuilt = true;
-
-    log.log(`Built index with ${items.length} activities`);
-  }
-
-  /**
-   * Add a single activity to the index (for incremental updates).
-   */
-  insert(activity: ActivityBoundsItem): void {
-    // Remove existing if present
-    this.remove(activity.id);
-
-    const item = this.activityToItem(activity);
-    if (item) {
-      this.tree.insert(item);
-      this.activityMap.set(activity.id, item);
-    }
-  }
-
-  /**
-   * Remove an activity from the index.
-   */
-  remove(activityId: string): void {
-    const existing = this.activityMap.get(activityId);
-    if (existing) {
-      this.tree.remove(existing, (a, b) => a.activityId === b.activityId);
-      this.activityMap.delete(activityId);
-    }
-  }
-
-  /**
-   * Bulk insert activities (more efficient than individual inserts).
-   */
-  bulkInsert(activities: ActivityBoundsItem[]): void {
-    const items: SpatialIndexItem[] = [];
-    for (const activity of activities) {
-      // Remove existing first
-      this.remove(activity.id);
-
-      const item = this.activityToItem(activity);
-      if (item) {
-        items.push(item);
-        this.activityMap.set(activity.id, item);
-      }
-    }
-
-    if (items.length > 0) {
-      // For small batches, individual insert is fine
-      // For large batches, rebuild might be more efficient
-      if (items.length > 100) {
-        // Rebuild entire tree
-        const allItems = Array.from(this.activityMap.values());
-        this.tree.clear();
-        this.tree.load(allItems);
-      } else {
-        for (const item of items) {
-          this.tree.insert(item);
-        }
-      }
-    }
-  }
-
-  /**
-   * Query activities within a viewport (map visible bounds).
-   * Returns activity IDs that intersect with the viewport.
-   */
-  queryViewport(bounds: ViewportBounds): string[] {
-    if (!this.isBuilt) return [];
-
-    const results = this.tree.search({
-      minX: bounds.minLng,
-      minY: bounds.minLat,
-      maxX: bounds.maxLng,
-      maxY: bounds.maxLat,
-    });
-
-    return results.map((item) => item.activityId);
-  }
-
-  /**
-   * Find activities that could match a given activity (overlapping bounds).
-   * Returns activity IDs with bounds that intersect.
-   */
-  findPotentialMatches(activity: ActivityBoundsItem): string[] {
-    const item = this.activityToItem(activity);
-    if (!item) return [];
-
-    // Expand bounds slightly to catch edge cases
-    const padding = 0.001; // ~100m at equator
-    const results = this.tree.search({
-      minX: item.minX - padding,
-      minY: item.minY - padding,
-      maxX: item.maxX + padding,
-      maxY: item.maxY + padding,
-    });
-
-    // Exclude self
-    return results
-      .filter((r) => r.activityId !== activity.id)
-      .map((r) => r.activityId);
-  }
-
-  /**
-   * Find all activities within a radius of a point (for clustering).
-   * Uses bounding box approximation.
-   */
-  queryRadius(centerLat: number, centerLng: number, radiusKm: number): string[] {
-    if (!this.isBuilt) return [];
-
-    // Convert km to approximate degrees
-    const latDelta = radiusKm / 111; // ~111km per degree latitude
-    const lngDelta = radiusKm / (111 * Math.cos(centerLat * Math.PI / 180));
-
-    const results = this.tree.search({
-      minX: centerLng - lngDelta,
-      minY: centerLat - latDelta,
-      maxX: centerLng + lngDelta,
-      maxY: centerLat + latDelta,
-    });
-
-    return results.map((item) => item.activityId);
-  }
-
-  /**
-   * Get all indexed activity IDs.
-   */
-  getAllActivityIds(): string[] {
-    return Array.from(this.activityMap.keys());
-  }
-
-  /**
-   * Get count of indexed activities.
-   */
-  get size(): number {
-    return this.activityMap.size;
-  }
-
-  /**
-   * Check if index is built.
+   * Returns true when the engine has activities loaded and ready for queries.
    */
   get ready(): boolean {
-    return this.isBuilt;
-  }
+    try {
+      const engine = getRouteEngine();
+      return engine ? engine.getActivityCount() > 0 : false;
+    } catch {
+      return false;
+    }
+  },
 
   /**
-   * Clear the index.
+   * Returns the number of indexed activities.
    */
-  clear(): void {
-    this.tree.clear();
-    this.activityMap.clear();
-    this.isBuilt = false;
-  }
+  get size(): number {
+    try {
+      const engine = getRouteEngine();
+      return engine ? engine.getActivityCount() : 0;
+    } catch {
+      return 0;
+    }
+  },
 
   /**
-   * Convert ActivityBoundsItem to R-tree item.
+   * Query activities within a viewport.
+   * @param viewport - Bounds to query (minLat, maxLat, minLng, maxLng)
+   * @returns Array of activity IDs that intersect the viewport
    */
-  private activityToItem(activity: ActivityBoundsItem): SpatialIndexItem | null {
-    const bounds = activity.bounds;
-    if (!bounds || bounds.length !== 2) return null;
-
-    let [[minLat, minLng], [maxLat, maxLng]] = bounds;
-
-    // Validate coordinates are finite
-    if (
-      !isFinite(minLat) || !isFinite(maxLat) ||
-      !isFinite(minLng) || !isFinite(maxLng)
-    ) {
-      return null;
+  queryViewport(viewport: Viewport): string[] {
+    try {
+      const engine = getRouteEngine();
+      if (!engine) return [];
+      return engine.queryViewport(
+        viewport.minLat,
+        viewport.maxLat,
+        viewport.minLng,
+        viewport.maxLng
+      );
+    } catch {
+      return [];
     }
-
-    // Fix inverted bounds (ensure min < max)
-    if (minLat > maxLat) {
-      [minLat, maxLat] = [maxLat, minLat];
-    }
-    if (minLng > maxLng) {
-      [minLng, maxLng] = [maxLng, minLng];
-    }
-
-    return {
-      minX: minLng,
-      minY: minLat,
-      maxX: maxLng,
-      maxY: maxLat,
-      activityId: activity.id,
-    };
-  }
-}
-
-// Export singleton instance
-export const activitySpatialIndex = new ActivitySpatialIndex();
+  },
+};
 
 /**
- * Helper to convert viewport bounds from map coordinates.
- * MapLibre uses [lng, lat] order.
+ * Convert map bounds to viewport format.
+ * @param sw - Southwest corner [lng, lat]
+ * @param ne - Northeast corner [lng, lat]
+ * @returns Viewport object for spatial queries
  */
 export function mapBoundsToViewport(
   sw: [number, number],
   ne: [number, number]
-): ViewportBounds {
+): Viewport {
   return {
-    minLng: sw[0],
-    minLat: sw[1],
-    maxLng: ne[0],
-    maxLat: ne[1],
+    minLat: Math.min(sw[1], ne[1]),
+    maxLat: Math.max(sw[1], ne[1]),
+    minLng: Math.min(sw[0], ne[0]),
+    maxLng: Math.max(sw[0], ne[0]),
   };
 }

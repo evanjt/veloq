@@ -1,6 +1,7 @@
 import React, { useMemo, useCallback, useState, useRef } from 'react';
 import { View, StyleSheet, useColorScheme, Switch, TouchableOpacity } from 'react-native';
 import { Text } from 'react-native-paper';
+import { useTranslation } from 'react-i18next';
 import { CartesianChart, Line } from 'victory-native';
 import { Circle, DashPathEffect, Line as SkiaLine } from '@shopify/react-native-skia';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
@@ -87,6 +88,7 @@ export function PaceCurveChart({
   days = 42,
   height = 220,
 }: PaceCurveChartProps) {
+  const { t } = useTranslation();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const isRunning = sport === 'Run';
@@ -336,9 +338,9 @@ export function PaceCurveChart({
   if (isLoading) {
     return (
       <View style={[styles.container, { height }]}>
-        <Text style={[styles.title, isDark && styles.textLight]}>Pace Curve</Text>
+        <Text style={[styles.title, isDark && styles.textLight]}>{t('stats.paceCurve')}</Text>
         <View style={styles.loadingContainer}>
-          <Text style={[styles.loadingText, isDark && styles.textDark]}>Loading...</Text>
+          <Text style={[styles.loadingText, isDark && styles.textDark]}>{t('common.loading')}</Text>
         </View>
       </View>
     );
@@ -347,9 +349,9 @@ export function PaceCurveChart({
   if (error || chartData.length === 0) {
     return (
       <View style={[styles.container, { height }]}>
-        <Text style={[styles.title, isDark && styles.textLight]}>Pace Curve</Text>
+        <Text style={[styles.title, isDark && styles.textLight]}>{t('stats.paceCurve')}</Text>
         <View style={styles.emptyState}>
-          <Text style={[styles.emptyText, isDark && styles.textDark]}>No pace data available</Text>
+          <Text style={[styles.emptyText, isDark && styles.textDark]}>{t('stats.noPaceData')}</Text>
         </View>
       </View>
     );
@@ -372,11 +374,11 @@ export function PaceCurveChart({
     <View style={[styles.container, { height }]}>
       {/* Header with title and GAP toggle */}
       <View style={styles.header}>
-        <Text style={[styles.title, isDark && styles.textLight]}>Pace Curve</Text>
+        <Text style={[styles.title, isDark && styles.textLight]}>{t('stats.paceCurve')}</Text>
         {/* GAP toggle (running only) */}
         {isRunning && (
           <View style={styles.gapToggle}>
-            <Text style={[styles.gapLabel, isDark && styles.textDark]}>GAP</Text>
+            <Text style={[styles.gapLabel, isDark && styles.textDark]}>{t('stats.gap')}</Text>
             <Switch
               value={showGap}
               onValueChange={setShowGap}
@@ -391,19 +393,19 @@ export function PaceCurveChart({
       {/* Values row */}
       <View style={styles.valuesRow}>
         <View style={styles.valueItem}>
-          <Text style={[styles.valueLabel, isDark && styles.textDark]}>Distance</Text>
+          <Text style={[styles.valueLabel, isDark && styles.textDark]}>{t('activity.distance')}</Text>
           <Text style={[styles.valueNumber, { color: CHART_COLOR }]}>
             {formatDistance(displayData.distance)}
           </Text>
         </View>
         <View style={styles.valueItem}>
-          <Text style={[styles.valueLabel, isDark && styles.textDark]}>Time</Text>
+          <Text style={[styles.valueLabel, isDark && styles.textDark]}>{t('stats.time')}</Text>
           <Text style={[styles.valueNumber, isDark && styles.textLight]}>
             {formatTime(displayData.time)}
           </Text>
         </View>
         <View style={styles.valueItem}>
-          <Text style={[styles.valueLabel, isDark && styles.textDark]}>Pace</Text>
+          <Text style={[styles.valueLabel, isDark && styles.textDark]}>{t('metrics.pace')}</Text>
           <Text style={[styles.valueNumber, { color: CHART_COLOR }]}>
             {formatPace(displayData.paceSecsPerKm)}/km
           </Text>
@@ -436,9 +438,11 @@ export function PaceCurveChart({
               if (chartBounds.left !== chartBoundsShared.value.left ||
                   chartBounds.right !== chartBoundsShared.value.right) {
                 chartBoundsShared.value = { left: chartBounds.left, right: chartBounds.right };
-                // Also sync to React state for x-axis labels (only if changed to avoid loops)
+                // Also sync to React state for x-axis labels (defer to avoid setState during render)
                 if (chartBounds.left !== actualChartBounds.left || chartBounds.right !== actualChartBounds.right) {
-                  setActualChartBounds({ left: chartBounds.left, right: chartBounds.right });
+                  queueMicrotask(() => {
+                    setActualChartBounds({ left: chartBounds.left, right: chartBounds.right });
+                  });
                 }
               }
 

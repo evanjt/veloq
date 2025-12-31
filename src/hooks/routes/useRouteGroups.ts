@@ -1,11 +1,11 @@
 /**
  * Hook for accessing route groups.
- * Provides filtered and sorted lists of route groups.
+ * Provides filtered and sorted lists of route groups from the Rust engine.
  */
 
 import { useMemo } from 'react';
-import { useRouteMatchStore } from '@/providers/RouteMatchStore';
-import type { RouteGroup, ActivityType } from '@/types';
+import { useEngineGroups } from './useRouteEngine';
+import type { ActivityType } from '@/types';
 
 interface UseRouteGroupsOptions {
   /** Filter by activity type */
@@ -20,9 +20,26 @@ interface UseRouteGroupsOptions {
   endDate?: Date;
 }
 
+interface RouteGroupExtended {
+  /** Unique route ID (same as groupId, for compatibility) */
+  id: string;
+  /** Group ID from engine */
+  groupId: string;
+  /** Display name for the route */
+  name: string;
+  representativeId: string;
+  activityIds: string[];
+  sportType: string;
+  bounds: { minLat: number; maxLat: number; minLng: number; maxLng: number } | null;
+  activityCount: number;
+  type: ActivityType;
+  /** Route signature with points for mini-trace preview */
+  signature?: { points: Array<{ lat: number; lng: number }>; distance: number } | null;
+}
+
 interface UseRouteGroupsResult {
   /** List of route groups */
-  groups: RouteGroup[];
+  groups: RouteGroupExtended[];
   /** Total number of groups (before filtering) */
   totalCount: number;
   /** Number of processed activities */
@@ -32,43 +49,37 @@ interface UseRouteGroupsResult {
 }
 
 export function useRouteGroups(options: UseRouteGroupsOptions = {}): UseRouteGroupsResult {
-  const { type, minActivities = 2, sortBy = 'count', startDate, endDate } = options;
+  const { type, minActivities = 2, sortBy = 'count' } = options;
 
-  const cache = useRouteMatchStore((s) => s.cache);
-  const isInitialized = useRouteMatchStore((s) => s.isInitialized);
-
-  // Convert Date objects to timestamps for stable dependency comparison
-  // Date objects create new references on every render unless memoized
-  const startTimestamp = startDate?.getTime();
-  const endTimestamp = endDate?.getTime();
+  const { groups: rawGroups, totalCount } = useEngineGroups({ minActivities: 1 });
 
   const result = useMemo(() => {
-    if (!cache) {
-      return {
-        groups: [],
-        totalCount: 0,
-        processedCount: 0,
-        isReady: isInitialized,
-      };
-    }
+    // Convert engine groups to extended format
+    // NOTE: Signature is NOT loaded here to avoid blocking render with sync FFI calls.
+    // Use useConsensusRoute hook to load signature lazily when needed.
+    const extended: RouteGroupExtended[] = rawGroups.map((g, index) => {
+      const sportType = g.sportType || 'Ride';
+      const activityCount = g.activityIds.length;
 
-    let filtered = cache.groups;
+      // Use custom name from Rust engine if set, otherwise generate default
+      const name = g.customName || `${sportType} Route ${index + 1}`;
+
+      return {
+        ...g,
+        id: g.groupId, // Compatibility alias
+        name,
+        activityCount,
+        type: sportType as ActivityType,
+        // Signature loaded lazily via useConsensusRoute to avoid blocking render
+        signature: undefined,
+      };
+    });
+
+    let filtered = extended;
 
     // Filter by type
     if (type) {
       filtered = filtered.filter((g) => g.type === type);
-    }
-
-    // Filter by date range - use group's firstDate/lastDate for quick filtering
-    // A group overlaps with the range if: lastDate >= startDate AND firstDate <= endDate
-    if (startTimestamp || endTimestamp) {
-      filtered = filtered.filter((group) => {
-        const groupFirstTime = new Date(group.firstDate).getTime();
-        const groupLastTime = new Date(group.lastDate).getTime();
-        const afterStart = !startTimestamp || groupLastTime >= startTimestamp;
-        const beforeEnd = !endTimestamp || groupFirstTime <= endTimestamp;
-        return afterStart && beforeEnd;
-      });
     }
 
     // Filter by minimum activities
@@ -80,21 +91,21 @@ export function useRouteGroups(options: UseRouteGroupsOptions = {}): UseRouteGro
       case 'count':
         sorted.sort((a, b) => b.activityCount - a.activityCount);
         break;
-      case 'recent':
-        sorted.sort((a, b) => new Date(b.lastDate).getTime() - new Date(a.lastDate).getTime());
-        break;
       case 'name':
-        sorted.sort((a, b) => a.name.localeCompare(b.name));
+        sorted.sort((a, b) => a.groupId.localeCompare(b.groupId));
         break;
+      // 'recent' would require dates which aren't in the engine yet
+      default:
+        sorted.sort((a, b) => b.activityCount - a.activityCount);
     }
 
     return {
       groups: sorted,
-      totalCount: cache.groups.length,
-      processedCount: cache.processedActivityIds.length,
-      isReady: isInitialized,
+      totalCount,
+      processedCount: rawGroups.reduce((sum, g) => sum + g.activityIds.length, 0),
+      isReady: true,
     };
-  }, [cache, type, minActivities, sortBy, startTimestamp, endTimestamp, isInitialized]);
+  }, [rawGroups, type, minActivities, sortBy, totalCount]);
 
   return result;
 }

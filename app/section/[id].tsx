@@ -13,11 +13,14 @@ import {
   Dimensions,
   StatusBar,
   TouchableOpacity,
+  TextInput,
+  Keyboard,
 } from 'react-native';
 import { Text, ActivityIndicator } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router, Href } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { LinearGradient } from 'expo-linear-gradient';
 import { CartesianChart, Line } from 'victory-native';
 import { Circle } from '@shopify/react-native-skia';
@@ -31,9 +34,17 @@ import {
   runOnJS,
 } from 'react-native-reanimated';
 import Animated from 'react-native-reanimated';
-import { useRouteMatchStore } from '@/providers';
-import { useActivities } from '@/hooks';
+import { useActivities, useFrequentSections, useSectionPerformances, type ActivitySectionRecord } from '@/hooks';
 import { SectionMapView } from '@/components/routes';
+
+// Lazy load native module to avoid bundler errors
+function getRouteEngine() {
+  try {
+    return require('route-matcher-native').routeEngine;
+  } catch {
+    return null;
+  }
+}
 import {
   formatDistance,
   formatRelativeDate,
@@ -44,7 +55,7 @@ import {
   formatPace,
   isRunningActivity,
 } from '@/lib';
-import { getGpsTrack } from '@/lib/gpsStorage';
+import { getGpsTrack } from '@/lib';
 import { colors, darkColors, spacing, layout, typography, opacity } from '@/theme';
 import type { Activity, ActivityType, RoutePoint, FrequentSection } from '@/types';
 
@@ -66,6 +77,12 @@ interface ActivityRowProps {
   isHighlighted?: boolean;
   /** Distance of this activity's section traversal */
   sectionDistance?: number;
+  /** Number of laps/traversals (for multi-lap display) */
+  lapCount?: number;
+  /** Actual section time in seconds (from stream data) */
+  actualSectionTime?: number;
+  /** Actual section pace in m/s (from stream data) */
+  actualSectionPace?: number;
 }
 
 /** Mini trace component showing activity path over section */
@@ -180,6 +197,8 @@ interface PerformanceDataPoint {
   sectionTime?: number;
   /** Section distance in meters */
   sectionDistance?: number;
+  /** Number of laps/traversals (for multi-lap activities) */
+  lapCount?: number;
 }
 
 const CHART_HEIGHT = 160;
@@ -196,6 +215,10 @@ interface PerformanceChartProps {
   isDark: boolean;
   onActivitySelect?: (activityId: string | null, activityPoints?: RoutePoint[]) => void;
   selectedActivityId?: string | null;
+  /** Performance records with actual section times (from useSectionPerformances) */
+  records?: ActivitySectionRecord[];
+  /** Whether records are still loading */
+  isLoadingRecords?: boolean;
 }
 
 function SectionPerformanceChart({
@@ -205,7 +228,10 @@ function SectionPerformanceChart({
   isDark,
   onActivitySelect,
   selectedActivityId,
+  records,
+  isLoadingRecords,
 }: PerformanceChartProps) {
+  const { t } = useTranslation();
   const showPace = isRunningActivity(activityType);
   const activityColor = getActivityColor(activityType);
 
@@ -217,16 +243,19 @@ function SectionPerformanceChart({
   const chartBoundsShared = useSharedValue({ left: 0, right: 1 });
   const lastNotifiedIdx = useRef<number | null>(null);
 
-  // Prepare chart data - use section portion data for pace calculation
-  // Note: We use proportional time estimate (section_time = moving_time × section_dist/total_dist)
-  // This assumes constant pace throughout the activity. For accurate section timing,
-  // we would need timestamp data from activity streams.
+  // Prepare chart data - use actual section times from records when available,
+  // otherwise fall back to proportional estimate
   const { chartData, minSpeed, maxSpeed, bestIndex, hasReverseRuns } = useMemo(() => {
     const dataPoints: (PerformanceDataPoint & { x: number })[] = [];
 
     // Map activity portions for quick lookup
     const portionMap = new Map(
       section.activityPortions?.map(p => [p.activityId, p]) || []
+    );
+
+    // Create a map of records by activity ID for quick lookup
+    const recordMap = new Map(
+      records?.map(r => [r.activityId, r]) || []
     );
 
     // Sort activities by date
@@ -239,37 +268,46 @@ function SectionPerformanceChart({
     for (const activity of sortedActivities) {
       const portion = portionMap.get(activity.id);
       const tracePoints = section.activityTraces?.[activity.id];
+      const record = recordMap.get(activity.id);
 
-      // Use section portion distance for calculations
-      const sectionDistance = portion?.distanceMeters || section.distanceMeters;
-      const direction = (portion?.direction as 'same' | 'reverse') || 'same';
+      // Use actual data from record if available, otherwise use proportional estimate
+      const sectionDistance = record?.sectionDistance || portion?.distanceMeters || section.distanceMeters;
+      const direction = record?.direction || (portion?.direction as 'same' | 'reverse') || 'same';
 
       if (direction === 'reverse') hasAnyReverse = true;
 
-      // Calculate section-specific pace using proportional time estimate
-      // sectionTime = moving_time × (sectionDistance / totalDistance)
-      // sectionSpeed = sectionDistance / sectionTime = totalDistance / moving_time = activitySpeed
-      // (proportional estimate yields same pace as full activity - mathematically equivalent)
-      const activitySpeed = activity.moving_time > 0
-        ? activity.distance / activity.moving_time
-        : 0;
+      // Use actual section pace/time from record, or fall back to proportional estimate
+      let sectionSpeed: number;
+      let sectionTime: number;
+      let lapCount = 1;
 
-      // Calculate estimated section time for display
-      const sectionTime = activity.distance > 0
-        ? Math.round(activity.moving_time * (sectionDistance / activity.distance))
-        : 0;
+      if (record) {
+        // Use actual measured values from stream data
+        sectionSpeed = record.bestPace;
+        sectionTime = Math.round(record.bestTime);
+        lapCount = record.lapCount;
+      } else {
+        // Fall back to proportional estimate
+        sectionSpeed = activity.moving_time > 0
+          ? activity.distance / activity.moving_time
+          : 0;
+        sectionTime = activity.distance > 0
+          ? Math.round(activity.moving_time * (sectionDistance / activity.distance))
+          : 0;
+      }
 
       dataPoints.push({
         x: 0,
         id: activity.id,
         activityId: activity.id,
-        speed: activitySpeed,
+        speed: sectionSpeed,
         date: new Date(activity.start_date_local),
         activityName: activity.name,
         direction,
         lapPoints: tracePoints,
         sectionTime,
         sectionDistance,
+        lapCount,
       });
     }
 
@@ -294,7 +332,7 @@ function SectionPerformanceChart({
       bestIndex: bestIdx,
       hasReverseRuns: hasAnyReverse,
     };
-  }, [activities, section]);
+  }, [activities, section, records]);
 
   const chartWidth = useMemo(() => {
     const screenWidth = SCREEN_WIDTH - 32;
@@ -580,21 +618,21 @@ function SectionPerformanceChart({
     <View style={[styles.chartCard, isDark && styles.chartCardDark]}>
       <View style={styles.chartHeader}>
         <Text style={[styles.chartTitle, isDark && styles.textLight]}>
-          Performance Over Time
+          {t('sections.performanceOverTime')}
         </Text>
         <View style={styles.chartLegend}>
           <View style={styles.legendItem}>
             <View style={[styles.legendDot, { backgroundColor: '#FFB300' }]} />
-            <Text style={[styles.legendText, isDark && styles.textMuted]}>Best</Text>
+            <Text style={[styles.legendText, isDark && styles.textMuted]}>{t('sections.best')}</Text>
           </View>
           <View style={styles.legendItem}>
             <View style={[styles.legendDot, { backgroundColor: activityColor }]} />
-            <Text style={[styles.legendText, isDark && styles.textMuted]}>Same</Text>
+            <Text style={[styles.legendText, isDark && styles.textMuted]}>{t('sections.same')}</Text>
           </View>
           {hasReverseRuns && (
             <View style={styles.legendItem}>
               <View style={[styles.legendDot, { backgroundColor: REVERSE_COLOR }]} />
-              <Text style={[styles.legendText, isDark && styles.textMuted]}>Reverse</Text>
+              <Text style={[styles.legendText, isDark && styles.textMuted]}>{t('sections.reverse')}</Text>
             </View>
           )}
         </View>
@@ -602,7 +640,7 @@ function SectionPerformanceChart({
 
       {!isActive && !isPersisted && (
         <Text style={[styles.chartHint, isDark && styles.textMuted]}>
-          {needsScrolling ? 'Swipe to scroll • Hold to scrub' : 'Hold to scrub through activities'}
+          {needsScrolling ? t('sections.scrubHintScrollable') : t('sections.scrubHint')}
         </Text>
       )}
 
@@ -662,7 +700,7 @@ function SectionPerformanceChart({
               {formatSpeedValue(chartData[bestIndex].speed)}
             </Text>
             <Text style={[styles.bestStatLabel, isDark && styles.textMuted]}>
-              Best {showPace ? 'pace' : 'speed'}
+              {showPace ? t('sections.bestPace') : t('sections.bestSpeed')}
             </Text>
           </View>
           <View style={styles.bestStatItem}>
@@ -670,7 +708,7 @@ function SectionPerformanceChart({
               {formatShortDate(chartData[bestIndex].date)}
             </Text>
             <Text style={[styles.bestStatLabel, isDark && styles.textMuted]}>
-              Date
+              {t('sections.date')}
             </Text>
           </View>
         </View>
@@ -687,6 +725,9 @@ function ActivityRow({
   sectionPoints,
   isHighlighted,
   sectionDistance,
+  lapCount,
+  actualSectionTime,
+  actualSectionPace,
 }: ActivityRowProps) {
   const handlePress = () => {
     router.push(`/activity/${activity.id}`);
@@ -696,13 +737,25 @@ function ActivityRow({
   const traceColor = isHighlighted ? '#00BCD4' : (isReverse ? REVERSE_COLOR : '#2196F3');
   const activityColor = getActivityColor(activity.type);
 
-  // Calculate section-specific time and pace (proportional estimate)
+  // Use actual section time/pace if available, otherwise fall back to proportional estimate
   const displayDistance = sectionDistance || activity.distance;
-  const sectionTime = sectionDistance && activity.distance > 0
-    ? Math.round(activity.moving_time * (sectionDistance / activity.distance))
-    : activity.moving_time;
-  const sectionSpeed = sectionTime > 0 ? displayDistance / sectionTime : 0;
+  let sectionTime: number;
+  let sectionSpeed: number;
+
+  if (actualSectionTime !== undefined && actualSectionPace !== undefined) {
+    // Use actual measured values
+    sectionTime = Math.round(actualSectionTime);
+    sectionSpeed = actualSectionPace;
+  } else {
+    // Fall back to proportional estimate
+    sectionTime = sectionDistance && activity.distance > 0
+      ? Math.round(activity.moving_time * (sectionDistance / activity.distance))
+      : activity.moving_time;
+    sectionSpeed = sectionTime > 0 ? displayDistance / sectionTime : 0;
+  }
+
   const showPace = isRunningActivity(activity.type);
+  const showLapCount = lapCount !== undefined && lapCount > 1;
 
   return (
     <Pressable
@@ -741,6 +794,13 @@ function ActivityRow({
               <MaterialCommunityIcons name="swap-horizontal" size={10} color={REVERSE_COLOR} />
             </View>
           )}
+          {showLapCount && (
+            <View style={[styles.lapBadge, isDark && styles.lapBadgeDark]}>
+              <Text style={[styles.lapBadgeText, isDark && styles.lapBadgeTextDark]}>
+                {lapCount}x
+              </Text>
+            </View>
+          )}
         </View>
         <Text style={[styles.activityDate, isDark && styles.textMuted]}>
           {formatRelativeDate(activity.start_date_local)}
@@ -764,6 +824,7 @@ function ActivityRow({
 }
 
 export default function SectionDetailScreen() {
+  const { t } = useTranslation();
   const { id } = useLocalSearchParams<{ id: string }>();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
@@ -772,6 +833,52 @@ export default function SectionDetailScreen() {
   const [highlightedActivityId, setHighlightedActivityId] = useState<string | null>(null);
   const [highlightedActivityPoints, setHighlightedActivityPoints] = useState<RoutePoint[] | undefined>(undefined);
   const [shadowTrack, setShadowTrack] = useState<[number, number][] | undefined>(undefined);
+
+  // State for section renaming
+  const [isEditing, setIsEditing] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [customName, setCustomName] = useState<string | null>(null);
+  const nameInputRef = useRef<TextInput>(null);
+
+  // Load custom section name from Rust engine on mount
+  useEffect(() => {
+    if (id) {
+      const engine = getRouteEngine();
+      const name = engine?.getSectionName(id);
+      if (name) {
+        setCustomName(name);
+      }
+    }
+  }, [id]);
+
+  // Handle starting to edit the section name
+  const handleStartEditing = useCallback(() => {
+    const currentName = customName || section?.name || '';
+    setEditName(currentName);
+    setIsEditing(true);
+    setTimeout(() => {
+      nameInputRef.current?.focus();
+    }, 100);
+  }, [customName, section?.name]);
+
+  // Handle saving the edited section name
+  const handleSaveName = useCallback(() => {
+    const trimmedName = editName.trim();
+    if (trimmedName && id) {
+      const engine = getRouteEngine();
+      if (engine) engine.setSectionName(id, trimmedName);
+      setCustomName(trimmedName);
+    }
+    setIsEditing(false);
+    Keyboard.dismiss();
+  }, [editName, id]);
+
+  // Handle canceling the edit
+  const handleCancelEdit = useCallback(() => {
+    setIsEditing(false);
+    setEditName('');
+    Keyboard.dismiss();
+  }, []);
 
   // Load full GPS track when an activity is highlighted (for shadow display)
   useEffect(() => {
@@ -797,9 +904,11 @@ export default function SectionDetailScreen() {
     setHighlightedActivityPoints(activityPoints);
   }, []);
 
-  // Get section from cache
-  const section = useRouteMatchStore((s) =>
-    s.cache?.frequentSections?.find((sec) => sec.id === id) || null
+  // Get section from engine
+  const { sections: allSections } = useFrequentSections({ minVisits: 1 });
+  const section = useMemo(() =>
+    allSections.find((sec) => sec.id === id) || null,
+    [allSections, id]
   );
 
   // Get date range for fetching activities
@@ -831,6 +940,12 @@ export default function SectionDetailScreen() {
     });
   }, [section, allActivities]);
 
+  // Fetch actual section performance times from activity streams
+  const { records: performanceRecords, isLoading: isLoadingRecords } = useSectionPerformances(
+    section,
+    sectionActivities
+  );
+
   // Map of activity portions for direction lookup
   const portionMap = useMemo(() => {
     if (!section?.activityPortions) return new Map();
@@ -856,7 +971,7 @@ export default function SectionDetailScreen() {
             color={isDark ? '#444' : '#CCC'}
           />
           <Text style={[styles.emptyText, isDark && styles.textLight]}>
-            Section not found
+            {t('sections.sectionNotFound')}
           </Text>
         </View>
       </View>
@@ -907,17 +1022,43 @@ export default function SectionDetailScreen() {
               <View style={[styles.typeIcon, { backgroundColor: activityColor }]}>
                 <MaterialCommunityIcons name={iconName} size={16} color="#FFFFFF" />
               </View>
-              <Text style={styles.heroSectionName} numberOfLines={1}>
-                {section.name || `Section ${section.id.split('_').pop()}`}
-              </Text>
+              {isEditing ? (
+                <View style={styles.editNameContainer}>
+                  <TextInput
+                    ref={nameInputRef}
+                    style={styles.editNameInput}
+                    value={editName}
+                    onChangeText={setEditName}
+                    onSubmitEditing={handleSaveName}
+                    placeholder={t('sections.sectionNamePlaceholder')}
+                    placeholderTextColor="rgba(255,255,255,0.5)"
+                    returnKeyType="done"
+                    autoFocus
+                    selectTextOnFocus
+                  />
+                  <TouchableOpacity onPress={handleSaveName} style={styles.editNameButton}>
+                    <MaterialCommunityIcons name="check" size={20} color="#4CAF50" />
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={handleCancelEdit} style={styles.editNameButton}>
+                    <MaterialCommunityIcons name="close" size={20} color="#FF5252" />
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <TouchableOpacity onPress={handleStartEditing} style={styles.nameEditTouchable} activeOpacity={0.7}>
+                  <Text style={styles.heroSectionName} numberOfLines={1}>
+                    {customName || section.name || `Section ${section.id.split('_').pop()}`}
+                  </Text>
+                  <MaterialCommunityIcons name="pencil" size={14} color="rgba(255,255,255,0.6)" style={styles.editIcon} />
+                </TouchableOpacity>
+              )}
             </View>
 
             <View style={styles.heroStatsRow}>
               <Text style={styles.heroStat}>{formatDistance(section.distanceMeters)}</Text>
               <Text style={styles.heroStatDivider}>·</Text>
-              <Text style={styles.heroStat}>{section.visitCount} traversals</Text>
+              <Text style={styles.heroStat}>{section.visitCount} {t('sections.traversals')}</Text>
               <Text style={styles.heroStatDivider}>·</Text>
-              <Text style={styles.heroStat}>{section.routeIds.length} routes</Text>
+              <Text style={styles.heroStat}>{section.routeIds.length} {t('sections.routesCount')}</Text>
             </View>
           </View>
         </View>
@@ -934,6 +1075,8 @@ export default function SectionDetailScreen() {
                 isDark={isDark}
                 onActivitySelect={handleActivitySelect}
                 selectedActivityId={highlightedActivityId}
+                records={performanceRecords}
+                isLoadingRecords={isLoadingRecords}
               />
             </View>
           )}
@@ -941,7 +1084,7 @@ export default function SectionDetailScreen() {
           {/* Activities list */}
           <View style={styles.activitiesSection}>
             <Text style={[styles.sectionTitle, isDark && styles.textLight]}>
-              Activities
+              {t('sections.activities')}
             </Text>
 
             {isLoading ? (
@@ -950,7 +1093,7 @@ export default function SectionDetailScreen() {
               </View>
             ) : sectionActivities.length === 0 ? (
               <Text style={[styles.emptyActivities, isDark && styles.textMuted]}>
-                No activities found
+                {t('sections.noActivitiesFound')}
               </Text>
             ) : (
               <View style={[styles.activitiesCard, isDark && styles.activitiesCardDark]}>
@@ -958,6 +1101,8 @@ export default function SectionDetailScreen() {
                   const portion = portionMap.get(activity.id);
                   const tracePoints = section.activityTraces?.[activity.id];
                   const isHighlighted = highlightedActivityId === activity.id;
+                  // Look up actual performance record for this activity
+                  const record = performanceRecords?.find((r: ActivitySectionRecord) => r.activityId === activity.id);
 
                   return (
                     <React.Fragment key={activity.id}>
@@ -968,11 +1113,14 @@ export default function SectionDetailScreen() {
                         <ActivityRow
                           activity={activity}
                           isDark={isDark}
-                          direction={portion?.direction}
+                          direction={record?.direction || portion?.direction}
                           activityPoints={tracePoints}
                           sectionPoints={section.polyline}
                           isHighlighted={isHighlighted}
-                          sectionDistance={portion?.distanceMeters}
+                          sectionDistance={record?.sectionDistance || portion?.distanceMeters}
+                          lapCount={record?.lapCount}
+                          actualSectionTime={record?.bestTime}
+                          actualSectionPace={record?.bestPace}
                         />
                       </Pressable>
                       {index < sectionActivities.length - 1 && (
@@ -1070,6 +1218,36 @@ const styles = StyleSheet.create({
     textShadowColor: 'rgba(0, 0, 0, 0.5)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 3,
+  },
+  nameEditTouchable: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  editIcon: {
+    marginLeft: 4,
+  },
+  editNameContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    borderRadius: 8,
+    paddingHorizontal: spacing.sm,
+    gap: spacing.xs,
+  },
+  editNameInput: {
+    flex: 1,
+    fontSize: typography.cardTitle.fontSize,
+    fontWeight: '600',
+    color: colors.textOnDark,
+    paddingVertical: spacing.sm,
+  },
+  editNameButton: {
+    padding: 6,
+    borderRadius: 6,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
   },
   heroStatsRow: {
     flexDirection: 'row',
@@ -1338,6 +1516,24 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
     borderRadius: layout.borderRadiusSm,
     gap: 2,
+  },
+  lapBadge: {
+    backgroundColor: colors.primary + '15',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: layout.borderRadiusSm,
+    marginLeft: 4,
+  },
+  lapBadgeDark: {
+    backgroundColor: colors.primary + '25',
+  },
+  lapBadgeText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: colors.primary,
+  },
+  lapBadgeTextDark: {
+    color: colors.primaryLight,
   },
   activityDate: {
     fontSize: typography.caption.fontSize,

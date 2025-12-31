@@ -1,6 +1,7 @@
 import React, { useMemo, useRef, useCallback, useState } from 'react';
 import { View, StyleSheet, useColorScheme, Pressable } from 'react-native';
 import { Text } from 'react-native-paper';
+import { useTranslation } from 'react-i18next';
 import { CartesianChart, Line, Area } from 'victory-native';
 import { LinearGradient, vec, Shadow } from '@shopify/react-native-skia';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
@@ -43,6 +44,7 @@ function formatDate(dateStr: string): string {
 }
 
 export const FitnessChart = React.memo(function FitnessChart({ data, height = 200, selectedDate, sharedSelectedIdx, onDateSelect, onInteractionChange }: FitnessChartProps) {
+  const { t } = useTranslation();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const [tooltipData, setTooltipData] = useState<ChartDataPoint | null>(null);
@@ -251,7 +253,7 @@ export const FitnessChart = React.memo(function FitnessChart({ data, height = 20
   if (chartData.length === 0) {
     return (
       <View style={[styles.placeholder, { height }]}>
-        <Text style={[styles.placeholderText, isDark && styles.textDark]}>No fitness data available</Text>
+        <Text style={[styles.placeholderText, isDark && styles.textDark]}>{t('fitness.noData')}</Text>
       </View>
     );
   }
@@ -266,18 +268,18 @@ export const FitnessChart = React.memo(function FitnessChart({ data, height = 20
       <View style={styles.header}>
         <View style={styles.dateContainer}>
           <Text style={[styles.dateText, isDark && styles.textLight]}>
-            {(isActive && tooltipData) || selectedDate ? formatDate(tooltipData?.date || selectedDate || '') : 'Current'}
+            {(isActive && tooltipData) || selectedDate ? formatDate(tooltipData?.date || selectedDate || '') : t('time.current')}
           </Text>
         </View>
         <View style={styles.valuesRow}>
           <View style={styles.valueItem}>
-            <Text style={[styles.valueLabel, isDark && styles.textDark]}>Fitness</Text>
+            <Text style={[styles.valueLabel, isDark && styles.textDark]}>{t('metrics.fitness')}</Text>
             <Text style={[styles.valueNumber, { color: COLORS.fitness }]}>
               {Math.round(displayData.fitness)}
             </Text>
           </View>
           <View style={styles.valueItem}>
-            <Text style={[styles.valueLabel, isDark && styles.textDark]}>Fatigue</Text>
+            <Text style={[styles.valueLabel, isDark && styles.textDark]}>{t('metrics.fatigue')}</Text>
             <Text style={[styles.valueNumber, { color: COLORS.fatigue }]}>
               {Math.round(displayData.fatigue)}
             </Text>
@@ -379,7 +381,7 @@ export const FitnessChart = React.memo(function FitnessChart({ data, height = 20
           hitSlop={8}
         >
           <View style={[styles.legendDot, { backgroundColor: COLORS.fitness }, !visibleLines.fitness && styles.legendDotDisabled]} />
-          <Text style={[styles.legendText, isDark && styles.textDark, !visibleLines.fitness && styles.legendTextDisabled]}>Fitness (CTL)</Text>
+          <Text style={[styles.legendText, isDark && styles.textDark, !visibleLines.fitness && styles.legendTextDisabled]}>{t('fitness.fitnessCTL')}</Text>
         </Pressable>
         <Pressable
           style={[styles.legendItem, !visibleLines.fatigue && styles.legendItemDisabled]}
@@ -387,7 +389,7 @@ export const FitnessChart = React.memo(function FitnessChart({ data, height = 20
           hitSlop={8}
         >
           <View style={[styles.legendDot, { backgroundColor: COLORS.fatigue }, !visibleLines.fatigue && styles.legendDotDisabled]} />
-          <Text style={[styles.legendText, isDark && styles.textDark, !visibleLines.fatigue && styles.legendTextDisabled]}>Fatigue (ATL)</Text>
+          <Text style={[styles.legendText, isDark && styles.textDark, !visibleLines.fatigue && styles.legendTextDisabled]}>{t('fitness.fatigueATL')}</Text>
         </Pressable>
       </View>
     </View>

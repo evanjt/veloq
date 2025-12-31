@@ -4,6 +4,7 @@ import { Text, Menu } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
+import { useTranslation } from 'react-i18next';
 import type { Activity } from '@/types';
 import {
   formatDistance,
@@ -33,6 +34,7 @@ interface ActivityCardProps {
 }
 
 export const ActivityCard = React.memo(function ActivityCard({ activity }: ActivityCardProps) {
+  const { t } = useTranslation();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const [menuVisible, setMenuVisible] = useState(false);
@@ -78,6 +80,7 @@ export const ActivityCard = React.memo(function ActivityCard({ activity }: Activ
 
   return (
     <Pressable
+      testID="activity-card"
       onPress={handlePress}
       onLongPress={handleLongPress}
       delayLongPress={500}
@@ -101,6 +104,7 @@ export const ActivityCard = React.memo(function ActivityCard({ activity }: Activ
           </View>
           <View style={styles.headerText}>
             <Text
+              testID="activity-card-title"
               style={[styles.activityName, isDark && styles.textLight]}
               numberOfLines={1}
             >
@@ -151,7 +155,7 @@ export const ActivityCard = React.memo(function ActivityCard({ activity }: Activ
                 <Text style={[styles.secondaryStatValue, isDark && styles.textLight]}>
                   {formatTSS(activity.icu_training_load)}
                 </Text>
-                <Text style={[styles.secondaryStatLabel, isDark && styles.statLabelDark]}>TSS</Text>
+                <Text style={[styles.secondaryStatLabel, isDark && styles.statLabelDark]}>{t('activity.tss')}</Text>
               </View>
             </View>
           )}
@@ -168,7 +172,7 @@ export const ActivityCard = React.memo(function ActivityCard({ activity }: Activ
                 <Text style={[styles.secondaryStatValue, isDark && styles.textLight]}>
                   {formatHeartRate(activity.average_heartrate || activity.icu_average_hr!)}
                 </Text>
-                <Text style={[styles.secondaryStatLabel, isDark && styles.statLabelDark]}>HR</Text>
+                <Text style={[styles.secondaryStatLabel, isDark && styles.statLabelDark]}>{t('metrics.hr')}</Text>
               </View>
             </View>
           )}
@@ -185,7 +189,7 @@ export const ActivityCard = React.memo(function ActivityCard({ activity }: Activ
                 <Text style={[styles.secondaryStatValue, isDark && styles.textLight]}>
                   {formatPower(activity.average_watts || activity.icu_average_watts!)}
                 </Text>
-                <Text style={[styles.secondaryStatLabel, isDark && styles.statLabelDark]}>PWR</Text>
+                <Text style={[styles.secondaryStatLabel, isDark && styles.statLabelDark]}>{t('activity.pwr')}</Text>
               </View>
             </View>
           )}
@@ -202,7 +206,7 @@ export const ActivityCard = React.memo(function ActivityCard({ activity }: Activ
                 <Text style={[styles.secondaryStatValue, isDark && styles.textLight]}>
                   {formatCalories(activity.calories)}
                 </Text>
-                <Text style={[styles.secondaryStatLabel, isDark && styles.statLabelDark]}>CAL</Text>
+                <Text style={[styles.secondaryStatLabel, isDark && styles.statLabelDark]}>{t('activity.cal')}</Text>
               </View>
             </View>
           )}
@@ -219,7 +223,7 @@ export const ActivityCard = React.memo(function ActivityCard({ activity }: Activ
                 <Text style={[styles.secondaryStatValue, isDark && styles.textLight]}>
                   {Math.round(activity.average_weather_temp)}°C
                 </Text>
-                <Text style={[styles.secondaryStatLabel, isDark && styles.statLabelDark]}>TEMP</Text>
+                <Text style={[styles.secondaryStatLabel, isDark && styles.statLabelDark]}>{t('activity.temp')}</Text>
               </View>
             </View>
           )}
@@ -235,12 +239,12 @@ export const ActivityCard = React.memo(function ActivityCard({ activity }: Activ
       >
         <Menu.Item
           onPress={handleShare}
-          title="Share"
+          title={t('activity.share')}
           leadingIcon="share-variant"
         />
         <Menu.Item
           onPress={handleViewDetails}
-          title="View Details"
+          title={t('activity.viewDetails')}
           leadingIcon="information-outline"
         />
       </Menu>

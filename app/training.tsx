@@ -1,15 +1,17 @@
-import React, { useMemo } from 'react';
-import { View, ScrollView, StyleSheet, useColorScheme, TouchableOpacity } from 'react-native';
+import React, { useMemo, useState, useCallback } from 'react';
+import { View, ScrollView, StyleSheet, useColorScheme, TouchableOpacity, RefreshControl } from 'react-native';
 import { Text, IconButton, ActivityIndicator } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, Href } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { WeeklySummary, ActivityHeatmap, SeasonComparison, EventPlanner, WorkoutLibrary } from '@/components/stats';
 import { useActivities, useRouteGroups, useRouteProcessing } from '@/hooks';
 import { useRouteSettings } from '@/providers';
 import { colors, spacing, layout } from '@/theme';
 
 export default function TrainingScreen() {
+  const { t } = useTranslation();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
 
@@ -17,13 +19,23 @@ export default function TrainingScreen() {
   const { settings: routeSettings } = useRouteSettings();
   const isRouteMatchingEnabled = routeSettings.enabled;
 
+  // Refresh state for pull-to-refresh
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
   // Fetch activities for the past 2 years (for all comparisons including year-over-year)
   const currentYear = new Date().getFullYear();
-  const { data: activities, isLoading } = useActivities({
+  const { data: activities, isLoading, isFetching, refetch } = useActivities({
     oldest: `${currentYear - 1}-01-01`,
     newest: `${currentYear}-12-31`,
     includeStats: true,
   });
+
+  // Handle pull-to-refresh
+  const onRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    await refetch();
+    setIsRefreshing(false);
+  }, [refetch]);
 
   // Get route groups count and processing status
   const { groups: routeGroups, processedCount } = useRouteGroups({ minActivities: 2 });
@@ -56,14 +68,27 @@ export default function TrainingScreen() {
           iconColor={isDark ? '#FFFFFF' : colors.textPrimary}
           onPress={() => router.back()}
         />
-        <Text style={[styles.headerTitle, isDark && styles.textLight]}>Training</Text>
-        <View style={{ width: 48 }} />
+        <Text style={[styles.headerTitle, isDark && styles.textLight]}>{t('trainingScreen.title')}</Text>
+        {/* Subtle loading indicator in header when fetching in background */}
+        <View style={{ width: 48, alignItems: 'center' }}>
+          {isFetching && !isRefreshing && (
+            <ActivityIndicator size="small" color={colors.primary} />
+          )}
+        </View>
       </View>
 
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
+          />
+        }
       >
         {/* Summary with time range selector */}
         <View style={[styles.card, isDark && styles.cardDark]}>
@@ -92,22 +117,22 @@ export default function TrainingScreen() {
             </View>
             <View style={styles.routesSectionInfo}>
               <Text style={[styles.routesSectionTitle, isDark && styles.textLight]}>
-                Routes
+                {t('trainingScreen.routes')}
               </Text>
               <Text style={[styles.routesSectionSubtitle, isDark && styles.textMuted]}>
                 {!isRouteMatchingEnabled
-                  ? 'Disabled - Enable in Settings'
+                  ? t('trainingScreen.disabledInSettings')
                   : isRouteProcessing
                     ? routeProgress.status === 'filtering'
                       ? routeProgress.candidatesFound !== undefined
-                        ? `Found ${routeProgress.candidatesFound} potential matches`
-                        : `Checking ${routeProgress.total} activities...`
+                        ? t('trainingScreen.potentialMatches', { count: routeProgress.candidatesFound })
+                        : t('trainingScreen.checkingActivities', { count: routeProgress.total })
                       : routeProgress.status === 'matching'
-                        ? 'Grouping routes...'
-                        : `Fetching GPS: ${routeProgress.current}/${routeProgress.total}`
+                        ? t('trainingScreen.groupingRoutes')
+                        : t('trainingScreen.fetchingGps', { current: routeProgress.current, total: routeProgress.total })
                     : routeGroups.length > 0
-                      ? `${routeGroups.length} routes from ${processedCount} activities`
-                      : 'Discover your common routes'}
+                      ? t('trainingScreen.routesFromActivities', { routes: routeGroups.length, activities: processedCount })
+                      : t('trainingScreen.discoverRoutes')}
               </Text>
             </View>
             {isRouteProcessing ? (

@@ -7,14 +7,15 @@
  */
 
 import React, { useCallback, useMemo } from 'react';
-import { View, StyleSheet, FlatList, useColorScheme } from 'react-native';
+import { View, StyleSheet, FlatList, useColorScheme, Platform } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { router, Href } from 'expo-router';
-import { colors, spacing, layout } from '@/theme';
+import { colors, darkColors, spacing, layout } from '@/theme';
 import { useFrequentSections } from '@/hooks/routes/useFrequentSections';
 import { SectionRow, ActivityTrace } from './SectionRow';
-import { debug } from '@/lib/debug';
+import { debug } from '@/lib';
 import type { FrequentSection } from '@/types';
 
 const log = debug.create('SectionsList');
@@ -28,6 +29,7 @@ interface SectionsListProps {
 type SectionTracesMap = Map<string, ActivityTrace[]>;
 
 export function SectionsList({ sportType }: SectionsListProps) {
+  const { t } = useTranslation();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
 
@@ -81,10 +83,10 @@ export function SectionsList({ sportType }: SectionsListProps) {
           <MaterialCommunityIcons
             name="loading"
             size={48}
-            color={isDark ? '#444' : '#CCC'}
+            color={isDark ? darkColors.iconDisabled : colors.gray400}
           />
           <Text style={[styles.emptyTitle, isDark && styles.textLight]}>
-            Loading sections...
+            {t('routes.loadingSections')}
           </Text>
         </View>
       );
@@ -96,14 +98,13 @@ export function SectionsList({ sportType }: SectionsListProps) {
           <MaterialCommunityIcons
             name="road-variant"
             size={48}
-            color={isDark ? '#444' : '#CCC'}
+            color={isDark ? darkColors.iconDisabled : colors.gray400}
           />
           <Text style={[styles.emptyTitle, isDark && styles.textLight]}>
-            No frequent sections yet
+            {t('routes.noFrequentSections')}
           </Text>
           <Text style={[styles.emptySubtitle, isDark && styles.textMuted]}>
-            Sections are detected when you travel the same roads multiple times,
-            even on different routes
+            {t('routes.sectionsDescription')}
           </Text>
         </View>
       );
@@ -114,13 +115,13 @@ export function SectionsList({ sportType }: SectionsListProps) {
         <MaterialCommunityIcons
           name="filter-remove-outline"
           size={48}
-          color={isDark ? '#444' : '#CCC'}
+          color={isDark ? darkColors.iconDisabled : colors.gray400}
         />
         <Text style={[styles.emptyTitle, isDark && styles.textLight]}>
-          No sections match filter
+          {t('routes.noSectionsMatchFilter')}
         </Text>
         <Text style={[styles.emptySubtitle, isDark && styles.textMuted]}>
-          Try adjusting the sport type filter
+          {t('routes.adjustSportTypeFilter')}
         </Text>
       </View>
     );
@@ -132,10 +133,10 @@ export function SectionsList({ sportType }: SectionsListProps) {
         <MaterialCommunityIcons
           name="information-outline"
           size={14}
-          color={isDark ? '#666' : '#999'}
+          color={isDark ? darkColors.textDisabled : colors.textDisabled}
         />
         <Text style={[styles.infoText, isDark && styles.infoTextDark]}>
-          Frequent sections are road sections you travel often, detected automatically from your GPS tracks.
+          {t('routes.frequentSectionsInfo')}
         </Text>
       </View>
     </View>
@@ -162,6 +163,11 @@ export function SectionsList({ sportType }: SectionsListProps) {
       contentContainerStyle={sections.length === 0 ? styles.emptyList : styles.list}
       showsVerticalScrollIndicator={false}
       keyboardShouldPersistTaps="handled"
+      // Performance optimizations
+      removeClippedSubviews={Platform.OS === 'ios'}
+      maxToRenderPerBatch={10}
+      windowSize={5}
+      initialNumToRender={8}
     />
   );
 }
@@ -201,10 +207,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
   },
   textLight: {
-    color: '#FFFFFF',
+    color: colors.textOnDark,
   },
   textMuted: {
-    color: '#888',
+    color: darkColors.textMuted,
   },
   infoNotice: {
     flexDirection: 'row',
@@ -218,10 +224,10 @@ const styles = StyleSheet.create({
   infoText: {
     flex: 1,
     fontSize: 12,
-    color: '#999',
+    color: colors.textDisabled,
     lineHeight: 16,
   },
   infoTextDark: {
-    color: '#666',
+    color: darkColors.textDisabled,
   },
 });

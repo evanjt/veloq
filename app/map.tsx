@@ -7,32 +7,72 @@ import {
   useColorScheme,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { RegionalMapView } from '@/components/maps/RegionalMapView';
-import { TimelineSlider } from '@/components/maps/TimelineSlider';
-import { useActivityBoundsCache } from '@/hooks';
+import { RegionalMapView, TimelineSlider } from '@/components/maps';
+import { useActivityBoundsCache, useOldestActivityDate, useActivities, useRouteDataSync } from '@/hooks';
+import { useRouteSettings, useSyncDateRange } from '@/providers';
 import { colors, darkColors, spacing, typography } from '@/theme';
 import { formatLocalDate } from '@/lib';
 
 export default function MapScreen() {
+  const { t } = useTranslation();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
 
-  // Load cached bounds - this is necessary because the API doesn't return
-  // polylines in the activities list, so we must fetch bounds individually
+  // Get route settings
+  const { settings: routeSettings } = useRouteSettings();
+
+  // Get the sync date range from global store
+  const syncOldest = useSyncDateRange((s) => s.oldest);
+  const syncNewest = useSyncDateRange((s) => s.newest);
+  const isFetchingExtended = useSyncDateRange((s) => s.isFetchingExtended);
+
+  // Fetch the true oldest activity date from API (for timeline extent)
+  const { data: apiOldestDate } = useOldestActivityDate();
+
+  // Fetch activities for the current sync range (for cache stats)
+  const { data: syncedActivities, isFetching: isFetchingActivities } = useActivities({
+    oldest: syncOldest,
+    newest: syncNewest,
+    includeStats: false,
+  });
+
+  // Load cached bounds - pass activities for cache range calculation
   const {
     activities,
     isReady,
     progress,
     syncDateRange,
-    oldestSyncedDate,
-    newestSyncedDate,
-    oldestActivityDate,
-  } = useActivityBoundsCache();
+  } = useActivityBoundsCache({ activitiesWithDates: syncedActivities });
 
-  const isSyncing = progress.status === 'syncing';
+  // Track GPS data sync progress
+  const { progress: gpsSyncProgress, isSyncing: isGpsSyncing } = useRouteDataSync(
+    syncedActivities,
+    routeSettings.enabled
+  );
+
+  // Combined syncing state
+  const isSyncing = progress.status === 'syncing' || isGpsSyncing || isFetchingActivities || isFetchingExtended;
+
+  // Calculate cached range from synced activities
+  const { oldestSyncedDate, newestSyncedDate } = useMemo(() => {
+    if (!syncedActivities || syncedActivities.length === 0) {
+      return { oldestSyncedDate: null, newestSyncedDate: null };
+    }
+    let oldest: string | null = null;
+    let newest: string | null = null;
+    for (const a of syncedActivities) {
+      const date = a.start_date_local;
+      if (date) {
+        if (!oldest || date < oldest) oldest = date;
+        if (!newest || date > newest) newest = date;
+      }
+    }
+    return { oldestSyncedDate: oldest, newestSyncedDate: newest };
+  }, [syncedActivities]);
 
   // Selected date range (default: last 90 days)
   const [startDate, setStartDate] = useState<Date>(() => {
@@ -84,14 +124,14 @@ export default function MapScreen() {
   }, [router]);
 
   // Calculate min/max dates for slider
-  // Use oldestActivityDate from API as the full timeline extent
+  // Use apiOldestDate from API as the full timeline extent
   const { minDateForSlider, maxDateForSlider } = useMemo(() => {
     const now = new Date();
 
     // Use the oldest activity date from API if available
-    if (oldestActivityDate) {
+    if (apiOldestDate) {
       return {
-        minDateForSlider: new Date(oldestActivityDate),
+        minDateForSlider: new Date(apiOldestDate),
         maxDateForSlider: now,
       };
     }
@@ -108,7 +148,25 @@ export default function MapScreen() {
       minDateForSlider: new Date(oldestActivityTime),
       maxDateForSlider: now,
     };
-  }, [oldestActivityDate, activities, startDate]);
+  }, [apiOldestDate, activities, startDate]);
+
+  // Compute sync progress for timeline display
+  const timelineSyncProgress = useMemo(() => {
+    if (isFetchingActivities || isFetchingExtended) {
+      return { completed: 0, total: 0, message: t('mapScreen.loadingActivities') };
+    }
+    if (isGpsSyncing && gpsSyncProgress.total > 0) {
+      return {
+        completed: gpsSyncProgress.completed,
+        total: gpsSyncProgress.total,
+        message: undefined,
+      };
+    }
+    if (gpsSyncProgress.status === 'computing') {
+      return { completed: 0, total: 0, message: gpsSyncProgress.message };
+    }
+    return null;
+  }, [isFetchingActivities, isFetchingExtended, isGpsSyncing, gpsSyncProgress, t]);
 
   // Show loading state if not ready
   if (!isReady) {
@@ -116,11 +174,11 @@ export default function MapScreen() {
       <View style={[styles.loadingContainer, isDark && styles.loadingContainerDark]}>
         <ActivityIndicator size="large" color={colors.primary} />
         <Text style={[styles.loadingText, isDark && styles.loadingTextDark]}>
-          Loading activities...
+          {t('mapScreen.loadingActivities')}
         </Text>
         {isSyncing && progress && (
           <Text style={[styles.progressText, isDark && styles.loadingTextDark]}>
-            Syncing: {progress.completed}/{progress.total}
+            {t('mapScreen.syncing', { completed: progress.completed, total: progress.total })}
           </Text>
         )}
       </View>
@@ -152,12 +210,13 @@ export default function MapScreen() {
           onRangeChange={handleRangeChange}
           isLoading={isSyncing}
           activityCount={filteredActivities.length}
-          syncProgress={isSyncing ? progress : null}
+          syncProgress={timelineSyncProgress}
           cachedOldest={oldestSyncedDate ? new Date(oldestSyncedDate) : null}
           cachedNewest={newestSyncedDate ? new Date(newestSyncedDate) : null}
           selectedTypes={selectedTypes}
           availableTypes={availableTypes}
           onTypeSelectionChange={setSelectedTypes}
+          isDark={isDark}
         />
       </View>
 

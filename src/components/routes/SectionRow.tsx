@@ -9,8 +9,9 @@ import { View, StyleSheet, TouchableOpacity, useColorScheme } from 'react-native
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Svg, { Polyline, G } from 'react-native-svg';
+import { useTranslation } from 'react-i18next';
 import { colors, spacing, layout } from '@/theme';
-import { debug } from '@/lib/debug';
+import { debug } from '@/lib';
 import type { FrequentSection, RoutePoint } from '@/types';
 
 const log = debug.create('SectionRow');
@@ -65,6 +66,7 @@ export const SectionRow = memo(function SectionRow({
   activityTraces,
   onPress,
 }: SectionRowProps) {
+  const { t } = useTranslation();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
 
@@ -251,7 +253,7 @@ export const SectionRow = memo(function SectionRow({
               color={isDark ? '#666' : '#999'}
             />
             <Text style={[styles.statText, isDark && styles.textMuted]}>
-              {section.activityIds.length} activities
+              {section.activityIds.length} {t('routes.activities')}
             </Text>
           </View>
         </View>
@@ -259,7 +261,9 @@ export const SectionRow = memo(function SectionRow({
         {/* Routes using this section */}
         {section.routeIds.length > 0 && (
           <Text style={[styles.routes, isDark && styles.textMuted]} numberOfLines={1}>
-            Part of {section.routeIds.length} route{section.routeIds.length > 1 ? 's' : ''}
+            {section.routeIds.length > 1
+              ? t('routes.partOfRoutesPlural', { count: section.routeIds.length })
+              : t('routes.partOfRoutes', { count: section.routeIds.length })}
           </Text>
         )}
       </View>

@@ -1,12 +1,14 @@
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
-import { View, StyleSheet, useColorScheme, Pressable } from 'react-native';
+import { View, StyleSheet, useColorScheme } from 'react-native';
 import { Text, IconButton } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { RoutesList, SectionsList, TimelineSlider } from '@/components';
-import { useRouteProcessing, useActivities, useActivityBoundsCache, useRouteGroups, useFrequentSections } from '@/hooks';
-import { useRouteMatchStore, useRouteSettings } from '@/providers';
+import { SwipeableTabs, type SwipeableTab } from '@/components/ui';
+import { useRouteProcessing, useActivities, useActivityBoundsCache, useRouteGroups, useFrequentSections, useEngineStats, useRouteDataSync, useOldestActivityDate } from '@/hooks';
+import { useRouteSettings, useSyncDateRange } from '@/providers';
 import { colors, spacing } from '@/theme';
 import { debug } from '@/lib';
 import type { ActivityType } from '@/types';
@@ -16,6 +18,7 @@ type TabType = 'routes' | 'sections';
 const log = debug.create('Routes');
 
 export default function RoutesScreen() {
+  const { t } = useTranslation();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
 
@@ -23,19 +26,24 @@ export default function RoutesScreen() {
   const { settings: routeSettings } = useRouteSettings();
   const isRouteMatchingEnabled = routeSettings.enabled;
 
-  const { queueActivities, isProcessing, progress: routeProgress } = useRouteProcessing();
+  const { clearCache: clearRouteCache } = useRouteProcessing();
 
-  // Get processed activity IDs from cache to skip already-analyzed activities
-  const processedActivityIds = useRouteMatchStore((s) => s.cache?.processedActivityIds || []);
-  const processedSet = useMemo(() => new Set(processedActivityIds), [processedActivityIds]);
+  // Get engine stats
+  const engineStats = useEngineStats();
 
-  // Get cached bounds for pre-filtering (avoids API calls for isolated routes)
+  // Fetch the true oldest activity date from API (for timeline extent)
+  const { data: apiOldestDate } = useOldestActivityDate();
+
+  // Get sync date range from store
+  const syncOldest = useSyncDateRange((s) => s.oldest);
+  const syncNewest = useSyncDateRange((s) => s.newest);
+  const isFetchingExtended = useSyncDateRange((s) => s.isFetchingExtended);
+
+  // Get cached bounds for timeline limits
+  // Also get activities from engine to determine the full cached range
   const {
-    activities: boundsData,
+    activities: cachedActivities,
     isReady: boundsReady,
-    oldestActivityDate,
-    oldestSyncedDate,
-    newestSyncedDate,
     progress: syncProgress,
     syncDateRange,
   } = useActivityBoundsCache();
@@ -49,37 +57,49 @@ export default function RoutesScreen() {
   // Tab state
   const [activeTab, setActiveTab] = useState<TabType>('routes');
 
-  // Date range state - default to full cached range, or last 3 months if no cache
+  // Tabs configuration for SwipeableTabs
+  const tabs = useMemo<[SwipeableTab, SwipeableTab]>(() => [
+    { key: 'routes', label: t('trainingScreen.routes'), icon: 'map-marker-path', count: routeGroups.length },
+    { key: 'sections', label: t('trainingScreen.sections'), icon: 'road-variant', count: sections.length },
+  ], [t, routeGroups.length, sections.length]);
+
+  // Date range state - default to full cached range (show all data)
   const now = useMemo(() => new Date(), []);
-  const fallbackStart = useMemo(() => {
-    const d = new Date(now);
-    d.setMonth(d.getMonth() - 3);
-    return d;
-  }, [now]);
 
   // Track if we've initialized from cache
   const [hasInitialized, setHasInitialized] = useState(false);
 
-  // Calculate default dates from cache
-  const cachedStart = oldestSyncedDate ? new Date(oldestSyncedDate) : null;
-  const cachedEnd = newestSyncedDate ? new Date(newestSyncedDate) : null;
+  const [startDate, setStartDate] = useState<Date>(() => new Date(syncOldest));
+  const [endDate, setEndDate] = useState<Date>(() => new Date(syncNewest));
 
-  const [startDate, setStartDate] = useState<Date>(fallbackStart);
-  const [endDate, setEndDate] = useState<Date>(now);
-
-  // Initialize to full cached range once available
+  // Initialize to full cached range once GPS-synced activities are loaded from engine
+  // This shows all cached data by default on the routes page
   useEffect(() => {
-    if (!hasInitialized && boundsReady && cachedStart && cachedEnd) {
-      setStartDate(cachedStart);
-      setEndDate(cachedEnd);
-      setHasInitialized(true);
+    if (!hasInitialized && cachedActivities && cachedActivities.length > 0) {
+      // Find the oldest and newest activity dates from the engine cache
+      let oldest: Date | null = null;
+      let newest: Date | null = null;
+      for (const a of cachedActivities) {
+        const date = a.date ? new Date(a.date) : null;
+        if (date) {
+          if (!oldest || date < oldest) oldest = date;
+          if (!newest || date > newest) newest = date;
+        }
+      }
+      if (oldest && newest) {
+        setStartDate(oldest);
+        setEndDate(newest);
+        // Also expand the sync range so new data is fetched
+        syncDateRange(oldest.toISOString().split('T')[0], newest.toISOString().split('T')[0]);
+        setHasInitialized(true);
+      }
     }
-  }, [hasInitialized, boundsReady, cachedStart, cachedEnd]);
+  }, [hasInitialized, cachedActivities, syncDateRange]);
 
-  // Min/max dates for timeline
+  // Min/max dates for timeline - use API oldest date for full extent
   const minDate = useMemo(() => {
-    return oldestActivityDate ? new Date(oldestActivityDate) : new Date(now.getFullYear() - 5, 0, 1);
-  }, [oldestActivityDate, now]);
+    return apiOldestDate ? new Date(apiOldestDate) : new Date(now.getFullYear() - 5, 0, 1);
+  }, [apiOldestDate, now]);
 
   // Max date is always "now" (today)
   const maxDate = now;
@@ -88,7 +108,12 @@ export default function RoutesScreen() {
   const handleRangeChange = useCallback((start: Date, end: Date) => {
     setStartDate(start);
     setEndDate(end);
-  }, []);
+
+    // Expand the global sync date range to trigger GPS data fetching
+    const startStr = start.toISOString().split('T')[0];
+    const endStr = end.toISOString().split('T')[0];
+    syncDateRange(startStr, endStr);
+  }, [syncDateRange]);
 
   // Format dates for API
   const oldestStr = useMemo(() => startDate.toISOString().split('T')[0], [startDate]);
@@ -101,106 +126,43 @@ export default function RoutesScreen() {
     includeStats: false,
   });
 
-  // Filter bounds data to selected date range
-  const filteredBoundsData = useMemo(() => {
-    return boundsData.filter((b) => {
-      const date = new Date(b.date);
-      return date >= startDate && date <= endDate;
-    });
-  }, [boundsData, startDate, endDate]);
+  // Sync activity GPS data to Rust engine
+  const { progress: dataSyncProgress, isSyncing: isDataSyncing } = useRouteDataSync(
+    activities,
+    isRouteMatchingEnabled
+  );
 
-  // Track if we've already queued for the current date range to avoid duplicate calls
-  const lastQueuedRange = React.useRef<string | null>(null);
-  const rangeKey = `${oldestStr}-${newestStr}`;
+  // Sync status for UI - include when fetching extended date range
+  const isSyncing = syncProgress.status === 'syncing' || isDataSyncing || isLoading || isFetchingExtended;
 
-  // Trigger bounds sync when date range changes
-  useEffect(() => {
-    if (boundsReady) {
-      // Sync the full date range to ensure we have bounds for all activities
-      syncDateRange(oldestStr, newestStr);
+  // Calculate cached range from engine activities (shows the full synced range)
+  const { oldestSyncedDate, newestSyncedDate } = useMemo(() => {
+    if (!cachedActivities || cachedActivities.length === 0) {
+      return { oldestSyncedDate: null, newestSyncedDate: null };
     }
-  }, [oldestStr, newestStr, boundsReady, syncDateRange]);
-
-  // Queue activities for processing ONLY when:
-  // 1. Activities have loaded
-  // 2. Bounds are ready (initial load complete)
-  // 3. Sync is NOT currently in progress (wait for bounds to finish)
-  // 4. We haven't already queued for this date range
-  // 5. No route processing is happening (checking both store state AND hook)
-  const isSyncing = syncProgress.status === 'syncing';
-  const isIdle = routeProgress.status === 'idle';
-  const isComplete = routeProgress.status === 'complete';
-  const hasError = routeProgress.status === 'error';
-  // Only allow queuing when truly idle, complete, or errored
-  const canQueue = isIdle || isComplete || hasError;
-
-  useEffect(() => {
-    // Don't queue if route matching is disabled
-    if (!isRouteMatchingEnabled) {
-      return;
-    }
-
-    // Don't queue while bounds are still syncing - wait for complete data
-    if (isSyncing) {
-      return;
-    }
-
-    // Don't queue if we've already processed this range
-    if (lastQueuedRange.current === rangeKey) {
-      return;
-    }
-
-    // Don't queue if route processing is currently active
-    // isProcessing from hook includes all active states (filtering, fetching, processing, matching, detecting-sections)
-    if (isProcessing) {
-      log.log(`Skipping queue: processing in progress (status: ${routeProgress.status})`);
-      return;
-    }
-
-    // Only queue when we can (idle, complete, or error - not during active processing)
-    if (!canQueue) {
-      log.log(`Skipping queue: status is ${routeProgress.status}`);
-      return;
-    }
-
-    if (activities && activities.length > 0 && boundsReady) {
-      // Filter out already-processed activities - no need to re-analyze cached data
-      const unprocessedActivities = activities.filter((a) => !processedSet.has(a.id));
-
-      // Mark this range as queued (even if all are processed, to avoid re-checking)
-      lastQueuedRange.current = rangeKey;
-
-      // If all activities are already processed, skip queueing entirely
-      if (unprocessedActivities.length === 0) {
-        log.log(`All ${activities.length} activities already processed, skipping analysis`);
-        return;
+    let oldest: string | null = null;
+    let newest: string | null = null;
+    for (const a of cachedActivities) {
+      const date = a.date;
+      if (date) {
+        if (!oldest || date < oldest) oldest = date;
+        if (!newest || date > newest) newest = date;
       }
-
-      log.log(`Queueing ${unprocessedActivities.length} unprocessed activities (${activities.length - unprocessedActivities.length} already cached)`);
-
-      const activityIds = unprocessedActivities.map((a) => a.id);
-      const metadata: Record<string, { name: string; date: string; type: ActivityType; hasGps: boolean }> = {};
-
-      for (const activity of unprocessedActivities) {
-        metadata[activity.id] = {
-          name: activity.name,
-          date: activity.start_date_local,
-          type: activity.type,
-          hasGps: activity.stream_types?.includes('latlng') ?? false,
-        };
-      }
-
-      // Filter bounds data to only include unprocessed activities
-      const unprocessedBoundsData = filteredBoundsData.filter((b) => !processedSet.has(b.id));
-
-      // Pass filtered bounds data for pre-filtering
-      queueActivities(activityIds, metadata, unprocessedBoundsData);
     }
-  }, [activities, queueActivities, filteredBoundsData, boundsReady, isSyncing, isProcessing, canQueue, rangeKey, processedSet, isRouteMatchingEnabled, routeProgress.status]);
+    return { oldestSyncedDate: oldest, newestSyncedDate: newest };
+  }, [cachedActivities]);
 
   // Convert sync/processing progress to timeline format
-  // Show banner for both bounds syncing AND route processing
+  // Show banner for syncing AND data fetching
   const timelineSyncProgress = useMemo(() => {
+    // Show loading activities progress
+    if (isLoading || isFetchingExtended) {
+      return {
+        completed: 0,
+        total: 0,
+        message: t('mapScreen.loadingActivities'),
+      };
+    }
     // Show bounds syncing progress
     if (syncProgress.status === 'syncing') {
       return {
@@ -209,16 +171,24 @@ export default function RoutesScreen() {
         message: undefined,
       };
     }
-    // Show route processing progress after syncing is done
-    if (isProcessing && routeProgress.total > 0) {
+    // Show GPS data fetching progress
+    if (isDataSyncing && dataSyncProgress.total > 0) {
       return {
-        completed: routeProgress.current,
-        total: routeProgress.total,
-        message: `Analyzing routes ${routeProgress.current}/${routeProgress.total}`,
+        completed: dataSyncProgress.completed,
+        total: dataSyncProgress.total,
+        message: t('routesScreen.analysingRoutes', { current: dataSyncProgress.completed, total: dataSyncProgress.total }),
+      };
+    }
+    // Show computing routes progress (no progress bar, just message)
+    if (dataSyncProgress.status === 'computing') {
+      return {
+        completed: 0,
+        total: 0,
+        message: dataSyncProgress.message,
       };
     }
     return null;
-  }, [syncProgress, isProcessing, routeProgress]);
+  }, [isLoading, isFetchingExtended, syncProgress, isDataSyncing, dataSyncProgress, t]);
 
   // Show disabled state if route matching is not enabled
   if (!isRouteMatchingEnabled) {
@@ -230,7 +200,7 @@ export default function RoutesScreen() {
             iconColor={isDark ? '#FFFFFF' : colors.textPrimary}
             onPress={() => router.back()}
           />
-          <Text style={[styles.headerTitle, isDark && styles.textLight]}>Routes</Text>
+          <Text style={[styles.headerTitle, isDark && styles.textLight]}>{t('routesScreen.title')}</Text>
           <View style={styles.headerRight} />
         </View>
 
@@ -241,10 +211,10 @@ export default function RoutesScreen() {
             color={isDark ? '#444' : '#CCC'}
           />
           <Text style={[styles.disabledTitle, isDark && styles.textLight]}>
-            Route Matching Disabled
+            {t('routesScreen.matchingDisabled')}
           </Text>
           <Text style={[styles.disabledText, isDark && styles.textMuted]}>
-            Enable route matching in Settings to automatically detect repeated routes from your activities.
+            {t('routesScreen.enableInSettings')}
           </Text>
           <IconButton
             icon="cog"
@@ -253,7 +223,7 @@ export default function RoutesScreen() {
             onPress={() => router.push('/settings')}
           />
           <Text style={[styles.disabledHint, isDark && styles.textMuted]}>
-            Go to Settings
+            {t('routesScreen.goToSettings')}
           </Text>
         </View>
       </SafeAreaView>
@@ -268,65 +238,8 @@ export default function RoutesScreen() {
           iconColor={isDark ? '#FFFFFF' : colors.textPrimary}
           onPress={() => router.back()}
         />
-        <Text style={[styles.headerTitle, isDark && styles.textLight]}>Routes</Text>
+        <Text style={[styles.headerTitle, isDark && styles.textLight]}>{t('routesScreen.title')}</Text>
         <View style={styles.headerRight} />
-      </View>
-
-      {/* Tab Bar */}
-      <View style={[styles.tabBar, isDark && styles.tabBarDark]}>
-        <Pressable
-          style={[
-            styles.tab,
-            activeTab === 'routes' && styles.tabActive,
-            activeTab === 'routes' && isDark && styles.tabActiveDark,
-          ]}
-          onPress={() => setActiveTab('routes')}
-        >
-          <MaterialCommunityIcons
-            name="map-marker-path"
-            size={16}
-            color={activeTab === 'routes' ? colors.primary : (isDark ? '#888' : colors.textSecondary)}
-          />
-          <Text style={[
-            styles.tabText,
-            activeTab === 'routes' && styles.tabTextActive,
-            isDark && styles.tabTextDark,
-          ]}>
-            Routes
-          </Text>
-          <View style={[styles.tabBadge, activeTab === 'routes' && styles.tabBadgeActive]}>
-            <Text style={[styles.tabBadgeText, activeTab === 'routes' && styles.tabBadgeTextActive]}>
-              {routeGroups.length}
-            </Text>
-          </View>
-        </Pressable>
-
-        <Pressable
-          style={[
-            styles.tab,
-            activeTab === 'sections' && styles.tabActive,
-            activeTab === 'sections' && isDark && styles.tabActiveDark,
-          ]}
-          onPress={() => setActiveTab('sections')}
-        >
-          <MaterialCommunityIcons
-            name="road-variant"
-            size={16}
-            color={activeTab === 'sections' ? colors.primary : (isDark ? '#888' : colors.textSecondary)}
-          />
-          <Text style={[
-            styles.tabText,
-            activeTab === 'sections' && styles.tabTextActive,
-            isDark && styles.tabTextDark,
-          ]}>
-            Sections
-          </Text>
-          <View style={[styles.tabBadge, activeTab === 'sections' && styles.tabBadgeActive]}>
-            <Text style={[styles.tabBadgeText, activeTab === 'sections' && styles.tabBadgeTextActive]}>
-              {sections.length}
-            </Text>
-          </View>
-        </Pressable>
       </View>
 
       {/* Timeline slider - same as world map */}
@@ -336,7 +249,7 @@ export default function RoutesScreen() {
         startDate={startDate}
         endDate={endDate}
         onRangeChange={handleRangeChange}
-        isLoading={isLoading || isProcessing}
+        isLoading={isSyncing}
         activityCount={activities?.length || 0}
         syncProgress={timelineSyncProgress}
         cachedOldest={oldestSyncedDate ? new Date(oldestSyncedDate) : null}
@@ -344,16 +257,21 @@ export default function RoutesScreen() {
         isDark={isDark}
       />
 
-      {activeTab === 'routes' ? (
+      {/* Swipeable Routes/Sections tabs */}
+      <SwipeableTabs
+        tabs={tabs}
+        activeTab={activeTab}
+        onTabChange={(key) => setActiveTab(key as TabType)}
+        isDark={isDark}
+      >
         <RoutesList
           onRefresh={() => refetch()}
           isRefreshing={isRefetching}
           startDate={startDate}
           endDate={endDate}
         />
-      ) : (
         <SectionsList />
-      )}
+      </SwipeableTabs>
     </SafeAreaView>
   );
 }
@@ -380,64 +298,6 @@ const styles = StyleSheet.create({
     width: 48,
     alignItems: 'flex-end',
     paddingRight: spacing.sm,
-  },
-  tabBar: {
-    flexDirection: 'row',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    gap: spacing.sm,
-    backgroundColor: colors.background,
-  },
-  tabBarDark: {
-    backgroundColor: '#121212',
-  },
-  tab: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.xs,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderRadius: 10,
-    backgroundColor: '#F0F0F0',
-  },
-  tabActive: {
-    backgroundColor: '#FFF3ED',
-  },
-  tabActiveDark: {
-    backgroundColor: 'rgba(252, 76, 2, 0.15)',
-  },
-  tabText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: colors.textSecondary,
-  },
-  tabTextActive: {
-    color: colors.primary,
-    fontWeight: '600',
-  },
-  tabTextDark: {
-    color: '#888',
-  },
-  tabBadge: {
-    backgroundColor: '#E0E0E0',
-    borderRadius: 10,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    minWidth: 22,
-    alignItems: 'center',
-  },
-  tabBadgeActive: {
-    backgroundColor: colors.primary,
-  },
-  tabBadgeText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: colors.textSecondary,
-  },
-  tabBadgeTextActive: {
-    color: '#FFFFFF',
   },
   textLight: {
     color: '#FFFFFF',

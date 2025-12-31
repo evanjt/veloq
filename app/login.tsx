@@ -13,19 +13,33 @@ import { Text, TextInput, Button, HelperText, ActivityIndicator } from 'react-na
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router, Href } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '@/providers';
 import { intervalsApi } from '@/api/intervals';
 import { colors, spacing, layout } from '@/theme';
+import { useQueryClient } from '@tanstack/react-query';
 
 export default function LoginScreen() {
+  const { t } = useTranslation();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const insets = useSafeAreaInsets();
   const setCredentials = useAuthStore((state) => state.setCredentials);
+  const enterDemoMode = useAuthStore((state) => state.enterDemoMode);
+  const queryClient = useQueryClient();
 
   const [apiKey, setApiKey] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const handleTryDemo = () => {
+    // Clear any cached data from previous sessions
+    queryClient.clear();
+    // Enter demo mode
+    enterDemoMode();
+    // Navigate to main app
+    router.replace('/' as Href);
+  };
 
   const handleOpenSettings = () => {
     Linking.openURL('https://intervals.icu/settings');
@@ -33,7 +47,7 @@ export default function LoginScreen() {
 
   const handleLogin = async () => {
     if (!apiKey.trim()) {
-      setError('API Key is required');
+      setError(t('login.apiKeyRequired'));
       return;
     }
 
@@ -62,9 +76,9 @@ export default function LoginScreen() {
 
       const error = err as { response?: { status?: number } };
       if (error?.response?.status === 401) {
-        setError('Invalid API Key. Please check your key and try again.');
+        setError(t('login.invalidApiKey'));
       } else {
-        setError('Failed to connect. Please check your API key and try again.');
+        setError(t('login.connectionFailed'));
       }
     } finally {
       setIsLoading(false);
@@ -72,7 +86,7 @@ export default function LoginScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.container, isDark && styles.containerDark]}>
+    <SafeAreaView style={[styles.container, isDark && styles.containerDark]} testID="login-screen">
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
@@ -84,21 +98,19 @@ export default function LoginScreen() {
         >
           {/* Logo/Header */}
           <View style={styles.header}>
-            <Text style={[styles.title, isDark && styles.textLight]}>Veloq</Text>
+            <Text style={[styles.title, isDark && styles.textLight]}>{t('login.title')}</Text>
             <Text style={[styles.subtitle, isDark && styles.textDark]}>
-              Connect to Intervals.icu
+              {t('login.subtitle')}
             </Text>
           </View>
 
           {/* Instructions */}
           <View style={[styles.card, isDark && styles.cardDark]}>
             <Text style={[styles.instructionTitle, isDark && styles.textLight]}>
-              Getting Started
+              {t('login.gettingStarted')}
             </Text>
             <Text style={[styles.instruction, isDark && styles.textDark]}>
-              1. Open Intervals.icu Settings{'\n'}
-              2. Scroll to "Developer Settings"{'\n'}
-              3. Copy your API Key
+              {t('login.instructions')}
             </Text>
             <Button
               mode="outlined"
@@ -106,14 +118,15 @@ export default function LoginScreen() {
               icon="open-in-new"
               style={styles.settingsButton}
             >
-              Open Intervals.icu Settings
+              {t('login.openSettings')}
             </Button>
           </View>
 
           {/* Credentials Form */}
           <View style={[styles.card, isDark && styles.cardDark]}>
             <TextInput
-              label="API Key"
+              testID="login-api-key-input"
+              label={t('login.apiKey')}
               value={apiKey}
               onChangeText={setApiKey}
               mode="outlined"
@@ -126,12 +139,13 @@ export default function LoginScreen() {
             />
 
             {error && (
-              <HelperText type="error" visible={true}>
+              <HelperText type="error" visible={true} testID="login-error-text">
                 {error}
               </HelperText>
             )}
 
             <Button
+              testID="login-button"
               mode="contained"
               onPress={handleLogin}
               loading={isLoading}
@@ -139,7 +153,18 @@ export default function LoginScreen() {
               style={styles.loginButton}
               contentStyle={styles.loginButtonContent}
             >
-              {isLoading ? 'Connecting...' : 'Connect'}
+              {isLoading ? t('login.connecting') : t('login.connect')}
+            </Button>
+
+            <Button
+              testID="login-demo-button"
+              mode="outlined"
+              onPress={handleTryDemo}
+              disabled={isLoading}
+              style={styles.demoButton}
+              icon="play-circle-outline"
+            >
+              {t('login.tryDemo', { defaultValue: 'Try Demo' })}
             </Button>
           </View>
 
@@ -151,7 +176,7 @@ export default function LoginScreen() {
               color={isDark ? '#888' : colors.textSecondary}
             />
             <Text style={[styles.securityText, isDark && styles.textDark]}>
-              Your credentials are stored securely on your device
+              {t('login.securityNote')}
             </Text>
           </View>
         </ScrollView>
@@ -229,6 +254,9 @@ const styles = StyleSheet.create({
   },
   loginButtonContent: {
     paddingVertical: spacing.xs,
+  },
+  demoButton: {
+    marginTop: spacing.md,
   },
   securityNote: {
     flexDirection: 'row',

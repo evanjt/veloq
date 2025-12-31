@@ -87,7 +87,12 @@ class RouteMatcherModule : Module() {
       groups.map { group ->
         mapOf(
           "groupId" to group.groupId,
-          "activityIds" to group.activityIds
+          "representativeId" to group.representativeId,
+          "activityIds" to group.activityIds,
+          "sportType" to group.sportType,
+          "bounds" to group.bounds?.let { b ->
+            mapOf("minLat" to b.minLat, "maxLat" to b.maxLat, "minLng" to b.minLng, "maxLng" to b.maxLng)
+          }
         )
       }
     }
@@ -109,102 +114,7 @@ class RouteMatcherModule : Module() {
       )
     }
 
-    // BATCH: Create multiple signatures in parallel (MUCH faster for many activities)
-    Function("createSignaturesBatch") { tracks: List<Map<String, Any>>, config: Map<String, Any>? ->
-      Log.i(TAG, "BATCH createSignatures called with ${tracks.size} tracks")
-
-      @Suppress("UNCHECKED_CAST")
-      val gpsTracks = tracks.mapNotNull { track ->
-        val activityId = track["activityId"] as? String ?: return@mapNotNull null
-        val pointMaps = track["points"] as? List<Map<String, Double>> ?: return@mapNotNull null
-
-        val gpsPoints = pointMaps.mapNotNull { dict ->
-          val lat = dict["latitude"] ?: return@mapNotNull null
-          val lng = dict["longitude"] ?: return@mapNotNull null
-          GpsPoint(lat, lng)
-        }
-
-        GpsTrack(activityId, gpsPoints)
-      }
-
-      val matchConfig = parseConfig(config)
-
-      val startTime = System.currentTimeMillis()
-      val signatures = createSignaturesBatch(gpsTracks, matchConfig)
-      val elapsed = System.currentTimeMillis() - startTime
-
-      Log.i(TAG, "BATCH created ${signatures.size} signatures in ${elapsed}ms")
-
-      signatures.map { signatureToMap(it) }
-    }
-
-    // BATCH: Full end-to-end processing (signatures + grouping) in one call
-    Function("processRoutesBatch") { tracks: List<Map<String, Any>>, config: Map<String, Any>? ->
-      Log.i(TAG, "FULL BATCH processRoutes called with ${tracks.size} tracks")
-
-      @Suppress("UNCHECKED_CAST")
-      val gpsTracks = tracks.mapNotNull { track ->
-        val activityId = track["activityId"] as? String ?: return@mapNotNull null
-        val pointMaps = track["points"] as? List<Map<String, Double>> ?: return@mapNotNull null
-
-        val gpsPoints = pointMaps.mapNotNull { dict ->
-          val lat = dict["latitude"] ?: return@mapNotNull null
-          val lng = dict["longitude"] ?: return@mapNotNull null
-          GpsPoint(lat, lng)
-        }
-
-        GpsTrack(activityId, gpsPoints)
-      }
-
-      val matchConfig = parseConfig(config)
-
-      val startTime = System.currentTimeMillis()
-      val groups = processRoutesBatch(gpsTracks, matchConfig)
-      val elapsed = System.currentTimeMillis() - startTime
-
-      Log.i(TAG, "FULL BATCH: ${gpsTracks.size} tracks -> ${groups.size} groups in ${elapsed}ms")
-
-      groups.map { group ->
-        mapOf(
-          "groupId" to group.groupId,
-          "activityIds" to group.activityIds
-        )
-      }
-    }
-
-    // OPTIMIZED: Process routes using flat coordinate arrays (TypedArray from JS)
-    // Each track has activityId (String) and coords (DoubleArray: [lat1, lng1, lat2, lng2, ...])
-    // This avoids the overhead of Map<String, Double> for each GPS point
-    Function("processRoutesFlat") { activityIds: List<String>, coordArrays: List<DoubleArray>, config: Map<String, Any>? ->
-      Log.i(TAG, "FLAT processRoutes called with ${activityIds.size} tracks")
-
-      if (activityIds.size != coordArrays.size) {
-        Log.e(TAG, "ERROR: activityIds.size (${activityIds.size}) != coordArrays.size (${coordArrays.size})")
-        return@Function emptyList<Map<String, Any>>()
-      }
-
-      // Convert to FlatGpsTrack for Rust
-      val flatTracks = activityIds.mapIndexed { index, activityId ->
-        FlatGpsTrack(activityId, coordArrays[index].toList())
-      }
-
-      val matchConfig = parseConfig(config)
-
-      val startTime = System.currentTimeMillis()
-      val groups = processRoutesFromFlat(flatTracks, matchConfig)
-      val elapsed = System.currentTimeMillis() - startTime
-
-      Log.i(TAG, "FLAT BATCH: ${flatTracks.size} tracks -> ${groups.size} groups in ${elapsed}ms")
-
-      groups.map { group ->
-        mapOf(
-          "groupId" to group.groupId,
-          "activityIds" to group.activityIds
-        )
-      }
-    }
-
-    // OPTIMIZED: Create signatures from flat buffer (returns signatures, not groups)
+    // Create signatures from flat buffer (returns signatures, not groups)
     // Used when we need signatures for incremental caching
     Function("createSignaturesFlatBuffer") { activityIds: List<String>, coords: DoubleArray, offsets: IntArray, config: Map<String, Any>? ->
       Log.i(TAG, "FLAT BUFFER createSignatures: ${activityIds.size} tracks, ${coords.size} coords")
@@ -233,7 +143,7 @@ class RouteMatcherModule : Module() {
       signatures.map { signatureToMap(it) }
     }
 
-    // OPTIMIZED V2: Single flat buffer with offsets (most efficient)
+    // Process routes using flat buffer with offsets
     // coords: flat DoubleArray [lat1, lng1, lat2, lng2, ...]
     // offsets: IntArray marking where each track starts in the coords array
     // activityIds: List<String> of activity IDs in same order as offsets
@@ -264,7 +174,12 @@ class RouteMatcherModule : Module() {
       groups.map { group ->
         mapOf(
           "groupId" to group.groupId,
-          "activityIds" to group.activityIds
+          "representativeId" to group.representativeId,
+          "activityIds" to group.activityIds,
+          "sportType" to group.sportType,
+          "bounds" to group.bounds?.let { b ->
+            mapOf("minLat" to b.minLat, "maxLat" to b.maxLat, "minLng" to b.minLng, "maxLng" to b.maxLng)
+          }
         )
       }
     }
@@ -394,9 +309,14 @@ class RouteMatcherModule : Module() {
       val existingSignatures = existingSigMaps.mapNotNull { mapToSignature(it) }
       val existingGroups = existingGroupMaps.map { m ->
         @Suppress("UNCHECKED_CAST")
+        val activityIds = m["activityIds"] as List<String>
         RouteGroup(
           groupId = m["groupId"] as String,
-          activityIds = m["activityIds"] as List<String>
+          representativeId = (m["representativeId"] as? String) ?: activityIds.firstOrNull() ?: "",
+          activityIds = activityIds,
+          sportType = (m["sportType"] as? String) ?: "",
+          bounds = null,
+          customName = (m["customName"] as? String)
         )
       }
 
@@ -410,7 +330,13 @@ class RouteMatcherModule : Module() {
       result.map { group ->
         mapOf(
           "groupId" to group.groupId,
-          "activityIds" to group.activityIds
+          "representativeId" to group.representativeId,
+          "activityIds" to group.activityIds,
+          "sportType" to group.sportType,
+          "bounds" to group.bounds?.let { b ->
+            mapOf("minLat" to b.minLat, "maxLat" to b.maxLat, "minLng" to b.minLng, "maxLng" to b.maxLng)
+          },
+          "customName" to group.customName
         )
       }
     }
@@ -427,45 +353,21 @@ class RouteMatcherModule : Module() {
       )
     }
 
-    Function("detectFrequentSections") { sigMaps: List<Map<String, Any>>, groupMaps: List<Map<String, Any>>, sportTypeMaps: List<Map<String, Any>>, config: Map<String, Any>? ->
-      Log.i(TAG, "detectFrequentSections: ${sigMaps.size} signatures")
-
-      val signatures = sigMaps.mapNotNull { mapToSignature(it) }
-      val groups = groupMaps.map { m ->
-        @Suppress("UNCHECKED_CAST")
-        RouteGroup(
-          groupId = m["groupId"] as String,
-          activityIds = m["activityIds"] as List<String>
-        )
-      }
-      val sportTypes = sportTypeMaps.map { m ->
-        ActivitySportType(
-          activityId = m["activity_id"] as String,
-          sportType = m["sport_type"] as String
-        )
-      }
-
-      val sectionConfig = parseSectionConfig(config)
-
-      val startTime = System.currentTimeMillis()
-      val result = ffiDetectFrequentSections(signatures, groups, sportTypes, sectionConfig)
-      val elapsed = System.currentTimeMillis() - startTime
-
-      Log.i(TAG, "detectFrequentSections returned ${result.size} sections in ${elapsed}ms")
-
-      result.map { sectionToMap(it) }
-    }
-
-    // Section detection from FULL GPS tracks (medoid-based)
-    // Returns JSON string for efficient bridge serialization (avoids slow Map conversion)
+    // Section detection from GPS tracks
+    // Returns JSON string for efficient bridge serialization
     Function("detectSectionsFromTracks") { activityIds: List<String>, allCoords: DoubleArray, offsets: IntArray, sportTypeMaps: List<Map<String, Any>>, groupMaps: List<Map<String, Any>>, config: Map<String, Any>? ->
       Log.i(TAG, "detectSectionsFromTracks: ${activityIds.size} activities, ${allCoords.size / 2} coords")
 
       val groups = groupMaps.map { m ->
         @Suppress("UNCHECKED_CAST")
+        val activityIds = m["activityIds"] as List<String>
         RouteGroup(
           groupId = m["groupId"] as String,
-          activityIds = m["activityIds"] as List<String>
+          representativeId = (m["representativeId"] as? String) ?: activityIds.firstOrNull() ?: "",
+          activityIds = activityIds,
+          sportType = (m["sportType"] as? String) ?: "",
+          bounds = null,
+          customName = (m["customName"] as? String)
         )
       }
       val sportTypes = sportTypeMaps.map { m ->
@@ -582,6 +484,250 @@ class RouteMatcherModule : Module() {
         "total_routes" to result.totalRoutes.toInt(),
         "total_activities" to result.totalActivities.toInt()
       )
+    }
+
+    // ==========================================================================
+    // Route Engine (Stateful Rust Backend)
+    // ==========================================================================
+
+    // Engine: Initialize
+    Function("engineInit") {
+      engineInit()
+      Log.i(TAG, "RouteEngine: Initialized")
+    }
+
+    // Engine: Clear all state
+    Function("engineClear") {
+      engineClear()
+      Log.i(TAG, "RouteEngine: Cleared")
+    }
+
+    // Engine: Add activities from flat buffers (async to avoid blocking UI thread)
+    AsyncFunction("engineAddActivities") { activityIds: List<String>, allCoords: DoubleArray, offsets: IntArray, sportTypes: List<String> ->
+      Log.i(TAG, "RouteEngine: Adding ${activityIds.size} activities (async)")
+      val offsetsU32 = offsets.map { it.toUInt() }
+      engineAddActivities(activityIds, allCoords.toList(), offsetsU32, sportTypes)
+    }
+
+    // Engine: Remove activities
+    Function("engineRemoveActivities") { activityIds: List<String> ->
+      Log.i(TAG, "RouteEngine: Removing ${activityIds.size} activities")
+      engineRemoveActivities(activityIds)
+    }
+
+    // Engine: Get all activity IDs
+    Function("engineGetActivityIds") {
+      engineGetActivityIds()
+    }
+
+    // Engine: Get activity count
+    Function("engineGetActivityCount") {
+      engineGetActivityCount().toInt()
+    }
+
+    // Engine: Get groups as JSON
+    Function("engineGetGroupsJson") {
+      engineGetGroupsJson()
+    }
+
+    // Engine: Get sections as JSON
+    Function("engineGetSectionsJson") {
+      engineGetSectionsJson()
+    }
+
+    // Engine: Get signature points for all activities in a group
+    Function("engineGetSignaturesForGroupJson") { groupId: String ->
+      engineGetSignaturesForGroupJson(groupId)
+    }
+
+    // Engine: Set custom route name
+    Function("engineSetRouteName") { routeId: String, name: String ->
+      engineSetRouteName(routeId, name)
+    }
+
+    // Engine: Get custom route name
+    Function("engineGetRouteName") { routeId: String ->
+      engineGetRouteName(routeId)
+    }
+
+    // Engine: Query viewport
+    Function("engineQueryViewport") { minLat: Double, maxLat: Double, minLng: Double, maxLng: Double ->
+      engineQueryViewport(minLat, maxLat, minLng, maxLng)
+    }
+
+    // Engine: Find nearby
+    Function("engineFindNearby") { lat: Double, lng: Double, radiusDegrees: Double ->
+      engineFindNearby(lat, lng, radiusDegrees)
+    }
+
+    // Engine: Get consensus route
+    Function("engineGetConsensusRoute") { groupId: String ->
+      engineGetConsensusRoute(groupId)
+    }
+
+    // Engine: Get stats
+    Function("engineGetStats") {
+      val stats = engineGetStats()
+      mapOf(
+        "activity_count" to stats.activityCount.toInt(),
+        "signature_count" to stats.signatureCount.toInt(),
+        "group_count" to stats.groupCount.toInt(),
+        "section_count" to stats.sectionCount.toInt(),
+        "cached_consensus_count" to stats.cachedConsensusCount.toInt()
+      )
+    }
+
+    // Engine: Set match config
+    Function("engineSetMatchConfig") { config: Map<String, Any> ->
+      val matchConfig = parseConfig(config)
+      engineSetMatchConfig(matchConfig)
+    }
+
+    // Engine: Set section config
+    Function("engineSetSectionConfig") { config: Map<String, Any> ->
+      val sectionConfig = parseSectionConfig(config)
+      engineSetSectionConfig(sectionConfig)
+    }
+
+    // Engine: Get all activity bounds as JSON (for map display)
+    Function("engineGetAllActivityBoundsJson") {
+      engineGetAllActivityBoundsJson()
+    }
+
+    // Engine: Get all signatures as JSON (for trace rendering)
+    Function("engineGetAllSignaturesJson") {
+      engineGetAllSignaturesJson()
+    }
+
+    // ==========================================================================
+    // Persistent Route Engine (SQLite-backed, memory efficient)
+    // ==========================================================================
+
+    // PersistentEngine: Initialize with database path
+    Function("persistentEngineInit") { dbPath: String ->
+      val result = persistentEngineInit(dbPath)
+      Log.i(TAG, "PersistentEngine: Initialized = $result")
+      result
+    }
+
+    // PersistentEngine: Check if initialized
+    Function("persistentEngineIsInitialized") {
+      persistentEngineIsInitialized()
+    }
+
+    // PersistentEngine: Clear all state
+    Function("persistentEngineClear") {
+      persistentEngineClear()
+      Log.i(TAG, "PersistentEngine: Cleared")
+    }
+
+    // PersistentEngine: Add activities from flat buffers
+    Function("persistentEngineAddActivities") { activityIds: List<String>, allCoords: DoubleArray, offsets: IntArray, sportTypes: List<String> ->
+      Log.i(TAG, "PersistentEngine: Adding ${activityIds.size} activities")
+      val offsetsU32 = offsets.map { it.toUInt() }
+      persistentEngineAddActivities(activityIds, allCoords.toList(), offsetsU32, sportTypes)
+    }
+
+    // PersistentEngine: Remove activities
+    Function("persistentEngineRemoveActivities") { activityIds: List<String> ->
+      Log.i(TAG, "PersistentEngine: Removing ${activityIds.size} activities")
+      persistentEngineRemoveActivities(activityIds)
+    }
+
+    // PersistentEngine: Get all activity IDs
+    Function("persistentEngineGetActivityIds") {
+      persistentEngineGetActivityIds()
+    }
+
+    // PersistentEngine: Get activity count
+    Function("persistentEngineGetActivityCount") {
+      persistentEngineGetActivityCount().toInt()
+    }
+
+    // PersistentEngine: Get groups as JSON
+    Function("persistentEngineGetGroupsJson") {
+      persistentEngineGetGroupsJson()
+    }
+
+    // PersistentEngine: Get sections as JSON
+    Function("persistentEngineGetSectionsJson") {
+      persistentEngineGetSectionsJson()
+    }
+
+    // PersistentEngine: Query viewport
+    Function("persistentEngineQueryViewport") { minLat: Double, maxLat: Double, minLng: Double, maxLng: Double ->
+      persistentEngineQueryViewport(minLat, maxLat, minLng, maxLng)
+    }
+
+    // PersistentEngine: Get consensus route as flat coords
+    Function("persistentEngineGetConsensusRoute") { groupId: String ->
+      persistentEngineGetConsensusRoute(groupId)
+    }
+
+    // PersistentEngine: Get GPS track as flat coords
+    Function("persistentEngineGetGpsTrack") { activityId: String ->
+      persistentEngineGetGpsTrack(activityId)
+    }
+
+    // PersistentEngine: Get stats
+    Function("persistentEngineGetStats") {
+      val stats = persistentEngineGetStats()
+      stats?.let {
+        mapOf(
+          "activity_count" to it.activityCount.toInt(),
+          "signature_cache_size" to it.signatureCacheSize.toInt(),
+          "consensus_cache_size" to it.consensusCacheSize.toInt(),
+          "group_count" to it.groupCount.toInt(),
+          "section_count" to it.sectionCount.toInt(),
+          "groups_dirty" to it.groupsDirty,
+          "sections_dirty" to it.sectionsDirty
+        )
+      }
+    }
+
+    // PersistentEngine: Start background section detection
+    Function("persistentEngineStartSectionDetection") { sportFilter: String? ->
+      persistentEngineStartSectionDetection(sportFilter)
+    }
+
+    // PersistentEngine: Poll section detection status
+    Function("persistentEnginePollSections") {
+      persistentEnginePollSections()
+    }
+
+    // PersistentEngine: Cancel section detection
+    Function("persistentEngineCancelSectionDetection") {
+      persistentEngineCancelSectionDetection()
+    }
+
+    // PersistentEngine: Set custom route name
+    Function("persistentEngineSetRouteName") { routeId: String, name: String ->
+      persistentEngineSetRouteName(routeId, name)
+    }
+
+    // PersistentEngine: Get custom route name
+    Function("persistentEngineGetRouteName") { routeId: String ->
+      persistentEngineGetRouteName(routeId)
+    }
+
+    // PersistentEngine: Get all custom route names as JSON
+    Function("persistentEngineGetAllRouteNamesJson") {
+      persistentEngineGetAllRouteNamesJson()
+    }
+
+    // PersistentEngine: Set custom section name
+    Function("persistentEngineSetSectionName") { sectionId: String, name: String ->
+      persistentEngineSetSectionName(sectionId, name)
+    }
+
+    // PersistentEngine: Get custom section name
+    Function("persistentEngineGetSectionName") { sectionId: String ->
+      persistentEngineGetSectionName(sectionId)
+    }
+
+    // PersistentEngine: Get all custom section names as JSON
+    Function("persistentEngineGetAllSectionNamesJson") {
+      persistentEngineGetAllSectionNamesJson()
     }
 
     Function("queryHeatmapCell") { heatmapJson: String, lat: Double, lng: Double ->

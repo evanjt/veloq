@@ -43,10 +43,31 @@ use geo::{
     algorithm::simplify::Simplify,
 };
 use rstar::{RTree, RTreeObject, AABB};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 // Geographic utilities (distance, bounds, center calculations)
 pub mod geo_utils;
+
+// Algorithm toolbox - modular access to all algorithms
+// Use route_matcher::algorithms::{...} for standalone algorithm access
+pub mod algorithms;
+
+// LRU cache for efficient memory management
+pub mod lru_cache;
+
+// Stateful route engine (singleton with all route state)
+pub mod engine;
+pub use engine::{RouteEngine, EngineStats, ENGINE, with_engine};
+
+// Persistent route engine with tiered storage
+#[cfg(feature = "persistence")]
+pub mod persistence;
+#[cfg(feature = "persistence")]
+pub use persistence::{
+    PersistentRouteEngine, PersistentEngineStats, SectionDetectionHandle,
+    PERSISTENT_ENGINE, with_persistent_engine,
+};
 
 // HTTP module for activity fetching
 #[cfg(feature = "http")]
@@ -57,7 +78,7 @@ pub use http::{ActivityFetcher, ActivityMapResult, MapBounds};
 
 // Frequent sections detection (medoid-based algorithm for smooth polylines)
 pub mod sections;
-pub use sections::{FrequentSection, SectionConfig, SectionPortion, detect_frequent_sections, detect_sections_from_tracks};
+pub use sections::{FrequentSection, SectionConfig, SectionPortion, detect_sections_from_tracks};
 
 // Heatmap generation module
 pub mod heatmap;
@@ -65,6 +86,30 @@ pub use heatmap::{
     HeatmapConfig, HeatmapBounds, HeatmapCell, HeatmapResult,
     RouteRef, CellQueryResult, ActivityHeatmapData,
     generate_heatmap, query_heatmap_cell,
+};
+
+// Zone distribution calculations (power/HR zones)
+pub mod zones;
+pub use zones::{
+    PowerZoneConfig, HRZoneConfig,
+    PowerZoneDistribution, HRZoneDistribution,
+    calculate_power_zones, calculate_hr_zones,
+};
+#[cfg(feature = "parallel")]
+pub use zones::{calculate_power_zones_parallel, calculate_hr_zones_parallel};
+
+// Power/pace curve computation
+pub mod curves;
+pub use curves::{
+    PowerCurve, PaceCurve, CurvePoint,
+    compute_power_curve, compute_pace_curve,
+};
+
+// Achievement/PR detection
+pub mod achievements;
+pub use achievements::{
+    Achievement, AchievementType, ActivityRecord,
+    detect_achievements,
 };
 
 #[cfg(feature = "ffi")]
@@ -99,7 +144,7 @@ fn init_logging() {
 /// use route_matcher::GpsPoint;
 /// let point = GpsPoint::new(51.5074, -0.1278); // London
 /// ```
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "ffi", derive(uniffi::Record))]
 pub struct GpsPoint {
     pub latitude: f64,
@@ -124,7 +169,7 @@ impl GpsPoint {
 }
 
 /// Bounding box for a route.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "ffi", derive(uniffi::Record))]
 pub struct Bounds {
     pub min_lat: f64,
@@ -351,13 +396,21 @@ impl Default for MatchConfig {
 }
 
 /// A group of similar routes.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "ffi", derive(uniffi::Record))]
 pub struct RouteGroup {
     /// Unique identifier for this group (typically the first activity ID)
     pub group_id: String,
+    /// ID of the representative activity (the medoid)
+    pub representative_id: String,
     /// All activity IDs that belong to this group
     pub activity_ids: Vec<String>,
+    /// Sport type for this group (e.g., "Ride", "Run")
+    pub sport_type: String,
+    /// Bounding box for all activities in the group
+    pub bounds: Option<Bounds>,
+    /// User-defined custom name for this route (None = use auto-generated name)
+    pub custom_name: Option<String>,
 }
 
 /// Bounding box for a route (used for spatial indexing).
@@ -773,17 +826,14 @@ pub fn group_signatures(signatures: &[RouteSignature], config: &MatchConfig) -> 
         }
     }
 
-    // Build groups
-    let mut groups: HashMap<String, Vec<String>> = HashMap::new();
+    // Build groups with full metadata
+    let mut groups_map: HashMap<String, Vec<String>> = HashMap::new();
     for sig in signatures {
         let root = find(&mut parent, &sig.activity_id);
-        groups.entry(root).or_default().push(sig.activity_id.clone());
+        groups_map.entry(root).or_default().push(sig.activity_id.clone());
     }
 
-    groups
-        .into_iter()
-        .map(|(group_id, activity_ids)| RouteGroup { group_id, activity_ids })
-        .collect()
+    build_route_groups(groups_map, &sig_map)
 }
 
 /// Group signatures using parallel processing.
@@ -853,17 +903,14 @@ pub fn group_signatures_parallel(
         union(&mut parent, &id1, &id2);
     }
 
-    // Build groups
-    let mut groups: HashMap<String, Vec<String>> = HashMap::new();
+    // Build groups with full metadata
+    let mut groups_map: HashMap<String, Vec<String>> = HashMap::new();
     for sig in signatures {
         let root = find(&mut parent, &sig.activity_id);
-        groups.entry(root).or_default().push(sig.activity_id.clone());
+        groups_map.entry(root).or_default().push(sig.activity_id.clone());
     }
 
-    groups
-        .into_iter()
-        .map(|(group_id, activity_ids)| RouteGroup { group_id, activity_ids })
-        .collect()
+    build_route_groups(groups_map, &sig_map)
 }
 
 /// Incremental grouping: efficiently add new signatures to existing groups.
@@ -985,16 +1032,70 @@ pub fn group_incremental(
         union(&mut parent, &id1, &id2);
     }
 
-    // Build groups from all signatures
-    let mut groups: HashMap<String, Vec<String>> = HashMap::new();
+    // Build groups with full metadata
+    let mut groups_map: HashMap<String, Vec<String>> = HashMap::new();
     for sig in all_signatures {
         let root = find(&mut parent, &sig.activity_id);
-        groups.entry(root).or_default().push(sig.activity_id.clone());
+        groups_map.entry(root).or_default().push(sig.activity_id.clone());
     }
 
-    groups
+    build_route_groups(groups_map, &sig_map)
+}
+
+/// Build RouteGroup instances with full metadata from grouped activity IDs.
+fn build_route_groups(
+    groups_map: HashMap<String, Vec<String>>,
+    sig_map: &HashMap<&str, &RouteSignature>,
+) -> Vec<RouteGroup> {
+    groups_map
         .into_iter()
-        .map(|(group_id, activity_ids)| RouteGroup { group_id, activity_ids })
+        .map(|(group_id, activity_ids)| {
+            // Find representative signature (first in group)
+            let representative_id = activity_ids.first().cloned().unwrap_or_default();
+
+            // Get sport type from first signature (empty for now - caller should set)
+            let sport_type = String::new();
+
+            // Compute combined bounds from all signatures in group
+            let bounds = {
+                let group_sigs: Vec<_> = activity_ids
+                    .iter()
+                    .filter_map(|id| sig_map.get(id.as_str()))
+                    .collect();
+
+                if group_sigs.is_empty() {
+                    None
+                } else {
+                    let mut min_lat = f64::MAX;
+                    let mut max_lat = f64::MIN;
+                    let mut min_lng = f64::MAX;
+                    let mut max_lng = f64::MIN;
+
+                    for sig in group_sigs {
+                        min_lat = min_lat.min(sig.bounds.min_lat);
+                        max_lat = max_lat.max(sig.bounds.max_lat);
+                        min_lng = min_lng.min(sig.bounds.min_lng);
+                        max_lng = max_lng.max(sig.bounds.max_lng);
+                    }
+
+                    Some(Bounds {
+                        min_lat,
+                        max_lat,
+                        min_lng,
+                        max_lng,
+                    })
+                }
+            };
+
+            RouteGroup {
+                group_id,
+                representative_id,
+                activity_ids,
+                sport_type,
+                bounds,
+                custom_name: None,
+            }
+        })
         .collect()
 }
 
@@ -1135,14 +1236,7 @@ mod ffi {
         MatchConfig::default()
     }
 
-    /// Input for batch signature creation
-    #[derive(Debug, Clone, uniffi::Record)]
-    pub struct GpsTrack {
-        pub activity_id: String,
-        pub points: Vec<GpsPoint>,
-    }
-
-    /// Input for flat buffer batch processing (zero-copy from JS TypedArray)
+    /// Input for flat buffer processing (zero-copy from JS TypedArray)
     #[derive(Debug, Clone, uniffi::Record)]
     pub struct FlatGpsTrack {
         pub activity_id: String,
@@ -1220,73 +1314,6 @@ mod ffi {
 
         let elapsed = start.elapsed();
         info!("[RouteMatcherRust] FLAT batch processing: {} signatures -> {} groups in {:?}",
-              signatures.len(), groups.len(), elapsed);
-
-        groups
-    }
-
-    /// Create multiple route signatures in parallel (batch processing).
-    /// Much faster than calling create_signature repeatedly due to:
-    /// 1. Single FFI call instead of N calls
-    /// 2. Parallel processing with rayon
-    #[uniffi::export]
-    pub fn create_signatures_batch(tracks: Vec<GpsTrack>, config: MatchConfig) -> Vec<RouteSignature> {
-        init_logging();
-        info!("[RouteMatcherRust] BATCH create_signatures called with {} tracks", tracks.len());
-
-        let start = std::time::Instant::now();
-
-        #[cfg(feature = "parallel")]
-        let signatures: Vec<RouteSignature> = {
-            use rayon::prelude::*;
-            info!("[RouteMatcherRust] Using PARALLEL signature creation (rayon)");
-            tracks
-                .par_iter()
-                .filter_map(|track| {
-                    RouteSignature::from_points(&track.activity_id, &track.points, &config)
-                })
-                .collect()
-        };
-
-        #[cfg(not(feature = "parallel"))]
-        let signatures: Vec<RouteSignature> = {
-            info!("[RouteMatcherRust] Using sequential signature creation");
-            tracks
-                .iter()
-                .filter_map(|track| {
-                    RouteSignature::from_points(&track.activity_id, &track.points, &config)
-                })
-                .collect()
-        };
-
-        let elapsed = start.elapsed();
-        info!("[RouteMatcherRust] Created {} signatures from {} tracks in {:?}",
-              signatures.len(), tracks.len(), elapsed);
-
-        signatures
-    }
-
-    /// Process routes end-to-end: create signatures AND group them in one call.
-    /// This is the most efficient way to process many activities.
-    #[uniffi::export]
-    pub fn process_routes_batch(tracks: Vec<GpsTrack>, config: MatchConfig) -> Vec<RouteGroup> {
-        init_logging();
-        info!("[RouteMatcherRust] FULL BATCH process_routes called with {} tracks", tracks.len());
-
-        let start = std::time::Instant::now();
-
-        // Step 1: Create all signatures in parallel
-        let signatures = create_signatures_batch(tracks, config.clone());
-
-        // Step 2: Group signatures (also parallel if feature enabled)
-        #[cfg(feature = "parallel")]
-        let groups = group_signatures_parallel(&signatures, &config);
-
-        #[cfg(not(feature = "parallel"))]
-        let groups = group_signatures(&signatures, &config);
-
-        let elapsed = start.elapsed();
-        info!("[RouteMatcherRust] Full batch processing: {} signatures -> {} groups in {:?}",
               signatures.len(), groups.len(), elapsed);
 
         groups
@@ -1403,47 +1430,6 @@ mod ffi {
     pub struct ActivitySportType {
         pub activity_id: String,
         pub sport_type: String,
-    }
-
-    /// Detect frequent sections from route signatures.
-    /// Returns sections sorted by visit count (most visited first).
-    #[uniffi::export]
-    pub fn ffi_detect_frequent_sections(
-        signatures: Vec<RouteSignature>,
-        groups: Vec<RouteGroup>,
-        sport_types: Vec<ActivitySportType>,
-        config: crate::SectionConfig,
-    ) -> Vec<crate::FrequentSection> {
-        init_logging();
-        info!(
-            "[RouteMatcherRust] detect_frequent_sections: {} signatures, {} sport types",
-            signatures.len(),
-            sport_types.len()
-        );
-
-        let start = std::time::Instant::now();
-
-        // Convert sport types to HashMap
-        let sport_map: std::collections::HashMap<String, String> = sport_types
-            .into_iter()
-            .map(|st| (st.activity_id, st.sport_type))
-            .collect();
-
-        let sections = crate::sections::detect_frequent_sections(
-            &signatures,
-            &groups,
-            &sport_map,
-            &config,
-        );
-
-        let elapsed = start.elapsed();
-        info!(
-            "[RouteMatcherRust] Found {} frequent sections in {:?}",
-            sections.len(),
-            elapsed
-        );
-
-        sections
     }
 
     /// Get default section detection configuration
@@ -1642,6 +1628,223 @@ mod ffi {
     #[uniffi::export]
     pub fn default_heatmap_config() -> crate::HeatmapConfig {
         crate::HeatmapConfig::default()
+    }
+
+    // ========================================================================
+    // Zone Distribution FFI
+    // ========================================================================
+
+    /// Calculate power zone distribution from power data.
+    ///
+    /// # Arguments
+    /// * `power_data` - Power values in watts (1Hz sampling)
+    /// * `ftp` - Functional Threshold Power in watts
+    /// * `zone_thresholds` - Optional custom zone thresholds as % of FTP [Z1, Z2, Z3, Z4, Z5, Z6]
+    ///
+    /// # Returns
+    /// JSON string with zone distribution results
+    #[uniffi::export]
+    pub fn ffi_calculate_power_zones(
+        power_data: Vec<u16>,
+        ftp: u16,
+        zone_thresholds: Option<Vec<f32>>,
+    ) -> String {
+        init_logging();
+        info!("[RouteMatcherRust] calculate_power_zones: {} samples, FTP={}W", power_data.len(), ftp);
+
+        let config = match zone_thresholds {
+            Some(thresholds) if thresholds.len() == 6 => {
+                let mut arr = [0.0f32; 6];
+                arr.copy_from_slice(&thresholds);
+                crate::zones::PowerZoneConfig::with_thresholds(ftp, arr)
+            }
+            _ => crate::zones::PowerZoneConfig::from_ftp(ftp),
+        };
+
+        #[cfg(feature = "parallel")]
+        let result = crate::zones::calculate_power_zones_parallel(&power_data, &config);
+        #[cfg(not(feature = "parallel"))]
+        let result = crate::zones::calculate_power_zones(&power_data, &config);
+
+        info!(
+            "[RouteMatcherRust] Power zones: {} samples, avg={}W, peak={}W",
+            result.total_samples, result.average_power, result.peak_power
+        );
+
+        serde_json::to_string(&result).unwrap_or_else(|_| "{}".to_string())
+    }
+
+    /// Calculate HR zone distribution from heart rate data.
+    ///
+    /// # Arguments
+    /// * `hr_data` - Heart rate values in BPM (1Hz sampling)
+    /// * `threshold_hr` - Max HR or LTHR
+    /// * `zone_thresholds` - Optional custom zone thresholds as % of threshold [Z1, Z2, Z3, Z4]
+    ///
+    /// # Returns
+    /// JSON string with zone distribution results
+    #[uniffi::export]
+    pub fn ffi_calculate_hr_zones(
+        hr_data: Vec<u8>,
+        threshold_hr: u8,
+        zone_thresholds: Option<Vec<f32>>,
+    ) -> String {
+        init_logging();
+        info!("[RouteMatcherRust] calculate_hr_zones: {} samples, threshold={}bpm", hr_data.len(), threshold_hr);
+
+        let config = match zone_thresholds {
+            Some(thresholds) if thresholds.len() == 4 => {
+                let mut arr = [0.0f32; 4];
+                arr.copy_from_slice(&thresholds);
+                crate::zones::HRZoneConfig::with_thresholds(threshold_hr, arr)
+            }
+            _ => crate::zones::HRZoneConfig::from_max_hr(threshold_hr),
+        };
+
+        #[cfg(feature = "parallel")]
+        let result = crate::zones::calculate_hr_zones_parallel(&hr_data, &config);
+        #[cfg(not(feature = "parallel"))]
+        let result = crate::zones::calculate_hr_zones(&hr_data, &config);
+
+        info!(
+            "[RouteMatcherRust] HR zones: {} samples, avg={}bpm, peak={}bpm",
+            result.total_samples, result.average_hr, result.peak_hr
+        );
+
+        serde_json::to_string(&result).unwrap_or_else(|_| "{}".to_string())
+    }
+
+    // ========================================================================
+    // Power/Pace Curve FFI
+    // ========================================================================
+
+    /// Compute power curve for a single activity.
+    ///
+    /// # Arguments
+    /// * `power_data` - Power values in watts (1Hz sampling)
+    /// * `durations` - Durations to compute in seconds [1, 5, 60, 300, 1200, 3600]
+    ///
+    /// # Returns
+    /// JSON string with power curve results
+    #[uniffi::export]
+    pub fn ffi_compute_power_curve(power_data: Vec<u16>, durations: Vec<u32>) -> String {
+        init_logging();
+        info!("[RouteMatcherRust] compute_power_curve: {} samples, {} durations", power_data.len(), durations.len());
+
+        let result = crate::curves::compute_power_curve(&power_data, &durations);
+
+        info!(
+            "[RouteMatcherRust] Power curve computed, peak 1s={}W",
+            result.get_power_at(1).unwrap_or(0.0)
+        );
+
+        serde_json::to_string(&result).unwrap_or_else(|_| "{}".to_string())
+    }
+
+    /// Compute power curve from multiple activities (all-time bests).
+    ///
+    /// # Arguments
+    /// * `activity_ids` - Activity IDs
+    /// * `power_data_flat` - Flat array of all power data
+    /// * `offsets` - Start offset for each activity in power_data_flat
+    /// * `timestamps` - Unix timestamps for each activity
+    /// * `durations` - Durations to compute in seconds
+    ///
+    /// # Returns
+    /// JSON string with power curve results including activity attribution
+    #[uniffi::export]
+    pub fn ffi_compute_power_curve_multi(
+        activity_ids: Vec<String>,
+        power_data_flat: Vec<u16>,
+        offsets: Vec<u32>,
+        timestamps: Vec<i64>,
+        durations: Vec<u32>,
+    ) -> String {
+        init_logging();
+        info!(
+            "[RouteMatcherRust] compute_power_curve_multi: {} activities, {} total samples",
+            activity_ids.len(),
+            power_data_flat.len()
+        );
+
+        // Reconstruct activities from flat data
+        let mut activities: Vec<(String, Vec<u16>, i64)> = Vec::new();
+
+        for (i, activity_id) in activity_ids.iter().enumerate() {
+            let start = offsets[i] as usize;
+            let end = offsets.get(i + 1).map(|&o| o as usize).unwrap_or(power_data_flat.len());
+            let power = power_data_flat[start..end].to_vec();
+            let ts = timestamps.get(i).copied().unwrap_or(0);
+            activities.push((activity_id.clone(), power, ts));
+        }
+
+        #[cfg(feature = "parallel")]
+        let result = crate::curves::compute_power_curve_multi_parallel(&activities, &durations);
+        #[cfg(not(feature = "parallel"))]
+        let result = crate::curves::compute_power_curve_multi(&activities, &durations);
+
+        info!(
+            "[RouteMatcherRust] Multi-activity power curve computed from {} activities",
+            result.activities_analyzed
+        );
+
+        serde_json::to_string(&result).unwrap_or_else(|_| "{}".to_string())
+    }
+
+    /// Compute pace curve for a single activity.
+    ///
+    /// # Arguments
+    /// * `distances` - Cumulative distance at each second in meters
+    /// * `target_distances` - Distances to compute pace for in meters
+    ///
+    /// # Returns
+    /// JSON string with pace curve results
+    #[uniffi::export]
+    pub fn ffi_compute_pace_curve(distances: Vec<f32>, target_distances: Vec<f32>) -> String {
+        init_logging();
+        info!(
+            "[RouteMatcherRust] compute_pace_curve: {} samples, {} target distances",
+            distances.len(),
+            target_distances.len()
+        );
+
+        let result = crate::curves::compute_pace_curve(&distances, &target_distances);
+
+        serde_json::to_string(&result).unwrap_or_else(|_| "{}".to_string())
+    }
+
+    // ========================================================================
+    // Achievement Detection FFI
+    // ========================================================================
+
+    /// Detect achievements by comparing a new activity against historical records.
+    ///
+    /// # Arguments
+    /// * `new_activity` - The newly completed activity record
+    /// * `history` - Historical activity records for comparison
+    ///
+    /// # Returns
+    /// Vector of detected achievements, sorted by importance
+    #[uniffi::export]
+    pub fn ffi_detect_achievements(
+        new_activity: crate::achievements::ActivityRecord,
+        history: Vec<crate::achievements::ActivityRecord>,
+    ) -> Vec<crate::achievements::Achievement> {
+        init_logging();
+        info!(
+            "[RouteMatcherRust] detect_achievements for activity {}, comparing against {} historical activities",
+            new_activity.activity_id,
+            history.len()
+        );
+
+        let achievements = crate::achievements::detect_achievements(&new_activity, &history);
+
+        info!(
+            "[RouteMatcherRust] Detected {} achievements",
+            achievements.len()
+        );
+
+        achievements
     }
 }
 

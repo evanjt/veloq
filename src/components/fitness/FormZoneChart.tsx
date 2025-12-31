@@ -1,6 +1,7 @@
 import React, { useMemo, useRef, useCallback, useState } from 'react';
 import { View, StyleSheet, useColorScheme } from 'react-native';
 import { Text } from 'react-native-paper';
+import { useTranslation } from 'react-i18next';
 import { CartesianChart, Line } from 'victory-native';
 import { Line as SkiaLine, Rect, vec } from '@shopify/react-native-skia';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
@@ -34,6 +35,7 @@ function formatDate(dateStr: string): string {
 }
 
 export const FormZoneChart = React.memo(function FormZoneChart({ data, height = 100, selectedDate, sharedSelectedIdx, onDateSelect, onInteractionChange }: FormZoneChartProps) {
+  const { t } = useTranslation();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const [selectedData, setSelectedData] = useState<ChartDataPoint | null>(null);
@@ -220,7 +222,7 @@ export const FormZoneChart = React.memo(function FormZoneChart({ data, height = 
       <View style={styles.header}>
         <View style={styles.dateContainer}>
           <Text style={[styles.dateText, isDark && styles.textLight]}>
-            {(isActive && selectedData) || selectedDate ? formatDate(selectedData?.date || selectedDate || '') : 'Current'}
+            {(isActive && selectedData) || selectedDate ? formatDate(selectedData?.date || selectedDate || '') : t('time.current')}
           </Text>
         </View>
         <View style={styles.valuesRow}>

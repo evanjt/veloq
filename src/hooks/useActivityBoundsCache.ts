@@ -1,15 +1,35 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
-import { activitySyncManager, type SyncProgress } from '@/lib/activitySyncManager';
-import { findOldestDate, findNewestDate } from '@/lib/activityBoundsUtils';
-import { useAuthStore } from '@/providers';
-import type { ActivityBoundsCache, ActivityBoundsItem } from '@/types';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useQueryClient, useQuery } from '@tanstack/react-query';
+import { useAuthStore, useSyncDateRange } from '@/providers';
+import { clearAllGpsTracks, clearBoundsCache } from '@/lib/storage/gpsStorage';
+import type { ActivityBoundsCache, ActivityBoundsItem, Activity } from '@/types';
+
+// Lazy load route engine to avoid native module errors during bundling
+let _routeEngine: typeof import('route-matcher-native').routeEngine | null = null;
+function getRouteEngine() {
+  if (!_routeEngine) {
+    try {
+      _routeEngine = require('route-matcher-native').routeEngine;
+    } catch {
+      return null;
+    }
+  }
+  return _routeEngine;
+}
+
+export interface SyncProgress {
+  completed: number;
+  total: number;
+  status: 'idle' | 'loading' | 'syncing' | 'complete' | 'error';
+  message?: string;
+}
 
 interface CacheStats {
-  /** Total number of cached activities */
+  /** Total number of cached activities in the Rust engine */
   totalActivities: number;
-  /** Oldest activity date in cache */
+  /** Oldest activity date (from activities param if provided) */
   oldestDate: string | null;
-  /** Newest activity date in cache */
+  /** Newest activity date (from activities param if provided) */
   newestDate: string | null;
   /** Last sync timestamp */
   lastSync: string | null;
@@ -17,14 +37,19 @@ interface CacheStats {
   isSyncing: boolean;
 }
 
+interface UseActivityBoundsCacheOptions {
+  /** Activities with dates for computing date range */
+  activitiesWithDates?: Array<{ start_date?: string; start_date_local?: string }>;
+}
+
 interface UseActivityBoundsCacheReturn {
-  /** Cached activity bounds */
+  /** Cached activity bounds (legacy - now empty, use engine instead) */
   activities: ActivityBoundsItem[];
   /** Current sync progress */
   progress: SyncProgress;
   /** Whether initial load is complete */
   isReady: boolean;
-  /** Sync bounds for a date range (debounced for timeline scrubbing) */
+  /** Sync bounds for a date range (no-op, handled by Rust) */
   syncDateRange: (oldest: string, newest: string) => void;
   /** Get the oldest synced date */
   oldestSyncedDate: string | null;
@@ -36,107 +61,243 @@ interface UseActivityBoundsCacheReturn {
   clearCache: () => Promise<void>;
   /** Cache statistics */
   cacheStats: CacheStats;
-  /** Trigger full historical sync (10 years) */
-  syncAllHistory: () => void;
-  /** Trigger sync for last year only */
-  syncOneYear: () => void;
-  /** Trigger sync for last 90 days (used for cache reload) */
-  sync90Days: () => void;
+  /**
+   * Trigger sync for specified number of days or all history.
+   * @param days - Number of days to sync (default 90), or 'all' for full history
+   */
+  sync: (days?: number | 'all') => Promise<void>;
+}
+
+/**
+ * Find oldest date from activities array
+ */
+function findOldestActivityDate(activities: Array<{ start_date?: string; start_date_local?: string }>): string | null {
+  if (!activities || activities.length === 0) return null;
+
+  let oldest: string | null = null;
+  for (const activity of activities) {
+    const date = activity.start_date || activity.start_date_local;
+    if (date && (!oldest || date < oldest)) {
+      oldest = date;
+    }
+  }
+  return oldest;
+}
+
+/**
+ * Find newest date from activities array
+ */
+function findNewestActivityDate(activities: Array<{ start_date?: string; start_date_local?: string }>): string | null {
+  if (!activities || activities.length === 0) return null;
+
+  let newest: string | null = null;
+  for (const activity of activities) {
+    const date = activity.start_date || activity.start_date_local;
+    if (date && (!newest || date > newest)) {
+      newest = date;
+    }
+  }
+  return newest;
 }
 
 /**
  * Hook for accessing the activity bounds cache.
- * Uses the singleton ActivitySyncManager for all sync operations.
- * Only initializes when user is authenticated.
+ * The Rust engine handles activity storage and spatial indexing.
+ * This hook provides cache statistics and control functions.
+ *
+ * @param options.activitiesWithDates - Activities array with date fields for date range computation
  */
-export function useActivityBoundsCache(): UseActivityBoundsCacheReturn {
-  const [cache, setCache] = useState<ActivityBoundsCache | null>(null);
+export function useActivityBoundsCache(options: UseActivityBoundsCacheOptions = {}): UseActivityBoundsCacheReturn {
+  const { activitiesWithDates } = options;
   const [progress, setProgress] = useState<SyncProgress>({ completed: 0, total: 0, status: 'idle' });
-  const [isReady, setIsReady] = useState(false);
-  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const [isReady, setIsReady] = useState(true);
+  const [activityCount, setActivityCount] = useState(0);
+  const [cachedActivitiesVersion, setCachedActivitiesVersion] = useState(0);
+  const queryClient = useQueryClient();
 
-  // Initialize sync manager and subscribe to updates - only when authenticated
+  // Subscribe to activities query cache changes
+  // Only update when query data actually changes (success state)
+  // Use a ref to debounce rapid updates
+  const updateTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   useEffect(() => {
-    // Subscribe to progress updates
-    const unsubProgress = activitySyncManager.onProgress((p) => {
-      setProgress(p);
-      // Mark as ready once we're past loading
-      if (p.status !== 'loading') {
-        setIsReady(true);
+    const unsubscribe = queryClient.getQueryCache().subscribe((event) => {
+      // Only react to successful data updates, not loading/error state changes
+      if (event.query.queryKey[0] === 'activities' && event.type === 'updated' && event.action?.type === 'success') {
+        // Debounce updates to prevent rapid re-renders
+        if (updateTimeoutRef.current) {
+          clearTimeout(updateTimeoutRef.current);
+        }
+        updateTimeoutRef.current = setTimeout(() => {
+          setCachedActivitiesVersion((v) => v + 1);
+        }, 100);
+      }
+    });
+    return () => {
+      unsubscribe();
+      if (updateTimeoutRef.current) {
+        clearTimeout(updateTimeoutRef.current);
+      }
+    };
+  }, [queryClient]);
+
+  // Subscribe to Rust engine activity changes
+  useEffect(() => {
+    const engine = getRouteEngine();
+    if (!engine) return;
+
+    // Initial count
+    try {
+      setActivityCount(engine.getActivityCount());
+    } catch {
+      setActivityCount(0);
+    }
+
+    // Subscribe to updates
+    const unsubscribe = engine.subscribe('activities', () => {
+      try {
+        const eng = getRouteEngine();
+        setActivityCount(eng ? eng.getActivityCount() : 0);
+      } catch {
+        setActivityCount(0);
       }
     });
 
-    // Subscribe to cache updates
-    const unsubCache = activitySyncManager.onCacheUpdate((c) => {
-      setCache(c);
-    });
+    return unsubscribe;
+  }, []);
 
-    // Only initialize when authenticated - this triggers the initial 3-month sync
-    if (isAuthenticated) {
-      activitySyncManager.initialize();
-    } else {
-      // Reset on logout so we can re-initialize on next login
-      activitySyncManager.reset();
+  // Calculate cache stats from Rust engine and optional activities
+  const cacheStats: CacheStats = useMemo(() => ({
+    totalActivities: activityCount,
+    oldestDate: activitiesWithDates ? findOldestActivityDate(activitiesWithDates) : null,
+    newestDate: activitiesWithDates ? findNewestActivityDate(activitiesWithDates) : null,
+    lastSync: null,
+    isSyncing: progress.status === 'syncing',
+  }), [activityCount, activitiesWithDates, progress.status]);
+
+  // Get all activities with GPS from TanStack Query cache for date range
+  // Note: Query key is ['activities', oldest, newest, stats], so we use getQueriesData
+  // with partial key matching to find all activity queries
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const allGpsActivities = useMemo<Activity[]>(() => {
+    // getQueriesData returns array of [queryKey, data] tuples for all matching queries
+    const queries = queryClient.getQueriesData<Activity[]>({ queryKey: ['activities'] });
+
+    // Merge all activities from all matching queries (there's usually just one)
+    const allActivities: Activity[] = [];
+    const seenIds = new Set<string>();
+
+    for (const [_key, data] of queries) {
+      if (!data) continue;
+      for (const activity of data) {
+        if (!seenIds.has(activity.id)) {
+          seenIds.add(activity.id);
+          allActivities.push(activity);
+        }
+      }
     }
 
-    return () => {
-      unsubProgress();
-      unsubCache();
-    };
-  }, [isAuthenticated]);
+    return allActivities.filter((a) => a.stream_types?.includes('latlng'));
+  }, [queryClient, cachedActivitiesVersion]);
 
-  // Sync date range (debounced by default in the manager)
+  // Get activities with bounds from engine for map display
+  const activities = useMemo<ActivityBoundsItem[]>(() => {
+    // If no GPS activities, return empty
+    if (allGpsActivities.length === 0) return [];
+
+    // Try to get bounds from engine
+    const engine = getRouteEngine();
+    if (!engine || activityCount === 0) return [];
+
+    try {
+      const engineBounds = engine.getAllActivityBounds();
+      if (!engineBounds || engineBounds.length === 0) return [];
+
+      // Create lookup map for activity metadata
+      const activityMap = new Map<string, Activity>();
+      for (const a of allGpsActivities) {
+        activityMap.set(a.id, a);
+      }
+
+      // Merge engine bounds with cached metadata
+      return engineBounds.map((eb): ActivityBoundsItem => {
+        const cached = activityMap.get(eb.id);
+        return {
+          id: eb.id,
+          bounds: eb.bounds,
+          type: eb.type as ActivityBoundsItem['type'],
+          name: cached?.name || '',
+          date: cached?.start_date_local || '',
+          distance: eb.distance,
+          duration: cached?.moving_time || 0,
+        };
+      });
+    } catch {
+      return [];
+    }
+  }, [activityCount, allGpsActivities, cachedActivitiesVersion]);
+
+  // Expand the global sync date range - triggers GlobalDataSync to fetch more data
+  const expandRange = useSyncDateRange((s) => s.expandRange);
+  const isFetchingExtended = useSyncDateRange((s) => s.isFetchingExtended);
+
   const syncDateRange = useCallback((oldest: string, newest: string) => {
-    activitySyncManager.syncDateRange(oldest, newest, true);
-  }, []);
+    expandRange(oldest, newest);
+  }, [expandRange]);
 
-  // Clear cache
   const clearCache = useCallback(async () => {
-    await activitySyncManager.clearCache();
+    // Clear Rust engine state
+    const engine = getRouteEngine();
+    if (engine) engine.clear();
+
+    // Clear FileSystem caches (GPS tracks and bounds)
+    await Promise.all([
+      clearAllGpsTracks(),
+      clearBoundsCache(),
+    ]);
+
+    setActivityCount(0);
   }, []);
 
-  // Sync all history
-  const syncAllHistory = useCallback(() => {
-    activitySyncManager.syncAllHistory();
-  }, []);
+  const sync = useCallback(async (days: number | 'all' = 90) => {
+    // Clear the Rust engine state
+    const engine = getRouteEngine();
+    if (engine) engine.clear();
+    setActivityCount(0);
 
-  // Sync last year only
-  const syncOneYear = useCallback(() => {
-    activitySyncManager.syncOneYear();
-  }, []);
+    // Actively refetch activities (not just invalidate, which only marks stale)
+    // Using 'all' type ensures refetch even when no component is watching
+    // This triggers GlobalDataSync to automatically download GPS data
+    await queryClient.refetchQueries({
+      queryKey: ['activities'],
+      type: 'all',
+    });
+  }, [queryClient]);
 
-  // Sync last 90 days only (for cache reload)
-  const sync90Days = useCallback(() => {
-    activitySyncManager.sync90Days();
-  }, []);
-
-  // Convert cache to array for rendering
-  const activities = useMemo(() => {
-    return cache ? Object.values(cache.activities) : [];
-  }, [cache]);
-
-  // Calculate cache stats from actual cached activities
-  const cacheStats: CacheStats = useMemo(() => ({
-    totalActivities: activities.length,
-    oldestDate: findOldestDate(cache?.activities || {}),
-    newestDate: findNewestDate(cache?.activities || {}),
-    lastSync: cache?.lastSync || null,
-    isSyncing: progress.status === 'syncing',
-  }), [activities.length, cache?.activities, cache?.lastSync, progress.status]);
+  // Compute oldest activity date from ALL GPS activities (not just those with bounds)
+  // This ensures the timeline slider shows the full range even before sync completes
+  const oldestActivityDate = useMemo(() => {
+    if (allGpsActivities.length === 0) return null;
+    let oldest: string | null = null;
+    for (const a of allGpsActivities) {
+      const date = a.start_date_local;
+      if (date && (!oldest || date < oldest)) {
+        oldest = date;
+      }
+    }
+    return oldest;
+  }, [allGpsActivities]);
 
   return {
-    activities,
+    activities, // Merged from engine bounds + cached metadata
     progress,
     isReady,
     syncDateRange,
-    // Use actual activity dates for the cached range display
     oldestSyncedDate: cacheStats.oldestDate,
     newestSyncedDate: cacheStats.newestDate,
-    oldestActivityDate: activitySyncManager.getOldestActivityDate(),
+    oldestActivityDate, // Computed from merged activities
     clearCache,
     cacheStats,
-    syncAllHistory,
-    syncOneYear,
-    sync90Days,
+    sync,
   };
 }
