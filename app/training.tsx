@@ -1,5 +1,5 @@
-import React, { useMemo } from 'react';
-import { View, ScrollView, StyleSheet, useColorScheme, TouchableOpacity } from 'react-native';
+import React, { useMemo, useState, useCallback } from 'react';
+import { View, ScrollView, StyleSheet, useColorScheme, TouchableOpacity, RefreshControl } from 'react-native';
 import { Text, IconButton, ActivityIndicator } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, Href } from 'expo-router';
@@ -19,13 +19,23 @@ export default function TrainingScreen() {
   const { settings: routeSettings } = useRouteSettings();
   const isRouteMatchingEnabled = routeSettings.enabled;
 
+  // Refresh state for pull-to-refresh
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
   // Fetch activities for the past 2 years (for all comparisons including year-over-year)
   const currentYear = new Date().getFullYear();
-  const { data: activities, isLoading } = useActivities({
+  const { data: activities, isLoading, isFetching, refetch } = useActivities({
     oldest: `${currentYear - 1}-01-01`,
     newest: `${currentYear}-12-31`,
     includeStats: true,
   });
+
+  // Handle pull-to-refresh
+  const onRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    await refetch();
+    setIsRefreshing(false);
+  }, [refetch]);
 
   // Get route groups count and processing status
   const { groups: routeGroups, processedCount } = useRouteGroups({ minActivities: 2 });
@@ -59,13 +69,26 @@ export default function TrainingScreen() {
           onPress={() => router.back()}
         />
         <Text style={[styles.headerTitle, isDark && styles.textLight]}>{t('trainingScreen.title')}</Text>
-        <View style={{ width: 48 }} />
+        {/* Subtle loading indicator in header when fetching in background */}
+        <View style={{ width: 48, alignItems: 'center' }}>
+          {isFetching && !isRefreshing && (
+            <ActivityIndicator size="small" color={colors.primary} />
+          )}
+        </View>
       </View>
 
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
+          />
+        }
       >
         {/* Summary with time range selector */}
         <View style={[styles.card, isDark && styles.cardDark]}>

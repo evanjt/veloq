@@ -587,6 +587,21 @@ public class RouteMatcherModule: Module {
             engineSetSectionConfig(config: sectionConfig)
         }
 
+        // Engine: Get all activity bounds as JSON (for map display)
+        Function("engineGetAllActivityBoundsJson") { () -> String in
+            return engineGetAllActivityBoundsJson()
+        }
+
+        // Engine: Get all signatures as JSON (for trace rendering)
+        Function("engineGetAllSignaturesJson") { () -> String in
+            return engineGetAllSignaturesJson()
+        }
+
+        // Engine: Get signature points for a group (existing function)
+        Function("engineGetSignaturesForGroupJson") { (groupId: String) -> String in
+            return engineGetSignaturesForGroupJson(groupId: groupId)
+        }
+
         // ==========================================================================
         // Persistent Route Engine (SQLite-backed, memory efficient)
         // ==========================================================================

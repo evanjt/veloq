@@ -5,29 +5,35 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Veloq - Mobile Intervals.icu Client</title>
   <meta name="description" content="Fast, offline-first mobile client for Intervals.icu with maps and visual analytics.">
-  <meta name="theme-color" content="#D4AF37">
+  <meta name="theme-color" content="#5B8DB8">
   <link rel="icon" type="image/png" href="icon.png">
 
   <meta property="og:title" content="Veloq - Mobile Intervals.icu Client">
   <meta property="og:description" content="Fast, offline-first mobile client for Intervals.icu with maps and visual analytics.">
   <meta property="og:type" content="website">
-  <meta property="og:url" content="https://veloq.evanjt.com">
+  <meta property="og:url" content="https://veloq.fit">
 
   <style>
     :root {
-      --primary: #D4AF37;
-      --primary-dark: #E04400;
-      --primary-glow: rgba(252, 76, 2, 0.3);
+      /* Logo colors: blue background, gold text */
+      --primary: #5B8DB8;
+      --primary-dark: #4A7A9E;
+      --primary-light: #7BA8CC;
+      --primary-glow: rgba(91, 141, 184, 0.3);
+      --accent: #F5A623;
+      --accent-dark: #D4900E;
+      --accent-light: #FFBA42;
+      --accent-glow: rgba(245, 166, 35, 0.3);
       --bg: #FAFAFA;
-      --bg-dark: #0D1117;
+      --bg-dark: #121212;
       --text: #1A1A1A;
       --text-muted: #666666;
-      --text-dark: #E6EDF3;
-      --text-muted-dark: #8B949E;
+      --text-dark: #FFFFFF;
+      --text-muted-dark: #AAAAAA;
       --card: #FFFFFF;
-      --card-dark: #161B22;
-      --border: #E5E7EB;
-      --border-dark: #30363D;
+      --card-dark: #1E1E1E;
+      --border: #E0E0E0;
+      --border-dark: #333333;
     }
 
     @media (prefers-color-scheme: dark) {
@@ -194,12 +200,8 @@
 
     /* Hero */
     .hero {
-      padding: 140px 0 80px;
+      padding: 100px 0 40px;
       text-align: center;
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
     }
 
     .hero h1 {
@@ -216,7 +218,14 @@
       font-size: 1.25rem;
       color: var(--text-muted);
       max-width: 600px;
-      margin: 0 auto 48px;
+      margin: 0 auto 32px;
+    }
+
+    .demo-hint {
+      font-size: 0.95rem;
+      color: var(--accent);
+      margin: -16px auto 24px;
+      font-weight: 500;
     }
 
     .cta-buttons {
@@ -224,7 +233,7 @@
       gap: 16px;
       justify-content: center;
       flex-wrap: wrap;
-      margin-bottom: 60px;
+      margin-bottom: 32px;
     }
 
     .btn {
@@ -254,18 +263,20 @@
     .btn-secondary {
       background: var(--card);
       color: var(--text);
-      border: 2px solid var(--border);
+      border: 2px solid var(--accent);
     }
 
     .btn-secondary:hover {
-      border-color: var(--primary);
-      color: var(--primary);
+      background: var(--accent);
+      border-color: var(--accent);
+      color: white;
       transform: translateY(-3px);
+      box-shadow: 0 8px 30px var(--accent-glow);
     }
 
     /* Media Showcase */
     .showcase {
-      padding: 40px 0 100px;
+      padding: 0 0 80px;
       position: relative;
     }
 
@@ -416,6 +427,14 @@
       min-height: 20px;
     }
 
+    .screenshot-disclaimer {
+      text-align: center;
+      margin-top: 12px;
+      color: var(--text-muted);
+      font-size: 12px;
+      font-style: italic;
+    }
+
     /* Features */
     .features {
       padding: 100px 0;
@@ -465,6 +484,10 @@
       justify-content: center;
       margin-bottom: 20px;
       font-size: 28px;
+    }
+
+    .feature-icon.gold {
+      background: linear-gradient(135deg, var(--accent-light), var(--accent-dark));
     }
 
     .feature h3 { font-size: 1.25rem; margin-bottom: 12px; font-weight: 700; }
@@ -549,7 +572,7 @@
     /* Mobile */
     @media (max-width: 768px) {
       .nav-links a:not(:last-child) { display: none; }
-      .hero { padding: 120px 0 60px; min-height: auto; }
+      .hero { padding: 80px 0 24px; }
       .hero h1 { font-size: 2.2rem; }
       .showcase-container { max-width: 300px; }
       .phone-frame { border-radius: 30px; padding: 8px; }
@@ -593,6 +616,7 @@
       <div class="container">
         <h1 class="animate-fade-up" data-i18n="hero.title">Your training data,<br><span>in your pocket</span></h1>
         <p class="animate-fade-up delay-1" data-i18n="hero.subtitle">Fast, offline-first mobile client for Intervals.icu with interactive maps and visual analytics.</p>
+        <p class="demo-hint animate-fade-up delay-1" data-i18n="hero.demoHint">No account? Try the built-in demo mode to explore the app.</p>
         <div class="cta-buttons animate-fade-up delay-2" id="download">
           <a href="https://github.com/evanjt/veloq/releases" class="btn btn-primary" target="_blank">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
@@ -626,6 +650,7 @@
 
         <div class="carousel-controls" id="carousel-dots"></div>
         <p class="carousel-caption" id="carousel-caption"></p>
+        <p class="screenshot-disclaimer" data-i18n="showcase.disclaimer">* Screenshots show demo data for illustration purposes only.</p>
       </div>
     </section>
 
@@ -640,7 +665,7 @@
             <p data-i18n="features.maps.desc">View all your activities on an interactive regional map with timeline filtering. Explore heatmaps showing your most traveled routes.</p>
           </div>
           <div class="feature">
-            <div class="feature-icon">&#128200;</div>
+            <div class="feature-icon gold">&#128200;</div>
             <h3 data-i18n="features.analysis.title">Rich Activity Analysis</h3>
             <p data-i18n="features.analysis.desc">Multi-metric charts for heart rate, power, pace, elevation, and cadence. Scrub through your activity with synchronized map highlighting.</p>
           </div>
@@ -650,7 +675,7 @@
             <p data-i18n="features.routes.desc">Automatically detect repeated routes and track your performance over time. Compare efforts on the same course to measure progress.</p>
           </div>
           <div class="feature">
-            <div class="feature-icon">&#128170;</div>
+            <div class="feature-icon gold">&#128170;</div>
             <h3 data-i18n="features.fitness.title">Fitness Tracking</h3>
             <p data-i18n="features.fitness.desc">Monitor your CTL/ATL/TSB fitness model with form zone analysis. Know when you're fresh, fatigued, or peaked.</p>
           </div>
@@ -660,7 +685,7 @@
             <p data-i18n="features.offline.desc">Aggressive caching ensures your data is always available. Sync once and access anywhere without an internet connection.</p>
           </div>
           <div class="feature">
-            <div class="feature-icon">&#128274;</div>
+            <div class="feature-icon gold">&#128274;</div>
             <h3 data-i18n="features.privacy.title">Privacy Focused</h3>
             <p data-i18n="features.privacy.desc">All data stays on your device. No analytics, no tracking, no data collection. Your data is yours alone.</p>
           </div>
@@ -698,8 +723,8 @@
       <div class="footer-links">
         <a href="https://github.com/evanjt/veloq" target="_blank">GitHub</a>
         <a href="https://github.com/evanjt/veloq/releases" target="_blank" data-i18n="footer.releases">Releases</a>
-        <a href="/privacy/" data-i18n="footer.privacy">Privacy Policy</a>
-        <a href="mailto:veloq@evanjt.com" data-i18n="footer.contact">Contact</a>
+        <a href="https://veloq.fit/privacy" data-i18n="footer.privacy">Privacy Policy</a>
+        <a href="mailto:developer@veloq.fit" data-i18n="footer.contact">Contact</a>
       </div>
       <p class="copyright">&copy; 2025 Evan Thomas. Apache License 2.0.</p>
     </div>
@@ -708,18 +733,17 @@
   <script>
     // Media configuration - add your screenshots and videos here
     // Supported: images (.png, .jpg, .webp) and videos (.mp4, .webm)
+    // Screenshot numbering matches screenshots.yaml:
+    // 01-feed, 02-activity-map, 03-activity-3d, 04-charts, 05-fitness, 06-regional-map, 07-routes, 08-performance
     const mediaItems = [
-      { type: 'placeholder', icon: '&#128197;', title: 'Activity Feed', desc: 'Your recent activities at a glance' },
-      { type: 'placeholder', icon: '&#127758;', title: 'Activity Map', desc: 'GPS routes with elevation profile' },
-      { type: 'placeholder', icon: '&#128200;', title: 'Multi-Metric Charts', desc: 'Heart rate, power, pace & more' },
-      { type: 'placeholder', icon: '&#128170;', title: 'Fitness Tracking', desc: 'CTL/ATL/TSB fitness model' },
-      { type: 'placeholder', icon: '&#127759;', title: 'Regional Map', desc: 'All your activities in one view' },
-      { type: 'placeholder', icon: '&#128293;', title: 'Heatmap', desc: 'Your most traveled routes' },
-      { type: 'placeholder', icon: '&#128739;', title: 'Routes', desc: 'Automatic route detection' },
-      { type: 'placeholder', icon: '&#9881;', title: 'Settings', desc: 'Customize your experience' },
-      // Example of how to add real media:
-      // { type: 'image', src: 'screenshots/feed.png', caption: 'Activity Feed' },
-      // { type: 'video', src: 'screenshots/demo.mp4', caption: 'App Demo' },
+      { type: 'image', src: 'screenshots/01-feed.png', caption: 'Activity Feed' },
+      { type: 'image', src: 'screenshots/02-activity-map.png', caption: 'Activity Map' },
+      { type: 'image', src: 'screenshots/03-activity-3d.png', caption: '3D Terrain View' },
+      { type: 'image', src: 'screenshots/04-charts.png', caption: 'Multi-Metric Charts' },
+      { type: 'image', src: 'screenshots/05-fitness.png', caption: 'Fitness Tracking' },
+      { type: 'image', src: 'screenshots/06-regional-map.png', caption: 'Regional Map' },
+      { type: 'image', src: 'screenshots/07-routes.png', caption: 'Route Detection' },
+      { type: 'image', src: 'screenshots/08-performance.png', caption: 'Performance Curves' },
     ];
 
     let currentSlide = 0;
@@ -812,6 +836,8 @@
         'nav.download': 'Download',
         'hero.title': 'Your training data,<br><span>in your pocket</span>',
         'hero.subtitle': 'Fast, offline-first mobile client for Intervals.icu with interactive maps and visual analytics.',
+        'hero.demoHint': 'No account? Try the built-in demo mode to explore the app.',
+        'showcase.disclaimer': '* Screenshots show demo data for illustration purposes only.',
         'cta.download': 'Download',
         'cta.viewSource': 'View Source',
         'features.title': 'Built for athletes',
@@ -845,6 +871,8 @@
         'nav.download': 'Descargar',
         'hero.title': 'Tus datos de entrenamiento,<br><span>en tu bolsillo</span>',
         'hero.subtitle': 'Cliente móvil rápido y offline-first para Intervals.icu con mapas interactivos y análisis visual.',
+        'hero.demoHint': '¿Sin cuenta? Prueba el modo demo integrado para explorar la app.',
+        'showcase.disclaimer': '* Las capturas muestran datos de demostración solo con fines ilustrativos.',
         'cta.download': 'Descargar',
         'cta.viewSource': 'Ver código',
         'features.title': 'Diseñado para atletas',
@@ -878,6 +906,8 @@
         'nav.download': 'Télécharger',
         'hero.title': 'Vos données d\'entraînement,<br><span>dans votre poche</span>',
         'hero.subtitle': 'Client mobile rapide et offline-first pour Intervals.icu avec cartes interactives et analyses visuelles.',
+        'hero.demoHint': 'Pas de compte ? Essayez le mode démo intégré pour explorer l\'app.',
+        'showcase.disclaimer': '* Les captures d\'écran montrent des données de démonstration à titre indicatif uniquement.',
         'cta.download': 'Télécharger',
         'cta.viewSource': 'Voir le code',
         'features.title': 'Conçu pour les athlètes',

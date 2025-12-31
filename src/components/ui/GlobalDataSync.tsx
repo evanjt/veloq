@@ -5,14 +5,14 @@
  * Shows a banner at the top of the screen when syncing is in progress.
  */
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, StyleSheet, Platform } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSegments } from 'expo-router';
 import { useActivities, useRouteDataSync } from '@/hooks';
-import { useAuthStore, useRouteSettings } from '@/providers';
+import { useAuthStore, useRouteSettings, useSyncDateRange } from '@/providers';
 import { colors } from '@/theme';
 
 export function GlobalDataSync() {
@@ -22,13 +22,24 @@ export function GlobalDataSync() {
   const isDemoMode = useAuthStore((s) => s.isDemoMode);
   const { settings: routeSettings } = useRouteSettings();
 
-  // Fetch activities for GPS sync (90 days by default)
-  // Only fetch if authenticated and not in demo mode
-  const { data: activities } = useActivities({
-    days: 90,
+  // Get sync date range from global store (can be extended by timeline sliders)
+  const syncOldest = useSyncDateRange((s) => s.oldest);
+  const syncNewest = useSyncDateRange((s) => s.newest);
+  const setFetchingExtended = useSyncDateRange((s) => s.setFetchingExtended);
+
+  // Fetch activities for GPS sync using dynamic date range
+  // When user extends timeline past 90 days, this will fetch older data
+  const { data: activities, isFetching } = useActivities({
+    oldest: syncOldest,
+    newest: syncNewest,
     includeStats: false,
-    enabled: isAuthenticated && !isDemoMode && routeSettings.enabled,
+    enabled: isAuthenticated && routeSettings.enabled,
   });
+
+  // Update fetching state in store
+  useEffect(() => {
+    setFetchingExtended(isFetching);
+  }, [isFetching, setFetchingExtended]);
 
   // Use the route data sync hook to automatically sync GPS data
   // This runs globally regardless of which screen the user is on

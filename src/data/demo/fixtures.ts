@@ -158,6 +158,16 @@ function generateActivities(): ApiActivity[] {
   const activities: ApiActivity[] = [];
   const now = new Date();
 
+  // Templates now use real OSM route IDs:
+  // route-osm-1: EuroVelo 6 (Ride, 495km)
+  // route-osm-2: National Cycle Route 1 (Ride, 588km)
+  // route-osm-3: San Francisco Bay Trail (Ride, 295km)
+  // route-osm-4: Thames Path (Run, 353km)
+  // route-osm-5: Bondi to Coogee (Run, 18km)
+  // route-osm-6: English Channel (Swim, 334km)
+  // route-osm-7: Amsterdam Cycling (Ride, 3472km)
+  // route-osm-8: Central Park Loop (Run, 71km)
+  // route-osm-9: Dover Harbour (Swim, 124km)
   const templates = [
     {
       type: 'Ride',
@@ -168,7 +178,7 @@ function generateActivities(): ApiActivity[] {
       hr: 145,
       watts: 180,
       tss: 65,
-      route: 'route-coastal-loop',
+      route: 'route-osm-3', // San Francisco Bay Trail
       isLong: false,
       isHard: false,
     },
@@ -181,7 +191,7 @@ function generateActivities(): ApiActivity[] {
       hr: 135,
       watts: 165,
       tss: 120,
-      route: 'route-endurance',
+      route: 'route-osm-1', // EuroVelo 6
       isLong: true,
       isHard: false,
     },
@@ -194,7 +204,7 @@ function generateActivities(): ApiActivity[] {
       hr: 155,
       watts: 210,
       tss: 80,
-      route: 'route-hill-climb',
+      route: 'route-osm-2', // National Cycle Route 1
       isLong: false,
       isHard: true,
     },
@@ -207,7 +217,7 @@ function generateActivities(): ApiActivity[] {
       hr: 140,
       watts: 0,
       tss: 35,
-      route: 'route-riverside',
+      route: 'route-osm-5', // Bondi to Coogee
       isLong: false,
       isHard: false,
     },
@@ -220,7 +230,7 @@ function generateActivities(): ApiActivity[] {
       hr: 145,
       watts: 0,
       tss: 70,
-      route: 'route-trail',
+      route: 'route-osm-8', // Central Park Loop
       isLong: true,
       isHard: false,
     },
@@ -246,8 +256,21 @@ function generateActivities(): ApiActivity[] {
       hr: 130,
       watts: 0,
       tss: 40,
-      route: null,
+      route: null, // Pool swim - no GPS
       isLong: false,
+      isHard: false,
+    },
+    {
+      type: 'Swim',
+      dist: 5000,
+      time: 6000,
+      elev: 0,
+      speed: 3,
+      hr: 135,
+      watts: 0,
+      tss: 60,
+      route: 'route-osm-9', // Dover Harbour open water
+      isLong: true,
       isHard: false,
     },
   ];
@@ -348,13 +371,15 @@ function generateActivities(): ApiActivity[] {
       icu_hr_zones: [130, 145, 160, 170, 180, 190],
       icu_power_zones: [125, 170, 210, 250, 290, 350],
       stream_types:
-        template.type === 'Swim'
-          ? ['time', 'heartrate', 'distance']
-          : template.type === 'VirtualRide'
-            ? ['time', 'heartrate', 'altitude', 'cadence', 'watts', 'velocity_smooth']
-            : template.type === 'Ride'
-              ? ['time', 'latlng', 'heartrate', 'altitude', 'cadence', 'watts', 'velocity_smooth']
-              : ['time', 'latlng', 'heartrate', 'altitude', 'cadence', 'velocity_smooth'],
+        template.type === 'Swim' && !template.route
+          ? ['time', 'heartrate', 'distance'] // Pool swim
+          : template.type === 'Swim' && template.route
+            ? ['time', 'latlng', 'heartrate', 'distance'] // Open water swim with GPS
+            : template.type === 'VirtualRide'
+              ? ['time', 'heartrate', 'altitude', 'cadence', 'watts', 'velocity_smooth']
+              : template.type === 'Ride'
+                ? ['time', 'latlng', 'heartrate', 'altitude', 'cadence', 'watts', 'velocity_smooth']
+                : ['time', 'latlng', 'heartrate', 'altitude', 'cadence', 'velocity_smooth'],
       locality: 'Coastal City',
       country: 'AU',
       // Store route ID for map lookups (not part of real API)
@@ -478,13 +503,18 @@ export function getActivityMap(id: string, boundsOnly = false): ApiActivityMap |
   const activity = getActivity(id) as ApiActivity & { _routeId?: string };
   if (!activity) return null;
 
-  // Virtual rides and swims don't have maps
-  if (activity.type === 'VirtualRide' || activity.type === 'Swim') {
+  // Virtual rides don't have maps
+  if (activity.type === 'VirtualRide') {
+    return null;
+  }
+
+  // Pool swims don't have maps, but open water swims with routes do
+  const routeId = activity._routeId;
+  if (activity.type === 'Swim' && !routeId) {
     return null;
   }
 
   // Get route coordinates
-  const routeId = activity._routeId;
   const route = routeId ? demoRoutes.find((r) => r.id === routeId) : null;
 
   if (route) {

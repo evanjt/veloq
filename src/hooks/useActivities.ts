@@ -13,6 +13,8 @@ interface UseActivitiesOptions {
   newest?: string;
   /** Include additional stats fields (eFTP, zone times) - use for performance page */
   includeStats?: boolean;
+  /** Whether to enable the query (default: true) */
+  enabled?: boolean;
 }
 
 /**
@@ -20,7 +22,7 @@ interface UseActivitiesOptions {
  * Use this for specific date range queries (e.g., stats page, wellness).
  */
 export function useActivities(options: UseActivitiesOptions = {}) {
-  const { days, oldest, newest, includeStats = false } = options;
+  const { days, oldest, newest, includeStats = false, enabled = true } = options;
 
   // Calculate date range
   let queryOldest = oldest;
@@ -41,11 +43,11 @@ export function useActivities(options: UseActivitiesOptions = {}) {
       newest: queryNewest,
       includeStats,
     }),
-    // Thin client approach: always fetch fresh data
-    // staleTime 0 means data is immediately stale, triggering refetch on mount/focus
-    staleTime: 0,
-    gcTime: 1000 * 60 * 5, // Keep in memory 5 min for back navigation
+    // Stale-while-revalidate: show cached data immediately, refetch in background
+    staleTime: 1000 * 60 * 5, // 5 minutes - data appears instantly from cache
+    gcTime: 1000 * 60 * 60, // 1 hour - keep in memory for navigation
     placeholderData: keepPreviousData,
+    enabled,
   });
 }
 
@@ -105,10 +107,9 @@ export function useInfiniteActivities(options: { includeStats?: boolean } = {}) 
         newest: formatLocalDate(nextEnd),
       };
     },
-    // Thin client: always fetch fresh data
-    staleTime: 0,
-    // Keep in memory briefly for back navigation
-    gcTime: 1000 * 60 * 5,
+    // Stale-while-revalidate: show cached data immediately, refetch in background
+    staleTime: 1000 * 60 * 5, // 5 minutes - data appears instantly from cache
+    gcTime: 1000 * 60 * 60, // 1 hour - keep in memory for navigation
     // Refetch on window/app focus for fresh data
     refetchOnWindowFocus: true,
   });

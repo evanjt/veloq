@@ -111,6 +111,8 @@ type LanguageOption = {
   value: string | null;
   label: string;
   description?: string;
+  /** Sub-options for regional variants (e.g., English regional variants) */
+  variants?: Array<{ value: string; label: string }>;
 };
 
 /**
@@ -120,8 +122,41 @@ type LanguageOption = {
 export function getAvailableLanguages(): LanguageOption[] {
   return [
     { value: null, label: 'System', description: 'Auto-detect from device' },
-    { value: 'en', label: 'English' },
+    {
+      value: 'en',
+      label: 'English',
+      variants: [
+        { value: 'en-AU', label: 'AU' },
+        { value: 'en-GB', label: 'GB' },
+        { value: 'en-US', label: 'US' },
+      ],
+    },
     { value: 'es', label: 'Español' },
     { value: 'fr', label: 'Français' },
   ];
+}
+
+/**
+ * Check if a language value is an English variant
+ */
+export function isEnglishVariant(language: string | null): boolean {
+  return language === 'en' || (language !== null && language.startsWith('en-'));
+}
+
+/**
+ * Get the display value for English variants (for UI highlighting)
+ * Resolves 'en' to the device's regional variant
+ */
+export function getEnglishVariantValue(language: string | null): string {
+  if (language === null) {
+    const deviceLocale = getDeviceLocale();
+    return deviceLocale.startsWith('en-') ? deviceLocale : 'en-AU';
+  }
+  if (language === 'en') {
+    // Resolve to device's regional variant
+    const deviceLocale = getDeviceLocale();
+    return deviceLocale.startsWith('en-') ? deviceLocale : 'en-AU';
+  }
+  if (language.startsWith('en-')) return language;
+  return 'en-AU';
 }

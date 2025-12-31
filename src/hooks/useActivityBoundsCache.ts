@@ -1,8 +1,8 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
-import { useAuthStore } from '@/providers';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useQueryClient, useQuery } from '@tanstack/react-query';
+import { useAuthStore, useSyncDateRange } from '@/providers';
 import { clearAllGpsTracks, clearBoundsCache } from '@/lib/storage/gpsStorage';
-import type { ActivityBoundsCache, ActivityBoundsItem } from '@/types';
+import type { ActivityBoundsCache, ActivityBoundsItem, Activity } from '@/types';
 
 // Lazy load route engine to avoid native module errors during bundling
 let _routeEngine: typeof import('route-matcher-native').routeEngine | null = null;
@@ -112,7 +112,34 @@ export function useActivityBoundsCache(options: UseActivityBoundsCacheOptions = 
   const [progress, setProgress] = useState<SyncProgress>({ completed: 0, total: 0, status: 'idle' });
   const [isReady, setIsReady] = useState(true);
   const [activityCount, setActivityCount] = useState(0);
+  const [cachedActivitiesVersion, setCachedActivitiesVersion] = useState(0);
   const queryClient = useQueryClient();
+
+  // Subscribe to activities query cache changes
+  // Only update when query data actually changes (success state)
+  // Use a ref to debounce rapid updates
+  const updateTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    const unsubscribe = queryClient.getQueryCache().subscribe((event) => {
+      // Only react to successful data updates, not loading/error state changes
+      if (event.query.queryKey[0] === 'activities' && event.type === 'updated' && event.action?.type === 'success') {
+        // Debounce updates to prevent rapid re-renders
+        if (updateTimeoutRef.current) {
+          clearTimeout(updateTimeoutRef.current);
+        }
+        updateTimeoutRef.current = setTimeout(() => {
+          setCachedActivitiesVersion((v) => v + 1);
+        }, 100);
+      }
+    });
+    return () => {
+      unsubscribe();
+      if (updateTimeoutRef.current) {
+        clearTimeout(updateTimeoutRef.current);
+      }
+    };
+  }, [queryClient]);
 
   // Subscribe to Rust engine activity changes
   useEffect(() => {
@@ -148,10 +175,75 @@ export function useActivityBoundsCache(options: UseActivityBoundsCacheOptions = 
     isSyncing: progress.status === 'syncing',
   }), [activityCount, activitiesWithDates, progress.status]);
 
-  // Sync operations are no-ops - handled by Rust engine via useRouteDataSync
-  const syncDateRange = useCallback((_oldest: string, _newest: string) => {
-    // Sync handled by Rust engine
-  }, []);
+  // Get all activities with GPS from TanStack Query cache for date range
+  // Note: Query key is ['activities', oldest, newest, stats], so we use getQueriesData
+  // with partial key matching to find all activity queries
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const allGpsActivities = useMemo<Activity[]>(() => {
+    // getQueriesData returns array of [queryKey, data] tuples for all matching queries
+    const queries = queryClient.getQueriesData<Activity[]>({ queryKey: ['activities'] });
+
+    // Merge all activities from all matching queries (there's usually just one)
+    const allActivities: Activity[] = [];
+    const seenIds = new Set<string>();
+
+    for (const [_key, data] of queries) {
+      if (!data) continue;
+      for (const activity of data) {
+        if (!seenIds.has(activity.id)) {
+          seenIds.add(activity.id);
+          allActivities.push(activity);
+        }
+      }
+    }
+
+    return allActivities.filter((a) => a.stream_types?.includes('latlng'));
+  }, [queryClient, cachedActivitiesVersion]);
+
+  // Get activities with bounds from engine for map display
+  const activities = useMemo<ActivityBoundsItem[]>(() => {
+    // If no GPS activities, return empty
+    if (allGpsActivities.length === 0) return [];
+
+    // Try to get bounds from engine
+    const engine = getRouteEngine();
+    if (!engine || activityCount === 0) return [];
+
+    try {
+      const engineBounds = engine.getAllActivityBounds();
+      if (!engineBounds || engineBounds.length === 0) return [];
+
+      // Create lookup map for activity metadata
+      const activityMap = new Map<string, Activity>();
+      for (const a of allGpsActivities) {
+        activityMap.set(a.id, a);
+      }
+
+      // Merge engine bounds with cached metadata
+      return engineBounds.map((eb): ActivityBoundsItem => {
+        const cached = activityMap.get(eb.id);
+        return {
+          id: eb.id,
+          bounds: eb.bounds,
+          type: eb.type as ActivityBoundsItem['type'],
+          name: cached?.name || '',
+          date: cached?.start_date_local || '',
+          distance: eb.distance,
+          duration: cached?.moving_time || 0,
+        };
+      });
+    } catch {
+      return [];
+    }
+  }, [activityCount, allGpsActivities, cachedActivitiesVersion]);
+
+  // Expand the global sync date range - triggers GlobalDataSync to fetch more data
+  const expandRange = useSyncDateRange((s) => s.expandRange);
+  const isFetchingExtended = useSyncDateRange((s) => s.isFetchingExtended);
+
+  const syncDateRange = useCallback((oldest: string, newest: string) => {
+    expandRange(oldest, newest);
+  }, [expandRange]);
 
   const clearCache = useCallback(async () => {
     // Clear Rust engine state
@@ -182,14 +274,28 @@ export function useActivityBoundsCache(options: UseActivityBoundsCacheOptions = 
     });
   }, [queryClient]);
 
+  // Compute oldest activity date from ALL GPS activities (not just those with bounds)
+  // This ensures the timeline slider shows the full range even before sync completes
+  const oldestActivityDate = useMemo(() => {
+    if (allGpsActivities.length === 0) return null;
+    let oldest: string | null = null;
+    for (const a of allGpsActivities) {
+      const date = a.start_date_local;
+      if (date && (!oldest || date < oldest)) {
+        oldest = date;
+      }
+    }
+    return oldest;
+  }, [allGpsActivities]);
+
   return {
-    activities: [], // Legacy - now empty, activities are in Rust engine
+    activities, // Merged from engine bounds + cached metadata
     progress,
     isReady,
     syncDateRange,
     oldestSyncedDate: cacheStats.oldestDate,
     newestSyncedDate: cacheStats.newestDate,
-    oldestActivityDate: null,
+    oldestActivityDate, // Computed from merged activities
     clearCache,
     cacheStats,
     sync,
