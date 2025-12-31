@@ -9,6 +9,7 @@ import { SharedValue, useSharedValue, useAnimatedReaction, runOnJS, useDerivedVa
 import Animated from 'react-native-reanimated';
 import { colors, darkColors, opacity, typography, spacing, layout } from '@/theme';
 import { calculateTSB } from '@/hooks';
+import { ChartErrorBoundary } from '@/components/ui';
 import type { WellnessData } from '@/types';
 
 
@@ -265,9 +266,10 @@ export const FitnessChart = React.memo(function FitnessChart({ data, height = 20
   const displayData = tooltipData || currentData;
 
   return (
-    <View style={[styles.container, { height }]}>
-      {/* Header with values */}
-      <View style={styles.header}>
+    <ChartErrorBoundary height={height} label="Fitness Chart">
+      <View style={[styles.container, { height }]}>
+        {/* Header with values */}
+        <View style={styles.header}>
         <View style={styles.dateContainer}>
           <Text style={[styles.dateText, isDark && styles.textLight]}>
             {(isActive && tooltipData) || selectedDate ? formatDate(tooltipData?.date || selectedDate || '') : t('time.current')}
@@ -395,6 +397,7 @@ export const FitnessChart = React.memo(function FitnessChart({ data, height = 20
         </Pressable>
       </View>
     </View>
+    </ChartErrorBoundary>
   );
 });
 

@@ -45,3 +45,4 @@ export {
   HeroStatEntrance,
   type AnimationPreset,
 } from './ScreenTransition';
+export { ChartErrorBoundary } from './ChartErrorBoundary';
