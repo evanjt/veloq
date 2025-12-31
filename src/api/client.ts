@@ -15,13 +15,19 @@ export const apiClient = axios.create({
 });
 
 // Add auth header dynamically from secure store
+// Supports both OAuth (Bearer token) and API key (Basic auth)
 apiClient.interceptors.request.use((config) => {
-  const { apiKey } = getStoredCredentials();
-  if (apiKey) {
-    // Basic auth with "API_KEY" as username and actual key as password
+  const { apiKey, accessToken, authMethod } = getStoredCredentials();
+
+  if (authMethod === 'oauth' && accessToken) {
+    // OAuth: Use Bearer token
+    config.headers.Authorization = `Bearer ${accessToken}`;
+  } else if (apiKey) {
+    // API key: Basic auth with "API_KEY" as username and actual key as password
     const encoded = btoa(`API_KEY:${apiKey}`);
     config.headers.Authorization = `Basic ${encoded}`;
   }
+
   return config;
 });
 
