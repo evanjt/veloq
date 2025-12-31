@@ -76,11 +76,12 @@ export function InsightfulStats({
     };
   }, [recentActivities, activity.type]);
 
-  // Build insightful stats
-  const stats: StatDetail[] = [];
+  // Build insightful stats (memoized to prevent rebuild on every render)
+  const stats = useMemo(() => {
+    const result: StatDetail[] = [];
 
-  // Training Load with context
-  if (activity.icu_training_load && activity.icu_training_load > 0) {
+    // Training Load with context
+    if (activity.icu_training_load && activity.icu_training_load > 0) {
     const load = activity.icu_training_load;
     const loadComparison = avgLoad && avgLoad > 0
       ? {
@@ -98,7 +99,7 @@ export function InsightfulStats({
       : intensity > 70 ? colors.chartYellow
       : colors.success;
 
-    stats.push({
+    result.push({
       title: t('activity.stats.trainingLoad'),
       value: `${Math.round(load)}`,
       icon: 'lightning-bolt',
@@ -133,7 +134,7 @@ export function InsightfulStats({
         }
       : undefined;
 
-    stats.push({
+    result.push({
       title: t('activity.heartRate'),
       value: `${Math.round(avgHRValue)}`,
       icon: 'heart-pulse',
@@ -155,7 +156,7 @@ export function InsightfulStats({
   // Calories
   if (activity.calories && activity.calories > 0) {
     const calPerHour = Math.round((activity.calories / activity.moving_time) * 3600);
-    stats.push({
+    result.push({
       title: t('activity.stats.energy'),
       value: `${Math.round(activity.calories)}`,
       icon: 'fire',
@@ -185,7 +186,7 @@ export function InsightfulStats({
     }
     const contextStr = conditionParts.length > 0 ? conditionParts.join(', ') : (activity.has_weather ? t('activity.stats.weatherData') : t('activity.stats.deviceSensor'));
 
-    stats.push({
+    result.push({
       title: t('activity.stats.conditions'),
       value: `${Math.round(temp)}°`,
       icon: activity.has_weather ? 'weather-partly-cloudy' : 'thermometer',
@@ -207,7 +208,7 @@ export function InsightfulStats({
       : tsb > -10 ? colors.chartYellow
       : colors.error;
 
-    stats.push({
+    result.push({
       title: t('activity.stats.yourForm'),
       value: `${tsb > 0 ? '+' : ''}${Math.round(tsb)}`,
       icon: 'account-heart',
@@ -228,7 +229,7 @@ export function InsightfulStats({
   const avgPower = activity.average_watts || activity.icu_average_watts;
   if (avgPower && avgPower > 0) {
     const eftp = activity.icu_pm_ftp_watts;
-    stats.push({
+    result.push({
       title: t('activity.power'),
       value: `${Math.round(avgPower)}`,
       icon: 'lightning-bolt-circle',
@@ -245,6 +246,9 @@ export function InsightfulStats({
       ].filter(Boolean) as { label: string; value: string }[],
     });
   }
+
+    return result;
+  }, [activity, wellness, avgLoad, avgIntensity, avgHR, t]);
 
   const handleLongPress = useCallback((stat: StatDetail) => {
     setSelectedStat(stat);
