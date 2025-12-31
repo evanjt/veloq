@@ -92,7 +92,12 @@ export default function SettingsScreen() {
 
   // Load saved theme preference on mount
   useEffect(() => {
-    getThemePreference().then(setThemePreferenceState);
+    getThemePreference()
+      .then(setThemePreferenceState)
+      .catch(() => {
+        // Default to system preference on error
+        setThemePreferenceState('system');
+      });
   }, []);
 
   const handleThemeChange = async (value: string) => {
