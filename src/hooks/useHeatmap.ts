@@ -178,14 +178,15 @@ export function useHeatmap(options: UseHeatmapOptions = {}): UseHeatmapResult {
     const cell = cells.find(c => c.row === row && c.col === col);
     if (!cell) return null;
 
+    // Build suggested label from route info
+    const uniqueRoutes = new Set(cell.routeRefs.map(r => r.routeName).filter(Boolean));
+    const suggestedLabel = uniqueRoutes.size > 0
+      ? Array.from(uniqueRoutes).slice(0, 2).join(', ')
+      : `${cell.activityIds.length} activities`;
+
     return {
       cell,
-      activities: cell.activities.map(a => ({
-        activityId: a.activityId,
-        routeId: a.routeId,
-        routeName: a.routeName,
-        timestamp: a.timestamp,
-      })),
+      suggestedLabel,
     };
   }, [heatmap]);
 
@@ -208,8 +209,8 @@ export function useHeatmap(options: UseHeatmapOptions = {}): UseHeatmapResult {
         properties: {
           density: cell.density,
           normalizedDensity: maxDensity > 0 ? cell.density / maxDensity : 0,
-          activityCount: cell.activityCount,
-          routeCount: cell.routeCount,
+          activityCount: cell.activityIds.length,
+          routeCount: cell.uniqueRouteCount,
         },
         geometry: {
           type: 'Polygon' as const,
