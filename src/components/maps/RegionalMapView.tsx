@@ -8,20 +8,17 @@ import {
   Animated,
 } from 'react-native';
 import { MapView, Camera, MarkerView, ShapeSource, LineLayer, CircleLayer } from '@maplibre/maplibre-react-native';
-import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import * as Location from 'expo-location';
 import { colors, darkColors } from '@/theme/colors';
 import { typography } from '@/theme/typography';
 import { spacing, layout } from '@/theme/spacing';
 import { shadows } from '@/theme/shadows';
-import { intervalsApi } from '@/api';
-import { convertLatLngTuples, normalizeBounds, getBoundsCenter, activitySpatialIndex, mapBoundsToViewport } from '@/lib';
+import { convertLatLngTuples, normalizeBounds, getBoundsCenter } from '@/lib';
 import { getActivityTypeConfig } from './ActivityTypeFilter';
 import { Map3DWebView, type Map3DWebViewRef } from './Map3DWebView';
-import { CompassArrow } from '@/components/ui';
 import {
   type MapStyleType,
   getMapStyle,
@@ -31,12 +28,20 @@ import {
   MAP_ATTRIBUTIONS,
   TERRAIN_ATTRIBUTION,
 } from './mapStyles';
-import type { ActivityBoundsItem, ActivityMapData } from '@/types';
+import type { ActivityBoundsItem } from '@/types';
 import { HeatmapLayer } from './HeatmapLayer';
 import { useHeatmap, type CellQueryResult } from '@/hooks/useHeatmap';
 import { useFrequentSections, useRouteSignatures } from '@/hooks/routes';
 import type { FrequentSection } from '@/types';
-import { ActivityPopup, HeatmapCellInfo, SectionPopup, type SelectedActivity } from './regional';
+import {
+  ActivityPopup,
+  HeatmapCellInfo,
+  SectionPopup,
+  MapControlStack,
+  getMarkerSize,
+  useMapHandlers,
+  type SelectedActivity,
+} from './regional';
 
 /**
  * 120Hz OPTIMIZATION SUMMARY:
@@ -68,7 +73,6 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
   const { t } = useTranslation();
   const colorScheme = useColorScheme();
   const insets = useSafeAreaInsets();
-  const router = useRouter();
   const systemStyle: MapStyleType = colorScheme === 'dark' ? 'dark' : 'light';
   const [mapStyle, setMapStyle] = useState<MapStyleType>(systemStyle);
   const [selected, setSelected] = useState<SelectedActivity | null>(null);
@@ -118,7 +122,6 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
   const map3DRef = useRef<Map3DWebViewRef>(null);
   const bearingAnim = useRef(new Animated.Value(0)).current;
   const initialBoundsRef = useRef<{ ne: [number, number]; sw: [number, number] } | null>(null);
-  const userLocationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ===========================================
   // GESTURE TRACKING - For compass updates
@@ -164,6 +167,47 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
     }
   }, [activities, calculateBounds]);
 
+  // Use the stored initial bounds for the camera default
+  const mapBounds = initialBoundsRef.current || calculateBounds(activities);
+
+  // Extract handlers to separate hook
+  const {
+    handleClosePopup,
+    handleViewDetails,
+    handleZoomToActivity,
+    handleMarkerPress,
+    handleMapPress,
+    handleSectionPress,
+    handleHeatmapCellPress,
+    handleRegionIsChanging,
+    handleRegionDidChange,
+    handleGetLocation,
+    toggleHeatmap,
+    toggleSections,
+    resetOrientation,
+    userLocationTimeoutRef,
+  } = useMapHandlers({
+    activities,
+    sections,
+    heatmap,
+    queryCell,
+    selected,
+    setSelected,
+    isHeatmapMode,
+    setIsHeatmapMode,
+    setSelectedCell,
+    setSelectedSection,
+    setShowSections,
+    setUserLocation,
+    setVisibleActivityIds,
+    setCurrentZoom,
+    cameraRef,
+    map3DRef,
+    bearingAnim,
+    currentZoomLevel,
+    is3DMode,
+  });
+
   // Cleanup timeout on unmount
   useEffect(() => {
     return () => {
@@ -171,57 +215,7 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
         clearTimeout(userLocationTimeoutRef.current);
       }
     };
-  }, []);
-
-  // Note: Container touch handlers and interaction timeout cleanup removed
-  // Using native CircleLayer which doesn't intercept touches
-
-  // Use the stored initial bounds for the camera default
-  const mapBounds = initialBoundsRef.current || calculateBounds(activities);
-
-  // Handle marker tap - no auto-zoom to prevent jarring camera movements
-  const handleMarkerTap = useCallback(async (activity: ActivityBoundsItem) => {
-    // Set loading state - don't zoom, just show the popup
-    setSelected({ activity, mapData: null, isLoading: true });
-
-    try {
-      // Fetch full map data (with coordinates)
-      const mapData = await intervalsApi.getActivityMap(activity.id, false);
-      setSelected({ activity, mapData, isLoading: false });
-    } catch {
-      setSelected({ activity, mapData: null, isLoading: false });
-    }
-  }, []);
-
-  // Close popup
-  const handleClosePopup = useCallback(() => {
-    setSelected(null);
-  }, []);
-
-  // Navigate to activity detail
-  const handleViewDetails = useCallback(() => {
-    if (selected) {
-      router.push(`/activity/${selected.activity.id}`);
-      setSelected(null);
-    }
-  }, [selected, router]);
-
-  // Zoom to selected activity bounds
-  const handleZoomToActivity = useCallback(() => {
-    if (!selected) return;
-
-    const normalized = normalizeBounds(selected.activity.bounds);
-    const bounds = {
-      ne: [normalized.maxLng, normalized.maxLat] as [number, number],
-      sw: [normalized.minLng, normalized.minLat] as [number, number],
-    };
-
-    cameraRef.current?.setCamera({
-      bounds,
-      padding: { paddingTop: 100, paddingRight: 60, paddingBottom: 280, paddingLeft: 60 },
-      animationDuration: 500,
-    });
-  }, [selected]);
+  }, [userLocationTimeoutRef]);
 
   // Toggle map style (cycles through light → dark → satellite)
   const toggleStyle = () => {
@@ -233,146 +227,6 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
     setIs3DMode(current => !current);
   };
 
-  // Toggle heatmap mode
-  const toggleHeatmap = useCallback(() => {
-    setIsHeatmapMode(current => !current);
-    // Clear activity selection when switching to heatmap
-    if (!isHeatmapMode) {
-      setSelected(null);
-    }
-    // Clear cell selection when switching to activities
-    if (isHeatmapMode) {
-      setSelectedCell(null);
-    }
-  }, [isHeatmapMode]);
-
-  // Handle heatmap cell press
-  const handleHeatmapCellPress = useCallback((row: number, col: number) => {
-    // Find the cell in the heatmap data
-    if (!heatmap) return;
-    const cell = heatmap.cells.find(c => c.row === row && c.col === col);
-    if (cell) {
-      // Query for cell details
-      const result = queryCell(cell.centerLat, cell.centerLng);
-      setSelectedCell(result);
-    }
-  }, [heatmap, queryCell]);
-
-  // Toggle sections visibility
-  const toggleSections = useCallback(() => {
-    setShowSections(current => !current);
-  }, []);
-
-  // Handle section press
-  const handleSectionPress = useCallback((event: { features?: GeoJSON.Feature[] }) => {
-    const feature = event.features?.[0];
-    if (!feature?.properties?.id) return;
-
-    const sectionId = feature.properties.id;
-    const section = sections.find(s => s.id === sectionId);
-    if (section) {
-      setSelectedSection(section);
-    }
-  }, [sections]);
-
-  // Reset bearing to north (and pitch in 3D mode)
-  const resetOrientation = () => {
-    if (is3DMode) {
-      // In 3D mode, reset bearing and pitch via WebView
-      map3DRef.current?.resetOrientation();
-    } else {
-      cameraRef.current?.setCamera({
-        heading: 0,
-        animationDuration: 300,
-      });
-    }
-    // Animate the compass back to 0
-    Animated.timing(bearingAnim, {
-      toValue: 0,
-      duration: 300,
-      useNativeDriver: true,
-    }).start();
-  };
-
-  // Handle map region change to update compass (real-time during gesture)
-  const handleRegionIsChanging = useCallback((feature: GeoJSON.Feature) => {
-    const properties = feature.properties as { heading?: number; zoomLevel?: number } | undefined;
-    if (properties?.heading !== undefined) {
-      // Update animated value directly - no re-render
-      bearingAnim.setValue(-properties.heading);
-    }
-    // Track zoom level for dynamic threshold calculation
-    if (properties?.zoomLevel !== undefined) {
-      currentZoomLevel.current = properties.zoomLevel;
-    }
-  }, [bearingAnim]);
-
-  // Handle region change end - track zoom level and update visible activities
-  const handleRegionDidChange = useCallback((feature: GeoJSON.Feature) => {
-    const properties = feature.properties as {
-      zoomLevel?: number;
-      visibleBounds?: [[number, number], [number, number]]; // [[sw_lng, sw_lat], [ne_lng, ne_lat]]
-    } | undefined;
-
-    if (properties?.zoomLevel !== undefined) {
-      currentZoomLevel.current = properties.zoomLevel;
-      setCurrentZoom(properties.zoomLevel);
-    }
-
-    // Query spatial index for visible activities if we have bounds
-    // Note: MapLibre RN may not provide visibleBounds - skip culling if unavailable
-    if (properties?.visibleBounds && activitySpatialIndex.ready) {
-      const [[swLng, swLat], [neLng, neLat]] = properties.visibleBounds;
-      const viewport = mapBoundsToViewport([swLng, swLat], [neLng, neLat]);
-      const visibleIds = activitySpatialIndex.queryViewport(viewport);
-
-      // Only apply culling if we got results - empty results with non-empty index
-      // suggests a coordinate mismatch, so fall back to showing all activities
-      if (visibleIds.length > 0 || activitySpatialIndex.size === 0) {
-        setVisibleActivityIds(new Set(visibleIds));
-      }
-      // If query returned empty but index has activities, keep showing all (visibleActivityIds stays null)
-    }
-  }, []);
-
-  // Get user location (one-time jump, no tracking)
-  const handleGetLocation = useCallback(async () => {
-    try {
-      // Request permission
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        return;
-      }
-
-      // Get current location
-      const location = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced,
-      });
-
-      const coords: [number, number] = [location.coords.longitude, location.coords.latitude];
-
-      // Show marker briefly then remove
-      setUserLocation(coords);
-
-      // Zoom to user location
-      cameraRef.current?.setCamera({
-        centerCoordinate: coords,
-        zoomLevel: 13,
-        animationDuration: 500,
-      });
-
-      // Clear any existing timeout
-      if (userLocationTimeoutRef.current) {
-        clearTimeout(userLocationTimeoutRef.current);
-      }
-
-      // Clear the marker after a few seconds (one-time location, not tracking)
-      userLocationTimeoutRef.current = setTimeout(() => setUserLocation(null), 3000);
-    } catch {
-      // Silently fail - location is optional
-    }
-  }, []);
-
   // Filter activities to only those visible in viewport (for performance)
   // Falls back to all activities if viewport not yet determined
   const visibleActivities = useMemo(() => {
@@ -383,14 +237,6 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
     // Filter to only visible activities
     return activities.filter((a) => visibleActivityIds.has(a.id));
   }, [activities, visibleActivityIds]);
-
-  // Calculate marker size based on distance
-  const getMarkerSize = (distance: number): number => {
-    if (distance < 5000) return 20; // < 5km
-    if (distance < 15000) return 24; // 5-15km
-    if (distance < 30000) return 28; // 15-30km
-    return 32; // > 30km
-  };
 
   // ===========================================
   // GPS TRACE RENDERING - Show simplified routes when zoomed in
@@ -529,26 +375,6 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
   // Selected activity ID for MapLibre expressions (cheap to pass, doesn't trigger GeoJSON rebuild)
   const selectedActivityId = selected?.activity.id ?? null;
 
-  // Handle marker tap via ShapeSource press - NO touch interception!
-  const handleMarkerPress = useCallback((event: { features?: GeoJSON.Feature[] }) => {
-    const feature = event.features?.[0];
-    if (!feature?.properties?.id) return;
-
-    const activityId = feature.properties.id;
-    const activity = activities.find(a => a.id === activityId);
-    if (activity) {
-      handleMarkerTap(activity);
-    }
-  }, [activities, handleMarkerTap]);
-
-  // Handle map press - close popup when tapping empty space
-  const handleMapPress = useCallback(() => {
-    // Close popup when tapping empty space
-    if (selected) {
-      setSelected(null);
-    }
-  }, [selected]);
-
   // Build route GeoJSON for selected activity
   // Uses the same coordinate conversion as ActivityMapView for consistency
   const routeGeoJSON = useMemo(() => {
@@ -591,7 +417,7 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
   }, [selected?.mapData]);
 
   // 3D is available when we have route data to display
-  const can3D = selected && route3DCoords.length > 0;
+  const can3D = !!selected && route3DCoords.length > 0;
   // Show 3D view when enabled and we have route data
   const show3D = is3DMode && can3D;
 
@@ -841,106 +667,23 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
       </TouchableOpacity>
 
       {/* Control button stack - positioned in middle of right side */}
-      <View style={[styles.controlStack, { top: insets.top + 64 }]}>
-        {/* 3D Toggle - only active when activity with route is selected */}
-        <TouchableOpacity
-          style={[
-            styles.controlButton,
-            isDark && styles.controlButtonDark,
-            show3D && styles.controlButtonActive,
-            !can3D && styles.controlButtonDisabled,
-          ]}
-          onPress={can3D ? toggle3D : undefined}
-          activeOpacity={can3D ? 0.8 : 1}
-          disabled={!can3D}
-          accessibilityLabel={show3D ? t('maps.disable3D') : t('maps.enable3D')}
-          accessibilityRole="button"
-          accessibilityState={{ disabled: !can3D }}
-        >
-          <MaterialCommunityIcons
-            name="terrain"
-            size={22}
-            color={show3D ? colors.textOnDark : (can3D ? (isDark ? colors.textOnDark : colors.textSecondary) : (isDark ? darkColors.textMuted : colors.textDisabled))}
-          />
-        </TouchableOpacity>
-
-        {/* North Arrow - tap to reset orientation */}
-        <TouchableOpacity
-          style={[styles.controlButton, isDark && styles.controlButtonDark]}
-          onPress={resetOrientation}
-          activeOpacity={0.8}
-          accessibilityLabel={t('maps.resetOrientation')}
-          accessibilityRole="button"
-        >
-          <CompassArrow
-            size={22}
-            rotation={bearingAnim}
-            northColor={colors.error}
-            southColor={isDark ? colors.textOnDark : colors.textSecondary}
-          />
-        </TouchableOpacity>
-
-        {/* Location button */}
-        <TouchableOpacity
-          style={[
-            styles.controlButton,
-            isDark && styles.controlButtonDark,
-            userLocation && styles.controlButtonActive,
-          ]}
-          onPress={handleGetLocation}
-          activeOpacity={0.8}
-          accessibilityLabel={t('maps.goToLocation')}
-          accessibilityRole="button"
-        >
-          <MaterialCommunityIcons
-            name="crosshairs-gps"
-            size={22}
-            color={userLocation ? colors.textOnDark : (isDark ? colors.textOnDark : colors.textSecondary)}
-          />
-        </TouchableOpacity>
-
-        {/* Heatmap toggle - only shown when heatmap data is available */}
-        {heatmap && heatmap.cells.length > 0 && (
-          <TouchableOpacity
-            style={[
-              styles.controlButton,
-              isDark && styles.controlButtonDark,
-              isHeatmapMode && styles.controlButtonActive,
-            ]}
-            onPress={toggleHeatmap}
-            activeOpacity={0.8}
-            accessibilityLabel={isHeatmapMode ? 'Show activities' : 'Show heatmap'}
-            accessibilityRole="button"
-          >
-            <MaterialCommunityIcons
-              name="fire"
-              size={22}
-              color={isHeatmapMode ? colors.textOnDark : (isDark ? colors.textOnDark : colors.textSecondary)}
-            />
-          </TouchableOpacity>
-        )}
-
-        {/* Sections toggle - only shown when sections exist and not in heatmap mode */}
-        {sections.length > 0 && !isHeatmapMode && (
-          <TouchableOpacity
-            style={[
-              styles.controlButton,
-              isDark && styles.controlButtonDark,
-              showSections && styles.controlButtonActive,
-            ]}
-            onPress={toggleSections}
-            activeOpacity={0.8}
-            accessibilityLabel={showSections ? 'Hide sections' : 'Show sections'}
-            accessibilityRole="button"
-          >
-            <MaterialCommunityIcons
-              name="road-variant"
-              size={22}
-              color={showSections ? colors.textOnDark : (isDark ? colors.textOnDark : colors.textSecondary)}
-            />
-          </TouchableOpacity>
-        )}
-      </View>
+      <MapControlStack
+        top={insets.top + 64}
+        isDark={isDark}
+        is3DMode={is3DMode}
+        can3D={can3D}
+        isHeatmapMode={isHeatmapMode}
+        showSections={showSections}
+        userLocationActive={!!userLocation}
+        heatmap={heatmap}
+        sections={sections}
+        bearingAnim={bearingAnim}
+        onToggle3D={toggle3D}
+        onResetOrientation={resetOrientation}
+        onGetLocation={handleGetLocation}
+        onToggleHeatmap={toggleHeatmap}
+        onToggleSections={toggleSections}
+      />
 
       {/* Attribution */}
       <View style={[styles.attribution, { bottom: insets.bottom + 8 }]}>
@@ -1005,29 +748,6 @@ const styles = StyleSheet.create({
   },
   styleButton: {
     right: spacing.md,
-  },
-  controlStack: {
-    position: 'absolute',
-    right: spacing.md,
-    gap: spacing.sm,
-  },
-  controlButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    ...shadows.mapOverlay,
-  },
-  controlButtonDark: {
-    backgroundColor: darkColors.surfaceCard,
-  },
-  controlButtonActive: {
-    backgroundColor: colors.primary,
-  },
-  controlButtonDisabled: {
-    opacity: 0.5,
   },
   userLocationMarker: {
     width: 24,
