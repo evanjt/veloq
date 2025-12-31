@@ -58,6 +58,7 @@ export function MapPreferencesProvider({ children }: { children: ReactNode }) {
 
   // Set activity type style
   const setActivityTypeStyle = useCallback(async (activityType: ActivityType, style: MapStyleType | null) => {
+    let newPrefs: MapPreferences | null = null;
     setPreferences(prev => {
       const newStyles = { ...prev.activityTypeStyles };
       if (style === null) {
@@ -65,14 +66,17 @@ export function MapPreferencesProvider({ children }: { children: ReactNode }) {
       } else {
         newStyles[activityType] = style;
       }
-      const newPrefs = { ...prev, activityTypeStyles: newStyles };
-      savePreferences(newPrefs);
+      newPrefs = { ...prev, activityTypeStyles: newStyles };
       return newPrefs;
     });
+    if (newPrefs) {
+      await savePreferences(newPrefs);
+    }
   }, [savePreferences]);
 
   // Set style for a group of activity types (batch update)
   const setActivityGroupStyle = useCallback(async (activityTypes: ActivityType[], style: MapStyleType | null) => {
+    let newPrefs: MapPreferences | null = null;
     setPreferences(prev => {
       const newStyles = { ...prev.activityTypeStyles };
       for (const activityType of activityTypes) {
@@ -82,10 +86,12 @@ export function MapPreferencesProvider({ children }: { children: ReactNode }) {
           newStyles[activityType] = style;
         }
       }
-      const newPrefs = { ...prev, activityTypeStyles: newStyles };
-      savePreferences(newPrefs);
+      newPrefs = { ...prev, activityTypeStyles: newStyles };
       return newPrefs;
     });
+    if (newPrefs) {
+      await savePreferences(newPrefs);
+    }
   }, [savePreferences]);
 
   // Get style for a specific activity type
