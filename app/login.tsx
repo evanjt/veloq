@@ -3,32 +3,34 @@ import {
   View,
   StyleSheet,
   useColorScheme,
-  KeyboardAvoidingView,
-  Platform,
   ScrollView,
   Linking,
-  Alert,
+  Pressable,
 } from 'react-native';
-import { Text, TextInput, Button, HelperText, ActivityIndicator } from 'react-native-paper';
+import { Text, Button, ActivityIndicator } from 'react-native-paper';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router, Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '@/providers';
-import { intervalsApi } from '@/api/intervals';
 import { colors, spacing, layout } from '@/theme';
 import { useQueryClient } from '@tanstack/react-query';
+import {
+  startOAuthFlow,
+  handleOAuthCallback,
+  isOAuthConfigured,
+  INTERVALS_URLS,
+} from '@/services/oauth';
 
 export default function LoginScreen() {
   const { t } = useTranslation();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const insets = useSafeAreaInsets();
-  const setCredentials = useAuthStore((state) => state.setCredentials);
+  const setOAuthCredentials = useAuthStore((state) => state.setOAuthCredentials);
   const enterDemoMode = useAuthStore((state) => state.enterDemoMode);
   const queryClient = useQueryClient();
 
-  const [apiKey, setApiKey] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -41,13 +43,21 @@ export default function LoginScreen() {
     router.replace('/' as Href);
   };
 
-  const handleOpenSettings = () => {
-    Linking.openURL('https://intervals.icu/settings');
+  const handleCreateAccount = () => {
+    Linking.openURL(INTERVALS_URLS.signup);
   };
 
-  const handleLogin = async () => {
-    if (!apiKey.trim()) {
-      setError(t('login.apiKeyRequired'));
+  const handleOpenPrivacy = () => {
+    Linking.openURL(INTERVALS_URLS.privacyPolicy);
+  };
+
+  const handleOpenTerms = () => {
+    Linking.openURL(INTERVALS_URLS.termsOfService);
+  };
+
+  const handleOAuthLogin = async () => {
+    if (!isOAuthConfigured()) {
+      setError(t('login.oauthNotConfigured'));
       return;
     }
 
@@ -55,31 +65,31 @@ export default function LoginScreen() {
     setError(null);
 
     try {
-      // Temporarily set just the API key so we can make the request
-      await setCredentials(apiKey.trim(), '');
+      const result = await startOAuthFlow();
 
-      // Fetch the current athlete to get the athlete ID
-      const athlete = await intervalsApi.getCurrentAthlete();
+      if (result.type === 'success' && result.url) {
+        // Handle the callback URL
+        const tokenResponse = await handleOAuthCallback(result.url);
 
-      if (!athlete.id) {
-        throw new Error('Could not retrieve athlete ID');
-      }
+        // Store OAuth credentials
+        await setOAuthCredentials(
+          tokenResponse.access_token,
+          tokenResponse.athlete_id,
+          tokenResponse.athlete_name
+        );
 
-      // Now save with the correct athlete ID
-      await setCredentials(apiKey.trim(), athlete.id);
-
-      // Success - navigate to main app
-      router.replace('/' as Href);
-    } catch (err: unknown) {
-      // Clear invalid credentials
-      await useAuthStore.getState().clearCredentials();
-
-      const error = err as { response?: { status?: number } };
-      if (error?.response?.status === 401) {
-        setError(t('login.invalidApiKey'));
+        // Success - navigate to main app
+        router.replace('/' as Href);
+      } else if (result.type === 'cancel') {
+        // User cancelled - no error needed
+        setIsLoading(false);
+        return;
       } else {
-        setError(t('login.connectionFailed'));
+        setError(t('login.oauthFailed'));
       }
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : t('login.connectionFailed');
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -87,100 +97,115 @@ export default function LoginScreen() {
 
   return (
     <SafeAreaView style={[styles.container, isDark && styles.containerDark]} testID="login-screen">
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.keyboardView}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? insets.bottom + 10 : 0}
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
       >
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          keyboardShouldPersistTaps="handled"
-        >
-          {/* Logo/Header */}
-          <View style={styles.header}>
-            <Text style={[styles.title, isDark && styles.textLight]}>{t('login.title')}</Text>
-            <Text style={[styles.subtitle, isDark && styles.textDark]}>
-              {t('login.subtitle')}
-            </Text>
-          </View>
+        {/* Logo/Header */}
+        <View style={styles.header}>
+          <Text style={[styles.title, isDark && styles.textLight]}>{t('login.title')}</Text>
+          <Text style={[styles.subtitle, isDark && styles.textDark]}>
+            {t('login.subtitle')}
+          </Text>
+        </View>
 
-          {/* Instructions */}
-          <View style={[styles.card, isDark && styles.cardDark]}>
-            <Text style={[styles.instructionTitle, isDark && styles.textLight]}>
-              {t('login.gettingStarted')}
-            </Text>
-            <Text style={[styles.instruction, isDark && styles.textDark]}>
-              {t('login.instructions')}
-            </Text>
-            <Button
-              mode="outlined"
-              onPress={handleOpenSettings}
-              icon="open-in-new"
-              style={styles.settingsButton}
-            >
-              {t('login.openSettings')}
-            </Button>
-          </View>
-
-          {/* Credentials Form */}
-          <View style={[styles.card, isDark && styles.cardDark]}>
-            <TextInput
-              testID="login-api-key-input"
-              label={t('login.apiKey')}
-              value={apiKey}
-              onChangeText={setApiKey}
-              mode="outlined"
-              secureTextEntry
-              autoCapitalize="none"
-              autoCorrect={false}
-              style={styles.input}
-              left={<TextInput.Icon icon="key" />}
-              disabled={isLoading}
-            />
-
-            {error && (
-              <HelperText type="error" visible={true} testID="login-error-text">
+        {/* Main Login Section */}
+        <View style={[styles.card, isDark && styles.cardDark]}>
+          {error && (
+            <View style={styles.errorContainer}>
+              <MaterialCommunityIcons name="alert-circle" size={20} color={colors.error} />
+              <Text style={styles.errorText} testID="login-error-text">
                 {error}
-              </HelperText>
-            )}
+              </Text>
+            </View>
+          )}
 
-            <Button
-              testID="login-button"
-              mode="contained"
-              onPress={handleLogin}
-              loading={isLoading}
-              disabled={isLoading || !apiKey.trim()}
-              style={styles.loginButton}
-              contentStyle={styles.loginButtonContent}
-            >
-              {isLoading ? t('login.connecting') : t('login.connect')}
-            </Button>
+          {/* OAuth Login Button */}
+          <Button
+            testID="login-oauth-button"
+            mode="contained"
+            onPress={handleOAuthLogin}
+            loading={isLoading}
+            disabled={isLoading}
+            style={styles.oauthButton}
+            contentStyle={styles.oauthButtonContent}
+            icon="login"
+          >
+            {isLoading ? t('login.connecting') : t('login.loginWithIntervals')}
+          </Button>
 
-            <Button
-              testID="login-demo-button"
-              mode="outlined"
-              onPress={handleTryDemo}
-              disabled={isLoading}
-              style={styles.demoButton}
-              icon="play-circle-outline"
-            >
-              {t('login.tryDemo', { defaultValue: 'Try Demo' })}
-            </Button>
-          </View>
-
-          {/* Security note */}
-          <View style={styles.securityNote}>
-            <MaterialCommunityIcons
-              name="shield-lock"
-              size={16}
-              color={isDark ? '#888' : colors.textSecondary}
-            />
-            <Text style={[styles.securityText, isDark && styles.textDark]}>
-              {t('login.securityNote')}
+          {/* Divider */}
+          <View style={styles.dividerContainer}>
+            <View style={[styles.divider, isDark && styles.dividerDark]} />
+            <Text style={[styles.dividerText, isDark && styles.textDark]}>
+              {t('common.or', { defaultValue: 'or' })}
             </Text>
+            <View style={[styles.divider, isDark && styles.dividerDark]} />
           </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
+
+          {/* Demo Button */}
+          <Button
+            testID="login-demo-button"
+            mode="outlined"
+            onPress={handleTryDemo}
+            disabled={isLoading}
+            style={styles.demoButton}
+            icon="play-circle-outline"
+          >
+            {t('login.tryDemo', { defaultValue: 'Try Demo' })}
+          </Button>
+        </View>
+
+        {/* New User Section */}
+        <View style={[styles.card, isDark && styles.cardDark]}>
+          <Text style={[styles.newUserTitle, isDark && styles.textLight]}>
+            {t('login.noAccount')}
+          </Text>
+          <Text style={[styles.newUserText, isDark && styles.textDark]}>
+            {t('login.createAccountHint')}
+          </Text>
+          <Button
+            mode="text"
+            onPress={handleCreateAccount}
+            icon="open-in-new"
+            style={styles.createAccountButton}
+          >
+            {t('login.createAccount')}
+          </Button>
+        </View>
+
+        {/* Disclaimer Footer */}
+        <View style={styles.disclaimerContainer}>
+          <Text style={[styles.disclaimerText, isDark && styles.textMuted]}>
+            {t('login.disclaimer')}
+          </Text>
+          <View style={styles.linksRow}>
+            <Pressable onPress={handleOpenPrivacy}>
+              <Text style={styles.linkText}>
+                {t('login.privacyPolicy')}
+              </Text>
+            </Pressable>
+            <Text style={[styles.linkSeparator, isDark && styles.textMuted]}>|</Text>
+            <Pressable onPress={handleOpenTerms}>
+              <Text style={styles.linkText}>
+                {t('login.termsOfService')}
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+
+        {/* Security note */}
+        <View style={styles.securityNote}>
+          <MaterialCommunityIcons
+            name="shield-lock"
+            size={16}
+            color={isDark ? '#888' : colors.textSecondary}
+          />
+          <Text style={[styles.securityText, isDark && styles.textDark]}>
+            {t('login.securityNote')}
+          </Text>
+        </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -192,9 +217,6 @@ const styles = StyleSheet.create({
   },
   containerDark: {
     backgroundColor: '#121212',
-  },
-  keyboardView: {
-    flex: 1,
   },
   scrollContent: {
     flexGrow: 1,
@@ -217,6 +239,9 @@ const styles = StyleSheet.create({
   textDark: {
     color: '#AAA',
   },
+  textMuted: {
+    color: '#888',
+  },
   subtitle: {
     fontSize: 16,
     color: colors.textSecondary,
@@ -230,33 +255,86 @@ const styles = StyleSheet.create({
   cardDark: {
     backgroundColor: '#1E1E1E',
   },
-  instructionTitle: {
+  errorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(244, 67, 54, 0.1)',
+    padding: spacing.sm,
+    borderRadius: 8,
+    marginBottom: spacing.md,
+    gap: spacing.sm,
+  },
+  errorText: {
+    color: colors.error,
+    flex: 1,
+    fontSize: 14,
+  },
+  oauthButton: {
+    backgroundColor: colors.primary,
+  },
+  oauthButtonContent: {
+    paddingVertical: spacing.sm,
+  },
+  dividerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: spacing.lg,
+  },
+  divider: {
+    flex: 1,
+    height: 1,
+    backgroundColor: colors.border,
+  },
+  dividerDark: {
+    backgroundColor: '#333',
+  },
+  dividerText: {
+    marginHorizontal: spacing.md,
+    color: colors.textSecondary,
+    fontSize: 14,
+  },
+  demoButton: {
+    borderColor: colors.primary,
+  },
+  newUserTitle: {
     fontSize: 16,
     fontWeight: '600',
     color: colors.textPrimary,
-    marginBottom: spacing.sm,
+    marginBottom: spacing.xs,
   },
-  instruction: {
+  newUserText: {
     fontSize: 14,
     color: colors.textSecondary,
-    lineHeight: 22,
+    marginBottom: spacing.sm,
+  },
+  createAccountButton: {
+    alignSelf: 'flex-start',
+    marginLeft: -spacing.sm,
+  },
+  disclaimerContainer: {
+    alignItems: 'center',
+    paddingHorizontal: spacing.md,
     marginBottom: spacing.md,
   },
-  settingsButton: {
-    marginTop: spacing.xs,
+  disclaimerText: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 18,
+    marginBottom: spacing.sm,
   },
-  input: {
-    marginBottom: spacing.md,
+  linksRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
   },
-  loginButton: {
-    marginTop: spacing.sm,
-    backgroundColor: colors.primary,
+  linkText: {
+    fontSize: 12,
+    color: colors.primary,
+    textDecorationLine: 'underline',
   },
-  loginButtonContent: {
-    paddingVertical: spacing.xs,
-  },
-  demoButton: {
-    marginTop: spacing.md,
+  linkSeparator: {
+    color: colors.textSecondary,
   },
   securityNote: {
     flexDirection: 'row',

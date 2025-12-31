@@ -783,6 +783,21 @@ export default function SettingsScreen() {
         {/* Account Section */}
         <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>{t('settings.account').toUpperCase()}</Text>
         <View style={[styles.section, isDark && styles.sectionDark]}>
+          <TouchableOpacity
+            style={styles.actionRow}
+            onPress={() => router.push('/about' as Href)}
+          >
+            <MaterialCommunityIcons name="information-outline" size={22} color={colors.primary} />
+            <Text style={[styles.actionText, isDark && styles.textLight]}>{t('about.title')}</Text>
+            <MaterialCommunityIcons
+              name="chevron-right"
+              size={20}
+              color={isDark ? '#666' : colors.textSecondary}
+            />
+          </TouchableOpacity>
+
+          <View style={[styles.divider, isDark && styles.dividerDark]} />
+
           <TouchableOpacity testID="settings-logout-button" style={styles.actionRow} onPress={handleLogout}>
             <MaterialCommunityIcons name="logout" size={22} color={colors.error} />
             <Text style={[styles.actionText, styles.actionTextDanger]}>{t('settings.disconnectAccount')}</Text>

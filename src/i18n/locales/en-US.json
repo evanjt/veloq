@@ -14,7 +14,8 @@
     "search": "Search",
     "clearSearch": "Clear search",
     "noResults": "No results",
-    "pullToRefresh": "Pull to refresh"
+    "pullToRefresh": "Pull to refresh",
+    "or": "or"
   },
 
   "navigation": {
@@ -80,12 +81,39 @@
     "invalidApiKey": "Invalid API Key. Please check your key and try again.",
     "connectionFailed": "Failed to connect. Please check your API key and try again.",
     "securityNote": "Your credentials are stored securely on your device",
-    "tryDemo": "Try Demo"
+    "tryDemo": "Try Demo",
+    "loginWithIntervals": "Login with intervals.icu",
+    "noAccount": "Don't have an account?",
+    "createAccount": "Create one at intervals.icu",
+    "createAccountHint": "Veloq requires an intervals.icu account to sync your fitness data.",
+    "disclaimer": "Veloq is not affiliated with intervals.icu. By using this app you agree to the intervals.icu Terms of Service and Privacy Policy.",
+    "privacyPolicy": "Privacy Policy",
+    "termsOfService": "Terms of Service",
+    "oauthNotConfigured": "OAuth is not configured. Please contact the developer.",
+    "oauthFailed": "Login failed. Please try again."
   },
 
   "demo": {
     "banner": "Demo Mode",
     "tapToSignIn": "Tap to sign in"
+  },
+
+  "about": {
+    "title": "About & Legal",
+    "version": "Version",
+    "description": "A fast, offline-first mobile client for intervals.icu with a focus on maps and visual analytics.",
+    "disclaimerTitle": "Disclaimer",
+    "disclaimer": "Veloq is an independent, open-source project. It is not affiliated with, endorsed by, or connected to intervals.icu in any way.",
+    "intervalsPrivacy": "intervals.icu Privacy Policy",
+    "intervalsTerms": "intervals.icu Terms of Service",
+    "intervalsApiTerms": "intervals.icu API Terms",
+    "veloqPrivacy": "Veloq Privacy Policy",
+    "openSource": "Open Source License (Apache 2.0)",
+    "sourceCode": "Source Code",
+    "dataAttribution": "Data Attribution",
+    "garminNote": "Activity data may include information from Garmin, Strava, Polar, Wahoo, and other devices connected to your intervals.icu account.",
+    "mapData": "Map Data",
+    "mapAttribution": "Map tiles provided by OpenStreetMap, Carto, and Stadia Maps. Map data copyright OpenStreetMap contributors."
   },
 
   "settings": {
