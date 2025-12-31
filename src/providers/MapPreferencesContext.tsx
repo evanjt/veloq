@@ -1,8 +1,9 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { safeJsonParse } from '@/lib/utils/validation';
+import { safeJsonParseWithSchema } from '@/lib/utils/validation';
 import type { MapStyleType } from '@/components/maps/mapStyles';
 import type { ActivityType } from '@/types';
+import { isActivityType } from '@/types';
 
 const STORAGE_KEY = 'veloq-map-preferences';
 
@@ -25,17 +26,48 @@ const DEFAULT_PREFERENCES: MapPreferences = {
   activityTypeStyles: {},
 };
 
+/** Valid map style values */
+const VALID_MAP_STYLES = new Set<MapStyleType>(['light', 'dark', 'satellite']);
+
+/**
+ * Validate that a value is a valid MapPreferences object.
+ */
+function isValidMapPreferences(value: unknown): value is MapPreferences {
+  if (typeof value !== 'object' || value === null) return false;
+
+  const obj = value as Record<string, unknown>;
+
+  // Validate defaultStyle
+  if (typeof obj.defaultStyle !== 'string' || !VALID_MAP_STYLES.has(obj.defaultStyle as MapStyleType)) {
+    return false;
+  }
+
+  // Validate activityTypeStyles if present
+  if (obj.activityTypeStyles !== undefined) {
+    if (typeof obj.activityTypeStyles !== 'object' || obj.activityTypeStyles === null) {
+      return false;
+    }
+    for (const [key, val] of Object.entries(obj.activityTypeStyles)) {
+      if (!isActivityType(key) || !VALID_MAP_STYLES.has(val as MapStyleType)) {
+        return false;
+      }
+    }
+  }
+
+  return true;
+}
+
 const MapPreferencesContext = createContext<MapPreferencesContextValue | null>(null);
 
 export function MapPreferencesProvider({ children }: { children: ReactNode }) {
   const [preferences, setPreferences] = useState<MapPreferences>(DEFAULT_PREFERENCES);
   const [isLoaded, setIsLoaded] = useState(false);
 
-  // Load preferences on mount
+  // Load preferences on mount with schema validation
   useEffect(() => {
     AsyncStorage.getItem(STORAGE_KEY)
       .then((saved) => {
-        const parsed = safeJsonParse(saved, DEFAULT_PREFERENCES);
+        const parsed = safeJsonParseWithSchema(saved, isValidMapPreferences, DEFAULT_PREFERENCES);
         setPreferences({ ...DEFAULT_PREFERENCES, ...parsed });
         setIsLoaded(true);
       })
