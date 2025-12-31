@@ -4,6 +4,35 @@
 
 import type { ActivityType } from './activity';
 
+/**
+ * Valid activity types for type checking.
+ * Keep in sync with ActivityType union.
+ */
+const VALID_ACTIVITY_TYPES = new Set<string>([
+  'Ride', 'Run', 'Swim', 'Walk', 'Hike', 'VirtualRide', 'VirtualRun',
+  'Workout', 'WeightTraining', 'Yoga', 'Snowboard', 'AlpineSki',
+  'NordicSki', 'BackcountrySki', 'Rowing', 'Kayaking', 'Canoeing',
+  'OpenWaterSwim', 'TrailRun', 'Snowshoe', 'Tennis', 'RockClimbing', 'Other',
+]);
+
+/**
+ * Type guard to check if a string is a valid ActivityType.
+ */
+export function isActivityType(value: string): value is ActivityType {
+  return VALID_ACTIVITY_TYPES.has(value);
+}
+
+/**
+ * Safely convert a string to ActivityType with fallback to 'Other'.
+ * Use this instead of `as ActivityType` casts.
+ */
+export function toActivityType(value: string | undefined | null): ActivityType {
+  if (value && isActivityType(value)) {
+    return value;
+  }
+  return 'Other';
+}
+
 /** GPS point for route representation */
 export interface RoutePoint {
   lat: number;
