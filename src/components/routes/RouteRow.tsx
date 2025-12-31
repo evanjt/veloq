@@ -152,11 +152,15 @@ function RouteRowComponent({ route, navigable = false }: RouteRowProps) {
 
   // Load custom route name if available
   useEffect(() => {
-    loadCustomRouteNames().then((names) => {
-      if (names[route.id]) {
-        setCustomName(names[route.id]);
-      }
-    });
+    loadCustomRouteNames()
+      .then((names) => {
+        if (names[route.id]) {
+          setCustomName(names[route.id]);
+        }
+      })
+      .catch(() => {
+        // Silently ignore - custom name is optional
+      });
   }, [route.id]);
 
   // Display name uses custom name if set, otherwise auto-generated name
