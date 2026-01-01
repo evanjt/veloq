@@ -59,9 +59,9 @@ pub use matching::compare_routes;
 
 // Route grouping algorithms
 pub mod grouping;
-pub use grouping::{group_signatures, should_group_routes};
+pub use grouping::{group_signatures, group_signatures_with_matches, should_group_routes};
 #[cfg(feature = "parallel")]
-pub use grouping::{group_signatures_parallel, group_incremental};
+pub use grouping::{group_signatures_parallel, group_signatures_parallel_with_matches, group_incremental};
 
 // Geographic utilities (distance, bounds, center calculations)
 pub mod geo_utils;
@@ -437,6 +437,27 @@ pub struct RouteGroup {
     pub bounds: Option<Bounds>,
     /// User-defined custom name for this route (None = use auto-generated name)
     pub custom_name: Option<String>,
+}
+
+/// Match info for an activity within a route group.
+/// Stores how well the activity matches the representative route.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ActivityMatchInfo {
+    /// Activity ID
+    pub activity_id: String,
+    /// Match percentage (0-100)
+    pub match_percentage: f64,
+    /// Match direction: "same", "reverse", or "partial"
+    pub direction: String,
+}
+
+/// Result from grouping signatures, including per-activity match info.
+#[derive(Debug, Clone)]
+pub struct GroupingResult {
+    /// The route groups
+    pub groups: Vec<RouteGroup>,
+    /// Match info per activity: route_id -> Vec<ActivityMatchInfo>
+    pub activity_matches: std::collections::HashMap<String, Vec<ActivityMatchInfo>>,
 }
 
 // ============================================================================

@@ -1596,6 +1596,7 @@ class RouteEngineClient {
   /**
    * Set activity metrics for performance calculations.
    * Call after activities are loaded with metadata from API.
+   * In persistent mode, metrics are stored in SQLite for instant access on next launch.
    */
   setActivityMetrics(metrics: ActivityMetrics[]): void {
     const nativeMetrics = metrics.map(m => ({
@@ -1610,22 +1611,32 @@ class RouteEngineClient {
       avg_power: m.avgPower ?? null,
       sport_type: m.sportType,
     }));
-    NativeModule.engineSetActivityMetrics(nativeMetrics);
-    nativeLog(`[Engine] Set metrics for ${metrics.length} activities`);
+    if (this.dbPath) {
+      NativeModule.persistentEngineSetActivityMetrics(nativeMetrics);
+    } else {
+      NativeModule.engineSetActivityMetrics(nativeMetrics);
+    }
+    nativeLog(`[Engine] Set metrics for ${metrics.length} activities (${this.dbPath ? 'persistent' : 'memory'})`);
   }
 
   /**
    * Get route performances for a group.
    * Returns sorted performances with best and current rank.
+   * In persistent mode, uses stored match percentages instead of hardcoded 100%.
    */
   getRoutePerformances(
     routeGroupId: string,
     currentActivityId?: string
   ): RoutePerformanceResult {
-    const json = NativeModule.engineGetRoutePerformancesJson(
-      routeGroupId,
-      currentActivityId ?? null
-    );
+    const json = this.dbPath
+      ? NativeModule.persistentEngineGetRoutePerformancesJson(
+          routeGroupId,
+          currentActivityId ?? null
+        )
+      : NativeModule.engineGetRoutePerformancesJson(
+          routeGroupId,
+          currentActivityId ?? null
+        );
     const raw = JSON.parse(json) as {
       performances: Array<Record<string, unknown>>;
       best: Record<string, unknown> | null;
