@@ -86,9 +86,7 @@ export async function storeGpsTrack(
 /**
  * Store multiple GPS tracks efficiently
  */
-export async function storeGpsTracks(
-  tracks: Map<string, [number, number][]>
-): Promise<void> {
+export async function storeGpsTracks(tracks: Map<string, [number, number][]>): Promise<void> {
   if (tracks.size === 0) return;
 
   await ensureGpsDir();
@@ -111,7 +109,7 @@ export async function storeGpsTracks(
 
   // Write all files in parallel, using allSettled to handle individual failures
   const results = await Promise.allSettled(
-    trackEntries.map(entry =>
+    trackEntries.map((entry) =>
       FileSystem.writeAsStringAsync(entry.path, entry.data).then(() => entry.activityId)
     )
   );
@@ -142,9 +140,7 @@ export async function storeGpsTracks(
 /**
  * Get GPS track for an activity
  */
-export async function getGpsTrack(
-  activityId: string
-): Promise<[number, number][] | null> {
+export async function getGpsTrack(activityId: string): Promise<[number, number][] | null> {
   const path = getGpsPath(activityId);
   const info = await FileSystem.getInfoAsync(path);
   if (!info.exists) return null;
@@ -262,7 +258,7 @@ export async function getGpsTrackCount(): Promise<number> {
     if (dirInfo.exists) {
       const files = await FileSystem.readDirectoryAsync(GPS_DIR);
       // Count only .json files, excluding index
-      return files.filter(f => f.endsWith('.json') && f !== 'index.json').length;
+      return files.filter((f) => f.endsWith('.json') && f !== 'index.json').length;
     }
   } catch {
     // Ignore
@@ -280,7 +276,7 @@ export async function estimateGpsStorageSize(): Promise<number> {
     if (!dirInfo.exists) return 0;
 
     const files = await FileSystem.readDirectoryAsync(GPS_DIR);
-    const gpsFiles = files.filter(f => f.endsWith('.json') && f !== 'index.json');
+    const gpsFiles = files.filter((f) => f.endsWith('.json') && f !== 'index.json');
 
     if (gpsFiles.length === 0) return 0;
 

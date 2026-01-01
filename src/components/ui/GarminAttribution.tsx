@@ -21,15 +21,17 @@ interface GarminAttributionProps {
 export function isGarminDevice(deviceName?: string | null): boolean {
   if (!deviceName) return false;
   const lower = deviceName.toLowerCase();
-  return lower.includes('garmin') ||
-         lower.includes('forerunner') ||
-         lower.includes('fenix') ||
-         lower.includes('edge') ||
-         lower.includes('venu') ||
-         lower.includes('vivoactive') ||
-         lower.includes('instinct') ||
-         lower.includes('enduro') ||
-         lower.includes('epix');
+  return (
+    lower.includes('garmin') ||
+    lower.includes('forerunner') ||
+    lower.includes('fenix') ||
+    lower.includes('edge') ||
+    lower.includes('venu') ||
+    lower.includes('vivoactive') ||
+    lower.includes('instinct') ||
+    lower.includes('enduro') ||
+    lower.includes('epix')
+  );
 }
 
 /**

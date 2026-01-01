@@ -38,11 +38,12 @@ export function useActivities(options: UseActivitiesOptions = {}) {
 
   return useQuery<Activity[]>({
     queryKey: ['activities', queryOldest, queryNewest, includeStats ? 'stats' : 'base'],
-    queryFn: () => intervalsApi.getActivities({
-      oldest: queryOldest,
-      newest: queryNewest,
-      includeStats,
-    }),
+    queryFn: () =>
+      intervalsApi.getActivities({
+        oldest: queryOldest,
+        newest: queryNewest,
+        includeStats,
+      }),
     // Stale-while-revalidate: show cached data immediately, refetch in background
     staleTime: 1000 * 60 * 5, // 5 minutes - data appears instantly from cache
     gcTime: 1000 * 60 * 60, // 1 hour - keep in memory for navigation

@@ -4,7 +4,15 @@
  */
 
 import React, { useEffect, useRef, memo, useMemo } from 'react';
-import { View, StyleSheet, FlatList, RefreshControl, useColorScheme, LayoutAnimation, Platform } from 'react-native';
+import {
+  View,
+  StyleSheet,
+  FlatList,
+  RefreshControl,
+  useColorScheme,
+  LayoutAnimation,
+  Platform,
+} from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -27,63 +35,74 @@ interface RoutesListProps {
 }
 
 // Memoized routes list - only updates when route count changes
-const DiscoveredRoutesList = memo(function DiscoveredRoutesList({
-  routes,
-  isDark,
-  t,
-}: {
-  routes: DiscoveredRouteInfo[];
-  isDark: boolean;
-  t: (key: string) => string;
-}) {
-  const prevCountRef = useRef(routes.length);
+const DiscoveredRoutesList = memo(
+  function DiscoveredRoutesList({
+    routes,
+    isDark,
+    t,
+  }: {
+    routes: DiscoveredRouteInfo[];
+    isDark: boolean;
+    t: (key: string) => string;
+  }) {
+    const prevCountRef = useRef(routes.length);
 
-  // Animate layout when routes are added
-  useEffect(() => {
-    if (routes.length > prevCountRef.current) {
-      LayoutAnimation.configureNext({
-        duration: 200,
-        create: { type: LayoutAnimation.Types.easeOut, property: LayoutAnimation.Properties.opacity },
-        update: { type: LayoutAnimation.Types.easeOut },
-      });
+    // Animate layout when routes are added
+    useEffect(() => {
+      if (routes.length > prevCountRef.current) {
+        LayoutAnimation.configureNext({
+          duration: 200,
+          create: {
+            type: LayoutAnimation.Types.easeOut,
+            property: LayoutAnimation.Properties.opacity,
+          },
+          update: { type: LayoutAnimation.Types.easeOut },
+        });
+      }
+      prevCountRef.current = routes.length;
+    }, [routes.length]);
+
+    if (routes.length === 0) {
+      return (
+        <View style={styles.noRoutesYet}>
+          <MaterialCommunityIcons
+            name="map-search-outline"
+            size={32}
+            color={isDark ? darkColors.iconDisabled : colors.gray400}
+          />
+          <Text style={[styles.noRoutesText, isDark && styles.textMuted]}>
+            {t('routes.lookingForRoutes')}
+          </Text>
+        </View>
+      );
     }
-    prevCountRef.current = routes.length;
-  }, [routes.length]);
 
-  if (routes.length === 0) {
     return (
-      <View style={styles.noRoutesYet}>
-        <MaterialCommunityIcons
-          name="map-search-outline"
-          size={32}
-          color={isDark ? darkColors.iconDisabled : colors.gray400}
-        />
-        <Text style={[styles.noRoutesText, isDark && styles.textMuted]}>
-          {t('routes.lookingForRoutes')}
-        </Text>
+      <View style={styles.routesList}>
+        {routes.map((route) => (
+          <RouteRow key={route.id} route={route} />
+        ))}
       </View>
     );
+  },
+  (prev, next) => {
+    // Only re-render if route count changes or activity counts change
+    if (prev.routes.length !== next.routes.length) return false;
+    if (prev.isDark !== next.isDark) return false;
+    // Check if any route's activity count changed
+    for (let i = 0; i < prev.routes.length; i++) {
+      if (prev.routes[i].activityCount !== next.routes[i].activityCount) return false;
+    }
+    return true;
   }
+);
 
-  return (
-    <View style={styles.routesList}>
-      {routes.map((route) => (
-        <RouteRow key={route.id} route={route} />
-      ))}
-    </View>
-  );
-}, (prev, next) => {
-  // Only re-render if route count changes or activity counts change
-  if (prev.routes.length !== next.routes.length) return false;
-  if (prev.isDark !== next.isDark) return false;
-  // Check if any route's activity count changed
-  for (let i = 0; i < prev.routes.length; i++) {
-    if (prev.routes[i].activityCount !== next.routes[i].activityCount) return false;
-  }
-  return true;
-});
-
-export function RoutesList({ onRefresh, isRefreshing = false, startDate, endDate }: RoutesListProps) {
+export function RoutesList({
+  onRefresh,
+  isRefreshing = false,
+  startDate,
+  endDate,
+}: RoutesListProps) {
   const { t } = useTranslation();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
@@ -122,8 +141,13 @@ export function RoutesList({ onRefresh, isRefreshing = false, startDate, endDate
           {/* Current activity - fixed height to prevent jumps */}
           <View style={[styles.currentActivity, isDark && styles.currentActivityDark]}>
             <MaterialCommunityIcons name="magnify" size={14} color={colors.primary} />
-            <Text style={[styles.currentActivityText, isDark && styles.textMuted]} numberOfLines={1}>
-              {progress.currentActivity ? t('routes.checking', { name: progress.currentActivity }) : t('routes.waiting')}
+            <Text
+              style={[styles.currentActivityText, isDark && styles.textMuted]}
+              numberOfLines={1}
+            >
+              {progress.currentActivity
+                ? t('routes.checking', { name: progress.currentActivity })
+                : t('routes.waiting')}
             </Text>
           </View>
 
@@ -136,7 +160,7 @@ export function RoutesList({ onRefresh, isRefreshing = false, startDate, endDate
       {!showProcessing && isReady && processedCount > 0 && (
         <CacheScopeNotice
           processedCount={processedCount}
-          groupCount={groups.length}  // Only show groups with 2+ activities (actual routes)
+          groupCount={groups.length} // Only show groups with 2+ activities (actual routes)
         />
       )}
 

@@ -87,13 +87,9 @@ export function SectionCreationOverlay({
           />
           <Text style={styles.instructionText}>{getInstructions()}</Text>
         </View>
-        {getProgress() && (
-          <Text style={styles.progressText}>{getProgress()}</Text>
-        )}
+        {getProgress() && <Text style={styles.progressText}>{getProgress()}</Text>}
         {sectionDistance !== null && state === 'complete' && (
-          <Text style={styles.distanceText}>
-            {formatDistance(sectionDistance)}
-          </Text>
+          <Text style={styles.distanceText}>{formatDistance(sectionDistance)}</Text>
         )}
       </View>
 
@@ -105,11 +101,7 @@ export function SectionCreationOverlay({
           onPress={onCancel}
           activeOpacity={0.8}
         >
-          <MaterialCommunityIcons
-            name="close"
-            size={24}
-            color={colors.textOnDark}
-          />
+          <MaterialCommunityIcons name="close" size={24} color={colors.textOnDark} />
           <Text style={styles.buttonText}>Cancel</Text>
         </TouchableOpacity>
 
@@ -120,14 +112,8 @@ export function SectionCreationOverlay({
             onPress={onReset}
             activeOpacity={0.8}
           >
-            <MaterialCommunityIcons
-              name="refresh"
-              size={24}
-              color={colors.textSecondary}
-            />
-            <Text style={[styles.buttonText, styles.resetButtonText]}>
-              Reset
-            </Text>
+            <MaterialCommunityIcons name="refresh" size={24} color={colors.textSecondary} />
+            <Text style={[styles.buttonText, styles.resetButtonText]}>Reset</Text>
           </TouchableOpacity>
         )}
 
@@ -138,11 +124,7 @@ export function SectionCreationOverlay({
             onPress={onConfirm}
             activeOpacity={0.8}
           >
-            <MaterialCommunityIcons
-              name="check"
-              size={24}
-              color={colors.textOnDark}
-            />
+            <MaterialCommunityIcons name="check" size={24} color={colors.textOnDark} />
             <Text style={styles.buttonText}>Create</Text>
           </TouchableOpacity>
         )}

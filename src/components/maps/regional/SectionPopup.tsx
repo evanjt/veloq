@@ -45,15 +45,11 @@ export function SectionPopup({ section, bottom, onClose }: SectionPopupProps) {
         </View>
         <View style={styles.popupStat}>
           <MaterialCommunityIcons name="run" size={20} color={colors.chartBlue} />
-          <Text style={styles.popupStatValue}>
-            {section.activityIds.length} activities
-          </Text>
+          <Text style={styles.popupStatValue}>{section.activityIds.length} activities</Text>
         </View>
         <View style={styles.popupStat}>
           <MaterialCommunityIcons name="map-marker-path" size={20} color={colors.chartOrange} />
-          <Text style={styles.popupStatValue}>
-            {section.routeIds.length} routes
-          </Text>
+          <Text style={styles.popupStatValue}>{section.routeIds.length} routes</Text>
         </View>
       </View>
     </View>

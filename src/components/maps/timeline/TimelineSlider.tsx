@@ -1,17 +1,7 @@
 import React, { useMemo, useState, useCallback, useEffect } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  LayoutChangeEvent,
-  Platform,
-} from 'react-native';
+import { View, Text, StyleSheet, LayoutChangeEvent, Platform } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  runOnJS,
-} from 'react-native-reanimated';
+import Animated, { useSharedValue, useAnimatedStyle, runOnJS } from 'react-native-reanimated';
 import { useTranslation } from 'react-i18next';
 import * as Haptics from 'expo-haptics';
 import { colors, darkColors } from '@/theme/colors';
@@ -96,33 +86,39 @@ export function TimelineSlider({
   }, [oneYearAgo, minDate]);
 
   // Convert date to slider position (0-1) using non-linear scale
-  const dateToPosition = useCallback((date: Date): number => {
-    const time = date.getTime();
+  const dateToPosition = useCallback(
+    (date: Date): number => {
+      const time = date.getTime();
 
-    if (time >= oneYearAgo.getTime()) {
-      const recentProgress = Math.min(1, (time - oneYearAgo.getTime()) / ONE_YEAR_MS);
-      return RECENT_YEAR_POSITION + recentProgress * RECENT_YEAR_POSITION;
-    } else {
-      const yearsFromOneYearAgo = (oneYearAgo.getTime() - time) / ONE_YEAR_MS;
-      const positionPerYear = RECENT_YEAR_POSITION / olderYears;
-      const position = RECENT_YEAR_POSITION - yearsFromOneYearAgo * positionPerYear;
-      return Math.max(0, position);
-    }
-  }, [oneYearAgo, olderYears]);
+      if (time >= oneYearAgo.getTime()) {
+        const recentProgress = Math.min(1, (time - oneYearAgo.getTime()) / ONE_YEAR_MS);
+        return RECENT_YEAR_POSITION + recentProgress * RECENT_YEAR_POSITION;
+      } else {
+        const yearsFromOneYearAgo = (oneYearAgo.getTime() - time) / ONE_YEAR_MS;
+        const positionPerYear = RECENT_YEAR_POSITION / olderYears;
+        const position = RECENT_YEAR_POSITION - yearsFromOneYearAgo * positionPerYear;
+        return Math.max(0, position);
+      }
+    },
+    [oneYearAgo, olderYears]
+  );
 
   // Convert slider position (0-1) to date using non-linear scale
-  const positionToDate = useCallback((pos: number): Date => {
-    if (pos >= RECENT_YEAR_POSITION) {
-      const recentProgress = (pos - RECENT_YEAR_POSITION) / RECENT_YEAR_POSITION;
-      const time = oneYearAgo.getTime() + recentProgress * ONE_YEAR_MS;
-      return new Date(Math.min(time, maxDate.getTime()));
-    } else {
-      const positionPerYear = RECENT_YEAR_POSITION / olderYears;
-      const yearsFromOneYearAgo = (RECENT_YEAR_POSITION - pos) / positionPerYear;
-      const time = oneYearAgo.getTime() - yearsFromOneYearAgo * ONE_YEAR_MS;
-      return new Date(Math.max(time, minDate.getTime()));
-    }
-  }, [oneYearAgo, olderYears, minDate, maxDate]);
+  const positionToDate = useCallback(
+    (pos: number): Date => {
+      if (pos >= RECENT_YEAR_POSITION) {
+        const recentProgress = (pos - RECENT_YEAR_POSITION) / RECENT_YEAR_POSITION;
+        const time = oneYearAgo.getTime() + recentProgress * ONE_YEAR_MS;
+        return new Date(Math.min(time, maxDate.getTime()));
+      } else {
+        const positionPerYear = RECENT_YEAR_POSITION / olderYears;
+        const yearsFromOneYearAgo = (RECENT_YEAR_POSITION - pos) / positionPerYear;
+        const time = oneYearAgo.getTime() - yearsFromOneYearAgo * ONE_YEAR_MS;
+        return new Date(Math.max(time, minDate.getTime()));
+      }
+    },
+    [oneYearAgo, olderYears, minDate, maxDate]
+  );
 
   // Shared values for animation
   const startPos = useSharedValue(dateToPosition(startDate));
@@ -152,7 +148,13 @@ export function TimelineSlider({
 
   // Generate snap points for year boundaries and quarterly months
   const snapPoints = useMemo(() => {
-    const points: { position: number; label: string; date: Date; isMonth?: boolean; showLabel?: boolean }[] = [];
+    const points: {
+      position: number;
+      label: string;
+      date: Date;
+      isMonth?: boolean;
+      showLabel?: boolean;
+    }[] = [];
 
     // Older years (left half: 0-0.5)
     const positionPerYear = RECENT_YEAR_POSITION / olderYears;
@@ -169,10 +171,23 @@ export function TimelineSlider({
     }
 
     // Quarters in recent year (right half: 0.5-1.0)
-    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const monthNames = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
     for (let i = 1; i <= 3; i++) {
       const position = RECENT_YEAR_POSITION + (i / 4) * RECENT_YEAR_POSITION;
-      const monthsBack = 12 - (i * 3);
+      const monthsBack = 12 - i * 3;
       const date = new Date(maxDate);
       date.setMonth(date.getMonth() - monthsBack);
       date.setDate(1);
@@ -197,80 +212,99 @@ export function TimelineSlider({
   }, [olderYears, maxDate, t]);
 
   // Snap position to nearest snap point
-  const snapToNearest = useCallback((pos: number): { position: number; snapped: boolean } => {
-    const SNAP_THRESHOLD = 0.08;
-    let closestPoint = pos;
-    let closestDistance = Infinity;
+  const snapToNearest = useCallback(
+    (pos: number): { position: number; snapped: boolean } => {
+      const SNAP_THRESHOLD = 0.08;
+      let closestPoint = pos;
+      let closestDistance = Infinity;
 
-    for (const point of snapPoints) {
-      const distance = Math.abs(pos - point.position);
-      if (distance < closestDistance && distance < SNAP_THRESHOLD) {
-        closestDistance = distance;
-        closestPoint = point.position;
+      for (const point of snapPoints) {
+        const distance = Math.abs(pos - point.position);
+        if (distance < closestDistance && distance < SNAP_THRESHOLD) {
+          closestDistance = distance;
+          closestPoint = point.position;
+        }
       }
-    }
 
-    return { position: closestPoint, snapped: closestPoint !== pos };
-  }, [snapPoints]);
+      return { position: closestPoint, snapped: closestPoint !== pos };
+    },
+    [snapPoints]
+  );
 
   const triggerHaptic = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   }, []);
 
-  const updateDatesFromPositions = useCallback((startPosValue: number, endPosValue: number) => {
-    const start = positionToDate(startPosValue);
-    const end = positionToDate(endPosValue);
-    onRangeChange(start, end);
-  }, [positionToDate, onRangeChange]);
+  const updateDatesFromPositions = useCallback(
+    (startPosValue: number, endPosValue: number) => {
+      const start = positionToDate(startPosValue);
+      const end = positionToDate(endPosValue);
+      onRangeChange(start, end);
+    },
+    [positionToDate, onRangeChange]
+  );
 
-  const applySnapAndUpdate = useCallback((startPosValue: number, endPosValue: number) => {
-    const startResult = snapToNearest(startPosValue);
-    const endResult = snapToNearest(endPosValue);
-    startPos.value = startResult.position;
-    endPos.value = endResult.position;
+  const applySnapAndUpdate = useCallback(
+    (startPosValue: number, endPosValue: number) => {
+      const startResult = snapToNearest(startPosValue);
+      const endResult = snapToNearest(endPosValue);
+      startPos.value = startResult.position;
+      endPos.value = endResult.position;
 
-    if (startResult.snapped || endResult.snapped) {
-      triggerHaptic();
-    }
+      if (startResult.snapped || endResult.snapped) {
+        triggerHaptic();
+      }
 
-    updateDatesFromPositions(startResult.position, endResult.position);
-  }, [snapToNearest, updateDatesFromPositions, triggerHaptic]);
+      updateDatesFromPositions(startResult.position, endResult.position);
+    },
+    [snapToNearest, updateDatesFromPositions, triggerHaptic]
+  );
 
   // Handle tap on track to move left handle
-  const handleTrackTap = useCallback((tapX: number) => {
-    if (trackWidth === 0) return;
+  const handleTrackTap = useCallback(
+    (tapX: number) => {
+      if (trackWidth === 0) return;
 
-    const tapPosition = Math.max(0, Math.min(1, tapX / trackWidth));
-    const snappedResult = snapToNearest(tapPosition);
-    const targetPos = snappedResult.position;
+      const tapPosition = Math.max(0, Math.min(1, tapX / trackWidth));
+      const snappedResult = snapToNearest(tapPosition);
+      const targetPos = snappedResult.position;
 
-    if (targetPos >= endPos.value) {
-      startPos.value = targetPos;
-      endPos.value = 1;
-      triggerHaptic();
-      updateDatesFromPositions(targetPos, 1);
-    } else {
-      startPos.value = targetPos;
-      triggerHaptic();
-      updateDatesFromPositions(targetPos, endPos.value);
-    }
-  }, [trackWidth, snapToNearest, triggerHaptic, updateDatesFromPositions]);
+      if (targetPos >= endPos.value) {
+        startPos.value = targetPos;
+        endPos.value = 1;
+        triggerHaptic();
+        updateDatesFromPositions(targetPos, 1);
+      } else {
+        startPos.value = targetPos;
+        triggerHaptic();
+        updateDatesFromPositions(targetPos, endPos.value);
+      }
+    },
+    [trackWidth, snapToNearest, triggerHaptic, updateDatesFromPositions]
+  );
 
   // Gestures
-  const trackTapGesture = Gesture.Tap()
-    .onEnd((e) => {
-      runOnJS(handleTrackTap)(e.x);
-    });
+  const trackTapGesture = Gesture.Tap().onEnd((e) => {
+    runOnJS(handleTrackTap)(e.x);
+  });
 
   const startGesture = Gesture.Pan()
-    .hitSlop({ top: HANDLE_HIT_SLOP, bottom: HANDLE_HIT_SLOP, left: HANDLE_HIT_SLOP, right: HANDLE_HIT_SLOP })
+    .hitSlop({
+      top: HANDLE_HIT_SLOP,
+      bottom: HANDLE_HIT_SLOP,
+      left: HANDLE_HIT_SLOP,
+      right: HANDLE_HIT_SLOP,
+    })
     .onBegin(() => {
       startPosAtGestureStart.value = startPos.value;
     })
     .onUpdate((e) => {
       if (trackWidth === 0) return;
       const delta = e.translationX / trackWidth;
-      const newPos = Math.max(0, Math.min(endPos.value - MIN_RANGE, startPosAtGestureStart.value + delta));
+      const newPos = Math.max(
+        0,
+        Math.min(endPos.value - MIN_RANGE, startPosAtGestureStart.value + delta)
+      );
       startPos.value = newPos;
     })
     .onEnd(() => {
@@ -278,14 +312,22 @@ export function TimelineSlider({
     });
 
   const endGesture = Gesture.Pan()
-    .hitSlop({ top: HANDLE_HIT_SLOP, bottom: HANDLE_HIT_SLOP, left: HANDLE_HIT_SLOP, right: HANDLE_HIT_SLOP })
+    .hitSlop({
+      top: HANDLE_HIT_SLOP,
+      bottom: HANDLE_HIT_SLOP,
+      left: HANDLE_HIT_SLOP,
+      right: HANDLE_HIT_SLOP,
+    })
     .onBegin(() => {
       endPosAtGestureStart.value = endPos.value;
     })
     .onUpdate((e) => {
       if (trackWidth === 0) return;
       const delta = e.translationX / trackWidth;
-      const newPos = Math.max(startPos.value + MIN_RANGE, Math.min(1, endPosAtGestureStart.value + delta));
+      const newPos = Math.max(
+        startPos.value + MIN_RANGE,
+        Math.min(1, endPosAtGestureStart.value + delta)
+      );
       endPos.value = newPos;
     })
     .onEnd(() => {
@@ -306,10 +348,13 @@ export function TimelineSlider({
     right: trackWidth - endPos.value * trackWidth,
   }));
 
-  const cachedRangeStyle = useMemo(() => ({
-    left: cachedRange.start * trackWidth,
-    width: (cachedRange.end - cachedRange.start) * trackWidth,
-  }), [cachedRange, trackWidth]);
+  const cachedRangeStyle = useMemo(
+    () => ({
+      left: cachedRange.start * trackWidth,
+      width: (cachedRange.end - cachedRange.start) * trackWidth,
+    }),
+    [cachedRange, trackWidth]
+  );
 
   return (
     <View style={styles.wrapper}>
@@ -346,7 +391,14 @@ export function TimelineSlider({
                       key={i}
                       style={[
                         styles.stripe,
-                        { backgroundColor: i % 2 === 0 ? colors.primary : (isDark ? 'rgba(60,60,60,0.8)' : 'rgba(255,255,255,0.8)') }
+                        {
+                          backgroundColor:
+                            i % 2 === 0
+                              ? colors.primary
+                              : isDark
+                                ? 'rgba(60,60,60,0.8)'
+                                : 'rgba(255,255,255,0.8)',
+                        },
                       ]}
                     />
                   ))}
@@ -386,9 +438,19 @@ export function TimelineSlider({
 
               return (
                 <React.Fragment key={`${point.label}-${index}`}>
-                  <View style={[styles.tickMark, isDark && styles.tickMarkDark, { left: pixelPos - 0.5 }]} />
+                  <View
+                    style={[
+                      styles.tickMark,
+                      isDark && styles.tickMarkDark,
+                      { left: pixelPos - 0.5 },
+                    ]}
+                  />
                   <Text
-                    style={[styles.tickLabelBase, isDark && styles.tickLabelDark, { left: pixelPos - 14, width: 28, textAlign: 'center' }]}
+                    style={[
+                      styles.tickLabelBase,
+                      isDark && styles.tickLabelDark,
+                      { left: pixelPos - 14, width: 28, textAlign: 'center' },
+                    ]}
                     numberOfLines={1}
                   >
                     {labelText}
@@ -402,7 +464,9 @@ export function TimelineSlider({
         {/* Activity count */}
         <View style={styles.countContainer}>
           <Text style={[styles.countLabel, isDark && styles.countLabelDark]}>
-            {isLoading ? t('common.loading') : t('maps.activitiesCount', { count: activityCount || 0 })}
+            {isLoading
+              ? t('common.loading')
+              : t('maps.activitiesCount', { count: activityCount || 0 })}
           </Text>
         </View>
 

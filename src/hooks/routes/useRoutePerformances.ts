@@ -90,10 +90,7 @@ export function useRoutePerformances(
 
     try {
       // Get calculated performances from Rust engine
-      const result = routeEngine.getRoutePerformances(
-        engineGroup.groupId,
-        activityId
-      );
+      const result = routeEngine.getRoutePerformances(engineGroup.groupId, activityId);
 
       // Convert to RoutePerformancePoint format (add Date objects)
       const points: RoutePerformancePoint[] = result.performances.map((p) => ({

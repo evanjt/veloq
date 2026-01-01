@@ -5,7 +5,13 @@ import { useTranslation } from 'react-i18next';
 import { CartesianChart, Line } from 'victory-native';
 import { Circle, DashPathEffect, Line as SkiaLine } from '@shopify/react-native-skia';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Animated, { useSharedValue, useAnimatedReaction, runOnJS, useDerivedValue, useAnimatedStyle } from 'react-native-reanimated';
+import Animated, {
+  useSharedValue,
+  useAnimatedReaction,
+  runOnJS,
+  useDerivedValue,
+  useAnimatedStyle,
+} from 'react-native-reanimated';
 import { router } from 'expo-router';
 import { colors, darkColors } from '@/theme/colors';
 import { typography } from '@/theme/typography';
@@ -63,7 +69,11 @@ function formatDateRange(startDate?: string, endDate?: string): string {
   if (!startDate || !endDate) return '';
   const start = new Date(startDate);
   const end = new Date(endDate);
-  const formatOpts: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'short', year: 'numeric' };
+  const formatOpts: Intl.DateTimeFormatOptions = {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  };
   return `${start.toLocaleDateString('en-US', formatOpts)} - ${end.toLocaleDateString('en-US', formatOpts)}`;
 }
 
@@ -74,20 +84,16 @@ function speedToSecsPerKm(metersPerSecond: number): number {
 }
 
 interface ChartPoint {
-  x: number;         // log10(distance) for chart positioning
-  y: number;         // pace in seconds/km
-  distance: number;  // actual distance in meters
-  time: number;      // time in seconds to cover this distance
+  x: number; // log10(distance) for chart positioning
+  y: number; // pace in seconds/km
+  distance: number; // actual distance in meters
+  time: number; // time in seconds to cover this distance
   paceSecsPerKm: number;
   activityId?: string; // Activity that achieved this best effort
   [key: string]: unknown;
 }
 
-export function PaceCurveChart({
-  sport = 'Run',
-  days = 42,
-  height = 220,
-}: PaceCurveChartProps) {
+export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceCurveChartProps) {
   const { t } = useTranslation();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
@@ -96,7 +102,11 @@ export function PaceCurveChart({
   // GAP toggle state (only for running)
   const [showGap, setShowGap] = useState(false);
 
-  const { data: curve, isLoading, error } = usePaceCurve({
+  const {
+    data: curve,
+    isLoading,
+    error,
+  } = usePaceCurve({
     sport,
     days,
     gap: isRunning && showGap,
@@ -190,7 +200,7 @@ export function PaceCurveChart({
     let lastDist = 0;
     for (const p of points) {
       // Adaptive sampling: more points at shorter distances
-      const minGap = p.distance < 1000 ? 30 : (p.distance < 5000 ? 100 : 300);
+      const minGap = p.distance < 1000 ? 30 : p.distance < 5000 ? 100 : 300;
       if (p.distance - lastDist >= minGap) {
         sampled.push(p);
         lastDist = p.distance;
@@ -202,14 +212,14 @@ export function PaceCurveChart({
 
     // Calculate y domain (pace range)
     // Note: For pace, LOWER seconds = FASTER, so we want min at TOP of chart
-    const paces = sampled.map(d => d.y);
-    const minPace = Math.min(...paces);  // fastest
-    const maxPace = Math.max(...paces);  // slowest
+    const paces = sampled.map((d) => d.y);
+    const minPace = Math.min(...paces); // fastest
+    const maxPace = Math.max(...paces); // slowest
     const padding = (maxPace - minPace) * 0.1;
 
     // Calculate x domain (log distance range)
-    const minDist = Math.min(...sampled.map(d => d.distance));
-    const maxDist = Math.max(...sampled.map(d => d.distance));
+    const minDist = Math.min(...sampled.map((d) => d.distance));
+    const maxDist = Math.max(...sampled.map((d) => d.distance));
 
     return {
       chartData: sampled,
@@ -223,7 +233,7 @@ export function PaceCurveChart({
   // Sync xDomain and x values to shared values for worklet access
   React.useEffect(() => {
     xDomainShared.value = xDomain;
-    xValuesShared.value = chartData.map(d => d.x);
+    xValuesShared.value = chartData.map((d) => d.x);
   }, [xDomain, chartData, xDomainShared, xValuesShared]);
 
   // Calculate x-axis label positions based on actual chart bounds from Victory Native
@@ -234,7 +244,7 @@ export function PaceCurveChart({
     const [xMin, xMax] = xDomain;
     const xRange = xMax - xMin;
 
-    return X_AXIS_MARKERS.map(marker => {
+    return X_AXIS_MARKERS.map((marker) => {
       const logDist = Math.log10(marker.meters);
       const ratio = (logDist - xMin) / xRange;
       // Only show if within the data range
@@ -242,7 +252,7 @@ export function PaceCurveChart({
       return {
         label: marker.label,
         // Position relative to chart bounds, not wrapper width
-        position: actualChartBounds.left + (ratio * chartAreaWidth),
+        position: actualChartBounds.left + ratio * chartAreaWidth,
       };
     }).filter(Boolean) as { label: string; position: number }[];
   }, [actualChartBounds, xDomain, chartData.length]);
@@ -309,14 +319,25 @@ export function PaceCurveChart({
 
   useAnimatedReaction(
     () => selectedIdx.value,
-    (idx) => { runOnJS(updateTooltipOnJS)(idx); },
+    (idx) => {
+      runOnJS(updateTooltipOnJS)(idx);
+    },
     [updateTooltipOnJS]
   );
 
   const gesture = Gesture.Pan()
-    .onStart((e) => { 'worklet'; touchX.value = e.x; })
-    .onUpdate((e) => { 'worklet'; touchX.value = e.x; })
-    .onEnd(() => { 'worklet'; touchX.value = -1; })
+    .onStart((e) => {
+      'worklet';
+      touchX.value = e.x;
+    })
+    .onUpdate((e) => {
+      'worklet';
+      touchX.value = e.x;
+    })
+    .onEnd(() => {
+      'worklet';
+      touchX.value = -1;
+    })
     .minDistance(0)
     .activateAfterLongPress(700);
 
@@ -333,7 +354,6 @@ export function PaceCurveChart({
 
     return { opacity: 1, transform: [{ translateX: xPos }] };
   }, []);
-
 
   if (isLoading) {
     return (
@@ -383,7 +403,9 @@ export function PaceCurveChart({
               value={showGap}
               onValueChange={setShowGap}
               trackColor={{ false: isDark ? '#444' : '#DDD', true: colors.primary }}
-              thumbColor={showGap ? colors.textOnDark : (isDark ? darkColors.textSecondary : colors.textOnDark)}
+              thumbColor={
+                showGap ? colors.textOnDark : isDark ? darkColors.textSecondary : colors.textOnDark
+              }
               style={styles.gapSwitch}
             />
           </View>
@@ -393,7 +415,9 @@ export function PaceCurveChart({
       {/* Values row */}
       <View style={styles.valuesRow}>
         <View style={styles.valueItem}>
-          <Text style={[styles.valueLabel, isDark && styles.textDark]}>{t('activity.distance')}</Text>
+          <Text style={[styles.valueLabel, isDark && styles.textDark]}>
+            {t('activity.distance')}
+          </Text>
           <Text style={[styles.valueNumber, { color: CHART_COLOR }]}>
             {formatDistance(displayData.distance)}
           </Text>
@@ -414,7 +438,11 @@ export function PaceCurveChart({
 
       {/* Activity info row - shows which activity achieved this best effort */}
       {selectedActivity && (
-        <TouchableOpacity onPress={handleActivityTap} style={styles.activityRow} activeOpacity={0.7}>
+        <TouchableOpacity
+          onPress={handleActivityTap}
+          style={styles.activityRow}
+          activeOpacity={0.7}
+        >
           <View style={[styles.activityPill, isDark && styles.activityPillDark]}>
             <Text style={styles.activityLabel} numberOfLines={1}>
               {selectedActivity.name} →
@@ -435,11 +463,16 @@ export function PaceCurveChart({
           >
             {({ points, chartBounds }) => {
               // Sync bounds for gesture and x-axis label positioning
-              if (chartBounds.left !== chartBoundsShared.value.left ||
-                  chartBounds.right !== chartBoundsShared.value.right) {
+              if (
+                chartBounds.left !== chartBoundsShared.value.left ||
+                chartBounds.right !== chartBoundsShared.value.right
+              ) {
                 chartBoundsShared.value = { left: chartBounds.left, right: chartBounds.right };
                 // Also sync to React state for x-axis labels (defer to avoid setState during render)
-                if (chartBounds.left !== actualChartBounds.left || chartBounds.right !== actualChartBounds.right) {
+                if (
+                  chartBounds.left !== actualChartBounds.left ||
+                  chartBounds.right !== actualChartBounds.right
+                ) {
                   queueMicrotask(() => {
                     setActualChartBounds({ left: chartBounds.left, right: chartBounds.right });
                   });
@@ -449,22 +482,30 @@ export function PaceCurveChart({
               return (
                 <>
                   {/* Critical Speed line */}
-                  {criticalSpeedPace && criticalSpeedPace >= yDomain[0] && criticalSpeedPace <= yDomain[1] && (
-                    <SkiaLine
-                      p1={{
-                        x: chartBounds.left,
-                        y: chartBounds.top + ((criticalSpeedPace - yDomain[0]) / (yDomain[1] - yDomain[0])) * (chartBounds.bottom - chartBounds.top),
-                      }}
-                      p2={{
-                        x: chartBounds.right,
-                        y: chartBounds.top + ((criticalSpeedPace - yDomain[0]) / (yDomain[1] - yDomain[0])) * (chartBounds.bottom - chartBounds.top),
-                      }}
-                      color={CS_LINE_COLOR}
-                      strokeWidth={1}
-                    >
-                      <DashPathEffect intervals={[6, 4]} />
-                    </SkiaLine>
-                  )}
+                  {criticalSpeedPace &&
+                    criticalSpeedPace >= yDomain[0] &&
+                    criticalSpeedPace <= yDomain[1] && (
+                      <SkiaLine
+                        p1={{
+                          x: chartBounds.left,
+                          y:
+                            chartBounds.top +
+                            ((criticalSpeedPace - yDomain[0]) / (yDomain[1] - yDomain[0])) *
+                              (chartBounds.bottom - chartBounds.top),
+                        }}
+                        p2={{
+                          x: chartBounds.right,
+                          y:
+                            chartBounds.top +
+                            ((criticalSpeedPace - yDomain[0]) / (yDomain[1] - yDomain[0])) *
+                              (chartBounds.bottom - chartBounds.top),
+                        }}
+                        color={CS_LINE_COLOR}
+                        strokeWidth={1}
+                      >
+                        <DashPathEffect intervals={[6, 4]} />
+                      </SkiaLine>
+                    )}
 
                   {/* Pace curve */}
                   <Line
@@ -502,9 +543,15 @@ export function PaceCurveChart({
 
           {/* Y-axis labels - note: axis is inverted so top is fastest (yDomain[1]), bottom is slowest (yDomain[0]) */}
           <View style={styles.yAxisOverlay} pointerEvents="none">
-            <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>{formatPace(yDomain[1])}</Text>
-            <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>{formatPace((yDomain[0] + yDomain[1]) / 2)}</Text>
-            <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>{formatPace(yDomain[0])}</Text>
+            <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
+              {formatPace(yDomain[1])}
+            </Text>
+            <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
+              {formatPace((yDomain[0] + yDomain[1]) / 2)}
+            </Text>
+            <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
+              {formatPace(yDomain[0])}
+            </Text>
           </View>
         </View>
       </GestureDetector>
@@ -513,7 +560,8 @@ export function PaceCurveChart({
       <View style={styles.footer}>
         <View style={styles.modelInfo}>
           <Text style={[styles.dateRange, isDark && styles.textDark]}>
-            {curve?.days ? `${curve.days} days: ` : ''}{formatDateRange(curve?.startDate, curve?.endDate)}
+            {curve?.days ? `${curve.days} days: ` : ''}
+            {formatDateRange(curve?.startDate, curve?.endDate)}
           </Text>
           {criticalSpeedPace && (
             <Text style={[styles.modelStats, isDark && styles.textDark]}>

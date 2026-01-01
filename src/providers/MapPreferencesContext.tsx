@@ -1,4 +1,11 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useCallback,
+  ReactNode,
+} from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { safeJsonParseWithSchema } from '@/lib/utils/validation';
 import type { MapStyleType } from '@/components/maps/mapStyles';
@@ -17,7 +24,10 @@ interface MapPreferencesContextValue {
   isLoaded: boolean;
   setDefaultStyle: (style: MapStyleType) => Promise<void>;
   setActivityTypeStyle: (activityType: ActivityType, style: MapStyleType | null) => Promise<void>;
-  setActivityGroupStyle: (activityTypes: ActivityType[], style: MapStyleType | null) => Promise<void>;
+  setActivityGroupStyle: (
+    activityTypes: ActivityType[],
+    style: MapStyleType | null
+  ) => Promise<void>;
   getStyleForActivity: (activityType: ActivityType) => MapStyleType;
 }
 
@@ -38,7 +48,10 @@ function isValidMapPreferences(value: unknown): value is MapPreferences {
   const obj = value as Record<string, unknown>;
 
   // Validate defaultStyle
-  if (typeof obj.defaultStyle !== 'string' || !VALID_MAP_STYLES.has(obj.defaultStyle as MapStyleType)) {
+  if (
+    typeof obj.defaultStyle !== 'string' ||
+    !VALID_MAP_STYLES.has(obj.defaultStyle as MapStyleType)
+  ) {
     return false;
   }
 
@@ -82,54 +95,66 @@ export function MapPreferencesProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // Set default style
-  const setDefaultStyle = useCallback(async (style: MapStyleType) => {
-    const newPrefs = { ...preferences, defaultStyle: style };
-    setPreferences(newPrefs);
-    await savePreferences(newPrefs);
-  }, [preferences, savePreferences]);
+  const setDefaultStyle = useCallback(
+    async (style: MapStyleType) => {
+      const newPrefs = { ...preferences, defaultStyle: style };
+      setPreferences(newPrefs);
+      await savePreferences(newPrefs);
+    },
+    [preferences, savePreferences]
+  );
 
   // Set activity type style
-  const setActivityTypeStyle = useCallback(async (activityType: ActivityType, style: MapStyleType | null) => {
-    let newPrefs: MapPreferences | null = null;
-    setPreferences(prev => {
-      const newStyles = { ...prev.activityTypeStyles };
-      if (style === null) {
-        delete newStyles[activityType];
-      } else {
-        newStyles[activityType] = style;
-      }
-      newPrefs = { ...prev, activityTypeStyles: newStyles };
-      return newPrefs;
-    });
-    if (newPrefs) {
-      await savePreferences(newPrefs);
-    }
-  }, [savePreferences]);
-
-  // Set style for a group of activity types (batch update)
-  const setActivityGroupStyle = useCallback(async (activityTypes: ActivityType[], style: MapStyleType | null) => {
-    let newPrefs: MapPreferences | null = null;
-    setPreferences(prev => {
-      const newStyles = { ...prev.activityTypeStyles };
-      for (const activityType of activityTypes) {
+  const setActivityTypeStyle = useCallback(
+    async (activityType: ActivityType, style: MapStyleType | null) => {
+      let newPrefs: MapPreferences | null = null;
+      setPreferences((prev) => {
+        const newStyles = { ...prev.activityTypeStyles };
         if (style === null) {
           delete newStyles[activityType];
         } else {
           newStyles[activityType] = style;
         }
+        newPrefs = { ...prev, activityTypeStyles: newStyles };
+        return newPrefs;
+      });
+      if (newPrefs) {
+        await savePreferences(newPrefs);
       }
-      newPrefs = { ...prev, activityTypeStyles: newStyles };
-      return newPrefs;
-    });
-    if (newPrefs) {
-      await savePreferences(newPrefs);
-    }
-  }, [savePreferences]);
+    },
+    [savePreferences]
+  );
+
+  // Set style for a group of activity types (batch update)
+  const setActivityGroupStyle = useCallback(
+    async (activityTypes: ActivityType[], style: MapStyleType | null) => {
+      let newPrefs: MapPreferences | null = null;
+      setPreferences((prev) => {
+        const newStyles = { ...prev.activityTypeStyles };
+        for (const activityType of activityTypes) {
+          if (style === null) {
+            delete newStyles[activityType];
+          } else {
+            newStyles[activityType] = style;
+          }
+        }
+        newPrefs = { ...prev, activityTypeStyles: newStyles };
+        return newPrefs;
+      });
+      if (newPrefs) {
+        await savePreferences(newPrefs);
+      }
+    },
+    [savePreferences]
+  );
 
   // Get style for a specific activity type
-  const getStyleForActivity = useCallback((activityType: ActivityType): MapStyleType => {
-    return preferences.activityTypeStyles[activityType] ?? preferences.defaultStyle;
-  }, [preferences]);
+  const getStyleForActivity = useCallback(
+    (activityType: ActivityType): MapStyleType => {
+      return preferences.activityTypeStyles[activityType] ?? preferences.defaultStyle;
+    },
+    [preferences]
+  );
 
   return (
     <MapPreferencesContext.Provider

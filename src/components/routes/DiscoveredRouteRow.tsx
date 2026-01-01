@@ -37,25 +37,25 @@ function RoutePreview({ points }: { points: { x: number; y: number }[] }) {
   if (points.length < 2) return null;
 
   // Normalize points to fit in the preview area
-  const minX = Math.min(...points.map(p => p.x));
-  const maxX = Math.max(...points.map(p => p.x));
-  const minY = Math.min(...points.map(p => p.y));
-  const maxY = Math.max(...points.map(p => p.y));
+  const minX = Math.min(...points.map((p) => p.x));
+  const maxX = Math.max(...points.map((p) => p.x));
+  const minY = Math.min(...points.map((p) => p.y));
+  const maxY = Math.max(...points.map((p) => p.y));
 
   const width = 60;
   const height = 40;
   const padding = 4;
 
-  const scaleX = (maxX - minX) > 0 ? (width - padding * 2) / (maxX - minX) : 1;
-  const scaleY = (maxY - minY) > 0 ? (height - padding * 2) / (maxY - minY) : 1;
+  const scaleX = maxX - minX > 0 ? (width - padding * 2) / (maxX - minX) : 1;
+  const scaleY = maxY - minY > 0 ? (height - padding * 2) / (maxY - minY) : 1;
   const scale = Math.min(scaleX, scaleY);
 
-  const normalizedPoints = points.map(p => ({
+  const normalizedPoints = points.map((p) => ({
     x: (p.x - minX) * scale + padding,
     y: (p.y - minY) * scale + padding,
   }));
 
-  const pointsString = normalizedPoints.map(p => `${p.x},${p.y}`).join(' ');
+  const pointsString = normalizedPoints.map((p) => `${p.x},${p.y}`).join(' ');
 
   return (
     <View style={[styles.previewContainer, isDark && styles.previewContainerDark]}>
@@ -87,12 +87,14 @@ function PlaceholderPreview({ type }: { type: string }) {
   };
 
   return (
-    <View style={[styles.previewContainer, styles.placeholderPreview, isDark && styles.previewContainerDark]}>
-      <MaterialCommunityIcons
-        name={getIcon()}
-        size={20}
-        color={isDark ? '#444' : '#CCC'}
-      />
+    <View
+      style={[
+        styles.previewContainer,
+        styles.placeholderPreview,
+        isDark && styles.previewContainerDark,
+      ]}
+    >
+      <MaterialCommunityIcons name={getIcon()} size={20} color={isDark ? '#444' : '#CCC'} />
     </View>
   );
 }
@@ -162,9 +164,7 @@ export function DiscoveredRouteRow({ route, index }: DiscoveredRouteRowProps) {
         route.isActive && styles.containerActive,
         {
           opacity: fadeAnim,
-          transform: [
-            { scale: Animated.multiply(scaleAnim, pulseAnim) },
-          ],
+          transform: [{ scale: Animated.multiply(scaleAnim, pulseAnim) }],
         },
       ]}
     >
@@ -178,10 +178,7 @@ export function DiscoveredRouteRow({ route, index }: DiscoveredRouteRowProps) {
       {/* Route info */}
       <View style={styles.infoContainer}>
         <View style={styles.headerRow}>
-          <Text
-            style={[styles.routeName, isDark && styles.textLight]}
-            numberOfLines={1}
-          >
+          <Text style={[styles.routeName, isDark && styles.textLight]} numberOfLines={1}>
             {route.name || t('routes.newRoute')}
           </Text>
           {route.isActive && (
@@ -210,23 +207,17 @@ export function DiscoveredRouteRow({ route, index }: DiscoveredRouteRowProps) {
 
         {/* Activity names preview */}
         {route.activityNames.length > 0 && (
-          <Text
-            style={[styles.activitiesText, isDark && styles.textMuted]}
-            numberOfLines={1}
-          >
+          <Text style={[styles.activitiesText, isDark && styles.textMuted]} numberOfLines={1}>
             {route.activityNames.slice(0, 3).join(', ')}
-            {route.activityNames.length > 3 && ` ${t('routes.more', { count: route.activityNames.length - 3 })}`}
+            {route.activityNames.length > 3 &&
+              ` ${t('routes.more', { count: route.activityNames.length - 3 })}`}
           </Text>
         )}
       </View>
 
       {/* Match indicator */}
       <View style={styles.matchIndicator}>
-        <MaterialCommunityIcons
-          name="check-circle"
-          size={20}
-          color={colors.success}
-        />
+        <MaterialCommunityIcons name="check-circle" size={20} color={colors.success} />
       </View>
     </Animated.View>
   );

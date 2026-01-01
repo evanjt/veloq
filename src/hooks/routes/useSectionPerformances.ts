@@ -87,7 +87,7 @@ export function useSectionPerformances(
   // Get unique activity IDs that need streams
   const activityIdsToFetch = useMemo(() => {
     if (!section?.activityPortions || !activities) return [];
-    const activityIdSet = new Set(activities.map(a => a.id));
+    const activityIdSet = new Set(activities.map((a) => a.id));
     const ids = new Set<string>();
     for (const p of section.activityPortions) {
       if (activityIdSet.has(p.activityId)) {
@@ -118,7 +118,10 @@ export function useSectionPerformances(
         const results = await Promise.all(
           batch.map(async (activityId) => {
             try {
-              const apiStreams: ActivityStreams = await intervalsApi.getActivityStreams(activityId, ['time']);
+              const apiStreams: ActivityStreams = await intervalsApi.getActivityStreams(
+                activityId,
+                ['time']
+              );
               return { activityId, times: apiStreams.time || [] };
             } catch {
               // Skip failed fetches

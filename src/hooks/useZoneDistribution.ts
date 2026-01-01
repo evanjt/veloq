@@ -1,6 +1,11 @@
 import { useMemo } from 'react';
 import type { Activity, ZoneDistribution } from '@/types';
-import { DEFAULT_POWER_ZONES, DEFAULT_HR_ZONES, POWER_ZONE_COLORS, HR_ZONE_COLORS } from './useSportSettings';
+import {
+  DEFAULT_POWER_ZONES,
+  DEFAULT_HR_ZONES,
+  POWER_ZONE_COLORS,
+  HR_ZONE_COLORS,
+} from './useSportSettings';
 
 interface UseZoneDistributionOptions {
   type: 'power' | 'hr';

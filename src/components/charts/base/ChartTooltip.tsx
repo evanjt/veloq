@@ -42,18 +42,10 @@ export const ChartTooltip = React.memo(function ChartTooltip({
   return (
     <View style={[styles.container, direction === 'row' && styles.rowLayout]}>
       {values.map((item, index) => (
-        <View
-          key={index}
-          style={[styles.valueItem, direction === 'row' && styles.valueItemRow]}
-        >
-          <Text style={[styles.label, isDark && styles.labelDark]}>
-            {item.label}
-          </Text>
+        <View key={index} style={[styles.valueItem, direction === 'row' && styles.valueItemRow]}>
+          <Text style={[styles.label, isDark && styles.labelDark]}>{item.label}</Text>
           <Text
-            style={[
-              styles.value,
-              item.color ? { color: item.color } : isDark && styles.valueDark,
-            ]}
+            style={[styles.value, item.color ? { color: item.color } : isDark && styles.valueDark]}
           >
             {item.value}
             {item.unit && <Text style={styles.unit}>{item.unit}</Text>}

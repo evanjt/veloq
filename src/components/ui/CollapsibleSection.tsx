@@ -98,11 +98,21 @@ export function CollapsibleSection({
             />
           )}
           <View>
-            <Text style={[styles.title, { color: isDark ? darkColors.textPrimary : colors.textPrimary }]}>
+            <Text
+              style={[
+                styles.title,
+                { color: isDark ? darkColors.textPrimary : colors.textPrimary },
+              ]}
+            >
               {title}
             </Text>
             {subtitle && (
-              <Text style={[styles.subtitle, { color: isDark ? darkColors.textSecondary : colors.textSecondary }]}>
+              <Text
+                style={[
+                  styles.subtitle,
+                  { color: isDark ? darkColors.textSecondary : colors.textSecondary },
+                ]}
+              >
                 {subtitle}
               </Text>
             )}
@@ -118,7 +128,12 @@ export function CollapsibleSection({
       </AnimatedPressable>
 
       {showDivider && (
-        <View style={[styles.divider, { backgroundColor: isDark ? darkColors.divider : colors.divider }]} />
+        <View
+          style={[
+            styles.divider,
+            { backgroundColor: isDark ? darkColors.divider : colors.divider },
+          ]}
+        />
       )}
 
       <Animated.View style={contentStyle}>

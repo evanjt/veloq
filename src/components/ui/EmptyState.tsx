@@ -48,13 +48,7 @@ export function EmptyState({
         />
       </View>
 
-      <Text
-        style={[
-          styles.title,
-          { color: colors.text },
-          compact && styles.titleCompact,
-        ]}
-      >
+      <Text style={[styles.title, { color: colors.text }, compact && styles.titleCompact]}>
         {title}
       </Text>
 
@@ -71,11 +65,7 @@ export function EmptyState({
       )}
 
       {actionLabel && onAction && (
-        <TouchableOpacity
-          style={styles.actionButton}
-          onPress={onAction}
-          activeOpacity={0.8}
-        >
+        <TouchableOpacity style={styles.actionButton} onPress={onAction} activeOpacity={0.8}>
           <LinearGradient
             colors={['#E8C96E', '#D4AF37']}
             start={{ x: 0, y: 0 }}
@@ -133,13 +123,7 @@ export function NetworkErrorState({ onRetry }: { onRetry?: () => void }) {
 }
 
 // Preset for generic error
-export function ErrorStatePreset({
-  message,
-  onRetry,
-}: {
-  message?: string;
-  onRetry?: () => void;
-}) {
+export function ErrorStatePreset({ message, onRetry }: { message?: string; onRetry?: () => void }) {
   const { t } = useTranslation();
   return (
     <EmptyState

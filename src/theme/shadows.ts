@@ -9,12 +9,9 @@ import { Platform, ViewStyle } from 'react-native';
  * - iOS shadow opacity needs to be ~1.5-2x stronger to achieve visual parity with Android elevation
  */
 
-type ShadowStyle = Pick<ViewStyle,
-  | 'shadowColor'
-  | 'shadowOffset'
-  | 'shadowOpacity'
-  | 'shadowRadius'
-  | 'elevation'
+type ShadowStyle = Pick<
+  ViewStyle,
+  'shadowColor' | 'shadowOffset' | 'shadowOpacity' | 'shadowRadius' | 'elevation'
 >;
 
 /**

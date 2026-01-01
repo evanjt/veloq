@@ -88,8 +88,8 @@ function getSeasonalMultiplier(date: Date): number {
   // Northern hemisphere winter = less training
   // Adjust for southern hemisphere if needed
   if (month >= 11 || month <= 1) return 0.7; // Dec-Feb: winter
-  if (month >= 2 && month <= 4) return 0.9;  // Mar-May: spring buildup
-  if (month >= 5 && month <= 7) return 1.1;  // Jun-Aug: peak season
+  if (month >= 2 && month <= 4) return 0.9; // Mar-May: spring buildup
+  if (month >= 5 && month <= 7) return 1.1; // Jun-Aug: peak season
   return 1.0; // Sep-Nov: transition
 }
 
@@ -118,9 +118,12 @@ function generateDemoActivities(): Activity[] {
     const dayOfWeek = date.getDay();
 
     // Rest day logic: ~2 days per week, more rest in winter
-    const restDayChance = dayOfWeek === 1 ? 0.8 : // Monday: likely rest
-                          dayOfWeek === 4 ? 0.5 : // Thursday: maybe rest
-                          0.15;
+    const restDayChance =
+      dayOfWeek === 1
+        ? 0.8 // Monday: likely rest
+        : dayOfWeek === 4
+          ? 0.5 // Thursday: maybe rest
+          : 0.15;
     if (Math.random() < restDayChance * (1 / seasonMultiplier)) continue;
 
     // Pick activity based on day pattern
@@ -134,9 +137,8 @@ function generateDemoActivities(): Activity[] {
     } else if (dayOfWeek === 2 || dayOfWeek === 5) {
       // Tuesday/Friday - run, swim, or indoor
       const r = Math.random();
-      template = r < 0.4 ? activityTemplates[3] :
-                 r < 0.7 ? activityTemplates[6] :
-                 activityTemplates[5];
+      template =
+        r < 0.4 ? activityTemplates[3] : r < 0.7 ? activityTemplates[6] : activityTemplates[5];
     } else {
       // Other days - mix with bias toward shorter activities
       template = activityTemplates[Math.floor(Math.random() * activityTemplates.length)];
@@ -164,9 +166,10 @@ function generateDemoActivities(): Activity[] {
       icu_average_hr: Math.round(template.avgHr * (0.95 + Math.random() * 0.1)),
       icu_average_watts: template.avgWatts ? Math.round(template.avgWatts * variance) : undefined,
       icu_training_load: Math.round(template.tss * variance),
-      stream_types: template.type === 'Swim'
-        ? ['heartrate', 'distance']
-        : ['latlng', 'heartrate', 'watts', 'altitude', 'cadence'],
+      stream_types:
+        template.type === 'Swim'
+          ? ['heartrate', 'distance']
+          : ['latlng', 'heartrate', 'watts', 'altitude', 'cadence'],
       // Store route reference for map data
       _demoRouteId: matchedRoute?.id,
     } as Activity & { _demoRouteId?: string };
@@ -175,8 +178,8 @@ function generateDemoActivities(): Activity[] {
   }
 
   // Sort oldest first for proper display
-  return activities.sort((a, b) =>
-    new Date(a.start_date_local).getTime() - new Date(b.start_date_local).getTime()
+  return activities.sort(
+    (a, b) => new Date(a.start_date_local).getTime() - new Date(b.start_date_local).getTime()
   );
 }
 
@@ -186,6 +189,8 @@ export const demoActivities = generateDemoActivities();
  * Get activities with the matched route for demo purposes
  */
 export function getDemoActivityRoute(activityId: string): string | undefined {
-  const activity = demoActivities.find(a => a.id === activityId) as Activity & { _demoRouteId?: string };
+  const activity = demoActivities.find((a) => a.id === activityId) as Activity & {
+    _demoRouteId?: string;
+  };
   return activity?._demoRouteId;
 }

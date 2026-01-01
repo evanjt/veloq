@@ -49,9 +49,8 @@ function generateSectionName(section: FrequentSection): string {
   if (section.name) return section.name;
 
   const distanceKm = section.distanceMeters / 1000;
-  const distanceStr = distanceKm >= 1
-    ? `${distanceKm.toFixed(1)}km`
-    : `${Math.round(section.distanceMeters)}m`;
+  const distanceStr =
+    distanceKm >= 1 ? `${distanceKm.toFixed(1)}km` : `${Math.round(section.distanceMeters)}m`;
 
   return `${section.sportType} Section (${distanceStr})`;
 }
@@ -171,9 +170,10 @@ export function useUnifiedSections(
 
         if (!hasOverlap) {
           const distanceKm = potential.distanceMeters / 1000;
-          const distanceStr = distanceKm >= 1
-            ? `${distanceKm.toFixed(1)}km`
-            : `${Math.round(potential.distanceMeters)}m`;
+          const distanceStr =
+            distanceKm >= 1
+              ? `${distanceKm.toFixed(1)}km`
+              : `${Math.round(potential.distanceMeters)}m`;
 
           result.push({
             id: potential.id,

@@ -4,12 +4,17 @@ import { Text } from 'react-native-paper';
 import { CartesianChart, Area } from 'victory-native';
 import { LinearGradient, vec } from '@shopify/react-native-skia';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Animated, { useSharedValue, useAnimatedReaction, runOnJS, useDerivedValue, useAnimatedStyle } from 'react-native-reanimated';
+import Animated, {
+  useSharedValue,
+  useAnimatedReaction,
+  runOnJS,
+  useDerivedValue,
+  useAnimatedStyle,
+} from 'react-native-reanimated';
 import { useTranslation } from 'react-i18next';
 import { colors, darkColors, typography, layout } from '@/theme';
 import { useMetricSystem } from '@/hooks';
 import { ChartErrorBoundary } from '@/components/ui';
-
 
 interface ActivityDataChartProps {
   /** The metric values to display */
@@ -127,7 +132,7 @@ export function ActivityDataChart({
 
   // Sync x-values to shared value for UI thread access
   React.useEffect(() => {
-    xValuesShared.value = data.map(d => d.x);
+    xValuesShared.value = data.map((d) => d.x);
   }, [data, xValuesShared]);
 
   // Derive selected index on UI thread using chartBounds
@@ -241,7 +246,9 @@ export function ActivityDataChart({
   if (data.length === 0) {
     return (
       <View style={[styles.placeholder, { height }]}>
-        <Text style={[styles.placeholderText, isDark && styles.textDark]}>{t('activity.noMetricData', { metric: label.toLowerCase() })}</Text>
+        <Text style={[styles.placeholderText, isDark && styles.textDark]}>
+          {t('activity.noMetricData', { metric: label.toLowerCase() })}
+        </Text>
       </View>
     );
   }
@@ -255,7 +262,8 @@ export function ActivityDataChart({
             {isActive && tooltipData && (
               <View style={[styles.tooltip, isDark && styles.tooltipDark]} pointerEvents="none">
                 <Text style={[styles.tooltipText, isDark && styles.tooltipTextDark]}>
-                  {tooltipData.x.toFixed(2)} {distanceUnit}  •  {formatDisplayValue(tooltipData.y)} {unit}
+                  {tooltipData.x.toFixed(2)} {distanceUnit} • {formatDisplayValue(tooltipData.y)}{' '}
+                  {unit}
                 </Text>
               </View>
             )}
@@ -269,23 +277,23 @@ export function ActivityDataChart({
             >
               {({ points, chartBounds }) => {
                 // Sync chartBounds and point coordinates for UI thread crosshair
-                if (chartBounds.left !== chartBoundsShared.value.left ||
-                    chartBounds.right !== chartBoundsShared.value.right) {
+                if (
+                  chartBounds.left !== chartBoundsShared.value.left ||
+                  chartBounds.right !== chartBoundsShared.value.right
+                ) {
                   chartBoundsShared.value = { left: chartBounds.left, right: chartBounds.right };
                 }
                 // Sync actual point x-coordinates for accurate crosshair positioning
-                const newCoords = points.y.map(p => p.x);
-                if (newCoords.length !== pointXCoordsShared.value.length ||
-                    newCoords[0] !== pointXCoordsShared.value[0]) {
+                const newCoords = points.y.map((p) => p.x);
+                if (
+                  newCoords.length !== pointXCoordsShared.value.length ||
+                  newCoords[0] !== pointXCoordsShared.value[0]
+                ) {
                   pointXCoordsShared.value = newCoords;
                 }
 
                 return (
-                  <Area
-                    points={points.y}
-                    y0={chartBounds.bottom}
-                    curveType="natural"
-                  >
+                  <Area points={points.y} y0={chartBounds.bottom} curveType="natural">
                     <LinearGradient
                       start={vec(0, chartBounds.top)}
                       end={vec(0, chartBounds.bottom)}
@@ -305,10 +313,12 @@ export function ActivityDataChart({
             {/* Y-axis labels */}
             <View style={styles.yAxisOverlay} pointerEvents="none">
               <Text style={[styles.overlayLabel, isDark && styles.overlayLabelDark]}>
-                {formatDisplayValue(maxVal)}{unit}
+                {formatDisplayValue(maxVal)}
+                {unit}
               </Text>
               <Text style={[styles.overlayLabel, isDark && styles.overlayLabelDark]}>
-                {formatDisplayValue(minVal)}{unit}
+                {formatDisplayValue(minVal)}
+                {unit}
               </Text>
             </View>
 

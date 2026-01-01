@@ -33,15 +33,9 @@ export function CompassArrow({
     <Animated.View style={[styles.container, { transform: [{ rotate: rotateInterpolation }] }]}>
       <Svg width={size} height={size} viewBox="0 0 24 24">
         {/* North (top) triangle - red */}
-        <Path
-          d="M12 2 L16 12 L12 10 L8 12 Z"
-          fill={northColor}
-        />
+        <Path d="M12 2 L16 12 L12 10 L8 12 Z" fill={northColor} />
         {/* South (bottom) triangle - white */}
-        <Path
-          d="M12 22 L8 12 L12 14 L16 12 Z"
-          fill={southColor}
-        />
+        <Path d="M12 22 L8 12 L12 14 L16 12 Z" fill={southColor} />
       </Svg>
     </Animated.View>
   );

@@ -5,24 +5,13 @@
  */
 
 import React, { useMemo, useCallback, useState } from 'react';
-import {
-  View,
-  StyleSheet,
-  useColorScheme,
-  TouchableOpacity,
-  Pressable,
-} from 'react-native';
+import { View, StyleSheet, useColorScheme, TouchableOpacity, Pressable } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router, type Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useRoutePerformances, useSectionMatches } from '@/hooks';
-import {
-  formatSpeed,
-  formatPace,
-  isRunningActivity,
-  getActivityColor,
-} from '@/lib';
+import { formatSpeed, formatPace, isRunningActivity, getActivityColor } from '@/lib';
 import { colors, darkColors, opacity, spacing, layout, typography } from '@/theme';
 import type { ActivityType } from '@/types';
 import type { RoutePerformancePoint } from '@/hooks/routes/useRoutePerformances';
@@ -96,21 +85,24 @@ export function RoutePerformanceSection({
   );
 
   // Handle tooltip updates from chart
-  const handleTooltipUpdate = useCallback((point: RoutePerformancePoint | null, persisted: boolean) => {
-    if (point === null) {
-      setTooltipData(null);
-      setIsActive(false);
-      setIsPersisted(false);
-    } else if (persisted) {
-      setTooltipData(point);
-      setIsActive(false);
-      setIsPersisted(true);
-    } else {
-      setTooltipData(point);
-      setIsActive(true);
-      setIsPersisted(false);
-    }
-  }, []);
+  const handleTooltipUpdate = useCallback(
+    (point: RoutePerformancePoint | null, persisted: boolean) => {
+      if (point === null) {
+        setTooltipData(null);
+        setIsActive(false);
+        setIsPersisted(false);
+      } else if (persisted) {
+        setTooltipData(point);
+        setIsActive(false);
+        setIsPersisted(true);
+      } else {
+        setTooltipData(point);
+        setIsActive(true);
+        setIsPersisted(false);
+      }
+    },
+    []
+  );
 
   // Navigate to activity when tapping tooltip
   const handleActivityPress = useCallback(() => {
@@ -371,7 +363,6 @@ export function RoutePerformanceSection({
     </View>
   );
 }
-
 
 const styles = StyleSheet.create({
   container: {

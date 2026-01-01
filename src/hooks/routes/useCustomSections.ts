@@ -48,10 +48,7 @@ export interface UseCustomSectionsResult {
   /** Rename a custom section */
   renameSection: (sectionId: string, name: string) => Promise<void>;
   /** Update matches for a section */
-  updateMatches: (
-    sectionId: string,
-    matches: CustomSectionMatch[]
-  ) => Promise<void>;
+  updateMatches: (sectionId: string, matches: CustomSectionMatch[]) => Promise<void>;
   /** Refresh the sections list */
   refresh: () => Promise<void>;
 }
@@ -76,9 +73,7 @@ export interface CreateSectionParams {
 /**
  * Hook for managing custom sections with React Query caching.
  */
-export function useCustomSections(
-  options: UseCustomSectionsOptions = {}
-): UseCustomSectionsResult {
+export function useCustomSections(options: UseCustomSectionsOptions = {}): UseCustomSectionsResult {
   const { includeMatches = true, sportType } = options;
   const queryClient = useQueryClient();
 
@@ -112,8 +107,7 @@ export function useCustomSections(
 
     // Sort by creation date (newest first)
     filtered = [...filtered].sort(
-      (a, b) =>
-        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     );
 
     return filtered;
@@ -185,10 +179,7 @@ export function useCustomSections(
 
   // Update matches for a section
   const updateMatches = useCallback(
-    async (
-      sectionId: string,
-      matches: CustomSectionMatch[]
-    ): Promise<void> => {
+    async (sectionId: string, matches: CustomSectionMatch[]): Promise<void> => {
       await saveSectionMatches(sectionId, matches);
       await invalidate();
     },
@@ -223,9 +214,7 @@ function generateId(): string {
 /**
  * Hook to get a single custom section by ID
  */
-export function useCustomSection(
-  sectionId: string | undefined
-): {
+export function useCustomSection(sectionId: string | undefined): {
   section: CustomSectionWithMatches | null;
   isLoading: boolean;
 } {

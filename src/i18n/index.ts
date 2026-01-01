@@ -63,22 +63,22 @@ const resources = {
   'en-AU': { translation: enAU },
   'en-US': { translation: enUS },
   'en-GB': { translation: enGB },
-  'es': { translation: es },
+  es: { translation: es },
   'es-ES': { translation: esES },
   'es-419': { translation: es419 },
-  'fr': { translation: fr },
+  fr: { translation: fr },
   'de-DE': { translation: deDE },
   'de-CH': { translation: deCH },
   'de-CHZ': { translation: deCHZ },
   'de-CHB': { translation: deCHB },
-  'nl': { translation: nl },
-  'it': { translation: it },
-  'pt': { translation: pt },
+  nl: { translation: nl },
+  it: { translation: it },
+  pt: { translation: pt },
   'pt-BR': { translation: ptBR },
-  'ja': { translation: ja },
+  ja: { translation: ja },
   'zh-Hans': { translation: zhHans },
-  'pl': { translation: pl },
-  'da': { translation: da },
+  pl: { translation: pl },
+  da: { translation: da },
 };
 
 /**
@@ -87,26 +87,24 @@ const resources = {
 export async function initializeI18n(savedLocale?: SupportedLocale | null): Promise<void> {
   const locale = savedLocale || getDeviceLocale();
 
-  await i18n
-    .use(initReactI18next)
-    .init({
-      resources,
-      lng: locale,
-      fallbackLng: 'en-AU',
+  await i18n.use(initReactI18next).init({
+    resources,
+    lng: locale,
+    fallbackLng: 'en-AU',
 
-      interpolation: {
-        escapeValue: false, // React already escapes values
-      },
+    interpolation: {
+      escapeValue: false, // React already escapes values
+    },
 
-      // React Native doesn't need HTML escaping
-      react: {
-        useSuspense: false,
-      },
+    // React Native doesn't need HTML escaping
+    react: {
+      useSuspense: false,
+    },
 
-      // Return key if translation is missing (for development)
-      returnNull: false,
-      returnEmptyString: false,
-    });
+    // Return key if translation is missing (for development)
+    returnNull: false,
+    returnEmptyString: false,
+  });
 }
 
 /**

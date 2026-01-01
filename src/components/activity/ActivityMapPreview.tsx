@@ -1,6 +1,12 @@
 import React, { useMemo } from 'react';
 import { View, StyleSheet, ActivityIndicator } from 'react-native';
-import { MapView, Camera, ShapeSource, LineLayer, MarkerView } from '@maplibre/maplibre-react-native';
+import {
+  MapView,
+  Camera,
+  ShapeSource,
+  LineLayer,
+  MarkerView,
+} from '@maplibre/maplibre-react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { convertLatLngTuples } from '@/lib';
 import { getActivityColor } from '@/lib';
@@ -15,10 +21,7 @@ interface ActivityMapPreviewProps {
   height?: number;
 }
 
-export function ActivityMapPreview({
-  activity,
-  height = 160,
-}: ActivityMapPreviewProps) {
+export function ActivityMapPreview({ activity, height = 160 }: ActivityMapPreviewProps) {
   const { getStyleForActivity } = useMapPreferences();
   const mapStyle = getStyleForActivity(activity.type);
   const activityColor = getActivityColor(activity.type);
@@ -27,9 +30,7 @@ export function ActivityMapPreview({
   const hasGpsData = activity.stream_types?.includes('latlng');
 
   // Only fetch streams if GPS data is available
-  const { data: streams, isLoading } = useActivityStreams(
-    hasGpsData ? activity.id : ''
-  );
+  const { data: streams, isLoading } = useActivityStreams(hasGpsData ? activity.id : '');
 
   const coordinates = useMemo(() => {
     if (streams?.latlng && streams.latlng.length > 0) {
@@ -40,14 +41,16 @@ export function ActivityMapPreview({
 
   // Filter valid coordinates for bounds and route display
   const validCoordinates = useMemo(() => {
-    return coordinates.filter(c => !isNaN(c.latitude) && !isNaN(c.longitude));
+    return coordinates.filter((c) => !isNaN(c.latitude) && !isNaN(c.longitude));
   }, [coordinates]);
 
   const bounds = useMemo(() => {
     if (validCoordinates.length === 0) return null;
 
-    let minLat = Infinity, maxLat = -Infinity;
-    let minLng = Infinity, maxLng = -Infinity;
+    let minLat = Infinity,
+      maxLat = -Infinity;
+    let minLng = Infinity,
+      maxLng = -Infinity;
 
     for (const coord of validCoordinates) {
       minLat = Math.min(minLat, coord.latitude);
@@ -69,7 +72,7 @@ export function ActivityMapPreview({
       properties: {},
       geometry: {
         type: 'LineString' as const,
-        coordinates: validCoordinates.map(c => [c.longitude, c.latitude]),
+        coordinates: validCoordinates.map((c) => [c.longitude, c.latitude]),
       },
     };
   }, [validCoordinates]);
@@ -82,11 +85,7 @@ export function ActivityMapPreview({
   if (!hasGpsData) {
     return (
       <View style={[styles.placeholder, { height, backgroundColor: activityColor + '20' }]}>
-        <MaterialCommunityIcons
-          name="map-marker-off"
-          size={32}
-          color={activityColor}
-        />
+        <MaterialCommunityIcons name="map-marker-off" size={32} color={activityColor} />
       </View>
     );
   }

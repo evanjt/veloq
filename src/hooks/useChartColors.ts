@@ -55,41 +55,44 @@ export function useChartColors(): ChartColorScheme {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
 
-  return useMemo(() => ({
-    // Fitness metrics - brand colors
-    fitness: isDark ? darkColors.chartFitness : brand.blue,
-    fatigue: isDark ? darkColors.chartFatigue : colors.fatigue,
-    form: isDark ? darkColors.chartForm : brand.gold,
+  return useMemo(
+    () => ({
+      // Fitness metrics - brand colors
+      fitness: isDark ? darkColors.chartFitness : brand.blue,
+      fatigue: isDark ? darkColors.chartFatigue : colors.fatigue,
+      form: isDark ? darkColors.chartForm : brand.gold,
 
-    // Activity metrics
-    power: isDark ? darkColors.chartPower : colors.chartAmber,
-    pace: isDark ? darkColors.chartPace : colors.chartGreen,
-    heartRate: isDark ? darkColors.chartHR : colors.error,
-    cadence: isDark ? darkColors.chartCadence : colors.chartPurple,
-    elevation: isDark ? darkColors.chartElevation : colors.gray600,
+      // Activity metrics
+      power: isDark ? darkColors.chartPower : colors.chartAmber,
+      pace: isDark ? darkColors.chartPace : colors.chartGreen,
+      heartRate: isDark ? darkColors.chartHR : colors.error,
+      cadence: isDark ? darkColors.chartCadence : colors.chartPurple,
+      elevation: isDark ? darkColors.chartElevation : colors.gray600,
 
-    // General chart colors
-    primary: brand.gold,
-    secondary: isDark ? brand.blueLight : brand.blue,
-    tertiary: isDark ? '#4ADE80' : colors.chartGreen,
-    accent: brand.gold,
+      // General chart colors
+      primary: brand.gold,
+      secondary: isDark ? brand.blueLight : brand.blue,
+      tertiary: isDark ? '#4ADE80' : colors.chartGreen,
+      accent: brand.gold,
 
-    // Chart UI elements
-    grid: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)',
-    axis: isDark ? darkColors.textMuted : colors.textSecondary,
-    label: isDark ? darkColors.textSecondary : colors.textSecondary,
-    tooltip: isDark ? darkColors.surfaceElevated : colors.surface,
-    tooltipText: isDark ? darkColors.textPrimary : colors.textPrimary,
+      // Chart UI elements
+      grid: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)',
+      axis: isDark ? darkColors.textMuted : colors.textSecondary,
+      label: isDark ? darkColors.textSecondary : colors.textSecondary,
+      tooltip: isDark ? darkColors.surfaceElevated : colors.surface,
+      tooltipText: isDark ? darkColors.textPrimary : colors.textPrimary,
 
-    // Zone colors (consistent across themes for recognition)
-    zone1: zoneColors.zone1,
-    zone2: zoneColors.zone2,
-    zone3: zoneColors.zone3,
-    zone4: zoneColors.zone4, // Amber
-    zone5: zoneColors.zone5,
-    zone6: zoneColors.zone6,
-    zone7: zoneColors.zone7,
-  }), [isDark]);
+      // Zone colors (consistent across themes for recognition)
+      zone1: zoneColors.zone1,
+      zone2: zoneColors.zone2,
+      zone3: zoneColors.zone3,
+      zone4: zoneColors.zone4, // Amber
+      zone5: zoneColors.zone5,
+      zone6: zoneColors.zone6,
+      zone7: zoneColors.zone7,
+    }),
+    [isDark]
+  );
 }
 
 /**

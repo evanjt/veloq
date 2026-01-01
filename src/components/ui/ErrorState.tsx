@@ -59,12 +59,7 @@ export function ErrorState({
           {displayMessage}
         </Text>
         {onRetry && (
-          <Button
-            variant="subtle"
-            size="small"
-            onPress={onRetry}
-            loading={isRetrying}
-          >
+          <Button variant="subtle" size="small" onPress={onRetry} loading={isRetrying}>
             {t('common.retry')}
           </Button>
         )}
@@ -74,19 +69,25 @@ export function ErrorState({
 
   return (
     <View style={[styles.container, style]}>
-      <View style={[styles.iconContainer, { backgroundColor: isDark ? 'rgba(229, 57, 53, 0.1)' : 'rgba(229, 57, 53, 0.08)' }]}>
-        <MaterialCommunityIcons
-          name={icon}
-          size={32}
-          color={colors.error}
-        />
+      <View
+        style={[
+          styles.iconContainer,
+          { backgroundColor: isDark ? 'rgba(229, 57, 53, 0.1)' : 'rgba(229, 57, 53, 0.08)' },
+        ]}
+      >
+        <MaterialCommunityIcons name={icon} size={32} color={colors.error} />
       </View>
 
       <Text style={[styles.title, { color: isDark ? darkColors.textPrimary : colors.textPrimary }]}>
         {displayTitle}
       </Text>
 
-      <Text style={[styles.message, { color: isDark ? darkColors.textSecondary : colors.textSecondary }]}>
+      <Text
+        style={[
+          styles.message,
+          { color: isDark ? darkColors.textSecondary : colors.textSecondary },
+        ]}
+      >
         {displayMessage}
       </Text>
 
@@ -95,7 +96,13 @@ export function ErrorState({
           variant="secondary"
           onPress={onRetry}
           loading={isRetrying}
-          icon={<MaterialCommunityIcons name="refresh" size={18} color={isDark ? darkColors.textPrimary : colors.textPrimary} />}
+          icon={
+            <MaterialCommunityIcons
+              name="refresh"
+              size={18}
+              color={isDark ? darkColors.textPrimary : colors.textPrimary}
+            />
+          }
           style={styles.retryButton}
         >
           {t('errorState.tryAgain')}

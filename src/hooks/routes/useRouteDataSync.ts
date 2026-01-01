@@ -9,7 +9,11 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import { useAuthStore, getStoredCredentials, useNetwork } from '@/providers';
 import { getNativeModule } from '@/lib/native/routeEngine';
 import { routeEngine, type ActivityMetrics } from 'route-matcher-native';
-import { loadCustomSections, saveSectionMatches, loadSectionMatches } from '@/lib/storage/customSections';
+import {
+  loadCustomSections,
+  saveSectionMatches,
+  loadSectionMatches,
+} from '@/lib/storage/customSections';
 import { matchActivityToCustomSection } from '@/lib/sectionMatcher';
 import type { Activity, CustomSectionMatch } from '@/types';
 
@@ -47,7 +51,7 @@ async function syncActivitiesWithCustomSections(activityIds: string[]): Promise<
     for (const section of sections) {
       // Load existing matches
       const existingMatches = await loadSectionMatches(section.id);
-      const existingActivityIds = new Set(existingMatches.map(m => m.activityId));
+      const existingActivityIds = new Set(existingMatches.map((m) => m.activityId));
 
       // Check each new activity
       const newMatches: CustomSectionMatch[] = [];
@@ -240,7 +244,7 @@ export function useRouteDataSync(
           await nativeModule.routeEngine.addActivities(ids, allCoords, offsets, sportTypes);
 
           // Sync activity metrics to engine for performance calculations
-          const syncedActivities = withGps.filter(a => ids.includes(a.id));
+          const syncedActivities = withGps.filter((a) => ids.includes(a.id));
           const metrics = syncedActivities.map(toActivityMetrics);
           routeEngine.setActivityMetrics(metrics);
 
@@ -328,7 +332,7 @@ export function useRouteDataSync(
             await nativeModule.routeEngine.addActivities(ids, allCoords, offsets, sportTypes);
 
             // Sync activity metrics to engine for performance calculations
-            const syncedActivities = withGps.filter(a => ids.includes(a.id));
+            const syncedActivities = withGps.filter((a) => ids.includes(a.id));
             const metrics = syncedActivities.map(toActivityMetrics);
             routeEngine.setActivityMetrics(metrics);
 
@@ -367,8 +371,8 @@ export function useRouteDataSync(
       isSyncingRef.current = false;
       syncAbortRef.current = null;
     }
-  // Empty dependency array - callback reads current values from refs
-  // This ensures stable callback identity and prevents race conditions
+    // Empty dependency array - callback reads current values from refs
+    // This ensures stable callback identity and prevents race conditions
   }, []);
 
   // Counter to force re-sync after engine reset or reconnection
@@ -381,7 +385,7 @@ export function useRouteDataSync(
   useEffect(() => {
     if (isOnline && !wasOnlineRef.current) {
       // Just came back online - increment trigger to resync
-      setSyncTrigger(prev => prev + 1);
+      setSyncTrigger((prev) => prev + 1);
     }
     wasOnlineRef.current = isOnline;
   }, [isOnline]);
@@ -395,7 +399,7 @@ export function useRouteDataSync(
       // Reset syncing state so next sync can proceed
       isSyncingRef.current = false;
       // Increment trigger to force useEffect to re-run after activities are refetched
-      setSyncTrigger(prev => prev + 1);
+      setSyncTrigger((prev) => prev + 1);
     });
 
     return unsubscribe;
@@ -412,7 +416,10 @@ export function useRouteDataSync(
 
   return {
     progress,
-    isSyncing: progress.status === 'fetching' || progress.status === 'processing' || progress.status === 'computing',
+    isSyncing:
+      progress.status === 'fetching' ||
+      progress.status === 'processing' ||
+      progress.status === 'computing',
     syncActivities,
   };
 }

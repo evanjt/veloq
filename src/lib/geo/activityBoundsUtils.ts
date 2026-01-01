@@ -11,10 +11,7 @@ type Bounds = [[number, number], [number, number]];
  * Build a cache entry from an activity and its map data.
  * Note: GPS tracks (latlngs) are stored separately via gpsStorage to avoid size limits.
  */
-export function buildCacheEntry(
-  activity: Activity,
-  bounds: Bounds
-): ActivityBoundsItem {
+export function buildCacheEntry(activity: Activity, bounds: Bounds): ActivityBoundsItem {
   return {
     id: activity.id,
     bounds,
@@ -118,7 +115,8 @@ function calculateArrayBoundsOverlap(bounds1: BoundsType, bounds2: BoundsType): 
   }
 
   // Calculate areas
-  const intersectionArea = (intersectMaxLat - intersectMinLat) * (intersectMaxLng - intersectMinLng);
+  const intersectionArea =
+    (intersectMaxLat - intersectMinLat) * (intersectMaxLng - intersectMinLng);
   const area1 = (maxLat1 - minLat1) * (maxLng1 - minLng1);
   const area2 = (maxLat2 - minLat2) * (maxLng2 - minLng2);
 
@@ -155,7 +153,7 @@ export function couldBeRouteMatch(
   if (dist1 === 0 || dist2 === 0) return true; // Can't compare, assume possible match
 
   const distanceRatio = Math.min(dist1, dist2) / Math.max(dist1, dist2);
-  return distanceRatio >= (1 - distanceToleranceRatio);
+  return distanceRatio >= 1 - distanceToleranceRatio;
 }
 
 /**
@@ -208,7 +206,9 @@ export function findActivitiesWithPotentialMatches(
     }
 
     if (!foundMatch && checkedCount <= 5) {
-      log.log(`${activity1.name} (${activity1.type}, ${Math.round(activity1.distance/1000)}km) - no overlapping activities`);
+      log.log(
+        `${activity1.name} (${activity1.type}, ${Math.round(activity1.distance / 1000)}km) - no overlapping activities`
+      );
     }
   }
 

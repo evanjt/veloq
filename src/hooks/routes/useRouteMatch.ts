@@ -33,7 +33,7 @@ export function useRouteMatch(activityId: string | undefined): UseRouteMatchResu
     }
 
     // Find the group containing this activity
-    const routeGroup = groups.find(g => g.activityIds.includes(activityId));
+    const routeGroup = groups.find((g) => g.activityIds.includes(activityId));
 
     if (!routeGroup) {
       return {

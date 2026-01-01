@@ -36,18 +36,14 @@ export function HeatmapCellPopup({
   const hasRoutes = cell.routeRefs.length > 0;
 
   // Sort routes by activity count (most active first)
-  const sortedRoutes = [...cell.routeRefs].sort(
-    (a, b) => b.activityCount - a.activityCount
-  );
+  const sortedRoutes = [...cell.routeRefs].sort((a, b) => b.activityCount - a.activityCount);
 
   return (
     <View style={[styles.container, isDark && styles.containerDark]}>
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerInfo}>
-          <Text style={[styles.label, isDark && styles.textMuted]}>
-            {suggestedLabel}
-          </Text>
+          <Text style={[styles.label, isDark && styles.textMuted]}>{suggestedLabel}</Text>
           <Text style={[styles.stats, isDark && styles.textLight]}>
             {cell.uniqueRouteCount > 0
               ? `${cell.uniqueRouteCount} route${cell.uniqueRouteCount > 1 ? 's' : ''} • `
@@ -74,15 +70,8 @@ export function HeatmapCellPopup({
               onPress={() => onRoutePress?.(route.routeId)}
               disabled={!onRoutePress}
             >
-              <MaterialCommunityIcons
-                name="repeat"
-                size={16}
-                color={colors.primary}
-              />
-              <Text
-                style={[styles.routeName, isDark && styles.textLight]}
-                numberOfLines={1}
-              >
+              <MaterialCommunityIcons name="repeat" size={16} color={colors.primary} />
+              <Text style={[styles.routeName, isDark && styles.textLight]} numberOfLines={1}>
                 {route.name || `Route ${route.routeId.slice(-6)}`}
               </Text>
               <Text style={[styles.routeCount, isDark && styles.textMuted]}>
@@ -114,22 +103,13 @@ export function HeatmapCellPopup({
           <Text style={styles.activitiesButtonText}>
             See all {cell.activityIds.length} activit{cell.activityIds.length === 1 ? 'y' : 'ies'}
           </Text>
-          <MaterialCommunityIcons
-            name="chevron-right"
-            size={18}
-            color={colors.primary}
-          />
+          <MaterialCommunityIcons name="chevron-right" size={18} color={colors.primary} />
         </TouchableOpacity>
       )}
 
       {/* Density indicator */}
       <View style={styles.densityBar}>
-        <View
-          style={[
-            styles.densityFill,
-            { width: `${Math.round(cell.density * 100)}%` },
-          ]}
-        />
+        <View style={[styles.densityFill, { width: `${Math.round(cell.density * 100)}%` }]} />
       </View>
       <Text style={[styles.densityLabel, isDark && styles.textMuted]}>
         {cell.visitCount} visit{cell.visitCount === 1 ? '' : 's'}

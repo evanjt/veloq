@@ -399,6 +399,7 @@ impl PersistentRouteEngine {
                             observation_count: 0,
                             average_spread: 0.0,
                             point_density: vec![],
+                            scale: None,
                         }
                     });
                 Ok(section)

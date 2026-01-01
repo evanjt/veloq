@@ -41,7 +41,7 @@ export const POWER_CURVE_DURATIONS = [
 export function getPowerAtDuration(curve: PowerCurve | undefined, secs: number): number | null {
   if (!curve?.secs || !curve?.watts) return null;
 
-  const index = curve.secs.findIndex(s => s === secs);
+  const index = curve.secs.findIndex((s) => s === secs);
   if (index !== -1) return curve.watts[index];
 
   // Find closest duration
@@ -61,10 +61,8 @@ export function getPowerAtDuration(curve: PowerCurve | undefined, secs: number):
 export function formatPowerCurveForChart(curve: PowerCurve | undefined) {
   if (!curve?.secs || !curve?.watts) return [];
 
-  return POWER_CURVE_DURATIONS
-    .map(({ secs, label }) => {
-      const power = getPowerAtDuration(curve, secs);
-      return power !== null ? { secs, label, power } : null;
-    })
-    .filter((d): d is { secs: number; label: string; power: number } => d !== null);
+  return POWER_CURVE_DURATIONS.map(({ secs, label }) => {
+    const power = getPowerAtDuration(curve, secs);
+    return power !== null ? { secs, label, power } : null;
+  }).filter((d): d is { secs: number; label: string; power: number } => d !== null);
 }

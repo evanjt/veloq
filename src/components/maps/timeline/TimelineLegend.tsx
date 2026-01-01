@@ -16,7 +16,9 @@ export function TimelineLegend({ isDark = false }: TimelineLegendProps) {
     <View style={[styles.legend, isDark && styles.legendDark]}>
       <View style={styles.legendItem}>
         <View style={[styles.legendSwatch, styles.legendSelected]} />
-        <Text style={[styles.legendText, isDark && styles.legendTextDark]}>{t('maps.selected')}</Text>
+        <Text style={[styles.legendText, isDark && styles.legendTextDark]}>
+          {t('maps.selected')}
+        </Text>
       </View>
       <View style={styles.legendItem}>
         <View style={[styles.legendSwatch, styles.legendCached]}>
@@ -26,7 +28,9 @@ export function TimelineLegend({ isDark = false }: TimelineLegendProps) {
       </View>
       <View style={styles.legendItem}>
         <View style={[styles.legendSwatch, styles.legendEmpty, isDark && styles.legendEmptyDark]} />
-        <Text style={[styles.legendText, isDark && styles.legendTextDark]}>{t('maps.notSynced')}</Text>
+        <Text style={[styles.legendText, isDark && styles.legendTextDark]}>
+          {t('maps.notSynced')}
+        </Text>
       </View>
     </View>
   );

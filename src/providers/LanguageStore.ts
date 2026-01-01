@@ -1,11 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
-import {
-  SUPPORTED_LOCALES,
-  type SupportedLocale,
-  getDeviceLocale,
-  changeLanguage,
-} from '@/i18n';
+import { SUPPORTED_LOCALES, type SupportedLocale, getDeviceLocale, changeLanguage } from '@/i18n';
 
 const STORAGE_KEY = 'veloq-language-preference';
 
@@ -141,9 +136,7 @@ export function getAvailableLanguages(): LanguageGroup[] {
   return [
     {
       groupLabel: null,
-      languages: [
-        { value: null, label: 'System', description: 'Auto-detect from device' },
-      ],
+      languages: [{ value: null, label: 'System', description: 'Auto-detect from device' }],
     },
     {
       groupLabel: 'settings.languageGroups.european',

@@ -62,9 +62,12 @@ export function SwipeableTabs({
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   }, []);
 
-  const updateTab = useCallback((key: string) => {
-    onTabChange(key);
-  }, [onTabChange]);
+  const updateTab = useCallback(
+    (key: string) => {
+      onTabChange(key);
+    },
+    [onTabChange]
+  );
 
   // Sync animation with activeTab state changes (e.g., from tab press)
   useEffect(() => {
@@ -77,51 +80,51 @@ export function SwipeableTabs({
   }, [activeTab, tabs, translateX, indicatorProgress, activeTabIndex]);
 
   // Memoize pan gesture to prevent recreation on every render
-  const panGesture = useMemo(() => Gesture.Pan()
-    .activeOffsetX([-GESTURE_ACTIVATION_OFFSET, GESTURE_ACTIVATION_OFFSET])
-    .onUpdate((event) => {
-      'worklet';
-      const currentOffset = activeTabIndex.value === 0 ? 0 : -SCREEN_WIDTH;
-      let newTranslateX = currentOffset + event.translationX;
-      // Clamp between -SCREEN_WIDTH and 0
-      newTranslateX = Math.max(-SCREEN_WIDTH, Math.min(0, newTranslateX));
-      translateX.value = newTranslateX;
-      // Update indicator based on content position
-      indicatorProgress.value = interpolate(
-        newTranslateX,
-        [0, -SCREEN_WIDTH],
-        [0, 1]
-      );
-    })
-    .onEnd((event) => {
-      'worklet';
-      const velocity = event.velocityX;
-      const currentOffset = activeTabIndex.value === 0 ? 0 : -SCREEN_WIDTH;
-      const distance = translateX.value - currentOffset;
+  const panGesture = useMemo(
+    () =>
+      Gesture.Pan()
+        .activeOffsetX([-GESTURE_ACTIVATION_OFFSET, GESTURE_ACTIVATION_OFFSET])
+        .onUpdate((event) => {
+          'worklet';
+          const currentOffset = activeTabIndex.value === 0 ? 0 : -SCREEN_WIDTH;
+          let newTranslateX = currentOffset + event.translationX;
+          // Clamp between -SCREEN_WIDTH and 0
+          newTranslateX = Math.max(-SCREEN_WIDTH, Math.min(0, newTranslateX));
+          translateX.value = newTranslateX;
+          // Update indicator based on content position
+          indicatorProgress.value = interpolate(newTranslateX, [0, -SCREEN_WIDTH], [0, 1]);
+        })
+        .onEnd((event) => {
+          'worklet';
+          const velocity = event.velocityX;
+          const currentOffset = activeTabIndex.value === 0 ? 0 : -SCREEN_WIDTH;
+          const distance = translateX.value - currentOffset;
 
-      let targetTabIndex = activeTabIndex.value;
+          let targetTabIndex = activeTabIndex.value;
 
-      // Determine target based on swipe distance or velocity
-      if (Math.abs(distance) > SWIPE_THRESHOLD || Math.abs(velocity) > VELOCITY_THRESHOLD) {
-        if (distance < 0 && velocity <= 0) {
-          // Swiped left -> go to second tab
-          targetTabIndex = 1;
-        } else if (distance > 0 && velocity >= 0) {
-          // Swiped right -> go to first tab
-          targetTabIndex = 0;
-        }
-      }
+          // Determine target based on swipe distance or velocity
+          if (Math.abs(distance) > SWIPE_THRESHOLD || Math.abs(velocity) > VELOCITY_THRESHOLD) {
+            if (distance < 0 && velocity <= 0) {
+              // Swiped left -> go to second tab
+              targetTabIndex = 1;
+            } else if (distance > 0 && velocity >= 0) {
+              // Swiped right -> go to first tab
+              targetTabIndex = 0;
+            }
+          }
 
-      const targetX = targetTabIndex === 0 ? 0 : -SCREEN_WIDTH;
-      const targetIndicator = targetTabIndex === 0 ? 0 : 1;
-      translateX.value = withTiming(targetX, TIMING_CONFIG);
-      indicatorProgress.value = withTiming(targetIndicator, TIMING_CONFIG);
+          const targetX = targetTabIndex === 0 ? 0 : -SCREEN_WIDTH;
+          const targetIndicator = targetTabIndex === 0 ? 0 : 1;
+          translateX.value = withTiming(targetX, TIMING_CONFIG);
+          indicatorProgress.value = withTiming(targetIndicator, TIMING_CONFIG);
 
-      if (targetTabIndex !== activeTabIndex.value) {
-        runOnJS(triggerHaptic)();
-        runOnJS(updateTab)(targetTabIndex === 0 ? tabs[0].key : tabs[1].key);
-      }
-    }), [translateX, indicatorProgress, activeTabIndex, triggerHaptic, updateTab, tabs]);
+          if (targetTabIndex !== activeTabIndex.value) {
+            runOnJS(triggerHaptic)();
+            runOnJS(updateTab)(targetTabIndex === 0 ? tabs[0].key : tabs[1].key);
+          }
+        }),
+    [translateX, indicatorProgress, activeTabIndex, triggerHaptic, updateTab, tabs]
+  );
 
   const contentStyle = useAnimatedStyle(() => ({
     transform: [{ translateX: translateX.value }],
@@ -136,70 +139,85 @@ export function SwipeableTabs({
     };
   });
 
-  const handleTabPress = useCallback((key: string) => {
-    if (key !== activeTab) {
-      triggerHaptic();
-      onTabChange(key);
-    }
-  }, [activeTab, onTabChange, triggerHaptic]);
+  const handleTabPress = useCallback(
+    (key: string) => {
+      if (key !== activeTab) {
+        triggerHaptic();
+        onTabChange(key);
+      }
+    },
+    [activeTab, onTabChange, triggerHaptic]
+  );
 
   return (
     <View style={styles.container}>
       {/* Material-style Tab Bar */}
       <View style={[styles.tabBar, isDark && styles.tabBarDark]}>
-        <Pressable
-          style={styles.tab}
-          onPress={() => handleTabPress(tabs[0].key)}
-        >
+        <Pressable style={styles.tab} onPress={() => handleTabPress(tabs[0].key)}>
           <MaterialCommunityIcons
             name={tabs[0].icon}
             size={18}
-            color={activeTab === tabs[0].key ? colors.primary : (isDark ? darkColors.textMuted : colors.textSecondary)}
+            color={
+              activeTab === tabs[0].key
+                ? colors.primary
+                : isDark
+                  ? darkColors.textMuted
+                  : colors.textSecondary
+            }
           />
-          <Text style={[
-            styles.tabText,
-            activeTab === tabs[0].key && styles.tabTextActive,
-            isDark && !activeTab.includes(tabs[0].key) && styles.tabTextDark,
-          ]}>
+          <Text
+            style={[
+              styles.tabText,
+              activeTab === tabs[0].key && styles.tabTextActive,
+              isDark && !activeTab.includes(tabs[0].key) && styles.tabTextDark,
+            ]}
+          >
             {tabs[0].label}
           </Text>
-          <View style={[
-            styles.tabBadge,
-            activeTab === tabs[0].key ? styles.tabBadgeActive : (isDark && styles.tabBadgeDark),
-          ]}>
-            <Text style={[
-              styles.tabBadgeText,
-              activeTab === tabs[0].key && styles.tabBadgeTextActive,
-            ]}>
+          <View
+            style={[
+              styles.tabBadge,
+              activeTab === tabs[0].key ? styles.tabBadgeActive : isDark && styles.tabBadgeDark,
+            ]}
+          >
+            <Text
+              style={[styles.tabBadgeText, activeTab === tabs[0].key && styles.tabBadgeTextActive]}
+            >
               {tabs[0].count}
             </Text>
           </View>
         </Pressable>
 
-        <Pressable
-          style={styles.tab}
-          onPress={() => handleTabPress(tabs[1].key)}
-        >
+        <Pressable style={styles.tab} onPress={() => handleTabPress(tabs[1].key)}>
           <MaterialCommunityIcons
             name={tabs[1].icon}
             size={18}
-            color={activeTab === tabs[1].key ? colors.primary : (isDark ? darkColors.textMuted : colors.textSecondary)}
+            color={
+              activeTab === tabs[1].key
+                ? colors.primary
+                : isDark
+                  ? darkColors.textMuted
+                  : colors.textSecondary
+            }
           />
-          <Text style={[
-            styles.tabText,
-            activeTab === tabs[1].key && styles.tabTextActive,
-            isDark && !activeTab.includes(tabs[1].key) && styles.tabTextDark,
-          ]}>
+          <Text
+            style={[
+              styles.tabText,
+              activeTab === tabs[1].key && styles.tabTextActive,
+              isDark && !activeTab.includes(tabs[1].key) && styles.tabTextDark,
+            ]}
+          >
             {tabs[1].label}
           </Text>
-          <View style={[
-            styles.tabBadge,
-            activeTab === tabs[1].key ? styles.tabBadgeActive : (isDark && styles.tabBadgeDark),
-          ]}>
-            <Text style={[
-              styles.tabBadgeText,
-              activeTab === tabs[1].key && styles.tabBadgeTextActive,
-            ]}>
+          <View
+            style={[
+              styles.tabBadge,
+              activeTab === tabs[1].key ? styles.tabBadgeActive : isDark && styles.tabBadgeDark,
+            ]}
+          >
+            <Text
+              style={[styles.tabBadgeText, activeTab === tabs[1].key && styles.tabBadgeTextActive]}
+            >
               {tabs[1].count}
             </Text>
           </View>

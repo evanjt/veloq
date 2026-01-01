@@ -48,11 +48,7 @@ export function FitnessSection({ expanded = true, onToggleExpand }: FitnessSecti
         </View>
         {onToggleExpand && (
           <TouchableOpacity onPress={onToggleExpand} style={styles.expandButton}>
-            <MaterialCommunityIcons
-              name="chevron-up"
-              size={24}
-              color={isDark ? '#AAA' : '#666'}
-            />
+            <MaterialCommunityIcons name="chevron-up" size={24} color={isDark ? '#AAA' : '#666'} />
           </TouchableOpacity>
         )}
       </View>
@@ -104,15 +100,15 @@ export function FitnessSection({ expanded = true, onToggleExpand }: FitnessSecti
 
           {/* Form zone chart */}
           <View style={[styles.formChartContainer, isDark && styles.formChartContainerDark]}>
-            <Text style={[styles.formTitle, isDark && styles.textLight]}>{t('fitness.formTSB')}</Text>
+            <Text style={[styles.formTitle, isDark && styles.textLight]}>
+              {t('fitness.formTSB')}
+            </Text>
             <FormZoneChart data={wellness} height={100} />
           </View>
         </>
       ) : (
         <View style={styles.emptyContainer}>
-          <Text style={[styles.emptyText, isDark && styles.textDark]}>
-            {t('fitness.noData')}
-          </Text>
+          <Text style={[styles.emptyText, isDark && styles.textDark]}>{t('fitness.noData')}</Text>
         </View>
       )}
     </View>

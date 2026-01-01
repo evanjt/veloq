@@ -18,9 +18,7 @@ export function HeatmapCellInfo({ cell, bottom, onClose }: HeatmapCellPopupProps
     <View style={[styles.popup, { bottom }]}>
       <View style={styles.popupHeader}>
         <View style={styles.popupInfo}>
-          <Text style={styles.popupTitle}>
-            {cell.suggestedLabel || 'Heatmap Cell'}
-          </Text>
+          <Text style={styles.popupTitle}>{cell.suggestedLabel || 'Heatmap Cell'}</Text>
           <Text style={styles.popupDate}>
             {cell.cell.visitCount} visits • {cell.cell.uniqueRouteCount} unique routes
           </Text>
@@ -38,15 +36,11 @@ export function HeatmapCellInfo({ cell, bottom, onClose }: HeatmapCellPopupProps
       <View style={styles.popupStats}>
         <View style={styles.popupStat}>
           <MaterialCommunityIcons name="fire" size={20} color={colors.chartOrange} />
-          <Text style={styles.popupStatValue}>
-            {Math.round(cell.cell.density * 100)}% density
-          </Text>
+          <Text style={styles.popupStatValue}>{Math.round(cell.cell.density * 100)}% density</Text>
         </View>
         <View style={styles.popupStat}>
           <MaterialCommunityIcons name="run" size={20} color={colors.chartBlue} />
-          <Text style={styles.popupStatValue}>
-            {cell.cell.activityIds.length} activities
-          </Text>
+          <Text style={styles.popupStatValue}>{cell.cell.activityIds.length} activities</Text>
         </View>
       </View>
 
@@ -59,9 +53,7 @@ export function HeatmapCellInfo({ cell, bottom, onClose }: HeatmapCellPopupProps
             </Text>
           ))}
           {cell.cell.routeRefs.length > 3 && (
-            <Text style={styles.heatmapRouteItem}>
-              +{cell.cell.routeRefs.length - 3} more
-            </Text>
+            <Text style={styles.heatmapRouteItem}>+{cell.cell.routeRefs.length - 3} more</Text>
           )}
         </View>
       )}

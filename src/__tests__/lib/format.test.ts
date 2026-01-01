@@ -171,7 +171,15 @@ describe('formatRelativeDate', () => {
     const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
     const result = formatRelativeDate(threeDaysAgo.toISOString());
     // Should be a weekday name like "Monday", "Tuesday", etc.
-    expect(['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']).toContain(result);
+    expect([
+      'Sunday',
+      'Monday',
+      'Tuesday',
+      'Wednesday',
+      'Thursday',
+      'Friday',
+      'Saturday',
+    ]).toContain(result);
   });
 
   it('shows month and day for older dates this year', () => {
@@ -198,8 +206,8 @@ describe('formatLocalDate', () => {
 
 describe('clamp', () => {
   it('constrains value to range', () => {
-    expect(clamp(5, 0, 10)).toBe(5);   // within range
-    expect(clamp(-5, 0, 10)).toBe(0);  // below min
+    expect(clamp(5, 0, 10)).toBe(5); // within range
+    expect(clamp(-5, 0, 10)).toBe(0); // below min
     expect(clamp(15, 0, 10)).toBe(10); // above max
   });
 
