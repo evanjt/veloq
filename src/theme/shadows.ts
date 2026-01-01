@@ -96,6 +96,86 @@ export const shadows = {
     },
     default: {},
   }) as ShadowStyle,
+
+  // =========================================================================
+  // PREMIUM GLOW EFFECTS (Brand signature)
+  // =========================================================================
+
+  /** Gold glow for achievements, CTAs, and premium moments */
+  goldGlow: Platform.select({
+    ios: {
+      shadowColor: '#D4AF37',
+      shadowOffset: { width: 0, height: 0 },
+      shadowOpacity: 0.35,
+      shadowRadius: 12,
+    },
+    android: {
+      elevation: 4,
+    },
+    default: {
+      shadowColor: '#D4AF37',
+      shadowOffset: { width: 0, height: 0 },
+      shadowOpacity: 0.3,
+      shadowRadius: 12,
+    },
+  }) as ShadowStyle,
+
+  /** Blue glow for interactive elements and data highlights */
+  blueGlow: Platform.select({
+    ios: {
+      shadowColor: '#5B9BD5',
+      shadowOffset: { width: 0, height: 0 },
+      shadowOpacity: 0.3,
+      shadowRadius: 8,
+    },
+    android: {
+      elevation: 3,
+    },
+    default: {
+      shadowColor: '#5B9BD5',
+      shadowOffset: { width: 0, height: 0 },
+      shadowOpacity: 0.25,
+      shadowRadius: 8,
+    },
+  }) as ShadowStyle,
+
+  /** Subtle gold accent glow (for pressed states) */
+  goldGlowSubtle: Platform.select({
+    ios: {
+      shadowColor: '#D4AF37',
+      shadowOffset: { width: 0, height: 0 },
+      shadowOpacity: 0.2,
+      shadowRadius: 6,
+    },
+    android: {
+      elevation: 2,
+    },
+    default: {
+      shadowColor: '#D4AF37',
+      shadowOffset: { width: 0, height: 0 },
+      shadowOpacity: 0.15,
+      shadowRadius: 6,
+    },
+  }) as ShadowStyle,
+
+  /** Subtle blue accent glow (for focus states) */
+  blueGlowSubtle: Platform.select({
+    ios: {
+      shadowColor: '#5B9BD5',
+      shadowOffset: { width: 0, height: 0 },
+      shadowOpacity: 0.15,
+      shadowRadius: 4,
+    },
+    android: {
+      elevation: 2,
+    },
+    default: {
+      shadowColor: '#5B9BD5',
+      shadowOffset: { width: 0, height: 0 },
+      shadowOpacity: 0.12,
+      shadowRadius: 4,
+    },
+  }) as ShadowStyle,
 };
 
 /**

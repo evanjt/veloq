@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, StyleSheet, ViewStyle, useColorScheme } from 'react-native';
-import { shadows } from '@/theme';
+import { shadows, darkColors } from '@/theme';
 
 interface GradientCardProps {
   children: React.ReactNode;
@@ -24,23 +24,23 @@ export function GradientCard({
     switch (variant) {
       case 'elevated':
         return {
-          backgroundColor: isDark ? '#252525' : '#FFFFFF',
-          // Platform-optimized shadows
+          backgroundColor: isDark ? darkColors.surfaceElevated : '#FFFFFF',
+          // Platform-optimized shadows with subtle blue glow in dark mode
           ...(isDark ? shadows.modal : shadows.elevated),
         };
       case 'glass':
         return {
           backgroundColor: isDark
-            ? 'rgba(40, 40, 40, 0.85)'
+            ? 'rgba(31, 31, 35, 0.85)'
             : 'rgba(255, 255, 255, 0.85)',
           borderWidth: 1,
           borderColor: isDark
-            ? 'rgba(255, 255, 255, 0.1)'
+            ? 'rgba(91, 155, 213, 0.1)' // Subtle blue glow border
             : 'rgba(0, 0, 0, 0.05)',
         };
       default:
         return {
-          backgroundColor: isDark ? '#1E1E1E' : '#FFFFFF',
+          backgroundColor: isDark ? darkColors.surface : '#FFFFFF',
         };
     }
   };
@@ -79,19 +79,21 @@ export function GlassCard({
 }
 
 // Preset gradient themes (colors only - use with native LinearGradient in dev builds)
+// Brand: Gold (#D4AF37) + Blue (#5B9BD5)
 export const GRADIENT_PRESETS = {
-  primary: ['#E8C96E', '#D4AF37'],
-  success: ['#66BB6A', '#4CAF50'],
-  info: ['#42A5F5', '#2196F3'],
-  warning: ['#FBBF24', '#F59E0B'],
-  purple: ['#AB47BC', '#9C27B0'],
-  sunset: ['#E8C96E', '#FF8F4C', '#FBBF24'],
-  ocean: ['#0099FF', '#42A5F5', '#00BCD4'],
-  fitness: ['#42A5F5', '#2196F3'],
-  fatigue: ['#A855F7', '#5B9BD5'],
-  form: ['#66BB6A', '#4CAF50'],
-  dark: ['rgba(40,40,40,0.95)', 'rgba(30,30,30,0.9)'],
-  light: ['rgba(255,255,255,0.95)', 'rgba(250,250,250,0.9)'],
+  primary: ['#E8C96E', '#D4AF37'],    // Gold gradient
+  secondary: ['#7DB3E3', '#5B9BD5'],  // Blue gradient
+  premium: ['#D4AF37', '#5B9BD5'],    // Gold to blue (diagonal)
+  success: ['#4ADE80', '#22C55E'],    // Green
+  info: ['#7DB3E3', '#5B9BD5'],       // Brand blue
+  warning: ['#FBBF24', '#F59E0B'],    // Amber (NOT orange)
+  purple: ['#C084FC', '#A855F7'],     // Purple
+  ocean: ['#22D3EE', '#06B6D4'],      // Cyan
+  fitness: ['#7DB3E3', '#5B9BD5'],    // Brand blue (CTL)
+  fatigue: ['#C084FC', '#A855F7'],    // Purple (ATL)
+  form: ['#E8C96E', '#D4AF37'],       // Gold (TSB - premium!)
+  dark: ['rgba(31,31,35,0.95)', 'rgba(24,24,27,0.9)'],
+  light: ['rgba(255,255,255,0.95)', 'rgba(248,249,250,0.9)'],
 };
 
 const styles = StyleSheet.create({

@@ -3,11 +3,13 @@
  *
  * Returns chart colors that automatically adjust for dark mode,
  * providing better visibility and contrast on dark backgrounds.
+ *
+ * Brand Identity: Gold (#D4AF37) + Blue (#5B9BD5)
  */
 
 import { useMemo } from 'react';
 import { useColorScheme } from 'react-native';
-import { colors, darkColors } from '@/theme';
+import { brand, colors, darkColors, zoneColors } from '@/theme';
 
 export interface ChartColorScheme {
   // Fitness metrics
@@ -54,39 +56,39 @@ export function useChartColors(): ChartColorScheme {
   const isDark = colorScheme === 'dark';
 
   return useMemo(() => ({
-    // Fitness metrics - brighter in dark mode
-    fitness: isDark ? darkColors.chartFitness : colors.fitness,
+    // Fitness metrics - brand colors
+    fitness: isDark ? darkColors.chartFitness : brand.blue,
     fatigue: isDark ? darkColors.chartFatigue : colors.fatigue,
-    form: isDark ? darkColors.chartForm : colors.form,
+    form: isDark ? darkColors.chartForm : brand.gold,
 
     // Activity metrics
-    power: isDark ? darkColors.chartPower : colors.chartYellow,
+    power: isDark ? darkColors.chartPower : colors.chartAmber,
     pace: isDark ? darkColors.chartPace : colors.chartGreen,
     heartRate: isDark ? darkColors.chartHR : colors.error,
     cadence: isDark ? darkColors.chartCadence : colors.chartPurple,
     elevation: isDark ? darkColors.chartElevation : colors.gray600,
 
     // General chart colors
-    primary: colors.primary,
-    secondary: isDark ? '#64B5F6' : colors.chartBlue,
-    tertiary: isDark ? '#81C784' : colors.chartGreen,
-    accent: colors.chartYellow,
+    primary: brand.gold,
+    secondary: isDark ? brand.blueLight : brand.blue,
+    tertiary: isDark ? '#4ADE80' : colors.chartGreen,
+    accent: brand.gold,
 
     // Chart UI elements
-    grid: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)',
+    grid: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)',
     axis: isDark ? darkColors.textMuted : colors.textSecondary,
     label: isDark ? darkColors.textSecondary : colors.textSecondary,
     tooltip: isDark ? darkColors.surfaceElevated : colors.surface,
     tooltipText: isDark ? darkColors.textPrimary : colors.textPrimary,
 
     // Zone colors (consistent across themes for recognition)
-    zone1: '#90CAF9', // Recovery - Light blue
-    zone2: '#4CAF50', // Endurance - Green
-    zone3: '#FFEB3B', // Tempo - Yellow
-    zone4: '#F59E0B', // Threshold - Orange
-    zone5: '#F44336', // VO2max - Red
-    zone6: '#9C27B0', // Anaerobic - Purple
-    zone7: '#E91E63', // Neuromuscular - Pink
+    zone1: zoneColors.zone1,
+    zone2: zoneColors.zone2,
+    zone3: zoneColors.zone3,
+    zone4: zoneColors.zone4, // Amber, NOT orange
+    zone5: zoneColors.zone5,
+    zone6: zoneColors.zone6,
+    zone7: zoneColors.zone7,
   }), [isDark]);
 }
 

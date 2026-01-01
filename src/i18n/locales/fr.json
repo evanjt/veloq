@@ -137,7 +137,11 @@
     "support": "Support",
     "subscribe": "S'abonner",
     "sponsorDev": "Sponsoriser le dev",
-    "version": "Version"
+    "version": "Version",
+    "languageGroups": {
+      "european": "Européen",
+      "asian": "Asiatique"
+    }
   },
 
   "alerts": {

@@ -91,12 +91,12 @@ export function DemoBanner() {
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#F59E0B', // Orange for demo mode
+    backgroundColor: '#5B9BD5', // Brand blue for demo mode
     paddingHorizontal: 16,
     paddingBottom: 8,
   },
   containerDark: {
-    backgroundColor: '#F57C00', // Slightly darker for dark mode
+    backgroundColor: '#3A7AB8', // Darker blue for dark mode
   },
   pressed: {
     opacity: 0.8,

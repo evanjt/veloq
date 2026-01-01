@@ -99,24 +99,24 @@ describe('sortByDateId', () => {
 
 describe('getActivityColor', () => {
   it('returns correct color for Ride', () => {
-    expect(getActivityColor('Ride')).toBe('#5B9BD5');
+    expect(getActivityColor('Ride')).toBe('#3B82F6'); // Blue-500 (NO orange)
   });
 
   it('returns correct color for Run', () => {
-    expect(getActivityColor('Run')).toBe('#4CAF50');
+    expect(getActivityColor('Run')).toBe('#10B981'); // Emerald-500
   });
 
   it('returns correct color for Swim', () => {
-    expect(getActivityColor('Swim')).toBe('#2196F3');
+    expect(getActivityColor('Swim')).toBe('#06B6D4'); // Cyan-500
   });
 
   it('returns default color for unknown activity', () => {
-    expect(getActivityColor('SomeUnknownActivity' as any)).toBe('#9E9E9E');
+    expect(getActivityColor('SomeUnknownActivity' as any)).toBe('#71717A'); // Zinc-500
   });
 
   it('returns correct color for virtual activities', () => {
-    expect(getActivityColor('VirtualRide')).toBe('#5B9BD5');
-    expect(getActivityColor('VirtualRun')).toBe('#4CAF50');
+    expect(getActivityColor('VirtualRide')).toBe('#3B82F6'); // Blue-500
+    expect(getActivityColor('VirtualRun')).toBe('#10B981'); // Emerald-500
   });
 });
 

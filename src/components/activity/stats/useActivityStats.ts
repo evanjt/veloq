@@ -72,7 +72,7 @@ export function useActivityStats({
       // Determine intensity level for color
       const intensity = activity.icu_intensity || 0;
       const loadColor = intensity > 100 ? colors.error
-        : intensity > 85 ? '#F59E0B'
+        : intensity > 85 ? '#F59E0B' // Amber-500 (NOT orange)
         : intensity > 70 ? colors.chartYellow
         : colors.success;
 
@@ -115,7 +115,7 @@ export function useActivityStats({
         title: t('activity.heartRate'),
         value: `${Math.round(avgHRValue)}`,
         icon: 'heart-pulse',
-        color: hrPercent > 90 ? colors.error : hrPercent > 80 ? '#F59E0B' : '#E91E63',
+        color: hrPercent > 90 ? colors.error : hrPercent > 80 ? '#F59E0B' : '#EC4899', // Amber + Pink
         comparison: hrComparison,
         context: t('activity.stats.percentOfMaxHR', { percent: hrPercent }),
         explanation: t(METRIC_EXPLANATION_KEYS['Heart Rate']),
@@ -137,7 +137,7 @@ export function useActivityStats({
         title: t('activity.stats.energy'),
         value: `${Math.round(activity.calories)}`,
         icon: 'fire',
-        color: '#F59E0B',
+        color: '#FBBF24', // Amber-400
         context: `${calPerHour} kcal/hr`,
         explanation: t(METRIC_EXPLANATION_KEYS['Energy']),
         details: [
@@ -167,7 +167,7 @@ export function useActivityStats({
         title: t('activity.stats.conditions'),
         value: `${Math.round(temp)}°`,
         icon: activity.has_weather ? 'weather-partly-cloudy' : 'thermometer',
-        color: isHot ? '#F59E0B' : isCold ? colors.chartBlue : colors.success,
+        color: isHot ? '#F59E0B' : isCold ? colors.secondary : colors.success, // Amber for hot
         context: contextStr,
         explanation: t(METRIC_EXPLANATION_KEYS['Conditions']),
         details: [

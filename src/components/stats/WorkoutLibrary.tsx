@@ -33,7 +33,7 @@ interface WorkoutLibraryProps {
 
 const STEP_COLORS = {
   warmup: '#4CAF50',
-  work: '#5B9BD5',
+  work: '#5B9BD5', // Brand blue - intensity work
   recovery: '#2196F3',
   cooldown: '#9C27B0',
 };

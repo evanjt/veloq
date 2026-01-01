@@ -38,7 +38,7 @@ function formatDate(dateStr: string): string {
 
 const PRIORITY_COLORS = {
   A: '#E91E63', // Pink - priority race
-  B: '#F59E0B', // Orange - secondary
+  B: '#F59E0B', // Amber-500 - secondary
   C: '#9E9E9E', // Gray - training
 };
 

@@ -303,7 +303,7 @@ export function RoutePerformanceSection({
                         <MaterialCommunityIcons
                           name={getDirectionIcon(tooltipData.direction)}
                           size={10}
-                          color={tooltipData.direction === 'reverse' ? '#E91E63' : '#F59E0B'}
+                          color={tooltipData.direction === 'reverse' ? '#EC4899' : '#F59E0B'}
                         />
                       </View>
                     )}

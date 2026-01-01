@@ -101,7 +101,7 @@ export const CHART_CONFIGS: Record<ChartTypeId, ChartConfig> = {
     unit: 'm',
     unitImperial: 'ft',
     icon: 'trending-up',
-    color: '#4CAF50',
+    color: '#64748B', // Slate-500
     getStream: (s) => s.altitude,
     convertToImperial: (m) => m * 3.28084,
   },
@@ -110,7 +110,7 @@ export const CHART_CONFIGS: Record<ChartTypeId, ChartConfig> = {
     label: 'Heart Rate',
     unit: 'bpm',
     icon: 'heart-pulse',
-    color: '#E91E63',
+    color: '#EF4444', // Red-500
     getStream: (s) => s.heartrate,
   },
   power: {
@@ -118,7 +118,7 @@ export const CHART_CONFIGS: Record<ChartTypeId, ChartConfig> = {
     label: 'Power',
     unit: 'W',
     icon: 'lightning-bolt',
-    color: '#F59E0B',
+    color: '#FBBF24', // Amber-400 (NOT orange)
     getStream: (s) => s.watts,
   },
   pace: {
@@ -127,7 +127,7 @@ export const CHART_CONFIGS: Record<ChartTypeId, ChartConfig> = {
     unit: 'min/km',
     unitImperial: 'min/mi',
     icon: 'speedometer',
-    color: '#2196F3',
+    color: '#10B981', // Emerald-500
     getStream: calculatePaceStream,
     formatValue: formatPace,
     // Note: pace conversion is handled in formatValue
@@ -137,7 +137,7 @@ export const CHART_CONFIGS: Record<ChartTypeId, ChartConfig> = {
     label: 'Cadence',
     unit: 'rpm',
     icon: 'rotate-right',
-    color: '#9C27B0',
+    color: '#A855F7', // Purple-500
     getStream: (s) => s.cadence,
   },
   speed: {
@@ -146,7 +146,7 @@ export const CHART_CONFIGS: Record<ChartTypeId, ChartConfig> = {
     unit: 'km/h',
     unitImperial: 'mph',
     icon: 'speedometer-medium',
-    color: '#00BCD4',
+    color: '#06B6D4', // Cyan-500
     getStream: (s) => s.velocity_smooth,
     formatValue: formatSpeed,
     convertToImperial: (mps) => mps * 2.23694 / 3.6, // Keep in mps for conversion
@@ -156,7 +156,7 @@ export const CHART_CONFIGS: Record<ChartTypeId, ChartConfig> = {
     label: 'Grade',
     unit: '%',
     icon: 'slope-uphill',
-    color: '#795548',
+    color: '#71717A', // Zinc-500
     getStream: calculateGradeStream,
     formatValue: formatGrade,
   },
