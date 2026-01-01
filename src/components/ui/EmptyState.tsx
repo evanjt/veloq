@@ -67,7 +67,7 @@ export function EmptyState({
       {actionLabel && onAction && (
         <TouchableOpacity style={styles.actionButton} onPress={onAction} activeOpacity={0.8}>
           <LinearGradient
-            colors={['#E8C96E', '#D4AF37']}
+            colors={['#2DD4BF', '#14B8A6']}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={styles.actionGradient}
@@ -209,7 +209,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.lg,
     borderRadius: 24,
     overflow: 'hidden',
-    shadowColor: '#D4AF37', // Gold glow
+    shadowColor: '#14B8A6', // Teal glow
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,

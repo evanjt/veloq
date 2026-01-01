@@ -220,6 +220,7 @@ function PerformanceProgressionChart({
   onActivitySelect,
   selectedActivityId,
 }: PerformanceChartProps) {
+  const { t } = useTranslation();
   const showPace = isRunningActivity(activityType);
   const activityColor = getActivityColor(activityType);
 
@@ -613,21 +614,21 @@ function PerformanceProgressionChart({
     <View style={[styles.chartCard, isDark && styles.chartCardDark]}>
       <View style={styles.chartHeader}>
         <Text style={[styles.chartTitle, isDark && styles.textLight]}>
-          Performance Over Time
+          {t('sections.performanceOverTime')}
         </Text>
         <View style={styles.chartLegend}>
           <View style={styles.legendItem}>
             <View style={[styles.legendDot, { backgroundColor: '#FFB300' }]} />
-            <Text style={[styles.legendText, isDark && styles.textMuted]}>Best</Text>
+            <Text style={[styles.legendText, isDark && styles.textMuted]}>{t('sections.best')}</Text>
           </View>
           <View style={styles.legendItem}>
             <View style={[styles.legendDot, { backgroundColor: activityColor }]} />
-            <Text style={[styles.legendText, isDark && styles.textMuted]}>Same</Text>
+            <Text style={[styles.legendText, isDark && styles.textMuted]}>{t('sections.same')}</Text>
           </View>
           {hasReverseRuns && (
             <View style={styles.legendItem}>
               <View style={[styles.legendDot, { backgroundColor: REVERSE_COLOR }]} />
-              <Text style={[styles.legendText, isDark && styles.textMuted]}>Reverse</Text>
+              <Text style={[styles.legendText, isDark && styles.textMuted]}>{t('sections.reverse')}</Text>
             </View>
           )}
         </View>
@@ -636,7 +637,7 @@ function PerformanceProgressionChart({
       {/* Hint for interaction */}
       {!isActive && !isPersisted && (
         <Text style={[styles.chartHint, isDark && styles.textMuted]}>
-          {needsScrolling ? 'Swipe to scroll • Hold to scrub' : 'Hold to scrub through activities'}
+          {needsScrolling ? t('sections.scrubHintScrollable') : t('sections.scrubHint')}
         </Text>
       )}
 
@@ -699,7 +700,7 @@ function PerformanceProgressionChart({
               {formatSpeedValue(chartData[bestIndex].speed)}
             </Text>
             <Text style={[styles.bestStatLabel, isDark && styles.textMuted]}>
-              Best {showPace ? 'pace' : 'speed'}
+              {showPace ? t('sections.bestPace') : t('sections.bestSpeed')}
             </Text>
           </View>
           <View style={styles.bestStatItem}>
@@ -707,7 +708,7 @@ function PerformanceProgressionChart({
               {formatShortDate(chartData[bestIndex].date)}
             </Text>
             <Text style={[styles.bestStatLabel, isDark && styles.textMuted]}>
-              Date
+              {t('sections.date')}
             </Text>
           </View>
         </View>

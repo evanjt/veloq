@@ -20,15 +20,18 @@ export const lightTheme = {
   ...MD3LightTheme,
   colors: {
     ...MD3LightTheme.colors,
-    primary: brand.gold,
-    primaryContainer: brand.goldLight,
-    secondary: brand.blue,
-    secondaryContainer: brand.blueLight,
+    primary: brand.tealLight, // Teal-600 for light mode
+    primaryContainer: brand.teal,
+    secondary: brand.blueDark,
+    secondaryContainer: brand.blue,
+    tertiary: brand.goldDark, // Gold as tertiary (achievements)
+    tertiaryContainer: brand.gold,
     background: colors.background,
     surface: colors.surface,
     error: colors.error,
-    onPrimary: colors.textOnPrimary,
+    onPrimary: '#FFFFFF', // White text on teal
     onSecondary: '#FFFFFF',
+    onTertiary: '#18181B', // Dark text on gold
     onBackground: colors.textPrimary,
     onSurface: colors.textPrimary,
     outline: colors.border,
@@ -40,15 +43,18 @@ export const darkTheme = {
   ...MD3DarkTheme,
   colors: {
     ...MD3DarkTheme.colors,
-    primary: brand.gold,
-    primaryContainer: brand.goldDark,
+    primary: brand.tealDark, // Teal-400 for dark mode
+    primaryContainer: brand.teal,
     secondary: brand.blue,
-    secondaryContainer: brand.blueDark,
+    secondaryContainer: brand.blueLight,
+    tertiary: brand.gold, // Gold as tertiary (achievements)
+    tertiaryContainer: brand.goldLight,
     background: darkColors.background,
     surface: darkColors.surface,
     error: darkColors.error,
-    onPrimary: '#18181B', // Dark text on gold
+    onPrimary: '#18181B', // Dark text on bright teal
     onSecondary: '#FFFFFF',
+    onTertiary: '#18181B', // Dark text on gold
     onBackground: darkColors.textPrimary,
     onSurface: darkColors.textPrimary,
     outline: darkColors.border,

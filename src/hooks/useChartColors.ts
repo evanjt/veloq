@@ -70,10 +70,10 @@ export function useChartColors(): ChartColorScheme {
       elevation: isDark ? darkColors.chartElevation : colors.gray600,
 
       // General chart colors
-      primary: brand.gold,
+      primary: isDark ? brand.tealDark : brand.tealLight,
       secondary: isDark ? brand.blueLight : brand.blue,
       tertiary: isDark ? '#4ADE80' : colors.chartGreen,
-      accent: brand.gold,
+      accent: isDark ? brand.tealDark : brand.tealLight,
 
       // Chart UI elements
       grid: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)',

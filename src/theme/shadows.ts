@@ -98,7 +98,45 @@ export const shadows = {
   // PREMIUM GLOW EFFECTS (Brand signature)
   // =========================================================================
 
-  /** Gold glow for achievements, CTAs, and premium moments */
+  /** Teal glow for primary interactive elements (buttons, links) */
+  primaryGlow: Platform.select({
+    ios: {
+      shadowColor: '#14B8A6',
+      shadowOffset: { width: 0, height: 0 },
+      shadowOpacity: 0.35,
+      shadowRadius: 10,
+    },
+    android: {
+      elevation: 4,
+    },
+    default: {
+      shadowColor: '#14B8A6',
+      shadowOffset: { width: 0, height: 0 },
+      shadowOpacity: 0.3,
+      shadowRadius: 10,
+    },
+  }) as ShadowStyle,
+
+  /** Teal glow (alias for primaryGlow) */
+  tealGlow: Platform.select({
+    ios: {
+      shadowColor: '#14B8A6',
+      shadowOffset: { width: 0, height: 0 },
+      shadowOpacity: 0.35,
+      shadowRadius: 10,
+    },
+    android: {
+      elevation: 4,
+    },
+    default: {
+      shadowColor: '#14B8A6',
+      shadowOffset: { width: 0, height: 0 },
+      shadowOpacity: 0.3,
+      shadowRadius: 10,
+    },
+  }) as ShadowStyle,
+
+  /** Gold glow for achievements, PRs, and celebration moments ONLY */
   goldGlow: Platform.select({
     ios: {
       shadowColor: '#D4AF37',
@@ -117,7 +155,7 @@ export const shadows = {
     },
   }) as ShadowStyle,
 
-  /** Blue glow for interactive elements and data highlights */
+  /** Blue glow for data highlights and chart interactions */
   blueGlow: Platform.select({
     ios: {
       shadowColor: '#5B9BD5',
@@ -136,7 +174,26 @@ export const shadows = {
     },
   }) as ShadowStyle,
 
-  /** Subtle gold accent glow (for pressed states) */
+  /** Subtle teal glow (for hover/focus states) */
+  primaryGlowSubtle: Platform.select({
+    ios: {
+      shadowColor: '#14B8A6',
+      shadowOffset: { width: 0, height: 0 },
+      shadowOpacity: 0.2,
+      shadowRadius: 6,
+    },
+    android: {
+      elevation: 2,
+    },
+    default: {
+      shadowColor: '#14B8A6',
+      shadowOffset: { width: 0, height: 0 },
+      shadowOpacity: 0.15,
+      shadowRadius: 6,
+    },
+  }) as ShadowStyle,
+
+  /** Subtle gold accent glow (for achievement pressed states) */
   goldGlowSubtle: Platform.select({
     ios: {
       shadowColor: '#D4AF37',
@@ -155,7 +212,7 @@ export const shadows = {
     },
   }) as ShadowStyle,
 
-  /** Subtle blue accent glow (for focus states) */
+  /** Subtle blue accent glow (for data focus states) */
   blueGlowSubtle: Platform.select({
     ios: {
       shadowColor: '#5B9BD5',

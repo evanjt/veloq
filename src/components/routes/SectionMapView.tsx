@@ -29,6 +29,10 @@ interface SectionMapViewProps {
   enableFullscreen?: boolean;
   /** Optional full activity track to show as a shadow behind the section */
   shadowTrack?: [number, number][];
+  /** Activity ID to highlight (show prominently) */
+  highlightedActivityId?: string | null;
+  /** Specific lap points to highlight (takes precedence over highlightedActivityId) */
+  highlightedLapPoints?: RoutePoint[];
 }
 
 export function SectionMapView({
@@ -37,6 +41,8 @@ export function SectionMapView({
   interactive = false,
   enableFullscreen = false,
   shadowTrack,
+  highlightedActivityId = null,
+  highlightedLapPoints,
 }: SectionMapViewProps) {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const { getStyleForActivity } = useMapPreferences();
@@ -98,6 +104,41 @@ export function SectionMapView({
     };
   }, [shadowTrack]);
 
+  // Create GeoJSON for highlighted trace (activity being scrubbed)
+  const highlightedTraceGeoJSON = useMemo(() => {
+    // Lap points take precedence
+    if (highlightedLapPoints && highlightedLapPoints.length > 1) {
+      return {
+        type: 'Feature' as const,
+        properties: { id: 'highlighted-lap' },
+        geometry: {
+          type: 'LineString' as const,
+          coordinates: highlightedLapPoints.map((p) => [p.lng, p.lat]),
+        },
+      };
+    }
+
+    // If we have a highlighted activity ID and activity traces, use that
+    if (highlightedActivityId && section.activityTraces) {
+      const activityTrace = section.activityTraces[highlightedActivityId];
+      if (activityTrace && activityTrace.length > 1) {
+        return {
+          type: 'Feature' as const,
+          properties: { id: highlightedActivityId },
+          geometry: {
+            type: 'LineString' as const,
+            coordinates: activityTrace.map((p) => [p.lng, p.lat]),
+          },
+        };
+      }
+    }
+
+    return null;
+  }, [highlightedActivityId, highlightedLapPoints, section.activityTraces]);
+
+  // Adjust opacity when something is highlighted
+  const sectionOpacity = highlightedActivityId || highlightedLapPoints ? 0.4 : 1;
+
   const styleUrl = getMapStyle(mapStyle);
 
   const startPoint = displayPoints[0];
@@ -153,6 +194,22 @@ export function SectionMapView({
             id="sectionLine"
             style={{
               lineColor: activityColor,
+              lineOpacity: sectionOpacity,
+              lineWidth: 4,
+              lineCap: 'round',
+              lineJoin: 'round',
+            }}
+          />
+        </ShapeSource>
+      )}
+
+      {/* Highlighted activity trace */}
+      {highlightedTraceGeoJSON && (
+        <ShapeSource id="highlightedSource" shape={highlightedTraceGeoJSON}>
+          <LineLayer
+            id="highlightedLine"
+            style={{
+              lineColor: '#00BCD4', // Cyan for highlighted activity (same as RouteMapView)
               lineWidth: 4,
               lineCap: 'round',
               lineJoin: 'round',

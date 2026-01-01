@@ -65,11 +65,12 @@ export function GlassCard({
 }
 
 // Preset gradient themes (colors only - use with native LinearGradient in dev builds)
-// Brand: Gold (#D4AF37) + Blue (#5B9BD5)
+// Primary: Teal | Accent: Gold (achievements) | Secondary: Blue (data)
 export const GRADIENT_PRESETS = {
-  primary: ['#E8C96E', '#D4AF37'], // Gold gradient
-  secondary: ['#7DB3E3', '#5B9BD5'], // Blue gradient
-  premium: ['#D4AF37', '#5B9BD5'], // Gold to blue (diagonal)
+  primary: ['#2DD4BF', '#14B8A6'], // Teal gradient (buttons, CTAs)
+  accent: ['#E8C96E', '#D4AF37'], // Gold gradient (achievements only)
+  secondary: ['#7DB3E3', '#5B9BD5'], // Blue gradient (data)
+  premium: ['#D4AF37', '#5B9BD5'], // Gold to blue (special moments)
   success: ['#4ADE80', '#22C55E'], // Green
   info: ['#7DB3E3', '#5B9BD5'], // Brand blue
   warning: ['#FBBF24', '#F59E0B'], // Amber 
@@ -77,7 +78,7 @@ export const GRADIENT_PRESETS = {
   ocean: ['#22D3EE', '#06B6D4'], // Cyan
   fitness: ['#7DB3E3', '#5B9BD5'], // Brand blue (CTL)
   fatigue: ['#C084FC', '#A855F7'], // Purple (ATL)
-  form: ['#E8C96E', '#D4AF37'], // Gold (TSB - premium!)
+  form: ['#E8C96E', '#D4AF37'], // Gold (TSB - achievement moment!)
   dark: ['rgba(31,31,35,0.95)', 'rgba(24,24,27,0.9)'],
   light: ['rgba(255,255,255,0.95)', 'rgba(248,249,250,0.9)'],
 };

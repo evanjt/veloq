@@ -57,10 +57,10 @@ export function useTheme(): Theme {
   const isDark = colorScheme === 'dark';
 
   const themeColors: ThemeColors = {
-    // Core brand - Gold primary, Blue secondary
-    primary: brand.gold,
-    primaryDark: brand.goldDark,
-    primaryLight: brand.goldLight,
+    // Core brand - Teal primary (mode-aware), Blue secondary, Gold for achievements
+    primary: isDark ? brand.tealDark : brand.tealLight,
+    primaryDark: isDark ? brand.tealHoverDark : brand.tealHover,
+    primaryLight: isDark ? brand.teal : brand.tealDark,
     secondary: brand.blue,
     secondaryDark: brand.blueDark,
     secondaryLight: brand.blueLight,
