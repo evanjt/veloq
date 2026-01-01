@@ -410,7 +410,8 @@
     "traversals": "traversals",
     "routesCount": "routes",
     "activities": "Activities",
-    "noActivitiesFound": "No activities found"
+    "noActivitiesFound": "No activities found",
+    "sectionNamePlaceholder": "Section name"
   },
 
   "errorState": {
