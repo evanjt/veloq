@@ -43,7 +43,8 @@ import type { ActivityType } from '@/types';
 // Activity type groups for map settings
 // Each group applies the same map style to all its activity types
 // Covers ALL ActivityType values from types/activity.ts
-const MAP_ACTIVITY_GROUPS: { key: string; labelKey: string; types: ActivityType[] }[] = [
+type FilterLabelKey = 'filters.cycling' | 'filters.running' | 'filters.hiking' | 'filters.walking' | 'filters.swimming' | 'filters.snowSports' | 'filters.waterSports' | 'filters.climbing' | 'filters.racketSports' | 'filters.other';
+const MAP_ACTIVITY_GROUPS: { key: string; labelKey: FilterLabelKey; types: ActivityType[] }[] = [
   { key: 'cycling', labelKey: 'filters.cycling', types: ['Ride', 'VirtualRide'] },
   { key: 'running', labelKey: 'filters.running', types: ['Run', 'TrailRun', 'VirtualRun'] },
   { key: 'hiking', labelKey: 'filters.hiking', types: ['Hike', 'Snowshoe'] },

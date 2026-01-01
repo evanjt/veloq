@@ -472,6 +472,30 @@ pub fn default_section_config() -> crate::SectionConfig {
     crate::SectionConfig::default()
 }
 
+/// Get discovery mode section config (more sensitive detection, lower thresholds)
+#[uniffi::export]
+pub fn discovery_section_config() -> crate::SectionConfig {
+    crate::SectionConfig::discovery()
+}
+
+/// Get conservative section config (fewer sections, higher confidence)
+#[uniffi::export]
+pub fn conservative_section_config() -> crate::SectionConfig {
+    crate::SectionConfig::conservative()
+}
+
+/// Get legacy section config (backward compatible single-scale)
+#[uniffi::export]
+pub fn legacy_section_config() -> crate::SectionConfig {
+    crate::SectionConfig::legacy()
+}
+
+/// Get default scale presets for multi-scale detection
+#[uniffi::export]
+pub fn default_scale_presets() -> Vec<crate::ScalePreset> {
+    crate::ScalePreset::default_presets()
+}
+
 /// Detect frequent sections from FULL GPS tracks.
 /// Uses medoid-based algorithm to select actual GPS traces as representative polylines.
 /// This produces smooth, natural section shapes that follow real roads.
@@ -546,6 +570,80 @@ pub fn ffi_detect_sections_from_tracks(
     );
 
     sections
+}
+
+/// Detect sections at multiple scales with potential section suggestions.
+/// This is the flagship entry point for section detection.
+///
+/// Returns a MultiScaleSectionResult with:
+/// - sections: Confirmed sections (meeting min_activities threshold)
+/// - potentials: Suggested sections from 1-2 activity overlaps
+/// - stats: Detection statistics
+#[uniffi::export]
+pub fn ffi_detect_sections_multiscale(
+    activity_ids: Vec<String>,
+    all_coords: Vec<f64>,
+    offsets: Vec<u32>,
+    sport_types: Vec<ActivitySportType>,
+    groups: Vec<RouteGroup>,
+    config: crate::SectionConfig,
+) -> crate::MultiScaleSectionResult {
+    init_logging();
+    info!(
+        "[RouteMatcherRust] detect_sections_multiscale: {} activities, {} coords, {} scales",
+        activity_ids.len(),
+        all_coords.len() / 2,
+        config.scale_presets.len()
+    );
+
+    let start = std::time::Instant::now();
+
+    // Convert flat coordinates to tracks
+    let mut tracks: Vec<(String, Vec<GpsPoint>)> = Vec::with_capacity(activity_ids.len());
+
+    for (i, activity_id) in activity_ids.iter().enumerate() {
+        let start_offset = offsets[i] as usize;
+        let end_offset = offsets
+            .get(i + 1)
+            .map(|&o| o as usize)
+            .unwrap_or(all_coords.len() / 2);
+
+        let mut points = Vec::with_capacity(end_offset - start_offset);
+        for j in start_offset..end_offset {
+            let coord_idx = j * 2;
+            if coord_idx + 1 < all_coords.len() {
+                points.push(GpsPoint::new(all_coords[coord_idx], all_coords[coord_idx + 1]));
+            }
+        }
+
+        if !points.is_empty() {
+            tracks.push((activity_id.clone(), points));
+        }
+    }
+
+    info!(
+        "[RouteMatcherRust] Converted to {} tracks with full GPS data",
+        tracks.len()
+    );
+
+    // Convert sport types to HashMap
+    let sport_map: std::collections::HashMap<String, String> = sport_types
+        .into_iter()
+        .map(|st| (st.activity_id, st.sport_type))
+        .collect();
+
+    let result =
+        crate::sections::detect_sections_multiscale(&tracks, &sport_map, &groups, &config);
+
+    let elapsed = start.elapsed();
+    info!(
+        "[RouteMatcherRust] Multi-scale detection: {} sections, {} potentials in {:?}",
+        result.sections.len(),
+        result.potentials.len(),
+        elapsed
+    );
+
+    result
 }
 
 // ============================================================================

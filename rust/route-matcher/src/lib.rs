@@ -95,7 +95,12 @@ pub use http::{ActivityFetcher, ActivityMapResult, MapBounds};
 
 // Frequent sections detection (medoid-based algorithm for smooth polylines)
 pub mod sections;
-pub use sections::{FrequentSection, SectionConfig, SectionPortion, detect_sections_from_tracks};
+pub use sections::{
+    FrequentSection, SectionConfig, SectionPortion, detect_sections_from_tracks,
+    // Multi-scale detection
+    ScalePreset, PotentialSection, MultiScaleSectionResult, DetectionStats,
+    detect_sections_multiscale,
+};
 
 // Heatmap generation module
 pub mod heatmap;
