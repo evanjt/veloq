@@ -70,6 +70,9 @@
   "login": {
     "title": "Veloq",
     "subtitle": "Conectar con Intervals.icu",
+    "loginWithIntervals": "Iniciar sesión con intervals.icu",
+    "oauthNotConfigured": "OAuth no está configurado. Usa la clave API en su lugar.",
+    "oauthFailed": "Error al iniciar sesión. Inténtalo de nuevo.",
     "gettingStarted": "Comenzar",
     "instructions": "1. Abre los Ajustes de Intervals.icu\n2. Ve a \"Configuración de desarrollador\"\n3. Copia tu clave API",
     "openSettings": "Abrir Ajustes de Intervals.icu",
@@ -80,7 +83,20 @@
     "invalidApiKey": "Clave API inválida. Por favor, verifica tu clave e inténtalo de nuevo.",
     "connectionFailed": "Error de conexión. Por favor, verifica tu clave API e inténtalo de nuevo.",
     "securityNote": "Tus credenciales se guardan de forma segura en tu dispositivo",
-    "tryDemo": "Probar Demo"
+    "tryDemo": "Probar Demo",
+    "noAccount": "¿Nuevo en intervals.icu?",
+    "createAccountHint": "Crea una cuenta gratis para seguir tu entrenamiento.",
+    "createAccount": "Crear Cuenta",
+    "disclaimer": "Veloq no está afiliado con intervals.icu",
+    "privacyPolicy": "Política de Privacidad",
+    "termsOfService": "Términos de Servicio",
+    "useApiKey": "Usar Clave API",
+    "apiKeyDescription": "Modo local. Tu clave nunca sale de tu dispositivo. Sin notificaciones.",
+    "getApiKey": "Obtener tu clave API",
+    "apiKeyPlaceholder": "Pega tu clave API aquí",
+    "apiKeyConnect": "Conectar con Clave API",
+    "localModeNote": "Modo local: Todos los datos permanecen en tu dispositivo",
+    "connectedModeNote": "Habilita notificaciones para nuevas actividades"
   },
 
   "demo": {
