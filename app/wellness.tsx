@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { View, ScrollView, StyleSheet, useColorScheme, RefreshControl, TouchableOpacity } from 'react-native';
+import { View, ScrollView, StyleSheet, useColorScheme, RefreshControl, TouchableOpacity, Modal, Pressable } from 'react-native';
 import { Text, IconButton, ActivityIndicator } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { WellnessDashboard, WellnessTrendsChart } from '@/components/wellness';
 import { useWellness, type TimeRange } from '@/hooks';
 import { colors, darkColors, spacing, layout, typography, opacity } from '@/theme';
+import { SMOOTHING_PRESETS, getSmoothingDescription, type SmoothingWindow } from '@/lib';
 
 const TIME_RANGES: { id: TimeRange; label: string }[] = [
   { id: '7d', label: '1W' },
@@ -22,6 +23,8 @@ export default function WellnessScreen() {
   const isDark = colorScheme === 'dark';
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [timeRange, setTimeRange] = useState<TimeRange>('1m');
+  const [smoothingWindow, setSmoothingWindow] = useState<SmoothingWindow>('auto');
+  const [showSmoothingModal, setShowSmoothingModal] = useState(false);
 
   // isFetching is true during background refetches, isLoading only on initial load with no cache
   const { data: wellness, isLoading, isFetching, refetch } = useWellness(timeRange);
@@ -91,39 +94,112 @@ export default function WellnessScreen() {
           <WellnessDashboard data={wellness} />
         </View>
 
-        {/* Time range selector */}
-        <View style={styles.timeRangeContainer}>
-          {TIME_RANGES.map((range) => (
-            <TouchableOpacity
-              key={range.id}
-              style={[
-                styles.timeRangeButton,
-                isDark && styles.timeRangeButtonDark,
-                timeRange === range.id && styles.timeRangeButtonActive,
-              ]}
-              onPress={() => setTimeRange(range.id)}
-              activeOpacity={0.7}
-            >
-              <Text
+        {/* Time range selector with smoothing config */}
+        <View style={styles.timeRangeRow}>
+          <View style={styles.timeRangeContainer}>
+            {TIME_RANGES.map((range) => (
+              <TouchableOpacity
+                key={range.id}
                 style={[
-                  styles.timeRangeText,
-                  isDark && styles.timeRangeTextDark,
-                  timeRange === range.id && styles.timeRangeTextActive,
+                  styles.timeRangeButton,
+                  isDark && styles.timeRangeButtonDark,
+                  timeRange === range.id && styles.timeRangeButtonActive,
                 ]}
+                onPress={() => setTimeRange(range.id)}
+                activeOpacity={0.7}
               >
-                {range.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
+                <Text
+                  style={[
+                    styles.timeRangeText,
+                    isDark && styles.timeRangeTextDark,
+                    timeRange === range.id && styles.timeRangeTextActive,
+                  ]}
+                >
+                  {range.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          <TouchableOpacity
+            style={[styles.smoothingButton, isDark && styles.smoothingButtonDark]}
+            onPress={() => setShowSmoothingModal(true)}
+            activeOpacity={0.7}
+          >
+            <IconButton
+              icon="chart-bell-curve-cumulative"
+              iconColor={smoothingWindow !== 'auto' ? colors.primary : (isDark ? darkColors.textSecondary : colors.textSecondary)}
+              size={18}
+              style={{ margin: 0 }}
+            />
+          </TouchableOpacity>
         </View>
 
         {/* Wellness Trends Chart */}
         <View style={[styles.card, isDark && styles.cardDark]}>
-          <Text style={[styles.sectionTitle, isDark && styles.textLight]}>{t('wellnessScreen.trends')}</Text>
-          <WellnessTrendsChart data={wellness} height={200} />
+          <View style={styles.chartHeader}>
+            <Text style={[styles.sectionTitle, isDark && styles.textLight]}>{t('wellnessScreen.trends')}</Text>
+            <Text style={[styles.smoothingLabel, isDark && styles.textDark]}>
+              {getSmoothingDescription(smoothingWindow, timeRange)}
+            </Text>
+          </View>
+          <WellnessTrendsChart
+            data={wellness}
+            height={200}
+            timeRange={timeRange}
+            smoothingWindow={smoothingWindow}
+          />
         </View>
 
       </ScrollView>
+
+      {/* Smoothing Config Modal */}
+      <Modal
+        visible={showSmoothingModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowSmoothingModal(false)}
+      >
+        <Pressable style={styles.modalOverlay} onPress={() => setShowSmoothingModal(false)}>
+          <View style={[styles.modalContent, isDark && styles.modalContentDark]}>
+            <Text style={[styles.modalTitle, isDark && styles.textLight]}>
+              {t('wellness.smoothingTitle')}
+            </Text>
+            <Text style={[styles.modalDescription, isDark && styles.textDark]}>
+              {t('wellness.smoothingDescription')}
+            </Text>
+            <View style={styles.smoothingOptions}>
+              {SMOOTHING_PRESETS.map((preset) => (
+                <TouchableOpacity
+                  key={String(preset.value)}
+                  style={[
+                    styles.smoothingOption,
+                    isDark && styles.smoothingOptionDark,
+                    smoothingWindow === preset.value && styles.smoothingOptionActive,
+                  ]}
+                  onPress={() => {
+                    setSmoothingWindow(preset.value);
+                    setShowSmoothingModal(false);
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Text
+                    style={[
+                      styles.smoothingOptionText,
+                      isDark && styles.smoothingOptionTextDark,
+                      smoothingWindow === preset.value && styles.smoothingOptionTextActive,
+                    ]}
+                  >
+                    {preset.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <Text style={[styles.modalHint, isDark && styles.textDark]}>
+              {t('wellness.smoothingHint')}
+            </Text>
+          </View>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -177,14 +253,28 @@ const styles = StyleSheet.create({
     fontSize: typography.body.fontSize,
     fontWeight: '600',
     color: colors.textPrimary,
+  },
+  chartHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: spacing.md,
+  },
+  smoothingLabel: {
+    fontSize: typography.caption.fontSize,
+    color: colors.textSecondary,
+  },
+  timeRangeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.md,
+    gap: spacing.sm,
   },
   timeRangeContainer: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
     justifyContent: 'center',
     gap: spacing.xs,
-    marginBottom: spacing.md,
   },
   timeRangeButton: {
     paddingHorizontal: spacing.sm + 4,
@@ -208,5 +298,82 @@ const styles = StyleSheet.create({
   },
   timeRangeTextActive: {
     color: colors.textOnDark,
+  },
+  smoothingButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: opacity.overlay.light,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  smoothingButtonDark: {
+    backgroundColor: opacity.overlayDark.medium,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: spacing.lg,
+  },
+  modalContent: {
+    backgroundColor: colors.surface,
+    borderRadius: 20,
+    padding: spacing.lg,
+    width: '100%',
+    maxWidth: 320,
+  },
+  modalContentDark: {
+    backgroundColor: darkColors.surface,
+  },
+  modalTitle: {
+    fontSize: typography.cardTitle.fontSize,
+    fontWeight: '600',
+    color: colors.textPrimary,
+    textAlign: 'center',
+    marginBottom: spacing.xs,
+  },
+  modalDescription: {
+    fontSize: typography.bodySmall.fontSize,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginBottom: spacing.md,
+  },
+  smoothingOptions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    marginBottom: spacing.md,
+  },
+  smoothingOption: {
+    paddingHorizontal: spacing.sm + 4,
+    paddingVertical: spacing.xs + 2,
+    borderRadius: 14,
+    backgroundColor: opacity.overlay.light,
+  },
+  smoothingOptionDark: {
+    backgroundColor: opacity.overlayDark.medium,
+  },
+  smoothingOptionActive: {
+    backgroundColor: colors.primary,
+  },
+  smoothingOptionText: {
+    fontSize: typography.caption.fontSize,
+    fontWeight: '500',
+    color: colors.textSecondary,
+  },
+  smoothingOptionTextDark: {
+    color: darkColors.textSecondary,
+  },
+  smoothingOptionTextActive: {
+    color: colors.textOnDark,
+  },
+  modalHint: {
+    fontSize: typography.caption.fontSize,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    fontStyle: 'italic',
   },
 });

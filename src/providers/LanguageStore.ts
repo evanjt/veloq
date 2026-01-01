@@ -129,27 +129,16 @@ export type LanguageGroup = {
 };
 
 /**
- * Get grouped language options for settings UI
- * Languages are organized into groups: System, European, Asian
+ * Get language options for settings UI
+ * Languages are listed alphabetically with System option first
  */
 export function getAvailableLanguages(): LanguageGroup[] {
   return [
     {
       groupLabel: null,
-      languages: [{ value: null, label: 'System', description: 'Auto-detect from device' }],
-    },
-    {
-      groupLabel: 'settings.languageGroups.european',
       languages: [
-        {
-          value: 'en',
-          label: 'English',
-          variants: [
-            { value: 'en-AU', label: 'AU' },
-            { value: 'en-GB', label: 'GB' },
-            { value: 'en-US', label: 'US' },
-          ],
-        },
+        { value: null, label: 'System', description: 'Auto-detect from device' },
+        { value: 'da', label: 'Dansk' },
         {
           value: 'de',
           label: 'Deutsch',
@@ -160,9 +149,15 @@ export function getAvailableLanguages(): LanguageGroup[] {
             { value: 'de-CHB', label: 'Bärn' },
           ],
         },
-        { value: 'nl', label: 'Nederlands' },
-        { value: 'fr', label: 'Français' },
-        { value: 'it', label: 'Italiano' },
+        {
+          value: 'en',
+          label: 'English',
+          variants: [
+            { value: 'en-AU', label: 'AU' },
+            { value: 'en-GB', label: 'GB' },
+            { value: 'en-US', label: 'US' },
+          ],
+        },
         {
           value: 'es',
           label: 'Español',
@@ -171,6 +166,10 @@ export function getAvailableLanguages(): LanguageGroup[] {
             { value: 'es-419', label: 'LATAM' },
           ],
         },
+        { value: 'fr', label: 'Français' },
+        { value: 'it', label: 'Italiano' },
+        { value: 'nl', label: 'Nederlands' },
+        { value: 'pl', label: 'Polski' },
         {
           value: 'pt',
           label: 'Português',
@@ -179,13 +178,6 @@ export function getAvailableLanguages(): LanguageGroup[] {
             { value: 'pt-BR', label: 'BR' },
           ],
         },
-        { value: 'pl', label: 'Polski' },
-        { value: 'da', label: 'Dansk' },
-      ],
-    },
-    {
-      groupLabel: 'settings.languageGroups.asian',
-      languages: [
         { value: 'ja', label: '日本語' },
         { value: 'zh-Hans', label: '中文' },
       ],

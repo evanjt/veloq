@@ -8,6 +8,8 @@
     "save": "Gem",
     "delete": "Slet",
     "confirm": "Bekræft",
+    "reset": "Nulstil",
+    "create": "Opret",
     "back": "Tilbage",
     "next": "Næste",
     "done": "Færdig",
@@ -16,7 +18,6 @@
     "noResults": "Ingen resultater",
     "pullToRefresh": "Træk ned for at opdatere"
   },
-
   "navigation": {
     "feed": "Feed",
     "fitness": "Fitness",
@@ -29,7 +30,6 @@
     "settings": "Indstillinger",
     "activities": "Aktiviteter"
   },
-
   "feed": {
     "recentActivities": "Seneste aktiviteter",
     "activitiesCount": "{{count}} aktiviteter",
@@ -38,7 +38,6 @@
     "failedToLoad": "Kunne ikke indlæse aktiviteter",
     "searchPlaceholder": "Søg i aktiviteter..."
   },
-
   "filters": {
     "showFilters": "Vis filtre",
     "hideFilters": "Skjul filtre",
@@ -53,7 +52,6 @@
     "racketSports": "Ketchersport",
     "other": "Andet"
   },
-
   "metrics": {
     "hrv": "HRV",
     "rhr": "RHR",
@@ -66,7 +64,6 @@
     "fatigue": "Træthed",
     "hr": "HR"
   },
-
   "login": {
     "title": "Veloq",
     "subtitle": "Opret forbindelse til Intervals.icu",
@@ -82,12 +79,10 @@
     "securityNote": "Dine legitimationsoplysninger gemmes sikkert på din enhed",
     "tryDemo": "Prøv demo"
   },
-
   "demo": {
     "banner": "Demotilstand",
     "tapToSignIn": "Tryk for at logge ind"
   },
-
   "settings": {
     "title": "Indstillinger",
     "appearance": "Udseende",
@@ -143,7 +138,6 @@
       "asian": "Asiatiske"
     }
   },
-
   "alerts": {
     "error": "Fejl",
     "clearCacheTitle": "Ryd og genindlæs cache",
@@ -160,7 +154,6 @@
     "failedToClear": "Kunne ikke rydde cache. Prøv venligst igen.",
     "failedToDisconnect": "Kunne ikke afbryde forbindelse. Prøv venligst igen."
   },
-
   "activity": {
     "viewDetails": "Vis detaljer",
     "share": "Del",
@@ -237,7 +230,6 @@
       "decoupling": "Afkobling"
     }
   },
-
   "time": {
     "today": "I dag",
     "yesterday": "I går",
@@ -248,7 +240,6 @@
     "current": "Nuværende",
     "now": "Nu"
   },
-
   "units": {
     "km": "km",
     "mi": "mi",
@@ -264,7 +255,6 @@
     "minutes": "min",
     "seconds": "s"
   },
-
   "fitnessScreen": {
     "title": "Fitness og form",
     "loadingData": "Indlæser fitnessdata...",
@@ -286,12 +276,10 @@
     "toPreventOvertraining": "for at forhindre overtræning.",
     "learnMore": "Lær mere"
   },
-
   "wellnessScreen": {
     "title": "Velvære",
     "trends": "Velværetendenser"
   },
-
   "trainingScreen": {
     "title": "Træning",
     "routes": "Ruter",
@@ -307,7 +295,6 @@
     "visualizeActivities": "Visualisér {{count}} aktiviteter",
     "seeWhereYouTravel": "Se hvor du rejser mest"
   },
-
   "routesScreen": {
     "title": "Ruter",
     "matchingDisabled": "Rutematchning deaktiveret",
@@ -316,7 +303,6 @@
     "analysingRoutes": "Analyserer ruter {{current}}/{{total}}",
     "computingRoutes": "Beregner ruter..."
   },
-
   "statsScreen": {
     "title": "Præstation",
     "days42": "42 dage",
@@ -331,7 +317,6 @@
     "powerCurve": "Kraftkurve",
     "garminNote": "Grafer kan indeholde data fra Garmin-enheder"
   },
-
   "heatmapScreen": {
     "title": "Varmekort",
     "noActivityData": "Ingen aktivitetsdata",
@@ -340,12 +325,10 @@
     "generatingHeatmap": "Genererer varmekort...",
     "activitiesCount": "{{count}} aktiviteter"
   },
-
   "mapScreen": {
     "loadingActivities": "Indlæser aktiviteter...",
     "syncing": "Synkroniserer: {{completed}}/{{total}}"
   },
-
   "routes": {
     "basedOnActivities": "Baseret på {{count}} aktiviteter",
     "routesFound": "{{count}} ruter fundet",
@@ -397,9 +380,19 @@
     "bestOn": "Bedste den",
     "same": "Samme",
     "fastest": "#{{rank}} hurtigste",
-    "routeNamePlaceholder": "Rutenavn"
+    "routeNamePlaceholder": "Rutenavn",
+    "autoDetected": "Automatisk registreret",
+    "suggestions": "Forslag",
+    "custom": "Brugerdefineret",
+    "suggestion": "Forslag",
+    "scaleShort": "Kort",
+    "scaleMedium": "Medium",
+    "scaleLong": "Lang",
+    "potentialSectionDescription": "Du har brugt denne {{sport}}-sti {{count}} gange. Opret en sektion for at spore din præstation?",
+    "createSection": "Opret sektion",
+    "defaultRouteName": "{{type}} rute",
+    "defaultActivityName": "Aktivitet {{number}}"
   },
-
   "sections": {
     "performanceOverTime": "Præstation over tid",
     "best": "Bedste",
@@ -417,13 +410,11 @@
     "noActivitiesFound": "Ingen aktiviteter fundet",
     "sectionNamePlaceholder": "Sektionsnavn"
   },
-
   "errorState": {
     "defaultTitle": "Noget gik galt",
     "defaultMessage": "Kunne ikke indlæse data. Prøv venligst igen.",
     "tryAgain": "Prøv igen"
   },
-
   "emptyState": {
     "refresh": "Opdater",
     "clearFilters": "Ryd filtre",
@@ -452,12 +443,10 @@
       "description": "Nogle funktioner kan være begrænsede"
     }
   },
-
   "cache": {
     "syncingActivities": "Synkroniserer aktiviteter",
     "analyzingRoutes": "Analyserer ruter"
   },
-
   "activityDetail": {
     "failedToLoad": "Kunne ikke indlæse aktivitet",
     "avgPace": "Gns tempo",
@@ -465,11 +454,9 @@
     "avgHR": "Gns puls",
     "avgPower": "Gns kraft"
   },
-
   "routeDetail": {
     "routeNotFound": "Rute ikke fundet"
   },
-
   "attribution": {
     "recordedWith": "Optaget med {{device}}",
     "garminTrademark": "Garmin og Garmin-logoet er varemærker tilhørende Garmin Ltd.",
@@ -477,7 +464,6 @@
     "osm": "OpenStreetMap-bidragydere",
     "osmLicense": "Rutedata licenseret under Open Database License (ODbL)"
   },
-
   "stats": {
     "activityCalendar": "Aktivitetskalender",
     "activitiesCount": "{{count}} aktiviteter",
@@ -548,7 +534,6 @@
     "efficiency": "Effektivitet",
     "decouplingExplanation": "Afkobling måler hjertedrift - hvor meget din puls stiger i forhold til kraftudvikling under vedvarende indsatser. Lavere er bedre og indikerer effektiv aerob energiproduktion."
   },
-
   "wellness": {
     "noData": "Ingen velværedata tilgængelig",
     "connectHint": "Forbind en wearable eller log velværedata i Intervals.icu",
@@ -563,9 +548,11 @@
     "noTrendData": "Ingen tendensdata tilgængelig",
     "trendHint": "HRV-, søvn- og hvilepulstendenser vises her, når data logges",
     "dragToExplore": "Træk for at udforske",
-    "lastDays": "Sidste {{count}} dage"
+    "lastDays": "Sidste {{count}} dage",
+    "smoothingTitle": "Dataudglatning",
+    "smoothingDescription": "Anvend et glidende gennemsnit for at reducere daglig støj og vise tendenser tydeligere.",
+    "smoothingHint": "Auto bruger optimal udglatning for det valgte tidsinterval"
   },
-
   "fitness": {
     "noData": "Ingen fitnessdata tilgængelig",
     "formTSB": "Form (TSB)",
@@ -585,7 +572,6 @@
       "1y": "1 år"
     }
   },
-
   "formZones": {
     "transition": "Overgang",
     "fresh": "Frisk",
@@ -593,7 +579,6 @@
     "optimal": "Optimal",
     "highRisk": "Høj risiko"
   },
-
   "maps": {
     "closeMap": "Luk kort",
     "toggleStyle": "Skift kortstil",
@@ -619,9 +604,13 @@
       "walk": "Gåtur",
       "hike": "Vandring",
       "other": "Andet"
-    }
+    },
+    "tapSelectStart": "Tryk for at vælge startpunkt",
+    "tapSelectEnd": "Tryk for at vælge slutpunkt",
+    "sectionSelected": "Sektion valgt",
+    "startPercent": "Start: {{percent}}%",
+    "rangePercent": "{{start}}% - {{end}}%"
   },
-
   "heatmap": {
     "visitedTimes": "Besøgt {{count}} gange",
     "uniqueRoutes": "{{count}} unikke ruter",

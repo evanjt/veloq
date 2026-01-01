@@ -48,10 +48,17 @@ export function useRouteMatch(activityId: string | undefined): UseRouteMatchResu
     const idx = routeGroup.activityIds.indexOf(activityId);
     const rank = idx >= 0 ? idx + 1 : null;
 
+    // Generate a readable name if no custom name is set
+    // Find the index of this group among same sport type groups for numbering
+    const sameTypeGroups = groups.filter((g) => g.sportType === routeGroup.sportType);
+    const groupIndex = sameTypeGroups.findIndex((g) => g.groupId === routeGroup.groupId) + 1;
+    const sportType = routeGroup.sportType || 'Route';
+    const defaultName = `${sportType} Route ${groupIndex}`;
+
     // Convert to RouteGroup type
     const typedGroup: RouteGroup = {
       id: routeGroup.groupId,
-      name: routeGroup.groupId, // Use groupId as name for now
+      name: routeGroup.customName || defaultName,
       type: toActivityType(routeGroup.sportType),
       activityIds: routeGroup.activityIds,
       activityCount: routeGroup.activityIds.length,

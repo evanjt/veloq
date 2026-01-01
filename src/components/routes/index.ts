@@ -8,3 +8,4 @@ export { RouteMapView } from './RouteMapView';
 export { SectionRow } from './SectionRow';
 export { SectionsList } from './SectionsList';
 export { SectionMapView } from './SectionMapView';
+export { DateRangeSummary } from './DateRangeSummary';

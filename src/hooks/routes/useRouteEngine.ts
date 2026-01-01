@@ -3,11 +3,19 @@
  *
  * These hooks provide reactive access to route data managed by the Rust engine.
  * State lives in Rust, eliminating FFI overhead for ongoing operations.
+ *
+ * IMPORTANT: Use initWithPath() for persistent storage (recommended).
+ * Data persists across app restarts - GPS tracks, routes, sections are all cached in SQLite.
  */
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
+import { InteractionManager } from 'react-native';
+import * as FileSystem from 'expo-file-system';
 import { getRouteEngine } from '@/lib/native/routeEngine';
 import type { RouteGroup, FrequentSection, EngineStats } from 'route-matcher-native';
+
+// Default database path for persistent engine
+const getDefaultDbPath = () => `${FileSystem.documentDirectory}routes.db`;
 
 // ============================================================================
 // useRouteEngine - Main hook for engine access
@@ -18,7 +26,11 @@ interface UseRouteEngineResult {
   isReady: boolean;
   /** Number of activities in the engine */
   activityCount: number;
-  /** Initialize the engine (call once at app startup) */
+  /** Whether using persistent storage (SQLite) */
+  isPersistent: boolean;
+  /** Initialize with persistent storage (RECOMMENDED - data survives app restarts) */
+  initWithPath: (dbPath?: string) => boolean;
+  /** Initialize the engine (legacy - uses in-memory storage) */
   init: () => void;
   /** Clear all engine state */
   clear: () => void;
@@ -28,14 +40,21 @@ interface UseRouteEngineResult {
  * Main hook for route engine lifecycle management.
  * Initialize once at app startup, typically in the root layout.
  *
+ * IMPORTANT: Use initWithPath() for persistent storage.
+ * This stores GPS tracks, routes, and sections in SQLite for instant loading.
+ *
  * @example
  * ```tsx
  * function RootLayout() {
- *   const { init, isReady } = useRouteEngine();
+ *   const { initWithPath, isReady, isPersistent } = useRouteEngine();
  *
  *   useEffect(() => {
- *     init();
- *   }, [init]);
+ *     // Initialize with persistent storage (recommended)
+ *     const success = initWithPath();
+ *     if (success) {
+ *       console.log('Engine ready with persistent storage');
+ *     }
+ *   }, [initWithPath]);
  *
  *   if (!isReady) return <Loading />;
  *   return <App />;
@@ -45,12 +64,37 @@ interface UseRouteEngineResult {
 export function useRouteEngine(): UseRouteEngineResult {
   const [isReady, setIsReady] = useState(false);
   const [activityCount, setActivityCount] = useState(0);
+  const [isPersistent, setIsPersistent] = useState(false);
 
+  /**
+   * Initialize with persistent SQLite storage (RECOMMENDED).
+   * Data persists across app restarts - routes load instantly.
+   */
+  const initWithPath = useCallback((dbPath?: string): boolean => {
+    const engine = getRouteEngine();
+    if (!engine) return false;
+
+    const path = dbPath || getDefaultDbPath();
+    const success = engine.initWithPath(path);
+
+    if (success) {
+      setIsReady(true);
+      setIsPersistent(true);
+      setActivityCount(engine.getActivityCount());
+    }
+    return success;
+  }, []);
+
+  /**
+   * Initialize with in-memory storage (legacy).
+   * @deprecated Use initWithPath() for persistent storage
+   */
   const init = useCallback(() => {
     const engine = getRouteEngine();
     if (!engine) return;
     engine.init();
     setIsReady(true);
+    setIsPersistent(false);
     setActivityCount(engine.getActivityCount());
   }, []);
 
@@ -71,7 +115,17 @@ export function useRouteEngine(): UseRouteEngineResult {
     return unsubscribe;
   }, []);
 
-  return { isReady, activityCount, init, clear };
+  // Check if already initialized on mount (e.g., if initialized elsewhere)
+  useEffect(() => {
+    const engine = getRouteEngine();
+    if (engine?.isInitialized()) {
+      setIsReady(true);
+      setIsPersistent(engine.isPersistent());
+      setActivityCount(engine.getActivityCount());
+    }
+  }, []);
+
+  return { isReady, activityCount, isPersistent, initWithPath, init, clear };
 }
 
 // ============================================================================
@@ -129,13 +183,18 @@ export function useEngineGroups(options: UseEngineGroupsOptions = {}): UseEngine
     }
   }, []);
 
-  // Subscribe to group changes
+  // Subscribe to group changes - defer initial load until after animations
   useEffect(() => {
-    refresh();
+    const task = InteractionManager.runAfterInteractions(() => {
+      refresh();
+    });
     const engine = getRouteEngine();
-    if (!engine) return;
+    if (!engine) return () => task.cancel();
     const unsubscribe = engine.subscribe('groups', refresh);
-    return unsubscribe;
+    return () => {
+      task.cancel();
+      unsubscribe();
+    };
   }, [refresh]);
 
   // Filter and sort
@@ -204,13 +263,18 @@ export function useEngineSections(options: UseEngineSectionsOptions = {}): UseEn
     setSections(allSections);
   }, []);
 
-  // Subscribe to section changes
+  // Subscribe to section changes - defer initial load until after animations
   useEffect(() => {
-    refresh();
+    const task = InteractionManager.runAfterInteractions(() => {
+      refresh();
+    });
     const engine = getRouteEngine();
-    if (!engine) return;
+    if (!engine) return () => task.cancel();
     const unsubscribe = engine.subscribe('sections', refresh);
-    return unsubscribe;
+    return () => {
+      task.cancel();
+      unsubscribe();
+    };
   }, [refresh]);
 
   // Filter

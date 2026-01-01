@@ -6,6 +6,7 @@
  */
 
 import { useEffect, useState, useRef, useCallback } from 'react';
+import { InteractionManager } from 'react-native';
 import { useAuthStore, getStoredCredentials, useNetwork } from '@/providers';
 import { getNativeModule } from '@/lib/native/routeEngine';
 import { routeEngine, type ActivityMetrics } from 'route-matcher-native';
@@ -406,12 +407,18 @@ export function useRouteDataSync(
   }, []);
 
   // Auto-sync when activities change or after engine reset
+  // Use InteractionManager to avoid blocking navigation animations
   useEffect(() => {
     if (!enabled || !activities || activities.length === 0) {
       return;
     }
 
-    syncActivities(activities);
+    // Defer heavy processing until after navigation/animations complete
+    const task = InteractionManager.runAfterInteractions(() => {
+      syncActivities(activities);
+    });
+
+    return () => task.cancel();
   }, [enabled, activities, syncActivities, syncTrigger]);
 
   return {

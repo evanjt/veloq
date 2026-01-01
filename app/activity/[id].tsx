@@ -1,8 +1,8 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { View, ScrollView, StyleSheet, useColorScheme, TouchableOpacity, Dimensions, Modal, StatusBar, useWindowDimensions, Alert } from 'react-native';
-import { Text, IconButton, ActivityIndicator, FAB } from 'react-native-paper';
+import { Text, IconButton, ActivityIndicator } from 'react-native-paper';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useLocalSearchParams, router } from 'expo-router';
+import { useLocalSearchParams, router, type Href } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTranslation } from 'react-i18next';
@@ -10,7 +10,10 @@ import * as ScreenOrientation from 'expo-screen-orientation';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useActivity, useActivityStreams, useWellnessForDate } from '@/hooks';
 import { useCustomSections } from '@/hooks/routes/useCustomSections';
+import { useRouteMatch } from '@/hooks/routes/useRouteMatch';
+import { useSectionMatches, type SectionMatch } from '@/hooks/routes/useSectionMatches';
 import { ActivityMapView, CombinedPlot, ChartTypeSelector, HRZonesChart, InsightfulStats, RoutePerformanceSection } from '@/components';
+import { SwipeableTabs, type SwipeableTab } from '@/components/ui';
 import type { SectionCreationResult } from '@/components/maps/ActivityMapView';
 import {
   formatDistance,
@@ -68,7 +71,39 @@ export default function ActivityDetailScreen() {
 
   // Section creation mode
   const [sectionCreationMode, setSectionCreationMode] = useState(false);
-  const { createSection } = useCustomSections();
+  const { createSection, sections } = useCustomSections();
+
+  // Tab state for swipeable tabs
+  type TabType = 'charts' | 'routes' | 'sections';
+  const [activeTab, setActiveTab] = useState<TabType>('charts');
+
+  // Get matched route for this activity
+  const { routeGroup: matchedRoute } = useRouteMatch(id);
+  const matchedRouteCount = matchedRoute ? 1 : 0;
+
+  // Get auto-detected sections from engine that include this activity
+  const { sections: engineSectionMatches, count: engineSectionCount } = useSectionMatches(id);
+
+  // Filter custom sections that match this activity
+  const customMatchedSections = useMemo(() => {
+    if (!id) return [];
+    return sections.filter((section) =>
+      section.matches.some((match) => match.activityId === id)
+    );
+  }, [sections, id]);
+
+  // Total section count (auto-detected + custom)
+  const totalSectionCount = engineSectionCount + customMatchedSections.length;
+
+  // Tabs configuration
+  const tabs = useMemo<SwipeableTab[]>(
+    () => [
+      { key: 'charts', label: t('activityDetail.tabs.charts'), icon: 'chart-line' },
+      { key: 'routes', label: t('activityDetail.tabs.routes'), icon: 'map-marker-path', count: matchedRouteCount },
+      { key: 'sections', label: t('activityDetail.tabs.sections'), icon: 'road-variant', count: totalSectionCount },
+    ],
+    [t, matchedRouteCount, totalSectionCount]
+  );
 
   // Get available chart types based on stream data
   const availableCharts = useMemo(() => {
@@ -195,14 +230,8 @@ export default function ActivityDetailScreen() {
 
   return (
     <View testID="activity-detail-screen" style={[styles.container, isDark && styles.containerDark]}>
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-        scrollEnabled={!chartInteracting}
-      >
-        {/* Hero Map Section */}
-        <View style={styles.heroSection}>
+      {/* Hero Map Section - fixed at top */}
+      <View style={styles.heroSection}>
           {/* Map - full bleed */}
           <View style={styles.mapContainer}>
             <ActivityMapView
@@ -261,145 +290,258 @@ export default function ActivityDetailScreen() {
           </View>
         </View>
 
-        {/* Chart Section */}
-        {availableCharts.length > 0 && (
-          <View style={styles.chartSection}>
-            <View style={styles.chartControls}>
-              <TouchableOpacity
-                style={[styles.expandButton, isDark && styles.expandButtonDark]}
-                onPress={() => setChartsExpanded(!chartsExpanded)}
-                activeOpacity={0.7}
-              >
-                <MaterialCommunityIcons
-                  name={chartsExpanded ? 'view-stream' : 'chart-multiple'}
-                  size={12}
-                  color={isDark ? '#FFF' : '#333'}
-                />
-              </TouchableOpacity>
-              <ChartTypeSelector
-                available={availableCharts}
-                selected={selectedCharts}
-                onToggle={handleChartToggle}
-              />
-              <TouchableOpacity
-                style={[styles.fullscreenButton, isDark && styles.expandButtonDark]}
-                onPress={openChartFullscreen}
-                activeOpacity={0.7}
-              >
-                <MaterialCommunityIcons
-                  name="fullscreen"
-                  size={16}
-                  color={isDark ? '#FFF' : '#333'}
-                />
-              </TouchableOpacity>
-            </View>
-
-            {/* Charts - consistent height for both views */}
-            {streams && selectedCharts.length > 0 && (
-              chartsExpanded ? (
-                // Expanded view - stacked individual charts
-                selectedCharts.map((chartId) => {
-                  const config = CHART_CONFIGS[chartId];
-                  if (!config) return null;
-                  const chartData = config.getStream(streams);
-                  if (!chartData || chartData.length === 0) return null;
-
-                  return (
-                    <View key={chartId} style={[styles.chartCard, isDark && styles.cardDark]}>
-                      <CombinedPlot
-                        streams={streams}
-                        selectedCharts={[chartId]}
-                        chartConfigs={CHART_CONFIGS}
-                        height={180}
-                        onPointSelect={handlePointSelect}
-                        onInteractionChange={handleInteractionChange}
-                      />
-                    </View>
-                  );
-                })
-              ) : (
-                // Combined view - overlay chart
-                <View style={[styles.chartCard, isDark && styles.cardDark]}>
-                  <CombinedPlot
-                    streams={streams}
-                    selectedCharts={selectedCharts}
-                    chartConfigs={CHART_CONFIGS}
-                    height={180}
-                    onPointSelect={handlePointSelect}
-                    onInteractionChange={handleInteractionChange}
+      {/* Swipeable Tabs: Charts, Routes, Sections */}
+      <SwipeableTabs
+        tabs={tabs}
+        activeTab={activeTab}
+        onTabChange={(key) => setActiveTab(key as TabType)}
+        isDark={isDark}
+      >
+        {/* Tab 1: Charts */}
+        <ScrollView
+          style={styles.tabScrollView}
+          contentContainerStyle={styles.tabScrollContent}
+          showsVerticalScrollIndicator={false}
+          scrollEnabled={!chartInteracting}
+        >
+          {availableCharts.length > 0 && (
+            <View style={styles.chartSection}>
+              <View style={styles.chartControls}>
+                <TouchableOpacity
+                  style={[styles.expandButton, isDark && styles.expandButtonDark]}
+                  onPress={() => setChartsExpanded(!chartsExpanded)}
+                  activeOpacity={0.7}
+                >
+                  <MaterialCommunityIcons
+                    name="cog"
+                    size={14}
+                    color={isDark ? '#FFF' : '#333'}
+                  />
+                </TouchableOpacity>
+                <View style={styles.chartSelectorContainer}>
+                  <ChartTypeSelector
+                    available={availableCharts}
+                    selected={selectedCharts}
+                    onToggle={handleChartToggle}
                   />
                 </View>
-              )
-            )}
+                <TouchableOpacity
+                  style={[styles.fullscreenButton, isDark && styles.expandButtonDark]}
+                  onPress={openChartFullscreen}
+                  activeOpacity={0.7}
+                >
+                  <MaterialCommunityIcons
+                    name="fullscreen"
+                    size={16}
+                    color={isDark ? '#FFF' : '#333'}
+                  />
+                </TouchableOpacity>
+              </View>
 
-            {/* Compact Stats Row - averages */}
-            <View style={[styles.compactStats, isDark && styles.cardDark]}>
-              {showPace ? (
-                <CompactStat
-                  label={t('activityDetail.avgPace')}
-                  value={formatPace(activity.average_speed)}
-                  isDark={isDark}
-                />
-              ) : (
-                <CompactStat
-                  label={t('activityDetail.avgSpeed')}
-                  value={formatSpeed(activity.average_speed)}
-                  isDark={isDark}
-                />
+              {/* Charts - consistent height for both views */}
+              {streams && selectedCharts.length > 0 && (
+                chartsExpanded ? (
+                  // Expanded view - stacked individual charts
+                  selectedCharts.map((chartId) => {
+                    const config = CHART_CONFIGS[chartId];
+                    if (!config) return null;
+                    const chartData = config.getStream(streams);
+                    if (!chartData || chartData.length === 0) return null;
+
+                    return (
+                      <View key={chartId} style={[styles.chartCard, isDark && styles.cardDark]}>
+                        <CombinedPlot
+                          streams={streams}
+                          selectedCharts={[chartId]}
+                          chartConfigs={CHART_CONFIGS}
+                          height={180}
+                          onPointSelect={handlePointSelect}
+                          onInteractionChange={handleInteractionChange}
+                        />
+                      </View>
+                    );
+                  })
+                ) : (
+                  // Combined view - overlay chart
+                  <View style={[styles.chartCard, isDark && styles.cardDark]}>
+                    <CombinedPlot
+                      streams={streams}
+                      selectedCharts={selectedCharts}
+                      chartConfigs={CHART_CONFIGS}
+                      height={180}
+                      onPointSelect={handlePointSelect}
+                      onInteractionChange={handleInteractionChange}
+                    />
+                  </View>
+                )
               )}
-              {(activity.average_heartrate || activity.icu_average_hr) && (
-                <CompactStat
-                  label={t('activityDetail.avgHR')}
-                  value={formatHeartRate(activity.average_heartrate || activity.icu_average_hr!)}
-                  isDark={isDark}
-                  color="#E91E63"
-                />
-              )}
-              {(activity.average_watts || activity.icu_average_watts) && (
-                <CompactStat
-                  label={t('activityDetail.avgPower')}
-                  value={formatPower(activity.average_watts || activity.icu_average_watts!)}
-                  isDark={isDark}
-                  color="#9C27B0"
-                />
-              )}
-              {activity.average_cadence && (
-                <CompactStat
-                  label={t('activity.cadence')}
-                  value={`${Math.round(activity.average_cadence)}`}
-                  isDark={isDark}
-                />
+
+              {/* Compact Stats Row - averages */}
+              <View style={[styles.compactStats, isDark && styles.cardDark]}>
+                {showPace ? (
+                  <CompactStat
+                    label={t('activityDetail.avgPace')}
+                    value={formatPace(activity.average_speed)}
+                    isDark={isDark}
+                  />
+                ) : (
+                  <CompactStat
+                    label={t('activityDetail.avgSpeed')}
+                    value={formatSpeed(activity.average_speed)}
+                    isDark={isDark}
+                  />
+                )}
+                {(activity.average_heartrate || activity.icu_average_hr) && (
+                  <CompactStat
+                    label={t('activityDetail.avgHR')}
+                    value={formatHeartRate(activity.average_heartrate || activity.icu_average_hr!)}
+                    isDark={isDark}
+                    color="#E91E63"
+                  />
+                )}
+                {(activity.average_watts || activity.icu_average_watts) && (
+                  <CompactStat
+                    label={t('activityDetail.avgPower')}
+                    value={formatPower(activity.average_watts || activity.icu_average_watts!)}
+                    isDark={isDark}
+                    color="#9C27B0"
+                  />
+                )}
+                {activity.average_cadence && (
+                  <CompactStat
+                    label={t('activity.cadence')}
+                    value={`${Math.round(activity.average_cadence)}`}
+                    isDark={isDark}
+                  />
+                )}
+              </View>
+
+              {/* HR Zones Chart - show if heart rate data available */}
+              {streams?.heartrate && streams.heartrate.length > 0 && (
+                <View style={[styles.chartCard, isDark && styles.cardDark]}>
+                  <HRZonesChart
+                    streams={streams}
+                    activityType={activity.type}
+                    activity={activity}
+                  />
+                </View>
               )}
             </View>
+          )}
 
-            {/* HR Zones Chart - show if heart rate data available */}
-            {streams?.heartrate && streams.heartrate.length > 0 && (
-              <View style={[styles.chartCard, isDark && styles.cardDark]}>
-                <HRZonesChart
-                  streams={streams}
-                  activityType={activity.type}
-                  activity={activity}
-                />
-              </View>
-            )}
-          </View>
-        )}
+          {/* Insightful Stats - Interactive stats with context and explanations */}
+          <InsightfulStats activity={activity} wellness={activityWellness} />
 
-        {/* Route Performance Section - show if activity matches a route */}
-        <ComponentErrorBoundary componentName="Route Performance">
-          <RoutePerformanceSection activityId={activity.id} activityType={activity.type} />
-        </ComponentErrorBoundary>
+          {/* Device attribution with Garmin branding when applicable */}
+          {activity.device_name && (
+            <View style={styles.deviceAttributionContainer}>
+              <DeviceAttribution deviceName={activity.device_name} />
+            </View>
+          )}
+        </ScrollView>
 
-        {/* Insightful Stats - Interactive stats with context and explanations */}
-        <InsightfulStats activity={activity} wellness={activityWellness} />
+        {/* Tab 2: Routes */}
+        <ScrollView
+          style={styles.tabScrollView}
+          contentContainerStyle={styles.tabScrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <ComponentErrorBoundary componentName="Route Performance">
+            <RoutePerformanceSection activityId={activity.id} activityType={activity.type} />
+          </ComponentErrorBoundary>
+        </ScrollView>
 
-        {/* Device attribution with Garmin branding when applicable */}
-        {activity.device_name && (
-          <View style={styles.deviceAttributionContainer}>
-            <DeviceAttribution deviceName={activity.device_name} />
-          </View>
-        )}
-      </ScrollView>
+        {/* Tab 3: Sections */}
+        <ScrollView
+          style={styles.tabScrollView}
+          contentContainerStyle={styles.tabScrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {totalSectionCount > 0 ? (
+            <>
+              {/* Auto-detected sections from engine */}
+              {engineSectionMatches.map((match) => (
+                <TouchableOpacity
+                  key={`engine-${match.section.id}`}
+                  style={[styles.sectionCard, isDark && styles.cardDark]}
+                  onPress={() => router.push(`/section/${match.section.id}` as Href)}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.sectionHeader}>
+                    <MaterialCommunityIcons
+                      name="road-variant"
+                      size={20}
+                      color={colors.primary}
+                    />
+                    <Text style={[styles.sectionName, isDark && styles.textLight]}>
+                      {match.section.name || t('routes.autoDetected')}
+                    </Text>
+                    <View style={[styles.autoDetectedBadge, isDark && styles.autoDetectedBadgeDark]}>
+                      <Text style={styles.autoDetectedText}>{t('routes.autoDetected')}</Text>
+                    </View>
+                  </View>
+                  <Text style={[styles.sectionMeta, isDark && styles.textMuted]}>
+                    {formatDistance(match.distance)} · {match.section.visitCount} {t('routes.visits')}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+
+              {/* Custom sections */}
+              {customMatchedSections.map((section) => (
+                <TouchableOpacity
+                  key={`custom-${section.id}`}
+                  style={[styles.sectionCard, isDark && styles.cardDark]}
+                  onPress={() => router.push(`/section/${section.id}` as Href)}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.sectionHeader}>
+                    <MaterialCommunityIcons
+                      name="road-variant"
+                      size={20}
+                      color={colors.primary}
+                    />
+                    <Text style={[styles.sectionName, isDark && styles.textLight]}>
+                      {section.name}
+                    </Text>
+                    <View style={[styles.customBadge, isDark && styles.customBadgeDark]}>
+                      <Text style={styles.customBadgeText}>{t('routes.custom')}</Text>
+                    </View>
+                  </View>
+                  <Text style={[styles.sectionMeta, isDark && styles.textMuted]}>
+                    {formatDistance(section.distanceMeters)} · {section.matches.length} {t('routes.visits')}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </>
+          ) : (
+            <View style={styles.emptyStateContainer}>
+              <MaterialCommunityIcons
+                name="road-variant"
+                size={48}
+                color={isDark ? '#444' : '#CCC'}
+              />
+              <Text style={[styles.emptyStateTitle, isDark && styles.textLight]}>
+                {t('activityDetail.noMatchedSections')}
+              </Text>
+              <Text style={[styles.emptyStateDescription, isDark && styles.textMuted]}>
+                {t('activityDetail.noMatchedSectionsDescription')}
+              </Text>
+            </View>
+          )}
+
+          {/* Create Section Button */}
+          {coordinates.length > 0 && !sectionCreationMode && (
+            <TouchableOpacity
+              style={[styles.createSectionButton, isDark && styles.createSectionButtonDark]}
+              onPress={() => setSectionCreationMode(true)}
+              activeOpacity={0.7}
+            >
+              <MaterialCommunityIcons name="plus" size={20} color={colors.textOnPrimary} />
+              <Text style={styles.createSectionButtonText}>{t('routes.createSection')}</Text>
+            </TouchableOpacity>
+          )}
+        </ScrollView>
+      </SwipeableTabs>
 
       {/* Fullscreen Chart Modal - Landscape */}
       <Modal
@@ -428,16 +570,18 @@ export default function ActivityDetailScreen() {
               activeOpacity={0.7}
             >
               <MaterialCommunityIcons
-                name={chartsExpanded ? 'view-stream' : 'chart-multiple'}
+                name="cog"
                 size={14}
                 color={isDark ? '#FFF' : '#333'}
               />
             </TouchableOpacity>
-            <ChartTypeSelector
-              available={availableCharts}
-              selected={selectedCharts}
-              onToggle={handleChartToggle}
-            />
+            <View style={styles.chartSelectorContainer}>
+              <ChartTypeSelector
+                available={availableCharts}
+                selected={selectedCharts}
+                onToggle={handleChartToggle}
+              />
+            </View>
           </View>
 
           {/* Chart area - proper landscape sizing */}
@@ -457,17 +601,7 @@ export default function ActivityDetailScreen() {
         </GestureHandlerRootView>
       </Modal>
 
-      {/* FAB for creating a section */}
-      {coordinates.length > 0 && !sectionCreationMode && !isChartFullscreen && (
-        <FAB
-          icon="plus"
-          label={t('routes.createSection')}
-          onPress={() => setSectionCreationMode(true)}
-          style={[styles.fab, { bottom: insets.bottom + spacing.lg }]}
-          color={colors.textOnDark}
-        />
-      )}
-    </View>
+          </View>
   );
 }
 
@@ -612,6 +746,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: spacing.sm,
   },
+  chartSelectorContainer: {
+    flex: 1,
+    marginHorizontal: spacing.xs,
+  },
   expandButton: {
     width: 24,
     height: 24,
@@ -725,9 +863,126 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingBottom: spacing.md,
   },
-  fab: {
-    position: 'absolute',
-    right: spacing.md,
+  // Tab content styles
+  tabScrollView: {
+    flex: 1,
+  },
+  tabScrollContent: {
+    paddingBottom: spacing.xl,
+  },
+
+  // Section card styles
+  sectionCard: {
+    backgroundColor: colors.surface,
+    borderRadius: layout.cardPadding,
+    padding: spacing.md,
+    marginHorizontal: spacing.md,
+    marginTop: spacing.sm,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: spacing.sm,
+    elevation: 2,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  sectionName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.textPrimary,
+    flex: 1,
+  },
+  sectionMeta: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    marginTop: spacing.xs,
+    marginLeft: 28,
+  },
+  textMuted: {
+    color: '#888',
+  },
+
+  // Empty state styles
+  emptyStateContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: spacing.xl * 2,
+    paddingHorizontal: spacing.lg,
+  },
+  emptyStateTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: colors.textPrimary,
+    marginTop: spacing.md,
+    textAlign: 'center',
+  },
+  emptyStateDescription: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    marginTop: spacing.sm,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+
+  // Create Section button styles
+  createSectionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: colors.primary,
+    borderRadius: 24,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    marginHorizontal: spacing.md,
+    marginTop: spacing.lg,
+    marginBottom: spacing.md,
+    gap: spacing.xs,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  createSectionButtonDark: {
+    backgroundColor: colors.primary,
+  },
+  createSectionButtonText: {
+    color: colors.textOnPrimary,
+    fontSize: 15,
+    fontWeight: '600',
+  },
+
+  // Badge styles for section types
+  autoDetectedBadge: {
+    backgroundColor: 'rgba(76, 175, 80, 0.15)',
+    paddingHorizontal: spacing.xs,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  autoDetectedBadgeDark: {
+    backgroundColor: 'rgba(76, 175, 80, 0.25)',
+  },
+  autoDetectedText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#4CAF50',
+  },
+  customBadge: {
+    backgroundColor: 'rgba(156, 39, 176, 0.15)',
+    paddingHorizontal: spacing.xs,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  customBadgeDark: {
+    backgroundColor: 'rgba(156, 39, 176, 0.25)',
+  },
+  customBadgeText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#9C27B0',
   },
 });

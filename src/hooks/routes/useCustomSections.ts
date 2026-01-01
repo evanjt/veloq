@@ -119,6 +119,7 @@ export function useCustomSections(options: UseCustomSectionsOptions = {}): UseCu
   }, [queryClient]);
 
   // Create a new section and match against cached activities
+  // Matching is done BEFORE saving to avoid orphan sections
   const createSection = useCallback(
     async (params: CreateSectionParams): Promise<CustomSection> => {
       const name = params.name || (await generateSectionName());
@@ -135,21 +136,35 @@ export function useCustomSections(options: UseCustomSectionsOptions = {}): UseCu
         createdAt: new Date().toISOString(),
       };
 
-      // Save the section
-      await addCustomSection(section);
-
-      // Match against all cached activities
+      // Match against cached activities FIRST (before saving)
+      let matches: CustomSectionMatch[] = [];
       try {
         const activityIds = await getCachedActivityIds();
         if (activityIds.length > 0) {
-          const matches = await matchCustomSection(section, activityIds);
-          if (matches.length > 0) {
-            await saveSectionMatches(section.id, matches);
-          }
+          matches = await matchCustomSection(section, activityIds);
         }
       } catch (error) {
-        // Matching failed, but section was created successfully
         console.warn('Failed to match section against activities:', error);
+        // Continue - we'll at least add the source activity as a match
+      }
+
+      // Ensure the source activity is always included as a match
+      if (params.sourceActivityId) {
+        const hasSourceMatch = matches.some((m) => m.activityId === params.sourceActivityId);
+        if (!hasSourceMatch) {
+          matches.push({
+            activityId: params.sourceActivityId,
+            direction: 'same',
+            startIndex: params.startIndex,
+            endIndex: params.endIndex,
+          });
+        }
+      }
+
+      // Now save the section and matches together
+      await addCustomSection(section);
+      if (matches.length > 0) {
+        await saveSectionMatches(section.id, matches);
       }
 
       await invalidate();

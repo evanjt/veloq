@@ -44,9 +44,9 @@ export default function StatsScreen() {
     includeStats: true,
   });
 
-  // Compute zone distributions
-  const powerZones = useZoneDistribution({ type: 'power', activities });
-  const hrZones = useZoneDistribution({ type: 'hr', activities });
+  // Compute zone distributions - filtered by current sport mode
+  const powerZones = useZoneDistribution({ type: 'power', activities, sport: sportMode });
+  const hrZones = useZoneDistribution({ type: 'hr', activities, sport: sportMode });
 
   // Compute eFTP history
   const eftpHistory = useEFTPHistory(activities);

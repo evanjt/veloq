@@ -1140,6 +1140,7 @@ class RouteEngineClient {
   private static instance: RouteEngineClient;
   private listeners: Map<string, Set<() => void>> = new Map();
   private initialized = false;
+  private dbPath: string | null = null;
 
   private constructor() {}
 
@@ -1151,13 +1152,41 @@ class RouteEngineClient {
   }
 
   /**
-   * Initialize the engine. Call once at app startup.
+   * Initialize the engine with a database path for persistent storage.
+   * Call once at app startup with a path to the SQLite database file.
+   * Data persists across app restarts - GPS tracks, routes, sections are all cached.
+   *
+   * @param dbPath - Path to the SQLite database file (e.g., `${FileSystem.documentDirectory}routes.db`)
+   */
+  initWithPath(dbPath: string): boolean {
+    if (this.initialized && this.dbPath === dbPath) return true;
+    const result = NativeModule.persistentEngineInit(dbPath);
+    if (result) {
+      this.initialized = true;
+      this.dbPath = dbPath;
+      nativeLog(`[Engine] Initialized with persistent storage at ${dbPath}`);
+    } else {
+      nativeLog('[Engine] Failed to initialize persistent storage');
+    }
+    return result;
+  }
+
+  /**
+   * Initialize the engine (legacy - uses in-memory storage).
+   * @deprecated Use initWithPath() for persistent storage
    */
   init(): void {
     if (this.initialized) return;
     NativeModule.engineInit();
     this.initialized = true;
-    nativeLog('[Engine] Initialized');
+    nativeLog('[Engine] Initialized (in-memory mode - data will not persist)');
+  }
+
+  /**
+   * Check if the engine is initialized.
+   */
+  isInitialized(): boolean {
+    return this.initialized || NativeModule.persistentEngineIsInitialized();
   }
 
   /**
@@ -1165,7 +1194,11 @@ class RouteEngineClient {
    * Notifies all subscribers that a full reset has occurred.
    */
   clear(): void {
-    NativeModule.engineClear();
+    if (this.dbPath) {
+      NativeModule.persistentEngineClear();
+    } else {
+      NativeModule.engineClear();
+    }
     this.notify('activities');
     this.notify('groups');
     this.notify('sections');
@@ -1176,6 +1209,7 @@ class RouteEngineClient {
   /**
    * Add activities from flat coordinate buffers.
    * Runs asynchronously to avoid blocking the UI thread.
+   * In persistent mode, data is stored in SQLite and survives app restarts.
    *
    * @param activityIds - Array of activity IDs
    * @param allCoords - Single flat array of ALL coordinates [lat1, lng1, lat2, lng2, ...]
@@ -1188,8 +1222,12 @@ class RouteEngineClient {
     offsets: number[],
     sportTypes: string[]
   ): Promise<void> {
-    nativeLog(`[Engine] Adding ${activityIds.length} activities (async)`);
-    await NativeModule.engineAddActivities(activityIds, allCoords, offsets, sportTypes);
+    nativeLog(`[Engine] Adding ${activityIds.length} activities (${this.dbPath ? 'persistent' : 'memory'})`);
+    if (this.dbPath) {
+      NativeModule.persistentEngineAddActivities(activityIds, allCoords, offsets, sportTypes);
+    } else {
+      await NativeModule.engineAddActivities(activityIds, allCoords, offsets, sportTypes);
+    }
     this.notify('activities');
     this.notify('groups');
     this.notify('sections');
@@ -1221,7 +1259,11 @@ class RouteEngineClient {
    */
   removeActivities(activityIds: string[]): void {
     nativeLog(`[Engine] Removing ${activityIds.length} activities`);
-    NativeModule.engineRemoveActivities(activityIds);
+    if (this.dbPath) {
+      NativeModule.persistentEngineRemoveActivities(activityIds);
+    } else {
+      NativeModule.engineRemoveActivities(activityIds);
+    }
     this.notify('activities');
     this.notify('groups');
     this.notify('sections');
@@ -1231,6 +1273,9 @@ class RouteEngineClient {
    * Get all activity IDs.
    */
   getActivityIds(): string[] {
+    if (this.dbPath) {
+      return NativeModule.persistentEngineGetActivityIds();
+    }
     return NativeModule.engineGetActivityIds();
   }
 
@@ -1238,15 +1283,38 @@ class RouteEngineClient {
    * Get activity count.
    */
   getActivityCount(): number {
+    if (this.dbPath) {
+      return NativeModule.persistentEngineGetActivityCount();
+    }
     return NativeModule.engineGetActivityCount();
+  }
+
+  /**
+   * Get GPS track for an activity as flat coordinates.
+   * Only available in persistent mode.
+   * Returns [lat1, lng1, lat2, lng2, ...] or empty array if not found.
+   */
+  getGpsTrack(activityId: string): number[] {
+    if (!this.dbPath) return [];
+    return NativeModule.persistentEngineGetGpsTrack(activityId);
+  }
+
+  /**
+   * Check if using persistent storage.
+   */
+  isPersistent(): boolean {
+    return this.dbPath !== null;
   }
 
   /**
    * Get route groups.
    * Groups are computed lazily and cached.
+   * In persistent mode, groups are loaded from SQLite (instant).
    */
   getGroups(): RouteGroup[] {
-    const json = NativeModule.engineGetGroupsJson();
+    const json = this.dbPath
+      ? NativeModule.persistentEngineGetGroupsJson()
+      : NativeModule.engineGetGroupsJson();
     const parsed = JSON.parse(json) as Array<Record<string, unknown>>;
     // Convert from snake_case to camelCase
     return parsed.map(g => {
@@ -1270,9 +1338,12 @@ class RouteEngineClient {
   /**
    * Get detected sections.
    * Sections are computed lazily and cached.
+   * In persistent mode, sections are loaded from SQLite (instant).
    */
   getSections(): FrequentSection[] {
-    const json = NativeModule.engineGetSectionsJson();
+    const json = this.dbPath
+      ? NativeModule.persistentEngineGetSectionsJson()
+      : NativeModule.engineGetSectionsJson();
     const result = JSON.parse(json) as Array<Record<string, unknown>>;
 
     // Convert from snake_case to camelCase
@@ -1305,6 +1376,9 @@ class RouteEngineClient {
    * Returns activity IDs that intersect the given bounds.
    */
   queryViewport(minLat: number, maxLat: number, minLng: number, maxLng: number): string[] {
+    if (this.dbPath) {
+      return NativeModule.persistentEngineQueryViewport(minLat, maxLat, minLng, maxLng);
+    }
     return NativeModule.engineQueryViewport(minLat, maxLat, minLng, maxLng);
   }
 
@@ -1320,6 +1394,9 @@ class RouteEngineClient {
    * Returns [lat1, lng1, lat2, lng2, ...] or empty array if not found.
    */
   getConsensusRoute(groupId: string): number[] {
+    if (this.dbPath) {
+      return NativeModule.persistentEngineGetConsensusRoute(groupId);
+    }
     return NativeModule.engineGetConsensusRoute(groupId);
   }
 
@@ -1335,6 +1412,19 @@ class RouteEngineClient {
    * Get engine statistics.
    */
   getStats(): EngineStats {
+    if (this.dbPath) {
+      const stats = NativeModule.persistentEngineGetStats();
+      if (!stats) {
+        return { activityCount: 0, signatureCount: 0, groupCount: 0, sectionCount: 0, cachedConsensusCount: 0 };
+      }
+      return {
+        activityCount: stats.activity_count,
+        signatureCount: stats.signature_cache_size,
+        groupCount: stats.group_count,
+        sectionCount: stats.section_count,
+        cachedConsensusCount: stats.consensus_cache_size,
+      };
+    }
     const stats = NativeModule.engineGetStats();
     return {
       activityCount: stats.activity_count,

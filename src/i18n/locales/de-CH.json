@@ -14,9 +14,10 @@
     "search": "Suchen",
     "clearSearch": "Suche löschen",
     "noResults": "Keine Ergebnisse",
-    "pullToRefresh": "Zum Aktualisieren ziehen"
+    "pullToRefresh": "Zum Aktualisieren ziehen",
+    "reset": "Zurücksetzen",
+    "create": "Erstellen"
   },
-
   "navigation": {
     "feed": "Feed",
     "fitness": "Fitness",
@@ -29,7 +30,6 @@
     "settings": "Einstellungen",
     "activities": "Aktivitäten"
   },
-
   "feed": {
     "recentActivities": "Letzte Aktivitäten",
     "activitiesCount": "{{count}} Aktivitäten",
@@ -38,7 +38,6 @@
     "failedToLoad": "Aktivitäten konnten nicht geladen werden",
     "searchPlaceholder": "Aktivitäten suchen..."
   },
-
   "filters": {
     "showFilters": "Filter anzeigen",
     "hideFilters": "Filter ausblenden",
@@ -53,7 +52,6 @@
     "racketSports": "Rückschlagspiele",
     "other": "Andere"
   },
-
   "metrics": {
     "hrv": "HRV",
     "rhr": "RHF",
@@ -66,7 +64,6 @@
     "fatigue": "Ermüdung",
     "hr": "HF"
   },
-
   "login": {
     "title": "Veloq",
     "subtitle": "Mit Intervals.icu verbinden",
@@ -82,12 +79,10 @@
     "securityNote": "Deine Zugangsdaten werden sicher auf deinem Gerät gespeichert",
     "tryDemo": "Demo testen"
   },
-
   "demo": {
     "banner": "Demo-Modus",
     "tapToSignIn": "Tippen zum Anmelden"
   },
-
   "settings": {
     "title": "Einstellungen",
     "appearance": "Erscheinungsbild",
@@ -143,7 +138,6 @@
       "asian": "Asiatisch"
     }
   },
-
   "alerts": {
     "error": "Fehler",
     "clearCacheTitle": "Cache löschen & neu laden",
@@ -160,7 +154,6 @@
     "failedToClear": "Cache konnte nicht gelöscht werden. Bitte versuche es erneut.",
     "failedToDisconnect": "Trennung fehlgeschlagen. Bitte versuche es erneut."
   },
-
   "activity": {
     "viewDetails": "Details anzeigen",
     "share": "Teilen",
@@ -237,7 +230,6 @@
       "decoupling": "Entkopplung"
     }
   },
-
   "time": {
     "today": "Heute",
     "yesterday": "Gestern",
@@ -248,7 +240,6 @@
     "current": "Aktuell",
     "now": "Jetzt"
   },
-
   "units": {
     "km": "km",
     "mi": "mi",
@@ -264,7 +255,6 @@
     "minutes": "min",
     "seconds": "s"
   },
-
   "fitnessScreen": {
     "title": "Fitness & Form",
     "loadingData": "Lade Fitnessdaten...",
@@ -286,12 +276,10 @@
     "toPreventOvertraining": "um Übertraining zu vermeiden.",
     "learnMore": "Mehr erfahren"
   },
-
   "wellnessScreen": {
     "title": "Wohlbefinden",
     "trends": "Wohlbefinden-Trends"
   },
-
   "trainingScreen": {
     "title": "Training",
     "routes": "Routen",
@@ -307,7 +295,6 @@
     "visualizeActivities": "Visualisiere {{count}} Aktivitäten",
     "seeWhereYouTravel": "Sieh, wohin du am meisten fährst"
   },
-
   "routesScreen": {
     "title": "Routen",
     "matchingDisabled": "Routenabgleich deaktiviert",
@@ -316,7 +303,6 @@
     "analysingRoutes": "Analysiere Routen {{current}}/{{total}}",
     "computingRoutes": "Berechne Routen..."
   },
-
   "statsScreen": {
     "title": "Leistung",
     "days42": "42 Tage",
@@ -331,7 +317,6 @@
     "powerCurve": "Leistungskurve",
     "garminNote": "Diagramme können Daten von Garmin-Geräten enthalten"
   },
-
   "heatmapScreen": {
     "title": "Heatmap",
     "noActivityData": "Keine Aktivitätsdaten",
@@ -340,12 +325,10 @@
     "generatingHeatmap": "Erstelle Heatmap...",
     "activitiesCount": "{{count}} Aktivitäten"
   },
-
   "mapScreen": {
     "loadingActivities": "Lade Aktivitäten...",
     "syncing": "Synchronisiere: {{completed}}/{{total}}"
   },
-
   "routes": {
     "basedOnActivities": "Basierend auf {{count}} Aktivitäten",
     "routesFound": "{{count}} Routen gefunden",
@@ -397,9 +380,19 @@
     "bestOn": "Beste am",
     "same": "Gleich",
     "fastest": "#{{rank}} schnellste",
-    "routeNamePlaceholder": "Routenname"
+    "routeNamePlaceholder": "Routenname",
+    "autoDetected": "Automatisch erkannt",
+    "suggestions": "Vorschläge",
+    "custom": "Benutzerdefiniert",
+    "suggestion": "Vorschlag",
+    "scaleShort": "Kurz",
+    "scaleMedium": "Mittel",
+    "scaleLong": "Lang",
+    "potentialSectionDescription": "Du hast diesen {{sport}}-Pfad {{count}} Mal benutzt. Erstelle einen Abschnitt, um deine Leistung zu verfolgen?",
+    "createSection": "Abschnitt erstellen",
+    "defaultRouteName": "{{type}}-Route",
+    "defaultActivityName": "Aktivität {{number}}"
   },
-
   "sections": {
     "performanceOverTime": "Leistung über Zeit",
     "best": "Beste",
@@ -417,13 +410,11 @@
     "noActivitiesFound": "Keine Aktivitäten gefunden",
     "sectionNamePlaceholder": "Abschnittsname"
   },
-
   "errorState": {
     "defaultTitle": "Etwas ist schiefgelaufen",
     "defaultMessage": "Daten konnten nicht geladen werden. Bitte versuche es erneut.",
     "tryAgain": "Erneut versuchen"
   },
-
   "emptyState": {
     "refresh": "Aktualisieren",
     "clearFilters": "Filter löschen",
@@ -452,12 +443,10 @@
       "description": "Einige Funktionen könnten eingeschränkt sein"
     }
   },
-
   "cache": {
     "syncingActivities": "Synchronisiere Aktivitäten",
     "analyzingRoutes": "Analysiere Routen"
   },
-
   "activityDetail": {
     "failedToLoad": "Aktivität konnte nicht geladen werden",
     "avgPace": "Ø Tempo",
@@ -465,11 +454,9 @@
     "avgHR": "Ø HF",
     "avgPower": "Ø Leistung"
   },
-
   "routeDetail": {
     "routeNotFound": "Route nicht gefunden"
   },
-
   "attribution": {
     "recordedWith": "Aufgezeichnet mit {{device}}",
     "garminTrademark": "Garmin und das Garmin-Logo sind Marken von Garmin Ltd.",
@@ -477,7 +464,6 @@
     "osm": "OpenStreetMap-Mitwirkende",
     "osmLicense": "Routendaten lizenziert unter Open Database License (ODbL)"
   },
-
   "stats": {
     "activityCalendar": "Aktivitätskalender",
     "activitiesCount": "{{count}} Aktivitäten",
@@ -548,7 +534,6 @@
     "efficiency": "Effizienz",
     "decouplingExplanation": "Entkopplung misst den kardialen Drift - wie sehr deine Herzfrequenz im Verhältnis zur Leistungsabgabe bei Dauerbelastungen steigt. Niedriger ist besser und zeigt effiziente aerobe Energieproduktion an."
   },
-
   "wellness": {
     "noData": "Keine Wohlbefindensdaten verfügbar",
     "connectHint": "Verbinde ein Wearable oder protokolliere Wohlbefindensdaten in Intervals.icu",
@@ -563,9 +548,11 @@
     "noTrendData": "Keine Trenddaten verfügbar",
     "trendHint": "HRV-, Schlaf- und Ruhe-HF-Trends erscheinen hier, wenn Daten protokolliert werden",
     "dragToExplore": "Ziehen zum Erkunden",
-    "lastDays": "Letzte {{count}} Tage"
+    "lastDays": "Letzte {{count}} Tage",
+    "smoothingTitle": "Datenglättung",
+    "smoothingDescription": "Gleitenden Durchschnitt anwenden, um tägliche Schwankungen zu reduzieren und Trends klarer zu zeigen.",
+    "smoothingHint": "Auto verwendet optimale Glättung für den gewählten Zeitraum"
   },
-
   "fitness": {
     "noData": "Keine Fitnessdaten verfügbar",
     "formTSB": "Form (TSB)",
@@ -585,7 +572,6 @@
       "1y": "1 Jahr"
     }
   },
-
   "formZones": {
     "transition": "Übergang",
     "fresh": "Erholt",
@@ -593,7 +579,6 @@
     "optimal": "Optimal",
     "highRisk": "Hohes Risiko"
   },
-
   "maps": {
     "closeMap": "Karte schliessen",
     "toggleStyle": "Kartenstil wechseln",
@@ -619,9 +604,13 @@
       "walk": "Gehen",
       "hike": "Wanderung",
       "other": "Andere"
-    }
+    },
+    "tapSelectStart": "Tippen, um Startpunkt zu wählen",
+    "tapSelectEnd": "Tippen, um Endpunkt zu wählen",
+    "sectionSelected": "Abschnitt ausgewählt",
+    "startPercent": "Start: {{percent}}%",
+    "rangePercent": "{{start}}% - {{end}}%"
   },
-
   "heatmap": {
     "visitedTimes": "{{count}} mal besucht",
     "uniqueRoutes": "{{count}} einzigartige Routen",

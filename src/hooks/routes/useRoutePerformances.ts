@@ -68,18 +68,28 @@ export function useRoutePerformances(
   }, [groups, routeGroupId, activityId]);
 
   // Convert to RouteGroup type
+  // Get the index of this group in the filtered list for generating a default name
+  const groupIndex = useMemo(() => {
+    if (!engineGroup) return 0;
+    const sameTypeGroups = groups.filter((g) => g.sportType === engineGroup.sportType);
+    return sameTypeGroups.findIndex((g) => g.groupId === engineGroup.groupId) + 1;
+  }, [groups, engineGroup]);
+
   const routeGroup = useMemo((): RouteGroup | null => {
     if (!engineGroup) return null;
+    // Use customName if set, otherwise generate a readable name like "Run Route 3"
+    const sportType = engineGroup.sportType || 'Route';
+    const defaultName = `${sportType} Route ${groupIndex}`;
     return {
       id: engineGroup.groupId,
-      name: engineGroup.groupId,
+      name: engineGroup.customName || defaultName,
       type: toActivityType(engineGroup.sportType),
       activityIds: engineGroup.activityIds,
       activityCount: engineGroup.activityIds.length,
       firstDate: '',
       lastDate: '',
     };
-  }, [engineGroup]);
+  }, [engineGroup, groupIndex]);
 
   // Get performances from Rust engine
   // NOTE: Requires metrics to be synced via useRouteDataSync

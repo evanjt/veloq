@@ -6,6 +6,7 @@
 import React from 'react';
 import { View, StyleSheet, TouchableOpacity, Text } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { colors } from '@/theme/colors';
 import { typography } from '@/theme/typography';
 import { spacing, layout } from '@/theme/spacing';
@@ -46,15 +47,17 @@ export function SectionCreationOverlay({
   onCancel,
   onReset,
 }: SectionCreationOverlayProps) {
+  const { t } = useTranslation();
+
   const getInstructions = () => {
     switch (state) {
       case 'idle':
       case 'selectingStart':
-        return 'Tap to select start point';
+        return t('maps.tapSelectStart');
       case 'selectingEnd':
-        return 'Tap to select end point';
+        return t('maps.tapSelectEnd');
       case 'complete':
-        return 'Section selected';
+        return t('maps.sectionSelected');
     }
   };
 
@@ -69,10 +72,10 @@ export function SectionCreationOverlay({
     if (startIndex === null) return null;
     const startPercent = ((startIndex / coordinateCount) * 100).toFixed(0);
     if (endIndex === null) {
-      return `Start: ${startPercent}%`;
+      return t('maps.startPercent', { percent: startPercent });
     }
     const endPercent = ((endIndex / coordinateCount) * 100).toFixed(0);
-    return `${startPercent}% - ${endPercent}%`;
+    return t('maps.rangePercent', { start: startPercent, end: endPercent });
   };
 
   return (
@@ -102,7 +105,7 @@ export function SectionCreationOverlay({
           activeOpacity={0.8}
         >
           <MaterialCommunityIcons name="close" size={24} color={colors.textOnDark} />
-          <Text style={styles.buttonText}>Cancel</Text>
+          <Text style={styles.buttonText}>{t('common.cancel')}</Text>
         </TouchableOpacity>
 
         {/* Reset button - only show when we have a selection */}
@@ -113,7 +116,7 @@ export function SectionCreationOverlay({
             activeOpacity={0.8}
           >
             <MaterialCommunityIcons name="refresh" size={24} color={colors.textSecondary} />
-            <Text style={[styles.buttonText, styles.resetButtonText]}>Reset</Text>
+            <Text style={[styles.buttonText, styles.resetButtonText]}>{t('common.reset')}</Text>
           </TouchableOpacity>
         )}
 
@@ -125,7 +128,7 @@ export function SectionCreationOverlay({
             activeOpacity={0.8}
           >
             <MaterialCommunityIcons name="check" size={24} color={colors.textOnDark} />
-            <Text style={styles.buttonText}>Create</Text>
+            <Text style={styles.buttonText}>{t('common.create')}</Text>
           </TouchableOpacity>
         )}
       </View>
