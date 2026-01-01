@@ -29,9 +29,13 @@ apiClient.interceptors.request.use((config) => {
 // See: https://forum.intervals.icu/t/solved-guidance-on-api-rate-limits-for-bulk-activity-reloading/110818
 // Limits: 30 req/s burst, 132 req/10s sustained
 
-// Retry configuration for 429 errors
+// Retry configuration for 429 and network errors
 const MAX_RETRIES = 3;
 const INITIAL_BACKOFF = 1000; // 1 second
+const NETWORK_BACKOFF = 2000; // 2 seconds for network errors
+
+// Network error codes that should trigger retry
+const NETWORK_ERROR_CODES = ['ERR_NETWORK', 'ECONNABORTED', 'ETIMEDOUT'];
 
 apiClient.interceptors.response.use(
   (response) => response,
@@ -42,11 +46,17 @@ apiClient.interceptors.response.use(
     // Initialize retry count
     const retryCount = config.__retryCount ?? 0;
 
-    if (error.response?.status === 429 && retryCount < MAX_RETRIES) {
+    // Check if this is a retryable error
+    const isRateLimitError = error.response?.status === 429;
+    const isNetworkError = NETWORK_ERROR_CODES.includes(error.code ?? '');
+    const shouldRetry = (isRateLimitError || isNetworkError) && retryCount < MAX_RETRIES;
+
+    if (shouldRetry) {
       config.__retryCount = retryCount + 1;
 
-      // Exponential backoff: 1s, 2s, 4s
-      const backoffTime = INITIAL_BACKOFF * Math.pow(2, retryCount);
+      // Use longer backoff for network errors since they may need more time to recover
+      const baseBackoff = isNetworkError ? NETWORK_BACKOFF : INITIAL_BACKOFF;
+      const backoffTime = baseBackoff * Math.pow(2, retryCount);
 
       await new Promise((resolve) => setTimeout(resolve, backoffTime));
       return apiClient.request(config);

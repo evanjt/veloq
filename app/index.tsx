@@ -21,7 +21,8 @@ import { useInfiniteActivities, useAthlete, useWellness, getFormZone, FORM_ZONE_
 import { useSportPreference, SPORT_COLORS } from '@/providers';
 import { formatPaceCompact, formatSwimPace } from '@/lib';
 import { ActivityCard } from '@/components/activity/ActivityCard';
-import { ActivityCardSkeleton, StatsPillSkeleton, MapFAB } from '@/components/ui';
+import { ActivityCardSkeleton, StatsPillSkeleton, MapFAB, NetworkErrorState, ErrorStatePreset } from '@/components/ui';
+import { useNetwork } from '@/providers';
 import { colors, darkColors, opacity, spacing, layout, typography, shadows } from '@/theme';
 import type { Activity } from '@/types';
 
@@ -47,6 +48,7 @@ export default function FeedScreen() {
   const { data: athlete } = useAthlete();
   const { primarySport } = useSportPreference();
   const { data: sportSettings } = useSportSettings();
+  const { isOnline } = useNetwork();
 
   // Fetch pace curve for running threshold pace (only when running is selected)
   const { data: runPaceCurve } = usePaceCurve({
@@ -247,13 +249,24 @@ export default function FeedScreen() {
     </View>
   );
 
-  const renderError = () => (
-    <View style={styles.emptyContainer}>
-      <Text style={styles.errorText}>
-        {error instanceof Error ? error.message : t('feed.failedToLoad')}
-      </Text>
-    </View>
-  );
+  const renderError = () => {
+    // Check if this is a network error (axios error codes)
+    const axiosError = error as { code?: string };
+    const isNetworkError = axiosError?.code === 'ERR_NETWORK' ||
+                          axiosError?.code === 'ECONNABORTED' ||
+                          axiosError?.code === 'ETIMEDOUT';
+
+    if (isNetworkError) {
+      return <NetworkErrorState onRetry={() => refetch()} />;
+    }
+
+    return (
+      <ErrorStatePreset
+        message={error instanceof Error ? error.message : t('feed.failedToLoad')}
+        onRetry={() => refetch()}
+      />
+    );
+  };
 
   const renderFooter = () => {
     if (!isFetchingNextPage) return null;
@@ -535,7 +548,8 @@ export default function FeedScreen() {
         refreshControl={
           <RefreshControl
             refreshing={isRefetching}
-            onRefresh={handleRefresh}
+            onRefresh={isOnline ? handleRefresh : undefined}
+            enabled={isOnline}
             colors={[colors.primary]}
             tintColor={colors.primary}
             progressBackgroundColor={isDark ? '#1E1E1E' : '#FFFFFF'}
