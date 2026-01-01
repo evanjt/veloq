@@ -72,6 +72,10 @@ export function ActivityDataChart({
 
   const lastNotifiedIdx = useRef<number | null>(null);
 
+  // Refs for data to avoid stale closures in useAnimatedReaction callback
+  const dataRef = useRef<{ x: number; y: number; idx: number }[]>([]);
+  const indexMapRef = useRef<number[]>([]);
+
   // Build chart data with downsampling
   const { data, indexMap } = useMemo(() => {
     if (rawData.length === 0) return { data: [], indexMap: [] as number[] };
@@ -98,6 +102,12 @@ export function ActivityDataChart({
     }
     return { data: points, indexMap: indices };
   }, [rawData, distance, isMetric, convertToImperial]);
+
+  // Keep refs in sync with computed data (avoids stale closures in animated reactions)
+  useEffect(() => {
+    dataRef.current = data;
+    indexMapRef.current = indexMap;
+  }, [data, indexMap]);
 
   const { minVal, maxVal, maxDist } = useMemo(() => {
     if (data.length === 0) {
@@ -137,8 +147,12 @@ export function ActivityDataChart({
   }, []);
 
   // Bridge to JS for tooltip updates
+  // Uses refs to avoid stale closures in useAnimatedReaction
   const updateTooltipOnJS = useCallback((idx: number) => {
-    if (idx < 0 || data.length === 0) {
+    const currentData = dataRef.current;
+    const currentIndexMap = indexMapRef.current;
+
+    if (idx < 0 || currentData.length === 0) {
       if (lastNotifiedIdx.current !== null) {
         setTooltipData(null);
         setIsActive(false);
@@ -159,15 +173,15 @@ export function ActivityDataChart({
       if (onInteractionChangeRef.current) onInteractionChangeRef.current(true);
     }
 
-    const point = data[idx];
+    const point = currentData[idx];
     if (point) {
       setTooltipData({ x: point.x, y: point.y });
     }
 
-    if (onPointSelectRef.current && idx < indexMap.length) {
-      onPointSelectRef.current(indexMap[idx]);
+    if (onPointSelectRef.current && idx < currentIndexMap.length) {
+      onPointSelectRef.current(currentIndexMap[idx]);
     }
-  }, [data, indexMap]);
+  }, []); // Empty deps - all values accessed via refs
 
   useAnimatedReaction(
     () => selectedIdx.value,

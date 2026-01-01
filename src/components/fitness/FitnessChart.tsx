@@ -9,6 +9,7 @@ import { SharedValue, useSharedValue, useAnimatedReaction, runOnJS, useDerivedVa
 import Animated from 'react-native-reanimated';
 import { colors, darkColors, opacity, typography, spacing, layout } from '@/theme';
 import { calculateTSB } from '@/hooks';
+import { sortByDateId } from '@/lib';
 import { ChartErrorBoundary } from '@/components/ui';
 import type { WellnessData } from '@/types';
 
@@ -83,7 +84,7 @@ export const FitnessChart = React.memo(function FitnessChart({ data, height = 20
     const indices: number[] = [];
 
     // Sort by date
-    const sorted = [...withTSB].sort((a, b) => a.id.localeCompare(b.id));
+    const sorted = sortByDateId(withTSB);
 
     let maxL = 0;
     let maxF = 0;

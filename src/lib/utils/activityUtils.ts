@@ -64,3 +64,15 @@ export function isRunningActivity(type: ActivityType): boolean {
 export function isCyclingActivity(type: ActivityType): boolean {
   return ['Ride', 'VirtualRide'].includes(type);
 }
+
+/**
+ * Sort items by date ID in chronological order.
+ * The id is expected to be a date string in YYYY-MM-DD format.
+ * This is a common operation in fitness charts.
+ *
+ * @param items - Array of items with an id property containing a date string
+ * @returns New sorted array (does not mutate original)
+ */
+export function sortByDateId<T extends { id: string }>(items: T[]): T[] {
+  return [...items].sort((a, b) => a.id.localeCompare(b.id));
+}

@@ -179,16 +179,20 @@ export function useSectionPerformances(
     }
   }, [activityIdsToFetch, streamCache]);
 
-  // Fetch streams when section changes
+  // Track which IDs we need to fetch (that aren't cached)
+  const missingIds = useMemo(() => {
+    return activityIdsToFetch.filter(id => !streamCache.has(id));
+  }, [activityIdsToFetch, streamCache]);
+
+  // Fetch streams when section/activities change and we have missing IDs
   useEffect(() => {
-    if (section && activities && activityIdsToFetch.length > 0) {
-      // Only fetch if we don't have all streams cached
-      const missingIds = activityIdsToFetch.filter(id => !streamCache.has(id));
-      if (missingIds.length > 0) {
-        fetchStreams();
-      }
+    if (missingIds.length > 0) {
+      fetchStreams();
     }
-  }, [section?.id, activities?.length]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [missingIds.length, section?.id]);
+  // Note: fetchStreams intentionally excluded to prevent infinite loops
+  // (fetchStreams updates streamCache, which changes missingIds)
 
   // Calculate performance records from cached streams
   const { records, bestRecord } = useMemo(() => {

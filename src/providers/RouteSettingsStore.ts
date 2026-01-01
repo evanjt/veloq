@@ -5,7 +5,7 @@
 
 import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { debug } from '@/lib';
+import { debug, safeJsonParseWithSchema } from '@/lib';
 
 const log = debug.create('RouteSettings');
 
@@ -19,6 +19,17 @@ interface RouteSettings {
 const DEFAULT_SETTINGS: RouteSettings = {
   enabled: true, // Enabled by default - efficient Rust implementation
 };
+
+/**
+ * Type guard for RouteSettings
+ */
+function isRouteSettings(value: unknown): value is RouteSettings {
+  if (typeof value !== 'object' || value === null) return false;
+  const obj = value as Record<string, unknown>;
+  // enabled is optional in partial, so just check it's boolean if present
+  if ('enabled' in obj && typeof obj.enabled !== 'boolean') return false;
+  return true;
+}
 
 interface RouteSettingsState {
   settings: RouteSettings;
@@ -37,7 +48,7 @@ export const useRouteSettings = create<RouteSettingsState>((set, get) => ({
     try {
       const stored = await AsyncStorage.getItem(ROUTE_SETTINGS_KEY);
       if (stored) {
-        const parsed = JSON.parse(stored) as Partial<RouteSettings>;
+        const parsed = safeJsonParseWithSchema(stored, isRouteSettings, DEFAULT_SETTINGS);
         set({
           settings: { ...DEFAULT_SETTINGS, ...parsed },
           isLoaded: true,

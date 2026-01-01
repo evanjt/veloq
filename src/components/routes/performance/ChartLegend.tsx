@@ -4,9 +4,9 @@ import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { colors, darkColors, spacing, typography } from '@/theme';
 
-// Colors for direction in chart
-const SAME_COLOR = '#2196F3'; // Blue
-const REVERSE_COLOR = '#E91E63'; // Pink
+// Direction colors - using theme for consistency
+const SAME_COLOR = colors.sameDirection;
+const REVERSE_COLOR = colors.reverseDirection;
 
 interface ChartLegendProps {
   currentActivityColor: string;

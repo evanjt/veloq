@@ -27,7 +27,7 @@ import {
   CHART_CONFIGS,
 } from '@/lib';
 import { colors, darkColors, spacing, typography, layout, opacity } from '@/theme';
-import { DeviceAttribution } from '@/components/ui';
+import { DeviceAttribution, ComponentErrorBoundary } from '@/components/ui';
 import type { ChartTypeId } from '@/lib';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -346,7 +346,9 @@ export default function ActivityDetailScreen() {
         )}
 
         {/* Route Performance Section - show if activity matches a route */}
-        <RoutePerformanceSection activityId={activity.id} activityType={activity.type} />
+        <ComponentErrorBoundary componentName="Route Performance">
+          <RoutePerformanceSection activityId={activity.id} activityType={activity.type} />
+        </ComponentErrorBoundary>
 
         {/* Insightful Stats - Interactive stats with context and explanations */}
         <InsightfulStats activity={activity} wellness={activityWellness} />

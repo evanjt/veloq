@@ -13,6 +13,7 @@ import { useTranslation } from 'react-i18next';
 import { colors, darkColors, opacity, spacing, layout, typography } from '@/theme';
 import { getActivityColor, loadCustomRouteNames, getRouteDisplayName } from '@/lib';
 import { useConsensusRoute } from '@/hooks/routes/useRouteEngine';
+import { toActivityType } from '@/types/routes';
 import type { DiscoveredRouteInfo, RouteGroup } from '@/types';
 
 interface RouteRowProps {
@@ -168,7 +169,8 @@ function RouteRowComponent({ route, navigable = false }: RouteRowProps) {
   const displayName = customName || route.name || `${route.type} Route`;
 
   // Get activity color for the route type
-  const activityColor = getActivityColor(route.type as any);
+  // RouteGroup.type is ActivityType, DiscoveredRouteInfo.type is string
+  const activityColor = getActivityColor(toActivityType(route.type));
 
   // Get preview points - use lazy-loaded consensus for RouteGroup
   const previewPoints = useMemo(() => {

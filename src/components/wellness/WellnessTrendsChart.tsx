@@ -7,6 +7,7 @@ import { Circle, Line as SkiaLine } from '@shopify/react-native-skia';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { useSharedValue, useAnimatedStyle, runOnJS } from 'react-native-reanimated';
 import { colors, darkColors, spacing, typography, opacity } from '@/theme';
+import { sortByDateId } from '@/lib';
 import type { WellnessData } from '@/types';
 
 interface WellnessTrendsChartProps {
@@ -113,7 +114,9 @@ function MetricSparkline({
 
       <View style={styles.sparklineContainer}>
         <View style={{ height }}>
-          {(CartesianChart as any)({
+          {/* Victory Native CartesianChart called as function for programmatic rendering.
+              Type cast required due to library typing constraints. */}
+          {(CartesianChart as React.FC<Record<string, unknown>>)({
             data,
             xKey: 'x',
             yKeys: ['value'],
@@ -186,7 +189,7 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({ dat
     }
 
     // Sort by date ascending
-    const sorted = [...data].sort((a, b) => a.id.localeCompare(b.id));
+    const sorted = sortByDateId(data);
     const totalDays = sorted.length;
 
     const hrvData: MetricChartData[] = [];

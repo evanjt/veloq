@@ -10,6 +10,7 @@ import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { RegionalMapView, TimelineSlider } from '@/components/maps';
+import { ComponentErrorBoundary } from '@/components/ui';
 import { useActivityBoundsCache, useOldestActivityDate, useActivities, useRouteDataSync } from '@/hooks';
 import { useRouteSettings, useSyncDateRange } from '@/providers';
 import { colors, darkColors, spacing, typography } from '@/theme';
@@ -188,10 +189,12 @@ export default function MapScreen() {
   return (
     <View style={styles.container}>
       {/* Main map view */}
-      <RegionalMapView
-        activities={filteredActivities}
-        onClose={handleClose}
-      />
+      <ComponentErrorBoundary componentName="Map">
+        <RegionalMapView
+          activities={filteredActivities}
+          onClose={handleClose}
+        />
+      </ComponentErrorBoundary>
 
       {/* Timeline slider with integrated filters (bottom overlay) */}
       <View

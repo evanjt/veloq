@@ -8,6 +8,7 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { useSharedValue, useAnimatedReaction, runOnJS, useDerivedValue, useAnimatedStyle } from 'react-native-reanimated';
 import { colors, darkColors, opacity, spacing, layout, typography } from '@/theme';
 import { calculateTSB, getFormZone, FORM_ZONE_COLORS } from '@/hooks';
+import { sortByDateId } from '@/lib';
 import type { WellnessData } from '@/types';
 
 // Chart colors matching intervals.icu
@@ -97,7 +98,7 @@ export function FitnessFormChart({
     const points: ChartDataPoint[] = [];
 
     // Sort by date
-    const sorted = [...withTSB].sort((a, b) => a.id.localeCompare(b.id));
+    const sorted = sortByDateId(withTSB);
 
     let maxL = 0;
     let maxF = 0;

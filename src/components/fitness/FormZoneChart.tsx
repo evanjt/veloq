@@ -9,6 +9,7 @@ import { SharedValue, useSharedValue, useAnimatedReaction, runOnJS, useDerivedVa
 import Animated from 'react-native-reanimated';
 import { colors, darkColors, opacity, typography, spacing, layout } from '@/theme';
 import { calculateTSB, getFormZone, FORM_ZONE_COLORS, FORM_ZONE_LABELS, FORM_ZONE_BOUNDARIES, type FormZone } from '@/hooks';
+import { sortByDateId } from '@/lib';
 import type { WellnessData } from '@/types';
 
 interface FormZoneChartProps {
@@ -57,7 +58,7 @@ export const FormZoneChart = React.memo(function FormZoneChart({ data, height = 
     if (!data || data.length === 0) return [];
 
     const withTSB = calculateTSB(data);
-    const sorted = [...withTSB].sort((a, b) => a.id.localeCompare(b.id));
+    const sorted = sortByDateId(withTSB);
 
     return sorted.map((day, idx) => {
       const fitnessRaw = day.ctl ?? day.ctlLoad ?? 0;

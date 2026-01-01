@@ -5,6 +5,7 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { debug } from '../utils/debug';
+import { safeJsonParseWithSchema } from '../utils/validation';
 
 const log = debug.create('Geocoding');
 
@@ -24,6 +25,26 @@ interface GeocodeCacheData {
   entries: Record<string, CacheEntry>;
 }
 
+const DEFAULT_CACHE: GeocodeCacheData = { entries: {} };
+
+/**
+ * Type guard for GeocodeCacheData
+ */
+function isGeocodeCacheData(value: unknown): value is GeocodeCacheData {
+  if (typeof value !== 'object' || value === null) return false;
+  const obj = value as Record<string, unknown>;
+  if (typeof obj.entries !== 'object' || obj.entries === null) return false;
+  // Validate structure of first entry if present
+  const entries = Object.values(obj.entries as Record<string, unknown>);
+  if (entries.length > 0) {
+    const entry = entries[0];
+    if (typeof entry !== 'object' || entry === null) return false;
+    const e = entry as Record<string, unknown>;
+    if (typeof e.name !== 'string' || typeof e.timestamp !== 'number') return false;
+  }
+  return true;
+}
+
 /**
  * Generate a cache key for a lat/lng point.
  * Rounds to ~500m precision to group nearby points.
@@ -41,7 +62,7 @@ async function loadCache(): Promise<GeocodeCacheData> {
   try {
     const cached = await AsyncStorage.getItem(GEOCODE_CACHE_KEY);
     if (cached) {
-      const data: GeocodeCacheData = JSON.parse(cached);
+      const data = safeJsonParseWithSchema(cached, isGeocodeCacheData, DEFAULT_CACHE);
       // Populate memory cache
       for (const [key, entry] of Object.entries(data.entries)) {
         memoryCache.set(key, entry.name);
@@ -51,7 +72,7 @@ async function loadCache(): Promise<GeocodeCacheData> {
   } catch {
     // Ignore cache errors
   }
-  return { entries: {} };
+  return DEFAULT_CACHE;
 }
 
 /**

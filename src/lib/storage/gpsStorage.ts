@@ -14,6 +14,35 @@
 // Use legacy API for SDK 54 compatibility (new API uses File/Directory classes)
 import * as FileSystem from 'expo-file-system/legacy';
 import { debug } from '../utils/debug';
+import { safeJsonParseWithSchema, type SchemaValidator } from '../utils/validation';
+
+/**
+ * Type guard for GPS track data - array of [lat, lng] tuples
+ */
+function isGpsTrack(value: unknown): value is [number, number][] {
+  if (!Array.isArray(value)) return false;
+  // Check first few elements for performance (don't validate entire array)
+  const samplesToCheck = Math.min(value.length, 5);
+  for (let i = 0; i < samplesToCheck; i++) {
+    const coord = value[i];
+    if (!Array.isArray(coord) || coord.length !== 2) return false;
+    if (typeof coord[0] !== 'number' || typeof coord[1] !== 'number') return false;
+  }
+  return true;
+}
+
+/**
+ * Type guard for GPS index structure
+ */
+function isGpsIndex(value: unknown): value is GpsIndex {
+  if (typeof value !== 'object' || value === null) return false;
+  const obj = value as Record<string, unknown>;
+  if (!Array.isArray(obj.activityIds)) return false;
+  if (typeof obj.lastUpdated !== 'string') return false;
+  // Check that activityIds contains strings
+  if (obj.activityIds.length > 0 && typeof obj.activityIds[0] !== 'string') return false;
+  return true;
+}
 
 const log = debug.create('GpsStorage');
 
@@ -120,8 +149,14 @@ export async function getGpsTrack(
   const info = await FileSystem.getInfoAsync(path);
   if (!info.exists) return null;
 
-  const data = await FileSystem.readAsStringAsync(path);
-  return JSON.parse(data);
+  try {
+    const data = await FileSystem.readAsStringAsync(path);
+    const parsed = safeJsonParseWithSchema(data, isGpsTrack, null as unknown as [number, number][]);
+    return parsed;
+  } catch {
+    log.log(`Failed to parse GPS track for ${activityId}`);
+    return null;
+  }
 }
 
 /**
@@ -166,12 +201,13 @@ async function updateGpsIndex(newActivityIds: string[]): Promise<void> {
   try {
     await ensureGpsDir();
 
-    let index: GpsIndex = { activityIds: [], lastUpdated: '' };
+    const defaultIndex: GpsIndex = { activityIds: [], lastUpdated: '' };
+    let index: GpsIndex = defaultIndex;
 
     const indexInfo = await FileSystem.getInfoAsync(GPS_INDEX_FILE);
     if (indexInfo.exists) {
       const indexStr = await FileSystem.readAsStringAsync(GPS_INDEX_FILE);
-      index = JSON.parse(indexStr);
+      index = safeJsonParseWithSchema(indexStr, isGpsIndex, defaultIndex);
     }
 
     // Add new IDs (avoid duplicates)
@@ -212,7 +248,8 @@ export async function getGpsTrackCount(): Promise<number> {
     const indexInfo = await FileSystem.getInfoAsync(GPS_INDEX_FILE);
     if (indexInfo.exists) {
       const indexStr = await FileSystem.readAsStringAsync(GPS_INDEX_FILE);
-      const index: GpsIndex = JSON.parse(indexStr);
+      const defaultIndex: GpsIndex = { activityIds: [], lastUpdated: '' };
+      const index = safeJsonParseWithSchema(indexStr, isGpsIndex, defaultIndex);
       return index.activityIds.length;
     }
   } catch {

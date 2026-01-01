@@ -343,10 +343,12 @@ export const CombinedPlot = React.memo(function CombinedPlot({
       {/* Chart area */}
       <GestureDetector gesture={gesture}>
         <View style={[styles.chartWrapper, { height: chartHeight }]}>
+          {/* Victory Native requires string literal types for yKeys,
+              but ChartTypeId[] is dynamically computed. Cast is unavoidable. */}
           <CartesianChart
             data={chartData}
             xKey="x"
-            yKeys={yKeys as any}
+            yKeys={yKeys as unknown as readonly string[]}
             domain={{ y: [0, 1] }}
             padding={{ left: 0, right: 0, top: 2, bottom: 20 }}
           >
