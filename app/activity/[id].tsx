@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
-import { View, ScrollView, StyleSheet, useColorScheme, TouchableOpacity, Dimensions, Modal, StatusBar, useWindowDimensions } from 'react-native';
-import { Text, IconButton, ActivityIndicator } from 'react-native-paper';
+import { View, ScrollView, StyleSheet, useColorScheme, TouchableOpacity, Dimensions, Modal, StatusBar, useWindowDimensions, Alert } from 'react-native';
+import { Text, IconButton, ActivityIndicator, FAB } from 'react-native-paper';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -9,7 +9,9 @@ import { useTranslation } from 'react-i18next';
 import * as ScreenOrientation from 'expo-screen-orientation';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useActivity, useActivityStreams, useWellnessForDate } from '@/hooks';
+import { useCustomSections } from '@/hooks/routes/useCustomSections';
 import { ActivityMapView, CombinedPlot, ChartTypeSelector, HRZonesChart, InsightfulStats, RoutePerformanceSection } from '@/components';
+import type { SectionCreationResult } from '@/components/maps/ActivityMapView';
 import {
   formatDistance,
   formatDuration,
@@ -64,6 +66,10 @@ export default function ActivityDetailScreen() {
   // Track fullscreen chart mode
   const [isChartFullscreen, setIsChartFullscreen] = useState(false);
 
+  // Section creation mode
+  const [sectionCreationMode, setSectionCreationMode] = useState(false);
+  const { createSection } = useCustomSections();
+
   // Get available chart types based on stream data
   const availableCharts = useMemo(() => {
     return getAvailableCharts(streams);
@@ -113,6 +119,37 @@ export default function ActivityDetailScreen() {
   const closeChartFullscreen = useCallback(async () => {
     await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP);
     setIsChartFullscreen(false);
+  }, []);
+
+  // Handle section creation completion
+  const handleSectionCreated = useCallback(async (result: SectionCreationResult) => {
+    if (!activity) return;
+    setSectionCreationMode(false);
+
+    try {
+      await createSection({
+        polyline: result.polyline,
+        startIndex: result.startIndex,
+        endIndex: result.endIndex,
+        sourceActivityId: activity.id,
+        sportType: activity.type,
+        distanceMeters: result.distanceMeters,
+      });
+      Alert.alert(
+        t('routes.sectionCreated'),
+        t('routes.sectionCreatedDescription'),
+      );
+    } catch (error) {
+      Alert.alert(
+        t('common.error'),
+        t('routes.sectionCreationFailed'),
+      );
+    }
+  }, [activity, createSection, t]);
+
+  // Handle section creation cancellation
+  const handleSectionCreationCancelled = useCallback(() => {
+    setSectionCreationMode(false);
   }, []);
 
   // Get coordinates from streams or polyline
@@ -173,10 +210,13 @@ export default function ActivityDetailScreen() {
               polyline={activity.polyline}
               activityType={activity.type}
               height={MAP_HEIGHT}
-              showStyleToggle={true}
+              showStyleToggle={!sectionCreationMode}
               highlightIndex={highlightIndex}
-              enableFullscreen={true}
+              enableFullscreen={!sectionCreationMode}
               on3DModeChange={handle3DModeChange}
+              creationMode={sectionCreationMode}
+              onSectionCreated={handleSectionCreated}
+              onCreationCancelled={handleSectionCreationCancelled}
             />
           </View>
 
@@ -416,6 +456,17 @@ export default function ActivityDetailScreen() {
         </View>
         </GestureHandlerRootView>
       </Modal>
+
+      {/* FAB for creating a section */}
+      {coordinates.length > 0 && !sectionCreationMode && !isChartFullscreen && (
+        <FAB
+          icon="plus"
+          label={t('routes.createSection')}
+          onPress={() => setSectionCreationMode(true)}
+          style={[styles.fab, { bottom: insets.bottom + spacing.lg }]}
+          color={colors.textOnDark}
+        />
+      )}
     </View>
   );
 }
@@ -673,5 +724,10 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     paddingBottom: spacing.md,
+  },
+  fab: {
+    position: 'absolute',
+    right: spacing.md,
+    backgroundColor: colors.primary,
   },
 });
