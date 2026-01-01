@@ -42,11 +42,7 @@ export function resolveLanguageToLocale(language: LanguageChoice): SupportedLoca
   if (language === 'es') return 'es';
   if (language === 'fr') return 'fr';
 
-  // If it's already a full locale (legacy), use it directly
-  if (SUPPORTED_LOCALES.includes(language as SupportedLocale)) {
-    return language as SupportedLocale;
-  }
-
+  // Unknown language, default to English
   return 'en-AU';
 }
 

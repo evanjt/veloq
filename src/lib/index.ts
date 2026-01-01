@@ -4,7 +4,7 @@ export * from './algorithms';
 // Geo utilities
 export * from './geo';
 
-// Spatial indexing (wrapper for Rust engine)
+// Spatial indexing
 export { activitySpatialIndex, mapBoundsToViewport, type Viewport } from './spatialIndex';
 
 // Storage

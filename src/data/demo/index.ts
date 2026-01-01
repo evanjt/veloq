@@ -1,13 +1,11 @@
-// Legacy exports for backwards compatibility
+// Demo data exports
 export { demoAthlete } from './athlete';
 export { demoActivities, getDemoActivityRoute } from './activities';
 export { demoWellness } from './wellness';
 export { demoPowerCurve, demoPaceCurve, demoSportSettings } from './curves';
-
-// Route data exports
 export { demoRoutes, getRouteCoordinates, getRouteBounds, getRouteForActivity } from './routes';
 
-// Fixture-based API exports (preferred for new code)
+// Fixture-based API exports
 export {
   fixtures,
   getActivity,
