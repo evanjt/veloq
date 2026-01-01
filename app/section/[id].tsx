@@ -24,7 +24,6 @@ import { useTranslation } from 'react-i18next';
 import { LinearGradient } from 'expo-linear-gradient';
 import { CartesianChart, Line } from 'victory-native';
 import { Circle } from '@shopify/react-native-skia';
-import Svg, { Polyline } from 'react-native-svg';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import {
   useSharedValue,
@@ -35,7 +34,7 @@ import {
 } from 'react-native-reanimated';
 import Animated from 'react-native-reanimated';
 import { useActivities, useFrequentSections, useSectionPerformances, type ActivitySectionRecord } from '@/hooks';
-import { SectionMapView } from '@/components/routes';
+import { SectionMapView, MiniTraceView } from '@/components/routes';
 
 // Lazy load native module to avoid bundler errors
 function getRouteEngine() {
@@ -84,105 +83,6 @@ interface ActivityRowProps {
   /** Actual section pace in m/s (from stream data) */
   actualSectionPace?: number;
 }
-
-/** Mini trace component showing activity path over section */
-function MiniSectionTrace({
-  activityPoints,
-  sectionPoints,
-  activityColor,
-  sectionColor,
-  isHighlighted,
-}: {
-  activityPoints: RoutePoint[];
-  sectionPoints?: RoutePoint[];
-  activityColor: string;
-  sectionColor: string;
-  isHighlighted?: boolean;
-}) {
-  if (activityPoints.length < 2) return null;
-
-  const width = 36;
-  const height = 36;
-  const padding = 3;
-
-  const allPoints = sectionPoints && sectionPoints.length > 0
-    ? [...activityPoints, ...sectionPoints]
-    : activityPoints;
-
-  const lats = allPoints.map(p => p.lat);
-  const lngs = allPoints.map(p => p.lng);
-  const minLat = Math.min(...lats);
-  const maxLat = Math.max(...lats);
-  const minLng = Math.min(...lngs);
-  const maxLng = Math.max(...lngs);
-
-  const latRange = maxLat - minLat || 1;
-  const lngRange = maxLng - minLng || 1;
-
-  const scalePoints = (points: RoutePoint[]) =>
-    points.map(p => ({
-      x: ((p.lng - minLng) / lngRange) * (width - padding * 2) + padding,
-      y: (1 - (p.lat - minLat) / latRange) * (height - padding * 2) + padding,
-    }));
-
-  const activityScaled = scalePoints(activityPoints);
-  const activityString = activityScaled.map(p => `${p.x},${p.y}`).join(' ');
-
-  const sectionScaled = sectionPoints && sectionPoints.length > 1
-    ? scalePoints(sectionPoints)
-    : null;
-  const sectionString = sectionScaled
-    ? sectionScaled.map(p => `${p.x},${p.y}`).join(' ')
-    : null;
-
-  return (
-    <View style={[
-      miniTraceStyles.container,
-      isHighlighted && miniTraceStyles.highlighted,
-    ]}>
-      <Svg width={width} height={height}>
-        {/* Section reference underneath */}
-        {sectionString && (
-          <Polyline
-            points={sectionString}
-            fill="none"
-            stroke={sectionColor}
-            strokeWidth={2}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            opacity={isHighlighted ? 0.3 : 0.2}
-          />
-        )}
-        {/* Activity trace on top */}
-        <Polyline
-          points={activityString}
-          fill="none"
-          stroke={activityColor}
-          strokeWidth={isHighlighted ? 3 : 2.5}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          opacity={0.85}
-        />
-      </Svg>
-    </View>
-  );
-}
-
-const miniTraceStyles = StyleSheet.create({
-  container: {
-    width: 36,
-    height: 36,
-    borderRadius: 8,
-    backgroundColor: 'rgba(0, 0, 0, 0.03)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  highlighted: {
-    backgroundColor: 'rgba(0, 188, 212, 0.15)',
-    borderWidth: 1,
-    borderColor: '#00BCD4',
-  },
-});
 
 /** Chart data point */
 interface PerformanceDataPoint {
@@ -768,11 +668,11 @@ function ActivityRow({
       ]}
     >
       {activityPoints && activityPoints.length > 1 ? (
-        <MiniSectionTrace
-          activityPoints={activityPoints}
-          sectionPoints={sectionPoints}
-          activityColor={traceColor}
-          sectionColor={colors.consensusRoute}
+        <MiniTraceView
+          primaryPoints={activityPoints}
+          referencePoints={sectionPoints}
+          primaryColor={traceColor}
+          referenceColor={colors.consensusRoute}
           isHighlighted={isHighlighted}
         />
       ) : (

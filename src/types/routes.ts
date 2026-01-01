@@ -480,3 +480,40 @@ export interface UnifiedSection {
   /** For potential sections: the potential section data */
   potentialData?: PotentialSection;
 }
+
+/**
+ * Unified data point for performance charts.
+ * Used by both route and section detail pages for consistent chart rendering.
+ */
+export interface PerformanceDataPoint {
+  /** Unique ID for this data point */
+  id: string;
+  /** Activity ID this point belongs to */
+  activityId: string;
+  /** Speed in m/s */
+  speed: number;
+  /** Date of the activity */
+  date: Date;
+  /** Activity name */
+  activityName: string;
+  /** Direction (same/reverse) */
+  direction: 'same' | 'reverse';
+  /** Points for this lap/traversal (for map highlighting) */
+  lapPoints?: RoutePoint[];
+
+  // Route-specific fields
+  /** Match percentage (0-100) - routes only */
+  matchPercentage?: number;
+  /** Lap number (1 if single lap per activity) - routes only */
+  lapNumber?: number;
+  /** Total laps in this activity - routes only */
+  totalLaps?: number;
+
+  // Section-specific fields
+  /** Section time in seconds - sections only */
+  sectionTime?: number;
+  /** Section distance in meters - sections only */
+  sectionDistance?: number;
+  /** Number of laps/traversals - sections only */
+  lapCount?: number;
+}
