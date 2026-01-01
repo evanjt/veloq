@@ -138,10 +138,7 @@ export function ScreenTransition({
   }
 
   return (
-    <Animated.View
-      entering={entering}
-      style={[styles.container, style]}
-    >
+    <Animated.View entering={entering} style={[styles.container, style]}>
       {children}
     </Animated.View>
   );
@@ -200,11 +197,7 @@ interface AnimatedSectionProps {
   style?: StyleProp<ViewStyle>;
 }
 
-export function AnimatedSection({
-  delay = 100,
-  children,
-  style,
-}: AnimatedSectionProps) {
+export function AnimatedSection({ delay = 100, children, style }: AnimatedSectionProps) {
   return (
     <Animated.View
       entering={FadeInDown.delay(delay).duration(400).easing(Easing.out(Easing.cubic))}
@@ -227,11 +220,7 @@ interface AnimatedCardEntranceProps {
   style?: StyleProp<ViewStyle>;
 }
 
-export function AnimatedCardEntrance({
-  index = 0,
-  children,
-  style,
-}: AnimatedCardEntranceProps) {
+export function AnimatedCardEntrance({ index = 0, children, style }: AnimatedCardEntranceProps) {
   const delay = 100 + index * 75;
 
   return (
@@ -256,16 +245,9 @@ interface HeroStatEntranceProps {
   style?: StyleProp<ViewStyle>;
 }
 
-export function HeroStatEntrance({
-  delay = 200,
-  children,
-  style,
-}: HeroStatEntranceProps) {
+export function HeroStatEntrance({ delay = 200, children, style }: HeroStatEntranceProps) {
   return (
-    <Animated.View
-      entering={BounceInDown.delay(delay).duration(600)}
-      style={style}
-    >
+    <Animated.View entering={BounceInDown.delay(delay).duration(600)} style={style}>
       {children}
     </Animated.View>
   );

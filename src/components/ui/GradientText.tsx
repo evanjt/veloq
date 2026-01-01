@@ -49,11 +49,7 @@ export function GradientText({
 }) {
   // In Expo Go, just use the first color
   // In dev builds, you could use MaskedView + LinearGradient
-  return (
-    <Text style={[styles.text, style, { color: colors[0] }]}>
-      {children}
-    </Text>
-  );
+  return <Text style={[styles.text, style, { color: colors[0] }]}>{children}</Text>;
 }
 
 interface AnimatedNumberProps {
@@ -115,11 +111,7 @@ export function AnimatedNumber({
     );
   }
 
-  return (
-    <Text style={[styles.text, style, color ? { color } : undefined]}>
-      {formattedValue}
-    </Text>
-  );
+  return <Text style={[styles.text, style, color ? { color } : undefined]}>{formattedValue}</Text>;
 }
 
 const styles = StyleSheet.create({

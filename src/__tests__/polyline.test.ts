@@ -11,7 +11,7 @@ describe('detectCoordinateFormat', () => {
     // Sydney, Australia: lat ~-33.8, lng ~151.2
     const coords: [number, number][] = [
       [-33.8688, 151.2093],
-      [-33.8700, 151.2100],
+      [-33.87, 151.21],
     ];
     expect(detectCoordinateFormat(coords)).toBe('latLng');
   });
@@ -20,7 +20,7 @@ describe('detectCoordinateFormat', () => {
     // Same location but [lng, lat] order
     const coords: [number, number][] = [
       [151.2093, -33.8688],
-      [151.2100, -33.8700],
+      [151.21, -33.87],
     ];
     expect(detectCoordinateFormat(coords)).toBe('lngLat');
   });
@@ -30,7 +30,7 @@ describe('detectCoordinateFormat', () => {
     // Should default to latLng when ambiguous
     const coords: [number, number][] = [
       [47.3769, 8.5417],
-      [47.3800, 8.5500],
+      [47.38, 8.55],
     ];
     expect(detectCoordinateFormat(coords)).toBe('latLng');
   });
@@ -58,37 +58,37 @@ describe('convertLatLngTuples', () => {
   it('should convert [lat, lng] tuples to LatLng objects', () => {
     const tuples: [number, number][] = [
       [-33.8688, 151.2093],
-      [-33.8700, 151.2100],
+      [-33.87, 151.21],
     ];
     const result = convertLatLngTuples(tuples);
 
     expect(result[0]).toEqual({ latitude: -33.8688, longitude: 151.2093 });
-    expect(result[1]).toEqual({ latitude: -33.8700, longitude: 151.2100 });
+    expect(result[1]).toEqual({ latitude: -33.87, longitude: 151.21 });
   });
 
   it('should auto-detect and convert [lng, lat] tuples', () => {
     const tuples: [number, number][] = [
       [151.2093, -33.8688],
-      [151.2100, -33.8700],
+      [151.21, -33.87],
     ];
     const result = convertLatLngTuples(tuples);
 
     expect(result[0]).toEqual({ latitude: -33.8688, longitude: 151.2093 });
-    expect(result[1]).toEqual({ latitude: -33.8700, longitude: 151.2100 });
+    expect(result[1]).toEqual({ latitude: -33.87, longitude: 151.21 });
   });
 
   it('should preserve array length for invalid coordinates (NaN sentinel)', () => {
     const tuples: [number, number][] = [
       [-33.8688, 151.2093],
       [NaN, NaN],
-      [-33.8700, 151.2100],
+      [-33.87, 151.21],
     ];
     const result = convertLatLngTuples(tuples);
 
     expect(result.length).toBe(3);
     expect(result[0]).toEqual({ latitude: -33.8688, longitude: 151.2093 });
     expect(isNaN(result[1].latitude)).toBe(true);
-    expect(result[2]).toEqual({ latitude: -33.8700, longitude: 151.2100 });
+    expect(result[2]).toEqual({ latitude: -33.87, longitude: 151.21 });
   });
 
   it('should return empty array for empty input', () => {

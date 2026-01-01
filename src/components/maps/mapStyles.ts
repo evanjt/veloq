@@ -14,7 +14,9 @@ export const SATELLITE_STYLE = {
   sources: {
     satellite: {
       type: 'raster' as const,
-      tiles: ['https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2020_3857/default/g/{z}/{y}/{x}.jpg'],
+      tiles: [
+        'https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2020_3857/default/g/{z}/{y}/{x}.jpg',
+      ],
       tileSize: 256,
       maxzoom: 14,
     },
@@ -49,7 +51,9 @@ export function getNextStyle(current: MapStyleType): MapStyleType {
 }
 
 // Get the icon name for the style toggle button (shows what you'll switch TO)
-export function getStyleIcon(current: MapStyleType): 'weather-night' | 'satellite-variant' | 'weather-sunny' {
+export function getStyleIcon(
+  current: MapStyleType
+): 'weather-night' | 'satellite-variant' | 'weather-sunny' {
   if (current === 'light') return 'weather-night';
   if (current === 'dark') return 'satellite-variant';
   return 'weather-sunny';

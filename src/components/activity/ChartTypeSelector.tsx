@@ -23,11 +23,7 @@ function hexToRgba(hex: string, opacity: number): string {
   return `rgba(${r}, ${g}, ${b}, ${opacity})`;
 }
 
-export function ChartTypeSelector({
-  available,
-  selected,
-  onToggle,
-}: ChartTypeSelectorProps) {
+export function ChartTypeSelector({ available, selected, onToggle }: ChartTypeSelectorProps) {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
 
@@ -44,12 +40,8 @@ export function ChartTypeSelector({
       {available.map((config) => {
         const isSelected = selected.includes(config.id);
         // Use full color when selected, faded color when unselected
-        const bgColor = isSelected
-          ? config.color
-          : hexToRgba(config.color, isDark ? 0.25 : 0.15);
-        const textColor = isSelected
-          ? colors.textOnDark
-          : config.color;
+        const bgColor = isSelected ? config.color : hexToRgba(config.color, isDark ? 0.25 : 0.15);
+        const textColor = isSelected ? colors.textOnDark : config.color;
 
         return (
           <TouchableOpacity
@@ -58,14 +50,8 @@ export function ChartTypeSelector({
             onPress={() => onToggle(config.id)}
             activeOpacity={0.7}
           >
-            <MaterialCommunityIcons
-              name={config.icon}
-              size={12}
-              color={textColor}
-            />
-            <Text style={[styles.chipLabel, { color: textColor }]}>
-              {config.label}
-            </Text>
+            <MaterialCommunityIcons name={config.icon} size={12} color={textColor} />
+            <Text style={[styles.chipLabel, { color: textColor }]}>{config.label}</Text>
           </TouchableOpacity>
         );
       })}

@@ -8,14 +8,7 @@
  */
 
 import React, { useState, useCallback } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  useColorScheme,
-  TouchableOpacity,
-  Linking,
-} from 'react-native';
+import { View, Text, StyleSheet, useColorScheme, TouchableOpacity, Linking } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import * as WebBrowser from 'expo-web-browser';
@@ -86,20 +79,11 @@ export function InsightfulStats({
 
       <View style={styles.statsGrid}>
         {stats.map((stat, index) => (
-          <StatCard
-            key={index}
-            stat={stat}
-            isDark={isDark}
-            onPress={handleStatPress}
-          />
+          <StatCard key={index} stat={stat} isDark={isDark} onPress={handleStatPress} />
         ))}
       </View>
 
-      <StatDetailModal
-        stat={selectedStat}
-        isDark={isDark}
-        onClose={closeModal}
-      />
+      <StatDetailModal stat={selectedStat} isDark={isDark} onClose={closeModal} />
     </View>
   );
 }

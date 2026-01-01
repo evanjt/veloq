@@ -1,5 +1,13 @@
 import React from 'react';
-import { StyleSheet, Text, View, StyleProp, ViewStyle, TextStyle, useColorScheme } from 'react-native';
+import {
+  StyleSheet,
+  Text,
+  View,
+  StyleProp,
+  ViewStyle,
+  TextStyle,
+  useColorScheme,
+} from 'react-native';
 import { colors, darkColors } from '@/theme/colors';
 import { typography } from '@/theme/typography';
 import { spacing } from '@/theme/spacing';
@@ -34,12 +42,7 @@ export function Badge({
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
 
-  const containerStyle = [
-    styles.base,
-    styles[size],
-    getVariantStyle(variant, isDark),
-    style,
-  ];
+  const containerStyle = [styles.base, styles[size], getVariantStyle(variant, isDark), style];
 
   const labelStyle = [
     styles.label,

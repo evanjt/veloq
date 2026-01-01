@@ -1,6 +1,12 @@
 import React, { useMemo, useState, useRef, useCallback, useEffect } from 'react';
 import { View, StyleSheet, TouchableOpacity, Modal, StatusBar, Animated, Text } from 'react-native';
-import { MapView, Camera, ShapeSource, LineLayer, MarkerView } from '@maplibre/maplibre-react-native';
+import {
+  MapView,
+  Camera,
+  ShapeSource,
+  LineLayer,
+  MarkerView,
+} from '@maplibre/maplibre-react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import { decodePolyline, LatLng } from '@/lib';
@@ -14,7 +20,15 @@ import { BaseMapView } from './BaseMapView';
 import { Map3DWebView, type Map3DWebViewRef } from './Map3DWebView';
 import { CompassArrow } from '@/components/ui';
 import { SectionCreationOverlay, type CreationState } from './SectionCreationOverlay';
-import { type MapStyleType, getMapStyle, isDarkStyle, getNextStyle, getStyleIcon, MAP_ATTRIBUTIONS, TERRAIN_ATTRIBUTION } from './mapStyles';
+import {
+  type MapStyleType,
+  getMapStyle,
+  isDarkStyle,
+  getNextStyle,
+  getStyleIcon,
+  MAP_ATTRIBUTIONS,
+  TERRAIN_ATTRIBUTION,
+} from './mapStyles';
 import type { ActivityType, RoutePoint } from '@/types';
 
 /** Calculate distance between two coordinates using Haversine formula */
@@ -25,9 +39,9 @@ function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: numbe
   const a =
     Math.sin(dLat / 2) * Math.sin(dLat / 2) +
     Math.cos((lat1 * Math.PI) / 180) *
-    Math.cos((lat2 * Math.PI) / 180) *
-    Math.sin(dLon / 2) *
-    Math.sin(dLon / 2);
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return R * c;
 }
@@ -114,12 +128,12 @@ export function ActivityMapView({
 
   const toggleMapStyle = useCallback(() => {
     setUserOverride(true);
-    setMapStyle(current => getNextStyle(current));
+    setMapStyle((current) => getNextStyle(current));
   }, []);
 
   // Toggle 3D mode
   const toggle3D = useCallback(() => {
-    setIs3DMode(current => !current);
+    setIs3DMode((current) => !current);
   }, []);
 
   // Notify parent when 3D mode changes (outside of render cycle)
@@ -179,49 +193,52 @@ export function ActivityMapView({
 
   // Handle map press - using MapView's native onPress instead of gesture detector
   // This properly distinguishes taps from zoom/pan gestures
-  const handleMapPress = useCallback((feature: GeoJSON.Feature) => {
-    // In creation mode, handle point selection
-    if (creationMode && feature.geometry.type === 'Point') {
-      const [lng, lat] = feature.geometry.coordinates as [number, number];
+  const handleMapPress = useCallback(
+    (feature: GeoJSON.Feature) => {
+      // In creation mode, handle point selection
+      if (creationMode && feature.geometry.type === 'Point') {
+        const [lng, lat] = feature.geometry.coordinates as [number, number];
 
-      // Find nearest point on the route
-      if (validCoordinates.length === 0) return;
+        // Find nearest point on the route
+        if (validCoordinates.length === 0) return;
 
-      let nearestIndex = 0;
-      let nearestDistance = Infinity;
+        let nearestIndex = 0;
+        let nearestDistance = Infinity;
 
-      for (let i = 0; i < validCoordinates.length; i++) {
-        const coord = validCoordinates[i];
-        const dx = coord.longitude - lng;
-        const dy = coord.latitude - lat;
-        const dist = dx * dx + dy * dy;
-        if (dist < nearestDistance) {
-          nearestDistance = dist;
-          nearestIndex = i;
+        for (let i = 0; i < validCoordinates.length; i++) {
+          const coord = validCoordinates[i];
+          const dx = coord.longitude - lng;
+          const dy = coord.latitude - lat;
+          const dist = dx * dx + dy * dy;
+          if (dist < nearestDistance) {
+            nearestDistance = dist;
+            nearestIndex = i;
+          }
         }
-      }
 
-      if (creationState === 'selectingStart') {
-        setStartIndex(nearestIndex);
-        setCreationState('selectingEnd');
-      } else if (creationState === 'selectingEnd') {
-        // Ensure end is after start
-        if (nearestIndex <= (startIndex ?? 0)) {
-          // Swap them
-          setEndIndex(startIndex);
+        if (creationState === 'selectingStart') {
           setStartIndex(nearestIndex);
-        } else {
-          setEndIndex(nearestIndex);
+          setCreationState('selectingEnd');
+        } else if (creationState === 'selectingEnd') {
+          // Ensure end is after start
+          if (nearestIndex <= (startIndex ?? 0)) {
+            // Swap them
+            setEndIndex(startIndex);
+            setStartIndex(nearestIndex);
+          } else {
+            setEndIndex(nearestIndex);
+          }
+          setCreationState('complete');
         }
-        setCreationState('complete');
+        return;
       }
-      return;
-    }
 
-    if (enableFullscreen) {
-      openFullscreen();
-    }
-  }, [enableFullscreen, openFullscreen, creationMode, creationState, startIndex, validCoordinates]);
+      if (enableFullscreen) {
+        openFullscreen();
+      }
+    },
+    [enableFullscreen, openFullscreen, creationMode, creationState, startIndex, validCoordinates]
+  );
 
   // Section creation handlers
   const handleCreationConfirm = useCallback(() => {
@@ -229,7 +246,7 @@ export function ActivityMapView({
 
     // Extract section polyline
     const sectionCoords = validCoordinates.slice(startIndex, endIndex + 1);
-    const polyline: RoutePoint[] = sectionCoords.map(c => ({
+    const polyline: RoutePoint[] = sectionCoords.map((c) => ({
       lat: c.latitude,
       lng: c.longitude,
     }));
@@ -272,17 +289,23 @@ export function ActivityMapView({
   const bearingAnim = useRef(new Animated.Value(0)).current;
 
   // Handle 3D map bearing changes (for compass sync)
-  const handleBearingChange = useCallback((bearing: number) => {
-    bearingAnim.setValue(-bearing);
-  }, [bearingAnim]);
+  const handleBearingChange = useCallback(
+    (bearing: number) => {
+      bearingAnim.setValue(-bearing);
+    },
+    [bearingAnim]
+  );
 
   // Handle map region change to update compass
-  const handleRegionIsChanging = useCallback((feature: GeoJSON.Feature) => {
-    const properties = feature.properties as { heading?: number } | undefined;
-    if (properties?.heading !== undefined) {
-      bearingAnim.setValue(-properties.heading);
-    }
-  }, [bearingAnim]);
+  const handleRegionIsChanging = useCallback(
+    (feature: GeoJSON.Feature) => {
+      const properties = feature.properties as { heading?: number } | undefined;
+      if (properties?.heading !== undefined) {
+        bearingAnim.setValue(-properties.heading);
+      }
+    },
+    [bearingAnim]
+  );
 
   // Camera ref for programmatic control
   const cameraRef = useRef<React.ElementRef<typeof Camera>>(null);
@@ -319,14 +342,16 @@ export function ActivityMapView({
 
   // Filter valid coordinates for bounds and route display
   const validCoordinates = useMemo(() => {
-    return coordinates.filter(c => !isNaN(c.latitude) && !isNaN(c.longitude));
+    return coordinates.filter((c) => !isNaN(c.latitude) && !isNaN(c.longitude));
   }, [coordinates]);
 
   const bounds = useMemo(() => {
     if (validCoordinates.length === 0) return null;
 
-    let minLat = Infinity, maxLat = -Infinity;
-    let minLng = Infinity, maxLng = -Infinity;
+    let minLat = Infinity,
+      maxLat = -Infinity;
+    let minLng = Infinity,
+      maxLng = -Infinity;
 
     for (const coord of validCoordinates) {
       minLat = Math.min(minLat, coord.latitude);
@@ -359,14 +384,14 @@ export function ActivityMapView({
       properties: {},
       geometry: {
         type: 'LineString' as const,
-        coordinates: validCoordinates.map(c => [c.longitude, c.latitude]),
+        coordinates: validCoordinates.map((c) => [c.longitude, c.latitude]),
       },
     };
   }, [validCoordinates]);
 
   // Route coordinates for BaseMapView/Map3DWebView [lng, lat] format
   const routeCoords = useMemo(() => {
-    return validCoordinates.map(c => [c.longitude, c.latitude] as [number, number]);
+    return validCoordinates.map((c) => [c.longitude, c.latitude] as [number, number]);
   }, [validCoordinates]);
 
   const activityColor = getActivityColor(activityType);
@@ -408,13 +433,14 @@ export function ActivityMapView({
       properties: {},
       geometry: {
         type: 'LineString' as const,
-        coordinates: sectionCoords.map(c => [c.longitude, c.latitude]),
+        coordinates: sectionCoords.map((c) => [c.longitude, c.latitude]),
       },
     };
   }, [creationMode, startIndex, endIndex, validCoordinates]);
 
   // Section creation: get selected start/end points for markers
-  const sectionStartPoint = creationMode && startIndex !== null ? validCoordinates[startIndex] : null;
+  const sectionStartPoint =
+    creationMode && startIndex !== null ? validCoordinates[startIndex] : null;
   const sectionEndPoint = creationMode && endIndex !== null ? validCoordinates[endIndex] : null;
 
   const mapStyleValue = getMapStyle(mapStyle);
@@ -423,11 +449,7 @@ export function ActivityMapView({
   if (!bounds || validCoordinates.length === 0) {
     return (
       <View style={[styles.placeholder, { height }]}>
-        <MaterialCommunityIcons
-          name="map-marker-off"
-          size={48}
-          color={colors.textSecondary}
-        />
+        <MaterialCommunityIcons name="map-marker-off" size={48} color={colors.textSecondary} />
       </View>
     );
   }
@@ -438,7 +460,13 @@ export function ActivityMapView({
     <View style={[styles.outerContainer, { height }]}>
       <View style={styles.container}>
         {/* 2D Map layer - hidden when 3D is ready */}
-        <View style={[styles.mapLayer, (is3DMode && is3DReady) && styles.hiddenLayer, isFullscreen && styles.hiddenLayer]}>
+        <View
+          style={[
+            styles.mapLayer,
+            is3DMode && is3DReady && styles.hiddenLayer,
+            isFullscreen && styles.hiddenLayer,
+          ]}
+        >
           <MapView
             style={styles.map}
             mapStyle={mapStyleValue}
@@ -452,101 +480,116 @@ export function ActivityMapView({
             onRegionIsChanging={handleRegionIsChanging}
             onPress={handleMapPress}
           >
-          <Camera
-            ref={cameraRef}
-            // Only apply bounds on initial mount - prevents camera reset on parent re-renders
-            // After initial bounds are applied, user can freely pan/zoom
-            {...(!initialBoundsApplied && bounds ? {
-              bounds,
-              padding: { paddingTop: 50, paddingRight: 50, paddingBottom: 50, paddingLeft: 50 },
-            } : {})}
-            animationDuration={0}
-          />
+            <Camera
+              ref={cameraRef}
+              // Only apply bounds on initial mount - prevents camera reset on parent re-renders
+              // After initial bounds are applied, user can freely pan/zoom
+              {...(!initialBoundsApplied && bounds
+                ? {
+                    bounds,
+                    padding: {
+                      paddingTop: 50,
+                      paddingRight: 50,
+                      paddingBottom: 50,
+                      paddingLeft: 50,
+                    },
+                  }
+                : {})}
+              animationDuration={0}
+            />
 
-          {/* Route line */}
-          {routeGeoJSON && (
-            <ShapeSource id="routeSource" shape={routeGeoJSON}>
-              <LineLayer
-                id="routeLine"
-                style={{
-                  lineColor: activityColor,
-                  lineWidth: 4,
-                  lineCap: 'round',
-                  lineJoin: 'round',
-                }}
-              />
-            </ShapeSource>
-          )}
+            {/* Route line */}
+            {routeGeoJSON && (
+              <ShapeSource id="routeSource" shape={routeGeoJSON}>
+                <LineLayer
+                  id="routeLine"
+                  style={{
+                    lineColor: activityColor,
+                    lineWidth: 4,
+                    lineCap: 'round',
+                    lineJoin: 'round',
+                  }}
+                />
+              </ShapeSource>
+            )}
 
-          {/* Start marker */}
-          {startPoint && (
-            <MarkerView coordinate={[startPoint.longitude, startPoint.latitude]}>
-              <View style={styles.markerContainer}>
-                <View style={[styles.marker, styles.startMarker]}>
-                  <MaterialCommunityIcons name="play" size={14} color={colors.textOnDark} />
+            {/* Start marker */}
+            {startPoint && (
+              <MarkerView coordinate={[startPoint.longitude, startPoint.latitude]}>
+                <View style={styles.markerContainer}>
+                  <View style={[styles.marker, styles.startMarker]}>
+                    <MaterialCommunityIcons name="play" size={14} color={colors.textOnDark} />
+                  </View>
                 </View>
-              </View>
-            </MarkerView>
-          )}
+              </MarkerView>
+            )}
 
-          {/* End marker */}
-          {endPoint && (
-            <MarkerView coordinate={[endPoint.longitude, endPoint.latitude]}>
-              <View style={styles.markerContainer}>
-                <View style={[styles.marker, styles.endMarker]}>
-                  <MaterialCommunityIcons name="flag-checkered" size={14} color={colors.textOnDark} />
+            {/* End marker */}
+            {endPoint && (
+              <MarkerView coordinate={[endPoint.longitude, endPoint.latitude]}>
+                <View style={styles.markerContainer}>
+                  <View style={[styles.marker, styles.endMarker]}>
+                    <MaterialCommunityIcons
+                      name="flag-checkered"
+                      size={14}
+                      color={colors.textOnDark}
+                    />
+                  </View>
                 </View>
-              </View>
-            </MarkerView>
-          )}
+              </MarkerView>
+            )}
 
-          {/* Highlight marker from elevation chart */}
-          {highlightPoint && (
-            <MarkerView coordinate={[highlightPoint.longitude, highlightPoint.latitude]}>
-              <View style={styles.markerContainer}>
-                <View style={styles.highlightMarker}>
-                  <View style={styles.highlightMarkerInner} />
+            {/* Highlight marker from elevation chart */}
+            {highlightPoint && (
+              <MarkerView coordinate={[highlightPoint.longitude, highlightPoint.latitude]}>
+                <View style={styles.markerContainer}>
+                  <View style={styles.highlightMarker}>
+                    <View style={styles.highlightMarkerInner} />
+                  </View>
                 </View>
-              </View>
-            </MarkerView>
-          )}
+              </MarkerView>
+            )}
 
-          {/* Section creation: selected section line */}
-          {sectionGeoJSON && (
-            <ShapeSource id="sectionSource" shape={sectionGeoJSON}>
-              <LineLayer
-                id="sectionLine"
-                style={{
-                  lineColor: colors.success,
-                  lineWidth: 6,
-                  lineCap: 'round',
-                  lineJoin: 'round',
-                }}
-              />
-            </ShapeSource>
-          )}
+            {/* Section creation: selected section line */}
+            {sectionGeoJSON && (
+              <ShapeSource id="sectionSource" shape={sectionGeoJSON}>
+                <LineLayer
+                  id="sectionLine"
+                  style={{
+                    lineColor: colors.success,
+                    lineWidth: 6,
+                    lineCap: 'round',
+                    lineJoin: 'round',
+                  }}
+                />
+              </ShapeSource>
+            )}
 
-          {/* Section creation: start marker */}
-          {sectionStartPoint && (
-            <MarkerView coordinate={[sectionStartPoint.longitude, sectionStartPoint.latitude]}>
-              <View style={styles.markerContainer}>
-                <View style={[styles.marker, styles.sectionStartMarker]}>
-                  <MaterialCommunityIcons name="flag" size={14} color={colors.textOnDark} />
+            {/* Section creation: start marker */}
+            {sectionStartPoint && (
+              <MarkerView coordinate={[sectionStartPoint.longitude, sectionStartPoint.latitude]}>
+                <View style={styles.markerContainer}>
+                  <View style={[styles.marker, styles.sectionStartMarker]}>
+                    <MaterialCommunityIcons name="flag" size={14} color={colors.textOnDark} />
+                  </View>
                 </View>
-              </View>
-            </MarkerView>
-          )}
+              </MarkerView>
+            )}
 
-          {/* Section creation: end marker */}
-          {sectionEndPoint && (
-            <MarkerView coordinate={[sectionEndPoint.longitude, sectionEndPoint.latitude]}>
-              <View style={styles.markerContainer}>
-                <View style={[styles.marker, styles.sectionEndMarker]}>
-                  <MaterialCommunityIcons name="flag-checkered" size={14} color={colors.textOnDark} />
+            {/* Section creation: end marker */}
+            {sectionEndPoint && (
+              <MarkerView coordinate={[sectionEndPoint.longitude, sectionEndPoint.latitude]}>
+                <View style={styles.markerContainer}>
+                  <View style={[styles.marker, styles.sectionEndMarker]}>
+                    <MaterialCommunityIcons
+                      name="flag-checkered"
+                      size={14}
+                      color={colors.textOnDark}
+                    />
+                  </View>
                 </View>
-              </View>
-            </MarkerView>
-          )}
+              </MarkerView>
+            )}
           </MapView>
         </View>
 
@@ -568,7 +611,9 @@ export function ActivityMapView({
         {showStyleToggle && !isFullscreen && (
           <View style={styles.attribution}>
             <Text style={styles.attributionText}>
-              {is3DMode ? `${MAP_ATTRIBUTIONS[mapStyle]} | ${TERRAIN_ATTRIBUTION}` : MAP_ATTRIBUTIONS[mapStyle]}
+              {is3DMode
+                ? `${MAP_ATTRIBUTIONS[mapStyle]} | ${TERRAIN_ATTRIBUTION}`
+                : MAP_ATTRIBUTIONS[mapStyle]}
             </Text>
           </View>
         )}
@@ -594,7 +639,11 @@ export function ActivityMapView({
           {/* 3D toggle */}
           {hasRoute && (
             <TouchableOpacity
-              style={[styles.controlButton, isDark && styles.controlButtonDark, is3DMode && styles.controlButtonActive]}
+              style={[
+                styles.controlButton,
+                isDark && styles.controlButtonDark,
+                is3DMode && styles.controlButtonActive,
+              ]}
               onPressIn={toggle3D}
               activeOpacity={0.6}
               hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
@@ -602,7 +651,9 @@ export function ActivityMapView({
               <MaterialCommunityIcons
                 name="terrain"
                 size={22}
-                color={is3DMode ? colors.textOnDark : (isDark ? colors.textOnDark : colors.textSecondary)}
+                color={
+                  is3DMode ? colors.textOnDark : isDark ? colors.textOnDark : colors.textSecondary
+                }
               />
             </TouchableOpacity>
           )}
@@ -669,7 +720,11 @@ export function ActivityMapView({
             <MarkerView coordinate={[endPoint.longitude, endPoint.latitude]}>
               <View style={styles.markerContainer}>
                 <View style={[styles.marker, styles.endMarker]}>
-                  <MaterialCommunityIcons name="flag-checkered" size={14} color={colors.textOnDark} />
+                  <MaterialCommunityIcons
+                    name="flag-checkered"
+                    size={14}
+                    color={colors.textOnDark}
+                  />
                 </View>
               </View>
             </MarkerView>

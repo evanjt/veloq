@@ -8,11 +8,7 @@
 
 import * as FileSystem from 'expo-file-system/legacy';
 import { debug } from '../utils/debug';
-import type {
-  CustomSection,
-  CustomSectionMatch,
-  CustomSectionWithMatches,
-} from '@/types';
+import type { CustomSection, CustomSectionMatch, CustomSectionWithMatches } from '@/types';
 
 const log = debug.create('CustomSections');
 
@@ -114,9 +110,7 @@ export async function deleteCustomSection(sectionId: string): Promise<void> {
 /**
  * Get a single custom section by ID
  */
-export async function getCustomSection(
-  sectionId: string
-): Promise<CustomSection | null> {
+export async function getCustomSection(sectionId: string): Promise<CustomSection | null> {
   const sections = await loadCustomSections();
   return sections.find((s) => s.id === sectionId) || null;
 }
@@ -128,9 +122,7 @@ export async function getCustomSection(
 /**
  * Load matches for a custom section
  */
-export async function loadSectionMatches(
-  sectionId: string
-): Promise<CustomSectionMatch[]> {
+export async function loadSectionMatches(sectionId: string): Promise<CustomSectionMatch[]> {
   try {
     const path = getMatchesPath(sectionId);
     const info = await FileSystem.getInfoAsync(path);
@@ -160,10 +152,7 @@ export async function saveSectionMatches(
 /**
  * Add a match to a custom section (used when new activity synced)
  */
-export async function addSectionMatch(
-  sectionId: string,
-  match: CustomSectionMatch
-): Promise<void> {
+export async function addSectionMatch(sectionId: string, match: CustomSectionMatch): Promise<void> {
   const matches = await loadSectionMatches(sectionId);
   // Avoid duplicates
   if (!matches.some((m) => m.activityId === match.activityId)) {
@@ -175,10 +164,7 @@ export async function addSectionMatch(
 /**
  * Remove a match from a custom section (used when activity deleted)
  */
-export async function removeSectionMatch(
-  sectionId: string,
-  activityId: string
-): Promise<void> {
+export async function removeSectionMatch(sectionId: string, activityId: string): Promise<void> {
   const matches = await loadSectionMatches(sectionId);
   const filtered = matches.filter((m) => m.activityId !== activityId);
   if (filtered.length !== matches.length) {
@@ -193,9 +179,7 @@ export async function removeSectionMatch(
 /**
  * Load all custom sections with their matches
  */
-export async function loadCustomSectionsWithMatches(): Promise<
-  CustomSectionWithMatches[]
-> {
+export async function loadCustomSectionsWithMatches(): Promise<CustomSectionWithMatches[]> {
   const sections = await loadCustomSections();
   const withMatches: CustomSectionWithMatches[] = [];
 

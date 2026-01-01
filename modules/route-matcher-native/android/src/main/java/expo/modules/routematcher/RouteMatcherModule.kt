@@ -805,6 +805,19 @@ class RouteMatcherModule : Module() {
     }
   }
 
+  @Suppress("UNCHECKED_CAST")
+  private fun parseScalePresets(value: Any?): List<ScalePreset>? {
+    val list = value as? List<Map<String, Any>> ?: return null
+    return list.map { preset ->
+      ScalePreset(
+        name = (preset["name"] as? String) ?: "medium",
+        minLength = (preset["min_length"] as? Number)?.toDouble() ?: 500.0,
+        maxLength = (preset["max_length"] as? Number)?.toDouble() ?: 5000.0,
+        minActivities = (preset["min_activities"] as? Number)?.toInt()?.toUInt() ?: 3u
+      )
+    }
+  }
+
   private fun parseSectionConfig(map: Map<String, Any>?): SectionConfig {
     if (map == null) return defaultSectionConfig()
 
@@ -822,7 +835,15 @@ class RouteMatcherModule : Module() {
       clusterTolerance = (map["cluster_tolerance"] as? Number)?.toDouble()
         ?: defaults.clusterTolerance,
       samplePoints = (map["sample_points"] as? Number)?.toInt()?.toUInt()
-        ?: defaults.samplePoints
+        ?: defaults.samplePoints,
+      detectionMode = (map["detection_mode"] as? String)
+        ?: defaults.detectionMode,
+      includePotentials = (map["include_potentials"] as? Boolean)
+        ?: defaults.includePotentials,
+      scalePresets = parseScalePresets(map["scale_presets"])
+        ?: defaults.scalePresets,
+      preserveHierarchy = (map["preserve_hierarchy"] as? Boolean)
+        ?: defaults.preserveHierarchy
     )
   }
 

@@ -33,7 +33,12 @@ export function Divider({
     return (
       <View style={[styles.labelContainer, { marginVertical: verticalSpacing }, style]}>
         <View style={[styles.line, styles.labelLine, { backgroundColor: dividerColor }]} />
-        <Text style={[styles.label, { color: isDark ? darkColors.textSecondary : colors.textSecondary }]}>
+        <Text
+          style={[
+            styles.label,
+            { color: isDark ? darkColors.textSecondary : colors.textSecondary },
+          ]}
+        >
           {label}
         </Text>
         <View style={[styles.line, styles.labelLine, { backgroundColor: dividerColor }]} />
@@ -55,10 +60,14 @@ export function Divider({
 
 function getSpacing(size: 'none' | 'small' | 'medium' | 'large'): number {
   switch (size) {
-    case 'none': return 0;
-    case 'small': return spacing.xs;
-    case 'medium': return spacing.sm;
-    case 'large': return spacing.md;
+    case 'none':
+      return 0;
+    case 'small':
+      return spacing.xs;
+    case 'medium':
+      return spacing.sm;
+    case 'large':
+      return spacing.md;
   }
 }
 

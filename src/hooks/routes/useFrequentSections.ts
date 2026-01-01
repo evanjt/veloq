@@ -35,7 +35,7 @@ export function useFrequentSections(
   const isReady = true;
 
   const sections = useMemo(() => {
-    let filtered = rawSections.map(s => s as unknown as FrequentSection);
+    let filtered = rawSections.map((s) => s as unknown as FrequentSection);
 
     // Filter by sport type (already done by useEngineSections, but double-check)
     if (sportType) {
@@ -54,7 +54,7 @@ export function useFrequentSections(
         filtered.sort((a, b) => b.distanceMeters - a.distanceMeters);
         break;
       case 'name':
-        filtered.sort((a, b) => (a.id).localeCompare(b.id));
+        filtered.sort((a, b) => a.id.localeCompare(b.id));
         break;
     }
 

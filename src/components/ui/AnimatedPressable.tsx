@@ -1,5 +1,12 @@
 import React, { useCallback } from 'react';
-import { GestureResponderEvent, Platform, Pressable, PressableProps, StyleProp, ViewStyle } from 'react-native';
+import {
+  GestureResponderEvent,
+  Platform,
+  Pressable,
+  PressableProps,
+  StyleProp,
+  ViewStyle,
+} from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -68,8 +75,8 @@ export function AnimatedPressable({
                 hapticType === 'heavy'
                   ? Haptics.ImpactFeedbackStyle.Heavy
                   : hapticType === 'medium'
-                  ? Haptics.ImpactFeedbackStyle.Medium
-                  : Haptics.ImpactFeedbackStyle.Light
+                    ? Haptics.ImpactFeedbackStyle.Medium
+                    : Haptics.ImpactFeedbackStyle.Light
               );
         impact.catch(() => {}); // Ignore errors on devices without haptic support
       }
@@ -108,12 +115,7 @@ export function AnimatedCard({
   ...props
 }: Omit<AnimatedPressableProps, 'pressScale' | 'hapticType'>) {
   return (
-    <AnimatedPressable
-      pressScale={0.98}
-      hapticType="light"
-      style={style}
-      {...props}
-    >
+    <AnimatedPressable pressScale={0.98} hapticType="light" style={style} {...props}>
       {children}
     </AnimatedPressable>
   );
@@ -126,12 +128,7 @@ export function AnimatedButton({
   ...props
 }: Omit<AnimatedPressableProps, 'pressScale' | 'hapticType'>) {
   return (
-    <AnimatedPressable
-      pressScale={0.95}
-      hapticType="medium"
-      style={style}
-      {...props}
-    >
+    <AnimatedPressable pressScale={0.95} hapticType="medium" style={style} {...props}>
       {children}
     </AnimatedPressable>
   );
@@ -144,12 +141,7 @@ export function AnimatedListItem({
   ...props
 }: Omit<AnimatedPressableProps, 'pressScale' | 'hapticType'>) {
   return (
-    <AnimatedPressable
-      pressScale={0.99}
-      hapticType="selection"
-      style={style}
-      {...props}
-    >
+    <AnimatedPressable pressScale={0.99} hapticType="selection" style={style} {...props}>
       {children}
     </AnimatedPressable>
   );

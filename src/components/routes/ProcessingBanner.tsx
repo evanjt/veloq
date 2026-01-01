@@ -43,11 +43,7 @@ function getStatusIcon(
   }
 }
 
-export function ProcessingBanner({
-  progress,
-  onCancel,
-  compact = false,
-}: ProcessingBannerProps) {
+export function ProcessingBanner({ progress, onCancel, compact = false }: ProcessingBannerProps) {
   const { t } = useTranslation();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
@@ -143,27 +139,17 @@ export function ProcessingBanner({
 
       {isActive && (
         <>
-          <ProgressBar
-            progress={progressValue}
-            color={statusColor}
-            style={styles.progressBar}
-          />
-          <Text style={[styles.progressText, isDark && styles.textMuted]}>
-            {statusMessage}
-          </Text>
+          <ProgressBar progress={progressValue} color={statusColor} style={styles.progressBar} />
+          <Text style={[styles.progressText, isDark && styles.textMuted]}>{statusMessage}</Text>
         </>
       )}
 
       {progress.status === 'complete' && (
-        <Text style={[styles.progressText, { color: colors.success }]}>
-          {statusMessage}
-        </Text>
+        <Text style={[styles.progressText, { color: colors.success }]}>{statusMessage}</Text>
       )}
 
       {progress.status === 'error' && (
-        <Text style={[styles.progressText, { color: colors.error }]}>
-          {statusMessage}
-        </Text>
+        <Text style={[styles.progressText, { color: colors.error }]}>{statusMessage}</Text>
       )}
     </View>
   );

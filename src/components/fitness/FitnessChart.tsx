@@ -5,14 +5,20 @@ import { useTranslation } from 'react-i18next';
 import { CartesianChart, Line, Area } from 'victory-native';
 import { LinearGradient, vec, Shadow } from '@shopify/react-native-skia';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import { SharedValue, useSharedValue, useAnimatedReaction, runOnJS, useDerivedValue, useAnimatedStyle } from 'react-native-reanimated';
+import {
+  SharedValue,
+  useSharedValue,
+  useAnimatedReaction,
+  runOnJS,
+  useDerivedValue,
+  useAnimatedStyle,
+} from 'react-native-reanimated';
 import Animated from 'react-native-reanimated';
 import { colors, darkColors, opacity, typography, spacing, layout } from '@/theme';
 import { calculateTSB } from '@/hooks';
 import { sortByDateId } from '@/lib';
 import { ChartErrorBoundary } from '@/components/ui';
 import type { WellnessData } from '@/types';
-
 
 // Chart colors
 const COLORS = {
@@ -26,7 +32,10 @@ interface FitnessChartProps {
   selectedDate?: string | null;
   /** Shared value for instant crosshair sync between charts */
   sharedSelectedIdx?: SharedValue<number>;
-  onDateSelect?: (date: string | null, values: { fitness: number; fatigue: number; form: number } | null) => void;
+  onDateSelect?: (
+    date: string | null,
+    values: { fitness: number; fatigue: number; form: number } | null
+  ) => void;
   onInteractionChange?: (isInteracting: boolean) => void;
 }
 
@@ -45,7 +54,14 @@ function formatDate(dateStr: string): string {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
-export const FitnessChart = React.memo(function FitnessChart({ data, height = 200, selectedDate, sharedSelectedIdx, onDateSelect, onInteractionChange }: FitnessChartProps) {
+export const FitnessChart = React.memo(function FitnessChart({
+  data,
+  height = 200,
+  selectedDate,
+  sharedSelectedIdx,
+  onDateSelect,
+  onInteractionChange,
+}: FitnessChartProps) {
   const { t } = useTranslation();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
@@ -70,13 +86,20 @@ export const FitnessChart = React.memo(function FitnessChart({ data, height = 20
   const externalSelectedIdx = useSharedValue(-1);
 
   const toggleLine = useCallback((line: 'fitness' | 'fatigue') => {
-    setVisibleLines(prev => ({ ...prev, [line]: !prev[line] }));
+    setVisibleLines((prev) => ({ ...prev, [line]: !prev[line] }));
   }, []);
 
   // Process data for the chart
   const { chartData, indexMap, maxLoad, maxFitness, minForm, maxForm } = useMemo(() => {
     if (!data || data.length === 0) {
-      return { chartData: [], indexMap: [], maxLoad: 50, maxFitness: 100, minForm: -30, maxForm: 30 };
+      return {
+        chartData: [],
+        indexMap: [],
+        maxLoad: 50,
+        maxFitness: 100,
+        minForm: -30,
+        maxForm: 30,
+      };
     }
 
     const withTSB = calculateTSB(data);
@@ -130,7 +153,7 @@ export const FitnessChart = React.memo(function FitnessChart({ data, height = 20
   // Sync with external selectedDate (from other chart)
   React.useEffect(() => {
     if (selectedDate && chartData.length > 0 && !isActive) {
-      const idx = chartData.findIndex(d => d.date === selectedDate);
+      const idx = chartData.findIndex((d) => d.date === selectedDate);
       if (idx >= 0) {
         setTooltipData(chartData[idx]);
         externalSelectedIdx.value = idx;
@@ -257,7 +280,9 @@ export const FitnessChart = React.memo(function FitnessChart({ data, height = 20
   if (chartData.length === 0) {
     return (
       <View style={[styles.placeholder, { height }]}>
-        <Text style={[styles.placeholderText, isDark && styles.textDark]}>{t('fitness.noData')}</Text>
+        <Text style={[styles.placeholderText, isDark && styles.textDark]}>
+          {t('fitness.noData')}
+        </Text>
       </View>
     );
   }
@@ -271,133 +296,167 @@ export const FitnessChart = React.memo(function FitnessChart({ data, height = 20
       <View style={[styles.container, { height }]}>
         {/* Header with values */}
         <View style={styles.header}>
-        <View style={styles.dateContainer}>
-          <Text style={[styles.dateText, isDark && styles.textLight]}>
-            {(isActive && tooltipData) || selectedDate ? formatDate(tooltipData?.date || selectedDate || '') : t('time.current')}
-          </Text>
-        </View>
-        <View style={styles.valuesRow}>
-          <View style={styles.valueItem}>
-            <Text style={[styles.valueLabel, isDark && styles.textDark]}>{t('metrics.fitness')}</Text>
-            <Text style={[styles.valueNumber, { color: COLORS.fitness }]}>
-              {Math.round(displayData.fitness)}
+          <View style={styles.dateContainer}>
+            <Text style={[styles.dateText, isDark && styles.textLight]}>
+              {(isActive && tooltipData) || selectedDate
+                ? formatDate(tooltipData?.date || selectedDate || '')
+                : t('time.current')}
             </Text>
           </View>
-          <View style={styles.valueItem}>
-            <Text style={[styles.valueLabel, isDark && styles.textDark]}>{t('metrics.fatigue')}</Text>
-            <Text style={[styles.valueNumber, { color: COLORS.fatigue }]}>
-              {Math.round(displayData.fatigue)}
-            </Text>
+          <View style={styles.valuesRow}>
+            <View style={styles.valueItem}>
+              <Text style={[styles.valueLabel, isDark && styles.textDark]}>
+                {t('metrics.fitness')}
+              </Text>
+              <Text style={[styles.valueNumber, { color: COLORS.fitness }]}>
+                {Math.round(displayData.fitness)}
+              </Text>
+            </View>
+            <View style={styles.valueItem}>
+              <Text style={[styles.valueLabel, isDark && styles.textDark]}>
+                {t('metrics.fatigue')}
+              </Text>
+              <Text style={[styles.valueNumber, { color: COLORS.fatigue }]}>
+                {Math.round(displayData.fatigue)}
+              </Text>
+            </View>
           </View>
         </View>
-      </View>
 
-      {/* Chart */}
-      <GestureDetector gesture={gesture}>
-        <View style={styles.chartWrapper}>
-          <CartesianChart
-            data={chartData}
-            xKey="x"
-            yKeys={['fitness', 'fatigue']}
-            domain={{ y: [0, maxFitness * 1.1] }}
-            padding={{ left: 0, right: 0, top: 8, bottom: 20 }}
+        {/* Chart */}
+        <GestureDetector gesture={gesture}>
+          <View style={styles.chartWrapper}>
+            <CartesianChart
+              data={chartData}
+              xKey="x"
+              yKeys={['fitness', 'fatigue']}
+              domain={{ y: [0, maxFitness * 1.1] }}
+              padding={{ left: 0, right: 0, top: 8, bottom: 20 }}
+            >
+              {({ points, chartBounds }) => {
+                // Sync chartBounds and point coordinates for UI thread crosshair
+                if (
+                  chartBounds.left !== chartBoundsShared.value.left ||
+                  chartBounds.right !== chartBoundsShared.value.right
+                ) {
+                  chartBoundsShared.value = { left: chartBounds.left, right: chartBounds.right };
+                }
+                // Sync actual point x-coordinates for accurate crosshair positioning
+                const newCoords = points.fitness.map((p) => p.x);
+                if (
+                  newCoords.length !== pointXCoordsShared.value.length ||
+                  newCoords[0] !== pointXCoordsShared.value[0]
+                ) {
+                  pointXCoordsShared.value = newCoords;
+                }
+
+                return (
+                  <>
+                    {/* Fitness area fill with gradient */}
+                    {visibleLines.fitness && (
+                      <Area points={points.fitness} y0={chartBounds.bottom} curveType="natural">
+                        <LinearGradient
+                          start={vec(0, chartBounds.top)}
+                          end={vec(0, chartBounds.bottom)}
+                          colors={[COLORS.fitness + '40', COLORS.fitness + '05']}
+                        />
+                      </Area>
+                    )}
+
+                    {/* Fitness line (CTL) with glow effect */}
+                    {visibleLines.fitness && (
+                      <Line
+                        points={points.fitness}
+                        color={COLORS.fitness}
+                        strokeWidth={3}
+                        curveType="natural"
+                      >
+                        <Shadow dx={0} dy={0} blur={6} color={COLORS.fitness + '60'} />
+                      </Line>
+                    )}
+
+                    {/* Fatigue line (ATL) */}
+                    {visibleLines.fatigue && (
+                      <Line
+                        points={points.fatigue}
+                        color={COLORS.fatigue}
+                        strokeWidth={2.5}
+                        curveType="natural"
+                      >
+                        <Shadow dx={0} dy={0} blur={4} color={COLORS.fatigue + '40'} />
+                      </Line>
+                    )}
+                  </>
+                );
+              }}
+            </CartesianChart>
+
+            {/* Animated crosshair - runs at native 120Hz using synced point coordinates */}
+            <Animated.View
+              style={[styles.crosshair, crosshairStyle, isDark && styles.crosshairDark]}
+              pointerEvents="none"
+            />
+
+            {/* X-axis labels */}
+            <View style={styles.xAxisOverlay} pointerEvents="none">
+              <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
+                {chartData.length > 0 ? formatDate(chartData[0].date) : ''}
+              </Text>
+              <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
+                {chartData.length > 0 ? formatDate(chartData[chartData.length - 1].date) : ''}
+              </Text>
+            </View>
+          </View>
+        </GestureDetector>
+
+        {/* Legend - pressable to toggle lines */}
+        <View style={styles.legend}>
+          <Pressable
+            style={[styles.legendItem, !visibleLines.fitness && styles.legendItemDisabled]}
+            onPress={() => toggleLine('fitness')}
+            hitSlop={8}
           >
-            {({ points, chartBounds }) => {
-              // Sync chartBounds and point coordinates for UI thread crosshair
-              if (chartBounds.left !== chartBoundsShared.value.left ||
-                  chartBounds.right !== chartBoundsShared.value.right) {
-                chartBoundsShared.value = { left: chartBounds.left, right: chartBounds.right };
-              }
-              // Sync actual point x-coordinates for accurate crosshair positioning
-              const newCoords = points.fitness.map(p => p.x);
-              if (newCoords.length !== pointXCoordsShared.value.length ||
-                  newCoords[0] !== pointXCoordsShared.value[0]) {
-                pointXCoordsShared.value = newCoords;
-              }
-
-              return (
-                <>
-                  {/* Fitness area fill with gradient */}
-                  {visibleLines.fitness && (
-                    <Area
-                      points={points.fitness}
-                      y0={chartBounds.bottom}
-                      curveType="natural"
-                    >
-                      <LinearGradient
-                        start={vec(0, chartBounds.top)}
-                        end={vec(0, chartBounds.bottom)}
-                        colors={[COLORS.fitness + '40', COLORS.fitness + '05']}
-                      />
-                    </Area>
-                  )}
-
-                  {/* Fitness line (CTL) with glow effect */}
-                  {visibleLines.fitness && (
-                    <Line
-                      points={points.fitness}
-                      color={COLORS.fitness}
-                      strokeWidth={3}
-                      curveType="natural"
-                    >
-                      <Shadow dx={0} dy={0} blur={6} color={COLORS.fitness + '60'} />
-                    </Line>
-                  )}
-
-                  {/* Fatigue line (ATL) */}
-                  {visibleLines.fatigue && (
-                    <Line
-                      points={points.fatigue}
-                      color={COLORS.fatigue}
-                      strokeWidth={2.5}
-                      curveType="natural"
-                    >
-                      <Shadow dx={0} dy={0} blur={4} color={COLORS.fatigue + '40'} />
-                    </Line>
-                  )}
-                </>
-              );
-            }}
-          </CartesianChart>
-
-          {/* Animated crosshair - runs at native 120Hz using synced point coordinates */}
-          <Animated.View
-            style={[styles.crosshair, crosshairStyle, isDark && styles.crosshairDark]}
-            pointerEvents="none"
-          />
-
-          {/* X-axis labels */}
-          <View style={styles.xAxisOverlay} pointerEvents="none">
-            <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
-              {chartData.length > 0 ? formatDate(chartData[0].date) : ''}
+            <View
+              style={[
+                styles.legendDot,
+                { backgroundColor: COLORS.fitness },
+                !visibleLines.fitness && styles.legendDotDisabled,
+              ]}
+            />
+            <Text
+              style={[
+                styles.legendText,
+                isDark && styles.textDark,
+                !visibleLines.fitness && styles.legendTextDisabled,
+              ]}
+            >
+              {t('fitness.fitnessCTL')}
             </Text>
-            <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
-              {chartData.length > 0 ? formatDate(chartData[chartData.length - 1].date) : ''}
+          </Pressable>
+          <Pressable
+            style={[styles.legendItem, !visibleLines.fatigue && styles.legendItemDisabled]}
+            onPress={() => toggleLine('fatigue')}
+            hitSlop={8}
+          >
+            <View
+              style={[
+                styles.legendDot,
+                { backgroundColor: COLORS.fatigue },
+                !visibleLines.fatigue && styles.legendDotDisabled,
+              ]}
+            />
+            <Text
+              style={[
+                styles.legendText,
+                isDark && styles.textDark,
+                !visibleLines.fatigue && styles.legendTextDisabled,
+              ]}
+            >
+              {t('fitness.fatigueATL')}
             </Text>
-          </View>
+          </Pressable>
         </View>
-      </GestureDetector>
-
-      {/* Legend - pressable to toggle lines */}
-      <View style={styles.legend}>
-        <Pressable
-          style={[styles.legendItem, !visibleLines.fitness && styles.legendItemDisabled]}
-          onPress={() => toggleLine('fitness')}
-          hitSlop={8}
-        >
-          <View style={[styles.legendDot, { backgroundColor: COLORS.fitness }, !visibleLines.fitness && styles.legendDotDisabled]} />
-          <Text style={[styles.legendText, isDark && styles.textDark, !visibleLines.fitness && styles.legendTextDisabled]}>{t('fitness.fitnessCTL')}</Text>
-        </Pressable>
-        <Pressable
-          style={[styles.legendItem, !visibleLines.fatigue && styles.legendItemDisabled]}
-          onPress={() => toggleLine('fatigue')}
-          hitSlop={8}
-        >
-          <View style={[styles.legendDot, { backgroundColor: COLORS.fatigue }, !visibleLines.fatigue && styles.legendDotDisabled]} />
-          <Text style={[styles.legendText, isDark && styles.textDark, !visibleLines.fatigue && styles.legendTextDisabled]}>{t('fitness.fatigueATL')}</Text>
-        </Pressable>
       </View>
-    </View>
     </ChartErrorBoundary>
   );
 });

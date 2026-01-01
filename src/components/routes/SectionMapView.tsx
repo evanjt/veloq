@@ -5,7 +5,12 @@
 
 import React, { useMemo, useRef, useState, useCallback } from 'react';
 import { View, StyleSheet, TouchableOpacity, Modal, StatusBar } from 'react-native';
-import MapLibreGL, { Camera, ShapeSource, LineLayer, MarkerView } from '@maplibre/maplibre-react-native';
+import MapLibreGL, {
+  Camera,
+  ShapeSource,
+  LineLayer,
+  MarkerView,
+} from '@maplibre/maplibre-react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { getActivityColor } from '@/lib';
 import { colors, spacing, layout } from '@/theme';
@@ -45,8 +50,10 @@ export function SectionMapView({
   const bounds = useMemo(() => {
     if (displayPoints.length === 0) return null;
 
-    let minLat = Infinity, maxLat = -Infinity;
-    let minLng = Infinity, maxLng = -Infinity;
+    let minLat = Infinity,
+      maxLat = -Infinity;
+    let minLng = Infinity,
+      maxLng = -Infinity;
 
     for (const point of displayPoints) {
       minLat = Math.min(minLat, point.lat);
@@ -73,7 +80,7 @@ export function SectionMapView({
       properties: {},
       geometry: {
         type: 'LineString' as const,
-        coordinates: displayPoints.map(p => [p.lng, p.lat]),
+        coordinates: displayPoints.map((p) => [p.lng, p.lat]),
       },
     };
   }, [displayPoints]);
@@ -99,11 +106,7 @@ export function SectionMapView({
   if (!bounds || displayPoints.length === 0) {
     return (
       <View style={[styles.placeholder, { height, backgroundColor: activityColor + '20' }]}>
-        <MaterialCommunityIcons
-          name="map-marker-off"
-          size={32}
-          color={activityColor}
-        />
+        <MaterialCommunityIcons name="map-marker-off" size={32} color={activityColor} />
       </View>
     );
   }
@@ -194,7 +197,7 @@ export function SectionMapView({
 
   // Section coordinates for BaseMapView [lng, lat] format
   const sectionCoords = useMemo(() => {
-    return displayPoints.map(p => [p.lng, p.lat] as [number, number]);
+    return displayPoints.map((p) => [p.lng, p.lat] as [number, number]);
   }, [displayPoints]);
 
   const isDark = isDarkStyle(mapStyle);

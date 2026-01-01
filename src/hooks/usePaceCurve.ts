@@ -52,11 +52,14 @@ export const SWIM_PACE_CURVE_DISTANCES = [
  * @param targetDistance - Target distance in meters
  * @returns Pace in m/s at that distance, or null if not found
  */
-export function getPaceAtDistance(curve: PaceCurve | undefined, targetDistance: number): number | null {
+export function getPaceAtDistance(
+  curve: PaceCurve | undefined,
+  targetDistance: number
+): number | null {
   if (!curve?.distances || !curve?.pace || curve.distances.length === 0) return null;
 
   // Find exact match first
-  const exactIndex = curve.distances.findIndex(d => Math.abs(d - targetDistance) < 1);
+  const exactIndex = curve.distances.findIndex((d) => Math.abs(d - targetDistance) < 1);
   if (exactIndex !== -1 && curve.pace[exactIndex]) return curve.pace[exactIndex];
 
   // Find closest distance

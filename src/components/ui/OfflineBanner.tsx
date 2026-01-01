@@ -23,24 +23,15 @@ export function OfflineBanner() {
   }
 
   // Calculate banner height for notch/Dynamic Island
-  const topPadding = Platform.OS === 'android'
-    ? Math.max(insets.top, 24)
-    : Math.max(insets.top, 20);
+  const topPadding =
+    Platform.OS === 'android' ? Math.max(insets.top, 24) : Math.max(insets.top, 20);
 
   return (
     <View style={[styles.container, { paddingTop: topPadding }]}>
       <View style={styles.content}>
-        <MaterialCommunityIcons
-          name="cloud-off-outline"
-          size={16}
-          color="#FFFFFF"
-        />
-        <Text style={styles.text}>
-          {t('emptyState.offline.title')}
-        </Text>
-        <Text style={styles.subtitleText}>
-          {t('emptyState.offline.description')}
-        </Text>
+        <MaterialCommunityIcons name="cloud-off-outline" size={16} color="#FFFFFF" />
+        <Text style={styles.text}>{t('emptyState.offline.title')}</Text>
+        <Text style={styles.subtitleText}>{t('emptyState.offline.description')}</Text>
       </View>
     </View>
   );

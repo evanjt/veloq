@@ -140,7 +140,7 @@ export function useEngineGroups(options: UseEngineGroupsOptions = {}): UseEngine
 
   // Filter and sort
   const result = useMemo(() => {
-    let filtered = groups.filter(g => g.activityIds.length >= minActivities);
+    let filtered = groups.filter((g) => g.activityIds.length >= minActivities);
 
     if (sortBy === 'count') {
       filtered.sort((a, b) => b.activityIds.length - a.activityIds.length);
@@ -218,10 +218,10 @@ export function useEngineSections(options: UseEngineSectionsOptions = {}): UseEn
     let filtered = sections;
 
     if (sportType) {
-      filtered = filtered.filter(s => s.sportType === sportType);
+      filtered = filtered.filter((s) => s.sportType === sportType);
     }
 
-    filtered = filtered.filter(s => s.visitCount >= minVisits);
+    filtered = filtered.filter((s) => s.visitCount >= minVisits);
 
     return {
       sections: filtered,
@@ -277,12 +277,9 @@ export function useViewportActivities(bounds: Bounds | null): UseViewportActivit
   useEffect(() => {
     if (bounds) {
       const engine = getRouteEngine();
-      const ids = engine ? engine.queryViewport(
-        bounds.minLat,
-        bounds.maxLat,
-        bounds.minLng,
-        bounds.maxLng
-      ) : [];
+      const ids = engine
+        ? engine.queryViewport(bounds.minLat, bounds.maxLat, bounds.minLng, bounds.maxLng)
+        : [];
       setActivityIds(ids);
     } else {
       setActivityIds([]);
@@ -390,7 +387,7 @@ export function useConsensusRoute(groupId: string | null): UseConsensusRouteResu
     const gpsPoints = engine ? engine.getConsensusRoutePoints(groupId) : [];
 
     if (gpsPoints.length > 0) {
-      setPoints(gpsPoints.map(p => ({ lat: p.latitude, lng: p.longitude })));
+      setPoints(gpsPoints.map((p) => ({ lat: p.latitude, lng: p.longitude })));
     } else {
       setPoints(null);
     }

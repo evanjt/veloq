@@ -32,8 +32,8 @@ function isRouteGroup(route: DiscoveredRouteInfo | RouteGroup): route is RouteGr
 function normalizePoints(points: { lat: number; lng: number }[]): { x: number; y: number }[] {
   if (points.length < 2) return [];
 
-  const lats = points.map(p => p.lat);
-  const lngs = points.map(p => p.lng);
+  const lats = points.map((p) => p.lat);
+  const lngs = points.map((p) => p.lng);
   const minLat = Math.min(...lats);
   const maxLat = Math.max(...lats);
   const minLng = Math.min(...lngs);
@@ -42,7 +42,7 @@ function normalizePoints(points: { lat: number; lng: number }[]): { x: number; y
   const latRange = maxLat - minLat || 1;
   const lngRange = maxLng - minLng || 1;
 
-  return points.map(p => ({
+  return points.map((p) => ({
     x: (p.lng - minLng) / lngRange,
     y: 1 - (p.lat - minLat) / latRange, // Invert Y for screen coordinates
   }));
@@ -61,12 +61,12 @@ const RoutePreview = memo(function RoutePreview({ points, color, isDark }: Route
   const height = 40;
   const padding = 4;
 
-  const scaledPoints = points.map(p => ({
+  const scaledPoints = points.map((p) => ({
     x: p.x * (width - padding * 2) + padding,
     y: p.y * (height - padding * 2) + padding,
   }));
 
-  const pointsString = scaledPoints.map(p => `${p.x},${p.y}`).join(' ');
+  const pointsString = scaledPoints.map((p) => `${p.x},${p.y}`).join(' ');
   const startPoint = scaledPoints[0];
   const endPoint = scaledPoints[scaledPoints.length - 1];
 
@@ -88,19 +88,19 @@ const RoutePreview = memo(function RoutePreview({ points, color, isDark }: Route
 
       {/* Subtle grid lines for map effect */}
       <Polyline
-        points={`${width/3},0 ${width/3},${height}`}
+        points={`${width / 3},0 ${width / 3},${height}`}
         stroke={gridColor}
         strokeWidth={0.5}
         strokeOpacity={0.5}
       />
       <Polyline
-        points={`${2*width/3},0 ${2*width/3},${height}`}
+        points={`${(2 * width) / 3},0 ${(2 * width) / 3},${height}`}
         stroke={gridColor}
         strokeWidth={0.5}
         strokeOpacity={0.5}
       />
       <Polyline
-        points={`0,${height/2} ${width},${height/2}`}
+        points={`0,${height / 2} ${width},${height / 2}`}
         stroke={gridColor}
         strokeWidth={0.5}
         strokeOpacity={0.5}
@@ -147,9 +147,7 @@ function RouteRowComponent({ route, navigable = false }: RouteRowProps) {
   const [customName, setCustomName] = useState<string | null>(null);
 
   // Lazy load consensus route for RouteGroup (non-blocking)
-  const { points: consensusPoints } = useConsensusRoute(
-    isRouteGroup(route) ? route.id : null
-  );
+  const { points: consensusPoints } = useConsensusRoute(isRouteGroup(route) ? route.id : null);
 
   // Load custom route name if available
   useEffect(() => {
@@ -211,7 +209,9 @@ function RouteRowComponent({ route, navigable = false }: RouteRowProps) {
   const distance = isRouteGroup(route) ? undefined : route.distance;
 
   // Get match percentage (only available on DiscoveredRouteInfo)
-  const avgMatchPercentage = isRouteGroup(route) ? route.averageMatchQuality : route.avgMatchPercentage;
+  const avgMatchPercentage = isRouteGroup(route)
+    ? route.averageMatchQuality
+    : route.avgMatchPercentage;
 
   const handlePress = () => {
     if (navigable) {
@@ -266,9 +266,9 @@ function RouteRowComponent({ route, navigable = false }: RouteRowProps) {
         <View style={styles.countBadge}>
           <Text style={styles.countText}>{route.activityCount}</Text>
           <MaterialCommunityIcons
-            name={navigable ? 'chevron-right' : (expanded ? 'chevron-up' : 'chevron-down')}
+            name={navigable ? 'chevron-right' : expanded ? 'chevron-up' : 'chevron-down'}
             size={16}
-            color={navigable ? '#FFFFFF' : (isDark ? '#888' : colors.textSecondary)}
+            color={navigable ? '#FFFFFF' : isDark ? '#888' : colors.textSecondary}
           />
         </View>
       </TouchableOpacity>

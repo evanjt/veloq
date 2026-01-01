@@ -19,12 +19,7 @@ export function StatDetailModal({ stat, isDark, onClose }: StatDetailModalProps)
   const { t } = useTranslation();
 
   return (
-    <Modal
-      visible={stat !== null}
-      transparent
-      animationType="fade"
-      onRequestClose={onClose}
-    >
+    <Modal visible={stat !== null} transparent animationType="fade" onRequestClose={onClose}>
       <Pressable style={styles.modalOverlay} onPress={onClose}>
         <View style={[styles.modalContent, isDark && styles.modalContentDark]}>
           {stat && (
@@ -32,19 +27,11 @@ export function StatDetailModal({ stat, isDark, onClose }: StatDetailModalProps)
               {/* Header */}
               <View style={styles.modalHeader}>
                 <View style={[styles.modalIconContainer, { backgroundColor: `${stat.color}20` }]}>
-                  <MaterialCommunityIcons
-                    name={stat.icon}
-                    size={28}
-                    color={stat.color}
-                  />
+                  <MaterialCommunityIcons name={stat.icon} size={28} color={stat.color} />
                 </View>
                 <View style={styles.modalHeaderText}>
-                  <Text style={[styles.modalValue, isDark && styles.textLight]}>
-                    {stat.value}
-                  </Text>
-                  <Text style={[styles.modalTitle, isDark && styles.textLight]}>
-                    {stat.title}
-                  </Text>
+                  <Text style={[styles.modalValue, isDark && styles.textLight]}>{stat.value}</Text>
+                  <Text style={[styles.modalTitle, isDark && styles.textLight]}>{stat.title}</Text>
                 </View>
               </View>
 
@@ -61,7 +48,11 @@ export function StatDetailModal({ stat, isDark, onClose }: StatDetailModalProps)
               {stat.explanation && (
                 <View style={styles.explanationBox}>
                   <View style={styles.explanationHeader}>
-                    <MaterialCommunityIcons name="information-outline" size={16} color={colors.textSecondary} />
+                    <MaterialCommunityIcons
+                      name="information-outline"
+                      size={16}
+                      color={colors.textSecondary}
+                    />
                     <Text style={styles.explanationTitle}>{t('activity.whatIsThis')}</Text>
                   </View>
                   <Text style={styles.explanationText}>{stat.explanation}</Text>
@@ -85,24 +76,38 @@ export function StatDetailModal({ stat, isDark, onClose }: StatDetailModalProps)
               {/* Comparison */}
               {stat.comparison && (
                 <View style={styles.comparisonSection}>
-                  <Text style={styles.comparisonLabel}>
-                    {stat.comparison.label}
-                  </Text>
-                  <View style={[
-                    styles.comparisonLarge,
-                    stat.comparison.isGood === true && styles.comparisonGood,
-                    stat.comparison.isGood === false && styles.comparisonBad,
-                  ]}>
+                  <Text style={styles.comparisonLabel}>{stat.comparison.label}</Text>
+                  <View
+                    style={[
+                      styles.comparisonLarge,
+                      stat.comparison.isGood === true && styles.comparisonGood,
+                      stat.comparison.isGood === false && styles.comparisonBad,
+                    ]}
+                  >
                     <MaterialCommunityIcons
-                      name={stat.comparison.trend === 'up' ? 'trending-up' : stat.comparison.trend === 'down' ? 'trending-down' : 'minus'}
+                      name={
+                        stat.comparison.trend === 'up'
+                          ? 'trending-up'
+                          : stat.comparison.trend === 'down'
+                            ? 'trending-down'
+                            : 'minus'
+                      }
                       size={18}
-                      color={stat.comparison.isGood === true ? colors.success : stat.comparison.isGood === false ? colors.error : colors.textSecondary}
+                      color={
+                        stat.comparison.isGood === true
+                          ? colors.success
+                          : stat.comparison.isGood === false
+                            ? colors.error
+                            : colors.textSecondary
+                      }
                     />
-                    <Text style={[
-                      styles.comparisonLargeText,
-                      stat.comparison.isGood === true && styles.comparisonTextGood,
-                      stat.comparison.isGood === false && styles.comparisonTextBad,
-                    ]}>
+                    <Text
+                      style={[
+                        styles.comparisonLargeText,
+                        stat.comparison.isGood === true && styles.comparisonTextGood,
+                        stat.comparison.isGood === false && styles.comparisonTextBad,
+                      ]}
+                    >
                       {stat.comparison.value}
                     </Text>
                   </View>

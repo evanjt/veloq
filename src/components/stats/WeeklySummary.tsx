@@ -30,7 +30,10 @@ function formatDistance(meters: number): string {
   return `${km.toFixed(1)} km`;
 }
 
-function getTimeRangeLabel(range: TimeRange, t: ReturnType<typeof useTranslation>['t']): { current: string; previous: string } {
+function getTimeRangeLabel(
+  range: TimeRange,
+  t: ReturnType<typeof useTranslation>['t']
+): { current: string; previous: string } {
   switch (range) {
     case 'week':
       return { current: t('stats.thisWeek'), previous: t('stats.vsLastWeek') };
@@ -45,7 +48,10 @@ function getTimeRangeLabel(range: TimeRange, t: ReturnType<typeof useTranslation
   }
 }
 
-function getTimeRangeButtonLabel(range: TimeRange, t: ReturnType<typeof useTranslation>['t']): string {
+function getTimeRangeButtonLabel(
+  range: TimeRange,
+  t: ReturnType<typeof useTranslation>['t']
+): string {
   switch (range) {
     case 'week':
       return t('stats.week');
@@ -60,7 +66,12 @@ function getTimeRangeButtonLabel(range: TimeRange, t: ReturnType<typeof useTrans
   }
 }
 
-function getDateRanges(range: TimeRange): { currentStart: Date; currentEnd: Date; previousStart: Date; previousEnd: Date } {
+function getDateRanges(range: TimeRange): {
+  currentStart: Date;
+  currentEnd: Date;
+  previousStart: Date;
+  previousEnd: Date;
+} {
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
@@ -117,7 +128,7 @@ function getDateRanges(range: TimeRange): { currentStart: Date; currentEnd: Date
 }
 
 function filterActivities(activities: Activity[], start: Date, end: Date): Activity[] {
-  return activities.filter(a => {
+  return activities.filter((a) => {
     const date = new Date(a.start_date_local);
     return date >= start && date <= end;
   });
@@ -148,7 +159,11 @@ export function WeeklySummary({ activities }: WeeklySummaryProps) {
 
     const ranges = getDateRanges(timeRange);
     const currentActivities = filterActivities(activities, ranges.currentStart, ranges.currentEnd);
-    const previousActivities = filterActivities(activities, ranges.previousStart, ranges.previousEnd);
+    const previousActivities = filterActivities(
+      activities,
+      ranges.previousStart,
+      ranges.previousEnd
+    );
 
     return {
       currentStats: calculateStats(currentActivities),
@@ -157,9 +172,8 @@ export function WeeklySummary({ activities }: WeeklySummaryProps) {
     };
   }, [activities, timeRange, t]);
 
-  const tssChange = previousStats.tss > 0
-    ? ((currentStats.tss - previousStats.tss) / previousStats.tss) * 100
-    : 0;
+  const tssChange =
+    previousStats.tss > 0 ? ((currentStats.tss - previousStats.tss) / previousStats.tss) * 100 : 0;
 
   const isLoadIncreasing = tssChange > 0;
 
@@ -243,14 +257,18 @@ export function WeeklySummary({ activities }: WeeklySummaryProps) {
           <Text style={[styles.statValue, isDark && styles.textLight]}>
             {formatDuration(currentStats.duration)}
           </Text>
-          <Text style={[styles.statLabel, isDark && styles.textDark]}>{t('activity.duration')}</Text>
+          <Text style={[styles.statLabel, isDark && styles.textDark]}>
+            {t('activity.duration')}
+          </Text>
         </View>
 
         <View style={styles.statItem}>
           <Text style={[styles.statValue, isDark && styles.textLight]}>
             {formatDistance(currentStats.distance)}
           </Text>
-          <Text style={[styles.statLabel, isDark && styles.textDark]}>{t('activity.distance')}</Text>
+          <Text style={[styles.statLabel, isDark && styles.textDark]}>
+            {t('activity.distance')}
+          </Text>
         </View>
 
         <View style={styles.statItem}>
@@ -262,9 +280,7 @@ export function WeeklySummary({ activities }: WeeklySummaryProps) {
       {/* Comparison with previous period */}
       {previousStats.tss > 0 && (
         <View style={styles.comparisonRow}>
-          <Text style={[styles.comparisonLabel, isDark && styles.textDark]}>
-            {labels.previous}
-          </Text>
+          <Text style={[styles.comparisonLabel, isDark && styles.textDark]}>{labels.previous}</Text>
           <Text
             style={[
               styles.comparisonValue,

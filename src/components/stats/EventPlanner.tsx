@@ -54,7 +54,7 @@ export function EventPlanner({ events, athleteId }: EventPlannerProps) {
   const isDark = colorScheme === 'dark';
 
   const sortedEvents = [...(events || [])]
-    .filter(e => getDaysUntil(e.date) >= 0)
+    .filter((e) => getDaysUntil(e.date) >= 0)
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
   const nextEvent = sortedEvents[0];
@@ -93,9 +93,7 @@ export function EventPlanner({ events, athleteId }: EventPlannerProps) {
               {t('stats.daysCount', { count: getDaysUntil(nextEvent.date) })}
             </Text>
           </View>
-          <Text style={[styles.eventName, isDark && styles.textLight]}>
-            {nextEvent.name}
-          </Text>
+          <Text style={[styles.eventName, isDark && styles.textLight]}>{nextEvent.name}</Text>
           <View style={styles.eventDetails}>
             <Text style={[styles.eventDate, isDark && styles.textDark]}>
               {formatDate(nextEvent.date)}
@@ -107,9 +105,7 @@ export function EventPlanner({ events, athleteId }: EventPlannerProps) {
             )}
           </View>
           {nextEvent.notes && (
-            <Text style={[styles.eventNotes, isDark && styles.textDark]}>
-              {nextEvent.notes}
-            </Text>
+            <Text style={[styles.eventNotes, isDark && styles.textDark]}>{nextEvent.notes}</Text>
           )}
         </View>
       )}
@@ -118,7 +114,9 @@ export function EventPlanner({ events, athleteId }: EventPlannerProps) {
       <View style={styles.eventsList}>
         {sortedEvents.slice(1).map((event) => (
           <View key={event.id} style={[styles.eventItem, isDark && styles.eventItemDark]}>
-            <View style={[styles.priorityDot, { backgroundColor: PRIORITY_COLORS[event.priority] }]} />
+            <View
+              style={[styles.priorityDot, { backgroundColor: PRIORITY_COLORS[event.priority] }]}
+            />
             <MaterialCommunityIcons
               name={TYPE_ICONS[event.type]}
               size={16}

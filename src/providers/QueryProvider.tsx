@@ -4,7 +4,7 @@ import { QueryClient, onlineManager } from '@tanstack/react-query';
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
 import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persister';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import NetInfo from '@react-native-community/netinfo';
+import * as Network from 'expo-network';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -43,15 +43,15 @@ interface QueryProviderProps {
 }
 
 export function QueryProvider({ children }: QueryProviderProps) {
-  // Sync TanStack Query's online state with NetInfo
+  // Sync TanStack Query's online state with expo-network
   useEffect(() => {
-    const unsubscribe = NetInfo.addEventListener((state) => {
+    const subscription = Network.addNetworkStateListener((state) => {
       // Consider online if connected AND internet is reachable (or unknown)
       const isOnline = state.isConnected === true && state.isInternetReachable !== false;
       onlineManager.setOnline(isOnline);
     });
 
-    return () => unsubscribe();
+    return () => subscription.remove();
   }, []);
 
   return (

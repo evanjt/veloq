@@ -51,7 +51,7 @@ function formatDistance(meters: number): string {
 
 // Activity trace colors - muted versions of the primary color
 const TRACE_COLORS = [
-  'rgba(252, 76, 2, 0.15)',   // Primary orange, very muted
+  'rgba(252, 76, 2, 0.15)', // Primary orange, very muted
   'rgba(252, 76, 2, 0.20)',
   'rgba(252, 76, 2, 0.25)',
   'rgba(252, 76, 2, 0.30)',
@@ -128,8 +128,12 @@ export const SectionRow = memo(function SectionRow({
   const normalizePoint = (lat: number, lng: number): { x: number; y: number } => {
     if (!bounds) return { x: 0, y: 0 };
     return {
-      x: PREVIEW_PADDING + ((lng - bounds.minLng) / bounds.range) * (PREVIEW_WIDTH - 2 * PREVIEW_PADDING),
-      y: PREVIEW_PADDING + (1 - (lat - bounds.minLat) / bounds.range) * (PREVIEW_HEIGHT - 2 * PREVIEW_PADDING),
+      x:
+        PREVIEW_PADDING +
+        ((lng - bounds.minLng) / bounds.range) * (PREVIEW_WIDTH - 2 * PREVIEW_PADDING),
+      y:
+        PREVIEW_PADDING +
+        (1 - (lat - bounds.minLat) / bounds.range) * (PREVIEW_HEIGHT - 2 * PREVIEW_PADDING),
     };
   };
 
@@ -202,11 +206,7 @@ export const SectionRow = memo(function SectionRow({
             />
           </Svg>
         ) : (
-          <MaterialCommunityIcons
-            name={icon}
-            size={24}
-            color={isDark ? '#666' : colors.primary}
-          />
+          <MaterialCommunityIcons name={icon} size={24} color={isDark ? '#666' : colors.primary} />
         )}
       </View>
 
@@ -236,14 +236,8 @@ export const SectionRow = memo(function SectionRow({
           </View>
 
           <View style={styles.stat}>
-            <MaterialCommunityIcons
-              name="repeat"
-              size={12}
-              color={isDark ? '#666' : '#999'}
-            />
-            <Text style={[styles.statText, isDark && styles.textMuted]}>
-              {section.visitCount}x
-            </Text>
+            <MaterialCommunityIcons name="repeat" size={12} color={isDark ? '#666' : '#999'} />
+            <Text style={[styles.statText, isDark && styles.textMuted]}>{section.visitCount}x</Text>
           </View>
 
           <View style={styles.stat}>
@@ -270,11 +264,7 @@ export const SectionRow = memo(function SectionRow({
 
       {/* Chevron */}
       {onPress && (
-        <MaterialCommunityIcons
-          name="chevron-right"
-          size={20}
-          color={isDark ? '#444' : '#CCC'}
-        />
+        <MaterialCommunityIcons name="chevron-right" size={20} color={isDark ? '#444' : '#CCC'} />
       )}
     </TouchableOpacity>
   );

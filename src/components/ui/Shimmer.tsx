@@ -1,5 +1,12 @@
 import React, { useEffect, useRef } from 'react';
-import { View, StyleSheet, Animated, useColorScheme, ViewStyle, DimensionValue } from 'react-native';
+import {
+  View,
+  StyleSheet,
+  Animated,
+  useColorScheme,
+  ViewStyle,
+  DimensionValue,
+} from 'react-native';
 import { colors, darkColors, opacity } from '@/theme/colors';
 import { layout, spacing } from '@/theme/spacing';
 
@@ -10,12 +17,7 @@ interface ShimmerProps {
   style?: ViewStyle;
 }
 
-export function Shimmer({
-  width = '100%',
-  height = 20,
-  borderRadius = 8,
-  style,
-}: ShimmerProps) {
+export function Shimmer({ width = '100%', height = 20, borderRadius = 8, style }: ShimmerProps) {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const animatedValue = useRef(new Animated.Value(0)).current;

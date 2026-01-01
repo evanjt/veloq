@@ -60,18 +60,41 @@ export const intervalsApi = {
     // Base fields always included (most important for activity list)
     // Note: polyline is NOT returned by the API (would need streams endpoint)
     const baseFields = [
-      'id', 'name', 'type', 'start_date_local', 'moving_time', 'elapsed_time',
-      'distance', 'total_elevation_gain', 'average_speed', 'max_speed',
-      'icu_average_hr', 'icu_max_hr', 'average_heartrate', 'average_watts', 'max_watts', 'icu_average_watts',
-      'average_cadence', 'calories', 'icu_training_load',
-      'has_weather', 'average_weather_temp', 'icu_ftp', 'stream_types',
-      'locality', 'country', // Location info
+      'id',
+      'name',
+      'type',
+      'start_date_local',
+      'moving_time',
+      'elapsed_time',
+      'distance',
+      'total_elevation_gain',
+      'average_speed',
+      'max_speed',
+      'icu_average_hr',
+      'icu_max_hr',
+      'average_heartrate',
+      'average_watts',
+      'max_watts',
+      'icu_average_watts',
+      'average_cadence',
+      'calories',
+      'icu_training_load',
+      'has_weather',
+      'average_weather_temp',
+      'icu_ftp',
+      'stream_types',
+      'locality',
+      'country', // Location info
     ];
 
     // Stats fields for performance/stats page
     // Note: icu_zone_times = power zones, icu_hr_zone_times = HR zones, icu_pm_ftp_watts = eFTP
     const statsFields = [
-      'icu_pm_ftp_watts', 'icu_zone_times', 'icu_hr_zone_times', 'icu_power_zones', 'icu_hr_zones',
+      'icu_pm_ftp_watts',
+      'icu_zone_times',
+      'icu_hr_zone_times',
+      'icu_power_zones',
+      'icu_hr_zones',
     ];
 
     const fields = params?.includeStats
@@ -119,16 +142,13 @@ export const intervalsApi = {
     const activities = response.data as Activity[];
     if (activities.length === 0) return null;
     // Find the oldest activity date from the returned results
-    return activities.reduce((oldest, a) =>
-      a.start_date_local < oldest ? a.start_date_local : oldest,
+    return activities.reduce(
+      (oldest, a) => (a.start_date_local < oldest ? a.start_date_local : oldest),
       activities[0].start_date_local
     );
   },
 
-  async getActivityStreams(
-    id: string,
-    types?: string[]
-  ): Promise<ActivityStreams> {
+  async getActivityStreams(id: string, types?: string[]): Promise<ActivityStreams> {
     if (isDemoMode()) return mockIntervalsApi.getActivityStreams(id, types);
     // Note: intervals.icu requires .json suffix for streams endpoint
     const response = await apiClient.get<RawStreamItem[]>(`/activity/${id}/streams.json`, {
@@ -138,10 +158,7 @@ export const intervalsApi = {
     return parseStreams(response.data);
   },
 
-  async getWellness(params?: {
-    oldest?: string;
-    newest?: string;
-  }): Promise<WellnessData[]> {
+  async getWellness(params?: { oldest?: string; newest?: string }): Promise<WellnessData[]> {
     if (isDemoMode()) return mockIntervalsApi.getWellness(params);
     const athleteId = getAthleteId();
 
@@ -166,10 +183,7 @@ export const intervalsApi = {
    * @param sport - Sport type filter (e.g., 'Ride', 'Run')
    * @param days - Number of days to include (default 365)
    */
-  async getPowerCurve(params?: {
-    sport?: string;
-    days?: number;
-  }): Promise<PowerCurve> {
+  async getPowerCurve(params?: { sport?: string; days?: number }): Promise<PowerCurve> {
     if (isDemoMode()) return mockIntervalsApi.getPowerCurve(params);
     const athleteId = getAthleteId();
     const sportType = params?.sport || 'Ride';
@@ -245,7 +259,7 @@ export const intervalsApi = {
     });
 
     // Extract critical speed model data
-    const csModel = curve?.paceModels?.find(m => m.type === 'CS');
+    const csModel = curve?.paceModels?.find((m) => m.type === 'CS');
 
     return {
       type: 'pace',
@@ -295,5 +309,4 @@ export const intervalsApi = {
     });
     return response.data;
   },
-
 };

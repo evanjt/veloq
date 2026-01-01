@@ -55,17 +55,14 @@ export function GlobalDataSync() {
   }
 
   // Calculate banner height for notch/Dynamic Island
-  const topPadding = Platform.OS === 'android'
-    ? Math.max(insets.top, 24)
-    : Math.max(insets.top, 20);
+  const topPadding =
+    Platform.OS === 'android' ? Math.max(insets.top, 24) : Math.max(insets.top, 20);
 
-  const progressPercent = progress.total > 0
-    ? Math.round((progress.completed / progress.total) * 100)
-    : 0;
+  const progressPercent =
+    progress.total > 0 ? Math.round((progress.completed / progress.total) * 100) : 0;
 
-  const statusText = progress.status === 'computing'
-    ? progress.message
-    : `Syncing GPS data... ${progressPercent}%`;
+  const statusText =
+    progress.status === 'computing' ? progress.message : `Syncing GPS data... ${progressPercent}%`;
 
   return (
     <View style={[styles.container, { paddingTop: topPadding }]}>

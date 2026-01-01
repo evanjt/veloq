@@ -21,16 +21,23 @@ function generateDemoWellness(): WellnessData[] {
 
     // Seasonal target CTL
     const month = date.getMonth();
-    const targetCtl = month >= 11 || month <= 1 ? 35 :
-                      month >= 2 && month <= 4 ? 45 :
-                      month >= 5 && month <= 7 ? 55 : 45;
+    const targetCtl =
+      month >= 11 || month <= 1
+        ? 35
+        : month >= 2 && month <= 4
+          ? 45
+          : month >= 5 && month <= 7
+            ? 55
+            : 45;
 
     // Simulate daily load
     const dayOfWeek = date.getDay();
     const isRest = dayOfWeek === 1 || (dayOfWeek === 4 && Math.random() < 0.5);
-    const dailyTss = isRest ? 0 :
-                     dayOfWeek === 0 || dayOfWeek === 6 ? 80 + Math.random() * 50 :
-                     40 + Math.random() * 40;
+    const dailyTss = isRest
+      ? 0
+      : dayOfWeek === 0 || dayOfWeek === 6
+        ? 80 + Math.random() * 50
+        : 40 + Math.random() * 40;
 
     // Update CTL/ATL
     atl = atl + (dailyTss - atl) / 7;

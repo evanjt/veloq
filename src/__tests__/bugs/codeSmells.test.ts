@@ -52,8 +52,7 @@ describe('Bug: getBounds sentinel value conflicts with valid coordinates', () =>
     // The bug causes getBoundsFromPolyline to return null
     // because it checks: if (minLat === 0 && maxLat === 0...) return null
     const isInvalidByBuggyCheck =
-      bounds.minLat === 0 && bounds.maxLat === 0 &&
-      bounds.minLng === 0 && bounds.maxLng === 0;
+      bounds.minLat === 0 && bounds.maxLat === 0 && bounds.minLng === 0 && bounds.maxLng === 0;
 
     // This WILL FAIL - proving the bug exists
     expect(isInvalidByBuggyCheck).toBe(false);
@@ -71,9 +70,7 @@ describe('Bug: detectCoordinateFormat ambiguity', () => {
   it('should correctly detect [lat, lng] for coordinates within ±90 range', () => {
     // Zurich: lat 47.3769, lng 8.5417
     // Both values are valid latitudes, so detection relies on heuristics
-    const coords: [number, number][] = [
-      [47.3769, 8.5417],
-    ];
+    const coords: [number, number][] = [[47.3769, 8.5417]];
 
     const format = detectCoordinateFormat(coords);
 
@@ -195,7 +192,7 @@ describe('Error handling: Graceful degradation', () => {
     const coords = [
       { latitude: 40.7128, longitude: -74.006 }, // NYC
       { latitude: NaN, longitude: NaN }, // Invalid
-      { latitude: 40.7580, longitude: -73.9855 }, // Midtown
+      { latitude: 40.758, longitude: -73.9855 }, // Midtown
     ];
 
     const bounds = getBounds(coords);

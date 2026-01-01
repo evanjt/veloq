@@ -113,7 +113,8 @@ describe('Translation Completeness', () => {
       const localeKeys = getAllKeys(localeData);
       const missingKeys = referenceKeys.filter((key) => !localeKeys.includes(key));
       const extraKeys = localeKeys.filter((key) => !referenceKeys.includes(key));
-      const completeness = ((referenceKeys.length - missingKeys.length) / referenceKeys.length) * 100;
+      const completeness =
+        ((referenceKeys.length - missingKeys.length) / referenceKeys.length) * 100;
 
       test(`should have all translation keys (${completeness.toFixed(1)}% complete)`, () => {
         if (missingKeys.length > 0) {
@@ -181,7 +182,8 @@ describe('Translation Completeness', () => {
 
       const localeKeys = getAllKeys(localeData);
       const missingKeys = referenceKeys.filter((key) => !localeKeys.includes(key));
-      const completeness = ((referenceKeys.length - missingKeys.length) / referenceKeys.length) * 100;
+      const completeness =
+        ((referenceKeys.length - missingKeys.length) / referenceKeys.length) * 100;
 
       summary.push({
         locale,
@@ -195,9 +197,13 @@ describe('Translation Completeness', () => {
     summary.sort((a, b) => parseFloat(b.percent) - parseFloat(a.percent));
 
     summary.forEach(({ locale, complete, missing, percent }) => {
-      const bar = '█'.repeat(Math.floor(parseFloat(percent) / 5)) + '░'.repeat(20 - Math.floor(parseFloat(percent) / 5));
+      const bar =
+        '█'.repeat(Math.floor(parseFloat(percent) / 5)) +
+        '░'.repeat(20 - Math.floor(parseFloat(percent) / 5));
       const status = parseFloat(percent) === 100 ? '✅' : parseFloat(percent) >= 80 ? '🟡' : '🔴';
-      console.log(`${status} ${locale.padEnd(10)} ${bar} ${percent.padStart(5)}% (${missing} missing)`);
+      console.log(
+        `${status} ${locale.padEnd(10)} ${bar} ${percent.padStart(5)}% (${missing} missing)`
+      );
     });
 
     console.log('-'.repeat(60));

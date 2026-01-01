@@ -24,7 +24,13 @@ interface ActivityPopupProps {
   onViewDetails: () => void;
 }
 
-export function ActivityPopup({ selected, bottom, onZoom, onClose, onViewDetails }: ActivityPopupProps) {
+export function ActivityPopup({
+  selected,
+  bottom,
+  onZoom,
+  onClose,
+  onViewDetails,
+}: ActivityPopupProps) {
   const { t } = useTranslation();
   const config = getActivityTypeConfig(selected.activity.type);
 
@@ -86,10 +92,7 @@ export function ActivityPopup({ selected, bottom, onZoom, onClose, onViewDetails
         </View>
       )}
 
-      <TouchableOpacity
-        style={styles.viewDetailsButton}
-        onPress={onViewDetails}
-      >
+      <TouchableOpacity style={styles.viewDetailsButton} onPress={onViewDetails}>
         <Text style={styles.viewDetailsText}>{t('maps.viewDetails')}</Text>
         <MaterialCommunityIcons name="chevron-right" size={20} color={colors.primary} />
       </TouchableOpacity>

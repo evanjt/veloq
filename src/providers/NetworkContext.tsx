@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import NetInfo, { NetInfoState } from '@react-native-community/netinfo';
+import * as Network from 'expo-network';
 
 interface NetworkContextValue {
   /** Whether device has network connectivity */
@@ -25,16 +25,14 @@ export function NetworkProvider({ children }: { children: ReactNode }) {
     let hasReceivedListenerUpdate = false;
 
     // Subscribe to network state updates
-    // Note: The listener fires immediately with current state, so we don't need
-    // a separate fetch() call which could cause a race condition
-    const unsubscribe = NetInfo.addEventListener((state: NetInfoState) => {
+    const subscription = Network.addNetworkStateListener((state) => {
       hasReceivedListenerUpdate = true;
       const isOnline = state.isConnected === true && state.isInternetReachable !== false;
 
       setNetworkState({
         isOnline,
-        isInternetReachable: state.isInternetReachable,
-        connectionType: state.type,
+        isInternetReachable: state.isInternetReachable ?? null,
+        connectionType: state.type ?? null,
       });
     });
 
@@ -42,14 +40,14 @@ export function NetworkProvider({ children }: { children: ReactNode }) {
     // This handles edge cases where addEventListener might not fire immediately
     const timeoutId = setTimeout(() => {
       if (!hasReceivedListenerUpdate) {
-        NetInfo.fetch().then((state: NetInfoState) => {
+        Network.getNetworkStateAsync().then((state) => {
           // Only update if we still haven't received a listener update
           if (!hasReceivedListenerUpdate) {
             const isOnline = state.isConnected === true && state.isInternetReachable !== false;
             setNetworkState({
               isOnline,
-              isInternetReachable: state.isInternetReachable,
-              connectionType: state.type,
+              isInternetReachable: state.isInternetReachable ?? null,
+              connectionType: state.type ?? null,
             });
           }
         });
@@ -58,15 +56,11 @@ export function NetworkProvider({ children }: { children: ReactNode }) {
 
     return () => {
       clearTimeout(timeoutId);
-      unsubscribe();
+      subscription.remove();
     };
   }, []);
 
-  return (
-    <NetworkContext.Provider value={networkState}>
-      {children}
-    </NetworkContext.Provider>
-  );
+  return <NetworkContext.Provider value={networkState}>{children}</NetworkContext.Provider>;
 }
 
 export function useNetwork(): NetworkContextValue {

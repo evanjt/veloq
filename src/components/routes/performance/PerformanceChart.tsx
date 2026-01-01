@@ -274,8 +274,7 @@ export function PerformanceChart({
                     if (point.x == null || point.y == null) return null;
                     const d = chartData[idx];
                     if (d?.isBest || d?.isCurrent) return null;
-                    const pointColor =
-                      d?.direction === 'reverse' ? REVERSE_COLOR : SAME_COLOR;
+                    const pointColor = d?.direction === 'reverse' ? REVERSE_COLOR : SAME_COLOR;
                     return (
                       <Circle
                         key={`point-${idx}`}

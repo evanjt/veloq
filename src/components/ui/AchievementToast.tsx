@@ -25,13 +25,13 @@ import * as Haptics from 'expo-haptics';
 import { colors, darkColors, gradients, spacing, shadows } from '@/theme';
 
 export type AchievementType =
-  | 'pr'           // Personal Record
-  | 'milestone'    // Activity milestone (100th ride, etc.)
-  | 'streak'       // Training streak
-  | 'peak_form'    // Peak fitness/form
-  | 'distance'     // Distance milestone
-  | 'elevation'    // Elevation milestone
-  | 'custom';      // Custom achievement
+  | 'pr' // Personal Record
+  | 'milestone' // Activity milestone (100th ride, etc.)
+  | 'streak' // Training streak
+  | 'peak_form' // Peak fitness/form
+  | 'distance' // Distance milestone
+  | 'elevation' // Elevation milestone
+  | 'custom'; // Custom achievement
 
 interface Achievement {
   type: AchievementType;
@@ -57,11 +57,14 @@ export interface AchievementToastRef {
   hide: () => void;
 }
 
-const ACHIEVEMENT_CONFIG: Record<AchievementType, {
-  icon: keyof typeof MaterialCommunityIcons.glyphMap;
-  gradient: readonly [string, string, ...string[]];
-  label: string;
-}> = {
+const ACHIEVEMENT_CONFIG: Record<
+  AchievementType,
+  {
+    icon: keyof typeof MaterialCommunityIcons.glyphMap;
+    gradient: readonly [string, string, ...string[]];
+    label: string;
+  }
+> = {
   pr: {
     icon: 'trophy',
     gradient: gradients.primary,
@@ -100,14 +103,7 @@ const ACHIEVEMENT_CONFIG: Record<AchievementType, {
 };
 
 export const AchievementToast = forwardRef<AchievementToastRef, AchievementToastProps>(
-  function AchievementToast(
-    {
-      topOffset,
-      displayDuration = 4000,
-      hapticFeedback = true,
-    },
-    ref
-  ) {
+  function AchievementToast({ topOffset, displayDuration = 4000, hapticFeedback = true }, ref) {
     const insets = useSafeAreaInsets();
     const colorScheme = useColorScheme();
     const isDark = colorScheme === 'dark';
@@ -121,49 +117,52 @@ export const AchievementToast = forwardRef<AchievementToastRef, AchievementToast
     const iconScale = useSharedValue(0);
     const iconRotation = useSharedValue(-30);
 
-    const show = useCallback((newAchievement: Achievement) => {
-      setAchievement(newAchievement);
-      setIsVisible(true);
+    const show = useCallback(
+      (newAchievement: Achievement) => {
+        setAchievement(newAchievement);
+        setIsVisible(true);
 
-      // Haptic feedback
-      if (hapticFeedback) {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-      }
+        // Haptic feedback
+        if (hapticFeedback) {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+        }
 
-      // Entrance animation
-      translateY.value = withSpring(0, {
-        damping: 15,
-        stiffness: 300,
-      });
-      opacity.value = withTiming(1, { duration: 200 });
-      scale.value = withSpring(1, {
-        damping: 12,
-        stiffness: 400,
-      });
-
-      // Icon pop animation
-      iconScale.value = withDelay(
-        150,
-        withSpring(1, {
-          damping: 8,
-          stiffness: 400,
-        })
-      );
-      iconRotation.value = withDelay(
-        150,
-        withSpring(0, {
-          damping: 10,
+        // Entrance animation
+        translateY.value = withSpring(0, {
+          damping: 15,
           stiffness: 300,
-        })
-      );
+        });
+        opacity.value = withTiming(1, { duration: 200 });
+        scale.value = withSpring(1, {
+          damping: 12,
+          stiffness: 400,
+        });
 
-      // Auto-hide after duration
-      const hideTimeout = setTimeout(() => {
-        hide();
-      }, displayDuration);
+        // Icon pop animation
+        iconScale.value = withDelay(
+          150,
+          withSpring(1, {
+            damping: 8,
+            stiffness: 400,
+          })
+        );
+        iconRotation.value = withDelay(
+          150,
+          withSpring(0, {
+            damping: 10,
+            stiffness: 300,
+          })
+        );
 
-      return () => clearTimeout(hideTimeout);
-    }, [hapticFeedback, displayDuration, translateY, opacity, scale, iconScale, iconRotation]);
+        // Auto-hide after duration
+        const hideTimeout = setTimeout(() => {
+          hide();
+        }, displayDuration);
+
+        return () => clearTimeout(hideTimeout);
+      },
+      [hapticFeedback, displayDuration, translateY, opacity, scale, iconScale, iconRotation]
+    );
 
     const hide = useCallback(() => {
       // Exit animation
@@ -182,24 +181,22 @@ export const AchievementToast = forwardRef<AchievementToastRef, AchievementToast
       }, 350);
     }, [translateY, opacity, scale, iconScale]);
 
-    useImperativeHandle(ref, () => ({
-      show,
-      hide,
-    }), [show, hide]);
+    useImperativeHandle(
+      ref,
+      () => ({
+        show,
+        hide,
+      }),
+      [show, hide]
+    );
 
     const animatedContainerStyle = useAnimatedStyle(() => ({
-      transform: [
-        { translateY: translateY.value },
-        { scale: scale.value },
-      ],
+      transform: [{ translateY: translateY.value }, { scale: scale.value }],
       opacity: opacity.value,
     }));
 
     const animatedIconStyle = useAnimatedStyle(() => ({
-      transform: [
-        { scale: iconScale.value },
-        { rotate: `${iconRotation.value}deg` },
-      ],
+      transform: [{ scale: iconScale.value }, { rotate: `${iconRotation.value}deg` }],
     }));
 
     if (!isVisible || !achievement) {
@@ -230,31 +227,18 @@ export const AchievementToast = forwardRef<AchievementToastRef, AchievementToast
 
           {/* Icon container */}
           <Animated.View style={[styles.iconContainer, animatedIconStyle]}>
-            <LinearGradient
-              colors={gradient}
-              style={styles.iconBackground}
-            >
-              <MaterialCommunityIcons
-                name={icon}
-                size={24}
-                color={colors.textOnPrimary}
-              />
+            <LinearGradient colors={gradient} style={styles.iconBackground}>
+              <MaterialCommunityIcons name={icon} size={24} color={colors.textOnPrimary} />
             </LinearGradient>
           </Animated.View>
 
           {/* Content */}
           <View style={styles.content}>
-            <Text
-              style={[styles.title, isDark && styles.titleDark]}
-              numberOfLines={1}
-            >
+            <Text style={[styles.title, isDark && styles.titleDark]} numberOfLines={1}>
               {achievement.title}
             </Text>
             {achievement.subtitle && (
-              <Text
-                style={[styles.subtitle, isDark && styles.subtitleDark]}
-                numberOfLines={1}
-              >
+              <Text style={[styles.subtitle, isDark && styles.subtitleDark]} numberOfLines={1}>
                 {achievement.subtitle}
               </Text>
             )}
@@ -287,9 +271,7 @@ export function useAchievementToast() {
   }, []);
 
   const ToastComponent = useCallback(
-    (props: AchievementToastProps) => (
-      <AchievementToast ref={toastRef} {...props} />
-    ),
+    (props: AchievementToastProps) => <AchievementToast ref={toastRef} {...props} />,
     []
   );
 
@@ -321,7 +303,7 @@ export const achievements = {
   peakForm: (subtitle?: string): Achievement => ({
     type: 'peak_form',
     title: 'Peak Form!',
-    subtitle: subtitle || 'You\'re at your best',
+    subtitle: subtitle || "You're at your best",
   }),
   distanceMilestone: (distance: string): Achievement => ({
     type: 'distance',

@@ -13,8 +13,8 @@ export function useEFTPHistory(activities: Activity[] | undefined): eFTPPoint[] 
 
     // Filter activities that have eFTP estimates (icu_pm_ftp_watts)
     const withEFTP = activities
-      .filter(a => a.icu_pm_ftp_watts && a.icu_pm_ftp_watts > 0)
-      .map(a => ({
+      .filter((a) => a.icu_pm_ftp_watts && a.icu_pm_ftp_watts > 0)
+      .map((a) => ({
         date: a.start_date_local.split('T')[0], // ISO date only
         eftp: a.icu_pm_ftp_watts!,
         activity_id: a.id,
@@ -59,7 +59,7 @@ export function getLatestFTP(activities: Activity[] | undefined): number | undef
 
   // Find most recent activity with FTP setting
   const withFTP = activities
-    .filter(a => a.icu_ftp && a.icu_ftp > 0)
+    .filter((a) => a.icu_ftp && a.icu_ftp > 0)
     .sort((a, b) => b.start_date_local.localeCompare(a.start_date_local));
 
   return withFTP[0]?.icu_ftp;
@@ -73,7 +73,7 @@ export function getLatestEFTP(activities: Activity[] | undefined): number | unde
 
   // Find most recent activity with eFTP estimate
   const withEFTP = activities
-    .filter(a => a.icu_pm_ftp_watts && a.icu_pm_ftp_watts > 0)
+    .filter((a) => a.icu_pm_ftp_watts && a.icu_pm_ftp_watts > 0)
     .sort((a, b) => b.start_date_local.localeCompare(a.start_date_local));
 
   return withEFTP[0]?.icu_pm_ftp_watts;

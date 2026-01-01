@@ -6,11 +6,7 @@
  */
 
 import { getGpsTracks } from './storage/gpsStorage';
-import type {
-  CustomSection,
-  CustomSectionMatch,
-  RoutePoint,
-} from '@/types';
+import type { CustomSection, CustomSectionMatch, RoutePoint } from '@/types';
 
 /** Configuration for section matching */
 export interface SectionMatchConfig {
@@ -30,12 +26,7 @@ export const DEFAULT_MATCH_CONFIG: SectionMatchConfig = {
  * Calculate distance between two GPS points using Haversine formula.
  * Returns distance in meters.
  */
-function haversineDistance(
-  lat1: number,
-  lon1: number,
-  lat2: number,
-  lon2: number
-): number {
+function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6371000; // Earth radius in meters
   const dLat = ((lat2 - lat1) * Math.PI) / 180;
   const dLon = ((lon2 - lon1) * Math.PI) / 180;
@@ -160,11 +151,7 @@ function tryMatchDirection(
   }
 
   // Calculate distance of matched portion
-  const distanceMeters = calculateTrackDistance(
-    track,
-    startResult.index,
-    endResult.index
-  );
+  const distanceMeters = calculateTrackDistance(track, startResult.index, endResult.index);
 
   return {
     activityId,
@@ -194,8 +181,7 @@ function calculateCoverage(
   let totalPoints = 0;
 
   // Get the section polyline in the right order based on direction
-  const orderedSection =
-    direction === 'same' ? sectionPolyline : [...sectionPolyline].reverse();
+  const orderedSection = direction === 'same' ? sectionPolyline : [...sectionPolyline].reverse();
 
   for (let i = 0; i < orderedSection.length; i += sampleStep) {
     const sectionPoint = orderedSection[i];
@@ -205,12 +191,7 @@ function calculateCoverage(
     let isCovered = false;
     for (let j = startIdx; j <= endIdx; j++) {
       const [lat, lng] = track[j];
-      const distance = haversineDistance(
-        sectionPoint.lat,
-        sectionPoint.lng,
-        lat,
-        lng
-      );
+      const distance = haversineDistance(sectionPoint.lat, sectionPoint.lng, lat, lng);
       if (distance <= proximityThreshold) {
         isCovered = true;
         break;

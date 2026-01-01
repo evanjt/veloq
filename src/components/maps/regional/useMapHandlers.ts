@@ -81,18 +81,21 @@ export function useMapHandlers({
   const userLocationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Handle marker tap - no auto-zoom to prevent jarring camera movements
-  const handleMarkerTap = useCallback(async (activity: ActivityBoundsItem) => {
-    // Set loading state - don't zoom, just show the popup
-    setSelected({ activity, mapData: null, isLoading: true });
+  const handleMarkerTap = useCallback(
+    async (activity: ActivityBoundsItem) => {
+      // Set loading state - don't zoom, just show the popup
+      setSelected({ activity, mapData: null, isLoading: true });
 
-    try {
-      // Fetch full map data (with coordinates)
-      const mapData = await intervalsApi.getActivityMap(activity.id, false);
-      setSelected({ activity, mapData, isLoading: false });
-    } catch {
-      setSelected({ activity, mapData: null, isLoading: false });
-    }
-  }, [setSelected]);
+      try {
+        // Fetch full map data (with coordinates)
+        const mapData = await intervalsApi.getActivityMap(activity.id, false);
+        setSelected({ activity, mapData, isLoading: false });
+      } catch {
+        setSelected({ activity, mapData: null, isLoading: false });
+      }
+    },
+    [setSelected]
+  );
 
   // Close popup
   const handleClosePopup = useCallback(() => {
@@ -125,16 +128,19 @@ export function useMapHandlers({
   }, [selected, cameraRef]);
 
   // Handle marker tap via ShapeSource press
-  const handleMarkerPress = useCallback((event: { features?: GeoJSON.Feature[] }) => {
-    const feature = event.features?.[0];
-    if (!feature?.properties?.id) return;
+  const handleMarkerPress = useCallback(
+    (event: { features?: GeoJSON.Feature[] }) => {
+      const feature = event.features?.[0];
+      if (!feature?.properties?.id) return;
 
-    const activityId = feature.properties.id;
-    const activity = activities.find(a => a.id === activityId);
-    if (activity) {
-      handleMarkerTap(activity);
-    }
-  }, [activities, handleMarkerTap]);
+      const activityId = feature.properties.id;
+      const activity = activities.find((a) => a.id === activityId);
+      if (activity) {
+        handleMarkerTap(activity);
+      }
+    },
+    [activities, handleMarkerTap]
+  );
 
   // Handle map press - close popup when tapping empty space
   const handleMapPress = useCallback(() => {
@@ -144,60 +150,74 @@ export function useMapHandlers({
   }, [selected, setSelected]);
 
   // Handle section press
-  const handleSectionPress = useCallback((event: { features?: GeoJSON.Feature[] }) => {
-    const feature = event.features?.[0];
-    if (!feature?.properties?.id) return;
+  const handleSectionPress = useCallback(
+    (event: { features?: GeoJSON.Feature[] }) => {
+      const feature = event.features?.[0];
+      if (!feature?.properties?.id) return;
 
-    const sectionId = feature.properties.id;
-    const section = sections.find(s => s.id === sectionId);
-    if (section) {
-      setSelectedSection(section);
-    }
-  }, [sections, setSelectedSection]);
+      const sectionId = feature.properties.id;
+      const section = sections.find((s) => s.id === sectionId);
+      if (section) {
+        setSelectedSection(section);
+      }
+    },
+    [sections, setSelectedSection]
+  );
 
   // Handle heatmap cell press
-  const handleHeatmapCellPress = useCallback((row: number, col: number) => {
-    if (!heatmap) return;
-    const cell = heatmap.cells.find(c => c.row === row && c.col === col);
-    if (cell) {
-      const result = queryCell(cell.centerLat, cell.centerLng);
-      setSelectedCell(result);
-    }
-  }, [heatmap, queryCell, setSelectedCell]);
+  const handleHeatmapCellPress = useCallback(
+    (row: number, col: number) => {
+      if (!heatmap) return;
+      const cell = heatmap.cells.find((c) => c.row === row && c.col === col);
+      if (cell) {
+        const result = queryCell(cell.centerLat, cell.centerLng);
+        setSelectedCell(result);
+      }
+    },
+    [heatmap, queryCell, setSelectedCell]
+  );
 
   // Handle map region change to update compass (real-time during gesture)
-  const handleRegionIsChanging = useCallback((feature: GeoJSON.Feature) => {
-    const properties = feature.properties as { heading?: number; zoomLevel?: number } | undefined;
-    if (properties?.heading !== undefined) {
-      bearingAnim.setValue(-properties.heading);
-    }
-    if (properties?.zoomLevel !== undefined) {
-      currentZoomLevel.current = properties.zoomLevel;
-    }
-  }, [bearingAnim, currentZoomLevel]);
+  const handleRegionIsChanging = useCallback(
+    (feature: GeoJSON.Feature) => {
+      const properties = feature.properties as { heading?: number; zoomLevel?: number } | undefined;
+      if (properties?.heading !== undefined) {
+        bearingAnim.setValue(-properties.heading);
+      }
+      if (properties?.zoomLevel !== undefined) {
+        currentZoomLevel.current = properties.zoomLevel;
+      }
+    },
+    [bearingAnim, currentZoomLevel]
+  );
 
   // Handle region change end - track zoom level and update visible activities
-  const handleRegionDidChange = useCallback((feature: GeoJSON.Feature) => {
-    const properties = feature.properties as {
-      zoomLevel?: number;
-      visibleBounds?: [[number, number], [number, number]];
-    } | undefined;
+  const handleRegionDidChange = useCallback(
+    (feature: GeoJSON.Feature) => {
+      const properties = feature.properties as
+        | {
+            zoomLevel?: number;
+            visibleBounds?: [[number, number], [number, number]];
+          }
+        | undefined;
 
-    if (properties?.zoomLevel !== undefined) {
-      currentZoomLevel.current = properties.zoomLevel;
-      setCurrentZoom(properties.zoomLevel);
-    }
-
-    if (properties?.visibleBounds && activitySpatialIndex.ready) {
-      const [[swLng, swLat], [neLng, neLat]] = properties.visibleBounds;
-      const viewport = mapBoundsToViewport([swLng, swLat], [neLng, neLat]);
-      const visibleIds = activitySpatialIndex.queryViewport(viewport);
-
-      if (visibleIds.length > 0 || activitySpatialIndex.size === 0) {
-        setVisibleActivityIds(new Set(visibleIds));
+      if (properties?.zoomLevel !== undefined) {
+        currentZoomLevel.current = properties.zoomLevel;
+        setCurrentZoom(properties.zoomLevel);
       }
-    }
-  }, [currentZoomLevel, setCurrentZoom, setVisibleActivityIds]);
+
+      if (properties?.visibleBounds && activitySpatialIndex.ready) {
+        const [[swLng, swLat], [neLng, neLat]] = properties.visibleBounds;
+        const viewport = mapBoundsToViewport([swLng, swLat], [neLng, neLat]);
+        const visibleIds = activitySpatialIndex.queryViewport(viewport);
+
+        if (visibleIds.length > 0 || activitySpatialIndex.size === 0) {
+          setVisibleActivityIds(new Set(visibleIds));
+        }
+      }
+    },
+    [currentZoomLevel, setCurrentZoom, setVisibleActivityIds]
+  );
 
   // Get user location (one-time jump, no tracking)
   const handleGetLocation = useCallback(async () => {
@@ -232,7 +252,7 @@ export function useMapHandlers({
 
   // Toggle heatmap mode
   const toggleHeatmap = useCallback(() => {
-    setIsHeatmapMode(current => !current);
+    setIsHeatmapMode((current) => !current);
     if (!isHeatmapMode) {
       setSelected(null);
     }
@@ -243,7 +263,7 @@ export function useMapHandlers({
 
   // Toggle sections visibility
   const toggleSections = useCallback(() => {
-    setShowSections(current => !current);
+    setShowSections((current) => !current);
   }, [setShowSections]);
 
   // Reset bearing to north (and pitch in 3D mode)

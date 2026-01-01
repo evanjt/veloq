@@ -4,7 +4,14 @@ import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { Canvas, Circle, Group } from '@shopify/react-native-skia';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import { SharedValue, useSharedValue, useAnimatedReaction, runOnJS, useDerivedValue, useAnimatedStyle } from 'react-native-reanimated';
+import {
+  SharedValue,
+  useSharedValue,
+  useAnimatedReaction,
+  runOnJS,
+  useDerivedValue,
+  useAnimatedStyle,
+} from 'react-native-reanimated';
 import Animated from 'react-native-reanimated';
 import { router } from 'expo-router';
 import { colors, darkColors, opacity, spacing, layout, typography } from '@/theme';
@@ -38,7 +45,10 @@ interface ActivityDotsChartProps {
   height?: number;
   selectedDate?: string | null;
   sharedSelectedIdx?: SharedValue<number>;
-  onDateSelect?: (date: string | null, values: { fitness: number; fatigue: number; form: number } | null) => void;
+  onDateSelect?: (
+    date: string | null,
+    values: { fitness: number; fatigue: number; form: number } | null
+  ) => void;
   onInteractionChange?: (isInteracting: boolean) => void;
 }
 
@@ -67,7 +77,12 @@ export const ActivityDotsChart = React.memo(function ActivityDotsChart({
   const [isActive, setIsActive] = useState(false);
   const [chartWidth, setChartWidth] = useState(0);
   // Persisted activities after scrub ends (for tappable label)
-  const [persistedActivities, setPersistedActivities] = useState<Array<{ id: string; name: string; type: ActivityType; load: number }> | null>(null);
+  const [persistedActivities, setPersistedActivities] = useState<Array<{
+    id: string;
+    name: string;
+    type: ActivityType;
+    load: number;
+  }> | null>(null);
   const [showPicker, setShowPicker] = useState(false);
   const onDateSelectRef = useRef(onDateSelect);
   const onInteractionChangeRef = useRef(onInteractionChange);
@@ -82,7 +97,10 @@ export const ActivityDotsChart = React.memo(function ActivityDotsChart({
 
   // Build a map of activities by date
   const activitiesByDate = useMemo(() => {
-    const map = new Map<string, Array<{ id: string; name: string; type: ActivityType; load: number }>>();
+    const map = new Map<
+      string,
+      Array<{ id: string; name: string; type: ActivityType; load: number }>
+    >();
     for (const activity of activities) {
       const date = activity.start_date_local?.split('T')[0];
       if (!date) continue;
@@ -132,7 +150,7 @@ export const ActivityDotsChart = React.memo(function ActivityDotsChart({
   // Sync with external selectedDate
   React.useEffect(() => {
     if (selectedDate && dotData.length > 0 && !isActive) {
-      const idx = dotData.findIndex(d => d.date === selectedDate);
+      const idx = dotData.findIndex((d) => d.date === selectedDate);
       if (idx >= 0) {
         setSelectedData(dotData[idx]);
         externalSelectedIdx.value = idx;
@@ -321,7 +339,7 @@ export const ActivityDotsChart = React.memo(function ActivityDotsChart({
   // - After scrub ends: use persistedActivities
   const displayActivities = selectedData?.activities?.length
     ? selectedData.activities
-    : (persistedActivities || []);
+    : persistedActivities || [];
 
   // Get activity summary for display
   const getActivitySummary = (acts: typeof displayActivities) => {
@@ -353,12 +371,12 @@ export const ActivityDotsChart = React.memo(function ActivityDotsChart({
     router.push(`/activity/${activityId}`);
   }, []);
 
-  const displayData = selectedData || (selectedDate ? dotData.find(d => d.date === selectedDate) : null);
+  const displayData =
+    selectedData || (selectedDate ? dotData.find((d) => d.date === selectedDate) : null);
 
   // Get activity color for the pill - use first activity's type color
-  const activityPillColor = displayActivities.length > 0
-    ? getActivityColor(displayActivities[0].type)
-    : colors.primary;
+  const activityPillColor =
+    displayActivities.length > 0 ? getActivityColor(displayActivities[0].type) : colors.primary;
 
   return (
     <View style={styles.container}>
@@ -366,12 +384,23 @@ export const ActivityDotsChart = React.memo(function ActivityDotsChart({
       <View style={styles.labelContainer}>
         {displayActivities.length > 0 ? (
           <TouchableOpacity onPress={handleActivityTap} activeOpacity={0.7}>
-            <View style={[
-              styles.activityPill,
-              { backgroundColor: `${activityPillColor}20`, borderColor: `${activityPillColor}40` },
-              isDark && { backgroundColor: `${activityPillColor}30`, borderColor: `${activityPillColor}50` },
-            ]}>
-              <Text style={[styles.activityPillText, { color: activityPillColor }]} numberOfLines={1}>
+            <View
+              style={[
+                styles.activityPill,
+                {
+                  backgroundColor: `${activityPillColor}20`,
+                  borderColor: `${activityPillColor}40`,
+                },
+                isDark && {
+                  backgroundColor: `${activityPillColor}30`,
+                  borderColor: `${activityPillColor}50`,
+                },
+              ]}
+            >
+              <Text
+                style={[styles.activityPillText, { color: activityPillColor }]}
+                numberOfLines={1}
+              >
                 {getActivitySummary(displayActivities)} →
               </Text>
             </View>
@@ -392,7 +421,9 @@ export const ActivityDotsChart = React.memo(function ActivityDotsChart({
       >
         <Pressable style={styles.modalOverlay} onPress={() => setShowPicker(false)}>
           <View style={[styles.modalContent, isDark && styles.modalContentDark]}>
-            <Text style={[styles.modalTitle, isDark && styles.textLight]}>{t('fitness.selectActivity')}</Text>
+            <Text style={[styles.modalTitle, isDark && styles.textLight]}>
+              {t('fitness.selectActivity')}
+            </Text>
             {displayActivities.map((activity) => (
               <TouchableOpacity
                 key={activity.id}
@@ -400,7 +431,12 @@ export const ActivityDotsChart = React.memo(function ActivityDotsChart({
                 onPress={() => handleActivitySelect(activity.id)}
                 activeOpacity={0.7}
               >
-                <View style={[styles.activityIcon, { backgroundColor: getActivityColor(activity.type) }]}>
+                <View
+                  style={[
+                    styles.activityIcon,
+                    { backgroundColor: getActivityColor(activity.type) },
+                  ]}
+                >
                   <Text style={styles.activityIconText}>{getActivityEmoji(activity.type)}</Text>
                 </View>
                 <View style={styles.activityInfo}>
@@ -448,15 +484,7 @@ export const ActivityDotsChart = React.memo(function ActivityDotsChart({
                   // Use first activity's color
                   const color = getActivityColor(dot.activities[0].type);
 
-                  return (
-                    <Circle
-                      key={dot.date}
-                      cx={x}
-                      cy={y}
-                      r={radius}
-                      color={color}
-                    />
-                  );
+                  return <Circle key={dot.date} cx={x} cy={y} r={radius} color={color} />;
                 })}
               </Group>
             </Canvas>

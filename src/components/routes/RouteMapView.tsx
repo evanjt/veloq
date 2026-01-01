@@ -7,7 +7,12 @@
 
 import React, { useMemo, useRef, useState, useCallback } from 'react';
 import { View, StyleSheet, TouchableOpacity, Modal, StatusBar } from 'react-native';
-import MapLibreGL, { Camera, ShapeSource, LineLayer, MarkerView } from '@maplibre/maplibre-react-native';
+import MapLibreGL, {
+  Camera,
+  ShapeSource,
+  LineLayer,
+  MarkerView,
+} from '@maplibre/maplibre-react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { getActivityColor } from '@/lib';
 import { colors, spacing, layout } from '@/theme';
@@ -71,8 +76,10 @@ export function RouteMapView({
     const primaryPoints = displayPoints;
     if (primaryPoints.length === 0) return null;
 
-    let minLat = Infinity, maxLat = -Infinity;
-    let minLng = Infinity, maxLng = -Infinity;
+    let minLat = Infinity,
+      maxLat = -Infinity;
+    let minLng = Infinity,
+      maxLng = -Infinity;
 
     for (const point of primaryPoints) {
       minLat = Math.min(minLat, point.lat);
@@ -101,20 +108,23 @@ export function RouteMapView({
     const hasLapHighlight = highlightedLapPoints && highlightedLapPoints.length > 1;
 
     // Separate highlighted trace from others
-    const fadedTraces = activityTracesWithIds.filter(t => t.id !== highlightedActivityId);
-    const highlightedActivity = activityTracesWithIds.find(t => t.id === highlightedActivityId);
+    const fadedTraces = activityTracesWithIds.filter((t) => t.id !== highlightedActivityId);
+    const highlightedActivity = activityTracesWithIds.find((t) => t.id === highlightedActivityId);
 
-    const faded = fadedTraces.length > 0 ? {
-      type: 'FeatureCollection' as const,
-      features: fadedTraces.map((trace, idx) => ({
-        type: 'Feature' as const,
-        properties: { id: trace.id },
-        geometry: {
-          type: 'LineString' as const,
-          coordinates: trace.points.map(p => [p.lng, p.lat]),
-        },
-      })),
-    } : null;
+    const faded =
+      fadedTraces.length > 0
+        ? {
+            type: 'FeatureCollection' as const,
+            features: fadedTraces.map((trace, idx) => ({
+              type: 'Feature' as const,
+              properties: { id: trace.id },
+              geometry: {
+                type: 'LineString' as const,
+                coordinates: trace.points.map((p) => [p.lng, p.lat]),
+              },
+            })),
+          }
+        : null;
 
     // Use lap points if available, otherwise use full activity trace
     let highlightedGeo = null;
@@ -125,7 +135,7 @@ export function RouteMapView({
         properties: { id: 'lap' },
         geometry: {
           type: 'LineString' as const,
-          coordinates: highlightedLapPoints!.map(p => [p.lng, p.lat]),
+          coordinates: highlightedLapPoints!.map((p) => [p.lng, p.lat]),
         },
       };
     } else if (highlightedActivity) {
@@ -135,7 +145,7 @@ export function RouteMapView({
         properties: { id: highlightedActivity.id },
         geometry: {
           type: 'LineString' as const,
-          coordinates: highlightedActivity.points.map(p => [p.lng, p.lat]),
+          coordinates: highlightedActivity.points.map((p) => [p.lng, p.lat]),
         },
       };
     }
@@ -151,7 +161,7 @@ export function RouteMapView({
       properties: {},
       geometry: {
         type: 'LineString' as const,
-        coordinates: displayPoints.map(p => [p.lng, p.lat]),
+        coordinates: displayPoints.map((p) => [p.lng, p.lat]),
       },
     };
   }, [displayPoints]);
@@ -172,7 +182,7 @@ export function RouteMapView({
 
     // If we have a highlighted activity, find its trace and use those points
     if (highlightedActivityId) {
-      const highlightedTrace = activityTracesWithIds.find(t => t.id === highlightedActivityId);
+      const highlightedTrace = activityTracesWithIds.find((t) => t.id === highlightedActivityId);
       if (highlightedTrace && highlightedTrace.points.length > 1) {
         return {
           start: highlightedTrace.points[0],
@@ -194,11 +204,7 @@ export function RouteMapView({
   if (!bounds || displayPoints.length === 0) {
     return (
       <View style={[styles.placeholder, { height, backgroundColor: activityColor + '20' }]}>
-        <MaterialCommunityIcons
-          name="map-marker-off"
-          size={32}
-          color={activityColor}
-        />
+        <MaterialCommunityIcons name="map-marker-off" size={32} color={activityColor} />
       </View>
     );
   }
@@ -313,7 +319,7 @@ export function RouteMapView({
 
   // Route coordinates for BaseMapView [lng, lat] format
   const routeCoords = useMemo(() => {
-    return displayPoints.map(p => [p.lng, p.lat] as [number, number]);
+    return displayPoints.map((p) => [p.lng, p.lat] as [number, number]);
   }, [displayPoints]);
 
   const isDark = isDarkStyle(mapStyle);

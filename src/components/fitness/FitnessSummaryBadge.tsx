@@ -53,18 +53,13 @@ export function FitnessSummaryBadge({ data, isLoading, onPress }: FitnessSummary
       <View style={styles.content}>
         <View style={[styles.indicator, { backgroundColor: zoneColor }]} />
         <View style={styles.values}>
-          <Text style={[styles.fitnessValue, isDark && styles.textLight]}>
-            {fitness}
-          </Text>
+          <Text style={[styles.fitnessValue, isDark && styles.textLight]}>{fitness}</Text>
           <Text style={[styles.formValue, { color: zoneColor }]}>
-            {form > 0 ? '+' : ''}{form}
+            {form > 0 ? '+' : ''}
+            {form}
           </Text>
         </View>
-        <MaterialCommunityIcons
-          name="chevron-down"
-          size={16}
-          color={isDark ? '#AAA' : '#666'}
-        />
+        <MaterialCommunityIcons name="chevron-down" size={16} color={isDark ? '#AAA' : '#666'} />
       </View>
     </TouchableOpacity>
   );
@@ -96,19 +91,24 @@ export function FitnessSummaryInline({ data }: { data: WellnessData[] | undefine
   return (
     <View style={[styles.inlineContainer, isDark && styles.inlineContainerDark]}>
       <View style={styles.inlineRow}>
-        <Text style={[styles.inlineLabel, isDark && styles.textDark]}>{t('fitness.fitAbbrev')}</Text>
+        <Text style={[styles.inlineLabel, isDark && styles.textDark]}>
+          {t('fitness.fitAbbrev')}
+        </Text>
         <Text style={[styles.inlineValue, { color: colors.fitness }]}>{fitness}</Text>
       </View>
       <View style={[styles.inlineDivider, isDark && styles.inlineDividerDark]} />
       <View style={styles.inlineRow}>
-        <Text style={[styles.inlineLabel, isDark && styles.textDark]}>{t('fitness.fatAbbrev')}</Text>
+        <Text style={[styles.inlineLabel, isDark && styles.textDark]}>
+          {t('fitness.fatAbbrev')}
+        </Text>
         <Text style={[styles.inlineValue, { color: colors.chartPurple }]}>{fatigue}</Text>
       </View>
       <View style={[styles.inlineDivider, isDark && styles.inlineDividerDark]} />
       <View style={styles.inlineRow}>
         <Text style={[styles.inlineLabel, isDark && styles.textDark]}>{t('metrics.form')}</Text>
         <Text style={[styles.inlineValue, { color: zoneColor }]}>
-          {form > 0 ? '+' : ''}{form}
+          {form > 0 ? '+' : ''}
+          {form}
         </Text>
       </View>
       <View style={[styles.zoneIndicator, { backgroundColor: zoneColor }]} />

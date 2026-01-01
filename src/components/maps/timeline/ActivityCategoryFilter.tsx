@@ -5,7 +5,11 @@ import { useTranslation } from 'react-i18next';
 import { colors, darkColors } from '@/theme/colors';
 import { typography } from '@/theme/typography';
 import { spacing, layout } from '@/theme/spacing';
-import { ACTIVITY_CATEGORIES, getActivityCategory, groupTypesByCategory } from '../ActivityTypeFilter';
+import {
+  ACTIVITY_CATEGORIES,
+  getActivityCategory,
+  groupTypesByCategory,
+} from '../ActivityTypeFilter';
 
 interface ActivityCategoryFilterProps {
   selectedTypes: Set<string>;
@@ -27,30 +31,36 @@ export function ActivityCategoryFilter({
     const grouped = groupTypesByCategory(availableTypes);
     // Return categories in a consistent order, only those that have types
     const categoryOrder = ['Ride', 'Run', 'Swim', 'Walk', 'Hike', 'Other'];
-    return categoryOrder.filter(cat => grouped.has(cat));
+    return categoryOrder.filter((cat) => grouped.has(cat));
   }, [availableTypes]);
 
   // Check if a category is fully selected (all its types are selected)
-  const isCategorySelected = useCallback((category: string) => {
-    const categoryTypes = availableTypes.filter(t => getActivityCategory(t) === category);
-    return categoryTypes.length > 0 && categoryTypes.every(t => selectedTypes.has(t));
-  }, [selectedTypes, availableTypes]);
+  const isCategorySelected = useCallback(
+    (category: string) => {
+      const categoryTypes = availableTypes.filter((t) => getActivityCategory(t) === category);
+      return categoryTypes.length > 0 && categoryTypes.every((t) => selectedTypes.has(t));
+    },
+    [selectedTypes, availableTypes]
+  );
 
   // Toggle all types in a category
-  const toggleCategory = useCallback((category: string) => {
-    const categoryTypes = availableTypes.filter(t => getActivityCategory(t) === category);
-    const newSelection = new Set(selectedTypes);
-    const allSelected = categoryTypes.every(t => selectedTypes.has(t));
+  const toggleCategory = useCallback(
+    (category: string) => {
+      const categoryTypes = availableTypes.filter((t) => getActivityCategory(t) === category);
+      const newSelection = new Set(selectedTypes);
+      const allSelected = categoryTypes.every((t) => selectedTypes.has(t));
 
-    if (allSelected) {
-      // Deselect all types in this category
-      categoryTypes.forEach(t => newSelection.delete(t));
-    } else {
-      // Select all types in this category
-      categoryTypes.forEach(t => newSelection.add(t));
-    }
-    onSelectionChange(newSelection);
-  }, [selectedTypes, onSelectionChange, availableTypes]);
+      if (allSelected) {
+        // Deselect all types in this category
+        categoryTypes.forEach((t) => newSelection.delete(t));
+      } else {
+        // Select all types in this category
+        categoryTypes.forEach((t) => newSelection.add(t));
+      }
+      onSelectionChange(newSelection);
+    },
+    [selectedTypes, onSelectionChange, availableTypes]
+  );
 
   const toggleAllTypes = useCallback(() => {
     if (selectedTypes.size === availableTypes.length) {

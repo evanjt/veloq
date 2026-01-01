@@ -24,9 +24,7 @@ export function getBounds(coordinates: LatLng[]): {
   maxLng: number;
 } {
   // Filter out invalid coordinates (NaN values)
-  const validCoords = coordinates.filter(
-    c => !isNaN(c.latitude) && !isNaN(c.longitude)
-  );
+  const validCoords = coordinates.filter((c) => !isNaN(c.latitude) && !isNaN(c.longitude));
 
   if (validCoords.length === 0) {
     return { minLat: 0, maxLat: 0, minLng: 0, maxLng: 0 };
@@ -87,12 +85,15 @@ export function convertLatLngTuples(tuples: [number, number][]): LatLng[] {
     const lng = format === 'latLng' ? second : first;
 
     // Check for valid coordinates
-    const isValid = lat != null &&
+    const isValid =
+      lat != null &&
       lng != null &&
       !isNaN(lat) &&
       !isNaN(lng) &&
-      lat >= -90 && lat <= 90 &&
-      lng >= -180 && lng <= 180;
+      lat >= -90 &&
+      lat <= 90 &&
+      lng >= -180 &&
+      lng <= 180;
 
     if (isValid) {
       return { latitude: lat, longitude: lng };
@@ -124,22 +125,30 @@ export function normalizeBounds(bounds: [[number, number], [number, number]]): {
   if (firstOutsideLatRange && !secondOutsideLatRange) {
     // First values are longitudes (outside lat range), second are latitudes
     // Format is [[lng, lat], [lng, lat]]
-    lng1 = a; lat1 = b;
-    lng2 = c; lat2 = d;
+    lng1 = a;
+    lat1 = b;
+    lng2 = c;
+    lat2 = d;
   } else if (!firstOutsideLatRange && secondOutsideLatRange) {
     // First values are latitudes (in range), second are longitudes (outside range)
     // Format is [[lat, lng], [lat, lng]]
-    lat1 = a; lng1 = b;
-    lat2 = c; lng2 = d;
+    lat1 = a;
+    lng1 = b;
+    lat2 = c;
+    lng2 = d;
   } else if (firstOutsideLatRange && secondOutsideLatRange) {
     // Both outside lat range - unusual, but treat as [lng, lat]
     // (both could be longitudes if bounds span 0,0)
-    lng1 = a; lat1 = b;
-    lng2 = c; lat2 = d;
+    lng1 = a;
+    lat1 = b;
+    lng2 = c;
+    lat2 = d;
   } else {
     // All values within lat range - ambiguous, default to [lat, lng]
-    lat1 = a; lng1 = b;
-    lat2 = c; lng2 = d;
+    lat1 = a;
+    lng1 = b;
+    lat2 = c;
+    lng2 = d;
   }
 
   return {
@@ -179,12 +188,17 @@ export function getRegion(coordinates: LatLng[], padding = 0.1) {
  * Compute bounds from a polyline string.
  * Returns bounds in [[minLat, minLng], [maxLat, maxLng]] format for API compatibility.
  */
-export function getBoundsFromPolyline(encoded: string): [[number, number], [number, number]] | null {
+export function getBoundsFromPolyline(
+  encoded: string
+): [[number, number], [number, number]] | null {
   const coords = decodePolyline(encoded);
   if (coords.length === 0) return null;
 
   const { minLat, maxLat, minLng, maxLng } = getBounds(coords);
   if (minLat === 0 && maxLat === 0 && minLng === 0 && maxLng === 0) return null;
 
-  return [[minLat, minLng], [maxLat, maxLng]];
+  return [
+    [minLat, minLng],
+    [maxLat, maxLng],
+  ];
 }

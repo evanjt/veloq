@@ -56,7 +56,7 @@ export function useRouteProcessing(): UseRouteProcessingResult {
 
   const cancel = useCallback(() => {
     // Rust engine doesn't support cancellation yet
-    setProgress(p => ({ ...p, status: 'idle' }));
+    setProgress((p) => ({ ...p, status: 'idle' }));
   }, []);
 
   const clearCache = useCallback(async () => {
@@ -65,39 +65,37 @@ export function useRouteProcessing(): UseRouteProcessingResult {
     setProgress({ status: 'idle', current: 0, total: 0, message: '' });
   }, []);
 
-  const addActivities = useCallback(async (
-    activityIds: string[],
-    allCoords: number[],
-    offsets: number[],
-    sportTypes: string[]
-  ) => {
-    setProgress({
-      status: 'processing',
-      current: 0,
-      total: activityIds.length,
-      message: 'Adding activities...',
-    });
-
-    try {
-      const engine = getRouteEngine();
-      if (engine) {
-        engine.addActivities(activityIds, allCoords, offsets, sportTypes);
-      }
+  const addActivities = useCallback(
+    async (activityIds: string[], allCoords: number[], offsets: number[], sportTypes: string[]) => {
       setProgress({
-        status: 'complete',
-        current: activityIds.length,
-        total: activityIds.length,
-        message: 'Complete',
-      });
-    } catch (error) {
-      setProgress({
-        status: 'error',
+        status: 'processing',
         current: 0,
-        total: 0,
-        message: error instanceof Error ? error.message : 'Unknown error',
+        total: activityIds.length,
+        message: 'Adding activities...',
       });
-    }
-  }, []);
+
+      try {
+        const engine = getRouteEngine();
+        if (engine) {
+          engine.addActivities(activityIds, allCoords, offsets, sportTypes);
+        }
+        setProgress({
+          status: 'complete',
+          current: activityIds.length,
+          total: activityIds.length,
+          message: 'Complete',
+        });
+      } catch (error) {
+        setProgress({
+          status: 'error',
+          current: 0,
+          total: 0,
+          message: error instanceof Error ? error.message : 'Unknown error',
+        });
+      }
+    },
+    []
+  );
 
   return {
     progress,

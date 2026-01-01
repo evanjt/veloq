@@ -9,10 +9,29 @@ import type { ActivityType } from './activity';
  * Keep in sync with ActivityType union.
  */
 const VALID_ACTIVITY_TYPES = new Set<string>([
-  'Ride', 'Run', 'Swim', 'Walk', 'Hike', 'VirtualRide', 'VirtualRun',
-  'Workout', 'WeightTraining', 'Yoga', 'Snowboard', 'AlpineSki',
-  'NordicSki', 'BackcountrySki', 'Rowing', 'Kayaking', 'Canoeing',
-  'OpenWaterSwim', 'TrailRun', 'Snowshoe', 'Tennis', 'RockClimbing', 'Other',
+  'Ride',
+  'Run',
+  'Swim',
+  'Walk',
+  'Hike',
+  'VirtualRide',
+  'VirtualRun',
+  'Workout',
+  'WeightTraining',
+  'Yoga',
+  'Snowboard',
+  'AlpineSki',
+  'NordicSki',
+  'BackcountrySki',
+  'Rowing',
+  'Kayaking',
+  'Canoeing',
+  'OpenWaterSwim',
+  'TrailRun',
+  'Snowshoe',
+  'Tennis',
+  'RockClimbing',
+  'Other',
 ]);
 
 /**
@@ -196,7 +215,15 @@ export interface DiscoveredRouteInfo {
 
 /** Progress state for route processing */
 export interface RouteProcessingProgress {
-  status: 'idle' | 'filtering' | 'fetching' | 'processing' | 'matching' | 'detecting-sections' | 'complete' | 'error';
+  status:
+    | 'idle'
+    | 'filtering'
+    | 'fetching'
+    | 'processing'
+    | 'matching'
+    | 'detecting-sections'
+    | 'complete'
+    | 'error';
   current: number;
   total: number;
   message?: string;
@@ -335,11 +362,11 @@ export interface SectionConfig {
 
 /** Default section detection configuration */
 export const DEFAULT_SECTION_CONFIG: SectionConfig = {
-  proximityThreshold: 50,  // 50m - handles GPS error + wide roads + opposite sides
+  proximityThreshold: 50, // 50m - handles GPS error + wide roads + opposite sides
   minSectionLength: 200,
   maxSectionLength: 5000,
   minActivities: 3,
-  clusterTolerance: 80,    // 80m for clustering similar overlaps
+  clusterTolerance: 80, // 80m for clustering similar overlaps
   samplePoints: 50,
 };
 

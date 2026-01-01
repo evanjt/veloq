@@ -9,10 +9,10 @@ export const spacing = {
 
   // Chart-specific micro spacing
   chart: {
-    xs: 2,  // Micro spacing (axis padding)
-    sm: 4,  // Small gaps (label spacing)
-    md: 6,  // Medium gaps (tooltip padding)
-    lg: 8,  // Standard chart padding
+    xs: 2, // Micro spacing (axis padding)
+    sm: 4, // Small gaps (label spacing)
+    md: 6, // Medium gaps (tooltip padding)
+    lg: 8, // Standard chart padding
   },
 } as const;
 

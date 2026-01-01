@@ -104,10 +104,7 @@ export const mockIntervalsApi = {
   /**
    * Get wellness data with optional date filtering
    */
-  async getWellness(params?: {
-    oldest?: string;
-    newest?: string;
-  }): Promise<WellnessData[]> {
+  async getWellness(params?: { oldest?: string; newest?: string }): Promise<WellnessData[]> {
     await delay(150);
     const wellness = getWellness({
       oldest: params?.oldest,
@@ -119,10 +116,7 @@ export const mockIntervalsApi = {
   /**
    * Get power curve data
    */
-  async getPowerCurve(_params?: {
-    sport?: string;
-    days?: number;
-  }): Promise<PowerCurve> {
+  async getPowerCurve(_params?: { sport?: string; days?: number }): Promise<PowerCurve> {
     await delay(100);
     return demoPowerCurve;
   },
