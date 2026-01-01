@@ -8,7 +8,6 @@ import { useTranslation } from 'react-i18next';
 import { LinearGradient } from 'expo-linear-gradient';
 import { CartesianChart, Line } from 'victory-native';
 import { Circle } from '@shopify/react-native-skia';
-import Svg, { Polyline } from 'react-native-svg';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { useSharedValue, useDerivedValue, useAnimatedStyle, useAnimatedReaction, runOnJS } from 'react-native-reanimated';
 import Animated from 'react-native-reanimated';
@@ -22,7 +21,7 @@ function getRouteEngine() {
     return null;
   }
 }
-import { RouteMapView } from '@/components/routes';
+import { RouteMapView, MiniTraceView } from '@/components/routes';
 import {
   formatDistance,
   formatRelativeDate,
@@ -60,111 +59,6 @@ interface ActivityRowProps {
   /** Total distance of the route in meters (for context) */
   routeDistance?: number;
 }
-
-/** Mini route trace component for activity list - shows both route reference and activity trace */
-function MiniRouteTrace({
-  activityPoints,
-  routePoints,
-  activityColor,
-  routeColor,
-  isHighlighted,
-}: {
-  /** Points from the individual activity's GPS trace */
-  activityPoints: RoutePoint[];
-  /** Points from the representative route (full route) */
-  routePoints?: RoutePoint[];
-  /** Color for the activity trace */
-  activityColor: string;
-  /** Color for the route reference (shown underneath) */
-  routeColor: string;
-  isHighlighted?: boolean;
-}) {
-  if (activityPoints.length < 2) return null;
-
-  const width = 36;
-  const height = 36;
-  const padding = 3;
-
-  // Combine all points to calculate shared bounds
-  const allPoints = routePoints && routePoints.length > 0
-    ? [...activityPoints, ...routePoints]
-    : activityPoints;
-
-  const lats = allPoints.map(p => p.lat);
-  const lngs = allPoints.map(p => p.lng);
-  const minLat = Math.min(...lats);
-  const maxLat = Math.max(...lats);
-  const minLng = Math.min(...lngs);
-  const maxLng = Math.max(...lngs);
-
-  const latRange = maxLat - minLat || 1;
-  const lngRange = maxLng - minLng || 1;
-
-  // Scale function using shared bounds
-  const scalePoints = (points: RoutePoint[]) =>
-    points.map(p => ({
-      x: ((p.lng - minLng) / lngRange) * (width - padding * 2) + padding,
-      y: (1 - (p.lat - minLat) / latRange) * (height - padding * 2) + padding,
-    }));
-
-  const activityScaled = scalePoints(activityPoints);
-  const activityString = activityScaled.map(p => `${p.x},${p.y}`).join(' ');
-
-  const routeScaled = routePoints && routePoints.length > 1
-    ? scalePoints(routePoints)
-    : null;
-  const routeString = routeScaled
-    ? routeScaled.map(p => `${p.x},${p.y}`).join(' ')
-    : null;
-
-  return (
-    <View style={[
-      miniTraceStyles.container,
-      isHighlighted && miniTraceStyles.highlighted,
-    ]}>
-      <Svg width={width} height={height}>
-        {/* Route reference underneath (faded - the full route for comparison) */}
-        {routeString && (
-          <Polyline
-            points={routeString}
-            fill="none"
-            stroke={routeColor}
-            strokeWidth={2}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            opacity={isHighlighted ? 0.3 : 0.2}
-          />
-        )}
-        {/* Activity trace on top (prominent - this activity's actual path) */}
-        <Polyline
-          points={activityString}
-          fill="none"
-          stroke={activityColor}
-          strokeWidth={isHighlighted ? 3 : 2.5}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          opacity={0.85}
-        />
-      </Svg>
-    </View>
-  );
-}
-
-const miniTraceStyles = StyleSheet.create({
-  container: {
-    width: 36,
-    height: 36,
-    borderRadius: 8,
-    backgroundColor: 'rgba(0, 0, 0, 0.03)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  highlighted: {
-    backgroundColor: 'rgba(0, 188, 212, 0.15)',
-    borderWidth: 1,
-    borderColor: '#00BCD4',
-  },
-});
 
 /** Data point for the performance chart - can be an activity or a lap */
 interface PerformanceDataPoint {
@@ -763,13 +657,13 @@ function ActivityRow({
         pressed && styles.activityRowPressed,
       ]}
     >
-      {/* Mini route trace showing route reference (orange) vs activity trace */}
+      {/* Mini trace showing route reference (gold) vs activity trace */}
       {activityPoints && activityPoints.length > 1 ? (
-        <MiniRouteTrace
-          activityPoints={activityPoints}
-          routePoints={routePoints}
-          activityColor={traceColor}
-          routeColor={CONSENSUS_COLOR}
+        <MiniTraceView
+          primaryPoints={activityPoints}
+          referencePoints={routePoints}
+          primaryColor={traceColor}
+          referenceColor={CONSENSUS_COLOR}
           isHighlighted={isHighlighted}
         />
       ) : (

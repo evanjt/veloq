@@ -394,7 +394,10 @@
     "potentialSectionDescription": "You've used this {{sport}} path {{count}} times. Create a section to track your performance?",
     "createSection": "Create Section",
     "defaultRouteName": "{{type}} Route",
-    "defaultActivityName": "Activity {{number}}"
+    "defaultActivityName": "Activity {{number}}",
+    "sectionCreated": "Section Created",
+    "sectionCreatedDescription": "Your custom section has been created and activities have been matched",
+    "sectionCreationFailed": "Failed to create section. Please try again."
   },
   "sections": {
     "performanceOverTime": "Performance Over Time",
