@@ -19,21 +19,22 @@ interface HeatmapLayerProps {
   highlightCommonPaths?: boolean;
 }
 
-// Color stops for density gradient (yellow -> orange -> red)
+// Color stops for density gradient (blue -> purple -> gold)
+// Premium brand palette: no orange
 const DENSITY_COLORS: Expression = [
   'interpolate',
   ['linear'],
   ['get', 'density'],
   0,
-  '#FFEB3B', // Yellow - low density
-  0.3,
-  '#FFC107', // Amber
+  '#7DB3E3', // Light blue - low density
+  0.25,
+  '#5B9BD5', // Brand blue
   0.5,
-  '#F59E0B', // Orange
-  0.7,
-  '#5B9BD5', // Deep orange
+  '#A855F7', // Purple - medium density
+  0.75,
+  '#D4AF37', // Gold - high density
   1.0,
-  '#F44336', // Red - high density
+  '#B8942F', // Dark gold - highest density
 ];
 
 // Circle radius based on cell size and density

@@ -1,6 +1,7 @@
 import type { ActivityType } from '@/types';
 import type { ComponentProps } from 'react';
 import type { MaterialCommunityIcons } from '@expo/vector-icons';
+import { activityTypeColors } from '@/theme';
 
 // Type for valid MaterialCommunityIcons names
 export type MaterialIconName = ComponentProps<typeof MaterialCommunityIcons>['name'];
@@ -32,29 +33,16 @@ export function getActivityIcon(type: ActivityType): MaterialIconName {
   return ACTIVITY_ICONS[type as keyof typeof ACTIVITY_ICONS] ?? 'heart-pulse';
 }
 
+/**
+ * Get the color for an activity type.
+ * Colors are defined in the theme to ensure consistency.
+ *
+ * Cycling activities: Blue (#3B82F6)
+ * Running activities: Emerald (#10B981)
+ * Swimming activities: Cyan (#06B6D4)
+ */
 export function getActivityColor(type: ActivityType): string {
-  const colorMap: Record<string, string> = {
-    Ride: '#5B9BD5',
-    Run: '#4CAF50',
-    Swim: '#2196F3',
-    OpenWaterSwim: '#2196F3',
-    Walk: '#9C27B0',
-    Hike: '#795548',
-    VirtualRide: '#5B9BD5',
-    VirtualRun: '#4CAF50',
-    Workout: '#607D8B',
-    WeightTraining: '#607D8B',
-    Yoga: '#E91E63',
-    Snowboard: '#00BCD4',
-    AlpineSki: '#03A9F4',
-    NordicSki: '#00BCD4',
-    BackcountrySki: '#03A9F4',
-    Rowing: '#009688',
-    Kayaking: '#009688',
-    Canoeing: '#009688',
-    Other: '#9E9E9E',
-  };
-  return colorMap[type] || '#9E9E9E';
+  return activityTypeColors[type] || activityTypeColors.Other;
 }
 
 export function isRunningActivity(type: ActivityType): boolean {

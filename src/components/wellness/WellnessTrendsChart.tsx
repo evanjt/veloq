@@ -15,13 +15,13 @@ interface WellnessTrendsChartProps {
   height?: number;
 }
 
-// Colors for different metrics
+// Colors for different metrics (NO orange)
 const METRIC_COLORS = {
-  hrv: '#E91E63', // Pink
-  rhr: '#5B9BD5', // Orange
-  sleep: '#9C27B0', // Purple
-  sleepScore: '#3F51B5', // Indigo
-  weight: '#607D8B', // Blue Grey
+  hrv: '#EC4899', // Pink-500
+  rhr: '#EF4444', // Red-500 (classic HR color)
+  sleep: '#A855F7', // Purple-500
+  sleepScore: '#6366F1', // Indigo-500
+  weight: '#64748B', // Slate-500
 };
 
 interface MetricChartData {

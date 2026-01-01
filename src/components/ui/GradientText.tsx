@@ -37,6 +37,7 @@ export function GlowText({
 }
 
 // GradientText simplified - shows solid color (gradient requires dev build)
+// Brand: Gold (#D4AF37) primary
 export function GradientText({
   children,
   colors = ['#E8C96E', '#D4AF37'],

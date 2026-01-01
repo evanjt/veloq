@@ -1,11 +1,14 @@
 import { useColorScheme } from 'react-native';
-import { colors, darkColors } from '@/theme';
+import { brand, colors, darkColors } from '@/theme';
 
 export interface ThemeColors {
-  // Core
+  // Core brand
   primary: string;
   primaryDark: string;
   primaryLight: string;
+  secondary: string;
+  secondaryDark: string;
+  secondaryLight: string;
 
   // Surfaces
   background: string;
@@ -54,25 +57,28 @@ export function useTheme(): Theme {
   const isDark = colorScheme === 'dark';
 
   const themeColors: ThemeColors = {
-    // Core
-    primary: colors.primary,
-    primaryDark: colors.primaryDark,
-    primaryLight: colors.primaryLight,
+    // Core brand - Gold primary, Blue secondary
+    primary: brand.gold,
+    primaryDark: brand.goldDark,
+    primaryLight: brand.goldLight,
+    secondary: brand.blue,
+    secondaryDark: brand.blueDark,
+    secondaryLight: brand.blueLight,
 
     // Surfaces
     background: isDark ? darkColors.background : colors.background,
     surface: isDark ? darkColors.surface : colors.surface,
-    card: isDark ? '#1E1E1E' : '#FFFFFF',
+    card: isDark ? darkColors.surfaceCard : colors.surface,
 
     // Text
     text: isDark ? darkColors.textPrimary : colors.textPrimary,
     textSecondary: isDark ? darkColors.textSecondary : colors.textSecondary,
-    textMuted: isDark ? '#666666' : '#999999',
+    textMuted: isDark ? darkColors.textMuted : colors.textMuted,
 
     // Semantic
-    success: colors.success,
-    error: colors.error,
-    warning: colors.warning,
+    success: isDark ? darkColors.success : colors.success,
+    error: isDark ? darkColors.error : colors.error,
+    warning: isDark ? darkColors.warning : colors.warning,
 
     // Borders
     border: isDark ? darkColors.border : colors.border,
@@ -84,9 +90,9 @@ export function useTheme(): Theme {
     swim: colors.swim,
 
     // Chart colors
-    fitness: colors.fitness,
+    fitness: brand.blue,
     fatigue: colors.fatigue,
-    form: colors.form,
+    form: brand.gold,
   };
 
   return {

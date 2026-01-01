@@ -74,7 +74,7 @@ const ACHIEVEMENT_CONFIG: Record<AchievementType, {
   },
   streak: {
     icon: 'fire',
-    gradient: ['#E8C96E', '#F59E0B'] as const,
+    gradient: ['#E8C96E', '#D4AF37'] as const, // Gold for achievements
     label: 'Streak',
   },
   peak_form: {
