@@ -6,10 +6,13 @@ import {
   POWER_ZONE_COLORS,
   HR_ZONE_COLORS,
 } from './useSportSettings';
+import { type PrimarySport, SPORT_API_TYPES } from '@/providers';
 
 interface UseZoneDistributionOptions {
   type: 'power' | 'hr';
   activities?: Activity[];
+  /** Optional sport filter - if provided, only activities matching this sport are included */
+  sport?: PrimarySport;
 }
 
 /**
@@ -23,18 +26,26 @@ interface UseZoneDistributionOptions {
 export function useZoneDistribution({
   type,
   activities,
+  sport,
 }: UseZoneDistributionOptions): ZoneDistribution[] | undefined {
   return useMemo(() => {
     if (!activities || activities.length === 0) return undefined;
 
+    // Filter activities by sport if specified
+    const filteredActivities = sport
+      ? activities.filter((a) => SPORT_API_TYPES[sport].includes(a.type))
+      : activities;
+
+    if (filteredActivities.length === 0) return undefined;
+
     const defaultZones = type === 'power' ? DEFAULT_POWER_ZONES : DEFAULT_HR_ZONES;
     const zoneColors = type === 'power' ? POWER_ZONE_COLORS : HR_ZONE_COLORS;
 
-    // Aggregate zone times across all activities
+    // Aggregate zone times across filtered activities
     const aggregatedTimes: number[] = new Array(defaultZones.length).fill(0);
     let hasZoneData = false;
 
-    for (const activity of activities) {
+    for (const activity of filteredActivities) {
       if (type === 'power') {
         // Power zones: icu_zone_times is array of {id: 'Z1', secs: 123} objects
         const zoneTimes = activity.icu_zone_times;
@@ -82,7 +93,7 @@ export function useZoneDistribution({
     }));
 
     return distribution;
-  }, [type, activities]);
+  }, [type, activities, sport]);
 }
 
 /**

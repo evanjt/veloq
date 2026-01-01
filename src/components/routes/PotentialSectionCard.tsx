@@ -7,6 +7,7 @@ import React, { useMemo } from 'react';
 import { View, StyleSheet, TouchableOpacity, Text } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Svg, { Polyline } from 'react-native-svg';
+import { useTranslation } from 'react-i18next';
 import { colors } from '@/theme/colors';
 import { typography } from '@/theme/typography';
 import { spacing, layout } from '@/theme/spacing';
@@ -81,6 +82,8 @@ function MiniPolylinePreview({ polyline }: { polyline: RoutePoint[] }) {
  * Card showing a potential section suggestion with promote/dismiss actions.
  */
 export function PotentialSectionCard({ section, onPromote, onDismiss }: PotentialSectionCardProps) {
+  const { t } = useTranslation();
+
   const formatDistance = (meters: number) => {
     if (meters >= 1000) {
       return `${(meters / 1000).toFixed(1)} km`;
@@ -91,11 +94,11 @@ export function PotentialSectionCard({ section, onPromote, onDismiss }: Potentia
   const getScaleLabel = (scale: string) => {
     switch (scale) {
       case 'short':
-        return 'Short';
+        return t('routes.scaleShort');
       case 'medium':
-        return 'Medium';
+        return t('routes.scaleMedium');
       case 'long':
-        return 'Long';
+        return t('routes.scaleLong');
       default:
         return scale;
     }
@@ -107,7 +110,7 @@ export function PotentialSectionCard({ section, onPromote, onDismiss }: Potentia
       <View style={styles.header}>
         <View style={styles.suggestionBadge}>
           <MaterialCommunityIcons name="lightbulb-outline" size={14} color={colors.warning} />
-          <Text style={styles.suggestionText}>Suggestion</Text>
+          <Text style={styles.suggestionText}>{t('routes.suggestion')}</Text>
         </View>
         <TouchableOpacity
           style={styles.dismissButton}
@@ -128,9 +131,10 @@ export function PotentialSectionCard({ section, onPromote, onDismiss }: Potentia
         {/* Info */}
         <View style={styles.infoContainer}>
           <Text style={styles.description}>
-            You've used this {section.sportType.toLowerCase()} path{' '}
-            <Text style={styles.highlight}>{section.visitCount} times</Text>.{'\n'}Create a section
-            to track your performance?
+            {t('routes.potentialSectionDescription', {
+              sport: section.sportType.toLowerCase(),
+              count: section.visitCount,
+            })}
           </Text>
 
           <View style={styles.metaRow}>
@@ -153,7 +157,7 @@ export function PotentialSectionCard({ section, onPromote, onDismiss }: Potentia
       {/* Action button */}
       <TouchableOpacity style={styles.promoteButton} onPress={onPromote} activeOpacity={0.8}>
         <MaterialCommunityIcons name="plus-circle" size={18} color={colors.textOnDark} />
-        <Text style={styles.promoteButtonText}>Create Section</Text>
+        <Text style={styles.promoteButtonText}>{t('routes.createSection')}</Text>
       </TouchableOpacity>
     </View>
   );

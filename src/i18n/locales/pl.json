@@ -8,6 +8,8 @@
     "save": "Zapisz",
     "delete": "Usun",
     "confirm": "Potwierdz",
+    "reset": "Resetuj",
+    "create": "Utworz",
     "back": "Wstecz",
     "next": "Dalej",
     "done": "Gotowe",
@@ -16,7 +18,6 @@
     "noResults": "Brak wynikow",
     "pullToRefresh": "Pociagnij, aby odswiezyc"
   },
-
   "navigation": {
     "feed": "Aktywnosci",
     "fitness": "Kondycja",
@@ -29,7 +30,6 @@
     "settings": "Ustawienia",
     "activities": "Aktywnosci"
   },
-
   "feed": {
     "recentActivities": "Ostatnie aktywnosci",
     "activitiesCount": "{{count}} aktywnosci",
@@ -38,7 +38,6 @@
     "failedToLoad": "Nie udalo sie wczytac aktywnosci",
     "searchPlaceholder": "Szukaj aktywnosci..."
   },
-
   "filters": {
     "showFilters": "Pokaz filtry",
     "hideFilters": "Ukryj filtry",
@@ -53,7 +52,6 @@
     "racketSports": "Sporty rakietowe",
     "other": "Inne"
   },
-
   "metrics": {
     "hrv": "HRV",
     "rhr": "RHR",
@@ -66,7 +64,6 @@
     "fatigue": "Zmeczenie",
     "hr": "HR"
   },
-
   "login": {
     "title": "Veloq",
     "subtitle": "Polacz z Intervals.icu",
@@ -82,12 +79,10 @@
     "securityNote": "Twoje dane uwierzytelniajace sa bezpiecznie przechowywane na urzadzeniu",
     "tryDemo": "Wyprobuj demo"
   },
-
   "demo": {
     "banner": "Tryb demo",
     "tapToSignIn": "Dotknij, aby sie zalogowac"
   },
-
   "settings": {
     "title": "Ustawienia",
     "appearance": "Wyglad",
@@ -143,7 +138,6 @@
       "asian": "Azjatyckie"
     }
   },
-
   "alerts": {
     "error": "Blad",
     "clearCacheTitle": "Wyczysc i przeladuj pamiec podreczna",
@@ -160,7 +154,6 @@
     "failedToClear": "Nie udalo sie wyczyscic pamieci podrecznej. Sprobuj ponownie.",
     "failedToDisconnect": "Nie udalo sie odlaczyc. Sprobuj ponownie."
   },
-
   "activity": {
     "viewDetails": "Zobacz szczegoly",
     "share": "Udostepnij",
@@ -237,7 +230,6 @@
       "decoupling": "Rozsprzezenie"
     }
   },
-
   "time": {
     "today": "Dzisiaj",
     "yesterday": "Wczoraj",
@@ -248,7 +240,6 @@
     "current": "Biezacy",
     "now": "Teraz"
   },
-
   "units": {
     "km": "km",
     "mi": "mi",
@@ -264,7 +255,6 @@
     "minutes": "min",
     "seconds": "s"
   },
-
   "fitnessScreen": {
     "title": "Kondycja i forma",
     "loadingData": "Wczytywanie danych kondycji...",
@@ -286,12 +276,10 @@
     "toPreventOvertraining": "aby zapobiec przetrenowaniu.",
     "learnMore": "Dowiedz sie wiecej"
   },
-
   "wellnessScreen": {
     "title": "Zdrowie",
     "trends": "Trendy zdrowia"
   },
-
   "trainingScreen": {
     "title": "Trening",
     "routes": "Trasy",
@@ -307,7 +295,6 @@
     "visualizeActivities": "Wizualizuj {{count}} aktywnosci",
     "seeWhereYouTravel": "Zobacz, gdzie najczesciej trenujesz"
   },
-
   "routesScreen": {
     "title": "Trasy",
     "matchingDisabled": "Dopasowywanie tras wylaczone",
@@ -316,7 +303,6 @@
     "analysingRoutes": "Analiza tras {{current}}/{{total}}",
     "computingRoutes": "Obliczanie tras..."
   },
-
   "statsScreen": {
     "title": "Wyniki",
     "days42": "42 dni",
@@ -331,7 +317,6 @@
     "powerCurve": "Krzywa mocy",
     "garminNote": "Wykresy moga zawierac dane z urzadzen Garmin"
   },
-
   "heatmapScreen": {
     "title": "Mapa ciepla",
     "noActivityData": "Brak danych aktywnosci",
@@ -340,12 +325,10 @@
     "generatingHeatmap": "Generowanie mapy ciepla...",
     "activitiesCount": "{{count}} aktywnosci"
   },
-
   "mapScreen": {
     "loadingActivities": "Wczytywanie aktywnosci...",
     "syncing": "Synchronizacja: {{completed}}/{{total}}"
   },
-
   "routes": {
     "basedOnActivities": "Na podstawie {{count}} aktywnosci",
     "routesFound": "Znaleziono {{count}} tras",
@@ -397,9 +380,19 @@
     "bestOn": "Najlepsza",
     "same": "Ta sama",
     "fastest": "#{{rank}} najszybsza",
-    "routeNamePlaceholder": "Nazwa trasy"
+    "routeNamePlaceholder": "Nazwa trasy",
+    "autoDetected": "Automatycznie wykryte",
+    "suggestions": "Sugestie",
+    "custom": "Własny",
+    "suggestion": "Sugestia",
+    "scaleShort": "Krótki",
+    "scaleMedium": "Średni",
+    "scaleLong": "Długi",
+    "potentialSectionDescription": "Przejechałeś tę trasę {{sport}} {{count}} razy. Utworzyć odcinek, aby śledzić swoje wyniki?",
+    "createSection": "Utwórz odcinek",
+    "defaultRouteName": "Trasa {{type}}",
+    "defaultActivityName": "Aktywność {{number}}"
   },
-
   "sections": {
     "performanceOverTime": "Wyniki w czasie",
     "best": "Najlepsza",
@@ -417,13 +410,11 @@
     "noActivitiesFound": "Nie znaleziono aktywnosci",
     "sectionNamePlaceholder": "Nazwa odcinka"
   },
-
   "errorState": {
     "defaultTitle": "Cos poszlo nie tak",
     "defaultMessage": "Nie udalo sie wczytac danych. Sprobuj ponownie.",
     "tryAgain": "Sprobuj ponownie"
   },
-
   "emptyState": {
     "refresh": "Odswiez",
     "clearFilters": "Wyczysc filtry",
@@ -452,12 +443,10 @@
       "description": "Niektore funkcje moga byc ograniczone"
     }
   },
-
   "cache": {
     "syncingActivities": "Synchronizacja aktywnosci",
     "analyzingRoutes": "Analiza tras"
   },
-
   "activityDetail": {
     "failedToLoad": "Nie udalo sie wczytac aktywnosci",
     "avgPace": "Sr. tempo",
@@ -465,11 +454,9 @@
     "avgHR": "Sr. HR",
     "avgPower": "Sr. moc"
   },
-
   "routeDetail": {
     "routeNotFound": "Nie znaleziono trasy"
   },
-
   "attribution": {
     "recordedWith": "Zarejestrowane za pomoca {{device}}",
     "garminTrademark": "Garmin i logo Garmin sa znakami towarowymi Garmin Ltd.",
@@ -477,7 +464,6 @@
     "osm": "Wspoltworcy OpenStreetMap",
     "osmLicense": "Dane tras na licencji Open Database License (ODbL)"
   },
-
   "stats": {
     "activityCalendar": "Kalendarz aktywnosci",
     "activitiesCount": "{{count}} aktywnosci",
@@ -548,7 +534,6 @@
     "efficiency": "Wydajnosc",
     "decouplingExplanation": "Rozsprzezenie mierzy dryf sercowy - jak bardzo tetno wzrasta wzgledem mocy podczas dlugotrwalych wysikow. Nizsze jest lepsze, wskazujac na wydajna produkcje energii tlenowej."
   },
-
   "wellness": {
     "noData": "Brak dostepnych danych zdrowia",
     "connectHint": "Polacz urzadzenie noszone lub rejestruj dane zdrowia w Intervals.icu",
@@ -563,9 +548,11 @@
     "noTrendData": "Brak dostepnych danych trendow",
     "trendHint": "Trendy HRV, snu i tetna spoczynkowego pojawia sie tutaj po zalogowaniu danych",
     "dragToExplore": "Przeciagnij, aby eksplorować",
-    "lastDays": "Ostatnie {{count}} dni"
+    "lastDays": "Ostatnie {{count}} dni",
+    "smoothingTitle": "Wygladzanie danych",
+    "smoothingDescription": "Zastosuj srednia kroczaca, aby zredukowac dzienny szum i wyrazniej pokazac trendy.",
+    "smoothingHint": "Auto uzywa optymalnego wygladzania dla wybranego zakresu czasowego"
   },
-
   "fitness": {
     "noData": "Brak dostepnych danych kondycji",
     "formTSB": "Forma (TSB)",
@@ -585,7 +572,6 @@
       "1y": "1 rok"
     }
   },
-
   "formZones": {
     "transition": "Przejsciowa",
     "fresh": "Wypoczety",
@@ -593,7 +579,6 @@
     "optimal": "Optymalna",
     "highRisk": "Wysokie ryzyko"
   },
-
   "maps": {
     "closeMap": "Zamknij mape",
     "toggleStyle": "Zmien styl mapy",
@@ -619,9 +604,13 @@
       "walk": "Spacer",
       "hike": "Wedrowka",
       "other": "Inne"
-    }
+    },
+    "tapSelectStart": "Dotknij, aby wybrać punkt początkowy",
+    "tapSelectEnd": "Dotknij, aby wybrać punkt końcowy",
+    "sectionSelected": "Odcinek wybrany",
+    "startPercent": "Początek: {{percent}}%",
+    "rangePercent": "{{start}}% - {{end}}%"
   },
-
   "heatmap": {
     "visitedTimes": "Odwiedzono {{count}} razy",
     "uniqueRoutes": "{{count}} unikalnych tras",

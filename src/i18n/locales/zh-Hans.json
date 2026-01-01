@@ -8,6 +8,8 @@
     "save": "保存",
     "delete": "删除",
     "confirm": "确认",
+    "reset": "重置",
+    "create": "创建",
     "back": "返回",
     "next": "下一步",
     "done": "完成",
@@ -16,7 +18,6 @@
     "noResults": "无结果",
     "pullToRefresh": "下拉刷新"
   },
-
   "navigation": {
     "feed": "动态",
     "fitness": "体能",
@@ -29,7 +30,6 @@
     "settings": "设置",
     "activities": "活动"
   },
-
   "feed": {
     "recentActivities": "最近活动",
     "activitiesCount": "{{count}} 个活动",
@@ -38,7 +38,6 @@
     "failedToLoad": "加载活动失败",
     "searchPlaceholder": "搜索活动..."
   },
-
   "filters": {
     "showFilters": "显示筛选",
     "hideFilters": "隐藏筛选",
@@ -53,7 +52,6 @@
     "racketSports": "球拍运动",
     "other": "其他"
   },
-
   "metrics": {
     "hrv": "心率变异性",
     "rhr": "静息心率",
@@ -66,7 +64,6 @@
     "fatigue": "疲劳",
     "hr": "心率"
   },
-
   "login": {
     "title": "Veloq",
     "subtitle": "连接到 Intervals.icu",
@@ -82,12 +79,10 @@
     "securityNote": "您的凭据安全存储在您的设备上",
     "tryDemo": "试用演示"
   },
-
   "demo": {
     "banner": "演示模式",
     "tapToSignIn": "点击登录"
   },
-
   "settings": {
     "title": "设置",
     "appearance": "外观",
@@ -143,7 +138,6 @@
       "asian": "亚洲语言"
     }
   },
-
   "alerts": {
     "error": "错误",
     "clearCacheTitle": "清除并重新加载缓存",
@@ -160,7 +154,6 @@
     "failedToClear": "清除缓存失败。请重试。",
     "failedToDisconnect": "断开连接失败。请重试。"
   },
-
   "activity": {
     "viewDetails": "查看详情",
     "share": "分享",
@@ -237,7 +230,6 @@
       "decoupling": "脱耦"
     }
   },
-
   "time": {
     "today": "今天",
     "yesterday": "昨天",
@@ -248,7 +240,6 @@
     "current": "当前",
     "now": "现在"
   },
-
   "units": {
     "km": "公里",
     "mi": "英里",
@@ -264,7 +255,6 @@
     "minutes": "分钟",
     "seconds": "秒"
   },
-
   "fitnessScreen": {
     "title": "体能与状态",
     "loadingData": "加载体能数据...",
@@ -286,12 +276,10 @@
     "toPreventOvertraining": "以防止过度训练。",
     "learnMore": "了解更多"
   },
-
   "wellnessScreen": {
     "title": "健康",
     "trends": "健康趋势"
   },
-
   "trainingScreen": {
     "title": "训练",
     "routes": "路线",
@@ -307,7 +295,6 @@
     "visualizeActivities": "可视化 {{count}} 个活动",
     "seeWhereYouTravel": "查看您最常去的地方"
   },
-
   "routesScreen": {
     "title": "路线",
     "matchingDisabled": "路线匹配已禁用",
@@ -316,7 +303,6 @@
     "analysingRoutes": "正在分析路线 {{current}}/{{total}}",
     "computingRoutes": "正在计算路线..."
   },
-
   "statsScreen": {
     "title": "表现",
     "days42": "42 天",
@@ -331,7 +317,6 @@
     "powerCurve": "功率曲线",
     "garminNote": "图表可能包含来自 Garmin 设备的数据"
   },
-
   "heatmapScreen": {
     "title": "热力图",
     "noActivityData": "无活动数据",
@@ -340,12 +325,10 @@
     "generatingHeatmap": "正在生成热力图...",
     "activitiesCount": "{{count}} 个活动"
   },
-
   "mapScreen": {
     "loadingActivities": "加载活动中...",
     "syncing": "同步中: {{completed}}/{{total}}"
   },
-
   "routes": {
     "basedOnActivities": "基于 {{count}} 个活动",
     "routesFound": "找到 {{count}} 条路线",
@@ -397,9 +380,19 @@
     "bestOn": "最佳于",
     "same": "相同",
     "fastest": "第 {{rank}} 快",
-    "routeNamePlaceholder": "路线名称"
+    "routeNamePlaceholder": "路线名称",
+    "autoDetected": "自动检测",
+    "suggestions": "建议",
+    "custom": "自定义",
+    "suggestion": "建议",
+    "scaleShort": "短",
+    "scaleMedium": "中等",
+    "scaleLong": "长",
+    "potentialSectionDescription": "您已经走过这条{{sport}}路径{{count}}次。创建路段来跟踪您的表现？",
+    "createSection": "创建路段",
+    "defaultRouteName": "{{type}}路线",
+    "defaultActivityName": "活动 {{number}}"
   },
-
   "sections": {
     "performanceOverTime": "历史表现",
     "best": "最佳",
@@ -417,13 +410,11 @@
     "noActivitiesFound": "未找到活动",
     "sectionNamePlaceholder": "路段名称"
   },
-
   "errorState": {
     "defaultTitle": "出错了",
     "defaultMessage": "加载数据失败。请重试。",
     "tryAgain": "重试"
   },
-
   "emptyState": {
     "refresh": "刷新",
     "clearFilters": "清除筛选",
@@ -452,12 +443,10 @@
       "description": "部分功能可能受限"
     }
   },
-
   "cache": {
     "syncingActivities": "正在同步活动",
     "analyzingRoutes": "正在分析路线"
   },
-
   "activityDetail": {
     "failedToLoad": "加载活动失败",
     "avgPace": "平均配速",
@@ -465,11 +454,9 @@
     "avgHR": "平均心率",
     "avgPower": "平均功率"
   },
-
   "routeDetail": {
     "routeNotFound": "未找到路线"
   },
-
   "attribution": {
     "recordedWith": "使用 {{device}} 记录",
     "garminTrademark": "Garmin 和 Garmin 标志是 Garmin Ltd. 的商标。",
@@ -477,7 +464,6 @@
     "osm": "OpenStreetMap 贡献者",
     "osmLicense": "路线数据采用开放数据库许可证 (ODbL) 授权"
   },
-
   "stats": {
     "activityCalendar": "活动日历",
     "activitiesCount": "{{count}} 个活动",
@@ -548,7 +534,6 @@
     "efficiency": "效率",
     "decouplingExplanation": "脱耦测量心脏漂移——在持续性训练中心率相对于功率输出上升的程度。越低越好，表示有氧能量产生效率高。"
   },
-
   "wellness": {
     "noData": "无可用健康数据",
     "connectHint": "连接可穿戴设备或在 Intervals.icu 记录健康数据",
@@ -563,9 +548,11 @@
     "noTrendData": "无可用趋势数据",
     "trendHint": "记录数据后，心率变异性、睡眠和静息心率趋势将显示在这里",
     "dragToExplore": "拖动探索",
-    "lastDays": "最近 {{count}} 天"
+    "lastDays": "最近 {{count}} 天",
+    "smoothingTitle": "数据平滑",
+    "smoothingDescription": "应用移动平均来减少每日噪声并更清晰地显示趋势。",
+    "smoothingHint": "自动为所选时间范围使用最佳平滑"
   },
-
   "fitness": {
     "noData": "无可用体能数据",
     "formTSB": "状态 (TSB)",
@@ -585,7 +572,6 @@
       "1y": "1 年"
     }
   },
-
   "formZones": {
     "transition": "过渡期",
     "fresh": "恢复期",
@@ -593,7 +579,6 @@
     "optimal": "最佳区间",
     "highRisk": "高风险"
   },
-
   "maps": {
     "closeMap": "关闭地图",
     "toggleStyle": "切换地图样式",
@@ -619,9 +604,13 @@
       "walk": "步行",
       "hike": "徒步",
       "other": "其他"
-    }
+    },
+    "tapSelectStart": "点击选择起点",
+    "tapSelectEnd": "点击选择终点",
+    "sectionSelected": "已选择路段",
+    "startPercent": "起点: {{percent}}%",
+    "rangePercent": "{{start}}% - {{end}}%"
   },
-
   "heatmap": {
     "visitedTimes": "访问 {{count}} 次",
     "uniqueRoutes": "{{count}} 条独特路线",

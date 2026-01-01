@@ -477,6 +477,7 @@ export interface TranslationResource {
     goToSettings: string;
     analysingRoutes: string;
     computingRoutes: string;
+    downloadingGps: string;
   };
 
   statsScreen: {
@@ -560,6 +561,13 @@ export interface TranslationResource {
     same: string;
     fastest: string;
     routeNamePlaceholder: string;
+    visits: string;
+    autoDetected: string;
+    custom: string;
+    createSection: string;
+    sectionCreated: string;
+    sectionCreatedDescription: string;
+    sectionCreationFailed: string;
   };
 
   sections: {
@@ -626,6 +634,13 @@ export interface TranslationResource {
     avgSpeed: string;
     avgHR: string;
     avgPower: string;
+    tabs: {
+      charts: string;
+      routes: string;
+      sections: string;
+    };
+    noMatchedSections: string;
+    noMatchedSectionsDescription: string;
   };
 
   routeDetail: {

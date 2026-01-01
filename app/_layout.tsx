@@ -6,6 +6,7 @@ import { useColorScheme, View, ActivityIndicator, Platform } from 'react-native'
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Logger } from '@maplibre/maplibre-react-native';
 import { configureReanimatedLogger, ReanimatedLogLevel } from 'react-native-reanimated';
+import * as FileSystem from 'expo-file-system';
 import { QueryProvider, MapPreferencesProvider, NetworkProvider, initializeTheme, useAuthStore, initializeSportPreference, initializeHRZones, initializeRouteSettings, initializeLanguage } from '@/providers';
 import { initializeI18n } from '@/i18n';
 import { lightTheme, darkTheme, colors, darkColors } from '@/theme';
@@ -20,6 +21,9 @@ function getRouteEngine() {
   }
 }
 
+// Database path for persistent route engine (SQLite)
+const getRouteDbPath = () => `${FileSystem.documentDirectory}routes.db`;
+
 // Suppress MapLibre info/warning logs about canceled requests
 // These occur when switching between map views but don't affect functionality
 Logger.setLogLevel('error');
@@ -33,11 +37,22 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const { isAuthenticated, isLoading } = useAuthStore();
 
-  // Initialize Rust route engine when authenticated
+  // Initialize Rust route engine with persistent storage when authenticated
+  // Data persists in SQLite - GPS tracks, routes, sections load instantly
   useEffect(() => {
     if (isAuthenticated) {
       const engine = getRouteEngine();
-      if (engine) engine.init();
+      if (engine) {
+        const dbPath = getRouteDbPath();
+        const success = engine.initWithPath(dbPath);
+        if (success) {
+          console.log(`[RouteEngine] Initialized with persistent storage: ${engine.getActivityCount()} cached activities`);
+        } else {
+          // Fallback to in-memory if persistent init fails
+          console.warn('[RouteEngine] Persistent init failed, falling back to in-memory');
+          engine.init();
+        }
+      }
     }
   }, [isAuthenticated]);
 

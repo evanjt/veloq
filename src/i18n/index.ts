@@ -90,7 +90,8 @@ export async function initializeI18n(savedLocale?: SupportedLocale | null): Prom
   await i18n.use(initReactI18next).init({
     resources,
     lng: locale,
-    fallbackLng: 'en-AU',
+    // Use the locale fallback chain for graceful degradation
+    fallbackLng: LOCALE_FALLBACKS[locale] || ['en-AU'],
 
     interpolation: {
       escapeValue: false, // React already escapes values
@@ -99,7 +100,15 @@ export async function initializeI18n(savedLocale?: SupportedLocale | null): Prom
     // React Native doesn't need HTML escaping
     react: {
       useSuspense: false,
+      // Ensure components re-render when language changes
+      bindI18n: 'languageChanged loaded',
+      bindI18nStore: 'added removed',
     },
+
+    // Disable i18next's locale code parsing - use exact locale keys
+    load: 'currentOnly',
+    // Don't try to detect language from browser/navigator
+    detection: undefined,
 
     // Return key if translation is missing (for development)
     returnNull: false,
@@ -111,6 +120,9 @@ export async function initializeI18n(savedLocale?: SupportedLocale | null): Prom
  * Change the current language
  */
 export async function changeLanguage(locale: SupportedLocale): Promise<void> {
+  // Update fallback chain for the new locale
+  const fallbacks = LOCALE_FALLBACKS[locale] || ['en-AU'];
+  i18n.options.fallbackLng = fallbacks;
   await i18n.changeLanguage(locale);
 }
 

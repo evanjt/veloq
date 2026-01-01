@@ -14,7 +14,9 @@
     "search": "Search",
     "clearSearch": "Clear search",
     "noResults": "No results",
-    "pullToRefresh": "Pull to refresh"
+    "pullToRefresh": "Pull to refresh",
+    "reset": "Reset",
+    "create": "Create"
   },
 
   "navigation": {
@@ -314,7 +316,9 @@
     "enableInSettings": "Enable route matching in Settings to automatically detect repeated routes from your activities.",
     "goToSettings": "Go to Settings",
     "analysingRoutes": "Analysing routes {{current}}/{{total}}",
-    "computingRoutes": "Computing routes..."
+    "computingRoutes": "Computing routes...",
+    "downloadingGps": "Downloading GPS",
+    "analyzingRoutes": "Analysing routes"
   },
 
   "statsScreen": {
@@ -377,6 +381,7 @@
     "moreActivitiesProcessed": "+ {{count}} more activities processed",
     "matchesLabel": "matches",
     "checkedLabel": "checked",
+    "visits": "visits",
     "match": "match",
     "more": "+{{count}} more",
     "loadingSections": "Loading sections...",
@@ -397,7 +402,18 @@
     "bestOn": "Best on",
     "same": "Same",
     "fastest": "#{{rank}} fastest",
-    "routeNamePlaceholder": "Route name"
+    "routeNamePlaceholder": "Route name",
+    "autoDetected": "Auto-detected",
+    "suggestions": "Suggestions",
+    "custom": "Custom",
+    "suggestion": "Suggestion",
+    "scaleShort": "Short",
+    "scaleMedium": "Medium",
+    "scaleLong": "Long",
+    "potentialSectionDescription": "You've used this {{sport}} path {{count}} times. Create a section to track your performance?",
+    "createSection": "Create Section",
+    "defaultRouteName": "{{type}} Route",
+    "defaultActivityName": "Activity {{number}}"
   },
 
   "sections": {
@@ -463,7 +479,14 @@
     "avgPace": "Avg Pace",
     "avgSpeed": "Avg Speed",
     "avgHR": "Avg HR",
-    "avgPower": "Avg Power"
+    "avgPower": "Avg Power",
+    "tabs": {
+      "charts": "Charts",
+      "routes": "Routes",
+      "sections": "Sections"
+    },
+    "noMatchedSections": "No matched sections",
+    "noMatchedSectionsDescription": "Sections matching this activity will appear here"
   },
 
   "routeDetail": {
@@ -563,7 +586,10 @@
     "noTrendData": "No trend data available",
     "trendHint": "HRV, sleep, and resting HR trends will appear here when data is logged",
     "dragToExplore": "Drag to explore",
-    "lastDays": "Last {{count}} days"
+    "lastDays": "Last {{count}} days",
+    "smoothingTitle": "Data Smoothing",
+    "smoothingDescription": "Apply a rolling average to reduce daily noise and show trends more clearly.",
+    "smoothingHint": "Auto uses optimal smoothing for the selected time range"
   },
 
   "fitness": {
@@ -612,6 +638,11 @@
     "selected": "Selected",
     "cached": "Cached",
     "notSynced": "Not synced",
+    "tapSelectStart": "Tap to select start point",
+    "tapSelectEnd": "Tap to select end point",
+    "sectionSelected": "Section selected",
+    "startPercent": "Start: {{percent}}%",
+    "rangePercent": "{{start}}% - {{end}}%",
     "activityTypes": {
       "ride": "Ride",
       "run": "Run",

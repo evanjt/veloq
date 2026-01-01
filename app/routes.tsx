@@ -5,7 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { RoutesList, SectionsList, TimelineSlider } from '@/components';
+import { RoutesList, SectionsList, DateRangeSummary } from '@/components';
 import { SwipeableTabs, type SwipeableTab } from '@/components/ui';
 import { useRouteProcessing, useActivities, useActivityBoundsCache, useRouteGroups, useFrequentSections, useEngineStats, useRouteDataSync, useOldestActivityDate } from '@/hooks';
 import { useRouteSettings, useSyncDateRange } from '@/providers';
@@ -152,41 +152,51 @@ export default function RoutesScreen() {
     return { oldestSyncedDate: oldest, newestSyncedDate: newest };
   }, [cachedActivities]);
 
-  // Convert sync/processing progress to timeline format
-  // Show banner for syncing AND data fetching
+  // Convert sync/processing progress to unified phased format
+  // Phases: 1) Loading activities, 2) Downloading GPS, 3) Analyzing routes
   const timelineSyncProgress = useMemo(() => {
-    // Show loading activities progress
+    // Phase 1: Loading activities from API
     if (isLoading || isFetchingExtended) {
       return {
         completed: 0,
         total: 0,
         message: t('mapScreen.loadingActivities'),
+        phase: 1,
       };
     }
-    // Show bounds syncing progress
+
+    // Phase 2: Downloading GPS data
     if (syncProgress.status === 'syncing') {
       return {
         completed: syncProgress.completed,
         total: syncProgress.total,
-        message: undefined,
+        message: syncProgress.total > 0
+          ? `${t('routesScreen.downloadingGps')} (${syncProgress.completed}/${syncProgress.total})`
+          : t('routesScreen.downloadingGps'),
+        phase: 2,
       };
     }
-    // Show GPS data fetching progress
-    if (isDataSyncing && dataSyncProgress.total > 0) {
+
+    // Phase 2b: Fetching GPS (from route data sync)
+    if (isDataSyncing && dataSyncProgress.total > 0 && dataSyncProgress.status !== 'computing') {
       return {
         completed: dataSyncProgress.completed,
         total: dataSyncProgress.total,
-        message: t('routesScreen.analysingRoutes', { current: dataSyncProgress.completed, total: dataSyncProgress.total }),
+        message: `${t('routesScreen.downloadingGps')} (${dataSyncProgress.completed}/${dataSyncProgress.total})`,
+        phase: 2,
       };
     }
-    // Show computing routes progress (no progress bar, just message)
+
+    // Phase 3: Analyzing routes
     if (dataSyncProgress.status === 'computing') {
       return {
         completed: 0,
         total: 0,
-        message: dataSyncProgress.message,
+        message: t('routesScreen.analyzingRoutes'),
+        phase: 3,
       };
     }
+
     return null;
   }, [isLoading, isFetchingExtended, syncProgress, isDataSyncing, dataSyncProgress, t]);
 
@@ -242,19 +252,14 @@ export default function RoutesScreen() {
         <View style={styles.headerRight} />
       </View>
 
-      {/* Timeline slider - same as world map */}
-      <TimelineSlider
-        minDate={minDate}
-        maxDate={maxDate}
-        startDate={startDate}
-        endDate={endDate}
-        onRangeChange={handleRangeChange}
-        isLoading={isSyncing}
-        activityCount={activities?.length || 0}
-        syncProgress={timelineSyncProgress}
-        cachedOldest={oldestSyncedDate ? new Date(oldestSyncedDate) : null}
-        cachedNewest={newestSyncedDate ? new Date(newestSyncedDate) : null}
+      {/* Date range summary - shows cached range with link to expand */}
+      <DateRangeSummary
+        activityCount={cachedActivities?.length || 0}
+        oldestDate={oldestSyncedDate}
+        newestDate={newestSyncedDate}
         isDark={isDark}
+        isLoading={isLoading}
+        syncMessage={timelineSyncProgress?.message || null}
       />
 
       {/* Swipeable Routes/Sections tabs */}
@@ -267,8 +272,6 @@ export default function RoutesScreen() {
         <RoutesList
           onRefresh={() => refetch()}
           isRefreshing={isRefetching}
-          startDate={startDate}
-          endDate={endDate}
         />
         <SectionsList />
       </SwipeableTabs>

@@ -8,6 +8,8 @@
     "save": "保存",
     "delete": "削除",
     "confirm": "確認",
+    "reset": "リセット",
+    "create": "作成",
     "back": "戻る",
     "next": "次へ",
     "done": "完了",
@@ -16,7 +18,6 @@
     "noResults": "結果なし",
     "pullToRefresh": "下に引いて更新"
   },
-
   "navigation": {
     "feed": "フィード",
     "fitness": "フィットネス",
@@ -29,7 +30,6 @@
     "settings": "設定",
     "activities": "アクティビティ"
   },
-
   "feed": {
     "recentActivities": "最近のアクティビティ",
     "activitiesCount": "{{count}}件のアクティビティ",
@@ -38,7 +38,6 @@
     "failedToLoad": "アクティビティの読み込みに失敗しました",
     "searchPlaceholder": "アクティビティを検索..."
   },
-
   "filters": {
     "showFilters": "フィルターを表示",
     "hideFilters": "フィルターを非表示",
@@ -53,7 +52,6 @@
     "racketSports": "ラケットスポーツ",
     "other": "その他"
   },
-
   "metrics": {
     "hrv": "HRV",
     "rhr": "安静時心拍",
@@ -66,7 +64,6 @@
     "fatigue": "疲労",
     "hr": "心拍"
   },
-
   "login": {
     "title": "Veloq",
     "subtitle": "Intervals.icuに接続",
@@ -82,12 +79,10 @@
     "securityNote": "認証情報はデバイスに安全に保存されます",
     "tryDemo": "デモを試す"
   },
-
   "demo": {
     "banner": "デモモード",
     "tapToSignIn": "タップしてサインイン"
   },
-
   "settings": {
     "title": "設定",
     "appearance": "外観",
@@ -143,7 +138,6 @@
       "asian": "アジア"
     }
   },
-
   "alerts": {
     "error": "エラー",
     "clearCacheTitle": "キャッシュをクリアして再読み込み",
@@ -160,7 +154,6 @@
     "failedToClear": "キャッシュのクリアに失敗しました。再試行してください。",
     "failedToDisconnect": "切断に失敗しました。再試行してください。"
   },
-
   "activity": {
     "viewDetails": "詳細を表示",
     "share": "共有",
@@ -237,7 +230,6 @@
       "decoupling": "デカップリング"
     }
   },
-
   "time": {
     "today": "今日",
     "yesterday": "昨日",
@@ -248,7 +240,6 @@
     "current": "現在",
     "now": "今"
   },
-
   "units": {
     "km": "km",
     "mi": "mi",
@@ -264,7 +255,6 @@
     "minutes": "分",
     "seconds": "秒"
   },
-
   "fitnessScreen": {
     "title": "フィットネスとフォーム",
     "loadingData": "フィットネスデータを読み込み中...",
@@ -286,12 +276,10 @@
     "toPreventOvertraining": "を避けてオーバートレーニングを防止。",
     "learnMore": "詳細を見る"
   },
-
   "wellnessScreen": {
     "title": "ウェルネス",
     "trends": "ウェルネストレンド"
   },
-
   "trainingScreen": {
     "title": "トレーニング",
     "routes": "ルート",
@@ -307,7 +295,6 @@
     "visualizeActivities": "{{count}}件のアクティビティを可視化",
     "seeWhereYouTravel": "よく行く場所を確認"
   },
-
   "routesScreen": {
     "title": "ルート",
     "matchingDisabled": "ルートマッチング無効",
@@ -316,7 +303,6 @@
     "analysingRoutes": "ルート分析中 {{current}}/{{total}}",
     "computingRoutes": "ルート計算中..."
   },
-
   "statsScreen": {
     "title": "パフォーマンス",
     "days42": "42日",
@@ -331,7 +317,6 @@
     "powerCurve": "パワーカーブ",
     "garminNote": "チャートにはGarminデバイスからのデータが含まれる場合があります"
   },
-
   "heatmapScreen": {
     "title": "ヒートマップ",
     "noActivityData": "アクティビティデータなし",
@@ -340,12 +325,10 @@
     "generatingHeatmap": "ヒートマップを生成中...",
     "activitiesCount": "{{count}}件のアクティビティ"
   },
-
   "mapScreen": {
     "loadingActivities": "アクティビティを読み込み中...",
     "syncing": "同期中: {{completed}}/{{total}}"
   },
-
   "routes": {
     "basedOnActivities": "{{count}}件のアクティビティに基づく",
     "routesFound": "{{count}}ルート発見",
@@ -397,9 +380,19 @@
     "bestOn": "ベスト日",
     "same": "同じ",
     "fastest": "#{{rank}}位",
-    "routeNamePlaceholder": "ルート名"
+    "routeNamePlaceholder": "ルート名",
+    "autoDetected": "自動検出",
+    "suggestions": "提案",
+    "custom": "カスタム",
+    "suggestion": "提案",
+    "scaleShort": "短い",
+    "scaleMedium": "中程度",
+    "scaleLong": "長い",
+    "potentialSectionDescription": "この{{sport}}パスを{{count}}回通りました。パフォーマンスを追跡するために区間を作成しますか？",
+    "createSection": "区間を作成",
+    "defaultRouteName": "{{type}}ルート",
+    "defaultActivityName": "アクティビティ {{number}}"
   },
-
   "sections": {
     "performanceOverTime": "時系列パフォーマンス",
     "best": "ベスト",
@@ -417,13 +410,11 @@
     "noActivitiesFound": "アクティビティが見つかりません",
     "sectionNamePlaceholder": "区間名"
   },
-
   "errorState": {
     "defaultTitle": "問題が発生しました",
     "defaultMessage": "データの読み込みに失敗しました。再試行してください。",
     "tryAgain": "再試行"
   },
-
   "emptyState": {
     "refresh": "更新",
     "clearFilters": "フィルターをクリア",
@@ -452,12 +443,10 @@
       "description": "一部の機能が制限される場合があります"
     }
   },
-
   "cache": {
     "syncingActivities": "アクティビティを同期中",
     "analyzingRoutes": "ルートを分析中"
   },
-
   "activityDetail": {
     "failedToLoad": "アクティビティの読み込みに失敗しました",
     "avgPace": "平均ペース",
@@ -465,11 +454,9 @@
     "avgHR": "平均心拍",
     "avgPower": "平均パワー"
   },
-
   "routeDetail": {
     "routeNotFound": "ルートが見つかりません"
   },
-
   "attribution": {
     "recordedWith": "{{device}}で記録",
     "garminTrademark": "GarminとGarminロゴはGarmin Ltd.の商標です。",
@@ -477,7 +464,6 @@
     "osm": "OpenStreetMap貢献者",
     "osmLicense": "ルートデータはOpen Database License (ODbL)でライセンスされています"
   },
-
   "stats": {
     "activityCalendar": "アクティビティカレンダー",
     "activitiesCount": "{{count}}件のアクティビティ",
@@ -548,7 +534,6 @@
     "efficiency": "効率",
     "decouplingExplanation": "デカップリングは心臓ドリフトを測定します - 持続的な運動中にパワー出力に対して心拍数がどれだけ上昇するかです。低いほど良く、効率的な有酸素エネルギー生成を示します。"
   },
-
   "wellness": {
     "noData": "ウェルネスデータがありません",
     "connectHint": "ウェアラブルを接続するか、Intervals.icuでウェルネスデータを記録してください",
@@ -563,9 +548,11 @@
     "noTrendData": "トレンドデータがありません",
     "trendHint": "データが記録されると、HRV、睡眠、安静時心拍のトレンドがここに表示されます",
     "dragToExplore": "ドラッグして探索",
-    "lastDays": "過去{{count}}日"
+    "lastDays": "過去{{count}}日",
+    "smoothingTitle": "データ平滑化",
+    "smoothingDescription": "移動平均を適用して日々のノイズを減らし、トレンドをより明確に表示します。",
+    "smoothingHint": "自動は選択した期間に最適な平滑化を使用します"
   },
-
   "fitness": {
     "noData": "フィットネスデータがありません",
     "formTSB": "フォーム (TSB)",
@@ -585,7 +572,6 @@
       "1y": "1年"
     }
   },
-
   "formZones": {
     "transition": "移行",
     "fresh": "フレッシュ",
@@ -593,7 +579,6 @@
     "optimal": "最適",
     "highRisk": "高リスク"
   },
-
   "maps": {
     "closeMap": "マップを閉じる",
     "toggleStyle": "マップスタイルを切り替え",
@@ -619,9 +604,13 @@
       "walk": "ウォーク",
       "hike": "ハイク",
       "other": "その他"
-    }
+    },
+    "tapSelectStart": "タップして開始点を選択",
+    "tapSelectEnd": "タップして終了点を選択",
+    "sectionSelected": "区間が選択されました",
+    "startPercent": "開始: {{percent}}%",
+    "rangePercent": "{{start}}% - {{end}}%"
   },
-
   "heatmap": {
     "visitedTimes": "{{count}}回訪問",
     "uniqueRoutes": "{{count}}ユニークルート",

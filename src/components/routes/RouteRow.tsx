@@ -164,7 +164,7 @@ function RouteRowComponent({ route, navigable = false }: RouteRowProps) {
 
   // Display name uses custom name if set, otherwise auto-generated name
   // Ensure it's always a valid string to avoid React Native text rendering errors
-  const displayName = customName || route.name || `${route.type} Route`;
+  const displayName = customName || route.name || t('routes.defaultRouteName', { type: route.type });
 
   // Get activity color for the route type
   // RouteGroup.type is ActivityType, DiscoveredRouteInfo.type is string
@@ -185,17 +185,17 @@ function RouteRowComponent({ route, navigable = false }: RouteRowProps) {
   const activityNames = useMemo(() => {
     if (isRouteGroup(route)) {
       // RouteGroup doesn't have activity names, just IDs
-      return route.activityIds.map((_, i) => `Activity ${i + 1}`);
+      return route.activityIds.map((_, i) => t('routes.defaultActivityName', { number: i + 1 }));
     }
     return route.activityNames || [];
-  }, [route]);
+  }, [route, t]);
 
   const getTypeIcon = (): 'bike' | 'run' | 'swim' | 'walk' | 'map-marker' => {
-    const t = route.type?.toLowerCase() || '';
-    if (t.includes('ride') || t.includes('cycling')) return 'bike';
-    if (t.includes('run')) return 'run';
-    if (t.includes('swim')) return 'swim';
-    if (t.includes('walk') || t.includes('hike')) return 'walk';
+    const routeType = route.type?.toLowerCase() || '';
+    if (routeType.includes('ride') || routeType.includes('cycling')) return 'bike';
+    if (routeType.includes('run')) return 'run';
+    if (routeType.includes('swim')) return 'swim';
+    if (routeType.includes('walk') || routeType.includes('hike')) return 'walk';
     return 'map-marker';
   };
 

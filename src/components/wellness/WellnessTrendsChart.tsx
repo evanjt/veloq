@@ -7,12 +7,15 @@ import { Circle, Line as SkiaLine } from '@shopify/react-native-skia';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { useSharedValue, useAnimatedStyle, runOnJS } from 'react-native-reanimated';
 import { colors, darkColors, spacing, typography, opacity } from '@/theme';
-import { sortByDateId } from '@/lib';
+import { sortByDateId, smoothDataPoints, getEffectiveWindow, type SmoothingWindow } from '@/lib';
 import type { WellnessData } from '@/types';
+import type { TimeRange } from '@/hooks';
 
 interface WellnessTrendsChartProps {
   data?: WellnessData[];
   height?: number;
+  timeRange: TimeRange;
+  smoothingWindow?: SmoothingWindow;
 }
 
 // Colors for different metrics (NO orange)
@@ -190,6 +193,8 @@ function MetricSparkline({
 export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
   data,
   height = 200,
+  timeRange,
+  smoothingWindow = 'auto',
 }: WellnessTrendsChartProps) {
   const { t } = useTranslation();
   const colorScheme = useColorScheme();
@@ -200,6 +205,12 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
   // Shared values for gesture
   const activeX = useSharedValue(0);
   const isActive = useSharedValue(false);
+
+  // Calculate effective smoothing window
+  const effectiveWindow = useMemo(
+    () => getEffectiveWindow(smoothingWindow, timeRange),
+    [smoothingWindow, timeRange]
+  );
 
   // Process data for each metric
   const { sortedData, hrvData, rhrData, sleepData, sleepScoreData, weightData, totalDays } =
@@ -220,30 +231,37 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
       const sorted = sortByDateId(data);
       const totalDays = sorted.length;
 
-      const hrvData: MetricChartData[] = [];
-      const rhrData: MetricChartData[] = [];
-      const sleepData: MetricChartData[] = [];
-      const sleepScoreData: MetricChartData[] = [];
-      const weightData: MetricChartData[] = [];
+      const hrvDataRaw: MetricChartData[] = [];
+      const rhrDataRaw: MetricChartData[] = [];
+      const sleepDataRaw: MetricChartData[] = [];
+      const sleepScoreDataRaw: MetricChartData[] = [];
+      const weightDataRaw: MetricChartData[] = [];
 
       sorted.forEach((d, idx) => {
         if (d.hrv != null) {
-          hrvData.push({ x: idx, value: d.hrv, date: d.id, rawValue: d.hrv });
+          hrvDataRaw.push({ x: idx, value: d.hrv, date: d.id, rawValue: d.hrv });
         }
         if (d.restingHR != null) {
-          rhrData.push({ x: idx, value: d.restingHR, date: d.id, rawValue: d.restingHR });
+          rhrDataRaw.push({ x: idx, value: d.restingHR, date: d.id, rawValue: d.restingHR });
         }
         if (d.sleepSecs != null) {
           const hours = d.sleepSecs / 3600;
-          sleepData.push({ x: idx, value: hours, date: d.id, rawValue: hours });
+          sleepDataRaw.push({ x: idx, value: hours, date: d.id, rawValue: hours });
         }
         if (d.sleepScore != null) {
-          sleepScoreData.push({ x: idx, value: d.sleepScore, date: d.id, rawValue: d.sleepScore });
+          sleepScoreDataRaw.push({ x: idx, value: d.sleepScore, date: d.id, rawValue: d.sleepScore });
         }
         if (d.weight != null) {
-          weightData.push({ x: idx, value: d.weight, date: d.id, rawValue: d.weight });
+          weightDataRaw.push({ x: idx, value: d.weight, date: d.id, rawValue: d.weight });
         }
       });
+
+      // Apply smoothing
+      const hrvData = smoothDataPoints(hrvDataRaw, effectiveWindow);
+      const rhrData = smoothDataPoints(rhrDataRaw, effectiveWindow);
+      const sleepData = smoothDataPoints(sleepDataRaw, effectiveWindow);
+      const sleepScoreData = smoothDataPoints(sleepScoreDataRaw, effectiveWindow);
+      const weightData = smoothDataPoints(weightDataRaw, effectiveWindow);
 
       return {
         sortedData: sorted,
@@ -254,7 +272,7 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
         weightData,
         totalDays,
       };
-    }, [data]);
+    }, [data, effectiveWindow]);
 
   const hasHrv = hrvData.length > 0;
   const hasRhr = rhrData.length > 0;

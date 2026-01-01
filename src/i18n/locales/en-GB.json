@@ -14,9 +14,10 @@
     "search": "Search",
     "clearSearch": "Clear search",
     "noResults": "No results",
-    "pullToRefresh": "Pull to refresh"
+    "pullToRefresh": "Pull to refresh",
+    "reset": "Reset",
+    "create": "Create"
   },
-
   "navigation": {
     "feed": "Feed",
     "fitness": "Fitness",
@@ -29,7 +30,6 @@
     "settings": "Settings",
     "activities": "Activities"
   },
-
   "feed": {
     "recentActivities": "Recent Activities",
     "activitiesCount": "{{count}} Activities",
@@ -38,7 +38,6 @@
     "failedToLoad": "Failed to load activities",
     "searchPlaceholder": "Search activities..."
   },
-
   "filters": {
     "showFilters": "Show filters",
     "hideFilters": "Hide filters",
@@ -53,7 +52,6 @@
     "racketSports": "Racket Sports",
     "other": "Other"
   },
-
   "metrics": {
     "hrv": "HRV",
     "rhr": "RHR",
@@ -66,7 +64,6 @@
     "fatigue": "Fatigue",
     "hr": "HR"
   },
-
   "login": {
     "title": "Veloq",
     "subtitle": "Connect to Intervals.icu",
@@ -82,12 +79,10 @@
     "securityNote": "Your credentials are stored securely on your device",
     "tryDemo": "Try Demo"
   },
-
   "demo": {
     "banner": "Demo Mode",
     "tapToSignIn": "Tap to sign in"
   },
-
   "settings": {
     "title": "Settings",
     "appearance": "Appearance",
@@ -104,7 +99,7 @@
     "default": "Default",
     "defaultMapHint": "'Default' uses the map style set above",
     "dataCache": "Data Cache",
-    "syncAllHistory": "Sync All History",
+    "syncAllHistory": "Adjust time period",
     "syncAllHistoryDescription": "This will sync up to 10 years of activity data in the background. This enables deeper route analysis and comparison.",
     "syncInProgress": "Please wait for the current sync to complete.",
     "viewRoutes": "View Routes",
@@ -143,7 +138,6 @@
       "asian": "Asian"
     }
   },
-
   "alerts": {
     "error": "Error",
     "clearCacheTitle": "Clear & Reload Cache",
@@ -160,7 +154,6 @@
     "failedToClear": "Failed to clear cache. Please try again.",
     "failedToDisconnect": "Failed to disconnect. Please try again."
   },
-
   "activity": {
     "viewDetails": "View Details",
     "share": "Share",
@@ -237,7 +230,6 @@
       "decoupling": "Decoupling"
     }
   },
-
   "time": {
     "today": "Today",
     "yesterday": "Yesterday",
@@ -248,7 +240,6 @@
     "current": "Current",
     "now": "Now"
   },
-
   "units": {
     "km": "km",
     "mi": "mi",
@@ -264,7 +255,6 @@
     "minutes": "min",
     "seconds": "s"
   },
-
   "fitnessScreen": {
     "title": "Fitness & Form",
     "loadingData": "Loading fitness data...",
@@ -286,12 +276,10 @@
     "toPreventOvertraining": "to prevent overtraining.",
     "learnMore": "Learn more"
   },
-
   "wellnessScreen": {
     "title": "Wellness",
     "trends": "Wellness Trends"
   },
-
   "trainingScreen": {
     "title": "Training",
     "routes": "Routes",
@@ -307,16 +295,16 @@
     "visualizeActivities": "Visualise {{count}} activities",
     "seeWhereYouTravel": "See where you travel most"
   },
-
   "routesScreen": {
     "title": "Routes",
     "matchingDisabled": "Route Matching Disabled",
     "enableInSettings": "Enable route matching in Settings to automatically detect repeated routes from your activities.",
     "goToSettings": "Go to Settings",
     "analysingRoutes": "Analysing routes {{current}}/{{total}}",
-    "computingRoutes": "Computing routes..."
+    "computingRoutes": "Computing routes...",
+    "downloadingGps": "Downloading GPS data",
+    "analyzingRoutes": "Analysing routes..."
   },
-
   "statsScreen": {
     "title": "Performance",
     "days42": "42 Days",
@@ -331,7 +319,6 @@
     "powerCurve": "Power Curve",
     "garminNote": "Charts may include data from Garmin devices"
   },
-
   "heatmapScreen": {
     "title": "Heatmap",
     "noActivityData": "No Activity Data",
@@ -340,12 +327,10 @@
     "generatingHeatmap": "Generating heatmap...",
     "activitiesCount": "{{count}} activities"
   },
-
   "mapScreen": {
     "loadingActivities": "Loading activities...",
     "syncing": "Syncing: {{completed}}/{{total}}"
   },
-
   "routes": {
     "basedOnActivities": "Based on {{count}} activities",
     "routesFound": "{{count}} routes found",
@@ -377,6 +362,7 @@
     "moreActivitiesProcessed": "+ {{count}} more activities processed",
     "matchesLabel": "matches",
     "checkedLabel": "checked",
+    "visits": "visits",
     "match": "match",
     "more": "+{{count}} more",
     "loadingSections": "Loading sections...",
@@ -397,9 +383,19 @@
     "bestOn": "Best on",
     "same": "Same",
     "fastest": "#{{rank}} fastest",
-    "routeNamePlaceholder": "Route name"
+    "routeNamePlaceholder": "Route name",
+    "autoDetected": "Auto-detected",
+    "suggestions": "Suggestions",
+    "custom": "Custom",
+    "suggestion": "Suggestion",
+    "scaleShort": "Short",
+    "scaleMedium": "Medium",
+    "scaleLong": "Long",
+    "potentialSectionDescription": "You've used this {{sport}} path {{count}} times. Create a section to track your performance?",
+    "createSection": "Create Section",
+    "defaultRouteName": "{{type}} Route",
+    "defaultActivityName": "Activity {{number}}"
   },
-
   "sections": {
     "performanceOverTime": "Performance Over Time",
     "best": "Best",
@@ -417,13 +413,11 @@
     "noActivitiesFound": "No activities found",
     "sectionNamePlaceholder": "Section name"
   },
-
   "errorState": {
     "defaultTitle": "Something went wrong",
     "defaultMessage": "Failed to load data. Please try again.",
     "tryAgain": "Try Again"
   },
-
   "emptyState": {
     "refresh": "Refresh",
     "clearFilters": "Clear filters",
@@ -452,24 +446,27 @@
       "description": "Some features may be limited"
     }
   },
-
   "cache": {
     "syncingActivities": "Syncing activities",
     "analyzingRoutes": "Analysing routes"
   },
-
   "activityDetail": {
     "failedToLoad": "Failed to load activity",
     "avgPace": "Avg Pace",
     "avgSpeed": "Avg Speed",
     "avgHR": "Avg HR",
-    "avgPower": "Avg Power"
+    "avgPower": "Avg Power",
+    "tabs": {
+      "charts": "Charts",
+      "routes": "Routes",
+      "sections": "Sections"
+    },
+    "noMatchedSections": "No matched sections",
+    "noMatchedSectionsDescription": "Sections matching this activity will appear here"
   },
-
   "routeDetail": {
     "routeNotFound": "Route not found"
   },
-
   "attribution": {
     "recordedWith": "Recorded with {{device}}",
     "garminTrademark": "Garmin and the Garmin logo are trademarks of Garmin Ltd.",
@@ -477,7 +474,6 @@
     "osm": "OpenStreetMap contributors",
     "osmLicense": "Route data licensed under Open Database License (ODbL)"
   },
-
   "stats": {
     "activityCalendar": "Activity Calendar",
     "activitiesCount": "{{count}} activities",
@@ -548,7 +544,6 @@
     "efficiency": "Efficiency",
     "decouplingExplanation": "Decoupling measures cardiac drift - how much your heart rate rises relative to power output during sustained efforts. Lower is better, indicating efficient aerobic energy production."
   },
-
   "wellness": {
     "noData": "No wellness data available",
     "connectHint": "Connect a wearable or log wellness data in Intervals.icu",
@@ -563,9 +558,11 @@
     "noTrendData": "No trend data available",
     "trendHint": "HRV, sleep, and resting HR trends will appear here when data is logged",
     "dragToExplore": "Drag to explore",
-    "lastDays": "Last {{count}} days"
+    "lastDays": "Last {{count}} days",
+    "smoothingTitle": "Data Smoothing",
+    "smoothingDescription": "Apply a rolling average to reduce daily noise and show trends more clearly.",
+    "smoothingHint": "Auto uses optimal smoothing for the selected time range"
   },
-
   "fitness": {
     "noData": "No fitness data available",
     "formTSB": "Form (TSB)",
@@ -585,7 +582,6 @@
       "1y": "1 year"
     }
   },
-
   "formZones": {
     "transition": "Transition",
     "fresh": "Fresh",
@@ -593,7 +589,6 @@
     "optimal": "Optimal",
     "highRisk": "High Risk"
   },
-
   "maps": {
     "closeMap": "Close map",
     "toggleStyle": "Toggle map style",
@@ -619,9 +614,13 @@
       "walk": "Walk",
       "hike": "Hike",
       "other": "Other"
-    }
+    },
+    "tapSelectStart": "Tap to select start point",
+    "tapSelectEnd": "Tap to select end point",
+    "sectionSelected": "Section selected",
+    "startPercent": "Start: {{percent}}%",
+    "rangePercent": "{{start}}% - {{end}}%"
   },
-
   "heatmap": {
     "visitedTimes": "Visited {{count}} times",
     "uniqueRoutes": "{{count}} unique routes",
