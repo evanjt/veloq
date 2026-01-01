@@ -51,9 +51,9 @@ intervals.icu OAuth requires a `client_secret` for token exchange. Embedding sec
 
 | Variable Name | Value |
 |--------------|-------|
-| `INTERVALS_CLIENT_ID` | Your client ID from David |
-| `INTERVALS_CLIENT_SECRET` | Your client secret from David |
-| `WEBHOOK_SECRET` | Your webhook secret from David |
+| `INTERVALS_CLIENT_ID` | Your OAuth client ID |
+| `INTERVALS_CLIENT_SECRET` | Your OAuth client secret |
+| `WEBHOOK_SECRET` | Your webhook secret |
 
 4. Click **Deploy** to apply
 
@@ -103,27 +103,25 @@ https://veloq-oauth-proxy.<your-subdomain>.workers.dev
 
 ## Registration with intervals.icu
 
-Email david@intervals.icu with:
+To register your OAuth application, you'll need to provide:
 
-```
-App name: Veloq
-Description: Mobile fitness tracking app for intervals.icu
-Website URL: https://veloq.fit
-Logo image URL: [your logo, square, 128x128+]
-Privacy policy URL: https://veloq.fit/privacy
-Redirect URI: https://veloq-oauth-proxy.<your-subdomain>.workers.dev/oauth/callback
-Webhook URL: https://veloq-oauth-proxy.<your-subdomain>.workers.dev/webhooks/intervals
-Your intervals.icu ID: [from /settings page]
-Requested scopes: ACTIVITY:READ, WELLNESS:READ, CALENDAR:READ, SETTINGS:READ
-```
+- **App name**: Veloq
+- **Redirect URI**: `https://veloq-oauth-proxy.<your-subdomain>.workers.dev/oauth/callback`
+- **Webhook URL**: `https://veloq-oauth-proxy.<your-subdomain>.workers.dev/webhooks/intervals`
+- **Requested scopes**: ACTIVITY:READ, WELLNESS:READ, CALENDAR:READ, SETTINGS:READ
+
+See the [intervals.icu API documentation](https://forum.intervals.icu/t/api-access-registering-your-own-app/781) for registration details.
 
 ## Mobile App Configuration
 
-After deploying, update your `.env` file:
+After deploying, update `src/lib/utils/constants.ts`:
 
-```
-EXPO_PUBLIC_INTERVALS_CLIENT_ID=<your client id from David>
-EXPO_PUBLIC_OAUTH_PROXY_URL=https://veloq-oauth-proxy.<your-subdomain>.workers.dev
+```typescript
+export const OAUTH = {
+  CLIENT_ID: '<your client id>',
+  PROXY_URL: 'https://veloq-oauth-proxy.<your-subdomain>.workers.dev',
+  // ...
+}
 ```
 
 ## Alternative: Deploy via Wrangler CLI

@@ -90,7 +90,7 @@ export const API_DEFAULTS = {
 
 /**
  * OAuth configuration for intervals.icu
- * Client ID obtained by registering with david@intervals.icu
+ * See oauth-proxy/README.md for registration details
  */
 export const OAUTH = {
   /** OAuth client ID (public - safe to embed in app) */
