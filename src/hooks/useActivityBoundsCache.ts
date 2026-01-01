@@ -31,7 +31,7 @@ interface UseActivityBoundsCacheOptions {
 }
 
 interface UseActivityBoundsCacheReturn {
-  /** Cached activity bounds (legacy - now empty, use engine instead) */
+  /** Activity bounds merged from engine and TanStack Query cache */
   activities: ActivityBoundsItem[];
   /** Current sync progress */
   progress: SyncProgress;

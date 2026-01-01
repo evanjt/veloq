@@ -1,10 +1,6 @@
 /**
- * Compatibility wrapper around the Rust engine's spatial query.
- * Provides the same interface as the deleted JS spatial index.
- *
- * The Rust engine (route-matcher-native) now handles all spatial
- * indexing internally using an R-tree. This wrapper proxies calls
- * to the engine while maintaining the original API surface.
+ * Interface to the Rust engine's spatial query capabilities.
+ * Provides viewport-based queries using the engine's R-tree index.
  */
 
 // Lazy import to avoid loading native module during bundling
@@ -29,8 +25,7 @@ export interface Viewport {
 }
 
 /**
- * Activity spatial index wrapper.
- * Proxies to the Rust engine's R-tree spatial index.
+ * Activity spatial index using the Rust engine's R-tree.
  */
 export const activitySpatialIndex = {
   /**

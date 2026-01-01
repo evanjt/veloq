@@ -21,10 +21,8 @@ interface UseRouteGroupsOptions {
 }
 
 interface RouteGroupExtended {
-  /** Unique route ID (same as groupId, for compatibility) */
+  /** Unique route ID */
   id: string;
-  /** Group ID from engine */
-  groupId: string;
   /** Display name for the route */
   name: string;
   representativeId: string;
@@ -65,8 +63,11 @@ export function useRouteGroups(options: UseRouteGroupsOptions = {}): UseRouteGro
       const name = g.customName || `${sportType} Route ${index + 1}`;
 
       return {
-        ...g,
-        id: g.groupId, // Compatibility alias
+        id: g.groupId,
+        representativeId: g.representativeId,
+        activityIds: g.activityIds,
+        sportType: g.sportType,
+        bounds: g.bounds,
         name,
         activityCount,
         type: sportType as ActivityType,
@@ -92,7 +93,7 @@ export function useRouteGroups(options: UseRouteGroupsOptions = {}): UseRouteGro
         sorted.sort((a, b) => b.activityCount - a.activityCount);
         break;
       case 'name':
-        sorted.sort((a, b) => a.groupId.localeCompare(b.groupId));
+        sorted.sort((a, b) => a.id.localeCompare(b.id));
         break;
       // 'recent' would require dates which aren't in the engine yet
       default:
