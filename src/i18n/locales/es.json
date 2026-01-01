@@ -410,7 +410,8 @@
     "traversals": "recorridos",
     "routesCount": "rutas",
     "activities": "Actividades",
-    "noActivitiesFound": "No se encontraron actividades"
+    "noActivitiesFound": "No se encontraron actividades",
+    "sectionNamePlaceholder": "Nombre de la sección"
   },
 
   "errorState": {
