@@ -71,6 +71,9 @@
   "login": {
     "title": "Veloq",
     "subtitle": "Connect to Intervals.icu",
+    "loginWithIntervals": "Sign in with intervals.icu",
+    "oauthNotConfigured": "OAuth is not configured. Use API key login instead.",
+    "oauthFailed": "Sign in failed. Please try again.",
     "gettingStarted": "Getting Started",
     "instructions": "1. Open Intervals.icu Settings\n2. Scroll to \"Developer Settings\"\n3. Copy your API Key",
     "openSettings": "Open Intervals.icu Settings",
@@ -82,15 +85,19 @@
     "connectionFailed": "Failed to connect. Please check your API key and try again.",
     "securityNote": "Your credentials are stored securely on your device",
     "tryDemo": "Try Demo",
-    "loginWithIntervals": "Login with intervals.icu",
-    "noAccount": "Don't have an account?",
-    "createAccount": "Create one at intervals.icu",
-    "createAccountHint": "Veloq requires an intervals.icu account to sync your fitness data.",
-    "disclaimer": "Veloq is not affiliated with intervals.icu. By using this app you agree to the intervals.icu Terms of Service and Privacy Policy.",
+    "noAccount": "New to intervals.icu?",
+    "createAccountHint": "Create a free account to track your training.",
+    "createAccount": "Create Account",
+    "disclaimer": "Veloq is not affiliated with intervals.icu",
     "privacyPolicy": "Privacy Policy",
     "termsOfService": "Terms of Service",
-    "oauthNotConfigured": "OAuth is not configured. Please contact the developer.",
-    "oauthFailed": "Login failed. Please try again."
+    "useApiKey": "Use API Key instead",
+    "apiKeyDescription": "For local-only mode. Your key never leaves your device. No push notifications.",
+    "getApiKey": "Get your API key",
+    "apiKeyPlaceholder": "Paste your API key here",
+    "apiKeyConnect": "Connect with API Key",
+    "localModeNote": "Local mode: All data stays on your device",
+    "connectedModeNote": "Enables push notifications for new activities"
   },
 
   "demo": {

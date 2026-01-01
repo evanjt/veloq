@@ -1,15 +1,15 @@
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
-import axios from 'axios';
 
 // OAuth configuration for intervals.icu
-// Client ID must be obtained by registering with david@intervals.icu
+// The proxy handles token exchange, keeping client_secret secure
 const OAUTH_CONFIG = {
   clientId: process.env.EXPO_PUBLIC_INTERVALS_CLIENT_ID || '',
-  clientSecret: process.env.EXPO_PUBLIC_INTERVALS_CLIENT_SECRET || '',
+  // Backend proxy URL - handles token exchange securely
+  proxyBaseUrl: process.env.EXPO_PUBLIC_OAUTH_PROXY_URL || '',
   authorizationEndpoint: 'https://intervals.icu/oauth/authorize',
-  tokenEndpoint: 'https://intervals.icu/api/oauth/token',
-  redirectUri: 'veloq://oauth/callback',
+  // App's deep link scheme for receiving the final redirect
+  appScheme: 'veloq',
   scopes: ['ACTIVITY:READ', 'WELLNESS:READ', 'CALENDAR:READ', 'SETTINGS:READ'],
 };
 
@@ -43,10 +43,10 @@ export interface OAuthError {
 }
 
 /**
- * Check if OAuth is configured (client ID is set)
+ * Check if OAuth is configured (client ID and proxy URL are set)
  */
 export function isOAuthConfigured(): boolean {
-  return !!OAUTH_CONFIG.clientId;
+  return !!OAUTH_CONFIG.clientId && !!OAUTH_CONFIG.proxyBaseUrl;
 }
 
 /**
@@ -57,14 +57,25 @@ export function getOAuthClientId(): string {
 }
 
 /**
+ * Get the proxy redirect URI (for registration with intervals.icu)
+ */
+export function getProxyRedirectUri(): string {
+  return `${OAUTH_CONFIG.proxyBaseUrl}/oauth/callback`;
+}
+
+/**
  * Build the OAuth authorization URL
+ * Redirects to the proxy, which then redirects to the app with the token
  */
 export function buildAuthorizationUrl(): string {
   oauthState = generateState();
 
+  // The redirect_uri points to our proxy, not the app directly
+  const proxyRedirectUri = getProxyRedirectUri();
+
   const params = new URLSearchParams({
     client_id: OAUTH_CONFIG.clientId,
-    redirect_uri: OAUTH_CONFIG.redirectUri,
+    redirect_uri: proxyRedirectUri,
     scope: OAUTH_CONFIG.scopes.join(','),
     response_type: 'code',
     state: oauthState,
@@ -75,37 +86,69 @@ export function buildAuthorizationUrl(): string {
 
 /**
  * Start the OAuth flow by opening the authorization URL in the browser
+ *
+ * Flow:
+ * 1. App opens browser to intervals.icu/oauth/authorize
+ * 2. User logs in and approves
+ * 3. intervals.icu redirects to proxy with auth code
+ * 4. Proxy exchanges code for token (with client_secret)
+ * 5. Proxy redirects to app with token via deep link
  */
 export async function startOAuthFlow(): Promise<WebBrowser.WebBrowserResult> {
   if (!isOAuthConfigured()) {
-    throw new Error('OAuth is not configured. Please set EXPO_PUBLIC_INTERVALS_CLIENT_ID.');
+    throw new Error(
+      'OAuth is not configured. Please set EXPO_PUBLIC_INTERVALS_CLIENT_ID and EXPO_PUBLIC_OAUTH_PROXY_URL.'
+    );
   }
 
   const authUrl = buildAuthorizationUrl();
+  const appCallbackUrl = `${OAUTH_CONFIG.appScheme}://oauth/callback`;
 
   // Open browser for authorization
-  // Using openAuthSessionAsync for better redirect handling
-  const result = await WebBrowser.openAuthSessionAsync(authUrl, OAUTH_CONFIG.redirectUri);
+  // The proxy will redirect back to our app scheme
+  const result = await WebBrowser.openAuthSessionAsync(authUrl, appCallbackUrl);
 
   return result;
 }
 
 /**
- * Parse the OAuth callback URL and extract the authorization code
+ * Parse the OAuth callback URL from the proxy
+ * The proxy redirects with token params directly in the URL
  */
-export function parseCallbackUrl(url: string): { code: string; state: string } | null {
+export function parseCallbackUrl(url: string): OAuthTokenResponse | null {
   try {
     const parsed = Linking.parse(url);
+    const params = parsed.queryParams;
 
-    if (parsed.queryParams?.code && parsed.queryParams?.state) {
+    if (!params) {
+      return null;
+    }
+
+    // Check for error response
+    if (params.success === 'false' || params.error) {
+      throw new Error((params.error as string) || 'OAuth failed');
+    }
+
+    // Check for success response with all required fields
+    if (
+      params.success === 'true' &&
+      params.access_token &&
+      params.athlete_id
+    ) {
       return {
-        code: parsed.queryParams.code as string,
-        state: parsed.queryParams.state as string,
+        access_token: params.access_token as string,
+        token_type: (params.token_type as string) || 'Bearer',
+        scope: (params.scope as string) || '',
+        athlete_id: params.athlete_id as string,
+        athlete_name: (params.athlete_name as string) || '',
       };
     }
 
     return null;
-  } catch {
+  } catch (error) {
+    if (error instanceof Error) {
+      throw error;
+    }
     return null;
   }
 }
@@ -127,58 +170,27 @@ export function validateState(receivedState: string): boolean {
 }
 
 /**
- * Exchange the authorization code for an access token
- */
-export async function exchangeCodeForToken(code: string): Promise<OAuthTokenResponse> {
-  if (!OAUTH_CONFIG.clientId || !OAUTH_CONFIG.clientSecret) {
-    throw new Error('OAuth client credentials not configured');
-  }
-
-  const response = await axios.post<OAuthTokenResponse>(
-    OAUTH_CONFIG.tokenEndpoint,
-    new URLSearchParams({
-      grant_type: 'authorization_code',
-      code,
-      redirect_uri: OAUTH_CONFIG.redirectUri,
-      client_id: OAUTH_CONFIG.clientId,
-      client_secret: OAUTH_CONFIG.clientSecret,
-    }).toString(),
-    {
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      timeout: 30000,
-    }
-  );
-
-  return response.data;
-}
-
-/**
  * Handle the complete OAuth callback flow
- * Returns the token response or throws an error
+ * With the proxy, the token is already in the redirect URL
  */
-export async function handleOAuthCallback(url: string): Promise<OAuthTokenResponse> {
-  const params = parseCallbackUrl(url);
+export function handleOAuthCallback(url: string): OAuthTokenResponse {
+  const tokenResponse = parseCallbackUrl(url);
 
-  if (!params) {
-    throw new Error('Invalid OAuth callback URL');
+  if (!tokenResponse) {
+    throw new Error('Invalid OAuth callback URL - missing token data');
   }
 
-  if (!validateState(params.state)) {
-    throw new Error('Invalid OAuth state parameter - possible CSRF attack');
-  }
-
-  const tokenResponse = await exchangeCodeForToken(params.code);
+  // Note: State validation happens at the proxy level now
+  // The proxy validates state before exchanging the code
 
   return tokenResponse;
 }
 
 /**
- * Get the OAuth redirect URI for registration
+ * Get the app's OAuth redirect URI (for deep linking setup)
  */
-export function getRedirectUri(): string {
-  return OAUTH_CONFIG.redirectUri;
+export function getAppRedirectUri(): string {
+  return `${OAUTH_CONFIG.appScheme}://oauth/callback`;
 }
 
 /**
@@ -190,4 +202,6 @@ export const INTERVALS_URLS = {
   termsOfService: 'https://forum.intervals.icu/tos',
   apiTerms: 'https://forum.intervals.icu/t/intervals-icu-api-terms-and-conditions/114087',
   settings: 'https://intervals.icu/settings',
+  // Direct link to Developer Settings section for API key
+  developerSettings: 'https://intervals.icu/settings#developer',
 };

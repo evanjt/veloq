@@ -1,0 +1,15 @@
+name = "veloq-oauth-proxy"
+main = "src/worker.ts"
+compatibility_date = "2024-01-01"
+
+# KV Namespace for webhook events
+# Create via Dashboard: Workers & Pages > KV > Create namespace
+# Then bind here or via Dashboard > Settings > Bindings
+# [[kv_namespaces]]
+# binding = "WEBHOOK_EVENTS"
+# id = "your-namespace-id-here"
+
+# Secrets (set via Dashboard or `wrangler secret put`)
+# - INTERVALS_CLIENT_ID
+# - INTERVALS_CLIENT_SECRET
+# - WEBHOOK_SECRET

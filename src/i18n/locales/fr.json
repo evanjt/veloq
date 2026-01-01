@@ -70,6 +70,9 @@
   "login": {
     "title": "Veloq",
     "subtitle": "Connexion à Intervals.icu",
+    "loginWithIntervals": "Se connecter avec intervals.icu",
+    "oauthNotConfigured": "OAuth n'est pas configuré. Utilisez la clé API à la place.",
+    "oauthFailed": "Échec de la connexion. Veuillez réessayer.",
     "gettingStarted": "Pour commencer",
     "instructions": "1. Ouvrez les Paramètres d'Intervals.icu\n2. Allez dans \"Paramètres développeur\"\n3. Copiez votre clé API",
     "openSettings": "Ouvrir les Paramètres Intervals.icu",
@@ -80,7 +83,20 @@
     "invalidApiKey": "Clé API invalide. Veuillez vérifier votre clé et réessayer.",
     "connectionFailed": "Échec de la connexion. Veuillez vérifier votre clé API et réessayer.",
     "securityNote": "Vos identifiants sont stockés en toute sécurité sur votre appareil",
-    "tryDemo": "Essayer la Démo"
+    "tryDemo": "Essayer la Démo",
+    "noAccount": "Nouveau sur intervals.icu ?",
+    "createAccountHint": "Créez un compte gratuit pour suivre votre entraînement.",
+    "createAccount": "Créer un Compte",
+    "disclaimer": "Veloq n'est pas affilié à intervals.icu",
+    "privacyPolicy": "Politique de Confidentialité",
+    "termsOfService": "Conditions d'Utilisation",
+    "useApiKey": "Utiliser la Clé API",
+    "apiKeyDescription": "Mode local. Votre clé ne quitte jamais votre appareil. Pas de notifications.",
+    "getApiKey": "Obtenir votre clé API",
+    "apiKeyPlaceholder": "Collez votre clé API ici",
+    "apiKeyConnect": "Connecter avec Clé API",
+    "localModeNote": "Mode local : Toutes les données restent sur votre appareil",
+    "connectedModeNote": "Active les notifications pour les nouvelles activités"
   },
 
   "demo": {
