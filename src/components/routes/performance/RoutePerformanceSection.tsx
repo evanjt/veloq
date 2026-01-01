@@ -4,61 +4,37 @@
  * Includes toggle to switch between matched routes and matched sections.
  */
 
-import React, { useMemo, useRef, useCallback, useState } from 'react';
+import React, { useMemo, useCallback, useState } from 'react';
 import {
   View,
   StyleSheet,
   useColorScheme,
   TouchableOpacity,
-  ScrollView,
-  Dimensions,
   Pressable,
 } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router, type Href } from 'expo-router';
-import { CartesianChart, Line, Scatter } from 'victory-native';
-import { Circle } from '@shopify/react-native-skia';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import {
-  useSharedValue,
-  useDerivedValue,
-  useAnimatedStyle,
-  useAnimatedReaction,
-  runOnJS,
-} from 'react-native-reanimated';
-import Animated from 'react-native-reanimated';
 import { useTranslation } from 'react-i18next';
 import { useRoutePerformances, useSectionMatches } from '@/hooks';
 import {
   formatSpeed,
   formatPace,
-  formatRelativeDate,
-  formatDistance,
   isRunningActivity,
   getActivityColor,
-  getActivityIcon,
 } from '@/lib';
 import { colors, darkColors, opacity, spacing, layout, typography } from '@/theme';
-import type { ActivityType, FrequentSection } from '@/types';
+import type { ActivityType } from '@/types';
 import type { RoutePerformancePoint } from '@/hooks/routes/useRoutePerformances';
-import type { SectionMatch } from '@/hooks/routes/useSectionMatches';
 import { StatsRow } from './StatsRow';
 import { ChartLegend } from './ChartLegend';
 import { SectionMatchRow } from './SectionMatchRow';
-
-// Direction colors - using theme for consistency
-const SAME_COLOR = colors.sameDirection; // Blue
-const REVERSE_COLOR = colors.reverseDirection; // Pink
+import { PerformanceChart } from './PerformanceChart';
 
 interface RoutePerformanceSectionProps {
   activityId: string;
   activityType: ActivityType;
 }
-
-const CHART_HEIGHT = 160;
-const MIN_POINT_WIDTH = 40; // Minimum pixels per data point
-const SCREEN_WIDTH = Dimensions.get('window').width;
 
 function formatShortDate(date: Date): string {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
@@ -95,65 +71,18 @@ export function RoutePerformanceSection({
   // Tooltip state - persists after scrubbing ends so user can tap
   const [tooltipData, setTooltipData] = useState<RoutePerformancePoint | null>(null);
   const [isActive, setIsActive] = useState(false);
-  const [isPersisted, setIsPersisted] = useState(false); // True when tooltip persists after gesture ends
-
-  // Gesture tracking
-  const touchX = useSharedValue(-1);
-  const chartBoundsShared = useSharedValue({ left: 0, right: 1 });
-  const pointXCoordsShared = useSharedValue<number[]>([]);
-  const lastNotifiedIdx = useRef<number | null>(null);
-
-  // Prepare chart data
-  const chartData = useMemo(() => {
-    return performances.map((p, idx) => ({
-      x: idx,
-      speed: p.speed,
-      date: p.date,
-      name: p.name,
-      isCurrent: p.isCurrent,
-      isBest: best?.activityId === p.activityId,
-      activityId: p.activityId,
-      direction: p.direction,
-    }));
-  }, [performances, best]);
+  const [isPersisted, setIsPersisted] = useState(false);
 
   // Check if we have any reverse runs for legend
   const hasReverseRuns = useMemo(() => {
     return performances.some((p) => p.direction === 'reverse');
   }, [performances]);
 
-  // Calculate chart width - ensure enough space for each data point
-  const chartWidth = useMemo(() => {
-    const containerWidth = SCREEN_WIDTH - spacing.md * 2; // Account for margins
-    const minWidth = chartData.length * MIN_POINT_WIDTH;
-    return Math.max(containerWidth, minWidth);
-  }, [chartData.length]);
-
-  const needsScroll = chartWidth > SCREEN_WIDTH - spacing.md * 2;
-
-  // Find indices
-  const { currentIndex, bestIndex, minSpeed, maxSpeed } = useMemo(() => {
-    const currIdx = chartData.findIndex((d) => d.isCurrent);
-    const bestIdx = chartData.findIndex((d) => d.isBest);
-    const speeds = chartData.map((d) => d.speed);
-    const min = speeds.length > 0 ? Math.min(...speeds) : 0;
-    const max = speeds.length > 0 ? Math.max(...speeds) : 1;
-    // Add padding to domain
-    const padding = (max - min) * 0.15 || 0.5;
-    return {
-      currentIndex: currIdx,
-      bestIndex: bestIdx,
-      minSpeed: Math.max(0, min - padding),
-      maxSpeed: max + padding,
-    };
-  }, [chartData]);
-
   const showPace = isRunningActivity(activityType);
   const activityColor = getActivityColor(activityType);
 
-  // Use a distinct color for "this activity" that won't conflict with other colors
   // Cyan/teal stands out from gold (best), green (match badges), and activity colors
-  const currentActivityColor = '#00BCD4'; // Cyan
+  const currentActivityColor = '#00BCD4';
 
   // Format speed/pace for display
   const formatSpeedValue = useCallback(
@@ -166,125 +95,21 @@ export function RoutePerformanceSection({
     [showPace]
   );
 
-  // Derive selected index on UI thread
-  const selectedIdx = useDerivedValue(() => {
-    'worklet';
-    const len = chartData.length;
-    const bounds = chartBoundsShared.value;
-    const chartWidth = bounds.right - bounds.left;
-
-    if (touchX.value < 0 || chartWidth <= 0 || len === 0) return -1;
-
-    const chartX = touchX.value - bounds.left;
-    const ratio = Math.max(0, Math.min(1, chartX / chartWidth));
-    const idx = Math.round(ratio * (len - 1));
-
-    return Math.min(Math.max(0, idx), len - 1);
-  }, [chartData.length]);
-
-  // Update tooltip on JS thread
-  const updateTooltipOnJS = useCallback(
-    (idx: number, gestureEnded = false) => {
-      // Gesture ended - persist the current tooltip for tapping
-      if (gestureEnded) {
-        if (tooltipData) {
-          setIsActive(false);
-          setIsPersisted(true);
-        }
-        lastNotifiedIdx.current = null;
-        return;
-      }
-
-      // Invalid index during active gesture - ignore (don't clear)
-      if (idx < 0 || performances.length === 0) {
-        return;
-      }
-
-      // New gesture started - clear persisted state
-      if (isPersisted) {
-        setIsPersisted(false);
-      }
-
-      if (idx === lastNotifiedIdx.current) return;
-      lastNotifiedIdx.current = idx;
-
-      if (!isActive) {
-        setIsActive(true);
-      }
-
-      const point = performances[idx];
-      if (point) {
-        setTooltipData(point);
-      }
-    },
-    [performances, isActive, isPersisted, tooltipData]
-  );
-
-  // Handle gesture end - persist tooltip
-  const handleGestureEnd = useCallback(() => {
-    updateTooltipOnJS(-1, true);
-  }, [updateTooltipOnJS]);
-
-  useAnimatedReaction(
-    () => selectedIdx.value,
-    (idx) => {
-      // Only update tooltip for valid indices during active gesture
-      // Skip idx === -1 here - let handleGestureEnd manage that case to avoid race condition
-      if (idx >= 0) {
-        runOnJS(updateTooltipOnJS)(idx, false);
-      }
-    },
-    [updateTooltipOnJS]
-  );
-
-  // Clear persisted tooltip
-  const clearPersistedTooltip = useCallback(() => {
-    if (isPersisted) {
-      setIsPersisted(false);
+  // Handle tooltip updates from chart
+  const handleTooltipUpdate = useCallback((point: RoutePerformancePoint | null, persisted: boolean) => {
+    if (point === null) {
       setTooltipData(null);
+      setIsActive(false);
+      setIsPersisted(false);
+    } else if (persisted) {
+      setTooltipData(point);
+      setIsActive(false);
+      setIsPersisted(true);
+    } else {
+      setTooltipData(point);
+      setIsActive(true);
+      setIsPersisted(false);
     }
-  }, [isPersisted]);
-
-  // Gesture handler - combines pan for scrubbing and tap to dismiss
-  const panGesture = Gesture.Pan()
-    .onStart((e) => {
-      'worklet';
-      touchX.value = e.x;
-    })
-    .onUpdate((e) => {
-      'worklet';
-      touchX.value = e.x;
-    })
-    .onEnd(() => {
-      'worklet';
-      touchX.value = -1;
-      runOnJS(handleGestureEnd)();
-    })
-    .minDistance(0)
-    .activateAfterLongPress(700);
-
-  // Tap gesture to dismiss persisted tooltip when tapping on chart
-  const tapGesture = Gesture.Tap().onEnd(() => {
-    'worklet';
-    runOnJS(clearPersistedTooltip)();
-  });
-
-  const gesture = Gesture.Race(panGesture, tapGesture);
-
-  // Animated crosshair
-  const crosshairStyle = useAnimatedStyle(() => {
-    'worklet';
-    const coords = pointXCoordsShared.value;
-    const idx = selectedIdx.value;
-
-    if (idx < 0 || coords.length === 0 || idx >= coords.length) {
-      return { opacity: 0, transform: [{ translateX: 0 }] };
-    }
-
-    return {
-      opacity: 1,
-      transform: [{ translateX: coords[idx] }],
-    };
   }, []);
 
   // Navigate to activity when tapping tooltip
@@ -499,155 +324,14 @@ export function RoutePerformanceSection({
           )}
 
           {/* Performance Chart */}
-          {chartData.length > 1 && (
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={needsScroll}
-              scrollEnabled={needsScroll}
-              contentContainerStyle={{ width: chartWidth }}
-              style={styles.chartScrollContainer}
-            >
-              <GestureDetector gesture={gesture}>
-                <View style={[styles.chartContainer, { width: chartWidth }]}>
-                  <CartesianChart
-                    data={chartData}
-                    xKey="x"
-                    yKeys={['speed']}
-                    domain={{ y: [minSpeed, maxSpeed] }}
-                    padding={{ left: 35, right: 8, top: 40, bottom: 24 }}
-                  >
-                    {({ points, chartBounds }) => {
-                      // Sync chartBounds for gesture handling
-                      if (
-                        chartBounds.left !== chartBoundsShared.value.left ||
-                        chartBounds.right !== chartBoundsShared.value.right
-                      ) {
-                        chartBoundsShared.value = {
-                          left: chartBounds.left,
-                          right: chartBounds.right,
-                        };
-                      }
-                      // Sync point x-coordinates
-                      const newCoords = points.speed.map((p) => p.x ?? 0);
-                      if (newCoords.length !== pointXCoordsShared.value.length) {
-                        pointXCoordsShared.value = newCoords;
-                      }
-
-                      return (
-                        <>
-                          {/* Line connecting points */}
-                          <Line
-                            points={points.speed}
-                            color={isDark ? '#444' : '#DDD'}
-                            strokeWidth={1.5}
-                            curveType="monotoneX"
-                          />
-                          {/* Regular points - colored by direction */}
-                          {points.speed.map((point, idx) => {
-                            if (point.x == null || point.y == null) return null;
-                            const d = chartData[idx];
-                            if (d?.isBest || d?.isCurrent) return null; // Skip, render separately
-                            const pointColor =
-                              d?.direction === 'reverse' ? REVERSE_COLOR : SAME_COLOR;
-                            return (
-                              <Circle
-                                key={`point-${idx}`}
-                                cx={point.x}
-                                cy={point.y}
-                                r={5}
-                                color={pointColor}
-                              />
-                            );
-                          })}
-                          {/* Best performance - gold color */}
-                          {bestIndex >= 0 &&
-                            points.speed[bestIndex] &&
-                            points.speed[bestIndex].x != null &&
-                            points.speed[bestIndex].y != null && (
-                              <>
-                                <Circle
-                                  cx={points.speed[bestIndex].x!}
-                                  cy={points.speed[bestIndex].y!}
-                                  r={8}
-                                  color="#FFB300"
-                                />
-                                <Circle
-                                  cx={points.speed[bestIndex].x!}
-                                  cy={points.speed[bestIndex].y!}
-                                  r={4}
-                                  color="#FFFFFF"
-                                />
-                              </>
-                            )}
-                          {/* Current activity - highlighted with distinct cyan color */}
-                          {currentIndex >= 0 &&
-                            currentIndex !== bestIndex &&
-                            points.speed[currentIndex] &&
-                            points.speed[currentIndex].x != null &&
-                            points.speed[currentIndex].y != null && (
-                              <>
-                                <Circle
-                                  cx={points.speed[currentIndex].x!}
-                                  cy={points.speed[currentIndex].y!}
-                                  r={8}
-                                  color={currentActivityColor}
-                                  opacity={0.3}
-                                />
-                                <Circle
-                                  cx={points.speed[currentIndex].x!}
-                                  cy={points.speed[currentIndex].y!}
-                                  r={5}
-                                  color={currentActivityColor}
-                                />
-                              </>
-                            )}
-                        </>
-                      );
-                    }}
-                  </CartesianChart>
-
-                  {/* Crosshair */}
-                  <Animated.View
-                    style={[styles.crosshair, crosshairStyle, isDark && styles.crosshairDark]}
-                    pointerEvents="none"
-                  />
-
-                  {/* Y-axis labels (pace/speed) */}
-                  <View style={styles.yAxisOverlay} pointerEvents="none">
-                    <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
-                      {formatSpeedValue(maxSpeed)}
-                    </Text>
-                    <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
-                      {formatSpeedValue((minSpeed + maxSpeed) / 2)}
-                    </Text>
-                    <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
-                      {formatSpeedValue(minSpeed)}
-                    </Text>
-                  </View>
-
-                  {/* X-axis labels (dates) */}
-                  <View style={styles.xAxisOverlay} pointerEvents="none">
-                    {chartData.length > 0 && (
-                      <>
-                        <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
-                          {formatShortDate(chartData[0].date)}
-                        </Text>
-                        {/* Show middle date if we have enough points */}
-                        {chartData.length >= 5 && (
-                          <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
-                            {formatShortDate(chartData[Math.floor(chartData.length / 2)].date)}
-                          </Text>
-                        )}
-                        <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
-                          {formatShortDate(chartData[chartData.length - 1].date)}
-                        </Text>
-                      </>
-                    )}
-                  </View>
-                </View>
-              </GestureDetector>
-            </ScrollView>
-          )}
+          <PerformanceChart
+            performances={performances}
+            bestActivityId={best?.activityId}
+            isDark={isDark}
+            formatSpeedValue={formatSpeedValue}
+            currentActivityColor={currentActivityColor}
+            onTooltipUpdate={handleTooltipUpdate}
+          />
 
           {/* Stats Row */}
           <StatsRow
@@ -866,13 +550,6 @@ const styles = StyleSheet.create({
     fontSize: typography.bodySmall.fontSize,
     fontWeight: '700',
   },
-  chartScrollContainer: {
-    maxHeight: CHART_HEIGHT,
-  },
-  chartContainer: {
-    height: CHART_HEIGHT,
-    position: 'relative',
-  },
   directionBadge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -884,43 +561,6 @@ const styles = StyleSheet.create({
   },
   directionReverse: {
     backgroundColor: 'rgba(233, 30, 99, 0.15)',
-  },
-  directionText: {
-    fontSize: typography.pillLabel.fontSize,
-    fontWeight: '600',
-    color: '#F59E0B',
-  },
-  crosshair: {
-    position: 'absolute',
-    top: 40,
-    bottom: 24,
-    width: 1.5,
-    backgroundColor: colors.textSecondary,
-  },
-  crosshairDark: {
-    backgroundColor: darkColors.textSecondary,
-  },
-  yAxisOverlay: {
-    position: 'absolute',
-    top: 40,
-    bottom: 24,
-    left: spacing.xs,
-    justifyContent: 'space-between',
-  },
-  xAxisOverlay: {
-    position: 'absolute',
-    bottom: spacing.xs,
-    left: 35,
-    right: spacing.sm,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  axisLabel: {
-    fontSize: typography.pillLabel.fontSize,
-    color: colors.textSecondary,
-  },
-  axisLabelDark: {
-    color: darkColors.textMuted,
   },
   // Sections view styles
   sectionsContainer: {
