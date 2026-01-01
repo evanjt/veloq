@@ -31,8 +31,6 @@ interface UseRouteProcessingResult {
   progress: RouteProcessingProgress;
   /** Whether processing is currently active */
   isProcessing: boolean;
-  /** Whether currently in filtering phase */
-  isFiltering: boolean;
   /** Cancel current processing */
   cancel: () => void;
   /** Clear all route cache and start fresh */
@@ -55,7 +53,6 @@ export function useRouteProcessing(): UseRouteProcessingResult {
   });
 
   const isProcessing = progress.status === 'processing';
-  const isFiltering = false; // No longer used
 
   const cancel = useCallback(() => {
     // Rust engine doesn't support cancellation yet
@@ -105,7 +102,6 @@ export function useRouteProcessing(): UseRouteProcessingResult {
   return {
     progress,
     isProcessing,
-    isFiltering,
     cancel,
     clearCache,
     addActivities,

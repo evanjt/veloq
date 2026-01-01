@@ -863,7 +863,7 @@ export default function RouteDetailScreen() {
   // Get route groups from engine
   const { groups: allGroups } = useRouteGroups({ minActivities: 1 });
   const engineGroup = useMemo(() =>
-    allGroups.find((g) => g.groupId === id) || null,
+    allGroups.find((g) => g.id === id) || null,
     [allGroups, id]
   );
 
@@ -875,7 +875,7 @@ export default function RouteDetailScreen() {
   const routeGroupBase = useMemo(() => {
     if (!engineGroup) return null;
     return {
-      id: engineGroup.groupId,
+      id: engineGroup.id,
       name: engineGroup.name || `${engineGroup.type || 'Ride'} Route`, // Use the generated name from useRouteGroups
       type: engineGroup.type || 'Ride',
       activityIds: engineGroup.activityIds,

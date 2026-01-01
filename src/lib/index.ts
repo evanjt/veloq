@@ -10,8 +10,5 @@ export { activitySpatialIndex, mapBoundsToViewport, type Viewport } from './spat
 // Storage
 export * from './storage';
 
-// Sync
-export * from './sync';
-
 // Utilities
 export * from './utils';
