@@ -47,3 +47,4 @@ export {
   type AnimationPreset,
 } from './ScreenTransition';
 export { ChartErrorBoundary } from './ChartErrorBoundary';
+export { ComponentErrorBoundary } from './ComponentErrorBoundary';

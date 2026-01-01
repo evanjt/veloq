@@ -39,10 +39,10 @@ import type { Activity, ActivityType, RoutePoint } from '@/types';
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const MAP_HEIGHT = Math.round(SCREEN_HEIGHT * 0.45); // 45% of screen for hero map
 
-// Color for reverse direction activities
-const REVERSE_COLOR = '#9C27B0'; // Purple
-const SAME_COLOR_DEFAULT = '#4CAF50'; // Green (same direction)
-const CONSENSUS_COLOR = '#F59E0B'; // Orange for the consensus/main route
+// Direction colors - using theme for consistency
+const REVERSE_COLOR = colors.reverseDirection; // Pink
+const SAME_COLOR_DEFAULT = colors.sameDirection; // Blue (same direction)
+const CONSENSUS_COLOR = colors.consensusRoute; // Orange for the consensus/main route
 
 interface ActivityRowProps {
   activity: Activity;

@@ -49,24 +49,45 @@ export function useRouteDataSync(
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const isDemoMode = useAuthStore((s) => s.isDemoMode);
   const { isOnline } = useNetwork();
+
+  // Use refs to track current values without causing callback recreation
+  // This prevents race conditions from callback reference changes
+  const isAuthenticatedRef = useRef(isAuthenticated);
+  const isDemoModeRef = useRef(isDemoMode);
+  const isOnlineRef = useRef(isOnline);
   const isSyncingRef = useRef(false);
   const isMountedRef = useRef(true);
+  const syncAbortRef = useRef<AbortController | null>(null);
+
+  // Keep refs in sync with current values
+  useEffect(() => {
+    isAuthenticatedRef.current = isAuthenticated;
+    isDemoModeRef.current = isDemoMode;
+    isOnlineRef.current = isOnline;
+  }, [isAuthenticated, isDemoMode, isOnline]);
 
   // Track component mount state to prevent state updates after unmount
   useEffect(() => {
     isMountedRef.current = true;
     return () => {
       isMountedRef.current = false;
+      // Abort any in-progress sync on unmount
+      syncAbortRef.current?.abort();
     };
   }, []);
 
   const syncActivities = useCallback(async (activitiesToSync: Activity[]) => {
+    // Use refs for current values to avoid stale closures
+    const isAuth = isAuthenticatedRef.current;
+    const isDemo = isDemoModeRef.current;
+    const online = isOnlineRef.current;
+
     // Don't sync if not authenticated or already unmounted
-    if (!isAuthenticated || !isMountedRef.current) return;
+    if (!isAuth || !isMountedRef.current) return;
 
     // Skip sync when offline - GPS fetch requires network
     // Existing synced activities will still work from the engine cache
-    if (!isOnline) {
+    if (!online) {
       if (isMountedRef.current) {
         setProgress({
           status: 'idle',
@@ -78,11 +99,16 @@ export function useRouteDataSync(
       return;
     }
 
-    // Prevent concurrent syncs - atomic check-and-set
+    // Prevent concurrent syncs with atomic-like check using closure
+    // JavaScript is single-threaded, so this is safe within one event loop tick
     if (isSyncingRef.current) {
       return;
     }
     isSyncingRef.current = true;
+
+    // Create abort controller for this sync operation
+    const abortController = new AbortController();
+    syncAbortRef.current = abortController;
 
     // Use engine state for synced IDs - more robust than JS ref
     // This persists across component remounts and correctly resets after clear()
@@ -105,8 +131,14 @@ export function useRouteDataSync(
     }
 
     try {
+      // Check for abort before starting
+      if (abortController.signal.aborted) {
+        isSyncingRef.current = false;
+        return;
+      }
+
       // Handle demo mode differently - use fixtures instead of API
-      if (isDemoMode) {
+      if (isDemo) {
         if (isMountedRef.current) {
           setProgress({
             status: 'fetching',
@@ -161,7 +193,7 @@ export function useRouteDataSync(
       // Real API mode
       // Get API credentials
       const creds = await getStoredCredentials();
-      if (!isMountedRef.current) return;
+      if (!isMountedRef.current || abortController.signal.aborted) return;
 
       if (!creds?.apiKey) {
         throw new Error('No API key available');
@@ -190,8 +222,8 @@ export function useRouteDataSync(
         const activityIds = withGps.map((a) => a.id);
         const results = await nativeModule.fetchActivityMapsWithProgress(creds.apiKey, activityIds);
 
-        // Check mount state after async operation
-        if (!isMountedRef.current) return;
+        // Check mount state and abort signal after async operation
+        if (!isMountedRef.current || abortController.signal.aborted) return;
 
         setProgress({
           status: 'processing',
@@ -255,8 +287,11 @@ export function useRouteDataSync(
       }
     } finally {
       isSyncingRef.current = false;
+      syncAbortRef.current = null;
     }
-  }, [isAuthenticated, isDemoMode, isOnline]);
+  // Empty dependency array - callback reads current values from refs
+  // This ensures stable callback identity and prevents race conditions
+  }, []);
 
   // Counter to force re-sync after engine reset or reconnection
   const [syncTrigger, setSyncTrigger] = useState(0);

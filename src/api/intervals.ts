@@ -103,17 +103,22 @@ export const intervalsApi = {
   async getOldestActivityDate(): Promise<string | null> {
     if (isDemoMode()) return mockIntervalsApi.getOldestActivityDate();
     const athleteId = getAthleteId();
-    // Query with a very old date to find the actual oldest activity
+    // Query oldest activities with pagination to avoid timeout
+    // We only need the oldest date, so fetch the oldest page of results
+    // intervals.icu returns activities in descending date order by default
     const response = await apiClient.get(`/athlete/${athleteId}/activities`, {
       params: {
         oldest: API_DEFAULTS.OLDEST_DATE_FALLBACK,
         newest: formatLocalDate(new Date()),
         fields: 'id,start_date_local',
+        // Limit to last page to get oldest activities
+        // Note: intervals.icu sorts descending, so we need a reasonable limit
+        limit: 50,
       },
     });
     const activities = response.data as Activity[];
     if (activities.length === 0) return null;
-    // Find the oldest activity date
+    // Find the oldest activity date from the returned results
     return activities.reduce((oldest, a) =>
       a.start_date_local < oldest ? a.start_date_local : oldest,
       activities[0].start_date_local

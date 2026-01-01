@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { safeJsonParseWithSchema } from '@/lib';
 
 const HR_ZONES_KEY = 'veloq-hr-zones';
 
@@ -25,6 +26,39 @@ export interface HRZonesSettings {
   zones: HRZone[];
 }
 
+const DEFAULT_HR_SETTINGS: HRZonesSettings = {
+  maxHR: 190,
+  zones: DEFAULT_HR_ZONES,
+};
+
+/**
+ * Type guard for HRZone
+ */
+function isHRZone(value: unknown): value is HRZone {
+  if (typeof value !== 'object' || value === null) return false;
+  const obj = value as Record<string, unknown>;
+  return (
+    typeof obj.id === 'number' &&
+    typeof obj.name === 'string' &&
+    typeof obj.min === 'number' &&
+    typeof obj.max === 'number' &&
+    typeof obj.color === 'string'
+  );
+}
+
+/**
+ * Type guard for HRZonesSettings
+ */
+function isHRZonesSettings(value: unknown): value is HRZonesSettings {
+  if (typeof value !== 'object' || value === null) return false;
+  const obj = value as Record<string, unknown>;
+  if (typeof obj.maxHR !== 'number') return false;
+  if (!Array.isArray(obj.zones)) return false;
+  // Validate at least the first zone
+  if (obj.zones.length > 0 && !isHRZone(obj.zones[0])) return false;
+  return true;
+}
+
 interface HRZonesState {
   maxHR: number;
   zones: HRZone[];
@@ -46,10 +80,10 @@ export const useHRZones = create<HRZonesState>((set, get) => ({
     try {
       const stored = await AsyncStorage.getItem(HR_ZONES_KEY);
       if (stored) {
-        const parsed: HRZonesSettings = JSON.parse(stored);
+        const parsed = safeJsonParseWithSchema(stored, isHRZonesSettings, DEFAULT_HR_SETTINGS);
         set({
-          maxHR: parsed.maxHR || 190,
-          zones: parsed.zones || DEFAULT_HR_ZONES,
+          maxHR: parsed.maxHR,
+          zones: parsed.zones,
           isLoaded: true,
         });
       } else {

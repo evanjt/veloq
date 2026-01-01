@@ -49,9 +49,13 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
   const handleMessage = (event: { nativeEvent: { data: string } }) => {
     try {
       const data = JSON.parse(event.nativeEvent.data);
+      // Validate message structure before using
+      if (typeof data !== 'object' || data === null || typeof data.type !== 'string') {
+        return;
+      }
       if (data.type === 'mapReady' && onMapReady) {
         onMapReady();
-      } else if (data.type === 'bearingChange' && onBearingChange) {
+      } else if (data.type === 'bearingChange' && onBearingChange && typeof data.bearing === 'number') {
         onBearingChange(data.bearing);
       }
     } catch {

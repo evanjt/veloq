@@ -62,9 +62,9 @@ import type { Activity, ActivityType, RoutePoint, FrequentSection } from '@/type
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const MAP_HEIGHT = Math.round(SCREEN_HEIGHT * 0.45);
 
-// Colors for direction
-const REVERSE_COLOR = '#9C27B0';
-const SAME_COLOR_DEFAULT = '#4CAF50';
+// Direction colors - using theme for consistency
+const REVERSE_COLOR = colors.reverseDirection;
+const SAME_COLOR_DEFAULT = colors.sameDirection;
 
 interface ActivityRowProps {
   activity: Activity;

@@ -20,9 +20,15 @@ export function NetworkProvider({ children }: { children: ReactNode }) {
   });
 
   useEffect(() => {
+    // Track whether we've received an update from the listener
+    // to avoid race condition with initial fetch
+    let hasReceivedListenerUpdate = false;
+
     // Subscribe to network state updates
+    // Note: The listener fires immediately with current state, so we don't need
+    // a separate fetch() call which could cause a race condition
     const unsubscribe = NetInfo.addEventListener((state: NetInfoState) => {
-      // Consider online if connected AND internet is reachable (or unknown)
+      hasReceivedListenerUpdate = true;
       const isOnline = state.isConnected === true && state.isInternetReachable !== false;
 
       setNetworkState({
@@ -32,17 +38,28 @@ export function NetworkProvider({ children }: { children: ReactNode }) {
       });
     });
 
-    // Get initial state
-    NetInfo.fetch().then((state: NetInfoState) => {
-      const isOnline = state.isConnected === true && state.isInternetReachable !== false;
-      setNetworkState({
-        isOnline,
-        isInternetReachable: state.isInternetReachable,
-        connectionType: state.type,
-      });
-    });
+    // Fallback fetch only if listener doesn't fire within 100ms
+    // This handles edge cases where addEventListener might not fire immediately
+    const timeoutId = setTimeout(() => {
+      if (!hasReceivedListenerUpdate) {
+        NetInfo.fetch().then((state: NetInfoState) => {
+          // Only update if we still haven't received a listener update
+          if (!hasReceivedListenerUpdate) {
+            const isOnline = state.isConnected === true && state.isInternetReachable !== false;
+            setNetworkState({
+              isOnline,
+              isInternetReachable: state.isInternetReachable,
+              connectionType: state.type,
+            });
+          }
+        });
+      }
+    }, 100);
 
-    return () => unsubscribe();
+    return () => {
+      clearTimeout(timeoutId);
+      unsubscribe();
+    };
   }, []);
 
   return (

@@ -8,7 +8,7 @@ import { SharedValue, useSharedValue, useAnimatedReaction, runOnJS, useDerivedVa
 import Animated from 'react-native-reanimated';
 import { router } from 'expo-router';
 import { colors, darkColors, opacity, spacing, layout, typography } from '@/theme';
-import { getActivityColor } from '@/lib';
+import { getActivityColor, sortByDateId } from '@/lib';
 import type { Activity, ActivityType, WellnessData } from '@/types';
 
 // Simple emoji icons for activity types
@@ -104,7 +104,7 @@ export const ActivityDotsChart = React.memo(function ActivityDotsChart({
   const dotData = useMemo(() => {
     if (!data || data.length === 0) return [];
 
-    const sorted = [...data].sort((a, b) => a.id.localeCompare(b.id));
+    const sorted = sortByDateId(data);
 
     return sorted.map((day, idx) => {
       const fitnessRaw = day.ctl ?? day.ctlLoad ?? 0;
