@@ -6,7 +6,7 @@
  */
 
 import { useEffect, useState, useRef, useCallback } from 'react';
-import { useAuthStore, getStoredCredentials } from '@/providers';
+import { useAuthStore, getStoredCredentials, useNetwork } from '@/providers';
 import { getNativeModule } from '@/lib/native/routeEngine';
 import type { Activity } from '@/types';
 
@@ -48,6 +48,7 @@ export function useRouteDataSync(
 
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const isDemoMode = useAuthStore((s) => s.isDemoMode);
+  const { isOnline } = useNetwork();
   const isSyncingRef = useRef(false);
   const isMountedRef = useRef(true);
 
@@ -62,6 +63,20 @@ export function useRouteDataSync(
   const syncActivities = useCallback(async (activitiesToSync: Activity[]) => {
     // Don't sync if not authenticated or already unmounted
     if (!isAuthenticated || !isMountedRef.current) return;
+
+    // Skip sync when offline - GPS fetch requires network
+    // Existing synced activities will still work from the engine cache
+    if (!isOnline) {
+      if (isMountedRef.current) {
+        setProgress({
+          status: 'idle',
+          completed: 0,
+          total: 0,
+          message: 'Offline - using cached routes',
+        });
+      }
+      return;
+    }
 
     // Prevent concurrent syncs - atomic check-and-set
     if (isSyncingRef.current) {
@@ -241,10 +256,22 @@ export function useRouteDataSync(
     } finally {
       isSyncingRef.current = false;
     }
-  }, [isAuthenticated, isDemoMode]);
+  }, [isAuthenticated, isDemoMode, isOnline]);
 
-  // Counter to force re-sync after engine reset
+  // Counter to force re-sync after engine reset or reconnection
   const [syncTrigger, setSyncTrigger] = useState(0);
+
+  // Track previous online state to detect reconnection
+  const wasOnlineRef = useRef(isOnline);
+
+  // Trigger resync when coming back online
+  useEffect(() => {
+    if (isOnline && !wasOnlineRef.current) {
+      // Just came back online - increment trigger to resync
+      setSyncTrigger(prev => prev + 1);
+    }
+    wasOnlineRef.current = isOnline;
+  }, [isOnline]);
 
   // Listen for engine reset (cache clear) and force a resync
   useEffect(() => {

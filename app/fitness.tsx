@@ -7,7 +7,9 @@ import * as WebBrowser from 'expo-web-browser';
 import { useSharedValue } from 'react-native-reanimated';
 import { useTranslation } from 'react-i18next';
 import { FitnessChart, FormZoneChart, ActivityDotsChart } from '@/components/fitness';
+import { NetworkErrorState, ErrorStatePreset } from '@/components/ui';
 import { useWellness, useActivities, getFormZone, FORM_ZONE_COLORS, FORM_ZONE_LABELS, type TimeRange } from '@/hooks';
+import { useNetwork } from '@/providers';
 import { formatLocalDate } from '@/lib';
 import { colors, darkColors, spacing, layout, typography, opacity } from '@/theme';
 
@@ -55,7 +57,8 @@ export default function FitnessScreen() {
     setSelectedValues(null);
   }, [timeRange, sharedSelectedIdx]);
 
-  const { data: wellness, isLoading, isFetching, isError, refetch } = useWellness(timeRange);
+  const { data: wellness, isLoading, isFetching, isError, error, refetch } = useWellness(timeRange);
+  const { isOnline } = useNetwork();
 
   // Fetch activities for the selected time range
   const { data: activities } = useActivities({ days: timeRangeToDays(timeRange) });
@@ -121,6 +124,12 @@ export default function FitnessScreen() {
   }
 
   if (isError || !wellness) {
+    // Check if this is a network error
+    const axiosError = error as { code?: string };
+    const isNetworkError = axiosError?.code === 'ERR_NETWORK' ||
+                          axiosError?.code === 'ECONNABORTED' ||
+                          axiosError?.code === 'ETIMEDOUT';
+
     return (
       <SafeAreaView style={[styles.container, isDark && styles.containerDark]}>
         <View style={styles.header}>
@@ -133,7 +142,14 @@ export default function FitnessScreen() {
           <View style={{ width: 48 }} />
         </View>
         <View style={styles.loadingContainer}>
-          <Text style={styles.errorText}>{t('fitnessScreen.failedToLoad')}</Text>
+          {isNetworkError ? (
+            <NetworkErrorState onRetry={() => refetch()} />
+          ) : (
+            <ErrorStatePreset
+              message={t('fitnessScreen.failedToLoad')}
+              onRetry={() => refetch()}
+            />
+          )}
         </View>
       </SafeAreaView>
     );
@@ -167,7 +183,8 @@ export default function FitnessScreen() {
         refreshControl={
           <RefreshControl
             refreshing={isRefreshing}
-            onRefresh={onRefresh}
+            onRefresh={isOnline ? onRefresh : undefined}
+            enabled={isOnline}
             tintColor={colors.primary}
             colors={[colors.primary]}
           />

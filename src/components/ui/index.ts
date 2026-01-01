@@ -20,7 +20,7 @@ export {
   NoActivitiesState,
   NoResultsState,
   NetworkErrorState,
-  ErrorState,
+  ErrorStatePreset,
   NoDataState,
   OfflineState,
 } from './EmptyState';
@@ -29,6 +29,7 @@ export { GarminAttribution, DeviceAttribution, isGarminDevice } from './GarminAt
 export { DemoBanner } from './DemoBanner';
 export { SwipeableTabs, type SwipeableTab } from './SwipeableTabs';
 export { GlobalDataSync } from './GlobalDataSync';
+export { OfflineBanner } from './OfflineBanner';
 export { Confetti, ConfettiCelebration, type ConfettiRef } from './Confetti';
 export {
   AchievementToast,

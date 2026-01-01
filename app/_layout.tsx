@@ -6,10 +6,10 @@ import { useColorScheme, View, ActivityIndicator, Platform } from 'react-native'
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Logger } from '@maplibre/maplibre-react-native';
 import { configureReanimatedLogger, ReanimatedLogLevel } from 'react-native-reanimated';
-import { QueryProvider, MapPreferencesProvider, initializeTheme, useAuthStore, initializeSportPreference, initializeHRZones, initializeRouteSettings, initializeLanguage } from '@/providers';
+import { QueryProvider, MapPreferencesProvider, NetworkProvider, initializeTheme, useAuthStore, initializeSportPreference, initializeHRZones, initializeRouteSettings, initializeLanguage } from '@/providers';
 import { initializeI18n } from '@/i18n';
 import { lightTheme, darkTheme, colors, darkColors } from '@/theme';
-import { CacheLoadingBanner, DemoBanner, GlobalDataSync } from '@/components/ui';
+import { CacheLoadingBanner, DemoBanner, GlobalDataSync, OfflineBanner } from '@/components/ui';
 
 // Lazy load native module to avoid bundler errors
 function getRouteEngine() {
@@ -106,35 +106,38 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <QueryProvider>
-        <MapPreferencesProvider>
-          <PaperProvider theme={theme}>
-            <StatusBar
-              style={colorScheme === 'dark' ? 'light' : 'dark'}
-              translucent={Platform.OS === 'ios'}
-              hidden={SCREENSHOT_MODE}
-              animated
-            />
-            <AuthGate>
-              <GlobalDataSync />
-              <DemoBanner />
-              <CacheLoadingBanner />
-              <Stack
-                screenOptions={{
-                  headerShown: false,
-                  // iOS: Use default animation for native feel with gesture support
-                  // Android: Slide from right for Material Design
-                  animation: Platform.OS === 'ios' ? 'default' : 'slide_from_right',
-                  // Enable swipe-back gesture on both platforms
-                  gestureEnabled: true,
-                  gestureDirection: 'horizontal',
-                  // iOS: Blur effect for any translucent headers
-                  headerBlurEffect: Platform.OS === 'ios' ? 'prominent' : undefined,
-                  headerTransparent: Platform.OS === 'ios',
-                }}
+        <NetworkProvider>
+          <MapPreferencesProvider>
+            <PaperProvider theme={theme}>
+              <StatusBar
+                style={colorScheme === 'dark' ? 'light' : 'dark'}
+                translucent={Platform.OS === 'ios'}
+                hidden={SCREENSHOT_MODE}
+                animated
               />
-            </AuthGate>
-          </PaperProvider>
-        </MapPreferencesProvider>
+              <AuthGate>
+                <OfflineBanner />
+                <GlobalDataSync />
+                <DemoBanner />
+                <CacheLoadingBanner />
+                <Stack
+                  screenOptions={{
+                    headerShown: false,
+                    // iOS: Use default animation for native feel with gesture support
+                    // Android: Slide from right for Material Design
+                    animation: Platform.OS === 'ios' ? 'default' : 'slide_from_right',
+                    // Enable swipe-back gesture on both platforms
+                    gestureEnabled: true,
+                    gestureDirection: 'horizontal',
+                    // iOS: Blur effect for any translucent headers
+                    headerBlurEffect: Platform.OS === 'ios' ? 'prominent' : undefined,
+                    headerTransparent: Platform.OS === 'ios',
+                  }}
+                />
+              </AuthGate>
+            </PaperProvider>
+          </MapPreferencesProvider>
+        </NetworkProvider>
       </QueryProvider>
     </GestureHandlerRootView>
   );
