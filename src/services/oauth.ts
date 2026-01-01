@@ -1,17 +1,6 @@
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
-
-// OAuth configuration for intervals.icu
-// The proxy handles token exchange, keeping client_secret secure
-const OAUTH_CONFIG = {
-  clientId: process.env.EXPO_PUBLIC_INTERVALS_CLIENT_ID || '',
-  // Backend proxy URL - handles token exchange securely
-  proxyBaseUrl: process.env.EXPO_PUBLIC_OAUTH_PROXY_URL || '',
-  authorizationEndpoint: 'https://intervals.icu/oauth/authorize',
-  // App's deep link scheme for receiving the final redirect
-  appScheme: 'veloq',
-  scopes: ['ACTIVITY:READ', 'WELLNESS:READ', 'CALENDAR:READ', 'SETTINGS:READ'],
-};
+import { OAUTH } from '@/lib/utils/constants';
 
 // State parameter for CSRF protection
 let oauthState: string | null = null;
@@ -46,21 +35,21 @@ export interface OAuthError {
  * Check if OAuth is configured (client ID and proxy URL are set)
  */
 export function isOAuthConfigured(): boolean {
-  return !!OAUTH_CONFIG.clientId && !!OAUTH_CONFIG.proxyBaseUrl;
+  return !!OAUTH.CLIENT_ID && !!OAUTH.PROXY_URL;
 }
 
 /**
  * Get the OAuth client ID (for display/debugging)
  */
 export function getOAuthClientId(): string {
-  return OAUTH_CONFIG.clientId;
+  return OAUTH.CLIENT_ID;
 }
 
 /**
  * Get the proxy redirect URI (for registration with intervals.icu)
  */
 export function getProxyRedirectUri(): string {
-  return `${OAUTH_CONFIG.proxyBaseUrl}/oauth/callback`;
+  return `${OAUTH.PROXY_URL}/oauth/callback`;
 }
 
 /**
@@ -74,14 +63,14 @@ export function buildAuthorizationUrl(): string {
   const proxyRedirectUri = getProxyRedirectUri();
 
   const params = new URLSearchParams({
-    client_id: OAUTH_CONFIG.clientId,
+    client_id: OAUTH.CLIENT_ID,
     redirect_uri: proxyRedirectUri,
-    scope: OAUTH_CONFIG.scopes.join(','),
+    scope: OAUTH.SCOPES.join(','),
     response_type: 'code',
     state: oauthState,
   });
 
-  return `${OAUTH_CONFIG.authorizationEndpoint}?${params.toString()}`;
+  return `${OAUTH.AUTH_ENDPOINT}?${params.toString()}`;
 }
 
 /**
@@ -97,12 +86,12 @@ export function buildAuthorizationUrl(): string {
 export async function startOAuthFlow(): Promise<WebBrowser.WebBrowserResult> {
   if (!isOAuthConfigured()) {
     throw new Error(
-      'OAuth is not configured. Please set EXPO_PUBLIC_INTERVALS_CLIENT_ID and EXPO_PUBLIC_OAUTH_PROXY_URL.'
+      'OAuth is not configured. Set CLIENT_ID and PROXY_URL in src/lib/utils/constants.ts'
     );
   }
 
   const authUrl = buildAuthorizationUrl();
-  const appCallbackUrl = `${OAUTH_CONFIG.appScheme}://oauth/callback`;
+  const appCallbackUrl = `${OAUTH.APP_SCHEME}://oauth/callback`;
 
   // Open browser for authorization
   // The proxy will redirect back to our app scheme
@@ -190,18 +179,8 @@ export function handleOAuthCallback(url: string): OAuthTokenResponse {
  * Get the app's OAuth redirect URI (for deep linking setup)
  */
 export function getAppRedirectUri(): string {
-  return `${OAUTH_CONFIG.appScheme}://oauth/callback`;
+  return `${OAUTH.APP_SCHEME}://oauth/callback`;
 }
 
-/**
- * External URLs for intervals.icu
- */
-export const INTERVALS_URLS = {
-  signup: 'https://intervals.icu',
-  privacyPolicy: 'https://intervals.icu/privacy-policy.html',
-  termsOfService: 'https://forum.intervals.icu/tos',
-  apiTerms: 'https://forum.intervals.icu/t/intervals-icu-api-terms-and-conditions/114087',
-  settings: 'https://intervals.icu/settings',
-  // Direct link to Developer Settings section for API key
-  developerSettings: 'https://intervals.icu/settings#developer',
-};
+// Re-export INTERVALS_URLS from constants for backwards compatibility
+export { INTERVALS_URLS } from '@/lib/utils/constants';
