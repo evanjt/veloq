@@ -225,7 +225,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.lg,
     borderRadius: 24,
     overflow: 'hidden',
-    shadowColor: '#D4AF37',
+    shadowColor: '#D4AF37', // Gold glow
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,

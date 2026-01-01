@@ -23,7 +23,7 @@ interface PowerCurveChartProps {
 }
 
 // Chart colors
-const DEFAULT_COLOR = '#5B9BD5';
+const DEFAULT_COLOR = '#5B9BD5'; // Brand blue
 const FTP_LINE_COLOR = 'rgba(150, 150, 150, 0.6)';
 
 // Format duration for display
