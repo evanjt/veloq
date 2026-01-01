@@ -29,8 +29,6 @@ import {
   useRouteSettings,
   useLanguageStore,
   getAvailableLanguages,
-  isEnglishVariant,
-  getEnglishVariantValue,
   type ThemePreference,
   type PrimarySport,
 } from '@/providers';
@@ -382,68 +380,81 @@ export default function SettingsScreen() {
         {/* Language Section */}
         <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>{t('settings.language').toUpperCase()}</Text>
         <View style={[styles.section, isDark && styles.sectionDark]}>
-          {availableLanguages.map((lang, index) => {
-            const isSelected = language === lang.value || (language === null && lang.value === null);
-            const isEnglishSelected = lang.value === 'en' && isEnglishVariant(language);
-            const showCheck = isSelected || isEnglishSelected;
+          {availableLanguages.map((group, groupIndex) => (
+            <View key={group.groupLabel ?? 'system'}>
+              {/* Group Header */}
+              {group.groupLabel && (
+                <View style={[styles.languageGroupHeader, isDark && styles.languageGroupHeaderDark]}>
+                  <Text style={[styles.languageGroupLabel, isDark && styles.textMuted]}>
+                    {t(group.groupLabel)}
+                  </Text>
+                </View>
+              )}
+              {/* Languages in group */}
+              {group.languages.map((lang, langIndex) => {
+                const isSelected = language === lang.value || (language === null && lang.value === null);
+                const isLanguageVariant = lang.variants && lang.variants.some(v => v.value === language);
+                const showCheck = isSelected || isLanguageVariant;
+                const showBorder = groupIndex > 0 || langIndex > 0;
 
-            return (
-              <TouchableOpacity
-                key={lang.value ?? 'system'}
-                style={[
-                  styles.languageRow,
-                  index > 0 && styles.languageRowBorder,
-                  isDark && styles.languageRowDark,
-                ]}
-                onPress={() => handleLanguageChange(lang.value ?? 'system')}
-              >
-                <Text style={[styles.languageLabel, isDark && styles.textLight]}>
-                  {lang.label}
-                </Text>
-                {/* Show regional variant chips for English */}
-                {lang.variants && (
-                  <View style={styles.variantChips}>
-                    {lang.variants.map((variant) => {
-                      const isVariantSelected = isEnglishVariant(language) &&
-                        getEnglishVariantValue(language) === variant.value;
-                      return (
-                        <TouchableOpacity
-                          key={variant.value}
-                          style={[
-                            styles.variantChip,
-                            isVariantSelected && styles.variantChipSelected,
-                            isDark && styles.variantChipDark,
-                            isVariantSelected && isDark && styles.variantChipSelectedDark,
-                          ]}
-                          onPress={(e) => {
-                            e.stopPropagation();
-                            handleLanguageChange(variant.value);
-                          }}
-                        >
-                          <Text
-                            style={[
-                              styles.variantChipText,
-                              isVariantSelected && styles.variantChipTextSelected,
-                              isDark && !isVariantSelected && styles.textMuted,
-                            ]}
-                          >
-                            {variant.label}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </View>
-                )}
-                {showCheck && !lang.variants && (
-                  <MaterialCommunityIcons
-                    name="check"
-                    size={20}
-                    color={colors.primary}
-                  />
-                )}
-              </TouchableOpacity>
-            );
-          })}
+                return (
+                  <TouchableOpacity
+                    key={lang.value ?? 'system'}
+                    style={[
+                      styles.languageRow,
+                      showBorder && styles.languageRowBorder,
+                      isDark && styles.languageRowDark,
+                    ]}
+                    onPress={() => handleLanguageChange(lang.value ?? 'system')}
+                  >
+                    <Text style={[styles.languageLabel, isDark && styles.textLight]}>
+                      {lang.label}
+                    </Text>
+                    {/* Show regional variant chips */}
+                    {lang.variants && (
+                      <View style={styles.variantChips}>
+                        {lang.variants.map((variant) => {
+                          const isVariantSelected = language === variant.value;
+                          return (
+                            <TouchableOpacity
+                              key={variant.value}
+                              style={[
+                                styles.variantChip,
+                                isVariantSelected && styles.variantChipSelected,
+                                isDark && styles.variantChipDark,
+                                isVariantSelected && isDark && styles.variantChipSelectedDark,
+                              ]}
+                              onPress={(e) => {
+                                e.stopPropagation();
+                                handleLanguageChange(variant.value);
+                              }}
+                            >
+                              <Text
+                                style={[
+                                  styles.variantChipText,
+                                  isVariantSelected && styles.variantChipTextSelected,
+                                  isDark && !isVariantSelected && styles.textMuted,
+                                ]}
+                              >
+                                {variant.label}
+                              </Text>
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </View>
+                    )}
+                    {showCheck && !lang.variants && (
+                      <MaterialCommunityIcons
+                        name="check"
+                        size={20}
+                        color={colors.primary}
+                      />
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          ))}
         </View>
 
         {/* Primary Sport Section */}
@@ -1200,6 +1211,24 @@ const styles = StyleSheet.create({
   },
   languageRowDark: {
     borderTopColor: '#333',
+  },
+  languageGroupHeader: {
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    backgroundColor: colors.background,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  languageGroupHeaderDark: {
+    backgroundColor: '#1a1a1a',
+    borderTopColor: '#333',
+  },
+  languageGroupLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
   },
   languageLabel: {
     fontSize: 16,
