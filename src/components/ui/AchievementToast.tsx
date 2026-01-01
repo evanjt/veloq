@@ -67,7 +67,7 @@ const ACHIEVEMENT_CONFIG: Record<
 > = {
   pr: {
     icon: 'trophy',
-    gradient: gradients.primary,
+    gradient: gradients.accent, // Gold for achievements
     label: 'Personal Record',
   },
   milestone: {
@@ -97,7 +97,7 @@ const ACHIEVEMENT_CONFIG: Record<
   },
   custom: {
     icon: 'star',
-    gradient: gradients.primary,
+    gradient: gradients.accent, // Gold for achievements
     label: 'Achievement',
   },
 };

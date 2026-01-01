@@ -37,10 +37,10 @@ export function GlowText({
 }
 
 // GradientText simplified - shows solid color (gradient requires dev build)
-// Brand: Gold (#D4AF37) primary
+// Brand: Teal primary, Gold for achievements only
 export function GradientText({
   children,
-  colors = ['#E8C96E', '#D4AF37'],
+  colors = ['#2DD4BF', '#14B8A6'],
   style,
 }: {
   children: string | number;

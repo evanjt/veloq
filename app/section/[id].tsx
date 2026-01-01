@@ -772,7 +772,7 @@ function ActivityRow({
           activityPoints={activityPoints}
           sectionPoints={sectionPoints}
           activityColor={traceColor}
-          sectionColor={activityColor}
+          sectionColor={colors.consensusRoute}
           isHighlighted={isHighlighted}
         />
       ) : (
@@ -998,6 +998,8 @@ export default function SectionDetailScreen() {
               interactive={false}
               enableFullscreen={true}
               shadowTrack={shadowTrack}
+              highlightedActivityId={highlightedActivityId}
+              highlightedLapPoints={highlightedActivityPoints}
             />
           </View>
 

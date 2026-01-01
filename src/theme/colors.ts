@@ -1,7 +1,10 @@
 /**
  * Veloq Premium Color Palette
  *
- * Brand Identity: Gold (#D4AF37) + Blue (#5B9BD5)
+ * Primary: Teal (mode-aware) - everyday interactions
+ * Accent: Gold - achievements, celebrations, PRs only
+ * Secondary: Blue - charts, data visualization
+ *
  * Aesthetic: Premium/Luxury, Whoop-inspired, Dark-mode-first
  */
 
@@ -24,12 +27,20 @@ export function colorWithOpacity(hex: string, opacity: number): string {
 // =============================================================================
 
 export const brand = {
-  // Gold - Primary (CTAs, achievements, premium moments)
+  // Teal - Primary (buttons, links, CTAs)
+  // Mode-aware: use teal.light for light mode, teal.dark for dark mode
+  teal: '#14B8A6', // Teal-500 - base
+  tealLight: '#0D9488', // Teal-600 - for light mode (darker for contrast on white)
+  tealDark: '#2DD4BF', // Teal-400 - for dark mode (lighter for contrast on dark)
+  tealHover: '#0F766E', // Teal-700 - light mode hover
+  tealHoverDark: '#14B8A6', // Teal-500 - dark mode hover
+
+  // Gold - Accent (achievements, PRs, celebrations ONLY)
   gold: '#D4AF37',
   goldLight: '#E8C96E',
   goldDark: '#B8942F',
 
-  // Blue - Secondary (navigation, data viz)
+  // Blue - Secondary (charts, data visualization)
   blue: '#5B9BD5',
   blueLight: '#7DB3E3',
   blueDark: '#3A7AB8',
@@ -40,13 +51,18 @@ export const brand = {
 // =============================================================================
 
 export const colors = {
-  // Brand
-  primary: brand.gold,
-  primaryDark: brand.goldDark,
-  primaryLight: brand.goldLight,
-  secondary: brand.blue,
-  secondaryDark: brand.blueDark,
-  secondaryLight: brand.blueLight,
+  // Primary - Teal (everyday interactions)
+  primary: brand.tealLight, // Teal-600 for light mode (good contrast on white)
+  primaryHover: brand.tealHover, // Teal-700 for hover
+  primaryLight: brand.teal, // Lighter variant
+
+  // Accent - Gold (achievements, PRs only)
+  accent: brand.goldDark, // Slightly darker gold for light mode
+  accentLight: brand.gold,
+
+  // Secondary - Blue (charts, data)
+  secondary: brand.blueDark, // Darker blue for light mode
+  secondaryLight: brand.blue,
 
   // Surfaces
   surface: '#FFFFFF',
@@ -149,6 +165,19 @@ export const colors = {
 // =============================================================================
 
 export const darkColors = {
+  // Primary - Teal (for dark mode)
+  primary: brand.tealDark, // Teal-400 for dark mode (good contrast on dark)
+  primaryHover: brand.tealHoverDark, // Teal-500 for hover
+  primaryLight: '#5EEAD4', // Teal-300 for subtle highlights
+
+  // Accent - Gold (achievements, PRs only)
+  accent: brand.gold, // Full gold for dark mode
+  accentLight: brand.goldLight,
+
+  // Secondary - Blue (charts, data)
+  secondary: brand.blue, // Full blue for dark mode
+  secondaryLight: brand.blueLight,
+
   // Surfaces (near-black, premium feel)
   background: '#0D0D0F',
   backgroundAlt: '#111114',
@@ -166,7 +195,7 @@ export const darkColors = {
   // Borders
   border: '#27272A',
   borderLight: '#3F3F46',
-  borderAccent: 'rgba(91, 155, 213, 0.15)', // Subtle blue glow
+  borderAccent: 'rgba(45, 212, 191, 0.15)', // Subtle teal glow (updated from blue)
   divider: '#27272A',
 
   // Icon colors
@@ -200,20 +229,31 @@ export const darkColors = {
 // =============================================================================
 
 export const gradients = {
-  // Brand gradients
+  // Primary - Teal (for buttons, CTAs)
+  primary: ['#2DD4BF', '#14B8A6'] as const, // Teal gradient
+  primaryLight: ['#5EEAD4', '#2DD4BF'] as const,
+
+  // Accent - Gold (achievements only)
   gold: [brand.goldLight, brand.gold] as const,
+  accent: [brand.goldLight, brand.gold] as const, // Alias
+
+  // Secondary - Blue (charts, data)
   blue: [brand.blueLight, brand.blue] as const,
-  premium: [brand.gold, brand.blue] as const, // Gold to blue diagonal
+  secondary: [brand.blueLight, brand.blue] as const, // Alias
+
+  // Legacy/premium (gold to blue for special moments)
+  premium: [brand.gold, brand.blue] as const,
 
   // Fitness metric gradients
   fitness: [brand.blueLight, brand.blue] as const,
   fatigue: ['#C084FC', '#A855F7'] as const, // Purple gradient
-  form: [brand.goldLight, brand.gold] as const,
+  form: [brand.goldLight, brand.gold] as const, // Gold for form (achievement!)
 
   // UI gradients
   success: ['#4ADE80', '#22C55E'] as const,
   warning: ['#FBBF24', '#F59E0B'] as const,
   purple: ['#C084FC', '#A855F7'] as const,
+  ocean: ['#22D3EE', '#06B6D4'] as const, // Cyan
 
   // Surface gradients
   dark: ['rgba(31,31,35,0.95)', 'rgba(24,24,27,0.98)'] as const,
@@ -228,7 +268,10 @@ export const gradients = {
 // =============================================================================
 
 export const glows = {
-  gold: 'rgba(212, 175, 55, 0.4)',
+  primary: 'rgba(20, 184, 166, 0.4)', // Teal glow for interactive elements
+  teal: 'rgba(20, 184, 166, 0.4)', // Alias
+  gold: 'rgba(212, 175, 55, 0.4)', // For achievements only
+  accent: 'rgba(212, 175, 55, 0.4)', // Alias
   blue: 'rgba(91, 155, 213, 0.4)',
   success: 'rgba(34, 197, 94, 0.4)',
   warning: 'rgba(245, 158, 11, 0.4)',
