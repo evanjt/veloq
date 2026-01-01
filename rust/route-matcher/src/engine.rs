@@ -25,6 +25,8 @@ use rstar::{RTree, RTreeObject, AABB};
 use crate::{
     GpsPoint, RouteSignature, RouteGroup, MatchConfig, Bounds,
     FrequentSection, SectionConfig,
+    ActivityMetrics, RoutePerformance, RoutePerformanceResult,
+    SectionLap, SectionPerformanceRecord, SectionPerformanceResult,
 };
 
 #[cfg(not(feature = "parallel"))]
@@ -112,6 +114,12 @@ pub struct RouteEngine {
     // Configuration
     match_config: MatchConfig,
     section_config: SectionConfig,
+
+    // Performance data
+    /// Activity metadata for performance calculations
+    activity_metrics: HashMap<String, ActivityMetrics>,
+    /// Time streams for section calculations (activity_id -> time values in seconds)
+    time_streams: HashMap<String, Vec<u32>>,
 }
 
 impl RouteEngine {
@@ -132,6 +140,8 @@ impl RouteEngine {
             spatial_dirty: false,
             match_config: MatchConfig::default(),
             section_config: SectionConfig::default(),
+            activity_metrics: HashMap::new(),
+            time_streams: HashMap::new(),
         }
     }
 
@@ -261,6 +271,8 @@ impl RouteEngine {
         self.groups_dirty = false;
         self.sections_dirty = false;
         self.spatial_dirty = false;
+        self.activity_metrics.clear();
+        self.time_streams.clear();
     }
 
     /// Get all activity IDs.
@@ -807,6 +819,240 @@ impl RouteEngine {
             cached_consensus_count: self.consensus_cache.len() as u32,
         }
     }
+
+    // ========================================================================
+    // Performance Calculations
+    // ========================================================================
+
+    /// Set activity metrics for performance calculations.
+    /// Call this after syncing activities with metadata from the API.
+    pub fn set_activity_metrics(&mut self, metrics: Vec<ActivityMetrics>) {
+        for m in metrics {
+            self.activity_metrics.insert(m.activity_id.clone(), m);
+        }
+    }
+
+    /// Set a single activity's metrics.
+    pub fn set_activity_metric(&mut self, metric: ActivityMetrics) {
+        self.activity_metrics.insert(metric.activity_id.clone(), metric);
+    }
+
+    /// Get activity metrics by ID.
+    pub fn get_activity_metrics(&self, activity_id: &str) -> Option<&ActivityMetrics> {
+        self.activity_metrics.get(activity_id)
+    }
+
+    /// Calculate route performances for all activities in a group.
+    /// Returns performances sorted by date with best and current rank.
+    pub fn get_route_performances(
+        &mut self,
+        route_group_id: &str,
+        current_activity_id: Option<&str>,
+    ) -> RoutePerformanceResult {
+        self.ensure_groups();
+
+        // Find the group
+        let group = match self.groups.iter().find(|g| g.group_id == route_group_id) {
+            Some(g) => g,
+            None => return RoutePerformanceResult {
+                performances: vec![],
+                best: None,
+                current_rank: None,
+            },
+        };
+
+        // Build performances from metrics
+        let mut performances: Vec<RoutePerformance> = group.activity_ids
+            .iter()
+            .filter_map(|id| {
+                let metrics = self.activity_metrics.get(id)?;
+                let speed = if metrics.moving_time > 0 {
+                    metrics.distance / metrics.moving_time as f64
+                } else {
+                    0.0
+                };
+
+                Some(RoutePerformance {
+                    activity_id: id.clone(),
+                    name: metrics.name.clone(),
+                    date: metrics.date,
+                    speed,
+                    duration: metrics.elapsed_time,
+                    moving_time: metrics.moving_time,
+                    distance: metrics.distance,
+                    elevation_gain: metrics.elevation_gain,
+                    avg_hr: metrics.avg_hr,
+                    avg_power: metrics.avg_power,
+                    is_current: current_activity_id == Some(id.as_str()),
+                    direction: "same".to_string(),
+                    match_percentage: 100.0,
+                })
+            })
+            .collect();
+
+        // Sort by date (oldest first for charting)
+        performances.sort_by_key(|p| p.date);
+
+        // Find best (fastest speed)
+        let best = performances.iter().max_by(|a, b| {
+            a.speed.partial_cmp(&b.speed).unwrap_or(std::cmp::Ordering::Equal)
+        }).cloned();
+
+        // Calculate current rank (1 = fastest)
+        let current_rank = current_activity_id.and_then(|current_id| {
+            let mut by_speed = performances.clone();
+            by_speed.sort_by(|a, b| {
+                b.speed.partial_cmp(&a.speed).unwrap_or(std::cmp::Ordering::Equal)
+            });
+            by_speed.iter().position(|p| p.activity_id == current_id)
+                .map(|idx| (idx + 1) as u32)
+        });
+
+        RoutePerformanceResult {
+            performances,
+            best,
+            current_rank,
+        }
+    }
+
+    /// Get route performances as JSON string.
+    pub fn get_route_performances_json(
+        &mut self,
+        route_group_id: &str,
+        current_activity_id: Option<&str>,
+    ) -> String {
+        let result = self.get_route_performances(route_group_id, current_activity_id);
+        serde_json::to_string(&result).unwrap_or_else(|_| "{}".to_string())
+    }
+
+    // ========================================================================
+    // Time Streams for Section Calculations
+    // ========================================================================
+
+    /// Set time stream for an activity (for section lap calculations).
+    /// Only stores the time array, not the full stream data.
+    pub fn set_time_stream(&mut self, activity_id: String, times: Vec<u32>) {
+        self.time_streams.insert(activity_id, times);
+    }
+
+    /// Set multiple time streams from flat buffer.
+    /// Format: activity_ids, all times concatenated, offsets into all_times
+    pub fn set_time_streams_flat(
+        &mut self,
+        activity_ids: &[String],
+        all_times: &[u32],
+        offsets: &[u32],
+    ) {
+        for (i, activity_id) in activity_ids.iter().enumerate() {
+            let start = offsets[i] as usize;
+            let end = offsets.get(i + 1).map(|&o| o as usize).unwrap_or(all_times.len());
+            let times = all_times[start..end].to_vec();
+            self.time_streams.insert(activity_id.clone(), times);
+        }
+    }
+
+    /// Calculate section performances from cached time streams.
+    /// Returns performance records sorted by date with best record.
+    pub fn get_section_performances(&mut self, section_id: &str) -> SectionPerformanceResult {
+        self.ensure_sections();
+
+        // Find the section
+        let section = match self.sections.iter().find(|s| s.id == section_id) {
+            Some(s) => s,
+            None => return SectionPerformanceResult {
+                records: vec![],
+                best_record: None,
+            },
+        };
+
+        // Group portions by activity
+        let mut portions_by_activity: HashMap<&str, Vec<&crate::SectionPortion>> = HashMap::new();
+        for portion in &section.activity_portions {
+            portions_by_activity
+                .entry(&portion.activity_id)
+                .or_default()
+                .push(portion);
+        }
+
+        // Calculate records for each activity
+        let mut records: Vec<SectionPerformanceRecord> = portions_by_activity
+            .iter()
+            .filter_map(|(activity_id, portions)| {
+                let metrics = self.activity_metrics.get(*activity_id)?;
+                let times = self.time_streams.get(*activity_id)?;
+
+                // Calculate laps
+                let laps: Vec<SectionLap> = portions.iter()
+                    .enumerate()
+                    .filter_map(|(i, portion)| {
+                        let start_idx = portion.start_index as usize;
+                        let end_idx = portion.end_index as usize;
+
+                        if start_idx >= times.len() || end_idx >= times.len() {
+                            return None;
+                        }
+
+                        let lap_time = (times[end_idx] as f64 - times[start_idx] as f64).abs();
+                        if lap_time <= 0.0 { return None; }
+
+                        let pace = portion.distance_meters / lap_time;
+
+                        Some(SectionLap {
+                            id: format!("{}_lap{}", activity_id, i),
+                            activity_id: activity_id.to_string(),
+                            time: lap_time,
+                            pace,
+                            distance: portion.distance_meters,
+                            direction: portion.direction.clone(),
+                            start_index: portion.start_index,
+                            end_index: portion.end_index,
+                        })
+                    })
+                    .collect();
+
+                if laps.is_empty() { return None; }
+
+                // Aggregate stats
+                let best_time = laps.iter().map(|l| l.time).fold(f64::MAX, f64::min);
+                let best_pace = laps.iter().map(|l| l.pace).fold(0.0f64, f64::max);
+                let avg_time = laps.iter().map(|l| l.time).sum::<f64>() / laps.len() as f64;
+                let avg_pace = laps.iter().map(|l| l.pace).sum::<f64>() / laps.len() as f64;
+
+                Some(SectionPerformanceRecord {
+                    activity_id: activity_id.to_string(),
+                    activity_name: metrics.name.clone(),
+                    activity_date: metrics.date,
+                    lap_count: laps.len() as u32,
+                    best_time,
+                    best_pace,
+                    avg_time,
+                    avg_pace,
+                    direction: laps[0].direction.clone(),
+                    section_distance: laps[0].distance,
+                    laps,
+                })
+            })
+            .collect();
+
+        // Sort by date
+        records.sort_by_key(|r| r.activity_date);
+
+        // Find best (fastest time)
+        let best_record = records.iter()
+            .min_by(|a, b| a.best_time.partial_cmp(&b.best_time).unwrap_or(std::cmp::Ordering::Equal))
+            .cloned();
+
+        SectionPerformanceResult {
+            records,
+            best_record,
+        }
+    }
+
+    /// Get section performances as JSON string.
+    pub fn get_section_performances_json(&mut self, section_id: &str) -> String {
+        let result = self.get_section_performances(section_id);
+        serde_json::to_string(&result).unwrap_or_else(|_| "{}".to_string())
+    }
 }
 
 impl Default for RouteEngine {
@@ -1016,6 +1262,55 @@ pub mod engine_ffi {
     #[uniffi::export]
     pub fn engine_get_all_signatures_json() -> String {
         with_engine(|e| e.get_all_signatures_json())
+    }
+
+    // ========================================================================
+    // Performance FFI Exports
+    // ========================================================================
+
+    /// Set activity metrics for performance calculations.
+    /// Called after activities are synced with metadata from the API.
+    #[uniffi::export]
+    pub fn engine_set_activity_metrics(metrics: Vec<crate::ActivityMetrics>) {
+        info!("[RouteEngine] Setting metrics for {} activities", metrics.len());
+        with_engine(|e| e.set_activity_metrics(metrics));
+    }
+
+    /// Set a single activity's metrics.
+    #[uniffi::export]
+    pub fn engine_set_activity_metric(metric: crate::ActivityMetrics) {
+        with_engine(|e| e.set_activity_metric(metric));
+    }
+
+    /// Get route performances for a group.
+    /// Returns JSON with performances sorted by date, best, and current rank.
+    #[uniffi::export]
+    pub fn engine_get_route_performances_json(
+        route_group_id: String,
+        current_activity_id: Option<String>,
+    ) -> String {
+        with_engine(|e| {
+            e.get_route_performances_json(&route_group_id, current_activity_id.as_deref())
+        })
+    }
+
+    /// Set time streams for section calculations.
+    /// Format: activity_ids, all times concatenated, offsets into all_times
+    #[uniffi::export]
+    pub fn engine_set_time_streams(
+        activity_ids: Vec<String>,
+        all_times: Vec<u32>,
+        offsets: Vec<u32>,
+    ) {
+        info!("[RouteEngine] Setting time streams for {} activities", activity_ids.len());
+        with_engine(|e| e.set_time_streams_flat(&activity_ids, &all_times, &offsets));
+    }
+
+    /// Get section performances.
+    /// Returns JSON with performance records sorted by date and best record.
+    #[uniffi::export]
+    pub fn engine_get_section_performances_json(section_id: String) -> String {
+        with_engine(|e| e.get_section_performances_json(&section_id))
     }
 }
 
