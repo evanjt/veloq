@@ -1,12 +1,12 @@
 /**
  * Hook for getting performance data for all activities in a route group.
- * Used to display performance comparison charts.
+ * Uses Rust engine for performance calculations.
  */
 
 import { useMemo } from 'react';
 import { useEngineGroups } from './useRouteEngine';
-import { useActivities } from '@/hooks/useActivities';
-import type { RouteGroup, Activity, MatchDirection } from '@/types';
+import { routeEngine } from 'route-matcher-native';
+import type { RouteGroup, MatchDirection } from '@/types';
 import { toActivityType } from '@/types';
 
 export interface RoutePerformancePoint {
@@ -81,73 +81,70 @@ export function useRoutePerformances(
     };
   }, [engineGroup]);
 
-  // Fetch all activities (we'll filter to just those in the group)
-  const { data: activities, isLoading } = useActivities({
-    includeStats: false,
-  });
-
-  // Filter and map to performance points
+  // Get performances from Rust engine
+  // NOTE: Requires metrics to be synced via useRouteDataSync
   const { performances, best, currentRank } = useMemo(() => {
-    if (!engineGroup || !activities) {
+    if (!engineGroup) {
       return { performances: [], best: null, currentRank: null };
     }
 
-    const activityIdsSet = new Set(engineGroup.activityIds);
+    try {
+      // Get calculated performances from Rust engine
+      const result = routeEngine.getRoutePerformances(
+        engineGroup.groupId,
+        activityId
+      );
 
-    // Filter to only activities in this route
-    const routeActivities = activities.filter((a) => activityIdsSet.has(a.id));
+      // Convert to RoutePerformancePoint format (add Date objects)
+      const points: RoutePerformancePoint[] = result.performances.map((p) => ({
+        activityId: p.activityId,
+        date: new Date(p.date * 1000), // Convert Unix timestamp to Date
+        name: p.name,
+        speed: p.speed,
+        duration: p.duration,
+        movingTime: p.movingTime,
+        distance: p.distance,
+        elevationGain: p.elevationGain,
+        avgHr: p.avgHr,
+        avgPower: p.avgPower,
+        isCurrent: p.isCurrent,
+        direction: p.direction as MatchDirection,
+        matchPercentage: p.matchPercentage,
+      }));
 
-    // Map to performance points
-    const points: RoutePerformancePoint[] = routeActivities.map((a: Activity) => {
+      const bestPoint: RoutePerformancePoint | null = result.best
+        ? {
+            activityId: result.best.activityId,
+            date: new Date(result.best.date * 1000),
+            name: result.best.name,
+            speed: result.best.speed,
+            duration: result.best.duration,
+            movingTime: result.best.movingTime,
+            distance: result.best.distance,
+            elevationGain: result.best.elevationGain,
+            avgHr: result.best.avgHr,
+            avgPower: result.best.avgPower,
+            isCurrent: result.best.isCurrent,
+            direction: result.best.direction as MatchDirection,
+            matchPercentage: result.best.matchPercentage,
+          }
+        : null;
+
       return {
-        activityId: a.id,
-        date: new Date(a.start_date_local),
-        name: a.name,
-        speed: a.distance / a.moving_time, // m/s
-        duration: a.elapsed_time,
-        movingTime: a.moving_time,
-        distance: a.distance,
-        elevationGain: a.total_elevation_gain || 0,
-        avgHr: a.average_heartrate,
-        avgPower: a.average_watts,
-        isCurrent: a.id === activityId,
-        direction: 'same', // Direction not stored in engine
-        matchPercentage: 100, // Not available from engine
+        performances: points,
+        best: bestPoint,
+        currentRank: result.currentRank,
       };
-    });
-
-    // Sort by date (oldest first for charting)
-    points.sort((a, b) => a.date.getTime() - b.date.getTime());
-
-    // Find best (fastest speed)
-    let bestPoint: RoutePerformancePoint | null = null;
-    for (const p of points) {
-      if (!bestPoint || p.speed > bestPoint.speed) {
-        bestPoint = p;
-      }
+    } catch {
+      // Engine may not have metrics yet - return empty
+      return { performances: [], best: null, currentRank: null };
     }
-
-    // Sort by speed for ranking
-    const bySpeed = [...points].sort((a, b) => b.speed - a.speed);
-    let rank: number | null = null;
-    if (activityId) {
-      const idx = bySpeed.findIndex((p) => p.activityId === activityId);
-      if (idx >= 0) {
-        rank = idx + 1;
-      }
-    }
-
-    return {
-      performances: points,
-      best: bestPoint,
-      currentRank: rank,
-    };
-  }, [engineGroup, activities, activityId]);
+  }, [engineGroup, activityId]);
 
   return {
     routeGroup,
     performances,
-    isLoading,
+    isLoading: false, // Data is synchronous from Rust engine
     best,
     currentRank,
   };

@@ -8,7 +8,26 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useAuthStore, getStoredCredentials, useNetwork } from '@/providers';
 import { getNativeModule } from '@/lib/native/routeEngine';
+import { routeEngine, type ActivityMetrics } from 'route-matcher-native';
 import type { Activity } from '@/types';
+
+/**
+ * Convert Activity to ActivityMetrics for Rust engine.
+ */
+function toActivityMetrics(activity: Activity): ActivityMetrics {
+  return {
+    activityId: activity.id,
+    name: activity.name,
+    date: Math.floor(new Date(activity.start_date_local).getTime() / 1000),
+    distance: activity.distance,
+    movingTime: activity.moving_time,
+    elapsedTime: activity.elapsed_time,
+    elevationGain: activity.total_elevation_gain || 0,
+    avgHr: activity.average_heartrate,
+    avgPower: activity.average_watts,
+    sportType: activity.type || 'Ride',
+  };
+}
 
 interface SyncProgress {
   status: 'idle' | 'fetching' | 'processing' | 'computing' | 'complete' | 'error';
@@ -176,6 +195,11 @@ export function useRouteDataSync(
 
         if (ids.length > 0 && isMountedRef.current) {
           await nativeModule.routeEngine.addActivities(ids, allCoords, offsets, sportTypes);
+
+          // Sync activity metrics to engine for performance calculations
+          const syncedActivities = withGps.filter(a => ids.includes(a.id));
+          const metrics = syncedActivities.map(toActivityMetrics);
+          routeEngine.setActivityMetrics(metrics);
         }
 
         if (isMountedRef.current) {
@@ -256,6 +280,11 @@ export function useRouteDataSync(
           // Add to engine (async to avoid blocking UI)
           if (ids.length > 0 && isMountedRef.current) {
             await nativeModule.routeEngine.addActivities(ids, allCoords, offsets, sportTypes);
+
+            // Sync activity metrics to engine for performance calculations
+            const syncedActivities = withGps.filter(a => ids.includes(a.id));
+            const metrics = syncedActivities.map(toActivityMetrics);
+            routeEngine.setActivityMetrics(metrics);
           }
         }
 

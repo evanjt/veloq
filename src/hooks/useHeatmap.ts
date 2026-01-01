@@ -6,6 +6,7 @@
 import { useMemo, useCallback, useEffect, useState } from 'react';
 import { useEngineGroups } from './routes/useRouteEngine';
 import { getNativeModule } from '@/lib/native/routeEngine';
+import { routeEngine } from 'route-matcher-native';
 import type {
   HeatmapResult,
   HeatmapConfig,
@@ -32,31 +33,6 @@ export interface UseHeatmapResult {
   queryCell: (lat: number, lng: number) => CellQueryResult | null;
   /** Convert heatmap cells to GeoJSON for MapLibre */
   toGeoJSON: () => GeoJSON.FeatureCollection | null;
-}
-
-/**
- * Calculate distance between two GPS points using Haversine formula
- */
-function haversineDistance(p1: { lat: number; lng: number }, p2: { lat: number; lng: number }): number {
-  const R = 6371000; // Earth radius in meters
-  const dLat = (p2.lat - p1.lat) * Math.PI / 180;
-  const dLng = (p2.lng - p1.lng) * Math.PI / 180;
-  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(p1.lat * Math.PI / 180) * Math.cos(p2.lat * Math.PI / 180) *
-    Math.sin(dLng / 2) * Math.sin(dLng / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c;
-}
-
-/**
- * Calculate total distance of a route
- */
-function calculateRouteDistance(points: Array<{ lat: number; lng: number }>): number {
-  let total = 0;
-  for (let i = 1; i < points.length; i++) {
-    total += haversineDistance(points[i - 1], points[i]);
-  }
-  return total;
 }
 
 /**
@@ -93,23 +69,18 @@ export function useHeatmap(options: UseHeatmapOptions = {}): UseHeatmapResult {
         ? groups.filter(g => g.sportType === sportType)
         : groups;
 
+      // Get pre-computed bounds and distances from Rust engine
+      // This avoids redundant Haversine calculations in JS
+      const allBoundsData = routeEngine.getAllActivityBounds();
+      const boundsMap = new Map(allBoundsData.map(b => [b.id, b]));
+
       // Collect signatures from all groups
       for (const group of filteredGroups) {
-        // Get signatures for this group
+        // Get signatures for this group (points and center already computed in Rust)
         const sigMap = nativeModule.routeEngine.getSignaturesForGroup(group.groupId);
 
         for (const [activityId, points] of Object.entries(sigMap)) {
           if (points.length < 2) continue;
-
-          // Calculate bounds
-          let minLat = Infinity, maxLat = -Infinity;
-          let minLng = Infinity, maxLng = -Infinity;
-          for (const p of points) {
-            minLat = Math.min(minLat, p.lat);
-            maxLat = Math.max(maxLat, p.lat);
-            minLng = Math.min(minLng, p.lng);
-            maxLng = Math.max(maxLng, p.lng);
-          }
 
           // Convert to GpsPoint format
           const gpsPoints: GpsPoint[] = points.map(p => ({
@@ -117,17 +88,33 @@ export function useHeatmap(options: UseHeatmapOptions = {}): UseHeatmapResult {
             longitude: p.lng,
           }));
 
-          // Build signature
+          // Use pre-computed bounds and distance from engine (avoids JS calculation)
+          const boundsData = boundsMap.get(activityId);
+          let bounds = { minLat: 0, maxLat: 0, minLng: 0, maxLng: 0 };
+          let totalDistance = 0;
+
+          if (boundsData) {
+            // boundsData.bounds is [[minLat, minLng], [maxLat, maxLng]]
+            bounds = {
+              minLat: boundsData.bounds[0][0],
+              minLng: boundsData.bounds[0][1],
+              maxLat: boundsData.bounds[1][0],
+              maxLng: boundsData.bounds[1][1],
+            };
+            totalDistance = boundsData.distance;
+          }
+
+          // Build signature using pre-computed data
           const signature: RouteSignature = {
             activityId,
             points: gpsPoints,
-            totalDistance: calculateRouteDistance(points),
+            totalDistance,
             startPoint: gpsPoints[0],
             endPoint: gpsPoints[gpsPoints.length - 1],
-            bounds: { minLat, maxLat, minLng, maxLng },
+            bounds,
             center: {
-              latitude: (minLat + maxLat) / 2,
-              longitude: (minLng + maxLng) / 2,
+              latitude: (bounds.minLat + bounds.maxLat) / 2,
+              longitude: (bounds.minLng + bounds.maxLng) / 2,
             },
           };
 
@@ -179,7 +166,7 @@ export function useHeatmap(options: UseHeatmapOptions = {}): UseHeatmapResult {
     if (!cell) return null;
 
     // Build suggested label from route info
-    const uniqueRoutes = new Set(cell.routeRefs.map(r => r.routeName).filter(Boolean));
+    const uniqueRoutes = new Set(cell.routeRefs.map(r => r.name).filter(Boolean));
     const suggestedLabel = uniqueRoutes.size > 0
       ? Array.from(uniqueRoutes).slice(0, 2).join(', ')
       : `${cell.activityIds.length} activities`;

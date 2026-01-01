@@ -113,6 +113,133 @@ export interface FetchAndProcessResult {
   signatures: RouteSignature[];
 }
 
+// ============================================================================
+// Performance Types
+// ============================================================================
+
+/**
+ * Activity metadata for performance calculations.
+ * Stores non-GPS data needed for performance comparison.
+ */
+export interface ActivityMetrics {
+  activityId: string;
+  name: string;
+  /** Unix timestamp (seconds since epoch) */
+  date: number;
+  /** Distance in meters */
+  distance: number;
+  /** Moving time in seconds */
+  movingTime: number;
+  /** Elapsed time in seconds */
+  elapsedTime: number;
+  /** Total elevation gain in meters */
+  elevationGain: number;
+  /** Average heart rate (optional) */
+  avgHr?: number;
+  /** Average power in watts (optional) */
+  avgPower?: number;
+  /** Sport type (e.g., "Ride", "Run") */
+  sportType: string;
+}
+
+/**
+ * A single performance point for route comparison.
+ */
+export interface RoutePerformance {
+  activityId: string;
+  name: string;
+  /** Unix timestamp */
+  date: number;
+  /** Speed in m/s (distance / movingTime) */
+  speed: number;
+  /** Elapsed time in seconds */
+  duration: number;
+  /** Moving time in seconds */
+  movingTime: number;
+  /** Distance in meters */
+  distance: number;
+  /** Elevation gain in meters */
+  elevationGain: number;
+  /** Average heart rate (optional) */
+  avgHr?: number;
+  /** Average power in watts (optional) */
+  avgPower?: number;
+  /** Is this the current activity being viewed */
+  isCurrent: boolean;
+  /** Match direction: "same", "reverse", or "partial" */
+  direction: string;
+  /** Match percentage (0-100) */
+  matchPercentage: number;
+}
+
+/**
+ * Complete route performance result.
+ */
+export interface RoutePerformanceResult {
+  /** Performances sorted by date (oldest first) */
+  performances: RoutePerformance[];
+  /** Best performance (fastest speed), null if none */
+  best: RoutePerformance | null;
+  /** Current activity's rank (1 = fastest), null if not provided */
+  currentRank: number | null;
+}
+
+/**
+ * A single lap of a section.
+ */
+export interface SectionLap {
+  id: string;
+  activityId: string;
+  /** Lap time in seconds */
+  time: number;
+  /** Pace in m/s */
+  pace: number;
+  /** Distance in meters */
+  distance: number;
+  /** Direction: "forward" or "backward" */
+  direction: string;
+  /** Start index in the activity's GPS track */
+  startIndex: number;
+  /** End index in the activity's GPS track */
+  endIndex: number;
+}
+
+/**
+ * Section performance record for an activity.
+ */
+export interface SectionPerformanceRecord {
+  activityId: string;
+  activityName: string;
+  /** Unix timestamp */
+  activityDate: number;
+  /** All laps for this activity on this section */
+  laps: SectionLap[];
+  /** Number of times this section was traversed */
+  lapCount: number;
+  /** Best (fastest) lap time in seconds */
+  bestTime: number;
+  /** Best pace in m/s */
+  bestPace: number;
+  /** Average lap time in seconds */
+  avgTime: number;
+  /** Average pace in m/s */
+  avgPace: number;
+  /** Primary direction: "forward" or "backward" */
+  direction: string;
+  /** Section distance in meters */
+  sectionDistance: number;
+}
+
+/**
+ * Complete section performance result.
+ */
+export interface SectionPerformanceResult {
+  /** Performance records sorted by date (oldest first) */
+  records: SectionPerformanceRecord[];
+  /** Best record (fastest time), null if none */
+  bestRecord: SectionPerformanceRecord | null;
+}
+
 // Verify native module is available on load
 const config = NativeModule.getDefaultConfig();
 if (config === null) {
@@ -1370,6 +1497,133 @@ class RouteEngineClient {
       result[activityId] = points.map(p => ({ lat: p.latitude, lng: p.longitude }));
     }
     return result;
+  }
+
+  // ========================================================================
+  // Performance Methods
+  // ========================================================================
+
+  /**
+   * Set activity metrics for performance calculations.
+   * Call after activities are loaded with metadata from API.
+   */
+  setActivityMetrics(metrics: ActivityMetrics[]): void {
+    const nativeMetrics = metrics.map(m => ({
+      activity_id: m.activityId,
+      name: m.name,
+      date: m.date,
+      distance: m.distance,
+      moving_time: m.movingTime,
+      elapsed_time: m.elapsedTime,
+      elevation_gain: m.elevationGain,
+      avg_hr: m.avgHr ?? null,
+      avg_power: m.avgPower ?? null,
+      sport_type: m.sportType,
+    }));
+    NativeModule.engineSetActivityMetrics(nativeMetrics);
+    nativeLog(`[Engine] Set metrics for ${metrics.length} activities`);
+  }
+
+  /**
+   * Get route performances for a group.
+   * Returns sorted performances with best and current rank.
+   */
+  getRoutePerformances(
+    routeGroupId: string,
+    currentActivityId?: string
+  ): RoutePerformanceResult {
+    const json = NativeModule.engineGetRoutePerformancesJson(
+      routeGroupId,
+      currentActivityId ?? null
+    );
+    const raw = JSON.parse(json) as {
+      performances: Array<Record<string, unknown>>;
+      best: Record<string, unknown> | null;
+      current_rank: number | null;
+    };
+
+    const convertPerformance = (p: Record<string, unknown>): RoutePerformance => ({
+      activityId: p.activity_id as string,
+      name: p.name as string,
+      date: p.date as number,
+      speed: p.speed as number,
+      duration: p.duration as number,
+      movingTime: p.moving_time as number,
+      distance: p.distance as number,
+      elevationGain: p.elevation_gain as number,
+      avgHr: p.avg_hr as number | undefined,
+      avgPower: p.avg_power as number | undefined,
+      isCurrent: p.is_current as boolean,
+      direction: p.direction as string,
+      matchPercentage: p.match_percentage as number,
+    });
+
+    return {
+      performances: (raw.performances || []).map(convertPerformance),
+      best: raw.best ? convertPerformance(raw.best) : null,
+      currentRank: raw.current_rank ?? null,
+    };
+  }
+
+  /**
+   * Set time streams for section calculations.
+   * Only stores time arrays (not full stream data).
+   */
+  setTimeStreams(streams: Array<{ activityId: string; times: number[] }>): void {
+    const activityIds: string[] = [];
+    const allTimes: number[] = [];
+    const offsets: number[] = [];
+
+    for (const stream of streams) {
+      activityIds.push(stream.activityId);
+      offsets.push(allTimes.length);
+      allTimes.push(...stream.times);
+    }
+
+    NativeModule.engineSetTimeStreams(activityIds, allTimes, offsets);
+    nativeLog(`[Engine] Set time streams for ${streams.length} activities`);
+  }
+
+  /**
+   * Get section performances.
+   * Returns performance records sorted by date with best record.
+   */
+  getSectionPerformances(sectionId: string): SectionPerformanceResult {
+    const json = NativeModule.engineGetSectionPerformancesJson(sectionId);
+    const raw = JSON.parse(json) as {
+      records: Array<Record<string, unknown>>;
+      best_record: Record<string, unknown> | null;
+    };
+
+    const convertLap = (l: Record<string, unknown>): SectionLap => ({
+      id: l.id as string,
+      activityId: l.activity_id as string,
+      time: l.time as number,
+      pace: l.pace as number,
+      distance: l.distance as number,
+      direction: l.direction as string,
+      startIndex: l.start_index as number,
+      endIndex: l.end_index as number,
+    });
+
+    const convertRecord = (r: Record<string, unknown>): SectionPerformanceRecord => ({
+      activityId: r.activity_id as string,
+      activityName: r.activity_name as string,
+      activityDate: r.activity_date as number,
+      laps: ((r.laps as Array<Record<string, unknown>>) || []).map(convertLap),
+      lapCount: r.lap_count as number,
+      bestTime: r.best_time as number,
+      bestPace: r.best_pace as number,
+      avgTime: r.avg_time as number,
+      avgPace: r.avg_pace as number,
+      direction: r.direction as string,
+      sectionDistance: r.section_distance as number,
+    });
+
+    return {
+      records: (raw.records || []).map(convertRecord),
+      bestRecord: raw.best_record ? convertRecord(raw.best_record) : null,
+    };
   }
 
   /**

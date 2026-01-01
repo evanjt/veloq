@@ -434,6 +434,137 @@ pub struct RouteGroup {
     pub custom_name: Option<String>,
 }
 
+// ============================================================================
+// Performance Types
+// ============================================================================
+
+/// Activity metadata for performance calculations.
+/// Stores the non-GPS data needed for performance comparison.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Record))]
+pub struct ActivityMetrics {
+    pub activity_id: String,
+    pub name: String,
+    /// Unix timestamp (seconds since epoch)
+    pub date: i64,
+    /// Distance in meters
+    pub distance: f64,
+    /// Moving time in seconds
+    pub moving_time: u32,
+    /// Elapsed time in seconds
+    pub elapsed_time: u32,
+    /// Total elevation gain in meters
+    pub elevation_gain: f64,
+    /// Average heart rate (optional)
+    pub avg_hr: Option<u16>,
+    /// Average power in watts (optional)
+    pub avg_power: Option<u16>,
+    /// Sport type (e.g., "Ride", "Run")
+    pub sport_type: String,
+}
+
+/// A single performance point for route comparison.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Record))]
+pub struct RoutePerformance {
+    pub activity_id: String,
+    pub name: String,
+    /// Unix timestamp
+    pub date: i64,
+    /// Speed in m/s (distance / moving_time)
+    pub speed: f64,
+    /// Elapsed time in seconds
+    pub duration: u32,
+    /// Moving time in seconds
+    pub moving_time: u32,
+    /// Distance in meters
+    pub distance: f64,
+    /// Elevation gain in meters
+    pub elevation_gain: f64,
+    /// Average heart rate (optional)
+    pub avg_hr: Option<u16>,
+    /// Average power in watts (optional)
+    pub avg_power: Option<u16>,
+    /// Is this the current activity being viewed
+    pub is_current: bool,
+    /// Match direction: "same", "reverse", or "partial"
+    pub direction: String,
+    /// Match percentage (0-100)
+    pub match_percentage: f64,
+}
+
+/// Complete route performance result.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Record))]
+pub struct RoutePerformanceResult {
+    /// Performances sorted by date (oldest first)
+    pub performances: Vec<RoutePerformance>,
+    /// Best performance (fastest speed)
+    pub best: Option<RoutePerformance>,
+    /// Current activity's rank (1 = fastest), if current_activity_id was provided
+    pub current_rank: Option<u32>,
+}
+
+/// A single lap of a section.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Record))]
+pub struct SectionLap {
+    pub id: String,
+    pub activity_id: String,
+    /// Lap time in seconds
+    pub time: f64,
+    /// Pace in m/s
+    pub pace: f64,
+    /// Distance in meters
+    pub distance: f64,
+    /// Direction: "forward" or "backward"
+    pub direction: String,
+    /// Start index in the activity's GPS track
+    pub start_index: u32,
+    /// End index in the activity's GPS track
+    pub end_index: u32,
+}
+
+/// Section performance record for an activity.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Record))]
+pub struct SectionPerformanceRecord {
+    pub activity_id: String,
+    pub activity_name: String,
+    /// Unix timestamp
+    pub activity_date: i64,
+    /// All laps for this activity on this section
+    pub laps: Vec<SectionLap>,
+    /// Number of times this section was traversed
+    pub lap_count: u32,
+    /// Best (fastest) lap time in seconds
+    pub best_time: f64,
+    /// Best pace in m/s
+    pub best_pace: f64,
+    /// Average lap time in seconds
+    pub avg_time: f64,
+    /// Average pace in m/s
+    pub avg_pace: f64,
+    /// Primary direction: "forward" or "backward"
+    pub direction: String,
+    /// Section distance in meters
+    pub section_distance: f64,
+}
+
+/// Complete section performance result.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Record))]
+pub struct SectionPerformanceResult {
+    /// Performance records sorted by date (oldest first)
+    pub records: Vec<SectionPerformanceRecord>,
+    /// Best record (fastest time)
+    pub best_record: Option<SectionPerformanceRecord>,
+}
+
+// ============================================================================
+// Spatial Indexing Types
+// ============================================================================
+
 /// Bounding box for a route (used for spatial indexing).
 #[derive(Debug, Clone)]
 pub struct RouteBounds {
