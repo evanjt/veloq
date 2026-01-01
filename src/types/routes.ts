@@ -342,3 +342,114 @@ export const DEFAULT_SECTION_CONFIG: SectionConfig = {
   clusterTolerance: 80,    // 80m for clustering similar overlaps
   samplePoints: 50,
 };
+
+// =============================================================================
+// Custom Sections (User-Created)
+// =============================================================================
+
+/**
+ * A user-created custom section.
+ * Created by selecting a portion of an activity's GPS track.
+ */
+export interface CustomSection {
+  /** Unique section ID */
+  id: string;
+  /** User-defined or auto-generated name */
+  name: string;
+  /** GPS points defining the section */
+  polyline: RoutePoint[];
+  /** Start index in the source activity's GPS track */
+  startIndex: number;
+  /** End index in the source activity's GPS track */
+  endIndex: number;
+  /** Activity ID this section was created from */
+  sourceActivityId: string;
+  /** Sport type (e.g., "Ride", "Run") */
+  sportType: string;
+  /** Section length in meters */
+  distanceMeters: number;
+  /** ISO timestamp when the section was created */
+  createdAt: string;
+}
+
+/**
+ * Match result for a custom section against an activity.
+ */
+export interface CustomSectionMatch {
+  /** Activity ID that matches this section */
+  activityId: string;
+  /** Start index in the activity's GPS track where section starts */
+  startIndex: number;
+  /** End index in the activity's GPS track where section ends */
+  endIndex: number;
+  /** Direction: 'same' or 'reverse' relative to section definition */
+  direction: 'same' | 'reverse';
+  /** Distance of the matched portion in meters */
+  distanceMeters: number;
+}
+
+/**
+ * Custom section with its activity matches pre-loaded.
+ */
+export interface CustomSectionWithMatches extends CustomSection {
+  /** Activity matches for this section */
+  matches: CustomSectionMatch[];
+}
+
+// =============================================================================
+// Potential Sections (Auto-detected suggestions)
+// =============================================================================
+
+/**
+ * A potential section detected from 1-2 activity overlaps.
+ * These are suggestions that users can promote to full sections.
+ */
+export interface PotentialSection {
+  /** Unique section ID */
+  id: string;
+  /** Sport type ("Run", "Ride", etc.) */
+  sportType: string;
+  /** GPS points defining the section */
+  polyline: RoutePoint[];
+  /** Activity IDs that traverse this potential section (1-2) */
+  activityIds: string[];
+  /** Number of times traversed (1-2) */
+  visitCount: number;
+  /** Section length in meters */
+  distanceMeters: number;
+  /** Confidence score (0.0-1.0), lower than FrequentSection */
+  confidence: number;
+  /** Scale at which this was detected: "short", "medium", "long" */
+  scale: string;
+}
+
+// =============================================================================
+// Unified Section (combines auto + custom + potential)
+// =============================================================================
+
+/**
+ * A unified section combining auto-detected, custom, and potential sections.
+ * Used by the UI to display all section types in one list.
+ */
+export interface UnifiedSection {
+  /** Unique section ID */
+  id: string;
+  /** Section name */
+  name: string;
+  /** GPS points defining the section */
+  polyline: RoutePoint[];
+  /** Sport type */
+  sportType: string;
+  /** Section length in meters */
+  distanceMeters: number;
+  /** Number of times traversed */
+  visitCount: number;
+  /** Source type: where this section came from */
+  source: 'auto' | 'custom' | 'potential';
+  /** For custom sections: the full custom section data */
+  customData?: CustomSectionWithMatches;
+  /** For auto sections: the full engine section data */
+  engineData?: FrequentSection;
+  /** For potential sections: the potential section data */
+  potentialData?: PotentialSection;
+}

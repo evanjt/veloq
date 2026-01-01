@@ -840,6 +840,13 @@ export default function SectionDetailScreen() {
   const [customName, setCustomName] = useState<string | null>(null);
   const nameInputRef = useRef<TextInput>(null);
 
+  // Get section from engine - must be declared before callbacks that use it
+  const { sections: allSections } = useFrequentSections({ minVisits: 1 });
+  const section = useMemo(() =>
+    allSections.find((sec) => sec.id === id) || null,
+    [allSections, id]
+  );
+
   // Load custom section name from Rust engine on mount
   useEffect(() => {
     if (id) {
@@ -903,13 +910,6 @@ export default function SectionDetailScreen() {
     setHighlightedActivityId(activityId);
     setHighlightedActivityPoints(activityPoints);
   }, []);
-
-  // Get section from engine
-  const { sections: allSections } = useFrequentSections({ minVisits: 1 });
-  const section = useMemo(() =>
-    allSections.find((sec) => sec.id === id) || null,
-    [allSections, id]
-  );
 
   // Get date range for fetching activities
   const { oldest, newest } = useMemo(() => {

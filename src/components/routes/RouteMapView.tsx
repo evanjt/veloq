@@ -17,8 +17,13 @@ import type { RouteGroup, RoutePoint } from '@/types';
 
 const { MapView } = MapLibreGL;
 
+/** Minimal route group type for map display - only needs points and distance for signature */
+type RouteGroupForMap = Omit<RouteGroup, 'signature'> & {
+  signature?: { points: RoutePoint[]; distance: number } | null;
+};
+
 interface RouteMapViewProps {
-  routeGroup: RouteGroup;
+  routeGroup: RouteGroupForMap;
   height?: number;
   /** Enable map interaction (zoom, pan). Default false for preview, true for detail. */
   interactive?: boolean;

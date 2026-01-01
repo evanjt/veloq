@@ -917,7 +917,7 @@ export default function RouteDetailScreen() {
   }, []);
 
   // Match data is not yet available from Rust engine
-  const matches: Record<string, { direction: string; matchPercentage: number }> = {};
+  const matches: Record<string, { direction: string; matchPercentage: number; overlapDistance?: number }> = {};
 
   // Get signature points for all activities in this group from Rust engine
   // Depends on engineGroup to ensure we re-fetch when engine data is ready

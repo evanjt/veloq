@@ -178,6 +178,7 @@ export interface TranslationResource {
     lastSynced: string;
     bounds: string;
     gpsTraces: string;
+    cachedQueries: string;
     cacheHint: string;
     routeMatching: string;
     enableRouteMatching: string;
@@ -187,9 +188,13 @@ export interface TranslationResource {
     disconnectDescription: string;
     dataSources: string;
     dataSourcesDescription: string;
+    demoDataSources: string;
+    hideDemoBanner: string;
+    hideDemoBannerHint: string;
     support: string;
     subscribe: string;
     sponsorDev: string;
+    version: string;
   };
 
   alerts: {
@@ -362,6 +367,7 @@ export interface TranslationResource {
     enableInSettings: string;
     goToSettings: string;
     analysingRoutes: string;
+    computingRoutes: string;
   };
 
   statsScreen: {
@@ -462,6 +468,7 @@ export interface TranslationResource {
     routesCount: string;
     activities: string;
     noActivitiesFound: string;
+    sectionNamePlaceholder: string;
   };
 
   errorState: {
@@ -519,6 +526,9 @@ export interface TranslationResource {
   attribution: {
     recordedWith: string;
     garminTrademark: string;
+    demoData: string;
+    osm: string;
+    osmLicense: string;
   };
 
   stats: {
