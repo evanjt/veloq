@@ -22,7 +22,14 @@ function getRouteEngine() {
 }
 
 // Database path for persistent route engine (SQLite)
-const getRouteDbPath = () => `${FileSystem.documentDirectory}routes.db`;
+// FileSystem.documentDirectory returns a file:// URI, but SQLite needs a plain path
+const getRouteDbPath = () => {
+  const docDir = FileSystem.documentDirectory;
+  if (!docDir) return null;
+  // Strip file:// prefix if present for SQLite compatibility
+  const plainPath = docDir.startsWith('file://') ? docDir.slice(7) : docDir;
+  return `${plainPath}routes.db`;
+};
 
 // Suppress MapLibre info/warning logs about canceled requests
 // These occur when switching between map views but don't affect functionality
@@ -44,13 +51,15 @@ function AuthGate({ children }: { children: React.ReactNode }) {
       const engine = getRouteEngine();
       if (engine) {
         const dbPath = getRouteDbPath();
+        if (!dbPath) {
+          console.error('[RouteEngine] Cannot initialize - document directory not available');
+          return;
+        }
         const success = engine.initWithPath(dbPath);
         if (success) {
           console.log(`[RouteEngine] Initialized with persistent storage: ${engine.getActivityCount()} cached activities`);
         } else {
-          // Fallback to in-memory if persistent init fails
-          console.warn('[RouteEngine] Persistent init failed, falling back to in-memory');
-          engine.init();
+          console.error(`[RouteEngine] Persistent init failed for path: ${dbPath}`);
         }
       }
     }

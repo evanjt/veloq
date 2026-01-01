@@ -15,7 +15,14 @@ import { getRouteEngine } from '@/lib/native/routeEngine';
 import type { RouteGroup, FrequentSection, EngineStats } from 'route-matcher-native';
 
 // Default database path for persistent engine
-const getDefaultDbPath = () => `${FileSystem.documentDirectory}routes.db`;
+// FileSystem.documentDirectory returns a file:// URI, but SQLite needs a plain path
+const getDefaultDbPath = () => {
+  const docDir = FileSystem.documentDirectory;
+  if (!docDir) return null;
+  // Strip file:// prefix if present for SQLite compatibility
+  const plainPath = docDir.startsWith('file://') ? docDir.slice(7) : docDir;
+  return `${plainPath}routes.db`;
+};
 
 // ============================================================================
 // useRouteEngine - Main hook for engine access
@@ -75,6 +82,7 @@ export function useRouteEngine(): UseRouteEngineResult {
     if (!engine) return false;
 
     const path = dbPath || getDefaultDbPath();
+    if (!path) return false;
     const success = engine.initWithPath(path);
 
     if (success) {
