@@ -30,8 +30,13 @@ export function resolveLanguageToLocale(language: LanguageChoice): SupportedLoca
     return getDeviceLocale();
   }
 
+  // Direct locale values (e.g., 'en-AU', 'de-CH', 'pt-BR')
+  if (SUPPORTED_LOCALES.includes(language as SupportedLocale)) {
+    return language as SupportedLocale;
+  }
+
+  // Language-only values - resolve to best variant
   if (language === 'en') {
-    // For English, check device region to pick the right variant
     const deviceLocale = getDeviceLocale();
     if (deviceLocale.startsWith('en-')) {
       return deviceLocale;
@@ -39,8 +44,16 @@ export function resolveLanguageToLocale(language: LanguageChoice): SupportedLoca
     return 'en-AU';
   }
 
+  if (language === 'de') return 'de-DE';
   if (language === 'es') return 'es';
   if (language === 'fr') return 'fr';
+  if (language === 'nl') return 'nl';
+  if (language === 'it') return 'it';
+  if (language === 'pt') return 'pt-BR'; // Default to Brazilian Portuguese
+  if (language === 'ja') return 'ja';
+  if (language === 'zh') return 'zh-Hans';
+  if (language === 'pl') return 'pl';
+  if (language === 'da') return 'da';
 
   // Unknown language, default to English
   return 'en-AU';
@@ -112,24 +125,87 @@ type LanguageOption = {
 };
 
 /**
- * Get simplified language options
- * English variants are combined - device region determines which variant to use
+ * Language group for organized UI display
  */
-export function getAvailableLanguages(): LanguageOption[] {
+export type LanguageGroup = {
+  /** Translation key for the group label, null for ungrouped (System) */
+  groupLabel: string | null;
+  languages: LanguageOption[];
+};
+
+/**
+ * Get grouped language options for settings UI
+ * Languages are organized into groups: System, European, Asian
+ */
+export function getAvailableLanguages(): LanguageGroup[] {
   return [
-    { value: null, label: 'System', description: 'Auto-detect from device' },
     {
-      value: 'en',
-      label: 'English',
-      variants: [
-        { value: 'en-AU', label: 'AU' },
-        { value: 'en-GB', label: 'GB' },
-        { value: 'en-US', label: 'US' },
+      groupLabel: null,
+      languages: [
+        { value: null, label: 'System', description: 'Auto-detect from device' },
       ],
     },
-    { value: 'es', label: 'Español' },
-    { value: 'fr', label: 'Français' },
+    {
+      groupLabel: 'settings.languageGroups.european',
+      languages: [
+        {
+          value: 'en',
+          label: 'English',
+          variants: [
+            { value: 'en-AU', label: 'AU' },
+            { value: 'en-GB', label: 'GB' },
+            { value: 'en-US', label: 'US' },
+          ],
+        },
+        {
+          value: 'de',
+          label: 'Deutsch',
+          variants: [
+            { value: 'de-DE', label: 'DE' },
+            { value: 'de-CH', label: 'CH' },
+            { value: 'de-CHZ', label: 'Züri' },
+            { value: 'de-CHB', label: 'Bärn' },
+          ],
+        },
+        { value: 'nl', label: 'Nederlands' },
+        { value: 'fr', label: 'Français' },
+        { value: 'it', label: 'Italiano' },
+        {
+          value: 'es',
+          label: 'Español',
+          variants: [
+            { value: 'es-ES', label: 'ES' },
+            { value: 'es-419', label: 'LATAM' },
+          ],
+        },
+        {
+          value: 'pt',
+          label: 'Português',
+          variants: [
+            { value: 'pt', label: 'PT' },
+            { value: 'pt-BR', label: 'BR' },
+          ],
+        },
+        { value: 'pl', label: 'Polski' },
+        { value: 'da', label: 'Dansk' },
+      ],
+    },
+    {
+      groupLabel: 'settings.languageGroups.asian',
+      languages: [
+        { value: 'ja', label: '日本語' },
+        { value: 'zh-Hans', label: '中文' },
+      ],
+    },
   ];
+}
+
+/**
+ * Get flat list of language options (for backwards compatibility)
+ */
+export function getAvailableLanguagesFlat(): LanguageOption[] {
+  const groups = getAvailableLanguages();
+  return groups.flatMap((group) => group.languages);
 }
 
 /**

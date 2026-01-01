@@ -10,7 +10,21 @@ import enAU from './locales/en-AU.json';
 import enUS from './locales/en-US.json';
 import enGB from './locales/en-GB.json';
 import es from './locales/es.json';
+import esES from './locales/es-ES.json';
+import es419 from './locales/es-419.json';
 import fr from './locales/fr.json';
+import deDE from './locales/de-DE.json';
+import deCH from './locales/de-CH.json';
+import deCHZ from './locales/de-CHZ.json';
+import deCHB from './locales/de-CHB.json';
+import nl from './locales/nl.json';
+import it from './locales/it.json';
+import pt from './locales/pt.json';
+import ptBR from './locales/pt-BR.json';
+import ja from './locales/ja.json';
+import zhHans from './locales/zh-Hans.json';
+import pl from './locales/pl.json';
+import da from './locales/da.json';
 
 /**
  * Get the best matching locale from device settings
@@ -50,7 +64,21 @@ const resources = {
   'en-US': { translation: enUS },
   'en-GB': { translation: enGB },
   'es': { translation: es },
+  'es-ES': { translation: esES },
+  'es-419': { translation: es419 },
   'fr': { translation: fr },
+  'de-DE': { translation: deDE },
+  'de-CH': { translation: deCH },
+  'de-CHZ': { translation: deCHZ },
+  'de-CHB': { translation: deCHB },
+  'nl': { translation: nl },
+  'it': { translation: it },
+  'pt': { translation: pt },
+  'pt-BR': { translation: ptBR },
+  'ja': { translation: ja },
+  'zh-Hans': { translation: zhHans },
+  'pl': { translation: pl },
+  'da': { translation: da },
 };
 
 /**
