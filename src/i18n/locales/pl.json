@@ -301,7 +301,9 @@
     "enableInSettings": "Wlacz dopasowywanie tras w Ustawieniach, aby automatycznie wykrywac powtarzajace sie trasy z Twoich aktywnosci.",
     "goToSettings": "Przejdz do Ustawien",
     "analysingRoutes": "Analiza tras {{current}}/{{total}}",
-    "computingRoutes": "Obliczanie tras..."
+    "computingRoutes": "Obliczanie tras...",
+    "downloadingGps": "Pobieranie GPS",
+    "analyzingRoutes": "Analiza tras"
   },
   "statsScreen": {
     "title": "Wyniki",
@@ -360,6 +362,7 @@
     "moreActivitiesProcessed": "+ {{count}} wiecej przetworzonych aktywnosci",
     "matchesLabel": "dopasowania",
     "checkedLabel": "sprawdzonych",
+    "visits": "wizyty",
     "match": "dopasowanie",
     "more": "+{{count}} wiecej",
     "loadingSections": "Wczytywanie odcinkow...",
@@ -391,7 +394,10 @@
     "potentialSectionDescription": "Przejechałeś tę trasę {{sport}} {{count}} razy. Utworzyć odcinek, aby śledzić swoje wyniki?",
     "createSection": "Utwórz odcinek",
     "defaultRouteName": "Trasa {{type}}",
-    "defaultActivityName": "Aktywność {{number}}"
+    "defaultActivityName": "Aktywność {{number}}",
+    "sectionCreated": "Utworzono odcinek",
+    "sectionCreatedDescription": "Twój własny odcinek został utworzony i dopasowano aktywności",
+    "sectionCreationFailed": "Nie udało się utworzyć odcinka. Spróbuj ponownie."
   },
   "sections": {
     "performanceOverTime": "Wyniki w czasie",
@@ -452,7 +458,14 @@
     "avgPace": "Sr. tempo",
     "avgSpeed": "Sr. predkosc",
     "avgHR": "Sr. HR",
-    "avgPower": "Sr. moc"
+    "avgPower": "Sr. moc",
+    "tabs": {
+      "charts": "Wykresy",
+      "routes": "Trasy",
+      "sections": "Odcinki"
+    },
+    "noMatchedSections": "Brak pasujących odcinków",
+    "noMatchedSectionsDescription": "Odcinki pasujące do tej aktywności pojawią się tutaj"
   },
   "routeDetail": {
     "routeNotFound": "Nie znaleziono trasy"

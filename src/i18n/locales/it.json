@@ -301,7 +301,9 @@
     "enableInSettings": "Abilita la corrispondenza percorsi nelle Impostazioni per rilevare automaticamente i percorsi ripetuti dalle tue attivita.",
     "goToSettings": "Vai alle Impostazioni",
     "analysingRoutes": "Analisi percorsi {{current}}/{{total}}",
-    "computingRoutes": "Calcolo percorsi..."
+    "computingRoutes": "Calcolo percorsi...",
+    "downloadingGps": "Download GPS",
+    "analyzingRoutes": "Analisi percorsi"
   },
   "statsScreen": {
     "title": "Prestazioni",
@@ -360,6 +362,7 @@
     "moreActivitiesProcessed": "+ {{count}} altre attivita elaborate",
     "matchesLabel": "corrispondenze",
     "checkedLabel": "controllate",
+    "visits": "visite",
     "match": "corrispondenza",
     "more": "+{{count}} altre",
     "loadingSections": "Caricamento tratti...",
@@ -391,7 +394,10 @@
     "potentialSectionDescription": "Hai percorso questo {{sport}} {{count}} volte. Creare un tratto per monitorare le tue prestazioni?",
     "createSection": "Crea tratto",
     "defaultRouteName": "Percorso {{type}}",
-    "defaultActivityName": "Attività {{number}}"
+    "defaultActivityName": "Attività {{number}}",
+    "sectionCreated": "Tratto creato",
+    "sectionCreatedDescription": "Il tuo tratto personalizzato è stato creato e le attività sono state abbinate",
+    "sectionCreationFailed": "Impossibile creare il tratto. Riprova."
   },
   "sections": {
     "performanceOverTime": "Prestazioni nel tempo",
@@ -452,7 +458,14 @@
     "avgPace": "Passo medio",
     "avgSpeed": "Velocita media",
     "avgHR": "FC media",
-    "avgPower": "Potenza media"
+    "avgPower": "Potenza media",
+    "tabs": {
+      "charts": "Grafici",
+      "routes": "Percorsi",
+      "sections": "Tratti"
+    },
+    "noMatchedSections": "Nessun tratto corrispondente",
+    "noMatchedSectionsDescription": "I tratti che corrispondono a questa attività appariranno qui"
   },
   "routeDetail": {
     "routeNotFound": "Percorso non trovato"

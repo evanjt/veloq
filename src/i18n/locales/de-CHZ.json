@@ -301,7 +301,9 @@
     "enableInSettings": "Aktivier de Routeabgliich i de Istellige, um automatisch wiederchehrendi Route us dine Aktivitäte z erkenne.",
     "goToSettings": "Zu Istellige",
     "analysingRoutes": "Am Route analysiere {{current}}/{{total}}",
-    "computingRoutes": "Am Route berechne..."
+    "computingRoutes": "Am Route berechne...",
+    "downloadingGps": "Am GPS abelade",
+    "analyzingRoutes": "Am Route analysiere"
   },
   "statsScreen": {
     "title": "Leistig",
@@ -360,6 +362,7 @@
     "moreActivitiesProcessed": "+ {{count}} weiteri Aktivitäte verarbeitet",
     "matchesLabel": "Überiistimmige",
     "checkedLabel": "gprüeft",
+    "visits": "Bsüech",
     "match": "Überiistimmig",
     "more": "+{{count}} meh",
     "loadingSections": "Am Abschnitt lade...",
@@ -391,7 +394,10 @@
     "potentialSectionDescription": "Du bisch de {{sport}}-Pfad {{count}} Mol gfahre. Erstell en Abschnitt, um dini Leistig z verfolge?",
     "createSection": "Abschnitt erstelle",
     "defaultRouteName": "{{type}} Route",
-    "defaultActivityName": "Aktivität {{number}}"
+    "defaultActivityName": "Aktivität {{number}}",
+    "sectionCreated": "Abschnitt erstellt",
+    "sectionCreatedDescription": "Din Abschnitt isch erstellt und Aktivitäte sind zuegordnet worde",
+    "sectionCreationFailed": "Abschnitt hät nöd chöne erstellt werde. Bitte probiers nomol."
   },
   "sections": {
     "performanceOverTime": "Leistig über Ziit",
@@ -452,7 +458,14 @@
     "avgPace": "Ø Tempo",
     "avgSpeed": "Ø Gschw.",
     "avgHR": "Ø HF",
-    "avgPower": "Ø Leistig"
+    "avgPower": "Ø Leistig",
+    "tabs": {
+      "charts": "Diagramm",
+      "routes": "Route",
+      "sections": "Abschnitt"
+    },
+    "noMatchedSections": "Kei passendi Abschnitt",
+    "noMatchedSectionsDescription": "Abschnitt, wo zu dere Aktivität passed, erschiined da"
   },
   "routeDetail": {
     "routeNotFound": "Route nöd gfunde"

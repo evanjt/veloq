@@ -301,7 +301,9 @@
     "enableInSettings": "設定でルートマッチングを有効にすると、アクティビティから繰り返しルートを自動検出します。",
     "goToSettings": "設定へ",
     "analysingRoutes": "ルート分析中 {{current}}/{{total}}",
-    "computingRoutes": "ルート計算中..."
+    "computingRoutes": "ルート計算中...",
+    "downloadingGps": "GPSをダウンロード中",
+    "analyzingRoutes": "ルート分析中"
   },
   "statsScreen": {
     "title": "パフォーマンス",
@@ -360,6 +362,7 @@
     "moreActivitiesProcessed": "+ {{count}}件のアクティビティを処理",
     "matchesLabel": "一致",
     "checkedLabel": "確認済み",
+    "visits": "訪問",
     "match": "一致",
     "more": "+{{count}}件",
     "loadingSections": "区間を読み込み中...",
@@ -391,7 +394,10 @@
     "potentialSectionDescription": "この{{sport}}パスを{{count}}回通りました。パフォーマンスを追跡するために区間を作成しますか？",
     "createSection": "区間を作成",
     "defaultRouteName": "{{type}}ルート",
-    "defaultActivityName": "アクティビティ {{number}}"
+    "defaultActivityName": "アクティビティ {{number}}",
+    "sectionCreated": "区間を作成しました",
+    "sectionCreatedDescription": "カスタム区間が作成され、アクティビティがマッチングされました",
+    "sectionCreationFailed": "区間の作成に失敗しました。もう一度お試しください。"
   },
   "sections": {
     "performanceOverTime": "時系列パフォーマンス",
@@ -452,7 +458,14 @@
     "avgPace": "平均ペース",
     "avgSpeed": "平均速度",
     "avgHR": "平均心拍",
-    "avgPower": "平均パワー"
+    "avgPower": "平均パワー",
+    "tabs": {
+      "charts": "チャート",
+      "routes": "ルート",
+      "sections": "区間"
+    },
+    "noMatchedSections": "一致する区間がありません",
+    "noMatchedSectionsDescription": "このアクティビティに一致する区間がここに表示されます"
   },
   "routeDetail": {
     "routeNotFound": "ルートが見つかりません"

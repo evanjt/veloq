@@ -301,7 +301,9 @@
     "enableInSettings": "Schakel route-matching in via Instellingen om automatisch herhaalde routes uit je activiteiten te detecteren.",
     "goToSettings": "Naar Instellingen",
     "analysingRoutes": "Routes analyseren {{current}}/{{total}}",
-    "computingRoutes": "Routes berekenen..."
+    "computingRoutes": "Routes berekenen...",
+    "downloadingGps": "GPS downloaden",
+    "analyzingRoutes": "Routes analyseren"
   },
   "statsScreen": {
     "title": "Prestaties",
@@ -360,6 +362,7 @@
     "moreActivitiesProcessed": "+ {{count}} meer activiteiten verwerkt",
     "matchesLabel": "overeenkomsten",
     "checkedLabel": "gecontroleerd",
+    "visits": "bezoeken",
     "match": "overeenkomst",
     "more": "+{{count}} meer",
     "loadingSections": "Secties laden...",
@@ -391,7 +394,10 @@
     "potentialSectionDescription": "Je hebt dit {{sport}}-pad {{count}} keer afgelegd. Een sectie aanmaken om je prestaties te volgen?",
     "createSection": "Sectie aanmaken",
     "defaultRouteName": "{{type}} route",
-    "defaultActivityName": "Activiteit {{number}}"
+    "defaultActivityName": "Activiteit {{number}}",
+    "sectionCreated": "Sectie aangemaakt",
+    "sectionCreatedDescription": "Je aangepaste sectie is aangemaakt en activiteiten zijn gekoppeld",
+    "sectionCreationFailed": "Sectie aanmaken mislukt. Probeer het opnieuw."
   },
   "sections": {
     "performanceOverTime": "Prestaties door de tijd",
@@ -452,7 +458,14 @@
     "avgPace": "Gem. tempo",
     "avgSpeed": "Gem. snelh.",
     "avgHR": "Gem. HF",
-    "avgPower": "Gem. vermogen"
+    "avgPower": "Gem. vermogen",
+    "tabs": {
+      "charts": "Grafieken",
+      "routes": "Routes",
+      "sections": "Secties"
+    },
+    "noMatchedSections": "Geen overeenkomende secties",
+    "noMatchedSectionsDescription": "Secties die overeenkomen met deze activiteit verschijnen hier"
   },
   "routeDetail": {
     "routeNotFound": "Route niet gevonden"

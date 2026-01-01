@@ -301,7 +301,9 @@
     "enableInSettings": "Activez la correspondance de parcours dans les Paramètres pour détecter automatiquement les parcours répétés de vos activités.",
     "goToSettings": "Aller aux Paramètres",
     "analysingRoutes": "Analyse des parcours {{current}}/{{total}}",
-    "computingRoutes": "Calcul des parcours..."
+    "computingRoutes": "Calcul des parcours...",
+    "downloadingGps": "Téléchargement GPS",
+    "analyzingRoutes": "Analyse des parcours"
   },
   "statsScreen": {
     "title": "Performance",
@@ -360,6 +362,7 @@
     "moreActivitiesProcessed": "+ {{count}} autres activités traitées",
     "matchesLabel": "correspondances",
     "checkedLabel": "vérifiées",
+    "visits": "visites",
     "match": "correspondance",
     "more": "+{{count}} de plus",
     "loadingSections": "Chargement des sections...",
@@ -391,7 +394,10 @@
     "potentialSectionDescription": "Vous avez emprunté ce chemin {{sport}} {{count}} fois. Créer une section pour suivre vos performances ?",
     "createSection": "Créer une section",
     "defaultRouteName": "Parcours {{type}}",
-    "defaultActivityName": "Activité {{number}}"
+    "defaultActivityName": "Activité {{number}}",
+    "sectionCreated": "Section créée",
+    "sectionCreatedDescription": "Votre section personnalisée a été créée et les activités ont été associées",
+    "sectionCreationFailed": "Échec de la création de la section. Veuillez réessayer."
   },
   "sections": {
     "performanceOverTime": "Performance au Fil du Temps",
@@ -452,7 +458,14 @@
     "avgPace": "Allure Moy",
     "avgSpeed": "Vit Moy",
     "avgHR": "FC Moy",
-    "avgPower": "Puiss Moy"
+    "avgPower": "Puiss Moy",
+    "tabs": {
+      "charts": "Graphiques",
+      "routes": "Parcours",
+      "sections": "Sections"
+    },
+    "noMatchedSections": "Aucune section correspondante",
+    "noMatchedSectionsDescription": "Les sections correspondant à cette activité apparaîtront ici"
   },
   "routeDetail": {
     "routeNotFound": "Itinéraire non trouvé"

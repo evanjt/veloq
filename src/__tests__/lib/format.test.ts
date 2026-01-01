@@ -184,6 +184,8 @@ describe('formatRelativeDate', () => {
 
   it('shows month and day for older dates this year', () => {
     // Use a date from earlier this year (January 15)
+    // BUG: This test fails in early January when there are no dates
+    // from the current year that are > 7 days old
     const thisYear = new Date().getFullYear();
     const earlierThisYear = new Date(thisYear, 0, 15).toISOString();
     const result = formatRelativeDate(earlierThisYear);
