@@ -301,7 +301,9 @@
     "enableInSettings": "Aktivér rutematchning i Indstillinger for automatisk at registrere gentagne ruter fra dine aktiviteter.",
     "goToSettings": "Gå til Indstillinger",
     "analysingRoutes": "Analyserer ruter {{current}}/{{total}}",
-    "computingRoutes": "Beregner ruter..."
+    "computingRoutes": "Beregner ruter...",
+    "downloadingGps": "Downloader GPS",
+    "analyzingRoutes": "Analyserer ruter"
   },
   "statsScreen": {
     "title": "Præstation",
@@ -360,6 +362,7 @@
     "moreActivitiesProcessed": "+ {{count}} flere aktiviteter behandlet",
     "matchesLabel": "match",
     "checkedLabel": "tjekket",
+    "visits": "besøg",
     "match": "match",
     "more": "+{{count}} mere",
     "loadingSections": "Indlæser sektioner...",
@@ -391,7 +394,10 @@
     "potentialSectionDescription": "Du har brugt denne {{sport}}-sti {{count}} gange. Opret en sektion for at spore din præstation?",
     "createSection": "Opret sektion",
     "defaultRouteName": "{{type}} rute",
-    "defaultActivityName": "Aktivitet {{number}}"
+    "defaultActivityName": "Aktivitet {{number}}",
+    "sectionCreated": "Sektion oprettet",
+    "sectionCreatedDescription": "Din brugerdefinerede sektion er oprettet, og aktiviteter er blevet matchet",
+    "sectionCreationFailed": "Kunne ikke oprette sektion. Prøv venligst igen."
   },
   "sections": {
     "performanceOverTime": "Præstation over tid",
@@ -452,7 +458,14 @@
     "avgPace": "Gns tempo",
     "avgSpeed": "Gns hastighed",
     "avgHR": "Gns puls",
-    "avgPower": "Gns kraft"
+    "avgPower": "Gns kraft",
+    "tabs": {
+      "charts": "Grafer",
+      "routes": "Ruter",
+      "sections": "Sektioner"
+    },
+    "noMatchedSections": "Ingen matchede sektioner",
+    "noMatchedSectionsDescription": "Sektioner, der matcher denne aktivitet, vises her"
   },
   "routeDetail": {
     "routeNotFound": "Rute ikke fundet"

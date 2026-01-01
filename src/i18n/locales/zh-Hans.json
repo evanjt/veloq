@@ -301,7 +301,9 @@
     "enableInSettings": "在设置中启用路线匹配，以自动从您的活动中检测重复路线。",
     "goToSettings": "前往设置",
     "analysingRoutes": "正在分析路线 {{current}}/{{total}}",
-    "computingRoutes": "正在计算路线..."
+    "computingRoutes": "正在计算路线...",
+    "downloadingGps": "下载GPS数据",
+    "analyzingRoutes": "正在分析路线"
   },
   "statsScreen": {
     "title": "表现",
@@ -360,6 +362,7 @@
     "moreActivitiesProcessed": "还有 {{count}} 个活动已处理",
     "matchesLabel": "匹配",
     "checkedLabel": "已检查",
+    "visits": "访问",
     "match": "匹配",
     "more": "还有 {{count}} 个",
     "loadingSections": "加载路段中...",
@@ -391,7 +394,10 @@
     "potentialSectionDescription": "您已经走过这条{{sport}}路径{{count}}次。创建路段来跟踪您的表现？",
     "createSection": "创建路段",
     "defaultRouteName": "{{type}}路线",
-    "defaultActivityName": "活动 {{number}}"
+    "defaultActivityName": "活动 {{number}}",
+    "sectionCreated": "路段已创建",
+    "sectionCreatedDescription": "您的自定义路段已创建，活动已匹配",
+    "sectionCreationFailed": "创建路段失败，请重试。"
   },
   "sections": {
     "performanceOverTime": "历史表现",
@@ -452,7 +458,14 @@
     "avgPace": "平均配速",
     "avgSpeed": "平均速度",
     "avgHR": "平均心率",
-    "avgPower": "平均功率"
+    "avgPower": "平均功率",
+    "tabs": {
+      "charts": "图表",
+      "routes": "路线",
+      "sections": "路段"
+    },
+    "noMatchedSections": "没有匹配的路段",
+    "noMatchedSectionsDescription": "与此活动匹配的路段将显示在这里"
   },
   "routeDetail": {
     "routeNotFound": "未找到路线"

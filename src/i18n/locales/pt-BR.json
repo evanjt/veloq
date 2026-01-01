@@ -301,7 +301,9 @@
     "enableInSettings": "Ative a correspondencia de rotas nas Configuracoes para detectar automaticamente rotas repetidas das suas atividades.",
     "goToSettings": "Ir para Configuracoes",
     "analysingRoutes": "Analisando rotas {{current}}/{{total}}",
-    "computingRoutes": "Calculando rotas..."
+    "computingRoutes": "Calculando rotas...",
+    "downloadingGps": "Baixando GPS",
+    "analyzingRoutes": "Analisando rotas"
   },
   "statsScreen": {
     "title": "Desempenho",
@@ -360,6 +362,7 @@
     "moreActivitiesProcessed": "+ {{count}} mais atividades processadas",
     "matchesLabel": "correspondencias",
     "checkedLabel": "verificadas",
+    "visits": "visitas",
     "match": "correspondencia",
     "more": "+{{count}} mais",
     "loadingSections": "Carregando trechos...",
@@ -391,7 +394,10 @@
     "potentialSectionDescription": "Você percorreu este caminho de {{sport}} {{count}} vezes. Criar um trecho para acompanhar seu desempenho?",
     "createSection": "Criar trecho",
     "defaultRouteName": "Rota {{type}}",
-    "defaultActivityName": "Atividade {{number}}"
+    "defaultActivityName": "Atividade {{number}}",
+    "sectionCreated": "Trecho criado",
+    "sectionCreatedDescription": "Seu trecho personalizado foi criado e as atividades foram associadas",
+    "sectionCreationFailed": "Falha ao criar o trecho. Por favor, tente novamente."
   },
   "sections": {
     "performanceOverTime": "Desempenho ao longo do tempo",
@@ -452,7 +458,14 @@
     "avgPace": "Ritmo medio",
     "avgSpeed": "Velocidade media",
     "avgHR": "FC media",
-    "avgPower": "Potencia media"
+    "avgPower": "Potencia media",
+    "tabs": {
+      "charts": "Gráficos",
+      "routes": "Rotas",
+      "sections": "Trechos"
+    },
+    "noMatchedSections": "Sem trechos correspondentes",
+    "noMatchedSectionsDescription": "Os trechos que correspondem a esta atividade aparecerão aqui"
   },
   "routeDetail": {
     "routeNotFound": "Rota nao encontrada"

@@ -301,7 +301,9 @@
     "enableInSettings": "Aktivier dr Routeabglych i de Ischtellige, um automatisch widerkehrendi Route us dyne Aktivitäte z erkenne.",
     "goToSettings": "Zu Ischtellige",
     "analysingRoutes": "Am Route analysiere {{current}}/{{total}}",
-    "computingRoutes": "Am Route berechne..."
+    "computingRoutes": "Am Route berechne...",
+    "downloadingGps": "Am GPS abelade",
+    "analyzingRoutes": "Am Route analysiere"
   },
   "statsScreen": {
     "title": "Leischtig",
@@ -360,6 +362,7 @@
     "moreActivitiesProcessed": "+ {{count}} wyteri Aktivitäte verarbeitet",
     "matchesLabel": "Überyystimmige",
     "checkedLabel": "gprüeft",
+    "visits": "Bsüech",
     "match": "Überyystimmig",
     "more": "+{{count}} meh",
     "loadingSections": "Am Abschnitt lade...",
@@ -391,7 +394,10 @@
     "potentialSectionDescription": "Du bisch dr {{sport}}-Pfad {{count}} Mau gfahre. Erstell e Abschnitt, um dyni Leischtig z verfouge?",
     "createSection": "Abschnitt erstelle",
     "defaultRouteName": "{{type}} Route",
-    "defaultActivityName": "Aktivität {{number}}"
+    "defaultActivityName": "Aktivität {{number}}",
+    "sectionCreated": "Abschnitt erstellt",
+    "sectionCreatedDescription": "Dy Abschnitt isch erstellt u Aktivitäte si zuegordnet worde",
+    "sectionCreationFailed": "Abschnitt het nid chönne erstellt wärde. Bitte probiers nomau."
   },
   "sections": {
     "performanceOverTime": "Leischtig über Zyt",
@@ -452,7 +458,14 @@
     "avgPace": "Ø Tempo",
     "avgSpeed": "Ø Gschw.",
     "avgHR": "Ø HF",
-    "avgPower": "Ø Leischtig"
+    "avgPower": "Ø Leischtig",
+    "tabs": {
+      "charts": "Diagramm",
+      "routes": "Route",
+      "sections": "Abschnitt"
+    },
+    "noMatchedSections": "Kei passendi Abschnitt",
+    "noMatchedSectionsDescription": "Abschnitt, wo zu dere Aktivität passe, erschyne hie"
   },
   "routeDetail": {
     "routeNotFound": "Route nid gfunge"

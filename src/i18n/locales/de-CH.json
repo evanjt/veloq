@@ -301,7 +301,9 @@
     "enableInSettings": "Aktiviere den Routenabgleich in den Einstellungen, um automatisch wiederkehrende Routen aus deinen Aktivitäten zu erkennen.",
     "goToSettings": "Zu Einstellungen",
     "analysingRoutes": "Analysiere Routen {{current}}/{{total}}",
-    "computingRoutes": "Berechne Routen..."
+    "computingRoutes": "Berechne Routen...",
+    "downloadingGps": "GPS wird heruntergeladen",
+    "analyzingRoutes": "Routen analysieren"
   },
   "statsScreen": {
     "title": "Leistung",
@@ -360,6 +362,7 @@
     "moreActivitiesProcessed": "+ {{count}} weitere Aktivitäten verarbeitet",
     "matchesLabel": "Übereinstimmungen",
     "checkedLabel": "geprüft",
+    "visits": "Besuche",
     "match": "Übereinstimmung",
     "more": "+{{count}} weitere",
     "loadingSections": "Lade Abschnitte...",
@@ -391,7 +394,10 @@
     "potentialSectionDescription": "Du hast diesen {{sport}}-Pfad {{count}} Mal benutzt. Erstelle einen Abschnitt, um deine Leistung zu verfolgen?",
     "createSection": "Abschnitt erstellen",
     "defaultRouteName": "{{type}}-Route",
-    "defaultActivityName": "Aktivität {{number}}"
+    "defaultActivityName": "Aktivität {{number}}",
+    "sectionCreated": "Abschnitt erstellt",
+    "sectionCreatedDescription": "Dein benutzerdefinierter Abschnitt wurde erstellt und Aktivitäten wurden zugeordnet",
+    "sectionCreationFailed": "Abschnitt konnte nicht erstellt werden. Bitte versuche es erneut."
   },
   "sections": {
     "performanceOverTime": "Leistung über Zeit",
@@ -452,7 +458,14 @@
     "avgPace": "Ø Tempo",
     "avgSpeed": "Ø Geschw.",
     "avgHR": "Ø HF",
-    "avgPower": "Ø Leistung"
+    "avgPower": "Ø Leistung",
+    "tabs": {
+      "charts": "Diagramme",
+      "routes": "Routen",
+      "sections": "Abschnitte"
+    },
+    "noMatchedSections": "Keine übereinstimmenden Abschnitte",
+    "noMatchedSectionsDescription": "Abschnitte, die zu dieser Aktivität passen, werden hier angezeigt"
   },
   "routeDetail": {
     "routeNotFound": "Route nicht gefunden"

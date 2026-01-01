@@ -301,7 +301,9 @@
     "enableInSettings": "Activa la coincidencia de rutas en Ajustes para detectar automáticamente rutas repetidas de tus actividades.",
     "goToSettings": "Ir a Ajustes",
     "analysingRoutes": "Analizando rutas {{current}}/{{total}}",
-    "computingRoutes": "Calculando rutas..."
+    "computingRoutes": "Calculando rutas...",
+    "downloadingGps": "Descargando GPS",
+    "analyzingRoutes": "Analizando rutas"
   },
   "statsScreen": {
     "title": "Rendimiento",
@@ -360,6 +362,7 @@
     "moreActivitiesProcessed": "+ {{count}} más actividades procesadas",
     "matchesLabel": "coincidencias",
     "checkedLabel": "comprobadas",
+    "visits": "visitas",
     "match": "coincidencia",
     "more": "+{{count}} más",
     "loadingSections": "Cargando secciones...",
@@ -391,7 +394,10 @@
     "potentialSectionDescription": "Has recorrido este camino de {{sport}} {{count}} veces. ¿Crear una sección para seguir tu rendimiento?",
     "createSection": "Crear sección",
     "defaultRouteName": "Ruta {{type}}",
-    "defaultActivityName": "Actividad {{number}}"
+    "defaultActivityName": "Actividad {{number}}",
+    "sectionCreated": "Sección creada",
+    "sectionCreatedDescription": "Tu sección personalizada ha sido creada y las actividades han sido emparejadas",
+    "sectionCreationFailed": "Error al crear la sección. Por favor, inténtalo de nuevo."
   },
   "sections": {
     "performanceOverTime": "Rendimiento a lo Largo del Tiempo",
@@ -452,7 +458,14 @@
     "avgPace": "Ritmo Prom",
     "avgSpeed": "Vel Prom",
     "avgHR": "FC Prom",
-    "avgPower": "Pot Prom"
+    "avgPower": "Pot Prom",
+    "tabs": {
+      "charts": "Gráficos",
+      "routes": "Rutas",
+      "sections": "Secciones"
+    },
+    "noMatchedSections": "Sin secciones coincidentes",
+    "noMatchedSectionsDescription": "Las secciones que coincidan con esta actividad aparecerán aquí"
   },
   "routeDetail": {
     "routeNotFound": "Ruta no encontrada"

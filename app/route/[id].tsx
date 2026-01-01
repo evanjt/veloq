@@ -1,16 +1,11 @@
 import React, { useMemo, useCallback, useState, useEffect, useRef } from 'react';
-import { View, ScrollView, StyleSheet, useColorScheme, Pressable, Dimensions, StatusBar, TouchableOpacity, TextInput, Alert, Keyboard } from 'react-native';
-import { Text, IconButton, ActivityIndicator } from 'react-native-paper';
+import { View, ScrollView, StyleSheet, useColorScheme, Pressable, Dimensions, StatusBar, TouchableOpacity, TextInput, Keyboard } from 'react-native';
+import { Text, ActivityIndicator } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router, Href } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { LinearGradient } from 'expo-linear-gradient';
-import { CartesianChart, Line } from 'victory-native';
-import { Circle } from '@shopify/react-native-skia';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import { useSharedValue, useDerivedValue, useAnimatedStyle, useAnimatedReaction, runOnJS } from 'react-native-reanimated';
-import Animated from 'react-native-reanimated';
 import { useActivities, useRouteGroups, useConsensusRoute } from '@/hooks';
 
 // Lazy load native module to avoid bundler errors
@@ -22,20 +17,18 @@ function getRouteEngine() {
   }
 }
 import { RouteMapView, MiniTraceView } from '@/components/routes';
+import { UnifiedPerformanceChart } from '@/components/routes/performance';
 import {
   formatDistance,
   formatRelativeDate,
   getActivityIcon,
   getActivityColor,
   formatDuration,
-  formatSpeed,
-  formatPace,
-  isRunningActivity,
 } from '@/lib';
 import { colors, darkColors, spacing, layout, typography, opacity } from '@/theme';
-import type { Activity, ActivityType, RoutePoint } from '@/types';
+import type { Activity, ActivityType, RoutePoint, PerformanceDataPoint } from '@/types';
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 const MAP_HEIGHT = Math.round(SCREEN_HEIGHT * 0.45); // 45% of screen for hero map
 
 // Direction colors - using theme for consistency
@@ -58,557 +51,6 @@ interface ActivityRowProps {
   overlapDistance?: number;
   /** Total distance of the route in meters (for context) */
   routeDistance?: number;
-}
-
-/** Data point for the performance chart - can be an activity or a lap */
-interface PerformanceDataPoint {
-  /** Unique ID for this data point */
-  id: string;
-  /** Activity ID this point belongs to */
-  activityId: string;
-  /** Lap number (1 if single lap per activity) */
-  lapNumber: number;
-  /** Total laps in this activity */
-  totalLaps: number;
-  /** Speed in m/s */
-  speed: number;
-  /** Date of the activity */
-  date: Date;
-  /** Activity name */
-  activityName: string;
-  /** Direction (same/reverse) */
-  direction: 'same' | 'reverse';
-  /** Match percentage (0-100) */
-  matchPercentage: number;
-  /** Points for this lap (for map highlighting) */
-  lapPoints?: RoutePoint[];
-}
-
-interface PerformanceChartProps {
-  activities: Activity[];
-  activityType: ActivityType;
-  isDark: boolean;
-  matches: Record<string, { matchPercentage?: number; direction?: string }>;
-  /** Signatures for getting activity GPS traces */
-  signatures: Record<string, { points?: RoutePoint[] }>;
-  /** Callback when an activity is selected via scrubbing */
-  onActivitySelect?: (activityId: string | null, activityPoints?: RoutePoint[]) => void;
-  /** Currently selected/highlighted activity ID */
-  selectedActivityId?: string | null;
-}
-
-function formatShortDate(date: Date): string {
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-}
-
-// Chart constants
-const CHART_HEIGHT = 160;
-const MIN_POINT_WIDTH = 40; // Minimum width per data point
-
-function PerformanceProgressionChart({
-  activities,
-  activityType,
-  isDark,
-  matches,
-  signatures,
-  onActivitySelect,
-  selectedActivityId,
-}: PerformanceChartProps) {
-  const { t } = useTranslation();
-  const showPace = isRunningActivity(activityType);
-  const activityColor = getActivityColor(activityType);
-
-  // Tooltip state - persists after scrubbing ends so user can tap
-  const [tooltipData, setTooltipData] = useState<PerformanceDataPoint | null>(null);
-  const [isActive, setIsActive] = useState(false);
-  const [isPersisted, setIsPersisted] = useState(false);
-
-  // Gesture tracking
-  const touchX = useSharedValue(-1);
-  const chartBoundsShared = useSharedValue({ left: 0, right: 1 });
-  const lastNotifiedIdx = useRef<number | null>(null);
-
-  // Prepare chart data - ONE point per activity
-  // Direction comes from route matching (whole activity), NOT segment detection
-  const { chartData, minSpeed, maxSpeed, bestIndex, hasReverseRuns } = useMemo(() => {
-    const dataPoints: (PerformanceDataPoint & { x: number })[] = [];
-
-    // Sort activities by date first
-    const sortedActivities = [...activities].sort(
-      (a, b) => new Date(a.start_date_local).getTime() - new Date(b.start_date_local).getTime()
-    );
-
-    let hasAnyReverse = false;
-
-    for (const activity of sortedActivities) {
-      const activityPoints = signatures[activity.id]?.points;
-      const match = matches[activity.id];
-      // Direction comes from route matching algorithm - the WHOLE activity direction
-      const direction = (match?.direction as 'same' | 'reverse') ?? 'same';
-      const matchPercentage = match?.matchPercentage ?? 100;
-
-      if (direction === 'reverse') hasAnyReverse = true;
-
-      // Calculate activity speed (with safety check for division by zero)
-      const activitySpeed = activity.moving_time > 0
-        ? activity.distance / activity.moving_time
-        : 0;
-
-      // Each activity = ONE data point
-      // No lap/segment detection - the route is a complete journey
-      dataPoints.push({
-        x: 0,
-        id: activity.id,
-        activityId: activity.id,
-        lapNumber: 1,
-        totalLaps: 1,
-        speed: activitySpeed,
-        date: new Date(activity.start_date_local),
-        activityName: activity.name,
-        direction,
-        matchPercentage,
-        lapPoints: activityPoints, // Full activity trace for map highlighting
-      });
-    }
-
-    // Re-index after collecting all points
-    const indexed = dataPoints.map((d, idx) => ({ ...d, x: idx }));
-
-    const speeds = indexed.map(d => d.speed);
-    const min = speeds.length > 0 ? Math.min(...speeds) : 0;
-    const max = speeds.length > 0 ? Math.max(...speeds) : 1;
-    const padding = (max - min) * 0.15 || 0.5;
-
-    // Find best (fastest)
-    let bestIdx = 0;
-    for (let i = 1; i < indexed.length; i++) {
-      if (indexed[i].speed > indexed[bestIdx].speed) {
-        bestIdx = i;
-      }
-    }
-
-    return {
-      chartData: indexed,
-      minSpeed: Math.max(0, min - padding),
-      maxSpeed: max + padding,
-      bestIndex: bestIdx,
-      hasReverseRuns: hasAnyReverse,
-    };
-  }, [activities, matches, signatures]);
-
-  // Calculate chart width based on number of points (for scrolling)
-  const chartWidth = useMemo(() => {
-    const screenWidth = SCREEN_WIDTH - 32; // Account for padding
-    const dataWidth = chartData.length * MIN_POINT_WIDTH;
-    return Math.max(screenWidth, dataWidth);
-  }, [chartData.length]);
-
-  const needsScrolling = chartWidth > SCREEN_WIDTH - 32;
-
-  // Find currently selected index for highlighting
-  const selectedIndex = useMemo(() => {
-    if (!selectedActivityId) return -1;
-    return chartData.findIndex(d => d.id === selectedActivityId);
-  }, [selectedActivityId, chartData]);
-
-  const formatSpeedValue = useCallback((speed: number) => {
-    if (showPace) {
-      return formatPace(speed);
-    }
-    return formatSpeed(speed);
-  }, [showPace]);
-
-  // Derive selected index on UI thread
-  const selectedIdx = useDerivedValue(() => {
-    'worklet';
-    const len = chartData.length;
-    const bounds = chartBoundsShared.value;
-    const chartWidthPx = bounds.right - bounds.left;
-
-    if (touchX.value < 0 || chartWidthPx <= 0 || len === 0) return -1;
-
-    const chartX = touchX.value - bounds.left;
-    const ratio = Math.max(0, Math.min(1, chartX / chartWidthPx));
-    const idx = Math.round(ratio * (len - 1));
-
-    return Math.min(Math.max(0, idx), len - 1);
-  }, [chartData.length]);
-
-  // Update tooltip on JS thread
-  const updateTooltipOnJS = useCallback((idx: number, gestureEnded = false) => {
-    // Gesture ended - persist the current tooltip for tapping
-    if (gestureEnded) {
-      if (tooltipData) {
-        setIsActive(false);
-        setIsPersisted(true);
-        // Notify parent of final selection
-        if (onActivitySelect && tooltipData) {
-          onActivitySelect(tooltipData.id, tooltipData.lapPoints);
-        }
-      }
-      lastNotifiedIdx.current = null;
-      return;
-    }
-
-    // Invalid index during active gesture - ignore (don't clear)
-    if (idx < 0 || chartData.length === 0) {
-      return;
-    }
-
-    // New gesture started - clear persisted state
-    if (isPersisted) {
-      setIsPersisted(false);
-    }
-
-    if (idx === lastNotifiedIdx.current) return;
-    lastNotifiedIdx.current = idx;
-
-    if (!isActive) {
-      setIsActive(true);
-    }
-
-    const point = chartData[idx];
-    if (point) {
-      setTooltipData(point);
-      // Notify parent for map highlighting
-      if (onActivitySelect) {
-        onActivitySelect(point.id, point.lapPoints);
-      }
-    }
-  }, [chartData, isActive, isPersisted, tooltipData, onActivitySelect]);
-
-  // Handle gesture end - persist tooltip
-  const handleGestureEnd = useCallback(() => {
-    updateTooltipOnJS(-1, true);
-  }, [updateTooltipOnJS]);
-
-  useAnimatedReaction(
-    () => selectedIdx.value,
-    (idx) => {
-      if (idx >= 0) {
-        runOnJS(updateTooltipOnJS)(idx, false);
-      }
-    },
-    [updateTooltipOnJS]
-  );
-
-  // Clear persisted tooltip
-  const clearPersistedTooltip = useCallback(() => {
-    if (isPersisted) {
-      setIsPersisted(false);
-      setTooltipData(null);
-      if (onActivitySelect) {
-        onActivitySelect(null, undefined);
-      }
-    }
-  }, [isPersisted, onActivitySelect]);
-
-  // Pan gesture with long press activation for scrubbing
-  // Quick swipes pass through to ScrollView for horizontal scrolling
-  const panGesture = Gesture.Pan()
-    .activateAfterLongPress(300) // Only activate after 300ms hold
-    .onStart((e) => {
-      'worklet';
-      touchX.value = e.x;
-    })
-    .onUpdate((e) => {
-      'worklet';
-      touchX.value = e.x;
-    })
-    .onEnd(() => {
-      'worklet';
-      touchX.value = -1;
-      runOnJS(handleGestureEnd)();
-    });
-
-  // Tap gesture to dismiss persisted tooltip
-  const tapGesture = Gesture.Tap()
-    .onEnd(() => {
-      'worklet';
-      runOnJS(clearPersistedTooltip)();
-    });
-
-  const gesture = Gesture.Race(panGesture, tapGesture);
-
-  // Animated crosshair - calculate position from selected index
-  const crosshairStyle = useAnimatedStyle(() => {
-    'worklet';
-    const idx = selectedIdx.value;
-    const bounds = chartBoundsShared.value;
-    const len = chartData.length;
-
-    if (idx < 0 || len === 0) {
-      return { opacity: 0, transform: [{ translateX: 0 }] };
-    }
-
-    // Calculate x position from index
-    const chartWidthPx = bounds.right - bounds.left;
-    const xPos = bounds.left + (idx / (len - 1)) * chartWidthPx;
-
-    return {
-      opacity: 1,
-      transform: [{ translateX: xPos }],
-    };
-  }, [chartData.length]);
-
-  if (chartData.length < 2) return null;
-
-  // Get point color based on direction
-  const getPointColor = (direction: 'same' | 'reverse') => {
-    return direction === 'reverse' ? REVERSE_COLOR : activityColor;
-  };
-
-  const chartContent = (
-    <GestureDetector gesture={gesture}>
-      <View style={[styles.chartInner, { width: chartWidth }]}>
-        <CartesianChart
-          data={chartData}
-          xKey="x"
-          yKeys={['speed']}
-          domain={{ y: [minSpeed, maxSpeed] }}
-          padding={{ left: 35, right: 16, top: 40, bottom: 24 }}
-        >
-          {({ points, chartBounds }) => {
-            // Sync chartBounds for gesture handling
-            if (chartBounds.left !== chartBoundsShared.value.left ||
-                chartBounds.right !== chartBoundsShared.value.right) {
-              chartBoundsShared.value = { left: chartBounds.left, right: chartBounds.right };
-            }
-
-            // Separate points by direction for distinct lines
-            const samePoints = points.speed.filter((_, idx) => chartData[idx]?.direction === 'same');
-            const reversePoints = points.speed.filter((_, idx) => chartData[idx]?.direction === 'reverse');
-
-            return (
-              <>
-                {/* Line connecting 'same' direction points */}
-                {samePoints.length > 1 && (
-                  <Line
-                    points={samePoints}
-                    color={activityColor}
-                    strokeWidth={1.5}
-                    curveType="monotoneX"
-                    opacity={0.4}
-                  />
-                )}
-                {/* Line connecting 'reverse' direction points */}
-                {reversePoints.length > 1 && (
-                  <Line
-                    points={reversePoints}
-                    color={REVERSE_COLOR}
-                    strokeWidth={1.5}
-                    curveType="monotoneX"
-                    opacity={0.4}
-                  />
-                )}
-                {/* Regular points - colored by direction */}
-                {points.speed.map((point, idx) => {
-                  if (point.x == null || point.y == null) return null;
-                  const isSelected = idx === selectedIndex;
-                  const isBest = idx === bestIndex;
-                  // Skip if selected or best (render separately for layering)
-                  if (isSelected || isBest) return null;
-                  const d = chartData[idx];
-                  const pointColor = d ? getPointColor(d.direction) : activityColor;
-                  return (
-                    <Circle
-                      key={`point-${idx}`}
-                      cx={point.x}
-                      cy={point.y}
-                      r={5}
-                      color={pointColor}
-                    />
-                  );
-                })}
-                {/* Best performance - gold (render after regular) */}
-                {bestIndex !== selectedIndex &&
-                 points.speed[bestIndex] &&
-                 points.speed[bestIndex].x != null && points.speed[bestIndex].y != null && (
-                  <>
-                    <Circle
-                      cx={points.speed[bestIndex].x!}
-                      cy={points.speed[bestIndex].y!}
-                      r={8}
-                      color="#FFB300"
-                    />
-                    <Circle
-                      cx={points.speed[bestIndex].x!}
-                      cy={points.speed[bestIndex].y!}
-                      r={4}
-                      color="#FFFFFF"
-                    />
-                  </>
-                )}
-                {/* Selected activity - cyan (render on top) */}
-                {selectedIndex >= 0 &&
-                 points.speed[selectedIndex] &&
-                 points.speed[selectedIndex].x != null && points.speed[selectedIndex].y != null && (
-                  <>
-                    <Circle
-                      cx={points.speed[selectedIndex].x!}
-                      cy={points.speed[selectedIndex].y!}
-                      r={10}
-                      color="#00BCD4"
-                    />
-                    <Circle
-                      cx={points.speed[selectedIndex].x!}
-                      cy={points.speed[selectedIndex].y!}
-                      r={5}
-                      color="#FFFFFF"
-                    />
-                  </>
-                )}
-              </>
-            );
-          }}
-        </CartesianChart>
-
-        {/* Crosshair */}
-        <Animated.View
-          style={[styles.crosshair, crosshairStyle, isDark && styles.crosshairDark]}
-          pointerEvents="none"
-        />
-
-        {/* Y-axis labels */}
-        <View style={styles.yAxisOverlay} pointerEvents="none">
-          <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
-            {formatSpeedValue(maxSpeed)}
-          </Text>
-          <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
-            {formatSpeedValue((minSpeed + maxSpeed) / 2)}
-          </Text>
-          <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
-            {formatSpeedValue(minSpeed)}
-          </Text>
-        </View>
-
-        {/* X-axis labels (dates) */}
-        <View style={[styles.xAxisOverlay, { width: chartWidth - 35 - 16, left: 35 }]} pointerEvents="none">
-          {chartData.length > 0 && (
-            <>
-              <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
-                {formatShortDate(chartData[0].date)}
-              </Text>
-              {chartData.length >= 5 && (
-                <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
-                  {formatShortDate(chartData[Math.floor(chartData.length / 2)].date)}
-                </Text>
-              )}
-              <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
-                {formatShortDate(chartData[chartData.length - 1].date)}
-              </Text>
-            </>
-          )}
-        </View>
-      </View>
-    </GestureDetector>
-  );
-
-  return (
-    <View style={[styles.chartCard, isDark && styles.chartCardDark]}>
-      <View style={styles.chartHeader}>
-        <Text style={[styles.chartTitle, isDark && styles.textLight]}>
-          {t('sections.performanceOverTime')}
-        </Text>
-        <View style={styles.chartLegend}>
-          <View style={styles.legendItem}>
-            <View style={[styles.legendDot, { backgroundColor: '#FFB300' }]} />
-            <Text style={[styles.legendText, isDark && styles.textMuted]}>{t('sections.best')}</Text>
-          </View>
-          <View style={styles.legendItem}>
-            <View style={[styles.legendDot, { backgroundColor: activityColor }]} />
-            <Text style={[styles.legendText, isDark && styles.textMuted]}>{t('sections.same')}</Text>
-          </View>
-          {hasReverseRuns && (
-            <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: REVERSE_COLOR }]} />
-              <Text style={[styles.legendText, isDark && styles.textMuted]}>{t('sections.reverse')}</Text>
-            </View>
-          )}
-        </View>
-      </View>
-
-      {/* Hint for interaction */}
-      {!isActive && !isPersisted && (
-        <Text style={[styles.chartHint, isDark && styles.textMuted]}>
-          {needsScrolling ? t('sections.scrubHintScrollable') : t('sections.scrubHint')}
-        </Text>
-      )}
-
-      {/* Selected activity info - tappable */}
-      {(isActive || isPersisted) && tooltipData && (
-        <TouchableOpacity
-          style={[styles.selectedTooltip, isDark && styles.selectedTooltipDark]}
-          onPress={() => router.push(`/activity/${tooltipData.activityId}` as Href)}
-          activeOpacity={0.7}
-        >
-          <View style={styles.tooltipLeft}>
-            <Text style={[styles.tooltipName, isDark && styles.textLight]} numberOfLines={1}>
-              {tooltipData.activityName}
-            </Text>
-            <View style={styles.tooltipMeta}>
-              <Text style={[styles.tooltipDate, isDark && styles.textMuted]}>
-                {formatShortDate(tooltipData.date)}
-              </Text>
-              <View style={[styles.matchBadgeSmall, { backgroundColor: colors.success + '20' }]}>
-                <Text style={[styles.matchBadgeText, { color: colors.success }]}>
-                  {Math.round(tooltipData.matchPercentage)}%
-                </Text>
-              </View>
-              {tooltipData.direction === 'reverse' && (
-                <View style={styles.reverseBadge}>
-                  <MaterialCommunityIcons name="swap-horizontal" size={10} color={REVERSE_COLOR} />
-                </View>
-              )}
-            </View>
-          </View>
-          <View style={styles.tooltipRight}>
-            <Text style={[styles.tooltipSpeed, { color: tooltipData.direction === 'reverse' ? REVERSE_COLOR : activityColor }]}>
-              {formatSpeedValue(tooltipData.speed)}
-            </Text>
-            <MaterialCommunityIcons name="chevron-right" size={16} color={isDark ? '#555' : '#CCC'} />
-          </View>
-        </TouchableOpacity>
-      )}
-
-      {/* Chart with optional horizontal scrolling */}
-      <View style={styles.chartContainer}>
-        {needsScrolling ? (
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={true}
-            contentContainerStyle={{ width: chartWidth }}
-          >
-            {chartContent}
-          </ScrollView>
-        ) : (
-          chartContent
-        )}
-      </View>
-
-      {/* Best stats */}
-      {chartData[bestIndex] && (
-        <View style={[styles.bestStats, isDark && styles.bestStatsDark]}>
-          <View style={styles.bestStatItem}>
-            <Text style={[styles.bestStatValue, { color: '#FFB300' }]}>
-              {formatSpeedValue(chartData[bestIndex].speed)}
-            </Text>
-            <Text style={[styles.bestStatLabel, isDark && styles.textMuted]}>
-              {showPace ? t('sections.bestPace') : t('sections.bestSpeed')}
-            </Text>
-          </View>
-          <View style={styles.bestStatItem}>
-            <Text style={[styles.bestStatValue, isDark && styles.textLight]}>
-              {formatShortDate(chartData[bestIndex].date)}
-            </Text>
-            <Text style={[styles.bestStatLabel, isDark && styles.textMuted]}>
-              {t('sections.date')}
-            </Text>
-          </View>
-        </View>
-      )}
-    </View>
-  );
 }
 
 function ActivityRow({
@@ -852,6 +294,73 @@ export default function RouteDetailScreen() {
     });
   }, [routeGroupBase, allActivities]);
 
+  // Prepare chart data for UnifiedPerformanceChart
+  // This is ONE point per activity - direction comes from route matching
+  const { chartData, minSpeed, maxSpeed, bestIndex, hasReverseRuns } = useMemo(() => {
+    const dataPoints: (PerformanceDataPoint & { x: number })[] = [];
+
+    // Sort activities by date first
+    const sortedActivities = [...routeActivities].sort(
+      (a, b) => new Date(a.start_date_local).getTime() - new Date(b.start_date_local).getTime()
+    );
+
+    let hasAnyReverse = false;
+
+    for (const activity of sortedActivities) {
+      const activityPoints = signatures[activity.id]?.points;
+      const match = matches[activity.id];
+      // Direction comes from route matching algorithm - the WHOLE activity direction
+      const direction = (match?.direction as 'same' | 'reverse') ?? 'same';
+      const matchPercentage = match?.matchPercentage ?? 100;
+
+      if (direction === 'reverse') hasAnyReverse = true;
+
+      // Calculate activity speed (with safety check for division by zero)
+      const activitySpeed = activity.moving_time > 0
+        ? activity.distance / activity.moving_time
+        : 0;
+
+      // Each activity = ONE data point
+      dataPoints.push({
+        x: 0,
+        id: activity.id,
+        activityId: activity.id,
+        speed: activitySpeed,
+        date: new Date(activity.start_date_local),
+        activityName: activity.name,
+        direction,
+        matchPercentage,
+        lapNumber: 1,
+        totalLaps: 1,
+        lapPoints: activityPoints,
+      });
+    }
+
+    // Re-index after collecting all points
+    const indexed = dataPoints.map((d, idx) => ({ ...d, x: idx }));
+
+    const speeds = indexed.map(d => d.speed);
+    const min = speeds.length > 0 ? Math.min(...speeds) : 0;
+    const max = speeds.length > 0 ? Math.max(...speeds) : 1;
+    const padding = (max - min) * 0.15 || 0.5;
+
+    // Find best (fastest)
+    let bestIdx = 0;
+    for (let i = 1; i < indexed.length; i++) {
+      if (indexed[i].speed > indexed[bestIdx].speed) {
+        bestIdx = i;
+      }
+    }
+
+    return {
+      chartData: indexed,
+      minSpeed: Math.max(0, min - padding),
+      maxSpeed: max + padding,
+      bestIndex: bestIdx,
+      hasReverseRuns: hasAnyReverse,
+    };
+  }, [routeActivities, matches, signatures]);
+
   // Compute stats from activities since signature data isn't available
   // Must be called before any early return to maintain hooks order
   const routeStats = useMemo(() => {
@@ -1003,15 +512,18 @@ export default function RouteDetailScreen() {
 
         {/* Content below hero */}
         <View style={styles.contentSection}>
-          {/* Performance progression chart - scrubbing highlights map with lap-level granularity */}
-          {routeActivities.length >= 2 && (
+          {/* Performance progression chart - scrubbing highlights map */}
+          {chartData.length >= 2 && (
             <View style={styles.chartSection}>
-              <PerformanceProgressionChart
-                activities={routeActivities}
+              <UnifiedPerformanceChart
+                chartData={chartData}
                 activityType={routeGroup.type}
                 isDark={isDark}
-                matches={matches}
-                signatures={signatures}
+                minSpeed={minSpeed}
+                maxSpeed={maxSpeed}
+                bestIndex={bestIndex}
+                hasReverseRuns={hasReverseRuns}
+                tooltipBadgeType="match"
                 onActivitySelect={handleActivitySelect}
                 selectedActivityId={highlightedActivityId}
               />
@@ -1233,179 +745,6 @@ const styles = StyleSheet.create({
   },
   chartSection: {
     marginBottom: spacing.lg,
-  },
-  chartCard: {
-    backgroundColor: colors.surface,
-    borderRadius: layout.borderRadius,
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: spacing.sm,
-    elevation: 2,
-  },
-  chartCardDark: {
-    backgroundColor: darkColors.surface,
-  },
-  chartHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.md,
-    paddingBottom: spacing.xs,
-  },
-  chartTitle: {
-    fontSize: typography.bodySmall.fontSize,
-    fontWeight: '600',
-    color: colors.textPrimary,
-  },
-  chartLegend: {
-    flexDirection: 'row',
-    gap: spacing.md,
-  },
-  legendItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
-  legendDot: {
-    width: spacing.sm,
-    height: spacing.sm,
-    borderRadius: spacing.xs,
-  },
-  legendText: {
-    fontSize: typography.micro.fontSize,
-    color: colors.textSecondary,
-  },
-  chartHint: {
-    fontSize: typography.label.fontSize,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    paddingHorizontal: spacing.md,
-    paddingBottom: spacing.xs,
-  },
-  chartContainer: {
-    height: CHART_HEIGHT,
-    position: 'relative',
-    overflow: 'hidden',
-  },
-  chartInner: {
-    height: CHART_HEIGHT,
-    position: 'relative',
-    overflow: 'hidden',
-  },
-  crosshair: {
-    position: 'absolute',
-    top: 40,
-    bottom: 24,
-    width: 1.5,
-    backgroundColor: '#666',
-  },
-  crosshairDark: {
-    backgroundColor: '#AAA',
-  },
-  selectedTooltip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: 'rgba(0, 188, 212, 0.08)',
-    marginHorizontal: spacing.md,
-    marginBottom: spacing.sm,
-    padding: spacing.sm,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(0, 188, 212, 0.2)',
-  },
-  selectedTooltipDark: {
-    backgroundColor: 'rgba(0, 188, 212, 0.12)',
-    borderColor: 'rgba(0, 188, 212, 0.3)',
-  },
-  tooltipLeft: {
-    flex: 1,
-  },
-  tooltipName: {
-    fontSize: typography.bodyCompact.fontSize,
-    fontWeight: '600',
-    color: colors.textPrimary,
-  },
-  tooltipMeta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    marginTop: 2,
-  },
-  tooltipDate: {
-    fontSize: typography.label.fontSize,
-    color: colors.textSecondary,
-  },
-  reverseBadge: {
-    backgroundColor: 'rgba(156, 39, 176, 0.15)',
-    paddingHorizontal: 4,
-    paddingVertical: 1,
-    borderRadius: 4,
-  },
-  matchBadgeSmall: {
-    paddingHorizontal: 5,
-    paddingVertical: 1,
-    borderRadius: 6,
-  },
-  matchBadgeText: {
-    fontSize: typography.micro.fontSize,
-    fontWeight: '600',
-  },
-  tooltipRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
-  tooltipSpeed: {
-    fontSize: typography.bodySmall.fontSize + 1,
-    fontWeight: '700',
-  },
-  yAxisOverlay: {
-    position: 'absolute',
-    top: 40,
-    bottom: 24,
-    left: 4,
-    justifyContent: 'space-between',
-  },
-  xAxisOverlay: {
-    position: 'absolute',
-    bottom: 4,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  axisLabel: {
-    fontSize: typography.pillLabel.fontSize,
-    color: colors.textSecondary,
-  },
-  axisLabelDark: {
-    color: darkColors.textSecondary,
-  },
-  bestStats: {
-    flexDirection: 'row',
-    borderTopWidth: 1,
-    borderTopColor: opacity.overlay.light,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    gap: spacing.lg,
-  },
-  bestStatsDark: {
-    borderTopColor: opacity.overlayDark.light,
-  },
-  bestStatItem: {
-    flex: 1,
-  },
-  bestStatValue: {
-    fontSize: typography.bodySmall.fontSize + 1,
-    fontWeight: '700',
-    color: colors.textPrimary,
-  },
-  bestStatLabel: {
-    fontSize: typography.label.fontSize,
-    color: colors.textSecondary,
-    marginTop: 2,
   },
   activitiesSection: {
     marginBottom: spacing.xl,

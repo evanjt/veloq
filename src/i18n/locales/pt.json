@@ -301,7 +301,9 @@
     "enableInSettings": "Ative a correspondencia de percursos nas Definicoes para detetar automaticamente percursos repetidos das suas atividades.",
     "goToSettings": "Ir para Definicoes",
     "analysingRoutes": "A analisar percursos {{current}}/{{total}}",
-    "computingRoutes": "A calcular percursos..."
+    "computingRoutes": "A calcular percursos...",
+    "downloadingGps": "A transferir GPS",
+    "analyzingRoutes": "A analisar percursos"
   },
   "statsScreen": {
     "title": "Desempenho",
@@ -360,6 +362,7 @@
     "moreActivitiesProcessed": "+ {{count}} mais atividades processadas",
     "matchesLabel": "correspondencias",
     "checkedLabel": "verificadas",
+    "visits": "visitas",
     "match": "correspondencia",
     "more": "+{{count}} mais",
     "loadingSections": "A carregar trocos...",
@@ -391,7 +394,10 @@
     "potentialSectionDescription": "Percorreu este caminho de {{sport}} {{count}} vezes. Criar um troço para acompanhar o seu desempenho?",
     "createSection": "Criar troço",
     "defaultRouteName": "Percurso {{type}}",
-    "defaultActivityName": "Atividade {{number}}"
+    "defaultActivityName": "Atividade {{number}}",
+    "sectionCreated": "Troço criado",
+    "sectionCreatedDescription": "O seu troço personalizado foi criado e as atividades foram associadas",
+    "sectionCreationFailed": "Falha ao criar o troço. Por favor, tente novamente."
   },
   "sections": {
     "performanceOverTime": "Desempenho ao longo do tempo",
@@ -452,7 +458,14 @@
     "avgPace": "Ritmo medio",
     "avgSpeed": "Velocidade media",
     "avgHR": "FC media",
-    "avgPower": "Potencia media"
+    "avgPower": "Potencia media",
+    "tabs": {
+      "charts": "Gráficos",
+      "routes": "Percursos",
+      "sections": "Troços"
+    },
+    "noMatchedSections": "Sem troços correspondentes",
+    "noMatchedSectionsDescription": "Os troços que correspondem a esta atividade aparecerão aqui"
   },
   "routeDetail": {
     "routeNotFound": "Percurso nao encontrado"

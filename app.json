@@ -24,19 +24,29 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.veloq.app",
       "buildNumber": "1",
-      "deploymentTarget": "14.0",
       "infoPlist": {
         "CFBundleDevelopmentRegion": "en-AU",
-        "CFBundleLocalizations": ["en-AU", "en-US", "en-GB", "es", "fr"],
+        "CFBundleLocalizations": [
+          "en-AU",
+          "en-US",
+          "en-GB",
+          "es",
+          "fr"
+        ],
         "NSLocationWhenInUseUsageDescription": "Veloq uses your location to display activity maps and track your routes.",
         "NSLocationAlwaysAndWhenInUseUsageDescription": "Veloq uses your location to display activity maps and track your routes.",
-        "UIBackgroundModes": ["location", "fetch"],
+        "UIBackgroundModes": [
+          "location",
+          "fetch"
+        ],
         "ITSAppUsesNonExemptEncryption": false
       },
       "config": {
         "usesNonExemptEncryption": false
       },
-      "associatedDomains": ["applinks:intervals.icu"]
+      "associatedDomains": [
+        "applinks:intervals.icu"
+      ]
     },
     "android": {
       "package": "com.veloq.app",
@@ -55,7 +65,16 @@
       "expo-localization",
       "@maplibre/maplibre-react-native",
       "expo-web-browser",
-      "expo-secure-store"
+      "expo-secure-store",
+      "expo-font",
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "deploymentTarget": "15.1"
+          }
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
