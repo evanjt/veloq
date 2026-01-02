@@ -16,7 +16,9 @@
     "search": "搜索",
     "clearSearch": "清除搜索",
     "noResults": "无结果",
-    "pullToRefresh": "下拉刷新"
+    "pullToRefresh": "下拉刷新",
+    "activities": "activities",
+    "syncing": "Syncing..."
   },
   "navigation": {
     "feed": "动态",
@@ -136,7 +138,10 @@
     "languageGroups": {
       "european": "欧洲语言",
       "asian": "亚洲语言"
-    }
+    },
+    "cached": "Cached",
+    "notCached": "Not cached",
+    "expandCache": "Load more"
   },
   "alerts": {
     "error": "错误",

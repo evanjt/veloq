@@ -16,7 +16,9 @@
     "search": "検索",
     "clearSearch": "検索をクリア",
     "noResults": "結果なし",
-    "pullToRefresh": "下に引いて更新"
+    "pullToRefresh": "下に引いて更新",
+    "activities": "activities",
+    "syncing": "Syncing..."
   },
   "navigation": {
     "feed": "フィード",
@@ -136,7 +138,10 @@
     "languageGroups": {
       "european": "ヨーロッパ",
       "asian": "アジア"
-    }
+    },
+    "cached": "Cached",
+    "notCached": "Not cached",
+    "expandCache": "Load more"
   },
   "alerts": {
     "error": "エラー",

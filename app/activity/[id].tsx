@@ -36,7 +36,7 @@ import { DeviceAttribution, ComponentErrorBoundary } from '@/components/ui';
 import type { ChartTypeId } from '@/lib';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
-const MAP_HEIGHT = Math.round(SCREEN_HEIGHT * 0.55); // 55% of screen
+const MAP_HEIGHT = Math.round(SCREEN_HEIGHT * 0.42); // 42% of screen - better data visibility
 
 export default function ActivityDetailScreen() {
   const { t } = useTranslation();
@@ -311,10 +311,12 @@ export default function ActivityDetailScreen() {
                   style={[styles.expandButton, isDark && styles.expandButtonDark]}
                   onPress={() => setChartsExpanded(!chartsExpanded)}
                   activeOpacity={0.7}
+                  accessibilityLabel="Chart display options"
+                  accessibilityRole="button"
                 >
                   <MaterialCommunityIcons
                     name="cog"
-                    size={14}
+                    size={20}
                     color={isDark ? '#FFF' : '#333'}
                   />
                 </TouchableOpacity>
@@ -329,10 +331,12 @@ export default function ActivityDetailScreen() {
                   style={[styles.fullscreenButton, isDark && styles.expandButtonDark]}
                   onPress={openChartFullscreen}
                   activeOpacity={0.7}
+                  accessibilityLabel="Fullscreen chart"
+                  accessibilityRole="button"
                 >
                   <MaterialCommunityIcons
                     name="fullscreen"
-                    size={16}
+                    size={20}
                     color={isDark ? '#FFF' : '#333'}
                   />
                 </TouchableOpacity>
@@ -565,13 +569,15 @@ export default function ActivityDetailScreen() {
           {/* Chart type selector in fullscreen */}
           <View style={styles.fullscreenControls}>
             <TouchableOpacity
-              style={[styles.expandButton, isDark && styles.expandButtonDark]}
+              style={[styles.fullscreenExpandButton, isDark && styles.expandButtonDark]}
               onPress={() => setChartsExpanded(!chartsExpanded)}
               activeOpacity={0.7}
+              accessibilityLabel="Chart options"
+              accessibilityRole="button"
             >
               <MaterialCommunityIcons
                 name="cog"
-                size={14}
+                size={20}
                 color={isDark ? '#FFF' : '#333'}
               />
             </TouchableOpacity>
@@ -751,8 +757,8 @@ const styles = StyleSheet.create({
     marginHorizontal: spacing.xs,
   },
   expandButton: {
-    width: 24,
-    height: 24,
+    width: 44, // Accessibility minimum
+    height: 44, // Accessibility minimum
     borderRadius: layout.borderRadius,
     backgroundColor: opacity.overlay.light,
     justifyContent: 'center',
@@ -820,9 +826,9 @@ const styles = StyleSheet.create({
 
   // Fullscreen button
   fullscreenButton: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 44, // Accessibility minimum
+    height: 44, // Accessibility minimum
+    borderRadius: layout.borderRadius,
     backgroundColor: opacity.overlay.light,
     justifyContent: 'center',
     alignItems: 'center',
@@ -843,9 +849,9 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: spacing.md,
     left: spacing.md,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 44, // Accessibility minimum
+    height: 44, // Accessibility minimum
+    borderRadius: 22,
     backgroundColor: opacity.overlay.medium,
     justifyContent: 'center',
     alignItems: 'center',
@@ -857,6 +863,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingTop: spacing.sm,
     paddingBottom: spacing.xs,
+  },
+  fullscreenExpandButton: {
+    width: 44, // Accessibility minimum
+    height: 44, // Accessibility minimum
+    borderRadius: layout.borderRadius,
+    backgroundColor: opacity.overlay.light,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 6,
   },
   fullscreenChartWrapper: {
     flex: 1,

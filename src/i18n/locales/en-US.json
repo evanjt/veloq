@@ -16,7 +16,9 @@
     "search": "Search",
     "clearSearch": "Clear search",
     "noResults": "No results",
-    "pullToRefresh": "Pull to refresh"
+    "pullToRefresh": "Pull to refresh",
+    "activities": "activities",
+    "syncing": "Syncing..."
   },
   "navigation": {
     "feed": "Feed",

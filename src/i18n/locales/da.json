@@ -16,7 +16,9 @@
     "search": "Søg",
     "clearSearch": "Ryd søgning",
     "noResults": "Ingen resultater",
-    "pullToRefresh": "Træk ned for at opdatere"
+    "pullToRefresh": "Træk ned for at opdatere",
+    "activities": "activities",
+    "syncing": "Syncing..."
   },
   "navigation": {
     "feed": "Feed",
@@ -136,7 +138,10 @@
     "languageGroups": {
       "european": "Europæiske",
       "asian": "Asiatiske"
-    }
+    },
+    "cached": "Cached",
+    "notCached": "Not cached",
+    "expandCache": "Load more"
   },
   "alerts": {
     "error": "Fejl",

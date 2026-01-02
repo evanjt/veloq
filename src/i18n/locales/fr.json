@@ -16,7 +16,9 @@
     "search": "Rechercher",
     "clearSearch": "Effacer la recherche",
     "noResults": "Aucun résultat",
-    "pullToRefresh": "Tirer pour actualiser"
+    "pullToRefresh": "Tirer pour actualiser",
+    "activities": "activities",
+    "syncing": "Syncing..."
   },
   "navigation": {
     "feed": "Fil",
@@ -136,7 +138,10 @@
     "languageGroups": {
       "european": "Européen",
       "asian": "Asiatique"
-    }
+    },
+    "cached": "Cached",
+    "notCached": "Not cached",
+    "expandCache": "Load more"
   },
   "alerts": {
     "error": "Erreur",
