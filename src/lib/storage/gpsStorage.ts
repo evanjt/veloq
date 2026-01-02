@@ -237,6 +237,24 @@ export async function clearAllGpsTracks(): Promise<void> {
 }
 
 /**
+ * Get all cached activity IDs from the GPS index
+ */
+export async function getCachedActivityIds(): Promise<string[]> {
+  try {
+    const indexInfo = await FileSystem.getInfoAsync(GPS_INDEX_FILE);
+    if (indexInfo.exists) {
+      const indexStr = await FileSystem.readAsStringAsync(GPS_INDEX_FILE);
+      const defaultIndex: GpsIndex = { activityIds: [], lastUpdated: '' };
+      const index = safeJsonParseWithSchema(indexStr, isGpsIndex, defaultIndex);
+      return index.activityIds;
+    }
+  } catch {
+    // Best effort - return empty array on error
+  }
+  return [];
+}
+
+/**
  * Get count of stored GPS tracks
  */
 export async function getGpsTrackCount(): Promise<number> {

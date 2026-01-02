@@ -10,7 +10,7 @@ import { FitnessChart, FormZoneChart, ActivityDotsChart } from '@/components/fit
 import { NetworkErrorState, ErrorStatePreset } from '@/components/ui';
 import { useWellness, useActivities, getFormZone, FORM_ZONE_COLORS, FORM_ZONE_LABELS, type TimeRange } from '@/hooks';
 import { useNetwork } from '@/providers';
-import { formatLocalDate } from '@/lib';
+import { formatLocalDate, formatShortDateWithWeekday } from '@/lib';
 import { colors, darkColors, spacing, layout, typography, opacity } from '@/theme';
 
 const TIME_RANGES: { id: TimeRange; label: string }[] = [
@@ -344,8 +344,7 @@ export default function FitnessScreen() {
 }
 
 function formatDisplayDate(dateStr: string): string {
-  const date = new Date(dateStr);
-  return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  return formatShortDateWithWeekday(dateStr);
 }
 
 const styles = StyleSheet.create({

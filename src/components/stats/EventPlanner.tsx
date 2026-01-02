@@ -6,7 +6,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors, darkColors } from '@/theme/colors';
 import { typography } from '@/theme/typography';
 import { spacing, layout } from '@/theme/spacing';
-import type { MaterialIconName } from '@/lib';
+import { formatShortDate, type MaterialIconName } from '@/lib';
 
 interface Event {
   id: string;
@@ -32,8 +32,7 @@ function getDaysUntil(dateStr: string): number {
 }
 
 function formatDate(dateStr: string): string {
-  const date = new Date(dateStr);
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  return formatShortDate(dateStr);
 }
 
 const PRIORITY_COLORS = {

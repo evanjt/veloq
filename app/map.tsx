@@ -152,22 +152,33 @@ export default function MapScreen() {
   }, [apiOldestDate, activities, startDate]);
 
   // Compute sync progress for timeline display
+  // Phases: 1) Loading activities, 2) Syncing bounds/GPS, 3) Analyzing routes
   const timelineSyncProgress = useMemo(() => {
+    // Phase 1: Loading activities from API
     if (isFetchingActivities || isFetchingExtended) {
       return { completed: 0, total: 0, message: t('mapScreen.loadingActivities') };
     }
+    // Phase 2: Syncing activity bounds/GPS cache
+    if (progress.status === 'syncing' && progress.total > 0) {
+      return {
+        completed: progress.completed,
+        total: progress.total,
+        message: t('maps.syncingActivities', { completed: progress.completed, total: progress.total }),
+      };
+    }
+    // Phase 3: Analyzing routes (GPS sync to Rust engine)
     if (isGpsSyncing && gpsSyncProgress.total > 0) {
       return {
         completed: gpsSyncProgress.completed,
         total: gpsSyncProgress.total,
-        message: undefined,
+        message: t('routesScreen.analyzingRoutes'),
       };
     }
     if (gpsSyncProgress.status === 'computing') {
       return { completed: 0, total: 0, message: gpsSyncProgress.message };
     }
     return null;
-  }, [isFetchingActivities, isFetchingExtended, isGpsSyncing, gpsSyncProgress, t]);
+  }, [isFetchingActivities, isFetchingExtended, progress, isGpsSyncing, gpsSyncProgress, t]);
 
   // Show loading state if not ready
   if (!isReady) {

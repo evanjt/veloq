@@ -7,7 +7,8 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { RoutesList, SectionsList, DateRangeSummary } from '@/components';
 import { SwipeableTabs, type SwipeableTab } from '@/components/ui';
-import { useRouteProcessing, useActivities, useActivityBoundsCache, useRouteGroups, useFrequentSections, useEngineStats, useRouteDataSync, useOldestActivityDate } from '@/hooks';
+import { useRouteProcessing, useActivities, useActivityBoundsCache, useRouteGroups, useEngineStats, useRouteDataSync, useOldestActivityDate } from '@/hooks';
+import { useUnifiedSections } from '@/hooks/routes/useUnifiedSections';
 import { useRouteSettings, useSyncDateRange } from '@/providers';
 import { colors, spacing } from '@/theme';
 import { debug } from '@/lib';
@@ -51,8 +52,8 @@ export default function RoutesScreen() {
   // Get route groups to count (use minActivities: 2 to match the list)
   const { groups: routeGroups } = useRouteGroups({ minActivities: 2 });
 
-  // Get frequent sections count
-  const { sections, totalCount: totalSections } = useFrequentSections({ minVisits: 3 });
+  // Get unified sections count (auto-detected + custom)
+  const { count: totalSections } = useUnifiedSections();
 
   // Tab state
   const [activeTab, setActiveTab] = useState<TabType>('routes');
@@ -60,8 +61,8 @@ export default function RoutesScreen() {
   // Tabs configuration for SwipeableTabs
   const tabs = useMemo<[SwipeableTab, SwipeableTab]>(() => [
     { key: 'routes', label: t('trainingScreen.routes'), icon: 'map-marker-path', count: routeGroups.length },
-    { key: 'sections', label: t('trainingScreen.sections'), icon: 'road-variant', count: sections.length },
-  ], [t, routeGroups.length, sections.length]);
+    { key: 'sections', label: t('trainingScreen.sections'), icon: 'road-variant', count: totalSections },
+  ], [t, routeGroups.length, totalSections]);
 
   // Date range state - default to full cached range (show all data)
   const now = useMemo(() => new Date(), []);
