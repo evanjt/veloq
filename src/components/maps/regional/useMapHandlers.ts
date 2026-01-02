@@ -3,7 +3,7 @@
  * Extracts handler logic from the main component for better organization.
  */
 
-import { useCallback, useRef } from 'react';
+import { useCallback, useRef, useEffect } from 'react';
 import { Animated } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as Location from 'expo-location';
@@ -282,6 +282,15 @@ export function useMapHandlers({
       useNativeDriver: true,
     }).start();
   }, [is3DMode, map3DRef, cameraRef, bearingAnim]);
+
+  // Clean up location timeout on unmount to prevent setState after unmount
+  useEffect(() => {
+    return () => {
+      if (userLocationTimeoutRef.current) {
+        clearTimeout(userLocationTimeoutRef.current);
+      }
+    };
+  }, []);
 
   return {
     handleMarkerTap,

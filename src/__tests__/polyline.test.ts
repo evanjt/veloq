@@ -164,10 +164,11 @@ describe('getBounds', () => {
     ];
     const result = getBounds(coords);
 
-    expect(result.minLat).toBe(-34.0);
-    expect(result.maxLat).toBe(-33.5);
-    expect(result.minLng).toBe(151.0);
-    expect(result.maxLng).toBe(151.5);
+    expect(result).not.toBeNull();
+    expect(result!.minLat).toBe(-34.0);
+    expect(result!.maxLat).toBe(-33.5);
+    expect(result!.minLng).toBe(151.0);
+    expect(result!.maxLng).toBe(151.5);
   });
 
   it('should filter out NaN coordinates', () => {
@@ -178,24 +179,25 @@ describe('getBounds', () => {
     ];
     const result = getBounds(coords);
 
-    expect(result.minLat).toBe(-34.0);
-    expect(result.maxLat).toBe(-33.8);
-    expect(result.minLng).toBe(151.0);
-    expect(result.maxLng).toBe(151.5);
+    expect(result).not.toBeNull();
+    expect(result!.minLat).toBe(-34.0);
+    expect(result!.maxLat).toBe(-33.8);
+    expect(result!.minLng).toBe(151.0);
+    expect(result!.maxLng).toBe(151.5);
   });
 
-  it('should return zeros for empty array', () => {
+  it('should return null for empty array', () => {
     const result = getBounds([]);
-    expect(result).toEqual({ minLat: 0, maxLat: 0, minLng: 0, maxLng: 0 });
+    expect(result).toBeNull();
   });
 
-  it('should return zeros when all coordinates are NaN', () => {
+  it('should return null when all coordinates are NaN', () => {
     const coords = [
       { latitude: NaN, longitude: NaN },
       { latitude: NaN, longitude: NaN },
     ];
     const result = getBounds(coords);
-    expect(result).toEqual({ minLat: 0, maxLat: 0, minLng: 0, maxLng: 0 });
+    expect(result).toBeNull();
   });
 });
 

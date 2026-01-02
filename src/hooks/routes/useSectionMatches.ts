@@ -7,6 +7,21 @@ import { useMemo } from 'react';
 import { useEngineSections } from './useRouteEngine';
 import type { FrequentSection, SectionPortion } from '@/types';
 
+/**
+ * Runtime type guard for FrequentSection from engine.
+ * Validates essential properties to prevent crashes from malformed engine data.
+ */
+function isValidSection(value: unknown): value is FrequentSection {
+  if (typeof value !== 'object' || value === null) return false;
+  const obj = value as Record<string, unknown>;
+  return (
+    typeof obj.id === 'string' &&
+    typeof obj.visitCount === 'number' &&
+    Array.isArray(obj.activityIds) &&
+    typeof obj.distanceMeters === 'number'
+  );
+}
+
 export interface SectionMatch {
   /** The section */
   section: FrequentSection;
@@ -42,14 +57,19 @@ export function useSectionMatches(activityId: string | undefined): UseSectionMat
     const matches: SectionMatch[] = [];
 
     for (const section of allSections) {
+      // Validate section structure to prevent crashes from malformed engine data
+      if (!isValidSection(section)) {
+        continue;
+      }
+
       // Check if activity is in this section's activity list
       if (section.activityIds.includes(activityId)) {
         // Find the portion data for this activity
         const portion = section.activityPortions?.find((p) => p.activityId === activityId);
 
         matches.push({
-          section: section as unknown as FrequentSection,
-          portion: portion as unknown as SectionPortion,
+          section,
+          portion: portion as SectionPortion | undefined,
           direction: (portion?.direction as 'same' | 'reverse') || 'same',
           distance: portion?.distanceMeters || section.distanceMeters,
         });
