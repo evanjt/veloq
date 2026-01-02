@@ -27,6 +27,16 @@ export {
   type HRZone,
   type HRZonesSettings,
 } from './HRZonesStore';
+export {
+  usePotentialSections,
+  getPotentialSections,
+  initializePotentialSections,
+} from './PotentialSectionsStore';
+export {
+  useSectionDismissals,
+  getSectionDismissals,
+  initializeSectionDismissals,
+} from './SectionDismissalsStore';
 // RouteMatchStore has been replaced by Rust persistent engine.
 // Use hooks from src/hooks/routes/useRouteEngine.ts instead.
 export {

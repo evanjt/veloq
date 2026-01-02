@@ -8,6 +8,8 @@
 import { useMemo, useCallback, useRef } from 'react';
 import { useFrequentSections } from './useFrequentSections';
 import { useCustomSections } from './useCustomSections';
+import { usePotentialSections } from './usePotentialSections';
+import { useSectionDismissals } from '@/providers/SectionDismissalsStore';
 import type {
   FrequentSection,
   CustomSectionWithMatches,
@@ -164,9 +166,16 @@ export function useUnifiedSections(
     error: customError,
   } = useCustomSections({ sportType, includeMatches: true });
 
-  // TODO: Load potential sections from engine when available
-  // For now, potentials will be empty until we wire up the multi-scale detection
-  const potentialSections: PotentialSection[] = [];
+  // Load potential sections from multi-scale detection
+  const { potentials: rawPotentials } = usePotentialSections({ sportType });
+
+  // Get dismissals
+  const isDismissed = useSectionDismissals((s) => s.isDismissed);
+
+  // Filter out dismissed potentials
+  const potentialSections = useMemo(() => {
+    return rawPotentials.filter((p) => !isDismissed(p.id));
+  }, [rawPotentials, isDismissed]);
 
   // Combine all sections
   const unified = useMemo(() => {
