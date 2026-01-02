@@ -158,8 +158,7 @@ export function useSectionPerformances(
     } else {
       setStreamsSynced(true);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [section?.id, activityIdsToFetch.length, fetchKey]);
+  }, [section?.id, fetchAndSyncStreams, fetchKey]);
 
   // Get performance records from Rust engine
   const { records, bestRecord } = useMemo(() => {

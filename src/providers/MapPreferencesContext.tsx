@@ -94,14 +94,19 @@ export function MapPreferencesProvider({ children }: { children: ReactNode }) {
     await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(newPrefs));
   }, []);
 
-  // Set default style
+  // Set default style - uses functional update to avoid preferences in deps
   const setDefaultStyle = useCallback(
     async (style: MapStyleType) => {
-      const newPrefs = { ...preferences, defaultStyle: style };
-      setPreferences(newPrefs);
-      await savePreferences(newPrefs);
+      let newPrefs: MapPreferences | null = null;
+      setPreferences((prev) => {
+        newPrefs = { ...prev, defaultStyle: style };
+        return newPrefs;
+      });
+      if (newPrefs) {
+        await savePreferences(newPrefs);
+      }
     },
-    [preferences, savePreferences]
+    [savePreferences]
   );
 
   // Set activity type style

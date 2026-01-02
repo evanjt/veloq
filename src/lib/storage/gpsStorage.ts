@@ -39,8 +39,8 @@ function isGpsIndex(value: unknown): value is GpsIndex {
   const obj = value as Record<string, unknown>;
   if (!Array.isArray(obj.activityIds)) return false;
   if (typeof obj.lastUpdated !== 'string') return false;
-  // Check that activityIds contains strings
-  if (obj.activityIds.length > 0 && typeof obj.activityIds[0] !== 'string') return false;
+  // Validate all elements are strings (empty array is valid and returns true)
+  if (!obj.activityIds.every((id) => typeof id === 'string')) return false;
   return true;
 }
 
@@ -327,17 +327,26 @@ export async function storeBoundsCache(cache: unknown): Promise<void> {
 }
 
 /**
- * Load the bounds cache from FileSystem
+ * Load the bounds cache from FileSystem with optional schema validation.
+ * @param validator - Optional type guard to validate parsed data
+ * @param defaultValue - Value to return if validation fails (defaults to null)
  */
-export async function loadBoundsCache<T>(): Promise<T | null> {
+export async function loadBoundsCache<T>(
+  validator?: SchemaValidator<T>,
+  defaultValue: T | null = null
+): Promise<T | null> {
   try {
     const info = await FileSystem.getInfoAsync(BOUNDS_CACHE_FILE);
     if (!info.exists) return null;
 
     const data = await FileSystem.readAsStringAsync(BOUNDS_CACHE_FILE);
+    if (validator) {
+      return safeJsonParseWithSchema(data, validator, defaultValue as T);
+    }
+    // Fallback to unvalidated parse for backwards compatibility
     return JSON.parse(data) as T;
   } catch {
-    return null;
+    return defaultValue;
   }
 }
 
@@ -372,17 +381,26 @@ export async function storeCheckpoint(checkpoint: unknown): Promise<void> {
 }
 
 /**
- * Load sync checkpoint
+ * Load sync checkpoint with optional schema validation.
+ * @param validator - Optional type guard to validate parsed data
+ * @param defaultValue - Value to return if validation fails (defaults to null)
  */
-export async function loadCheckpoint<T>(): Promise<T | null> {
+export async function loadCheckpoint<T>(
+  validator?: SchemaValidator<T>,
+  defaultValue: T | null = null
+): Promise<T | null> {
   try {
     const info = await FileSystem.getInfoAsync(CHECKPOINT_FILE);
     if (!info.exists) return null;
 
     const data = await FileSystem.readAsStringAsync(CHECKPOINT_FILE);
+    if (validator) {
+      return safeJsonParseWithSchema(data, validator, defaultValue as T);
+    }
+    // Fallback to unvalidated parse for backwards compatibility
     return JSON.parse(data) as T;
   } catch {
-    return null;
+    return defaultValue;
   }
 }
 

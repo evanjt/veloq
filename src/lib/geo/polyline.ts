@@ -22,12 +22,12 @@ export function getBounds(coordinates: LatLng[]): {
   maxLat: number;
   minLng: number;
   maxLng: number;
-} {
+} | null {
   // Filter out invalid coordinates (NaN values)
   const validCoords = coordinates.filter((c) => !isNaN(c.latitude) && !isNaN(c.longitude));
 
   if (validCoords.length === 0) {
-    return { minLat: 0, maxLat: 0, minLng: 0, maxLng: 0 };
+    return null;
   }
 
   let minLat = validCoords[0].latitude;
@@ -173,6 +173,16 @@ export function getBoundsCenter(bounds: [[number, number], [number, number]]): [
 export function getRegion(coordinates: LatLng[], padding = 0.1) {
   const bounds = getBounds(coordinates);
 
+  // Return default region for empty/invalid coordinates
+  if (!bounds) {
+    return {
+      latitude: 0,
+      longitude: 0,
+      latitudeDelta: 0.01,
+      longitudeDelta: 0.01,
+    };
+  }
+
   const latDelta = (bounds.maxLat - bounds.minLat) * (1 + padding);
   const lngDelta = (bounds.maxLng - bounds.minLng) * (1 + padding);
 
@@ -194,11 +204,11 @@ export function getBoundsFromPolyline(
   const coords = decodePolyline(encoded);
   if (coords.length === 0) return null;
 
-  const { minLat, maxLat, minLng, maxLng } = getBounds(coords);
-  if (minLat === 0 && maxLat === 0 && minLng === 0 && maxLng === 0) return null;
+  const bounds = getBounds(coords);
+  if (!bounds) return null;
 
   return [
-    [minLat, minLng],
-    [maxLat, maxLng],
+    [bounds.minLat, bounds.minLng],
+    [bounds.maxLat, bounds.maxLng],
   ];
 }
