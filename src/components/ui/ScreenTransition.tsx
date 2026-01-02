@@ -79,11 +79,7 @@ const springInAnimation = (delay: number = 0, duration: number = 400) => {
   };
 };
 
-function getEnteringAnimation(
-  preset: AnimationPreset,
-  delay: number,
-  duration: number
-) {
+function getEnteringAnimation(preset: AnimationPreset, delay: number, duration: number) {
   switch (preset) {
     case 'fadeIn':
       return FadeIn.delay(delay).duration(duration);

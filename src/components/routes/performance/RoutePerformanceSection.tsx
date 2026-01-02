@@ -10,7 +10,13 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router, type Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useRoutePerformances } from '@/hooks';
-import { formatSpeed, formatPace, isRunningActivity, getActivityColor, formatShortDate as formatShortDateLib } from '@/lib';
+import {
+  formatSpeed,
+  formatPace,
+  isRunningActivity,
+  getActivityColor,
+  formatShortDate as formatShortDateLib,
+} from '@/lib';
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
 import type { ActivityType } from '@/types';
 import type { RoutePerformancePoint } from '@/hooks/routes/useRoutePerformances';
@@ -155,11 +161,7 @@ export function RoutePerformanceSection({
             </Text>
           </View>
         </View>
-        <MaterialCommunityIcons
-          name="chevron-right"
-          size={20}
-          color={isDark ? '#555' : '#CCC'}
-        />
+        <MaterialCommunityIcons name="chevron-right" size={20} color={isDark ? '#555' : '#CCC'} />
       </TouchableOpacity>
 
       {/* Selected activity info - OUTSIDE gesture area so it's tappable */}
@@ -194,10 +196,7 @@ export function RoutePerformanceSection({
                   {formatShortDate(tooltipData.date)}
                 </Text>
                 <View
-                  style={[
-                    styles.selectedMatchBadge,
-                    { backgroundColor: colors.success + '20' },
-                  ]}
+                  style={[styles.selectedMatchBadge, { backgroundColor: colors.success + '20' }]}
                 >
                   <Text style={[styles.selectedMatchText, { color: colors.success }]}>
                     {Math.round(tooltipData.matchPercentage)}%

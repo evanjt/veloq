@@ -8,8 +8,8 @@ function getIntlLocale(): string {
 
   // Map custom locale codes to valid Intl codes
   const localeMap: Record<string, string> = {
-    'de-CHZ': 'de-CH',  // Zürich dialect → Swiss German formatting
-    'de-CHB': 'de-CH',  // Bernese dialect → Swiss German formatting
+    'de-CHZ': 'de-CH', // Zürich dialect → Swiss German formatting
+    'de-CHB': 'de-CH', // Bernese dialect → Swiss German formatting
     'zh-Hans': 'zh-CN', // Simplified Chinese
   };
 
@@ -184,7 +184,12 @@ export function formatFullDate(date: Date | string): string {
 export function formatFullDateWithWeekday(date: Date | string): string {
   const d = typeof date === 'string' ? new Date(date) : date;
   const locale = getIntlLocale();
-  return d.toLocaleDateString(locale, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+  return d.toLocaleDateString(locale, {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
 }
 
 export function formatTSS(load: number): string {

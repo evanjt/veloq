@@ -17,6 +17,7 @@ import { useUnifiedSections } from '@/hooks/routes/useUnifiedSections';
 import { SectionRow, ActivityTrace } from './SectionRow';
 import { PotentialSectionCard } from './PotentialSectionCard';
 import { useCustomSections } from '@/hooks/routes/useCustomSections';
+import { useSectionDismissals } from '@/providers/SectionDismissalsStore';
 import { debug } from '@/lib';
 import type { UnifiedSection, FrequentSection } from '@/types';
 
@@ -128,11 +129,15 @@ export function SectionsList({ sportType }: SectionsListProps) {
     [createSection]
   );
 
-  // Handle dismissing a potential section (TODO: persist dismissal)
-  const handleDismissPotential = useCallback((section: UnifiedSection) => {
-    log.log('Dismissing potential section:', section.id);
-    // TODO: Store dismissal in AsyncStorage to hide this suggestion
-  }, []);
+  // Handle dismissing a potential section
+  const dismiss = useSectionDismissals((s) => s.dismiss);
+  const handleDismissPotential = useCallback(
+    async (section: UnifiedSection) => {
+      log.log('Dismissing potential section:', section.id);
+      await dismiss(section.id);
+    },
+    [dismiss]
+  );
 
   const renderEmpty = () => {
     if (!isReady) {

@@ -165,7 +165,9 @@ function RouteRowComponent({ route, navigable = false }: RouteRowProps) {
   // Display name uses custom name if set, otherwise auto-generated name
   // Ensure it's always a valid string to avoid React Native text rendering errors
   const displayName =
-    customName || route.name || (t('routes.defaultRouteName' as never, { type: route.type }) as string);
+    customName ||
+    route.name ||
+    (t('routes.defaultRouteName' as never, { type: route.type }) as string);
 
   // Get activity color for the route type
   // RouteGroup.type is ActivityType, DiscoveredRouteInfo.type is string
