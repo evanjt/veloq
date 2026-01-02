@@ -135,6 +135,31 @@ fi
 echo "  ✓ route_matcher.swift"
 echo "  ✓ route_matcherFFI.h"
 
+# Generate TypeScript bindings
+echo ""
+echo "🔧 Generating TypeScript bindings..."
+TS_OUTPUT_DIR="../modules/route-matcher-native/src/generated"
+mkdir -p "$TS_OUTPUT_DIR"
+
+if cargo run --release --features ffi --bin uniffi-bindgen generate \
+    --library target/aarch64-apple-ios/release/libroute_matcher.a \
+    --language typescript \
+    --out-dir "$TS_OUTPUT_DIR" 2>/dev/null; then
+    echo "TypeScript bindings generated successfully ✓"
+elif command -v uniffi-bindgen &> /dev/null; then
+    echo "Falling back to system uniffi-bindgen..."
+    if uniffi-bindgen generate \
+        --library target/aarch64-apple-ios/release/libroute_matcher.a \
+        --language typescript \
+        --out-dir "$TS_OUTPUT_DIR" 2>/dev/null; then
+        echo "TypeScript bindings generated successfully ✓"
+    else
+        echo "⚠️  TypeScript bindings generation skipped (may need uniffi 0.30+)"
+    fi
+else
+    echo "⚠️  TypeScript bindings generation skipped (may need uniffi 0.30+)"
+fi
+
 # Create XCFramework (requires macOS with Xcode)
 echo ""
 echo "Creating XCFramework..."
