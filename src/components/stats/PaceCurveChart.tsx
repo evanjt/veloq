@@ -118,7 +118,10 @@ export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceC
   const [persistedTooltip, setPersistedTooltip] = useState<ChartPoint | null>(null);
   const [isActive, setIsActive] = useState(false);
   // Track actual chart bounds from Victory Native for accurate axis label positioning
-  const [actualChartBounds, setActualChartBounds] = useState({ left: 0, right: 0 });
+  const [actualChartBounds, setActualChartBounds] = useState({
+    left: 0,
+    right: 0,
+  });
 
   // Shared values for gesture tracking
   const touchX = useSharedValue(-1);
@@ -396,7 +399,10 @@ export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceC
             <Switch
               value={showGap}
               onValueChange={setShowGap}
-              trackColor={{ false: isDark ? '#444' : '#DDD', true: colors.primary }}
+              trackColor={{
+                false: isDark ? '#444' : '#DDD',
+                true: colors.primary,
+              }}
               thumbColor={
                 showGap ? colors.textOnDark : isDark ? darkColors.textSecondary : colors.textOnDark
               }
@@ -461,14 +467,20 @@ export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceC
                 chartBounds.left !== chartBoundsShared.value.left ||
                 chartBounds.right !== chartBoundsShared.value.right
               ) {
-                chartBoundsShared.value = { left: chartBounds.left, right: chartBounds.right };
+                chartBoundsShared.value = {
+                  left: chartBounds.left,
+                  right: chartBounds.right,
+                };
                 // Also sync to React state for x-axis labels (defer to avoid setState during render)
                 if (
                   chartBounds.left !== actualChartBounds.left ||
                   chartBounds.right !== actualChartBounds.right
                 ) {
                   queueMicrotask(() => {
-                    setActualChartBounds({ left: chartBounds.left, right: chartBounds.right });
+                    setActualChartBounds({
+                      left: chartBounds.left,
+                      right: chartBounds.right,
+                    });
                   });
                 }
               }

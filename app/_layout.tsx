@@ -1,22 +1,45 @@
-import { useEffect, useState } from 'react';
-import { Stack, useSegments, useRouter, Href } from 'expo-router';
-import { PaperProvider } from 'react-native-paper';
-import { StatusBar } from 'expo-status-bar';
-import { useColorScheme, View, ActivityIndicator, Platform } from 'react-native';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { Logger } from '@maplibre/maplibre-react-native';
-import { configureReanimatedLogger, ReanimatedLogLevel } from 'react-native-reanimated';
+import { useEffect, useState } from "react";
+import { Stack, useSegments, useRouter, Href } from "expo-router";
+import { PaperProvider } from "react-native-paper";
+import { StatusBar } from "expo-status-bar";
+import {
+  useColorScheme,
+  View,
+  ActivityIndicator,
+  Platform,
+} from "react-native";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { Logger } from "@maplibre/maplibre-react-native";
+import {
+  configureReanimatedLogger,
+  ReanimatedLogLevel,
+} from "react-native-reanimated";
 // Use legacy API for SDK 54 compatibility (new API uses File/Directory classes)
-import * as FileSystem from 'expo-file-system/legacy';
-import { QueryProvider, MapPreferencesProvider, NetworkProvider, initializeTheme, useAuthStore, initializeSportPreference, initializeHRZones, initializeRouteSettings, initializeLanguage } from '@/providers';
-import { initializeI18n } from '@/i18n';
-import { lightTheme, darkTheme, colors, darkColors } from '@/theme';
-import { CacheLoadingBanner, DemoBanner, GlobalDataSync, OfflineBanner } from '@/components/ui';
+import * as FileSystem from "expo-file-system/legacy";
+import {
+  QueryProvider,
+  MapPreferencesProvider,
+  NetworkProvider,
+  initializeTheme,
+  useAuthStore,
+  initializeSportPreference,
+  initializeHRZones,
+  initializeRouteSettings,
+  initializeLanguage,
+} from "@/providers";
+import { initializeI18n } from "@/i18n";
+import { lightTheme, darkTheme, colors, darkColors } from "@/theme";
+import {
+  CacheLoadingBanner,
+  DemoBanner,
+  GlobalDataSync,
+  OfflineBanner,
+} from "@/components/ui";
 
 // Lazy load native module to avoid bundler errors
 function getRouteEngine() {
   try {
-    return require('route-matcher-native').routeEngine;
+    return require("route-matcher-native").routeEngine;
   } catch {
     return null;
   }
@@ -28,13 +51,13 @@ const getRouteDbPath = () => {
   const docDir = FileSystem.documentDirectory;
   if (!docDir) return null;
   // Strip file:// prefix if present for SQLite compatibility
-  const plainPath = docDir.startsWith('file://') ? docDir.slice(7) : docDir;
+  const plainPath = docDir.startsWith("file://") ? docDir.slice(7) : docDir;
   return `${plainPath}routes.db`;
 };
 
 // Suppress MapLibre info/warning logs about canceled requests
 // These occur when switching between map views but don't affect functionality
-Logger.setLogLevel('error');
+Logger.setLogLevel("error");
 
 // Suppress Reanimated strict mode warnings from Victory Native charts
 // These occur because Victory uses shared values during render (known library behavior)
@@ -53,14 +76,20 @@ function AuthGate({ children }: { children: React.ReactNode }) {
       if (engine) {
         const dbPath = getRouteDbPath();
         if (!dbPath) {
-          console.error('[RouteEngine] Cannot initialize - document directory not available');
+          console.error(
+            "[RouteEngine] Cannot initialize - document directory not available",
+          );
           return;
         }
         const success = engine.initWithPath(dbPath);
         if (success) {
-          console.log(`[RouteEngine] Initialized with persistent storage: ${engine.getActivityCount()} cached activities`);
+          console.log(
+            `[RouteEngine] Initialized with persistent storage: ${engine.getActivityCount()} cached activities`,
+          );
         } else {
-          console.error(`[RouteEngine] Persistent init failed for path: ${dbPath}`);
+          console.error(
+            `[RouteEngine] Persistent init failed for path: ${dbPath}`,
+          );
         }
       }
     }
@@ -69,20 +98,27 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (isLoading) return;
 
-    const inLoginScreen = routeParts.includes('login' as never);
+    const inLoginScreen = routeParts.includes("login" as never);
 
     if (!isAuthenticated && !inLoginScreen) {
       // Not authenticated and not on login screen - redirect to login
-      router.replace('/login' as Href);
+      router.replace("/login" as Href);
     } else if (isAuthenticated && inLoginScreen) {
       // Authenticated but on login screen - redirect to main app
-      router.replace('/' as Href);
+      router.replace("/" as Href);
     }
   }, [isAuthenticated, isLoading, routeParts, router]);
 
   if (isLoading) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: darkColors.background }}>
+      <View
+        style={{
+          flex: 1,
+          justifyContent: "center",
+          alignItems: "center",
+          backgroundColor: darkColors.background,
+        }}
+      >
         <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
@@ -97,7 +133,7 @@ const SCREENSHOT_MODE = __DEV__ && false;
 export default function RootLayout() {
   const [appReady, setAppReady] = useState(false);
   const colorScheme = useColorScheme();
-  const theme = colorScheme === 'dark' ? darkTheme : lightTheme;
+  const theme = colorScheme === "dark" ? darkTheme : lightTheme;
   const initializeAuth = useAuthStore((state) => state.initialize);
 
   // Initialize theme, auth, sport preference, HR zones, route settings, and i18n on app start
@@ -122,7 +158,14 @@ export default function RootLayout() {
   // Show minimal loading while initializing
   if (!appReady) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: darkColors.background }}>
+      <View
+        style={{
+          flex: 1,
+          justifyContent: "center",
+          alignItems: "center",
+          backgroundColor: darkColors.background,
+        }}
+      >
         <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
@@ -135,8 +178,8 @@ export default function RootLayout() {
           <MapPreferencesProvider>
             <PaperProvider theme={theme}>
               <StatusBar
-                style={colorScheme === 'dark' ? 'light' : 'dark'}
-                translucent={Platform.OS === 'ios'}
+                style={colorScheme === "dark" ? "light" : "dark"}
+                translucent={Platform.OS === "ios"}
                 hidden={SCREENSHOT_MODE}
                 animated
               />
@@ -150,13 +193,15 @@ export default function RootLayout() {
                     headerShown: false,
                     // iOS: Use default animation for native feel with gesture support
                     // Android: Slide from right for Material Design
-                    animation: Platform.OS === 'ios' ? 'default' : 'slide_from_right',
+                    animation:
+                      Platform.OS === "ios" ? "default" : "slide_from_right",
                     // Enable swipe-back gesture on both platforms
                     gestureEnabled: true,
-                    gestureDirection: 'horizontal',
+                    gestureDirection: "horizontal",
                     // iOS: Blur effect for any translucent headers
-                    headerBlurEffect: Platform.OS === 'ios' ? 'prominent' : undefined,
-                    headerTransparent: Platform.OS === 'ios',
+                    headerBlurEffect:
+                      Platform.OS === "ios" ? "prominent" : undefined,
+                    headerTransparent: Platform.OS === "ios",
                   }}
                 />
               </AuthGate>

@@ -1,19 +1,32 @@
-import React, { useMemo, useState, useCallback } from 'react';
-import { View, ScrollView, StyleSheet, useColorScheme, TouchableOpacity, RefreshControl } from 'react-native';
-import { Text, IconButton, ActivityIndicator } from 'react-native-paper';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { router, Href } from 'expo-router';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useTranslation } from 'react-i18next';
-import { WeeklySummary, ActivityHeatmap, SeasonComparison, EventPlanner, WorkoutLibrary } from '@/components/stats';
-import { useActivities, useRouteGroups, useRouteProcessing } from '@/hooks';
-import { useRouteSettings } from '@/providers';
-import { colors, spacing, layout } from '@/theme';
+import React, { useMemo, useState, useCallback } from "react";
+import {
+  View,
+  ScrollView,
+  StyleSheet,
+  useColorScheme,
+  TouchableOpacity,
+  RefreshControl,
+} from "react-native";
+import { Text, IconButton, ActivityIndicator } from "react-native-paper";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { router, Href } from "expo-router";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { useTranslation } from "react-i18next";
+import {
+  WeeklySummary,
+  ActivityHeatmap,
+  SeasonComparison,
+  EventPlanner,
+  WorkoutLibrary,
+} from "@/components/stats";
+import { useActivities, useRouteGroups, useRouteProcessing } from "@/hooks";
+import { useRouteSettings } from "@/providers";
+import { colors, spacing, layout } from "@/theme";
 
 export default function TrainingScreen() {
   const { t } = useTranslation();
   const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const isDark = colorScheme === "dark";
 
   // Check if route matching is enabled
   const { settings: routeSettings } = useRouteSettings();
@@ -24,7 +37,12 @@ export default function TrainingScreen() {
 
   // Fetch activities for the past 2 years (for all comparisons including year-over-year)
   const currentYear = new Date().getFullYear();
-  const { data: activities, isLoading, isFetching, refetch } = useActivities({
+  const {
+    data: activities,
+    isLoading,
+    isFetching,
+    refetch,
+  } = useActivities({
     oldest: `${currentYear - 1}-01-01`,
     newest: `${currentYear}-12-31`,
     includeStats: true,
@@ -38,12 +56,16 @@ export default function TrainingScreen() {
   }, [refetch]);
 
   // Get route groups count and processing status
-  const { groups: routeGroups, processedCount } = useRouteGroups({ minActivities: 2 });
-  const { progress: routeProgress, isProcessing: isRouteProcessing } = useRouteProcessing();
+  const { groups: routeGroups, processedCount } = useRouteGroups({
+    minActivities: 2,
+  });
+  const { progress: routeProgress, isProcessing: isRouteProcessing } =
+    useRouteProcessing();
 
   // Split activities by year for season comparison
   const { currentYearActivities, previousYearActivities } = useMemo(() => {
-    if (!activities) return { currentYearActivities: [], previousYearActivities: [] };
+    if (!activities)
+      return { currentYearActivities: [], previousYearActivities: [] };
 
     const current: typeof activities = [];
     const previous: typeof activities = [];
@@ -65,12 +87,14 @@ export default function TrainingScreen() {
       <View style={styles.header}>
         <IconButton
           icon="arrow-left"
-          iconColor={isDark ? '#FFFFFF' : colors.textPrimary}
+          iconColor={isDark ? "#FFFFFF" : colors.textPrimary}
           onPress={() => router.back()}
         />
-        <Text style={[styles.headerTitle, isDark && styles.textLight]}>{t('trainingScreen.title')}</Text>
+        <Text style={[styles.headerTitle, isDark && styles.textLight]}>
+          {t("trainingScreen.title")}
+        </Text>
         {/* Subtle loading indicator in header when fetching in background */}
-        <View style={{ width: 48, alignItems: 'center' }}>
+        <View style={{ width: 48, alignItems: "center" }}>
           {isFetching && !isRefreshing && (
             <ActivityIndicator size="small" color={colors.primary} />
           )}
@@ -104,7 +128,7 @@ export default function TrainingScreen() {
         {/* Routes Section */}
         <TouchableOpacity
           style={[styles.card, isDark && styles.cardDark]}
-          onPress={() => router.push('/routes' as Href)}
+          onPress={() => router.push("/routes" as Href)}
           activeOpacity={0.7}
         >
           <View style={styles.routesSectionRow}>
@@ -116,17 +140,30 @@ export default function TrainingScreen() {
               />
             </View>
             <View style={styles.routesSectionInfo}>
-              <Text style={[styles.routesSectionTitle, isDark && styles.textLight]}>
-                {t('trainingScreen.routes')}
+              <Text
+                style={[styles.routesSectionTitle, isDark && styles.textLight]}
+              >
+                {t("trainingScreen.routes")}
               </Text>
-              <Text style={[styles.routesSectionSubtitle, isDark && styles.textMuted]}>
+              <Text
+                style={[
+                  styles.routesSectionSubtitle,
+                  isDark && styles.textMuted,
+                ]}
+              >
                 {!isRouteMatchingEnabled
-                  ? t('trainingScreen.disabledInSettings')
+                  ? t("trainingScreen.disabledInSettings")
                   : isRouteProcessing
-                    ? t('trainingScreen.fetchingGps', { current: routeProgress.current, total: routeProgress.total })
+                    ? t("trainingScreen.fetchingGps", {
+                        current: routeProgress.current,
+                        total: routeProgress.total,
+                      })
                     : routeGroups.length > 0
-                      ? t('trainingScreen.routesFromActivities', { routes: routeGroups.length, activities: processedCount })
-                      : t('trainingScreen.discoverRoutes')}
+                      ? t("trainingScreen.routesFromActivities", {
+                          routes: routeGroups.length,
+                          activities: processedCount,
+                        })
+                      : t("trainingScreen.discoverRoutes")}
               </Text>
             </View>
             {isRouteProcessing ? (
@@ -137,7 +174,7 @@ export default function TrainingScreen() {
               <MaterialCommunityIcons
                 name="chevron-right"
                 size={22}
-                color={isDark ? '#666' : colors.textSecondary}
+                color={isDark ? "#666" : colors.textSecondary}
               />
             )}
           </View>
@@ -147,7 +184,9 @@ export default function TrainingScreen() {
               <View
                 style={[
                   styles.routesProgressFill,
-                  { width: `${(routeProgress.current / routeProgress.total) * 100}%` },
+                  {
+                    width: `${(routeProgress.current / routeProgress.total) * 100}%`,
+                  },
                 ]}
               />
             </View>
@@ -200,20 +239,20 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   containerDark: {
-    backgroundColor: '#121212',
+    backgroundColor: "#121212",
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
   headerTitle: {
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.textPrimary,
   },
   textLight: {
-    color: '#FFFFFF',
+    color: "#FFFFFF",
   },
   scrollView: {
     flex: 1,
@@ -229,35 +268,35 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   cardDark: {
-    backgroundColor: '#1E1E1E',
+    backgroundColor: "#1E1E1E",
   },
   loadingContainer: {
     padding: spacing.xl,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   routesSectionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: spacing.md,
   },
   routesIcon: {
     width: 44,
     height: 44,
     borderRadius: 12,
-    backgroundColor: colors.primary + '15',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: colors.primary + "15",
+    justifyContent: "center",
+    alignItems: "center",
   },
   routesIconDark: {
-    backgroundColor: colors.primary + '25',
+    backgroundColor: colors.primary + "25",
   },
   routesSectionInfo: {
     flex: 1,
   },
   routesSectionTitle: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.textPrimary,
   },
   routesSectionSubtitle: {
@@ -266,23 +305,23 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   textMuted: {
-    color: '#888',
+    color: "#888",
   },
   routesProgressContainer: {
     width: 24,
     height: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   routesProgressBar: {
     height: 3,
-    backgroundColor: 'rgba(0, 0, 0, 0.08)',
+    backgroundColor: "rgba(0, 0, 0, 0.08)",
     borderRadius: 1.5,
     marginTop: spacing.md,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   routesProgressFill: {
-    height: '100%',
+    height: "100%",
     backgroundColor: colors.primary,
     borderRadius: 1.5,
   },

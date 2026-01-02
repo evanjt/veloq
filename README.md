@@ -83,15 +83,15 @@ npm test
 
 ### Architecture
 
-| Layer | Technology |
-|-------|------------|
-| UI Framework | React Native + Expo SDK 54 |
-| Server State | TanStack Query with AsyncStorage persistence |
-| Local State | Zustand |
-| Charts | Victory Native + Skia |
-| Maps | MapLibre GL |
-| Route Matching | Custom Rust module with UniFFI bindings |
-| UI Components | React Native Paper |
+| Layer          | Technology                                   |
+| -------------- | -------------------------------------------- |
+| UI Framework   | React Native + Expo SDK 54                   |
+| Server State   | TanStack Query with AsyncStorage persistence |
+| Local State    | Zustand                                      |
+| Charts         | Victory Native + Skia                        |
+| Maps           | MapLibre GL                                  |
+| Route Matching | Custom Rust module with UniFFI bindings      |
+| UI Components  | React Native Paper                           |
 
 ---
 

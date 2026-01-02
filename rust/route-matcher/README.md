@@ -124,11 +124,11 @@ let custom = MatchConfig::new(
 
 ## Feature Flags
 
-| Feature | Description |
-|---------|-------------|
-| `parallel` | Enable parallel processing with rayon |
-| `ffi` | Enable FFI bindings for mobile (iOS/Android) via UniFFI |
-| `full` | Enable all features |
+| Feature    | Description                                             |
+| ---------- | ------------------------------------------------------- |
+| `parallel` | Enable parallel processing with rayon                   |
+| `ffi`      | Enable FFI bindings for mobile (iOS/Android) via UniFFI |
+| `full`     | Enable all features                                     |
 
 ## Examples
 

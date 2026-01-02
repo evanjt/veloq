@@ -137,7 +137,11 @@ export function getAvailableLanguages(): LanguageGroup[] {
     {
       groupLabel: null,
       languages: [
-        { value: null, label: 'System', description: 'Auto-detect from device' },
+        {
+          value: null,
+          label: 'System',
+          description: 'Auto-detect from device',
+        },
         { value: 'da', label: 'Dansk' },
         {
           value: 'de',

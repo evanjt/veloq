@@ -84,7 +84,12 @@ export function BaseMapView({
   routeCoordinates,
   routeColor = colors.primary,
   bounds,
-  padding = { paddingTop: 80, paddingRight: 40, paddingBottom: 40, paddingLeft: 40 },
+  padding = {
+    paddingTop: 80,
+    paddingRight: 40,
+    paddingBottom: 40,
+    paddingLeft: 40,
+  },
   initialStyle,
   showStyleToggle = true,
   show3DToggle = true,

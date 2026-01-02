@@ -447,7 +447,12 @@ function generateWellness(): ApiWellness[] {
       ctlLoad: Math.round(dailyTss),
       atlLoad: Math.round(dailyTss),
       sportInfo: [
-        { type: 'Ride', eftp: 250 + Math.round((ctl - 40) * 1.5), wPrime: 15000, pMax: 800 },
+        {
+          type: 'Ride',
+          eftp: 250 + Math.round((ctl - 40) * 1.5),
+          wPrime: 15000,
+          pMax: 800,
+        },
         { type: 'Run', eftp: 300, wPrime: 20000, pMax: 600 },
       ],
       weight: Math.round((baseWeight + Math.sin(daysAgo * 0.1) * 1.5) * 10) / 10,

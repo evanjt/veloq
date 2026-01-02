@@ -45,7 +45,10 @@ export function SingularPlot({
   const pointXCoordsShared = useSharedValue<number[]>([]);
 
   // React state for tooltip
-  const [tooltipData, setTooltipData] = useState<{ x: number; y: number } | null>(null);
+  const [tooltipData, setTooltipData] = useState<{
+    x: number;
+    y: number;
+  } | null>(null);
   const [isActive, setIsActive] = useState(false);
 
   const onPointSelectRef = useRef(onPointSelect);
@@ -235,7 +238,10 @@ export function SingularPlot({
                 chartBounds.left !== chartBoundsShared.value.left ||
                 chartBounds.right !== chartBoundsShared.value.right
               ) {
-                chartBoundsShared.value = { left: chartBounds.left, right: chartBounds.right };
+                chartBoundsShared.value = {
+                  left: chartBounds.left,
+                  right: chartBounds.right,
+                };
               }
               // Sync actual point x-coordinates for accurate crosshair positioning
               const newCoords = points.y.map((p) => p.x);

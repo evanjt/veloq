@@ -110,7 +110,9 @@ export function DecouplingChart({ power, heartrate, height = 150 }: DecouplingCh
         <View
           style={[
             styles.statusBadge,
-            { backgroundColor: analysis.isGood ? colors.success : colors.warning },
+            {
+              backgroundColor: analysis.isGood ? colors.success : colors.warning,
+            },
           ]}
         >
           <Text style={styles.statusText}>

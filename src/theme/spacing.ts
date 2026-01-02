@@ -17,10 +17,10 @@ export const spacing = {
 } as const;
 
 export const layout = {
-  screenPadding: 16,
-  cardPadding: 16,
-  cardMargin: 12,
-  borderRadius: 12,
-  borderRadiusSm: 8,
-  minTapTarget: 44,
+  screenPadding: spacing.md, // 16 - Aligns to 8px grid
+  cardPadding: spacing.md, // 16 - Aligns to 8px grid
+  cardMargin: spacing.sm, // 8 - Aligns to 8px grid (was 12)
+  borderRadius: spacing.md, // 16 - Aligns to 8px grid (was 12)
+  borderRadiusSm: spacing.sm, // 8 - Aligns to 8px grid
+  minTapTarget: 44, // Accessibility requirement (not on grid)
 } as const;

@@ -75,7 +75,10 @@ export function SectionCreationOverlay({
       return t('maps.startPercent' as never, { percent: startPercent });
     }
     const endPercent = ((endIndex / coordinateCount) * 100).toFixed(0);
-    return t('maps.rangePercent' as never, { start: startPercent, end: endPercent });
+    return t('maps.rangePercent' as never, {
+      start: startPercent,
+      end: endPercent,
+    });
   };
 
   return (

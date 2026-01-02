@@ -48,7 +48,8 @@ export function HeatmapCellPopup({
             {cell.uniqueRouteCount > 0
               ? `${cell.uniqueRouteCount} route${cell.uniqueRouteCount > 1 ? 's' : ''} • `
               : ''}
-            {cell.activityIds.length} activit{cell.activityIds.length === 1 ? 'y' : 'ies'}
+            {cell.activityIds.length} activit
+            {cell.activityIds.length === 1 ? 'y' : 'ies'}
           </Text>
         </View>
         <TouchableOpacity onPress={onClose} style={styles.closeButton}>
@@ -88,7 +89,8 @@ export function HeatmapCellPopup({
           ))}
           {sortedRoutes.length > 3 && (
             <Text style={[styles.moreRoutes, isDark && styles.textMuted]}>
-              +{sortedRoutes.length - 3} more route{sortedRoutes.length - 3 > 1 ? 's' : ''}
+              +{sortedRoutes.length - 3} more route
+              {sortedRoutes.length - 3 > 1 ? 's' : ''}
             </Text>
           )}
         </View>
@@ -101,7 +103,8 @@ export function HeatmapCellPopup({
           onPress={() => onActivitiesPress(cell.activityIds)}
         >
           <Text style={styles.activitiesButtonText}>
-            See all {cell.activityIds.length} activit{cell.activityIds.length === 1 ? 'y' : 'ies'}
+            See all {cell.activityIds.length} activit
+            {cell.activityIds.length === 1 ? 'y' : 'ies'}
           </Text>
           <MaterialCommunityIcons name="chevron-right" size={18} color={colors.primary} />
         </TouchableOpacity>

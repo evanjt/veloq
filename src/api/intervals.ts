@@ -229,10 +229,11 @@ export const intervalsApi = {
     const curvesParam = params?.days ? `${params.days}d` : '1y';
 
     // Response format: { list: [{ secs: [], values: [], ... }], activities: {} }
-    const response = await apiClient.get<{ list: Array<{ secs: number[]; values: number[] }> }>(
-      `/athlete/${athleteId}/power-curves.json`,
-      { params: { type: sportType, curves: curvesParam } }
-    );
+    const response = await apiClient.get<{
+      list: Array<{ secs: number[]; values: number[] }>;
+    }>(`/athlete/${athleteId}/power-curves.json`, {
+      params: { type: sportType, curves: curvesParam },
+    });
 
     // Extract first curve from list and convert to our format
     const curve = response.data?.list?.[0];
@@ -283,7 +284,13 @@ export const intervalsApi = {
 
     const response = await apiClient.get<PaceCurveResponse>(
       `/athlete/${athleteId}/pace-curves.json`,
-      { params: { type: sportType, curves: curvesParam, gap: useGap || undefined } }
+      {
+        params: {
+          type: sportType,
+          curves: curvesParam,
+          gap: useGap || undefined,
+        },
+      }
     );
 
     const curve = response.data?.list?.[0];

@@ -31,7 +31,10 @@ export function useFrequentSections(
 ): UseFrequentSectionsResult {
   const { sportType, minVisits = 3, sortBy = 'visits' } = options;
 
-  const { sections: rawSections, totalCount } = useEngineSections({ sportType, minVisits: 1 });
+  const { sections: rawSections, totalCount } = useEngineSections({
+    sportType,
+    minVisits: 1,
+  });
   const isReady = true;
 
   const sections = useMemo(() => {

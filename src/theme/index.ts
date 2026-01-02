@@ -15,6 +15,7 @@ export {
 export { spacing, layout } from './spacing';
 export { typography } from './typography';
 export { shadows, createShadow, cardShadow, smallElementShadow } from './shadows';
+export { iconSizes, iconSizesByContext } from './icons';
 
 export const lightTheme = {
   ...MD3LightTheme,

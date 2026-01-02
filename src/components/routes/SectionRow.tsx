@@ -256,7 +256,9 @@ export const SectionRow = memo(function SectionRow({
         {section.routeIds.length > 0 && (
           <Text style={[styles.routes, isDark && styles.textMuted]} numberOfLines={1}>
             {section.routeIds.length > 1
-              ? t('routes.partOfRoutesPlural', { count: section.routeIds.length })
+              ? t('routes.partOfRoutesPlural', {
+                  count: section.routeIds.length,
+                })
               : t('routes.partOfRoutes', { count: section.routeIds.length })}
           </Text>
         )}

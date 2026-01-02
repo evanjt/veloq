@@ -110,7 +110,9 @@ export function CollapsibleSection({
               <Text
                 style={[
                   styles.subtitle,
-                  { color: isDark ? darkColors.textSecondary : colors.textSecondary },
+                  {
+                    color: isDark ? darkColors.textSecondary : colors.textSecondary,
+                  },
                 ]}
               >
                 {subtitle}

@@ -87,7 +87,11 @@ export function SwimPaceCurveChart({ days = 365, height = 200 }: SwimPaceCurveCh
   // Process curve data - use distances directly from API
   const { chartData, cssPace, yDomain } = useMemo(() => {
     if (!curve?.distances || !curve?.times || curve.distances.length === 0) {
-      return { chartData: [], cssPace: null, yDomain: [90, 180] as [number, number] };
+      return {
+        chartData: [],
+        cssPace: null,
+        yDomain: [90, 180] as [number, number],
+      };
     }
 
     const points: ChartPoint[] = [];
@@ -101,13 +105,24 @@ export function SwimPaceCurveChart({ days = 365, height = 200 }: SwimPaceCurveCh
 
         // Filter reasonable swim paces (50s to 4min per 100m) and reasonable distances
         if (paceSecsPer100m >= 50 && paceSecsPer100m <= 240 && distance >= 25) {
-          points.push({ x: 0, y: 0, distance, paceSecsPer100m, paceMs: speed, time });
+          points.push({
+            x: 0,
+            y: 0,
+            distance,
+            paceSecsPer100m,
+            paceMs: speed,
+            time,
+          });
         }
       }
     }
 
     if (points.length === 0) {
-      return { chartData: [], cssPace: null, yDomain: [90, 180] as [number, number] };
+      return {
+        chartData: [],
+        cssPace: null,
+        yDomain: [90, 180] as [number, number],
+      };
     }
 
     points.sort((a, b) => a.distance - b.distance);
@@ -293,7 +308,10 @@ export function SwimPaceCurveChart({ days = 365, height = 200 }: SwimPaceCurveCh
                 chartBounds.left !== chartBoundsShared.value.left ||
                 chartBounds.right !== chartBoundsShared.value.right
               ) {
-                chartBoundsShared.value = { left: chartBounds.left, right: chartBounds.right };
+                chartBoundsShared.value = {
+                  left: chartBounds.left,
+                  right: chartBounds.right,
+                };
               }
               const newCoords = points.y.filter((p) => p.x != null).map((p) => p.x as number);
               if (newCoords.length !== pointXCoordsShared.value.length) {

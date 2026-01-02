@@ -4,15 +4,15 @@ on:
   push:
     branches: [main]
     tags:
-      - '[0-9]+.[0-9]+.[0-9]+'
+      - "[0-9]+.[0-9]+.[0-9]+"
   pull_request:
     branches: [main]
   workflow_dispatch:
     inputs:
       build_type:
-        description: 'Build type override'
+        description: "Build type override"
         required: false
-        default: 'auto'
+        default: "auto"
         type: choice
         options:
           - auto
@@ -30,8 +30,8 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: "20"
+          cache: "npm"
 
       - name: Install dependencies
         run: npm ci
@@ -112,14 +112,14 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: "20"
+          cache: "npm"
 
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
-          distribution: 'temurin'
-          java-version: '17'
+          distribution: "temurin"
+          java-version: "17"
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
@@ -254,7 +254,7 @@ jobs:
         if: needs.version.outputs.is_release == 'true'
         working-directory: android
         env:
-          ORG_GRADLE_PROJECT_reactNativeArchitectures: 'arm64-v8a,armeabi-v7a,x86_64,x86'
+          ORG_GRADLE_PROJECT_reactNativeArchitectures: "arm64-v8a,armeabi-v7a,x86_64,x86"
         run: ./gradlew bundleRelease --no-daemon --parallel
 
       - name: Rename AAB
@@ -284,8 +284,8 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: "20"
+          cache: "npm"
 
       # ============================================
       # Rust Setup and Build

@@ -248,11 +248,21 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
           hrvDataRaw.push({ x: idx, value: d.hrv, date: d.id, rawValue: d.hrv });
         }
         if (d.restingHR != null) {
-          rhrDataRaw.push({ x: idx, value: d.restingHR, date: d.id, rawValue: d.restingHR });
+          rhrDataRaw.push({
+            x: idx,
+            value: d.restingHR,
+            date: d.id,
+            rawValue: d.restingHR,
+          });
         }
         if (d.sleepSecs != null) {
           const hours = d.sleepSecs / 3600;
-          sleepDataRaw.push({ x: idx, value: hours, date: d.id, rawValue: hours });
+          sleepDataRaw.push({
+            x: idx,
+            value: hours,
+            date: d.id,
+            rawValue: hours,
+          });
         }
         if (d.sleepScore != null) {
           sleepScoreDataRaw.push({
@@ -263,7 +273,12 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
           });
         }
         if (d.weight != null) {
-          weightDataRaw.push({ x: idx, value: d.weight, date: d.id, rawValue: d.weight });
+          weightDataRaw.push({
+            x: idx,
+            value: d.weight,
+            date: d.id,
+            rawValue: d.weight,
+          });
         }
       });
 

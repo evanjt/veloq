@@ -43,7 +43,13 @@ export function FTPTrendChart({ data, currentFTP, height = 180 }: FTPTrendChartP
 
   const { minFTP, maxFTP, latestFTP, ftpChange, changePercent } = useMemo(() => {
     if (chartData.length === 0) {
-      return { minFTP: 200, maxFTP: 300, latestFTP: 0, ftpChange: 0, changePercent: 0 };
+      return {
+        minFTP: 200,
+        maxFTP: 300,
+        latestFTP: 0,
+        ftpChange: 0,
+        changePercent: 0,
+      };
     }
 
     const values = chartData.map((d) => d.y);

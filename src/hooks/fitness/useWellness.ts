@@ -49,7 +49,10 @@ export function useWellnessForDate(date: string | undefined) {
     queryFn: async () => {
       if (!date) return null;
       // Fetch just this one day
-      const data = await intervalsApi.getWellness({ oldest: date, newest: date });
+      const data = await intervalsApi.getWellness({
+        oldest: date,
+        newest: date,
+      });
       return data?.[0] || null;
     },
     enabled: !!date,

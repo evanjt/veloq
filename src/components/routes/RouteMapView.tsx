@@ -150,7 +150,10 @@ export function RouteMapView({
       };
     }
 
-    return { fadedTracesGeoJSON: faded, highlightedTraceGeoJSON: highlightedGeo };
+    return {
+      fadedTracesGeoJSON: faded,
+      highlightedTraceGeoJSON: highlightedGeo,
+    };
   }, [activityTracesWithIds, highlightedActivityId, highlightedLapPoints]);
 
   // Create GeoJSON for the consensus/main route
@@ -229,7 +232,12 @@ export function RouteMapView({
     >
       <Camera
         bounds={bounds}
-        padding={{ paddingTop: 40, paddingRight: 40, paddingBottom: 40, paddingLeft: 40 }}
+        padding={{
+          paddingTop: 40,
+          paddingRight: 40,
+          paddingBottom: 40,
+          paddingLeft: 40,
+        }}
         animationDuration={0}
       />
 

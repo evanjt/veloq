@@ -446,7 +446,10 @@ interface UseConsensusRouteResult {
  * ```
  */
 export function useConsensusRoute(groupId: string | null): UseConsensusRouteResult {
-  const [points, setPoints] = useState<Array<{ lat: number; lng: number }> | null>(null);
+  const [points, setPoints] = useState<Array<{
+    lat: number;
+    lng: number;
+  }> | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {

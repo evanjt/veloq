@@ -261,7 +261,12 @@ describe('Translation Completeness', () => {
     console.log(`Reference: ${REFERENCE_LOCALE} (${referenceKeys.length} keys)`);
     console.log('-'.repeat(60));
 
-    const summary: { locale: string; complete: number; missing: number; percent: string }[] = [];
+    const summary: {
+      locale: string;
+      complete: number;
+      missing: number;
+      percent: string;
+    }[] = [];
 
     availableLocales.forEach((locale) => {
       if (locale === REFERENCE_LOCALE) return;
@@ -319,7 +324,10 @@ describe('Translation Key Usage', () => {
 
   test('All translation keys used in source code should be defined in locale files', async () => {
     const keyUsages = await extractAllTranslationKeys();
-    const undefinedKeys: { key: string; usages: { file: string; line: number }[] }[] = [];
+    const undefinedKeys: {
+      key: string;
+      usages: { file: string; line: number }[];
+    }[] = [];
 
     for (const [key, usages] of keyUsages) {
       if (!referenceKeys.has(key)) {

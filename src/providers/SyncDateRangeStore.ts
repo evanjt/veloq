@@ -66,7 +66,11 @@ export const useSyncDateRange = create<SyncDateRangeState>((set, get) => ({
   },
 
   reset: () => {
-    set({ ...getDefaultRange(), isFetchingExtended: false, hasExpanded: false });
+    set({
+      ...getDefaultRange(),
+      isFetchingExtended: false,
+      hasExpanded: false,
+    });
   },
 
   setFetchingExtended: (fetching: boolean) => {

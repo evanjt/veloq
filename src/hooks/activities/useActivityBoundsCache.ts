@@ -27,7 +27,10 @@ interface CacheStats {
 
 interface UseActivityBoundsCacheOptions {
   /** Activities with dates for computing date range */
-  activitiesWithDates?: Array<{ start_date?: string; start_date_local?: string }>;
+  activitiesWithDates?: Array<{
+    start_date?: string;
+    start_date_local?: string;
+  }>;
 }
 
 interface UseActivityBoundsCacheReturn {
@@ -202,7 +205,9 @@ export function useActivityBoundsCache(
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const allGpsActivities = useMemo<Activity[]>(() => {
     // getQueriesData returns array of [queryKey, data] tuples for all matching queries
-    const queries = queryClient.getQueriesData<Activity[]>({ queryKey: ['activities'] });
+    const queries = queryClient.getQueriesData<Activity[]>({
+      queryKey: ['activities'],
+    });
 
     // Merge all activities from all matching queries (there's usually just one)
     const allActivities: Activity[] = [];
