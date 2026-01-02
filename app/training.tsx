@@ -123,13 +123,7 @@ export default function TrainingScreen() {
                 {!isRouteMatchingEnabled
                   ? t('trainingScreen.disabledInSettings')
                   : isRouteProcessing
-                    ? routeProgress.status === 'filtering'
-                      ? routeProgress.candidatesFound !== undefined
-                        ? t('trainingScreen.potentialMatches', { count: routeProgress.candidatesFound })
-                        : t('trainingScreen.checkingActivities', { count: routeProgress.total })
-                      : routeProgress.status === 'matching'
-                        ? t('trainingScreen.groupingRoutes')
-                        : t('trainingScreen.fetchingGps', { current: routeProgress.current, total: routeProgress.total })
+                    ? t('trainingScreen.fetchingGps', { current: routeProgress.current, total: routeProgress.total })
                     : routeGroups.length > 0
                       ? t('trainingScreen.routesFromActivities', { routes: routeGroups.length, activities: processedCount })
                       : t('trainingScreen.discoverRoutes')}

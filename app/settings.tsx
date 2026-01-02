@@ -17,7 +17,8 @@ import { SegmentedButtons, Switch } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useAthlete, useActivityBoundsCache, useRouteProcessing, useRouteGroups, useActivities } from '@/hooks';
+import { useAthlete, useActivityBoundsCache, useRouteProcessing, useRouteGroups, useActivities, useOldestActivityDate } from '@/hooks';
+import { CacheTimeline } from '@/components/settings';
 import { getAthleteId } from '@/api';
 import { estimateBoundsCacheSize, estimateGpsStorageSize, formatFullDate } from '@/lib';
 import {
@@ -144,6 +145,9 @@ export default function SettingsScreen() {
 
   // Fetch activities to get date range for cache stats
   const { data: allActivities } = useActivities({ days: 365 * 10, includeStats: false });
+
+  // Get oldest activity date from API (for timeline extent)
+  const { data: apiOldestDate } = useOldestActivityDate();
 
   const {
     progress,
@@ -736,6 +740,18 @@ export default function SettingsScreen() {
 
         {/* Cache Stats */}
         <View style={[styles.section, styles.sectionSpaced, isDark && styles.sectionDark]}>
+          {/* Timeline visualization */}
+          <CacheTimeline
+            oldestDate={cacheStats.oldestDate}
+            newestDate={cacheStats.newestDate}
+            apiOldestDate={apiOldestDate}
+            activityCount={cacheStats.totalActivities}
+            isSyncing={progress.status === 'syncing'}
+            syncProgress={progress.total > 0 ? (progress.completed / progress.total) * 100 : undefined}
+            onExpand={handleSyncAll}
+            isDark={isDark}
+          />
+
           <View style={styles.statRow}>
             <View style={styles.statItem}>
               <Text style={[styles.statValue, isDark && styles.textLight]}>
@@ -757,15 +773,6 @@ export default function SettingsScreen() {
               </Text>
               <Text style={[styles.statLabel, isDark && styles.textMuted]}>{t('settings.total')}</Text>
             </View>
-          </View>
-
-          <View style={[styles.infoRow, isDark && styles.infoRowDark]}>
-            <Text style={[styles.infoLabel, isDark && styles.textMuted]}>{t('settings.dateRange')}</Text>
-            <Text style={[styles.infoValue, isDark && styles.textLight]}>
-              {cacheStats.oldestDate && cacheStats.newestDate
-                ? `${formatDate(cacheStats.oldestDate)} - ${formatDate(cacheStats.newestDate)}`
-                : t('settings.noData')}
-            </Text>
           </View>
 
           <View style={[styles.infoRow, isDark && styles.infoRowDark]}>

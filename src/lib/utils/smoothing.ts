@@ -6,6 +6,7 @@ export type SmoothingWindow = 'auto' | 'none' | 3 | 7 | 14 | 21 | 28;
 export const DEFAULT_SMOOTHING_WINDOWS: Record<TimeRange, number> = {
   '7d': 0, // No smoothing for 1 week - daily data is meaningful
   '1m': 3, // 3-day average reduces weekday/weekend variance
+  '42d': 5, // 5-day average for 42-day range (similar to 1m)
   '3m': 7, // Weekly average aligns with training weeks
   '6m': 14, // 2-week window for medium-term trends
   '1y': 21, // ~3 weeks captures monthly-ish patterns

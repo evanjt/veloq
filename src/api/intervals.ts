@@ -341,7 +341,13 @@ export const intervalsApi = {
    * @param boundsOnly - If true, only returns bounds (faster, smaller response)
    */
   async getActivityMap(id: string, boundsOnly = false): Promise<ActivityMapData> {
-    if (isDemoMode()) return mockIntervalsApi.getActivityMap(id, boundsOnly);
+    if (isDemoMode()) {
+      const result = mockIntervalsApi.getActivityMap(id, boundsOnly);
+      if (!result) {
+        return { bounds: null, latlngs: null, route: null, weather: null };
+      }
+      return result;
+    }
     const response = await apiClient.get<ActivityMapData>(`/activity/${id}/map`, {
       params: boundsOnly ? { boundsOnly: true } : undefined,
     });

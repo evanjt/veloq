@@ -161,7 +161,7 @@ export default function RoutesScreen() {
       return {
         completed: 0,
         total: 0,
-        message: t('mapScreen.loadingActivities'),
+        message: t('mapScreen.loadingActivities') as string,
         phase: 1,
       };
     }
@@ -171,9 +171,9 @@ export default function RoutesScreen() {
       return {
         completed: syncProgress.completed,
         total: syncProgress.total,
-        message: syncProgress.total > 0
+        message: (syncProgress.total > 0
           ? `${t('routesScreen.downloadingGps')} (${syncProgress.completed}/${syncProgress.total})`
-          : t('routesScreen.downloadingGps'),
+          : t('routesScreen.downloadingGps')) as string,
         phase: 2,
       };
     }
@@ -183,7 +183,7 @@ export default function RoutesScreen() {
       return {
         completed: dataSyncProgress.completed,
         total: dataSyncProgress.total,
-        message: `${t('routesScreen.downloadingGps')} (${dataSyncProgress.completed}/${dataSyncProgress.total})`,
+        message: `${t('routesScreen.downloadingGps')} (${dataSyncProgress.completed}/${dataSyncProgress.total})` as string,
         phase: 2,
       };
     }
@@ -193,7 +193,7 @@ export default function RoutesScreen() {
       return {
         completed: 0,
         total: 0,
-        message: t('routesScreen.analyzingRoutes'),
+        message: t('routesScreen.computingRoutes') as string,
         phase: 3,
       };
     }

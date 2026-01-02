@@ -95,7 +95,7 @@ export function useActivityStats({
         color: loadColor,
         comparison: loadComparison,
         context: `IF ${Math.round(intensity)}%`,
-        explanation: t(METRIC_EXPLANATION_KEYS['Training Load']),
+        explanation: t(METRIC_EXPLANATION_KEYS['Training Load'] as never),
         details: [
           {
             label: t('activity.stats.intensityFactor'),
@@ -147,7 +147,7 @@ export function useActivityStats({
         color: hrPercent > 90 ? colors.error : hrPercent > 80 ? '#F59E0B' : '#EC4899', // Amber + Pink
         comparison: hrComparison,
         context: t('activity.stats.percentOfMaxHR', { percent: hrPercent }),
-        explanation: t(METRIC_EXPLANATION_KEYS['Heart Rate']),
+        explanation: t(METRIC_EXPLANATION_KEYS['Heart Rate'] as never),
         details: [
           { label: t('activity.stats.average'), value: `${Math.round(avgHRValue)} bpm` },
           maxHRValue
@@ -179,7 +179,7 @@ export function useActivityStats({
         icon: 'fire',
         color: '#FBBF24', // Amber-400
         context: `${calPerHour} kcal/hr`,
-        explanation: t(METRIC_EXPLANATION_KEYS['Energy']),
+        explanation: t(METRIC_EXPLANATION_KEYS['Energy'] as never),
         details: [
           {
             label: t('activity.stats.caloriesBurned'),
@@ -224,7 +224,7 @@ export function useActivityStats({
         icon: activity.has_weather ? 'weather-partly-cloudy' : 'thermometer',
         color: isHot ? '#F59E0B' : isCold ? colors.secondary : colors.success, // Amber for hot
         context: contextStr,
-        explanation: t(METRIC_EXPLANATION_KEYS['Conditions']),
+        explanation: t(METRIC_EXPLANATION_KEYS['Conditions'] as never),
         details: [
           { label: t('activity.stats.temperature'), value: `${Math.round(temp)}°C` },
           activity.average_feels_like != null
@@ -254,7 +254,7 @@ export function useActivityStats({
         icon: 'account-heart',
         color: formColor,
         context: t('activity.stats.dailyValue'),
-        explanation: t(METRIC_EXPLANATION_KEYS['Your Form']),
+        explanation: t(METRIC_EXPLANATION_KEYS['Your Form'] as never),
         details: [
           { label: t('activity.stats.formTSB'), value: `${tsb > 0 ? '+' : ''}${Math.round(tsb)}` },
           { label: t('activity.stats.fitnessCTL'), value: `${Math.round(wellness.ctl)}` },
@@ -283,7 +283,7 @@ export function useActivityStats({
           : activity.max_watts
             ? t('activity.stats.max', { value: Math.round(activity.max_watts) }) + 'W'
             : undefined,
-        explanation: t(METRIC_EXPLANATION_KEYS['Power']),
+        explanation: t(METRIC_EXPLANATION_KEYS['Power'] as never),
         details: [
           { label: t('activity.stats.average'), value: `${Math.round(avgPower)}W` },
           activity.max_watts

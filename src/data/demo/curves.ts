@@ -2,6 +2,8 @@ import type { PowerCurve, PaceCurve } from '@/types';
 
 // Realistic power curve for a ~250W FTP rider
 export const demoPowerCurve: PowerCurve = {
+  type: 'power',
+  sport: 'Ride',
   secs: [
     1, 2, 5, 10, 15, 20, 30, 45, 60, 90, 120, 180, 300, 360, 480, 600, 900, 1200, 1800, 2400, 3600,
     5400, 7200,
