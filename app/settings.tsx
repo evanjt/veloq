@@ -19,7 +19,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAthlete, useActivityBoundsCache, useRouteProcessing, useRouteGroups, useActivities } from '@/hooks';
 import { getAthleteId } from '@/api';
-import { estimateBoundsCacheSize, estimateGpsStorageSize } from '@/lib';
+import { estimateBoundsCacheSize, estimateGpsStorageSize, formatFullDate } from '@/lib';
 import {
   getThemePreference,
   setThemePreference,
@@ -57,12 +57,7 @@ const MAP_ACTIVITY_GROUPS: { key: string; labelKey: FilterLabelKey; types: Activ
 
 function formatDate(dateStr: string | null): string {
   if (!dateStr) return '-';
-  const date = new Date(dateStr);
-  return date.toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  });
+  return formatFullDate(dateStr);
 }
 
 function formatBytes(bytes: number): string {
@@ -78,6 +73,7 @@ export default function SettingsScreen() {
   const [profileImageError, setProfileImageError] = useState(false);
   const [themePreference, setThemePreferenceState] = useState<ThemePreference>('system');
   const [showActivityStyles, setShowActivityStyles] = useState(false);
+  const [showLanguages, setShowLanguages] = useState(false);
 
   const { data: athlete } = useAthlete();
   const { preferences: mapPreferences, setDefaultStyle, setActivityGroupStyle } = useMapPreferences();
@@ -88,6 +84,25 @@ export default function SettingsScreen() {
   const { primarySport, setPrimarySport } = useSportPreference();
   const { language, setLanguage } = useLanguageStore();
   const availableLanguages = getAvailableLanguages();
+
+  // Get the display label for the current language selection
+  const currentLanguageLabel = useMemo(() => {
+    const allLanguages = availableLanguages.flatMap(g => g.languages);
+
+    // Check if it's a variant
+    for (const lang of allLanguages) {
+      if (lang.variants) {
+        const variant = lang.variants.find(v => v.value === language);
+        if (variant) {
+          return `${lang.label} (${variant.label})`;
+        }
+      }
+      if (lang.value === language || (language === null && lang.value === null)) {
+        return lang.label;
+      }
+    }
+    return 'System';
+  }, [language, availableLanguages]);
 
   // Load saved theme preference on mount
   useEffect(() => {
@@ -380,81 +395,103 @@ export default function SettingsScreen() {
         {/* Language Section */}
         <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>{t('settings.language').toUpperCase()}</Text>
         <View style={[styles.section, isDark && styles.sectionDark]}>
-          {availableLanguages.map((group, groupIndex) => (
-            <View key={group.groupLabel ?? 'system'}>
-              {/* Group Header */}
-              {group.groupLabel && (
-                <View style={[styles.languageGroupHeader, isDark && styles.languageGroupHeaderDark]}>
-                  <Text style={[styles.languageGroupLabel, isDark && styles.textMuted]}>
-                    {t(group.groupLabel)}
-                  </Text>
-                </View>
-              )}
-              {/* Languages in group */}
-              {group.languages.map((lang, langIndex) => {
-                const isSelected = language === lang.value || (language === null && lang.value === null);
-                const isLanguageVariant = lang.variants && lang.variants.some(v => v.value === language);
-                const showCheck = isSelected || isLanguageVariant;
-                const showBorder = groupIndex > 0 || langIndex > 0;
+          {/* Current language display with expand toggle */}
+          <TouchableOpacity
+            style={styles.actionRow}
+            onPress={() => setShowLanguages(!showLanguages)}
+          >
+            <MaterialCommunityIcons
+              name="translate"
+              size={22}
+              color={colors.primary}
+            />
+            <Text style={[styles.actionText, isDark && styles.textLight]}>
+              {currentLanguageLabel}
+            </Text>
+            <MaterialCommunityIcons
+              name={showLanguages ? 'chevron-up' : 'chevron-down'}
+              size={20}
+              color={isDark ? '#666' : colors.textSecondary}
+            />
+          </TouchableOpacity>
 
-                return (
-                  <TouchableOpacity
-                    key={lang.value ?? 'system'}
-                    style={[
-                      styles.languageRow,
-                      showBorder && styles.languageRowBorder,
-                      isDark && styles.languageRowDark,
-                    ]}
-                    onPress={() => handleLanguageChange(lang.value ?? 'system')}
-                  >
-                    <Text style={[styles.languageLabel, isDark && styles.textLight]}>
-                      {lang.label}
-                    </Text>
-                    {/* Show regional variant chips */}
-                    {lang.variants && (
-                      <View style={styles.variantChips}>
-                        {lang.variants.map((variant) => {
-                          const isVariantSelected = language === variant.value;
-                          return (
-                            <TouchableOpacity
-                              key={variant.value}
-                              style={[
-                                styles.variantChip,
-                                isVariantSelected && styles.variantChipSelected,
-                                isDark && styles.variantChipDark,
-                                isVariantSelected && isDark && styles.variantChipSelectedDark,
-                              ]}
-                              onPress={(e) => {
-                                e.stopPropagation();
-                                handleLanguageChange(variant.value);
-                              }}
-                            >
-                              <Text
-                                style={[
-                                  styles.variantChipText,
-                                  isVariantSelected && styles.variantChipTextSelected,
-                                  isDark && !isVariantSelected && styles.textMuted,
-                                ]}
-                              >
-                                {variant.label}
-                              </Text>
-                            </TouchableOpacity>
-                          );
-                        })}
-                      </View>
-                    )}
-                    {showCheck && !lang.variants && (
-                      <MaterialCommunityIcons
-                        name="check"
-                        size={20}
-                        color={colors.primary}
-                      />
-                    )}
-                  </TouchableOpacity>
-                );
-              })}
+          {/* Expanded language list */}
+          {showLanguages && (
+            <View style={styles.languageListContainer}>
+              {availableLanguages.map((group) => (
+                <View key={group.groupLabel ?? 'system'}>
+                  {/* Languages in group */}
+                  {group.languages.map((lang, langIndex) => {
+                    const isSelected = language === lang.value || (language === null && lang.value === null);
+                    const isLanguageVariant = lang.variants && lang.variants.some(v => v.value === language);
+                    const showCheck = isSelected || isLanguageVariant;
+
+                    return (
+                      <TouchableOpacity
+                        key={lang.value ?? 'system'}
+                        style={[
+                          styles.languageRow,
+                          langIndex > 0 && styles.languageRowBorder,
+                          isDark && styles.languageRowDark,
+                        ]}
+                        onPress={() => {
+                          handleLanguageChange(lang.value ?? 'system');
+                          if (!lang.variants) {
+                            setShowLanguages(false);
+                          }
+                        }}
+                      >
+                        <Text style={[styles.languageLabel, isDark && styles.textLight]}>
+                          {lang.label}
+                        </Text>
+                        {/* Show regional variant chips */}
+                        {lang.variants && (
+                          <View style={styles.variantChips}>
+                            {lang.variants.map((variant) => {
+                              const isVariantSelected = language === variant.value;
+                              return (
+                                <TouchableOpacity
+                                  key={variant.value}
+                                  style={[
+                                    styles.variantChip,
+                                    isVariantSelected && styles.variantChipSelected,
+                                    isDark && styles.variantChipDark,
+                                    isVariantSelected && isDark && styles.variantChipSelectedDark,
+                                  ]}
+                                  onPress={(e) => {
+                                    e.stopPropagation();
+                                    handleLanguageChange(variant.value);
+                                    setShowLanguages(false);
+                                  }}
+                                >
+                                  <Text
+                                    style={[
+                                      styles.variantChipText,
+                                      isVariantSelected && styles.variantChipTextSelected,
+                                      isDark && !isVariantSelected && styles.textMuted,
+                                    ]}
+                                  >
+                                    {variant.label}
+                                  </Text>
+                                </TouchableOpacity>
+                              );
+                            })}
+                          </View>
+                        )}
+                        {showCheck && !lang.variants && (
+                          <MaterialCommunityIcons
+                            name="check"
+                            size={20}
+                            color={colors.primary}
+                          />
+                        )}
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              ))}
             </View>
-          ))}
+          )}
         </View>
 
         {/* Primary Sport Section */}
@@ -1198,6 +1235,10 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
     fontStyle: 'italic',
   },
+  languageListContainer: {
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
   languageRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1211,24 +1252,6 @@ const styles = StyleSheet.create({
   },
   languageRowDark: {
     borderTopColor: '#333',
-  },
-  languageGroupHeader: {
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    backgroundColor: colors.background,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-  },
-  languageGroupHeaderDark: {
-    backgroundColor: '#1a1a1a',
-    borderTopColor: '#333',
-  },
-  languageGroupLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.textSecondary,
-    letterSpacing: 0.5,
-    textTransform: 'uppercase',
   },
   languageLabel: {
     fontSize: 16,

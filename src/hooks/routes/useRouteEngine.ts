@@ -10,7 +10,8 @@
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { InteractionManager } from 'react-native';
-import * as FileSystem from 'expo-file-system';
+// Use legacy API for SDK 54 compatibility (new API uses File/Directory classes)
+import * as FileSystem from 'expo-file-system/legacy';
 import { getRouteEngine } from '@/lib/native/routeEngine';
 import type { RouteGroup, FrequentSection, EngineStats } from 'route-matcher-native';
 

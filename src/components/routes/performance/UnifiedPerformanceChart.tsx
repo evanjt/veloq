@@ -35,6 +35,7 @@ import {
   formatDuration,
   isRunningActivity,
   getActivityColor,
+  formatShortDate as formatShortDateLib,
 } from '@/lib';
 import { colors, darkColors } from '@/theme';
 import type { ActivityType, RoutePoint, PerformanceDataPoint } from '@/types';
@@ -47,7 +48,7 @@ const MIN_POINT_WIDTH = 40;
 const REVERSE_COLOR = colors.reverseDirection;
 
 function formatShortDate(date: Date): string {
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  return formatShortDateLib(date);
 }
 
 export interface UnifiedPerformanceChartProps {

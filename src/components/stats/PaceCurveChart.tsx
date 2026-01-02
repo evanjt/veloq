@@ -18,6 +18,7 @@ import { typography } from '@/theme/typography';
 import { spacing, layout } from '@/theme/spacing';
 import { usePaceCurve } from '@/hooks';
 import { useActivities } from '@/hooks';
+import { formatFullDate } from '@/lib';
 
 interface PaceCurveChartProps {
   sport?: string;
@@ -67,14 +68,7 @@ function formatDistance(meters: number): string {
 // Format date range
 function formatDateRange(startDate?: string, endDate?: string): string {
   if (!startDate || !endDate) return '';
-  const start = new Date(startDate);
-  const end = new Date(endDate);
-  const formatOpts: Intl.DateTimeFormatOptions = {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  };
-  return `${start.toLocaleDateString('en-US', formatOpts)} - ${end.toLocaleDateString('en-US', formatOpts)}`;
+  return `${formatFullDate(startDate)} - ${formatFullDate(endDate)}`;
 }
 
 // Convert m/s to seconds per km

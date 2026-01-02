@@ -157,6 +157,7 @@ export function useCustomSections(options: UseCustomSectionsOptions = {}): UseCu
             direction: 'same',
             startIndex: params.startIndex,
             endIndex: params.endIndex,
+            distanceMeters: params.distanceMeters,
           });
         }
       }

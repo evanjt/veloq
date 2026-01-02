@@ -6,7 +6,8 @@ import { useColorScheme, View, ActivityIndicator, Platform } from 'react-native'
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Logger } from '@maplibre/maplibre-react-native';
 import { configureReanimatedLogger, ReanimatedLogLevel } from 'react-native-reanimated';
-import * as FileSystem from 'expo-file-system';
+// Use legacy API for SDK 54 compatibility (new API uses File/Directory classes)
+import * as FileSystem from 'expo-file-system/legacy';
 import { QueryProvider, MapPreferencesProvider, NetworkProvider, initializeTheme, useAuthStore, initializeSportPreference, initializeHRZones, initializeRouteSettings, initializeLanguage } from '@/providers';
 import { initializeI18n } from '@/i18n';
 import { lightTheme, darkTheme, colors, darkColors } from '@/theme';

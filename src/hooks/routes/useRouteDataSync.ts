@@ -251,6 +251,9 @@ export function useRouteDataSync(
 
           // Sync with custom sections (non-blocking)
           syncActivitiesWithCustomSections(ids).catch(() => {});
+
+          // Start section detection in the background (persistent mode only)
+          nativeModule.routeEngine.startSectionDetection();
         }
 
         if (isMountedRef.current) {
@@ -339,6 +342,10 @@ export function useRouteDataSync(
 
             // Sync with custom sections (non-blocking)
             syncActivitiesWithCustomSections(ids).catch(() => {});
+
+            // Start section detection in the background (persistent mode only)
+            // This detects frequent road sections across all synced activities
+            nativeModule.routeEngine.startSectionDetection();
           }
         }
 
