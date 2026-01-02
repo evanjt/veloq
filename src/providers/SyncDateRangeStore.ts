@@ -15,6 +15,8 @@ interface SyncDateRangeState {
   newest: string;
   /** Whether we're currently fetching extended data */
   isFetchingExtended: boolean;
+  /** Whether the range has expanded since last sync (triggers route re-optimization) */
+  hasExpanded: boolean;
 
   /** Update the sync date range - expands to include requested range */
   expandRange: (oldest: string, newest: string) => void;
@@ -22,6 +24,8 @@ interface SyncDateRangeState {
   reset: () => void;
   /** Set fetching state */
   setFetchingExtended: (fetching: boolean) => void;
+  /** Mark expansion as processed (call after route re-optimization) */
+  markExpansionProcessed: () => void;
 }
 
 function getDefaultRange() {
@@ -37,6 +41,7 @@ function getDefaultRange() {
 export const useSyncDateRange = create<SyncDateRangeState>((set, get) => ({
   ...getDefaultRange(),
   isFetchingExtended: false,
+  hasExpanded: false,
 
   expandRange: (requestedOldest: string, requestedNewest: string) => {
     const current = get();
@@ -47,15 +52,28 @@ export const useSyncDateRange = create<SyncDateRangeState>((set, get) => ({
 
     // Only update if range actually expanded
     if (newOldest !== current.oldest || newNewest !== current.newest) {
-      set({ oldest: newOldest, newest: newNewest, isFetchingExtended: true });
+      set({
+        oldest: newOldest,
+        newest: newNewest,
+        isFetchingExtended: true,
+        hasExpanded: true, // Mark that we've expanded (triggers route re-optimization)
+      });
+
+      console.log(
+        `[SyncDateRange] Expanded range: ${current.oldest} - ${current.newest} -> ${newOldest} - ${newNewest}`
+      );
     }
   },
 
   reset: () => {
-    set({ ...getDefaultRange(), isFetchingExtended: false });
+    set({ ...getDefaultRange(), isFetchingExtended: false, hasExpanded: false });
   },
 
   setFetchingExtended: (fetching: boolean) => {
     set({ isFetchingExtended: fetching });
+  },
+
+  markExpansionProcessed: () => {
+    set({ hasExpanded: false });
   },
 }));

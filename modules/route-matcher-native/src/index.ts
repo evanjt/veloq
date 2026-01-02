@@ -1207,6 +1207,57 @@ class RouteEngineClient {
   }
 
   /**
+   * Remove activities older than the specified retention period.
+   * This prevents unbounded database growth.
+   * Only works in persistent mode (when dbPath is set).
+   *
+   * @param retentionDays - Number of days to retain (0 = keep all, 30-365 for cleanup)
+   * @returns Number of activities deleted
+   */
+  cleanupOldActivities(retentionDays: number): number {
+    if (!this.dbPath) {
+      nativeLog('[Engine] Cleanup skipped: not in persistent mode');
+      return 0;
+    }
+
+    const deleted = NativeModule.persistentEngineCleanupOldActivities(retentionDays);
+
+    // Notify subscribers if activities were deleted
+    if (deleted > 0) {
+      this.notify('activities');
+      this.notify('groups');
+      this.notify('sections');
+    }
+
+    nativeLog(
+      `[Engine] Cleanup completed: ${deleted} activities removed (${retentionDays === 0 ? 'keep all' : `${retentionDays} days`})`
+    );
+    return deleted;
+  }
+
+  /**
+   * Mark the engine for route re-computation.
+   *
+   * Call this when historical activities are added (e.g., cache expansion)
+   * to trigger re-computation of route groups and sections with the new data.
+   * The next access to groups/sections will re-compute with improved quality.
+   *
+   * Only works in persistent mode (when dbPath is set).
+   */
+  markForRecomputation(): void {
+    if (!this.dbPath) {
+      nativeLog('[Engine] Re-computation skipped: not in persistent mode');
+      return;
+    }
+
+    NativeModule.persistentEngineMarkForRecomputation();
+
+    // Note: We don't notify subscribers here - the notification will happen
+    // when groups/sections are actually recomputed on next access
+    nativeLog('[Engine] Marked for re-computation');
+  }
+
+  /**
    * Add activities from flat coordinate buffers.
    * Runs asynchronously to avoid blocking the UI thread.
    * In persistent mode, data is stored in SQLite and survives app restarts.
