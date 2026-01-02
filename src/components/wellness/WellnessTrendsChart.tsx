@@ -7,7 +7,13 @@ import { Circle, Line as SkiaLine } from '@shopify/react-native-skia';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { useSharedValue, useAnimatedStyle, runOnJS } from 'react-native-reanimated';
 import { colors, darkColors, spacing, typography, opacity } from '@/theme';
-import { sortByDateId, smoothDataPoints, getEffectiveWindow, formatShortDateWithWeekday, type SmoothingWindow } from '@/lib';
+import {
+  sortByDateId,
+  smoothDataPoints,
+  getEffectiveWindow,
+  formatShortDateWithWeekday,
+  type SmoothingWindow,
+} from '@/lib';
 import type { WellnessData } from '@/types';
 import type { TimeRange } from '@/hooks';
 
@@ -119,7 +125,7 @@ function MetricSparkline({
         <View style={{ height }}>
           {/* Victory Native CartesianChart for programmatic rendering.
               Using JSX syntax with render prop pattern. */}
-{/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+          {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
           <CartesianChart
             data={data as unknown as Record<string, unknown>[]}
             xKey={'x' as never}
@@ -127,46 +133,50 @@ function MetricSparkline({
             domain={{ x: [0, totalDays - 1], y: [yMin, yMax] }}
             padding={{ left: 4, right: 4, top: 8, bottom: 8 }}
           >
-            {(({ points, chartBounds }: any) => (
-              <>
-                <Line
-                  points={points.value as Parameters<typeof Line>[0]['points']}
-                  color={color}
-                  strokeWidth={2}
-                  curveType="natural"
-                />
-                {selectedIdx !== null && selectedPoint && (
-                  <>
-                    {/* Vertical line at selected position */}
-                    <SkiaLine
-                      p1={{
-                        x:
-                          chartBounds.left +
-                          (selectedIdx / (totalDays - 1)) * (chartBounds.right - chartBounds.left),
-                        y: chartBounds.top,
-                      }}
-                      p2={{
-                        x:
-                          chartBounds.left +
-                          (selectedIdx / (totalDays - 1)) * (chartBounds.right - chartBounds.left),
-                        y: chartBounds.bottom,
-                      }}
-                      color={isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.2)'}
-                      strokeWidth={1}
-                    />
-                    {/* Dot at the data point */}
-                    {points.value[data.findIndex((d) => d.x === selectedIdx)] && (
-                      <Circle
-                        cx={points.value[data.findIndex((d) => d.x === selectedIdx)]?.x || 0}
-                        cy={points.value[data.findIndex((d) => d.x === selectedIdx)]?.y || 0}
-                        r={5}
-                        color={color}
+            {
+              (({ points, chartBounds }: any) => (
+                <>
+                  <Line
+                    points={points.value as Parameters<typeof Line>[0]['points']}
+                    color={color}
+                    strokeWidth={2}
+                    curveType="natural"
+                  />
+                  {selectedIdx !== null && selectedPoint && (
+                    <>
+                      {/* Vertical line at selected position */}
+                      <SkiaLine
+                        p1={{
+                          x:
+                            chartBounds.left +
+                            (selectedIdx / (totalDays - 1)) *
+                              (chartBounds.right - chartBounds.left),
+                          y: chartBounds.top,
+                        }}
+                        p2={{
+                          x:
+                            chartBounds.left +
+                            (selectedIdx / (totalDays - 1)) *
+                              (chartBounds.right - chartBounds.left),
+                          y: chartBounds.bottom,
+                        }}
+                        color={isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.2)'}
+                        strokeWidth={1}
                       />
-                    )}
-                  </>
-                )}
-              </>
-            )) as any}
+                      {/* Dot at the data point */}
+                      {points.value[data.findIndex((d) => d.x === selectedIdx)] && (
+                        <Circle
+                          cx={points.value[data.findIndex((d) => d.x === selectedIdx)]?.x || 0}
+                          cy={points.value[data.findIndex((d) => d.x === selectedIdx)]?.y || 0}
+                          r={5}
+                          color={color}
+                        />
+                      )}
+                    </>
+                  )}
+                </>
+              )) as any
+            }
           </CartesianChart>
         </View>
       </View>
@@ -245,7 +255,12 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
           sleepDataRaw.push({ x: idx, value: hours, date: d.id, rawValue: hours });
         }
         if (d.sleepScore != null) {
-          sleepScoreDataRaw.push({ x: idx, value: d.sleepScore, date: d.id, rawValue: d.sleepScore });
+          sleepScoreDataRaw.push({
+            x: idx,
+            value: d.sleepScore,
+            date: d.id,
+            rawValue: d.sleepScore,
+          });
         }
         if (d.weight != null) {
           weightDataRaw.push({ x: idx, value: d.weight, date: d.id, rawValue: d.weight });
@@ -347,9 +362,7 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
       {/* Date header - shows selected date or "Today" */}
       <View style={styles.dateHeader}>
         <Text style={[styles.dateText, isDark && styles.textLight]}>
-          {selectedDate
-            ? formatShortDateWithWeekday(selectedDate)
-            : t('time.today')}
+          {selectedDate ? formatShortDateWithWeekday(selectedDate) : t('time.today')}
         </Text>
         {selectedIdx !== null && (
           <Text style={[styles.dateHint, isDark && styles.textDark]}>

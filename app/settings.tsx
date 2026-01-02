@@ -6,7 +6,6 @@ import {
   ScrollView,
   TouchableOpacity,
   useColorScheme,
-  Image,
   Alert,
 } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
@@ -18,8 +17,7 @@ import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAthlete, useActivityBoundsCache, useRouteProcessing, useRouteGroups, useActivities, useOldestActivityDate } from '@/hooks';
-import { CacheTimeline } from '@/components/settings';
-import { getAthleteId } from '@/api';
+import { CacheTimeline, DisplaySettings, ProfileSection } from '@/components/settings';
 import { estimateBoundsCacheSize, estimateGpsStorageSize, formatFullDate } from '@/lib';
 import {
   getThemePreference,
@@ -29,7 +27,6 @@ import {
   useSportPreference,
   useRouteSettings,
   useLanguageStore,
-  getAvailableLanguages,
   type ThemePreference,
   type PrimarySport,
 } from '@/providers';
@@ -71,7 +68,6 @@ export default function SettingsScreen() {
   const { t } = useTranslation();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
-  const [profileImageError, setProfileImageError] = useState(false);
   const [themePreference, setThemePreferenceState] = useState<ThemePreference>('system');
   const [showActivityStyles, setShowActivityStyles] = useState(false);
   const [showLanguages, setShowLanguages] = useState(false);
@@ -84,26 +80,6 @@ export default function SettingsScreen() {
   const setHideDemoBanner = useAuthStore((state) => state.setHideDemoBanner);
   const { primarySport, setPrimarySport } = useSportPreference();
   const { language, setLanguage } = useLanguageStore();
-  const availableLanguages = getAvailableLanguages();
-
-  // Get the display label for the current language selection
-  const currentLanguageLabel = useMemo(() => {
-    const allLanguages = availableLanguages.flatMap(g => g.languages);
-
-    // Check if it's a variant
-    for (const lang of allLanguages) {
-      if (lang.variants) {
-        const variant = lang.variants.find(v => v.value === language);
-        if (variant) {
-          return `${lang.label} (${variant.label})`;
-        }
-      }
-      if (lang.value === language || (language === null && lang.value === null)) {
-        return lang.label;
-      }
-    }
-    return 'System';
-  }, [language, availableLanguages]);
 
   // Load saved theme preference on mount
   useEffect(() => {
@@ -328,208 +304,20 @@ export default function SettingsScreen() {
           <View style={styles.headerSpacer} />
         </View>
 
-        {/* Profile Section - tap to open intervals.icu profile */}
-        <TouchableOpacity
-          style={[styles.section, isDark && styles.sectionDark]}
-          onPress={() => WebBrowser.openBrowserAsync(`https://intervals.icu/athlete/${getAthleteId()}/activities`)}
-          activeOpacity={0.7}
-        >
-          <View style={styles.profileRow}>
-            <View style={[styles.profilePhoto, isDark && styles.profilePhotoDark]}>
-              {hasValidProfileUrl && !profileImageError ? (
-                <Image
-                  source={{ uri: profileUrl }}
-                  style={StyleSheet.absoluteFill}
-                  resizeMode="cover"
-                  onError={() => setProfileImageError(true)}
-                />
-              ) : (
-                <MaterialCommunityIcons
-                  name="account"
-                  size={32}
-                  color={isDark ? '#AAA' : '#666'}
-                />
-              )}
-            </View>
-            <View style={styles.profileInfo}>
-              <Text style={[styles.profileName, isDark && styles.textLight]}>
-                {athlete?.name || 'Athlete'}
-              </Text>
-              <Text style={[styles.profileEmail, isDark && styles.textMuted]}>
-                intervals.icu
-              </Text>
-            </View>
-            <MaterialCommunityIcons
-              name="chevron-right"
-              size={24}
-              color={isDark ? '#666' : colors.textSecondary}
-            />
-          </View>
-        </TouchableOpacity>
+        {/* Profile Section */}
+        <ProfileSection athlete={athlete} />
 
-        {/* Appearance Section */}
-        <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>{t('settings.appearance').toUpperCase()}</Text>
-        <View style={[styles.section, isDark && styles.sectionDark]}>
-          <View testID="settings-theme-toggle" style={styles.themePickerContainer}>
-            <SegmentedButtons
-              value={themePreference}
-              onValueChange={handleThemeChange}
-              buttons={[
-                {
-                  value: 'system',
-                  label: t('settings.system'),
-                  icon: 'cellphone',
-                },
-                {
-                  value: 'light',
-                  label: t('settings.light'),
-                  icon: 'white-balance-sunny',
-                },
-                {
-                  value: 'dark',
-                  label: t('settings.dark'),
-                  icon: 'moon-waning-crescent',
-                },
-              ]}
-              style={styles.themePicker}
-            />
-          </View>
-        </View>
-
-        {/* Language Section */}
-        <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>{t('settings.language').toUpperCase()}</Text>
-        <View style={[styles.section, isDark && styles.sectionDark]}>
-          {/* Current language display with expand toggle */}
-          <TouchableOpacity
-            style={styles.actionRow}
-            onPress={() => setShowLanguages(!showLanguages)}
-          >
-            <MaterialCommunityIcons
-              name="translate"
-              size={22}
-              color={colors.primary}
-            />
-            <Text style={[styles.actionText, isDark && styles.textLight]}>
-              {currentLanguageLabel}
-            </Text>
-            <MaterialCommunityIcons
-              name={showLanguages ? 'chevron-up' : 'chevron-down'}
-              size={20}
-              color={isDark ? '#666' : colors.textSecondary}
-            />
-          </TouchableOpacity>
-
-          {/* Expanded language list */}
-          {showLanguages && (
-            <View style={styles.languageListContainer}>
-              {availableLanguages.map((group) => (
-                <View key={group.groupLabel ?? 'system'}>
-                  {/* Languages in group */}
-                  {group.languages.map((lang, langIndex) => {
-                    const isSelected = language === lang.value || (language === null && lang.value === null);
-                    const isLanguageVariant = lang.variants && lang.variants.some(v => v.value === language);
-                    const showCheck = isSelected || isLanguageVariant;
-
-                    return (
-                      <TouchableOpacity
-                        key={lang.value ?? 'system'}
-                        style={[
-                          styles.languageRow,
-                          langIndex > 0 && styles.languageRowBorder,
-                          isDark && styles.languageRowDark,
-                        ]}
-                        onPress={() => {
-                          handleLanguageChange(lang.value ?? 'system');
-                          if (!lang.variants) {
-                            setShowLanguages(false);
-                          }
-                        }}
-                      >
-                        <Text style={[styles.languageLabel, isDark && styles.textLight]}>
-                          {lang.label}
-                        </Text>
-                        {/* Show regional variant chips */}
-                        {lang.variants && (
-                          <View style={styles.variantChips}>
-                            {lang.variants.map((variant) => {
-                              const isVariantSelected = language === variant.value;
-                              return (
-                                <TouchableOpacity
-                                  key={variant.value}
-                                  style={[
-                                    styles.variantChip,
-                                    isVariantSelected && styles.variantChipSelected,
-                                    isDark && styles.variantChipDark,
-                                    isVariantSelected && isDark && styles.variantChipSelectedDark,
-                                  ]}
-                                  onPress={(e) => {
-                                    e.stopPropagation();
-                                    handleLanguageChange(variant.value);
-                                    setShowLanguages(false);
-                                  }}
-                                >
-                                  <Text
-                                    style={[
-                                      styles.variantChipText,
-                                      isVariantSelected && styles.variantChipTextSelected,
-                                      isDark && !isVariantSelected && styles.textMuted,
-                                    ]}
-                                  >
-                                    {variant.label}
-                                  </Text>
-                                </TouchableOpacity>
-                              );
-                            })}
-                          </View>
-                        )}
-                        {showCheck && !lang.variants && (
-                          <MaterialCommunityIcons
-                            name="check"
-                            size={20}
-                            color={colors.primary}
-                          />
-                        )}
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-              ))}
-            </View>
-          )}
-        </View>
-
-        {/* Primary Sport Section */}
-        <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>{t('settings.primarySport').toUpperCase()}</Text>
-        <View style={[styles.section, isDark && styles.sectionDark]}>
-          <View style={styles.themePickerContainer}>
-            <SegmentedButtons
-              value={primarySport}
-              onValueChange={handleSportChange}
-              buttons={[
-                {
-                  value: 'Cycling',
-                  label: t('filters.cycling'),
-                  icon: 'bike',
-                },
-                {
-                  value: 'Running',
-                  label: t('filters.running'),
-                  icon: 'run',
-                },
-                {
-                  value: 'Swimming',
-                  label: t('filters.swimming'),
-                  icon: 'swim',
-                },
-              ]}
-              style={styles.themePicker}
-            />
-          </View>
-        </View>
-        <Text style={[styles.infoText, isDark && styles.textMuted]}>
-          {t('settings.primarySportHint')}
-        </Text>
-
+        {/* Display Settings (Appearance + Language + Primary Sport) */}
+        <DisplaySettings
+          themePreference={themePreference}
+          onThemeChange={handleThemeChange}
+          primarySport={primarySport}
+          onSportChange={handleSportChange}
+          language={language}
+          onLanguageChange={handleLanguageChange}
+          showLanguages={showLanguages}
+          setShowLanguages={setShowLanguages}
+        />
 
         {/* Maps Section */}
         <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>{t('settings.maps').toUpperCase()}</Text>

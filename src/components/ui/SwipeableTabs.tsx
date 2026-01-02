@@ -131,7 +131,16 @@ export function SwipeableTabs({
             runOnJS(updateTab)(tabs[targetTabIndex].key);
           }
         }),
-    [translateX, indicatorProgress, activeTabIndex, triggerHaptic, updateTab, tabs, tabCount, maxOffset]
+    [
+      translateX,
+      indicatorProgress,
+      activeTabIndex,
+      triggerHaptic,
+      updateTab,
+      tabs,
+      tabCount,
+      maxOffset,
+    ]
   );
 
   const contentStyle = useAnimatedStyle(() => ({
@@ -168,7 +177,9 @@ export function SwipeableTabs({
               <MaterialCommunityIcons
                 name={tab.icon}
                 size={18}
-                color={isActive ? colors.primary : isDark ? darkColors.textMuted : colors.textSecondary}
+                color={
+                  isActive ? colors.primary : isDark ? darkColors.textMuted : colors.textSecondary
+                }
               />
               <Text
                 style={[
@@ -180,7 +191,12 @@ export function SwipeableTabs({
                 {tab.label}
               </Text>
               {tab.count !== undefined && (
-                <View style={[styles.tabBadge, isActive ? styles.tabBadgeActive : isDark && styles.tabBadgeDark]}>
+                <View
+                  style={[
+                    styles.tabBadge,
+                    isActive ? styles.tabBadgeActive : isDark && styles.tabBadgeDark,
+                  ]}
+                >
                   <Text style={[styles.tabBadgeText, isActive && styles.tabBadgeTextActive]}>
                     {tab.count}
                   </Text>
@@ -196,7 +212,9 @@ export function SwipeableTabs({
 
       {/* Swipeable Content - N pages */}
       <GestureDetector gesture={panGesture}>
-        <Animated.View style={[styles.contentContainer, { width: SCREEN_WIDTH * tabCount }, contentStyle]}>
+        <Animated.View
+          style={[styles.contentContainer, { width: SCREEN_WIDTH * tabCount }, contentStyle]}
+        >
           {React.Children.map(children, (child, index) => (
             <View key={index} style={styles.page}>
               {child}

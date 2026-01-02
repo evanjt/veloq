@@ -116,7 +116,9 @@ export function SectionCreationOverlay({
             activeOpacity={0.8}
           >
             <MaterialCommunityIcons name="refresh" size={24} color={colors.textSecondary} />
-            <Text style={[styles.buttonText, styles.resetButtonText]}>{t('common.reset' as never)}</Text>
+            <Text style={[styles.buttonText, styles.resetButtonText]}>
+              {t('common.reset' as never)}
+            </Text>
           </TouchableOpacity>
         )}
 

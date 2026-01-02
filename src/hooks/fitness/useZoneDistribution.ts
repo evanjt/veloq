@@ -5,7 +5,7 @@ import {
   DEFAULT_HR_ZONES,
   POWER_ZONE_COLORS,
   HR_ZONE_COLORS,
-} from './useSportSettings';
+} from '../useSportSettings';
 import { type PrimarySport, SPORT_API_TYPES } from '@/providers';
 
 interface UseZoneDistributionOptions {

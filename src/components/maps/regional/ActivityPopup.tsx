@@ -41,9 +41,7 @@ export function ActivityPopup({
           <Text style={styles.popupTitle} numberOfLines={1}>
             {selected.activity.name}
           </Text>
-          <Text style={styles.popupDate}>
-            {formatFullDateWithWeekday(selected.activity.date)}
-          </Text>
+          <Text style={styles.popupDate}>{formatFullDateWithWeekday(selected.activity.date)}</Text>
         </View>
         <View style={styles.popupHeaderButtons}>
           <TouchableOpacity

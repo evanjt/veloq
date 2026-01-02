@@ -240,6 +240,75 @@ export interface SectionPerformanceResult {
   bestRecord: SectionPerformanceRecord | null;
 }
 
+// =============================================================================
+// Rust-Native Types (snake_case format from UniFFI)
+// These are raw types returned by the Rust module before conversion to camelCase
+// =============================================================================
+
+/**
+ * Raw section portion from Rust (snake_case).
+ */
+interface RustSectionPortion {
+  activity_id: string;
+  start_index: number;
+  end_index: number;
+  distance_meters: number;
+  direction: string;
+}
+
+/**
+ * Raw frequent section from Rust (snake_case).
+ */
+interface RustFrequentSection {
+  id: string;
+  sport_type: string;
+  polyline: GpsPoint[];
+  representative_activity_id: string;
+  activity_ids: string[];
+  activity_portions: RustSectionPortion[];
+  route_ids: string[];
+  visit_count: number;
+  distance_meters: number;
+  activity_traces: Record<string, GpsPoint[]>;
+  confidence: number | null;
+  observation_count: number | null;
+  average_spread: number | null;
+  point_density: number[] | undefined;
+}
+
+/**
+ * Raw potential section from Rust (snake_case).
+ */
+interface RustPotentialSection {
+  id: string;
+  sport_type: string;
+  polyline: GpsPoint[];
+  activity_ids: string[];
+  visit_count: number;
+  distance_meters: number;
+  confidence: number | null;
+  scale: string;
+}
+
+/**
+ * Raw detection stats from Rust (snake_case).
+ */
+interface RustDetectionStats {
+  activities_processed: number;
+  overlaps_found: number;
+  sections_by_scale: Record<string, number>;
+  potentials_by_scale: Record<string, number>;
+}
+
+/**
+ * Raw multi-scale section result from Rust (snake_case).
+ */
+interface RustMultiScaleSectionResult {
+  sections: RustFrequentSection[];
+  potentials: RustPotentialSection[];
+  stats: RustDetectionStats;
+}
+
 // Verify native module is available on load
 const config = NativeModule.getDefaultConfig();
 if (config === null) {
@@ -583,6 +652,17 @@ export function parseBounds(bounds: number[]): { ne: [number, number]; sw: [numb
  * Configuration for section detection.
  * Uses vector-first approach for smooth, natural section polylines.
  */
+export interface ScalePreset {
+  /** Scale name: "short", "medium", "long" */
+  name: string;
+  /** Minimum section length for this scale (meters) */
+  minLength: number;
+  /** Maximum section length for this scale (meters) */
+  maxLength: number;
+  /** Minimum activities required at this scale */
+  minActivities: number;
+}
+
 export interface SectionConfig {
   /** Maximum distance between tracks to consider overlapping (meters). Default: 30m */
   proximityThreshold: number;
@@ -594,6 +674,65 @@ export interface SectionConfig {
   clusterTolerance: number;
   /** Number of sample points for polyline normalization. Default: 50 */
   samplePoints: number;
+  /** Maximum section length (meters). Default: 5000m */
+  maxSectionLength?: number;
+  /** Detection mode: "discovery" (lower thresholds) or "conservative" */
+  detectionMode?: string;
+  /** Include potential sections with only 1-2 activities as suggestions */
+  includePotentials?: boolean;
+  /** Scale presets for multi-scale detection */
+  scalePresets?: ScalePreset[];
+  /** Preserve hierarchical sections (don't deduplicate short sections inside longer ones) */
+  preserveHierarchy?: boolean;
+}
+
+/**
+ * Statistics from multi-scale section detection.
+ */
+export interface DetectionStats {
+  /** Total activities processed */
+  activitiesProcessed: number;
+  /** Total overlaps found across all scales */
+  overlapsFound: number;
+  /** Sections detected per scale */
+  sectionsByScale: Record<string, number>;
+  /** Potential sections per scale */
+  potentialsByScale: Record<string, number>;
+}
+
+/**
+ * A potential section detected from 1-2 activities.
+ * These are suggestions that users can promote to full sections.
+ */
+export interface PotentialSection {
+  /** Unique section ID */
+  id: string;
+  /** Sport type ("Run", "Ride", etc.) */
+  sportType: string;
+  /** The polyline from the representative activity */
+  polyline: RoutePoint[];
+  /** Activity IDs that traverse this potential section (1-2) */
+  activityIds: string[];
+  /** Number of times traversed (1-2) */
+  visitCount: number;
+  /** Section length in meters */
+  distanceMeters: number;
+  /** Confidence score (0.0-1.0), lower than FrequentSection */
+  confidence: number;
+  /** Scale at which this was detected ("short", "medium", "long") */
+  scale: string;
+}
+
+/**
+ * Result of multi-scale section detection.
+ */
+export interface MultiScaleSectionResult {
+  /** Confirmed sections (min_activities met) */
+  sections: FrequentSection[];
+  /** Potential sections (1-2 activities, suggestions for user) */
+  potentials: PotentialSection[];
+  /** Statistics about detection */
+  stats: DetectionStats;
 }
 
 /**
@@ -685,7 +824,19 @@ export function getDefaultSectionConfig(): SectionConfig {
     minActivities: config.min_activities,
     clusterTolerance: config.cluster_tolerance,
     samplePoints: config.sample_points,
+    maxSectionLength: config.max_section_length,
+    detectionMode: config.detection_mode,
+    includePotentials: config.include_potentials,
+    scalePresets: config.scale_presets,
+    preserveHierarchy: config.preserve_hierarchy,
   };
+}
+
+/**
+ * Get default scale presets for multi-scale detection.
+ */
+export function getDefaultScalePresets(): ScalePreset[] {
+  return NativeModule.defaultScalePresets();
 }
 
 /**
@@ -778,6 +929,124 @@ export function detectSectionsFromTracks(
     // Per-point density for section splitting
     pointDensity: s.point_density as number[] | undefined,
   }));
+}
+
+/**
+ * Detect sections at multiple scales with potential section suggestions.
+ * This is the flagship entry point for section detection.
+ *
+ * Uses multi-scale detection to find sections at different lengths (short/medium/long).
+ * Returns both confirmed sections (meeting min_activities threshold) and
+ * potential sections (1-2 activities, suggestions for user to promote).
+ *
+ * @param tracks - Array of { activityId, points } with FULL GPS tracks
+ * @param sportTypes - Map of activity_id -> sport_type
+ * @param groups - Route groups (for linking sections to routes)
+ * @param config - Optional section detection configuration (uses multi-scale defaults if not provided)
+ * @returns MultiScaleSectionResult with confirmed sections, potential sections, and statistics
+ */
+export function detectSectionsMultiscale(
+  tracks: Array<{ activityId: string; points: GpsPoint[] }>,
+  sportTypes: ActivitySportType[],
+  groups: RouteGroup[],
+  config?: Partial<SectionConfig>
+): MultiScaleSectionResult {
+  const totalPoints = tracks.reduce((sum, t) => sum + t.points.length, 0);
+  nativeLog(`detectSectionsMultiscale: ${tracks.length} tracks, ${totalPoints} total points`);
+  const startTime = Date.now();
+
+  // Convert to native format (flat arrays for efficiency)
+  const activityIds: string[] = [];
+  const allCoords: number[] = [];
+  const offsets: number[] = [0];
+
+  for (const track of tracks) {
+    activityIds.push(track.activityId);
+    for (const point of track.points) {
+      allCoords.push(point.latitude, point.longitude);
+    }
+    offsets.push(allCoords.length / 2);
+  }
+
+  // Get default config and merge with overrides
+  const defaultConfig = getDefaultSectionConfig();
+  const fullConfig = { ...defaultConfig, ...config };
+
+  // Convert to native format
+  const nativeConfig = {
+    proximity_threshold: fullConfig.proximityThreshold,
+    min_section_length: fullConfig.minSectionLength,
+    min_activities: fullConfig.minActivities,
+    cluster_tolerance: fullConfig.clusterTolerance,
+    sample_points: fullConfig.samplePoints,
+    max_section_length: fullConfig.maxSectionLength ?? 5000.0,
+    detection_mode: fullConfig.detectionMode ?? 'discovery',
+    include_potentials: fullConfig.includePotentials ?? true,
+    scale_presets: fullConfig.scalePresets ?? getDefaultScalePresets(),
+    preserve_hierarchy: fullConfig.preserveHierarchy ?? true,
+  };
+
+  // Native returns RustMultiScaleSectionResult (snake_case)
+  const rustResult = NativeModule.detectSectionsMultiscale(
+    activityIds,
+    allCoords,
+    offsets,
+    sportTypes.map(st => ({
+      activity_id: st.activityId,
+      sport_type: st.sportType,
+    })),
+    groups,
+    nativeConfig
+  ) as RustMultiScaleSectionResult;
+
+  const elapsed = Date.now() - startTime;
+  nativeLog(`detectSectionsMultiscale: ${rustResult.sections.length} sections, ${rustResult.potentials.length} potentials in ${elapsed}ms`);
+
+  // Convert sections from snake_case to camelCase
+  const sections: FrequentSection[] = rustResult.sections.map((s) => ({
+    id: s.id,
+    sportType: s.sport_type,
+    polyline: (s.polyline || []).map(p => ({ lat: p.latitude, lng: p.longitude })),
+    representativeActivityId: s.representative_activity_id || '',
+    activityIds: s.activity_ids,
+    activityPortions: (s.activity_portions || []).map(p => ({
+      activityId: p.activity_id,
+      startIndex: p.start_index,
+      endIndex: p.end_index,
+      distanceMeters: p.distance_meters,
+      direction: p.direction,
+    })),
+    routeIds: s.route_ids,
+    visitCount: s.visit_count,
+    distanceMeters: s.distance_meters,
+    activityTraces: convertActivityTraces(s.activity_traces),
+    confidence: s.confidence ?? 0.0,
+    observationCount: s.observation_count ?? 0,
+    averageSpread: s.average_spread ?? 0.0,
+    pointDensity: s.point_density,
+  }));
+
+  // Convert potentials from snake_case to camelCase
+  const potentials: PotentialSection[] = rustResult.potentials.map((p) => ({
+    id: p.id,
+    sportType: p.sport_type,
+    polyline: (p.polyline || []).map(pt => ({ lat: pt.latitude, lng: pt.longitude })),
+    activityIds: p.activity_ids,
+    visitCount: p.visit_count,
+    distanceMeters: p.distance_meters,
+    confidence: p.confidence ?? 0.0,
+    scale: p.scale,
+  }));
+
+  // Convert stats from snake_case to camelCase
+  const stats: DetectionStats = {
+    activitiesProcessed: rustResult.stats.activities_processed,
+    overlapsFound: rustResult.stats.overlaps_found,
+    sectionsByScale: rustResult.stats.sections_by_scale,
+    potentialsByScale: rustResult.stats.potentials_by_scale,
+  };
+
+  return { sections, potentials, stats };
 }
 
 
@@ -1904,7 +2173,9 @@ export default {
   parseBounds,
   // Frequent sections detection
   detectSectionsFromTracks,
+  detectSectionsMultiscale,
   getDefaultSectionConfig,
+  getDefaultScalePresets,
   // Heatmap generation
   generateHeatmap,
   queryHeatmapCell,
