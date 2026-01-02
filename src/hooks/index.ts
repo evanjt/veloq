@@ -65,6 +65,8 @@ export {
   useConsensusRoute,
 } from './routes/useRouteEngine';
 export { useRouteDataSync } from './routes/useRouteDataSync';
+export { useRouteReoptimization } from './routes/useRouteReoptimization';
+export { useRetentionCleanup } from './routes/useRetentionCleanup';
 export {
   useChartColors,
   useChartColor,

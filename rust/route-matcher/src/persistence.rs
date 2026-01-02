@@ -618,6 +618,96 @@ impl PersistentRouteEngine {
         Ok(())
     }
 
+    /// Remove activities older than the specified retention period.
+    ///
+    /// This cleans up old activities and their associated data (GPS tracks, signatures)
+    /// to prevent unbounded database growth. Cascade deletes handle related data automatically.
+    ///
+    /// # Arguments
+    /// * `retention_days` - Number of days to retain activities (0 = keep all, 30-365 for cleanup)
+    ///
+    /// # Returns
+    /// * `Ok(deleted_count)` - Number of activities deleted
+    /// * `Err(...)` - Database error
+    ///
+    /// # Side Effects
+    /// * Marks groups and sections as dirty for re-computation
+    /// * Reloads metadata from database
+    ///
+    /// # Example
+    /// ```no_run
+    /// # use route_matcher::persistence::PersistentRouteEngine;
+    /// # let mut engine = unsafe { std::mem::zeroed() };
+    /// // Delete activities older than 90 days
+    /// let deleted = engine.cleanup_old_activities(90).unwrap();
+    /// println!("Deleted {} old activities", deleted);
+    ///
+    /// // Keep all activities (retention_days = 0)
+    /// let deleted = engine.cleanup_old_activities(0).unwrap();
+    /// assert_eq!(deleted, 0);
+    /// ```
+    pub fn cleanup_old_activities(&mut self, retention_days: u32) -> SqlResult<u32> {
+        // If retention_days is 0, keep all activities
+        if retention_days == 0 {
+            log::info!("[PersistentEngine] Cleanup skipped: retention period is 0 (keep all)");
+            return Ok(0);
+        }
+
+        // Calculate cutoff timestamp (current time - retention period)
+        let cutoff_seconds = retention_days as i64 * 24 * 60 * 60;
+
+        // Delete old activities (cascade will handle signatures, GPS tracks, matches)
+        let deleted = self.db.execute(
+            "DELETE FROM activities WHERE created_at < (strftime('%s', 'now') - ?)",
+            params![cutoff_seconds],
+        )?;
+
+        // If any activities were deleted, reload metadata and mark for re-computation
+        if deleted > 0 {
+            // Clear affected caches
+            self.signature_cache.clear();
+            self.consensus_cache.clear();
+
+            // Reload metadata from database
+            self.load_metadata()?;
+
+            // Mark groups and sections as dirty since activities changed
+            self.groups_dirty = true;
+            self.sections_dirty = true;
+
+            log::info!(
+                "[PersistentEngine] Cleaned up {} activities older than {} days",
+                deleted,
+                retention_days
+            );
+        }
+
+        Ok(deleted as u32)
+    }
+
+    /// Force re-computation of route groups and sections.
+    ///
+    /// This should be called when historical activities are added (e.g., cache expansion)
+    /// to improve route quality with the new data. The next call to `get_groups()` or
+    /// `get_sections()` will trigger re-computation with the expanded dataset.
+    ///
+    /// # Example
+    /// ```no_run
+    /// # use route_matcher::persistence::PersistentRouteEngine;
+    /// # let mut engine = unsafe { std::mem::zeroed() };
+    /// // User expanded cache from 90 days to 1 year
+    /// engine.mark_for_recomputation();
+    /// // Next access to groups/sections will re-compute with improved data
+    /// let groups = engine.get_groups();
+    /// ```
+    pub fn mark_for_recomputation(&mut self) {
+        if !self.groups_dirty && !self.sections_dirty {
+            self.groups_dirty = true;
+            self.sections_dirty = true;
+            log::info!("[PersistentEngine] Marked for re-computation (cache expanded)");
+        }
+    }
+
     // ========================================================================
     // Database Storage
     // ========================================================================
@@ -1436,6 +1526,51 @@ pub mod persistent_engine_ffi {
         }) {
             info!("[PersistentEngine] Cleared");
         }
+    }
+
+    /// Remove activities older than the specified retention period.
+    ///
+    /// This prevents unbounded database growth by cleaning up old activities.
+    /// Cascade deletes automatically remove associated GPS tracks, signatures,
+    /// and match data. Groups and sections are marked for re-computation.
+    ///
+    /// # Arguments
+    /// * `retention_days` - Number of days to retain (0 = keep all, 30-365 for cleanup)
+    ///
+    /// # Returns
+    /// Number of activities deleted, or 0 if retention_days is 0
+    #[uniffi::export]
+    pub fn persistent_engine_cleanup_old_activities(retention_days: u32) -> u32 {
+        with_persistent_engine(|e| {
+            match e.cleanup_old_activities(retention_days) {
+                Ok(count) => {
+                    if retention_days > 0 && count > 0 {
+                        info!(
+                            "[PersistentEngine] Cleanup completed: {} activities removed",
+                            count
+                        );
+                    }
+                    count
+                }
+                Err(e) => {
+                    log::error!("[PersistentEngine] Cleanup failed: {:?}", e);
+                    0
+                }
+            }
+        })
+        .unwrap_or(0)
+    }
+
+    /// Mark route engine for re-computation.
+    ///
+    /// Call this when historical activities are added (e.g., cache expansion)
+    /// to trigger re-computation of route groups and sections with the new data.
+    #[uniffi::export]
+    pub fn persistent_engine_mark_for_recomputation() {
+        with_persistent_engine(|e| {
+            e.mark_for_recomputation();
+            info!("[PersistentEngine] Marked for re-computation");
+        });
     }
 
     /// Add activities from flat coordinate buffers.
