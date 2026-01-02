@@ -57,7 +57,9 @@ export function CacheTimeline({
     const nowTime = now.getTime();
 
     // Default to showing last 10 years if no API oldest date
-    const apiOldest = apiOldestDate ? new Date(apiOldestDate).getTime() : nowTime - 10 * 365 * 24 * 60 * 60 * 1000;
+    const apiOldest = apiOldestDate
+      ? new Date(apiOldestDate).getTime()
+      : nowTime - 10 * 365 * 24 * 60 * 60 * 1000;
     const totalSpan = nowTime - apiOldest;
 
     if (!oldestDate || !newestDate || totalSpan <= 0) {
@@ -109,12 +111,7 @@ export function CacheTimeline({
       <View style={[styles.track, isDark && styles.trackDark]}>
         {/* Uncached older region (if any) */}
         {hasOlderData && (
-          <View
-            style={[
-              styles.uncachedRegion,
-              { width: `${timelineData.uncachedOlderPercent}%` },
-            ]}
-          >
+          <View style={[styles.uncachedRegion, { width: `${timelineData.uncachedOlderPercent}%` }]}>
             <View style={[styles.stripes, isDark && styles.stripesDark]} />
           </View>
         )}
@@ -183,7 +180,9 @@ export function CacheTimeline({
                 { color: isSyncing ? themeColors.textSecondary : themeColors.primary },
               ]}
             >
-              {isSyncing ? t('common.syncing', 'Syncing...') : t('settings.expandCache', 'Load more')}
+              {isSyncing
+                ? t('common.syncing', 'Syncing...')
+                : t('settings.expandCache', 'Load more')}
             </Text>
           </TouchableOpacity>
         )}
@@ -193,7 +192,9 @@ export function CacheTimeline({
       <View style={styles.legend}>
         <View style={styles.legendItem}>
           <View style={[styles.legendDot, { backgroundColor: colors.primary }]} />
-          <Text style={[styles.legendText, isDark && styles.textMuted]}>{t('settings.cached', 'Cached')}</Text>
+          <Text style={[styles.legendText, isDark && styles.textMuted]}>
+            {t('settings.cached', 'Cached')}
+          </Text>
         </View>
         {hasOlderData && (
           <View style={styles.legendItem}>

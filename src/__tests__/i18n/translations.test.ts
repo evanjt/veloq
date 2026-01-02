@@ -331,7 +331,9 @@ describe('Translation Key Usage', () => {
       console.log('\n' + '='.repeat(60));
       console.log('❌ UNDEFINED TRANSLATION KEYS');
       console.log('='.repeat(60));
-      console.log(`Found ${undefinedKeys.length} translation keys used in code but not defined in locale files:\n`);
+      console.log(
+        `Found ${undefinedKeys.length} translation keys used in code but not defined in locale files:\n`
+      );
 
       undefinedKeys.forEach(({ key, usages }) => {
         console.log(`  ❌ "${key}"`);

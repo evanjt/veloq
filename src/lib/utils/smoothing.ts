@@ -26,10 +26,7 @@ export const SMOOTHING_PRESETS: { value: SmoothingWindow; label: string }[] = [
 /**
  * Get the effective window size based on user preference and time range
  */
-export function getEffectiveWindow(
-  preference: SmoothingWindow,
-  timeRange: TimeRange
-): number {
+export function getEffectiveWindow(preference: SmoothingWindow, timeRange: TimeRange): number {
   if (preference === 'none') return 0;
   if (preference === 'auto') return DEFAULT_SMOOTHING_WINDOWS[timeRange];
   return preference;
@@ -86,10 +83,7 @@ export function smoothDataPoints<T extends { x: number; value: number; rawValue:
 /**
  * Get a human-readable description of the smoothing window
  */
-export function getSmoothingDescription(
-  preference: SmoothingWindow,
-  timeRange: TimeRange
-): string {
+export function getSmoothingDescription(preference: SmoothingWindow, timeRange: TimeRange): string {
   const effectiveWindow = getEffectiveWindow(preference, timeRange);
   if (effectiveWindow === 0) return 'Raw data';
   return `${effectiveWindow}-day average`;

@@ -88,7 +88,9 @@ export function ActivityHeatmap({
 
     if (oldestDate !== null) {
       const msPerWeek = 7 * 24 * 60 * 60 * 1000;
-      const weeksSinceOldest = Math.ceil((today.getTime() - (oldestDate as Date).getTime()) / msPerWeek);
+      const weeksSinceOldest = Math.ceil(
+        (today.getTime() - (oldestDate as Date).getTime()) / msPerWeek
+      );
       // Add 1 week buffer to ensure the oldest activity is visible
       calculatedWeeks = Math.min(Math.max(weeksSinceOldest + 1, minWeeks), maxWeeks);
     }

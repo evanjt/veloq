@@ -139,7 +139,7 @@ export function RoutesList({
               numberOfLines={1}
             >
               {progress.message
-                ? t('routes.checking' as never, { name: progress.message }) as string
+                ? (t('routes.checking' as never, { name: progress.message }) as string)
                 : (t('routes.waiting' as never) as string)}
             </Text>
           </View>
