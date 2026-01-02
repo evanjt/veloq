@@ -91,14 +91,14 @@ export function PotentialSectionCard({ section, onPromote, onDismiss }: Potentia
     return `${Math.round(meters)} m`;
   };
 
-  const getScaleLabel = (scale: string) => {
+  const getScaleLabel = (scale: string): string => {
     switch (scale) {
       case 'short':
-        return t('routes.scaleShort');
+        return t('routes.scaleShort' as never) as string;
       case 'medium':
-        return t('routes.scaleMedium');
+        return t('routes.scaleMedium' as never) as string;
       case 'long':
-        return t('routes.scaleLong');
+        return t('routes.scaleLong' as never) as string;
       default:
         return scale;
     }
@@ -110,7 +110,7 @@ export function PotentialSectionCard({ section, onPromote, onDismiss }: Potentia
       <View style={styles.header}>
         <View style={styles.suggestionBadge}>
           <MaterialCommunityIcons name="lightbulb-outline" size={14} color={colors.warning} />
-          <Text style={styles.suggestionText}>{t('routes.suggestion')}</Text>
+          <Text style={styles.suggestionText}>{t('routes.suggestion' as never)}</Text>
         </View>
         <TouchableOpacity
           style={styles.dismissButton}
@@ -131,7 +131,7 @@ export function PotentialSectionCard({ section, onPromote, onDismiss }: Potentia
         {/* Info */}
         <View style={styles.infoContainer}>
           <Text style={styles.description}>
-            {t('routes.potentialSectionDescription', {
+            {t('routes.potentialSectionDescription' as never, {
               sport: section.sportType.toLowerCase(),
               count: section.visitCount,
             })}

@@ -110,6 +110,22 @@ export function ActivityMapView({
   // Track if user manually overrode the style
   const [userOverride, setUserOverride] = useState(false);
 
+  // Parse and validate coordinates early so they're available for callbacks
+  const coordinates = useMemo(() => {
+    if (providedCoordinates && providedCoordinates.length > 0) {
+      return providedCoordinates;
+    }
+    if (encodedPolyline) {
+      return decodePolyline(encodedPolyline);
+    }
+    return [];
+  }, [encodedPolyline, providedCoordinates]);
+
+  // Filter valid coordinates for bounds and route display
+  const validCoordinates = useMemo(() => {
+    return coordinates.filter((c) => !isNaN(c.latitude) && !isNaN(c.longitude));
+  }, [coordinates]);
+
   // Update map style when preference changes (unless user manually toggled)
   useEffect(() => {
     if (!userOverride && !initialStyle && mapStyle !== preferredStyle) {
@@ -329,21 +345,6 @@ export function ActivityMapView({
       useNativeDriver: true,
     }).start();
   }, [bearingAnim, is3DMode, is3DReady]);
-
-  const coordinates = useMemo(() => {
-    if (providedCoordinates && providedCoordinates.length > 0) {
-      return providedCoordinates;
-    }
-    if (encodedPolyline) {
-      return decodePolyline(encodedPolyline);
-    }
-    return [];
-  }, [encodedPolyline, providedCoordinates]);
-
-  // Filter valid coordinates for bounds and route display
-  const validCoordinates = useMemo(() => {
-    return coordinates.filter((c) => !isNaN(c.latitude) && !isNaN(c.longitude));
-  }, [coordinates]);
 
   const bounds = useMemo(() => {
     if (validCoordinates.length === 0) return null;

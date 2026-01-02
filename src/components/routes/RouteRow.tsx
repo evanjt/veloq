@@ -164,7 +164,8 @@ function RouteRowComponent({ route, navigable = false }: RouteRowProps) {
 
   // Display name uses custom name if set, otherwise auto-generated name
   // Ensure it's always a valid string to avoid React Native text rendering errors
-  const displayName = customName || route.name || t('routes.defaultRouteName', { type: route.type });
+  const displayName =
+    customName || route.name || (t('routes.defaultRouteName' as never, { type: route.type }) as string);
 
   // Get activity color for the route type
   // RouteGroup.type is ActivityType, DiscoveredRouteInfo.type is string
@@ -185,7 +186,9 @@ function RouteRowComponent({ route, navigable = false }: RouteRowProps) {
   const activityNames = useMemo(() => {
     if (isRouteGroup(route)) {
       // RouteGroup doesn't have activity names, just IDs
-      return route.activityIds.map((_, i) => t('routes.defaultActivityName', { number: i + 1 }));
+      return route.activityIds.map(
+        (_, i) => t('routes.defaultActivityName' as never, { number: i + 1 }) as string
+      );
     }
     return route.activityNames || [];
   }, [route, t]);
