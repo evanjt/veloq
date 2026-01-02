@@ -16,7 +16,7 @@ import {
 import Animated from 'react-native-reanimated';
 import { colors, darkColors, opacity, typography, spacing, layout } from '@/theme';
 import { calculateTSB } from '@/hooks';
-import { sortByDateId } from '@/lib';
+import { sortByDateId, formatShortDate } from '@/lib';
 import { ChartErrorBoundary } from '@/components/ui';
 import type { WellnessData } from '@/types';
 
@@ -50,8 +50,7 @@ interface ChartDataPoint {
 }
 
 function formatDate(dateStr: string): string {
-  const date = new Date(dateStr);
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  return formatShortDate(dateStr);
 }
 
 export const FitnessChart = React.memo(function FitnessChart({

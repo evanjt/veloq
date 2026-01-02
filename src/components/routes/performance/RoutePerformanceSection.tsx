@@ -10,7 +10,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router, type Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useRoutePerformances } from '@/hooks';
-import { formatSpeed, formatPace, isRunningActivity, getActivityColor } from '@/lib';
+import { formatSpeed, formatPace, isRunningActivity, getActivityColor, formatShortDate as formatShortDateLib } from '@/lib';
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
 import type { ActivityType } from '@/types';
 import type { RoutePerformancePoint } from '@/hooks/routes/useRoutePerformances';
@@ -24,7 +24,7 @@ interface RoutePerformanceSectionProps {
 }
 
 function formatShortDate(date: Date): string {
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  return formatShortDateLib(date);
 }
 
 function getDirectionIcon(direction: string) {

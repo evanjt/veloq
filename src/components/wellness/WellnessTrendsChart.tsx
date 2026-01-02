@@ -7,7 +7,7 @@ import { Circle, Line as SkiaLine } from '@shopify/react-native-skia';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { useSharedValue, useAnimatedStyle, runOnJS } from 'react-native-reanimated';
 import { colors, darkColors, spacing, typography, opacity } from '@/theme';
-import { sortByDateId, smoothDataPoints, getEffectiveWindow, type SmoothingWindow } from '@/lib';
+import { sortByDateId, smoothDataPoints, getEffectiveWindow, formatShortDateWithWeekday, type SmoothingWindow } from '@/lib';
 import type { WellnessData } from '@/types';
 import type { TimeRange } from '@/hooks';
 
@@ -352,11 +352,7 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
       <View style={styles.dateHeader}>
         <Text style={[styles.dateText, isDark && styles.textLight]}>
           {selectedDate
-            ? new Date(selectedDate).toLocaleDateString('en-US', {
-                weekday: 'short',
-                month: 'short',
-                day: 'numeric',
-              })
+            ? formatShortDateWithWeekday(selectedDate)
             : t('time.today')}
         </Text>
         {selectedIdx !== null && (

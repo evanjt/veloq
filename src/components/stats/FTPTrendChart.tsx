@@ -8,6 +8,7 @@ import { colors, darkColors } from '@/theme/colors';
 import { typography } from '@/theme/typography';
 import { spacing, layout } from '@/theme/spacing';
 import type { eFTPPoint } from '@/types';
+import { formatMonth } from '@/lib';
 
 interface FTPTrendChartProps {
   /** eFTP history data points */
@@ -22,8 +23,7 @@ interface FTPTrendChartProps {
 const CHART_COLOR = '#FFB300';
 
 function formatDate(dateStr: string): string {
-  const date = new Date(dateStr);
-  return date.toLocaleDateString('en-US', { month: 'short' });
+  return formatMonth(dateStr);
 }
 
 export function FTPTrendChart({ data, currentFTP, height = 180 }: FTPTrendChartProps) {
