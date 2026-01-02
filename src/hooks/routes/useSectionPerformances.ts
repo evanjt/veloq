@@ -158,7 +158,7 @@ export function useSectionPerformances(
     } else {
       setStreamsSynced(true);
     }
-  }, [section?.id, fetchAndSyncStreams, fetchKey]);
+  }, [section?.id, fetchAndSyncStreams]);
 
   // Get performance records from Rust engine
   const { records, bestRecord } = useMemo(() => {

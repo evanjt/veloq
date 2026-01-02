@@ -440,9 +440,9 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   controlButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: layout.minTapTarget, // 44 - Accessibility minimum
+    height: layout.minTapTarget, // 44 - Accessibility minimum
+    borderRadius: layout.minTapTarget / 2, // 22
     backgroundColor: 'rgba(255, 255, 255, 0.95)',
     justifyContent: 'center',
     alignItems: 'center',
