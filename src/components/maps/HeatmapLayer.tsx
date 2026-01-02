@@ -5,8 +5,9 @@
 
 import React, { useMemo } from 'react';
 import { ShapeSource, CircleLayer } from '@maplibre/maplibre-react-native';
-import type { Expression } from '@maplibre/maplibre-react-native/lib/typescript/module/src/types/MapLibreRNStyles';
 import type { HeatmapResult } from '@/hooks/useHeatmap';
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
 interface HeatmapLayerProps {
   /** Heatmap data from useHeatmap */
@@ -21,7 +22,7 @@ interface HeatmapLayerProps {
 
 // Color stops for density gradient (blue -> purple -> gold)
 // Premium brand palette: no orange
-const DENSITY_COLORS: Expression = [
+const DENSITY_COLORS: any[] = [
   'interpolate',
   ['linear'],
   ['get', 'density'],
@@ -38,7 +39,7 @@ const DENSITY_COLORS: Expression = [
 ];
 
 // Circle radius based on cell size and density
-const CIRCLE_RADIUS: Expression = [
+const CIRCLE_RADIUS: any[] = [
   'interpolate',
   ['linear'],
   ['get', 'density'],
@@ -108,11 +109,11 @@ export function HeatmapLayer({
       <CircleLayer
         id="heatmap-circles"
         style={{
-          circleRadius: CIRCLE_RADIUS,
-          circleColor: DENSITY_COLORS,
+          circleRadius: CIRCLE_RADIUS as any,
+          circleColor: DENSITY_COLORS as any,
           circleOpacity: opacity,
           circleStrokeWidth: highlightCommonPaths
-            ? (['case', ['get', 'isCommonPath'], 1.5, 0] as Expression)
+            ? (['case', ['get', 'isCommonPath'], 1.5, 0] as any)
             : 0,
           circleStrokeColor: '#FFFFFF',
         }}

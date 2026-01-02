@@ -30,39 +30,47 @@ function formatDistance(meters: number): string {
   return `${km.toFixed(1)} km`;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function getTimeRangeLabel(
   range: TimeRange,
-  t: ReturnType<typeof useTranslation>['t']
+  t: (key: string) => any
 ): { current: string; previous: string } {
   switch (range) {
     case 'week':
-      return { current: t('stats.thisWeek'), previous: t('stats.vsLastWeek') };
+      return { current: t('stats.thisWeek') as string, previous: t('stats.vsLastWeek') as string };
     case 'month':
-      return { current: t('stats.thisMonth'), previous: t('stats.vsLastMonth') };
+      return { current: t('stats.thisMonth') as string, previous: t('stats.vsLastMonth') as string };
     case '3m':
-      return { current: t('stats.last3Months'), previous: t('stats.vsPrevious3Months') };
+      return {
+        current: t('stats.last3Months') as string,
+        previous: t('stats.vsPrevious3Months') as string,
+      };
     case '6m':
-      return { current: t('stats.last6Months'), previous: t('stats.vsPrevious6Months') };
+      return {
+        current: t('stats.last6Months') as string,
+        previous: t('stats.vsPrevious6Months') as string,
+      };
     case 'year':
-      return { current: t('stats.thisYear'), previous: t('stats.vsLastYear') };
+      return { current: t('stats.thisYear') as string, previous: t('stats.vsLastYear') as string };
   }
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function getTimeRangeButtonLabel(
   range: TimeRange,
-  t: ReturnType<typeof useTranslation>['t']
+  t: (key: string) => any
 ): string {
   switch (range) {
     case 'week':
-      return t('stats.week');
+      return t('stats.week') as string;
     case 'month':
-      return t('stats.month');
+      return t('stats.month') as string;
     case '3m':
-      return t('stats.threeMonths');
+      return t('stats.threeMonths') as string;
     case '6m':
-      return t('stats.sixMonths');
+      return t('stats.sixMonths') as string;
     case 'year':
-      return t('stats.year');
+      return t('stats.year') as string;
   }
 }
 
@@ -153,7 +161,7 @@ export function WeeklySummary({ activities }: WeeklySummaryProps) {
       return {
         currentStats: { count: 0, duration: 0, distance: 0, tss: 0 },
         previousStats: { count: 0, duration: 0, distance: 0, tss: 0 },
-        labels: getTimeRangeLabel(timeRange, t),
+        labels: getTimeRangeLabel(timeRange, t as (key: string) => any),
       };
     }
 
@@ -168,7 +176,7 @@ export function WeeklySummary({ activities }: WeeklySummaryProps) {
     return {
       currentStats: calculateStats(currentActivities),
       previousStats: calculateStats(previousActivities),
-      labels: getTimeRangeLabel(timeRange, t),
+      labels: getTimeRangeLabel(timeRange, t as (key: string) => any),
     };
   }, [activities, timeRange, t]);
 
@@ -201,7 +209,7 @@ export function WeeklySummary({ activities }: WeeklySummaryProps) {
                     timeRange === rangeId && styles.timeRangeTextActive,
                   ]}
                 >
-                  {getTimeRangeButtonLabel(rangeId, t)}
+                  {getTimeRangeButtonLabel(rangeId, t as (key: string) => any)}
                 </Text>
               </TouchableOpacity>
             ))}
@@ -239,7 +247,7 @@ export function WeeklySummary({ activities }: WeeklySummaryProps) {
                   timeRange === rangeId && styles.timeRangeTextActive,
                 ]}
               >
-                {getTimeRangeButtonLabel(rangeId, t)}
+                {getTimeRangeButtonLabel(rangeId, t as (key: string) => any)}
               </Text>
             </TouchableOpacity>
           ))}

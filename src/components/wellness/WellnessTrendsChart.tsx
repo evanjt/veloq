@@ -119,20 +119,15 @@ function MetricSparkline({
         <View style={{ height }}>
           {/* Victory Native CartesianChart for programmatic rendering.
               Using JSX syntax with render prop pattern. */}
+{/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
           <CartesianChart
-            data={data}
-            xKey="x"
-            yKeys={['value']}
+            data={data as unknown as Record<string, unknown>[]}
+            xKey={'x' as never}
+            yKeys={['value'] as never}
             domain={{ x: [0, totalDays - 1], y: [yMin, yMax] }}
             padding={{ left: 4, right: 4, top: 8, bottom: 8 }}
           >
-            {({
-              points,
-              chartBounds,
-            }: {
-              points: { value: Array<{ x: number; y: number | undefined }> };
-              chartBounds: ChartBounds;
-            }) => (
+            {(({ points, chartBounds }: any) => (
               <>
                 <Line
                   points={points.value as Parameters<typeof Line>[0]['points']}
@@ -171,7 +166,7 @@ function MetricSparkline({
                   </>
                 )}
               </>
-            )}
+            )) as any}
           </CartesianChart>
         </View>
       </View>

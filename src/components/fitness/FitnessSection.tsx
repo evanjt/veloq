@@ -73,7 +73,7 @@ export function FitnessSection({ expanded = true, onToggleExpand }: FitnessSecti
                 timeRange === range.id && styles.timeRangeTextActive,
               ]}
             >
-              {t(range.key)}
+              {t(range.key as never)}
             </Text>
           </TouchableOpacity>
         ))}

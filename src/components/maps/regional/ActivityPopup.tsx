@@ -75,7 +75,7 @@ export function ActivityPopup({
           <Text style={styles.popupStatValue}>{formatDistance(selected.activity.distance)}</Text>
         </View>
         <View style={styles.popupStat}>
-          <MaterialCommunityIcons name="clock-outline" size={20} color={colors.chartOrange} />
+          <MaterialCommunityIcons name="clock-outline" size={20} color={colors.chartAmber} />
           <Text style={styles.popupStatValue}>{formatDuration(selected.activity.duration)}</Text>
         </View>
       </View>

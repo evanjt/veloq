@@ -342,7 +342,7 @@ export const intervalsApi = {
    */
   async getActivityMap(id: string, boundsOnly = false): Promise<ActivityMapData> {
     if (isDemoMode()) {
-      const result = mockIntervalsApi.getActivityMap(id, boundsOnly);
+      const result = await mockIntervalsApi.getActivityMap(id, boundsOnly);
       if (!result) {
         return { bounds: null, latlngs: null, route: null, weather: null };
       }

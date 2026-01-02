@@ -53,11 +53,11 @@ export function SectionCreationOverlay({
     switch (state) {
       case 'idle':
       case 'selectingStart':
-        return t('maps.tapSelectStart');
+        return t('maps.tapSelectStart' as never);
       case 'selectingEnd':
-        return t('maps.tapSelectEnd');
+        return t('maps.tapSelectEnd' as never);
       case 'complete':
-        return t('maps.sectionSelected');
+        return t('maps.sectionSelected' as never);
     }
   };
 
@@ -72,10 +72,10 @@ export function SectionCreationOverlay({
     if (startIndex === null) return null;
     const startPercent = ((startIndex / coordinateCount) * 100).toFixed(0);
     if (endIndex === null) {
-      return t('maps.startPercent', { percent: startPercent });
+      return t('maps.startPercent' as never, { percent: startPercent });
     }
     const endPercent = ((endIndex / coordinateCount) * 100).toFixed(0);
-    return t('maps.rangePercent', { start: startPercent, end: endPercent });
+    return t('maps.rangePercent' as never, { start: startPercent, end: endPercent });
   };
 
   return (
@@ -116,7 +116,7 @@ export function SectionCreationOverlay({
             activeOpacity={0.8}
           >
             <MaterialCommunityIcons name="refresh" size={24} color={colors.textSecondary} />
-            <Text style={[styles.buttonText, styles.resetButtonText]}>{t('common.reset')}</Text>
+            <Text style={[styles.buttonText, styles.resetButtonText]}>{t('common.reset' as never)}</Text>
           </TouchableOpacity>
         )}
 
@@ -128,7 +128,7 @@ export function SectionCreationOverlay({
             activeOpacity={0.8}
           >
             <MaterialCommunityIcons name="check" size={24} color={colors.textOnDark} />
-            <Text style={styles.buttonText}>{t('common.create')}</Text>
+            <Text style={styles.buttonText}>{t('common.create' as never)}</Text>
           </TouchableOpacity>
         )}
       </View>

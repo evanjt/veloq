@@ -35,7 +35,7 @@ export function HeatmapCellInfo({ cell, bottom, onClose }: HeatmapCellPopupProps
 
       <View style={styles.popupStats}>
         <View style={styles.popupStat}>
-          <MaterialCommunityIcons name="fire" size={20} color={colors.chartOrange} />
+          <MaterialCommunityIcons name="fire" size={20} color={colors.chartAmber} />
           <Text style={styles.popupStatValue}>{Math.round(cell.cell.density * 100)}% density</Text>
         </View>
         <View style={styles.popupStat}>

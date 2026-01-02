@@ -224,7 +224,7 @@ export function SectionsList({ sportType }: SectionsListProps) {
       {potentialSections.length > 0 && (
         <View style={styles.suggestionsContainer}>
           <Text style={[styles.suggestionsTitle, isDark && styles.textLight]}>
-            {t('routes.suggestions')}
+            {t('routes.suggestions' as never)}
           </Text>
           {potentialSections.slice(0, 3).map((section) => (
             <PotentialSectionCard

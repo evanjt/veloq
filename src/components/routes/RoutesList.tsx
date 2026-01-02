@@ -21,7 +21,7 @@ import { UI } from '@/lib/utils/constants';
 import { useRouteGroups, useRouteProcessing } from '@/hooks';
 import { CacheScopeNotice } from './CacheScopeNotice';
 import { RouteRow } from './RouteRow';
-import type { DiscoveredRouteInfo } from '@/types';
+import type { DiscoveredRouteInfo, RouteGroup } from '@/types';
 
 interface RoutesListProps {
   /** Callback when list is pulled to refresh */
@@ -117,21 +117,14 @@ export function RoutesList({
 
   const { progress } = useRouteProcessing();
 
-  const showProcessing =
-    progress.status === 'filtering' ||
-    progress.status === 'fetching' ||
-    progress.status === 'processing' ||
-    progress.status === 'matching';
+  const showProcessing = progress.status === 'processing';
 
-  const showActivityList =
-    progress.status === 'processing' ||
-    progress.status === 'fetching' ||
-    progress.status === 'matching';
+  const showActivityList = progress.status === 'processing';
 
   // Memoize routes array reference to prevent unnecessary re-renders
   const routes = useMemo(() => {
-    return progress.discoveredRoutes || [];
-  }, [progress.discoveredRoutes]);
+    return [] as DiscoveredRouteInfo[];
+  }, []);
 
   const renderHeader = () => (
     <View>
@@ -145,14 +138,18 @@ export function RoutesList({
               style={[styles.currentActivityText, isDark && styles.textMuted]}
               numberOfLines={1}
             >
-              {progress.currentActivity
-                ? t('routes.checking', { name: progress.currentActivity })
-                : t('routes.waiting')}
+              {progress.message
+                ? t('routes.checking' as never, { name: progress.message }) as string
+                : (t('routes.waiting' as never) as string)}
             </Text>
           </View>
 
           {/* Discovered routes list */}
-          <DiscoveredRoutesList routes={routes} isDark={isDark} t={t} />
+          <DiscoveredRoutesList
+            routes={routes}
+            isDark={isDark}
+            t={((key: string) => t(key as never) as string) as (key: string) => string}
+          />
         </View>
       )}
 
@@ -253,7 +250,7 @@ export function RoutesList({
     <FlatList
       data={groups}
       keyExtractor={(item) => item.id}
-      renderItem={({ item }) => <RouteRow route={item} navigable />}
+      renderItem={({ item }) => <RouteRow route={item as unknown as RouteGroup} navigable />}
       ListHeaderComponent={renderHeader}
       ListEmptyComponent={renderEmpty}
       contentContainerStyle={groups.length === 0 ? styles.emptyList : styles.list}

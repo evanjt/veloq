@@ -51,7 +51,7 @@ export function RouteCard({ route }: RouteCardProps) {
               {route.name}
             </Text>
             <Text style={[styles.subtitle, isDark && styles.subtitleDark]} numberOfLines={1}>
-              {formatDistance(route.signature.distance)} · {route.activityCount}{' '}
+              {formatDistance(route.signature?.distance ?? 0)} · {route.activityCount}{' '}
               {t('routes.activities')}
             </Text>
           </View>
@@ -67,7 +67,7 @@ export function RouteCard({ route }: RouteCardProps) {
         {/* Bottom row with date range */}
         <View style={[styles.footer, isDark && styles.footerDark]}>
           <Text style={[styles.dateRange, isDark && styles.dateRangeDark]}>
-            {formatRelativeDate(route.firstDate)} - {formatRelativeDate(route.lastDate)}
+            {formatRelativeDate(route.firstDate ?? '')} - {formatRelativeDate(route.lastDate ?? '')}
           </Text>
           <MaterialCommunityIcons name="chevron-right" size={18} color={isDark ? '#555' : '#CCC'} />
         </View>

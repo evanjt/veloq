@@ -255,21 +255,22 @@ export function UnifiedPerformanceChart({
   const chartContent = (
     <GestureDetector gesture={gesture}>
       <View style={[styles.chartInner, { width: chartWidth }]}>
+{/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
         <CartesianChart
-          data={chartData}
-          xKey="x"
-          yKeys={['speed']}
+          data={chartData as unknown as Record<string, unknown>[]}
+          xKey={'x' as never}
+          yKeys={['speed'] as never}
           domain={{ y: [minSpeed, maxSpeed] }}
           padding={{ left: 35, right: 16, top: 40, bottom: 24 }}
         >
-          {({ points, chartBounds }) => {
+          {(({ points, chartBounds }: any) => {
             if (chartBounds.left !== chartBoundsShared.value.left ||
                 chartBounds.right !== chartBoundsShared.value.right) {
               chartBoundsShared.value = { left: chartBounds.left, right: chartBounds.right };
             }
 
-            const samePoints = points.speed.filter((_, idx) => chartData[idx]?.direction === 'same');
-            const reversePoints = points.speed.filter((_, idx) => chartData[idx]?.direction === 'reverse');
+            const samePoints = points.speed.filter((_: any, idx: number) => chartData[idx]?.direction === 'same');
+            const reversePoints = points.speed.filter((_: any, idx: number) => chartData[idx]?.direction === 'reverse');
 
             return (
               <>
@@ -294,7 +295,7 @@ export function UnifiedPerformanceChart({
                   />
                 )}
                 {/* Regular points */}
-                {points.speed.map((point, idx) => {
+                {points.speed.map((point: any, idx: number) => {
                   if (point.x == null || point.y == null) return null;
                   const isSelected = idx === selectedIndex;
                   const isBest = idx === bestIndex;
@@ -351,7 +352,7 @@ export function UnifiedPerformanceChart({
                 )}
               </>
             );
-          }}
+          }) as any}
         </CartesianChart>
 
         {/* Crosshair */}
