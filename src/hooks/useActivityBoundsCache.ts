@@ -139,6 +139,10 @@ export function useActivityBoundsCache(
         if (updateTimeoutRef.current) {
           clearTimeout(updateTimeoutRef.current);
         }
+        // Check mount state BEFORE setting timeout to prevent firing after unmount
+        if (!isMountedRef.current) {
+          return;
+        }
         updateTimeoutRef.current = setTimeout(() => {
           if (isMountedRef.current) {
             setCachedActivitiesVersion((v) => v + 1);
