@@ -284,15 +284,17 @@ export function useRouteDataSync(
         message: 'Fetching GPS data...',
       });
 
-      // Set up progress listener with mount guard
+      // Set up progress listener with mount guard and abort check
       const subscription = nativeModule.addFetchProgressListener((event) => {
-        if (isMountedRef.current) {
-          setProgress((p) => ({
-            ...p,
-            completed: event.completed,
-            total: event.total,
-          }));
+        // Check both mount state and abort signal
+        if (!isMountedRef.current || abortController.signal.aborted) {
+          return;
         }
+        setProgress((p) => ({
+          ...p,
+          completed: event.completed,
+          total: event.total,
+        }));
       });
 
       try {

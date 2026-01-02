@@ -267,8 +267,8 @@ export function BaseMapView({
         </TouchableOpacity>
       )}
 
-      {/* Control stack - positioned just below the style toggle button */}
-      <View style={[styles.controlStack, { top: insets.top + 64 }]}>
+      {/* Control stack - positioned at same level as style toggle, horizontal layout */}
+      <View style={[styles.controlStack, { top: insets.top + 12 }]}>
         {show3DToggle && has3DRoute && (
           <TouchableOpacity
             style={[
@@ -435,7 +435,8 @@ const styles = StyleSheet.create({
   },
   controlStack: {
     position: 'absolute',
-    right: spacing.md,
+    right: spacing.md + 52, // Position to left of style toggle button (44px button + 8px gap)
+    flexDirection: 'row', // Horizontal layout to reduce vertical occlusion
     gap: spacing.sm,
     zIndex: 10,
   },
