@@ -115,7 +115,7 @@ export const colors = {
   // Fitness metric colors
   fitness: brand.blue, // CTL - Brand blue
   fatigue: '#A855F7', // ATL - Purple (NOT orange)
-  form: brand.gold, // TSB - Gold (key metric!)
+  form: brand.blue, // TSB - Use blue (neutral), color should be zone-based at runtime
 
   // Chart accent colors
   chartBlue: brand.blue,
@@ -216,7 +216,7 @@ export const darkColors = {
   // Chart colors for dark mode (optimized for visibility)
   chartFitness: brand.blueLight, // Brighter blue for CTL
   chartFatigue: '#C084FC', // Brighter purple for ATL
-  chartForm: brand.goldLight, // Brighter gold for TSB
+  chartForm: brand.blueLight, // Brighter blue for TSB (neutral, zone-based at runtime)
   chartPower: '#FBBF24', // Amber for power
   chartPace: '#4ADE80', // Green for pace
   chartHR: '#F87171', // Red for heart rate
@@ -247,7 +247,7 @@ export const gradients = {
   // Fitness metric gradients
   fitness: [brand.blueLight, brand.blue] as const,
   fatigue: ['#C084FC', '#A855F7'] as const, // Purple gradient
-  form: [brand.goldLight, brand.gold] as const, // Gold for form (achievement!)
+  form: [brand.blueLight, brand.blue] as const, // Blue gradient (neutral, zone-based at runtime)
 
   // UI gradients
   success: ['#4ADE80', '#22C55E'] as const,

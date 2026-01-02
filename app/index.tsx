@@ -310,22 +310,24 @@ export default function FeedScreen() {
           testID="nav-settings-button"
           onPress={navigateToSettings}
           activeOpacity={0.7}
-          style={[styles.profilePhoto, styles.profilePlaceholder, isDark && styles.profilePlaceholderDark]}
+          style={[styles.profilePhotoTouchArea, isDark && styles.profilePlaceholder, isDark && styles.profilePlaceholderDark]}
         >
-          {hasValidProfileUrl && !profileImageError ? (
-            <Image
-              source={{ uri: profileUrl }}
-              style={StyleSheet.absoluteFill}
-              resizeMode="cover"
-              onError={() => setProfileImageError(true)}
-            />
-          ) : (
-            <MaterialCommunityIcons
-              name="account"
-              size={20}
-              color={isDark ? '#AAA' : '#666'}
-            />
-          )}
+          <View style={[styles.profilePhoto, isDark && styles.profilePlaceholder, isDark && styles.profilePlaceholderDark]}>
+            {hasValidProfileUrl && !profileImageError ? (
+              <Image
+                source={{ uri: profileUrl }}
+                style={StyleSheet.absoluteFill}
+                resizeMode="cover"
+                onError={() => setProfileImageError(true)}
+              />
+            ) : (
+              <MaterialCommunityIcons
+                name="account"
+                size={20}
+                color={isDark ? '#AAA' : '#666'}
+              />
+            )}
+          </View>
         </TouchableOpacity>
 
         {/* Simplified metrics: Show 2 key pills by default */}
@@ -613,6 +615,14 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     overflow: 'hidden',
   },
+  profilePhotoTouchArea: {
+    width: 44, // Accessibility minimum
+    height: 44, // Accessibility minimum
+    borderRadius: 22,
+    overflow: 'hidden',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   profilePlaceholder: {
     backgroundColor: colors.divider,
     justifyContent: 'center',
@@ -730,8 +740,8 @@ const styles = StyleSheet.create({
     color: colors.textOnDark,
   },
   filterButton: {
-    width: 40,
-    height: 40,
+    width: 44, // Accessibility minimum
+    height: 44, // Accessibility minimum
     borderRadius: 10,
     backgroundColor: opacity.overlay.light,
     justifyContent: 'center',
