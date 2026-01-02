@@ -5,7 +5,7 @@
  * - Potential sections for discovery (suggestions)
  */
 
-import { useMemo } from 'react';
+import { useMemo, useCallback, useRef } from 'react';
 import { useFrequentSections } from './useFrequentSections';
 import { useCustomSections } from './useCustomSections';
 import type {
@@ -56,7 +56,18 @@ function generateSectionName(section: FrequentSection): string {
 }
 
 /**
- * Compute overlap between two polylines.
+ * Create a hash key for caching overlap calculations.
+ */
+function createPolylineKey(polyline: RoutePoint[]): string {
+  // Use first point, last point, and length as a quick hash
+  if (polyline.length === 0) return 'empty';
+  const first = polyline[0];
+  const last = polyline[polyline.length - 1];
+  return `${first.lat},${first.lng}-${last.lat},${last.lng}-${polyline.length}`;
+}
+
+/**
+ * Compute overlap between two polylines with memoization.
  * Returns 0-1 representing the fraction of overlap.
  */
 function computePolylineOverlap(
@@ -94,6 +105,45 @@ function computePolylineOverlap(
 }
 
 /**
+ * Memoized overlap calculator with LRU cache.
+ */
+function useOverlapCalculator() {
+  const cache = useRef<Map<string, number>>(new Map());
+
+  const calculateOverlap = useCallback(
+    (polylineA: RoutePoint[], polylineB: RoutePoint[]): number => {
+      // Create cache key
+      const keyA = createPolylineKey(polylineA);
+      const keyB = createPolylineKey(polylineB);
+      const cacheKey = `${keyA}|${keyB}`;
+
+      // Check cache
+      const cached = cache.current.get(cacheKey);
+      if (cached !== undefined) {
+        return cached;
+      }
+
+      // Calculate and cache
+      const result = computePolylineOverlap(polylineA, polylineB);
+
+      // Limit cache size to prevent memory bloat (LRU with max 100 entries)
+      if (cache.current.size >= 100) {
+        const firstKey = cache.current.keys().next().value;
+        if (firstKey) {
+          cache.current.delete(firstKey);
+        }
+      }
+      cache.current.set(cacheKey, result);
+
+      return result;
+    },
+    []
+  );
+
+  return calculateOverlap;
+}
+
+/**
  * Hook for unified sections combining all section types.
  */
 export function useUnifiedSections(
@@ -101,12 +151,11 @@ export function useUnifiedSections(
 ): UseUnifiedSectionsResult {
   const { sportType, includeCustom = true, includePotentials = true } = options;
 
+  // Get memoized overlap calculator
+  const calculateOverlap = useOverlapCalculator();
+
   // Load auto-detected sections from engine
-  const {
-    sections: engineSections,
-    isLoading: engineLoading,
-    error: engineError,
-  } = useFrequentSections({ sportType });
+  const { sections: engineSections, isReady: engineReady } = useFrequentSections({ sportType });
 
   // Load custom sections
   const {
@@ -144,7 +193,7 @@ export function useUnifiedSections(
     for (const engine of engineSections) {
       // Check if there's a custom section that overlaps significantly
       const hasCustomOverlap = customSections.some(
-        (c) => computePolylineOverlap(c.polyline, engine.polyline) > 0.8
+        (c) => calculateOverlap(c.polyline, engine.polyline) > 0.8
       );
 
       if (!hasCustomOverlap) {
@@ -166,7 +215,7 @@ export function useUnifiedSections(
       for (const potential of potentialSections) {
         // Check if there's already a similar section
         const hasOverlap = result.some(
-          (s) => computePolylineOverlap(potential.polyline, s.polyline) > 0.8
+          (s) => calculateOverlap(potential.polyline, s.polyline) > 0.8
         );
 
         if (!hasOverlap) {
@@ -204,7 +253,14 @@ export function useUnifiedSections(
     });
 
     return result;
-  }, [engineSections, customSections, potentialSections, includeCustom, includePotentials]);
+  }, [
+    engineSections,
+    customSections,
+    potentialSections,
+    includeCustom,
+    includePotentials,
+    calculateOverlap,
+  ]);
 
   // Compute counts
   const autoCount = unified.filter((s) => s.source === 'auto').length;
@@ -217,8 +273,8 @@ export function useUnifiedSections(
     autoCount,
     customCount,
     potentialCount,
-    isLoading: engineLoading || customLoading,
-    error: engineError || customError || null,
+    isLoading: customLoading,
+    error: customError || null,
   };
 }
 
