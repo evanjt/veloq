@@ -7,13 +7,7 @@
  */
 
 import React, { useState, useRef, useMemo, useCallback } from 'react';
-import {
-  View,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  Dimensions,
-} from 'react-native';
+import { View, StyleSheet, ScrollView, TouchableOpacity, Dimensions } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -91,7 +85,9 @@ export function UnifiedPerformanceChart({
   const activityColor = getActivityColor(activityType);
 
   // Tooltip state - persists after scrubbing ends so user can tap
-  const [tooltipData, setTooltipData] = useState<(PerformanceDataPoint & { x: number }) | null>(null);
+  const [tooltipData, setTooltipData] = useState<(PerformanceDataPoint & { x: number }) | null>(
+    null
+  );
   const [isActive, setIsActive] = useState(false);
   const [isPersisted, setIsPersisted] = useState(false);
 
@@ -112,15 +108,18 @@ export function UnifiedPerformanceChart({
   // Find currently selected index for highlighting
   const selectedIndex = useMemo(() => {
     if (!selectedActivityId) return -1;
-    return chartData.findIndex(d => d.id === selectedActivityId);
+    return chartData.findIndex((d) => d.id === selectedActivityId);
   }, [selectedActivityId, chartData]);
 
-  const formatSpeedValue = useCallback((speed: number) => {
-    if (showPace) {
-      return formatPace(speed);
-    }
-    return formatSpeed(speed);
-  }, [showPace]);
+  const formatSpeedValue = useCallback(
+    (speed: number) => {
+      if (showPace) {
+        return formatPace(speed);
+      }
+      return formatSpeed(speed);
+    },
+    [showPace]
+  );
 
   // Derive selected index on UI thread
   const selectedIdx = useDerivedValue(() => {
@@ -139,42 +138,45 @@ export function UnifiedPerformanceChart({
   }, [chartData.length]);
 
   // Update tooltip on JS thread
-  const updateTooltipOnJS = useCallback((idx: number, gestureEnded = false) => {
-    if (gestureEnded) {
-      if (tooltipData) {
-        setIsActive(false);
-        setIsPersisted(true);
-        if (onActivitySelect && tooltipData) {
-          onActivitySelect(tooltipData.id, tooltipData.lapPoints);
+  const updateTooltipOnJS = useCallback(
+    (idx: number, gestureEnded = false) => {
+      if (gestureEnded) {
+        if (tooltipData) {
+          setIsActive(false);
+          setIsPersisted(true);
+          if (onActivitySelect && tooltipData) {
+            onActivitySelect(tooltipData.id, tooltipData.lapPoints);
+          }
+        }
+        lastNotifiedIdx.current = null;
+        return;
+      }
+
+      if (idx < 0 || chartData.length === 0) {
+        return;
+      }
+
+      if (isPersisted) {
+        setIsPersisted(false);
+      }
+
+      if (idx === lastNotifiedIdx.current) return;
+      lastNotifiedIdx.current = idx;
+
+      if (!isActive) {
+        setIsActive(true);
+      }
+
+      const point = chartData[idx];
+      if (point) {
+        setTooltipData(point);
+        if (onActivitySelect) {
+          onActivitySelect(point.id, point.lapPoints);
         }
       }
-      lastNotifiedIdx.current = null;
-      return;
-    }
-
-    if (idx < 0 || chartData.length === 0) {
-      return;
-    }
-
-    if (isPersisted) {
-      setIsPersisted(false);
-    }
-
-    if (idx === lastNotifiedIdx.current) return;
-    lastNotifiedIdx.current = idx;
-
-    if (!isActive) {
-      setIsActive(true);
-    }
-
-    const point = chartData[idx];
-    if (point) {
-      setTooltipData(point);
-      if (onActivitySelect) {
-        onActivitySelect(point.id, point.lapPoints);
-      }
-    }
-  }, [chartData, isActive, isPersisted, tooltipData, onActivitySelect]);
+    },
+    [chartData, isActive, isPersisted, tooltipData, onActivitySelect]
+  );
 
   const handleGestureEnd = useCallback(() => {
     updateTooltipOnJS(-1, true);
@@ -218,11 +220,10 @@ export function UnifiedPerformanceChart({
     });
 
   // Tap gesture to dismiss persisted tooltip
-  const tapGesture = Gesture.Tap()
-    .onEnd(() => {
-      'worklet';
-      runOnJS(clearPersistedTooltip)();
-    });
+  const tapGesture = Gesture.Tap().onEnd(() => {
+    'worklet';
+    runOnJS(clearPersistedTooltip)();
+  });
 
   const gesture = Gesture.Race(panGesture, tapGesture);
 
@@ -255,7 +256,7 @@ export function UnifiedPerformanceChart({
   const chartContent = (
     <GestureDetector gesture={gesture}>
       <View style={[styles.chartInner, { width: chartWidth }]}>
-{/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+        {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
         <CartesianChart
           data={chartData as unknown as Record<string, unknown>[]}
           xKey={'x' as never}
@@ -263,96 +264,106 @@ export function UnifiedPerformanceChart({
           domain={{ y: [minSpeed, maxSpeed] }}
           padding={{ left: 35, right: 16, top: 40, bottom: 24 }}
         >
-          {(({ points, chartBounds }: any) => {
-            if (chartBounds.left !== chartBoundsShared.value.left ||
-                chartBounds.right !== chartBoundsShared.value.right) {
-              chartBoundsShared.value = { left: chartBounds.left, right: chartBounds.right };
-            }
+          {
+            (({ points, chartBounds }: any) => {
+              if (
+                chartBounds.left !== chartBoundsShared.value.left ||
+                chartBounds.right !== chartBoundsShared.value.right
+              ) {
+                chartBoundsShared.value = { left: chartBounds.left, right: chartBounds.right };
+              }
 
-            const samePoints = points.speed.filter((_: any, idx: number) => chartData[idx]?.direction === 'same');
-            const reversePoints = points.speed.filter((_: any, idx: number) => chartData[idx]?.direction === 'reverse');
+              const samePoints = points.speed.filter(
+                (_: any, idx: number) => chartData[idx]?.direction === 'same'
+              );
+              const reversePoints = points.speed.filter(
+                (_: any, idx: number) => chartData[idx]?.direction === 'reverse'
+              );
 
-            return (
-              <>
-                {/* Line connecting 'same' direction points */}
-                {samePoints.length > 1 && (
-                  <Line
-                    points={samePoints}
-                    color={activityColor}
-                    strokeWidth={1.5}
-                    curveType="monotoneX"
-                    opacity={0.4}
-                  />
-                )}
-                {/* Line connecting 'reverse' direction points */}
-                {reversePoints.length > 1 && (
-                  <Line
-                    points={reversePoints}
-                    color={REVERSE_COLOR}
-                    strokeWidth={1.5}
-                    curveType="monotoneX"
-                    opacity={0.4}
-                  />
-                )}
-                {/* Regular points */}
-                {points.speed.map((point: any, idx: number) => {
-                  if (point.x == null || point.y == null) return null;
-                  const isSelected = idx === selectedIndex;
-                  const isBest = idx === bestIndex;
-                  if (isSelected || isBest) return null;
-                  const d = chartData[idx];
-                  const pointColor = d ? getPointColor(d.direction) : activityColor;
-                  return (
-                    <Circle
-                      key={`point-${idx}`}
-                      cx={point.x}
-                      cy={point.y}
-                      r={5}
-                      color={pointColor}
+              return (
+                <>
+                  {/* Line connecting 'same' direction points */}
+                  {samePoints.length > 1 && (
+                    <Line
+                      points={samePoints}
+                      color={activityColor}
+                      strokeWidth={1.5}
+                      curveType="monotoneX"
+                      opacity={0.4}
                     />
-                  );
-                })}
-                {/* Best performance - gold */}
-                {bestIndex !== selectedIndex &&
-                 points.speed[bestIndex] &&
-                 points.speed[bestIndex].x != null && points.speed[bestIndex].y != null && (
-                  <>
-                    <Circle
-                      cx={points.speed[bestIndex].x!}
-                      cy={points.speed[bestIndex].y!}
-                      r={8}
-                      color="#FFB300"
+                  )}
+                  {/* Line connecting 'reverse' direction points */}
+                  {reversePoints.length > 1 && (
+                    <Line
+                      points={reversePoints}
+                      color={REVERSE_COLOR}
+                      strokeWidth={1.5}
+                      curveType="monotoneX"
+                      opacity={0.4}
                     />
-                    <Circle
-                      cx={points.speed[bestIndex].x!}
-                      cy={points.speed[bestIndex].y!}
-                      r={4}
-                      color="#FFFFFF"
-                    />
-                  </>
-                )}
-                {/* Selected activity - cyan */}
-                {selectedIndex >= 0 &&
-                 points.speed[selectedIndex] &&
-                 points.speed[selectedIndex].x != null && points.speed[selectedIndex].y != null && (
-                  <>
-                    <Circle
-                      cx={points.speed[selectedIndex].x!}
-                      cy={points.speed[selectedIndex].y!}
-                      r={10}
-                      color="#00BCD4"
-                    />
-                    <Circle
-                      cx={points.speed[selectedIndex].x!}
-                      cy={points.speed[selectedIndex].y!}
-                      r={5}
-                      color="#FFFFFF"
-                    />
-                  </>
-                )}
-              </>
-            );
-          }) as any}
+                  )}
+                  {/* Regular points */}
+                  {points.speed.map((point: any, idx: number) => {
+                    if (point.x == null || point.y == null) return null;
+                    const isSelected = idx === selectedIndex;
+                    const isBest = idx === bestIndex;
+                    if (isSelected || isBest) return null;
+                    const d = chartData[idx];
+                    const pointColor = d ? getPointColor(d.direction) : activityColor;
+                    return (
+                      <Circle
+                        key={`point-${idx}`}
+                        cx={point.x}
+                        cy={point.y}
+                        r={5}
+                        color={pointColor}
+                      />
+                    );
+                  })}
+                  {/* Best performance - gold */}
+                  {bestIndex !== selectedIndex &&
+                    points.speed[bestIndex] &&
+                    points.speed[bestIndex].x != null &&
+                    points.speed[bestIndex].y != null && (
+                      <>
+                        <Circle
+                          cx={points.speed[bestIndex].x!}
+                          cy={points.speed[bestIndex].y!}
+                          r={8}
+                          color="#FFB300"
+                        />
+                        <Circle
+                          cx={points.speed[bestIndex].x!}
+                          cy={points.speed[bestIndex].y!}
+                          r={4}
+                          color="#FFFFFF"
+                        />
+                      </>
+                    )}
+                  {/* Selected activity - cyan */}
+                  {selectedIndex >= 0 &&
+                    points.speed[selectedIndex] &&
+                    points.speed[selectedIndex].x != null &&
+                    points.speed[selectedIndex].y != null && (
+                      <>
+                        <Circle
+                          cx={points.speed[selectedIndex].x!}
+                          cy={points.speed[selectedIndex].y!}
+                          r={10}
+                          color="#00BCD4"
+                        />
+                        <Circle
+                          cx={points.speed[selectedIndex].x!}
+                          cy={points.speed[selectedIndex].y!}
+                          r={5}
+                          color="#FFFFFF"
+                        />
+                      </>
+                    )}
+                </>
+              );
+            }) as any
+          }
         </CartesianChart>
 
         {/* Crosshair */}
@@ -375,7 +386,10 @@ export function UnifiedPerformanceChart({
         </View>
 
         {/* X-axis labels (dates) */}
-        <View style={[styles.xAxisOverlay, { width: chartWidth - 35 - 16, left: 35 }]} pointerEvents="none">
+        <View
+          style={[styles.xAxisOverlay, { width: chartWidth - 35 - 16, left: 35 }]}
+          pointerEvents="none"
+        >
           {chartData.length > 0 && (
             <>
               <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
@@ -405,16 +419,22 @@ export function UnifiedPerformanceChart({
         <View style={styles.chartLegend}>
           <View style={styles.legendItem}>
             <View style={[styles.legendDot, { backgroundColor: '#FFB300' }]} />
-            <Text style={[styles.legendText, isDark && styles.textMuted]}>{t('sections.best')}</Text>
+            <Text style={[styles.legendText, isDark && styles.textMuted]}>
+              {t('sections.best')}
+            </Text>
           </View>
           <View style={styles.legendItem}>
             <View style={[styles.legendDot, { backgroundColor: activityColor }]} />
-            <Text style={[styles.legendText, isDark && styles.textMuted]}>{t('sections.same')}</Text>
+            <Text style={[styles.legendText, isDark && styles.textMuted]}>
+              {t('sections.same')}
+            </Text>
           </View>
           {hasReverseRuns && (
             <View style={styles.legendItem}>
               <View style={[styles.legendDot, { backgroundColor: REVERSE_COLOR }]} />
-              <Text style={[styles.legendText, isDark && styles.textMuted]}>{t('sections.reverse')}</Text>
+              <Text style={[styles.legendText, isDark && styles.textMuted]}>
+                {t('sections.reverse')}
+              </Text>
             </View>
           )}
         </View>
@@ -452,7 +472,8 @@ export function UnifiedPerformanceChart({
               )}
               {tooltipBadgeType === 'time' && tooltipData.sectionTime != null && (
                 <Text style={[styles.tooltipDate, isDark && styles.textMuted]}>
-                  {' · '}{formatDuration(tooltipData.sectionTime)}
+                  {' · '}
+                  {formatDuration(tooltipData.sectionTime)}
                 </Text>
               )}
               {tooltipData.direction === 'reverse' && (
@@ -463,10 +484,19 @@ export function UnifiedPerformanceChart({
             </View>
           </View>
           <View style={styles.tooltipRight}>
-            <Text style={[styles.tooltipSpeed, { color: tooltipData.direction === 'reverse' ? REVERSE_COLOR : activityColor }]}>
+            <Text
+              style={[
+                styles.tooltipSpeed,
+                { color: tooltipData.direction === 'reverse' ? REVERSE_COLOR : activityColor },
+              ]}
+            >
               {formatSpeedValue(tooltipData.speed)}
             </Text>
-            <MaterialCommunityIcons name="chevron-right" size={16} color={isDark ? '#555' : '#CCC'} />
+            <MaterialCommunityIcons
+              name="chevron-right"
+              size={16}
+              color={isDark ? '#555' : '#CCC'}
+            />
           </View>
         </TouchableOpacity>
       )}

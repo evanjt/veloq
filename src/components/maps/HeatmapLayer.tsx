@@ -39,17 +39,7 @@ const DENSITY_COLORS: any[] = [
 ];
 
 // Circle radius based on cell size and density
-const CIRCLE_RADIUS: any[] = [
-  'interpolate',
-  ['linear'],
-  ['get', 'density'],
-  0,
-  4,
-  0.5,
-  6,
-  1.0,
-  8,
-];
+const CIRCLE_RADIUS: any[] = ['interpolate', ['linear'], ['get', 'density'], 0, 4, 0.5, 6, 1.0, 8];
 
 export function HeatmapLayer({
   heatmap,

@@ -39,7 +39,10 @@ function getTimeRangeLabel(
     case 'week':
       return { current: t('stats.thisWeek') as string, previous: t('stats.vsLastWeek') as string };
     case 'month':
-      return { current: t('stats.thisMonth') as string, previous: t('stats.vsLastMonth') as string };
+      return {
+        current: t('stats.thisMonth') as string,
+        previous: t('stats.vsLastMonth') as string,
+      };
     case '3m':
       return {
         current: t('stats.last3Months') as string,
@@ -56,10 +59,7 @@ function getTimeRangeLabel(
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function getTimeRangeButtonLabel(
-  range: TimeRange,
-  t: (key: string) => any
-): string {
+function getTimeRangeButtonLabel(range: TimeRange, t: (key: string) => any): string {
   switch (range) {
     case 'week':
       return t('stats.week') as string;

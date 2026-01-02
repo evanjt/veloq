@@ -37,12 +37,13 @@ export function MiniTraceView({
   const padding = 3;
 
   // Combine all points to calculate shared bounds
-  const allPoints = referencePoints && referencePoints.length > 0
-    ? [...primaryPoints, ...referencePoints]
-    : primaryPoints;
+  const allPoints =
+    referencePoints && referencePoints.length > 0
+      ? [...primaryPoints, ...referencePoints]
+      : primaryPoints;
 
-  const lats = allPoints.map(p => p.lat);
-  const lngs = allPoints.map(p => p.lng);
+  const lats = allPoints.map((p) => p.lat);
+  const lngs = allPoints.map((p) => p.lng);
   const minLat = Math.min(...lats);
   const maxLat = Math.max(...lats);
   const minLng = Math.min(...lngs);
@@ -53,27 +54,24 @@ export function MiniTraceView({
 
   // Scale function using shared bounds
   const scalePoints = (points: RoutePoint[]) =>
-    points.map(p => ({
+    points.map((p) => ({
       x: ((p.lng - minLng) / lngRange) * (size - padding * 2) + padding,
       y: (1 - (p.lat - minLat) / latRange) * (size - padding * 2) + padding,
     }));
 
   const primaryScaled = scalePoints(primaryPoints);
-  const primaryString = primaryScaled.map(p => `${p.x},${p.y}`).join(' ');
+  const primaryString = primaryScaled.map((p) => `${p.x},${p.y}`).join(' ');
 
-  const referenceScaled = referencePoints && referencePoints.length > 1
-    ? scalePoints(referencePoints)
-    : null;
+  const referenceScaled =
+    referencePoints && referencePoints.length > 1 ? scalePoints(referencePoints) : null;
   const referenceString = referenceScaled
-    ? referenceScaled.map(p => `${p.x},${p.y}`).join(' ')
+    ? referenceScaled.map((p) => `${p.x},${p.y}`).join(' ')
     : null;
 
   return (
-    <View style={[
-      styles.container,
-      { width: size, height: size },
-      isHighlighted && styles.highlighted,
-    ]}>
+    <View
+      style={[styles.container, { width: size, height: size }, isHighlighted && styles.highlighted]}
+    >
       <Svg width={size} height={size}>
         {/* Reference trace underneath (faded - route/section for comparison) */}
         {referenceString && (
