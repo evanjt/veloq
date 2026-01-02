@@ -86,6 +86,7 @@ export interface ApiActivityStreams {
   heartrate?: number[];
   watts?: number[];
   altitude?: number[];
+  fixed_altitude?: number[];
   cadence?: number[];
   distance?: number[];
   velocity_smooth?: number[];
@@ -515,7 +516,7 @@ export function getActivityMap(id: string, boundsOnly = false): ApiActivityMap |
   // Get route coordinates
   const route = routeId ? demoRoutes.find((r) => r.id === routeId) : null;
 
-  if (route) {
+  if (route && routeId) {
     const coords = getRouteCoordinates(routeId, true);
     const bounds = getRouteBounds(coords);
     return {

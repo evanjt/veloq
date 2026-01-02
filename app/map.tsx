@@ -156,14 +156,14 @@ export default function MapScreen() {
   const timelineSyncProgress = useMemo(() => {
     // Phase 1: Loading activities from API
     if (isFetchingActivities || isFetchingExtended) {
-      return { completed: 0, total: 0, message: t('mapScreen.loadingActivities') };
+      return { completed: 0, total: 0, message: t('mapScreen.loadingActivities') as string };
     }
     // Phase 2: Syncing activity bounds/GPS cache
     if (progress.status === 'syncing' && progress.total > 0) {
       return {
         completed: progress.completed,
         total: progress.total,
-        message: t('maps.syncingActivities', { completed: progress.completed, total: progress.total }),
+        message: t('maps.syncingActivities', { completed: progress.completed, total: progress.total }) as string,
       };
     }
     // Phase 3: Analyzing routes (GPS sync to Rust engine)
@@ -171,7 +171,7 @@ export default function MapScreen() {
       return {
         completed: gpsSyncProgress.completed,
         total: gpsSyncProgress.total,
-        message: t('routesScreen.analyzingRoutes'),
+        message: t('routesScreen.computingRoutes') as string,
       };
     }
     if (gpsSyncProgress.status === 'computing') {

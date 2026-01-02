@@ -83,7 +83,7 @@ function getEnteringAnimation(
   preset: AnimationPreset,
   delay: number,
   duration: number
-): EntryExitAnimationFunction | typeof FadeIn | undefined {
+) {
   switch (preset) {
     case 'fadeIn':
       return FadeIn.delay(delay).duration(duration);

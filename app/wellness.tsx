@@ -162,10 +162,10 @@ export default function WellnessScreen() {
         <Pressable style={styles.modalOverlay} onPress={() => setShowSmoothingModal(false)}>
           <View style={[styles.modalContent, isDark && styles.modalContentDark]}>
             <Text style={[styles.modalTitle, isDark && styles.textLight]}>
-              {t('wellness.smoothingTitle')}
+              {t('wellness.smoothingTitle' as never)}
             </Text>
             <Text style={[styles.modalDescription, isDark && styles.textDark]}>
-              {t('wellness.smoothingDescription')}
+              {t('wellness.smoothingDescription' as never)}
             </Text>
             <View style={styles.smoothingOptions}>
               {SMOOTHING_PRESETS.map((preset) => (
@@ -195,7 +195,7 @@ export default function WellnessScreen() {
               ))}
             </View>
             <Text style={[styles.modalHint, isDark && styles.textDark]}>
-              {t('wellness.smoothingHint')}
+              {t('wellness.smoothingHint' as never)}
             </Text>
           </View>
         </Pressable>

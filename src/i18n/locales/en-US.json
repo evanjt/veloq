@@ -28,7 +28,8 @@
     "heatmap": "Heatmap",
     "map": "Map",
     "settings": "Settings",
-    "activities": "Activities"
+    "activities": "Activities",
+    "syncing": "Syncing..."
   },
   "feed": {
     "recentActivities": "Recent Activities",
@@ -117,6 +118,9 @@
     "bounds": "Bounds",
     "gpsTraces": "GPS Traces",
     "cachedQueries": "Cached Queries",
+    "cached": "Cached",
+    "notCached": "Not cached",
+    "expandCache": "Load more",
     "cacheHint": "Caches activity locations and GPS traces for World Map and route matching. By default, syncs 3 months. Use \"Sync All History\" for deeper analysis.",
     "routeMatching": "Route Matching",
     "enableRouteMatching": "Enable Route Matching",

@@ -367,7 +367,7 @@ export const CombinedPlot = React.memo(function CombinedPlot({
           <CartesianChart
             data={chartData}
             xKey="x"
-            yKeys={yKeys as unknown as readonly string[]}
+            yKeys={yKeys as string[]}
             domain={{ y: [0, 1] }}
             padding={{ left: 0, right: 0, top: 2, bottom: 20 }}
           >

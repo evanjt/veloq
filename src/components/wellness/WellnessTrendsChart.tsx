@@ -117,15 +117,16 @@ function MetricSparkline({
 
       <View style={styles.sparklineContainer}>
         <View style={{ height }}>
-          {/* Victory Native CartesianChart called as function for programmatic rendering.
-              Type cast required due to library typing constraints. */}
-          {(CartesianChart as React.FC<Record<string, unknown>>)({
-            data,
-            xKey: 'x',
-            yKeys: ['value'],
-            domain: { x: [0, totalDays - 1], y: [yMin, yMax] },
-            padding: { left: 4, right: 4, top: 8, bottom: 8 },
-            children: ({
+          {/* Victory Native CartesianChart for programmatic rendering.
+              Using JSX syntax with render prop pattern. */}
+          <CartesianChart
+            data={data}
+            xKey="x"
+            yKeys={['value']}
+            domain={{ x: [0, totalDays - 1], y: [yMin, yMax] }}
+            padding={{ left: 4, right: 4, top: 8, bottom: 8 }}
+          >
+            {({
               points,
               chartBounds,
             }: {
@@ -170,8 +171,8 @@ function MetricSparkline({
                   </>
                 )}
               </>
-            ),
-          })}
+            )}
+          </CartesianChart>
         </View>
       </View>
 
