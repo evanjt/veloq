@@ -23,7 +23,7 @@ import {
   FORM_ZONE_BOUNDARIES,
   type FormZone,
 } from '@/hooks';
-import { sortByDateId } from '@/lib';
+import { sortByDateId, formatShortDate } from '@/lib';
 import type { WellnessData } from '@/types';
 
 interface FormZoneChartProps {
@@ -48,8 +48,7 @@ interface ChartDataPoint {
 }
 
 function formatDate(dateStr: string): string {
-  const date = new Date(dateStr);
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  return formatShortDate(dateStr);
 }
 
 export const FormZoneChart = React.memo(function FormZoneChart({

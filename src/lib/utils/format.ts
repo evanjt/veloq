@@ -1,3 +1,21 @@
+import { i18n, getCurrentLanguage } from '@/i18n';
+
+/**
+ * Map app locale codes to valid Intl/BCP 47 locale codes for date formatting
+ */
+function getIntlLocale(): string {
+  const locale = getCurrentLanguage();
+
+  // Map custom locale codes to valid Intl codes
+  const localeMap: Record<string, string> = {
+    'de-CHZ': 'de-CH',  // Zürich dialect → Swiss German formatting
+    'de-CHB': 'de-CH',  // Bernese dialect → Swiss German formatting
+    'zh-Hans': 'zh-CN', // Simplified Chinese
+  };
+
+  return localeMap[locale] || locale;
+}
+
 export function formatDistance(meters: number): string {
   if (!Number.isFinite(meters) || meters < 0) {
     return '0 m';
@@ -82,20 +100,21 @@ export function formatRelativeDate(dateString: string): string {
   const diffMs = now.getTime() - date.getTime();
   const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
   const isCurrentYear = date.getFullYear() === now.getFullYear();
+  const locale = getIntlLocale();
 
   if (diffDays === 0) {
-    return 'Today';
+    return i18n.t('time.today') || 'Today';
   } else if (diffDays === 1) {
-    return 'Yesterday';
+    return i18n.t('time.yesterday') || 'Yesterday';
   } else if (diffDays < 7) {
-    return date.toLocaleDateString('en-US', { weekday: 'long' });
+    return date.toLocaleDateString(locale, { weekday: 'long' });
   } else if (isCurrentYear) {
-    return date.toLocaleDateString('en-US', {
+    return date.toLocaleDateString(locale, {
       month: 'short',
       day: 'numeric',
     });
   } else {
-    return date.toLocaleDateString('en-US', {
+    return date.toLocaleDateString(locale, {
       month: 'short',
       day: 'numeric',
       year: 'numeric',
@@ -105,7 +124,8 @@ export function formatRelativeDate(dateString: string): string {
 
 export function formatDateTime(dateString: string): string {
   const date = new Date(dateString);
-  return date.toLocaleDateString('en-US', {
+  const locale = getIntlLocale();
+  return date.toLocaleDateString(locale, {
     weekday: 'short',
     month: 'short',
     day: 'numeric',
@@ -113,6 +133,58 @@ export function formatDateTime(dateString: string): string {
     hour: 'numeric',
     minute: '2-digit',
   });
+}
+
+/**
+ * Format date as short date (e.g., "Jan 2")
+ */
+export function formatShortDate(date: Date | string): string {
+  const d = typeof date === 'string' ? new Date(date) : date;
+  const locale = getIntlLocale();
+  return d.toLocaleDateString(locale, { month: 'short', day: 'numeric' });
+}
+
+/**
+ * Format date with weekday (e.g., "Fri, Jan 2")
+ */
+export function formatShortDateWithWeekday(date: Date | string): string {
+  const d = typeof date === 'string' ? new Date(date) : date;
+  const locale = getIntlLocale();
+  return d.toLocaleDateString(locale, { weekday: 'short', month: 'short', day: 'numeric' });
+}
+
+/**
+ * Format month only (e.g., "Jan")
+ */
+export function formatMonth(date: Date | string): string {
+  const d = typeof date === 'string' ? new Date(date) : date;
+  const locale = getIntlLocale();
+  return d.toLocaleDateString(locale, { month: 'short' });
+}
+
+/**
+ * Format date range (e.g., "Jan 2 - Jan 9")
+ */
+export function formatDateRange(start: Date | string, end: Date | string): string {
+  return `${formatShortDate(start)} - ${formatShortDate(end)}`;
+}
+
+/**
+ * Format full date with year (e.g., "Jan 2, 2024")
+ */
+export function formatFullDate(date: Date | string): string {
+  const d = typeof date === 'string' ? new Date(date) : date;
+  const locale = getIntlLocale();
+  return d.toLocaleDateString(locale, { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+/**
+ * Format full date with weekday and year (e.g., "Fri, Jan 2, 2024")
+ */
+export function formatFullDateWithWeekday(date: Date | string): string {
+  const d = typeof date === 'string' ? new Date(date) : date;
+  const locale = getIntlLocale();
+  return d.toLocaleDateString(locale, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
 }
 
 export function formatTSS(load: number): string {

@@ -6,7 +6,7 @@ import { colors } from '@/theme/colors';
 import { typography } from '@/theme/typography';
 import { spacing, layout } from '@/theme/spacing';
 import { shadows } from '@/theme/shadows';
-import { formatDistance, formatDuration } from '@/lib';
+import { formatDistance, formatDuration, formatFullDateWithWeekday } from '@/lib';
 import { getActivityTypeConfig } from '../ActivityTypeFilter';
 import type { ActivityBoundsItem, ActivityMapData } from '@/types';
 
@@ -42,12 +42,7 @@ export function ActivityPopup({
             {selected.activity.name}
           </Text>
           <Text style={styles.popupDate}>
-            {new Date(selected.activity.date).toLocaleDateString('en-US', {
-              weekday: 'short',
-              month: 'short',
-              day: 'numeric',
-              year: 'numeric',
-            })}
+            {formatFullDateWithWeekday(selected.activity.date)}
           </Text>
         </View>
         <View style={styles.popupHeaderButtons}>

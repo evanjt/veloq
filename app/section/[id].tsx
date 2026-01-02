@@ -22,9 +22,10 @@ import { useLocalSearchParams, router } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useActivities, useFrequentSections, useSectionPerformances } from '@/hooks';
+import { useActivities, useFrequentSections, useSectionPerformances, useCustomSection, type ActivitySectionRecord } from '@/hooks';
 import { SectionMapView, MiniTraceView } from '@/components/routes';
 import { UnifiedPerformanceChart } from '@/components/routes/performance';
+import { getGpsTracks } from '@/lib/storage/gpsStorage';
 
 // Lazy load native module to avoid bundler errors
 function getRouteEngine() {
@@ -190,6 +191,8 @@ export default function SectionDetailScreen() {
   const [highlightedActivityId, setHighlightedActivityId] = useState<string | null>(null);
   const [highlightedActivityPoints, setHighlightedActivityPoints] = useState<RoutePoint[] | undefined>(undefined);
   const [shadowTrack, setShadowTrack] = useState<[number, number][] | undefined>(undefined);
+  // Activity traces computed from GPS tracks (for custom sections)
+  const [computedActivityTraces, setComputedActivityTraces] = useState<Record<string, RoutePoint[]>>({});
 
   // State for section renaming
   const [isEditing, setIsEditing] = useState(false);
@@ -197,12 +200,101 @@ export default function SectionDetailScreen() {
   const [customName, setCustomName] = useState<string | null>(null);
   const nameInputRef = useRef<TextInput>(null);
 
-  // Get section from engine - must be declared before callbacks that use it
+  // Get section from engine (auto-detected) or custom sections storage
+  // Custom section IDs start with "custom_" (e.g., "custom_1767268142052_qyfoos8")
+  const isCustomId = id?.startsWith('custom_');
+
   const { sections: allSections } = useFrequentSections({ minVisits: 1 });
-  const section = useMemo(() =>
-    allSections.find((sec) => sec.id === id) || null,
-    [allSections, id]
-  );
+  // Pass the full ID - custom sections are stored with the "custom_" prefix
+  const { section: customSection } = useCustomSection(isCustomId ? id : undefined);
+
+  // Check both sources - custom sections and engine-detected sections
+  const section = useMemo(() => {
+    // First check engine sections (only if not a custom_ prefixed ID)
+    if (!isCustomId) {
+      const engineSection = allSections.find((sec) => sec.id === id);
+      if (engineSection) return engineSection;
+    }
+
+    // Check if it's a custom section and convert to FrequentSection shape
+    if (customSection) {
+      return {
+        id: customSection.id,
+        sportType: customSection.sportType,
+        polyline: customSection.polyline,
+        activityIds: customSection.matches.map((m) => m.activityId),
+        activityPortions: customSection.matches.map((m) => ({
+          activityId: m.activityId,
+          startIndex: m.startIndex,
+          endIndex: m.endIndex,
+          distanceMeters: m.distanceMeters ?? customSection.distanceMeters,
+          direction: m.direction,
+        })),
+        routeIds: [],
+        visitCount: customSection.matches.length,
+        distanceMeters: customSection.distanceMeters,
+        name: customSection.name,
+      } as FrequentSection;
+    }
+
+    // Fallback: check engine sections even for custom_ prefixed IDs (shouldn't happen but safe)
+    if (isCustomId) {
+      const engineSection = allSections.find((sec) => sec.id === id);
+      if (engineSection) return engineSection;
+    }
+
+    return null;
+  }, [allSections, customSection, id, isCustomId]);
+
+  // Merge computed activity traces into the section (for custom sections)
+  const sectionWithTraces = useMemo(() => {
+    if (!section) return null;
+
+    // For engine sections, activityTraces are pre-computed
+    if (section.activityTraces) return section;
+
+    // For custom sections, merge in the computed traces
+    if (Object.keys(computedActivityTraces).length > 0) {
+      return {
+        ...section,
+        activityTraces: computedActivityTraces,
+      };
+    }
+
+    return section;
+  }, [section, computedActivityTraces]);
+
+  // For custom sections: load GPS tracks and compute activity traces
+  useEffect(() => {
+    if (!customSection || !customSection.matches.length) {
+      setComputedActivityTraces({});
+      return;
+    }
+
+    const loadActivityTraces = async () => {
+      const activityIds = customSection.matches.map((m) => m.activityId);
+      const tracks = await getGpsTracks(activityIds);
+
+      const traces: Record<string, RoutePoint[]> = {};
+      for (const match of customSection.matches) {
+        const track = tracks.get(match.activityId);
+        if (track && track.length > 0) {
+          // Extract the portion of the GPS track that matches this section
+          const startIdx = Math.max(0, match.startIndex);
+          const endIdx = Math.min(track.length - 1, match.endIndex);
+          if (endIdx > startIdx) {
+            traces[match.activityId] = track.slice(startIdx, endIdx + 1).map(([lat, lng]) => ({
+              lat,
+              lng,
+            }));
+          }
+        }
+      }
+      setComputedActivityTraces(traces);
+    };
+
+    loadActivityTraces();
+  }, [customSection]);
 
   // Load custom section name from Rust engine on mount
   useEffect(() => {
@@ -330,7 +422,7 @@ export default function SectionDetailScreen() {
 
     for (const activity of sortedActivities) {
       const portion = portionMap.get(activity.id);
-      const tracePoints = section.activityTraces?.[activity.id];
+      const tracePoints = sectionWithTraces?.activityTraces?.[activity.id];
       const record = recordMap.get(activity.id);
 
       // Use actual data from record if available, otherwise use proportional estimate
@@ -395,7 +487,7 @@ export default function SectionDetailScreen() {
       bestIndex: bestIdx,
       hasReverseRuns: hasAnyReverse,
     };
-  }, [section, sectionActivities, performanceRecords, portionMap]);
+  }, [section, sectionWithTraces, sectionActivities, performanceRecords, portionMap]);
 
   if (!section) {
     return (
@@ -548,7 +640,7 @@ export default function SectionDetailScreen() {
               <View style={[styles.activitiesCard, isDark && styles.activitiesCardDark]}>
                 {sectionActivities.map((activity, index) => {
                   const portion = portionMap.get(activity.id);
-                  const tracePoints = section.activityTraces?.[activity.id];
+                  const tracePoints = sectionWithTraces?.activityTraces?.[activity.id];
                   const isHighlighted = highlightedActivityId === activity.id;
                   // Look up actual performance record for this activity
                   const record = performanceRecords?.find((r: ActivitySectionRecord) => r.activityId === activity.id);

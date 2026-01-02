@@ -14,7 +14,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { colors, darkColors, opacity, spacing, layout, typography } from '@/theme';
 import { calculateTSB, getFormZone, FORM_ZONE_COLORS } from '@/hooks';
-import { sortByDateId } from '@/lib';
+import { sortByDateId, formatShortDate, formatShortDateWithWeekday } from '@/lib';
 import type { WellnessData } from '@/types';
 
 // Chart colors matching intervals.icu
@@ -64,13 +64,11 @@ interface ChartDataPoint {
 }
 
 function formatDate(dateStr: string): string {
-  const date = new Date(dateStr);
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  return formatShortDate(dateStr);
 }
 
-function formatFullDate(dateStr: string): string {
-  const date = new Date(dateStr);
-  return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+function formatFullDateLocal(dateStr: string): string {
+  return formatShortDateWithWeekday(dateStr);
 }
 
 export function FitnessFormChart({
@@ -266,8 +264,8 @@ export function FitnessFormChart({
       <View style={styles.header}>
         <Text style={[styles.dateText, isDark && styles.textLight]}>
           {isActive && tooltipData
-            ? formatFullDate(tooltipData.date)
-            : formatFullDate(currentData.date)}
+            ? formatFullDateLocal(tooltipData.date)
+            : formatFullDateLocal(currentData.date)}
         </Text>
         <View style={styles.valuesRow}>
           <View style={styles.valueItem}>

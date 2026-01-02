@@ -124,10 +124,11 @@ export function useUnifiedSections(
     const result: UnifiedSection[] = [];
 
     // Add custom sections first (user-created take priority)
+    // Note: custom.id already has "custom_" prefix from generateId()
     if (includeCustom) {
       for (const custom of customSections) {
         result.push({
-          id: `custom_${custom.id}`,
+          id: custom.id,
           name: custom.name,
           polyline: custom.polyline,
           sportType: custom.sportType,

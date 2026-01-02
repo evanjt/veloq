@@ -1372,6 +1372,86 @@ class RouteEngineClient {
   }
 
   /**
+   * Start section detection in the background.
+   * Only available in persistent mode.
+   * Sections are detected from GPS tracks and stored in SQLite.
+   *
+   * @param sportFilter - Optional sport type to filter (e.g., "Run", "Ride")
+   * @returns true if detection started, false if already running or not in persistent mode
+   */
+  startSectionDetection(sportFilter?: string): boolean {
+    if (!this.dbPath) {
+      // In-memory mode doesn't need explicit detection - it's lazy
+      nativeLog('[Engine] Section detection skipped (in-memory mode uses lazy detection)');
+      return false;
+    }
+    const started = NativeModule.persistentEngineStartSectionDetection(sportFilter ?? null);
+    if (started) {
+      nativeLog('[Engine] Section detection started');
+    }
+    return started;
+  }
+
+  /**
+   * Poll for section detection completion.
+   * Call this periodically after starting detection.
+   *
+   * @returns "running" | "complete" | "idle" | "error"
+   */
+  pollSectionDetection(): 'running' | 'complete' | 'idle' | 'error' {
+    if (!this.dbPath) return 'idle';
+    const status = NativeModule.persistentEnginePollSections() as string;
+    if (status === 'complete') {
+      this.notify('sections');
+    }
+    return status as 'running' | 'complete' | 'idle' | 'error';
+  }
+
+  /**
+   * Detect sections and wait for completion.
+   * Convenience method that starts detection and polls until complete.
+   *
+   * @param sportFilter - Optional sport type filter
+   * @param pollIntervalMs - Polling interval in milliseconds (default: 100)
+   * @param timeoutMs - Timeout in milliseconds (default: 60000)
+   */
+  async detectSectionsAsync(
+    sportFilter?: string,
+    pollIntervalMs = 100,
+    timeoutMs = 60000
+  ): Promise<boolean> {
+    if (!this.dbPath) {
+      // In-memory mode - sections are computed lazily
+      return true;
+    }
+
+    if (!this.startSectionDetection(sportFilter)) {
+      // Already running or failed to start - check current status
+      const status = this.pollSectionDetection();
+      if (status === 'running') {
+        // Wait for existing detection to complete
+      } else {
+        return status === 'complete' || status === 'idle';
+      }
+    }
+
+    const startTime = Date.now();
+    while (Date.now() - startTime < timeoutMs) {
+      await new Promise(resolve => setTimeout(resolve, pollIntervalMs));
+      const status = this.pollSectionDetection();
+      if (status === 'complete' || status === 'idle') {
+        return true;
+      }
+      if (status === 'error') {
+        return false;
+      }
+    }
+
+    nativeLog('[Engine] Section detection timed out');
+    return false;
+  }
+
+  /**
    * Query activities in a viewport.
    * Returns activity IDs that intersect the given bounds.
    */
