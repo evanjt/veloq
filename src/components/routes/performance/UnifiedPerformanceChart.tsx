@@ -270,7 +270,10 @@ export function UnifiedPerformanceChart({
                 chartBounds.left !== chartBoundsShared.value.left ||
                 chartBounds.right !== chartBoundsShared.value.right
               ) {
-                chartBoundsShared.value = { left: chartBounds.left, right: chartBounds.right };
+                chartBoundsShared.value = {
+                  left: chartBounds.left,
+                  right: chartBounds.right,
+                };
               }
 
               const samePoints = points.speed.filter(
@@ -487,7 +490,9 @@ export function UnifiedPerformanceChart({
             <Text
               style={[
                 styles.tooltipSpeed,
-                { color: tooltipData.direction === 'reverse' ? REVERSE_COLOR : activityColor },
+                {
+                  color: tooltipData.direction === 'reverse' ? REVERSE_COLOR : activityColor,
+                },
               ]}
             >
               {formatSpeedValue(tooltipData.speed)}

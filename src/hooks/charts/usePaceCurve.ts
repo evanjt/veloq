@@ -78,7 +78,10 @@ export function getPaceAtDistance(
 /**
  * Convert m/s to min:sec per km (for display)
  */
-export function paceToMinPerKm(metersPerSecond: number): { minutes: number; seconds: number } {
+export function paceToMinPerKm(metersPerSecond: number): {
+  minutes: number;
+  seconds: number;
+} {
   if (metersPerSecond <= 0) return { minutes: 0, seconds: 0 };
   const secondsPerKm = 1000 / metersPerSecond;
   const minutes = Math.floor(secondsPerKm / 60);
@@ -89,7 +92,10 @@ export function paceToMinPerKm(metersPerSecond: number): { minutes: number; seco
 /**
  * Convert m/s to min:sec per 100m (for swimming)
  */
-export function paceToMinPer100m(metersPerSecond: number): { minutes: number; seconds: number } {
+export function paceToMinPer100m(metersPerSecond: number): {
+  minutes: number;
+  seconds: number;
+} {
   if (metersPerSecond <= 0) return { minutes: 0, seconds: 0 };
   const secondsPer100m = 100 / metersPerSecond;
   const minutes = Math.floor(secondsPer100m / 60);

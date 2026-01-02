@@ -150,7 +150,11 @@ export function formatShortDate(date: Date | string): string {
 export function formatShortDateWithWeekday(date: Date | string): string {
   const d = typeof date === 'string' ? new Date(date) : date;
   const locale = getIntlLocale();
-  return d.toLocaleDateString(locale, { weekday: 'short', month: 'short', day: 'numeric' });
+  return d.toLocaleDateString(locale, {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+  });
 }
 
 /**
@@ -175,7 +179,11 @@ export function formatDateRange(start: Date | string, end: Date | string): strin
 export function formatFullDate(date: Date | string): string {
   const d = typeof date === 'string' ? new Date(date) : date;
   const locale = getIntlLocale();
-  return d.toLocaleDateString(locale, { month: 'short', day: 'numeric', year: 'numeric' });
+  return d.toLocaleDateString(locale, {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
 }
 
 /**

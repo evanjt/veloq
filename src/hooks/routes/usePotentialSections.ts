@@ -8,7 +8,11 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { InteractionManager } from 'react-native';
 import { getRouteEngine } from '@/lib/native/routeEngine';
-import { detectSectionsMultiscale, getDefaultScalePresets, type PotentialSection } from 'route-matcher-native';
+import {
+  detectSectionsMultiscale,
+  getDefaultScalePresets,
+  type PotentialSection,
+} from 'route-matcher-native';
 import { usePotentialSections as usePotentialSectionsStore } from '@/providers/PotentialSectionsStore';
 import type { Activity } from '@/types';
 
@@ -64,7 +68,12 @@ export function usePotentialSections(
 ): UsePotentialSectionsResult {
   const { sportType, minActivities = 10, autoDetect = true } = options;
 
-  const { potentials: storedPotentials, isLoaded, setPotentials, clear } = usePotentialSectionsStore();
+  const {
+    potentials: storedPotentials,
+    isLoaded,
+    setPotentials,
+    clear,
+  } = usePotentialSectionsStore();
   const [isDetecting, setIsDetecting] = useState(false);
   const isMountedRef = useRef(true);
   const hasDetectedRef = useRef(false);
@@ -97,7 +106,9 @@ export function usePotentialSections(
 
     const activityIds = engine.getActivityIds();
     if (activityIds.length < minActivities) {
-      console.log(`[usePotentialSections] Not enough activities (${activityIds.length} < ${minActivities})`);
+      console.log(
+        `[usePotentialSections] Not enough activities (${activityIds.length} < ${minActivities})`
+      );
       return;
     }
 
@@ -105,7 +116,10 @@ export function usePotentialSections(
 
     try {
       // Get activity data for detection
-      const activities: Array<{ activityId: string; points: { latitude: number; longitude: number }[] }> = [];
+      const activities: Array<{
+        activityId: string;
+        points: { latitude: number; longitude: number }[];
+      }> = [];
 
       for (const id of activityIds) {
         const track = engine.getGpsTrack(id);
@@ -144,7 +158,9 @@ export function usePotentialSections(
       // Store potentials
       if (isMountedRef.current) {
         await setPotentials(result.potentials);
-        console.log(`[usePotentialSections] Detected ${result.potentials.length} potential sections`);
+        console.log(
+          `[usePotentialSections] Detected ${result.potentials.length} potential sections`
+        );
       }
     } catch (error) {
       console.error('[usePotentialSections] Detection failed:', error);

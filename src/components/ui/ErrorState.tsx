@@ -72,7 +72,9 @@ export function ErrorState({
       <View
         style={[
           styles.iconContainer,
-          { backgroundColor: isDark ? 'rgba(229, 57, 53, 0.1)' : 'rgba(229, 57, 53, 0.08)' },
+          {
+            backgroundColor: isDark ? 'rgba(229, 57, 53, 0.1)' : 'rgba(229, 57, 53, 0.08)',
+          },
         ]}
       >
         <MaterialCommunityIcons name={icon} size={32} color={colors.error} />

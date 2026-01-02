@@ -26,11 +26,36 @@ const COLORS = {
 
 // Form zone backgrounds (matching intervals.icu)
 const FORM_ZONES = {
-  highRisk: { min: -Infinity, max: -30, color: 'rgba(239, 83, 80, 0.25)', label: 'High Risk' },
-  optimal: { min: -30, max: -10, color: 'rgba(76, 175, 80, 0.25)', label: 'Optimal' },
-  grey: { min: -10, max: 5, color: 'rgba(158, 158, 158, 0.15)', label: 'Grey Zone' },
-  fresh: { min: 5, max: 25, color: 'rgba(129, 199, 132, 0.25)', label: 'Fresh' },
-  transition: { min: 25, max: Infinity, color: 'rgba(100, 181, 246, 0.2)', label: 'Transition' },
+  highRisk: {
+    min: -Infinity,
+    max: -30,
+    color: 'rgba(239, 83, 80, 0.25)',
+    label: 'High Risk',
+  },
+  optimal: {
+    min: -30,
+    max: -10,
+    color: 'rgba(76, 175, 80, 0.25)',
+    label: 'Optimal',
+  },
+  grey: {
+    min: -10,
+    max: 5,
+    color: 'rgba(158, 158, 158, 0.15)',
+    label: 'Grey Zone',
+  },
+  fresh: {
+    min: 5,
+    max: 25,
+    color: 'rgba(129, 199, 132, 0.25)',
+    label: 'Fresh',
+  },
+  transition: {
+    min: 25,
+    max: Infinity,
+    color: 'rgba(100, 181, 246, 0.2)',
+    label: 'Transition',
+  },
 };
 
 // Get form line color based on current value
@@ -98,7 +123,13 @@ export function FitnessFormChart({
   // Process data for the chart
   const { chartData, maxLoad, maxFitness, minForm, maxForm } = useMemo(() => {
     if (!data || data.length === 0) {
-      return { chartData: [], maxLoad: 50, maxFitness: 100, minForm: -30, maxForm: 30 };
+      return {
+        chartData: [],
+        maxLoad: 50,
+        maxFitness: 100,
+        minForm: -30,
+        maxForm: 30,
+      };
     }
 
     const withTSB = calculateTSB(data);
@@ -311,7 +342,10 @@ export function FitnessFormChart({
                   chartBounds.left !== chartBoundsShared.value.left ||
                   chartBounds.right !== chartBoundsShared.value.right
                 ) {
-                  chartBoundsShared.value = { left: chartBounds.left, right: chartBounds.right };
+                  chartBoundsShared.value = {
+                    left: chartBounds.left,
+                    right: chartBounds.right,
+                  };
                 }
                 const newCoords = points.fitness.map((p) => p.x);
                 if (

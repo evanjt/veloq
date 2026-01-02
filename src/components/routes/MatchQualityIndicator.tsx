@@ -97,7 +97,9 @@ export function MatchQualityIndicator({
 
         {direction === 'partial' && overlapDistance != null && (
           <Text style={[styles.overlapText, isDark && styles.textMuted]}>
-            {t('routes.overlap', { distance: (overlapDistance / 1000).toFixed(1) })}
+            {t('routes.overlap', {
+              distance: (overlapDistance / 1000).toFixed(1),
+            })}
           </Text>
         )}
       </View>

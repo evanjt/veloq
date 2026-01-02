@@ -120,7 +120,10 @@ export function ActivityHeatmap({
         // Track month labels
         const month = date.getMonth();
         if (month !== lastMonth && d === 0) {
-          monthPositions.push({ month: MONTHS[month], col: weeksToShow - 1 - w });
+          monthPositions.push({
+            month: MONTHS[month],
+            col: weeksToShow - 1 - w,
+          });
           lastMonth = month;
         }
       }

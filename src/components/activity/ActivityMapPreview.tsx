@@ -114,7 +114,12 @@ export function ActivityMapPreview({ activity, height = 160 }: ActivityMapPrevie
       >
         <Camera
           bounds={bounds}
-          padding={{ paddingTop: 30, paddingRight: 30, paddingBottom: 30, paddingLeft: 30 }}
+          padding={{
+            paddingTop: 30,
+            paddingRight: 30,
+            paddingBottom: 30,
+            paddingLeft: 30,
+          }}
           animationDuration={0}
         />
 

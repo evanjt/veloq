@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
   View,
   Text,
@@ -7,18 +7,33 @@ import {
   TouchableOpacity,
   useColorScheme,
   Alert,
-} from 'react-native';
-import * as WebBrowser from 'expo-web-browser';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { router, Href } from 'expo-router';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { SegmentedButtons, Switch } from 'react-native-paper';
-import { useTranslation } from 'react-i18next';
-import { useQueryClient } from '@tanstack/react-query';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useAthlete, useActivityBoundsCache, useRouteProcessing, useRouteGroups, useActivities, useOldestActivityDate } from '@/hooks';
-import { CacheTimeline, DisplaySettings, ProfileSection } from '@/components/settings';
-import { estimateBoundsCacheSize, estimateGpsStorageSize, formatFullDate } from '@/lib';
+} from "react-native";
+import * as WebBrowser from "expo-web-browser";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { router, Href } from "expo-router";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { SegmentedButtons, Switch } from "react-native-paper";
+import { useTranslation } from "react-i18next";
+import { useQueryClient } from "@tanstack/react-query";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import {
+  useAthlete,
+  useActivityBoundsCache,
+  useRouteProcessing,
+  useRouteGroups,
+  useActivities,
+  useOldestActivityDate,
+} from "@/hooks";
+import {
+  CacheTimeline,
+  DisplaySettings,
+  ProfileSection,
+} from "@/components/settings";
+import {
+  estimateBoundsCacheSize,
+  estimateGpsStorageSize,
+  formatFullDate,
+} from "@/lib";
 import {
   getThemePreference,
   setThemePreference,
@@ -29,32 +44,70 @@ import {
   useLanguageStore,
   type ThemePreference,
   type PrimarySport,
-} from '@/providers';
-import Constants from 'expo-constants';
-import { type SupportedLocale } from '@/i18n';
-import { type MapStyleType } from '@/components/maps';
-import { colors, spacing, layout } from '@/theme';
-import type { ActivityType } from '@/types';
+} from "@/providers";
+import Constants from "expo-constants";
+import { type SupportedLocale } from "@/i18n";
+import { type MapStyleType } from "@/components/maps";
+import { colors, spacing, layout } from "@/theme";
+import type { ActivityType } from "@/types";
 
 // Activity type groups for map settings
 // Each group applies the same map style to all its activity types
 // Covers ALL ActivityType values from types/activity.ts
-type FilterLabelKey = 'filters.cycling' | 'filters.running' | 'filters.hiking' | 'filters.walking' | 'filters.swimming' | 'filters.snowSports' | 'filters.waterSports' | 'filters.climbing' | 'filters.racketSports' | 'filters.other';
-const MAP_ACTIVITY_GROUPS: { key: string; labelKey: FilterLabelKey; types: ActivityType[] }[] = [
-  { key: 'cycling', labelKey: 'filters.cycling', types: ['Ride', 'VirtualRide'] },
-  { key: 'running', labelKey: 'filters.running', types: ['Run', 'TrailRun', 'VirtualRun'] },
-  { key: 'hiking', labelKey: 'filters.hiking', types: ['Hike', 'Snowshoe'] },
-  { key: 'walking', labelKey: 'filters.walking', types: ['Walk'] },
-  { key: 'swimming', labelKey: 'filters.swimming', types: ['Swim', 'OpenWaterSwim'] },
-  { key: 'snow', labelKey: 'filters.snowSports', types: ['AlpineSki', 'NordicSki', 'BackcountrySki', 'Snowboard'] },
-  { key: 'water', labelKey: 'filters.waterSports', types: ['Rowing', 'Kayaking', 'Canoeing'] },
-  { key: 'climbing', labelKey: 'filters.climbing', types: ['RockClimbing'] },
-  { key: 'racket', labelKey: 'filters.racketSports', types: ['Tennis'] },
-  { key: 'other', labelKey: 'filters.other', types: ['Workout', 'WeightTraining', 'Yoga', 'Other'] },
+type FilterLabelKey =
+  | "filters.cycling"
+  | "filters.running"
+  | "filters.hiking"
+  | "filters.walking"
+  | "filters.swimming"
+  | "filters.snowSports"
+  | "filters.waterSports"
+  | "filters.climbing"
+  | "filters.racketSports"
+  | "filters.other";
+const MAP_ACTIVITY_GROUPS: {
+  key: string;
+  labelKey: FilterLabelKey;
+  types: ActivityType[];
+}[] = [
+  {
+    key: "cycling",
+    labelKey: "filters.cycling",
+    types: ["Ride", "VirtualRide"],
+  },
+  {
+    key: "running",
+    labelKey: "filters.running",
+    types: ["Run", "TrailRun", "VirtualRun"],
+  },
+  { key: "hiking", labelKey: "filters.hiking", types: ["Hike", "Snowshoe"] },
+  { key: "walking", labelKey: "filters.walking", types: ["Walk"] },
+  {
+    key: "swimming",
+    labelKey: "filters.swimming",
+    types: ["Swim", "OpenWaterSwim"],
+  },
+  {
+    key: "snow",
+    labelKey: "filters.snowSports",
+    types: ["AlpineSki", "NordicSki", "BackcountrySki", "Snowboard"],
+  },
+  {
+    key: "water",
+    labelKey: "filters.waterSports",
+    types: ["Rowing", "Kayaking", "Canoeing"],
+  },
+  { key: "climbing", labelKey: "filters.climbing", types: ["RockClimbing"] },
+  { key: "racket", labelKey: "filters.racketSports", types: ["Tennis"] },
+  {
+    key: "other",
+    labelKey: "filters.other",
+    types: ["Workout", "WeightTraining", "Yoga", "Other"],
+  },
 ];
 
 function formatDate(dateStr: string | null): string {
-  if (!dateStr) return '-';
+  if (!dateStr) return "-";
   return formatFullDate(dateStr);
 }
 
@@ -67,13 +120,18 @@ function formatBytes(bytes: number): string {
 export default function SettingsScreen() {
   const { t } = useTranslation();
   const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
-  const [themePreference, setThemePreferenceState] = useState<ThemePreference>('system');
+  const isDark = colorScheme === "dark";
+  const [themePreference, setThemePreferenceState] =
+    useState<ThemePreference>("system");
   const [showActivityStyles, setShowActivityStyles] = useState(false);
   const [showLanguages, setShowLanguages] = useState(false);
 
   const { data: athlete } = useAthlete();
-  const { preferences: mapPreferences, setDefaultStyle, setActivityGroupStyle } = useMapPreferences();
+  const {
+    preferences: mapPreferences,
+    setDefaultStyle,
+    setActivityGroupStyle,
+  } = useMapPreferences();
   const clearCredentials = useAuthStore((state) => state.clearCredentials);
   const isDemoMode = useAuthStore((state) => state.isDemoMode);
   const hideDemoBanner = useAuthStore((state) => state.hideDemoBanner);
@@ -87,7 +145,7 @@ export default function SettingsScreen() {
       .then(setThemePreferenceState)
       .catch(() => {
         // Default to system preference on error
-        setThemePreferenceState('system');
+        setThemePreferenceState("system");
       });
   }, []);
 
@@ -102,7 +160,7 @@ export default function SettingsScreen() {
   };
 
   const handleLanguageChange = async (value: string) => {
-    const locale = value === 'system' ? null : (value as SupportedLocale);
+    const locale = value === "system" ? null : (value as SupportedLocale);
     await setLanguage(locale);
   };
 
@@ -111,34 +169,44 @@ export default function SettingsScreen() {
     await setDefaultStyle(style);
   };
 
-  const handleActivityGroupMapStyleChange = async (groupKey: string, value: string) => {
-    const group = MAP_ACTIVITY_GROUPS.find(g => g.key === groupKey);
+  const handleActivityGroupMapStyleChange = async (
+    groupKey: string,
+    value: string,
+  ) => {
+    const group = MAP_ACTIVITY_GROUPS.find((g) => g.key === groupKey);
     if (!group) return;
 
-    const style = value === 'default' ? null : (value as MapStyleType);
+    const style = value === "default" ? null : (value as MapStyleType);
     await setActivityGroupStyle(group.types, style);
   };
 
   // Fetch activities to get date range for cache stats
-  const { data: allActivities } = useActivities({ days: 365 * 10, includeStats: false });
+  const { data: allActivities } = useActivities({
+    days: 365 * 10,
+    includeStats: false,
+  });
 
   // Get oldest activity date from API (for timeline extent)
   const { data: apiOldestDate } = useOldestActivityDate();
 
-  const {
-    progress,
-    cacheStats,
-    clearCache,
-    sync,
-  } = useActivityBoundsCache({ activitiesWithDates: allActivities });
+  const { progress, cacheStats, clearCache, sync } = useActivityBoundsCache({
+    activitiesWithDates: allActivities,
+  });
 
   // Route matching cache
-  const { progress: routeProgress, isProcessing: isRouteProcessing, clearCache: clearRouteCache, cancel: cancelRouteProcessing } = useRouteProcessing();
+  const {
+    progress: routeProgress,
+    isProcessing: isRouteProcessing,
+    clearCache: clearRouteCache,
+    cancel: cancelRouteProcessing,
+  } = useRouteProcessing();
   // Use minActivities: 2 to show actual routes (groups with 2+ activities), not signatures
-  const { groups: routeGroups, processedCount: routeProcessedCount } = useRouteGroups({ minActivities: 2 });
+  const { groups: routeGroups, processedCount: routeProcessedCount } =
+    useRouteGroups({ minActivities: 2 });
 
   // Route matching settings
-  const { settings: routeSettings, setEnabled: setRouteMatchingEnabled } = useRouteSettings();
+  const { settings: routeSettings, setEnabled: setRouteMatchingEnabled } =
+    useRouteSettings();
 
   // TanStack Query cache for clearing and stats
   const queryClient = useQueryClient();
@@ -147,9 +215,15 @@ export default function SettingsScreen() {
   const queryCacheStats = useMemo(() => {
     const queries = queryClient.getQueryCache().getAll();
     return {
-      activities: queries.filter(q => q.queryKey[0] === 'activities' || q.queryKey[0] === 'activities-infinite').length,
-      wellness: queries.filter(q => q.queryKey[0] === 'wellness').length,
-      curves: queries.filter(q => q.queryKey[0] === 'powerCurve' || q.queryKey[0] === 'paceCurve').length,
+      activities: queries.filter(
+        (q) =>
+          q.queryKey[0] === "activities" ||
+          q.queryKey[0] === "activities-infinite",
+      ).length,
+      wellness: queries.filter((q) => q.queryKey[0] === "wellness").length,
+      curves: queries.filter(
+        (q) => q.queryKey[0] === "powerCurve" || q.queryKey[0] === "paceCurve",
+      ).length,
       totalQueries: queries.length,
     };
   }, [queryClient, cacheStats.totalActivities]); // Re-compute when activities change
@@ -176,114 +250,108 @@ export default function SettingsScreen() {
   }, [refreshCacheSizes, cacheStats.totalActivities, routeProcessedCount]);
 
   const profileUrl = athlete?.profile_medium || athlete?.profile;
-  const hasValidProfileUrl = profileUrl && typeof profileUrl === 'string' && profileUrl.startsWith('http');
+  const hasValidProfileUrl =
+    profileUrl &&
+    typeof profileUrl === "string" &&
+    profileUrl.startsWith("http");
 
   const handleClearCache = () => {
-    Alert.alert(
-      t('alerts.clearCacheTitle'),
-      t('alerts.clearCacheMessage'),
-      [
-        { text: t('common.cancel'), style: 'cancel' },
-        {
-          text: t('alerts.clearReload'),
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              // Clear GPS/bounds cache and route cache
-              await clearCache();
-              await clearRouteCache();
+    Alert.alert(t("alerts.clearCacheTitle"), t("alerts.clearCacheMessage"), [
+      { text: t("common.cancel"), style: "cancel" },
+      {
+        text: t("alerts.clearReload"),
+        style: "destructive",
+        onPress: async () => {
+          try {
+            // Clear GPS/bounds cache and route cache
+            await clearCache();
+            await clearRouteCache();
 
-              // Clear TanStack Query cache (in-memory and persisted)
-              queryClient.clear();
-              await AsyncStorage.removeItem('veloq-query-cache');
+            // Clear TanStack Query cache (in-memory and persisted)
+            queryClient.clear();
+            await AsyncStorage.removeItem("veloq-query-cache");
 
-              // Refetch all core queries in background
-              queryClient.refetchQueries({ queryKey: ['activities'] });
-              queryClient.refetchQueries({ queryKey: ['wellness'] });
-              queryClient.refetchQueries({ queryKey: ['powerCurve'] });
-              queryClient.refetchQueries({ queryKey: ['paceCurve'] });
-              queryClient.refetchQueries({ queryKey: ['athlete'] });
+            // Refetch all core queries in background
+            queryClient.refetchQueries({ queryKey: ["activities"] });
+            queryClient.refetchQueries({ queryKey: ["wellness"] });
+            queryClient.refetchQueries({ queryKey: ["powerCurve"] });
+            queryClient.refetchQueries({ queryKey: ["paceCurve"] });
+            queryClient.refetchQueries({ queryKey: ["athlete"] });
 
-              // Sync activities for last 90 days (downloads GPS data)
-              await sync(90);
+            // Sync activities for last 90 days (downloads GPS data)
+            await sync(90);
 
-              // Refresh cache sizes
-              refreshCacheSizes();
-            } catch {
-              Alert.alert(t('alerts.error'), t('alerts.failedToClear'));
-            }
-          },
+            // Refresh cache sizes
+            refreshCacheSizes();
+          } catch {
+            Alert.alert(t("alerts.error"), t("alerts.failedToClear"));
+          }
         },
-      ]
-    );
+      },
+    ]);
   };
 
   const handleClearRouteCache = () => {
     Alert.alert(
-      t('alerts.clearRouteCacheTitle'),
-      t('alerts.clearRouteCacheMessage'),
+      t("alerts.clearRouteCacheTitle"),
+      t("alerts.clearRouteCacheMessage"),
       [
-        { text: t('common.cancel'), style: 'cancel' },
+        { text: t("common.cancel"), style: "cancel" },
         {
-          text: t('alerts.clearReload'),
-          style: 'destructive',
+          text: t("alerts.clearReload"),
+          style: "destructive",
           onPress: async () => {
             try {
               await clearRouteCache();
               // Cache cleared via Rust engine
               refreshCacheSizes();
             } catch {
-              Alert.alert(t('alerts.error'), t('alerts.failedToClear'));
+              Alert.alert(t("alerts.error"), t("alerts.failedToClear"));
             }
           },
         },
-      ]
+      ],
     );
   };
 
   const handleSyncAll = () => {
-    if (progress.status === 'syncing') {
-      Alert.alert(t('settings.syncInProgress'), t('settings.syncInProgress'));
+    if (progress.status === "syncing") {
+      Alert.alert(t("settings.syncInProgress"), t("settings.syncInProgress"));
       return;
     }
 
-    Alert.alert(
-      t('alerts.syncAllTitle'),
-      t('alerts.syncAllMessage'),
-      [
-        { text: t('common.cancel'), style: 'cancel' },
-        {
-          text: t('alerts.sync'),
-          onPress: () => sync('all'),
-        },
-      ]
-    );
+    Alert.alert(t("alerts.syncAllTitle"), t("alerts.syncAllMessage"), [
+      { text: t("common.cancel"), style: "cancel" },
+      {
+        text: t("alerts.sync"),
+        onPress: () => sync("all"),
+      },
+    ]);
   };
 
   const handleLogout = () => {
-    Alert.alert(
-      t('alerts.disconnectTitle'),
-      t('alerts.disconnectMessage'),
-      [
-        { text: t('common.cancel'), style: 'cancel' },
-        {
-          text: t('alerts.disconnect'),
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await clearCredentials();
-              router.replace('/login' as Href);
-            } catch {
-              Alert.alert(t('alerts.error'), t('alerts.failedToDisconnect'));
-            }
-          },
+    Alert.alert(t("alerts.disconnectTitle"), t("alerts.disconnectMessage"), [
+      { text: t("common.cancel"), style: "cancel" },
+      {
+        text: t("alerts.disconnect"),
+        style: "destructive",
+        onPress: async () => {
+          try {
+            await clearCredentials();
+            router.replace("/login" as Href);
+          } catch {
+            Alert.alert(t("alerts.error"), t("alerts.failedToDisconnect"));
+          }
         },
-      ]
-    );
+      },
+    ]);
   };
 
   return (
-    <SafeAreaView testID="settings-screen" style={[styles.container, isDark && styles.containerDark]}>
+    <SafeAreaView
+      testID="settings-screen"
+      style={[styles.container, isDark && styles.containerDark]}
+    >
       <ScrollView contentContainerStyle={styles.content}>
         {/* Header with back button */}
         <View style={styles.header}>
@@ -291,16 +359,18 @@ export default function SettingsScreen() {
             testID="nav-back-button"
             onPress={() => router.back()}
             style={styles.backButton}
-            accessibilityLabel={t('common.back')}
+            accessibilityLabel={t("common.back")}
             accessibilityRole="button"
           >
             <MaterialCommunityIcons
               name="arrow-left"
               size={24}
-              color={isDark ? '#FFF' : colors.textPrimary}
+              color={isDark ? "#FFF" : colors.textPrimary}
             />
           </TouchableOpacity>
-          <Text style={[styles.headerTitle, isDark && styles.textLight]}>{t('settings.title')}</Text>
+          <Text style={[styles.headerTitle, isDark && styles.textLight]}>
+            {t("settings.title")}
+          </Text>
           <View style={styles.headerSpacer} />
         </View>
 
@@ -320,10 +390,14 @@ export default function SettingsScreen() {
         />
 
         {/* Maps Section */}
-        <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>{t('settings.maps').toUpperCase()}</Text>
+        <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>
+          {t("settings.maps").toUpperCase()}
+        </Text>
         <View style={[styles.section, isDark && styles.sectionDark]}>
           <View style={styles.mapStyleRow}>
-            <Text style={[styles.mapStyleLabel, isDark && styles.textLight]}>{t('settings.defaultStyle')}</Text>
+            <Text style={[styles.mapStyleLabel, isDark && styles.textLight]}>
+              {t("settings.defaultStyle")}
+            </Text>
           </View>
           <View style={styles.themePickerContainer}>
             <SegmentedButtons
@@ -331,19 +405,19 @@ export default function SettingsScreen() {
               onValueChange={handleDefaultMapStyleChange}
               buttons={[
                 {
-                  value: 'light',
-                  label: t('settings.light'),
-                  icon: 'map',
+                  value: "light",
+                  label: t("settings.light"),
+                  icon: "map",
                 },
                 {
-                  value: 'dark',
-                  label: t('settings.dark'),
-                  icon: 'map',
+                  value: "dark",
+                  label: t("settings.dark"),
+                  icon: "map",
                 },
                 {
-                  value: 'satellite',
-                  label: t('settings.satellite'),
-                  icon: 'satellite-variant',
+                  value: "satellite",
+                  label: t("settings.satellite"),
+                  icon: "satellite-variant",
                 },
               ]}
               style={styles.themePicker}
@@ -361,12 +435,12 @@ export default function SettingsScreen() {
               color={colors.primary}
             />
             <Text style={[styles.actionText, isDark && styles.textLight]}>
-              {t('settings.customiseByActivity')}
+              {t("settings.customiseByActivity")}
             </Text>
             <MaterialCommunityIcons
-              name={showActivityStyles ? 'chevron-up' : 'chevron-down'}
+              name={showActivityStyles ? "chevron-up" : "chevron-down"}
               size={20}
-              color={isDark ? '#666' : colors.textSecondary}
+              color={isDark ? "#666" : colors.textSecondary}
             />
           </TouchableOpacity>
 
@@ -375,20 +449,28 @@ export default function SettingsScreen() {
             <View style={styles.activityStylesContainer}>
               {MAP_ACTIVITY_GROUPS.map(({ key, labelKey, types }) => {
                 // Use the first type in the group to determine current style
-                const currentStyle = mapPreferences.activityTypeStyles[types[0]] ?? 'default';
+                const currentStyle =
+                  mapPreferences.activityTypeStyles[types[0]] ?? "default";
                 return (
                   <View key={key} style={styles.activityStyleRow}>
-                    <Text style={[styles.activityStyleLabel, isDark && styles.textLight]}>
+                    <Text
+                      style={[
+                        styles.activityStyleLabel,
+                        isDark && styles.textLight,
+                      ]}
+                    >
                       {t(labelKey)}
                     </Text>
                     <SegmentedButtons
                       value={currentStyle}
-                      onValueChange={(value) => handleActivityGroupMapStyleChange(key, value)}
+                      onValueChange={(value) =>
+                        handleActivityGroupMapStyleChange(key, value)
+                      }
                       buttons={[
-                        { value: 'default', label: t('settings.default') },
-                        { value: 'light', label: t('settings.light') },
-                        { value: 'dark', label: t('settings.dark') },
-                        { value: 'satellite', label: t('settings.satellite') },
+                        { value: "default", label: t("settings.default") },
+                        { value: "light", label: t("settings.light") },
+                        { value: "dark", label: t("settings.dark") },
+                        { value: "satellite", label: t("settings.satellite") },
                       ]}
                       density="small"
                       style={styles.activityStylePicker}
@@ -396,30 +478,45 @@ export default function SettingsScreen() {
                   </View>
                 );
               })}
-              <Text style={[styles.activityStyleHint, isDark && styles.textMuted]}>
-                {t('settings.defaultMapHint')}
+              <Text
+                style={[styles.activityStyleHint, isDark && styles.textMuted]}
+              >
+                {t("settings.defaultMapHint")}
               </Text>
             </View>
           )}
         </View>
 
         {/* Data Cache Section - Consolidated */}
-        <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>{t('settings.dataCache').toUpperCase()}</Text>
+        <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>
+          {t("settings.dataCache").toUpperCase()}
+        </Text>
         <View style={[styles.section, isDark && styles.sectionDark]}>
           {/* Sync Status Banners */}
-          {progress.status === 'syncing' && (
+          {progress.status === "syncing" && (
             <View style={styles.syncBanner}>
               <MaterialCommunityIcons name="sync" size={18} color="#FFF" />
               <Text style={styles.syncBannerText}>
-                {progress.message || `Syncing ${progress.completed}/${progress.total}`}
+                {progress.message ||
+                  `Syncing ${progress.completed}/${progress.total}`}
               </Text>
             </View>
           )}
           {isRouteProcessing && (
-            <View style={[styles.syncBanner, { backgroundColor: colors.chartPurple }]}>
-              <MaterialCommunityIcons name="map-marker-path" size={18} color="#FFF" />
+            <View
+              style={[
+                styles.syncBanner,
+                { backgroundColor: colors.chartPurple },
+              ]}
+            >
+              <MaterialCommunityIcons
+                name="map-marker-path"
+                size={18}
+                color="#FFF"
+              />
               <Text style={styles.syncBannerText}>
-                {routeProgress.message || `Analysing ${routeProgress.current}/${routeProgress.total}`}
+                {routeProgress.message ||
+                  `Analysing ${routeProgress.current}/${routeProgress.total}`}
               </Text>
             </View>
           )}
@@ -428,24 +525,30 @@ export default function SettingsScreen() {
           <TouchableOpacity
             style={styles.actionRow}
             onPress={handleSyncAll}
-            disabled={progress.status === 'syncing'}
+            disabled={progress.status === "syncing"}
           >
             <MaterialCommunityIcons
               name="sync"
               size={22}
-              color={progress.status === 'syncing' ? colors.textSecondary : colors.primary}
+              color={
+                progress.status === "syncing"
+                  ? colors.textSecondary
+                  : colors.primary
+              }
             />
-            <Text style={[
-              styles.actionText,
-              isDark && styles.textLight,
-              progress.status === 'syncing' && styles.actionTextDisabled,
-            ]}>
-              {t('settings.syncAllHistory')}
+            <Text
+              style={[
+                styles.actionText,
+                isDark && styles.textLight,
+                progress.status === "syncing" && styles.actionTextDisabled,
+              ]}
+            >
+              {t("settings.syncAllHistory")}
             </Text>
             <MaterialCommunityIcons
               name="chevron-right"
               size={20}
-              color={isDark ? '#666' : colors.textSecondary}
+              color={isDark ? "#666" : colors.textSecondary}
             />
           </TouchableOpacity>
 
@@ -455,7 +558,7 @@ export default function SettingsScreen() {
             <>
               <TouchableOpacity
                 style={styles.actionRow}
-                onPress={() => router.push('/routes' as Href)}
+                onPress={() => router.push("/routes" as Href)}
               >
                 <MaterialCommunityIcons
                   name="map-marker-path"
@@ -463,12 +566,12 @@ export default function SettingsScreen() {
                   color={colors.primary}
                 />
                 <Text style={[styles.actionText, isDark && styles.textLight]}>
-                  {t('settings.viewRoutes')}
+                  {t("settings.viewRoutes")}
                 </Text>
                 <MaterialCommunityIcons
                   name="chevron-right"
                   size={20}
-                  color={isDark ? '#666' : colors.textSecondary}
+                  color={isDark ? "#666" : colors.textSecondary}
                 />
               </TouchableOpacity>
 
@@ -485,41 +588,64 @@ export default function SettingsScreen() {
                       size={22}
                       color={colors.warning}
                     />
-                    <Text style={[styles.actionText, isDark && styles.textLight]}>
-                      {t('settings.pauseRouteProcessing')}
+                    <Text
+                      style={[styles.actionText, isDark && styles.textLight]}
+                    >
+                      {t("settings.pauseRouteProcessing")}
                     </Text>
                     <MaterialCommunityIcons
                       name="chevron-right"
                       size={20}
-                      color={isDark ? '#666' : colors.textSecondary}
+                      color={isDark ? "#666" : colors.textSecondary}
                     />
                   </TouchableOpacity>
-                  <View style={[styles.divider, isDark && styles.dividerDark]} />
+                  <View
+                    style={[styles.divider, isDark && styles.dividerDark]}
+                  />
                 </>
               )}
             </>
           )}
 
-          <TouchableOpacity testID="settings-clear-cache" style={styles.actionRow} onPress={handleClearCache}>
-            <MaterialCommunityIcons name="delete-outline" size={22} color={colors.error} />
-            <Text style={[styles.actionText, styles.actionTextDanger]}>{t('settings.clearAllReload')}</Text>
+          <TouchableOpacity
+            testID="settings-clear-cache"
+            style={styles.actionRow}
+            onPress={handleClearCache}
+          >
+            <MaterialCommunityIcons
+              name="delete-outline"
+              size={22}
+              color={colors.error}
+            />
+            <Text style={[styles.actionText, styles.actionTextDanger]}>
+              {t("settings.clearAllReload")}
+            </Text>
             <MaterialCommunityIcons
               name="chevron-right"
               size={20}
-              color={isDark ? '#666' : colors.textSecondary}
+              color={isDark ? "#666" : colors.textSecondary}
             />
           </TouchableOpacity>
 
           {routeSettings.enabled && (
             <>
               <View style={[styles.divider, isDark && styles.dividerDark]} />
-              <TouchableOpacity style={styles.actionRow} onPress={handleClearRouteCache}>
-                <MaterialCommunityIcons name="refresh" size={22} color={colors.warning} />
-                <Text style={[styles.actionText, isDark && styles.textLight]}>{t('settings.reanalyseRoutes')}</Text>
+              <TouchableOpacity
+                style={styles.actionRow}
+                onPress={handleClearRouteCache}
+              >
+                <MaterialCommunityIcons
+                  name="refresh"
+                  size={22}
+                  color={colors.warning}
+                />
+                <Text style={[styles.actionText, isDark && styles.textLight]}>
+                  {t("settings.reanalyseRoutes")}
+                </Text>
                 <MaterialCommunityIcons
                   name="chevron-right"
                   size={20}
-                  color={isDark ? '#666' : colors.textSecondary}
+                  color={isDark ? "#666" : colors.textSecondary}
                 />
               </TouchableOpacity>
             </>
@@ -527,15 +653,25 @@ export default function SettingsScreen() {
         </View>
 
         {/* Cache Stats */}
-        <View style={[styles.section, styles.sectionSpaced, isDark && styles.sectionDark]}>
+        <View
+          style={[
+            styles.section,
+            styles.sectionSpaced,
+            isDark && styles.sectionDark,
+          ]}
+        >
           {/* Timeline visualization */}
           <CacheTimeline
             oldestDate={cacheStats.oldestDate}
             newestDate={cacheStats.newestDate}
             apiOldestDate={apiOldestDate}
             activityCount={cacheStats.totalActivities}
-            isSyncing={progress.status === 'syncing'}
-            syncProgress={progress.total > 0 ? (progress.completed / progress.total) * 100 : undefined}
+            isSyncing={progress.status === "syncing"}
+            syncProgress={
+              progress.total > 0
+                ? (progress.completed / progress.total) * 100
+                : undefined
+            }
             onExpand={handleSyncAll}
             isDark={isDark}
           />
@@ -545,54 +681,72 @@ export default function SettingsScreen() {
               <Text style={[styles.statValue, isDark && styles.textLight]}>
                 {cacheStats.totalActivities}
               </Text>
-              <Text style={[styles.statLabel, isDark && styles.textMuted]}>{t('settings.activities')}</Text>
+              <Text style={[styles.statLabel, isDark && styles.textMuted]}>
+                {t("settings.activities")}
+              </Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
               <Text style={[styles.statValue, isDark && styles.textLight]}>
-                {routeSettings.enabled ? routeGroups.length : '-'}
+                {routeSettings.enabled ? routeGroups.length : "-"}
               </Text>
-              <Text style={[styles.statLabel, isDark && styles.textMuted]}>{t('settings.routesCount')}</Text>
+              <Text style={[styles.statLabel, isDark && styles.textMuted]}>
+                {t("settings.routesCount")}
+              </Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
               <Text style={[styles.statValue, isDark && styles.textLight]}>
-                {formatBytes(cacheSizes.bounds + cacheSizes.gps + cacheSizes.routes)}
+                {formatBytes(
+                  cacheSizes.bounds + cacheSizes.gps + cacheSizes.routes,
+                )}
               </Text>
-              <Text style={[styles.statLabel, isDark && styles.textMuted]}>{t('settings.total')}</Text>
+              <Text style={[styles.statLabel, isDark && styles.textMuted]}>
+                {t("settings.total")}
+              </Text>
             </View>
           </View>
 
           <View style={[styles.infoRow, isDark && styles.infoRowDark]}>
-            <Text style={[styles.infoLabel, isDark && styles.textMuted]}>{t('settings.lastSynced')}</Text>
+            <Text style={[styles.infoLabel, isDark && styles.textMuted]}>
+              {t("settings.lastSynced")}
+            </Text>
             <Text style={[styles.infoValue, isDark && styles.textLight]}>
               {formatDate(cacheStats.lastSync)}
             </Text>
           </View>
 
           <View style={[styles.infoRow, isDark && styles.infoRowDark]}>
-            <Text style={[styles.infoLabel, isDark && styles.textMuted]}>{t('settings.bounds')}</Text>
+            <Text style={[styles.infoLabel, isDark && styles.textMuted]}>
+              {t("settings.bounds")}
+            </Text>
             <Text style={[styles.infoValue, isDark && styles.textLight]}>
               {formatBytes(cacheSizes.bounds)}
             </Text>
           </View>
 
           <View style={[styles.infoRow, isDark && styles.infoRowDark]}>
-            <Text style={[styles.infoLabel, isDark && styles.textMuted]}>{t('settings.gpsTraces')}</Text>
+            <Text style={[styles.infoLabel, isDark && styles.textMuted]}>
+              {t("settings.gpsTraces")}
+            </Text>
             <Text style={[styles.infoValue, isDark && styles.textLight]}>
               {formatBytes(cacheSizes.gps)}
             </Text>
           </View>
 
           <View style={[styles.infoRow, isDark && styles.infoRowDark]}>
-            <Text style={[styles.infoLabel, isDark && styles.textMuted]}>{t('settings.routesCount')}</Text>
+            <Text style={[styles.infoLabel, isDark && styles.textMuted]}>
+              {t("settings.routesCount")}
+            </Text>
             <Text style={[styles.infoValue, isDark && styles.textLight]}>
               {formatBytes(cacheSizes.routes)}
             </Text>
           </View>
 
           <View style={[styles.infoRow, isDark && styles.infoRowDark]}>
-            <Text style={[styles.infoLabel, isDark && styles.textMuted]}>{t('settings.cachedQueries')}</Text>
+            <Text style={[styles.infoLabel, isDark && styles.textMuted]}>
+              {t("settings.cachedQueries")}
+            </Text>
             <Text style={[styles.infoValue, isDark && styles.textLight]}>
               {queryCacheStats.totalQueries}
             </Text>
@@ -600,19 +754,23 @@ export default function SettingsScreen() {
         </View>
 
         <Text style={[styles.infoText, isDark && styles.textMuted]}>
-          {t('settings.cacheHint')}
+          {t("settings.cacheHint")}
         </Text>
 
         {/* Route Matching Toggle */}
-        <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>{t('settings.routeMatching').toUpperCase()}</Text>
+        <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>
+          {t("settings.routeMatching").toUpperCase()}
+        </Text>
         <View style={[styles.section, isDark && styles.sectionDark]}>
           <View style={styles.toggleRow}>
             <View style={styles.toggleInfo}>
               <Text style={[styles.toggleLabel, isDark && styles.textLight]}>
-                {t('settings.enableRouteMatching')}
+                {t("settings.enableRouteMatching")}
               </Text>
-              <Text style={[styles.toggleDescription, isDark && styles.textMuted]}>
-                {t('settings.routeMatchingDescription')}
+              <Text
+                style={[styles.toggleDescription, isDark && styles.textMuted]}
+              >
+                {t("settings.routeMatchingDescription")}
               </Text>
             </View>
             <Switch
@@ -624,46 +782,92 @@ export default function SettingsScreen() {
         </View>
 
         {/* Account Section */}
-        <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>{t('settings.account').toUpperCase()}</Text>
+        <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>
+          {t("settings.account").toUpperCase()}
+        </Text>
         <View style={[styles.section, isDark && styles.sectionDark]}>
-          <TouchableOpacity testID="settings-logout-button" style={styles.actionRow} onPress={handleLogout}>
-            <MaterialCommunityIcons name="logout" size={22} color={colors.error} />
-            <Text style={[styles.actionText, styles.actionTextDanger]}>{t('settings.disconnectAccount')}</Text>
+          <TouchableOpacity
+            testID="settings-logout-button"
+            style={styles.actionRow}
+            onPress={handleLogout}
+          >
+            <MaterialCommunityIcons
+              name="logout"
+              size={22}
+              color={colors.error}
+            />
+            <Text style={[styles.actionText, styles.actionTextDanger]}>
+              {t("settings.disconnectAccount")}
+            </Text>
             <MaterialCommunityIcons
               name="chevron-right"
               size={20}
-              color={isDark ? '#666' : colors.textSecondary}
+              color={isDark ? "#666" : colors.textSecondary}
             />
           </TouchableOpacity>
         </View>
 
         {/* Data Sources Section */}
-        <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>{t('settings.dataSources').toUpperCase()}</Text>
+        <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>
+          {t("settings.dataSources").toUpperCase()}
+        </Text>
         <View style={[styles.section, isDark && styles.sectionDark]}>
           <View style={styles.dataSourcesContent}>
             <Text style={[styles.dataSourcesText, isDark && styles.textMuted]}>
-              {t('settings.dataSourcesDescription')}
+              {t("settings.dataSourcesDescription")}
             </Text>
             <View style={styles.dataSourcesLogos}>
               <View style={styles.dataSourceItem}>
-                <MaterialCommunityIcons name="watch" size={20} color={isDark ? '#888' : colors.textSecondary} />
-                <Text style={[styles.dataSourceName, isDark && styles.textLight]}>Garmin</Text>
+                <MaterialCommunityIcons
+                  name="watch"
+                  size={20}
+                  color={isDark ? "#888" : colors.textSecondary}
+                />
+                <Text
+                  style={[styles.dataSourceName, isDark && styles.textLight]}
+                >
+                  Garmin
+                </Text>
               </View>
               <View style={styles.dataSourceItem}>
-                <MaterialCommunityIcons name="run" size={20} color={isDark ? '#888' : colors.textSecondary} />
-                <Text style={[styles.dataSourceName, isDark && styles.textLight]}>Strava</Text>
+                <MaterialCommunityIcons
+                  name="run"
+                  size={20}
+                  color={isDark ? "#888" : colors.textSecondary}
+                />
+                <Text
+                  style={[styles.dataSourceName, isDark && styles.textLight]}
+                >
+                  Strava
+                </Text>
               </View>
               <View style={styles.dataSourceItem}>
-                <MaterialCommunityIcons name="watch" size={20} color={isDark ? '#888' : colors.textSecondary} />
-                <Text style={[styles.dataSourceName, isDark && styles.textLight]}>Polar</Text>
+                <MaterialCommunityIcons
+                  name="watch"
+                  size={20}
+                  color={isDark ? "#888" : colors.textSecondary}
+                />
+                <Text
+                  style={[styles.dataSourceName, isDark && styles.textLight]}
+                >
+                  Polar
+                </Text>
               </View>
               <View style={styles.dataSourceItem}>
-                <MaterialCommunityIcons name="watch" size={20} color={isDark ? '#888' : colors.textSecondary} />
-                <Text style={[styles.dataSourceName, isDark && styles.textLight]}>Wahoo</Text>
+                <MaterialCommunityIcons
+                  name="watch"
+                  size={20}
+                  color={isDark ? "#888" : colors.textSecondary}
+                />
+                <Text
+                  style={[styles.dataSourceName, isDark && styles.textLight]}
+                >
+                  Wahoo
+                </Text>
               </View>
             </View>
             <Text style={[styles.trademarkText, isDark && styles.textMuted]}>
-              {t('attribution.garminTrademark')}
+              {t("attribution.garminTrademark")}
             </Text>
           </View>
         </View>
@@ -671,15 +875,24 @@ export default function SettingsScreen() {
         {/* Demo Data Sources Section - Only visible in demo mode */}
         {isDemoMode && (
           <>
-            <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>{t('settings.demoDataSources').toUpperCase()}</Text>
+            <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>
+              {t("settings.demoDataSources").toUpperCase()}
+            </Text>
             <View style={[styles.section, isDark && styles.sectionDark]}>
               <View style={styles.toggleRow}>
                 <View style={styles.toggleInfo}>
-                  <Text style={[styles.toggleLabel, isDark && styles.textLight]}>
-                    {t('settings.hideDemoBanner')}
+                  <Text
+                    style={[styles.toggleLabel, isDark && styles.textLight]}
+                  >
+                    {t("settings.hideDemoBanner")}
                   </Text>
-                  <Text style={[styles.toggleDescription, isDark && styles.textMuted]}>
-                    {t('settings.hideDemoBannerHint')}
+                  <Text
+                    style={[
+                      styles.toggleDescription,
+                      isDark && styles.textMuted,
+                    ]}
+                  >
+                    {t("settings.hideDemoBannerHint")}
                   </Text>
                 </View>
                 <Switch
@@ -690,23 +903,44 @@ export default function SettingsScreen() {
               </View>
               <View style={[styles.divider, isDark && styles.dividerDark]} />
               <View style={styles.dataSourcesContent}>
-                <Text style={[styles.dataSourcesText, isDark && styles.textMuted]}>
-                  {t('attribution.demoData')}
+                <Text
+                  style={[styles.dataSourcesText, isDark && styles.textMuted]}
+                >
+                  {t("attribution.demoData")}
                 </Text>
                 <TouchableOpacity
-                  onPress={() => WebBrowser.openBrowserAsync('https://www.openstreetmap.org/copyright')}
+                  onPress={() =>
+                    WebBrowser.openBrowserAsync(
+                      "https://www.openstreetmap.org/copyright",
+                    )
+                  }
                   activeOpacity={0.7}
                 >
                   <View style={styles.dataSourceItem}>
-                    <MaterialCommunityIcons name="map-marker-path" size={20} color={colors.primary} />
-                    <Text style={[styles.dataSourceName, isDark && styles.textLight]}>
-                      {t('attribution.osm')}
+                    <MaterialCommunityIcons
+                      name="map-marker-path"
+                      size={20}
+                      color={colors.primary}
+                    />
+                    <Text
+                      style={[
+                        styles.dataSourceName,
+                        isDark && styles.textLight,
+                      ]}
+                    >
+                      {t("attribution.osm")}
                     </Text>
-                    <MaterialCommunityIcons name="open-in-new" size={14} color={isDark ? '#666' : colors.textSecondary} />
+                    <MaterialCommunityIcons
+                      name="open-in-new"
+                      size={14}
+                      color={isDark ? "#666" : colors.textSecondary}
+                    />
                   </View>
                 </TouchableOpacity>
-                <Text style={[styles.trademarkText, isDark && styles.textMuted]}>
-                  {t('attribution.osmLicense')}
+                <Text
+                  style={[styles.trademarkText, isDark && styles.textMuted]}
+                >
+                  {t("attribution.osmLicense")}
                 </Text>
               </View>
             </View>
@@ -714,36 +948,73 @@ export default function SettingsScreen() {
         )}
 
         {/* Support Section */}
-        <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>{t('settings.support').toUpperCase()}</Text>
+        <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>
+          {t("settings.support").toUpperCase()}
+        </Text>
         <View style={styles.supportRow}>
           <TouchableOpacity
             style={[styles.supportCard, isDark && styles.supportCardDark]}
-            onPress={() => WebBrowser.openBrowserAsync('https://intervals.icu/settings/subscription')}
+            onPress={() =>
+              WebBrowser.openBrowserAsync(
+                "https://intervals.icu/settings/subscription",
+              )
+            }
             activeOpacity={0.7}
           >
-            <View style={[styles.supportIconBg, { backgroundColor: 'rgba(233, 30, 99, 0.12)' }]}>
+            <View
+              style={[
+                styles.supportIconBg,
+                { backgroundColor: "rgba(233, 30, 99, 0.12)" },
+              ]}
+            >
               <MaterialCommunityIcons name="heart" size={24} color="#E91E63" />
             </View>
-            <Text style={[styles.supportTitle, isDark && styles.textLight]}>intervals.icu</Text>
-            <Text style={[styles.supportSubtitle, isDark && styles.textMuted]}>{t('settings.subscribe')}</Text>
+            <Text style={[styles.supportTitle, isDark && styles.textLight]}>
+              intervals.icu
+            </Text>
+            <Text style={[styles.supportSubtitle, isDark && styles.textMuted]}>
+              {t("settings.subscribe")}
+            </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={[styles.supportCard, isDark && styles.supportCardDark]}
-            onPress={() => WebBrowser.openBrowserAsync('https://github.com/sponsors/evanjt')}
+            onPress={() =>
+              WebBrowser.openBrowserAsync("https://github.com/sponsors/evanjt")
+            }
             activeOpacity={0.7}
           >
-            <View style={[styles.supportIconBg, { backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)' }]}>
-              <MaterialCommunityIcons name="github" size={24} color={isDark ? '#FFF' : '#333'} />
+            <View
+              style={[
+                styles.supportIconBg,
+                {
+                  backgroundColor: isDark
+                    ? "rgba(255,255,255,0.1)"
+                    : "rgba(0,0,0,0.06)",
+                },
+              ]}
+            >
+              <MaterialCommunityIcons
+                name="github"
+                size={24}
+                color={isDark ? "#FFF" : "#333"}
+              />
             </View>
-            <Text style={[styles.supportTitle, isDark && styles.textLight]}>@evanjt</Text>
-            <Text style={[styles.supportSubtitle, isDark && styles.textMuted]}>{t('settings.sponsorDev')}</Text>
+            <Text style={[styles.supportTitle, isDark && styles.textLight]}>
+              @evanjt
+            </Text>
+            <Text style={[styles.supportSubtitle, isDark && styles.textMuted]}>
+              {t("settings.sponsorDev")}
+            </Text>
           </TouchableOpacity>
         </View>
 
         {/* Version */}
-        <Text testID="settings-version-text" style={[styles.versionText, isDark && styles.textMuted]}>
-          {t('settings.version')} {Constants.expoConfig?.version ?? '0.0.1'}
+        <Text
+          testID="settings-version-text"
+          style={[styles.versionText, isDark && styles.textMuted]}
+        >
+          {t("settings.version")} {Constants.expoConfig?.version ?? "0.0.1"}
         </Text>
       </ScrollView>
     </SafeAreaView>
@@ -756,15 +1027,15 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   containerDark: {
-    backgroundColor: '#121212',
+    backgroundColor: "#121212",
   },
   content: {
     paddingBottom: spacing.xl,
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingHorizontal: layout.screenPadding,
     paddingVertical: spacing.md,
   },
@@ -774,7 +1045,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.textPrimary,
   },
   headerSpacer: {
@@ -782,7 +1053,7 @@ const styles = StyleSheet.create({
   },
   sectionLabel: {
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.textSecondary,
     marginTop: spacing.lg,
     marginBottom: spacing.sm,
@@ -793,30 +1064,30 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     marginHorizontal: layout.screenPadding,
     borderRadius: 12,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   sectionSpaced: {
     marginTop: spacing.md,
   },
   sectionDark: {
-    backgroundColor: '#1E1E1E',
+    backgroundColor: "#1E1E1E",
   },
   profileRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     padding: spacing.md,
   },
   profilePhoto: {
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#E8E8E8',
-    justifyContent: 'center',
-    alignItems: 'center',
-    overflow: 'hidden',
+    backgroundColor: "#E8E8E8",
+    justifyContent: "center",
+    alignItems: "center",
+    overflow: "hidden",
   },
   profilePhotoDark: {
-    backgroundColor: '#333',
+    backgroundColor: "#333",
   },
   profileInfo: {
     flex: 1,
@@ -824,7 +1095,7 @@ const styles = StyleSheet.create({
   },
   profileName: {
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.textPrimary,
   },
   profileEmail: {
@@ -833,30 +1104,30 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   syncBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     backgroundColor: colors.primary,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
     gap: spacing.sm,
   },
   syncBannerText: {
-    color: '#FFF',
+    color: "#FFF",
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   statRow: {
-    flexDirection: 'row',
+    flexDirection: "row",
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.md,
   },
   statItem: {
     flex: 1,
-    alignItems: 'center',
+    alignItems: "center",
   },
   statValue: {
     fontSize: 28,
-    fontWeight: '700',
+    fontWeight: "700",
     color: colors.textPrimary,
   },
   statLabel: {
@@ -869,16 +1140,16 @@ const styles = StyleSheet.create({
     backgroundColor: colors.border,
   },
   infoRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
     borderTopWidth: 1,
     borderTopColor: colors.border,
   },
   infoRowDark: {
-    borderTopColor: '#333',
+    borderTopColor: "#333",
   },
   infoLabel: {
     fontSize: 14,
@@ -886,12 +1157,12 @@ const styles = StyleSheet.create({
   },
   infoValue: {
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: "500",
     color: colors.textPrimary,
   },
   actionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.md,
     gap: spacing.sm,
@@ -913,7 +1184,7 @@ const styles = StyleSheet.create({
     marginLeft: spacing.md + 22 + spacing.sm, // icon + gap
   },
   dividerDark: {
-    backgroundColor: '#333',
+    backgroundColor: "#333",
   },
   infoText: {
     fontSize: 13,
@@ -923,7 +1194,7 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   supportRow: {
-    flexDirection: 'row',
+    flexDirection: "row",
     marginHorizontal: layout.screenPadding,
     gap: spacing.sm,
   },
@@ -932,28 +1203,28 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderRadius: 12,
     padding: spacing.md,
-    alignItems: 'center',
-    shadowColor: '#000',
+    alignItems: "center",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
     shadowRadius: 4,
     elevation: 2,
   },
   supportCardDark: {
-    backgroundColor: '#1E1E1E',
+    backgroundColor: "#1E1E1E",
     shadowOpacity: 0,
   },
   supportIconBg: {
     width: 48,
     height: 48,
     borderRadius: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     marginBottom: spacing.sm,
   },
   supportTitle: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.textPrimary,
     marginBottom: 2,
   },
@@ -962,9 +1233,9 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   toggleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.md,
   },
@@ -974,7 +1245,7 @@ const styles = StyleSheet.create({
   },
   toggleLabel: {
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: "500",
     color: colors.textPrimary,
   },
   toggleDescription: {
@@ -983,10 +1254,10 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   textLight: {
-    color: '#FFF',
+    color: "#FFF",
   },
   textMuted: {
-    color: '#888',
+    color: "#888",
   },
   themePickerContainer: {
     padding: spacing.md,
@@ -1001,7 +1272,7 @@ const styles = StyleSheet.create({
   },
   mapStyleLabel: {
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: "500",
     color: colors.textPrimary,
   },
   actionRowBorder: {
@@ -1017,7 +1288,7 @@ const styles = StyleSheet.create({
   },
   activityStyleLabel: {
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: "500",
     color: colors.textPrimary,
     marginBottom: spacing.xs,
   },
@@ -1028,16 +1299,16 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.textSecondary,
     marginTop: spacing.md,
-    fontStyle: 'italic',
+    fontStyle: "italic",
   },
   languageListContainer: {
     borderTopWidth: 1,
     borderTopColor: colors.border,
   },
   languageRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.md,
   },
@@ -1046,16 +1317,16 @@ const styles = StyleSheet.create({
     borderTopColor: colors.border,
   },
   languageRowDark: {
-    borderTopColor: '#333',
+    borderTopColor: "#333",
   },
   languageLabel: {
     fontSize: 16,
     color: colors.textPrimary,
   },
   variantChips: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 6,
-    marginLeft: 'auto',
+    marginLeft: "auto",
   },
   variantChip: {
     paddingHorizontal: 10,
@@ -1066,8 +1337,8 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   variantChipDark: {
-    backgroundColor: '#2a2a2a',
-    borderColor: '#444',
+    backgroundColor: "#2a2a2a",
+    borderColor: "#444",
   },
   variantChipSelected: {
     backgroundColor: colors.primary,
@@ -1080,10 +1351,10 @@ const styles = StyleSheet.create({
   variantChipText: {
     fontSize: 13,
     color: colors.textSecondary,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   variantChipTextSelected: {
-    color: '#fff',
+    color: "#fff",
   },
   dataSourcesContent: {
     padding: spacing.md,
@@ -1095,19 +1366,19 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   dataSourcesLogos: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexDirection: "row",
+    flexWrap: "wrap",
     gap: spacing.md,
     marginBottom: spacing.md,
   },
   dataSourceItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: spacing.xs,
   },
   dataSourceName: {
     fontSize: 13,
-    fontWeight: '500',
+    fontWeight: "500",
     color: colors.textPrimary,
   },
   trademarkText: {
@@ -1119,7 +1390,7 @@ const styles = StyleSheet.create({
   versionText: {
     fontSize: 12,
     color: colors.textSecondary,
-    textAlign: 'center',
+    textAlign: "center",
     marginTop: spacing.xl,
     marginBottom: spacing.md,
   },

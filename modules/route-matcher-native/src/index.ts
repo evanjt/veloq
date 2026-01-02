@@ -1,5 +1,5 @@
-import type { EventSubscription } from 'expo-modules-core';
-import NativeModule from './RouteMatcherModule';
+import type { EventSubscription } from "expo-modules-core";
+import NativeModule from "./RouteMatcherModule";
 
 // Debug logging disabled - uncomment for development debugging
 // const nativeLog = __DEV__ ? (...args: unknown[]) => console.log('[RouteMatcher]', ...args) : () => {};
@@ -16,7 +16,10 @@ export interface FetchProgressEvent {
 // The native module is already an EventEmitter in SDK 52+
 // We need to use type assertion to get the typed addListener method
 interface NativeModuleWithEvents {
-  addListener(eventName: 'onFetchProgress', listener: (event: FetchProgressEvent) => void): EventSubscription;
+  addListener(
+    eventName: "onFetchProgress",
+    listener: (event: FetchProgressEvent) => void,
+  ): EventSubscription;
 }
 
 export interface GpsPoint {
@@ -47,7 +50,7 @@ export interface MatchResult {
   activityId1: string;
   activityId2: string;
   matchPercentage: number;
-  direction: 'same' | 'reverse' | 'partial';
+  direction: "same" | "reverse" | "partial";
   amd: number; // Average Minimum Distance in meters
 }
 
@@ -312,9 +315,9 @@ interface RustMultiScaleSectionResult {
 // Verify native module is available on load
 const config = NativeModule.getDefaultConfig();
 if (config === null) {
-  throw new Error('🦀 [RouteMatcher] Native Rust module failed to initialize!');
+  throw new Error("🦀 [RouteMatcher] Native Rust module failed to initialize!");
 }
-nativeLog('Native Rust module loaded successfully!');
+nativeLog("Native Rust module loaded successfully!");
 
 /**
  * Result from verifyRustAvailable test.
@@ -344,10 +347,10 @@ export interface RustVerificationResult {
  * Use this in CI/CD to verify the Rust build is working correctly.
  */
 export function verifyRustAvailable(): RustVerificationResult {
-  nativeLog('verifyRustAvailable: Running Rust verification tests');
+  nativeLog("verifyRustAvailable: Running Rust verification tests");
   const result = NativeModule.verifyRustAvailable();
   if (result.success) {
-    nativeLog('verifyRustAvailable: All tests passed!');
+    nativeLog("verifyRustAvailable: All tests passed!");
   } else {
     nativeLog(`verifyRustAvailable: FAILED - ${result.error}`);
   }
@@ -361,12 +364,20 @@ export function verifyRustAvailable(): RustVerificationResult {
 export function createSignature(
   activityId: string,
   points: GpsPoint[],
-  config?: Partial<MatchConfig>
+  config?: Partial<MatchConfig>,
 ): RouteSignature | null {
-  nativeLog(`createSignature called for ${activityId} with ${points.length} points`);
-  const result = NativeModule.createSignature(activityId, points, config ?? null);
+  nativeLog(
+    `createSignature called for ${activityId} with ${points.length} points`,
+  );
+  const result = NativeModule.createSignature(
+    activityId,
+    points,
+    config ?? null,
+  );
   if (result) {
-    nativeLog(`createSignature returned ${result.points.length} simplified points`);
+    nativeLog(
+      `createSignature returned ${result.points.length} simplified points`,
+    );
   }
   return result;
 }
@@ -378,12 +389,14 @@ export function createSignature(
 export function compareRoutes(
   sig1: RouteSignature,
   sig2: RouteSignature,
-  config?: Partial<MatchConfig>
+  config?: Partial<MatchConfig>,
 ): MatchResult | null {
   nativeLog(`compareRoutes: ${sig1.activityId} vs ${sig2.activityId}`);
   const result = NativeModule.compareRoutes(sig1, sig2, config ?? null);
   if (result) {
-    nativeLog(`compareRoutes: ${result.matchPercentage.toFixed(1)}% match (${result.direction})`);
+    nativeLog(
+      `compareRoutes: ${result.matchPercentage.toFixed(1)}% match (${result.direction})`,
+    );
   }
   return result;
 }
@@ -394,13 +407,15 @@ export function compareRoutes(
  */
 export function groupSignatures(
   signatures: RouteSignature[],
-  config?: Partial<MatchConfig>
+  config?: Partial<MatchConfig>,
 ): RouteGroup[] {
   nativeLog(`RUST groupSignatures called with ${signatures.length} signatures`);
   const startTime = Date.now();
   const result = NativeModule.groupSignatures(signatures, config ?? null);
   const elapsed = Date.now() - startTime;
-  nativeLog(`RUST groupSignatures returned ${result?.length || 0} groups in ${elapsed}ms`);
+  nativeLog(
+    `RUST groupSignatures returned ${result?.length || 0} groups in ${elapsed}ms`,
+  );
   return result || [];
 }
 
@@ -414,18 +429,22 @@ export function groupIncremental(
   newSignatures: RouteSignature[],
   existingGroups: RouteGroup[],
   existingSignatures: RouteSignature[],
-  config?: Partial<MatchConfig>
+  config?: Partial<MatchConfig>,
 ): RouteGroup[] {
-  nativeLog(`INCREMENTAL grouping: ${newSignatures.length} new + ${existingSignatures.length} existing`);
+  nativeLog(
+    `INCREMENTAL grouping: ${newSignatures.length} new + ${existingSignatures.length} existing`,
+  );
   const startTime = Date.now();
   const result = NativeModule.groupIncremental(
     newSignatures,
     existingGroups,
     existingSignatures,
-    config ?? null
+    config ?? null,
   );
   const elapsed = Date.now() - startTime;
-  nativeLog(`INCREMENTAL returned ${result?.length || 0} groups in ${elapsed}ms`);
+  nativeLog(
+    `INCREMENTAL returned ${result?.length || 0} groups in ${elapsed}ms`,
+  );
   return result || [];
 }
 
@@ -450,13 +469,22 @@ export function createSignaturesFlatBuffer(
   activityIds: string[],
   coords: number[],
   offsets: number[],
-  config?: Partial<MatchConfig>
+  config?: Partial<MatchConfig>,
 ): RouteSignature[] {
-  nativeLog(`FLAT BUFFER createSignatures: ${activityIds.length} tracks, ${coords.length} coords`);
+  nativeLog(
+    `FLAT BUFFER createSignatures: ${activityIds.length} tracks, ${coords.length} coords`,
+  );
   const startTime = Date.now();
-  const result = NativeModule.createSignaturesFlatBuffer(activityIds, coords, offsets, config ?? null);
+  const result = NativeModule.createSignaturesFlatBuffer(
+    activityIds,
+    coords,
+    offsets,
+    config ?? null,
+  );
   const elapsed = Date.now() - startTime;
-  nativeLog(`FLAT BUFFER returned ${result?.length || 0} signatures in ${elapsed}ms`);
+  nativeLog(
+    `FLAT BUFFER returned ${result?.length || 0} signatures in ${elapsed}ms`,
+  );
   return result || [];
 }
 
@@ -474,13 +502,22 @@ export function processRoutesFlatBuffer(
   activityIds: string[],
   coords: number[],
   offsets: number[],
-  config?: Partial<MatchConfig>
+  config?: Partial<MatchConfig>,
 ): RouteGroup[] {
-  nativeLog(`FLAT BUFFER processRoutes: ${activityIds.length} tracks, ${coords.length} coords`);
+  nativeLog(
+    `FLAT BUFFER processRoutes: ${activityIds.length} tracks, ${coords.length} coords`,
+  );
   const startTime = Date.now();
-  const result = NativeModule.processRoutesFlatBuffer(activityIds, coords, offsets, config ?? null);
+  const result = NativeModule.processRoutesFlatBuffer(
+    activityIds,
+    coords,
+    offsets,
+    config ?? null,
+  );
   const elapsed = Date.now() - startTime;
-  nativeLog(`FLAT BUFFER returned ${result?.length || 0} groups in ${elapsed}ms`);
+  nativeLog(
+    `FLAT BUFFER returned ${result?.length || 0} groups in ${elapsed}ms`,
+  );
   return result || [];
 }
 
@@ -530,17 +567,27 @@ export function isNative(): boolean {
  */
 export function fetchActivityMaps(
   apiKey: string,
-  activityIds: string[]
+  activityIds: string[],
 ): ActivityMapResult[] {
-  nativeLog(`RUST fetchActivityMaps [v6-sustained] called for ${activityIds.length} activities`);
+  nativeLog(
+    `RUST fetchActivityMaps [v6-sustained] called for ${activityIds.length} activities`,
+  );
   const startTime = Date.now();
   const result = NativeModule.fetchActivityMaps(apiKey, activityIds);
   const elapsed = Date.now() - startTime;
-  const successCount = result?.filter((r: ActivityMapResult) => r.success).length || 0;
-  const errorCount = result?.filter((r: ActivityMapResult) => !r.success).length || 0;
-  const totalPoints = result?.reduce((sum: number, r: ActivityMapResult) => sum + (r.latlngs?.length || 0) / 2, 0) || 0;
+  const successCount =
+    result?.filter((r: ActivityMapResult) => r.success).length || 0;
+  const errorCount =
+    result?.filter((r: ActivityMapResult) => !r.success).length || 0;
+  const totalPoints =
+    result?.reduce(
+      (sum: number, r: ActivityMapResult) => sum + (r.latlngs?.length || 0) / 2,
+      0,
+    ) || 0;
   const rate = (activityIds.length / (elapsed / 1000)).toFixed(1);
-  nativeLog(`RUST fetchActivityMaps [v6-sustained]: ${successCount}/${activityIds.length} (${errorCount} errors) in ${elapsed}ms (${rate} req/s, ${totalPoints} points)`);
+  nativeLog(
+    `RUST fetchActivityMaps [v6-sustained]: ${successCount}/${activityIds.length} (${errorCount} errors) in ${elapsed}ms (${rate} req/s, ${totalPoints} points)`,
+  );
   return result || [];
 }
 
@@ -556,17 +603,26 @@ export function fetchActivityMaps(
  */
 export async function fetchActivityMapsWithProgress(
   apiKey: string,
-  activityIds: string[]
+  activityIds: string[],
 ): Promise<ActivityMapResult[]> {
-  nativeLog(`RUST fetchActivityMapsWithProgress called for ${activityIds.length} activities`);
+  nativeLog(
+    `RUST fetchActivityMapsWithProgress called for ${activityIds.length} activities`,
+  );
   const startTime = Date.now();
   // AsyncFunction returns a Promise - await it so JS thread is free to process events
-  const result = await NativeModule.fetchActivityMapsWithProgress(apiKey, activityIds);
+  const result = await NativeModule.fetchActivityMapsWithProgress(
+    apiKey,
+    activityIds,
+  );
   const elapsed = Date.now() - startTime;
-  const successCount = result?.filter((r: ActivityMapResult) => r.success).length || 0;
-  const errorCount = result?.filter((r: ActivityMapResult) => !r.success).length || 0;
+  const successCount =
+    result?.filter((r: ActivityMapResult) => r.success).length || 0;
+  const errorCount =
+    result?.filter((r: ActivityMapResult) => !r.success).length || 0;
   const rate = (activityIds.length / (elapsed / 1000)).toFixed(1);
-  nativeLog(`RUST fetchActivityMapsWithProgress: ${successCount}/${activityIds.length} (${errorCount} errors) in ${elapsed}ms (${rate} req/s)`);
+  nativeLog(
+    `RUST fetchActivityMapsWithProgress: ${successCount}/${activityIds.length} (${errorCount} errors) in ${elapsed}ms (${rate} req/s)`,
+  );
   return result || [];
 }
 
@@ -588,9 +644,12 @@ export async function fetchActivityMapsWithProgress(
  * ```
  */
 export function addFetchProgressListener(
-  listener: (event: FetchProgressEvent) => void
+  listener: (event: FetchProgressEvent) => void,
 ): EventSubscription {
-  return (NativeModule as unknown as NativeModuleWithEvents).addListener('onFetchProgress', listener);
+  return (NativeModule as unknown as NativeModuleWithEvents).addListener(
+    "onFetchProgress",
+    listener,
+  );
 }
 
 /**
@@ -605,13 +664,21 @@ export function addFetchProgressListener(
 export function fetchAndProcessActivities(
   apiKey: string,
   activityIds: string[],
-  config?: Partial<MatchConfig>
+  config?: Partial<MatchConfig>,
 ): FetchAndProcessResult {
-  nativeLog(`RUST fetchAndProcessActivities called for ${activityIds.length} activities`);
+  nativeLog(
+    `RUST fetchAndProcessActivities called for ${activityIds.length} activities`,
+  );
   const startTime = Date.now();
-  const result = NativeModule.fetchAndProcessActivities(apiKey, activityIds, config ?? null);
+  const result = NativeModule.fetchAndProcessActivities(
+    apiKey,
+    activityIds,
+    config ?? null,
+  );
   const elapsed = Date.now() - startTime;
-  nativeLog(`RUST fetchAndProcessActivities: ${result?.mapResults?.length || 0} maps, ${result?.signatures?.length || 0} signatures in ${elapsed}ms`);
+  nativeLog(
+    `RUST fetchAndProcessActivities: ${result?.mapResults?.length || 0} maps, ${result?.signatures?.length || 0} signatures in ${elapsed}ms`,
+  );
   return result || { mapResults: [], signatures: [] };
 }
 
@@ -636,7 +703,9 @@ export function flatCoordsToPoints(flatCoords: number[]): GpsPoint[] {
  * @param bounds - Array [ne_lat, ne_lng, sw_lat, sw_lng]
  * @returns Bounds object or null if empty
  */
-export function parseBounds(bounds: number[]): { ne: [number, number]; sw: [number, number] } | null {
+export function parseBounds(
+  bounds: number[],
+): { ne: [number, number]; sw: [number, number] } | null {
   if (bounds.length !== 4) return null;
   return {
     ne: [bounds[0], bounds[1]],
@@ -804,11 +873,16 @@ export interface ActivitySportType {
 /**
  * Helper to convert activity traces from native format
  */
-function convertActivityTraces(traces: Record<string, GpsPoint[]> | undefined): Record<string, RoutePoint[]> {
+function convertActivityTraces(
+  traces: Record<string, GpsPoint[]> | undefined,
+): Record<string, RoutePoint[]> {
   if (!traces) return {};
   const result: Record<string, RoutePoint[]> = {};
   for (const [activityId, points] of Object.entries(traces)) {
-    result[activityId] = (points || []).map(p => ({ lat: p.latitude, lng: p.longitude }));
+    result[activityId] = (points || []).map((p) => ({
+      lat: p.latitude,
+      lng: p.longitude,
+    }));
   }
   return result;
 }
@@ -854,10 +928,12 @@ export function detectSectionsFromTracks(
   tracks: Array<{ activityId: string; points: GpsPoint[] }>,
   sportTypes: ActivitySportType[],
   groups: RouteGroup[],
-  config?: Partial<SectionConfig>
+  config?: Partial<SectionConfig>,
 ): FrequentSection[] {
   const totalPoints = tracks.reduce((sum, t) => sum + t.points.length, 0);
-  nativeLog(`detectSectionsFromTracks: ${tracks.length} tracks, ${totalPoints} total points`);
+  nativeLog(
+    `detectSectionsFromTracks: ${tracks.length} tracks, ${totalPoints} total points`,
+  );
   const startTime = Date.now();
 
   // Convert to native format (flat arrays for efficiency)
@@ -874,43 +950,54 @@ export function detectSectionsFromTracks(
   }
 
   // Convert to native format
-  const nativeConfig = config ? {
-    proximity_threshold: config.proximityThreshold ?? 30.0,
-    min_section_length: config.minSectionLength ?? 200.0,
-    min_activities: config.minActivities ?? 3,
-    cluster_tolerance: config.clusterTolerance ?? 50.0,
-    sample_points: config.samplePoints ?? 50,
-  } : NativeModule.defaultSectionConfig();
+  const nativeConfig = config
+    ? {
+        proximity_threshold: config.proximityThreshold ?? 30.0,
+        min_section_length: config.minSectionLength ?? 200.0,
+        min_activities: config.minActivities ?? 3,
+        cluster_tolerance: config.clusterTolerance ?? 50.0,
+        sample_points: config.samplePoints ?? 50,
+      }
+    : NativeModule.defaultSectionConfig();
 
   // Native returns JSON string for efficient bridge transfer
   const jsonResult = NativeModule.detectSectionsFromTracks(
     activityIds,
     allCoords,
     offsets,
-    sportTypes.map(st => ({
+    sportTypes.map((st) => ({
       activity_id: st.activityId,
       sport_type: st.sportType,
     })),
     groups,
-    nativeConfig
+    nativeConfig,
   ) as string;
 
   // Parse JSON in TypeScript (fast)
   const parseStart = Date.now();
-  const result = JSON.parse(jsonResult || '[]') as Array<Record<string, unknown>>;
+  const result = JSON.parse(jsonResult || "[]") as Array<
+    Record<string, unknown>
+  >;
   const parseElapsed = Date.now() - parseStart;
 
   const elapsed = Date.now() - startTime;
-  nativeLog(`detectSectionsFromTracks: ${result.length} sections in ${elapsed}ms (JSON parse: ${parseElapsed}ms)`);
+  nativeLog(
+    `detectSectionsFromTracks: ${result.length} sections in ${elapsed}ms (JSON parse: ${parseElapsed}ms)`,
+  );
 
   // Convert from snake_case to camelCase
   return result.map((s: Record<string, unknown>) => ({
     id: s.id as string,
     sportType: s.sport_type as string,
-    polyline: ((s.polyline as GpsPoint[]) || []).map(p => ({ lat: p.latitude, lng: p.longitude })),
-    representativeActivityId: (s.representative_activity_id as string) || '',
+    polyline: ((s.polyline as GpsPoint[]) || []).map((p) => ({
+      lat: p.latitude,
+      lng: p.longitude,
+    })),
+    representativeActivityId: (s.representative_activity_id as string) || "",
     activityIds: s.activity_ids as string[],
-    activityPortions: ((s.activity_portions as Array<Record<string, unknown>>) || []).map(p => ({
+    activityPortions: (
+      (s.activity_portions as Array<Record<string, unknown>>) || []
+    ).map((p) => ({
       activityId: p.activity_id as string,
       startIndex: p.start_index as number,
       endIndex: p.end_index as number,
@@ -921,7 +1008,9 @@ export function detectSectionsFromTracks(
     visitCount: s.visit_count as number,
     distanceMeters: s.distance_meters as number,
     // Pre-computed activity traces (converted from native format)
-    activityTraces: convertActivityTraces(s.activity_traces as Record<string, GpsPoint[]>),
+    activityTraces: convertActivityTraces(
+      s.activity_traces as Record<string, GpsPoint[]>,
+    ),
     // Consensus polyline metrics
     confidence: (s.confidence as number) ?? 0.0,
     observationCount: (s.observation_count as number) ?? 0,
@@ -949,10 +1038,12 @@ export function detectSectionsMultiscale(
   tracks: Array<{ activityId: string; points: GpsPoint[] }>,
   sportTypes: ActivitySportType[],
   groups: RouteGroup[],
-  config?: Partial<SectionConfig>
+  config?: Partial<SectionConfig>,
 ): MultiScaleSectionResult {
   const totalPoints = tracks.reduce((sum, t) => sum + t.points.length, 0);
-  nativeLog(`detectSectionsMultiscale: ${tracks.length} tracks, ${totalPoints} total points`);
+  nativeLog(
+    `detectSectionsMultiscale: ${tracks.length} tracks, ${totalPoints} total points`,
+  );
   const startTime = Date.now();
 
   // Convert to native format (flat arrays for efficiency)
@@ -980,7 +1071,7 @@ export function detectSectionsMultiscale(
     cluster_tolerance: fullConfig.clusterTolerance,
     sample_points: fullConfig.samplePoints,
     max_section_length: fullConfig.maxSectionLength ?? 5000.0,
-    detection_mode: fullConfig.detectionMode ?? 'discovery',
+    detection_mode: fullConfig.detectionMode ?? "discovery",
     include_potentials: fullConfig.includePotentials ?? true,
     scale_presets: fullConfig.scalePresets ?? getDefaultScalePresets(),
     preserve_hierarchy: fullConfig.preserveHierarchy ?? true,
@@ -991,25 +1082,30 @@ export function detectSectionsMultiscale(
     activityIds,
     allCoords,
     offsets,
-    sportTypes.map(st => ({
+    sportTypes.map((st) => ({
       activity_id: st.activityId,
       sport_type: st.sportType,
     })),
     groups,
-    nativeConfig
+    nativeConfig,
   ) as RustMultiScaleSectionResult;
 
   const elapsed = Date.now() - startTime;
-  nativeLog(`detectSectionsMultiscale: ${rustResult.sections.length} sections, ${rustResult.potentials.length} potentials in ${elapsed}ms`);
+  nativeLog(
+    `detectSectionsMultiscale: ${rustResult.sections.length} sections, ${rustResult.potentials.length} potentials in ${elapsed}ms`,
+  );
 
   // Convert sections from snake_case to camelCase
   const sections: FrequentSection[] = rustResult.sections.map((s) => ({
     id: s.id,
     sportType: s.sport_type,
-    polyline: (s.polyline || []).map(p => ({ lat: p.latitude, lng: p.longitude })),
-    representativeActivityId: s.representative_activity_id || '',
+    polyline: (s.polyline || []).map((p) => ({
+      lat: p.latitude,
+      lng: p.longitude,
+    })),
+    representativeActivityId: s.representative_activity_id || "",
     activityIds: s.activity_ids,
-    activityPortions: (s.activity_portions || []).map(p => ({
+    activityPortions: (s.activity_portions || []).map((p) => ({
       activityId: p.activity_id,
       startIndex: p.start_index,
       endIndex: p.end_index,
@@ -1030,7 +1126,10 @@ export function detectSectionsMultiscale(
   const potentials: PotentialSection[] = rustResult.potentials.map((p) => ({
     id: p.id,
     sportType: p.sport_type,
-    polyline: (p.polyline || []).map(pt => ({ lat: pt.latitude, lng: pt.longitude })),
+    polyline: (p.polyline || []).map((pt) => ({
+      lat: pt.latitude,
+      lng: pt.longitude,
+    })),
     activityIds: p.activity_ids,
     visitCount: p.visit_count,
     distanceMeters: p.distance_meters,
@@ -1048,7 +1147,6 @@ export function detectSectionsMultiscale(
 
   return { sections, potentials, stats };
 }
-
 
 // =============================================================================
 // Heatmap Generation
@@ -1163,12 +1261,22 @@ export interface ActivityHeatmapData {
 interface InputSignature {
   activityId: string;
   // App format uses lat/lng, native uses latitude/longitude
-  points: Array<{ lat?: number; lng?: number; latitude?: number; longitude?: number }>;
+  points: Array<{
+    lat?: number;
+    lng?: number;
+    latitude?: number;
+    longitude?: number;
+  }>;
   // App format uses 'distance', native uses 'totalDistance'
   distance?: number;
   totalDistance?: number;
   // App format uses center with lat/lng
-  center?: { lat?: number; lng?: number; latitude?: number; longitude?: number };
+  center?: {
+    lat?: number;
+    lng?: number;
+    latitude?: number;
+    longitude?: number;
+  };
   startPoint?: GpsPoint;
   endPoint?: GpsPoint;
   bounds: { minLat: number; maxLat: number; minLng: number; maxLng: number };
@@ -1177,7 +1285,12 @@ interface InputSignature {
 /**
  * Normalize a point from either format to native format (latitude/longitude)
  */
-function normalizePoint(p: { lat?: number; lng?: number; latitude?: number; longitude?: number }): GpsPoint {
+function normalizePoint(p: {
+  lat?: number;
+  lng?: number;
+  latitude?: number;
+  longitude?: number;
+}): GpsPoint {
   return {
     latitude: p.latitude ?? p.lat ?? 0,
     longitude: p.longitude ?? p.lng ?? 0,
@@ -1189,8 +1302,14 @@ function normalizePoint(p: { lat?: number; lng?: number; latitude?: number; long
  */
 function normalizeSignature(sig: InputSignature): RouteSignature {
   const points = sig.points.map(normalizePoint);
-  const startPoint = sig.startPoint ?? (points.length > 0 ? points[0] : { latitude: 0, longitude: 0 });
-  const endPoint = sig.endPoint ?? (points.length > 0 ? points[points.length - 1] : { latitude: 0, longitude: 0 });
+  const startPoint =
+    sig.startPoint ??
+    (points.length > 0 ? points[0] : { latitude: 0, longitude: 0 });
+  const endPoint =
+    sig.endPoint ??
+    (points.length > 0
+      ? points[points.length - 1]
+      : { latitude: 0, longitude: 0 });
   const center = sig.center ? normalizePoint(sig.center) : startPoint;
 
   return {
@@ -1216,22 +1335,24 @@ function normalizeSignature(sig: InputSignature): RouteSignature {
 export function generateHeatmap(
   signatures: InputSignature[] | RouteSignature[],
   activityData: ActivityHeatmapData[],
-  config?: Partial<HeatmapConfig>
+  config?: Partial<HeatmapConfig>,
 ): HeatmapResult {
   nativeLog(`RUST generateHeatmap called with ${signatures.length} signatures`);
   const startTime = Date.now();
 
   const nativeConfig = {
     cell_size_meters: config?.cellSizeMeters ?? 100,
-    bounds: config?.bounds ? {
-      min_lat: config.bounds.minLat,
-      max_lat: config.bounds.maxLat,
-      min_lng: config.bounds.minLng,
-      max_lng: config.bounds.maxLng,
-    } : null,
+    bounds: config?.bounds
+      ? {
+          min_lat: config.bounds.minLat,
+          max_lat: config.bounds.maxLat,
+          min_lng: config.bounds.minLng,
+          max_lng: config.bounds.maxLng,
+        }
+      : null,
   };
 
-  const nativeActivityData = activityData.map(d => ({
+  const nativeActivityData = activityData.map((d) => ({
     activity_id: d.activityId,
     route_id: d.routeId,
     route_name: d.routeName,
@@ -1240,16 +1361,24 @@ export function generateHeatmap(
 
   // Normalize signatures to native format and serialize to JSON string
   // This handles both app format (lat/lng, distance) and native format (latitude/longitude, totalDistance)
-  const normalizedSignatures = (signatures as InputSignature[]).map(normalizeSignature);
+  const normalizedSignatures = (signatures as InputSignature[]).map(
+    normalizeSignature,
+  );
   const signaturesJson = JSON.stringify(normalizedSignatures);
   // Serialize all parameters to JSON to avoid Expo Modules bridge serialization issues with nulls
   const activityDataJson = JSON.stringify(nativeActivityData);
   const configJson = JSON.stringify(nativeConfig);
 
-  const result = NativeModule.generateHeatmap(signaturesJson, activityDataJson, configJson);
+  const result = NativeModule.generateHeatmap(
+    signaturesJson,
+    activityDataJson,
+    configJson,
+  );
 
   const elapsed = Date.now() - startTime;
-  nativeLog(`RUST generateHeatmap returned ${result?.cells?.length || 0} cells in ${elapsed}ms`);
+  nativeLog(
+    `RUST generateHeatmap returned ${result?.cells?.length || 0} cells in ${elapsed}ms`,
+  );
 
   // Convert from snake_case to camelCase
   return {
@@ -1260,7 +1389,7 @@ export function generateHeatmap(
       centerLng: c.center_lng as number,
       density: c.density as number,
       visitCount: c.visit_count as number,
-      routeRefs: (c.route_refs as Array<Record<string, unknown>>).map(r => ({
+      routeRefs: (c.route_refs as Array<Record<string, unknown>>).map((r) => ({
         routeId: r.route_id as string,
         activityCount: r.activity_count as number,
         name: r.name as string | null,
@@ -1297,18 +1426,18 @@ export function generateHeatmap(
 export function queryHeatmapCell(
   heatmap: HeatmapResult,
   lat: number,
-  lng: number
+  lng: number,
 ): CellQueryResult | null {
   // Convert to native format and serialize to JSON to avoid Expo Modules bridge issues with nulls
   const nativeHeatmap = {
-    cells: heatmap.cells.map(c => ({
+    cells: heatmap.cells.map((c) => ({
       row: c.row,
       col: c.col,
       center_lat: c.centerLat,
       center_lng: c.centerLng,
       density: c.density,
       visit_count: c.visitCount,
-      route_refs: c.routeRefs.map(r => ({
+      route_refs: c.routeRefs.map((r) => ({
         route_id: r.routeId,
         activity_count: r.activityCount,
         name: r.name,
@@ -1368,12 +1497,14 @@ export function getDefaultHeatmapConfig(): HeatmapConfig {
   const config = NativeModule.defaultHeatmapConfig();
   return {
     cellSizeMeters: config.cell_size_meters,
-    bounds: config.bounds ? {
-      minLat: config.bounds.min_lat,
-      maxLat: config.bounds.max_lat,
-      minLng: config.bounds.min_lng,
-      maxLng: config.bounds.max_lng,
-    } : undefined,
+    bounds: config.bounds
+      ? {
+          minLat: config.bounds.min_lat,
+          maxLat: config.bounds.max_lat,
+          minLng: config.bounds.min_lng,
+          maxLng: config.bounds.max_lng,
+        }
+      : undefined,
   };
 }
 
@@ -1435,7 +1566,7 @@ class RouteEngineClient {
       this.dbPath = dbPath;
       nativeLog(`[Engine] Initialized with persistent storage at ${dbPath}`);
     } else {
-      nativeLog('[Engine] Failed to initialize persistent storage');
+      nativeLog("[Engine] Failed to initialize persistent storage");
     }
     return result;
   }
@@ -1448,7 +1579,7 @@ class RouteEngineClient {
     if (this.initialized) return;
     NativeModule.engineInit();
     this.initialized = true;
-    nativeLog('[Engine] Initialized (in-memory mode - data will not persist)');
+    nativeLog("[Engine] Initialized (in-memory mode - data will not persist)");
   }
 
   /**
@@ -1468,11 +1599,11 @@ class RouteEngineClient {
     } else {
       NativeModule.engineClear();
     }
-    this.notify('activities');
-    this.notify('groups');
-    this.notify('sections');
-    this.notify('syncReset'); // Signal that a full resync is needed
-    nativeLog('[Engine] Cleared');
+    this.notify("activities");
+    this.notify("groups");
+    this.notify("sections");
+    this.notify("syncReset"); // Signal that a full resync is needed
+    nativeLog("[Engine] Cleared");
   }
 
   /**
@@ -1485,21 +1616,22 @@ class RouteEngineClient {
    */
   cleanupOldActivities(retentionDays: number): number {
     if (!this.dbPath) {
-      nativeLog('[Engine] Cleanup skipped: not in persistent mode');
+      nativeLog("[Engine] Cleanup skipped: not in persistent mode");
       return 0;
     }
 
-    const deleted = NativeModule.persistentEngineCleanupOldActivities(retentionDays);
+    const deleted =
+      NativeModule.persistentEngineCleanupOldActivities(retentionDays);
 
     // Notify subscribers if activities were deleted
     if (deleted > 0) {
-      this.notify('activities');
-      this.notify('groups');
-      this.notify('sections');
+      this.notify("activities");
+      this.notify("groups");
+      this.notify("sections");
     }
 
     nativeLog(
-      `[Engine] Cleanup completed: ${deleted} activities removed (${retentionDays === 0 ? 'keep all' : `${retentionDays} days`})`
+      `[Engine] Cleanup completed: ${deleted} activities removed (${retentionDays === 0 ? "keep all" : `${retentionDays} days`})`,
     );
     return deleted;
   }
@@ -1515,7 +1647,7 @@ class RouteEngineClient {
    */
   markForRecomputation(): void {
     if (!this.dbPath) {
-      nativeLog('[Engine] Re-computation skipped: not in persistent mode');
+      nativeLog("[Engine] Re-computation skipped: not in persistent mode");
       return;
     }
 
@@ -1523,7 +1655,7 @@ class RouteEngineClient {
 
     // Note: We don't notify subscribers here - the notification will happen
     // when groups/sections are actually recomputed on next access
-    nativeLog('[Engine] Marked for re-computation');
+    nativeLog("[Engine] Marked for re-computation");
   }
 
   /**
@@ -1540,23 +1672,41 @@ class RouteEngineClient {
     activityIds: string[],
     allCoords: number[],
     offsets: number[],
-    sportTypes: string[]
+    sportTypes: string[],
   ): Promise<void> {
-    nativeLog(`[Engine] Adding ${activityIds.length} activities (${this.dbPath ? 'persistent' : 'memory'})`);
+    nativeLog(
+      `[Engine] Adding ${activityIds.length} activities (${this.dbPath ? "persistent" : "memory"})`,
+    );
     if (this.dbPath) {
-      NativeModule.persistentEngineAddActivities(activityIds, allCoords, offsets, sportTypes);
+      NativeModule.persistentEngineAddActivities(
+        activityIds,
+        allCoords,
+        offsets,
+        sportTypes,
+      );
     } else {
-      await NativeModule.engineAddActivities(activityIds, allCoords, offsets, sportTypes);
+      await NativeModule.engineAddActivities(
+        activityIds,
+        allCoords,
+        offsets,
+        sportTypes,
+      );
     }
-    this.notify('activities');
-    this.notify('groups');
-    this.notify('sections');
+    this.notify("activities");
+    this.notify("groups");
+    this.notify("sections");
   }
 
   /**
    * Add activities from GpsTrack format (convenience method).
    */
-  async addActivitiesFromTracks(tracks: Array<{ activityId: string; points: GpsPoint[]; sportType: string }>): Promise<void> {
+  async addActivitiesFromTracks(
+    tracks: Array<{
+      activityId: string;
+      points: GpsPoint[];
+      sportType: string;
+    }>,
+  ): Promise<void> {
     const activityIds: string[] = [];
     const allCoords: number[] = [];
     const offsets: number[] = [];
@@ -1584,9 +1734,9 @@ class RouteEngineClient {
     } else {
       NativeModule.engineRemoveActivities(activityIds);
     }
-    this.notify('activities');
-    this.notify('groups');
-    this.notify('sections');
+    this.notify("activities");
+    this.notify("groups");
+    this.notify("sections");
   }
 
   /**
@@ -1637,20 +1787,22 @@ class RouteEngineClient {
       : NativeModule.engineGetGroupsJson();
     const parsed = JSON.parse(json) as Array<Record<string, unknown>>;
     // Convert from snake_case to camelCase
-    return parsed.map(g => {
+    return parsed.map((g) => {
       const rawBounds = g.bounds as Record<string, number> | null;
       return {
-        groupId: (g.group_id as string) || '',
-        representativeId: (g.representative_id as string) || '',
+        groupId: (g.group_id as string) || "",
+        representativeId: (g.representative_id as string) || "",
         activityIds: (g.activity_ids as string[]) || [],
-        sportType: (g.sport_type as string) || 'Ride',
-        bounds: rawBounds ? {
-          minLat: rawBounds.min_lat,
-          maxLat: rawBounds.max_lat,
-          minLng: rawBounds.min_lng,
-          maxLng: rawBounds.max_lng,
-        } : null,
-        customName: (g.custom_name as string) || '',
+        sportType: (g.sport_type as string) || "Ride",
+        bounds: rawBounds
+          ? {
+              minLat: rawBounds.min_lat,
+              maxLat: rawBounds.max_lat,
+              minLng: rawBounds.min_lng,
+              maxLng: rawBounds.max_lng,
+            }
+          : null,
+        customName: (g.custom_name as string) || "",
       };
     });
   }
@@ -1670,10 +1822,15 @@ class RouteEngineClient {
     return result.map((s: Record<string, unknown>) => ({
       id: s.id as string,
       sportType: s.sport_type as string,
-      polyline: ((s.polyline as GpsPoint[]) || []).map(p => ({ lat: p.latitude, lng: p.longitude })),
-      representativeActivityId: (s.representative_activity_id as string) || '',
+      polyline: ((s.polyline as GpsPoint[]) || []).map((p) => ({
+        lat: p.latitude,
+        lng: p.longitude,
+      })),
+      representativeActivityId: (s.representative_activity_id as string) || "",
       activityIds: s.activity_ids as string[],
-      activityPortions: ((s.activity_portions as Array<Record<string, unknown>>) || []).map(p => ({
+      activityPortions: (
+        (s.activity_portions as Array<Record<string, unknown>>) || []
+      ).map((p) => ({
         activityId: p.activity_id as string,
         startIndex: p.start_index as number,
         endIndex: p.end_index as number,
@@ -1683,7 +1840,9 @@ class RouteEngineClient {
       routeIds: s.route_ids as string[],
       visitCount: s.visit_count as number,
       distanceMeters: s.distance_meters as number,
-      activityTraces: convertActivityTraces(s.activity_traces as Record<string, GpsPoint[]>),
+      activityTraces: convertActivityTraces(
+        s.activity_traces as Record<string, GpsPoint[]>,
+      ),
       confidence: (s.confidence as number) ?? 0.0,
       observationCount: (s.observation_count as number) ?? 0,
       averageSpread: (s.average_spread as number) ?? 0.0,
@@ -1702,12 +1861,16 @@ class RouteEngineClient {
   startSectionDetection(sportFilter?: string): boolean {
     if (!this.dbPath) {
       // In-memory mode doesn't need explicit detection - it's lazy
-      nativeLog('[Engine] Section detection skipped (in-memory mode uses lazy detection)');
+      nativeLog(
+        "[Engine] Section detection skipped (in-memory mode uses lazy detection)",
+      );
       return false;
     }
-    const started = NativeModule.persistentEngineStartSectionDetection(sportFilter ?? null);
+    const started = NativeModule.persistentEngineStartSectionDetection(
+      sportFilter ?? null,
+    );
     if (started) {
-      nativeLog('[Engine] Section detection started');
+      nativeLog("[Engine] Section detection started");
     }
     return started;
   }
@@ -1718,13 +1881,13 @@ class RouteEngineClient {
    *
    * @returns "running" | "complete" | "idle" | "error"
    */
-  pollSectionDetection(): 'running' | 'complete' | 'idle' | 'error' {
-    if (!this.dbPath) return 'idle';
+  pollSectionDetection(): "running" | "complete" | "idle" | "error" {
+    if (!this.dbPath) return "idle";
     const status = NativeModule.persistentEnginePollSections() as string;
-    if (status === 'complete') {
-      this.notify('sections');
+    if (status === "complete") {
+      this.notify("sections");
     }
-    return status as 'running' | 'complete' | 'idle' | 'error';
+    return status as "running" | "complete" | "idle" | "error";
   }
 
   /**
@@ -1738,7 +1901,7 @@ class RouteEngineClient {
   async detectSectionsAsync(
     sportFilter?: string,
     pollIntervalMs = 100,
-    timeoutMs = 60000
+    timeoutMs = 60000,
   ): Promise<boolean> {
     if (!this.dbPath) {
       // In-memory mode - sections are computed lazily
@@ -1748,26 +1911,26 @@ class RouteEngineClient {
     if (!this.startSectionDetection(sportFilter)) {
       // Already running or failed to start - check current status
       const status = this.pollSectionDetection();
-      if (status === 'running') {
+      if (status === "running") {
         // Wait for existing detection to complete
       } else {
-        return status === 'complete' || status === 'idle';
+        return status === "complete" || status === "idle";
       }
     }
 
     const startTime = Date.now();
     while (Date.now() - startTime < timeoutMs) {
-      await new Promise(resolve => setTimeout(resolve, pollIntervalMs));
+      await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
       const status = this.pollSectionDetection();
-      if (status === 'complete' || status === 'idle') {
+      if (status === "complete" || status === "idle") {
         return true;
       }
-      if (status === 'error') {
+      if (status === "error") {
         return false;
       }
     }
 
-    nativeLog('[Engine] Section detection timed out');
+    nativeLog("[Engine] Section detection timed out");
     return false;
   }
 
@@ -1775,9 +1938,19 @@ class RouteEngineClient {
    * Query activities in a viewport.
    * Returns activity IDs that intersect the given bounds.
    */
-  queryViewport(minLat: number, maxLat: number, minLng: number, maxLng: number): string[] {
+  queryViewport(
+    minLat: number,
+    maxLat: number,
+    minLng: number,
+    maxLng: number,
+  ): string[] {
     if (this.dbPath) {
-      return NativeModule.persistentEngineQueryViewport(minLat, maxLat, minLng, maxLng);
+      return NativeModule.persistentEngineQueryViewport(
+        minLat,
+        maxLat,
+        minLng,
+        maxLng,
+      );
     }
     return NativeModule.engineQueryViewport(minLat, maxLat, minLng, maxLng);
   }
@@ -1815,7 +1988,13 @@ class RouteEngineClient {
     if (this.dbPath) {
       const stats = NativeModule.persistentEngineGetStats();
       if (!stats) {
-        return { activityCount: 0, signatureCount: 0, groupCount: 0, sectionCount: 0, cachedConsensusCount: 0 };
+        return {
+          activityCount: 0,
+          signatureCount: 0,
+          groupCount: 0,
+          sectionCount: 0,
+          cachedConsensusCount: 0,
+        };
       }
       return {
         activityCount: stats.activity_count,
@@ -1852,8 +2031,8 @@ class RouteEngineClient {
       simplification_tolerance: fullConfig.simplificationTolerance,
       max_simplified_points: fullConfig.maxSimplifiedPoints,
     });
-    this.notify('groups');
-    this.notify('sections');
+    this.notify("groups");
+    this.notify("sections");
   }
 
   /**
@@ -1868,7 +2047,7 @@ class RouteEngineClient {
       cluster_tolerance: fullConfig.clusterTolerance,
       sample_points: fullConfig.samplePoints,
     });
-    this.notify('sections');
+    this.notify("sections");
   }
 
   /**
@@ -1878,7 +2057,7 @@ class RouteEngineClient {
    */
   setRouteName(routeId: string, name: string): void {
     NativeModule.persistentEngineSetRouteName(routeId, name);
-    this.notify('groups');
+    this.notify("groups");
   }
 
   /**
@@ -1887,7 +2066,7 @@ class RouteEngineClient {
    * Uses persistent engine for consistency with setRouteName.
    */
   getRouteName(routeId: string): string {
-    return NativeModule.persistentEngineGetRouteName(routeId) || '';
+    return NativeModule.persistentEngineGetRouteName(routeId) || "";
   }
 
   /**
@@ -1906,7 +2085,7 @@ class RouteEngineClient {
    */
   setSectionName(sectionId: string, name: string): void {
     NativeModule.persistentEngineSetSectionName(sectionId, name);
-    this.notify('sections');
+    this.notify("sections");
   }
 
   /**
@@ -1915,7 +2094,7 @@ class RouteEngineClient {
    * Uses persistent engine for consistency with setSectionName.
    */
   getSectionName(sectionId: string): string {
-    return NativeModule.persistentEngineGetSectionName(sectionId) || '';
+    return NativeModule.persistentEngineGetSectionName(sectionId) || "";
   }
 
   /**
@@ -1933,7 +2112,7 @@ class RouteEngineClient {
    */
   getAllActivityBounds(): Array<{
     id: string;
-    bounds: [[number, number], [number, number]];  // [[minLat, minLng], [maxLat, maxLng]]
+    bounds: [[number, number], [number, number]]; // [[minLat, minLng], [maxLat, maxLng]]
     type: string;
     distance: number;
   }> {
@@ -1945,7 +2124,7 @@ class RouteEngineClient {
       distance: number;
     }>;
     // Convert from Rust format (snake_case) to JS format (camelCase)
-    return raw.map(item => ({
+    return raw.map((item) => ({
       id: item.id,
       bounds: item.bounds,
       type: item.activity_type,
@@ -1957,17 +2136,32 @@ class RouteEngineClient {
    * Get all route signatures for trace rendering.
    * Returns a map of activityId -> { points: [{lat, lng}], center: {lat, lng} }.
    */
-  getAllSignatures(): Record<string, { points: Array<{ lat: number; lng: number }>; center: { lat: number; lng: number } }> {
+  getAllSignatures(): Record<
+    string,
+    {
+      points: Array<{ lat: number; lng: number }>;
+      center: { lat: number; lng: number };
+    }
+  > {
     const json = NativeModule.engineGetAllSignaturesJson();
-    const raw = JSON.parse(json) as Record<string, {
-      points: Array<{ latitude: number; longitude: number }>;
-      center: { latitude: number; longitude: number };
-    }>;
+    const raw = JSON.parse(json) as Record<
+      string,
+      {
+        points: Array<{ latitude: number; longitude: number }>;
+        center: { latitude: number; longitude: number };
+      }
+    >;
     // Convert from Rust format {latitude, longitude} to JS format {lat, lng}
-    const result: Record<string, { points: Array<{ lat: number; lng: number }>; center: { lat: number; lng: number } }> = {};
+    const result: Record<
+      string,
+      {
+        points: Array<{ lat: number; lng: number }>;
+        center: { lat: number; lng: number };
+      }
+    > = {};
     for (const [activityId, sig] of Object.entries(raw)) {
       result[activityId] = {
-        points: sig.points.map(p => ({ lat: p.latitude, lng: p.longitude })),
+        points: sig.points.map((p) => ({ lat: p.latitude, lng: p.longitude })),
         center: { lat: sig.center.latitude, lng: sig.center.longitude },
       };
     }
@@ -1978,13 +2172,21 @@ class RouteEngineClient {
    * Get signature points for all activities in a group.
    * Returns a map of activityId -> array of {lat, lng} points.
    */
-  getSignaturesForGroup(groupId: string): Record<string, Array<{ lat: number; lng: number }>> {
+  getSignaturesForGroup(
+    groupId: string,
+  ): Record<string, Array<{ lat: number; lng: number }>> {
     const json = NativeModule.engineGetSignaturesForGroupJson(groupId);
-    const raw = JSON.parse(json) as Record<string, Array<{ latitude: number; longitude: number }>>;
+    const raw = JSON.parse(json) as Record<
+      string,
+      Array<{ latitude: number; longitude: number }>
+    >;
     // Convert from rust format {latitude, longitude} to JS format {lat, lng}
     const result: Record<string, Array<{ lat: number; lng: number }>> = {};
     for (const [activityId, points] of Object.entries(raw)) {
-      result[activityId] = points.map(p => ({ lat: p.latitude, lng: p.longitude }));
+      result[activityId] = points.map((p) => ({
+        lat: p.latitude,
+        lng: p.longitude,
+      }));
     }
     return result;
   }
@@ -1999,7 +2201,7 @@ class RouteEngineClient {
    * In persistent mode, metrics are stored in SQLite for instant access on next launch.
    */
   setActivityMetrics(metrics: ActivityMetrics[]): void {
-    const nativeMetrics = metrics.map(m => ({
+    const nativeMetrics = metrics.map((m) => ({
       activity_id: m.activityId,
       name: m.name,
       date: m.date,
@@ -2016,7 +2218,9 @@ class RouteEngineClient {
     } else {
       NativeModule.engineSetActivityMetrics(nativeMetrics);
     }
-    nativeLog(`[Engine] Set metrics for ${metrics.length} activities (${this.dbPath ? 'persistent' : 'memory'})`);
+    nativeLog(
+      `[Engine] Set metrics for ${metrics.length} activities (${this.dbPath ? "persistent" : "memory"})`,
+    );
   }
 
   /**
@@ -2026,16 +2230,16 @@ class RouteEngineClient {
    */
   getRoutePerformances(
     routeGroupId: string,
-    currentActivityId?: string
+    currentActivityId?: string,
   ): RoutePerformanceResult {
     const json = this.dbPath
       ? NativeModule.persistentEngineGetRoutePerformancesJson(
           routeGroupId,
-          currentActivityId ?? null
+          currentActivityId ?? null,
         )
       : NativeModule.engineGetRoutePerformancesJson(
           routeGroupId,
-          currentActivityId ?? null
+          currentActivityId ?? null,
         );
     const raw = JSON.parse(json) as {
       performances: Array<Record<string, unknown>>;
@@ -2043,7 +2247,9 @@ class RouteEngineClient {
       current_rank: number | null;
     };
 
-    const convertPerformance = (p: Record<string, unknown>): RoutePerformance => ({
+    const convertPerformance = (
+      p: Record<string, unknown>,
+    ): RoutePerformance => ({
       activityId: p.activity_id as string,
       name: p.name as string,
       date: p.date as number,
@@ -2070,7 +2276,9 @@ class RouteEngineClient {
    * Set time streams for section calculations.
    * Only stores time arrays (not full stream data).
    */
-  setTimeStreams(streams: Array<{ activityId: string; times: number[] }>): void {
+  setTimeStreams(
+    streams: Array<{ activityId: string; times: number[] }>,
+  ): void {
     const activityIds: string[] = [];
     const allTimes: number[] = [];
     const offsets: number[] = [];
@@ -2107,7 +2315,9 @@ class RouteEngineClient {
       endIndex: l.end_index as number,
     });
 
-    const convertRecord = (r: Record<string, unknown>): SectionPerformanceRecord => ({
+    const convertRecord = (
+      r: Record<string, unknown>,
+    ): SectionPerformanceRecord => ({
       activityId: r.activity_id as string,
       activityName: r.activity_name as string,
       activityDate: r.activity_date as number,
@@ -2134,7 +2344,10 @@ class RouteEngineClient {
    * @param callback - Called when the event occurs
    * @returns Unsubscribe function
    */
-  subscribe(event: 'activities' | 'groups' | 'sections' | 'syncReset', callback: () => void): () => void {
+  subscribe(
+    event: "activities" | "groups" | "sections" | "syncReset",
+    callback: () => void,
+  ): () => void {
     if (!this.listeners.has(event)) {
       this.listeners.set(event, new Set());
     }
@@ -2143,7 +2356,7 @@ class RouteEngineClient {
   }
 
   private notify(event: string) {
-    this.listeners.get(event)?.forEach(cb => cb());
+    this.listeners.get(event)?.forEach((cb) => cb());
   }
 }
 

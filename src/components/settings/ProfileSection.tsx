@@ -1,5 +1,13 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, useColorScheme, Image, Alert } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  useColorScheme,
+  Image,
+  Alert,
+} from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as WebBrowser from 'expo-web-browser';
 import { colors, spacing } from '@/theme';
@@ -22,12 +30,15 @@ export function ProfileSection({ athlete }: ProfileSectionProps) {
   const [profileImageError, setProfileImageError] = useState(false);
 
   const profileUrl = athlete?.profile_medium || athlete?.profile;
-  const hasValidProfileUrl = profileUrl && typeof profileUrl === 'string' && profileUrl.startsWith('http');
+  const hasValidProfileUrl =
+    profileUrl && typeof profileUrl === 'string' && profileUrl.startsWith('http');
 
   return (
     <TouchableOpacity
       style={[styles.section, isDark && styles.sectionDark]}
-      onPress={() => WebBrowser.openBrowserAsync(`https://intervals.icu/athlete/${getAthleteId()}/activities`)}
+      onPress={() =>
+        WebBrowser.openBrowserAsync(`https://intervals.icu/athlete/${getAthleteId()}/activities`)
+      }
       activeOpacity={0.7}
     >
       <View style={styles.profileRow}>
@@ -40,20 +51,14 @@ export function ProfileSection({ athlete }: ProfileSectionProps) {
               onError={() => setProfileImageError(true)}
             />
           ) : (
-            <MaterialCommunityIcons
-              name="account"
-              size={32}
-              color={isDark ? '#AAA' : '#666'}
-            />
+            <MaterialCommunityIcons name="account" size={32} color={isDark ? '#AAA' : '#666'} />
           )}
         </View>
         <View style={styles.profileInfo}>
           <Text style={[styles.profileName, isDark && styles.textLight]}>
             {athlete?.name || 'Athlete'}
           </Text>
-          <Text style={[styles.profileEmail, isDark && styles.textMuted]}>
-            intervals.icu
-          </Text>
+          <Text style={[styles.profileEmail, isDark && styles.textMuted]}>intervals.icu</Text>
         </View>
         <MaterialCommunityIcons
           name="chevron-right"

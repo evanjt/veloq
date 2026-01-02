@@ -85,7 +85,11 @@ export const PowerCurveChart = React.memo(function PowerCurveChart({
   // Process curve data for the line chart
   const { chartData, ftpValue, yDomain } = useMemo(() => {
     if (!curve?.secs || !curve?.watts || curve.watts.length === 0) {
-      return { chartData: [], ftpValue: ftp ?? null, yDomain: [0, 400] as [number, number] };
+      return {
+        chartData: [],
+        ftpValue: ftp ?? null,
+        yDomain: [0, 400] as [number, number],
+      };
     }
 
     // Build data points from the curve
@@ -100,7 +104,11 @@ export const PowerCurveChart = React.memo(function PowerCurveChart({
     }
 
     if (points.length === 0) {
-      return { chartData: [], ftpValue: ftp ?? null, yDomain: [0, 400] as [number, number] };
+      return {
+        chartData: [],
+        ftpValue: ftp ?? null,
+        yDomain: [0, 400] as [number, number],
+      };
     }
 
     // Sort by duration
@@ -290,7 +298,10 @@ export const PowerCurveChart = React.memo(function PowerCurveChart({
                 chartBounds.left !== chartBoundsShared.value.left ||
                 chartBounds.right !== chartBoundsShared.value.right
               ) {
-                chartBoundsShared.value = { left: chartBounds.left, right: chartBounds.right };
+                chartBoundsShared.value = {
+                  left: chartBounds.left,
+                  right: chartBounds.right,
+                };
               }
               const newCoords = points.y.filter((p) => p.x != null).map((p) => p.x as number);
               if (newCoords.length !== pointXCoordsShared.value.length) {

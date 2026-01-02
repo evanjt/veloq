@@ -90,7 +90,9 @@ export const CombinedPlot = React.memo(function CombinedPlot({
     if (distance.length === 0) {
       return {
         chartData: [],
-        seriesInfo: [] as (DataSeries & { range: { min: number; max: number; range: number } })[],
+        seriesInfo: [] as (DataSeries & {
+          range: { min: number; max: number; range: number };
+        })[],
         indexMap: [] as number[],
         maxDist: 1,
       };
@@ -114,7 +116,9 @@ export const CombinedPlot = React.memo(function CombinedPlot({
     if (series.length === 0) {
       return {
         chartData: [],
-        seriesInfo: [] as (DataSeries & { range: { min: number; max: number; range: number } })[],
+        seriesInfo: [] as (DataSeries & {
+          range: { min: number; max: number; range: number };
+        })[],
         indexMap: [] as number[],
         maxDist: 1,
       };
@@ -383,7 +387,10 @@ export const CombinedPlot = React.memo(function CombinedPlot({
                 chartBounds.left !== chartBoundsShared.value.left ||
                 chartBounds.right !== chartBoundsShared.value.right
               ) {
-                chartBoundsShared.value = { left: chartBounds.left, right: chartBounds.right };
+                chartBoundsShared.value = {
+                  left: chartBounds.left,
+                  right: chartBounds.right,
+                };
               }
               // Sync actual point x-coordinates for accurate crosshair positioning
               if (seriesInfo.length > 0) {

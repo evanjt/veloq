@@ -37,7 +37,9 @@ export function EmptyState({
       <View
         style={[
           styles.iconContainer,
-          { backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' },
+          {
+            backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
+          },
           compact && styles.iconContainerCompact,
         ]}
       >
@@ -137,26 +139,36 @@ export function ErrorStatePreset({ message, onRetry }: { message?: string; onRet
 }
 
 // Preset for no data in chart/stats
-export function NoDataState({ compact = true }: { compact?: boolean }) {
+export function NoDataState({
+  compact = true,
+  onRefresh,
+}: {
+  compact?: boolean;
+  onRefresh?: () => void;
+}) {
   const { t } = useTranslation();
   return (
     <EmptyState
       icon="chart-line-variant"
       title={t('emptyState.noData.title')}
       description={t('emptyState.noData.description')}
+      actionLabel={onRefresh ? t('emptyState.refresh') : undefined}
+      onAction={onRefresh}
       compact={compact}
     />
   );
 }
 
 // Preset for offline mode
-export function OfflineState() {
+export function OfflineState({ onRetry }: { onRetry?: () => void }) {
   const { t } = useTranslation();
   return (
     <EmptyState
       icon="cloud-off-outline"
       title={t('emptyState.offline.title')}
       description={t('emptyState.offline.description')}
+      actionLabel={onRetry ? t('common.retry') : undefined}
+      onAction={onRetry}
       compact
     />
   );

@@ -174,7 +174,10 @@ export function WellnessDashboard({ data }: WellnessDashboardProps) {
       return { text: t('wellness.insightGoodRecovery'), color: colors.success };
     }
     if (hrvMetric?.trend === 'down' && rhrMetric?.trend === 'up') {
-      return { text: t('wellness.insightExtraRecovery'), color: colors.warning };
+      return {
+        text: t('wellness.insightExtraRecovery'),
+        color: colors.warning,
+      };
     }
     return { text: t('wellness.insightStable'), color: colors.textSecondary };
   }, [metrics, t]);

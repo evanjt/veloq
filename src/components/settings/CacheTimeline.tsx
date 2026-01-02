@@ -31,7 +31,10 @@ interface CacheTimelineProps {
 function formatShortDate(dateStr: string | null): string {
   if (!dateStr) return '—';
   const date = new Date(dateStr);
-  return date.toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
+  return date.toLocaleDateString(undefined, {
+    month: 'short',
+    year: 'numeric',
+  });
 }
 
 function formatYear(dateStr: string): string {
@@ -177,7 +180,9 @@ export function CacheTimeline({
             <Text
               style={[
                 styles.expandText,
-                { color: isSyncing ? themeColors.textSecondary : themeColors.primary },
+                {
+                  color: isSyncing ? themeColors.textSecondary : themeColors.primary,
+                },
               ]}
             >
               {isSyncing

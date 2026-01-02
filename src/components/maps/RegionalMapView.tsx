@@ -121,7 +121,10 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
   const mapRef = useRef<React.ElementRef<typeof MapView>>(null);
   const map3DRef = useRef<Map3DWebViewRef>(null);
   const bearingAnim = useRef(new Animated.Value(0)).current;
-  const initialBoundsRef = useRef<{ ne: [number, number]; sw: [number, number] } | null>(null);
+  const initialBoundsRef = useRef<{
+    ne: [number, number];
+    sw: [number, number];
+  } | null>(null);
 
   // ===========================================
   // GESTURE TRACKING - For compass updates
@@ -447,7 +450,12 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
             ref={cameraRef}
             defaultSettings={{
               bounds: mapBounds ?? undefined,
-              padding: { paddingTop: 100, paddingRight: 40, paddingBottom: 200, paddingLeft: 40 },
+              padding: {
+                paddingTop: 100,
+                paddingRight: 40,
+                paddingBottom: 200,
+                paddingLeft: 40,
+              },
             }}
             animationDuration={0}
           />

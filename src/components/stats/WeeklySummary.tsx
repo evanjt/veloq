@@ -37,7 +37,10 @@ function getTimeRangeLabel(
 ): { current: string; previous: string } {
   switch (range) {
     case 'week':
-      return { current: t('stats.thisWeek') as string, previous: t('stats.vsLastWeek') as string };
+      return {
+        current: t('stats.thisWeek') as string,
+        previous: t('stats.vsLastWeek') as string,
+      };
     case 'month':
       return {
         current: t('stats.thisMonth') as string,
@@ -54,7 +57,10 @@ function getTimeRangeLabel(
         previous: t('stats.vsPrevious6Months') as string,
       };
     case 'year':
-      return { current: t('stats.thisYear') as string, previous: t('stats.vsLastYear') as string };
+      return {
+        current: t('stats.thisYear') as string,
+        previous: t('stats.vsLastYear') as string,
+      };
   }
 }
 

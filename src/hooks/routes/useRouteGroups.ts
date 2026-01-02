@@ -28,11 +28,19 @@ interface RouteGroupExtended {
   representativeId: string;
   activityIds: string[];
   sportType: string;
-  bounds: { minLat: number; maxLat: number; minLng: number; maxLng: number } | null;
+  bounds: {
+    minLat: number;
+    maxLat: number;
+    minLng: number;
+    maxLng: number;
+  } | null;
   activityCount: number;
   type: ActivityType;
   /** Route signature with points for mini-trace preview */
-  signature?: { points: Array<{ lat: number; lng: number }>; distance: number } | null;
+  signature?: {
+    points: Array<{ lat: number; lng: number }>;
+    distance: number;
+  } | null;
 }
 
 interface UseRouteGroupsResult {
@@ -49,7 +57,9 @@ interface UseRouteGroupsResult {
 export function useRouteGroups(options: UseRouteGroupsOptions = {}): UseRouteGroupsResult {
   const { type, minActivities = 2, sortBy = 'count' } = options;
 
-  const { groups: rawGroups, totalCount } = useEngineGroups({ minActivities: 1 });
+  const { groups: rawGroups, totalCount } = useEngineGroups({
+    minActivities: 1,
+  });
 
   const result = useMemo(() => {
     // Convert engine groups to extended format

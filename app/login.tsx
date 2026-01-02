@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState } from "react";
 import {
   View,
   StyleSheet,
@@ -8,27 +8,36 @@ import {
   ScrollView,
   Linking,
   Alert,
-} from 'react-native';
-import { Text, TextInput, Button, HelperText, ActivityIndicator } from 'react-native-paper';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { router, Href } from 'expo-router';
-import { useTranslation } from 'react-i18next';
-import { useAuthStore } from '@/providers';
-import { intervalsApi } from '@/api/intervals';
-import { colors, spacing, layout } from '@/theme';
-import { useQueryClient } from '@tanstack/react-query';
+} from "react-native";
+import {
+  Text,
+  TextInput,
+  Button,
+  HelperText,
+  ActivityIndicator,
+} from "react-native-paper";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { router, Href } from "expo-router";
+import { useTranslation } from "react-i18next";
+import { useAuthStore } from "@/providers";
+import { intervalsApi } from "@/api/intervals";
+import { colors, spacing, layout } from "@/theme";
+import { useQueryClient } from "@tanstack/react-query";
 
 export default function LoginScreen() {
   const { t } = useTranslation();
   const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const isDark = colorScheme === "dark";
   const insets = useSafeAreaInsets();
   const setCredentials = useAuthStore((state) => state.setCredentials);
   const enterDemoMode = useAuthStore((state) => state.enterDemoMode);
   const queryClient = useQueryClient();
 
-  const [apiKey, setApiKey] = useState('');
+  const [apiKey, setApiKey] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -38,16 +47,16 @@ export default function LoginScreen() {
     // Enter demo mode
     enterDemoMode();
     // Navigate to main app
-    router.replace('/' as Href);
+    router.replace("/" as Href);
   };
 
   const handleOpenSettings = () => {
-    Linking.openURL('https://intervals.icu/settings');
+    Linking.openURL("https://intervals.icu/settings");
   };
 
   const handleLogin = async () => {
     if (!apiKey.trim()) {
-      setError(t('login.apiKeyRequired'));
+      setError(t("login.apiKeyRequired"));
       return;
     }
 
@@ -56,29 +65,29 @@ export default function LoginScreen() {
 
     try {
       // Temporarily set just the API key so we can make the request
-      await setCredentials(apiKey.trim(), '');
+      await setCredentials(apiKey.trim(), "");
 
       // Fetch the current athlete to get the athlete ID
       const athlete = await intervalsApi.getCurrentAthlete();
 
       if (!athlete.id) {
-        throw new Error('Could not retrieve athlete ID');
+        throw new Error("Could not retrieve athlete ID");
       }
 
       // Now save with the correct athlete ID
       await setCredentials(apiKey.trim(), athlete.id);
 
       // Success - navigate to main app
-      router.replace('/' as Href);
+      router.replace("/" as Href);
     } catch (err: unknown) {
       // Clear invalid credentials
       await useAuthStore.getState().clearCredentials();
 
       const error = err as { response?: { status?: number } };
       if (error?.response?.status === 401) {
-        setError(t('login.invalidApiKey'));
+        setError(t("login.invalidApiKey"));
       } else {
-        setError(t('login.connectionFailed'));
+        setError(t("login.connectionFailed"));
       }
     } finally {
       setIsLoading(false);
@@ -86,11 +95,14 @@ export default function LoginScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.container, isDark && styles.containerDark]} testID="login-screen">
+    <SafeAreaView
+      style={[styles.container, isDark && styles.containerDark]}
+      testID="login-screen"
+    >
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={styles.keyboardView}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? insets.bottom + 10 : 0}
+        keyboardVerticalOffset={Platform.OS === "ios" ? insets.bottom + 10 : 0}
       >
         <ScrollView
           contentContainerStyle={styles.scrollContent}
@@ -98,19 +110,21 @@ export default function LoginScreen() {
         >
           {/* Logo/Header */}
           <View style={styles.header}>
-            <Text style={[styles.title, isDark && styles.textLight]}>{t('login.title')}</Text>
+            <Text style={[styles.title, isDark && styles.textLight]}>
+              {t("login.title")}
+            </Text>
             <Text style={[styles.subtitle, isDark && styles.textDark]}>
-              {t('login.subtitle')}
+              {t("login.subtitle")}
             </Text>
           </View>
 
           {/* Instructions */}
           <View style={[styles.card, isDark && styles.cardDark]}>
             <Text style={[styles.instructionTitle, isDark && styles.textLight]}>
-              {t('login.gettingStarted')}
+              {t("login.gettingStarted")}
             </Text>
             <Text style={[styles.instruction, isDark && styles.textDark]}>
-              {t('login.instructions')}
+              {t("login.instructions")}
             </Text>
             <Button
               mode="outlined"
@@ -118,7 +132,7 @@ export default function LoginScreen() {
               icon="open-in-new"
               style={styles.settingsButton}
             >
-              {t('login.openSettings')}
+              {t("login.openSettings")}
             </Button>
           </View>
 
@@ -126,7 +140,7 @@ export default function LoginScreen() {
           <View style={[styles.card, isDark && styles.cardDark]}>
             <TextInput
               testID="login-api-key-input"
-              label={t('login.apiKey')}
+              label={t("login.apiKey")}
               value={apiKey}
               onChangeText={setApiKey}
               mode="outlined"
@@ -153,7 +167,7 @@ export default function LoginScreen() {
               style={styles.loginButton}
               contentStyle={styles.loginButtonContent}
             >
-              {isLoading ? t('login.connecting') : t('login.connect')}
+              {isLoading ? t("login.connecting") : t("login.connect")}
             </Button>
 
             <Button
@@ -164,7 +178,7 @@ export default function LoginScreen() {
               style={styles.demoButton}
               icon="play-circle-outline"
             >
-              {t('login.tryDemo', { defaultValue: 'Try Demo' })}
+              {t("login.tryDemo", { defaultValue: "Try Demo" })}
             </Button>
           </View>
 
@@ -173,10 +187,10 @@ export default function LoginScreen() {
             <MaterialCommunityIcons
               name="shield-lock"
               size={16}
-              color={isDark ? '#888' : colors.textSecondary}
+              color={isDark ? "#888" : colors.textSecondary}
             />
             <Text style={[styles.securityText, isDark && styles.textDark]}>
-              {t('login.securityNote')}
+              {t("login.securityNote")}
             </Text>
           </View>
         </ScrollView>
@@ -191,7 +205,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   containerDark: {
-    backgroundColor: '#121212',
+    backgroundColor: "#121212",
   },
   keyboardView: {
     flex: 1,
@@ -199,23 +213,23 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     padding: layout.screenPadding,
-    justifyContent: 'center',
+    justifyContent: "center",
   },
   header: {
-    alignItems: 'center',
+    alignItems: "center",
     marginBottom: spacing.xl,
   },
   title: {
     fontSize: 32,
-    fontWeight: '700',
+    fontWeight: "700",
     color: colors.textPrimary,
     marginBottom: spacing.xs,
   },
   textLight: {
-    color: '#FFFFFF',
+    color: "#FFFFFF",
   },
   textDark: {
-    color: '#AAA',
+    color: "#AAA",
   },
   subtitle: {
     fontSize: 16,
@@ -228,11 +242,11 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   cardDark: {
-    backgroundColor: '#1E1E1E',
+    backgroundColor: "#1E1E1E",
   },
   instructionTitle: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.textPrimary,
     marginBottom: spacing.sm,
   },
@@ -259,9 +273,9 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
   },
   securityNote: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     gap: spacing.xs,
     marginTop: spacing.md,
   },

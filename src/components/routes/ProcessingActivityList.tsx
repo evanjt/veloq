@@ -207,7 +207,9 @@ export function ProcessingActivityList({
 
       {activities.length > 10 && (
         <Text style={[styles.moreText, isDark && styles.textMuted]}>
-          {t('routes.moreActivitiesProcessed', { count: activities.length - 10 })}
+          {t('routes.moreActivitiesProcessed', {
+            count: activities.length - 10,
+          })}
         </Text>
       )}
     </View>

@@ -4,7 +4,12 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { SegmentedButtons } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { colors, spacing } from '@/theme';
-import { getThemePreference, type ThemePreference, type PrimarySport, getAvailableLanguages } from '@/providers';
+import {
+  getThemePreference,
+  type ThemePreference,
+  type PrimarySport,
+  getAvailableLanguages,
+} from '@/providers';
 import type { SupportedLocale } from '@/i18n';
 
 // LanguageChoice from useLanguageStore (string | null)
@@ -38,12 +43,12 @@ export function DisplaySettings({
 
   // Get the display label for the current language selection
   const currentLanguageLabel = React.useMemo(() => {
-    const allLanguages = availableLanguages.flatMap(g => g.languages);
+    const allLanguages = availableLanguages.flatMap((g) => g.languages);
 
     // Check if it's a variant
     for (const lang of allLanguages) {
       if (lang.variants) {
-        const variant = lang.variants.find(v => v.value === language);
+        const variant = lang.variants.find((v) => v.value === language);
         if (variant) {
           return `${lang.label} (${variant.label})`;
         }
@@ -58,7 +63,9 @@ export function DisplaySettings({
   return (
     <>
       {/* Appearance Section */}
-      <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>{t('settings.appearance').toUpperCase()}</Text>
+      <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>
+        {t('settings.appearance').toUpperCase()}
+      </Text>
       <View style={[styles.section, isDark && styles.sectionDark]}>
         <View testID="settings-theme-toggle" style={styles.themePickerContainer}>
           <SegmentedButtons
@@ -87,18 +94,13 @@ export function DisplaySettings({
       </View>
 
       {/* Language Section */}
-      <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>{t('settings.language').toUpperCase()}</Text>
+      <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>
+        {t('settings.language').toUpperCase()}
+      </Text>
       <View style={[styles.section, isDark && styles.sectionDark]}>
         {/* Current language display with expand toggle */}
-        <TouchableOpacity
-          style={styles.actionRow}
-          onPress={() => setShowLanguages(!showLanguages)}
-        >
-          <MaterialCommunityIcons
-            name="translate"
-            size={22}
-            color={colors.primary}
-          />
+        <TouchableOpacity style={styles.actionRow} onPress={() => setShowLanguages(!showLanguages)}>
+          <MaterialCommunityIcons name="translate" size={22} color={colors.primary} />
           <Text style={[styles.actionText, isDark && styles.textLight]}>
             {currentLanguageLabel}
           </Text>
@@ -116,8 +118,10 @@ export function DisplaySettings({
               <View key={group.groupLabel ?? 'system'}>
                 {/* Languages in group */}
                 {group.languages.map((lang, langIndex) => {
-                  const isSelected = language === lang.value || (language === null && lang.value === null);
-                  const isLanguageVariant = lang.variants && lang.variants.some(v => v.value === language);
+                  const isSelected =
+                    language === lang.value || (language === null && lang.value === null);
+                  const isLanguageVariant =
+                    lang.variants && lang.variants.some((v) => v.value === language);
                   const showCheck = isSelected || isLanguageVariant;
 
                   return (
@@ -173,11 +177,7 @@ export function DisplaySettings({
                         </View>
                       )}
                       {showCheck && !lang.variants && (
-                        <MaterialCommunityIcons
-                          name="check"
-                          size={20}
-                          color={colors.primary}
-                        />
+                        <MaterialCommunityIcons name="check" size={20} color={colors.primary} />
                       )}
                     </TouchableOpacity>
                   );
@@ -189,7 +189,9 @@ export function DisplaySettings({
       </View>
 
       {/* Primary Sport Section */}
-      <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>{t('settings.primarySport').toUpperCase()}</Text>
+      <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>
+        {t('settings.primarySport').toUpperCase()}
+      </Text>
       <View style={[styles.section, isDark && styles.sectionDark]}>
         <View style={styles.themePickerContainer}>
           <SegmentedButtons

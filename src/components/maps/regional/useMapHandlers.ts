@@ -122,7 +122,12 @@ export function useMapHandlers({
 
     cameraRef.current?.setCamera({
       bounds,
-      padding: { paddingTop: 100, paddingRight: 60, paddingBottom: 280, paddingLeft: 60 },
+      padding: {
+        paddingTop: 100,
+        paddingRight: 60,
+        paddingBottom: 280,
+        paddingLeft: 60,
+      },
       animationDuration: 500,
     });
   }, [selected, cameraRef]);

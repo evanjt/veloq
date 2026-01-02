@@ -25,7 +25,10 @@ interface DateRangeSummaryProps {
 function formatDate(dateStr: string | null): string {
   if (!dateStr) return '—';
   const date = new Date(dateStr);
-  return date.toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
+  return date.toLocaleDateString(undefined, {
+    month: 'short',
+    year: 'numeric',
+  });
 }
 
 export function DateRangeSummary({

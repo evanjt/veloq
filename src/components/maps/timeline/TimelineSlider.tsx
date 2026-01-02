@@ -386,7 +386,9 @@ export function TimelineSlider({
             {cachedRange.hasCache && trackWidth > 0 && cachedRangeStyle.width > 0 && (
               <View style={[styles.cachedRange, cachedRangeStyle]}>
                 <View style={styles.stripeContainer}>
-                  {Array.from({ length: Math.ceil(cachedRangeStyle.width / 3) }).map((_, i) => (
+                  {Array.from({
+                    length: Math.ceil(cachedRangeStyle.width / 3),
+                  }).map((_, i) => (
                     <View
                       key={i}
                       style={[

@@ -102,16 +102,28 @@ export function useActivityStats({
             value: `${Math.round(activity.icu_intensity || 0)}%`,
           },
           activity.trimp
-            ? { label: t('activity.stats.trimp'), value: `${Math.round(activity.trimp)}` }
+            ? {
+                label: t('activity.stats.trimp'),
+                value: `${Math.round(activity.trimp)}`,
+              }
             : null,
           activity.strain_score
-            ? { label: t('activity.stats.strain'), value: `${Math.round(activity.strain_score)}` }
+            ? {
+                label: t('activity.stats.strain'),
+                value: `${Math.round(activity.strain_score)}`,
+              }
             : null,
           wellness?.ctl
-            ? { label: t('activity.stats.yourFitness'), value: `${Math.round(wellness.ctl)}` }
+            ? {
+                label: t('activity.stats.yourFitness'),
+                value: `${Math.round(wellness.ctl)}`,
+              }
             : null,
           wellness?.atl
-            ? { label: t('activity.stats.yourFatigue'), value: `${Math.round(wellness.atl)}` }
+            ? {
+                label: t('activity.stats.yourFatigue'),
+                value: `${Math.round(wellness.atl)}`,
+              }
             : null,
         ].filter(Boolean) as { label: string; value: string }[],
       });
@@ -149,22 +161,39 @@ export function useActivityStats({
         context: t('activity.stats.percentOfMaxHR', { percent: hrPercent }),
         explanation: t(METRIC_EXPLANATION_KEYS['Heart Rate'] as never),
         details: [
-          { label: t('activity.stats.average'), value: `${Math.round(avgHRValue)} bpm` },
+          {
+            label: t('activity.stats.average'),
+            value: `${Math.round(avgHRValue)} bpm`,
+          },
           maxHRValue
-            ? { label: t('activity.stats.peak'), value: `${Math.round(maxHRValue)} bpm` }
+            ? {
+                label: t('activity.stats.peak'),
+                value: `${Math.round(maxHRValue)} bpm`,
+              }
             : null,
-          { label: t('activity.stats.percentOfMaxHRLabel'), value: `${hrPercent}%` },
+          {
+            label: t('activity.stats.percentOfMaxHRLabel'),
+            value: `${hrPercent}%`,
+          },
           activity.icu_hrr
             ? {
                 label: t('activity.stats.hrRecovery'),
-                value: t('activity.stats.bpmDrop', { value: activity.icu_hrr.hrr }),
+                value: t('activity.stats.bpmDrop', {
+                  value: activity.icu_hrr.hrr,
+                }),
               }
             : null,
           wellness?.restingHR
-            ? { label: t('activity.stats.restingHRToday'), value: `${wellness.restingHR} bpm` }
+            ? {
+                label: t('activity.stats.restingHRToday'),
+                value: `${wellness.restingHR} bpm`,
+              }
             : null,
           wellness?.hrv
-            ? { label: t('activity.stats.hrvToday'), value: `${Math.round(wellness.hrv)} ms` }
+            ? {
+                label: t('activity.stats.hrvToday'),
+                value: `${Math.round(wellness.hrv)} ms`,
+              }
             : null,
         ].filter(Boolean) as { label: string; value: string }[],
       });
@@ -185,8 +214,14 @@ export function useActivityStats({
             label: t('activity.stats.caloriesBurned'),
             value: `${Math.round(activity.calories)} kcal`,
           },
-          { label: t('activity.duration'), value: formatDuration(activity.moving_time) },
-          { label: t('activity.stats.burnRate'), value: `${calPerHour} kcal/hr` },
+          {
+            label: t('activity.duration'),
+            value: formatDuration(activity.moving_time),
+          },
+          {
+            label: t('activity.stats.burnRate'),
+            value: `${calPerHour} kcal/hr`,
+          },
         ],
       });
     }
@@ -203,12 +238,16 @@ export function useActivityStats({
         Math.abs(activity.average_feels_like - temp) >= 2
       ) {
         conditionParts.push(
-          t('activity.stats.feelsLike', { temp: Math.round(activity.average_feels_like) })
+          t('activity.stats.feelsLike', {
+            temp: Math.round(activity.average_feels_like),
+          })
         );
       }
       if (activity.average_wind_speed != null && activity.average_wind_speed > 2) {
         conditionParts.push(
-          t('activity.stats.windSpeed', { speed: (activity.average_wind_speed * 3.6).toFixed(0) })
+          t('activity.stats.windSpeed', {
+            speed: (activity.average_wind_speed * 3.6).toFixed(0),
+          })
         );
       }
       const contextStr =
@@ -226,7 +265,10 @@ export function useActivityStats({
         context: contextStr,
         explanation: t(METRIC_EXPLANATION_KEYS['Conditions'] as never),
         details: [
-          { label: t('activity.stats.temperature'), value: `${Math.round(temp)}°C` },
+          {
+            label: t('activity.stats.temperature'),
+            value: `${Math.round(temp)}°C`,
+          },
           activity.average_feels_like != null
             ? {
                 label: t('activity.stats.feelsLikeLabel'),
@@ -256,14 +298,29 @@ export function useActivityStats({
         context: t('activity.stats.dailyValue'),
         explanation: t(METRIC_EXPLANATION_KEYS['Your Form'] as never),
         details: [
-          { label: t('activity.stats.formTSB'), value: `${tsb > 0 ? '+' : ''}${Math.round(tsb)}` },
-          { label: t('activity.stats.fitnessCTL'), value: `${Math.round(wellness.ctl)}` },
-          { label: t('activity.stats.fatigueATL'), value: `${Math.round(wellness.atl)}` },
+          {
+            label: t('activity.stats.formTSB'),
+            value: `${tsb > 0 ? '+' : ''}${Math.round(tsb)}`,
+          },
+          {
+            label: t('activity.stats.fitnessCTL'),
+            value: `${Math.round(wellness.ctl)}`,
+          },
+          {
+            label: t('activity.stats.fatigueATL'),
+            value: `${Math.round(wellness.atl)}`,
+          },
           wellness.hrv
-            ? { label: t('metrics.hrv'), value: `${Math.round(wellness.hrv)} ms` }
+            ? {
+                label: t('metrics.hrv'),
+                value: `${Math.round(wellness.hrv)} ms`,
+              }
             : null,
           wellness.sleepScore
-            ? { label: t('activity.stats.sleepScore'), value: `${wellness.sleepScore}%` }
+            ? {
+                label: t('activity.stats.sleepScore'),
+                value: `${wellness.sleepScore}%`,
+              }
             : null,
         ].filter(Boolean) as { label: string; value: string }[],
       });
@@ -281,13 +338,21 @@ export function useActivityStats({
         context: eftp
           ? `eFTP ${Math.round(eftp)}W`
           : activity.max_watts
-            ? t('activity.stats.max', { value: Math.round(activity.max_watts) }) + 'W'
+            ? t('activity.stats.max', {
+                value: Math.round(activity.max_watts),
+              }) + 'W'
             : undefined,
         explanation: t(METRIC_EXPLANATION_KEYS['Power'] as never),
         details: [
-          { label: t('activity.stats.average'), value: `${Math.round(avgPower)}W` },
+          {
+            label: t('activity.stats.average'),
+            value: `${Math.round(avgPower)}W`,
+          },
           activity.max_watts
-            ? { label: t('activity.stats.maxLabel'), value: `${Math.round(activity.max_watts)}W` }
+            ? {
+                label: t('activity.stats.maxLabel'),
+                value: `${Math.round(activity.max_watts)}W`,
+              }
             : null,
           activity.icu_ftp
             ? {
@@ -295,7 +360,12 @@ export function useActivityStats({
                 value: `${Math.round((avgPower / activity.icu_ftp) * 100)}%`,
               }
             : null,
-          eftp ? { label: t('activity.stats.eftpEstimated'), value: `${Math.round(eftp)}W` } : null,
+          eftp
+            ? {
+                label: t('activity.stats.eftpEstimated'),
+                value: `${Math.round(eftp)}W`,
+              }
+            : null,
           activity.icu_efficiency_factor
             ? {
                 label: t('activity.stats.efficiencyFactor'),
@@ -303,7 +373,10 @@ export function useActivityStats({
               }
             : null,
           activity.decoupling != null
-            ? { label: t('activity.stats.decoupling'), value: `${activity.decoupling.toFixed(1)}%` }
+            ? {
+                label: t('activity.stats.decoupling'),
+                value: `${activity.decoupling.toFixed(1)}%`,
+              }
             : null,
         ].filter(Boolean) as { label: string; value: string }[],
       });

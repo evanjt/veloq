@@ -10,11 +10,7 @@ export function SettingsSection({ children }: SettingsSectionProps) {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
 
-  return (
-    <View style={[styles.section, isDark && styles.sectionDark]}>
-      {children}
-    </View>
-  );
+  return <View style={[styles.section, isDark && styles.sectionDark]}>{children}</View>;
 }
 
 export function SectionDivider() {

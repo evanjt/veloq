@@ -55,7 +55,12 @@ interface ActivityDotsChartProps {
 interface DotData {
   x: number;
   date: string;
-  activities: Array<{ id: string; name: string; type: ActivityType; load: number }>;
+  activities: Array<{
+    id: string;
+    name: string;
+    type: ActivityType;
+    load: number;
+  }>;
   fitness: number;
   fatigue: number;
   form: number;

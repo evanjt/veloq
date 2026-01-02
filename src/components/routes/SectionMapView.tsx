@@ -167,7 +167,12 @@ export function SectionMapView({
     >
       <Camera
         bounds={bounds}
-        padding={{ paddingTop: 40, paddingRight: 40, paddingBottom: 40, paddingLeft: 40 }}
+        padding={{
+          paddingTop: 40,
+          paddingRight: 40,
+          paddingBottom: 40,
+          paddingLeft: 40,
+        }}
         animationDuration={0}
       />
 

@@ -1,15 +1,8 @@
 // Activity hooks
-export {
-  useActivities,
-  useActivityBoundsCache,
-  useEFTPHistory,
-} from './activities';
+export { useActivities, useActivityBoundsCache, useEFTPHistory } from './activities';
 
 // Fitness & Wellness hooks
-export {
-  useWellness,
-  useZoneDistribution,
-} from './fitness';
+export { useWellness, useZoneDistribution } from './fitness';
 
 export {
   calculateTSB,
@@ -21,18 +14,10 @@ export {
 } from '@/lib';
 
 // Chart hooks
-export {
-  usePowerCurve,
-  usePaceCurve,
-  useChartGesture,
-  useChartColors,
-} from './charts';
+export { usePowerCurve, usePaceCurve, useChartGesture, useChartColors } from './charts';
 
 // UI hooks
-export {
-  useTheme,
-  useMetricSystem,
-} from './ui';
+export { useTheme, useMetricSystem } from './ui';
 
 // Export types from ui
 export type { Theme, ThemeColors } from './ui';
@@ -40,11 +25,7 @@ export type { Theme, ThemeColors } from './ui';
 // Remaining hooks (not yet reorganized)
 export { useAthlete } from './useAthlete';
 export { useWellnessForDate, type TimeRange } from './fitness';
-export {
-  useInfiniteActivities,
-  useActivity,
-  useActivityStreams,
-} from './activities';
+export { useInfiniteActivities, useActivity, useActivityStreams } from './activities';
 export {
   useSportSettings,
   getSettingsForSport,

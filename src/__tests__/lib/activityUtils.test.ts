@@ -92,8 +92,16 @@ describe('sortByDateId', () => {
 
     const sorted = sortByDateId(items);
 
-    expect(sorted[0]).toEqual({ id: '2024-01-10', name: 'A', extra: { nested: false } });
-    expect(sorted[1]).toEqual({ id: '2024-01-15', name: 'B', extra: { nested: true } });
+    expect(sorted[0]).toEqual({
+      id: '2024-01-10',
+      name: 'A',
+      extra: { nested: false },
+    });
+    expect(sorted[1]).toEqual({
+      id: '2024-01-15',
+      name: 'B',
+      extra: { nested: true },
+    });
   });
 });
 

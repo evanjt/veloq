@@ -338,7 +338,10 @@ export const FitnessChart = React.memo(function FitnessChart({
                   chartBounds.left !== chartBoundsShared.value.left ||
                   chartBounds.right !== chartBoundsShared.value.right
                 ) {
-                  chartBoundsShared.value = { left: chartBounds.left, right: chartBounds.right };
+                  chartBoundsShared.value = {
+                    left: chartBounds.left,
+                    right: chartBounds.right,
+                  };
                 }
                 // Sync actual point x-coordinates for accurate crosshair positioning
                 const newCoords = points.fitness.map((p) => p.x);

@@ -119,7 +119,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 }));
 
 // Helper to get credentials for API client (synchronous access)
-export function getStoredCredentials(): { apiKey: string | null; athleteId: string | null } {
+export function getStoredCredentials(): {
+  apiKey: string | null;
+  athleteId: string | null;
+} {
   const state = useAuthStore.getState();
   return {
     apiKey: state.apiKey,
