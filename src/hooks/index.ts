@@ -1,11 +1,16 @@
+// Activity hooks
 export {
   useActivities,
-  useInfiniteActivities,
-  useActivity,
-  useActivityStreams,
-} from './useActivities';
-export { useAthlete } from './useAthlete';
-export { useWellness, useWellnessForDate, type TimeRange } from './useWellness';
+  useActivityBoundsCache,
+  useEFTPHistory,
+} from './activities';
+
+// Fitness & Wellness hooks
+export {
+  useWellness,
+  useZoneDistribution,
+} from './fitness';
+
 export {
   calculateTSB,
   getFormZone,
@@ -14,20 +19,32 @@ export {
   FORM_ZONE_BOUNDARIES,
   type FormZone,
 } from '@/lib';
+
+// Chart hooks
 export {
   usePowerCurve,
-  POWER_CURVE_DURATIONS,
-  getPowerAtDuration,
-  formatPowerCurveForChart,
-} from './usePowerCurve';
-export {
   usePaceCurve,
-  PACE_CURVE_DISTANCES,
-  SWIM_PACE_CURVE_DISTANCES,
-  getPaceAtDistance,
-  paceToMinPerKm,
-  paceToMinPer100m,
-} from './usePaceCurve';
+  useChartGesture,
+  useChartColors,
+} from './charts';
+
+// UI hooks
+export {
+  useTheme,
+  useMetricSystem,
+} from './ui';
+
+// Export types from ui
+export type { Theme, ThemeColors } from './ui';
+
+// Remaining hooks (not yet reorganized)
+export { useAthlete } from './useAthlete';
+export { useWellnessForDate, type TimeRange } from './fitness';
+export {
+  useInfiniteActivities,
+  useActivity,
+  useActivityStreams,
+} from './activities';
 export {
   useSportSettings,
   getSettingsForSport,
@@ -37,11 +54,27 @@ export {
   DEFAULT_HR_ZONES,
   getZoneColor,
 } from './useSportSettings';
-export { useZoneDistribution } from './useZoneDistribution';
-export { useEFTPHistory, getLatestFTP, getLatestEFTP } from './useEFTPHistory';
-export { useActivityBoundsCache } from './useActivityBoundsCache';
-export { useTheme, type Theme, type ThemeColors } from './useTheme';
-export { useMetricSystem } from './useMetricSystem';
+export {
+  POWER_CURVE_DURATIONS,
+  getPowerAtDuration,
+  formatPowerCurveForChart,
+  PACE_CURVE_DISTANCES,
+  SWIM_PACE_CURVE_DISTANCES,
+  getPaceAtDistance,
+  paceToMinPerKm,
+  paceToMinPer100m,
+} from './charts';
+export {
+  useChartColor,
+  useZoneColors,
+  useFitnessColors,
+  type ChartColorScheme,
+  type ChartMetricType,
+} from './charts';
+export { getLatestFTP, getLatestEFTP } from './activities';
+export { useOldestActivityDate } from './useOldestActivityDate';
+
+// Route hooks (already organized)
 export { useRouteGroups } from './routes/useRouteGroups';
 export { useRouteMatch } from './routes/useRouteMatch';
 export { useRoutePerformances } from './routes/useRoutePerformances';
@@ -55,6 +88,7 @@ export {
 } from './routes/useSectionPerformances';
 export { useCustomSections, useCustomSection } from './routes/useCustomSections';
 export { useHeatmap, type UseHeatmapOptions, type UseHeatmapResult } from './useHeatmap';
+
 // Route Engine hooks (stateful Rust backend)
 export {
   useRouteEngine,
@@ -67,12 +101,3 @@ export {
 export { useRouteDataSync } from './routes/useRouteDataSync';
 export { useRouteReoptimization } from './routes/useRouteReoptimization';
 export { useRetentionCleanup } from './routes/useRetentionCleanup';
-export {
-  useChartColors,
-  useChartColor,
-  useZoneColors,
-  useFitnessColors,
-  type ChartColorScheme,
-  type ChartMetricType,
-} from './useChartColors';
-export { useOldestActivityDate } from './useOldestActivityDate';

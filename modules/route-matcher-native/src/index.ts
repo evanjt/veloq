@@ -240,6 +240,75 @@ export interface SectionPerformanceResult {
   bestRecord: SectionPerformanceRecord | null;
 }
 
+// =============================================================================
+// Rust-Native Types (snake_case format from UniFFI)
+// These are raw types returned by the Rust module before conversion to camelCase
+// =============================================================================
+
+/**
+ * Raw section portion from Rust (snake_case).
+ */
+interface RustSectionPortion {
+  activity_id: string;
+  start_index: number;
+  end_index: number;
+  distance_meters: number;
+  direction: string;
+}
+
+/**
+ * Raw frequent section from Rust (snake_case).
+ */
+interface RustFrequentSection {
+  id: string;
+  sport_type: string;
+  polyline: GpsPoint[];
+  representative_activity_id: string;
+  activity_ids: string[];
+  activity_portions: RustSectionPortion[];
+  route_ids: string[];
+  visit_count: number;
+  distance_meters: number;
+  activity_traces: Record<string, GpsPoint[]>;
+  confidence: number | null;
+  observation_count: number | null;
+  average_spread: number | null;
+  point_density: number[] | undefined;
+}
+
+/**
+ * Raw potential section from Rust (snake_case).
+ */
+interface RustPotentialSection {
+  id: string;
+  sport_type: string;
+  polyline: GpsPoint[];
+  activity_ids: string[];
+  visit_count: number;
+  distance_meters: number;
+  confidence: number | null;
+  scale: string;
+}
+
+/**
+ * Raw detection stats from Rust (snake_case).
+ */
+interface RustDetectionStats {
+  activities_processed: number;
+  overlaps_found: number;
+  sections_by_scale: Record<string, number>;
+  potentials_by_scale: Record<string, number>;
+}
+
+/**
+ * Raw multi-scale section result from Rust (snake_case).
+ */
+interface RustMultiScaleSectionResult {
+  sections: RustFrequentSection[];
+  potentials: RustPotentialSection[];
+  stats: RustDetectionStats;
+}
+
 // Verify native module is available on load
 const config = NativeModule.getDefaultConfig();
 if (config === null) {
@@ -917,8 +986,8 @@ export function detectSectionsMultiscale(
     preserve_hierarchy: fullConfig.preserveHierarchy ?? true,
   };
 
-  // Native returns MultiScaleSectionResult
-  const result = NativeModule.detectSectionsMultiscale(
+  // Native returns RustMultiScaleSectionResult (snake_case)
+  const rustResult = NativeModule.detectSectionsMultiscale(
     activityIds,
     allCoords,
     offsets,
@@ -928,57 +997,56 @@ export function detectSectionsMultiscale(
     })),
     groups,
     nativeConfig
-  ) as MultiScaleSectionResult;
+  ) as RustMultiScaleSectionResult;
 
   const elapsed = Date.now() - startTime;
-  nativeLog(`detectSectionsMultiscale: ${result.sections.length} sections, ${result.potentials.length} potentials in ${elapsed}ms`);
+  nativeLog(`detectSectionsMultiscale: ${rustResult.sections.length} sections, ${rustResult.potentials.length} potentials in ${elapsed}ms`);
 
   // Convert sections from snake_case to camelCase
-  result.sections = result.sections.map((s: Record<string, unknown>) => ({
-    id: s.id as string,
-    sportType: s.sport_type as string,
-    polyline: ((s.polyline as GpsPoint[]) || []).map(p => ({ lat: p.latitude, lng: p.longitude })),
-    representativeActivityId: (s.representative_activity_id as string) || '',
-    activityIds: s.activity_ids as string[],
-    activityPortions: ((s.activity_portions as Array<Record<string, unknown>>) || []).map(p => ({
-      activityId: p.activity_id as string,
-      startIndex: p.start_index as number,
-      endIndex: p.end_index as number,
-      distanceMeters: p.distance_meters as number,
-      direction: p.direction as string,
+  const sections: FrequentSection[] = rustResult.sections.map((s) => ({
+    id: s.id,
+    sportType: s.sport_type,
+    polyline: (s.polyline || []).map(p => ({ lat: p.latitude, lng: p.longitude })),
+    representativeActivityId: s.representative_activity_id || '',
+    activityIds: s.activity_ids,
+    activityPortions: (s.activity_portions || []).map(p => ({
+      activityId: p.activity_id,
+      startIndex: p.start_index,
+      endIndex: p.end_index,
+      distanceMeters: p.distance_meters,
+      direction: p.direction,
     })),
-    routeIds: s.route_ids as string[],
-    visitCount: s.visit_count as number,
-    distanceMeters: s.distance_meters as number,
-    activityTraces: convertActivityTraces(s.activity_traces as Record<string, GpsPoint[]>),
-    confidence: (s.confidence as number) ?? 0.0,
-    observationCount: (s.observation_count as number) ?? 0,
-    averageSpread: (s.average_spread as number) ?? 0.0,
-    pointDensity: s.point_density as number[] | undefined,
+    routeIds: s.route_ids,
+    visitCount: s.visit_count,
+    distanceMeters: s.distance_meters,
+    activityTraces: convertActivityTraces(s.activity_traces),
+    confidence: s.confidence ?? 0.0,
+    observationCount: s.observation_count ?? 0,
+    averageSpread: s.average_spread ?? 0.0,
+    pointDensity: s.point_density,
   }));
 
   // Convert potentials from snake_case to camelCase
-  result.potentials = result.potentials.map((p: Record<string, unknown>) => ({
-    id: p.id as string,
-    sportType: p.sport_type as string,
-    polyline: ((p.polyline as GpsPoint[]) || []).map(pt => ({ lat: pt.latitude, lng: pt.longitude })),
-    activityIds: p.activity_ids as string[],
-    visitCount: p.visit_count as number,
-    distanceMeters: p.distance_meters as number,
-    confidence: (p.confidence as number) ?? 0.0,
-    scale: p.scale as string,
+  const potentials: PotentialSection[] = rustResult.potentials.map((p) => ({
+    id: p.id,
+    sportType: p.sport_type,
+    polyline: (p.polyline || []).map(pt => ({ lat: pt.latitude, lng: pt.longitude })),
+    activityIds: p.activity_ids,
+    visitCount: p.visit_count,
+    distanceMeters: p.distance_meters,
+    confidence: p.confidence ?? 0.0,
+    scale: p.scale,
   }));
 
   // Convert stats from snake_case to camelCase
-  const stats = result.stats as Record<string, unknown>;
-  result.stats = {
-    activitiesProcessed: stats.activities_processed as number,
-    overlapsFound: stats.overlaps_found as number,
-    sectionsByScale: stats.sections_by_scale as Record<string, number>,
-    potentialsByScale: stats.potentials_by_scale as Record<string, number>,
+  const stats: DetectionStats = {
+    activitiesProcessed: rustResult.stats.activities_processed,
+    overlapsFound: rustResult.stats.overlaps_found,
+    sectionsByScale: rustResult.stats.sections_by_scale,
+    potentialsByScale: rustResult.stats.potentials_by_scale,
   };
 
-  return result;
+  return { sections, potentials, stats };
 }
 
 
@@ -2108,12 +2176,6 @@ export default {
   detectSectionsMultiscale,
   getDefaultSectionConfig,
   getDefaultScalePresets,
-  // Type exports
-  ScalePreset,
-  SectionConfig,
-  DetectionStats,
-  PotentialSection,
-  MultiScaleSectionResult,
   // Heatmap generation
   generateHeatmap,
   queryHeatmapCell,

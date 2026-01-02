@@ -18,13 +18,13 @@ import { router, Href } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useInfiniteActivities, useAthlete, useWellness, getFormZone, FORM_ZONE_COLORS, getLatestFTP, useSportSettings, getSettingsForSport, usePaceCurve } from '@/hooks';
+import type { Activity } from '@/types';
 import { useSportPreference, SPORT_COLORS } from '@/providers';
 import { formatPaceCompact, formatSwimPace } from '@/lib';
 import { ActivityCard } from '@/components/activity/ActivityCard';
 import { ActivityCardSkeleton, StatsPillSkeleton, MapFAB, NetworkErrorState, ErrorStatePreset } from '@/components/ui';
 import { useNetwork } from '@/providers';
 import { colors, darkColors, opacity, spacing, layout, typography, shadows } from '@/theme';
-import type { Activity } from '@/types';
 
 // Activity type categories for filtering
 const ACTIVITY_TYPE_GROUPS = {
@@ -85,7 +85,7 @@ export default function FeedScreen() {
     // Filter by search query
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase().trim();
-      filtered = filtered.filter(activity =>
+      filtered = filtered.filter((activity: Activity) =>
         activity.name?.toLowerCase().includes(query) ||
         activity.type?.toLowerCase().includes(query) ||
         activity.locality?.toLowerCase().includes(query) ||
@@ -96,7 +96,7 @@ export default function FeedScreen() {
     // Filter by activity type group
     if (selectedTypeGroup) {
       const types = ACTIVITY_TYPE_GROUPS[selectedTypeGroup as keyof typeof ACTIVITY_TYPE_GROUPS] || [];
-      filtered = filtered.filter(activity => types.includes(activity.type));
+      filtered = filtered.filter((activity: Activity) => types.includes(activity.type));
     }
 
     return filtered;
@@ -156,18 +156,18 @@ export default function FeedScreen() {
     const twoWeeksAgo = new Date(now - weekMs * 2);
 
     // Current week activities
-    const weekActivities = allActivities?.filter(a => new Date(a.start_date_local) >= weekAgo) ?? [];
+    const weekActivities = allActivities?.filter((a: Activity) => new Date(a.start_date_local) >= weekAgo) ?? [];
     const weekCount = weekActivities.length;
-    const weekSeconds = weekActivities.reduce((sum, a) => sum + (a.moving_time || 0), 0);
+    const weekSeconds = weekActivities.reduce((sum: number, a: Activity) => sum + (a.moving_time || 0), 0);
     const weekHours = Math.round(weekSeconds / 3600 * 10) / 10;
 
     // Previous week activities for trend
-    const prevWeekActivities = allActivities?.filter(a => {
+    const prevWeekActivities = allActivities?.filter((a: Activity) => {
       const date = new Date(a.start_date_local);
       return date >= twoWeeksAgo && date < weekAgo;
     }) ?? [];
     const prevWeekCount = prevWeekActivities.length;
-    const prevWeekSeconds = prevWeekActivities.reduce((sum, a) => sum + (a.moving_time || 0), 0);
+    const prevWeekSeconds = prevWeekActivities.reduce((sum: number, a: Activity) => sum + (a.moving_time || 0), 0);
     const prevWeekHours = Math.round(prevWeekSeconds / 3600 * 10) / 10;
 
     const weekHoursTrend = getTrend(weekHours, prevWeekHours, 0.5);

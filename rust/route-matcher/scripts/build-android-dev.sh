@@ -95,6 +95,23 @@ if [ -f "$SO_FILE" ]; then
         cp -v "$BINDINGS_SRC" "$BINDINGS_DEST"
         echo "✅ Kotlin bindings installed"
     fi
+
+    # Generate TypeScript bindings
+    echo "🔧 Generating TypeScript bindings..."
+    cargo run --features ffi --bin uniffi-bindgen generate \
+        --library "$SO_FILE" \
+        --language typescript \
+        --out-dir "$OUTPUT_DIR/typescript" 2>/dev/null || {
+        echo "⚠️  TypeScript bindings generation skipped (may need uniffi 0.30+)"
+    }
+
+    # Copy TypeScript bindings to module
+    TS_DEST="$MODULE_DIR/../src/generated/"
+    if [ -d "$OUTPUT_DIR/typescript" ]; then
+        mkdir -p "$TS_DEST"
+        cp -v "$OUTPUT_DIR/typescript/"*.ts "$TS_DEST" 2>/dev/null
+        echo "✅ TypeScript bindings installed"
+    fi
 fi
 
 echo "✅ Dev build complete!"
