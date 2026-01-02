@@ -16,7 +16,9 @@
     "noResults": "No results",
     "pullToRefresh": "Pull to refresh",
     "reset": "Reset",
-    "create": "Create"
+    "create": "Create",
+    "activities": "Activities",
+    "syncing": "Syncing..."
   },
 
   "navigation": {
@@ -125,6 +127,9 @@
     "gpsTraces": "GPS Traces",
     "cachedQueries": "Cached Queries",
     "cacheHint": "Caches activity locations and GPS traces for World Map and route matching. By default, syncs 3 months. Use \"Sync All History\" for deeper analysis.",
+    "expandCache": "Load more",
+    "cached": "Cached",
+    "notCached": "Not cached",
     "routeMatching": "Route Matching",
     "enableRouteMatching": "Enable Route Matching",
     "routeMatchingDescription": "Automatically detect repeated routes from your activities",
