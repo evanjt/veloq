@@ -16,7 +16,9 @@
     "noResults": "Kes Resultaat",
     "pullToRefresh": "Züüch zum Aktualisiere",
     "reset": "Zrüggsetze",
-    "create": "Erstelle"
+    "create": "Erstelle",
+    "activities": "activities",
+    "syncing": "Syncing..."
   },
   "navigation": {
     "feed": "Feed",
@@ -136,7 +138,10 @@
     "languageGroups": {
       "european": "Europäisch",
       "asian": "Asiatisch"
-    }
+    },
+    "cached": "Cached",
+    "notCached": "Not cached",
+    "expandCache": "Load more"
   },
   "alerts": {
     "error": "Fähler",

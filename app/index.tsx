@@ -44,6 +44,7 @@ export default function FeedScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [selectedTypeGroup, setSelectedTypeGroup] = useState<string | null>(null);
+  const [showAllMetrics, setShowAllMetrics] = useState(false);
 
   const { data: athlete } = useAthlete();
   const { primarySport } = useSportPreference();
@@ -327,33 +328,29 @@ export default function FeedScreen() {
           )}
         </TouchableOpacity>
 
-        {/* Pill buttons for each page */}
+        {/* Simplified metrics: Show 2 key pills by default */}
         <View style={styles.pillRow}>
-          {/* HRV + RHR → Wellness page */}
+          {/* Fitness + Form → Fitness page (Primary metric) */}
           <TouchableOpacity
             style={[styles.pill, isDark && styles.pillDark]}
-            onPress={navigateToWellness}
+            onPress={navigateToFitness}
             activeOpacity={0.7}
           >
             <View style={styles.pillItem}>
-              <Text style={[styles.pillLabel, isDark && styles.textDark]}>{t('metrics.hrv')}</Text>
-              <Text style={[styles.pillValue, { color: '#E91E63' }]}>
-                {quickStats.hrv ?? '-'}
-                {quickStats.hrvTrend && <Text style={styles.trendArrow}>{quickStats.hrvTrend}</Text>}
+              <Text style={[styles.pillLabel, isDark && styles.textDark]}>{t('metrics.fitness')}</Text>
+              <Text style={[styles.pillValue, { color: '#42A5F5' }]}>
+                {quickStats.fitness}
+                {quickStats.fitnessTrend && <Text style={styles.trendArrow}>{quickStats.fitnessTrend}</Text>}
               </Text>
             </View>
-            {quickStats.rhr && (
-              <>
-                <Text style={[styles.pillDivider, isDark && styles.pillDividerDark]}>|</Text>
-                <View style={styles.pillItem}>
-                  <Text style={[styles.pillLabel, isDark && styles.textDark]}>{t('metrics.rhr')}</Text>
-                  <Text style={[styles.pillValueSmall, isDark && styles.textDark]}>
-                    {quickStats.rhr}
-                    {quickStats.rhrTrend && <Text style={styles.trendArrowSmall}>{quickStats.rhrTrend}</Text>}
-                  </Text>
-                </View>
-              </>
-            )}
+            <Text style={[styles.pillDivider, isDark && styles.pillDividerDark]}>|</Text>
+            <View style={styles.pillItem}>
+              <Text style={[styles.pillLabel, isDark && styles.textDark]}>{t('metrics.form')}</Text>
+              <Text style={[styles.pillValue, { color: formColor }]}>
+                {quickStats.form > 0 ? '+' : ''}{quickStats.form}
+                {quickStats.formTrend && <Text style={styles.trendArrow}>{quickStats.formTrend}</Text>}
+              </Text>
+            </View>
           </TouchableOpacity>
 
           {/* Week hours + count → Training page */}
@@ -379,75 +376,99 @@ export default function FeedScreen() {
             </View>
           </TouchableOpacity>
 
-          {/* Sport-specific metric → Performance page */}
+          {/* More metrics button - toggles expanded view */}
           <TouchableOpacity
-            style={[styles.pill, isDark && styles.pillDark]}
-            onPress={navigateToStats}
+            style={[styles.pill, isDark && styles.pillDark, styles.moreMetricsPill]}
+            onPress={() => setShowAllMetrics(!showAllMetrics)}
             activeOpacity={0.7}
+            accessibilityLabel={showAllMetrics ? "Show fewer metrics" : "Show more metrics"}
+            accessibilityRole="button"
           >
-            {primarySport === 'Cycling' && (
-              <View style={styles.pillItem}>
-                <Text style={[styles.pillLabel, isDark && styles.textDark]}>{t('metrics.ftp')}</Text>
-                <Text style={[styles.pillValue, { color: SPORT_COLORS.Cycling }]}>
-                  {quickStats.ftp ?? '-'}
-                  {quickStats.ftpTrend && <Text style={styles.trendArrow}>{quickStats.ftpTrend}</Text>}
-                </Text>
-              </View>
-            )}
-            {primarySport === 'Running' && (
-              <>
-                <View style={styles.pillItem}>
-                  <Text style={[styles.pillLabel, isDark && styles.textDark]}>{t('metrics.pace')}</Text>
-                  <Text style={[styles.pillValue, { color: SPORT_COLORS.Running }]}>
-                    {sportMetrics.thresholdPace ? formatPaceCompact(sportMetrics.thresholdPace) : '-'}
-                  </Text>
-                </View>
-                {sportMetrics.runLthr && (
-                  <>
-                    <Text style={[styles.pillDivider, isDark && styles.pillDividerDark]}>|</Text>
-                    <View style={styles.pillItem}>
-                      <Text style={[styles.pillLabel, isDark && styles.textDark]}>{t('metrics.hr')}</Text>
-                      <Text style={[styles.pillValueSmall, isDark && styles.textDark]}>
-                        {sportMetrics.runLthr}
-                      </Text>
-                    </View>
-                  </>
-                )}
-              </>
-            )}
-            {primarySport === 'Swimming' && (
-              <View style={styles.pillItem}>
-                <Text style={[styles.pillLabel, isDark && styles.textDark]}>{t('metrics.css')}</Text>
-                <Text style={[styles.pillValue, { color: SPORT_COLORS.Swimming }]}>
-                  {sportMetrics.css ? formatSwimPace(sportMetrics.css) : '-'}
-                </Text>
-              </View>
-            )}
-          </TouchableOpacity>
-
-          {/* Fitness + Form → Fitness page */}
-          <TouchableOpacity
-            style={[styles.pill, isDark && styles.pillDark]}
-            onPress={navigateToFitness}
-            activeOpacity={0.7}
-          >
-            <View style={styles.pillItem}>
-              <Text style={[styles.pillLabel, isDark && styles.textDark]}>{t('metrics.fitness')}</Text>
-              <Text style={[styles.pillValue, { color: '#42A5F5' }]}>
-                {quickStats.fitness}
-                {quickStats.fitnessTrend && <Text style={styles.trendArrow}>{quickStats.fitnessTrend}</Text>}
-              </Text>
-            </View>
-            <Text style={[styles.pillDivider, isDark && styles.pillDividerDark]}>|</Text>
-            <View style={styles.pillItem}>
-              <Text style={[styles.pillLabel, isDark && styles.textDark]}>{t('metrics.form')}</Text>
-              <Text style={[styles.pillValue, { color: formColor }]}>
-                {quickStats.form > 0 ? '+' : ''}{quickStats.form}
-                {quickStats.formTrend && <Text style={styles.trendArrow}>{quickStats.formTrend}</Text>}
-              </Text>
-            </View>
+            <MaterialCommunityIcons
+              name={showAllMetrics ? "chevron-up" : "chevron-down"}
+              size={20}
+              color={isDark ? colors.textSecondary : colors.textPrimary}
+            />
           </TouchableOpacity>
         </View>
+
+        {/* Expanded metrics row - shown when "More" is tapped */}
+        {showAllMetrics && (
+          <View style={styles.expandedMetricsRow}>
+            {/* HRV + RHR → Wellness page */}
+            <TouchableOpacity
+              style={[styles.pill, isDark && styles.pillDark]}
+              onPress={navigateToWellness}
+              activeOpacity={0.7}
+            >
+              <View style={styles.pillItem}>
+                <Text style={[styles.pillLabel, isDark && styles.textDark]}>{t('metrics.hrv')}</Text>
+                <Text style={[styles.pillValue, { color: '#E91E63' }]}>
+                  {quickStats.hrv ?? '-'}
+                  {quickStats.hrvTrend && <Text style={styles.trendArrow}>{quickStats.hrvTrend}</Text>}
+                </Text>
+              </View>
+              {quickStats.rhr && (
+                <>
+                  <Text style={[styles.pillDivider, isDark && styles.pillDividerDark]}>|</Text>
+                  <View style={styles.pillItem}>
+                    <Text style={[styles.pillLabel, isDark && styles.textDark]}>{t('metrics.rhr')}</Text>
+                    <Text style={[styles.pillValueSmall, isDark && styles.textDark]}>
+                      {quickStats.rhr}
+                      {quickStats.rhrTrend && <Text style={styles.trendArrowSmall}>{quickStats.rhrTrend}</Text>}
+                    </Text>
+                  </View>
+                </>
+              )}
+            </TouchableOpacity>
+
+            {/* Sport-specific metric → Performance page */}
+            <TouchableOpacity
+              style={[styles.pill, isDark && styles.pillDark]}
+              onPress={navigateToStats}
+              activeOpacity={0.7}
+            >
+              {primarySport === 'Cycling' && (
+                <View style={styles.pillItem}>
+                  <Text style={[styles.pillLabel, isDark && styles.textDark]}>{t('metrics.ftp')}</Text>
+                  <Text style={[styles.pillValue, { color: SPORT_COLORS.Cycling }]}>
+                    {quickStats.ftp ?? '-'}
+                    {quickStats.ftpTrend && <Text style={styles.trendArrow}>{quickStats.ftpTrend}</Text>}
+                  </Text>
+                </View>
+              )}
+              {primarySport === 'Running' && (
+                <>
+                  <View style={styles.pillItem}>
+                    <Text style={[styles.pillLabel, isDark && styles.textDark]}>{t('metrics.pace')}</Text>
+                    <Text style={[styles.pillValue, { color: SPORT_COLORS.Running }]}>
+                      {sportMetrics.thresholdPace ? formatPaceCompact(sportMetrics.thresholdPace) : '-'}
+                    </Text>
+                  </View>
+                  {sportMetrics.runLthr && (
+                    <>
+                      <Text style={[styles.pillDivider, isDark && styles.pillDividerDark]}>|</Text>
+                      <View style={styles.pillItem}>
+                        <Text style={[styles.pillLabel, isDark && styles.textDark]}>{t('metrics.hr')}</Text>
+                        <Text style={[styles.pillValueSmall, isDark && styles.textDark]}>
+                          {sportMetrics.runLthr}
+                        </Text>
+                      </View>
+                    </>
+                  )}
+                </>
+              )}
+              {primarySport === 'Swimming' && (
+                <View style={styles.pillItem}>
+                  <Text style={[styles.pillLabel, isDark && styles.textDark]}>{t('metrics.css')}</Text>
+                  <Text style={[styles.pillValue, { color: SPORT_COLORS.Swimming }]}>
+                    {sportMetrics.css ? formatSwimPace(sportMetrics.css) : '-'}
+                  </Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          </View>
+        )}
       </View>
 
       {/* Search and Filter bar - outside FlatList to preserve focus */}
@@ -608,6 +629,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 4,
   },
+  expandedMetricsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: spacing.xs,
+  },
+  moreMetricsPill: {
+    paddingHorizontal: spacing.sm,
+    minWidth: 44,
+    minHeight: 44,
+    justifyContent: 'center',
+  },
   pill: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -630,7 +663,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 2,
   },
   pillLabel: {
-    fontSize: 8,
+    fontSize: typography.label.fontSize,
+    fontWeight: typography.label.fontWeight,
     color: colors.textSecondary,
     marginBottom: 1,
   },
@@ -640,12 +674,12 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
   pillValueSmall: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '600',
     color: colors.textSecondary,
   },
   pillDivider: {
-    fontSize: 12,
+    fontSize: 10,
     color: 'rgba(0, 0, 0, 0.15)',
     marginHorizontal: 4,
   },
@@ -653,11 +687,11 @@ const styles = StyleSheet.create({
     color: 'rgba(255, 255, 255, 0.2)',
   },
   trendArrow: {
-    fontSize: 10,
+    fontSize: 11,
     marginLeft: 1,
   },
   trendArrowSmall: {
-    fontSize: 8,
+    fontSize: 9,
     marginLeft: 1,
   },
   textLight: {

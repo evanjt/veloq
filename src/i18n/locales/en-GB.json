@@ -16,7 +16,9 @@
     "noResults": "No results",
     "pullToRefresh": "Pull to refresh",
     "reset": "Reset",
-    "create": "Create"
+    "create": "Create",
+    "activities": "activities",
+    "syncing": "Syncing..."
   },
   "navigation": {
     "feed": "Feed",
@@ -136,7 +138,10 @@
     "languageGroups": {
       "european": "European",
       "asian": "Asian"
-    }
+    },
+    "cached": "Cached",
+    "notCached": "Not cached",
+    "expandCache": "Load more"
   },
   "alerts": {
     "error": "Error",
