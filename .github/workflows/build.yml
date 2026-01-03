@@ -173,7 +173,32 @@ jobs:
           done
 
       # ============================================
+      # Gradle and Android Build
+      # ============================================
+      - name: Cache Gradle dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            gradle-${{ runner.os }}-
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Setup Expo
+        uses: expo/expo-github-action@v8
+        with:
+          expo-version: latest
+
+      - name: Generate native project
+        run: npx expo prebuild --platform android --clean
+
+      # ============================================
       # Signing Setup (for releases)
+      # Must run AFTER prebuild so android/ directory exists
       # ============================================
       - name: Decode keystore
         if: needs.version.outputs.is_release == 'true' && env.ANDROID_KEYSTORE_BASE64 != ''
@@ -197,30 +222,6 @@ jobs:
           keyAlias=$ANDROID_KEY_ALIAS
           keyPassword=$ANDROID_KEY_PASSWORD
           EOF
-
-      # ============================================
-      # Gradle and Android Build
-      # ============================================
-      - name: Cache Gradle dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
-          restore-keys: |
-            gradle-${{ runner.os }}-
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Setup Expo
-        uses: expo/expo-github-action@v8
-        with:
-          expo-version: latest
-
-      - name: Generate native project
-        run: npx expo prebuild --platform android --clean
 
       - name: Make gradlew executable
         run: chmod +x android/gradlew
