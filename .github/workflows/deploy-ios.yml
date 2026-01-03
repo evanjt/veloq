@@ -33,7 +33,6 @@ jobs:
   deploy:
     name: Upload to TestFlight
     runs-on: macos-15
-    # DISABLED - change to: if: github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch'
     if: false
 
     steps:
@@ -56,10 +55,6 @@ jobs:
             RUN_ID="${{ github.event.workflow_run.id }}"
           fi
           echo "run_id=$RUN_ID" >> $GITHUB_OUTPUT
-
-      # Removed Rust rebuild - download artifacts instead (HIGH IMPACT)
-      # Note: iOS Simulator builds can't be deployed to TestFlight
-      # TestFlight requires real device builds with code signing
 
       - name: Setup SSH for Match
         uses: webfactory/ssh-agent@v0.9.0

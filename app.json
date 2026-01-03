@@ -57,7 +57,7 @@
           }
         }
       ],
-      "./plugins/withGradleProperties"
+      "./plugins/withGradleProperties.js"
     ],
     "experiments": {
       "typedRoutes": true
