@@ -40,12 +40,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-          cache: "npm"
-
       - name: Setup Ruby
         uses: ruby/setup-ruby@v1
         with:
@@ -53,38 +47,20 @@ jobs:
           working-directory: fastlane
           bundler-cache: true
 
-      - name: Install dependencies
-        run: npm ci
-
-      # ============================================
-      # Rust Build (same as build.yml)
-      # ============================================
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Install Rust iOS targets
-        run: rustup target add aarch64-apple-ios aarch64-apple-ios-sim x86_64-apple-ios
-
-      - name: Cache Rust build
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            rust/route-matcher/target
-          key: rust-ios-${{ runner.os }}-${{ hashFiles('rust/route-matcher/Cargo.lock') }}
-          restore-keys: |
-            rust-ios-${{ runner.os }}-
-
-      - name: Build Rust library for iOS
+      - name: Get workflow run info
+        id: run_info
         run: |
-          cd rust/route-matcher
-          ./scripts/build-ios.sh
-          ./scripts/install-ios.sh
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            RUN_ID="${{ inputs.run_id }}"
+          else
+            RUN_ID="${{ github.event.workflow_run.id }}"
+          fi
+          echo "run_id=$RUN_ID" >> $GITHUB_OUTPUT
 
-      # ============================================
-      # Code Signing via Match
-      # ============================================
+      # Removed Rust rebuild - download artifacts instead (HIGH IMPACT)
+      # Note: iOS Simulator builds can't be deployed to TestFlight
+      # TestFlight requires real device builds with code signing
+
       - name: Setup SSH for Match
         uses: webfactory/ssh-agent@v0.9.0
         with:
@@ -99,31 +75,25 @@ jobs:
           FASTLANE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: bundle exec fastlane match appstore --readonly
 
-      # ============================================
-      # Build and Upload
-      # ============================================
-      - name: Setup Expo
-        uses: expo/expo-github-action@v8
-        with:
-          expo-version: latest
-
-      - name: Generate native project
-        run: npx expo prebuild --platform ios --clean
-
-      - name: Install CocoaPods
-        run: sudo gem install cocoapods
-
-      - name: Install Pods
-        working-directory: ios
-        run: pod install
+      - name: Setup App Store Connect credentials
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_API_KEY: ${{ secrets.ASC_API_KEY }}
+        run: |
+          echo "$ASC_API_KEY" > api_key.p8
 
       - name: Build and upload to TestFlight
         working-directory: fastlane
         env:
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
-          ASC_API_KEY: ${{ secrets.ASC_API_KEY }}
+          ASC_API_KEY_PATH: ../api_key.p8
         run: bundle exec fastlane ios beta
+
+      - name: Cleanup API key
+        if: always()
+        run: rm -f api_key.p8
 
       - name: Summary
         run: |
