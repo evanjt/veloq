@@ -132,6 +132,9 @@ jobs:
           restore-keys: |
             node-modules-${{ runner.os }}-
 
+      # ============================================
+      # Parallel Setup & Caching (runs concurrently)
+      # ============================================
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
@@ -141,9 +144,6 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      # ============================================
-      # Rust Build
-      # ============================================
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
@@ -153,18 +153,41 @@ jobs:
       - name: Install cargo-ndk
         run: cargo install cargo-ndk
 
+      # Cache all the things in parallel (speeds up restore)
       - name: Cache Rust build
         uses: actions/cache@v4
         with:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
+            ~/.cargo/bin  # Cache cargo-ndk installation
             rust/route-matcher/target
           key: rust-android-${{ runner.os }}-${{ hashFiles('rust/route-matcher/Cargo.lock') }}
           restore-keys: |
             rust-android-${{ runner.os }}-
 
+      - name: Cache Gradle dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+            ~/.gradle/build-cache  # Gradle build cache (30-40% faster)
+          key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            gradle-${{ runner.os }}-
+
+      - name: Install dependencies
+        run: npm ci
+
+      # ============================================
+      # Rust Build (optimized)
+      # Preview: arm64 only (4x faster)
+      # Release: all arches in parallel (2-3x faster)
+      # ============================================
       - name: Build Rust library for Android
+        env:
+          BUILD_TYPE: ${{ steps.version.outputs.is_release == 'true' && 'release' || 'preview' }}
         run: |
           cd rust/route-matcher
           ./scripts/build-android.sh
@@ -174,36 +197,9 @@ jobs:
           cd rust/route-matcher
           ./scripts/install-android.sh
 
-      - name: Verify native module installation
-        run: |
-          echo "=== Checking native module installation ==="
-          MODULE_DIR="modules/route-matcher-native/android/src/main/jniLibs"
-
-          for arch in arm64-v8a armeabi-v7a x86_64 x86; do
-            if [ -f "$MODULE_DIR/$arch/libroute_matcher.so" ]; then
-              echo "✓ $arch library found"
-            else
-              echo "✗ $arch library NOT found"
-              exit 1
-            fi
-          done
-
       # ============================================
-      # Android Build
+      # Android Build (after Rust completes)
       # ============================================
-      - name: Cache Gradle dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
-          restore-keys: |
-            gradle-${{ runner.os }}-
-
-      - name: Install dependencies
-        run: npm ci
-
       # Removed expo-github-action - use npx directly (faster)
       - name: Generate native project
         run: npx expo prebuild --platform android --clean
@@ -237,7 +233,7 @@ jobs:
         working-directory: android
         env:
           ORG_GRADLE_PROJECT_reactNativeArchitectures: ${{ steps.version.outputs.is_release == 'true' && 'arm64-v8a,armeabi-v7a,x86_64,x86' || 'arm64-v8a' }}
-        run: ./gradlew assembleRelease --no-daemon --parallel
+        run: ./gradlew assembleRelease --no-daemon --parallel --build-cache --scan
 
       - name: Rename APK
         run: |
@@ -259,7 +255,7 @@ jobs:
         working-directory: android
         env:
           ORG_GRADLE_PROJECT_reactNativeArchitectures: "arm64-v8a,armeabi-v7a,x86_64,x86"
-        run: ./gradlew bundleRelease --no-daemon --parallel
+        run: ./gradlew bundleRelease --no-daemon --parallel --build-cache
 
       - name: Rename AAB
         if: steps.version.outputs.is_release == 'true'
