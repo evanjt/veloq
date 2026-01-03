@@ -76,3 +76,4 @@ android/keystore.properties
 !android/app/debug.keystore
 coverage/
 CLAUDE.md
+*.log
