@@ -24,8 +24,6 @@ jobs:
   deploy:
     name: Upload to Google Play
     runs-on: ubuntu-latest
-    # Only run if build succeeded and it was a release (tag push)
-    # Simplified condition - just check for tags (LOW IMPACT fix)
     if: |
       (github.event_name == 'workflow_dispatch') ||
       (github.event.workflow_run.conclusion == 'success' &&
@@ -62,7 +60,6 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # List artifacts from the build run to find the AAB
           ARTIFACTS=$(gh api repos/${{ github.repository }}/actions/runs/${{ steps.run_info.outputs.run_id }}/artifacts)
           AAB_ARTIFACT=$(echo "$ARTIFACTS" | jq -r '.artifacts[] | select(.name | startswith("android-aab-")) | .name' | head -1)
 
@@ -73,7 +70,6 @@ jobs:
             exit 1
           fi
 
-          # Extract version from artifact name (format: android-aab-veloq-VERSION-SHA)
           VERSION=$(echo "$AAB_ARTIFACT" | sed 's/android-aab-veloq-//' | sed 's/-ios-simulator//' | sed 's/-[a-f0-9]\{7\}$//' | sed 's/.aab$//')
           echo "artifact_name=$AAB_ARTIFACT" >> $GITHUB_OUTPUT
           echo "version=$VERSION" >> $GITHUB_OUTPUT

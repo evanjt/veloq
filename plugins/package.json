@@ -2,8 +2,9 @@
   "name": "@veloq/plugins",
   "version": "1.0.0",
   "description": "Custom Expo config plugins for Veloq",
-  "main": "withGradleProperties.ts",
-  "dependencies": {
-    "@expo/config-plugins": "~10.0.0"
-  }
+  "main": "withGradleProperties.js",
+  "scripts": {},
+  "keywords": ["expo", "config-plugins"],
+  "author": "",
+  "license": "MIT"
 }
