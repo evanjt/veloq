@@ -56,7 +56,8 @@
             "deploymentTarget": "15.1"
           }
         }
-      ]
+      ],
+      "./plugins/withGradleProperties"
     ],
     "experiments": {
       "typedRoutes": true
