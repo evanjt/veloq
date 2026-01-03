@@ -25,12 +25,13 @@ jobs:
     name: Upload to Google Play
     runs-on: ubuntu-latest
     # Only run if build succeeded and it was a release (tag push)
+    # Simplified condition - just check for tags (LOW IMPACT fix)
     if: |
       (github.event_name == 'workflow_dispatch') ||
       (github.event.workflow_run.conclusion == 'success' &&
        github.event.workflow_run.event == 'push' &&
-       startsWith(github.event.workflow_run.head_branch, '') &&
-       contains(github.event.workflow_run.head_branch, '.'))
+       github.event.workflow_run.head_ref == 'refs/tags/*' &&
+       startsWith(github.event.workflow_run.head_ref, 'refs/tags/'))
 
     steps:
       - name: Checkout repository
@@ -61,20 +62,23 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Get the version from the build workflow run
-          VERSION=$(gh run view ${{ steps.run_info.outputs.run_id }} --json jobs -q '.jobs[] | select(.name == "Get Version Info") | .steps[] | select(.name == "Get version info") | .conclusion' || echo "")
-
           # List artifacts from the build run to find the AAB
           ARTIFACTS=$(gh api repos/${{ github.repository }}/actions/runs/${{ steps.run_info.outputs.run_id }}/artifacts)
           AAB_ARTIFACT=$(echo "$ARTIFACTS" | jq -r '.artifacts[] | select(.name | startswith("android-aab-")) | .name' | head -1)
 
           if [ -z "$AAB_ARTIFACT" ]; then
             echo "No AAB artifact found in run ${{ steps.run_info.outputs.run_id }}"
+            echo "Available artifacts:"
+            echo "$ARTIFACTS" | jq -r '.artifacts[].name'
             exit 1
           fi
 
+          # Extract version from artifact name (format: android-aab-veloq-VERSION-SHA)
+          VERSION=$(echo "$AAB_ARTIFACT" | sed 's/android-aab-veloq-//' | sed 's/-ios-simulator//' | sed 's/-[a-f0-9]\{7\}$//' | sed 's/.aab$//')
           echo "artifact_name=$AAB_ARTIFACT" >> $GITHUB_OUTPUT
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "Found AAB artifact: $AAB_ARTIFACT"
+          echo "Version: $VERSION"
 
       - name: Download AAB artifact
         uses: actions/download-artifact@v4
@@ -125,6 +129,7 @@ jobs:
           echo "## Play Store Deployment" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "- **Track:** ${{ steps.run_info.outputs.track }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Version:** ${{ steps.version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
           echo "- **AAB:** ${{ steps.aab.outputs.path }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "The build has been uploaded to the **${{ steps.run_info.outputs.track }}** track." >> $GITHUB_STEP_SUMMARY
