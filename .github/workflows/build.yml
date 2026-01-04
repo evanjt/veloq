@@ -187,6 +187,16 @@ jobs:
           cd rust/route-matcher
           ./scripts/install-android.sh
 
+      - name: Save Rust build cache
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            ~/.cargo/bin
+            rust/route-matcher/target
+          key: rust-android-${{ runner.os }}-${{ hashFiles('rust/route-matcher/Cargo.lock', 'rust/route-matcher/Cargo.toml', 'rust/route-matcher/**/*.rs') }}
+
       - name: Cache Android prebuild
         id: android-prebuild-cache
         uses: actions/cache@v4
@@ -376,6 +386,15 @@ jobs:
         run: |
           cd rust/route-matcher
           ./scripts/install-ios.sh
+
+      - name: Save Rust build cache
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            rust/route-matcher/target
+          key: rust-ios-${{ runner.os }}-${{ hashFiles('rust/route-matcher/Cargo.lock', 'rust/route-matcher/Cargo.toml', 'rust/route-matcher/**/*.rs') }}
 
       - name: Cache iOS prebuild
         id: ios-prebuild-cache
