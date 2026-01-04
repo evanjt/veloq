@@ -186,6 +186,15 @@ jobs:
       - name: Generate native project
         run: npx expo prebuild --platform android --clean
 
+      - name: Optimize Gradle properties
+        run: |
+          echo "org.gradle.caching=true" >> android/gradle.properties
+          echo "org.gradle.configuration-cache=true" >> android/gradle.properties
+          echo "org.gradle.configureondemand=true" >> android/gradle.properties
+          echo "org.gradle.parallel=true" >> android/gradle.properties
+          echo "android.enableR8.fullMode=true" >> android/gradle.properties
+          echo "android.nonTransitiveRClass=true" >> android/gradle.properties
+
       - name: Decode keystore
         if: steps.version.outputs.is_release == 'true' && env.ANDROID_KEYSTORE_BASE64 != ''
         env:
