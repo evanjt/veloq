@@ -414,7 +414,7 @@ jobs:
       - name: Install Pods
         if: steps.ios-prebuild-cache.outputs.cache-hit != 'true'
         working-directory: ios
-        run: bundle exec pod install
+        run: pod install
 
       - name: Build iOS Simulator app
         run: |
