@@ -9,8 +9,26 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 OUTPUT_DIR="${PROJECT_DIR}/target/android"
 
-echo "🚀 Building route-matcher for Android (ALL architectures in parallel)..."
 cd "$PROJECT_DIR"
+
+# Check if libraries are already built (from cache)
+LIBS_EXIST=1
+[ -f "target/aarch64-linux-android/release/libroute_matcher.so" ] || LIBS_EXIST=0
+[ -f "target/armv7-linux-androideabi/release/libroute_matcher.so" ] || LIBS_EXIST=0
+[ -f "target/x86_64-linux-android/release/libroute_matcher.so" ] || LIBS_EXIST=0
+[ -f "target/i686-linux-android/release/libroute_matcher.so" ] || LIBS_EXIST=0
+
+if [ "$LIBS_EXIST" -eq 1 ]; then
+  echo "✅ Rust libraries already built (from cache), skipping build"
+  mkdir -p "$OUTPUT_DIR/jniLibs"/{arm64-v8a,armeabi-v7a,x86_64,x86}
+  cp target/aarch64-linux-android/release/libroute_matcher.so "$OUTPUT_DIR/jniLibs/arm64-v8a/"
+  cp target/armv7-linux-androideabi/release/libroute_matcher.so "$OUTPUT_DIR/jniLibs/armeabi-v7a/"
+  cp target/x86_64-linux-android/release/libroute_matcher.so "$OUTPUT_DIR/jniLibs/x86_64/"
+  cp target/i686-linux-android/release/libroute_matcher.so "$OUTPUT_DIR/jniLibs/x86/"
+  exit 0
+fi
+
+echo "🚀 Building route-matcher for Android (ALL architectures in parallel)..."
 
 # Check for cargo-ndk
 if ! command -v cargo-ndk &> /dev/null; then
