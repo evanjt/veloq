@@ -207,8 +207,7 @@ jobs:
             android-prebuild-${{ runner.os }}-
 
       - name: Generate native project
-        if: steps.android-prebuild-cache.outputs.cache-hit != 'true'
-        run: npx expo prebuild --platform android
+        run: npx expo prebuild --platform android --clean
 
       - name: Optimize Gradle properties
         if: steps.android-prebuild-cache.outputs.cache-hit != 'true'
@@ -268,7 +267,7 @@ jobs:
         if: steps.version.outputs.is_release == 'true'
         working-directory: android
         env:
-          ORG_GRADLE_PROJECT_reactNativeArchitectures: "arm64-v8a,armeabi-v7a,x86_86,x86"
+          ORG_GRADLE_PROJECT_reactNativeArchitectures: "arm64-v8a,armeabi-v7a,x86_64,x86"
         run: ./gradlew bundleRelease --no-daemon --parallel --build-cache --stacktrace --info
 
       - name: Rename AAB
