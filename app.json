@@ -52,14 +52,12 @@
       [
         "expo-build-properties",
         {
-          "android": {
-            "ndkVersion": "25.1.8937393"
-          },
+          "android": {},
           "ios": {
             "deploymentTarget": "15.1"
           }
         }
-      ],
+      ]
     ],
     "experiments": {
       "typedRoutes": true
