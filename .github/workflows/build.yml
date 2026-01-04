@@ -155,9 +155,10 @@ jobs:
             ~/.cargo/git
             ~/.cargo/bin
             rust/route-matcher/target
-          key: rust-android-${{ runner.os }}-${{ hashFiles('rust/route-matcher/Cargo.lock', 'rust/route-matcher/Cargo.toml', 'rust/route-matcher/**/*.rs') }}
+          key: rust-android-${{ runner.os }}-${{ hashFiles('rust/route-matcher/Cargo.lock') }}
           restore-keys: |
             rust-android-${{ runner.os }}-
+          save-always: true
 
       - name: Cache Gradle dependencies and build outputs
         uses: actions/cache@v4
@@ -359,9 +360,10 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             rust/route-matcher/target
-          key: rust-ios-${{ runner.os }}-${{ hashFiles('rust/route-matcher/Cargo.lock', 'rust/route-matcher/Cargo.toml', 'rust/route-matcher/**/*.rs') }}
+          key: rust-ios-${{ runner.os }}-${{ hashFiles('rust/route-matcher/Cargo.lock') }}
           restore-keys: |
             rust-ios-${{ runner.os }}-
+          save-always: true
 
       - name: Build Rust library for iOS
         run: |
