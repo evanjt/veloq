@@ -137,6 +137,8 @@ jobs:
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          ndk: 25.1.8937393
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
