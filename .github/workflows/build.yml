@@ -202,7 +202,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: android
-          key: android-prebuild-${{ runner.os }}-${{ hashFiles('app.json', 'package.json', 'plugins/**', 'expo-modules/**/*.json', 'modules/**/android/**', 'rust/route-matcher/Cargo.toml', 'rust/route-matcher/**/*.rs') }}
+          key: android-prebuild-${{ runner.os }}-${{ hashFiles('app.json', 'package.json', 'package-lock.json', 'plugins/**', 'expo-modules/**/*.json', 'modules/**/android/**', 'rust/route-matcher/Cargo.toml', 'rust/route-matcher/**/*.rs', 'node_modules/react-native-vector-icons/package.json', 'node_modules/react-native-webview/package.json') }}
           restore-keys: |
             android-prebuild-${{ runner.os }}-
 
