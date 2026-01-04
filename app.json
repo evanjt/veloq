@@ -52,6 +52,9 @@
       [
         "expo-build-properties",
         {
+          "android": {
+            "ndkVersion": "25.1.8937393"
+          },
           "ios": {
             "deploymentTarget": "15.1"
           }
