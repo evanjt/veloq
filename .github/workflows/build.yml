@@ -236,7 +236,7 @@ jobs:
       - name: Build APK
         working-directory: android
         env:
-          ORG_GRADLE_PROJECT_reactNativeArchitectures: "arm64-v8a,armeabi-v7a,x86_86,x86"
+          ORG_GRADLE_PROJECT_reactNativeArchitectures: "arm64-v8a,armeabi-v7a,x86_64,x86"
         run: ./gradlew assembleRelease --no-daemon --parallel --build-cache --stacktrace --info
 
       - name: Rename APK
