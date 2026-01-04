@@ -155,18 +155,21 @@ jobs:
             ~/.cargo/git
             ~/.cargo/bin
             rust/route-matcher/target
-          key: rust-android-${{ runner.os }}-${{ hashFiles('rust/route-matcher/Cargo.lock') }}
+          key: rust-android-${{ runner.os }}-${{ hashFiles('rust/route-matcher/Cargo.lock', 'rust/route-matcher/Cargo.toml', 'rust/route-matcher/**/*.rs') }}
           restore-keys: |
             rust-android-${{ runner.os }}-
 
-      - name: Cache Gradle dependencies
+      - name: Cache Gradle dependencies and build outputs
         uses: actions/cache@v4
         with:
           path: |
             ~/.gradle/caches
             ~/.gradle/wrapper
             ~/.gradle/build-cache
-          key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+            android/.gradle
+            android/app/build
+            android/build
+          key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties', 'android/**/*.java', 'android/**/*.kt', 'android/**/*.xml') }}
           restore-keys: |
             gradle-${{ runner.os }}-
 
@@ -183,10 +186,21 @@ jobs:
           cd rust/route-matcher
           ./scripts/install-android.sh
 
+      - name: Cache Android prebuild
+        id: android-prebuild-cache
+        uses: actions/cache@v4
+        with:
+          path: android
+          key: android-prebuild-${{ runner.os }}-${{ hashFiles('app.json', 'package.json', 'plugins/**', 'expo-modules/**/*.json', 'modules/**/android/**', 'rust/route-matcher/Cargo.toml', 'rust/route-matcher/**/*.rs') }}
+          restore-keys: |
+            android-prebuild-${{ runner.os }}-
+
       - name: Generate native project
-        run: npx expo prebuild --platform android --clean
+        if: steps.android-prebuild-cache.outputs.cache-hit != 'true'
+        run: npx expo prebuild --platform android
 
       - name: Optimize Gradle properties
+        if: steps.android-prebuild-cache.outputs.cache-hit != 'true'
         run: |
           echo "org.gradle.caching=true" >> android/gradle.properties
           echo "org.gradle.configureondemand=true" >> android/gradle.properties
@@ -345,7 +359,7 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             rust/route-matcher/target
-          key: rust-ios-${{ runner.os }}-${{ hashFiles('rust/route-matcher/Cargo.lock') }}
+          key: rust-ios-${{ runner.os }}-${{ hashFiles('rust/route-matcher/Cargo.lock', 'rust/route-matcher/Cargo.toml', 'rust/route-matcher/**/*.rs') }}
           restore-keys: |
             rust-ios-${{ runner.os }}-
 
@@ -361,25 +375,44 @@ jobs:
           cd rust/route-matcher
           ./scripts/install-ios.sh
 
+      - name: Cache iOS prebuild
+        id: ios-prebuild-cache
+        uses: actions/cache@v4
+        with:
+          path: ios
+          key: ios-prebuild-${{ runner.os }}-${{ hashFiles('app.json', 'package.json', 'plugins/**', 'expo-modules/**/*.json', 'modules/**/ios/**', 'rust/route-matcher/Cargo.toml', 'rust/route-matcher/**/*.rs') }}
+          restore-keys: |
+            ios-prebuild-${{ runner.os }}-
+
       # ============================================
       # iOS Build
       # ============================================
       - name: Install dependencies
         run: npm ci
 
-      # Removed expo-github-action - use npx directly
       - name: Generate native project
-        run: npx expo prebuild --platform ios --clean
+        if: steps.ios-prebuild-cache.outputs.cache-hit != 'true'
+        run: npx expo prebuild --platform ios
 
-      # Use bundler-cache instead of sudo gem install (LOW IMPACT)
+      - name: Cache CocoaPods
+        uses: actions/cache@v4
+        with:
+          path: |
+            ios/Pods
+            ~/Library/Caches/CocoaPods
+          key: cocoapods-${{ runner.os }}-${{ hashFiles('ios/Podfile.lock') }}
+          restore-keys: |
+            cocoapods-${{ runner.os }}-
+
       - name: Setup Ruby & Install CocoaPods
+        if: steps.ios-prebuild-cache.outputs.cache-hit != 'true'
         uses: ruby/setup-ruby@v1
         with:
           ruby-version: "3.2"
           bundler-cache: true
-          working-directory: ios
 
       - name: Install Pods
+        if: steps.ios-prebuild-cache.outputs.cache-hit != 'true'
         working-directory: ios
         run: bundle exec pod install
 
