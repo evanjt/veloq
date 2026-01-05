@@ -206,45 +206,36 @@ jobs:
           restore-keys: |
             android-prebuild-${{ runner.os }}-
 
-      - name: Generate native project
-        run: npx expo prebuild --platform android --clean
-
-      - name: Generate React Native codegen artifacts
+      - name: Build Android APK
         run: |
-          npx @react-native-community/cli@latest codegen \
-            --path . \
-            --platform android \
-            --outputPath node_modules/react-native-codegen/src/pods
+          # Run rust build first
+          npm run rust:android:full || true
 
-      - name: Copy codegen artifacts to package directories
+          # Build release APK using Expo's native command
+          # This handles prebuild, codegen, and native compilation automatically
+          npx expo run:android --variant release --no-build-cache
+
+      - name: Rename and copy APK
         run: |
-          # Copy vector-icons artifacts
-          mkdir -p node_modules/react-native-vector-icons/android/build/generated/source/codegen/jni
-          cp -r node_modules/react-native-codegen/src/pods/android/app/build/generated/source/codegen/jni/*VectorIcons* \
-            node_modules/react-native-vector-icons/android/build/generated/source/codegen/jni/
+          mkdir -p artifacts
+          cp android/app/build/outputs/apk/release/app-release.apk \
+            "artifacts/${{ steps.version.outputs.filename }}.apk"
 
-          # Copy webview artifacts
-          mkdir -p node_modules/react-native-webview/android/build/generated/source/codegen/jni
-          cp -r node_modules/react-native-codegen/src/pods/android/app/build/generated/source/codegen/jni/*WebView* \
-            node_modules/react-native-webview/android/build/generated/source/codegen/jni/
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-apk-${{ steps.version.outputs.filename }}
+          path: artifacts/*.apk
+          retention-days: 30
 
-      - name: Optimize Gradle properties
-        if: steps.android-prebuild-cache.outputs.cache-hit != 'true'
-        run: |
-          echo "org.gradle.caching=true" >> android/gradle.properties
-          echo "org.gradle.configureondemand=true" >> android/gradle.properties
-          echo "org.gradle.parallel=true" >> android/gradle.properties
-          echo "android.enableR8.fullMode=true" >> android/gradle.properties
-          echo "android.nonTransitiveRClass=true" >> android/gradle.properties
-
-      - name: Decode keystore
+      - name: Decode keystore for release
         if: steps.version.outputs.is_release == 'true' && env.ANDROID_KEYSTORE_BASE64 != ''
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
         run: |
           echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > android/app/release.keystore
 
-      - name: Create keystore.properties
+      - name: Create keystore.properties for release
         if: steps.version.outputs.is_release == 'true' && env.ANDROID_KEYSTORE_BASE64 != ''
         env:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
@@ -258,36 +249,12 @@ jobs:
           keyPassword=$ANDROID_KEY_PASSWORD
           EOF
 
-      - name: Make gradlew executable
-        run: chmod +x android/gradlew
-
-      - name: Build APK
-        working-directory: android
-        env:
-          ORG_GRADLE_PROJECT_reactNativeArchitectures: "arm64-v8a,armeabi-v7a,x86_64,x86"
-        run: ./gradlew assembleRelease --no-daemon --parallel --build-cache --stacktrace --info
-
-      - name: Rename APK
-        run: |
-          mkdir -p artifacts
-          APK_PATH=$(find android/app/build/outputs/apk -name "*.apk" | head -1)
-          if [ -n "$APK_PATH" ]; then
-            cp "$APK_PATH" "artifacts/${{ steps.version.outputs.filename }}.apk"
-          fi
-
-      - name: Upload APK artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: android-apk-${{ steps.version.outputs.filename }}
-          path: artifacts/*.apk
-          retention-days: 30
-
-      - name: Build AAB
+      - name: Build AAB for Play Store
         if: steps.version.outputs.is_release == 'true'
-        working-directory: android
-        env:
-          ORG_GRADLE_PROJECT_reactNativeArchitectures: "arm64-v8a,armeabi-v7a,x86_64,x86"
-        run: ./gradlew bundleRelease --no-daemon --parallel --build-cache --stacktrace --info
+        run: |
+          # Android folder and dependencies are already set up from APK build
+          # Just run Gradle to build the AAB
+          cd android && ./gradlew bundleRelease --no-daemon
 
       - name: Rename AAB
         if: steps.version.outputs.is_release == 'true'
