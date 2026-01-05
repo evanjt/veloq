@@ -155,7 +155,7 @@ jobs:
             ~/.cargo/git
             ~/.cargo/bin
             rust/route-matcher/target
-          key: rust-android-${{ runner.os }}-${{ hashFiles('rust/route-matcher/Cargo.lock') }}
+          key: rust-android-${{ runner.os }}-${{ hashFiles('rust/route-matcher/Cargo.toml', 'rust/route-matcher/Cargo.lock', 'rust/route-matcher/**/*.rs') }}
           restore-keys: |
             rust-android-${{ runner.os }}-
           save-always: true
@@ -206,13 +206,18 @@ jobs:
           restore-keys: |
             android-prebuild-${{ runner.os }}-
 
-      # Setup signing BEFORE build (when secrets are available)
+      - name: Generate Android native project
+        if: steps.android-prebuild-cache.outputs.cache-hit != 'true'
+        run: npx expo prebuild --platform android
+
+      # Setup signing AFTER prebuild creates android/ directory
       - name: Decode keystore
         id: keystore
         if: env.ANDROID_KEYSTORE_BASE64 != ''
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
         run: |
+          mkdir -p android/app
           echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > android/app/release.keystore
           echo "signing_available=true" >> $GITHUB_OUTPUT
 
@@ -229,12 +234,6 @@ jobs:
           keyAlias=$ANDROID_KEY_ALIAS
           keyPassword=$ANDROID_KEY_PASSWORD
           EOF
-
-      - name: Install Rust libraries
-        run: npm run rust:android:full || true
-
-      - name: Generate Android native project
-        run: npx expo prebuild --platform android
 
       - name: Build Android APK
         run: |
