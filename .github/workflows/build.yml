@@ -209,6 +209,12 @@ jobs:
       - name: Generate native project
         run: npx expo prebuild --platform android --clean
 
+      - name: Generate React Native codegen artifacts
+        run: |
+          node node_modules/react-native/scripts/generate-codegen-artifacts.js \
+            --path . \
+            --targetPlatform android
+
       - name: Optimize Gradle properties
         if: steps.android-prebuild-cache.outputs.cache-hit != 'true'
         run: |
