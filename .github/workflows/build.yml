@@ -211,9 +211,22 @@ jobs:
 
       - name: Generate React Native codegen artifacts
         run: |
-          node node_modules/react-native/scripts/generate-codegen-artifacts.js \
+          npx @react-native-community/cli@latest codegen \
             --path . \
-            --targetPlatform android
+            --platform android \
+            --outputPath node_modules/react-native-codegen/src/pods
+
+      - name: Copy codegen artifacts to package directories
+        run: |
+          # Copy vector-icons artifacts
+          mkdir -p node_modules/react-native-vector-icons/android/build/generated/source/codegen/jni
+          cp -r node_modules/react-native-codegen/src/pods/android/app/build/generated/source/codegen/jni/*VectorIcons* \
+            node_modules/react-native-vector-icons/android/build/generated/source/codegen/jni/
+
+          # Copy webview artifacts
+          mkdir -p node_modules/react-native-webview/android/build/generated/source/codegen/jni
+          cp -r node_modules/react-native-codegen/src/pods/android/app/build/generated/source/codegen/jni/*WebView* \
+            node_modules/react-native-webview/android/build/generated/source/codegen/jni/
 
       - name: Optimize Gradle properties
         if: steps.android-prebuild-cache.outputs.cache-hit != 'true'
