@@ -85,6 +85,19 @@ task buildRustLibraries(type: Exec) {
   // Track outputs
   outputs.dir(jniLibsDir)
 
+  // Skip Rust build if .so files already exist (CI provides pre-built libs)
+  onlyIf {
+    def soFiles = fileTree(jniLibsDir).include('**/*.so')
+    def libsExist = !soFiles.isEmpty()
+    if (libsExist) {
+      println "Pre-built Rust libraries found (${soFiles.files.size()} files), skipping build"
+      false  // Skip the task
+    } else {
+      println "No pre-built Rust libraries found, running build..."
+      true  // Run the task
+    }
+  }
+
   doFirst {
     println "Building Rust native library (dev mode)..."
   }

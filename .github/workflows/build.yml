@@ -154,11 +154,11 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             ~/.cargo/bin
-            rust/route-matcher/target
+            rust/route-matcher/target/release
+            rust/route-matcher/target/android
           key: rust-android-${{ runner.os }}-${{ hashFiles('rust/route-matcher/Cargo.toml', 'rust/route-matcher/Cargo.lock', 'rust/route-matcher/**/*.rs') }}
           restore-keys: |
             rust-android-${{ runner.os }}-
-          save-always: true
 
       - name: Cache Gradle dependencies and build outputs
         uses: actions/cache@v4
@@ -194,8 +194,9 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             ~/.cargo/bin
-            rust/route-matcher/target
-          key: rust-android-${{ runner.os }}-${{ hashFiles('rust/route-matcher/Cargo.lock', 'rust/route-matcher/Cargo.toml', 'rust/route-matcher/**/*.rs') }}
+            rust/route-matcher/target/release
+            rust/route-matcher/target/android
+          key: rust-android-${{ runner.os }}-${{ hashFiles('rust/route-matcher/Cargo.toml', 'rust/route-matcher/Cargo.lock', 'rust/route-matcher/**/*.rs') }}
 
       - name: Cache Android prebuild
         id: android-prebuild-cache
@@ -218,7 +219,9 @@ jobs:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
         run: |
           mkdir -p android/app
-          echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > android/app/release.keystore
+          # Remove any whitespace/newlines from the secret
+          CLEAN_KEYSTORE=$(echo "$ANDROID_KEYSTORE_BASE64" | tr -d ' \n\r\t')
+          echo "$CLEAN_KEYSTORE" | base64 -d > android/app/release.keystore
           echo "signing_available=true" >> $GITHUB_OUTPUT
 
       - name: Create keystore.properties
@@ -364,11 +367,11 @@ jobs:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
-            rust/route-matcher/target
-          key: rust-ios-${{ runner.os }}-${{ hashFiles('rust/route-matcher/Cargo.lock') }}
+            rust/route-matcher/target/ios
+            rust/route-matcher/target/release
+          key: rust-ios-${{ runner.os }}-${{ hashFiles('rust/route-matcher/Cargo.toml', 'rust/route-matcher/Cargo.lock', 'rust/route-matcher/**/*.rs') }}
           restore-keys: |
             rust-ios-${{ runner.os }}-
-          save-always: true
 
       - name: Build Rust library for iOS
         run: |
@@ -388,8 +391,9 @@ jobs:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
-            rust/route-matcher/target
-          key: rust-ios-${{ runner.os }}-${{ hashFiles('rust/route-matcher/Cargo.lock', 'rust/route-matcher/Cargo.toml', 'rust/route-matcher/**/*.rs') }}
+            rust/route-matcher/target/ios
+            rust/route-matcher/target/release
+          key: rust-ios-${{ runner.os }}-${{ hashFiles('rust/route-matcher/Cargo.toml', 'rust/route-matcher/Cargo.lock', 'rust/route-matcher/**/*.rs') }}
 
       - name: Cache iOS prebuild
         id: ios-prebuild-cache
