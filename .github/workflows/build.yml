@@ -190,16 +190,20 @@ jobs:
           echo "=== Checking for Kotlin bindings before upload ==="
           echo "Current directory: $(pwd)"
           echo ""
-          if [ -d "artifact" ]; then
-            echo "artifact directory exists"
-            echo "Contents:"
-            ls -la artifact/
-            echo ""
-            echo "Looking for .kt files:"
-            find artifact -name "*.kt" -type f 2>/dev/null || echo "No .kt files found"
+          echo "Full listing of artifact directory:"
+          find artifact -type d
+          echo ""
+          echo "All files in artifact:"
+          find artifact -type f
+          echo ""
+          if [ -d "artifact/kotlin" ]; then
+            echo "kotlin directory EXISTS!"
+            ls -laR artifact/kotlin/
           else
-            echo "artifact directory NOT found"
-            ls -la || true
+            echo "kotlin directory DOES NOT EXIST"
+            # Try to find if files were created elsewhere
+            echo "Searching for .kt files in entire repo:"
+            find . -name "route_matcher.kt" 2>/dev/null || echo "Not found"
           fi
           echo "======================================================"
 
@@ -208,7 +212,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: rust-android-kotlin-bindings
-          path: artifact/kotlin/**/*.kt
+          path: artifact/kotlin/
           retention-days: 1
           if-no-files-found: error
 
