@@ -242,21 +242,30 @@ jobs:
 
       - name: Install Rust libraries to native module
         run: |
+          # Debug: show what was actually downloaded
+          echo "=== Downloaded artifacts structure ==="
+          find artifacts/rust -type f
+          echo "====================================="
+
           # Copy downloaded .so files to jniLibs
           mkdir -p modules/route-matcher-native/android/src/main/jniLibs/{arm64-v8a,armeabi-v7a,x86_64,x86}
-          cp artifacts/rust/arm64-v8a/libroute_matcher.so \
-            modules/route-matcher-native/android/src/main/jniLibs/arm64-v8a/
-          cp artifacts/rust/armeabi-v7a/libroute_matcher.so \
-            modules/route-matcher-native/android/src/main/jniLibs/armeabi-v7a/
-          cp artifacts/rust/x86_64/libroute_matcher.so \
-            modules/route-matcher-native/android/src/main/jniLibs/x86_64/
-          cp artifacts/rust/x86/libroute_matcher.so \
-            modules/route-matcher-native/android/src/main/jniLibs/x86/
+
+          for arch in arm64-v8a armeabi-v7a x86_64 x86; do
+            # Try exact path first, then search for it
+            if [ -f "artifacts/rust/$arch/libroute_matcher.so" ]; then
+              cp "artifacts/rust/$arch/libroute_matcher.so" \
+                 "modules/route-matcher-native/android/src/main/jniLibs/$arch/"
+            else
+              # Find and copy the file for this architecture
+              find artifacts/rust -path "*/$arch/libroute_matcher.so" -exec cp {} \
+                 "modules/route-matcher-native/android/src/main/jniLibs/$arch/" \;
+            fi
+          done
 
           # Copy Kotlin bindings
           mkdir -p modules/route-matcher-native/android/src/main/java/com/veloq/route
-          cp artifacts/rust/RouteMatcher.kt \
-            modules/route-matcher-native/android/src/main/java/com/veloq/route/RouteMatcher.kt
+          find artifacts/rust -type f -name "*.kt" -exec cp {} \
+            modules/route-matcher-native/android/src/main/java/com/veloq/route/ \;
 
       - name: Cache Android prebuild
         id: android-prebuild-cache
