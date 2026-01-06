@@ -87,22 +87,51 @@ task buildRustLibraries(type: Exec) {
 
   // Skip Rust build if .so files already exist (CI provides pre-built libs)
   onlyIf {
+    println "=== buildRustLibraries.onlyIf evaluation ==="
+
+    // Check for CI environment variable first
+    def prebuiltEnv = System.getenv("RUST_PREBUILT")
+    println "RUST_PREBUILT env var: ${prebuiltEnv ?: 'not set'}"
+    if (prebuiltEnv == "true") {
+      println "RUST_PREBUILT=true - SKIPPING Rust build, using pre-built libraries from CI"
+      println "==============================================="
+      return false  // Skip the task
+    }
+
+    // Check if jniLibs directory exists
+    if (!jniLibsDir.exists()) {
+      println "jniLibs directory does not exist at: ${jniLibsDir.absolutePath}"
+      println "Will run Rust build..."
+      println "==============================================="
+      return true
+    }
+
     def soFiles = fileTree(jniLibsDir).include('**/*.so')
     def libsExist = !soFiles.isEmpty()
+
+    println "jniLibs directory: ${jniLibsDir.absolutePath}"
+    println "Found .so files: ${soFiles.files.size()}"
     if (libsExist) {
-      println "Pre-built Rust libraries found (${soFiles.files.size()} files), skipping build"
+      soFiles.each { file ->
+        println "  - ${file.name} (${file.length()} bytes)"
+      }
+      println "Pre-built libraries found, SKIPPING Rust build"
+      println "==============================================="
       false  // Skip the task
     } else {
-      println "No pre-built Rust libraries found, running build..."
+      println "No pre-built libraries found, will run Rust build..."
+      println "==============================================="
       true  // Run the task
     }
   }
 
   doFirst {
-    println "Building Rust native library (dev mode)..."
+    println "=== Starting Rust build (dev mode) ==="
+    println "Working directory: ${workingDir}"
+    println "Command: ${commandLine.join(' ')}"
   }
   doLast {
-    println "Rust build complete"
+    println "=== Rust build complete ==="
   }
 }
 
