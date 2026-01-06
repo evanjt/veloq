@@ -121,7 +121,7 @@ jobs:
         if: matrix.arch == 'arm64-v8a'
         working-directory: rust/route-matcher
         run: |
-          cargo run --bin uniffi-bindgen generate --library target/${{ matrix.rust_target }}/release/libroute_matcher.so \
+          cargo run --bin uniffi-bindgen --features ffi generate --library target/${{ matrix.rust_target }}/release/libroute_matcher.so \
             --language kotlin --out-file ../artifact/RouteMatcher.kt
 
       - name: Upload .so file
