@@ -93,34 +93,42 @@ jobs:
       - name: Install Rust Android target
         run: rustup target add ${{ matrix.rust_target }}
 
-      - name: Cache cargo-ndk
-        uses: actions/cache@v4
+      - name: Restore cargo-ndk cache
+        id: cache-cargo-ndk
+        uses: actions/cache/restore@v4
         with:
           path: ~/.cargo/bin/cargo-ndk
-          key: cargo-ndk-${{ runner.os }}-${{ hashFiles('rust/route-matcher/Cargo.toml') }}
+          key: cargo-ndk-${{ runner.os }}-v3
 
       - name: Install cargo-ndk
-        run: cargo install cargo-ndk --quiet || true
+        if: steps.cache-cargo-ndk.outputs.cache-hit != 'true'
+        run: cargo install cargo-ndk
 
-      - name: Cache cargo registry
-        uses: actions/cache@v4
+      - name: Save cargo-ndk cache
+        if: steps.cache-cargo-ndk.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
         with:
-          path: ~/.cargo/registry
-          key: cargo-registry-${{ runner.os }}-${{ hashFiles('rust/route-matcher/Cargo.lock') }}
+          path: ~/.cargo/bin/cargo-ndk
+          key: cargo-ndk-${{ runner.os }}-v3
 
-      - name: Cache cargo git dependencies
-        uses: actions/cache@v4
+      - name: Restore cargo caches
+        uses: actions/cache/restore@v4
         with:
-          path: ~/.cargo/git
-          key: cargo-git-${{ runner.os }}-${{ hashFiles('rust/route-matcher/Cargo.lock') }}
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: cargo-deps-${{ runner.os }}-${{ hashFiles('rust/route-matcher/Cargo.lock') }}
+          restore-keys: |
+            cargo-deps-${{ runner.os }}-
 
-      - name: Cache cargo build (dependencies only)
-        uses: actions/cache@v4
+      - name: Restore Rust build cache
+        id: cache-rust-build
+        uses: actions/cache/restore@v4
         with:
           path: rust/route-matcher/target
-          key: rust-android-${{ matrix.arch }}-${{ runner.os }}-deps-${{ hashFiles('rust/route-matcher/Cargo.toml', 'rust/route-matcher/Cargo.lock') }}
+          key: rust-android-${{ matrix.arch }}-${{ runner.os }}-${{ hashFiles('rust/route-matcher/Cargo.toml', 'rust/route-matcher/Cargo.lock', 'rust/route-matcher/src/**') }}
           restore-keys: |
-            rust-android-${{ matrix.arch }}-${{ runner.os }}-deps-
+            rust-android-${{ matrix.arch }}-${{ runner.os }}-
 
       - name: Build Rust library for ${{ matrix.arch }}
         working-directory: rust/route-matcher
@@ -132,6 +140,21 @@ jobs:
         working-directory: rust/route-matcher
         run: |
           cargo build --release --bin uniffi-bindgen --features ffi
+
+      # Save caches immediately after build (before any potential failures)
+      - name: Save cargo caches
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: cargo-deps-${{ runner.os }}-${{ hashFiles('rust/route-matcher/Cargo.lock') }}
+
+      - name: Save Rust build cache
+        uses: actions/cache/save@v4
+        with:
+          path: rust/route-matcher/target
+          key: rust-android-${{ matrix.arch }}-${{ runner.os }}-${{ hashFiles('rust/route-matcher/Cargo.toml', 'rust/route-matcher/Cargo.lock', 'rust/route-matcher/src/**') }}
 
       - name: Prepare artifact
         run: |
@@ -145,13 +168,14 @@ jobs:
         run: |
           set -x  # Echo commands for debugging
 
-          # Create artifact directory at repo root (from rust/route-matcher, ../artifact is repo root)
-          mkdir -p ../artifact/kotlin
+          # Create artifact directory at repo root
+          # From rust/route-matcher, need ../../ to reach repo root (up to rust/, then up to root)
+          mkdir -p ../../artifact/kotlin
 
           echo ""
           echo "=== Running uniffi-bindgen ==="
           echo "Library: target/${{ matrix.rust_target }}/release/libroute_matcher.so"
-          echo "Output directory: ../artifact/kotlin"
+          echo "Output directory: ../../artifact/kotlin"
           echo "Working directory: $(pwd)"
           echo ""
 
@@ -159,7 +183,7 @@ jobs:
           ./target/release/uniffi-bindgen generate \
             --library target/${{ matrix.rust_target }}/release/libroute_matcher.so \
             --language kotlin \
-            --out-dir ../artifact/kotlin 2>&1 || {
+            --out-dir ../../artifact/kotlin 2>&1 || {
             echo ""
             echo "ERROR: uniffi-bindgen failed!"
             exit 1
@@ -168,12 +192,12 @@ jobs:
           echo ""
           echo "=== uniffi-bindgen succeeded! ==="
           echo "Contents of artifact directory:"
-          ls -la ../artifact/ || echo "artifact directory not found"
+          ls -la ../../artifact/ || echo "artifact directory not found"
           echo ""
           echo "Contents of kotlin directory:"
-          ls -la ../artifact/kotlin/ || echo "kotlin directory not found"
+          ls -la ../../artifact/kotlin/ || echo "kotlin directory not found"
           echo ""
-          find ../artifact/kotlin -type f 2>/dev/null || echo "No files found in kotlin directory"
+          find ../../artifact/kotlin -type f 2>/dev/null || echo "No files found in kotlin directory"
           echo "==========================="
 
       - name: Upload .so file
@@ -677,32 +701,43 @@ jobs:
       - name: Install Rust iOS targets
         run: rustup target add aarch64-apple-ios aarch64-apple-ios-sim x86_64-apple-ios
 
-      - name: Cache cargo registry
-        uses: actions/cache@v4
+      - name: Restore cargo caches
+        uses: actions/cache/restore@v4
         with:
-          path: ~/.cargo/registry
-          key: cargo-registry-${{ runner.os }}-${{ hashFiles('rust/route-matcher/Cargo.lock') }}
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: cargo-deps-${{ runner.os }}-${{ hashFiles('rust/route-matcher/Cargo.lock') }}
+          restore-keys: |
+            cargo-deps-${{ runner.os }}-
 
-      - name: Cache cargo git dependencies
-        uses: actions/cache@v4
-        with:
-          path: ~/.cargo/git
-          key: cargo-git-${{ runner.os }}-${{ hashFiles('rust/route-matcher/Cargo.lock') }}
-
-      - name: Cache cargo build (dependencies only)
-        uses: actions/cache@v4
+      - name: Restore Rust build cache
+        uses: actions/cache/restore@v4
         with:
           path: rust/route-matcher/target
-          key: rust-ios-${{ runner.os }}-deps-${{ hashFiles('rust/route-matcher/Cargo.toml', 'rust/route-matcher/Cargo.lock') }}
+          key: rust-ios-${{ runner.os }}-${{ hashFiles('rust/route-matcher/Cargo.toml', 'rust/route-matcher/Cargo.lock', 'rust/route-matcher/src/**') }}
           restore-keys: |
-            rust-ios-${{ runner.os }}-deps-
+            rust-ios-${{ runner.os }}-
 
       - name: Build Rust library for iOS
         run: |
           cd rust/route-matcher
           ./scripts/build-ios.sh
 
-      # Removed redundant verification steps (MEDIUM IMPACT)
+      # Save caches immediately after build (before any potential failures)
+      - name: Save cargo caches
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: cargo-deps-${{ runner.os }}-${{ hashFiles('rust/route-matcher/Cargo.lock') }}
+
+      - name: Save Rust build cache
+        uses: actions/cache/save@v4
+        with:
+          path: rust/route-matcher/target
+          key: rust-ios-${{ runner.os }}-${{ hashFiles('rust/route-matcher/Cargo.toml', 'rust/route-matcher/Cargo.lock', 'rust/route-matcher/src/**') }}
 
       - name: Install Rust library to native module
         run: |
