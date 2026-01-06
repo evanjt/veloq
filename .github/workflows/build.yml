@@ -127,6 +127,12 @@ jobs:
         run: |
           cargo ndk -t ${{ matrix.rust_target }} build --release --features full
 
+      - name: Build uniffi-bindgen (arm64 only)
+        if: matrix.arch == 'arm64-v8a'
+        working-directory: rust/route-matcher
+        run: |
+          cargo build --release --bin uniffi-bindgen --features ffi
+
       - name: Prepare artifact
         run: |
           mkdir -p artifact/${{ matrix.abi }}
@@ -137,12 +143,6 @@ jobs:
         if: matrix.arch == 'arm64-v8a'
         run: |
           set -x  # Echo commands for debugging
-
-          # Build uniffi-bindgen binary for host
-          echo "=== Building uniffi-bindgen binary ==="
-          cd rust/route-matcher
-          cargo build --release --bin uniffi-bindgen --features ffi
-          cd ..
 
           # Create artifact directory at repo root
           mkdir -p artifact/kotlin
@@ -155,7 +155,7 @@ jobs:
           echo ""
 
           # Run uniffi-bindgen using the built binary
-          rust/route-matcher/target/release/uniffi-bindgen generate \
+          ./rust/route-matcher/target/release/uniffi-bindgen generate \
             --library rust/route-matcher/target/${{ matrix.rust_target }}/release/libroute_matcher.so \
             --language kotlin \
             --out-dir artifact/kotlin 2>&1 || {
