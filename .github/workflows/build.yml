@@ -137,15 +137,41 @@ jobs:
         if: matrix.arch == 'arm64-v8a'
         working-directory: rust/route-matcher
         run: |
+          set -x  # Echo commands for debugging
+          set -e  # Exit on error
+
+          # Build uniffi-bindgen binary for host
+          echo "=== Building uniffi-bindgen binary ==="
+          cargo build --release --bin uniffi-bindgen --features ffi
+
+          # Verify the .so file exists
+          if [ ! -f "target/${{ matrix.rust_target }}/release/libroute_matcher.so" ]; then
+            echo "ERROR: .so file not found!"
+            echo "Looking for: target/${{ matrix.rust_target }}/release/libroute_matcher.so"
+            echo "Contents of target directory:"
+            find target -name "*.so" -type f 2>/dev/null || echo "No .so files found"
+            exit 1
+          fi
+
           mkdir -p ../artifact/kotlin
+
+          echo ""
           echo "=== Running uniffi-bindgen ==="
           echo "Library: target/${{ matrix.rust_target }}/release/libroute_matcher.so"
-          cargo run --bin uniffi-bindgen --features ffi generate \
+          echo "Output directory: ../artifact/kotlin"
+          echo ""
+
+          # Run uniffi-bindgen using the built binary
+          ./target/release/uniffi-bindgen generate \
             --library target/${{ matrix.rust_target }}/release/libroute_matcher.so \
             --language kotlin \
             --out-dir ../artifact/kotlin
+
+          echo ""
           echo "=== Generated files ==="
-          find ../artifact/kotlin -type f -name "*.kt" -exec ls -lh {} \; || echo "No .kt files found!"
+          ls -la ../artifact/kotlin/ || echo "Directory empty or not found"
+          echo ""
+          find ../artifact/kotlin -type f -exec ls -lh {} \; || echo "No files found!"
           echo "==========================="
 
       - name: Upload .so file
