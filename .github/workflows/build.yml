@@ -138,7 +138,6 @@ jobs:
         working-directory: rust/route-matcher
         run: |
           set -x  # Echo commands for debugging
-          set -e  # Exit on error
 
           # Build uniffi-bindgen binary for host
           echo "=== Building uniffi-bindgen binary ==="
@@ -156,22 +155,41 @@ jobs:
           mkdir -p ../artifact/kotlin
 
           echo ""
+          echo "=== Checking .so file for UniFFI metadata ==="
+          # Check if the .so contains UniFFI metadata
+          strings target/${{ matrix.rust_target }}/release/libroute_matcher.so | grep -i "uniffi" || echo "No UniFFI strings found in .so"
+          echo ""
+
           echo "=== Running uniffi-bindgen ==="
           echo "Library: target/${{ matrix.rust_target }}/release/libroute_matcher.so"
           echo "Output directory: ../artifact/kotlin"
+          echo "Working directory: $(pwd)"
           echo ""
 
           # Run uniffi-bindgen using the built binary
           ./target/release/uniffi-bindgen generate \
             --library target/${{ matrix.rust_target }}/release/libroute_matcher.so \
             --language kotlin \
-            --out-dir ../artifact/kotlin
+            --out-dir ../artifact/kotlin 2>&1 || {
+            echo ""
+            echo "ERROR: uniffi-bindgen failed!"
+            echo "Checking output directory:"
+            ls -la ../artifact/ || echo "artifact directory not found"
+            echo ""
+            echo "Checking if kotlin directory exists:"
+            ls -la ../artifact/kotlin/ || echo "kotlin directory not found"
+            exit 1
+          }
 
           echo ""
-          echo "=== Generated files ==="
-          ls -la ../artifact/kotlin/ || echo "Directory empty or not found"
+          echo "=== uniffi-bindgen succeeded! ==="
+          echo "Contents of artifact directory:"
+          ls -la ../artifact/ || echo "artifact directory not found"
           echo ""
-          find ../artifact/kotlin -type f -exec ls -lh {} \; || echo "No files found!"
+          echo "Contents of kotlin directory:"
+          ls -la ../artifact/kotlin/ || echo "kotlin directory not found"
+          echo ""
+          find ../artifact/kotlin -type f 2>/dev/null || echo "No files found in kotlin directory"
           echo "==========================="
 
       - name: Upload .so file
