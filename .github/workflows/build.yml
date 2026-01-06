@@ -205,7 +205,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: rust-android-kotlin-bindings
-          path: artifact/kotlin/
+          path: artifact/kotlin/**/*.kt
           retention-days: 1
           if-no-files-found: error
 
