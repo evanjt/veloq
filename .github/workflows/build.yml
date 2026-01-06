@@ -507,35 +507,13 @@ jobs:
         run: npx expo prebuild --platform android
 
       # Create Gradle init script to fix Maven Central 403 errors
-      # Uses beforeSettings to configure plugin resolution BEFORE plugins load
+      # Forces all Maven Central requests through repo1.maven.org mirror
       - name: Create Gradle init script for CI
         run: |
           mkdir -p ~/.gradle
-          printf '%s\n' \
-            'beforeSettings {' \
-            '  it.pluginManagement {' \
-            '    repositories {' \
-            '      gradlePluginPortal()' \
-            '      google()' \
-            '      mavenCentral()' \
-            '      maven { url = uri("https://repo1.maven.org/maven2/") }' \
-            '    }' \
-            '  }' \
-            '}' \
-            'allprojects {' \
-            '  buildscript {' \
-            '    repositories {' \
-            '      maven { url = uri("https://repo1.maven.org/maven2/") }' \
-            '      google()' \
-            '      mavenCentral()' \
-            '    }' \
-            '  }' \
-            '  repositories {' \
-            '    maven { url = uri("https://repo1.maven.org/maven2/") }' \
-            '    google()' \
-            '    mavenCentral()' \
-            '  }' \
-            '}' > ~/.gradle/init.gradle
+          echo "ZGVmIHJlcG9VcmwgPSAiaHR0cHM6Ly9yZXBvMS5tYXZlbi5vcmcvbWF2ZW4yLyIKCmJlZm9yZVNldHRpbmdzIHsgc2V0dGluZ3MgLT4KICBzZXR0aW5ncy5wbHVnaW5NYW5hZ2VtZW50IHsKICAgIHJlcG9zaXRvcmllcyB7CiAgICAgIG1hdmVuIHsgdXJsID0gdXJpKHJlcG9VcmwpOyBuYW1lID0gIk1hdmVuQ2VudHJhbE1pcnJvciIgfQogICAgICBncmFkbGVQbHVnaW5Qb3J0YWwoKQogICAgICBnb29nbGUoKQogICAgfQogIH0KfQoKc2V0dGluZ3NFdmFsdWF0ZWQgeyBzZXR0aW5ncyAtPgogIHNldHRpbmdzLnBsdWdpbk1hbmFnZW1lbnQgewogICAgcmVwb3NpdG9yaWVzIHsKICAgICAgY2xlYXIoKQogICAgICBtYXZlbiB7IHVybCA9IHVyaShyZXBvVXJsKTsgbmFtZSA9ICJNYXZlbkNlbnRyYWxNaXJyb3IiIH0KICAgICAgZ3JhZGxlUGx1Z2luUG9ydGFsKCkKICAgICAgZ29vZ2xlKCkKICAgIH0KICB9Cn0KCmFsbHByb2plY3RzIHsKICBidWlsZHNjcmlwdCB7CiAgICByZXBvc2l0b3JpZXMgewogICAgICBtYXZlbiB7IHVybCA9IHVyaShyZXBvVXJsKTsgbmFtZSA9ICJNYXZlbkNlbnRyYWxNaXJyb3IiIH0KICAgICAgZ29vZ2xlKCkKICAgIH0KICB9CiAgcmVwb3NpdG9yaWVzIHsKICAgIG1hdmVuIHsgdXJsID0gdXJpKHJlcG9VcmwpOyBuYW1lID0gIk1hdmVuQ2VudHJhbE1pcnJvciIgfQogICAgZ29vZ2xlKCkKICB9Cn0K" | base64 -d > ~/.gradle/init.gradle
+          echo "=== init.gradle contents ==="
+          cat ~/.gradle/init.gradle
 
       # Setup signing AFTER prebuild creates android/ directory
       - name: Decode keystore
