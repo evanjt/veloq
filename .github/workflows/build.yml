@@ -121,8 +121,9 @@ jobs:
         if: matrix.arch == 'arm64-v8a'
         working-directory: rust/route-matcher
         run: |
+          mkdir -p ../artifact
           cargo run --bin uniffi-bindgen --features ffi generate --library target/${{ matrix.rust_target }}/release/libroute_matcher.so \
-            --language kotlin --out-file ../artifact/RouteMatcher.kt
+            --language kotlin --out-dir ../artifact
 
       - name: Upload .so file
         uses: actions/upload-artifact@v4
@@ -136,7 +137,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: rust-android-kotlin-bindings
-          path: artifact/RouteMatcher.kt
+          path: artifact/*.kt
           retention-days: 1
 
   # ============================================
