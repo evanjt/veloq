@@ -1,15 +1,20 @@
-const { withSettingsGradle } = require("@expo/config-plugins");
+const {
+  withSettingsGradle,
+  withGradleProperties,
+} = require("@expo/config-plugins");
 
 /**
- * Expo config plugin that adds explicit repository definitions to settings.gradle.
+ * Expo config plugin that fixes Maven Central 403 errors in GitHub Actions.
  *
- * This fixes Maven Central 403 errors in GitHub Actions by ensuring Gradle uses
- * gradlePluginPortal() which properly handles User-Agent headers for plugin resolution.
+ * Two fixes are applied:
+ * 1. Adds explicit repositories to settings.gradle pluginManagement
+ * 2. Sets User-Agent header in gradle.properties to avoid Maven Central blocking
  *
- * Without this, transitive dependencies like gson:2.9.1 (from foojay-resolver-convention)
+ * Without these, transitive dependencies like gson:2.9.1 (from foojay-resolver-convention)
  * fail to download with "403 Forbidden" errors in CI environments.
  */
-module.exports = function withGradleRepositories(config) {
+
+function withSettingsGradleRepositories(config) {
   return withSettingsGradle(config, (config) => {
     const contents = config.modResults.contents;
 
@@ -32,4 +37,30 @@ module.exports = function withGradleRepositories(config) {
 
     return config;
   });
+}
+
+function withGradleUserAgent(config) {
+  return withGradleProperties(config, (config) => {
+    // Add User-Agent system property to avoid Maven Central 403 errors
+    // Maven Central blocks requests without proper User-Agent headers
+    const userAgentProp = config.modResults.find(
+      (p) => p.key === "systemProp.http.agent"
+    );
+
+    if (!userAgentProp) {
+      config.modResults.push({
+        type: "property",
+        key: "systemProp.http.agent",
+        value: "Gradle",
+      });
+    }
+
+    return config;
+  });
+}
+
+module.exports = function withGradleRepositories(config) {
+  config = withSettingsGradleRepositories(config);
+  config = withGradleUserAgent(config);
+  return config;
 };

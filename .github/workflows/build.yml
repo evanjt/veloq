@@ -247,6 +247,9 @@ jobs:
     name: Build Android APK
     needs: [test, rust-build-android]
     runs-on: ubuntu-latest
+    env:
+      # Fix Maven Central 403 errors by setting User-Agent header
+      GRADLE_OPTS: "-Dhttp.agent=Gradle"
     outputs:
       version: ${{ steps.version.outputs.version }}
       version_code: ${{ steps.version.outputs.version_code }}
