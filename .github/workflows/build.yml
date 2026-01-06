@@ -244,28 +244,80 @@ jobs:
         run: |
           # Debug: show what was actually downloaded
           echo "=== Downloaded artifacts structure ==="
-          find artifacts/rust -type f
+          echo "Full tree:"
+          find artifacts/rust -type f -exec ls -lh {} \;
           echo "====================================="
 
           # Copy downloaded .so files to jniLibs
           mkdir -p modules/route-matcher-native/android/src/main/jniLibs/{arm64-v8a,armeabi-v7a,x86_64,x86}
 
+          echo "=== Starting .so file copy ==="
           for arch in arm64-v8a armeabi-v7a x86_64 x86; do
+            echo "Processing $arch..."
             # Try exact path first, then search for it
             if [ -f "artifacts/rust/$arch/libroute_matcher.so" ]; then
+              echo "  Found at artifacts/rust/$arch/libroute_matcher.so"
               cp "artifacts/rust/$arch/libroute_matcher.so" \
                  "modules/route-matcher-native/android/src/main/jniLibs/$arch/"
+              echo "  Copied to jniLibs/$arch/"
             else
-              # Find and copy the file for this architecture
-              find artifacts/rust -path "*/$arch/libroute_matcher.so" -exec cp {} \
-                 "modules/route-matcher-native/android/src/main/jniLibs/$arch/" \;
+              echo "  Not found at expected path, searching..."
+              found=$(find artifacts/rust -path "*/$arch/libroute_matcher.so" 2>/dev/null | head -1)
+              if [ -n "$found" ]; then
+                echo "  Found at: $found"
+                cp "$found" "modules/route-matcher-native/android/src/main/jniLibs/$arch/"
+                echo "  Copied to jniLibs/$arch/"
+              else
+                echo "  ERROR: No .so file found for $arch!"
+                exit 1
+              fi
             fi
           done
 
           # Copy Kotlin bindings
+          echo "=== Copying Kotlin bindings ==="
           mkdir -p modules/route-matcher-native/android/src/main/java/com/veloq/route
-          find artifacts/rust -type f -name "*.kt" -exec cp {} \
-            modules/route-matcher-native/android/src/main/java/com/veloq/route/ \;
+          kt_files=$(find artifacts/rust -type f -name "*.kt" 2>/dev/null)
+          if [ -n "$kt_files" ]; then
+            echo "$kt_files" | while read kt; do
+              echo "  Copying $kt"
+              cp "$kt" modules/route-matcher-native/android/src/main/java/com/veloq/route/
+            done
+          else
+            echo "  WARNING: No .kt files found in artifacts/rust"
+          fi
+
+          # Validation: verify all .so files exist and have content
+          echo "=== Validating copied .so files ==="
+          for arch in arm64-v8a armeabi-v7a x86_64 x86; do
+            so_file="modules/route-matcher-native/android/src/main/jniLibs/$arch/libroute_matcher.so"
+            if [ -f "$so_file" ]; then
+              size=$(stat -c%s "$so_file" 2>/dev/null || stat -f%z "$so_file" 2>/dev/null || echo "0")
+              if [ "$size" -gt 0 ]; then
+                echo "✓ $arch: $so_file (${size} bytes)"
+              else
+                echo "✗ $arch: $so_file exists but is empty!"
+                exit 1
+              fi
+            else
+              echo "✗ $arch: $so_file not found!"
+              exit 1
+            fi
+          done
+
+          # Show final jniLibs structure
+          echo "=== Final jniLibs structure ==="
+          find modules/route-matcher-native/android/src/main/jniLibs -type f -exec ls -lh {} \;
+          echo "================================"
+
+          # Show Kotlin bindings
+          echo "=== Kotlin bindings ==="
+          if [ -d "modules/route-matcher-native/android/src/main/java/com/veloq/route" ]; then
+            ls -la modules/route-matcher-native/android/src/main/java/com/veloq/route/*.kt 2>/dev/null || echo "No .kt files found"
+          else
+            echo "Kotlin bindings directory not found"
+          fi
+          echo "========================"
 
       - name: Cache Android prebuild
         id: android-prebuild-cache
@@ -307,7 +359,63 @@ jobs:
           keyPassword=$ANDROID_KEY_PASSWORD
           EOF
 
+      - name: Verify Rust libraries before build
+        run: |
+          echo "=== Verifying .so files before Gradle build ==="
+
+          # Check if jniLibs directory exists
+          if [ ! -d "modules/route-matcher-native/android/src/main/jniLibs" ]; then
+            echo "ERROR: jniLibs directory not found!"
+            echo "Checking parent directories:"
+            ls -la modules/route-matcher-native/android/ 2>/dev/null || echo "android/ directory not found"
+            exit 1
+          fi
+
+          # Show full jniLibs structure
+          echo "jniLibs directory structure:"
+          find modules/route-matcher-native/android/src/main/jniLibs -type f -exec ls -lh {} \; || echo "No files found in jniLibs"
+          echo ""
+
+          # Verify each architecture
+          all_ok=true
+          for arch in arm64-v8a armeabi-v7a x86_64 x86; do
+            so_file="modules/route-matcher-native/android/src/main/jniLibs/$arch/libroute_matcher.so"
+            if [ -f "$so_file" ]; then
+              size=$(stat -c%s "$so_file" 2>/dev/null || stat -f%z "$so_file" 2>/dev/null || echo "0")
+              md5sum=$(md5sum "$so_file" 2>/dev/null | cut -d' ' -f1 || echo "N/A")
+              if [ "$size" -gt 0 ]; then
+                echo "✓ $arch: ${size} bytes (md5: $md5sum)"
+              else
+                echo "✗ $arch: FILE EXISTS BUT IS EMPTY!"
+                all_ok=false
+              fi
+            else
+              echo "✗ $arch: FILE NOT FOUND at $so_file"
+              all_ok=false
+            fi
+          done
+
+          # Show Kotlin bindings if present
+          echo ""
+          if [ -d "modules/route-matcher-native/android/src/main/java/com/veloq/route" ]; then
+            echo "Kotlin bindings found:"
+            ls -la modules/route-matcher-native/android/src/main/java/com/veloq/route/*.kt 2>/dev/null || echo "  No .kt files"
+          else
+            echo "WARNING: Kotlin bindings directory not found"
+          fi
+
+          if [ "$all_ok" = "false" ]; then
+            echo ""
+            echo "ERROR: Some .so files are missing or empty!"
+            exit 1
+          fi
+
+          echo "=================================================="
+          echo "All Rust libraries verified successfully!"
+
       - name: Build Android APK
+        env:
+          RUST_PREBUILT: "true"
         run: |
           cd android && ./gradlew assembleRelease --no-daemon
 
@@ -333,6 +441,8 @@ jobs:
 
       - name: Build AAB for Play Store
         if: steps.version.outputs.is_release == 'true'
+        env:
+          RUST_PREBUILT: "true"
         run: |
           # Android folder and dependencies are already set up from APK build
           # Just run Gradle to build the AAB
