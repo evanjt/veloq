@@ -234,20 +234,55 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Download Rust artifacts
+      - name: Download arm64-v8a artifact
         uses: actions/download-artifact@v4
         with:
-          pattern: rust-android-*
-          path: artifacts/rust
-          merge-multiple: true
+          name: rust-android-arm64-v8a
+          path: artifacts/rust/arm64-v8a
+
+      - name: Download armeabi-v7a artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: rust-android-armeabi-v7a
+          path: artifacts/rust/armeabi-v7a
+
+      - name: Download x86_64 artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: rust-android-x86_64
+          path: artifacts/rust/x86_64
+
+      - name: Download x86 artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: rust-android-x86
+          path: artifacts/rust/x86
+
+      - name: Download Kotlin bindings
+        uses: actions/download-artifact@v4
+        with:
+          name: rust-android-kotlin-bindings
+          path: artifacts/rust/kotlin
+
+      - name: Debug downloaded artifacts
+        run: |
+          echo "=== Working directory ==="
+          pwd
+          echo ""
+          echo "=== Downloaded artifacts structure ==="
+          find artifacts/rust -type f -exec ls -lh {} \;
+          echo "====================================="
 
       - name: Install Rust libraries to native module
         run: |
+          echo "=== Install Rust libraries - Starting ==="
+          echo "Current directory: $(pwd)"
+
           # Debug: show what was actually downloaded
-          echo "=== Downloaded artifacts structure ==="
-          echo "Full tree:"
-          find artifacts/rust -type f -exec ls -lh {} \;
-          echo "====================================="
+          echo ""
+          echo "=== Contents of artifacts/rust ==="
+          ls -la artifacts/rust/
+          echo ""
 
           # Copy downloaded .so files to jniLibs
           mkdir -p modules/route-matcher-native/android/src/main/jniLibs/{arm64-v8a,armeabi-v7a,x86_64,x86}
@@ -255,23 +290,38 @@ jobs:
           echo "=== Starting .so file copy ==="
           for arch in arm64-v8a armeabi-v7a x86_64 x86; do
             echo "Processing $arch..."
-            # Try exact path first, then search for it
-            if [ -f "artifacts/rust/$arch/libroute_matcher.so" ]; then
-              echo "  Found at artifacts/rust/$arch/libroute_matcher.so"
-              cp "artifacts/rust/$arch/libroute_matcher.so" \
-                 "modules/route-matcher-native/android/src/main/jniLibs/$arch/"
-              echo "  Copied to jniLibs/$arch/"
-            else
-              echo "  Not found at expected path, searching..."
-              found=$(find artifacts/rust -path "*/$arch/libroute_matcher.so" 2>/dev/null | head -1)
-              if [ -n "$found" ]; then
-                echo "  Found at: $found"
-                cp "$found" "modules/route-matcher-native/android/src/main/jniLibs/$arch/"
-                echo "  Copied to jniLibs/$arch/"
-              else
-                echo "  ERROR: No .so file found for $arch!"
-                exit 1
+            # Try multiple possible paths
+            so_file=""
+            for path in \
+              "artifacts/rust/$arch/libroute_matcher.so" \
+              "artifacts/rust/$arch/$arch/libroute_matcher.so"
+            do
+              if [ -f "$path" ]; then
+                so_file="$path"
+                echo "  Found at: $path"
+                break
               fi
+            done
+
+            if [ -z "$so_file" ]; then
+              # Try searching
+              echo "  Not found at expected paths, searching..."
+              found=$(find artifacts/rust -name "libroute_matcher.so" 2>/dev/null | head -1)
+              if [ -n "$found" ]; then
+                so_file="$found"
+                echo "  Found via search: $found"
+              fi
+            fi
+
+            if [ -n "$so_file" ]; then
+              cp "$so_file" "modules/route-matcher-native/android/src/main/jniLibs/$arch/libroute_matcher.so"
+              echo "  ✓ Copied to jniLibs/$arch/"
+            else
+              echo "  ✗ ERROR: No .so file found for $arch!"
+              echo ""
+              echo "All .so files in artifacts/rust:"
+              find artifacts/rust -name "*.so" -exec ls -lh {} \; 2>/dev/null || echo "None found"
+              exit 1
             fi
           done
 
