@@ -43,6 +43,7 @@
       "bundler": "metro"
     },
     "plugins": [
+      "./plugins/with-gradle-repositories",
       "expo-router",
       "expo-localization",
       "@maplibre/maplibre-react-native",
