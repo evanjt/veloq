@@ -102,6 +102,7 @@ jobs:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
+            rust/route-matcher/target
           key: rust-android-${{ matrix.arch }}-${{ runner.os }}-${{ hashFiles('rust/route-matcher/Cargo.toml', 'rust/route-matcher/Cargo.lock', 'rust/route-matcher/**/*.rs') }}
           restore-keys: |
             rust-android-${{ matrix.arch }}-${{ runner.os }}-
@@ -129,7 +130,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: rust-android-${{ matrix.arch }}
-          path: artifact/${{ matrix.abi }}/libroute_matcher.so
+          path: artifact/${{ matrix.abi }}/
           retention-days: 1
 
       - name: Upload Kotlin bindings
