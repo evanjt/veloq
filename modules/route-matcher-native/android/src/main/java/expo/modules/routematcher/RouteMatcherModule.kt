@@ -307,18 +307,7 @@ class RouteMatcherModule : Module() {
 
       val newSignatures = newSigMaps.mapNotNull { mapToSignature(it) }
       val existingSignatures = existingSigMaps.mapNotNull { mapToSignature(it) }
-      val existingGroups = existingGroupMaps.map { m ->
-        @Suppress("UNCHECKED_CAST")
-        val activityIds = m["activityIds"] as List<String>
-        RouteGroup(
-          groupId = m["groupId"] as String,
-          representativeId = (m["representativeId"] as? String) ?: activityIds.firstOrNull() ?: "",
-          activityIds = activityIds,
-          sportType = (m["sportType"] as? String) ?: "",
-          bounds = null,
-          customName = (m["customName"] as? String)
-        )
-      }
+      val existingGroups = existingGroupMaps.mapNotNull { mapToRouteGroup(it) }
 
       val matchConfig = parseConfig(config)
       val startTime = System.currentTimeMillis()
@@ -336,7 +325,7 @@ class RouteMatcherModule : Module() {
           "bounds" to group.bounds?.let { b ->
             mapOf("minLat" to b.minLat, "maxLat" to b.maxLat, "minLng" to b.minLng, "maxLng" to b.maxLng)
           },
-          "customName" to group.customName
+          "customName" to (group.customName ?: "")
         )
       }
     }
@@ -358,18 +347,7 @@ class RouteMatcherModule : Module() {
     Function("detectSectionsFromTracks") { activityIds: List<String>, allCoords: DoubleArray, offsets: IntArray, sportTypeMaps: List<Map<String, Any>>, groupMaps: List<Map<String, Any>>, config: Map<String, Any>? ->
       Log.i(TAG, "detectSectionsFromTracks: ${activityIds.size} activities, ${allCoords.size / 2} coords")
 
-      val groups = groupMaps.map { m ->
-        @Suppress("UNCHECKED_CAST")
-        val activityIds = m["activityIds"] as List<String>
-        RouteGroup(
-          groupId = m["groupId"] as String,
-          representativeId = (m["representativeId"] as? String) ?: activityIds.firstOrNull() ?: "",
-          activityIds = activityIds,
-          sportType = (m["sportType"] as? String) ?: "",
-          bounds = null,
-          customName = (m["customName"] as? String)
-        )
-      }
+      val groups = groupMaps.mapNotNull { mapToRouteGroup(it) }
       val sportTypes = sportTypeMaps.map { m ->
         ActivitySportType(
           activityId = m["activity_id"] as String,
@@ -1096,5 +1074,31 @@ class RouteMatcherModule : Module() {
       Log.w(TAG, "Failed to parse signature from JSON: ${e.message}")
       return null
     }
+  }
+
+  @Suppress("UNCHECKED_CAST")
+  private fun parseBounds(map: Map<String, Any>?): Bounds? {
+    if (map == null) return null
+    return Bounds(
+      minLat = (map["minLat"] as? Number)?.toDouble() ?: 0.0,
+      maxLat = (map["maxLat"] as? Number)?.toDouble() ?: 0.0,
+      minLng = (map["minLng"] as? Number)?.toDouble() ?: 0.0,
+      maxLng = (map["maxLng"] as? Number)?.toDouble() ?: 0.0
+    )
+  }
+
+  @Suppress("UNCHECKED_CAST")
+  private fun mapToRouteGroup(m: Map<String, Any>): RouteGroup? {
+    val groupId = m["groupId"] as? String ?: return null
+    val activityIds = m["activityIds"] as? List<String> ?: return null
+
+    return RouteGroup(
+      groupId = groupId,
+      representativeId = (m["representativeId"] as? String) ?: activityIds.firstOrNull() ?: "",
+      activityIds = activityIds,
+      sportType = (m["sportType"] as? String) ?: "",
+      bounds = parseBounds(m["bounds"] as? Map<String, Any>),
+      customName = m["customName"] as? String
+    )
   }
 }
