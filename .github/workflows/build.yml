@@ -63,11 +63,88 @@ jobs:
         run: ${{ matrix.cmd }}
 
   # ============================================
+  # Build Rust libraries for Android (parallel)
+  # ============================================
+  rust-build-android:
+    name: Rust - Android ${{ matrix.arch }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - arch: arm64-v8a
+            rust_target: aarch64-linux-android
+            abi: arm64-v8a
+          - arch: armeabi-v7a
+            rust_target: armv7-linux-androideabi
+            abi: armeabi-v7a
+          - arch: x86_64
+            rust_target: x86_64-linux-android
+            abi: x86_64
+          - arch: x86
+            rust_target: i686-linux-android
+            abi: x86
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Rust Android target
+        run: rustup target add ${{ matrix.rust_target }}
+
+      - name: Install cargo-ndk
+        run: cargo install cargo-ndk --quiet
+
+      - name: Cache Rust build
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: rust-android-${{ matrix.arch }}-${{ runner.os }}-${{ hashFiles('rust/route-matcher/Cargo.toml', 'rust/route-matcher/Cargo.lock', 'rust/route-matcher/**/*.rs') }}
+          restore-keys: |
+            rust-android-${{ matrix.arch }}-${{ runner.os }}-
+
+      - name: Build Rust library for ${{ matrix.arch }}
+        working-directory: rust/route-matcher
+        run: |
+          cargo ndk -t ${{ matrix.rust_target }} build --release --features full
+
+      - name: Prepare artifact
+        run: |
+          mkdir -p artifact/${{ matrix.abi }}
+          cp rust/route-matcher/target/${{ matrix.rust_target }}/release/libroute_matcher.so \
+            artifact/${{ matrix.abi }}/libroute_matcher.so
+
+      - name: Generate Kotlin bindings (arm64 only)
+        if: matrix.arch == 'arm64-v8a'
+        working-directory: rust/route-matcher
+        run: |
+          cargo run --bin uniffi-bindgen generate --library target/${{ matrix.rust_target }}/release/libroute_matcher.so \
+            --language kotlin --out-file ../artifact/RouteMatcher.kt
+
+      - name: Upload .so file
+        uses: actions/upload-artifact@v4
+        with:
+          name: rust-android-${{ matrix.arch }}
+          path: artifact/${{ matrix.abi }}/libroute_matcher.so
+          retention-days: 1
+
+      - name: Upload Kotlin bindings
+        if: matrix.arch == 'arm64-v8a'
+        uses: actions/upload-artifact@v4
+        with:
+          name: rust-android-kotlin-bindings
+          path: artifact/RouteMatcher.kt
+          retention-days: 1
+
+  # ============================================
   # Build Android
   # ============================================
   build-android:
     name: Build Android APK
-    needs: test
+    needs: [test, rust-build-android]
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.version.outputs.version }}
@@ -138,28 +215,6 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Install Rust Android targets
-        run: rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android i686-linux-android
-
-      - name: Install cargo-ndk
-        run: cargo install cargo-ndk --quiet
-
-      - name: Cache Rust build
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            ~/.cargo/bin
-            rust/route-matcher/target/release
-            rust/route-matcher/target/android
-          key: rust-android-${{ runner.os }}-${{ hashFiles('rust/route-matcher/Cargo.toml', 'rust/route-matcher/Cargo.lock', 'rust/route-matcher/**/*.rs') }}
-          restore-keys: |
-            rust-android-${{ runner.os }}-
-
       - name: Cache Gradle dependencies and build outputs
         uses: actions/cache@v4
         with:
@@ -177,26 +232,30 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build Rust library for Android
-        run: |
-          cd rust/route-matcher
-          ./scripts/build-android.sh
-
-      - name: Install Rust library to native module
-        run: |
-          cd rust/route-matcher
-          ./scripts/install-android.sh
-
-      - name: Save Rust build cache
-        uses: actions/cache/save@v4
+      - name: Download Rust artifacts
+        uses: actions/download-artifact@v4
         with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            ~/.cargo/bin
-            rust/route-matcher/target/release
-            rust/route-matcher/target/android
-          key: rust-android-${{ runner.os }}-${{ hashFiles('rust/route-matcher/Cargo.toml', 'rust/route-matcher/Cargo.lock', 'rust/route-matcher/**/*.rs') }}
+          pattern: rust-android-*
+          path: artifacts/rust
+          merge-multiple: true
+
+      - name: Install Rust libraries to native module
+        run: |
+          # Copy downloaded .so files to jniLibs
+          mkdir -p modules/route-matcher-native/android/src/main/jniLibs/{arm64-v8a,armeabi-v7a,x86_64,x86}
+          cp artifacts/rust/arm64-v8a/libroute_matcher.so \
+            modules/route-matcher-native/android/src/main/jniLibs/arm64-v8a/
+          cp artifacts/rust/armeabi-v7a/libroute_matcher.so \
+            modules/route-matcher-native/android/src/main/jniLibs/armeabi-v7a/
+          cp artifacts/rust/x86_64/libroute_matcher.so \
+            modules/route-matcher-native/android/src/main/jniLibs/x86_64/
+          cp artifacts/rust/x86/libroute_matcher.so \
+            modules/route-matcher-native/android/src/main/jniLibs/x86/
+
+          # Copy Kotlin bindings
+          mkdir -p modules/route-matcher-native/android/src/main/java/com/veloq/route
+          cp artifacts/rust/RouteMatcher.kt \
+            modules/route-matcher-native/android/src/main/java/com/veloq/route/RouteMatcher.kt
 
       - name: Cache Android prebuild
         id: android-prebuild-cache
