@@ -493,6 +493,23 @@ jobs:
         if: steps.android-prebuild-cache.outputs.cache-hit != 'true'
         run: npx expo prebuild --platform android
 
+      # Fix Maven Central 403 errors in GitHub Actions
+      # Add explicit repositories to pluginManagement to avoid User-Agent issues
+      - name: Patch settings.gradle for CI
+        run: |
+          if ! grep -q "repositories {" android/settings.gradle; then
+            sed -i '/includeBuild(expoPluginsPath)/a\
+\
+  repositories {\
+    gradlePluginPortal()\
+    google()\
+    mavenCentral()\
+  }' android/settings.gradle
+            echo "Patched settings.gradle with explicit repositories"
+          else
+            echo "settings.gradle already has repositories block"
+          fi
+
       # Setup signing AFTER prebuild creates android/ directory
       - name: Decode keystore
         id: keystore
