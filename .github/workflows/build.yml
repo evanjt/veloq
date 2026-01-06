@@ -93,19 +93,34 @@ jobs:
       - name: Install Rust Android target
         run: rustup target add ${{ matrix.rust_target }}
 
-      - name: Install cargo-ndk
-        run: cargo install cargo-ndk --quiet
-
-      - name: Cache Rust build
+      - name: Cache cargo-ndk
         uses: actions/cache@v4
         with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            rust/route-matcher/target
-          key: rust-android-${{ matrix.arch }}-${{ runner.os }}-${{ hashFiles('rust/route-matcher/Cargo.toml', 'rust/route-matcher/Cargo.lock', 'rust/route-matcher/**/*.rs') }}
+          path: ~/.cargo/bin/cargo-ndk
+          key: cargo-ndk-${{ runner.os }}-${{ hashFiles('rust/route-matcher/Cargo.toml') }}
+
+      - name: Install cargo-ndk
+        run: cargo install cargo-ndk --quiet || true
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/registry
+          key: cargo-registry-${{ runner.os }}-${{ hashFiles('rust/route-matcher/Cargo.lock') }}
+
+      - name: Cache cargo git dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/git
+          key: cargo-git-${{ runner.os }}-${{ hashFiles('rust/route-matcher/Cargo.lock') }}
+
+      - name: Cache cargo build (dependencies only)
+        uses: actions/cache@v4
+        with:
+          path: rust/route-matcher/target
+          key: rust-android-${{ matrix.arch }}-${{ runner.os }}-deps-${{ hashFiles('rust/route-matcher/Cargo.toml', 'rust/route-matcher/Cargo.lock') }}
           restore-keys: |
-            rust-android-${{ matrix.arch }}-${{ runner.os }}-
+            rust-android-${{ matrix.arch }}-${{ runner.os }}-deps-
 
       - name: Build Rust library for ${{ matrix.arch }}
         working-directory: rust/route-matcher
@@ -122,9 +137,16 @@ jobs:
         if: matrix.arch == 'arm64-v8a'
         working-directory: rust/route-matcher
         run: |
-          mkdir -p ../artifact
-          cargo run --bin uniffi-bindgen --features ffi generate --library target/${{ matrix.rust_target }}/release/libroute_matcher.so \
-            --language kotlin --out-dir ../artifact
+          mkdir -p ../artifact/kotlin
+          echo "=== Running uniffi-bindgen ==="
+          echo "Library: target/${{ matrix.rust_target }}/release/libroute_matcher.so"
+          cargo run --bin uniffi-bindgen --features ffi generate \
+            --library target/${{ matrix.rust_target }}/release/libroute_matcher.so \
+            --language kotlin \
+            --out-dir ../artifact/kotlin
+          echo "=== Generated files ==="
+          find ../artifact/kotlin -type f -name "*.kt" -exec ls -lh {} \; || echo "No .kt files found!"
+          echo "==========================="
 
       - name: Upload .so file
         uses: actions/upload-artifact@v4
@@ -132,14 +154,16 @@ jobs:
           name: rust-android-${{ matrix.arch }}
           path: artifact/${{ matrix.abi }}/
           retention-days: 1
+          if-no-files-found: error
 
       - name: Upload Kotlin bindings
         if: matrix.arch == 'arm64-v8a'
         uses: actions/upload-artifact@v4
         with:
           name: rust-android-kotlin-bindings
-          path: artifact/*.kt
+          path: artifact/kotlin/
           retention-days: 1
+          if-no-files-found: error
 
   # ============================================
   # Build Android
@@ -328,8 +352,19 @@ jobs:
           # Copy Kotlin bindings
           echo "=== Copying Kotlin bindings ==="
           mkdir -p modules/route-matcher-native/android/src/main/java/com/veloq/route
+
+          # Check if kotlin directory exists
+          if [ -d "artifacts/rust/kotlin" ]; then
+            echo "Found kotlin directory, copying files:"
+            ls -la artifacts/rust/kotlin/
+            cp artifacts/rust/kotlin/*.kt modules/route-matcher-native/android/src/main/java/com/veloq/route/ 2>/dev/null || echo "  No .kt files in kotlin directory"
+          fi
+
+          # Also search for any .kt files in artifacts/rust (fallback)
           kt_files=$(find artifacts/rust -type f -name "*.kt" 2>/dev/null)
           if [ -n "$kt_files" ]; then
+            echo "Found .kt files via search:"
+            echo "$kt_files"
             echo "$kt_files" | while read kt; do
               echo "  Copying $kt"
               cp "$kt" modules/route-matcher-native/android/src/main/java/com/veloq/route/
@@ -591,17 +626,25 @@ jobs:
       - name: Install Rust iOS targets
         run: rustup target add aarch64-apple-ios aarch64-apple-ios-sim x86_64-apple-ios
 
-      - name: Cache Rust build
+      - name: Cache cargo registry
         uses: actions/cache@v4
         with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            rust/route-matcher/target/ios
-            rust/route-matcher/target/release
-          key: rust-ios-${{ runner.os }}-${{ hashFiles('rust/route-matcher/Cargo.toml', 'rust/route-matcher/Cargo.lock', 'rust/route-matcher/**/*.rs') }}
+          path: ~/.cargo/registry
+          key: cargo-registry-${{ runner.os }}-${{ hashFiles('rust/route-matcher/Cargo.lock') }}
+
+      - name: Cache cargo git dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/git
+          key: cargo-git-${{ runner.os }}-${{ hashFiles('rust/route-matcher/Cargo.lock') }}
+
+      - name: Cache cargo build (dependencies only)
+        uses: actions/cache@v4
+        with:
+          path: rust/route-matcher/target
+          key: rust-ios-${{ runner.os }}-deps-${{ hashFiles('rust/route-matcher/Cargo.toml', 'rust/route-matcher/Cargo.lock') }}
           restore-keys: |
-            rust-ios-${{ runner.os }}-
+            rust-ios-${{ runner.os }}-deps-
 
       - name: Build Rust library for iOS
         run: |
@@ -614,16 +657,6 @@ jobs:
         run: |
           cd rust/route-matcher
           ./scripts/install-ios.sh
-
-      - name: Save Rust build cache
-        uses: actions/cache/save@v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            rust/route-matcher/target/ios
-            rust/route-matcher/target/release
-          key: rust-ios-${{ runner.os }}-${{ hashFiles('rust/route-matcher/Cargo.toml', 'rust/route-matcher/Cargo.lock', 'rust/route-matcher/**/*.rs') }}
 
       - name: Cache iOS prebuild
         id: ios-prebuild-cache
