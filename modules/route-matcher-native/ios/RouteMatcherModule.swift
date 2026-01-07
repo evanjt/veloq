@@ -813,6 +813,18 @@ public class RouteMatcherModule: Module {
         ]
     }
 
+    private func parseScalePresets(_ value: Any?) -> [ScalePreset]? {
+        guard let list = value as? [[String: Any]] else { return nil }
+        return list.map { preset in
+            ScalePreset(
+                name: (preset["name"] as? String) ?? "medium",
+                minLength: (preset["min_length"] as? Double) ?? 500.0,
+                maxLength: (preset["max_length"] as? Double) ?? 5000.0,
+                minActivities: UInt32((preset["min_activities"] as? Int) ?? 3)
+            )
+        }
+    }
+
     private func parseSectionConfig(_ map: [String: Any]?) -> SectionConfig {
         guard let map = map else { return defaultSectionConfig() }
 
@@ -824,7 +836,11 @@ public class RouteMatcherModule: Module {
             maxSectionLength: (map["max_section_length"] as? Double) ?? defaults.maxSectionLength,
             minActivities: UInt32((map["min_activities"] as? Int) ?? Int(defaults.minActivities)),
             clusterTolerance: (map["cluster_tolerance"] as? Double) ?? defaults.clusterTolerance,
-            samplePoints: UInt32((map["sample_points"] as? Int) ?? Int(defaults.samplePoints))
+            samplePoints: UInt32((map["sample_points"] as? Int) ?? Int(defaults.samplePoints)),
+            detectionMode: (map["detection_mode"] as? String) ?? defaults.detectionMode,
+            includePotentials: (map["include_potentials"] as? Bool) ?? defaults.includePotentials,
+            scalePresets: parseScalePresets(map["scale_presets"]) ?? defaults.scalePresets,
+            preserveHierarchy: (map["preserve_hierarchy"] as? Bool) ?? defaults.preserveHierarchy
         )
     }
 
