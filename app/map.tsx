@@ -171,22 +171,34 @@ export default function MapScreen() {
       };
     }
     // Phase 2: Syncing activity bounds/GPS cache
-    if (progress.status === "syncing" && progress.total > 0) {
+    if (progress.status === "syncing") {
       return {
         completed: progress.completed,
         total: progress.total,
-        message: t("maps.syncingActivities", {
-          completed: progress.completed,
-          total: progress.total,
-        }) as string,
+        message:
+          progress.total > 0
+            ? (t("maps.syncingActivities", {
+                completed: progress.completed,
+                total: progress.total,
+              }) as string)
+            : (t("maps.syncingActivities", {
+                completed: 0,
+                total: 0,
+              }) as string),
       };
     }
     // Phase 3: Analyzing routes (GPS sync to Rust engine)
-    if (isGpsSyncing && gpsSyncProgress.total > 0) {
+    if (isGpsSyncing) {
       return {
         completed: gpsSyncProgress.completed,
         total: gpsSyncProgress.total,
-        message: t("routesScreen.computingRoutes") as string,
+        message:
+          gpsSyncProgress.total > 0
+            ? (t("routesScreen.downloadingGps", {
+                completed: gpsSyncProgress.completed,
+                total: gpsSyncProgress.total,
+              }) as string)
+            : (t("routesScreen.computingRoutes") as string),
       };
     }
     if (gpsSyncProgress.status === "computing") {

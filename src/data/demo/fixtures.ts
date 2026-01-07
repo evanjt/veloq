@@ -507,14 +507,14 @@ export function getActivityMap(id: string, boundsOnly = false): ApiActivityMap |
   const activity = getActivity(id) as ApiActivity & { _routeId?: string };
   if (!activity) return null;
 
-  // Virtual rides don't have maps
-  if (activity.type === 'VirtualRide') {
-    return null;
-  }
-
   // Pool swims don't have maps, but open water swims with routes do
   const routeId = activity._routeId;
   if (activity.type === 'Swim' && !routeId) {
+    return null;
+  }
+
+  // Virtual rides now have real GPS routes (from ROUVY etc.), check routeId
+  if (activity.type === 'VirtualRide' && !routeId) {
     return null;
   }
 
