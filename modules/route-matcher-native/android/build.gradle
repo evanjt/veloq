@@ -133,6 +133,15 @@ task buildRustLibraries(type: Exec) {
   doLast {
     println "=== Rust build complete ==="
   }
+
+  // Verify Kotlin bindings were generated
+  doLast {
+    def kotlinBinding = file("src/main/java/uniffi/route_matcher/route_matcher.kt")
+    if (!kotlinBinding.exists()) {
+      throw new GradleException("Kotlin bindings not found at ${kotlinBinding}")
+    }
+    println "✅ Kotlin bindings verified: ${kotlinBinding}"
+  }
 }
 
 // Make sure Rust is built before any tasks that need the JNI libraries
