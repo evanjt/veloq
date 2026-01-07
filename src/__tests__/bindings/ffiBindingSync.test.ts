@@ -74,10 +74,7 @@ function parseKotlinDataClasses(content: string): Map<string, StructDefinition> 
  * Parse Swift constructor calls from RouteMatcherModule.swift.
  * Extracts the parameter names passed to struct initializers.
  */
-function parseSwiftConstructorCalls(
-  content: string,
-  structName: string
-): string[] {
+function parseSwiftConstructorCalls(content: string, structName: string): string[] {
   // Find all occurrences of StructName( and extract until balanced )
   const startPattern = new RegExp(`${structName}\\(`, 'g');
   let bestMatch: string[] = [];
