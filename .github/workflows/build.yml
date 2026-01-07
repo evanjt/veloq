@@ -650,9 +650,36 @@ jobs:
             echo "::error::keystore.properties not found - release builds must be signed"
             exit 1
           fi
-          echo "✅ APK signed with release keystore"
           cp android/app/build/outputs/apk/release/app-release.apk \
             "artifacts/${{ steps.version.outputs.filename }}.apk"
+
+      - name: Verify APK signing
+        env:
+          EXPECTED_SHA1: "0D:54:88:9C:F2:AF:55:09:8F:40:35:E8:54:66:17:F8:30:FD:0D:86"
+        run: |
+          echo "=== Verifying APK was signed with correct key ==="
+          APK_FILE="artifacts/${{ steps.version.outputs.filename }}.apk"
+
+          # Extract signing certificate from APK (it's a ZIP file)
+          ACTUAL_SHA1=$(unzip -p "$APK_FILE" "META-INF/*.RSA" 2>/dev/null | \
+            keytool -printcert 2>/dev/null | \
+            grep "SHA1:" | head -1 | sed 's/.*SHA1: *//' | tr -d ' ')
+
+          echo "Expected SHA1: $EXPECTED_SHA1"
+          echo "Actual SHA1:   $ACTUAL_SHA1"
+
+          if [ -z "$ACTUAL_SHA1" ]; then
+            echo "::error::Could not extract signing certificate from APK"
+            exit 1
+          fi
+
+          if [ "$ACTUAL_SHA1" != "$EXPECTED_SHA1" ]; then
+            echo "::error::APK signed with WRONG KEY!"
+            echo "::error::Expected Play Store upload key but got different certificate"
+            exit 1
+          fi
+
+          echo "✅ APK signed with correct release key"
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
@@ -678,6 +705,40 @@ jobs:
           if [ -n "$AAB_PATH" ]; then
             cp "$AAB_PATH" "artifacts/${{ steps.version.outputs.filename }}.aab"
           fi
+
+      - name: Verify AAB signing
+        if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
+        env:
+          EXPECTED_SHA1: "0D:54:88:9C:F2:AF:55:09:8F:40:35:E8:54:66:17:F8:30:FD:0D:86"
+        run: |
+          echo "=== Verifying AAB was signed with correct key ==="
+          AAB_FILE="artifacts/${{ steps.version.outputs.filename }}.aab"
+
+          if [ ! -f "$AAB_FILE" ]; then
+            echo "::error::AAB file not found at $AAB_FILE"
+            exit 1
+          fi
+
+          # Extract signing certificate from AAB (it's a ZIP file)
+          ACTUAL_SHA1=$(unzip -p "$AAB_FILE" "META-INF/*.RSA" 2>/dev/null | \
+            keytool -printcert 2>/dev/null | \
+            grep "SHA1:" | head -1 | sed 's/.*SHA1: *//' | tr -d ' ')
+
+          echo "Expected SHA1: $EXPECTED_SHA1"
+          echo "Actual SHA1:   $ACTUAL_SHA1"
+
+          if [ -z "$ACTUAL_SHA1" ]; then
+            echo "::error::Could not extract signing certificate from AAB"
+            exit 1
+          fi
+
+          if [ "$ACTUAL_SHA1" != "$EXPECTED_SHA1" ]; then
+            echo "::error::AAB signed with WRONG KEY!"
+            echo "::error::Expected Play Store upload key but got different certificate"
+            exit 1
+          fi
+
+          echo "✅ AAB signed with correct release key"
 
       - name: Upload AAB artifact
         if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'

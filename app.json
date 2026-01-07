@@ -44,6 +44,7 @@
     },
     "plugins": [
       "./plugins/with-gradle-repositories",
+      "./plugins/with-release-signing",
       "expo-router",
       "expo-localization",
       "@maplibre/maplibre-react-native",
