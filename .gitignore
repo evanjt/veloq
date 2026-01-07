@@ -52,11 +52,8 @@ modules/route-matcher-native/android/src/main/jniLibs/
 modules/route-matcher-native/ios/*.a
 modules/route-matcher-native/ios/*.xcframework/
 
-# UniFFI generated bindings (regenerated from Rust source)
-# Note: route_matcher.kt IS committed as source of truth for FFI binding sync tests
-modules/route-matcher-native/android/src/main/java/uniffi/*
-!modules/route-matcher-native/android/src/main/java/uniffi/route_matcher/
-!modules/route-matcher-native/android/src/main/java/uniffi/route_matcher/route_matcher.kt
+# UniFFI generated bindings (regenerated from Rust source during build)
+modules/route-matcher-native/android/src/main/java/uniffi/
 modules/route-matcher-native/src/generated/
 
 # Android build cache
