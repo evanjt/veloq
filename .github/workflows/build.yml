@@ -516,20 +516,44 @@ jobs:
           cat ~/.gradle/init.gradle
 
       # Setup signing AFTER prebuild creates android/ directory
-      - name: Decode keystore
-        id: keystore
-        if: env.ANDROID_KEYSTORE_BASE64 != ''
+      - name: Decode and verify keystore
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          EXPECTED_SHA1: "0D:54:88:9C:F2:AF:55:09:8F:40:35:E8:54:66:17:F8:30:FD:0D:86"
         run: |
+          # Verify all required secrets are set
+          if [ -z "$ANDROID_KEYSTORE_BASE64" ]; then
+            echo "::error::ANDROID_KEYSTORE_BASE64 secret is not set"
+            exit 1
+          fi
+          if [ -z "$ANDROID_KEYSTORE_PASSWORD" ]; then
+            echo "::error::ANDROID_KEYSTORE_PASSWORD secret is not set"
+            exit 1
+          fi
+          if [ -z "$ANDROID_KEY_ALIAS" ]; then
+            echo "::error::ANDROID_KEY_ALIAS secret is not set"
+            exit 1
+          fi
+
           mkdir -p android/app
           # Remove any whitespace/newlines from the secret
           CLEAN_KEYSTORE=$(echo "$ANDROID_KEYSTORE_BASE64" | tr -d ' \n\r\t')
           echo "$CLEAN_KEYSTORE" | base64 -d > android/app/release.keystore
-          echo "signing_available=true" >> $GITHUB_OUTPUT
+
+          # Verify the keystore fingerprint matches expected
+          ACTUAL_SHA1=$(keytool -list -keystore android/app/release.keystore -storepass "$ANDROID_KEYSTORE_PASSWORD" 2>/dev/null | grep SHA1 | head -1 | sed 's/.*SHA1: //')
+          echo "Expected SHA1: $EXPECTED_SHA1"
+          echo "Actual SHA1:   $ACTUAL_SHA1"
+
+          if [ "$ACTUAL_SHA1" != "$EXPECTED_SHA1" ]; then
+            echo "::error::Keystore fingerprint mismatch! The keystore in ANDROID_KEYSTORE_BASE64 does not match the expected Play Store upload key."
+            exit 1
+          fi
+          echo "✅ Keystore verified successfully"
 
       - name: Create keystore.properties
-        if: steps.keystore.outputs.signing_available == 'true'
         env:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
@@ -602,18 +626,16 @@ jobs:
         run: |
           cd android && ./gradlew assembleRelease --no-daemon
 
-      - name: Rename and copy APK
+      - name: Copy APK
         run: |
           mkdir -p artifacts
-          SUFFIX=""
           if [ ! -f android/keystore.properties ]; then
-            SUFFIX="-unsigned"
-            echo "⚠️ No signing configured - APK will be unsigned"
-          else
-            echo "✅ APK signed with release keystore"
+            echo "::error::keystore.properties not found - release builds must be signed"
+            exit 1
           fi
+          echo "✅ APK signed with release keystore"
           cp android/app/build/outputs/apk/release/app-release.apk \
-            "artifacts/${{ steps.version.outputs.filename }}${SUFFIX}.apk"
+            "artifacts/${{ steps.version.outputs.filename }}.apk"
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
