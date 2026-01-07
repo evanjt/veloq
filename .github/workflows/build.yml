@@ -182,24 +182,16 @@ jobs:
           path: ~/.cargo/bin/cargo-ndk
           key: cargo-ndk-${{ runner.os }}-v3
 
-      - name: Restore cargo caches
-        uses: actions/cache/restore@v4
+      # Use swatinem/rust-cache - handles timestamps and fingerprints correctly
+      - name: Setup Rust cache
+        uses: swatinem/rust-cache@v2
         with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-          key: cargo-deps-${{ runner.os }}-${{ hashFiles('rust/route-matcher/Cargo.lock') }}
-          restore-keys: |
-            cargo-deps-${{ runner.os }}-
-
-      - name: Restore Rust build cache
-        id: cache-rust-build
-        uses: actions/cache/restore@v4
-        with:
-          path: rust/route-matcher/target
-          key: rust-android-${{ matrix.arch }}-${{ runner.os }}-${{ hashFiles('rust/route-matcher/Cargo.toml', 'rust/route-matcher/Cargo.lock', 'rust/route-matcher/src/**') }}
-          restore-keys: |
-            rust-android-${{ matrix.arch }}-${{ runner.os }}-
+          workspaces: rust/route-matcher -> target
+          prefix-key: rust-android-${{ matrix.arch }}
+          # Cache is shared across builds with same Cargo.lock
+          shared-key: ${{ matrix.rust_target }}
+          # Save even on failure (partial builds can be reused)
+          cache-on-failure: true
 
       - name: Build Rust library for ${{ matrix.arch }}
         working-directory: rust/route-matcher
@@ -211,21 +203,6 @@ jobs:
         working-directory: rust/route-matcher
         run: |
           cargo build --release --bin uniffi-bindgen --features ffi
-
-      # Save caches immediately after build (before any potential failures)
-      - name: Save cargo caches
-        uses: actions/cache/save@v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-          key: cargo-deps-${{ runner.os }}-${{ hashFiles('rust/route-matcher/Cargo.lock') }}
-
-      - name: Save Rust build cache
-        uses: actions/cache/save@v4
-        with:
-          path: rust/route-matcher/target
-          key: rust-android-${{ matrix.arch }}-${{ runner.os }}-${{ hashFiles('rust/route-matcher/Cargo.toml', 'rust/route-matcher/Cargo.lock', 'rust/route-matcher/src/**') }}
 
       - name: Prepare artifact
         run: |
@@ -788,43 +765,19 @@ jobs:
       - name: Install Rust iOS targets
         run: rustup target add aarch64-apple-ios aarch64-apple-ios-sim x86_64-apple-ios
 
-      - name: Restore cargo caches
-        uses: actions/cache/restore@v4
+      # Use swatinem/rust-cache - handles timestamps and fingerprints correctly
+      - name: Setup Rust cache
+        uses: swatinem/rust-cache@v2
         with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-          key: cargo-deps-${{ runner.os }}-${{ hashFiles('rust/route-matcher/Cargo.lock') }}
-          restore-keys: |
-            cargo-deps-${{ runner.os }}-
-
-      - name: Restore Rust build cache
-        uses: actions/cache/restore@v4
-        with:
-          path: rust/route-matcher/target
-          key: rust-ios-${{ runner.os }}-${{ hashFiles('rust/route-matcher/Cargo.toml', 'rust/route-matcher/Cargo.lock', 'rust/route-matcher/src/**') }}
-          restore-keys: |
-            rust-ios-${{ runner.os }}-
+          workspaces: rust/route-matcher -> target
+          prefix-key: rust-ios
+          # Save even on failure (partial builds can be reused)
+          cache-on-failure: true
 
       - name: Build Rust library for iOS
         run: |
           cd rust/route-matcher
           ./scripts/build-ios.sh
-
-      # Save caches immediately after build (before any potential failures)
-      - name: Save cargo caches
-        uses: actions/cache/save@v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-          key: cargo-deps-${{ runner.os }}-${{ hashFiles('rust/route-matcher/Cargo.lock') }}
-
-      - name: Save Rust build cache
-        uses: actions/cache/save@v4
-        with:
-          path: rust/route-matcher/target
-          key: rust-ios-${{ runner.os }}-${{ hashFiles('rust/route-matcher/Cargo.toml', 'rust/route-matcher/Cargo.lock', 'rust/route-matcher/src/**') }}
 
       - name: Install Rust library to native module
         run: |
