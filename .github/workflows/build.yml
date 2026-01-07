@@ -157,6 +157,13 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history needed for mtime restoration
+
+      # Restore file mtimes from git history so Cargo fingerprints work correctly
+      # Without this, Cargo rebuilds everything because cloned files have fresh mtimes
+      - name: Restore file modification times
+        uses: chetan/git-restore-mtime-action@v2
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -194,17 +201,28 @@ jobs:
           # Save even on failure (partial builds can be reused)
           cache-on-failure: true
 
-      - name: Debug cache status
+      - name: Check if build needed
+        id: check-build
         run: |
           echo "Cache hit: ${{ steps.rust-cache.outputs.cache-hit }}"
-          echo "Cargo.lock hash: $(md5sum rust/route-matcher/Cargo.lock | cut -d' ' -f1)"
-          echo "Target dir exists: $(test -d rust/route-matcher/target && echo 'yes' || echo 'no')"
-          if [ -d rust/route-matcher/target ]; then
-            echo "Target dir size: $(du -sh rust/route-matcher/target | cut -f1)"
-            echo "Release dir exists: $(test -d rust/route-matcher/target/${{ matrix.rust_target }}/release && echo 'yes' || echo 'no')"
+          SO_FILE="rust/route-matcher/target/${{ matrix.rust_target }}/release/libroute_matcher.so"
+          if [ -f "$SO_FILE" ]; then
+            SIZE=$(stat -c%s "$SO_FILE")
+            echo "Found cached .so file: $SO_FILE ($SIZE bytes)"
+            if [ "$SIZE" -gt 1000000 ]; then
+              echo "skip_build=true" >> $GITHUB_OUTPUT
+              echo "✅ Using cached library - skipping build"
+            else
+              echo "skip_build=false" >> $GITHUB_OUTPUT
+              echo "⚠️ Cached .so too small, rebuilding"
+            fi
+          else
+            echo "skip_build=false" >> $GITHUB_OUTPUT
+            echo "No cached .so found, building from scratch"
           fi
 
       - name: Build Rust library for ${{ matrix.arch }}
+        if: steps.check-build.outputs.skip_build != 'true'
         working-directory: rust/route-matcher
         run: |
           cargo ndk -t ${{ matrix.rust_target }} build --release --features full
@@ -775,6 +793,12 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history needed for mtime restoration
+
+      # Restore file mtimes from git history so Cargo fingerprints work correctly
+      - name: Restore file modification times
+        uses: chetan/git-restore-mtime-action@v2
 
       - name: Get version info
         id: version
