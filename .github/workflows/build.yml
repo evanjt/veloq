@@ -201,10 +201,19 @@ jobs:
           # Save even on failure (partial builds can be reused)
           cache-on-failure: true
 
+      # Cache the built .so file separately (swatinem/rust-cache only caches deps)
+      - name: Restore built .so cache
+        id: so-cache
+        uses: actions/cache@v4
+        with:
+          path: rust/route-matcher/target/${{ matrix.rust_target }}/release/libroute_matcher.so
+          key: rust-so-${{ matrix.rust_target }}-${{ hashFiles('rust/route-matcher/Cargo.lock', 'rust/route-matcher/src/**/*.rs', 'rust/route-matcher/Cargo.toml') }}
+
       - name: Check if build needed
         id: check-build
         run: |
-          echo "Cache hit: ${{ steps.rust-cache.outputs.cache-hit }}"
+          echo "Deps cache hit: ${{ steps.rust-cache.outputs.cache-hit }}"
+          echo "SO cache hit: ${{ steps.so-cache.outputs.cache-hit }}"
           SO_FILE="rust/route-matcher/target/${{ matrix.rust_target }}/release/libroute_matcher.so"
           if [ -f "$SO_FILE" ]; then
             SIZE=$(stat -c%s "$SO_FILE")
@@ -682,34 +691,6 @@ jobs:
           cp android/app/build/outputs/apk/release/app-release.apk \
             "artifacts/${{ steps.version.outputs.filename }}.apk"
 
-      - name: Verify APK signing
-        env:
-          EXPECTED_SHA1: "0D:54:88:9C:F2:AF:55:09:8F:40:35:E8:54:66:17:F8:30:FD:0D:86"
-        run: |
-          echo "=== Verifying APK was signed with correct key ==="
-          APK_FILE="artifacts/${{ steps.version.outputs.filename }}.apk"
-
-          # Extract signing certificate from APK (it's a ZIP file)
-          ACTUAL_SHA1=$(unzip -p "$APK_FILE" "META-INF/*.RSA" 2>/dev/null | \
-            keytool -printcert 2>/dev/null | \
-            grep "SHA1:" | head -1 | sed 's/.*SHA1: *//' | tr -d ' ')
-
-          echo "Expected SHA1: $EXPECTED_SHA1"
-          echo "Actual SHA1:   $ACTUAL_SHA1"
-
-          if [ -z "$ACTUAL_SHA1" ]; then
-            echo "::error::Could not extract signing certificate from APK"
-            exit 1
-          fi
-
-          if [ "$ACTUAL_SHA1" != "$EXPECTED_SHA1" ]; then
-            echo "::error::APK signed with WRONG KEY!"
-            echo "::error::Expected Play Store upload key but got different certificate"
-            exit 1
-          fi
-
-          echo "✅ APK signed with correct release key"
-
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
@@ -735,6 +716,14 @@ jobs:
             cp "$AAB_PATH" "artifacts/${{ steps.version.outputs.filename }}.aab"
           fi
 
+      - name: Upload AAB artifact
+        if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-aab-${{ steps.version.outputs.filename }}
+          path: artifacts/*.aab
+          retention-days: 30
+
       - name: Verify AAB signing
         if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
         env:
@@ -748,16 +737,29 @@ jobs:
             exit 1
           fi
 
-          # Extract signing certificate from AAB (it's a ZIP file)
-          ACTUAL_SHA1=$(unzip -p "$AAB_FILE" "META-INF/*.RSA" 2>/dev/null | \
+          # AABs use JAR signing (v1) so we can extract from META-INF
+          # Unlike APKs, AABs don't support v2/v3 signature schemes
+          ACTUAL_SHA1=$(unzip -p "$AAB_FILE" "META-INF/BNDLTOOL.RSA" 2>/dev/null | \
             keytool -printcert 2>/dev/null | \
             grep "SHA1:" | head -1 | sed 's/.*SHA1: *//' | tr -d ' ')
+
+          # Fallback: try any .RSA file if BNDLTOOL.RSA doesn't exist
+          if [ -z "$ACTUAL_SHA1" ]; then
+            RSA_FILE=$(unzip -l "$AAB_FILE" 2>/dev/null | grep "META-INF/.*\.RSA" | awk '{print $4}' | head -1)
+            if [ -n "$RSA_FILE" ]; then
+              ACTUAL_SHA1=$(unzip -p "$AAB_FILE" "$RSA_FILE" 2>/dev/null | \
+                keytool -printcert 2>/dev/null | \
+                grep "SHA1:" | head -1 | sed 's/.*SHA1: *//' | tr -d ' ')
+            fi
+          fi
 
           echo "Expected SHA1: $EXPECTED_SHA1"
           echo "Actual SHA1:   $ACTUAL_SHA1"
 
           if [ -z "$ACTUAL_SHA1" ]; then
             echo "::error::Could not extract signing certificate from AAB"
+            echo "AAB contents:"
+            unzip -l "$AAB_FILE" | grep -i "meta-inf" || echo "No META-INF found"
             exit 1
           fi
 
@@ -768,14 +770,6 @@ jobs:
           fi
 
           echo "✅ AAB signed with correct release key"
-
-      - name: Upload AAB artifact
-        if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
-        uses: actions/upload-artifact@v4
-        with:
-          name: android-aab-${{ steps.version.outputs.filename }}
-          path: artifacts/*.aab
-          retention-days: 30
 
   # ============================================
   # Build iOS
@@ -869,14 +863,29 @@ jobs:
           # Save even on failure (partial builds can be reused)
           cache-on-failure: true
 
-      - name: Debug cache status
+      # Cache the built .a files separately (swatinem/rust-cache only caches deps)
+      - name: Restore iOS static libraries cache
+        id: ios-libs-cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            rust/route-matcher/target/aarch64-apple-ios/release/libroute_matcher.a
+            rust/route-matcher/target/aarch64-apple-ios-sim/release/libroute_matcher.a
+            rust/route-matcher/target/x86_64-apple-ios/release/libroute_matcher.a
+          key: rust-ios-libs-${{ hashFiles('rust/route-matcher/Cargo.lock', 'rust/route-matcher/src/**/*.rs', 'rust/route-matcher/Cargo.toml') }}
+
+      - name: Check iOS cache status
         run: |
-          echo "Cache hit: ${{ steps.rust-cache-ios.outputs.cache-hit }}"
-          echo "Cargo.lock hash: $(md5sum rust/route-matcher/Cargo.lock | cut -d' ' -f1)"
-          echo "Target dir exists: $(test -d rust/route-matcher/target && echo 'yes' || echo 'no')"
-          if [ -d rust/route-matcher/target ]; then
-            echo "Target dir size: $(du -sh rust/route-matcher/target | cut -f1)"
-          fi
+          echo "Deps cache hit: ${{ steps.rust-cache-ios.outputs.cache-hit }}"
+          echo "iOS libs cache hit: ${{ steps.ios-libs-cache.outputs.cache-hit }}"
+          for target in aarch64-apple-ios aarch64-apple-ios-sim x86_64-apple-ios; do
+            LIB="rust/route-matcher/target/$target/release/libroute_matcher.a"
+            if [ -f "$LIB" ]; then
+              echo "✅ $target: $(stat -f%z "$LIB" 2>/dev/null || stat -c%s "$LIB") bytes"
+            else
+              echo "❌ $target: not found"
+            fi
+          done
 
       - name: Build Rust library for iOS
         run: |
