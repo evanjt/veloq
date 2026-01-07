@@ -3,8 +3,7 @@ name: Build iOS & Android
 on:
   push:
     branches: [main]
-    tags:
-      - "[0-9]+.[0-9]+.[0-9]+"
+    # Tags handled by release.yml (artifact promotion)
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -61,6 +60,78 @@ jobs:
 
       - name: Run ${{ matrix.name }}
         run: ${{ matrix.cmd }}
+
+  # ============================================
+  # Verify Signing Keys (fail fast)
+  # ============================================
+  verify-signing:
+    name: Verify Signing Keys
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify Android signing
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          EXPECTED_SHA1: "0D:54:88:9C:F2:AF:55:09:8F:40:35:E8:54:66:17:F8:30:FD:0D:86"
+        run: |
+          echo "=== Verifying Android signing configuration ==="
+
+          # Verify all required secrets are set
+          MISSING=""
+          [ -z "$ANDROID_KEYSTORE_BASE64" ] && MISSING="$MISSING ANDROID_KEYSTORE_BASE64"
+          [ -z "$ANDROID_KEYSTORE_PASSWORD" ] && MISSING="$MISSING ANDROID_KEYSTORE_PASSWORD"
+          [ -z "$ANDROID_KEY_ALIAS" ] && MISSING="$MISSING ANDROID_KEY_ALIAS"
+          [ -z "$ANDROID_KEY_PASSWORD" ] && MISSING="$MISSING ANDROID_KEY_PASSWORD"
+
+          if [ -n "$MISSING" ]; then
+            echo "::error::Missing required secrets:$MISSING"
+            exit 1
+          fi
+
+          # Decode keystore and verify fingerprint
+          echo "$ANDROID_KEYSTORE_BASE64" | tr -d ' \n\r\t' | base64 -d > /tmp/release.keystore
+
+          if [ ! -f /tmp/release.keystore ]; then
+            echo "::error::Failed to decode keystore"
+            exit 1
+          fi
+
+          SIZE=$(stat -c%s /tmp/release.keystore 2>/dev/null || stat -f%z /tmp/release.keystore)
+          echo "Keystore file size: $SIZE bytes"
+
+          if [ "$SIZE" -lt 1000 ]; then
+            echo "::error::Keystore file too small ($SIZE bytes) - likely corrupted base64"
+            exit 1
+          fi
+
+          # Verify fingerprint
+          KEYTOOL_OUTPUT=$(keytool -list -v -keystore /tmp/release.keystore -storepass "$ANDROID_KEYSTORE_PASSWORD" 2>&1) || {
+            echo "::error::keytool failed - wrong password or corrupted keystore"
+            echo "$KEYTOOL_OUTPUT"
+            exit 1
+          }
+
+          ACTUAL_SHA1=$(echo "$KEYTOOL_OUTPUT" | grep "SHA1:" | head -1 | sed 's/.*SHA1: *//' | tr -d ' ')
+          echo "Expected SHA1: $EXPECTED_SHA1"
+          echo "Actual SHA1:   $ACTUAL_SHA1"
+
+          if [ -z "$ACTUAL_SHA1" ]; then
+            echo "::error::Could not extract SHA1 from keytool output"
+            echo "$KEYTOOL_OUTPUT"
+            exit 1
+          fi
+
+          if [ "$ACTUAL_SHA1" != "$EXPECTED_SHA1" ]; then
+            echo "::error::Keystore fingerprint mismatch! Expected Play Store upload key."
+            exit 1
+          fi
+
+          echo "✅ Android signing verified"
+          rm /tmp/release.keystore
+
+      # TODO: Add iOS signing verification here later
 
   # ============================================
   # Build Rust libraries for Android (parallel)
@@ -245,7 +316,7 @@ jobs:
   # ============================================
   build-android:
     name: Build Android APK
-    needs: [test, rust-build-android]
+    needs: [test, verify-signing, rust-build-android]
     runs-on: ubuntu-latest
     env:
       # Fix Maven Central 403 errors by setting User-Agent header
@@ -317,71 +388,6 @@ jobs:
         with:
           distribution: "temurin"
           java-version: "17"
-
-      # Verify signing secrets early - fail fast before expensive builds
-      - name: Verify signing secrets
-        env:
-          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-          EXPECTED_SHA1: "0D:54:88:9C:F2:AF:55:09:8F:40:35:E8:54:66:17:F8:30:FD:0D:86"
-        run: |
-          echo "=== Verifying Android signing configuration ==="
-
-          # Verify all required secrets are set
-          MISSING=""
-          [ -z "$ANDROID_KEYSTORE_BASE64" ] && MISSING="$MISSING ANDROID_KEYSTORE_BASE64"
-          [ -z "$ANDROID_KEYSTORE_PASSWORD" ] && MISSING="$MISSING ANDROID_KEYSTORE_PASSWORD"
-          [ -z "$ANDROID_KEY_ALIAS" ] && MISSING="$MISSING ANDROID_KEY_ALIAS"
-          [ -z "$ANDROID_KEY_PASSWORD" ] && MISSING="$MISSING ANDROID_KEY_PASSWORD"
-
-          if [ -n "$MISSING" ]; then
-            echo "::error::Missing required secrets:$MISSING"
-            exit 1
-          fi
-
-          # Decode keystore to temp location and verify fingerprint
-          CLEAN_KEYSTORE=$(echo "$ANDROID_KEYSTORE_BASE64" | tr -d ' \n\r\t')
-          echo "$CLEAN_KEYSTORE" | base64 -d > /tmp/release.keystore
-
-          if [ ! -f /tmp/release.keystore ]; then
-            echo "::error::Failed to decode keystore"
-            exit 1
-          fi
-
-          SIZE=$(stat -c%s /tmp/release.keystore 2>/dev/null || stat -f%z /tmp/release.keystore)
-          echo "Keystore file size: $SIZE bytes"
-
-          if [ "$SIZE" -lt 1000 ]; then
-            echo "::error::Keystore file too small ($SIZE bytes) - likely corrupted base64"
-            exit 1
-          fi
-
-          # Verify fingerprint
-          KEYTOOL_OUTPUT=$(keytool -list -v -keystore /tmp/release.keystore -storepass "$ANDROID_KEYSTORE_PASSWORD" 2>&1) || {
-            echo "::error::keytool failed - wrong password or corrupted keystore"
-            echo "$KEYTOOL_OUTPUT"
-            exit 1
-          }
-
-          ACTUAL_SHA1=$(echo "$KEYTOOL_OUTPUT" | grep "SHA1:" | head -1 | sed 's/.*SHA1: *//' | tr -d ' ')
-          echo "Expected SHA1: $EXPECTED_SHA1"
-          echo "Actual SHA1:   $ACTUAL_SHA1"
-
-          if [ -z "$ACTUAL_SHA1" ]; then
-            echo "::error::Could not extract SHA1 from keytool output"
-            echo "$KEYTOOL_OUTPUT"
-            exit 1
-          fi
-
-          if [ "$ACTUAL_SHA1" != "$EXPECTED_SHA1" ]; then
-            echo "::error::Keystore fingerprint mismatch! Expected Play Store upload key."
-            exit 1
-          fi
-
-          echo "✅ Signing secrets verified successfully"
-          rm /tmp/release.keystore
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
@@ -681,7 +687,8 @@ jobs:
           retention-days: 30
 
       - name: Build AAB for Play Store
-        if: steps.version.outputs.is_release == 'true'
+        # Build AAB on main branch (needed for release artifact promotion)
+        if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
         env:
           RUST_PREBUILT: "true"
         run: |
@@ -690,7 +697,7 @@ jobs:
           cd android && ./gradlew bundleRelease --no-daemon
 
       - name: Rename AAB
-        if: steps.version.outputs.is_release == 'true'
+        if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
         run: |
           AAB_PATH=$(find android/app/build/outputs/bundle -name "*.aab" | head -1)
           if [ -n "$AAB_PATH" ]; then
@@ -698,7 +705,7 @@ jobs:
           fi
 
       - name: Upload AAB artifact
-        if: steps.version.outputs.is_release == 'true'
+        if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@v4
         with:
           name: android-aab-${{ steps.version.outputs.filename }}
@@ -906,86 +913,3 @@ jobs:
             modules/route-matcher-native/ios/Frameworks/
             modules/route-matcher-native/ios/Generated/
           retention-days: 7
-
-  # ============================================
-  # Create Release (only on tags)
-  # ============================================
-  release:
-    name: Create Release
-    if: needs.build-android.outputs.is_release == 'true'
-    needs: [build-android, build-ios]
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Download Android APK artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: android-apk-${{ needs.build-android.outputs.filename }}
-          path: artifacts/
-
-      - name: Download Android AAB artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: android-aab-${{ needs.build-android.outputs.filename }}
-          path: artifacts/
-
-      - name: Download iOS artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: ios-simulator-${{ needs.build-ios.outputs.filename }}
-          path: artifacts/
-
-      - name: Generate release notes
-        id: notes
-        run: |
-          VERSION="${{ needs.build-android.outputs.version }}"
-          CHANGELOG_FILE="fastlane/metadata/android/en-US/changelogs/${{ needs.build-android.outputs.version_code }}.txt"
-
-          if [ -f "$CHANGELOG_FILE" ]; then
-            CHANGELOG=$(cat "$CHANGELOG_FILE")
-          else
-            CHANGELOG="See commit history for changes."
-          fi
-
-          cat > release-notes.md << EOF
-          # Veloq v${VERSION}
-
-          ## What's New
-
-          $CHANGELOG
-
-          ## Downloads
-
-          - **Android APK:** \`${{ needs.build-android.outputs.filename }}.apk\` (direct install)
-          - **Android AAB:** \`${{ needs.build-android.outputs.filename }}.aab\` (Play Store format)
-          - **iOS Simulator:** \`${{ needs.build-ios.outputs.filename }}-ios-simulator.zip\`
-
-          ## Installation
-
-          ### Android
-          Download the APK and install directly on your device. You may need to enable "Install from unknown sources" in your device settings.
-
-          ### iOS Simulator
-          Unzip and drag the .app file onto the iOS Simulator.
-
-          ---
-
-          Built from commit: ${{ github.sha }}
-          EOF
-
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          name: Veloq v${{ needs.build-android.outputs.version }}
-          tag_name: ${{ github.ref_name }}
-          body_path: release-notes.md
-          files: |
-            artifacts/*.apk
-            artifacts/*.aab
-            artifacts/*.zip
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
