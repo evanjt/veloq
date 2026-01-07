@@ -386,10 +386,31 @@ jobs:
           path: |
             android/.gradle
             android/app/build
+            android/app/.cxx
             android/build
           key: android-build-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
           restore-keys: |
             android-build-${{ runner.os }}-
+
+      - name: Cache Metro bundler
+        uses: actions/cache@v4
+        with:
+          path: |
+            /tmp/metro-*
+            node_modules/.cache
+          key: metro-${{ runner.os }}-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            metro-${{ runner.os }}-
+
+      - name: Cache React Native library builds
+        uses: actions/cache@v4
+        with:
+          path: |
+            node_modules/**/android/build
+            node_modules/**/android/.cxx
+          key: rn-libs-build-${{ runner.os }}-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            rn-libs-build-${{ runner.os }}-
 
       - name: Install dependencies
         run: npm ci
@@ -485,29 +506,8 @@ jobs:
             fi
           done
 
-          # Copy Kotlin bindings
-          echo "=== Copying Kotlin bindings ==="
-          mkdir -p modules/route-matcher-native/android/src/main/java/com/veloq/route
-
-          # Check if kotlin directory exists
-          if [ -d "artifacts/rust/kotlin" ]; then
-            echo "Found kotlin directory, copying files:"
-            ls -la artifacts/rust/kotlin/
-            cp artifacts/rust/kotlin/*.kt modules/route-matcher-native/android/src/main/java/com/veloq/route/ 2>/dev/null || echo "  No .kt files in kotlin directory"
-          fi
-
-          # Also search for any .kt files in artifacts/rust (fallback)
-          kt_files=$(find artifacts/rust -type f -name "*.kt" 2>/dev/null)
-          if [ -n "$kt_files" ]; then
-            echo "Found .kt files via search:"
-            echo "$kt_files"
-            echo "$kt_files" | while read kt; do
-              echo "  Copying $kt"
-              cp "$kt" modules/route-matcher-native/android/src/main/java/com/veloq/route/
-            done
-          else
-            echo "  WARNING: No .kt files found in artifacts/rust"
-          fi
+          # Note: Kotlin bindings are committed in uniffi/route_matcher/route_matcher.kt
+          # We no longer copy generated bindings - the committed file is used directly
 
           # Validation: verify all .so files exist and have content
           echo "=== Validating copied .so files ==="
@@ -532,13 +532,9 @@ jobs:
           find modules/route-matcher-native/android/src/main/jniLibs -type f -exec ls -lh {} \;
           echo "================================"
 
-          # Show Kotlin bindings
-          echo "=== Kotlin bindings ==="
-          if [ -d "modules/route-matcher-native/android/src/main/java/com/veloq/route" ]; then
-            ls -la modules/route-matcher-native/android/src/main/java/com/veloq/route/*.kt 2>/dev/null || echo "No .kt files found"
-          else
-            echo "Kotlin bindings directory not found"
-          fi
+          # Show committed Kotlin bindings (used directly, not copied)
+          echo "=== Kotlin bindings (committed) ==="
+          ls -la modules/route-matcher-native/android/src/main/java/uniffi/route_matcher/route_matcher.kt 2>/dev/null || echo "WARNING: Committed Kotlin binding not found!"
           echo "========================"
 
       - name: Cache Android prebuild
@@ -621,13 +617,15 @@ jobs:
             fi
           done
 
-          # Show Kotlin bindings if present
+          # Verify committed Kotlin bindings exist
           echo ""
-          if [ -d "modules/route-matcher-native/android/src/main/java/com/veloq/route" ]; then
-            echo "Kotlin bindings found:"
-            ls -la modules/route-matcher-native/android/src/main/java/com/veloq/route/*.kt 2>/dev/null || echo "  No .kt files"
+          KOTLIN_BINDING="modules/route-matcher-native/android/src/main/java/uniffi/route_matcher/route_matcher.kt"
+          if [ -f "$KOTLIN_BINDING" ]; then
+            echo "Kotlin binding found: $KOTLIN_BINDING"
+            ls -la "$KOTLIN_BINDING"
           else
-            echo "WARNING: Kotlin bindings directory not found"
+            echo "ERROR: Committed Kotlin binding not found at $KOTLIN_BINDING"
+            all_ok=false
           fi
 
           if [ "$all_ok" = "false" ]; then
