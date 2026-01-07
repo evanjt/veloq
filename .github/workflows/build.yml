@@ -318,6 +318,71 @@ jobs:
           distribution: "temurin"
           java-version: "17"
 
+      # Verify signing secrets early - fail fast before expensive builds
+      - name: Verify signing secrets
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          EXPECTED_SHA1: "0D:54:88:9C:F2:AF:55:09:8F:40:35:E8:54:66:17:F8:30:FD:0D:86"
+        run: |
+          echo "=== Verifying Android signing configuration ==="
+
+          # Verify all required secrets are set
+          MISSING=""
+          [ -z "$ANDROID_KEYSTORE_BASE64" ] && MISSING="$MISSING ANDROID_KEYSTORE_BASE64"
+          [ -z "$ANDROID_KEYSTORE_PASSWORD" ] && MISSING="$MISSING ANDROID_KEYSTORE_PASSWORD"
+          [ -z "$ANDROID_KEY_ALIAS" ] && MISSING="$MISSING ANDROID_KEY_ALIAS"
+          [ -z "$ANDROID_KEY_PASSWORD" ] && MISSING="$MISSING ANDROID_KEY_PASSWORD"
+
+          if [ -n "$MISSING" ]; then
+            echo "::error::Missing required secrets:$MISSING"
+            exit 1
+          fi
+
+          # Decode keystore to temp location and verify fingerprint
+          CLEAN_KEYSTORE=$(echo "$ANDROID_KEYSTORE_BASE64" | tr -d ' \n\r\t')
+          echo "$CLEAN_KEYSTORE" | base64 -d > /tmp/release.keystore
+
+          if [ ! -f /tmp/release.keystore ]; then
+            echo "::error::Failed to decode keystore"
+            exit 1
+          fi
+
+          SIZE=$(stat -c%s /tmp/release.keystore 2>/dev/null || stat -f%z /tmp/release.keystore)
+          echo "Keystore file size: $SIZE bytes"
+
+          if [ "$SIZE" -lt 1000 ]; then
+            echo "::error::Keystore file too small ($SIZE bytes) - likely corrupted base64"
+            exit 1
+          fi
+
+          # Verify fingerprint
+          KEYTOOL_OUTPUT=$(keytool -list -v -keystore /tmp/release.keystore -storepass "$ANDROID_KEYSTORE_PASSWORD" 2>&1) || {
+            echo "::error::keytool failed - wrong password or corrupted keystore"
+            echo "$KEYTOOL_OUTPUT"
+            exit 1
+          }
+
+          ACTUAL_SHA1=$(echo "$KEYTOOL_OUTPUT" | grep "SHA1:" | head -1 | sed 's/.*SHA1: *//' | tr -d ' ')
+          echo "Expected SHA1: $EXPECTED_SHA1"
+          echo "Actual SHA1:   $ACTUAL_SHA1"
+
+          if [ -z "$ACTUAL_SHA1" ]; then
+            echo "::error::Could not extract SHA1 from keytool output"
+            echo "$KEYTOOL_OUTPUT"
+            exit 1
+          fi
+
+          if [ "$ACTUAL_SHA1" != "$EXPECTED_SHA1" ]; then
+            echo "::error::Keystore fingerprint mismatch! Expected Play Store upload key."
+            exit 1
+          fi
+
+          echo "✅ Signing secrets verified successfully"
+          rm /tmp/release.keystore
+
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
@@ -516,55 +581,26 @@ jobs:
           cat ~/.gradle/init.gradle
 
       # Setup signing AFTER prebuild creates android/ directory
-      - name: Decode and verify keystore
+      - name: Setup signing
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          EXPECTED_SHA1: "0D:54:88:9C:F2:AF:55:09:8F:40:35:E8:54:66:17:F8:30:FD:0D:86"
-        run: |
-          # Verify all required secrets are set
-          if [ -z "$ANDROID_KEYSTORE_BASE64" ]; then
-            echo "::error::ANDROID_KEYSTORE_BASE64 secret is not set"
-            exit 1
-          fi
-          if [ -z "$ANDROID_KEYSTORE_PASSWORD" ]; then
-            echo "::error::ANDROID_KEYSTORE_PASSWORD secret is not set"
-            exit 1
-          fi
-          if [ -z "$ANDROID_KEY_ALIAS" ]; then
-            echo "::error::ANDROID_KEY_ALIAS secret is not set"
-            exit 1
-          fi
-
-          mkdir -p android/app
-          # Remove any whitespace/newlines from the secret
-          CLEAN_KEYSTORE=$(echo "$ANDROID_KEYSTORE_BASE64" | tr -d ' \n\r\t')
-          echo "$CLEAN_KEYSTORE" | base64 -d > android/app/release.keystore
-
-          # Verify the keystore fingerprint matches expected
-          ACTUAL_SHA1=$(keytool -list -keystore android/app/release.keystore -storepass "$ANDROID_KEYSTORE_PASSWORD" 2>/dev/null | grep SHA1 | head -1 | sed 's/.*SHA1: //')
-          echo "Expected SHA1: $EXPECTED_SHA1"
-          echo "Actual SHA1:   $ACTUAL_SHA1"
-
-          if [ "$ACTUAL_SHA1" != "$EXPECTED_SHA1" ]; then
-            echo "::error::Keystore fingerprint mismatch! The keystore in ANDROID_KEYSTORE_BASE64 does not match the expected Play Store upload key."
-            exit 1
-          fi
-          echo "✅ Keystore verified successfully"
-
-      - name: Create keystore.properties
-        env:
-          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
+          # Keystore was already verified earlier - just decode to final location
+          mkdir -p android/app
+          echo "$ANDROID_KEYSTORE_BASE64" | tr -d ' \n\r\t' | base64 -d > android/app/release.keystore
+
+          # Create keystore.properties
           printf '%s\n' \
             "storeFile=release.keystore" \
             "storePassword=$ANDROID_KEYSTORE_PASSWORD" \
             "keyAlias=$ANDROID_KEY_ALIAS" \
             "keyPassword=$ANDROID_KEY_PASSWORD" \
             > android/keystore.properties
+
+          echo "✅ Signing configured"
 
       - name: Verify Rust libraries before build
         run: |
