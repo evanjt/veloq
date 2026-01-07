@@ -544,8 +544,11 @@ jobs:
             fi
           done
 
-          # Note: Kotlin bindings are committed in uniffi/route_matcher/route_matcher.kt
-          # We no longer copy generated bindings - the committed file is used directly
+          # Copy generated Kotlin bindings from artifacts
+          run: |
+            mkdir -p modules/route-matcher-native/android/src/main/java/uniffi/route_matcher/
+            cp -r artifacts/rust/kotlin/uniffi/route_matcher/route_matcher.kt \
+              modules/route-matcher-native/android/src/main/java/uniffi/route_matcher/
 
           # Validation: verify all .so files exist and have content
           echo "=== Validating copied .so files ==="
@@ -570,9 +573,15 @@ jobs:
           find modules/route-matcher-native/android/src/main/jniLibs -type f -exec ls -lh {} \;
           echo "================================"
 
-          # Show committed Kotlin bindings (used directly, not copied)
-          echo "=== Kotlin bindings (committed) ==="
-          ls -la modules/route-matcher-native/android/src/main/java/uniffi/route_matcher/route_matcher.kt 2>/dev/null || echo "WARNING: Committed Kotlin binding not found!"
+          # Verify Kotlin bindings were copied from artifacts
+          KOTLIN_BINDING="modules/route-matcher-native/android/src/main/java/uniffi/route_matcher/route_matcher.kt"
+          if [ -f "$KOTLIN_BINDING" ]; then
+            echo "✅ Kotlin bindings installed from artifacts: $KOTLIN_BINDING"
+            ls -la "$KOTLIN_BINDING"
+          else
+            echo "ERROR: Kotlin bindings not found after copy!"
+            exit 1
+          fi
           echo "========================"
 
       - name: Cache Android prebuild
