@@ -1,0 +1,168 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "[0-9]+.[0-9]+.[0-9]+"
+
+jobs:
+  # ============================================
+  # Find and wait for main build
+  # ============================================
+  find-and-wait:
+    name: Find Main Build
+    runs-on: ubuntu-latest
+    outputs:
+      run_id: ${{ steps.find.outputs.run_id }}
+    steps:
+      - name: Find or wait for main build
+        id: find
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          COMMIT_SHA="${{ github.sha }}"
+          MAX_WAIT=1800  # 30 minutes
+          POLL_INTERVAL=30
+          WAITED=0
+
+          while [ $WAITED -lt $MAX_WAIT ]; do
+            # Check for build.yml run on this commit
+            RESULT=$(gh api repos/${{ github.repository }}/actions/workflows/build.yml/runs \
+              --jq ".workflow_runs[] | select(.head_sha==\"$COMMIT_SHA\") | {id, status, conclusion}" \
+              | head -1)
+
+            if [ -z "$RESULT" ]; then
+              echo "::error::No build found for commit $COMMIT_SHA. Tags must be on commits that were built on main."
+              exit 1
+            fi
+
+            STATUS=$(echo "$RESULT" | jq -r '.status')
+            CONCLUSION=$(echo "$RESULT" | jq -r '.conclusion')
+            RUN_ID=$(echo "$RESULT" | jq -r '.id')
+
+            if [ "$STATUS" = "completed" ]; then
+              if [ "$CONCLUSION" = "success" ]; then
+                echo "run_id=$RUN_ID" >> $GITHUB_OUTPUT
+                echo "✅ Found successful build: $RUN_ID"
+                exit 0
+              else
+                echo "::error::Build $RUN_ID failed with conclusion: $CONCLUSION"
+                exit 1
+              fi
+            fi
+
+            echo "Build $RUN_ID still running ($STATUS). Waiting ${POLL_INTERVAL}s..."
+            sleep $POLL_INTERVAL
+            WAITED=$((WAITED + POLL_INTERVAL))
+          done
+
+          echo "::error::Timeout waiting for build to complete"
+          exit 1
+
+  # ============================================
+  # Create Release
+  # ============================================
+  release:
+    name: Create Release
+    needs: find-and-wait
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout (for changelog)
+        uses: actions/checkout@v4
+
+      - name: Get version from tag
+        id: version
+        run: |
+          VERSION="${{ github.ref_name }}"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+          # Calculate version code
+          MAJOR=$(echo $VERSION | cut -d. -f1)
+          MINOR=$(echo $VERSION | cut -d. -f2)
+          PATCH=$(echo $VERSION | cut -d. -f3)
+          VERSION_CODE=$((MAJOR * 10000 + MINOR * 100 + PATCH))
+          echo "version_code=$VERSION_CODE" >> $GITHUB_OUTPUT
+
+      - name: Download artifacts from main build
+        uses: actions/download-artifact@v4
+        with:
+          run-id: ${{ needs.find-and-wait.outputs.run_id }}
+          github-token: ${{ github.token }}
+          path: artifacts
+
+      - name: Prepare release artifacts
+        run: |
+          mkdir -p release
+          VERSION="${{ steps.version.outputs.version }}"
+
+          echo "=== Downloaded artifacts ==="
+          find artifacts -type f
+          echo "============================="
+
+          # Find and rename APK (remove SHA suffix)
+          APK=$(find artifacts -name "*.apk" | head -1)
+          if [ -n "$APK" ]; then
+            cp "$APK" "release/veloq-${VERSION}.apk"
+            echo "✅ APK: veloq-${VERSION}.apk"
+          else
+            echo "::warning::No APK found in artifacts"
+          fi
+
+          # Find and copy AAB
+          AAB=$(find artifacts -name "*.aab" | head -1)
+          if [ -n "$AAB" ]; then
+            cp "$AAB" "release/veloq-${VERSION}.aab"
+            echo "✅ AAB: veloq-${VERSION}.aab"
+          else
+            echo "::warning::No AAB found in artifacts"
+          fi
+
+          # Find and rename iOS artifact
+          IOS=$(find artifacts -name "*-ios-simulator.zip" | head -1)
+          if [ -n "$IOS" ]; then
+            cp "$IOS" "release/veloq-${VERSION}-ios-simulator.zip"
+            echo "✅ iOS: veloq-${VERSION}-ios-simulator.zip"
+          else
+            echo "::warning::No iOS simulator artifact found"
+          fi
+
+          echo ""
+          echo "=== Release artifacts ==="
+          ls -la release/
+
+      - name: Read changelog
+        id: changelog
+        run: |
+          VERSION_CODE="${{ steps.version.outputs.version_code }}"
+          CHANGELOG_FILE="fastlane/metadata/android/en-US/changelogs/${VERSION_CODE}.txt"
+          if [ -f "$CHANGELOG_FILE" ]; then
+            CHANGELOG=$(cat "$CHANGELOG_FILE")
+          else
+            CHANGELOG="See commit history for changes."
+          fi
+          echo "content<<EOF" >> $GITHUB_OUTPUT
+          echo "$CHANGELOG" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Veloq v${{ steps.version.outputs.version }}
+          body: |
+            ## What's Changed
+            ${{ steps.changelog.outputs.content }}
+
+            ## Downloads
+            - **Android APK**: Direct install
+            - **Android AAB**: For Play Store upload
+            - **iOS Simulator**: For testing
+
+            ---
+            Built from commit: ${{ github.sha }}
+          files: release/*
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
