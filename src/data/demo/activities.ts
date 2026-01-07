@@ -60,10 +60,10 @@ const activityTemplates = [
   },
   {
     type: 'VirtualRide',
-    name: 'Zwift Session',
-    distance: 30000,
-    movingTime: 3600,
-    elevation: 350,
+    name: 'Virtual Cycle Session',
+    distance: 12000,
+    movingTime: 2400,
+    elevation: 200,
     avgSpeed: 30,
     avgHr: 150,
     avgWatts: 195,
@@ -79,6 +79,28 @@ const activityTemplates = [
     avgHr: 130,
     avgWatts: 0,
     tss: 40,
+  },
+  {
+    type: 'Swim',
+    name: 'Open Water Swim',
+    distance: 800,
+    movingTime: 1200,
+    elevation: 0,
+    avgSpeed: 2.4,
+    avgHr: 135,
+    avgWatts: 0,
+    tss: 25,
+  },
+  {
+    type: 'Hike',
+    name: 'Mountain Hike',
+    distance: 10000,
+    movingTime: 10800,
+    elevation: 600,
+    avgSpeed: 3.3,
+    avgHr: 110,
+    avgWatts: 0,
+    tss: 50,
   },
 ];
 
@@ -127,18 +149,38 @@ function generateDemoActivities(): Activity[] {
     if (Math.random() < restDayChance * (1 / seasonMultiplier)) continue;
 
     // Pick activity based on day pattern
+    // Template indices: 0-2: Rides, 3-4: Runs, 5: VirtualRide, 6: Pool Swim, 7: Open Water Swim, 8: Hike
     let template;
     if (dayOfWeek === 0) {
-      // Sunday - long ride or run
-      template = Math.random() > 0.3 ? activityTemplates[1] : activityTemplates[4];
-    } else if (dayOfWeek === 6) {
-      // Saturday - ride
-      template = activityTemplates[Math.floor(Math.random() * 3)];
-    } else if (dayOfWeek === 2 || dayOfWeek === 5) {
-      // Tuesday/Friday - run, swim, or indoor
+      // Sunday - long ride, run, or occasionally hike
       const r = Math.random();
-      template =
-        r < 0.4 ? activityTemplates[3] : r < 0.7 ? activityTemplates[6] : activityTemplates[5];
+      if (r < 0.5) {
+        template = activityTemplates[1]; // Endurance Ride
+      } else if (r < 0.85) {
+        template = activityTemplates[4]; // Long Run
+      } else {
+        template = activityTemplates[8]; // Mountain Hike
+      }
+    } else if (dayOfWeek === 6) {
+      // Saturday - ride or hike
+      const r = Math.random();
+      if (r < 0.85) {
+        template = activityTemplates[Math.floor(Math.random() * 3)]; // Rides
+      } else {
+        template = activityTemplates[8]; // Mountain Hike
+      }
+    } else if (dayOfWeek === 2 || dayOfWeek === 5) {
+      // Tuesday/Friday - run, swim (pool or open water), or indoor
+      const r = Math.random();
+      if (r < 0.35) {
+        template = activityTemplates[3]; // Easy Run
+      } else if (r < 0.55) {
+        template = activityTemplates[6]; // Pool Swim
+      } else if (r < 0.7) {
+        template = activityTemplates[7]; // Open Water Swim
+      } else {
+        template = activityTemplates[5]; // Virtual Cycle Session
+      }
     } else {
       // Other days - mix with bias toward shorter activities
       template = activityTemplates[Math.floor(Math.random() * activityTemplates.length)];
@@ -151,6 +193,26 @@ function generateDemoActivities(): Activity[] {
     const matchedRoute = getRouteForActivity(template.type, template.distance);
     if (matchedRoute) {
       routeUsage[matchedRoute.id] = (routeUsage[matchedRoute.id] || 0) + 1;
+    }
+
+    // Determine stream types based on activity type and whether it has GPS
+    const hasGps = !!matchedRoute;
+    let streamTypes: string[];
+    if (template.type === 'Swim') {
+      // Pool swims have no GPS, open water swims do
+      streamTypes = hasGps ? ['latlng', 'heartrate', 'distance'] : ['heartrate', 'distance'];
+    } else if (template.type === 'Hike') {
+      streamTypes = hasGps ? ['latlng', 'heartrate', 'altitude'] : ['heartrate'];
+    } else if (template.type === 'VirtualRide') {
+      // Virtual rides now have GPS from real ROUVY routes
+      streamTypes = hasGps
+        ? ['latlng', 'heartrate', 'watts', 'altitude', 'cadence']
+        : ['heartrate', 'watts', 'altitude', 'cadence'];
+    } else {
+      // Rides and Runs always have GPS if they have a route
+      streamTypes = hasGps
+        ? ['latlng', 'heartrate', 'watts', 'altitude', 'cadence']
+        : ['heartrate', 'watts', 'altitude', 'cadence'];
     }
 
     const activity: Activity = {
@@ -166,10 +228,7 @@ function generateDemoActivities(): Activity[] {
       icu_average_hr: Math.round(template.avgHr * (0.95 + Math.random() * 0.1)),
       icu_average_watts: template.avgWatts ? Math.round(template.avgWatts * variance) : undefined,
       icu_training_load: Math.round(template.tss * variance),
-      stream_types:
-        template.type === 'Swim'
-          ? ['heartrate', 'distance']
-          : ['latlng', 'heartrate', 'watts', 'altitude', 'cadence'],
+      stream_types: streamTypes,
       // Store route reference for map data
       _demoRouteId: matchedRoute?.id,
     } as Activity & { _demoRouteId?: string };

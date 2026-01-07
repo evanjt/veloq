@@ -778,6 +778,43 @@ impl PersistentRouteEngine {
         self.activity_metadata.len()
     }
 
+    /// Get all activity bounds info as JSON for map display.
+    /// Returns array of { id, bounds, activity_type, distance }.
+    pub fn get_all_activity_bounds_json(&self) -> String {
+        #[derive(serde::Serialize)]
+        struct BoundsInfo {
+            id: String,
+            bounds: [[f64; 2]; 2], // [[minLat, minLng], [maxLat, maxLng]]
+            activity_type: String,
+            distance: f64,
+        }
+
+        let infos: Vec<BoundsInfo> = self
+            .activity_metadata
+            .values()
+            .map(|m| {
+                // Get distance from metrics if available, otherwise 0
+                let distance = self
+                    .activity_metrics
+                    .get(&m.id)
+                    .map(|metrics| metrics.distance)
+                    .unwrap_or(0.0);
+
+                BoundsInfo {
+                    id: m.id.clone(),
+                    bounds: [
+                        [m.bounds.min_lat, m.bounds.min_lng],
+                        [m.bounds.max_lat, m.bounds.max_lng],
+                    ],
+                    activity_type: m.sport_type.clone(),
+                    distance,
+                }
+            })
+            .collect();
+
+        serde_json::to_string(&infos).unwrap_or_else(|_| "[]".to_string())
+    }
+
     /// Get all activity IDs.
     pub fn get_activity_ids(&self) -> Vec<String> {
         self.activity_metadata.keys().cloned().collect()
@@ -1634,6 +1671,13 @@ pub mod persistent_engine_ffi {
     #[uniffi::export]
     pub fn persistent_engine_get_activity_count() -> u32 {
         with_persistent_engine(|e| e.activity_count() as u32).unwrap_or(0)
+    }
+
+    /// Get all activity bounds info as JSON for map display.
+    #[uniffi::export]
+    pub fn persistent_engine_get_all_activity_bounds_json() -> String {
+        with_persistent_engine(|e| e.get_all_activity_bounds_json())
+            .unwrap_or_else(|| "[]".to_string())
     }
 
     /// Get route groups as JSON.

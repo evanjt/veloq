@@ -72,8 +72,11 @@ export function getRouteBounds(coords: [number, number][]): [[number, number], [
 export function getRouteForActivity(activityType: string, distance: number): DemoRoute | null {
   // Determine which route types match this activity
   const matchingTypes: DemoRoute['type'][] = [];
-  if (activityType === 'Ride' || activityType === 'VirtualRide') {
-    matchingTypes.push('Ride');
+  if (activityType === 'VirtualRide') {
+    // Virtual rides use VirtualRide routes (real GPS from ROUVY etc.)
+    matchingTypes.push('VirtualRide');
+  } else if (activityType === 'Ride') {
+    matchingTypes.push('Ride', 'VirtualRide'); // Outdoor rides can use virtual routes too
   } else if (activityType === 'Run' || activityType === 'TrailRun') {
     matchingTypes.push('Run');
   } else if (activityType === 'Swim' || activityType === 'OpenWaterSwim') {
