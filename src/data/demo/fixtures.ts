@@ -159,16 +159,16 @@ function generateActivities(): ApiActivity[] {
   const activities: ApiActivity[] = [];
   const now = new Date();
 
-  // Templates now use real OSM route IDs:
-  // route-osm-1: EuroVelo 6 (Ride, 495km)
-  // route-osm-2: National Cycle Route 1 (Ride, 588km)
-  // route-osm-3: San Francisco Bay Trail (Ride, 295km)
-  // route-osm-4: Thames Path (Run, 353km)
-  // route-osm-5: Bondi to Coogee (Run, 18km)
-  // route-osm-6: English Channel (Swim, 334km)
-  // route-osm-7: Amsterdam Cycling (Ride, 3472km)
-  // route-osm-8: Central Park Loop (Run, 71km)
-  // route-osm-9: Dover Harbour (Swim, 124km)
+  // Route IDs from realRoutes.json:
+  // route-1: Bay Loop Ride (Ride, SF, 45.7km)
+  // route-2: Richmond Park Circuit (Ride, London, 15.7km)
+  // route-3: Centennial Park Loop (Ride, Sydney, 10.4km)
+  // route-4: Vondelpark Circuit (Ride, Amsterdam, 4.1km)
+  // route-5: Central Park Run (Run, NYC, 13km)
+  // route-6: Bondi to Bronte (Run, Sydney, 5.4km)
+  // route-7: Hyde Park Run (Run, London, 6.5km)
+  // route-8: Bondi Beach Swim Course (Swim, Sydney, 0.7km)
+  // route-osm-9: Sydney Harbour Foreshore (Ride, Sydney, 1.9km)
   const templates = [
     {
       type: 'Ride',
@@ -179,7 +179,7 @@ function generateActivities(): ApiActivity[] {
       hr: 145,
       watts: 180,
       tss: 65,
-      route: 'route-osm-3', // San Francisco Bay Trail
+      route: 'route-1', // Bay Loop Ride (SF, 45.7km)
       isLong: false,
       isHard: false,
     },
@@ -192,7 +192,7 @@ function generateActivities(): ApiActivity[] {
       hr: 135,
       watts: 165,
       tss: 120,
-      route: 'route-osm-1', // EuroVelo 6
+      route: 'route-1', // Bay Loop Ride (longest available)
       isLong: true,
       isHard: false,
     },
@@ -205,7 +205,7 @@ function generateActivities(): ApiActivity[] {
       hr: 155,
       watts: 210,
       tss: 80,
-      route: 'route-osm-2', // National Cycle Route 1
+      route: 'route-2', // Richmond Park Circuit (London, 15.7km)
       isLong: false,
       isHard: true,
     },
@@ -218,7 +218,7 @@ function generateActivities(): ApiActivity[] {
       hr: 140,
       watts: 0,
       tss: 35,
-      route: 'route-osm-5', // Bondi to Coogee
+      route: 'route-6', // Bondi to Bronte (Sydney, 5.4km)
       isLong: false,
       isHard: false,
     },
@@ -231,7 +231,7 @@ function generateActivities(): ApiActivity[] {
       hr: 145,
       watts: 0,
       tss: 70,
-      route: 'route-osm-8', // Central Park Loop
+      route: 'route-5', // Central Park Run (NYC, 13km)
       isLong: true,
       isHard: false,
     },
@@ -270,7 +270,7 @@ function generateActivities(): ApiActivity[] {
       hr: 135,
       watts: 0,
       tss: 60,
-      route: 'route-osm-9', // Dover Harbour open water
+      route: 'route-8', // Bondi Beach Swim Course (0.7km)
       isLong: true,
       isHard: false,
     },
