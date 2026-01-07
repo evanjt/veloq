@@ -184,6 +184,7 @@ jobs:
 
       # Use swatinem/rust-cache - handles timestamps and fingerprints correctly
       - name: Setup Rust cache
+        id: rust-cache
         uses: swatinem/rust-cache@v2
         with:
           workspaces: rust/route-matcher -> target
@@ -192,6 +193,16 @@ jobs:
           shared-key: ${{ matrix.rust_target }}
           # Save even on failure (partial builds can be reused)
           cache-on-failure: true
+
+      - name: Debug cache status
+        run: |
+          echo "Cache hit: ${{ steps.rust-cache.outputs.cache-hit }}"
+          echo "Cargo.lock hash: $(md5sum rust/route-matcher/Cargo.lock | cut -d' ' -f1)"
+          echo "Target dir exists: $(test -d rust/route-matcher/target && echo 'yes' || echo 'no')"
+          if [ -d rust/route-matcher/target ]; then
+            echo "Target dir size: $(du -sh rust/route-matcher/target | cut -f1)"
+            echo "Release dir exists: $(test -d rust/route-matcher/target/${{ matrix.rust_target }}/release && echo 'yes' || echo 'no')"
+          fi
 
       - name: Build Rust library for ${{ matrix.arch }}
         working-directory: rust/route-matcher
@@ -826,12 +837,22 @@ jobs:
 
       # Use swatinem/rust-cache - handles timestamps and fingerprints correctly
       - name: Setup Rust cache
+        id: rust-cache-ios
         uses: swatinem/rust-cache@v2
         with:
           workspaces: rust/route-matcher -> target
           prefix-key: rust-ios
           # Save even on failure (partial builds can be reused)
           cache-on-failure: true
+
+      - name: Debug cache status
+        run: |
+          echo "Cache hit: ${{ steps.rust-cache-ios.outputs.cache-hit }}"
+          echo "Cargo.lock hash: $(md5sum rust/route-matcher/Cargo.lock | cut -d' ' -f1)"
+          echo "Target dir exists: $(test -d rust/route-matcher/target && echo 'yes' || echo 'no')"
+          if [ -d rust/route-matcher/target ]; then
+            echo "Target dir size: $(du -sh rust/route-matcher/target | cut -f1)"
+          fi
 
       - name: Build Rust library for iOS
         run: |
