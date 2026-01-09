@@ -16,7 +16,39 @@ import { getActivityColor } from '@/lib';
 import { colors, spacing, layout } from '@/theme';
 import { useMapPreferences } from '@/providers';
 import { getMapStyle, BaseMapView, isDarkStyle } from '@/components/maps';
-import type { FrequentSection, RoutePoint } from '@/types';
+import type { FrequentSection, RoutePoint, ActivityType } from '@/types';
+
+/**
+ * Type guard to validate sport type strings from Rust engine.
+ * Ensures string matches known ActivityType values.
+ *
+ * @param sportType - Unknown string from Rust engine
+ * @returns True if string is a valid ActivityType
+ */
+function isValidActivityType(sportType: string): sportType is ActivityType {
+  const validTypes: Set<string> = new Set([
+    'Ride',
+    'Run',
+    'Swim',
+    'Walk',
+    'Hike',
+    'VirtualRide',
+    'VirtualRun',
+    'Workout',
+    'WeightTraining',
+    'Yoga',
+    'Snowboard',
+    'AlpineSki',
+    'NordicSki',
+    'BackcountrySki',
+    'Rowing',
+    'Kayaking',
+    'Canoeing',
+    'OpenWaterSwim',
+    'TrailRun',
+  ]);
+  return validTypes.has(sportType);
+}
 
 const { MapView } = MapLibreGL;
 
@@ -46,8 +78,15 @@ export function SectionMapView({
 }: SectionMapViewProps) {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const { getStyleForActivity } = useMapPreferences();
-  const mapStyle = getStyleForActivity(section.sportType as any);
-  const activityColor = getActivityColor(section.sportType as any);
+
+  // Validate sport type from Rust engine, fallback to 'Ride' if invalid
+  // This prevents crashes when native module returns unexpected sport types
+  const validSportType: ActivityType = isValidActivityType(section.sportType)
+    ? section.sportType
+    : 'Ride'; // Safe fallback
+
+  const mapStyle = getStyleForActivity(validSportType);
+  const activityColor = getActivityColor(validSportType);
   const mapRef = useRef(null);
 
   const displayPoints = section.polyline || [];
