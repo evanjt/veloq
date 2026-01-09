@@ -127,12 +127,6 @@ pub use curves::{
     compute_power_curve, compute_pace_curve,
 };
 
-// Achievement/PR detection
-pub mod achievements;
-pub use achievements::{
-    Achievement, AchievementType, ActivityRecord,
-    detect_achievements,
-};
 
 // FFI bindings for mobile platforms (iOS/Android)
 #[cfg(feature = "ffi")]

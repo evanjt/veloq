@@ -903,37 +903,3 @@ pub fn ffi_compute_pace_curve(distances: Vec<f32>, target_distances: Vec<f32>) -
 
     serde_json::to_string(&result).unwrap_or_else(|_| "{}".to_string())
 }
-
-// ============================================================================
-// Achievement Detection FFI
-// ============================================================================
-
-/// Detect achievements by comparing a new activity against historical records.
-///
-/// # Arguments
-/// * `new_activity` - The newly completed activity record
-/// * `history` - Historical activity records for comparison
-///
-/// # Returns
-/// Vector of detected achievements, sorted by importance
-#[uniffi::export]
-pub fn ffi_detect_achievements(
-    new_activity: crate::achievements::ActivityRecord,
-    history: Vec<crate::achievements::ActivityRecord>,
-) -> Vec<crate::achievements::Achievement> {
-    init_logging();
-    info!(
-        "[RouteMatcherRust] detect_achievements for activity {}, comparing against {} historical activities",
-        new_activity.activity_id,
-        history.len()
-    );
-
-    let achievements = crate::achievements::detect_achievements(&new_activity, &history);
-
-    info!(
-        "[RouteMatcherRust] Detected {} achievements",
-        achievements.len()
-    );
-
-    achievements
-}

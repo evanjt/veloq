@@ -484,7 +484,13 @@
     "bestOn": "Best on",
     "same": "Same",
     "fastest": "#{{rank}} fastest",
-    "routeNamePlaceholder": "Route name"
+    "routeNamePlaceholder": "Route name",
+    "scaleShort": "Short",
+    "scaleMedium": "Medium",
+    "scaleLong": "Long",
+    "suggestion": "Suggested",
+    "suggestions": "Suggestions",
+    "potentialSectionDescription": "Potential {{sport}} section you've done {{count}} times"
   },
   "sections": {
     "performanceOverTime": "Performance Over Time",
