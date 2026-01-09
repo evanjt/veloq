@@ -1,11 +1,18 @@
-import { useEffect, useState } from 'react';
-import { Stack, useSegments, useRouter, Href } from 'expo-router';
-import { PaperProvider } from 'react-native-paper';
-import { StatusBar } from 'expo-status-bar';
-import { useColorScheme, View, ActivityIndicator, Platform } from 'react-native';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { Logger } from '@maplibre/maplibre-react-native';
-import { configureReanimatedLogger, ReanimatedLogLevel } from 'react-native-reanimated';
+import { useEffect, useState } from "react";
+import { Stack, useSegments, useRouter, Href } from "expo-router";
+import { PaperProvider } from "react-native-paper";
+import { StatusBar } from "expo-status-bar";
+import {
+  useColorScheme,
+  View,
+  ActivityIndicator,
+  Platform,
+} from "react-native";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
+import {
+  configureReanimatedLogger,
+  ReanimatedLogLevel,
+} from "react-native-reanimated";
 // Use legacy API for SDK 54 compatibility (new API uses File/Directory classes)
 import * as FileSystem from 'expo-file-system/legacy';
 import {
@@ -26,8 +33,12 @@ import { CacheLoadingBanner, DemoBanner, GlobalDataSync, OfflineBanner } from '@
 // Lazy load native module to avoid bundler errors
 function getRouteEngine() {
   try {
-    return require('route-matcher-native').routeEngine;
-  } catch {
+    const module = require("route-matcher-native");
+    // The module exports both a default export and a named routeEngine export
+    // Try to get the named export first, fall back to the default
+    return module.routeEngine || module.default?.routeEngine || null;
+  } catch (error) {
+    console.warn("[RouteMatcher] Failed to load native module:", error);
     return null;
   }
 }
@@ -42,13 +53,22 @@ const getRouteDbPath = () => {
   return `${plainPath}routes.db`;
 };
 
-// Suppress MapLibre info/warning logs about canceled requests
-// These occur when switching between map views but don't affect functionality
-Logger.setLogLevel('error');
-
 // Suppress Reanimated strict mode warnings from Victory Native charts
 // These occur because Victory uses shared values during render (known library behavior)
 configureReanimatedLogger({ level: ReanimatedLogLevel.error, strict: false });
+
+// Lazy load MapLibre Logger to avoid native module registration errors at import time
+let mapLibreLoggerConfigured = false;
+function configureMapLibreLogger() {
+  if (mapLibreLoggerConfigured) return;
+  try {
+    const { Logger } = require("@maplibre/maplibre-react-native");
+    Logger.setLogLevel("error");
+    mapLibreLoggerConfigured = true;
+  } catch (error) {
+    console.warn("[MapLibre] Failed to configure logger:", error);
+  }
+}
 
 function AuthGate({ children }: { children: React.ReactNode }) {
   const routeParts = useSegments();
@@ -122,6 +142,9 @@ export default function RootLayout() {
   // Initialize theme, auth, sport preference, HR zones, route settings, and i18n on app start
   useEffect(() => {
     async function initialize() {
+      // Configure MapLibre logger early (safe to do now that native modules are loaded)
+      configureMapLibreLogger();
+
       // Initialize language first to get the saved locale
       const savedLocale = await initializeLanguage();
       // Then initialize i18n with the saved locale

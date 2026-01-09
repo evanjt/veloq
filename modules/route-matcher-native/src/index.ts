@@ -2116,7 +2116,9 @@ class RouteEngineClient {
     type: string;
     distance: number;
   }> {
-    const json = NativeModule.engineGetAllActivityBoundsJson();
+    const json = this.dbPath
+      ? NativeModule.persistentEngineGetAllActivityBoundsJson()
+      : NativeModule.engineGetAllActivityBoundsJson();
     const raw = JSON.parse(json) as Array<{
       id: string;
       bounds: [[number, number], [number, number]];
