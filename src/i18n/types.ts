@@ -4,36 +4,36 @@
  */
 export const SUPPORTED_LOCALES = [
   // English variants
-  'en-AU',
-  'en-US',
-  'en-GB',
+  "en-AU",
+  "en-US",
+  "en-GB",
   // Spanish variants
-  'es',
-  'es-ES',
-  'es-419',
+  "es",
+  "es-ES",
+  "es-419",
   // French
-  'fr',
+  "fr",
   // German variants (including Swiss dialects)
-  'de',
-  'de-DE',
-  'de-CH',
-  'de-CHZ',
-  'de-CHB',
+  "de",
+  "de-DE",
+  "de-CH",
+  "de-CHZ",
+  "de-CHB",
   // Dutch
-  'nl',
+  "nl",
   // Italian
-  'it',
+  "it",
   // Portuguese variants
-  'pt',
-  'pt-BR',
+  "pt",
+  "pt-BR",
   // Japanese
-  'ja',
+  "ja",
   // Chinese Simplified
-  'zh-Hans',
+  "zh-Hans",
   // Polish
-  'pl',
+  "pl",
   // Danish
-  'da',
+  "da",
 ] as const;
 export type SupportedLocale = (typeof SUPPORTED_LOCALES)[number];
 
@@ -43,80 +43,80 @@ export type SupportedLocale = (typeof SUPPORTED_LOCALES)[number];
  */
 export const LOCALE_FALLBACKS: Record<string, SupportedLocale[]> = {
   // Australian English variants
-  'en-AU': ['en-AU'],
-  'en-NZ': ['en-AU', 'en-GB'],
+  "en-AU": ["en-AU"],
+  "en-NZ": ["en-AU", "en-GB"],
 
   // British English variants (use British spelling)
-  'en-GB': ['en-GB', 'en-AU'],
-  'en-IE': ['en-GB', 'en-AU'],
-  'en-ZA': ['en-GB', 'en-AU'],
-  'en-IN': ['en-GB', 'en-AU'],
+  "en-GB": ["en-GB", "en-AU"],
+  "en-IE": ["en-GB", "en-AU"],
+  "en-ZA": ["en-GB", "en-AU"],
+  "en-IN": ["en-GB", "en-AU"],
 
   // American English variants
-  'en-US': ['en-US', 'en-AU'],
-  'en-CA': ['en-US', 'en-AU'],
+  "en-US": ["en-US", "en-AU"],
+  "en-CA": ["en-US", "en-AU"],
 
   // Generic English -> Australian (our default)
-  en: ['en-AU'],
+  en: ["en-AU"],
 
   // Spanish variants
-  es: ['es', 'en-AU'],
-  'es-ES': ['es-ES', 'es', 'en-AU'],
-  'es-419': ['es-419', 'es', 'en-AU'],
-  'es-MX': ['es-419', 'es', 'en-AU'],
-  'es-AR': ['es-419', 'es', 'en-AU'],
-  'es-CO': ['es-419', 'es', 'en-AU'],
-  'es-CL': ['es-419', 'es', 'en-AU'],
-  'es-PE': ['es-419', 'es', 'en-AU'],
-  'es-VE': ['es-419', 'es', 'en-AU'],
+  es: ["es", "en-AU"],
+  "es-ES": ["es-ES", "es", "en-AU"],
+  "es-419": ["es-419", "es", "en-AU"],
+  "es-MX": ["es-419", "es", "en-AU"],
+  "es-AR": ["es-419", "es", "en-AU"],
+  "es-CO": ["es-419", "es", "en-AU"],
+  "es-CL": ["es-419", "es", "en-AU"],
+  "es-PE": ["es-419", "es", "en-AU"],
+  "es-VE": ["es-419", "es", "en-AU"],
 
   // French variants
-  fr: ['fr', 'en-AU'],
-  'fr-FR': ['fr', 'en-AU'],
-  'fr-CA': ['fr', 'en-AU'],
-  'fr-BE': ['fr', 'en-AU'],
-  'fr-CH': ['fr', 'en-AU'],
+  fr: ["fr", "en-AU"],
+  "fr-FR": ["fr", "en-AU"],
+  "fr-CA": ["fr", "en-AU"],
+  "fr-BE": ["fr", "en-AU"],
+  "fr-CH": ["fr", "en-AU"],
 
   // German variants
-  de: ['de-DE', 'en-AU'],
-  'de-DE': ['de-DE', 'en-AU'],
-  'de-AT': ['de-DE', 'en-AU'],
-  'de-CH': ['de-CH', 'de-DE', 'en-AU'],
-  'de-CHZ': ['de-CHZ', 'de-CH', 'de-DE', 'en-AU'],
-  'de-CHB': ['de-CHB', 'de-CH', 'de-DE', 'en-AU'],
+  de: ["de-DE", "en-AU"],
+  "de-DE": ["de-DE", "en-AU"],
+  "de-AT": ["de-DE", "en-AU"],
+  "de-CH": ["de-CH", "de-DE", "en-AU"],
+  "de-CHZ": ["de-CHZ", "de-CH", "de-DE", "en-AU"],
+  "de-CHB": ["de-CHB", "de-CH", "de-DE", "en-AU"],
 
   // Dutch variants
-  nl: ['nl', 'en-AU'],
-  'nl-NL': ['nl', 'en-AU'],
-  'nl-BE': ['nl', 'en-AU'],
+  nl: ["nl", "en-AU"],
+  "nl-NL": ["nl", "en-AU"],
+  "nl-BE": ["nl", "en-AU"],
 
   // Italian variants
-  it: ['it', 'en-AU'],
-  'it-IT': ['it', 'en-AU'],
-  'it-CH': ['it', 'en-AU'],
+  it: ["it", "en-AU"],
+  "it-IT": ["it", "en-AU"],
+  "it-CH": ["it", "en-AU"],
 
   // Portuguese variants
-  pt: ['pt', 'pt-BR', 'en-AU'],
-  'pt-PT': ['pt', 'pt-BR', 'en-AU'],
-  'pt-BR': ['pt-BR', 'pt', 'en-AU'],
+  pt: ["pt", "pt-BR", "en-AU"],
+  "pt-PT": ["pt", "pt-BR", "en-AU"],
+  "pt-BR": ["pt-BR", "pt", "en-AU"],
 
   // Japanese
-  ja: ['ja', 'en-AU'],
-  'ja-JP': ['ja', 'en-AU'],
+  ja: ["ja", "en-AU"],
+  "ja-JP": ["ja", "en-AU"],
 
   // Chinese variants
-  zh: ['zh-Hans', 'en-AU'],
-  'zh-Hans': ['zh-Hans', 'en-AU'],
-  'zh-CN': ['zh-Hans', 'en-AU'],
-  'zh-SG': ['zh-Hans', 'en-AU'],
+  zh: ["zh-Hans", "en-AU"],
+  "zh-Hans": ["zh-Hans", "en-AU"],
+  "zh-CN": ["zh-Hans", "en-AU"],
+  "zh-SG": ["zh-Hans", "en-AU"],
 
   // Polish
-  pl: ['pl', 'en-AU'],
-  'pl-PL': ['pl', 'en-AU'],
+  pl: ["pl", "en-AU"],
+  "pl-PL": ["pl", "en-AU"],
 
   // Danish
-  da: ['da', 'en-AU'],
-  'da-DK': ['da', 'en-AU'],
+  da: ["da", "en-AU"],
+  "da-DK": ["da", "en-AU"],
 };
 
 /**
@@ -124,36 +124,36 @@ export const LOCALE_FALLBACKS: Record<string, SupportedLocale[]> = {
  */
 export const LOCALE_DISPLAY_NAMES: Record<SupportedLocale, string> = {
   // English
-  'en-AU': 'English (Australia)',
-  'en-US': 'English (US)',
-  'en-GB': 'English (UK)',
+  "en-AU": "English (Australia)",
+  "en-US": "English (US)",
+  "en-GB": "English (UK)",
   // Spanish
-  es: 'Español',
-  'es-ES': 'Español (España)',
-  'es-419': 'Español (Latinoamérica)',
+  es: "Español",
+  "es-ES": "Español (España)",
+  "es-419": "Español (Latinoamérica)",
   // French
-  fr: 'Français',
+  fr: "Français",
   // German
-  de: 'Deutsch',
-  'de-DE': 'Deutsch (Deutschland)',
-  'de-CH': 'Deutsch (Schweiz)',
-  'de-CHZ': 'Züridütsch',
-  'de-CHB': 'Bärndütsch',
+  de: "Deutsch",
+  "de-DE": "Deutsch (Deutschland)",
+  "de-CH": "Deutsch (Schweiz)",
+  "de-CHZ": "Züridütsch",
+  "de-CHB": "Bärndütsch",
   // Dutch
-  nl: 'Nederlands',
+  nl: "Nederlands",
   // Italian
-  it: 'Italiano',
+  it: "Italiano",
   // Portuguese
-  pt: 'Português (Portugal)',
-  'pt-BR': 'Português (Brasil)',
+  pt: "Português (Portugal)",
+  "pt-BR": "Português (Brasil)",
   // Japanese
-  ja: '日本語',
+  ja: "日本語",
   // Chinese
-  'zh-Hans': '中文 (简体)',
+  "zh-Hans": "中文 (简体)",
   // Polish
-  pl: 'Polski',
+  pl: "Polski",
   // Danish
-  da: 'Dansk',
+  da: "Dansk",
 };
 
 /**
@@ -377,6 +377,17 @@ export interface TranslationResource {
       energy: string;
       caloriesBurned: string;
       burnRate: string;
+      duration: string;
+      kcalPerHr: string;
+      peakHR: string;
+      restingHR: string;
+      hrv: string;
+      heartRate: string;
+      ftp: string;
+      normalizedPower: string;
+      vi: string;
+      ef: string;
+      decoup: string;
       conditions: string;
       feelsLike: string;
       feelsLikeLabel: string;
@@ -397,6 +408,17 @@ export interface TranslationResource {
       eftpEstimated: string;
       efficiencyFactor: string;
       decoupling: string;
+      humidity: string;
+    };
+    form: {
+      fresh: string;
+      fatigued: string;
+      neutral: string;
+    };
+    ofMax: string;
+    conditions: {
+      hot: string;
+      cold: string;
     };
   };
 
@@ -754,12 +776,12 @@ export interface TranslationResource {
     restDay: string;
     selectActivity: string;
     timeRange: {
-      '7d': string;
-      '1m': string;
-      '42d': string;
-      '3m': string;
-      '6m': string;
-      '1y': string;
+      "7d": string;
+      "1m": string;
+      "42d": string;
+      "3m": string;
+      "6m": string;
+      "1y": string;
     };
   };
 
@@ -810,9 +832,9 @@ export interface TranslationResource {
 /**
  * Type for react-i18next
  */
-declare module 'i18next' {
+declare module "i18next" {
   interface CustomTypeOptions {
-    defaultNS: 'translation';
+    defaultNS: "translation";
     resources: {
       translation: TranslationResource;
     };

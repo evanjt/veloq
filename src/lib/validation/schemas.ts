@@ -16,50 +16,50 @@
  * ```
  */
 
-import { z } from 'zod';
-import type { MapStyleType } from '@/components/maps/mapStyles';
-import type { ActivityType } from '@/types';
+import { z } from "zod";
+import type { MapStyleType } from "@/components/maps/mapStyles";
+import type { ActivityType } from "@/types";
 
 // =============================================================================
 // Map Preferences Schema
 // =============================================================================
 
 /** Valid map style values */
-const MapStyleSchema: z.ZodType<MapStyleType> = z.enum(['light', 'dark', 'satellite']);
+const MapStyleSchema = z.enum(["light", "dark", "satellite"]);
 
 /** Activity type validation (standard fitness sport types) */
-const ActivityTypeSchema: z.ZodType<ActivityType> = z.enum([
-  'Ride',
-  'Run',
-  'Swim',
-  'Walk',
-  'Hike',
-  'VirtualRide',
-  'VirtualRun',
-  'Workout',
-  'Yoga',
-  'AlpineSki',
-  'BackcountrySki',
-  'Canoeing',
-  'Crossfit',
-  'EBikeRide',
-  'Elliptical',
-  'IceSkate',
-  'InlineSkate',
-  'Kayaking',
-  'Kitesurf',
-  'NordicSki',
-  'RockClimbing',
-  'RollerSki',
-  'Rowing',
-  'Snowboard',
-  'Snowshoe',
-  'StairStepper',
-  'StandUpPaddling',
-  'Surfing',
-  'WeightTraining',
-  'Windsurf',
-  'Wheelchair',
+const ActivityTypeSchema = z.enum([
+  "Ride",
+  "Run",
+  "Swim",
+  "Walk",
+  "Hike",
+  "VirtualRide",
+  "VirtualRun",
+  "Workout",
+  "Yoga",
+  "AlpineSki",
+  "BackcountrySki",
+  "Canoeing",
+  "Crossfit",
+  "EBikeRide",
+  "Elliptical",
+  "IceSkate",
+  "InlineSkate",
+  "Kayaking",
+  "Kitesurf",
+  "NordicSki",
+  "RockClimbing",
+  "RollerSki",
+  "Rowing",
+  "Snowboard",
+  "Snowshoe",
+  "StairStepper",
+  "StandUpPaddling",
+  "Surfing",
+  "WeightTraining",
+  "Windsurf",
+  "Wheelchair",
 ]);
 
 /**
@@ -68,7 +68,7 @@ const ActivityTypeSchema: z.ZodType<ActivityType> = z.enum([
  */
 export const MapPreferencesSchema = z.object({
   defaultStyle: MapStyleSchema,
-  activityTypeStyles: z.record(ActivityTypeSchema, MapStyleSchema).optional().default({}),
+  activityTypeStyles: z.record(ActivityTypeSchema, MapStyleSchema).optional(),
 });
 
 /** Type inferred from MapPreferencesSchema */
@@ -131,7 +131,7 @@ export type ActivityMetrics = z.infer<typeof ActivityMetricsSchema>;
 // =============================================================================
 
 /** Sync status values */
-const SyncStatusSchema = z.enum(['idle', 'syncing', 'complete', 'error']);
+const SyncStatusSchema = z.enum(["idle", "syncing", "complete", "error"]);
 
 /**
  * Route sync progress schema.
@@ -171,7 +171,7 @@ export type SyncProgress = z.infer<typeof SyncProgressSchema>;
 export function safeParseWithSchema<T>(
   data: unknown,
   schema: z.ZodSchema<T>,
-  context: string
+  context: string,
 ): T | null {
   const result = schema.safeParse(data);
 
@@ -205,7 +205,7 @@ export function safeParseWithSchema<T>(
 export function parseWithSchemaStrict<T>(
   data: unknown,
   schema: z.ZodSchema<T>,
-  context: string
+  context: string,
 ): T {
   const result = schema.safeParse(data);
 
@@ -230,7 +230,9 @@ export function parseWithSchemaStrict<T>(
  * const prefs = safeJsonParseWithSchema(json, validator, defaultPrefs);
  * ```
  */
-export function createSchemaValidator<T>(schema: z.ZodSchema<T>): (value: unknown) => value is T {
+export function createSchemaValidator<T>(
+  schema: z.ZodSchema<T>,
+): (value: unknown) => value is T {
   return (value: unknown): value is T => {
     return schema.safeParse(value).success;
   };

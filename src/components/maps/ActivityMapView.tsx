@@ -107,28 +107,45 @@
  * ```
  */
 
-import React, { useMemo, useState, useRef, useCallback, useEffect } from 'react';
-import { View, StyleSheet, TouchableOpacity, Modal, StatusBar, Animated, Text } from 'react-native';
+import React, {
+  useMemo,
+  useState,
+  useRef,
+  useCallback,
+  useEffect,
+} from "react";
+import {
+  View,
+  StyleSheet,
+  TouchableOpacity,
+  Modal,
+  StatusBar,
+  Animated,
+  Text,
+} from "react-native";
 import {
   MapView,
   Camera,
   ShapeSource,
   LineLayer,
   MarkerView,
-} from '@maplibre/maplibre-react-native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
-import * as Location from 'expo-location';
-import { decodePolyline, LatLng } from '@/lib';
-import { getActivityColor } from '@/lib';
-import { colors, darkColors } from '@/theme/colors';
-import { typography } from '@/theme/typography';
-import { spacing, layout } from '@/theme/spacing';
-import { shadows } from '@/theme/shadows';
-import { useMapPreferences } from '@/providers';
-import { BaseMapView } from './BaseMapView';
-import { Map3DWebView, type Map3DWebViewRef } from './Map3DWebView';
-import { CompassArrow } from '@/components/ui';
-import { SectionCreationOverlay, type CreationState } from './SectionCreationOverlay';
+} from "@maplibre/maplibre-react-native";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
+import * as Location from "expo-location";
+import { decodePolyline, LatLng } from "@/lib";
+import { getActivityColor } from "@/lib";
+import { colors, darkColors } from "@/theme/colors";
+import { typography } from "@/theme/typography";
+import { spacing, layout } from "@/theme/spacing";
+import { shadows } from "@/theme/shadows";
+import { useMapPreferences } from "@/providers";
+import { BaseMapView } from "./BaseMapView";
+import { Map3DWebView, type Map3DWebViewRef } from "./Map3DWebView";
+import { CompassArrow } from "@/components/ui";
+import {
+  SectionCreationOverlay,
+  type CreationState,
+} from "./SectionCreationOverlay";
 import {
   type MapStyleType,
   getMapStyle,
@@ -137,11 +154,16 @@ import {
   getStyleIcon,
   MAP_ATTRIBUTIONS,
   TERRAIN_ATTRIBUTION,
-} from './mapStyles';
-import type { ActivityType, RoutePoint } from '@/types';
+} from "./mapStyles";
+import type { ActivityType, RoutePoint } from "@/types";
 
 /** Calculate distance between two coordinates using Haversine formula */
-function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
+function haversineDistance(
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number,
+): number {
   const R = 6371000; // Earth's radius in meters
   const dLat = ((lat2 - lat1) * Math.PI) / 180;
   const dLon = ((lon2 - lon1) * Math.PI) / 180;
@@ -204,7 +226,9 @@ export function ActivityMapView({
 }: ActivityMapViewProps) {
   const { getStyleForActivity } = useMapPreferences();
   const preferredStyle = getStyleForActivity(activityType);
-  const [mapStyle, setMapStyle] = useState<MapStyleType>(initialStyle ?? preferredStyle);
+  const [mapStyle, setMapStyle] = useState<MapStyleType>(
+    initialStyle ?? preferredStyle,
+  );
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [is3DMode, setIs3DMode] = useState(false);
   const [is3DReady, setIs3DReady] = useState(false);
@@ -212,7 +236,8 @@ export function ActivityMapView({
   const map3DOpacity = useRef(new Animated.Value(0)).current;
 
   // Section creation state
-  const [creationState, setCreationState] = useState<CreationState>('selectingStart');
+  const [creationState, setCreationState] =
+    useState<CreationState>("selectingStart");
   const [startIndex, setStartIndex] = useState<number | null>(null);
   const [endIndex, setEndIndex] = useState<number | null>(null);
 
@@ -245,7 +270,7 @@ export function ActivityMapView({
   // Reset section creation state when mode changes
   useEffect(() => {
     if (creationMode) {
-      setCreationState('selectingStart');
+      setCreationState("selectingStart");
       setStartIndex(null);
       setEndIndex(null);
     }
@@ -288,13 +313,16 @@ export function ActivityMapView({
   const handleGetLocation = useCallback(async () => {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') return;
+      if (status !== "granted") return;
 
       const location = await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.Balanced,
       });
 
-      const coords: [number, number] = [location.coords.longitude, location.coords.latitude];
+      const coords: [number, number] = [
+        location.coords.longitude,
+        location.coords.latitude,
+      ];
 
       cameraRef.current?.setCamera({
         centerCoordinate: coords,
@@ -321,7 +349,7 @@ export function ActivityMapView({
   const handleMapPress = useCallback(
     (feature: GeoJSON.Feature) => {
       // In creation mode, handle point selection
-      if (creationMode && feature.geometry.type === 'Point') {
+      if (creationMode && feature.geometry.type === "Point") {
         const [lng, lat] = feature.geometry.coordinates as [number, number];
 
         // Find nearest point on the route
@@ -341,10 +369,10 @@ export function ActivityMapView({
           }
         }
 
-        if (creationState === 'selectingStart') {
+        if (creationState === "selectingStart") {
           setStartIndex(nearestIndex);
-          setCreationState('selectingEnd');
-        } else if (creationState === 'selectingEnd') {
+          setCreationState("selectingEnd");
+        } else if (creationState === "selectingEnd") {
           // Ensure end is after start
           if (nearestIndex <= (startIndex ?? 0)) {
             // Swap them
@@ -353,7 +381,7 @@ export function ActivityMapView({
           } else {
             setEndIndex(nearestIndex);
           }
-          setCreationState('complete');
+          setCreationState("complete");
         }
         return;
       }
@@ -362,7 +390,14 @@ export function ActivityMapView({
         openFullscreen();
       }
     },
-    [enableFullscreen, openFullscreen, creationMode, creationState, startIndex, validCoordinates]
+    [
+      enableFullscreen,
+      openFullscreen,
+      creationMode,
+      creationState,
+      startIndex,
+      validCoordinates,
+    ],
   );
 
   // Section creation handlers
@@ -381,7 +416,12 @@ export function ActivityMapView({
     for (let i = 1; i < sectionCoords.length; i++) {
       const prev = sectionCoords[i - 1];
       const curr = sectionCoords[i];
-      distance += haversineDistance(prev.latitude, prev.longitude, curr.latitude, curr.longitude);
+      distance += haversineDistance(
+        prev.latitude,
+        prev.longitude,
+        curr.latitude,
+        curr.longitude,
+      );
     }
 
     onSectionCreated?.({
@@ -392,20 +432,20 @@ export function ActivityMapView({
     });
 
     // Reset state
-    setCreationState('selectingStart');
+    setCreationState("selectingStart");
     setStartIndex(null);
     setEndIndex(null);
   }, [startIndex, endIndex, validCoordinates, onSectionCreated]);
 
   const handleCreationCancel = useCallback(() => {
-    setCreationState('selectingStart');
+    setCreationState("selectingStart");
     setStartIndex(null);
     setEndIndex(null);
     onCreationCancelled?.();
   }, [onCreationCancelled]);
 
   const handleCreationReset = useCallback(() => {
-    setCreationState('selectingStart');
+    setCreationState("selectingStart");
     setStartIndex(null);
     setEndIndex(null);
   }, []);
@@ -418,7 +458,7 @@ export function ActivityMapView({
     (bearing: number) => {
       bearingAnim.setValue(-bearing);
     },
-    [bearingAnim]
+    [bearingAnim],
   );
 
   // Handle map region change to update compass
@@ -429,7 +469,7 @@ export function ActivityMapView({
         bearingAnim.setValue(-properties.heading);
       }
     },
-    [bearingAnim]
+    [bearingAnim],
   );
 
   // Camera ref for programmatic control
@@ -490,10 +530,10 @@ export function ActivityMapView({
   const routeGeoJSON = useMemo(() => {
     if (validCoordinates.length === 0) return null;
     return {
-      type: 'Feature' as const,
+      type: "Feature" as const,
       properties: {},
       geometry: {
-        type: 'LineString' as const,
+        type: "LineString" as const,
         coordinates: validCoordinates.map((c) => [c.longitude, c.latitude]),
       },
     };
@@ -501,7 +541,9 @@ export function ActivityMapView({
 
   // Route coordinates for BaseMapView/Map3DWebView [lng, lat] format
   const routeCoords = useMemo(() => {
-    return validCoordinates.map((c) => [c.longitude, c.latitude] as [number, number]);
+    return validCoordinates.map(
+      (c) => [c.longitude, c.latitude] as [number, number],
+    );
   }, [validCoordinates]);
 
   const activityColor = getActivityColor(activityType);
@@ -510,7 +552,11 @@ export function ActivityMapView({
 
   // Get the highlighted point from elevation chart selection
   const highlightPoint = useMemo(() => {
-    if (highlightIndex != null && highlightIndex >= 0 && highlightIndex < coordinates.length) {
+    if (
+      highlightIndex != null &&
+      highlightIndex >= 0 &&
+      highlightIndex < coordinates.length
+    ) {
       const coord = coordinates[highlightIndex];
       if (coord && !isNaN(coord.latitude) && !isNaN(coord.longitude)) {
         return coord;
@@ -527,7 +573,12 @@ export function ActivityMapView({
     for (let i = 1; i < sectionCoords.length; i++) {
       const prev = sectionCoords[i - 1];
       const curr = sectionCoords[i];
-      distance += haversineDistance(prev.latitude, prev.longitude, curr.latitude, curr.longitude);
+      distance += haversineDistance(
+        prev.latitude,
+        prev.longitude,
+        curr.latitude,
+        curr.longitude,
+      );
     }
     return distance;
   }, [creationMode, startIndex, endIndex, validCoordinates]);
@@ -539,10 +590,10 @@ export function ActivityMapView({
     const sectionCoords = validCoordinates.slice(startIndex, end + 1);
     if (sectionCoords.length < 2) return null;
     return {
-      type: 'Feature' as const,
+      type: "Feature" as const,
       properties: {},
       geometry: {
-        type: 'LineString' as const,
+        type: "LineString" as const,
         coordinates: sectionCoords.map((c) => [c.longitude, c.latitude]),
       },
     };
@@ -551,7 +602,8 @@ export function ActivityMapView({
   // Section creation: get selected start/end points for markers
   const sectionStartPoint =
     creationMode && startIndex !== null ? validCoordinates[startIndex] : null;
-  const sectionEndPoint = creationMode && endIndex !== null ? validCoordinates[endIndex] : null;
+  const sectionEndPoint =
+    creationMode && endIndex !== null ? validCoordinates[endIndex] : null;
 
   const mapStyleValue = getMapStyle(mapStyle);
   const isDark = isDarkStyle(mapStyle);
@@ -559,7 +611,11 @@ export function ActivityMapView({
   if (!bounds || validCoordinates.length === 0) {
     return (
       <View style={[styles.placeholder, { height }]}>
-        <MaterialCommunityIcons name="map-marker-off" size={48} color={colors.textSecondary} />
+        <MaterialCommunityIcons
+          name="map-marker-off"
+          size={48}
+          color={colors.textSecondary}
+        />
       </View>
     );
   }
@@ -616,8 +672,8 @@ export function ActivityMapView({
                   style={{
                     lineColor: activityColor,
                     lineWidth: 4,
-                    lineCap: 'round',
-                    lineJoin: 'round',
+                    lineCap: "round",
+                    lineJoin: "round",
                   }}
                 />
               </ShapeSource>
@@ -625,10 +681,16 @@ export function ActivityMapView({
 
             {/* Start marker */}
             {startPoint && (
-              <MarkerView coordinate={[startPoint.longitude, startPoint.latitude]}>
+              <MarkerView
+                coordinate={[startPoint.longitude, startPoint.latitude]}
+              >
                 <View style={styles.markerContainer}>
                   <View style={[styles.marker, styles.startMarker]}>
-                    <MaterialCommunityIcons name="play" size={14} color={colors.textOnDark} />
+                    <MaterialCommunityIcons
+                      name="play"
+                      size={14}
+                      color={colors.textOnDark}
+                    />
                   </View>
                 </View>
               </MarkerView>
@@ -651,7 +713,9 @@ export function ActivityMapView({
 
             {/* Highlight marker from elevation chart */}
             {highlightPoint && (
-              <MarkerView coordinate={[highlightPoint.longitude, highlightPoint.latitude]}>
+              <MarkerView
+                coordinate={[highlightPoint.longitude, highlightPoint.latitude]}
+              >
                 <View style={styles.markerContainer}>
                   <View style={styles.highlightMarker}>
                     <View style={styles.highlightMarkerInner} />
@@ -668,8 +732,8 @@ export function ActivityMapView({
                   style={{
                     lineColor: colors.success,
                     lineWidth: 6,
-                    lineCap: 'round',
-                    lineJoin: 'round',
+                    lineCap: "round",
+                    lineJoin: "round",
                   }}
                 />
               </ShapeSource>
@@ -677,10 +741,19 @@ export function ActivityMapView({
 
             {/* Section creation: start marker */}
             {sectionStartPoint && (
-              <MarkerView coordinate={[sectionStartPoint.longitude, sectionStartPoint.latitude]}>
+              <MarkerView
+                coordinate={[
+                  sectionStartPoint.longitude,
+                  sectionStartPoint.latitude,
+                ]}
+              >
                 <View style={styles.markerContainer}>
                   <View style={[styles.marker, styles.sectionStartMarker]}>
-                    <MaterialCommunityIcons name="flag" size={14} color={colors.textOnDark} />
+                    <MaterialCommunityIcons
+                      name="flag"
+                      size={14}
+                      color={colors.textOnDark}
+                    />
                   </View>
                 </View>
               </MarkerView>
@@ -688,7 +761,12 @@ export function ActivityMapView({
 
             {/* Section creation: end marker */}
             {sectionEndPoint && (
-              <MarkerView coordinate={[sectionEndPoint.longitude, sectionEndPoint.latitude]}>
+              <MarkerView
+                coordinate={[
+                  sectionEndPoint.longitude,
+                  sectionEndPoint.latitude,
+                ]}
+              >
                 <View style={styles.markerContainer}>
                   <View style={[styles.marker, styles.sectionEndMarker]}>
                     <MaterialCommunityIcons
@@ -705,7 +783,13 @@ export function ActivityMapView({
 
         {/* 3D Map layer */}
         {is3DMode && hasRoute && !isFullscreen && (
-          <Animated.View style={[styles.mapLayer, styles.map3DLayer, { opacity: map3DOpacity }]}>
+          <Animated.View
+            style={[
+              styles.mapLayer,
+              styles.map3DLayer,
+              { opacity: map3DOpacity },
+            ]}
+          >
             <Map3DWebView
               ref={map3DRef}
               coordinates={routeCoords}
@@ -762,7 +846,11 @@ export function ActivityMapView({
                 name="terrain"
                 size={22}
                 color={
-                  is3DMode ? colors.textOnDark : isDark ? colors.textOnDark : colors.textSecondary
+                  is3DMode
+                    ? colors.textOnDark
+                    : isDark
+                      ? colors.textOnDark
+                      : colors.textSecondary
                 }
               />
             </TouchableOpacity>
@@ -806,7 +894,7 @@ export function ActivityMapView({
         statusBarTranslucent
         onRequestClose={closeFullscreen}
       >
-        <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
+        <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
         <BaseMapView
           routeCoordinates={routeCoords}
           routeColor={activityColor}
@@ -816,10 +904,16 @@ export function ActivityMapView({
         >
           {/* Start marker */}
           {startPoint && (
-            <MarkerView coordinate={[startPoint.longitude, startPoint.latitude]}>
+            <MarkerView
+              coordinate={[startPoint.longitude, startPoint.latitude]}
+            >
               <View style={styles.markerContainer}>
                 <View style={[styles.marker, styles.startMarker]}>
-                  <MaterialCommunityIcons name="play" size={14} color={colors.textOnDark} />
+                  <MaterialCommunityIcons
+                    name="play"
+                    size={14}
+                    color={colors.textOnDark}
+                  />
                 </View>
               </View>
             </MarkerView>
@@ -861,12 +955,12 @@ export function ActivityMapView({
 
 const styles = StyleSheet.create({
   outerContainer: {
-    position: 'relative',
+    position: "relative",
   },
   container: {
     flex: 1,
     borderRadius: layout.borderRadius,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   mapLayer: {
     ...StyleSheet.absoluteFillObject,
@@ -876,27 +970,27 @@ const styles = StyleSheet.create({
   },
   hiddenLayer: {
     opacity: 0,
-    pointerEvents: 'none',
+    pointerEvents: "none",
   },
   map: {
     flex: 1,
   },
   placeholder: {
     backgroundColor: colors.background,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     borderRadius: layout.borderRadius,
   },
   markerContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   marker: {
     width: 28,
     height: 28,
     borderRadius: 14,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     borderWidth: 3,
     borderColor: colors.textOnDark,
     ...shadows.elevated,
@@ -918,8 +1012,8 @@ const styles = StyleSheet.create({
     height: 24,
     borderRadius: 12,
     backgroundColor: colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     borderWidth: 3,
     borderColor: colors.textOnDark,
     ...shadows.elevated,
@@ -931,7 +1025,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.textOnDark,
   },
   controlsContainer: {
-    position: 'absolute',
+    position: "absolute",
     top: 48,
     right: layout.cardMargin,
     gap: spacing.sm,
@@ -942,9 +1036,9 @@ const styles = StyleSheet.create({
     width: layout.minTapTarget,
     height: layout.minTapTarget,
     borderRadius: layout.minTapTarget / 2,
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(255, 255, 255, 0.95)",
+    justifyContent: "center",
+    alignItems: "center",
     ...shadows.modal,
   },
   controlButtonDark: {
@@ -954,10 +1048,10 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
   },
   attribution: {
-    position: 'absolute',
+    position: "absolute",
     bottom: spacing.sm,
     right: spacing.sm,
-    backgroundColor: 'rgba(255, 255, 255, 0.7)',
+    backgroundColor: "rgba(255, 255, 255, 0.7)",
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: spacing.xs,
