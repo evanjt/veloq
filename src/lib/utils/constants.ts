@@ -94,9 +94,9 @@ export const API_DEFAULTS = {
  */
 export const OAUTH = {
   /** OAuth client ID (public - safe to embed in app) */
-  CLIENT_ID: '',  // TODO: Add your client ID after registering
+  CLIENT_ID: '', // TODO: Add your client ID after registering
   /** OAuth proxy URL (Cloudflare Worker that holds client_secret) */
-  PROXY_URL: '',  // TODO: Add your deployed worker URL
+  PROXY_URL: '', // TODO: Add your deployed worker URL
   /** intervals.icu authorization endpoint */
   AUTH_ENDPOINT: 'https://intervals.icu/oauth/authorize',
   /** App's deep link scheme */

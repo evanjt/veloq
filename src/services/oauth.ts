@@ -119,11 +119,7 @@ export function parseCallbackUrl(url: string): OAuthTokenResponse | null {
     }
 
     // Check for success response with all required fields
-    if (
-      params.success === 'true' &&
-      params.access_token &&
-      params.athlete_id
-    ) {
+    if (params.success === 'true' && params.access_token && params.athlete_id) {
       return {
         access_token: params.access_token as string,
         token_type: (params.token_type as string) || 'Bearer',

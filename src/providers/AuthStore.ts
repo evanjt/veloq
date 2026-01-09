@@ -26,7 +26,11 @@ interface AuthState {
   // Actions
   initialize: () => Promise<void>;
   setCredentials: (apiKey: string, athleteId: string) => Promise<void>;
-  setOAuthCredentials: (accessToken: string, athleteId: string, athleteName?: string) => Promise<void>;
+  setOAuthCredentials: (
+    accessToken: string,
+    athleteId: string,
+    athleteName?: string
+  ) => Promise<void>;
   clearCredentials: () => Promise<void>;
   setAthlete: (athlete: Athlete) => void;
   enterDemoMode: () => void;
@@ -121,7 +125,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       isDemoMode: false,
       authMethod: 'oauth',
       // Set basic athlete info if provided
-      athlete: athleteName ? { id: athleteId, name: athleteName } as Athlete : null,
+      athlete: athleteName ? ({ id: athleteId, name: athleteName } as Athlete) : null,
     });
   },
 
