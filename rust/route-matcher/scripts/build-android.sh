@@ -85,20 +85,15 @@ cp target/i686-linux-android/release/libroute_matcher.so "$OUTPUT_DIR/jniLibs/x8
 # Generate Kotlin bindings
 echo "🔧 Generating Kotlin bindings..."
 mkdir -p "$OUTPUT_DIR/kotlin"
+
+# Use cargo run to execute the uniffi-bindgen binary from this project
+# (more reliable than trying to install a global CLI tool)
 cargo run --features ffi --bin uniffi-bindgen generate \
     --library target/aarch64-linux-android/release/libroute_matcher.so \
     --language kotlin \
-    --out-dir "$OUTPUT_DIR/kotlin" 2>/dev/null || {
-    # Fallback: use uniffi-bindgen-cli if available
-    echo "Using uniffi-bindgen CLI..."
-    uniffi-bindgen generate \
-        --library target/aarch64-linux-android/release/libroute_matcher.so \
-        --language kotlin \
-        --out-dir "$OUTPUT_DIR/kotlin" 2>/dev/null || {
-        echo "Note: Kotlin bindings generation skipped (uniffi-bindgen not available)"
-        echo "Install with: cargo install uniffi_bindgen"
-    }
-}
+    --out-dir "$OUTPUT_DIR/kotlin"
+
+echo "✅ Kotlin bindings generated to: $OUTPUT_DIR/kotlin"
 
 echo ""
 echo "🎉 Parallel build complete! Ready for preview OR release deployment"

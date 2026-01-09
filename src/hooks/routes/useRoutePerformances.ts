@@ -5,9 +5,19 @@
 
 import { useMemo } from 'react';
 import { useEngineGroups } from './useRouteEngine';
-import { routeEngine } from 'route-matcher-native';
 import type { RouteGroup, MatchDirection } from '@/types';
 import { toActivityType } from '@/types';
+
+// Lazy load routeEngine to avoid native module import errors
+function getRouteEngine() {
+  try {
+    const module = require('route-matcher-native');
+    return module.routeEngine || module.default?.routeEngine || null;
+  } catch (error) {
+    console.warn('[RouteMatcher] Failed to load native module:', error);
+    return null;
+  }
+}
 
 export interface RoutePerformancePoint {
   activityId: string;
@@ -99,8 +109,13 @@ export function useRoutePerformances(
     }
 
     try {
+      const engine = getRouteEngine();
+      if (!engine) {
+        return { performances: [], best: null, currentRank: null };
+      }
+
       // Get calculated performances from Rust engine
-      const result = routeEngine.getRoutePerformances(engineGroup.groupId, activityId);
+      const result = engine.getRoutePerformances(engineGroup.groupId, activityId);
 
       // Convert to RoutePerformancePoint format (add Date objects)
       const points: RoutePerformancePoint[] = result.performances.map((p) => ({

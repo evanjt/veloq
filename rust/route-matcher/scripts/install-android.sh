@@ -28,10 +28,19 @@ fi
 
 # Copy Kotlin bindings if they exist
 if [ -d "$PROJECT_DIR/target/android/kotlin" ]; then
-    KOTLIN_DIR="$MODULE_DIR/java"
-    mkdir -p "$KOTLIN_DIR"
-    cp -rv "$PROJECT_DIR/target/android/kotlin/"* "$KOTLIN_DIR/" 2>/dev/null || echo "Kotlin bindings not found"
-    echo "Kotlin bindings installed!"
+    BINDINGS_SRC="$PROJECT_DIR/target/android/kotlin"
+    BINDINGS_DEST="$MODULE_DIR/java"
+
+    echo "📦 Installing Kotlin bindings..."
+    mkdir -p "$BINDINGS_DEST"
+    cp -rv "$BINDINGS_SRC/"* "$BINDINGS_DEST/"
+
+    echo "✅ Kotlin bindings installed to: $BINDINGS_DEST"
+    echo "   Contents:"
+    ls -la "$BINDINGS_DEST"/
+else
+    echo "⚠️  Warning: Kotlin bindings not found at $PROJECT_DIR/target/android/kotlin"
+    echo "   Run build-android.sh again to generate them"
 fi
 
 echo ""
