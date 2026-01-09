@@ -17,6 +17,7 @@ import { colors, darkColors, typography, layout, shadows } from '@/theme';
 import { useMetricSystem } from '@/hooks';
 import type { ChartConfig, ChartTypeId } from '@/lib';
 import type { ActivityStreams } from '@/types';
+import { CHART_CONFIG } from '@/constants';
 
 interface DataSeries {
   id: ChartTypeId;
@@ -125,7 +126,7 @@ export const CombinedPlot = React.memo(function CombinedPlot({
     }
 
     // Downsample and normalize
-    const maxPoints = 200;
+    const maxPoints = CHART_CONFIG.MAX_DATA_POINTS;
     const step = Math.max(1, Math.floor(distance.length / maxPoints));
     const points: Record<string, number>[] = [];
     const indices: number[] = [];
@@ -268,7 +269,7 @@ export const CombinedPlot = React.memo(function CombinedPlot({
   // Use activateAfterLongPress to require a brief hold before scrubbing starts
   // This prevents accidental scrubbing when scrolling the page
   const gesture = Gesture.Pan()
-    .activateAfterLongPress(300) // 300ms hold before scrubbing activates (matches route page)
+    .activateAfterLongPress(CHART_CONFIG.LONG_PRESS_DURATION)
     .onStart((e) => {
       'worklet';
       touchX.value = e.x;
