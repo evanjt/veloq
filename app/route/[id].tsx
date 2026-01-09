@@ -146,7 +146,7 @@ function ActivityRow({
           {/* Rank badge for non-best performances */}
           {!isBest && rank !== undefined && rank <= 10 && (
             <View style={[styles.rankBadge, { backgroundColor: colors.textSecondary + '20' }]}>
-              <Text style={[styles.rankText, isDark && styles.textDark]}>#{rank}</Text>
+              <Text style={[styles.rankText, { color: isDark ? colors.textSecondary : colors.textSecondary }]}>#{rank}</Text>
             </View>
           )}
           {/* Match percentage badge with direction-based color */}
@@ -333,8 +333,9 @@ export default function RouteDetailScreen() {
       return { chartData: [], minSpeed: 0, maxSpeed: 1, bestIndex: 0, hasReverseRuns: false };
     }
 
-    // Convert performances to chart data format
-    const dataPoints: (PerformanceDataPoint & { x: number })[] = performances.map((perf, idx) => {
+    // Convert performances to chart data format (filter out 'partial' directions)
+    const validPerformances = performances.filter(p => p.direction !== 'partial');
+    const dataPoints: (PerformanceDataPoint & { x: number })[] = validPerformances.map((perf, idx) => {
       const activityPoints = signatures[perf.activityId]?.points;
       return {
         x: idx,
@@ -343,10 +344,10 @@ export default function RouteDetailScreen() {
         speed: perf.speed,
         date: perf.date,
         activityName: perf.name,
-        direction: perf.direction,
+        direction: perf.direction as 'same' | 'reverse', // Cast after filtering 'partial'
         matchPercentage: perf.matchPercentage,
         lapNumber: 1,
-        totalLaps: performances.length,
+        totalLaps: validPerformances.length,
         lapPoints: activityPoints,
       };
     });
