@@ -80,7 +80,7 @@ export type MapPreferences = z.infer<typeof MapPreferencesSchema>;
 
 /** GPS coordinate pair [latitude, longitude] */
 const GpsCoordinateSchema = z.tuple([
-  z.number().min(-90).max(90),   // latitude
+  z.number().min(-90).max(90), // latitude
   z.number().min(-180).max(180), // longitude
 ]);
 
@@ -230,9 +230,7 @@ export function parseWithSchemaStrict<T>(
  * const prefs = safeJsonParseWithSchema(json, validator, defaultPrefs);
  * ```
  */
-export function createSchemaValidator<T>(
-  schema: z.ZodSchema<T>
-): (value: unknown) => value is T {
+export function createSchemaValidator<T>(schema: z.ZodSchema<T>): (value: unknown) => value is T {
   return (value: unknown): value is T => {
     return schema.safeParse(value).success;
   };

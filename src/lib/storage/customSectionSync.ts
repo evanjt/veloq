@@ -37,9 +37,7 @@ import type { CustomSectionMatch } from '@/types';
  * syncActivitiesWithCustomSections(activityIds).catch(() => {});
  * ```
  */
-export async function syncActivitiesWithCustomSections(
-  activityIds: string[]
-): Promise<void> {
+export async function syncActivitiesWithCustomSections(activityIds: string[]): Promise<void> {
   if (activityIds.length === 0) return;
 
   try {
