@@ -3,26 +3,18 @@
  * Displays an interactive heatmap of activity density with route intelligence.
  */
 
-import React, { useState, useCallback, useRef, useMemo } from "react";
-import {
-  View,
-  StyleSheet,
-  useColorScheme,
-  TouchableOpacity,
-} from "react-native";
-import { Text, IconButton } from "react-native-paper";
-import {
-  SafeAreaView,
-  useSafeAreaInsets,
-} from "react-native-safe-area-context";
-import { router } from "expo-router";
-import { MapView, Camera } from "@maplibre/maplibre-react-native";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { useTranslation } from "react-i18next";
-import { colors, spacing, shadows } from "@/theme";
-import { useHeatmap, type CellQueryResult } from "@/hooks/useHeatmap";
-import { HeatmapLayer, HeatmapCellPopup } from "@/components/maps";
-import { useEngineStats } from "@/hooks";
+import React, { useState, useCallback, useRef, useMemo } from 'react';
+import { View, StyleSheet, useColorScheme, TouchableOpacity } from 'react-native';
+import { Text, IconButton } from 'react-native-paper';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { router } from 'expo-router';
+import { MapView, Camera } from '@maplibre/maplibre-react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
+import { colors, spacing, shadows } from '@/theme';
+import { useHeatmap, type CellQueryResult } from '@/hooks/useHeatmap';
+import { HeatmapLayer, HeatmapCellPopup } from '@/components/maps';
+import { useEngineStats } from '@/hooks';
 import {
   type MapStyleType,
   getMapStyle,
@@ -30,25 +22,23 @@ import {
   getNextStyle,
   getStyleIcon,
   MAP_ATTRIBUTIONS,
-} from "@/components/maps/mapStyles";
+} from '@/components/maps/mapStyles';
 
 // Cell size options
 const CELL_SIZES = [
-  { label: "50m", value: 50 },
-  { label: "100m", value: 100 },
-  { label: "200m", value: 200 },
+  { label: '50m', value: 50 },
+  { label: '100m', value: 100 },
+  { label: '200m', value: 200 },
 ];
 
 export default function HeatmapScreen() {
   const { t } = useTranslation();
   const colorScheme = useColorScheme();
   const insets = useSafeAreaInsets();
-  const systemStyle: MapStyleType = colorScheme === "dark" ? "dark" : "light";
+  const systemStyle: MapStyleType = colorScheme === 'dark' ? 'dark' : 'light';
   const [mapStyle, setMapStyle] = useState<MapStyleType>(systemStyle);
   const [cellSize, setCellSize] = useState(100);
-  const [selectedCell, setSelectedCell] = useState<CellQueryResult | null>(
-    null,
-  );
+  const [selectedCell, setSelectedCell] = useState<CellQueryResult | null>(null);
   const cameraRef = useRef<React.ElementRef<typeof Camera>>(null);
 
   const isDark = isDarkStyle(mapStyle);
@@ -85,7 +75,7 @@ export default function HeatmapScreen() {
       const result = queryCell(cell.centerLat, cell.centerLng);
       setSelectedCell(result);
     },
-    [heatmap, queryCell],
+    [heatmap, queryCell]
   );
 
   // Close popup
@@ -119,11 +109,11 @@ export default function HeatmapScreen() {
         <View style={styles.header}>
           <IconButton
             icon="arrow-left"
-            iconColor={isDark ? "#FFFFFF" : colors.textPrimary}
+            iconColor={isDark ? '#FFFFFF' : colors.textPrimary}
             onPress={() => router.back()}
           />
           <Text style={[styles.headerTitle, isDark && styles.textLight]}>
-            {t("heatmapScreen.title")}
+            {t('heatmapScreen.title')}
           </Text>
           <View style={styles.headerRight} />
         </View>
@@ -132,21 +122,16 @@ export default function HeatmapScreen() {
           <MaterialCommunityIcons
             name="map-marker-off"
             size={64}
-            color={isDark ? "#444" : "#CCC"}
+            color={isDark ? '#444' : '#CCC'}
           />
           <Text style={[styles.emptyTitle, isDark && styles.textLight]}>
-            {t("heatmapScreen.noActivityData")}
+            {t('heatmapScreen.noActivityData')}
           </Text>
           <Text style={[styles.emptyText, isDark && styles.textMuted]}>
-            {t("heatmapScreen.processFirstHint")}
+            {t('heatmapScreen.processFirstHint')}
           </Text>
-          <TouchableOpacity
-            style={styles.emptyButton}
-            onPress={() => router.push("/routes")}
-          >
-            <Text style={styles.emptyButtonText}>
-              {t("heatmapScreen.goToRoutes")}
-            </Text>
+          <TouchableOpacity style={styles.emptyButton} onPress={() => router.push('/routes')}>
+            <Text style={styles.emptyButtonText}>{t('heatmapScreen.goToRoutes')}</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -198,25 +183,17 @@ export default function HeatmapScreen() {
           style={[styles.button, isDark && styles.buttonDark]}
           onPress={() => router.back()}
         >
-          <MaterialCommunityIcons
-            name="close"
-            size={24}
-            color={isDark ? "#FFFFFF" : "#333333"}
-          />
+          <MaterialCommunityIcons name="close" size={24} color={isDark ? '#FFFFFF' : '#333333'} />
         </TouchableOpacity>
 
         <View style={[styles.titleBadge, isDark && styles.titleBadgeDark]}>
-          <MaterialCommunityIcons
-            name="fire"
-            size={18}
-            color={colors.primary}
-          />
+          <MaterialCommunityIcons name="fire" size={18} color={colors.primary} />
           <Text style={[styles.titleText, isDark && styles.textLight]}>
-            {t("heatmapScreen.title")}
+            {t('heatmapScreen.title')}
           </Text>
           {heatmap && (
             <Text style={[styles.statsBadge, isDark && styles.textMuted]}>
-              {t("heatmapScreen.activitiesCount", {
+              {t('heatmapScreen.activitiesCount', {
                 count: heatmap.totalActivities,
               })}
             </Text>
@@ -230,7 +207,7 @@ export default function HeatmapScreen() {
           <MaterialCommunityIcons
             name={getStyleIcon(mapStyle)}
             size={24}
-            color={isDark ? "#FFFFFF" : "#333333"}
+            color={isDark ? '#FFFFFF' : '#333333'}
           />
         </TouchableOpacity>
       </View>
@@ -267,16 +244,10 @@ export default function HeatmapScreen() {
       {/* Loading state */}
       {!isReady && hasData && (
         <View style={styles.loadingOverlay}>
-          <View
-            style={[styles.loadingBadge, isDark && styles.loadingBadgeDark]}
-          >
-            <MaterialCommunityIcons
-              name="loading"
-              size={20}
-              color={colors.primary}
-            />
+          <View style={[styles.loadingBadge, isDark && styles.loadingBadgeDark]}>
+            <MaterialCommunityIcons name="loading" size={20} color={colors.primary} />
             <Text style={[styles.loadingText, isDark && styles.textLight]}>
-              {t("heatmapScreen.generatingHeatmap")}
+              {t('heatmapScreen.generatingHeatmap')}
             </Text>
           </View>
         </View>
@@ -288,51 +259,51 @@ export default function HeatmapScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#000",
+    backgroundColor: '#000',
   },
   containerDark: {
-    backgroundColor: "#121212",
+    backgroundColor: '#121212',
   },
   map: {
     flex: 1,
   },
   header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   headerTitle: {
     fontSize: 18,
-    fontWeight: "600",
+    fontWeight: '600',
     color: colors.textPrimary,
   },
   headerRight: {
     width: 48,
   },
   headerOverlay: {
-    position: "absolute",
+    position: 'absolute',
     left: 16,
     right: 16,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   button: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: "rgba(255, 255, 255, 0.95)",
-    justifyContent: "center",
-    alignItems: "center",
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    justifyContent: 'center',
+    alignItems: 'center',
     ...shadows.mapOverlay,
   },
   buttonDark: {
-    backgroundColor: "rgba(50, 50, 50, 0.95)",
+    backgroundColor: 'rgba(50, 50, 50, 0.95)',
   },
   titleBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.95)",
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     borderRadius: 20,
@@ -340,11 +311,11 @@ const styles = StyleSheet.create({
     ...shadows.mapOverlay,
   },
   titleBadgeDark: {
-    backgroundColor: "rgba(50, 50, 50, 0.95)",
+    backgroundColor: 'rgba(50, 50, 50, 0.95)',
   },
   titleText: {
     fontSize: 15,
-    fontWeight: "600",
+    fontWeight: '600',
     color: colors.textPrimary,
   },
   statsBadge: {
@@ -353,7 +324,7 @@ const styles = StyleSheet.create({
     marginLeft: spacing.xs,
   },
   controlStack: {
-    position: "absolute",
+    position: 'absolute',
     right: 16,
     gap: 8,
   },
@@ -361,53 +332,53 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: "rgba(255, 255, 255, 0.95)",
-    justifyContent: "center",
-    alignItems: "center",
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    justifyContent: 'center',
+    alignItems: 'center',
     ...shadows.mapOverlay,
   },
   controlButtonDark: {
-    backgroundColor: "rgba(50, 50, 50, 0.95)",
+    backgroundColor: 'rgba(50, 50, 50, 0.95)',
   },
   controlButtonText: {
     fontSize: 11,
-    fontWeight: "700",
+    fontWeight: '700',
     color: colors.textPrimary,
   },
   attribution: {
-    position: "absolute",
+    position: 'absolute',
     right: 8,
-    backgroundColor: "rgba(255, 255, 255, 0.7)",
+    backgroundColor: 'rgba(255, 255, 255, 0.7)',
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 4,
   },
   attributionText: {
     fontSize: 9,
-    color: "#333333",
+    color: '#333333',
   },
   popup: {
-    position: "absolute",
+    position: 'absolute',
     left: 16,
     right: 16,
   },
   emptyContainer: {
     flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
+    justifyContent: 'center',
+    alignItems: 'center',
     paddingHorizontal: spacing.xl,
   },
   emptyTitle: {
     fontSize: 20,
-    fontWeight: "600",
+    fontWeight: '600',
     color: colors.textPrimary,
     marginTop: spacing.lg,
-    textAlign: "center",
+    textAlign: 'center',
   },
   emptyText: {
     fontSize: 15,
     color: colors.textSecondary,
-    textAlign: "center",
+    textAlign: 'center',
     marginTop: spacing.sm,
     lineHeight: 22,
   },
@@ -420,22 +391,22 @@ const styles = StyleSheet.create({
   },
   emptyButtonText: {
     fontSize: 15,
-    fontWeight: "600",
-    color: "#FFFFFF",
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
   loadingOverlay: {
-    position: "absolute",
+    position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    justifyContent: "center",
-    alignItems: "center",
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   loadingBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.95)",
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     borderRadius: 20,
@@ -443,16 +414,16 @@ const styles = StyleSheet.create({
     ...shadows.mapOverlay,
   },
   loadingBadgeDark: {
-    backgroundColor: "rgba(50, 50, 50, 0.95)",
+    backgroundColor: 'rgba(50, 50, 50, 0.95)',
   },
   loadingText: {
     fontSize: 14,
     color: colors.textPrimary,
   },
   textLight: {
-    color: "#FFFFFF",
+    color: '#FFFFFF',
   },
   textMuted: {
-    color: "#888",
+    color: '#888',
   },
 });

@@ -1,32 +1,26 @@
-import React, { useState, useMemo, useCallback, useEffect } from "react";
-import {
-  View,
-  StyleSheet,
-  ActivityIndicator,
-  Text,
-  useColorScheme,
-} from "react-native";
-import { useRouter } from "expo-router";
-import { useTranslation } from "react-i18next";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { RegionalMapView, TimelineSlider } from "@/components/maps";
-import { ComponentErrorBoundary } from "@/components/ui";
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import { View, StyleSheet, ActivityIndicator, Text, useColorScheme } from 'react-native';
+import { useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { RegionalMapView, TimelineSlider } from '@/components/maps';
+import { ComponentErrorBoundary } from '@/components/ui';
 import {
   useActivityBoundsCache,
   useOldestActivityDate,
   useActivities,
   useRouteDataSync,
-} from "@/hooks";
-import { useRouteSettings, useSyncDateRange } from "@/providers";
-import { colors, darkColors, spacing, typography } from "@/theme";
-import { formatLocalDate } from "@/lib";
+} from '@/hooks';
+import { useRouteSettings, useSyncDateRange } from '@/providers';
+import { colors, darkColors, spacing, typography } from '@/theme';
+import { formatLocalDate } from '@/lib';
 
 export default function MapScreen() {
   const { t } = useTranslation();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const colorScheme = useColorScheme();
-  const isDark = colorScheme === "dark";
+  const isDark = colorScheme === 'dark';
 
   // Get route settings
   const { settings: routeSettings } = useRouteSettings();
@@ -40,27 +34,26 @@ export default function MapScreen() {
   const { data: apiOldestDate } = useOldestActivityDate();
 
   // Fetch activities for the current sync range (for cache stats)
-  const { data: syncedActivities, isFetching: isFetchingActivities } =
-    useActivities({
-      oldest: syncOldest,
-      newest: syncNewest,
-      includeStats: false,
-    });
+  const { data: syncedActivities, isFetching: isFetchingActivities } = useActivities({
+    oldest: syncOldest,
+    newest: syncNewest,
+    includeStats: false,
+  });
 
   // Load cached bounds - pass activities for cache range calculation
-  const { activities, isReady, progress, syncDateRange } =
-    useActivityBoundsCache({ activitiesWithDates: syncedActivities });
+  const { activities, isReady, progress, syncDateRange } = useActivityBoundsCache({
+    activitiesWithDates: syncedActivities,
+  });
 
   // Track GPS data sync progress
-  const { progress: gpsSyncProgress, isSyncing: isGpsSyncing } =
-    useRouteDataSync(syncedActivities, routeSettings.enabled);
+  const { progress: gpsSyncProgress, isSyncing: isGpsSyncing } = useRouteDataSync(
+    syncedActivities,
+    routeSettings.enabled
+  );
 
   // Combined syncing state
   const isSyncing =
-    progress.status === "syncing" ||
-    isGpsSyncing ||
-    isFetchingActivities ||
-    isFetchingExtended;
+    progress.status === 'syncing' || isGpsSyncing || isFetchingActivities || isFetchingExtended;
 
   // Calculate cached range from synced activities
   const { oldestSyncedDate, newestSyncedDate } = useMemo(() => {
@@ -109,8 +102,7 @@ export default function MapScreen() {
     return activities.filter((activity) => {
       const activityDate = new Date(activity.date);
       const inDateRange = activityDate >= startDate && activityDate <= endDate;
-      const matchesType =
-        selectedTypes.size === 0 || selectedTypes.has(activity.type);
+      const matchesType = selectedTypes.size === 0 || selectedTypes.has(activity.type);
       return inDateRange && matchesType;
     });
   }, [activities, startDate, endDate, selectedTypes]);
@@ -124,7 +116,7 @@ export default function MapScreen() {
       // Trigger sync for the new date range if needed
       syncDateRange(formatLocalDate(start), formatLocalDate(end));
     },
-    [syncDateRange],
+    [syncDateRange]
   );
 
   // Handle close
@@ -167,15 +159,15 @@ export default function MapScreen() {
       return {
         completed: 0,
         total: 0,
-        message: t("mapScreen.loadingActivities") as string,
+        message: t('mapScreen.loadingActivities') as string,
       };
     }
     // Phase 2: Syncing activity bounds/GPS cache
-    if (progress.status === "syncing" && progress.total > 0) {
+    if (progress.status === 'syncing' && progress.total > 0) {
       return {
         completed: progress.completed,
         total: progress.total,
-        message: t("maps.syncingActivities", {
+        message: t('maps.syncingActivities', {
           completed: progress.completed,
           total: progress.total,
         }) as string,
@@ -186,35 +178,26 @@ export default function MapScreen() {
       return {
         completed: gpsSyncProgress.completed,
         total: gpsSyncProgress.total,
-        message: t("routesScreen.computingRoutes") as string,
+        message: t('routesScreen.computingRoutes') as string,
       };
     }
-    if (gpsSyncProgress.status === "computing") {
+    if (gpsSyncProgress.status === 'computing') {
       return { completed: 0, total: 0, message: gpsSyncProgress.message };
     }
     return null;
-  }, [
-    isFetchingActivities,
-    isFetchingExtended,
-    progress,
-    isGpsSyncing,
-    gpsSyncProgress,
-    t,
-  ]);
+  }, [isFetchingActivities, isFetchingExtended, progress, isGpsSyncing, gpsSyncProgress, t]);
 
   // Show loading state if not ready
   if (!isReady) {
     return (
-      <View
-        style={[styles.loadingContainer, isDark && styles.loadingContainerDark]}
-      >
+      <View style={[styles.loadingContainer, isDark && styles.loadingContainerDark]}>
         <ActivityIndicator size="large" color={colors.primary} />
         <Text style={[styles.loadingText, isDark && styles.loadingTextDark]}>
-          {t("mapScreen.loadingActivities")}
+          {t('mapScreen.loadingActivities')}
         </Text>
         {isSyncing && progress && (
           <Text style={[styles.progressText, isDark && styles.loadingTextDark]}>
-            {t("mapScreen.syncing", {
+            {t('mapScreen.syncing', {
               completed: progress.completed,
               total: progress.total,
             })}
@@ -228,10 +211,7 @@ export default function MapScreen() {
     <View style={styles.container}>
       {/* Main map view */}
       <ComponentErrorBoundary componentName="Map">
-        <RegionalMapView
-          activities={filteredActivities}
-          onClose={handleClose}
-        />
+        <RegionalMapView activities={filteredActivities} onClose={handleClose} />
       </ComponentErrorBoundary>
 
       {/* Timeline slider with integrated filters (bottom overlay) */}
@@ -267,12 +247,12 @@ export default function MapScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#000",
+    backgroundColor: '#000',
   },
   loadingContainer: {
     flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
+    justifyContent: 'center',
+    alignItems: 'center',
     backgroundColor: colors.background,
   },
   loadingContainerDark: {
@@ -292,13 +272,13 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   sliderContainer: {
-    position: "absolute",
+    position: 'absolute',
     left: 0,
     right: 0,
     bottom: 0,
     zIndex: 10,
   },
   sliderContainerDark: {
-    backgroundColor: "rgba(30, 30, 30, 0.95)",
+    backgroundColor: 'rgba(30, 30, 30, 0.95)',
   },
 });

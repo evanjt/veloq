@@ -1,12 +1,5 @@
 import React, { useState } from 'react';
-import {
-  View,
-  StyleSheet,
-  useColorScheme,
-  ScrollView,
-  Linking,
-  Pressable,
-} from 'react-native';
+import { View, StyleSheet, useColorScheme, ScrollView, Linking, Pressable } from 'react-native';
 import { Text, Button, TextInput } from 'react-native-paper';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -149,16 +142,11 @@ export default function LoginScreen() {
 
   return (
     <SafeAreaView style={[styles.container, isDark && styles.containerDark]} testID="login-screen">
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        keyboardShouldPersistTaps="handled"
-      >
+      <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
         {/* Logo/Header */}
         <View style={styles.header}>
           <Text style={[styles.title, isDark && styles.textLight]}>{t('login.title')}</Text>
-          <Text style={[styles.subtitle, isDark && styles.textDark]}>
-            {t('login.subtitle')}
-          </Text>
+          <Text style={[styles.subtitle, isDark && styles.textDark]}>{t('login.subtitle')}</Text>
         </View>
 
         {/* Main Login Section */}
@@ -292,15 +280,11 @@ export default function LoginScreen() {
           </Text>
           <View style={styles.linksRow}>
             <Pressable onPress={handleOpenPrivacy}>
-              <Text style={styles.linkText}>
-                {t('login.privacyPolicy')}
-              </Text>
+              <Text style={styles.linkText}>{t('login.privacyPolicy')}</Text>
             </Pressable>
             <Text style={[styles.linkSeparator, isDark && styles.textMuted]}>|</Text>
             <Pressable onPress={handleOpenTerms}>
-              <Text style={styles.linkText}>
-                {t('login.termsOfService')}
-              </Text>
+              <Text style={styles.linkText}>{t('login.termsOfService')}</Text>
             </Pressable>
           </View>
         </View>
