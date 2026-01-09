@@ -232,7 +232,29 @@
       "percentOfFTP": "% of FTP",
       "eftpEstimated": "eFTP (estimated)",
       "efficiencyFactor": "Efficiency Factor",
-      "decoupling": "Decoupling"
+      "decoupling": "Decoupling",
+      "duration": "Duration",
+      "kcalPerHr": "kcal/hr",
+      "normalizedPower": "Normalized Power",
+      "vi": "VI",
+      "ef": "EF",
+      "restingHR": "Resting HR",
+      "hrv": "HRV",
+      "heartRate": "Heart Rate",
+      "peakHR": "Peak HR",
+      "humidity": "Humidity",
+      "ftp": "FTP",
+      "decoup": "Decoupling"
+    },
+    "form": {
+      "fresh": "Fresh",
+      "fatigued": "Fatigued",
+      "neutral": "Neutral"
+    },
+    "ofMax": "of max",
+    "conditions": {
+      "hot": "Hot",
+      "cold": "Cold"
     }
   },
   "time": {

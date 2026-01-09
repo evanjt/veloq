@@ -17,6 +17,8 @@ import { colors, darkColors, typography, layout, shadows } from '@/theme';
 import { useMetricSystem } from '@/hooks';
 import type { ChartConfig, ChartTypeId } from '@/lib';
 import type { ActivityStreams } from '@/types';
+import { CHART_CONFIG } from '@/constants';
+import { ChartErrorBoundary } from '@/components/ui';
 
 interface DataSeries {
   id: ChartTypeId;
@@ -125,7 +127,7 @@ export const CombinedPlot = React.memo(function CombinedPlot({
     }
 
     // Downsample and normalize
-    const maxPoints = 200;
+    const maxPoints = CHART_CONFIG.MAX_DATA_POINTS;
     const step = Math.max(1, Math.floor(distance.length / maxPoints));
     const points: Record<string, number>[] = [];
     const indices: number[] = [];
@@ -268,7 +270,7 @@ export const CombinedPlot = React.memo(function CombinedPlot({
   // Use activateAfterLongPress to require a brief hold before scrubbing starts
   // This prevents accidental scrubbing when scrolling the page
   const gesture = Gesture.Pan()
-    .activateAfterLongPress(300) // 300ms hold before scrubbing activates (matches route page)
+    .activateAfterLongPress(CHART_CONFIG.LONG_PRESS_DURATION)
     .onStart((e) => {
       'worklet';
       touchX.value = e.x;
@@ -337,125 +339,127 @@ export const CombinedPlot = React.memo(function CombinedPlot({
   const chartHeight = height - 40; // Reserve space for metrics panel
 
   return (
-    <View style={[styles.container, { height }]}>
-      {/* Hero Metrics Panel - shows current values when scrubbing, averages otherwise */}
-      <View style={styles.metricsPanel}>
-        {seriesInfo.map((series, idx) => {
-          const displayValue = isActive && metricValues.length > idx ? metricValues[idx] : null;
-          const avgData = averageValues[idx];
-          const unit = isMetric
-            ? series.config.unit
-            : series.config.unitImperial || series.config.unit;
+    <ChartErrorBoundary height={height} label="Activity Chart">
+      <View style={[styles.container, { height }]}>
+        {/* Hero Metrics Panel - shows current values when scrubbing, averages otherwise */}
+        <View style={styles.metricsPanel}>
+          {seriesInfo.map((series, idx) => {
+            const displayValue = isActive && metricValues.length > idx ? metricValues[idx] : null;
+            const avgData = averageValues[idx];
+            const unit = isMetric
+              ? series.config.unit
+              : series.config.unitImperial || series.config.unit;
 
-          return (
-            <View key={series.id} style={styles.metricItem}>
-              <View style={styles.metricValueRow}>
-                <Text style={[styles.metricValue, { color: series.color }]}>
-                  {displayValue?.value ?? avgData?.formatted ?? '-'}
+            return (
+              <View key={series.id} style={styles.metricItem}>
+                <View style={styles.metricValueRow}>
+                  <Text style={[styles.metricValue, { color: series.color }]}>
+                    {displayValue?.value ?? avgData?.formatted ?? '-'}
+                  </Text>
+                  <Text style={[styles.metricUnit, isDark && styles.metricUnitDark]}>{unit}</Text>
+                </View>
+                <Text style={[styles.metricLabel, isDark && styles.metricLabelDark]}>
+                  {isActive ? series.config.label : t('activity.avg')}
                 </Text>
-                <Text style={[styles.metricUnit, isDark && styles.metricUnitDark]}>{unit}</Text>
               </View>
-              <Text style={[styles.metricLabel, isDark && styles.metricLabelDark]}>
-                {isActive ? series.config.label : t('activity.avg')}
-              </Text>
-            </View>
-          );
-        })}
-      </View>
+            );
+          })}
+        </View>
 
-      {/* Chart area */}
-      <GestureDetector gesture={gesture}>
-        <View style={[styles.chartWrapper, { height: chartHeight }]}>
-          {/* Victory Native requires string literal types for yKeys,
+        {/* Chart area */}
+        <GestureDetector gesture={gesture}>
+          <View style={[styles.chartWrapper, { height: chartHeight }]}>
+            {/* Victory Native requires string literal types for yKeys,
               but ChartTypeId[] is dynamically computed. Cast is unavoidable. */}
-          <CartesianChart
-            data={chartData}
-            xKey="x"
-            yKeys={yKeys as string[]}
-            domain={{ y: [0, 1] }}
-            padding={{ left: 0, right: 0, top: 2, bottom: 20 }}
-          >
-            {({
-              points,
-              chartBounds,
-            }: {
-              points: Record<string, Array<{ x: number }>>;
-              chartBounds: ChartBounds;
-            }) => {
-              // Sync chartBounds and point coordinates for UI thread crosshair
-              if (
-                chartBounds.left !== chartBoundsShared.value.left ||
-                chartBounds.right !== chartBoundsShared.value.right
-              ) {
-                chartBoundsShared.value = {
-                  left: chartBounds.left,
-                  right: chartBounds.right,
-                };
-              }
-              // Sync actual point x-coordinates for accurate crosshair positioning
-              if (seriesInfo.length > 0) {
-                const firstSeriesPoints = points[seriesInfo[0].id];
-                if (firstSeriesPoints) {
-                  const newCoords = firstSeriesPoints.map((p) => p.x);
-                  if (
-                    newCoords.length !== pointXCoordsShared.value.length ||
-                    newCoords[0] !== pointXCoordsShared.value[0]
-                  ) {
-                    pointXCoordsShared.value = newCoords;
+            <CartesianChart
+              data={chartData}
+              xKey="x"
+              yKeys={yKeys as string[]}
+              domain={{ y: [0, 1] }}
+              padding={{ left: 0, right: 0, top: 2, bottom: 20 }}
+            >
+              {({
+                points,
+                chartBounds,
+              }: {
+                points: Record<string, Array<{ x: number }>>;
+                chartBounds: ChartBounds;
+              }) => {
+                // Sync chartBounds and point coordinates for UI thread crosshair
+                if (
+                  chartBounds.left !== chartBoundsShared.value.left ||
+                  chartBounds.right !== chartBoundsShared.value.right
+                ) {
+                  chartBoundsShared.value = {
+                    left: chartBounds.left,
+                    right: chartBounds.right,
+                  };
+                }
+                // Sync actual point x-coordinates for accurate crosshair positioning
+                if (seriesInfo.length > 0) {
+                  const firstSeriesPoints = points[seriesInfo[0].id];
+                  if (firstSeriesPoints) {
+                    const newCoords = firstSeriesPoints.map((p) => p.x);
+                    if (
+                      newCoords.length !== pointXCoordsShared.value.length ||
+                      newCoords[0] !== pointXCoordsShared.value[0]
+                    ) {
+                      pointXCoordsShared.value = newCoords;
+                    }
                   }
                 }
-              }
 
-              return (
-                <>
-                  {seriesInfo.map((series) => (
-                    <Area
-                      key={series.id}
-                      points={points[series.id] as Parameters<typeof Area>[0]['points']}
-                      y0={chartBounds.bottom}
-                      curveType="natural"
-                      opacity={seriesInfo.length > 1 ? 0.7 : 0.85}
-                    >
-                      <LinearGradient
-                        start={vec(0, chartBounds.top)}
-                        end={vec(0, chartBounds.bottom)}
-                        colors={[series.color + 'CC', series.color + '30']}
-                      />
-                    </Area>
-                  ))}
-                </>
-              );
-            }}
-          </CartesianChart>
+                return (
+                  <>
+                    {seriesInfo.map((series) => (
+                      <Area
+                        key={series.id}
+                        points={points[series.id] as Parameters<typeof Area>[0]['points']}
+                        y0={chartBounds.bottom}
+                        curveType="natural"
+                        opacity={seriesInfo.length > 1 ? 0.7 : 0.85}
+                      >
+                        <LinearGradient
+                          start={vec(0, chartBounds.top)}
+                          end={vec(0, chartBounds.bottom)}
+                          colors={[series.color + 'CC', series.color + '30']}
+                        />
+                      </Area>
+                    ))}
+                  </>
+                );
+              }}
+            </CartesianChart>
 
-          {/* Animated crosshair */}
-          <Animated.View
-            style={[styles.crosshair, crosshairStyle, isDark && styles.crosshairDark]}
-            pointerEvents="none"
-          />
+            {/* Animated crosshair */}
+            <Animated.View
+              style={[styles.crosshair, crosshairStyle, isDark && styles.crosshairDark]}
+              pointerEvents="none"
+            />
 
-          {/* X-axis labels */}
-          <View style={styles.xAxis} pointerEvents="none">
-            <Text style={[styles.xLabel, isDark && styles.xLabelDark]}>0</Text>
-            <Text style={[styles.xLabel, isDark && styles.xLabelDark]}>
-              {(maxDist / 2).toFixed(1)}
-            </Text>
+            {/* X-axis labels */}
+            <View style={styles.xAxis} pointerEvents="none">
+              <Text style={[styles.xLabel, isDark && styles.xLabelDark]}>0</Text>
+              <Text style={[styles.xLabel, isDark && styles.xLabelDark]}>
+                {(maxDist / 2).toFixed(1)}
+              </Text>
+            </View>
+
+            {/* Distance indicator - overlaid on bottom right of chart */}
+            <View
+              style={[styles.distanceIndicator, isDark && styles.distanceIndicatorDark]}
+              pointerEvents="none"
+            >
+              <Text style={[styles.distanceText, isDark && styles.distanceTextDark]}>
+                {isActive && currentDistance !== null
+                  ? `${currentDistance.toFixed(2)} ${distanceUnit}`
+                  : `${maxDist.toFixed(1)} ${distanceUnit}`}
+              </Text>
+            </View>
           </View>
-
-          {/* Distance indicator - overlaid on bottom right of chart */}
-          <View
-            style={[styles.distanceIndicator, isDark && styles.distanceIndicatorDark]}
-            pointerEvents="none"
-          >
-            <Text style={[styles.distanceText, isDark && styles.distanceTextDark]}>
-              {isActive && currentDistance !== null
-                ? `${currentDistance.toFixed(2)} ${distanceUnit}`
-                : `${maxDist.toFixed(1)} ${distanceUnit}`}
-            </Text>
-          </View>
-        </View>
-      </GestureDetector>
-    </View>
+        </GestureDetector>
+      </View>
+    </ChartErrorBoundary>
   );
 });
 

@@ -1,6 +1,136 @@
 /**
- * Hook for computing insightful stats from activity data.
- * Extracts the stats computation logic from InsightfulStats component.
+ * @fileoverview useActivityStats - Advanced activity statistics computation
+ *
+ * **Overview**
+ *
+ * This hook computes comprehensive statistics from activity data, including
+ * training load, heart rate analysis, power metrics, and form/fitness indicators.
+ * Extracted from InsightfulStats component for better testability and reusability.
+ *
+ * **Architecture**
+ *
+ * **Metric Categories:**
+ * 1. **Training Load** (lines 62-130):
+ *    - Primary: ICU training load with intensity factor (IF)
+ *    - Comparison: vs user's recent average (same activity type)
+ *    - Details: TRIMP, strain score, fitness (CTL), fatigue (ATL)
+ *    - Color coding: By intensity (red >100, amber >85, yellow >70, green ≤70)
+ *
+ * 2. **Heart Rate** (lines 132-200):
+ *    - Primary: Average HR with % of max context
+ *    - Comparison: vs user's typical HR (trend: lower is better)
+ *    - Details: Peak HR, HR recovery (HRR), resting HR, HRV
+ *    - Color coding: By % of max (red >90%, amber >80%, pink ≤80%)
+ *
+ * 3. **Energy/Calories** (lines 202-227):
+ *    - Primary: Total calories burned
+ *    - Context: Burn rate (kcal/hr)
+ *    - Details: Duration, hourly rate
+ *    - Color: Amber-400 (consistent)
+ *
+ * 4. **Weather/Conditions** (lines 229-284):
+ *    - Primary: Average temperature
+ *    - Context: Feels like, wind speed, humidity
+ *    - Hot threshold: >28°C (amber), Cold threshold: <10°C (blue)
+ *    - Data source: average_weather_temp (device) or average_temp (API)
+ *
+ * 5. **Your Form/TSB** (lines 286-321):
+ *    - Primary: Training Stress Balance (TSB = CTL - ATL)
+ *    - Interpretation: Positive = fresh, Negative = fatigued
+ *    - Color coding: Green >5, Yellow -10 to 5, Red <-10
+ *    - Details: CTL (fitness), ATL (fatigue)
+ *
+ * 6. **Power** (lines 329-386+):
+ *    - Primary: Average watts
+ *    - Context: vs estimated FTP (eFTP)
+ *    - Details: VI (variability index), EF (efficiency factor), decoupling
+ *    - Normalized power: Includes pacing adjustments
+ *
+ * **Data Flow:**
+ * 1. **Input**: Activity object + optional wellness data + recent activities
+ * 2. **Compute averages**: Filter same-type activities, reduce to averages
+ * 3. **Build stats**: Conditionally add metrics based on data availability
+ * 4. **Memoize**: Use useMemo to prevent recalculation on every render
+ * 5. **Output**: StatDetail[] array + computed averages
+ *
+ * **Performance Optimizations:**
+ * - useMemo for stats array (expensive computations, nested conditionals)
+ * - useMemo for averages (multiple reduce operations over recentActivities)
+ * - Early returns for missing data (no empty stats added)
+ * - Filter Boolean to remove null details (compact array)
+ *
+ * **Comparison Logic:**
+ * - Training Load: % difference vs average (trend: up/down/same, no isGood)
+ * - Heart Rate: Absolute difference vs average (trend: lower is better)
+ * - Power: % of eFTP (trend: higher is better)
+ * - Form: TSB value (trend: positive is better)
+ *
+ * **Color System:**
+ * - Green (#10B981): Good/optimal (low HR, high power, fresh form)
+ * - Yellow/Amber (#F59E0B): Caution (moderate intensity, neutral form)
+ * - Red/Orange (#FBBF24): High intensity (very hot, fatigued)
+ * - Pink (#EC4899): Heart rate moderate
+ * - Blue (#3B82F6): Cold conditions
+ *
+ * **Magic Numbers:**
+ * - Temperature thresholds: Hot >28°C, Cold <10°C (lines 232-233)
+ * - Feel-like delta: ±2°C before showing (line 238)
+ * - Wind speed threshold: >2 m/s before showing (line 246)
+ * - Form/TSB thresholds: >5 fresh, >-10 neutral, <-10 fatigued (line 291)
+ * - HR intensity thresholds: 90%, 80% for color coding (line 159)
+ * - Load intensity thresholds: 100, 85, 70 for color coding (lines 83-89)
+ *
+ * **Trade-offs:**
+ *
+ * **Why useMemo Instead of useCallback?**
+ * - Pro: Recomputes only when dependencies change
+ * - Pro: Returns stable object reference (prevents child re-renders)
+ * - Con: Memory overhead for cached values
+ * - Alternative: Computed on every render (slower)
+ *
+ * **Why Filter Recent Activities by Type?**
+ * - Pro: Apples-to-apples comparison (ride vs ride, run vs run)
+ * - Pro: More meaningful context (running HR different from cycling HR)
+ * - Con: Smaller sample size for rare activity types
+ * - Alternative: All activities mixed (less meaningful)
+ *
+ * **Why Conditional Stat Addition?**
+ * - Pro: No empty/meaningless stats shown to user
+ * - Pro: Graceful degradation for partial data
+ * - Con: Inconsistent UI (different stats per activity)
+ * - Alternative: Show all stats with "N/A" placeholders
+ *
+ * **Why Color by Intensity Instead of Absolute Value?**
+ * - Pro: Contextual meaning (85% effort is high regardless of sport)
+ * - Pro: Athlete-centered (relative to individual capacity)
+ * - Con: Less intuitive for casual users
+ * - Alternative: Absolute thresholds (200W = good, doesn't scale)
+ *
+ * **Future Refactoring Opportunities:**
+ * - Extract individual metric calculators (useTrainingLoad, useHeartRate, etc.)
+ * - Create type-safe color utility (getColorForIntensity, getColorForTemperature)
+ * - Move magic numbers to constants file
+ * - Add unit tests for each metric calculation
+ * - Separate business logic from presentation (color, icons, translations)
+ *
+ * @example
+ * ```tsx
+ * function ActivityStats({ activity, wellness }: Props) {
+ *   const { stats, avgLoad, avgHR } = useActivityStats({
+ *     activity,
+ *     wellness,
+ *     recentActivities: recentRides,
+ *   });
+ *
+ *   return (
+ *     <View>
+ *       {stats.map(stat => (
+ *         <StatCard key={stat.title} stat={stat} />
+ *       ))}
+ *     </View>
+ *   );
+ * }
+ * ```
  */
 
 import { useMemo } from 'react';
@@ -9,6 +139,7 @@ import { formatDuration } from '@/lib';
 import type { Activity, WellnessData } from '@/types';
 import type { StatDetail } from './types';
 import { colors } from '@/theme';
+import { TEMPERATURE_THRESHOLDS, FEELS_LIKE_THRESHOLD } from '@/constants';
 
 // Explanation keys for each metric - educational, not interpretive
 const METRIC_EXPLANATION_KEYS: Record<string, string> = {
@@ -229,13 +360,13 @@ export function useActivityStats({
     // Temperature/Conditions
     const temp = activity.average_weather_temp ?? activity.average_temp;
     if (temp != null) {
-      const isHot = temp > 28;
-      const isCold = temp < 10;
+      const isHot = temp > TEMPERATURE_THRESHOLDS.HOT;
+      const isCold = temp < TEMPERATURE_THRESHOLDS.COLD;
       // Build context from available weather data
       const conditionParts: string[] = [];
       if (
         activity.average_feels_like != null &&
-        Math.abs(activity.average_feels_like - temp) >= 2
+        Math.abs(activity.average_feels_like - temp) >= FEELS_LIKE_THRESHOLD
       ) {
         conditionParts.push(
           t('activity.stats.feelsLike', {

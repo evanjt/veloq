@@ -20,8 +20,15 @@ LIBS_EXIST=1
 [ -f "target/aarch64-apple-ios-sim/release/libroute_matcher.a" ] || LIBS_EXIST=0
 [ -f "target/x86_64-apple-ios/release/libroute_matcher.a" ] || LIBS_EXIST=0
 
-if [ "$LIBS_EXIST" -eq 1 ]; then
-  echo "✅ iOS libraries already built (from cache), skipping build"
+# Check if Swift bindings and XCFramework already exist
+XCFRAMEWORK_EXISTS=0
+[ -d "$OUTPUT_DIR/RouteMatcherFFI.xcframework" ] && XCFRAMEWORK_EXISTS=1
+SWIFT_BINDINGS_EXIST=0
+[ -f "$SWIFT_DIR/route_matcher.swift" ] && SWIFT_BINDINGS_EXISTS=1
+[ -f "$SWIFT_DIR/route_matcherFFI.h" ] && SWIFT_BINDINGS_EXISTS=1
+
+if [ "$LIBS_EXIST" -eq 1 ] && [ "$XCFRAMEWORK_EXISTS" -eq 1 ] && [ "$SWIFT_BINDINGS_EXISTS" -eq 1 ]; then
+  echo "✅ iOS libraries and bindings already built (from cache), skipping build"
   mkdir -p "$OUTPUT_DIR/device" "$OUTPUT_DIR/simulator"
   cp target/aarch64-apple-ios/release/libroute_matcher.a "$OUTPUT_DIR/device/libroute_matcher.a"
   lipo -create \
@@ -30,6 +37,11 @@ if [ "$LIBS_EXIST" -eq 1 ]; then
     -output "$OUTPUT_DIR/simulator/libroute_matcher.a" 2>/dev/null || true
   exit 0
 fi
+
+if [ "$LIBS_EXIST" -eq 1 ]; then
+  echo "✅ iOS libraries found in cache, but bindings need to be generated"
+  echo "Skipping Rust compilation (using cached .a files)"
+else
 
 echo "============================================"
 echo "Building route-matcher for iOS"
@@ -58,8 +70,10 @@ fi
 
 echo "All Rust targets installed ✓"
 echo ""
+fi
 
-# Build for all iOS targets
+# Build for all iOS targets (only if libraries weren't cached)
+if [ "$LIBS_EXIST" -eq 0 ]; then
 echo "Building for iOS device (aarch64-apple-ios)..."
 cargo build --release --target aarch64-apple-ios --features full
 
@@ -70,6 +84,7 @@ cargo build --release --target aarch64-apple-ios-sim --features full
 echo ""
 echo "Building for iOS simulator - Intel (x86_64-apple-ios)..."
 cargo build --release --target x86_64-apple-ios --features full
+fi
 
 # Create output directories
 mkdir -p "$OUTPUT_DIR"

@@ -377,6 +377,17 @@ export interface TranslationResource {
       energy: string;
       caloriesBurned: string;
       burnRate: string;
+      duration: string;
+      kcalPerHr: string;
+      peakHR: string;
+      restingHR: string;
+      hrv: string;
+      heartRate: string;
+      ftp: string;
+      normalizedPower: string;
+      vi: string;
+      ef: string;
+      decoup: string;
       conditions: string;
       feelsLike: string;
       feelsLikeLabel: string;
@@ -397,6 +408,17 @@ export interface TranslationResource {
       eftpEstimated: string;
       efficiencyFactor: string;
       decoupling: string;
+      humidity: string;
+    };
+    form: {
+      fresh: string;
+      fatigued: string;
+      neutral: string;
+    };
+    ofMax: string;
+    conditions: {
+      hot: string;
+      cold: string;
     };
   };
 
