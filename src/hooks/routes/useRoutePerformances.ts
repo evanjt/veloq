@@ -118,7 +118,7 @@ export function useRoutePerformances(
       const result = engine.getRoutePerformances(engineGroup.groupId, activityId);
 
       // Convert to RoutePerformancePoint format (add Date objects)
-      const points: RoutePerformancePoint[] = result.performances.map((p) => ({
+      const points: RoutePerformancePoint[] = result.performances.map((p: any) => ({
         activityId: p.activityId,
         date: new Date(p.date * 1000), // Convert Unix timestamp to Date
         name: p.name,
