@@ -17,7 +17,13 @@ import { SegmentedButtons, Switch } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useAthlete, useActivityBoundsCache, useRouteProcessing, useRouteGroups, useActivities } from '@/hooks';
+import {
+  useAthlete,
+  useActivityBoundsCache,
+  useRouteProcessing,
+  useRouteGroups,
+  useActivities,
+} from '@/hooks';
 import { getAthleteId } from '@/api';
 import { estimateBoundsCacheSize, estimateGpsStorageSize } from '@/lib';
 import {
@@ -43,18 +49,36 @@ import type { ActivityType } from '@/types';
 // Activity type groups for map settings
 // Each group applies the same map style to all its activity types
 // Covers ALL ActivityType values from types/activity.ts
-type FilterLabelKey = 'filters.cycling' | 'filters.running' | 'filters.hiking' | 'filters.walking' | 'filters.swimming' | 'filters.snowSports' | 'filters.waterSports' | 'filters.climbing' | 'filters.racketSports' | 'filters.other';
+type FilterLabelKey =
+  | 'filters.cycling'
+  | 'filters.running'
+  | 'filters.hiking'
+  | 'filters.walking'
+  | 'filters.swimming'
+  | 'filters.snowSports'
+  | 'filters.waterSports'
+  | 'filters.climbing'
+  | 'filters.racketSports'
+  | 'filters.other';
 const MAP_ACTIVITY_GROUPS: { key: string; labelKey: FilterLabelKey; types: ActivityType[] }[] = [
   { key: 'cycling', labelKey: 'filters.cycling', types: ['Ride', 'VirtualRide'] },
   { key: 'running', labelKey: 'filters.running', types: ['Run', 'TrailRun', 'VirtualRun'] },
   { key: 'hiking', labelKey: 'filters.hiking', types: ['Hike', 'Snowshoe'] },
   { key: 'walking', labelKey: 'filters.walking', types: ['Walk'] },
   { key: 'swimming', labelKey: 'filters.swimming', types: ['Swim', 'OpenWaterSwim'] },
-  { key: 'snow', labelKey: 'filters.snowSports', types: ['AlpineSki', 'NordicSki', 'BackcountrySki', 'Snowboard'] },
+  {
+    key: 'snow',
+    labelKey: 'filters.snowSports',
+    types: ['AlpineSki', 'NordicSki', 'BackcountrySki', 'Snowboard'],
+  },
   { key: 'water', labelKey: 'filters.waterSports', types: ['Rowing', 'Kayaking', 'Canoeing'] },
   { key: 'climbing', labelKey: 'filters.climbing', types: ['RockClimbing'] },
   { key: 'racket', labelKey: 'filters.racketSports', types: ['Tennis'] },
-  { key: 'other', labelKey: 'filters.other', types: ['Workout', 'WeightTraining', 'Yoga', 'Other'] },
+  {
+    key: 'other',
+    labelKey: 'filters.other',
+    types: ['Workout', 'WeightTraining', 'Yoga', 'Other'],
+  },
 ];
 
 function formatDate(dateStr: string | null): string {
@@ -82,7 +106,11 @@ export default function SettingsScreen() {
   const [showActivityStyles, setShowActivityStyles] = useState(false);
 
   const { data: athlete } = useAthlete();
-  const { preferences: mapPreferences, setDefaultStyle, setActivityGroupStyle } = useMapPreferences();
+  const {
+    preferences: mapPreferences,
+    setDefaultStyle,
+    setActivityGroupStyle,
+  } = useMapPreferences();
   const clearCredentials = useAuthStore((state) => state.clearCredentials);
   const isDemoMode = useAuthStore((state) => state.isDemoMode);
   const hideDemoBanner = useAuthStore((state) => state.hideDemoBanner);
@@ -122,7 +150,7 @@ export default function SettingsScreen() {
   };
 
   const handleActivityGroupMapStyleChange = async (groupKey: string, value: string) => {
-    const group = MAP_ACTIVITY_GROUPS.find(g => g.key === groupKey);
+    const group = MAP_ACTIVITY_GROUPS.find((g) => g.key === groupKey);
     if (!group) return;
 
     const style = value === 'default' ? null : (value as MapStyleType);
@@ -132,17 +160,21 @@ export default function SettingsScreen() {
   // Fetch activities to get date range for cache stats
   const { data: allActivities } = useActivities({ days: 365 * 10, includeStats: false });
 
-  const {
-    progress,
-    cacheStats,
-    clearCache,
-    sync,
-  } = useActivityBoundsCache({ activitiesWithDates: allActivities });
+  const { progress, cacheStats, clearCache, sync } = useActivityBoundsCache({
+    activitiesWithDates: allActivities,
+  });
 
   // Route matching cache
-  const { progress: routeProgress, isProcessing: isRouteProcessing, clearCache: clearRouteCache, cancel: cancelRouteProcessing } = useRouteProcessing();
+  const {
+    progress: routeProgress,
+    isProcessing: isRouteProcessing,
+    clearCache: clearRouteCache,
+    cancel: cancelRouteProcessing,
+  } = useRouteProcessing();
   // Use minActivities: 2 to show actual routes (groups with 2+ activities), not signatures
-  const { groups: routeGroups, processedCount: routeProcessedCount } = useRouteGroups({ minActivities: 2 });
+  const { groups: routeGroups, processedCount: routeProcessedCount } = useRouteGroups({
+    minActivities: 2,
+  });
 
   // Route matching settings
   const { settings: routeSettings, setEnabled: setRouteMatchingEnabled } = useRouteSettings();
@@ -154,9 +186,12 @@ export default function SettingsScreen() {
   const queryCacheStats = useMemo(() => {
     const queries = queryClient.getQueryCache().getAll();
     return {
-      activities: queries.filter(q => q.queryKey[0] === 'activities' || q.queryKey[0] === 'activities-infinite').length,
-      wellness: queries.filter(q => q.queryKey[0] === 'wellness').length,
-      curves: queries.filter(q => q.queryKey[0] === 'powerCurve' || q.queryKey[0] === 'paceCurve').length,
+      activities: queries.filter(
+        (q) => q.queryKey[0] === 'activities' || q.queryKey[0] === 'activities-infinite'
+      ).length,
+      wellness: queries.filter((q) => q.queryKey[0] === 'wellness').length,
+      curves: queries.filter((q) => q.queryKey[0] === 'powerCurve' || q.queryKey[0] === 'paceCurve')
+        .length,
       totalQueries: queries.length,
     };
   }, [queryClient, cacheStats.totalActivities]); // Re-compute when activities change
@@ -170,10 +205,7 @@ export default function SettingsScreen() {
 
   // Fetch cache sizes on mount and when caches change
   const refreshCacheSizes = useCallback(async () => {
-    const [bounds, gps] = await Promise.all([
-      estimateBoundsCacheSize(),
-      estimateGpsStorageSize(),
-    ]);
+    const [bounds, gps] = await Promise.all([estimateBoundsCacheSize(), estimateGpsStorageSize()]);
     // Routes cache is now in Rust SQLite, size estimation not available
     setCacheSizes({ bounds, gps, routes: 0 });
   }, []);
@@ -183,69 +215,62 @@ export default function SettingsScreen() {
   }, [refreshCacheSizes, cacheStats.totalActivities, routeProcessedCount]);
 
   const profileUrl = athlete?.profile_medium || athlete?.profile;
-  const hasValidProfileUrl = profileUrl && typeof profileUrl === 'string' && profileUrl.startsWith('http');
+  const hasValidProfileUrl =
+    profileUrl && typeof profileUrl === 'string' && profileUrl.startsWith('http');
 
   const handleClearCache = () => {
-    Alert.alert(
-      t('alerts.clearCacheTitle'),
-      t('alerts.clearCacheMessage'),
-      [
-        { text: t('common.cancel'), style: 'cancel' },
-        {
-          text: t('alerts.clearReload'),
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              // Clear GPS/bounds cache and route cache
-              await clearCache();
-              await clearRouteCache();
+    Alert.alert(t('alerts.clearCacheTitle'), t('alerts.clearCacheMessage'), [
+      { text: t('common.cancel'), style: 'cancel' },
+      {
+        text: t('alerts.clearReload'),
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            // Clear GPS/bounds cache and route cache
+            await clearCache();
+            await clearRouteCache();
 
-              // Clear TanStack Query cache (in-memory and persisted)
-              queryClient.clear();
-              await AsyncStorage.removeItem('veloq-query-cache');
+            // Clear TanStack Query cache (in-memory and persisted)
+            queryClient.clear();
+            await AsyncStorage.removeItem('veloq-query-cache');
 
-              // Refetch all core queries in background
-              queryClient.refetchQueries({ queryKey: ['activities'] });
-              queryClient.refetchQueries({ queryKey: ['wellness'] });
-              queryClient.refetchQueries({ queryKey: ['powerCurve'] });
-              queryClient.refetchQueries({ queryKey: ['paceCurve'] });
-              queryClient.refetchQueries({ queryKey: ['athlete'] });
+            // Refetch all core queries in background
+            queryClient.refetchQueries({ queryKey: ['activities'] });
+            queryClient.refetchQueries({ queryKey: ['wellness'] });
+            queryClient.refetchQueries({ queryKey: ['powerCurve'] });
+            queryClient.refetchQueries({ queryKey: ['paceCurve'] });
+            queryClient.refetchQueries({ queryKey: ['athlete'] });
 
-              // Sync activities for last 90 days (downloads GPS data)
-              await sync(90);
+            // Sync activities for last 90 days (downloads GPS data)
+            await sync(90);
 
-              // Refresh cache sizes
-              refreshCacheSizes();
-            } catch {
-              Alert.alert(t('alerts.error'), t('alerts.failedToClear'));
-            }
-          },
+            // Refresh cache sizes
+            refreshCacheSizes();
+          } catch {
+            Alert.alert(t('alerts.error'), t('alerts.failedToClear'));
+          }
         },
-      ]
-    );
+      },
+    ]);
   };
 
   const handleClearRouteCache = () => {
-    Alert.alert(
-      t('alerts.clearRouteCacheTitle'),
-      t('alerts.clearRouteCacheMessage'),
-      [
-        { text: t('common.cancel'), style: 'cancel' },
-        {
-          text: t('alerts.clearReload'),
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await clearRouteCache();
-              // Cache cleared via Rust engine
-              refreshCacheSizes();
-            } catch {
-              Alert.alert(t('alerts.error'), t('alerts.failedToClear'));
-            }
-          },
+    Alert.alert(t('alerts.clearRouteCacheTitle'), t('alerts.clearRouteCacheMessage'), [
+      { text: t('common.cancel'), style: 'cancel' },
+      {
+        text: t('alerts.clearReload'),
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await clearRouteCache();
+            // Cache cleared via Rust engine
+            refreshCacheSizes();
+          } catch {
+            Alert.alert(t('alerts.error'), t('alerts.failedToClear'));
+          }
         },
-      ]
-    );
+      },
+    ]);
   };
 
   const handleSyncAll = () => {
@@ -254,43 +279,38 @@ export default function SettingsScreen() {
       return;
     }
 
-    Alert.alert(
-      t('alerts.syncAllTitle'),
-      t('alerts.syncAllMessage'),
-      [
-        { text: t('common.cancel'), style: 'cancel' },
-        {
-          text: t('alerts.sync'),
-          onPress: () => sync('all'),
-        },
-      ]
-    );
+    Alert.alert(t('alerts.syncAllTitle'), t('alerts.syncAllMessage'), [
+      { text: t('common.cancel'), style: 'cancel' },
+      {
+        text: t('alerts.sync'),
+        onPress: () => sync('all'),
+      },
+    ]);
   };
 
   const handleLogout = () => {
-    Alert.alert(
-      t('alerts.disconnectTitle'),
-      t('alerts.disconnectMessage'),
-      [
-        { text: t('common.cancel'), style: 'cancel' },
-        {
-          text: t('alerts.disconnect'),
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await clearCredentials();
-              router.replace('/login' as Href);
-            } catch {
-              Alert.alert(t('alerts.error'), t('alerts.failedToDisconnect'));
-            }
-          },
+    Alert.alert(t('alerts.disconnectTitle'), t('alerts.disconnectMessage'), [
+      { text: t('common.cancel'), style: 'cancel' },
+      {
+        text: t('alerts.disconnect'),
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await clearCredentials();
+            router.replace('/login' as Href);
+          } catch {
+            Alert.alert(t('alerts.error'), t('alerts.failedToDisconnect'));
+          }
         },
-      ]
-    );
+      },
+    ]);
   };
 
   return (
-    <SafeAreaView testID="settings-screen" style={[styles.container, isDark && styles.containerDark]}>
+    <SafeAreaView
+      testID="settings-screen"
+      style={[styles.container, isDark && styles.containerDark]}
+    >
       <ScrollView contentContainerStyle={styles.content}>
         {/* Header with back button */}
         <View style={styles.header}>
@@ -307,14 +327,20 @@ export default function SettingsScreen() {
               color={isDark ? '#FFF' : colors.textPrimary}
             />
           </TouchableOpacity>
-          <Text style={[styles.headerTitle, isDark && styles.textLight]}>{t('settings.title')}</Text>
+          <Text style={[styles.headerTitle, isDark && styles.textLight]}>
+            {t('settings.title')}
+          </Text>
           <View style={styles.headerSpacer} />
         </View>
 
         {/* Profile Section - tap to open intervals.icu profile */}
         <TouchableOpacity
           style={[styles.section, isDark && styles.sectionDark]}
-          onPress={() => WebBrowser.openBrowserAsync(`https://intervals.icu/athlete/${getAthleteId()}/activities`)}
+          onPress={() =>
+            WebBrowser.openBrowserAsync(
+              `https://intervals.icu/athlete/${getAthleteId()}/activities`
+            )
+          }
           activeOpacity={0.7}
         >
           <View style={styles.profileRow}>
@@ -327,20 +353,14 @@ export default function SettingsScreen() {
                   onError={() => setProfileImageError(true)}
                 />
               ) : (
-                <MaterialCommunityIcons
-                  name="account"
-                  size={32}
-                  color={isDark ? '#AAA' : '#666'}
-                />
+                <MaterialCommunityIcons name="account" size={32} color={isDark ? '#AAA' : '#666'} />
               )}
             </View>
             <View style={styles.profileInfo}>
               <Text style={[styles.profileName, isDark && styles.textLight]}>
                 {athlete?.name || 'Athlete'}
               </Text>
-              <Text style={[styles.profileEmail, isDark && styles.textMuted]}>
-                intervals.icu
-              </Text>
+              <Text style={[styles.profileEmail, isDark && styles.textMuted]}>intervals.icu</Text>
             </View>
             <MaterialCommunityIcons
               name="chevron-right"
@@ -351,7 +371,9 @@ export default function SettingsScreen() {
         </TouchableOpacity>
 
         {/* Appearance Section */}
-        <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>{t('settings.appearance').toUpperCase()}</Text>
+        <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>
+          {t('settings.appearance').toUpperCase()}
+        </Text>
         <View style={[styles.section, isDark && styles.sectionDark]}>
           <View testID="settings-theme-toggle" style={styles.themePickerContainer}>
             <SegmentedButtons
@@ -380,74 +402,79 @@ export default function SettingsScreen() {
         </View>
 
         {/* Language Section */}
-        <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>{t('settings.language').toUpperCase()}</Text>
+        <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>
+          {t('settings.language').toUpperCase()}
+        </Text>
         <View style={[styles.section, isDark && styles.sectionDark]}>
-          {availableLanguages.map((lang, index) => {
-            const isSelected = language === lang.value || (language === null && lang.value === null);
-            const isEnglishSelected = lang.value === 'en' && isEnglishVariant(language);
-            const showCheck = isSelected || isEnglishSelected;
+          {availableLanguages.flatMap((group, groupIndex) =>
+            group.languages.map((lang, langIndex) => {
+              const index = groupIndex * 100 + langIndex; // Unique index for styling
+              const isSelected =
+                language === lang.value || (language === null && lang.value === null);
+              const isEnglishSelected = lang.value === 'en' && isEnglishVariant(language);
+              const showCheck = isSelected || isEnglishSelected;
 
-            return (
-              <TouchableOpacity
-                key={lang.value ?? 'system'}
-                style={[
-                  styles.languageRow,
-                  index > 0 && styles.languageRowBorder,
-                  isDark && styles.languageRowDark,
-                ]}
-                onPress={() => handleLanguageChange(lang.value ?? 'system')}
-              >
-                <Text style={[styles.languageLabel, isDark && styles.textLight]}>
-                  {lang.label}
-                </Text>
-                {/* Show regional variant chips for English */}
-                {lang.variants && (
-                  <View style={styles.variantChips}>
-                    {lang.variants.map((variant) => {
-                      const isVariantSelected = isEnglishVariant(language) &&
-                        getEnglishVariantValue(language) === variant.value;
-                      return (
-                        <TouchableOpacity
-                          key={variant.value}
-                          style={[
-                            styles.variantChip,
-                            isVariantSelected && styles.variantChipSelected,
-                            isDark && styles.variantChipDark,
-                            isVariantSelected && isDark && styles.variantChipSelectedDark,
-                          ]}
-                          onPress={(e) => {
-                            e.stopPropagation();
-                            handleLanguageChange(variant.value);
-                          }}
-                        >
-                          <Text
+              return (
+                <TouchableOpacity
+                  key={lang.value ?? 'system'}
+                  style={[
+                    styles.languageRow,
+                    index > 0 && styles.languageRowBorder,
+                    isDark && styles.languageRowDark,
+                  ]}
+                  onPress={() => handleLanguageChange(lang.value ?? 'system')}
+                >
+                  <Text style={[styles.languageLabel, isDark && styles.textLight]}>
+                    {lang.label}
+                  </Text>
+                  {/* Show regional variant chips for English */}
+                  {lang.variants && (
+                    <View style={styles.variantChips}>
+                      {lang.variants.map((variant) => {
+                        const isVariantSelected =
+                          isEnglishVariant(language) &&
+                          getEnglishVariantValue(language) === variant.value;
+                        return (
+                          <TouchableOpacity
+                            key={variant.value}
                             style={[
-                              styles.variantChipText,
-                              isVariantSelected && styles.variantChipTextSelected,
-                              isDark && !isVariantSelected && styles.textMuted,
+                              styles.variantChip,
+                              isVariantSelected && styles.variantChipSelected,
+                              isDark && styles.variantChipDark,
+                              isVariantSelected && isDark && styles.variantChipSelectedDark,
                             ]}
+                            onPress={(e) => {
+                              e.stopPropagation();
+                              handleLanguageChange(variant.value);
+                            }}
                           >
-                            {variant.label}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </View>
-                )}
-                {showCheck && !lang.variants && (
-                  <MaterialCommunityIcons
-                    name="check"
-                    size={20}
-                    color={colors.primary}
-                  />
-                )}
-              </TouchableOpacity>
-            );
-          })}
+                            <Text
+                              style={[
+                                styles.variantChipText,
+                                isVariantSelected && styles.variantChipTextSelected,
+                                isDark && !isVariantSelected && styles.textMuted,
+                              ]}
+                            >
+                              {variant.label}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  )}
+                  {showCheck && !lang.variants && (
+                    <MaterialCommunityIcons name="check" size={20} color={colors.primary} />
+                  )}
+                </TouchableOpacity>
+              );
+            })
+          )}
         </View>
 
         {/* Primary Sport Section */}
-        <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>{t('settings.primarySport').toUpperCase()}</Text>
+        <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>
+          {t('settings.primarySport').toUpperCase()}
+        </Text>
         <View style={[styles.section, isDark && styles.sectionDark]}>
           <View style={styles.themePickerContainer}>
             <SegmentedButtons
@@ -478,12 +505,15 @@ export default function SettingsScreen() {
           {t('settings.primarySportHint')}
         </Text>
 
-
         {/* Maps Section */}
-        <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>{t('settings.maps').toUpperCase()}</Text>
+        <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>
+          {t('settings.maps').toUpperCase()}
+        </Text>
         <View style={[styles.section, isDark && styles.sectionDark]}>
           <View style={styles.mapStyleRow}>
-            <Text style={[styles.mapStyleLabel, isDark && styles.textLight]}>{t('settings.defaultStyle')}</Text>
+            <Text style={[styles.mapStyleLabel, isDark && styles.textLight]}>
+              {t('settings.defaultStyle')}
+            </Text>
           </View>
           <View style={styles.themePickerContainer}>
             <SegmentedButtons
@@ -515,11 +545,7 @@ export default function SettingsScreen() {
             style={[styles.actionRow, styles.actionRowBorder]}
             onPress={() => setShowActivityStyles(!showActivityStyles)}
           >
-            <MaterialCommunityIcons
-              name="tune-variant"
-              size={22}
-              color={colors.primary}
-            />
+            <MaterialCommunityIcons name="tune-variant" size={22} color={colors.primary} />
             <Text style={[styles.actionText, isDark && styles.textLight]}>
               {t('settings.customiseByActivity')}
             </Text>
@@ -564,7 +590,9 @@ export default function SettingsScreen() {
         </View>
 
         {/* Data Cache Section - Consolidated */}
-        <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>{t('settings.dataCache').toUpperCase()}</Text>
+        <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>
+          {t('settings.dataCache').toUpperCase()}
+        </Text>
         <View style={[styles.section, isDark && styles.sectionDark]}>
           {/* Sync Status Banners */}
           {progress.status === 'syncing' && (
@@ -579,7 +607,8 @@ export default function SettingsScreen() {
             <View style={[styles.syncBanner, { backgroundColor: colors.chartPurple }]}>
               <MaterialCommunityIcons name="map-marker-path" size={18} color="#FFF" />
               <Text style={styles.syncBannerText}>
-                {routeProgress.message || `Analysing ${routeProgress.current}/${routeProgress.total}`}
+                {routeProgress.message ||
+                  `Analysing ${routeProgress.current}/${routeProgress.total}`}
               </Text>
             </View>
           )}
@@ -595,11 +624,13 @@ export default function SettingsScreen() {
               size={22}
               color={progress.status === 'syncing' ? colors.textSecondary : colors.primary}
             />
-            <Text style={[
-              styles.actionText,
-              isDark && styles.textLight,
-              progress.status === 'syncing' && styles.actionTextDisabled,
-            ]}>
+            <Text
+              style={[
+                styles.actionText,
+                isDark && styles.textLight,
+                progress.status === 'syncing' && styles.actionTextDisabled,
+              ]}
+            >
               {t('settings.syncAllHistory')}
             </Text>
             <MaterialCommunityIcons
@@ -617,11 +648,7 @@ export default function SettingsScreen() {
                 style={styles.actionRow}
                 onPress={() => router.push('/routes' as Href)}
               >
-                <MaterialCommunityIcons
-                  name="map-marker-path"
-                  size={22}
-                  color={colors.primary}
-                />
+                <MaterialCommunityIcons name="map-marker-path" size={22} color={colors.primary} />
                 <Text style={[styles.actionText, isDark && styles.textLight]}>
                   {t('settings.viewRoutes')}
                 </Text>
@@ -636,10 +663,7 @@ export default function SettingsScreen() {
 
               {isRouteProcessing && (
                 <>
-                  <TouchableOpacity
-                    style={styles.actionRow}
-                    onPress={cancelRouteProcessing}
-                  >
+                  <TouchableOpacity style={styles.actionRow} onPress={cancelRouteProcessing}>
                     <MaterialCommunityIcons
                       name="pause-circle-outline"
                       size={22}
@@ -660,9 +684,15 @@ export default function SettingsScreen() {
             </>
           )}
 
-          <TouchableOpacity testID="settings-clear-cache" style={styles.actionRow} onPress={handleClearCache}>
+          <TouchableOpacity
+            testID="settings-clear-cache"
+            style={styles.actionRow}
+            onPress={handleClearCache}
+          >
             <MaterialCommunityIcons name="delete-outline" size={22} color={colors.error} />
-            <Text style={[styles.actionText, styles.actionTextDanger]}>{t('settings.clearAllReload')}</Text>
+            <Text style={[styles.actionText, styles.actionTextDanger]}>
+              {t('settings.clearAllReload')}
+            </Text>
             <MaterialCommunityIcons
               name="chevron-right"
               size={20}
@@ -675,7 +705,9 @@ export default function SettingsScreen() {
               <View style={[styles.divider, isDark && styles.dividerDark]} />
               <TouchableOpacity style={styles.actionRow} onPress={handleClearRouteCache}>
                 <MaterialCommunityIcons name="refresh" size={22} color={colors.warning} />
-                <Text style={[styles.actionText, isDark && styles.textLight]}>{t('settings.reanalyseRoutes')}</Text>
+                <Text style={[styles.actionText, isDark && styles.textLight]}>
+                  {t('settings.reanalyseRoutes')}
+                </Text>
                 <MaterialCommunityIcons
                   name="chevron-right"
                   size={20}
@@ -693,26 +725,34 @@ export default function SettingsScreen() {
               <Text style={[styles.statValue, isDark && styles.textLight]}>
                 {cacheStats.totalActivities}
               </Text>
-              <Text style={[styles.statLabel, isDark && styles.textMuted]}>{t('settings.activities')}</Text>
+              <Text style={[styles.statLabel, isDark && styles.textMuted]}>
+                {t('settings.activities')}
+              </Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
               <Text style={[styles.statValue, isDark && styles.textLight]}>
                 {routeSettings.enabled ? routeGroups.length : '-'}
               </Text>
-              <Text style={[styles.statLabel, isDark && styles.textMuted]}>{t('settings.routesCount')}</Text>
+              <Text style={[styles.statLabel, isDark && styles.textMuted]}>
+                {t('settings.routesCount')}
+              </Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
               <Text style={[styles.statValue, isDark && styles.textLight]}>
                 {formatBytes(cacheSizes.bounds + cacheSizes.gps + cacheSizes.routes)}
               </Text>
-              <Text style={[styles.statLabel, isDark && styles.textMuted]}>{t('settings.total')}</Text>
+              <Text style={[styles.statLabel, isDark && styles.textMuted]}>
+                {t('settings.total')}
+              </Text>
             </View>
           </View>
 
           <View style={[styles.infoRow, isDark && styles.infoRowDark]}>
-            <Text style={[styles.infoLabel, isDark && styles.textMuted]}>{t('settings.dateRange')}</Text>
+            <Text style={[styles.infoLabel, isDark && styles.textMuted]}>
+              {t('settings.dateRange')}
+            </Text>
             <Text style={[styles.infoValue, isDark && styles.textLight]}>
               {cacheStats.oldestDate && cacheStats.newestDate
                 ? `${formatDate(cacheStats.oldestDate)} - ${formatDate(cacheStats.newestDate)}`
@@ -721,47 +761,57 @@ export default function SettingsScreen() {
           </View>
 
           <View style={[styles.infoRow, isDark && styles.infoRowDark]}>
-            <Text style={[styles.infoLabel, isDark && styles.textMuted]}>{t('settings.lastSynced')}</Text>
+            <Text style={[styles.infoLabel, isDark && styles.textMuted]}>
+              {t('settings.lastSynced')}
+            </Text>
             <Text style={[styles.infoValue, isDark && styles.textLight]}>
               {formatDate(cacheStats.lastSync)}
             </Text>
           </View>
 
           <View style={[styles.infoRow, isDark && styles.infoRowDark]}>
-            <Text style={[styles.infoLabel, isDark && styles.textMuted]}>{t('settings.bounds')}</Text>
+            <Text style={[styles.infoLabel, isDark && styles.textMuted]}>
+              {t('settings.bounds')}
+            </Text>
             <Text style={[styles.infoValue, isDark && styles.textLight]}>
               {formatBytes(cacheSizes.bounds)}
             </Text>
           </View>
 
           <View style={[styles.infoRow, isDark && styles.infoRowDark]}>
-            <Text style={[styles.infoLabel, isDark && styles.textMuted]}>{t('settings.gpsTraces')}</Text>
+            <Text style={[styles.infoLabel, isDark && styles.textMuted]}>
+              {t('settings.gpsTraces')}
+            </Text>
             <Text style={[styles.infoValue, isDark && styles.textLight]}>
               {formatBytes(cacheSizes.gps)}
             </Text>
           </View>
 
           <View style={[styles.infoRow, isDark && styles.infoRowDark]}>
-            <Text style={[styles.infoLabel, isDark && styles.textMuted]}>{t('settings.routesCount')}</Text>
+            <Text style={[styles.infoLabel, isDark && styles.textMuted]}>
+              {t('settings.routesCount')}
+            </Text>
             <Text style={[styles.infoValue, isDark && styles.textLight]}>
               {formatBytes(cacheSizes.routes)}
             </Text>
           </View>
 
           <View style={[styles.infoRow, isDark && styles.infoRowDark]}>
-            <Text style={[styles.infoLabel, isDark && styles.textMuted]}>{t('settings.cachedQueries')}</Text>
+            <Text style={[styles.infoLabel, isDark && styles.textMuted]}>
+              {t('settings.cachedQueries')}
+            </Text>
             <Text style={[styles.infoValue, isDark && styles.textLight]}>
               {queryCacheStats.totalQueries}
             </Text>
           </View>
         </View>
 
-        <Text style={[styles.infoText, isDark && styles.textMuted]}>
-          {t('settings.cacheHint')}
-        </Text>
+        <Text style={[styles.infoText, isDark && styles.textMuted]}>{t('settings.cacheHint')}</Text>
 
         {/* Route Matching Toggle */}
-        <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>{t('settings.routeMatching').toUpperCase()}</Text>
+        <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>
+          {t('settings.routeMatching').toUpperCase()}
+        </Text>
         <View style={[styles.section, isDark && styles.sectionDark]}>
           <View style={styles.toggleRow}>
             <View style={styles.toggleInfo}>
@@ -781,12 +831,11 @@ export default function SettingsScreen() {
         </View>
 
         {/* Account Section */}
-        <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>{t('settings.account').toUpperCase()}</Text>
+        <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>
+          {t('settings.account').toUpperCase()}
+        </Text>
         <View style={[styles.section, isDark && styles.sectionDark]}>
-          <TouchableOpacity
-            style={styles.actionRow}
-            onPress={() => router.push('/about' as Href)}
-          >
+          <TouchableOpacity style={styles.actionRow} onPress={() => router.push('/about' as Href)}>
             <MaterialCommunityIcons name="information-outline" size={22} color={colors.primary} />
             <Text style={[styles.actionText, isDark && styles.textLight]}>{t('about.title')}</Text>
             <MaterialCommunityIcons
@@ -798,9 +847,15 @@ export default function SettingsScreen() {
 
           <View style={[styles.divider, isDark && styles.dividerDark]} />
 
-          <TouchableOpacity testID="settings-logout-button" style={styles.actionRow} onPress={handleLogout}>
+          <TouchableOpacity
+            testID="settings-logout-button"
+            style={styles.actionRow}
+            onPress={handleLogout}
+          >
             <MaterialCommunityIcons name="logout" size={22} color={colors.error} />
-            <Text style={[styles.actionText, styles.actionTextDanger]}>{t('settings.disconnectAccount')}</Text>
+            <Text style={[styles.actionText, styles.actionTextDanger]}>
+              {t('settings.disconnectAccount')}
+            </Text>
             <MaterialCommunityIcons
               name="chevron-right"
               size={20}
@@ -810,7 +865,9 @@ export default function SettingsScreen() {
         </View>
 
         {/* Data Sources Section */}
-        <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>{t('settings.dataSources').toUpperCase()}</Text>
+        <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>
+          {t('settings.dataSources').toUpperCase()}
+        </Text>
         <View style={[styles.section, isDark && styles.sectionDark]}>
           <View style={styles.dataSourcesContent}>
             <Text style={[styles.dataSourcesText, isDark && styles.textMuted]}>
@@ -818,19 +875,35 @@ export default function SettingsScreen() {
             </Text>
             <View style={styles.dataSourcesLogos}>
               <View style={styles.dataSourceItem}>
-                <MaterialCommunityIcons name="watch" size={20} color={isDark ? '#888' : colors.textSecondary} />
+                <MaterialCommunityIcons
+                  name="watch"
+                  size={20}
+                  color={isDark ? '#888' : colors.textSecondary}
+                />
                 <Text style={[styles.dataSourceName, isDark && styles.textLight]}>Garmin</Text>
               </View>
               <View style={styles.dataSourceItem}>
-                <MaterialCommunityIcons name="run" size={20} color={isDark ? '#888' : colors.textSecondary} />
+                <MaterialCommunityIcons
+                  name="run"
+                  size={20}
+                  color={isDark ? '#888' : colors.textSecondary}
+                />
                 <Text style={[styles.dataSourceName, isDark && styles.textLight]}>Strava</Text>
               </View>
               <View style={styles.dataSourceItem}>
-                <MaterialCommunityIcons name="watch" size={20} color={isDark ? '#888' : colors.textSecondary} />
+                <MaterialCommunityIcons
+                  name="watch"
+                  size={20}
+                  color={isDark ? '#888' : colors.textSecondary}
+                />
                 <Text style={[styles.dataSourceName, isDark && styles.textLight]}>Polar</Text>
               </View>
               <View style={styles.dataSourceItem}>
-                <MaterialCommunityIcons name="watch" size={20} color={isDark ? '#888' : colors.textSecondary} />
+                <MaterialCommunityIcons
+                  name="watch"
+                  size={20}
+                  color={isDark ? '#888' : colors.textSecondary}
+                />
                 <Text style={[styles.dataSourceName, isDark && styles.textLight]}>Wahoo</Text>
               </View>
             </View>
@@ -843,7 +916,9 @@ export default function SettingsScreen() {
         {/* Demo Data Sources Section - Only visible in demo mode */}
         {isDemoMode && (
           <>
-            <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>{t('settings.demoDataSources').toUpperCase()}</Text>
+            <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>
+              {t('settings.demoDataSources').toUpperCase()}
+            </Text>
             <View style={[styles.section, isDark && styles.sectionDark]}>
               <View style={styles.toggleRow}>
                 <View style={styles.toggleInfo}>
@@ -866,15 +941,25 @@ export default function SettingsScreen() {
                   {t('attribution.demoData')}
                 </Text>
                 <TouchableOpacity
-                  onPress={() => WebBrowser.openBrowserAsync('https://www.openstreetmap.org/copyright')}
+                  onPress={() =>
+                    WebBrowser.openBrowserAsync('https://www.openstreetmap.org/copyright')
+                  }
                   activeOpacity={0.7}
                 >
                   <View style={styles.dataSourceItem}>
-                    <MaterialCommunityIcons name="map-marker-path" size={20} color={colors.primary} />
+                    <MaterialCommunityIcons
+                      name="map-marker-path"
+                      size={20}
+                      color={colors.primary}
+                    />
                     <Text style={[styles.dataSourceName, isDark && styles.textLight]}>
                       {t('attribution.osm')}
                     </Text>
-                    <MaterialCommunityIcons name="open-in-new" size={14} color={isDark ? '#666' : colors.textSecondary} />
+                    <MaterialCommunityIcons
+                      name="open-in-new"
+                      size={14}
+                      color={isDark ? '#666' : colors.textSecondary}
+                    />
                   </View>
                 </TouchableOpacity>
                 <Text style={[styles.trademarkText, isDark && styles.textMuted]}>
@@ -886,18 +971,24 @@ export default function SettingsScreen() {
         )}
 
         {/* Support Section */}
-        <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>{t('settings.support').toUpperCase()}</Text>
+        <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>
+          {t('settings.support').toUpperCase()}
+        </Text>
         <View style={styles.supportRow}>
           <TouchableOpacity
             style={[styles.supportCard, isDark && styles.supportCardDark]}
-            onPress={() => WebBrowser.openBrowserAsync('https://intervals.icu/settings/subscription')}
+            onPress={() =>
+              WebBrowser.openBrowserAsync('https://intervals.icu/settings/subscription')
+            }
             activeOpacity={0.7}
           >
             <View style={[styles.supportIconBg, { backgroundColor: 'rgba(233, 30, 99, 0.12)' }]}>
               <MaterialCommunityIcons name="heart" size={24} color="#E91E63" />
             </View>
             <Text style={[styles.supportTitle, isDark && styles.textLight]}>intervals.icu</Text>
-            <Text style={[styles.supportSubtitle, isDark && styles.textMuted]}>{t('settings.subscribe')}</Text>
+            <Text style={[styles.supportSubtitle, isDark && styles.textMuted]}>
+              {t('settings.subscribe')}
+            </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -905,16 +996,26 @@ export default function SettingsScreen() {
             onPress={() => WebBrowser.openBrowserAsync('https://github.com/sponsors/evanjt')}
             activeOpacity={0.7}
           >
-            <View style={[styles.supportIconBg, { backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)' }]}>
+            <View
+              style={[
+                styles.supportIconBg,
+                { backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)' },
+              ]}
+            >
               <MaterialCommunityIcons name="github" size={24} color={isDark ? '#FFF' : '#333'} />
             </View>
             <Text style={[styles.supportTitle, isDark && styles.textLight]}>@evanjt</Text>
-            <Text style={[styles.supportSubtitle, isDark && styles.textMuted]}>{t('settings.sponsorDev')}</Text>
+            <Text style={[styles.supportSubtitle, isDark && styles.textMuted]}>
+              {t('settings.sponsorDev')}
+            </Text>
           </TouchableOpacity>
         </View>
 
         {/* Version */}
-        <Text testID="settings-version-text" style={[styles.versionText, isDark && styles.textMuted]}>
+        <Text
+          testID="settings-version-text"
+          style={[styles.versionText, isDark && styles.textMuted]}
+        >
           {t('settings.version')} {Constants.expoConfig?.version ?? '0.0.1'}
         </Text>
       </ScrollView>

@@ -83,7 +83,7 @@ export function buildAuthorizationUrl(): string {
  * 4. Proxy exchanges code for token (with client_secret)
  * 5. Proxy redirects to app with token via deep link
  */
-export async function startOAuthFlow(): Promise<WebBrowser.WebBrowserResult> {
+export async function startOAuthFlow(): Promise<WebBrowser.WebBrowserAuthSessionResult> {
   if (!isOAuthConfigured()) {
     throw new Error(
       'OAuth is not configured. Set CLIENT_ID and PROXY_URL in src/lib/utils/constants.ts'

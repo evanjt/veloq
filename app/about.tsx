@@ -36,11 +36,7 @@ function LinkRow({ icon, label, url, isDark }: LinkRowProps) {
 
   return (
     <TouchableOpacity style={styles.linkRow} onPress={handlePress} activeOpacity={0.7}>
-      <MaterialCommunityIcons
-        name={icon as any}
-        size={22}
-        color={colors.primary}
-      />
+      <MaterialCommunityIcons name={icon as any} size={22} color={colors.primary} />
       <Text style={[styles.linkText, isDark && styles.textLight]}>{label}</Text>
       <MaterialCommunityIcons
         name="open-in-new"
@@ -74,9 +70,7 @@ export default function AboutScreen() {
               color={isDark ? '#FFF' : colors.textPrimary}
             />
           </TouchableOpacity>
-          <Text style={[styles.headerTitle, isDark && styles.textLight]}>
-            {t('about.title')}
-          </Text>
+          <Text style={[styles.headerTitle, isDark && styles.textLight]}>{t('about.title')}</Text>
           <View style={styles.headerSpacer} />
         </View>
 
@@ -107,9 +101,7 @@ export default function AboutScreen() {
         </View>
 
         {/* intervals.icu Links */}
-        <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>
-          INTERVALS.ICU
-        </Text>
+        <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>INTERVALS.ICU</Text>
         <View style={[styles.section, isDark && styles.sectionDark]}>
           <LinkRow
             icon="shield-account"
@@ -134,9 +126,7 @@ export default function AboutScreen() {
         </View>
 
         {/* Veloq Links */}
-        <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>
-          VELOQ
-        </Text>
+        <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>VELOQ</Text>
         <View style={[styles.section, isDark && styles.sectionDark]}>
           <LinkRow
             icon="shield-lock"
