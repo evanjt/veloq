@@ -5,11 +5,11 @@
  * the elevation chart crosshair selection. Supports camera following.
  */
 
-import React, { useMemo, useEffect, useCallback } from 'react';
-import { MarkerView } from '@maplibre/maplibre-react-native';
-import { View, StyleSheet } from 'react-native';
-import type { Camera } from '@maplibre/maplibre-react-native';
-import type { LatLng } from '@/lib';
+import React, { useMemo, useEffect, useCallback } from "react";
+import { MarkerView } from "@maplibre/maplibre-react-native";
+import { View, StyleSheet } from "react-native";
+import type { Camera } from "@maplibre/maplibre-react-native";
+import type { LatLng } from "@/lib";
 
 interface HighlightRendererProps {
   /** Index into coordinates array to highlight */
@@ -46,7 +46,11 @@ export function HighlightRenderer({
 }: HighlightRendererProps) {
   // Get the highlighted point from elevation chart selection
   const highlightPoint = useMemo(() => {
-    if (highlightIndex != null && highlightIndex >= 0 && highlightIndex < coordinates.length) {
+    if (
+      highlightIndex != null &&
+      highlightIndex >= 0 &&
+      highlightIndex < coordinates.length
+    ) {
       const coord = coordinates[highlightIndex];
       if (coord && !isNaN(coord.latitude) && !isNaN(coord.longitude)) {
         return coord;
@@ -89,16 +93,16 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: 'rgba(252, 76, 2, 0.3)', // Primary color with opacity
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(252, 76, 2, 0.3)", // Primary color with opacity
+    justifyContent: "center",
+    alignItems: "center",
     borderWidth: 2,
-    borderColor: '#FC4C02', // Primary color
+    borderColor: "#FC4C02", // Primary color
   },
   innerMarker: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#FC4C02',
+    backgroundColor: "#FC4C02",
   },
 });
