@@ -3,18 +3,13 @@
  * Displays details about a heatmap cell when tapped.
  */
 
-import React from "react";
-import {
-  View,
-  StyleSheet,
-  TouchableOpacity,
-  useColorScheme,
-} from "react-native";
-import { Text } from "react-native-paper";
-import { useTranslation } from "react-i18next";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { colors, spacing } from "@/theme";
-import type { CellQueryResult, HeatmapCell } from "@/hooks/useHeatmap";
+import React from 'react';
+import { View, StyleSheet, TouchableOpacity, useColorScheme } from 'react-native';
+import { Text } from 'react-native-paper';
+import { useTranslation } from 'react-i18next';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { colors, spacing } from '@/theme';
+import type { CellQueryResult, HeatmapCell } from '@/hooks/useHeatmap';
 
 interface HeatmapCellPopupProps {
   /** Query result from tapping a cell */
@@ -35,37 +30,33 @@ export function HeatmapCellPopup({
 }: HeatmapCellPopupProps) {
   const { t } = useTranslation();
   const colorScheme = useColorScheme();
-  const isDark = colorScheme === "dark";
+  const isDark = colorScheme === 'dark';
 
   const { cell, suggestedLabel } = cellResult;
   const hasRoutes = cell.routeRefs.length > 0;
 
   // Sort routes by activity count (most active first)
-  const sortedRoutes = [...cell.routeRefs].sort(
-    (a, b) => b.activityCount - a.activityCount,
-  );
+  const sortedRoutes = [...cell.routeRefs].sort((a, b) => b.activityCount - a.activityCount);
 
   return (
     <View style={[styles.container, isDark && styles.containerDark]}>
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerInfo}>
-          <Text style={[styles.label, isDark && styles.textMuted]}>
-            {suggestedLabel}
-          </Text>
+          <Text style={[styles.label, isDark && styles.textMuted]}>{suggestedLabel}</Text>
           <Text style={[styles.stats, isDark && styles.textLight]}>
             {cell.uniqueRouteCount > 0
-              ? `${cell.uniqueRouteCount} route${cell.uniqueRouteCount > 1 ? "s" : ""} • `
-              : ""}
+              ? `${cell.uniqueRouteCount} route${cell.uniqueRouteCount > 1 ? 's' : ''} • `
+              : ''}
             {cell.activityIds.length} activit
-            {cell.activityIds.length === 1 ? "y" : "ies"}
+            {cell.activityIds.length === 1 ? 'y' : 'ies'}
           </Text>
         </View>
         <TouchableOpacity onPress={onClose} style={styles.closeButton}>
           <MaterialCommunityIcons
             name="close"
             size={20}
-            color={isDark ? "#888" : colors.textSecondary}
+            color={isDark ? '#888' : colors.textSecondary}
           />
         </TouchableOpacity>
       </View>
@@ -80,15 +71,8 @@ export function HeatmapCellPopup({
               onPress={() => onRoutePress?.(route.routeId)}
               disabled={!onRoutePress}
             >
-              <MaterialCommunityIcons
-                name="repeat"
-                size={16}
-                color={colors.primary}
-              />
-              <Text
-                style={[styles.routeName, isDark && styles.textLight]}
-                numberOfLines={1}
-              >
+              <MaterialCommunityIcons name="repeat" size={16} color={colors.primary} />
+              <Text style={[styles.routeName, isDark && styles.textLight]} numberOfLines={1}>
                 {route.name || `Route ${route.routeId.slice(-6)}`}
               </Text>
               <Text style={[styles.routeCount, isDark && styles.textMuted]}>
@@ -98,7 +82,7 @@ export function HeatmapCellPopup({
                 <MaterialCommunityIcons
                   name="chevron-right"
                   size={18}
-                  color={isDark ? "#666" : "#CCC"}
+                  color={isDark ? '#666' : '#CCC'}
                 />
               )}
             </TouchableOpacity>
@@ -106,7 +90,7 @@ export function HeatmapCellPopup({
           {sortedRoutes.length > 3 && (
             <Text style={[styles.moreRoutes, isDark && styles.textMuted]}>
               +{sortedRoutes.length - 3} more route
-              {sortedRoutes.length - 3 > 1 ? "s" : ""}
+              {sortedRoutes.length - 3 > 1 ? 's' : ''}
             </Text>
           )}
         </View>
@@ -120,28 +104,19 @@ export function HeatmapCellPopup({
         >
           <Text style={styles.activitiesButtonText}>
             See all {cell.activityIds.length} activit
-            {cell.activityIds.length === 1 ? "y" : "ies"}
+            {cell.activityIds.length === 1 ? 'y' : 'ies'}
           </Text>
-          <MaterialCommunityIcons
-            name="chevron-right"
-            size={18}
-            color={colors.primary}
-          />
+          <MaterialCommunityIcons name="chevron-right" size={18} color={colors.primary} />
         </TouchableOpacity>
       )}
 
       {/* Density indicator */}
       <View style={styles.densityBar}>
-        <View
-          style={[
-            styles.densityFill,
-            { width: `${Math.round(cell.density * 100)}%` },
-          ]}
-        />
+        <View style={[styles.densityFill, { width: `${Math.round(cell.density * 100)}%` }]} />
       </View>
       <Text style={[styles.densityLabel, isDark && styles.textMuted]}>
-        {cell.visitCount} visit{cell.visitCount === 1 ? "" : "s"}
-        {cell.isCommonPath && " • Common path"}
+        {cell.visitCount} visit{cell.visitCount === 1 ? '' : 's'}
+        {cell.isCommonPath && ' • Common path'}
       </Text>
     </View>
   );
@@ -152,19 +127,19 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderRadius: 16,
     padding: spacing.md,
-    shadowColor: "#000",
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.15,
     shadowRadius: 12,
     elevation: 8,
   },
   containerDark: {
-    backgroundColor: "#1E1E1E",
+    backgroundColor: '#1E1E1E',
   },
   header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
     marginBottom: spacing.sm,
   },
   headerInfo: {
@@ -172,7 +147,7 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 16,
-    fontWeight: "600",
+    fontWeight: '600',
     color: colors.textPrimary,
     marginBottom: 2,
   },
@@ -190,13 +165,13 @@ const styles = StyleSheet.create({
     paddingTop: spacing.sm,
   },
   routeItem: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingVertical: spacing.xs,
     gap: spacing.sm,
   },
   routeItemDark: {
-    borderBottomColor: "#333",
+    borderBottomColor: '#333',
   },
   routeName: {
     flex: 1,
@@ -206,19 +181,19 @@ const styles = StyleSheet.create({
   routeCount: {
     fontSize: 13,
     color: colors.textSecondary,
-    fontWeight: "500",
+    fontWeight: '500',
   },
   moreRoutes: {
     fontSize: 12,
     color: colors.textSecondary,
-    fontStyle: "italic",
+    fontStyle: 'italic',
     marginTop: spacing.xs,
-    textAlign: "center",
+    textAlign: 'center',
   },
   activitiesButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     gap: 4,
     paddingVertical: spacing.sm,
     marginTop: spacing.sm,
@@ -227,18 +202,18 @@ const styles = StyleSheet.create({
   },
   activitiesButtonText: {
     fontSize: 14,
-    fontWeight: "600",
+    fontWeight: '600',
     color: colors.primary,
   },
   densityBar: {
     height: 4,
-    backgroundColor: "#E0E0E0",
+    backgroundColor: '#E0E0E0',
     borderRadius: 2,
     marginTop: spacing.md,
-    overflow: "hidden",
+    overflow: 'hidden',
   },
   densityFill: {
-    height: "100%",
+    height: '100%',
     backgroundColor: colors.primary,
     borderRadius: 2,
   },
@@ -246,12 +221,12 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: colors.textSecondary,
     marginTop: 4,
-    textAlign: "center",
+    textAlign: 'center',
   },
   textLight: {
-    color: "#FFFFFF",
+    color: '#FFFFFF',
   },
   textMuted: {
-    color: "#888",
+    color: '#888',
   },
 });

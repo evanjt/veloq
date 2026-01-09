@@ -5,16 +5,16 @@
  * Respects user preferences and persists manual overrides within the component lifecycle.
  */
 
-import React, { useState, useCallback, useEffect } from "react";
-import { TouchableOpacity, StyleSheet, ViewStyle } from "react-native";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { useMapPreferences } from "@/providers";
-import { colors } from "@/theme/colors";
-import { shadows } from "@/theme/shadows";
-import { spacing } from "@/theme/spacing";
-import { type MapStyleType, getNextStyle, getStyleIcon } from "./mapStyles";
-import { getActivityColor } from "@/lib";
-import type { ActivityType } from "@/types";
+import React, { useState, useCallback, useEffect } from 'react';
+import { TouchableOpacity, StyleSheet, ViewStyle } from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useMapPreferences } from '@/providers';
+import { colors } from '@/theme/colors';
+import { shadows } from '@/theme/shadows';
+import { spacing } from '@/theme/spacing';
+import { type MapStyleType, getNextStyle, getStyleIcon } from './mapStyles';
+import { getActivityColor } from '@/lib';
+import type { ActivityType } from '@/types';
 
 interface StyleSwitcherProps {
   /** Current activity type for style preference lookup */
@@ -89,15 +89,15 @@ export function StyleSwitcher({
 
 const styles = StyleSheet.create({
   button: {
-    position: "absolute",
+    position: 'absolute',
     top: spacing.md,
     right: spacing.md,
     width: 44,
     height: 44,
     borderRadius: 22,
     backgroundColor: colors.surface,
-    justifyContent: "center",
-    alignItems: "center",
+    justifyContent: 'center',
+    alignItems: 'center',
     ...shadows.card,
   },
 });

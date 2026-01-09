@@ -5,11 +5,11 @@
  * comparison to user average, and related metrics (TRIMP, strain, fitness).
  */
 
-import { useMemo } from "react";
-import { useTranslation } from "react-i18next";
-import type { Activity, WellnessData } from "@/types";
-import type { StatDetail } from "./types";
-import { colors } from "@/theme/colors";
+import { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
+import type { Activity, WellnessData } from '@/types';
+import type { StatDetail } from './types';
+import { colors } from '@/theme/colors';
 
 interface UseTrainingLoadOptions {
   activity: Activity;
@@ -69,14 +69,14 @@ export function useTrainingLoad({
     const comparison =
       avgLoad && avgLoad > 0
         ? {
-            label: t("activity.vsYourAvg"),
-            value: `${load > avgLoad ? "+" : ""}${Math.round(((load - avgLoad) / avgLoad) * 100)}%`,
+            label: t('activity.vsYourAvg'),
+            value: `${load > avgLoad ? '+' : ''}${Math.round(((load - avgLoad) / avgLoad) * 100)}%`,
             trend:
               load > avgLoad
-                ? ("up" as const)
+                ? ('up' as const)
                 : load < avgLoad
-                  ? ("down" as const)
-                  : ("same" as const),
+                  ? ('down' as const)
+                  : ('same' as const),
             isGood: undefined, // Load being higher isn't inherently good or bad
           }
         : undefined;
@@ -86,21 +86,21 @@ export function useTrainingLoad({
       intensity > 100
         ? colors.error
         : intensity > 85
-          ? "#F59E0B" // Amber-500
+          ? '#F59E0B' // Amber-500
           : intensity > 70
             ? colors.chartYellow
             : colors.success;
 
     // Build details array
-    const details: StatDetail["details"] = [
+    const details: StatDetail['details'] = [
       {
-        label: t("activity.stats.intensityFactor"),
+        label: t('activity.stats.intensityFactor'),
         value: `${Math.round(intensity)}%`,
       },
       ...(activity.trimp
         ? [
             {
-              label: t("activity.stats.trimp"),
+              label: t('activity.stats.trimp'),
               value: `${Math.round(activity.trimp)}`,
             },
           ]
@@ -108,7 +108,7 @@ export function useTrainingLoad({
       ...(activity.strain_score
         ? [
             {
-              label: t("activity.stats.strain"),
+              label: t('activity.stats.strain'),
               value: `${Math.round(activity.strain_score)}`,
             },
           ]
@@ -116,7 +116,7 @@ export function useTrainingLoad({
       ...(wellness?.ctl
         ? [
             {
-              label: t("activity.stats.yourFitness"),
+              label: t('activity.stats.yourFitness'),
               value: `${Math.round(wellness.ctl)}`,
             },
           ]
@@ -124,7 +124,7 @@ export function useTrainingLoad({
       ...(wellness?.atl
         ? [
             {
-              label: t("activity.stats.yourFatigue"),
+              label: t('activity.stats.yourFatigue'),
               value: `${Math.round(wellness.atl)}`,
             },
           ]
@@ -132,13 +132,13 @@ export function useTrainingLoad({
     ];
 
     return {
-      title: t("activity.stats.trainingLoad"),
+      title: t('activity.stats.trainingLoad'),
       value: `${Math.round(load)}`,
-      icon: "lightning-bolt" as const,
+      icon: 'lightning-bolt' as const,
       color,
       comparison,
       context: `IF ${Math.round(intensity)}%`,
-      explanation: t("activity.explanations.trainingLoad"),
+      explanation: t('activity.explanations.trainingLoad'),
       details,
     };
   }, [activity, wellness, avgLoad, t]);

@@ -1,17 +1,11 @@
-import React, { useMemo } from "react";
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
-  ScrollView,
-} from "react-native";
-import { useTranslation } from "react-i18next";
-import { Ionicons } from "@expo/vector-icons";
-import { colors } from "@/theme/colors";
-import { typography } from "@/theme/typography";
-import { spacing, layout } from "@/theme/spacing";
-import type { ActivityType } from "@/types";
+import React, { useMemo } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
+import { useTranslation } from 'react-i18next';
+import { Ionicons } from '@expo/vector-icons';
+import { colors } from '@/theme/colors';
+import { typography } from '@/theme/typography';
+import { spacing, layout } from '@/theme/spacing';
+import type { ActivityType } from '@/types';
 
 // Main activity categories (matching theme colors)
 export const ACTIVITY_CATEGORIES: Record<
@@ -25,45 +19,38 @@ export const ACTIVITY_CATEGORIES: Record<
 > = {
   Ride: {
     color: colors.ride,
-    icon: "bicycle",
-    label: "Ride",
-    types: [
-      "Ride",
-      "VirtualRide",
-      "EBikeRide",
-      "MountainBikeRide",
-      "GravelRide",
-      "Velomobile",
-    ],
+    icon: 'bicycle',
+    label: 'Ride',
+    types: ['Ride', 'VirtualRide', 'EBikeRide', 'MountainBikeRide', 'GravelRide', 'Velomobile'],
   },
   Run: {
     color: colors.run,
-    icon: "walk",
-    label: "Run",
-    types: ["Run", "TrailRun", "VirtualRun", "Treadmill"],
+    icon: 'walk',
+    label: 'Run',
+    types: ['Run', 'TrailRun', 'VirtualRun', 'Treadmill'],
   },
   Swim: {
     color: colors.swim,
-    icon: "water",
-    label: "Swim",
-    types: ["Swim", "OpenWaterSwim"],
+    icon: 'water',
+    label: 'Swim',
+    types: ['Swim', 'OpenWaterSwim'],
   },
   Walk: {
     color: colors.walk,
-    icon: "footsteps",
-    label: "Walk",
-    types: ["Walk"],
+    icon: 'footsteps',
+    label: 'Walk',
+    types: ['Walk'],
   },
   Hike: {
     color: colors.hike,
-    icon: "trail-sign",
-    label: "Hike",
-    types: ["Hike"],
+    icon: 'trail-sign',
+    label: 'Hike',
+    types: ['Hike'],
   },
   Other: {
     color: colors.workout,
-    icon: "fitness",
-    label: "Other",
+    icon: 'fitness',
+    label: 'Other',
     types: [], // Catch-all for anything not in other categories
   },
 };
@@ -75,7 +62,7 @@ export function getActivityCategory(type: string): string {
       return category;
     }
   }
-  return "Other";
+  return 'Other';
 }
 
 // Get config for any activity type (returns the category config)
@@ -143,16 +130,10 @@ export function ActivityTypeFilter({
         {/* Select All / Deselect All buttons */}
         <TouchableOpacity
           style={styles.controlChip}
-          onPress={
-            selectedTypes.size === availableTypes.length
-              ? deselectAll
-              : selectAll
-          }
+          onPress={selectedTypes.size === availableTypes.length ? deselectAll : selectAll}
         >
           <Text style={styles.controlText}>
-            {selectedTypes.size === availableTypes.length
-              ? t("maps.clear")
-              : t("maps.allClear")}
+            {selectedTypes.size === availableTypes.length ? t('maps.clear') : t('maps.allClear')}
           </Text>
         </TouchableOpacity>
 
@@ -195,7 +176,7 @@ export function ActivityTypeFilter({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: "rgba(255, 255, 255, 0.95)",
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
     paddingVertical: spacing.sm,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
@@ -203,7 +184,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: layout.cardMargin,
     gap: spacing.sm,
-    flexDirection: "row",
+    flexDirection: 'row',
   },
   controlChip: {
     paddingHorizontal: layout.cardMargin,
@@ -215,18 +196,18 @@ const styles = StyleSheet.create({
   },
   controlText: {
     fontSize: typography.caption.fontSize,
-    fontWeight: "500",
+    fontWeight: '500',
     color: colors.textSecondary,
   },
   chip: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: spacing.xs,
     paddingHorizontal: layout.cardMargin,
     paddingVertical: 6,
     borderRadius: spacing.md,
     borderWidth: 1,
-    borderColor: "transparent",
+    borderColor: 'transparent',
   },
   chipUnselected: {
     backgroundColor: colors.surface,
@@ -234,7 +215,7 @@ const styles = StyleSheet.create({
   },
   chipText: {
     fontSize: typography.caption.fontSize,
-    fontWeight: "500",
+    fontWeight: '500',
   },
   chipTextSelected: {
     color: colors.surface,
