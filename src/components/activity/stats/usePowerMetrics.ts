@@ -5,11 +5,11 @@
  * efficiency factor, and decoupling.
  */
 
-import { useMemo } from 'react';
-import { useTranslation } from 'react-i18next';
-import type { Activity, WellnessData } from '@/types';
-import type { StatDetail } from './types';
-import { colors } from '@/theme/colors';
+import { useMemo } from "react";
+import { useTranslation } from "react-i18next";
+import type { Activity, WellnessData } from "@/types";
+import type { StatDetail } from "./types";
+import { colors } from "@/theme/colors";
 
 interface UsePowerMetricsOptions {
   activity: Activity;
@@ -60,15 +60,19 @@ export function usePowerMetrics({
 
     // Comparison vs FTP (higher is better for power)
     const comparison = {
-      label: `${Math.round(eFTP)} ${t('activity.stats.ftp')}`,
+      label: `${Math.round(eFTP)} ${t("activity.stats.ftp")}`,
       value: `${ftpPercent}%`,
       trend:
-        ftpPercent > 75 ? ('up' as const) : ftpPercent < 50 ? ('down' as const) : ('same' as const),
+        ftpPercent > 75
+          ? ("up" as const)
+          : ftpPercent < 50
+            ? ("down" as const)
+            : ("same" as const),
       isGood: ftpPercent > 75, // >75% FTP is good
     };
 
     // Build details array
-    const details: StatDetail['details'] = [];
+    const details: StatDetail["details"] = [];
 
     // Normalized power (if weighted power available)
     if (
@@ -76,7 +80,7 @@ export function usePowerMetrics({
       activity.weighted_average_watts !== activity.average_watts
     ) {
       details.push({
-        label: t('activity.stats.normalizedPower'),
+        label: t("activity.stats.normalizedPower"),
         value: `${Math.round(activity.weighted_average_watts)} W`,
       });
     }
@@ -85,7 +89,7 @@ export function usePowerMetrics({
     if (activity.weighted_average_watts && activity.average_watts) {
       const vi = activity.weighted_average_watts / activity.average_watts;
       details.push({
-        label: t('activity.stats.vi'),
+        label: t("activity.stats.vi"),
         value: vi.toFixed(2),
       });
     }
@@ -94,7 +98,7 @@ export function usePowerMetrics({
     if (activity.weighted_average_watts && activity.average_heartrate) {
       const ef = activity.weighted_average_watts / activity.average_heartrate;
       details.push({
-        label: t('activity.stats.ef'),
+        label: t("activity.stats.ef"),
         value: ef.toFixed(2),
       });
     }
@@ -102,18 +106,18 @@ export function usePowerMetrics({
     // Decoupling (if pacing data available)
     if (activity.pacing_index) {
       details.push({
-        label: t('activity.stats.decoup'),
+        label: t("activity.stats.decoup"),
         value: activity.pacing_index.toFixed(2),
       });
     }
 
     return {
-      title: 'Power',
+      title: "Power",
       value: `${avgPower} W`,
-      icon: 'lightning-bolt',
+      icon: "lightning-bolt" as const,
       color: colors.success, // Green for power (higher is better)
       comparison,
-      explanation: t('activity.explanations.power'),
+      explanation: t("activity.explanations.power"),
       details: details.length > 0 ? details : undefined,
     };
   }, [activity, wellness, t]);

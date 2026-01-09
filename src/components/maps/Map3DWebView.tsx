@@ -1,8 +1,8 @@
-import React, { useMemo, useRef, useImperativeHandle, forwardRef } from 'react';
-import { View, StyleSheet } from 'react-native';
-import { WebView } from 'react-native-webview';
-import { colors, darkColors } from '@/theme/colors';
-import type { MapStyleType } from './mapStyles';
+import React, { useMemo, useRef, useImperativeHandle, forwardRef } from "react";
+import { View, StyleSheet } from "react-native";
+import { WebView } from "react-native-webview";
+import { colors, darkColors } from "@/theme/colors";
+import type { MapStyleType } from "./mapStyles";
 
 interface Map3DWebViewProps {
   /** Route coordinates as [lng, lat] pairs */
@@ -34,49 +34,55 @@ interface Map3DWebViewPropsInternal extends Map3DWebViewProps {
  * Uses free AWS Terrain Tiles (no API key required).
  * Supports light, dark, and satellite base styles.
  */
-export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInternal>(
-  function Map3DWebView(
-    {
-      coordinates,
-      mapStyle,
-      routeColor = colors.primary,
-      initialPitch = 60,
-      terrainExaggeration = 1.5,
-      onMapReady,
-      onBearingChange,
-    },
-    ref
-  ) {
-    const webViewRef = useRef<WebView>(null);
+export const Map3DWebView = forwardRef<
+  Map3DWebViewRef,
+  Map3DWebViewPropsInternal
+>(function Map3DWebView(
+  {
+    coordinates,
+    mapStyle,
+    routeColor = colors.primary,
+    initialPitch = 60,
+    terrainExaggeration = 1.5,
+    onMapReady,
+    onBearingChange,
+  },
+  ref,
+) {
+  const webViewRef = useRef<WebView>(null);
 
-    // Handle messages from WebView
-    const handleMessage = (event: { nativeEvent: { data: string } }) => {
-      try {
-        const data = JSON.parse(event.nativeEvent.data);
-        // Validate message structure before using
-        if (typeof data !== 'object' || data === null || typeof data.type !== 'string') {
-          return;
-        }
-        if (data.type === 'mapReady' && onMapReady) {
-          onMapReady();
-        } else if (
-          data.type === 'bearingChange' &&
-          onBearingChange &&
-          typeof data.bearing === 'number'
-        ) {
-          onBearingChange(data.bearing);
-        }
-      } catch {
-        // Ignore parse errors
+  // Handle messages from WebView
+  const handleMessage = (event: { nativeEvent: { data: string } }) => {
+    try {
+      const data = JSON.parse(event.nativeEvent.data);
+      // Validate message structure before using
+      if (
+        typeof data !== "object" ||
+        data === null ||
+        typeof data.type !== "string"
+      ) {
+        return;
       }
-    };
+      if (data.type === "mapReady" && onMapReady) {
+        onMapReady();
+      } else if (
+        data.type === "bearingChange" &&
+        onBearingChange &&
+        typeof data.bearing === "number"
+      ) {
+        onBearingChange(data.bearing);
+      }
+    } catch {
+      // Ignore parse errors
+    }
+  };
 
-    // Expose reset method to parent
-    useImperativeHandle(
-      ref,
-      () => ({
-        resetOrientation: () => {
-          webViewRef.current?.injectJavaScript(`
+  // Expose reset method to parent
+  useImperativeHandle(
+    ref,
+    () => ({
+      resetOrientation: () => {
+        webViewRef.current?.injectJavaScript(`
         if (window.map) {
           window.map.easeTo({
             bearing: 0,
@@ -86,47 +92,47 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
         }
         true;
       `);
-        },
-      }),
-      []
-    );
+      },
+    }),
+    [],
+  );
 
-    // Calculate bounds from coordinates
-    const bounds = useMemo(() => {
-      if (coordinates.length === 0) return null;
+  // Calculate bounds from coordinates
+  const bounds = useMemo(() => {
+    if (coordinates.length === 0) return null;
 
-      let minLng = Infinity,
-        maxLng = -Infinity;
-      let minLat = Infinity,
-        maxLat = -Infinity;
+    let minLng = Infinity,
+      maxLng = -Infinity;
+    let minLat = Infinity,
+      maxLat = -Infinity;
 
-      for (const [lng, lat] of coordinates) {
-        minLng = Math.min(minLng, lng);
-        maxLng = Math.max(maxLng, lng);
-        minLat = Math.min(minLat, lat);
-        maxLat = Math.max(maxLat, lat);
-      }
+    for (const [lng, lat] of coordinates) {
+      minLng = Math.min(minLng, lng);
+      maxLng = Math.max(maxLng, lng);
+      minLat = Math.min(minLat, lat);
+      maxLat = Math.max(maxLat, lat);
+    }
 
-      // Add padding
-      const lngPad = (maxLng - minLng) * 0.1;
-      const latPad = (maxLat - minLat) * 0.1;
+    // Add padding
+    const lngPad = (maxLng - minLng) * 0.1;
+    const latPad = (maxLat - minLat) * 0.1;
 
-      return {
-        sw: [minLng - lngPad, minLat - latPad],
-        ne: [maxLng + lngPad, maxLat + latPad],
-      };
-    }, [coordinates]);
+    return {
+      sw: [minLng - lngPad, minLat - latPad],
+      ne: [maxLng + lngPad, maxLat + latPad],
+    };
+  }, [coordinates]);
 
-    // Generate the HTML for the WebView
-    const html = useMemo(() => {
-      const coordsJSON = JSON.stringify(coordinates);
-      const boundsJSON = bounds ? JSON.stringify(bounds) : 'null';
-      const isSatellite = mapStyle === 'satellite';
-      const isDark = mapStyle === 'dark' || mapStyle === 'satellite';
+  // Generate the HTML for the WebView
+  const html = useMemo(() => {
+    const coordsJSON = JSON.stringify(coordinates);
+    const boundsJSON = bounds ? JSON.stringify(bounds) : "null";
+    const isSatellite = mapStyle === "satellite";
+    const isDark = mapStyle === "dark" || mapStyle === "satellite";
 
-      // For satellite, we build a custom style; for others, use the style URL
-      const styleConfig = isSatellite
-        ? `{
+    // For satellite, we build a custom style; for others, use the style URL
+    const styleConfig = isSatellite
+      ? `{
           version: 8,
           sources: {
             'satellite': {
@@ -144,11 +150,11 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
             maxzoom: 22
           }]
         }`
-        : mapStyle === 'dark'
-          ? `'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json'`
-          : `'https://tiles.openfreemap.org/styles/liberty'`;
+      : mapStyle === "dark"
+        ? `'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json'`
+        : `'https://tiles.openfreemap.org/styles/liberty'`;
 
-      return `
+    return `
 <!DOCTYPE html>
 <html>
 <head>
@@ -241,7 +247,7 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
           source: 'hillshade',
           layout: { visibility: 'visible' },
           paint: {
-            'hillshade-shadow-color': '${isDark ? '#000000' : '#473B24'}',
+            'hillshade-shadow-color': '${isDark ? "#000000" : "#473B24"}',
             'hillshade-illumination-anchor': 'map',
             'hillshade-exaggeration': 0.3,
           },
@@ -298,31 +304,37 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
 </body>
 </html>
     `;
-    }, [coordinates, bounds, mapStyle, routeColor, initialPitch, terrainExaggeration]);
+  }, [
+    coordinates,
+    bounds,
+    mapStyle,
+    routeColor,
+    initialPitch,
+    terrainExaggeration,
+  ]);
 
-    return (
-      <View style={styles.container}>
-        <WebView
-          ref={webViewRef}
-          source={{ html }}
-          style={styles.webview}
-          scrollEnabled={false}
-          bounces={false}
-          overScrollMode="never"
-          nestedScrollEnabled={true}
-          javaScriptEnabled={true}
-          domStorageEnabled={true}
-          startInLoadingState={false}
-          showsVerticalScrollIndicator={false}
-          showsHorizontalScrollIndicator={false}
-          originWhitelist={['*']}
-          mixedContentMode="always"
-          onMessage={handleMessage}
-        />
-      </View>
-    );
-  }
-);
+  return (
+    <View style={styles.container}>
+      <WebView
+        ref={webViewRef}
+        source={{ html }}
+        style={styles.webview}
+        scrollEnabled={false}
+        bounces={false}
+        overScrollMode="never"
+        nestedScrollEnabled={true}
+        javaScriptEnabled={true}
+        domStorageEnabled={true}
+        startInLoadingState={false}
+        showsVerticalScrollIndicator={false}
+        showsHorizontalScrollIndicator={false}
+        originWhitelist={["*"]}
+        mixedContentMode="always"
+        onMessage={handleMessage}
+      />
+    </View>
+  );
+});
 
 const styles = StyleSheet.create({
   container: {
@@ -331,6 +343,6 @@ const styles = StyleSheet.create({
   },
   webview: {
     flex: 1,
-    backgroundColor: 'transparent',
+    backgroundColor: "transparent",
   },
 });

@@ -1,5 +1,18 @@
-import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, useColorScheme, TouchableOpacity, Animated } from 'react-native';
+import React, {
+  useState,
+  useMemo,
+  useCallback,
+  useRef,
+  useEffect,
+} from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  useColorScheme,
+  TouchableOpacity,
+  Animated,
+} from "react-native";
 import {
   MapView,
   Camera,
@@ -7,18 +20,18 @@ import {
   ShapeSource,
   LineLayer,
   CircleLayer,
-} from '@maplibre/maplibre-react-native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Ionicons } from '@expo/vector-icons';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useTranslation } from 'react-i18next';
-import { colors, darkColors } from '@/theme/colors';
-import { typography } from '@/theme/typography';
-import { spacing, layout } from '@/theme/spacing';
-import { shadows } from '@/theme/shadows';
-import { convertLatLngTuples, normalizeBounds, getBoundsCenter } from '@/lib';
-import { getActivityTypeConfig } from './ActivityTypeFilter';
-import { Map3DWebView, type Map3DWebViewRef } from './Map3DWebView';
+} from "@maplibre/maplibre-react-native";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useTranslation } from "react-i18next";
+import { colors, darkColors } from "@/theme/colors";
+import { typography } from "@/theme/typography";
+import { spacing, layout } from "@/theme/spacing";
+import { shadows } from "@/theme/shadows";
+import { convertLatLngTuples, normalizeBounds, getBoundsCenter } from "@/lib";
+import { getActivityTypeConfig } from "./ActivityTypeFilter";
+import { Map3DWebView, type Map3DWebViewRef } from "./Map3DWebView";
 import {
   type MapStyleType,
   getMapStyle,
@@ -27,12 +40,12 @@ import {
   getStyleIcon,
   MAP_ATTRIBUTIONS,
   TERRAIN_ATTRIBUTION,
-} from './mapStyles';
-import type { ActivityBoundsItem } from '@/types';
-import { HeatmapLayer } from './HeatmapLayer';
-import { useHeatmap, type CellQueryResult } from '@/hooks/useHeatmap';
-import { useFrequentSections, useRouteSignatures } from '@/hooks/routes';
-import type { FrequentSection } from '@/types';
+} from "./mapStyles";
+import type { ActivityBoundsItem } from "@/types";
+import { HeatmapLayer } from "./HeatmapLayer";
+import { useHeatmap, type CellQueryResult } from "@/hooks/useHeatmap";
+import { useFrequentSections, useRouteSignatures } from "@/hooks/routes";
+import type { FrequentSection } from "@/types";
 import {
   ActivityPopup,
   HeatmapCellInfo,
@@ -41,7 +54,7 @@ import {
   getMarkerSize,
   useMapHandlers,
   type SelectedActivity,
-} from './regional';
+} from "./regional";
 
 /**
  * 120Hz OPTIMIZATION SUMMARY:
@@ -73,17 +86,23 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
   const { t } = useTranslation();
   const colorScheme = useColorScheme();
   const insets = useSafeAreaInsets();
-  const systemStyle: MapStyleType = colorScheme === 'dark' ? 'dark' : 'light';
+  const systemStyle: MapStyleType = colorScheme === "dark" ? "dark" : "light";
   const [mapStyle, setMapStyle] = useState<MapStyleType>(systemStyle);
   const [selected, setSelected] = useState<SelectedActivity | null>(null);
   const [is3DMode, setIs3DMode] = useState(false);
   const [isHeatmapMode, setIsHeatmapMode] = useState(false);
   const [showSections, setShowSections] = useState(true);
-  const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
-  const [visibleActivityIds, setVisibleActivityIds] = useState<Set<string> | null>(null);
+  const [userLocation, setUserLocation] = useState<[number, number] | null>(
+    null,
+  );
+  const [visibleActivityIds, setVisibleActivityIds] =
+    useState<Set<string> | null>(null);
   const [currentZoom, setCurrentZoom] = useState(10);
-  const [selectedCell, setSelectedCell] = useState<CellQueryResult | null>(null);
-  const [selectedSection, setSelectedSection] = useState<FrequentSection | null>(null);
+  const [selectedCell, setSelectedCell] = useState<CellQueryResult | null>(
+    null,
+  );
+  const [selectedSection, setSelectedSection] =
+    useState<FrequentSection | null>(null);
   const cameraRef = useRef<React.ElementRef<typeof Camera>>(null);
 
   // Get route signatures from Rust engine for trace rendering
@@ -269,21 +288,21 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
         const coordinates = signature.points.map((pt) => [pt.lng, pt.lat]);
 
         return {
-          type: 'Feature' as const,
+          type: "Feature" as const,
           id: `trace-${activity.id}`,
           properties: {
             id: activity.id,
             color: config.color,
           },
           geometry: {
-            type: 'LineString' as const,
+            type: "LineString" as const,
             coordinates,
           },
         };
       });
 
     return {
-      type: 'FeatureCollection' as const,
+      type: "FeatureCollection" as const,
       features,
     };
   }, [showTraces, visibleActivities, routeSignatures]);
@@ -299,7 +318,7 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
       const config = getActivityTypeConfig(section.sportType);
 
       return {
-        type: 'Feature' as const,
+        type: "Feature" as const,
         id: section.id,
         properties: {
           id: section.id,
@@ -310,14 +329,14 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
           color: config.color,
         },
         geometry: {
-          type: 'LineString' as const,
+          type: "LineString" as const,
           coordinates,
         },
       };
     });
 
     return {
-      type: 'FeatureCollection' as const,
+      type: "FeatureCollection" as const,
       features,
     };
   }, [sections]);
@@ -356,7 +375,7 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
       const size = getMarkerSize(activity.distance);
 
       return {
-        type: 'Feature' as const,
+        type: "Feature" as const,
         id: activity.id,
         properties: {
           id: activity.id,
@@ -365,14 +384,14 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
           size: size,
         },
         geometry: {
-          type: 'Point' as const,
+          type: "Point" as const,
           coordinates: center,
         },
       };
     });
 
     return {
-      type: 'FeatureCollection' as const,
+      type: "FeatureCollection" as const,
       features,
     };
   }, [visibleActivities, activityCenters]);
@@ -386,7 +405,9 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
     if (!selected?.mapData?.latlngs) return null;
 
     // Filter out null values first
-    const nonNullCoords = selected.mapData.latlngs.filter((c): c is [number, number] => c !== null);
+    const nonNullCoords = selected.mapData.latlngs.filter(
+      (c): c is [number, number] => c !== null,
+    );
 
     if (nonNullCoords.length === 0) return null;
 
@@ -401,10 +422,10 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
     if (validCoords.length === 0) return null;
 
     return {
-      type: 'Feature' as const,
+      type: "Feature" as const,
       properties: {},
       geometry: {
-        type: 'LineString' as const,
+        type: "LineString" as const,
         coordinates: validCoords,
       },
     };
@@ -474,8 +495,8 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
               <CircleLayer
                 id="marker-hitarea"
                 style={{
-                  circleRadius: ['/', ['get', 'size'], 2],
-                  circleColor: 'transparent',
+                  circleRadius: ["/", ["get", "size"], 2],
+                  circleColor: "transparent",
                   circleStrokeWidth: 0,
                 }}
               />
@@ -515,13 +536,19 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
                       backgroundColor: config.color,
                       // Thinner border to give more space for the icon
                       borderWidth: isSelected ? 2 : 1.5,
-                      borderColor: isSelected ? colors.primary : colors.textOnDark,
-                      justifyContent: 'center',
-                      alignItems: 'center',
+                      borderColor: isSelected
+                        ? colors.primary
+                        : colors.textOnDark,
+                      justifyContent: "center",
+                      alignItems: "center",
                       ...shadows.elevated,
                     }}
                   >
-                    <Ionicons name={config.icon} size={iconSize} color={colors.textOnDark} />
+                    <Ionicons
+                      name={config.icon}
+                      size={iconSize}
+                      color={colors.textOnDark}
+                    />
                   </View>
                 </MarkerView>
               );
@@ -542,22 +569,42 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
                 <LineLayer
                   id="sectionsLine"
                   style={{
-                    lineColor: ['get', 'color'],
-                    lineWidth: ['interpolate', ['linear'], ['zoom'], 10, 3, 14, 5, 18, 7],
+                    lineColor: ["get", "color"],
+                    lineWidth: [
+                      "interpolate",
+                      ["linear"],
+                      ["zoom"],
+                      10,
+                      3,
+                      14,
+                      5,
+                      18,
+                      7,
+                    ],
                     lineOpacity: 0.85,
-                    lineCap: 'round',
-                    lineJoin: 'round',
+                    lineCap: "round",
+                    lineJoin: "round",
                   }}
                 />
                 {/* Section outline for better visibility */}
                 <LineLayer
                   id="sectionsOutline"
                   style={{
-                    lineColor: '#FFFFFF',
-                    lineWidth: ['interpolate', ['linear'], ['zoom'], 10, 5, 14, 7, 18, 9],
+                    lineColor: "#FFFFFF",
+                    lineWidth: [
+                      "interpolate",
+                      ["linear"],
+                      ["zoom"],
+                      10,
+                      5,
+                      14,
+                      7,
+                      18,
+                      9,
+                    ],
                     lineOpacity: 0.4,
-                    lineCap: 'round',
-                    lineJoin: 'round',
+                    lineCap: "round",
+                    lineJoin: "round",
                   }}
                   belowLayerID="sectionsLine"
                 />
@@ -576,27 +623,29 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
 
           {/* GPS traces - simplified routes shown when zoomed in (hidden in heatmap mode) */}
           {/* Rendered with low opacity, below the selected activity route */}
-          {!isHeatmapMode && tracesGeoJSON && tracesGeoJSON.features.length > 0 && (
-            <ShapeSource id="activity-traces" shape={tracesGeoJSON}>
-              <LineLayer
-                id="tracesLine"
-                style={{
-                  lineColor: ['get', 'color'],
-                  lineWidth: [
-                    'case',
-                    // Hide selected trace (full route shown instead)
-                    // Uses selectedActivityId variable instead of isSelected property for 120Hz
-                    ['==', ['get', 'id'], selectedActivityId ?? ''],
-                    0,
-                    2,
-                  ],
-                  lineOpacity: 0.4,
-                  lineCap: 'round',
-                  lineJoin: 'round',
-                }}
-              />
-            </ShapeSource>
-          )}
+          {!isHeatmapMode &&
+            tracesGeoJSON &&
+            tracesGeoJSON.features.length > 0 && (
+              <ShapeSource id="activity-traces" shape={tracesGeoJSON}>
+                <LineLayer
+                  id="tracesLine"
+                  style={{
+                    lineColor: ["get", "color"],
+                    lineWidth: [
+                      "case",
+                      // Hide selected trace (full route shown instead)
+                      // Uses selectedActivityId variable instead of isSelected property for 120Hz
+                      ["==", ["get", "id"], selectedActivityId ?? ""],
+                      0,
+                      2,
+                    ],
+                    lineOpacity: 0.4,
+                    lineCap: "round",
+                    lineJoin: "round",
+                  }}
+                />
+              </ShapeSource>
+            )}
 
           {/* Selected activity route */}
           {/* Key forces re-render when activity changes to ensure proper positioning */}
@@ -609,10 +658,11 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
               <LineLayer
                 id={`routeLine-${selected.activity.id}`}
                 style={{
-                  lineColor: getActivityTypeConfig(selected.activity.type).color,
+                  lineColor: getActivityTypeConfig(selected.activity.type)
+                    .color,
                   lineWidth: 4,
-                  lineCap: 'round',
-                  lineJoin: 'round',
+                  lineCap: "round",
+                  lineJoin: "round",
                 }}
               />
             </ShapeSource>
@@ -639,7 +689,7 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
         ]}
         onPress={onClose}
         activeOpacity={0.8}
-        accessibilityLabel={t('maps.closeMap')}
+        accessibilityLabel={t("maps.closeMap")}
         accessibilityRole="button"
       >
         <MaterialCommunityIcons
@@ -659,7 +709,7 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
         ]}
         onPress={toggleStyle}
         activeOpacity={0.8}
-        accessibilityLabel={t('maps.toggleStyle')}
+        accessibilityLabel={t("maps.toggleStyle")}
         accessibilityRole="button"
       >
         <MaterialCommunityIcons
@@ -734,13 +784,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   button: {
-    position: 'absolute',
+    position: "absolute",
     width: layout.minTapTarget,
     height: layout.minTapTarget,
     borderRadius: layout.minTapTarget / 2,
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(255, 255, 255, 0.95)",
+    justifyContent: "center",
+    alignItems: "center",
     ...shadows.mapOverlay,
   },
   buttonDark: {
@@ -756,9 +806,9 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: 'rgba(66, 165, 245, 0.3)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(66, 165, 245, 0.3)",
+    justifyContent: "center",
+    alignItems: "center",
   },
   userLocationDot: {
     width: 12,
@@ -769,12 +819,12 @@ const styles = StyleSheet.create({
     borderColor: colors.textOnDark,
   },
   markerWrapper: {
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   marker: {
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     borderColor: colors.textOnDark,
     ...shadows.elevated,
   },
@@ -783,9 +833,9 @@ const styles = StyleSheet.create({
     borderColor: colors.primary,
   },
   attribution: {
-    position: 'absolute',
+    position: "absolute",
     right: spacing.sm,
-    backgroundColor: 'rgba(255, 255, 255, 0.7)',
+    backgroundColor: "rgba(255, 255, 255, 0.7)",
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: spacing.xs,

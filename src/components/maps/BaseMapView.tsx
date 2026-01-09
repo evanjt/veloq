@@ -1,22 +1,36 @@
-import React, { useState, useCallback, useRef, useMemo, ReactNode, useEffect } from 'react';
-import { View, Text, StyleSheet, useColorScheme, TouchableOpacity, Animated } from 'react-native';
+import React, {
+  useState,
+  useCallback,
+  useRef,
+  useMemo,
+  ReactNode,
+  useEffect,
+} from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  useColorScheme,
+  TouchableOpacity,
+  Animated,
+} from "react-native";
 import {
   MapView,
   Camera,
   ShapeSource,
   LineLayer,
   MarkerView,
-} from '@maplibre/maplibre-react-native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useTranslation } from 'react-i18next';
-import * as Location from 'expo-location';
-import { colors, darkColors, opacity } from '@/theme/colors';
-import { typography } from '@/theme/typography';
-import { spacing, layout } from '@/theme/spacing';
-import { shadows } from '@/theme/shadows';
-import { Map3DWebView, type Map3DWebViewRef } from './Map3DWebView';
-import { CompassArrow } from '@/components/ui';
+} from "@maplibre/maplibre-react-native";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useTranslation } from "react-i18next";
+import * as Location from "expo-location";
+import { colors, darkColors, opacity } from "@/theme/colors";
+import { typography } from "@/theme/typography";
+import { spacing, layout } from "@/theme/spacing";
+import { shadows } from "@/theme/shadows";
+import { Map3DWebView, type Map3DWebViewRef } from "./Map3DWebView";
+import { CompassArrow } from "@/components/ui";
 import {
   type MapStyleType,
   getMapStyle,
@@ -25,7 +39,7 @@ import {
   getStyleIcon,
   MAP_ATTRIBUTIONS,
   TERRAIN_ATTRIBUTION,
-} from './mapStyles';
+} from "./mapStyles";
 
 export interface BaseMapViewProps {
   /** Route coordinates as [lng, lat] pairs for GeoJSON */
@@ -76,7 +90,7 @@ export interface BaseMapViewRef {
     ne: [number, number],
     sw: [number, number],
     padding?: number,
-    duration?: number
+    duration?: number,
   ) => void;
 }
 
@@ -105,9 +119,11 @@ export function BaseMapView({
   const { t } = useTranslation();
   const colorScheme = useColorScheme();
   const insets = useSafeAreaInsets();
-  const systemStyle: MapStyleType = colorScheme === 'dark' ? 'dark' : 'light';
+  const systemStyle: MapStyleType = colorScheme === "dark" ? "dark" : "light";
 
-  const [mapStyle, setMapStyle] = useState<MapStyleType>(initialStyle ?? systemStyle);
+  const [mapStyle, setMapStyle] = useState<MapStyleType>(
+    initialStyle ?? systemStyle,
+  );
   const [is3DMode, setIs3DMode] = useState(false);
   const [is3DReady, setIs3DReady] = useState(false);
 
@@ -144,7 +160,7 @@ export function BaseMapView({
     (bearing: number) => {
       bearingAnim.setValue(-bearing);
     },
-    [bearingAnim]
+    [bearingAnim],
   );
 
   // Toggle map style
@@ -182,20 +198,23 @@ export function BaseMapView({
         bearingAnim.setValue(-properties.heading);
       }
     },
-    [bearingAnim]
+    [bearingAnim],
   );
 
   // Get user location and refocus camera
   const handleGetLocation = useCallback(async () => {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') return;
+      if (status !== "granted") return;
 
       const location = await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.Balanced,
       });
 
-      const coords: [number, number] = [location.coords.longitude, location.coords.latitude];
+      const coords: [number, number] = [
+        location.coords.longitude,
+        location.coords.latitude,
+      ];
 
       cameraRef.current?.setCamera({
         centerCoordinate: coords,
@@ -211,10 +230,10 @@ export function BaseMapView({
   const routeGeoJSON = useMemo(() => {
     if (!routeCoordinates || routeCoordinates.length === 0) return null;
     return {
-      type: 'Feature' as const,
+      type: "Feature" as const,
       properties: {},
       geometry: {
-        type: 'LineString' as const,
+        type: "LineString" as const,
         coordinates: routeCoordinates,
       },
     };
@@ -239,7 +258,7 @@ export function BaseMapView({
           ]}
           onPress={onClose}
           activeOpacity={0.8}
-          accessibilityLabel={t('maps.closeMap')}
+          accessibilityLabel={t("maps.closeMap")}
           accessibilityRole="button"
         >
           <MaterialCommunityIcons
@@ -261,7 +280,7 @@ export function BaseMapView({
           ]}
           onPress={toggleStyle}
           activeOpacity={0.8}
-          accessibilityLabel={t('maps.toggleStyle')}
+          accessibilityLabel={t("maps.toggleStyle")}
           accessibilityRole="button"
         >
           <MaterialCommunityIcons
@@ -283,14 +302,20 @@ export function BaseMapView({
             ]}
             onPress={toggle3D}
             activeOpacity={0.8}
-            accessibilityLabel={is3DMode ? t('maps.disable3D') : t('maps.enable3D')}
+            accessibilityLabel={
+              is3DMode ? t("maps.disable3D") : t("maps.enable3D")
+            }
             accessibilityRole="button"
           >
             <MaterialCommunityIcons
               name="terrain"
               size={22}
               color={
-                is3DMode ? colors.textOnDark : isDark ? colors.textOnDark : colors.textSecondary
+                is3DMode
+                  ? colors.textOnDark
+                  : isDark
+                    ? colors.textOnDark
+                    : colors.textSecondary
               }
             />
           </TouchableOpacity>
@@ -301,7 +326,7 @@ export function BaseMapView({
             style={[styles.controlButton, isDark && styles.controlButtonDark]}
             onPress={resetOrientation}
             activeOpacity={0.8}
-            accessibilityLabel={t('maps.resetOrientation')}
+            accessibilityLabel={t("maps.resetOrientation")}
             accessibilityRole="button"
           >
             <CompassArrow
@@ -318,7 +343,7 @@ export function BaseMapView({
             style={[styles.controlButton, isDark && styles.controlButtonDark]}
             onPress={handleGetLocation}
             activeOpacity={0.8}
-            accessibilityLabel={t('maps.goToLocation')}
+            accessibilityLabel={t("maps.goToLocation")}
             accessibilityRole="button"
           >
             <MaterialCommunityIcons
@@ -344,7 +369,9 @@ export function BaseMapView({
   return (
     <View style={styles.container}>
       {/* 2D Map - always rendered, hidden when 3D is ready */}
-      <View style={[styles.mapLayer, is3DMode && is3DReady && styles.hiddenLayer]}>
+      <View
+        style={[styles.mapLayer, is3DMode && is3DReady && styles.hiddenLayer]}
+      >
         <MapView
           style={styles.map}
           mapStyle={mapStyleValue}
@@ -368,8 +395,8 @@ export function BaseMapView({
                 style={{
                   lineColor: routeColor,
                   lineWidth: 4,
-                  lineCap: 'round',
-                  lineJoin: 'round',
+                  lineCap: "round",
+                  lineJoin: "round",
                 }}
               />
             </ShapeSource>
@@ -382,7 +409,13 @@ export function BaseMapView({
 
       {/* 3D Map - rendered when 3D mode is on, fades in when ready */}
       {is3DMode && has3DRoute && (
-        <Animated.View style={[styles.mapLayer, styles.map3DLayer, { opacity: map3DOpacity }]}>
+        <Animated.View
+          style={[
+            styles.mapLayer,
+            styles.map3DLayer,
+            { opacity: map3DOpacity },
+          ]}
+        >
           <Map3DWebView
             ref={map3DRef}
             coordinates={routeCoordinates}
@@ -413,19 +446,19 @@ const styles = StyleSheet.create({
   },
   hiddenLayer: {
     opacity: 0,
-    pointerEvents: 'none',
+    pointerEvents: "none",
   },
   map: {
     flex: 1,
   },
   button: {
-    position: 'absolute',
+    position: "absolute",
     width: layout.minTapTarget,
     height: layout.minTapTarget,
     borderRadius: layout.minTapTarget / 2,
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(255, 255, 255, 0.95)",
+    justifyContent: "center",
+    alignItems: "center",
     ...shadows.mapOverlay,
     zIndex: 10,
   },
@@ -439,9 +472,9 @@ const styles = StyleSheet.create({
     right: spacing.md,
   },
   controlStack: {
-    position: 'absolute',
+    position: "absolute",
     right: spacing.md + 52, // Position to left of style toggle button (44px button + 8px gap)
-    flexDirection: 'row', // Horizontal layout to reduce vertical occlusion
+    flexDirection: "row", // Horizontal layout to reduce vertical occlusion
     gap: spacing.sm,
     zIndex: 10,
   },
@@ -449,9 +482,9 @@ const styles = StyleSheet.create({
     width: layout.minTapTarget, // 44 - Accessibility minimum
     height: layout.minTapTarget, // 44 - Accessibility minimum
     borderRadius: layout.minTapTarget / 2, // 22
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(255, 255, 255, 0.95)",
+    justifyContent: "center",
+    alignItems: "center",
     ...shadows.mapOverlay,
   },
   controlButtonDark: {
@@ -461,9 +494,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
   },
   attribution: {
-    position: 'absolute',
+    position: "absolute",
     right: spacing.sm,
-    backgroundColor: 'rgba(255, 255, 255, 0.7)',
+    backgroundColor: "rgba(255, 255, 255, 0.7)",
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: spacing.xs,
