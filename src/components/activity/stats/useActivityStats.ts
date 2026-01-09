@@ -139,6 +139,7 @@ import { formatDuration } from '@/lib';
 import type { Activity, WellnessData } from '@/types';
 import type { StatDetail } from './types';
 import { colors } from '@/theme';
+import { TEMPERATURE_THRESHOLDS, FEELS_LIKE_THRESHOLD } from '@/constants';
 
 // Explanation keys for each metric - educational, not interpretive
 const METRIC_EXPLANATION_KEYS: Record<string, string> = {
@@ -359,13 +360,13 @@ export function useActivityStats({
     // Temperature/Conditions
     const temp = activity.average_weather_temp ?? activity.average_temp;
     if (temp != null) {
-      const isHot = temp > 28;
-      const isCold = temp < 10;
+      const isHot = temp > TEMPERATURE_THRESHOLDS.HOT;
+      const isCold = temp < TEMPERATURE_THRESHOLDS.COLD;
       // Build context from available weather data
       const conditionParts: string[] = [];
       if (
         activity.average_feels_like != null &&
-        Math.abs(activity.average_feels_like - temp) >= 2
+        Math.abs(activity.average_feels_like - temp) >= FEELS_LIKE_THRESHOLD
       ) {
         conditionParts.push(
           t('activity.stats.feelsLike', {
