@@ -79,6 +79,7 @@ export function useMapHandlers({
 }: UseMapHandlersOptions): UseMapHandlersResult {
   const router = useRouter();
   const userLocationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isMountedRef = useRef(true);
 
   // Handle marker tap - no auto-zoom to prevent jarring camera movements
   const handleMarkerTap = useCallback(
@@ -249,11 +250,15 @@ export function useMapHandlers({
         clearTimeout(userLocationTimeoutRef.current);
       }
 
-      userLocationTimeoutRef.current = setTimeout(() => setUserLocation(null), 3000);
+      userLocationTimeoutRef.current = setTimeout(() => {
+        if (isMountedRef.current) {
+          setUserLocation(null);
+        }
+      }, 3000);
     } catch {
       // Silently fail - location is optional
     }
-  }, [setUserLocation, cameraRef]);
+  }, [setUserLocation, cameraRef, isMountedRef]);
 
   // Toggle heatmap mode
   const toggleHeatmap = useCallback(() => {
@@ -290,7 +295,9 @@ export function useMapHandlers({
 
   // Clean up location timeout on unmount to prevent setState after unmount
   useEffect(() => {
+    isMountedRef.current = true;
     return () => {
+      isMountedRef.current = false;
       if (userLocationTimeoutRef.current) {
         clearTimeout(userLocationTimeoutRef.current);
       }
