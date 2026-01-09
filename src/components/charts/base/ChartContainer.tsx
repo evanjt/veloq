@@ -70,9 +70,7 @@ export const ChartContainer = React.memo(function ChartContainer({
           </View>
         )}
         <View style={styles.centerContent}>
-          <Text style={[styles.statusText, isDark && styles.textDark]}>
-            {loadingText}
-          </Text>
+          <Text style={[styles.statusText, isDark && styles.textDark]}>{loadingText}</Text>
         </View>
       </View>
     );
@@ -89,20 +87,14 @@ export const ChartContainer = React.memo(function ChartContainer({
           </View>
         )}
         <View style={styles.centerContent}>
-          <Text style={[styles.statusText, isDark && styles.textDark]}>
-            {emptyText}
-          </Text>
+          <Text style={[styles.statusText, isDark && styles.textDark]}>{emptyText}</Text>
         </View>
       </View>
     );
   }
 
   // Normal render
-  const chartContent = (
-    <View style={styles.chartWrapper}>
-      {children}
-    </View>
-  );
+  const chartContent = <View style={styles.chartWrapper}>{children}</View>;
 
   return (
     <View style={[styles.container, { height }]}>
@@ -112,13 +104,7 @@ export const ChartContainer = React.memo(function ChartContainer({
           {headerRight}
         </View>
       )}
-      {gesture ? (
-        <GestureDetector gesture={gesture}>
-          {chartContent}
-        </GestureDetector>
-      ) : (
-        chartContent
-      )}
+      {gesture ? <GestureDetector gesture={gesture}>{chartContent}</GestureDetector> : chartContent}
       {footer}
     </View>
   );

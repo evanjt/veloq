@@ -1,5 +1,12 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, useColorScheme, TouchableOpacity, ScrollView, Linking } from 'react-native';
+import {
+  View,
+  StyleSheet,
+  useColorScheme,
+  TouchableOpacity,
+  ScrollView,
+  Linking,
+} from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -47,11 +54,7 @@ function formatDuration(seconds: number): string {
   return `${minutes}m`;
 }
 
-export function WorkoutLibrary({
-  workouts,
-  onSelectWorkout,
-  athleteId,
-}: WorkoutLibraryProps) {
+export function WorkoutLibrary({ workouts, onSelectWorkout, athleteId }: WorkoutLibraryProps) {
   const { t } = useTranslation();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
@@ -60,10 +63,10 @@ export function WorkoutLibrary({
   const displayWorkouts = workouts || [];
 
   // Get unique tags for filtering
-  const allTags = [...new Set(displayWorkouts.flatMap(w => w.tags))];
+  const allTags = [...new Set(displayWorkouts.flatMap((w) => w.tags))];
 
   const filteredWorkouts = selectedCategory
-    ? displayWorkouts.filter(w => w.tags.includes(selectedCategory))
+    ? displayWorkouts.filter((w) => w.tags.includes(selectedCategory))
     : displayWorkouts;
 
   const openWorkoutsPage = () => {
@@ -78,9 +81,15 @@ export function WorkoutLibrary({
     return (
       <View style={styles.container}>
         <View style={styles.header}>
-          <Text style={[styles.title, isDark && styles.textLight]}>{t('stats.workoutLibrary')}</Text>
+          <Text style={[styles.title, isDark && styles.textLight]}>
+            {t('stats.workoutLibrary')}
+          </Text>
           <TouchableOpacity onPress={openWorkoutsPage} style={styles.addButton}>
-            <MaterialCommunityIcons name="open-in-new" size={16} color={isDark ? darkColors.textSecondary : colors.textSecondary} />
+            <MaterialCommunityIcons
+              name="open-in-new"
+              size={16}
+              color={isDark ? darkColors.textSecondary : colors.textSecondary}
+            />
           </TouchableOpacity>
         </View>
         <View style={styles.emptyState}>
@@ -106,7 +115,11 @@ export function WorkoutLibrary({
       <View style={styles.header}>
         <Text style={[styles.title, isDark && styles.textLight]}>{t('stats.workoutLibrary')}</Text>
         <TouchableOpacity onPress={openWorkoutsPage} style={styles.addButton}>
-          <MaterialCommunityIcons name="open-in-new" size={16} color={isDark ? darkColors.textSecondary : colors.textSecondary} />
+          <MaterialCommunityIcons
+            name="open-in-new"
+            size={16}
+            color={isDark ? darkColors.textSecondary : colors.textSecondary}
+          />
         </TouchableOpacity>
       </View>
 
@@ -118,11 +131,7 @@ export function WorkoutLibrary({
         contentContainerStyle={styles.chipContainer}
       >
         <TouchableOpacity
-          style={[
-            styles.chip,
-            !selectedCategory && styles.chipActive,
-            isDark && styles.chipDark,
-          ]}
+          style={[styles.chip, !selectedCategory && styles.chipActive, isDark && styles.chipDark]}
           onPress={() => setSelectedCategory(null)}
         >
           <Text
@@ -135,7 +144,7 @@ export function WorkoutLibrary({
             {t('stats.all')}
           </Text>
         </TouchableOpacity>
-        {allTags.slice(0, 5).map(tag => (
+        {allTags.slice(0, 5).map((tag) => (
           <TouchableOpacity
             key={tag}
             style={[
@@ -160,7 +169,7 @@ export function WorkoutLibrary({
 
       {/* Workout list */}
       <View style={styles.workoutList}>
-        {filteredWorkouts.map(workout => (
+        {filteredWorkouts.map((workout) => (
           <TouchableOpacity
             key={workout.id}
             style={[styles.workoutCard, isDark && styles.workoutCardDark]}

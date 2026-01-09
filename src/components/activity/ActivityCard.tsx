@@ -44,23 +44,24 @@ export const ActivityCard = React.memo(function ActivityCard({ activity }: Activ
     router.push(`/activity/${activity.id}`);
   };
 
-  const handleLongPress = useCallback((event: { nativeEvent: { pageX: number; pageY: number } }) => {
-    // iOS-style context menu on long press
-    if (Platform.OS === 'ios') {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    }
-    setMenuAnchor({ x: event.nativeEvent.pageX, y: event.nativeEvent.pageY });
-    setMenuVisible(true);
-  }, []);
+  const handleLongPress = useCallback(
+    (event: { nativeEvent: { pageX: number; pageY: number } }) => {
+      // iOS-style context menu on long press
+      if (Platform.OS === 'ios') {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      }
+      setMenuAnchor({ x: event.nativeEvent.pageX, y: event.nativeEvent.pageY });
+      setMenuVisible(true);
+    },
+    []
+  );
 
   const handleShare = useCallback(async () => {
     setMenuVisible(false);
     const url = `https://intervals.icu/activities/${activity.id}`;
     try {
       await Share.share({
-        message: Platform.OS === 'ios'
-          ? activity.name
-          : `${activity.name}\n${url}`,
+        message: Platform.OS === 'ios' ? activity.name : `${activity.name}\n${url}`,
         url: Platform.OS === 'ios' ? url : undefined,
         title: activity.name,
       });
@@ -80,14 +81,10 @@ export const ActivityCard = React.memo(function ActivityCard({ activity }: Activ
 
   return (
     <Pressable
-      testID="activity-card"
       onPress={handlePress}
       onLongPress={handleLongPress}
       delayLongPress={500}
-      style={({ pressed }) => [
-        styles.pressable,
-        pressed && styles.pressed,
-      ]}
+      style={({ pressed }) => [styles.pressable, pressed && styles.pressed]}
     >
       <View style={[styles.card, isDark && styles.cardDark]}>
         {/* Colored accent bar at top - subtle opacity */}
@@ -96,18 +93,10 @@ export const ActivityCard = React.memo(function ActivityCard({ activity }: Activ
         {/* Header */}
         <View style={styles.header}>
           <View style={[styles.iconContainer, { backgroundColor: activityColor }]}>
-            <MaterialCommunityIcons
-              name={iconName}
-              size={20}
-              color={colors.textOnDark}
-            />
+            <MaterialCommunityIcons name={iconName} size={20} color={colors.textOnDark} />
           </View>
           <View style={styles.headerText}>
-            <Text
-              testID="activity-card-title"
-              style={[styles.activityName, isDark && styles.textLight]}
-              numberOfLines={1}
-            >
+            <Text style={[styles.activityName, isDark && styles.textLight]} numberOfLines={1}>
               {activity.name}
             </Text>
             <Text style={[styles.date, isDark && styles.dateDark]} numberOfLines={1}>
@@ -128,14 +117,10 @@ export const ActivityCard = React.memo(function ActivityCard({ activity }: Activ
               </Text>
             </View>
             <View style={styles.statPill}>
-              <Text style={styles.statValue}>
-                {formatDuration(activity.moving_time)}
-              </Text>
+              <Text style={styles.statValue}>{formatDuration(activity.moving_time)}</Text>
             </View>
             <View style={styles.statPill}>
-              <Text style={styles.statValue}>
-                {formatElevation(activity.total_elevation_gain)}
-              </Text>
+              <Text style={styles.statValue}>{formatElevation(activity.total_elevation_gain)}</Text>
             </View>
           </View>
         </View>
@@ -145,85 +130,75 @@ export const ActivityCard = React.memo(function ActivityCard({ activity }: Activ
           {activity.icu_training_load && (
             <View style={styles.secondaryStat}>
               <View style={[styles.secondaryStatIcon, { backgroundColor: colors.primary + '20' }]}>
-                <MaterialCommunityIcons
-                  name="fire"
-                  size={14}
-                  color={colors.primary}
-                />
+                <MaterialCommunityIcons name="fire" size={14} color={colors.primary} />
               </View>
               <View>
                 <Text style={[styles.secondaryStatValue, isDark && styles.textLight]}>
                   {formatTSS(activity.icu_training_load)}
                 </Text>
-                <Text style={[styles.secondaryStatLabel, isDark && styles.statLabelDark]}>{t('activity.tss')}</Text>
+                <Text style={[styles.secondaryStatLabel, isDark && styles.statLabelDark]}>
+                  {t('activity.tss')}
+                </Text>
               </View>
             </View>
           )}
           {(activity.average_heartrate || activity.icu_average_hr) && (
             <View style={styles.secondaryStat}>
               <View style={[styles.secondaryStatIcon, { backgroundColor: colors.error + '20' }]}>
-                <MaterialCommunityIcons
-                  name="heart-pulse"
-                  size={14}
-                  color={colors.error}
-                />
+                <MaterialCommunityIcons name="heart-pulse" size={14} color={colors.error} />
               </View>
               <View>
                 <Text style={[styles.secondaryStatValue, isDark && styles.textLight]}>
                   {formatHeartRate(activity.average_heartrate || activity.icu_average_hr!)}
                 </Text>
-                <Text style={[styles.secondaryStatLabel, isDark && styles.statLabelDark]}>{t('metrics.hr')}</Text>
+                <Text style={[styles.secondaryStatLabel, isDark && styles.statLabelDark]}>
+                  {t('metrics.hr')}
+                </Text>
               </View>
             </View>
           )}
           {(activity.average_watts || activity.icu_average_watts) && (
             <View style={styles.secondaryStat}>
               <View style={[styles.secondaryStatIcon, { backgroundColor: colors.warning + '20' }]}>
-                <MaterialCommunityIcons
-                  name="lightning-bolt"
-                  size={14}
-                  color={colors.warning}
-                />
+                <MaterialCommunityIcons name="lightning-bolt" size={14} color={colors.warning} />
               </View>
               <View>
                 <Text style={[styles.secondaryStatValue, isDark && styles.textLight]}>
                   {formatPower(activity.average_watts || activity.icu_average_watts!)}
                 </Text>
-                <Text style={[styles.secondaryStatLabel, isDark && styles.statLabelDark]}>{t('activity.pwr')}</Text>
+                <Text style={[styles.secondaryStatLabel, isDark && styles.statLabelDark]}>
+                  {t('activity.pwr')}
+                </Text>
               </View>
             </View>
           )}
           {activity.calories && (
             <View style={styles.secondaryStat}>
               <View style={[styles.secondaryStatIcon, { backgroundColor: colors.success + '20' }]}>
-                <MaterialCommunityIcons
-                  name="food-apple"
-                  size={14}
-                  color={colors.success}
-                />
+                <MaterialCommunityIcons name="food-apple" size={14} color={colors.success} />
               </View>
               <View>
                 <Text style={[styles.secondaryStatValue, isDark && styles.textLight]}>
                   {formatCalories(activity.calories)}
                 </Text>
-                <Text style={[styles.secondaryStatLabel, isDark && styles.statLabelDark]}>{t('activity.cal')}</Text>
+                <Text style={[styles.secondaryStatLabel, isDark && styles.statLabelDark]}>
+                  {t('activity.cal')}
+                </Text>
               </View>
             </View>
           )}
           {activity.has_weather && activity.average_weather_temp != null && (
             <View style={styles.secondaryStat}>
               <View style={[styles.secondaryStatIcon, { backgroundColor: '#03A9F4' + '20' }]}>
-                <MaterialCommunityIcons
-                  name="weather-partly-cloudy"
-                  size={14}
-                  color="#03A9F4"
-                />
+                <MaterialCommunityIcons name="weather-partly-cloudy" size={14} color="#03A9F4" />
               </View>
               <View>
                 <Text style={[styles.secondaryStatValue, isDark && styles.textLight]}>
                   {Math.round(activity.average_weather_temp)}°C
                 </Text>
-                <Text style={[styles.secondaryStatLabel, isDark && styles.statLabelDark]}>{t('activity.temp')}</Text>
+                <Text style={[styles.secondaryStatLabel, isDark && styles.statLabelDark]}>
+                  {t('activity.temp')}
+                </Text>
               </View>
             </View>
           )}
@@ -237,11 +212,7 @@ export const ActivityCard = React.memo(function ActivityCard({ activity }: Activ
         anchor={menuAnchor}
         contentStyle={[styles.menuContent, isDark && styles.menuContentDark]}
       >
-        <Menu.Item
-          onPress={handleShare}
-          title={t('activity.share')}
-          leadingIcon="share-variant"
-        />
+        <Menu.Item onPress={handleShare} title={t('activity.share')} leadingIcon="share-variant" />
         <Menu.Item
           onPress={handleViewDetails}
           title={t('activity.viewDetails')}

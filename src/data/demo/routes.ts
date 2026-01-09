@@ -32,7 +32,7 @@ export function getRouteCoordinates(
   routeId: string,
   addVariation: boolean = true
 ): [number, number][] {
-  const route = demoRoutes.find(r => r.id === routeId);
+  const route = demoRoutes.find((r) => r.id === routeId);
   if (!route) return [];
 
   if (!addVariation) return route.coordinates;
@@ -47,11 +47,11 @@ export function getRouteCoordinates(
 /**
  * Get bounds for a route
  */
-export function getRouteBounds(
-  coords: [number, number][]
-): [[number, number], [number, number]] {
-  let minLat = Infinity, maxLat = -Infinity;
-  let minLng = Infinity, maxLng = -Infinity;
+export function getRouteBounds(coords: [number, number][]): [[number, number], [number, number]] {
+  let minLat = Infinity,
+    maxLat = -Infinity;
+  let minLng = Infinity,
+    maxLng = -Infinity;
 
   for (const [lat, lng] of coords) {
     minLat = Math.min(minLat, lat);
@@ -60,7 +60,10 @@ export function getRouteBounds(
     maxLng = Math.max(maxLng, lng);
   }
 
-  return [[minLat, minLng], [maxLat, maxLng]];
+  return [
+    [minLat, minLng],
+    [maxLat, maxLng],
+  ];
 }
 
 /**
@@ -84,7 +87,7 @@ export function getRouteForActivity(activityType: string, distance: number): Dem
   }
 
   // Match by type and approximate distance (allow wide variance for real routes)
-  const routes = demoRoutes.filter(r => {
+  const routes = demoRoutes.filter((r) => {
     if (!matchingTypes.includes(r.type)) return false;
     // Allow 50% distance variance (real routes have fixed distances)
     const ratio = r.distance / distance;
@@ -93,7 +96,7 @@ export function getRouteForActivity(activityType: string, distance: number): Dem
 
   if (routes.length === 0) {
     // Fall back to any route of the right type
-    return demoRoutes.find(r => matchingTypes.includes(r.type)) || null;
+    return demoRoutes.find((r) => matchingTypes.includes(r.type)) || null;
   }
 
   return routes[Math.floor(Math.random() * routes.length)];

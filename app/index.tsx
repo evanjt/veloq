@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useCallback } from 'react';
+import React, { useMemo, useState, useCallback } from "react";
 import {
   View,
   FlatList,
@@ -11,27 +11,67 @@ import {
   ActivityIndicator,
   Keyboard,
   Platform,
-} from 'react-native';
-import { Text } from 'react-native-paper';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { router, Href } from 'expo-router';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useTranslation } from 'react-i18next';
-import { useInfiniteActivities, useAthlete, useWellness, getFormZone, FORM_ZONE_COLORS, getLatestFTP, useSportSettings, getSettingsForSport, usePaceCurve } from '@/hooks';
-import { useSportPreference, SPORT_COLORS } from '@/providers';
-import { formatPaceCompact, formatSwimPace } from '@/lib';
-import { ActivityCard } from '@/components/activity/ActivityCard';
-import { ActivityCardSkeleton, StatsPillSkeleton, MapFAB, NetworkErrorState, ErrorStatePreset } from '@/components/ui';
-import { useNetwork } from '@/providers';
-import { colors, darkColors, opacity, spacing, layout, typography, shadows } from '@/theme';
-import type { Activity } from '@/types';
+} from "react-native";
+import { Text } from "react-native-paper";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { router, Href } from "expo-router";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { useTranslation } from "react-i18next";
+import {
+  useInfiniteActivities,
+  useAthlete,
+  useWellness,
+  getFormZone,
+  FORM_ZONE_COLORS,
+  getLatestFTP,
+  useSportSettings,
+  getSettingsForSport,
+  usePaceCurve,
+} from "@/hooks";
+import type { Activity } from "@/types";
+import { useSportPreference, SPORT_COLORS } from "@/providers";
+import { formatPaceCompact, formatSwimPace } from "@/lib";
+import { ActivityCard } from "@/components/activity/ActivityCard";
+import {
+  ActivityCardSkeleton,
+  StatsPillSkeleton,
+  MapFAB,
+  NetworkErrorState,
+  ErrorStatePreset,
+} from "@/components/ui";
+import { useNetwork } from "@/providers";
+import {
+  colors,
+  darkColors,
+  opacity,
+  spacing,
+  layout,
+  typography,
+  shadows,
+} from "@/theme";
 
 // Activity type categories for filtering
 const ACTIVITY_TYPE_GROUPS = {
-  Cycling: ['Ride', 'VirtualRide', 'MountainBikeRide', 'GravelRide', 'EBikeRide'],
-  Running: ['Run', 'VirtualRun', 'TrailRun'],
-  Swimming: ['Swim'],
-  Other: ['Walk', 'Hike', 'Workout', 'WeightTraining', 'Yoga', 'Rowing', 'Elliptical', 'Ski', 'Snowboard'],
+  Cycling: [
+    "Ride",
+    "VirtualRide",
+    "MountainBikeRide",
+    "GravelRide",
+    "EBikeRide",
+  ],
+  Running: ["Run", "VirtualRun", "TrailRun"],
+  Swimming: ["Swim"],
+  Other: [
+    "Walk",
+    "Hike",
+    "Workout",
+    "WeightTraining",
+    "Yoga",
+    "Rowing",
+    "Elliptical",
+    "Ski",
+    "Snowboard",
+  ],
 };
 
 const ALL_TYPES = Object.values(ACTIVITY_TYPE_GROUPS).flat();
@@ -39,11 +79,14 @@ const ALL_TYPES = Object.values(ACTIVITY_TYPE_GROUPS).flat();
 export default function FeedScreen() {
   const { t } = useTranslation();
   const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const isDark = colorScheme === "dark";
   const [profileImageError, setProfileImageError] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
   const [showFilters, setShowFilters] = useState(false);
-  const [selectedTypeGroup, setSelectedTypeGroup] = useState<string | null>(null);
+  const [selectedTypeGroup, setSelectedTypeGroup] = useState<string | null>(
+    null,
+  );
+  const [showAllMetrics, setShowAllMetrics] = useState(false);
 
   const { data: athlete } = useAthlete();
   const { primarySport } = useSportPreference();
@@ -52,13 +95,16 @@ export default function FeedScreen() {
 
   // Fetch pace curve for running threshold pace (only when running is selected)
   const { data: runPaceCurve } = usePaceCurve({
-    sport: 'Run',
-    enabled: primarySport === 'Running'
+    sport: "Run",
+    enabled: primarySport === "Running",
   });
 
   // Validate profile URL - must be a non-empty string starting with http
   const profileUrl = athlete?.profile_medium || athlete?.profile;
-  const hasValidProfileUrl = profileUrl && typeof profileUrl === 'string' && profileUrl.startsWith('http');
+  const hasValidProfileUrl =
+    profileUrl &&
+    typeof profileUrl === "string" &&
+    profileUrl.startsWith("http");
 
   const {
     data,
@@ -85,25 +131,35 @@ export default function FeedScreen() {
     // Filter by search query
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase().trim();
-      filtered = filtered.filter(activity =>
-        activity.name?.toLowerCase().includes(query) ||
-        activity.type?.toLowerCase().includes(query) ||
-        activity.locality?.toLowerCase().includes(query) ||
-        activity.country?.toLowerCase().includes(query)
+      filtered = filtered.filter(
+        (activity: Activity) =>
+          activity.name?.toLowerCase().includes(query) ||
+          activity.type?.toLowerCase().includes(query) ||
+          activity.locality?.toLowerCase().includes(query) ||
+          activity.country?.toLowerCase().includes(query),
       );
     }
 
     // Filter by activity type group
     if (selectedTypeGroup) {
-      const types = ACTIVITY_TYPE_GROUPS[selectedTypeGroup as keyof typeof ACTIVITY_TYPE_GROUPS] || [];
-      filtered = filtered.filter(activity => types.includes(activity.type));
+      const types =
+        ACTIVITY_TYPE_GROUPS[
+          selectedTypeGroup as keyof typeof ACTIVITY_TYPE_GROUPS
+        ] || [];
+      filtered = filtered.filter((activity: Activity) =>
+        types.includes(activity.type),
+      );
     }
 
     return filtered;
   }, [allActivities, searchQuery, selectedTypeGroup]);
 
   // Fetch wellness data for the header badge (short range for quick load)
-  const { data: wellnessData, isLoading: wellnessLoading, refetch: refetchWellness } = useWellness('7d');
+  const {
+    data: wellnessData,
+    isLoading: wellnessLoading,
+    refetch: refetchWellness,
+  } = useWellness("7d");
 
   // Combined refresh handler - fetches fresh data
   const handleRefresh = async () => {
@@ -120,7 +176,9 @@ export default function FeedScreen() {
   // Compute quick stats from wellness and activities data
   const quickStats = useMemo(() => {
     // Get latest wellness data for form and HRV
-    const sorted = wellnessData ? [...wellnessData].sort((a, b) => b.id.localeCompare(a.id)) : [];
+    const sorted = wellnessData
+      ? [...wellnessData].sort((a, b) => b.id.localeCompare(a.id))
+      : [];
     const latest = sorted[0];
     const previous = sorted[1]; // Yesterday for trend comparison
 
@@ -131,17 +189,25 @@ export default function FeedScreen() {
     const rhr = latest?.restingHR ?? null;
 
     // Calculate previous day's values for trends
-    const prevFitness = Math.round(previous?.ctl ?? previous?.ctlLoad ?? fitness);
-    const prevFatigue = Math.round(previous?.atl ?? previous?.atlLoad ?? fatigue);
+    const prevFitness = Math.round(
+      previous?.ctl ?? previous?.ctlLoad ?? fitness,
+    );
+    const prevFatigue = Math.round(
+      previous?.atl ?? previous?.atlLoad ?? fatigue,
+    );
     const prevForm = prevFitness - prevFatigue;
     const prevHrv = previous?.hrv ?? hrv;
     const prevRhr = previous?.restingHR ?? rhr;
 
-    const getTrend = (current: number | null, prev: number | null, threshold = 1): '↑' | '↓' | '' => {
-      if (current === null || prev === null) return '';
+    const getTrend = (
+      current: number | null,
+      prev: number | null,
+      threshold = 1,
+    ): "↑" | "↓" | "" => {
+      if (current === null || prev === null) return "";
       const diff = current - prev;
-      if (Math.abs(diff) < threshold) return '';
-      return diff > 0 ? '↑' : '↓';
+      if (Math.abs(diff) < threshold) return "";
+      return diff > 0 ? "↑" : "↓";
     };
 
     const fitnessTrend = getTrend(fitness, prevFitness, 1);
@@ -156,19 +222,29 @@ export default function FeedScreen() {
     const twoWeeksAgo = new Date(now - weekMs * 2);
 
     // Current week activities
-    const weekActivities = allActivities?.filter(a => new Date(a.start_date_local) >= weekAgo) ?? [];
+    const weekActivities =
+      allActivities?.filter(
+        (a: Activity) => new Date(a.start_date_local) >= weekAgo,
+      ) ?? [];
     const weekCount = weekActivities.length;
-    const weekSeconds = weekActivities.reduce((sum, a) => sum + (a.moving_time || 0), 0);
-    const weekHours = Math.round(weekSeconds / 3600 * 10) / 10;
+    const weekSeconds = weekActivities.reduce(
+      (sum: number, a: Activity) => sum + (a.moving_time || 0),
+      0,
+    );
+    const weekHours = Math.round((weekSeconds / 3600) * 10) / 10;
 
     // Previous week activities for trend
-    const prevWeekActivities = allActivities?.filter(a => {
-      const date = new Date(a.start_date_local);
-      return date >= twoWeeksAgo && date < weekAgo;
-    }) ?? [];
+    const prevWeekActivities =
+      allActivities?.filter((a: Activity) => {
+        const date = new Date(a.start_date_local);
+        return date >= twoWeeksAgo && date < weekAgo;
+      }) ?? [];
     const prevWeekCount = prevWeekActivities.length;
-    const prevWeekSeconds = prevWeekActivities.reduce((sum, a) => sum + (a.moving_time || 0), 0);
-    const prevWeekHours = Math.round(prevWeekSeconds / 3600 * 10) / 10;
+    const prevWeekSeconds = prevWeekActivities.reduce(
+      (sum: number, a: Activity) => sum + (a.moving_time || 0),
+      0,
+    );
+    const prevWeekHours = Math.round((prevWeekSeconds / 3600) * 10) / 10;
 
     const weekHoursTrend = getTrend(weekHours, prevWeekHours, 0.5);
     const weekCountTrend = getTrend(weekCount, prevWeekCount, 1);
@@ -177,20 +253,34 @@ export default function FeedScreen() {
     const ftp = getLatestFTP(allActivities) ?? null;
     // Get FTP from ~30 days ago for trend
     const thirtyDaysAgo = new Date(now - 30 * 24 * 60 * 60 * 1000);
-    const olderActivitiesWithFtp = allActivities?.filter(a =>
-      new Date(a.start_date_local) <= thirtyDaysAgo && a.icu_ftp
-    ).sort((a, b) => new Date(b.start_date_local).getTime() - new Date(a.start_date_local).getTime()) ?? [];
+    const olderActivitiesWithFtp =
+      allActivities
+        ?.filter(
+          (a) => new Date(a.start_date_local) <= thirtyDaysAgo && a.icu_ftp,
+        )
+        .sort(
+          (a, b) =>
+            new Date(b.start_date_local).getTime() -
+            new Date(a.start_date_local).getTime(),
+        ) ?? [];
     const prevFtp = olderActivitiesWithFtp[0]?.icu_ftp ?? ftp;
     const ftpTrend = getTrend(ftp, prevFtp, 3);
 
     return {
-      fitness, fitnessTrend,
-      form, formTrend,
-      hrv, hrvTrend,
-      rhr, rhrTrend,
-      weekHours, weekHoursTrend,
-      weekCount, weekCountTrend,
-      ftp, ftpTrend
+      fitness,
+      fitnessTrend,
+      form,
+      formTrend,
+      hrv,
+      hrvTrend,
+      rhr,
+      rhrTrend,
+      weekHours,
+      weekHoursTrend,
+      weekCount,
+      weekCountTrend,
+      ftp,
+      ftpTrend,
     };
   }, [wellnessData, allActivities]);
 
@@ -199,8 +289,8 @@ export default function FeedScreen() {
 
   // Get sport-specific metrics from sport settings and pace curve
   const sportMetrics = useMemo(() => {
-    const runSettings = getSettingsForSport(sportSettings, 'Run');
-    const swimSettings = getSettingsForSport(sportSettings, 'Swim');
+    const runSettings = getSettingsForSport(sportSettings, "Run");
+    const swimSettings = getSettingsForSport(sportSettings, "Swim");
 
     // For running, use criticalSpeed from pace curve (threshold pace equivalent)
     // criticalSpeed is in m/s, same as CSS
@@ -219,12 +309,12 @@ export default function FeedScreen() {
     <ActivityCard activity={item} />
   );
 
-  const navigateToFitness = () => router.push('/fitness');
-  const navigateToWellness = () => router.push('/wellness');
-  const navigateToTraining = () => router.push('/training');
-  const navigateToStats = () => router.push('/stats');
-  const navigateToMap = () => router.push('/map' as Href);
-  const navigateToSettings = () => router.push('/settings' as Href);
+  const navigateToFitness = () => router.push("/fitness");
+  const navigateToWellness = () => router.push("/wellness");
+  const navigateToTraining = () => router.push("/training");
+  const navigateToStats = () => router.push("/stats");
+  const navigateToMap = () => router.push("/map" as Href);
+  const navigateToSettings = () => router.push("/settings" as Href);
 
   const toggleFilters = () => setShowFilters(!showFilters);
 
@@ -233,18 +323,25 @@ export default function FeedScreen() {
   };
 
   // Memoized section header for FlatList - only depends on filtered count
-  const renderListHeader = useCallback(() => (
-    <View style={styles.sectionHeader}>
-      <Text style={[styles.sectionTitle, isDark && styles.textLight]}>
-        {searchQuery || selectedTypeGroup ? t('feed.activitiesCount', { count: filteredActivities.length }) : t('feed.recentActivities')}
-      </Text>
-    </View>
-  ), [isDark, searchQuery, selectedTypeGroup, filteredActivities.length, t]);
+  const renderListHeader = useCallback(
+    () => (
+      <View style={styles.sectionHeader}>
+        <Text style={[styles.sectionTitle, isDark && styles.textLight]}>
+          {searchQuery || selectedTypeGroup
+            ? t("feed.activitiesCount", { count: filteredActivities.length })
+            : t("feed.recentActivities")}
+        </Text>
+      </View>
+    ),
+    [isDark, searchQuery, selectedTypeGroup, filteredActivities.length, t],
+  );
 
   const renderEmpty = () => (
     <View testID="home-empty-state" style={styles.emptyContainer}>
       <Text style={[styles.emptyText, isDark && styles.textLight]}>
-        {searchQuery || selectedTypeGroup ? t('feed.noMatchingActivities') : t('feed.noActivities')}
+        {searchQuery || selectedTypeGroup
+          ? t("feed.noMatchingActivities")
+          : t("feed.noActivities")}
       </Text>
     </View>
   );
@@ -252,9 +349,10 @@ export default function FeedScreen() {
   const renderError = () => {
     // Check if this is a network error (axios error codes)
     const axiosError = error as { code?: string };
-    const isNetworkError = axiosError?.code === 'ERR_NETWORK' ||
-                          axiosError?.code === 'ECONNABORTED' ||
-                          axiosError?.code === 'ETIMEDOUT';
+    const isNetworkError =
+      axiosError?.code === "ERR_NETWORK" ||
+      axiosError?.code === "ECONNABORTED" ||
+      axiosError?.code === "ETIMEDOUT";
 
     if (isNetworkError) {
       return <NetworkErrorState onRetry={() => refetch()} />;
@@ -262,7 +360,9 @@ export default function FeedScreen() {
 
     return (
       <ErrorStatePreset
-        message={error instanceof Error ? error.message : t('feed.failedToLoad')}
+        message={
+          error instanceof Error ? error.message : t("feed.failedToLoad")
+        }
         onRetry={() => refetch()}
       />
     );
@@ -273,7 +373,9 @@ export default function FeedScreen() {
     return (
       <View style={styles.footerLoader}>
         <ActivityIndicator size="small" color={colors.primary} />
-        <Text style={[styles.footerText, isDark && styles.textDark]}>{t('common.loadingMore')}</Text>
+        <Text style={[styles.footerText, isDark && styles.textDark]}>
+          {t("common.loadingMore")}
+        </Text>
       </View>
     );
   };
@@ -284,12 +386,20 @@ export default function FeedScreen() {
         <View style={styles.skeletonContainer}>
           {/* Header skeleton */}
           <View style={styles.header}>
-            <View style={[styles.profilePhoto, styles.profilePlaceholder, isDark && styles.profilePlaceholderDark]} />
+            <View
+              style={[
+                styles.profilePhoto,
+                styles.profilePlaceholder,
+                isDark && styles.profilePlaceholderDark,
+              ]}
+            />
             <StatsPillSkeleton />
           </View>
           {/* Section header skeleton */}
           <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionTitle, isDark && styles.textLight]}>{t('feed.recentActivities')}</Text>
+            <Text style={[styles.sectionTitle, isDark && styles.textLight]}>
+              {t("feed.recentActivities")}
+            </Text>
           </View>
           {/* Activity card skeletons */}
           <ActivityCardSkeleton />
@@ -301,7 +411,10 @@ export default function FeedScreen() {
   }
 
   return (
-    <SafeAreaView style={[styles.container, isDark && styles.containerDark]} testID="home-screen">
+    <SafeAreaView
+      style={[styles.container, isDark && styles.containerDark]}
+      testID="home-screen"
+    >
       {/* Header with profile and stat pills - outside FlatList */}
       <View style={styles.header}>
         {/* Profile photo - tap to open settings */}
@@ -309,51 +422,74 @@ export default function FeedScreen() {
           testID="nav-settings-button"
           onPress={navigateToSettings}
           activeOpacity={0.7}
-          style={[styles.profilePhoto, styles.profilePlaceholder, isDark && styles.profilePlaceholderDark]}
+          style={[
+            styles.profilePhotoTouchArea,
+            isDark && styles.profilePlaceholder,
+            isDark && styles.profilePlaceholderDark,
+          ]}
         >
-          {hasValidProfileUrl && !profileImageError ? (
-            <Image
-              source={{ uri: profileUrl }}
-              style={StyleSheet.absoluteFill}
-              resizeMode="cover"
-              onError={() => setProfileImageError(true)}
-            />
-          ) : (
-            <MaterialCommunityIcons
-              name="account"
-              size={20}
-              color={isDark ? '#AAA' : '#666'}
-            />
-          )}
+          <View
+            style={[
+              styles.profilePhoto,
+              isDark && styles.profilePlaceholder,
+              isDark && styles.profilePlaceholderDark,
+            ]}
+          >
+            {hasValidProfileUrl && !profileImageError ? (
+              <Image
+                source={{ uri: profileUrl }}
+                style={StyleSheet.absoluteFill}
+                resizeMode="cover"
+                onError={() => setProfileImageError(true)}
+              />
+            ) : (
+              <MaterialCommunityIcons
+                name="account"
+                size={20}
+                color={isDark ? "#AAA" : "#666"}
+              />
+            )}
+          </View>
         </TouchableOpacity>
 
-        {/* Pill buttons for each page */}
+        {/* Simplified metrics: Show 2 key pills by default */}
         <View style={styles.pillRow}>
-          {/* HRV + RHR → Wellness page */}
+          {/* Fitness + Form → Fitness page (Primary metric) */}
           <TouchableOpacity
             style={[styles.pill, isDark && styles.pillDark]}
-            onPress={navigateToWellness}
+            onPress={navigateToFitness}
             activeOpacity={0.7}
           >
             <View style={styles.pillItem}>
-              <Text style={[styles.pillLabel, isDark && styles.textDark]}>{t('metrics.hrv')}</Text>
-              <Text style={[styles.pillValue, { color: '#E91E63' }]}>
-                {quickStats.hrv ?? '-'}
-                {quickStats.hrvTrend && <Text style={styles.trendArrow}>{quickStats.hrvTrend}</Text>}
+              <Text style={[styles.pillLabel, isDark && styles.textDark]}>
+                {t("metrics.fitness")}
+              </Text>
+              <Text style={[styles.pillValue, { color: "#42A5F5" }]}>
+                {quickStats.fitness}
+                {quickStats.fitnessTrend && (
+                  <Text style={styles.trendArrow}>
+                    {quickStats.fitnessTrend}
+                  </Text>
+                )}
               </Text>
             </View>
-            {quickStats.rhr && (
-              <>
-                <Text style={[styles.pillDivider, isDark && styles.pillDividerDark]}>|</Text>
-                <View style={styles.pillItem}>
-                  <Text style={[styles.pillLabel, isDark && styles.textDark]}>{t('metrics.rhr')}</Text>
-                  <Text style={[styles.pillValueSmall, isDark && styles.textDark]}>
-                    {quickStats.rhr}
-                    {quickStats.rhrTrend && <Text style={styles.trendArrowSmall}>{quickStats.rhrTrend}</Text>}
-                  </Text>
-                </View>
-              </>
-            )}
+            <Text
+              style={[styles.pillDivider, isDark && styles.pillDividerDark]}
+            >
+              |
+            </Text>
+            <View style={styles.pillItem}>
+              <Text style={[styles.pillLabel, isDark && styles.textDark]}>
+                {t("metrics.form")}
+              </Text>
+              <Text style={[styles.pillValue, { color: formColor }]}>
+                {quickStats.form > 0 ? "+" : ""}
+                {quickStats.form}
+                {quickStats.formTrend && (
+                  <Text style={styles.trendArrow}>{quickStats.formTrend}</Text>
+                )}
+              </Text>
+            </View>
           </TouchableOpacity>
 
           {/* Week hours + count → Training page */}
@@ -363,91 +499,193 @@ export default function FeedScreen() {
             activeOpacity={0.7}
           >
             <View style={styles.pillItem}>
-              <Text style={[styles.pillLabel, isDark && styles.textDark]}>{t('metrics.week')}</Text>
+              <Text style={[styles.pillLabel, isDark && styles.textDark]}>
+                {t("metrics.week")}
+              </Text>
               <Text style={[styles.pillValue, isDark && styles.textLight]}>
                 {quickStats.weekHours}h
-                {quickStats.weekHoursTrend && <Text style={styles.trendArrow}>{quickStats.weekHoursTrend}</Text>}
+                {quickStats.weekHoursTrend && (
+                  <Text style={styles.trendArrow}>
+                    {quickStats.weekHoursTrend}
+                  </Text>
+                )}
               </Text>
             </View>
-            <Text style={[styles.pillDivider, isDark && styles.pillDividerDark]}>|</Text>
+            <Text
+              style={[styles.pillDivider, isDark && styles.pillDividerDark]}
+            >
+              |
+            </Text>
             <View style={styles.pillItem}>
-              <Text style={[styles.pillLabel, isDark && styles.textDark]}>#</Text>
+              <Text style={[styles.pillLabel, isDark && styles.textDark]}>
+                #
+              </Text>
               <Text style={[styles.pillValueSmall, isDark && styles.textDark]}>
                 {quickStats.weekCount}
-                {quickStats.weekCountTrend && <Text style={styles.trendArrowSmall}>{quickStats.weekCountTrend}</Text>}
-              </Text>
-            </View>
-          </TouchableOpacity>
-
-          {/* Sport-specific metric → Performance page */}
-          <TouchableOpacity
-            style={[styles.pill, isDark && styles.pillDark]}
-            onPress={navigateToStats}
-            activeOpacity={0.7}
-          >
-            {primarySport === 'Cycling' && (
-              <View style={styles.pillItem}>
-                <Text style={[styles.pillLabel, isDark && styles.textDark]}>{t('metrics.ftp')}</Text>
-                <Text style={[styles.pillValue, { color: SPORT_COLORS.Cycling }]}>
-                  {quickStats.ftp ?? '-'}
-                  {quickStats.ftpTrend && <Text style={styles.trendArrow}>{quickStats.ftpTrend}</Text>}
-                </Text>
-              </View>
-            )}
-            {primarySport === 'Running' && (
-              <>
-                <View style={styles.pillItem}>
-                  <Text style={[styles.pillLabel, isDark && styles.textDark]}>{t('metrics.pace')}</Text>
-                  <Text style={[styles.pillValue, { color: SPORT_COLORS.Running }]}>
-                    {sportMetrics.thresholdPace ? formatPaceCompact(sportMetrics.thresholdPace) : '-'}
+                {quickStats.weekCountTrend && (
+                  <Text style={styles.trendArrowSmall}>
+                    {quickStats.weekCountTrend}
                   </Text>
-                </View>
-                {sportMetrics.runLthr && (
-                  <>
-                    <Text style={[styles.pillDivider, isDark && styles.pillDividerDark]}>|</Text>
-                    <View style={styles.pillItem}>
-                      <Text style={[styles.pillLabel, isDark && styles.textDark]}>{t('metrics.hr')}</Text>
-                      <Text style={[styles.pillValueSmall, isDark && styles.textDark]}>
-                        {sportMetrics.runLthr}
-                      </Text>
-                    </View>
-                  </>
                 )}
-              </>
-            )}
-            {primarySport === 'Swimming' && (
-              <View style={styles.pillItem}>
-                <Text style={[styles.pillLabel, isDark && styles.textDark]}>{t('metrics.css')}</Text>
-                <Text style={[styles.pillValue, { color: SPORT_COLORS.Swimming }]}>
-                  {sportMetrics.css ? formatSwimPace(sportMetrics.css) : '-'}
-                </Text>
-              </View>
-            )}
+              </Text>
+            </View>
           </TouchableOpacity>
 
-          {/* Fitness + Form → Fitness page */}
+          {/* More metrics button - toggles expanded view */}
           <TouchableOpacity
-            style={[styles.pill, isDark && styles.pillDark]}
-            onPress={navigateToFitness}
+            style={[
+              styles.pill,
+              isDark && styles.pillDark,
+              styles.moreMetricsPill,
+            ]}
+            onPress={() => setShowAllMetrics(!showAllMetrics)}
             activeOpacity={0.7}
+            accessibilityLabel={
+              showAllMetrics ? "Show fewer metrics" : "Show more metrics"
+            }
+            accessibilityRole="button"
           >
-            <View style={styles.pillItem}>
-              <Text style={[styles.pillLabel, isDark && styles.textDark]}>{t('metrics.fitness')}</Text>
-              <Text style={[styles.pillValue, { color: '#42A5F5' }]}>
-                {quickStats.fitness}
-                {quickStats.fitnessTrend && <Text style={styles.trendArrow}>{quickStats.fitnessTrend}</Text>}
-              </Text>
-            </View>
-            <Text style={[styles.pillDivider, isDark && styles.pillDividerDark]}>|</Text>
-            <View style={styles.pillItem}>
-              <Text style={[styles.pillLabel, isDark && styles.textDark]}>{t('metrics.form')}</Text>
-              <Text style={[styles.pillValue, { color: formColor }]}>
-                {quickStats.form > 0 ? '+' : ''}{quickStats.form}
-                {quickStats.formTrend && <Text style={styles.trendArrow}>{quickStats.formTrend}</Text>}
-              </Text>
-            </View>
+            <MaterialCommunityIcons
+              name={showAllMetrics ? "chevron-up" : "chevron-down"}
+              size={20}
+              color={isDark ? colors.textSecondary : colors.textPrimary}
+            />
           </TouchableOpacity>
         </View>
+
+        {/* Expanded metrics row - shown when "More" is tapped */}
+        {showAllMetrics && (
+          <View style={styles.expandedMetricsRow}>
+            {/* HRV + RHR → Wellness page */}
+            <TouchableOpacity
+              style={[styles.pill, isDark && styles.pillDark]}
+              onPress={navigateToWellness}
+              activeOpacity={0.7}
+            >
+              <View style={styles.pillItem}>
+                <Text style={[styles.pillLabel, isDark && styles.textDark]}>
+                  {t("metrics.hrv")}
+                </Text>
+                <Text style={[styles.pillValue, { color: "#E91E63" }]}>
+                  {quickStats.hrv ?? "-"}
+                  {quickStats.hrvTrend && (
+                    <Text style={styles.trendArrow}>{quickStats.hrvTrend}</Text>
+                  )}
+                </Text>
+              </View>
+              {quickStats.rhr && (
+                <>
+                  <Text
+                    style={[
+                      styles.pillDivider,
+                      isDark && styles.pillDividerDark,
+                    ]}
+                  >
+                    |
+                  </Text>
+                  <View style={styles.pillItem}>
+                    <Text style={[styles.pillLabel, isDark && styles.textDark]}>
+                      {t("metrics.rhr")}
+                    </Text>
+                    <Text
+                      style={[styles.pillValueSmall, isDark && styles.textDark]}
+                    >
+                      {quickStats.rhr}
+                      {quickStats.rhrTrend && (
+                        <Text style={styles.trendArrowSmall}>
+                          {quickStats.rhrTrend}
+                        </Text>
+                      )}
+                    </Text>
+                  </View>
+                </>
+              )}
+            </TouchableOpacity>
+
+            {/* Sport-specific metric → Performance page */}
+            <TouchableOpacity
+              style={[styles.pill, isDark && styles.pillDark]}
+              onPress={navigateToStats}
+              activeOpacity={0.7}
+            >
+              {primarySport === "Cycling" && (
+                <View style={styles.pillItem}>
+                  <Text style={[styles.pillLabel, isDark && styles.textDark]}>
+                    {t("metrics.ftp")}
+                  </Text>
+                  <Text
+                    style={[styles.pillValue, { color: SPORT_COLORS.Cycling }]}
+                  >
+                    {quickStats.ftp ?? "-"}
+                    {quickStats.ftpTrend && (
+                      <Text style={styles.trendArrow}>
+                        {quickStats.ftpTrend}
+                      </Text>
+                    )}
+                  </Text>
+                </View>
+              )}
+              {primarySport === "Running" && (
+                <>
+                  <View style={styles.pillItem}>
+                    <Text style={[styles.pillLabel, isDark && styles.textDark]}>
+                      {t("metrics.pace")}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.pillValue,
+                        { color: SPORT_COLORS.Running },
+                      ]}
+                    >
+                      {sportMetrics.thresholdPace
+                        ? formatPaceCompact(sportMetrics.thresholdPace)
+                        : "-"}
+                    </Text>
+                  </View>
+                  {sportMetrics.runLthr && (
+                    <>
+                      <Text
+                        style={[
+                          styles.pillDivider,
+                          isDark && styles.pillDividerDark,
+                        ]}
+                      >
+                        |
+                      </Text>
+                      <View style={styles.pillItem}>
+                        <Text
+                          style={[styles.pillLabel, isDark && styles.textDark]}
+                        >
+                          {t("metrics.hr")}
+                        </Text>
+                        <Text
+                          style={[
+                            styles.pillValueSmall,
+                            isDark && styles.textDark,
+                          ]}
+                        >
+                          {sportMetrics.runLthr}
+                        </Text>
+                      </View>
+                    </>
+                  )}
+                </>
+              )}
+              {primarySport === "Swimming" && (
+                <View style={styles.pillItem}>
+                  <Text style={[styles.pillLabel, isDark && styles.textDark]}>
+                    {t("metrics.css")}
+                  </Text>
+                  <Text
+                    style={[styles.pillValue, { color: SPORT_COLORS.Swimming }]}
+                  >
+                    {sportMetrics.css ? formatSwimPace(sportMetrics.css) : "-"}
+                  </Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          </View>
+        )}
       </View>
 
       {/* Search and Filter bar - outside FlatList to preserve focus */}
@@ -456,13 +694,13 @@ export default function FeedScreen() {
           <MaterialCommunityIcons
             name="magnify"
             size={20}
-            color={isDark ? '#888' : colors.textSecondary}
+            color={isDark ? "#888" : colors.textSecondary}
           />
           <TextInput
             testID="home-search-input"
             style={[styles.searchInput, isDark && styles.searchInputDark]}
-            placeholder={t('feed.searchPlaceholder')}
-            placeholderTextColor={isDark ? '#666' : '#999'}
+            placeholder={t("feed.searchPlaceholder")}
+            placeholderTextColor={isDark ? "#666" : "#999"}
             value={searchQuery}
             onChangeText={setSearchQuery}
             onSubmitEditing={Keyboard.dismiss}
@@ -470,20 +708,22 @@ export default function FeedScreen() {
             autoCorrect={false}
             autoCapitalize="none"
             // iOS-specific keyboard optimizations
-            keyboardAppearance={isDark ? 'dark' : 'light'}
-            enablesReturnKeyAutomatically={Platform.OS === 'ios'}
-            clearButtonMode={Platform.OS === 'ios' ? 'while-editing' : undefined}
+            keyboardAppearance={isDark ? "dark" : "light"}
+            enablesReturnKeyAutomatically={Platform.OS === "ios"}
+            clearButtonMode={
+              Platform.OS === "ios" ? "while-editing" : undefined
+            }
           />
           {searchQuery.length > 0 && (
             <TouchableOpacity
-              onPress={() => setSearchQuery('')}
-              accessibilityLabel={t('common.clearSearch')}
+              onPress={() => setSearchQuery("")}
+              accessibilityLabel={t("common.clearSearch")}
               accessibilityRole="button"
             >
               <MaterialCommunityIcons
                 name="close-circle"
                 size={18}
-                color={isDark ? '#666' : '#999'}
+                color={isDark ? "#666" : "#999"}
               />
             </TouchableOpacity>
           )}
@@ -496,13 +736,21 @@ export default function FeedScreen() {
             (showFilters || selectedTypeGroup) && styles.filterButtonActive,
           ]}
           onPress={toggleFilters}
-          accessibilityLabel={showFilters ? t('filters.hideFilters') : t('filters.showFilters')}
+          accessibilityLabel={
+            showFilters ? t("filters.hideFilters") : t("filters.showFilters")
+          }
           accessibilityRole="button"
         >
           <MaterialCommunityIcons
             name="filter-variant"
             size={20}
-            color={(showFilters || selectedTypeGroup) ? '#FFF' : (isDark ? '#AAA' : colors.textSecondary)}
+            color={
+              showFilters || selectedTypeGroup
+                ? "#FFF"
+                : isDark
+                  ? "#AAA"
+                  : colors.textSecondary
+            }
           />
         </TouchableOpacity>
       </View>
@@ -552,18 +800,22 @@ export default function FeedScreen() {
             enabled={isOnline}
             colors={[colors.primary]}
             tintColor={colors.primary}
-            progressBackgroundColor={isDark ? '#1E1E1E' : '#FFFFFF'}
-            title={Platform.OS === 'ios' ? t('common.pullToRefresh') : undefined}
-            titleColor={Platform.OS === 'ios' ? (isDark ? '#888' : '#666') : undefined}
+            progressBackgroundColor={isDark ? "#1E1E1E" : "#FFFFFF"}
+            title={
+              Platform.OS === "ios" ? t("common.pullToRefresh") : undefined
+            }
+            titleColor={
+              Platform.OS === "ios" ? (isDark ? "#888" : "#666") : undefined
+            }
           />
         }
         onEndReached={handleEndReached}
         onEndReachedThreshold={0.5}
         showsVerticalScrollIndicator={false}
         // iOS scroll performance optimizations
-        removeClippedSubviews={Platform.OS === 'ios'}
-        maxToRenderPerBatch={Platform.OS === 'ios' ? 15 : 10}
-        windowSize={Platform.OS === 'ios' ? 21 : 11}
+        removeClippedSubviews={Platform.OS === "ios"}
+        maxToRenderPerBatch={Platform.OS === "ios" ? 15 : 10}
+        windowSize={Platform.OS === "ios" ? 21 : 11}
         initialNumToRender={10}
       />
       <MapFAB onPress={navigateToMap} />
@@ -580,9 +832,9 @@ const styles = StyleSheet.create({
     backgroundColor: darkColors.background,
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingHorizontal: layout.screenPadding,
     paddingVertical: spacing.sm,
   },
@@ -590,12 +842,20 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    overflow: 'hidden',
+    overflow: "hidden",
+  },
+  profilePhotoTouchArea: {
+    width: 44, // Accessibility minimum
+    height: 44, // Accessibility minimum
+    borderRadius: 22,
+    overflow: "hidden",
+    justifyContent: "center",
+    alignItems: "center",
   },
   profilePlaceholder: {
     backgroundColor: colors.divider,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     borderWidth: 1,
     borderColor: opacity.overlay.medium,
   },
@@ -604,60 +864,73 @@ const styles = StyleSheet.create({
     borderColor: opacity.overlayDark.heavy,
   },
   pillRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 4,
   },
+  expandedMetricsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginTop: spacing.xs,
+  },
+  moreMetricsPill: {
+    paddingHorizontal: spacing.sm,
+    minWidth: 44,
+    minHeight: 44,
+    justifyContent: "center",
+  },
   pill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.9)",
     borderRadius: 14,
     paddingHorizontal: 8,
     paddingVertical: 6,
     borderWidth: 1,
-    borderColor: 'rgba(0, 0, 0, 0.04)',
+    borderColor: "rgba(0, 0, 0, 0.04)",
     // Platform-optimized subtle shadow for pills
     ...shadows.pill,
   },
   pillDark: {
-    backgroundColor: 'rgba(40, 40, 40, 0.9)',
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: "rgba(40, 40, 40, 0.9)",
+    borderColor: "rgba(255, 255, 255, 0.08)",
     ...shadows.none,
   },
   pillItem: {
-    alignItems: 'center',
+    alignItems: "center",
     paddingHorizontal: 2,
   },
   pillLabel: {
-    fontSize: 8,
+    fontSize: typography.label.fontSize,
+    fontWeight: typography.label.fontWeight,
     color: colors.textSecondary,
     marginBottom: 1,
   },
   pillValue: {
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: "700",
     color: colors.textPrimary,
   },
   pillValueSmall: {
-    fontSize: 11,
-    fontWeight: '600',
+    fontSize: 12,
+    fontWeight: "600",
     color: colors.textSecondary,
   },
   pillDivider: {
-    fontSize: 12,
-    color: 'rgba(0, 0, 0, 0.15)',
+    fontSize: 10,
+    color: "rgba(0, 0, 0, 0.15)",
     marginHorizontal: 4,
   },
   pillDividerDark: {
-    color: 'rgba(255, 255, 255, 0.2)',
+    color: "rgba(255, 255, 255, 0.2)",
   },
   trendArrow: {
-    fontSize: 10,
+    fontSize: 11,
     marginLeft: 1,
   },
   trendArrowSmall: {
-    fontSize: 8,
+    fontSize: 9,
     marginLeft: 1,
   },
   textLight: {
@@ -667,16 +940,16 @@ const styles = StyleSheet.create({
     color: darkColors.textSecondary,
   },
   searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: layout.screenPadding,
     paddingBottom: spacing.sm,
     gap: 8,
   },
   searchBar: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     backgroundColor: opacity.overlay.light,
     borderRadius: 10,
     paddingHorizontal: layout.cardMargin,
@@ -696,12 +969,12 @@ const styles = StyleSheet.create({
     color: colors.textOnDark,
   },
   filterButton: {
-    width: 40,
-    height: 40,
+    width: 44, // Accessibility minimum
+    height: 44, // Accessibility minimum
     borderRadius: 10,
     backgroundColor: opacity.overlay.light,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   filterButtonDark: {
     backgroundColor: opacity.overlayDark.medium,
@@ -710,8 +983,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
   },
   filterChips: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexDirection: "row",
+    flexWrap: "wrap",
     paddingHorizontal: layout.screenPadding,
     paddingBottom: spacing.sm,
     gap: 8,
@@ -722,7 +995,7 @@ const styles = StyleSheet.create({
     borderRadius: spacing.md,
     backgroundColor: opacity.overlay.light,
     borderWidth: 1,
-    borderColor: 'transparent',
+    borderColor: "transparent",
   },
   filterChipDark: {
     backgroundColor: opacity.overlayDark.medium,
@@ -733,7 +1006,7 @@ const styles = StyleSheet.create({
   },
   filterChipText: {
     fontSize: typography.bodyCompact.fontSize,
-    fontWeight: '500',
+    fontWeight: "500",
     color: colors.textSecondary,
   },
   filterChipTextDark: {
@@ -748,9 +1021,9 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: typography.bodySmall.fontSize,
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.textSecondary,
-    textTransform: 'uppercase',
+    textTransform: "uppercase",
     letterSpacing: 0.5,
   },
   listContent: {
@@ -758,8 +1031,8 @@ const styles = StyleSheet.create({
   },
   loadingContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   loadingText: {
     ...typography.body,
@@ -772,8 +1045,8 @@ const styles = StyleSheet.create({
   },
   emptyContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     paddingTop: spacing.xxl,
   },
   emptyText: {
@@ -785,9 +1058,9 @@ const styles = StyleSheet.create({
     color: colors.error,
   },
   footerLoader: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
     paddingVertical: spacing.md,
     gap: 8,
   },

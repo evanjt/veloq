@@ -21,9 +21,7 @@ export function ChartLegend({ currentActivityColor, hasReverseRuns, isDark }: Ch
     <View style={styles.legend}>
       <View style={styles.legendItem}>
         <View style={[styles.legendDot, { backgroundColor: '#FFB300' }]} />
-        <Text style={[styles.legendText, isDark && styles.textMuted]}>
-          {t('routes.best')}
-        </Text>
+        <Text style={[styles.legendText, isDark && styles.textMuted]}>{t('routes.best')}</Text>
       </View>
       <View style={styles.legendItem}>
         <View style={[styles.legendDot, { backgroundColor: currentActivityColor }]} />
@@ -33,16 +31,12 @@ export function ChartLegend({ currentActivityColor, hasReverseRuns, isDark }: Ch
       </View>
       <View style={styles.legendItem}>
         <View style={[styles.legendDot, { backgroundColor: SAME_COLOR }]} />
-        <Text style={[styles.legendText, isDark && styles.textMuted]}>
-          {t('routes.same')}
-        </Text>
+        <Text style={[styles.legendText, isDark && styles.textMuted]}>{t('routes.same')}</Text>
       </View>
       {hasReverseRuns && (
         <View style={styles.legendItem}>
           <View style={[styles.legendDot, { backgroundColor: REVERSE_COLOR }]} />
-          <Text style={[styles.legendText, isDark && styles.textMuted]}>
-            {t('routes.reverse')}
-          </Text>
+          <Text style={[styles.legendText, isDark && styles.textMuted]}>{t('routes.reverse')}</Text>
         </View>
       )}
     </View>

@@ -7,6 +7,7 @@ import React, { useMemo } from 'react';
 import { View, StyleSheet, TouchableOpacity, Text } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Svg, { Polyline } from 'react-native-svg';
+import { useTranslation } from 'react-i18next';
 import { colors } from '@/theme/colors';
 import { typography } from '@/theme/typography';
 import { spacing, layout } from '@/theme/spacing';
@@ -32,8 +33,10 @@ function MiniPolylinePreview({ polyline }: { polyline: RoutePoint[] }) {
     }
 
     // Calculate bounds
-    let minLat = Infinity, maxLat = -Infinity;
-    let minLng = Infinity, maxLng = -Infinity;
+    let minLat = Infinity,
+      maxLat = -Infinity;
+    let minLng = Infinity,
+      maxLng = -Infinity;
 
     for (const point of polyline) {
       minLat = Math.min(minLat, point.lat);
@@ -50,11 +53,13 @@ function MiniPolylinePreview({ polyline }: { polyline: RoutePoint[] }) {
     const lngRange = maxLng - minLng || 0.001;
 
     // Normalize points to SVG coordinates
-    const points = polyline.map(p => {
-      const x = padding + ((p.lng - minLng) / lngRange) * (width - padding * 2);
-      const y = padding + ((maxLat - p.lat) / latRange) * (height - padding * 2);
-      return `${x},${y}`;
-    }).join(' ');
+    const points = polyline
+      .map((p) => {
+        const x = padding + ((p.lng - minLng) / lngRange) * (width - padding * 2);
+        const y = padding + ((maxLat - p.lat) / latRange) * (height - padding * 2);
+        return `${x},${y}`;
+      })
+      .join(' ');
 
     return { svgPath: points, viewBox: `0 0 ${width} ${height}` };
   }, [polyline]);
@@ -76,11 +81,9 @@ function MiniPolylinePreview({ polyline }: { polyline: RoutePoint[] }) {
 /**
  * Card showing a potential section suggestion with promote/dismiss actions.
  */
-export function PotentialSectionCard({
-  section,
-  onPromote,
-  onDismiss,
-}: PotentialSectionCardProps) {
+export function PotentialSectionCard({ section, onPromote, onDismiss }: PotentialSectionCardProps) {
+  const { t } = useTranslation();
+
   const formatDistance = (meters: number) => {
     if (meters >= 1000) {
       return `${(meters / 1000).toFixed(1)} km`;
@@ -88,12 +91,16 @@ export function PotentialSectionCard({
     return `${Math.round(meters)} m`;
   };
 
-  const getScaleLabel = (scale: string) => {
+  const getScaleLabel = (scale: string): string => {
     switch (scale) {
-      case 'short': return 'Short';
-      case 'medium': return 'Medium';
-      case 'long': return 'Long';
-      default: return scale;
+      case 'short':
+        return t('routes.scaleShort' as never) as string;
+      case 'medium':
+        return t('routes.scaleMedium' as never) as string;
+      case 'long':
+        return t('routes.scaleLong' as never) as string;
+      default:
+        return scale;
     }
   };
 
@@ -102,23 +109,15 @@ export function PotentialSectionCard({
       {/* Header with suggestion icon */}
       <View style={styles.header}>
         <View style={styles.suggestionBadge}>
-          <MaterialCommunityIcons
-            name="lightbulb-outline"
-            size={14}
-            color={colors.warning}
-          />
-          <Text style={styles.suggestionText}>Suggestion</Text>
+          <MaterialCommunityIcons name="lightbulb-outline" size={14} color={colors.warning} />
+          <Text style={styles.suggestionText}>{t('routes.suggestion' as never)}</Text>
         </View>
         <TouchableOpacity
           style={styles.dismissButton}
           onPress={onDismiss}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
-          <MaterialCommunityIcons
-            name="close"
-            size={18}
-            color={colors.textSecondary}
-          />
+          <MaterialCommunityIcons name="close" size={18} color={colors.textSecondary} />
         </TouchableOpacity>
       </View>
 
@@ -132,9 +131,10 @@ export function PotentialSectionCard({
         {/* Info */}
         <View style={styles.infoContainer}>
           <Text style={styles.description}>
-            You've used this {section.sportType.toLowerCase()} path{' '}
-            <Text style={styles.highlight}>{section.visitCount} times</Text>.
-            {'\n'}Create a section to track your performance?
+            {t('routes.potentialSectionDescription' as never, {
+              sport: section.sportType.toLowerCase(),
+              count: section.visitCount,
+            })}
           </Text>
 
           <View style={styles.metaRow}>
@@ -144,36 +144,20 @@ export function PotentialSectionCard({
                 size={14}
                 color={colors.textSecondary}
               />
-              <Text style={styles.metaText}>
-                {formatDistance(section.distanceMeters)}
-              </Text>
+              <Text style={styles.metaText}>{formatDistance(section.distanceMeters)}</Text>
             </View>
             <View style={styles.metaItem}>
-              <MaterialCommunityIcons
-                name="ruler"
-                size={14}
-                color={colors.textSecondary}
-              />
-              <Text style={styles.metaText}>
-                {getScaleLabel(section.scale)}
-              </Text>
+              <MaterialCommunityIcons name="ruler" size={14} color={colors.textSecondary} />
+              <Text style={styles.metaText}>{getScaleLabel(section.scale)}</Text>
             </View>
           </View>
         </View>
       </View>
 
       {/* Action button */}
-      <TouchableOpacity
-        style={styles.promoteButton}
-        onPress={onPromote}
-        activeOpacity={0.8}
-      >
-        <MaterialCommunityIcons
-          name="plus-circle"
-          size={18}
-          color={colors.textOnDark}
-        />
-        <Text style={styles.promoteButtonText}>Create Section</Text>
+      <TouchableOpacity style={styles.promoteButton} onPress={onPromote} activeOpacity={0.8}>
+        <MaterialCommunityIcons name="plus-circle" size={18} color={colors.textOnDark} />
+        <Text style={styles.promoteButtonText}>{t('routes.createSection')}</Text>
       </TouchableOpacity>
     </View>
   );

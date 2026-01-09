@@ -1,13 +1,13 @@
 import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
+import { View, Text, StyleSheet, useColorScheme, TouchableOpacity, Animated } from 'react-native';
 import {
-  View,
-  Text,
-  StyleSheet,
-  useColorScheme,
-  TouchableOpacity,
-  Animated,
-} from 'react-native';
-import { MapView, Camera, MarkerView, ShapeSource, LineLayer, CircleLayer } from '@maplibre/maplibre-react-native';
+  MapView,
+  Camera,
+  MarkerView,
+  ShapeSource,
+  LineLayer,
+  CircleLayer,
+} from '@maplibre/maplibre-react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -121,7 +121,10 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
   const mapRef = useRef<React.ElementRef<typeof MapView>>(null);
   const map3DRef = useRef<Map3DWebViewRef>(null);
   const bearingAnim = useRef(new Animated.Value(0)).current;
-  const initialBoundsRef = useRef<{ ne: [number, number]; sw: [number, number] } | null>(null);
+  const initialBoundsRef = useRef<{
+    ne: [number, number];
+    sw: [number, number];
+  } | null>(null);
 
   // ===========================================
   // GESTURE TRACKING - For compass updates
@@ -142,8 +145,10 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
   const calculateBounds = useCallback((activityList: ActivityBoundsItem[]) => {
     if (activityList.length === 0) return null;
 
-    let minLat = Infinity, maxLat = -Infinity;
-    let minLng = Infinity, maxLng = -Infinity;
+    let minLat = Infinity,
+      maxLat = -Infinity;
+    let minLng = Infinity,
+      maxLng = -Infinity;
 
     for (const activity of activityList) {
       const normalized = normalizeBounds(activity.bounds);
@@ -219,12 +224,12 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
 
   // Toggle map style (cycles through light → dark → satellite)
   const toggleStyle = () => {
-    setMapStyle(current => getNextStyle(current));
+    setMapStyle((current) => getNextStyle(current));
   };
 
   // Toggle 3D mode
   const toggle3D = () => {
-    setIs3DMode(current => !current);
+    setIs3DMode((current) => !current);
   };
 
   // Filter activities to only those visible in viewport (for performance)
@@ -381,9 +386,7 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
     if (!selected?.mapData?.latlngs) return null;
 
     // Filter out null values first
-    const nonNullCoords = selected.mapData.latlngs.filter(
-      (c): c is [number, number] => c !== null
-    );
+    const nonNullCoords = selected.mapData.latlngs.filter((c): c is [number, number] => c !== null);
 
     if (nonNullCoords.length === 0) return null;
 
@@ -392,8 +395,8 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
 
     // Filter valid coordinates and convert to GeoJSON format [lng, lat]
     const validCoords = latLngCoords
-      .filter(c => !isNaN(c.latitude) && !isNaN(c.longitude))
-      .map(c => [c.longitude, c.latitude]);
+      .filter((c) => !isNaN(c.latitude) && !isNaN(c.longitude))
+      .map((c) => [c.longitude, c.latitude]);
 
     if (validCoords.length === 0) return null;
 
@@ -431,214 +434,209 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
           routeColor={getActivityTypeConfig(selected.activity.type).color}
         />
       ) : (
-      <MapView
-        ref={mapRef}
-        style={styles.map}
-        mapStyle={mapStyleValue}
-        logoEnabled={false}
-        attributionEnabled={false}
-        compassEnabled={false}
-        onPress={handleMapPress}
-        onRegionIsChanging={handleRegionIsChanging}
-        onRegionDidChange={handleRegionDidChange}
-      >
-        {/* Camera with ref for programmatic control */}
-        <Camera
-          ref={cameraRef}
-          defaultSettings={{
-            bounds: mapBounds ?? undefined,
-            padding: { paddingTop: 100, paddingRight: 40, paddingBottom: 200, paddingLeft: 40 },
-          }}
-          animationDuration={0}
-        />
+        <MapView
+          ref={mapRef}
+          style={styles.map}
+          mapStyle={mapStyleValue}
+          logoEnabled={false}
+          attributionEnabled={false}
+          compassEnabled={false}
+          onPress={handleMapPress}
+          onRegionIsChanging={handleRegionIsChanging}
+          onRegionDidChange={handleRegionDidChange}
+        >
+          {/* Camera with ref for programmatic control */}
+          <Camera
+            ref={cameraRef}
+            defaultSettings={{
+              bounds: mapBounds ?? undefined,
+              padding: {
+                paddingTop: 100,
+                paddingRight: 40,
+                paddingBottom: 200,
+                paddingLeft: 40,
+              },
+            }}
+            animationDuration={0}
+          />
 
-        {/* Invisible ShapeSource for tap detection only - no visual rendering */}
-        {/* This handles taps without intercepting gestures */}
-        {/* Hidden in heatmap mode */}
-        {!isHeatmapMode && (
-          <ShapeSource
-            id="activity-markers"
-            shape={markersGeoJSON}
-            onPress={handleMarkerPress}
-            hitbox={{ width: 44, height: 44 }}
-          >
-            {/* Invisible circles just for hit detection */}
-            <CircleLayer
-              id="marker-hitarea"
-              style={{
-                circleRadius: ['/', ['get', 'size'], 2],
-                circleColor: 'transparent',
-                circleStrokeWidth: 0,
-              }}
-            />
-          </ShapeSource>
-        )}
-
-        {/* Activity markers - visual only, rendered as MarkerView for correct z-ordering */}
-        {/* pointerEvents="none" ensures these don't intercept any touches */}
-        {/* Sorted to render selected activity last (on top) */}
-        {/* Only renders visible activities for performance (viewport culling) */}
-        {/* Hidden in heatmap mode */}
-        {!isHeatmapMode && sortedVisibleActivities.map((activity) => {
-          const config = getActivityTypeConfig(activity.type);
-          // Use pre-computed center (no format detection during render!)
-          const center = activityCenters[activity.id];
-          const size = getMarkerSize(activity.distance);
-          const isSelected = selectedActivityId === activity.id;
-          const markerSize = isSelected ? size + 8 : size;
-          // Larger icon ratio to fill more of the marker
-          const iconSize = isSelected ? size * 0.75 : size * 0.7;
-
-          return (
-            <MarkerView
-              key={`marker-${activity.id}`}
-              coordinate={center}
-              anchor={{ x: 0.5, y: 0.5 }}
-              allowOverlap={true}
+          {/* Invisible ShapeSource for tap detection only - no visual rendering */}
+          {/* This handles taps without intercepting gestures */}
+          {/* Hidden in heatmap mode */}
+          {!isHeatmapMode && (
+            <ShapeSource
+              id="activity-markers"
+              shape={markersGeoJSON}
+              onPress={handleMarkerPress}
+              hitbox={{ width: 44, height: 44 }}
             >
-              {/* Single view with fixed dimensions - no flex/dynamic sizing */}
-              <View
-                pointerEvents="none"
+              {/* Invisible circles just for hit detection */}
+              <CircleLayer
+                id="marker-hitarea"
                 style={{
-                  width: markerSize,
-                  height: markerSize,
-                  borderRadius: markerSize / 2,
-                  backgroundColor: config.color,
-                  // Thinner border to give more space for the icon
-                  borderWidth: isSelected ? 2 : 1.5,
-                  borderColor: isSelected ? colors.primary : colors.textOnDark,
-                  justifyContent: 'center',
-                  alignItems: 'center',
-                  ...shadows.elevated,
+                  circleRadius: ['/', ['get', 'size'], 2],
+                  circleColor: 'transparent',
+                  circleStrokeWidth: 0,
                 }}
+              />
+            </ShapeSource>
+          )}
+
+          {/* Activity markers - visual only, rendered as MarkerView for correct z-ordering */}
+          {/* pointerEvents="none" ensures these don't intercept any touches */}
+          {/* Sorted to render selected activity last (on top) */}
+          {/* Only renders visible activities for performance (viewport culling) */}
+          {/* Hidden in heatmap mode */}
+          {!isHeatmapMode &&
+            sortedVisibleActivities.map((activity) => {
+              const config = getActivityTypeConfig(activity.type);
+              // Use pre-computed center (no format detection during render!)
+              const center = activityCenters[activity.id];
+              const size = getMarkerSize(activity.distance);
+              const isSelected = selectedActivityId === activity.id;
+              const markerSize = isSelected ? size + 8 : size;
+              // Larger icon ratio to fill more of the marker
+              const iconSize = isSelected ? size * 0.75 : size * 0.7;
+
+              return (
+                <MarkerView
+                  key={`marker-${activity.id}`}
+                  coordinate={center}
+                  anchor={{ x: 0.5, y: 0.5 }}
+                  allowOverlap={true}
+                >
+                  {/* Single view with fixed dimensions - no flex/dynamic sizing */}
+                  <View
+                    pointerEvents="none"
+                    style={{
+                      width: markerSize,
+                      height: markerSize,
+                      borderRadius: markerSize / 2,
+                      backgroundColor: config.color,
+                      // Thinner border to give more space for the icon
+                      borderWidth: isSelected ? 2 : 1.5,
+                      borderColor: isSelected ? colors.primary : colors.textOnDark,
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                      ...shadows.elevated,
+                    }}
+                  >
+                    <Ionicons name={config.icon} size={iconSize} color={colors.textOnDark} />
+                  </View>
+                </MarkerView>
+              );
+            })}
+
+          {/* Sections layer - frequent road/trail sections */}
+          {showSections &&
+            !isHeatmapMode &&
+            sectionsGeoJSON &&
+            sectionsGeoJSON.features.length > 0 && (
+              <ShapeSource
+                id="sections"
+                shape={sectionsGeoJSON}
+                onPress={handleSectionPress}
+                hitbox={{ width: 20, height: 20 }}
               >
-                <Ionicons
-                  name={config.icon}
-                  size={iconSize}
-                  color={colors.textOnDark}
+                {/* Section lines - thicker and more prominent than traces */}
+                <LineLayer
+                  id="sectionsLine"
+                  style={{
+                    lineColor: ['get', 'color'],
+                    lineWidth: ['interpolate', ['linear'], ['zoom'], 10, 3, 14, 5, 18, 7],
+                    lineOpacity: 0.85,
+                    lineCap: 'round',
+                    lineJoin: 'round',
+                  }}
                 />
+                {/* Section outline for better visibility */}
+                <LineLayer
+                  id="sectionsOutline"
+                  style={{
+                    lineColor: '#FFFFFF',
+                    lineWidth: ['interpolate', ['linear'], ['zoom'], 10, 5, 14, 7, 18, 9],
+                    lineOpacity: 0.4,
+                    lineCap: 'round',
+                    lineJoin: 'round',
+                  }}
+                  belowLayerID="sectionsLine"
+                />
+              </ShapeSource>
+            )}
+
+          {/* Heatmap layer - shown when heatmap mode is active */}
+          {isHeatmapMode && heatmap && (
+            <HeatmapLayer
+              heatmap={heatmap}
+              onCellPress={handleHeatmapCellPress}
+              opacity={0.7}
+              highlightCommonPaths={true}
+            />
+          )}
+
+          {/* GPS traces - simplified routes shown when zoomed in (hidden in heatmap mode) */}
+          {/* Rendered with low opacity, below the selected activity route */}
+          {!isHeatmapMode && tracesGeoJSON && tracesGeoJSON.features.length > 0 && (
+            <ShapeSource id="activity-traces" shape={tracesGeoJSON}>
+              <LineLayer
+                id="tracesLine"
+                style={{
+                  lineColor: ['get', 'color'],
+                  lineWidth: [
+                    'case',
+                    // Hide selected trace (full route shown instead)
+                    // Uses selectedActivityId variable instead of isSelected property for 120Hz
+                    ['==', ['get', 'id'], selectedActivityId ?? ''],
+                    0,
+                    2,
+                  ],
+                  lineOpacity: 0.4,
+                  lineCap: 'round',
+                  lineJoin: 'round',
+                }}
+              />
+            </ShapeSource>
+          )}
+
+          {/* Selected activity route */}
+          {/* Key forces re-render when activity changes to ensure proper positioning */}
+          {routeGeoJSON && selected && (
+            <ShapeSource
+              key={`route-${selected.activity.id}`}
+              id={`route-${selected.activity.id}`}
+              shape={routeGeoJSON}
+            >
+              <LineLayer
+                id={`routeLine-${selected.activity.id}`}
+                style={{
+                  lineColor: getActivityTypeConfig(selected.activity.type).color,
+                  lineWidth: 4,
+                  lineCap: 'round',
+                  lineJoin: 'round',
+                }}
+              />
+            </ShapeSource>
+          )}
+
+          {/* User location marker */}
+          {userLocation && (
+            <MarkerView coordinate={userLocation} anchor={{ x: 0.5, y: 0.5 }}>
+              <View style={styles.userLocationMarker}>
+                <View style={styles.userLocationDot} />
               </View>
             </MarkerView>
-          );
-        })}
-
-        {/* Sections layer - frequent road/trail sections */}
-        {showSections && !isHeatmapMode && sectionsGeoJSON && sectionsGeoJSON.features.length > 0 && (
-          <ShapeSource
-            id="sections"
-            shape={sectionsGeoJSON}
-            onPress={handleSectionPress}
-            hitbox={{ width: 20, height: 20 }}
-          >
-            {/* Section lines - thicker and more prominent than traces */}
-            <LineLayer
-              id="sectionsLine"
-              style={{
-                lineColor: ['get', 'color'],
-                lineWidth: [
-                  'interpolate', ['linear'], ['zoom'],
-                  10, 3,
-                  14, 5,
-                  18, 7,
-                ],
-                lineOpacity: 0.85,
-                lineCap: 'round',
-                lineJoin: 'round',
-              }}
-            />
-            {/* Section outline for better visibility */}
-            <LineLayer
-              id="sectionsOutline"
-              style={{
-                lineColor: '#FFFFFF',
-                lineWidth: [
-                  'interpolate', ['linear'], ['zoom'],
-                  10, 5,
-                  14, 7,
-                  18, 9,
-                ],
-                lineOpacity: 0.4,
-                lineCap: 'round',
-                lineJoin: 'round',
-              }}
-              belowLayerID="sectionsLine"
-            />
-          </ShapeSource>
-        )}
-
-        {/* Heatmap layer - shown when heatmap mode is active */}
-        {isHeatmapMode && heatmap && (
-          <HeatmapLayer
-            heatmap={heatmap}
-            onCellPress={handleHeatmapCellPress}
-            opacity={0.7}
-            highlightCommonPaths={true}
-          />
-        )}
-
-        {/* GPS traces - simplified routes shown when zoomed in (hidden in heatmap mode) */}
-        {/* Rendered with low opacity, below the selected activity route */}
-        {!isHeatmapMode && tracesGeoJSON && tracesGeoJSON.features.length > 0 && (
-          <ShapeSource
-            id="activity-traces"
-            shape={tracesGeoJSON}
-          >
-            <LineLayer
-              id="tracesLine"
-              style={{
-                lineColor: ['get', 'color'],
-                lineWidth: [
-                  'case',
-                  // Hide selected trace (full route shown instead)
-                  // Uses selectedActivityId variable instead of isSelected property for 120Hz
-                  ['==', ['get', 'id'], selectedActivityId ?? ''], 0,
-                  2,
-                ],
-                lineOpacity: 0.4,
-                lineCap: 'round',
-                lineJoin: 'round',
-              }}
-            />
-          </ShapeSource>
-        )}
-
-        {/* Selected activity route */}
-        {/* Key forces re-render when activity changes to ensure proper positioning */}
-        {routeGeoJSON && selected && (
-          <ShapeSource
-            key={`route-${selected.activity.id}`}
-            id={`route-${selected.activity.id}`}
-            shape={routeGeoJSON}
-          >
-            <LineLayer
-              id={`routeLine-${selected.activity.id}`}
-              style={{
-                lineColor: getActivityTypeConfig(selected.activity.type).color,
-                lineWidth: 4,
-                lineCap: 'round',
-                lineJoin: 'round',
-              }}
-            />
-          </ShapeSource>
-        )}
-
-        {/* User location marker */}
-        {userLocation && (
-          <MarkerView
-            coordinate={userLocation}
-            anchor={{ x: 0.5, y: 0.5 }}
-          >
-            <View style={styles.userLocationMarker}>
-              <View style={styles.userLocationDot} />
-            </View>
-          </MarkerView>
-        )}
-      </MapView>
+          )}
+        </MapView>
       )}
 
       {/* Close button */}
       <TouchableOpacity
-        style={[styles.button, styles.closeButton, { top: insets.top + 12 }, isDark && styles.buttonDark]}
+        style={[
+          styles.button,
+          styles.closeButton,
+          { top: insets.top + 12 },
+          isDark && styles.buttonDark,
+        ]}
         onPress={onClose}
         activeOpacity={0.8}
         accessibilityLabel={t('maps.closeMap')}
@@ -653,7 +651,12 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
 
       {/* Style toggle */}
       <TouchableOpacity
-        style={[styles.button, styles.styleButton, { top: insets.top + 12 }, isDark && styles.buttonDark]}
+        style={[
+          styles.button,
+          styles.styleButton,
+          { top: insets.top + 12 },
+          isDark && styles.buttonDark,
+        ]}
         onPress={toggleStyle}
         activeOpacity={0.8}
         accessibilityLabel={t('maps.toggleStyle')}

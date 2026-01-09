@@ -8,15 +8,18 @@
     "save": "Guardar",
     "delete": "Eliminar",
     "confirm": "Confirmar",
+    "reset": "Restablecer",
+    "create": "Crear",
     "back": "Atrás",
     "next": "Siguiente",
     "done": "Hecho",
     "search": "Buscar",
     "clearSearch": "Borrar búsqueda",
     "noResults": "Sin resultados",
-    "pullToRefresh": "Desliza para actualizar"
+    "pullToRefresh": "Desliza para actualizar",
+    "activities": "activities",
+    "syncing": "Syncing..."
   },
-
   "navigation": {
     "feed": "Inicio",
     "fitness": "Forma física",
@@ -29,7 +32,6 @@
     "settings": "Ajustes",
     "activities": "Actividades"
   },
-
   "feed": {
     "recentActivities": "Actividades recientes",
     "activitiesCount": "{{count}} Actividades",
@@ -38,7 +40,6 @@
     "failedToLoad": "Error al cargar actividades",
     "searchPlaceholder": "Buscar actividades..."
   },
-
   "filters": {
     "showFilters": "Mostrar filtros",
     "hideFilters": "Ocultar filtros",
@@ -53,7 +54,6 @@
     "racketSports": "Deportes de raqueta",
     "other": "Otros"
   },
-
   "metrics": {
     "hrv": "VFC",
     "rhr": "FCR",
@@ -66,7 +66,6 @@
     "fatigue": "Fatiga",
     "hr": "FC"
   },
-
   "login": {
     "title": "Veloq",
     "subtitle": "Conectar con Intervals.icu",
@@ -98,12 +97,10 @@
     "localModeNote": "Modo local: Todos los datos permanecen en tu dispositivo",
     "connectedModeNote": "Habilita notificaciones para nuevas actividades"
   },
-
   "demo": {
     "banner": "Modo Demo",
     "tapToSignIn": "Toca para iniciar sesión"
   },
-
   "settings": {
     "title": "Ajustes",
     "appearance": "Apariencia",
@@ -157,9 +154,11 @@
     "languageGroups": {
       "european": "Europeo",
       "asian": "Asiático"
-    }
+    },
+    "cached": "Cached",
+    "notCached": "Not cached",
+    "expandCache": "Load more"
   },
-
   "alerts": {
     "error": "Error",
     "clearCacheTitle": "Borrar y recargar caché",
@@ -176,7 +175,6 @@
     "failedToClear": "Error al borrar la caché. Por favor, inténtalo de nuevo.",
     "failedToDisconnect": "Error al desconectar. Por favor, inténtalo de nuevo."
   },
-
   "activity": {
     "viewDetails": "Ver detalles",
     "share": "Compartir",
@@ -225,7 +223,7 @@
       "percentOfMaxHR": "{{percent}}% de FC máx",
       "percentOfMaxHRLabel": "% de FC Máx",
       "hrRecovery": "Recuperación de FC",
-      "bpmDrop": "{{value}} lpm de caída",
+      "bpmDrop": "{{value}} bpm drop",
       "restingHRToday": "FC en reposo hoy",
       "hrvToday": "VFC hoy",
       "energy": "Energía",
@@ -250,10 +248,31 @@
       "percentOfFTP": "% de FTP",
       "eftpEstimated": "eFTP (estimado)",
       "efficiencyFactor": "Factor de eficiencia",
-      "decoupling": "Desacoplamiento"
+      "decoupling": "Decoupling",
+      "duration": "Duration",
+      "kcalPerHr": "kcal/hr",
+      "normalizedPower": "Normalized Power",
+      "vi": "VI",
+      "ef": "EF",
+      "restingHR": "Resting HR",
+      "hrv": "HRV",
+      "heartRate": "Heart Rate",
+      "peakHR": "Peak HR",
+      "humidity": "Humidity",
+      "ftp": "FTP",
+      "decoup": "Decoupling"
+    },
+    "form": {
+      "fresh": "Fresh",
+      "fatigued": "Fatigued",
+      "neutral": "Neutral"
+    },
+    "ofMax": "of max",
+    "conditions": {
+      "hot": "Hot",
+      "cold": "Cold"
     }
   },
-
   "time": {
     "today": "Hoy",
     "yesterday": "Ayer",
@@ -264,7 +283,6 @@
     "current": "Actual",
     "now": "Ahora"
   },
-
   "units": {
     "km": "km",
     "mi": "mi",
@@ -280,7 +298,6 @@
     "minutes": "min",
     "seconds": "s"
   },
-
   "fitnessScreen": {
     "title": "Forma física",
     "loadingData": "Cargando datos de forma física...",
@@ -302,12 +319,10 @@
     "toPreventOvertraining": "para prevenir el sobreentrenamiento.",
     "learnMore": "Saber más"
   },
-
   "wellnessScreen": {
     "title": "Bienestar",
     "trends": "Tendencias de bienestar"
   },
-
   "trainingScreen": {
     "title": "Entrenamiento",
     "routes": "Rutas",
@@ -323,16 +338,16 @@
     "visualizeActivities": "Visualiza {{count}} actividades",
     "seeWhereYouTravel": "Ve dónde viajas más"
   },
-
   "routesScreen": {
     "title": "Rutas",
     "matchingDisabled": "Coincidencia de rutas desactivada",
     "enableInSettings": "Activa la coincidencia de rutas en Ajustes para detectar automáticamente rutas repetidas de tus actividades.",
     "goToSettings": "Ir a Ajustes",
     "analysingRoutes": "Analizando rutas {{current}}/{{total}}",
-    "computingRoutes": "Calculando rutas..."
+    "computingRoutes": "Calculando rutas...",
+    "downloadingGps": "Descargando GPS",
+    "analyzingRoutes": "Analizando rutas"
   },
-
   "statsScreen": {
     "title": "Rendimiento",
     "days42": "42 Días",
@@ -347,7 +362,6 @@
     "powerCurve": "Curva de potencia",
     "garminNote": "Los gráficos pueden incluir datos de dispositivos Garmin"
   },
-
   "heatmapScreen": {
     "title": "Mapa de calor",
     "noActivityData": "Sin datos de actividad",
@@ -356,12 +370,10 @@
     "generatingHeatmap": "Generando mapa de calor...",
     "activitiesCount": "{{count}} actividades"
   },
-
   "mapScreen": {
     "loadingActivities": "Cargando actividades...",
     "syncing": "Sincronizando: {{completed}}/{{total}}"
   },
-
   "routes": {
     "basedOnActivities": "Basado en {{count}} actividades",
     "routesFound": "{{count}} rutas encontradas",
@@ -393,6 +405,7 @@
     "moreActivitiesProcessed": "+ {{count}} más actividades procesadas",
     "matchesLabel": "coincidencias",
     "checkedLabel": "comprobadas",
+    "visits": "visitas",
     "match": "coincidencia",
     "more": "+{{count}} más",
     "loadingSections": "Cargando secciones...",
@@ -413,9 +426,22 @@
     "bestOn": "Mejor el",
     "same": "Mismo",
     "fastest": "#{{rank}} más rápido",
-    "routeNamePlaceholder": "Nombre de la ruta"
+    "routeNamePlaceholder": "Nombre de la ruta",
+    "autoDetected": "Detección automática",
+    "suggestions": "Sugerencias",
+    "custom": "Personalizado",
+    "suggestion": "Sugerencia",
+    "scaleShort": "Corto",
+    "scaleMedium": "Medio",
+    "scaleLong": "Largo",
+    "potentialSectionDescription": "Has recorrido este camino de {{sport}} {{count}} veces. ¿Crear una sección para seguir tu rendimiento?",
+    "createSection": "Crear sección",
+    "defaultRouteName": "Ruta {{type}}",
+    "defaultActivityName": "Actividad {{number}}",
+    "sectionCreated": "Sección creada",
+    "sectionCreatedDescription": "Tu sección personalizada ha sido creada y las actividades han sido emparejadas",
+    "sectionCreationFailed": "Error al crear la sección. Por favor, inténtalo de nuevo."
   },
-
   "sections": {
     "performanceOverTime": "Rendimiento a lo Largo del Tiempo",
     "best": "Mejor",
@@ -433,13 +459,11 @@
     "noActivitiesFound": "No se encontraron actividades",
     "sectionNamePlaceholder": "Nombre de la sección"
   },
-
   "errorState": {
     "defaultTitle": "Algo salió mal",
     "defaultMessage": "Error al cargar los datos. Por favor, inténtalo de nuevo.",
     "tryAgain": "Reintentar"
   },
-
   "emptyState": {
     "refresh": "Actualizar",
     "clearFilters": "Borrar filtros",
@@ -468,24 +492,27 @@
       "description": "Algunas funciones pueden estar limitadas"
     }
   },
-
   "cache": {
     "syncingActivities": "Sincronizando actividades",
     "analyzingRoutes": "Analizando rutas"
   },
-
   "activityDetail": {
     "failedToLoad": "Error al cargar la actividad",
     "avgPace": "Ritmo Prom",
     "avgSpeed": "Vel Prom",
     "avgHR": "FC Prom",
-    "avgPower": "Pot Prom"
+    "avgPower": "Pot Prom",
+    "tabs": {
+      "charts": "Gráficos",
+      "routes": "Rutas",
+      "sections": "Secciones"
+    },
+    "noMatchedSections": "Sin secciones coincidentes",
+    "noMatchedSectionsDescription": "Las secciones que coincidan con esta actividad aparecerán aquí"
   },
-
   "routeDetail": {
     "routeNotFound": "Ruta no encontrada"
   },
-
   "attribution": {
     "recordedWith": "Grabado con {{device}}",
     "garminTrademark": "Garmin y el logotipo de Garmin son marcas registradas de Garmin Ltd.",
@@ -493,7 +520,6 @@
     "osm": "Colaboradores de OpenStreetMap",
     "osmLicense": "Datos de rutas bajo licencia Open Database License (ODbL)"
   },
-
   "stats": {
     "activityCalendar": "Calendario de actividades",
     "activitiesCount": "{{count}} actividades",
@@ -564,7 +590,6 @@
     "efficiency": "Eficiencia",
     "decouplingExplanation": "El desacoplamiento mide la deriva cardíaca - cuánto aumenta tu frecuencia cardíaca en relación con la potencia durante esfuerzos sostenidos. Menor es mejor, indicando una producción de energía aeróbica eficiente."
   },
-
   "wellness": {
     "noData": "Sin datos de bienestar",
     "connectHint": "Conecta un wearable o registra datos de bienestar en Intervals.icu",
@@ -579,9 +604,11 @@
     "noTrendData": "Sin datos de tendencia",
     "trendHint": "Las tendencias de VFC, sueño y FC en reposo aparecerán aquí cuando se registren datos",
     "dragToExplore": "Arrastra para explorar",
-    "lastDays": "Últimos {{count}} días"
+    "lastDays": "Últimos {{count}} días",
+    "smoothingTitle": "Suavizado de datos",
+    "smoothingDescription": "Aplicar un promedio móvil para reducir el ruido diario y mostrar tendencias más claramente.",
+    "smoothingHint": "Auto usa suavizado óptimo para el rango de tiempo seleccionado"
   },
-
   "fitness": {
     "noData": "Sin datos de forma física",
     "formTSB": "Forma (TSB)",
@@ -601,7 +628,6 @@
       "1y": "1 año"
     }
   },
-
   "formZones": {
     "transition": "Transición",
     "fresh": "Fresco",
@@ -609,7 +635,6 @@
     "optimal": "Óptimo",
     "highRisk": "Alto riesgo"
   },
-
   "maps": {
     "closeMap": "Cerrar mapa",
     "toggleStyle": "Cambiar estilo del mapa",
@@ -635,9 +660,13 @@
       "walk": "Caminata",
       "hike": "Senderismo",
       "other": "Otro"
-    }
+    },
+    "tapSelectStart": "Toca para seleccionar punto de inicio",
+    "tapSelectEnd": "Toca para seleccionar punto final",
+    "sectionSelected": "Sección seleccionada",
+    "startPercent": "Inicio: {{percent}}%",
+    "rangePercent": "{{start}}% - {{end}}%"
   },
-
   "heatmap": {
     "visitedTimes": "Visitado {{count}} veces",
     "uniqueRoutes": "{{count}} rutas únicas",

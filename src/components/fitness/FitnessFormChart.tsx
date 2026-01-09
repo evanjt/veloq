@@ -5,42 +5,76 @@ import { useTranslation } from 'react-i18next';
 import { CartesianChart, Line, Area, Bar } from 'victory-native';
 import { LinearGradient, vec, Shadow, Rect } from '@shopify/react-native-skia';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Animated, { useSharedValue, useAnimatedReaction, runOnJS, useDerivedValue, useAnimatedStyle } from 'react-native-reanimated';
+import Animated, {
+  useSharedValue,
+  useAnimatedReaction,
+  runOnJS,
+  useDerivedValue,
+  useAnimatedStyle,
+} from 'react-native-reanimated';
 import { colors, darkColors, opacity, spacing, layout, typography } from '@/theme';
 import { calculateTSB, getFormZone, FORM_ZONE_COLORS } from '@/hooks';
-import { sortByDateId } from '@/lib';
+import { sortByDateId, formatShortDate, formatShortDateWithWeekday } from '@/lib';
 import type { WellnessData } from '@/types';
 
 // Chart colors matching intervals.icu
 const COLORS = {
-  fitness: colors.fitness,    // Blue - CTL
-  fatigue: colors.chartPurple,    // Purple - ATL
+  fitness: colors.fitness, // Blue - CTL
+  fatigue: colors.chartPurple, // Purple - ATL
   load: 'rgba(200, 100, 100, 0.6)', // Red dots for daily load
 };
 
 // Form zone backgrounds (matching intervals.icu)
 const FORM_ZONES = {
-  highRisk: { min: -Infinity, max: -30, color: 'rgba(239, 83, 80, 0.25)', label: 'High Risk' },
-  optimal: { min: -30, max: -10, color: 'rgba(76, 175, 80, 0.25)', label: 'Optimal' },
-  grey: { min: -10, max: 5, color: 'rgba(158, 158, 158, 0.15)', label: 'Grey Zone' },
-  fresh: { min: 5, max: 25, color: 'rgba(129, 199, 132, 0.25)', label: 'Fresh' },
-  transition: { min: 25, max: Infinity, color: 'rgba(100, 181, 246, 0.2)', label: 'Transition' },
+  highRisk: {
+    min: -Infinity,
+    max: -30,
+    color: 'rgba(239, 83, 80, 0.25)',
+    label: 'High Risk',
+  },
+  optimal: {
+    min: -30,
+    max: -10,
+    color: 'rgba(76, 175, 80, 0.25)',
+    label: 'Optimal',
+  },
+  grey: {
+    min: -10,
+    max: 5,
+    color: 'rgba(158, 158, 158, 0.15)',
+    label: 'Grey Zone',
+  },
+  fresh: {
+    min: 5,
+    max: 25,
+    color: 'rgba(129, 199, 132, 0.25)',
+    label: 'Fresh',
+  },
+  transition: {
+    min: 25,
+    max: Infinity,
+    color: 'rgba(100, 181, 246, 0.2)',
+    label: 'Transition',
+  },
 };
 
 // Get form line color based on current value
 function getFormLineColor(form: number): string {
   if (form < -30) return '#EF5350'; // High Risk - Red
   if (form < -10) return '#66BB6A'; // Optimal - Green
-  if (form < 5) return '#9E9E9E';   // Grey Zone - Grey
-  if (form < 25) return '#81C784';  // Fresh - Light Green
-  return '#64B5F6';                  // Transition - Blue
+  if (form < 5) return '#9E9E9E'; // Grey Zone - Grey
+  if (form < 25) return '#81C784'; // Fresh - Light Green
+  return '#64B5F6'; // Transition - Blue
 }
 
 interface FitnessFormChartProps {
   data: WellnessData[];
   fitnessHeight?: number;
   formHeight?: number;
-  onDateSelect?: (date: string | null, values: { fitness: number; fatigue: number; form: number } | null) => void;
+  onDateSelect?: (
+    date: string | null,
+    values: { fitness: number; fatigue: number; form: number } | null
+  ) => void;
   onInteractionChange?: (isInteracting: boolean) => void;
 }
 
@@ -55,13 +89,11 @@ interface ChartDataPoint {
 }
 
 function formatDate(dateStr: string): string {
-  const date = new Date(dateStr);
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  return formatShortDate(dateStr);
 }
 
-function formatFullDate(dateStr: string): string {
-  const date = new Date(dateStr);
-  return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+function formatFullDateLocal(dateStr: string): string {
+  return formatShortDateWithWeekday(dateStr);
 }
 
 export function FitnessFormChart({
@@ -91,7 +123,13 @@ export function FitnessFormChart({
   // Process data for the chart
   const { chartData, maxLoad, maxFitness, minForm, maxForm } = useMemo(() => {
     if (!data || data.length === 0) {
-      return { chartData: [], maxLoad: 50, maxFitness: 100, minForm: -30, maxForm: 30 };
+      return {
+        chartData: [],
+        maxLoad: 50,
+        maxFitness: 100,
+        minForm: -30,
+        maxForm: 30,
+      };
     }
 
     const withTSB = calculateTSB(data);
@@ -234,7 +272,9 @@ export function FitnessFormChart({
   if (chartData.length === 0) {
     return (
       <View style={[styles.placeholder, { height: fitnessHeight + formHeight }]}>
-        <Text style={[styles.placeholderText, isDark && styles.textDark]}>{t('fitness.noData')}</Text>
+        <Text style={[styles.placeholderText, isDark && styles.textDark]}>
+          {t('fitness.noData')}
+        </Text>
       </View>
     );
   }
@@ -245,24 +285,32 @@ export function FitnessFormChart({
   const formZone = getFormZone(displayData.form);
 
   // Calculate form domain with padding
-  const formDomain = { y: [Math.min(-35, minForm - 5), Math.max(30, maxForm + 5)] as [number, number] };
+  const formDomain = {
+    y: [Math.min(-35, minForm - 5), Math.max(30, maxForm + 5)] as [number, number],
+  };
 
   return (
     <View style={styles.container}>
       {/* Header with date and values */}
       <View style={styles.header}>
         <Text style={[styles.dateText, isDark && styles.textLight]}>
-          {isActive && tooltipData ? formatFullDate(tooltipData.date) : formatFullDate(currentData.date)}
+          {isActive && tooltipData
+            ? formatFullDateLocal(tooltipData.date)
+            : formatFullDateLocal(currentData.date)}
         </Text>
         <View style={styles.valuesRow}>
           <View style={styles.valueItem}>
-            <Text style={[styles.valueLabel, isDark && styles.textMuted]}>{t('metrics.fitness')}</Text>
+            <Text style={[styles.valueLabel, isDark && styles.textMuted]}>
+              {t('metrics.fitness')}
+            </Text>
             <Text style={[styles.valueNumber, { color: COLORS.fitness }]}>
               {Math.round(displayData.fitness)}
             </Text>
           </View>
           <View style={styles.valueItem}>
-            <Text style={[styles.valueLabel, isDark && styles.textMuted]}>{t('metrics.fatigue')}</Text>
+            <Text style={[styles.valueLabel, isDark && styles.textMuted]}>
+              {t('metrics.fatigue')}
+            </Text>
             <Text style={[styles.valueNumber, { color: COLORS.fatigue }]}>
               {Math.round(displayData.fatigue)}
             </Text>
@@ -270,7 +318,8 @@ export function FitnessFormChart({
           <View style={styles.valueItem}>
             <Text style={[styles.valueLabel, isDark && styles.textMuted]}>{t('metrics.form')}</Text>
             <Text style={[styles.valueNumber, { color: FORM_ZONE_COLORS[formZone] }]}>
-              {displayData.form > 0 ? '+' : ''}{Math.round(displayData.form)}
+              {displayData.form > 0 ? '+' : ''}
+              {Math.round(displayData.form)}
             </Text>
           </View>
         </View>
@@ -289,24 +338,27 @@ export function FitnessFormChart({
             >
               {({ points, chartBounds }) => {
                 // Sync chartBounds and point coordinates
-                if (chartBounds.left !== chartBoundsShared.value.left ||
-                    chartBounds.right !== chartBoundsShared.value.right) {
-                  chartBoundsShared.value = { left: chartBounds.left, right: chartBounds.right };
+                if (
+                  chartBounds.left !== chartBoundsShared.value.left ||
+                  chartBounds.right !== chartBoundsShared.value.right
+                ) {
+                  chartBoundsShared.value = {
+                    left: chartBounds.left,
+                    right: chartBounds.right,
+                  };
                 }
-                const newCoords = points.fitness.map(p => p.x);
-                if (newCoords.length !== pointXCoordsShared.value.length ||
-                    newCoords[0] !== pointXCoordsShared.value[0]) {
+                const newCoords = points.fitness.map((p) => p.x);
+                if (
+                  newCoords.length !== pointXCoordsShared.value.length ||
+                  newCoords[0] !== pointXCoordsShared.value[0]
+                ) {
                   pointXCoordsShared.value = newCoords;
                 }
 
                 return (
                   <>
                     {/* Fitness filled area */}
-                    <Area
-                      points={points.fitness}
-                      y0={chartBounds.bottom}
-                      curveType="natural"
-                    >
+                    <Area points={points.fitness} y0={chartBounds.bottom} curveType="natural">
                       <LinearGradient
                         start={vec(0, chartBounds.top)}
                         end={vec(0, chartBounds.bottom)}
@@ -345,9 +397,7 @@ export function FitnessFormChart({
               <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
                 {Math.round(maxFitness)}
               </Text>
-              <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
-                0
-              </Text>
+              <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>0</Text>
             </View>
           </View>
 
@@ -432,7 +482,12 @@ export function FitnessFormChart({
                         strokeWidth={2.5}
                         curveType="natural"
                       >
-                        <Shadow dx={0} dy={0} blur={4} color={getFormLineColor(displayData.form) + '60'} />
+                        <Shadow
+                          dx={0}
+                          dy={0}
+                          blur={4}
+                          color={getFormLineColor(displayData.form) + '60'}
+                        />
                       </Line>
                     </>
                   );
@@ -447,11 +502,21 @@ export function FitnessFormChart({
 
               {/* Form zone labels on right */}
               <View style={styles.zoneLabels} pointerEvents="none">
-                <Text style={[styles.zoneLabelText, { color: '#64B5F6' }]}>{t('formZones.transition')}</Text>
-                <Text style={[styles.zoneLabelText, { color: '#81C784' }]}>{t('formZones.fresh')}</Text>
-                <Text style={[styles.zoneLabelText, { color: '#9E9E9E' }]}>{t('formZones.greyZone')}</Text>
-                <Text style={[styles.zoneLabelText, { color: '#66BB6A' }]}>{t('formZones.optimal')}</Text>
-                <Text style={[styles.zoneLabelText, { color: '#EF5350' }]}>{t('formZones.highRisk')}</Text>
+                <Text style={[styles.zoneLabelText, { color: '#64B5F6' }]}>
+                  {t('formZones.transition')}
+                </Text>
+                <Text style={[styles.zoneLabelText, { color: '#81C784' }]}>
+                  {t('formZones.fresh')}
+                </Text>
+                <Text style={[styles.zoneLabelText, { color: '#9E9E9E' }]}>
+                  {t('formZones.greyZone')}
+                </Text>
+                <Text style={[styles.zoneLabelText, { color: '#66BB6A' }]}>
+                  {t('formZones.optimal')}
+                </Text>
+                <Text style={[styles.zoneLabelText, { color: '#EF5350' }]}>
+                  {t('formZones.highRisk')}
+                </Text>
               </View>
             </View>
           </View>
@@ -472,11 +537,15 @@ export function FitnessFormChart({
       <View style={styles.legend}>
         <View style={styles.legendItem}>
           <View style={[styles.legendLine, { backgroundColor: COLORS.fitness }]} />
-          <Text style={[styles.legendText, isDark && styles.textMuted]}>{t('metrics.fitness')}</Text>
+          <Text style={[styles.legendText, isDark && styles.textMuted]}>
+            {t('metrics.fitness')}
+          </Text>
         </View>
         <View style={styles.legendItem}>
           <View style={[styles.legendLine, { backgroundColor: COLORS.fatigue }]} />
-          <Text style={[styles.legendText, isDark && styles.textMuted]}>{t('metrics.fatigue')}</Text>
+          <Text style={[styles.legendText, isDark && styles.textMuted]}>
+            {t('metrics.fatigue')}
+          </Text>
         </View>
       </View>
     </View>

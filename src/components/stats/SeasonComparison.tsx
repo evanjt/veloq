@@ -50,7 +50,7 @@ function aggregateByMonth(
     }
   }
 
-  return monthlyTotals.map(v => Math.round(v * 10) / 10);
+  return monthlyTotals.map((v) => Math.round(v * 10) / 10);
 }
 
 export function SeasonComparison({
@@ -64,8 +64,9 @@ export function SeasonComparison({
   const [metric, setMetric] = useState<'hours' | 'distance' | 'tss'>('hours');
 
   // Show empty state if no activities
-  const hasData = (currentYearActivities && currentYearActivities.length > 0) ||
-                  (previousYearActivities && previousYearActivities.length > 0);
+  const hasData =
+    (currentYearActivities && currentYearActivities.length > 0) ||
+    (previousYearActivities && previousYearActivities.length > 0);
 
   const data = useMemo(() => {
     const currentTotals = aggregateByMonth(currentYearActivities, metric);
@@ -82,7 +83,9 @@ export function SeasonComparison({
     return (
       <View style={styles.container}>
         <View style={styles.header}>
-          <Text style={[styles.title, isDark && styles.textLight]}>{t('stats.seasonComparison')}</Text>
+          <Text style={[styles.title, isDark && styles.textLight]}>
+            {t('stats.seasonComparison')}
+          </Text>
         </View>
         <View style={[styles.emptyState, { height }]}>
           <Text style={[styles.emptyText, isDark && styles.textDark]}>
@@ -97,7 +100,7 @@ export function SeasonComparison({
   }
 
   const maxValue = useMemo(() => {
-    return Math.max(...data.flatMap(d => [d.current, d.previous]));
+    return Math.max(...data.flatMap((d) => [d.current, d.previous]));
   }, [data]);
 
   const currentYear = new Date().getFullYear();
@@ -126,16 +129,15 @@ export function SeasonComparison({
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={[styles.title, isDark && styles.textLight]}>{t('stats.seasonComparison')}</Text>
+        <Text style={[styles.title, isDark && styles.textLight]}>
+          {t('stats.seasonComparison')}
+        </Text>
         <View style={styles.metricSelector}>
           {(['hours', 'distance', 'tss'] as const).map((m) => (
             <TouchableOpacity
               key={m}
               onPress={() => setMetric(m)}
-              style={[
-                styles.metricButton,
-                metric === m && styles.metricButtonActive,
-              ]}
+              style={[styles.metricButton, metric === m && styles.metricButtonActive]}
             >
               <Text
                 style={[
@@ -155,20 +157,18 @@ export function SeasonComparison({
       <View style={styles.summary}>
         <View style={styles.summaryItem}>
           <View style={[styles.legendDot, { backgroundColor: colors.primary }]} />
-          <Text style={[styles.summaryLabel, isDark && styles.textDark]}>
-            {currentYear}
-          </Text>
+          <Text style={[styles.summaryLabel, isDark && styles.textDark]}>{currentYear}</Text>
           <Text style={[styles.summaryValue, isDark && styles.textLight]}>
-            {totals.currentTotal}{metricLabels[metric].unit}
+            {totals.currentTotal}
+            {metricLabels[metric].unit}
           </Text>
         </View>
         <View style={styles.summaryItem}>
           <View style={[styles.legendDot, { backgroundColor: 'rgba(150, 150, 150, 0.5)' }]} />
-          <Text style={[styles.summaryLabel, isDark && styles.textDark]}>
-            {previousYear}
-          </Text>
+          <Text style={[styles.summaryLabel, isDark && styles.textDark]}>{previousYear}</Text>
           <Text style={[styles.summaryValue, isDark && styles.textLight]}>
-            {totals.previousTotal}{metricLabels[metric].unit}
+            {totals.previousTotal}
+            {metricLabels[metric].unit}
           </Text>
         </View>
         <View style={styles.summaryItem}>
@@ -179,7 +179,8 @@ export function SeasonComparison({
               { color: totals.diff >= 0 ? colors.success : colors.warning },
             ]}
           >
-            {totals.diff >= 0 ? '+' : ''}{totals.pctChange}%
+            {totals.diff >= 0 ? '+' : ''}
+            {totals.pctChange}%
           </Text>
         </View>
       </View>
@@ -212,7 +213,9 @@ export function SeasonComparison({
                     {
                       width: barWidth,
                       height: previousHeight,
-                      backgroundColor: isDark ? 'rgba(150, 150, 150, 0.5)' : 'rgba(100, 100, 100, 0.3)',
+                      backgroundColor: isDark
+                        ? 'rgba(150, 150, 150, 0.5)'
+                        : 'rgba(100, 100, 100, 0.3)',
                     },
                   ]}
                 />

@@ -66,9 +66,7 @@ export function MatchQualityIndicator({
   if (compact) {
     return (
       <View style={[styles.compactContainer, { backgroundColor: matchColor + '20' }]}>
-        <Text style={[styles.compactPercentage, { color: matchColor }]}>
-          {percentage}%
-        </Text>
+        <Text style={[styles.compactPercentage, { color: matchColor }]}>{percentage}%</Text>
       </View>
     );
   }
@@ -77,16 +75,9 @@ export function MatchQualityIndicator({
     <View style={[styles.container, isDark && styles.containerDark]}>
       {/* Circular progress indicator */}
       <View style={styles.progressRing}>
-        <View
-          style={[
-            styles.progressFill,
-            { backgroundColor: matchColor + '20' },
-          ]}
-        />
+        <View style={[styles.progressFill, { backgroundColor: matchColor + '20' }]} />
         <View style={styles.progressCenter}>
-          <Text style={[styles.percentage, { color: matchColor }]}>
-            {percentage}
-          </Text>
+          <Text style={[styles.percentage, { color: matchColor }]}>{percentage}</Text>
           <Text style={[styles.percentSign, { color: matchColor }]}>%</Text>
         </View>
       </View>
@@ -106,7 +97,9 @@ export function MatchQualityIndicator({
 
         {direction === 'partial' && overlapDistance != null && (
           <Text style={[styles.overlapText, isDark && styles.textMuted]}>
-            {t('routes.overlap', { distance: (overlapDistance / 1000).toFixed(1) })}
+            {t('routes.overlap', {
+              distance: (overlapDistance / 1000).toFixed(1),
+            })}
           </Text>
         )}
       </View>

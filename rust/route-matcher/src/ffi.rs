@@ -5,13 +5,16 @@
 //! naming conflicts with the internal API.
 
 use crate::{
-    compare_routes, group_signatures, init_logging,
+    compare_routes, init_logging,
     GpsPoint, MatchConfig, MatchResult, RouteGroup, RouteSignature,
 };
 use log::{debug, info};
 
 #[cfg(feature = "parallel")]
 use crate::grouping::{group_incremental, group_signatures_parallel};
+
+#[cfg(not(feature = "parallel"))]
+use crate::group_signatures;
 
 // ============================================================================
 // Progress Callback Interface (for real-time updates to mobile)

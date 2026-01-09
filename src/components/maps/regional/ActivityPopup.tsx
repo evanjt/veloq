@@ -6,7 +6,7 @@ import { colors } from '@/theme/colors';
 import { typography } from '@/theme/typography';
 import { spacing, layout } from '@/theme/spacing';
 import { shadows } from '@/theme/shadows';
-import { formatDistance, formatDuration } from '@/lib';
+import { formatDistance, formatDuration, formatFullDateWithWeekday } from '@/lib';
 import { getActivityTypeConfig } from '../ActivityTypeFilter';
 import type { ActivityBoundsItem, ActivityMapData } from '@/types';
 
@@ -24,7 +24,13 @@ interface ActivityPopupProps {
   onViewDetails: () => void;
 }
 
-export function ActivityPopup({ selected, bottom, onZoom, onClose, onViewDetails }: ActivityPopupProps) {
+export function ActivityPopup({
+  selected,
+  bottom,
+  onZoom,
+  onClose,
+  onViewDetails,
+}: ActivityPopupProps) {
   const { t } = useTranslation();
   const config = getActivityTypeConfig(selected.activity.type);
 
@@ -35,14 +41,7 @@ export function ActivityPopup({ selected, bottom, onZoom, onClose, onViewDetails
           <Text style={styles.popupTitle} numberOfLines={1}>
             {selected.activity.name}
           </Text>
-          <Text style={styles.popupDate}>
-            {new Date(selected.activity.date).toLocaleDateString('en-US', {
-              weekday: 'short',
-              month: 'short',
-              day: 'numeric',
-              year: 'numeric',
-            })}
-          </Text>
+          <Text style={styles.popupDate}>{formatFullDateWithWeekday(selected.activity.date)}</Text>
         </View>
         <View style={styles.popupHeaderButtons}>
           <TouchableOpacity
@@ -74,7 +73,7 @@ export function ActivityPopup({ selected, bottom, onZoom, onClose, onViewDetails
           <Text style={styles.popupStatValue}>{formatDistance(selected.activity.distance)}</Text>
         </View>
         <View style={styles.popupStat}>
-          <MaterialCommunityIcons name="clock-outline" size={20} color={colors.chartOrange} />
+          <MaterialCommunityIcons name="clock-outline" size={20} color={colors.chartAmber} />
           <Text style={styles.popupStatValue}>{formatDuration(selected.activity.duration)}</Text>
         </View>
       </View>
@@ -86,10 +85,7 @@ export function ActivityPopup({ selected, bottom, onZoom, onClose, onViewDetails
         </View>
       )}
 
-      <TouchableOpacity
-        style={styles.viewDetailsButton}
-        onPress={onViewDetails}
-      >
+      <TouchableOpacity style={styles.viewDetailsButton} onPress={onViewDetails}>
         <Text style={styles.viewDetailsText}>{t('maps.viewDetails')}</Text>
         <MaterialCommunityIcons name="chevron-right" size={20} color={colors.primary} />
       </TouchableOpacity>

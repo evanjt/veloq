@@ -9,7 +9,7 @@ use rstar::{RTree, AABB};
 use crate::geo_utils::haversine_distance;
 use crate::matching::compare_routes;
 use crate::union_find::UnionFind;
-use crate::{Bounds, GpsPoint, MatchConfig, MatchResult, RouteGroup, RouteBounds, RouteSignature};
+use crate::{Bounds, GpsPoint, MatchConfig, MatchResult, RouteGroup, RouteBounds, RouteSignature, ActivityMatchInfo, GroupingResult};
 
 /// Spatial search tolerance in degrees (~1km).
 const SPATIAL_TOLERANCE: f64 = 0.01;
@@ -175,6 +175,70 @@ pub fn group_signatures(signatures: &[RouteSignature], config: &MatchConfig) -> 
     build_route_groups(groups_map, &sig_map)
 }
 
+/// Group similar routes together and capture match info for each activity.
+///
+/// Returns both the groups and per-activity match percentages.
+/// The match info is calculated by comparing each activity to the group's representative.
+pub fn group_signatures_with_matches(
+    signatures: &[RouteSignature],
+    config: &MatchConfig,
+) -> GroupingResult {
+    if signatures.is_empty() {
+        return GroupingResult {
+            groups: vec![],
+            activity_matches: HashMap::new(),
+        };
+    }
+
+    // First, do the normal grouping
+    let groups = group_signatures(signatures, config);
+
+    // Create signature lookup
+    let sig_map: HashMap<&str, &RouteSignature> = signatures
+        .iter()
+        .map(|s| (s.activity_id.as_str(), s))
+        .collect();
+
+    // Calculate match info for each activity in each group
+    let mut activity_matches: HashMap<String, Vec<ActivityMatchInfo>> = HashMap::new();
+
+    for group in &groups {
+        let representative_sig = match sig_map.get(group.representative_id.as_str()) {
+            Some(sig) => *sig,
+            None => continue,
+        };
+
+        let mut matches = Vec::new();
+        for activity_id in &group.activity_ids {
+            if let Some(activity_sig) = sig_map.get(activity_id.as_str()) {
+                // Compare to representative
+                let (match_percentage, direction) = if activity_id == &group.representative_id {
+                    // Representative always matches itself 100%
+                    (100.0, "same".to_string())
+                } else if let Some(result) = compare_routes(activity_sig, representative_sig, config) {
+                    (result.match_percentage, result.direction.clone())
+                } else {
+                    // Shouldn't happen for grouped activities, but fallback
+                    (100.0, "same".to_string())
+                };
+
+                matches.push(ActivityMatchInfo {
+                    activity_id: activity_id.clone(),
+                    match_percentage,
+                    direction,
+                });
+            }
+        }
+
+        activity_matches.insert(group.group_id.clone(), matches);
+    }
+
+    GroupingResult {
+        groups,
+        activity_matches,
+    }
+}
+
 /// Group signatures using parallel processing.
 ///
 /// This is the same as `group_signatures` but uses rayon for parallel
@@ -240,6 +304,69 @@ pub fn group_signatures_parallel(
     // Build groups from Union-Find
     let groups_map = uf.groups();
     build_route_groups(groups_map, &sig_map)
+}
+
+/// Group signatures in parallel and capture match info for each activity.
+///
+/// Returns both the groups and per-activity match percentages.
+#[cfg(feature = "parallel")]
+pub fn group_signatures_parallel_with_matches(
+    signatures: &[RouteSignature],
+    config: &MatchConfig,
+) -> GroupingResult {
+    use rayon::prelude::*;
+
+    if signatures.is_empty() {
+        return GroupingResult {
+            groups: vec![],
+            activity_matches: HashMap::new(),
+        };
+    }
+
+    // First, do the parallel grouping
+    let groups = group_signatures_parallel(signatures, config);
+
+    // Create signature lookup
+    let sig_map: HashMap<&str, &RouteSignature> = signatures
+        .iter()
+        .map(|s| (s.activity_id.as_str(), s))
+        .collect();
+
+    // Calculate match info for each activity in parallel
+    let activity_matches: HashMap<String, Vec<ActivityMatchInfo>> = groups
+        .par_iter()
+        .filter_map(|group| {
+            let representative_sig = sig_map.get(group.representative_id.as_str())?;
+
+            let matches: Vec<ActivityMatchInfo> = group.activity_ids
+                .iter()
+                .filter_map(|activity_id| {
+                    let activity_sig = sig_map.get(activity_id.as_str())?;
+
+                    let (match_percentage, direction) = if activity_id == &group.representative_id {
+                        (100.0, "same".to_string())
+                    } else if let Some(result) = compare_routes(activity_sig, representative_sig, config) {
+                        (result.match_percentage, result.direction.clone())
+                    } else {
+                        (100.0, "same".to_string())
+                    };
+
+                    Some(ActivityMatchInfo {
+                        activity_id: activity_id.clone(),
+                        match_percentage,
+                        direction,
+                    })
+                })
+                .collect();
+
+            Some((group.group_id.clone(), matches))
+        })
+        .collect();
+
+    GroupingResult {
+        groups,
+        activity_matches,
+    }
 }
 
 /// Incremental grouping: efficiently add new signatures to existing groups.

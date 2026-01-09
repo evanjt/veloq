@@ -5,13 +5,50 @@
 
 import React, { useMemo, useRef, useState, useCallback } from 'react';
 import { View, StyleSheet, TouchableOpacity, Modal, StatusBar } from 'react-native';
-import MapLibreGL, { Camera, ShapeSource, LineLayer, MarkerView } from '@maplibre/maplibre-react-native';
+import MapLibreGL, {
+  Camera,
+  ShapeSource,
+  LineLayer,
+  MarkerView,
+} from '@maplibre/maplibre-react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { getActivityColor } from '@/lib';
 import { colors, spacing, layout } from '@/theme';
 import { useMapPreferences } from '@/providers';
 import { getMapStyle, BaseMapView, isDarkStyle } from '@/components/maps';
-import type { FrequentSection, RoutePoint } from '@/types';
+import type { FrequentSection, RoutePoint, ActivityType } from '@/types';
+
+/**
+ * Type guard to validate sport type strings from Rust engine.
+ * Ensures string matches known ActivityType values.
+ *
+ * @param sportType - Unknown string from Rust engine
+ * @returns True if string is a valid ActivityType
+ */
+function isValidActivityType(sportType: string): sportType is ActivityType {
+  const validTypes: Set<string> = new Set([
+    'Ride',
+    'Run',
+    'Swim',
+    'Walk',
+    'Hike',
+    'VirtualRide',
+    'VirtualRun',
+    'Workout',
+    'WeightTraining',
+    'Yoga',
+    'Snowboard',
+    'AlpineSki',
+    'NordicSki',
+    'BackcountrySki',
+    'Rowing',
+    'Kayaking',
+    'Canoeing',
+    'OpenWaterSwim',
+    'TrailRun',
+  ]);
+  return validTypes.has(sportType);
+}
 
 const { MapView } = MapLibreGL;
 
@@ -24,6 +61,10 @@ interface SectionMapViewProps {
   enableFullscreen?: boolean;
   /** Optional full activity track to show as a shadow behind the section */
   shadowTrack?: [number, number][];
+  /** Activity ID to highlight (show prominently) */
+  highlightedActivityId?: string | null;
+  /** Specific lap points to highlight (takes precedence over highlightedActivityId) */
+  highlightedLapPoints?: RoutePoint[];
 }
 
 export function SectionMapView({
@@ -32,11 +73,20 @@ export function SectionMapView({
   interactive = false,
   enableFullscreen = false,
   shadowTrack,
+  highlightedActivityId = null,
+  highlightedLapPoints,
 }: SectionMapViewProps) {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const { getStyleForActivity } = useMapPreferences();
-  const mapStyle = getStyleForActivity(section.sportType as any);
-  const activityColor = getActivityColor(section.sportType as any);
+
+  // Validate sport type from Rust engine, fallback to 'Ride' if invalid
+  // This prevents crashes when native module returns unexpected sport types
+  const validSportType: ActivityType = isValidActivityType(section.sportType)
+    ? section.sportType
+    : 'Ride'; // Safe fallback
+
+  const mapStyle = getStyleForActivity(validSportType);
+  const activityColor = getActivityColor(validSportType);
   const mapRef = useRef(null);
 
   const displayPoints = section.polyline || [];
@@ -45,8 +95,10 @@ export function SectionMapView({
   const bounds = useMemo(() => {
     if (displayPoints.length === 0) return null;
 
-    let minLat = Infinity, maxLat = -Infinity;
-    let minLng = Infinity, maxLng = -Infinity;
+    let minLat = Infinity,
+      maxLat = -Infinity;
+    let minLng = Infinity,
+      maxLng = -Infinity;
 
     for (const point of displayPoints) {
       minLat = Math.min(minLat, point.lat);
@@ -73,7 +125,7 @@ export function SectionMapView({
       properties: {},
       geometry: {
         type: 'LineString' as const,
-        coordinates: displayPoints.map(p => [p.lng, p.lat]),
+        coordinates: displayPoints.map((p) => [p.lng, p.lat]),
       },
     };
   }, [displayPoints]);
@@ -91,6 +143,41 @@ export function SectionMapView({
     };
   }, [shadowTrack]);
 
+  // Create GeoJSON for highlighted trace (activity being scrubbed)
+  const highlightedTraceGeoJSON = useMemo(() => {
+    // Lap points take precedence
+    if (highlightedLapPoints && highlightedLapPoints.length > 1) {
+      return {
+        type: 'Feature' as const,
+        properties: { id: 'highlighted-lap' },
+        geometry: {
+          type: 'LineString' as const,
+          coordinates: highlightedLapPoints.map((p) => [p.lng, p.lat]),
+        },
+      };
+    }
+
+    // If we have a highlighted activity ID and activity traces, use that
+    if (highlightedActivityId && section.activityTraces) {
+      const activityTrace = section.activityTraces[highlightedActivityId];
+      if (activityTrace && activityTrace.length > 1) {
+        return {
+          type: 'Feature' as const,
+          properties: { id: highlightedActivityId },
+          geometry: {
+            type: 'LineString' as const,
+            coordinates: activityTrace.map((p) => [p.lng, p.lat]),
+          },
+        };
+      }
+    }
+
+    return null;
+  }, [highlightedActivityId, highlightedLapPoints, section.activityTraces]);
+
+  // Adjust opacity when something is highlighted
+  const sectionOpacity = highlightedActivityId || highlightedLapPoints ? 0.4 : 1;
+
   const styleUrl = getMapStyle(mapStyle);
 
   const startPoint = displayPoints[0];
@@ -99,11 +186,7 @@ export function SectionMapView({
   if (!bounds || displayPoints.length === 0) {
     return (
       <View style={[styles.placeholder, { height, backgroundColor: activityColor + '20' }]}>
-        <MaterialCommunityIcons
-          name="map-marker-off"
-          size={32}
-          color={activityColor}
-        />
+        <MaterialCommunityIcons name="map-marker-off" size={32} color={activityColor} />
       </View>
     );
   }
@@ -123,7 +206,12 @@ export function SectionMapView({
     >
       <Camera
         bounds={bounds}
-        padding={{ paddingTop: 40, paddingRight: 40, paddingBottom: 40, paddingLeft: 40 }}
+        padding={{
+          paddingTop: 40,
+          paddingRight: 40,
+          paddingBottom: 40,
+          paddingLeft: 40,
+        }}
         animationDuration={0}
       />
 
@@ -150,6 +238,22 @@ export function SectionMapView({
             id="sectionLine"
             style={{
               lineColor: activityColor,
+              lineOpacity: sectionOpacity,
+              lineWidth: 4,
+              lineCap: 'round',
+              lineJoin: 'round',
+            }}
+          />
+        </ShapeSource>
+      )}
+
+      {/* Highlighted activity trace */}
+      {highlightedTraceGeoJSON && (
+        <ShapeSource id="highlightedSource" shape={highlightedTraceGeoJSON}>
+          <LineLayer
+            id="highlightedLine"
+            style={{
+              lineColor: '#00BCD4', // Cyan for highlighted activity (same as RouteMapView)
               lineWidth: 4,
               lineCap: 'round',
               lineJoin: 'round',
@@ -194,7 +298,7 @@ export function SectionMapView({
 
   // Section coordinates for BaseMapView [lng, lat] format
   const sectionCoords = useMemo(() => {
-    return displayPoints.map(p => [p.lng, p.lat] as [number, number]);
+    return displayPoints.map((p) => [p.lng, p.lat] as [number, number]);
   }, [displayPoints]);
 
   const isDark = isDarkStyle(mapStyle);

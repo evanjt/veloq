@@ -12,7 +12,6 @@ appId: com.evanjt.veloq
     script: |
       console.log("✓ 01-feed: Activity Feed")
 - takeScreenshot: docs/website/screenshots/01-feed
-
 # 2. Open first activity for map view
 - tapOn:
     index: 0
@@ -22,7 +21,6 @@ appId: com.evanjt.veloq
     script: |
       console.log("✓ 02-activity-map: Activity Map")
 - takeScreenshot: docs/website/screenshots/02-activity-map
-
 # 3. Toggle 3D terrain view
 - tapOn:
     text: "Enable 3D view"
@@ -34,7 +32,6 @@ appId: com.evanjt.veloq
     script: |
       console.log("✓ 03-activity-3d: 3D Terrain Map")
 - takeScreenshot: docs/website/screenshots/03-activity-3d
-
 # 4. Disable 3D and scroll to charts
 - tapOn:
     text: "Disable 3D view"
@@ -46,7 +43,6 @@ appId: com.evanjt.veloq
     script: |
       console.log("✓ 04-charts: Multi-Metric Charts")
 - takeScreenshot: docs/website/screenshots/04-charts
-
 # 5. Go back, navigate to Fitness
 - tapOn:
     id: "activity-detail-back"
@@ -58,7 +54,6 @@ appId: com.evanjt.veloq
     script: |
       console.log("✓ 05-fitness: Fitness Tracking")
 - takeScreenshot: docs/website/screenshots/05-fitness
-
 # 6. Regional Map (via FAB)
 - back
 - tapOn:
@@ -71,7 +66,6 @@ appId: com.evanjt.veloq
     script: |
       console.log("✓ 06-regional-map: Regional Map")
 - takeScreenshot: docs/website/screenshots/06-regional-map
-
 # 7. Toggle heatmap (if available)
 # - tapOn:
 #     id: "heatmap-toggle"
@@ -87,7 +81,6 @@ appId: com.evanjt.veloq
     script: |
       console.log("✓ 07-routes: Routes")
 - takeScreenshot: docs/website/screenshots/07-routes
-
 # 9. Performance/Stats screen
 - back
 - tapOn:
@@ -97,7 +90,6 @@ appId: com.evanjt.veloq
     script: |
       console.log("✓ 08-performance: Performance Curves")
 - takeScreenshot: docs/website/screenshots/08-performance
-
 - runScript:
     script: |
       console.log("")

@@ -48,10 +48,7 @@ export interface UseCustomSectionsResult {
   /** Rename a custom section */
   renameSection: (sectionId: string, name: string) => Promise<void>;
   /** Update matches for a section */
-  updateMatches: (
-    sectionId: string,
-    matches: CustomSectionMatch[]
-  ) => Promise<void>;
+  updateMatches: (sectionId: string, matches: CustomSectionMatch[]) => Promise<void>;
   /** Refresh the sections list */
   refresh: () => Promise<void>;
 }
@@ -76,9 +73,7 @@ export interface CreateSectionParams {
 /**
  * Hook for managing custom sections with React Query caching.
  */
-export function useCustomSections(
-  options: UseCustomSectionsOptions = {}
-): UseCustomSectionsResult {
+export function useCustomSections(options: UseCustomSectionsOptions = {}): UseCustomSectionsResult {
   const { includeMatches = true, sportType } = options;
   const queryClient = useQueryClient();
 
@@ -112,8 +107,7 @@ export function useCustomSections(
 
     // Sort by creation date (newest first)
     filtered = [...filtered].sort(
-      (a, b) =>
-        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     );
 
     return filtered;
@@ -125,6 +119,7 @@ export function useCustomSections(
   }, [queryClient]);
 
   // Create a new section and match against cached activities
+  // Matching is done BEFORE saving to avoid orphan sections
   const createSection = useCallback(
     async (params: CreateSectionParams): Promise<CustomSection> => {
       const name = params.name || (await generateSectionName());
@@ -141,21 +136,36 @@ export function useCustomSections(
         createdAt: new Date().toISOString(),
       };
 
-      // Save the section
-      await addCustomSection(section);
-
-      // Match against all cached activities
+      // Match against cached activities FIRST (before saving)
+      let matches: CustomSectionMatch[] = [];
       try {
         const activityIds = await getCachedActivityIds();
         if (activityIds.length > 0) {
-          const matches = await matchCustomSection(section, activityIds);
-          if (matches.length > 0) {
-            await saveSectionMatches(section.id, matches);
-          }
+          matches = await matchCustomSection(section, activityIds);
         }
       } catch (error) {
-        // Matching failed, but section was created successfully
         console.warn('Failed to match section against activities:', error);
+        // Continue - we'll at least add the source activity as a match
+      }
+
+      // Ensure the source activity is always included as a match
+      if (params.sourceActivityId) {
+        const hasSourceMatch = matches.some((m) => m.activityId === params.sourceActivityId);
+        if (!hasSourceMatch) {
+          matches.push({
+            activityId: params.sourceActivityId,
+            direction: 'same',
+            startIndex: params.startIndex,
+            endIndex: params.endIndex,
+            distanceMeters: params.distanceMeters,
+          });
+        }
+      }
+
+      // Now save the section and matches together
+      await addCustomSection(section);
+      if (matches.length > 0) {
+        await saveSectionMatches(section.id, matches);
       }
 
       await invalidate();
@@ -185,10 +195,7 @@ export function useCustomSections(
 
   // Update matches for a section
   const updateMatches = useCallback(
-    async (
-      sectionId: string,
-      matches: CustomSectionMatch[]
-    ): Promise<void> => {
+    async (sectionId: string, matches: CustomSectionMatch[]): Promise<void> => {
       await saveSectionMatches(sectionId, matches);
       await invalidate();
     },
@@ -223,9 +230,7 @@ function generateId(): string {
 /**
  * Hook to get a single custom section by ID
  */
-export function useCustomSection(
-  sectionId: string | undefined
-): {
+export function useCustomSection(sectionId: string | undefined): {
   section: CustomSectionWithMatches | null;
   isLoading: boolean;
 } {

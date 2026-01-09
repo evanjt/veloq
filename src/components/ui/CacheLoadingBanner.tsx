@@ -32,13 +32,18 @@ export function CacheLoadingBanner() {
 
   // Check if we're syncing bounds or processing routes
   const isSyncingBounds = boundsProgress.status === 'syncing';
-  const isProcessingRoutes = routeProgress.status === 'processing' ||
-                              routeProgress.status === 'fetching' ||
-                              routeProgress.status === 'matching' ||
-                              routeProgress.status === 'filtering';
+  const isProcessingRoutes =
+    routeProgress.status === 'processing' ||
+    routeProgress.status === 'fetching' ||
+    routeProgress.status === 'matching' ||
+    routeProgress.status === 'filtering';
 
   // Determine what to show - bounds syncing takes priority
-  const showBanner = isAuthenticated && !isOnMapScreen && !isOnRoutesScreen && (isSyncingBounds || isProcessingRoutes);
+  const showBanner =
+    isAuthenticated &&
+    !isOnMapScreen &&
+    !isOnRoutesScreen &&
+    (isSyncingBounds || isProcessingRoutes);
 
   // Calculate display values based on what's happening
   const displayInfo = useMemo(() => {
@@ -91,9 +96,8 @@ export function CacheLoadingBanner() {
     return null;
   }
 
-  const progressPercent = displayInfo.total > 0
-    ? Math.round((displayInfo.completed / displayInfo.total) * 100)
-    : 0;
+  const progressPercent =
+    displayInfo.total > 0 ? Math.round((displayInfo.completed / displayInfo.total) * 100) : 0;
 
   const progressWidth = progressAnim.interpolate({
     inputRange: [0, 1],
@@ -104,9 +108,8 @@ export function CacheLoadingBanner() {
   const bannerContentHeight = 36;
   // iOS: Use insets.top directly (accounts for Dynamic Island/notch)
   // Android: Ensure minimum padding for display cutouts
-  const topPadding = Platform.OS === 'android'
-    ? Math.max(insets.top, 24)
-    : Math.max(insets.top, 20); // iOS minimum for status bar
+  const topPadding =
+    Platform.OS === 'android' ? Math.max(insets.top, 24) : Math.max(insets.top, 20); // iOS minimum for status bar
 
   const handlePress = () => {
     router.push('/settings');
@@ -125,30 +128,17 @@ export function CacheLoadingBanner() {
       ]}
     >
       <View style={[styles.content, { height: bannerContentHeight }]}>
-        <MaterialCommunityIcons
-          name={displayInfo.icon}
-          size={16}
-          color="#FFFFFF"
-        />
+        <MaterialCommunityIcons name={displayInfo.icon} size={16} color="#FFFFFF" />
         <Text style={styles.text}>
           {displayInfo.text}... {progressPercent}%
         </Text>
         <Text style={styles.countText}>
           {displayInfo.completed}/{displayInfo.total}
         </Text>
-        <MaterialCommunityIcons
-          name="chevron-right"
-          size={16}
-          color="rgba(255, 255, 255, 0.7)"
-        />
+        <MaterialCommunityIcons name="chevron-right" size={16} color="rgba(255, 255, 255, 0.7)" />
       </View>
       <View style={styles.progressTrack}>
-        <Animated.View
-          style={[
-            styles.progressFill,
-            { width: progressWidth },
-          ]}
-        />
+        <Animated.View style={[styles.progressFill, { width: progressWidth }]} />
       </View>
     </TouchableOpacity>
   );

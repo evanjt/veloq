@@ -123,9 +123,7 @@ describe('Demo Data Integration Tests', () => {
     });
 
     it('activities with GPS have stream_types including latlng', () => {
-      const activitiesWithGps = demoActivities.filter(
-        (a) => a.stream_types?.includes('latlng')
-      );
+      const activitiesWithGps = demoActivities.filter((a) => a.stream_types?.includes('latlng'));
 
       // Should have some GPS activities in demo data
       expect(activitiesWithGps.length).toBeGreaterThan(0);
@@ -156,9 +154,7 @@ describe('Demo Data Integration Tests', () => {
     it('wellness dates align with activity dates', () => {
       const wellnessDates = new Set(demoWellness.map((d) => d.id));
       const activityDates = new Set(
-        demoActivities
-          .map((a) => a.start_date_local?.split('T')[0])
-          .filter(Boolean)
+        demoActivities.map((a) => a.start_date_local?.split('T')[0]).filter(Boolean)
       );
 
       // There should be overlap between wellness and activity dates

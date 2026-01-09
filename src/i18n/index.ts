@@ -10,7 +10,21 @@ import enAU from './locales/en-AU.json';
 import enUS from './locales/en-US.json';
 import enGB from './locales/en-GB.json';
 import es from './locales/es.json';
+import esES from './locales/es-ES.json';
+import es419 from './locales/es-419.json';
 import fr from './locales/fr.json';
+import deDE from './locales/de-DE.json';
+import deCH from './locales/de-CH.json';
+import deCHZ from './locales/de-CHZ.json';
+import deCHB from './locales/de-CHB.json';
+import nl from './locales/nl.json';
+import it from './locales/it.json';
+import pt from './locales/pt.json';
+import ptBR from './locales/pt-BR.json';
+import ja from './locales/ja.json';
+import zhHans from './locales/zh-Hans.json';
+import pl from './locales/pl.json';
+import da from './locales/da.json';
 
 /**
  * Get the best matching locale from device settings
@@ -49,8 +63,22 @@ const resources = {
   'en-AU': { translation: enAU },
   'en-US': { translation: enUS },
   'en-GB': { translation: enGB },
-  'es': { translation: es },
-  'fr': { translation: fr },
+  es: { translation: es },
+  'es-ES': { translation: esES },
+  'es-419': { translation: es419 },
+  fr: { translation: fr },
+  'de-DE': { translation: deDE },
+  'de-CH': { translation: deCH },
+  'de-CHZ': { translation: deCHZ },
+  'de-CHB': { translation: deCHB },
+  nl: { translation: nl },
+  it: { translation: it },
+  pt: { translation: pt },
+  'pt-BR': { translation: ptBR },
+  ja: { translation: ja },
+  'zh-Hans': { translation: zhHans },
+  pl: { translation: pl },
+  da: { translation: da },
 };
 
 /**
@@ -59,32 +87,42 @@ const resources = {
 export async function initializeI18n(savedLocale?: SupportedLocale | null): Promise<void> {
   const locale = savedLocale || getDeviceLocale();
 
-  await i18n
-    .use(initReactI18next)
-    .init({
-      resources,
-      lng: locale,
-      fallbackLng: 'en-AU',
+  await i18n.use(initReactI18next).init({
+    resources,
+    lng: locale,
+    // Use the locale fallback chain for graceful degradation
+    fallbackLng: LOCALE_FALLBACKS[locale] || ['en-AU'],
 
-      interpolation: {
-        escapeValue: false, // React already escapes values
-      },
+    interpolation: {
+      escapeValue: false, // React already escapes values
+    },
 
-      // React Native doesn't need HTML escaping
-      react: {
-        useSuspense: false,
-      },
+    // React Native doesn't need HTML escaping
+    react: {
+      useSuspense: false,
+      // Ensure components re-render when language changes
+      bindI18n: 'languageChanged loaded',
+      bindI18nStore: 'added removed',
+    },
 
-      // Return key if translation is missing (for development)
-      returnNull: false,
-      returnEmptyString: false,
-    });
+    // Disable i18next's locale code parsing - use exact locale keys
+    load: 'currentOnly',
+    // Don't try to detect language from browser/navigator
+    detection: undefined,
+
+    // Return key if translation is missing (for development)
+    returnNull: false,
+    returnEmptyString: false,
+  });
 }
 
 /**
  * Change the current language
  */
 export async function changeLanguage(locale: SupportedLocale): Promise<void> {
+  // Update fallback chain for the new locale
+  const fallbacks = LOCALE_FALLBACKS[locale] || ['en-AU'];
+  i18n.options.fallbackLng = fallbacks;
   await i18n.changeLanguage(locale);
 }
 

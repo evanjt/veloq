@@ -1,1012 +1,1764 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en" id="html-root">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Veloq - Mobile Intervals.icu Client</title>
-  <meta name="description" content="Open-source mobile client for viewing your Intervals.icu data. Not affiliated with Intervals.icu.">
-  <meta name="theme-color" content="#5B8DB8">
-  <link rel="icon" type="image/png" href="icon.png">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Veloq - Mobile Intervals.icu Client</title>
+    <meta
+      name="description"
+      content="Open-source mobile client for viewing your Intervals.icu data. Not affiliated with Intervals.icu."
+    />
+    <meta name="theme-color" content="#5B8DB8" />
+    <link rel="icon" type="image/png" href="icon.png" />
 
-  <meta property="og:title" content="Veloq - Mobile Intervals.icu Client">
-  <meta property="og:description" content="Open-source mobile client for viewing your Intervals.icu data. Not affiliated with Intervals.icu.">
-  <meta property="og:type" content="website">
-  <meta property="og:url" content="https://veloq.fit">
+    <meta property="og:title" content="Veloq - Mobile Intervals.icu Client" />
+    <meta
+      property="og:description"
+      content="Open-source mobile client for viewing your Intervals.icu data. Not affiliated with Intervals.icu."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://veloq.fit" />
 
-  <style>
-    :root {
-      /* Logo colors: blue background, gold text */
-      --primary: #5B8DB8;
-      --primary-dark: #4A7A9E;
-      --primary-light: #7BA8CC;
-      --primary-glow: rgba(91, 141, 184, 0.3);
-      --accent: #F5A623;
-      --accent-dark: #D4900E;
-      --accent-light: #FFBA42;
-      --accent-glow: rgba(245, 166, 35, 0.3);
-      --bg: #FAFAFA;
-      --bg-dark: #121212;
-      --text: #1A1A1A;
-      --text-muted: #666666;
-      --text-dark: #FFFFFF;
-      --text-muted-dark: #AAAAAA;
-      --card: #FFFFFF;
-      --card-dark: #1E1E1E;
-      --border: #E0E0E0;
-      --border-dark: #333333;
-    }
-
-    @media (prefers-color-scheme: dark) {
+    <style>
       :root {
-        --bg: var(--bg-dark);
-        --text: var(--text-dark);
-        --text-muted: var(--text-muted-dark);
-        --card: var(--card-dark);
-        --border: var(--border-dark);
+        /* Logo colors: blue background, gold text */
+        --primary: #5b8db8;
+        --primary-dark: #4a7a9e;
+        --primary-light: #7ba8cc;
+        --primary-glow: rgba(91, 141, 184, 0.3);
+        --accent: #f5a623;
+        --accent-dark: #d4900e;
+        --accent-light: #ffba42;
+        --accent-glow: rgba(245, 166, 35, 0.3);
+        --bg: #fafafa;
+        --bg-dark: #121212;
+        --text: #1a1a1a;
+        --text-muted: #666666;
+        --text-dark: #ffffff;
+        --text-muted-dark: #aaaaaa;
+        --card: #ffffff;
+        --card-dark: #1e1e1e;
+        --border: #e0e0e0;
+        --border-dark: #333333;
       }
-    }
-
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-      background: var(--bg);
-      color: var(--text);
-      line-height: 1.6;
-      -webkit-font-smoothing: antialiased;
-      overflow-x: hidden;
-    }
-
-    .container { max-width: 1200px; margin: 0 auto; padding: 0 24px; }
-
-    /* Animations */
-    @keyframes fadeInUp {
-      from { opacity: 0; transform: translateY(30px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-
-    @keyframes fadeIn {
-      from { opacity: 0; }
-      to { opacity: 1; }
-    }
-
-    @keyframes slideInLeft {
-      from { opacity: 0; transform: translateX(-50px); }
-      to { opacity: 1; transform: translateX(0); }
-    }
-
-    @keyframes slideInRight {
-      from { opacity: 0; transform: translateX(50px); }
-      to { opacity: 1; transform: translateX(0); }
-    }
-
-    @keyframes pulse {
-      0%, 100% { box-shadow: 0 0 0 0 var(--primary-glow); }
-      50% { box-shadow: 0 0 0 15px transparent; }
-    }
-
-    @keyframes float {
-      0%, 100% { transform: translateY(0); }
-      50% { transform: translateY(-10px); }
-    }
-
-    .animate-fade-up { animation: fadeInUp 0.8s ease-out forwards; opacity: 0; }
-    .animate-fade { animation: fadeIn 0.6s ease-out forwards; opacity: 0; }
-    .animate-slide-left { animation: slideInLeft 0.8s ease-out forwards; opacity: 0; }
-    .animate-slide-right { animation: slideInRight 0.8s ease-out forwards; opacity: 0; }
-    .delay-1 { animation-delay: 0.1s; }
-    .delay-2 { animation-delay: 0.2s; }
-    .delay-3 { animation-delay: 0.3s; }
-    .delay-4 { animation-delay: 0.4s; }
-    .delay-5 { animation-delay: 0.5s; }
-
-    /* Header */
-    header {
-      padding: 20px 0;
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      background: var(--bg);
-      border-bottom: 1px solid var(--border);
-      z-index: 100;
-      backdrop-filter: blur(10px);
-      background: rgba(250, 250, 250, 0.9);
-    }
-
-    @media (prefers-color-scheme: dark) {
-      header { background: rgba(13, 17, 23, 0.9); }
-    }
-
-    .header-inner {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-
-    .logo {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      text-decoration: none;
-      color: var(--text);
-    }
-
-    .logo img { width: 40px; height: 40px; border-radius: 10px; }
-    .logo span { font-size: 24px; font-weight: 700; }
-
-    .nav-links { display: flex; gap: 24px; align-items: center; }
-
-    .nav-links a {
-      color: var(--text-muted);
-      text-decoration: none;
-      font-weight: 500;
-      transition: color 0.2s;
-    }
-
-    .nav-links a:hover { color: var(--primary); }
-
-    /* Language Selector */
-    .lang-selector { position: relative; }
-
-    .lang-btn {
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      padding: 6px 12px;
-      font-size: 14px;
-      font-weight: 500;
-      color: var(--text);
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      transition: border-color 0.2s;
-    }
-
-    .lang-btn:hover { border-color: var(--primary); }
-
-    .lang-dropdown {
-      position: absolute;
-      top: 100%;
-      right: 0;
-      margin-top: 4px;
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.15);
-      min-width: 140px;
-      display: none;
-      z-index: 100;
-    }
-
-    .lang-dropdown.open { display: block; }
-
-    .lang-option {
-      display: block;
-      width: 100%;
-      padding: 10px 16px;
-      border: none;
-      background: none;
-      text-align: left;
-      font-size: 14px;
-      color: var(--text);
-      cursor: pointer;
-      transition: background 0.2s;
-    }
-
-    .lang-option:hover { background: var(--bg); }
-    .lang-option.active { color: var(--primary); font-weight: 600; }
-
-    /* Hero */
-    .hero {
-      padding: 100px 0 40px;
-      text-align: center;
-    }
-
-    .hero h1 {
-      font-size: clamp(2.5rem, 6vw, 4.5rem);
-      font-weight: 800;
-      margin-bottom: 24px;
-      letter-spacing: -0.03em;
-      line-height: 1.1;
-    }
-
-    .hero h1 span { color: var(--primary); }
-
-    .hero p {
-      font-size: 1.25rem;
-      color: var(--text-muted);
-      max-width: 600px;
-      margin: 0 auto 32px;
-    }
-
-    .demo-hint {
-      font-size: 0.95rem;
-      color: var(--accent);
-      margin: -16px auto 24px;
-      font-weight: 500;
-    }
-
-    .cta-buttons {
-      display: flex;
-      gap: 16px;
-      justify-content: center;
-      flex-wrap: wrap;
-      margin-bottom: 32px;
-    }
-
-    .btn {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      padding: 16px 32px;
-      border-radius: 12px;
-      font-weight: 600;
-      font-size: 16px;
-      text-decoration: none;
-      transition: all 0.3s ease;
-    }
-
-    .btn-primary {
-      background: var(--primary);
-      color: white;
-      box-shadow: 0 4px 20px var(--primary-glow);
-    }
-
-    .btn-primary:hover {
-      background: var(--primary-dark);
-      transform: translateY(-3px);
-      box-shadow: 0 8px 30px var(--primary-glow);
-    }
-
-    .btn-secondary {
-      background: var(--card);
-      color: var(--text);
-      border: 2px solid var(--accent);
-    }
-
-    .btn-secondary:hover {
-      background: var(--accent);
-      border-color: var(--accent);
-      color: white;
-      transform: translateY(-3px);
-      box-shadow: 0 8px 30px var(--accent-glow);
-    }
-
-    /* Media Showcase */
-    .showcase {
-      padding: 0 0 80px;
-      position: relative;
-    }
-
-    .showcase-container {
-      max-width: 400px;
-      margin: 0 auto;
-      position: relative;
-    }
-
-    .phone-frame {
-      background: #1a1a1a;
-      border-radius: 40px;
-      padding: 12px;
-      box-shadow: 0 30px 80px rgba(0,0,0,0.3);
-      animation: float 6s ease-in-out infinite;
-    }
-
-    .phone-screen {
-      background: #000;
-      border-radius: 32px;
-      overflow: hidden;
-      aspect-ratio: 9/19.5;
-      position: relative;
-    }
-
-    .phone-notch {
-      position: absolute;
-      top: 0;
-      left: 50%;
-      transform: translateX(-50%);
-      width: 120px;
-      height: 28px;
-      background: #1a1a1a;
-      border-radius: 0 0 20px 20px;
-      z-index: 10;
-    }
-
-    .carousel {
-      width: 100%;
-      height: 100%;
-      position: relative;
-    }
-
-    .carousel-slide {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      opacity: 0;
-      transition: opacity 0.5s ease;
-    }
-
-    .carousel-slide.active { opacity: 1; }
-
-    .carousel-slide img,
-    .carousel-slide video {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-    }
-
-    .carousel-placeholder {
-      width: 100%;
-      height: 100%;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
-      color: #666;
-      text-align: center;
-      padding: 20px;
-    }
-
-    .carousel-placeholder .icon {
-      font-size: 48px;
-      margin-bottom: 16px;
-    }
-
-    .carousel-placeholder .title {
-      font-size: 18px;
-      font-weight: 600;
-      color: #999;
-      margin-bottom: 8px;
-    }
-
-    .carousel-placeholder .desc {
-      font-size: 14px;
-      color: #666;
-    }
-
-    .carousel-controls {
-      display: flex;
-      justify-content: center;
-      gap: 12px;
-      margin-top: 24px;
-    }
-
-    .carousel-dot {
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
-      background: var(--border);
-      border: none;
-      cursor: pointer;
-      transition: all 0.3s;
-    }
-
-    .carousel-dot.active {
-      background: var(--primary);
-      transform: scale(1.2);
-    }
-
-    .carousel-dot:hover { background: var(--primary); }
-
-    .carousel-nav {
-      position: absolute;
-      top: 50%;
-      transform: translateY(-50%);
-      width: 44px;
-      height: 44px;
-      border-radius: 50%;
-      background: var(--card);
-      border: 1px solid var(--border);
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: all 0.3s;
-      z-index: 10;
-    }
-
-    .carousel-nav:hover {
-      background: var(--primary);
-      color: white;
-      border-color: var(--primary);
-    }
-
-    .carousel-nav.prev { left: -60px; }
-    .carousel-nav.next { right: -60px; }
-
-    .carousel-caption {
-      text-align: center;
-      margin-top: 16px;
-      color: var(--text-muted);
-      font-size: 14px;
-      min-height: 20px;
-    }
-
-    .screenshot-disclaimer {
-      text-align: center;
-      margin-top: 12px;
-      color: var(--text-muted);
-      font-size: 12px;
-      font-style: italic;
-    }
-
-    /* Features */
-    .features {
-      padding: 100px 0;
-      background: var(--card);
-      border-top: 1px solid var(--border);
-    }
-
-    .features h2 {
-      text-align: center;
-      font-size: 2.5rem;
-      margin-bottom: 16px;
-      font-weight: 800;
-    }
-
-    .features .subtitle {
-      text-align: center;
-      color: var(--text-muted);
-      font-size: 1.1rem;
-      margin-bottom: 64px;
-    }
-
-    .feature-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-      gap: 40px;
-    }
-
-    .feature {
-      padding: 32px;
-      background: var(--bg);
-      border-radius: 20px;
-      transition: transform 0.3s, box-shadow 0.3s;
-    }
-
-    .feature:hover {
-      transform: translateY(-5px);
-      box-shadow: 0 20px 40px rgba(0,0,0,0.1);
-    }
-
-    .feature-icon {
-      width: 56px;
-      height: 56px;
-      background: linear-gradient(135deg, var(--primary), var(--primary-dark));
-      border-radius: 16px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin-bottom: 20px;
-      font-size: 28px;
-    }
-
-    .feature-icon.gold {
-      background: linear-gradient(135deg, var(--accent-light), var(--accent-dark));
-    }
-
-    .feature h3 { font-size: 1.25rem; margin-bottom: 12px; font-weight: 700; }
-    .feature p { color: var(--text-muted); font-size: 0.95rem; line-height: 1.7; }
-
-    /* Getting Started */
-    .getting-started {
-      padding: 100px 0;
-    }
-
-    .getting-started h2 {
-      text-align: center;
-      font-size: 2.5rem;
-      margin-bottom: 16px;
-      font-weight: 800;
-    }
-
-    .getting-started .subtitle {
-      text-align: center;
-      color: var(--text-muted);
-      margin-bottom: 64px;
-    }
-
-    .steps {
-      display: flex;
-      justify-content: center;
-      gap: 60px;
-      flex-wrap: wrap;
-    }
-
-    .step {
-      text-align: center;
-      max-width: 280px;
-    }
-
-    .step-number {
-      width: 64px;
-      height: 64px;
-      background: linear-gradient(135deg, var(--primary), var(--primary-dark));
-      color: white;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: 800;
-      font-size: 1.5rem;
-      margin: 0 auto 20px;
-      box-shadow: 0 10px 30px var(--primary-glow);
-    }
-
-    .step h3 { margin-bottom: 12px; font-size: 1.2rem; }
-    .step p { color: var(--text-muted); font-size: 0.95rem; }
-    .step a { color: var(--primary); text-decoration: none; font-weight: 500; }
-    .step a:hover { text-decoration: underline; }
-
-    /* Footer */
-    footer {
-      padding: 60px 0;
-      border-top: 1px solid var(--border);
-      text-align: center;
-    }
-
-    .footer-links {
-      display: flex;
-      justify-content: center;
-      gap: 40px;
-      margin-bottom: 32px;
-      flex-wrap: wrap;
-    }
-
-    .footer-links a {
-      color: var(--text-muted);
-      text-decoration: none;
-      font-weight: 500;
-      transition: color 0.2s;
-    }
-
-    .footer-links a:hover { color: var(--primary); }
-
-    .copyright { color: var(--text-muted); font-size: 0.875rem; }
-
-    /* Mobile */
-    @media (max-width: 768px) {
-      .nav-links a:not(:last-child) { display: none; }
-      .hero { padding: 80px 0 24px; }
-      .hero h1 { font-size: 2.2rem; }
-      .showcase-container { max-width: 300px; }
-      .phone-frame { border-radius: 30px; padding: 8px; }
-      .phone-screen { border-radius: 24px; }
-      .phone-notch { width: 90px; height: 22px; }
-      .carousel-nav { display: none; }
-      .features, .getting-started { padding: 60px 0; }
-      .feature-grid { grid-template-columns: 1fr; gap: 24px; }
-      .steps { flex-direction: column; align-items: center; gap: 40px; }
-    }
-  </style>
-</head>
-<body>
-  <header class="animate-fade">
-    <div class="container header-inner">
-      <a href="/" class="logo">
-        <img src="icon.png" alt="Veloq">
-        <span>Veloq</span>
-      </a>
-      <nav class="nav-links">
-        <a href="#features" data-i18n="nav.features">Features</a>
-        <a href="#download" data-i18n="nav.download">Download</a>
-        <a href="https://github.com/evanjt/veloq" target="_blank">GitHub</a>
-        <div class="lang-selector">
-          <button class="lang-btn" id="lang-btn">
-            <span id="current-lang">EN</span>
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
-          </button>
-          <div class="lang-dropdown" id="lang-dropdown">
-            <button class="lang-option" data-lang="en">English</button>
-            <button class="lang-option" data-lang="es">Español</button>
-            <button class="lang-option" data-lang="fr">Français</button>
+
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: var(--bg-dark);
+          --text: var(--text-dark);
+          --text-muted: var(--text-muted-dark);
+          --card: var(--card-dark);
+          --border: var(--border-dark);
+        }
+      }
+
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu,
+          sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        line-height: 1.6;
+        -webkit-font-smoothing: antialiased;
+        overflow-x: hidden;
+      }
+
+      .container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 0 24px;
+      }
+
+      /* Animations */
+      @keyframes fadeInUp {
+        from {
+          opacity: 0;
+          transform: translateY(30px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+        }
+        to {
+          opacity: 1;
+        }
+      }
+
+      @keyframes slideInLeft {
+        from {
+          opacity: 0;
+          transform: translateX(-50px);
+        }
+        to {
+          opacity: 1;
+          transform: translateX(0);
+        }
+      }
+
+      @keyframes slideInRight {
+        from {
+          opacity: 0;
+          transform: translateX(50px);
+        }
+        to {
+          opacity: 1;
+          transform: translateX(0);
+        }
+      }
+
+      @keyframes pulse {
+        0%,
+        100% {
+          box-shadow: 0 0 0 0 var(--primary-glow);
+        }
+        50% {
+          box-shadow: 0 0 0 15px transparent;
+        }
+      }
+
+      @keyframes float {
+        0%,
+        100% {
+          transform: translateY(0);
+        }
+        50% {
+          transform: translateY(-10px);
+        }
+      }
+
+      .animate-fade-up {
+        animation: fadeInUp 0.8s ease-out forwards;
+        opacity: 0;
+      }
+      .animate-fade {
+        animation: fadeIn 0.6s ease-out forwards;
+        opacity: 0;
+      }
+      .animate-slide-left {
+        animation: slideInLeft 0.8s ease-out forwards;
+        opacity: 0;
+      }
+      .animate-slide-right {
+        animation: slideInRight 0.8s ease-out forwards;
+        opacity: 0;
+      }
+      .delay-1 {
+        animation-delay: 0.1s;
+      }
+      .delay-2 {
+        animation-delay: 0.2s;
+      }
+      .delay-3 {
+        animation-delay: 0.3s;
+      }
+      .delay-4 {
+        animation-delay: 0.4s;
+      }
+      .delay-5 {
+        animation-delay: 0.5s;
+      }
+
+      /* Header */
+      header {
+        padding: 20px 0;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        background: var(--bg);
+        border-bottom: 1px solid var(--border);
+        z-index: 100;
+        backdrop-filter: blur(10px);
+        background: rgba(250, 250, 250, 0.9);
+      }
+
+      @media (prefers-color-scheme: dark) {
+        header {
+          background: rgba(13, 17, 23, 0.9);
+        }
+      }
+
+      .header-inner {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      .logo {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        text-decoration: none;
+        color: var(--text);
+      }
+
+      .logo img {
+        width: 40px;
+        height: 40px;
+        border-radius: 10px;
+      }
+      .logo span {
+        font-size: 24px;
+        font-weight: 700;
+      }
+
+      .nav-links {
+        display: flex;
+        gap: 24px;
+        align-items: center;
+      }
+
+      .nav-links a {
+        color: var(--text-muted);
+        text-decoration: none;
+        font-weight: 500;
+        transition: color 0.2s;
+      }
+
+      .nav-links a:hover {
+        color: var(--primary);
+      }
+
+      /* Language Selector */
+      .lang-selector {
+        position: relative;
+      }
+
+      .lang-btn {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 6px 12px;
+        font-size: 14px;
+        font-weight: 500;
+        color: var(--text);
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        transition: border-color 0.2s;
+      }
+
+      .lang-btn:hover {
+        border-color: var(--primary);
+      }
+
+      .lang-dropdown {
+        position: absolute;
+        top: 100%;
+        right: 0;
+        margin-top: 4px;
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+        min-width: 140px;
+        display: none;
+        z-index: 100;
+      }
+
+      .lang-dropdown.open {
+        display: block;
+      }
+
+      .lang-option {
+        display: block;
+        width: 100%;
+        padding: 10px 16px;
+        border: none;
+        background: none;
+        text-align: left;
+        font-size: 14px;
+        color: var(--text);
+        cursor: pointer;
+        transition: background 0.2s;
+      }
+
+      .lang-option:hover {
+        background: var(--bg);
+      }
+      .lang-option.active {
+        color: var(--primary);
+        font-weight: 600;
+      }
+
+      /* Hero */
+      .hero {
+        padding: 100px 0 40px;
+        text-align: center;
+      }
+
+      .hero h1 {
+        font-size: clamp(2.5rem, 6vw, 4.5rem);
+        font-weight: 800;
+        margin-bottom: 24px;
+        letter-spacing: -0.03em;
+        line-height: 1.1;
+      }
+
+      .hero h1 span {
+        color: var(--primary);
+      }
+
+      .hero p {
+        font-size: 1.25rem;
+        color: var(--text-muted);
+        max-width: 600px;
+        margin: 0 auto 32px;
+      }
+
+      .demo-hint {
+        font-size: 0.95rem;
+        color: var(--accent);
+        margin: -16px auto 24px;
+        font-weight: 500;
+      }
+
+      .cta-buttons {
+        display: flex;
+        gap: 16px;
+        justify-content: center;
+        flex-wrap: wrap;
+        margin-bottom: 32px;
+      }
+
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 16px 32px;
+        border-radius: 12px;
+        font-weight: 600;
+        font-size: 16px;
+        text-decoration: none;
+        transition: all 0.3s ease;
+      }
+
+      .btn-primary {
+        background: var(--primary);
+        color: white;
+        box-shadow: 0 4px 20px var(--primary-glow);
+      }
+
+      .btn-primary:hover {
+        background: var(--primary-dark);
+        transform: translateY(-3px);
+        box-shadow: 0 8px 30px var(--primary-glow);
+      }
+
+      .btn-secondary {
+        background: var(--card);
+        color: var(--text);
+        border: 2px solid var(--accent);
+      }
+
+      .btn-secondary:hover {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: white;
+        transform: translateY(-3px);
+        box-shadow: 0 8px 30px var(--accent-glow);
+      }
+
+      /* Media Showcase */
+      .showcase {
+        padding: 0 0 80px;
+        position: relative;
+      }
+
+      .showcase-container {
+        max-width: 400px;
+        margin: 0 auto;
+        position: relative;
+      }
+
+      .phone-frame {
+        background: #1a1a1a;
+        border-radius: 40px;
+        padding: 12px;
+        box-shadow: 0 30px 80px rgba(0, 0, 0, 0.3);
+        animation: float 6s ease-in-out infinite;
+      }
+
+      .phone-screen {
+        background: #000;
+        border-radius: 32px;
+        overflow: hidden;
+        aspect-ratio: 9/19.5;
+        position: relative;
+      }
+
+      .phone-notch {
+        position: absolute;
+        top: 0;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 120px;
+        height: 28px;
+        background: #1a1a1a;
+        border-radius: 0 0 20px 20px;
+        z-index: 10;
+      }
+
+      .carousel {
+        width: 100%;
+        height: 100%;
+        position: relative;
+      }
+
+      .carousel-slide {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        opacity: 0;
+        transition: opacity 0.5s ease;
+      }
+
+      .carousel-slide.active {
+        opacity: 1;
+      }
+
+      .carousel-slide img,
+      .carousel-slide video {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+
+      .carousel-placeholder {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+        color: #666;
+        text-align: center;
+        padding: 20px;
+      }
+
+      .carousel-placeholder .icon {
+        font-size: 48px;
+        margin-bottom: 16px;
+      }
+
+      .carousel-placeholder .title {
+        font-size: 18px;
+        font-weight: 600;
+        color: #999;
+        margin-bottom: 8px;
+      }
+
+      .carousel-placeholder .desc {
+        font-size: 14px;
+        color: #666;
+      }
+
+      .carousel-controls {
+        display: flex;
+        justify-content: center;
+        gap: 12px;
+        margin-top: 24px;
+      }
+
+      .carousel-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: var(--border);
+        border: none;
+        cursor: pointer;
+        transition: all 0.3s;
+      }
+
+      .carousel-dot.active {
+        background: var(--primary);
+        transform: scale(1.2);
+      }
+
+      .carousel-dot:hover {
+        background: var(--primary);
+      }
+
+      .carousel-nav {
+        position: absolute;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 44px;
+        height: 44px;
+        border-radius: 50%;
+        background: var(--card);
+        border: 1px solid var(--border);
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.3s;
+        z-index: 10;
+      }
+
+      .carousel-nav:hover {
+        background: var(--primary);
+        color: white;
+        border-color: var(--primary);
+      }
+
+      .carousel-nav.prev {
+        left: -60px;
+      }
+      .carousel-nav.next {
+        right: -60px;
+      }
+
+      .carousel-caption {
+        text-align: center;
+        margin-top: 16px;
+        color: var(--text-muted);
+        font-size: 14px;
+        min-height: 20px;
+      }
+
+      .screenshot-disclaimer {
+        text-align: center;
+        margin-top: 12px;
+        color: var(--text-muted);
+        font-size: 12px;
+        font-style: italic;
+      }
+
+      /* Features */
+      .features {
+        padding: 100px 0;
+        background: var(--card);
+        border-top: 1px solid var(--border);
+      }
+
+      .features h2 {
+        text-align: center;
+        font-size: 2.5rem;
+        margin-bottom: 16px;
+        font-weight: 800;
+      }
+
+      .features .subtitle {
+        text-align: center;
+        color: var(--text-muted);
+        font-size: 1.1rem;
+        margin-bottom: 64px;
+      }
+
+      .feature-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+        gap: 40px;
+      }
+
+      .feature {
+        padding: 32px;
+        background: var(--bg);
+        border-radius: 20px;
+        transition:
+          transform 0.3s,
+          box-shadow 0.3s;
+      }
+
+      .feature:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+      }
+
+      .feature-icon {
+        width: 56px;
+        height: 56px;
+        background: linear-gradient(
+          135deg,
+          var(--primary),
+          var(--primary-dark)
+        );
+        border-radius: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 20px;
+        font-size: 28px;
+      }
+
+      .feature-icon.gold {
+        background: linear-gradient(
+          135deg,
+          var(--accent-light),
+          var(--accent-dark)
+        );
+      }
+
+      .feature h3 {
+        font-size: 1.25rem;
+        margin-bottom: 12px;
+        font-weight: 700;
+      }
+      .feature p {
+        color: var(--text-muted);
+        font-size: 0.95rem;
+        line-height: 1.7;
+      }
+
+      /* Getting Started */
+      .getting-started {
+        padding: 100px 0;
+      }
+
+      .getting-started h2 {
+        text-align: center;
+        font-size: 2.5rem;
+        margin-bottom: 16px;
+        font-weight: 800;
+      }
+
+      .getting-started .subtitle {
+        text-align: center;
+        color: var(--text-muted);
+        margin-bottom: 64px;
+      }
+
+      .steps {
+        display: flex;
+        justify-content: center;
+        gap: 60px;
+        flex-wrap: wrap;
+      }
+
+      .step {
+        text-align: center;
+        max-width: 280px;
+      }
+
+      .step-number {
+        width: 64px;
+        height: 64px;
+        background: linear-gradient(
+          135deg,
+          var(--primary),
+          var(--primary-dark)
+        );
+        color: white;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 800;
+        font-size: 1.5rem;
+        margin: 0 auto 20px;
+        box-shadow: 0 10px 30px var(--primary-glow);
+      }
+
+      .step h3 {
+        margin-bottom: 12px;
+        font-size: 1.2rem;
+      }
+      .step p {
+        color: var(--text-muted);
+        font-size: 0.95rem;
+      }
+      .step a {
+        color: var(--primary);
+        text-decoration: none;
+        font-weight: 500;
+      }
+      .step a:hover {
+        text-decoration: underline;
+      }
+
+      /* Footer */
+      footer {
+        padding: 60px 0;
+        border-top: 1px solid var(--border);
+        text-align: center;
+      }
+
+      .footer-links {
+        display: flex;
+        justify-content: center;
+        gap: 40px;
+        margin-bottom: 32px;
+        flex-wrap: wrap;
+      }
+
+      .footer-links a {
+        color: var(--text-muted);
+        text-decoration: none;
+        font-weight: 500;
+        transition: color 0.2s;
+      }
+
+      .footer-links a:hover {
+        color: var(--primary);
+      }
+
+      .copyright {
+        color: var(--text-muted);
+        font-size: 0.875rem;
+      }
+
+      /* Mobile */
+      @media (max-width: 768px) {
+        .nav-links a:not(:last-child) {
+          display: none;
+        }
+        .hero {
+          padding: 80px 0 24px;
+        }
+        .hero h1 {
+          font-size: 2.2rem;
+        }
+        .showcase-container {
+          max-width: 300px;
+        }
+        .phone-frame {
+          border-radius: 30px;
+          padding: 8px;
+        }
+        .phone-screen {
+          border-radius: 24px;
+        }
+        .phone-notch {
+          width: 90px;
+          height: 22px;
+        }
+        .carousel-nav {
+          display: none;
+        }
+        .features,
+        .getting-started {
+          padding: 60px 0;
+        }
+        .feature-grid {
+          grid-template-columns: 1fr;
+          gap: 24px;
+        }
+        .steps {
+          flex-direction: column;
+          align-items: center;
+          gap: 40px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="animate-fade">
+      <div class="container header-inner">
+        <a href="/" class="logo">
+          <img src="icon.png" alt="Veloq" />
+          <span>Veloq</span>
+        </a>
+        <nav class="nav-links">
+          <a href="#features" data-i18n="nav.features">Features</a>
+          <a href="#download" data-i18n="nav.download">Download</a>
+          <a href="https://github.com/evanjt/veloq" target="_blank">GitHub</a>
+          <div class="lang-selector">
+            <button class="lang-btn" id="lang-btn">
+              <span id="current-lang">EN</span>
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            </button>
+            <div class="lang-dropdown" id="lang-dropdown">
+              <button class="lang-option" data-lang="en">English</button>
+              <button class="lang-option" data-lang="de">Deutsch</button>
+              <button class="lang-option" data-lang="nl">Nederlands</button>
+              <button class="lang-option" data-lang="fr">Français</button>
+              <button class="lang-option" data-lang="it">Italiano</button>
+              <button class="lang-option" data-lang="es">Español</button>
+              <button class="lang-option" data-lang="pt">Português</button>
+              <button class="lang-option" data-lang="pl">Polski</button>
+              <button class="lang-option" data-lang="da">Dansk</button>
+              <button class="lang-option" data-lang="ja">日本語</button>
+              <button class="lang-option" data-lang="zh">中文</button>
+            </div>
+          </div>
+        </nav>
+      </div>
+    </header>
+
+    <main>
+      <section class="hero">
+        <div class="container">
+          <h1 class="animate-fade-up" data-i18n="hero.title">
+            Your <span>Intervals.icu</span> data,<br />on mobile
+          </h1>
+          <p class="animate-fade-up delay-1" data-i18n="hero.subtitle">
+            Open-source mobile client for viewing your Intervals.icu activities,
+            maps, and fitness charts. Not affiliated with Intervals.icu.
+          </p>
+          <p
+            class="demo-hint animate-fade-up delay-1"
+            data-i18n="hero.demoHint"
+          >
+            No account? Try the built-in demo mode to explore.
+          </p>
+          <div class="cta-buttons animate-fade-up delay-2" id="download">
+            <a
+              href="https://github.com/evanjt/veloq/releases"
+              class="btn btn-primary"
+              target="_blank"
+            >
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="7,10 12,15 17,10" />
+                <line x1="12" y1="15" x2="12" y2="3" />
+              </svg>
+              <span data-i18n="cta.download">Download</span>
+            </a>
+            <a
+              href="https://github.com/evanjt/veloq"
+              class="btn btn-secondary"
+              target="_blank"
+            >
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="currentColor"
+              >
+                <path
+                  d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"
+                />
+              </svg>
+              <span data-i18n="cta.viewSource">View Source</span>
+            </a>
           </div>
         </div>
-      </nav>
-    </div>
-  </header>
+      </section>
 
-  <main>
-    <section class="hero">
-      <div class="container">
-        <h1 class="animate-fade-up" data-i18n="hero.title">Your <span>Intervals.icu</span> data,<br>on mobile</h1>
-        <p class="animate-fade-up delay-1" data-i18n="hero.subtitle">Open-source mobile client for viewing your Intervals.icu activities, maps, and fitness charts. Not affiliated with Intervals.icu.</p>
-        <p class="demo-hint animate-fade-up delay-1" data-i18n="hero.demoHint">No account? Try the built-in demo mode to explore.</p>
-        <div class="cta-buttons animate-fade-up delay-2" id="download">
-          <a href="https://github.com/evanjt/veloq/releases" class="btn btn-primary" target="_blank">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-            <span data-i18n="cta.download">Download</span>
-          </a>
-          <a href="https://github.com/evanjt/veloq" class="btn btn-secondary" target="_blank">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
-            <span data-i18n="cta.viewSource">View Source</span>
-          </a>
+      <section class="showcase animate-fade-up delay-3">
+        <div class="showcase-container">
+          <button class="carousel-nav prev" onclick="prevSlide()">
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <polyline points="15 18 9 12 15 6" />
+            </svg>
+          </button>
+          <button class="carousel-nav next" onclick="nextSlide()">
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <polyline points="9 18 15 12 9 6" />
+            </svg>
+          </button>
+
+          <div class="phone-frame">
+            <div class="phone-screen">
+              <div class="phone-notch"></div>
+              <div class="carousel" id="carousel">
+                <!-- Slides will be populated by JS - add your media files to screenshots/ -->
+              </div>
+            </div>
+          </div>
+
+          <div class="carousel-controls" id="carousel-dots"></div>
+          <p class="carousel-caption" id="carousel-caption"></p>
+          <p class="screenshot-disclaimer" data-i18n="showcase.disclaimer">
+            * Screenshots show demo data for illustration purposes only.
+          </p>
         </div>
-      </div>
-    </section>
+      </section>
 
-    <section class="showcase animate-fade-up delay-3">
-      <div class="showcase-container">
-        <button class="carousel-nav prev" onclick="prevSlide()">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
-        </button>
-        <button class="carousel-nav next" onclick="nextSlide()">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
-        </button>
-
-        <div class="phone-frame">
-          <div class="phone-screen">
-            <div class="phone-notch"></div>
-            <div class="carousel" id="carousel">
-              <!-- Slides will be populated by JS - add your media files to screenshots/ -->
+      <section class="features" id="features">
+        <div class="container">
+          <h2 data-i18n="features.title">View your data</h2>
+          <p class="subtitle" data-i18n="features.subtitle">
+            Access your Intervals.icu data on mobile with offline support.
+          </p>
+          <div class="feature-grid">
+            <div class="feature">
+              <div class="feature-icon">&#127758;</div>
+              <h3 data-i18n="features.maps.title">Maps</h3>
+              <p data-i18n="features.maps.desc">
+                View your activities on interactive maps. See all your GPS data
+                in one place with timeline filtering.
+              </p>
+            </div>
+            <div class="feature">
+              <div class="feature-icon gold">&#128200;</div>
+              <h3 data-i18n="features.analysis.title">Charts</h3>
+              <p data-i18n="features.analysis.desc">
+                View heart rate, power, pace, elevation, and cadence charts from
+                your Intervals.icu data.
+              </p>
+            </div>
+            <div class="feature">
+              <div class="feature-icon">&#128736;</div>
+              <h3 data-i18n="features.routes.title">Route Matching</h3>
+              <p data-i18n="features.routes.desc">
+                Local route detection to find repeated efforts in your activity
+                history. The only processing done on-device.
+              </p>
+            </div>
+            <div class="feature">
+              <div class="feature-icon gold">&#128170;</div>
+              <h3 data-i18n="features.fitness.title">Fitness</h3>
+              <p data-i18n="features.fitness.desc">
+                View your CTL/ATL/TSB fitness data and form zones as calculated
+                by Intervals.icu.
+              </p>
+            </div>
+            <div class="feature">
+              <div class="feature-icon">&#128247;</div>
+              <h3 data-i18n="features.offline.title">Offline Access</h3>
+              <p data-i18n="features.offline.desc">
+                Data is cached locally for offline viewing. Sync once and access
+                without internet.
+              </p>
+            </div>
+            <div class="feature">
+              <div class="feature-icon gold">&#128274;</div>
+              <h3 data-i18n="features.privacy.title">Privacy</h3>
+              <p data-i18n="features.privacy.desc">
+                All data stays on your device. No analytics, no tracking, no
+                servers. Open source.
+              </p>
             </div>
           </div>
         </div>
+      </section>
 
-        <div class="carousel-controls" id="carousel-dots"></div>
-        <p class="carousel-caption" id="carousel-caption"></p>
-        <p class="screenshot-disclaimer" data-i18n="showcase.disclaimer">* Screenshots show demo data for illustration purposes only.</p>
-      </div>
-    </section>
-
-    <section class="features" id="features">
-      <div class="container">
-        <h2 data-i18n="features.title">View your data</h2>
-        <p class="subtitle" data-i18n="features.subtitle">Access your Intervals.icu data on mobile with offline support.</p>
-        <div class="feature-grid">
-          <div class="feature">
-            <div class="feature-icon">&#127758;</div>
-            <h3 data-i18n="features.maps.title">Maps</h3>
-            <p data-i18n="features.maps.desc">View your activities on interactive maps. See all your GPS data in one place with timeline filtering.</p>
-          </div>
-          <div class="feature">
-            <div class="feature-icon gold">&#128200;</div>
-            <h3 data-i18n="features.analysis.title">Charts</h3>
-            <p data-i18n="features.analysis.desc">View heart rate, power, pace, elevation, and cadence charts from your Intervals.icu data.</p>
-          </div>
-          <div class="feature">
-            <div class="feature-icon">&#128736;</div>
-            <h3 data-i18n="features.routes.title">Route Matching</h3>
-            <p data-i18n="features.routes.desc">Local route detection to find repeated efforts in your activity history. The only processing done on-device.</p>
-          </div>
-          <div class="feature">
-            <div class="feature-icon gold">&#128170;</div>
-            <h3 data-i18n="features.fitness.title">Fitness</h3>
-            <p data-i18n="features.fitness.desc">View your CTL/ATL/TSB fitness data and form zones as calculated by Intervals.icu.</p>
-          </div>
-          <div class="feature">
-            <div class="feature-icon">&#128247;</div>
-            <h3 data-i18n="features.offline.title">Offline Access</h3>
-            <p data-i18n="features.offline.desc">Data is cached locally for offline viewing. Sync once and access without internet.</p>
-          </div>
-          <div class="feature">
-            <div class="feature-icon gold">&#128274;</div>
-            <h3 data-i18n="features.privacy.title">Privacy</h3>
-            <p data-i18n="features.privacy.desc">All data stays on your device. No analytics, no tracking, no servers. Open source.</p>
+      <section class="getting-started">
+        <div class="container">
+          <h2 data-i18n="getStarted.title">Getting Started</h2>
+          <p class="subtitle" data-i18n="getStarted.subtitle">
+            Connect to your Intervals.icu account in three simple steps.
+          </p>
+          <div class="steps">
+            <div class="step">
+              <div class="step-number">1</div>
+              <h3 data-i18n="getStarted.step1.title">Get API Key</h3>
+              <p data-i18n="getStarted.step1.desc">
+                Go to
+                <a href="https://intervals.icu/settings" target="_blank"
+                  >Intervals.icu Settings</a
+                >
+                &rarr; Developer Settings
+              </p>
+            </div>
+            <div class="step">
+              <div class="step-number">2</div>
+              <h3 data-i18n="getStarted.step2.title">Install Veloq</h3>
+              <p data-i18n="getStarted.step2.desc">
+                Download from GitHub Releases
+              </p>
+            </div>
+            <div class="step">
+              <div class="step-number">3</div>
+              <h3 data-i18n="getStarted.step3.title">Connect</h3>
+              <p data-i18n="getStarted.step3.desc">
+                Enter your API key and start exploring
+              </p>
+            </div>
           </div>
         </div>
-      </div>
-    </section>
+      </section>
+    </main>
 
-    <section class="getting-started">
+    <footer>
       <div class="container">
-        <h2 data-i18n="getStarted.title">Getting Started</h2>
-        <p class="subtitle" data-i18n="getStarted.subtitle">Connect to your Intervals.icu account in three simple steps.</p>
-        <div class="steps">
-          <div class="step">
-            <div class="step-number">1</div>
-            <h3 data-i18n="getStarted.step1.title">Get API Key</h3>
-            <p data-i18n="getStarted.step1.desc">Go to <a href="https://intervals.icu/settings" target="_blank">Intervals.icu Settings</a> &rarr; Developer Settings</p>
-          </div>
-          <div class="step">
-            <div class="step-number">2</div>
-            <h3 data-i18n="getStarted.step2.title">Install Veloq</h3>
-            <p data-i18n="getStarted.step2.desc">Download from GitHub Releases</p>
-          </div>
-          <div class="step">
-            <div class="step-number">3</div>
-            <h3 data-i18n="getStarted.step3.title">Connect</h3>
-            <p data-i18n="getStarted.step3.desc">Enter your API key and start exploring</p>
-          </div>
+        <div class="footer-links">
+          <a href="https://github.com/evanjt/veloq" target="_blank">GitHub</a>
+          <a
+            href="https://github.com/evanjt/veloq/releases"
+            target="_blank"
+            data-i18n="footer.releases"
+            >Releases</a
+          >
+          <a href="https://veloq.fit/privacy" data-i18n="footer.privacy"
+            >Privacy Policy</a
+          >
+          <a href="mailto:developer@veloq.fit" data-i18n="footer.contact"
+            >Contact</a
+          >
         </div>
+        <p class="copyright">&copy; 2025 Evan Thomas. Apache License 2.0.</p>
       </div>
-    </section>
-  </main>
+    </footer>
 
-  <footer>
-    <div class="container">
-      <div class="footer-links">
-        <a href="https://github.com/evanjt/veloq" target="_blank">GitHub</a>
-        <a href="https://github.com/evanjt/veloq/releases" target="_blank" data-i18n="footer.releases">Releases</a>
-        <a href="https://veloq.fit/privacy" data-i18n="footer.privacy">Privacy Policy</a>
-        <a href="mailto:developer@veloq.fit" data-i18n="footer.contact">Contact</a>
-      </div>
-      <p class="copyright">&copy; 2025 Evan Thomas. Apache License 2.0.</p>
-    </div>
-  </footer>
+    <script>
+      // Media configuration - add your screenshots and videos here
+      // Supported: images (.png, .jpg, .webp) and videos (.mp4, .webm)
+      // Screenshot numbering matches screenshots.yaml:
+      // 01-feed, 02-activity-map, 03-activity-3d, 04-charts, 05-fitness, 06-regional-map, 07-routes, 08-performance
+      const mediaItems = [
+        {
+          type: "image",
+          src: "screenshots/01-feed.png",
+          caption: "Activity Feed",
+        },
+        {
+          type: "image",
+          src: "screenshots/02-activity-map.png",
+          caption: "Activity Map",
+        },
+        {
+          type: "image",
+          src: "screenshots/03-activity-3d.png",
+          caption: "3D Terrain View",
+        },
+        {
+          type: "image",
+          src: "screenshots/04-charts.png",
+          caption: "Multi-Metric Charts",
+        },
+        {
+          type: "image",
+          src: "screenshots/05-fitness.png",
+          caption: "Fitness Tracking",
+        },
+        {
+          type: "image",
+          src: "screenshots/06-regional-map.png",
+          caption: "Regional Map",
+        },
+        {
+          type: "image",
+          src: "screenshots/07-routes.png",
+          caption: "Route Detection",
+        },
+        {
+          type: "image",
+          src: "screenshots/08-performance.png",
+          caption: "Performance Curves",
+        },
+      ];
 
-  <script>
-    // Media configuration - add your screenshots and videos here
-    // Supported: images (.png, .jpg, .webp) and videos (.mp4, .webm)
-    // Screenshot numbering matches screenshots.yaml:
-    // 01-feed, 02-activity-map, 03-activity-3d, 04-charts, 05-fitness, 06-regional-map, 07-routes, 08-performance
-    const mediaItems = [
-      { type: 'image', src: 'screenshots/01-feed.png', caption: 'Activity Feed' },
-      { type: 'image', src: 'screenshots/02-activity-map.png', caption: 'Activity Map' },
-      { type: 'image', src: 'screenshots/03-activity-3d.png', caption: '3D Terrain View' },
-      { type: 'image', src: 'screenshots/04-charts.png', caption: 'Multi-Metric Charts' },
-      { type: 'image', src: 'screenshots/05-fitness.png', caption: 'Fitness Tracking' },
-      { type: 'image', src: 'screenshots/06-regional-map.png', caption: 'Regional Map' },
-      { type: 'image', src: 'screenshots/07-routes.png', caption: 'Route Detection' },
-      { type: 'image', src: 'screenshots/08-performance.png', caption: 'Performance Curves' },
-    ];
+      let currentSlide = 0;
+      let autoplayInterval;
 
-    let currentSlide = 0;
-    let autoplayInterval;
+      function initCarousel() {
+        const carousel = document.getElementById("carousel");
+        const dotsContainer = document.getElementById("carousel-dots");
 
-    function initCarousel() {
-      const carousel = document.getElementById('carousel');
-      const dotsContainer = document.getElementById('carousel-dots');
+        mediaItems.forEach((item, index) => {
+          // Create slide
+          const slide = document.createElement("div");
+          slide.className = "carousel-slide" + (index === 0 ? " active" : "");
 
-      mediaItems.forEach((item, index) => {
-        // Create slide
-        const slide = document.createElement('div');
-        slide.className = 'carousel-slide' + (index === 0 ? ' active' : '');
-
-        if (item.type === 'placeholder') {
-          slide.innerHTML = `
+          if (item.type === "placeholder") {
+            slide.innerHTML = `
             <div class="carousel-placeholder">
               <div class="icon">${item.icon}</div>
               <div class="title">${item.title}</div>
               <div class="desc">${item.desc}</div>
             </div>
           `;
-        } else if (item.type === 'image') {
-          slide.innerHTML = `<img src="${item.src}" alt="${item.caption || ''}" loading="lazy">`;
-        } else if (item.type === 'video') {
-          slide.innerHTML = `<video src="${item.src}" muted loop playsinline></video>`;
-        }
+          } else if (item.type === "image") {
+            slide.innerHTML = `<img src="${item.src}" alt="${item.caption || ""}" loading="lazy">`;
+          } else if (item.type === "video") {
+            slide.innerHTML = `<video src="${item.src}" muted loop playsinline></video>`;
+          }
 
-        carousel.appendChild(slide);
+          carousel.appendChild(slide);
 
-        // Create dot
-        const dot = document.createElement('button');
-        dot.className = 'carousel-dot' + (index === 0 ? ' active' : '');
-        dot.onclick = () => goToSlide(index);
-        dotsContainer.appendChild(dot);
-      });
+          // Create dot
+          const dot = document.createElement("button");
+          dot.className = "carousel-dot" + (index === 0 ? " active" : "");
+          dot.onclick = () => goToSlide(index);
+          dotsContainer.appendChild(dot);
+        });
 
-      updateCaption();
-      startAutoplay();
-    }
-
-    function goToSlide(index) {
-      const slides = document.querySelectorAll('.carousel-slide');
-      const dots = document.querySelectorAll('.carousel-dot');
-
-      slides[currentSlide].classList.remove('active');
-      dots[currentSlide].classList.remove('active');
-
-      // Pause video on current slide
-      const currentVideo = slides[currentSlide].querySelector('video');
-      if (currentVideo) currentVideo.pause();
-
-      currentSlide = index;
-      if (currentSlide >= slides.length) currentSlide = 0;
-      if (currentSlide < 0) currentSlide = slides.length - 1;
-
-      slides[currentSlide].classList.add('active');
-      dots[currentSlide].classList.add('active');
-
-      // Play video on new slide
-      const newVideo = slides[currentSlide].querySelector('video');
-      if (newVideo) newVideo.play();
-
-      updateCaption();
-      resetAutoplay();
-    }
-
-    function nextSlide() { goToSlide(currentSlide + 1); }
-    function prevSlide() { goToSlide(currentSlide - 1); }
-
-    function updateCaption() {
-      const caption = document.getElementById('carousel-caption');
-      const item = mediaItems[currentSlide];
-      caption.textContent = item.caption || item.title || '';
-    }
-
-    function startAutoplay() {
-      autoplayInterval = setInterval(nextSlide, 4000);
-    }
-
-    function resetAutoplay() {
-      clearInterval(autoplayInterval);
-      startAutoplay();
-    }
-
-    // Translations
-    const translations = {
-      en: {
-        'nav.features': 'Features',
-        'nav.download': 'Download',
-        'hero.title': 'Your <span>Intervals.icu</span> data,<br>on mobile',
-        'hero.subtitle': 'Open-source mobile client for viewing your Intervals.icu activities, maps, and fitness charts. Not affiliated with Intervals.icu.',
-        'hero.demoHint': 'No account? Try the built-in demo mode to explore.',
-        'showcase.disclaimer': '* Screenshots show demo data for illustration purposes only.',
-        'cta.download': 'Download',
-        'cta.viewSource': 'View Source',
-        'features.title': 'View your data',
-        'features.subtitle': 'Access your Intervals.icu data on mobile with offline support.',
-        'features.maps.title': 'Maps',
-        'features.maps.desc': 'View your activities on interactive maps. See all your GPS data in one place with timeline filtering.',
-        'features.analysis.title': 'Charts',
-        'features.analysis.desc': 'View heart rate, power, pace, elevation, and cadence charts from your Intervals.icu data.',
-        'features.routes.title': 'Route Matching',
-        'features.routes.desc': 'Local route detection to find repeated efforts in your activity history. The only processing done on-device.',
-        'features.fitness.title': 'Fitness',
-        'features.fitness.desc': 'View your CTL/ATL/TSB fitness data and form zones as calculated by Intervals.icu.',
-        'features.offline.title': 'Offline Access',
-        'features.offline.desc': 'Data is cached locally for offline viewing. Sync once and access without internet.',
-        'features.privacy.title': 'Privacy',
-        'features.privacy.desc': 'All data stays on your device. No analytics, no tracking, no servers. Open source.',
-        'getStarted.title': 'Getting Started',
-        'getStarted.subtitle': 'Connect to your Intervals.icu account in three simple steps.',
-        'getStarted.step1.title': 'Get API Key',
-        'getStarted.step1.desc': 'Go to <a href="https://intervals.icu/settings" target="_blank">Intervals.icu Settings</a> &rarr; Developer Settings',
-        'getStarted.step2.title': 'Install Veloq',
-        'getStarted.step2.desc': 'Download from GitHub Releases',
-        'getStarted.step3.title': 'Connect',
-        'getStarted.step3.desc': 'Enter your API key and start exploring',
-        'footer.releases': 'Releases',
-        'footer.privacy': 'Privacy Policy',
-        'footer.contact': 'Contact'
-      },
-      es: {
-        'nav.features': 'Funciones',
-        'nav.download': 'Descargar',
-        'hero.title': 'Tus datos de <span>Intervals.icu</span>,<br>en móvil',
-        'hero.subtitle': 'Cliente móvil de código abierto para ver tus actividades, mapas y gráficos de Intervals.icu. No afiliado con Intervals.icu.',
-        'hero.demoHint': '¿Sin cuenta? Prueba el modo demo para explorar.',
-        'showcase.disclaimer': '* Las capturas muestran datos de demostración solo con fines ilustrativos.',
-        'cta.download': 'Descargar',
-        'cta.viewSource': 'Ver código',
-        'features.title': 'Ver tus datos',
-        'features.subtitle': 'Accede a tus datos de Intervals.icu en móvil con soporte offline.',
-        'features.maps.title': 'Mapas',
-        'features.maps.desc': 'Ve tus actividades en mapas interactivos. Todos tus datos GPS en un solo lugar.',
-        'features.analysis.title': 'Gráficos',
-        'features.analysis.desc': 'Ve gráficos de frecuencia cardíaca, potencia, ritmo, elevación y cadencia de tus datos de Intervals.icu.',
-        'features.routes.title': 'Rutas',
-        'features.routes.desc': 'Detección local de rutas para encontrar esfuerzos repetidos. El único procesamiento en el dispositivo.',
-        'features.fitness.title': 'Fitness',
-        'features.fitness.desc': 'Ve tus datos de fitness CTL/ATL/TSB y zonas de forma calculados por Intervals.icu.',
-        'features.offline.title': 'Acceso Offline',
-        'features.offline.desc': 'Los datos se almacenan localmente para ver sin conexión.',
-        'features.privacy.title': 'Privacidad',
-        'features.privacy.desc': 'Todos los datos permanecen en tu dispositivo. Sin análisis, sin seguimiento, sin servidores. Código abierto.',
-        'getStarted.title': 'Primeros pasos',
-        'getStarted.subtitle': 'Conecta tu cuenta de Intervals.icu en tres simples pasos.',
-        'getStarted.step1.title': 'Obtener clave API',
-        'getStarted.step1.desc': 'Ve a <a href="https://intervals.icu/settings" target="_blank">Configuración</a> &rarr; Desarrollador',
-        'getStarted.step2.title': 'Instalar Veloq',
-        'getStarted.step2.desc': 'Descarga desde GitHub Releases',
-        'getStarted.step3.title': 'Conectar',
-        'getStarted.step3.desc': 'Ingresa tu clave API y comienza a explorar',
-        'footer.releases': 'Versiones',
-        'footer.privacy': 'Privacidad',
-        'footer.contact': 'Contacto'
-      },
-      fr: {
-        'nav.features': 'Fonctionnalités',
-        'nav.download': 'Télécharger',
-        'hero.title': 'Vos données <span>Intervals.icu</span>,<br>sur mobile',
-        'hero.subtitle': 'Client mobile open-source pour visualiser vos activités, cartes et graphiques Intervals.icu. Non affilié à Intervals.icu.',
-        'hero.demoHint': 'Pas de compte ? Essayez le mode démo pour explorer.',
-        'showcase.disclaimer': '* Les captures d\'écran montrent des données de démonstration à titre indicatif uniquement.',
-        'cta.download': 'Télécharger',
-        'cta.viewSource': 'Voir le code',
-        'features.title': 'Voir vos données',
-        'features.subtitle': 'Accédez à vos données Intervals.icu sur mobile avec support hors ligne.',
-        'features.maps.title': 'Cartes',
-        'features.maps.desc': 'Visualisez vos activités sur des cartes interactives. Toutes vos données GPS en un seul endroit.',
-        'features.analysis.title': 'Graphiques',
-        'features.analysis.desc': 'Visualisez les graphiques de fréquence cardiaque, puissance, allure et cadence de vos données Intervals.icu.',
-        'features.routes.title': 'Itinéraires',
-        'features.routes.desc': 'Détection locale d\'itinéraires pour trouver les efforts répétés. Le seul traitement effectué sur l\'appareil.',
-        'features.fitness.title': 'Forme',
-        'features.fitness.desc': 'Visualisez vos données de forme CTL/ATL/TSB et zones calculées par Intervals.icu.',
-        'features.offline.title': 'Accès Hors Ligne',
-        'features.offline.desc': 'Les données sont mises en cache localement pour consultation hors ligne.',
-        'features.privacy.title': 'Confidentialité',
-        'features.privacy.desc': 'Toutes les données restent sur votre appareil. Pas d\'analytique, pas de suivi, pas de serveurs. Open source.',
-        'getStarted.title': 'Premiers pas',
-        'getStarted.subtitle': 'Connectez votre compte Intervals.icu en trois étapes simples.',
-        'getStarted.step1.title': 'Obtenir la clé API',
-        'getStarted.step1.desc': 'Allez dans <a href="https://intervals.icu/settings" target="_blank">Paramètres</a> &rarr; Développeur',
-        'getStarted.step2.title': 'Installer Veloq',
-        'getStarted.step2.desc': 'Téléchargez depuis GitHub Releases',
-        'getStarted.step3.title': 'Connecter',
-        'getStarted.step3.desc': 'Entrez votre clé API et commencez à explorer',
-        'footer.releases': 'Versions',
-        'footer.privacy': 'Confidentialité',
-        'footer.contact': 'Contact'
+        updateCaption();
+        startAutoplay();
       }
-    };
 
-    const langNames = { en: 'EN', es: 'ES', fr: 'FR' };
+      function goToSlide(index) {
+        const slides = document.querySelectorAll(".carousel-slide");
+        const dots = document.querySelectorAll(".carousel-dot");
 
-    function getInitialLanguage() {
-      const stored = localStorage.getItem('veloq-lang');
-      if (stored && translations[stored]) return stored;
-      const browserLang = navigator.language.split('-')[0];
-      if (translations[browserLang]) return browserLang;
-      return 'en';
-    }
+        slides[currentSlide].classList.remove("active");
+        dots[currentSlide].classList.remove("active");
 
-    let currentLang = getInitialLanguage();
+        // Pause video on current slide
+        const currentVideo = slides[currentSlide].querySelector("video");
+        if (currentVideo) currentVideo.pause();
 
-    function applyTranslations(lang) {
-      const t = translations[lang];
-      document.querySelectorAll('[data-i18n]').forEach(el => {
-        const key = el.getAttribute('data-i18n');
-        if (t[key]) el.innerHTML = t[key];
+        currentSlide = index;
+        if (currentSlide >= slides.length) currentSlide = 0;
+        if (currentSlide < 0) currentSlide = slides.length - 1;
+
+        slides[currentSlide].classList.add("active");
+        dots[currentSlide].classList.add("active");
+
+        // Play video on new slide
+        const newVideo = slides[currentSlide].querySelector("video");
+        if (newVideo) newVideo.play();
+
+        updateCaption();
+        resetAutoplay();
+      }
+
+      function nextSlide() {
+        goToSlide(currentSlide + 1);
+      }
+      function prevSlide() {
+        goToSlide(currentSlide - 1);
+      }
+
+      function updateCaption() {
+        const caption = document.getElementById("carousel-caption");
+        const item = mediaItems[currentSlide];
+        caption.textContent = item.caption || item.title || "";
+      }
+
+      function startAutoplay() {
+        autoplayInterval = setInterval(nextSlide, 4000);
+      }
+
+      function resetAutoplay() {
+        clearInterval(autoplayInterval);
+        startAutoplay();
+      }
+
+      // Translations
+      const translations = {
+        en: {
+          "nav.features": "Features",
+          "nav.download": "Download",
+          "hero.title": "Your <span>Intervals.icu</span> data,<br>on mobile",
+          "hero.subtitle":
+            "Open-source mobile client for viewing your Intervals.icu activities, maps, and fitness charts. Not affiliated with Intervals.icu.",
+          "hero.demoHint": "No account? Try the built-in demo mode to explore.",
+          "showcase.disclaimer":
+            "* Screenshots show demo data for illustration purposes only.",
+          "cta.download": "Download",
+          "cta.viewSource": "View Source",
+          "features.title": "View your data",
+          "features.subtitle":
+            "Access your Intervals.icu data on mobile with offline support.",
+          "features.maps.title": "Maps",
+          "features.maps.desc":
+            "View your activities on interactive maps. See all your GPS data in one place with timeline filtering.",
+          "features.analysis.title": "Charts",
+          "features.analysis.desc":
+            "View heart rate, power, pace, elevation, and cadence charts from your Intervals.icu data.",
+          "features.routes.title": "Route Matching",
+          "features.routes.desc":
+            "Local route detection to find repeated efforts in your activity history. The only processing done on-device.",
+          "features.fitness.title": "Fitness",
+          "features.fitness.desc":
+            "View your CTL/ATL/TSB fitness data and form zones as calculated by Intervals.icu.",
+          "features.offline.title": "Offline Access",
+          "features.offline.desc":
+            "Data is cached locally for offline viewing. Sync once and access without internet.",
+          "features.privacy.title": "Privacy",
+          "features.privacy.desc":
+            "All data stays on your device. No analytics, no tracking, no servers. Open source.",
+          "getStarted.title": "Getting Started",
+          "getStarted.subtitle":
+            "Connect to your Intervals.icu account in three simple steps.",
+          "getStarted.step1.title": "Get API Key",
+          "getStarted.step1.desc":
+            'Go to <a href="https://intervals.icu/settings" target="_blank">Intervals.icu Settings</a> &rarr; Developer Settings',
+          "getStarted.step2.title": "Install Veloq",
+          "getStarted.step2.desc": "Download from GitHub Releases",
+          "getStarted.step3.title": "Connect",
+          "getStarted.step3.desc": "Enter your API key and start exploring",
+          "footer.releases": "Releases",
+          "footer.privacy": "Privacy Policy",
+          "footer.contact": "Contact",
+        },
+        de: {
+          "nav.features": "Funktionen",
+          "nav.download": "Herunterladen",
+          "hero.title":
+            "Deine <span>Intervals.icu</span> Daten,<br>auf dem Handy",
+          "hero.subtitle":
+            "Open-Source Mobile-Client zum Anzeigen deiner Intervals.icu Aktivitäten, Karten und Fitness-Diagramme. Nicht mit Intervals.icu verbunden.",
+          "hero.demoHint":
+            "Kein Konto? Probiere den eingebauten Demo-Modus aus.",
+          "showcase.disclaimer":
+            "* Screenshots zeigen Demodaten nur zur Veranschaulichung.",
+          "cta.download": "Herunterladen",
+          "cta.viewSource": "Quellcode",
+          "features.title": "Deine Daten anzeigen",
+          "features.subtitle":
+            "Greife mobil auf deine Intervals.icu Daten zu, auch offline.",
+          "features.maps.title": "Karten",
+          "features.maps.desc":
+            "Zeige deine Aktivitäten auf interaktiven Karten. Alle GPS-Daten an einem Ort.",
+          "features.analysis.title": "Diagramme",
+          "features.analysis.desc":
+            "Herzfrequenz, Leistung, Tempo, Höhe und Kadenz aus deinen Intervals.icu Daten.",
+          "features.routes.title": "Streckenabgleich",
+          "features.routes.desc":
+            "Lokale Streckenerkennung für wiederholte Anstrengungen. Verarbeitung nur auf dem Gerät.",
+          "features.fitness.title": "Fitness",
+          "features.fitness.desc":
+            "CTL/ATL/TSB Fitnessdaten und Formzonen wie von Intervals.icu berechnet.",
+          "features.offline.title": "Offline-Zugriff",
+          "features.offline.desc":
+            "Daten werden lokal gespeichert. Einmal synchronisieren, dann ohne Internet nutzen.",
+          "features.privacy.title": "Datenschutz",
+          "features.privacy.desc":
+            "Alle Daten bleiben auf deinem Gerät. Keine Analyse, kein Tracking, keine Server. Open Source.",
+          "getStarted.title": "Erste Schritte",
+          "getStarted.subtitle":
+            "Verbinde dein Intervals.icu Konto in drei einfachen Schritten.",
+          "getStarted.step1.title": "API-Schlüssel holen",
+          "getStarted.step1.desc":
+            'Gehe zu <a href="https://intervals.icu/settings" target="_blank">Intervals.icu Einstellungen</a> &rarr; Entwickler',
+          "getStarted.step2.title": "Veloq installieren",
+          "getStarted.step2.desc": "Von GitHub Releases herunterladen",
+          "getStarted.step3.title": "Verbinden",
+          "getStarted.step3.desc": "API-Schlüssel eingeben und loslegen",
+          "footer.releases": "Releases",
+          "footer.privacy": "Datenschutz",
+          "footer.contact": "Kontakt",
+        },
+        nl: {
+          "nav.features": "Functies",
+          "nav.download": "Downloaden",
+          "hero.title": "Je <span>Intervals.icu</span> data,<br>op mobiel",
+          "hero.subtitle":
+            "Open-source mobiele client voor het bekijken van je Intervals.icu activiteiten, kaarten en fitnessgrafieken. Niet gelieerd aan Intervals.icu.",
+          "hero.demoHint": "Geen account? Probeer de ingebouwde demo-modus.",
+          "showcase.disclaimer":
+            "* Screenshots tonen demogegevens, alleen ter illustratie.",
+          "cta.download": "Downloaden",
+          "cta.viewSource": "Bekijk broncode",
+          "features.title": "Bekijk je data",
+          "features.subtitle":
+            "Toegang tot je Intervals.icu data op mobiel met offline ondersteuning.",
+          "features.maps.title": "Kaarten",
+          "features.maps.desc":
+            "Bekijk je activiteiten op interactieve kaarten. Al je GPS-data op één plek.",
+          "features.analysis.title": "Grafieken",
+          "features.analysis.desc":
+            "Hartslag, vermogen, tempo, hoogte en cadans uit je Intervals.icu data.",
+          "features.routes.title": "Route Matching",
+          "features.routes.desc":
+            "Lokale routedetectie voor herhaalde inspanningen. Alleen verwerking op het apparaat.",
+          "features.fitness.title": "Fitness",
+          "features.fitness.desc":
+            "CTL/ATL/TSB fitnessdata en vormzones zoals berekend door Intervals.icu.",
+          "features.offline.title": "Offline toegang",
+          "features.offline.desc":
+            "Data wordt lokaal opgeslagen. Eenmaal synchroniseren, altijd toegang.",
+          "features.privacy.title": "Privacy",
+          "features.privacy.desc":
+            "Alle data blijft op je apparaat. Geen analytics, geen tracking, geen servers. Open source.",
+          "getStarted.title": "Aan de slag",
+          "getStarted.subtitle":
+            "Verbind je Intervals.icu account in drie eenvoudige stappen.",
+          "getStarted.step1.title": "API-sleutel ophalen",
+          "getStarted.step1.desc":
+            'Ga naar <a href="https://intervals.icu/settings" target="_blank">Intervals.icu Instellingen</a> &rarr; Ontwikkelaar',
+          "getStarted.step2.title": "Veloq installeren",
+          "getStarted.step2.desc": "Download van GitHub Releases",
+          "getStarted.step3.title": "Verbinden",
+          "getStarted.step3.desc":
+            "Voer je API-sleutel in en begin met verkennen",
+          "footer.releases": "Releases",
+          "footer.privacy": "Privacybeleid",
+          "footer.contact": "Contact",
+        },
+        fr: {
+          "nav.features": "Fonctionnalités",
+          "nav.download": "Télécharger",
+          "hero.title": "Vos données <span>Intervals.icu</span>,<br>sur mobile",
+          "hero.subtitle":
+            "Client mobile open-source pour visualiser vos activités, cartes et graphiques Intervals.icu. Non affilié à Intervals.icu.",
+          "hero.demoHint":
+            "Pas de compte ? Essayez le mode démo pour explorer.",
+          "showcase.disclaimer":
+            "* Les captures d'écran montrent des données de démonstration à titre indicatif uniquement.",
+          "cta.download": "Télécharger",
+          "cta.viewSource": "Voir le code",
+          "features.title": "Voir vos données",
+          "features.subtitle":
+            "Accédez à vos données Intervals.icu sur mobile avec support hors ligne.",
+          "features.maps.title": "Cartes",
+          "features.maps.desc":
+            "Visualisez vos activités sur des cartes interactives. Toutes vos données GPS en un seul endroit.",
+          "features.analysis.title": "Graphiques",
+          "features.analysis.desc":
+            "Visualisez les graphiques de fréquence cardiaque, puissance, allure et cadence de vos données Intervals.icu.",
+          "features.routes.title": "Itinéraires",
+          "features.routes.desc":
+            "Détection locale d'itinéraires pour trouver les efforts répétés. Le seul traitement effectué sur l'appareil.",
+          "features.fitness.title": "Forme",
+          "features.fitness.desc":
+            "Visualisez vos données de forme CTL/ATL/TSB et zones calculées par Intervals.icu.",
+          "features.offline.title": "Accès Hors Ligne",
+          "features.offline.desc":
+            "Les données sont mises en cache localement pour consultation hors ligne.",
+          "features.privacy.title": "Confidentialité",
+          "features.privacy.desc":
+            "Toutes les données restent sur votre appareil. Pas d'analytique, pas de suivi, pas de serveurs. Open source.",
+          "getStarted.title": "Premiers pas",
+          "getStarted.subtitle":
+            "Connectez votre compte Intervals.icu en trois étapes simples.",
+          "getStarted.step1.title": "Obtenir la clé API",
+          "getStarted.step1.desc":
+            'Allez dans <a href="https://intervals.icu/settings" target="_blank">Paramètres</a> &rarr; Développeur',
+          "getStarted.step2.title": "Installer Veloq",
+          "getStarted.step2.desc": "Téléchargez depuis GitHub Releases",
+          "getStarted.step3.title": "Connecter",
+          "getStarted.step3.desc":
+            "Entrez votre clé API et commencez à explorer",
+          "footer.releases": "Versions",
+          "footer.privacy": "Confidentialité",
+          "footer.contact": "Contact",
+        },
+        it: {
+          "nav.features": "Funzionalità",
+          "nav.download": "Scarica",
+          "hero.title": "I tuoi dati <span>Intervals.icu</span>,<br>su mobile",
+          "hero.subtitle":
+            "Client mobile open-source per visualizzare attività, mappe e grafici di Intervals.icu. Non affiliato con Intervals.icu.",
+          "hero.demoHint":
+            "Nessun account? Prova la modalità demo per esplorare.",
+          "showcase.disclaimer":
+            "* Gli screenshot mostrano dati demo solo a scopo illustrativo.",
+          "cta.download": "Scarica",
+          "cta.viewSource": "Codice sorgente",
+          "features.title": "Visualizza i tuoi dati",
+          "features.subtitle":
+            "Accedi ai tuoi dati Intervals.icu su mobile con supporto offline.",
+          "features.maps.title": "Mappe",
+          "features.maps.desc":
+            "Visualizza le tue attività su mappe interattive. Tutti i tuoi dati GPS in un unico posto.",
+          "features.analysis.title": "Grafici",
+          "features.analysis.desc":
+            "Frequenza cardiaca, potenza, ritmo, dislivello e cadenza dai tuoi dati Intervals.icu.",
+          "features.routes.title": "Percorsi",
+          "features.routes.desc":
+            "Rilevamento locale dei percorsi per trovare sforzi ripetuti. Elaborazione solo sul dispositivo.",
+          "features.fitness.title": "Fitness",
+          "features.fitness.desc":
+            "Dati fitness CTL/ATL/TSB e zone di forma come calcolati da Intervals.icu.",
+          "features.offline.title": "Accesso Offline",
+          "features.offline.desc":
+            "I dati vengono memorizzati localmente. Sincronizza una volta, accedi sempre.",
+          "features.privacy.title": "Privacy",
+          "features.privacy.desc":
+            "Tutti i dati rimangono sul tuo dispositivo. Nessuna analisi, nessun tracciamento, nessun server. Open source.",
+          "getStarted.title": "Per iniziare",
+          "getStarted.subtitle":
+            "Collega il tuo account Intervals.icu in tre semplici passaggi.",
+          "getStarted.step1.title": "Ottieni chiave API",
+          "getStarted.step1.desc":
+            'Vai su <a href="https://intervals.icu/settings" target="_blank">Impostazioni Intervals.icu</a> &rarr; Sviluppatore',
+          "getStarted.step2.title": "Installa Veloq",
+          "getStarted.step2.desc": "Scarica da GitHub Releases",
+          "getStarted.step3.title": "Connetti",
+          "getStarted.step3.desc":
+            "Inserisci la tua chiave API e inizia a esplorare",
+          "footer.releases": "Versioni",
+          "footer.privacy": "Privacy",
+          "footer.contact": "Contatto",
+        },
+        es: {
+          "nav.features": "Funciones",
+          "nav.download": "Descargar",
+          "hero.title": "Tus datos de <span>Intervals.icu</span>,<br>en móvil",
+          "hero.subtitle":
+            "Cliente móvil de código abierto para ver tus actividades, mapas y gráficos de Intervals.icu. No afiliado con Intervals.icu.",
+          "hero.demoHint": "¿Sin cuenta? Prueba el modo demo para explorar.",
+          "showcase.disclaimer":
+            "* Las capturas muestran datos de demostración solo con fines ilustrativos.",
+          "cta.download": "Descargar",
+          "cta.viewSource": "Ver código",
+          "features.title": "Ver tus datos",
+          "features.subtitle":
+            "Accede a tus datos de Intervals.icu en móvil con soporte offline.",
+          "features.maps.title": "Mapas",
+          "features.maps.desc":
+            "Ve tus actividades en mapas interactivos. Todos tus datos GPS en un solo lugar.",
+          "features.analysis.title": "Gráficos",
+          "features.analysis.desc":
+            "Ve gráficos de frecuencia cardíaca, potencia, ritmo, elevación y cadencia de tus datos de Intervals.icu.",
+          "features.routes.title": "Rutas",
+          "features.routes.desc":
+            "Detección local de rutas para encontrar esfuerzos repetidos. El único procesamiento en el dispositivo.",
+          "features.fitness.title": "Fitness",
+          "features.fitness.desc":
+            "Ve tus datos de fitness CTL/ATL/TSB y zonas de forma calculados por Intervals.icu.",
+          "features.offline.title": "Acceso Offline",
+          "features.offline.desc":
+            "Los datos se almacenan localmente para ver sin conexión.",
+          "features.privacy.title": "Privacidad",
+          "features.privacy.desc":
+            "Todos los datos permanecen en tu dispositivo. Sin análisis, sin seguimiento, sin servidores. Código abierto.",
+          "getStarted.title": "Primeros pasos",
+          "getStarted.subtitle":
+            "Conecta tu cuenta de Intervals.icu en tres simples pasos.",
+          "getStarted.step1.title": "Obtener clave API",
+          "getStarted.step1.desc":
+            'Ve a <a href="https://intervals.icu/settings" target="_blank">Configuración</a> &rarr; Desarrollador',
+          "getStarted.step2.title": "Instalar Veloq",
+          "getStarted.step2.desc": "Descarga desde GitHub Releases",
+          "getStarted.step3.title": "Conectar",
+          "getStarted.step3.desc": "Ingresa tu clave API y comienza a explorar",
+          "footer.releases": "Versiones",
+          "footer.privacy": "Privacidad",
+          "footer.contact": "Contacto",
+        },
+        pt: {
+          "nav.features": "Recursos",
+          "nav.download": "Baixar",
+          "hero.title":
+            "Seus dados do <span>Intervals.icu</span>,<br>no celular",
+          "hero.subtitle":
+            "Cliente móvel de código aberto para visualizar suas atividades, mapas e gráficos do Intervals.icu. Não afiliado ao Intervals.icu.",
+          "hero.demoHint": "Sem conta? Experimente o modo demo para explorar.",
+          "showcase.disclaimer":
+            "* As capturas mostram dados de demonstração apenas para fins ilustrativos.",
+          "cta.download": "Baixar",
+          "cta.viewSource": "Ver código",
+          "features.title": "Veja seus dados",
+          "features.subtitle":
+            "Acesse seus dados do Intervals.icu no celular com suporte offline.",
+          "features.maps.title": "Mapas",
+          "features.maps.desc":
+            "Veja suas atividades em mapas interativos. Todos os seus dados GPS em um só lugar.",
+          "features.analysis.title": "Gráficos",
+          "features.analysis.desc":
+            "Frequência cardíaca, potência, ritmo, elevação e cadência dos seus dados do Intervals.icu.",
+          "features.routes.title": "Rotas",
+          "features.routes.desc":
+            "Detecção local de rotas para encontrar esforços repetidos. Processamento apenas no dispositivo.",
+          "features.fitness.title": "Fitness",
+          "features.fitness.desc":
+            "Dados de fitness CTL/ATL/TSB e zonas de forma calculados pelo Intervals.icu.",
+          "features.offline.title": "Acesso Offline",
+          "features.offline.desc":
+            "Os dados são armazenados localmente. Sincronize uma vez, acesse sempre.",
+          "features.privacy.title": "Privacidade",
+          "features.privacy.desc":
+            "Todos os dados ficam no seu dispositivo. Sem análise, sem rastreamento, sem servidores. Código aberto.",
+          "getStarted.title": "Primeiros passos",
+          "getStarted.subtitle":
+            "Conecte sua conta Intervals.icu em três passos simples.",
+          "getStarted.step1.title": "Obter chave API",
+          "getStarted.step1.desc":
+            'Vá para <a href="https://intervals.icu/settings" target="_blank">Configurações</a> &rarr; Desenvolvedor',
+          "getStarted.step2.title": "Instalar Veloq",
+          "getStarted.step2.desc": "Baixe do GitHub Releases",
+          "getStarted.step3.title": "Conectar",
+          "getStarted.step3.desc": "Digite sua chave API e comece a explorar",
+          "footer.releases": "Versões",
+          "footer.privacy": "Privacidade",
+          "footer.contact": "Contato",
+        },
+        pl: {
+          "nav.features": "Funkcje",
+          "nav.download": "Pobierz",
+          "hero.title":
+            "Twoje dane <span>Intervals.icu</span>,<br>na telefonie",
+          "hero.subtitle":
+            "Open-source mobilny klient do przeglądania aktywności, map i wykresów Intervals.icu. Niezwiązany z Intervals.icu.",
+          "hero.demoHint": "Nie masz konta? Wypróbuj tryb demo.",
+          "showcase.disclaimer":
+            "* Zrzuty ekranu pokazują dane demo wyłącznie w celach ilustracyjnych.",
+          "cta.download": "Pobierz",
+          "cta.viewSource": "Kod źródłowy",
+          "features.title": "Zobacz swoje dane",
+          "features.subtitle":
+            "Uzyskaj dostęp do danych Intervals.icu na telefonie z obsługą offline.",
+          "features.maps.title": "Mapy",
+          "features.maps.desc":
+            "Przeglądaj aktywności na interaktywnych mapach. Wszystkie dane GPS w jednym miejscu.",
+          "features.analysis.title": "Wykresy",
+          "features.analysis.desc":
+            "Tętno, moc, tempo, przewyższenie i kadencja z danych Intervals.icu.",
+          "features.routes.title": "Trasy",
+          "features.routes.desc":
+            "Lokalne wykrywanie tras dla powtarzanych wysiłków. Przetwarzanie tylko na urządzeniu.",
+          "features.fitness.title": "Forma",
+          "features.fitness.desc":
+            "Dane CTL/ATL/TSB i strefy formy obliczone przez Intervals.icu.",
+          "features.offline.title": "Dostęp Offline",
+          "features.offline.desc":
+            "Dane są przechowywane lokalnie. Synchronizuj raz, korzystaj zawsze.",
+          "features.privacy.title": "Prywatność",
+          "features.privacy.desc":
+            "Wszystkie dane pozostają na urządzeniu. Bez analityki, śledzenia, serwerów. Open source.",
+          "getStarted.title": "Jak zacząć",
+          "getStarted.subtitle":
+            "Połącz swoje konto Intervals.icu w trzech prostych krokach.",
+          "getStarted.step1.title": "Pobierz klucz API",
+          "getStarted.step1.desc":
+            'Przejdź do <a href="https://intervals.icu/settings" target="_blank">Ustawień</a> &rarr; Deweloper',
+          "getStarted.step2.title": "Zainstaluj Veloq",
+          "getStarted.step2.desc": "Pobierz z GitHub Releases",
+          "getStarted.step3.title": "Połącz",
+          "getStarted.step3.desc": "Wprowadź klucz API i zacznij eksplorować",
+          "footer.releases": "Wydania",
+          "footer.privacy": "Prywatność",
+          "footer.contact": "Kontakt",
+        },
+        da: {
+          "nav.features": "Funktioner",
+          "nav.download": "Download",
+          "hero.title": "Dine <span>Intervals.icu</span> data,<br>på mobil",
+          "hero.subtitle":
+            "Open source mobilklient til at se dine Intervals.icu aktiviteter, kort og fitnessgrafer. Ikke tilknyttet Intervals.icu.",
+          "hero.demoHint": "Ingen konto? Prøv den indbyggede demo-tilstand.",
+          "showcase.disclaimer":
+            "* Screenshots viser demodata kun til illustrationsformål.",
+          "cta.download": "Download",
+          "cta.viewSource": "Se kildekode",
+          "features.title": "Se dine data",
+          "features.subtitle":
+            "Få adgang til dine Intervals.icu data på mobil med offline-understøttelse.",
+          "features.maps.title": "Kort",
+          "features.maps.desc":
+            "Se dine aktiviteter på interaktive kort. Alle dine GPS-data samlet ét sted.",
+          "features.analysis.title": "Grafer",
+          "features.analysis.desc":
+            "Puls, kraft, tempo, højde og kadence fra dine Intervals.icu data.",
+          "features.routes.title": "Ruter",
+          "features.routes.desc":
+            "Lokal rutegenkendelse for gentagne indsatser. Kun behandling på enheden.",
+          "features.fitness.title": "Fitness",
+          "features.fitness.desc":
+            "CTL/ATL/TSB fitnessdata og formzoner beregnet af Intervals.icu.",
+          "features.offline.title": "Offline adgang",
+          "features.offline.desc":
+            "Data gemmes lokalt. Synkroniser én gang, få adgang altid.",
+          "features.privacy.title": "Privatliv",
+          "features.privacy.desc":
+            "Alle data forbliver på din enhed. Ingen analyse, ingen sporing, ingen servere. Open source.",
+          "getStarted.title": "Kom i gang",
+          "getStarted.subtitle":
+            "Forbind din Intervals.icu konto i tre enkle trin.",
+          "getStarted.step1.title": "Hent API-nøgle",
+          "getStarted.step1.desc":
+            'Gå til <a href="https://intervals.icu/settings" target="_blank">Indstillinger</a> &rarr; Udvikler',
+          "getStarted.step2.title": "Installer Veloq",
+          "getStarted.step2.desc": "Download fra GitHub Releases",
+          "getStarted.step3.title": "Forbind",
+          "getStarted.step3.desc":
+            "Indtast din API-nøgle og begynd at udforske",
+          "footer.releases": "Udgivelser",
+          "footer.privacy": "Privatlivspolitik",
+          "footer.contact": "Kontakt",
+        },
+        ja: {
+          "nav.features": "機能",
+          "nav.download": "ダウンロード",
+          "hero.title": "<span>Intervals.icu</span>のデータを<br>モバイルで",
+          "hero.subtitle":
+            "Intervals.icuのアクティビティ、マップ、フィットネスチャートを表示するオープンソースのモバイルクライアント。Intervals.icuとは提携していません。",
+          "hero.demoHint": "アカウントがない？デモモードをお試しください。",
+          "showcase.disclaimer":
+            "* スクリーンショットはデモデータを表示しています。",
+          "cta.download": "ダウンロード",
+          "cta.viewSource": "ソースを見る",
+          "features.title": "データを表示",
+          "features.subtitle":
+            "モバイルでIntervals.icuデータにオフラインでアクセス。",
+          "features.maps.title": "マップ",
+          "features.maps.desc":
+            "インタラクティブマップでアクティビティを表示。すべてのGPSデータを一か所に。",
+          "features.analysis.title": "チャート",
+          "features.analysis.desc":
+            "Intervals.icuデータから心拍数、パワー、ペース、標高、ケイデンスを表示。",
+          "features.routes.title": "ルートマッチング",
+          "features.routes.desc":
+            "繰り返しの努力を見つけるローカルルート検出。デバイス上でのみ処理。",
+          "features.fitness.title": "フィットネス",
+          "features.fitness.desc":
+            "Intervals.icuが計算したCTL/ATL/TSBフィットネスデータとフォームゾーン。",
+          "features.offline.title": "オフラインアクセス",
+          "features.offline.desc":
+            "データはローカルにキャッシュ。一度同期すれば、いつでもアクセス可能。",
+          "features.privacy.title": "プライバシー",
+          "features.privacy.desc":
+            "すべてのデータはデバイスに保存。分析なし、追跡なし、サーバーなし。オープンソース。",
+          "getStarted.title": "始め方",
+          "getStarted.subtitle":
+            "3つの簡単なステップでIntervals.icuアカウントを接続。",
+          "getStarted.step1.title": "APIキーを取得",
+          "getStarted.step1.desc":
+            '<a href="https://intervals.icu/settings" target="_blank">設定</a> → 開発者設定へ',
+          "getStarted.step2.title": "Veloqをインストール",
+          "getStarted.step2.desc": "GitHub Releasesからダウンロード",
+          "getStarted.step3.title": "接続",
+          "getStarted.step3.desc": "APIキーを入力して探索を開始",
+          "footer.releases": "リリース",
+          "footer.privacy": "プライバシーポリシー",
+          "footer.contact": "お問い合わせ",
+        },
+        zh: {
+          "nav.features": "功能",
+          "nav.download": "下载",
+          "hero.title": "您的<span>Intervals.icu</span>数据，<br>在手机上",
+          "hero.subtitle":
+            "开源移动客户端，用于查看您的Intervals.icu活动、地图和健身图表。与Intervals.icu无关联。",
+          "hero.demoHint": "没有账户？试试内置演示模式。",
+          "showcase.disclaimer": "* 截图仅显示演示数据，用于说明目的。",
+          "cta.download": "下载",
+          "cta.viewSource": "查看源码",
+          "features.title": "查看您的数据",
+          "features.subtitle":
+            "在手机上访问您的Intervals.icu数据，支持离线使用。",
+          "features.maps.title": "地图",
+          "features.maps.desc":
+            "在交互式地图上查看您的活动。所有GPS数据集中在一处。",
+          "features.analysis.title": "图表",
+          "features.analysis.desc":
+            "从Intervals.icu数据查看心率、功率、配速、海拔和踏频图表。",
+          "features.routes.title": "路线匹配",
+          "features.routes.desc":
+            "本地路线检测，查找重复努力。仅在设备上处理。",
+          "features.fitness.title": "健身",
+          "features.fitness.desc":
+            "Intervals.icu计算的CTL/ATL/TSB健身数据和状态区间。",
+          "features.offline.title": "离线访问",
+          "features.offline.desc": "数据本地缓存。同步一次，随时访问。",
+          "features.privacy.title": "隐私",
+          "features.privacy.desc":
+            "所有数据保留在您的设备上。无分析、无跟踪、无服务器。开源。",
+          "getStarted.title": "开始使用",
+          "getStarted.subtitle": "三个简单步骤连接您的Intervals.icu账户。",
+          "getStarted.step1.title": "获取API密钥",
+          "getStarted.step1.desc":
+            '前往<a href="https://intervals.icu/settings" target="_blank">设置</a> → 开发者设置',
+          "getStarted.step2.title": "安装Veloq",
+          "getStarted.step2.desc": "从GitHub Releases下载",
+          "getStarted.step3.title": "连接",
+          "getStarted.step3.desc": "输入您的API密钥并开始探索",
+          "footer.releases": "版本发布",
+          "footer.privacy": "隐私政策",
+          "footer.contact": "联系我们",
+        },
+      };
+
+      const langNames = {
+        en: "EN",
+        de: "DE",
+        nl: "NL",
+        fr: "FR",
+        it: "IT",
+        es: "ES",
+        pt: "PT",
+        pl: "PL",
+        da: "DA",
+        ja: "JA",
+        zh: "中文",
+      };
+
+      function getInitialLanguage() {
+        const stored = localStorage.getItem("veloq-lang");
+        if (stored && translations[stored]) return stored;
+        const browserLang = navigator.language.split("-")[0];
+        if (translations[browserLang]) return browserLang;
+        return "en";
+      }
+
+      let currentLang = getInitialLanguage();
+
+      function applyTranslations(lang) {
+        const t = translations[lang];
+        document.querySelectorAll("[data-i18n]").forEach((el) => {
+          const key = el.getAttribute("data-i18n");
+          if (t[key]) el.innerHTML = t[key];
+        });
+        document.getElementById("current-lang").textContent = langNames[lang];
+        document.getElementById("html-root").setAttribute("lang", lang);
+        document.querySelectorAll(".lang-option").forEach((btn) => {
+          btn.classList.toggle(
+            "active",
+            btn.getAttribute("data-lang") === lang,
+          );
+        });
+      }
+
+      function setLanguage(lang) {
+        currentLang = lang;
+        localStorage.setItem("veloq-lang", lang);
+        applyTranslations(lang);
+        document.getElementById("lang-dropdown").classList.remove("open");
+      }
+
+      // Initialize
+      document.addEventListener("DOMContentLoaded", () => {
+        initCarousel();
+        applyTranslations(currentLang);
+
+        document.getElementById("lang-btn").addEventListener("click", (e) => {
+          e.stopPropagation();
+          document.getElementById("lang-dropdown").classList.toggle("open");
+        });
+
+        document.querySelectorAll(".lang-option").forEach((btn) => {
+          btn.addEventListener("click", () =>
+            setLanguage(btn.getAttribute("data-lang")),
+          );
+        });
+
+        document.addEventListener("click", () => {
+          document.getElementById("lang-dropdown").classList.remove("open");
+        });
+
+        // Keyboard navigation for carousel
+        document.addEventListener("keydown", (e) => {
+          if (e.key === "ArrowLeft") prevSlide();
+          if (e.key === "ArrowRight") nextSlide();
+        });
+
+        // Touch swipe for carousel
+        let touchStartX = 0;
+        const carousel = document.getElementById("carousel");
+        carousel.addEventListener("touchstart", (e) => {
+          touchStartX = e.touches[0].clientX;
+        });
+        carousel.addEventListener("touchend", (e) => {
+          const touchEndX = e.changedTouches[0].clientX;
+          const diff = touchStartX - touchEndX;
+          if (Math.abs(diff) > 50) {
+            if (diff > 0) nextSlide();
+            else prevSlide();
+          }
+        });
       });
-      document.getElementById('current-lang').textContent = langNames[lang];
-      document.getElementById('html-root').setAttribute('lang', lang);
-      document.querySelectorAll('.lang-option').forEach(btn => {
-        btn.classList.toggle('active', btn.getAttribute('data-lang') === lang);
-      });
-    }
-
-    function setLanguage(lang) {
-      currentLang = lang;
-      localStorage.setItem('veloq-lang', lang);
-      applyTranslations(lang);
-      document.getElementById('lang-dropdown').classList.remove('open');
-    }
-
-    // Initialize
-    document.addEventListener('DOMContentLoaded', () => {
-      initCarousel();
-      applyTranslations(currentLang);
-
-      document.getElementById('lang-btn').addEventListener('click', (e) => {
-        e.stopPropagation();
-        document.getElementById('lang-dropdown').classList.toggle('open');
-      });
-
-      document.querySelectorAll('.lang-option').forEach(btn => {
-        btn.addEventListener('click', () => setLanguage(btn.getAttribute('data-lang')));
-      });
-
-      document.addEventListener('click', () => {
-        document.getElementById('lang-dropdown').classList.remove('open');
-      });
-
-      // Keyboard navigation for carousel
-      document.addEventListener('keydown', (e) => {
-        if (e.key === 'ArrowLeft') prevSlide();
-        if (e.key === 'ArrowRight') nextSlide();
-      });
-
-      // Touch swipe for carousel
-      let touchStartX = 0;
-      const carousel = document.getElementById('carousel');
-      carousel.addEventListener('touchstart', (e) => { touchStartX = e.touches[0].clientX; });
-      carousel.addEventListener('touchend', (e) => {
-        const touchEndX = e.changedTouches[0].clientX;
-        const diff = touchStartX - touchEndX;
-        if (Math.abs(diff) > 50) {
-          if (diff > 0) nextSlide();
-          else prevSlide();
-        }
-      });
-    });
-  </script>
-</body>
+    </script>
+  </body>
 </html>

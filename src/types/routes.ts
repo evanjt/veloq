@@ -9,10 +9,29 @@ import type { ActivityType } from './activity';
  * Keep in sync with ActivityType union.
  */
 const VALID_ACTIVITY_TYPES = new Set<string>([
-  'Ride', 'Run', 'Swim', 'Walk', 'Hike', 'VirtualRide', 'VirtualRun',
-  'Workout', 'WeightTraining', 'Yoga', 'Snowboard', 'AlpineSki',
-  'NordicSki', 'BackcountrySki', 'Rowing', 'Kayaking', 'Canoeing',
-  'OpenWaterSwim', 'TrailRun', 'Snowshoe', 'Tennis', 'RockClimbing', 'Other',
+  'Ride',
+  'Run',
+  'Swim',
+  'Walk',
+  'Hike',
+  'VirtualRide',
+  'VirtualRun',
+  'Workout',
+  'WeightTraining',
+  'Yoga',
+  'Snowboard',
+  'AlpineSki',
+  'NordicSki',
+  'BackcountrySki',
+  'Rowing',
+  'Kayaking',
+  'Canoeing',
+  'OpenWaterSwim',
+  'TrailRun',
+  'Snowshoe',
+  'Tennis',
+  'RockClimbing',
+  'Other',
 ]);
 
 /**
@@ -196,7 +215,15 @@ export interface DiscoveredRouteInfo {
 
 /** Progress state for route processing */
 export interface RouteProcessingProgress {
-  status: 'idle' | 'filtering' | 'fetching' | 'processing' | 'matching' | 'detecting-sections' | 'complete' | 'error';
+  status:
+    | 'idle'
+    | 'filtering'
+    | 'fetching'
+    | 'processing'
+    | 'matching'
+    | 'detecting-sections'
+    | 'complete'
+    | 'error';
   current: number;
   total: number;
   message?: string;
@@ -335,11 +362,11 @@ export interface SectionConfig {
 
 /** Default section detection configuration */
 export const DEFAULT_SECTION_CONFIG: SectionConfig = {
-  proximityThreshold: 50,  // 50m - handles GPS error + wide roads + opposite sides
+  proximityThreshold: 50, // 50m - handles GPS error + wide roads + opposite sides
   minSectionLength: 200,
   maxSectionLength: 5000,
   minActivities: 3,
-  clusterTolerance: 80,    // 80m for clustering similar overlaps
+  clusterTolerance: 80, // 80m for clustering similar overlaps
   samplePoints: 50,
 };
 
@@ -452,4 +479,41 @@ export interface UnifiedSection {
   engineData?: FrequentSection;
   /** For potential sections: the potential section data */
   potentialData?: PotentialSection;
+}
+
+/**
+ * Unified data point for performance charts.
+ * Used by both route and section detail pages for consistent chart rendering.
+ */
+export interface PerformanceDataPoint {
+  /** Unique ID for this data point */
+  id: string;
+  /** Activity ID this point belongs to */
+  activityId: string;
+  /** Speed in m/s */
+  speed: number;
+  /** Date of the activity */
+  date: Date;
+  /** Activity name */
+  activityName: string;
+  /** Direction (same/reverse) */
+  direction: 'same' | 'reverse';
+  /** Points for this lap/traversal (for map highlighting) */
+  lapPoints?: RoutePoint[];
+
+  // Route-specific fields
+  /** Match percentage (0-100) - routes only */
+  matchPercentage?: number;
+  /** Lap number (1 if single lap per activity) - routes only */
+  lapNumber?: number;
+  /** Total laps in this activity - routes only */
+  totalLaps?: number;
+
+  // Section-specific fields
+  /** Section time in seconds - sections only */
+  sectionTime?: number;
+  /** Section distance in meters - sections only */
+  sectionDistance?: number;
+  /** Number of laps/traversals - sections only */
+  lapCount?: number;
 }

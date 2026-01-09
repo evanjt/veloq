@@ -8,15 +8,18 @@
     "save": "Opslaan",
     "delete": "Verwijderen",
     "confirm": "Bevestigen",
+    "reset": "Resetten",
+    "create": "Aanmaken",
     "back": "Terug",
     "next": "Volgende",
     "done": "Klaar",
     "search": "Zoeken",
     "clearSearch": "Zoekopdracht wissen",
     "noResults": "Geen resultaten",
-    "pullToRefresh": "Trek om te vernieuwen"
+    "pullToRefresh": "Trek om te vernieuwen",
+    "activities": "activities",
+    "syncing": "Syncing..."
   },
-
   "navigation": {
     "feed": "Feed",
     "fitness": "Fitness",
@@ -29,7 +32,6 @@
     "settings": "Instellingen",
     "activities": "Activiteiten"
   },
-
   "feed": {
     "recentActivities": "Recente activiteiten",
     "activitiesCount": "{{count}} Activiteiten",
@@ -38,7 +40,6 @@
     "failedToLoad": "Activiteiten laden mislukt",
     "searchPlaceholder": "Activiteiten zoeken..."
   },
-
   "filters": {
     "showFilters": "Filters tonen",
     "hideFilters": "Filters verbergen",
@@ -53,7 +54,6 @@
     "racketSports": "Racketsport",
     "other": "Overig"
   },
-
   "metrics": {
     "hrv": "HRV",
     "rhr": "RHR",
@@ -66,7 +66,6 @@
     "fatigue": "Vermoeidheid",
     "hr": "HF"
   },
-
   "login": {
     "title": "Veloq",
     "subtitle": "Verbinden met Intervals.icu",
@@ -82,12 +81,10 @@
     "securityNote": "Je gegevens worden veilig op je apparaat opgeslagen",
     "tryDemo": "Demo proberen"
   },
-
   "demo": {
     "banner": "Demo-modus",
     "tapToSignIn": "Tik om in te loggen"
   },
-
   "settings": {
     "title": "Instellingen",
     "appearance": "Weergave",
@@ -141,9 +138,11 @@
     "languageGroups": {
       "european": "Europees",
       "asian": "Aziatisch"
-    }
+    },
+    "cached": "Cached",
+    "notCached": "Not cached",
+    "expandCache": "Load more"
   },
-
   "alerts": {
     "error": "Fout",
     "clearCacheTitle": "Cache wissen & herladen",
@@ -160,7 +159,6 @@
     "failedToClear": "Cache wissen mislukt. Probeer opnieuw.",
     "failedToDisconnect": "Loskoppelen mislukt. Probeer opnieuw."
   },
-
   "activity": {
     "viewDetails": "Details bekijken",
     "share": "Delen",
@@ -237,7 +235,6 @@
       "decoupling": "Ontkoppeling"
     }
   },
-
   "time": {
     "today": "Vandaag",
     "yesterday": "Gisteren",
@@ -248,7 +245,6 @@
     "current": "Huidig",
     "now": "Nu"
   },
-
   "units": {
     "km": "km",
     "mi": "mi",
@@ -264,7 +260,6 @@
     "minutes": "min",
     "seconds": "s"
   },
-
   "fitnessScreen": {
     "title": "Fitheid & Vorm",
     "loadingData": "Fitheidsgegevens laden...",
@@ -286,12 +281,10 @@
     "toPreventOvertraining": "om overtraining te voorkomen.",
     "learnMore": "Meer informatie"
   },
-
   "wellnessScreen": {
     "title": "Welzijn",
     "trends": "Welzijnstrends"
   },
-
   "trainingScreen": {
     "title": "Training",
     "routes": "Routes",
@@ -307,16 +300,16 @@
     "visualizeActivities": "{{count}} activiteiten visualiseren",
     "seeWhereYouTravel": "Bekijk waar je het meest reist"
   },
-
   "routesScreen": {
     "title": "Routes",
     "matchingDisabled": "Route-matching uitgeschakeld",
     "enableInSettings": "Schakel route-matching in via Instellingen om automatisch herhaalde routes uit je activiteiten te detecteren.",
     "goToSettings": "Naar Instellingen",
     "analysingRoutes": "Routes analyseren {{current}}/{{total}}",
-    "computingRoutes": "Routes berekenen..."
+    "computingRoutes": "Routes berekenen...",
+    "downloadingGps": "GPS downloaden",
+    "analyzingRoutes": "Routes analyseren"
   },
-
   "statsScreen": {
     "title": "Prestaties",
     "days42": "42 Dagen",
@@ -331,7 +324,6 @@
     "powerCurve": "Vermogenscurve",
     "garminNote": "Grafieken kunnen gegevens van Garmin-apparaten bevatten"
   },
-
   "heatmapScreen": {
     "title": "Heatmap",
     "noActivityData": "Geen activiteitsgegevens",
@@ -340,12 +332,10 @@
     "generatingHeatmap": "Heatmap genereren...",
     "activitiesCount": "{{count}} activiteiten"
   },
-
   "mapScreen": {
     "loadingActivities": "Activiteiten laden...",
     "syncing": "Synchroniseren: {{completed}}/{{total}}"
   },
-
   "routes": {
     "basedOnActivities": "Gebaseerd op {{count}} activiteiten",
     "routesFound": "{{count}} routes gevonden",
@@ -377,6 +367,7 @@
     "moreActivitiesProcessed": "+ {{count}} meer activiteiten verwerkt",
     "matchesLabel": "overeenkomsten",
     "checkedLabel": "gecontroleerd",
+    "visits": "bezoeken",
     "match": "overeenkomst",
     "more": "+{{count}} meer",
     "loadingSections": "Secties laden...",
@@ -397,9 +388,22 @@
     "bestOn": "Beste op",
     "same": "Zelfde",
     "fastest": "#{{rank}} snelste",
-    "routeNamePlaceholder": "Routenaam"
+    "routeNamePlaceholder": "Routenaam",
+    "autoDetected": "Automatisch gedetecteerd",
+    "suggestions": "Suggesties",
+    "custom": "Aangepast",
+    "suggestion": "Suggestie",
+    "scaleShort": "Kort",
+    "scaleMedium": "Gemiddeld",
+    "scaleLong": "Lang",
+    "potentialSectionDescription": "Je hebt dit {{sport}}-pad {{count}} keer afgelegd. Een sectie aanmaken om je prestaties te volgen?",
+    "createSection": "Sectie aanmaken",
+    "defaultRouteName": "{{type}} route",
+    "defaultActivityName": "Activiteit {{number}}",
+    "sectionCreated": "Sectie aangemaakt",
+    "sectionCreatedDescription": "Je aangepaste sectie is aangemaakt en activiteiten zijn gekoppeld",
+    "sectionCreationFailed": "Sectie aanmaken mislukt. Probeer het opnieuw."
   },
-
   "sections": {
     "performanceOverTime": "Prestaties door de tijd",
     "best": "Beste",
@@ -417,13 +421,11 @@
     "noActivitiesFound": "Geen activiteiten gevonden",
     "sectionNamePlaceholder": "Sectienaam"
   },
-
   "errorState": {
     "defaultTitle": "Er ging iets mis",
     "defaultMessage": "Gegevens laden mislukt. Probeer opnieuw.",
     "tryAgain": "Opnieuw proberen"
   },
-
   "emptyState": {
     "refresh": "Vernieuwen",
     "clearFilters": "Filters wissen",
@@ -452,24 +454,27 @@
       "description": "Sommige functies kunnen beperkt zijn"
     }
   },
-
   "cache": {
     "syncingActivities": "Activiteiten synchroniseren",
     "analyzingRoutes": "Routes analyseren"
   },
-
   "activityDetail": {
     "failedToLoad": "Activiteit laden mislukt",
     "avgPace": "Gem. tempo",
     "avgSpeed": "Gem. snelh.",
     "avgHR": "Gem. HF",
-    "avgPower": "Gem. vermogen"
+    "avgPower": "Gem. vermogen",
+    "tabs": {
+      "charts": "Grafieken",
+      "routes": "Routes",
+      "sections": "Secties"
+    },
+    "noMatchedSections": "Geen overeenkomende secties",
+    "noMatchedSectionsDescription": "Secties die overeenkomen met deze activiteit verschijnen hier"
   },
-
   "routeDetail": {
     "routeNotFound": "Route niet gevonden"
   },
-
   "attribution": {
     "recordedWith": "Opgenomen met {{device}}",
     "garminTrademark": "Garmin en het Garmin-logo zijn handelsmerken van Garmin Ltd.",
@@ -477,7 +482,6 @@
     "osm": "OpenStreetMap-bijdragers",
     "osmLicense": "Routegegevens gelicentieerd onder Open Database License (ODbL)"
   },
-
   "stats": {
     "activityCalendar": "Activiteitenkalender",
     "activitiesCount": "{{count}} activiteiten",
@@ -548,7 +552,6 @@
     "efficiency": "Efficiëntie",
     "decouplingExplanation": "Ontkoppeling meet hartdrift - hoeveel je hartslag stijgt ten opzichte van vermogensafgifte tijdens langdurige inspanningen. Lager is beter en duidt op efficiënte aerobe energieproductie."
   },
-
   "wellness": {
     "noData": "Geen welzijnsgegevens beschikbaar",
     "connectHint": "Verbind een wearable of log welzijnsgegevens in Intervals.icu",
@@ -563,9 +566,11 @@
     "noTrendData": "Geen trendgegevens beschikbaar",
     "trendHint": "HRV-, slaap- en rusthartslag-trends verschijnen hier wanneer gegevens worden gelogd",
     "dragToExplore": "Sleep om te verkennen",
-    "lastDays": "Laatste {{count}} dagen"
+    "lastDays": "Laatste {{count}} dagen",
+    "smoothingTitle": "Data smoothing",
+    "smoothingDescription": "Pas een voortschrijdend gemiddelde toe om dagelijkse ruis te verminderen en trends duidelijker te tonen.",
+    "smoothingHint": "Auto gebruikt optimale smoothing voor het geselecteerde tijdsbereik"
   },
-
   "fitness": {
     "noData": "Geen fitheidsgegevens beschikbaar",
     "formTSB": "Vorm (TSB)",
@@ -585,7 +590,6 @@
       "1y": "1 jaar"
     }
   },
-
   "formZones": {
     "transition": "Overgang",
     "fresh": "Fris",
@@ -593,7 +597,6 @@
     "optimal": "Optimaal",
     "highRisk": "Hoog risico"
   },
-
   "maps": {
     "closeMap": "Kaart sluiten",
     "toggleStyle": "Kaartstijl wisselen",
@@ -619,9 +622,13 @@
       "walk": "Wandel",
       "hike": "Wandeling",
       "other": "Overig"
-    }
+    },
+    "tapSelectStart": "Tik om startpunt te selecteren",
+    "tapSelectEnd": "Tik om eindpunt te selecteren",
+    "sectionSelected": "Sectie geselecteerd",
+    "startPercent": "Start: {{percent}}%",
+    "rangePercent": "{{start}}% - {{end}}%"
   },
-
   "heatmap": {
     "visitedTimes": "{{count}} keer bezocht",
     "uniqueRoutes": "{{count}} unieke routes",

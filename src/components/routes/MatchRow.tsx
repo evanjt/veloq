@@ -16,19 +16,23 @@ interface MatchRowProps {
   match: DiscoveredMatchInfo;
 }
 
-const RoutePreview = memo(function RoutePreview({ points }: { points: { x: number; y: number }[] }) {
+const RoutePreview = memo(function RoutePreview({
+  points,
+}: {
+  points: { x: number; y: number }[];
+}) {
   if (points.length < 2) return null;
 
   const width = 50;
   const height = 32;
   const padding = 3;
 
-  const scaledPoints = points.map(p => ({
+  const scaledPoints = points.map((p) => ({
     x: p.x * (width - padding * 2) + padding,
     y: p.y * (height - padding * 2) + padding,
   }));
 
-  const pointsString = scaledPoints.map(p => `${p.x},${p.y}`).join(' ');
+  const pointsString = scaledPoints.map((p) => `${p.x},${p.y}`).join(' ');
 
   return (
     <Svg width={width} height={height}>
@@ -70,11 +74,7 @@ function MatchRowComponent({ match }: MatchRowProps) {
         {match.previewPoints && match.previewPoints.length > 1 ? (
           <RoutePreview points={match.previewPoints} />
         ) : (
-          <MaterialCommunityIcons
-            name={getTypeIcon()}
-            size={18}
-            color={isDark ? '#555' : '#BBB'}
-          />
+          <MaterialCommunityIcons name={getTypeIcon()} size={18} color={isDark ? '#555' : '#BBB'} />
         )}
       </View>
 
@@ -108,11 +108,7 @@ function MatchRowComponent({ match }: MatchRowProps) {
 
       {/* Check icon */}
       <View style={styles.checkIcon}>
-        <MaterialCommunityIcons
-          name="check-circle"
-          size={18}
-          color={colors.success}
-        />
+        <MaterialCommunityIcons name="check-circle" size={18} color={colors.success} />
       </View>
     </View>
   );

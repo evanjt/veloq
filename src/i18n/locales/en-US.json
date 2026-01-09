@@ -15,9 +15,10 @@
     "clearSearch": "Clear search",
     "noResults": "No results",
     "pullToRefresh": "Pull to refresh",
-    "or": "or"
+    "or": "or",
+    "activities": "activities",
+    "syncing": "Syncing..."
   },
-
   "navigation": {
     "feed": "Feed",
     "fitness": "Fitness",
@@ -30,7 +31,6 @@
     "settings": "Settings",
     "activities": "Activities"
   },
-
   "feed": {
     "recentActivities": "Recent Activities",
     "activitiesCount": "{{count}} Activities",
@@ -39,7 +39,6 @@
     "failedToLoad": "Failed to load activities",
     "searchPlaceholder": "Search activities..."
   },
-
   "filters": {
     "showFilters": "Show filters",
     "hideFilters": "Hide filters",
@@ -54,7 +53,6 @@
     "racketSports": "Racket Sports",
     "other": "Other"
   },
-
   "metrics": {
     "hrv": "HRV",
     "rhr": "RHR",
@@ -67,7 +65,6 @@
     "fatigue": "Fatigue",
     "hr": "HR"
   },
-
   "login": {
     "title": "Veloq",
     "subtitle": "Connect to Intervals.icu",
@@ -99,12 +96,10 @@
     "localModeNote": "Local mode: All data stays on your device",
     "connectedModeNote": "Enables push notifications for new activities"
   },
-
   "demo": {
     "banner": "Demo Mode",
     "tapToSignIn": "Tap to sign in"
   },
-
   "about": {
     "title": "About & Legal",
     "version": "Version",
@@ -122,7 +117,6 @@
     "mapData": "Map Data",
     "mapAttribution": "Map tiles provided by OpenStreetMap, Carto, and Stadia Maps. Map data copyright OpenStreetMap contributors."
   },
-
   "settings": {
     "title": "Settings",
     "appearance": "Appearance",
@@ -178,7 +172,6 @@
       "asian": "Asian"
     }
   },
-
   "alerts": {
     "error": "Error",
     "clearCacheTitle": "Clear & Reload Cache",
@@ -195,7 +188,6 @@
     "failedToClear": "Failed to clear cache. Please try again.",
     "failedToDisconnect": "Failed to disconnect. Please try again."
   },
-
   "activity": {
     "viewDetails": "View Details",
     "share": "Share",
@@ -272,7 +264,6 @@
       "decoupling": "Decoupling"
     }
   },
-
   "time": {
     "today": "Today",
     "yesterday": "Yesterday",
@@ -283,7 +274,6 @@
     "current": "Current",
     "now": "Now"
   },
-
   "units": {
     "km": "km",
     "mi": "mi",
@@ -299,7 +289,6 @@
     "minutes": "min",
     "seconds": "s"
   },
-
   "fitnessScreen": {
     "title": "Fitness & Form",
     "loadingData": "Loading fitness data...",
@@ -321,12 +310,10 @@
     "toPreventOvertraining": "to prevent overtraining.",
     "learnMore": "Learn more"
   },
-
   "wellnessScreen": {
     "title": "Wellness",
     "trends": "Wellness Trends"
   },
-
   "trainingScreen": {
     "title": "Training",
     "routes": "Routes",
@@ -342,7 +329,6 @@
     "visualizeActivities": "Visualize {{count}} activities",
     "seeWhereYouTravel": "See where you travel most"
   },
-
   "routesScreen": {
     "title": "Routes",
     "matchingDisabled": "Route Matching Disabled",
@@ -351,7 +337,6 @@
     "analysingRoutes": "Analyzing routes {{current}}/{{total}}",
     "computingRoutes": "Computing routes..."
   },
-
   "statsScreen": {
     "title": "Performance",
     "days42": "42 Days",
@@ -366,7 +351,6 @@
     "powerCurve": "Power Curve",
     "garminNote": "Charts may include data from Garmin devices"
   },
-
   "stats": {
     "activityCalendar": "Activity Calendar",
     "activitiesCount": "{{count}} activities",
@@ -437,7 +421,6 @@
     "efficiency": "Efficiency",
     "decouplingExplanation": "Decoupling measures cardiac drift - how much your heart rate rises relative to power output during sustained efforts. Lower is better, indicating efficient aerobic energy production."
   },
-
   "heatmapScreen": {
     "title": "Heatmap",
     "noActivityData": "No Activity Data",
@@ -446,12 +429,10 @@
     "generatingHeatmap": "Generating heatmap...",
     "activitiesCount": "{{count}} activities"
   },
-
   "mapScreen": {
     "loadingActivities": "Loading activities...",
     "syncing": "Syncing: {{completed}}/{{total}}"
   },
-
   "routes": {
     "basedOnActivities": "Based on {{count}} activities",
     "routesFound": "{{count}} routes found",
@@ -505,7 +486,6 @@
     "fastest": "#{{rank}} fastest",
     "routeNamePlaceholder": "Route name"
   },
-
   "sections": {
     "performanceOverTime": "Performance Over Time",
     "best": "Best",
@@ -523,13 +503,11 @@
     "noActivitiesFound": "No activities found",
     "sectionNamePlaceholder": "Section name"
   },
-
   "errorState": {
     "defaultTitle": "Something went wrong",
     "defaultMessage": "Failed to load data. Please try again.",
     "tryAgain": "Try Again"
   },
-
   "emptyState": {
     "refresh": "Refresh",
     "clearFilters": "Clear filters",
@@ -558,12 +536,10 @@
       "description": "Some features may be limited"
     }
   },
-
   "cache": {
     "syncingActivities": "Syncing activities",
     "analyzingRoutes": "Analyzing routes"
   },
-
   "activityDetail": {
     "failedToLoad": "Failed to load activity",
     "avgPace": "Avg Pace",
@@ -571,11 +547,9 @@
     "avgHR": "Avg HR",
     "avgPower": "Avg Power"
   },
-
   "routeDetail": {
     "routeNotFound": "Route not found"
   },
-
   "attribution": {
     "recordedWith": "Recorded with {{device}}",
     "garminTrademark": "Garmin and the Garmin logo are trademarks of Garmin Ltd.",
@@ -583,7 +557,6 @@
     "osm": "OpenStreetMap contributors",
     "osmLicense": "Route data licensed under Open Database License (ODbL)"
   },
-
   "wellness": {
     "noData": "No wellness data available",
     "connectHint": "Connect a wearable or log wellness data in Intervals.icu",
@@ -600,7 +573,6 @@
     "dragToExplore": "Drag to explore",
     "lastDays": "Last {{count}} days"
   },
-
   "fitness": {
     "noData": "No fitness data available",
     "formTSB": "Form (TSB)",
@@ -620,7 +592,6 @@
       "1y": "1 year"
     }
   },
-
   "formZones": {
     "transition": "Transition",
     "fresh": "Fresh",
@@ -628,7 +599,6 @@
     "optimal": "Optimal",
     "highRisk": "High Risk"
   },
-
   "maps": {
     "closeMap": "Close map",
     "toggleStyle": "Toggle map style",
@@ -656,7 +626,6 @@
       "other": "Other"
     }
   },
-
   "heatmap": {
     "visitedTimes": "Visited {{count}} times",
     "uniqueRoutes": "{{count}} unique routes",

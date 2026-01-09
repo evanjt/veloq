@@ -43,11 +43,7 @@ function getStatusIcon(
   }
 }
 
-export function ProcessingBanner({
-  progress,
-  onCancel,
-  compact = false,
-}: ProcessingBannerProps) {
+export function ProcessingBanner({ progress, onCancel, compact = false }: ProcessingBannerProps) {
   const { t } = useTranslation();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
@@ -57,30 +53,22 @@ export function ProcessingBanner({
 
     switch (prog.status) {
       case 'idle':
-        return t('routes.readyToProcess');
-      case 'filtering':
-        return prog.candidatesFound !== undefined
-          ? t('routes.foundPotentialMatches', { count: prog.candidatesFound })
-          : t('routes.checkingActivities', { count: prog.total });
-      case 'fetching':
-        return t('routes.fetchingGpsData');
+        return t('routes.readyToProcess') as string;
       case 'processing':
-        return t('routes.analysingActivities', { current: prog.current, total: prog.total });
-      case 'matching':
-        return t('routes.groupingRoutes');
+        return t('routes.analysingActivities' as never, {
+          current: prog.current,
+          total: prog.total,
+        }) as string;
       case 'complete':
-        return t('routes.analysisComplete');
+        return t('routes.analysisComplete' as never) as string;
       case 'error':
-        return t('routes.errorOccurred');
+        return t('routes.errorOccurred' as never) as string;
+      default:
+        return '';
     }
   };
 
-  const isActive =
-    progress.status === 'filtering' ||
-    progress.status === 'fetching' ||
-    progress.status === 'processing' ||
-    progress.status === 'matching' ||
-    progress.status === 'detecting-sections';
+  const isActive = progress.status === 'processing';
 
   const progressValue = progress.total > 0 ? progress.current / progress.total : 0;
   const statusIcon = getStatusIcon(progress.status);
@@ -143,27 +131,17 @@ export function ProcessingBanner({
 
       {isActive && (
         <>
-          <ProgressBar
-            progress={progressValue}
-            color={statusColor}
-            style={styles.progressBar}
-          />
-          <Text style={[styles.progressText, isDark && styles.textMuted]}>
-            {statusMessage}
-          </Text>
+          <ProgressBar progress={progressValue} color={statusColor} style={styles.progressBar} />
+          <Text style={[styles.progressText, isDark && styles.textMuted]}>{statusMessage}</Text>
         </>
       )}
 
       {progress.status === 'complete' && (
-        <Text style={[styles.progressText, { color: colors.success }]}>
-          {statusMessage}
-        </Text>
+        <Text style={[styles.progressText, { color: colors.success }]}>{statusMessage}</Text>
       )}
 
       {progress.status === 'error' && (
-        <Text style={[styles.progressText, { color: colors.error }]}>
-          {statusMessage}
-        </Text>
+        <Text style={[styles.progressText, { color: colors.error }]}>{statusMessage}</Text>
       )}
     </View>
   );

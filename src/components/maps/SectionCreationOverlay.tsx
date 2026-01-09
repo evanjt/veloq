@@ -6,6 +6,7 @@
 import React from 'react';
 import { View, StyleSheet, TouchableOpacity, Text } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { colors } from '@/theme/colors';
 import { typography } from '@/theme/typography';
 import { spacing, layout } from '@/theme/spacing';
@@ -46,15 +47,17 @@ export function SectionCreationOverlay({
   onCancel,
   onReset,
 }: SectionCreationOverlayProps) {
+  const { t } = useTranslation();
+
   const getInstructions = () => {
     switch (state) {
       case 'idle':
       case 'selectingStart':
-        return 'Tap to select start point';
+        return t('maps.tapSelectStart' as never);
       case 'selectingEnd':
-        return 'Tap to select end point';
+        return t('maps.tapSelectEnd' as never);
       case 'complete':
-        return 'Section selected';
+        return t('maps.sectionSelected' as never);
     }
   };
 
@@ -69,10 +72,13 @@ export function SectionCreationOverlay({
     if (startIndex === null) return null;
     const startPercent = ((startIndex / coordinateCount) * 100).toFixed(0);
     if (endIndex === null) {
-      return `Start: ${startPercent}%`;
+      return t('maps.startPercent' as never, { percent: startPercent });
     }
     const endPercent = ((endIndex / coordinateCount) * 100).toFixed(0);
-    return `${startPercent}% - ${endPercent}%`;
+    return t('maps.rangePercent' as never, {
+      start: startPercent,
+      end: endPercent,
+    });
   };
 
   return (
@@ -87,13 +93,9 @@ export function SectionCreationOverlay({
           />
           <Text style={styles.instructionText}>{getInstructions()}</Text>
         </View>
-        {getProgress() && (
-          <Text style={styles.progressText}>{getProgress()}</Text>
-        )}
+        {getProgress() && <Text style={styles.progressText}>{getProgress()}</Text>}
         {sectionDistance !== null && state === 'complete' && (
-          <Text style={styles.distanceText}>
-            {formatDistance(sectionDistance)}
-          </Text>
+          <Text style={styles.distanceText}>{formatDistance(sectionDistance)}</Text>
         )}
       </View>
 
@@ -105,12 +107,8 @@ export function SectionCreationOverlay({
           onPress={onCancel}
           activeOpacity={0.8}
         >
-          <MaterialCommunityIcons
-            name="close"
-            size={24}
-            color={colors.textOnDark}
-          />
-          <Text style={styles.buttonText}>Cancel</Text>
+          <MaterialCommunityIcons name="close" size={24} color={colors.textOnDark} />
+          <Text style={styles.buttonText}>{t('common.cancel')}</Text>
         </TouchableOpacity>
 
         {/* Reset button - only show when we have a selection */}
@@ -120,13 +118,9 @@ export function SectionCreationOverlay({
             onPress={onReset}
             activeOpacity={0.8}
           >
-            <MaterialCommunityIcons
-              name="refresh"
-              size={24}
-              color={colors.textSecondary}
-            />
+            <MaterialCommunityIcons name="refresh" size={24} color={colors.textSecondary} />
             <Text style={[styles.buttonText, styles.resetButtonText]}>
-              Reset
+              {t('common.reset' as never)}
             </Text>
           </TouchableOpacity>
         )}
@@ -138,12 +132,8 @@ export function SectionCreationOverlay({
             onPress={onConfirm}
             activeOpacity={0.8}
           >
-            <MaterialCommunityIcons
-              name="check"
-              size={24}
-              color={colors.textOnDark}
-            />
-            <Text style={styles.buttonText}>Create</Text>
+            <MaterialCommunityIcons name="check" size={24} color={colors.textOnDark} />
+            <Text style={styles.buttonText}>{t('common.create' as never)}</Text>
           </TouchableOpacity>
         )}
       </View>

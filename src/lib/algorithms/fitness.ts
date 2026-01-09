@@ -39,11 +39,11 @@ export function getFormZone(tsb: number): FormZone {
 }
 
 export const FORM_ZONE_COLORS: Record<FormZone, string> = {
-  highRisk: '#EF4444', // Red-500 - Danger
-  optimal: '#D4AF37',  // Gold - Achievement! (Premium highlight)
-  grey: '#71717A',     // Zinc-500 - Neutral
-  fresh: '#22C55E',    // Green-500 - Positive
-  transition: '#5B9BD5', // Brand blue
+  highRisk: '#EF5350', // Red - Overtrained (matches intervals.icu)
+  optimal: '#66BB6A', // Green - Peak training zone (matches intervals.icu)
+  grey: '#9E9E9E', // Grey - Neutral zone (matches intervals.icu)
+  fresh: '#81C784', // Light green - Ready for events (matches intervals.icu)
+  transition: '#64B5F6', // Light blue - Detraining risk (matches intervals.icu)
 };
 
 export const FORM_ZONE_LABELS: Record<FormZone, string> = {

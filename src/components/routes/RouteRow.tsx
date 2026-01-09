@@ -32,8 +32,8 @@ function isRouteGroup(route: DiscoveredRouteInfo | RouteGroup): route is RouteGr
 function normalizePoints(points: { lat: number; lng: number }[]): { x: number; y: number }[] {
   if (points.length < 2) return [];
 
-  const lats = points.map(p => p.lat);
-  const lngs = points.map(p => p.lng);
+  const lats = points.map((p) => p.lat);
+  const lngs = points.map((p) => p.lng);
   const minLat = Math.min(...lats);
   const maxLat = Math.max(...lats);
   const minLng = Math.min(...lngs);
@@ -42,7 +42,7 @@ function normalizePoints(points: { lat: number; lng: number }[]): { x: number; y
   const latRange = maxLat - minLat || 1;
   const lngRange = maxLng - minLng || 1;
 
-  return points.map(p => ({
+  return points.map((p) => ({
     x: (p.lng - minLng) / lngRange,
     y: 1 - (p.lat - minLat) / latRange, // Invert Y for screen coordinates
   }));
@@ -61,12 +61,12 @@ const RoutePreview = memo(function RoutePreview({ points, color, isDark }: Route
   const height = 40;
   const padding = 4;
 
-  const scaledPoints = points.map(p => ({
+  const scaledPoints = points.map((p) => ({
     x: p.x * (width - padding * 2) + padding,
     y: p.y * (height - padding * 2) + padding,
   }));
 
-  const pointsString = scaledPoints.map(p => `${p.x},${p.y}`).join(' ');
+  const pointsString = scaledPoints.map((p) => `${p.x},${p.y}`).join(' ');
   const startPoint = scaledPoints[0];
   const endPoint = scaledPoints[scaledPoints.length - 1];
 
@@ -88,19 +88,19 @@ const RoutePreview = memo(function RoutePreview({ points, color, isDark }: Route
 
       {/* Subtle grid lines for map effect */}
       <Polyline
-        points={`${width/3},0 ${width/3},${height}`}
+        points={`${width / 3},0 ${width / 3},${height}`}
         stroke={gridColor}
         strokeWidth={0.5}
         strokeOpacity={0.5}
       />
       <Polyline
-        points={`${2*width/3},0 ${2*width/3},${height}`}
+        points={`${(2 * width) / 3},0 ${(2 * width) / 3},${height}`}
         stroke={gridColor}
         strokeWidth={0.5}
         strokeOpacity={0.5}
       />
       <Polyline
-        points={`0,${height/2} ${width},${height/2}`}
+        points={`0,${height / 2} ${width},${height / 2}`}
         stroke={gridColor}
         strokeWidth={0.5}
         strokeOpacity={0.5}
@@ -147,9 +147,7 @@ function RouteRowComponent({ route, navigable = false }: RouteRowProps) {
   const [customName, setCustomName] = useState<string | null>(null);
 
   // Lazy load consensus route for RouteGroup (non-blocking)
-  const { points: consensusPoints } = useConsensusRoute(
-    isRouteGroup(route) ? route.id : null
-  );
+  const { points: consensusPoints } = useConsensusRoute(isRouteGroup(route) ? route.id : null);
 
   // Load custom route name if available
   useEffect(() => {
@@ -166,7 +164,10 @@ function RouteRowComponent({ route, navigable = false }: RouteRowProps) {
 
   // Display name uses custom name if set, otherwise auto-generated name
   // Ensure it's always a valid string to avoid React Native text rendering errors
-  const displayName = customName || route.name || `${route.type} Route`;
+  const displayName =
+    customName ||
+    route.name ||
+    (t('routes.defaultRouteName' as never, { type: route.type }) as string);
 
   // Get activity color for the route type
   // RouteGroup.type is ActivityType, DiscoveredRouteInfo.type is string
@@ -187,17 +188,19 @@ function RouteRowComponent({ route, navigable = false }: RouteRowProps) {
   const activityNames = useMemo(() => {
     if (isRouteGroup(route)) {
       // RouteGroup doesn't have activity names, just IDs
-      return route.activityIds.map((_, i) => `Activity ${i + 1}`);
+      return route.activityIds.map(
+        (_, i) => t('routes.defaultActivityName' as never, { number: i + 1 }) as string
+      );
     }
     return route.activityNames || [];
-  }, [route]);
+  }, [route, t]);
 
   const getTypeIcon = (): 'bike' | 'run' | 'swim' | 'walk' | 'map-marker' => {
-    const t = route.type?.toLowerCase() || '';
-    if (t.includes('ride') || t.includes('cycling')) return 'bike';
-    if (t.includes('run')) return 'run';
-    if (t.includes('swim')) return 'swim';
-    if (t.includes('walk') || t.includes('hike')) return 'walk';
+    const routeType = route.type?.toLowerCase() || '';
+    if (routeType.includes('ride') || routeType.includes('cycling')) return 'bike';
+    if (routeType.includes('run')) return 'run';
+    if (routeType.includes('swim')) return 'swim';
+    if (routeType.includes('walk') || routeType.includes('hike')) return 'walk';
     return 'map-marker';
   };
 
@@ -211,7 +214,9 @@ function RouteRowComponent({ route, navigable = false }: RouteRowProps) {
   const distance = isRouteGroup(route) ? undefined : route.distance;
 
   // Get match percentage (only available on DiscoveredRouteInfo)
-  const avgMatchPercentage = isRouteGroup(route) ? route.averageMatchQuality : route.avgMatchPercentage;
+  const avgMatchPercentage = isRouteGroup(route)
+    ? route.averageMatchQuality
+    : route.avgMatchPercentage;
 
   const handlePress = () => {
     if (navigable) {
@@ -266,9 +271,9 @@ function RouteRowComponent({ route, navigable = false }: RouteRowProps) {
         <View style={styles.countBadge}>
           <Text style={styles.countText}>{route.activityCount}</Text>
           <MaterialCommunityIcons
-            name={navigable ? 'chevron-right' : (expanded ? 'chevron-up' : 'chevron-down')}
+            name={navigable ? 'chevron-right' : expanded ? 'chevron-up' : 'chevron-down'}
             size={16}
-            color={navigable ? '#FFFFFF' : (isDark ? '#888' : colors.textSecondary)}
+            color={navigable ? '#FFFFFF' : isDark ? '#888' : colors.textSecondary}
           />
         </View>
       </TouchableOpacity>

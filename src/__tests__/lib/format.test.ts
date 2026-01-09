@@ -154,8 +154,17 @@ describe('formatCalories', () => {
 });
 
 describe('formatRelativeDate', () => {
-  // These tests use real dates, which makes them time-sensitive
-  // We use fixed offsets from "now" to make them deterministic
+  // Use mocked dates to make tests deterministic and avoid early-January edge cases
+  const MOCK_NOW = new Date('2024-06-15T12:00:00Z').getTime();
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    jest.setSystemTime(MOCK_NOW);
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
 
   it('shows "Today" for today', () => {
     const today = new Date().toISOString();
@@ -171,16 +180,23 @@ describe('formatRelativeDate', () => {
     const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
     const result = formatRelativeDate(threeDaysAgo.toISOString());
     // Should be a weekday name like "Monday", "Tuesday", etc.
-    expect(['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']).toContain(result);
+    expect([
+      'Sunday',
+      'Monday',
+      'Tuesday',
+      'Wednesday',
+      'Thursday',
+      'Friday',
+      'Saturday',
+    ]).toContain(result);
   });
 
   it('shows month and day for older dates this year', () => {
-    // Use a date from earlier this year (January 15)
-    const thisYear = new Date().getFullYear();
-    const earlierThisYear = new Date(thisYear, 0, 15).toISOString();
+    // Mock date is June 15, 2024 - so January 15, 2024 is definitely in the past
+    const earlierThisYear = new Date(2024, 0, 15).toISOString(); // Jan 15, 2024
     const result = formatRelativeDate(earlierThisYear);
-    // Should include month name (but format depends on current date)
-    expect(result).toMatch(/Jan|15/);
+    // Should show "Jan 15" format for dates > 7 days old in current year
+    expect(result).toMatch(/Jan.*15|15.*Jan/);
   });
 });
 
@@ -198,8 +214,8 @@ describe('formatLocalDate', () => {
 
 describe('clamp', () => {
   it('constrains value to range', () => {
-    expect(clamp(5, 0, 10)).toBe(5);   // within range
-    expect(clamp(-5, 0, 10)).toBe(0);  // below min
+    expect(clamp(5, 0, 10)).toBe(5); // within range
+    expect(clamp(-5, 0, 10)).toBe(0); // below min
     expect(clamp(15, 0, 10)).toBe(10); // above max
   });
 

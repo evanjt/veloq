@@ -1,11 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
-import {
-  SUPPORTED_LOCALES,
-  type SupportedLocale,
-  getDeviceLocale,
-  changeLanguage,
-} from '@/i18n';
+import { SUPPORTED_LOCALES, type SupportedLocale, getDeviceLocale, changeLanguage } from '@/i18n';
 
 const STORAGE_KEY = 'veloq-language-preference';
 
@@ -30,8 +25,13 @@ export function resolveLanguageToLocale(language: LanguageChoice): SupportedLoca
     return getDeviceLocale();
   }
 
+  // Direct locale values (e.g., 'en-AU', 'de-CH', 'pt-BR')
+  if (SUPPORTED_LOCALES.includes(language as SupportedLocale)) {
+    return language as SupportedLocale;
+  }
+
+  // Language-only values - resolve to best variant
   if (language === 'en') {
-    // For English, check device region to pick the right variant
     const deviceLocale = getDeviceLocale();
     if (deviceLocale.startsWith('en-')) {
       return deviceLocale;
@@ -39,8 +39,16 @@ export function resolveLanguageToLocale(language: LanguageChoice): SupportedLoca
     return 'en-AU';
   }
 
+  if (language === 'de') return 'de-DE';
   if (language === 'es') return 'es';
   if (language === 'fr') return 'fr';
+  if (language === 'nl') return 'nl';
+  if (language === 'it') return 'it';
+  if (language === 'pt') return 'pt-BR'; // Default to Brazilian Portuguese
+  if (language === 'ja') return 'ja';
+  if (language === 'zh') return 'zh-Hans';
+  if (language === 'pl') return 'pl';
+  if (language === 'da') return 'da';
 
   // Unknown language, default to English
   return 'en-AU';
@@ -112,24 +120,81 @@ type LanguageOption = {
 };
 
 /**
- * Get simplified language options
- * English variants are combined - device region determines which variant to use
+ * Language group for organized UI display
  */
-export function getAvailableLanguages(): LanguageOption[] {
+export type LanguageGroup = {
+  /** Translation key for the group label, null for ungrouped (System) */
+  groupLabel: string | null;
+  languages: LanguageOption[];
+};
+
+/**
+ * Get language options for settings UI
+ * Languages are listed alphabetically with System option first
+ */
+export function getAvailableLanguages(): LanguageGroup[] {
   return [
-    { value: null, label: 'System', description: 'Auto-detect from device' },
     {
-      value: 'en',
-      label: 'English',
-      variants: [
-        { value: 'en-AU', label: 'AU' },
-        { value: 'en-GB', label: 'GB' },
-        { value: 'en-US', label: 'US' },
+      groupLabel: null,
+      languages: [
+        {
+          value: null,
+          label: 'System',
+          description: 'Auto-detect from device',
+        },
+        { value: 'da', label: 'Dansk' },
+        {
+          value: 'de',
+          label: 'Deutsch',
+          variants: [
+            { value: 'de-DE', label: 'DE' },
+            { value: 'de-CH', label: 'CH' },
+            { value: 'de-CHZ', label: 'Züri' },
+            { value: 'de-CHB', label: 'Bärn' },
+          ],
+        },
+        {
+          value: 'en',
+          label: 'English',
+          variants: [
+            { value: 'en-AU', label: 'AU' },
+            { value: 'en-GB', label: 'GB' },
+            { value: 'en-US', label: 'US' },
+          ],
+        },
+        {
+          value: 'es',
+          label: 'Español',
+          variants: [
+            { value: 'es-ES', label: 'ES' },
+            { value: 'es-419', label: 'LATAM' },
+          ],
+        },
+        { value: 'fr', label: 'Français' },
+        { value: 'it', label: 'Italiano' },
+        { value: 'nl', label: 'Nederlands' },
+        { value: 'pl', label: 'Polski' },
+        {
+          value: 'pt',
+          label: 'Português',
+          variants: [
+            { value: 'pt', label: 'PT' },
+            { value: 'pt-BR', label: 'BR' },
+          ],
+        },
+        { value: 'ja', label: '日本語' },
+        { value: 'zh-Hans', label: '中文' },
       ],
     },
-    { value: 'es', label: 'Español' },
-    { value: 'fr', label: 'Français' },
   ];
+}
+
+/**
+ * Get flat list of language options (for backwards compatibility)
+ */
+export function getAvailableLanguagesFlat(): LanguageOption[] {
+  const groups = getAvailableLanguages();
+  return groups.flatMap((group) => group.languages);
 }
 
 /**

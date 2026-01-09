@@ -17,6 +17,7 @@ import { useUnifiedSections } from '@/hooks/routes/useUnifiedSections';
 import { SectionRow, ActivityTrace } from './SectionRow';
 import { PotentialSectionCard } from './PotentialSectionCard';
 import { useCustomSections } from '@/hooks/routes/useCustomSections';
+import { useSectionDismissals } from '@/providers/SectionDismissalsStore';
 import { debug } from '@/lib';
 import type { UnifiedSection, FrequentSection } from '@/types';
 
@@ -88,7 +89,7 @@ export function SectionsList({ sportType }: SectionsListProps) {
           // Convert RoutePoint[] to [lat, lng][] format expected by SectionRow
           traces.push({
             activityId,
-            points: points.map(p => [p.lat, p.lng] as [number, number]),
+            points: points.map((p) => [p.lat, p.lng] as [number, number]),
           });
         }
       }
@@ -108,28 +109,35 @@ export function SectionsList({ sportType }: SectionsListProps) {
   }, []);
 
   // Handle promoting a potential section to a custom section
-  const handlePromotePotential = useCallback(async (section: UnifiedSection) => {
-    if (!section.potentialData) return;
-    log.log('Promoting potential section:', section.id);
-    try {
-      await createSection({
-        polyline: section.polyline,
-        startIndex: 0,
-        endIndex: section.polyline.length - 1,
-        sourceActivityId: section.potentialData.activityIds[0] ?? 'unknown',
-        sportType: section.sportType,
-        distanceMeters: section.distanceMeters,
-      });
-    } catch (error) {
-      log.error('Failed to promote section:', error);
-    }
-  }, [createSection]);
+  const handlePromotePotential = useCallback(
+    async (section: UnifiedSection) => {
+      if (!section.potentialData) return;
+      log.log('Promoting potential section:', section.id);
+      try {
+        await createSection({
+          polyline: section.polyline,
+          startIndex: 0,
+          endIndex: section.polyline.length - 1,
+          sourceActivityId: section.potentialData.activityIds[0] ?? 'unknown',
+          sportType: section.sportType,
+          distanceMeters: section.distanceMeters,
+        });
+      } catch (error) {
+        log.error('Failed to promote section:', error);
+      }
+    },
+    [createSection]
+  );
 
-  // Handle dismissing a potential section (TODO: persist dismissal)
-  const handleDismissPotential = useCallback((section: UnifiedSection) => {
-    log.log('Dismissing potential section:', section.id);
-    // TODO: Store dismissal in AsyncStorage to hide this suggestion
-  }, []);
+  // Handle dismissing a potential section
+  const dismiss = useSectionDismissals((s) => s.dismiss);
+  const handleDismissPotential = useCallback(
+    async (section: UnifiedSection) => {
+      log.log('Dismissing potential section:', section.id);
+      await dismiss(section.id);
+    },
+    [dismiss]
+  );
 
   const renderEmpty = () => {
     if (!isReady) {
@@ -221,7 +229,7 @@ export function SectionsList({ sportType }: SectionsListProps) {
       {potentialSections.length > 0 && (
         <View style={styles.suggestionsContainer}>
           <Text style={[styles.suggestionsTitle, isDark && styles.textLight]}>
-            {t('routes.suggestions')}
+            {t('routes.suggestions' as never)}
           </Text>
           {potentialSections.slice(0, 3).map((section) => (
             <PotentialSectionCard
@@ -247,7 +255,7 @@ export function SectionsList({ sportType }: SectionsListProps) {
       id: section.id,
       sportType: section.sportType,
       polyline: section.polyline,
-      activityIds: section.customData?.matches.map(m => m.activityId) ?? [],
+      activityIds: section.customData?.matches.map((m) => m.activityId) ?? [],
       routeIds: [],
       visitCount: section.visitCount,
       distanceMeters: section.distanceMeters,

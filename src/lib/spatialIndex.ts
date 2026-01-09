@@ -79,10 +79,7 @@ export const activitySpatialIndex = {
  * @param ne - Northeast corner [lng, lat]
  * @returns Viewport object for spatial queries
  */
-export function mapBoundsToViewport(
-  sw: [number, number],
-  ne: [number, number]
-): Viewport {
+export function mapBoundsToViewport(sw: [number, number], ne: [number, number]): Viewport {
   return {
     minLat: Math.min(sw[1], ne[1]),
     maxLat: Math.max(sw[1], ne[1]),

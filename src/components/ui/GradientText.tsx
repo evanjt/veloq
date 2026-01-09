@@ -37,10 +37,10 @@ export function GlowText({
 }
 
 // GradientText simplified - shows solid color (gradient requires dev build)
-// Brand: Gold (#D4AF37) primary
+// Brand: Teal primary, Gold for achievements only
 export function GradientText({
   children,
-  colors = ['#E8C96E', '#D4AF37'],
+  colors = ['#2DD4BF', '#14B8A6'],
   style,
 }: {
   children: string | number;
@@ -49,11 +49,7 @@ export function GradientText({
 }) {
   // In Expo Go, just use the first color
   // In dev builds, you could use MaskedView + LinearGradient
-  return (
-    <Text style={[styles.text, style, { color: colors[0] }]}>
-      {children}
-    </Text>
-  );
+  return <Text style={[styles.text, style, { color: colors[0] }]}>{children}</Text>;
 }
 
 interface AnimatedNumberProps {
@@ -115,11 +111,7 @@ export function AnimatedNumber({
     );
   }
 
-  return (
-    <Text style={[styles.text, style, color ? { color } : undefined]}>
-      {formattedValue}
-    </Text>
-  );
+  return <Text style={[styles.text, style, color ? { color } : undefined]}>{formattedValue}</Text>;
 }
 
 const styles = StyleSheet.create({

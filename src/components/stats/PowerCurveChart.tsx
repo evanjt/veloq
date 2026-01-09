@@ -5,7 +5,13 @@ import { useTranslation } from 'react-i18next';
 import { CartesianChart, Line } from 'victory-native';
 import { DashPathEffect, Line as SkiaLine } from '@shopify/react-native-skia';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Animated, { useSharedValue, useAnimatedReaction, runOnJS, useDerivedValue, useAnimatedStyle } from 'react-native-reanimated';
+import Animated, {
+  useSharedValue,
+  useAnimatedReaction,
+  runOnJS,
+  useDerivedValue,
+  useAnimatedStyle,
+} from 'react-native-reanimated';
 import { colors, darkColors } from '@/theme/colors';
 import { typography } from '@/theme/typography';
 import { spacing } from '@/theme/spacing';
@@ -79,7 +85,11 @@ export const PowerCurveChart = React.memo(function PowerCurveChart({
   // Process curve data for the line chart
   const { chartData, ftpValue, yDomain } = useMemo(() => {
     if (!curve?.secs || !curve?.watts || curve.watts.length === 0) {
-      return { chartData: [], ftpValue: ftp ?? null, yDomain: [0, 400] as [number, number] };
+      return {
+        chartData: [],
+        ftpValue: ftp ?? null,
+        yDomain: [0, 400] as [number, number],
+      };
     }
 
     // Build data points from the curve
@@ -94,7 +104,11 @@ export const PowerCurveChart = React.memo(function PowerCurveChart({
     }
 
     if (points.length === 0) {
-      return { chartData: [], ftpValue: ftp ?? null, yDomain: [0, 400] as [number, number] };
+      return {
+        chartData: [],
+        ftpValue: ftp ?? null,
+        yDomain: [0, 400] as [number, number],
+      };
     }
 
     // Sort by duration
@@ -128,7 +142,7 @@ export const PowerCurveChart = React.memo(function PowerCurveChart({
     }
 
     // Convert to chart format (use log of duration for x to spread out short durations)
-    const data: ChartPoint[] = sampled.map(p => ({
+    const data: ChartPoint[] = sampled.map((p) => ({
       x: Math.log10(p.secs),
       y: p.watts,
       secs: p.secs,
@@ -136,7 +150,7 @@ export const PowerCurveChart = React.memo(function PowerCurveChart({
     }));
 
     // Calculate Y domain
-    const watts = data.map(d => d.y);
+    const watts = data.map((d) => d.y);
     const minWatts = Math.min(...watts);
     const maxWatts = Math.max(...watts);
     const padding = (maxWatts - minWatts) * 0.1;
@@ -188,14 +202,25 @@ export const PowerCurveChart = React.memo(function PowerCurveChart({
 
   useAnimatedReaction(
     () => selectedIdx.value,
-    (idx) => { runOnJS(updateTooltipOnJS)(idx); },
+    (idx) => {
+      runOnJS(updateTooltipOnJS)(idx);
+    },
     [updateTooltipOnJS]
   );
 
   const gesture = Gesture.Pan()
-    .onStart((e) => { 'worklet'; touchX.value = e.x; })
-    .onUpdate((e) => { 'worklet'; touchX.value = e.x; })
-    .onEnd(() => { 'worklet'; touchX.value = -1; })
+    .onStart((e) => {
+      'worklet';
+      touchX.value = e.x;
+    })
+    .onUpdate((e) => {
+      'worklet';
+      touchX.value = e.x;
+    })
+    .onEnd(() => {
+      'worklet';
+      touchX.value = -1;
+    })
     .minDistance(0)
     .activateAfterLongPress(700);
 
@@ -227,7 +252,9 @@ export const PowerCurveChart = React.memo(function PowerCurveChart({
       <View style={[styles.container, { height }]}>
         <Text style={[styles.title, isDark && styles.textLight]}>{t('stats.powerCurve')}</Text>
         <View style={styles.emptyState}>
-          <Text style={[styles.emptyText, isDark && styles.textDark]}>{t('stats.noPowerData')}</Text>
+          <Text style={[styles.emptyText, isDark && styles.textDark]}>
+            {t('stats.noPowerData')}
+          </Text>
         </View>
       </View>
     );
@@ -244,15 +271,13 @@ export const PowerCurveChart = React.memo(function PowerCurveChart({
         <View style={styles.valuesRow}>
           <View style={styles.valueItem}>
             <Text style={[styles.valueLabel, isDark && styles.textDark]}>{t('stats.time')}</Text>
-            <Text style={[styles.valueNumber, { color }]}>
-              {formatDuration(displayData.secs)}
-            </Text>
+            <Text style={[styles.valueNumber, { color }]}>{formatDuration(displayData.secs)}</Text>
           </View>
           <View style={styles.valueItem}>
-            <Text style={[styles.valueLabel, isDark && styles.textDark]}>{t('activity.power')}</Text>
-            <Text style={[styles.valueNumber, { color }]}>
-              {Math.round(displayData.watts)}w
+            <Text style={[styles.valueLabel, isDark && styles.textDark]}>
+              {t('activity.power')}
             </Text>
+            <Text style={[styles.valueNumber, { color }]}>{Math.round(displayData.watts)}w</Text>
           </View>
         </View>
       </View>
@@ -269,11 +294,16 @@ export const PowerCurveChart = React.memo(function PowerCurveChart({
           >
             {({ points, chartBounds }) => {
               // Sync bounds for gesture
-              if (chartBounds.left !== chartBoundsShared.value.left ||
-                  chartBounds.right !== chartBoundsShared.value.right) {
-                chartBoundsShared.value = { left: chartBounds.left, right: chartBounds.right };
+              if (
+                chartBounds.left !== chartBoundsShared.value.left ||
+                chartBounds.right !== chartBoundsShared.value.right
+              ) {
+                chartBoundsShared.value = {
+                  left: chartBounds.left,
+                  right: chartBounds.right,
+                };
               }
-              const newCoords = points.y.filter(p => p.x != null).map(p => p.x as number);
+              const newCoords = points.y.filter((p) => p.x != null).map((p) => p.x as number);
               if (newCoords.length !== pointXCoordsShared.value.length) {
                 pointXCoordsShared.value = newCoords;
               }
@@ -285,11 +315,17 @@ export const PowerCurveChart = React.memo(function PowerCurveChart({
                     <SkiaLine
                       p1={{
                         x: chartBounds.left,
-                        y: chartBounds.top + ((yDomain[1] - ftpValue) / (yDomain[1] - yDomain[0])) * (chartBounds.bottom - chartBounds.top),
+                        y:
+                          chartBounds.top +
+                          ((yDomain[1] - ftpValue) / (yDomain[1] - yDomain[0])) *
+                            (chartBounds.bottom - chartBounds.top),
                       }}
                       p2={{
                         x: chartBounds.right,
-                        y: chartBounds.top + ((yDomain[1] - ftpValue) / (yDomain[1] - yDomain[0])) * (chartBounds.bottom - chartBounds.top),
+                        y:
+                          chartBounds.top +
+                          ((yDomain[1] - ftpValue) / (yDomain[1] - yDomain[0])) *
+                            (chartBounds.bottom - chartBounds.top),
                       }}
                       color={FTP_LINE_COLOR}
                       strokeWidth={1}
@@ -299,12 +335,7 @@ export const PowerCurveChart = React.memo(function PowerCurveChart({
                   )}
 
                   {/* Power curve line */}
-                  <Line
-                    points={points.y}
-                    color={color}
-                    strokeWidth={2.5}
-                    curveType="natural"
-                  />
+                  <Line points={points.y} color={color} strokeWidth={2.5} curveType="natural" />
                 </>
               );
             }}
@@ -327,9 +358,15 @@ export const PowerCurveChart = React.memo(function PowerCurveChart({
 
           {/* Y-axis labels */}
           <View style={styles.yAxisOverlay} pointerEvents="none">
-            <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>{Math.round(yDomain[1])}w</Text>
-            <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>{Math.round((yDomain[0] + yDomain[1]) / 2)}w</Text>
-            <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>{Math.round(yDomain[0])}w</Text>
+            <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
+              {Math.round(yDomain[1])}w
+            </Text>
+            <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
+              {Math.round((yDomain[0] + yDomain[1]) / 2)}w
+            </Text>
+            <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
+              {Math.round(yDomain[0])}w
+            </Text>
           </View>
         </View>
       </GestureDetector>
@@ -338,9 +375,7 @@ export const PowerCurveChart = React.memo(function PowerCurveChart({
       {ftpValue && (
         <View style={styles.legend}>
           <View style={[styles.legendDash, { backgroundColor: FTP_LINE_COLOR }]} />
-          <Text style={[styles.legendText, isDark && styles.textDark]}>
-            FTP {ftpValue}w
-          </Text>
+          <Text style={[styles.legendText, isDark && styles.textDark]}>FTP {ftpValue}w</Text>
         </View>
       )}
     </View>

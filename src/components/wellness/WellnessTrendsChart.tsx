@@ -7,12 +7,21 @@ import { Circle, Line as SkiaLine } from '@shopify/react-native-skia';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { useSharedValue, useAnimatedStyle, runOnJS } from 'react-native-reanimated';
 import { colors, darkColors, spacing, typography, opacity } from '@/theme';
-import { sortByDateId } from '@/lib';
+import {
+  sortByDateId,
+  smoothDataPoints,
+  getEffectiveWindow,
+  formatShortDateWithWeekday,
+  type SmoothingWindow,
+} from '@/lib';
 import type { WellnessData } from '@/types';
+import type { TimeRange } from '@/hooks';
 
 interface WellnessTrendsChartProps {
   data?: WellnessData[];
   height?: number;
+  timeRange: TimeRange;
+  smoothingWindow?: SmoothingWindow;
 }
 
 // Colors for different metrics (NO orange)
@@ -84,8 +93,8 @@ function MetricSparkline({
 }) {
   if (data.length === 0) return null;
 
-  const minValue = Math.min(...data.map(d => d.value));
-  const maxValue = Math.max(...data.map(d => d.value));
+  const minValue = Math.min(...data.map((d) => d.value));
+  const maxValue = Math.max(...data.map((d) => d.value));
   const range = maxValue - minValue || 1;
 
   // Add some padding to the domain
@@ -99,7 +108,7 @@ function MetricSparkline({
   // Get value for selected date
   const selectedPoint = useMemo(() => {
     if (selectedIdx === null) return null;
-    return data.find(d => d.x === selectedIdx) || null;
+    return data.find((d) => d.x === selectedIdx) || null;
   }, [selectedIdx, data]);
 
   const displayValue = selectedPoint || latestValue;
@@ -114,45 +123,61 @@ function MetricSparkline({
 
       <View style={styles.sparklineContainer}>
         <View style={{ height }}>
-          {/* Victory Native CartesianChart called as function for programmatic rendering.
-              Type cast required due to library typing constraints. */}
-          {(CartesianChart as React.FC<Record<string, unknown>>)({
-            data,
-            xKey: 'x',
-            yKeys: ['value'],
-            domain: { x: [0, totalDays - 1], y: [yMin, yMax] },
-            padding: { left: 4, right: 4, top: 8, bottom: 8 },
-            children: ({ points, chartBounds }: { points: { value: Array<{ x: number; y: number | undefined }> }; chartBounds: ChartBounds }) => (
-              <>
-                <Line
-                  points={points.value as Parameters<typeof Line>[0]['points']}
-                  color={color}
-                  strokeWidth={2}
-                  curveType="natural"
-                />
-                {selectedIdx !== null && selectedPoint && (
-                  <>
-                    {/* Vertical line at selected position */}
-                    <SkiaLine
-                      p1={{ x: chartBounds.left + (selectedIdx / (totalDays - 1)) * (chartBounds.right - chartBounds.left), y: chartBounds.top }}
-                      p2={{ x: chartBounds.left + (selectedIdx / (totalDays - 1)) * (chartBounds.right - chartBounds.left), y: chartBounds.bottom }}
-                      color={isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.2)'}
-                      strokeWidth={1}
-                    />
-                    {/* Dot at the data point */}
-                    {points.value[data.findIndex(d => d.x === selectedIdx)] && (
-                      <Circle
-                        cx={points.value[data.findIndex(d => d.x === selectedIdx)]?.x || 0}
-                        cy={points.value[data.findIndex(d => d.x === selectedIdx)]?.y || 0}
-                        r={5}
-                        color={color}
+          {/* Victory Native CartesianChart for programmatic rendering.
+              Using JSX syntax with render prop pattern. */}
+          {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+          <CartesianChart
+            data={data as unknown as Record<string, unknown>[]}
+            xKey={'x' as never}
+            yKeys={['value'] as never}
+            domain={{ x: [0, totalDays - 1], y: [yMin, yMax] }}
+            padding={{ left: 4, right: 4, top: 8, bottom: 8 }}
+          >
+            {
+              (({ points, chartBounds }: any) => (
+                <>
+                  <Line
+                    points={points.value as Parameters<typeof Line>[0]['points']}
+                    color={color}
+                    strokeWidth={2}
+                    curveType="natural"
+                  />
+                  {selectedIdx !== null && selectedPoint && (
+                    <>
+                      {/* Vertical line at selected position */}
+                      <SkiaLine
+                        p1={{
+                          x:
+                            chartBounds.left +
+                            (selectedIdx / (totalDays - 1)) *
+                              (chartBounds.right - chartBounds.left),
+                          y: chartBounds.top,
+                        }}
+                        p2={{
+                          x:
+                            chartBounds.left +
+                            (selectedIdx / (totalDays - 1)) *
+                              (chartBounds.right - chartBounds.left),
+                          y: chartBounds.bottom,
+                        }}
+                        color={isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.2)'}
+                        strokeWidth={1}
                       />
-                    )}
-                  </>
-                )}
-              </>
-            ),
-          })}
+                      {/* Dot at the data point */}
+                      {points.value[data.findIndex((d) => d.x === selectedIdx)] && (
+                        <Circle
+                          cx={points.value[data.findIndex((d) => d.x === selectedIdx)]?.x || 0}
+                          cy={points.value[data.findIndex((d) => d.x === selectedIdx)]?.y || 0}
+                          r={5}
+                          color={color}
+                        />
+                      )}
+                    </>
+                  )}
+                </>
+              )) as any
+            }
+          </CartesianChart>
         </View>
       </View>
 
@@ -171,7 +196,12 @@ function MetricSparkline({
   );
 }
 
-export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({ data, height = 200 }: WellnessTrendsChartProps) {
+export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
+  data,
+  height = 200,
+  timeRange,
+  smoothingWindow = 'auto',
+}: WellnessTrendsChartProps) {
   const { t } = useTranslation();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
@@ -182,43 +212,93 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({ dat
   const activeX = useSharedValue(0);
   const isActive = useSharedValue(false);
 
+  // Calculate effective smoothing window
+  const effectiveWindow = useMemo(
+    () => getEffectiveWindow(smoothingWindow, timeRange),
+    [smoothingWindow, timeRange]
+  );
+
   // Process data for each metric
-  const { sortedData, hrvData, rhrData, sleepData, sleepScoreData, weightData, totalDays } = useMemo(() => {
-    if (!data || data.length === 0) {
-      return { sortedData: [], hrvData: [], rhrData: [], sleepData: [], sleepScoreData: [], weightData: [], totalDays: 0 };
-    }
+  const { sortedData, hrvData, rhrData, sleepData, sleepScoreData, weightData, totalDays } =
+    useMemo(() => {
+      if (!data || data.length === 0) {
+        return {
+          sortedData: [],
+          hrvData: [],
+          rhrData: [],
+          sleepData: [],
+          sleepScoreData: [],
+          weightData: [],
+          totalDays: 0,
+        };
+      }
 
-    // Sort by date ascending
-    const sorted = sortByDateId(data);
-    const totalDays = sorted.length;
+      // Sort by date ascending
+      const sorted = sortByDateId(data);
+      const totalDays = sorted.length;
 
-    const hrvData: MetricChartData[] = [];
-    const rhrData: MetricChartData[] = [];
-    const sleepData: MetricChartData[] = [];
-    const sleepScoreData: MetricChartData[] = [];
-    const weightData: MetricChartData[] = [];
+      const hrvDataRaw: MetricChartData[] = [];
+      const rhrDataRaw: MetricChartData[] = [];
+      const sleepDataRaw: MetricChartData[] = [];
+      const sleepScoreDataRaw: MetricChartData[] = [];
+      const weightDataRaw: MetricChartData[] = [];
 
-    sorted.forEach((d, idx) => {
-      if (d.hrv != null) {
-        hrvData.push({ x: idx, value: d.hrv, date: d.id, rawValue: d.hrv });
-      }
-      if (d.restingHR != null) {
-        rhrData.push({ x: idx, value: d.restingHR, date: d.id, rawValue: d.restingHR });
-      }
-      if (d.sleepSecs != null) {
-        const hours = d.sleepSecs / 3600;
-        sleepData.push({ x: idx, value: hours, date: d.id, rawValue: hours });
-      }
-      if (d.sleepScore != null) {
-        sleepScoreData.push({ x: idx, value: d.sleepScore, date: d.id, rawValue: d.sleepScore });
-      }
-      if (d.weight != null) {
-        weightData.push({ x: idx, value: d.weight, date: d.id, rawValue: d.weight });
-      }
-    });
+      sorted.forEach((d, idx) => {
+        if (d.hrv != null) {
+          hrvDataRaw.push({ x: idx, value: d.hrv, date: d.id, rawValue: d.hrv });
+        }
+        if (d.restingHR != null) {
+          rhrDataRaw.push({
+            x: idx,
+            value: d.restingHR,
+            date: d.id,
+            rawValue: d.restingHR,
+          });
+        }
+        if (d.sleepSecs != null) {
+          const hours = d.sleepSecs / 3600;
+          sleepDataRaw.push({
+            x: idx,
+            value: hours,
+            date: d.id,
+            rawValue: hours,
+          });
+        }
+        if (d.sleepScore != null) {
+          sleepScoreDataRaw.push({
+            x: idx,
+            value: d.sleepScore,
+            date: d.id,
+            rawValue: d.sleepScore,
+          });
+        }
+        if (d.weight != null) {
+          weightDataRaw.push({
+            x: idx,
+            value: d.weight,
+            date: d.id,
+            rawValue: d.weight,
+          });
+        }
+      });
 
-    return { sortedData: sorted, hrvData, rhrData, sleepData, sleepScoreData, weightData, totalDays };
-  }, [data]);
+      // Apply smoothing
+      const hrvData = smoothDataPoints(hrvDataRaw, effectiveWindow);
+      const rhrData = smoothDataPoints(rhrDataRaw, effectiveWindow);
+      const sleepData = smoothDataPoints(sleepDataRaw, effectiveWindow);
+      const sleepScoreData = smoothDataPoints(sleepScoreDataRaw, effectiveWindow);
+      const weightData = smoothDataPoints(weightDataRaw, effectiveWindow);
+
+      return {
+        sortedData: sorted,
+        hrvData,
+        rhrData,
+        sleepData,
+        sleepScoreData,
+        weightData,
+        totalDays,
+      };
+    }, [data, effectiveWindow]);
 
   const hasHrv = hrvData.length > 0;
   const hasRhr = rhrData.length > 0;
@@ -232,13 +312,16 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({ dat
   const rightPadding = 55 + 8; // metricValues width + margin
   const chartWidth = containerWidth - leftPadding - rightPadding;
 
-  const updateSelectedIdx = useCallback((x: number) => {
-    if (chartWidth <= 0 || totalDays <= 0) return;
-    const relativeX = x - leftPadding;
-    const ratio = Math.max(0, Math.min(1, relativeX / chartWidth));
-    const idx = Math.round(ratio * (totalDays - 1));
-    setSelectedIdx(idx);
-  }, [chartWidth, totalDays, leftPadding]);
+  const updateSelectedIdx = useCallback(
+    (x: number) => {
+      if (chartWidth <= 0 || totalDays <= 0) return;
+      const relativeX = x - leftPadding;
+      const ratio = Math.max(0, Math.min(1, relativeX / chartWidth));
+      const idx = Math.round(ratio * (totalDays - 1));
+      setSelectedIdx(idx);
+    },
+    [chartWidth, totalDays, leftPadding]
+  );
 
   const clearSelection = useCallback(() => {
     setSelectedIdx(null);
@@ -294,9 +377,7 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({ dat
       {/* Date header - shows selected date or "Today" */}
       <View style={styles.dateHeader}>
         <Text style={[styles.dateText, isDark && styles.textLight]}>
-          {selectedDate
-            ? new Date(selectedDate).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
-            : t('time.today')}
+          {selectedDate ? formatShortDateWithWeekday(selectedDate) : t('time.today')}
         </Text>
         {selectedIdx !== null && (
           <Text style={[styles.dateHint, isDark && styles.textDark]}>

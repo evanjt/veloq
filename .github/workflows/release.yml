@@ -1,0 +1,265 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "[0-9]+.[0-9]+.[0-9]+"
+
+jobs:
+  # ============================================
+  # Find and wait for main build
+  # ============================================
+  find-and-wait:
+    name: Find Main Build
+    runs-on: ubuntu-latest
+    outputs:
+      run_id: ${{ steps.find.outputs.run_id }}
+    steps:
+      - name: Find or wait for main build
+        id: find
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          COMMIT_SHA="${{ github.sha }}"
+          MAX_WAIT=1800  # 30 minutes
+          POLL_INTERVAL=30
+          WAITED=0
+
+          while [ $WAITED -lt $MAX_WAIT ]; do
+            # Check for build.yml run on this commit
+            RESULT=$(gh api repos/${{ github.repository }}/actions/workflows/build.yml/runs \
+              --jq ".workflow_runs[] | select(.head_sha==\"$COMMIT_SHA\") | {id, status, conclusion}" \
+              | head -1)
+
+            if [ -z "$RESULT" ]; then
+              echo "::error::No build found for commit $COMMIT_SHA. Tags must be on commits that were built on main."
+              exit 1
+            fi
+
+            STATUS=$(echo "$RESULT" | jq -r '.status')
+            CONCLUSION=$(echo "$RESULT" | jq -r '.conclusion')
+            RUN_ID=$(echo "$RESULT" | jq -r '.id')
+
+            if [ "$STATUS" = "completed" ]; then
+              if [ "$CONCLUSION" = "success" ]; then
+                echo "run_id=$RUN_ID" >> $GITHUB_OUTPUT
+                echo "✅ Found successful build: $RUN_ID"
+                exit 0
+              else
+                echo "::error::Build $RUN_ID failed with conclusion: $CONCLUSION"
+                exit 1
+              fi
+            fi
+
+            echo "Build $RUN_ID still running ($STATUS). Waiting ${POLL_INTERVAL}s..."
+            sleep $POLL_INTERVAL
+            WAITED=$((WAITED + POLL_INTERVAL))
+          done
+
+          echo "::error::Timeout waiting for build to complete"
+          exit 1
+
+  # ============================================
+  # Create Release
+  # ============================================
+  release:
+    name: Create Release
+    needs: find-and-wait
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      version_code: ${{ steps.version.outputs.version_code }}
+      aab_path: ${{ steps.prepare.outputs.aab_path }}
+    steps:
+      - name: Checkout (for changelog)
+        uses: actions/checkout@v4
+
+      - name: Get version from tag
+        id: version
+        run: |
+          VERSION="${{ github.ref_name }}"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+          # Calculate version code
+          MAJOR=$(echo $VERSION | cut -d. -f1)
+          MINOR=$(echo $VERSION | cut -d. -f2)
+          PATCH=$(echo $VERSION | cut -d. -f3)
+          VERSION_CODE=$((MAJOR * 10000 + MINOR * 100 + PATCH))
+          echo "version_code=$VERSION_CODE" >> $GITHUB_OUTPUT
+
+      - name: Download artifacts from main build
+        uses: actions/download-artifact@v4
+        with:
+          run-id: ${{ needs.find-and-wait.outputs.run_id }}
+          github-token: ${{ github.token }}
+          path: artifacts
+
+      - name: Prepare release artifacts
+        id: prepare
+        run: |
+          mkdir -p release
+          VERSION="${{ steps.version.outputs.version }}"
+
+          echo "=== Downloaded artifacts ==="
+          find artifacts -type f
+          echo "============================="
+
+          # Find and rename APK (remove SHA suffix)
+          APK=$(find artifacts -name "*.apk" | head -1)
+          if [ -n "$APK" ]; then
+            cp "$APK" "release/veloq-${VERSION}.apk"
+            echo "✅ APK: veloq-${VERSION}.apk"
+          else
+            echo "::warning::No APK found in artifacts"
+          fi
+
+          # Find and copy AAB
+          AAB=$(find artifacts -name "*.aab" | head -1)
+          if [ -n "$AAB" ]; then
+            AAB_DEST="release/veloq-${VERSION}.aab"
+            cp "$AAB" "$AAB_DEST"
+            echo "aab_path=$AAB_DEST" >> $GITHUB_OUTPUT
+            echo "✅ AAB: veloq-${VERSION}.aab"
+          else
+            echo "::warning::No AAB found in artifacts"
+          fi
+
+          # Find and rename iOS artifact
+          IOS=$(find artifacts -name "*-ios-simulator.zip" | head -1)
+          if [ -n "$IOS" ]; then
+            cp "$IOS" "release/veloq-${VERSION}-ios-simulator.zip"
+            echo "✅ iOS: veloq-${VERSION}-ios-simulator.zip"
+          else
+            echo "::warning::No iOS simulator artifact found"
+          fi
+
+          echo ""
+          echo "=== Release artifacts ==="
+          ls -la release/
+
+      - name: Read changelog
+        id: changelog
+        run: |
+          VERSION_CODE="${{ steps.version.outputs.version_code }}"
+          CHANGELOG_FILE="fastlane/metadata/android/en-US/changelogs/${VERSION_CODE}.txt"
+          if [ -f "$CHANGELOG_FILE" ]; then
+            CHANGELOG=$(cat "$CHANGELOG_FILE")
+          else
+            CHANGELOG="See commit history for changes."
+          fi
+          echo "content<<EOF" >> $GITHUB_OUTPUT
+          echo "$CHANGELOG" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Veloq v${{ steps.version.outputs.version }}
+          body: |
+            ## What's Changed
+            ${{ steps.changelog.outputs.content }}
+
+            ## Downloads
+            - **Android APK**: Direct install
+            - **Android AAB**: For Play Store upload
+            - **iOS Simulator**: For testing
+
+            ---
+            Built from commit: ${{ github.sha }}
+          files: release/*
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Upload AAB for deploy job (release/* gets cleaned up)
+      - name: Upload AAB for deployment
+        if: steps.prepare.outputs.aab_path != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-aab
+          path: ${{ steps.prepare.outputs.aab_path }}
+          retention-days: 1
+
+  # ============================================
+  # Deploy to Google Play (optional)
+  # ============================================
+  deploy-play-store:
+    name: Deploy to Play Store
+    needs: release
+    runs-on: ubuntu-latest
+    # Only runs if GOOGLE_PLAY_SERVICE_ACCOUNT_JSON secret is configured
+    if: needs.release.outputs.aab_path != ''
+    steps:
+      - name: Check for Play Store credentials
+        id: check_creds
+        env:
+          GOOGLE_PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
+        run: |
+          if [ -z "$GOOGLE_PLAY_SERVICE_ACCOUNT_JSON" ]; then
+            echo "skip=true" >> $GITHUB_OUTPUT
+            echo "::notice::Skipping Play Store deployment - GOOGLE_PLAY_SERVICE_ACCOUNT_JSON not configured"
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Checkout repository
+        if: steps.check_creds.outputs.skip != 'true'
+        uses: actions/checkout@v4
+
+      - name: Setup Ruby
+        if: steps.check_creds.outputs.skip != 'true'
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.2"
+          working-directory: fastlane
+          bundler-cache: true
+
+      - name: Download AAB
+        if: steps.check_creds.outputs.skip != 'true'
+        uses: actions/download-artifact@v4
+        with:
+          name: release-aab
+          path: release/
+
+      - name: Setup Google Play credentials
+        if: steps.check_creds.outputs.skip != 'true'
+        env:
+          GOOGLE_PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
+        run: echo "$GOOGLE_PLAY_SERVICE_ACCOUNT_JSON" > play_store_credentials.json
+
+      - name: Upload to Play Store (internal track)
+        if: steps.check_creds.outputs.skip != 'true'
+        working-directory: fastlane
+        env:
+          SUPPLY_JSON_KEY: ../play_store_credentials.json
+        run: |
+          AAB_PATH=$(find ../release -name "*.aab" | head -1)
+          bundle exec fastlane android deploy track:internal aab:"$AAB_PATH"
+
+      - name: Cleanup credentials
+        if: always() && steps.check_creds.outputs.skip != 'true'
+        run: rm -f play_store_credentials.json
+
+      - name: Summary
+        if: steps.check_creds.outputs.skip != 'true'
+        run: |
+          echo "## Play Store Deployment" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Track:** internal" >> $GITHUB_STEP_SUMMARY
+          echo "- **Version:** ${{ needs.release.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "To promote to production, go to [Google Play Console](https://play.google.com/console)." >> $GITHUB_STEP_SUMMARY
+
+  # ============================================
+  # Deploy to TestFlight (optional, future)
+  # ============================================
+  # To enable TestFlight deployment:
+  # 1. Enroll in Apple Developer Program ($99/year)
+  # 2. Create a private git repo for Match certificates
+  # 3. Run `fastlane match init` and `fastlane match appstore` locally
+  # 4. Add secrets: MATCH_GIT_URL, MATCH_SSH_PRIVATE_KEY, MATCH_PASSWORD,
+  #    ASC_KEY_ID, ASC_ISSUER_ID, ASC_API_KEY
+  # 5. Add deploy-testflight job here

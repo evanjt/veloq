@@ -8,12 +8,15 @@ import { spacing, layout } from '@/theme/spacing';
 import type { ActivityType } from '@/types';
 
 // Main activity categories (matching theme colors)
-export const ACTIVITY_CATEGORIES: Record<string, {
-  color: string;
-  icon: keyof typeof Ionicons.glyphMap;
-  label: string;
-  types: string[]; // API types that belong to this category
-}> = {
+export const ACTIVITY_CATEGORIES: Record<
+  string,
+  {
+    color: string;
+    icon: keyof typeof Ionicons.glyphMap;
+    label: string;
+    types: string[]; // API types that belong to this category
+  }
+> = {
   Ride: {
     color: colors.ride,
     icon: 'bicycle',

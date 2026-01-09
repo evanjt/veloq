@@ -30,37 +30,62 @@ function formatDistance(meters: number): string {
   return `${km.toFixed(1)} km`;
 }
 
-function getTimeRangeLabel(range: TimeRange, t: ReturnType<typeof useTranslation>['t']): { current: string; previous: string } {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function getTimeRangeLabel(
+  range: TimeRange,
+  t: (key: string) => any
+): { current: string; previous: string } {
   switch (range) {
     case 'week':
-      return { current: t('stats.thisWeek'), previous: t('stats.vsLastWeek') };
+      return {
+        current: t('stats.thisWeek') as string,
+        previous: t('stats.vsLastWeek') as string,
+      };
     case 'month':
-      return { current: t('stats.thisMonth'), previous: t('stats.vsLastMonth') };
+      return {
+        current: t('stats.thisMonth') as string,
+        previous: t('stats.vsLastMonth') as string,
+      };
     case '3m':
-      return { current: t('stats.last3Months'), previous: t('stats.vsPrevious3Months') };
+      return {
+        current: t('stats.last3Months') as string,
+        previous: t('stats.vsPrevious3Months') as string,
+      };
     case '6m':
-      return { current: t('stats.last6Months'), previous: t('stats.vsPrevious6Months') };
+      return {
+        current: t('stats.last6Months') as string,
+        previous: t('stats.vsPrevious6Months') as string,
+      };
     case 'year':
-      return { current: t('stats.thisYear'), previous: t('stats.vsLastYear') };
+      return {
+        current: t('stats.thisYear') as string,
+        previous: t('stats.vsLastYear') as string,
+      };
   }
 }
 
-function getTimeRangeButtonLabel(range: TimeRange, t: ReturnType<typeof useTranslation>['t']): string {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function getTimeRangeButtonLabel(range: TimeRange, t: (key: string) => any): string {
   switch (range) {
     case 'week':
-      return t('stats.week');
+      return t('stats.week') as string;
     case 'month':
-      return t('stats.month');
+      return t('stats.month') as string;
     case '3m':
-      return t('stats.threeMonths');
+      return t('stats.threeMonths') as string;
     case '6m':
-      return t('stats.sixMonths');
+      return t('stats.sixMonths') as string;
     case 'year':
-      return t('stats.year');
+      return t('stats.year') as string;
   }
 }
 
-function getDateRanges(range: TimeRange): { currentStart: Date; currentEnd: Date; previousStart: Date; previousEnd: Date } {
+function getDateRanges(range: TimeRange): {
+  currentStart: Date;
+  currentEnd: Date;
+  previousStart: Date;
+  previousEnd: Date;
+} {
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
@@ -117,7 +142,7 @@ function getDateRanges(range: TimeRange): { currentStart: Date; currentEnd: Date
 }
 
 function filterActivities(activities: Activity[], start: Date, end: Date): Activity[] {
-  return activities.filter(a => {
+  return activities.filter((a) => {
     const date = new Date(a.start_date_local);
     return date >= start && date <= end;
   });
@@ -142,24 +167,27 @@ export function WeeklySummary({ activities }: WeeklySummaryProps) {
       return {
         currentStats: { count: 0, duration: 0, distance: 0, tss: 0 },
         previousStats: { count: 0, duration: 0, distance: 0, tss: 0 },
-        labels: getTimeRangeLabel(timeRange, t),
+        labels: getTimeRangeLabel(timeRange, t as (key: string) => any),
       };
     }
 
     const ranges = getDateRanges(timeRange);
     const currentActivities = filterActivities(activities, ranges.currentStart, ranges.currentEnd);
-    const previousActivities = filterActivities(activities, ranges.previousStart, ranges.previousEnd);
+    const previousActivities = filterActivities(
+      activities,
+      ranges.previousStart,
+      ranges.previousEnd
+    );
 
     return {
       currentStats: calculateStats(currentActivities),
       previousStats: calculateStats(previousActivities),
-      labels: getTimeRangeLabel(timeRange, t),
+      labels: getTimeRangeLabel(timeRange, t as (key: string) => any),
     };
   }, [activities, timeRange, t]);
 
-  const tssChange = previousStats.tss > 0
-    ? ((currentStats.tss - previousStats.tss) / previousStats.tss) * 100
-    : 0;
+  const tssChange =
+    previousStats.tss > 0 ? ((currentStats.tss - previousStats.tss) / previousStats.tss) * 100 : 0;
 
   const isLoadIncreasing = tssChange > 0;
 
@@ -187,7 +215,7 @@ export function WeeklySummary({ activities }: WeeklySummaryProps) {
                     timeRange === rangeId && styles.timeRangeTextActive,
                   ]}
                 >
-                  {getTimeRangeButtonLabel(rangeId, t)}
+                  {getTimeRangeButtonLabel(rangeId, t as (key: string) => any)}
                 </Text>
               </TouchableOpacity>
             ))}
@@ -225,7 +253,7 @@ export function WeeklySummary({ activities }: WeeklySummaryProps) {
                   timeRange === rangeId && styles.timeRangeTextActive,
                 ]}
               >
-                {getTimeRangeButtonLabel(rangeId, t)}
+                {getTimeRangeButtonLabel(rangeId, t as (key: string) => any)}
               </Text>
             </TouchableOpacity>
           ))}
@@ -243,14 +271,18 @@ export function WeeklySummary({ activities }: WeeklySummaryProps) {
           <Text style={[styles.statValue, isDark && styles.textLight]}>
             {formatDuration(currentStats.duration)}
           </Text>
-          <Text style={[styles.statLabel, isDark && styles.textDark]}>{t('activity.duration')}</Text>
+          <Text style={[styles.statLabel, isDark && styles.textDark]}>
+            {t('activity.duration')}
+          </Text>
         </View>
 
         <View style={styles.statItem}>
           <Text style={[styles.statValue, isDark && styles.textLight]}>
             {formatDistance(currentStats.distance)}
           </Text>
-          <Text style={[styles.statLabel, isDark && styles.textDark]}>{t('activity.distance')}</Text>
+          <Text style={[styles.statLabel, isDark && styles.textDark]}>
+            {t('activity.distance')}
+          </Text>
         </View>
 
         <View style={styles.statItem}>
@@ -262,9 +294,7 @@ export function WeeklySummary({ activities }: WeeklySummaryProps) {
       {/* Comparison with previous period */}
       {previousStats.tss > 0 && (
         <View style={styles.comparisonRow}>
-          <Text style={[styles.comparisonLabel, isDark && styles.textDark]}>
-            {labels.previous}
-          </Text>
+          <Text style={[styles.comparisonLabel, isDark && styles.textDark]}>{labels.previous}</Text>
           <Text
             style={[
               styles.comparisonValue,
