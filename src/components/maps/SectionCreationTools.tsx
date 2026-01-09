@@ -5,16 +5,13 @@
  * select start point → select end point → confirm
  */
 
-import React, { useState, useCallback, useMemo } from "react";
-import { View, StyleSheet, Text } from "react-native";
-import type { LatLng } from "@/lib";
-import {
-  SectionCreationOverlay,
-  type CreationState,
-} from "./SectionCreationOverlay";
-import type { SectionCreationResult } from "./ActivityMapView";
-import { typography } from "@/theme/typography";
-import { spacing } from "@/theme/spacing";
+import React, { useState, useCallback, useMemo } from 'react';
+import { View, StyleSheet, Text } from 'react-native';
+import type { LatLng } from '@/lib';
+import { SectionCreationOverlay, type CreationState } from './SectionCreationOverlay';
+import type { SectionCreationResult } from './ActivityMapView';
+import { typography } from '@/theme/typography';
+import { spacing } from '@/theme/spacing';
 
 interface SectionCreationToolsProps {
   /** Whether section creation mode is active */
@@ -55,8 +52,7 @@ export function SectionCreationTools({
   onSectionCreated,
   onCreationCancelled,
 }: SectionCreationToolsProps) {
-  const [creationState, setCreationState] =
-    useState<CreationState>("selectingStart");
+  const [creationState, setCreationState] = useState<CreationState>('selectingStart');
   const [startIndex, setStartIndex] = useState<number | null>(null);
   const [endIndex, setEndIndex] = useState<number | null>(null);
 
@@ -75,7 +71,7 @@ export function SectionCreationTools({
       const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
       return R * c;
     },
-    [],
+    []
   );
 
   // Calculate section distance
@@ -86,12 +82,7 @@ export function SectionCreationTools({
     for (let i = 1; i < sectionCoords.length; i++) {
       const prev = sectionCoords[i - 1];
       const curr = sectionCoords[i];
-      distance += haversineDistance(
-        prev.latitude,
-        prev.longitude,
-        curr.latitude,
-        curr.longitude,
-      );
+      distance += haversineDistance(prev.latitude, prev.longitude, curr.latitude, curr.longitude);
     }
     return distance;
   }, [creationMode, startIndex, endIndex, coordinates, haversineDistance]);
@@ -101,17 +92,17 @@ export function SectionCreationTools({
     (index: number) => {
       if (!creationMode) return;
 
-      if (creationState === "selectingStart") {
+      if (creationState === 'selectingStart') {
         setStartIndex(index);
-        setCreationState("selectingEnd");
-      } else if (creationState === "selectingEnd") {
+        setCreationState('selectingEnd');
+      } else if (creationState === 'selectingEnd') {
         // Ensure end is after start
         const newEndIndex = index >= startIndex! ? index : startIndex!;
         setEndIndex(newEndIndex);
-        setCreationState("confirming");
+        setCreationState('confirming');
       }
     },
-    [creationMode, creationState, startIndex],
+    [creationMode, creationState, startIndex]
   );
 
   // Handle confirm button
@@ -119,12 +110,10 @@ export function SectionCreationTools({
     if (startIndex === null || endIndex === null) return;
 
     const sectionCoords = coordinates.slice(startIndex, endIndex + 1);
-    const polyline: SectionCreationResult["polyline"] = sectionCoords.map(
-      (coord) => ({
-        lat: coord.latitude,
-        lng: coord.longitude,
-      }),
-    );
+    const polyline: SectionCreationResult['polyline'] = sectionCoords.map((coord) => ({
+      lat: coord.latitude,
+      lng: coord.longitude,
+    }));
 
     onSectionCreated({
       polyline,
@@ -134,14 +123,14 @@ export function SectionCreationTools({
     });
 
     // Reset state
-    setCreationState("selectingStart");
+    setCreationState('selectingStart');
     setStartIndex(null);
     setEndIndex(null);
   }, [startIndex, endIndex, coordinates, sectionDistance, onSectionCreated]);
 
   // Handle cancel button
   const handleCancel = useCallback(() => {
-    setCreationState("selectingStart");
+    setCreationState('selectingStart');
     setStartIndex(null);
     setEndIndex(null);
     onCreationCancelled();
@@ -149,7 +138,7 @@ export function SectionCreationTools({
 
   // Handle reset (clear selection without exiting mode)
   const handleReset = useCallback(() => {
-    setCreationState("selectingStart");
+    setCreationState('selectingStart');
     setStartIndex(null);
     setEndIndex(null);
   }, []);
@@ -157,7 +146,7 @@ export function SectionCreationTools({
   // Reset state when mode changes
   React.useEffect(() => {
     if (creationMode) {
-      setCreationState("selectingStart");
+      setCreationState('selectingStart');
       setStartIndex(null);
       setEndIndex(null);
     }
@@ -173,8 +162,8 @@ export function SectionCreationTools({
       state={creationState}
       startIndex={startIndex}
       endIndex={endIndex}
-      distance={sectionDistance}
-      onPointSelect={handlePointSelect}
+      coordinateCount={coordinates.length}
+      sectionDistance={sectionDistance}
       onConfirm={handleConfirm}
       onCancel={handleCancel}
       onReset={handleReset}

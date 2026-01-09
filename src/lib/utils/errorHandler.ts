@@ -80,11 +80,7 @@ export async function handleAsyncError<T>(
   context: string,
   options: ErrorHandlerOptions<T> = {}
 ): Promise<T> {
-  const {
-    level = 'critical',
-    fallback,
-    log = true,
-  } = options;
+  const { level = 'critical', fallback, log = true } = options;
 
   try {
     return await promise;
@@ -141,11 +137,7 @@ export function handleErrorSync<T>(
   context: string,
   options: ErrorHandlerOptions<T> = {}
 ): T {
-  const {
-    level = 'critical',
-    fallback,
-    log = true,
-  } = options;
+  const { level = 'critical', fallback, log = true } = options;
 
   try {
     return fn();

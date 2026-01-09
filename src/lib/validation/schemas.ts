@@ -25,10 +25,10 @@ import type { ActivityType } from '@/types';
 // =============================================================================
 
 /** Valid map style values */
-const MapStyleSchema: z.ZodType<MapStyleType> = z.enum(['light', 'dark', 'satellite']);
+const MapStyleSchema = z.enum(['light', 'dark', 'satellite']);
 
 /** Activity type validation (standard fitness sport types) */
-const ActivityTypeSchema: z.ZodType<ActivityType> = z.enum([
+const ActivityTypeSchema = z.enum([
   'Ride',
   'Run',
   'Swim',
@@ -68,7 +68,7 @@ const ActivityTypeSchema: z.ZodType<ActivityType> = z.enum([
  */
 export const MapPreferencesSchema = z.object({
   defaultStyle: MapStyleSchema,
-  activityTypeStyles: z.record(ActivityTypeSchema, MapStyleSchema).optional().default({}),
+  activityTypeStyles: z.record(ActivityTypeSchema, MapStyleSchema).optional(),
 });
 
 /** Type inferred from MapPreferencesSchema */
@@ -80,7 +80,7 @@ export type MapPreferences = z.infer<typeof MapPreferencesSchema>;
 
 /** GPS coordinate pair [latitude, longitude] */
 const GpsCoordinateSchema = z.tuple([
-  z.number().min(-90).max(90),   // latitude
+  z.number().min(-90).max(90), // latitude
   z.number().min(-180).max(180), // longitude
 ]);
 
@@ -230,9 +230,7 @@ export function parseWithSchemaStrict<T>(
  * const prefs = safeJsonParseWithSchema(json, validator, defaultPrefs);
  * ```
  */
-export function createSchemaValidator<T>(
-  schema: z.ZodSchema<T>
-): (value: unknown) => value is T {
+export function createSchemaValidator<T>(schema: z.ZodSchema<T>): (value: unknown) => value is T {
   return (value: unknown): value is T => {
     return schema.safeParse(value).success;
   };

@@ -12,7 +12,7 @@ import { typography } from '@/theme/typography';
 import { spacing, layout } from '@/theme/spacing';
 import { shadows } from '@/theme/shadows';
 
-export type CreationState = 'idle' | 'selectingStart' | 'selectingEnd' | 'complete';
+export type CreationState = 'idle' | 'selectingStart' | 'selectingEnd' | 'confirming' | 'complete';
 
 interface SectionCreationOverlayProps {
   /** Current creation state */
