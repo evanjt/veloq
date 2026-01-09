@@ -5,7 +5,13 @@ import { useTranslation } from 'react-i18next';
 import { CartesianChart, Line } from 'victory-native';
 import { DashPathEffect, Line as SkiaLine } from '@shopify/react-native-skia';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Animated, { useSharedValue, useAnimatedReaction, runOnJS, useDerivedValue, useAnimatedStyle } from 'react-native-reanimated';
+import Animated, {
+  useSharedValue,
+  useAnimatedReaction,
+  runOnJS,
+  useDerivedValue,
+  useAnimatedStyle,
+} from 'react-native-reanimated';
 import { colors, darkColors } from '@/theme/colors';
 import { typography } from '@/theme/typography';
 import { spacing } from '@/theme/spacing';
@@ -62,10 +68,7 @@ interface ChartPoint {
   [key: string]: unknown;
 }
 
-export function SwimPaceCurveChart({
-  days = 365,
-  height = 200,
-}: SwimPaceCurveChartProps) {
+export function SwimPaceCurveChart({ days = 365, height = 200 }: SwimPaceCurveChartProps) {
   const { t } = useTranslation();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
@@ -84,7 +87,11 @@ export function SwimPaceCurveChart({
   // Process curve data - use distances directly from API
   const { chartData, cssPace, yDomain } = useMemo(() => {
     if (!curve?.distances || !curve?.times || curve.distances.length === 0) {
-      return { chartData: [], cssPace: null, yDomain: [90, 180] as [number, number] };
+      return {
+        chartData: [],
+        cssPace: null,
+        yDomain: [90, 180] as [number, number],
+      };
     }
 
     const points: ChartPoint[] = [];
@@ -98,13 +105,24 @@ export function SwimPaceCurveChart({
 
         // Filter reasonable swim paces (50s to 4min per 100m) and reasonable distances
         if (paceSecsPer100m >= 50 && paceSecsPer100m <= 240 && distance >= 25) {
-          points.push({ x: 0, y: 0, distance, paceSecsPer100m, paceMs: speed, time });
+          points.push({
+            x: 0,
+            y: 0,
+            distance,
+            paceSecsPer100m,
+            paceMs: speed,
+            time,
+          });
         }
       }
     }
 
     if (points.length === 0) {
-      return { chartData: [], cssPace: null, yDomain: [90, 180] as [number, number] };
+      return {
+        chartData: [],
+        cssPace: null,
+        yDomain: [90, 180] as [number, number],
+      };
     }
 
     points.sort((a, b) => a.distance - b.distance);
@@ -113,7 +131,7 @@ export function SwimPaceCurveChart({
     const sampled: typeof points = [];
     let lastDist = 0;
     for (const p of points) {
-      const minGap = p.distance < 200 ? 10 : (p.distance < 1000 ? 50 : 100);
+      const minGap = p.distance < 200 ? 10 : p.distance < 1000 ? 50 : 100;
       if (p.distance - lastDist >= minGap) {
         sampled.push(p);
         lastDist = p.distance;
@@ -121,7 +139,7 @@ export function SwimPaceCurveChart({
     }
 
     // Use log scale for x-axis
-    const data = sampled.map(p => ({
+    const data = sampled.map((p) => ({
       ...p,
       x: Math.log10(p.distance),
       y: p.paceSecsPer100m,
@@ -129,9 +147,9 @@ export function SwimPaceCurveChart({
 
     const cssSecsPer100m = curve.criticalSpeed ? speedToSecsPer100m(curve.criticalSpeed) : null;
 
-    const paces = data.map(d => d.y);
-    const minPace = Math.min(...paces);  // fastest
-    const maxPace = Math.max(...paces);  // slowest
+    const paces = data.map((d) => d.y);
+    const minPace = Math.min(...paces); // fastest
+    const maxPace = Math.max(...paces); // slowest
     const padding = (maxPace - minPace) * 0.1;
 
     return {
@@ -182,14 +200,25 @@ export function SwimPaceCurveChart({
 
   useAnimatedReaction(
     () => selectedIdx.value,
-    (idx) => { runOnJS(updateTooltipOnJS)(idx); },
+    (idx) => {
+      runOnJS(updateTooltipOnJS)(idx);
+    },
     [updateTooltipOnJS]
   );
 
   const gesture = Gesture.Pan()
-    .onStart((e) => { 'worklet'; touchX.value = e.x; })
-    .onUpdate((e) => { 'worklet'; touchX.value = e.x; })
-    .onEnd(() => { 'worklet'; touchX.value = -1; })
+    .onStart((e) => {
+      'worklet';
+      touchX.value = e.x;
+    })
+    .onUpdate((e) => {
+      'worklet';
+      touchX.value = e.x;
+    })
+    .onEnd(() => {
+      'worklet';
+      touchX.value = -1;
+    })
     .minDistance(0)
     .activateAfterLongPress(700);
 
@@ -223,7 +252,9 @@ export function SwimPaceCurveChart({
       <View style={[styles.container, { height }]}>
         <Text style={[styles.title, isDark && styles.textLight]}>{t('stats.swimPaceCurve')}</Text>
         <View style={styles.emptyState}>
-          <Text style={[styles.emptyText, isDark && styles.textDark]}>{t('stats.noSwimPaceData')}</Text>
+          <Text style={[styles.emptyText, isDark && styles.textDark]}>
+            {t('stats.noSwimPaceData')}
+          </Text>
         </View>
       </View>
     );
@@ -239,7 +270,9 @@ export function SwimPaceCurveChart({
         <Text style={[styles.title, isDark && styles.textLight]}>{t('stats.swimPaceCurve')}</Text>
         <View style={styles.valuesRow}>
           <View style={styles.valueItem}>
-            <Text style={[styles.valueLabel, isDark && styles.textDark]}>{t('activity.distance')}</Text>
+            <Text style={[styles.valueLabel, isDark && styles.textDark]}>
+              {t('activity.distance')}
+            </Text>
             <Text style={[styles.valueNumber, { color: CHART_COLOR }]}>
               {formatDistance(displayData.distance)}
             </Text>
@@ -271,11 +304,16 @@ export function SwimPaceCurveChart({
           >
             {({ points, chartBounds }) => {
               // Sync bounds for gesture
-              if (chartBounds.left !== chartBoundsShared.value.left ||
-                  chartBounds.right !== chartBoundsShared.value.right) {
-                chartBoundsShared.value = { left: chartBounds.left, right: chartBounds.right };
+              if (
+                chartBounds.left !== chartBoundsShared.value.left ||
+                chartBounds.right !== chartBoundsShared.value.right
+              ) {
+                chartBoundsShared.value = {
+                  left: chartBounds.left,
+                  right: chartBounds.right,
+                };
               }
-              const newCoords = points.y.filter(p => p.x != null).map(p => p.x as number);
+              const newCoords = points.y.filter((p) => p.x != null).map((p) => p.x as number);
               if (newCoords.length !== pointXCoordsShared.value.length) {
                 pointXCoordsShared.value = newCoords;
               }
@@ -287,11 +325,17 @@ export function SwimPaceCurveChart({
                     <SkiaLine
                       p1={{
                         x: chartBounds.left,
-                        y: chartBounds.top + ((cssPace - yDomain[0]) / (yDomain[1] - yDomain[0])) * (chartBounds.bottom - chartBounds.top),
+                        y:
+                          chartBounds.top +
+                          ((cssPace - yDomain[0]) / (yDomain[1] - yDomain[0])) *
+                            (chartBounds.bottom - chartBounds.top),
                       }}
                       p2={{
                         x: chartBounds.right,
-                        y: chartBounds.top + ((cssPace - yDomain[0]) / (yDomain[1] - yDomain[0])) * (chartBounds.bottom - chartBounds.top),
+                        y:
+                          chartBounds.top +
+                          ((cssPace - yDomain[0]) / (yDomain[1] - yDomain[0])) *
+                            (chartBounds.bottom - chartBounds.top),
                       }}
                       color={CSS_LINE_COLOR}
                       strokeWidth={1}
@@ -330,13 +374,22 @@ export function SwimPaceCurveChart({
           {/* Y-axis labels - note: axis is inverted so top is fastest (yDomain[1]), bottom is slowest (yDomain[0]) */}
           <View style={styles.yAxisOverlay} pointerEvents="none">
             <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
-              {Math.floor(yDomain[1] / 60)}:{Math.round(yDomain[1] % 60).toString().padStart(2, '0')}
+              {Math.floor(yDomain[1] / 60)}:
+              {Math.round(yDomain[1] % 60)
+                .toString()
+                .padStart(2, '0')}
             </Text>
             <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
-              {Math.floor((yDomain[0] + yDomain[1]) / 2 / 60)}:{Math.round((yDomain[0] + yDomain[1]) / 2 % 60).toString().padStart(2, '0')}
+              {Math.floor((yDomain[0] + yDomain[1]) / 2 / 60)}:
+              {Math.round(((yDomain[0] + yDomain[1]) / 2) % 60)
+                .toString()
+                .padStart(2, '0')}
             </Text>
             <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
-              {Math.floor(yDomain[0] / 60)}:{Math.round(yDomain[0] % 60).toString().padStart(2, '0')}
+              {Math.floor(yDomain[0] / 60)}:
+              {Math.round(yDomain[0] % 60)
+                .toString()
+                .padStart(2, '0')}
             </Text>
           </View>
         </View>
@@ -347,7 +400,11 @@ export function SwimPaceCurveChart({
         <View style={styles.legend}>
           <View style={[styles.legendDash, { backgroundColor: CSS_LINE_COLOR }]} />
           <Text style={[styles.legendText, isDark && styles.textDark]}>
-            CSS {Math.floor(cssPace / 60)}:{Math.round(cssPace % 60).toString().padStart(2, '0')}/100m
+            CSS {Math.floor(cssPace / 60)}:
+            {Math.round(cssPace % 60)
+              .toString()
+              .padStart(2, '0')}
+            /100m
           </Text>
         </View>
       )}

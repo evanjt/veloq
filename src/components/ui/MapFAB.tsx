@@ -10,11 +10,7 @@ interface MapFABProps {
 
 export function MapFAB({ onPress, style }: MapFABProps) {
   return (
-    <TouchableOpacity
-      style={[styles.fab, style]}
-      onPress={onPress}
-      activeOpacity={0.8}
-    >
+    <TouchableOpacity style={[styles.fab, style]} onPress={onPress} activeOpacity={0.8}>
       <Ionicons name="map" size={24} color={colors.surface} />
     </TouchableOpacity>
   );

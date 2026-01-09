@@ -12,12 +12,29 @@ PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 OUTPUT_DIR="${PROJECT_DIR}/target/ios"
 SWIFT_DIR="${OUTPUT_DIR}/swift"
 
+cd "$PROJECT_DIR"
+
+# Check if libraries are already built (from cache)
+LIBS_EXIST=1
+[ -f "target/aarch64-apple-ios/release/libroute_matcher.a" ] || LIBS_EXIST=0
+[ -f "target/aarch64-apple-ios-sim/release/libroute_matcher.a" ] || LIBS_EXIST=0
+[ -f "target/x86_64-apple-ios/release/libroute_matcher.a" ] || LIBS_EXIST=0
+
+if [ "$LIBS_EXIST" -eq 1 ]; then
+  echo "✅ iOS libraries already built (from cache), skipping build"
+  mkdir -p "$OUTPUT_DIR/device" "$OUTPUT_DIR/simulator"
+  cp target/aarch64-apple-ios/release/libroute_matcher.a "$OUTPUT_DIR/device/libroute_matcher.a"
+  lipo -create \
+    target/aarch64-apple-ios-sim/release/libroute_matcher.a \
+    target/x86_64-apple-ios/release/libroute_matcher.a \
+    -output "$OUTPUT_DIR/simulator/libroute_matcher.a" 2>/dev/null || true
+  exit 0
+fi
+
 echo "============================================"
 echo "Building route-matcher for iOS"
 echo "============================================"
 echo ""
-
-cd "$PROJECT_DIR"
 
 # Check prerequisites
 echo "Checking prerequisites..."
@@ -134,6 +151,31 @@ if [ ! -f "$SWIFT_DIR/route_matcherFFI.h" ]; then
 fi
 echo "  ✓ route_matcher.swift"
 echo "  ✓ route_matcherFFI.h"
+
+# Generate TypeScript bindings
+echo ""
+echo "🔧 Generating TypeScript bindings..."
+TS_OUTPUT_DIR="../modules/route-matcher-native/src/generated"
+mkdir -p "$TS_OUTPUT_DIR"
+
+if cargo run --release --features ffi --bin uniffi-bindgen generate \
+    --library target/aarch64-apple-ios/release/libroute_matcher.a \
+    --language typescript \
+    --out-dir "$TS_OUTPUT_DIR" 2>/dev/null; then
+    echo "TypeScript bindings generated successfully ✓"
+elif command -v uniffi-bindgen &> /dev/null; then
+    echo "Falling back to system uniffi-bindgen..."
+    if uniffi-bindgen generate \
+        --library target/aarch64-apple-ios/release/libroute_matcher.a \
+        --language typescript \
+        --out-dir "$TS_OUTPUT_DIR" 2>/dev/null; then
+        echo "TypeScript bindings generated successfully ✓"
+    else
+        echo "⚠️  TypeScript bindings generation skipped (may need uniffi 0.30+)"
+    fi
+else
+    echo "⚠️  TypeScript bindings generation skipped (may need uniffi 0.30+)"
+fi
 
 # Create XCFramework (requires macOS with Xcode)
 echo ""

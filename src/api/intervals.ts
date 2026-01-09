@@ -60,18 +60,41 @@ export const intervalsApi = {
     // Base fields always included (most important for activity list)
     // Note: polyline is NOT returned by the API (would need streams endpoint)
     const baseFields = [
-      'id', 'name', 'type', 'start_date_local', 'moving_time', 'elapsed_time',
-      'distance', 'total_elevation_gain', 'average_speed', 'max_speed',
-      'icu_average_hr', 'icu_max_hr', 'average_heartrate', 'average_watts', 'max_watts', 'icu_average_watts',
-      'average_cadence', 'calories', 'icu_training_load',
-      'has_weather', 'average_weather_temp', 'icu_ftp', 'stream_types',
-      'locality', 'country', // Location info
+      'id',
+      'name',
+      'type',
+      'start_date_local',
+      'moving_time',
+      'elapsed_time',
+      'distance',
+      'total_elevation_gain',
+      'average_speed',
+      'max_speed',
+      'icu_average_hr',
+      'icu_max_hr',
+      'average_heartrate',
+      'average_watts',
+      'max_watts',
+      'icu_average_watts',
+      'average_cadence',
+      'calories',
+      'icu_training_load',
+      'has_weather',
+      'average_weather_temp',
+      'icu_ftp',
+      'stream_types',
+      'locality',
+      'country', // Location info
     ];
 
     // Stats fields for performance/stats page
     // Note: icu_zone_times = power zones, icu_hr_zone_times = HR zones, icu_pm_ftp_watts = eFTP
     const statsFields = [
-      'icu_pm_ftp_watts', 'icu_zone_times', 'icu_hr_zone_times', 'icu_power_zones', 'icu_hr_zones',
+      'icu_pm_ftp_watts',
+      'icu_zone_times',
+      'icu_hr_zone_times',
+      'icu_power_zones',
+      'icu_hr_zones',
     ];
 
     const fields = params?.includeStats
@@ -99,36 +122,71 @@ export const intervalsApi = {
   /**
    * Get the oldest activity date for the athlete
    * Used to determine the full timeline range
+   *
+   * Strategy: Use binary search with year boundaries to find oldest activity
+   * efficiently without fetching entire activity history.
    */
   async getOldestActivityDate(): Promise<string | null> {
     if (isDemoMode()) return mockIntervalsApi.getOldestActivityDate();
     const athleteId = getAthleteId();
-    // Query oldest activities with pagination to avoid timeout
-    // We only need the oldest date, so fetch the oldest page of results
-    // intervals.icu returns activities in descending date order by default
-    const response = await apiClient.get(`/athlete/${athleteId}/activities`, {
-      params: {
-        oldest: API_DEFAULTS.OLDEST_DATE_FALLBACK,
-        newest: formatLocalDate(new Date()),
-        fields: 'id,start_date_local',
-        // Limit to last page to get oldest activities
-        // Note: intervals.icu sorts descending, so we need a reasonable limit
-        limit: 50,
-      },
-    });
-    const activities = response.data as Activity[];
-    if (activities.length === 0) return null;
-    // Find the oldest activity date from the returned results
-    return activities.reduce((oldest, a) =>
-      a.start_date_local < oldest ? a.start_date_local : oldest,
-      activities[0].start_date_local
-    );
+
+    // Binary search for oldest activity year
+    // Start with current year and search backwards
+    const today = new Date();
+    const currentYear = today.getFullYear();
+    let oldestFound: string | null = null;
+
+    // Check progressively older years until we find no activities
+    // Most users won't have data older than 10-15 years
+    for (let year = currentYear; year >= currentYear - 20; year--) {
+      const yearStart = `${year}-01-01`;
+      const yearEnd = `${year}-12-31`;
+
+      try {
+        const response = await apiClient.get(`/athlete/${athleteId}/activities`, {
+          params: {
+            oldest: yearStart,
+            newest: yearEnd,
+            fields: 'id,start_date_local',
+            limit: 1, // We only need to know if any activities exist in this year
+          },
+        });
+
+        const activities = response.data as Activity[];
+        if (activities.length > 0) {
+          // Found activity in this year - need to find the oldest within it
+          // Fetch all activities for this year to find the actual oldest
+          const fullYearResponse = await apiClient.get(`/athlete/${athleteId}/activities`, {
+            params: {
+              oldest: yearStart,
+              newest: yearEnd,
+              fields: 'id,start_date_local',
+            },
+          });
+
+          const yearActivities = fullYearResponse.data as Activity[];
+          if (yearActivities.length > 0) {
+            // intervals.icu returns descending (newest first), so oldest is last
+            oldestFound = yearActivities.reduce(
+              (oldest, a) => (a.start_date_local < oldest ? a.start_date_local : oldest),
+              yearActivities[0].start_date_local
+            );
+          }
+        } else if (oldestFound) {
+          // No activities in this year and we already found some in a later year
+          // We've found the boundary - stop searching
+          break;
+        }
+      } catch {
+        // If year query fails, continue with next year
+        continue;
+      }
+    }
+
+    return oldestFound;
   },
 
-  async getActivityStreams(
-    id: string,
-    types?: string[]
-  ): Promise<ActivityStreams> {
+  async getActivityStreams(id: string, types?: string[]): Promise<ActivityStreams> {
     if (isDemoMode()) return mockIntervalsApi.getActivityStreams(id, types);
     // Note: intervals.icu requires .json suffix for streams endpoint
     const response = await apiClient.get<RawStreamItem[]>(`/activity/${id}/streams.json`, {
@@ -138,10 +196,7 @@ export const intervalsApi = {
     return parseStreams(response.data);
   },
 
-  async getWellness(params?: {
-    oldest?: string;
-    newest?: string;
-  }): Promise<WellnessData[]> {
+  async getWellness(params?: { oldest?: string; newest?: string }): Promise<WellnessData[]> {
     if (isDemoMode()) return mockIntervalsApi.getWellness(params);
     const athleteId = getAthleteId();
 
@@ -166,10 +221,7 @@ export const intervalsApi = {
    * @param sport - Sport type filter (e.g., 'Ride', 'Run')
    * @param days - Number of days to include (default 365)
    */
-  async getPowerCurve(params?: {
-    sport?: string;
-    days?: number;
-  }): Promise<PowerCurve> {
+  async getPowerCurve(params?: { sport?: string; days?: number }): Promise<PowerCurve> {
     if (isDemoMode()) return mockIntervalsApi.getPowerCurve(params);
     const athleteId = getAthleteId();
     const sportType = params?.sport || 'Ride';
@@ -177,10 +229,11 @@ export const intervalsApi = {
     const curvesParam = params?.days ? `${params.days}d` : '1y';
 
     // Response format: { list: [{ secs: [], values: [], ... }], activities: {} }
-    const response = await apiClient.get<{ list: Array<{ secs: number[]; values: number[] }> }>(
-      `/athlete/${athleteId}/power-curves.json`,
-      { params: { type: sportType, curves: curvesParam } }
-    );
+    const response = await apiClient.get<{
+      list: Array<{ secs: number[]; values: number[] }>;
+    }>(`/athlete/${athleteId}/power-curves.json`, {
+      params: { type: sportType, curves: curvesParam },
+    });
 
     // Extract first curve from list and convert to our format
     const curve = response.data?.list?.[0];
@@ -231,7 +284,13 @@ export const intervalsApi = {
 
     const response = await apiClient.get<PaceCurveResponse>(
       `/athlete/${athleteId}/pace-curves.json`,
-      { params: { type: sportType, curves: curvesParam, gap: useGap || undefined } }
+      {
+        params: {
+          type: sportType,
+          curves: curvesParam,
+          gap: useGap || undefined,
+        },
+      }
     );
 
     const curve = response.data?.list?.[0];
@@ -245,7 +304,7 @@ export const intervalsApi = {
     });
 
     // Extract critical speed model data
-    const csModel = curve?.paceModels?.find(m => m.type === 'CS');
+    const csModel = curve?.paceModels?.find((m) => m.type === 'CS');
 
     return {
       type: 'pace',
@@ -289,11 +348,16 @@ export const intervalsApi = {
    * @param boundsOnly - If true, only returns bounds (faster, smaller response)
    */
   async getActivityMap(id: string, boundsOnly = false): Promise<ActivityMapData> {
-    if (isDemoMode()) return mockIntervalsApi.getActivityMap(id, boundsOnly);
+    if (isDemoMode()) {
+      const result = await mockIntervalsApi.getActivityMap(id, boundsOnly);
+      if (!result) {
+        return { bounds: null, latlngs: null, route: null, weather: null };
+      }
+      return result;
+    }
     const response = await apiClient.get<ActivityMapData>(`/activity/${id}/map`, {
       params: boundsOnly ? { boundsOnly: true } : undefined,
     });
     return response.data;
   },
-
 };

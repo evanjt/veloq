@@ -65,14 +65,12 @@ export function useHeatmap(options: UseHeatmapOptions = {}): UseHeatmapResult {
       const activityData: ActivityHeatmapData[] = [];
 
       // Pre-filter groups by sport type before iterating
-      const filteredGroups = sportType
-        ? groups.filter(g => g.sportType === sportType)
-        : groups;
+      const filteredGroups = sportType ? groups.filter((g) => g.sportType === sportType) : groups;
 
       // Get pre-computed bounds and distances from Rust engine
       // This avoids redundant Haversine calculations in JS
       const allBoundsData = routeEngine.getAllActivityBounds();
-      const boundsMap = new Map(allBoundsData.map(b => [b.id, b]));
+      const boundsMap = new Map(allBoundsData.map((b) => [b.id, b]));
 
       // Collect signatures from all groups
       for (const group of filteredGroups) {
@@ -83,7 +81,7 @@ export function useHeatmap(options: UseHeatmapOptions = {}): UseHeatmapResult {
           if (points.length < 2) continue;
 
           // Convert to GpsPoint format
-          const gpsPoints: GpsPoint[] = points.map(p => ({
+          const gpsPoints: GpsPoint[] = points.map((p) => ({
             latitude: p.lat,
             longitude: p.lng,
           }));
@@ -131,7 +129,9 @@ export function useHeatmap(options: UseHeatmapOptions = {}): UseHeatmapResult {
       }
 
       if (allSignatures.length > 0) {
-        const result = nativeModule.generateHeatmap(allSignatures, activityData, { cellSizeMeters });
+        const result = nativeModule.generateHeatmap(allSignatures, activityData, {
+          cellSizeMeters,
+        });
         setHeatmap(result);
         setIsReady(true);
       } else {
@@ -146,36 +146,40 @@ export function useHeatmap(options: UseHeatmapOptions = {}): UseHeatmapResult {
   }, [groups, cellSizeMeters, sportType]);
 
   // Query cell at location
-  const queryCell = useCallback((lat: number, lng: number): CellQueryResult | null => {
-    if (!heatmap) return null;
+  const queryCell = useCallback(
+    (lat: number, lng: number): CellQueryResult | null => {
+      if (!heatmap) return null;
 
-    // Find cell containing the point
-    const { bounds, gridRows, gridCols, cells } = heatmap;
-    const cellHeight = (bounds.maxLat - bounds.minLat) / gridRows;
-    const cellWidth = (bounds.maxLng - bounds.minLng) / gridCols;
+      // Find cell containing the point
+      const { bounds, gridRows, gridCols, cells } = heatmap;
+      const cellHeight = (bounds.maxLat - bounds.minLat) / gridRows;
+      const cellWidth = (bounds.maxLng - bounds.minLng) / gridCols;
 
-    const row = Math.floor((lat - bounds.minLat) / cellHeight);
-    const col = Math.floor((lng - bounds.minLng) / cellWidth);
+      const row = Math.floor((lat - bounds.minLat) / cellHeight);
+      const col = Math.floor((lng - bounds.minLng) / cellWidth);
 
-    if (row < 0 || row >= gridRows || col < 0 || col >= gridCols) {
-      return null;
-    }
+      if (row < 0 || row >= gridRows || col < 0 || col >= gridCols) {
+        return null;
+      }
 
-    // Find cell
-    const cell = cells.find(c => c.row === row && c.col === col);
-    if (!cell) return null;
+      // Find cell
+      const cell = cells.find((c) => c.row === row && c.col === col);
+      if (!cell) return null;
 
-    // Build suggested label from route info
-    const uniqueRoutes = new Set(cell.routeRefs.map(r => r.name).filter(Boolean));
-    const suggestedLabel = uniqueRoutes.size > 0
-      ? Array.from(uniqueRoutes).slice(0, 2).join(', ')
-      : `${cell.activityIds.length} activities`;
+      // Build suggested label from route info
+      const uniqueRoutes = new Set(cell.routeRefs.map((r) => r.name).filter(Boolean));
+      const suggestedLabel =
+        uniqueRoutes.size > 0
+          ? Array.from(uniqueRoutes).slice(0, 2).join(', ')
+          : `${cell.activityIds.length} activities`;
 
-    return {
-      cell,
-      suggestedLabel,
-    };
-  }, [heatmap]);
+      return {
+        cell,
+        suggestedLabel,
+      };
+    },
+    [heatmap]
+  );
 
   // Convert to GeoJSON for MapLibre rendering
   const toGeoJSON = useCallback((): GeoJSON.FeatureCollection | null => {
@@ -185,7 +189,7 @@ export function useHeatmap(options: UseHeatmapOptions = {}): UseHeatmapResult {
     const cellHeight = (bounds.maxLat - bounds.minLat) / gridRows;
     const cellWidth = (bounds.maxLng - bounds.minLng) / gridCols;
 
-    const features: GeoJSON.Feature[] = cells.map(cell => {
+    const features: GeoJSON.Feature[] = cells.map((cell) => {
       const minLat = bounds.minLat + cell.row * cellHeight;
       const minLng = bounds.minLng + cell.col * cellWidth;
       const maxLat = minLat + cellHeight;
@@ -201,13 +205,15 @@ export function useHeatmap(options: UseHeatmapOptions = {}): UseHeatmapResult {
         },
         geometry: {
           type: 'Polygon' as const,
-          coordinates: [[
-            [minLng, minLat],
-            [maxLng, minLat],
-            [maxLng, maxLat],
-            [minLng, maxLat],
-            [minLng, minLat],
-          ]],
+          coordinates: [
+            [
+              [minLng, minLat],
+              [maxLng, minLat],
+              [maxLng, maxLat],
+              [minLng, maxLat],
+              [minLng, minLat],
+            ],
+          ],
         },
       };
     });
@@ -227,10 +233,4 @@ export function useHeatmap(options: UseHeatmapOptions = {}): UseHeatmapResult {
 }
 
 // Re-export types for convenience
-export type {
-  HeatmapResult,
-  HeatmapConfig,
-  HeatmapCell,
-  CellQueryResult,
-  ActivityHeatmapData,
-};
+export type { HeatmapResult, HeatmapConfig, HeatmapCell, CellQueryResult, ActivityHeatmapData };

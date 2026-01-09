@@ -3,7 +3,13 @@
  * Shows a frequently-traveled section with all activities that traverse it.
  */
 
-import React, { useMemo, useCallback, useState, useEffect, useRef } from 'react';
+import React, {
+  useMemo,
+  useCallback,
+  useState,
+  useEffect,
+  useRef,
+} from "react";
 import {
   View,
   ScrollView,
@@ -15,32 +21,28 @@ import {
   TouchableOpacity,
   TextInput,
   Keyboard,
-} from 'react-native';
-import { Text, ActivityIndicator } from 'react-native-paper';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useLocalSearchParams, router, Href } from 'expo-router';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useTranslation } from 'react-i18next';
-import { LinearGradient } from 'expo-linear-gradient';
-import { CartesianChart, Line } from 'victory-native';
-import { Circle } from '@shopify/react-native-skia';
-import Svg, { Polyline } from 'react-native-svg';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+} from "react-native";
+import { Text, ActivityIndicator } from "react-native-paper";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useLocalSearchParams, router } from "expo-router";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { useTranslation } from "react-i18next";
+import { LinearGradient } from "expo-linear-gradient";
 import {
-  useSharedValue,
-  useDerivedValue,
-  useAnimatedStyle,
-  useAnimatedReaction,
-  runOnJS,
-} from 'react-native-reanimated';
-import Animated from 'react-native-reanimated';
-import { useActivities, useFrequentSections, useSectionPerformances, type ActivitySectionRecord } from '@/hooks';
-import { SectionMapView } from '@/components/routes';
+  useActivities,
+  useFrequentSections,
+  useSectionPerformances,
+  useCustomSection,
+  type ActivitySectionRecord,
+} from "@/hooks";
+import { SectionMapView, MiniTraceView } from "@/components/routes";
+import { UnifiedPerformanceChart } from "@/components/routes/performance";
+import { getGpsTracks } from "@/lib/storage/gpsStorage";
 
 // Lazy load native module to avoid bundler errors
 function getRouteEngine() {
   try {
-    return require('route-matcher-native').routeEngine;
+    return require("route-matcher-native").routeEngine;
   } catch {
     return null;
   }
@@ -54,12 +56,25 @@ import {
   formatSpeed,
   formatPace,
   isRunningActivity,
-} from '@/lib';
-import { getGpsTrack } from '@/lib';
-import { colors, darkColors, spacing, layout, typography, opacity } from '@/theme';
-import type { Activity, ActivityType, RoutePoint, FrequentSection } from '@/types';
+} from "@/lib";
+import { getGpsTrack } from "@/lib";
+import {
+  colors,
+  darkColors,
+  spacing,
+  layout,
+  typography,
+  opacity,
+} from "@/theme";
+import type {
+  Activity,
+  ActivityType,
+  RoutePoint,
+  FrequentSection,
+  PerformanceDataPoint,
+} from "@/types";
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 const MAP_HEIGHT = Math.round(SCREEN_HEIGHT * 0.45);
 
 // Direction colors - using theme for consistency
@@ -85,638 +100,6 @@ interface ActivityRowProps {
   actualSectionPace?: number;
 }
 
-/** Mini trace component showing activity path over section */
-function MiniSectionTrace({
-  activityPoints,
-  sectionPoints,
-  activityColor,
-  sectionColor,
-  isHighlighted,
-}: {
-  activityPoints: RoutePoint[];
-  sectionPoints?: RoutePoint[];
-  activityColor: string;
-  sectionColor: string;
-  isHighlighted?: boolean;
-}) {
-  if (activityPoints.length < 2) return null;
-
-  const width = 36;
-  const height = 36;
-  const padding = 3;
-
-  const allPoints = sectionPoints && sectionPoints.length > 0
-    ? [...activityPoints, ...sectionPoints]
-    : activityPoints;
-
-  const lats = allPoints.map(p => p.lat);
-  const lngs = allPoints.map(p => p.lng);
-  const minLat = Math.min(...lats);
-  const maxLat = Math.max(...lats);
-  const minLng = Math.min(...lngs);
-  const maxLng = Math.max(...lngs);
-
-  const latRange = maxLat - minLat || 1;
-  const lngRange = maxLng - minLng || 1;
-
-  const scalePoints = (points: RoutePoint[]) =>
-    points.map(p => ({
-      x: ((p.lng - minLng) / lngRange) * (width - padding * 2) + padding,
-      y: (1 - (p.lat - minLat) / latRange) * (height - padding * 2) + padding,
-    }));
-
-  const activityScaled = scalePoints(activityPoints);
-  const activityString = activityScaled.map(p => `${p.x},${p.y}`).join(' ');
-
-  const sectionScaled = sectionPoints && sectionPoints.length > 1
-    ? scalePoints(sectionPoints)
-    : null;
-  const sectionString = sectionScaled
-    ? sectionScaled.map(p => `${p.x},${p.y}`).join(' ')
-    : null;
-
-  return (
-    <View style={[
-      miniTraceStyles.container,
-      isHighlighted && miniTraceStyles.highlighted,
-    ]}>
-      <Svg width={width} height={height}>
-        {/* Section reference underneath */}
-        {sectionString && (
-          <Polyline
-            points={sectionString}
-            fill="none"
-            stroke={sectionColor}
-            strokeWidth={2}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            opacity={isHighlighted ? 0.3 : 0.2}
-          />
-        )}
-        {/* Activity trace on top */}
-        <Polyline
-          points={activityString}
-          fill="none"
-          stroke={activityColor}
-          strokeWidth={isHighlighted ? 3 : 2.5}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          opacity={0.85}
-        />
-      </Svg>
-    </View>
-  );
-}
-
-const miniTraceStyles = StyleSheet.create({
-  container: {
-    width: 36,
-    height: 36,
-    borderRadius: 8,
-    backgroundColor: 'rgba(0, 0, 0, 0.03)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  highlighted: {
-    backgroundColor: 'rgba(0, 188, 212, 0.15)',
-    borderWidth: 1,
-    borderColor: '#00BCD4',
-  },
-});
-
-/** Chart data point */
-interface PerformanceDataPoint {
-  id: string;
-  activityId: string;
-  speed: number;
-  date: Date;
-  activityName: string;
-  direction: 'same' | 'reverse';
-  lapPoints?: RoutePoint[];
-  /** Estimated section time in seconds (proportional to distance ratio) */
-  sectionTime?: number;
-  /** Section distance in meters */
-  sectionDistance?: number;
-  /** Number of laps/traversals (for multi-lap activities) */
-  lapCount?: number;
-}
-
-const CHART_HEIGHT = 160;
-const MIN_POINT_WIDTH = 40;
-
-function formatShortDate(date: Date): string {
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-}
-
-interface PerformanceChartProps {
-  activities: Activity[];
-  section: FrequentSection;
-  activityType: ActivityType;
-  isDark: boolean;
-  onActivitySelect?: (activityId: string | null, activityPoints?: RoutePoint[]) => void;
-  selectedActivityId?: string | null;
-  /** Performance records with actual section times (from useSectionPerformances) */
-  records?: ActivitySectionRecord[];
-  /** Whether records are still loading */
-  isLoadingRecords?: boolean;
-}
-
-function SectionPerformanceChart({
-  activities,
-  section,
-  activityType,
-  isDark,
-  onActivitySelect,
-  selectedActivityId,
-  records,
-  isLoadingRecords,
-}: PerformanceChartProps) {
-  const { t } = useTranslation();
-  const showPace = isRunningActivity(activityType);
-  const activityColor = getActivityColor(activityType);
-
-  const [tooltipData, setTooltipData] = useState<PerformanceDataPoint | null>(null);
-  const [isActive, setIsActive] = useState(false);
-  const [isPersisted, setIsPersisted] = useState(false);
-
-  const touchX = useSharedValue(-1);
-  const chartBoundsShared = useSharedValue({ left: 0, right: 1 });
-  const lastNotifiedIdx = useRef<number | null>(null);
-
-  // Prepare chart data - use actual section times from records when available,
-  // otherwise fall back to proportional estimate
-  const { chartData, minSpeed, maxSpeed, bestIndex, hasReverseRuns } = useMemo(() => {
-    const dataPoints: (PerformanceDataPoint & { x: number })[] = [];
-
-    // Map activity portions for quick lookup
-    const portionMap = new Map(
-      section.activityPortions?.map(p => [p.activityId, p]) || []
-    );
-
-    // Create a map of records by activity ID for quick lookup
-    const recordMap = new Map(
-      records?.map(r => [r.activityId, r]) || []
-    );
-
-    // Sort activities by date
-    const sortedActivities = [...activities].sort(
-      (a, b) => new Date(a.start_date_local).getTime() - new Date(b.start_date_local).getTime()
-    );
-
-    let hasAnyReverse = false;
-
-    for (const activity of sortedActivities) {
-      const portion = portionMap.get(activity.id);
-      const tracePoints = section.activityTraces?.[activity.id];
-      const record = recordMap.get(activity.id);
-
-      // Use actual data from record if available, otherwise use proportional estimate
-      const sectionDistance = record?.sectionDistance || portion?.distanceMeters || section.distanceMeters;
-      const direction = record?.direction || (portion?.direction as 'same' | 'reverse') || 'same';
-
-      if (direction === 'reverse') hasAnyReverse = true;
-
-      // Use actual section pace/time from record, or fall back to proportional estimate
-      let sectionSpeed: number;
-      let sectionTime: number;
-      let lapCount = 1;
-
-      if (record) {
-        // Use actual measured values from stream data
-        sectionSpeed = record.bestPace;
-        sectionTime = Math.round(record.bestTime);
-        lapCount = record.lapCount;
-      } else {
-        // Fall back to proportional estimate
-        sectionSpeed = activity.moving_time > 0
-          ? activity.distance / activity.moving_time
-          : 0;
-        sectionTime = activity.distance > 0
-          ? Math.round(activity.moving_time * (sectionDistance / activity.distance))
-          : 0;
-      }
-
-      dataPoints.push({
-        x: 0,
-        id: activity.id,
-        activityId: activity.id,
-        speed: sectionSpeed,
-        date: new Date(activity.start_date_local),
-        activityName: activity.name,
-        direction,
-        lapPoints: tracePoints,
-        sectionTime,
-        sectionDistance,
-        lapCount,
-      });
-    }
-
-    const indexed = dataPoints.map((d, idx) => ({ ...d, x: idx }));
-
-    const speeds = indexed.map(d => d.speed);
-    const min = speeds.length > 0 ? Math.min(...speeds) : 0;
-    const max = speeds.length > 0 ? Math.max(...speeds) : 1;
-    const padding = (max - min) * 0.15 || 0.5;
-
-    let bestIdx = 0;
-    for (let i = 1; i < indexed.length; i++) {
-      if (indexed[i].speed > indexed[bestIdx].speed) {
-        bestIdx = i;
-      }
-    }
-
-    return {
-      chartData: indexed,
-      minSpeed: Math.max(0, min - padding),
-      maxSpeed: max + padding,
-      bestIndex: bestIdx,
-      hasReverseRuns: hasAnyReverse,
-    };
-  }, [activities, section, records]);
-
-  const chartWidth = useMemo(() => {
-    const screenWidth = SCREEN_WIDTH - 32;
-    const dataWidth = chartData.length * MIN_POINT_WIDTH;
-    return Math.max(screenWidth, dataWidth);
-  }, [chartData.length]);
-
-  const needsScrolling = chartWidth > SCREEN_WIDTH - 32;
-
-  const selectedIndex = useMemo(() => {
-    if (!selectedActivityId) return -1;
-    return chartData.findIndex(d => d.id === selectedActivityId);
-  }, [selectedActivityId, chartData]);
-
-  const formatSpeedValue = useCallback((speed: number) => {
-    if (showPace) {
-      return formatPace(speed);
-    }
-    return formatSpeed(speed);
-  }, [showPace]);
-
-  const selectedIdx = useDerivedValue(() => {
-    'worklet';
-    const len = chartData.length;
-    const bounds = chartBoundsShared.value;
-    const chartWidthPx = bounds.right - bounds.left;
-
-    if (touchX.value < 0 || chartWidthPx <= 0 || len === 0) return -1;
-
-    const chartX = touchX.value - bounds.left;
-    const ratio = Math.max(0, Math.min(1, chartX / chartWidthPx));
-    const idx = Math.round(ratio * (len - 1));
-
-    return Math.min(Math.max(0, idx), len - 1);
-  }, [chartData.length]);
-
-  const updateTooltipOnJS = useCallback((idx: number, gestureEnded = false) => {
-    if (gestureEnded) {
-      if (tooltipData) {
-        setIsActive(false);
-        setIsPersisted(true);
-        if (onActivitySelect && tooltipData) {
-          onActivitySelect(tooltipData.id, tooltipData.lapPoints);
-        }
-      }
-      lastNotifiedIdx.current = null;
-      return;
-    }
-
-    if (idx < 0 || chartData.length === 0) {
-      return;
-    }
-
-    if (isPersisted) {
-      setIsPersisted(false);
-    }
-
-    if (idx === lastNotifiedIdx.current) return;
-    lastNotifiedIdx.current = idx;
-
-    if (!isActive) {
-      setIsActive(true);
-    }
-
-    const point = chartData[idx];
-    if (point) {
-      setTooltipData(point);
-      if (onActivitySelect) {
-        onActivitySelect(point.id, point.lapPoints);
-      }
-    }
-  }, [chartData, isActive, isPersisted, tooltipData, onActivitySelect]);
-
-  const handleGestureEnd = useCallback(() => {
-    updateTooltipOnJS(-1, true);
-  }, [updateTooltipOnJS]);
-
-  useAnimatedReaction(
-    () => selectedIdx.value,
-    (idx) => {
-      if (idx >= 0) {
-        runOnJS(updateTooltipOnJS)(idx, false);
-      }
-    },
-    [updateTooltipOnJS]
-  );
-
-  const clearPersistedTooltip = useCallback(() => {
-    if (isPersisted) {
-      setIsPersisted(false);
-      setTooltipData(null);
-      if (onActivitySelect) {
-        onActivitySelect(null, undefined);
-      }
-    }
-  }, [isPersisted, onActivitySelect]);
-
-  const panGesture = Gesture.Pan()
-    .activateAfterLongPress(300)
-    .onStart((e) => {
-      'worklet';
-      touchX.value = e.x;
-    })
-    .onUpdate((e) => {
-      'worklet';
-      touchX.value = e.x;
-    })
-    .onEnd(() => {
-      'worklet';
-      touchX.value = -1;
-      runOnJS(handleGestureEnd)();
-    });
-
-  const tapGesture = Gesture.Tap()
-    .onEnd(() => {
-      'worklet';
-      runOnJS(clearPersistedTooltip)();
-    });
-
-  const gesture = Gesture.Race(panGesture, tapGesture);
-
-  const crosshairStyle = useAnimatedStyle(() => {
-    'worklet';
-    const idx = selectedIdx.value;
-    const bounds = chartBoundsShared.value;
-    const len = chartData.length;
-
-    if (idx < 0 || len === 0) {
-      return { opacity: 0, transform: [{ translateX: 0 }] };
-    }
-
-    const chartWidthPx = bounds.right - bounds.left;
-    const xPos = bounds.left + (idx / (len - 1)) * chartWidthPx;
-
-    return {
-      opacity: 1,
-      transform: [{ translateX: xPos }],
-    };
-  }, [chartData.length]);
-
-  if (chartData.length < 2) return null;
-
-  const getPointColor = (direction: 'same' | 'reverse') => {
-    return direction === 'reverse' ? REVERSE_COLOR : activityColor;
-  };
-
-  const chartContent = (
-    <GestureDetector gesture={gesture}>
-      <View style={[styles.chartInner, { width: chartWidth }]}>
-        <CartesianChart
-          data={chartData}
-          xKey="x"
-          yKeys={['speed']}
-          domain={{ y: [minSpeed, maxSpeed] }}
-          padding={{ left: 35, right: 16, top: 40, bottom: 24 }}
-        >
-          {({ points, chartBounds }) => {
-            if (chartBounds.left !== chartBoundsShared.value.left ||
-                chartBounds.right !== chartBoundsShared.value.right) {
-              chartBoundsShared.value = { left: chartBounds.left, right: chartBounds.right };
-            }
-
-            const samePoints = points.speed.filter((_, idx) => chartData[idx]?.direction === 'same');
-            const reversePoints = points.speed.filter((_, idx) => chartData[idx]?.direction === 'reverse');
-
-            return (
-              <>
-                {samePoints.length > 1 && (
-                  <Line
-                    points={samePoints}
-                    color={activityColor}
-                    strokeWidth={1.5}
-                    curveType="monotoneX"
-                    opacity={0.4}
-                  />
-                )}
-                {reversePoints.length > 1 && (
-                  <Line
-                    points={reversePoints}
-                    color={REVERSE_COLOR}
-                    strokeWidth={1.5}
-                    curveType="monotoneX"
-                    opacity={0.4}
-                  />
-                )}
-                {points.speed.map((point, idx) => {
-                  if (point.x == null || point.y == null) return null;
-                  const isSelected = idx === selectedIndex;
-                  const isBest = idx === bestIndex;
-                  if (isSelected || isBest) return null;
-                  const d = chartData[idx];
-                  const pointColor = d ? getPointColor(d.direction) : activityColor;
-                  return (
-                    <Circle
-                      key={`point-${idx}`}
-                      cx={point.x}
-                      cy={point.y}
-                      r={5}
-                      color={pointColor}
-                    />
-                  );
-                })}
-                {bestIndex !== selectedIndex &&
-                 points.speed[bestIndex] &&
-                 points.speed[bestIndex].x != null && points.speed[bestIndex].y != null && (
-                  <>
-                    <Circle
-                      cx={points.speed[bestIndex].x!}
-                      cy={points.speed[bestIndex].y!}
-                      r={8}
-                      color="#FFB300"
-                    />
-                    <Circle
-                      cx={points.speed[bestIndex].x!}
-                      cy={points.speed[bestIndex].y!}
-                      r={4}
-                      color="#FFFFFF"
-                    />
-                  </>
-                )}
-                {selectedIndex >= 0 &&
-                 points.speed[selectedIndex] &&
-                 points.speed[selectedIndex].x != null && points.speed[selectedIndex].y != null && (
-                  <>
-                    <Circle
-                      cx={points.speed[selectedIndex].x!}
-                      cy={points.speed[selectedIndex].y!}
-                      r={10}
-                      color="#00BCD4"
-                    />
-                    <Circle
-                      cx={points.speed[selectedIndex].x!}
-                      cy={points.speed[selectedIndex].y!}
-                      r={5}
-                      color="#FFFFFF"
-                    />
-                  </>
-                )}
-              </>
-            );
-          }}
-        </CartesianChart>
-
-        <Animated.View
-          style={[styles.crosshair, crosshairStyle, isDark && styles.crosshairDark]}
-          pointerEvents="none"
-        />
-
-        <View style={styles.yAxisOverlay} pointerEvents="none">
-          <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
-            {formatSpeedValue(maxSpeed)}
-          </Text>
-          <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
-            {formatSpeedValue((minSpeed + maxSpeed) / 2)}
-          </Text>
-          <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
-            {formatSpeedValue(minSpeed)}
-          </Text>
-        </View>
-
-        <View style={[styles.xAxisOverlay, { width: chartWidth - 35 - 16, left: 35 }]} pointerEvents="none">
-          {chartData.length > 0 && (
-            <>
-              <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
-                {formatShortDate(chartData[0].date)}
-              </Text>
-              {chartData.length >= 5 && (
-                <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
-                  {formatShortDate(chartData[Math.floor(chartData.length / 2)].date)}
-                </Text>
-              )}
-              <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
-                {formatShortDate(chartData[chartData.length - 1].date)}
-              </Text>
-            </>
-          )}
-        </View>
-      </View>
-    </GestureDetector>
-  );
-
-  return (
-    <View style={[styles.chartCard, isDark && styles.chartCardDark]}>
-      <View style={styles.chartHeader}>
-        <Text style={[styles.chartTitle, isDark && styles.textLight]}>
-          {t('sections.performanceOverTime')}
-        </Text>
-        <View style={styles.chartLegend}>
-          <View style={styles.legendItem}>
-            <View style={[styles.legendDot, { backgroundColor: '#FFB300' }]} />
-            <Text style={[styles.legendText, isDark && styles.textMuted]}>{t('sections.best')}</Text>
-          </View>
-          <View style={styles.legendItem}>
-            <View style={[styles.legendDot, { backgroundColor: activityColor }]} />
-            <Text style={[styles.legendText, isDark && styles.textMuted]}>{t('sections.same')}</Text>
-          </View>
-          {hasReverseRuns && (
-            <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: REVERSE_COLOR }]} />
-              <Text style={[styles.legendText, isDark && styles.textMuted]}>{t('sections.reverse')}</Text>
-            </View>
-          )}
-        </View>
-      </View>
-
-      {!isActive && !isPersisted && (
-        <Text style={[styles.chartHint, isDark && styles.textMuted]}>
-          {needsScrolling ? t('sections.scrubHintScrollable') : t('sections.scrubHint')}
-        </Text>
-      )}
-
-      {(isActive || isPersisted) && tooltipData && (
-        <TouchableOpacity
-          style={[styles.selectedTooltip, isDark && styles.selectedTooltipDark]}
-          onPress={() => router.push(`/activity/${tooltipData.activityId}` as Href)}
-          activeOpacity={0.7}
-        >
-          <View style={styles.tooltipLeft}>
-            <Text style={[styles.tooltipName, isDark && styles.textLight]} numberOfLines={1}>
-              {tooltipData.activityName}
-            </Text>
-            <View style={styles.tooltipMeta}>
-              <Text style={[styles.tooltipDate, isDark && styles.textMuted]}>
-                {formatShortDate(tooltipData.date)}
-              </Text>
-              {tooltipData.sectionTime != null && (
-                <Text style={[styles.tooltipDate, isDark && styles.textMuted]}>
-                  {' · '}{formatDuration(tooltipData.sectionTime)}
-                </Text>
-              )}
-              {tooltipData.direction === 'reverse' && (
-                <View style={styles.reverseBadge}>
-                  <MaterialCommunityIcons name="swap-horizontal" size={10} color={REVERSE_COLOR} />
-                </View>
-              )}
-            </View>
-          </View>
-          <View style={styles.tooltipRight}>
-            <Text style={[styles.tooltipSpeed, { color: tooltipData.direction === 'reverse' ? REVERSE_COLOR : activityColor }]}>
-              {formatSpeedValue(tooltipData.speed)}
-            </Text>
-            <MaterialCommunityIcons name="chevron-right" size={16} color={isDark ? '#555' : '#CCC'} />
-          </View>
-        </TouchableOpacity>
-      )}
-
-      <View style={styles.chartContainer}>
-        {needsScrolling ? (
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={true}
-            contentContainerStyle={{ width: chartWidth }}
-          >
-            {chartContent}
-          </ScrollView>
-        ) : (
-          chartContent
-        )}
-      </View>
-
-      {chartData[bestIndex] && (
-        <View style={[styles.bestStats, isDark && styles.bestStatsDark]}>
-          <View style={styles.bestStatItem}>
-            <Text style={[styles.bestStatValue, { color: '#FFB300' }]}>
-              {formatSpeedValue(chartData[bestIndex].speed)}
-            </Text>
-            <Text style={[styles.bestStatLabel, isDark && styles.textMuted]}>
-              {showPace ? t('sections.bestPace') : t('sections.bestSpeed')}
-            </Text>
-          </View>
-          <View style={styles.bestStatItem}>
-            <Text style={[styles.bestStatValue, isDark && styles.textLight]}>
-              {formatShortDate(chartData[bestIndex].date)}
-            </Text>
-            <Text style={[styles.bestStatLabel, isDark && styles.textMuted]}>
-              {t('sections.date')}
-            </Text>
-          </View>
-        </View>
-      )}
-    </View>
-  );
-}
-
 function ActivityRow({
   activity,
   isDark,
@@ -733,8 +116,12 @@ function ActivityRow({
     router.push(`/activity/${activity.id}`);
   };
 
-  const isReverse = direction === 'reverse';
-  const traceColor = isHighlighted ? '#00BCD4' : (isReverse ? REVERSE_COLOR : '#2196F3');
+  const isReverse = direction === "reverse";
+  const traceColor = isHighlighted
+    ? "#00BCD4"
+    : isReverse
+      ? REVERSE_COLOR
+      : "#2196F3";
   const activityColor = getActivityColor(activity.type);
 
   // Use actual section time/pace if available, otherwise fall back to proportional estimate
@@ -748,9 +135,12 @@ function ActivityRow({
     sectionSpeed = actualSectionPace;
   } else {
     // Fall back to proportional estimate
-    sectionTime = sectionDistance && activity.distance > 0
-      ? Math.round(activity.moving_time * (sectionDistance / activity.distance))
-      : activity.moving_time;
+    sectionTime =
+      sectionDistance && activity.distance > 0
+        ? Math.round(
+            activity.moving_time * (sectionDistance / activity.distance),
+          )
+        : activity.moving_time;
     sectionSpeed = sectionTime > 0 ? displayDistance / sectionTime : 0;
   }
 
@@ -768,15 +158,17 @@ function ActivityRow({
       ]}
     >
       {activityPoints && activityPoints.length > 1 ? (
-        <MiniSectionTrace
-          activityPoints={activityPoints}
-          sectionPoints={sectionPoints}
-          activityColor={traceColor}
-          sectionColor={activityColor}
+        <MiniTraceView
+          primaryPoints={activityPoints}
+          referencePoints={sectionPoints}
+          primaryColor={traceColor}
+          referenceColor={colors.consensusRoute}
           isHighlighted={isHighlighted}
         />
       ) : (
-        <View style={[styles.activityIcon, { backgroundColor: traceColor + '20' }]}>
+        <View
+          style={[styles.activityIcon, { backgroundColor: traceColor + "20" }]}
+        >
           <MaterialCommunityIcons
             name={getActivityIcon(activity.type)}
             size={18}
@@ -786,17 +178,31 @@ function ActivityRow({
       )}
       <View style={styles.activityInfo}>
         <View style={styles.activityNameRow}>
-          <Text style={[styles.activityName, isDark && styles.textLight]} numberOfLines={1}>
+          <Text
+            style={[styles.activityName, isDark && styles.textLight]}
+            numberOfLines={1}
+          >
             {activity.name}
           </Text>
           {isReverse && (
-            <View style={[styles.directionBadge, { backgroundColor: REVERSE_COLOR + '15' }]}>
-              <MaterialCommunityIcons name="swap-horizontal" size={10} color={REVERSE_COLOR} />
+            <View
+              style={[
+                styles.directionBadge,
+                { backgroundColor: REVERSE_COLOR + "15" },
+              ]}
+            >
+              <MaterialCommunityIcons
+                name="swap-horizontal"
+                size={10}
+                color={REVERSE_COLOR}
+              />
             </View>
           )}
           {showLapCount && (
             <View style={[styles.lapBadge, isDark && styles.lapBadgeDark]}>
-              <Text style={[styles.lapBadgeText, isDark && styles.lapBadgeTextDark]}>
+              <Text
+                style={[styles.lapBadgeText, isDark && styles.lapBadgeTextDark]}
+              >
                 {lapCount}x
               </Text>
             </View>
@@ -817,7 +223,7 @@ function ActivityRow({
       <MaterialCommunityIcons
         name="chevron-right"
         size={20}
-        color={isDark ? '#555' : '#CCC'}
+        color={isDark ? "#555" : "#CCC"}
       />
     </Pressable>
   );
@@ -827,25 +233,128 @@ export default function SectionDetailScreen() {
   const { t } = useTranslation();
   const { id } = useLocalSearchParams<{ id: string }>();
   const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const isDark = colorScheme === "dark";
   const insets = useSafeAreaInsets();
 
-  const [highlightedActivityId, setHighlightedActivityId] = useState<string | null>(null);
-  const [highlightedActivityPoints, setHighlightedActivityPoints] = useState<RoutePoint[] | undefined>(undefined);
-  const [shadowTrack, setShadowTrack] = useState<[number, number][] | undefined>(undefined);
+  const [highlightedActivityId, setHighlightedActivityId] = useState<
+    string | null
+  >(null);
+  const [highlightedActivityPoints, setHighlightedActivityPoints] = useState<
+    RoutePoint[] | undefined
+  >(undefined);
+  const [shadowTrack, setShadowTrack] = useState<
+    [number, number][] | undefined
+  >(undefined);
+  // Activity traces computed from GPS tracks (for custom sections)
+  const [computedActivityTraces, setComputedActivityTraces] = useState<
+    Record<string, RoutePoint[]>
+  >({});
 
   // State for section renaming
   const [isEditing, setIsEditing] = useState(false);
-  const [editName, setEditName] = useState('');
+  const [editName, setEditName] = useState("");
   const [customName, setCustomName] = useState<string | null>(null);
   const nameInputRef = useRef<TextInput>(null);
 
-  // Get section from engine - must be declared before callbacks that use it
+  // Get section from engine (auto-detected) or custom sections storage
+  // Custom section IDs start with "custom_" (e.g., "custom_1767268142052_qyfoos8")
+  const isCustomId = id?.startsWith("custom_");
+
   const { sections: allSections } = useFrequentSections({ minVisits: 1 });
-  const section = useMemo(() =>
-    allSections.find((sec) => sec.id === id) || null,
-    [allSections, id]
+  // Pass the full ID - custom sections are stored with the "custom_" prefix
+  const { section: customSection } = useCustomSection(
+    isCustomId ? id : undefined,
   );
+
+  // Check both sources - custom sections and engine-detected sections
+  const section = useMemo(() => {
+    // First check engine sections (only if not a custom_ prefixed ID)
+    if (!isCustomId) {
+      const engineSection = allSections.find((sec) => sec.id === id);
+      if (engineSection) return engineSection;
+    }
+
+    // Check if it's a custom section and convert to FrequentSection shape
+    if (customSection) {
+      return {
+        id: customSection.id,
+        sportType: customSection.sportType,
+        polyline: customSection.polyline,
+        activityIds: customSection.matches.map((m) => m.activityId),
+        activityPortions: customSection.matches.map((m) => ({
+          activityId: m.activityId,
+          startIndex: m.startIndex,
+          endIndex: m.endIndex,
+          distanceMeters: m.distanceMeters ?? customSection.distanceMeters,
+          direction: m.direction,
+        })),
+        routeIds: [],
+        visitCount: customSection.matches.length,
+        distanceMeters: customSection.distanceMeters,
+        name: customSection.name,
+      } as FrequentSection;
+    }
+
+    // Fallback: check engine sections even for custom_ prefixed IDs (shouldn't happen but safe)
+    if (isCustomId) {
+      const engineSection = allSections.find((sec) => sec.id === id);
+      if (engineSection) return engineSection;
+    }
+
+    return null;
+  }, [allSections, customSection, id, isCustomId]);
+
+  // Merge computed activity traces into the section (for custom sections)
+  const sectionWithTraces = useMemo(() => {
+    if (!section) return null;
+
+    // For engine sections, activityTraces are pre-computed
+    if (section.activityTraces) return section;
+
+    // For custom sections, merge in the computed traces
+    if (Object.keys(computedActivityTraces).length > 0) {
+      return {
+        ...section,
+        activityTraces: computedActivityTraces,
+      };
+    }
+
+    return section;
+  }, [section, computedActivityTraces]);
+
+  // For custom sections: load GPS tracks and compute activity traces
+  useEffect(() => {
+    if (!customSection || !customSection.matches.length) {
+      setComputedActivityTraces({});
+      return;
+    }
+
+    const loadActivityTraces = async () => {
+      const activityIds = customSection.matches.map((m) => m.activityId);
+      const tracks = await getGpsTracks(activityIds);
+
+      const traces: Record<string, RoutePoint[]> = {};
+      for (const match of customSection.matches) {
+        const track = tracks.get(match.activityId);
+        if (track && track.length > 0) {
+          // Extract the portion of the GPS track that matches this section
+          const startIdx = Math.max(0, match.startIndex);
+          const endIdx = Math.min(track.length - 1, match.endIndex);
+          if (endIdx > startIdx) {
+            traces[match.activityId] = track
+              .slice(startIdx, endIdx + 1)
+              .map(([lat, lng]) => ({
+                lat,
+                lng,
+              }));
+          }
+        }
+      }
+      setComputedActivityTraces(traces);
+    };
+
+    loadActivityTraces();
+  }, [customSection]);
 
   // Load custom section name from Rust engine on mount
   useEffect(() => {
@@ -860,7 +369,7 @@ export default function SectionDetailScreen() {
 
   // Handle starting to edit the section name
   const handleStartEditing = useCallback(() => {
-    const currentName = customName || section?.name || '';
+    const currentName = customName || section?.name || "";
     setEditName(currentName);
     setIsEditing(true);
     setTimeout(() => {
@@ -883,7 +392,7 @@ export default function SectionDetailScreen() {
   // Handle canceling the edit
   const handleCancelEdit = useCallback(() => {
     setIsEditing(false);
-    setEditName('');
+    setEditName("");
     Keyboard.dismiss();
   }, []);
 
@@ -895,30 +404,36 @@ export default function SectionDetailScreen() {
     }
 
     // Load the full GPS track for the highlighted activity
-    getGpsTrack(highlightedActivityId).then((track) => {
-      if (track && track.length > 0) {
-        setShadowTrack(track);
-      } else {
+    getGpsTrack(highlightedActivityId)
+      .then((track) => {
+        if (track && track.length > 0) {
+          setShadowTrack(track);
+        } else {
+          setShadowTrack(undefined);
+        }
+      })
+      .catch(() => {
         setShadowTrack(undefined);
-      }
-    }).catch(() => {
-      setShadowTrack(undefined);
-    });
+      });
   }, [highlightedActivityId]);
 
-  const handleActivitySelect = useCallback((activityId: string | null, activityPoints?: RoutePoint[]) => {
-    setHighlightedActivityId(activityId);
-    setHighlightedActivityPoints(activityPoints);
-  }, []);
+  const handleActivitySelect = useCallback(
+    (activityId: string | null, activityPoints?: RoutePoint[]) => {
+      setHighlightedActivityId(activityId);
+      setHighlightedActivityPoints(activityPoints);
+    },
+    [],
+  );
 
   // Get date range for fetching activities
   const { oldest, newest } = useMemo(() => {
-    if (!section?.activityIds.length) return { oldest: undefined, newest: undefined };
+    if (!section?.activityIds.length)
+      return { oldest: undefined, newest: undefined };
     // We need to load all activities in the section
     // Use a wide date range since we'll filter by IDs
     return {
-      oldest: '2020-01-01',
-      newest: new Date().toISOString().split('T')[0],
+      oldest: "2020-01-01",
+      newest: new Date().toISOString().split("T")[0],
     };
   }, [section?.activityIds]);
 
@@ -941,16 +456,128 @@ export default function SectionDetailScreen() {
   }, [section, allActivities]);
 
   // Fetch actual section performance times from activity streams
-  const { records: performanceRecords, isLoading: isLoadingRecords } = useSectionPerformances(
-    section,
-    sectionActivities
-  );
+  const { records: performanceRecords, isLoading: isLoadingRecords } =
+    useSectionPerformances(section, sectionActivities);
 
   // Map of activity portions for direction lookup
   const portionMap = useMemo(() => {
     if (!section?.activityPortions) return new Map();
-    return new Map(section.activityPortions.map(p => [p.activityId, p]));
+    return new Map(section.activityPortions.map((p) => [p.activityId, p]));
   }, [section?.activityPortions]);
+
+  // Prepare chart data for UnifiedPerformanceChart
+  // Uses actual section times from records when available, otherwise proportional estimate
+  const { chartData, minSpeed, maxSpeed, bestIndex, hasReverseRuns } =
+    useMemo(() => {
+      if (!section)
+        return {
+          chartData: [],
+          minSpeed: 0,
+          maxSpeed: 1,
+          bestIndex: 0,
+          hasReverseRuns: false,
+        };
+
+      const dataPoints: (PerformanceDataPoint & { x: number })[] = [];
+
+      // Create a map of records by activity ID for quick lookup
+      const recordMap = new Map(
+        performanceRecords?.map((r) => [r.activityId, r]) || [],
+      );
+
+      // Sort activities by date
+      const sortedActivities = [...sectionActivities].sort(
+        (a, b) =>
+          new Date(a.start_date_local).getTime() -
+          new Date(b.start_date_local).getTime(),
+      );
+
+      let hasAnyReverse = false;
+
+      for (const activity of sortedActivities) {
+        const portion = portionMap.get(activity.id);
+        const tracePoints = sectionWithTraces?.activityTraces?.[activity.id];
+        const record = recordMap.get(activity.id);
+
+        // Use actual data from record if available, otherwise use proportional estimate
+        const sectionDistance =
+          record?.sectionDistance ||
+          portion?.distanceMeters ||
+          section.distanceMeters;
+        const direction =
+          record?.direction ||
+          (portion?.direction as "same" | "reverse") ||
+          "same";
+
+        if (direction === "reverse") hasAnyReverse = true;
+
+        // Use actual section pace/time from record, or fall back to proportional estimate
+        let sectionSpeed: number;
+        let sectionTime: number;
+        let lapCount = 1;
+
+        if (record) {
+          // Use actual measured values from stream data
+          sectionSpeed = record.bestPace;
+          sectionTime = Math.round(record.bestTime);
+          lapCount = record.lapCount;
+        } else {
+          // Fall back to proportional estimate
+          sectionSpeed =
+            activity.moving_time > 0
+              ? activity.distance / activity.moving_time
+              : 0;
+          sectionTime =
+            activity.distance > 0
+              ? Math.round(
+                  activity.moving_time * (sectionDistance / activity.distance),
+                )
+              : 0;
+        }
+
+        dataPoints.push({
+          x: 0,
+          id: activity.id,
+          activityId: activity.id,
+          speed: sectionSpeed,
+          date: new Date(activity.start_date_local),
+          activityName: activity.name,
+          direction,
+          lapPoints: tracePoints,
+          sectionTime,
+          sectionDistance,
+          lapCount,
+        });
+      }
+
+      const indexed = dataPoints.map((d, idx) => ({ ...d, x: idx }));
+
+      const speeds = indexed.map((d) => d.speed);
+      const min = speeds.length > 0 ? Math.min(...speeds) : 0;
+      const max = speeds.length > 0 ? Math.max(...speeds) : 1;
+      const padding = (max - min) * 0.15 || 0.5;
+
+      let bestIdx = 0;
+      for (let i = 1; i < indexed.length; i++) {
+        if (indexed[i].speed > indexed[bestIdx].speed) {
+          bestIdx = i;
+        }
+      }
+
+      return {
+        chartData: indexed,
+        minSpeed: Math.max(0, min - padding),
+        maxSpeed: max + padding,
+        bestIndex: bestIdx,
+        hasReverseRuns: hasAnyReverse,
+      };
+    }, [
+      section,
+      sectionWithTraces,
+      sectionActivities,
+      performanceRecords,
+      portionMap,
+    ]);
 
   if (!section) {
     return (
@@ -961,17 +588,21 @@ export default function SectionDetailScreen() {
             onPress={() => router.back()}
             activeOpacity={0.7}
           >
-            <MaterialCommunityIcons name="arrow-left" size={24} color={isDark ? '#FFFFFF' : colors.textPrimary} />
+            <MaterialCommunityIcons
+              name="arrow-left"
+              size={24}
+              color={isDark ? "#FFFFFF" : colors.textPrimary}
+            />
           </TouchableOpacity>
         </View>
         <View style={styles.emptyContainer}>
           <MaterialCommunityIcons
             name="map-marker-question-outline"
             size={48}
-            color={isDark ? '#444' : '#CCC'}
+            color={isDark ? "#444" : "#CCC"}
           />
           <Text style={[styles.emptyText, isDark && styles.textLight]}>
-            {t('sections.sectionNotFound')}
+            {t("sections.sectionNotFound")}
           </Text>
         </View>
       </View>
@@ -998,11 +629,13 @@ export default function SectionDetailScreen() {
               interactive={false}
               enableFullscreen={true}
               shadowTrack={shadowTrack}
+              highlightedActivityId={highlightedActivityId}
+              highlightedLapPoints={highlightedActivityPoints}
             />
           </View>
 
           <LinearGradient
-            colors={['transparent', 'rgba(0,0,0,0.7)']}
+            colors={["transparent", "rgba(0,0,0,0.7)"]}
             style={styles.mapGradient}
             pointerEvents="none"
           />
@@ -1013,14 +646,24 @@ export default function SectionDetailScreen() {
               onPress={() => router.back()}
               activeOpacity={0.7}
             >
-              <MaterialCommunityIcons name="arrow-left" size={24} color="#FFFFFF" />
+              <MaterialCommunityIcons
+                name="arrow-left"
+                size={24}
+                color="#FFFFFF"
+              />
             </TouchableOpacity>
           </View>
 
           <View style={styles.infoOverlay}>
             <View style={styles.sectionNameRow}>
-              <View style={[styles.typeIcon, { backgroundColor: activityColor }]}>
-                <MaterialCommunityIcons name={iconName} size={16} color="#FFFFFF" />
+              <View
+                style={[styles.typeIcon, { backgroundColor: activityColor }]}
+              >
+                <MaterialCommunityIcons
+                  name={iconName}
+                  size={16}
+                  color="#FFFFFF"
+                />
               </View>
               {isEditing ? (
                 <View style={styles.editNameContainer}>
@@ -1030,35 +673,66 @@ export default function SectionDetailScreen() {
                     value={editName}
                     onChangeText={setEditName}
                     onSubmitEditing={handleSaveName}
-                    placeholder={t('sections.sectionNamePlaceholder')}
+                    placeholder={t("sections.sectionNamePlaceholder")}
                     placeholderTextColor="rgba(255,255,255,0.5)"
                     returnKeyType="done"
                     autoFocus
                     selectTextOnFocus
                   />
-                  <TouchableOpacity onPress={handleSaveName} style={styles.editNameButton}>
-                    <MaterialCommunityIcons name="check" size={20} color="#4CAF50" />
+                  <TouchableOpacity
+                    onPress={handleSaveName}
+                    style={styles.editNameButton}
+                  >
+                    <MaterialCommunityIcons
+                      name="check"
+                      size={20}
+                      color="#4CAF50"
+                    />
                   </TouchableOpacity>
-                  <TouchableOpacity onPress={handleCancelEdit} style={styles.editNameButton}>
-                    <MaterialCommunityIcons name="close" size={20} color="#FF5252" />
+                  <TouchableOpacity
+                    onPress={handleCancelEdit}
+                    style={styles.editNameButton}
+                  >
+                    <MaterialCommunityIcons
+                      name="close"
+                      size={20}
+                      color="#FF5252"
+                    />
                   </TouchableOpacity>
                 </View>
               ) : (
-                <TouchableOpacity onPress={handleStartEditing} style={styles.nameEditTouchable} activeOpacity={0.7}>
+                <TouchableOpacity
+                  onPress={handleStartEditing}
+                  style={styles.nameEditTouchable}
+                  activeOpacity={0.7}
+                >
                   <Text style={styles.heroSectionName} numberOfLines={1}>
-                    {customName || section.name || `Section ${section.id.split('_').pop()}`}
+                    {customName ||
+                      section.name ||
+                      `Section ${section.id.split("_").pop()}`}
                   </Text>
-                  <MaterialCommunityIcons name="pencil" size={14} color="rgba(255,255,255,0.6)" style={styles.editIcon} />
+                  <MaterialCommunityIcons
+                    name="pencil"
+                    size={14}
+                    color="rgba(255,255,255,0.6)"
+                    style={styles.editIcon}
+                  />
                 </TouchableOpacity>
               )}
             </View>
 
             <View style={styles.heroStatsRow}>
-              <Text style={styles.heroStat}>{formatDistance(section.distanceMeters)}</Text>
+              <Text style={styles.heroStat}>
+                {formatDistance(section.distanceMeters)}
+              </Text>
               <Text style={styles.heroStatDivider}>·</Text>
-              <Text style={styles.heroStat}>{section.visitCount} {t('sections.traversals')}</Text>
+              <Text style={styles.heroStat}>
+                {section.visitCount} {t("sections.traversals")}
+              </Text>
               <Text style={styles.heroStatDivider}>·</Text>
-              <Text style={styles.heroStat}>{section.routeIds.length} {t('sections.routesCount')}</Text>
+              <Text style={styles.heroStat}>
+                {section.routeIds.length} {t("sections.routesCount")}
+              </Text>
             </View>
           </View>
         </View>
@@ -1066,17 +740,19 @@ export default function SectionDetailScreen() {
         {/* Content below hero */}
         <View style={styles.contentSection}>
           {/* Performance chart */}
-          {sectionActivities.length >= 2 && (
+          {chartData.length >= 2 && (
             <View style={styles.chartSection}>
-              <SectionPerformanceChart
-                activities={sectionActivities}
-                section={section}
+              <UnifiedPerformanceChart
+                chartData={chartData}
                 activityType={section.sportType as ActivityType}
                 isDark={isDark}
+                minSpeed={minSpeed}
+                maxSpeed={maxSpeed}
+                bestIndex={bestIndex}
+                hasReverseRuns={hasReverseRuns}
+                tooltipBadgeType="time"
                 onActivitySelect={handleActivitySelect}
                 selectedActivityId={highlightedActivityId}
-                records={performanceRecords}
-                isLoadingRecords={isLoadingRecords}
               />
             </View>
           )}
@@ -1084,7 +760,7 @@ export default function SectionDetailScreen() {
           {/* Activities list */}
           <View style={styles.activitiesSection}>
             <Text style={[styles.sectionTitle, isDark && styles.textLight]}>
-              {t('sections.activities')}
+              {t("sections.activities")}
             </Text>
 
             {isLoading ? (
@@ -1092,17 +768,27 @@ export default function SectionDetailScreen() {
                 <ActivityIndicator size="small" color={colors.primary} />
               </View>
             ) : sectionActivities.length === 0 ? (
-              <Text style={[styles.emptyActivities, isDark && styles.textMuted]}>
-                {t('sections.noActivitiesFound')}
+              <Text
+                style={[styles.emptyActivities, isDark && styles.textMuted]}
+              >
+                {t("sections.noActivitiesFound")}
               </Text>
             ) : (
-              <View style={[styles.activitiesCard, isDark && styles.activitiesCardDark]}>
+              <View
+                style={[
+                  styles.activitiesCard,
+                  isDark && styles.activitiesCardDark,
+                ]}
+              >
                 {sectionActivities.map((activity, index) => {
                   const portion = portionMap.get(activity.id);
-                  const tracePoints = section.activityTraces?.[activity.id];
+                  const tracePoints =
+                    sectionWithTraces?.activityTraces?.[activity.id];
                   const isHighlighted = highlightedActivityId === activity.id;
                   // Look up actual performance record for this activity
-                  const record = performanceRecords?.find((r: ActivitySectionRecord) => r.activityId === activity.id);
+                  const record = performanceRecords?.find(
+                    (r: ActivitySectionRecord) => r.activityId === activity.id,
+                  );
 
                   return (
                     <React.Fragment key={activity.id}>
@@ -1117,14 +803,18 @@ export default function SectionDetailScreen() {
                           activityPoints={tracePoints}
                           sectionPoints={section.polyline}
                           isHighlighted={isHighlighted}
-                          sectionDistance={record?.sectionDistance || portion?.distanceMeters}
+                          sectionDistance={
+                            record?.sectionDistance || portion?.distanceMeters
+                          }
                           lapCount={record?.lapCount}
                           actualSectionTime={record?.bestTime}
                           actualSectionPace={record?.bestPace}
                         />
                       </Pressable>
                       {index < sectionActivities.length - 1 && (
-                        <View style={[styles.divider, isDark && styles.dividerDark]} />
+                        <View
+                          style={[styles.divider, isDark && styles.dividerDark]}
+                        />
                       )}
                     </React.Fragment>
                   );
@@ -1160,25 +850,25 @@ const styles = StyleSheet.create({
   },
   heroSection: {
     height: MAP_HEIGHT,
-    position: 'relative',
+    position: "relative",
   },
   mapContainer: {
     flex: 1,
   },
   mapGradient: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 0,
     left: 0,
     right: 0,
     height: 120,
   },
   floatingHeader: {
-    position: 'absolute',
+    position: "absolute",
     top: 0,
     left: 0,
     right: 0,
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: spacing.sm,
     paddingBottom: spacing.sm,
   },
@@ -1186,12 +876,12 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(0, 0, 0, 0.4)",
+    justifyContent: "center",
+    alignItems: "center",
   },
   infoOverlay: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 0,
     left: 0,
     right: 0,
@@ -1199,30 +889,30 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.md,
   },
   sectionNameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: spacing.sm,
   },
   typeIcon: {
     width: 28,
     height: 28,
     borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   heroSectionName: {
     flex: 1,
     fontSize: typography.statsValue.fontSize,
-    fontWeight: '700',
+    fontWeight: "700",
     color: colors.textOnDark,
-    textShadowColor: 'rgba(0, 0, 0, 0.5)',
+    textShadowColor: "rgba(0, 0, 0, 0.5)",
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 3,
   },
   nameEditTouchable: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: spacing.xs,
   },
   editIcon: {
@@ -1230,9 +920,9 @@ const styles = StyleSheet.create({
   },
   editNameContainer: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.4)",
     borderRadius: 8,
     paddingHorizontal: spacing.sm,
     gap: spacing.xs,
@@ -1240,31 +930,31 @@ const styles = StyleSheet.create({
   editNameInput: {
     flex: 1,
     fontSize: typography.cardTitle.fontSize,
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.textOnDark,
     paddingVertical: spacing.sm,
   },
   editNameButton: {
     padding: 6,
     borderRadius: 6,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    backgroundColor: "rgba(255, 255, 255, 0.15)",
   },
   heroStatsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginTop: 6,
-    flexWrap: 'wrap',
+    flexWrap: "wrap",
   },
   heroStat: {
     fontSize: typography.bodySmall.fontSize,
-    color: 'rgba(255, 255, 255, 0.9)',
-    textShadowColor: 'rgba(0, 0, 0, 0.5)',
+    color: "rgba(255, 255, 255, 0.9)",
+    textShadowColor: "rgba(0, 0, 0, 0.5)",
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,
   },
   heroStatDivider: {
     fontSize: typography.bodySmall.fontSize,
-    color: 'rgba(255, 255, 255, 0.5)',
+    color: "rgba(255, 255, 255, 0.5)",
     marginHorizontal: spacing.xs,
   },
   contentSection: {
@@ -1273,8 +963,8 @@ const styles = StyleSheet.create({
   },
   emptyContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   emptyText: {
     fontSize: typography.body.fontSize,
@@ -1284,206 +974,42 @@ const styles = StyleSheet.create({
   chartSection: {
     marginBottom: spacing.lg,
   },
-  chartCard: {
-    backgroundColor: colors.surface,
-    borderRadius: layout.borderRadius,
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: spacing.sm,
-    elevation: 2,
-  },
-  chartCardDark: {
-    backgroundColor: darkColors.surface,
-  },
-  chartHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.md,
-    paddingBottom: spacing.xs,
-  },
-  chartTitle: {
-    fontSize: typography.bodySmall.fontSize,
-    fontWeight: '600',
-    color: colors.textPrimary,
-  },
-  chartLegend: {
-    flexDirection: 'row',
-    gap: spacing.md,
-  },
-  legendItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
-  legendDot: {
-    width: spacing.sm,
-    height: spacing.sm,
-    borderRadius: spacing.xs,
-  },
-  legendText: {
-    fontSize: typography.micro.fontSize,
-    color: colors.textSecondary,
-  },
-  chartHint: {
-    fontSize: typography.label.fontSize,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    paddingHorizontal: spacing.md,
-    paddingBottom: spacing.xs,
-  },
-  chartContainer: {
-    height: CHART_HEIGHT,
-    position: 'relative',
-    overflow: 'hidden',
-  },
-  chartInner: {
-    height: CHART_HEIGHT,
-    position: 'relative',
-    overflow: 'hidden',
-  },
-  crosshair: {
-    position: 'absolute',
-    top: 40,
-    bottom: 24,
-    width: 1.5,
-    backgroundColor: '#666',
-  },
-  crosshairDark: {
-    backgroundColor: '#AAA',
-  },
-  selectedTooltip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: 'rgba(0, 188, 212, 0.08)',
-    marginHorizontal: spacing.md,
-    marginBottom: spacing.sm,
-    padding: spacing.sm,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(0, 188, 212, 0.2)',
-  },
-  selectedTooltipDark: {
-    backgroundColor: 'rgba(0, 188, 212, 0.12)',
-    borderColor: 'rgba(0, 188, 212, 0.3)',
-  },
-  tooltipLeft: {
-    flex: 1,
-  },
-  tooltipName: {
-    fontSize: typography.bodyCompact.fontSize,
-    fontWeight: '600',
-    color: colors.textPrimary,
-  },
-  tooltipMeta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    marginTop: 2,
-  },
-  tooltipDate: {
-    fontSize: typography.label.fontSize,
-    color: colors.textSecondary,
-  },
-  reverseBadge: {
-    backgroundColor: 'rgba(156, 39, 176, 0.15)',
-    paddingHorizontal: 4,
-    paddingVertical: 1,
-    borderRadius: 4,
-  },
-  tooltipRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
-  tooltipSpeed: {
-    fontSize: typography.bodySmall.fontSize + 1,
-    fontWeight: '700',
-  },
-  yAxisOverlay: {
-    position: 'absolute',
-    top: 40,
-    bottom: 24,
-    left: 4,
-    justifyContent: 'space-between',
-  },
-  xAxisOverlay: {
-    position: 'absolute',
-    bottom: 4,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  axisLabel: {
-    fontSize: typography.pillLabel.fontSize,
-    color: colors.textSecondary,
-  },
-  axisLabelDark: {
-    color: darkColors.textSecondary,
-  },
-  bestStats: {
-    flexDirection: 'row',
-    borderTopWidth: 1,
-    borderTopColor: opacity.overlay.light,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    gap: spacing.lg,
-  },
-  bestStatsDark: {
-    borderTopColor: opacity.overlayDark.light,
-  },
-  bestStatItem: {
-    flex: 1,
-  },
-  bestStatValue: {
-    fontSize: typography.bodySmall.fontSize + 1,
-    fontWeight: '700',
-    color: colors.textPrimary,
-  },
-  bestStatLabel: {
-    fontSize: typography.label.fontSize,
-    color: colors.textSecondary,
-    marginTop: 2,
-  },
   activitiesSection: {
     marginBottom: spacing.xl,
   },
   sectionTitle: {
     fontSize: typography.body.fontSize,
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.textPrimary,
     marginBottom: spacing.sm,
   },
   loadingContainer: {
     padding: spacing.xl,
-    alignItems: 'center',
+    alignItems: "center",
   },
   emptyActivities: {
     fontSize: typography.bodySmall.fontSize,
     color: colors.textSecondary,
-    textAlign: 'center',
+    textAlign: "center",
     paddingVertical: spacing.lg,
   },
   activitiesCard: {
     backgroundColor: colors.surface,
     borderRadius: layout.borderRadius,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   activitiesCardDark: {
     backgroundColor: darkColors.surface,
   },
   activityRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     padding: spacing.md,
     gap: spacing.md,
   },
   activityRowDark: {},
   activityRowHighlighted: {
-    backgroundColor: 'rgba(0, 188, 212, 0.1)',
+    backgroundColor: "rgba(0, 188, 212, 0.1)",
   },
   activityRowPressed: {
     opacity: 0.7,
@@ -1492,44 +1018,44 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   activityInfo: {
     flex: 1,
   },
   activityNameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: spacing.xs,
   },
   activityName: {
     fontSize: typography.bodySmall.fontSize + 1,
-    fontWeight: '500',
+    fontWeight: "500",
     color: colors.textPrimary,
     flex: 1,
   },
   directionBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: layout.borderRadiusSm,
     gap: 2,
   },
   lapBadge: {
-    backgroundColor: colors.primary + '15',
+    backgroundColor: colors.primary + "15",
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: layout.borderRadiusSm,
     marginLeft: 4,
   },
   lapBadgeDark: {
-    backgroundColor: colors.primary + '25',
+    backgroundColor: colors.primary + "25",
   },
   lapBadgeText: {
     fontSize: 10,
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.primary,
   },
   lapBadgeTextDark: {
@@ -1540,11 +1066,11 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   activityStats: {
-    alignItems: 'flex-end',
+    alignItems: "flex-end",
   },
   activityDistance: {
     fontSize: typography.bodySmall.fontSize,
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.textPrimary,
   },
   activityTime: {

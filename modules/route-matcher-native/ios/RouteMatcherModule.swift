@@ -300,11 +300,7 @@ public class RouteMatcherModule: Module {
 
             let newSigs = newSignatures.compactMap { self.mapToSignature($0) }
             let existingSigs = existingSignatures.compactMap { self.mapToSignature($0) }
-            let groups = existingGroups.compactMap { dict -> RouteGroup? in
-                guard let groupId = dict["groupId"] as? String,
-                      let activityIds = dict["activityIds"] as? [String] else { return nil }
-                return RouteGroup(groupId: groupId, activityIds: activityIds)
-            }
+            let groups = existingGroups.compactMap { self.mapToRouteGroup($0) }
 
             let matchConfig = self.parseConfig(config)
             let startTime = CFAbsoluteTimeGetCurrent()
@@ -316,7 +312,13 @@ public class RouteMatcherModule: Module {
             return result.map { group in
                 [
                     "groupId": group.groupId,
-                    "activityIds": group.activityIds
+                    "representativeId": group.representativeId,
+                    "activityIds": group.activityIds,
+                    "sportType": group.sportType,
+                    "bounds": group.bounds.map { b in
+                        ["minLat": b.minLat, "maxLat": b.maxLat, "minLng": b.minLng, "maxLng": b.maxLng]
+                    } as Any,
+                    "customName": group.customName ?? ""
                 ]
             }
         }
@@ -338,11 +340,7 @@ public class RouteMatcherModule: Module {
         Function("detectSectionsFromTracks") { (activityIds: [String], allCoords: [Double], offsets: [Int], sportTypes: [[String: Any]], groups: [[String: Any]], config: [String: Any]?) -> String in
             logger.info("detectSectionsFromTracks: \(activityIds.count) activities, \(allCoords.count / 2) coords")
 
-            let routeGroups = groups.compactMap { dict -> RouteGroup? in
-                guard let groupId = dict["groupId"] as? String,
-                      let actIds = dict["activityIds"] as? [String] else { return nil }
-                return RouteGroup(groupId: groupId, activityIds: actIds)
-            }
+            let routeGroups = groups.compactMap { self.mapToRouteGroup($0) }
             let types = sportTypes.compactMap { dict -> ActivitySportType? in
                 guard let activityId = dict["activity_id"] as? String,
                       let sportType = dict["sport_type"] as? String else { return nil }
@@ -815,6 +813,18 @@ public class RouteMatcherModule: Module {
         ]
     }
 
+    private func parseScalePresets(_ value: Any?) -> [ScalePreset]? {
+        guard let list = value as? [[String: Any]] else { return nil }
+        return list.map { preset in
+            ScalePreset(
+                name: (preset["name"] as? String) ?? "medium",
+                minLength: (preset["min_length"] as? Double) ?? 500.0,
+                maxLength: (preset["max_length"] as? Double) ?? 5000.0,
+                minActivities: UInt32((preset["min_activities"] as? Int) ?? 3)
+            )
+        }
+    }
+
     private func parseSectionConfig(_ map: [String: Any]?) -> SectionConfig {
         guard let map = map else { return defaultSectionConfig() }
 
@@ -826,7 +836,11 @@ public class RouteMatcherModule: Module {
             maxSectionLength: (map["max_section_length"] as? Double) ?? defaults.maxSectionLength,
             minActivities: UInt32((map["min_activities"] as? Int) ?? Int(defaults.minActivities)),
             clusterTolerance: (map["cluster_tolerance"] as? Double) ?? defaults.clusterTolerance,
-            samplePoints: UInt32((map["sample_points"] as? Int) ?? Int(defaults.samplePoints))
+            samplePoints: UInt32((map["sample_points"] as? Int) ?? Int(defaults.samplePoints)),
+            detectionMode: (map["detection_mode"] as? String) ?? defaults.detectionMode,
+            includePotentials: (map["include_potentials"] as? Bool) ?? defaults.includePotentials,
+            scalePresets: parseScalePresets(map["scale_presets"]) ?? defaults.scalePresets,
+            preserveHierarchy: (map["preserve_hierarchy"] as? Bool) ?? defaults.preserveHierarchy
         )
     }
 
@@ -959,6 +973,30 @@ public class RouteMatcherModule: Module {
             endPoint: endPoint,
             bounds: bounds,
             center: center
+        )
+    }
+
+    private func parseBounds(_ dict: [String: Double]?) -> Bounds? {
+        guard let b = dict else { return nil }
+        return Bounds(
+            minLat: b["minLat"] ?? 0,
+            maxLat: b["maxLat"] ?? 0,
+            minLng: b["minLng"] ?? 0,
+            maxLng: b["maxLng"] ?? 0
+        )
+    }
+
+    private func mapToRouteGroup(_ dict: [String: Any]) -> RouteGroup? {
+        guard let groupId = dict["groupId"] as? String,
+              let activityIds = dict["activityIds"] as? [String] else { return nil }
+
+        return RouteGroup(
+            groupId: groupId,
+            representativeId: dict["representativeId"] as? String ?? activityIds.first ?? "",
+            activityIds: activityIds,
+            sportType: dict["sportType"] as? String ?? "",
+            bounds: parseBounds(dict["bounds"] as? [String: Double]),
+            customName: dict["customName"] as? String
         )
     }
 }

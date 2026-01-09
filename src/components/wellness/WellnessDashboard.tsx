@@ -28,9 +28,9 @@ function formatSleepHours(seconds: number | undefined): string {
 }
 
 function getAverage(data: WellnessData[], key: keyof WellnessData, days: number): number | null {
-  const recent = data.slice(0, days).filter(d => d[key] != null);
+  const recent = data.slice(0, days).filter((d) => d[key] != null);
   if (recent.length === 0) return null;
-  const sum = recent.reduce((acc, d) => acc + (d[key] as number || 0), 0);
+  const sum = recent.reduce((acc, d) => acc + ((d[key] as number) || 0), 0);
   return sum / recent.length;
 }
 
@@ -47,9 +47,7 @@ export function WellnessDashboard({ data }: WellnessDashboardProps) {
           <Text style={[styles.title, isDark && styles.textLight]}>{t('navigation.wellness')}</Text>
         </View>
         <View style={styles.emptyState}>
-          <Text style={[styles.emptyText, isDark && styles.textDark]}>
-            {t('wellness.noData')}
-          </Text>
+          <Text style={[styles.emptyText, isDark && styles.textDark]}>{t('wellness.noData')}</Text>
           <Text style={[styles.emptyHint, isDark && styles.textDark]}>
             {t('wellness.connectHint')}
           </Text>
@@ -76,9 +74,13 @@ export function WellnessDashboard({ data }: WellnessDashboardProps) {
     const prevSleepScore = getAverage(sorted.slice(1), 'sleepScore', 7);
 
     // Find the most recent weight (look back if today is null)
-    const weightRecord = sorted.find(d => d.weight != null);
+    const weightRecord = sorted.find((d) => d.weight != null);
     const currentWeight = weightRecord?.weight ?? null;
-    const prevWeight = getAverage(sorted.filter(d => d !== weightRecord), 'weight', 7);
+    const prevWeight = getAverage(
+      sorted.filter((d) => d !== weightRecord),
+      'weight',
+      7
+    );
 
     const getTrend = (current: number | null, prev: number | null): 'up' | 'down' | 'stable' => {
       if (current === null || prev === null) return 'stable';
@@ -117,7 +119,10 @@ export function WellnessDashboard({ data }: WellnessDashboardProps) {
         label: t('wellness.sleep'),
         current: currentSleep ? currentSleep / 3600 : null,
         previous: prevSleep ? prevSleep / 3600 : null,
-        change: getChange(currentSleep ? currentSleep / 3600 : null, prevSleep ? prevSleep / 3600 : null),
+        change: getChange(
+          currentSleep ? currentSleep / 3600 : null,
+          prevSleep ? prevSleep / 3600 : null
+        ),
         trend: getTrend(currentSleep, prevSleep),
         unit: t('wellness.hrs'),
         icon: '😴',
@@ -148,8 +153,7 @@ export function WellnessDashboard({ data }: WellnessDashboardProps) {
 
   const getTrendColor = (metric: MetricTrend): string => {
     if (metric.trend === 'stable') return colors.textSecondary;
-    const isGood = (metric.trend === metric.goodDirection) ||
-                   (metric.goodDirection === 'stable');
+    const isGood = metric.trend === metric.goodDirection || metric.goodDirection === 'stable';
     return isGood ? colors.success : colors.warning;
   };
 
@@ -163,14 +167,17 @@ export function WellnessDashboard({ data }: WellnessDashboardProps) {
   const insight = useMemo(() => {
     const hrvLabel = t('metrics.hrv');
     const rhrLabel = t('wellness.restingHR');
-    const hrvMetric = metrics.find(m => m.label === hrvLabel);
-    const rhrMetric = metrics.find(m => m.label === rhrLabel);
+    const hrvMetric = metrics.find((m) => m.label === hrvLabel);
+    const rhrMetric = metrics.find((m) => m.label === rhrLabel);
 
     if (hrvMetric?.trend === 'up' && rhrMetric?.trend === 'down') {
       return { text: t('wellness.insightGoodRecovery'), color: colors.success };
     }
     if (hrvMetric?.trend === 'down' && rhrMetric?.trend === 'up') {
-      return { text: t('wellness.insightExtraRecovery'), color: colors.warning };
+      return {
+        text: t('wellness.insightExtraRecovery'),
+        color: colors.warning,
+      };
     }
     return { text: t('wellness.insightStable'), color: colors.textSecondary };
   }, [metrics, t]);
@@ -180,9 +187,9 @@ export function WellnessDashboard({ data }: WellnessDashboardProps) {
     const hrvLabel = t('metrics.hrv');
     const rhrLabel = t('wellness.restingHR');
     const sleepLabel = t('wellness.sleep');
-    const hrvMetric = metrics.find(m => m.label === hrvLabel);
-    const rhrMetric = metrics.find(m => m.label === rhrLabel);
-    const sleepMetric = metrics.find(m => m.label === sleepLabel);
+    const hrvMetric = metrics.find((m) => m.label === hrvLabel);
+    const rhrMetric = metrics.find((m) => m.label === rhrLabel);
+    const sleepMetric = metrics.find((m) => m.label === sleepLabel);
 
     const getArrow = (trend: 'up' | 'down' | 'stable') => {
       if (trend === 'up') return '▲';

@@ -71,7 +71,8 @@ export interface Activity {
   trimp?: number; // Training impulse (HR-based load)
   decoupling?: number; // Aerobic decoupling/drift percentage
   strain_score?: number; // Strain score
-  icu_hrr?: { // Heart rate recovery
+  icu_hrr?: {
+    // Heart rate recovery
     start_bpm: number;
     end_bpm: number;
     hrr: number; // BPM drop
@@ -193,18 +194,18 @@ export interface DailyActivitySummary {
 
 // Power/Pace curve data point - best effort at a specific duration
 export interface CurvePoint {
-  secs: number;           // Duration in seconds
-  value: number;          // Power (watts) or pace (m/s)
-  activity_id?: string;   // Activity where this best was achieved
-  start_index?: number;   // Start index in activity stream
+  secs: number; // Duration in seconds
+  value: number; // Power (watts) or pace (m/s)
+  activity_id?: string; // Activity where this best was achieved
+  start_index?: number; // Start index in activity stream
 }
 
 // Power curve response from API
 export interface PowerCurve {
   type: 'power';
   sport: string;
-  secs: number[];         // Array of durations
-  watts: number[];        // Best watts for each duration
+  secs: number[]; // Array of durations
+  watts: number[]; // Best watts for each duration
   watts_per_kg?: number[]; // Best w/kg for each duration
   activity_ids?: string[]; // Activity IDs for each best
 }
@@ -213,29 +214,29 @@ export interface PowerCurve {
 export interface PaceCurve {
   type: 'pace';
   sport: string;
-  distances: number[];    // Array of distances in meters
-  times: number[];        // Array of times in seconds to cover each distance
-  pace: number[];         // Pace in m/s at each distance (distance/time)
+  distances: number[]; // Array of distances in meters
+  times: number[]; // Array of times in seconds to cover each distance
+  pace: number[]; // Pace in m/s at each distance (distance/time)
   activity_ids?: string[];
   // Critical Speed model data
   criticalSpeed?: number; // Critical speed from pace model (m/s) - use as threshold pace
-  dPrime?: number;        // D' (anaerobic distance capacity) in meters
-  r2?: number;            // R² (model fit quality)
+  dPrime?: number; // D' (anaerobic distance capacity) in meters
+  r2?: number; // R² (model fit quality)
   // Date range
-  startDate?: string;     // Start date of the curve period (ISO string)
-  endDate?: string;       // End date of the curve period (ISO string)
-  days?: number;          // Number of days in the period
+  startDate?: string; // Start date of the curve period (ISO string)
+  endDate?: string; // End date of the curve period (ISO string)
+  days?: number; // Number of days in the period
 }
 
 // Sport settings including zones
 export interface SportSettings {
   id?: string;
-  types: string[];        // Activity types this applies to
+  types: string[]; // Activity types this applies to
   // Power zones
-  ftp?: number;           // Functional Threshold Power
+  ftp?: number; // Functional Threshold Power
   power_zones?: Zone[];
   // HR zones
-  lthr?: number;          // Lactate Threshold Heart Rate
+  lthr?: number; // Lactate Threshold Heart Rate
   max_hr?: number;
   hr_zones?: Zone[];
   // Pace zones (running)
@@ -258,8 +259,8 @@ export interface Zone {
 export interface ZoneDistribution {
   zone: number;
   name: string;
-  seconds: number;        // Time in this zone
-  percentage: number;     // % of total time
+  seconds: number; // Time in this zone
+  percentage: number; // % of total time
   color: string;
 }
 

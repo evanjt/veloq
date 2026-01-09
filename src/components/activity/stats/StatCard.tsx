@@ -28,38 +28,48 @@ export function StatCard({ stat, isDark, onPress }: StatCardProps) {
     >
       {/* Icon with colored background */}
       <View style={[styles.iconContainer, { backgroundColor: `${stat.color}20` }]}>
-        <MaterialCommunityIcons
-          name={stat.icon}
-          size={16}
-          color={stat.color}
-        />
+        <MaterialCommunityIcons name={stat.icon} size={16} color={stat.color} />
       </View>
 
       {/* Value and title */}
       <View style={styles.statContent}>
-        <Text style={[styles.statValue, isDark && styles.textLight]}>
-          {stat.value}
-        </Text>
+        <Text style={[styles.statValue, isDark && styles.textLight]}>{stat.value}</Text>
         <Text style={styles.statTitle}>{stat.title}</Text>
       </View>
 
       {/* Comparison badge or context */}
       {stat.comparison ? (
-        <View style={[
-          styles.comparisonBadge,
-          stat.comparison.isGood === true && styles.comparisonGood,
-          stat.comparison.isGood === false && styles.comparisonBad,
-        ]}>
+        <View
+          style={[
+            styles.comparisonBadge,
+            stat.comparison.isGood === true && styles.comparisonGood,
+            stat.comparison.isGood === false && styles.comparisonBad,
+          ]}
+        >
           <MaterialCommunityIcons
-            name={stat.comparison.trend === 'up' ? 'arrow-up' : stat.comparison.trend === 'down' ? 'arrow-down' : 'minus'}
+            name={
+              stat.comparison.trend === 'up'
+                ? 'arrow-up'
+                : stat.comparison.trend === 'down'
+                  ? 'arrow-down'
+                  : 'minus'
+            }
             size={10}
-            color={stat.comparison.isGood === true ? colors.success : stat.comparison.isGood === false ? colors.error : colors.textSecondary}
+            color={
+              stat.comparison.isGood === true
+                ? colors.success
+                : stat.comparison.isGood === false
+                  ? colors.error
+                  : colors.textSecondary
+            }
           />
-          <Text style={[
-            styles.comparisonText,
-            stat.comparison.isGood === true && styles.comparisonTextGood,
-            stat.comparison.isGood === false && styles.comparisonTextBad,
-          ]}>
+          <Text
+            style={[
+              styles.comparisonText,
+              stat.comparison.isGood === true && styles.comparisonTextGood,
+              stat.comparison.isGood === false && styles.comparisonTextBad,
+            ]}
+          >
             {stat.comparison.value}
           </Text>
         </View>

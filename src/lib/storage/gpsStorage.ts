@@ -39,8 +39,8 @@ function isGpsIndex(value: unknown): value is GpsIndex {
   const obj = value as Record<string, unknown>;
   if (!Array.isArray(obj.activityIds)) return false;
   if (typeof obj.lastUpdated !== 'string') return false;
-  // Check that activityIds contains strings
-  if (obj.activityIds.length > 0 && typeof obj.activityIds[0] !== 'string') return false;
+  // Validate all elements are strings (empty array is valid and returns true)
+  if (!obj.activityIds.every((id) => typeof id === 'string')) return false;
   return true;
 }
 
@@ -86,9 +86,7 @@ export async function storeGpsTrack(
 /**
  * Store multiple GPS tracks efficiently
  */
-export async function storeGpsTracks(
-  tracks: Map<string, [number, number][]>
-): Promise<void> {
+export async function storeGpsTracks(tracks: Map<string, [number, number][]>): Promise<void> {
   if (tracks.size === 0) return;
 
   await ensureGpsDir();
@@ -111,7 +109,7 @@ export async function storeGpsTracks(
 
   // Write all files in parallel, using allSettled to handle individual failures
   const results = await Promise.allSettled(
-    trackEntries.map(entry =>
+    trackEntries.map((entry) =>
       FileSystem.writeAsStringAsync(entry.path, entry.data).then(() => entry.activityId)
     )
   );
@@ -142,9 +140,7 @@ export async function storeGpsTracks(
 /**
  * Get GPS track for an activity
  */
-export async function getGpsTrack(
-  activityId: string
-): Promise<[number, number][] | null> {
+export async function getGpsTrack(activityId: string): Promise<[number, number][] | null> {
   const path = getGpsPath(activityId);
   const info = await FileSystem.getInfoAsync(path);
   if (!info.exists) return null;
@@ -241,6 +237,24 @@ export async function clearAllGpsTracks(): Promise<void> {
 }
 
 /**
+ * Get all cached activity IDs from the GPS index
+ */
+export async function getCachedActivityIds(): Promise<string[]> {
+  try {
+    const indexInfo = await FileSystem.getInfoAsync(GPS_INDEX_FILE);
+    if (indexInfo.exists) {
+      const indexStr = await FileSystem.readAsStringAsync(GPS_INDEX_FILE);
+      const defaultIndex: GpsIndex = { activityIds: [], lastUpdated: '' };
+      const index = safeJsonParseWithSchema(indexStr, isGpsIndex, defaultIndex);
+      return index.activityIds;
+    }
+  } catch {
+    // Best effort - return empty array on error
+  }
+  return [];
+}
+
+/**
  * Get count of stored GPS tracks
  */
 export async function getGpsTrackCount(): Promise<number> {
@@ -262,7 +276,7 @@ export async function getGpsTrackCount(): Promise<number> {
     if (dirInfo.exists) {
       const files = await FileSystem.readDirectoryAsync(GPS_DIR);
       // Count only .json files, excluding index
-      return files.filter(f => f.endsWith('.json') && f !== 'index.json').length;
+      return files.filter((f) => f.endsWith('.json') && f !== 'index.json').length;
     }
   } catch {
     // Ignore
@@ -280,7 +294,7 @@ export async function estimateGpsStorageSize(): Promise<number> {
     if (!dirInfo.exists) return 0;
 
     const files = await FileSystem.readDirectoryAsync(GPS_DIR);
-    const gpsFiles = files.filter(f => f.endsWith('.json') && f !== 'index.json');
+    const gpsFiles = files.filter((f) => f.endsWith('.json') && f !== 'index.json');
 
     if (gpsFiles.length === 0) return 0;
 
@@ -331,17 +345,26 @@ export async function storeBoundsCache(cache: unknown): Promise<void> {
 }
 
 /**
- * Load the bounds cache from FileSystem
+ * Load the bounds cache from FileSystem with optional schema validation.
+ * @param validator - Optional type guard to validate parsed data
+ * @param defaultValue - Value to return if validation fails (defaults to null)
  */
-export async function loadBoundsCache<T>(): Promise<T | null> {
+export async function loadBoundsCache<T>(
+  validator?: SchemaValidator<T>,
+  defaultValue: T | null = null
+): Promise<T | null> {
   try {
     const info = await FileSystem.getInfoAsync(BOUNDS_CACHE_FILE);
     if (!info.exists) return null;
 
     const data = await FileSystem.readAsStringAsync(BOUNDS_CACHE_FILE);
+    if (validator) {
+      return safeJsonParseWithSchema(data, validator, defaultValue as T);
+    }
+    // Fallback to unvalidated parse for backwards compatibility
     return JSON.parse(data) as T;
   } catch {
-    return null;
+    return defaultValue;
   }
 }
 
@@ -376,17 +399,26 @@ export async function storeCheckpoint(checkpoint: unknown): Promise<void> {
 }
 
 /**
- * Load sync checkpoint
+ * Load sync checkpoint with optional schema validation.
+ * @param validator - Optional type guard to validate parsed data
+ * @param defaultValue - Value to return if validation fails (defaults to null)
  */
-export async function loadCheckpoint<T>(): Promise<T | null> {
+export async function loadCheckpoint<T>(
+  validator?: SchemaValidator<T>,
+  defaultValue: T | null = null
+): Promise<T | null> {
   try {
     const info = await FileSystem.getInfoAsync(CHECKPOINT_FILE);
     if (!info.exists) return null;
 
     const data = await FileSystem.readAsStringAsync(CHECKPOINT_FILE);
+    if (validator) {
+      return safeJsonParseWithSchema(data, validator, defaultValue as T);
+    }
+    // Fallback to unvalidated parse for backwards compatibility
     return JSON.parse(data) as T;
   } catch {
-    return null;
+    return defaultValue;
   }
 }
 

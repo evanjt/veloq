@@ -1,13 +1,12 @@
 import React, { useState, useCallback, useRef, useMemo, ReactNode, useEffect } from 'react';
+import { View, Text, StyleSheet, useColorScheme, TouchableOpacity, Animated } from 'react-native';
 import {
-  View,
-  Text,
-  StyleSheet,
-  useColorScheme,
-  TouchableOpacity,
-  Animated,
-} from 'react-native';
-import { MapView, Camera, ShapeSource, LineLayer, MarkerView } from '@maplibre/maplibre-react-native';
+  MapView,
+  Camera,
+  ShapeSource,
+  LineLayer,
+  MarkerView,
+} from '@maplibre/maplibre-react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
@@ -36,7 +35,12 @@ export interface BaseMapViewProps {
   /** Bounds to fit camera to */
   bounds?: { ne: [number, number]; sw: [number, number] };
   /** Camera padding */
-  padding?: { paddingTop: number; paddingRight: number; paddingBottom: number; paddingLeft: number };
+  padding?: {
+    paddingTop: number;
+    paddingRight: number;
+    paddingBottom: number;
+    paddingLeft: number;
+  };
   /** Initial map style */
   initialStyle?: MapStyleType;
   /** Show style toggle button */
@@ -62,15 +66,30 @@ export interface BaseMapViewProps {
 }
 
 export interface BaseMapViewRef {
-  setCamera: (options: { centerCoordinate?: [number, number]; zoomLevel?: number; heading?: number; animationDuration?: number }) => void;
-  fitBounds: (ne: [number, number], sw: [number, number], padding?: number, duration?: number) => void;
+  setCamera: (options: {
+    centerCoordinate?: [number, number];
+    zoomLevel?: number;
+    heading?: number;
+    animationDuration?: number;
+  }) => void;
+  fitBounds: (
+    ne: [number, number],
+    sw: [number, number],
+    padding?: number,
+    duration?: number
+  ) => void;
 }
 
 export function BaseMapView({
   routeCoordinates,
   routeColor = colors.primary,
   bounds,
-  padding = { paddingTop: 80, paddingRight: 40, paddingBottom: 40, paddingLeft: 40 },
+  padding = {
+    paddingTop: 80,
+    paddingRight: 40,
+    paddingBottom: 40,
+    paddingLeft: 40,
+  },
   initialStyle,
   showStyleToggle = true,
   show3DToggle = true,
@@ -121,18 +140,21 @@ export function BaseMapView({
   }, [map3DOpacity]);
 
   // Handle 3D map bearing changes (for compass sync)
-  const handleBearingChange = useCallback((bearing: number) => {
-    bearingAnim.setValue(-bearing);
-  }, [bearingAnim]);
+  const handleBearingChange = useCallback(
+    (bearing: number) => {
+      bearingAnim.setValue(-bearing);
+    },
+    [bearingAnim]
+  );
 
   // Toggle map style
   const toggleStyle = useCallback(() => {
-    setMapStyle(current => getNextStyle(current));
+    setMapStyle((current) => getNextStyle(current));
   }, []);
 
   // Toggle 3D mode
   const toggle3D = useCallback(() => {
-    setIs3DMode(current => !current);
+    setIs3DMode((current) => !current);
   }, []);
 
   // Reset orientation (bearing and pitch in 3D)
@@ -153,12 +175,15 @@ export function BaseMapView({
   }, [is3DMode, is3DReady, bearingAnim, cameraRef]);
 
   // Handle region change for compass (real-time during gesture)
-  const handleRegionIsChanging = useCallback((feature: GeoJSON.Feature) => {
-    const properties = feature.properties as { heading?: number } | undefined;
-    if (properties?.heading !== undefined) {
-      bearingAnim.setValue(-properties.heading);
-    }
-  }, [bearingAnim]);
+  const handleRegionIsChanging = useCallback(
+    (feature: GeoJSON.Feature) => {
+      const properties = feature.properties as { heading?: number } | undefined;
+      if (properties?.heading !== undefined) {
+        bearingAnim.setValue(-properties.heading);
+      }
+    },
+    [bearingAnim]
+  );
 
   // Get user location and refocus camera
   const handleGetLocation = useCallback(async () => {
@@ -206,40 +231,68 @@ export function BaseMapView({
       {/* Close button */}
       {onClose && (
         <TouchableOpacity
-          style={[styles.button, styles.closeButton, { top: insets.top + 12 }, isDark && styles.buttonDark]}
+          style={[
+            styles.button,
+            styles.closeButton,
+            { top: insets.top + 12 },
+            isDark && styles.buttonDark,
+          ]}
           onPress={onClose}
           activeOpacity={0.8}
           accessibilityLabel={t('maps.closeMap')}
           accessibilityRole="button"
         >
-          <MaterialCommunityIcons name="close" size={24} color={isDark ? colors.textOnDark : colors.textSecondary} />
+          <MaterialCommunityIcons
+            name="close"
+            size={24}
+            color={isDark ? colors.textOnDark : colors.textSecondary}
+          />
         </TouchableOpacity>
       )}
 
       {/* Style toggle */}
       {showStyleToggle && (
         <TouchableOpacity
-          style={[styles.button, styles.styleButton, { top: insets.top + 12 }, isDark && styles.buttonDark]}
+          style={[
+            styles.button,
+            styles.styleButton,
+            { top: insets.top + 12 },
+            isDark && styles.buttonDark,
+          ]}
           onPress={toggleStyle}
           activeOpacity={0.8}
           accessibilityLabel={t('maps.toggleStyle')}
           accessibilityRole="button"
         >
-          <MaterialCommunityIcons name={getStyleIcon(mapStyle)} size={24} color={isDark ? colors.textOnDark : colors.textSecondary} />
+          <MaterialCommunityIcons
+            name={getStyleIcon(mapStyle)}
+            size={24}
+            color={isDark ? colors.textOnDark : colors.textSecondary}
+          />
         </TouchableOpacity>
       )}
 
-      {/* Control stack - positioned just below the style toggle button */}
-      <View style={[styles.controlStack, { top: insets.top + 64 }]}>
+      {/* Control stack - positioned at same level as style toggle, horizontal layout */}
+      <View style={[styles.controlStack, { top: insets.top + 12 }]}>
         {show3DToggle && has3DRoute && (
           <TouchableOpacity
-            style={[styles.controlButton, isDark && styles.controlButtonDark, is3DMode && styles.controlButtonActive]}
+            style={[
+              styles.controlButton,
+              isDark && styles.controlButtonDark,
+              is3DMode && styles.controlButtonActive,
+            ]}
             onPress={toggle3D}
             activeOpacity={0.8}
             accessibilityLabel={is3DMode ? t('maps.disable3D') : t('maps.enable3D')}
             accessibilityRole="button"
           >
-            <MaterialCommunityIcons name="terrain" size={22} color={is3DMode ? colors.textOnDark : (isDark ? colors.textOnDark : colors.textSecondary)} />
+            <MaterialCommunityIcons
+              name="terrain"
+              size={22}
+              color={
+                is3DMode ? colors.textOnDark : isDark ? colors.textOnDark : colors.textSecondary
+              }
+            />
           </TouchableOpacity>
         )}
 
@@ -251,7 +304,12 @@ export function BaseMapView({
             accessibilityLabel={t('maps.resetOrientation')}
             accessibilityRole="button"
           >
-            <CompassArrow size={22} rotation={bearingAnim} northColor={colors.error} southColor={isDark ? colors.textOnDark : colors.textSecondary} />
+            <CompassArrow
+              size={22}
+              rotation={bearingAnim}
+              northColor={colors.error}
+              southColor={isDark ? colors.textOnDark : colors.textSecondary}
+            />
           </TouchableOpacity>
         )}
 
@@ -286,7 +344,7 @@ export function BaseMapView({
   return (
     <View style={styles.container}>
       {/* 2D Map - always rendered, hidden when 3D is ready */}
-      <View style={[styles.mapLayer, (is3DMode && is3DReady) && styles.hiddenLayer]}>
+      <View style={[styles.mapLayer, is3DMode && is3DReady && styles.hiddenLayer]}>
         <MapView
           style={styles.map}
           mapStyle={mapStyleValue}
@@ -382,14 +440,15 @@ const styles = StyleSheet.create({
   },
   controlStack: {
     position: 'absolute',
-    right: spacing.md,
+    right: spacing.md + 52, // Position to left of style toggle button (44px button + 8px gap)
+    flexDirection: 'row', // Horizontal layout to reduce vertical occlusion
     gap: spacing.sm,
     zIndex: 10,
   },
   controlButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: layout.minTapTarget, // 44 - Accessibility minimum
+    height: layout.minTapTarget, // 44 - Accessibility minimum
+    borderRadius: layout.minTapTarget / 2, // 22
     backgroundColor: 'rgba(255, 255, 255, 0.95)',
     justifyContent: 'center',
     alignItems: 'center',

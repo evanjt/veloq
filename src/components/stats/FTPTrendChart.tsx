@@ -8,6 +8,7 @@ import { colors, darkColors } from '@/theme/colors';
 import { typography } from '@/theme/typography';
 import { spacing, layout } from '@/theme/spacing';
 import type { eFTPPoint } from '@/types';
+import { formatMonth } from '@/lib';
 
 interface FTPTrendChartProps {
   /** eFTP history data points */
@@ -22,15 +23,10 @@ interface FTPTrendChartProps {
 const CHART_COLOR = '#FFB300';
 
 function formatDate(dateStr: string): string {
-  const date = new Date(dateStr);
-  return date.toLocaleDateString('en-US', { month: 'short' });
+  return formatMonth(dateStr);
 }
 
-export function FTPTrendChart({
-  data,
-  currentFTP,
-  height = 180,
-}: FTPTrendChartProps) {
+export function FTPTrendChart({ data, currentFTP, height = 180 }: FTPTrendChartProps) {
   const { t } = useTranslation();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
@@ -47,10 +43,16 @@ export function FTPTrendChart({
 
   const { minFTP, maxFTP, latestFTP, ftpChange, changePercent } = useMemo(() => {
     if (chartData.length === 0) {
-      return { minFTP: 200, maxFTP: 300, latestFTP: 0, ftpChange: 0, changePercent: 0 };
+      return {
+        minFTP: 200,
+        maxFTP: 300,
+        latestFTP: 0,
+        ftpChange: 0,
+        changePercent: 0,
+      };
     }
 
-    const values = chartData.map(d => d.y);
+    const values = chartData.map((d) => d.y);
     const latest = values[values.length - 1];
     const threeMonthsAgo = values.length > 3 ? values[values.length - 4] : values[0];
     const change = latest - threeMonthsAgo;
@@ -72,9 +74,7 @@ export function FTPTrendChart({
     return (
       <View style={[styles.container, { height }]}>
         <View style={styles.emptyState}>
-          <Text style={[styles.emptyText, isDark && styles.textDark]}>
-            {t('stats.noFtpData')}
-          </Text>
+          <Text style={[styles.emptyText, isDark && styles.textDark]}>{t('stats.noFtpData')}</Text>
           <Text style={[styles.emptyHint, isDark && styles.textDark]}>
             {t('stats.completePowerActivities')}
           </Text>
@@ -98,7 +98,8 @@ export function FTPTrendChart({
             </View>
           </View>
           <Text style={[styles.changeSubtext, isDark && styles.textDark]}>
-            {isImproving ? '+' : ''}{changePercent.toFixed(1)}% {t('stats.from3MonthsAgo')}
+            {isImproving ? '+' : ''}
+            {changePercent.toFixed(1)}% {t('stats.from3MonthsAgo')}
           </Text>
         </View>
       </View>
@@ -114,40 +115,33 @@ export function FTPTrendChart({
         >
           {({ points, chartBounds }) => (
             <>
-              <Area
-                points={points.y}
-                y0={chartBounds.bottom}
-                curveType="natural"
-              >
+              <Area points={points.y} y0={chartBounds.bottom} curveType="natural">
                 <LinearGradient
                   start={vec(0, chartBounds.top)}
                   end={vec(0, chartBounds.bottom)}
                   colors={[CHART_COLOR + '60', CHART_COLOR + '10']}
                 />
               </Area>
-              <Line
-                points={points.y}
-                color={CHART_COLOR}
-                strokeWidth={2.5}
-                curveType="natural"
-              />
+              <Line points={points.y} color={CHART_COLOR} strokeWidth={2.5} curveType="natural" />
               {/* Latest point indicator */}
-              {points.y.length > 0 && points.y[points.y.length - 1].x != null && points.y[points.y.length - 1].y != null && (
-                <>
-                  <Circle
-                    cx={points.y[points.y.length - 1].x!}
-                    cy={points.y[points.y.length - 1].y!}
-                    r={6}
-                    color={CHART_COLOR}
-                  />
-                  <Circle
-                    cx={points.y[points.y.length - 1].x!}
-                    cy={points.y[points.y.length - 1].y!}
-                    r={3}
-                    color={colors.textOnDark}
-                  />
-                </>
-              )}
+              {points.y.length > 0 &&
+                points.y[points.y.length - 1].x != null &&
+                points.y[points.y.length - 1].y != null && (
+                  <>
+                    <Circle
+                      cx={points.y[points.y.length - 1].x!}
+                      cy={points.y[points.y.length - 1].y!}
+                      r={6}
+                      color={CHART_COLOR}
+                    />
+                    <Circle
+                      cx={points.y[points.y.length - 1].x!}
+                      cy={points.y[points.y.length - 1].y!}
+                      r={3}
+                      color={colors.textOnDark}
+                    />
+                  </>
+                )}
             </>
           )}
         </CartesianChart>
@@ -168,9 +162,15 @@ export function FTPTrendChart({
 
         {/* Y-axis labels */}
         <View style={styles.yAxisOverlay} pointerEvents="none">
-          <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>{Math.round(maxFTP)}w</Text>
-          <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>{Math.round((minFTP + maxFTP) / 2)}w</Text>
-          <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>{Math.round(minFTP)}w</Text>
+          <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
+            {Math.round(maxFTP)}w
+          </Text>
+          <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
+            {Math.round((minFTP + maxFTP) / 2)}w
+          </Text>
+          <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
+            {Math.round(minFTP)}w
+          </Text>
         </View>
       </View>
     </View>

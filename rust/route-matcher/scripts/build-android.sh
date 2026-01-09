@@ -1,60 +1,89 @@
 #!/bin/bash
 set -e
 
-# Build route-matcher for Android
-# Prerequisites:
-#   - Rust with Android targets:
-#     rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android i686-linux-android
-#   - Android NDK
-#   - cargo-ndk: cargo install cargo-ndk
+# Build route-matcher for Android (PARALLEL - ALWAYS)
+# Builds all architectures in parallel for 2-3x faster builds
+# Build once, use for both preview and release deployments
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 OUTPUT_DIR="${PROJECT_DIR}/target/android"
 
-echo "Building route-matcher for Android..."
 cd "$PROJECT_DIR"
+
+# Check if libraries are already built (from cache)
+LIBS_EXIST=1
+[ -f "target/aarch64-linux-android/release/libroute_matcher.so" ] || LIBS_EXIST=0
+[ -f "target/armv7-linux-androideabi/release/libroute_matcher.so" ] || LIBS_EXIST=0
+[ -f "target/x86_64-linux-android/release/libroute_matcher.so" ] || LIBS_EXIST=0
+[ -f "target/i686-linux-android/release/libroute_matcher.so" ] || LIBS_EXIST=0
+
+if [ "$LIBS_EXIST" -eq 1 ]; then
+  echo "✅ Rust libraries already built (from cache), skipping build"
+  mkdir -p "$OUTPUT_DIR/jniLibs"/{arm64-v8a,armeabi-v7a,x86_64,x86}
+  cp target/aarch64-linux-android/release/libroute_matcher.so "$OUTPUT_DIR/jniLibs/arm64-v8a/"
+  cp target/armv7-linux-androideabi/release/libroute_matcher.so "$OUTPUT_DIR/jniLibs/armeabi-v7a/"
+  cp target/x86_64-linux-android/release/libroute_matcher.so "$OUTPUT_DIR/jniLibs/x86_64/"
+  cp target/i686-linux-android/release/libroute_matcher.so "$OUTPUT_DIR/jniLibs/x86/"
+  exit 0
+fi
+
+echo "🚀 Building route-matcher for Android (ALL architectures in parallel)..."
 
 # Check for cargo-ndk
 if ! command -v cargo-ndk &> /dev/null; then
-    echo "cargo-ndk not found. Installing..."
-    cargo install cargo-ndk
+  echo "cargo-ndk not found. Installing..."
+  cargo install cargo-ndk
 fi
 
-# Build for all Android architectures
-echo "Building for all Android architectures..."
+# Create output directory structure
+mkdir -p "$OUTPUT_DIR/jniLibs"/{arm64-v8a,armeabi-v7a,x86_64,x86}
+
+# Build all architectures in parallel using background jobs
+PIDS=()
+
+echo "🔨 Building all Android architectures in parallel..."
 
 # arm64-v8a (most modern Android devices)
-echo "Building for aarch64-linux-android (arm64-v8a)..."
-cargo ndk -t arm64-v8a build --release --features full
+echo "  → arm64-v8a (physical devices)"
+cargo ndk -t arm64-v8a build --release --features full &
+PIDS+=($!)
 
 # armeabi-v7a (older 32-bit devices)
-echo "Building for armv7-linux-androideabi (armeabi-v7a)..."
-cargo ndk -t armeabi-v7a build --release --features full
+echo "  → armeabi-v7a (legacy 32-bit devices)"
+cargo ndk -t armeabi-v7a build --release --features full &
+PIDS+=($!)
 
 # x86_64 (emulator on Intel/AMD)
-echo "Building for x86_64-linux-android (x86_64)..."
-cargo ndk -t x86_64 build --release --features full
+echo "  → x86_64 (emulator)"
+cargo ndk -t x86_64 build --release --features full &
+PIDS+=($!)
 
 # x86 (older emulators)
-echo "Building for i686-linux-android (x86)..."
-cargo ndk -t x86 build --release --features full
+echo "  → x86 (legacy emulator)"
+cargo ndk -t x86 build --release --features full &
+PIDS+=($!)
 
-# Create output directory structure (matches Android's jniLibs)
-mkdir -p "$OUTPUT_DIR/jniLibs/arm64-v8a"
-mkdir -p "$OUTPUT_DIR/jniLibs/armeabi-v7a"
-mkdir -p "$OUTPUT_DIR/jniLibs/x86_64"
-mkdir -p "$OUTPUT_DIR/jniLibs/x86"
+# Wait for all builds to complete
+echo "⏳ Waiting for all builds to complete..."
+for pid in "${PIDS[@]}"; do
+  wait "$pid" || {
+    echo "❌ Build failed for pid $pid"
+    exit 1
+  }
+done
+
+echo "✅ All architectures built successfully!"
 
 # Copy libraries
-echo "Copying libraries..."
+echo "📦 Copying libraries..."
 cp target/aarch64-linux-android/release/libroute_matcher.so "$OUTPUT_DIR/jniLibs/arm64-v8a/"
 cp target/armv7-linux-androideabi/release/libroute_matcher.so "$OUTPUT_DIR/jniLibs/armeabi-v7a/"
 cp target/x86_64-linux-android/release/libroute_matcher.so "$OUTPUT_DIR/jniLibs/x86_64/"
 cp target/i686-linux-android/release/libroute_matcher.so "$OUTPUT_DIR/jniLibs/x86/"
 
 # Generate Kotlin bindings
-echo "Generating Kotlin bindings..."
+echo "🔧 Generating Kotlin bindings..."
 mkdir -p "$OUTPUT_DIR/kotlin"
 cargo run --features ffi --bin uniffi-bindgen generate \
     --library target/aarch64-linux-android/release/libroute_matcher.so \
@@ -72,7 +101,7 @@ cargo run --features ffi --bin uniffi-bindgen generate \
 }
 
 echo ""
-echo "Build complete!"
+echo "🎉 Parallel build complete! Ready for preview OR release deployment"
 echo "Output directory: $OUTPUT_DIR"
 echo ""
 echo "jniLibs structure:"

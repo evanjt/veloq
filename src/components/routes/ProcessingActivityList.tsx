@@ -65,11 +65,23 @@ function ActivityRow({ activity, index }: { activity: ProcessedActivityStatus; i
       case 'matched':
         return <MaterialCommunityIcons name="check-circle" size={18} color={colors.success} />;
       case 'no-match':
-        return <MaterialCommunityIcons name="close-circle-outline" size={18} color={isDark ? '#666' : '#999'} />;
+        return (
+          <MaterialCommunityIcons
+            name="close-circle-outline"
+            size={18}
+            color={isDark ? '#666' : '#999'}
+          />
+        );
       case 'error':
         return <MaterialCommunityIcons name="alert-circle" size={18} color={colors.error} />;
       default:
-        return <MaterialCommunityIcons name="circle-outline" size={18} color={isDark ? '#444' : '#DDD'} />;
+        return (
+          <MaterialCommunityIcons
+            name="circle-outline"
+            size={18}
+            color={isDark ? '#444' : '#DDD'}
+          />
+        );
     }
   };
 
@@ -94,10 +106,7 @@ function ActivityRow({ activity, index }: { activity: ProcessedActivityStatus; i
         isMatched && isDark && styles.activityRowMatchedDark,
         {
           opacity: fadeAnim,
-          transform: [
-            { translateX: slideAnim },
-            { scale: scaleAnim },
-          ],
+          transform: [{ translateX: slideAnim }, { scale: scaleAnim }],
         },
       ]}
     >
@@ -105,7 +114,7 @@ function ActivityRow({ activity, index }: { activity: ProcessedActivityStatus; i
         <MaterialCommunityIcons
           name={getActivityIcon()}
           size={16}
-          color={isActive ? colors.primary : (isDark ? '#666' : '#999')}
+          color={isActive ? colors.primary : isDark ? '#666' : '#999'}
         />
       </View>
 
@@ -127,9 +136,7 @@ function ActivityRow({ activity, index }: { activity: ProcessedActivityStatus; i
         )}
       </View>
 
-      <View style={styles.statusIcon}>
-        {getStatusIcon()}
-      </View>
+      <View style={styles.statusIcon}>{getStatusIcon()}</View>
     </Animated.View>
   );
 }
@@ -166,14 +173,8 @@ export function ProcessingActivityList({
       {/* Stats header */}
       <View style={styles.statsHeader}>
         <View style={styles.statItem}>
-          <MaterialCommunityIcons
-            name="check-circle"
-            size={20}
-            color={colors.success}
-          />
-          <Text style={[styles.statValue, { color: colors.success }]}>
-            {matchesFound}
-          </Text>
+          <MaterialCommunityIcons name="check-circle" size={20} color={colors.success} />
+          <Text style={[styles.statValue, { color: colors.success }]}>{matchesFound}</Text>
           <Text style={[styles.statLabel, isDark && styles.textMuted]}>
             {t('routes.matchesLabel')}
           </Text>
@@ -182,11 +183,7 @@ export function ProcessingActivityList({
         <View style={styles.statDivider} />
 
         <View style={styles.statItem}>
-          <MaterialCommunityIcons
-            name="progress-check"
-            size={20}
-            color={colors.primary}
-          />
+          <MaterialCommunityIcons name="progress-check" size={20} color={colors.primary} />
           <Text style={[styles.statValue, isDark && styles.textLight]}>
             {totalProcessed}/{total}
           </Text>
@@ -204,17 +201,15 @@ export function ProcessingActivityList({
         showsVerticalScrollIndicator={false}
       >
         {recentActivities.map((activity, index) => (
-          <ActivityRow
-            key={activity.id}
-            activity={activity}
-            index={index}
-          />
+          <ActivityRow key={activity.id} activity={activity} index={index} />
         ))}
       </ScrollView>
 
       {activities.length > 10 && (
         <Text style={[styles.moreText, isDark && styles.textMuted]}>
-          {t('routes.moreActivitiesProcessed', { count: activities.length - 10 })}
+          {t('routes.moreActivitiesProcessed', {
+            count: activities.length - 10,
+          })}
         </Text>
       )}
     </View>

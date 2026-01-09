@@ -1,43 +1,74 @@
-import React, { useState, useCallback } from 'react';
-import { View, ScrollView, StyleSheet, useColorScheme, TouchableOpacity, RefreshControl } from 'react-native';
-import { Text, IconButton, ActivityIndicator } from 'react-native-paper';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
-import * as WebBrowser from 'expo-web-browser';
-import { useSharedValue } from 'react-native-reanimated';
-import { useTranslation } from 'react-i18next';
-import { FitnessChart, FormZoneChart, ActivityDotsChart } from '@/components/fitness';
-import { NetworkErrorState, ErrorStatePreset } from '@/components/ui';
-import { useWellness, useActivities, getFormZone, FORM_ZONE_COLORS, FORM_ZONE_LABELS, type TimeRange } from '@/hooks';
-import { useNetwork } from '@/providers';
-import { formatLocalDate } from '@/lib';
-import { colors, darkColors, spacing, layout, typography, opacity } from '@/theme';
+import React, { useState, useCallback } from "react";
+import {
+  View,
+  ScrollView,
+  StyleSheet,
+  useColorScheme,
+  TouchableOpacity,
+  RefreshControl,
+} from "react-native";
+import { Text, IconButton, ActivityIndicator } from "react-native-paper";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { router } from "expo-router";
+import * as WebBrowser from "expo-web-browser";
+import { useSharedValue } from "react-native-reanimated";
+import { useTranslation } from "react-i18next";
+import {
+  FitnessChart,
+  FormZoneChart,
+  ActivityDotsChart,
+} from "@/components/fitness";
+import { NetworkErrorState, ErrorStatePreset } from "@/components/ui";
+import {
+  useWellness,
+  useActivities,
+  getFormZone,
+  FORM_ZONE_COLORS,
+  FORM_ZONE_LABELS,
+  type TimeRange,
+} from "@/hooks";
+import { useNetwork } from "@/providers";
+import { formatLocalDate, formatShortDateWithWeekday } from "@/lib";
+import {
+  colors,
+  darkColors,
+  spacing,
+  layout,
+  typography,
+  opacity,
+} from "@/theme";
 
 const TIME_RANGES: { id: TimeRange; label: string }[] = [
-  { id: '7d', label: '1W' },
-  { id: '1m', label: '1M' },
-  { id: '3m', label: '3M' },
-  { id: '6m', label: '6M' },
-  { id: '1y', label: '1Y' },
+  { id: "7d", label: "1W" },
+  { id: "1m", label: "1M" },
+  { id: "3m", label: "3M" },
+  { id: "6m", label: "6M" },
+  { id: "1y", label: "1Y" },
 ];
 
 // Convert TimeRange to days for activity fetching
 const timeRangeToDays = (range: TimeRange): number => {
   switch (range) {
-    case '7d': return 7;
-    case '1m': return 30;
-    case '3m': return 90;
-    case '6m': return 180;
-    case '1y': return 365;
-    default: return 90;
+    case "7d":
+      return 7;
+    case "1m":
+      return 30;
+    case "3m":
+      return 90;
+    case "6m":
+      return 180;
+    case "1y":
+      return 365;
+    default:
+      return 90;
   }
 };
 
 export default function FitnessScreen() {
   const { t } = useTranslation();
   const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
-  const [timeRange, setTimeRange] = useState<TimeRange>('3m');
+  const isDark = colorScheme === "dark";
+  const [timeRange, setTimeRange] = useState<TimeRange>("3m");
   const [chartInteracting, setChartInteracting] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
@@ -57,11 +88,20 @@ export default function FitnessScreen() {
     setSelectedValues(null);
   }, [timeRange, sharedSelectedIdx]);
 
-  const { data: wellness, isLoading, isFetching, isError, error, refetch } = useWellness(timeRange);
+  const {
+    data: wellness,
+    isLoading,
+    isFetching,
+    isError,
+    error,
+    refetch,
+  } = useWellness(timeRange);
   const { isOnline } = useNetwork();
 
   // Fetch activities for the selected time range
-  const { data: activities } = useActivities({ days: timeRangeToDays(timeRange) });
+  const { data: activities } = useActivities({
+    days: timeRangeToDays(timeRange),
+  });
 
   // Background sync: prefetch 1 year of activities on first load for cache
   useActivities({ days: 365 });
@@ -72,10 +112,16 @@ export default function FitnessScreen() {
   }, []);
 
   // Handle date selection from charts
-  const handleDateSelect = useCallback((date: string | null, values: { fitness: number; fatigue: number; form: number } | null) => {
-    setSelectedDate(date);
-    setSelectedValues(values);
-  }, []);
+  const handleDateSelect = useCallback(
+    (
+      date: string | null,
+      values: { fitness: number; fatigue: number; form: number } | null,
+    ) => {
+      setSelectedDate(date);
+      setSelectedValues(values);
+    },
+    [],
+  );
 
   // Handle pull-to-refresh
   const onRefresh = useCallback(async () => {
@@ -109,15 +155,19 @@ export default function FitnessScreen() {
         <View style={styles.header}>
           <IconButton
             icon="arrow-left"
-            iconColor={isDark ? '#FFFFFF' : colors.textPrimary}
+            iconColor={isDark ? "#FFFFFF" : colors.textPrimary}
             onPress={() => router.back()}
           />
-          <Text style={[styles.headerTitle, isDark && styles.textLight]}>{t('fitnessScreen.title')}</Text>
+          <Text style={[styles.headerTitle, isDark && styles.textLight]}>
+            {t("fitnessScreen.title")}
+          </Text>
           <View style={{ width: 48 }} />
         </View>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={[styles.loadingText, isDark && styles.textDark]}>{t('fitnessScreen.loadingData')}</Text>
+          <Text style={[styles.loadingText, isDark && styles.textDark]}>
+            {t("fitnessScreen.loadingData")}
+          </Text>
         </View>
       </SafeAreaView>
     );
@@ -126,19 +176,22 @@ export default function FitnessScreen() {
   if (isError || !wellness) {
     // Check if this is a network error
     const axiosError = error as { code?: string };
-    const isNetworkError = axiosError?.code === 'ERR_NETWORK' ||
-                          axiosError?.code === 'ECONNABORTED' ||
-                          axiosError?.code === 'ETIMEDOUT';
+    const isNetworkError =
+      axiosError?.code === "ERR_NETWORK" ||
+      axiosError?.code === "ECONNABORTED" ||
+      axiosError?.code === "ETIMEDOUT";
 
     return (
       <SafeAreaView style={[styles.container, isDark && styles.containerDark]}>
         <View style={styles.header}>
           <IconButton
             icon="arrow-left"
-            iconColor={isDark ? '#FFFFFF' : colors.textPrimary}
+            iconColor={isDark ? "#FFFFFF" : colors.textPrimary}
             onPress={() => router.back()}
           />
-          <Text style={[styles.headerTitle, isDark && styles.textLight]}>{t('fitnessScreen.title')}</Text>
+          <Text style={[styles.headerTitle, isDark && styles.textLight]}>
+            {t("fitnessScreen.title")}
+          </Text>
           <View style={{ width: 48 }} />
         </View>
         <View style={styles.loadingContainer}>
@@ -146,7 +199,7 @@ export default function FitnessScreen() {
             <NetworkErrorState onRetry={() => refetch()} />
           ) : (
             <ErrorStatePreset
-              message={t('fitnessScreen.failedToLoad')}
+              message={t("fitnessScreen.failedToLoad")}
               onRetry={() => refetch()}
             />
           )}
@@ -161,14 +214,16 @@ export default function FitnessScreen() {
       <View style={styles.header}>
         <IconButton
           icon="arrow-left"
-          iconColor={isDark ? '#FFFFFF' : colors.textPrimary}
+          iconColor={isDark ? "#FFFFFF" : colors.textPrimary}
           onPress={() => router.back()}
         />
         <View style={styles.headerTitleRow}>
-          <Text style={[styles.headerTitle, isDark && styles.textLight]}>{t('fitnessScreen.title')}</Text>
+          <Text style={[styles.headerTitle, isDark && styles.textLight]}>
+            {t("fitnessScreen.title")}
+          </Text>
         </View>
         {/* Subtle loading indicator in header when fetching in background (not during pull-to-refresh) */}
-        <View style={{ width: 48, alignItems: 'center' }}>
+        <View style={{ width: 48, alignItems: "center" }}>
           {isFetching && !isRefreshing && (
             <ActivityIndicator size="small" color={colors.primary} />
           )}
@@ -193,30 +248,62 @@ export default function FitnessScreen() {
         {/* Current stats card */}
         <View style={[styles.statsCard, isDark && styles.cardDark]}>
           <Text style={[styles.statsDate, isDark && styles.textDark]}>
-            {displayDate ? formatDisplayDate(displayDate) : t('fitnessScreen.current')}
+            {displayDate
+              ? formatDisplayDate(displayDate)
+              : t("fitnessScreen.current")}
           </Text>
           <View style={styles.statsRow}>
             <View style={styles.statItem}>
-              <Text style={[styles.statLabel, isDark && styles.textDark]}>{t('metrics.fitness')}</Text>
-              <Text style={[styles.statValue, { color: '#42A5F5' }]}>
-                {displayValues ? Math.round(displayValues.fitness) : '-'}
+              <Text style={[styles.statLabel, isDark && styles.textDark]}>
+                {t("metrics.fitness")}
               </Text>
-              <Text style={[styles.statSubtext, isDark && styles.textDark]}>{t('fitnessScreen.ctl')}</Text>
+              <Text style={[styles.statValue, { color: "#42A5F5" }]}>
+                {displayValues ? Math.round(displayValues.fitness) : "-"}
+              </Text>
+              <Text style={[styles.statSubtext, isDark && styles.textDark]}>
+                {t("fitnessScreen.ctl")}
+              </Text>
             </View>
             <View style={styles.statItem}>
-              <Text style={[styles.statLabel, isDark && styles.textDark]}>{t('metrics.fatigue')}</Text>
-              <Text style={[styles.statValue, { color: '#AB47BC' }]}>
-                {displayValues ? Math.round(displayValues.fatigue) : '-'}
+              <Text style={[styles.statLabel, isDark && styles.textDark]}>
+                {t("metrics.fatigue")}
               </Text>
-              <Text style={[styles.statSubtext, isDark && styles.textDark]}>{t('fitnessScreen.atl')}</Text>
+              <Text style={[styles.statValue, { color: "#AB47BC" }]}>
+                {displayValues ? Math.round(displayValues.fatigue) : "-"}
+              </Text>
+              <Text style={[styles.statSubtext, isDark && styles.textDark]}>
+                {t("fitnessScreen.atl")}
+              </Text>
             </View>
             <View style={styles.statItem}>
-              <Text style={[styles.statLabel, isDark && styles.textDark]}>{t('metrics.form')}</Text>
-              <Text style={[styles.statValue, { color: formZone ? FORM_ZONE_COLORS[formZone] : colors.textPrimary }]}>
-                {displayValues ? `${displayValues.form > 0 ? '+' : ''}${Math.round(displayValues.form)}` : '-'}
+              <Text style={[styles.statLabel, isDark && styles.textDark]}>
+                {t("metrics.form")}
               </Text>
-              <Text style={[styles.statSubtext, { color: formZone ? FORM_ZONE_COLORS[formZone] : colors.textSecondary }]}>
-                {formZone ? FORM_ZONE_LABELS[formZone] : t('fitnessScreen.tsb')}
+              <Text
+                style={[
+                  styles.statValue,
+                  {
+                    color: formZone
+                      ? FORM_ZONE_COLORS[formZone]
+                      : colors.textPrimary,
+                  },
+                ]}
+              >
+                {displayValues
+                  ? `${displayValues.form > 0 ? "+" : ""}${Math.round(displayValues.form)}`
+                  : "-"}
+              </Text>
+              <Text
+                style={[
+                  styles.statSubtext,
+                  {
+                    color: formZone
+                      ? FORM_ZONE_COLORS[formZone]
+                      : colors.textSecondary,
+                  },
+                ]}
+              >
+                {formZone ? FORM_ZONE_LABELS[formZone] : t("fitnessScreen.tsb")}
               </Text>
             </View>
           </View>
@@ -251,7 +338,9 @@ export default function FitnessScreen() {
         {/* Combined fitness charts card */}
         <View style={[styles.chartCard, isDark && styles.cardDark]}>
           {/* Fitness/Fatigue chart */}
-          <Text style={[styles.chartTitle, isDark && styles.textLight]}>{t('fitnessScreen.fitnessAndFatigue')}</Text>
+          <Text style={[styles.chartTitle, isDark && styles.textLight]}>
+            {t("fitnessScreen.fitnessAndFatigue")}
+          </Text>
           <FitnessChart
             data={wellness}
             height={220}
@@ -276,7 +365,9 @@ export default function FitnessScreen() {
 
           {/* Form zone chart */}
           <View style={[styles.formSection, isDark && styles.sectionDark]}>
-            <Text style={[styles.chartTitle, isDark && styles.textLight]}>{t('metrics.form')}</Text>
+            <Text style={[styles.chartTitle, isDark && styles.textLight]}>
+              {t("metrics.form")}
+            </Text>
             <FormZoneChart
               data={wellness}
               height={140}
@@ -290,51 +381,112 @@ export default function FitnessScreen() {
 
         {/* Info section */}
         <View style={[styles.infoCard, isDark && styles.cardDark]}>
-          <Text style={[styles.infoTitle, isDark && styles.textLight]}>{t('fitnessScreen.understandingMetrics')}</Text>
+          <Text style={[styles.infoTitle, isDark && styles.textLight]}>
+            {t("fitnessScreen.understandingMetrics")}
+          </Text>
 
           <View style={styles.infoRow}>
-            <View style={[styles.infoDot, { backgroundColor: '#42A5F5' }]} />
+            <View style={[styles.infoDot, { backgroundColor: "#42A5F5" }]} />
             <Text style={[styles.infoText, isDark && styles.textDark]}>
-              <Text style={[styles.infoHighlight, isDark && styles.infoHighlightDark]}>{t('metrics.fitness')}</Text> {t('fitnessScreen.fitnessDescription')}
+              <Text
+                style={[
+                  styles.infoHighlight,
+                  isDark && styles.infoHighlightDark,
+                ]}
+              >
+                {t("metrics.fitness")}
+              </Text>{" "}
+              {t("fitnessScreen.fitnessDescription")}
             </Text>
           </View>
 
           <View style={styles.infoRow}>
-            <View style={[styles.infoDot, { backgroundColor: '#AB47BC' }]} />
+            <View style={[styles.infoDot, { backgroundColor: "#AB47BC" }]} />
             <Text style={[styles.infoText, isDark && styles.textDark]}>
-              <Text style={[styles.infoHighlight, isDark && styles.infoHighlightDark]}>{t('metrics.fatigue')}</Text> {t('fitnessScreen.fatigueDescription')}
+              <Text
+                style={[
+                  styles.infoHighlight,
+                  isDark && styles.infoHighlightDark,
+                ]}
+              >
+                {t("metrics.fatigue")}
+              </Text>{" "}
+              {t("fitnessScreen.fatigueDescription")}
             </Text>
           </View>
 
           <View style={styles.infoRow}>
-            <View style={[styles.infoDot, { backgroundColor: FORM_ZONE_COLORS.optimal }]} />
+            <View
+              style={[
+                styles.infoDot,
+                { backgroundColor: FORM_ZONE_COLORS.optimal },
+              ]}
+            />
             <Text style={[styles.infoText, isDark && styles.textDark]}>
-              <Text style={[styles.infoHighlight, isDark && styles.infoHighlightDark]}>{t('metrics.form')}</Text> {t('fitnessScreen.formDescription')}{' '}
-              <Text style={{ color: FORM_ZONE_COLORS.optimal }}>{t('fitnessScreen.optimalZone')}</Text> {t('fitnessScreen.toBuildFitness')}{' '}
-              <Text style={{ color: FORM_ZONE_COLORS.fresh }}>{t('fitnessScreen.fresh')}</Text> {t('fitnessScreen.forRaces')}{' '}
-              <Text style={{ color: FORM_ZONE_COLORS.highRisk }}>{t('fitnessScreen.highRiskZone')}</Text> {t('fitnessScreen.toPreventOvertraining')}
+              <Text
+                style={[
+                  styles.infoHighlight,
+                  isDark && styles.infoHighlightDark,
+                ]}
+              >
+                {t("metrics.form")}
+              </Text>{" "}
+              {t("fitnessScreen.formDescription")}{" "}
+              <Text style={{ color: FORM_ZONE_COLORS.optimal }}>
+                {t("fitnessScreen.optimalZone")}
+              </Text>{" "}
+              {t("fitnessScreen.toBuildFitness")}{" "}
+              <Text style={{ color: FORM_ZONE_COLORS.fresh }}>
+                {t("fitnessScreen.fresh")}
+              </Text>{" "}
+              {t("fitnessScreen.forRaces")}{" "}
+              <Text style={{ color: FORM_ZONE_COLORS.highRisk }}>
+                {t("fitnessScreen.highRiskZone")}
+              </Text>{" "}
+              {t("fitnessScreen.toPreventOvertraining")}
             </Text>
           </View>
 
-          <View style={[styles.referencesSection, isDark && styles.referencesSectionDark]}>
-            <Text style={[styles.referencesLabel, isDark && styles.textDark]}>{t('fitnessScreen.learnMore')}</Text>
+          <View
+            style={[
+              styles.referencesSection,
+              isDark && styles.referencesSectionDark,
+            ]}
+          >
+            <Text style={[styles.referencesLabel, isDark && styles.textDark]}>
+              {t("fitnessScreen.learnMore")}
+            </Text>
             <TouchableOpacity
-              onPress={() => WebBrowser.openBrowserAsync('https://intervals.icu/fitness')}
+              onPress={() =>
+                WebBrowser.openBrowserAsync("https://intervals.icu/fitness")
+              }
               activeOpacity={0.7}
             >
               <Text style={styles.infoLink}>intervals.icu Fitness Page</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              onPress={() => WebBrowser.openBrowserAsync('https://www.sciencetosport.com/monitoring-training-load/')}
+              onPress={() =>
+                WebBrowser.openBrowserAsync(
+                  "https://www.sciencetosport.com/monitoring-training-load/",
+                )
+              }
               activeOpacity={0.7}
             >
-              <Text style={styles.infoLink}>Monitoring Training Load (Science2Sport)</Text>
+              <Text style={styles.infoLink}>
+                Monitoring Training Load (Science2Sport)
+              </Text>
             </TouchableOpacity>
             <TouchableOpacity
-              onPress={() => WebBrowser.openBrowserAsync('https://www.joefrielsblog.com/2015/12/managing-training-using-tsb.html')}
+              onPress={() =>
+                WebBrowser.openBrowserAsync(
+                  "https://www.joefrielsblog.com/2015/12/managing-training-using-tsb.html",
+                )
+              }
               activeOpacity={0.7}
             >
-              <Text style={styles.infoLink}>Managing Training Using TSB (Joe Friel)</Text>
+              <Text style={styles.infoLink}>
+                Managing Training Using TSB (Joe Friel)
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -344,8 +496,7 @@ export default function FitnessScreen() {
 }
 
 function formatDisplayDate(dateStr: string): string {
-  const date = new Date(dateStr);
-  return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  return formatShortDateWithWeekday(dateStr);
 }
 
 const styles = StyleSheet.create({
@@ -357,18 +508,18 @@ const styles = StyleSheet.create({
     backgroundColor: darkColors.background,
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
   headerTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: spacing.sm,
   },
   headerTitle: {
     fontSize: typography.cardTitle.fontSize,
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.textPrimary,
   },
   textLight: {
@@ -396,15 +547,15 @@ const styles = StyleSheet.create({
   statsDate: {
     fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
-    textAlign: 'center',
+    textAlign: "center",
     marginBottom: spacing.sm,
   },
   statsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
+    flexDirection: "row",
+    justifyContent: "space-around",
   },
   statItem: {
-    alignItems: 'center',
+    alignItems: "center",
   },
   statLabel: {
     fontSize: typography.label.fontSize,
@@ -413,7 +564,7 @@ const styles = StyleSheet.create({
   },
   statValue: {
     fontSize: 28,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   statSubtext: {
     fontSize: typography.micro.fontSize,
@@ -421,9 +572,9 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   timeRangeContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "center",
     gap: spacing.xs,
     marginBottom: spacing.md,
   },
@@ -441,7 +592,7 @@ const styles = StyleSheet.create({
   },
   timeRangeText: {
     fontSize: typography.caption.fontSize,
-    fontWeight: '500',
+    fontWeight: "500",
     color: colors.textSecondary,
   },
   timeRangeTextDark: {
@@ -473,7 +624,7 @@ const styles = StyleSheet.create({
   },
   chartTitle: {
     fontSize: typography.bodySmall.fontSize,
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.textPrimary,
     marginBottom: spacing.sm,
   },
@@ -485,12 +636,12 @@ const styles = StyleSheet.create({
   },
   infoTitle: {
     fontSize: typography.bodySmall.fontSize,
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.textPrimary,
     marginBottom: spacing.md,
   },
   infoRow: {
-    flexDirection: 'row',
+    flexDirection: "row",
     marginBottom: spacing.sm,
   },
   infoDot: {
@@ -507,7 +658,7 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   infoHighlight: {
-    fontWeight: '600',
+    fontWeight: "600",
   },
   infoHighlightDark: {
     color: colors.textOnDark,
@@ -523,10 +674,10 @@ const styles = StyleSheet.create({
   },
   referencesLabel: {
     fontSize: typography.label.fontSize,
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.textSecondary,
     marginBottom: spacing.xs,
-    textTransform: 'uppercase',
+    textTransform: "uppercase",
     letterSpacing: 0.5,
   },
   infoLink: {
@@ -536,8 +687,8 @@ const styles = StyleSheet.create({
   },
   loadingContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   loadingText: {
     fontSize: typography.bodySmall.fontSize,

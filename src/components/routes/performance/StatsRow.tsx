@@ -54,9 +54,7 @@ export function StatsRow({
         <Text style={[styles.statValue, isDark && styles.textLight]}>
           {bestDate ? formatRelativeDate(bestDate.toISOString()) : '-'}
         </Text>
-        <Text style={[styles.statLabel, isDark && styles.textMuted]}>
-          {t('routes.bestOn')}
-        </Text>
+        <Text style={[styles.statLabel, isDark && styles.textMuted]}>{t('routes.bestOn')}</Text>
       </View>
     </View>
   );

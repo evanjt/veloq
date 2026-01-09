@@ -16,7 +16,7 @@ export function getSettingsForSport(
   sportType: string
 ): SportSettings | undefined {
   if (!settings) return undefined;
-  return settings.find(s => s.types.includes(sportType));
+  return settings.find((s) => s.types.includes(sportType));
 }
 
 // Default power zone colors (intervals.icu style)

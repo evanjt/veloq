@@ -4,19 +4,28 @@
  */
 export const SUPPORTED_LOCALES = [
   // English variants
-  'en-AU', 'en-US', 'en-GB',
+  'en-AU',
+  'en-US',
+  'en-GB',
   // Spanish variants
-  'es', 'es-ES', 'es-419',
+  'es',
+  'es-ES',
+  'es-419',
   // French
   'fr',
   // German variants (including Swiss dialects)
-  'de', 'de-DE', 'de-CH', 'de-CHZ', 'de-CHB',
+  'de',
+  'de-DE',
+  'de-CH',
+  'de-CHZ',
+  'de-CHB',
   // Dutch
   'nl',
   // Italian
   'it',
   // Portuguese variants
-  'pt', 'pt-BR',
+  'pt',
+  'pt-BR',
   // Japanese
   'ja',
   // Chinese Simplified
@@ -48,10 +57,10 @@ export const LOCALE_FALLBACKS: Record<string, SupportedLocale[]> = {
   'en-CA': ['en-US', 'en-AU'],
 
   // Generic English -> Australian (our default)
-  'en': ['en-AU'],
+  en: ['en-AU'],
 
   // Spanish variants
-  'es': ['es', 'en-AU'],
+  es: ['es', 'en-AU'],
   'es-ES': ['es-ES', 'es', 'en-AU'],
   'es-419': ['es-419', 'es', 'en-AU'],
   'es-MX': ['es-419', 'es', 'en-AU'],
@@ -62,14 +71,14 @@ export const LOCALE_FALLBACKS: Record<string, SupportedLocale[]> = {
   'es-VE': ['es-419', 'es', 'en-AU'],
 
   // French variants
-  'fr': ['fr', 'en-AU'],
+  fr: ['fr', 'en-AU'],
   'fr-FR': ['fr', 'en-AU'],
   'fr-CA': ['fr', 'en-AU'],
   'fr-BE': ['fr', 'en-AU'],
   'fr-CH': ['fr', 'en-AU'],
 
   // German variants
-  'de': ['de-DE', 'en-AU'],
+  de: ['de-DE', 'en-AU'],
   'de-DE': ['de-DE', 'en-AU'],
   'de-AT': ['de-DE', 'en-AU'],
   'de-CH': ['de-CH', 'de-DE', 'en-AU'],
@@ -77,36 +86,36 @@ export const LOCALE_FALLBACKS: Record<string, SupportedLocale[]> = {
   'de-CHB': ['de-CHB', 'de-CH', 'de-DE', 'en-AU'],
 
   // Dutch variants
-  'nl': ['nl', 'en-AU'],
+  nl: ['nl', 'en-AU'],
   'nl-NL': ['nl', 'en-AU'],
   'nl-BE': ['nl', 'en-AU'],
 
   // Italian variants
-  'it': ['it', 'en-AU'],
+  it: ['it', 'en-AU'],
   'it-IT': ['it', 'en-AU'],
   'it-CH': ['it', 'en-AU'],
 
   // Portuguese variants
-  'pt': ['pt', 'pt-BR', 'en-AU'],
+  pt: ['pt', 'pt-BR', 'en-AU'],
   'pt-PT': ['pt', 'pt-BR', 'en-AU'],
   'pt-BR': ['pt-BR', 'pt', 'en-AU'],
 
   // Japanese
-  'ja': ['ja', 'en-AU'],
+  ja: ['ja', 'en-AU'],
   'ja-JP': ['ja', 'en-AU'],
 
   // Chinese variants
-  'zh': ['zh-Hans', 'en-AU'],
+  zh: ['zh-Hans', 'en-AU'],
   'zh-Hans': ['zh-Hans', 'en-AU'],
   'zh-CN': ['zh-Hans', 'en-AU'],
   'zh-SG': ['zh-Hans', 'en-AU'],
 
   // Polish
-  'pl': ['pl', 'en-AU'],
+  pl: ['pl', 'en-AU'],
   'pl-PL': ['pl', 'en-AU'],
 
   // Danish
-  'da': ['da', 'en-AU'],
+  da: ['da', 'en-AU'],
   'da-DK': ['da', 'en-AU'],
 };
 
@@ -119,32 +128,32 @@ export const LOCALE_DISPLAY_NAMES: Record<SupportedLocale, string> = {
   'en-US': 'English (US)',
   'en-GB': 'English (UK)',
   // Spanish
-  'es': 'Español',
+  es: 'Español',
   'es-ES': 'Español (España)',
   'es-419': 'Español (Latinoamérica)',
   // French
-  'fr': 'Français',
+  fr: 'Français',
   // German
-  'de': 'Deutsch',
+  de: 'Deutsch',
   'de-DE': 'Deutsch (Deutschland)',
   'de-CH': 'Deutsch (Schweiz)',
   'de-CHZ': 'Züridütsch',
   'de-CHB': 'Bärndütsch',
   // Dutch
-  'nl': 'Nederlands',
+  nl: 'Nederlands',
   // Italian
-  'it': 'Italiano',
+  it: 'Italiano',
   // Portuguese
-  'pt': 'Português (Portugal)',
+  pt: 'Português (Portugal)',
   'pt-BR': 'Português (Brasil)',
   // Japanese
-  'ja': '日本語',
+  ja: '日本語',
   // Chinese
   'zh-Hans': '中文 (简体)',
   // Polish
-  'pl': 'Polski',
+  pl: 'Polski',
   // Danish
-  'da': 'Dansk',
+  da: 'Dansk',
 };
 
 /**
@@ -468,6 +477,7 @@ export interface TranslationResource {
     goToSettings: string;
     analysingRoutes: string;
     computingRoutes: string;
+    downloadingGps: string;
   };
 
   statsScreen: {
@@ -551,6 +561,13 @@ export interface TranslationResource {
     same: string;
     fastest: string;
     routeNamePlaceholder: string;
+    visits: string;
+    autoDetected: string;
+    custom: string;
+    createSection: string;
+    sectionCreated: string;
+    sectionCreatedDescription: string;
+    sectionCreationFailed: string;
   };
 
   sections: {
@@ -617,6 +634,13 @@ export interface TranslationResource {
     avgSpeed: string;
     avgHR: string;
     avgPower: string;
+    tabs: {
+      charts: string;
+      routes: string;
+      sections: string;
+    };
+    noMatchedSections: string;
+    noMatchedSectionsDescription: string;
   };
 
   routeDetail: {

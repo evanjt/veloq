@@ -19,11 +19,7 @@ interface CacheScopeNoticeProps {
   onPress?: () => void;
 }
 
-export function CacheScopeNotice({
-  processedCount,
-  groupCount,
-  onPress,
-}: CacheScopeNoticeProps) {
+export function CacheScopeNotice({ processedCount, groupCount, onPress }: CacheScopeNoticeProps) {
   const { t } = useTranslation();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
@@ -40,11 +36,7 @@ export function CacheScopeNotice({
         {groupCount > 0 && ` · ${t('routes.routesFound', { count: groupCount })}`}
       </Text>
       {onPress && (
-        <MaterialCommunityIcons
-          name="chevron-right"
-          size={16}
-          color={isDark ? '#666' : '#999'}
-        />
+        <MaterialCommunityIcons name="chevron-right" size={16} color={isDark ? '#666' : '#999'} />
       )}
     </View>
   );

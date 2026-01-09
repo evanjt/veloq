@@ -23,13 +23,13 @@ const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 // Confetti colors - vibrant celebration palette
 const CONFETTI_COLORS = [
-  colors.primary,        // Orange (brand)
-  colors.chartYellow,    // Gold
-  colors.success,        // Green
-  colors.chartBlue,      // Blue
-  colors.chartPink,      // Pink
-  colors.chartPurple,    // Purple
-  colors.chartCyan,      // Cyan
+  colors.primary, // Orange (brand)
+  colors.chartYellow, // Gold
+  colors.success, // Green
+  colors.chartBlue, // Blue
+  colors.chartPink, // Pink
+  colors.chartPurple, // Purple
+  colors.chartCyan, // Cyan
 ];
 
 // Particle shapes
@@ -191,7 +191,19 @@ function ConfettiParticle({
       opacity.value = 0;
       scale.value = 0;
     }
-  }, [isActive, particle, duration, index, totalParticles, onComplete, translateX, translateY, rotation, opacity, scale]);
+  }, [
+    isActive,
+    particle,
+    duration,
+    index,
+    totalParticles,
+    onComplete,
+    translateX,
+    translateY,
+    rotation,
+    opacity,
+    scale,
+  ]);
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [
@@ -205,9 +217,7 @@ function ConfettiParticle({
 
   const shapeStyle = getShapeStyle(particle.shape, particle.size, particle.color);
 
-  return (
-    <Animated.View style={[styles.particle, animatedStyle, shapeStyle]} />
-  );
+  return <Animated.View style={[styles.particle, animatedStyle, shapeStyle]} />;
 }
 
 function getShapeStyle(shape: ParticleShape, size: number, color: string) {
@@ -238,13 +248,7 @@ function getShapeStyle(shape: ParticleShape, size: number, color: string) {
 }
 
 export const Confetti = forwardRef<ConfettiRef, ConfettiProps>(function Confetti(
-  {
-    particleCount = 50,
-    duration = 3000,
-    hapticFeedback = true,
-    onComplete,
-    colors: customColors,
-  },
+  { particleCount = 50, duration = 3000, hapticFeedback = true, onComplete, colors: customColors },
   ref
 ) {
   const [isActive, setIsActive] = useState(false);
@@ -252,10 +256,7 @@ export const Confetti = forwardRef<ConfettiRef, ConfettiProps>(function Confetti
 
   const fire = useCallback(() => {
     // Generate new particles
-    const newParticles = generateParticles(
-      particleCount,
-      customColors || CONFETTI_COLORS
-    );
+    const newParticles = generateParticles(particleCount, customColors || CONFETTI_COLORS);
     setParticles(newParticles);
     setIsActive(true);
 
@@ -270,9 +271,13 @@ export const Confetti = forwardRef<ConfettiRef, ConfettiProps>(function Confetti
     onComplete?.();
   }, [onComplete]);
 
-  useImperativeHandle(ref, () => ({
-    fire,
-  }), [fire]);
+  useImperativeHandle(
+    ref,
+    () => ({
+      fire,
+    }),
+    [fire]
+  );
 
   if (!isActive || particles.length === 0) {
     return null;
@@ -296,10 +301,7 @@ export const Confetti = forwardRef<ConfettiRef, ConfettiProps>(function Confetti
 });
 
 // Convenience component that auto-fires on mount
-export function ConfettiCelebration({
-  onComplete,
-  ...props
-}: Omit<ConfettiProps, 'ref'>) {
+export function ConfettiCelebration({ onComplete, ...props }: Omit<ConfettiProps, 'ref'>) {
   const confettiRef = React.useRef<ConfettiRef>(null);
 
   useEffect(() => {

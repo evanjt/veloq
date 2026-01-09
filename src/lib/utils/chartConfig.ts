@@ -1,7 +1,14 @@
 import type { ActivityStreams } from '@/types';
 import type { MaterialIconName } from './activityUtils';
 
-export type ChartTypeId = 'elevation' | 'heartrate' | 'power' | 'pace' | 'cadence' | 'speed' | 'grade';
+export type ChartTypeId =
+  | 'elevation'
+  | 'heartrate'
+  | 'power'
+  | 'pace'
+  | 'cadence'
+  | 'speed'
+  | 'grade';
 
 export interface ChartConfig {
   id: ChartTypeId;
@@ -62,7 +69,8 @@ function calculateGradeStream(streams: ActivityStreams): number[] | undefined {
     const altDelta = altitude[endIdx] - altitude[startIdx]; // meters
     const distDelta = distance[endIdx] - distance[startIdx]; // meters
 
-    if (distDelta > 5) { // Need at least 5m to calculate meaningful grade
+    if (distDelta > 5) {
+      // Need at least 5m to calculate meaningful grade
       const grade = (altDelta / distDelta) * 100;
       // Cap at reasonable values (-30% to +30%)
       gradeData.push(Math.min(30, Math.max(-30, grade)));
@@ -149,7 +157,7 @@ export const CHART_CONFIGS: Record<ChartTypeId, ChartConfig> = {
     color: '#06B6D4', // Cyan-500
     getStream: (s) => s.velocity_smooth,
     formatValue: formatSpeed,
-    convertToImperial: (mps) => mps * 2.23694 / 3.6, // Keep in mps for conversion
+    convertToImperial: (mps) => (mps * 2.23694) / 3.6, // Keep in mps for conversion
   },
   grade: {
     id: 'grade',

@@ -4,7 +4,15 @@
     "strict": true,
     "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"]
+      "@/*": ["src/*"],
+      "@/components/*": ["src/components/*"],
+      "@/hooks/*": ["src/hooks/*"],
+      "@/lib/*": ["src/lib/*"],
+      "@/api": ["src/api"],
+      "@/providers": ["src/providers"],
+      "@/theme": ["src/theme"],
+      "@/types": ["src/types"],
+      "@/i18n": ["src/i18n"]
     },
     "resolveJsonModule": true,
     "incremental": true,

@@ -18,15 +18,13 @@ describe('calculateTSB', () => {
 
     const result = calculateTSB(wellness);
 
-    expect(result[0].tsb).toBe(10);  // 50 - 40
+    expect(result[0].tsb).toBe(10); // 50 - 40
     expect(result[1].tsb).toBe(-20); // 60 - 80
-    expect(result[2].tsb).toBe(0);   // 45 - 45
+    expect(result[2].tsb).toBe(0); // 45 - 45
   });
 
   it('handles ctlLoad/atlLoad field variants', () => {
-    const wellness: WellnessData[] = [
-      { id: '1', ctlLoad: 50, atlLoad: 30 } as WellnessData,
-    ];
+    const wellness: WellnessData[] = [{ id: '1', ctlLoad: 50, atlLoad: 30 } as WellnessData];
 
     const result = calculateTSB(wellness);
 
@@ -34,9 +32,7 @@ describe('calculateTSB', () => {
   });
 
   it('handles missing CTL/ATL values', () => {
-    const wellness: WellnessData[] = [
-      { id: '1' } as WellnessData,
-    ];
+    const wellness: WellnessData[] = [{ id: '1' } as WellnessData];
 
     const result = calculateTSB(wellness);
 
@@ -54,9 +50,7 @@ describe('calculateTSB', () => {
   });
 
   it('preserves original wellness data fields', () => {
-    const wellness: WellnessData[] = [
-      { id: '1', ctl: 50, atl: 40, weight: 70 } as WellnessData,
-    ];
+    const wellness: WellnessData[] = [{ id: '1', ctl: 50, atl: 40, weight: 70 } as WellnessData];
 
     const result = calculateTSB(wellness);
 

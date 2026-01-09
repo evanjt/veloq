@@ -1,5 +1,14 @@
 import React from 'react';
-import { StyleSheet, Text, View, ActivityIndicator, StyleProp, ViewStyle, TextStyle, useColorScheme } from 'react-native';
+import {
+  StyleSheet,
+  Text,
+  View,
+  ActivityIndicator,
+  StyleProp,
+  ViewStyle,
+  TextStyle,
+  useColorScheme,
+} from 'react-native';
 import { AnimatedPressable } from './AnimatedPressable';
 import { colors, darkColors } from '@/theme/colors';
 import { typography } from '@/theme/typography';
@@ -67,9 +76,12 @@ export function Button({
     textStyle,
   ];
 
-  const spinnerColor = variant === 'primary' || variant === 'danger'
-    ? colors.textOnDark
-    : isDark ? darkColors.textPrimary : colors.primary;
+  const spinnerColor =
+    variant === 'primary' || variant === 'danger'
+      ? colors.textOnDark
+      : isDark
+        ? darkColors.textPrimary
+        : colors.primary;
 
   return (
     <AnimatedPressable
@@ -134,8 +146,8 @@ function getTextStyle(variant: ButtonVariant, isDark: boolean, disabled: boolean
         color: disabled
           ? colors.textDisabled
           : isDark
-          ? darkColors.textPrimary
-          : colors.textPrimary,
+            ? darkColors.textPrimary
+            : colors.textPrimary,
       };
   }
 }

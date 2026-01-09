@@ -160,7 +160,7 @@ describe('Bug: Async setState without await', () => {
     await new Promise((resolve) => setTimeout(resolve, 20));
 
     // The error happened but setPreferencesWrong returned void immediately
-    expect(error?.message).toBe('Save failed');
+    expect((error as Error | null)?.message).toBe('Save failed');
   });
 });
 

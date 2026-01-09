@@ -1,10 +1,34 @@
+/**
+ * @fileoverview Polyline encoding/decoding utilities
+ *
+ * Handles Google Polyline encoding format used by intervals.icu API.
+ * Provides coordinate conversion and bounding box calculation.
+ */
+
 import polyline from '@mapbox/polyline';
 
+/**
+ * Geographic coordinate with latitude and longitude.
+ */
 export interface LatLng {
   latitude: number;
   longitude: number;
 }
 
+/**
+ * Decode Google Polyline encoded string to coordinate array.
+ *
+ * Polyline encoding is a lossy compression algorithm for coordinate arrays.
+ * Used by intervals.icu API to efficiently transmit GPS track data.
+ *
+ * @param encoded - Polyline encoded string
+ * @returns Array of LatLng coordinates (empty array if decode fails)
+ *
+ * @example
+ * ```ts
+ * decodePolyline("_p~iF~ps|U_ulLnnqC"); // [{lat: 39.0, lng: -105.0}, ...]
+ * ```
+ */
 export function decodePolyline(encoded: string): LatLng[] {
   try {
     const decoded = polyline.decode(encoded);
@@ -17,19 +41,35 @@ export function decodePolyline(encoded: string): LatLng[] {
   }
 }
 
+/**
+ * Calculate bounding box for a set of coordinates.
+ *
+ * Returns the minimum and maximum latitude/longitude values that encompass
+ * all provided coordinates. Filters out NaN values before calculation.
+ *
+ * @param coordinates - Array of LatLng coordinates
+ * @returns Bounding box with min/max lat/lng, or null if no valid coordinates
+ *
+ * @example
+ * ```ts
+ * const bounds = getBounds([
+ *   {lat: 40.7128, lng: -74.0060},
+ *   {lat: 34.0522, lng: -118.2437}
+ * ]);
+ * // {minLat: 34.0522, maxLat: 40.7128, minLng: -118.2437, maxLng: -74.0060}
+ * ```
+ */
 export function getBounds(coordinates: LatLng[]): {
   minLat: number;
   maxLat: number;
   minLng: number;
   maxLng: number;
-} {
+} | null {
   // Filter out invalid coordinates (NaN values)
-  const validCoords = coordinates.filter(
-    c => !isNaN(c.latitude) && !isNaN(c.longitude)
-  );
+  const validCoords = coordinates.filter((c) => !isNaN(c.latitude) && !isNaN(c.longitude));
 
   if (validCoords.length === 0) {
-    return { minLat: 0, maxLat: 0, minLng: 0, maxLng: 0 };
+    return null;
   }
 
   let minLat = validCoords[0].latitude;
@@ -48,9 +88,19 @@ export function getBounds(coordinates: LatLng[]): {
 }
 
 /**
- * Detect if coordinate tuples are in [lat, lng] or [lng, lat] format.
- * Uses the fact that latitude must be between -90 and 90,
- * while longitude can be between -180 and 180.
+ * Detect coordinate tuple format ([lat, lng] or [lng, lat]).
+ *
+ * Auto-detects format by checking if values fall within valid latitude range (-90 to 90).
+ * Longitude can be between -180 and 180, so values outside latitude range must be longitude.
+ *
+ * @param tuples - Array of coordinate tuples
+ * @returns Detected format: 'latLng' or 'lngLat'
+ *
+ * @example
+ * ```ts
+ * detectCoordinateFormat([[40.7, -74.0]]);  // 'latLng'
+ * detectCoordinateFormat([[-74.0, 40.7]]);  // 'lngLat' (first value > 90)
+ * ```
  */
 export function detectCoordinateFormat(tuples: [number, number][]): 'latLng' | 'lngLat' {
   // Check first few valid coordinates
@@ -71,6 +121,21 @@ export function detectCoordinateFormat(tuples: [number, number][]): 'latLng' | '
   return 'latLng';
 }
 
+/**
+ * Convert coordinate tuples to LatLng objects with auto-format detection.
+ *
+ * Automatically detects [lat, lng] vs [lng, lat] format and converts
+ * to LatLng objects. Preserves index alignment with stream data (no filtering).
+ *
+ * @param tuples - Array of coordinate tuples
+ * @returns Array of LatLng objects
+ *
+ * @example
+ * ```ts
+ * convertLatLngTuples([[40.7, -74.0], [34.0, -118.0]]);
+ * // [{latitude: 40.7, longitude: -74.0}, {latitude: 34.0, longitude: -118.0}]
+ * ```
+ */
 export function convertLatLngTuples(tuples: [number, number][]): LatLng[] {
   if (tuples.length === 0) return [];
 
@@ -87,12 +152,15 @@ export function convertLatLngTuples(tuples: [number, number][]): LatLng[] {
     const lng = format === 'latLng' ? second : first;
 
     // Check for valid coordinates
-    const isValid = lat != null &&
+    const isValid =
+      lat != null &&
       lng != null &&
       !isNaN(lat) &&
       !isNaN(lng) &&
-      lat >= -90 && lat <= 90 &&
-      lng >= -180 && lng <= 180;
+      lat >= -90 &&
+      lat <= 90 &&
+      lng >= -180 &&
+      lng <= 180;
 
     if (isValid) {
       return { latitude: lat, longitude: lng };
@@ -124,22 +192,30 @@ export function normalizeBounds(bounds: [[number, number], [number, number]]): {
   if (firstOutsideLatRange && !secondOutsideLatRange) {
     // First values are longitudes (outside lat range), second are latitudes
     // Format is [[lng, lat], [lng, lat]]
-    lng1 = a; lat1 = b;
-    lng2 = c; lat2 = d;
+    lng1 = a;
+    lat1 = b;
+    lng2 = c;
+    lat2 = d;
   } else if (!firstOutsideLatRange && secondOutsideLatRange) {
     // First values are latitudes (in range), second are longitudes (outside range)
     // Format is [[lat, lng], [lat, lng]]
-    lat1 = a; lng1 = b;
-    lat2 = c; lng2 = d;
+    lat1 = a;
+    lng1 = b;
+    lat2 = c;
+    lng2 = d;
   } else if (firstOutsideLatRange && secondOutsideLatRange) {
     // Both outside lat range - unusual, but treat as [lng, lat]
     // (both could be longitudes if bounds span 0,0)
-    lng1 = a; lat1 = b;
-    lng2 = c; lat2 = d;
+    lng1 = a;
+    lat1 = b;
+    lng2 = c;
+    lat2 = d;
   } else {
     // All values within lat range - ambiguous, default to [lat, lng]
-    lat1 = a; lng1 = b;
-    lat2 = c; lng2 = d;
+    lat1 = a;
+    lng1 = b;
+    lat2 = c;
+    lng2 = d;
   }
 
   return {
@@ -164,6 +240,16 @@ export function getBoundsCenter(bounds: [[number, number], [number, number]]): [
 export function getRegion(coordinates: LatLng[], padding = 0.1) {
   const bounds = getBounds(coordinates);
 
+  // Return default region for empty/invalid coordinates
+  if (!bounds) {
+    return {
+      latitude: 0,
+      longitude: 0,
+      latitudeDelta: 0.01,
+      longitudeDelta: 0.01,
+    };
+  }
+
   const latDelta = (bounds.maxLat - bounds.minLat) * (1 + padding);
   const lngDelta = (bounds.maxLng - bounds.minLng) * (1 + padding);
 
@@ -179,12 +265,17 @@ export function getRegion(coordinates: LatLng[], padding = 0.1) {
  * Compute bounds from a polyline string.
  * Returns bounds in [[minLat, minLng], [maxLat, maxLng]] format for API compatibility.
  */
-export function getBoundsFromPolyline(encoded: string): [[number, number], [number, number]] | null {
+export function getBoundsFromPolyline(
+  encoded: string
+): [[number, number], [number, number]] | null {
   const coords = decodePolyline(encoded);
   if (coords.length === 0) return null;
 
-  const { minLat, maxLat, minLng, maxLng } = getBounds(coords);
-  if (minLat === 0 && maxLat === 0 && minLng === 0 && maxLng === 0) return null;
+  const bounds = getBounds(coords);
+  if (!bounds) return null;
 
-  return [[minLat, minLng], [maxLat, maxLng]];
+  return [
+    [bounds.minLat, bounds.minLng],
+    [bounds.maxLat, bounds.maxLng],
+  ];
 }

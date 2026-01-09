@@ -3,14 +3,22 @@ import { View, StyleSheet, useColorScheme, Text } from 'react-native';
 import { CartesianChart, Area } from 'victory-native';
 import { LinearGradient, vec } from '@shopify/react-native-skia';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Animated, { useSharedValue, useAnimatedReaction, runOnJS, useDerivedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated';
+import Animated, {
+  useSharedValue,
+  useAnimatedReaction,
+  runOnJS,
+  useDerivedValue,
+  useAnimatedStyle,
+  withSpring,
+} from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { useTranslation } from 'react-i18next';
 import { colors, darkColors, typography, layout, shadows } from '@/theme';
 import { useMetricSystem } from '@/hooks';
 import type { ChartConfig, ChartTypeId } from '@/lib';
 import type { ActivityStreams } from '@/types';
-
+import { CHART_CONFIG } from '@/constants';
+import { ChartErrorBoundary } from '@/components/ui';
 
 interface DataSeries {
   id: ChartTypeId;
@@ -82,7 +90,14 @@ export const CombinedPlot = React.memo(function CombinedPlot({
   const { chartData, seriesInfo, indexMap, maxDist } = useMemo(() => {
     const distance = streams.distance || [];
     if (distance.length === 0) {
-      return { chartData: [], seriesInfo: [] as (DataSeries & { range: { min: number; max: number; range: number } })[], indexMap: [] as number[], maxDist: 1 };
+      return {
+        chartData: [],
+        seriesInfo: [] as (DataSeries & {
+          range: { min: number; max: number; range: number };
+        })[],
+        indexMap: [] as number[],
+        maxDist: 1,
+      };
     }
 
     // Collect all series data
@@ -101,11 +116,18 @@ export const CombinedPlot = React.memo(function CombinedPlot({
     }
 
     if (series.length === 0) {
-      return { chartData: [], seriesInfo: [] as (DataSeries & { range: { min: number; max: number; range: number } })[], indexMap: [] as number[], maxDist: 1 };
+      return {
+        chartData: [],
+        seriesInfo: [] as (DataSeries & {
+          range: { min: number; max: number; range: number };
+        })[],
+        indexMap: [] as number[],
+        maxDist: 1,
+      };
     }
 
     // Downsample and normalize
-    const maxPoints = 200;
+    const maxPoints = CHART_CONFIG.MAX_DATA_POINTS;
     const step = Math.max(1, Math.floor(distance.length / maxPoints));
     const points: Record<string, number>[] = [];
     const indices: number[] = [];
@@ -150,7 +172,7 @@ export const CombinedPlot = React.memo(function CombinedPlot({
 
   // Sync x-values to shared value for UI thread access
   React.useEffect(() => {
-    xValuesShared.value = chartData.map(d => d.x);
+    xValuesShared.value = chartData.map((d) => d.x);
   }, [chartData, xValuesShared]);
 
   // Derive the selected index on UI thread using chartBounds
@@ -171,66 +193,69 @@ export const CombinedPlot = React.memo(function CombinedPlot({
   }, []);
 
   // Bridge to JS only when index changes (for metrics panel and parent notification)
-  const updateMetricsOnJS = useCallback((idx: number) => {
-    if (idx < 0 || chartData.length === 0 || seriesInfo.length === 0) {
-      if (lastNotifiedIdx.current !== null) {
-        setIsActive(false);
-        isActiveRef.current = false;
-        setCurrentDistance(null);
-        lastNotifiedIdx.current = null;
-        if (onPointSelectRef.current) onPointSelectRef.current(null);
-        if (onInteractionChangeRef.current) onInteractionChangeRef.current(false);
-      }
-      return;
-    }
-
-    // Skip if same index
-    if (idx === lastNotifiedIdx.current) return;
-    lastNotifiedIdx.current = idx;
-
-    if (!isActiveRef.current) {
-      setIsActive(true);
-      isActiveRef.current = true;
-      if (onInteractionChangeRef.current) onInteractionChangeRef.current(true);
-      // Haptic feedback on interaction start
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }
-
-    // Build metric values with actual data (not normalized)
-    const originalIdx = indexMap[idx];
-    const values = seriesInfo.map((s) => {
-      let rawVal = s.rawData[originalIdx] ?? 0;
-
-      // Apply imperial conversion if needed
-      if (!isMetric && s.config.convertToImperial) {
-        rawVal = s.config.convertToImperial(rawVal);
+  const updateMetricsOnJS = useCallback(
+    (idx: number) => {
+      if (idx < 0 || chartData.length === 0 || seriesInfo.length === 0) {
+        if (lastNotifiedIdx.current !== null) {
+          setIsActive(false);
+          isActiveRef.current = false;
+          setCurrentDistance(null);
+          lastNotifiedIdx.current = null;
+          if (onPointSelectRef.current) onPointSelectRef.current(null);
+          if (onInteractionChangeRef.current) onInteractionChangeRef.current(false);
+        }
+        return;
       }
 
-      // Format the value
-      let formatted: string;
-      if (s.config.formatValue) {
-        formatted = s.config.formatValue(rawVal, isMetric);
-      } else {
-        formatted = Math.round(rawVal).toString();
+      // Skip if same index
+      if (idx === lastNotifiedIdx.current) return;
+      lastNotifiedIdx.current = idx;
+
+      if (!isActiveRef.current) {
+        setIsActive(true);
+        isActiveRef.current = true;
+        if (onInteractionChangeRef.current) onInteractionChangeRef.current(true);
+        // Haptic feedback on interaction start
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       }
 
-      return {
-        id: s.id,
-        label: s.config.label,
-        value: formatted,
-        unit: isMetric ? s.config.unit : (s.config.unitImperial || s.config.unit),
-        color: s.color,
-      };
-    });
+      // Build metric values with actual data (not normalized)
+      const originalIdx = indexMap[idx];
+      const values = seriesInfo.map((s) => {
+        let rawVal = s.rawData[originalIdx] ?? 0;
 
-    setMetricValues(values);
-    setCurrentDistance(chartData[idx]?.x ?? 0);
+        // Apply imperial conversion if needed
+        if (!isMetric && s.config.convertToImperial) {
+          rawVal = s.config.convertToImperial(rawVal);
+        }
 
-    // Notify parent of original data index for map sync
-    if (onPointSelectRef.current && idx < indexMap.length) {
-      onPointSelectRef.current(indexMap[idx]);
-    }
-  }, [chartData, seriesInfo, indexMap, isMetric]);
+        // Format the value
+        let formatted: string;
+        if (s.config.formatValue) {
+          formatted = s.config.formatValue(rawVal, isMetric);
+        } else {
+          formatted = Math.round(rawVal).toString();
+        }
+
+        return {
+          id: s.id,
+          label: s.config.label,
+          value: formatted,
+          unit: isMetric ? s.config.unit : s.config.unitImperial || s.config.unit,
+          color: s.color,
+        };
+      });
+
+      setMetricValues(values);
+      setCurrentDistance(chartData[idx]?.x ?? 0);
+
+      // Notify parent of original data index for map sync
+      if (onPointSelectRef.current && idx < indexMap.length) {
+        onPointSelectRef.current(indexMap[idx]);
+      }
+    },
+    [chartData, seriesInfo, indexMap, isMetric]
+  );
 
   // React to index changes and bridge to JS for metrics updates
   useAnimatedReaction(
@@ -245,7 +270,7 @@ export const CombinedPlot = React.memo(function CombinedPlot({
   // Use activateAfterLongPress to require a brief hold before scrubbing starts
   // This prevents accidental scrubbing when scrolling the page
   const gesture = Gesture.Pan()
-    .activateAfterLongPress(300) // 300ms hold before scrubbing activates (matches route page)
+    .activateAfterLongPress(CHART_CONFIG.LONG_PRESS_DURATION)
     .onStart((e) => {
       'worklet';
       touchX.value = e.x;
@@ -282,7 +307,7 @@ export const CombinedPlot = React.memo(function CombinedPlot({
   // Calculate averages for display when not scrubbing
   const averageValues = useMemo(() => {
     return seriesInfo.map((s) => {
-      const validValues = s.rawData.filter(v => !isNaN(v) && isFinite(v));
+      const validValues = s.rawData.filter((v) => !isNaN(v) && isFinite(v));
       if (validValues.length === 0) return { id: s.id, avg: 0, formatted: '-' };
 
       let avg = validValues.reduce((sum, v) => sum + v, 0) / validValues.length;
@@ -302,7 +327,9 @@ export const CombinedPlot = React.memo(function CombinedPlot({
   if (chartData.length === 0 || seriesInfo.length === 0) {
     return (
       <View style={[styles.placeholder, { height }]}>
-        <Text style={[styles.placeholderText, isDark && styles.textDark]}>{t('activity.noDataAvailable')}</Text>
+        <Text style={[styles.placeholderText, isDark && styles.textDark]}>
+          {t('activity.noDataAvailable')}
+        </Text>
       </View>
     );
   }
@@ -312,15 +339,16 @@ export const CombinedPlot = React.memo(function CombinedPlot({
   const chartHeight = height - 40; // Reserve space for metrics panel
 
   return (
-    <View style={[styles.container, { height }]}>
-      {/* Hero Metrics Panel - shows current values when scrubbing, averages otherwise */}
-      <View style={styles.metricsPanel}>
+    <ChartErrorBoundary height={height} label="Activity Chart">
+      <View style={[styles.container, { height }]}>
+        {/* Hero Metrics Panel - shows current values when scrubbing, averages otherwise */}
+        <View style={styles.metricsPanel}>
         {seriesInfo.map((series, idx) => {
-          const displayValue = isActive && metricValues.length > idx
-            ? metricValues[idx]
-            : null;
+          const displayValue = isActive && metricValues.length > idx ? metricValues[idx] : null;
           const avgData = averageValues[idx];
-          const unit = isMetric ? series.config.unit : (series.config.unitImperial || series.config.unit);
+          const unit = isMetric
+            ? series.config.unit
+            : series.config.unitImperial || series.config.unit;
 
           return (
             <View key={series.id} style={styles.metricItem}>
@@ -328,9 +356,7 @@ export const CombinedPlot = React.memo(function CombinedPlot({
                 <Text style={[styles.metricValue, { color: series.color }]}>
                   {displayValue?.value ?? avgData?.formatted ?? '-'}
                 </Text>
-                <Text style={[styles.metricUnit, isDark && styles.metricUnitDark]}>
-                  {unit}
-                </Text>
+                <Text style={[styles.metricUnit, isDark && styles.metricUnitDark]}>{unit}</Text>
               </View>
               <Text style={[styles.metricLabel, isDark && styles.metricLabelDark]}>
                 {isActive ? series.config.label : t('activity.avg')}
@@ -348,23 +374,36 @@ export const CombinedPlot = React.memo(function CombinedPlot({
           <CartesianChart
             data={chartData}
             xKey="x"
-            yKeys={yKeys as unknown as readonly string[]}
+            yKeys={yKeys as string[]}
             domain={{ y: [0, 1] }}
             padding={{ left: 0, right: 0, top: 2, bottom: 20 }}
           >
-            {({ points, chartBounds }: { points: Record<string, Array<{ x: number }>>; chartBounds: ChartBounds }) => {
+            {({
+              points,
+              chartBounds,
+            }: {
+              points: Record<string, Array<{ x: number }>>;
+              chartBounds: ChartBounds;
+            }) => {
               // Sync chartBounds and point coordinates for UI thread crosshair
-              if (chartBounds.left !== chartBoundsShared.value.left ||
-                  chartBounds.right !== chartBoundsShared.value.right) {
-                chartBoundsShared.value = { left: chartBounds.left, right: chartBounds.right };
+              if (
+                chartBounds.left !== chartBoundsShared.value.left ||
+                chartBounds.right !== chartBoundsShared.value.right
+              ) {
+                chartBoundsShared.value = {
+                  left: chartBounds.left,
+                  right: chartBounds.right,
+                };
               }
               // Sync actual point x-coordinates for accurate crosshair positioning
               if (seriesInfo.length > 0) {
                 const firstSeriesPoints = points[seriesInfo[0].id];
                 if (firstSeriesPoints) {
                   const newCoords = firstSeriesPoints.map((p) => p.x);
-                  if (newCoords.length !== pointXCoordsShared.value.length ||
-                      newCoords[0] !== pointXCoordsShared.value[0]) {
+                  if (
+                    newCoords.length !== pointXCoordsShared.value.length ||
+                    newCoords[0] !== pointXCoordsShared.value[0]
+                  ) {
                     pointXCoordsShared.value = newCoords;
                   }
                 }
@@ -407,17 +446,20 @@ export const CombinedPlot = React.memo(function CombinedPlot({
           </View>
 
           {/* Distance indicator - overlaid on bottom right of chart */}
-          <View style={[styles.distanceIndicator, isDark && styles.distanceIndicatorDark]} pointerEvents="none">
+          <View
+            style={[styles.distanceIndicator, isDark && styles.distanceIndicatorDark]}
+            pointerEvents="none"
+          >
             <Text style={[styles.distanceText, isDark && styles.distanceTextDark]}>
               {isActive && currentDistance !== null
                 ? `${currentDistance.toFixed(2)} ${distanceUnit}`
-                : `${maxDist.toFixed(1)} ${distanceUnit}`
-              }
+                : `${maxDist.toFixed(1)} ${distanceUnit}`}
             </Text>
           </View>
         </View>
       </GestureDetector>
     </View>
+    </ChartErrorBoundary>
   );
 });
 

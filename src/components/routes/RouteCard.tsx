@@ -33,10 +33,7 @@ export function RouteCard({ route }: RouteCardProps) {
   return (
     <Pressable
       onPress={handlePress}
-      style={({ pressed }) => [
-        styles.pressable,
-        pressed && styles.pressed,
-      ]}
+      style={({ pressed }) => [styles.pressable, pressed && styles.pressed]}
     >
       <View style={[styles.card, isDark && styles.cardDark]}>
         {/* Colored accent bar */}
@@ -45,23 +42,17 @@ export function RouteCard({ route }: RouteCardProps) {
         <View style={styles.content}>
           {/* Icon */}
           <View style={[styles.iconContainer, { backgroundColor: activityColor }]}>
-            <MaterialCommunityIcons
-              name={iconName}
-              size={20}
-              color="#FFFFFF"
-            />
+            <MaterialCommunityIcons name={iconName} size={20} color="#FFFFFF" />
           </View>
 
           {/* Main info */}
           <View style={styles.mainInfo}>
-            <Text
-              style={[styles.routeName, isDark && styles.textLight]}
-              numberOfLines={1}
-            >
+            <Text style={[styles.routeName, isDark && styles.textLight]} numberOfLines={1}>
               {route.name}
             </Text>
             <Text style={[styles.subtitle, isDark && styles.subtitleDark]} numberOfLines={1}>
-              {formatDistance(route.signature.distance)} · {route.activityCount} {t('routes.activities')}
+              {formatDistance(route.signature?.distance ?? 0)} · {route.activityCount}{' '}
+              {t('routes.activities')}
             </Text>
           </View>
 
@@ -76,13 +67,9 @@ export function RouteCard({ route }: RouteCardProps) {
         {/* Bottom row with date range */}
         <View style={[styles.footer, isDark && styles.footerDark]}>
           <Text style={[styles.dateRange, isDark && styles.dateRangeDark]}>
-            {formatRelativeDate(route.firstDate)} - {formatRelativeDate(route.lastDate)}
+            {formatRelativeDate(route.firstDate ?? '')} - {formatRelativeDate(route.lastDate ?? '')}
           </Text>
-          <MaterialCommunityIcons
-            name="chevron-right"
-            size={18}
-            color={isDark ? '#555' : '#CCC'}
-          />
+          <MaterialCommunityIcons name="chevron-right" size={18} color={isDark ? '#555' : '#CCC'} />
         </View>
       </View>
     </Pressable>

@@ -47,10 +47,7 @@ export function DemoBanner() {
     if (routeEngine) routeEngine.clear();
 
     // 4. Clear FileSystem caches (GPS tracks and bounds)
-    await Promise.all([
-      clearAllGpsTracks(),
-      clearBoundsCache(),
-    ]);
+    await Promise.all([clearAllGpsTracks(), clearBoundsCache()]);
 
     // 5. Reset sync date range to default 90 days
     resetSyncDateRange();

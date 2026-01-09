@@ -87,7 +87,17 @@ export function MapControlStack({
         <MaterialCommunityIcons
           name="terrain"
           size={22}
-          color={show3D ? colors.textOnDark : (can3D ? (isDark ? colors.textOnDark : colors.textSecondary) : (isDark ? darkColors.textMuted : colors.textDisabled))}
+          color={
+            show3D
+              ? colors.textOnDark
+              : can3D
+                ? isDark
+                  ? colors.textOnDark
+                  : colors.textSecondary
+                : isDark
+                  ? darkColors.textMuted
+                  : colors.textDisabled
+          }
         />
       </TouchableOpacity>
 
@@ -122,7 +132,13 @@ export function MapControlStack({
         <MaterialCommunityIcons
           name="crosshairs-gps"
           size={22}
-          color={userLocationActive ? colors.textOnDark : (isDark ? colors.textOnDark : colors.textSecondary)}
+          color={
+            userLocationActive
+              ? colors.textOnDark
+              : isDark
+                ? colors.textOnDark
+                : colors.textSecondary
+          }
         />
       </TouchableOpacity>
 
@@ -142,7 +158,9 @@ export function MapControlStack({
           <MaterialCommunityIcons
             name="fire"
             size={22}
-            color={isHeatmapMode ? colors.textOnDark : (isDark ? colors.textOnDark : colors.textSecondary)}
+            color={
+              isHeatmapMode ? colors.textOnDark : isDark ? colors.textOnDark : colors.textSecondary
+            }
           />
         </TouchableOpacity>
       )}
@@ -163,7 +181,9 @@ export function MapControlStack({
           <MaterialCommunityIcons
             name="road-variant"
             size={22}
-            color={showSections ? colors.textOnDark : (isDark ? colors.textOnDark : colors.textSecondary)}
+            color={
+              showSections ? colors.textOnDark : isDark ? colors.textOnDark : colors.textSecondary
+            }
           />
         </TouchableOpacity>
       )}

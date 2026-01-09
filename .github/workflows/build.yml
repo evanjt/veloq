@@ -3,26 +3,40 @@ name: Build iOS & Android
 on:
   push:
     branches: [main]
-    tags:
-      - '[0-9]+.[0-9]+.[0-9]+'
+    # Tags handled by release.yml (artifact promotion)
   pull_request:
     branches: [main]
   workflow_dispatch:
     inputs:
       build_type:
-        description: 'Build type override'
+        description: "Build type override"
         required: false
-        default: 'auto'
+        default: "auto"
         type: choice
         options:
           - auto
           - preview
           - production
 
+env:
+  NODE_VERSION: "20"
+
 jobs:
+  # ============================================
+  # Parallel Tests (HIGH IMPACT: ~2-3 min faster)
+  # ============================================
   test:
-    name: Run Tests
+    name: Test (${{ matrix.name }})
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - name: typescript
+            cmd: npx tsc --noEmit
+          - name: format
+            cmd: npm run format:check
+          - name: jest
+            cmd: npm test -- --maxWorkers=2
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -30,26 +44,304 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: "${{ env.NODE_VERSION }}"
+          cache: "npm"
+
+      - name: Cache node_modules
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: node-modules-${{ runner.os }}-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            node-modules-${{ runner.os }}-
 
       - name: Install dependencies
         run: npm ci
 
-      - name: Run TypeScript check
-        run: npx tsc --noEmit
+      - name: Run ${{ matrix.name }}
+        run: ${{ matrix.cmd }}
 
-      - name: Run tests
-        run: npm test
-
-  version:
-    name: Get Version Info
+  # ============================================
+  # Verify Signing Keys (fail fast)
+  # ============================================
+  verify-signing:
+    name: Verify Signing Keys
     runs-on: ubuntu-latest
+    steps:
+      - name: Verify Android signing
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          EXPECTED_SHA1: "0D:54:88:9C:F2:AF:55:09:8F:40:35:E8:54:66:17:F8:30:FD:0D:86"
+        run: |
+          echo "=== Verifying Android signing configuration ==="
+
+          # Verify all required secrets are set
+          MISSING=""
+          [ -z "$ANDROID_KEYSTORE_BASE64" ] && MISSING="$MISSING ANDROID_KEYSTORE_BASE64"
+          [ -z "$ANDROID_KEYSTORE_PASSWORD" ] && MISSING="$MISSING ANDROID_KEYSTORE_PASSWORD"
+          [ -z "$ANDROID_KEY_ALIAS" ] && MISSING="$MISSING ANDROID_KEY_ALIAS"
+          [ -z "$ANDROID_KEY_PASSWORD" ] && MISSING="$MISSING ANDROID_KEY_PASSWORD"
+
+          if [ -n "$MISSING" ]; then
+            echo "::error::Missing required secrets:$MISSING"
+            exit 1
+          fi
+
+          # Decode keystore and verify fingerprint
+          echo "$ANDROID_KEYSTORE_BASE64" | tr -d ' \n\r\t' | base64 -d > /tmp/release.keystore
+
+          if [ ! -f /tmp/release.keystore ]; then
+            echo "::error::Failed to decode keystore"
+            exit 1
+          fi
+
+          SIZE=$(stat -c%s /tmp/release.keystore 2>/dev/null || stat -f%z /tmp/release.keystore)
+          echo "Keystore file size: $SIZE bytes"
+
+          if [ "$SIZE" -lt 1000 ]; then
+            echo "::error::Keystore file too small ($SIZE bytes) - likely corrupted base64"
+            exit 1
+          fi
+
+          # Verify fingerprint
+          KEYTOOL_OUTPUT=$(keytool -list -v -keystore /tmp/release.keystore -storepass "$ANDROID_KEYSTORE_PASSWORD" 2>&1) || {
+            echo "::error::keytool failed - wrong password or corrupted keystore"
+            echo "$KEYTOOL_OUTPUT"
+            exit 1
+          }
+
+          ACTUAL_SHA1=$(echo "$KEYTOOL_OUTPUT" | grep "SHA1:" | head -1 | sed 's/.*SHA1: *//' | tr -d ' ')
+          echo "Expected SHA1: $EXPECTED_SHA1"
+          echo "Actual SHA1:   $ACTUAL_SHA1"
+
+          if [ -z "$ACTUAL_SHA1" ]; then
+            echo "::error::Could not extract SHA1 from keytool output"
+            echo "$KEYTOOL_OUTPUT"
+            exit 1
+          fi
+
+          if [ "$ACTUAL_SHA1" != "$EXPECTED_SHA1" ]; then
+            echo "::error::Keystore fingerprint mismatch! Expected Play Store upload key."
+            exit 1
+          fi
+
+          echo "✅ Android signing verified"
+          rm /tmp/release.keystore
+
+      # TODO: Add iOS signing verification here later
+
+  # ============================================
+  # Build Rust libraries for Android (parallel)
+  # ============================================
+  rust-build-android:
+    name: Rust - Android ${{ matrix.arch }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - arch: arm64-v8a
+            rust_target: aarch64-linux-android
+            abi: arm64-v8a
+          - arch: armeabi-v7a
+            rust_target: armv7-linux-androideabi
+            abi: armeabi-v7a
+          - arch: x86_64
+            rust_target: x86_64-linux-android
+            abi: x86_64
+          - arch: x86
+            rust_target: i686-linux-android
+            abi: x86
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history needed for mtime restoration
+
+      # Restore file mtimes from git history so Cargo fingerprints work correctly
+      # Without this, Cargo rebuilds everything because cloned files have fresh mtimes
+      - name: Restore file modification times
+        uses: chetan/git-restore-mtime-action@v2
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Rust Android target
+        run: rustup target add ${{ matrix.rust_target }}
+
+      - name: Restore cargo-ndk cache
+        id: cache-cargo-ndk
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/.cargo/bin/cargo-ndk
+          key: cargo-ndk-${{ runner.os }}-v3
+
+      - name: Install cargo-ndk
+        if: steps.cache-cargo-ndk.outputs.cache-hit != 'true'
+        run: cargo install cargo-ndk
+
+      - name: Save cargo-ndk cache
+        if: steps.cache-cargo-ndk.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ~/.cargo/bin/cargo-ndk
+          key: cargo-ndk-${{ runner.os }}-v3
+
+      # Use swatinem/rust-cache - handles timestamps and fingerprints correctly
+      - name: Setup Rust cache
+        id: rust-cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: rust/route-matcher -> target
+          prefix-key: rust-android-${{ matrix.arch }}
+          # Cache is shared across builds with same Cargo.lock
+          shared-key: ${{ matrix.rust_target }}
+          # Save even on failure (partial builds can be reused)
+          cache-on-failure: true
+
+      # Cache the built .so file separately (swatinem/rust-cache only caches deps)
+      - name: Restore built .so cache
+        id: so-cache
+        uses: actions/cache@v4
+        with:
+          path: rust/route-matcher/target/${{ matrix.rust_target }}/release/libroute_matcher.so
+          key: rust-so-${{ matrix.rust_target }}-${{ hashFiles('rust/route-matcher/Cargo.lock', 'rust/route-matcher/src/**/*.rs', 'rust/route-matcher/Cargo.toml') }}
+
+      - name: Check if build needed
+        id: check-build
+        run: |
+          echo "Deps cache hit: ${{ steps.rust-cache.outputs.cache-hit }}"
+          echo "SO cache hit: ${{ steps.so-cache.outputs.cache-hit }}"
+          SO_FILE="rust/route-matcher/target/${{ matrix.rust_target }}/release/libroute_matcher.so"
+          if [ -f "$SO_FILE" ]; then
+            SIZE=$(stat -c%s "$SO_FILE")
+            echo "Found cached .so file: $SO_FILE ($SIZE bytes)"
+            if [ "$SIZE" -gt 1000000 ]; then
+              echo "skip_build=true" >> $GITHUB_OUTPUT
+              echo "✅ Using cached library - skipping build"
+            else
+              echo "skip_build=false" >> $GITHUB_OUTPUT
+              echo "⚠️ Cached .so too small, rebuilding"
+            fi
+          else
+            echo "skip_build=false" >> $GITHUB_OUTPUT
+            echo "No cached .so found, building from scratch"
+          fi
+
+      - name: Build Rust library for ${{ matrix.arch }}
+        if: steps.check-build.outputs.skip_build != 'true'
+        working-directory: rust/route-matcher
+        run: |
+          cargo ndk -t ${{ matrix.rust_target }} build --release --features full
+
+      - name: Build uniffi-bindgen (arm64 only)
+        if: matrix.arch == 'arm64-v8a'
+        working-directory: rust/route-matcher
+        run: |
+          cargo build --release --bin uniffi-bindgen --features ffi
+
+      - name: Prepare artifact
+        run: |
+          mkdir -p artifact/${{ matrix.abi }}
+          cp rust/route-matcher/target/${{ matrix.rust_target }}/release/libroute_matcher.so \
+            artifact/${{ matrix.abi }}/libroute_matcher.so
+
+      - name: Generate Kotlin bindings (arm64 only)
+        if: matrix.arch == 'arm64-v8a'
+        working-directory: rust/route-matcher
+        run: |
+          set -x  # Echo commands for debugging
+
+          # Create artifact directory at repo root
+          # From rust/route-matcher, need ../../ to reach repo root (up to rust/, then up to root)
+          mkdir -p ../../artifact/kotlin
+
+          echo ""
+          echo "=== Running uniffi-bindgen ==="
+          echo "Library: target/${{ matrix.rust_target }}/release/libroute_matcher.so"
+          echo "Output directory: ../../artifact/kotlin"
+          echo "Working directory: $(pwd)"
+          echo ""
+
+          # Run uniffi-bindgen from this directory (where Cargo.toml is)
+          ./target/release/uniffi-bindgen generate \
+            --library target/${{ matrix.rust_target }}/release/libroute_matcher.so \
+            --language kotlin \
+            --out-dir ../../artifact/kotlin 2>&1 || {
+            echo ""
+            echo "ERROR: uniffi-bindgen failed!"
+            exit 1
+          }
+
+          echo ""
+          echo "=== uniffi-bindgen succeeded! ==="
+          echo "Contents of artifact directory:"
+          ls -la ../../artifact/ || echo "artifact directory not found"
+          echo ""
+          echo "Contents of kotlin directory:"
+          ls -la ../../artifact/kotlin/ || echo "kotlin directory not found"
+          echo ""
+          find ../../artifact/kotlin -type f 2>/dev/null || echo "No files found in kotlin directory"
+          echo "==========================="
+
+      - name: Upload .so file
+        uses: actions/upload-artifact@v4
+        with:
+          name: rust-android-${{ matrix.arch }}
+          path: artifact/${{ matrix.abi }}/
+          retention-days: 1
+          if-no-files-found: error
+
+      - name: Debug Kotlin bindings location
+        if: matrix.arch == 'arm64-v8a'
+        run: |
+          echo "=== Checking for Kotlin bindings before upload ==="
+          echo "Current directory: $(pwd)"
+          echo ""
+          echo "Full listing of artifact directory:"
+          find artifact -type d
+          echo ""
+          echo "All files in artifact:"
+          find artifact -type f
+          echo ""
+          if [ -d "artifact/kotlin" ]; then
+            echo "kotlin directory EXISTS!"
+            ls -laR artifact/kotlin/
+          else
+            echo "kotlin directory DOES NOT EXIST"
+            # Try to find if files were created elsewhere
+            echo "Searching for .kt files in entire repo:"
+            find . -name "route_matcher.kt" 2>/dev/null || echo "Not found"
+          fi
+          echo "======================================================"
+
+      - name: Upload Kotlin bindings
+        if: matrix.arch == 'arm64-v8a'
+        uses: actions/upload-artifact@v4
+        with:
+          name: rust-android-kotlin-bindings
+          path: artifact/kotlin/
+          retention-days: 1
+          if-no-files-found: error
+
+  # ============================================
+  # Build Android
+  # ============================================
+  build-android:
+    name: Build Android APK
+    needs: [test, verify-signing, rust-build-android]
+    runs-on: ubuntu-latest
+    env:
+      # Fix Maven Central 403 errors by setting User-Agent header
+      # JAVA_TOOL_OPTIONS affects all JVM processes including Gradle daemon and forks
+      JAVA_TOOL_OPTIONS: "-Dhttp.agent=Gradle -Dhttps.agent=Gradle"
+      GRADLE_OPTS: "-Dhttp.agent=Gradle -Dhttps.agent=Gradle"
     outputs:
       version: ${{ steps.version.outputs.version }}
       version_code: ${{ steps.version.outputs.version_code }}
       short_sha: ${{ steps.version.outputs.short_sha }}
-      build_type: ${{ steps.version.outputs.build_type }}
       filename: ${{ steps.version.outputs.filename }}
       is_release: ${{ steps.version.outputs.is_release }}
     steps:
@@ -62,7 +354,6 @@ jobs:
           VERSION=$(node -p "require('./package.json').version")
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
-          # Calculate version code from semver (major * 10000 + minor * 100 + patch)
           MAJOR=$(echo $VERSION | cut -d. -f1)
           MINOR=$(echo $VERSION | cut -d. -f2)
           PATCH=$(echo $VERSION | cut -d. -f3)
@@ -72,14 +363,11 @@ jobs:
           SHORT_SHA=$(git rev-parse --short HEAD)
           echo "short_sha=$SHORT_SHA" >> $GITHUB_OUTPUT
 
-          # Determine build type
           BUILD_TYPE="preview"
           IS_RELEASE="false"
 
-          # Check for manual override
           if [[ "${{ inputs.build_type }}" != "" && "${{ inputs.build_type }}" != "auto" ]]; then
             BUILD_TYPE="${{ inputs.build_type }}"
-          # Tag push = production release
           elif [[ "${{ github.ref_type }}" == "tag" ]]; then
             BUILD_TYPE="production"
             IS_RELEASE="true"
@@ -88,204 +376,485 @@ jobs:
           echo "build_type=$BUILD_TYPE" >> $GITHUB_OUTPUT
           echo "is_release=$IS_RELEASE" >> $GITHUB_OUTPUT
 
-          # Set filename based on build type
           if [[ "$BUILD_TYPE" == "production" ]]; then
             echo "filename=veloq-${VERSION}" >> $GITHUB_OUTPUT
           else
             echo "filename=veloq-${VERSION}-${SHORT_SHA}" >> $GITHUB_OUTPUT
           fi
 
-          echo "Build type: $BUILD_TYPE"
-          echo "Version: $VERSION (code: $VERSION_CODE)"
-
-  build-android:
-    name: Build Android APK
-    needs: [test, version]
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+          echo "Build type: $BUILD_TYPE | Version: $VERSION ($VERSION_CODE)"
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: "${{ env.NODE_VERSION }}"
+          cache: "npm"
+
+      - name: Cache node_modules
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: node-modules-${{ runner.os }}-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            node-modules-${{ runner.os }}-
 
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
-          distribution: 'temurin'
-          java-version: '17'
+          distribution: "temurin"
+          java-version: "17"
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      # ============================================
-      # Rust Setup and Build
-      # ============================================
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
+      # Use official Gradle action for better dependency caching
+      # This reduces Maven Central requests and helps avoid IP blocking
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: false
+          gradle-home-cache-includes: |
+            caches
+            notifications
+            wrapper
 
-      - name: Install Rust Android targets
-        run: rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android i686-linux-android
-
-      - name: Install cargo-ndk
-        run: cargo install cargo-ndk
-
-      - name: Cache Rust build
+      - name: Cache Android build outputs
         uses: actions/cache@v4
         with:
           path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            rust/route-matcher/target
-          key: rust-android-${{ runner.os }}-${{ hashFiles('rust/route-matcher/Cargo.lock') }}
+            android/.gradle
+            android/app/build
+            android/app/.cxx
+            android/build
+          key: android-build-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
           restore-keys: |
-            rust-android-${{ runner.os }}-
+            android-build-${{ runner.os }}-
 
-      - name: Build Rust library for Android
+      - name: Cache Metro bundler
+        uses: actions/cache@v4
+        with:
+          path: |
+            /tmp/metro-*
+            node_modules/.cache
+          key: metro-${{ runner.os }}-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            metro-${{ runner.os }}-
+
+      - name: Cache React Native library builds
+        uses: actions/cache@v4
+        with:
+          path: |
+            node_modules/**/android/build
+            node_modules/**/android/.cxx
+          key: rn-libs-build-${{ runner.os }}-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            rn-libs-build-${{ runner.os }}-
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Download arm64-v8a artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: rust-android-arm64-v8a
+          path: artifacts/rust/arm64-v8a
+
+      - name: Download armeabi-v7a artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: rust-android-armeabi-v7a
+          path: artifacts/rust/armeabi-v7a
+
+      - name: Download x86_64 artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: rust-android-x86_64
+          path: artifacts/rust/x86_64
+
+      - name: Download x86 artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: rust-android-x86
+          path: artifacts/rust/x86
+
+      - name: Download Kotlin bindings
+        uses: actions/download-artifact@v4
+        with:
+          name: rust-android-kotlin-bindings
+          path: artifacts/rust/kotlin
+
+      - name: Debug downloaded artifacts
         run: |
-          cd rust/route-matcher
-          ./scripts/build-android.sh
+          echo "=== Working directory ==="
+          pwd
+          echo ""
+          echo "=== Downloaded artifacts structure ==="
+          find artifacts/rust -type f -exec ls -lh {} \;
+          echo "====================================="
 
-      - name: Install Rust library to native module
+      - name: Install Rust libraries to native module
         run: |
-          cd rust/route-matcher
-          ./scripts/install-android.sh
+          echo "=== Install Rust libraries - Starting ==="
+          echo "Current directory: $(pwd)"
 
-      - name: Verify native module installation
-        run: |
-          echo "=== Checking native module installation ==="
-          MODULE_DIR="modules/route-matcher-native/android/src/main/jniLibs"
+          # Debug: show what was actually downloaded
+          echo ""
+          echo "=== Contents of artifacts/rust ==="
+          ls -la artifacts/rust/
+          echo ""
 
+          # Copy downloaded .so files to jniLibs
+          mkdir -p modules/route-matcher-native/android/src/main/jniLibs/{arm64-v8a,armeabi-v7a,x86_64,x86}
+
+          echo "=== Starting .so file copy ==="
           for arch in arm64-v8a armeabi-v7a x86_64 x86; do
-            if [ -f "$MODULE_DIR/$arch/libroute_matcher.so" ]; then
-              echo "✓ $arch library found"
-              ls -lh "$MODULE_DIR/$arch/libroute_matcher.so"
+            echo "Processing $arch..."
+            # Try multiple possible paths
+            so_file=""
+            for path in \
+              "artifacts/rust/$arch/libroute_matcher.so" \
+              "artifacts/rust/$arch/$arch/libroute_matcher.so"
+            do
+              if [ -f "$path" ]; then
+                so_file="$path"
+                echo "  Found at: $path"
+                break
+              fi
+            done
+
+            if [ -z "$so_file" ]; then
+              # Try searching
+              echo "  Not found at expected paths, searching..."
+              found=$(find artifacts/rust -name "libroute_matcher.so" 2>/dev/null | head -1)
+              if [ -n "$found" ]; then
+                so_file="$found"
+                echo "  Found via search: $found"
+              fi
+            fi
+
+            if [ -n "$so_file" ]; then
+              cp "$so_file" "modules/route-matcher-native/android/src/main/jniLibs/$arch/libroute_matcher.so"
+              echo "  ✓ Copied to jniLibs/$arch/"
             else
-              echo "✗ $arch library NOT found"
+              echo "  ✗ ERROR: No .so file found for $arch!"
+              echo ""
+              echo "All .so files in artifacts/rust:"
+              find artifacts/rust -name "*.so" -exec ls -lh {} \; 2>/dev/null || echo "None found"
               exit 1
             fi
           done
 
-      # ============================================
-      # Signing Setup (for releases)
-      # ============================================
-      - name: Decode keystore
-        if: needs.version.outputs.is_release == 'true' && env.ANDROID_KEYSTORE_BASE64 != ''
-        env:
-          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-        run: |
-          echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > android/app/release.keystore
-          echo "Keystore decoded successfully"
+          # Copy generated Kotlin bindings from artifacts
+          run: |
+            mkdir -p modules/route-matcher-native/android/src/main/java/uniffi/route_matcher/
+            cp -r artifacts/rust/kotlin/uniffi/route_matcher/route_matcher.kt \
+              modules/route-matcher-native/android/src/main/java/uniffi/route_matcher/
 
-      - name: Create keystore.properties
-        if: needs.version.outputs.is_release == 'true' && env.ANDROID_KEYSTORE_BASE64 != ''
+          # Validation: verify all .so files exist and have content
+          echo "=== Validating copied .so files ==="
+          for arch in arm64-v8a armeabi-v7a x86_64 x86; do
+            so_file="modules/route-matcher-native/android/src/main/jniLibs/$arch/libroute_matcher.so"
+            if [ -f "$so_file" ]; then
+              size=$(stat -c%s "$so_file" 2>/dev/null || stat -f%z "$so_file" 2>/dev/null || echo "0")
+              if [ "$size" -gt 0 ]; then
+                echo "✓ $arch: $so_file (${size} bytes)"
+              else
+                echo "✗ $arch: $so_file exists but is empty!"
+                exit 1
+              fi
+            else
+              echo "✗ $arch: $so_file not found!"
+              exit 1
+            fi
+          done
+
+          # Show final jniLibs structure
+          echo "=== Final jniLibs structure ==="
+          find modules/route-matcher-native/android/src/main/jniLibs -type f -exec ls -lh {} \;
+          echo "================================"
+
+          # Verify Kotlin bindings were copied from artifacts
+          KOTLIN_BINDING="modules/route-matcher-native/android/src/main/java/uniffi/route_matcher/route_matcher.kt"
+          if [ -f "$KOTLIN_BINDING" ]; then
+            echo "✅ Kotlin bindings installed from artifacts: $KOTLIN_BINDING"
+            ls -la "$KOTLIN_BINDING"
+          else
+            echo "ERROR: Kotlin bindings not found after copy!"
+            exit 1
+          fi
+          echo "========================"
+
+      - name: Cache Android prebuild
+        id: android-prebuild-cache
+        uses: actions/cache@v4
+        with:
+          path: android
+          key: android-prebuild-${{ runner.os }}-${{ hashFiles('app.json', 'package.json', 'package-lock.json', 'plugins/**', 'expo-modules/**/*.json', 'modules/**/android/**', 'rust/route-matcher/Cargo.toml', 'rust/route-matcher/**/*.rs', 'node_modules/react-native-vector-icons/package.json', 'node_modules/react-native-webview/package.json') }}
+          restore-keys: |
+            android-prebuild-${{ runner.os }}-
+
+      - name: Generate Android native project
+        if: steps.android-prebuild-cache.outputs.cache-hit != 'true'
+        run: npx expo prebuild --platform android
+
+      # Create Gradle init script to fix Maven Central 403 errors
+      # Forces all Maven Central requests through repo1.maven.org mirror
+      - name: Create Gradle init script for CI
+        run: |
+          mkdir -p ~/.gradle
+          echo "ZGVmIHJlcG9VcmwgPSAiaHR0cHM6Ly9yZXBvMS5tYXZlbi5vcmcvbWF2ZW4yLyIKCmJlZm9yZVNldHRpbmdzIHsgc2V0dGluZ3MgLT4KICBzZXR0aW5ncy5wbHVnaW5NYW5hZ2VtZW50IHsKICAgIHJlcG9zaXRvcmllcyB7CiAgICAgIG1hdmVuIHsgdXJsID0gdXJpKHJlcG9VcmwpOyBuYW1lID0gIk1hdmVuQ2VudHJhbE1pcnJvciIgfQogICAgICBncmFkbGVQbHVnaW5Qb3J0YWwoKQogICAgICBnb29nbGUoKQogICAgfQogIH0KfQoKc2V0dGluZ3NFdmFsdWF0ZWQgeyBzZXR0aW5ncyAtPgogIHNldHRpbmdzLnBsdWdpbk1hbmFnZW1lbnQgewogICAgcmVwb3NpdG9yaWVzIHsKICAgICAgY2xlYXIoKQogICAgICBtYXZlbiB7IHVybCA9IHVyaShyZXBvVXJsKTsgbmFtZSA9ICJNYXZlbkNlbnRyYWxNaXJyb3IiIH0KICAgICAgZ3JhZGxlUGx1Z2luUG9ydGFsKCkKICAgICAgZ29vZ2xlKCkKICAgIH0KICB9Cn0KCmFsbHByb2plY3RzIHsKICBidWlsZHNjcmlwdCB7CiAgICByZXBvc2l0b3JpZXMgewogICAgICBtYXZlbiB7IHVybCA9IHVyaShyZXBvVXJsKTsgbmFtZSA9ICJNYXZlbkNlbnRyYWxNaXJyb3IiIH0KICAgICAgZ29vZ2xlKCkKICAgIH0KICB9CiAgcmVwb3NpdG9yaWVzIHsKICAgIG1hdmVuIHsgdXJsID0gdXJpKHJlcG9VcmwpOyBuYW1lID0gIk1hdmVuQ2VudHJhbE1pcnJvciIgfQogICAgZ29vZ2xlKCkKICB9Cn0K" | base64 -d > ~/.gradle/init.gradle
+          echo "=== init.gradle contents ==="
+          cat ~/.gradle/init.gradle
+
+      # Setup signing AFTER prebuild creates android/ directory
+      - name: Setup signing
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
-          cat > android/keystore.properties << EOF
-          storeFile=release.keystore
-          storePassword=$ANDROID_KEYSTORE_PASSWORD
-          keyAlias=$ANDROID_KEY_ALIAS
-          keyPassword=$ANDROID_KEY_PASSWORD
-          EOF
+          # Keystore was already verified earlier - just decode to final location
+          mkdir -p android/app
+          echo "$ANDROID_KEYSTORE_BASE64" | tr -d ' \n\r\t' | base64 -d > android/app/release.keystore
 
-      # ============================================
-      # Gradle and Android Build
-      # ============================================
-      - name: Cache Gradle dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
-          restore-keys: |
-            gradle-${{ runner.os }}-
+          # Create keystore.properties
+          printf '%s\n' \
+            "storeFile=release.keystore" \
+            "storePassword=$ANDROID_KEYSTORE_PASSWORD" \
+            "keyAlias=$ANDROID_KEY_ALIAS" \
+            "keyPassword=$ANDROID_KEY_PASSWORD" \
+            > android/keystore.properties
 
-      - name: Install dependencies
-        run: npm ci
+          echo "✅ Signing configured"
 
-      - name: Setup Expo
-        uses: expo/expo-github-action@v8
-        with:
-          expo-version: latest
+      - name: Verify Rust libraries before build
+        run: |
+          echo "=== Verifying .so files before Gradle build ==="
 
-      - name: Generate native project
-        run: npx expo prebuild --platform android --clean
+          # Check if jniLibs directory exists
+          if [ ! -d "modules/route-matcher-native/android/src/main/jniLibs" ]; then
+            echo "ERROR: jniLibs directory not found!"
+            echo "Checking parent directories:"
+            ls -la modules/route-matcher-native/android/ 2>/dev/null || echo "android/ directory not found"
+            exit 1
+          fi
 
-      - name: Make gradlew executable
-        run: chmod +x android/gradlew
+          # Show full jniLibs structure
+          echo "jniLibs directory structure:"
+          find modules/route-matcher-native/android/src/main/jniLibs -type f -exec ls -lh {} \; || echo "No files found in jniLibs"
+          echo ""
 
-      - name: Build APK
-        working-directory: android
+          # Verify each architecture
+          all_ok=true
+          for arch in arm64-v8a armeabi-v7a x86_64 x86; do
+            so_file="modules/route-matcher-native/android/src/main/jniLibs/$arch/libroute_matcher.so"
+            if [ -f "$so_file" ]; then
+              size=$(stat -c%s "$so_file" 2>/dev/null || stat -f%z "$so_file" 2>/dev/null || echo "0")
+              md5sum=$(md5sum "$so_file" 2>/dev/null | cut -d' ' -f1 || echo "N/A")
+              if [ "$size" -gt 0 ]; then
+                echo "✓ $arch: ${size} bytes (md5: $md5sum)"
+              else
+                echo "✗ $arch: FILE EXISTS BUT IS EMPTY!"
+                all_ok=false
+              fi
+            else
+              echo "✗ $arch: FILE NOT FOUND at $so_file"
+              all_ok=false
+            fi
+          done
+
+          # Verify committed Kotlin bindings exist
+          echo ""
+          KOTLIN_BINDING="modules/route-matcher-native/android/src/main/java/uniffi/route_matcher/route_matcher.kt"
+          if [ -f "$KOTLIN_BINDING" ]; then
+            echo "Kotlin binding found: $KOTLIN_BINDING"
+            ls -la "$KOTLIN_BINDING"
+          else
+            echo "ERROR: Committed Kotlin binding not found at $KOTLIN_BINDING"
+            all_ok=false
+          fi
+
+          if [ "$all_ok" = "false" ]; then
+            echo ""
+            echo "ERROR: Some .so files are missing or empty!"
+            exit 1
+          fi
+
+          echo "=================================================="
+          echo "All Rust libraries verified successfully!"
+
+      - name: Build Android APK
         env:
-          # Build all architectures for releases, arm64 only for previews
-          ORG_GRADLE_PROJECT_reactNativeArchitectures: ${{ needs.version.outputs.is_release == 'true' && 'arm64-v8a,armeabi-v7a,x86_64,x86' || 'arm64-v8a' }}
-        run: ./gradlew assembleRelease --no-daemon --parallel
+          RUST_PREBUILT: "true"
+        run: |
+          cd android && ./gradlew assembleRelease --no-daemon
 
-      - name: Rename APK
+      - name: Copy APK
         run: |
           mkdir -p artifacts
-          APK_PATH=$(find android/app/build/outputs/apk -name "*.apk" | head -1)
-          if [ -n "$APK_PATH" ]; then
-            cp "$APK_PATH" "artifacts/${{ needs.version.outputs.filename }}.apk"
+          if [ ! -f android/keystore.properties ]; then
+            echo "::error::keystore.properties not found - release builds must be signed"
+            exit 1
           fi
+          cp android/app/build/outputs/apk/release/app-release.apk \
+            "artifacts/${{ steps.version.outputs.filename }}.apk"
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: android-apk-${{ needs.version.outputs.filename }}
+          name: android-apk-${{ steps.version.outputs.filename }}
           path: artifacts/*.apk
           retention-days: 30
 
-      # ============================================
-      # AAB Build (for Play Store releases)
-      # ============================================
-      - name: Build AAB
-        if: needs.version.outputs.is_release == 'true'
-        working-directory: android
+      - name: Build AAB for Play Store
+        # Build AAB on main branch (needed for release artifact promotion)
+        if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
         env:
-          ORG_GRADLE_PROJECT_reactNativeArchitectures: 'arm64-v8a,armeabi-v7a,x86_64,x86'
-        run: ./gradlew bundleRelease --no-daemon --parallel
+          RUST_PREBUILT: "true"
+        run: |
+          # Android folder and dependencies are already set up from APK build
+          # Just run Gradle to build the AAB
+          cd android && ./gradlew bundleRelease --no-daemon
 
       - name: Rename AAB
-        if: needs.version.outputs.is_release == 'true'
+        if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
         run: |
           AAB_PATH=$(find android/app/build/outputs/bundle -name "*.aab" | head -1)
           if [ -n "$AAB_PATH" ]; then
-            cp "$AAB_PATH" "artifacts/${{ needs.version.outputs.filename }}.aab"
+            cp "$AAB_PATH" "artifacts/${{ steps.version.outputs.filename }}.aab"
           fi
 
       - name: Upload AAB artifact
-        if: needs.version.outputs.is_release == 'true'
+        if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@v4
         with:
-          name: android-aab-${{ needs.version.outputs.filename }}
+          name: android-aab-${{ steps.version.outputs.filename }}
           path: artifacts/*.aab
           retention-days: 30
 
+      - name: Verify AAB signing
+        if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
+        env:
+          EXPECTED_SHA1: "0D:54:88:9C:F2:AF:55:09:8F:40:35:E8:54:66:17:F8:30:FD:0D:86"
+        run: |
+          echo "=== Verifying AAB was signed with correct key ==="
+          AAB_FILE="artifacts/${{ steps.version.outputs.filename }}.aab"
+
+          if [ ! -f "$AAB_FILE" ]; then
+            echo "::error::AAB file not found at $AAB_FILE"
+            exit 1
+          fi
+
+          # AABs use JAR signing (v1) so we can extract from META-INF
+          # Unlike APKs, AABs don't support v2/v3 signature schemes
+          ACTUAL_SHA1=$(unzip -p "$AAB_FILE" "META-INF/BNDLTOOL.RSA" 2>/dev/null | \
+            keytool -printcert 2>/dev/null | \
+            grep "SHA1:" | head -1 | sed 's/.*SHA1: *//' | tr -d ' ')
+
+          # Fallback: try any .RSA file if BNDLTOOL.RSA doesn't exist
+          if [ -z "$ACTUAL_SHA1" ]; then
+            RSA_FILE=$(unzip -l "$AAB_FILE" 2>/dev/null | grep "META-INF/.*\.RSA" | awk '{print $4}' | head -1)
+            if [ -n "$RSA_FILE" ]; then
+              ACTUAL_SHA1=$(unzip -p "$AAB_FILE" "$RSA_FILE" 2>/dev/null | \
+                keytool -printcert 2>/dev/null | \
+                grep "SHA1:" | head -1 | sed 's/.*SHA1: *//' | tr -d ' ')
+            fi
+          fi
+
+          echo "Expected SHA1: $EXPECTED_SHA1"
+          echo "Actual SHA1:   $ACTUAL_SHA1"
+
+          if [ -z "$ACTUAL_SHA1" ]; then
+            echo "::error::Could not extract signing certificate from AAB"
+            echo "AAB contents:"
+            unzip -l "$AAB_FILE" | grep -i "meta-inf" || echo "No META-INF found"
+            exit 1
+          fi
+
+          if [ "$ACTUAL_SHA1" != "$EXPECTED_SHA1" ]; then
+            echo "::error::AAB signed with WRONG KEY!"
+            echo "::error::Expected Play Store upload key but got different certificate"
+            exit 1
+          fi
+
+          echo "✅ AAB signed with correct release key"
+
+  # ============================================
+  # Build iOS
+  # ============================================
   build-ios:
     name: Build iOS App
-    needs: [test, version]
+    needs: test
     runs-on: macos-15
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      version_code: ${{ steps.version.outputs.version_code }}
+      short_sha: ${{ steps.version.outputs.short_sha }}
+      filename: ${{ steps.version.outputs.filename }}
+      is_release: ${{ steps.version.outputs.is_release }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history needed for mtime restoration
+
+      # Restore file mtimes from git history so Cargo fingerprints work correctly
+      - name: Restore file modification times
+        uses: chetan/git-restore-mtime-action@v2
+
+      - name: Get version info
+        id: version
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+          MAJOR=$(echo $VERSION | cut -d. -f1)
+          MINOR=$(echo $VERSION | cut -d. -f2)
+          PATCH=$(echo $VERSION | cut -d. -f3)
+          VERSION_CODE=$((MAJOR * 10000 + MINOR * 100 + PATCH))
+          echo "version_code=$VERSION_CODE" >> $GITHUB_OUTPUT
+
+          SHORT_SHA=$(git rev-parse --short HEAD)
+          echo "short_sha=$SHORT_SHA" >> $GITHUB_OUTPUT
+
+          BUILD_TYPE="preview"
+          IS_RELEASE="false"
+
+          if [[ "${{ inputs.build_type }}" != "" && "${{ inputs.build_type }}" != "auto" ]]; then
+            BUILD_TYPE="${{ inputs.build_type }}"
+          elif [[ "${{ github.ref_type }}" == "tag" ]]; then
+            BUILD_TYPE="production"
+            IS_RELEASE="true"
+          fi
+
+          echo "build_type=$BUILD_TYPE" >> $GITHUB_OUTPUT
+          echo "is_release=$IS_RELEASE" >> $GITHUB_OUTPUT
+
+          if [[ "$BUILD_TYPE" == "production" ]]; then
+            echo "filename=veloq-${VERSION}" >> $GITHUB_OUTPUT
+          else
+            echo "filename=veloq-${VERSION}-${SHORT_SHA}" >> $GITHUB_OUTPUT
+          fi
+
+          echo "Build type: $BUILD_TYPE | Version: $VERSION ($VERSION_CODE)"
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: "${{ env.NODE_VERSION }}"
+          cache: "npm"
+
+      - name: Cache node_modules
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: node-modules-${{ runner.os }}-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            node-modules-${{ runner.os }}-
 
       # ============================================
-      # Rust Setup and Build
+      # Rust Build
       # ============================================
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -293,116 +862,90 @@ jobs:
       - name: Install Rust iOS targets
         run: rustup target add aarch64-apple-ios aarch64-apple-ios-sim x86_64-apple-ios
 
-      - name: Cache Rust build
+      # Use swatinem/rust-cache - handles timestamps and fingerprints correctly
+      - name: Setup Rust cache
+        id: rust-cache-ios
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: rust/route-matcher -> target
+          prefix-key: rust-ios
+          # Save even on failure (partial builds can be reused)
+          cache-on-failure: true
+
+      # Cache the built .a files separately (swatinem/rust-cache only caches deps)
+      - name: Restore iOS static libraries cache
+        id: ios-libs-cache
         uses: actions/cache@v4
         with:
           path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            rust/route-matcher/target
-          key: rust-ios-${{ runner.os }}-${{ hashFiles('rust/route-matcher/Cargo.lock') }}
-          restore-keys: |
-            rust-ios-${{ runner.os }}-
+            rust/route-matcher/target/aarch64-apple-ios/release/libroute_matcher.a
+            rust/route-matcher/target/aarch64-apple-ios-sim/release/libroute_matcher.a
+            rust/route-matcher/target/x86_64-apple-ios/release/libroute_matcher.a
+          key: rust-ios-libs-${{ hashFiles('rust/route-matcher/Cargo.lock', 'rust/route-matcher/src/**/*.rs', 'rust/route-matcher/Cargo.toml') }}
+
+      - name: Check iOS cache status
+        run: |
+          echo "Deps cache hit: ${{ steps.rust-cache-ios.outputs.cache-hit }}"
+          echo "iOS libs cache hit: ${{ steps.ios-libs-cache.outputs.cache-hit }}"
+          for target in aarch64-apple-ios aarch64-apple-ios-sim x86_64-apple-ios; do
+            LIB="rust/route-matcher/target/$target/release/libroute_matcher.a"
+            if [ -f "$LIB" ]; then
+              echo "✅ $target: $(stat -f%z "$LIB" 2>/dev/null || stat -c%s "$LIB") bytes"
+            else
+              echo "❌ $target: not found"
+            fi
+          done
 
       - name: Build Rust library for iOS
         run: |
           cd rust/route-matcher
           ./scripts/build-ios.sh
 
-      - name: Verify Rust build artifacts
-        run: |
-          echo "=== Checking Rust build artifacts ==="
-
-          # Check XCFramework
-          if [ -d "rust/route-matcher/target/ios/RouteMatcherFFI.xcframework" ]; then
-            echo "✓ XCFramework found"
-            ls -la rust/route-matcher/target/ios/RouteMatcherFFI.xcframework/
-          else
-            echo "✗ XCFramework NOT found"
-            exit 1
-          fi
-
-          # Check Swift bindings
-          if [ -f "rust/route-matcher/target/ios/swift/route_matcher.swift" ]; then
-            echo "✓ Swift bindings found"
-            head -20 rust/route-matcher/target/ios/swift/route_matcher.swift
-          else
-            echo "✗ Swift bindings NOT found"
-            exit 1
-          fi
-
-          # Check C header
-          if [ -f "rust/route-matcher/target/ios/swift/route_matcherFFI.h" ]; then
-            echo "✓ C header found"
-          else
-            echo "✗ C header NOT found"
-            exit 1
-          fi
-
       - name: Install Rust library to native module
         run: |
           cd rust/route-matcher
           ./scripts/install-ios.sh
 
-      - name: Verify native module installation
-        run: |
-          echo "=== Checking native module installation ==="
-
-          MODULE_DIR="modules/route-matcher-native/ios"
-
-          # Check XCFramework in module
-          if [ -d "$MODULE_DIR/Frameworks/RouteMatcherFFI.xcframework" ]; then
-            echo "✓ XCFramework installed in module"
-          else
-            echo "✗ XCFramework NOT installed"
-            exit 1
-          fi
-
-          # Check Generated Swift bindings
-          if [ -f "$MODULE_DIR/Generated/route_matcher.swift" ]; then
-            echo "✓ Swift bindings installed"
-          else
-            echo "✗ Swift bindings NOT installed"
-            exit 1
-          fi
-
-          echo ""
-          echo "=== Module contents ==="
-          ls -la "$MODULE_DIR/"
-          ls -la "$MODULE_DIR/Frameworks/" 2>/dev/null || true
-          ls -la "$MODULE_DIR/Generated/" 2>/dev/null || true
+      - name: Cache iOS prebuild
+        id: ios-prebuild-cache
+        uses: actions/cache@v4
+        with:
+          path: ios
+          key: ios-prebuild-${{ runner.os }}-${{ hashFiles('app.json', 'package.json', 'plugins/**', 'expo-modules/**/*.json', 'modules/**/ios/**', 'rust/route-matcher/Cargo.toml', 'rust/route-matcher/**/*.rs') }}
+          restore-keys: |
+            ios-prebuild-${{ runner.os }}-
 
       # ============================================
-      # Node.js and iOS Build
+      # iOS Build
       # ============================================
       - name: Install dependencies
         run: npm ci
 
-      - name: Setup Expo
-        uses: expo/expo-github-action@v8
-        with:
-          expo-version: latest
-
-      - name: Install CocoaPods
-        run: sudo gem install cocoapods
-
       - name: Generate native project
-        run: npx expo prebuild --platform ios --clean
+        if: steps.ios-prebuild-cache.outputs.cache-hit != 'true'
+        run: npx expo prebuild --platform ios
+
+      - name: Cache CocoaPods
+        uses: actions/cache@v4
+        with:
+          path: |
+            ios/Pods
+            ~/Library/Caches/CocoaPods
+          key: cocoapods-${{ runner.os }}-${{ hashFiles('ios/Podfile.lock') }}
+          restore-keys: |
+            cocoapods-${{ runner.os }}-
+
+      - name: Setup Ruby & Install CocoaPods
+        if: steps.ios-prebuild-cache.outputs.cache-hit != 'true'
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.2"
+          bundler-cache: true
 
       - name: Install Pods
+        if: steps.ios-prebuild-cache.outputs.cache-hit != 'true'
         working-directory: ios
         run: pod install
-
-      - name: List available schemes
-        run: xcodebuild -workspace ios/veloq.xcworkspace -list
-
-      - name: Verify Generated files
-        run: |
-          echo "=== Checking Generated directory ==="
-          ls -la modules/route-matcher-native/ios/Generated/ || echo "Generated directory missing!"
-          echo ""
-          echo "=== Checking for modulemap ==="
-          cat modules/route-matcher-native/ios/Generated/module.modulemap || echo "modulemap missing!"
 
       - name: Build iOS Simulator app
         run: |
@@ -415,13 +958,13 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             2>&1 | tee build.log || (echo "=== Build failed, showing last 100 lines ===" && tail -100 build.log && exit 1)
 
-      - name: Package .app for Appetize
+      - name: Package .app
         run: |
           mkdir -p artifacts
           APP_PATH=$(find ios/build/Build/Products/Release-iphonesimulator -name "*.app" -type d | head -1)
           if [ -n "$APP_PATH" ]; then
             cd "$(dirname "$APP_PATH")"
-            zip -r "$GITHUB_WORKSPACE/artifacts/${{ needs.version.outputs.filename }}-ios-simulator.zip" "$(basename "$APP_PATH")"
+            zip -r "$GITHUB_WORKSPACE/artifacts/${{ steps.version.outputs.filename }}-ios-simulator.zip" "$(basename "$APP_PATH")"
           else
             echo "ERROR: No .app found!"
             find ios/build -name "*.app" -type d
@@ -431,11 +974,10 @@ jobs:
       - name: Upload iOS artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ios-simulator-${{ needs.version.outputs.filename }}
+          name: ios-simulator-${{ steps.version.outputs.filename }}
           path: artifacts/*-ios-simulator.zip
           retention-days: 30
 
-      # Upload Rust artifacts for debugging if build fails
       - name: Upload Rust build artifacts (on failure)
         if: failure()
         uses: actions/upload-artifact@v4
@@ -446,84 +988,3 @@ jobs:
             modules/route-matcher-native/ios/Frameworks/
             modules/route-matcher-native/ios/Generated/
           retention-days: 7
-
-  release:
-    name: Create Release
-    if: needs.version.outputs.is_release == 'true'
-    needs: [version, build-android, build-ios]
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Download Android APK artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: android-apk-${{ needs.version.outputs.filename }}
-          path: artifacts/
-
-      - name: Download Android AAB artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: android-aab-${{ needs.version.outputs.filename }}
-          path: artifacts/
-
-      - name: Download iOS artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: ios-simulator-${{ needs.version.outputs.filename }}
-          path: artifacts/
-
-      - name: Generate release notes
-        id: notes
-        run: |
-          VERSION="${{ needs.version.outputs.version }}"
-
-          # Try to get changelog from fastlane metadata
-          CHANGELOG_FILE="fastlane/metadata/android/en-US/changelogs/${{ needs.version.outputs.version_code }}.txt"
-          if [ -f "$CHANGELOG_FILE" ]; then
-            CHANGELOG=$(cat "$CHANGELOG_FILE")
-          else
-            CHANGELOG="See commit history for changes."
-          fi
-
-          cat > release-notes.md << EOF
-          # Veloq v${VERSION}
-
-          ## What's New
-
-          $CHANGELOG
-
-          ## Downloads
-
-          - **Android APK:** \`${{ needs.version.outputs.filename }}.apk\` (direct install)
-          - **Android AAB:** \`${{ needs.version.outputs.filename }}.aab\` (Play Store format)
-          - **iOS Simulator:** \`${{ needs.version.outputs.filename }}-ios-simulator.zip\`
-
-          ## Installation
-
-          ### Android
-          Download the APK and install directly on your device. You may need to enable "Install from unknown sources" in your device settings.
-
-          ### iOS Simulator
-          Unzip and drag the .app file onto the iOS Simulator.
-
-          ---
-
-          Built from commit: ${{ github.sha }}
-          EOF
-
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          name: Veloq v${{ needs.version.outputs.version }}
-          tag_name: ${{ github.ref_name }}
-          body_path: release-notes.md
-          files: |
-            artifacts/*.apk
-            artifacts/*.aab
-            artifacts/*.zip
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

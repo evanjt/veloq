@@ -19,6 +19,7 @@ import {
 import Animated from 'react-native-reanimated';
 import { colors, darkColors, spacing, typography } from '@/theme';
 import type { RoutePerformancePoint } from '@/hooks/routes/useRoutePerformances';
+import { formatShortDate as formatShortDateLib } from '@/lib';
 
 // Direction colors
 const SAME_COLOR = colors.sameDirection;
@@ -49,7 +50,7 @@ interface PerformanceChartProps {
 }
 
 function formatShortDate(date: Date): string {
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  return formatShortDateLib(date);
 }
 
 export function PerformanceChart({
@@ -274,8 +275,7 @@ export function PerformanceChart({
                     if (point.x == null || point.y == null) return null;
                     const d = chartData[idx];
                     if (d?.isBest || d?.isCurrent) return null;
-                    const pointColor =
-                      d?.direction === 'reverse' ? REVERSE_COLOR : SAME_COLOR;
+                    const pointColor = d?.direction === 'reverse' ? REVERSE_COLOR : SAME_COLOR;
                     return (
                       <Circle
                         key={`point-${idx}`}

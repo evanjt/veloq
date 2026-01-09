@@ -15,7 +15,10 @@ interface DecouplingChartProps {
   height?: number;
 }
 
-function calculateDecoupling(power: number[], heartrate: number[]): {
+function calculateDecoupling(
+  power: number[],
+  heartrate: number[]
+): {
   firstHalfEf: number;
   secondHalfEf: number;
   decoupling: number;
@@ -69,7 +72,9 @@ export function DecouplingChart({ power, heartrate, height = 150 }: DecouplingCh
     return (
       <View style={styles.container}>
         <View style={styles.header}>
-          <Text style={[styles.title, isDark && styles.textLight]}>{t('stats.aerobicDecoupling')}</Text>
+          <Text style={[styles.title, isDark && styles.textLight]}>
+            {t('stats.aerobicDecoupling')}
+          </Text>
         </View>
         <View style={[styles.emptyState, { height }]}>
           <Text style={[styles.emptyText, isDark && styles.textDark]}>
@@ -87,7 +92,9 @@ export function DecouplingChart({ power, heartrate, height = 150 }: DecouplingCh
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={[styles.title, isDark && styles.textLight]}>{t('stats.aerobicDecoupling')}</Text>
+        <Text style={[styles.title, isDark && styles.textLight]}>
+          {t('stats.aerobicDecoupling')}
+        </Text>
         <Text
           style={[
             styles.decouplingValue,
@@ -103,7 +110,9 @@ export function DecouplingChart({ power, heartrate, height = 150 }: DecouplingCh
         <View
           style={[
             styles.statusBadge,
-            { backgroundColor: analysis.isGood ? colors.success : colors.warning },
+            {
+              backgroundColor: analysis.isGood ? colors.success : colors.warning,
+            },
           ]}
         >
           <Text style={styles.statusText}>
@@ -133,7 +142,9 @@ export function DecouplingChart({ power, heartrate, height = 150 }: DecouplingCh
             </Text>
           </View>
           <View style={styles.dataRow}>
-            <Text style={[styles.dataLabel, isDark && styles.textDark]}>{t('stats.efficiency')}</Text>
+            <Text style={[styles.dataLabel, isDark && styles.textDark]}>
+              {t('stats.efficiency')}
+            </Text>
             <Text style={[styles.dataValue, { color: colors.primary }]}>
               {analysis.firstHalfEf.toFixed(2)}
             </Text>
@@ -153,18 +164,31 @@ export function DecouplingChart({ power, heartrate, height = 150 }: DecouplingCh
           <View style={styles.dataRow}>
             <Text style={[styles.dataLabel, isDark && styles.textDark]}>{t('stats.avgPower')}</Text>
             <Text style={[styles.dataValue, isDark && styles.textLight]}>
-              {Math.round(power.slice(midpoint).reduce((a, b) => a + b, 0) / (power.length - midpoint))}W
+              {Math.round(
+                power.slice(midpoint).reduce((a, b) => a + b, 0) / (power.length - midpoint)
+              )}
+              W
             </Text>
           </View>
           <View style={styles.dataRow}>
             <Text style={[styles.dataLabel, isDark && styles.textDark]}>{t('stats.avgHr')}</Text>
             <Text style={[styles.dataValue, isDark && styles.textLight]}>
-              {Math.round(heartrate.slice(midpoint).reduce((a, b) => a + b, 0) / (heartrate.length - midpoint))} bpm
+              {Math.round(
+                heartrate.slice(midpoint).reduce((a, b) => a + b, 0) / (heartrate.length - midpoint)
+              )}{' '}
+              bpm
             </Text>
           </View>
           <View style={styles.dataRow}>
-            <Text style={[styles.dataLabel, isDark && styles.textDark]}>{t('stats.efficiency')}</Text>
-            <Text style={[styles.dataValue, { color: analysis.isGood ? colors.primary : colors.warning }]}>
+            <Text style={[styles.dataLabel, isDark && styles.textDark]}>
+              {t('stats.efficiency')}
+            </Text>
+            <Text
+              style={[
+                styles.dataValue,
+                { color: analysis.isGood ? colors.primary : colors.warning },
+              ]}
+            >
               {analysis.secondHalfEf.toFixed(2)}
             </Text>
           </View>

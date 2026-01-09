@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import NetInfo, { NetInfoState } from '@react-native-community/netinfo';
+import * as Network from 'expo-network';
 
 interface NetworkContextValue {
   /** Whether device has network connectivity */
@@ -20,53 +20,50 @@ export function NetworkProvider({ children }: { children: ReactNode }) {
   });
 
   useEffect(() => {
-    // Track whether we've received an update from the listener
-    // to avoid race condition with initial fetch
+    // Cancellation flag to prevent state updates after unmount
+    // and to coordinate between listener and fallback fetch
+    let cancelled = false;
     let hasReceivedListenerUpdate = false;
 
     // Subscribe to network state updates
-    // Note: The listener fires immediately with current state, so we don't need
-    // a separate fetch() call which could cause a race condition
-    const unsubscribe = NetInfo.addEventListener((state: NetInfoState) => {
+    const subscription = Network.addNetworkStateListener((state) => {
+      if (cancelled) return;
       hasReceivedListenerUpdate = true;
       const isOnline = state.isConnected === true && state.isInternetReachable !== false;
 
       setNetworkState({
         isOnline,
-        isInternetReachable: state.isInternetReachable,
-        connectionType: state.type,
+        isInternetReachable: state.isInternetReachable ?? null,
+        connectionType: state.type ?? null,
       });
     });
 
     // Fallback fetch only if listener doesn't fire within 100ms
     // This handles edge cases where addEventListener might not fire immediately
     const timeoutId = setTimeout(() => {
-      if (!hasReceivedListenerUpdate) {
-        NetInfo.fetch().then((state: NetInfoState) => {
-          // Only update if we still haven't received a listener update
-          if (!hasReceivedListenerUpdate) {
-            const isOnline = state.isConnected === true && state.isInternetReachable !== false;
-            setNetworkState({
-              isOnline,
-              isInternetReachable: state.isInternetReachable,
-              connectionType: state.type,
-            });
-          }
+      if (cancelled || hasReceivedListenerUpdate) return;
+
+      Network.getNetworkStateAsync().then((state) => {
+        // Check both flags after async operation completes
+        if (cancelled || hasReceivedListenerUpdate) return;
+
+        const isOnline = state.isConnected === true && state.isInternetReachable !== false;
+        setNetworkState({
+          isOnline,
+          isInternetReachable: state.isInternetReachable ?? null,
+          connectionType: state.type ?? null,
         });
-      }
+      });
     }, 100);
 
     return () => {
+      cancelled = true;
       clearTimeout(timeoutId);
-      unsubscribe();
+      subscription.remove();
     };
   }, []);
 
-  return (
-    <NetworkContext.Provider value={networkState}>
-      {children}
-    </NetworkContext.Provider>
-  );
+  return <NetworkContext.Provider value={networkState}>{children}</NetworkContext.Provider>;
 }
 
 export function useNetwork(): NetworkContextValue {

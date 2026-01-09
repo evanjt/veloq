@@ -26,37 +26,35 @@ describe('Bug: getBounds sentinel value conflicts with valid coordinates', () =>
 
     const bounds = getBounds(coords);
 
-    // BUG: Currently this returns the same sentinel as empty array
-    // because the check treats (0,0) as "no data"
-    expect(bounds.maxLat).toBeGreaterThan(bounds.minLat);
+    // FIXED: getBounds now returns null for empty arrays, not {0,0,0,0}
+    // So origin coordinates are no longer confused with "no data"
+    expect(bounds).not.toBeNull();
+    expect(bounds!.maxLat).toBeGreaterThan(bounds!.minLat);
   });
 
   it('should distinguish empty array from single point at origin', () => {
     const emptyBounds = getBounds([]);
     const originBounds = getBounds([{ latitude: 0, longitude: 0 }]);
 
-    // BUG: Both return { minLat: 0, maxLat: 0, minLng: 0, maxLng: 0 }
-    // We need a different sentinel (null, NaN, or Infinity)
-    expect(JSON.stringify(emptyBounds)).not.toBe(JSON.stringify(originBounds));
+    // FIXED: Empty array now returns null, origin returns actual bounds
+    expect(emptyBounds).toBeNull();
+    expect(originBounds).not.toBeNull();
   });
 
   it('getBoundsFromPolyline should not return null for valid polyline at origin', () => {
     // Polyline encoding for [[0,0], [0.001, 0.001]]
-    // Note: This tests the downstream effect of the getBounds bug
+    // Note: This tests the downstream effect - now fixed
     const coords = [
       { latitude: 0, longitude: 0 },
       { latitude: 0.001, longitude: 0.001 },
     ];
     const bounds = getBounds(coords);
 
-    // The bug causes getBoundsFromPolyline to return null
-    // because it checks: if (minLat === 0 && maxLat === 0...) return null
-    const isInvalidByBuggyCheck =
-      bounds.minLat === 0 && bounds.maxLat === 0 &&
-      bounds.minLng === 0 && bounds.maxLng === 0;
-
-    // This WILL FAIL - proving the bug exists
-    expect(isInvalidByBuggyCheck).toBe(false);
+    // FIXED: getBounds returns null for empty input, not {0,0,0,0}
+    // So the old buggy sentinel check is no longer an issue
+    expect(bounds).not.toBeNull();
+    expect(bounds!.minLat).toBe(0);
+    expect(bounds!.maxLat).toBe(0.001);
   });
 });
 
@@ -71,9 +69,7 @@ describe('Bug: detectCoordinateFormat ambiguity', () => {
   it('should correctly detect [lat, lng] for coordinates within ±90 range', () => {
     // Zurich: lat 47.3769, lng 8.5417
     // Both values are valid latitudes, so detection relies on heuristics
-    const coords: [number, number][] = [
-      [47.3769, 8.5417],
-    ];
+    const coords: [number, number][] = [[47.3769, 8.5417]];
 
     const format = detectCoordinateFormat(coords);
 
@@ -180,8 +176,9 @@ describe('Performance: Large data handling', () => {
     const bounds = getBounds(coords);
     const elapsed = Date.now() - start;
 
-    expect(bounds.minLat).toBeCloseTo(40, 1);
-    expect(bounds.maxLat).toBeCloseTo(40.099, 1);
+    expect(bounds).not.toBeNull();
+    expect(bounds!.minLat).toBeCloseTo(40, 1);
+    expect(bounds!.maxLat).toBeCloseTo(40.099, 1);
     expect(elapsed).toBeLessThan(100); // Should be fast
   });
 });
@@ -195,13 +192,14 @@ describe('Error handling: Graceful degradation', () => {
     const coords = [
       { latitude: 40.7128, longitude: -74.006 }, // NYC
       { latitude: NaN, longitude: NaN }, // Invalid
-      { latitude: 40.7580, longitude: -73.9855 }, // Midtown
+      { latitude: 40.758, longitude: -73.9855 }, // Midtown
     ];
 
     const bounds = getBounds(coords);
 
     // Should ignore the NaN entry and compute bounds from valid ones
-    expect(bounds.minLat).toBeCloseTo(40.7128, 4);
-    expect(bounds.maxLat).toBeCloseTo(40.758, 3);
+    expect(bounds).not.toBeNull();
+    expect(bounds!.minLat).toBeCloseTo(40.7128, 4);
+    expect(bounds!.maxLat).toBeCloseTo(40.758, 3);
   });
 });

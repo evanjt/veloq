@@ -7,8 +7,8 @@ describe('parseStreams', () => {
       {
         type: 'latlng',
         name: null,
-        data: [-33.8688, -33.8700, -33.8720], // latitudes
-        data2: [151.2093, 151.2100, 151.2110], // longitudes
+        data: [-33.8688, -33.87, -33.872], // latitudes
+        data2: [151.2093, 151.21, 151.211], // longitudes
       },
     ];
 
@@ -16,8 +16,8 @@ describe('parseStreams', () => {
 
     expect(result.latlng).toEqual([
       [-33.8688, 151.2093],
-      [-33.8700, 151.2100],
-      [-33.8720, 151.2110],
+      [-33.87, 151.21],
+      [-33.872, 151.211],
     ]);
   });
 
@@ -26,7 +26,7 @@ describe('parseStreams', () => {
       {
         type: 'latlng',
         name: null,
-        data: [-33.8688, -33.8700],
+        data: [-33.8688, -33.87],
         // data2 is missing
       },
     ];
@@ -115,8 +115,8 @@ describe('parseStreams', () => {
       {
         type: 'latlng',
         name: null,
-        data: [46.9481, 46.9485, 46.9490],
-        data2: [7.4474, 7.4480, 7.4485],
+        data: [46.9481, 46.9485, 46.949],
+        data2: [7.4474, 7.448, 7.4485],
       },
       {
         type: 'time',

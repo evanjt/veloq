@@ -30,9 +30,7 @@ export function GradientCard({
         };
       case 'glass':
         return {
-          backgroundColor: isDark
-            ? 'rgba(31, 31, 35, 0.85)'
-            : 'rgba(255, 255, 255, 0.85)',
+          backgroundColor: isDark ? 'rgba(31, 31, 35, 0.85)' : 'rgba(255, 255, 255, 0.85)',
           borderWidth: 1,
           borderColor: isDark
             ? 'rgba(91, 155, 213, 0.1)' // Subtle blue glow border
@@ -46,14 +44,7 @@ export function GradientCard({
   };
 
   return (
-    <View
-      style={[
-        styles.card,
-        { borderRadius, padding },
-        getVariantStyle(),
-        style,
-      ]}
-    >
+    <View style={[styles.card, { borderRadius, padding }, getVariantStyle(), style]}>
       {children}
     </View>
   );
@@ -67,31 +58,27 @@ export function GlassCard({
   padding = 16,
 }: Omit<GradientCardProps, 'variant'>) {
   return (
-    <GradientCard
-      variant="glass"
-      style={style}
-      borderRadius={borderRadius}
-      padding={padding}
-    >
+    <GradientCard variant="glass" style={style} borderRadius={borderRadius} padding={padding}>
       {children}
     </GradientCard>
   );
 }
 
 // Preset gradient themes (colors only - use with native LinearGradient in dev builds)
-// Brand: Gold (#D4AF37) + Blue (#5B9BD5)
+// Primary: Teal | Accent: Gold (achievements) | Secondary: Blue (data)
 export const GRADIENT_PRESETS = {
-  primary: ['#E8C96E', '#D4AF37'],    // Gold gradient
-  secondary: ['#7DB3E3', '#5B9BD5'],  // Blue gradient
-  premium: ['#D4AF37', '#5B9BD5'],    // Gold to blue (diagonal)
-  success: ['#4ADE80', '#22C55E'],    // Green
-  info: ['#7DB3E3', '#5B9BD5'],       // Brand blue
-  warning: ['#FBBF24', '#F59E0B'],    // Amber (NOT orange)
-  purple: ['#C084FC', '#A855F7'],     // Purple
-  ocean: ['#22D3EE', '#06B6D4'],      // Cyan
-  fitness: ['#7DB3E3', '#5B9BD5'],    // Brand blue (CTL)
-  fatigue: ['#C084FC', '#A855F7'],    // Purple (ATL)
-  form: ['#E8C96E', '#D4AF37'],       // Gold (TSB - premium!)
+  primary: ['#2DD4BF', '#14B8A6'], // Teal gradient (buttons, CTAs)
+  accent: ['#E8C96E', '#D4AF37'], // Gold gradient (achievements only)
+  secondary: ['#7DB3E3', '#5B9BD5'], // Blue gradient (data)
+  premium: ['#D4AF37', '#5B9BD5'], // Gold to blue (special moments)
+  success: ['#4ADE80', '#22C55E'], // Green
+  info: ['#7DB3E3', '#5B9BD5'], // Brand blue
+  warning: ['#FBBF24', '#F59E0B'], // Amber (NOT orange)
+  purple: ['#C084FC', '#A855F7'], // Purple
+  ocean: ['#22D3EE', '#06B6D4'], // Cyan
+  fitness: ['#7DB3E3', '#5B9BD5'], // Brand blue (CTL)
+  fatigue: ['#C084FC', '#A855F7'], // Purple (ATL)
+  form: ['#E8C96E', '#D4AF37'], // Gold (TSB - achievement moment!)
   dark: ['rgba(31,31,35,0.95)', 'rgba(24,24,27,0.9)'],
   light: ['rgba(255,255,255,0.95)', 'rgba(248,249,250,0.9)'],
 };

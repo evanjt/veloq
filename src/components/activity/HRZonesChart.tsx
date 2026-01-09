@@ -5,6 +5,7 @@ import { colors, darkColors, opacity, typography, spacing, layout } from '@/them
 import { useHRZones } from '@/providers';
 import { useSportSettings, getSettingsForSport, HR_ZONE_COLORS } from '@/hooks';
 import type { ActivityStreams, ActivityDetail } from '@/types';
+import { ChartErrorBoundary } from '@/components/ui';
 
 interface HRZonesChartProps {
   streams: ActivityStreams;
@@ -24,11 +25,7 @@ function formatDuration(seconds: number): string {
   return remainingMins > 0 ? `${hrs}h ${remainingMins}m` : `${hrs}h`;
 }
 
-export function HRZonesChart({
-  streams,
-  activityType = 'Ride',
-  activity,
-}: HRZonesChartProps) {
+export function HRZonesChart({ streams, activityType = 'Ride', activity }: HRZonesChartProps) {
   const { t } = useTranslation();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
@@ -83,7 +80,7 @@ export function HRZonesChart({
       });
     } else {
       // Local zones are percentage-based
-      builtZones = localZones.map(zone => ({
+      builtZones = localZones.map((zone) => ({
         ...zone,
         minBpm: Math.round(zone.min * maxHR),
         maxBpm: Math.round(zone.max * maxHR),
@@ -170,9 +167,12 @@ export function HRZonesChart({
   const dataSource = settings?.max_hr ? 'intervals.icu' : 'local';
 
   return (
-    <View style={styles.container}>
-      <View style={styles.headerRow}>
-        <Text style={[styles.title, isDark && styles.titleDark]}>{t('activity.timeInHRZones')}</Text>
+    <ChartErrorBoundary height={200} label="Heart Rate Zones">
+      <View style={styles.container}>
+        <View style={styles.headerRow}>
+        <Text style={[styles.title, isDark && styles.titleDark]}>
+          {t('activity.timeInHRZones')}
+        </Text>
         <Text style={[styles.maxHRLabel, isDark && styles.maxHRLabelDark]}>
           {t('activity.maxHR', { value: maxHR })}
         </Text>
@@ -181,15 +181,35 @@ export function HRZonesChart({
         {zoneData.map((zone) => (
           <View key={zone.id} style={[styles.zoneRow, { paddingVertical: rowPadding }]}>
             {/* Zone label */}
-            <Text style={[styles.zoneNumber, isCompact && styles.zoneNumberCompact, { color: zone.color }]}>Z{zone.id}</Text>
+            <Text
+              style={[
+                styles.zoneNumber,
+                isCompact && styles.zoneNumberCompact,
+                { color: zone.color },
+              ]}
+            >
+              Z{zone.id}
+            </Text>
 
             {/* Percentage - always shown at start, theme-aware color */}
-            <Text style={[styles.zonePercent, isCompact && styles.zonePercentCompact, isDark && styles.zonePercentDark]}>
+            <Text
+              style={[
+                styles.zonePercent,
+                isCompact && styles.zonePercentCompact,
+                isDark && styles.zonePercentDark,
+              ]}
+            >
               {zone.percent > 0.5 ? `${Math.round(zone.percent)}%` : '-'}
             </Text>
 
             {/* Bar */}
-            <View style={[styles.barContainer, { height: barHeight, borderRadius: barHeight / 2 }, isDark && styles.barContainerDark]}>
+            <View
+              style={[
+                styles.barContainer,
+                { height: barHeight, borderRadius: barHeight / 2 },
+                isDark && styles.barContainerDark,
+              ]}
+            >
               <View
                 style={[
                   styles.bar,
@@ -204,10 +224,22 @@ export function HRZonesChart({
 
             {/* Time and BPM range */}
             <View style={[styles.zoneStats, isCompact && styles.zoneStatsCompact]}>
-              <Text style={[styles.zoneTime, isCompact && styles.zoneTimeCompact, isDark && styles.zoneTimeDark]}>
+              <Text
+                style={[
+                  styles.zoneTime,
+                  isCompact && styles.zoneTimeCompact,
+                  isDark && styles.zoneTimeDark,
+                ]}
+              >
                 {zone.percent > 0.5 ? zone.formatted : '-'}
               </Text>
-              <Text style={[styles.zoneBPM, isCompact && styles.zoneBPMCompact, isDark && styles.zoneBPMDark]}>
+              <Text
+                style={[
+                  styles.zoneBPM,
+                  isCompact && styles.zoneBPMCompact,
+                  isDark && styles.zoneBPMDark,
+                ]}
+              >
                 {getZoneBPM(zone)}
               </Text>
             </View>
@@ -215,6 +247,7 @@ export function HRZonesChart({
         ))}
       </View>
     </View>
+    </ChartErrorBoundary>
   );
 }
 

@@ -2,8 +2,16 @@ import type { PowerCurve, PaceCurve } from '@/types';
 
 // Realistic power curve for a ~250W FTP rider
 export const demoPowerCurve: PowerCurve = {
-  secs: [1, 2, 5, 10, 15, 20, 30, 45, 60, 90, 120, 180, 300, 360, 480, 600, 900, 1200, 1800, 2400, 3600, 5400, 7200],
-  watts: [950, 900, 750, 600, 520, 460, 410, 370, 340, 315, 300, 285, 270, 265, 258, 252, 248, 245, 240, 235, 228, 220, 210],
+  type: 'power',
+  sport: 'Ride',
+  secs: [
+    1, 2, 5, 10, 15, 20, 30, 45, 60, 90, 120, 180, 300, 360, 480, 600, 900, 1200, 1800, 2400, 3600,
+    5400, 7200,
+  ],
+  watts: [
+    950, 900, 750, 600, 520, 460, 410, 370, 340, 315, 300, 285, 270, 265, 258, 252, 248, 245, 240,
+    235, 228, 220, 210,
+  ],
 };
 
 // Realistic pace curve for a ~5:00/km runner
@@ -15,7 +23,7 @@ export const demoPaceCurve: PaceCurve = {
   // Times in seconds to complete each distance
   times: [18, 38, 82, 180, 235, 375, 520, 840, 1500, 3200, 7200],
   // Pace in m/s at each distance
-  pace: [5.56, 5.26, 4.88, 4.44, 4.26, 4.00, 3.85, 3.57, 3.33, 3.13, 2.93],
+  pace: [5.56, 5.26, 4.88, 4.44, 4.26, 4.0, 3.85, 3.57, 3.33, 3.13, 2.93],
   criticalSpeed: 3.45, // ~4:50/km
   dPrime: 200,
   r2: 0.98,

@@ -1,547 +1,668 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en" id="html-root">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Privacy Policy - Veloq</title>
-  <meta name="description" content="Veloq privacy policy. All data stays on your device.">
-  <meta name="theme-color" content="#5B8DB8">
-  <link rel="icon" type="image/png" href="../icon.png">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Privacy Policy - Veloq</title>
+    <meta
+      name="description"
+      content="Veloq privacy policy. All data stays on your device."
+    />
+    <meta name="theme-color" content="#5B8DB8" />
+    <link rel="icon" type="image/png" href="../icon.png" />
 
-  <style>
-    :root {
-      /* Logo colors: blue background, gold text */
-      --primary: #5B8DB8;
-      --primary-dark: #4A7A9E;
-      --accent: #F5A623;
-      --accent-dark: #D4900E;
-      --bg: #FAFAFA;
-      --bg-dark: #121212;
-      --text: #1A1A1A;
-      --text-muted: #666666;
-      --text-dark: #FFFFFF;
-      --text-muted-dark: #AAAAAA;
-      --card: #FFFFFF;
-      --card-dark: #1E1E1E;
-      --border: #E0E0E0;
-      --border-dark: #333333;
-    }
-
-    @media (prefers-color-scheme: dark) {
+    <style>
       :root {
-        --bg: var(--bg-dark);
-        --text: var(--text-dark);
-        --text-muted: var(--text-muted-dark);
-        --card: var(--card-dark);
-        --border: var(--border-dark);
+        /* Logo colors: blue background, gold text */
+        --primary: #5b8db8;
+        --primary-dark: #4a7a9e;
+        --accent: #f5a623;
+        --accent-dark: #d4900e;
+        --bg: #fafafa;
+        --bg-dark: #121212;
+        --text: #1a1a1a;
+        --text-muted: #666666;
+        --text-dark: #ffffff;
+        --text-muted-dark: #aaaaaa;
+        --card: #ffffff;
+        --card-dark: #1e1e1e;
+        --border: #e0e0e0;
+        --border-dark: #333333;
       }
-    }
 
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: var(--bg-dark);
+          --text: var(--text-dark);
+          --text-muted: var(--text-muted-dark);
+          --card: var(--card-dark);
+          --border: var(--border-dark);
+        }
+      }
 
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-      background: var(--bg);
-      color: var(--text);
-      line-height: 1.6;
-      -webkit-font-smoothing: antialiased;
-    }
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
 
-    .container {
-      max-width: 800px;
-      margin: 0 auto;
-      padding: 0 24px;
-    }
+      body {
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu,
+          sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        line-height: 1.6;
+        -webkit-font-smoothing: antialiased;
+      }
 
-    header {
-      padding: 24px 0;
-      border-bottom: 1px solid var(--border);
-    }
+      .container {
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 0 24px;
+      }
 
-    .header-inner {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      max-width: 800px;
-      margin: 0 auto;
-      padding: 0 24px;
-    }
+      header {
+        padding: 24px 0;
+        border-bottom: 1px solid var(--border);
+      }
 
-    .logo {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      text-decoration: none;
-      color: var(--text);
-    }
+      .header-inner {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 0 24px;
+      }
 
-    .logo img {
-      width: 40px;
-      height: 40px;
-      border-radius: 8px;
-    }
+      .logo {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        text-decoration: none;
+        color: var(--text);
+      }
 
-    .logo span {
-      font-size: 24px;
-      font-weight: 700;
-    }
+      .logo img {
+        width: 40px;
+        height: 40px;
+        border-radius: 8px;
+      }
 
-    .nav-links {
-      display: flex;
-      gap: 24px;
-      align-items: center;
-    }
+      .logo span {
+        font-size: 24px;
+        font-weight: 700;
+      }
 
-    .nav-links a {
-      color: var(--text-muted);
-      text-decoration: none;
-      font-weight: 500;
-      transition: color 0.2s;
-    }
+      .nav-links {
+        display: flex;
+        gap: 24px;
+        align-items: center;
+      }
 
-    .nav-links a:hover {
-      color: var(--primary);
-    }
+      .nav-links a {
+        color: var(--text-muted);
+        text-decoration: none;
+        font-weight: 500;
+        transition: color 0.2s;
+      }
 
-    .lang-selector {
-      position: relative;
-    }
+      .nav-links a:hover {
+        color: var(--primary);
+      }
 
-    .lang-btn {
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      padding: 6px 12px;
-      font-size: 14px;
-      font-weight: 500;
-      color: var(--text);
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      transition: border-color 0.2s;
-    }
+      .lang-selector {
+        position: relative;
+      }
 
-    .lang-btn:hover {
-      border-color: var(--primary);
-    }
+      .lang-btn {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 6px 12px;
+        font-size: 14px;
+        font-weight: 500;
+        color: var(--text);
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        transition: border-color 0.2s;
+      }
 
-    .lang-dropdown {
-      position: absolute;
-      top: 100%;
-      right: 0;
-      margin-top: 4px;
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-      min-width: 140px;
-      display: none;
-      z-index: 100;
-    }
+      .lang-btn:hover {
+        border-color: var(--primary);
+      }
 
-    .lang-dropdown.open {
-      display: block;
-    }
-
-    .lang-option {
-      display: block;
-      width: 100%;
-      padding: 10px 16px;
-      border: none;
-      background: none;
-      text-align: left;
-      font-size: 14px;
-      color: var(--text);
-      cursor: pointer;
-      transition: background 0.2s;
-    }
-
-    .lang-option:hover {
-      background: var(--bg);
-    }
-
-    .lang-option.active {
-      color: var(--primary);
-      font-weight: 600;
-    }
-
-    main {
-      padding: 48px 0 80px;
-    }
-
-    h1 {
-      font-size: 2.5rem;
-      font-weight: 800;
-      margin-bottom: 8px;
-      letter-spacing: -0.02em;
-    }
-
-    .last-updated {
-      color: var(--text-muted);
-      margin-bottom: 40px;
-    }
-
-    h2 {
-      font-size: 1.5rem;
-      margin-top: 40px;
-      margin-bottom: 16px;
-      color: var(--primary);
-    }
-
-    p {
-      margin-bottom: 16px;
-    }
-
-    ul {
-      margin-bottom: 16px;
-      padding-left: 24px;
-    }
-
-    li {
-      margin-bottom: 8px;
-    }
-
-    strong {
-      color: var(--text);
-    }
-
-    a {
-      color: var(--primary);
-      text-decoration: none;
-    }
-
-    a:hover {
-      text-decoration: underline;
-    }
-
-    .highlight-box {
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-left: 4px solid var(--primary);
-      padding: 20px 24px;
-      border-radius: 8px;
-      margin: 24px 0;
-    }
-
-    .highlight-box p {
-      margin: 0;
-      font-weight: 500;
-    }
-
-    footer {
-      padding: 40px 0;
-      border-top: 1px solid var(--border);
-      text-align: center;
-    }
-
-    .footer-links {
-      display: flex;
-      justify-content: center;
-      gap: 32px;
-      margin-bottom: 24px;
-      flex-wrap: wrap;
-    }
-
-    .footer-links a {
-      color: var(--text-muted);
-      text-decoration: none;
-      font-size: 0.95rem;
-    }
-
-    .footer-links a:hover {
-      color: var(--primary);
-    }
-
-    .copyright {
-      color: var(--text-muted);
-      font-size: 0.875rem;
-    }
-
-    @media (max-width: 640px) {
-      .nav-links a:not(.lang-selector) {
+      .lang-dropdown {
+        position: absolute;
+        top: 100%;
+        right: 0;
+        margin-top: 4px;
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        min-width: 140px;
         display: none;
+        z-index: 100;
       }
 
-      h1 {
-        font-size: 2rem;
+      .lang-dropdown.open {
+        display: block;
+      }
+
+      .lang-option {
+        display: block;
+        width: 100%;
+        padding: 10px 16px;
+        border: none;
+        background: none;
+        text-align: left;
+        font-size: 14px;
+        color: var(--text);
+        cursor: pointer;
+        transition: background 0.2s;
+      }
+
+      .lang-option:hover {
+        background: var(--bg);
+      }
+
+      .lang-option.active {
+        color: var(--primary);
+        font-weight: 600;
       }
 
       main {
-        padding: 32px 0 48px;
+        padding: 48px 0 80px;
       }
-    }
-  </style>
-</head>
-<body>
-  <header>
-    <div class="header-inner">
-      <a href="https://veloq.fit" class="logo">
-        <img src="../icon.png" alt="Veloq">
-        <span>Veloq</span>
-      </a>
-      <nav class="nav-links">
-        <a href="https://veloq.fit" data-i18n="nav.home">Home</a>
-        <a href="https://github.com/evanjt/veloq" target="_blank">GitHub</a>
-        <div class="lang-selector">
-          <button class="lang-btn" id="lang-btn">
-            <span id="current-lang">EN</span>
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
-          </button>
-          <div class="lang-dropdown" id="lang-dropdown">
-            <button class="lang-option" data-lang="en">English</button>
-            <button class="lang-option" data-lang="es">Español</button>
-            <button class="lang-option" data-lang="fr">Français</button>
-          </div>
-        </div>
-      </nav>
-    </div>
-  </header>
 
-  <main>
-    <div class="container">
-      <h1 data-i18n="title">Privacy Policy</h1>
-      <p class="last-updated" data-i18n="lastUpdated">Last updated: 31 December 2025</p>
-
-      <div class="highlight-box">
-        <p data-i18n="overview">Veloq operates entirely on your device. We do not run servers, collect data, or process your personal information.</p>
-      </div>
-
-      <h2 data-i18n="dataHandling.title">Data Handling</h2>
-      <ul>
-        <li data-i18n="dataHandling.item1">All data is fetched directly from Intervals.icu using your credentials</li>
-        <li data-i18n="dataHandling.item2">Data is cached locally for offline access</li>
-        <li data-i18n="dataHandling.item3">No data is sent anywhere except Intervals.icu and map tile providers</li>
-      </ul>
-
-      <h2 data-i18n="localStorage.title">Local Storage</h2>
-      <p data-i18n="localStorage.intro">Stored on your device only:</p>
-      <ul>
-        <li data-i18n="localStorage.item1"><strong>API credentials</strong> - Encrypted using platform secure storage</li>
-        <li data-i18n="localStorage.item2"><strong>Activity data</strong> - Cached for offline use</li>
-        <li data-i18n="localStorage.item3"><strong>Preferences</strong> - Theme, map settings</li>
-      </ul>
-
-      <h2 data-i18n="thirdParty.title">Third-Party Services</h2>
-      <ul>
-        <li data-i18n="thirdParty.item1"><strong>Intervals.icu</strong> - Your fitness data source (<a href="https://intervals.icu/privacy" target="_blank">privacy policy</a>)</li>
-        <li data-i18n="thirdParty.item2"><strong>Map tiles</strong> - OpenStreetMap, Carto, Stadia (standard web requests)</li>
-      </ul>
-      <p data-i18n="thirdParty.noTracking">No analytics, ads, crash reporting, or tracking SDKs.</p>
-
-      <h2 data-i18n="disclaimer.title">Disclaimer</h2>
-      <p data-i18n="disclaimer.content">Veloq is an independent, open-source project and is <strong>not affiliated with, endorsed by, or officially connected to Intervals.icu</strong> in any way. For information about how Intervals.icu handles your data, please refer to their <a href="https://intervals.icu/privacy" target="_blank">privacy policy</a>.</p>
-
-      <h2 data-i18n="dataSharing.title">Data Sharing</h2>
-      <p data-i18n="dataSharing.content">None. The developer has no access to your data.</p>
-
-      <h2 data-i18n="security.title">Security</h2>
-      <ul>
-        <li data-i18n="security.item1">Encrypted credential storage</li>
-        <li data-i18n="security.item2">HTTPS for all network requests</li>
-        <li data-i18n="security.item3">No background telemetry</li>
-      </ul>
-
-      <h2 data-i18n="children.title">Children's Privacy</h2>
-      <p data-i18n="children.content">Not intended for users under 13. No data is collected from any user.</p>
-
-      <h2 data-i18n="rights.title">Your Rights</h2>
-      <p data-i18n="rights.content">Delete all local data by uninstalling the app or clearing app data in device settings.</p>
-
-      <h2 data-i18n="changes.title">Changes</h2>
-      <p data-i18n="changes.content">This policy may be updated. Check the "Last updated" date above.</p>
-
-      <h2 data-i18n="contact.title">Contact</h2>
-      <p data-i18n="contact.content">
-        <a href="https://github.com/evanjt/veloq/issues">GitHub Issues</a> or
-        <a href="mailto:developer@veloq.fit">developer@veloq.fit</a>
-      </p>
-    </div>
-  </main>
-
-  <footer>
-    <div class="container">
-      <div class="footer-links">
-        <a href="https://veloq.fit" data-i18n="nav.home">Home</a>
-        <a href="https://github.com/evanjt/veloq" target="_blank">GitHub</a>
-        <a href="https://github.com/evanjt/veloq/releases" target="_blank" data-i18n="footer.releases">Releases</a>
-        <a href="mailto:developer@veloq.fit" data-i18n="footer.contact">Contact</a>
-      </div>
-      <p class="copyright">&copy; 2025 Evan Thomas. Apache License 2.0.</p>
-    </div>
-  </footer>
-
-  <script>
-    const translations = {
-      en: {
-        'nav.home': 'Home',
-        'footer.releases': 'Releases',
-        'footer.contact': 'Contact',
-        'title': 'Privacy Policy',
-        'lastUpdated': 'Last updated: 31 December 2025',
-        'overview': 'Veloq operates entirely on your device. We do not run servers, collect data, or process your personal information.',
-        'dataHandling.title': 'Data Handling',
-        'dataHandling.item1': 'All data is fetched directly from Intervals.icu using your credentials',
-        'dataHandling.item2': 'Data is cached locally for offline access',
-        'dataHandling.item3': 'No data is sent anywhere except Intervals.icu and map tile providers',
-        'localStorage.title': 'Local Storage',
-        'localStorage.intro': 'Stored on your device only:',
-        'localStorage.item1': '<strong>API credentials</strong> - Encrypted using platform secure storage',
-        'localStorage.item2': '<strong>Activity data</strong> - Cached for offline use',
-        'localStorage.item3': '<strong>Preferences</strong> - Theme, map settings',
-        'thirdParty.title': 'Third-Party Services',
-        'thirdParty.item1': '<strong>Intervals.icu</strong> - Your fitness data source (<a href="https://intervals.icu/privacy" target="_blank">privacy policy</a>)',
-        'thirdParty.item2': '<strong>Map tiles</strong> - OpenStreetMap, Carto, Stadia (standard web requests)',
-        'thirdParty.noTracking': 'No analytics, ads, crash reporting, or tracking SDKs.',
-        'disclaimer.title': 'Disclaimer',
-        'disclaimer.content': 'Veloq is an independent, open-source project and is <strong>not affiliated with, endorsed by, or officially connected to Intervals.icu</strong> in any way. For information about how Intervals.icu handles your data, please refer to their <a href="https://intervals.icu/privacy" target="_blank">privacy policy</a>.',
-        'dataSharing.title': 'Data Sharing',
-        'dataSharing.content': 'None. The developer has no access to your data.',
-        'security.title': 'Security',
-        'security.item1': 'Encrypted credential storage',
-        'security.item2': 'HTTPS for all network requests',
-        'security.item3': 'No background telemetry',
-        'children.title': 'Children\'s Privacy',
-        'children.content': 'Not intended for users under 13. No data is collected from any user.',
-        'rights.title': 'Your Rights',
-        'rights.content': 'Delete all local data by uninstalling the app or clearing app data in device settings.',
-        'changes.title': 'Changes',
-        'changes.content': 'This policy may be updated. Check the "Last updated" date above.',
-        'contact.title': 'Contact',
-        'contact.content': '<a href="https://github.com/evanjt/veloq/issues">GitHub Issues</a> or <a href="mailto:developer@veloq.fit">developer@veloq.fit</a>'
-      },
-      es: {
-        'nav.home': 'Inicio',
-        'footer.releases': 'Versiones',
-        'footer.contact': 'Contacto',
-        'title': 'Política de Privacidad',
-        'lastUpdated': 'Última actualización: 31 de diciembre de 2025',
-        'overview': 'Veloq opera completamente en tu dispositivo. No ejecutamos servidores, no recopilamos datos ni procesamos tu información personal.',
-        'dataHandling.title': 'Manejo de Datos',
-        'dataHandling.item1': 'Todos los datos se obtienen directamente de Intervals.icu usando tus credenciales',
-        'dataHandling.item2': 'Los datos se almacenan localmente para acceso sin conexión',
-        'dataHandling.item3': 'No se envían datos a ningún lugar excepto Intervals.icu y proveedores de mapas',
-        'localStorage.title': 'Almacenamiento Local',
-        'localStorage.intro': 'Almacenado solo en tu dispositivo:',
-        'localStorage.item1': '<strong>Credenciales API</strong> - Encriptadas usando almacenamiento seguro de la plataforma',
-        'localStorage.item2': '<strong>Datos de actividad</strong> - En caché para uso sin conexión',
-        'localStorage.item3': '<strong>Preferencias</strong> - Tema, configuración del mapa',
-        'thirdParty.title': 'Servicios de Terceros',
-        'thirdParty.item1': '<strong>Intervals.icu</strong> - Tu fuente de datos de fitness (<a href="https://intervals.icu/privacy" target="_blank">política de privacidad</a>)',
-        'thirdParty.item2': '<strong>Mapas</strong> - OpenStreetMap, Carto, Stadia (solicitudes web estándar)',
-        'thirdParty.noTracking': 'Sin análisis, anuncios, reportes de errores o SDKs de seguimiento.',
-        'disclaimer.title': 'Aviso Legal',
-        'disclaimer.content': 'Veloq es un proyecto independiente de código abierto y <strong>no está afiliado, respaldado ni conectado oficialmente con Intervals.icu</strong> de ninguna manera. Para obtener información sobre cómo Intervals.icu maneja tus datos, consulta su <a href="https://intervals.icu/privacy" target="_blank">política de privacidad</a>.',
-        'dataSharing.title': 'Compartir Datos',
-        'dataSharing.content': 'Ninguno. El desarrollador no tiene acceso a tus datos.',
-        'security.title': 'Seguridad',
-        'security.item1': 'Almacenamiento de credenciales encriptado',
-        'security.item2': 'HTTPS para todas las solicitudes de red',
-        'security.item3': 'Sin telemetría en segundo plano',
-        'children.title': 'Privacidad de Menores',
-        'children.content': 'No está destinado a usuarios menores de 13 años. No se recopilan datos de ningún usuario.',
-        'rights.title': 'Tus Derechos',
-        'rights.content': 'Elimina todos los datos locales desinstalando la aplicación o borrando los datos de la aplicación en la configuración del dispositivo.',
-        'changes.title': 'Cambios',
-        'changes.content': 'Esta política puede actualizarse. Consulta la fecha de "Última actualización" arriba.',
-        'contact.title': 'Contacto',
-        'contact.content': '<a href="https://github.com/evanjt/veloq/issues">GitHub Issues</a> o <a href="mailto:developer@veloq.fit">developer@veloq.fit</a>'
-      },
-      fr: {
-        'nav.home': 'Accueil',
-        'footer.releases': 'Versions',
-        'footer.contact': 'Contact',
-        'title': 'Politique de Confidentialité',
-        'lastUpdated': 'Dernière mise à jour : 31 décembre 2025',
-        'overview': 'Veloq fonctionne entièrement sur votre appareil. Nous n\'exploitons pas de serveurs, ne collectons pas de données et ne traitons pas vos informations personnelles.',
-        'dataHandling.title': 'Gestion des Données',
-        'dataHandling.item1': 'Toutes les données sont récupérées directement depuis Intervals.icu en utilisant vos identifiants',
-        'dataHandling.item2': 'Les données sont mises en cache localement pour un accès hors ligne',
-        'dataHandling.item3': 'Aucune donnée n\'est envoyée ailleurs qu\'à Intervals.icu et aux fournisseurs de tuiles cartographiques',
-        'localStorage.title': 'Stockage Local',
-        'localStorage.intro': 'Stocké uniquement sur votre appareil :',
-        'localStorage.item1': '<strong>Identifiants API</strong> - Chiffrés via le stockage sécurisé de la plateforme',
-        'localStorage.item2': '<strong>Données d\'activité</strong> - En cache pour utilisation hors ligne',
-        'localStorage.item3': '<strong>Préférences</strong> - Thème, paramètres de carte',
-        'thirdParty.title': 'Services Tiers',
-        'thirdParty.item1': '<strong>Intervals.icu</strong> - Votre source de données fitness (<a href="https://intervals.icu/privacy" target="_blank">politique de confidentialité</a>)',
-        'thirdParty.item2': '<strong>Tuiles cartographiques</strong> - OpenStreetMap, Carto, Stadia (requêtes web standard)',
-        'thirdParty.noTracking': 'Pas d\'analytique, de publicités, de rapports d\'erreurs ou de SDKs de suivi.',
-        'disclaimer.title': 'Avertissement',
-        'disclaimer.content': 'Veloq est un projet open-source indépendant et n\'est <strong>pas affilié, approuvé ou officiellement connecté à Intervals.icu</strong> de quelque manière que ce soit. Pour plus d\'informations sur la façon dont Intervals.icu gère vos données, veuillez consulter leur <a href="https://intervals.icu/privacy" target="_blank">politique de confidentialité</a>.',
-        'dataSharing.title': 'Partage de Données',
-        'dataSharing.content': 'Aucun. Le développeur n\'a pas accès à vos données.',
-        'security.title': 'Sécurité',
-        'security.item1': 'Stockage des identifiants chiffré',
-        'security.item2': 'HTTPS pour toutes les requêtes réseau',
-        'security.item3': 'Pas de télémétrie en arrière-plan',
-        'children.title': 'Confidentialité des Enfants',
-        'children.content': 'Non destiné aux utilisateurs de moins de 13 ans. Aucune donnée n\'est collectée auprès d\'aucun utilisateur.',
-        'rights.title': 'Vos Droits',
-        'rights.content': 'Supprimez toutes les données locales en désinstallant l\'application ou en effaçant les données de l\'application dans les paramètres de l\'appareil.',
-        'changes.title': 'Modifications',
-        'changes.content': 'Cette politique peut être mise à jour. Vérifiez la date de "Dernière mise à jour" ci-dessus.',
-        'contact.title': 'Contact',
-        'contact.content': '<a href="https://github.com/evanjt/veloq/issues">GitHub Issues</a> ou <a href="mailto:developer@veloq.fit">developer@veloq.fit</a>'
+      h1 {
+        font-size: 2.5rem;
+        font-weight: 800;
+        margin-bottom: 8px;
+        letter-spacing: -0.02em;
       }
-    };
 
-    const langNames = { en: 'EN', es: 'ES', fr: 'FR' };
+      .last-updated {
+        color: var(--text-muted);
+        margin-bottom: 40px;
+      }
 
-    function getInitialLanguage() {
-      const stored = localStorage.getItem('veloq-lang');
-      if (stored && translations[stored]) return stored;
-      const browserLang = navigator.language.split('-')[0];
-      if (translations[browserLang]) return browserLang;
-      return 'en';
-    }
+      h2 {
+        font-size: 1.5rem;
+        margin-top: 40px;
+        margin-bottom: 16px;
+        color: var(--primary);
+      }
 
-    let currentLang = getInitialLanguage();
+      p {
+        margin-bottom: 16px;
+      }
 
-    function applyTranslations(lang) {
-      const t = translations[lang];
-      document.querySelectorAll('[data-i18n]').forEach(el => {
-        const key = el.getAttribute('data-i18n');
-        if (t[key]) {
-          el.innerHTML = t[key];
+      ul {
+        margin-bottom: 16px;
+        padding-left: 24px;
+      }
+
+      li {
+        margin-bottom: 8px;
+      }
+
+      strong {
+        color: var(--text);
+      }
+
+      a {
+        color: var(--primary);
+        text-decoration: none;
+      }
+
+      a:hover {
+        text-decoration: underline;
+      }
+
+      .highlight-box {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-left: 4px solid var(--primary);
+        padding: 20px 24px;
+        border-radius: 8px;
+        margin: 24px 0;
+      }
+
+      .highlight-box p {
+        margin: 0;
+        font-weight: 500;
+      }
+
+      footer {
+        padding: 40px 0;
+        border-top: 1px solid var(--border);
+        text-align: center;
+      }
+
+      .footer-links {
+        display: flex;
+        justify-content: center;
+        gap: 32px;
+        margin-bottom: 24px;
+        flex-wrap: wrap;
+      }
+
+      .footer-links a {
+        color: var(--text-muted);
+        text-decoration: none;
+        font-size: 0.95rem;
+      }
+
+      .footer-links a:hover {
+        color: var(--primary);
+      }
+
+      .copyright {
+        color: var(--text-muted);
+        font-size: 0.875rem;
+      }
+
+      @media (max-width: 640px) {
+        .nav-links a:not(.lang-selector) {
+          display: none;
         }
-      });
-      document.getElementById('current-lang').textContent = langNames[lang];
-      document.getElementById('html-root').setAttribute('lang', lang);
-      document.querySelectorAll('.lang-option').forEach(btn => {
-        btn.classList.toggle('active', btn.getAttribute('data-lang') === lang);
-      });
-    }
 
-    function setLanguage(lang) {
-      currentLang = lang;
-      localStorage.setItem('veloq-lang', lang);
-      applyTranslations(lang);
-      document.getElementById('lang-dropdown').classList.remove('open');
-    }
+        h1 {
+          font-size: 2rem;
+        }
 
-    document.addEventListener('DOMContentLoaded', () => {
-      applyTranslations(currentLang);
+        main {
+          padding: 32px 0 48px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="header-inner">
+        <a href="https://veloq.fit" class="logo">
+          <img src="../icon.png" alt="Veloq" />
+          <span>Veloq</span>
+        </a>
+        <nav class="nav-links">
+          <a href="https://veloq.fit" data-i18n="nav.home">Home</a>
+          <a href="https://github.com/evanjt/veloq" target="_blank">GitHub</a>
+          <div class="lang-selector">
+            <button class="lang-btn" id="lang-btn">
+              <span id="current-lang">EN</span>
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            </button>
+            <div class="lang-dropdown" id="lang-dropdown">
+              <button class="lang-option" data-lang="en">English</button>
+              <button class="lang-option" data-lang="es">Español</button>
+              <button class="lang-option" data-lang="fr">Français</button>
+            </div>
+          </div>
+        </nav>
+      </div>
+    </header>
 
-      document.getElementById('lang-btn').addEventListener('click', (e) => {
-        e.stopPropagation();
-        document.getElementById('lang-dropdown').classList.toggle('open');
-      });
+    <main>
+      <div class="container">
+        <h1 data-i18n="title">Privacy Policy</h1>
+        <p class="last-updated" data-i18n="lastUpdated">
+          Last updated: 31 December 2025
+        </p>
 
-      document.querySelectorAll('.lang-option').forEach(btn => {
-        btn.addEventListener('click', () => {
-          setLanguage(btn.getAttribute('data-lang'));
+        <div class="highlight-box">
+          <p data-i18n="overview">
+            Veloq operates entirely on your device. We do not run servers,
+            collect data, or process your personal information.
+          </p>
+        </div>
+
+        <h2 data-i18n="dataHandling.title">Data Handling</h2>
+        <ul>
+          <li data-i18n="dataHandling.item1">
+            All data is fetched directly from Intervals.icu using your
+            credentials
+          </li>
+          <li data-i18n="dataHandling.item2">
+            Data is cached locally for offline access
+          </li>
+          <li data-i18n="dataHandling.item3">
+            No data is sent anywhere except Intervals.icu and map tile providers
+          </li>
+        </ul>
+
+        <h2 data-i18n="localStorage.title">Local Storage</h2>
+        <p data-i18n="localStorage.intro">Stored on your device only:</p>
+        <ul>
+          <li data-i18n="localStorage.item1">
+            <strong>API credentials</strong> - Encrypted using platform secure
+            storage
+          </li>
+          <li data-i18n="localStorage.item2">
+            <strong>Activity data</strong> - Cached for offline use
+          </li>
+          <li data-i18n="localStorage.item3">
+            <strong>Preferences</strong> - Theme, map settings
+          </li>
+        </ul>
+
+        <h2 data-i18n="thirdParty.title">Third-Party Services</h2>
+        <ul>
+          <li data-i18n="thirdParty.item1">
+            <strong>Intervals.icu</strong> - Your fitness data source (<a
+              href="https://intervals.icu/privacy"
+              target="_blank"
+              >privacy policy</a
+            >)
+          </li>
+          <li data-i18n="thirdParty.item2">
+            <strong>Map tiles</strong> - OpenStreetMap, Carto, Stadia (standard
+            web requests)
+          </li>
+        </ul>
+        <p data-i18n="thirdParty.noTracking">
+          No analytics, ads, crash reporting, or tracking SDKs.
+        </p>
+
+        <h2 data-i18n="disclaimer.title">Disclaimer</h2>
+        <p data-i18n="disclaimer.content">
+          Veloq is an independent, open-source project and is
+          <strong
+            >not affiliated with, endorsed by, or officially connected to
+            Intervals.icu</strong
+          >
+          in any way. For information about how Intervals.icu handles your data,
+          please refer to their
+          <a href="https://intervals.icu/privacy" target="_blank"
+            >privacy policy</a
+          >.
+        </p>
+
+        <h2 data-i18n="dataSharing.title">Data Sharing</h2>
+        <p data-i18n="dataSharing.content">
+          None. The developer has no access to your data.
+        </p>
+
+        <h2 data-i18n="security.title">Security</h2>
+        <ul>
+          <li data-i18n="security.item1">Encrypted credential storage</li>
+          <li data-i18n="security.item2">HTTPS for all network requests</li>
+          <li data-i18n="security.item3">No background telemetry</li>
+        </ul>
+
+        <h2 data-i18n="children.title">Children's Privacy</h2>
+        <p data-i18n="children.content">
+          Not intended for users under 13. No data is collected from any user.
+        </p>
+
+        <h2 data-i18n="rights.title">Your Rights</h2>
+        <p data-i18n="rights.content">
+          Delete all local data by uninstalling the app or clearing app data in
+          device settings.
+        </p>
+
+        <h2 data-i18n="changes.title">Changes</h2>
+        <p data-i18n="changes.content">
+          This policy may be updated. Check the "Last updated" date above.
+        </p>
+
+        <h2 data-i18n="contact.title">Contact</h2>
+        <p data-i18n="contact.content">
+          <a href="https://github.com/evanjt/veloq/issues">GitHub Issues</a> or
+          <a href="mailto:developer@veloq.fit">developer@veloq.fit</a>
+        </p>
+      </div>
+    </main>
+
+    <footer>
+      <div class="container">
+        <div class="footer-links">
+          <a href="https://veloq.fit" data-i18n="nav.home">Home</a>
+          <a href="https://github.com/evanjt/veloq" target="_blank">GitHub</a>
+          <a
+            href="https://github.com/evanjt/veloq/releases"
+            target="_blank"
+            data-i18n="footer.releases"
+            >Releases</a
+          >
+          <a href="mailto:developer@veloq.fit" data-i18n="footer.contact"
+            >Contact</a
+          >
+        </div>
+        <p class="copyright">&copy; 2025 Evan Thomas. Apache License 2.0.</p>
+      </div>
+    </footer>
+
+    <script>
+      const translations = {
+        en: {
+          "nav.home": "Home",
+          "footer.releases": "Releases",
+          "footer.contact": "Contact",
+          title: "Privacy Policy",
+          lastUpdated: "Last updated: 31 December 2025",
+          overview:
+            "Veloq operates entirely on your device. We do not run servers, collect data, or process your personal information.",
+          "dataHandling.title": "Data Handling",
+          "dataHandling.item1":
+            "All data is fetched directly from Intervals.icu using your credentials",
+          "dataHandling.item2": "Data is cached locally for offline access",
+          "dataHandling.item3":
+            "No data is sent anywhere except Intervals.icu and map tile providers",
+          "localStorage.title": "Local Storage",
+          "localStorage.intro": "Stored on your device only:",
+          "localStorage.item1":
+            "<strong>API credentials</strong> - Encrypted using platform secure storage",
+          "localStorage.item2":
+            "<strong>Activity data</strong> - Cached for offline use",
+          "localStorage.item3":
+            "<strong>Preferences</strong> - Theme, map settings",
+          "thirdParty.title": "Third-Party Services",
+          "thirdParty.item1":
+            '<strong>Intervals.icu</strong> - Your fitness data source (<a href="https://intervals.icu/privacy" target="_blank">privacy policy</a>)',
+          "thirdParty.item2":
+            "<strong>Map tiles</strong> - OpenStreetMap, Carto, Stadia (standard web requests)",
+          "thirdParty.noTracking":
+            "No analytics, ads, crash reporting, or tracking SDKs.",
+          "disclaimer.title": "Disclaimer",
+          "disclaimer.content":
+            'Veloq is an independent, open-source project and is <strong>not affiliated with, endorsed by, or officially connected to Intervals.icu</strong> in any way. For information about how Intervals.icu handles your data, please refer to their <a href="https://intervals.icu/privacy" target="_blank">privacy policy</a>.',
+          "dataSharing.title": "Data Sharing",
+          "dataSharing.content":
+            "None. The developer has no access to your data.",
+          "security.title": "Security",
+          "security.item1": "Encrypted credential storage",
+          "security.item2": "HTTPS for all network requests",
+          "security.item3": "No background telemetry",
+          "children.title": "Children's Privacy",
+          "children.content":
+            "Not intended for users under 13. No data is collected from any user.",
+          "rights.title": "Your Rights",
+          "rights.content":
+            "Delete all local data by uninstalling the app or clearing app data in device settings.",
+          "changes.title": "Changes",
+          "changes.content":
+            'This policy may be updated. Check the "Last updated" date above.',
+          "contact.title": "Contact",
+          "contact.content":
+            '<a href="https://github.com/evanjt/veloq/issues">GitHub Issues</a> or <a href="mailto:developer@veloq.fit">developer@veloq.fit</a>',
+        },
+        es: {
+          "nav.home": "Inicio",
+          "footer.releases": "Versiones",
+          "footer.contact": "Contacto",
+          title: "Política de Privacidad",
+          lastUpdated: "Última actualización: 31 de diciembre de 2025",
+          overview:
+            "Veloq opera completamente en tu dispositivo. No ejecutamos servidores, no recopilamos datos ni procesamos tu información personal.",
+          "dataHandling.title": "Manejo de Datos",
+          "dataHandling.item1":
+            "Todos los datos se obtienen directamente de Intervals.icu usando tus credenciales",
+          "dataHandling.item2":
+            "Los datos se almacenan localmente para acceso sin conexión",
+          "dataHandling.item3":
+            "No se envían datos a ningún lugar excepto Intervals.icu y proveedores de mapas",
+          "localStorage.title": "Almacenamiento Local",
+          "localStorage.intro": "Almacenado solo en tu dispositivo:",
+          "localStorage.item1":
+            "<strong>Credenciales API</strong> - Encriptadas usando almacenamiento seguro de la plataforma",
+          "localStorage.item2":
+            "<strong>Datos de actividad</strong> - En caché para uso sin conexión",
+          "localStorage.item3":
+            "<strong>Preferencias</strong> - Tema, configuración del mapa",
+          "thirdParty.title": "Servicios de Terceros",
+          "thirdParty.item1":
+            '<strong>Intervals.icu</strong> - Tu fuente de datos de fitness (<a href="https://intervals.icu/privacy" target="_blank">política de privacidad</a>)',
+          "thirdParty.item2":
+            "<strong>Mapas</strong> - OpenStreetMap, Carto, Stadia (solicitudes web estándar)",
+          "thirdParty.noTracking":
+            "Sin análisis, anuncios, reportes de errores o SDKs de seguimiento.",
+          "disclaimer.title": "Aviso Legal",
+          "disclaimer.content":
+            'Veloq es un proyecto independiente de código abierto y <strong>no está afiliado, respaldado ni conectado oficialmente con Intervals.icu</strong> de ninguna manera. Para obtener información sobre cómo Intervals.icu maneja tus datos, consulta su <a href="https://intervals.icu/privacy" target="_blank">política de privacidad</a>.',
+          "dataSharing.title": "Compartir Datos",
+          "dataSharing.content":
+            "Ninguno. El desarrollador no tiene acceso a tus datos.",
+          "security.title": "Seguridad",
+          "security.item1": "Almacenamiento de credenciales encriptado",
+          "security.item2": "HTTPS para todas las solicitudes de red",
+          "security.item3": "Sin telemetría en segundo plano",
+          "children.title": "Privacidad de Menores",
+          "children.content":
+            "No está destinado a usuarios menores de 13 años. No se recopilan datos de ningún usuario.",
+          "rights.title": "Tus Derechos",
+          "rights.content":
+            "Elimina todos los datos locales desinstalando la aplicación o borrando los datos de la aplicación en la configuración del dispositivo.",
+          "changes.title": "Cambios",
+          "changes.content":
+            'Esta política puede actualizarse. Consulta la fecha de "Última actualización" arriba.',
+          "contact.title": "Contacto",
+          "contact.content":
+            '<a href="https://github.com/evanjt/veloq/issues">GitHub Issues</a> o <a href="mailto:developer@veloq.fit">developer@veloq.fit</a>',
+        },
+        fr: {
+          "nav.home": "Accueil",
+          "footer.releases": "Versions",
+          "footer.contact": "Contact",
+          title: "Politique de Confidentialité",
+          lastUpdated: "Dernière mise à jour : 31 décembre 2025",
+          overview:
+            "Veloq fonctionne entièrement sur votre appareil. Nous n'exploitons pas de serveurs, ne collectons pas de données et ne traitons pas vos informations personnelles.",
+          "dataHandling.title": "Gestion des Données",
+          "dataHandling.item1":
+            "Toutes les données sont récupérées directement depuis Intervals.icu en utilisant vos identifiants",
+          "dataHandling.item2":
+            "Les données sont mises en cache localement pour un accès hors ligne",
+          "dataHandling.item3":
+            "Aucune donnée n'est envoyée ailleurs qu'à Intervals.icu et aux fournisseurs de tuiles cartographiques",
+          "localStorage.title": "Stockage Local",
+          "localStorage.intro": "Stocké uniquement sur votre appareil :",
+          "localStorage.item1":
+            "<strong>Identifiants API</strong> - Chiffrés via le stockage sécurisé de la plateforme",
+          "localStorage.item2":
+            "<strong>Données d'activité</strong> - En cache pour utilisation hors ligne",
+          "localStorage.item3":
+            "<strong>Préférences</strong> - Thème, paramètres de carte",
+          "thirdParty.title": "Services Tiers",
+          "thirdParty.item1":
+            '<strong>Intervals.icu</strong> - Votre source de données fitness (<a href="https://intervals.icu/privacy" target="_blank">politique de confidentialité</a>)',
+          "thirdParty.item2":
+            "<strong>Tuiles cartographiques</strong> - OpenStreetMap, Carto, Stadia (requêtes web standard)",
+          "thirdParty.noTracking":
+            "Pas d'analytique, de publicités, de rapports d'erreurs ou de SDKs de suivi.",
+          "disclaimer.title": "Avertissement",
+          "disclaimer.content":
+            'Veloq est un projet open-source indépendant et n\'est <strong>pas affilié, approuvé ou officiellement connecté à Intervals.icu</strong> de quelque manière que ce soit. Pour plus d\'informations sur la façon dont Intervals.icu gère vos données, veuillez consulter leur <a href="https://intervals.icu/privacy" target="_blank">politique de confidentialité</a>.',
+          "dataSharing.title": "Partage de Données",
+          "dataSharing.content":
+            "Aucun. Le développeur n'a pas accès à vos données.",
+          "security.title": "Sécurité",
+          "security.item1": "Stockage des identifiants chiffré",
+          "security.item2": "HTTPS pour toutes les requêtes réseau",
+          "security.item3": "Pas de télémétrie en arrière-plan",
+          "children.title": "Confidentialité des Enfants",
+          "children.content":
+            "Non destiné aux utilisateurs de moins de 13 ans. Aucune donnée n'est collectée auprès d'aucun utilisateur.",
+          "rights.title": "Vos Droits",
+          "rights.content":
+            "Supprimez toutes les données locales en désinstallant l'application ou en effaçant les données de l'application dans les paramètres de l'appareil.",
+          "changes.title": "Modifications",
+          "changes.content":
+            'Cette politique peut être mise à jour. Vérifiez la date de "Dernière mise à jour" ci-dessus.',
+          "contact.title": "Contact",
+          "contact.content":
+            '<a href="https://github.com/evanjt/veloq/issues">GitHub Issues</a> ou <a href="mailto:developer@veloq.fit">developer@veloq.fit</a>',
+        },
+      };
+
+      const langNames = { en: "EN", es: "ES", fr: "FR" };
+
+      function getInitialLanguage() {
+        const stored = localStorage.getItem("veloq-lang");
+        if (stored && translations[stored]) return stored;
+        const browserLang = navigator.language.split("-")[0];
+        if (translations[browserLang]) return browserLang;
+        return "en";
+      }
+
+      let currentLang = getInitialLanguage();
+
+      function applyTranslations(lang) {
+        const t = translations[lang];
+        document.querySelectorAll("[data-i18n]").forEach((el) => {
+          const key = el.getAttribute("data-i18n");
+          if (t[key]) {
+            el.innerHTML = t[key];
+          }
+        });
+        document.getElementById("current-lang").textContent = langNames[lang];
+        document.getElementById("html-root").setAttribute("lang", lang);
+        document.querySelectorAll(".lang-option").forEach((btn) => {
+          btn.classList.toggle(
+            "active",
+            btn.getAttribute("data-lang") === lang,
+          );
+        });
+      }
+
+      function setLanguage(lang) {
+        currentLang = lang;
+        localStorage.setItem("veloq-lang", lang);
+        applyTranslations(lang);
+        document.getElementById("lang-dropdown").classList.remove("open");
+      }
+
+      document.addEventListener("DOMContentLoaded", () => {
+        applyTranslations(currentLang);
+
+        document.getElementById("lang-btn").addEventListener("click", (e) => {
+          e.stopPropagation();
+          document.getElementById("lang-dropdown").classList.toggle("open");
+        });
+
+        document.querySelectorAll(".lang-option").forEach((btn) => {
+          btn.addEventListener("click", () => {
+            setLanguage(btn.getAttribute("data-lang"));
+          });
+        });
+
+        document.addEventListener("click", () => {
+          document.getElementById("lang-dropdown").classList.remove("open");
         });
       });
-
-      document.addEventListener('click', () => {
-        document.getElementById('lang-dropdown').classList.remove('open');
-      });
-    });
-  </script>
-</body>
+    </script>
+  </body>
 </html>

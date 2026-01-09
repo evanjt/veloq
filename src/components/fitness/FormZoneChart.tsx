@@ -5,11 +5,25 @@ import { useTranslation } from 'react-i18next';
 import { CartesianChart, Line } from 'victory-native';
 import { Line as SkiaLine, Rect, vec } from '@shopify/react-native-skia';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import { SharedValue, useSharedValue, useAnimatedReaction, runOnJS, useDerivedValue, useAnimatedStyle } from 'react-native-reanimated';
+import {
+  SharedValue,
+  useSharedValue,
+  useAnimatedReaction,
+  runOnJS,
+  useDerivedValue,
+  useAnimatedStyle,
+} from 'react-native-reanimated';
 import Animated from 'react-native-reanimated';
 import { colors, darkColors, opacity, typography, spacing, layout } from '@/theme';
-import { calculateTSB, getFormZone, FORM_ZONE_COLORS, FORM_ZONE_LABELS, FORM_ZONE_BOUNDARIES, type FormZone } from '@/hooks';
-import { sortByDateId } from '@/lib';
+import {
+  calculateTSB,
+  getFormZone,
+  FORM_ZONE_COLORS,
+  FORM_ZONE_LABELS,
+  FORM_ZONE_BOUNDARIES,
+  type FormZone,
+} from '@/hooks';
+import { sortByDateId, formatShortDate } from '@/lib';
 import type { WellnessData } from '@/types';
 
 interface FormZoneChartProps {
@@ -18,7 +32,10 @@ interface FormZoneChartProps {
   selectedDate?: string | null;
   /** Shared value for instant crosshair sync between charts */
   sharedSelectedIdx?: SharedValue<number>;
-  onDateSelect?: (date: string | null, values: { fitness: number; fatigue: number; form: number } | null) => void;
+  onDateSelect?: (
+    date: string | null,
+    values: { fitness: number; fatigue: number; form: number } | null
+  ) => void;
   onInteractionChange?: (isInteracting: boolean) => void;
 }
 
@@ -31,11 +48,17 @@ interface ChartDataPoint {
 }
 
 function formatDate(dateStr: string): string {
-  const date = new Date(dateStr);
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  return formatShortDate(dateStr);
 }
 
-export const FormZoneChart = React.memo(function FormZoneChart({ data, height = 100, selectedDate, sharedSelectedIdx, onDateSelect, onInteractionChange }: FormZoneChartProps) {
+export const FormZoneChart = React.memo(function FormZoneChart({
+  data,
+  height = 100,
+  selectedDate,
+  sharedSelectedIdx,
+  onDateSelect,
+  onInteractionChange,
+}: FormZoneChartProps) {
   const { t } = useTranslation();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
@@ -80,7 +103,7 @@ export const FormZoneChart = React.memo(function FormZoneChart({ data, height = 
   // Sync with external selectedDate (from other chart)
   React.useEffect(() => {
     if (selectedDate && chartData.length > 0 && !isActive) {
-      const idx = chartData.findIndex(d => d.date === selectedDate);
+      const idx = chartData.findIndex((d) => d.date === selectedDate);
       if (idx >= 0) {
         setSelectedData(chartData[idx]);
         externalSelectedIdx.value = idx;
@@ -223,12 +246,15 @@ export const FormZoneChart = React.memo(function FormZoneChart({ data, height = 
       <View style={styles.header}>
         <View style={styles.dateContainer}>
           <Text style={[styles.dateText, isDark && styles.textLight]}>
-            {(isActive && selectedData) || selectedDate ? formatDate(selectedData?.date || selectedDate || '') : t('time.current')}
+            {(isActive && selectedData) || selectedDate
+              ? formatDate(selectedData?.date || selectedDate || '')
+              : t('time.current')}
           </Text>
         </View>
         <View style={styles.valuesRow}>
           <Text style={[styles.formValue, { color: FORM_ZONE_COLORS[formZone] }]}>
-            {displayData.form > 0 ? '+' : ''}{displayData.form}
+            {displayData.form > 0 ? '+' : ''}
+            {displayData.form}
           </Text>
           <Text style={[styles.zoneText, { color: FORM_ZONE_COLORS[formZone] }]}>
             {FORM_ZONE_LABELS[formZone]}
@@ -247,14 +273,21 @@ export const FormZoneChart = React.memo(function FormZoneChart({ data, height = 
           >
             {({ points, chartBounds }) => {
               // Sync chartBounds and point coordinates for UI thread crosshair
-              if (chartBounds.left !== chartBoundsShared.value.left ||
-                  chartBounds.right !== chartBoundsShared.value.right) {
-                chartBoundsShared.value = { left: chartBounds.left, right: chartBounds.right };
+              if (
+                chartBounds.left !== chartBoundsShared.value.left ||
+                chartBounds.right !== chartBoundsShared.value.right
+              ) {
+                chartBoundsShared.value = {
+                  left: chartBounds.left,
+                  right: chartBounds.right,
+                };
               }
               // Sync actual point x-coordinates for accurate crosshair positioning
-              const newCoords = points.form.map(p => p.x);
-              if (newCoords.length !== pointXCoordsShared.value.length ||
-                  newCoords[0] !== pointXCoordsShared.value[0]) {
+              const newCoords = points.form.map((p) => p.x);
+              if (
+                newCoords.length !== pointXCoordsShared.value.length ||
+                newCoords[0] !== pointXCoordsShared.value[0]
+              ) {
                 pointXCoordsShared.value = newCoords;
               }
 
@@ -330,9 +363,13 @@ export const FormZoneChart = React.memo(function FormZoneChart({ data, height = 
 
           {/* Y-axis labels */}
           <View style={styles.yAxisOverlay} pointerEvents="none">
-            <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>{Math.round(maxForm)}</Text>
+            <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
+              {Math.round(maxForm)}
+            </Text>
             <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>0</Text>
-            <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>{Math.round(minForm)}</Text>
+            <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
+              {Math.round(minForm)}
+            </Text>
           </View>
         </View>
       </GestureDetector>
@@ -342,7 +379,9 @@ export const FormZoneChart = React.memo(function FormZoneChart({ data, height = 
         {(['transition', 'fresh', 'grey', 'optimal', 'highRisk'] as FormZone[]).map((zone) => (
           <View key={zone} style={styles.zoneLegendItem}>
             <View style={[styles.zoneDot, { backgroundColor: FORM_ZONE_COLORS[zone] }]} />
-            <Text style={[styles.zoneLabel, isDark && styles.textDark]}>{FORM_ZONE_LABELS[zone]}</Text>
+            <Text style={[styles.zoneLabel, isDark && styles.textDark]}>
+              {FORM_ZONE_LABELS[zone]}
+            </Text>
           </View>
         ))}
       </View>

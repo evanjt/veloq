@@ -7,6 +7,34 @@
 import { useMemo } from 'react';
 import { useEngineSections } from './useRouteEngine';
 import type { FrequentSection } from '@/types';
+import type { RoutePoint } from '@/types';
+
+/**
+ * Type guard to validate Rust engine section data at runtime.
+ * Prevents crashes when native module returns malformed data.
+ *
+ * @param obj - Unknown object from Rust engine
+ * @returns True if object matches FrequentSection structure
+ */
+function isFrequentSection(obj: unknown): obj is FrequentSection {
+  if (typeof obj !== 'object' || obj === null) {
+    return false;
+  }
+
+  const section = obj as Record<string, unknown>;
+
+  // Required fields with type checks
+  return (
+    typeof section.id === 'string' &&
+    typeof section.sportType === 'string' &&
+    Array.isArray(section.polyline) &&
+    typeof section.visitCount === 'number' &&
+    typeof section.distanceMeters === 'number' &&
+    Array.isArray(section.activityIds) &&
+    Array.isArray(section.routeIds)
+    // Optional fields are not validated (they can be undefined)
+  );
+}
 
 export interface UseFrequentSectionsOptions {
   /** Filter by sport type (e.g., "Run", "Ride") */
@@ -31,11 +59,15 @@ export function useFrequentSections(
 ): UseFrequentSectionsResult {
   const { sportType, minVisits = 3, sortBy = 'visits' } = options;
 
-  const { sections: rawSections, totalCount } = useEngineSections({ sportType, minVisits: 1 });
+  const { sections: rawSections, totalCount } = useEngineSections({
+    sportType,
+    minVisits: 1,
+  });
   const isReady = true;
 
   const sections = useMemo(() => {
-    let filtered = rawSections.map(s => s as unknown as FrequentSection);
+    // Filter and validate in one pass - removes malformed data
+    let filtered = rawSections.filter(isFrequentSection);
 
     // Filter by sport type (already done by useEngineSections, but double-check)
     if (sportType) {
@@ -54,7 +86,7 @@ export function useFrequentSections(
         filtered.sort((a, b) => b.distanceMeters - a.distanceMeters);
         break;
       case 'name':
-        filtered.sort((a, b) => (a.id).localeCompare(b.id));
+        filtered.sort((a, b) => a.id.localeCompare(b.id));
         break;
     }
 

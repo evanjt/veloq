@@ -65,10 +65,7 @@ function ChartErrorFallback({ height, label, onRetry }: FallbackProps) {
       <Text style={[styles.errorText, isDark && styles.errorTextDark]}>
         {label ? `Unable to display ${label}` : 'Unable to display chart'}
       </Text>
-      <Text
-        style={[styles.retryText, isDark && styles.retryTextDark]}
-        onPress={onRetry}
-      >
+      <Text style={[styles.retryText, isDark && styles.retryTextDark]} onPress={onRetry}>
         Tap to retry
       </Text>
     </View>
