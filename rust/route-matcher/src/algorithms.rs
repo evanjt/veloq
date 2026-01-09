@@ -39,27 +39,15 @@
 // Core Types (re-exported from lib)
 // =============================================================================
 
-pub use crate::{
-    GpsPoint,
-    Bounds,
-    RouteSignature,
-    MatchResult,
-    MatchConfig,
-    RouteGroup,
-};
+pub use crate::{Bounds, GpsPoint, MatchConfig, MatchResult, RouteGroup, RouteSignature};
 
 // =============================================================================
 // Geographic Utilities
 // =============================================================================
 
 pub use crate::geo_utils::{
-    haversine_distance,
-    polyline_length,
-    meters_to_degrees,
-    compute_bounds,
-    compute_bounds_tuple,
-    bounds_overlap,
-    compute_center,
+    bounds_overlap, compute_bounds, compute_bounds_tuple, compute_center, haversine_distance,
+    meters_to_degrees, polyline_length,
 };
 
 // =============================================================================
@@ -120,37 +108,37 @@ pub use crate::group_incremental;
 // Section Detection
 // =============================================================================
 
+/// Main section detection function
+pub use crate::sections::detect_sections_from_tracks;
 /// Detected frequently-traveled section
 pub use crate::sections::FrequentSection;
 /// Configuration for section detection
 pub use crate::sections::SectionConfig;
 /// Activity's portion of a section
 pub use crate::sections::SectionPortion;
-/// Main section detection function
-pub use crate::sections::detect_sections_from_tracks;
 
 // =============================================================================
 // Heatmap Generation
 // =============================================================================
 
-/// Heatmap configuration
-pub use crate::heatmap::HeatmapConfig;
-/// Heatmap bounds
-pub use crate::heatmap::HeatmapBounds;
-/// Single heatmap cell
-pub use crate::heatmap::HeatmapCell;
-/// Complete heatmap result
-pub use crate::heatmap::HeatmapResult;
-/// Cell query result
-pub use crate::heatmap::CellQueryResult;
-/// Route reference in a cell
-pub use crate::heatmap::RouteRef;
-/// Activity metadata for heatmap
-pub use crate::heatmap::ActivityHeatmapData;
 /// Generate heatmap from signatures
 pub use crate::heatmap::generate_heatmap;
 /// Query cell at location
 pub use crate::heatmap::query_heatmap_cell;
+/// Activity metadata for heatmap
+pub use crate::heatmap::ActivityHeatmapData;
+/// Cell query result
+pub use crate::heatmap::CellQueryResult;
+/// Heatmap bounds
+pub use crate::heatmap::HeatmapBounds;
+/// Single heatmap cell
+pub use crate::heatmap::HeatmapCell;
+/// Heatmap configuration
+pub use crate::heatmap::HeatmapConfig;
+/// Complete heatmap result
+pub use crate::heatmap::HeatmapResult;
+/// Route reference in a cell
+pub use crate::heatmap::RouteRef;
 
 // =============================================================================
 // Line Simplification
@@ -180,7 +168,7 @@ pub use crate::heatmap::query_heatmap_cell;
 /// let simplified = douglas_peucker(&track, 0.0001);
 /// ```
 pub fn douglas_peucker(points: &[crate::GpsPoint], tolerance: f64) -> Vec<crate::GpsPoint> {
-    use geo::{Coord, LineString, algorithm::simplify::Simplify};
+    use geo::{algorithm::simplify::Simplify, Coord, LineString};
 
     if points.len() < 2 {
         return points.to_vec();
@@ -188,7 +176,10 @@ pub fn douglas_peucker(points: &[crate::GpsPoint], tolerance: f64) -> Vec<crate:
 
     let coords: Vec<Coord<f64>> = points
         .iter()
-        .map(|p| Coord { x: p.longitude, y: p.latitude })
+        .map(|p| Coord {
+            x: p.longitude,
+            y: p.latitude,
+        })
         .collect();
 
     let line = LineString::new(coords);

@@ -9,9 +9,9 @@
 //! 3. Compute weighted centroid of nearby points
 //! 4. Track observation density for confidence scoring
 
+use super::rtree::{build_rtree, IndexedPoint};
 use crate::GpsPoint;
-use super::rtree::{IndexedPoint, build_rtree};
-use rstar::{RTree, PointDistance};
+use rstar::{PointDistance, RTree};
 
 /// Result of consensus computation including confidence metrics
 pub struct ConsensusResult {
@@ -45,10 +45,8 @@ pub fn compute_consensus_polyline(
     }
 
     // Build R-trees for all traces for efficient spatial queries
-    let trace_trees: Vec<RTree<IndexedPoint>> = all_traces
-        .iter()
-        .map(|trace| build_rtree(trace))
-        .collect();
+    let trace_trees: Vec<RTree<IndexedPoint>> =
+        all_traces.iter().map(|trace| build_rtree(trace)).collect();
 
     let threshold_deg = proximity_threshold / 111_000.0;
     let threshold_deg_sq = threshold_deg * threshold_deg;
@@ -103,7 +101,8 @@ pub fn compute_consensus_polyline(
 
             // Track spread (average distance of observations from consensus)
             if !nearby_distances.is_empty() {
-                let avg_dist: f64 = nearby_distances.iter().sum::<f64>() / nearby_distances.len() as f64;
+                let avg_dist: f64 =
+                    nearby_distances.iter().sum::<f64>() / nearby_distances.len() as f64;
                 total_spread += avg_dist;
                 total_point_observations += nearby_distances.len() as u32;
             }

@@ -26,49 +26,58 @@ pub enum RouteMatchError {
         minimum_required: f64,
     },
     /// Section detection failed
-    SectionDetectionFailed {
-        message: String,
-    },
+    SectionDetectionFailed { message: String },
     /// Overlap detection failed
-    OverlapDetectionFailed {
-        message: String,
-    },
+    OverlapDetectionFailed { message: String },
     /// Persistence/storage error
-    PersistenceError {
-        message: String,
-    },
+    PersistenceError { message: String },
     /// HTTP/API error
     HttpError {
         message: String,
         status_code: Option<u16>,
     },
     /// Configuration error
-    ConfigError {
-        message: String,
-    },
+    ConfigError { message: String },
     /// R-tree/spatial index error
-    SpatialIndexError {
-        message: String,
-    },
+    SpatialIndexError { message: String },
     /// Generic internal error
-    Internal {
-        message: String,
-    },
+    Internal { message: String },
 }
 
 impl fmt::Display for RouteMatchError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            RouteMatchError::InsufficientPoints { activity_id, point_count, minimum_required } => {
-                write!(f, "Route '{}' has {} points, minimum {} required",
-                       activity_id, point_count, minimum_required)
+            RouteMatchError::InsufficientPoints {
+                activity_id,
+                point_count,
+                minimum_required,
+            } => {
+                write!(
+                    f,
+                    "Route '{}' has {} points, minimum {} required",
+                    activity_id, point_count, minimum_required
+                )
             }
-            RouteMatchError::InvalidCoordinates { activity_id, message } => {
-                write!(f, "Route '{}' has invalid coordinates: {}", activity_id, message)
+            RouteMatchError::InvalidCoordinates {
+                activity_id,
+                message,
+            } => {
+                write!(
+                    f,
+                    "Route '{}' has invalid coordinates: {}",
+                    activity_id, message
+                )
             }
-            RouteMatchError::RouteTooShort { activity_id, distance, minimum_required } => {
-                write!(f, "Route '{}' is {:.0}m, minimum {:.0}m required",
-                       activity_id, distance, minimum_required)
+            RouteMatchError::RouteTooShort {
+                activity_id,
+                distance,
+                minimum_required,
+            } => {
+                write!(
+                    f,
+                    "Route '{}' is {:.0}m, minimum {:.0}m required",
+                    activity_id, distance, minimum_required
+                )
             }
             RouteMatchError::SectionDetectionFailed { message } => {
                 write!(f, "Section detection failed: {}", message)
@@ -79,7 +88,10 @@ impl fmt::Display for RouteMatchError {
             RouteMatchError::PersistenceError { message } => {
                 write!(f, "Persistence error: {}", message)
             }
-            RouteMatchError::HttpError { message, status_code } => {
+            RouteMatchError::HttpError {
+                message,
+                status_code,
+            } => {
                 if let Some(code) = status_code {
                     write!(f, "HTTP error ({}): {}", code, message)
                 } else {
@@ -107,14 +119,24 @@ pub type Result<T> = std::result::Result<T, RouteMatchError>;
 /// Extension trait for converting Option to RouteMatchError.
 pub trait OptionExt<T> {
     /// Convert Option to Result with insufficient points error.
-    fn ok_or_insufficient_points(self, activity_id: &str, point_count: usize, minimum: usize) -> Result<T>;
+    fn ok_or_insufficient_points(
+        self,
+        activity_id: &str,
+        point_count: usize,
+        minimum: usize,
+    ) -> Result<T>;
 
     /// Convert Option to Result with generic internal error.
     fn ok_or_internal(self, message: &str) -> Result<T>;
 }
 
 impl<T> OptionExt<T> for Option<T> {
-    fn ok_or_insufficient_points(self, activity_id: &str, point_count: usize, minimum: usize) -> Result<T> {
+    fn ok_or_insufficient_points(
+        self,
+        activity_id: &str,
+        point_count: usize,
+        minimum: usize,
+    ) -> Result<T> {
         self.ok_or_else(|| RouteMatchError::InsufficientPoints {
             activity_id: activity_id.to_string(),
             point_count,
@@ -148,6 +170,9 @@ mod tests {
     fn test_option_ext() {
         let none: Option<i32> = None;
         let result = none.ok_or_insufficient_points("test", 0, 2);
-        assert!(matches!(result, Err(RouteMatchError::InsufficientPoints { .. })));
+        assert!(matches!(
+            result,
+            Err(RouteMatchError::InsufficientPoints { .. })
+        ));
     }
 }

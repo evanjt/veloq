@@ -31,10 +31,7 @@ describe('Route Performance Optimization', () => {
      */
     it('uses Rust engine for performance calculations', () => {
       // The hook should call the Rust engine's getRoutePerformances method
-      const hookImports = [
-        'useRoutePerformances',
-        'routeEngine.getRoutePerformances',
-      ];
+      const hookImports = ['useRoutePerformances', 'routeEngine.getRoutePerformances'];
 
       // Verify the hook is being used
       expect(hookImports.length).toBeGreaterThan(0);
@@ -119,9 +116,10 @@ describe('Route Performance Optimization', () => {
 
     it('handles empty performance list', () => {
       const performances: any[] = [];
-      const bestPerformance = performances.length > 0
-        ? performances.reduce((best, current) => (current.speed > best.speed ? current : best))
-        : null;
+      const bestPerformance =
+        performances.length > 0
+          ? performances.reduce((best, current) => (current.speed > best.speed ? current : best))
+          : null;
 
       expect(bestPerformance).toBeNull();
     });
@@ -198,8 +196,8 @@ describe('Route Performance Optimization', () => {
       expect(sorted[1].speed).toBe(9.0);
 
       // They should both be ranked #1 or #1/#2
-      const rank1 = sorted.findIndex(p => p.activityId === 'act_1') + 1;
-      const rank2 = sorted.findIndex(p => p.activityId === 'act_2') + 1;
+      const rank1 = sorted.findIndex((p) => p.activityId === 'act_1') + 1;
+      const rank2 = sorted.findIndex((p) => p.activityId === 'act_2') + 1;
 
       expect(Math.min(rank1, rank2)).toBe(1);
     });
@@ -318,7 +316,7 @@ describe('Route Performance Optimization', () => {
       ];
 
       // Find rank of current activity
-      const rank = performances.findIndex(p => p.activityId === currentActivityId) + 1;
+      const rank = performances.findIndex((p) => p.activityId === currentActivityId) + 1;
 
       expect(rank).toBe(2); // act_2 is second fastest
     });
@@ -393,9 +391,7 @@ describe('Route Performance Optimization', () => {
      * Test edge cases and error handling.
      */
     it('handles single activity correctly', () => {
-      const performances = [
-        { activityId: 'act_1', speed: 8.5, date: new Date() },
-      ];
+      const performances = [{ activityId: 'act_1', speed: 8.5, date: new Date() }];
 
       const best = performances[0];
       const rank = 1;
@@ -414,8 +410,8 @@ describe('Route Performance Optimization', () => {
       ];
 
       // All have same speed - all are technically best
-      const maxSpeed = Math.max(...performances.map(p => p.speed));
-      const bestPerformances = performances.filter(p => p.speed === maxSpeed);
+      const maxSpeed = Math.max(...performances.map((p) => p.speed));
+      const bestPerformances = performances.filter((p) => p.speed === maxSpeed);
 
       expect(bestPerformances.length).toBe(3);
     });
@@ -437,7 +433,7 @@ describe('Route Performance Optimization', () => {
       ];
 
       // Find best (skip zero speed)
-      const validPerformances = performances.filter(p => p.speed > 0);
+      const validPerformances = performances.filter((p) => p.speed > 0);
       const best = validPerformances.reduce((b, p) => (p.speed > b.speed ? p : b), {
         activityId: '',
         speed: 0,
@@ -514,10 +510,10 @@ describe('Route Performance Optimization', () => {
         { id: 'act_4' }, // Not in group
       ];
 
-      const filtered = activities.filter(a => activityIds.has(a.id));
+      const filtered = activities.filter((a) => activityIds.has(a.id));
 
       expect(filtered.length).toBe(2);
-      expect(filtered.every(a => activityIds.has(a.id))).toBe(true);
+      expect(filtered.every((a) => activityIds.has(a.id))).toBe(true);
     });
 
     it('avoids redundant calculations', () => {

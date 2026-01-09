@@ -15,9 +15,7 @@ export function useOldestActivityDate(activityType?: string) {
     }
 
     // Filter by activity type if provided
-    const filtered = activityType
-      ? activities.filter((a) => a.type === activityType)
-      : activities;
+    const filtered = activityType ? activities.filter((a) => a.type === activityType) : activities;
 
     if (filtered.length === 0) {
       return null;

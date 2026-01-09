@@ -18,8 +18,8 @@ use tokio::sync::Mutex;
 // Rate limits from intervals.icu API: 30/s burst, 131/10s sustained
 // Target: 12.5 req/s (80ms intervals) to respect sustained limit
 // Math: 131/10s = 13.1 req/s max sustained. Use 12.5 for safety margin.
-const DISPATCH_INTERVAL_MS: u64 = 80;  // 1000ms / 12.5 = 80ms between dispatches
-const MAX_CONCURRENCY: usize = 50;      // Allow many in-flight (network latency ~200-400ms)
+const DISPATCH_INTERVAL_MS: u64 = 80; // 1000ms / 12.5 = 80ms between dispatches
+const MAX_CONCURRENCY: usize = 50; // Allow many in-flight (network latency ~200-400ms)
 const MAX_RETRIES: u32 = 3;
 
 /// Result of fetching activity map data
@@ -35,8 +35,8 @@ pub struct ActivityMapResult {
 /// Map bounds for an activity
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MapBounds {
-    pub ne: [f64; 2],  // [lat, lng]
-    pub sw: [f64; 2],  // [lat, lng]
+    pub ne: [f64; 2], // [lat, lng]
+    pub sw: [f64; 2], // [lat, lng]
 }
 
 /// API response for activity map endpoint
@@ -100,7 +100,10 @@ impl DispatchRateLimiter {
 
         // Wait outside the lock
         if wait_duration > Duration::from_millis(5) {
-            debug!("[Dispatch #{}] Waiting {:?} for slot", dispatch_num, wait_duration);
+            debug!(
+                "[Dispatch #{}] Waiting {:?} for slot",
+                dispatch_num, wait_duration
+            );
             tokio::time::sleep(wait_duration).await;
         }
 
@@ -115,7 +118,10 @@ impl DispatchRateLimiter {
         let count = self.consecutive_429s.fetch_add(1, Ordering::Relaxed) + 1;
         // Exponential backoff: 500ms, 1s, 2s, 4s max
         let backoff = Duration::from_millis(500 * (1 << count.min(3)));
-        warn!("[DispatchRateLimiter] Got 429! Consecutive: {}, backing off {:?}", count, backoff);
+        warn!(
+            "[DispatchRateLimiter] Got 429! Consecutive: {}, backing off {:?}",
+            count, backoff
+        );
         backoff
     }
 }
@@ -130,8 +136,7 @@ pub struct ActivityFetcher {
 impl ActivityFetcher {
     /// Create a new activity fetcher with the given API key
     pub fn new(api_key: &str) -> Result<Self, String> {
-        let auth = base64::engine::general_purpose::STANDARD
-            .encode(format!("API_KEY:{}", api_key));
+        let auth = base64::engine::general_purpose::STANDARD.encode(format!("API_KEY:{}", api_key));
 
         let client = Client::builder()
             .pool_max_idle_per_host(MAX_CONCURRENCY * 2)
@@ -168,37 +173,38 @@ impl ActivityFetcher {
         let start = Instant::now();
 
         // Use buffered stream for parallel execution with dispatch rate limiting
-        let results: Vec<ActivityMapResult> = stream::iter(activity_ids)
-            .map(|id| {
-                let client = &self.client;
-                let auth = &self.auth_header;
-                let rate_limiter = &self.rate_limiter;
-                let completed = Arc::clone(&completed);
-                let total_bytes = Arc::clone(&total_bytes);
-                let callback = on_progress.clone();
-                let start_time = start;
+        let results: Vec<ActivityMapResult> =
+            stream::iter(activity_ids)
+                .map(|id| {
+                    let client = &self.client;
+                    let auth = &self.auth_header;
+                    let rate_limiter = &self.rate_limiter;
+                    let completed = Arc::clone(&completed);
+                    let total_bytes = Arc::clone(&total_bytes);
+                    let callback = on_progress.clone();
+                    let start_time = start;
 
-                async move {
-                    // Wait for our dispatch slot - this spaces out request starts
-                    let dispatch_num = rate_limiter.wait_for_dispatch_slot().await;
-                    let dispatch_time = start_time.elapsed();
+                    async move {
+                        // Wait for our dispatch slot - this spaces out request starts
+                        let dispatch_num = rate_limiter.wait_for_dispatch_slot().await;
+                        let dispatch_time = start_time.elapsed();
 
-                    let result = Self::fetch_single_map(client, auth, rate_limiter, &id).await;
+                        let result = Self::fetch_single_map(client, auth, rate_limiter, &id).await;
 
-                    // Track progress
-                    let done = completed.fetch_add(1, Ordering::Relaxed) + 1;
-                    let bytes = result.latlngs.as_ref().map_or(0, |v| v.len() * 16) as u32;
-                    total_bytes.fetch_add(bytes, Ordering::Relaxed);
-                    let complete_time = start_time.elapsed();
+                        // Track progress
+                        let done = completed.fetch_add(1, Ordering::Relaxed) + 1;
+                        let bytes = result.latlngs.as_ref().map_or(0, |v| v.len() * 16) as u32;
+                        total_bytes.fetch_add(bytes, Ordering::Relaxed);
+                        let complete_time = start_time.elapsed();
 
-                    // Calculate effective dispatch rate
-                    let dispatch_rate = if dispatch_time.as_secs_f64() > 0.0 {
-                        dispatch_num as f64 / dispatch_time.as_secs_f64()
-                    } else {
-                        0.0
-                    };
+                        // Calculate effective dispatch rate
+                        let dispatch_rate = if dispatch_time.as_secs_f64() > 0.0 {
+                            dispatch_num as f64 / dispatch_time.as_secs_f64()
+                        } else {
+                            0.0
+                        };
 
-                    info!(
+                        info!(
                         "[Progress] {}/{} | dispatched@{:.2}s (#{} @ {:.1}/s) | done@{:.2}s | {}KB",
                         done, total,
                         dispatch_time.as_secs_f64(), dispatch_num, dispatch_rate,
@@ -206,16 +212,16 @@ impl ActivityFetcher {
                         bytes / 1024
                     );
 
-                    if let Some(ref cb) = callback {
-                        cb(done, total);
-                    }
+                        if let Some(ref cb) = callback {
+                            cb(done, total);
+                        }
 
-                    result
-                }
-            })
-            .buffer_unordered(MAX_CONCURRENCY)
-            .collect()
-            .await;
+                        result
+                    }
+                })
+                .buffer_unordered(MAX_CONCURRENCY)
+                .collect()
+                .await;
 
         let elapsed = start.elapsed();
         let success_count = results.iter().filter(|r| r.success).count();
@@ -225,7 +231,12 @@ impl ActivityFetcher {
 
         info!(
             "[ActivityFetcher] DONE: {}/{} success ({} errors) in {:.2}s ({:.1} req/s, {}KB)",
-            success_count, total, error_count, elapsed.as_secs_f64(), rate, total_kb
+            success_count,
+            total,
+            error_count,
+            elapsed.as_secs_f64(),
+            rate,
+            total_kb
         );
 
         results
@@ -237,21 +248,14 @@ impl ActivityFetcher {
         rate_limiter: &DispatchRateLimiter,
         activity_id: &str,
     ) -> ActivityMapResult {
-        let url = format!(
-            "https://intervals.icu/api/v1/activity/{}/map",
-            activity_id
-        );
+        let url = format!("https://intervals.icu/api/v1/activity/{}/map", activity_id);
 
         let mut retries = 0;
         let req_start = Instant::now();
 
         loop {
             // Phase 1: Send request, receive headers
-            let response = client
-                .get(&url)
-                .header("Authorization", auth)
-                .send()
-                .await;
+            let response = client.get(&url).header("Authorization", auth).send().await;
 
             let headers_elapsed = req_start.elapsed();
 
@@ -328,13 +332,10 @@ impl ActivityFetcher {
 
                     // Phase 4: Data transformation (flatten coords)
                     let transform_start = Instant::now();
-                    let bounds = data.bounds.map(|b| MapBounds {
-                        ne: b.ne,
-                        sw: b.sw,
-                    });
-                    let latlngs = data.latlngs.map(|coords| {
-                        coords.into_iter().flatten().collect()
-                    });
+                    let bounds = data.bounds.map(|b| MapBounds { ne: b.ne, sw: b.sw });
+                    let latlngs = data
+                        .latlngs
+                        .map(|coords| coords.into_iter().flatten().collect());
                     let transform_elapsed = transform_start.elapsed();
 
                     let total_elapsed = req_start.elapsed();
@@ -393,7 +394,10 @@ pub fn fetch_activity_maps_sync(
 ) -> Vec<ActivityMapResult> {
     use tokio::runtime::Builder;
 
-    info!("[FFI] fetch_activity_maps_sync called for {} activities", activity_ids.len());
+    info!(
+        "[FFI] fetch_activity_maps_sync called for {} activities",
+        activity_ids.len()
+    );
 
     // Create a multi-threaded runtime with enough workers for high concurrency
     let rt = match Builder::new_multi_thread()
@@ -456,7 +460,15 @@ mod tests {
         let num2 = limiter.wait_for_dispatch_slot().await;
         assert_eq!(num2, 2);
         let elapsed = start2.elapsed();
-        assert!(elapsed >= Duration::from_millis(40), "Expected ~50ms wait, got {:?}", elapsed);
-        assert!(elapsed < Duration::from_millis(100), "Expected ~50ms wait, got {:?}", elapsed);
+        assert!(
+            elapsed >= Duration::from_millis(40),
+            "Expected ~50ms wait, got {:?}",
+            elapsed
+        );
+        assert!(
+            elapsed < Duration::from_millis(100),
+            "Expected ~50ms wait, got {:?}",
+            elapsed
+        );
     }
 }

@@ -241,7 +241,7 @@ export const CombinedPlot = React.memo(function CombinedPlot({
           id: s.id,
           label: s.config.label,
           value: formatted,
-          unit: isMetric ? (s.config.unit || '') : (s.config.unitImperial || s.config.unit || ''),
+          unit: isMetric ? s.config.unit || '' : s.config.unitImperial || s.config.unit || '',
           color: s.color,
         };
       });

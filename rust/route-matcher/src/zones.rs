@@ -197,7 +197,10 @@ impl HRZoneDistribution {
 ///
 /// # Returns
 /// Zone distribution with time in each zone
-pub fn calculate_power_zones(power_data: &[u16], config: &PowerZoneConfig) -> PowerZoneDistribution {
+pub fn calculate_power_zones(
+    power_data: &[u16],
+    config: &PowerZoneConfig,
+) -> PowerZoneDistribution {
     if power_data.is_empty() {
         return PowerZoneDistribution {
             total_samples: 0,
