@@ -3,21 +3,16 @@
  * Handles tap-to-select start/end points and displays visual feedback.
  */
 
-import React from "react";
-import { View, StyleSheet, TouchableOpacity, Text } from "react-native";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { useTranslation } from "react-i18next";
-import { colors } from "@/theme/colors";
-import { typography } from "@/theme/typography";
-import { spacing, layout } from "@/theme/spacing";
-import { shadows } from "@/theme/shadows";
+import React from 'react';
+import { View, StyleSheet, TouchableOpacity, Text } from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
+import { colors } from '@/theme/colors';
+import { typography } from '@/theme/typography';
+import { spacing, layout } from '@/theme/spacing';
+import { shadows } from '@/theme/shadows';
 
-export type CreationState =
-  | "idle"
-  | "selectingStart"
-  | "selectingEnd"
-  | "confirming"
-  | "complete";
+export type CreationState = 'idle' | 'selectingStart' | 'selectingEnd' | 'confirming' | 'complete';
 
 interface SectionCreationOverlayProps {
   /** Current creation state */
@@ -56,13 +51,13 @@ export function SectionCreationOverlay({
 
   const getInstructions = () => {
     switch (state) {
-      case "idle":
-      case "selectingStart":
-        return t("maps.tapSelectStart" as never);
-      case "selectingEnd":
-        return t("maps.tapSelectEnd" as never);
-      case "complete":
-        return t("maps.sectionSelected" as never);
+      case 'idle':
+      case 'selectingStart':
+        return t('maps.tapSelectStart' as never);
+      case 'selectingEnd':
+        return t('maps.tapSelectEnd' as never);
+      case 'complete':
+        return t('maps.sectionSelected' as never);
     }
   };
 
@@ -77,10 +72,10 @@ export function SectionCreationOverlay({
     if (startIndex === null) return null;
     const startPercent = ((startIndex / coordinateCount) * 100).toFixed(0);
     if (endIndex === null) {
-      return t("maps.startPercent" as never, { percent: startPercent });
+      return t('maps.startPercent' as never, { percent: startPercent });
     }
     const endPercent = ((endIndex / coordinateCount) * 100).toFixed(0);
-    return t("maps.rangePercent" as never, {
+    return t('maps.rangePercent' as never, {
       start: startPercent,
       end: endPercent,
     });
@@ -92,19 +87,15 @@ export function SectionCreationOverlay({
       <View style={styles.instructionBanner}>
         <View style={styles.instructionContent}>
           <MaterialCommunityIcons
-            name={state === "complete" ? "check-circle" : "gesture-tap"}
+            name={state === 'complete' ? 'check-circle' : 'gesture-tap'}
             size={20}
-            color={state === "complete" ? colors.success : colors.primary}
+            color={state === 'complete' ? colors.success : colors.primary}
           />
           <Text style={styles.instructionText}>{getInstructions()}</Text>
         </View>
-        {getProgress() && (
-          <Text style={styles.progressText}>{getProgress()}</Text>
-        )}
-        {sectionDistance !== null && state === "complete" && (
-          <Text style={styles.distanceText}>
-            {formatDistance(sectionDistance)}
-          </Text>
+        {getProgress() && <Text style={styles.progressText}>{getProgress()}</Text>}
+        {sectionDistance !== null && state === 'complete' && (
+          <Text style={styles.distanceText}>{formatDistance(sectionDistance)}</Text>
         )}
       </View>
 
@@ -116,12 +107,8 @@ export function SectionCreationOverlay({
           onPress={onCancel}
           activeOpacity={0.8}
         >
-          <MaterialCommunityIcons
-            name="close"
-            size={24}
-            color={colors.textOnDark}
-          />
-          <Text style={styles.buttonText}>{t("common.cancel")}</Text>
+          <MaterialCommunityIcons name="close" size={24} color={colors.textOnDark} />
+          <Text style={styles.buttonText}>{t('common.cancel')}</Text>
         </TouchableOpacity>
 
         {/* Reset button - only show when we have a selection */}
@@ -131,30 +118,22 @@ export function SectionCreationOverlay({
             onPress={onReset}
             activeOpacity={0.8}
           >
-            <MaterialCommunityIcons
-              name="refresh"
-              size={24}
-              color={colors.textSecondary}
-            />
+            <MaterialCommunityIcons name="refresh" size={24} color={colors.textSecondary} />
             <Text style={[styles.buttonText, styles.resetButtonText]}>
-              {t("common.reset" as never)}
+              {t('common.reset' as never)}
             </Text>
           </TouchableOpacity>
         )}
 
         {/* Confirm button - only show when complete */}
-        {state === "complete" && (
+        {state === 'complete' && (
           <TouchableOpacity
             style={[styles.actionButton, styles.confirmButton]}
             onPress={onConfirm}
             activeOpacity={0.8}
           >
-            <MaterialCommunityIcons
-              name="check"
-              size={24}
-              color={colors.textOnDark}
-            />
-            <Text style={styles.buttonText}>{t("common.create" as never)}</Text>
+            <MaterialCommunityIcons name="check" size={24} color={colors.textOnDark} />
+            <Text style={styles.buttonText}>{t('common.create' as never)}</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -165,25 +144,25 @@ export function SectionCreationOverlay({
 const styles = StyleSheet.create({
   container: {
     ...StyleSheet.absoluteFillObject,
-    justifyContent: "space-between",
+    justifyContent: 'space-between',
     padding: spacing.md,
     zIndex: 200,
   },
   instructionBanner: {
-    backgroundColor: "rgba(255, 255, 255, 0.95)",
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
     borderRadius: layout.borderRadius,
     padding: spacing.md,
-    alignItems: "center",
+    alignItems: 'center',
     ...shadows.modal,
   },
   instructionContent: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: spacing.sm,
   },
   instructionText: {
     ...typography.body,
-    fontWeight: "600",
+    fontWeight: '600',
     color: colors.textPrimary,
   },
   progressText: {
@@ -193,18 +172,18 @@ const styles = StyleSheet.create({
   },
   distanceText: {
     ...typography.body,
-    fontWeight: "700",
+    fontWeight: '700',
     color: colors.primary,
     marginTop: spacing.xs,
   },
   actionContainer: {
-    flexDirection: "row",
-    justifyContent: "center",
+    flexDirection: 'row',
+    justifyContent: 'center',
     gap: spacing.md,
   },
   actionButton: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: spacing.xs,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
@@ -222,7 +201,7 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     ...typography.body,
-    fontWeight: "600",
+    fontWeight: '600',
     color: colors.textOnDark,
   },
   resetButtonText: {

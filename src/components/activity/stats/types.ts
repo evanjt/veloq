@@ -2,15 +2,15 @@
  * Shared types for activity stats components.
  */
 
-import type { ComponentProps } from "react";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
+import type { ComponentProps } from 'react';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 
-type IconName = ComponentProps<typeof MaterialCommunityIcons>["name"];
+type IconName = ComponentProps<typeof MaterialCommunityIcons>['name'];
 
 export interface StatComparison {
   label: string;
   value: string;
-  trend: "up" | "down" | "same";
+  trend: 'up' | 'down' | 'same';
   isGood?: boolean;
 }
 

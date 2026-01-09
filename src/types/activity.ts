@@ -1,27 +1,27 @@
 export type ActivityType =
-  | "Ride"
-  | "Run"
-  | "Swim"
-  | "Walk"
-  | "Hike"
-  | "VirtualRide"
-  | "VirtualRun"
-  | "Workout"
-  | "WeightTraining"
-  | "Yoga"
-  | "Snowboard"
-  | "AlpineSki"
-  | "NordicSki"
-  | "BackcountrySki"
-  | "Rowing"
-  | "Kayaking"
-  | "Canoeing"
-  | "OpenWaterSwim"
-  | "TrailRun"
-  | "Snowshoe"
-  | "Tennis"
-  | "RockClimbing"
-  | "Other";
+  | 'Ride'
+  | 'Run'
+  | 'Swim'
+  | 'Walk'
+  | 'Hike'
+  | 'VirtualRide'
+  | 'VirtualRun'
+  | 'Workout'
+  | 'WeightTraining'
+  | 'Yoga'
+  | 'Snowboard'
+  | 'AlpineSki'
+  | 'NordicSki'
+  | 'BackcountrySki'
+  | 'Rowing'
+  | 'Kayaking'
+  | 'Canoeing'
+  | 'OpenWaterSwim'
+  | 'TrailRun'
+  | 'Snowshoe'
+  | 'Tennis'
+  | 'RockClimbing'
+  | 'Other';
 
 export interface Activity {
   id: string;
@@ -211,7 +211,7 @@ export interface CurvePoint {
 
 // Power curve response from API
 export interface PowerCurve {
-  type: "power";
+  type: 'power';
   sport: string;
   secs: number[]; // Array of durations
   watts: number[]; // Best watts for each duration
@@ -221,7 +221,7 @@ export interface PowerCurve {
 
 // Pace curve response (for running)
 export interface PaceCurve {
-  type: "pace";
+  type: 'pace';
   sport: string;
   distances: number[]; // Array of distances in meters
   times: number[]; // Array of times in seconds to cover each distance

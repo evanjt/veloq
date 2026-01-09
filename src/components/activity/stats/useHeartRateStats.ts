@@ -5,11 +5,11 @@
  * comparison to user average, and related metrics.
  */
 
-import { useMemo } from "react";
-import { useTranslation } from "react-i18next";
-import type { Activity, WellnessData } from "@/types";
-import type { StatDetail } from "./types";
-import { colors } from "@/theme/colors";
+import { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
+import type { Activity, WellnessData } from '@/types';
+import type { StatDetail } from './types';
+import { colors } from '@/theme/colors';
 
 interface UseHeartRateStatsOptions {
   activity: Activity;
@@ -69,14 +69,14 @@ export function useHeartRateStats({
     const comparison =
       avgHR && avgHR > 0
         ? {
-            label: t("activity.vsYourAvg"),
+            label: t('activity.vsYourAvg'),
             value: `${Math.abs(Math.round(hr - avgHR))} bpm`,
             trend:
               hr < avgHR
-                ? ("down" as const) // Lower is better
+                ? ('down' as const) // Lower is better
                 : hr > avgHR
-                  ? ("up" as const)
-                  : ("same" as const),
+                  ? ('up' as const)
+                  : ('same' as const),
             isGood: hr < avgHR, // Lower HR is better
           }
         : undefined;
@@ -86,15 +86,15 @@ export function useHeartRateStats({
       hrPercent > 90
         ? colors.error
         : hrPercent > 80
-          ? "#F59E0B" // Amber-500
-          : "#EC4899"; // Pink-500
+          ? '#F59E0B' // Amber-500
+          : '#EC4899'; // Pink-500
 
     // Build details array
-    const details: StatDetail["details"] = [
+    const details: StatDetail['details'] = [
       ...(activity.max_heartrate
         ? [
             {
-              label: t("activity.stats.peakHR"),
+              label: t('activity.stats.peakHR'),
               value: `${Math.round(activity.max_heartrate)} bpm`,
             },
           ]
@@ -102,7 +102,7 @@ export function useHeartRateStats({
       ...(wellness?.hrr
         ? [
             {
-              label: t("activity.stats.hrRecovery"),
+              label: t('activity.stats.hrRecovery'),
               value: `${Math.round(wellness.hrr)} bpm`,
             },
           ]
@@ -110,7 +110,7 @@ export function useHeartRateStats({
       ...(wellness?.restingHR
         ? [
             {
-              label: t("activity.stats.restingHR"),
+              label: t('activity.stats.restingHR'),
               value: `${Math.round(wellness.restingHR)} bpm`,
             },
           ]
@@ -118,7 +118,7 @@ export function useHeartRateStats({
       ...(wellness?.hrv
         ? [
             {
-              label: t("activity.stats.hrv"),
+              label: t('activity.stats.hrv'),
               value: `${Math.round(wellness.hrv)} ms`,
             },
           ]
@@ -126,13 +126,13 @@ export function useHeartRateStats({
     ];
 
     return {
-      title: t("activity.stats.heartRate"),
+      title: t('activity.stats.heartRate'),
       value: `${Math.round(hr)} bpm`,
-      icon: "heart-pulse" as const,
+      icon: 'heart-pulse' as const,
       color,
       comparison,
-      context: `${hrPercent}% ${t("activity.ofMax")}`,
-      explanation: t("activity.explanations.heartRate"),
+      context: `${hrPercent}% ${t('activity.ofMax')}`,
+      explanation: t('activity.explanations.heartRate'),
       details,
     };
   }, [activity, wellness, avgHR, t]);
