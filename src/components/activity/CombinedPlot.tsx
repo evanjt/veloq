@@ -18,6 +18,7 @@ import { useMetricSystem } from '@/hooks';
 import type { ChartConfig, ChartTypeId } from '@/lib';
 import type { ActivityStreams } from '@/types';
 import { CHART_CONFIG } from '@/constants';
+import { ChartErrorBoundary } from '@/components/ui';
 
 interface DataSeries {
   id: ChartTypeId;
@@ -338,9 +339,10 @@ export const CombinedPlot = React.memo(function CombinedPlot({
   const chartHeight = height - 40; // Reserve space for metrics panel
 
   return (
-    <View style={[styles.container, { height }]}>
-      {/* Hero Metrics Panel - shows current values when scrubbing, averages otherwise */}
-      <View style={styles.metricsPanel}>
+    <ChartErrorBoundary height={height} label="Activity Chart">
+      <View style={[styles.container, { height }]}>
+        {/* Hero Metrics Panel - shows current values when scrubbing, averages otherwise */}
+        <View style={styles.metricsPanel}>
         {seriesInfo.map((series, idx) => {
           const displayValue = isActive && metricValues.length > idx ? metricValues[idx] : null;
           const avgData = averageValues[idx];
@@ -457,6 +459,7 @@ export const CombinedPlot = React.memo(function CombinedPlot({
         </View>
       </GestureDetector>
     </View>
+    </ChartErrorBoundary>
   );
 });
 

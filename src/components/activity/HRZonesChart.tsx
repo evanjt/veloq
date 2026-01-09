@@ -5,6 +5,7 @@ import { colors, darkColors, opacity, typography, spacing, layout } from '@/them
 import { useHRZones } from '@/providers';
 import { useSportSettings, getSettingsForSport, HR_ZONE_COLORS } from '@/hooks';
 import type { ActivityStreams, ActivityDetail } from '@/types';
+import { ChartErrorBoundary } from '@/components/ui';
 
 interface HRZonesChartProps {
   streams: ActivityStreams;
@@ -166,8 +167,9 @@ export function HRZonesChart({ streams, activityType = 'Ride', activity }: HRZon
   const dataSource = settings?.max_hr ? 'intervals.icu' : 'local';
 
   return (
-    <View style={styles.container}>
-      <View style={styles.headerRow}>
+    <ChartErrorBoundary height={200} label="Heart Rate Zones">
+      <View style={styles.container}>
+        <View style={styles.headerRow}>
         <Text style={[styles.title, isDark && styles.titleDark]}>
           {t('activity.timeInHRZones')}
         </Text>
@@ -245,6 +247,7 @@ export function HRZonesChart({ streams, activityType = 'Ride', activity }: HRZon
         ))}
       </View>
     </View>
+    </ChartErrorBoundary>
   );
 }
 

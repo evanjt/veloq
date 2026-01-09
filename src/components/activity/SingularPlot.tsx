@@ -15,6 +15,7 @@ import { useTranslation } from 'react-i18next';
 import { colors, darkColors, typography, layout } from '@/theme';
 import { useMetricSystem } from '@/hooks';
 import { CHART_CONFIG } from '@/constants';
+import { ChartErrorBoundary } from '@/components/ui';
 
 interface SingularPlotProps {
   altitude?: number[];
@@ -213,9 +214,10 @@ export function SingularPlot({
   }
 
   return (
-    <View style={[styles.container, { height }]}>
-      <GestureDetector gesture={gesture}>
-        <View style={styles.chartWrapper}>
+    <ChartErrorBoundary height={height} label="Elevation">
+      <View style={[styles.container, { height }]}>
+        <GestureDetector gesture={gesture}>
+          <View style={styles.chartWrapper}>
           {/* Tooltip display */}
           {isActive && tooltipData && (
             <View style={[styles.tooltip, isDark && styles.tooltipDark]} pointerEvents="none">
@@ -293,6 +295,7 @@ export function SingularPlot({
         </View>
       </GestureDetector>
     </View>
+    </ChartErrorBoundary>
   );
 }
 

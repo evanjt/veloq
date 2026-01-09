@@ -74,7 +74,7 @@ export const GESTURE_VELOCITY = {
  *
  * Timing constants for chart transitions and animations.
  */
-export const ANIMATION_DURATION = {
+export const CHART_ANIMATION_DURATION = {
   /** Crossfade duration when switching metrics (ms) */
   CROSSFADE: 300,
 
