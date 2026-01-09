@@ -159,7 +159,7 @@ export default function ActivityDetailScreen() {
 
   // Get available chart types based on stream data
   const availableCharts = useMemo(() => {
-    return getAvailableCharts(streams);
+    return getAvailableCharts(streams || {});
   }, [streams]);
 
   // Initialize selected charts with smart presets when data loads
@@ -405,7 +405,7 @@ export default function ActivityDetailScreen() {
                   selectedCharts.map((chartId) => {
                     const config = CHART_CONFIGS[chartId];
                     if (!config) return null;
-                    const chartData = config.getStream(streams);
+                    const chartData = config.getStream?.(streams);
                     if (!chartData || chartData.length === 0) return null;
 
                     return (

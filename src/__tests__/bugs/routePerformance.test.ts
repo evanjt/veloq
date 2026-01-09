@@ -103,8 +103,8 @@ describe('Route Performance Optimization', () => {
     });
 
     it('shows PR badge only for best performance', () => {
-      const currentActivityId = 'act_1';
-      const bestPerformanceActivityId = 'act_1';
+      const currentActivityId: string = 'act_1';
+      const bestPerformanceActivityId: string = 'act_1';
 
       // Activity is best → show PR badge
       const isBest = currentActivityId === bestPerformanceActivityId;
@@ -112,7 +112,8 @@ describe('Route Performance Optimization', () => {
       expect(isBest).toBe(true);
 
       // Different activity → no PR badge
-      const isNotBest = 'act_2' === bestPerformanceActivityId;
+      const differentActivityId: string = 'act_2';
+      const isNotBest = differentActivityId === bestPerformanceActivityId;
       expect(isNotBest).toBe(false);
     });
 
