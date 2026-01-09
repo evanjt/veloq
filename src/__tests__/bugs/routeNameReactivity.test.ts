@@ -194,12 +194,12 @@ describe('Route Name Reactivity', () => {
       ];
 
       // All names should persist
-      const afterRecomputation = routeNames.map(route => ({
+      const afterRecomputation = routeNames.map((route) => ({
         ...route,
         persisted: true, // After fix, all names persist
       }));
 
-      expect(afterRecomputation.every(r => r.persisted)).toBe(true);
+      expect(afterRecomputation.every((r) => r.persisted)).toBe(true);
       expect(afterRecomputation.length).toBe(3);
     });
   });
@@ -233,7 +233,7 @@ describe('Route Name Reactivity', () => {
       ];
 
       // All should be valid
-      specialNames.forEach(name => {
+      specialNames.forEach((name) => {
         expect(name.length).toBeGreaterThan(0);
       });
     });
@@ -244,9 +244,7 @@ describe('Route Name Reactivity', () => {
       const update2 = { name: 'Second Name', timestamp: 1001 };
 
       // Later update should win
-      const finalName = update2.timestamp > update1.timestamp
-        ? update2.name
-        : update1.name;
+      const finalName = update2.timestamp > update1.timestamp ? update2.name : update1.name;
 
       expect(finalName).toBe('Second Name');
     });
@@ -312,8 +310,8 @@ describe('Route Name Reactivity', () => {
         'Manual refresh',
       ];
 
-      const safeTriggers = recomputationTriggers.filter(t =>
-        !t.includes('custom_name') && !t.includes('name')
+      const safeTriggers = recomputationTriggers.filter(
+        (t) => !t.includes('custom_name') && !t.includes('name')
       );
 
       // Name changes should not trigger recomputation

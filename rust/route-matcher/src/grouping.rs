@@ -3,13 +3,16 @@
 //! This module provides functionality to group similar routes together
 //! using spatial indexing and Union-Find for efficient grouping.
 
-use std::collections::HashMap;
 use rstar::{RTree, AABB};
+use std::collections::HashMap;
 
 use crate::geo_utils::haversine_distance;
 use crate::matching::compare_routes;
 use crate::union_find::UnionFind;
-use crate::{Bounds, GpsPoint, MatchConfig, MatchResult, RouteGroup, RouteBounds, RouteSignature, ActivityMatchInfo, GroupingResult};
+use crate::{
+    ActivityMatchInfo, Bounds, GpsPoint, GroupingResult, MatchConfig, MatchResult, RouteBounds,
+    RouteGroup, RouteSignature,
+};
 
 /// Spatial search tolerance in degrees (~1km).
 const SPATIAL_TOLERANCE: f64 = 0.01;
@@ -32,7 +35,9 @@ pub fn should_group_routes(
     config: &MatchConfig,
 ) -> bool {
     // CHECK 0: Both routes must be meaningful length
-    if sig1.total_distance < config.min_route_distance || sig2.total_distance < config.min_route_distance {
+    if sig1.total_distance < config.min_route_distance
+        || sig2.total_distance < config.min_route_distance
+    {
         return false;
     }
 
@@ -64,7 +69,11 @@ pub fn should_group_routes(
         if start_dist > config.endpoint_threshold {
             return false;
         }
-        return check_middle_points_match(&sig1.points, &sig2.points, config.endpoint_threshold * 2.0);
+        return check_middle_points_match(
+            &sig1.points,
+            &sig2.points,
+            config.endpoint_threshold * 2.0,
+        );
     }
 
     // Determine direction by checking which endpoint pairing is closer
@@ -73,8 +82,10 @@ pub fn should_group_routes(
     let reverse_start_dist = haversine_distance(start1, end2);
     let reverse_end_dist = haversine_distance(end1, start2);
 
-    let same_direction_ok = same_start_dist < config.endpoint_threshold && same_end_dist < config.endpoint_threshold;
-    let reverse_direction_ok = reverse_start_dist < config.endpoint_threshold && reverse_end_dist < config.endpoint_threshold;
+    let same_direction_ok =
+        same_start_dist < config.endpoint_threshold && same_end_dist < config.endpoint_threshold;
+    let reverse_direction_ok = reverse_start_dist < config.endpoint_threshold
+        && reverse_end_dist < config.endpoint_threshold;
 
     if !same_direction_ok && !reverse_direction_ok {
         return false;
@@ -87,11 +98,19 @@ pub fn should_group_routes(
         sig2.points.clone()
     };
 
-    check_middle_points_match(&sig1.points, &points2_for_middle, config.endpoint_threshold * 2.0)
+    check_middle_points_match(
+        &sig1.points,
+        &points2_for_middle,
+        config.endpoint_threshold * 2.0,
+    )
 }
 
 /// Check that the middle portions of two routes also match.
-pub fn check_middle_points_match(points1: &[GpsPoint], points2: &[GpsPoint], threshold: f64) -> bool {
+pub fn check_middle_points_match(
+    points1: &[GpsPoint],
+    points2: &[GpsPoint],
+    threshold: f64,
+) -> bool {
     if points1.len() < 5 || points2.len() < 5 {
         return true; // Not enough points to check middle
     }
@@ -215,7 +234,9 @@ pub fn group_signatures_with_matches(
                 let (match_percentage, direction) = if activity_id == &group.representative_id {
                     // Representative always matches itself 100%
                     (100.0, "same".to_string())
-                } else if let Some(result) = compare_routes(activity_sig, representative_sig, config) {
+                } else if let Some(result) =
+                    compare_routes(activity_sig, representative_sig, config)
+                {
                     (result.match_percentage, result.direction.clone())
                 } else {
                     // Shouldn't happen for grouped activities, but fallback
@@ -338,14 +359,17 @@ pub fn group_signatures_parallel_with_matches(
         .filter_map(|group| {
             let representative_sig = sig_map.get(group.representative_id.as_str())?;
 
-            let matches: Vec<ActivityMatchInfo> = group.activity_ids
+            let matches: Vec<ActivityMatchInfo> = group
+                .activity_ids
                 .iter()
                 .filter_map(|activity_id| {
                     let activity_sig = sig_map.get(activity_id.as_str())?;
 
                     let (match_percentage, direction) = if activity_id == &group.representative_id {
                         (100.0, "same".to_string())
-                    } else if let Some(result) = compare_routes(activity_sig, representative_sig, config) {
+                    } else if let Some(result) =
+                        compare_routes(activity_sig, representative_sig, config)
+                    {
                         (result.match_percentage, result.direction.clone())
                     } else {
                         (100.0, "same".to_string())
@@ -443,8 +467,14 @@ pub fn group_incremental(
         .par_iter()
         .flat_map(|new_sig| {
             let search_bounds = AABB::from_corners(
-                [new_sig.bounds.min_lng - SPATIAL_TOLERANCE, new_sig.bounds.min_lat - SPATIAL_TOLERANCE],
-                [new_sig.bounds.max_lng + SPATIAL_TOLERANCE, new_sig.bounds.max_lat + SPATIAL_TOLERANCE],
+                [
+                    new_sig.bounds.min_lng - SPATIAL_TOLERANCE,
+                    new_sig.bounds.min_lat - SPATIAL_TOLERANCE,
+                ],
+                [
+                    new_sig.bounds.max_lng + SPATIAL_TOLERANCE,
+                    new_sig.bounds.max_lat + SPATIAL_TOLERANCE,
+                ],
             );
 
             rtree
@@ -581,8 +611,10 @@ mod tests {
     fn test_group_identical_routes() {
         let long_route = create_long_route();
 
-        let sig1 = RouteSignature::from_points("test-1", &long_route, &MatchConfig::default()).unwrap();
-        let sig2 = RouteSignature::from_points("test-2", &long_route, &MatchConfig::default()).unwrap();
+        let sig1 =
+            RouteSignature::from_points("test-1", &long_route, &MatchConfig::default()).unwrap();
+        let sig2 =
+            RouteSignature::from_points("test-2", &long_route, &MatchConfig::default()).unwrap();
 
         let groups = group_signatures(&[sig1, sig2], &MatchConfig::default());
 
@@ -613,8 +645,8 @@ mod tests {
     #[test]
     fn test_distance_ratio_ok() {
         assert!(distance_ratio_ok(1000.0, 1200.0)); // 83% - ok
-        assert!(distance_ratio_ok(1000.0, 500.0));  // 50% - ok
+        assert!(distance_ratio_ok(1000.0, 500.0)); // 50% - ok
         assert!(!distance_ratio_ok(1000.0, 400.0)); // 40% - not ok
-        assert!(!distance_ratio_ok(0.0, 1000.0));   // Invalid
+        assert!(!distance_ratio_ok(0.0, 1000.0)); // Invalid
     }
 }

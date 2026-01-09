@@ -6,13 +6,13 @@
 //! - GPS Segment Averaging (MDPI 2019)
 //!   https://mdpi.com/2076-3417/9/22/4899/htm
 
-use std::collections::HashMap;
-use rstar::{RTree, PointDistance};
-use log::info;
-use crate::GpsPoint;
+use super::rtree::{build_rtree, IndexedPoint};
+use super::{FrequentSection, SectionConfig};
 use crate::geo_utils::polyline_length;
-use super::rtree::{IndexedPoint, build_rtree};
-use super::{SectionConfig, FrequentSection};
+use crate::GpsPoint;
+use log::info;
+use rstar::{PointDistance, RTree};
+use std::collections::HashMap;
 
 // =============================================================================
 // Self-Folding Section Detection
@@ -74,14 +74,18 @@ fn compute_fold_ratio(polyline: &[GpsPoint], threshold: f64) -> f64 {
     // Compare first third to last third (reversed)
     let third = polyline.len() / 3;
     let first_third = &polyline[..third];
-    let last_third: Vec<GpsPoint> = polyline[(polyline.len() - third)..].iter().cloned().collect();
+    let last_third: Vec<GpsPoint> = polyline[(polyline.len() - third)..]
+        .iter()
+        .cloned()
+        .collect();
 
     // Build tree from first third
     let first_tree = build_rtree(first_third);
 
     // Count how many points in last third are close to points in first third
     let mut close_count = 0;
-    for point in last_third.iter().rev() {  // Reversed order for out-and-back
+    for point in last_third.iter().rev() {
+        // Reversed order for out-and-back
         let query = [point.latitude, point.longitude];
         if let Some(nearest) = first_tree.nearest_neighbor(&query) {
             if nearest.distance_2(&query) <= threshold_deg_sq {
@@ -106,7 +110,8 @@ pub fn split_folding_sections(
 
         if fold_ratio > 0.5 {
             // This section folds back on itself - split it
-            if let Some(fold_idx) = detect_fold_point(&section.polyline, config.proximity_threshold) {
+            if let Some(fold_idx) = detect_fold_point(&section.polyline, config.proximity_threshold)
+            {
                 // Create outbound section (start to fold point)
                 let outbound_polyline = section.polyline[..fold_idx].to_vec();
                 let outbound_length = polyline_length(&outbound_polyline);
@@ -117,7 +122,7 @@ pub fn split_folding_sections(
                     outbound.polyline = outbound_polyline;
                     outbound.distance_meters = outbound_length;
                     // Update activity traces to only include outbound portion
-                    outbound.activity_traces = HashMap::new();  // Will be recomputed
+                    outbound.activity_traces = HashMap::new(); // Will be recomputed
                     result.push(outbound);
                 }
 
@@ -196,7 +201,8 @@ pub fn merge_nearby_sections(
             }
 
             // Check forward containment with generous threshold
-            let forward_containment = compute_containment(&section_j.polyline, &tree_i, merge_threshold);
+            let forward_containment =
+                compute_containment(&section_j.polyline, &tree_i, merge_threshold);
 
             // Check reverse containment
             let reversed_j: Vec<GpsPoint> = section_j.polyline.iter().rev().cloned().collect();
@@ -208,7 +214,11 @@ pub fn merge_nearby_sections(
             if max_containment > 0.4 {
                 keep[j] = false;
 
-                let direction = if reverse_containment > forward_containment { "reverse" } else { "same" };
+                let direction = if reverse_containment > forward_containment {
+                    "reverse"
+                } else {
+                    "same"
+                };
 
                 info!(
                     "[Sections] Merged nearby {} section {} into {} ({:.0}% overlap @ {}m threshold)",
@@ -243,13 +253,13 @@ pub fn remove_overlapping_sections(
 
     // Sort by LENGTH ascending (shorter sections first), then by visit count descending
     // This ensures shorter, more specific sections are preferred
-    sections.sort_by(|a, b| {
-        match a.distance_meters.partial_cmp(&b.distance_meters) {
+    sections.sort_by(
+        |a, b| match a.distance_meters.partial_cmp(&b.distance_meters) {
             Some(std::cmp::Ordering::Equal) => b.visit_count.cmp(&a.visit_count),
             Some(ord) => ord,
             None => std::cmp::Ordering::Equal,
-        }
-    });
+        },
+    );
 
     let mut keep: Vec<bool> = vec![true; sections.len()];
 
@@ -272,17 +282,21 @@ pub fn remove_overlapping_sections(
             let tree_j = build_rtree(&section_j.polyline);
 
             // Check mutual containment
-            let j_in_i = compute_containment(&section_j.polyline, &tree_i, config.proximity_threshold);
-            let i_in_j = compute_containment(&section_i.polyline, &tree_j, config.proximity_threshold);
+            let j_in_i =
+                compute_containment(&section_j.polyline, &tree_i, config.proximity_threshold);
+            let i_in_j =
+                compute_containment(&section_i.polyline, &tree_j, config.proximity_threshold);
 
             // If j is largely contained in i (j is the longer one since we sorted by length)
             // j should be removed because i is the more specific section
             if j_in_i > 0.6 {
                 info!(
                     "[Sections] Removing {} ({}m) - {}% contained in {} ({}m)",
-                    section_j.id, section_j.distance_meters as u32,
+                    section_j.id,
+                    section_j.distance_meters as u32,
                     (j_in_i * 100.0) as u32,
-                    section_i.id, section_i.distance_meters as u32
+                    section_i.id,
+                    section_i.distance_meters as u32
                 );
                 keep[j] = false;
             } else if i_in_j > 0.8 {
@@ -291,9 +305,11 @@ pub fn remove_overlapping_sections(
                 // is actually just a subset of another section
                 info!(
                     "[Sections] Removing {} ({}m) - {}% contained in {} ({}m)",
-                    section_i.id, section_i.distance_meters as u32,
+                    section_i.id,
+                    section_i.distance_meters as u32,
                     (i_in_j * 100.0) as u32,
-                    section_j.id, section_j.distance_meters as u32
+                    section_j.id,
+                    section_j.distance_meters as u32
                 );
                 keep[i] = false;
                 break; // Stop checking j's against removed i
@@ -302,8 +318,10 @@ pub fn remove_overlapping_sections(
                 // Keep the shorter one (i, since sorted by length)
                 info!(
                     "[Sections] Removing {} due to mutual overlap with {} ({}% vs {}%)",
-                    section_j.id, section_i.id,
-                    (j_in_i * 100.0) as u32, (i_in_j * 100.0) as u32
+                    section_j.id,
+                    section_i.id,
+                    (j_in_i * 100.0) as u32,
+                    (i_in_j * 100.0) as u32
                 );
                 keep[j] = false;
             }
@@ -318,11 +336,7 @@ pub fn remove_overlapping_sections(
 }
 
 /// Compute what fraction of polyline A is contained within polyline B
-fn compute_containment(
-    poly_a: &[GpsPoint],
-    tree_b: &RTree<IndexedPoint>,
-    threshold: f64,
-) -> f64 {
+fn compute_containment(poly_a: &[GpsPoint], tree_b: &RTree<IndexedPoint>, threshold: f64) -> f64 {
     if poly_a.is_empty() {
         return 0.0;
     }
@@ -381,9 +395,15 @@ fn find_split_candidates(section: &FrequentSection) -> Vec<SplitCandidate> {
 
     // Compute endpoint density (average of first/last 10% of points)
     let endpoint_window = (density.len() / 10).max(3);
-    let start_density: f64 = density[..endpoint_window].iter().map(|&d| d as f64).sum::<f64>()
+    let start_density: f64 = density[..endpoint_window]
+        .iter()
+        .map(|&d| d as f64)
+        .sum::<f64>()
         / endpoint_window as f64;
-    let end_density: f64 = density[density.len() - endpoint_window..].iter().map(|&d| d as f64).sum::<f64>()
+    let end_density: f64 = density[density.len() - endpoint_window..]
+        .iter()
+        .map(|&d| d as f64)
+        .sum::<f64>()
         / endpoint_window as f64;
     let endpoint_density = (start_density + end_density) / 2.0;
 
@@ -401,7 +421,8 @@ fn find_split_candidates(section: &FrequentSection) -> Vec<SplitCandidate> {
         let window_density: f64 = density[i - window_size / 2..i + window_size / 2]
             .iter()
             .map(|&d| d as f64)
-            .sum::<f64>() / window_size as f64;
+            .sum::<f64>()
+            / window_size as f64;
 
         let ratio = window_density / endpoint_density;
 
@@ -440,7 +461,8 @@ fn find_split_candidates(section: &FrequentSection) -> Vec<SplitCandidate> {
                 let portion_density: f64 = density[start_idx..=end_idx]
                     .iter()
                     .map(|&d| d as f64)
-                    .sum::<f64>() / (end_idx - start_idx + 1) as f64;
+                    .sum::<f64>()
+                    / (end_idx - start_idx + 1) as f64;
 
                 candidates.push(SplitCandidate {
                     start_idx,
