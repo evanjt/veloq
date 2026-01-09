@@ -4,11 +4,11 @@
  * Computes energy expenditure with burn rate context.
  */
 
-import { useMemo } from "react";
-import { useTranslation } from "react-i18next";
-import { formatDuration } from "@/lib";
-import type { Activity } from "@/types";
-import type { StatDetail } from "./types";
+import { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
+import { formatDuration } from '@/lib';
+import type { Activity } from '@/types';
+import type { StatDetail } from './types';
 
 interface UseCalorieMetricsOptions {
   activity: Activity;
@@ -37,9 +37,7 @@ interface UseCalorieMetricsResult {
  * }
  * ```
  */
-export function useCalorieMetrics({
-  activity,
-}: UseCalorieMetricsOptions): UseCalorieMetricsResult {
+export function useCalorieMetrics({ activity }: UseCalorieMetricsOptions): UseCalorieMetricsResult {
   const { t } = useTranslation();
 
   const stat = useMemo(() => {
@@ -50,27 +48,26 @@ export function useCalorieMetrics({
 
     const calories = Math.round(activity.calories);
     const durationHours = (activity.moving_time || 0) / 3600;
-    const burnRate =
-      durationHours > 0 ? Math.round(calories / durationHours) : 0;
+    const burnRate = durationHours > 0 ? Math.round(calories / durationHours) : 0;
 
     // Build details array
-    const details: StatDetail["details"] = [
+    const details: StatDetail['details'] = [
       {
-        label: t("activity.stats.duration"),
+        label: t('activity.stats.duration'),
         value: formatDuration(activity.moving_time || 0),
       },
       {
-        label: t("activity.stats.burnRate"),
-        value: `${burnRate} ${t("activity.stats.kcalPerHr")}`,
+        label: t('activity.stats.burnRate'),
+        value: `${burnRate} ${t('activity.stats.kcalPerHr')}`,
       },
     ];
 
     return {
-      title: t("activity.stats.energy"),
+      title: t('activity.stats.energy'),
       value: `${calories}`,
-      icon: "fire",
-      color: "#FBBF24", // Amber-400
-      explanation: t("activity.explanations.energy"),
+      icon: 'fire' as const,
+      color: '#FBBF24', // Amber-400
+      explanation: t('activity.explanations.energy'),
       details,
     };
   }, [activity, t]);

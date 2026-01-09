@@ -41,10 +41,12 @@ export interface Activity {
   average_watts?: number;
   max_watts?: number;
   icu_average_watts?: number;
+  weighted_average_watts?: number; // Normalized power (NP)
   average_speed: number;
   max_speed: number;
   average_cadence?: number;
   calories?: number;
+  pacing_index?: number; // Aerobic decoupling metric
   start_latlng?: [number, number];
   end_latlng?: [number, number];
   polyline?: string;
@@ -80,10 +82,14 @@ export interface Activity {
   // Weather data (when available from intervals.icu)
   has_weather?: boolean;
   average_weather_temp?: number; // Temperature in Celsius
-  average_feels_like?: number; // Feels like temperature
+  average_feels_like?: number; // Feels like temperature (alias for apparent_temperature)
+  apparent_temperature?: number; // Feels like temperature (primary field)
+  average_temp_feels_like?: number; // Deprecated: use apparent_temperature or average_feels_like
   average_wind_speed?: number; // Wind speed in m/s
+  average_weather_wind_speed?: number; // Deprecated: use average_wind_speed
   average_wind_gust?: number; // Wind gust in m/s
   average_clouds?: number; // Cloud cover percentage
+  average_weather_humidity?: number; // Humidity percentage
   // Device temperature (from watch sensor, not weather)
   average_temp?: number;
 }
@@ -139,8 +145,10 @@ export interface WellnessData {
   // Wellness metrics
   weight?: number;
   restingHR?: number;
+  max_hr?: number; // Maximum heart rate
   hrv?: number;
   hrvSDNN?: number;
+  hrr?: number; // Heart rate recovery
   sleepSecs?: number;
   sleepScore?: number;
   sleepQuality?: number;
@@ -157,6 +165,7 @@ export interface WellnessData {
   hydration?: number;
   hydrationVolume?: number;
   readiness?: number;
+  ftp?: number; // Functional Threshold Power
   baevskySI?: number;
   bloodGlucose?: number;
   lactate?: number;

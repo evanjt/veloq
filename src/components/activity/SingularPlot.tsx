@@ -218,83 +218,83 @@ export function SingularPlot({
       <View style={[styles.container, { height }]}>
         <GestureDetector gesture={gesture}>
           <View style={styles.chartWrapper}>
-          {/* Tooltip display */}
-          {isActive && tooltipData && (
-            <View style={[styles.tooltip, isDark && styles.tooltipDark]} pointerEvents="none">
-              <Text style={[styles.tooltipText, isDark && styles.tooltipTextDark]}>
-                {tooltipData.x.toFixed(2)} {distanceUnit} • {Math.round(tooltipData.y)}{' '}
+            {/* Tooltip display */}
+            {isActive && tooltipData && (
+              <View style={[styles.tooltip, isDark && styles.tooltipDark]} pointerEvents="none">
+                <Text style={[styles.tooltipText, isDark && styles.tooltipTextDark]}>
+                  {tooltipData.x.toFixed(2)} {distanceUnit} • {Math.round(tooltipData.y)}{' '}
+                  {elevationUnit}
+                </Text>
+              </View>
+            )}
+
+            <CartesianChart
+              data={data}
+              xKey="x"
+              yKeys={['y']}
+              domain={{ y: [minAlt, maxAlt] }}
+              padding={{ left: 0, right: 0, top: 4, bottom: 16 }}
+            >
+              {({ points, chartBounds }) => {
+                // Sync chartBounds and point coordinates for UI thread crosshair
+                if (
+                  chartBounds.left !== chartBoundsShared.value.left ||
+                  chartBounds.right !== chartBoundsShared.value.right
+                ) {
+                  chartBoundsShared.value = {
+                    left: chartBounds.left,
+                    right: chartBounds.right,
+                  };
+                }
+                // Sync actual point x-coordinates for accurate crosshair positioning
+                const newCoords = points.y.map((p) => p.x);
+                if (
+                  newCoords.length !== pointXCoordsShared.value.length ||
+                  newCoords[0] !== pointXCoordsShared.value[0]
+                ) {
+                  pointXCoordsShared.value = newCoords;
+                }
+
+                return (
+                  <Area points={points.y} y0={chartBounds.bottom} curveType="natural">
+                    <LinearGradient
+                      start={vec(0, chartBounds.top)}
+                      end={vec(0, chartBounds.bottom)}
+                      colors={[colors.primary + 'AA', colors.primary + '20']}
+                    />
+                  </Area>
+                );
+              }}
+            </CartesianChart>
+
+            {/* Animated crosshair - runs at native 120Hz using synced point coordinates */}
+            <Animated.View
+              style={[styles.crosshair, crosshairStyle, isDark && styles.crosshairDark]}
+              pointerEvents="none"
+            />
+
+            {/* Y-axis labels overlaid on chart */}
+            <View style={styles.yAxisOverlay} pointerEvents="none">
+              <Text style={[styles.overlayLabel, isDark && styles.overlayLabelDark]}>
+                {maxAlt}
+                {elevationUnit}
+              </Text>
+              <Text style={[styles.overlayLabel, isDark && styles.overlayLabelDark]}>
+                {minAlt}
                 {elevationUnit}
               </Text>
             </View>
-          )}
 
-          <CartesianChart
-            data={data}
-            xKey="x"
-            yKeys={['y']}
-            domain={{ y: [minAlt, maxAlt] }}
-            padding={{ left: 0, right: 0, top: 4, bottom: 16 }}
-          >
-            {({ points, chartBounds }) => {
-              // Sync chartBounds and point coordinates for UI thread crosshair
-              if (
-                chartBounds.left !== chartBoundsShared.value.left ||
-                chartBounds.right !== chartBoundsShared.value.right
-              ) {
-                chartBoundsShared.value = {
-                  left: chartBounds.left,
-                  right: chartBounds.right,
-                };
-              }
-              // Sync actual point x-coordinates for accurate crosshair positioning
-              const newCoords = points.y.map((p) => p.x);
-              if (
-                newCoords.length !== pointXCoordsShared.value.length ||
-                newCoords[0] !== pointXCoordsShared.value[0]
-              ) {
-                pointXCoordsShared.value = newCoords;
-              }
-
-              return (
-                <Area points={points.y} y0={chartBounds.bottom} curveType="natural">
-                  <LinearGradient
-                    start={vec(0, chartBounds.top)}
-                    end={vec(0, chartBounds.bottom)}
-                    colors={[colors.primary + 'AA', colors.primary + '20']}
-                  />
-                </Area>
-              );
-            }}
-          </CartesianChart>
-
-          {/* Animated crosshair - runs at native 120Hz using synced point coordinates */}
-          <Animated.View
-            style={[styles.crosshair, crosshairStyle, isDark && styles.crosshairDark]}
-            pointerEvents="none"
-          />
-
-          {/* Y-axis labels overlaid on chart */}
-          <View style={styles.yAxisOverlay} pointerEvents="none">
-            <Text style={[styles.overlayLabel, isDark && styles.overlayLabelDark]}>
-              {maxAlt}
-              {elevationUnit}
-            </Text>
-            <Text style={[styles.overlayLabel, isDark && styles.overlayLabelDark]}>
-              {minAlt}
-              {elevationUnit}
-            </Text>
+            {/* X-axis labels overlaid on chart */}
+            <View style={styles.xAxisOverlay} pointerEvents="none">
+              <Text style={[styles.overlayLabel, isDark && styles.overlayLabelDark]}>0</Text>
+              <Text style={[styles.overlayLabel, isDark && styles.overlayLabelDark]}>
+                {maxDist.toFixed(1)} {distanceUnit}
+              </Text>
+            </View>
           </View>
-
-          {/* X-axis labels overlaid on chart */}
-          <View style={styles.xAxisOverlay} pointerEvents="none">
-            <Text style={[styles.overlayLabel, isDark && styles.overlayLabelDark]}>0</Text>
-            <Text style={[styles.overlayLabel, isDark && styles.overlayLabelDark]}>
-              {maxDist.toFixed(1)} {distanceUnit}
-            </Text>
-          </View>
-        </View>
-      </GestureDetector>
-    </View>
+        </GestureDetector>
+      </View>
     </ChartErrorBoundary>
   );
 }

@@ -147,10 +147,18 @@ export function useGpsDataFetcher() {
           });
         }
 
-        return { syncedIds: ids, withGpsCount: activities.length, message: `Synced ${ids.length} demo activities` };
+        return {
+          syncedIds: ids,
+          withGpsCount: activities.length,
+          message: `Synced ${ids.length} demo activities`,
+        };
       }
 
-      return { syncedIds: [], withGpsCount: activities.length, message: 'No valid GPS data in fixtures' };
+      return {
+        syncedIds: [],
+        withGpsCount: activities.length,
+        message: 'No valid GPS data in fixtures',
+      };
     },
     []
   );
