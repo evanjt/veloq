@@ -1,3 +1,112 @@
+/**
+ * @fileoverview ActivityMapView - Interactive GPS track visualization
+ *
+ * **Overview**
+ *
+ * This component renders activity GPS tracks on a map with support for multiple
+ * visualization modes, style switching, and interactive features. It combines
+ * MapLibre's 2D rendering with a 3D WebView overlay for terrain visualization.
+ *
+ * **Architecture**
+ *
+ * **Dual Rendering System:**
+ * - 2D Map: MapLibre React Native (native performance, gesture handling)
+ * - 3D Map: WebView with Mapbox GL JS (terrain visualization)
+ * - Crossfading: Animated opacity transitions between modes
+ *
+ * **State Management:**
+ * - mapStyle: Current map style (standard/satellite/terrain)
+ * - userOverride: Whether user manually changed style (prevents auto-switching)
+ * - is3DMode/is3DReady: 3D mode state with loading indicator
+ * - creationState/startIndex/endIndex: Section creation flow
+ * - highlightIndex: Elevation chart crosshair position
+ *
+ * **Data Flow:**
+ * 1. Props (polyline/coordinates) → decoded → validated → rendered
+ * 2. Map style preference → auto-applied (unless user override)
+ * 3. Section creation → start → end → callback with result
+ * 4. Highlight index → marker → camera follow (optional)
+ *
+ * **Key Features:**
+ *
+ * **Style Switching:**
+ * - Cycles: standard → satellite → terrain → standard
+ * - Respects user preferences from MapPreferencesContext
+ * - Manual override persists until component remounts
+ *
+ * **Section Creation:**
+ * - Two-tap interaction: select start → select end → confirm
+ * - Distance calculation via Haversine formula
+ * - Visual feedback with marker overlays
+ * - Callback with polyline slice and distance
+ *
+ * **Location Services:**
+ * - Requests foreground permissions on demand
+ * - Camera animates to user position
+ * - Silently fails if permission denied
+ *
+ * **Performance Optimizations:**
+ * - coordinate parsing memoized (expensive decodePolyline)
+ * - Valid coordinates filtered once (NaN checks)
+ * - 3D WebView opacity animated (native driver)
+ *
+ * **Trade-offs:**
+ *
+ * **Why WebView for 3D?**
+ * - Pro: Mapbox GL JS has mature terrain visualization
+ * - Pro: Faster to implement than native 3D solution
+ * - Con: Additional memory footprint
+ * - Con: Slower initial load
+ *
+ * **Why Animated.Value for 3D opacity?**
+ * - Pro: Smooth crossfade (native driver)
+ * - Con: Adds complexity to state management
+ * - Alternative: CSS transitions (less control)
+ *
+ * **Why Section Creation State Machine?**
+ * - Pro: Clear UX flow (start → end → confirm)
+ * - Pro: Prevents invalid states
+ * - Con: More complex than simple boolean
+ *
+ * **Component Size Note:**
+ * At 861 lines, this component handles multiple concerns. Future refactoring
+ * should consider extracting:
+ * - StyleSwitcher component
+ * - SectionCreationFlow component
+ * - LocationHandler component
+ * - HighlightRenderer component
+ *
+ * @example
+ * ```tsx
+ * // Basic usage with polyline
+ * <ActivityMapView
+ *   polyline={activity.map.polyline}
+ *   activityType={activity.type}
+ *   height={400}
+ * />
+ *
+ * // With section creation
+ * <ActivityMapView
+ *   polyline={activity.map.polyline}
+ *   activityType={activity.type}
+ *   creationMode={isEditing}
+ *   onSectionCreated={(result) => {
+ *     console.log('Section:', result.distanceMeters, 'm');
+ *   }}
+ *   onCreationCancelled={() => {
+ *     setIsEditing(false);
+ *   }}
+ * />
+ *
+ * // With elevation highlight
+ * <ActivityMapView
+ *   polyline={activity.map.polyline}
+ *   activityType={activity.type}
+ *   highlightIndex={chartPointIndex}
+ * />
+ * ```
+ */
+
 import React, { useMemo, useState, useRef, useCallback, useEffect } from 'react';
 import { View, StyleSheet, TouchableOpacity, Modal, StatusBar, Animated, Text } from 'react-native';
 import {

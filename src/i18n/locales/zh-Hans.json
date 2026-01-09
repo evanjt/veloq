@@ -207,7 +207,7 @@
       "percentOfMaxHR": "最大心率的 {{percent}}%",
       "percentOfMaxHRLabel": "最大心率百分比",
       "hrRecovery": "心率恢复",
-      "bpmDrop": "下降 {{value}} bpm",
+      "bpmDrop": "{{value}} bpm drop",
       "restingHRToday": "今日静息心率",
       "hrvToday": "今日心率变异性",
       "energy": "能量",
@@ -232,7 +232,29 @@
       "percentOfFTP": "FTP 百分比",
       "eftpEstimated": "估算 eFTP",
       "efficiencyFactor": "效率因子",
-      "decoupling": "脱耦"
+      "decoupling": "Decoupling",
+      "duration": "Duration",
+      "kcalPerHr": "kcal/hr",
+      "normalizedPower": "Normalized Power",
+      "vi": "VI",
+      "ef": "EF",
+      "restingHR": "Resting HR",
+      "hrv": "HRV",
+      "heartRate": "Heart Rate",
+      "peakHR": "Peak HR",
+      "humidity": "Humidity",
+      "ftp": "FTP",
+      "decoup": "Decoupling"
+    },
+    "form": {
+      "fresh": "Fresh",
+      "fatigued": "Fatigued",
+      "neutral": "Neutral"
+    },
+    "ofMax": "of max",
+    "conditions": {
+      "hot": "Hot",
+      "cold": "Cold"
     }
   },
   "time": {

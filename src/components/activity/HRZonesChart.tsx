@@ -5,6 +5,7 @@ import { colors, darkColors, opacity, typography, spacing, layout } from '@/them
 import { useHRZones } from '@/providers';
 import { useSportSettings, getSettingsForSport, HR_ZONE_COLORS } from '@/hooks';
 import type { ActivityStreams, ActivityDetail } from '@/types';
+import { ChartErrorBoundary } from '@/components/ui';
 
 interface HRZonesChartProps {
   streams: ActivityStreams;
@@ -166,85 +167,87 @@ export function HRZonesChart({ streams, activityType = 'Ride', activity }: HRZon
   const dataSource = settings?.max_hr ? 'intervals.icu' : 'local';
 
   return (
-    <View style={styles.container}>
-      <View style={styles.headerRow}>
-        <Text style={[styles.title, isDark && styles.titleDark]}>
-          {t('activity.timeInHRZones')}
-        </Text>
-        <Text style={[styles.maxHRLabel, isDark && styles.maxHRLabelDark]}>
-          {t('activity.maxHR', { value: maxHR })}
-        </Text>
-      </View>
-      <View style={styles.zonesContainer}>
-        {zoneData.map((zone) => (
-          <View key={zone.id} style={[styles.zoneRow, { paddingVertical: rowPadding }]}>
-            {/* Zone label */}
-            <Text
-              style={[
-                styles.zoneNumber,
-                isCompact && styles.zoneNumberCompact,
-                { color: zone.color },
-              ]}
-            >
-              Z{zone.id}
-            </Text>
+    <ChartErrorBoundary height={200} label="Heart Rate Zones">
+      <View style={styles.container}>
+        <View style={styles.headerRow}>
+          <Text style={[styles.title, isDark && styles.titleDark]}>
+            {t('activity.timeInHRZones')}
+          </Text>
+          <Text style={[styles.maxHRLabel, isDark && styles.maxHRLabelDark]}>
+            {t('activity.maxHR', { value: maxHR })}
+          </Text>
+        </View>
+        <View style={styles.zonesContainer}>
+          {zoneData.map((zone) => (
+            <View key={zone.id} style={[styles.zoneRow, { paddingVertical: rowPadding }]}>
+              {/* Zone label */}
+              <Text
+                style={[
+                  styles.zoneNumber,
+                  isCompact && styles.zoneNumberCompact,
+                  { color: zone.color },
+                ]}
+              >
+                Z{zone.id}
+              </Text>
 
-            {/* Percentage - always shown at start, theme-aware color */}
-            <Text
-              style={[
-                styles.zonePercent,
-                isCompact && styles.zonePercentCompact,
-                isDark && styles.zonePercentDark,
-              ]}
-            >
-              {zone.percent > 0.5 ? `${Math.round(zone.percent)}%` : '-'}
-            </Text>
+              {/* Percentage - always shown at start, theme-aware color */}
+              <Text
+                style={[
+                  styles.zonePercent,
+                  isCompact && styles.zonePercentCompact,
+                  isDark && styles.zonePercentDark,
+                ]}
+              >
+                {zone.percent > 0.5 ? `${Math.round(zone.percent)}%` : '-'}
+              </Text>
 
-            {/* Bar */}
-            <View
-              style={[
-                styles.barContainer,
-                { height: barHeight, borderRadius: barHeight / 2 },
-                isDark && styles.barContainerDark,
-              ]}
-            >
+              {/* Bar */}
               <View
                 style={[
-                  styles.bar,
-                  {
-                    width: `${Math.min(zone.percent, 100)}%`,
-                    backgroundColor: zone.color,
-                    borderRadius: barHeight / 2,
-                  },
+                  styles.barContainer,
+                  { height: barHeight, borderRadius: barHeight / 2 },
+                  isDark && styles.barContainerDark,
                 ]}
-              />
-            </View>
+              >
+                <View
+                  style={[
+                    styles.bar,
+                    {
+                      width: `${Math.min(zone.percent, 100)}%`,
+                      backgroundColor: zone.color,
+                      borderRadius: barHeight / 2,
+                    },
+                  ]}
+                />
+              </View>
 
-            {/* Time and BPM range */}
-            <View style={[styles.zoneStats, isCompact && styles.zoneStatsCompact]}>
-              <Text
-                style={[
-                  styles.zoneTime,
-                  isCompact && styles.zoneTimeCompact,
-                  isDark && styles.zoneTimeDark,
-                ]}
-              >
-                {zone.percent > 0.5 ? zone.formatted : '-'}
-              </Text>
-              <Text
-                style={[
-                  styles.zoneBPM,
-                  isCompact && styles.zoneBPMCompact,
-                  isDark && styles.zoneBPMDark,
-                ]}
-              >
-                {getZoneBPM(zone)}
-              </Text>
+              {/* Time and BPM range */}
+              <View style={[styles.zoneStats, isCompact && styles.zoneStatsCompact]}>
+                <Text
+                  style={[
+                    styles.zoneTime,
+                    isCompact && styles.zoneTimeCompact,
+                    isDark && styles.zoneTimeDark,
+                  ]}
+                >
+                  {zone.percent > 0.5 ? zone.formatted : '-'}
+                </Text>
+                <Text
+                  style={[
+                    styles.zoneBPM,
+                    isCompact && styles.zoneBPMCompact,
+                    isDark && styles.zoneBPMDark,
+                  ]}
+                >
+                  {getZoneBPM(zone)}
+                </Text>
+              </View>
             </View>
-          </View>
-        ))}
+          ))}
+        </View>
       </View>
-    </View>
+    </ChartErrorBoundary>
   );
 }
 

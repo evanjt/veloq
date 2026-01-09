@@ -15,6 +15,7 @@ import { useTranslation } from 'react-i18next';
 import { colors, darkColors, typography, layout } from '@/theme';
 import { useMetricSystem } from '@/hooks';
 import { ChartErrorBoundary } from '@/components/ui';
+import { CHART_CONFIG } from '@/constants';
 
 interface ActivityDataChartProps {
   /** The metric values to display */
@@ -88,7 +89,7 @@ export function ActivityDataChart({
   const { data, indexMap } = useMemo(() => {
     if (rawData.length === 0) return { data: [], indexMap: [] as number[] };
 
-    const maxPoints = 200;
+    const maxPoints = CHART_CONFIG.MAX_DATA_POINTS;
     const step = Math.max(1, Math.floor(rawData.length / maxPoints));
 
     const points: { x: number; y: number; idx: number }[] = [];
@@ -216,7 +217,7 @@ export function ActivityDataChart({
     })
     .minDistance(Platform.OS === 'ios' ? 10 : 0)
     .activeOffsetX(Platform.OS === 'ios' ? [-15, 15] : 0)
-    .activateAfterLongPress(700);
+    .activateAfterLongPress(CHART_CONFIG.LONG_PRESS_DURATION);
 
   // Animated crosshair style - follows finger directly for smooth tracking
   const crosshairStyle = useAnimatedStyle(() => {
