@@ -908,6 +908,9 @@ impl PersistentRouteEngine {
             }
         }
 
+        // Reload custom route names from SQLite (names may be lost after regrouping)
+        self.load_route_names()?;
+
         // Save to database
         self.save_groups().ok();
         self.groups_dirty = false;

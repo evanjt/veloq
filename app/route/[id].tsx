@@ -17,7 +17,7 @@ import { useLocalSearchParams, router, Href } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useActivities, useRouteGroups, useConsensusRoute } from '@/hooks';
+import { useActivities, useRouteGroups, useConsensusRoute, useRoutePerformances } from '@/hooks';
 
 // Lazy load native module to avoid bundler errors
 function getRouteEngine() {
@@ -62,6 +62,10 @@ interface ActivityRowProps {
   overlapDistance?: number;
   /** Total distance of the route in meters (for context) */
   routeDistance?: number;
+  /** Is this the best performance (PR)? */
+  isBest?: boolean;
+  /** Rank of this performance (1 = best) */
+  rank?: number;
 }
 
 function ActivityRow({
@@ -74,6 +78,8 @@ function ActivityRow({
   isHighlighted,
   overlapDistance,
   routeDistance,
+  isBest = false,
+  rank,
 }: ActivityRowProps) {
   const handlePress = () => {
     router.push(`/activity/${activity.id}`);
@@ -130,6 +136,19 @@ function ActivityRow({
           <Text style={[styles.activityName, isDark && styles.textLight]} numberOfLines={1}>
             {activity.name}
           </Text>
+          {/* PR badge for best performance */}
+          {isBest && (
+            <View style={[styles.prBadge, { backgroundColor: colors.primary }]}>
+              <MaterialCommunityIcons name="trophy" size={12} color="#FFF" />
+              <Text style={styles.prText}>PR</Text>
+            </View>
+          )}
+          {/* Rank badge for non-best performances */}
+          {!isBest && rank !== undefined && rank <= 10 && (
+            <View style={[styles.rankBadge, { backgroundColor: colors.textSecondary + '20' }]}>
+              <Text style={[styles.rankText, isDark && styles.textDark]}>#{rank}</Text>
+            </View>
+          )}
           {/* Match percentage badge with direction-based color */}
           {matchPercentage !== undefined && (
             <View style={[styles.matchBadge, { backgroundColor: badgeColor + '15' }]}>
@@ -207,6 +226,9 @@ export default function RouteDetailScreen() {
   // Get route groups from engine
   const { groups: allGroups } = useRouteGroups({ minActivities: 1 });
   const engineGroup = useMemo(() => allGroups.find((g) => g.id === id) || null, [allGroups, id]);
+
+  // Get performance data from Rust engine (precise calculations using GPS matching)
+  const { performances, best: bestPerformance, currentRank } = useRoutePerformances(id, engineGroup?.id);
 
   // Get consensus route points from Rust engine
   const { points: consensusPoints } = useConsensusRoute(id);
@@ -304,70 +326,60 @@ export default function RouteDetailScreen() {
     });
   }, [routeGroupBase, allActivities]);
 
-  // Prepare chart data for UnifiedPerformanceChart
-  // This is ONE point per activity - direction comes from route matching
+  // Prepare chart data for UnifiedPerformanceChart using Rust engine performance data
+  // This provides precise segment times instead of approximate activity averages
   const { chartData, minSpeed, maxSpeed, bestIndex, hasReverseRuns } = useMemo(() => {
-    const dataPoints: (PerformanceDataPoint & { x: number })[] = [];
-
-    // Sort activities by date first
-    const sortedActivities = [...routeActivities].sort(
-      (a, b) => new Date(a.start_date_local).getTime() - new Date(b.start_date_local).getTime()
-    );
-
-    let hasAnyReverse = false;
-
-    for (const activity of sortedActivities) {
-      const activityPoints = signatures[activity.id]?.points;
-      const match = matches[activity.id];
-      // Direction comes from route matching algorithm - the WHOLE activity direction
-      const direction = (match?.direction as 'same' | 'reverse') ?? 'same';
-      const matchPercentage = match?.matchPercentage ?? 100;
-
-      if (direction === 'reverse') hasAnyReverse = true;
-
-      // Calculate activity speed (with safety check for division by zero)
-      const activitySpeed = activity.moving_time > 0 ? activity.distance / activity.moving_time : 0;
-
-      // Each activity = ONE data point
-      dataPoints.push({
-        x: 0,
-        id: activity.id,
-        activityId: activity.id,
-        speed: activitySpeed,
-        date: new Date(activity.start_date_local),
-        activityName: activity.name,
-        direction,
-        matchPercentage,
-        lapNumber: 1,
-        totalLaps: 1,
-        lapPoints: activityPoints,
-      });
+    if (performances.length === 0) {
+      return { chartData: [], minSpeed: 0, maxSpeed: 1, bestIndex: 0, hasReverseRuns: false };
     }
 
-    // Re-index after collecting all points
-    const indexed = dataPoints.map((d, idx) => ({ ...d, x: idx }));
+    // Convert performances to chart data format
+    const dataPoints: (PerformanceDataPoint & { x: number })[] = performances.map((perf, idx) => {
+      const activityPoints = signatures[perf.activityId]?.points;
+      return {
+        x: idx,
+        id: perf.activityId,
+        activityId: perf.activityId,
+        speed: perf.speed,
+        date: perf.date,
+        activityName: perf.name,
+        direction: perf.direction,
+        matchPercentage: perf.matchPercentage,
+        lapNumber: 1,
+        totalLaps: performances.length,
+        lapPoints: activityPoints,
+      };
+    });
 
-    const speeds = indexed.map((d) => d.speed);
+    const speeds = dataPoints.map((d) => d.speed);
     const min = speeds.length > 0 ? Math.min(...speeds) : 0;
     const max = speeds.length > 0 ? Math.max(...speeds) : 1;
     const padding = (max - min) * 0.15 || 0.5;
 
-    // Find best (fastest)
+    // Find best (fastest) - use the bestPerformance from Rust engine if available
     let bestIdx = 0;
-    for (let i = 1; i < indexed.length; i++) {
-      if (indexed[i].speed > indexed[bestIdx].speed) {
-        bestIdx = i;
+    if (bestPerformance) {
+      bestIdx = dataPoints.findIndex((d) => d.activityId === bestPerformance.activityId);
+      if (bestIdx === -1) bestIdx = 0;
+    } else {
+      // Fallback to manual search
+      for (let i = 1; i < dataPoints.length; i++) {
+        if (dataPoints[i].speed > dataPoints[bestIdx].speed) {
+          bestIdx = i;
+        }
       }
     }
 
+    const hasAnyReverse = dataPoints.some((d) => d.direction === 'reverse');
+
     return {
-      chartData: indexed,
+      chartData: dataPoints,
       minSpeed: Math.max(0, min - padding),
       maxSpeed: max + padding,
       bestIndex: bestIdx,
       hasReverseRuns: hasAnyReverse,
     };
-  }, [routeActivities, matches, signatures]);
+  }, [performances, bestPerformance, signatures]);
 
   // Compute stats from activities since signature data isn't available
   // Must be called before any early return to maintain hooks order
@@ -593,6 +605,10 @@ export default function RouteDetailScreen() {
                   // Get representative route points (full route, not truncated consensus)
                   const routePoints = routeGroup?.signature?.points;
                   const isHighlighted = highlightedActivityId === activity.id;
+                  // Determine if this is the best performance (PR)
+                  const isBest = bestPerformance?.activityId === activity.id;
+                  // Get rank from performances array
+                  const rank = performances.findIndex(p => p.activityId === activity.id) + 1;
                   return (
                     <React.Fragment key={activity.id}>
                       <Pressable
@@ -609,6 +625,8 @@ export default function RouteDetailScreen() {
                           isHighlighted={isHighlighted}
                           overlapDistance={overlapDistance}
                           routeDistance={routeDistance}
+                          isBest={isBest}
+                          rank={rank}
                         />
                       </Pressable>
                       {index < routeActivities.length - 1 && (
@@ -851,6 +869,29 @@ const styles = StyleSheet.create({
   matchText: {
     fontSize: typography.label.fontSize,
     fontWeight: '600',
+  },
+  prBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: layout.borderRadiusSm,
+    gap: 2,
+  },
+  prText: {
+    fontSize: typography.label.fontSize,
+    fontWeight: '700',
+    color: '#FFF',
+  },
+  rankBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: layout.borderRadiusSm,
+  },
+  rankText: {
+    fontSize: typography.caption.fontSize,
+    fontWeight: '600',
+    color: colors.textSecondary,
   },
   activityDate: {
     fontSize: typography.caption.fontSize,

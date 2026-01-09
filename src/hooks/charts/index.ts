@@ -6,7 +6,6 @@ export {
   type ChartColorScheme,
   type ChartMetricType,
 } from './useChartColors';
-export { useChartGesture } from './useChartGesture';
 export {
   usePaceCurve,
   PACE_CURVE_DISTANCES,
