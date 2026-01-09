@@ -5,11 +5,11 @@
  * TSB = CTL - ATL, indicating freshness (+) vs fatigue (-).
  */
 
-import { useMemo } from "react";
-import { useTranslation } from "react-i18next";
-import type { WellnessData } from "@/types";
-import type { StatDetail } from "./types";
-import { colors } from "@/theme/colors";
+import { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
+import type { WellnessData } from '@/types';
+import type { StatDetail } from './types';
+import { colors } from '@/theme/colors';
 
 interface UseFormAndTSBOptions {
   wellness?: WellnessData | null;
@@ -41,9 +41,7 @@ interface UseFormAndTSBResult {
  * }
  * ```
  */
-export function useFormAndTSB({
-  wellness,
-}: UseFormAndTSBOptions): UseFormAndTSBResult {
+export function useFormAndTSB({ wellness }: UseFormAndTSBOptions): UseFormAndTSBResult {
   const { t } = useTranslation();
 
   const stat = useMemo(() => {
@@ -61,45 +59,37 @@ export function useFormAndTSB({
     const isFatigued = tsb < -10;
     const isNeutral = !isFresh && !isFatigued;
 
-    const color = isFresh
-      ? colors.success
-      : isFatigued
-        ? colors.error
-        : colors.chartYellow;
+    const color = isFresh ? colors.success : isFatigued ? colors.error : colors.chartYellow;
 
     // Build context string
     let context: string | undefined;
     if (isFresh) {
-      context = t("activity.form.fresh");
+      context = t('activity.form.fresh');
     } else if (isFatigued) {
-      context = t("activity.form.fatigued");
+      context = t('activity.form.fatigued');
     } else {
-      context = t("activity.form.neutral");
+      context = t('activity.form.neutral');
     }
 
     // Build details array
-    const details: StatDetail["details"] = [
+    const details: StatDetail['details'] = [
       {
-        label: t("activity.stats.yourFitness"),
+        label: t('activity.stats.yourFitness'),
         value: `${Math.round(ctl)}`,
       },
       {
-        label: t("activity.stats.yourFatigue"),
+        label: t('activity.stats.yourFatigue'),
         value: `${Math.round(atl)}`,
       },
     ];
 
     return {
-      title: t("activity.stats.yourForm"),
+      title: t('activity.stats.yourForm'),
       value: tsb > 0 ? `+${Math.round(tsb)}` : `${Math.round(tsb)}`,
-      icon: isFresh
-        ? "emoticon-happy"
-        : isFatigued
-          ? "emoticon-sad"
-          : "emoticon-neutral",
+      icon: isFresh ? 'emoticon-happy' : isFatigued ? 'emoticon-sad' : 'emoticon-neutral',
       color,
       context,
-      explanation: t("activity.explanations.yourForm"),
+      explanation: t('activity.explanations.yourForm'),
       details,
     };
   }, [wellness, t]);

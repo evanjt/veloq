@@ -5,14 +5,14 @@
  * Requests foreground permissions on demand and handles permission denial gracefully.
  */
 
-import React, { useRef, useEffect, useCallback } from "react";
-import { TouchableOpacity, StyleSheet, ViewStyle } from "react-native";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
-import * as Location from "expo-location";
-import type { Camera } from "@maplibre/maplibre-react-native";
-import { colors } from "@/theme/colors";
-import { shadows } from "@/theme/shadows";
-import { spacing } from "@/theme/spacing";
+import React, { useRef, useEffect, useCallback } from 'react';
+import { TouchableOpacity, StyleSheet, ViewStyle } from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import * as Location from 'expo-location';
+import type { Camera } from '@maplibre/maplibre-react-native';
+import { colors } from '@/theme/colors';
+import { shadows } from '@/theme/shadows';
+import { spacing } from '@/theme/spacing';
 
 interface LocationHandlerProps {
   /** MapLibre Camera ref for animating to location */
@@ -39,11 +39,7 @@ interface LocationHandlerProps {
  * />
  * ```
  */
-export function LocationHandler({
-  cameraRef,
-  onLocationUpdate,
-  style,
-}: LocationHandlerProps) {
+export function LocationHandler({ cameraRef, onLocationUpdate, style }: LocationHandlerProps) {
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isMountedRef = useRef(true);
 
@@ -51,7 +47,7 @@ export function LocationHandler({
   const handleGetLocation = useCallback(async () => {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== "granted") {
+      if (status !== 'granted') {
         return;
       }
 
@@ -59,10 +55,7 @@ export function LocationHandler({
         accuracy: Location.Accuracy.Balanced,
       });
 
-      const coords: [number, number] = [
-        location.coords.longitude,
-        location.coords.latitude,
-      ];
+      const coords: [number, number] = [location.coords.longitude, location.coords.latitude];
       onLocationUpdate(coords);
 
       cameraRef.current?.setCamera({
@@ -106,26 +99,22 @@ export function LocationHandler({
       accessibilityLabel="Show my location"
       accessibilityHint="Animates map to your current GPS position"
     >
-      <MaterialCommunityIcons
-        name="crosshairs-gps"
-        size={28}
-        color={colors.text.primary}
-      />
+      <MaterialCommunityIcons name="crosshairs-gps" size={28} color={colors.text.primary} />
     </TouchableOpacity>
   );
 }
 
 const styles = StyleSheet.create({
   button: {
-    position: "absolute",
+    position: 'absolute',
     top: spacing.md,
     right: spacing.md,
     width: 44,
     height: 44,
     borderRadius: 22,
     backgroundColor: colors.background.paper,
-    justifyContent: "center",
-    alignItems: "center",
+    justifyContent: 'center',
+    alignItems: 'center',
     ...shadows.md,
   },
 });
