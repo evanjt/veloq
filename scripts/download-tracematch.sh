@@ -2,7 +2,8 @@
 # Download prebuilt tracematch binaries from GitHub releases
 set -e
 
-VERSION="${TRACEMATCH_VERSION:-0.0.1}"
+# Read version from package.json (single source of truth)
+VERSION="${TRACEMATCH_VERSION:-$(node -p "require('./package.json').tracematchVersion")}"
 RELEASE_URL="https://github.com/evanjt/route-matcher/releases/download/${VERSION}"
 MODULE_DIR="modules/route-matcher-native"
 
