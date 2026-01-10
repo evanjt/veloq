@@ -261,9 +261,8 @@ jobs:
         run: npm ci
 
       - name: Download tracematch binaries from GitHub releases
-        env:
-          TRACEMATCH_VERSION: "0.0.1"
         run: |
+          TRACEMATCH_VERSION=$(node -p "require('./package.json').tracematchVersion")
           echo "=== Downloading tracematch v${TRACEMATCH_VERSION} ==="
           RELEASE_URL="https://github.com/evanjt/route-matcher/releases/download/${TRACEMATCH_VERSION}"
 
@@ -296,7 +295,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: android
-          key: android-prebuild-${{ runner.os }}-${{ hashFiles('app.json', 'package.json', 'package-lock.json', 'plugins/**', 'expo-modules/**/*.json', 'modules/**/android/**', 'node_modules/react-native-vector-icons/package.json', 'node_modules/react-native-webview/package.json') }}-tracematch-0.0.1
+          key: android-prebuild-${{ runner.os }}-${{ hashFiles('app.json', 'package.json', 'package-lock.json', 'plugins/**', 'expo-modules/**/*.json', 'modules/**/android/**', 'node_modules/react-native-vector-icons/package.json', 'node_modules/react-native-webview/package.json') }}
           restore-keys: |
             android-prebuild-${{ runner.os }}-
 
@@ -546,9 +545,8 @@ jobs:
       # Download tracematch binaries
       # ============================================
       - name: Download tracematch binaries from GitHub releases
-        env:
-          TRACEMATCH_VERSION: "0.0.1"
         run: |
+          TRACEMATCH_VERSION=$(node -p "require('./package.json').tracematchVersion")
           echo "=== Downloading tracematch v${TRACEMATCH_VERSION} for iOS ==="
           RELEASE_URL="https://github.com/evanjt/route-matcher/releases/download/${TRACEMATCH_VERSION}"
 
@@ -581,7 +579,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ios
-          key: ios-prebuild-${{ runner.os }}-${{ hashFiles('app.json', 'package.json', 'plugins/**', 'expo-modules/**/*.json', 'modules/**/ios/**') }}-tracematch-0.0.1
+          key: ios-prebuild-${{ runner.os }}-${{ hashFiles('app.json', 'package.json', 'plugins/**', 'expo-modules/**/*.json', 'modules/**/ios/**') }}
           restore-keys: |
             ios-prebuild-${{ runner.os }}-
 
