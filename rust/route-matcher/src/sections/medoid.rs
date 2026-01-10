@@ -122,10 +122,17 @@ fn average_min_distance(poly_a: &[GpsPoint], poly_b: &[GpsPoint]) -> f64 {
     (sum_a_to_b + sum_b_to_a) / (2.0 * n as f64)
 }
 
-/// Resample polyline to N points by distance
+/// Resample polyline to N points by distance (supports both up- and down-sampling)
 pub fn resample_by_distance(points: &[GpsPoint], n: usize) -> Vec<GpsPoint> {
-    if points.len() <= n {
-        return points.to_vec();
+    if n == 0 || points.is_empty() {
+        return Vec::new();
+    }
+    if n == 1 {
+        return vec![points[0].clone()];
+    }
+    if points.len() == 1 {
+        // Can't interpolate from a single point
+        return vec![points[0].clone(); n];
     }
 
     // Compute cumulative distances

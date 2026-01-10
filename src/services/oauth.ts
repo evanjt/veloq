@@ -2,7 +2,21 @@ import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
 import { OAUTH } from '@/lib/utils/constants';
 
-// State parameter for CSRF protection
+/**
+ * Module-level state for CSRF protection during OAuth flow.
+ *
+ * This is a global mutable variable intentionally - the OAuth flow requires
+ * generating a state before redirect and validating it on callback. The state
+ * must persist across the browser redirect cycle.
+ *
+ * Limitations:
+ * - Only one OAuth flow can be active at a time (acceptable for mobile apps)
+ * - State is lost on app restart (OAuth must be restarted)
+ * - Not suitable for server-side rendering or concurrent auth flows
+ *
+ * For more complex scenarios, consider storing state in SecureStore with
+ * a timeout for expiration.
+ */
 let oauthState: string | null = null;
 
 function generateState(): string {

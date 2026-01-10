@@ -3,6 +3,11 @@
  */
 
 import type { ActivityStreams } from '@/types';
+import type { MaterialCommunityIcons } from '@expo/vector-icons';
+import type { ComponentProps } from 'react';
+
+/** Icon name type from MaterialCommunityIcons */
+type IconName = ComponentProps<typeof MaterialCommunityIcons>['name'];
 
 /** Available chart type IDs */
 export type ChartTypeId =
@@ -26,7 +31,7 @@ export interface ChartConfig {
   /** Display label */
   label: string;
   /** Icon name (MaterialCommunityIcons) */
-  icon: any; // Using any to avoid icon type errors
+  icon: IconName;
   /** Display color */
   color: string;
   /** Stream key in activity data */

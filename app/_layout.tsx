@@ -77,13 +77,17 @@ function AuthGate({ children }: { children: React.ReactNode }) {
 
   // Initialize Rust route engine with persistent storage when authenticated
   // Data persists in SQLite - GPS tracks, routes, sections load instantly
+  // TODO: Add user-facing error notification when engine init fails
   useEffect(() => {
     if (isAuthenticated) {
       const engine = getRouteEngine();
       if (engine) {
         const dbPath = getRouteDbPath();
         if (!dbPath) {
-          console.error('[RouteEngine] Cannot initialize - document directory not available');
+          console.warn(
+            '[RouteEngine] Cannot initialize - document directory not available. ' +
+              'Route features will be disabled until app restart.'
+          );
           return;
         }
         const success = engine.initWithPath(dbPath);
@@ -92,7 +96,10 @@ function AuthGate({ children }: { children: React.ReactNode }) {
             `[RouteEngine] Initialized with persistent storage: ${engine.getActivityCount()} cached activities`
           );
         } else {
-          console.error(`[RouteEngine] Persistent init failed for path: ${dbPath}`);
+          console.warn(
+            `[RouteEngine] Persistent init failed for path: ${dbPath}. ` +
+              'Route features will be disabled until app restart.'
+          );
         }
       }
     }

@@ -204,6 +204,7 @@ export default function SettingsScreen() {
   }>({ bounds: 0, gps: 0, routes: 0 });
 
   // Fetch cache sizes on mount and when caches change
+  // Note: callback is intentionally stable (no deps) - it always fetches fresh data
   const refreshCacheSizes = useCallback(async () => {
     const [bounds, gps] = await Promise.all([estimateBoundsCacheSize(), estimateGpsStorageSize()]);
     // Routes cache is now in Rust SQLite, size estimation not available

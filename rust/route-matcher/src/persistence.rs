@@ -948,10 +948,14 @@ impl PersistentRouteEngine {
         }
 
         // Reload custom route names from SQLite (names may be lost after regrouping)
-        self.load_route_names().ok();
+        if let Err(e) = self.load_route_names() {
+            log::warn!("[PersistentEngine] Failed to load custom route names: {}", e);
+        }
 
         // Save to database
-        self.save_groups().ok();
+        if let Err(e) = self.save_groups() {
+            log::warn!("[PersistentEngine] Failed to save groups: {}", e);
+        }
         self.groups_dirty = false;
     }
 
