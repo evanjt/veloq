@@ -118,21 +118,23 @@ export function useRoutePerformances(
       const result = engine.getRoutePerformances(engineGroup.groupId, activityId);
 
       // Convert to RoutePerformancePoint format (add Date objects)
-      const points: RoutePerformancePoint[] = result.performances.map((p: any) => ({
-        activityId: p.activityId,
-        date: new Date(p.date * 1000), // Convert Unix timestamp to Date
-        name: p.name,
-        speed: p.speed,
-        duration: p.duration,
-        movingTime: p.movingTime,
-        distance: p.distance,
-        elevationGain: p.elevationGain,
-        avgHr: p.avgHr,
-        avgPower: p.avgPower,
-        isCurrent: p.isCurrent,
-        direction: p.direction as MatchDirection,
-        matchPercentage: p.matchPercentage,
-      }));
+      const points: RoutePerformancePoint[] = result.performances.map(
+        (p: Omit<RoutePerformancePoint, 'date'> & { date: number }) => ({
+          activityId: p.activityId,
+          date: new Date(p.date * 1000), // Convert Unix timestamp to Date
+          name: p.name,
+          speed: p.speed,
+          duration: p.duration,
+          movingTime: p.movingTime,
+          distance: p.distance,
+          elevationGain: p.elevationGain,
+          avgHr: p.avgHr,
+          avgPower: p.avgPower,
+          isCurrent: p.isCurrent,
+          direction: p.direction as MatchDirection,
+          matchPercentage: p.matchPercentage,
+        })
+      );
 
       const bestPoint: RoutePerformancePoint | null = result.best
         ? {
