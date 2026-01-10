@@ -5,8 +5,7 @@
 //! naming conflicts with the internal API.
 
 use crate::{
-    compare_routes, init_logging,
-    GpsPoint, MatchConfig, MatchResult, RouteGroup, RouteSignature,
+    compare_routes, init_logging, GpsPoint, MatchConfig, MatchResult, RouteGroup, RouteSignature,
 };
 use log::{debug, info};
 
@@ -94,7 +93,10 @@ pub fn ffi_compare_routes(
 
 /// Group signatures into route groups.
 #[uniffi::export]
-pub fn ffi_group_signatures(signatures: Vec<RouteSignature>, config: MatchConfig) -> Vec<RouteGroup> {
+pub fn ffi_group_signatures(
+    signatures: Vec<RouteSignature>,
+    config: MatchConfig,
+) -> Vec<RouteGroup> {
     init_logging();
     info!(
         "[RouteMatcherRust] RUST groupSignatures called with {} signatures",
@@ -144,7 +146,12 @@ pub fn ffi_group_incremental(
     let start = std::time::Instant::now();
 
     #[cfg(feature = "parallel")]
-    let groups = group_incremental(&new_signatures, &existing_groups, &existing_signatures, &config);
+    let groups = group_incremental(
+        &new_signatures,
+        &existing_groups,
+        &existing_signatures,
+        &config,
+    );
 
     #[cfg(not(feature = "parallel"))]
     let groups = {
@@ -307,7 +314,10 @@ pub struct FfiActivityMapResult {
 /// Automatically retries on 429 errors with exponential backoff.
 #[cfg(feature = "http")]
 #[uniffi::export]
-pub fn fetch_activity_maps(api_key: String, activity_ids: Vec<String>) -> Vec<FfiActivityMapResult> {
+pub fn fetch_activity_maps(
+    api_key: String,
+    activity_ids: Vec<String>,
+) -> Vec<FfiActivityMapResult> {
     init_logging();
     info!(
         "[RouteMatcherRust] fetch_activity_maps called for {} activities",
@@ -542,7 +552,10 @@ pub fn ffi_detect_sections_from_tracks(
         for j in start_offset..end_offset {
             let coord_idx = j * 2;
             if coord_idx + 1 < all_coords.len() {
-                points.push(GpsPoint::new(all_coords[coord_idx], all_coords[coord_idx + 1]));
+                points.push(GpsPoint::new(
+                    all_coords[coord_idx],
+                    all_coords[coord_idx + 1],
+                ));
             }
         }
 
@@ -615,7 +628,10 @@ pub fn ffi_detect_sections_multiscale(
         for j in start_offset..end_offset {
             let coord_idx = j * 2;
             if coord_idx + 1 < all_coords.len() {
-                points.push(GpsPoint::new(all_coords[coord_idx], all_coords[coord_idx + 1]));
+                points.push(GpsPoint::new(
+                    all_coords[coord_idx],
+                    all_coords[coord_idx + 1],
+                ));
             }
         }
 
@@ -635,8 +651,7 @@ pub fn ffi_detect_sections_multiscale(
         .map(|st| (st.activity_id, st.sport_type))
         .collect();
 
-    let result =
-        crate::sections::detect_sections_multiscale(&tracks, &sport_map, &groups, &config);
+    let result = crate::sections::detect_sections_multiscale(&tracks, &sport_map, &groups, &config);
 
     let elapsed = start.elapsed();
     info!(
@@ -902,38 +917,4 @@ pub fn ffi_compute_pace_curve(distances: Vec<f32>, target_distances: Vec<f32>) -
     let result = crate::curves::compute_pace_curve(&distances, &target_distances);
 
     serde_json::to_string(&result).unwrap_or_else(|_| "{}".to_string())
-}
-
-// ============================================================================
-// Achievement Detection FFI
-// ============================================================================
-
-/// Detect achievements by comparing a new activity against historical records.
-///
-/// # Arguments
-/// * `new_activity` - The newly completed activity record
-/// * `history` - Historical activity records for comparison
-///
-/// # Returns
-/// Vector of detected achievements, sorted by importance
-#[uniffi::export]
-pub fn ffi_detect_achievements(
-    new_activity: crate::achievements::ActivityRecord,
-    history: Vec<crate::achievements::ActivityRecord>,
-) -> Vec<crate::achievements::Achievement> {
-    init_logging();
-    info!(
-        "[RouteMatcherRust] detect_achievements for activity {}, comparing against {} historical activities",
-        new_activity.activity_id,
-        history.len()
-    );
-
-    let achievements = crate::achievements::detect_achievements(&new_activity, &history);
-
-    info!(
-        "[RouteMatcherRust] Detected {} achievements",
-        achievements.len()
-    );
-
-    achievements
 }

@@ -177,6 +177,7 @@ export interface TranslationResource {
     clearSearch: string;
     noResults: string;
     pullToRefresh: string;
+    or: string;
   };
 
   navigation: {
@@ -232,6 +233,9 @@ export interface TranslationResource {
   login: {
     title: string;
     subtitle: string;
+    loginWithIntervals: string;
+    oauthNotConfigured: string;
+    oauthFailed: string;
     gettingStarted: string;
     instructions: string;
     openSettings: string;
@@ -243,6 +247,19 @@ export interface TranslationResource {
     connectionFailed: string;
     securityNote: string;
     tryDemo: string;
+    noAccount: string;
+    createAccountHint: string;
+    createAccount: string;
+    disclaimer: string;
+    privacyPolicy: string;
+    termsOfService: string;
+    useApiKey: string;
+    apiKeyDescription: string;
+    getApiKey: string;
+    apiKeyPlaceholder: string;
+    apiKeyConnect: string;
+    localModeNote: string;
+    connectedModeNote: string;
   };
 
   demo: {
@@ -321,6 +338,24 @@ export interface TranslationResource {
     disconnect: string;
     failedToClear: string;
     failedToDisconnect: string;
+  };
+
+  about: {
+    title: string;
+    version: string;
+    description: string;
+    disclaimerTitle: string;
+    disclaimer: string;
+    intervalsPrivacy: string;
+    intervalsTerms: string;
+    intervalsApiTerms: string;
+    veloqPrivacy: string;
+    openSource: string;
+    sourceCode: string;
+    dataAttribution: string;
+    garminNote: string;
+    mapData: string;
+    mapAttribution: string;
   };
 
   activity: {

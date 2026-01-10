@@ -600,6 +600,16 @@ public class RouteMatcherModule: Module {
             return engineGetSignaturesForGroupJson(groupId: groupId)
         }
 
+        // Engine: Set custom route name
+        Function("engineSetRouteName") { (routeId: String, name: String) -> Void in
+            engineSetRouteName(routeId: routeId, name: name)
+        }
+
+        // Engine: Get custom route name
+        Function("engineGetRouteName") { (routeId: String) -> String? in
+            return engineGetRouteName(routeId: routeId)
+        }
+
         // ==========================================================================
         // Persistent Route Engine (SQLite-backed, memory efficient)
         // ==========================================================================
@@ -697,6 +707,36 @@ public class RouteMatcherModule: Module {
         // PersistentEngine: Cancel section detection
         Function("persistentEngineCancelSectionDetection") { () -> Void in
             persistentEngineCancelSectionDetection()
+        }
+
+        // PersistentEngine: Set custom route name
+        Function("persistentEngineSetRouteName") { (routeId: String, name: String) -> Void in
+            persistentEngineSetRouteName(routeId: routeId, name: name)
+        }
+
+        // PersistentEngine: Get custom route name
+        Function("persistentEngineGetRouteName") { (routeId: String) -> String? in
+            return persistentEngineGetRouteName(routeId: routeId)
+        }
+
+        // PersistentEngine: Get all custom route names as JSON
+        Function("persistentEngineGetAllRouteNamesJson") { () -> String in
+            return persistentEngineGetAllRouteNamesJson()
+        }
+
+        // PersistentEngine: Set custom section name
+        Function("persistentEngineSetSectionName") { (sectionId: String, name: String) -> Void in
+            persistentEngineSetSectionName(sectionId: sectionId, name: name)
+        }
+
+        // PersistentEngine: Get custom section name
+        Function("persistentEngineGetSectionName") { (sectionId: String) -> String? in
+            return persistentEngineGetSectionName(sectionId: sectionId)
+        }
+
+        // PersistentEngine: Get all custom section names as JSON
+        Function("persistentEngineGetAllSectionNamesJson") { () -> String in
+            return persistentEngineGetAllSectionNamesJson()
         }
 
         // Heatmap: Query cell at location

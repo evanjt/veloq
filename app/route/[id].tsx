@@ -1,10 +1,4 @@
-import React, {
-  useMemo,
-  useCallback,
-  useState,
-  useEffect,
-  useRef,
-} from "react";
+import React, { useMemo, useCallback, useState, useEffect, useRef } from 'react';
 import {
   View,
   ScrollView,
@@ -16,48 +10,36 @@ import {
   TouchableOpacity,
   TextInput,
   Keyboard,
-} from "react-native";
-import { Text, ActivityIndicator } from "react-native-paper";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useLocalSearchParams, router, Href } from "expo-router";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { useTranslation } from "react-i18next";
-import { LinearGradient } from "expo-linear-gradient";
-import { useActivities, useRouteGroups, useConsensusRoute } from "@/hooks";
+} from 'react-native';
+import { Text, ActivityIndicator } from 'react-native-paper';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useLocalSearchParams, router, Href } from 'expo-router';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useActivities, useRouteGroups, useConsensusRoute, useRoutePerformances } from '@/hooks';
 
 // Lazy load native module to avoid bundler errors
 function getRouteEngine() {
   try {
-    return require("route-matcher-native").routeEngine;
+    return require('route-matcher-native').routeEngine;
   } catch {
     return null;
   }
 }
-import { RouteMapView, MiniTraceView } from "@/components/routes";
-import { UnifiedPerformanceChart } from "@/components/routes/performance";
+import { RouteMapView, MiniTraceView } from '@/components/routes';
+import { UnifiedPerformanceChart } from '@/components/routes/performance';
 import {
   formatDistance,
   formatRelativeDate,
   getActivityIcon,
   getActivityColor,
   formatDuration,
-} from "@/lib";
-import {
-  colors,
-  darkColors,
-  spacing,
-  layout,
-  typography,
-  opacity,
-} from "@/theme";
-import type {
-  Activity,
-  ActivityType,
-  RoutePoint,
-  PerformanceDataPoint,
-} from "@/types";
+} from '@/lib';
+import { colors, darkColors, spacing, layout, typography, opacity } from '@/theme';
+import type { Activity, ActivityType, RoutePoint, PerformanceDataPoint } from '@/types';
 
-const { height: SCREEN_HEIGHT } = Dimensions.get("window");
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 const MAP_HEIGHT = Math.round(SCREEN_HEIGHT * 0.45); // 45% of screen for hero map
 
 // Direction colors - using theme for consistency
@@ -80,6 +62,10 @@ interface ActivityRowProps {
   overlapDistance?: number;
   /** Total distance of the route in meters (for context) */
   routeDistance?: number;
+  /** Is this the best performance (PR)? */
+  isBest?: boolean;
+  /** Rank of this performance (1 = best) */
+  rank?: number;
 }
 
 function ActivityRow({
@@ -92,19 +78,17 @@ function ActivityRow({
   isHighlighted,
   overlapDistance,
   routeDistance,
+  isBest = false,
+  rank,
 }: ActivityRowProps) {
   const handlePress = () => {
     router.push(`/activity/${activity.id}`);
   };
 
   // Determine trace color based on direction
-  const isReverse = direction === "reverse";
+  const isReverse = direction === 'reverse';
   // Activity trace: cyan for highlighted, purple for reverse, blue for same
-  const traceColor = isHighlighted
-    ? "#00BCD4"
-    : isReverse
-      ? REVERSE_COLOR
-      : "#2196F3";
+  const traceColor = isHighlighted ? '#00BCD4' : isReverse ? REVERSE_COLOR : '#2196F3';
   const badgeColor = isReverse ? REVERSE_COLOR : colors.success;
 
   // Format overlap distance for display (e.g., "200m / 1.0km")
@@ -114,11 +98,8 @@ function ActivityRow({
     const routeKm = routeDistance / 1000;
     // Show in meters if < 1km, otherwise km
     const overlapStr =
-      overlapKm < 1
-        ? `${Math.round(overlapDistance)}m`
-        : `${overlapKm.toFixed(1)}km`;
-    const routeStr =
-      routeKm < 1 ? `${Math.round(routeDistance)}m` : `${routeKm.toFixed(1)}km`;
+      overlapKm < 1 ? `${Math.round(overlapDistance)}m` : `${overlapKm.toFixed(1)}km`;
+    const routeStr = routeKm < 1 ? `${Math.round(routeDistance)}m` : `${routeKm.toFixed(1)}km`;
     return `${overlapStr} / ${routeStr}`;
   }, [overlapDistance, routeDistance]);
 
@@ -142,9 +123,7 @@ function ActivityRow({
           isHighlighted={isHighlighted}
         />
       ) : (
-        <View
-          style={[styles.activityIcon, { backgroundColor: traceColor + "20" }]}
-        >
+        <View style={[styles.activityIcon, { backgroundColor: traceColor + '20' }]}>
           <MaterialCommunityIcons
             name={getActivityIcon(activity.type)}
             size={18}
@@ -154,29 +133,30 @@ function ActivityRow({
       )}
       <View style={styles.activityInfo}>
         <View style={styles.activityNameRow}>
-          <Text
-            style={[styles.activityName, isDark && styles.textLight]}
-            numberOfLines={1}
-          >
+          <Text style={[styles.activityName, isDark && styles.textLight]} numberOfLines={1}>
             {activity.name}
           </Text>
+          {/* PR badge for best performance */}
+          {isBest && (
+            <View style={[styles.prBadge, { backgroundColor: colors.primary }]}>
+              <MaterialCommunityIcons name="trophy" size={12} color="#FFF" />
+              <Text style={styles.prText}>PR</Text>
+            </View>
+          )}
+          {/* Rank badge for non-best performances */}
+          {!isBest && rank !== undefined && rank <= 10 && (
+            <View style={[styles.rankBadge, { backgroundColor: colors.textSecondary + '20' }]}>
+              <Text style={[styles.rankText, { color: isDark ? colors.textSecondary : colors.textSecondary }]}>#{rank}</Text>
+            </View>
+          )}
           {/* Match percentage badge with direction-based color */}
           {matchPercentage !== undefined && (
-            <View
-              style={[
-                styles.matchBadge,
-                { backgroundColor: badgeColor + "15" },
-              ]}
-            >
+            <View style={[styles.matchBadge, { backgroundColor: badgeColor + '15' }]}>
               <Text style={[styles.matchText, { color: badgeColor }]}>
                 {Math.round(matchPercentage)}%
               </Text>
               {isReverse && (
-                <MaterialCommunityIcons
-                  name="swap-horizontal"
-                  size={10}
-                  color={badgeColor}
-                />
+                <MaterialCommunityIcons name="swap-horizontal" size={10} color={badgeColor} />
               )}
             </View>
           )}
@@ -187,9 +167,7 @@ function ActivityRow({
           </Text>
           {/* Overlap distance indicator - shows matched section vs route distance */}
           {overlapDisplay && (
-            <Text style={[styles.overlapText, isDark && styles.textMuted]}>
-              {overlapDisplay}
-            </Text>
+            <Text style={[styles.overlapText, isDark && styles.textMuted]}>{overlapDisplay}</Text>
           )}
         </View>
       </View>
@@ -201,11 +179,7 @@ function ActivityRow({
           {formatDuration(activity.moving_time)}
         </Text>
       </View>
-      <MaterialCommunityIcons
-        name="chevron-right"
-        size={20}
-        color={isDark ? "#555" : "#CCC"}
-      />
+      <MaterialCommunityIcons name="chevron-right" size={20} color={isDark ? '#555' : '#CCC'} />
     </Pressable>
   );
 }
@@ -214,20 +188,18 @@ export default function RouteDetailScreen() {
   const { t } = useTranslation();
   const { id } = useLocalSearchParams<{ id: string }>();
   const colorScheme = useColorScheme();
-  const isDark = colorScheme === "dark";
+  const isDark = colorScheme === 'dark';
   const insets = useSafeAreaInsets();
 
   // State for highlighted activity
-  const [highlightedActivityId, setHighlightedActivityId] = useState<
-    string | null
-  >(null);
+  const [highlightedActivityId, setHighlightedActivityId] = useState<string | null>(null);
   const [highlightedActivityPoints, setHighlightedActivityPoints] = useState<
     RoutePoint[] | undefined
   >(undefined);
 
   // State for route renaming
   const [isEditing, setIsEditing] = useState(false);
-  const [editName, setEditName] = useState("");
+  const [editName, setEditName] = useState('');
   const [customName, setCustomName] = useState<string | null>(null);
   const nameInputRef = useRef<TextInput>(null);
 
@@ -248,15 +220,15 @@ export default function RouteDetailScreen() {
       setHighlightedActivityId(activityId);
       setHighlightedActivityPoints(activityPoints);
     },
-    [],
+    []
   );
 
   // Get route groups from engine
   const { groups: allGroups } = useRouteGroups({ minActivities: 1 });
-  const engineGroup = useMemo(
-    () => allGroups.find((g) => g.id === id) || null,
-    [allGroups, id],
-  );
+  const engineGroup = useMemo(() => allGroups.find((g) => g.id === id) || null, [allGroups, id]);
+
+  // Get performance data from Rust engine (precise calculations using GPS matching)
+  const { performances, best: bestPerformance, currentRank } = useRoutePerformances(id, engineGroup?.id);
 
   // Get consensus route points from Rust engine
   const { points: consensusPoints } = useConsensusRoute(id);
@@ -267,19 +239,19 @@ export default function RouteDetailScreen() {
     if (!engineGroup) return null;
     return {
       id: engineGroup.id,
-      name: engineGroup.name || `${engineGroup.type || "Ride"} Route`, // Use the generated name from useRouteGroups
-      type: engineGroup.type || "Ride",
+      name: engineGroup.name || `${engineGroup.type || 'Ride'} Route`, // Use the generated name from useRouteGroups
+      type: engineGroup.type || 'Ride',
       activityIds: engineGroup.activityIds,
       activityCount: engineGroup.activityCount,
-      firstDate: "", // Not available from engine
-      lastDate: "", // Will be computed from activities
+      firstDate: '', // Not available from engine
+      lastDate: '', // Will be computed from activities
       signature: null as { points: any[]; distance: number } | null,
     };
   }, [engineGroup]);
 
   // Handle starting to edit the route name
   const handleStartEditing = useCallback(() => {
-    const currentName = customName || routeGroupBase?.name || "";
+    const currentName = customName || routeGroupBase?.name || '';
     setEditName(currentName);
     setIsEditing(true);
     // Focus input after a short delay to ensure it's rendered
@@ -303,7 +275,7 @@ export default function RouteDetailScreen() {
   // Handle canceling the edit
   const handleCancelEdit = useCallback(() => {
     setIsEditing(false);
-    setEditName("");
+    setEditName('');
     Keyboard.dismiss();
   }, []);
 
@@ -325,10 +297,7 @@ export default function RouteDetailScreen() {
         Array<{ lat: number; lng: number }>
       >;
       // Convert to expected format: { activity_id: { points: [{lat, lng}, ...] } }
-      const result: Record<
-        string,
-        { points: Array<{ lat: number; lng: number }> }
-      > = {};
+      const result: Record<string, { points: Array<{ lat: number; lng: number }> }> = {};
       for (const [activityId, points] of Object.entries(sigMap)) {
         result[activityId] = { points };
       }
@@ -357,86 +326,69 @@ export default function RouteDetailScreen() {
     });
   }, [routeGroupBase, allActivities]);
 
-  // Prepare chart data for UnifiedPerformanceChart
-  // This is ONE point per activity - direction comes from route matching
-  const { chartData, minSpeed, maxSpeed, bestIndex, hasReverseRuns } =
-    useMemo(() => {
-      const dataPoints: (PerformanceDataPoint & { x: number })[] = [];
+  // Prepare chart data for UnifiedPerformanceChart using Rust engine performance data
+  // This provides precise segment times instead of approximate activity averages
+  const { chartData, minSpeed, maxSpeed, bestIndex, hasReverseRuns } = useMemo(() => {
+    if (performances.length === 0) {
+      return { chartData: [], minSpeed: 0, maxSpeed: 1, bestIndex: 0, hasReverseRuns: false };
+    }
 
-      // Sort activities by date first
-      const sortedActivities = [...routeActivities].sort(
-        (a, b) =>
-          new Date(a.start_date_local).getTime() -
-          new Date(b.start_date_local).getTime(),
-      );
+    // Convert performances to chart data format (filter out 'partial' directions)
+    const validPerformances = performances.filter(p => p.direction !== 'partial');
+    const dataPoints: (PerformanceDataPoint & { x: number })[] = validPerformances.map((perf, idx) => {
+      const activityPoints = signatures[perf.activityId]?.points;
+      return {
+        x: idx,
+        id: perf.activityId,
+        activityId: perf.activityId,
+        speed: perf.speed,
+        date: perf.date,
+        activityName: perf.name,
+        direction: perf.direction as 'same' | 'reverse', // Cast after filtering 'partial'
+        matchPercentage: perf.matchPercentage,
+        lapNumber: 1,
+        totalLaps: validPerformances.length,
+        lapPoints: activityPoints,
+      };
+    });
 
-      let hasAnyReverse = false;
+    const speeds = dataPoints.map((d) => d.speed);
+    const min = speeds.length > 0 ? Math.min(...speeds) : 0;
+    const max = speeds.length > 0 ? Math.max(...speeds) : 1;
+    const padding = (max - min) * 0.15 || 0.5;
 
-      for (const activity of sortedActivities) {
-        const activityPoints = signatures[activity.id]?.points;
-        const match = matches[activity.id];
-        // Direction comes from route matching algorithm - the WHOLE activity direction
-        const direction = (match?.direction as "same" | "reverse") ?? "same";
-        const matchPercentage = match?.matchPercentage ?? 100;
-
-        if (direction === "reverse") hasAnyReverse = true;
-
-        // Calculate activity speed (with safety check for division by zero)
-        const activitySpeed =
-          activity.moving_time > 0
-            ? activity.distance / activity.moving_time
-            : 0;
-
-        // Each activity = ONE data point
-        dataPoints.push({
-          x: 0,
-          id: activity.id,
-          activityId: activity.id,
-          speed: activitySpeed,
-          date: new Date(activity.start_date_local),
-          activityName: activity.name,
-          direction,
-          matchPercentage,
-          lapNumber: 1,
-          totalLaps: 1,
-          lapPoints: activityPoints,
-        });
-      }
-
-      // Re-index after collecting all points
-      const indexed = dataPoints.map((d, idx) => ({ ...d, x: idx }));
-
-      const speeds = indexed.map((d) => d.speed);
-      const min = speeds.length > 0 ? Math.min(...speeds) : 0;
-      const max = speeds.length > 0 ? Math.max(...speeds) : 1;
-      const padding = (max - min) * 0.15 || 0.5;
-
-      // Find best (fastest)
-      let bestIdx = 0;
-      for (let i = 1; i < indexed.length; i++) {
-        if (indexed[i].speed > indexed[bestIdx].speed) {
+    // Find best (fastest) - use the bestPerformance from Rust engine if available
+    let bestIdx = 0;
+    if (bestPerformance) {
+      bestIdx = dataPoints.findIndex((d) => d.activityId === bestPerformance.activityId);
+      if (bestIdx === -1) bestIdx = 0;
+    } else {
+      // Fallback to manual search
+      for (let i = 1; i < dataPoints.length; i++) {
+        if (dataPoints[i].speed > dataPoints[bestIdx].speed) {
           bestIdx = i;
         }
       }
+    }
 
-      return {
-        chartData: indexed,
-        minSpeed: Math.max(0, min - padding),
-        maxSpeed: max + padding,
-        bestIndex: bestIdx,
-        hasReverseRuns: hasAnyReverse,
-      };
-    }, [routeActivities, matches, signatures]);
+    const hasAnyReverse = dataPoints.some((d) => d.direction === 'reverse');
+
+    return {
+      chartData: dataPoints,
+      minSpeed: Math.max(0, min - padding),
+      maxSpeed: max + padding,
+      bestIndex: bestIdx,
+      hasReverseRuns: hasAnyReverse,
+    };
+  }, [performances, bestPerformance, signatures]);
 
   // Compute stats from activities since signature data isn't available
   // Must be called before any early return to maintain hooks order
   const routeStats = useMemo(() => {
-    if (routeActivities.length === 0) return { distance: 0, lastDate: "" };
+    if (routeActivities.length === 0) return { distance: 0, lastDate: '' };
     const distances = routeActivities.map((a) => a.distance || 0);
     const avgDistance = distances.reduce((a, b) => a + b, 0) / distances.length;
-    const dates = routeActivities.map((a) =>
-      new Date(a.start_date_local).getTime(),
-    );
+    const dates = routeActivities.map((a) => new Date(a.start_date_local).getTime());
     const lastDate = new Date(Math.max(...dates)).toISOString();
     return { distance: avgDistance, lastDate };
   }, [routeActivities]);
@@ -467,7 +419,7 @@ export default function RouteDetailScreen() {
             <MaterialCommunityIcons
               name="arrow-left"
               size={24}
-              color={isDark ? "#FFFFFF" : colors.textPrimary}
+              color={isDark ? '#FFFFFF' : colors.textPrimary}
             />
           </TouchableOpacity>
         </View>
@@ -475,10 +427,10 @@ export default function RouteDetailScreen() {
           <MaterialCommunityIcons
             name="map-marker-question-outline"
             size={48}
-            color={isDark ? "#444" : "#CCC"}
+            color={isDark ? '#444' : '#CCC'}
           />
           <Text style={[styles.emptyText, isDark && styles.textLight]}>
-            {t("routeDetail.routeNotFound")}
+            {t('routeDetail.routeNotFound')}
           </Text>
         </View>
       </View>
@@ -516,21 +468,17 @@ export default function RouteDetailScreen() {
               <View
                 style={[
                   styles.mapPlaceholder,
-                  { height: MAP_HEIGHT, backgroundColor: activityColor + "20" },
+                  { height: MAP_HEIGHT, backgroundColor: activityColor + '20' },
                 ]}
               >
-                <MaterialCommunityIcons
-                  name="map-marker-path"
-                  size={48}
-                  color={activityColor}
-                />
+                <MaterialCommunityIcons name="map-marker-path" size={48} color={activityColor} />
               </View>
             )}
           </View>
 
           {/* Gradient overlay at bottom */}
           <LinearGradient
-            colors={["transparent", "rgba(0,0,0,0.7)"]}
+            colors={['transparent', 'rgba(0,0,0,0.7)']}
             style={styles.mapGradient}
             pointerEvents="none"
           />
@@ -542,25 +490,15 @@ export default function RouteDetailScreen() {
               onPress={() => router.back()}
               activeOpacity={0.7}
             >
-              <MaterialCommunityIcons
-                name="arrow-left"
-                size={24}
-                color="#FFFFFF"
-              />
+              <MaterialCommunityIcons name="arrow-left" size={24} color="#FFFFFF" />
             </TouchableOpacity>
           </View>
 
           {/* Route info overlay at bottom */}
           <View style={styles.infoOverlay}>
             <View style={styles.routeNameRow}>
-              <View
-                style={[styles.typeIcon, { backgroundColor: activityColor }]}
-              >
-                <MaterialCommunityIcons
-                  name={iconName}
-                  size={16}
-                  color="#FFFFFF"
-                />
+              <View style={[styles.typeIcon, { backgroundColor: activityColor }]}>
+                <MaterialCommunityIcons name={iconName} size={16} color="#FFFFFF" />
               </View>
               {isEditing ? (
                 <View style={styles.editNameContainer}>
@@ -570,31 +508,17 @@ export default function RouteDetailScreen() {
                     value={editName}
                     onChangeText={setEditName}
                     onSubmitEditing={handleSaveName}
-                    placeholder={t("routes.routeNamePlaceholder")}
+                    placeholder={t('routes.routeNamePlaceholder')}
                     placeholderTextColor="rgba(255,255,255,0.5)"
                     returnKeyType="done"
                     autoFocus
                     selectTextOnFocus
                   />
-                  <TouchableOpacity
-                    onPress={handleSaveName}
-                    style={styles.editNameButton}
-                  >
-                    <MaterialCommunityIcons
-                      name="check"
-                      size={20}
-                      color="#4CAF50"
-                    />
+                  <TouchableOpacity onPress={handleSaveName} style={styles.editNameButton}>
+                    <MaterialCommunityIcons name="check" size={20} color="#4CAF50" />
                   </TouchableOpacity>
-                  <TouchableOpacity
-                    onPress={handleCancelEdit}
-                    style={styles.editNameButton}
-                  >
-                    <MaterialCommunityIcons
-                      name="close"
-                      size={20}
-                      color="#FF5252"
-                    />
+                  <TouchableOpacity onPress={handleCancelEdit} style={styles.editNameButton}>
+                    <MaterialCommunityIcons name="close" size={20} color="#FF5252" />
                   </TouchableOpacity>
                 </View>
               ) : (
@@ -618,18 +542,12 @@ export default function RouteDetailScreen() {
 
             {/* Stats row */}
             <View style={styles.heroStatsRow}>
-              <Text style={styles.heroStat}>
-                {formatDistance(routeStats.distance)}
-              </Text>
+              <Text style={styles.heroStat}>{formatDistance(routeStats.distance)}</Text>
+              <Text style={styles.heroStatDivider}>·</Text>
+              <Text style={styles.heroStat}>{routeGroup.activityCount} activities</Text>
               <Text style={styles.heroStatDivider}>·</Text>
               <Text style={styles.heroStat}>
-                {routeGroup.activityCount} activities
-              </Text>
-              <Text style={styles.heroStatDivider}>·</Text>
-              <Text style={styles.heroStat}>
-                {routeStats.lastDate
-                  ? formatRelativeDate(routeStats.lastDate)
-                  : "-"}
+                {routeStats.lastDate ? formatRelativeDate(routeStats.lastDate) : '-'}
               </Text>
             </View>
           </View>
@@ -658,7 +576,7 @@ export default function RouteDetailScreen() {
           {/* Activities list */}
           <View style={styles.activitiesSection}>
             <Text style={[styles.sectionTitle, isDark && styles.textLight]}>
-              {t("settings.activities")}
+              {t('settings.activities')}
             </Text>
 
             {isLoading ? (
@@ -666,40 +584,32 @@ export default function RouteDetailScreen() {
                 <ActivityIndicator size="small" color={colors.primary} />
               </View>
             ) : routeActivities.length === 0 ? (
-              <Text
-                style={[styles.emptyActivities, isDark && styles.textMuted]}
-              >
-                {t("feed.noActivities")}
+              <Text style={[styles.emptyActivities, isDark && styles.textMuted]}>
+                {t('feed.noActivities')}
               </Text>
             ) : (
-              <View
-                style={[
-                  styles.activitiesCard,
-                  isDark && styles.activitiesCardDark,
-                ]}
-              >
+              <View style={[styles.activitiesCard, isDark && styles.activitiesCardDark]}>
                 {routeActivities.map((activity, index) => {
                   const match = matches[activity.id];
                   // Representative activity doesn't have a match entry, show 100%
-                  const isRepresentative =
-                    routeGroup?.activityIds[0] === activity.id;
+                  const isRepresentative = routeGroup?.activityIds[0] === activity.id;
                   const matchPercentage =
-                    match?.matchPercentage ??
-                    (isRepresentative ? 100 : undefined);
-                  const direction =
-                    match?.direction ?? (isRepresentative ? "same" : undefined);
+                    match?.matchPercentage ?? (isRepresentative ? 100 : undefined);
+                  const direction = match?.direction ?? (isRepresentative ? 'same' : undefined);
                   // Get overlap distance - for representative, use route distance
                   const overlapDistance =
                     match?.overlapDistance ??
-                    (isRepresentative
-                      ? routeGroup?.signature?.distance
-                      : undefined);
+                    (isRepresentative ? routeGroup?.signature?.distance : undefined);
                   const routeDistance = routeGroup?.signature?.distance;
                   // Get route points from signature for this activity
                   const activityPoints = signatures[activity.id]?.points;
                   // Get representative route points (full route, not truncated consensus)
                   const routePoints = routeGroup?.signature?.points;
                   const isHighlighted = highlightedActivityId === activity.id;
+                  // Determine if this is the best performance (PR)
+                  const isBest = bestPerformance?.activityId === activity.id;
+                  // Get rank from performances array
+                  const rank = performances.findIndex(p => p.activityId === activity.id) + 1;
                   return (
                     <React.Fragment key={activity.id}>
                       <Pressable
@@ -716,12 +626,12 @@ export default function RouteDetailScreen() {
                           isHighlighted={isHighlighted}
                           overlapDistance={overlapDistance}
                           routeDistance={routeDistance}
+                          isBest={isBest}
+                          rank={rank}
                         />
                       </Pressable>
                       {index < routeActivities.length - 1 && (
-                        <View
-                          style={[styles.divider, isDark && styles.dividerDark]}
-                        />
+                        <View style={[styles.divider, isDark && styles.dividerDark]} />
                       )}
                     </React.Fragment>
                   );
@@ -758,30 +668,30 @@ const styles = StyleSheet.create({
   // Hero section styles
   heroSection: {
     height: MAP_HEIGHT,
-    position: "relative",
+    position: 'relative',
   },
   mapContainer: {
     flex: 1,
   },
   mapPlaceholder: {
     flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   mapGradient: {
-    position: "absolute",
+    position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
     height: 120,
   },
   floatingHeader: {
-    position: "absolute",
+    position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: spacing.sm,
     paddingBottom: spacing.sm,
   },
@@ -789,12 +699,12 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: "rgba(0, 0, 0, 0.4)",
-    justifyContent: "center",
-    alignItems: "center",
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   infoOverlay: {
-    position: "absolute",
+    position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
@@ -802,30 +712,30 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.md,
   },
   routeNameRow: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: spacing.sm,
   },
   typeIcon: {
     width: 28,
     height: 28,
     borderRadius: 8,
-    justifyContent: "center",
-    alignItems: "center",
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   heroRouteName: {
     flex: 1,
     fontSize: typography.statsValue.fontSize,
-    fontWeight: "700",
+    fontWeight: '700',
     color: colors.textOnDark,
-    textShadowColor: "rgba(0, 0, 0, 0.5)",
+    textShadowColor: 'rgba(0, 0, 0, 0.5)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 3,
   },
   nameEditTouchable: {
     flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: spacing.xs,
   },
   editIcon: {
@@ -833,9 +743,9 @@ const styles = StyleSheet.create({
   },
   editNameContainer: {
     flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "rgba(0, 0, 0, 0.4)",
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
     borderRadius: 8,
     paddingHorizontal: spacing.sm,
     gap: spacing.xs,
@@ -843,31 +753,31 @@ const styles = StyleSheet.create({
   editNameInput: {
     flex: 1,
     fontSize: typography.cardTitle.fontSize,
-    fontWeight: "600",
+    fontWeight: '600',
     color: colors.textOnDark,
     paddingVertical: spacing.sm,
   },
   editNameButton: {
     padding: 6,
     borderRadius: 6,
-    backgroundColor: "rgba(255, 255, 255, 0.15)",
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
   },
   heroStatsRow: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     marginTop: 6,
-    flexWrap: "wrap",
+    flexWrap: 'wrap',
   },
   heroStat: {
     fontSize: typography.bodySmall.fontSize,
-    color: "rgba(255, 255, 255, 0.9)",
-    textShadowColor: "rgba(0, 0, 0, 0.5)",
+    color: 'rgba(255, 255, 255, 0.9)',
+    textShadowColor: 'rgba(0, 0, 0, 0.5)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,
   },
   heroStatDivider: {
     fontSize: typography.bodySmall.fontSize,
-    color: "rgba(255, 255, 255, 0.5)",
+    color: 'rgba(255, 255, 255, 0.5)',
     marginHorizontal: spacing.xs,
   },
   // Content section below hero
@@ -877,8 +787,8 @@ const styles = StyleSheet.create({
   },
   emptyContainer: {
     flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   emptyText: {
     fontSize: typography.body.fontSize,
@@ -893,37 +803,37 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: typography.body.fontSize,
-    fontWeight: "600",
+    fontWeight: '600',
     color: colors.textPrimary,
     marginBottom: spacing.sm,
   },
   loadingContainer: {
     padding: spacing.xl,
-    alignItems: "center",
+    alignItems: 'center',
   },
   emptyActivities: {
     fontSize: typography.bodySmall.fontSize,
     color: colors.textSecondary,
-    textAlign: "center",
+    textAlign: 'center',
     paddingVertical: spacing.lg,
   },
   activitiesCard: {
     backgroundColor: colors.surface,
     borderRadius: layout.borderRadius,
-    overflow: "hidden",
+    overflow: 'hidden',
   },
   activitiesCardDark: {
     backgroundColor: darkColors.surface,
   },
   activityRow: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     padding: spacing.md,
     gap: spacing.md,
   },
   activityRowDark: {},
   activityRowHighlighted: {
-    backgroundColor: "rgba(0, 188, 212, 0.1)",
+    backgroundColor: 'rgba(0, 188, 212, 0.1)',
   },
   activityRowPressed: {
     opacity: 0.7,
@@ -932,26 +842,26 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 10,
-    justifyContent: "center",
-    alignItems: "center",
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   activityInfo: {
     flex: 1,
   },
   activityNameRow: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: spacing.xs,
   },
   activityName: {
     fontSize: typography.bodySmall.fontSize + 1,
-    fontWeight: "500",
+    fontWeight: '500',
     color: colors.textPrimary,
     flex: 1,
   },
   matchBadge: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: layout.borderRadiusSm,
@@ -959,15 +869,38 @@ const styles = StyleSheet.create({
   },
   matchText: {
     fontSize: typography.label.fontSize,
-    fontWeight: "600",
+    fontWeight: '600',
+  },
+  prBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: layout.borderRadiusSm,
+    gap: 2,
+  },
+  prText: {
+    fontSize: typography.label.fontSize,
+    fontWeight: '700',
+    color: '#FFF',
+  },
+  rankBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: layout.borderRadiusSm,
+  },
+  rankText: {
+    fontSize: typography.caption.fontSize,
+    fontWeight: '600',
+    color: colors.textSecondary,
   },
   activityDate: {
     fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
   },
   activityMetaRow: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 8,
     marginTop: 1,
   },
@@ -977,11 +910,11 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   activityStats: {
-    alignItems: "flex-end",
+    alignItems: 'flex-end',
   },
   activityDistance: {
     fontSize: typography.bodySmall.fontSize,
-    fontWeight: "600",
+    fontWeight: '600',
     color: colors.textPrimary,
   },
   activityTime: {

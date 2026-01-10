@@ -87,3 +87,33 @@ export const API_DEFAULTS = {
   /** Fallback date for finding oldest activity */
   OLDEST_DATE_FALLBACK: '2000-01-01',
 } as const;
+
+/**
+ * OAuth configuration for intervals.icu
+ * See oauth-proxy/README.md for registration details
+ */
+export const OAUTH = {
+  /** OAuth client ID (public - safe to embed in app) */
+  CLIENT_ID: '', // TODO: Add your client ID after registering
+  /** OAuth proxy URL (Cloudflare Worker that holds client_secret) */
+  PROXY_URL: '', // TODO: Add your deployed worker URL
+  /** intervals.icu authorization endpoint */
+  AUTH_ENDPOINT: 'https://intervals.icu/oauth/authorize',
+  /** App's deep link scheme */
+  APP_SCHEME: 'veloq',
+  /** OAuth scopes */
+  SCOPES: ['ACTIVITY:READ', 'WELLNESS:READ', 'CALENDAR:READ', 'SETTINGS:READ'],
+} as const;
+
+/**
+ * External URLs for intervals.icu
+ */
+export const INTERVALS_URLS = {
+  signup: 'https://intervals.icu',
+  privacyPolicy: 'https://intervals.icu/privacy-policy.html',
+  termsOfService: 'https://forum.intervals.icu/tos',
+  apiTerms: 'https://forum.intervals.icu/t/intervals-icu-api-terms-and-conditions/114087',
+  settings: 'https://intervals.icu/settings',
+  /** Developer Settings section for API key */
+  developerSettings: 'https://intervals.icu/settings#developer',
+} as const;

@@ -61,7 +61,8 @@ pub fn compare_routes(
     let avg_amd = (amd_1_to_2 + amd_2_to_1) / 2.0;
 
     // Convert AMD to percentage using thresholds
-    let match_percentage = amd_to_percentage(avg_amd, config.perfect_threshold, config.zero_threshold);
+    let match_percentage =
+        amd_to_percentage(avg_amd, config.perfect_threshold, config.zero_threshold);
 
     // Check if meets minimum threshold
     if match_percentage < config.min_match_percentage {

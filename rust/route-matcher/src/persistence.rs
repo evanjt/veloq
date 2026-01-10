@@ -36,8 +36,8 @@ use rstar::{RTree, RTreeObject, AABB};
 
 #[cfg(feature = "persistence")]
 use crate::{
-    geo_utils, Bounds, FrequentSection, GpsPoint, MatchConfig, RouteGroup, RouteSignature,
-    SectionConfig, ActivityMatchInfo, ActivityMetrics, RoutePerformance, RoutePerformanceResult,
+    geo_utils, ActivityMatchInfo, ActivityMetrics, Bounds, FrequentSection, GpsPoint, MatchConfig,
+    RouteGroup, RoutePerformance, RoutePerformanceResult, RouteSignature, SectionConfig,
 };
 
 #[cfg(feature = "persistence")]
@@ -293,9 +293,9 @@ impl PersistentRouteEngine {
     fn load_metadata(&mut self) -> SqlResult<()> {
         self.activity_metadata.clear();
 
-        let mut stmt = self.db.prepare(
-            "SELECT id, sport_type, min_lat, max_lat, min_lng, max_lng FROM activities",
-        )?;
+        let mut stmt = self
+            .db
+            .prepare("SELECT id, sport_type, min_lat, max_lat, min_lng, max_lng FROM activities")?;
 
         let entries: Vec<ActivityBoundsEntry> = stmt
             .query_map([], |row| {
@@ -347,21 +347,22 @@ impl PersistentRouteEngine {
                     let activity_ids: Vec<String> =
                         serde_json::from_str(&activity_ids_json).unwrap_or_default();
 
-                    let bounds = if let (Some(min_lat), Some(max_lat), Some(min_lng), Some(max_lng)) = (
-                        row.get::<_, Option<f64>>(4)?,
-                        row.get::<_, Option<f64>>(5)?,
-                        row.get::<_, Option<f64>>(6)?,
-                        row.get::<_, Option<f64>>(7)?,
-                    ) {
-                        Some(Bounds {
-                            min_lat,
-                            max_lat,
-                            min_lng,
-                            max_lng,
-                        })
-                    } else {
-                        None
-                    };
+                    let bounds =
+                        if let (Some(min_lat), Some(max_lat), Some(min_lng), Some(max_lng)) = (
+                            row.get::<_, Option<f64>>(4)?,
+                            row.get::<_, Option<f64>>(5)?,
+                            row.get::<_, Option<f64>>(6)?,
+                            row.get::<_, Option<f64>>(7)?,
+                        ) {
+                            Some(Bounds {
+                                min_lat,
+                                max_lat,
+                                min_lng,
+                                max_lng,
+                            })
+                        } else {
+                            None
+                        };
 
                     Ok(RouteGroup {
                         group_id: row.get(0)?,
@@ -391,7 +392,7 @@ impl PersistentRouteEngine {
         self.activity_matches.clear();
 
         let mut stmt = self.db.prepare(
-            "SELECT route_id, activity_id, match_percentage, direction FROM activity_matches"
+            "SELECT route_id, activity_id, match_percentage, direction FROM activity_matches",
         )?;
 
         let matches: Vec<(String, ActivityMatchInfo)> = stmt
@@ -402,7 +403,7 @@ impl PersistentRouteEngine {
                         activity_id: row.get(1)?,
                         match_percentage: row.get(2)?,
                         direction: row.get(3)?,
-                    }
+                    },
                 ))
             })?
             .filter_map(|r| r.ok())
@@ -426,7 +427,7 @@ impl PersistentRouteEngine {
         let mut stmt = self.db.prepare(
             "SELECT activity_id, name, date, distance, moving_time, elapsed_time,
                     elevation_gain, avg_hr, avg_power, sport_type
-             FROM activity_metrics"
+             FROM activity_metrics",
         )?;
 
         let metrics_iter = stmt.query_map([], |row| {
@@ -455,7 +456,9 @@ impl PersistentRouteEngine {
 
     /// Load custom route names and apply them to groups.
     fn load_route_names(&mut self) -> SqlResult<()> {
-        let mut stmt = self.db.prepare("SELECT route_id, custom_name FROM route_names")?;
+        let mut stmt = self
+            .db
+            .prepare("SELECT route_id, custom_name FROM route_names")?;
 
         let names: HashMap<String, String> = stmt
             .query_map([], |row| {
@@ -862,8 +865,7 @@ impl PersistentRouteEngine {
 
         stmt.query_row(params![id], |row| {
             let points_blob: Vec<u8> = row.get(0)?;
-            let points: Vec<GpsPoint> =
-                rmp_serde::from_slice(&points_blob).unwrap_or_default();
+            let points: Vec<GpsPoint> = rmp_serde::from_slice(&points_blob).unwrap_or_default();
             let start_point = GpsPoint::new(row.get(1)?, row.get(2)?);
             let end_point = GpsPoint::new(row.get(3)?, row.get(4)?);
             let total_distance: f64 = row.get(5)?;
@@ -945,8 +947,15 @@ impl PersistentRouteEngine {
             }
         }
 
+        // Reload custom route names from SQLite (names may be lost after regrouping)
+        if let Err(e) = self.load_route_names() {
+            log::warn!("[PersistentEngine] Failed to load custom route names: {}", e);
+        }
+
         // Save to database
-        self.save_groups().ok();
+        if let Err(e) = self.save_groups() {
+            log::warn!("[PersistentEngine] Failed to save groups: {}", e);
+        }
         self.groups_dirty = false;
     }
 
@@ -1076,8 +1085,12 @@ impl PersistentRouteEngine {
                 .collect();
 
             // Detect sections
-            let sections =
-                crate::sections::detect_sections_from_tracks(&tracks, &sport_map, &groups, &section_config);
+            let sections = crate::sections::detect_sections_from_tracks(
+                &tracks,
+                &sport_map,
+                &groups,
+                &section_config,
+            );
 
             tx.send(sections).ok();
         });
@@ -1098,7 +1111,9 @@ impl PersistentRouteEngine {
         self.db.execute("DELETE FROM sections", [])?;
 
         // Insert new (serialize entire section as JSON)
-        let mut stmt = self.db.prepare("INSERT INTO sections (id, data) VALUES (?, ?)")?;
+        let mut stmt = self
+            .db
+            .prepare("INSERT INTO sections (id, data) VALUES (?, ?)")?;
 
         for section in &self.sections {
             let data_blob = serde_json::to_vec(section).unwrap_or_default();
@@ -1247,7 +1262,11 @@ impl PersistentRouteEngine {
     pub fn get_all_route_names(&self) -> HashMap<String, String> {
         self.groups
             .iter()
-            .filter_map(|g| g.custom_name.as_ref().map(|n| (g.group_id.clone(), n.clone())))
+            .filter_map(|g| {
+                g.custom_name
+                    .as_ref()
+                    .map(|n| (g.group_id.clone(), n.clone()))
+            })
             .collect()
     }
 
@@ -1312,7 +1331,7 @@ impl PersistentRouteEngine {
             "INSERT OR REPLACE INTO activity_metrics
              (activity_id, name, date, distance, moving_time, elapsed_time,
               elevation_gain, avg_hr, avg_power, sport_type)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         )?;
 
         for m in &metrics {
@@ -1353,18 +1372,21 @@ impl PersistentRouteEngine {
         // Find the group
         let group = match self.groups.iter().find(|g| g.group_id == route_group_id) {
             Some(g) => g,
-            None => return RoutePerformanceResult {
-                performances: vec![],
-                best: None,
-                current_rank: None,
-            },
+            None => {
+                return RoutePerformanceResult {
+                    performances: vec![],
+                    best: None,
+                    current_rank: None,
+                }
+            }
         };
 
         // Get match info for this route
         let match_info = self.activity_matches.get(route_group_id);
 
         // Build performances from metrics
-        let mut performances: Vec<RoutePerformance> = group.activity_ids
+        let mut performances: Vec<RoutePerformance> = group
+            .activity_ids
             .iter()
             .filter_map(|id| {
                 let metrics = self.activity_metrics.get(id)?;
@@ -1402,17 +1424,26 @@ impl PersistentRouteEngine {
         performances.sort_by_key(|p| p.date);
 
         // Find best (fastest speed)
-        let best = performances.iter().max_by(|a, b| {
-            a.speed.partial_cmp(&b.speed).unwrap_or(std::cmp::Ordering::Equal)
-        }).cloned();
+        let best = performances
+            .iter()
+            .max_by(|a, b| {
+                a.speed
+                    .partial_cmp(&b.speed)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })
+            .cloned();
 
         // Calculate current rank (1 = fastest)
         let current_rank = current_activity_id.and_then(|current_id| {
             let mut by_speed = performances.clone();
             by_speed.sort_by(|a, b| {
-                b.speed.partial_cmp(&a.speed).unwrap_or(std::cmp::Ordering::Equal)
+                b.speed
+                    .partial_cmp(&a.speed)
+                    .unwrap_or(std::cmp::Ordering::Equal)
             });
-            by_speed.iter().position(|p| p.activity_id == current_id)
+            by_speed
+                .iter()
+                .position(|p| p.activity_id == current_id)
                 .map(|idx| (idx + 1) as u32)
         });
 
@@ -1531,7 +1562,10 @@ pub mod persistent_engine_ffi {
             Ok(mut engine) => {
                 // Load existing data
                 if let Err(e) = engine.load() {
-                    info!("[PersistentEngine] Warning: Failed to load existing data: {:?}", e);
+                    info!(
+                        "[PersistentEngine] Warning: Failed to load existing data: {:?}",
+                        e
+                    );
                 }
 
                 let mut guard = PERSISTENT_ENGINE.lock().unwrap();
@@ -1578,21 +1612,19 @@ pub mod persistent_engine_ffi {
     /// Number of activities deleted, or 0 if retention_days is 0
     #[uniffi::export]
     pub fn persistent_engine_cleanup_old_activities(retention_days: u32) -> u32 {
-        with_persistent_engine(|e| {
-            match e.cleanup_old_activities(retention_days) {
-                Ok(count) => {
-                    if retention_days > 0 && count > 0 {
-                        info!(
-                            "[PersistentEngine] Cleanup completed: {} activities removed",
-                            count
-                        );
-                    }
-                    count
+        with_persistent_engine(|e| match e.cleanup_old_activities(retention_days) {
+            Ok(count) => {
+                if retention_days > 0 && count > 0 {
+                    info!(
+                        "[PersistentEngine] Cleanup completed: {} activities removed",
+                        count
+                    );
                 }
-                Err(e) => {
-                    log::error!("[PersistentEngine] Cleanup failed: {:?}", e);
-                    0
-                }
+                count
+            }
+            Err(e) => {
+                log::error!("[PersistentEngine] Cleanup failed: {:?}", e);
+                0
             }
         })
         .unwrap_or(0)
@@ -1653,7 +1685,10 @@ pub mod persistent_engine_ffi {
     /// Remove activities by ID.
     #[uniffi::export]
     pub fn persistent_engine_remove_activities(activity_ids: Vec<String>) {
-        info!("[PersistentEngine] Removing {} activities", activity_ids.len());
+        info!(
+            "[PersistentEngine] Removing {} activities",
+            activity_ids.len()
+        );
         with_persistent_engine(|engine| {
             for id in &activity_ids {
                 engine.remove_activity(id).ok();
@@ -1690,7 +1725,11 @@ pub mod persistent_engine_ffi {
     /// Pass empty string to clear the custom name.
     #[uniffi::export]
     pub fn persistent_engine_set_route_name(route_id: String, name: String) {
-        let name_opt = if name.is_empty() { None } else { Some(name.as_str()) };
+        let name_opt = if name.is_empty() {
+            None
+        } else {
+            Some(name.as_str())
+        };
         with_persistent_engine(|e| {
             e.set_route_name(&route_id, name_opt).ok();
         });
@@ -1708,15 +1747,21 @@ pub mod persistent_engine_ffi {
     /// Get all custom route names as JSON.
     #[uniffi::export]
     pub fn persistent_engine_get_all_route_names_json() -> String {
-        with_persistent_engine(|e| serde_json::to_string(&e.get_all_route_names()).unwrap_or_else(|_| "{}".to_string()))
-            .unwrap_or_else(|| "{}".to_string())
+        with_persistent_engine(|e| {
+            serde_json::to_string(&e.get_all_route_names()).unwrap_or_else(|_| "{}".to_string())
+        })
+        .unwrap_or_else(|| "{}".to_string())
     }
 
     /// Set a custom name for a section.
     /// Pass empty string to clear the custom name.
     #[uniffi::export]
     pub fn persistent_engine_set_section_name(section_id: String, name: String) {
-        let name_opt = if name.is_empty() { None } else { Some(name.as_str()) };
+        let name_opt = if name.is_empty() {
+            None
+        } else {
+            Some(name.as_str())
+        };
         with_persistent_engine(|e| {
             e.set_section_name(&section_id, name_opt).ok();
         });
@@ -1734,8 +1779,10 @@ pub mod persistent_engine_ffi {
     /// Get all custom section names as JSON.
     #[uniffi::export]
     pub fn persistent_engine_get_all_section_names_json() -> String {
-        with_persistent_engine(|e| serde_json::to_string(&e.get_all_section_names()).unwrap_or_else(|_| "{}".to_string()))
-            .unwrap_or_else(|| "{}".to_string())
+        with_persistent_engine(|e| {
+            serde_json::to_string(&e.get_all_section_names()).unwrap_or_else(|_| "{}".to_string())
+        })
+        .unwrap_or_else(|| "{}".to_string())
     }
 
     /// Set activity metrics for performance calculations.
@@ -1877,9 +1924,7 @@ pub mod persistent_engine_ffi {
         match result {
             Some(sections) => {
                 // Detection complete - apply results
-                let applied = with_persistent_engine(|e| {
-                    e.apply_sections(sections).ok()
-                });
+                let applied = with_persistent_engine(|e| e.apply_sections(sections).ok());
 
                 // Clear the handle
                 *handle_guard = None;

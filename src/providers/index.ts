@@ -10,7 +10,7 @@ export {
   useMapPreferences,
   type MapPreferences,
 } from './MapPreferencesContext';
-export { useAuthStore, getStoredCredentials } from './AuthStore';
+export { useAuthStore, getStoredCredentials, DEMO_ATHLETE_ID, type AuthMethod } from './AuthStore';
 export {
   useSportPreference,
   getPrimarySport,

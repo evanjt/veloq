@@ -2,7 +2,7 @@
   "expo": {
     "name": "Veloq",
     "slug": "veloq",
-    "version": "0.0.1",
+    "version": "0.0.2",
     "scheme": "veloq",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -16,7 +16,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.veloq.app",
-      "buildNumber": "1",
+      "buildNumber": "2",
       "infoPlist": {
         "CFBundleDevelopmentRegion": "en-AU",
         "CFBundleLocalizations": ["en-AU", "en-US", "en-GB", "es", "fr"],
@@ -53,6 +53,7 @@
     "plugins": [
       "./plugins/with-gradle-repositories",
       "./plugins/with-release-signing",
+      "./plugins/with-packaging-options",
       "expo-router",
       "expo-localization",
       "@maplibre/maplibre-react-native",

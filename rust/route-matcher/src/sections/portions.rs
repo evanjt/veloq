@@ -1,12 +1,12 @@
 //! Activity portion computation for pace comparison.
 
-use std::collections::HashMap;
-use rstar::{RTree, PointDistance};
-use crate::GpsPoint;
-use crate::geo_utils::polyline_length;
-use super::rtree::{IndexedPoint, build_rtree};
 use super::overlap::OverlapCluster;
+use super::rtree::{build_rtree, IndexedPoint};
 use super::{SectionConfig, SectionPortion};
+use crate::geo_utils::polyline_length;
+use crate::GpsPoint;
+use rstar::{PointDistance, RTree};
+use std::collections::HashMap;
 
 /// Compute each activity's portion of a section
 pub fn compute_activity_portions(
@@ -20,11 +20,9 @@ pub fn compute_activity_portions(
     for activity_id in &cluster.activity_ids {
         if let Some(track) = all_tracks.get(activity_id) {
             // Find the portion of this track that overlaps with the representative
-            if let Some((start_idx, end_idx, direction)) = find_track_portion(
-                track,
-                representative_polyline,
-                config.proximity_threshold,
-            ) {
+            if let Some((start_idx, end_idx, direction)) =
+                find_track_portion(track, representative_polyline, config.proximity_threshold)
+            {
                 let distance = polyline_length(&track[start_idx..end_idx]);
 
                 portions.push(SectionPortion {
@@ -156,11 +154,8 @@ fn find_track_portion(
     }
 
     best_segment.map(|seg| {
-        let direction = detect_direction_robust(
-            &track[seg.start_idx..seg.end_idx],
-            reference,
-            &ref_tree,
-        );
+        let direction =
+            detect_direction_robust(&track[seg.start_idx..seg.end_idx], reference, &ref_tree);
         (seg.start_idx, seg.end_idx, direction)
     })
 }

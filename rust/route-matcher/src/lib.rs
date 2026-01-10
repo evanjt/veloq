@@ -38,16 +38,13 @@
 //! }
 //! ```
 
-use geo::{
-    Coord, LineString,
-    algorithm::simplify::Simplify,
-};
+use geo::{algorithm::simplify::Simplify, Coord, LineString};
 use rstar::{RTreeObject, AABB};
 use serde::{Deserialize, Serialize};
 
 // Unified error handling
 pub mod error;
-pub use error::{RouteMatchError, Result, OptionExt};
+pub use error::{OptionExt, Result, RouteMatchError};
 
 // Union-Find data structure for grouping
 pub mod union_find;
@@ -59,9 +56,11 @@ pub use matching::compare_routes;
 
 // Route grouping algorithms
 pub mod grouping;
-pub use grouping::{group_signatures, group_signatures_with_matches, should_group_routes};
 #[cfg(feature = "parallel")]
-pub use grouping::{group_signatures_parallel, group_signatures_parallel_with_matches, group_incremental};
+pub use grouping::{
+    group_incremental, group_signatures_parallel, group_signatures_parallel_with_matches,
+};
+pub use grouping::{group_signatures, group_signatures_with_matches, should_group_routes};
 
 // Geographic utilities (distance, bounds, center calculations)
 pub mod geo_utils;
@@ -75,15 +74,15 @@ pub mod lru_cache;
 
 // Stateful route engine (singleton with all route state)
 pub mod engine;
-pub use engine::{RouteEngine, EngineStats, ENGINE, with_engine};
+pub use engine::{with_engine, EngineStats, RouteEngine, ENGINE};
 
 // Persistent route engine with tiered storage
 #[cfg(feature = "persistence")]
 pub mod persistence;
 #[cfg(feature = "persistence")]
 pub use persistence::{
-    PersistentRouteEngine, PersistentEngineStats, SectionDetectionHandle,
-    PERSISTENT_ENGINE, with_persistent_engine,
+    with_persistent_engine, PersistentEngineStats, PersistentRouteEngine, SectionDetectionHandle,
+    PERSISTENT_ENGINE,
 };
 
 // HTTP module for activity fetching
@@ -96,43 +95,37 @@ pub use http::{ActivityFetcher, ActivityMapResult, MapBounds};
 // Frequent sections detection (medoid-based algorithm for smooth polylines)
 pub mod sections;
 pub use sections::{
-    FrequentSection, SectionConfig, SectionPortion, detect_sections_from_tracks,
-    // Multi-scale detection
-    ScalePreset, PotentialSection, MultiScaleSectionResult, DetectionStats,
+    detect_sections_from_tracks,
     detect_sections_multiscale,
+    DetectionStats,
+    FrequentSection,
+    MultiScaleSectionResult,
+    PotentialSection,
+    // Multi-scale detection
+    ScalePreset,
+    SectionConfig,
+    SectionPortion,
 };
 
 // Heatmap generation module
 pub mod heatmap;
 pub use heatmap::{
-    HeatmapConfig, HeatmapBounds, HeatmapCell, HeatmapResult,
-    RouteRef, CellQueryResult, ActivityHeatmapData,
-    generate_heatmap, query_heatmap_cell,
+    generate_heatmap, query_heatmap_cell, ActivityHeatmapData, CellQueryResult, HeatmapBounds,
+    HeatmapCell, HeatmapConfig, HeatmapResult, RouteRef,
 };
 
 // Zone distribution calculations (power/HR zones)
 pub mod zones;
 pub use zones::{
-    PowerZoneConfig, HRZoneConfig,
-    PowerZoneDistribution, HRZoneDistribution,
-    calculate_power_zones, calculate_hr_zones,
+    calculate_hr_zones, calculate_power_zones, HRZoneConfig, HRZoneDistribution, PowerZoneConfig,
+    PowerZoneDistribution,
 };
 #[cfg(feature = "parallel")]
-pub use zones::{calculate_power_zones_parallel, calculate_hr_zones_parallel};
+pub use zones::{calculate_hr_zones_parallel, calculate_power_zones_parallel};
 
 // Power/pace curve computation
 pub mod curves;
-pub use curves::{
-    PowerCurve, PaceCurve, CurvePoint,
-    compute_power_curve, compute_pace_curve,
-};
-
-// Achievement/PR detection
-pub mod achievements;
-pub use achievements::{
-    Achievement, AchievementType, ActivityRecord,
-    detect_achievements,
-};
+pub use curves::{compute_pace_curve, compute_power_curve, CurvePoint, PaceCurve, PowerCurve};
 
 // FFI bindings for mobile platforms (iOS/Android)
 #[cfg(feature = "ffi")]
@@ -150,7 +143,7 @@ pub(crate) fn init_logging() {
     android_logger::init_once(
         Config::default()
             .with_max_level(LevelFilter::Debug)
-            .with_tag("RouteMatcherRust")
+            .with_tag("RouteMatcherRust"),
     );
 }
 
@@ -180,7 +173,10 @@ pub struct GpsPoint {
 impl GpsPoint {
     /// Create a new GPS point.
     pub fn new(latitude: f64, longitude: f64) -> Self {
-        Self { latitude, longitude }
+        Self {
+            latitude,
+            longitude,
+        }
     }
 
     /// Check if the point has valid coordinates.
@@ -222,7 +218,12 @@ impl Bounds {
             max_lng = max_lng.max(p.longitude);
         }
 
-        Some(Self { min_lat, max_lat, min_lng, max_lng })
+        Some(Self {
+            min_lat,
+            max_lat,
+            min_lng,
+            max_lng,
+        })
     }
 
     /// Get the center point of the bounds.
@@ -278,7 +279,11 @@ impl RouteSignature {
     /// let signature = RouteSignature::from_points("my-route", &points, &MatchConfig::default());
     /// assert!(signature.is_some());
     /// ```
-    pub fn from_points(activity_id: &str, points: &[GpsPoint], config: &MatchConfig) -> Option<Self> {
+    pub fn from_points(
+        activity_id: &str,
+        points: &[GpsPoint],
+        config: &MatchConfig,
+    ) -> Option<Self> {
         if points.len() < 2 {
             return None;
         }
@@ -287,7 +292,10 @@ impl RouteSignature {
         let coords: Vec<Coord> = points
             .iter()
             .filter(|p| p.is_valid())
-            .map(|p| Coord { x: p.longitude, y: p.latitude })
+            .map(|p| Coord {
+                x: p.longitude,
+                y: p.latitude,
+            })
             .collect();
 
         if coords.len() < 2 {
@@ -300,7 +308,8 @@ impl RouteSignature {
         let simplified = line.simplify(&config.simplification_tolerance);
 
         // Limit to max points if needed (uniform sampling)
-        let final_coords: Vec<Coord> = if simplified.0.len() > config.max_simplified_points as usize {
+        let final_coords: Vec<Coord> = if simplified.0.len() > config.max_simplified_points as usize
+        {
             let step = simplified.0.len() as f64 / config.max_simplified_points as f64;
             (0..config.max_simplified_points)
                 .map(|i| simplified.0[(i as f64 * step) as usize])
@@ -606,10 +615,7 @@ impl RTreeObject for RouteBounds {
     type Envelope = AABB<[f64; 2]>;
 
     fn envelope(&self) -> Self::Envelope {
-        AABB::from_corners(
-            [self.min_lng, self.min_lat],
-            [self.max_lng, self.max_lat],
-        )
+        AABB::from_corners([self.min_lng, self.min_lat], [self.max_lng, self.max_lat])
     }
 }
 
@@ -619,8 +625,6 @@ impl RTreeObject for RouteBounds {
 
 // Use matching functions from the matching module
 use crate::matching::calculate_route_distance;
-
-
 
 // ============================================================================
 // Tests
@@ -680,7 +684,8 @@ mod tests {
         reversed.reverse();
 
         let sig1 = RouteSignature::from_points("test-1", &points, &MatchConfig::default()).unwrap();
-        let sig2 = RouteSignature::from_points("test-2", &reversed, &MatchConfig::default()).unwrap();
+        let sig2 =
+            RouteSignature::from_points("test-2", &reversed, &MatchConfig::default()).unwrap();
 
         let result = compare_routes(&sig1, &sig2, &MatchConfig::default());
         assert!(result.is_some());
@@ -699,9 +704,12 @@ mod tests {
             .map(|i| GpsPoint::new(40.7128 + i as f64 * 0.001, -74.0060))
             .collect();
 
-        let sig1 = RouteSignature::from_points("test-1", &long_route, &MatchConfig::default()).unwrap();
-        let sig2 = RouteSignature::from_points("test-2", &long_route, &MatchConfig::default()).unwrap();
-        let sig3 = RouteSignature::from_points("test-3", &different_route, &MatchConfig::default()).unwrap();
+        let sig1 =
+            RouteSignature::from_points("test-1", &long_route, &MatchConfig::default()).unwrap();
+        let sig2 =
+            RouteSignature::from_points("test-2", &long_route, &MatchConfig::default()).unwrap();
+        let sig3 = RouteSignature::from_points("test-3", &different_route, &MatchConfig::default())
+            .unwrap();
 
         let groups = group_signatures(&[sig1, sig2, sig3], &MatchConfig::default());
 
@@ -709,9 +717,11 @@ mod tests {
         assert_eq!(groups.len(), 2);
 
         // Verify the grouping is correct
-        let group_with_1 = groups.iter().find(|g| g.activity_ids.contains(&"test-1".to_string())).unwrap();
+        let group_with_1 = groups
+            .iter()
+            .find(|g| g.activity_ids.contains(&"test-1".to_string()))
+            .unwrap();
         assert!(group_with_1.activity_ids.contains(&"test-2".to_string()));
         assert!(!group_with_1.activity_ids.contains(&"test-3".to_string()));
     }
-
 }

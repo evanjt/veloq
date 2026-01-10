@@ -1,11 +1,11 @@
 //! Full track overlap detection and clustering.
 
-use std::collections::HashSet;
-use rstar::{RTree, PointDistance};
-use crate::GpsPoint;
-use crate::geo_utils::{haversine_distance, compute_center};
 use super::rtree::IndexedPoint;
 use super::SectionConfig;
+use crate::geo_utils::{compute_center, haversine_distance};
+use crate::GpsPoint;
+use rstar::{PointDistance, RTree};
+use std::collections::HashSet;
 
 /// A detected overlap between two full GPS tracks
 #[derive(Debug, Clone)]
@@ -162,7 +162,11 @@ pub fn cluster_overlaps(
             let center_dist = haversine_distance(&overlap.center, &other.center);
             if center_dist <= config.cluster_tolerance {
                 // Additional check: verify overlaps are geometrically similar
-                if overlaps_match(&overlap.points_a, &other.points_a, config.proximity_threshold) {
+                if overlaps_match(
+                    &overlap.points_a,
+                    &other.points_a,
+                    config.proximity_threshold,
+                ) {
                     cluster_overlaps.push(other.clone());
                     cluster_activities.insert(other.activity_a.clone());
                     cluster_activities.insert(other.activity_b.clone());
@@ -194,7 +198,8 @@ fn overlaps_match(poly_a: &[GpsPoint], poly_b: &[GpsPoint], threshold: f64) -> b
     for i in (0..poly_a.len()).step_by(step.max(1)).take(sample_count) {
         let point = &poly_a[i];
         // Find min distance to poly_b
-        let min_dist = poly_b.iter()
+        let min_dist = poly_b
+            .iter()
             .map(|p| haversine_distance(point, p))
             .min_by(|a, b| a.partial_cmp(b).unwrap())
             .unwrap_or(f64::MAX);

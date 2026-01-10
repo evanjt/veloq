@@ -35,9 +35,7 @@ pub const STANDARD_PACE_DISTANCES: &[f32] = &[
 ];
 
 /// Standard swim pace curve distances in meters
-pub const STANDARD_SWIM_DISTANCES: &[f32] = &[
-    25.0, 50.0, 100.0, 200.0, 400.0, 800.0, 1500.0,
-];
+pub const STANDARD_SWIM_DISTANCES: &[f32] = &[25.0, 50.0, 100.0, 200.0, 400.0, 800.0, 1500.0];
 
 /// A single point on a power or pace curve
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -106,13 +104,8 @@ impl PaceCurve {
 
     /// Convert pace to min/km at a specific distance
     pub fn get_pace_min_km(&self, distance_meters: f32) -> Option<f32> {
-        self.get_pace_at(distance_meters).map(|ms| {
-            if ms > 0.0 {
-                1000.0 / ms / 60.0
-            } else {
-                0.0
-            }
-        })
+        self.get_pace_at(distance_meters)
+            .map(|ms| if ms > 0.0 { 1000.0 / ms / 60.0 } else { 0.0 })
     }
 }
 
@@ -363,8 +356,8 @@ fn compute_best_pace(cumulative_distances: &[f32], target_distance: f32) -> f32 
         }
 
         // Check if this window gives us approximately the target distance
-        let actual_dist = cumulative_distances[end_idx]
-            - cumulative_distances.get(start_idx).unwrap_or(&0.0);
+        let actual_dist =
+            cumulative_distances[end_idx] - cumulative_distances.get(start_idx).unwrap_or(&0.0);
 
         if actual_dist >= target_distance * 0.95 && actual_dist <= target_distance * 1.05 {
             let time_seconds = (end_idx - start_idx) as f32;
@@ -462,7 +455,10 @@ pub fn ffi_compute_power_curve_multi(
 
     for (i, activity_id) in activity_ids.iter().enumerate() {
         let start = offsets[i] as usize;
-        let end = offsets.get(i + 1).map(|&o| o as usize).unwrap_or(power_data_flat.len());
+        let end = offsets
+            .get(i + 1)
+            .map(|&o| o as usize)
+            .unwrap_or(power_data_flat.len());
         let power = power_data_flat[start..end].to_vec();
         let ts = timestamps.get(i).copied().unwrap_or(0);
         activities.push((activity_id.clone(), power, ts));

@@ -151,14 +151,15 @@ export function useSectionPerformances(
     }
   }, [activityIdsToFetch]);
 
-  // Fetch streams when section/activities change
+  // Fetch streams when section/activities change or refetch is triggered
   useEffect(() => {
     if (activityIdsToFetch.length > 0) {
       fetchAndSyncStreams();
     } else {
       setStreamsSynced(true);
     }
-  }, [section?.id, fetchAndSyncStreams]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [section?.id, activityIdsToFetch, fetchKey]);
 
   // Get performance records from Rust engine
   const { records, bestRecord } = useMemo(() => {

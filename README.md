@@ -152,6 +152,26 @@ Policy may be updated. Check the "Last updated" date.
 
 ---
 
+## Disclaimer
+
+Veloq is an independent, open-source project. It is **not affiliated with, endorsed by, or connected to intervals.icu** in any way.
+
+By using Veloq, you agree to:
+- [intervals.icu Terms of Service](https://forum.intervals.icu/tos)
+- [intervals.icu Privacy Policy](https://intervals.icu/privacy-policy.html)
+- [intervals.icu API Terms and Conditions](https://forum.intervals.icu/t/intervals-icu-api-terms-and-conditions/114087)
+
+### Data Attribution
+
+Activity data displayed in Veloq may include information from:
+- **Garmin** devices and services (Garmin and the Garmin logo are trademarks of Garmin Ltd.)
+- **Strava** (for activities synced to intervals.icu via Strava)
+- **Polar**, **Wahoo**, and other fitness devices connected to your intervals.icu account
+
+Map tiles are provided by OpenStreetMap, Carto, and Stadia Maps. Map data is copyright OpenStreetMap contributors.
+
+---
+
 ## License
 
 Apache License 2.0 — See [LICENSE](LICENSE)

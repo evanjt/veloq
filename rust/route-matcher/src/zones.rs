@@ -53,14 +53,6 @@ impl PowerZoneConfig {
         }
     }
 
-    /// Get absolute power threshold for a zone
-    fn get_zone_max(&self, zone: usize) -> u16 {
-        if zone >= self.zone_thresholds.len() {
-            return u16::MAX;
-        }
-        (self.ftp as f32 * self.zone_thresholds[zone]) as u16
-    }
-
     /// Determine which zone a power value falls into (1-7)
     pub fn get_zone(&self, power: u16) -> u8 {
         for (i, &threshold) in self.zone_thresholds.iter().enumerate() {
@@ -197,7 +189,10 @@ impl HRZoneDistribution {
 ///
 /// # Returns
 /// Zone distribution with time in each zone
-pub fn calculate_power_zones(power_data: &[u16], config: &PowerZoneConfig) -> PowerZoneDistribution {
+pub fn calculate_power_zones(
+    power_data: &[u16],
+    config: &PowerZoneConfig,
+) -> PowerZoneDistribution {
     if power_data.is_empty() {
         return PowerZoneDistribution {
             total_samples: 0,

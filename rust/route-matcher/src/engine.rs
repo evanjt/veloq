@@ -23,17 +23,16 @@ use once_cell::sync::Lazy;
 use rstar::{RTree, RTreeObject, AABB};
 
 use crate::{
-    GpsPoint, RouteSignature, RouteGroup, MatchConfig, Bounds,
-    FrequentSection, SectionConfig,
-    ActivityMetrics, RoutePerformance, RoutePerformanceResult,
-    SectionLap, SectionPerformanceRecord, SectionPerformanceResult,
+    ActivityMetrics, Bounds, FrequentSection, GpsPoint, MatchConfig, RouteGroup, RoutePerformance,
+    RoutePerformanceResult, RouteSignature, SectionConfig, SectionLap, SectionPerformanceRecord,
+    SectionPerformanceResult,
 };
 
 #[cfg(not(feature = "parallel"))]
 use crate::group_signatures;
 
 #[cfg(feature = "parallel")]
-use crate::{group_signatures_parallel, group_incremental};
+use crate::{group_incremental, group_signatures_parallel};
 
 // ============================================================================
 // Core Types
@@ -62,10 +61,7 @@ impl RTreeObject for ActivityBounds {
     type Envelope = AABB<[f64; 2]>;
 
     fn envelope(&self) -> Self::Envelope {
-        AABB::from_corners(
-            [self.min_lng, self.min_lat],
-            [self.max_lng, self.max_lat],
-        )
+        AABB::from_corners([self.min_lng, self.min_lat], [self.max_lng, self.max_lat])
     }
 }
 
@@ -202,7 +198,10 @@ impl RouteEngine {
     ) {
         for (i, id) in activity_ids.iter().enumerate() {
             let start = offsets[i] as usize;
-            let end = offsets.get(i + 1).map(|&o| o as usize).unwrap_or(all_coords.len() / 2);
+            let end = offsets
+                .get(i + 1)
+                .map(|&o| o as usize)
+                .unwrap_or(all_coords.len() / 2);
 
             let coords: Vec<GpsPoint> = (start..end)
                 .filter_map(|j| {
@@ -305,11 +304,9 @@ impl RouteEngine {
 
         for id in dirty_ids {
             if let Some(activity) = self.activities.get(&id) {
-                if let Some(sig) = RouteSignature::from_points(
-                    &activity.id,
-                    &activity.coords,
-                    &self.match_config,
-                ) {
+                if let Some(sig) =
+                    RouteSignature::from_points(&activity.id, &activity.coords, &self.match_config)
+                {
                     self.signatures.insert(id.clone(), sig);
                     // Track as new signature for incremental grouping
                     self.new_signatures.insert(id);
@@ -349,14 +346,16 @@ impl RouteEngine {
         self.ensure_groups();
 
         // Find the group
-        let activity_ids: Vec<String> = self.groups
+        let activity_ids: Vec<String> = self
+            .groups
             .iter()
             .find(|g| g.group_id == group_id)
             .map(|g| g.activity_ids.clone())
             .unwrap_or_default();
 
         // Build map of activity_id -> points
-        let mut result: std::collections::HashMap<String, Vec<GpsPoint>> = std::collections::HashMap::new();
+        let mut result: std::collections::HashMap<String, Vec<GpsPoint>> =
+            std::collections::HashMap::new();
         for id in &activity_ids {
             if let Some(sig) = self.get_signature(id) {
                 result.insert(id.clone(), sig.points.clone());
@@ -396,23 +395,21 @@ impl RouteEngine {
             if can_use_incremental {
                 // Incremental: only compare new signatures vs existing + new vs new
                 // This is O(n×m) instead of O(n²)
-                let new_sigs: Vec<RouteSignature> = self.new_signatures
+                let new_sigs: Vec<RouteSignature> = self
+                    .new_signatures
                     .iter()
                     .filter_map(|id| self.signatures.get(id).cloned())
                     .collect();
 
-                let existing_sigs: Vec<RouteSignature> = self.signatures
+                let existing_sigs: Vec<RouteSignature> = self
+                    .signatures
                     .iter()
                     .filter(|(id, _)| !self.new_signatures.contains(*id))
                     .map(|(_, sig)| sig.clone())
                     .collect();
 
-                self.groups = group_incremental(
-                    &new_sigs,
-                    &self.groups,
-                    &existing_sigs,
-                    &self.match_config,
-                );
+                self.groups =
+                    group_incremental(&new_sigs, &self.groups, &existing_sigs, &self.match_config);
             } else {
                 // Full recomputation needed
                 let signatures: Vec<RouteSignature> = self.signatures.values().cloned().collect();
@@ -464,7 +461,8 @@ impl RouteEngine {
                 group.custom_name = None;
             }
         } else {
-            self.route_names.insert(route_id.to_string(), name.to_string());
+            self.route_names
+                .insert(route_id.to_string(), name.to_string());
             // Update in-memory group
             if let Some(group) = self.groups.iter_mut().find(|g| g.group_id == route_id) {
                 group.custom_name = Some(name.to_string());
@@ -481,7 +479,9 @@ impl RouteEngine {
     /// Get the group containing a specific activity.
     pub fn get_group_for_activity(&mut self, activity_id: &str) -> Option<&RouteGroup> {
         self.ensure_groups();
-        self.groups.iter().find(|g| g.activity_ids.contains(&activity_id.to_string()))
+        self.groups
+            .iter()
+            .find(|g| g.activity_ids.contains(&activity_id.to_string()))
     }
 
     /// Get groups as JSON string (for efficient FFI).
@@ -503,13 +503,15 @@ impl RouteEngine {
         self.ensure_groups();
 
         // Build tracks from activities
-        let tracks: Vec<(String, Vec<GpsPoint>)> = self.activities
+        let tracks: Vec<(String, Vec<GpsPoint>)> = self
+            .activities
             .values()
             .map(|a| (a.id.clone(), a.coords.clone()))
             .collect();
 
         // Build sport type map
-        let sport_map: HashMap<String, String> = self.activities
+        let sport_map: HashMap<String, String> = self
+            .activities
             .values()
             .map(|a| (a.id.clone(), a.sport_type.clone()))
             .collect();
@@ -555,7 +557,8 @@ impl RouteEngine {
             return;
         }
 
-        let bounds: Vec<ActivityBounds> = self.activities
+        let bounds: Vec<ActivityBounds> = self
+            .activities
             .values()
             .filter_map(|a| {
                 a.bounds.map(|b| ActivityBounds {
@@ -595,7 +598,12 @@ impl RouteEngine {
         min_lng: f64,
         max_lng: f64,
     ) -> Vec<String> {
-        self.query_viewport(&Bounds { min_lat, max_lat, min_lng, max_lng })
+        self.query_viewport(&Bounds {
+            min_lat,
+            max_lat,
+            min_lng,
+            max_lng,
+        })
     }
 
     /// Find activities near a point.
@@ -630,7 +638,8 @@ impl RouteEngine {
         }
 
         // Get all tracks for this group
-        let tracks: Vec<&Vec<GpsPoint>> = group.activity_ids
+        let tracks: Vec<&Vec<GpsPoint>> = group
+            .activity_ids
             .iter()
             .filter_map(|id| self.activities.get(id).map(|a| &a.coords))
             .collect();
@@ -644,7 +653,8 @@ impl RouteEngine {
         let consensus = self.compute_medoid_track(&tracks);
 
         // Cache the result
-        self.consensus_cache.insert(group_id.to_string(), consensus.clone());
+        self.consensus_cache
+            .insert(group_id.to_string(), consensus.clone());
 
         Some(consensus)
     }
@@ -663,7 +673,9 @@ impl RouteEngine {
         let mut best_total_dist = f64::MAX;
 
         for (i, track_i) in tracks.iter().enumerate() {
-            let total_dist: f64 = tracks.iter().enumerate()
+            let total_dist: f64 = tracks
+                .iter()
+                .enumerate()
                 .filter(|(j, _)| *j != i)
                 .map(|(_, track_j)| self.track_distance(track_i, track_j))
                 .sum();
@@ -692,13 +704,16 @@ impl RouteEngine {
         let sampled2: Vec<&GpsPoint> = (0..sample_size).map(|i| &track2[i * step2]).collect();
 
         // Average minimum distance
-        let amd: f64 = sampled1.iter()
+        let amd: f64 = sampled1
+            .iter()
             .map(|p1| {
-                sampled2.iter()
+                sampled2
+                    .iter()
                     .map(|p2| crate::geo_utils::haversine_distance(p1, p2))
                     .fold(f64::MAX, f64::min)
             })
-            .sum::<f64>() / sample_size as f64;
+            .sum::<f64>()
+            / sample_size as f64;
 
         amd
     }
@@ -834,7 +849,8 @@ impl RouteEngine {
 
     /// Set a single activity's metrics.
     pub fn set_activity_metric(&mut self, metric: ActivityMetrics) {
-        self.activity_metrics.insert(metric.activity_id.clone(), metric);
+        self.activity_metrics
+            .insert(metric.activity_id.clone(), metric);
     }
 
     /// Get activity metrics by ID.
@@ -854,15 +870,18 @@ impl RouteEngine {
         // Find the group
         let group = match self.groups.iter().find(|g| g.group_id == route_group_id) {
             Some(g) => g,
-            None => return RoutePerformanceResult {
-                performances: vec![],
-                best: None,
-                current_rank: None,
-            },
+            None => {
+                return RoutePerformanceResult {
+                    performances: vec![],
+                    best: None,
+                    current_rank: None,
+                }
+            }
         };
 
         // Build performances from metrics
-        let mut performances: Vec<RoutePerformance> = group.activity_ids
+        let mut performances: Vec<RoutePerformance> = group
+            .activity_ids
             .iter()
             .filter_map(|id| {
                 let metrics = self.activity_metrics.get(id)?;
@@ -894,17 +913,26 @@ impl RouteEngine {
         performances.sort_by_key(|p| p.date);
 
         // Find best (fastest speed)
-        let best = performances.iter().max_by(|a, b| {
-            a.speed.partial_cmp(&b.speed).unwrap_or(std::cmp::Ordering::Equal)
-        }).cloned();
+        let best = performances
+            .iter()
+            .max_by(|a, b| {
+                a.speed
+                    .partial_cmp(&b.speed)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })
+            .cloned();
 
         // Calculate current rank (1 = fastest)
         let current_rank = current_activity_id.and_then(|current_id| {
             let mut by_speed = performances.clone();
             by_speed.sort_by(|a, b| {
-                b.speed.partial_cmp(&a.speed).unwrap_or(std::cmp::Ordering::Equal)
+                b.speed
+                    .partial_cmp(&a.speed)
+                    .unwrap_or(std::cmp::Ordering::Equal)
             });
-            by_speed.iter().position(|p| p.activity_id == current_id)
+            by_speed
+                .iter()
+                .position(|p| p.activity_id == current_id)
                 .map(|idx| (idx + 1) as u32)
         });
 
@@ -945,7 +973,10 @@ impl RouteEngine {
     ) {
         for (i, activity_id) in activity_ids.iter().enumerate() {
             let start = offsets[i] as usize;
-            let end = offsets.get(i + 1).map(|&o| o as usize).unwrap_or(all_times.len());
+            let end = offsets
+                .get(i + 1)
+                .map(|&o| o as usize)
+                .unwrap_or(all_times.len());
             let times = all_times[start..end].to_vec();
             self.time_streams.insert(activity_id.clone(), times);
         }
@@ -959,10 +990,12 @@ impl RouteEngine {
         // Find the section
         let section = match self.sections.iter().find(|s| s.id == section_id) {
             Some(s) => s,
-            None => return SectionPerformanceResult {
-                records: vec![],
-                best_record: None,
-            },
+            None => {
+                return SectionPerformanceResult {
+                    records: vec![],
+                    best_record: None,
+                }
+            }
         };
 
         // Group portions by activity
@@ -982,7 +1015,8 @@ impl RouteEngine {
                 let times = self.time_streams.get(*activity_id)?;
 
                 // Calculate laps
-                let laps: Vec<SectionLap> = portions.iter()
+                let laps: Vec<SectionLap> = portions
+                    .iter()
                     .enumerate()
                     .filter_map(|(i, portion)| {
                         let start_idx = portion.start_index as usize;
@@ -993,7 +1027,9 @@ impl RouteEngine {
                         }
 
                         let lap_time = (times[end_idx] as f64 - times[start_idx] as f64).abs();
-                        if lap_time <= 0.0 { return None; }
+                        if lap_time <= 0.0 {
+                            return None;
+                        }
 
                         let pace = portion.distance_meters / lap_time;
 
@@ -1010,7 +1046,9 @@ impl RouteEngine {
                     })
                     .collect();
 
-                if laps.is_empty() { return None; }
+                if laps.is_empty() {
+                    return None;
+                }
 
                 // Aggregate stats
                 let best_time = laps.iter().map(|l| l.time).fold(f64::MAX, f64::min);
@@ -1038,8 +1076,13 @@ impl RouteEngine {
         records.sort_by_key(|r| r.activity_date);
 
         // Find best (fastest time)
-        let best_record = records.iter()
-            .min_by(|a, b| a.best_time.partial_cmp(&b.best_time).unwrap_or(std::cmp::Ordering::Equal))
+        let best_record = records
+            .iter()
+            .min_by(|a, b| {
+                a.best_time
+                    .partial_cmp(&b.best_time)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })
             .cloned();
 
         SectionPerformanceResult {
@@ -1076,9 +1119,9 @@ pub struct EngineStats {
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct ActivityBoundsInfo {
     pub id: String,
-    pub bounds: [[f64; 2]; 2],  // [[minLat, minLng], [maxLat, maxLng]]
+    pub bounds: [[f64; 2]; 2], // [[minLat, minLng], [maxLat, maxLng]]
     pub activity_type: String,
-    pub distance: f64,  // meters, computed from coords
+    pub distance: f64, // meters, computed from coords
 }
 
 /// Signature info for trace rendering
@@ -1096,9 +1139,7 @@ pub struct SignatureInfo {
 ///
 /// This singleton allows FFI calls to access a shared engine without
 /// passing state back and forth across the FFI boundary.
-pub static ENGINE: Lazy<Mutex<RouteEngine>> = Lazy::new(|| {
-    Mutex::new(RouteEngine::new())
-});
+pub static ENGINE: Lazy<Mutex<RouteEngine>> = Lazy::new(|| Mutex::new(RouteEngine::new()));
 
 /// Get a lock on the global engine.
 pub fn with_engine<F, R>(f: F) -> R
@@ -1226,7 +1267,10 @@ pub mod engine_ffi {
         with_engine(|e| {
             e.get_consensus_route(&group_id)
                 .map(|points| {
-                    points.iter().flat_map(|p| vec![p.latitude, p.longitude]).collect()
+                    points
+                        .iter()
+                        .flat_map(|p| vec![p.latitude, p.longitude])
+                        .collect()
                 })
                 .unwrap_or_default()
         })
@@ -1272,7 +1316,10 @@ pub mod engine_ffi {
     /// Called after activities are synced with metadata from the API.
     #[uniffi::export]
     pub fn engine_set_activity_metrics(metrics: Vec<crate::ActivityMetrics>) {
-        info!("[RouteEngine] Setting metrics for {} activities", metrics.len());
+        info!(
+            "[RouteEngine] Setting metrics for {} activities",
+            metrics.len()
+        );
         with_engine(|e| e.set_activity_metrics(metrics));
     }
 
@@ -1302,7 +1349,10 @@ pub mod engine_ffi {
         all_times: Vec<u32>,
         offsets: Vec<u32>,
     ) {
-        info!("[RouteEngine] Setting time streams for {} activities", activity_ids.len());
+        info!(
+            "[RouteEngine] Setting time streams for {} activities",
+            activity_ids.len()
+        );
         with_engine(|e| e.set_time_streams_flat(&activity_ids, &all_times, &offsets));
     }
 
@@ -1428,9 +1478,13 @@ mod tests {
 
         // Add a different route that shouldn't match
         let different_coords: Vec<GpsPoint> = (0..10)
-            .map(|i| GpsPoint::new(40.7128 + i as f64 * 0.001, -74.0060))  // NYC instead of London
+            .map(|i| GpsPoint::new(40.7128 + i as f64 * 0.001, -74.0060)) // NYC instead of London
             .collect();
-        engine.add_activity("test-4".to_string(), different_coords, "cycling".to_string());
+        engine.add_activity(
+            "test-4".to_string(),
+            different_coords,
+            "cycling".to_string(),
+        );
 
         // Verify grouping results
         let groups = engine.get_groups();
@@ -1440,12 +1494,18 @@ mod tests {
 
         // Find the group with more activities (the London routes)
         let large_group = groups.iter().find(|g| g.activity_ids.len() == 3);
-        assert!(large_group.is_some(), "Should have a group with 3 activities");
+        assert!(
+            large_group.is_some(),
+            "Should have a group with 3 activities"
+        );
 
         // Find the group with single activity (the NYC route)
         let small_group = groups.iter().find(|g| g.activity_ids.len() == 1);
         assert!(small_group.is_some(), "Should have a group with 1 activity");
-        assert!(small_group.unwrap().activity_ids.contains(&"test-4".to_string()));
+        assert!(small_group
+            .unwrap()
+            .activity_ids
+            .contains(&"test-4".to_string()));
     }
 
     #[test]

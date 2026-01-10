@@ -7,8 +7,8 @@
 //!
 //! Optimized for 120Hz rendering by pre-computing all data.
 
-use std::collections::HashMap;
 use crate::RouteSignature;
+use std::collections::HashMap;
 
 /// Configuration for heatmap generation
 #[derive(Debug, Clone)]
@@ -154,7 +154,8 @@ impl HeatmapGrid {
         let lat_meters_per_deg = 111_320.0;
         let lng_meters_per_deg = 111_320.0 * self.ref_lat.to_radians().cos();
 
-        let row = ((lat - self.ref_lat) * lat_meters_per_deg / self.cell_size_meters).floor() as i32;
+        let row =
+            ((lat - self.ref_lat) * lat_meters_per_deg / self.cell_size_meters).floor() as i32;
         let col = (lng * lng_meters_per_deg / self.cell_size_meters).floor() as i32;
 
         (row, col)
@@ -165,7 +166,8 @@ impl HeatmapGrid {
         let lat_meters_per_deg = 111_320.0;
         let lng_meters_per_deg = 111_320.0 * self.ref_lat.to_radians().cos();
 
-        let center_lat = self.ref_lat + ((row as f64 + 0.5) * self.cell_size_meters / lat_meters_per_deg);
+        let center_lat =
+            self.ref_lat + ((row as f64 + 0.5) * self.cell_size_meters / lat_meters_per_deg);
         let center_lng = (col as f64 + 0.5) * self.cell_size_meters / lng_meters_per_deg;
 
         (center_lat, center_lng)
@@ -206,7 +208,8 @@ impl HeatmapGrid {
         if let Some(rid) = route_id {
             *cell.route_counts.entry(rid.to_string()).or_insert(0) += 1;
             if !cell.route_names.contains_key(rid) {
-                cell.route_names.insert(rid.to_string(), route_name.map(|s| s.to_string()));
+                cell.route_names
+                    .insert(rid.to_string(), route_name.map(|s| s.to_string()));
             }
         }
 
@@ -238,7 +241,12 @@ impl HeatmapGrid {
         }
 
         // Find max visit count for normalization
-        let max_visits = self.cells.values().map(|c| c.visit_count).max().unwrap_or(1);
+        let max_visits = self
+            .cells
+            .values()
+            .map(|c| c.visit_count)
+            .max()
+            .unwrap_or(1);
         let max_density = max_visits as f32;
 
         // Track unique routes and activities
@@ -246,40 +254,48 @@ impl HeatmapGrid {
         let mut all_activities = std::collections::HashSet::new();
 
         // Build cells
-        let cells: Vec<HeatmapCell> = self.cells.iter().map(|(&(row, col), builder)| {
-            let (center_lat, center_lng) = self.cell_center(row, col);
+        let cells: Vec<HeatmapCell> = self
+            .cells
+            .iter()
+            .map(|(&(row, col), builder)| {
+                let (center_lat, center_lng) = self.cell_center(row, col);
 
-            // Build route refs
-            let route_refs: Vec<RouteRef> = builder.route_counts.iter().map(|(rid, count)| {
-                all_routes.insert(rid.clone());
-                RouteRef {
-                    route_id: rid.clone(),
-                    activity_count: *count,
-                    name: builder.route_names.get(rid).cloned().flatten(),
+                // Build route refs
+                let route_refs: Vec<RouteRef> = builder
+                    .route_counts
+                    .iter()
+                    .map(|(rid, count)| {
+                        all_routes.insert(rid.clone());
+                        RouteRef {
+                            route_id: rid.clone(),
+                            activity_count: *count,
+                            name: builder.route_names.get(rid).cloned().flatten(),
+                        }
+                    })
+                    .collect();
+
+                for aid in &builder.activity_ids {
+                    all_activities.insert(aid.clone());
                 }
-            }).collect();
 
-            for aid in &builder.activity_ids {
-                all_activities.insert(aid.clone());
-            }
+                let unique_route_count = route_refs.len() as u32;
 
-            let unique_route_count = route_refs.len() as u32;
-
-            HeatmapCell {
-                row,
-                col,
-                center_lat,
-                center_lng,
-                density: builder.visit_count as f32 / max_density,
-                visit_count: builder.visit_count,
-                route_refs,
-                unique_route_count,
-                activity_ids: builder.activity_ids.clone(),
-                first_visit: builder.first_visit,
-                last_visit: builder.last_visit,
-                is_common_path: unique_route_count >= 2,
-            }
-        }).collect();
+                HeatmapCell {
+                    row,
+                    col,
+                    center_lat,
+                    center_lng,
+                    density: builder.visit_count as f32 / max_density,
+                    visit_count: builder.visit_count,
+                    route_refs,
+                    unique_route_count,
+                    activity_ids: builder.activity_ids.clone(),
+                    first_visit: builder.first_visit,
+                    last_visit: builder.last_visit,
+                    is_common_path: unique_route_count >= 2,
+                }
+            })
+            .collect();
 
         // Calculate grid dimensions
         let rows: Vec<i32> = self.cells.keys().map(|(r, _)| *r).collect();
@@ -337,8 +353,11 @@ pub fn generate_heatmap(
         for point in &sig.points {
             // Skip points outside bounds if specified
             if let Some(bounds) = &config.bounds {
-                if point.latitude < bounds.min_lat || point.latitude > bounds.max_lat ||
-                   point.longitude < bounds.min_lng || point.longitude > bounds.max_lng {
+                if point.latitude < bounds.min_lat
+                    || point.latitude > bounds.max_lat
+                    || point.longitude < bounds.min_lng
+                    || point.longitude > bounds.max_lng
+                {
                     continue;
                 }
             }
@@ -379,7 +398,10 @@ pub fn query_heatmap_cell(
     let target_col = (lng * lng_meters_per_deg / cell_size_meters).floor() as i32;
 
     // Find the cell
-    let cell = heatmap.cells.iter().find(|c| c.row == target_row && c.col == target_col)?;
+    let cell = heatmap
+        .cells
+        .iter()
+        .find(|c| c.row == target_row && c.col == target_col)?;
 
     // Generate suggested label
     let suggested_label = if cell.unique_route_count == 0 {
@@ -410,17 +432,30 @@ pub fn query_heatmap_cell(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{GpsPoint, Bounds};
+    use crate::{Bounds, GpsPoint};
 
     fn make_signature(id: &str, points: Vec<(f64, f64)>) -> RouteSignature {
-        let gps_points: Vec<GpsPoint> = points.iter()
+        let gps_points: Vec<GpsPoint> = points
+            .iter()
             .map(|(lat, lng)| GpsPoint::new(*lat, *lng))
             .collect();
 
-        let min_lat = points.iter().map(|(lat, _)| *lat).fold(f64::INFINITY, f64::min);
-        let max_lat = points.iter().map(|(lat, _)| *lat).fold(f64::NEG_INFINITY, f64::max);
-        let min_lng = points.iter().map(|(_, lng)| *lng).fold(f64::INFINITY, f64::min);
-        let max_lng = points.iter().map(|(_, lng)| *lng).fold(f64::NEG_INFINITY, f64::max);
+        let min_lat = points
+            .iter()
+            .map(|(lat, _)| *lat)
+            .fold(f64::INFINITY, f64::min);
+        let max_lat = points
+            .iter()
+            .map(|(lat, _)| *lat)
+            .fold(f64::NEG_INFINITY, f64::max);
+        let min_lng = points
+            .iter()
+            .map(|(_, lng)| *lng)
+            .fold(f64::INFINITY, f64::min);
+        let max_lng = points
+            .iter()
+            .map(|(_, lng)| *lng)
+            .fold(f64::NEG_INFINITY, f64::max);
 
         let center_lat = points.iter().map(|(lat, _)| *lat).sum::<f64>() / points.len() as f64;
         let center_lng = points.iter().map(|(_, lng)| *lng).sum::<f64>() / points.len() as f64;
@@ -429,9 +464,20 @@ mod tests {
             activity_id: id.to_string(),
             points: gps_points.clone(),
             total_distance: 1000.0,
-            start_point: gps_points.first().cloned().unwrap_or(GpsPoint::new(0.0, 0.0)),
-            end_point: gps_points.last().cloned().unwrap_or(GpsPoint::new(0.0, 0.0)),
-            bounds: Bounds { min_lat, max_lat, min_lng, max_lng },
+            start_point: gps_points
+                .first()
+                .cloned()
+                .unwrap_or(GpsPoint::new(0.0, 0.0)),
+            end_point: gps_points
+                .last()
+                .cloned()
+                .unwrap_or(GpsPoint::new(0.0, 0.0)),
+            bounds: Bounds {
+                min_lat,
+                max_lat,
+                min_lng,
+                max_lng,
+            },
             center: GpsPoint::new(center_lat, center_lng),
         }
     }
@@ -445,19 +491,25 @@ mod tests {
 
     #[test]
     fn test_single_activity() {
-        let sig = make_signature("act1", vec![
-            (37.7749, -122.4194),
-            (37.7750, -122.4195),
-            (37.7751, -122.4196),
-        ]);
+        let sig = make_signature(
+            "act1",
+            vec![
+                (37.7749, -122.4194),
+                (37.7750, -122.4195),
+                (37.7751, -122.4196),
+            ],
+        );
 
         let mut data = HashMap::new();
-        data.insert("act1".to_string(), ActivityHeatmapData {
-            activity_id: "act1".to_string(),
-            route_id: None,
-            route_name: None,
-            timestamp: Some(1000000),
-        });
+        data.insert(
+            "act1".to_string(),
+            ActivityHeatmapData {
+                activity_id: "act1".to_string(),
+                route_id: None,
+                route_name: None,
+                timestamp: Some(1000000),
+            },
+        );
 
         let result = generate_heatmap(&[sig], &data, &HeatmapConfig::default());
 
@@ -468,28 +520,28 @@ mod tests {
 
     #[test]
     fn test_multiple_activities_same_path() {
-        let sig1 = make_signature("act1", vec![
-            (37.7749, -122.4194),
-            (37.7750, -122.4195),
-        ]);
-        let sig2 = make_signature("act2", vec![
-            (37.7749, -122.4194),
-            (37.7750, -122.4195),
-        ]);
+        let sig1 = make_signature("act1", vec![(37.7749, -122.4194), (37.7750, -122.4195)]);
+        let sig2 = make_signature("act2", vec![(37.7749, -122.4194), (37.7750, -122.4195)]);
 
         let mut data = HashMap::new();
-        data.insert("act1".to_string(), ActivityHeatmapData {
-            activity_id: "act1".to_string(),
-            route_id: Some("route1".to_string()),
-            route_name: Some("Morning Run".to_string()),
-            timestamp: None,
-        });
-        data.insert("act2".to_string(), ActivityHeatmapData {
-            activity_id: "act2".to_string(),
-            route_id: Some("route1".to_string()),
-            route_name: Some("Morning Run".to_string()),
-            timestamp: None,
-        });
+        data.insert(
+            "act1".to_string(),
+            ActivityHeatmapData {
+                activity_id: "act1".to_string(),
+                route_id: Some("route1".to_string()),
+                route_name: Some("Morning Run".to_string()),
+                timestamp: None,
+            },
+        );
+        data.insert(
+            "act2".to_string(),
+            ActivityHeatmapData {
+                activity_id: "act2".to_string(),
+                route_id: Some("route1".to_string()),
+                route_name: Some("Morning Run".to_string()),
+                timestamp: None,
+            },
+        );
 
         let result = generate_heatmap(&[sig1, sig2], &data, &HeatmapConfig::default());
 
@@ -498,34 +550,38 @@ mod tests {
         assert_eq!(result.total_routes, 1);
 
         // Cells should have higher density due to overlapping paths
-        let max_cell = result.cells.iter().max_by(|a, b|
-            a.visit_count.cmp(&b.visit_count)
-        ).unwrap();
+        let max_cell = result
+            .cells
+            .iter()
+            .max_by(|a, b| a.visit_count.cmp(&b.visit_count))
+            .unwrap();
         assert!(max_cell.visit_count >= 2);
     }
 
     #[test]
     fn test_common_path_detection() {
-        let sig1 = make_signature("act1", vec![
-            (37.7749, -122.4194),
-        ]);
-        let sig2 = make_signature("act2", vec![
-            (37.7749, -122.4194),
-        ]);
+        let sig1 = make_signature("act1", vec![(37.7749, -122.4194)]);
+        let sig2 = make_signature("act2", vec![(37.7749, -122.4194)]);
 
         let mut data = HashMap::new();
-        data.insert("act1".to_string(), ActivityHeatmapData {
-            activity_id: "act1".to_string(),
-            route_id: Some("route1".to_string()),
-            route_name: None,
-            timestamp: None,
-        });
-        data.insert("act2".to_string(), ActivityHeatmapData {
-            activity_id: "act2".to_string(),
-            route_id: Some("route2".to_string()),
-            route_name: None,
-            timestamp: None,
-        });
+        data.insert(
+            "act1".to_string(),
+            ActivityHeatmapData {
+                activity_id: "act1".to_string(),
+                route_id: Some("route1".to_string()),
+                route_name: None,
+                timestamp: None,
+            },
+        );
+        data.insert(
+            "act2".to_string(),
+            ActivityHeatmapData {
+                activity_id: "act2".to_string(),
+                route_id: Some("route2".to_string()),
+                route_name: None,
+                timestamp: None,
+            },
+        );
 
         let result = generate_heatmap(&[sig1, sig2], &data, &HeatmapConfig::default());
 

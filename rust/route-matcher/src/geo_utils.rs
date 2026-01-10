@@ -55,8 +55,8 @@
 //! All functions expect WGS84 coordinates (latitude/longitude in degrees), which is the
 //! standard used by GPS receivers and mapping services.
 
-use geo::{Point, Haversine, Distance};
-use crate::{GpsPoint, Bounds};
+use crate::{Bounds, GpsPoint};
+use geo::{Distance, Haversine, Point};
 
 // =============================================================================
 // Distance Functions
@@ -218,7 +218,12 @@ pub fn compute_bounds(points: &[GpsPoint]) -> Bounds {
         max_lng = max_lng.max(p.longitude);
     }
 
-    Bounds { min_lat, max_lat, min_lng, max_lng }
+    Bounds {
+        min_lat,
+        max_lat,
+        min_lng,
+        max_lng,
+    }
 }
 
 /// Compute the bounding box as a tuple (min_lat, max_lat, min_lng, max_lng).
@@ -236,7 +241,12 @@ pub fn compute_bounds(points: &[GpsPoint]) -> Bounds {
 #[inline]
 pub fn compute_bounds_tuple(points: &[GpsPoint]) -> (f64, f64, f64, f64) {
     let bounds = compute_bounds(points);
-    (bounds.min_lat, bounds.max_lat, bounds.min_lng, bounds.max_lng)
+    (
+        bounds.min_lat,
+        bounds.max_lat,
+        bounds.min_lng,
+        bounds.max_lng,
+    )
 }
 
 /// Check if two bounding boxes overlap, with an optional buffer.
@@ -279,10 +289,10 @@ pub fn compute_bounds_tuple(points: &[GpsPoint]) -> (f64, f64, f64, f64) {
 pub fn bounds_overlap(a: &Bounds, b: &Bounds, buffer_meters: f64, reference_lat: f64) -> bool {
     let buffer_deg = meters_to_degrees(buffer_meters, reference_lat);
 
-    !(a.max_lat + buffer_deg < b.min_lat ||
-      b.max_lat + buffer_deg < a.min_lat ||
-      a.max_lng + buffer_deg < b.min_lng ||
-      b.max_lng + buffer_deg < a.min_lng)
+    !(a.max_lat + buffer_deg < b.min_lat
+        || b.max_lat + buffer_deg < a.min_lat
+        || a.max_lng + buffer_deg < b.min_lng
+        || b.max_lng + buffer_deg < a.min_lng)
 }
 
 // =============================================================================
@@ -400,10 +410,7 @@ mod tests {
 
     #[test]
     fn test_compute_center() {
-        let track = vec![
-            GpsPoint::new(51.50, -0.10),
-            GpsPoint::new(51.52, -0.12),
-        ];
+        let track = vec![GpsPoint::new(51.50, -0.10), GpsPoint::new(51.52, -0.12)];
         let center = compute_center(&track);
         assert!(approx_eq(center.latitude, 51.51, 0.001));
         assert!(approx_eq(center.longitude, -0.11, 0.001));
@@ -419,22 +426,52 @@ mod tests {
 
     #[test]
     fn test_bounds_overlap_yes() {
-        let a = Bounds { min_lat: 51.50, max_lat: 51.52, min_lng: -0.13, max_lng: -0.11 };
-        let b = Bounds { min_lat: 51.51, max_lat: 51.53, min_lng: -0.12, max_lng: -0.10 };
+        let a = Bounds {
+            min_lat: 51.50,
+            max_lat: 51.52,
+            min_lng: -0.13,
+            max_lng: -0.11,
+        };
+        let b = Bounds {
+            min_lat: 51.51,
+            max_lat: 51.53,
+            min_lng: -0.12,
+            max_lng: -0.10,
+        };
         assert!(bounds_overlap(&a, &b, 0.0, 51.5));
     }
 
     #[test]
     fn test_bounds_overlap_no() {
-        let a = Bounds { min_lat: 51.50, max_lat: 51.51, min_lng: -0.13, max_lng: -0.12 };
-        let b = Bounds { min_lat: 51.52, max_lat: 51.53, min_lng: -0.11, max_lng: -0.10 };
+        let a = Bounds {
+            min_lat: 51.50,
+            max_lat: 51.51,
+            min_lng: -0.13,
+            max_lng: -0.12,
+        };
+        let b = Bounds {
+            min_lat: 51.52,
+            max_lat: 51.53,
+            min_lng: -0.11,
+            max_lng: -0.10,
+        };
         assert!(!bounds_overlap(&a, &b, 0.0, 51.5));
     }
 
     #[test]
     fn test_bounds_overlap_with_buffer() {
-        let a = Bounds { min_lat: 51.50, max_lat: 51.51, min_lng: -0.13, max_lng: -0.12 };
-        let b = Bounds { min_lat: 51.52, max_lat: 51.53, min_lng: -0.11, max_lng: -0.10 };
+        let a = Bounds {
+            min_lat: 51.50,
+            max_lat: 51.51,
+            min_lng: -0.13,
+            max_lng: -0.12,
+        };
+        let b = Bounds {
+            min_lat: 51.52,
+            max_lat: 51.53,
+            min_lng: -0.11,
+            max_lng: -0.10,
+        };
         // With large buffer (5km), these should overlap
         assert!(bounds_overlap(&a, &b, 5000.0, 51.5));
     }

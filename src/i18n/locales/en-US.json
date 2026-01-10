@@ -8,8 +8,6 @@
     "save": "Save",
     "delete": "Delete",
     "confirm": "Confirm",
-    "reset": "Reset",
-    "create": "Create",
     "back": "Back",
     "next": "Next",
     "done": "Done",
@@ -17,6 +15,7 @@
     "clearSearch": "Clear search",
     "noResults": "No results",
     "pullToRefresh": "Pull to refresh",
+    "or": "or",
     "activities": "activities",
     "syncing": "Syncing..."
   },
@@ -30,8 +29,7 @@
     "heatmap": "Heatmap",
     "map": "Map",
     "settings": "Settings",
-    "activities": "Activities",
-    "syncing": "Syncing..."
+    "activities": "Activities"
   },
   "feed": {
     "recentActivities": "Recent Activities",
@@ -70,6 +68,9 @@
   "login": {
     "title": "Veloq",
     "subtitle": "Connect to Intervals.icu",
+    "loginWithIntervals": "Sign in with intervals.icu",
+    "oauthNotConfigured": "OAuth is not configured. Use API key login instead.",
+    "oauthFailed": "Sign in failed. Please try again.",
     "gettingStarted": "Getting Started",
     "instructions": "1. Open Intervals.icu Settings\n2. Scroll to \"Developer Settings\"\n3. Copy your API Key",
     "openSettings": "Open Intervals.icu Settings",
@@ -80,11 +81,41 @@
     "invalidApiKey": "Invalid API Key. Please check your key and try again.",
     "connectionFailed": "Failed to connect. Please check your API key and try again.",
     "securityNote": "Your credentials are stored securely on your device",
-    "tryDemo": "Try Demo"
+    "tryDemo": "Try Demo",
+    "noAccount": "New to intervals.icu?",
+    "createAccountHint": "Create a free account to track your training.",
+    "createAccount": "Create Account",
+    "disclaimer": "Veloq is not affiliated with intervals.icu",
+    "privacyPolicy": "Privacy Policy",
+    "termsOfService": "Terms of Service",
+    "useApiKey": "Use API Key instead",
+    "apiKeyDescription": "For local-only mode. Your key never leaves your device. No push notifications.",
+    "getApiKey": "Get your API key",
+    "apiKeyPlaceholder": "Paste your API key here",
+    "apiKeyConnect": "Connect with API Key",
+    "localModeNote": "Local mode: All data stays on your device",
+    "connectedModeNote": "Enables push notifications for new activities"
   },
   "demo": {
     "banner": "Demo Mode",
     "tapToSignIn": "Tap to sign in"
+  },
+  "about": {
+    "title": "About & Legal",
+    "version": "Version",
+    "description": "A fast, offline-first mobile client for intervals.icu with a focus on maps and visual analytics.",
+    "disclaimerTitle": "Disclaimer",
+    "disclaimer": "Veloq is an independent, open-source project. It is not affiliated with, endorsed by, or connected to intervals.icu in any way.",
+    "intervalsPrivacy": "intervals.icu Privacy Policy",
+    "intervalsTerms": "intervals.icu Terms of Service",
+    "intervalsApiTerms": "intervals.icu API Terms",
+    "veloqPrivacy": "Veloq Privacy Policy",
+    "openSource": "Open Source License (Apache 2.0)",
+    "sourceCode": "Source Code",
+    "dataAttribution": "Data Attribution",
+    "garminNote": "Activity data may include information from Garmin, Strava, Polar, Wahoo, and other devices connected to your intervals.icu account.",
+    "mapData": "Map Data",
+    "mapAttribution": "Map tiles provided by OpenStreetMap, Carto, and Stadia Maps. Map data copyright OpenStreetMap contributors."
   },
   "settings": {
     "title": "Settings",
@@ -102,7 +133,7 @@
     "default": "Default",
     "defaultMapHint": "'Default' uses the map style set above",
     "dataCache": "Data Cache",
-    "syncAllHistory": "Adjust time period",
+    "syncAllHistory": "Sync All History",
     "syncAllHistoryDescription": "This will sync up to 10 years of activity data in the background. This enables deeper route analysis and comparison.",
     "syncInProgress": "Please wait for the current sync to complete.",
     "viewRoutes": "View Routes",
@@ -120,9 +151,6 @@
     "bounds": "Bounds",
     "gpsTraces": "GPS Traces",
     "cachedQueries": "Cached Queries",
-    "cached": "Cached",
-    "notCached": "Not cached",
-    "expandCache": "Load more",
     "cacheHint": "Caches activity locations and GPS traces for World Map and route matching. By default, syncs 3 months. Use \"Sync All History\" for deeper analysis.",
     "routeMatching": "Route Matching",
     "enableRouteMatching": "Enable Route Matching",
@@ -233,29 +261,7 @@
       "percentOfFTP": "% of FTP",
       "eftpEstimated": "eFTP (estimated)",
       "efficiencyFactor": "Efficiency Factor",
-      "decoupling": "Decoupling",
-      "duration": "Duration",
-      "kcalPerHr": "kcal/hr",
-      "normalizedPower": "Normalized Power",
-      "vi": "VI",
-      "ef": "EF",
-      "restingHR": "Resting HR",
-      "hrv": "HRV",
-      "heartRate": "Heart Rate",
-      "peakHR": "Peak HR",
-      "humidity": "Humidity",
-      "ftp": "FTP",
-      "decoup": "Decoupling"
-    },
-    "form": {
-      "fresh": "Fresh",
-      "fatigued": "Fatigued",
-      "neutral": "Neutral"
-    },
-    "ofMax": "of max",
-    "conditions": {
-      "hot": "Hot",
-      "cold": "Cold"
+      "decoupling": "Decoupling"
     }
   },
   "time": {
@@ -329,9 +335,7 @@
     "enableInSettings": "Enable route matching in Settings to automatically detect repeated routes from your activities.",
     "goToSettings": "Go to Settings",
     "analysingRoutes": "Analyzing routes {{current}}/{{total}}",
-    "computingRoutes": "Computing routes...",
-    "downloadingGps": "Downloading GPS data",
-    "analyzingRoutes": "Analyzing routes..."
+    "computingRoutes": "Computing routes..."
   },
   "statsScreen": {
     "title": "Performance",
@@ -460,7 +464,6 @@
     "moreActivitiesProcessed": "+ {{count}} more activities processed",
     "matchesLabel": "matches",
     "checkedLabel": "checked",
-    "visits": "visits",
     "match": "match",
     "more": "+{{count}} more",
     "loadingSections": "Loading sections...",
@@ -482,20 +485,12 @@
     "same": "Same",
     "fastest": "#{{rank}} fastest",
     "routeNamePlaceholder": "Route name",
-    "autoDetected": "Auto-detected",
-    "suggestions": "Suggestions",
-    "custom": "Custom",
-    "suggestion": "Suggestion",
     "scaleShort": "Short",
     "scaleMedium": "Medium",
     "scaleLong": "Long",
-    "potentialSectionDescription": "You've used this {{sport}} path {{count}} times. Create a section to track your performance?",
-    "createSection": "Create Section",
-    "sectionCreated": "Section Created",
-    "sectionCreatedDescription": "Your custom section has been created and activities have been matched",
-    "sectionCreationFailed": "Failed to create section. Please try again.",
-    "defaultRouteName": "{{type}} Route",
-    "defaultActivityName": "Activity {{number}}"
+    "suggestion": "Suggested",
+    "suggestions": "Suggestions",
+    "potentialSectionDescription": "Potential {{sport}} section you've done {{count}} times"
   },
   "sections": {
     "performanceOverTime": "Performance Over Time",
@@ -556,14 +551,7 @@
     "avgPace": "Avg Pace",
     "avgSpeed": "Avg Speed",
     "avgHR": "Avg HR",
-    "avgPower": "Avg Power",
-    "tabs": {
-      "charts": "Charts",
-      "routes": "Routes",
-      "sections": "Sections"
-    },
-    "noMatchedSections": "No matched sections",
-    "noMatchedSectionsDescription": "Sections matching this activity will appear here"
+    "avgPower": "Avg Power"
   },
   "routeDetail": {
     "routeNotFound": "Route not found"
@@ -589,10 +577,7 @@
     "noTrendData": "No trend data available",
     "trendHint": "HRV, sleep, and resting HR trends will appear here when data is logged",
     "dragToExplore": "Drag to explore",
-    "lastDays": "Last {{count}} days",
-    "smoothingTitle": "Data Smoothing",
-    "smoothingDescription": "Apply a rolling average to reduce daily noise and show trends more clearly.",
-    "smoothingHint": "Auto uses optimal smoothing for the selected time range"
+    "lastDays": "Last {{count}} days"
   },
   "fitness": {
     "noData": "No fitness data available",
@@ -645,12 +630,7 @@
       "walk": "Walk",
       "hike": "Hike",
       "other": "Other"
-    },
-    "tapSelectStart": "Tap to select start point",
-    "tapSelectEnd": "Tap to select end point",
-    "sectionSelected": "Section selected",
-    "startPercent": "Start: {{percent}}%",
-    "rangePercent": "{{start}}% - {{end}}%"
+    }
   },
   "heatmap": {
     "visitedTimes": "Visited {{count}} times",

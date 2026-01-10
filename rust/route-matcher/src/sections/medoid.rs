@@ -3,9 +3,9 @@
 //! The medoid is the actual GPS trace with minimum total AMD (Average Minimum Distance)
 //! to all other traces. This ensures we return REAL GPS points, not artificial interpolations.
 
-use crate::GpsPoint;
-use crate::geo_utils::haversine_distance;
 use super::overlap::OverlapCluster;
+use crate::geo_utils::haversine_distance;
+use crate::GpsPoint;
 
 /// Select the medoid trace from a cluster.
 /// The medoid is the actual GPS trace with minimum total AMD to all other traces.
@@ -99,7 +99,8 @@ fn average_min_distance(poly_a: &[GpsPoint], poly_b: &[GpsPoint]) -> f64 {
     // Compute AMD from A to B
     let mut sum_a_to_b = 0.0;
     for point_a in &resampled_a {
-        let min_dist = resampled_b.iter()
+        let min_dist = resampled_b
+            .iter()
             .map(|p| haversine_distance(point_a, p))
             .min_by(|a, b| a.partial_cmp(b).unwrap())
             .unwrap_or(0.0);
@@ -109,7 +110,8 @@ fn average_min_distance(poly_a: &[GpsPoint], poly_b: &[GpsPoint]) -> f64 {
     // Compute AMD from B to A
     let mut sum_b_to_a = 0.0;
     for point_b in &resampled_b {
-        let min_dist = resampled_a.iter()
+        let min_dist = resampled_a
+            .iter()
             .map(|p| haversine_distance(point_b, p))
             .min_by(|a, b| a.partial_cmp(b).unwrap())
             .unwrap_or(0.0);
@@ -120,10 +122,17 @@ fn average_min_distance(poly_a: &[GpsPoint], poly_b: &[GpsPoint]) -> f64 {
     (sum_a_to_b + sum_b_to_a) / (2.0 * n as f64)
 }
 
-/// Resample polyline to N points by distance
+/// Resample polyline to N points by distance (supports both up- and down-sampling)
 pub fn resample_by_distance(points: &[GpsPoint], n: usize) -> Vec<GpsPoint> {
-    if points.len() <= n {
-        return points.to_vec();
+    if n == 0 || points.is_empty() {
+        return Vec::new();
+    }
+    if n == 1 {
+        return vec![points[0].clone()];
+    }
+    if points.len() == 1 {
+        // Can't interpolate from a single point
+        return vec![points[0].clone(); n];
     }
 
     // Compute cumulative distances
