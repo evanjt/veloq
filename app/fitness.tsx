@@ -75,7 +75,9 @@ export default function FitnessScreen() {
     sharedSelectedIdx.value = -1;
     setSelectedDate(null);
     setSelectedValues(null);
-  }, [timeRange, sharedSelectedIdx]);
+    // Note: sharedSelectedIdx is a Reanimated SharedValue and should NOT be in deps
+    // (it's intentionally outside the React render cycle)
+  }, [timeRange]);
 
   const { data: wellness, isLoading, isFetching, isError, error, refetch } = useWellness(timeRange);
   const { isOnline } = useNetwork();

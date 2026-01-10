@@ -284,9 +284,14 @@ export default function SectionDetailScreen() {
       return;
     }
 
+    let isMounted = true;
+
     const loadActivityTraces = async () => {
       const activityIds = customSection.matches.map((m) => m.activityId);
       const tracks = await getGpsTracks(activityIds);
+
+      // Don't update state if component unmounted
+      if (!isMounted) return;
 
       const traces: Record<string, RoutePoint[]> = {};
       for (const match of customSection.matches) {
@@ -307,6 +312,10 @@ export default function SectionDetailScreen() {
     };
 
     loadActivityTraces();
+
+    return () => {
+      isMounted = false;
+    };
   }, [customSection]);
 
   // Load custom section name from Rust engine on mount
@@ -356,9 +365,12 @@ export default function SectionDetailScreen() {
       return;
     }
 
+    let isMounted = true;
+
     // Load the full GPS track for the highlighted activity
     getGpsTrack(highlightedActivityId)
       .then((track) => {
+        if (!isMounted) return;
         if (track && track.length > 0) {
           setShadowTrack(track);
         } else {
@@ -366,8 +378,14 @@ export default function SectionDetailScreen() {
         }
       })
       .catch(() => {
-        setShadowTrack(undefined);
+        if (isMounted) {
+          setShadowTrack(undefined);
+        }
       });
+
+    return () => {
+      isMounted = false;
+    };
   }, [highlightedActivityId]);
 
   const handleActivitySelect = useCallback(

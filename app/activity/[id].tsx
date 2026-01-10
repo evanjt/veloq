@@ -56,6 +56,28 @@ import type { ChartTypeId } from '@/lib';
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const MAP_HEIGHT = Math.round(SCREEN_HEIGHT * 0.42); // 42% of screen - better data visibility
 
+// Chart presets by activity type (defined outside component to avoid recreation)
+const CHART_PRESETS: Record<string, ChartTypeId[]> = {
+  Ride: ['power', 'heartrate', 'cadence', 'speed'],
+  VirtualRide: ['power', 'heartrate', 'cadence', 'speed'],
+  MountainBikeRide: ['power', 'heartrate', 'cadence', 'elevation'],
+  GravelRide: ['power', 'heartrate', 'cadence', 'speed'],
+  EBikeRide: ['power', 'heartrate', 'cadence', 'speed'],
+  Run: ['pace', 'heartrate', 'cadence', 'elevation'],
+  VirtualRun: ['pace', 'heartrate', 'cadence'],
+  TrailRun: ['pace', 'heartrate', 'elevation'],
+  Swim: ['pace', 'heartrate', 'speed'],
+  OpenWaterSwim: ['pace', 'heartrate'],
+  Walk: ['speed', 'heartrate', 'elevation'],
+  Hike: ['speed', 'heartrate', 'elevation'],
+  Workout: ['heartrate', 'power'],
+  WeightTraining: ['heartrate'],
+  Yoga: ['heartrate'],
+  Rowing: ['power', 'heartrate', 'cadence'],
+  Kayaking: ['speed', 'heartrate'],
+  Canoeing: ['speed', 'heartrate'],
+};
+
 export default function ActivityDetailScreen() {
   const { t } = useTranslation();
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -134,28 +156,6 @@ export default function ActivityDetailScreen() {
     ],
     [t, matchedRouteCount, totalSectionCount]
   );
-
-  // Chart presets by activity type
-  const CHART_PRESETS: Record<string, ChartTypeId[]> = {
-    Ride: ['power', 'heartrate', 'cadence', 'speed'],
-    VirtualRide: ['power', 'heartrate', 'cadence', 'speed'],
-    MountainBikeRide: ['power', 'heartrate', 'cadence', 'elevation'],
-    GravelRide: ['power', 'heartrate', 'cadence', 'speed'],
-    EBikeRide: ['power', 'heartrate', 'cadence', 'speed'],
-    Run: ['pace', 'heartrate', 'cadence', 'elevation'],
-    VirtualRun: ['pace', 'heartrate', 'cadence'],
-    TrailRun: ['pace', 'heartrate', 'elevation'],
-    Swim: ['pace', 'heartrate', 'speed'],
-    OpenWaterSwim: ['pace', 'heartrate'],
-    Walk: ['speed', 'heartrate', 'elevation'],
-    Hike: ['speed', 'heartrate', 'elevation'],
-    Workout: ['heartrate', 'power'],
-    WeightTraining: ['heartrate'],
-    Yoga: ['heartrate'],
-    Rowing: ['power', 'heartrate', 'cadence'],
-    Kayaking: ['speed', 'heartrate'],
-    Canoeing: ['speed', 'heartrate'],
-  };
 
   // Get available chart types based on stream data
   const availableCharts = useMemo(() => {

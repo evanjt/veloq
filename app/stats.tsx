@@ -60,7 +60,8 @@ export default function StatsScreen() {
 
   // Sport mode state - defaults to primary sport from preferences
   const { primarySport } = useSportPreference();
-  const [sportMode, setSportMode] = useState<PrimarySport>(primarySport);
+  // Use lazy initializer to capture initial value without causing flicker
+  const [sportMode, setSportMode] = useState<PrimarySport>(() => primarySport);
 
   // Update sport mode when primary sport preference changes
   useEffect(() => {
