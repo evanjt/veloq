@@ -47,13 +47,13 @@ yarn-error.*
 # Rust build artifacts
 **/target/
 
-# Native library binaries (built from Rust source)
+# Native library binaries (downloaded from GitHub releases)
 modules/route-matcher-native/android/src/main/jniLibs/
-modules/route-matcher-native/ios/*.a
-modules/route-matcher-native/ios/*.xcframework/
+modules/route-matcher-native/ios/Frameworks/
 
-# UniFFI generated bindings (regenerated from Rust source during build)
+# UniFFI generated bindings (downloaded from GitHub releases)
 modules/route-matcher-native/android/src/main/java/uniffi/
+modules/route-matcher-native/ios/Generated/
 modules/route-matcher-native/src/generated/
 
 # Android build cache

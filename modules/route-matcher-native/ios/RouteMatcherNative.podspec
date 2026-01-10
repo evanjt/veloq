@@ -19,11 +19,11 @@ Pod::Spec.new do |s|
 
   # Paths to Rust artifacts
   xcframework_path = File.join(__dir__, 'Frameworks', 'RouteMatcherFFI.xcframework')
-  generated_swift_path = File.join(__dir__, 'Generated', 'route_matcher.swift')
-  generated_modulemap_path = File.join(__dir__, 'Generated', 'module.modulemap')
+  generated_swift_path = File.join(__dir__, 'Generated', 'tracematch.swift')
+  generated_modulemap_path = File.join(__dir__, 'Generated', 'tracematchFFI.modulemap')
 
-  # REQUIRED: Rust library must be built before pod install
-  # Build with: npm run build:rust:ios
+  # REQUIRED: Rust library must be downloaded before pod install
+  # Download with: npm run rust:download
   unless ENV['SKIP_RUST_CHECK'] == '1'
     missing_files = []
     missing_files << "XCFramework: #{xcframework_path}" unless File.exist?(xcframework_path)
@@ -40,12 +40,8 @@ The RouteMatcherNative module requires the compiled Rust library.
 Missing files:
   #{missing_files.join("\n  ")}
 
-To build the Rust library:
-  1. Install Rust iOS targets:
-     rustup target add aarch64-apple-ios aarch64-apple-ios-sim x86_64-apple-ios
-
-  2. Build and install:
-     npm run build:rust:ios
+To download the Rust library:
+  npm run rust:download
 
 Then run 'pod install' again.
 ================================================================================
