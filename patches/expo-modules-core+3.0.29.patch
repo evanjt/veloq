@@ -1,0 +1,13 @@
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/AppContext.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/AppContext.kt
+index 1c125e6..306b6c5 100644
+--- a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/AppContext.kt
++++ b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/AppContext.kt
+@@ -340,7 +340,7 @@ class AppContext(
+     val reactContext = hostingRuntimeContext.reactContext ?: throw Exceptions.ReactContextLost()
+     val uiManager = UIManagerHelper.getUIManagerForReactTag(
+       reactContext,
+-      UIManagerType.DEFAULT
++      UIManagerType.LEGACY
+     ) as UIManagerModule
+ 
+     uiManager.addUIBlock {

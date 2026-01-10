@@ -18,7 +18,8 @@
     "noResults": "Sin resultados",
     "pullToRefresh": "Desliza para actualizar",
     "activities": "activities",
-    "syncing": "Syncing..."
+    "syncing": "Syncing...",
+    "or": "or"
   },
   "navigation": {
     "feed": "Inicio",
@@ -69,6 +70,9 @@
   "login": {
     "title": "Veloq",
     "subtitle": "Conectar con Intervals.icu",
+    "loginWithIntervals": "Iniciar sesión con intervals.icu",
+    "oauthNotConfigured": "OAuth no está configurado. Usa la clave API en su lugar.",
+    "oauthFailed": "Error al iniciar sesión. Inténtalo de nuevo.",
     "gettingStarted": "Comenzar",
     "instructions": "1. Abre los Ajustes de Intervals.icu\n2. Ve a \"Configuración de desarrollador\"\n3. Copia tu clave API",
     "openSettings": "Abrir Ajustes de Intervals.icu",
@@ -79,7 +83,20 @@
     "invalidApiKey": "Clave API inválida. Por favor, verifica tu clave e inténtalo de nuevo.",
     "connectionFailed": "Error de conexión. Por favor, verifica tu clave API e inténtalo de nuevo.",
     "securityNote": "Tus credenciales se guardan de forma segura en tu dispositivo",
-    "tryDemo": "Probar Demo"
+    "tryDemo": "Probar Demo",
+    "noAccount": "¿Nuevo en intervals.icu?",
+    "createAccountHint": "Crea una cuenta gratis para seguir tu entrenamiento.",
+    "createAccount": "Crear Cuenta",
+    "disclaimer": "Veloq no está afiliado con intervals.icu",
+    "privacyPolicy": "Política de Privacidad",
+    "termsOfService": "Términos de Servicio",
+    "useApiKey": "Usar Clave API",
+    "apiKeyDescription": "Modo local. Tu clave nunca sale de tu dispositivo. Sin notificaciones.",
+    "getApiKey": "Obtener tu clave API",
+    "apiKeyPlaceholder": "Pega tu clave API aquí",
+    "apiKeyConnect": "Conectar con Clave API",
+    "localModeNote": "Modo local: Todos los datos permanecen en tu dispositivo",
+    "connectedModeNote": "Habilita notificaciones para nuevas actividades"
   },
   "demo": {
     "banner": "Modo Demo",
@@ -656,5 +673,22 @@
     "uniqueRoutes": "{{count}} rutas únicas",
     "lastVisit": "Última visita",
     "showActivities": "Mostrar actividades"
+  },
+  "about": {
+    "title": "About & Legal",
+    "version": "Version",
+    "description": "A fast, offline-first mobile client for intervals.icu with a focus on maps and visual analytics.",
+    "disclaimerTitle": "Disclaimer",
+    "disclaimer": "Veloq is an independent, open-source project. It is not affiliated with, endorsed by, or connected to intervals.icu in any way.",
+    "intervalsPrivacy": "intervals.icu Privacy Policy",
+    "intervalsTerms": "intervals.icu Terms of Service",
+    "intervalsApiTerms": "intervals.icu API Terms",
+    "veloqPrivacy": "Veloq Privacy Policy",
+    "openSource": "Open Source License (Apache 2.0)",
+    "sourceCode": "Source Code",
+    "dataAttribution": "Data Attribution",
+    "garminNote": "Activity data may include information from Garmin, Strava, Polar, Wahoo, and other devices connected to your intervals.icu account.",
+    "mapData": "Map Data",
+    "mapAttribution": "Map tiles provided by OpenStreetMap, Carto, and Stadia Maps. Map data copyright OpenStreetMap contributors."
   }
 }

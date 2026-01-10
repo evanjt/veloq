@@ -18,7 +18,8 @@
     "noResults": "Ingen resultater",
     "pullToRefresh": "Træk ned for at opdatere",
     "activities": "activities",
-    "syncing": "Syncing..."
+    "syncing": "Syncing...",
+    "or": "or"
   },
   "navigation": {
     "feed": "Feed",
@@ -79,7 +80,23 @@
     "invalidApiKey": "Ugyldig API-nøgle. Tjek venligst din nøgle og prøv igen.",
     "connectionFailed": "Forbindelse mislykkedes. Tjek venligst din API-nøgle og prøv igen.",
     "securityNote": "Dine legitimationsoplysninger gemmes sikkert på din enhed",
-    "tryDemo": "Prøv demo"
+    "tryDemo": "Prøv demo",
+    "loginWithIntervals": "Sign in with intervals.icu",
+    "oauthNotConfigured": "OAuth is not configured. Use API key login instead.",
+    "oauthFailed": "Sign in failed. Please try again.",
+    "noAccount": "New to intervals.icu?",
+    "createAccountHint": "Create a free account to track your training.",
+    "createAccount": "Create Account",
+    "disclaimer": "Veloq is not affiliated with intervals.icu",
+    "privacyPolicy": "Privacy Policy",
+    "termsOfService": "Terms of Service",
+    "useApiKey": "Use API Key instead",
+    "apiKeyDescription": "For local-only mode. Your key never leaves your device. No push notifications.",
+    "getApiKey": "Get your API key",
+    "apiKeyPlaceholder": "Paste your API key here",
+    "apiKeyConnect": "Connect with API Key",
+    "localModeNote": "Local mode: All data stays on your device",
+    "connectedModeNote": "Enables push notifications for new activities"
   },
   "demo": {
     "banner": "Demotilstand",
@@ -634,5 +651,22 @@
     "uniqueRoutes": "{{count}} unikke ruter",
     "lastVisit": "Sidste besøg",
     "showActivities": "Vis aktiviteter"
+  },
+  "about": {
+    "title": "About & Legal",
+    "version": "Version",
+    "description": "A fast, offline-first mobile client for intervals.icu with a focus on maps and visual analytics.",
+    "disclaimerTitle": "Disclaimer",
+    "disclaimer": "Veloq is an independent, open-source project. It is not affiliated with, endorsed by, or connected to intervals.icu in any way.",
+    "intervalsPrivacy": "intervals.icu Privacy Policy",
+    "intervalsTerms": "intervals.icu Terms of Service",
+    "intervalsApiTerms": "intervals.icu API Terms",
+    "veloqPrivacy": "Veloq Privacy Policy",
+    "openSource": "Open Source License (Apache 2.0)",
+    "sourceCode": "Source Code",
+    "dataAttribution": "Data Attribution",
+    "garminNote": "Activity data may include information from Garmin, Strava, Polar, Wahoo, and other devices connected to your intervals.icu account.",
+    "mapData": "Map Data",
+    "mapAttribution": "Map tiles provided by OpenStreetMap, Carto, and Stadia Maps. Map data copyright OpenStreetMap contributors."
   }
 }

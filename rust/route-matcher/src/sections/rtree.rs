@@ -1,8 +1,8 @@
 //! R-tree indexed point types and spatial query utilities.
 
+use crate::geo_utils::{bounds_overlap, compute_bounds};
 use crate::GpsPoint;
-use crate::geo_utils::{compute_bounds, bounds_overlap};
-use rstar::{RTree, RTreeObject, PointDistance, AABB};
+use rstar::{PointDistance, RTree, RTreeObject, AABB};
 
 /// A GPS point with its index for R-tree queries
 #[derive(Debug, Clone, Copy)]
@@ -30,12 +30,13 @@ impl PointDistance for IndexedPoint {
 
 /// Build R-tree from GPS points for efficient spatial queries
 pub fn build_rtree(points: &[GpsPoint]) -> RTree<IndexedPoint> {
-    let indexed: Vec<IndexedPoint> = points.iter()
+    let indexed: Vec<IndexedPoint> = points
+        .iter()
         .enumerate()
         .map(|(i, p)| IndexedPoint {
             idx: i,
             lat: p.latitude,
-            lng: p.longitude
+            lng: p.longitude,
         })
         .collect();
     RTree::bulk_load(indexed)

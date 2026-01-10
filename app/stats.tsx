@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect, useCallback } from "react";
+import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import {
   View,
   ScrollView,
@@ -6,12 +6,12 @@ import {
   useColorScheme,
   TouchableOpacity,
   Linking,
-} from "react-native";
-import { Text, IconButton, ActivityIndicator } from "react-native-paper";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { router } from "expo-router";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { useTranslation } from "react-i18next";
+} from 'react-native';
+import { Text, IconButton, ActivityIndicator } from 'react-native-paper';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { router } from 'expo-router';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import {
   PowerCurveChart,
   PaceCurveChart,
@@ -19,7 +19,7 @@ import {
   ZoneDistributionChart,
   FTPTrendChart,
   DecouplingChart,
-} from "@/components/stats";
+} from '@/components/stats';
 import {
   useActivities,
   useActivityStreams,
@@ -30,49 +30,38 @@ import {
   useSportSettings,
   getSettingsForSport,
   usePaceCurve,
-} from "@/hooks";
-import {
-  useSportPreference,
-  SPORT_COLORS,
-  type PrimarySport,
-} from "@/providers";
-import { formatPaceCompact } from "@/lib";
-import {
-  colors,
-  darkColors,
-  spacing,
-  layout,
-  typography,
-  opacity,
-} from "@/theme";
+} from '@/hooks';
+import { useSportPreference, SPORT_COLORS, type PrimarySport } from '@/providers';
+import { formatPaceCompact } from '@/lib';
+import { colors, darkColors, spacing, layout, typography, opacity } from '@/theme';
 
-type TimeRange = "42d" | "90d" | "180d" | "1y";
+type TimeRange = '42d' | '90d' | '180d' | '1y';
 
 export default function StatsScreen() {
   const { t } = useTranslation();
   const colorScheme = useColorScheme();
-  const isDark = colorScheme === "dark";
+  const isDark = colorScheme === 'dark';
 
   const TIME_RANGE_OPTIONS: {
     value: TimeRange;
     label: string;
     days: number;
   }[] = [
-    { value: "42d", label: t("statsScreen.days42"), days: 42 },
-    { value: "90d", label: t("statsScreen.months3"), days: 90 },
-    { value: "180d", label: t("statsScreen.months6"), days: 180 },
-    { value: "1y", label: t("statsScreen.year1"), days: 365 },
+    { value: '42d', label: t('statsScreen.days42'), days: 42 },
+    { value: '90d', label: t('statsScreen.months3'), days: 90 },
+    { value: '180d', label: t('statsScreen.months6'), days: 180 },
+    { value: '1y', label: t('statsScreen.year1'), days: 365 },
   ];
 
   // Time range state - default to 42d to match CTL/pace curve windows
-  const [timeRange, setTimeRange] = useState<TimeRange>("42d");
+  const [timeRange, setTimeRange] = useState<TimeRange>('42d');
   const selectedRange =
-    TIME_RANGE_OPTIONS.find((r) => r.value === timeRange) ??
-    TIME_RANGE_OPTIONS[0];
+    TIME_RANGE_OPTIONS.find((r) => r.value === timeRange) ?? TIME_RANGE_OPTIONS[0];
 
   // Sport mode state - defaults to primary sport from preferences
   const { primarySport } = useSportPreference();
-  const [sportMode, setSportMode] = useState<PrimarySport>(primarySport);
+  // Use lazy initializer to capture initial value without causing flicker
+  const [sportMode, setSportMode] = useState<PrimarySport>(() => primarySport);
 
   // Update sport mode when primary sport preference changes
   useEffect(() => {
@@ -91,12 +80,12 @@ export default function StatsScreen() {
 
   // Compute zone distributions - filtered by current sport mode
   const powerZones = useZoneDistribution({
-    type: "power",
+    type: 'power',
     activities,
     sport: sportMode,
   });
   const hrZones = useZoneDistribution({
-    type: "hr",
+    type: 'hr',
     activities,
     sport: sportMode,
   });
@@ -107,13 +96,13 @@ export default function StatsScreen() {
 
   // Get sport settings for thresholds
   const { data: sportSettings } = useSportSettings();
-  const runSettings = getSettingsForSport(sportSettings, "Run");
+  const runSettings = getSettingsForSport(sportSettings, 'Run');
   const runLthr = runSettings?.lthr;
   const runMaxHr = runSettings?.max_hr;
 
   // Get pace curve for critical speed (threshold pace)
   const { data: runPaceCurve } = usePaceCurve({
-    sport: "Run",
+    sport: 'Run',
     days: selectedRange.days,
   });
   const thresholdPace = runPaceCurve?.criticalSpeed;
@@ -126,36 +115,33 @@ export default function StatsScreen() {
     return (
       activities.find(
         (a) =>
-          (a.type === "Ride" || a.type === "VirtualRide") &&
+          (a.type === 'Ride' || a.type === 'VirtualRide') &&
           (a.icu_average_watts || a.average_watts) &&
           (a.average_heartrate || a.icu_average_hr) &&
-          a.moving_time >= 30 * 60,
+          a.moving_time >= 30 * 60
       ) || null
     );
   }, [activities]);
 
   // Fetch streams for the decoupling activity
-  const { data: decouplingStreams, isLoading: loadingStreams } =
-    useActivityStreams(decouplingActivity?.id || "");
+  const { data: decouplingStreams, isLoading: loadingStreams } = useActivityStreams(
+    decouplingActivity?.id || ''
+  );
 
   return (
     <SafeAreaView style={[styles.container, isDark && styles.containerDark]}>
       <View style={styles.header}>
         <IconButton
           icon="arrow-left"
-          iconColor={isDark ? "#FFFFFF" : colors.textPrimary}
+          iconColor={isDark ? '#FFFFFF' : colors.textPrimary}
           onPress={() => router.back()}
         />
         <View style={styles.headerTitleRow}>
           <Text style={[styles.headerTitle, isDark && styles.textLight]}>
-            {t("statsScreen.title")}
+            {t('statsScreen.title')}
           </Text>
           {fetchingActivities && (
-            <ActivityIndicator
-              size="small"
-              color={colors.primary}
-              style={styles.headerLoader}
-            />
+            <ActivityIndicator size="small" color={colors.primary} style={styles.headerLoader} />
           )}
         </View>
         <View style={{ width: 48 }} />
@@ -193,96 +179,78 @@ export default function StatsScreen() {
           style={[
             styles.sportToggleButton,
             isDark && styles.sportToggleButtonDark,
-            sportMode === "Cycling" && {
+            sportMode === 'Cycling' && {
               backgroundColor: SPORT_COLORS.Cycling,
             },
           ]}
-          onPress={() => setSportMode("Cycling")}
+          onPress={() => setSportMode('Cycling')}
           activeOpacity={0.7}
         >
           <MaterialCommunityIcons
             name="bike"
             size={16}
-            color={
-              sportMode === "Cycling"
-                ? "#FFF"
-                : isDark
-                  ? "#AAA"
-                  : colors.textSecondary
-            }
+            color={sportMode === 'Cycling' ? '#FFF' : isDark ? '#AAA' : colors.textSecondary}
           />
           <Text
             style={[
               styles.sportToggleText,
               isDark && styles.textDark,
-              sportMode === "Cycling" && styles.sportToggleTextActive,
+              sportMode === 'Cycling' && styles.sportToggleTextActive,
             ]}
           >
-            {t("filters.cycling")}
+            {t('filters.cycling')}
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[
             styles.sportToggleButton,
             isDark && styles.sportToggleButtonDark,
-            sportMode === "Running" && {
+            sportMode === 'Running' && {
               backgroundColor: SPORT_COLORS.Running,
             },
           ]}
-          onPress={() => setSportMode("Running")}
+          onPress={() => setSportMode('Running')}
           activeOpacity={0.7}
         >
           <MaterialCommunityIcons
             name="run"
             size={16}
-            color={
-              sportMode === "Running"
-                ? "#FFF"
-                : isDark
-                  ? "#AAA"
-                  : colors.textSecondary
-            }
+            color={sportMode === 'Running' ? '#FFF' : isDark ? '#AAA' : colors.textSecondary}
           />
           <Text
             style={[
               styles.sportToggleText,
               isDark && styles.textDark,
-              sportMode === "Running" && styles.sportToggleTextActive,
+              sportMode === 'Running' && styles.sportToggleTextActive,
             ]}
           >
-            {t("filters.running")}
+            {t('filters.running')}
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[
             styles.sportToggleButton,
             isDark && styles.sportToggleButtonDark,
-            sportMode === "Swimming" && {
+            sportMode === 'Swimming' && {
               backgroundColor: SPORT_COLORS.Swimming,
             },
           ]}
-          onPress={() => setSportMode("Swimming")}
+          onPress={() => setSportMode('Swimming')}
           activeOpacity={0.7}
         >
           <MaterialCommunityIcons
             name="swim"
             size={16}
-            color={
-              sportMode === "Swimming"
-                ? "#FFF"
-                : isDark
-                  ? "#AAA"
-                  : colors.textSecondary
-            }
+            color={sportMode === 'Swimming' ? '#FFF' : isDark ? '#AAA' : colors.textSecondary}
           />
           <Text
             style={[
               styles.sportToggleText,
               isDark && styles.textDark,
-              sportMode === "Swimming" && styles.sportToggleTextActive,
+              sportMode === 'Swimming' && styles.sportToggleTextActive,
             ]}
           >
-            {t("filters.swimming")}
+            {t('filters.swimming')}
           </Text>
         </TouchableOpacity>
       </View>
@@ -293,15 +261,11 @@ export default function StatsScreen() {
         showsVerticalScrollIndicator={false}
       >
         {/* Cycling Charts */}
-        {sportMode === "Cycling" && (
+        {sportMode === 'Cycling' && (
           <>
             {/* Power Curve */}
             <View style={[styles.card, isDark && styles.cardDark]}>
-              <PowerCurveChart
-                height={220}
-                days={selectedRange.days}
-                ftp={currentFTP}
-              />
+              <PowerCurveChart height={220} days={selectedRange.days} ftp={currentFTP} />
             </View>
 
             {/* Zone Distribution - Power */}
@@ -326,11 +290,7 @@ export default function StatsScreen() {
                   <ActivityIndicator size="small" color={colors.primary} />
                 </View>
               ) : (
-                <ZoneDistributionChart
-                  data={hrZones}
-                  type="hr"
-                  periodLabel={selectedRange.label}
-                />
+                <ZoneDistributionChart data={hrZones} type="hr" periodLabel={selectedRange.label} />
               )}
             </View>
 
@@ -341,11 +301,7 @@ export default function StatsScreen() {
                   <ActivityIndicator size="small" color={colors.primary} />
                 </View>
               ) : (
-                <FTPTrendChart
-                  data={eftpHistory}
-                  currentFTP={currentFTP}
-                  height={200}
-                />
+                <FTPTrendChart data={eftpHistory} currentFTP={currentFTP} height={200} />
               )}
             </View>
 
@@ -367,97 +323,64 @@ export default function StatsScreen() {
             {/* Power Curve Info */}
             <View style={styles.infoFooter}>
               <Text style={[styles.infoText, isDark && styles.textDark]}>
-                Estimated FTP is calculated using power curves from
-                FastFitness.Tips and Morton's 3 parameter critical power model.
-                The algorithm requires just 1 max effort of between 180 seconds
-                and 30 minutes. Note that all data for the selected power curves
-                is used and there is no decay so the eFTP value on the chart may
-                differ to your current eFTP. W' is relative to eFTP.
+                Estimated FTP is calculated using power curves from FastFitness.Tips and Morton's 3
+                parameter critical power model. The algorithm requires just 1 max effort of between
+                180 seconds and 30 minutes. Note that all data for the selected power curves is used
+                and there is no decay so the eFTP value on the chart may differ to your current
+                eFTP. W' is relative to eFTP.
               </Text>
               <View style={styles.refLinks}>
-                <TouchableOpacity
-                  onPress={() => Linking.openURL("https://intervals.icu/power")}
-                >
+                <TouchableOpacity onPress={() => Linking.openURL('https://intervals.icu/power')}>
                   <Text style={styles.refLink}>intervals.icu/power</Text>
                 </TouchableOpacity>
-                <Text style={[styles.refSeparator, isDark && styles.textDark]}>
-                  •
-                </Text>
+                <Text style={[styles.refSeparator, isDark && styles.textDark]}>•</Text>
                 <TouchableOpacity
-                  onPress={() =>
-                    Linking.openURL("https://doi.org/10.1080/00140139608964484")
-                  }
+                  onPress={() => Linking.openURL('https://doi.org/10.1080/00140139608964484')}
                 >
                   <Text style={styles.refLink}>Ref</Text>
                 </TouchableOpacity>
               </View>
               <Text style={[styles.garminNote, isDark && styles.textDark]}>
-                {t("statsScreen.garminNote")}
+                {t('statsScreen.garminNote')}
               </Text>
             </View>
           </>
         )}
 
         {/* Running Charts */}
-        {sportMode === "Running" && (
+        {sportMode === 'Running' && (
           <>
             {/* Threshold Stats */}
             <View style={[styles.card, isDark && styles.cardDark]}>
               <Text style={[styles.cardTitle, isDark && styles.textLight]}>
-                {t("statsScreen.lactateThreshold")}
+                {t('statsScreen.lactateThreshold')}
               </Text>
               <View style={styles.thresholdRow}>
                 <View style={styles.thresholdItem}>
-                  <Text
-                    style={[styles.thresholdLabel, isDark && styles.textDark]}
-                  >
-                    {t("statsScreen.pace")}
+                  <Text style={[styles.thresholdLabel, isDark && styles.textDark]}>
+                    {t('statsScreen.pace')}
                   </Text>
-                  <Text
-                    style={[
-                      styles.thresholdValue,
-                      { color: SPORT_COLORS.Running },
-                    ]}
-                  >
-                    {thresholdPace
-                      ? `${formatPaceCompact(thresholdPace)}/km`
-                      : "-"}
+                  <Text style={[styles.thresholdValue, { color: SPORT_COLORS.Running }]}>
+                    {thresholdPace ? `${formatPaceCompact(thresholdPace)}/km` : '-'}
                   </Text>
                 </View>
                 <View style={styles.thresholdDivider} />
                 <View style={styles.thresholdItem}>
-                  <Text
-                    style={[styles.thresholdLabel, isDark && styles.textDark]}
-                  >
-                    {t("statsScreen.heartRate")}
+                  <Text style={[styles.thresholdLabel, isDark && styles.textDark]}>
+                    {t('statsScreen.heartRate')}
                   </Text>
-                  <Text
-                    style={[
-                      styles.thresholdValue,
-                      { color: SPORT_COLORS.Running },
-                    ]}
-                  >
-                    {runLthr ? `${runLthr} bpm` : "-"}
+                  <Text style={[styles.thresholdValue, { color: SPORT_COLORS.Running }]}>
+                    {runLthr ? `${runLthr} bpm` : '-'}
                   </Text>
                 </View>
                 {runMaxHr && (
                   <>
                     <View style={styles.thresholdDivider} />
                     <View style={styles.thresholdItem}>
-                      <Text
-                        style={[
-                          styles.thresholdLabel,
-                          isDark && styles.textDark,
-                        ]}
-                      >
-                        {t("statsScreen.maxHr")}
+                      <Text style={[styles.thresholdLabel, isDark && styles.textDark]}>
+                        {t('statsScreen.maxHr')}
                       </Text>
-                      <Text
-                        style={[
-                          styles.thresholdValueSmall,
-                          isDark && styles.textDark,
-                        ]}
-                      >
+                      <Text style={[styles.thresholdValueSmall, isDark && styles.textDark]}>
                         {runMaxHr} bpm
                       </Text>
                     </View>
@@ -488,50 +411,34 @@ export default function StatsScreen() {
                   <ActivityIndicator size="small" color={colors.primary} />
                 </View>
               ) : (
-                <ZoneDistributionChart
-                  data={hrZones}
-                  type="hr"
-                  periodLabel={selectedRange.label}
-                />
+                <ZoneDistributionChart data={hrZones} type="hr" periodLabel={selectedRange.label} />
               )}
             </View>
 
             {/* Pace Curve Info */}
             <View style={styles.infoFooter}>
-              <Text style={[styles.infoTextTitle, isDark && styles.textDark]}>
-                Pace Curve
-              </Text>
+              <Text style={[styles.infoTextTitle, isDark && styles.textDark]}>Pace Curve</Text>
               <Text style={[styles.infoText, isDark && styles.textDark]}>
-                CS (critical speed) and D' are calculated using the 2 parameter
-                model. Intervals.icu uses your best 1k, 2k, 3k, 4k and 5k times
-                keeping those that take between 2 and 15+ minutes.
+                CS (critical speed) and D' are calculated using the 2 parameter model. Intervals.icu
+                uses your best 1k, 2k, 3k, 4k and 5k times keeping those that take between 2 and 15+
+                minutes.
               </Text>
               <View style={styles.refLinks}>
-                <TouchableOpacity
-                  onPress={() => Linking.openURL("https://intervals.icu/pace")}
-                >
+                <TouchableOpacity onPress={() => Linking.openURL('https://intervals.icu/pace')}>
                   <Text style={styles.refLink}>intervals.icu/pace</Text>
                 </TouchableOpacity>
-                <Text style={[styles.refSeparator, isDark && styles.textDark]}>
-                  •
-                </Text>
+                <Text style={[styles.refSeparator, isDark && styles.textDark]}>•</Text>
                 <TouchableOpacity
                   onPress={() =>
-                    Linking.openURL(
-                      "https://www.tandfonline.com/doi/abs/10.1080/02640410500497642",
-                    )
+                    Linking.openURL('https://www.tandfonline.com/doi/abs/10.1080/02640410500497642')
                   }
                 >
                   <Text style={styles.refLink}>Ref</Text>
                 </TouchableOpacity>
-                <Text style={[styles.refSeparator, isDark && styles.textDark]}>
-                  •
-                </Text>
+                <Text style={[styles.refSeparator, isDark && styles.textDark]}>•</Text>
                 <TouchableOpacity
                   onPress={() =>
-                    Linking.openURL(
-                      "http://www.georgeron.com/2020/04/Critical-Power-Concept.html",
-                    )
+                    Linking.openURL('http://www.georgeron.com/2020/04/Critical-Power-Concept.html')
                   }
                 >
                   <Text style={styles.refLink}>Ref</Text>
@@ -541,41 +448,32 @@ export default function StatsScreen() {
 
             {/* Power Curve Info (for runners with power meters) */}
             <View style={styles.infoFooter}>
-              <Text style={[styles.infoTextTitle, isDark && styles.textDark]}>
-                Power Curve
-              </Text>
+              <Text style={[styles.infoTextTitle, isDark && styles.textDark]}>Power Curve</Text>
               <Text style={[styles.infoText, isDark && styles.textDark]}>
-                Estimated FTP is calculated using power curves from
-                FastFitness.Tips and Morton's 3 parameter critical power model.
-                The algorithm requires just 1 max effort of between 180 seconds
-                and 30 minutes. W' is relative to eFTP.
+                Estimated FTP is calculated using power curves from FastFitness.Tips and Morton's 3
+                parameter critical power model. The algorithm requires just 1 max effort of between
+                180 seconds and 30 minutes. W' is relative to eFTP.
               </Text>
               <View style={styles.refLinks}>
-                <TouchableOpacity
-                  onPress={() => Linking.openURL("https://intervals.icu/power")}
-                >
+                <TouchableOpacity onPress={() => Linking.openURL('https://intervals.icu/power')}>
                   <Text style={styles.refLink}>intervals.icu/power</Text>
                 </TouchableOpacity>
-                <Text style={[styles.refSeparator, isDark && styles.textDark]}>
-                  •
-                </Text>
+                <Text style={[styles.refSeparator, isDark && styles.textDark]}>•</Text>
                 <TouchableOpacity
-                  onPress={() =>
-                    Linking.openURL("https://doi.org/10.1080/00140139608964484")
-                  }
+                  onPress={() => Linking.openURL('https://doi.org/10.1080/00140139608964484')}
                 >
                   <Text style={styles.refLink}>Ref</Text>
                 </TouchableOpacity>
               </View>
               <Text style={[styles.garminNote, isDark && styles.textDark]}>
-                {t("statsScreen.garminNote")}
+                {t('statsScreen.garminNote')}
               </Text>
             </View>
           </>
         )}
 
         {/* Swimming Charts */}
-        {sportMode === "Swimming" && (
+        {sportMode === 'Swimming' && (
           <>
             {/* Swim Pace Curve */}
             <View style={[styles.card, isDark && styles.cardDark]}>
@@ -589,30 +487,23 @@ export default function StatsScreen() {
                   <ActivityIndicator size="small" color={colors.primary} />
                 </View>
               ) : (
-                <ZoneDistributionChart
-                  data={hrZones}
-                  type="hr"
-                  periodLabel={selectedRange.label}
-                />
+                <ZoneDistributionChart data={hrZones} type="hr" periodLabel={selectedRange.label} />
               )}
             </View>
 
             {/* Swim Pace Curve Info */}
             <View style={styles.infoFooter}>
               <Text style={[styles.infoText, isDark && styles.textDark]}>
-                CSS (critical swim speed) and D' are calculated using the 2
-                parameter model. Based on your best swim efforts across various
-                distances.
+                CSS (critical swim speed) and D' are calculated using the 2 parameter model. Based
+                on your best swim efforts across various distances.
               </Text>
               <View style={styles.refLinks}>
-                <TouchableOpacity
-                  onPress={() => Linking.openURL("https://intervals.icu/pace")}
-                >
+                <TouchableOpacity onPress={() => Linking.openURL('https://intervals.icu/pace')}>
                   <Text style={styles.refLink}>intervals.icu/pace</Text>
                 </TouchableOpacity>
               </View>
               <Text style={[styles.garminNote, isDark && styles.textDark]}>
-                {t("statsScreen.garminNote")}
+                {t('statsScreen.garminNote')}
               </Text>
             </View>
           </>
@@ -631,18 +522,18 @@ const styles = StyleSheet.create({
     backgroundColor: darkColors.background,
   },
   header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   headerTitleRow: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: spacing.sm,
   },
   headerTitle: {
     fontSize: typography.cardTitle.fontSize,
-    fontWeight: "600",
+    fontWeight: '600',
     color: colors.textPrimary,
   },
   headerLoader: {
@@ -655,7 +546,7 @@ const styles = StyleSheet.create({
     color: darkColors.textSecondary,
   },
   timeRangeContainer: {
-    flexDirection: "row",
+    flexDirection: 'row',
     paddingHorizontal: layout.screenPadding,
     paddingBottom: spacing.sm,
     gap: spacing.sm,
@@ -666,7 +557,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm + 4,
     borderRadius: layout.borderRadiusSm,
     backgroundColor: opacity.overlay.light,
-    alignItems: "center",
+    alignItems: 'center',
   },
   timeRangeButtonDark: {
     backgroundColor: opacity.overlayDark.light,
@@ -676,23 +567,23 @@ const styles = StyleSheet.create({
   },
   timeRangeText: {
     fontSize: typography.caption.fontSize,
-    fontWeight: "600",
+    fontWeight: '600',
     color: colors.textSecondary,
   },
   timeRangeTextActive: {
     color: colors.textOnDark,
   },
   sportToggleContainer: {
-    flexDirection: "row",
+    flexDirection: 'row',
     paddingHorizontal: layout.screenPadding,
     paddingBottom: spacing.sm,
     gap: spacing.sm,
   },
   sportToggleButton: {
     flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.sm + 4,
     borderRadius: layout.borderRadiusSm,
@@ -704,7 +595,7 @@ const styles = StyleSheet.create({
   },
   sportToggleText: {
     fontSize: typography.caption.fontSize,
-    fontWeight: "600",
+    fontWeight: '600',
     color: colors.textSecondary,
   },
   sportToggleTextActive: {
@@ -728,23 +619,23 @@ const styles = StyleSheet.create({
   },
   loadingContainer: {
     padding: spacing.xl,
-    alignItems: "center",
-    justifyContent: "center",
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   cardTitle: {
     fontSize: typography.bodySmall.fontSize,
-    fontWeight: "600",
+    fontWeight: '600',
     color: colors.textPrimary,
     marginBottom: spacing.md,
   },
   thresholdRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   thresholdItem: {
     flex: 1,
-    alignItems: "center",
+    alignItems: 'center',
   },
   thresholdLabel: {
     fontSize: typography.label.fontSize,
@@ -753,11 +644,11 @@ const styles = StyleSheet.create({
   },
   thresholdValue: {
     fontSize: typography.statsValue.fontSize,
-    fontWeight: "700",
+    fontWeight: '700',
   },
   thresholdValueSmall: {
     fontSize: typography.body.fontSize,
-    fontWeight: "600",
+    fontWeight: '600',
     color: colors.textSecondary,
   },
   thresholdDivider: {
@@ -772,21 +663,21 @@ const styles = StyleSheet.create({
   },
   infoTextTitle: {
     fontSize: typography.caption.fontSize,
-    fontWeight: "600",
+    fontWeight: '600',
     color: colors.textSecondary,
-    textAlign: "center",
+    textAlign: 'center',
     marginBottom: spacing.xs,
   },
   infoText: {
     fontSize: typography.label.fontSize,
     lineHeight: 16,
     color: colors.textSecondary,
-    textAlign: "center",
+    textAlign: 'center',
   },
   refLinks: {
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
     marginTop: spacing.xs,
     gap: spacing.xs,
   },
@@ -801,8 +692,8 @@ const styles = StyleSheet.create({
   garminNote: {
     fontSize: typography.micro.fontSize,
     color: colors.textSecondary,
-    textAlign: "center",
+    textAlign: 'center',
     marginTop: spacing.xs,
-    fontStyle: "italic",
+    fontStyle: 'italic',
   },
 });

@@ -14,7 +14,7 @@ export {
 } from '@/lib';
 
 // Chart hooks
-export { usePowerCurve, usePaceCurve, useChartGesture, useChartColors } from './charts';
+export { usePowerCurve, usePaceCurve, useChartColors } from './charts';
 
 // UI hooks
 export { useTheme, useMetricSystem } from './ui';

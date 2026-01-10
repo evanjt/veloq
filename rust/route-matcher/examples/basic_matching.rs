@@ -37,8 +37,10 @@ fn main() {
     let sig4 = RouteSignature::from_points("route-4", &route4, &config).unwrap();
 
     println!("Route Matching Examples\n");
-    println!("Config: perfect_threshold={}m, zero_threshold={}m, min_match={}%\n",
-        config.perfect_threshold, config.zero_threshold, config.min_match_percentage);
+    println!(
+        "Config: perfect_threshold={}m, zero_threshold={}m, min_match={}%\n",
+        config.perfect_threshold, config.zero_threshold, config.min_match_percentage
+    );
 
     // Compare identical routes
     println!("1. Identical routes (route-1 vs route-2):");
@@ -75,8 +77,14 @@ fn main() {
 
     // Show signature details
     println!("Signature details:");
-    println!("  route-1: {} points, {:.0}m total distance",
-        sig1.points.len(), sig1.total_distance);
-    println!("  route-4: {} points, {:.0}m total distance",
-        sig4.points.len(), sig4.total_distance);
+    println!(
+        "  route-1: {} points, {:.0}m total distance",
+        sig1.points.len(),
+        sig1.total_distance
+    );
+    println!(
+        "  route-4: {} points, {:.0}m total distance",
+        sig4.points.len(),
+        sig4.total_distance
+    );
 }

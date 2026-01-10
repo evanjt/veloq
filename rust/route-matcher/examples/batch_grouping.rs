@@ -83,7 +83,11 @@ fn main() {
 
     // Stats
     let total_routes: usize = groups.iter().map(|g| g.activity_ids.len()).sum();
-    let largest_group = groups.iter().map(|g| g.activity_ids.len()).max().unwrap_or(0);
+    let largest_group = groups
+        .iter()
+        .map(|g| g.activity_ids.len())
+        .max()
+        .unwrap_or(0);
     let singletons = groups.iter().filter(|g| g.activity_ids.len() == 1).count();
 
     println!("\nStats:");

@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo, useEffect } from "react";
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import {
   View,
   ScrollView,
@@ -10,25 +10,19 @@ import {
   StatusBar,
   useWindowDimensions,
   Alert,
-} from "react-native";
-import { Text, IconButton, ActivityIndicator } from "react-native-paper";
-import {
-  SafeAreaView,
-  useSafeAreaInsets,
-} from "react-native-safe-area-context";
-import { useLocalSearchParams, router, type Href } from "expo-router";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient";
-import { useTranslation } from "react-i18next";
-import * as ScreenOrientation from "expo-screen-orientation";
-import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { useActivity, useActivityStreams, useWellnessForDate } from "@/hooks";
-import { useCustomSections } from "@/hooks/routes/useCustomSections";
-import { useRouteMatch } from "@/hooks/routes/useRouteMatch";
-import {
-  useSectionMatches,
-  type SectionMatch,
-} from "@/hooks/routes/useSectionMatches";
+} from 'react-native';
+import { Text, IconButton, ActivityIndicator } from 'react-native-paper';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useLocalSearchParams, router, type Href } from 'expo-router';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useTranslation } from 'react-i18next';
+import * as ScreenOrientation from 'expo-screen-orientation';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { useActivity, useActivityStreams, useWellnessForDate } from '@/hooks';
+import { useCustomSections } from '@/hooks/routes/useCustomSections';
+import { useRouteMatch } from '@/hooks/routes/useRouteMatch';
+import { useSectionMatches, type SectionMatch } from '@/hooks/routes/useSectionMatches';
 import {
   ActivityMapView,
   CombinedPlot,
@@ -36,9 +30,9 @@ import {
   HRZonesChart,
   InsightfulStats,
   RoutePerformanceSection,
-} from "@/components";
-import { SwipeableTabs, type SwipeableTab } from "@/components/ui";
-import type { SectionCreationResult } from "@/components/maps/ActivityMapView";
+} from '@/components';
+import { SwipeableTabs, type SwipeableTab } from '@/components/ui';
+import type { SectionCreationResult } from '@/components/maps/ActivityMapView';
 import {
   formatDistance,
   formatDuration,
@@ -54,35 +48,50 @@ import {
   convertLatLngTuples,
   getAvailableCharts,
   CHART_CONFIGS,
-} from "@/lib";
-import {
-  colors,
-  darkColors,
-  spacing,
-  typography,
-  layout,
-  opacity,
-} from "@/theme";
-import { DeviceAttribution, ComponentErrorBoundary } from "@/components/ui";
-import type { ChartTypeId } from "@/lib";
+} from '@/lib';
+import { colors, darkColors, spacing, typography, layout, opacity } from '@/theme';
+import { DeviceAttribution, ComponentErrorBoundary } from '@/components/ui';
+import type { ChartTypeId } from '@/lib';
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const MAP_HEIGHT = Math.round(SCREEN_HEIGHT * 0.42); // 42% of screen - better data visibility
+
+// Chart presets by activity type (defined outside component to avoid recreation)
+const CHART_PRESETS: Record<string, ChartTypeId[]> = {
+  Ride: ['power', 'heartrate', 'cadence', 'speed'],
+  VirtualRide: ['power', 'heartrate', 'cadence', 'speed'],
+  MountainBikeRide: ['power', 'heartrate', 'cadence', 'elevation'],
+  GravelRide: ['power', 'heartrate', 'cadence', 'speed'],
+  EBikeRide: ['power', 'heartrate', 'cadence', 'speed'],
+  Run: ['pace', 'heartrate', 'cadence', 'elevation'],
+  VirtualRun: ['pace', 'heartrate', 'cadence'],
+  TrailRun: ['pace', 'heartrate', 'elevation'],
+  Swim: ['pace', 'heartrate', 'speed'],
+  OpenWaterSwim: ['pace', 'heartrate'],
+  Walk: ['speed', 'heartrate', 'elevation'],
+  Hike: ['speed', 'heartrate', 'elevation'],
+  Workout: ['heartrate', 'power'],
+  WeightTraining: ['heartrate'],
+  Yoga: ['heartrate'],
+  Rowing: ['power', 'heartrate', 'cadence'],
+  Kayaking: ['speed', 'heartrate'],
+  Canoeing: ['speed', 'heartrate'],
+};
 
 export default function ActivityDetailScreen() {
   const { t } = useTranslation();
   const { id } = useLocalSearchParams<{ id: string }>();
   const colorScheme = useColorScheme();
-  const isDark = colorScheme === "dark";
+  const isDark = colorScheme === 'dark';
   const insets = useSafeAreaInsets();
   // Use dynamic dimensions for fullscreen chart (updates after rotation)
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
 
-  const { data: activity, isLoading, error } = useActivity(id || "");
-  const { data: streams } = useActivityStreams(id || "");
+  const { data: activity, isLoading, error } = useActivity(id || '');
+  const { data: streams } = useActivityStreams(id || '');
 
   // Get the activity date for wellness lookup
-  const activityDate = activity?.start_date_local?.split("T")[0];
+  const activityDate = activity?.start_date_local?.split('T')[0];
   const { data: activityWellness } = useWellnessForDate(activityDate);
 
   // Track the selected point index from charts for map highlight
@@ -105,23 +114,20 @@ export default function ActivityDetailScreen() {
   const { createSection, sections } = useCustomSections();
 
   // Tab state for swipeable tabs
-  type TabType = "charts" | "routes" | "sections";
-  const [activeTab, setActiveTab] = useState<TabType>("charts");
+  type TabType = 'charts' | 'routes' | 'sections';
+  const [activeTab, setActiveTab] = useState<TabType>('charts');
 
   // Get matched route for this activity
   const { routeGroup: matchedRoute } = useRouteMatch(id);
   const matchedRouteCount = matchedRoute ? 1 : 0;
 
   // Get auto-detected sections from engine that include this activity
-  const { sections: engineSectionMatches, count: engineSectionCount } =
-    useSectionMatches(id);
+  const { sections: engineSectionMatches, count: engineSectionCount } = useSectionMatches(id);
 
   // Filter custom sections that match this activity
   const customMatchedSections = useMemo(() => {
     if (!id) return [];
-    return sections.filter((section) =>
-      section.matches.some((match) => match.activityId === id),
-    );
+    return sections.filter((section) => section.matches.some((match) => match.activityId === id));
   }, [sections, id]);
 
   // Total section count (auto-detected + custom)
@@ -131,51 +137,29 @@ export default function ActivityDetailScreen() {
   const tabs = useMemo<SwipeableTab[]>(
     () => [
       {
-        key: "charts",
-        label: t("activityDetail.tabs.charts"),
-        icon: "chart-line",
+        key: 'charts',
+        label: t('activityDetail.tabs.charts'),
+        icon: 'chart-line',
       },
       {
-        key: "routes",
-        label: t("activityDetail.tabs.routes"),
-        icon: "map-marker-path",
+        key: 'routes',
+        label: t('activityDetail.tabs.routes'),
+        icon: 'map-marker-path',
         count: matchedRouteCount,
       },
       {
-        key: "sections",
-        label: t("activityDetail.tabs.sections"),
-        icon: "road-variant",
+        key: 'sections',
+        label: t('activityDetail.tabs.sections'),
+        icon: 'road-variant',
         count: totalSectionCount,
       },
     ],
-    [t, matchedRouteCount, totalSectionCount],
+    [t, matchedRouteCount, totalSectionCount]
   );
-
-  // Chart presets by activity type
-  const CHART_PRESETS: Record<string, ChartTypeId[]> = {
-    Ride: ["power", "heartrate", "cadence", "speed"],
-    VirtualRide: ["power", "heartrate", "cadence", "speed"],
-    MountainBikeRide: ["power", "heartrate", "cadence", "elevation"],
-    GravelRide: ["power", "heartrate", "cadence", "speed"],
-    EBikeRide: ["power", "heartrate", "cadence", "speed"],
-    Run: ["pace", "heartrate", "cadence", "elevation"],
-    VirtualRun: ["pace", "heartrate", "cadence"],
-    TrailRun: ["pace", "heartrate", "elevation"],
-    Swim: ["pace", "heartrate", "speed"],
-    OpenWaterSwim: ["pace", "heartrate"],
-    Walk: ["speed", "heartrate", "elevation"],
-    Hike: ["speed", "heartrate", "elevation"],
-    Workout: ["heartrate", "power"],
-    WeightTraining: ["heartrate"],
-    Yoga: ["heartrate"],
-    Rowing: ["power", "heartrate", "cadence"],
-    Kayaking: ["speed", "heartrate"],
-    Canoeing: ["speed", "heartrate"],
-  };
 
   // Get available chart types based on stream data
   const availableCharts = useMemo(() => {
-    return getAvailableCharts(streams);
+    return getAvailableCharts(streams || {});
   }, [streams]);
 
   // Initialize selected charts with smart presets when data loads
@@ -185,12 +169,9 @@ export default function ActivityDetailScreen() {
       const preset = CHART_PRESETS[activity.type];
       if (preset) {
         // Filter preset to only include charts that are available
-        const validPreset = preset.filter((id) =>
-          availableCharts.some((c) => c.id === id),
-        );
+        const validPreset = preset.filter((id) => availableCharts.some((c) => c.id === id));
         // Use preset if at least one chart is available, otherwise fallback to first available
-        const initialCharts =
-          validPreset.length > 0 ? validPreset : [availableCharts[0].id];
+        const initialCharts = validPreset.length > 0 ? validPreset : [availableCharts[0].id];
         setSelectedCharts(initialCharts);
       } else {
         // No preset for this activity type, use first available
@@ -229,16 +210,12 @@ export default function ActivityDetailScreen() {
   // Open fullscreen chart with landscape orientation
   const openChartFullscreen = useCallback(async () => {
     setIsChartFullscreen(true);
-    await ScreenOrientation.lockAsync(
-      ScreenOrientation.OrientationLock.LANDSCAPE,
-    );
+    await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE);
   }, []);
 
   // Close fullscreen chart and restore portrait orientation
   const closeChartFullscreen = useCallback(async () => {
-    await ScreenOrientation.lockAsync(
-      ScreenOrientation.OrientationLock.PORTRAIT_UP,
-    );
+    await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP);
     setIsChartFullscreen(false);
   }, []);
 
@@ -257,15 +234,12 @@ export default function ActivityDetailScreen() {
           sportType: activity.type,
           distanceMeters: result.distanceMeters,
         });
-        Alert.alert(
-          t("routes.sectionCreated"),
-          t("routes.sectionCreatedDescription"),
-        );
+        Alert.alert(t('routes.sectionCreated'), t('routes.sectionCreatedDescription'));
       } catch (error) {
-        Alert.alert(t("common.error"), t("routes.sectionCreationFailed"));
+        Alert.alert(t('common.error'), t('routes.sectionCreationFailed'));
       }
     },
-    [activity, createSection, t],
+    [activity, createSection, t]
   );
 
   // Handle section creation cancellation
@@ -298,16 +272,10 @@ export default function ActivityDetailScreen() {
     return (
       <SafeAreaView style={[styles.container, isDark && styles.containerDark]}>
         <View style={[styles.floatingHeader, { paddingTop: insets.top }]}>
-          <IconButton
-            icon="arrow-left"
-            iconColor="#FFFFFF"
-            onPress={() => router.back()}
-          />
+          <IconButton icon="arrow-left" iconColor="#FFFFFF" onPress={() => router.back()} />
         </View>
         <View style={styles.loadingContainer}>
-          <Text style={styles.errorText}>
-            {t("activityDetail.failedToLoad")}
-          </Text>
+          <Text style={styles.errorText}>{t('activityDetail.failedToLoad')}</Text>
         </View>
       </SafeAreaView>
     );
@@ -342,7 +310,7 @@ export default function ActivityDetailScreen() {
 
         {/* Gradient overlay at bottom */}
         <LinearGradient
-          colors={["transparent", "rgba(0,0,0,0.7)"]}
+          colors={['transparent', 'rgba(0,0,0,0.7)']}
           style={styles.mapGradient}
           pointerEvents="none"
         />
@@ -355,11 +323,7 @@ export default function ActivityDetailScreen() {
             onPress={() => router.back()}
             activeOpacity={0.7}
           >
-            <MaterialCommunityIcons
-              name="arrow-left"
-              size={24}
-              color="#FFFFFF"
-            />
+            <MaterialCommunityIcons name="arrow-left" size={24} color="#FFFFFF" />
           </TouchableOpacity>
         </View>
 
@@ -371,17 +335,11 @@ export default function ActivityDetailScreen() {
 
           {/* Date and inline stats */}
           <View style={styles.metaRow}>
-            <Text style={styles.activityDate}>
-              {formatDateTime(activity.start_date_local)}
-            </Text>
+            <Text style={styles.activityDate}>{formatDateTime(activity.start_date_local)}</Text>
             <View style={styles.inlineStats}>
-              <Text style={styles.inlineStat}>
-                {formatDistance(activity.distance)}
-              </Text>
+              <Text style={styles.inlineStat}>{formatDistance(activity.distance)}</Text>
               <Text style={styles.inlineStatDivider}>·</Text>
-              <Text style={styles.inlineStat}>
-                {formatDuration(activity.moving_time)}
-              </Text>
+              <Text style={styles.inlineStat}>{formatDuration(activity.moving_time)}</Text>
               <Text style={styles.inlineStatDivider}>·</Text>
               <Text style={styles.inlineStat}>
                 {formatElevation(activity.total_elevation_gain)}
@@ -409,20 +367,13 @@ export default function ActivityDetailScreen() {
             <View style={styles.chartSection}>
               <View style={styles.chartControls}>
                 <TouchableOpacity
-                  style={[
-                    styles.expandButton,
-                    isDark && styles.expandButtonDark,
-                  ]}
+                  style={[styles.expandButton, isDark && styles.expandButtonDark]}
                   onPress={() => setChartsExpanded(!chartsExpanded)}
                   activeOpacity={0.7}
                   accessibilityLabel="Chart display options"
                   accessibilityRole="button"
                 >
-                  <MaterialCommunityIcons
-                    name="cog"
-                    size={20}
-                    color={isDark ? "#FFF" : "#333"}
-                  />
+                  <MaterialCommunityIcons name="cog" size={20} color={isDark ? '#FFF' : '#333'} />
                 </TouchableOpacity>
                 <View style={styles.chartSelectorContainer}>
                   <ChartTypeSelector
@@ -432,10 +383,7 @@ export default function ActivityDetailScreen() {
                   />
                 </View>
                 <TouchableOpacity
-                  style={[
-                    styles.fullscreenButton,
-                    isDark && styles.expandButtonDark,
-                  ]}
+                  style={[styles.fullscreenButton, isDark && styles.expandButtonDark]}
                   onPress={openChartFullscreen}
                   activeOpacity={0.7}
                   accessibilityLabel="Fullscreen chart"
@@ -444,7 +392,7 @@ export default function ActivityDetailScreen() {
                   <MaterialCommunityIcons
                     name="fullscreen"
                     size={20}
-                    color={isDark ? "#FFF" : "#333"}
+                    color={isDark ? '#FFF' : '#333'}
                   />
                 </TouchableOpacity>
               </View>
@@ -457,14 +405,11 @@ export default function ActivityDetailScreen() {
                   selectedCharts.map((chartId) => {
                     const config = CHART_CONFIGS[chartId];
                     if (!config) return null;
-                    const chartData = config.getStream(streams);
+                    const chartData = config.getStream?.(streams);
                     if (!chartData || chartData.length === 0) return null;
 
                     return (
-                      <View
-                        key={chartId}
-                        style={[styles.chartCard, isDark && styles.cardDark]}
-                      >
+                      <View key={chartId} style={[styles.chartCard, isDark && styles.cardDark]}>
                         <CombinedPlot
                           streams={streams}
                           selectedCharts={[chartId]}
@@ -494,40 +439,36 @@ export default function ActivityDetailScreen() {
               <View style={[styles.compactStats, isDark && styles.cardDark]}>
                 {showPace ? (
                   <CompactStat
-                    label={t("activityDetail.avgPace")}
+                    label={t('activityDetail.avgPace')}
                     value={formatPace(activity.average_speed)}
                     isDark={isDark}
                   />
                 ) : (
                   <CompactStat
-                    label={t("activityDetail.avgSpeed")}
+                    label={t('activityDetail.avgSpeed')}
                     value={formatSpeed(activity.average_speed)}
                     isDark={isDark}
                   />
                 )}
                 {(activity.average_heartrate || activity.icu_average_hr) && (
                   <CompactStat
-                    label={t("activityDetail.avgHR")}
-                    value={formatHeartRate(
-                      activity.average_heartrate || activity.icu_average_hr!,
-                    )}
+                    label={t('activityDetail.avgHR')}
+                    value={formatHeartRate(activity.average_heartrate || activity.icu_average_hr!)}
                     isDark={isDark}
                     color="#E91E63"
                   />
                 )}
                 {(activity.average_watts || activity.icu_average_watts) && (
                   <CompactStat
-                    label={t("activityDetail.avgPower")}
-                    value={formatPower(
-                      activity.average_watts || activity.icu_average_watts!,
-                    )}
+                    label={t('activityDetail.avgPower')}
+                    value={formatPower(activity.average_watts || activity.icu_average_watts!)}
                     isDark={isDark}
                     color="#9C27B0"
                   />
                 )}
                 {activity.average_cadence && (
                   <CompactStat
-                    label={t("activity.cadence")}
+                    label={t('activity.cadence')}
                     value={`${Math.round(activity.average_cadence)}`}
                     isDark={isDark}
                   />
@@ -565,10 +506,7 @@ export default function ActivityDetailScreen() {
           showsVerticalScrollIndicator={false}
         >
           <ComponentErrorBoundary componentName="Route Performance">
-            <RoutePerformanceSection
-              activityId={activity.id}
-              activityType={activity.type}
-            />
+            <RoutePerformanceSection activityId={activity.id} activityType={activity.type} />
           </ComponentErrorBoundary>
         </ScrollView>
 
@@ -585,38 +523,23 @@ export default function ActivityDetailScreen() {
                 <TouchableOpacity
                   key={`engine-${match.section.id}`}
                   style={[styles.sectionCard, isDark && styles.cardDark]}
-                  onPress={() =>
-                    router.push(`/section/${match.section.id}` as Href)
-                  }
+                  onPress={() => router.push(`/section/${match.section.id}` as Href)}
                   activeOpacity={0.7}
                 >
                   <View style={styles.sectionHeader}>
-                    <MaterialCommunityIcons
-                      name="road-variant"
-                      size={20}
-                      color={colors.primary}
-                    />
-                    <Text
-                      style={[styles.sectionName, isDark && styles.textLight]}
-                    >
-                      {match.section.name || t("routes.autoDetected")}
+                    <MaterialCommunityIcons name="road-variant" size={20} color={colors.primary} />
+                    <Text style={[styles.sectionName, isDark && styles.textLight]}>
+                      {match.section.name || t('routes.autoDetected')}
                     </Text>
                     <View
-                      style={[
-                        styles.autoDetectedBadge,
-                        isDark && styles.autoDetectedBadgeDark,
-                      ]}
+                      style={[styles.autoDetectedBadge, isDark && styles.autoDetectedBadgeDark]}
                     >
-                      <Text style={styles.autoDetectedText}>
-                        {t("routes.autoDetected")}
-                      </Text>
+                      <Text style={styles.autoDetectedText}>{t('routes.autoDetected')}</Text>
                     </View>
                   </View>
-                  <Text
-                    style={[styles.sectionMeta, isDark && styles.textMuted]}
-                  >
-                    {formatDistance(match.distance)} ·{" "}
-                    {match.section.visitCount} {t("routes.visits")}
+                  <Text style={[styles.sectionMeta, isDark && styles.textMuted]}>
+                    {formatDistance(match.distance)} · {match.section.visitCount}{' '}
+                    {t('routes.visits')}
                   </Text>
                 </TouchableOpacity>
               ))}
@@ -630,32 +553,17 @@ export default function ActivityDetailScreen() {
                   activeOpacity={0.7}
                 >
                   <View style={styles.sectionHeader}>
-                    <MaterialCommunityIcons
-                      name="road-variant"
-                      size={20}
-                      color={colors.primary}
-                    />
-                    <Text
-                      style={[styles.sectionName, isDark && styles.textLight]}
-                    >
+                    <MaterialCommunityIcons name="road-variant" size={20} color={colors.primary} />
+                    <Text style={[styles.sectionName, isDark && styles.textLight]}>
                       {section.name}
                     </Text>
-                    <View
-                      style={[
-                        styles.customBadge,
-                        isDark && styles.customBadgeDark,
-                      ]}
-                    >
-                      <Text style={styles.customBadgeText}>
-                        {t("routes.custom")}
-                      </Text>
+                    <View style={[styles.customBadge, isDark && styles.customBadgeDark]}>
+                      <Text style={styles.customBadgeText}>{t('routes.custom')}</Text>
                     </View>
                   </View>
-                  <Text
-                    style={[styles.sectionMeta, isDark && styles.textMuted]}
-                  >
-                    {formatDistance(section.distanceMeters)} ·{" "}
-                    {section.matches.length} {t("routes.visits")}
+                  <Text style={[styles.sectionMeta, isDark && styles.textMuted]}>
+                    {formatDistance(section.distanceMeters)} · {section.matches.length}{' '}
+                    {t('routes.visits')}
                   </Text>
                 </TouchableOpacity>
               ))}
@@ -665,20 +573,13 @@ export default function ActivityDetailScreen() {
               <MaterialCommunityIcons
                 name="road-variant"
                 size={48}
-                color={isDark ? "#444" : "#CCC"}
+                color={isDark ? '#444' : '#CCC'}
               />
-              <Text
-                style={[styles.emptyStateTitle, isDark && styles.textLight]}
-              >
-                {t("activityDetail.noMatchedSections")}
+              <Text style={[styles.emptyStateTitle, isDark && styles.textLight]}>
+                {t('activityDetail.noMatchedSections')}
               </Text>
-              <Text
-                style={[
-                  styles.emptyStateDescription,
-                  isDark && styles.textMuted,
-                ]}
-              >
-                {t("activityDetail.noMatchedSectionsDescription")}
+              <Text style={[styles.emptyStateDescription, isDark && styles.textMuted]}>
+                {t('activityDetail.noMatchedSectionsDescription')}
               </Text>
             </View>
           )}
@@ -686,21 +587,12 @@ export default function ActivityDetailScreen() {
           {/* Create Section Button */}
           {coordinates.length > 0 && !sectionCreationMode && (
             <TouchableOpacity
-              style={[
-                styles.createSectionButton,
-                isDark && styles.createSectionButtonDark,
-              ]}
+              style={[styles.createSectionButton, isDark && styles.createSectionButtonDark]}
               onPress={() => setSectionCreationMode(true)}
               activeOpacity={0.7}
             >
-              <MaterialCommunityIcons
-                name="plus"
-                size={20}
-                color={colors.textOnPrimary}
-              />
-              <Text style={styles.createSectionButtonText}>
-                {t("routes.createSection")}
-              </Text>
+              <MaterialCommunityIcons name="plus" size={20} color={colors.textOnPrimary} />
+              <Text style={styles.createSectionButtonText}>{t('routes.createSection')}</Text>
             </TouchableOpacity>
           )}
         </ScrollView>
@@ -715,42 +607,26 @@ export default function ActivityDetailScreen() {
       >
         <GestureHandlerRootView style={{ flex: 1 }}>
           <StatusBar hidden />
-          <View
-            style={[
-              styles.fullscreenContainer,
-              isDark && styles.fullscreenContainerDark,
-            ]}
-          >
+          <View style={[styles.fullscreenContainer, isDark && styles.fullscreenContainerDark]}>
             {/* Close button */}
             <TouchableOpacity
               style={styles.fullscreenCloseButton}
               onPress={closeChartFullscreen}
               activeOpacity={0.7}
             >
-              <MaterialCommunityIcons
-                name="close"
-                size={24}
-                color={isDark ? "#FFF" : "#333"}
-              />
+              <MaterialCommunityIcons name="close" size={24} color={isDark ? '#FFF' : '#333'} />
             </TouchableOpacity>
 
             {/* Chart type selector in fullscreen */}
             <View style={styles.fullscreenControls}>
               <TouchableOpacity
-                style={[
-                  styles.fullscreenExpandButton,
-                  isDark && styles.expandButtonDark,
-                ]}
+                style={[styles.fullscreenExpandButton, isDark && styles.expandButtonDark]}
                 onPress={() => setChartsExpanded(!chartsExpanded)}
                 activeOpacity={0.7}
                 accessibilityLabel="Chart options"
                 accessibilityRole="button"
               >
-                <MaterialCommunityIcons
-                  name="cog"
-                  size={20}
-                  color={isDark ? "#FFF" : "#333"}
-                />
+                <MaterialCommunityIcons name="cog" size={20} color={isDark ? '#FFF' : '#333'} />
               </TouchableOpacity>
               <View style={styles.chartSelectorContainer}>
                 <ChartTypeSelector
@@ -795,13 +671,7 @@ function CompactStat({
 }) {
   return (
     <View style={styles.compactStatItem}>
-      <Text
-        style={[
-          styles.compactStatValue,
-          isDark && styles.textLight,
-          color && { color },
-        ]}
-      >
+      <Text style={[styles.compactStatValue, isDark && styles.textLight, color && { color }]}>
         {value}
       </Text>
       <Text style={styles.compactStatLabel}>{label}</Text>
@@ -825,8 +695,8 @@ const styles = StyleSheet.create({
   },
   loadingContainer: {
     flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   errorText: {
     ...typography.body,
@@ -836,17 +706,17 @@ const styles = StyleSheet.create({
   // Hero section
   heroSection: {
     height: MAP_HEIGHT,
-    position: "relative",
+    position: 'relative',
   },
   mapContainer: {
-    position: "absolute",
+    position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
   },
   mapGradient: {
-    position: "absolute",
+    position: 'absolute',
     left: 0,
     right: 0,
     bottom: 0,
@@ -855,12 +725,12 @@ const styles = StyleSheet.create({
 
   // Floating header
   floatingHeader: {
-    position: "absolute",
+    position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: spacing.sm,
     zIndex: 10,
   },
@@ -868,14 +738,14 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: "rgba(0,0,0,0.5)",
-    justifyContent: "center",
-    alignItems: "center",
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 
   // Info overlay at bottom of map
   infoOverlay: {
-    position: "absolute",
+    position: 'absolute',
     left: spacing.md,
     right: spacing.md,
     bottom: spacing.md,
@@ -883,37 +753,37 @@ const styles = StyleSheet.create({
   },
   activityName: {
     fontSize: typography.statsValue.fontSize,
-    fontWeight: "700",
+    fontWeight: '700',
     color: colors.textOnDark,
-    textShadowColor: "rgba(0,0,0,0.6)",
+    textShadowColor: 'rgba(0,0,0,0.6)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 3,
   },
   metaRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     marginTop: spacing.xs,
   },
   activityDate: {
     fontSize: typography.bodyCompact.fontSize,
-    color: "rgba(255,255,255,0.85)",
+    color: 'rgba(255,255,255,0.85)',
   },
   inlineStats: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   inlineStat: {
     fontSize: typography.bodyCompact.fontSize,
-    fontWeight: "600",
+    fontWeight: '600',
     color: colors.textOnDark,
-    textShadowColor: "rgba(0,0,0,0.5)",
+    textShadowColor: 'rgba(0,0,0,0.5)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,
   },
   inlineStatDivider: {
     fontSize: typography.bodyCompact.fontSize,
-    color: "rgba(255,255,255,0.5)",
+    color: 'rgba(255,255,255,0.5)',
     marginHorizontal: 6,
   },
 
@@ -923,8 +793,8 @@ const styles = StyleSheet.create({
     paddingTop: spacing.sm,
   },
   chartControls: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     marginBottom: spacing.sm,
   },
   chartSelectorContainer: {
@@ -936,8 +806,8 @@ const styles = StyleSheet.create({
     height: 44, // Accessibility minimum
     borderRadius: layout.borderRadius,
     backgroundColor: opacity.overlay.light,
-    justifyContent: "center",
-    alignItems: "center",
+    justifyContent: 'center',
+    alignItems: 'center',
     marginRight: 6,
   },
   expandButtonDark: {
@@ -950,7 +820,7 @@ const styles = StyleSheet.create({
     paddingTop: spacing.xs,
     paddingBottom: spacing.sm,
     marginBottom: spacing.sm,
-    shadowColor: "#000",
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
     shadowRadius: spacing.sm,
@@ -965,25 +835,25 @@ const styles = StyleSheet.create({
 
   // Compact stats
   compactStats: {
-    flexDirection: "row",
-    justifyContent: "space-around",
+    flexDirection: 'row',
+    justifyContent: 'space-around',
     backgroundColor: colors.surface,
     marginBottom: spacing.sm,
     borderRadius: layout.cardPadding,
     paddingVertical: spacing.md,
-    shadowColor: "#000",
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
     shadowRadius: spacing.sm,
     elevation: 2,
   },
   compactStatItem: {
-    alignItems: "center",
+    alignItems: 'center',
     flex: 1,
   },
   compactStatValue: {
     fontSize: typography.cardTitle.fontSize,
-    fontWeight: "700",
+    fontWeight: '700',
     color: colors.textPrimary,
   },
   compactStatLabel: {
@@ -994,7 +864,7 @@ const styles = StyleSheet.create({
 
   // Device attribution container
   deviceAttributionContainer: {
-    alignItems: "center",
+    alignItems: 'center',
     marginTop: spacing.lg,
     paddingVertical: spacing.sm,
   },
@@ -1005,9 +875,9 @@ const styles = StyleSheet.create({
     height: 44, // Accessibility minimum
     borderRadius: layout.borderRadius,
     backgroundColor: opacity.overlay.light,
-    justifyContent: "center",
-    alignItems: "center",
-    marginLeft: "auto",
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 'auto',
   },
 
   // Fullscreen chart modal
@@ -1021,21 +891,21 @@ const styles = StyleSheet.create({
     backgroundColor: darkColors.surface,
   },
   fullscreenCloseButton: {
-    position: "absolute",
+    position: 'absolute',
     top: spacing.md,
     left: spacing.md,
     width: 44, // Accessibility minimum
     height: 44, // Accessibility minimum
     borderRadius: 22,
     backgroundColor: opacity.overlay.medium,
-    justifyContent: "center",
-    alignItems: "center",
+    justifyContent: 'center',
+    alignItems: 'center',
     zIndex: 10,
   },
   fullscreenControls: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     paddingTop: spacing.sm,
     paddingBottom: spacing.xs,
   },
@@ -1044,13 +914,13 @@ const styles = StyleSheet.create({
     height: 44, // Accessibility minimum
     borderRadius: layout.borderRadius,
     backgroundColor: opacity.overlay.light,
-    justifyContent: "center",
-    alignItems: "center",
+    justifyContent: 'center',
+    alignItems: 'center',
     marginRight: 6,
   },
   fullscreenChartWrapper: {
     flex: 1,
-    justifyContent: "center",
+    justifyContent: 'center',
     paddingBottom: spacing.md,
   },
   // Tab content styles
@@ -1068,20 +938,20 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     marginHorizontal: spacing.md,
     marginTop: spacing.sm,
-    shadowColor: "#000",
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
     shadowRadius: spacing.sm,
     elevation: 2,
   },
   sectionHeader: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: spacing.sm,
   },
   sectionName: {
     fontSize: 16,
-    fontWeight: "600",
+    fontWeight: '600',
     color: colors.textPrimary,
     flex: 1,
   },
@@ -1092,37 +962,37 @@ const styles = StyleSheet.create({
     marginLeft: 28,
   },
   textMuted: {
-    color: "#888",
+    color: '#888',
   },
 
   // Empty state styles
   emptyStateContainer: {
     flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
+    justifyContent: 'center',
+    alignItems: 'center',
     paddingVertical: spacing.xl * 2,
     paddingHorizontal: spacing.lg,
   },
   emptyStateTitle: {
     fontSize: 18,
-    fontWeight: "600",
+    fontWeight: '600',
     color: colors.textPrimary,
     marginTop: spacing.md,
-    textAlign: "center",
+    textAlign: 'center',
   },
   emptyStateDescription: {
     fontSize: 14,
     color: colors.textSecondary,
     marginTop: spacing.sm,
-    textAlign: "center",
+    textAlign: 'center',
     lineHeight: 20,
   },
 
   // Create Section button styles
   createSectionButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: colors.primary,
     borderRadius: 24,
     paddingVertical: spacing.sm,
@@ -1131,7 +1001,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.lg,
     marginBottom: spacing.md,
     gap: spacing.xs,
-    shadowColor: "#000",
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.15,
     shadowRadius: 4,
@@ -1143,36 +1013,36 @@ const styles = StyleSheet.create({
   createSectionButtonText: {
     color: colors.textOnPrimary,
     fontSize: 15,
-    fontWeight: "600",
+    fontWeight: '600',
   },
 
   // Badge styles for section types
   autoDetectedBadge: {
-    backgroundColor: "rgba(76, 175, 80, 0.15)",
+    backgroundColor: 'rgba(76, 175, 80, 0.15)',
     paddingHorizontal: spacing.xs,
     paddingVertical: 2,
     borderRadius: 4,
   },
   autoDetectedBadgeDark: {
-    backgroundColor: "rgba(76, 175, 80, 0.25)",
+    backgroundColor: 'rgba(76, 175, 80, 0.25)',
   },
   autoDetectedText: {
     fontSize: 10,
-    fontWeight: "600",
-    color: "#4CAF50",
+    fontWeight: '600',
+    color: '#4CAF50',
   },
   customBadge: {
-    backgroundColor: "rgba(156, 39, 176, 0.15)",
+    backgroundColor: 'rgba(156, 39, 176, 0.15)',
     paddingHorizontal: spacing.xs,
     paddingVertical: 2,
     borderRadius: 4,
   },
   customBadgeDark: {
-    backgroundColor: "rgba(156, 39, 176, 0.25)",
+    backgroundColor: 'rgba(156, 39, 176, 0.25)',
   },
   customBadgeText: {
     fontSize: 10,
-    fontWeight: "600",
-    color: "#9C27B0",
+    fontWeight: '600',
+    color: '#9C27B0',
   },
 });

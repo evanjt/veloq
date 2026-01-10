@@ -1,25 +1,35 @@
 /**
- * Hook to fetch the oldest activity date from the API.
- * This is used to set the timeline slider's minimum date.
+ * Hook for getting the oldest activity date
  */
 
-import { useQuery } from '@tanstack/react-query';
-import { intervalsApi } from '@/api';
-import { useAuthStore } from '@/providers';
+import { useMemo } from 'react';
+import { useActivities } from './activities';
 
-/**
- * Fetches the oldest activity date from the API.
- * This determines the full extent of the timeline slider.
- */
-export function useOldestActivityDate() {
-  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+/** Get the oldest activity date from the user's activities */
+export function useOldestActivityDate(activityType?: string) {
+  const { data: activities } = useActivities({ days: 365, includeStats: false });
 
-  return useQuery({
-    queryKey: ['oldest-activity-date'],
-    queryFn: () => intervalsApi.getOldestActivityDate(),
-    // Cache for 1 hour - this rarely changes
-    staleTime: 1000 * 60 * 60,
-    gcTime: 1000 * 60 * 60 * 24, // Keep for 24 hours
-    enabled: isAuthenticated,
-  });
+  const data = useMemo(() => {
+    if (!activities || activities.length === 0) {
+      return null;
+    }
+
+    // Filter by activity type if provided
+    const filtered = activityType ? activities.filter((a) => a.type === activityType) : activities;
+
+    if (filtered.length === 0) {
+      return null;
+    }
+
+    // Find oldest activity
+    const oldest = filtered.reduce((oldest, current) => {
+      const oldestDate = new Date(oldest.start_date_local);
+      const currentDate = new Date(current.start_date_local);
+      return currentDate < oldestDate ? current : oldest;
+    });
+
+    return new Date(oldest.start_date_local);
+  }, [activities, activityType]);
+
+  return { data };
 }

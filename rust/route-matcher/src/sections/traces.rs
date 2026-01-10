@@ -1,9 +1,9 @@
 //! Activity trace extraction from GPS tracks.
 
-use std::collections::HashMap;
-use rstar::{RTree, PointDistance};
+use super::rtree::{build_rtree, IndexedPoint};
 use crate::GpsPoint;
-use super::rtree::{IndexedPoint, build_rtree};
+use rstar::{PointDistance, RTree};
+use std::collections::HashMap;
 
 /// Distance threshold for considering a point "on" the section (meters)
 const TRACE_PROXIMITY_THRESHOLD: f64 = 50.0;
@@ -94,7 +94,8 @@ fn extract_activity_trace(
         .map(|seq| {
             let start_pos = if let Some(first) = seq.first() {
                 let query = [first.latitude, first.longitude];
-                section_tree.nearest_neighbor(&query)
+                section_tree
+                    .nearest_neighbor(&query)
                     .map(|n| n.idx)
                     .unwrap_or(0)
             } else {
