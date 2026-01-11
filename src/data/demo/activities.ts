@@ -1,6 +1,16 @@
 import type { Activity } from '@/types';
 import { demoRoutes, getRouteForActivity } from './routes';
 
+// Seeded random number generator for consistent demo data within a session
+// Seed is based on current year to regenerate annually
+function createSeededRandom(seed: number) {
+  let state = seed;
+  return () => {
+    state = (state * 1103515245 + 12345) & 0x7fffffff;
+    return state / 0x7fffffff;
+  };
+}
+
 // Activity templates with realistic data
 const activityTemplates = [
   {
@@ -116,9 +126,9 @@ function getSeasonalMultiplier(date: Date): number {
 }
 
 /**
- * Generate demo activities for the past year
+ * Generate demo activities for the past 2 years
  * This provides enough data for:
- * - Season comparison
+ * - Rolling year season comparison (last 12 months vs prior 12 months)
  * - Full activity calendar
  * - Route matching
  * - Training trends
@@ -131,7 +141,7 @@ function generateDemoActivities(): Activity[] {
   const routeUsage: Record<string, number> = {};
 
   let activityId = 1000;
-  for (let daysAgo = 0; daysAgo < 365; daysAgo++) {
+  for (let daysAgo = 0; daysAgo < 730; daysAgo++) {
     const date = new Date(now);
     date.setDate(date.getDate() - daysAgo);
     date.setHours(7 + Math.floor(Math.random() * 3), Math.floor(Math.random() * 60), 0, 0);

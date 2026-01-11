@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, useColorScheme, ScrollView, Linking, Pressable } from 'react-native';
 import { Text, Button, TextInput } from 'react-native-paper';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ScreenSafeAreaView } from '@/components/ui';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router, Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -141,7 +142,7 @@ export default function LoginScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.container, isDark && styles.containerDark]} testID="login-screen">
+    <ScreenSafeAreaView style={[styles.container, isDark && styles.containerDark]} testID="login-screen">
       <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
         {/* Logo/Header */}
         <View style={styles.header}>
@@ -301,7 +302,7 @@ export default function LoginScreen() {
           </Text>
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </ScreenSafeAreaView>
   );
 }
 

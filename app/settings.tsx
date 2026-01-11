@@ -10,7 +10,7 @@ import {
   Alert,
 } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { ScreenSafeAreaView } from '@/components/ui';
 import { router, Href } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { SegmentedButtons, Switch } from 'react-native-paper';
@@ -311,7 +311,7 @@ export default function SettingsScreen() {
   };
 
   return (
-    <SafeAreaView
+    <ScreenSafeAreaView
       testID="settings-screen"
       style={[styles.container, isDark && styles.containerDark]}
     >
@@ -1059,7 +1059,7 @@ export default function SettingsScreen() {
           {t('settings.version')} {Constants.expoConfig?.version ?? '0.0.1'}
         </Text>
       </ScrollView>
-    </SafeAreaView>
+    </ScreenSafeAreaView>
   );
 }
 

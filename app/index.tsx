@@ -13,7 +13,7 @@ import {
   Platform,
 } from 'react-native';
 import { Text } from 'react-native-paper';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { ScreenSafeAreaView } from '@/components/ui';
 import { router, Href } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -341,7 +341,7 @@ export default function FeedScreen() {
 
   if (isLoading && !allActivities.length) {
     return (
-      <SafeAreaView style={[styles.container, isDark && styles.containerDark]}>
+      <ScreenSafeAreaView style={[styles.container, isDark && styles.containerDark]}>
         <View style={styles.skeletonContainer}>
           {/* Header skeleton */}
           <View style={styles.header}>
@@ -365,12 +365,12 @@ export default function FeedScreen() {
           <ActivityCardSkeleton />
           <ActivityCardSkeleton />
         </View>
-      </SafeAreaView>
+      </ScreenSafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={[styles.container, isDark && styles.containerDark]} testID="home-screen">
+    <ScreenSafeAreaView style={[styles.container, isDark && styles.containerDark]} testID="home-screen">
       {/* Header with profile and stat pills - outside FlatList */}
       <View style={styles.header}>
         {/* Profile photo - tap to open settings */}
@@ -713,7 +713,7 @@ export default function FeedScreen() {
         initialNumToRender={10}
       />
       <MapFAB onPress={navigateToMap} />
-    </SafeAreaView>
+    </ScreenSafeAreaView>
   );
 }
 
