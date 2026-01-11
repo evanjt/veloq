@@ -134,204 +134,11 @@ jobs:
       # TODO: Add iOS signing verification here later
 
   # ============================================
-  # Build Rust libraries for Android (parallel)
-  # ============================================
-  rust-build-android:
-    name: Rust - Android ${{ matrix.arch }}
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        include:
-          - arch: arm64-v8a
-            rust_target: aarch64-linux-android
-            abi: arm64-v8a
-          - arch: armeabi-v7a
-            rust_target: armv7-linux-androideabi
-            abi: armeabi-v7a
-          - arch: x86_64
-            rust_target: x86_64-linux-android
-            abi: x86_64
-          - arch: x86
-            rust_target: i686-linux-android
-            abi: x86
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0  # Full history needed for mtime restoration
-
-      # Restore file mtimes from git history so Cargo fingerprints work correctly
-      # Without this, Cargo rebuilds everything because cloned files have fresh mtimes
-      - name: Restore file modification times
-        uses: chetan/git-restore-mtime-action@v2
-
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Install Rust Android target
-        run: rustup target add ${{ matrix.rust_target }}
-
-      - name: Restore cargo-ndk cache
-        id: cache-cargo-ndk
-        uses: actions/cache/restore@v4
-        with:
-          path: ~/.cargo/bin/cargo-ndk
-          key: cargo-ndk-${{ runner.os }}-v3
-
-      - name: Install cargo-ndk
-        if: steps.cache-cargo-ndk.outputs.cache-hit != 'true'
-        run: cargo install cargo-ndk
-
-      - name: Save cargo-ndk cache
-        if: steps.cache-cargo-ndk.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v4
-        with:
-          path: ~/.cargo/bin/cargo-ndk
-          key: cargo-ndk-${{ runner.os }}-v3
-
-      # Use swatinem/rust-cache - handles timestamps and fingerprints correctly
-      - name: Setup Rust cache
-        id: rust-cache
-        uses: swatinem/rust-cache@v2
-        with:
-          workspaces: rust/route-matcher -> target
-          prefix-key: rust-android-${{ matrix.arch }}
-          # Cache is shared across builds with same Cargo.lock
-          shared-key: ${{ matrix.rust_target }}
-          # Save even on failure (partial builds can be reused)
-          cache-on-failure: true
-
-      # Cache the built .so file separately (swatinem/rust-cache only caches deps)
-      - name: Restore built .so cache
-        id: so-cache
-        uses: actions/cache@v4
-        with:
-          path: rust/route-matcher/target/${{ matrix.rust_target }}/release/libroute_matcher.so
-          key: rust-so-${{ matrix.rust_target }}-${{ hashFiles('rust/route-matcher/Cargo.lock', 'rust/route-matcher/src/**/*.rs', 'rust/route-matcher/Cargo.toml') }}
-
-      - name: Check if build needed
-        id: check-build
-        run: |
-          echo "Deps cache hit: ${{ steps.rust-cache.outputs.cache-hit }}"
-          echo "SO cache hit: ${{ steps.so-cache.outputs.cache-hit }}"
-          SO_FILE="rust/route-matcher/target/${{ matrix.rust_target }}/release/libroute_matcher.so"
-          if [ -f "$SO_FILE" ]; then
-            SIZE=$(stat -c%s "$SO_FILE")
-            echo "Found cached .so file: $SO_FILE ($SIZE bytes)"
-            if [ "$SIZE" -gt 1000000 ]; then
-              echo "skip_build=true" >> $GITHUB_OUTPUT
-              echo "✅ Using cached library - skipping build"
-            else
-              echo "skip_build=false" >> $GITHUB_OUTPUT
-              echo "⚠️ Cached .so too small, rebuilding"
-            fi
-          else
-            echo "skip_build=false" >> $GITHUB_OUTPUT
-            echo "No cached .so found, building from scratch"
-          fi
-
-      - name: Build Rust library for ${{ matrix.arch }}
-        if: steps.check-build.outputs.skip_build != 'true'
-        working-directory: rust/route-matcher
-        run: |
-          cargo ndk -t ${{ matrix.rust_target }} build --release --features full
-
-      - name: Build uniffi-bindgen (arm64 only)
-        if: matrix.arch == 'arm64-v8a'
-        working-directory: rust/route-matcher
-        run: |
-          cargo build --release --bin uniffi-bindgen --features ffi
-
-      - name: Prepare artifact
-        run: |
-          mkdir -p artifact/${{ matrix.abi }}
-          cp rust/route-matcher/target/${{ matrix.rust_target }}/release/libroute_matcher.so \
-            artifact/${{ matrix.abi }}/libroute_matcher.so
-
-      - name: Generate Kotlin bindings (arm64 only)
-        if: matrix.arch == 'arm64-v8a'
-        working-directory: rust/route-matcher
-        run: |
-          set -x  # Echo commands for debugging
-
-          # Create artifact directory at repo root
-          # From rust/route-matcher, need ../../ to reach repo root (up to rust/, then up to root)
-          mkdir -p ../../artifact/kotlin
-
-          echo ""
-          echo "=== Running uniffi-bindgen ==="
-          echo "Library: target/${{ matrix.rust_target }}/release/libroute_matcher.so"
-          echo "Output directory: ../../artifact/kotlin"
-          echo "Working directory: $(pwd)"
-          echo ""
-
-          # Run uniffi-bindgen from this directory (where Cargo.toml is)
-          ./target/release/uniffi-bindgen generate \
-            --library target/${{ matrix.rust_target }}/release/libroute_matcher.so \
-            --language kotlin \
-            --out-dir ../../artifact/kotlin 2>&1 || {
-            echo ""
-            echo "ERROR: uniffi-bindgen failed!"
-            exit 1
-          }
-
-          echo ""
-          echo "=== uniffi-bindgen succeeded! ==="
-          echo "Contents of artifact directory:"
-          ls -la ../../artifact/ || echo "artifact directory not found"
-          echo ""
-          echo "Contents of kotlin directory:"
-          ls -la ../../artifact/kotlin/ || echo "kotlin directory not found"
-          echo ""
-          find ../../artifact/kotlin -type f 2>/dev/null || echo "No files found in kotlin directory"
-          echo "==========================="
-
-      - name: Upload .so file
-        uses: actions/upload-artifact@v4
-        with:
-          name: rust-android-${{ matrix.arch }}
-          path: artifact/${{ matrix.abi }}/
-          retention-days: 1
-          if-no-files-found: error
-
-      - name: Debug Kotlin bindings location
-        if: matrix.arch == 'arm64-v8a'
-        run: |
-          echo "=== Checking for Kotlin bindings before upload ==="
-          echo "Current directory: $(pwd)"
-          echo ""
-          echo "Full listing of artifact directory:"
-          find artifact -type d
-          echo ""
-          echo "All files in artifact:"
-          find artifact -type f
-          echo ""
-          if [ -d "artifact/kotlin" ]; then
-            echo "kotlin directory EXISTS!"
-            ls -laR artifact/kotlin/
-          else
-            echo "kotlin directory DOES NOT EXIST"
-            # Try to find if files were created elsewhere
-            echo "Searching for .kt files in entire repo:"
-            find . -name "route_matcher.kt" 2>/dev/null || echo "Not found"
-          fi
-          echo "======================================================"
-
-      - name: Upload Kotlin bindings
-        if: matrix.arch == 'arm64-v8a'
-        uses: actions/upload-artifact@v4
-        with:
-          name: rust-android-kotlin-bindings
-          path: artifact/kotlin/
-          retention-days: 1
-          if-no-files-found: error
-
-  # ============================================
   # Build Android
   # ============================================
   build-android:
     name: Build Android APK
-    needs: [test, verify-signing, rust-build-android]
+    needs: [test, verify-signing]
     runs-on: ubuntu-latest
     env:
       # Fix Maven Central 403 errors by setting User-Agent header
@@ -453,143 +260,42 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Download arm64-v8a artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: rust-android-arm64-v8a
-          path: artifacts/rust/arm64-v8a
-
-      - name: Download armeabi-v7a artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: rust-android-armeabi-v7a
-          path: artifacts/rust/armeabi-v7a
-
-      - name: Download x86_64 artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: rust-android-x86_64
-          path: artifacts/rust/x86_64
-
-      - name: Download x86 artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: rust-android-x86
-          path: artifacts/rust/x86
-
-      - name: Download Kotlin bindings
-        uses: actions/download-artifact@v4
-        with:
-          name: rust-android-kotlin-bindings
-          path: artifacts/rust/kotlin
-
-      - name: Debug downloaded artifacts
+      - name: Download tracematch binaries from GitHub releases
         run: |
-          echo "=== Working directory ==="
-          pwd
-          echo ""
-          echo "=== Downloaded artifacts structure ==="
-          find artifacts/rust -type f -exec ls -lh {} \;
-          echo "====================================="
+          TRACEMATCH_VERSION=$(node -p "require('./package.json').tracematchVersion")
+          echo "=== Downloading tracematch v${TRACEMATCH_VERSION} ==="
+          RELEASE_URL="https://github.com/evanjt/route-matcher/releases/download/${TRACEMATCH_VERSION}"
 
-      - name: Install Rust libraries to native module
-        run: |
-          echo "=== Install Rust libraries - Starting ==="
-          echo "Current directory: $(pwd)"
+          # Download Android binaries
+          curl -sL "${RELEASE_URL}/tracematch-android-${TRACEMATCH_VERSION}.zip" -o /tmp/android.zip
+          unzip -q /tmp/android.zip -d /tmp/tracematch
 
-          # Debug: show what was actually downloaded
-          echo ""
-          echo "=== Contents of artifacts/rust ==="
-          ls -la artifacts/rust/
-          echo ""
-
-          # Copy downloaded .so files to jniLibs
-          mkdir -p modules/route-matcher-native/android/src/main/jniLibs/{arm64-v8a,armeabi-v7a,x86_64,x86}
-
-          echo "=== Starting .so file copy ==="
+          # Install .so files
+          mkdir -p modules/route-matcher-native/android/src/main/jniLibs
           for arch in arm64-v8a armeabi-v7a x86_64 x86; do
-            echo "Processing $arch..."
-            # Try multiple possible paths
-            so_file=""
-            for path in \
-              "artifacts/rust/$arch/libroute_matcher.so" \
-              "artifacts/rust/$arch/$arch/libroute_matcher.so"
-            do
-              if [ -f "$path" ]; then
-                so_file="$path"
-                echo "  Found at: $path"
-                break
-              fi
-            done
-
-            if [ -z "$so_file" ]; then
-              # Try searching
-              echo "  Not found at expected paths, searching..."
-              found=$(find artifacts/rust -name "libroute_matcher.so" 2>/dev/null | head -1)
-              if [ -n "$found" ]; then
-                so_file="$found"
-                echo "  Found via search: $found"
-              fi
-            fi
-
-            if [ -n "$so_file" ]; then
-              cp "$so_file" "modules/route-matcher-native/android/src/main/jniLibs/$arch/libroute_matcher.so"
-              echo "  ✓ Copied to jniLibs/$arch/"
-            else
-              echo "  ✗ ERROR: No .so file found for $arch!"
-              echo ""
-              echo "All .so files in artifacts/rust:"
-              find artifacts/rust -name "*.so" -exec ls -lh {} \; 2>/dev/null || echo "None found"
-              exit 1
-            fi
+            mkdir -p "modules/route-matcher-native/android/src/main/jniLibs/$arch"
+            cp "/tmp/tracematch/android/jniLibs/$arch/libtracematch.so" \
+               "modules/route-matcher-native/android/src/main/jniLibs/$arch/"
+            echo "✓ Installed $arch"
           done
 
-          # Copy generated Kotlin bindings from artifacts
-          run: |
-            mkdir -p modules/route-matcher-native/android/src/main/java/uniffi/route_matcher/
-            cp -r artifacts/rust/kotlin/uniffi/route_matcher/route_matcher.kt \
-              modules/route-matcher-native/android/src/main/java/uniffi/route_matcher/
+          # Install Kotlin bindings
+          mkdir -p modules/route-matcher-native/android/src/main/java/uniffi/tracematch
+          cp /tmp/tracematch/android/kotlin/uniffi/tracematch/tracematch.kt \
+             modules/route-matcher-native/android/src/main/java/uniffi/tracematch/
+          echo "✓ Installed Kotlin bindings"
 
-          # Validation: verify all .so files exist and have content
-          echo "=== Validating copied .so files ==="
-          for arch in arm64-v8a armeabi-v7a x86_64 x86; do
-            so_file="modules/route-matcher-native/android/src/main/jniLibs/$arch/libroute_matcher.so"
-            if [ -f "$so_file" ]; then
-              size=$(stat -c%s "$so_file" 2>/dev/null || stat -f%z "$so_file" 2>/dev/null || echo "0")
-              if [ "$size" -gt 0 ]; then
-                echo "✓ $arch: $so_file (${size} bytes)"
-              else
-                echo "✗ $arch: $so_file exists but is empty!"
-                exit 1
-              fi
-            else
-              echo "✗ $arch: $so_file not found!"
-              exit 1
-            fi
-          done
-
-          # Show final jniLibs structure
-          echo "=== Final jniLibs structure ==="
-          find modules/route-matcher-native/android/src/main/jniLibs -type f -exec ls -lh {} \;
-          echo "================================"
-
-          # Verify Kotlin bindings were copied from artifacts
-          KOTLIN_BINDING="modules/route-matcher-native/android/src/main/java/uniffi/route_matcher/route_matcher.kt"
-          if [ -f "$KOTLIN_BINDING" ]; then
-            echo "✅ Kotlin bindings installed from artifacts: $KOTLIN_BINDING"
-            ls -la "$KOTLIN_BINDING"
-          else
-            echo "ERROR: Kotlin bindings not found after copy!"
-            exit 1
-          fi
-          echo "========================"
+          # Verify installation
+          echo "=== Verifying installation ==="
+          find modules/route-matcher-native/android/src/main/jniLibs -name "*.so" -exec ls -lh {} \;
+          ls -la modules/route-matcher-native/android/src/main/java/uniffi/tracematch/
 
       - name: Cache Android prebuild
         id: android-prebuild-cache
         uses: actions/cache@v4
         with:
           path: android
-          key: android-prebuild-${{ runner.os }}-${{ hashFiles('app.json', 'package.json', 'package-lock.json', 'plugins/**', 'expo-modules/**/*.json', 'modules/**/android/**', 'rust/route-matcher/Cargo.toml', 'rust/route-matcher/**/*.rs', 'node_modules/react-native-vector-icons/package.json', 'node_modules/react-native-webview/package.json') }}
+          key: android-prebuild-${{ runner.os }}-${{ hashFiles('app.json', 'package.json', 'package-lock.json', 'plugins/**', 'expo-modules/**/*.json', 'modules/**/android/**', 'node_modules/react-native-vector-icons/package.json', 'node_modules/react-native-webview/package.json') }}
           restore-keys: |
             android-prebuild-${{ runner.os }}-
 
@@ -628,32 +334,24 @@ jobs:
 
           echo "✅ Signing configured"
 
-      - name: Verify Rust libraries before build
+      - name: Verify tracematch libraries before build
         run: |
           echo "=== Verifying .so files before Gradle build ==="
 
           # Check if jniLibs directory exists
           if [ ! -d "modules/route-matcher-native/android/src/main/jniLibs" ]; then
             echo "ERROR: jniLibs directory not found!"
-            echo "Checking parent directories:"
-            ls -la modules/route-matcher-native/android/ 2>/dev/null || echo "android/ directory not found"
             exit 1
           fi
-
-          # Show full jniLibs structure
-          echo "jniLibs directory structure:"
-          find modules/route-matcher-native/android/src/main/jniLibs -type f -exec ls -lh {} \; || echo "No files found in jniLibs"
-          echo ""
 
           # Verify each architecture
           all_ok=true
           for arch in arm64-v8a armeabi-v7a x86_64 x86; do
-            so_file="modules/route-matcher-native/android/src/main/jniLibs/$arch/libroute_matcher.so"
+            so_file="modules/route-matcher-native/android/src/main/jniLibs/$arch/libtracematch.so"
             if [ -f "$so_file" ]; then
               size=$(stat -c%s "$so_file" 2>/dev/null || stat -f%z "$so_file" 2>/dev/null || echo "0")
-              md5sum=$(md5sum "$so_file" 2>/dev/null | cut -d' ' -f1 || echo "N/A")
               if [ "$size" -gt 0 ]; then
-                echo "✓ $arch: ${size} bytes (md5: $md5sum)"
+                echo "✓ $arch: ${size} bytes"
               else
                 echo "✗ $arch: FILE EXISTS BUT IS EMPTY!"
                 all_ok=false
@@ -664,25 +362,21 @@ jobs:
             fi
           done
 
-          # Verify committed Kotlin bindings exist
-          echo ""
-          KOTLIN_BINDING="modules/route-matcher-native/android/src/main/java/uniffi/route_matcher/route_matcher.kt"
+          # Verify Kotlin bindings
+          KOTLIN_BINDING="modules/route-matcher-native/android/src/main/java/uniffi/tracematch/tracematch.kt"
           if [ -f "$KOTLIN_BINDING" ]; then
-            echo "Kotlin binding found: $KOTLIN_BINDING"
-            ls -la "$KOTLIN_BINDING"
+            echo "✓ Kotlin bindings: $KOTLIN_BINDING"
           else
-            echo "ERROR: Committed Kotlin binding not found at $KOTLIN_BINDING"
+            echo "✗ Kotlin bindings not found"
             all_ok=false
           fi
 
           if [ "$all_ok" = "false" ]; then
-            echo ""
-            echo "ERROR: Some .so files are missing or empty!"
+            echo "ERROR: tracematch libraries verification failed!"
             exit 1
           fi
 
-          echo "=================================================="
-          echo "All Rust libraries verified successfully!"
+          echo "✅ All tracematch libraries verified!"
 
       - name: Build Android APK
         env:
@@ -796,12 +490,6 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0  # Full history needed for mtime restoration
-
-      # Restore file mtimes from git history so Cargo fingerprints work correctly
-      - name: Restore file modification times
-        uses: chetan/git-restore-mtime-action@v2
 
       - name: Get version info
         id: version
@@ -854,64 +542,44 @@ jobs:
             node-modules-${{ runner.os }}-
 
       # ============================================
-      # Rust Build
+      # Download tracematch binaries
       # ============================================
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Install Rust iOS targets
-        run: rustup target add aarch64-apple-ios aarch64-apple-ios-sim x86_64-apple-ios
-
-      # Use swatinem/rust-cache - handles timestamps and fingerprints correctly
-      - name: Setup Rust cache
-        id: rust-cache-ios
-        uses: swatinem/rust-cache@v2
-        with:
-          workspaces: rust/route-matcher -> target
-          prefix-key: rust-ios
-          # Save even on failure (partial builds can be reused)
-          cache-on-failure: true
-
-      # Cache the built .a files separately (swatinem/rust-cache only caches deps)
-      - name: Restore iOS static libraries cache
-        id: ios-libs-cache
-        uses: actions/cache@v4
-        with:
-          path: |
-            rust/route-matcher/target/aarch64-apple-ios/release/libroute_matcher.a
-            rust/route-matcher/target/aarch64-apple-ios-sim/release/libroute_matcher.a
-            rust/route-matcher/target/x86_64-apple-ios/release/libroute_matcher.a
-          key: rust-ios-libs-${{ hashFiles('rust/route-matcher/Cargo.lock', 'rust/route-matcher/src/**/*.rs', 'rust/route-matcher/Cargo.toml') }}
-
-      - name: Check iOS cache status
+      - name: Download tracematch binaries from GitHub releases
         run: |
-          echo "Deps cache hit: ${{ steps.rust-cache-ios.outputs.cache-hit }}"
-          echo "iOS libs cache hit: ${{ steps.ios-libs-cache.outputs.cache-hit }}"
-          for target in aarch64-apple-ios aarch64-apple-ios-sim x86_64-apple-ios; do
-            LIB="rust/route-matcher/target/$target/release/libroute_matcher.a"
-            if [ -f "$LIB" ]; then
-              echo "✅ $target: $(stat -f%z "$LIB" 2>/dev/null || stat -c%s "$LIB") bytes"
-            else
-              echo "❌ $target: not found"
-            fi
-          done
+          TRACEMATCH_VERSION=$(node -p "require('./package.json').tracematchVersion")
+          echo "=== Downloading tracematch v${TRACEMATCH_VERSION} for iOS ==="
+          RELEASE_URL="https://github.com/evanjt/route-matcher/releases/download/${TRACEMATCH_VERSION}"
 
-      - name: Build Rust library for iOS
-        run: |
-          cd rust/route-matcher
-          ./scripts/build-ios.sh
+          # Download iOS binaries
+          curl -sL "${RELEASE_URL}/tracematch-ios-${TRACEMATCH_VERSION}.zip" -o /tmp/ios.zip
+          unzip -q /tmp/ios.zip -d /tmp/tracematch
 
-      - name: Install Rust library to native module
-        run: |
-          cd rust/route-matcher
-          ./scripts/install-ios.sh
+          # Install XCFramework
+          mkdir -p modules/route-matcher-native/ios/Frameworks
+          cp -r /tmp/tracematch/ios/RouteMatcherFFI.xcframework \
+                modules/route-matcher-native/ios/Frameworks/
+          echo "✓ Installed XCFramework"
+
+          # Install Swift bindings
+          mkdir -p modules/route-matcher-native/ios/Generated
+          cp /tmp/tracematch/ios/Generated/tracematch.swift \
+             modules/route-matcher-native/ios/Generated/
+          cp /tmp/tracematch/ios/Generated/tracematchFFI.h \
+             modules/route-matcher-native/ios/Generated/
+          cp /tmp/tracematch/ios/Generated/tracematchFFI.modulemap \
+             modules/route-matcher-native/ios/Generated/
+          echo "✓ Installed Swift bindings"
+
+          # Verify
+          ls -la modules/route-matcher-native/ios/Frameworks/
+          ls -la modules/route-matcher-native/ios/Generated/
 
       - name: Cache iOS prebuild
         id: ios-prebuild-cache
         uses: actions/cache@v4
         with:
           path: ios
-          key: ios-prebuild-${{ runner.os }}-${{ hashFiles('app.json', 'package.json', 'plugins/**', 'expo-modules/**/*.json', 'modules/**/ios/**', 'rust/route-matcher/Cargo.toml', 'rust/route-matcher/**/*.rs') }}
+          key: ios-prebuild-${{ runner.os }}-${{ hashFiles('app.json', 'package.json', 'plugins/**', 'expo-modules/**/*.json', 'modules/**/ios/**') }}
           restore-keys: |
             ios-prebuild-${{ runner.os }}-
 
@@ -978,13 +646,3 @@ jobs:
           path: artifacts/*-ios-simulator.zip
           retention-days: 30
 
-      - name: Upload Rust build artifacts (on failure)
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: rust-ios-build-artifacts
-          path: |
-            rust/route-matcher/target/ios/
-            modules/route-matcher-native/ios/Frameworks/
-            modules/route-matcher-native/ios/Generated/
-          retention-days: 7

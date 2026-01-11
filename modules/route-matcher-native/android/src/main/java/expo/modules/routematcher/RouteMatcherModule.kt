@@ -5,7 +5,7 @@ import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
 import org.json.JSONArray
 import org.json.JSONObject
-import uniffi.route_matcher.*
+import uniffi.tracematch.*
 
 /**
  * Route Matcher native module powered by Rust.
