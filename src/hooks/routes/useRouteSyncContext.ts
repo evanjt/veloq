@@ -16,6 +16,23 @@ import { useRef, useEffect, useCallback } from 'react';
 import { useAuthStore } from '@/providers';
 import { useNetwork } from '@/providers';
 
+// Global mutex to prevent concurrent syncs across all hook instances
+// This is necessary because multiple components may call useRouteDataSync
+// (e.g., GlobalDataSync, map.tsx, routes.tsx) and they need to share sync state
+let globalIsSyncing = false;
+let globalAbortController: AbortController | null = null;
+
+/**
+ * Reset global sync state. Called when engine is cleared to allow new sync to start.
+ */
+export function resetGlobalSyncState(): void {
+  globalIsSyncing = false;
+  if (globalAbortController) {
+    globalAbortController.abort();
+    globalAbortController = null;
+  }
+}
+
 interface UseRouteSyncContextResult {
   /** Ref tracking current authentication state */
   isAuthenticatedRef: React.MutableRefObject<boolean>;
@@ -104,19 +121,33 @@ export function useRouteSyncContext(): UseRouteSyncContextResult {
   const createAbortController = useCallback(() => {
     const abortController = new AbortController();
     syncAbortRef.current = abortController;
+    globalAbortController = abortController;
     return abortController;
   }, []);
 
   /**
    * Check if sync can start.
    * Requires authentication and no concurrent sync.
+   * Uses GLOBAL mutex to prevent concurrent syncs across all hook instances.
    */
   const canStartSync = useCallback(() => {
     const isAuth = isAuthenticatedRef.current;
-    if (!isAuth || isSyncingRef.current) {
+    if (__DEV__) {
+      console.log(
+        `[SyncMutex] canStartSync called: isAuth=${isAuth}, globalIsSyncing=${globalIsSyncing}`
+      );
+    }
+    if (!isAuth || globalIsSyncing) {
+      if (__DEV__) {
+        console.log(`[SyncMutex] BLOCKED: isAuth=${isAuth}, globalIsSyncing=${globalIsSyncing}`);
+      }
       return false;
     }
+    globalIsSyncing = true;
     isSyncingRef.current = true;
+    if (__DEV__) {
+      console.log(`[SyncMutex] ACQUIRED mutex, globalIsSyncing now true`);
+    }
     return true;
   }, []);
 
@@ -124,6 +155,8 @@ export function useRouteSyncContext(): UseRouteSyncContextResult {
    * Mark sync as complete and cleanup.
    */
   const markSyncComplete = useCallback(() => {
+    globalIsSyncing = false;
+    globalAbortController = null;
     isSyncingRef.current = false;
     syncAbortRef.current = null;
   }, []);

@@ -136,7 +136,7 @@
     "bounds": "Grenzen",
     "gpsTraces": "GPS-sporen",
     "cachedQueries": "Gecachte queries",
-    "cacheHint": "Slaat activiteitlocaties en GPS-sporen op voor Wereldkaart en route-matching. Standaard worden 3 maanden gesynchroniseerd. Gebruik \"Alle geschiedenis synchroniseren\" voor diepere analyse.",
+    "cacheHint": "Slaat activiteitlocaties en GPS-sporen op voor Wereldkaart en route-matching. Gebruik de tijdlijn om het datumbereik uit te breiden.",
     "routeMatching": "Route-matching",
     "enableRouteMatching": "Route-matching inschakelen",
     "routeMatchingDescription": "Automatisch herhaalde routes uit je activiteiten detecteren",
@@ -325,7 +325,8 @@
     "analysingRoutes": "Routes analyseren {{current}}/{{total}}",
     "computingRoutes": "Routes berekenen...",
     "downloadingGps": "GPS downloaden",
-    "analyzingRoutes": "Routes analyseren"
+    "analyzingRoutes": "Routes analyseren",
+    "expandDateRange": "Datumbereik uitbreiden"
   },
   "statsScreen": {
     "title": "Prestaties",

@@ -23,9 +23,12 @@ import {
   useRouteProcessing,
   useRouteGroups,
   useActivities,
+  useOldestActivityDate,
 } from '@/hooks';
+import { TimelineSlider } from '@/components/maps';
+import { formatLocalDate } from '@/lib';
 import { getAthleteId } from '@/api';
-import { estimateBoundsCacheSize, estimateGpsStorageSize } from '@/lib';
+import { estimateRoutesDatabaseSize } from '@/lib';
 import {
   getThemePreference,
   setThemePreference,
@@ -34,6 +37,7 @@ import {
   useSportPreference,
   useRouteSettings,
   useLanguageStore,
+  useSyncDateRange,
   getAvailableLanguages,
   isEnglishVariant,
   getEnglishVariantValue,
@@ -83,10 +87,12 @@ const MAP_ACTIVITY_GROUPS: { key: string; labelKey: FilterLabelKey; types: Activ
   },
 ];
 
-function formatDate(dateStr: string | null): string {
+function formatDate(dateStr: string | null, locale?: string): string {
   if (!dateStr) return '-';
   const date = new Date(dateStr);
-  return date.toLocaleDateString('en-US', {
+  // Convert i18n locale (e.g., 'en-US') to BCP 47 tag for toLocaleDateString
+  const bcp47Locale = locale?.replace('_', '-') || 'en-US';
+  return date.toLocaleDateString(bcp47Locale, {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
@@ -100,7 +106,7 @@ function formatBytes(bytes: number): string {
 }
 
 export default function SettingsScreen() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const [profileImageError, setProfileImageError] = useState(false);
@@ -163,9 +169,75 @@ export default function SettingsScreen() {
   // Fetch activities to get date range for cache stats
   const { data: allActivities } = useActivities({ days: 365 * 10, includeStats: false });
 
-  const { progress, cacheStats, clearCache, sync } = useActivityBoundsCache({
+  const { progress, cacheStats, clearCache, sync, syncDateRange } = useActivityBoundsCache({
     activitiesWithDates: allActivities,
   });
+
+  // Fetch oldest activity date from API for timeline extent
+  const { data: apiOldestDate } = useOldestActivityDate();
+
+  // Get sync state from global store
+  const syncOldest = useSyncDateRange((s) => s.oldest);
+  const syncNewest = useSyncDateRange((s) => s.newest);
+  const isFetchingExtended = useSyncDateRange((s) => s.isFetchingExtended);
+  const isGpsSyncing = useSyncDateRange((s) => s.isGpsSyncing);
+
+  // Timeline slider state
+  const [startDate, setStartDate] = useState<Date>(() => new Date(syncOldest));
+  const [endDate, setEndDate] = useState<Date>(() => new Date(syncNewest));
+
+  // Combined syncing state
+  const isSyncing =
+    progress.status === 'syncing' || isGpsSyncing || isFetchingExtended;
+
+
+  // Calculate min/max dates for slider
+  const { minDateForSlider, maxDateForSlider } = useMemo(() => {
+    const now = new Date();
+
+    // Use the oldest activity date from API if available
+    if (apiOldestDate) {
+      return {
+        minDateForSlider: new Date(apiOldestDate),
+        maxDateForSlider: now,
+      };
+    }
+
+    // Fallback: use cached activities or 90 days ago
+    if (!allActivities || allActivities.length === 0) {
+      const d = new Date();
+      d.setDate(d.getDate() - 90);
+      return { minDateForSlider: d, maxDateForSlider: now };
+    }
+
+    const dates = allActivities.map((a) => new Date(a.start_date_local).getTime());
+    const oldestActivityTime = Math.min(...dates);
+
+    return {
+      minDateForSlider: new Date(oldestActivityTime),
+      maxDateForSlider: now,
+    };
+  }, [apiOldestDate, allActivities]);
+
+  // Handle date range change from timeline slider
+  // Only allow expansion - start can only go earlier, end can only go later
+  const handleRangeChange = useCallback(
+    (start: Date, end: Date) => {
+      // Only expand, never contract
+      const newStart = start < startDate ? start : startDate;
+      const newEnd = end > endDate ? end : endDate;
+
+      // Only update if actually expanded
+      if (newStart < startDate || newEnd > endDate) {
+        setStartDate(newStart);
+        setEndDate(newEnd);
+
+        // Trigger sync for the expanded date range
+        syncDateRange(formatLocalDate(newStart), formatLocalDate(newEnd));
+      }
+    },
+    [syncDateRange, startDate, endDate]
+  );
 
   // Route matching cache
   const {
@@ -199,19 +271,14 @@ export default function SettingsScreen() {
     };
   }, [queryClient, cacheStats.totalActivities]); // Re-compute when activities change
 
-  // Cache sizes state
-  const [cacheSizes, setCacheSizes] = useState<{
-    bounds: number;
-    gps: number;
-    routes: number;
-  }>({ bounds: 0, gps: 0, routes: 0 });
+  // Cache sizes state (only routes database now, bounds/GPS are in SQLite)
+  const [cacheSizes, setCacheSizes] = useState<{ routes: number }>({ routes: 0 });
 
   // Fetch cache sizes on mount and when caches change
   // Note: callback is intentionally stable (no deps) - it always fetches fresh data
   const refreshCacheSizes = useCallback(async () => {
-    const [bounds, gps] = await Promise.all([estimateBoundsCacheSize(), estimateGpsStorageSize()]);
-    // Routes cache is now in Rust SQLite, size estimation not available
-    setCacheSizes({ bounds, gps, routes: 0 });
+    const routes = await estimateRoutesDatabaseSize();
+    setCacheSizes({ routes });
   }, []);
 
   useEffect(() => {
@@ -221,6 +288,9 @@ export default function SettingsScreen() {
   const profileUrl = athlete?.profile_medium || athlete?.profile;
   const hasValidProfileUrl =
     profileUrl && typeof profileUrl === 'string' && profileUrl.startsWith('http');
+
+  // Get reset function from SyncDateRangeStore
+  const resetSyncDateRange = useSyncDateRange((s) => s.reset);
 
   const handleClearCache = () => {
     Alert.alert(t('alerts.clearCacheTitle'), t('alerts.clearCacheMessage'), [
@@ -238,15 +308,23 @@ export default function SettingsScreen() {
             queryClient.clear();
             await AsyncStorage.removeItem('veloq-query-cache');
 
+            // Reset sync date range to default 90 days
+            resetSyncDateRange();
+
+            // Reset local slider state to 90 days
+            const today = new Date();
+            const ninetyDaysAgo = new Date(today);
+            ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+            setStartDate(ninetyDaysAgo);
+            setEndDate(today);
+
             // Refetch all core queries in background
+            // Note: GlobalDataSync automatically triggers GPS sync when activities are refetched
             queryClient.refetchQueries({ queryKey: ['activities'] });
             queryClient.refetchQueries({ queryKey: ['wellness'] });
             queryClient.refetchQueries({ queryKey: ['powerCurve'] });
             queryClient.refetchQueries({ queryKey: ['paceCurve'] });
             queryClient.refetchQueries({ queryKey: ['athlete'] });
-
-            // Sync activities for last 90 days (downloads GPS data)
-            await sync(90);
 
             // Refresh cache sizes
             refreshCacheSizes();
@@ -273,21 +351,6 @@ export default function SettingsScreen() {
             Alert.alert(t('alerts.error'), t('alerts.failedToClear'));
           }
         },
-      },
-    ]);
-  };
-
-  const handleSyncAll = () => {
-    if (progress.status === 'syncing') {
-      Alert.alert(t('settings.syncInProgress'), t('settings.syncInProgress'));
-      return;
-    }
-
-    Alert.alert(t('alerts.syncAllTitle'), t('alerts.syncAllMessage'), [
-      { text: t('common.cancel'), style: 'cancel' },
-      {
-        text: t('alerts.sync'),
-        onPress: () => sync('all'),
       },
     ]);
   };
@@ -542,7 +605,11 @@ export default function SettingsScreen() {
           </View>
         </View>
         <Text style={[styles.infoText, isDark && styles.textMuted]}>
-          {t('settings.primarySportHint')}
+          {primarySport === 'Cycling'
+            ? t('settings.primarySportHintCycling')
+            : primarySport === 'Running'
+              ? t('settings.primarySportHintRunning')
+              : t('settings.primarySportHintSwimming')}
         </Text>
 
         {/* Maps Section */}
@@ -653,32 +720,23 @@ export default function SettingsScreen() {
             </View>
           )}
 
-          {/* Actions */}
-          <TouchableOpacity
-            style={styles.actionRow}
-            onPress={handleSyncAll}
-            disabled={progress.status === 'syncing'}
-          >
-            <MaterialCommunityIcons
-              name="sync"
-              size={22}
-              color={progress.status === 'syncing' ? colors.textSecondary : colors.primary}
-            />
-            <Text
-              style={[
-                styles.actionText,
-                isDark && styles.textLight,
-                progress.status === 'syncing' && styles.actionTextDisabled,
-              ]}
-            >
-              {t('settings.syncAllHistory')}
-            </Text>
-            <MaterialCommunityIcons
-              name="chevron-right"
-              size={20}
-              color={isDark ? '#666' : colors.textSecondary}
-            />
-          </TouchableOpacity>
+          {/* Timeline Slider for date range selection - simplified for settings */}
+          <TimelineSlider
+            minDate={minDateForSlider}
+            maxDate={maxDateForSlider}
+            startDate={startDate}
+            endDate={endDate}
+            onRangeChange={handleRangeChange}
+            isLoading={isSyncing}
+            activityCount={cacheStats.totalActivities}
+            syncProgress={null}
+            cachedOldest={null}
+            cachedNewest={null}
+            isDark={isDark}
+            showActivityFilter={false}
+            showCachedRange={false}
+            showLegend={false}
+          />
 
           <View style={[styles.divider, isDark && styles.dividerDark]} />
 
@@ -740,26 +798,9 @@ export default function SettingsScreen() {
             />
           </TouchableOpacity>
 
-          {routeSettings.enabled && (
-            <>
-              <View style={[styles.divider, isDark && styles.dividerDark]} />
-              <TouchableOpacity style={styles.actionRow} onPress={handleClearRouteCache}>
-                <MaterialCommunityIcons name="refresh" size={22} color={colors.warning} />
-                <Text style={[styles.actionText, isDark && styles.textLight]}>
-                  {t('settings.reanalyseRoutes')}
-                </Text>
-                <MaterialCommunityIcons
-                  name="chevron-right"
-                  size={20}
-                  color={isDark ? '#666' : colors.textSecondary}
-                />
-              </TouchableOpacity>
-            </>
-          )}
-        </View>
+          <View style={[styles.divider, isDark && styles.dividerDark]} />
 
-        {/* Cache Stats */}
-        <View style={[styles.section, styles.sectionSpaced, isDark && styles.sectionDark]}>
+          {/* Cache Stats - inline */}
           <View style={styles.statRow}>
             <View style={styles.statItem}>
               <Text style={[styles.statValue, isDark && styles.textLight]}>
@@ -781,10 +822,10 @@ export default function SettingsScreen() {
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
               <Text style={[styles.statValue, isDark && styles.textLight]}>
-                {formatBytes(cacheSizes.bounds + cacheSizes.gps + cacheSizes.routes)}
+                {formatBytes(cacheSizes.routes)}
               </Text>
               <Text style={[styles.statLabel, isDark && styles.textMuted]}>
-                {t('settings.total')}
+                Database
               </Text>
             </View>
           </View>
@@ -795,7 +836,12 @@ export default function SettingsScreen() {
             </Text>
             <Text style={[styles.infoValue, isDark && styles.textLight]}>
               {cacheStats.oldestDate && cacheStats.newestDate
-                ? `${formatDate(cacheStats.oldestDate)} - ${formatDate(cacheStats.newestDate)}`
+                ? (() => {
+                    const oldest = new Date(cacheStats.oldestDate);
+                    const newest = new Date(cacheStats.newestDate);
+                    const days = Math.ceil((newest.getTime() - oldest.getTime()) / (1000 * 60 * 60 * 24));
+                    return `${formatDate(cacheStats.oldestDate, i18n.language)} - ${formatDate(cacheStats.newestDate, i18n.language)} (${t('stats.daysCount', { count: days })})`;
+                  })()
                 : t('settings.noData')}
             </Text>
           </View>
@@ -805,34 +851,7 @@ export default function SettingsScreen() {
               {t('settings.lastSynced')}
             </Text>
             <Text style={[styles.infoValue, isDark && styles.textLight]}>
-              {formatDate(cacheStats.lastSync)}
-            </Text>
-          </View>
-
-          <View style={[styles.infoRow, isDark && styles.infoRowDark]}>
-            <Text style={[styles.infoLabel, isDark && styles.textMuted]}>
-              {t('settings.bounds')}
-            </Text>
-            <Text style={[styles.infoValue, isDark && styles.textLight]}>
-              {formatBytes(cacheSizes.bounds)}
-            </Text>
-          </View>
-
-          <View style={[styles.infoRow, isDark && styles.infoRowDark]}>
-            <Text style={[styles.infoLabel, isDark && styles.textMuted]}>
-              {t('settings.gpsTraces')}
-            </Text>
-            <Text style={[styles.infoValue, isDark && styles.textLight]}>
-              {formatBytes(cacheSizes.gps)}
-            </Text>
-          </View>
-
-          <View style={[styles.infoRow, isDark && styles.infoRowDark]}>
-            <Text style={[styles.infoLabel, isDark && styles.textMuted]}>
-              {t('settings.routesCount')}
-            </Text>
-            <Text style={[styles.infoValue, isDark && styles.textLight]}>
-              {formatBytes(cacheSizes.routes)}
+              {formatDate(cacheStats.lastSync, i18n.language)}
             </Text>
           </View>
 
@@ -844,9 +863,9 @@ export default function SettingsScreen() {
               {queryCacheStats.totalQueries}
             </Text>
           </View>
-        </View>
 
-        <Text style={[styles.infoText, isDark && styles.textMuted]}>{t('settings.cacheHint')}</Text>
+          <Text style={[styles.infoTextInline, isDark && styles.textMuted]}>{t('settings.cacheHint')}</Text>
+        </View>
 
         {/* Route Matching Toggle */}
         <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>
@@ -1233,6 +1252,14 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     marginHorizontal: layout.screenPadding,
     marginTop: spacing.md,
+    lineHeight: 18,
+  },
+  infoTextInline: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.sm,
     lineHeight: 18,
   },
   supportRow: {

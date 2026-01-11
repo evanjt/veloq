@@ -109,6 +109,9 @@ class RouteMatcherModule : Module() {
         "maxDistanceDiffRatio" to config.maxDistanceDiffRatio,
         "endpointThreshold" to config.endpointThreshold,
         "resampleCount" to config.resampleCount.toInt(),
+        "resampleSpacingMeters" to config.resampleSpacingMeters,
+        "minResamplePoints" to config.minResamplePoints.toInt(),
+        "maxResamplePoints" to config.maxResamplePoints.toInt(),
         "simplificationTolerance" to config.simplificationTolerance,
         "maxSimplifiedPoints" to config.maxSimplifiedPoints.toInt()
       )
@@ -708,6 +711,49 @@ class RouteMatcherModule : Module() {
       persistentEngineGetAllSectionNamesJson()
     }
 
+    // PersistentEngine: Get all activity bounds as JSON (for map display)
+    Function("persistentEngineGetAllActivityBoundsJson") {
+      persistentEngineGetAllActivityBoundsJson()
+    }
+
+    // PersistentEngine: Set activity metrics for performance calculations
+    Function("persistentEngineSetActivityMetrics") { metrics: List<Map<String, Any?>> ->
+      val nativeMetrics = metrics.map { m ->
+        ActivityMetrics(
+          activityId = m["activity_id"] as String,
+          name = m["name"] as String,
+          date = (m["date"] as Number).toLong(),
+          distance = (m["distance"] as Number).toDouble(),
+          movingTime = (m["moving_time"] as Number).toInt().toUInt(),
+          elapsedTime = (m["elapsed_time"] as Number).toInt().toUInt(),
+          elevationGain = (m["elevation_gain"] as Number).toDouble(),
+          avgHr = (m["avg_hr"] as? Number)?.toInt()?.toUShort(),
+          avgPower = (m["avg_power"] as? Number)?.toInt()?.toUShort(),
+          sportType = m["sport_type"] as String
+        )
+      }
+      persistentEngineSetActivityMetrics(nativeMetrics)
+    }
+
+    // Engine (in-memory): Set activity metrics for performance calculations
+    Function("engineSetActivityMetrics") { metrics: List<Map<String, Any?>> ->
+      val nativeMetrics = metrics.map { m ->
+        ActivityMetrics(
+          activityId = m["activity_id"] as String,
+          name = m["name"] as String,
+          date = (m["date"] as Number).toLong(),
+          distance = (m["distance"] as Number).toDouble(),
+          movingTime = (m["moving_time"] as Number).toInt().toUInt(),
+          elapsedTime = (m["elapsed_time"] as Number).toInt().toUInt(),
+          elevationGain = (m["elevation_gain"] as Number).toDouble(),
+          avgHr = (m["avg_hr"] as? Number)?.toInt()?.toUShort(),
+          avgPower = (m["avg_power"] as? Number)?.toInt()?.toUShort(),
+          sportType = m["sport_type"] as String
+        )
+      }
+      engineSetActivityMetrics(nativeMetrics)
+    }
+
     Function("queryHeatmapCell") { heatmapJson: String, lat: Double, lng: Double ->
       // Parse heatmap from JSON string to avoid Expo Modules bridge issues with nulls
       val heatmapObj = JSONObject(heatmapJson)
@@ -876,6 +922,12 @@ class RouteMatcherModule : Module() {
         ?: defaults.endpointThreshold,
       resampleCount = (map["resampleCount"] as? Number)?.toInt()?.toUInt()
         ?: defaults.resampleCount,
+      resampleSpacingMeters = (map["resampleSpacingMeters"] as? Number)?.toDouble()
+        ?: defaults.resampleSpacingMeters,
+      minResamplePoints = (map["minResamplePoints"] as? Number)?.toInt()?.toUInt()
+        ?: defaults.minResamplePoints,
+      maxResamplePoints = (map["maxResamplePoints"] as? Number)?.toInt()?.toUInt()
+        ?: defaults.maxResamplePoints,
       simplificationTolerance = (map["simplificationTolerance"] as? Number)?.toDouble()
         ?: defaults.simplificationTolerance,
       maxSimplifiedPoints = (map["maxSimplifiedPoints"] as? Number)?.toInt()?.toUInt()

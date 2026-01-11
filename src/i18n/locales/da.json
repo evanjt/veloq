@@ -136,7 +136,7 @@
     "bounds": "Grænser",
     "gpsTraces": "GPS-spor",
     "cachedQueries": "Cachelagrede forespørgsler",
-    "cacheHint": "Cacher aktivitetsplaceringer og GPS-spor til verdenskort og rutematchning. Som standard synkroniseres 3 måneder. Brug \"Synkroniser al historik\" for dybere analyse.",
+    "cacheHint": "Cacher aktivitetsplaceringer og GPS-spor til verdenskort og rutematchning. Brug tidslinjen til at udvide datointervallet.",
     "routeMatching": "Rutematchning",
     "enableRouteMatching": "Aktivér rutematchning",
     "routeMatchingDescription": "Registrer automatisk gentagne ruter fra dine aktiviteter",
@@ -325,7 +325,8 @@
     "analysingRoutes": "Analyserer ruter {{current}}/{{total}}",
     "computingRoutes": "Beregner ruter...",
     "downloadingGps": "Downloader GPS",
-    "analyzingRoutes": "Analyserer ruter"
+    "analyzingRoutes": "Analyserer ruter",
+    "expandDateRange": "Udvid datointerval"
   },
   "statsScreen": {
     "title": "Præstation",

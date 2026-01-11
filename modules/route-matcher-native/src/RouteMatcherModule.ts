@@ -20,13 +20,20 @@ function getNativeModule() {
 }
 
 // Export a proxy that lazily loads the native module
+// Special handling for addListener/removeListener to avoid "native state unsupported on Proxy" errors
+// These methods need to be bound to the actual native module for EventEmitter to work
 export default new Proxy({} as any, {
   get(_target, prop) {
     const module = getNativeModule();
     if (!module) {
       throw new Error(`[RouteMatcher] Native module is not available. Property '${String(prop)}' cannot be accessed.`);
     }
-    return module[prop];
+    const value = module[prop];
+    // Bind methods that interact with native EventEmitter state
+    if (typeof value === "function" && (prop === "addListener" || prop === "removeListener" || prop === "removeAllListeners")) {
+      return value.bind(module);
+    }
+    return value;
   },
   has(_target, prop) {
     const module = getNativeModule();

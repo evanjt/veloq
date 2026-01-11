@@ -110,6 +110,9 @@
     "language": "Langue",
     "primarySport": "Sport principal",
     "primarySportHint": "Affecte les métriques de l'écran d'accueil et la vue par défaut des statistiques.",
+    "primarySportHintCycling": "FTP dans l'en-tête du flux. La page performance affiche la courbe de puissance, les zones de puissance, la tendance eFTP et le découplage.",
+    "primarySportHintRunning": "Allure seuil et LTHR dans l'en-tête du flux. La page performance affiche la courbe d'allure, la puissance de course et les zones FC.",
+    "primarySportHintSwimming": "CSS (Vitesse de Nage Critique) dans l'en-tête du flux. La page performance affiche la courbe d'allure natation et les zones FC.",
     "maps": "Cartes",
     "defaultStyle": "Style par défaut",
     "satellite": "Satellite",
@@ -135,7 +138,7 @@
     "bounds": "Limites",
     "gpsTraces": "Traces GPS",
     "cachedQueries": "Requêtes en cache",
-    "cacheHint": "Met en cache les emplacements d'activités et les traces GPS pour la carte mondiale et la correspondance de parcours. Par défaut, synchronise 3 mois. Utilisez \"Synchroniser tout l'historique\" pour une analyse plus approfondie.",
+    "cacheHint": "Met en cache les emplacements d'activités et les traces GPS pour la carte mondiale et la correspondance de parcours. Utilisez la chronologie pour étendre la plage de dates.",
     "routeMatching": "Correspondance de parcours",
     "enableRouteMatching": "Activer la correspondance de parcours",
     "routeMatchingDescription": "Détecte automatiquement les parcours répétés de vos activités",
@@ -324,7 +327,8 @@
     "analysingRoutes": "Analyse des parcours {{current}}/{{total}}",
     "computingRoutes": "Calcul des parcours...",
     "downloadingGps": "Téléchargement GPS",
-    "analyzingRoutes": "Analyse des parcours"
+    "analyzingRoutes": "Analyse des parcours",
+    "expandDateRange": "Étendre la plage de dates"
   },
   "statsScreen": {
     "title": "Performance",

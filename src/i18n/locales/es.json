@@ -111,6 +111,9 @@
     "language": "Idioma",
     "primarySport": "Deporte principal",
     "primarySportHint": "Afecta las métricas de la pantalla de inicio y la vista predeterminada de estadísticas.",
+    "primarySportHintCycling": "FTP en el encabezado del feed. La página de rendimiento muestra la curva de potencia, zonas de potencia, tendencia eFTP y desacoplamiento.",
+    "primarySportHintRunning": "Ritmo umbral y LTHR en el encabezado del feed. La página de rendimiento muestra la curva de ritmo, potencia de carrera y zonas de FC.",
+    "primarySportHintSwimming": "CSS (Velocidad Crítica de Nado) en el encabezado del feed. La página de rendimiento muestra la curva de ritmo de natación y zonas de FC.",
     "maps": "Mapas",
     "defaultStyle": "Estilo predeterminado",
     "satellite": "Satélite",
@@ -136,7 +139,7 @@
     "bounds": "Límites",
     "gpsTraces": "Trazas GPS",
     "cachedQueries": "Consultas en caché",
-    "cacheHint": "Almacena en caché las ubicaciones de actividades y trazas GPS para el Mapa Mundial y coincidencia de rutas. Por defecto, sincroniza 3 meses. Usa \"Sincronizar todo el historial\" para un análisis más profundo.",
+    "cacheHint": "Almacena en caché las ubicaciones de actividades y trazas GPS para el Mapa Mundial y coincidencia de rutas. Usa la línea de tiempo para expandir el rango de fechas.",
     "routeMatching": "Coincidencia de rutas",
     "enableRouteMatching": "Activar coincidencia de rutas",
     "routeMatchingDescription": "Detecta automáticamente rutas repetidas de tus actividades",
@@ -347,7 +350,8 @@
     "analysingRoutes": "Analizando rutas {{current}}/{{total}}",
     "computingRoutes": "Calculando rutas...",
     "downloadingGps": "Descargando GPS",
-    "analyzingRoutes": "Analizando rutas"
+    "analyzingRoutes": "Analizando rutas",
+    "expandDateRange": "Ampliar rango de fechas"
   },
   "statsScreen": {
     "title": "Rendimiento",

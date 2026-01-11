@@ -136,7 +136,7 @@
     "bounds": "Limites",
     "gpsTraces": "Rastros GPS",
     "cachedQueries": "Consultas em cache",
-    "cacheHint": "Armazena em cache as localizacoes das atividades e rastros GPS para o Mapa Mundial e correspondencia de rotas. Por padrao, sincroniza 3 meses. Use \"Sincronizar todo o historico\" para uma analise mais profunda.",
+    "cacheHint": "Armazena em cache as localizações das atividades e rastros GPS para o Mapa Mundial. Use a linha do tempo para expandir o intervalo de datas.",
     "routeMatching": "Correspondencia de rotas",
     "enableRouteMatching": "Ativar correspondencia de rotas",
     "routeMatchingDescription": "Detectar automaticamente rotas repetidas das suas atividades",
@@ -325,7 +325,8 @@
     "analysingRoutes": "Analisando rotas {{current}}/{{total}}",
     "computingRoutes": "Calculando rotas...",
     "downloadingGps": "Baixando GPS",
-    "analyzingRoutes": "Analisando rotas"
+    "analyzingRoutes": "Analisando rotas",
+    "expandDateRange": "Expandir intervalo de datas"
   },
   "statsScreen": {
     "title": "Desempenho",

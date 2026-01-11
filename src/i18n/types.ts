@@ -16,7 +16,6 @@ export const SUPPORTED_LOCALES = [
   // German variants (including Swiss dialects)
   'de',
   'de-DE',
-  'de-CH',
   'de-CHZ',
   'de-CHB',
   // Dutch
@@ -81,9 +80,9 @@ export const LOCALE_FALLBACKS: Record<string, SupportedLocale[]> = {
   de: ['de-DE', 'en-AU'],
   'de-DE': ['de-DE', 'en-AU'],
   'de-AT': ['de-DE', 'en-AU'],
-  'de-CH': ['de-CH', 'de-DE', 'en-AU'],
-  'de-CHZ': ['de-CHZ', 'de-CH', 'de-DE', 'en-AU'],
-  'de-CHB': ['de-CHB', 'de-CH', 'de-DE', 'en-AU'],
+  'de-CH': ['de-DE', 'en-AU'],
+  'de-CHZ': ['de-CHZ', 'de-DE', 'en-AU'],
+  'de-CHB': ['de-CHB', 'de-DE', 'en-AU'],
 
   // Dutch variants
   nl: ['nl', 'en-AU'],
@@ -136,7 +135,6 @@ export const LOCALE_DISPLAY_NAMES: Record<SupportedLocale, string> = {
   // German
   de: 'Deutsch',
   'de-DE': 'Deutsch (Deutschland)',
-  'de-CH': 'Deutsch (Schweiz)',
   'de-CHZ': 'Züridütsch',
   'de-CHB': 'Bärndütsch',
   // Dutch
@@ -276,6 +274,9 @@ export interface TranslationResource {
     language: string;
     primarySport: string;
     primarySportHint: string;
+    primarySportHintCycling: string;
+    primarySportHintRunning: string;
+    primarySportHintSwimming: string;
     maps: string;
     defaultStyle: string;
     satellite: string;
@@ -535,6 +536,7 @@ export interface TranslationResource {
     analysingRoutes: string;
     computingRoutes: string;
     downloadingGps: string;
+    expandDateRange: string;
   };
 
   statsScreen: {

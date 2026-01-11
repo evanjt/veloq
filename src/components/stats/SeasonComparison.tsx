@@ -1,5 +1,12 @@
-import React, { useMemo, useState } from 'react';
-import { View, StyleSheet, useColorScheme, TouchableOpacity } from 'react-native';
+import React, { useMemo, useState, useRef, useCallback } from 'react';
+import {
+  View,
+  StyleSheet,
+  useColorScheme,
+  TouchableOpacity,
+  PanResponder,
+  LayoutChangeEvent,
+} from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { colors, darkColors } from '@/theme/colors';
@@ -62,6 +69,39 @@ export function SeasonComparison({
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const [metric, setMetric] = useState<'hours' | 'distance' | 'tss'>('hours');
+  const [selectedMonth, setSelectedMonth] = useState<number | null>(null);
+  const chartWidth = useRef(0);
+
+  // Handle chart layout to get width for touch calculations
+  const onChartLayout = useCallback((event: LayoutChangeEvent) => {
+    chartWidth.current = event.nativeEvent.layout.width;
+  }, []);
+
+  // Pan responder for scrubbing
+  const panResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => true,
+        onMoveShouldSetPanResponder: () => true,
+        onPanResponderGrant: (evt) => {
+          const x = evt.nativeEvent.locationX;
+          const monthIndex = Math.floor((x / chartWidth.current) * 12);
+          setSelectedMonth(Math.max(0, Math.min(11, monthIndex)));
+        },
+        onPanResponderMove: (evt) => {
+          const x = evt.nativeEvent.locationX;
+          const monthIndex = Math.floor((x / chartWidth.current) * 12);
+          setSelectedMonth(Math.max(0, Math.min(11, monthIndex)));
+        },
+        onPanResponderRelease: () => {
+          setSelectedMonth(null);
+        },
+        onPanResponderTerminate: () => {
+          setSelectedMonth(null);
+        },
+      }),
+    []
+  );
 
   // Show empty state if no activities
   const hasData =
@@ -105,22 +145,23 @@ export function SeasonComparison({
 
   // Labels for rolling 12-month periods
   const now = new Date();
+  const currentYear = now.getFullYear();
   const oneYearAgo = new Date(now);
   oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
   const twoYearsAgo = new Date(now);
   twoYearsAgo.setFullYear(twoYearsAgo.getFullYear() - 2);
 
-  // Format as "Jan '25 - Jan '26" style labels
-  const formatPeriodLabel = (start: Date, end: Date) => {
-    const startMonth = start.toLocaleDateString('en-US', { month: 'short' });
-    const startYear = start.getFullYear().toString().slice(-2);
-    const endMonth = end.toLocaleDateString('en-US', { month: 'short' });
-    const endYear = end.getFullYear().toString().slice(-2);
-    return `${startMonth} '${startYear}-${endMonth} '${endYear}`;
-  };
+  // Year labels for legend
+  const newerCurrentYear = currentYear; // e.g., 2026
+  const olderCurrentYear = currentYear - 1; // e.g., 2025
+  const newerPreviousYear = currentYear - 1; // e.g., 2025
+  const olderPreviousYear = currentYear - 2; // e.g., 2024
 
-  const currentPeriodLabel = formatPeriodLabel(oneYearAgo, now);
-  const previousPeriodLabel = formatPeriodLabel(twoYearsAgo, oneYearAgo);
+  // Color constants for legend
+  const colorCurrentNewer = colors.primary;
+  const colorCurrentOlder = isDark ? 'rgba(252, 76, 2, 0.5)' : 'rgba(252, 76, 2, 0.6)';
+  const colorPreviousNewer = isDark ? 'rgba(100, 149, 237, 0.8)' : 'rgba(70, 130, 220, 0.7)';
+  const colorPreviousOlder = isDark ? 'rgba(100, 149, 237, 0.4)' : 'rgba(70, 130, 220, 0.35)';
 
   // Calculate totals - round to 1 decimal place
   const totals = useMemo(() => {
@@ -150,21 +191,19 @@ export function SeasonComparison({
     const isNewerYear = monthIdx <= currentMonth;
 
     if (isPrevious) {
-      // Previous period: use blue tones
-      // Newer year (e.g., 2025 portion) = brighter blue
-      // Older year (e.g., 2024 portion) = muted blue
-      return isNewerYear
-        ? isDark ? 'rgba(100, 149, 237, 0.8)' : 'rgba(70, 130, 220, 0.7)'
-        : isDark ? 'rgba(100, 149, 237, 0.4)' : 'rgba(70, 130, 220, 0.35)';
+      return isNewerYear ? colorPreviousNewer : colorPreviousOlder;
     } else {
-      // Current period: use orange/primary tones
-      // Newer year (e.g., 2026 portion) = full primary
-      // Older year (e.g., 2025 portion) = muted primary
-      return isNewerYear
-        ? colors.primary
-        : isDark ? 'rgba(252, 76, 2, 0.5)' : 'rgba(252, 76, 2, 0.6)';
+      return isNewerYear ? colorCurrentNewer : colorCurrentOlder;
     }
   };
+
+  // Get selected month data for tooltip
+  const selectedMonthData = selectedMonth !== null ? data[selectedMonth] : null;
+  const selectedMonthDiff =
+    selectedMonthData && selectedMonthData.previous > 0
+      ? ((selectedMonthData.current - selectedMonthData.previous) / selectedMonthData.previous) *
+        100
+      : 0;
 
   return (
     <View style={styles.container}>
@@ -194,57 +233,140 @@ export function SeasonComparison({
         </View>
       </View>
 
-      {/* Summary */}
-      <View style={styles.summary}>
-        <View style={styles.summaryItem}>
-          <View style={[styles.legendDot, { backgroundColor: colors.primary }]} />
-          <Text style={[styles.summaryLabel, isDark && styles.textDark]}>{currentPeriodLabel}</Text>
-          <Text style={[styles.summaryValue, isDark && styles.textLight]}>
-            {totals.currentTotal}
-            {metricLabels[metric].unit}
-          </Text>
+      {/* Legend */}
+      <View style={styles.legend}>
+        <View style={styles.legendRow}>
+          <Text style={[styles.legendTitle, isDark && styles.textLight]}>Current</Text>
+          <View style={styles.legendItems}>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendDot, { backgroundColor: colorCurrentNewer }]} />
+              <Text style={[styles.legendLabel, isDark && styles.textDark]}>
+                {newerCurrentYear}
+              </Text>
+            </View>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendDot, { backgroundColor: colorCurrentOlder }]} />
+              <Text style={[styles.legendLabel, isDark && styles.textDark]}>
+                {olderCurrentYear}
+              </Text>
+            </View>
+          </View>
         </View>
-        <View style={styles.summaryItem}>
-          <View style={[styles.legendDot, { backgroundColor: isDark ? 'rgba(100, 149, 237, 0.8)' : 'rgba(70, 130, 220, 0.7)' }]} />
-          <Text style={[styles.summaryLabel, isDark && styles.textDark]}>{previousPeriodLabel}</Text>
-          <Text style={[styles.summaryValue, isDark && styles.textLight]}>
-            {totals.previousTotal}
-            {metricLabels[metric].unit}
-          </Text>
-        </View>
-        <View style={styles.summaryItem}>
-          <Text style={[styles.summaryLabel, isDark && styles.textDark]}>vs</Text>
-          <Text
-            style={[
-              styles.summaryValue,
-              { color: totals.diff >= 0 ? colors.success : colors.warning },
-            ]}
-          >
-            {totals.diff >= 0 ? '+' : ''}
-            {totals.pctChange}%
-          </Text>
+        <View style={styles.legendRow}>
+          <Text style={[styles.legendTitle, isDark && styles.textLight]}>Previous</Text>
+          <View style={styles.legendItems}>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendDot, { backgroundColor: colorPreviousNewer }]} />
+              <Text style={[styles.legendLabel, isDark && styles.textDark]}>
+                {newerPreviousYear}
+              </Text>
+            </View>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendDot, { backgroundColor: colorPreviousOlder }]} />
+              <Text style={[styles.legendLabel, isDark && styles.textDark]}>
+                {olderPreviousYear}
+              </Text>
+            </View>
+          </View>
         </View>
       </View>
 
+      {/* Summary / Tooltip */}
+      <View style={[styles.summary, selectedMonth !== null && styles.summaryActive]}>
+        {selectedMonth !== null && selectedMonthData ? (
+          <>
+            <Text style={[styles.tooltipMonth, isDark && styles.textLight]}>
+              {selectedMonthData.month}
+            </Text>
+            <View style={styles.tooltipValues}>
+              <View style={styles.tooltipItem}>
+                <View
+                  style={[styles.legendDot, { backgroundColor: getBarColor(selectedMonth, false) }]}
+                />
+                <Text style={[styles.tooltipValue, isDark && styles.textLight]}>
+                  {selectedMonthData.current}
+                  {metricLabels[metric].unit}
+                </Text>
+              </View>
+              <View style={styles.tooltipItem}>
+                <View
+                  style={[styles.legendDot, { backgroundColor: getBarColor(selectedMonth, true) }]}
+                />
+                <Text style={[styles.tooltipValue, isDark && styles.textLight]}>
+                  {selectedMonthData.previous}
+                  {metricLabels[metric].unit}
+                </Text>
+              </View>
+              <Text
+                style={[
+                  styles.tooltipDiff,
+                  { color: selectedMonthDiff >= 0 ? colors.success : colors.warning },
+                ]}
+              >
+                {selectedMonthDiff >= 0 ? '+' : ''}
+                {selectedMonthDiff.toFixed(0)}%
+              </Text>
+            </View>
+          </>
+        ) : (
+          <>
+            <View style={styles.summaryItem}>
+              <Text style={[styles.summaryLabel, isDark && styles.textDark]}>Current</Text>
+              <Text style={[styles.summaryValue, isDark && styles.textLight]}>
+                {totals.currentTotal}
+                {metricLabels[metric].unit}
+              </Text>
+            </View>
+            <View style={styles.summaryItem}>
+              <Text style={[styles.summaryLabel, isDark && styles.textDark]}>Previous</Text>
+              <Text style={[styles.summaryValue, isDark && styles.textLight]}>
+                {totals.previousTotal}
+                {metricLabels[metric].unit}
+              </Text>
+            </View>
+            <View style={styles.summaryItem}>
+              <Text
+                style={[
+                  styles.summaryValue,
+                  { color: totals.diff >= 0 ? colors.success : colors.warning },
+                ]}
+              >
+                {totals.diff >= 0 ? '+' : ''}
+                {totals.pctChange}%
+              </Text>
+            </View>
+          </>
+        )}
+      </View>
+
       {/* Chart */}
-      <View style={[styles.chartContainer, { height }]}>
+      <View
+        style={[styles.chartContainer, { height }]}
+        onLayout={onChartLayout}
+        {...panResponder.panHandlers}
+      >
         <View style={styles.chart}>
           {data.map((d, idx) => {
             const currentHeight = maxValue > 0 ? (d.current / maxValue) * (height - 30) : 0;
             const previousHeight = maxValue > 0 ? (d.previous / maxValue) * (height - 30) : 0;
             const isCurrentMonth = idx === currentMonth;
+            const isSelected = idx === selectedMonth;
 
             return (
               <View key={idx} style={styles.barGroup}>
-                {/* Current month highlight background */}
-                {isCurrentMonth && (
+                {/* Current month or selected highlight background */}
+                {(isCurrentMonth || isSelected) && (
                   <View
                     style={[
                       styles.currentMonthHighlight,
                       {
-                        backgroundColor: isDark
-                          ? 'rgba(255, 255, 255, 0.08)'
-                          : 'rgba(252, 76, 2, 0.08)',
+                        backgroundColor: isSelected
+                          ? isDark
+                            ? 'rgba(255, 255, 255, 0.15)'
+                            : 'rgba(0, 0, 0, 0.08)'
+                          : isDark
+                            ? 'rgba(255, 255, 255, 0.08)'
+                            : 'rgba(252, 76, 2, 0.08)',
                       },
                     ]}
                   />
@@ -258,6 +380,7 @@ export function SeasonComparison({
                       height: currentHeight,
                       backgroundColor: getBarColor(idx, false),
                       marginRight: barGap,
+                      opacity: selectedMonth !== null && !isSelected ? 0.4 : 1,
                     },
                   ]}
                 />
@@ -269,6 +392,7 @@ export function SeasonComparison({
                       width: barWidth,
                       height: previousHeight,
                       backgroundColor: getBarColor(idx, true),
+                      opacity: selectedMonth !== null && !isSelected ? 0.4 : 1,
                     },
                   ]}
                 />
@@ -278,18 +402,14 @@ export function SeasonComparison({
                     styles.monthLabel,
                     isDark && styles.textDark,
                     isCurrentMonth && styles.currentMonthLabel,
+                    isSelected && styles.selectedMonthLabel,
                   ]}
                 >
                   {d.month.charAt(0)}
                 </Text>
                 {/* Current month indicator dot */}
-                {isCurrentMonth && (
-                  <View
-                    style={[
-                      styles.currentMonthDot,
-                      { backgroundColor: colors.primary },
-                    ]}
-                  />
+                {isCurrentMonth && !isSelected && (
+                  <View style={[styles.currentMonthDot, { backgroundColor: colors.primary }]} />
                 )}
               </View>
             );
@@ -338,13 +458,49 @@ const styles = StyleSheet.create({
   metricButtonTextActive: {
     color: colors.textOnDark,
   },
+  legend: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginBottom: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
+  legendRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  legendTitle: {
+    fontSize: typography.label.fontSize,
+    fontWeight: '600',
+    color: colors.textPrimary,
+    minWidth: 55,
+  },
+  legendItems: {
+    flexDirection: 'row',
+    gap: spacing.md,
+  },
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  legendLabel: {
+    fontSize: typography.caption.fontSize,
+    color: colors.textSecondary,
+  },
   summary: {
     flexDirection: 'row',
     justifyContent: 'space-around',
+    alignItems: 'center',
     marginBottom: spacing.md,
     paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.sm,
     borderRadius: layout.borderRadiusSm,
     backgroundColor: 'rgba(0, 0, 0, 0.02)',
+    minHeight: 44,
+  },
+  summaryActive: {
+    backgroundColor: 'rgba(0, 0, 0, 0.05)',
   },
   summaryItem: {
     alignItems: 'center',
@@ -359,11 +515,37 @@ const styles = StyleSheet.create({
   summaryLabel: {
     fontSize: typography.label.fontSize,
     color: colors.textSecondary,
+    marginRight: 4,
   },
   summaryValue: {
     fontSize: typography.bodySmall.fontSize,
     fontWeight: '600',
     color: colors.textPrimary,
+  },
+  tooltipMonth: {
+    fontSize: typography.body.fontSize,
+    fontWeight: '700',
+    color: colors.textPrimary,
+    minWidth: 40,
+  },
+  tooltipValues: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  tooltipItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  tooltipValue: {
+    fontSize: typography.bodySmall.fontSize,
+    fontWeight: '600',
+    color: colors.textPrimary,
+  },
+  tooltipDiff: {
+    fontSize: typography.bodySmall.fontSize,
+    fontWeight: '700',
   },
   chartContainer: {
     justifyContent: 'flex-end',
@@ -392,6 +574,10 @@ const styles = StyleSheet.create({
   currentMonthLabel: {
     fontWeight: '700',
     color: colors.primary,
+  },
+  selectedMonthLabel: {
+    fontWeight: '700',
+    color: colors.textPrimary,
   },
   currentMonthHighlight: {
     position: 'absolute',

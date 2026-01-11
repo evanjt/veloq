@@ -507,3 +507,24 @@ export function getRouteDisplayName(
 ): string {
   return customNames[route.id] || route.name || 'Unnamed Route';
 }
+
+// =============================================================================
+// Routes Database Size (Rust SQLite)
+// =============================================================================
+
+const ROUTES_DB_PATH = `${FileSystem.documentDirectory}routes.db`;
+
+/**
+ * Estimate routes SQLite database size in bytes
+ */
+export async function estimateRoutesDatabaseSize(): Promise<number> {
+  try {
+    const info = await FileSystem.getInfoAsync(ROUTES_DB_PATH);
+    if (info.exists && 'size' in info) {
+      return info.size || 0;
+    }
+  } catch {
+    // Ignore
+  }
+  return 0;
+}

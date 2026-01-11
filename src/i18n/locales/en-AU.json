@@ -467,7 +467,8 @@
     "enableInSettings": "Enable route matching in Settings to automatically detect repeated routes from your activities.",
     "goToSettings": "Go to Settings",
     "matchingDisabled": "Route Matching Disabled",
-    "title": "Routes"
+    "title": "Routes",
+    "expandDateRange": "Expand date range"
   },
   "sections": {
     "activities": "Activities",
@@ -491,7 +492,7 @@
     "activities": "Activities",
     "appearance": "Appearance",
     "bounds": "Bounds",
-    "cacheHint": "Caches activity locations and GPS traces for World Map and route matching. By default, syncs 3 months. Use \"Sync All History\" for deeper analysis.",
+    "cacheHint": "Caches activity locations and GPS traces for World Map and route matching. Use the timeline to expand the date range.",
     "cached": "Cached",
     "cachedQueries": "Cached Queries",
     "clearAllReload": "Clear All & Reload",
@@ -527,6 +528,9 @@
     "pauseRouteProcessing": "Pause Route Processing",
     "primarySport": "Primary Sport",
     "primarySportHint": "Affects home screen metrics and default stats page view.",
+    "primarySportHintCycling": "FTP shown in feed header. Performance page shows Power Curve, power zones, eFTP trend, and decoupling.",
+    "primarySportHintRunning": "Threshold pace and LTHR shown in feed header. Performance page shows Pace Curve, running power, and HR zones.",
+    "primarySportHintSwimming": "CSS (Critical Swim Speed) shown in feed header. Performance page shows Swim Pace Curve and HR zones.",
     "reanalyseRoutes": "Re-analyse Routes Only",
     "routeMatching": "Route Matching",
     "routeMatchingDescription": "Automatically detect repeated routes from your activities",
