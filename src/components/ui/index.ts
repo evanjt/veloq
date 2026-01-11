@@ -40,3 +40,4 @@ export {
 } from './ScreenTransition';
 export { ChartErrorBoundary } from './ChartErrorBoundary';
 export { ComponentErrorBoundary } from './ComponentErrorBoundary';
+export { CollapsibleSection } from './CollapsibleSection';

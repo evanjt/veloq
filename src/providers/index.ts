@@ -51,6 +51,8 @@ export {
   getAvailableLanguages,
   isEnglishVariant,
   getEnglishVariantValue,
+  isLanguageVariant,
+  getBaseLanguage,
 } from './LanguageStore';
 export { useSyncDateRange } from './SyncDateRangeStore';
 export { NetworkProvider, useNetwork } from './NetworkContext';
