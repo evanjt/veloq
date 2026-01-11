@@ -37,6 +37,7 @@ import {
   getAvailableLanguages,
   isEnglishVariant,
   getEnglishVariantValue,
+  isLanguageVariant,
   type ThemePreference,
   type PrimarySport,
 } from '@/providers';
@@ -44,6 +45,7 @@ import Constants from 'expo-constants';
 import { type SupportedLocale } from '@/i18n';
 import { type MapStyleType } from '@/components/maps';
 import { colors, spacing, layout } from '@/theme';
+import { CollapsibleSection } from '@/components/ui';
 import type { ActivityType } from '@/types';
 
 // Activity type groups for map settings
@@ -103,6 +105,7 @@ export default function SettingsScreen() {
   const isDark = colorScheme === 'dark';
   const [profileImageError, setProfileImageError] = useState(false);
   const [themePreference, setThemePreferenceState] = useState<ThemePreference>('system');
+  const [showLanguages, setShowLanguages] = useState(false);
   const [showActivityStyles, setShowActivityStyles] = useState(false);
 
   const { data: athlete } = useAthlete();
@@ -407,69 +410,105 @@ export default function SettingsScreen() {
           {t('settings.language').toUpperCase()}
         </Text>
         <View style={[styles.section, isDark && styles.sectionDark]}>
-          {availableLanguages.flatMap((group, groupIndex) =>
-            group.languages.map((lang, langIndex) => {
-              const index = groupIndex * 100 + langIndex; // Unique index for styling
-              const isSelected =
-                language === lang.value || (language === null && lang.value === null);
-              const isEnglishSelected = lang.value === 'en' && isEnglishVariant(language);
-              const showCheck = isSelected || isEnglishSelected;
+          <CollapsibleSection
+            title={t('settings.language')}
+            subtitle={(() => {
+              // Find the display name for the current language
+              for (const group of availableLanguages) {
+                for (const lang of group.languages) {
+                  if (language === lang.value || (language === null && lang.value === null)) {
+                    return lang.label;
+                  }
+                  // Check variants
+                  if (lang.variants) {
+                    const variant = lang.variants.find((v) => v.value === language);
+                    if (variant) {
+                      return `${lang.label} (${variant.label})`;
+                    }
+                  }
+                  // Check if current language is a variant of this language
+                  if (lang.value && isLanguageVariant(language, lang.value)) {
+                    return lang.label;
+                  }
+                }
+              }
+              return 'System';
+            })()}
+            expanded={showLanguages}
+            onToggle={setShowLanguages}
+            icon="translate"
+            estimatedHeight={500}
+          >
+            {availableLanguages.flatMap((group, groupIndex) =>
+              group.languages.map((lang, langIndex) => {
+                const index = groupIndex * 100 + langIndex;
+                const isSelected =
+                  language === lang.value || (language === null && lang.value === null);
+                const isVariantOfThisLanguage =
+                  lang.value !== null && isLanguageVariant(language, lang.value);
+                const showCheck = isSelected || isVariantOfThisLanguage;
 
-              return (
-                <TouchableOpacity
-                  key={lang.value ?? 'system'}
-                  style={[
-                    styles.languageRow,
-                    index > 0 && styles.languageRowBorder,
-                    isDark && styles.languageRowDark,
-                  ]}
-                  onPress={() => handleLanguageChange(lang.value ?? 'system')}
-                >
-                  <Text style={[styles.languageLabel, isDark && styles.textLight]}>
-                    {lang.label}
-                  </Text>
-                  {/* Show regional variant chips for English */}
-                  {lang.variants && (
-                    <View style={styles.variantChips}>
-                      {lang.variants.map((variant) => {
-                        const isVariantSelected =
-                          isEnglishVariant(language) &&
-                          getEnglishVariantValue(language) === variant.value;
-                        return (
-                          <TouchableOpacity
-                            key={variant.value}
-                            style={[
-                              styles.variantChip,
-                              isVariantSelected && styles.variantChipSelected,
-                              isDark && styles.variantChipDark,
-                              isVariantSelected && isDark && styles.variantChipSelectedDark,
-                            ]}
-                            onPress={(e) => {
-                              e.stopPropagation();
-                              handleLanguageChange(variant.value);
-                            }}
-                          >
-                            <Text
+                return (
+                  <TouchableOpacity
+                    key={lang.value ?? 'system'}
+                    style={[
+                      styles.languageRow,
+                      index > 0 && styles.languageRowBorder,
+                      isDark && styles.languageRowDark,
+                    ]}
+                    onPress={() => {
+                      handleLanguageChange(lang.value ?? 'system');
+                      setShowLanguages(false);
+                    }}
+                  >
+                    <Text style={[styles.languageLabel, isDark && styles.textLight]}>
+                      {lang.label}
+                    </Text>
+                    {lang.variants && (
+                      <View style={styles.variantChips}>
+                        {lang.variants.map((variant) => {
+                          const isVariantSelected =
+                            language === variant.value ||
+                            (lang.value === 'en' &&
+                              isEnglishVariant(language) &&
+                              getEnglishVariantValue(language) === variant.value);
+                          return (
+                            <TouchableOpacity
+                              key={variant.value}
                               style={[
-                                styles.variantChipText,
-                                isVariantSelected && styles.variantChipTextSelected,
-                                isDark && !isVariantSelected && styles.textMuted,
+                                styles.variantChip,
+                                isVariantSelected && styles.variantChipSelected,
+                                isDark && styles.variantChipDark,
+                                isVariantSelected && isDark && styles.variantChipSelectedDark,
                               ]}
+                              onPress={(e) => {
+                                e.stopPropagation();
+                                handleLanguageChange(variant.value);
+                                setShowLanguages(false);
+                              }}
                             >
-                              {variant.label}
-                            </Text>
-                          </TouchableOpacity>
-                        );
-                      })}
-                    </View>
-                  )}
-                  {showCheck && !lang.variants && (
-                    <MaterialCommunityIcons name="check" size={20} color={colors.primary} />
-                  )}
-                </TouchableOpacity>
-              );
-            })
-          )}
+                              <Text
+                                style={[
+                                  styles.variantChipText,
+                                  isVariantSelected && styles.variantChipTextSelected,
+                                  isDark && !isVariantSelected && styles.textMuted,
+                                ]}
+                              >
+                                {variant.label}
+                              </Text>
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </View>
+                    )}
+                    {showCheck && !lang.variants && (
+                      <MaterialCommunityIcons name="check" size={20} color={colors.primary} />
+                    )}
+                  </TouchableOpacity>
+                );
+              })
+            )}
+          </CollapsibleSection>
         </View>
 
         {/* Primary Sport Section */}

@@ -221,3 +221,21 @@ export function getEnglishVariantValue(language: string | null): string {
   if (language.startsWith('en-')) return language;
   return 'en-AU';
 }
+
+/**
+ * Check if a language value belongs to a specific language family
+ */
+export function isLanguageVariant(language: string | null, baseLanguage: string): boolean {
+  if (language === null) return false;
+  if (language === baseLanguage) return true;
+  return language.startsWith(`${baseLanguage}-`);
+}
+
+/**
+ * Get the base language code from a locale (e.g., 'de-CHZ' -> 'de')
+ */
+export function getBaseLanguage(language: string | null): string | null {
+  if (language === null) return null;
+  const parts = language.split('-');
+  return parts[0];
+}

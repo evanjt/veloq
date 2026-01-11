@@ -15,6 +15,7 @@ import {
 } from "react-native-reanimated";
 // Use legacy API for SDK 54 compatibility (new API uses File/Directory classes)
 import * as FileSystem from 'expo-file-system/legacy';
+import { Logger as MapLibreLogger } from '@maplibre/maplibre-react-native';
 import {
   QueryProvider,
   MapPreferencesProvider,
@@ -57,13 +58,12 @@ const getRouteDbPath = () => {
 // These occur because Victory uses shared values during render (known library behavior)
 configureReanimatedLogger({ level: ReanimatedLogLevel.error, strict: false });
 
-// Lazy load MapLibre Logger to avoid native module registration errors at import time
+// Configure MapLibre to only log errors (suppress info/warning spam)
 let mapLibreLoggerConfigured = false;
 function configureMapLibreLogger() {
   if (mapLibreLoggerConfigured) return;
   try {
-    const { Logger } = require("@maplibre/maplibre-react-native");
-    Logger.setLogLevel("error");
+    MapLibreLogger.setLogLevel("error");
     mapLibreLoggerConfigured = true;
   } catch (error) {
     console.warn("[MapLibre] Failed to configure logger:", error);
