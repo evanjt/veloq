@@ -126,7 +126,8 @@ function getSeasonalMultiplier(date: Date): number {
 }
 
 /**
- * Generate demo activities for the past 2 years
+ * Generate demo activities dynamically based on current date
+ * Uses a seeded PRNG for consistency within a session
  * This provides enough data for:
  * - Rolling year season comparison (last 12 months vs prior 12 months)
  * - Full activity calendar
@@ -137,6 +138,11 @@ function generateDemoActivities(): Activity[] {
   const activities: Activity[] = [];
   const now = new Date();
 
+  // Seed based on current year so activities are consistent within the year
+  // but will regenerate with fresh dates each year
+  const seed = now.getFullYear() * 1000 + 42;
+  const random = createSeededRandom(seed);
+
   // Track which routes have been used for route matching demo
   const routeUsage: Record<string, number> = {};
 
@@ -144,7 +150,7 @@ function generateDemoActivities(): Activity[] {
   for (let daysAgo = 0; daysAgo < 730; daysAgo++) {
     const date = new Date(now);
     date.setDate(date.getDate() - daysAgo);
-    date.setHours(7 + Math.floor(Math.random() * 3), Math.floor(Math.random() * 60), 0, 0);
+    date.setHours(7 + Math.floor(random() * 3), Math.floor(random() * 60), 0, 0);
 
     const seasonMultiplier = getSeasonalMultiplier(date);
     const dayOfWeek = date.getDay();
@@ -156,14 +162,14 @@ function generateDemoActivities(): Activity[] {
         : dayOfWeek === 4
           ? 0.5 // Thursday: maybe rest
           : 0.15;
-    if (Math.random() < restDayChance * (1 / seasonMultiplier)) continue;
+    if (random() < restDayChance * (1 / seasonMultiplier)) continue;
 
     // Pick activity based on day pattern
     // Template indices: 0-2: Rides, 3-4: Runs, 5: VirtualRide, 6: Pool Swim, 7: Open Water Swim, 8: Hike
     let template;
     if (dayOfWeek === 0) {
       // Sunday - long ride, run, or occasionally hike
-      const r = Math.random();
+      const r = random();
       if (r < 0.5) {
         template = activityTemplates[1]; // Endurance Ride
       } else if (r < 0.85) {
@@ -173,15 +179,15 @@ function generateDemoActivities(): Activity[] {
       }
     } else if (dayOfWeek === 6) {
       // Saturday - ride or hike
-      const r = Math.random();
+      const r = random();
       if (r < 0.85) {
-        template = activityTemplates[Math.floor(Math.random() * 3)]; // Rides
+        template = activityTemplates[Math.floor(random() * 3)]; // Rides
       } else {
         template = activityTemplates[8]; // Mountain Hike
       }
     } else if (dayOfWeek === 2 || dayOfWeek === 5) {
       // Tuesday/Friday - run, swim (pool or open water), or indoor
-      const r = Math.random();
+      const r = random();
       if (r < 0.35) {
         template = activityTemplates[3]; // Easy Run
       } else if (r < 0.55) {
@@ -193,11 +199,11 @@ function generateDemoActivities(): Activity[] {
       }
     } else {
       // Other days - mix with bias toward shorter activities
-      template = activityTemplates[Math.floor(Math.random() * activityTemplates.length)];
+      template = activityTemplates[Math.floor(random() * activityTemplates.length)];
     }
 
     // Add seasonal and random variation
-    const variance = (0.85 + Math.random() * 0.3) * seasonMultiplier;
+    const variance = (0.85 + random() * 0.3) * seasonMultiplier;
 
     // Match to a demo route if applicable
     const matchedRoute = getRouteForActivity(template.type, template.distance);
@@ -235,7 +241,7 @@ function generateDemoActivities(): Activity[] {
       distance: Math.round(template.distance * variance),
       total_elevation_gain: Math.round(template.elevation * variance),
       average_speed: template.avgSpeed * variance,
-      icu_average_hr: Math.round(template.avgHr * (0.95 + Math.random() * 0.1)),
+      icu_average_hr: Math.round(template.avgHr * (0.95 + random() * 0.1)),
       icu_average_watts: template.avgWatts ? Math.round(template.avgWatts * variance) : undefined,
       icu_training_load: Math.round(template.tss * variance),
       stream_types: streamTypes,
@@ -252,13 +258,53 @@ function generateDemoActivities(): Activity[] {
   );
 }
 
-export const demoActivities = generateDemoActivities();
+// Cache for demo activities - regenerates when accessed on a new day
+let cachedActivities: Activity[] | null = null;
+let cacheDate: string | null = null;
+
+/**
+ * Get demo activities, dynamically generated based on current date
+ * Cached for the current day to ensure consistency within a session
+ */
+export function getDemoActivities(): Activity[] {
+  const today = new Date().toISOString().split('T')[0];
+
+  if (!cachedActivities || cacheDate !== today) {
+    cachedActivities = generateDemoActivities();
+    cacheDate = today;
+  }
+
+  return cachedActivities;
+}
+
+// For backwards compatibility - lazily generates on first access
+export const demoActivities: Activity[] = new Proxy([] as Activity[], {
+  get(target, prop) {
+    const activities = getDemoActivities();
+    if (prop === 'length') return activities.length;
+    if (typeof prop === 'string' && !isNaN(Number(prop))) {
+      return activities[Number(prop)];
+    }
+    if (prop === Symbol.iterator) {
+      return function* () {
+        yield* activities;
+      };
+    }
+    // Handle array methods
+    const value = (activities as unknown as Record<string | symbol, unknown>)[prop];
+    if (typeof value === 'function') {
+      return value.bind(activities);
+    }
+    return value;
+  },
+});
 
 /**
  * Get activities with the matched route for demo purposes
  */
 export function getDemoActivityRoute(activityId: string): string | undefined {
-  const activity = demoActivities.find((a) => a.id === activityId) as Activity & {
+  const activities = getDemoActivities();
+  const activity = activities.find((a) => a.id === activityId) as Activity & {
     _demoRouteId?: string;
   };
   return activity?._demoRouteId;

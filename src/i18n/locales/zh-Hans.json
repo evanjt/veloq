@@ -136,7 +136,7 @@
     "bounds": "边界",
     "gpsTraces": "GPS 轨迹",
     "cachedQueries": "缓存查询",
-    "cacheHint": "缓存活动位置和 GPS 轨迹用于世界地图和路线匹配。默认同步 3 个月。使用「同步全部历史」进行更深入的分析。",
+    "cacheHint": "缓存活动位置和 GPS 轨迹用于世界地图和路线匹配。使用时间轴扩展日期范围。",
     "routeMatching": "路线匹配",
     "enableRouteMatching": "启用路线匹配",
     "routeMatchingDescription": "自动从您的活动中检测重复路线",
@@ -347,7 +347,8 @@
     "analysingRoutes": "正在分析路线 {{current}}/{{total}}",
     "computingRoutes": "正在计算路线...",
     "downloadingGps": "下载GPS数据",
-    "analyzingRoutes": "正在分析路线"
+    "analyzingRoutes": "正在分析路线",
+    "expandDateRange": "扩展日期范围"
   },
   "statsScreen": {
     "title": "表现",

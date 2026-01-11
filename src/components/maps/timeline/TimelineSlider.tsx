@@ -47,6 +47,12 @@ interface TimelineSliderProps {
   onTypeSelectionChange?: (types: Set<string>) => void;
   /** Dark mode */
   isDark?: boolean;
+  /** Show activity type filter (default: true) */
+  showActivityFilter?: boolean;
+  /** Show cached range striped indicator (default: true) */
+  showCachedRange?: boolean;
+  /** Show legend (default: true) */
+  showLegend?: boolean;
 }
 
 // Larger touch area for handles
@@ -73,6 +79,9 @@ export function TimelineSlider({
   availableTypes,
   onTypeSelectionChange,
   isDark = false,
+  showActivityFilter = true,
+  showCachedRange = true,
+  showLegend = true,
 }: TimelineSliderProps) {
   const { t } = useTranslation();
   const [trackWidth, setTrackWidth] = useState(0);
@@ -368,7 +377,7 @@ export function TimelineSlider({
 
       <View style={[styles.container, isDark && styles.containerDark]}>
         {/* Activity category filter */}
-        {availableTypes && selectedTypes && onTypeSelectionChange && (
+        {showActivityFilter && availableTypes && selectedTypes && onTypeSelectionChange && (
           <ActivityCategoryFilter
             selectedTypes={selectedTypes}
             availableTypes={availableTypes}
@@ -383,30 +392,33 @@ export function TimelineSlider({
             <View style={[styles.track, isDark && styles.trackDark]} />
 
             {/* Cached range with stripes */}
-            {cachedRange.hasCache && trackWidth > 0 && cachedRangeStyle.width > 0 && (
-              <View style={[styles.cachedRange, cachedRangeStyle]}>
-                <View style={styles.stripeContainer}>
-                  {Array.from({
-                    length: Math.ceil(cachedRangeStyle.width / 3),
-                  }).map((_, i) => (
-                    <View
-                      key={i}
-                      style={[
-                        styles.stripe,
-                        {
-                          backgroundColor:
-                            i % 2 === 0
-                              ? colors.primary
-                              : isDark
-                                ? 'rgba(60,60,60,0.8)'
-                                : 'rgba(255,255,255,0.8)',
-                        },
-                      ]}
-                    />
-                  ))}
+            {showCachedRange &&
+              cachedRange.hasCache &&
+              trackWidth > 0 &&
+              cachedRangeStyle.width > 0 && (
+                <View style={[styles.cachedRange, cachedRangeStyle]}>
+                  <View style={styles.stripeContainer}>
+                    {Array.from({
+                      length: Math.ceil(cachedRangeStyle.width / 3),
+                    }).map((_, i) => (
+                      <View
+                        key={i}
+                        style={[
+                          styles.stripe,
+                          {
+                            backgroundColor:
+                              i % 2 === 0
+                                ? colors.primary
+                                : isDark
+                                  ? 'rgba(60,60,60,0.8)'
+                                  : 'rgba(255,255,255,0.8)',
+                          },
+                        ]}
+                      />
+                    ))}
+                  </View>
                 </View>
-              </View>
-            )}
+              )}
 
             <Animated.View style={[styles.selectedRange, rangeStyle]} />
 
@@ -472,7 +484,7 @@ export function TimelineSlider({
           </Text>
         </View>
 
-        <TimelineLegend isDark={isDark} />
+        {showLegend && <TimelineLegend isDark={isDark} />}
       </View>
     </View>
   );
@@ -481,11 +493,9 @@ export function TimelineSlider({
 const styles = StyleSheet.create({
   wrapper: {},
   container: {
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    backgroundColor: 'transparent',
     paddingVertical: 10,
     paddingHorizontal: layout.cardMargin,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
   },
   sliderContainer: {
     height: layout.minTapTarget,
@@ -576,8 +586,7 @@ const styles = StyleSheet.create({
   },
   // Dark mode
   containerDark: {
-    backgroundColor: darkColors.surfaceOverlay,
-    borderTopColor: darkColors.border,
+    backgroundColor: 'transparent',
   },
   trackDark: {
     backgroundColor: darkColors.border,

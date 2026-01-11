@@ -136,7 +136,7 @@
     "bounds": "Granice",
     "gpsTraces": "Slady GPS",
     "cachedQueries": "Zapytania w pamieci podrecznej",
-    "cacheHint": "Buforuje lokalizacje aktywnosci i slady GPS dla Mapy swiata i dopasowywania tras. Domyslnie synchronizuje 3 miesiace. Uzyj \"Synchronizuj cala historie\" dla glębszej analizy.",
+    "cacheHint": "Buforuje lokalizacje aktywności i ślady GPS dla Mapy świata i dopasowywania tras. Użyj osi czasu, aby rozszerzyć zakres dat.",
     "routeMatching": "Dopasowywanie tras",
     "enableRouteMatching": "Wlacz dopasowywanie tras",
     "routeMatchingDescription": "Automatycznie wykrywa powtarzajace sie trasy z Twoich aktywnosci",
@@ -347,7 +347,8 @@
     "analysingRoutes": "Analiza tras {{current}}/{{total}}",
     "computingRoutes": "Obliczanie tras...",
     "downloadingGps": "Pobieranie GPS",
-    "analyzingRoutes": "Analiza tras"
+    "analyzingRoutes": "Analiza tras",
+    "expandDateRange": "Rozszerz zakres dat"
   },
   "statsScreen": {
     "title": "Wyniki",

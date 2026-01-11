@@ -136,7 +136,7 @@
     "bounds": "範囲",
     "gpsTraces": "GPSトレース",
     "cachedQueries": "キャッシュされたクエリ",
-    "cacheHint": "ワールドマップとルートマッチング用にアクティビティの場所とGPSトレースをキャッシュします。デフォルトでは3ヶ月を同期。より深い分析には「全履歴を同期」を使用。",
+    "cacheHint": "ワールドマップとルートマッチング用にアクティビティの場所とGPSトレースをキャッシュします。タイムラインを使用して日付範囲を拡張できます。",
     "routeMatching": "ルートマッチング",
     "enableRouteMatching": "ルートマッチングを有効化",
     "routeMatchingDescription": "アクティビティから繰り返しルートを自動検出",
@@ -347,7 +347,8 @@
     "analysingRoutes": "ルート分析中 {{current}}/{{total}}",
     "computingRoutes": "ルート計算中...",
     "downloadingGps": "GPSをダウンロード中",
-    "analyzingRoutes": "ルート分析中"
+    "analyzingRoutes": "ルート分析中",
+    "expandDateRange": "日付範囲を拡張"
   },
   "statsScreen": {
     "title": "パフォーマンス",

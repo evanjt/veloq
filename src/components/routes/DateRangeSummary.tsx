@@ -82,7 +82,7 @@ export function DateRangeSummary({
             color={themeColors.primary}
           />
           <Text style={[styles.expandText, { color: themeColors.primary }]}>
-            {t('settings.syncAllHistory')}
+            {t('routesScreen.expandDateRange')}
           </Text>
         </Pressable>
       </View>

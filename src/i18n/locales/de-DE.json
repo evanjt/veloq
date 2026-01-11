@@ -111,6 +111,9 @@
     "language": "Sprache",
     "primarySport": "Hauptsportart",
     "primarySportHint": "Beeinflusst die Startbildschirm-Metriken und die Standard-Statistikansicht.",
+    "primarySportHintCycling": "FTP in der Feed-Kopfzeile. Leistungsseite zeigt Leistungskurve, Leistungszonen, eFTP-Trend und Entkopplung.",
+    "primarySportHintRunning": "Schwellenpace und LTHR in der Feed-Kopfzeile. Leistungsseite zeigt Pace-Kurve, Laufleistung und HF-Zonen.",
+    "primarySportHintSwimming": "CSS (Critical Swim Speed) in der Feed-Kopfzeile. Leistungsseite zeigt Schwimm-Pace-Kurve und HF-Zonen.",
     "maps": "Karten",
     "defaultStyle": "Standardstil",
     "satellite": "Satellit",
@@ -136,7 +139,7 @@
     "bounds": "Grenzen",
     "gpsTraces": "GPS-Spuren",
     "cachedQueries": "Zwischengespeicherte Abfragen",
-    "cacheHint": "Speichert Aktivitätsorte und GPS-Spuren für Weltkarte und Routenabgleich. Standardmäßig werden 3 Monate synchronisiert. Nutze \"Gesamten Verlauf synchronisieren\" für tiefere Analyse.",
+    "cacheHint": "Speichert Aktivitätsorte und GPS-Spuren für Weltkarte und Routenabgleich. Verwende die Zeitleiste, um den Datumsbereich zu erweitern.",
     "routeMatching": "Routenabgleich",
     "enableRouteMatching": "Routenabgleich aktivieren",
     "routeMatchingDescription": "Automatisch wiederkehrende Routen aus deinen Aktivitäten erkennen",
@@ -325,7 +328,8 @@
     "analysingRoutes": "Analysiere Routen {{current}}/{{total}}",
     "computingRoutes": "Berechne Routen...",
     "downloadingGps": "GPS wird heruntergeladen",
-    "analyzingRoutes": "Routen analysieren"
+    "analyzingRoutes": "Routen analysieren",
+    "expandDateRange": "Datumsbereich erweitern"
   },
   "statsScreen": {
     "title": "Leistung",

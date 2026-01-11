@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { useQueryClient, useQuery } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { useAuthStore, useSyncDateRange } from '@/providers';
 import { clearAllGpsTracks, clearBoundsCache } from '@/lib/storage/gpsStorage';
 import { getRouteEngine } from '@/lib/native/routeEngine';
@@ -115,6 +115,7 @@ export function useActivityBoundsCache(
   const [activityCount, setActivityCount] = useState(0);
   const [cachedActivitiesVersion, setCachedActivitiesVersion] = useState(0);
   const queryClient = useQueryClient();
+  const lastSyncTimestamp = useSyncDateRange((s) => s.lastSyncTimestamp);
 
   // Track mount state to prevent setState after unmount
   const isMountedRef = useRef(true);
@@ -188,16 +189,40 @@ export function useActivityBoundsCache(
   }, []);
 
   // Calculate cache stats from Rust engine and optional activities
-  const cacheStats: CacheStats = useMemo(
-    () => ({
+  // Filter to only activities that are actually in the engine
+  const cacheStats: CacheStats = useMemo(() => {
+    let filteredActivities = activitiesWithDates;
+
+    // Filter to only synced activities if we have engine data
+    if (activitiesWithDates && activitiesWithDates.length > 0 && activityCount > 0) {
+      try {
+        const engine = getRouteEngine();
+        if (engine) {
+          const engineIds = new Set(engine.getActivityIds());
+          // Only filter if activities have id field (full Activity objects)
+          if ('id' in activitiesWithDates[0]) {
+            filteredActivities = (
+              activitiesWithDates as Array<{
+                id: string;
+                start_date?: string;
+                start_date_local?: string;
+              }>
+            ).filter((a) => engineIds.has(a.id));
+          }
+        }
+      } catch {
+        // Fall back to using all activities if engine access fails
+      }
+    }
+
+    return {
       totalActivities: activityCount,
-      oldestDate: activitiesWithDates ? findOldestActivityDate(activitiesWithDates) : null,
-      newestDate: activitiesWithDates ? findNewestActivityDate(activitiesWithDates) : null,
-      lastSync: null,
+      oldestDate: filteredActivities ? findOldestActivityDate(filteredActivities) : null,
+      newestDate: filteredActivities ? findNewestActivityDate(filteredActivities) : null,
+      lastSync: lastSyncTimestamp,
       isSyncing: progress.status === 'syncing',
-    }),
-    [activityCount, activitiesWithDates, progress.status]
-  );
+    };
+  }, [activityCount, activitiesWithDates, progress.status, lastSyncTimestamp]);
 
   // Get all activities with GPS from TanStack Query cache for date range
   // Note: Query key is ['activities', oldest, newest, stats], so we use getQueriesData

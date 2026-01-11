@@ -9,7 +9,6 @@ import {
   useActivityBoundsCache,
   useOldestActivityDate,
   useActivities,
-  useRouteDataSync,
 } from '@/hooks';
 import { useRouteSettings, useSyncDateRange } from '@/providers';
 import { colors, darkColors, spacing, typography } from '@/theme';
@@ -45,11 +44,9 @@ export default function MapScreen() {
     activitiesWithDates: syncedActivities,
   });
 
-  // Track GPS data sync progress
-  const { progress: gpsSyncProgress, isSyncing: isGpsSyncing } = useRouteDataSync(
-    syncedActivities,
-    routeSettings.enabled
-  );
+  // Read GPS sync progress from shared store (GlobalDataSync is the single sync coordinator)
+  const gpsSyncProgress = useSyncDateRange((s) => s.gpsSyncProgress);
+  const isGpsSyncing = useSyncDateRange((s) => s.isGpsSyncing);
 
   // Combined syncing state
   const isSyncing =
@@ -179,8 +176,12 @@ export default function MapScreen() {
               }) as string),
       };
     }
-    // Phase 3: Analyzing routes (GPS sync to Rust engine)
-    if (isGpsSyncing) {
+    // Phase 3b: Computing routes/sections (check BEFORE generic syncing)
+    if (gpsSyncProgress.status === 'computing') {
+      return { completed: 0, total: 0, message: gpsSyncProgress.message || t("routesScreen.computingRoutes") as string };
+    }
+    // Phase 3a: Downloading GPS data
+    if (isGpsSyncing && gpsSyncProgress.status === 'fetching') {
       return {
         completed: gpsSyncProgress.completed,
         total: gpsSyncProgress.total,
@@ -190,11 +191,8 @@ export default function MapScreen() {
                 completed: gpsSyncProgress.completed,
                 total: gpsSyncProgress.total,
               }) as string)
-            : (t("routesScreen.computingRoutes") as string),
+            : (t("routesScreen.downloadingGps", { completed: 0, total: 0 }) as string),
       };
-    }
-    if (gpsSyncProgress.status === 'computing') {
-      return { completed: 0, total: 0, message: gpsSyncProgress.message };
     }
     return null;
   }, [isFetchingActivities, isFetchingExtended, progress, isGpsSyncing, gpsSyncProgress, t]);

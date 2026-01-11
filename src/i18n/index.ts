@@ -14,7 +14,6 @@ import esES from './locales/es-ES.json';
 import es419 from './locales/es-419.json';
 import fr from './locales/fr.json';
 import deDE from './locales/de-DE.json';
-import deCH from './locales/de-CH.json';
 import deCHZ from './locales/de-CHZ.json';
 import deCHB from './locales/de-CHB.json';
 import nl from './locales/nl.json';
@@ -68,7 +67,6 @@ const resources = {
   'es-419': { translation: es419 },
   fr: { translation: fr },
   'de-DE': { translation: deDE },
-  'de-CH': { translation: deCH },
   'de-CHZ': { translation: deCHZ },
   'de-CHB': { translation: deCHB },
   nl: { translation: nl },

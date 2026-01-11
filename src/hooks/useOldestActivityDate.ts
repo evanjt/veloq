@@ -1,35 +1,22 @@
 /**
- * Hook for getting the oldest activity date
+ * Hook for getting the oldest activity date from the API.
+ *
+ * Uses the intervals.icu API binary search to efficiently find the oldest
+ * activity without fetching the entire activity history.
  */
 
-import { useMemo } from 'react';
-import { useActivities } from './activities';
+import { useQuery } from '@tanstack/react-query';
+import { intervalsApi } from '@/api';
 
 /** Get the oldest activity date from the user's activities */
-export function useOldestActivityDate(activityType?: string) {
-  const { data: activities } = useActivities({ days: 365, includeStats: false });
-
-  const data = useMemo(() => {
-    if (!activities || activities.length === 0) {
-      return null;
-    }
-
-    // Filter by activity type if provided
-    const filtered = activityType ? activities.filter((a) => a.type === activityType) : activities;
-
-    if (filtered.length === 0) {
-      return null;
-    }
-
-    // Find oldest activity
-    const oldest = filtered.reduce((oldest, current) => {
-      const oldestDate = new Date(oldest.start_date_local);
-      const currentDate = new Date(current.start_date_local);
-      return currentDate < oldestDate ? current : oldest;
-    });
-
-    return new Date(oldest.start_date_local);
-  }, [activities, activityType]);
-
-  return { data };
+export function useOldestActivityDate() {
+  return useQuery({
+    queryKey: ['oldestActivityDate'],
+    queryFn: async () => {
+      const dateStr = await intervalsApi.getOldestActivityDate();
+      return dateStr ? new Date(dateStr) : null;
+    },
+    staleTime: 24 * 60 * 60 * 1000, // 24 hours - oldest date rarely changes
+    gcTime: 7 * 24 * 60 * 60 * 1000, // Keep in cache for 7 days
+  });
 }

@@ -45,9 +45,10 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { InteractionManager } from 'react-native';
 import { useRouteSyncProgress } from './useRouteSyncProgress';
-import { useRouteSyncContext } from './useRouteSyncContext';
+import { useRouteSyncContext, resetGlobalSyncState } from './useRouteSyncContext';
 import { useGpsDataFetcher } from './useGpsDataFetcher';
 import { getNativeModule } from '@/lib/native/routeEngine';
+import { useSyncDateRange } from '@/providers';
 import type { Activity } from '@/types';
 import type { SyncProgress } from './useRouteSyncProgress';
 
@@ -106,6 +107,13 @@ export function useRouteDataSync(
 ): UseRouteDataSyncResult {
   // Extracted hooks
   const { progress, isSyncing, updateProgress, isMountedRef } = useRouteSyncProgress();
+  const setGpsSyncProgress = useSyncDateRange((s) => s.setGpsSyncProgress);
+
+  // Sync progress to shared store whenever it changes
+  // This allows other screens to read progress without calling useRouteDataSync themselves
+  useEffect(() => {
+    setGpsSyncProgress(progress);
+  }, [progress, setGpsSyncProgress]);
   const {
     isAuthenticatedRef,
     isDemoModeRef,
@@ -131,11 +139,19 @@ export function useRouteDataSync(
       const online = isOnlineRef.current;
 
       // Don't sync if not authenticated or already unmounted
-      if (!isAuth || !isMountedRef.current) return;
+      if (!isAuth || !isMountedRef.current) {
+        if (__DEV__) {
+          console.log(`[RouteDataSync] Blocked: isAuth=${isAuth}, mounted=${isMountedRef.current}`);
+        }
+        return;
+      }
 
       // Skip sync when offline - GPS fetch requires network
       // Existing synced activities will still work from the engine cache
       if (!online) {
+        if (__DEV__) {
+          console.log('[RouteDataSync] Blocked: offline');
+        }
         if (isMountedRef.current) {
           updateProgress({
             status: 'idle',
@@ -148,7 +164,12 @@ export function useRouteDataSync(
       }
 
       // Prevent concurrent syncs
-      if (!canStartSync()) return;
+      if (!canStartSync()) {
+        if (__DEV__) {
+          console.log('[RouteDataSync] Blocked: sync already in progress');
+        }
+        return;
+      }
 
       // Create abort controller for this sync operation
       const abortController = createAbortController();
@@ -157,6 +178,9 @@ export function useRouteDataSync(
         // Get native module
         const nativeModule = getNativeModule();
         if (!nativeModule) {
+          if (__DEV__) {
+            console.warn('[RouteDataSync] Native module not available');
+          }
           markSyncComplete();
           return;
         }
@@ -169,9 +193,27 @@ export function useRouteDataSync(
           (a) => a.stream_types?.includes('latlng') && !engineActivityIds.has(a.id)
         );
 
+        if (__DEV__) {
+          const totalGps = activitiesToSync.filter((a) =>
+            a.stream_types?.includes('latlng')
+          ).length;
+          console.log(
+            `[RouteDataSync] Activities: ${activitiesToSync.length} total, ` +
+              `${totalGps} with GPS, ${withGps.length} new to sync, ` +
+              `${engineActivityIds.size} already in engine, isDemo: ${isDemo}`
+          );
+        }
+
         if (withGps.length === 0) {
+          if (__DEV__) {
+            console.log('[RouteDataSync] No new activities to sync');
+          }
           markSyncComplete();
           return;
+        }
+
+        if (__DEV__) {
+          console.log(`[RouteDataSync] Starting GPS fetch for ${withGps.length} activities...`);
         }
 
         // Fetch GPS data (demo or real API mode)
@@ -189,6 +231,9 @@ export function useRouteDataSync(
           });
         }
       } catch (error) {
+        if (__DEV__) {
+          console.error('[RouteDataSync] Error during sync:', error);
+        }
         // Update progress with error
         if (isMountedRef.current) {
           updateProgress({
@@ -199,6 +244,9 @@ export function useRouteDataSync(
           });
         }
       } finally {
+        if (__DEV__) {
+          console.log('[RouteDataSync] Sync complete (finally block)');
+        }
         // Always mark sync complete
         markSyncComplete();
       }
@@ -239,7 +287,8 @@ export function useRouteDataSync(
     if (!nativeModule) return;
 
     const unsubscribe = nativeModule.routeEngine.subscribe('syncReset', () => {
-      // Reset syncing state so next sync can proceed
+      // Reset GLOBAL syncing state so next sync can proceed
+      resetGlobalSyncState();
       isSyncingRef.current = false;
       // Increment trigger to force useEffect to re-run after activities are refetched
       setSyncTrigger((prev) => prev + 1);

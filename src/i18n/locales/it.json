@@ -136,7 +136,7 @@
     "bounds": "Limiti",
     "gpsTraces": "Tracce GPS",
     "cachedQueries": "Query in cache",
-    "cacheHint": "Memorizza in cache le posizioni delle attivita e le tracce GPS per la Mappa Mondiale e la corrispondenza percorsi. Per impostazione predefinita, sincronizza 3 mesi. Usa \"Sincronizza tutta la cronologia\" per un'analisi piu approfondita.",
+    "cacheHint": "Memorizza in cache le posizioni delle attività e le tracce GPS per la Mappa Mondiale. Usa la timeline per espandere l'intervallo di date.",
     "routeMatching": "Corrispondenza percorsi",
     "enableRouteMatching": "Abilita corrispondenza percorsi",
     "routeMatchingDescription": "Rileva automaticamente i percorsi ripetuti dalle tue attivita",
@@ -347,7 +347,8 @@
     "analysingRoutes": "Analisi percorsi {{current}}/{{total}}",
     "computingRoutes": "Calcolo percorsi...",
     "downloadingGps": "Download GPS",
-    "analyzingRoutes": "Analisi percorsi"
+    "analyzingRoutes": "Analisi percorsi",
+    "expandDateRange": "Espandi intervallo date"
   },
   "statsScreen": {
     "title": "Prestazioni",

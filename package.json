@@ -5,8 +5,8 @@
   "main": "expo-router/entry",
   "scripts": {
     "start": "npx expo start",
-    "android": "npm run rust:download:android && npx expo run:android",
-    "ios": "npm run rust:download:ios && npx expo run:ios",
+    "android": "./scripts/prepare-rust.sh android && npx expo run:android",
+    "ios": "./scripts/prepare-rust.sh ios && npx expo run:ios",
     "web": "npx expo start --web",
     "test": "jest",
     "test:watch": "jest --watch",
@@ -15,10 +15,16 @@
     "test:perf:ci": "jest --testPathPattern=perf.test --json --outputFile=perf-results.json",
     "format": "prettier --config config/.prettierrc --ignore-path config/.prettierignore --write \"src/**/*.{ts,tsx}\"",
     "format:check": "prettier --config config/.prettierrc --ignore-path config/.prettierignore --check \"src/**/*.{ts,tsx}\"",
+    "rust:prepare": "./scripts/prepare-rust.sh",
+    "rust:prepare:android": "./scripts/prepare-rust.sh android",
+    "rust:prepare:ios": "./scripts/prepare-rust.sh ios",
     "rust:download": "./scripts/download-tracematch.sh",
     "rust:download:android": "./scripts/download-tracematch.sh android",
     "rust:download:ios": "./scripts/download-tracematch.sh ios",
-    "prebuild": "npm run rust:download && npx expo prebuild",
+    "rust:build": "./scripts/build-tracematch-local.sh",
+    "rust:build:android": "./scripts/build-tracematch-local.sh android",
+    "rust:build:ios": "./scripts/build-tracematch-local.sh ios",
+    "prebuild": "./scripts/prepare-rust.sh && npx expo prebuild",
     "postinstall": "patch-package"
   },
   "dependencies": {

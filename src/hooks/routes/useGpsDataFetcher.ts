@@ -104,10 +104,19 @@ export function useGpsDataFetcher() {
       const offsets: number[] = [];
       const sportTypes: string[] = [];
 
+      // Track failures for debugging
+      let failedNoMap = 0;
+      let failedNoCoords = 0;
+
       // Build flat coordinate arrays for Rust FFI
       for (const activity of activities) {
         const map = getActivityMap(activity.id, false);
-        if (!map?.latlngs || map.latlngs.length < 4) {
+        if (!map) {
+          failedNoMap++;
+          continue;
+        }
+        if (!map.latlngs || map.latlngs.length < 4) {
+          failedNoCoords++;
           continue;
         }
 
@@ -135,8 +144,43 @@ export function useGpsDataFetcher() {
         // Sync with custom sections (non-blocking)
         syncActivitiesWithCustomSections(ids).catch(() => {});
 
-        // Start section detection in background
+        // Start section detection and poll for progress
         nativeModule.routeEngine.startSectionDetection();
+
+        // Poll for section detection completion
+        const pollInterval = 200; // ms
+        const maxPollTime = 60000; // 60 seconds
+        const startTime = Date.now();
+
+        while (isMountedRef.current && !abortSignal.aborted) {
+          const status = nativeModule.routeEngine.pollSectionDetection();
+
+          if (status === 'running') {
+            updateProgress({
+              status: 'computing',
+              completed: ids.length,
+              total: activities.length,
+              message: 'Detecting route sections...',
+            });
+          } else if (status === 'complete' || status === 'idle') {
+            break;
+          } else if (status === 'error') {
+            if (__DEV__) {
+              console.warn('[fetchDemoGps] Section detection error');
+            }
+            break;
+          }
+
+          // Check timeout
+          if (Date.now() - startTime > maxPollTime) {
+            if (__DEV__) {
+              console.warn('[fetchDemoGps] Section detection timed out');
+            }
+            break;
+          }
+
+          await new Promise((resolve) => setTimeout(resolve, pollInterval));
+        }
 
         if (isMountedRef.current) {
           updateProgress({
@@ -152,6 +196,28 @@ export function useGpsDataFetcher() {
           withGpsCount: activities.length,
           message: `Synced ${ids.length} demo activities`,
         };
+      }
+
+      // Update progress to complete/idle when no valid GPS data found
+      if (isMountedRef.current) {
+        updateProgress({
+          status: 'idle',
+          completed: 0,
+          total: activities.length,
+          message: `No valid GPS data found (checked ${activities.length} activities)`,
+        });
+      }
+
+      // Log diagnostic info in development
+      if (__DEV__) {
+        console.warn(
+          `[fetchDemoGps] No valid GPS data found. Activities: ${activities.length}, ` +
+            `failedNoMap: ${failedNoMap}, failedNoCoords: ${failedNoCoords}, ` +
+            `checked IDs: ${activities
+              .slice(0, 3)
+              .map((a) => a.id)
+              .join(', ')}...`
+        );
       }
 
       return {
@@ -175,11 +241,22 @@ export function useGpsDataFetcher() {
    */
   const fetchApiGps = useCallback(
     async (activities: Activity[], deps: FetchDeps): Promise<GpsFetchResult> => {
+      if (__DEV__) {
+        console.log(`[fetchApiGps] Entered with ${activities.length} activities`);
+      }
+
       const { isMountedRef, abortSignal, updateProgress } = deps;
 
       const nativeModule = getNativeModule();
       if (!nativeModule) {
+        if (__DEV__) {
+          console.warn('[fetchApiGps] Native module not available!');
+        }
         return { syncedIds: [], withGpsCount: 0, message: 'Engine not available' };
+      }
+
+      if (__DEV__) {
+        console.log('[fetchApiGps] Getting credentials...');
       }
 
       // Get API credentials
@@ -203,22 +280,53 @@ export function useGpsDataFetcher() {
       }
 
       // Set up progress listener with mount guard and abort check
-      const subscription = nativeModule.addFetchProgressListener((event) => {
-        // Check both mount state and abort signal
-        if (!isMountedRef.current || abortSignal.aborted) {
-          return;
+      // Wrapped in try-catch as event listeners may not be available in all environments
+      let subscription: { remove: () => void } | null = null;
+      try {
+        subscription = nativeModule.addFetchProgressListener((event) => {
+          // Check both mount state and abort signal
+          if (!isMountedRef.current || abortSignal.aborted) {
+            return;
+          }
+          updateProgress((p) => ({
+            ...p,
+            completed: event.completed,
+            total: event.total,
+          }));
+        });
+      } catch (listenerError) {
+        if (__DEV__) {
+          console.warn('[fetchApiGps] Progress listener not available:', listenerError);
         }
-        updateProgress((p) => ({
-          ...p,
-          completed: event.completed,
-          total: event.total,
-        }));
-      });
+        // Continue without progress updates - fetch will still work
+      }
 
       try {
         // Fetch GPS data using Rust HTTP client
         const activityIds = activities.map((a) => a.id);
+
+        if (__DEV__) {
+          console.log(`[fetchApiGps] Starting fetch for ${activityIds.length} activities...`);
+        }
+
         const results = await nativeModule.fetchActivityMapsWithProgress(creds.apiKey, activityIds);
+
+        if (__DEV__) {
+          const successful = results.filter((r) => r.success);
+          const withCoords = results.filter((r) => r.latlngs && r.latlngs.length >= 4);
+          console.log(
+            `[fetchApiGps] Fetch complete: ${results.length} results, ` +
+              `${successful.length} successful, ${withCoords.length} with coords`
+          );
+          // Log first few failures for debugging
+          const failures = results.filter((r) => !r.success).slice(0, 3);
+          if (failures.length > 0) {
+            console.log(
+              `[fetchApiGps] Sample failures:`,
+              failures.map((f) => f.activityId)
+            );
+          }
+        }
 
         // Check mount state and abort signal after async operation
         if (!isMountedRef.current || abortSignal.aborted) {
@@ -268,8 +376,43 @@ export function useGpsDataFetcher() {
             // Sync with custom sections (non-blocking)
             syncActivitiesWithCustomSections(ids).catch(() => {});
 
-            // Start section detection in background
+            // Start section detection and poll for progress
             nativeModule.routeEngine.startSectionDetection();
+
+            // Poll for section detection completion
+            const pollInterval = 200; // ms
+            const maxPollTime = 60000; // 60 seconds
+            const startTime = Date.now();
+
+            while (isMountedRef.current && !abortSignal.aborted) {
+              const status = nativeModule.routeEngine.pollSectionDetection();
+
+              if (status === 'running') {
+                updateProgress({
+                  status: 'computing',
+                  completed: successfulResults.length,
+                  total: activities.length,
+                  message: 'Detecting route sections...',
+                });
+              } else if (status === 'complete' || status === 'idle') {
+                break;
+              } else if (status === 'error') {
+                if (__DEV__) {
+                  console.warn('[fetchApiGps] Section detection error');
+                }
+                break;
+              }
+
+              // Check timeout
+              if (Date.now() - startTime > maxPollTime) {
+                if (__DEV__) {
+                  console.warn('[fetchApiGps] Section detection timed out');
+                }
+                break;
+              }
+
+              await new Promise((resolve) => setTimeout(resolve, pollInterval));
+            }
           }
         }
 
@@ -289,8 +432,8 @@ export function useGpsDataFetcher() {
           message: `Synced ${successfulResults.length} activities`,
         };
       } finally {
-        // Clean up progress listener
-        subscription.remove();
+        // Clean up progress listener if it was set up
+        subscription?.remove();
       }
     },
     []

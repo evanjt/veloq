@@ -13,7 +13,6 @@ import {
   useActivityBoundsCache,
   useRouteGroups,
   useEngineStats,
-  useRouteDataSync,
   useOldestActivityDate,
 } from '@/hooks';
 import { useUnifiedSections } from '@/hooks/routes/useUnifiedSections';
@@ -94,8 +93,9 @@ export default function RoutesScreen() {
   const [startDate, setStartDate] = useState<Date>(() => new Date(syncOldest));
   const [endDate, setEndDate] = useState<Date>(() => new Date(syncNewest));
 
-  // Initialize to full cached range once GPS-synced activities are loaded from engine
-  // This shows all cached data by default on the routes page
+  // Initialize slider to cached range once GPS-synced activities are loaded from engine
+  // NOTE: We only update the slider state here, NOT the sync range.
+  // Expansion should only happen from explicit user action (timeline drag).
   useEffect(() => {
     if (!hasInitialized && cachedActivities && cachedActivities.length > 0) {
       // Find the oldest and newest activity dates from the engine cache
@@ -111,12 +111,11 @@ export default function RoutesScreen() {
       if (oldest && newest) {
         setStartDate(oldest);
         setEndDate(newest);
-        // Also expand the sync range so new data is fetched
-        syncDateRange(oldest.toISOString().split('T')[0], newest.toISOString().split('T')[0]);
+        // Do NOT call syncDateRange here - expansion should only happen from user action
         setHasInitialized(true);
       }
     }
-  }, [hasInitialized, cachedActivities, syncDateRange]);
+  }, [hasInitialized, cachedActivities]);
 
   // Min/max dates for timeline - use API oldest date for full extent
   const minDate = useMemo(() => {
@@ -156,11 +155,9 @@ export default function RoutesScreen() {
     includeStats: false,
   });
 
-  // Sync activity GPS data to Rust engine
-  const { progress: dataSyncProgress, isSyncing: isDataSyncing } = useRouteDataSync(
-    activities,
-    isRouteMatchingEnabled
-  );
+  // Read GPS sync progress from shared store (GlobalDataSync is the single sync coordinator)
+  const dataSyncProgress = useSyncDateRange((s) => s.gpsSyncProgress);
+  const isDataSyncing = useSyncDateRange((s) => s.isGpsSyncing);
 
   // Sync status for UI - include when fetching extended date range
   const isSyncing =
@@ -196,7 +193,7 @@ export default function RoutesScreen() {
       };
     }
 
-    // Phase 2: Downloading GPS data
+    // Phase 2: Downloading GPS data (from bounds sync)
     if (syncProgress.status === 'syncing') {
       return {
         completed: syncProgress.completed,
@@ -208,24 +205,24 @@ export default function RoutesScreen() {
       };
     }
 
+    // Phase 3: Analyzing routes (check BEFORE downloading status)
+    if (dataSyncProgress.status === 'computing') {
+      return {
+        completed: 0,
+        total: 0,
+        message: dataSyncProgress.message || (t('routesScreen.computingRoutes') as string),
+        phase: 3,
+      };
+    }
+
     // Phase 2b: Fetching GPS (from route data sync)
-    if (isDataSyncing && dataSyncProgress.total > 0 && dataSyncProgress.status !== 'computing') {
+    if (isDataSyncing && dataSyncProgress.status === 'fetching' && dataSyncProgress.total > 0) {
       return {
         completed: dataSyncProgress.completed,
         total: dataSyncProgress.total,
         message:
           `${t('routesScreen.downloadingGps')} (${dataSyncProgress.completed}/${dataSyncProgress.total})` as string,
         phase: 2,
-      };
-    }
-
-    // Phase 3: Analyzing routes
-    if (dataSyncProgress.status === 'computing') {
-      return {
-        completed: 0,
-        total: 0,
-        message: t('routesScreen.computingRoutes') as string,
-        phase: 3,
       };
     }
 

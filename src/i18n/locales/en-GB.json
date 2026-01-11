@@ -110,6 +110,9 @@
     "language": "Language",
     "primarySport": "Primary Sport",
     "primarySportHint": "Affects home screen metrics and default stats page view.",
+    "primarySportHintCycling": "FTP shown in feed header. Performance page shows Power Curve, power zones, eFTP trend, and decoupling.",
+    "primarySportHintRunning": "Threshold pace and LTHR shown in feed header. Performance page shows Pace Curve, running power, and HR zones.",
+    "primarySportHintSwimming": "CSS (Critical Swim Speed) shown in feed header. Performance page shows Swim Pace Curve and HR zones.",
     "maps": "Maps",
     "defaultStyle": "Default Style",
     "satellite": "Satellite",
@@ -135,7 +138,7 @@
     "bounds": "Bounds",
     "gpsTraces": "GPS Traces",
     "cachedQueries": "Cached Queries",
-    "cacheHint": "Caches activity locations and GPS traces for World Map and route matching. By default, syncs 3 months. Use \"Sync All History\" for deeper analysis.",
+    "cacheHint": "Caches activity locations and GPS traces for World Map and route matching. Use the timeline to expand the date range.",
     "routeMatching": "Route Matching",
     "enableRouteMatching": "Enable Route Matching",
     "routeMatchingDescription": "Automatically detect repeated routes from your activities",
@@ -346,7 +349,8 @@
     "analysingRoutes": "Analysing routes {{current}}/{{total}}",
     "computingRoutes": "Computing routes...",
     "downloadingGps": "Downloading GPS data",
-    "analyzingRoutes": "Analysing routes..."
+    "analyzingRoutes": "Analysing routes...",
+    "expandDateRange": "Expand date range"
   },
   "statsScreen": {
     "title": "Performance",

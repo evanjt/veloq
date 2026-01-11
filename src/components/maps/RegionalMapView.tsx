@@ -122,8 +122,9 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
   const map3DRef = useRef<Map3DWebViewRef>(null);
   const bearingAnim = useRef(new Animated.Value(0)).current;
   const initialBoundsRef = useRef<{
-    ne: [number, number];
-    sw: [number, number];
+    bounds: { ne: [number, number]; sw: [number, number] };
+    center: [number, number];
+    zoomLevel: number;
   } | null>(null);
 
   // ===========================================
@@ -142,7 +143,8 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
 
   // Calculate bounds from activities (used for initial camera position)
   // Uses normalizeBounds to auto-detect coordinate format from API
-  const calculateBounds = useCallback((activityList: ActivityBoundsItem[]) => {
+  // Returns bounds AND a center biased toward recent activities
+  const calculateBoundsAndCenter = useCallback((activityList: ActivityBoundsItem[]) => {
     if (activityList.length === 0) return null;
 
     let minLat = Infinity,
@@ -158,9 +160,42 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
       maxLng = Math.max(maxLng, normalized.maxLng);
     }
 
+    // Calculate center longitude biased toward recent activities
+    // Sort by date descending and take most recent activities for center calculation
+    const recentCount = Math.min(20, activityList.length);
+    const sortedByDate = [...activityList].sort((a, b) =>
+      (b.date || '').localeCompare(a.date || '')
+    );
+    const recentActivities = sortedByDate.slice(0, recentCount);
+
+    // Calculate average longitude from recent activities
+    let recentLngSum = 0;
+    for (const activity of recentActivities) {
+      const normalized = normalizeBounds(activity.bounds);
+      recentLngSum += (normalized.minLng + normalized.maxLng) / 2;
+    }
+    const recentCenterLng = recentLngSum / recentActivities.length;
+
+    // Latitude center uses full bounds (so we see activities at all latitudes)
+    const centerLat = (minLat + maxLat) / 2;
+
+    // Calculate zoom level based on bounds span
+    // Using Mercator projection formula: zoom = log2(360 / lonSpan) or log2(180 / latSpan)
+    const latSpan = maxLat - minLat;
+    const lngSpan = maxLng - minLng;
+    // Add padding factor (0.8) to ensure some margin around activities
+    const latZoom = Math.log2(180 / (latSpan || 1)) - 0.5;
+    const lngZoom = Math.log2(360 / (lngSpan || 1)) - 0.5;
+    // Use the smaller zoom (shows more area) to fit all activities
+    const zoomLevel = Math.max(1, Math.min(latZoom, lngZoom));
+
     return {
-      ne: [maxLng, maxLat] as [number, number],
-      sw: [minLng, minLat] as [number, number],
+      bounds: {
+        ne: [maxLng, maxLat] as [number, number],
+        sw: [minLng, minLat] as [number, number],
+      },
+      center: [recentCenterLng, centerLat] as [number, number],
+      zoomLevel,
     };
   }, []);
 
@@ -168,12 +203,15 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
   // This prevents the map from jumping around during background sync
   useEffect(() => {
     if (initialBoundsRef.current === null && activities.length > 0) {
-      initialBoundsRef.current = calculateBounds(activities);
+      initialBoundsRef.current = calculateBoundsAndCenter(activities);
     }
-  }, [activities, calculateBounds]);
+  }, [activities, calculateBoundsAndCenter]);
 
-  // Use the stored initial bounds for the camera default
-  const mapBounds = initialBoundsRef.current || calculateBounds(activities);
+  // Use the stored initial bounds and center for the camera default
+  const mapData = initialBoundsRef.current || calculateBoundsAndCenter(activities);
+  const mapBounds = mapData?.bounds ?? null;
+  const mapCenter = mapData?.center ?? null;
+  const mapZoom = mapData?.zoomLevel ?? 2;
 
   // Extract handlers to separate hook
   const {
@@ -446,17 +484,17 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
           onRegionDidChange={handleRegionDidChange}
         >
           {/* Camera with ref for programmatic control */}
+          {/* Uses center biased toward recent activities (longitude from recent, latitude from all) */}
           <Camera
             ref={cameraRef}
-            defaultSettings={{
-              bounds: mapBounds ?? undefined,
-              padding: {
-                paddingTop: 100,
-                paddingRight: 40,
-                paddingBottom: 200,
-                paddingLeft: 40,
-              },
-            }}
+            defaultSettings={
+              mapCenter
+                ? {
+                    centerCoordinate: mapCenter,
+                    zoomLevel: mapZoom,
+                  }
+                : undefined
+            }
             animationDuration={0}
           />
 

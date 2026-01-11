@@ -61,19 +61,9 @@ export function TopSafeAreaProvider({ children }: { children: ReactNode }) {
       activeBanner,
       screenEdges,
     };
-  }, [
-    isDemoMode,
-    hideDemoBanner,
-    isAuthenticated,
-    isOnline,
-    insets.top,
-  ]);
+  }, [isDemoMode, hideDemoBanner, isAuthenticated, isOnline, insets.top]);
 
-  return (
-    <TopSafeAreaContext.Provider value={value}>
-      {children}
-    </TopSafeAreaContext.Provider>
-  );
+  return <TopSafeAreaContext.Provider value={value}>{children}</TopSafeAreaContext.Provider>;
 }
 
 /**
