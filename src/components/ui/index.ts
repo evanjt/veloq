@@ -41,3 +41,4 @@ export {
 export { ChartErrorBoundary } from './ChartErrorBoundary';
 export { ComponentErrorBoundary } from './ComponentErrorBoundary';
 export { CollapsibleSection } from './CollapsibleSection';
+export { ScreenSafeAreaView } from './ScreenSafeAreaView';

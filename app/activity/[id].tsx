@@ -12,7 +12,8 @@ import {
   Alert,
 } from 'react-native';
 import { Text, IconButton, ActivityIndicator } from 'react-native-paper';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ScreenSafeAreaView } from '@/components/ui';
 import { useLocalSearchParams, router, type Href } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -260,24 +261,24 @@ export default function ActivityDetailScreen() {
 
   if (isLoading) {
     return (
-      <SafeAreaView style={[styles.container, isDark && styles.containerDark]}>
+      <ScreenSafeAreaView style={[styles.container, isDark && styles.containerDark]}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
         </View>
-      </SafeAreaView>
+      </ScreenSafeAreaView>
     );
   }
 
   if (error || !activity) {
     return (
-      <SafeAreaView style={[styles.container, isDark && styles.containerDark]}>
+      <ScreenSafeAreaView style={[styles.container, isDark && styles.containerDark]}>
         <View style={[styles.floatingHeader, { paddingTop: insets.top }]}>
           <IconButton icon="arrow-left" iconColor="#FFFFFF" onPress={() => router.back()} />
         </View>
         <View style={styles.loadingContainer}>
           <Text style={styles.errorText}>{t('activityDetail.failedToLoad')}</Text>
         </View>
-      </SafeAreaView>
+      </ScreenSafeAreaView>
     );
   }
 

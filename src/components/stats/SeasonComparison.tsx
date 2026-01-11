@@ -103,8 +103,24 @@ export function SeasonComparison({
     return Math.max(...data.flatMap((d) => [d.current, d.previous]));
   }, [data]);
 
-  const currentYear = new Date().getFullYear();
-  const previousYear = currentYear - 1;
+  // Labels for rolling 12-month periods
+  const now = new Date();
+  const oneYearAgo = new Date(now);
+  oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+  const twoYearsAgo = new Date(now);
+  twoYearsAgo.setFullYear(twoYearsAgo.getFullYear() - 2);
+
+  // Format as "Jan '25 - Jan '26" style labels
+  const formatPeriodLabel = (start: Date, end: Date) => {
+    const startMonth = start.toLocaleDateString('en-US', { month: 'short' });
+    const startYear = start.getFullYear().toString().slice(-2);
+    const endMonth = end.toLocaleDateString('en-US', { month: 'short' });
+    const endYear = end.getFullYear().toString().slice(-2);
+    return `${startMonth} '${startYear}-${endMonth} '${endYear}`;
+  };
+
+  const currentPeriodLabel = formatPeriodLabel(oneYearAgo, now);
+  const previousPeriodLabel = formatPeriodLabel(twoYearsAgo, oneYearAgo);
 
   // Calculate totals - round to 1 decimal place
   const totals = useMemo(() => {
@@ -117,12 +133,37 @@ export function SeasonComparison({
 
   const barWidth = 8;
   const barGap = 2;
-  const groupGap = 4;
 
   const metricLabels = {
     hours: { label: t('stats.hours'), unit: 'h' },
     distance: { label: t('activity.distance'), unit: 'km' },
     tss: { label: t('stats.tss'), unit: '' },
+  };
+
+  // Current month for highlighting
+  const currentMonth = now.getMonth();
+
+  // Determine bar colors based on which calendar year the month falls in
+  // For rolling periods, months after currentMonth are from the "older" year
+  // Months up to currentMonth are from the "newer" year
+  const getBarColor = (monthIdx: number, isPrevious: boolean) => {
+    const isNewerYear = monthIdx <= currentMonth;
+
+    if (isPrevious) {
+      // Previous period: use blue tones
+      // Newer year (e.g., 2025 portion) = brighter blue
+      // Older year (e.g., 2024 portion) = muted blue
+      return isNewerYear
+        ? isDark ? 'rgba(100, 149, 237, 0.8)' : 'rgba(70, 130, 220, 0.7)'
+        : isDark ? 'rgba(100, 149, 237, 0.4)' : 'rgba(70, 130, 220, 0.35)';
+    } else {
+      // Current period: use orange/primary tones
+      // Newer year (e.g., 2026 portion) = full primary
+      // Older year (e.g., 2025 portion) = muted primary
+      return isNewerYear
+        ? colors.primary
+        : isDark ? 'rgba(252, 76, 2, 0.5)' : 'rgba(252, 76, 2, 0.6)';
+    }
   };
 
   return (
@@ -157,15 +198,15 @@ export function SeasonComparison({
       <View style={styles.summary}>
         <View style={styles.summaryItem}>
           <View style={[styles.legendDot, { backgroundColor: colors.primary }]} />
-          <Text style={[styles.summaryLabel, isDark && styles.textDark]}>{currentYear}</Text>
+          <Text style={[styles.summaryLabel, isDark && styles.textDark]}>{currentPeriodLabel}</Text>
           <Text style={[styles.summaryValue, isDark && styles.textLight]}>
             {totals.currentTotal}
             {metricLabels[metric].unit}
           </Text>
         </View>
         <View style={styles.summaryItem}>
-          <View style={[styles.legendDot, { backgroundColor: 'rgba(150, 150, 150, 0.5)' }]} />
-          <Text style={[styles.summaryLabel, isDark && styles.textDark]}>{previousYear}</Text>
+          <View style={[styles.legendDot, { backgroundColor: isDark ? 'rgba(100, 149, 237, 0.8)' : 'rgba(70, 130, 220, 0.7)' }]} />
+          <Text style={[styles.summaryLabel, isDark && styles.textDark]}>{previousPeriodLabel}</Text>
           <Text style={[styles.summaryValue, isDark && styles.textLight]}>
             {totals.previousTotal}
             {metricLabels[metric].unit}
@@ -191,38 +232,65 @@ export function SeasonComparison({
           {data.map((d, idx) => {
             const currentHeight = maxValue > 0 ? (d.current / maxValue) * (height - 30) : 0;
             const previousHeight = maxValue > 0 ? (d.previous / maxValue) * (height - 30) : 0;
+            const isCurrentMonth = idx === currentMonth;
 
             return (
               <View key={idx} style={styles.barGroup}>
-                {/* Current year bar */}
+                {/* Current month highlight background */}
+                {isCurrentMonth && (
+                  <View
+                    style={[
+                      styles.currentMonthHighlight,
+                      {
+                        backgroundColor: isDark
+                          ? 'rgba(255, 255, 255, 0.08)'
+                          : 'rgba(252, 76, 2, 0.08)',
+                      },
+                    ]}
+                  />
+                )}
+                {/* Current period bar */}
                 <View
                   style={[
                     styles.bar,
                     {
                       width: barWidth,
                       height: currentHeight,
-                      backgroundColor: colors.primary,
+                      backgroundColor: getBarColor(idx, false),
                       marginRight: barGap,
                     },
                   ]}
                 />
-                {/* Previous year bar */}
+                {/* Previous period bar */}
                 <View
                   style={[
                     styles.bar,
                     {
                       width: barWidth,
                       height: previousHeight,
-                      backgroundColor: isDark
-                        ? 'rgba(150, 150, 150, 0.5)'
-                        : 'rgba(100, 100, 100, 0.3)',
+                      backgroundColor: getBarColor(idx, true),
                     },
                   ]}
                 />
                 {/* Month label */}
-                <Text style={[styles.monthLabel, isDark && styles.textDark]}>
+                <Text
+                  style={[
+                    styles.monthLabel,
+                    isDark && styles.textDark,
+                    isCurrentMonth && styles.currentMonthLabel,
+                  ]}
+                >
                   {d.month.charAt(0)}
                 </Text>
+                {/* Current month indicator dot */}
+                {isCurrentMonth && (
+                  <View
+                    style={[
+                      styles.currentMonthDot,
+                      { backgroundColor: colors.primary },
+                    ]}
+                  />
+                )}
               </View>
             );
           })}
@@ -320,6 +388,25 @@ const styles = StyleSheet.create({
     bottom: -16,
     fontSize: typography.pillLabel.fontSize,
     color: colors.textSecondary,
+  },
+  currentMonthLabel: {
+    fontWeight: '700',
+    color: colors.primary,
+  },
+  currentMonthHighlight: {
+    position: 'absolute',
+    top: -8,
+    bottom: -24,
+    left: -4,
+    right: -4,
+    borderRadius: layout.borderRadiusSm,
+  },
+  currentMonthDot: {
+    position: 'absolute',
+    bottom: -24,
+    width: 4,
+    height: 4,
+    borderRadius: 2,
   },
   emptyState: {
     alignItems: 'center',

@@ -8,7 +8,7 @@ import {
   RefreshControl,
 } from 'react-native';
 import { Text, IconButton, ActivityIndicator } from 'react-native-paper';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { ScreenSafeAreaView } from '@/components/ui';
 import { router, Href } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -35,16 +35,18 @@ export default function TrainingScreen() {
   // Refresh state for pull-to-refresh
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // Fetch activities for the past 2 years (for all comparisons including year-over-year)
-  const currentYear = new Date().getFullYear();
+  // Fetch activities for rolling year comparison (last 24 months)
+  const today = new Date();
+  const twoYearsAgo = new Date(today);
+  twoYearsAgo.setFullYear(twoYearsAgo.getFullYear() - 2);
   const {
     data: activities,
     isLoading,
     isFetching,
     refetch,
   } = useActivities({
-    oldest: `${currentYear - 1}-01-01`,
-    newest: `${currentYear}-12-31`,
+    oldest: twoYearsAgo.toISOString().split('T')[0],
+    newest: today.toISOString().split('T')[0],
     includeStats: true,
   });
 
@@ -61,27 +63,35 @@ export default function TrainingScreen() {
   });
   const { progress: routeProgress, isProcessing: isRouteProcessing } = useRouteProcessing();
 
-  // Split activities by year for season comparison
+  // Split activities by rolling year for season comparison
+  // Current period: last 12 months ending today
+  // Previous period: the 12 months before that
   const { currentYearActivities, previousYearActivities } = useMemo(() => {
     if (!activities) return { currentYearActivities: [], previousYearActivities: [] };
+
+    const now = new Date();
+    const oneYearAgo = new Date(now);
+    oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+    const twoYearsAgo = new Date(now);
+    twoYearsAgo.setFullYear(twoYearsAgo.getFullYear() - 2);
 
     const current: typeof activities = [];
     const previous: typeof activities = [];
 
     for (const activity of activities) {
-      const year = new Date(activity.start_date_local).getFullYear();
-      if (year === currentYear) {
+      const activityDate = new Date(activity.start_date_local);
+      if (activityDate >= oneYearAgo && activityDate <= now) {
         current.push(activity);
-      } else if (year === currentYear - 1) {
+      } else if (activityDate >= twoYearsAgo && activityDate < oneYearAgo) {
         previous.push(activity);
       }
     }
 
     return { currentYearActivities: current, previousYearActivities: previous };
-  }, [activities, currentYear]);
+  }, [activities]);
 
   return (
-    <SafeAreaView style={[styles.container, isDark && styles.containerDark]}>
+    <ScreenSafeAreaView style={[styles.container, isDark && styles.containerDark]}>
       <View style={styles.header}>
         <IconButton
           icon="arrow-left"
@@ -214,7 +224,7 @@ export default function TrainingScreen() {
           <WorkoutLibrary />
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </ScreenSafeAreaView>
   );
 }
 

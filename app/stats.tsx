@@ -8,7 +8,7 @@ import {
   Linking,
 } from 'react-native';
 import { Text, IconButton, ActivityIndicator } from 'react-native-paper';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { ScreenSafeAreaView } from '@/components/ui';
 import { router } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -129,7 +129,7 @@ export default function StatsScreen() {
   );
 
   return (
-    <SafeAreaView style={[styles.container, isDark && styles.containerDark]}>
+    <ScreenSafeAreaView style={[styles.container, isDark && styles.containerDark]}>
       <View style={styles.header}>
         <IconButton
           icon="arrow-left"
@@ -509,7 +509,7 @@ export default function StatsScreen() {
           </>
         )}
       </ScrollView>
-    </SafeAreaView>
+    </ScreenSafeAreaView>
   );
 }
 

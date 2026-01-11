@@ -8,7 +8,7 @@ import {
   RefreshControl,
 } from 'react-native';
 import { Text, IconButton, ActivityIndicator } from 'react-native-paper';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { ScreenSafeAreaView } from '@/components/ui';
 import { router } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { useSharedValue } from 'react-native-reanimated';
@@ -132,7 +132,7 @@ export default function FitnessScreen() {
   // Only show full loading on initial load (no data yet)
   if (isLoading && !wellness) {
     return (
-      <SafeAreaView style={[styles.container, isDark && styles.containerDark]}>
+      <ScreenSafeAreaView style={[styles.container, isDark && styles.containerDark]}>
         <View style={styles.header}>
           <IconButton
             icon="arrow-left"
@@ -150,7 +150,7 @@ export default function FitnessScreen() {
             {t('fitnessScreen.loadingData')}
           </Text>
         </View>
-      </SafeAreaView>
+      </ScreenSafeAreaView>
     );
   }
 
@@ -163,7 +163,7 @@ export default function FitnessScreen() {
       axiosError?.code === 'ETIMEDOUT';
 
     return (
-      <SafeAreaView style={[styles.container, isDark && styles.containerDark]}>
+      <ScreenSafeAreaView style={[styles.container, isDark && styles.containerDark]}>
         <View style={styles.header}>
           <IconButton
             icon="arrow-left"
@@ -182,12 +182,12 @@ export default function FitnessScreen() {
             <ErrorStatePreset message={t('fitnessScreen.failedToLoad')} onRetry={() => refetch()} />
           )}
         </View>
-      </SafeAreaView>
+      </ScreenSafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={[styles.container, isDark && styles.containerDark]}>
+    <ScreenSafeAreaView style={[styles.container, isDark && styles.containerDark]}>
       {/* Header */}
       <View style={styles.header}>
         <IconButton
@@ -424,7 +424,7 @@ export default function FitnessScreen() {
           </View>
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </ScreenSafeAreaView>
   );
 }
 

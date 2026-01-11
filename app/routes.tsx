@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { View, StyleSheet, useColorScheme } from 'react-native';
 import { Text, IconButton } from 'react-native-paper';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { ScreenSafeAreaView } from '@/components/ui';
 import { router } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -235,7 +235,7 @@ export default function RoutesScreen() {
   // Show disabled state if route matching is not enabled
   if (!isRouteMatchingEnabled) {
     return (
-      <SafeAreaView style={[styles.container, isDark && styles.containerDark]}>
+      <ScreenSafeAreaView style={[styles.container, isDark && styles.containerDark]}>
         <View style={styles.header}>
           <IconButton
             icon="arrow-left"
@@ -270,12 +270,12 @@ export default function RoutesScreen() {
             {t('routesScreen.goToSettings')}
           </Text>
         </View>
-      </SafeAreaView>
+      </ScreenSafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={[styles.container, isDark && styles.containerDark]}>
+    <ScreenSafeAreaView style={[styles.container, isDark && styles.containerDark]}>
       <View style={styles.header}>
         <IconButton
           icon="arrow-left"
@@ -308,7 +308,7 @@ export default function RoutesScreen() {
         <RoutesList onRefresh={() => refetch()} isRefreshing={isRefetching} />
         <SectionsList />
       </SwipeableTabs>
-    </SafeAreaView>
+    </ScreenSafeAreaView>
   );
 }
 

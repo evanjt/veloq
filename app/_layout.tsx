@@ -20,6 +20,7 @@ import {
   QueryProvider,
   MapPreferencesProvider,
   NetworkProvider,
+  TopSafeAreaProvider,
   initializeTheme,
   useAuthStore,
   initializeSportPreference,
@@ -188,20 +189,21 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <QueryProvider>
         <NetworkProvider>
-          <MapPreferencesProvider>
-            <PaperProvider theme={theme}>
-              <StatusBar
-                style={colorScheme === 'dark' ? 'light' : 'dark'}
-                translucent={Platform.OS === 'ios'}
-                hidden={SCREENSHOT_MODE}
-                animated
-              />
-              <AuthGate>
-                <OfflineBanner />
-                <GlobalDataSync />
-                <DemoBanner />
-                <CacheLoadingBanner />
-                <Stack
+          <TopSafeAreaProvider>
+            <MapPreferencesProvider>
+              <PaperProvider theme={theme}>
+                <StatusBar
+                  style={colorScheme === 'dark' ? 'light' : 'dark'}
+                  translucent={Platform.OS === 'ios'}
+                  hidden={SCREENSHOT_MODE}
+                  animated
+                />
+                <AuthGate>
+                  <OfflineBanner />
+                  <GlobalDataSync />
+                  <DemoBanner />
+                  <CacheLoadingBanner />
+                  <Stack
                   screenOptions={{
                     headerShown: false,
                     // iOS: Use default animation for native feel with gesture support
@@ -215,9 +217,10 @@ export default function RootLayout() {
                     headerTransparent: Platform.OS === 'ios',
                   }}
                 />
-              </AuthGate>
-            </PaperProvider>
-          </MapPreferencesProvider>
+                </AuthGate>
+              </PaperProvider>
+            </MapPreferencesProvider>
+          </TopSafeAreaProvider>
         </NetworkProvider>
       </QueryProvider>
     </GestureHandlerRootView>

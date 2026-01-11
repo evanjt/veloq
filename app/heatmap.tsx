@@ -6,7 +6,8 @@
 import React, { useState, useCallback, useRef, useMemo } from 'react';
 import { View, StyleSheet, useColorScheme, TouchableOpacity } from 'react-native';
 import { Text, IconButton } from 'react-native-paper';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ScreenSafeAreaView } from '@/components/ui';
 import { router } from 'expo-router';
 import { MapView, Camera } from '@maplibre/maplibre-react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -105,7 +106,7 @@ export default function HeatmapScreen() {
   // Show empty state if no data
   if (!hasData) {
     return (
-      <SafeAreaView style={[styles.container, isDark && styles.containerDark]}>
+      <ScreenSafeAreaView style={[styles.container, isDark && styles.containerDark]}>
         <View style={styles.header}>
           <IconButton
             icon="arrow-left"
@@ -134,7 +135,7 @@ export default function HeatmapScreen() {
             <Text style={styles.emptyButtonText}>{t('heatmapScreen.goToRoutes')}</Text>
           </TouchableOpacity>
         </View>
-      </SafeAreaView>
+      </ScreenSafeAreaView>
     );
   }
 

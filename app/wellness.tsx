@@ -10,7 +10,7 @@ import {
   Pressable,
 } from 'react-native';
 import { Text, IconButton, ActivityIndicator } from 'react-native-paper';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { ScreenSafeAreaView } from '@/components/ui';
 import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { WellnessDashboard, WellnessTrendsChart } from '@/components/wellness';
@@ -51,7 +51,7 @@ export default function WellnessScreen() {
 
   if (showFullPageLoading) {
     return (
-      <SafeAreaView style={[styles.container, isDark && styles.containerDark]}>
+      <ScreenSafeAreaView style={[styles.container, isDark && styles.containerDark]}>
         <View style={styles.header}>
           <IconButton
             icon="arrow-left"
@@ -66,12 +66,12 @@ export default function WellnessScreen() {
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
         </View>
-      </SafeAreaView>
+      </ScreenSafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={[styles.container, isDark && styles.containerDark]}>
+    <ScreenSafeAreaView style={[styles.container, isDark && styles.containerDark]}>
       <View style={styles.header}>
         <IconButton
           icon="arrow-left"
@@ -218,7 +218,7 @@ export default function WellnessScreen() {
           </View>
         </Pressable>
       </Modal>
-    </SafeAreaView>
+    </ScreenSafeAreaView>
   );
 }
 

@@ -8,7 +8,7 @@ import {
   useColorScheme,
   Linking,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { ScreenSafeAreaView } from '@/components/ui';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -53,7 +53,7 @@ export default function AboutScreen() {
   const isDark = colorScheme === 'dark';
 
   return (
-    <SafeAreaView testID="about-screen" style={[styles.container, isDark && styles.containerDark]}>
+    <ScreenSafeAreaView testID="about-screen" style={[styles.container, isDark && styles.containerDark]}>
       <ScrollView contentContainerStyle={styles.content}>
         {/* Header with back button */}
         <View style={styles.header}>
@@ -207,7 +207,7 @@ export default function AboutScreen() {
           </Text>
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </ScreenSafeAreaView>
   );
 }
 
