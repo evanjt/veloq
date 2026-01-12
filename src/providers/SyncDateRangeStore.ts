@@ -39,6 +39,12 @@ interface SyncDateRangeState {
    * This prevents race conditions where old cached data triggers unwanted expansion.
    */
   isExpansionLocked: boolean;
+  /**
+   * Generation counter for sync operations.
+   * Incremented on reset to invalidate in-flight fetches.
+   * Sync operations capture this at start and check before adding results.
+   */
+  syncGeneration: number;
 
   /** Update the sync date range - expands to include requested range */
   expandRange: (oldest: string, newest: string) => void;
@@ -52,6 +58,8 @@ interface SyncDateRangeState {
   setGpsSyncProgress: (progress: GpsSyncProgress) => void;
   /** Unlock expansion (called after initial sync completes) */
   unlockExpansion: () => void;
+  /** Unlock expansion after a delay (prevents race conditions with UI updates) */
+  delayedUnlockExpansion: () => void;
 }
 
 function getDefaultRange() {
@@ -71,6 +79,14 @@ const defaultGpsSyncProgress: GpsSyncProgress = {
   message: '',
 };
 
+/**
+ * Get current sync generation (for use outside React components).
+ * Sync operations should capture this at start and check before adding results.
+ */
+export function getSyncGeneration(): number {
+  return useSyncDateRange.getState().syncGeneration;
+}
+
 export const useSyncDateRange = create<SyncDateRangeState>((set, get) => ({
   ...getDefaultRange(),
   isFetchingExtended: false,
@@ -79,6 +95,7 @@ export const useSyncDateRange = create<SyncDateRangeState>((set, get) => ({
   isGpsSyncing: false,
   lastSyncTimestamp: null,
   isExpansionLocked: false,
+  syncGeneration: 0,
 
   expandRange: (requestedOldest: string, requestedNewest: string) => {
     const current = get();
@@ -112,14 +129,18 @@ export const useSyncDateRange = create<SyncDateRangeState>((set, get) => ({
 
   reset: () => {
     const range = getDefaultRange();
+    const current = get();
+    const newGeneration = current.syncGeneration + 1;
     console.log(
-      `[SyncDateRange] Reset to 90 days (${range.oldest} - ${range.newest}), expansion LOCKED`
+      `[SyncDateRange] Reset to 90 days (${range.oldest} - ${range.newest}), ` +
+        `expansion LOCKED, generation ${current.syncGeneration} -> ${newGeneration}`
     );
     set({
       ...range,
       isFetchingExtended: false,
       hasExpanded: false,
       isExpansionLocked: true, // Lock expansion until initial sync completes
+      syncGeneration: newGeneration, // Invalidate in-flight fetches
     });
   },
 
@@ -132,7 +153,6 @@ export const useSyncDateRange = create<SyncDateRangeState>((set, get) => ({
   },
 
   setGpsSyncProgress: (progress: GpsSyncProgress) => {
-    const current = get();
     const isSyncing =
       progress.status === 'fetching' ||
       progress.status === 'processing' ||
@@ -142,13 +162,10 @@ export const useSyncDateRange = create<SyncDateRangeState>((set, get) => ({
       isGpsSyncing: isSyncing,
     };
     // Track timestamp when sync completes successfully
+    // Note: Don't auto-unlock expansion here - let GlobalDataSync call delayedUnlockExpansion
+    // to prevent race conditions with UI updates
     if (progress.status === 'complete') {
       updates.lastSyncTimestamp = new Date().toISOString();
-      // Unlock expansion after first successful sync completes
-      if (current.isExpansionLocked) {
-        updates.isExpansionLocked = false;
-        console.log('[SyncDateRange] Expansion UNLOCKED after sync complete');
-      }
     }
     set(updates);
   },
@@ -156,5 +173,16 @@ export const useSyncDateRange = create<SyncDateRangeState>((set, get) => ({
   unlockExpansion: () => {
     console.log('[SyncDateRange] Expansion manually UNLOCKED');
     set({ isExpansionLocked: false });
+  },
+
+  delayedUnlockExpansion: () => {
+    // Delay unlock to allow UI to stabilize after sync
+    setTimeout(() => {
+      const state = get();
+      if (state.isExpansionLocked) {
+        console.log('[SyncDateRange] Expansion UNLOCKED after delay');
+        set({ isExpansionLocked: false });
+      }
+    }, 500);
   },
 }));

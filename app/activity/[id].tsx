@@ -57,26 +57,27 @@ import type { ChartTypeId } from '@/lib';
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const MAP_HEIGHT = Math.round(SCREEN_HEIGHT * 0.42); // 42% of screen - better data visibility
 
-// Chart presets by activity type (defined outside component to avoid recreation)
-const CHART_PRESETS: Record<string, ChartTypeId[]> = {
-  Ride: ['power', 'heartrate', 'cadence', 'speed'],
-  VirtualRide: ['power', 'heartrate', 'cadence', 'speed'],
-  MountainBikeRide: ['power', 'heartrate', 'cadence', 'elevation'],
-  GravelRide: ['power', 'heartrate', 'cadence', 'speed'],
-  EBikeRide: ['power', 'heartrate', 'cadence', 'speed'],
-  Run: ['pace', 'heartrate', 'cadence', 'elevation'],
-  VirtualRun: ['pace', 'heartrate', 'cadence'],
-  TrailRun: ['pace', 'heartrate', 'elevation'],
-  Swim: ['pace', 'heartrate', 'speed'],
-  OpenWaterSwim: ['pace', 'heartrate'],
-  Walk: ['speed', 'heartrate', 'elevation'],
-  Hike: ['speed', 'heartrate', 'elevation'],
-  Workout: ['heartrate', 'power'],
-  WeightTraining: ['heartrate'],
-  Yoga: ['heartrate'],
-  Rowing: ['power', 'heartrate', 'cadence'],
-  Kayaking: ['speed', 'heartrate'],
-  Canoeing: ['speed', 'heartrate'],
+// Default chart by activity type - single most useful metric
+// Power for cycling (objective training metric), HR for running (consistent across terrain), pace for swimming
+const DEFAULT_CHART: Record<string, ChartTypeId> = {
+  Ride: 'power',
+  VirtualRide: 'power',
+  MountainBikeRide: 'power',
+  GravelRide: 'power',
+  EBikeRide: 'power',
+  Run: 'heartrate',
+  VirtualRun: 'heartrate',
+  TrailRun: 'heartrate',
+  Swim: 'pace',
+  OpenWaterSwim: 'pace',
+  Walk: 'heartrate',
+  Hike: 'heartrate',
+  Workout: 'heartrate',
+  WeightTraining: 'heartrate',
+  Yoga: 'heartrate',
+  Rowing: 'power',
+  Kayaking: 'heartrate',
+  Canoeing: 'heartrate',
 };
 
 export default function ActivityDetailScreen() {
@@ -163,21 +164,15 @@ export default function ActivityDetailScreen() {
     return getAvailableCharts(streams || {});
   }, [streams]);
 
-  // Initialize selected charts with smart presets when data loads
+  // Initialize with single default chart when data loads
   useEffect(() => {
     if (!chartsInitialized && availableCharts.length > 0 && activity) {
-      // Get preset for this activity type
-      const preset = CHART_PRESETS[activity.type];
-      if (preset) {
-        // Filter preset to only include charts that are available
-        const validPreset = preset.filter((id) => availableCharts.some((c) => c.id === id));
-        // Use preset if at least one chart is available, otherwise fallback to first available
-        const initialCharts = validPreset.length > 0 ? validPreset : [availableCharts[0].id];
-        setSelectedCharts(initialCharts);
-      } else {
-        // No preset for this activity type, use first available
-        setSelectedCharts([availableCharts[0].id]);
-      }
+      // Get default chart for this activity type
+      const defaultChart = DEFAULT_CHART[activity.type];
+      const isDefaultAvailable = defaultChart && availableCharts.some((c) => c.id === defaultChart);
+      // Use default if available, otherwise first available chart
+      const initialChart = isDefaultAvailable ? defaultChart : availableCharts[0].id;
+      setSelectedCharts([initialChart]);
       setChartsInitialized(true);
     }
   }, [availableCharts, chartsInitialized, activity]);
@@ -374,7 +369,7 @@ export default function ActivityDetailScreen() {
                   accessibilityLabel="Chart display options"
                   accessibilityRole="button"
                 >
-                  <MaterialCommunityIcons name="cog" size={20} color={isDark ? '#FFF' : '#333'} />
+                  <MaterialCommunityIcons name="cog" size={16} color={isDark ? '#FFF' : '#333'} />
                 </TouchableOpacity>
                 <View style={styles.chartSelectorContainer}>
                   <ChartTypeSelector
@@ -392,7 +387,7 @@ export default function ActivityDetailScreen() {
                 >
                   <MaterialCommunityIcons
                     name="fullscreen"
-                    size={20}
+                    size={16}
                     color={isDark ? '#FFF' : '#333'}
                   />
                 </TouchableOpacity>
@@ -609,33 +604,22 @@ export default function ActivityDetailScreen() {
         <GestureHandlerRootView style={{ flex: 1 }}>
           <StatusBar hidden />
           <View style={[styles.fullscreenContainer, isDark && styles.fullscreenContainerDark]}>
-            {/* Close button */}
+            {/* Close button - positioned with safe area insets for landscape */}
             <TouchableOpacity
-              style={styles.fullscreenCloseButton}
+              style={[styles.fullscreenCloseButton, { top: Math.max(insets.top, insets.left, 16) + 8 }]}
               onPress={closeChartFullscreen}
               activeOpacity={0.7}
             >
               <MaterialCommunityIcons name="close" size={24} color={isDark ? '#FFF' : '#333'} />
             </TouchableOpacity>
 
-            {/* Chart type selector in fullscreen */}
-            <View style={styles.fullscreenControls}>
-              <TouchableOpacity
-                style={[styles.fullscreenExpandButton, isDark && styles.expandButtonDark]}
-                onPress={() => setChartsExpanded(!chartsExpanded)}
-                activeOpacity={0.7}
-                accessibilityLabel="Chart options"
-                accessibilityRole="button"
-              >
-                <MaterialCommunityIcons name="cog" size={20} color={isDark ? '#FFF' : '#333'} />
-              </TouchableOpacity>
-              <View style={styles.chartSelectorContainer}>
-                <ChartTypeSelector
-                  available={availableCharts}
-                  selected={selectedCharts}
-                  onToggle={handleChartToggle}
-                />
-              </View>
+            {/* Chart type selector in fullscreen - centered, no config button needed */}
+            <View style={[styles.fullscreenControls, { paddingTop: Math.max(insets.top, insets.left, 16) + 8 }]}>
+              <ChartTypeSelector
+                available={availableCharts}
+                selected={selectedCharts}
+                onToggle={handleChartToggle}
+              />
             </View>
 
             {/* Chart area - proper landscape sizing */}
@@ -803,8 +787,8 @@ const styles = StyleSheet.create({
     marginHorizontal: spacing.xs,
   },
   expandButton: {
-    width: 44, // Accessibility minimum
-    height: 44, // Accessibility minimum
+    width: 28,
+    height: 28,
     borderRadius: layout.borderRadius,
     backgroundColor: opacity.overlay.light,
     justifyContent: 'center',
@@ -872,8 +856,8 @@ const styles = StyleSheet.create({
 
   // Fullscreen button
   fullscreenButton: {
-    width: 44, // Accessibility minimum
-    height: 44, // Accessibility minimum
+    width: 28,
+    height: 28,
     borderRadius: layout.borderRadius,
     backgroundColor: opacity.overlay.light,
     justifyContent: 'center',
@@ -893,10 +877,9 @@ const styles = StyleSheet.create({
   },
   fullscreenCloseButton: {
     position: 'absolute',
-    top: spacing.md,
     left: spacing.md,
-    width: 44, // Accessibility minimum
-    height: 44, // Accessibility minimum
+    width: 44,
+    height: 44,
     borderRadius: 22,
     backgroundColor: opacity.overlay.medium,
     justifyContent: 'center',
@@ -907,12 +890,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingTop: spacing.sm,
     paddingBottom: spacing.xs,
   },
   fullscreenExpandButton: {
-    width: 44, // Accessibility minimum
-    height: 44, // Accessibility minimum
+    width: 28,
+    height: 28,
     borderRadius: layout.borderRadius,
     backgroundColor: opacity.overlay.light,
     justifyContent: 'center',

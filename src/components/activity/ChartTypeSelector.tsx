@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity, useColorScheme, Text } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, useColorScheme, Text } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors, typography, layout, spacing } from '@/theme';
 import type { ChartConfig } from '@/lib';
@@ -31,12 +31,9 @@ export function ChartTypeSelector({ available, selected, onToggle }: ChartTypeSe
     return null;
   }
 
+  // Use flexWrap instead of horizontal scroll to avoid gesture conflict with tab swipe
   return (
-    <ScrollView
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      contentContainerStyle={styles.scrollContent}
-    >
+    <View style={styles.container}>
       {available.map((config) => {
         const isSelected = selected.includes(config.id);
         // Use full color when selected, faded color when unselected
@@ -55,13 +52,14 @@ export function ChartTypeSelector({ available, selected, onToggle }: ChartTypeSe
           </TouchableOpacity>
         );
       })}
-    </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  scrollContent: {
+  container: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
     gap: 6,
   },

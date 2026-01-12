@@ -300,25 +300,30 @@ export default function SettingsScreen() {
         style: 'destructive',
         onPress: async () => {
           try {
-            // Clear GPS/bounds cache and route cache
-            await clearCache();
-            await clearRouteCache();
-
-            // Clear TanStack Query cache (in-memory and persisted)
-            queryClient.clear();
-            await AsyncStorage.removeItem('veloq-query-cache');
-
-            // Reset sync date range to default 90 days
+            // 1. FIRST: Reset sync date range to 90 days (locks expansion)
             resetSyncDateRange();
 
-            // Reset local slider state to 90 days
+            // 2. Reset local slider state to 90 days
             const today = new Date();
             const ninetyDaysAgo = new Date(today);
             ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
             setStartDate(ninetyDaysAgo);
             setEndDate(today);
 
-            // Refetch all core queries in background
+            // 3. Clear GPS/bounds cache and route cache
+            // Note: clearCache() already calls engine.clear(), so don't call clearRouteCache()
+            // as that would emit a second 'syncReset' event and trigger duplicate syncs
+            await clearCache();
+
+            // 4. REMOVE queries entirely (not just clear) - prevents old date ranges persisting
+            queryClient.removeQueries({ queryKey: ['activities'] });
+            queryClient.removeQueries({ queryKey: ['wellness'] });
+            queryClient.removeQueries({ queryKey: ['powerCurve'] });
+            queryClient.removeQueries({ queryKey: ['paceCurve'] });
+            queryClient.removeQueries({ queryKey: ['athlete'] });
+            await AsyncStorage.removeItem('veloq-query-cache');
+
+            // 5. Refetch with new 90-day range
             // Note: GlobalDataSync automatically triggers GPS sync when activities are refetched
             queryClient.refetchQueries({ queryKey: ['activities'] });
             queryClient.refetchQueries({ queryKey: ['wellness'] });

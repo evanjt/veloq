@@ -224,6 +224,10 @@ export function useActivityBoundsCache(
     };
   }, [activityCount, activitiesWithDates, progress.status, lastSyncTimestamp]);
 
+  // Get current sync date range to filter activities
+  const syncOldest = useSyncDateRange((s) => s.oldest);
+  const syncNewest = useSyncDateRange((s) => s.newest);
+
   // Get all activities with GPS from TanStack Query cache for date range
   // Note: Query key is ['activities', oldest, newest, stats], so we use getQueriesData
   // with partial key matching to find all activity queries
@@ -238,18 +242,27 @@ export function useActivityBoundsCache(
     const allActivities: Activity[] = [];
     const seenIds = new Set<string>();
 
+    // Filter by current sync date range to prevent old cached activities from being used
+    const oldestDate = new Date(syncOldest);
+    const newestDate = new Date(syncNewest);
+    newestDate.setHours(23, 59, 59, 999); // Include full day
+
     for (const [_key, data] of queries) {
       if (!data) continue;
       for (const activity of data) {
         if (!seenIds.has(activity.id)) {
           seenIds.add(activity.id);
-          allActivities.push(activity);
+          // Only include activities within current sync date range
+          const activityDate = new Date(activity.start_date_local);
+          if (activityDate >= oldestDate && activityDate <= newestDate) {
+            allActivities.push(activity);
+          }
         }
       }
     }
 
     return allActivities.filter((a) => a.stream_types?.includes('latlng'));
-  }, [queryClient, cachedActivitiesVersion]);
+  }, [queryClient, cachedActivitiesVersion, syncOldest, syncNewest]);
 
   // Get activities with bounds from engine for map display
   const activities = useMemo<ActivityBoundsItem[]>(() => {

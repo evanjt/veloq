@@ -50,7 +50,7 @@ export interface ChartConfig {
   formatValue?: (value: number, metric: boolean) => string;
 }
 
-/** Chart configuration registry */
+/** Chart configuration registry - labels kept short for compact chip display */
 export const CHART_CONFIGS: Record<ChartTypeId, ChartConfig> = {
   power: {
     id: 'power',
@@ -58,20 +58,29 @@ export const CHART_CONFIGS: Record<ChartTypeId, ChartConfig> = {
     icon: 'lightning-bolt',
     color: '#FC4C02',
     streamKey: 'watts',
+    unit: 'W',
+    getStream: (streams) => streams.watts,
+    formatValue: (v) => Math.round(v).toString(),
   },
   heartrate: {
     id: 'heartrate',
-    label: 'Heart Rate',
+    label: 'HR',
     icon: 'heart-pulse',
     color: '#E63946',
     streamKey: 'heartrate',
+    unit: 'bpm',
+    getStream: (streams) => streams.heartrate,
+    formatValue: (v) => Math.round(v).toString(),
   },
   cadence: {
     id: 'cadence',
-    label: 'Cadence',
+    label: 'Cad',
     icon: 'rotate-3d',
     color: '#F4A261',
     streamKey: 'cadence',
+    unit: 'rpm',
+    getStream: (streams) => streams.cadence,
+    formatValue: (v) => Math.round(v).toString(),
   },
   speed: {
     id: 'speed',
@@ -79,38 +88,76 @@ export const CHART_CONFIGS: Record<ChartTypeId, ChartConfig> = {
     icon: 'speedometer',
     color: '#2A9D8F',
     streamKey: 'velocity_smooth',
+    unit: 'km/h',
+    unitImperial: 'mph',
+    // velocity_smooth is in m/s, convert to km/h (* 3.6)
+    getStream: (streams) => streams.velocity_smooth?.map((v) => v * 3.6),
+    convertToImperial: (v) => v * 0.621371, // km/h to mph
+    formatValue: (v) => v.toFixed(1),
   },
   pace: {
     id: 'pace',
     label: 'Pace',
     icon: 'clock-outline',
     color: '#264653',
+    unit: '/km',
+    unitImperial: '/mi',
+    // Pace is derived from velocity_smooth (m/s -> min/km or min/mi)
+    getStream: (streams) => {
+      if (!streams.velocity_smooth) return undefined;
+      return streams.velocity_smooth.map((v) => (v > 0 ? 1000 / v / 60 : 0));
+    },
+    convertToImperial: (v) => v * 1.60934, // min/km to min/mi
+    formatValue: (v) => {
+      const mins = Math.floor(v);
+      const secs = Math.round((v - mins) * 60);
+      return `${mins}:${secs.toString().padStart(2, '0')}`;
+    },
   },
   elevation: {
     id: 'elevation',
-    label: 'Elevation',
+    label: 'Elev',
     icon: 'terrain',
     color: '#8B7355',
     streamKey: 'altitude',
+    unit: 'm',
+    unitImperial: 'ft',
+    getStream: (streams) => streams.altitude,
+    convertToImperial: (v) => v * 3.28084,
+    formatValue: (v) => Math.round(v).toString(),
   },
   distance: {
     id: 'distance',
-    label: 'Distance',
+    label: 'Dist',
     icon: 'map-marker-distance',
     color: '#457B9D',
+    unit: 'km',
+    unitImperial: 'mi',
+    getStream: (streams) => streams.distance?.map((d) => d / 1000),
+    convertToImperial: (v) => v * 0.621371,
+    formatValue: (v) => v.toFixed(2),
   },
   altitude: {
     id: 'altitude',
-    label: 'Altitude',
+    label: 'Alt',
     icon: 'image-filter-hdr',
     color: '#8B7355',
     streamKey: 'altitude',
+    unit: 'm',
+    unitImperial: 'ft',
+    getStream: (streams) => streams.altitude,
+    convertToImperial: (v) => v * 3.28084,
+    formatValue: (v) => Math.round(v).toString(),
   },
   temp: {
     id: 'temp',
-    label: 'Temperature',
+    label: 'Temp',
     icon: 'thermometer',
     color: '#E76F51',
+    unit: '°C',
+    unitImperial: '°F',
+    convertToImperial: (v) => v * 1.8 + 32,
+    formatValue: (v) => Math.round(v).toString(),
   },
   watts: {
     id: 'watts',
@@ -118,6 +165,9 @@ export const CHART_CONFIGS: Record<ChartTypeId, ChartConfig> = {
     icon: 'lightning-bolt',
     color: '#FC4C02',
     streamKey: 'watts',
+    unit: 'W',
+    getStream: (streams) => streams.watts,
+    formatValue: (v) => Math.round(v).toString(),
   },
   moving_time: {
     id: 'moving_time',
@@ -133,25 +183,42 @@ export const CHART_CONFIGS: Record<ChartTypeId, ChartConfig> = {
   },
 };
 
+// Primary chart types to show in selector (excludes duplicates like watts/altitude)
+const PRIMARY_CHART_IDS: ChartTypeId[] = [
+  'power',
+  'heartrate',
+  'cadence',
+  'speed',
+  'pace',
+  'elevation',
+];
+
 /**
  * Get available chart types based on activity streams
+ * Only returns primary charts that have actual data to display
  */
 export function getAvailableCharts(streams: ActivityStreams): ChartConfig[] {
   const available: ChartConfig[] = [];
 
-  // Check each chart type
-  Object.values(CHART_CONFIGS).forEach((config) => {
-    // If stream key is defined, check if data exists
-    if (config.streamKey) {
-      const data = streams[config.streamKey as keyof ActivityStreams];
+  // Only check primary chart types (excludes duplicates like watts, altitude)
+  for (const chartId of PRIMARY_CHART_IDS) {
+    const config = CHART_CONFIGS[chartId];
+    if (!config) continue;
+
+    // Use getStream to check if data exists
+    if (config.getStream) {
+      const data = config.getStream(streams);
       if (data && data.length > 0) {
         available.push(config);
       }
-    } else {
-      // Chart types without stream key (derived metrics) are always available
-      available.push(config);
+    } else if (config.streamKey) {
+      // Fallback to streamKey check
+      const data = streams[config.streamKey as keyof ActivityStreams];
+      if (data && Array.isArray(data) && data.length > 0) {
+        available.push(config);
+      }
     }
-  });
+  }
 
   return available;
 }
