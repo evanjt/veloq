@@ -13,7 +13,6 @@ import { getNativeModule } from '@/lib/native/routeEngine';
 import { routeEngine } from 'route-matcher-native';
 import { getStoredCredentials, getSyncGeneration } from '@/providers';
 import { toActivityMetrics } from '@/lib/utils/activityMetrics';
-import { syncActivitiesWithCustomSections } from '@/lib/storage/customSectionSync';
 import type { Activity } from '@/types';
 import type { SyncProgress } from './useRouteSyncProgress';
 
@@ -154,9 +153,6 @@ export function useGpsDataFetcher() {
         const syncedActivities = activities.filter((a) => ids.includes(a.id));
         const metrics = syncedActivities.map(toActivityMetrics);
         routeEngine.setActivityMetrics(metrics);
-
-        // Sync with custom sections (non-blocking)
-        syncActivitiesWithCustomSections(ids).catch(() => {});
 
         // Start section detection and poll for progress
         nativeModule.routeEngine.startSectionDetection();
@@ -402,9 +398,6 @@ export function useGpsDataFetcher() {
             const syncedActivities = activities.filter((a) => ids.includes(a.id));
             const metrics = syncedActivities.map(toActivityMetrics);
             routeEngine.setActivityMetrics(metrics);
-
-            // Sync with custom sections (non-blocking)
-            syncActivitiesWithCustomSections(ids).catch(() => {});
 
             // Start section detection and poll for progress
             nativeModule.routeEngine.startSectionDetection();
