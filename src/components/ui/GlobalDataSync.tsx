@@ -26,6 +26,8 @@ export function GlobalDataSync() {
   const syncOldest = useSyncDateRange((s) => s.oldest);
   const syncNewest = useSyncDateRange((s) => s.newest);
   const setFetchingExtended = useSyncDateRange((s) => s.setFetchingExtended);
+  const isExpansionLocked = useSyncDateRange((s) => s.isExpansionLocked);
+  const delayedUnlockExpansion = useSyncDateRange((s) => s.delayedUnlockExpansion);
 
   // Fetch activities for GPS sync using dynamic date range
   // When user extends timeline past 90 days, this will fetch older data
@@ -44,6 +46,13 @@ export function GlobalDataSync() {
   // Use the route data sync hook to automatically sync GPS data
   // This runs globally regardless of which screen the user is on
   const { progress, isSyncing } = useRouteDataSync(activities, routeSettings.enabled);
+
+  // Unlock expansion after sync completes (with delay to let UI stabilize)
+  useEffect(() => {
+    if (progress.status === 'complete' && isExpansionLocked) {
+      delayedUnlockExpansion();
+    }
+  }, [progress.status, isExpansionLocked, delayedUnlockExpansion]);
 
   // Don't show banner on screens that have their own sync indicator
   const isOnMapScreen = routeParts.includes('map' as never);

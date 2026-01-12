@@ -140,7 +140,7 @@ export function useActivity(id: string) {
 
 export function useActivityStreams(id: string) {
   return useQuery({
-    queryKey: ['activity-streams-v2', id],
+    queryKey: ['activity-streams-v3', id],
     queryFn: () =>
       intervalsApi.getActivityStreams(id, [
         'latlng',
@@ -151,6 +151,7 @@ export function useActivityStreams(id: string) {
         'cadence',
         'distance',
         'time',
+        'velocity_smooth',
       ]),
     // Streams NEVER change - infinite staleTime
     staleTime: Infinity,

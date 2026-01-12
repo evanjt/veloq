@@ -19,7 +19,8 @@ import { INTERVALS_URLS } from '@/services/oauth';
 const VELOQ_URLS = {
   github: 'https://github.com/evanjt/veloq',
   license: 'https://github.com/evanjt/veloq/blob/main/LICENSE',
-  privacy: 'https://github.com/evanjt/veloq#privacy-policy',
+  privacy: 'https://veloq.fit/privacy',
+  tracematch: 'https://github.com/evanjt/tracematch',
 };
 
 interface LinkRowProps {
@@ -146,6 +147,13 @@ export default function AboutScreen() {
             icon="github"
             label={t('about.sourceCode')}
             url={VELOQ_URLS.github}
+            isDark={isDark}
+          />
+          <View style={[styles.divider, isDark && styles.dividerDark]} />
+          <LinkRow
+            icon="code-braces"
+            label={t('about.tracematchSource')}
+            url={VELOQ_URLS.tracematch}
             isDark={isDark}
           />
         </View>

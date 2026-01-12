@@ -11,7 +11,7 @@
 import { useCallback } from 'react';
 import { getNativeModule } from '@/lib/native/routeEngine';
 import { routeEngine } from 'route-matcher-native';
-import { getStoredCredentials } from '@/providers';
+import { getStoredCredentials, getSyncGeneration } from '@/providers';
 import { toActivityMetrics } from '@/lib/utils/activityMetrics';
 import { syncActivitiesWithCustomSections } from '@/lib/storage/customSectionSync';
 import type { Activity } from '@/types';
@@ -76,6 +76,9 @@ export function useGpsDataFetcher() {
     async (activities: Activity[], deps: FetchDeps): Promise<GpsFetchResult> => {
       const { isMountedRef, abortSignal, updateProgress } = deps;
 
+      // Capture sync generation at start - results will be discarded if it changes
+      const startGeneration = getSyncGeneration();
+
       // Check for abort before starting
       if (abortSignal.aborted) {
         return { syncedIds: [], withGpsCount: 0, message: 'Cancelled' };
@@ -133,6 +136,17 @@ export function useGpsDataFetcher() {
       }
 
       if (ids.length > 0 && isMountedRef.current) {
+        // Check if sync generation has changed (reset occurred during fetch)
+        const currentGeneration = getSyncGeneration();
+        if (currentGeneration !== startGeneration) {
+          if (__DEV__) {
+            console.log(
+              `[fetchDemoGps] DISCARDING stale results: generation ${startGeneration} -> ${currentGeneration}`
+            );
+          }
+          return { syncedIds: [], withGpsCount: 0, message: 'Sync reset - results discarded' };
+        }
+
         // Add to engine
         await nativeModule.routeEngine.addActivities(ids, allCoords, offsets, sportTypes);
 
@@ -241,8 +255,13 @@ export function useGpsDataFetcher() {
    */
   const fetchApiGps = useCallback(
     async (activities: Activity[], deps: FetchDeps): Promise<GpsFetchResult> => {
+      // Capture sync generation at start - results will be discarded if it changes
+      const startGeneration = getSyncGeneration();
+
       if (__DEV__) {
-        console.log(`[fetchApiGps] Entered with ${activities.length} activities`);
+        console.log(
+          `[fetchApiGps] Entered with ${activities.length} activities, generation=${startGeneration}`
+        );
       }
 
       const { isMountedRef, abortSignal, updateProgress } = deps;
@@ -366,6 +385,17 @@ export function useGpsDataFetcher() {
 
           // Add to engine
           if (ids.length > 0 && isMountedRef.current) {
+            // Check if sync generation has changed (reset occurred during fetch)
+            const currentGeneration = getSyncGeneration();
+            if (currentGeneration !== startGeneration) {
+              if (__DEV__) {
+                console.log(
+                  `[fetchApiGps] DISCARDING stale results: generation ${startGeneration} -> ${currentGeneration}`
+                );
+              }
+              return { syncedIds: [], withGpsCount: 0, message: 'Sync reset - results discarded' };
+            }
+
             await nativeModule.routeEngine.addActivities(ids, allCoords, offsets, sportTypes);
 
             // Sync activity metrics for performance calculations
