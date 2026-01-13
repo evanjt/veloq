@@ -304,12 +304,9 @@ public class RouteMatcherModule: Module {
             let rustElapsed = (CFAbsoluteTimeGetCurrent() - startTime) * 1000
             logger.info("detectSectionsFromTracks Rust: \(result.sections.count) sections, \(result.potentials.count) potentials in \(Int(rustElapsed))ms")
 
-            // Combine sections and potentials into a single JSON result
-            let allSections = result.sections + result.potentials
-
-            // Serialize to JSON for efficient bridge transfer
+            // Serialize confirmed sections to JSON (potentials are not yet validated sections)
             let jsonStart = CFAbsoluteTimeGetCurrent()
-            let jsonResult = self.sectionsToJson(allSections)
+            let jsonResult = self.sectionsToJson(result.sections)
             let jsonElapsed = (CFAbsoluteTimeGetCurrent() - jsonStart) * 1000
             logger.info("detectSectionsFromTracks JSON: \(Int(jsonElapsed))ms, \(jsonResult.count) chars")
 
