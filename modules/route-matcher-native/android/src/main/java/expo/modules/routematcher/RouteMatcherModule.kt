@@ -21,9 +21,6 @@ class RouteMatcherModule : Module() {
   override fun definition() = ModuleDefinition {
     Name("RouteMatcher")
 
-    // Define events that can be sent to JS
-    Events("onFetchProgress")
-
     // Create a route signature from GPS points
     Function("createSignature") { activityId: String, points: List<Map<String, Double>>, config: Map<String, Any>? ->
       Log.i(TAG, "createSignature called for $activityId with ${points.size} points")
@@ -31,7 +28,8 @@ class RouteMatcherModule : Module() {
       val gpsPoints = points.mapNotNull { dict ->
         val lat = dict["latitude"] ?: return@mapNotNull null
         val lng = dict["longitude"] ?: return@mapNotNull null
-        GpsPoint(lat, lng)
+        val elevation = (dict["elevation"] as? Double)?.toFloat()
+        GpsPoint(latitude = lat, longitude = lng, elevation = elevation)
       }
 
       val matchConfig = parseConfig(config)
@@ -187,123 +185,6 @@ class RouteMatcherModule : Module() {
       }
     }
 
-    // HTTP: Fetch activity map data from intervals.icu API
-    // Uses Rust HTTP client with dispatch rate limiting (12.5 req/s, 80ms intervals)
-    Function("fetchActivityMaps") { apiKey: String, activityIds: List<String> ->
-      Log.i(TAG, "HTTP fetchActivityMaps [v6-sustained] called for ${activityIds.size} activities")
-
-      val totalStart = System.currentTimeMillis()
-
-      // Time the Rust call (network + parsing)
-      val rustStart = System.currentTimeMillis()
-      val results = fetchActivityMaps(apiKey, activityIds)
-      val rustElapsed = System.currentTimeMillis() - rustStart
-
-      val successCount = results.count { it.success }
-      val errorCount = results.count { !it.success }
-      val totalPoints = results.sumOf { it.latlngs.size / 2 }
-      val totalBytes = results.sumOf { it.latlngs.size * 8 }  // 8 bytes per f64
-      val rate = activityIds.size.toDouble() / (rustElapsed / 1000.0)
-
-      Log.i(TAG, "[TIMING] Rust fetch+parse: ${rustElapsed}ms (${String.format("%.1f", rate)} req/s)")
-      Log.i(TAG, "[DATA] $successCount success ($errorCount errors), $totalPoints points, ${totalBytes / 1024}KB")
-
-      // Time FFI: Rust -> Kotlin object conversion (this is in the Rust call above)
-      // Time the Kotlin->JS map conversion
-      val convertStart = System.currentTimeMillis()
-      val converted = results.map { result ->
-        mapOf(
-          "activityId" to result.activityId,
-          "bounds" to result.bounds,
-          "latlngs" to result.latlngs,
-          "success" to result.success,
-          "error" to result.error
-        )
-      }
-      val convertElapsed = System.currentTimeMillis() - convertStart
-
-      val totalElapsed = System.currentTimeMillis() - totalStart
-      Log.i(TAG, "[TIMING] Kotlin->Map: ${convertElapsed}ms | Total: ${totalElapsed}ms")
-
-      converted
-    }
-
-    // HTTP: Fetch activity map data WITH real-time progress events
-    // Emits "onFetchProgress" event after each activity is fetched
-    // Uses AsyncFunction so JS isn't blocked and can receive events
-    AsyncFunction("fetchActivityMapsWithProgress") { apiKey: String, activityIds: List<String> ->
-      Log.i(TAG, "HTTP fetchActivityMapsWithProgress called for ${activityIds.size} activities")
-
-      val totalStart = System.currentTimeMillis()
-      val module = this@RouteMatcherModule
-
-      // Create a callback that sends progress events to JS
-      val progressCallback = object : FetchProgressCallback {
-        override fun onProgress(completed: UInt, total: UInt) {
-          Log.d(TAG, "Progress: $completed/$total")
-          module.sendEvent("onFetchProgress", mapOf(
-            "completed" to completed.toInt(),
-            "total" to total.toInt()
-          ))
-        }
-      }
-
-      // Time the Rust call with progress callback
-      val rustStart = System.currentTimeMillis()
-      val results = fetchActivityMapsWithProgress(apiKey, activityIds, progressCallback)
-      val rustElapsed = System.currentTimeMillis() - rustStart
-
-      val successCount = results.count { it.success }
-      val errorCount = results.count { !it.success }
-      val rate = activityIds.size.toDouble() / (rustElapsed / 1000.0)
-
-      Log.i(TAG, "[TIMING] Rust fetch+progress: ${rustElapsed}ms (${String.format("%.1f", rate)} req/s)")
-      Log.i(TAG, "[DATA] $successCount success ($errorCount errors)")
-
-      // Convert to JS maps
-      val converted = results.map { result ->
-        mapOf(
-          "activityId" to result.activityId,
-          "bounds" to result.bounds,
-          "latlngs" to result.latlngs,
-          "success" to result.success,
-          "error" to result.error
-        )
-      }
-
-      val totalElapsed = System.currentTimeMillis() - totalStart
-      Log.i(TAG, "[TIMING] Total: ${totalElapsed}ms")
-
-      converted
-    }
-
-    // HTTP: Fetch and process activities in one call (fetch maps + create signatures)
-    Function("fetchAndProcessActivities") { apiKey: String, activityIds: List<String>, config: Map<String, Any>? ->
-      Log.i(TAG, "HTTP fetchAndProcessActivities called for ${activityIds.size} activities")
-
-      val matchConfig = parseConfig(config)
-
-      val startTime = System.currentTimeMillis()
-      val result = fetchAndProcessActivities(apiKey, activityIds, matchConfig)
-      val elapsed = System.currentTimeMillis() - startTime
-
-      val successCount = result.mapResults.count { it.success }
-      Log.i(TAG, "HTTP+Process: $successCount/${activityIds.size} fetched, ${result.signatures.size} signatures in ${elapsed}ms")
-
-      mapOf(
-        "mapResults" to result.mapResults.map { r ->
-          mapOf(
-            "activityId" to r.activityId,
-            "bounds" to r.bounds,
-            "latlngs" to r.latlngs,
-            "success" to r.success,
-            "error" to r.error
-          )
-        },
-        "signatures" to result.signatures.map { signatureToMap(it) }
-      )
-    }
-
     // Incremental grouping - add new signatures to existing groups
     Function("groupIncremental") { newSigMaps: List<Map<String, Any>>, existingGroupMaps: List<Map<String, Any>>, existingSigMaps: List<Map<String, Any>>, config: Map<String, Any>? ->
       Log.i(TAG, "groupIncremental: ${newSigMaps.size} new + ${existingSigMaps.size} existing")
@@ -334,8 +215,19 @@ class RouteMatcherModule : Module() {
     }
 
     // Section detection
-    Function("defaultSectionConfig") {
-      val config = defaultSectionConfig()
+    Function("conservativeSectionConfig") {
+      val config = conservativeSectionConfig()
+      mapOf(
+        "proximity_threshold" to config.proximityThreshold,
+        "min_section_length" to config.minSectionLength,
+        "min_activities" to config.minActivities.toInt(),
+        "cluster_tolerance" to config.clusterTolerance,
+        "sample_points" to config.samplePoints.toInt()
+      )
+    }
+
+    Function("legacySectionConfig") {
+      val config = legacySectionConfig()
       mapOf(
         "proximity_threshold" to config.proximityThreshold,
         "min_section_length" to config.minSectionLength,
@@ -362,7 +254,7 @@ class RouteMatcherModule : Module() {
       val offsetsU32 = offsets.map { it.toUInt() }
 
       val startTime = System.currentTimeMillis()
-      val result = ffiDetectSectionsFromTracks(
+      val result = ffiDetectSectionsMultiscale(
         activityIds,
         allCoords.toList(),
         offsetsU32,
@@ -371,11 +263,14 @@ class RouteMatcherModule : Module() {
         sectionConfig
       )
       val rustElapsed = System.currentTimeMillis() - startTime
-      Log.i(TAG, "detectSectionsFromTracks Rust: ${result.size} sections in ${rustElapsed}ms")
+      Log.i(TAG, "detectSectionsFromTracks Rust: ${result.sections.size} sections, ${result.potentials.size} potentials in ${rustElapsed}ms")
+
+      // Combine sections and potentials into a single JSON result
+      val allSections = result.sections + result.potentials
 
       // Serialize to JSON for efficient bridge transfer
       val jsonStart = System.currentTimeMillis()
-      val jsonResult = sectionsToJson(result)
+      val jsonResult = sectionsToJson(allSections)
       val jsonElapsed = System.currentTimeMillis() - jsonStart
       Log.i(TAG, "detectSectionsFromTracks JSON: ${jsonElapsed}ms, ${jsonResult.length} chars")
 
@@ -384,12 +279,11 @@ class RouteMatcherModule : Module() {
 
     // Heatmap generation
     Function("defaultHeatmapConfig") {
-      val config = defaultHeatmapConfig()
+      // HeatmapConfig doesn't have a default function in tracematch 0.0.3
+      // Create a default config with cell_size_meters = 100 and no bounds (auto-calculate)
       mapOf(
-        "cell_size_meters" to config.cellSizeMeters.toInt(),
-        "bounds" to config.bounds?.let { b ->
-          mapOf("min_lat" to b.minLat, "max_lat" to b.maxLat, "min_lng" to b.minLng, "max_lng" to b.maxLng)
-        }
+        "cell_size_meters" to 100.0,
+        "bounds" to null
       )
     }
 
@@ -465,119 +359,6 @@ class RouteMatcherModule : Module() {
         "total_routes" to result.totalRoutes.toInt(),
         "total_activities" to result.totalActivities.toInt()
       )
-    }
-
-    // ==========================================================================
-    // Route Engine (Stateful Rust Backend)
-    // ==========================================================================
-
-    // Engine: Initialize
-    Function("engineInit") {
-      engineInit()
-      Log.i(TAG, "RouteEngine: Initialized")
-    }
-
-    // Engine: Clear all state
-    Function("engineClear") {
-      engineClear()
-      Log.i(TAG, "RouteEngine: Cleared")
-    }
-
-    // Engine: Add activities from flat buffers (async to avoid blocking UI thread)
-    AsyncFunction("engineAddActivities") { activityIds: List<String>, allCoords: DoubleArray, offsets: IntArray, sportTypes: List<String> ->
-      Log.i(TAG, "RouteEngine: Adding ${activityIds.size} activities (async)")
-      val offsetsU32 = offsets.map { it.toUInt() }
-      engineAddActivities(activityIds, allCoords.toList(), offsetsU32, sportTypes)
-    }
-
-    // Engine: Remove activities
-    Function("engineRemoveActivities") { activityIds: List<String> ->
-      Log.i(TAG, "RouteEngine: Removing ${activityIds.size} activities")
-      engineRemoveActivities(activityIds)
-    }
-
-    // Engine: Get all activity IDs
-    Function("engineGetActivityIds") {
-      engineGetActivityIds()
-    }
-
-    // Engine: Get activity count
-    Function("engineGetActivityCount") {
-      engineGetActivityCount().toInt()
-    }
-
-    // Engine: Get groups as JSON
-    Function("engineGetGroupsJson") {
-      engineGetGroupsJson()
-    }
-
-    // Engine: Get sections as JSON
-    Function("engineGetSectionsJson") {
-      engineGetSectionsJson()
-    }
-
-    // Engine: Get signature points for all activities in a group
-    Function("engineGetSignaturesForGroupJson") { groupId: String ->
-      engineGetSignaturesForGroupJson(groupId)
-    }
-
-    // Engine: Set custom route name
-    Function("engineSetRouteName") { routeId: String, name: String ->
-      engineSetRouteName(routeId, name)
-    }
-
-    // Engine: Get custom route name
-    Function("engineGetRouteName") { routeId: String ->
-      engineGetRouteName(routeId)
-    }
-
-    // Engine: Query viewport
-    Function("engineQueryViewport") { minLat: Double, maxLat: Double, minLng: Double, maxLng: Double ->
-      engineQueryViewport(minLat, maxLat, minLng, maxLng)
-    }
-
-    // Engine: Find nearby
-    Function("engineFindNearby") { lat: Double, lng: Double, radiusDegrees: Double ->
-      engineFindNearby(lat, lng, radiusDegrees)
-    }
-
-    // Engine: Get consensus route
-    Function("engineGetConsensusRoute") { groupId: String ->
-      engineGetConsensusRoute(groupId)
-    }
-
-    // Engine: Get stats
-    Function("engineGetStats") {
-      val stats = engineGetStats()
-      mapOf(
-        "activity_count" to stats.activityCount.toInt(),
-        "signature_count" to stats.signatureCount.toInt(),
-        "group_count" to stats.groupCount.toInt(),
-        "section_count" to stats.sectionCount.toInt(),
-        "cached_consensus_count" to stats.cachedConsensusCount.toInt()
-      )
-    }
-
-    // Engine: Set match config
-    Function("engineSetMatchConfig") { config: Map<String, Any> ->
-      val matchConfig = parseConfig(config)
-      engineSetMatchConfig(matchConfig)
-    }
-
-    // Engine: Set section config
-    Function("engineSetSectionConfig") { config: Map<String, Any> ->
-      val sectionConfig = parseSectionConfig(config)
-      engineSetSectionConfig(sectionConfig)
-    }
-
-    // Engine: Get all activity bounds as JSON (for map display)
-    Function("engineGetAllActivityBoundsJson") {
-      engineGetAllActivityBoundsJson()
-    }
-
-    // Engine: Get all signatures as JSON (for trace rendering)
-    Function("engineGetAllSignaturesJson") {
-      engineGetAllSignaturesJson()
     }
 
     // ==========================================================================
@@ -772,25 +553,6 @@ class RouteMatcherModule : Module() {
       persistentEngineSetActivityMetrics(nativeMetrics)
     }
 
-    // Engine (in-memory): Set activity metrics for performance calculations
-    Function("engineSetActivityMetrics") { metrics: List<Map<String, Any?>> ->
-      val nativeMetrics = metrics.map { m ->
-        ActivityMetrics(
-          activityId = m["activity_id"] as String,
-          name = m["name"] as String,
-          date = (m["date"] as Number).toLong(),
-          distance = (m["distance"] as Number).toDouble(),
-          movingTime = (m["moving_time"] as Number).toInt().toUInt(),
-          elapsedTime = (m["elapsed_time"] as Number).toInt().toUInt(),
-          elevationGain = (m["elevation_gain"] as Number).toDouble(),
-          avgHr = (m["avg_hr"] as? Number)?.toInt()?.toUShort(),
-          avgPower = (m["avg_power"] as? Number)?.toInt()?.toUShort(),
-          sportType = m["sport_type"] as String
-        )
-      }
-      engineSetActivityMetrics(nativeMetrics)
-    }
-
     Function("queryHeatmapCell") { heatmapJson: String, lat: Double, lng: Double ->
       // Parse heatmap from JSON string to avoid Expo Modules bridge issues with nulls
       val heatmapObj = JSONObject(heatmapJson)
@@ -880,9 +642,9 @@ class RouteMatcherModule : Module() {
   }
 
   private fun parseSectionConfig(map: Map<String, Any>?): SectionConfig {
-    if (map == null) return defaultSectionConfig()
+    if (map == null) return conservativeSectionConfig()
 
-    val defaults = defaultSectionConfig()
+    val defaults = conservativeSectionConfig()
 
     return SectionConfig(
       proximityThreshold = (map["proximity_threshold"] as? Number)?.toDouble()
@@ -1002,17 +764,20 @@ class RouteMatcherModule : Module() {
     val points = pointMaps.mapNotNull { dict ->
       val lat = dict["latitude"] ?: return@mapNotNull null
       val lng = dict["longitude"] ?: return@mapNotNull null
-      GpsPoint(lat, lng)
+      val elevation = (dict["elevation"] as? Double)?.toFloat()
+      GpsPoint(latitude = lat, longitude = lng, elevation = elevation)
     }
 
     val startPoint = GpsPoint(
-      startMap["latitude"] ?: return null,
-      startMap["longitude"] ?: return null
+      latitude = startMap["latitude"] ?: return null,
+      longitude = startMap["longitude"] ?: return null,
+      elevation = (startMap["elevation"] as? Double)?.toFloat()
     )
 
     val endPoint = GpsPoint(
-      endMap["latitude"] ?: return null,
-      endMap["longitude"] ?: return null
+      latitude = endMap["latitude"] ?: return null,
+      longitude = endMap["longitude"] ?: return null,
+      elevation = (endMap["elevation"] as? Double)?.toFloat()
     )
 
     val bounds = Bounds(
@@ -1023,8 +788,9 @@ class RouteMatcherModule : Module() {
     )
 
     val center = GpsPoint(
-      centerMap["latitude"] ?: return null,
-      centerMap["longitude"] ?: return null
+      latitude = centerMap["latitude"] ?: return null,
+      longitude = centerMap["longitude"] ?: return null,
+      elevation = (centerMap["elevation"] as? Double)?.toFloat()
     )
 
     return RouteSignature(
@@ -1121,19 +887,24 @@ class RouteMatcherModule : Module() {
       val pointsArray = json.getJSONArray("points")
       val points = (0 until pointsArray.length()).mapNotNull { i ->
         val pt = pointsArray.getJSONObject(i)
-        GpsPoint(pt.getDouble("latitude"), pt.getDouble("longitude"))
+        val elevation = if (pt.has("elevation") && !pt.isNull("elevation")) pt.getDouble("elevation").toFloat() else null
+        GpsPoint(latitude = pt.getDouble("latitude"), longitude = pt.getDouble("longitude"), elevation = elevation)
       }
 
       val startJson = json.getJSONObject("startPoint")
+      val startElevation = if (startJson.has("elevation") && !startJson.isNull("elevation")) startJson.getDouble("elevation").toFloat() else null
       val startPoint = GpsPoint(
-        startJson.getDouble("latitude"),
-        startJson.getDouble("longitude")
+        latitude = startJson.getDouble("latitude"),
+        longitude = startJson.getDouble("longitude"),
+        elevation = startElevation
       )
 
       val endJson = json.getJSONObject("endPoint")
+      val endElevation = if (endJson.has("elevation") && !endJson.isNull("elevation")) endJson.getDouble("elevation").toFloat() else null
       val endPoint = GpsPoint(
-        endJson.getDouble("latitude"),
-        endJson.getDouble("longitude")
+        latitude = endJson.getDouble("latitude"),
+        longitude = endJson.getDouble("longitude"),
+        elevation = endElevation
       )
 
       val boundsJson = json.getJSONObject("bounds")
@@ -1145,9 +916,11 @@ class RouteMatcherModule : Module() {
       )
 
       val centerJson = json.getJSONObject("center")
+      val centerElevation = if (centerJson.has("elevation") && !centerJson.isNull("elevation")) centerJson.getDouble("elevation").toFloat() else null
       val center = GpsPoint(
-        centerJson.getDouble("latitude"),
-        centerJson.getDouble("longitude")
+        latitude = centerJson.getDouble("latitude"),
+        longitude = centerJson.getDouble("longitude"),
+        elevation = centerElevation
       )
 
       return RouteSignature(
