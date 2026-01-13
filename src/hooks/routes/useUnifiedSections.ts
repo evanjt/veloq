@@ -10,6 +10,7 @@ import { useFrequentSections } from './useFrequentSections';
 import { useCustomSections } from './useCustomSections';
 import { usePotentialSections } from './usePotentialSections';
 import { useSectionDismissals } from '@/providers/SectionDismissalsStore';
+import { getRouteEngine } from '@/lib/native/routeEngine';
 import type {
   FrequentSection,
   CustomSectionWithMatches,
@@ -45,11 +46,22 @@ export interface UseUnifiedSectionsResult {
 }
 
 /**
- * Generate a display name for an auto-detected section.
+ * Generate a display name for a section.
+ * Checks Rust engine first (authoritative source), then falls back to section.name,
+ * finally generates a name from sport type and distance.
  */
 function generateSectionName(section: FrequentSection): string {
+  // Check Rust engine for custom name first (authoritative source)
+  const engine = getRouteEngine();
+  if (engine) {
+    const rustName = engine.getSectionName(section.id);
+    if (rustName) return rustName;
+  }
+
+  // Fall back to section.name if present
   if (section.name) return section.name;
 
+  // Auto-generate from sport type and distance
   const distanceKm = section.distanceMeters / 1000;
   const distanceStr =
     distanceKm >= 1 ? `${distanceKm.toFixed(1)}km` : `${Math.round(section.distanceMeters)}m`;

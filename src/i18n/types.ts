@@ -353,6 +353,7 @@ export interface TranslationResource {
     veloqPrivacy: string;
     openSource: string;
     sourceCode: string;
+    tracematchSource: string;
     dataAttribution: string;
     garminNote: string;
     mapData: string;

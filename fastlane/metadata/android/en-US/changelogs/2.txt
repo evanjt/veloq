@@ -1,0 +1,10 @@
+What's new in 0.0.2:
+
+- OAuth login support alongside API key authentication
+- About & Legal screen with data attribution
+- Route performance improvements and name reactivity fixes
+- Moved heavy computation from JS to Rust engine
+- Activity map improvements (banner fixes, timeline moved to settings)
+- Error boundaries for all chart components
+- Improved demo mode with realistic yearly activity data
+- Bug fixes for stat plots and iOS builds

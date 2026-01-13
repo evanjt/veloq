@@ -1,7 +1,7 @@
 {
   "name": "veloq",
   "version": "0.0.2",
-  "tracematchVersion": "0.0.1",
+  "tracematchVersion": "0.0.3",
   "main": "expo-router/entry",
   "scripts": {
     "start": "npx expo start",

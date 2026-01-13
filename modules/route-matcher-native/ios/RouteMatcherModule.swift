@@ -18,9 +18,6 @@ public class RouteMatcherModule: Module {
     public func definition() -> ModuleDefinition {
         Name("RouteMatcher")
 
-        // Define events that can be sent to JS
-        Events("onFetchProgress")
-
         // Module initialization - verify Rust library is available
         OnCreate {
             logger.info("RouteMatcher: Initializing Rust-powered route matching")
@@ -38,11 +35,11 @@ public class RouteMatcherModule: Module {
 
             // Test 2: Create a simple signature (algorithm test)
             let testPoints = [
-                GpsPoint(latitude: 51.5074, longitude: -0.1278),
-                GpsPoint(latitude: 51.5080, longitude: -0.1290),
-                GpsPoint(latitude: 51.5090, longitude: -0.1300),
-                GpsPoint(latitude: 51.5100, longitude: -0.1310),
-                GpsPoint(latitude: 51.5110, longitude: -0.1320)
+                GpsPoint(latitude: 51.5074, longitude: -0.1278, elevation: nil),
+                GpsPoint(latitude: 51.5080, longitude: -0.1290, elevation: nil),
+                GpsPoint(latitude: 51.5090, longitude: -0.1300, elevation: nil),
+                GpsPoint(latitude: 51.5100, longitude: -0.1310, elevation: nil),
+                GpsPoint(latitude: 51.5110, longitude: -0.1320, elevation: nil)
             ]
 
             guard let signature = createSignatureWithConfig(
@@ -90,7 +87,8 @@ public class RouteMatcherModule: Module {
 
             let gpsPoints = points.compactMap { dict -> GpsPoint? in
                 guard let lat = dict["latitude"], let lng = dict["longitude"] else { return nil }
-                return GpsPoint(latitude: lat, longitude: lng)
+                let elevation = dict["elevation"]
+                return GpsPoint(latitude: lat, longitude: lng, elevation: elevation)
             }
 
             let matchConfig = self.parseConfig(config)
@@ -226,74 +224,6 @@ public class RouteMatcherModule: Module {
             }
         }
 
-        // HTTP: Fetch activity map data from intervals.icu API
-        Function("fetchActivityMaps") { (apiKey: String, activityIds: [String]) -> [[String: Any]] in
-            logger.info("HTTP fetchActivityMaps called for \(activityIds.count) activities")
-
-            let startTime = CFAbsoluteTimeGetCurrent()
-            let results = fetchActivityMaps(apiKey: apiKey, activityIds: activityIds)
-            let elapsed = (CFAbsoluteTimeGetCurrent() - startTime) * 1000
-
-            let successCount = results.filter { $0.success }.count
-            let rate = Double(activityIds.count) / (elapsed / 1000.0)
-
-            logger.info("[TIMING] Rust fetch: \(Int(elapsed))ms (\(String(format: "%.1f", rate)) req/s)")
-            logger.info("[DATA] \(successCount) success (\(results.count - successCount) errors)")
-
-            return results.map { result in
-                [
-                    "activityId": result.activityId,
-                    "bounds": result.bounds,
-                    "latlngs": result.latlngs,
-                    "success": result.success,
-                    "error": result.error as Any
-                ]
-            }
-        }
-
-        // HTTP: Fetch activity map data WITH real-time progress events
-        AsyncFunction("fetchActivityMapsWithProgress") { (apiKey: String, activityIds: [String]) -> [[String: Any]] in
-            logger.info("HTTP fetchActivityMapsWithProgress called for \(activityIds.count) activities")
-
-            // Create a progress callback that sends events to JS
-            class ProgressHandler: FetchProgressCallback {
-                weak var module: RouteMatcherModule?
-
-                init(module: RouteMatcherModule) {
-                    self.module = module
-                }
-
-                func onProgress(completed: UInt32, total: UInt32) {
-                    self.module?.sendEvent("onFetchProgress", [
-                        "completed": Int(completed),
-                        "total": Int(total)
-                    ])
-                }
-            }
-
-            let progressHandler = ProgressHandler(module: self)
-
-            let startTime = CFAbsoluteTimeGetCurrent()
-            let results = fetchActivityMapsWithProgress(apiKey: apiKey, activityIds: activityIds, callback: progressHandler)
-            let elapsed = (CFAbsoluteTimeGetCurrent() - startTime) * 1000
-
-            let successCount = results.filter { $0.success }.count
-            let rate = Double(activityIds.count) / (elapsed / 1000.0)
-
-            logger.info("[TIMING] Rust fetch+progress: \(Int(elapsed))ms (\(String(format: "%.1f", rate)) req/s)")
-            logger.info("[DATA] \(successCount) success (\(results.count - successCount) errors)")
-
-            return results.map { result in
-                [
-                    "activityId": result.activityId,
-                    "bounds": result.bounds,
-                    "latlngs": result.latlngs,
-                    "success": result.success,
-                    "error": result.error as Any
-                ]
-            }
-        }
-
         // INCREMENTAL: Efficiently add new signatures to existing groups
         Function("groupIncremental") { (newSignatures: [[String: Any]], existingGroups: [[String: Any]], existingSignatures: [[String: Any]], config: [String: Any]?) -> [[String: Any]] in
             logger.info("INCREMENTAL grouping: \(newSignatures.count) new + \(existingSignatures.count) existing")
@@ -323,9 +253,21 @@ public class RouteMatcherModule: Module {
             }
         }
 
-        // Section detection: Get default section config
-        Function("defaultSectionConfig") { () -> [String: Any] in
-            let config = defaultSectionConfig()
+        // Section detection: Get conservative section config
+        Function("conservativeSectionConfig") { () -> [String: Any] in
+            let config = conservativeSectionConfig()
+            return [
+                "proximity_threshold": config.proximityThreshold,
+                "min_section_length": config.minSectionLength,
+                "min_activities": config.minActivities,
+                "cluster_tolerance": config.clusterTolerance,
+                "sample_points": config.samplePoints
+            ]
+        }
+
+        // Section detection: Get legacy section config
+        Function("legacySectionConfig") { () -> [String: Any] in
+            let config = legacySectionConfig()
             return [
                 "proximity_threshold": config.proximityThreshold,
                 "min_section_length": config.minSectionLength,
@@ -351,7 +293,7 @@ public class RouteMatcherModule: Module {
             let offsetsU32 = offsets.map { UInt32($0) }
 
             let startTime = CFAbsoluteTimeGetCurrent()
-            let result = ffiDetectSectionsFromTracks(
+            let result = ffiDetectSectionsMultiscale(
                 activityIds: activityIds,
                 allCoords: allCoords,
                 offsets: offsetsU32,
@@ -360,52 +302,24 @@ public class RouteMatcherModule: Module {
                 config: sectionConfig
             )
             let rustElapsed = (CFAbsoluteTimeGetCurrent() - startTime) * 1000
-            logger.info("detectSectionsFromTracks Rust: \(result.count) sections in \(Int(rustElapsed))ms")
+            logger.info("detectSectionsFromTracks Rust: \(result.sections.count) sections, \(result.potentials.count) potentials in \(Int(rustElapsed))ms")
 
-            // Serialize to JSON for efficient bridge transfer
+            // Serialize confirmed sections to JSON (potentials are not yet validated sections)
             let jsonStart = CFAbsoluteTimeGetCurrent()
-            let jsonResult = self.sectionsToJson(result)
+            let jsonResult = self.sectionsToJson(result.sections)
             let jsonElapsed = (CFAbsoluteTimeGetCurrent() - jsonStart) * 1000
             logger.info("detectSectionsFromTracks JSON: \(Int(jsonElapsed))ms, \(jsonResult.count) chars")
 
             return jsonResult
         }
 
-        // HTTP: Fetch and process activities in one call
-        Function("fetchAndProcessActivities") { (apiKey: String, activityIds: [String], config: [String: Any]?) -> [String: Any] in
-            logger.info("HTTP fetchAndProcessActivities called for \(activityIds.count) activities")
-
-            let matchConfig = self.parseConfig(config)
-
-            let startTime = CFAbsoluteTimeGetCurrent()
-            let result = fetchAndProcessActivities(apiKey: apiKey, activityIds: activityIds, config: matchConfig)
-            let elapsed = (CFAbsoluteTimeGetCurrent() - startTime) * 1000
-
-            let successCount = result.mapResults.filter { $0.success }.count
-            logger.info("HTTP+Process: \(successCount)/\(activityIds.count) fetched, \(result.signatures.count) signatures in \(Int(elapsed))ms")
-
-            return [
-                "mapResults": result.mapResults.map { r in
-                    [
-                        "activityId": r.activityId,
-                        "bounds": r.bounds,
-                        "latlngs": r.latlngs,
-                        "success": r.success,
-                        "error": r.error as Any
-                    ]
-                },
-                "signatures": result.signatures.map { self.signatureToMap($0) }
-            ]
-        }
-
         // Heatmap: Get default config
         Function("defaultHeatmapConfig") { () -> [String: Any] in
-            let config = defaultHeatmapConfig()
+            // HeatmapConfig doesn't have a default function in tracematch 0.0.3
+            // Create a default config with cell_size_meters = 100 and no bounds (auto-calculate)
             return [
-                "cell_size_meters": Int(config.cellSizeMeters),
-                "bounds": config.bounds.map { b in
-                    ["min_lat": b.minLat, "max_lat": b.maxLat, "min_lng": b.minLng, "max_lng": b.maxLng]
-                } as Any
+                "cell_size_meters": 100.0,
+                "bounds": nil as Any?
             ]
         }
 
@@ -495,119 +409,6 @@ public class RouteMatcherModule: Module {
                 "total_routes": Int(result.totalRoutes),
                 "total_activities": Int(result.totalActivities)
             ]
-        }
-
-        // ==========================================================================
-        // Route Engine (Stateful Rust Backend)
-        // ==========================================================================
-
-        // Engine: Initialize
-        Function("engineInit") { () -> Void in
-            engineInit()
-            logger.info("RouteEngine: Initialized")
-        }
-
-        // Engine: Clear all state
-        Function("engineClear") { () -> Void in
-            engineClear()
-            logger.info("RouteEngine: Cleared")
-        }
-
-        // Engine: Add activities from flat buffers
-        Function("engineAddActivities") { (activityIds: [String], allCoords: [Double], offsets: [Int], sportTypes: [String]) -> Void in
-            logger.info("RouteEngine: Adding \(activityIds.count) activities")
-            let offsetsU32 = offsets.map { UInt32($0) }
-            engineAddActivities(activityIds: activityIds, allCoords: allCoords, offsets: offsetsU32, sportTypes: sportTypes)
-        }
-
-        // Engine: Remove activities
-        Function("engineRemoveActivities") { (activityIds: [String]) -> Void in
-            logger.info("RouteEngine: Removing \(activityIds.count) activities")
-            engineRemoveActivities(activityIds: activityIds)
-        }
-
-        // Engine: Get all activity IDs
-        Function("engineGetActivityIds") { () -> [String] in
-            return engineGetActivityIds()
-        }
-
-        // Engine: Get activity count
-        Function("engineGetActivityCount") { () -> Int in
-            return Int(engineGetActivityCount())
-        }
-
-        // Engine: Get groups as JSON
-        Function("engineGetGroupsJson") { () -> String in
-            return engineGetGroupsJson()
-        }
-
-        // Engine: Get sections as JSON
-        Function("engineGetSectionsJson") { () -> String in
-            return engineGetSectionsJson()
-        }
-
-        // Engine: Query viewport
-        Function("engineQueryViewport") { (minLat: Double, maxLat: Double, minLng: Double, maxLng: Double) -> [String] in
-            return engineQueryViewport(minLat: minLat, maxLat: maxLat, minLng: minLng, maxLng: maxLng)
-        }
-
-        // Engine: Find nearby
-        Function("engineFindNearby") { (lat: Double, lng: Double, radiusDegrees: Double) -> [String] in
-            return engineFindNearby(lat: lat, lng: lng, radiusDegrees: radiusDegrees)
-        }
-
-        // Engine: Get consensus route
-        Function("engineGetConsensusRoute") { (groupId: String) -> [Double] in
-            return engineGetConsensusRoute(groupId: groupId)
-        }
-
-        // Engine: Get stats
-        Function("engineGetStats") { () -> [String: Any] in
-            let stats = engineGetStats()
-            return [
-                "activity_count": Int(stats.activityCount),
-                "signature_count": Int(stats.signatureCount),
-                "group_count": Int(stats.groupCount),
-                "section_count": Int(stats.sectionCount),
-                "cached_consensus_count": Int(stats.cachedConsensusCount)
-            ]
-        }
-
-        // Engine: Set match config
-        Function("engineSetMatchConfig") { (config: [String: Any]) -> Void in
-            let matchConfig = self.parseConfig(config)
-            engineSetMatchConfig(config: matchConfig)
-        }
-
-        // Engine: Set section config
-        Function("engineSetSectionConfig") { (config: [String: Any]) -> Void in
-            let sectionConfig = self.parseSectionConfig(config)
-            engineSetSectionConfig(config: sectionConfig)
-        }
-
-        // Engine: Get all activity bounds as JSON (for map display)
-        Function("engineGetAllActivityBoundsJson") { () -> String in
-            return engineGetAllActivityBoundsJson()
-        }
-
-        // Engine: Get all signatures as JSON (for trace rendering)
-        Function("engineGetAllSignaturesJson") { () -> String in
-            return engineGetAllSignaturesJson()
-        }
-
-        // Engine: Get signature points for a group (existing function)
-        Function("engineGetSignaturesForGroupJson") { (groupId: String) -> String in
-            return engineGetSignaturesForGroupJson(groupId: groupId)
-        }
-
-        // Engine: Set custom route name
-        Function("engineSetRouteName") { (routeId: String, name: String) -> Void in
-            engineSetRouteName(routeId: routeId, name: name)
-        }
-
-        // Engine: Get custom route name
-        Function("engineGetRouteName") { (routeId: String) -> String? in
-            return engineGetRouteName(routeId: routeId)
         }
 
         // ==========================================================================
@@ -739,6 +540,43 @@ public class RouteMatcherModule: Module {
             return persistentEngineGetAllSectionNamesJson()
         }
 
+        // ==========================================================================
+        // Custom Sections (User-created sections)
+        // ==========================================================================
+
+        // PersistentEngine: Add a custom section from JSON
+        Function("persistentEngineAddCustomSection") { (sectionJson: String) -> Bool in
+            logger.info("PersistentEngine: Adding custom section")
+            return persistentEngineAddCustomSection(sectionJson: sectionJson)
+        }
+
+        // PersistentEngine: Remove a custom section
+        Function("persistentEngineRemoveCustomSection") { (sectionId: String) -> Bool in
+            logger.info("PersistentEngine: Removing custom section \(sectionId)")
+            return persistentEngineRemoveCustomSection(sectionId: sectionId)
+        }
+
+        // PersistentEngine: Get all custom sections as JSON
+        Function("persistentEngineGetCustomSectionsJson") { () -> String in
+            return persistentEngineGetCustomSectionsJson()
+        }
+
+        // PersistentEngine: Match a custom section against activities
+        Function("persistentEngineMatchCustomSection") { (sectionId: String, activityIds: [String]) -> String in
+            logger.info("PersistentEngine: Matching custom section \(sectionId) against \(activityIds.count) activities")
+            return persistentEngineMatchCustomSection(sectionId: sectionId, activityIds: activityIds)
+        }
+
+        // PersistentEngine: Get cached matches for a custom section
+        Function("persistentEngineGetCustomSectionMatches") { (sectionId: String) -> String in
+            return persistentEngineGetCustomSectionMatches(sectionId: sectionId)
+        }
+
+        // PersistentEngine: Extract GPS trace for activity overlapping with section
+        Function("persistentEngineExtractSectionTrace") { (activityId: String, polylineJson: String) -> [Double] in
+            return persistentEngineExtractSectionTrace(activityId: activityId, sectionPolylineJson: polylineJson)
+        }
+
         // Heatmap: Query cell at location
         // heatmapJson is a JSON string to avoid Expo Modules bridge issues with nulls
         Function("queryHeatmapCell") { (heatmapJson: String, lat: Double, lng: Double) -> [String: Any]? in
@@ -866,9 +704,9 @@ public class RouteMatcherModule: Module {
     }
 
     private func parseSectionConfig(_ map: [String: Any]?) -> SectionConfig {
-        guard let map = map else { return defaultSectionConfig() }
+        guard let map = map else { return conservativeSectionConfig() }
 
-        let defaults = defaultSectionConfig()
+        let defaults = conservativeSectionConfig()
 
         return SectionConfig(
             proximityThreshold: (map["proximity_threshold"] as? Double) ?? defaults.proximityThreshold,
@@ -989,7 +827,8 @@ public class RouteMatcherModule: Module {
 
         let points = pointMaps.compactMap { dict -> GpsPoint? in
             guard let lat = dict["latitude"], let lng = dict["longitude"] else { return nil }
-            return GpsPoint(latitude: lat, longitude: lng)
+            let elevation = dict["elevation"]
+            return GpsPoint(latitude: lat, longitude: lng, elevation: elevation)
         }
 
         guard let startLat = startMap["latitude"], let startLng = startMap["longitude"],
@@ -1000,10 +839,14 @@ public class RouteMatcherModule: Module {
             return nil
         }
 
-        let startPoint = GpsPoint(latitude: startLat, longitude: startLng)
-        let endPoint = GpsPoint(latitude: endLat, longitude: endLng)
+        let startElevation = startMap["elevation"]
+        let endElevation = endMap["elevation"]
+        let centerElevation = centerMap["elevation"]
+
+        let startPoint = GpsPoint(latitude: startLat, longitude: startLng, elevation: startElevation)
+        let endPoint = GpsPoint(latitude: endLat, longitude: endLng, elevation: endElevation)
         let bounds = Bounds(minLat: minLat, maxLat: maxLat, minLng: minLng, maxLng: maxLng)
-        let center = GpsPoint(latitude: centerLat, longitude: centerLng)
+        let center = GpsPoint(latitude: centerLat, longitude: centerLng, elevation: centerElevation)
 
         return RouteSignature(
             activityId: activityId,

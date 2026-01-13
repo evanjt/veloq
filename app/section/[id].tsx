@@ -31,16 +31,7 @@ import {
 } from '@/hooks';
 import { SectionMapView, MiniTraceView } from '@/components/routes';
 import { UnifiedPerformanceChart } from '@/components/routes/performance';
-import { getGpsTracks } from '@/lib/storage/gpsStorage';
-
-// Lazy load native module to avoid bundler errors
-function getRouteEngine() {
-  try {
-    return require('route-matcher-native').routeEngine;
-  } catch {
-    return null;
-  }
-}
+import { getRouteEngine } from '@/lib/native/routeEngine';
 import {
   formatDistance,
   formatRelativeDate,
@@ -277,45 +268,31 @@ export default function SectionDetailScreen() {
     return section;
   }, [section, computedActivityTraces]);
 
-  // For custom sections: load GPS tracks and compute activity traces
+  // For custom sections: compute activity traces using Rust engine
+  // Uses Rust extractSectionTrace for efficient point extraction near section polyline,
+  // avoiding "straight line" artifacts from simple index slicing
   useEffect(() => {
     if (!customSection || !customSection.matches.length) {
       setComputedActivityTraces({});
       return;
     }
 
-    let isMounted = true;
+    const engine = getRouteEngine();
+    if (!engine) {
+      setComputedActivityTraces({});
+      return;
+    }
 
-    const loadActivityTraces = async () => {
-      const activityIds = customSection.matches.map((m) => m.activityId);
-      const tracks = await getGpsTracks(activityIds);
+    const traces: Record<string, RoutePoint[]> = {};
+    for (const match of customSection.matches) {
+      // Use Rust engine's extractSectionTrace for efficient trace extraction
+      const extractedTrace = engine.extractSectionTrace(match.activityId, customSection.polyline);
 
-      // Don't update state if component unmounted
-      if (!isMounted) return;
-
-      const traces: Record<string, RoutePoint[]> = {};
-      for (const match of customSection.matches) {
-        const track = tracks.get(match.activityId);
-        if (track && track.length > 0) {
-          // Extract the portion of the GPS track that matches this section
-          const startIdx = Math.max(0, match.startIndex);
-          const endIdx = Math.min(track.length - 1, match.endIndex);
-          if (endIdx > startIdx) {
-            traces[match.activityId] = track.slice(startIdx, endIdx + 1).map(([lat, lng]) => ({
-              lat,
-              lng,
-            }));
-          }
-        }
+      if (extractedTrace.length > 0) {
+        traces[match.activityId] = extractedTrace;
       }
-      setComputedActivityTraces(traces);
-    };
-
-    loadActivityTraces();
-
-    return () => {
-      isMounted = false;
-    };
+    }
+    setComputedActivityTraces(traces);
   }, [customSection]);
 
   // Load custom section name from Rust engine on mount
@@ -340,11 +317,14 @@ export default function SectionDetailScreen() {
   }, [customName, section?.name]);
 
   // Handle saving the edited section name
+  // Uses Rust engine as the single source of truth for section names
   const handleSaveName = useCallback(() => {
     const trimmedName = editName.trim();
     if (trimmedName && id) {
       const engine = getRouteEngine();
-      if (engine) engine.setSectionName(id, trimmedName);
+      if (engine) {
+        engine.setSectionName(id, trimmedName);
+      }
       setCustomName(trimmedName);
     }
     setIsEditing(false);

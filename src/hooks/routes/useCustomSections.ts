@@ -1,21 +1,11 @@
 /**
  * Hook for managing user-created custom sections.
- * Provides CRUD operations and React Query caching.
+ * Uses Rust engine as the single source of truth for storage and matching.
  */
 
 import { useCallback, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import {
-  loadCustomSections,
-  loadCustomSectionsWithMatches,
-  addCustomSection,
-  updateCustomSection,
-  deleteCustomSection,
-  saveSectionMatches,
-  generateSectionName,
-} from '@/lib/storage/customSections';
-import { getCachedActivityIds } from '@/lib/storage/gpsStorage';
-import { matchCustomSection } from '@/lib/sectionMatcher';
+import { getRouteEngine } from '@/lib/native/routeEngine';
 import type {
   CustomSection,
   CustomSectionMatch,
@@ -71,13 +61,32 @@ export interface CreateSectionParams {
 }
 
 /**
+ * Generate a unique ID for a custom section
+ */
+function generateId(): string {
+  return `custom_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+}
+
+/**
+ * Generate a unique section name
+ */
+function generateSectionName(existingNames: Set<string>): string {
+  let index = 1;
+  while (existingNames.has(`Custom Section ${index}`)) {
+    index++;
+  }
+  return `Custom Section ${index}`;
+}
+
+/**
  * Hook for managing custom sections with React Query caching.
+ * Uses Rust engine as the single source of truth.
  */
 export function useCustomSections(options: UseCustomSectionsOptions = {}): UseCustomSectionsResult {
   const { includeMatches = true, sportType } = options;
   const queryClient = useQueryClient();
 
-  // Load sections with React Query
+  // Load sections from Rust engine with React Query
   const {
     data: rawSections,
     isLoading,
@@ -86,12 +95,39 @@ export function useCustomSections(options: UseCustomSectionsOptions = {}): UseCu
   } = useQuery<CustomSectionWithMatches[]>({
     queryKey: [...QUERY_KEY, { includeMatches }],
     queryFn: async () => {
-      if (includeMatches) {
-        return loadCustomSectionsWithMatches();
+      const engine = getRouteEngine();
+      if (!engine) {
+        return [];
       }
-      // Load without matches - add empty matches array
-      const sections = await loadCustomSections();
-      return sections.map((s) => ({ ...s, matches: [] }));
+
+      // Get all custom sections from Rust engine
+      const sections = engine.getCustomSections();
+
+      // Convert to CustomSectionWithMatches format
+      return sections.map((s): CustomSectionWithMatches => {
+        // Get matches if requested
+        const rawMatches = includeMatches ? engine.getCustomSectionMatches(s.id) : [];
+        // Convert direction from string to union type
+        const matches: CustomSectionMatch[] = rawMatches.map((m) => ({
+          activityId: m.activityId,
+          startIndex: m.startIndex,
+          endIndex: m.endIndex,
+          direction: m.direction as 'same' | 'reverse',
+          distanceMeters: m.distanceMeters,
+        }));
+        return {
+          id: s.id,
+          name: s.name,
+          polyline: s.polyline,
+          startIndex: s.startIndex,
+          endIndex: s.endIndex,
+          sourceActivityId: s.sourceActivityId,
+          sportType: s.sportType,
+          distanceMeters: s.distanceMeters,
+          createdAt: s.createdAt,
+          matches,
+        };
+      });
     },
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
@@ -118,11 +154,18 @@ export function useCustomSections(options: UseCustomSectionsOptions = {}): UseCu
     await queryClient.invalidateQueries({ queryKey: QUERY_KEY });
   }, [queryClient]);
 
-  // Create a new section and match against cached activities
-  // Matching is done BEFORE saving to avoid orphan sections
+  // Create a new section using Rust engine
   const createSection = useCallback(
     async (params: CreateSectionParams): Promise<CustomSection> => {
-      const name = params.name || (await generateSectionName());
+      const engine = getRouteEngine();
+      if (!engine) {
+        throw new Error('Route engine not initialized');
+      }
+
+      // Get existing names for unique name generation
+      const existingSections = engine.getCustomSections();
+      const existingNames = new Set(existingSections.map((s) => s.name));
+      const name = params.name || generateSectionName(existingNames);
 
       const section: CustomSection = {
         id: generateId(),
@@ -136,67 +179,52 @@ export function useCustomSections(options: UseCustomSectionsOptions = {}): UseCu
         createdAt: new Date().toISOString(),
       };
 
-      // Match against cached activities FIRST (before saving)
-      let matches: CustomSectionMatch[] = [];
-      try {
-        const activityIds = await getCachedActivityIds();
-        if (activityIds.length > 0) {
-          matches = await matchCustomSection(section, activityIds);
-        }
-      } catch (error) {
-        console.warn('Failed to match section against activities:', error);
-        // Continue - we'll at least add the source activity as a match
-      }
-
-      // Ensure the source activity is always included as a match
-      if (params.sourceActivityId) {
-        const hasSourceMatch = matches.some((m) => m.activityId === params.sourceActivityId);
-        if (!hasSourceMatch) {
-          matches.push({
-            activityId: params.sourceActivityId,
-            direction: 'same',
-            startIndex: params.startIndex,
-            endIndex: params.endIndex,
-            distanceMeters: params.distanceMeters,
-          });
-        }
-      }
-
-      // Now save the section and matches together
-      await addCustomSection(section);
-      if (matches.length > 0) {
-        await saveSectionMatches(section.id, matches);
+      // Add to Rust engine (which handles storage and matching)
+      const success = engine.addCustomSection(section);
+      if (!success) {
+        throw new Error('Failed to add custom section');
       }
 
       await invalidate();
-
       return section;
     },
     [invalidate]
   );
 
-  // Delete a section
+  // Delete a section using Rust engine
   const removeSection = useCallback(
     async (sectionId: string): Promise<void> => {
-      await deleteCustomSection(sectionId);
+      const engine = getRouteEngine();
+      if (!engine) {
+        throw new Error('Route engine not initialized');
+      }
+
+      engine.removeCustomSection(sectionId);
       await invalidate();
     },
     [invalidate]
   );
 
-  // Rename a section
+  // Rename a section using Rust engine
   const renameSection = useCallback(
     async (sectionId: string, name: string): Promise<void> => {
-      await updateCustomSection(sectionId, { name });
+      const engine = getRouteEngine();
+      if (!engine) {
+        throw new Error('Route engine not initialized');
+      }
+
+      // Use Rust engine as the single source of truth for names
+      engine.setSectionName(sectionId, name);
       await invalidate();
     },
     [invalidate]
   );
 
-  // Update matches for a section
+  // Update matches - trigger re-matching in Rust
   const updateMatches = useCallback(
-    async (sectionId: string, matches: CustomSectionMatch[]): Promise<void> => {
-      await saveSectionMatches(sectionId, matches);
+    async (sectionId: string, _matches: CustomSectionMatch[]): Promise<void> => {
+      // Matches are managed by Rust engine, just invalidate cache
+      // The Rust engine automatically manages matches
       await invalidate();
     },
     [invalidate]
@@ -218,13 +246,6 @@ export function useCustomSections(options: UseCustomSectionsOptions = {}): UseCu
     updateMatches,
     refresh,
   };
-}
-
-/**
- * Generate a unique ID for a custom section
- */
-function generateId(): string {
-  return `custom_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
 }
 
 /**

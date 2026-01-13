@@ -413,6 +413,13 @@ export interface CustomSectionMatch {
   direction: 'same' | 'reverse';
   /** Distance of the matched portion in meters */
   distanceMeters: number;
+  /**
+   * Extracted GPS points that are actually near the section polyline.
+   * Use this for visualization instead of slicing by indices to avoid
+   * "straight line" artifacts from points that deviate from the section.
+   * Optional for backward compatibility - will be populated when available.
+   */
+  trace?: RoutePoint[];
 }
 
 /**
