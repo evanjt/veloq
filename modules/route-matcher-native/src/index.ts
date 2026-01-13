@@ -2106,6 +2106,170 @@ class RouteEngineClient {
     return JSON.parse(json) as Record<string, string>;
   }
 
+  // ==========================================================================
+  // Custom Sections
+  // ==========================================================================
+
+  /**
+   * Add a custom section to the Rust engine.
+   * The section will be stored in SQLite and can be matched against activities.
+   */
+  addCustomSection(section: {
+    id: string;
+    name: string;
+    polyline: Array<{ lat: number; lng: number }>;
+    sourceActivityId: string;
+    startIndex: number;
+    endIndex: number;
+    sportType: string;
+    distanceMeters: number;
+    createdAt: string;
+  }): boolean {
+    const json = JSON.stringify({
+      id: section.id,
+      name: section.name,
+      polyline: section.polyline.map((p) => ({
+        latitude: p.lat,
+        longitude: p.lng,
+      })),
+      source_activity_id: section.sourceActivityId,
+      start_index: section.startIndex,
+      end_index: section.endIndex,
+      sport_type: section.sportType,
+      distance_meters: section.distanceMeters,
+      created_at: section.createdAt,
+    });
+    return NativeModule.persistentEngineAddCustomSection(json);
+  }
+
+  /**
+   * Remove a custom section from the Rust engine.
+   */
+  removeCustomSection(sectionId: string): boolean {
+    return NativeModule.persistentEngineRemoveCustomSection(sectionId);
+  }
+
+  /**
+   * Get all custom sections from the Rust engine.
+   */
+  getCustomSections(): Array<{
+    id: string;
+    name: string;
+    polyline: Array<{ lat: number; lng: number }>;
+    sourceActivityId: string;
+    startIndex: number;
+    endIndex: number;
+    sportType: string;
+    distanceMeters: number;
+    createdAt: string;
+  }> {
+    const json = NativeModule.persistentEngineGetCustomSectionsJson();
+    const raw = JSON.parse(json) as Array<{
+      id: string;
+      name: string;
+      polyline: Array<{ latitude: number; longitude: number }>;
+      source_activity_id: string;
+      start_index: number;
+      end_index: number;
+      sport_type: string;
+      distance_meters: number;
+      created_at: string;
+    }>;
+    return raw.map((s) => ({
+      id: s.id,
+      name: s.name,
+      polyline: s.polyline.map((p) => ({ lat: p.latitude, lng: p.longitude })),
+      sourceActivityId: s.source_activity_id,
+      startIndex: s.start_index,
+      endIndex: s.end_index,
+      sportType: s.sport_type,
+      distanceMeters: s.distance_meters,
+      createdAt: s.created_at,
+    }));
+  }
+
+  /**
+   * Match a custom section against activities using the Rust matching algorithm.
+   * Returns an array of matches.
+   */
+  matchCustomSection(
+    sectionId: string,
+    activityIds: string[],
+  ): Array<{
+    activityId: string;
+    startIndex: number;
+    endIndex: number;
+    direction: string;
+    distanceMeters: number;
+  }> {
+    const json = NativeModule.persistentEngineMatchCustomSection(
+      sectionId,
+      activityIds,
+    );
+    const raw = JSON.parse(json) as Array<{
+      activity_id: string;
+      start_index: number;
+      end_index: number;
+      direction: string;
+      distance_meters: number;
+    }>;
+    return raw.map((m) => ({
+      activityId: m.activity_id,
+      startIndex: m.start_index,
+      endIndex: m.end_index,
+      direction: m.direction,
+      distanceMeters: m.distance_meters,
+    }));
+  }
+
+  /**
+   * Get cached matches for a custom section.
+   */
+  getCustomSectionMatches(sectionId: string): Array<{
+    activityId: string;
+    startIndex: number;
+    endIndex: number;
+    direction: string;
+    distanceMeters: number;
+  }> {
+    const json = NativeModule.persistentEngineGetCustomSectionMatches(sectionId);
+    const raw = JSON.parse(json) as Array<{
+      activity_id: string;
+      start_index: number;
+      end_index: number;
+      direction: string;
+      distance_meters: number;
+    }>;
+    return raw.map((m) => ({
+      activityId: m.activity_id,
+      startIndex: m.start_index,
+      endIndex: m.end_index,
+      direction: m.direction,
+      distanceMeters: m.distance_meters,
+    }));
+  }
+
+  /**
+   * Extract the GPS trace for an activity that overlaps with a section polyline.
+   * Returns points that are actually on/near the section (not just index-based slicing).
+   */
+  extractSectionTrace(
+    activityId: string,
+    sectionPolyline: Array<{ lat: number; lng: number }>
+  ): Array<{ lat: number; lng: number }> {
+    // Convert polyline to Rust format (latitude/longitude)
+    const polylineJson = JSON.stringify(
+      sectionPolyline.map((p) => ({ latitude: p.lat, longitude: p.lng }))
+    );
+    const result = NativeModule.persistentEngineExtractSectionTrace(activityId, polylineJson);
+    // Result is flat [lat, lng, lat, lng, ...]
+    const points: Array<{ lat: number; lng: number }> = [];
+    for (let i = 0; i < result.length; i += 2) {
+      points.push({ lat: result[i], lng: result[i + 1] });
+    }
+    return points;
+  }
+
   /**
    * Get all activity bounds info for map display.
    * Returns array of { id, bounds, type, distance }.

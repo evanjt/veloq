@@ -20,11 +20,7 @@
  *    - Real API GPS fetching via Rust HTTP client
  *    - Progress tracking and coordinate building
  *
- * 4. `customSectionSync.ts` (84 lines)
- *    - Custom section matching logic
- *    - Non-blocking fire-and-forget pattern
- *
- * 5. `activityMetrics.ts` (38 lines)
+ * 4. `activityMetrics.ts` (38 lines)
  *    - Activity to ActivityMetrics conversion
  *
  * **Orchestrator (this file - 240 lines):**
