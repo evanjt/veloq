@@ -716,6 +716,43 @@ class RouteMatcherModule : Module() {
       persistentEngineGetAllActivityBoundsJson()
     }
 
+    // ==========================================================================
+    // Custom Sections (User-created sections)
+    // ==========================================================================
+
+    // PersistentEngine: Add a custom section from JSON
+    Function("persistentEngineAddCustomSection") { sectionJson: String ->
+      Log.i(TAG, "PersistentEngine: Adding custom section")
+      persistentEngineAddCustomSection(sectionJson)
+    }
+
+    // PersistentEngine: Remove a custom section
+    Function("persistentEngineRemoveCustomSection") { sectionId: String ->
+      Log.i(TAG, "PersistentEngine: Removing custom section $sectionId")
+      persistentEngineRemoveCustomSection(sectionId)
+    }
+
+    // PersistentEngine: Get all custom sections as JSON
+    Function("persistentEngineGetCustomSectionsJson") {
+      persistentEngineGetCustomSectionsJson()
+    }
+
+    // PersistentEngine: Match a custom section against activities
+    Function("persistentEngineMatchCustomSection") { sectionId: String, activityIds: List<String> ->
+      Log.i(TAG, "PersistentEngine: Matching custom section $sectionId against ${activityIds.size} activities")
+      persistentEngineMatchCustomSection(sectionId, activityIds)
+    }
+
+    // PersistentEngine: Get cached matches for a custom section
+    Function("persistentEngineGetCustomSectionMatches") { sectionId: String ->
+      persistentEngineGetCustomSectionMatches(sectionId)
+    }
+
+    // PersistentEngine: Extract GPS trace for activity overlapping with section
+    Function("persistentEngineExtractSectionTrace") { activityId: String, polylineJson: String ->
+      persistentEngineExtractSectionTrace(activityId, polylineJson)
+    }
+
     // PersistentEngine: Set activity metrics for performance calculations
     Function("persistentEngineSetActivityMetrics") { metrics: List<Map<String, Any?>> ->
       val nativeMetrics = metrics.map { m ->

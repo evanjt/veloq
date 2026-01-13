@@ -739,6 +739,43 @@ public class RouteMatcherModule: Module {
             return persistentEngineGetAllSectionNamesJson()
         }
 
+        // ==========================================================================
+        // Custom Sections (User-created sections)
+        // ==========================================================================
+
+        // PersistentEngine: Add a custom section from JSON
+        Function("persistentEngineAddCustomSection") { (sectionJson: String) -> Bool in
+            logger.info("PersistentEngine: Adding custom section")
+            return persistentEngineAddCustomSection(sectionJson: sectionJson)
+        }
+
+        // PersistentEngine: Remove a custom section
+        Function("persistentEngineRemoveCustomSection") { (sectionId: String) -> Bool in
+            logger.info("PersistentEngine: Removing custom section \(sectionId)")
+            return persistentEngineRemoveCustomSection(sectionId: sectionId)
+        }
+
+        // PersistentEngine: Get all custom sections as JSON
+        Function("persistentEngineGetCustomSectionsJson") { () -> String in
+            return persistentEngineGetCustomSectionsJson()
+        }
+
+        // PersistentEngine: Match a custom section against activities
+        Function("persistentEngineMatchCustomSection") { (sectionId: String, activityIds: [String]) -> String in
+            logger.info("PersistentEngine: Matching custom section \(sectionId) against \(activityIds.count) activities")
+            return persistentEngineMatchCustomSection(sectionId: sectionId, activityIds: activityIds)
+        }
+
+        // PersistentEngine: Get cached matches for a custom section
+        Function("persistentEngineGetCustomSectionMatches") { (sectionId: String) -> String in
+            return persistentEngineGetCustomSectionMatches(sectionId: sectionId)
+        }
+
+        // PersistentEngine: Extract GPS trace for activity overlapping with section
+        Function("persistentEngineExtractSectionTrace") { (activityId: String, polylineJson: String) -> [Double] in
+            return persistentEngineExtractSectionTrace(activityId: activityId, sectionPolylineJson: polylineJson)
+        }
+
         // Heatmap: Query cell at location
         // heatmapJson is a JSON string to avoid Expo Modules bridge issues with nulls
         Function("queryHeatmapCell") { (heatmapJson: String, lat: Double, lng: Double) -> [String: Any]? in
