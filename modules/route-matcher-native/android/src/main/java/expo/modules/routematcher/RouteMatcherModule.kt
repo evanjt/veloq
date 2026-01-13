@@ -28,7 +28,7 @@ class RouteMatcherModule : Module() {
       val gpsPoints = points.mapNotNull { dict ->
         val lat = dict["latitude"] ?: return@mapNotNull null
         val lng = dict["longitude"] ?: return@mapNotNull null
-        val elevation = (dict["elevation"] as? Double)?.toFloat()
+        val elevation = dict["elevation"] as? Double
         GpsPoint(latitude = lat, longitude = lng, elevation = elevation)
       }
 
@@ -265,8 +265,10 @@ class RouteMatcherModule : Module() {
       val rustElapsed = System.currentTimeMillis() - startTime
       Log.i(TAG, "detectSectionsFromTracks Rust: ${result.sections.size} sections, ${result.potentials.size} potentials in ${rustElapsed}ms")
 
-      // Combine sections and potentials into a single JSON result
-      val allSections = result.sections + result.potentials
+      // Combine sections and potentials into a single list
+      val allSections = mutableListOf<FrequentSection>()
+      allSections.addAll(result.sections)
+      allSections.addAll(result.potentials)
 
       // Serialize to JSON for efficient bridge transfer
       val jsonStart = System.currentTimeMillis()
@@ -567,7 +569,7 @@ class RouteMatcherModule : Module() {
           col = c.getInt("col"),
           centerLat = c.getDouble("center_lat"),
           centerLng = c.getDouble("center_lng"),
-          density = c.getDouble("density").toFloat(),
+          density = c.getDouble("density"),
           visitCount = c.getInt("visit_count").toUInt(),
           routeRefs = (0 until routeRefsArray.length()).map { j ->
             val r = routeRefsArray.getJSONObject(j)
@@ -598,7 +600,7 @@ class RouteMatcherModule : Module() {
         cellSizeMeters = heatmapObj.getDouble("cell_size_meters"),
         gridRows = heatmapObj.getInt("grid_rows").toUInt(),
         gridCols = heatmapObj.getInt("grid_cols").toUInt(),
-        maxDensity = heatmapObj.getDouble("max_density").toFloat(),
+        maxDensity = heatmapObj.getDouble("max_density"),
         totalRoutes = heatmapObj.getInt("total_routes").toUInt(),
         totalActivities = heatmapObj.getInt("total_activities").toUInt()
       )
@@ -764,20 +766,20 @@ class RouteMatcherModule : Module() {
     val points = pointMaps.mapNotNull { dict ->
       val lat = dict["latitude"] ?: return@mapNotNull null
       val lng = dict["longitude"] ?: return@mapNotNull null
-      val elevation = (dict["elevation"] as? Double)?.toFloat()
+      val elevation = (dict["elevation"] as? Double)?
       GpsPoint(latitude = lat, longitude = lng, elevation = elevation)
     }
 
     val startPoint = GpsPoint(
       latitude = startMap["latitude"] ?: return null,
       longitude = startMap["longitude"] ?: return null,
-      elevation = (startMap["elevation"] as? Double)?.toFloat()
+      elevation = (startMap["elevation"] as? Double)?
     )
 
     val endPoint = GpsPoint(
       latitude = endMap["latitude"] ?: return null,
       longitude = endMap["longitude"] ?: return null,
-      elevation = (endMap["elevation"] as? Double)?.toFloat()
+      elevation = (endMap["elevation"] as? Double)?
     )
 
     val bounds = Bounds(
@@ -790,7 +792,7 @@ class RouteMatcherModule : Module() {
     val center = GpsPoint(
       latitude = centerMap["latitude"] ?: return null,
       longitude = centerMap["longitude"] ?: return null,
-      elevation = (centerMap["elevation"] as? Double)?.toFloat()
+      elevation = (centerMap["elevation"] as? Double)?
     )
 
     return RouteSignature(
@@ -887,12 +889,12 @@ class RouteMatcherModule : Module() {
       val pointsArray = json.getJSONArray("points")
       val points = (0 until pointsArray.length()).mapNotNull { i ->
         val pt = pointsArray.getJSONObject(i)
-        val elevation = if (pt.has("elevation") && !pt.isNull("elevation")) pt.getDouble("elevation").toFloat() else null
+        val elevation = if (pt.has("elevation") && !pt.isNull("elevation")) pt.getDouble("elevation") else null
         GpsPoint(latitude = pt.getDouble("latitude"), longitude = pt.getDouble("longitude"), elevation = elevation)
       }
 
       val startJson = json.getJSONObject("startPoint")
-      val startElevation = if (startJson.has("elevation") && !startJson.isNull("elevation")) startJson.getDouble("elevation").toFloat() else null
+      val startElevation = if (startJson.has("elevation") && !startJson.isNull("elevation")) startJson.getDouble("elevation") else null
       val startPoint = GpsPoint(
         latitude = startJson.getDouble("latitude"),
         longitude = startJson.getDouble("longitude"),
@@ -900,7 +902,7 @@ class RouteMatcherModule : Module() {
       )
 
       val endJson = json.getJSONObject("endPoint")
-      val endElevation = if (endJson.has("elevation") && !endJson.isNull("elevation")) endJson.getDouble("elevation").toFloat() else null
+      val endElevation = if (endJson.has("elevation") && !endJson.isNull("elevation")) endJson.getDouble("elevation") else null
       val endPoint = GpsPoint(
         latitude = endJson.getDouble("latitude"),
         longitude = endJson.getDouble("longitude"),
@@ -916,7 +918,7 @@ class RouteMatcherModule : Module() {
       )
 
       val centerJson = json.getJSONObject("center")
-      val centerElevation = if (centerJson.has("elevation") && !centerJson.isNull("elevation")) centerJson.getDouble("elevation").toFloat() else null
+      val centerElevation = if (centerJson.has("elevation") && !centerJson.isNull("elevation")) centerJson.getDouble("elevation") else null
       val center = GpsPoint(
         latitude = centerJson.getDouble("latitude"),
         longitude = centerJson.getDouble("longitude"),
