@@ -235,7 +235,7 @@ jobs:
         working-directory: fastlane
         env:
           SUPPLY_JSON_KEY: ${{ github.workspace }}/play_store_credentials.json
-          AAB_PATH: ${{ github.workspace }}/release/veloq-${{ steps.prepare.outputs.version_name }}.aab
+          AAB_PATH: ${{ github.workspace }}/release/veloq-${{ needs.release.outputs.version }}.aab
         run: |
           if [ ! -f "$AAB_PATH" ]; then
             echo "Error: AAB file not found at $AAB_PATH"
