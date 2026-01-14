@@ -234,9 +234,15 @@ jobs:
         if: steps.check_creds.outputs.skip != 'true'
         working-directory: fastlane
         env:
-          SUPPLY_JSON_KEY: ../play_store_credentials.json
+          SUPPLY_JSON_KEY: ${{ github.workspace }}/play_store_credentials.json
+          AAB_PATH: ${{ github.workspace }}/release/veloq-${{ steps.prepare.outputs.version_name }}.aab
         run: |
-          AAB_PATH=$(find ../release -name "*.aab" | head -1)
+          if [ ! -f "$AAB_PATH" ]; then
+            echo "Error: AAB file not found at $AAB_PATH"
+            echo "Contents of workspace/release:"
+            ls -la "${{ github.workspace }}/release/" || echo "Directory not found"
+            exit 1
+          fi
           bundle exec fastlane android deploy track:internal aab:"$AAB_PATH"
 
       - name: Cleanup credentials
