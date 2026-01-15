@@ -6,17 +6,18 @@
 
 import { useMemo } from 'react';
 import { useEngineSections } from './useRouteEngine';
+import { gpsPointsToRoutePoints } from 'route-matcher-native';
 import type { FrequentSection } from '@/types';
-import type { RoutePoint } from '@/types';
 
 /**
  * Type guard to validate Rust engine section data at runtime.
  * Prevents crashes when native module returns malformed data.
+ * Accepts both GpsPoint (from native) and RoutePoint (app) polyline formats.
  *
  * @param obj - Unknown object from Rust engine
  * @returns True if object matches FrequentSection structure
  */
-function isFrequentSection(obj: unknown): obj is FrequentSection {
+function isFrequentSection(obj: unknown): boolean {
   if (typeof obj !== 'object' || obj === null) {
     return false;
   }
@@ -66,8 +67,18 @@ export function useFrequentSections(
   const isReady = true;
 
   const sections = useMemo(() => {
-    // Filter and validate in one pass - removes malformed data
-    let filtered = rawSections.filter(isFrequentSection);
+    // Convert native FrequentSection (GpsPoint polyline) to app FrequentSection (RoutePoint polyline)
+    // Also filter and validate in one pass - removes malformed data
+    let filtered: FrequentSection[] = rawSections.filter(isFrequentSection).map((s) => ({
+      ...s,
+      polyline: gpsPointsToRoutePoints(s.polyline),
+      // Convert activity traces if present
+      activityTraces: s.activityTraces
+        ? Object.fromEntries(
+            Object.entries(s.activityTraces).map(([id, pts]) => [id, gpsPointsToRoutePoints(pts)])
+          )
+        : undefined,
+    }));
 
     // Filter by sport type (already done by useEngineSections, but double-check)
     if (sportType) {

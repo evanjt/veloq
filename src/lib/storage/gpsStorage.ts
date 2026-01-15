@@ -559,9 +559,7 @@ function getRouteEngine() {
  * - AuthStore (caller handles this)
  * - SyncDateRangeStore (caller may want to reset separately)
  */
-export async function clearAllAppCaches(queryClient: {
-  clear: () => void;
-}): Promise<void> {
+export async function clearAllAppCaches(queryClient: { clear: () => void }): Promise<void> {
   // Import AsyncStorage here to keep this module focused on FileSystem
   const AsyncStorage = require('@react-native-async-storage/async-storage').default;
 

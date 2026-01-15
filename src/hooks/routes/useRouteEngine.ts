@@ -13,7 +13,7 @@ import { InteractionManager } from 'react-native';
 // Use legacy API for SDK 54 compatibility (new API uses File/Directory classes)
 import * as FileSystem from 'expo-file-system/legacy';
 import { getRouteEngine } from '@/lib/native/routeEngine';
-import type { RouteGroup, FrequentSection, EngineStats } from 'route-matcher-native';
+import type { RouteGroup, FrequentSection, PersistentEngineStats } from 'route-matcher-native';
 
 // Default database path for persistent engine
 // FileSystem.documentDirectory returns a file:// URI, but SQLite needs a plain path
@@ -373,18 +373,21 @@ export function useViewportActivities(bounds: Bounds | null): UseViewportActivit
  * }
  * ```
  */
-export function useEngineStats(): EngineStats {
-  const [stats, setStats] = useState<EngineStats>({
+export function useEngineStats(): PersistentEngineStats {
+  const [stats, setStats] = useState<PersistentEngineStats>({
     activityCount: 0,
-    signatureCount: 0,
+    signatureCacheSize: 0,
+    consensusCacheSize: 0,
     groupCount: 0,
     sectionCount: 0,
-    cachedConsensusCount: 0,
+    groupsDirty: false,
+    sectionsDirty: false,
   });
 
   const refresh = useCallback(() => {
     const engine = getRouteEngine();
-    if (engine) setStats(engine.getStats());
+    const newStats = engine?.getStats();
+    if (newStats) setStats(newStats);
   }, []);
 
   // Refresh on any engine change

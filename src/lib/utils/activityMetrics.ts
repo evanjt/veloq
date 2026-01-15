@@ -21,7 +21,7 @@ export function toActivityMetrics(activity: Activity): ActivityMetrics {
   return {
     activityId: activity.id,
     name: activity.name,
-    date: Math.floor(new Date(activity.start_date_local).getTime() / 1000),
+    date: BigInt(Math.floor(new Date(activity.start_date_local).getTime() / 1000)),
     distance: activity.distance,
     movingTime: activity.moving_time,
     elapsedTime: activity.elapsed_time,

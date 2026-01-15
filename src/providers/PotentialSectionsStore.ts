@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import type { PotentialSection } from 'route-matcher-native';
+import type { PotentialSection } from '@/types';
 
 const POTENTIAL_SECTIONS_KEY = 'veloq-potential-sections';
 

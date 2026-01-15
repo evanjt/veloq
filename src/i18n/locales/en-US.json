@@ -512,7 +512,11 @@
     "routesCount": "routes",
     "activities": "Activities",
     "noActivitiesFound": "No activities found",
-    "sectionNamePlaceholder": "Section name"
+    "sectionNamePlaceholder": "Section name",
+    "bestTime": "Best Time",
+    "averageTime": "Average Time",
+    "totalTraversals": "Total Traversals",
+    "lastActivity": "Last Activity"
   },
   "errorState": {
     "defaultTitle": "Something went wrong",
@@ -559,7 +563,11 @@
     "avgPower": "Avg Power"
   },
   "routeDetail": {
-    "routeNotFound": "Route not found"
+    "routeNotFound": "Route not found",
+    "bestTime": "Best Time",
+    "avgTime": "Avg Time",
+    "totalActivities": "Total",
+    "lastActivity": "Last Activity"
   },
   "attribution": {
     "recordedWith": "Recorded with {{device}}",
