@@ -345,7 +345,8 @@ jobs:
             android/app/build
             android/app/.cxx
             android/build
-          key: android-build-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          # Include package-lock.json to invalidate cache when npm deps change (affects dex archives)
+          key: android-build-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties', 'package-lock.json') }}
           restore-keys: |
             android-build-${{ runner.os }}-
 
@@ -494,7 +495,7 @@ jobs:
         env:
           RUST_PREBUILT: "true"
         run: |
-          cd android && ./gradlew assembleRelease --no-daemon
+          cd android && ./gradlew clean assembleRelease --no-daemon
 
       - name: Copy APK
         run: |
