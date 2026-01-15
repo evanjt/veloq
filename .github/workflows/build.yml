@@ -65,10 +65,20 @@ jobs:
   # Verify Signing Keys (fail fast)
   # ============================================
   verify-signing:
-    name: Verify Signing Keys
-    runs-on: ubuntu-latest
+    name: Verify Signing (${{ matrix.platform }})
+    runs-on: ${{ matrix.runs-on }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: android
+            runs-on: ubuntu-latest
+          - platform: ios
+            runs-on: macos-15
     steps:
+      # ---- Android Signing Verification ----
       - name: Verify Android signing
+        if: matrix.platform == 'android'
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
@@ -131,20 +141,13 @@ jobs:
           echo "✅ Android signing verified"
           rm /tmp/release.keystore
 
-  # ============================================
-  # Verify iOS Signing Keys (fail fast)
-  # ============================================
-  verify-ios-signing:
-    name: Verify iOS Signing
-    runs-on: macos-15
-    # Only verify on main branch where we build signed IPAs
-    if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
-    steps:
+      # ---- iOS Signing Verification (main branch only) ----
       - name: Checkout repository
+        if: matrix.platform == 'ios' && (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch')
         uses: actions/checkout@v4
 
       - name: Check iOS signing secrets
-        id: check_secrets
+        if: matrix.platform == 'ios' && (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch')
         env:
           MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
           MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
@@ -173,11 +176,13 @@ jobs:
           echo "✅ All iOS signing secrets configured"
 
       - name: Setup SSH for Match
+        if: matrix.platform == 'ios' && (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch')
         uses: webfactory/ssh-agent@v0.9.0
         with:
           ssh-private-key: ${{ secrets.MATCH_SSH_PRIVATE_KEY }}
 
       - name: Verify Match repository access
+        if: matrix.platform == 'ios' && (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch')
         env:
           MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
         run: |
@@ -189,6 +194,7 @@ jobs:
           echo "✅ Match repository accessible"
 
       - name: Setup Ruby
+        if: matrix.platform == 'ios' && (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch')
         uses: ruby/setup-ruby@v1
         with:
           ruby-version: "3.2"
@@ -196,6 +202,7 @@ jobs:
           working-directory: fastlane
 
       - name: Verify certificates via Match
+        if: matrix.platform == 'ios' && (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch')
         env:
           MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
           MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
@@ -206,8 +213,7 @@ jobs:
           bundle exec fastlane match appstore --readonly --verbose
 
       - name: Check certificate expiration
-        env:
-          FASTLANE_TEAM_ID: ${{ secrets.FASTLANE_TEAM_ID }}
+        if: matrix.platform == 'ios' && (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch')
         run: |
           echo "=== Checking certificate expiration ==="
 
@@ -585,9 +591,7 @@ jobs:
   # ============================================
   build-ios:
     name: Build iOS App
-    needs: [test, verify-ios-signing]
-    # verify-ios-signing is skipped on PRs, but build-ios still runs (skipped jobs don't block)
-    if: ${{ !cancelled() }}
+    needs: [test, verify-signing]
     runs-on: macos-15
     outputs:
       version: ${{ steps.version.outputs.version }}
