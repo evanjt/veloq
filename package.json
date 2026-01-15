@@ -22,7 +22,7 @@
     "ubrn:build:android": "uniffi-bindgen-react-native build android --release",
     "ubrn:build:ios": "uniffi-bindgen-react-native build ios --release",
     "ubrn:generate": "uniffi-bindgen-react-native generate turbo-module ts && ./scripts/patch-ubrn-generated.sh",
-    "postinstall": "patch-package && npm run ubrn:generate",
+    "postinstall": "patch-package",
     "prepare": "husky"
   },
   "dependencies": {
