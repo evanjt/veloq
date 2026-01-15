@@ -373,30 +373,39 @@ export default function RouteDetailScreen() {
     return map;
   }, [performances]);
 
-  // Get signature points for all activities in this group from Rust engine
-  // Depends on engineGroup to ensure we re-fetch when engine data is ready
+  // Load GPS tracks for each activity in the group for mini trace preview
   const signatures = useMemo(() => {
-    if (!id || !engineGroup) return {};
+    if (!engineGroup?.activityIds?.length) return {};
     try {
       const engine = getRouteEngine();
       if (!engine) return {};
-      const sigMap = engine.getSignaturesForGroup(id) as Record<
-        string,
-        Array<{ lat: number; lng: number }>
-      >;
-      // Convert to expected format: { activity_id: { points: [{lat, lng}, ...] } }
+
       const result: Record<
         string,
         { points: Array<{ lat: number; lng: number }> }
       > = {};
-      for (const [activityId, points] of Object.entries(sigMap)) {
-        result[activityId] = { points };
+
+      // Load GPS track for each activity (simplified for mini trace display)
+      for (const activityId of engineGroup.activityIds) {
+        try {
+          const points = engine.getGpsTrack(activityId);
+          if (points && points.length > 0) {
+            // Simplify to ~50 points for mini trace preview
+            const step = Math.max(1, Math.floor(points.length / 50));
+            const simplified = points.filter(
+              (_: { lat: number; lng: number }, i: number) => i % step === 0,
+            );
+            result[activityId] = { points: simplified };
+          }
+        } catch {
+          // Skip activities without GPS data
+        }
       }
       return result;
     } catch {
       return {};
     }
-  }, [id, engineGroup]);
+  }, [engineGroup?.activityIds]);
 
   // Fetch activities for the past year (route groups can contain older activities)
   const { data: allActivities, isLoading } = useActivities({
@@ -716,74 +725,6 @@ export default function RouteDetailScreen() {
 
         {/* Content below hero */}
         <View style={styles.contentSection}>
-          {/* Summary Stats Card */}
-          {summaryStats.totalActivities > 0 && (
-            <View
-              style={[styles.summaryCard, isDark && styles.summaryCardDark]}
-            >
-              <View style={styles.summaryRow}>
-                <View style={styles.summaryItem}>
-                  <Text
-                    style={[styles.summaryLabel, isDark && styles.textMuted]}
-                  >
-                    {t("routeDetail.bestTime")}
-                  </Text>
-                  <Text
-                    style={[styles.summaryValue, isDark && styles.textLight]}
-                  >
-                    {summaryStats.bestTime !== null
-                      ? formatDuration(summaryStats.bestTime)
-                      : "-"}
-                  </Text>
-                </View>
-                <View style={styles.summaryItem}>
-                  <Text
-                    style={[styles.summaryLabel, isDark && styles.textMuted]}
-                  >
-                    {t("routeDetail.avgTime")}
-                  </Text>
-                  <Text
-                    style={[styles.summaryValue, isDark && styles.textLight]}
-                  >
-                    {summaryStats.avgTime !== null
-                      ? formatDuration(Math.round(summaryStats.avgTime))
-                      : "-"}
-                  </Text>
-                </View>
-              </View>
-              <View style={styles.summaryRow}>
-                <View style={styles.summaryItem}>
-                  <Text
-                    style={[styles.summaryLabel, isDark && styles.textMuted]}
-                  >
-                    {t("routeDetail.totalActivities")}
-                  </Text>
-                  <Text
-                    style={[styles.summaryValue, isDark && styles.textLight]}
-                  >
-                    {summaryStats.totalActivities}
-                  </Text>
-                </View>
-                <View style={styles.summaryItem}>
-                  <Text
-                    style={[styles.summaryLabel, isDark && styles.textMuted]}
-                  >
-                    {t("routeDetail.lastActivity")}
-                  </Text>
-                  <Text
-                    style={[styles.summaryValue, isDark && styles.textLight]}
-                  >
-                    {summaryStats.lastActivity
-                      ? formatRelativeDate(
-                          summaryStats.lastActivity.toISOString(),
-                        )
-                      : "-"}
-                  </Text>
-                </View>
-              </View>
-            </View>
-          )}
-
           {/* Performance progression chart - scrubbing highlights map */}
           {chartData.length >= 2 && (
             <View style={styles.chartSection}>
@@ -797,6 +738,7 @@ export default function RouteDetailScreen() {
                 hasReverseRuns={hasReverseRuns}
                 tooltipBadgeType="match"
                 onActivitySelect={handleActivitySelect}
+                summaryStats={summaryStats}
                 selectedActivityId={highlightedActivityId}
               />
             </View>

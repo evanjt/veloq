@@ -12,7 +12,14 @@ import Svg, { Polyline, Defs, LinearGradient, Stop, Rect, Circle } from 'react-n
 import { router, Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { colors, darkColors, opacity, spacing, layout, typography } from '@/theme';
-import { getActivityColor, loadCustomRouteNames, getRouteDisplayName } from '@/lib';
+import {
+  getActivityColor,
+  loadCustomRouteNames,
+  getRouteDisplayName,
+  formatPace,
+  formatSpeed,
+  isRunningActivity,
+} from '@/lib';
 import { useConsensusRoute } from '@/hooks/routes/useRouteEngine';
 import { toActivityType } from '@/types/routes';
 import type { DiscoveredRouteInfo, RouteGroup } from '@/types';
@@ -218,6 +225,17 @@ function RouteRowComponent({ route, navigable = false }: RouteRowProps) {
     ? route.averageMatchQuality
     : route.avgMatchPercentage;
 
+  // Get best pace (only available on RouteGroup with performance data)
+  const bestPace = isRouteGroup(route) ? route.bestPace : undefined;
+  const routeType = toActivityType(route.type);
+  const showPace = isRunningActivity(routeType);
+
+  // Format pace/speed for display
+  const formattedPace = useMemo(() => {
+    if (!bestPace || bestPace <= 0) return null;
+    return showPace ? formatPace(bestPace) : formatSpeed(bestPace);
+  }, [bestPace, showPace]);
+
   const handlePress = () => {
     if (navigable) {
       router.push(`/route/${route.id}` as Href);
@@ -258,6 +276,9 @@ function RouteRowComponent({ route, navigable = false }: RouteRowProps) {
               <Text style={[styles.metaText, isDark && styles.textMuted]}>
                 {formatDistance(distance)}
               </Text>
+            )}
+            {formattedPace && (
+              <Text style={[styles.paceText, { color: colors.primary }]}>{formattedPace}</Text>
             )}
             {avgMatchPercentage !== undefined && avgMatchPercentage > 0 && (
               <Text style={[styles.matchPercent, { color: colors.success }]}>
@@ -369,6 +390,10 @@ const styles = StyleSheet.create({
   metaText: {
     fontSize: typography.label.fontSize,
     color: colors.textSecondary,
+  },
+  paceText: {
+    fontSize: typography.label.fontSize,
+    fontWeight: '600',
   },
   matchPercent: {
     fontSize: typography.label.fontSize,

@@ -110,6 +110,14 @@ export interface RouteGroup {
   type: ActivityType;
   /** Average match quality for grouped activities (0-100) - optional for engine groups */
   averageMatchQuality?: number;
+  /** Best moving time in seconds (fastest completion) */
+  bestTime?: number;
+  /** Average moving time in seconds */
+  avgTime?: number;
+  /** Best pace/speed in m/s (from fastest activity) */
+  bestPace?: number;
+  /** Activity ID with the best performance */
+  bestActivityId?: string;
 }
 
 /** Direction of route match */

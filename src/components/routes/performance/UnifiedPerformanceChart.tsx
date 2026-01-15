@@ -35,14 +35,22 @@ import { colors, darkColors } from '@/theme';
 import type { ActivityType, RoutePoint, PerformanceDataPoint } from '@/types';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const CHART_HEIGHT = 160;
-const MIN_POINT_WIDTH = 40;
+const CHART_HEIGHT = 120; // Reduced from 160
+const MIN_POINT_WIDTH = 44; // Comfortable spacing between points
 
 // Direction colors
 const REVERSE_COLOR = colors.reverseDirection;
 
 function formatShortDate(date: Date): string {
   return formatShortDateLib(date);
+}
+
+/** Summary statistics to display in the chart header */
+export interface ChartSummaryStats {
+  bestTime: number | null;
+  avgTime: number | null;
+  totalActivities: number;
+  lastActivity: Date | null;
 }
 
 export interface UnifiedPerformanceChartProps {
@@ -66,6 +74,8 @@ export interface UnifiedPerformanceChartProps {
   onActivitySelect?: (activityId: string | null, activityPoints?: RoutePoint[]) => void;
   /** Currently selected/highlighted activity ID */
   selectedActivityId?: string | null;
+  /** Optional summary stats to show in header */
+  summaryStats?: ChartSummaryStats;
 }
 
 export function UnifiedPerformanceChart({
@@ -79,10 +89,12 @@ export function UnifiedPerformanceChart({
   tooltipBadgeType,
   onActivitySelect,
   selectedActivityId,
+  summaryStats,
 }: UnifiedPerformanceChartProps) {
   const { t } = useTranslation();
   const showPace = isRunningActivity(activityType);
   const activityColor = getActivityColor(activityType);
+  const scrollViewRef = useRef<ScrollView>(null);
 
   // Tooltip state - persists after scrubbing ends so user can tap
   const [tooltipData, setTooltipData] = useState<(PerformanceDataPoint & { x: number }) | null>(
@@ -104,6 +116,13 @@ export function UnifiedPerformanceChart({
   }, [chartData.length]);
 
   const needsScrolling = chartWidth > SCREEN_WIDTH - 32;
+
+  // Scroll to the end (latest dates) on mount when scrolling is needed
+  const scrollToEnd = useCallback(() => {
+    if (needsScrolling && scrollViewRef.current) {
+      scrollViewRef.current.scrollToEnd({ animated: false });
+    }
+  }, [needsScrolling]);
 
   // Find currently selected index for highlighting
   const selectedIndex = useMemo(() => {
@@ -262,7 +281,7 @@ export function UnifiedPerformanceChart({
           xKey={'x' as never}
           yKeys={['speed'] as never}
           domain={{ y: [minSpeed, maxSpeed] }}
-          padding={{ left: 35, right: 16, top: 40, bottom: 24 }}
+          padding={{ left: 32, right: 24, top: 24, bottom: 18 }}
         >
           {
             (({ points, chartBounds }: any) => {
@@ -390,7 +409,7 @@ export function UnifiedPerformanceChart({
 
         {/* X-axis labels (dates) */}
         <View
-          style={[styles.xAxisOverlay, { width: chartWidth - 35 - 16, left: 35 }]}
+          style={[styles.xAxisOverlay, { width: chartWidth - 32 - 24, left: 32 }]}
           pointerEvents="none"
         >
           {chartData.length > 0 && (
@@ -415,104 +434,69 @@ export function UnifiedPerformanceChart({
 
   return (
     <View style={[styles.chartCard, isDark && styles.chartCardDark]}>
+      {/* Compact header with title + summary stats */}
       <View style={styles.chartHeader}>
-        <Text style={[styles.chartTitle, isDark && styles.textLight]}>
-          {t('sections.performanceOverTime')}
-        </Text>
-        <View style={styles.chartLegend}>
-          <View style={styles.legendItem}>
-            <View style={[styles.legendDot, { backgroundColor: colors.chartGold }]} />
-            <Text style={[styles.legendText, isDark && styles.textMuted]}>
-              {t('sections.best')}
-            </Text>
-          </View>
-          <View style={styles.legendItem}>
-            <View style={[styles.legendDot, { backgroundColor: activityColor }]} />
-            <Text style={[styles.legendText, isDark && styles.textMuted]}>
-              {t('sections.same')}
-            </Text>
-          </View>
-          {hasReverseRuns && (
+        <View style={styles.headerTop}>
+          <Text style={[styles.chartTitle, isDark && styles.textLight]}>
+            {t('sections.performanceOverTime')}
+          </Text>
+          <View style={styles.chartLegend}>
             <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: REVERSE_COLOR }]} />
+              <View style={[styles.legendDot, { backgroundColor: colors.chartGold }]} />
               <Text style={[styles.legendText, isDark && styles.textMuted]}>
-                {t('sections.reverse')}
+                {t('sections.best')}
               </Text>
             </View>
-          )}
-        </View>
-      </View>
-
-      {/* Hint for interaction */}
-      {!isActive && !isPersisted && (
-        <Text style={[styles.chartHint, isDark && styles.textMuted]}>
-          {needsScrolling ? t('sections.scrubHintScrollable') : t('sections.scrubHint')}
-        </Text>
-      )}
-
-      {/* Selected activity tooltip - tappable */}
-      {(isActive || isPersisted) && tooltipData && (
-        <TouchableOpacity
-          style={[styles.selectedTooltip, isDark && styles.selectedTooltipDark]}
-          onPress={() => router.push(`/activity/${tooltipData.activityId}` as Href)}
-          activeOpacity={0.7}
-        >
-          <View style={styles.tooltipLeft}>
-            <Text style={[styles.tooltipName, isDark && styles.textLight]} numberOfLines={1}>
-              {tooltipData.activityName}
-            </Text>
-            <View style={styles.tooltipMeta}>
-              <Text style={[styles.tooltipDate, isDark && styles.textMuted]}>
-                {formatShortDate(tooltipData.date)}
-              </Text>
-              {/* Badge differs based on type */}
-              {tooltipBadgeType === 'match' && tooltipData.matchPercentage != null && (
-                <View style={[styles.matchBadgeSmall, { backgroundColor: colors.success + '20' }]}>
-                  <Text style={[styles.matchBadgeText, { color: colors.success }]}>
-                    {Math.round(tooltipData.matchPercentage)}%
-                  </Text>
-                </View>
-              )}
-              {tooltipBadgeType === 'time' && tooltipData.sectionTime != null && (
-                <Text style={[styles.tooltipDate, isDark && styles.textMuted]}>
-                  {' · '}
-                  {formatDuration(tooltipData.sectionTime)}
+            {hasReverseRuns && (
+              <View style={styles.legendItem}>
+                <View style={[styles.legendDot, { backgroundColor: REVERSE_COLOR }]} />
+                <Text style={[styles.legendText, isDark && styles.textMuted]}>
+                  {t('sections.reverse')}
                 </Text>
-              )}
-              {tooltipData.direction === 'reverse' && (
-                <View style={styles.reverseBadge}>
-                  <MaterialCommunityIcons name="swap-horizontal" size={10} color={REVERSE_COLOR} />
-                </View>
-              )}
+              </View>
+            )}
+          </View>
+        </View>
+        {/* Compact summary stats row */}
+        {summaryStats && summaryStats.totalActivities > 0 && (
+          <View style={styles.summaryRow}>
+            <View style={styles.summaryItem}>
+              <Text style={[styles.summaryValue, { color: colors.chartGold }]}>
+                {summaryStats.bestTime ? formatDuration(summaryStats.bestTime) : '-'}
+              </Text>
+              <Text style={[styles.summaryLabel, isDark && styles.textMuted]}>Best</Text>
+            </View>
+            <View style={styles.summaryItem}>
+              <Text style={[styles.summaryValue, isDark && styles.textLight]}>
+                {summaryStats.avgTime ? formatDuration(Math.round(summaryStats.avgTime)) : '-'}
+              </Text>
+              <Text style={[styles.summaryLabel, isDark && styles.textMuted]}>Avg</Text>
+            </View>
+            <View style={styles.summaryItem}>
+              <Text style={[styles.summaryValue, isDark && styles.textLight]}>
+                {summaryStats.totalActivities}
+              </Text>
+              <Text style={[styles.summaryLabel, isDark && styles.textMuted]}>Total</Text>
+            </View>
+            <View style={styles.summaryItem}>
+              <Text style={[styles.summaryValue, isDark && styles.textLight]}>
+                {summaryStats.lastActivity ? formatShortDate(summaryStats.lastActivity) : '-'}
+              </Text>
+              <Text style={[styles.summaryLabel, isDark && styles.textMuted]}>Last</Text>
             </View>
           </View>
-          <View style={styles.tooltipRight}>
-            <Text
-              style={[
-                styles.tooltipSpeed,
-                {
-                  color: tooltipData.direction === 'reverse' ? REVERSE_COLOR : activityColor,
-                },
-              ]}
-            >
-              {formatSpeedValue(tooltipData.speed)}
-            </Text>
-            <MaterialCommunityIcons
-              name="chevron-right"
-              size={16}
-              color={isDark ? darkColors.textMuted : colors.border}
-            />
-          </View>
-        </TouchableOpacity>
-      )}
+        )}
+      </View>
 
       {/* Chart with optional horizontal scrolling */}
       <View style={styles.chartContainer}>
         {needsScrolling ? (
           <ScrollView
+            ref={scrollViewRef}
             horizontal
             showsHorizontalScrollIndicator={true}
             contentContainerStyle={{ width: chartWidth }}
+            onContentSizeChange={scrollToEnd}
           >
             {chartContent}
           </ScrollView>
@@ -521,27 +505,72 @@ export function UnifiedPerformanceChart({
         )}
       </View>
 
-      {/* Best stats */}
-      {chartData[bestIndex] && (
-        <View style={[styles.bestStats, isDark && styles.bestStatsDark]}>
-          <View style={styles.bestStatItem}>
-            <Text style={[styles.bestStatValue, { color: colors.chartGold }]}>
-              {formatSpeedValue(chartData[bestIndex].speed)}
-            </Text>
-            <Text style={[styles.bestStatLabel, isDark && styles.textMuted]}>
-              {showPace ? t('sections.bestPace') : t('sections.bestSpeed')}
+      {/* Selected activity tooltip - fixed position below chart */}
+      <View style={styles.tooltipContainer}>
+        {(isActive || isPersisted) && tooltipData ? (
+          <TouchableOpacity
+            style={[styles.selectedTooltip, isDark && styles.selectedTooltipDark]}
+            onPress={() => router.push(`/activity/${tooltipData.activityId}` as Href)}
+            activeOpacity={0.7}
+          >
+            <View style={styles.tooltipLeft}>
+              <Text style={[styles.tooltipName, isDark && styles.textLight]} numberOfLines={1}>
+                {tooltipData.activityName}
+              </Text>
+              <View style={styles.tooltipMeta}>
+                <Text style={[styles.tooltipDate, isDark && styles.textMuted]}>
+                  {formatShortDate(tooltipData.date)}
+                </Text>
+                {tooltipBadgeType === 'match' && tooltipData.matchPercentage != null && (
+                  <View
+                    style={[styles.matchBadgeSmall, { backgroundColor: colors.success + '20' }]}
+                  >
+                    <Text style={[styles.matchBadgeText, { color: colors.success }]}>
+                      {Math.round(tooltipData.matchPercentage)}%
+                    </Text>
+                  </View>
+                )}
+                {tooltipBadgeType === 'time' && tooltipData.sectionTime != null && (
+                  <Text style={[styles.tooltipDate, isDark && styles.textMuted]}>
+                    {' · '}
+                    {formatDuration(tooltipData.sectionTime)}
+                  </Text>
+                )}
+                {tooltipData.direction === 'reverse' && (
+                  <View style={styles.reverseBadge}>
+                    <MaterialCommunityIcons
+                      name="swap-horizontal"
+                      size={10}
+                      color={REVERSE_COLOR}
+                    />
+                  </View>
+                )}
+              </View>
+            </View>
+            <View style={styles.tooltipRight}>
+              <Text
+                style={[
+                  styles.tooltipSpeed,
+                  { color: tooltipData.direction === 'reverse' ? REVERSE_COLOR : activityColor },
+                ]}
+              >
+                {formatSpeedValue(tooltipData.speed)}
+              </Text>
+              <MaterialCommunityIcons
+                name="chevron-right"
+                size={14}
+                color={isDark ? darkColors.textMuted : colors.border}
+              />
+            </View>
+          </TouchableOpacity>
+        ) : (
+          <View style={styles.tooltipPlaceholder}>
+            <Text style={[styles.chartHint, isDark && styles.textMuted]}>
+              {needsScrolling ? t('sections.scrubHintScrollable') : t('sections.scrubHint')}
             </Text>
           </View>
-          <View style={styles.bestStatItem}>
-            <Text style={[styles.bestStatValue, isDark && styles.textLight]}>
-              {formatShortDate(chartData[bestIndex].date)}
-            </Text>
-            <Text style={[styles.bestStatLabel, isDark && styles.textMuted]}>
-              {t('sections.date')}
-            </Text>
-          </View>
-        </View>
-      )}
+        )}
+      </View>
     </View>
   );
 }
@@ -549,104 +578,68 @@ export function UnifiedPerformanceChart({
 const styles = StyleSheet.create({
   chartCard: {
     backgroundColor: colors.surface,
-    borderRadius: 16,
+    borderRadius: 12,
     marginHorizontal: 16,
-    marginTop: 16,
+    marginTop: 12,
     overflow: 'hidden',
   },
   chartCardDark: {
     backgroundColor: darkColors.surfaceCard,
   },
   chartHeader: {
+    paddingHorizontal: 12,
+    paddingTop: 10,
+    paddingBottom: 6,
+  },
+  headerTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 8,
   },
   chartTitle: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600',
     color: colors.textPrimary,
   },
   chartLegend: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 8,
   },
   legendItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 3,
   },
   legendDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
   },
   legendText: {
-    fontSize: 11,
+    fontSize: 10,
     color: colors.textMuted,
   },
-  chartHint: {
-    fontSize: 12,
-    color: colors.textMuted,
-    textAlign: 'center',
-    paddingHorizontal: 16,
-    paddingBottom: 4,
-  },
-  selectedTooltip: {
+  summaryRow: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: colors.background,
-    marginHorizontal: 16,
-    marginBottom: 8,
-    padding: 12,
-    borderRadius: 10,
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
   },
-  selectedTooltipDark: {
-    backgroundColor: darkColors.surfaceElevated,
-  },
-  tooltipLeft: {
+  summaryItem: {
+    alignItems: 'center',
     flex: 1,
-    marginRight: 12,
   },
-  tooltipName: {
+  summaryValue: {
     fontSize: 14,
-    fontWeight: '600',
-    color: colors.textPrimary,
-    marginBottom: 2,
-  },
-  tooltipMeta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  tooltipDate: {
-    fontSize: 12,
-    color: colors.textMuted,
-  },
-  matchBadgeSmall: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-  matchBadgeText: {
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  reverseBadge: {
-    padding: 2,
-  },
-  tooltipRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  tooltipSpeed: {
-    fontSize: 16,
     fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  summaryLabel: {
+    fontSize: 10,
+    color: colors.textMuted,
+    marginTop: 1,
   },
   chartContainer: {
     height: CHART_HEIGHT,
@@ -657,8 +650,8 @@ const styles = StyleSheet.create({
   },
   crosshair: {
     position: 'absolute',
-    top: 40,
-    bottom: 24,
+    top: 24,
+    bottom: 18,
     width: 1,
     backgroundColor: 'rgba(0, 188, 212, 0.5)',
   },
@@ -668,46 +661,88 @@ const styles = StyleSheet.create({
   yAxisOverlay: {
     position: 'absolute',
     left: 4,
-    top: 40,
-    bottom: 24,
+    top: 24,
+    bottom: 18,
     justifyContent: 'space-between',
   },
   xAxisOverlay: {
     position: 'absolute',
-    bottom: 6,
+    bottom: 2,
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
   axisLabel: {
-    fontSize: 10,
+    fontSize: 9,
     color: colors.textMuted,
   },
   axisLabelDark: {
     color: darkColors.textMuted,
   },
-  bestStats: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
+  tooltipContainer: {
+    minHeight: 52,
+    paddingHorizontal: 12,
+    paddingBottom: 10,
   },
-  bestStatsDark: {
-    borderTopColor: darkColors.border,
-  },
-  bestStatItem: {
+  tooltipPlaceholder: {
+    justifyContent: 'center',
     alignItems: 'center',
+    height: 44,
   },
-  bestStatValue: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: colors.textPrimary,
-  },
-  bestStatLabel: {
+  chartHint: {
     fontSize: 11,
     color: colors.textMuted,
-    marginTop: 2,
+    textAlign: 'center',
+  },
+  selectedTooltip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: colors.background,
+    padding: 10,
+    borderRadius: 8,
+  },
+  selectedTooltipDark: {
+    backgroundColor: darkColors.surfaceElevated,
+  },
+  tooltipLeft: {
+    flex: 1,
+    marginRight: 8,
+  },
+  tooltipName: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.textPrimary,
+    marginBottom: 1,
+  },
+  tooltipMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  tooltipDate: {
+    fontSize: 11,
+    color: colors.textMuted,
+  },
+  matchBadgeSmall: {
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: 3,
+  },
+  matchBadgeText: {
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  reverseBadge: {
+    padding: 1,
+  },
+  tooltipRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+  },
+  tooltipSpeed: {
+    fontSize: 14,
+    fontWeight: '700',
   },
   textLight: {
     color: darkColors.textPrimary,

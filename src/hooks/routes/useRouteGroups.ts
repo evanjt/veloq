@@ -41,6 +41,14 @@ interface RouteGroupExtended {
     points: Array<{ lat: number; lng: number }>;
     distance: number;
   } | null;
+  /** Best moving time in seconds (fastest completion) */
+  bestTime?: number;
+  /** Average moving time in seconds */
+  avgTime?: number;
+  /** Best pace/speed in m/s (from fastest activity) */
+  bestPace?: number;
+  /** Activity ID with the best performance */
+  bestActivityId?: string;
 }
 
 interface UseRouteGroupsResult {
@@ -83,6 +91,11 @@ export function useRouteGroups(options: UseRouteGroupsOptions = {}): UseRouteGro
         type: sportType as ActivityType,
         // Signature loaded lazily via useConsensusRoute to avoid blocking render
         signature: undefined,
+        // Performance stats from engine (populated when metrics are synced)
+        bestTime: g.bestTime,
+        avgTime: g.avgTime,
+        bestPace: g.bestPace,
+        bestActivityId: g.bestActivityId,
       };
     });
 
