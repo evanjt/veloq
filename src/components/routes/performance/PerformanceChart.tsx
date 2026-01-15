@@ -4,11 +4,11 @@
  */
 
 import React, { useMemo, useRef, useCallback } from 'react';
-import { View, StyleSheet, ScrollView, Dimensions } from 'react-native';
+import { View, StyleSheet, Dimensions } from 'react-native';
 import { Text } from 'react-native-paper';
 import { CartesianChart, Line } from 'victory-native';
 import { Circle } from '@shopify/react-native-skia';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { Gesture, GestureDetector, ScrollView } from 'react-native-gesture-handler';
 import {
   useSharedValue,
   useDerivedValue,
@@ -18,6 +18,7 @@ import {
 } from 'react-native-reanimated';
 import Animated from 'react-native-reanimated';
 import { colors, darkColors, spacing, typography } from '@/theme';
+import { CHART_CONFIG } from '@/constants';
 import type { RoutePerformancePoint } from '@/hooks/routes/useRoutePerformances';
 import { formatShortDate as formatShortDateLib } from '@/lib';
 
@@ -63,11 +64,13 @@ export function PerformanceChart({
 }: PerformanceChartProps) {
   // Gesture tracking
   const touchX = useSharedValue(-1);
+  const scrollOffsetX = useSharedValue(0);
   const chartBoundsShared = useSharedValue({ left: 0, right: 1 });
   const pointXCoordsShared = useSharedValue<number[]>([]);
   const lastNotifiedIdx = useRef<number | null>(null);
   const isActiveRef = useRef(false);
   const isPersistedRef = useRef(false);
+  const scrollViewRef = useRef<ScrollView>(null);
 
   // Prepare chart data
   const chartData = useMemo(() => {
@@ -184,30 +187,38 @@ export function PerformanceChart({
     }
   }, [onTooltipUpdate]);
 
-  // Gesture handlers
+  // Track scroll position for accurate scrubbing
+  const handleScroll = useCallback(
+    (event: { nativeEvent: { contentOffset: { x: number } } }) => {
+      scrollOffsetX.value = event.nativeEvent.contentOffset.x;
+    },
+    [scrollOffsetX]
+  );
+
+  // Gesture handlers - pan with long press, accounting for scroll offset
   const panGesture = Gesture.Pan()
+    .activateAfterLongPress(CHART_CONFIG.LONG_PRESS_DURATION)
     .onStart((e) => {
       'worklet';
-      touchX.value = e.x;
+      touchX.value = e.x + scrollOffsetX.value;
     })
     .onUpdate((e) => {
       'worklet';
-      touchX.value = e.x;
+      touchX.value = e.x + scrollOffsetX.value;
     })
     .onEnd(() => {
       'worklet';
       touchX.value = -1;
       runOnJS(handleGestureEnd)();
-    })
-    .minDistance(0)
-    .activateAfterLongPress(700);
+    });
 
   const tapGesture = Gesture.Tap().onEnd(() => {
     'worklet';
     runOnJS(clearPersistedTooltip)();
   });
 
-  const gesture = Gesture.Race(panGesture, tapGesture);
+  // Simultaneous: both gestures can work - tap for quick dismiss, pan after long press
+  const gesture = Gesture.Simultaneous(tapGesture, panGesture);
 
   // Animated crosshair
   const crosshairStyle = useAnimatedStyle(() => {
@@ -230,144 +241,148 @@ export function PerformanceChart({
   }
 
   return (
-    <ScrollView
-      horizontal
-      showsHorizontalScrollIndicator={needsScroll}
-      scrollEnabled={needsScroll}
-      contentContainerStyle={{ width: chartWidth }}
-      style={styles.chartScrollContainer}
-    >
-      <GestureDetector gesture={gesture}>
-        <View style={[styles.chartContainer, { width: chartWidth }]}>
-          <CartesianChart
-            data={chartData}
-            xKey="x"
-            yKeys={['speed']}
-            domain={{ y: [minSpeed, maxSpeed] }}
-            padding={{ left: 35, right: 8, top: 40, bottom: 24 }}
-          >
-            {({ points, chartBounds }) => {
-              // Sync chartBounds for gesture handling
-              if (
-                chartBounds.left !== chartBoundsShared.value.left ||
-                chartBounds.right !== chartBoundsShared.value.right
-              ) {
-                chartBoundsShared.value = {
-                  left: chartBounds.left,
-                  right: chartBounds.right,
-                };
-              }
-              // Sync point x-coordinates
-              const newCoords = points.speed.map((p) => p.x ?? 0);
-              if (newCoords.length !== pointXCoordsShared.value.length) {
-                pointXCoordsShared.value = newCoords;
-              }
+    <GestureDetector gesture={gesture}>
+      <View style={styles.chartScrollContainer}>
+        <ScrollView
+          ref={scrollViewRef}
+          horizontal
+          showsHorizontalScrollIndicator={needsScroll}
+          scrollEnabled={needsScroll}
+          contentContainerStyle={{ width: chartWidth }}
+          onScroll={handleScroll}
+          scrollEventThrottle={16}
+        >
+          <View style={[styles.chartContainer, { width: chartWidth }]}>
+            <CartesianChart
+              data={chartData}
+              xKey="x"
+              yKeys={['speed']}
+              domain={{ y: [minSpeed, maxSpeed] }}
+              padding={{ left: 35, right: 8, top: 40, bottom: 24 }}
+            >
+              {({ points, chartBounds }) => {
+                // Sync chartBounds for gesture handling
+                if (
+                  chartBounds.left !== chartBoundsShared.value.left ||
+                  chartBounds.right !== chartBoundsShared.value.right
+                ) {
+                  chartBoundsShared.value = {
+                    left: chartBounds.left,
+                    right: chartBounds.right,
+                  };
+                }
+                // Sync point x-coordinates
+                const newCoords = points.speed.map((p) => p.x ?? 0);
+                if (newCoords.length !== pointXCoordsShared.value.length) {
+                  pointXCoordsShared.value = newCoords;
+                }
 
-              return (
-                <>
-                  <Line
-                    points={points.speed}
-                    color={isDark ? '#444' : '#DDD'}
-                    strokeWidth={1.5}
-                    curveType="monotoneX"
-                  />
-                  {points.speed.map((point, idx) => {
-                    if (point.x == null || point.y == null) return null;
-                    const d = chartData[idx];
-                    if (d?.isBest || d?.isCurrent) return null;
-                    const pointColor = d?.direction === 'reverse' ? REVERSE_COLOR : SAME_COLOR;
-                    return (
-                      <Circle
-                        key={`point-${idx}`}
-                        cx={point.x}
-                        cy={point.y}
-                        r={5}
-                        color={pointColor}
-                      />
-                    );
-                  })}
-                  {bestIndex >= 0 &&
-                    points.speed[bestIndex] &&
-                    points.speed[bestIndex].x != null &&
-                    points.speed[bestIndex].y != null && (
-                      <>
+                return (
+                  <>
+                    <Line
+                      points={points.speed}
+                      color={isDark ? '#444' : '#DDD'}
+                      strokeWidth={1.5}
+                      curveType="monotoneX"
+                    />
+                    {points.speed.map((point, idx) => {
+                      if (point.x == null || point.y == null) return null;
+                      const d = chartData[idx];
+                      if (d?.isBest || d?.isCurrent) return null;
+                      const pointColor = d?.direction === 'reverse' ? REVERSE_COLOR : SAME_COLOR;
+                      return (
                         <Circle
-                          cx={points.speed[bestIndex].x!}
-                          cy={points.speed[bestIndex].y!}
-                          r={8}
-                          color="#FFB300"
-                        />
-                        <Circle
-                          cx={points.speed[bestIndex].x!}
-                          cy={points.speed[bestIndex].y!}
-                          r={4}
-                          color="#FFFFFF"
-                        />
-                      </>
-                    )}
-                  {currentIndex >= 0 &&
-                    currentIndex !== bestIndex &&
-                    points.speed[currentIndex] &&
-                    points.speed[currentIndex].x != null &&
-                    points.speed[currentIndex].y != null && (
-                      <>
-                        <Circle
-                          cx={points.speed[currentIndex].x!}
-                          cy={points.speed[currentIndex].y!}
-                          r={8}
-                          color={currentActivityColor}
-                          opacity={0.3}
-                        />
-                        <Circle
-                          cx={points.speed[currentIndex].x!}
-                          cy={points.speed[currentIndex].y!}
+                          key={`point-${idx}`}
+                          cx={point.x}
+                          cy={point.y}
                           r={5}
-                          color={currentActivityColor}
+                          color={pointColor}
                         />
-                      </>
-                    )}
-                </>
-              );
-            }}
-          </CartesianChart>
+                      );
+                    })}
+                    {bestIndex >= 0 &&
+                      points.speed[bestIndex] &&
+                      points.speed[bestIndex].x != null &&
+                      points.speed[bestIndex].y != null && (
+                        <>
+                          <Circle
+                            cx={points.speed[bestIndex].x!}
+                            cy={points.speed[bestIndex].y!}
+                            r={8}
+                            color="#FFB300"
+                          />
+                          <Circle
+                            cx={points.speed[bestIndex].x!}
+                            cy={points.speed[bestIndex].y!}
+                            r={4}
+                            color="#FFFFFF"
+                          />
+                        </>
+                      )}
+                    {currentIndex >= 0 &&
+                      currentIndex !== bestIndex &&
+                      points.speed[currentIndex] &&
+                      points.speed[currentIndex].x != null &&
+                      points.speed[currentIndex].y != null && (
+                        <>
+                          <Circle
+                            cx={points.speed[currentIndex].x!}
+                            cy={points.speed[currentIndex].y!}
+                            r={8}
+                            color={currentActivityColor}
+                            opacity={0.3}
+                          />
+                          <Circle
+                            cx={points.speed[currentIndex].x!}
+                            cy={points.speed[currentIndex].y!}
+                            r={5}
+                            color={currentActivityColor}
+                          />
+                        </>
+                      )}
+                  </>
+                );
+              }}
+            </CartesianChart>
 
-          <Animated.View
-            style={[styles.crosshair, crosshairStyle, isDark && styles.crosshairDark]}
-            pointerEvents="none"
-          />
+            <Animated.View
+              style={[styles.crosshair, crosshairStyle, isDark && styles.crosshairDark]}
+              pointerEvents="none"
+            />
 
-          <View style={styles.yAxisOverlay} pointerEvents="none">
-            <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
-              {formatSpeedValue(maxSpeed)}
-            </Text>
-            <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
-              {formatSpeedValue((minSpeed + maxSpeed) / 2)}
-            </Text>
-            <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
-              {formatSpeedValue(minSpeed)}
-            </Text>
-          </View>
+            <View style={styles.yAxisOverlay} pointerEvents="none">
+              <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
+                {formatSpeedValue(maxSpeed)}
+              </Text>
+              <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
+                {formatSpeedValue((minSpeed + maxSpeed) / 2)}
+              </Text>
+              <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
+                {formatSpeedValue(minSpeed)}
+              </Text>
+            </View>
 
-          <View style={styles.xAxisOverlay} pointerEvents="none">
-            {chartData.length > 0 && (
-              <>
-                <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
-                  {formatShortDate(chartData[0].date)}
-                </Text>
-                {chartData.length >= 5 && (
+            <View style={styles.xAxisOverlay} pointerEvents="none">
+              {chartData.length > 0 && (
+                <>
                   <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
-                    {formatShortDate(chartData[Math.floor(chartData.length / 2)].date)}
+                    {formatShortDate(chartData[0].date)}
                   </Text>
-                )}
-                <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
-                  {formatShortDate(chartData[chartData.length - 1].date)}
-                </Text>
-              </>
-            )}
+                  {chartData.length >= 5 && (
+                    <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
+                      {formatShortDate(chartData[Math.floor(chartData.length / 2)].date)}
+                    </Text>
+                  )}
+                  <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
+                    {formatShortDate(chartData[chartData.length - 1].date)}
+                  </Text>
+                </>
+              )}
+            </View>
           </View>
-        </View>
-      </GestureDetector>
-    </ScrollView>
+        </ScrollView>
+      </View>
+    </GestureDetector>
   );
 }
 
