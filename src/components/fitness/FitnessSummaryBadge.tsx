@@ -59,7 +59,11 @@ export function FitnessSummaryBadge({ data, isLoading, onPress }: FitnessSummary
             {form}
           </Text>
         </View>
-        <MaterialCommunityIcons name="chevron-down" size={16} color={isDark ? darkColors.textSecondary : colors.textSecondary} />
+        <MaterialCommunityIcons
+          name="chevron-down"
+          size={16}
+          color={isDark ? darkColors.textSecondary : colors.textSecondary}
+        />
       </View>
     </TouchableOpacity>
   );

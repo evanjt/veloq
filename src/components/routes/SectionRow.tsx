@@ -12,7 +12,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Svg, { Polyline, G } from 'react-native-svg';
 import { useTranslation } from 'react-i18next';
 import { colors, darkColors, spacing, layout } from '@/theme';
-import { debug } from '@/lib';
+import { debug, formatDistance, getBoundsFromPoints } from '@/lib';
 import type { FrequentSection, RoutePoint } from '@/types';
 
 const log = debug.create('SectionRow');
@@ -41,14 +41,6 @@ const sportIcons: Record<string, keyof typeof MaterialCommunityIcons.glyphMap> =
   VirtualRide: 'bike',
   VirtualRun: 'run',
 };
-
-// Format distance in km or m
-function formatDistance(meters: number): string {
-  if (meters >= 1000) {
-    return `${(meters / 1000).toFixed(1)} km`;
-  }
-  return `${Math.round(meters)} m`;
-}
 
 // Activity trace colors - muted versions of the primary color
 const TRACE_COLORS = [
@@ -86,37 +78,32 @@ export const SectionRow = memo(function SectionRow({
 
   // Compute bounds that encompass section polyline and all activity traces
   const bounds = useMemo(() => {
-    let minLat = Infinity;
-    let maxLat = -Infinity;
-    let minLng = Infinity;
-    let maxLng = -Infinity;
+    // Collect all points: section polyline and activity traces
+    const allPoints: { lat: number; lng: number }[] = [];
 
     // Include section polyline
     if (section.polyline?.length) {
-      for (const p of section.polyline) {
-        minLat = Math.min(minLat, p.lat);
-        maxLat = Math.max(maxLat, p.lat);
-        minLng = Math.min(minLng, p.lng);
-        maxLng = Math.max(maxLng, p.lng);
-      }
+      allPoints.push(...section.polyline);
     }
 
-    // Include activity traces
+    // Include activity traces (convert [lat, lng] tuples to {lat, lng})
     if (activityTraces?.length) {
       for (const trace of activityTraces) {
         for (const [lat, lng] of trace.points) {
-          minLat = Math.min(minLat, lat);
-          maxLat = Math.max(maxLat, lat);
-          minLng = Math.min(minLng, lng);
-          maxLng = Math.max(maxLng, lng);
+          allPoints.push({ lat, lng });
         }
       }
     }
 
-    if (!isFinite(minLat)) {
-      return null;
-    }
+    // Use utility for bounds calculation
+    const mapBounds = getBoundsFromPoints(allPoints);
+    if (!mapBounds) return null;
 
+    // Extract min/max from MapLibre bounds format
+    const [minLng, minLat] = mapBounds.sw;
+    const [maxLng, maxLat] = mapBounds.ne;
+
+    // Calculate range for SVG normalization
     const latRange = maxLat - minLat || 0.001;
     const lngRange = maxLng - minLng || 0.001;
     const range = Math.max(latRange, lngRange);
@@ -206,7 +193,11 @@ export const SectionRow = memo(function SectionRow({
             />
           </Svg>
         ) : (
-          <MaterialCommunityIcons name={icon} size={24} color={isDark ? darkColors.textMuted : colors.primary} />
+          <MaterialCommunityIcons
+            name={icon}
+            size={24}
+            color={isDark ? darkColors.textMuted : colors.primary}
+          />
         )}
       </View>
 
@@ -266,7 +257,11 @@ export const SectionRow = memo(function SectionRow({
 
       {/* Chevron */}
       {onPress && (
-        <MaterialCommunityIcons name="chevron-right" size={20} color={isDark ? darkColors.textMuted : colors.border} />
+        <MaterialCommunityIcons
+          name="chevron-right"
+          size={20}
+          color={isDark ? darkColors.textMuted : colors.border}
+        />
       )}
     </TouchableOpacity>
   );

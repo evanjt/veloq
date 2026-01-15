@@ -7,4 +7,3 @@
 
 export * from './chart';
 export * from './weather';
-export * from './ui';

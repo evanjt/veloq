@@ -1,4 +1,4 @@
-import React from 'react';
+import React from "react";
 import {
   View,
   Text,
@@ -6,22 +6,22 @@ import {
   ScrollView,
   TouchableOpacity,
   Linking,
-} from 'react-native';
-import { ScreenSafeAreaView } from '@/components/ui';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { router } from 'expo-router';
-import { useTranslation } from 'react-i18next';
-import Constants from 'expo-constants';
-import { colors, darkColors, spacing, layout, typography } from '@/theme';
-import { createSharedStyles } from '@/styles';
-import { useTheme } from '@/hooks';
-import { INTERVALS_URLS } from '@/services/oauth';
+} from "react-native";
+import { ScreenSafeAreaView } from "@/components/ui";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { router } from "expo-router";
+import { useTranslation } from "react-i18next";
+import Constants from "expo-constants";
+import { colors, darkColors, spacing, layout, typography } from "@/theme";
+import { createSharedStyles } from "@/styles";
+import { useTheme } from "@/hooks";
+import { INTERVALS_URLS } from "@/services/oauth";
 
 const VELOQ_URLS = {
-  github: 'https://github.com/evanjt/veloq',
-  license: 'https://github.com/evanjt/veloq/blob/main/LICENSE',
-  privacy: 'https://veloq.fit/privacy',
-  tracematch: 'https://github.com/evanjt/tracematch',
+  github: "https://github.com/evanjt/veloq",
+  license: "https://github.com/evanjt/veloq/blob/main/LICENSE",
+  privacy: "https://veloq.fit/privacy",
+  tracematch: "https://github.com/evanjt/tracematch",
 };
 
 interface LinkRowProps {
@@ -40,8 +40,16 @@ function LinkRow({ icon, label, url, isDark }: LinkRowProps) {
   const mutedColor = isDark ? darkColors.textSecondary : colors.textSecondary;
 
   return (
-    <TouchableOpacity style={styles.linkRow} onPress={handlePress} activeOpacity={0.7}>
-      <MaterialCommunityIcons name={icon as any} size={22} color={colors.primary} />
+    <TouchableOpacity
+      style={styles.linkRow}
+      onPress={handlePress}
+      activeOpacity={0.7}
+    >
+      <MaterialCommunityIcons
+        name={icon as any}
+        size={22}
+        color={colors.primary}
+      />
       <Text style={[styles.linkText, { color: textColor }]}>{label}</Text>
       <MaterialCommunityIcons name="open-in-new" size={18} color={mutedColor} />
     </TouchableOpacity>
@@ -62,7 +70,7 @@ export default function AboutScreen() {
             testID="nav-back-button"
             onPress={() => router.back()}
             style={shared.backButton}
-            accessibilityLabel={t('common.back')}
+            accessibilityLabel={t("common.back")}
             accessibilityRole="button"
           >
             <MaterialCommunityIcons
@@ -71,7 +79,7 @@ export default function AboutScreen() {
               color={themeColors.text}
             />
           </TouchableOpacity>
-          <Text style={shared.headerTitle}>{t('about.title')}</Text>
+          <Text style={shared.headerTitle}>{t("about.title")}</Text>
           <View style={styles.headerSpacer} />
         </View>
 
@@ -79,48 +87,54 @@ export default function AboutScreen() {
         <View style={styles.section(isDark)}>
           <View style={styles.appInfo}>
             <View style={styles.appIcon(isDark)}>
-              <MaterialCommunityIcons name="bike-fast" size={40} color={colors.primary} />
+              <MaterialCommunityIcons
+                name="bike-fast"
+                size={40}
+                color={colors.primary}
+              />
             </View>
             <Text style={[styles.appName, shared.text]}>Veloq</Text>
             <Text style={[styles.appVersion, shared.textSecondary]}>
-              {t('about.version')} {Constants.expoConfig?.version ?? '0.0.1'}
+              {t("about.version")} {Constants.expoConfig?.version ?? "0.0.1"}
             </Text>
             <Text style={[styles.appDescription, shared.textSecondary]}>
-              {t('about.description')}
+              {t("about.description")}
             </Text>
           </View>
         </View>
 
         {/* Disclaimer */}
         <Text style={[styles.sectionLabel, shared.textSecondary]}>
-          {t('about.disclaimerTitle').toUpperCase()}
+          {t("about.disclaimerTitle").toUpperCase()}
         </Text>
         <View style={styles.section(isDark)}>
           <Text style={[styles.disclaimerText, shared.textSecondary]}>
-            {t('about.disclaimer')}
+            {t("about.disclaimer")}
           </Text>
         </View>
 
         {/* intervals.icu Links */}
-        <Text style={[styles.sectionLabel, shared.textSecondary]}>INTERVALS.ICU</Text>
+        <Text style={[styles.sectionLabel, shared.textSecondary]}>
+          INTERVALS.ICU
+        </Text>
         <View style={styles.section(isDark)}>
           <LinkRow
             icon="shield-account"
-            label={t('about.intervalsPrivacy')}
+            label={t("about.intervalsPrivacy")}
             url={INTERVALS_URLS.privacyPolicy}
             isDark={isDark}
           />
           <View style={styles.linkDivider(isDark)} />
           <LinkRow
             icon="file-document"
-            label={t('about.intervalsTerms')}
+            label={t("about.intervalsTerms")}
             url={INTERVALS_URLS.termsOfService}
             isDark={isDark}
           />
           <View style={styles.linkDivider(isDark)} />
           <LinkRow
             icon="api"
-            label={t('about.intervalsApiTerms')}
+            label={t("about.intervalsApiTerms")}
             url={INTERVALS_URLS.apiTerms}
             isDark={isDark}
           />
@@ -131,28 +145,28 @@ export default function AboutScreen() {
         <View style={styles.section(isDark)}>
           <LinkRow
             icon="shield-lock"
-            label={t('about.veloqPrivacy')}
+            label={t("about.veloqPrivacy")}
             url={VELOQ_URLS.privacy}
             isDark={isDark}
           />
           <View style={styles.linkDivider(isDark)} />
           <LinkRow
             icon="license"
-            label={t('about.openSource')}
+            label={t("about.openSource")}
             url={VELOQ_URLS.license}
             isDark={isDark}
           />
           <View style={styles.linkDivider(isDark)} />
           <LinkRow
             icon="github"
-            label={t('about.sourceCode')}
+            label={t("about.sourceCode")}
             url={VELOQ_URLS.github}
             isDark={isDark}
           />
           <View style={styles.linkDivider(isDark)} />
           <LinkRow
             icon="code-braces"
-            label={t('about.tracematchSource')}
+            label={t("about.tracematchSource")}
             url={VELOQ_URLS.tracematch}
             isDark={isDark}
           />
@@ -160,11 +174,11 @@ export default function AboutScreen() {
 
         {/* Data Attribution */}
         <Text style={[styles.sectionLabel, shared.textSecondary]}>
-          {t('about.dataAttribution').toUpperCase()}
+          {t("about.dataAttribution").toUpperCase()}
         </Text>
         <View style={styles.section(isDark)}>
           <Text style={[styles.attributionText, shared.textSecondary]}>
-            {t('about.garminNote')}
+            {t("about.garminNote")}
           </Text>
           <View style={styles.attributionLogos}>
             <View style={styles.attributionItem}>
@@ -201,17 +215,17 @@ export default function AboutScreen() {
             </View>
           </View>
           <Text style={[styles.trademarkText, shared.textMuted]}>
-            {t('attribution.garminTrademark')}
+            {t("attribution.garminTrademark")}
           </Text>
         </View>
 
         {/* Map Data */}
         <Text style={[styles.sectionLabel, shared.textSecondary]}>
-          {t('about.mapData').toUpperCase()}
+          {t("about.mapData").toUpperCase()}
         </Text>
         <View style={styles.section(isDark)}>
           <Text style={[styles.attributionText, shared.textSecondary]}>
-            {t('about.mapAttribution')}
+            {t("about.mapAttribution")}
           </Text>
         </View>
       </ScrollView>
@@ -224,7 +238,7 @@ const getSectionStyle = (isDark: boolean) => ({
   backgroundColor: isDark ? darkColors.surface : colors.surface,
   marginHorizontal: layout.screenPadding,
   borderRadius: layout.borderRadius,
-  overflow: 'hidden' as const,
+  overflow: "hidden" as const,
 });
 
 // Theme-aware app icon style helper
@@ -232,9 +246,11 @@ const getAppIconStyle = (isDark: boolean) => ({
   width: 80,
   height: 80,
   borderRadius: 20,
-  backgroundColor: isDark ? 'rgba(20, 184, 166, 0.15)' : 'rgba(20, 184, 166, 0.1)',
-  justifyContent: 'center' as const,
-  alignItems: 'center' as const,
+  backgroundColor: isDark
+    ? "rgba(20, 184, 166, 0.15)"
+    : "rgba(20, 184, 166, 0.1)",
+  justifyContent: "center" as const,
+  alignItems: "center" as const,
   marginBottom: spacing.md,
 });
 
@@ -255,14 +271,14 @@ const styles = {
   },
   sectionLabel: {
     ...typography.caption,
-    fontWeight: '600' as const,
+    fontWeight: "600" as const,
     marginTop: spacing.lg,
     marginBottom: spacing.sm,
     marginHorizontal: layout.screenPadding,
     letterSpacing: 0.5,
   },
   appInfo: {
-    alignItems: 'center' as const,
+    alignItems: "center" as const,
     padding: spacing.lg,
   },
   appName: {
@@ -275,7 +291,7 @@ const styles = {
   },
   appDescription: {
     ...typography.bodySmall,
-    textAlign: 'center' as const,
+    textAlign: "center" as const,
     lineHeight: 20,
   },
   disclaimerText: {
@@ -284,8 +300,8 @@ const styles = {
     padding: spacing.md,
   },
   linkRow: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.md,
     gap: spacing.sm,
@@ -301,20 +317,20 @@ const styles = {
     paddingBottom: spacing.sm,
   },
   attributionLogos: {
-    flexDirection: 'row' as const,
-    flexWrap: 'wrap' as const,
+    flexDirection: "row" as const,
+    flexWrap: "wrap" as const,
     gap: spacing.md,
     paddingHorizontal: spacing.md,
     paddingBottom: spacing.sm,
   },
   attributionItem: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
     gap: spacing.xs,
   },
   attributionName: {
     ...typography.bodyCompact,
-    fontWeight: '500' as const,
+    fontWeight: "500" as const,
   },
   trademarkText: {
     ...typography.micro,

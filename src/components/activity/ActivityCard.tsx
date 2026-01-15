@@ -190,7 +190,11 @@ export const ActivityCard = React.memo(function ActivityCard({ activity }: Activ
           {activity.has_weather && activity.average_weather_temp != null && (
             <View style={styles.secondaryStat}>
               <View style={[styles.secondaryStatIcon, { backgroundColor: colors.info + '20' }]}>
-                <MaterialCommunityIcons name="weather-partly-cloudy" size={14} color={colors.info} />
+                <MaterialCommunityIcons
+                  name="weather-partly-cloudy"
+                  size={14}
+                  color={colors.info}
+                />
               </View>
               <View>
                 <Text style={[styles.secondaryStatValue, isDark && styles.textLight]}>

@@ -2,6 +2,7 @@ import React, { useMemo, useRef, useImperativeHandle, forwardRef } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { colors, darkColors } from '@/theme/colors';
+import { getBoundsFromPoints } from '@/lib';
 import type { MapStyleType } from './mapStyles';
 
 interface Map3DWebViewProps {
@@ -91,30 +92,16 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       []
     );
 
-    // Calculate bounds from coordinates
+    // Calculate bounds from coordinates using utility
+    // Coordinates are in [lng, lat] format, convert to {lat, lng} for utility
     const bounds = useMemo(() => {
       if (coordinates.length === 0) return null;
 
-      let minLng = Infinity,
-        maxLng = -Infinity;
-      let minLat = Infinity,
-        maxLat = -Infinity;
+      // Convert [lng, lat] tuples to {lat, lng} objects
+      const points = coordinates.map(([lng, lat]) => ({ lat, lng }));
 
-      for (const [lng, lat] of coordinates) {
-        minLng = Math.min(minLng, lng);
-        maxLng = Math.max(maxLng, lng);
-        minLat = Math.min(minLat, lat);
-        maxLat = Math.max(maxLat, lat);
-      }
-
-      // Add padding
-      const lngPad = (maxLng - minLng) * 0.1;
-      const latPad = (maxLat - minLat) * 0.1;
-
-      return {
-        sw: [minLng - lngPad, minLat - latPad],
-        ne: [maxLng + lngPad, maxLat + latPad],
-      };
+      // Use utility with 10% padding
+      return getBoundsFromPoints(points, 0.1);
     }, [coordinates]);
 
     // Generate the HTML for the WebView

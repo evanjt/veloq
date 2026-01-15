@@ -237,6 +237,90 @@ export function getBoundsCenter(bounds: [[number, number], [number, number]]): [
   ];
 }
 
+/** Point with lat/lng properties (alternative format) */
+export interface LatLngShort {
+  lat: number;
+  lng: number;
+}
+
+/** MapLibre bounds format with northeast and southwest corners */
+export interface MapLibreBounds {
+  ne: [number, number]; // [lng, lat]
+  sw: [number, number]; // [lng, lat]
+}
+
+/**
+ * Calculate bounds from points with {lat, lng} format.
+ * Returns MapLibre-compatible bounds with optional padding.
+ *
+ * @param points - Array of points with lat/lng properties
+ * @param padding - Optional padding ratio (0.1 = 10% padding on each side)
+ * @returns MapLibre bounds {ne, sw} or null if no valid points
+ */
+export function getBoundsFromPoints(points: LatLngShort[], padding = 0): MapLibreBounds | null {
+  if (points.length === 0) return null;
+
+  let minLat = Infinity,
+    maxLat = -Infinity;
+  let minLng = Infinity,
+    maxLng = -Infinity;
+
+  for (const p of points) {
+    if (isNaN(p.lat) || isNaN(p.lng)) continue;
+    minLat = Math.min(minLat, p.lat);
+    maxLat = Math.max(maxLat, p.lat);
+    minLng = Math.min(minLng, p.lng);
+    maxLng = Math.max(maxLng, p.lng);
+  }
+
+  if (!isFinite(minLat)) return null;
+
+  // Apply padding
+  if (padding > 0) {
+    const latPad = (maxLat - minLat) * padding;
+    const lngPad = (maxLng - minLng) * padding;
+    minLat -= latPad;
+    maxLat += latPad;
+    minLng -= lngPad;
+    maxLng += lngPad;
+  }
+
+  return {
+    ne: [maxLng, maxLat],
+    sw: [minLng, minLat],
+  };
+}
+
+/**
+ * Calculate bounds from LatLng coordinates and return MapLibre format.
+ * Wrapper around getBounds that converts output format.
+ *
+ * @param coordinates - Array of LatLng coordinates
+ * @param padding - Optional padding ratio
+ * @returns MapLibre bounds {ne, sw} or null if no valid coordinates
+ */
+export function getMapLibreBounds(coordinates: LatLng[], padding = 0): MapLibreBounds | null {
+  const bounds = getBounds(coordinates);
+  if (!bounds) return null;
+
+  let { minLat, maxLat, minLng, maxLng } = bounds;
+
+  // Apply padding
+  if (padding > 0) {
+    const latPad = (maxLat - minLat) * padding;
+    const lngPad = (maxLng - minLng) * padding;
+    minLat -= latPad;
+    maxLat += latPad;
+    minLng -= lngPad;
+    maxLng += lngPad;
+  }
+
+  return {
+    ne: [maxLng, maxLat],
+    sw: [minLng, minLat],
+  };
+}
+
 export function getRegion(coordinates: LatLng[], padding = 0.1) {
   const bounds = getBounds(coordinates);
 

@@ -4,20 +4,15 @@
  * Computes weather impact with temperature, feels like, wind, and humidity.
  */
 
-import { useMemo } from 'react';
-import { useTranslation } from 'react-i18next';
 import type { Activity } from '@/types';
 import type { StatDetail } from './types';
 import { colors } from '@/theme/colors';
 import { TEMPERATURE_THRESHOLDS, FEELS_LIKE_THRESHOLD } from '@/constants';
 import { WIND_THRESHOLDS } from '@/constants';
+import { createMetricHook } from './createMetricHook';
 
 interface UseWeatherImpactOptions {
   activity: Activity;
-}
-
-interface UseWeatherImpactResult {
-  stat: StatDetail | null;
 }
 
 /**
@@ -29,8 +24,8 @@ interface UseWeatherImpactResult {
  * - Details: Weather conditions
  *
  * Temperature color coding:
- * - Amber (>28°C): Hot
- * - Blue (<10°C): Cold
+ * - Amber (>28C): Hot
+ * - Blue (<10C): Cold
  * - Default: Neutral
  *
  * @example
@@ -42,10 +37,10 @@ interface UseWeatherImpactResult {
  * }
  * ```
  */
-export function useWeatherImpact({ activity }: UseWeatherImpactOptions): UseWeatherImpactResult {
-  const { t } = useTranslation();
+export const useWeatherImpact = createMetricHook<UseWeatherImpactOptions>({
+  name: 'useWeatherImpact',
 
-  const stat = useMemo(() => {
+  compute: ({ activity }, t) => {
     // Get temperature from device or API
     const temp = activity.average_weather_temp || activity.average_temp;
     if (temp === null || temp === undefined) {
@@ -108,7 +103,14 @@ export function useWeatherImpact({ activity }: UseWeatherImpactOptions): UseWeat
       explanation: t('activity.explanations.conditions'),
       details: details.length > 0 ? details : undefined,
     };
-  }, [activity, t]);
+  },
 
-  return { stat };
-}
+  getDeps: ({ activity }) => [
+    activity.average_weather_temp,
+    activity.average_temp,
+    activity.apparent_temperature,
+    activity.average_temp_feels_like,
+    activity.average_wind_speed,
+    activity.average_weather_humidity,
+  ],
+});

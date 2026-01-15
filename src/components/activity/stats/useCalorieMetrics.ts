@@ -4,18 +4,13 @@
  * Computes energy expenditure with burn rate context.
  */
 
-import { useMemo } from 'react';
-import { useTranslation } from 'react-i18next';
 import { formatDuration } from '@/lib';
 import type { Activity } from '@/types';
 import type { StatDetail } from './types';
+import { createMetricHook } from './createMetricHook';
 
 interface UseCalorieMetricsOptions {
   activity: Activity;
-}
-
-interface UseCalorieMetricsResult {
-  stat: StatDetail | null;
 }
 
 /**
@@ -37,10 +32,10 @@ interface UseCalorieMetricsResult {
  * }
  * ```
  */
-export function useCalorieMetrics({ activity }: UseCalorieMetricsOptions): UseCalorieMetricsResult {
-  const { t } = useTranslation();
+export const useCalorieMetrics = createMetricHook<UseCalorieMetricsOptions>({
+  name: 'useCalorieMetrics',
 
-  const stat = useMemo(() => {
+  compute: ({ activity }, t) => {
     // Require calorie data
     if (!activity.calories || activity.calories <= 0) {
       return null;
@@ -70,7 +65,7 @@ export function useCalorieMetrics({ activity }: UseCalorieMetricsOptions): UseCa
       explanation: t('activity.explanations.energy'),
       details,
     };
-  }, [activity, t]);
+  },
 
-  return { stat };
-}
+  getDeps: ({ activity }) => [activity.calories, activity.moving_time],
+});

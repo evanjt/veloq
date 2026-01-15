@@ -7,6 +7,7 @@
  */
 
 import realRoutesData from './realRoutes.json';
+import { getBoundsFromPoints } from '@/lib';
 
 export interface DemoRoute {
   id: string;
@@ -46,19 +47,25 @@ export function getRouteCoordinates(
 
 /**
  * Get bounds for a route
+ * Input: [lat, lng][] tuples
+ * Output: [[minLat, minLng], [maxLat, maxLng]]
  */
 export function getRouteBounds(coords: [number, number][]): [[number, number], [number, number]] {
-  let minLat = Infinity,
-    maxLat = -Infinity;
-  let minLng = Infinity,
-    maxLng = -Infinity;
+  // Convert [lat, lng] tuples to {lat, lng} objects for utility
+  const points = coords.map(([lat, lng]) => ({ lat, lng }));
+  const bounds = getBoundsFromPoints(points);
 
-  for (const [lat, lng] of coords) {
-    minLat = Math.min(minLat, lat);
-    maxLat = Math.max(maxLat, lat);
-    minLng = Math.min(minLng, lng);
-    maxLng = Math.max(maxLng, lng);
+  if (!bounds) {
+    // Return default bounds if no valid coordinates
+    return [
+      [0, 0],
+      [0, 0],
+    ];
   }
+
+  // Extract from MapLibre format and convert back to [[minLat, minLng], [maxLat, maxLng]]
+  const [minLng, minLat] = bounds.sw;
+  const [maxLng, maxLat] = bounds.ne;
 
   return [
     [minLat, minLng],

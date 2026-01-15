@@ -85,7 +85,11 @@ export function useGpsDataFetcher() {
 
       const nativeModule = getNativeModule();
       if (!nativeModule) {
-        return { syncedIds: [], withGpsCount: 0, message: 'Engine not available' };
+        return {
+          syncedIds: [],
+          withGpsCount: 0,
+          message: 'Engine not available',
+        };
       }
 
       // Update progress
@@ -143,7 +147,11 @@ export function useGpsDataFetcher() {
               `[fetchDemoGps] DISCARDING stale results: generation ${startGeneration} -> ${currentGeneration}`
             );
           }
-          return { syncedIds: [], withGpsCount: 0, message: 'Sync reset - results discarded' };
+          return {
+            syncedIds: [],
+            withGpsCount: 0,
+            message: 'Sync reset - results discarded',
+          };
         }
 
         // Add to engine
@@ -267,7 +275,11 @@ export function useGpsDataFetcher() {
         if (__DEV__) {
           console.warn('[fetchApiGps] Native module not available!');
         }
-        return { syncedIds: [], withGpsCount: 0, message: 'Engine not available' };
+        return {
+          syncedIds: [],
+          withGpsCount: 0,
+          message: 'Engine not available',
+        };
       }
 
       if (__DEV__) {
@@ -345,7 +357,11 @@ export function useGpsDataFetcher() {
 
         // Check mount state and abort signal after async operation
         if (!isMountedRef.current || abortSignal.aborted) {
-          return { syncedIds: [], withGpsCount: activities.length, message: 'Cancelled' };
+          return {
+            syncedIds: [],
+            withGpsCount: activities.length,
+            message: 'Cancelled',
+          };
         }
 
         // Update progress to processing
@@ -389,7 +405,11 @@ export function useGpsDataFetcher() {
                   `[fetchApiGps] DISCARDING stale results: generation ${startGeneration} -> ${currentGeneration}`
                 );
               }
-              return { syncedIds: [], withGpsCount: 0, message: 'Sync reset - results discarded' };
+              return {
+                syncedIds: [],
+                withGpsCount: 0,
+                message: 'Sync reset - results discarded',
+              };
             }
 
             await nativeModule.routeEngine.addActivities(ids, allCoords, offsets, sportTypes);

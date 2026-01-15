@@ -8,8 +8,7 @@ import {
   MarkerView,
 } from '@maplibre/maplibre-react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { convertLatLngTuples } from '@/lib';
-import { getActivityColor } from '@/lib';
+import { convertLatLngTuples, getActivityColor, getMapLibreBounds } from '@/lib';
 import { colors, layout } from '@/theme';
 import { useMapPreferences } from '@/providers';
 import { getMapStyle } from '@/components/maps';
@@ -44,26 +43,7 @@ export function ActivityMapPreview({ activity, height = 160 }: ActivityMapPrevie
     return coordinates.filter((c) => !isNaN(c.latitude) && !isNaN(c.longitude));
   }, [coordinates]);
 
-  const bounds = useMemo(() => {
-    if (validCoordinates.length === 0) return null;
-
-    let minLat = Infinity,
-      maxLat = -Infinity;
-    let minLng = Infinity,
-      maxLng = -Infinity;
-
-    for (const coord of validCoordinates) {
-      minLat = Math.min(minLat, coord.latitude);
-      maxLat = Math.max(maxLat, coord.latitude);
-      minLng = Math.min(minLng, coord.longitude);
-      maxLng = Math.max(maxLng, coord.longitude);
-    }
-
-    return {
-      ne: [maxLng, maxLat] as [number, number],
-      sw: [minLng, minLat] as [number, number],
-    };
-  }, [validCoordinates]);
+  const bounds = useMemo(() => getMapLibreBounds(validCoordinates), [validCoordinates]);
 
   const routeGeoJSON = useMemo(() => {
     if (validCoordinates.length === 0) return null;

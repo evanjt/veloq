@@ -79,7 +79,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         authMethod,
       });
     } catch {
-      set({ isLoading: false, isAuthenticated: false, isDemoMode: false, authMethod: null });
+      set({
+        isLoading: false,
+        isAuthenticated: false,
+        isDemoMode: false,
+        authMethod: null,
+      });
     }
   },
 

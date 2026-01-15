@@ -38,8 +38,6 @@ interface UseRouteEngineResult {
   isPersistent: boolean;
   /** Initialize with persistent storage (RECOMMENDED - data survives app restarts) */
   initWithPath: (dbPath?: string) => boolean;
-  /** Initialize the engine (legacy - uses in-memory storage) */
-  init: () => void;
   /** Clear all engine state */
   clear: () => void;
 }
@@ -94,19 +92,6 @@ export function useRouteEngine(): UseRouteEngineResult {
     return success;
   }, []);
 
-  /**
-   * Initialize with in-memory storage (legacy).
-   * @deprecated Use initWithPath() for persistent storage
-   */
-  const init = useCallback(() => {
-    const engine = getRouteEngine();
-    if (!engine) return;
-    engine.init();
-    setIsReady(true);
-    setIsPersistent(false);
-    setActivityCount(engine.getActivityCount());
-  }, []);
-
   const clear = useCallback(() => {
     const engine = getRouteEngine();
     if (engine) engine.clear();
@@ -134,7 +119,7 @@ export function useRouteEngine(): UseRouteEngineResult {
     }
   }, []);
 
-  return { isReady, activityCount, isPersistent, initWithPath, init, clear };
+  return { isReady, activityCount, isPersistent, initWithPath, clear };
 }
 
 // ============================================================================
