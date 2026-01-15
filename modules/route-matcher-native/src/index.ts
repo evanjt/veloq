@@ -411,6 +411,10 @@ class RouteEngineClient {
       sportType: (g.sport_type ?? g.sportType) as string,
       bounds: g.bounds as RouteGroup["bounds"],
       customName: (g.custom_name ?? g.customName) as string | undefined,
+      bestTime: (g.best_time ?? g.bestTime) as number | undefined,
+      avgTime: (g.avg_time ?? g.avgTime) as number | undefined,
+      bestPace: (g.best_pace ?? g.bestPace) as number | undefined,
+      bestActivityId: (g.best_activity_id ?? g.bestActivityId) as string | undefined,
     }));
   }
 
