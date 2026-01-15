@@ -30,21 +30,15 @@ export function resolveLanguageToLocale(language: LanguageChoice): SupportedLoca
     return language as SupportedLocale;
   }
 
-  // Language-only values - resolve to best variant
-  if (language === 'en') {
-    const deviceLocale = getDeviceLocale();
-    if (deviceLocale.startsWith('en-')) {
-      return deviceLocale;
-    }
-    return 'en-AU';
-  }
-
+  // Language-only values - resolve to default variant
+  // These match the defaultVariant in getAvailableLanguages()
+  if (language === 'en') return 'en-GB';
   if (language === 'de') return 'de-DE';
-  if (language === 'es') return 'es';
+  if (language === 'es') return 'es-419'; // LATAM
+  if (language === 'pt') return 'pt-BR';
   if (language === 'fr') return 'fr';
   if (language === 'nl') return 'nl';
   if (language === 'it') return 'it';
-  if (language === 'pt') return 'pt-BR'; // Default to Brazilian Portuguese
   if (language === 'ja') return 'ja';
   if (language === 'zh') return 'zh-Hans';
   if (language === 'pl') return 'pl';
@@ -117,6 +111,8 @@ type LanguageOption = {
   description?: string;
   /** Sub-options for regional variants (e.g., English regional variants) */
   variants?: Array<{ value: string; label: string }>;
+  /** Default variant to use when clicking the language row (first variant if not specified) */
+  defaultVariant?: string;
 };
 
 /**
@@ -146,6 +142,7 @@ export function getAvailableLanguages(): LanguageGroup[] {
         {
           value: 'de',
           label: 'Deutsch',
+          defaultVariant: 'de-DE',
           variants: [
             { value: 'de-DE', label: 'DE' },
             { value: 'de-CHZ', label: 'Züri' },
@@ -155,18 +152,20 @@ export function getAvailableLanguages(): LanguageGroup[] {
         {
           value: 'en',
           label: 'English',
+          defaultVariant: 'en-GB',
           variants: [
-            { value: 'en-AU', label: 'AU' },
             { value: 'en-GB', label: 'GB' },
+            { value: 'en-AU', label: 'AU' },
             { value: 'en-US', label: 'US' },
           ],
         },
         {
           value: 'es',
           label: 'Español',
+          defaultVariant: 'es-419',
           variants: [
-            { value: 'es-ES', label: 'ES' },
             { value: 'es-419', label: 'LATAM' },
+            { value: 'es-ES', label: 'ES' },
           ],
         },
         { value: 'fr', label: 'Français' },
@@ -176,9 +175,10 @@ export function getAvailableLanguages(): LanguageGroup[] {
         {
           value: 'pt',
           label: 'Português',
+          defaultVariant: 'pt-BR',
           variants: [
-            { value: 'pt', label: 'PT' },
             { value: 'pt-BR', label: 'BR' },
+            { value: 'pt', label: 'PT' },
           ],
         },
         { value: 'ja', label: '日本語' },

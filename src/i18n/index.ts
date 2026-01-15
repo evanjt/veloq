@@ -80,6 +80,13 @@ const resources = {
 };
 
 /**
+ * Custom locale codes that use non-standard region codes.
+ * i18next's languageUtils doesn't recognize these, so we need to
+ * override toResolveHierarchy to include them in the lookup chain.
+ */
+const CUSTOM_LOCALE_CODES = ['de-CHZ', 'de-CHB'] as const;
+
+/**
  * Initialize i18n with the detected or saved locale
  */
 export async function initializeI18n(savedLocale?: SupportedLocale | null): Promise<void> {
@@ -88,37 +95,50 @@ export async function initializeI18n(savedLocale?: SupportedLocale | null): Prom
   await i18n.use(initReactI18next).init({
     resources,
     lng: locale,
-    // Use the locale fallback chain for graceful degradation
     fallbackLng: LOCALE_FALLBACKS[locale] || ['en-AU'],
 
+    // Tell i18next which locales are valid
+    supportedLngs: SUPPORTED_LOCALES as unknown as string[],
+    nonExplicitSupportedLngs: false,
+    cleanCode: false,
+    lowerCaseLng: false,
+
     interpolation: {
-      escapeValue: false, // React already escapes values
+      escapeValue: false,
     },
 
-    // React Native doesn't need HTML escaping
     react: {
       useSuspense: false,
-      // Ensure components re-render when language changes
       bindI18n: 'languageChanged loaded',
       bindI18nStore: 'added removed',
     },
 
-    // Disable i18next's locale code parsing - use exact locale keys
     load: 'currentOnly',
-    // Don't try to detect language from browser/navigator
     detection: undefined,
-
-    // Return key if translation is missing (for development)
     returnNull: false,
     returnEmptyString: false,
   });
+
+  // CRITICAL FIX: Override languageUtils.toResolveHierarchy for custom locale codes.
+  // i18next's default implementation doesn't recognize non-standard region codes
+  // like 'CHZ' and 'CHB', so it skips them in the resolution hierarchy.
+  // This patch ensures our Swiss German dialects are properly resolved.
+  const langUtils = (i18n as any).services?.languageUtils;
+  if (langUtils) {
+    const originalToResolveHierarchy = langUtils.toResolveHierarchy.bind(langUtils);
+    langUtils.toResolveHierarchy = (code: string, fallbackCode?: string) => {
+      if (CUSTOM_LOCALE_CODES.includes(code as any)) {
+        return LOCALE_FALLBACKS[code] || [code, 'de-DE', 'en-AU'];
+      }
+      return originalToResolveHierarchy(code, fallbackCode);
+    };
+  }
 }
 
 /**
  * Change the current language
  */
 export async function changeLanguage(locale: SupportedLocale): Promise<void> {
-  // Update fallback chain for the new locale
   const fallbacks = LOCALE_FALLBACKS[locale] || ['en-AU'];
   i18n.options.fallbackLng = fallbacks;
   await i18n.changeLanguage(locale);

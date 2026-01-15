@@ -1,11 +1,17 @@
 // Demo data exports
 export { demoAthlete } from './athlete';
-export { demoActivities, getDemoActivities, getDemoActivityRoute } from './activities';
 export { demoWellness } from './wellness';
 export { demoPowerCurve, demoPaceCurve, demoSportSettings } from './curves';
-export { demoRoutes, getRouteCoordinates, getRouteBounds, getRouteForActivity } from './routes';
+export {
+  demoRoutes,
+  getRouteCoordinates,
+  getRouteBounds,
+  getRouteForActivity,
+  getRouteById,
+  getRouteLocation,
+} from './routes';
 
-// Fixture-based API exports
+// Fixture-based API exports (primary demo data source)
 export {
   fixtures,
   getActivity,

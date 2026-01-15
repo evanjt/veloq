@@ -12,7 +12,7 @@ import { getBoundsFromPoints } from '@/lib';
 export interface DemoRoute {
   id: string;
   name: string;
-  type: 'Ride' | 'Run' | 'Swim' | 'Hike' | 'VirtualRide';
+  type: 'Ride' | 'Run' | 'Swim' | 'Hike' | 'Walk' | 'VirtualRide';
   coordinates: [number, number][]; // [lat, lng][]
   distance: number; // meters
   elevation: number; // meters gained
@@ -88,8 +88,10 @@ export function getRouteForActivity(activityType: string, distance: number): Dem
     matchingTypes.push('Run');
   } else if (activityType === 'Swim' || activityType === 'OpenWaterSwim') {
     matchingTypes.push('Swim');
-  } else if (activityType === 'Hike' || activityType === 'Walk') {
-    matchingTypes.push('Hike', 'Run'); // Hike can use Run routes too
+  } else if (activityType === 'Hike') {
+    matchingTypes.push('Hike', 'Walk', 'Run'); // Hike can use Walk or Run routes too
+  } else if (activityType === 'Walk') {
+    matchingTypes.push('Walk', 'Hike'); // Walk can use Hike routes too
   }
 
   if (matchingTypes.length === 0) {
@@ -110,4 +112,28 @@ export function getRouteForActivity(activityType: string, distance: number): Dem
   }
 
   return routes[Math.floor(Math.random() * routes.length)];
+}
+
+/**
+ * Get route by ID
+ */
+export function getRouteById(routeId: string): DemoRoute | undefined {
+  return demoRoutes.find((r) => r.id === routeId);
+}
+
+/**
+ * Get locality and country from a route's region
+ * @returns { locality: string | null, country: string | null }
+ */
+export function getRouteLocation(routeId: string): { locality: string | null; country: string | null } {
+  const route = demoRoutes.find((r) => r.id === routeId);
+  if (!route?.region) {
+    return { locality: null, country: null };
+  }
+
+  const parts = route.region.split(',').map((p) => p.trim());
+  return {
+    locality: parts[0] || null,
+    country: parts[1] || null,
+  };
 }

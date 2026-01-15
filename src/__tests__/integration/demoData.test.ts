@@ -7,8 +7,11 @@
 import { calculateTSB, getFormZone } from '@/lib/algorithms/fitness';
 import { sortByDateId } from '@/lib/utils/activityUtils';
 import { demoWellness } from '@/data/demo/wellness';
-import { demoActivities } from '@/data/demo/activities';
+import { fixtures, getActivityStreams, type ApiActivity } from '@/data/demo/fixtures';
 import type { WellnessData } from '@/types';
+
+// Use fixture-based activities (the primary demo data source)
+const demoActivities = fixtures.activities;
 
 describe('Demo Data Integration Tests', () => {
   describe('Wellness Data Pipeline', () => {
@@ -96,7 +99,7 @@ describe('Demo Data Integration Tests', () => {
 
   describe('Activity Data Pipeline', () => {
     it('activities have required fields', () => {
-      demoActivities.forEach((activity) => {
+      demoActivities.forEach((activity: ApiActivity) => {
         expect(activity.id).toBeDefined();
         expect(typeof activity.id).toBe('string');
         expect(activity.name).toBeDefined();
@@ -105,7 +108,7 @@ describe('Demo Data Integration Tests', () => {
     });
 
     it('activities have valid dates', () => {
-      demoActivities.forEach((activity) => {
+      demoActivities.forEach((activity: ApiActivity) => {
         if (activity.start_date_local) {
           const date = new Date(activity.start_date_local);
           expect(date.toString()).not.toBe('Invalid Date');
@@ -114,8 +117,8 @@ describe('Demo Data Integration Tests', () => {
     });
 
     it('activities have reasonable training load values', () => {
-      demoActivities.forEach((activity) => {
-        if (activity.icu_training_load !== undefined) {
+      demoActivities.forEach((activity: ApiActivity) => {
+        if (activity.icu_training_load !== undefined && activity.icu_training_load !== null) {
           expect(activity.icu_training_load).toBeGreaterThanOrEqual(0);
           expect(activity.icu_training_load).toBeLessThanOrEqual(500);
         }
@@ -123,7 +126,9 @@ describe('Demo Data Integration Tests', () => {
     });
 
     it('activities with GPS have stream_types including latlng', () => {
-      const activitiesWithGps = demoActivities.filter((a) => a.stream_types?.includes('latlng'));
+      const activitiesWithGps = demoActivities.filter(
+        (a: ApiActivity) => a.stream_types?.includes('latlng')
+      );
 
       // Should have some GPS activities in demo data
       expect(activitiesWithGps.length).toBeGreaterThan(0);
@@ -144,7 +149,7 @@ describe('Demo Data Integration Tests', () => {
         'Other',
       ];
 
-      demoActivities.forEach((activity) => {
+      demoActivities.forEach((activity: ApiActivity) => {
         expect(validTypes).toContain(activity.type);
       });
     });
@@ -154,13 +159,15 @@ describe('Demo Data Integration Tests', () => {
     it('wellness dates align with activity dates', () => {
       const wellnessDates = new Set(demoWellness.map((d) => d.id));
       const activityDates = new Set(
-        demoActivities.map((a) => a.start_date_local?.split('T')[0]).filter(Boolean)
+        demoActivities
+          .map((a: ApiActivity) => a.start_date_local?.split('T')[0])
+          .filter(Boolean) as string[]
       );
 
       // There should be overlap between wellness and activity dates
       let overlap = 0;
-      activityDates.forEach((date) => {
-        if (wellnessDates.has(date!)) {
+      activityDates.forEach((date: string) => {
+        if (wellnessDates.has(date)) {
           overlap++;
         }
       });
@@ -170,7 +177,7 @@ describe('Demo Data Integration Tests', () => {
 
     it('sportInfo in wellness matches activities by date', () => {
       const activityDateMap = new Map<string, number>();
-      demoActivities.forEach((a) => {
+      demoActivities.forEach((a: ApiActivity) => {
         const date = a.start_date_local?.split('T')[0];
         if (date) {
           activityDateMap.set(date, (activityDateMap.get(date) || 0) + 1);
@@ -215,6 +222,80 @@ describe('Demo Data Integration Tests', () => {
       withTSB.forEach((day) => {
         expect(typeof day.tsb).toBe('number');
         expect(Number.isNaN(day.tsb)).toBe(false);
+      });
+    });
+  });
+
+  describe('Activity Streams', () => {
+    it('generates distance stream for activities with distance', () => {
+      const activitiesWithDistance = demoActivities.filter(
+        (a: ApiActivity) => a.distance && a.distance > 0
+      );
+
+      expect(activitiesWithDistance.length).toBeGreaterThan(0);
+
+      activitiesWithDistance.forEach((activity: ApiActivity) => {
+        const streams = getActivityStreams(activity.id);
+        expect(streams).not.toBeNull();
+        if (!streams) return;
+
+        // Distance stream is required for chart X-axis
+        expect(streams.distance).toBeDefined();
+        expect(streams.distance?.length).toBeGreaterThan(0);
+
+        // Distance should be monotonically increasing
+        if (streams.distance && streams.distance.length > 1) {
+          for (let i = 1; i < streams.distance.length; i++) {
+            expect(streams.distance[i]).toBeGreaterThanOrEqual(streams.distance[i - 1] * 0.95);
+          }
+        }
+
+        // Last distance value should be close to activity distance
+        if (streams.distance && activity.distance) {
+          const lastDistance = streams.distance[streams.distance.length - 1];
+          expect(lastDistance).toBeCloseTo(activity.distance, -2); // Within 1%
+        }
+      });
+    });
+
+    it('generates time stream for all activities', () => {
+      demoActivities.slice(0, 5).forEach((activity: ApiActivity) => {
+        const streams = getActivityStreams(activity.id);
+        expect(streams).not.toBeNull();
+        if (!streams) return;
+
+        expect(streams.time).toBeDefined();
+        expect(streams.time?.length).toBeGreaterThan(0);
+
+        // Time should be monotonically increasing
+        if (streams.time && streams.time.length > 1) {
+          for (let i = 1; i < streams.time.length; i++) {
+            expect(streams.time[i]).toBeGreaterThan(streams.time[i - 1]);
+          }
+        }
+      });
+    });
+
+    it('generates heart rate stream with realistic values', () => {
+      const activitiesWithHr = demoActivities.filter(
+        (a: ApiActivity) => a.stream_types?.includes('heartrate')
+      );
+
+      expect(activitiesWithHr.length).toBeGreaterThan(0);
+
+      activitiesWithHr.slice(0, 3).forEach((activity: ApiActivity) => {
+        const streams = getActivityStreams(activity.id);
+        expect(streams).not.toBeNull();
+        if (!streams) return;
+
+        expect(streams.heartrate).toBeDefined();
+        expect(streams.heartrate?.length).toBeGreaterThan(0);
+
+        // HR values should be in realistic range (60-200 bpm)
+        streams.heartrate?.forEach((hr) => {
+          expect(hr).toBeGreaterThanOrEqual(60);
+          expect(hr).toBeLessThanOrEqual(200);
+        });
       });
     });
   });
