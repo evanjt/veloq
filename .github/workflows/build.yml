@@ -491,11 +491,18 @@ jobs:
 
           echo "✅ All tracematch libraries verified!"
 
+      - name: Clean stale dex archives
+        run: |
+          # Remove dex archives that can become stale when npm dependencies change
+          rm -rf android/app/build/intermediates/project_dex_archive
+          rm -rf android/app/build/intermediates/dex
+          echo "✅ Cleaned dex archives"
+
       - name: Build Android APK
         env:
           RUST_PREBUILT: "true"
         run: |
-          cd android && ./gradlew clean assembleRelease --no-daemon
+          cd android && ./gradlew assembleRelease --no-daemon
 
       - name: Copy APK
         run: |
