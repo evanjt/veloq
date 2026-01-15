@@ -307,10 +307,21 @@ class RouteEngineClient {
 
   /**
    * Get groups parsed from JSON.
+   * Transforms snake_case keys from Rust serde to camelCase expected by TypeScript.
    */
   getGroups(): RouteGroup[] {
     const json = persistentEngineGetGroupsJson();
-    return json ? JSON.parse(json) : [];
+    if (!json) return [];
+    const rawGroups = JSON.parse(json);
+    // Transform snake_case to camelCase (Rust serde uses snake_case by default)
+    return rawGroups.map((g: Record<string, unknown>) => ({
+      groupId: g.group_id ?? g.groupId,
+      representativeId: g.representative_id ?? g.representativeId,
+      activityIds: g.activity_ids ?? g.activityIds ?? [],
+      sportType: g.sport_type ?? g.sportType,
+      bounds: g.bounds,
+      customName: g.custom_name ?? g.customName,
+    }));
   }
 
   /**

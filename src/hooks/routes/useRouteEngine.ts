@@ -193,10 +193,10 @@ export function useEngineGroups(options: UseEngineGroupsOptions = {}): UseEngine
 
   // Filter and sort
   const result = useMemo(() => {
-    let filtered = groups.filter((g) => g.activityIds.length >= minActivities);
+    let filtered = groups.filter((g) => g.activityIds?.length >= minActivities);
 
     if (sortBy === 'count') {
-      filtered.sort((a, b) => b.activityIds.length - a.activityIds.length);
+      filtered.sort((a, b) => (b.activityIds?.length ?? 0) - (a.activityIds?.length ?? 0));
     } else {
       filtered.sort((a, b) => a.groupId.localeCompare(b.groupId));
     }
