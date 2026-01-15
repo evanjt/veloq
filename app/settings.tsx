@@ -26,7 +26,7 @@ import {
 } from "@/hooks";
 import { TimelineSlider } from "@/components/maps";
 import { formatLocalDate } from "@/lib";
-import { estimateRoutesDatabaseSize } from "@/lib";
+import { estimateRoutesDatabaseSize, clearAllAppCaches } from "@/lib";
 import {
   getThemePreference,
   setThemePreference,
@@ -395,6 +395,11 @@ export default function SettingsScreen() {
         style: "destructive",
         onPress: async () => {
           try {
+            // Clear ALL cached data before logging out
+            await clearAllAppCaches(queryClient);
+            // Reset sync date range to default 90 days
+            resetSyncDateRange();
+            // Clear auth credentials
             await clearCredentials();
             router.replace("/login" as Href);
           } catch {

@@ -6,20 +6,10 @@ import { router, Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQueryClient } from '@tanstack/react-query';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuthStore, useSyncDateRange } from '@/providers';
 import { useTheme } from '@/hooks';
 import { colors, brand } from '@/theme';
-import { clearAllGpsTracks, clearBoundsCache } from '@/lib/storage/gpsStorage';
-
-// Lazy load native module to avoid bundler errors
-function getRouteEngine() {
-  try {
-    return require('route-matcher-native').routeEngine;
-  } catch {
-    return null;
-  }
-}
+import { clearAllAppCaches } from '@/lib/storage';
 
 export function DemoBanner() {
   const { t } = useTranslation();
@@ -35,22 +25,10 @@ export function DemoBanner() {
   if (!isDemoMode || hideDemoBanner) return null;
 
   const handlePress = async () => {
-    // Clear ALL cached demo data:
+    // Clear ALL cached demo data using shared utility
+    await clearAllAppCaches(queryClient);
 
-    // 1. Clear TanStack Query in-memory cache
-    queryClient.clear();
-
-    // 2. Clear persisted query cache in AsyncStorage (critical!)
-    await AsyncStorage.removeItem('veloq-query-cache');
-
-    // 3. Clear Rust engine cache
-    const routeEngine = getRouteEngine();
-    if (routeEngine) routeEngine.clear();
-
-    // 4. Clear FileSystem caches (GPS tracks and bounds)
-    await Promise.all([clearAllGpsTracks(), clearBoundsCache()]);
-
-    // 5. Reset sync date range to default 90 days
+    // Reset sync date range to default 90 days
     resetSyncDateRange();
 
     // Exit demo mode (sets isAuthenticated to false)

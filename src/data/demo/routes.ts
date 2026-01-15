@@ -125,7 +125,10 @@ export function getRouteById(routeId: string): DemoRoute | undefined {
  * Get locality and country from a route's region
  * @returns { locality: string | null, country: string | null }
  */
-export function getRouteLocation(routeId: string): { locality: string | null; country: string | null } {
+export function getRouteLocation(routeId: string): {
+  locality: string | null;
+  country: string | null;
+} {
   const route = demoRoutes.find((r) => r.id === routeId);
   if (!route?.region) {
     return { locality: null, country: null };

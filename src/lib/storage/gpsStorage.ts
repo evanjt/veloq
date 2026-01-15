@@ -528,3 +528,55 @@ export async function estimateRoutesDatabaseSize(): Promise<number> {
   }
   return 0;
 }
+
+// =============================================================================
+// Comprehensive Cache Clearing (for auth transitions)
+// =============================================================================
+
+/**
+ * Lazy load native route engine module to avoid bundler errors.
+ * Returns null if module is unavailable.
+ */
+function getRouteEngine() {
+  try {
+    return require('route-matcher-native').routeEngine;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Clear all app caches comprehensively.
+ * Should be called when transitioning between auth states (login/logout/demo).
+ *
+ * Clears:
+ * - TanStack Query in-memory cache (via passed queryClient)
+ * - Persisted query cache in AsyncStorage
+ * - Rust engine cache (SQLite)
+ * - FileSystem GPS tracks and bounds caches
+ *
+ * Does NOT clear:
+ * - AuthStore (caller handles this)
+ * - SyncDateRangeStore (caller may want to reset separately)
+ */
+export async function clearAllAppCaches(queryClient: {
+  clear: () => void;
+}): Promise<void> {
+  // Import AsyncStorage here to keep this module focused on FileSystem
+  const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+
+  // 1. Clear TanStack Query in-memory cache
+  queryClient.clear();
+
+  // 2. Clear persisted query cache in AsyncStorage (critical!)
+  await AsyncStorage.removeItem('veloq-query-cache');
+
+  // 3. Clear Rust engine cache
+  const routeEngine = getRouteEngine();
+  if (routeEngine) routeEngine.clear();
+
+  // 4. Clear FileSystem caches (GPS tracks and bounds)
+  await Promise.all([clearAllGpsTracks(), clearBoundsCache()]);
+
+  log.log('Cleared all app caches');
+}

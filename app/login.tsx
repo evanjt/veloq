@@ -19,6 +19,8 @@ import {
   INTERVALS_URLS,
 } from "@/services/oauth";
 import { CollapsibleSection } from "@/components/ui/CollapsibleSection";
+import { clearAllAppCaches } from "@/lib/storage";
+import { useSyncDateRange } from "@/providers";
 
 export default function LoginScreen() {
   const { t } = useTranslation();
@@ -31,6 +33,7 @@ export default function LoginScreen() {
   const setCredentials = useAuthStore((state) => state.setCredentials);
   const enterDemoMode = useAuthStore((state) => state.enterDemoMode);
   const queryClient = useQueryClient();
+  const resetSyncDateRange = useSyncDateRange((state) => state.reset);
 
   const [isLoading, setIsLoading] = useState(false);
   const [isApiKeyLoading, setIsApiKeyLoading] = useState(false);
@@ -38,9 +41,11 @@ export default function LoginScreen() {
   const [apiKey, setApiKey] = useState("");
   const [apiKeyExpanded, setApiKeyExpanded] = useState(false);
 
-  const handleTryDemo = () => {
-    // Clear any cached data from previous sessions
-    queryClient.clear();
+  const handleTryDemo = async () => {
+    // Clear ALL cached data from previous sessions (including persisted caches)
+    await clearAllAppCaches(queryClient);
+    // Reset sync date range to default 90 days
+    resetSyncDateRange();
     // Enter demo mode
     enterDemoMode();
     // Navigate to main app
@@ -89,8 +94,10 @@ export default function LoginScreen() {
         throw new Error("Invalid response");
       }
 
-      // Clear any cached data from previous sessions
-      queryClient.clear();
+      // Clear ALL cached data from previous sessions (including persisted caches)
+      await clearAllAppCaches(queryClient);
+      // Reset sync date range to default 90 days
+      resetSyncDateRange();
 
       // Store API key credentials
       await setCredentials(apiKey.trim(), athlete.id);
@@ -123,6 +130,11 @@ export default function LoginScreen() {
       if (result.type === "success" && result.url) {
         // Handle the callback URL (token is already in URL from proxy)
         const tokenResponse = handleOAuthCallback(result.url);
+
+        // Clear ALL cached data from previous sessions (including persisted caches)
+        await clearAllAppCaches(queryClient);
+        // Reset sync date range to default 90 days
+        resetSyncDateRange();
 
         // Store OAuth credentials
         await setOAuthCredentials(
