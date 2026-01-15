@@ -89,10 +89,12 @@ def getNewestSourceTime = {
 }
 
 // Helper function to get the oldest modification time of built .so files
+// Only checks arm64-v8a and x86_64 (dev build architectures)
 def getOldestLibTime = {
   long oldest = Long.MAX_VALUE
   if (jniLibsDir.exists()) {
-    def soFiles = fileTree(jniLibsDir).include('**/*.so')
+    // Only check the architectures built by dev script (arm64-v8a, x86_64)
+    def soFiles = fileTree(jniLibsDir).include('arm64-v8a/*.so', 'x86_64/*.so')
     soFiles.each { file ->
       oldest = Math.min(oldest, file.lastModified())
     }
@@ -107,12 +109,9 @@ task buildRustLibraries(type: Exec) {
   workingDir tracematchDir
   commandLine 'bash', devBuildScript.absolutePath
 
-  // Track inputs for incremental builds
-  inputs.dir(rustSrcDir).withPathSensitivity(PathSensitivity.RELATIVE)
-  inputs.file(rustCargoToml)
-
-  // Track outputs
-  outputs.dir(jniLibsDir)
+  // Disable Gradle's incremental build tracking - we use our own timestamp comparison
+  // This ensures the onlyIf block is always evaluated and not short-circuited by UP-TO-DATE
+  outputs.upToDateWhen { false }
 
   // Rebuild if: no .so files exist, OR source is newer than built libraries
   onlyIf {
@@ -143,9 +142,10 @@ task buildRustLibraries(type: Exec) {
       return true
     }
 
-    def soFiles = fileTree(jniLibsDir).include('**/*.so')
-    if (soFiles.isEmpty()) {
-      println "No .so files found, will run Rust build..."
+    // Only check dev architectures (arm64-v8a, x86_64)
+    def devSoFiles = fileTree(jniLibsDir).include('arm64-v8a/*.so', 'x86_64/*.so')
+    if (devSoFiles.isEmpty()) {
+      println "No dev .so files found (arm64-v8a, x86_64), will run Rust build..."
       println "==============================================="
       return true
     }
@@ -154,20 +154,19 @@ task buildRustLibraries(type: Exec) {
     def newestSource = getNewestSourceTime()
     def oldestLib = getOldestLibTime()
 
-    println "jniLibs directory: ${jniLibsDir.absolutePath}"
-    println "Found .so files: ${soFiles.files.size()}"
-    soFiles.each { file ->
-      println "  - ${file.name} (${file.length()} bytes, modified: ${new Date(file.lastModified())})"
+    println "Checking dev architectures (arm64-v8a, x86_64):"
+    devSoFiles.each { file ->
+      println "  - ${file.parentFile.name}/${file.name} (modified: ${new Date(file.lastModified())})"
     }
     println "Newest Rust source: ${new Date(newestSource)}"
-    println "Oldest .so library: ${new Date(oldestLib)}"
+    println "Oldest dev .so lib: ${new Date(oldestLib)}"
 
     if (newestSource > oldestLib) {
       println "⚠️  Rust source is NEWER than built libraries - REBUILDING"
       println "==============================================="
       return true
     } else {
-      println "✓ Built libraries are up-to-date, SKIPPING Rust build"
+      println "✓ Dev libraries are up-to-date, SKIPPING Rust build"
       println "==============================================="
       return false
     }
@@ -184,7 +183,7 @@ task buildRustLibraries(type: Exec) {
 
   // Verify Kotlin bindings were generated
   doLast {
-    def kotlinBinding = file("src/main/java/uniffi/route_matcher/route_matcher.kt")
+    def kotlinBinding = file("src/main/java/uniffi/tracematch/tracematch.kt")
     if (!kotlinBinding.exists()) {
       throw new GradleException("Kotlin bindings not found at ${kotlinBinding}")
     }
