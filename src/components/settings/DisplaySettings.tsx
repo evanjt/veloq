@@ -114,12 +114,7 @@ export function DisplaySettings({
           headerRight={
             // Show dialect chip only when a dialect is selected
             language === 'en-AU' || language === 'de-CHZ' || language === 'de-CHB' ? (
-              <View
-                style={[
-                  styles.dialectLegendChip,
-                  isDark && styles.dialectLegendChipDark,
-                ]}
-              >
+              <View style={[styles.dialectLegendChip, isDark && styles.dialectLegendChipDark]}>
                 <Text style={[styles.dialectLegendText, isDark && styles.textMuted]}>
                   {t('settings.dialect')}
                 </Text>
@@ -175,13 +170,21 @@ export function DisplaySettings({
                               isDark && styles.variantChipDark,
                               // Non-selected dialect: gold dotted border
                               variant.isDialect && !isVariantSelected && styles.variantChipDialect,
-                              variant.isDialect && !isVariantSelected && isDark && styles.variantChipDialectDark,
+                              variant.isDialect &&
+                                !isVariantSelected &&
+                                isDark &&
+                                styles.variantChipDialectDark,
                               // Selected: teal background
                               isVariantSelected && styles.variantChipSelected,
                               isVariantSelected && isDark && styles.variantChipSelectedDark,
                               // Selected dialect: keep gold dotted border with teal background
-                              variant.isDialect && isVariantSelected && styles.variantChipDialectSelected,
-                              variant.isDialect && isVariantSelected && isDark && styles.variantChipDialectSelectedDark,
+                              variant.isDialect &&
+                                isVariantSelected &&
+                                styles.variantChipDialectSelected,
+                              variant.isDialect &&
+                                isVariantSelected &&
+                                isDark &&
+                                styles.variantChipDialectSelectedDark,
                             ]}
                             onPress={() => {
                               onLanguageChange(variant.value);

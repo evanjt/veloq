@@ -647,6 +647,10 @@ export interface TranslationResource {
     activities: string;
     noActivitiesFound: string;
     sectionNamePlaceholder: string;
+    bestTime: string;
+    averageTime: string;
+    totalTraversals: string;
+    lastActivity: string;
   };
 
   errorState: {
@@ -706,6 +710,10 @@ export interface TranslationResource {
 
   routeDetail: {
     routeNotFound: string;
+    bestTime: string;
+    avgTime: string;
+    totalActivities: string;
+    lastActivity: string;
   };
 
   attribution: {

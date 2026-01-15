@@ -1,63 +1,59 @@
 /**
  * FFI Binding Sync Validation Tests
  *
- * ARCHITECTURE CHANGE (2026-01-07):
- * Auto-generated Kotlin bindings (route_matcher.kt, ~7082 lines) were removed
- * from git and are now generated at build time. The Kotlin module is now a
- * thin Expo Modules wrapper that imports from uniffi.route_matcher.* package.
+ * ARCHITECTURE CHANGE (2026-01-15):
+ * Migrated from Expo Modules to uniffi-bindgen-react-native Turbo Modules.
+ * The manual Swift/Kotlin wrappers (RouteMatcherModule.swift/kt) were replaced
+ * with auto-generated bindings from uniffi-bindgen-react-native.
  *
  * WHAT THIS TEST VALIDATES:
- * - Swift wrapper file exists (iOS build can fail if missing)
+ * - Turbo Module header file exists (iOS build can fail if missing)
  * - Module file paths are correct
  *
  * WHAT THIS TEST NO LONGER VALIDATES:
- * - Kotlin data class field counts (bindings now generated at build time)
- * - Swift/Kotlin parameter alignment (requires build artifacts)
+ * - Manual wrapper code (now auto-generated)
+ * - Swift/Kotlin binding alignment (validated by native build)
  *
  * ALTERNATIVE VALIDATION:
  * FFI binding alignment is now validated through:
  * 1. Native build failures (iOS/Android compilation will fail if out of sync)
- * 2. Integration tests that exercise the FFI boundary
- * 3. Manual verification when updating UniFFI scaffolding
- *
- * See commit f2bd3dc: "Remove auto-generated Kotlin bindings from git"
+ * 2. uniffi-bindgen-react-native generates bindings at build time
+ * 3. TypeScript types auto-generated from Rust definitions
  */
 
 import * as fs from 'fs';
 import * as path from 'path';
 
-const SWIFT_MODULE_PATH = path.resolve(
+const IOS_HEADER_PATH = path.resolve(
   __dirname,
-  '../../../modules/route-matcher-native/ios/RouteMatcherModule.swift'
+  '../../../modules/route-matcher-native/ios/Veloq.h'
 );
 
-// NOTE: Auto-generated Kotlin bindings are no longer in git (removed 2026-01-07)
-// This test now only validates file existence. Build failures will catch FFI mismatches.
+const IOS_MM_PATH = path.resolve(__dirname, '../../../modules/route-matcher-native/ios/Veloq.mm');
+
+const TS_SPEC_PATH = path.resolve(
+  __dirname,
+  '../../../modules/route-matcher-native/src/NativeVeloq.ts'
+);
 
 describe('FFI Binding Sync', () => {
   describe('Module file existence', () => {
-    it('Swift module file should exist', () => {
-      expect(fs.existsSync(SWIFT_MODULE_PATH)).toBe(true);
+    it('iOS Turbo Module header should exist', () => {
+      expect(fs.existsSync(IOS_HEADER_PATH)).toBe(true);
     });
 
-    it('Swift module should be substantial (not empty/stub)', () => {
-      const stats = fs.statSync(SWIFT_MODULE_PATH);
-      // The Swift wrapper module should be at least 10KB
-      expect(stats.size).toBeGreaterThan(10000);
+    it('iOS Turbo Module implementation should exist', () => {
+      expect(fs.existsSync(IOS_MM_PATH)).toBe(true);
+    });
+
+    it('TypeScript spec file should exist', () => {
+      expect(fs.existsSync(TS_SPEC_PATH)).toBe(true);
     });
   });
 
   describe.skip('Kotlin binding validation (deprecated)', () => {
     it('Kotlin bindings are now generated at build time', () => {
-      // This test suite is skipped because:
-      // 1. Auto-generated bindings (~7082 lines) removed from git in commit f2bd3dc
-      // 2. Bindings are now generated during Android build by UniFFI
-      // 3. Validation happens through native build failures instead
-      //
-      // To validate FFI alignment manually:
-      // - Build Android: ./gradlew assembleDebug
-      // - Build iOS: pod install + native build
-      // - If FFI is out of sync, compilation will fail
+      // Bindings are now generated during Android build by uniffi-bindgen-react-native
       expect(true).toBe(true);
     });
   });

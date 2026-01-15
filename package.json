@@ -2,11 +2,15 @@
   "name": "veloq",
   "version": "0.0.2",
   "tracematchVersion": "0.0.3",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/evanjt/veloq"
+  },
   "main": "expo-router/entry",
   "scripts": {
     "start": "npx expo start",
-    "android": "./scripts/prepare-rust.sh android && npx expo run:android",
-    "ios": "./scripts/prepare-rust.sh ios && npx expo run:ios",
+    "android": "npx expo run:android",
+    "ios": "npx expo run:ios",
     "web": "npx expo start --web",
     "test": "jest",
     "test:watch": "jest --watch",
@@ -15,17 +19,10 @@
     "test:perf:ci": "jest --testPathPattern=perf.test --json --outputFile=perf-results.json",
     "format": "prettier --config config/.prettierrc --ignore-path config/.prettierignore --write \"src/**/*.{ts,tsx}\"",
     "format:check": "prettier --config config/.prettierrc --ignore-path config/.prettierignore --check \"src/**/*.{ts,tsx}\"",
-    "rust:prepare": "./scripts/prepare-rust.sh",
-    "rust:prepare:android": "./scripts/prepare-rust.sh android",
-    "rust:prepare:ios": "./scripts/prepare-rust.sh ios",
-    "rust:download": "./scripts/download-tracematch.sh",
-    "rust:download:android": "./scripts/download-tracematch.sh android",
-    "rust:download:ios": "./scripts/download-tracematch.sh ios",
-    "rust:build": "./scripts/build-tracematch-local.sh",
-    "rust:build:android": "./scripts/build-tracematch-local.sh android",
-    "rust:build:ios": "./scripts/build-tracematch-local.sh ios",
-    "prebuild": "./scripts/prepare-rust.sh && npx expo prebuild",
-    "postinstall": "patch-package"
+    "ubrn:build:android": "uniffi-bindgen-react-native build android --release",
+    "ubrn:build:ios": "uniffi-bindgen-react-native build ios --release",
+    "ubrn:generate": "uniffi-bindgen-react-native generate turbo-module ts && ./scripts/patch-ubrn-generated.sh",
+    "postinstall": "patch-package && npm run ubrn:generate"
   },
   "dependencies": {
     "@expo/ngrok": "^4.1.3",
@@ -87,7 +84,8 @@
     "prettier": "^3.4.2",
     "react-dom": "^18.2.0",
     "ts-jest": "^29.4.6",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "uniffi-bindgen-react-native": "^0.29.3-1"
   },
   "private": true
 }

@@ -10,11 +10,13 @@ import { InteractionManager } from 'react-native';
 import { getRouteEngine } from '@/lib/native/routeEngine';
 import {
   detectSectionsMultiscale,
-  getDefaultScalePresets,
-  type PotentialSection,
+  gpsPointsToRoutePoints,
+  SectionConfig,
+  type RouteGroup,
+  type ActivitySportType,
 } from 'route-matcher-native';
 import { usePotentialSections as usePotentialSectionsStore } from '@/providers/PotentialSectionsStore';
-import type { Activity } from '@/types';
+import type { PotentialSection } from '@/types';
 
 interface UsePotentialSectionsOptions {
   /** Filter by sport type (e.g., "Run", "Ride") */
@@ -115,52 +117,72 @@ export function usePotentialSections(
     setIsDetecting(true);
 
     try {
-      // Get activity data for detection
-      const activities: Array<{
-        activityId: string;
-        points: { latitude: number; longitude: number }[];
-      }> = [];
+      // Build flat coordinate arrays for the new API
+      const ids: string[] = [];
+      const allCoords: number[] = [];
+      const offsets: number[] = [];
+      const activitySportTypes: ActivitySportType[] = [];
 
       for (const id of activityIds) {
         const track = engine.getGpsTrack(id);
-        if (track.length > 0) {
-          const points: { latitude: number; longitude: number }[] = [];
-          for (let i = 0; i < track.length; i += 2) {
-            points.push({
-              latitude: track[i],
-              longitude: track[i + 1],
-            });
-          }
-          if (points.length >= 4) {
-            activities.push({ activityId: id, points });
+        if (track.length >= 4) {
+          ids.push(id);
+          offsets.push(allCoords.length / 2);
+          activitySportTypes.push({
+            activityId: id,
+            sportType: 'Ride', // Default, could be improved by storing sport type in engine
+          });
+
+          // GpsPoint[] has latitude/longitude properties
+          for (const point of track) {
+            allCoords.push(point.latitude, point.longitude);
           }
         }
       }
 
-      if (activities.length === 0) {
+      if (ids.length === 0) {
         console.log('[usePotentialSections] No valid GPS tracks found');
         setIsDetecting(false);
         return;
       }
 
       // Get route groups for linking sections
-      const groups = engine.getGroups();
+      const groups: RouteGroup[] = engine.getGroups();
 
-      // Get sport types for each activity
-      const sportTypes = activities.map((a) => ({
-        activityId: a.activityId,
-        sportType: 'Ride', // Default, could be improved by storing sport type in engine
-      }));
+      // Create default section config
+      const config = SectionConfig.create({
+        proximityThreshold: 50,
+        minSectionLength: 200,
+        maxSectionLength: 5000,
+        minActivities: 2,
+        clusterTolerance: 80,
+        samplePoints: 50,
+        detectionMode: 'discovery',
+        includePotentials: true,
+        scalePresets: [],
+        preserveHierarchy: false,
+      });
 
       // Run multi-scale detection
-      const result = detectSectionsMultiscale(activities, sportTypes, groups);
+      const result = detectSectionsMultiscale(
+        ids,
+        allCoords,
+        offsets,
+        activitySportTypes,
+        groups,
+        config
+      );
+
+      // Convert native PotentialSection to app type (GpsPoint -> RoutePoint)
+      const potentials: PotentialSection[] = result.potentials.map((p) => ({
+        ...p,
+        polyline: gpsPointsToRoutePoints(p.polyline),
+      }));
 
       // Store potentials
       if (isMountedRef.current) {
-        await setPotentials(result.potentials);
-        console.log(
-          `[usePotentialSections] Detected ${result.potentials.length} potential sections`
-        );
+        await setPotentials(potentials);
+        console.log(`[usePotentialSections] Detected ${potentials.length} potential sections`);
       }
     } catch (error) {
       console.error('[usePotentialSections] Detection failed:', error);

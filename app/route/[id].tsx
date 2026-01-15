@@ -82,14 +82,14 @@ interface ActivityRowProps {
   routePoints?: RoutePoint[];
   /** Whether this row is currently highlighted */
   isHighlighted?: boolean;
-  /** Distance of the overlapping section in meters */
-  overlapDistance?: number;
   /** Total distance of the route in meters (for context) */
   routeDistance?: number;
   /** Is this the best performance (PR)? */
   isBest?: boolean;
   /** Rank of this performance (1 = best) */
   rank?: number;
+  /** Time delta vs PR in seconds (positive = slower, negative = faster) */
+  deltaFromPR?: number;
 }
 
 function ActivityRow({
@@ -100,10 +100,10 @@ function ActivityRow({
   activityPoints,
   routePoints,
   isHighlighted,
-  overlapDistance,
   routeDistance,
   isBest = false,
   rank,
+  deltaFromPR,
 }: ActivityRowProps) {
   const handlePress = () => {
     router.push(`/activity/${activity.id}`);
@@ -119,20 +119,20 @@ function ActivityRow({
       : colors.sameDirection;
   const badgeColor = isReverse ? REVERSE_COLOR : colors.success;
 
-  // Format overlap distance for display (e.g., "200m / 1.0km")
-  const overlapDisplay = useMemo(() => {
-    if (!overlapDistance || !routeDistance) return null;
-    const overlapKm = overlapDistance / 1000;
-    const routeKm = routeDistance / 1000;
-    // Show in meters if < 1km, otherwise km
-    const overlapStr =
-      overlapKm < 1
-        ? `${Math.round(overlapDistance)}m`
-        : `${overlapKm.toFixed(1)}km`;
-    const routeStr =
-      routeKm < 1 ? `${Math.round(routeDistance)}m` : `${routeKm.toFixed(1)}km`;
-    return `${overlapStr} / ${routeStr}`;
-  }, [overlapDistance, routeDistance]);
+  // Format delta from PR for display (e.g., "+0:45" or "-1:30")
+  const deltaDisplay = useMemo(() => {
+    if (deltaFromPR === undefined || isBest) return null;
+    const absDelta = Math.abs(deltaFromPR);
+    const minutes = Math.floor(absDelta / 60);
+    const seconds = Math.round(absDelta % 60);
+    const sign = deltaFromPR > 0 ? "+" : "-";
+    return `${sign}${minutes}:${seconds.toString().padStart(2, "0")}`;
+  }, [deltaFromPR, isBest]);
+
+  const deltaColor = useMemo(() => {
+    if (deltaFromPR === undefined) return colors.textSecondary;
+    return deltaFromPR <= 0 ? colors.success : colors.error;
+  }, [deltaFromPR]);
 
   return (
     <Pressable
@@ -228,12 +228,6 @@ function ActivityRow({
           <Text style={[styles.activityDate, isDark && styles.textMuted]}>
             {formatRelativeDate(activity.start_date_local)}
           </Text>
-          {/* Overlap distance indicator - shows matched section vs route distance */}
-          {overlapDisplay && (
-            <Text style={[styles.overlapText, isDark && styles.textMuted]}>
-              {overlapDisplay}
-            </Text>
-          )}
         </View>
       </View>
       <View style={styles.activityStats}>
@@ -243,6 +237,12 @@ function ActivityRow({
         <Text style={[styles.activityTime, isDark && styles.textMuted]}>
           {formatDuration(activity.moving_time)}
         </Text>
+        {/* Delta from PR */}
+        {deltaDisplay && (
+          <Text style={[styles.deltaText, { color: deltaColor }]}>
+            {deltaDisplay}
+          </Text>
+        )}
       </View>
       <MaterialCommunityIcons
         name="chevron-right"
@@ -357,11 +357,21 @@ export default function RouteDetailScreen() {
     Keyboard.dismiss();
   }, []);
 
-  // Match data is not yet available from Rust engine
-  const matches: Record<
-    string,
-    { direction: string; matchPercentage: number; overlapDistance?: number }
-  > = {};
+  // Build match data from performances array
+  const performancesMap = useMemo(() => {
+    const map: Record<
+      string,
+      { direction: string; matchPercentage: number; duration: number }
+    > = {};
+    for (const perf of performances) {
+      map[perf.activityId] = {
+        direction: perf.direction,
+        matchPercentage: perf.matchPercentage,
+        duration: perf.duration,
+      };
+    }
+    return map;
+  }, [performances]);
 
   // Get signature points for all activities in this group from Rust engine
   // Depends on engineGroup to ensure we re-fetch when engine data is ready
@@ -487,6 +497,28 @@ export default function RouteDetailScreen() {
     const lastDate = new Date(Math.max(...dates)).toISOString();
     return { distance: avgDistance, lastDate };
   }, [routeActivities]);
+
+  // Compute summary stats for the stats card
+  const summaryStats = useMemo(() => {
+    if (performances.length === 0) {
+      return {
+        bestTime: null,
+        avgTime: null,
+        totalActivities: 0,
+        lastActivity: null,
+      };
+    }
+    const durations = performances.map((p) => p.duration);
+    const avgDuration = durations.reduce((a, b) => a + b, 0) / durations.length;
+    const dates = performances.map((p) => p.date.getTime());
+    const lastActivityDate = new Date(Math.max(...dates));
+    return {
+      bestTime: bestPerformance?.duration ?? null,
+      avgTime: avgDuration,
+      totalActivities: performances.length,
+      lastActivity: lastActivityDate,
+    };
+  }, [performances, bestPerformance]);
 
   // Final routeGroup with signature populated from consensus points
   const routeGroup = useMemo(() => {
@@ -684,6 +716,74 @@ export default function RouteDetailScreen() {
 
         {/* Content below hero */}
         <View style={styles.contentSection}>
+          {/* Summary Stats Card */}
+          {summaryStats.totalActivities > 0 && (
+            <View
+              style={[styles.summaryCard, isDark && styles.summaryCardDark]}
+            >
+              <View style={styles.summaryRow}>
+                <View style={styles.summaryItem}>
+                  <Text
+                    style={[styles.summaryLabel, isDark && styles.textMuted]}
+                  >
+                    {t("routeDetail.bestTime")}
+                  </Text>
+                  <Text
+                    style={[styles.summaryValue, isDark && styles.textLight]}
+                  >
+                    {summaryStats.bestTime !== null
+                      ? formatDuration(summaryStats.bestTime)
+                      : "-"}
+                  </Text>
+                </View>
+                <View style={styles.summaryItem}>
+                  <Text
+                    style={[styles.summaryLabel, isDark && styles.textMuted]}
+                  >
+                    {t("routeDetail.avgTime")}
+                  </Text>
+                  <Text
+                    style={[styles.summaryValue, isDark && styles.textLight]}
+                  >
+                    {summaryStats.avgTime !== null
+                      ? formatDuration(Math.round(summaryStats.avgTime))
+                      : "-"}
+                  </Text>
+                </View>
+              </View>
+              <View style={styles.summaryRow}>
+                <View style={styles.summaryItem}>
+                  <Text
+                    style={[styles.summaryLabel, isDark && styles.textMuted]}
+                  >
+                    {t("routeDetail.totalActivities")}
+                  </Text>
+                  <Text
+                    style={[styles.summaryValue, isDark && styles.textLight]}
+                  >
+                    {summaryStats.totalActivities}
+                  </Text>
+                </View>
+                <View style={styles.summaryItem}>
+                  <Text
+                    style={[styles.summaryLabel, isDark && styles.textMuted]}
+                  >
+                    {t("routeDetail.lastActivity")}
+                  </Text>
+                  <Text
+                    style={[styles.summaryValue, isDark && styles.textLight]}
+                  >
+                    {summaryStats.lastActivity
+                      ? formatRelativeDate(
+                          summaryStats.lastActivity.toISOString(),
+                        )
+                      : "-"}
+                  </Text>
+                </View>
+              </View>
+            </View>
+          )}
+
           {/* Performance progression chart - scrubbing highlights map */}
           {chartData.length >= 2 && (
             <View style={styles.chartSection}>
@@ -726,21 +826,10 @@ export default function RouteDetailScreen() {
                 ]}
               >
                 {routeActivities.map((activity, index) => {
-                  const match = matches[activity.id];
-                  // Representative activity doesn't have a match entry, show 100%
-                  const isRepresentative =
-                    routeGroup?.activityIds[0] === activity.id;
-                  const matchPercentage =
-                    match?.matchPercentage ??
-                    (isRepresentative ? 100 : undefined);
-                  const direction =
-                    match?.direction ?? (isRepresentative ? "same" : undefined);
-                  // Get overlap distance - for representative, use route distance
-                  const overlapDistance =
-                    match?.overlapDistance ??
-                    (isRepresentative
-                      ? routeGroup?.signature?.distance
-                      : undefined);
+                  const perfData = performancesMap[activity.id];
+                  // Get match data from performances array
+                  const matchPercentage = perfData?.matchPercentage;
+                  const direction = perfData?.direction;
                   const routeDistance = routeGroup?.signature?.distance;
                   // Get route points from signature for this activity
                   const activityPoints = signatures[activity.id]?.points;
@@ -749,11 +838,18 @@ export default function RouteDetailScreen() {
                   const isHighlighted = highlightedActivityId === activity.id;
                   // Determine if this is the best performance (PR)
                   const isBest = bestPerformance?.activityId === activity.id;
-                  // Get rank from performances array
-                  const rank =
-                    performances.findIndex(
-                      (p) => p.activityId === activity.id,
-                    ) + 1;
+                  // Get rank from performances array (returns undefined if not found)
+                  const rankIdx = performances.findIndex(
+                    (p) => p.activityId === activity.id,
+                  );
+                  const rank = rankIdx >= 0 ? rankIdx + 1 : undefined;
+                  // Calculate delta from PR (time difference in seconds)
+                  const activityDuration = perfData?.duration;
+                  const bestDuration = bestPerformance?.duration;
+                  const deltaFromPR =
+                    activityDuration !== undefined && bestDuration !== undefined
+                      ? activityDuration - bestDuration
+                      : undefined;
                   return (
                     <React.Fragment key={activity.id}>
                       <Pressable
@@ -768,10 +864,10 @@ export default function RouteDetailScreen() {
                           activityPoints={activityPoints}
                           routePoints={routePoints}
                           isHighlighted={isHighlighted}
-                          overlapDistance={overlapDistance}
                           routeDistance={routeDistance}
                           isBest={isBest}
                           rank={rank}
+                          deltaFromPR={deltaFromPR}
                         />
                       </Pressable>
                       {index < routeActivities.length - 1 && (
@@ -931,6 +1027,34 @@ const styles = StyleSheet.create({
     padding: layout.screenPadding,
     paddingTop: spacing.lg,
   },
+  // Summary stats card
+  summaryCard: {
+    backgroundColor: colors.surface,
+    borderRadius: layout.borderRadius,
+    padding: spacing.md,
+    marginBottom: spacing.lg,
+  },
+  summaryCardDark: {
+    backgroundColor: darkColors.surface,
+  },
+  summaryRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: spacing.sm,
+  },
+  summaryItem: {
+    flex: 1,
+  },
+  summaryLabel: {
+    fontSize: typography.caption.fontSize,
+    color: colors.textSecondary,
+    marginBottom: 2,
+  },
+  summaryValue: {
+    fontSize: typography.body.fontSize,
+    fontWeight: "600",
+    color: colors.textPrimary,
+  },
   emptyContainer: {
     flex: 1,
     justifyContent: "center",
@@ -1066,6 +1190,10 @@ const styles = StyleSheet.create({
   activityTime: {
     fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
+  },
+  deltaText: {
+    fontSize: typography.caption.fontSize,
+    fontWeight: "600",
   },
   divider: {
     height: 1,

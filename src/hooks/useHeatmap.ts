@@ -1,20 +1,23 @@
 /**
  * Hook for generating and querying heatmaps.
  * Uses Rust for efficient grid computation.
+ *
+ * NOTE: This hook requires additional Rust FFI methods that are not yet fully implemented.
+ * Currently returns placeholder data.
  */
 
-import { useMemo, useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useEngineGroups } from './routes/useRouteEngine';
-import { getNativeModule } from '@/lib/native/routeEngine';
-import { routeEngine } from 'route-matcher-native';
-import type {
-  HeatmapResult,
+import { getRouteEngine } from '@/lib/native/routeEngine';
+import {
+  ffiGenerateHeatmap,
   HeatmapConfig,
-  HeatmapCell,
-  CellQueryResult,
-  ActivityHeatmapData,
-  RouteSignature,
-  GpsPoint,
+  type HeatmapResult,
+  type HeatmapCell,
+  type CellQueryResult,
+  type ActivityHeatmapData,
+  type GpsPoint,
+  type RouteSignature,
 } from 'route-matcher-native';
 
 export interface UseHeatmapOptions {
@@ -53,85 +56,90 @@ export function useHeatmap(options: UseHeatmapOptions = {}): UseHeatmapResult {
       return;
     }
 
-    const nativeModule = getNativeModule();
-    if (!nativeModule) {
+    const engine = getRouteEngine();
+    if (!engine) {
       setHeatmap(null);
       setIsReady(false);
       return;
     }
 
     try {
-      const allSignatures: RouteSignature[] = [];
+      const signatures: RouteSignature[] = [];
       const activityData: ActivityHeatmapData[] = [];
 
       // Pre-filter groups by sport type before iterating
       const filteredGroups = sportType ? groups.filter((g) => g.sportType === sportType) : groups;
 
-      // Get pre-computed bounds and distances from Rust engine
-      // This avoids redundant Haversine calculations in JS
-      const allBoundsData = routeEngine.getAllActivityBounds();
-      const boundsMap = new Map(allBoundsData.map((b) => [b.id, b]));
-
-      // Collect signatures from all groups
+      // Collect signatures from all groups using consensus routes
       for (const group of filteredGroups) {
-        // Get signatures for this group (points and center already computed in Rust)
-        const sigMap = nativeModule.routeEngine.getSignaturesForGroup(group.groupId);
+        // Get consensus route for this group
+        const consensusPoints = engine.getConsensusRoutePoints(group.groupId);
+        if (consensusPoints.length < 2) continue;
 
-        for (const [activityId, points] of Object.entries(sigMap)) {
-          if (points.length < 2) continue;
+        // Build RouteSignature for this group
+        const points: GpsPoint[] = consensusPoints.map((p) => ({
+          latitude: p.latitude,
+          longitude: p.longitude,
+          elevation: undefined,
+        }));
 
-          // Convert to GpsPoint format
-          const gpsPoints: GpsPoint[] = points.map((p) => ({
-            latitude: p.lat,
-            longitude: p.lng,
-          }));
+        // Calculate bounds
+        let minLat = Infinity,
+          maxLat = -Infinity,
+          minLng = Infinity,
+          maxLng = -Infinity;
+        for (const p of points) {
+          if (p.latitude < minLat) minLat = p.latitude;
+          if (p.latitude > maxLat) maxLat = p.latitude;
+          if (p.longitude < minLng) minLng = p.longitude;
+          if (p.longitude > maxLng) maxLng = p.longitude;
+        }
 
-          // Use pre-computed bounds and distance from engine (avoids JS calculation)
-          const boundsData = boundsMap.get(activityId);
-          let bounds = { minLat: 0, maxLat: 0, minLng: 0, maxLng: 0 };
-          let totalDistance = 0;
+        // Calculate total distance (simple approximation)
+        let totalDistance = 0;
+        for (let i = 1; i < points.length; i++) {
+          const dlat = (points[i].latitude - points[i - 1].latitude) * 111139;
+          const dlng =
+            (points[i].longitude - points[i - 1].longitude) *
+            111139 *
+            Math.cos((points[i].latitude * Math.PI) / 180);
+          totalDistance += Math.sqrt(dlat * dlat + dlng * dlng);
+        }
 
-          if (boundsData) {
-            // boundsData.bounds is [[minLat, minLng], [maxLat, maxLng]]
-            bounds = {
-              minLat: boundsData.bounds[0][0],
-              minLng: boundsData.bounds[0][1],
-              maxLat: boundsData.bounds[1][0],
-              maxLng: boundsData.bounds[1][1],
-            };
-            totalDistance = boundsData.distance;
-          }
+        signatures.push({
+          activityId: group.groupId,
+          points,
+          totalDistance,
+          startPoint: points[0],
+          endPoint: points[points.length - 1],
+          bounds: { minLat, maxLat, minLng, maxLng },
+          center: {
+            latitude: (minLat + maxLat) / 2,
+            longitude: (minLng + maxLng) / 2,
+            elevation: undefined,
+          },
+        });
 
-          // Build signature using pre-computed data
-          const signature: RouteSignature = {
-            activityId,
-            points: gpsPoints,
-            totalDistance,
-            startPoint: gpsPoints[0],
-            endPoint: gpsPoints[gpsPoints.length - 1],
-            bounds,
-            center: {
-              latitude: (bounds.minLat + bounds.maxLat) / 2,
-              longitude: (bounds.minLng + bounds.maxLng) / 2,
-            },
-          };
-
-          allSignatures.push(signature);
-
-          // Build activity data
+        // Build activity data for each activity in group
+        for (const activityId of group.activityIds) {
           activityData.push({
             activityId,
             routeId: group.groupId,
-            routeName: group.customName || null,
-            timestamp: null,
+            routeName: group.customName,
+            timestamp: undefined,
           });
         }
       }
 
-      if (allSignatures.length > 0) {
-        const result = nativeModule.generateHeatmap(allSignatures, activityData, {
+      if (signatures.length > 0 && activityData.length > 0) {
+        // Create config
+        const config = HeatmapConfig.create({
           cellSizeMeters,
+          bounds: undefined,
         });
+
+        // Generate heatmap using FFI
+        const result = ffiGenerateHeatmap(signatures, activityData, config);
         setHeatmap(result);
         setIsReady(true);
       } else {

@@ -90,6 +90,12 @@ interface ActivityRowProps {
   actualSectionTime?: number;
   /** Actual section pace in m/s (from stream data) */
   actualSectionPace?: number;
+  /** Is this the best performance (PR)? */
+  isBest?: boolean;
+  /** Rank of this performance (1 = best) */
+  rank?: number;
+  /** Best time in seconds (for delta calculation) */
+  bestTime?: number;
 }
 
 function ActivityRow({
@@ -103,6 +109,9 @@ function ActivityRow({
   lapCount,
   actualSectionTime,
   actualSectionPace,
+  isBest = false,
+  rank,
+  bestTime,
 }: ActivityRowProps) {
   const handlePress = () => {
     router.push(`/activity/${activity.id}`);
@@ -138,6 +147,27 @@ function ActivityRow({
 
   const showPace = isRunningActivity(activity.type);
   const showLapCount = lapCount !== undefined && lapCount > 1;
+
+  // Calculate delta from best time
+  const delta = useMemo(() => {
+    if (bestTime === undefined || sectionTime === undefined || sectionTime <= 0)
+      return null;
+    const diff = sectionTime - bestTime;
+    if (Math.abs(diff) < 1) return null; // Don't show for < 1s difference
+    return diff;
+  }, [bestTime, sectionTime]);
+
+  // Format delta as +/-MM:SS or +/-SS
+  const formatDelta = (seconds: number): string => {
+    const absSeconds = Math.abs(seconds);
+    const sign = seconds > 0 ? "+" : "-";
+    if (absSeconds >= 60) {
+      const mins = Math.floor(absSeconds / 60);
+      const secs = Math.floor(absSeconds % 60);
+      return `${sign}${mins}:${secs.toString().padStart(2, "0")}`;
+    }
+    return `${sign}${Math.floor(absSeconds)}s`;
+  };
 
   return (
     <Pressable
@@ -176,6 +206,37 @@ function ActivityRow({
           >
             {activity.name}
           </Text>
+          {/* PR badge for best performance */}
+          {isBest && (
+            <View style={[styles.prBadge, { backgroundColor: colors.primary }]}>
+              <MaterialCommunityIcons
+                name="trophy"
+                size={12}
+                color={colors.textOnDark}
+              />
+              <Text style={styles.prText}>PR</Text>
+            </View>
+          )}
+          {/* Rank badge for non-best performances (top 10) */}
+          {!isBest && rank !== undefined && rank <= 10 && (
+            <View
+              style={[
+                styles.rankBadge,
+                { backgroundColor: colors.textSecondary + "20" },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.rankText,
+                  {
+                    color: isDark ? colors.textSecondary : colors.textSecondary,
+                  },
+                ]}
+              >
+                #{rank}
+              </Text>
+            </View>
+          )}
           {isReverse && (
             <View
               style={[
@@ -200,9 +261,22 @@ function ActivityRow({
             </View>
           )}
         </View>
-        <Text style={[styles.activityDate, isDark && styles.textMuted]}>
-          {formatRelativeDate(activity.start_date_local)}
-        </Text>
+        <View style={styles.activityMetaRow}>
+          <Text style={[styles.activityDate, isDark && styles.textMuted]}>
+            {formatRelativeDate(activity.start_date_local)}
+          </Text>
+          {/* vs-PR delta */}
+          {delta !== null && !isBest && (
+            <Text
+              style={[
+                styles.deltaText,
+                { color: delta <= 0 ? colors.success : colors.error },
+              ]}
+            >
+              {formatDelta(delta)}
+            </Text>
+          )}
+        </View>
       </View>
       <View style={styles.activityStats}>
         <Text style={[styles.activityDistance, isDark && styles.textLight]}>
@@ -330,15 +404,27 @@ export default function SectionDetailScreen() {
     }
 
     const traces: Record<string, RoutePoint[]> = {};
+    // Convert polyline to JSON string for Rust engine
+    const polylineJson = JSON.stringify(
+      customSection.polyline.map((p) => ({
+        latitude: p.lat,
+        longitude: p.lng,
+      })),
+    );
+
     for (const match of customSection.matches) {
       // Use Rust engine's extractSectionTrace for efficient trace extraction
       const extractedTrace = engine.extractSectionTrace(
         match.activityId,
-        customSection.polyline,
+        polylineJson,
       );
 
       if (extractedTrace.length > 0) {
-        traces[match.activityId] = extractedTrace;
+        // Convert GpsPoint[] to RoutePoint[]
+        traces[match.activityId] = extractedTrace.map((p) => ({
+          lat: p.latitude,
+          lng: p.longitude,
+        }));
       }
     }
     setComputedActivityTraces(traces);
@@ -579,6 +665,59 @@ export default function SectionDetailScreen() {
       portionMap,
     ]);
 
+  // Compute performance rankings by speed (higher speed = better = rank 1)
+  // Also compute summary statistics
+  const {
+    rankMap,
+    bestActivityId,
+    bestTimeValue,
+    averageTime,
+    lastActivityDate,
+  } = useMemo(() => {
+    if (chartData.length === 0) {
+      return {
+        rankMap: new Map<string, number>(),
+        bestActivityId: null as string | null,
+        bestTimeValue: undefined as number | undefined,
+        averageTime: undefined as number | undefined,
+        lastActivityDate: undefined as string | undefined,
+      };
+    }
+
+    // Sort by speed descending (fastest first)
+    const sorted = [...chartData].sort((a, b) => b.speed - a.speed);
+    const map = new Map<string, number>();
+    sorted.forEach((item, idx) => {
+      map.set(item.activityId, idx + 1);
+    });
+
+    // Best is rank 1
+    const bestId = sorted.length > 0 ? sorted[0].activityId : null;
+    const bestTime = sorted.length > 0 ? sorted[0].sectionTime : undefined;
+
+    // Calculate average time
+    const times = chartData
+      .map((d) => d.sectionTime)
+      .filter((t): t is number => t !== undefined && t > 0);
+    const avgTime =
+      times.length > 0
+        ? times.reduce((sum, t) => sum + t, 0) / times.length
+        : undefined;
+
+    // Get last activity date
+    const dates = chartData.map((d) => d.date.getTime());
+    const lastDate =
+      dates.length > 0 ? new Date(Math.max(...dates)).toISOString() : undefined;
+
+    return {
+      rankMap: map,
+      bestActivityId: bestId,
+      bestTimeValue: bestTime,
+      averageTime: avgTime,
+      lastActivityDate: lastDate,
+    };
+  }, [chartData]);
+
   if (!section) {
     return (
       <View style={[styles.container, isDark && styles.containerDark]}>
@@ -739,6 +878,79 @@ export default function SectionDetailScreen() {
 
         {/* Content below hero */}
         <View style={styles.contentSection}>
+          {/* Summary Stats Card */}
+          {chartData.length > 0 && (
+            <View
+              style={[styles.summaryCard, isDark && styles.summaryCardDark]}
+            >
+              <View style={styles.summaryRow}>
+                <View style={styles.summaryItem}>
+                  <Text
+                    style={[styles.summaryLabel, isDark && styles.textMuted]}
+                  >
+                    {t("sections.bestTime")}
+                  </Text>
+                  <View style={styles.summaryValueRow}>
+                    <MaterialCommunityIcons
+                      name="trophy"
+                      size={14}
+                      color={colors.primary}
+                    />
+                    <Text
+                      style={[styles.summaryValue, isDark && styles.textLight]}
+                    >
+                      {bestTimeValue !== undefined
+                        ? formatDuration(bestTimeValue)
+                        : "--:--"}
+                    </Text>
+                  </View>
+                </View>
+                <View style={styles.summaryItem}>
+                  <Text
+                    style={[styles.summaryLabel, isDark && styles.textMuted]}
+                  >
+                    {t("sections.averageTime")}
+                  </Text>
+                  <Text
+                    style={[styles.summaryValue, isDark && styles.textLight]}
+                  >
+                    {averageTime !== undefined
+                      ? formatDuration(averageTime)
+                      : "--:--"}
+                  </Text>
+                </View>
+              </View>
+              <View style={styles.summaryRow}>
+                <View style={styles.summaryItem}>
+                  <Text
+                    style={[styles.summaryLabel, isDark && styles.textMuted]}
+                  >
+                    {t("sections.totalTraversals")}
+                  </Text>
+                  <Text
+                    style={[styles.summaryValue, isDark && styles.textLight]}
+                  >
+                    {section.visitCount}
+                  </Text>
+                </View>
+                <View style={styles.summaryItem}>
+                  <Text
+                    style={[styles.summaryLabel, isDark && styles.textMuted]}
+                  >
+                    {t("sections.lastActivity")}
+                  </Text>
+                  <Text
+                    style={[styles.summaryValue, isDark && styles.textLight]}
+                  >
+                    {lastActivityDate
+                      ? formatRelativeDate(lastActivityDate)
+                      : "-"}
+                  </Text>
+                </View>
+              </View>
+            </View>
+          )}
+
           {/* Performance chart */}
           {chartData.length >= 2 && (
             <View style={styles.chartSection}>
@@ -789,6 +1001,9 @@ export default function SectionDetailScreen() {
                   const record = performanceRecords?.find(
                     (r: ActivitySectionRecord) => r.activityId === activity.id,
                   );
+                  // Get rank and check if best
+                  const activityRank = rankMap.get(activity.id);
+                  const isBest = activity.id === bestActivityId;
 
                   return (
                     <React.Fragment key={activity.id}>
@@ -809,6 +1024,9 @@ export default function SectionDetailScreen() {
                           lapCount={record?.lapCount}
                           actualSectionTime={record?.bestTime}
                           actualSectionPace={record?.bestPace}
+                          isBest={isBest}
+                          rank={activityRank}
+                          bestTime={bestTimeValue}
                         />
                       </Pressable>
                       {index < sectionActivities.length - 1 && (
@@ -971,6 +1189,37 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     marginTop: spacing.md,
   },
+  summaryCard: {
+    backgroundColor: colors.surface,
+    borderRadius: layout.borderRadius,
+    padding: spacing.md,
+    marginBottom: spacing.lg,
+  },
+  summaryCardDark: {
+    backgroundColor: darkColors.surface,
+  },
+  summaryRow: {
+    flexDirection: "row",
+    marginBottom: spacing.sm,
+  },
+  summaryItem: {
+    flex: 1,
+  },
+  summaryLabel: {
+    fontSize: typography.caption.fontSize,
+    color: colors.textSecondary,
+    marginBottom: 2,
+  },
+  summaryValue: {
+    fontSize: typography.body.fontSize,
+    fontWeight: "600",
+    color: colors.textPrimary,
+  },
+  summaryValueRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
   chartSection: {
     marginBottom: spacing.lg,
   },
@@ -1061,8 +1310,41 @@ const styles = StyleSheet.create({
   lapBadgeTextDark: {
     color: colors.primaryLight,
   },
+  activityMetaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginTop: 1,
+  },
   activityDate: {
     fontSize: typography.caption.fontSize,
+    color: colors.textSecondary,
+  },
+  deltaText: {
+    fontSize: typography.caption.fontSize,
+    fontWeight: "600",
+  },
+  prBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: layout.borderRadiusSm,
+    gap: 2,
+  },
+  prText: {
+    fontSize: typography.label.fontSize,
+    fontWeight: "700",
+    color: colors.textOnDark,
+  },
+  rankBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: layout.borderRadiusSm,
+  },
+  rankText: {
+    fontSize: typography.caption.fontSize,
+    fontWeight: "600",
     color: colors.textSecondary,
   },
   activityStats: {

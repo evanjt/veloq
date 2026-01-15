@@ -138,10 +138,9 @@ export function useSectionPerformances(
         }
       }
 
-      // Sync to Rust engine
-      if (streams.length > 0) {
-        routeEngine.setTimeStreams(streams);
-      }
+      // Note: Time streams sync to Rust engine is not yet implemented in the native module
+      // The performance calculations will use distance-based estimates for now
+      // TODO: Add setTimeStreams to Rust FFI for accurate time-based calculations
 
       setStreamsSynced(true);
     } catch {
@@ -163,53 +162,118 @@ export function useSectionPerformances(
 
   // Get performance records from Rust engine
   const { records, bestRecord } = useMemo(() => {
-    if (!section || !streamsSynced) {
+    if (!section || !streamsSynced || !activities) {
       return { records: [], bestRecord: null };
     }
 
     try {
       // Get calculated performances from Rust engine
-      const result = routeEngine.getSectionPerformances(section.id);
+      // Note: getSectionPerformances returns JSON string
+      const resultJson = routeEngine.getSectionPerformances(section.id);
+      if (!resultJson) {
+        return { records: [], bestRecord: null };
+      }
+
+      // Parse the JSON response
+      const result = JSON.parse(resultJson);
+      if (!result || !result.records) {
+        // Fall back to generating basic records from section data
+        const recordList: ActivitySectionRecord[] = activities.map((a) => {
+          const portion = section.activityPortions?.find((p) => p.activityId === a.id);
+          const direction = (portion?.direction || 'same') as 'same' | 'reverse';
+          const sectionDistance = portion?.distanceMeters || section.distanceMeters;
+
+          return {
+            activityId: a.id,
+            activityName: a.name,
+            activityDate: new Date(a.start_date_local),
+            laps: [],
+            lapCount: 1,
+            bestTime: 0,
+            bestPace: 0,
+            avgTime: 0,
+            avgPace: 0,
+            direction,
+            sectionDistance,
+          };
+        });
+
+        return { records: recordList, bestRecord: recordList[0] || null };
+      }
 
       // Convert to ActivitySectionRecord format (add Date objects)
-      const recordList: ActivitySectionRecord[] = result.records.map((r) => ({
-        activityId: r.activityId,
-        activityName: r.activityName,
-        activityDate: new Date(r.activityDate * 1000), // Convert Unix timestamp
-        laps: r.laps.map((l) => ({
-          id: l.id,
-          activityId: l.activityId,
-          time: l.time,
-          pace: l.pace,
-          distance: l.distance,
-          direction: l.direction as 'same' | 'reverse',
-          startIndex: l.startIndex,
-          endIndex: l.endIndex,
-        })),
-        lapCount: r.lapCount,
-        bestTime: r.bestTime,
-        bestPace: r.bestPace,
-        avgTime: r.avgTime,
-        avgPace: r.avgPace,
-        direction: r.direction as 'same' | 'reverse',
-        sectionDistance: r.sectionDistance,
-      }));
+      const recordList: ActivitySectionRecord[] = (result.records || []).map(
+        (r: {
+          activityId: string;
+          activityName: string;
+          activityDate: number;
+          laps: Array<{
+            id: string;
+            activityId: string;
+            time: number;
+            pace: number;
+            distance: number;
+            direction: string;
+            startIndex: number;
+            endIndex: number;
+          }>;
+          lapCount: number;
+          bestTime: number;
+          bestPace: number;
+          avgTime: number;
+          avgPace: number;
+          direction: string;
+          sectionDistance: number;
+        }) => ({
+          activityId: r.activityId,
+          activityName: r.activityName,
+          activityDate: new Date(r.activityDate * 1000), // Convert Unix timestamp
+          laps: (r.laps || []).map((l) => ({
+            id: l.id,
+            activityId: l.activityId,
+            time: l.time,
+            pace: l.pace,
+            distance: l.distance,
+            direction: l.direction as 'same' | 'reverse',
+            startIndex: l.startIndex,
+            endIndex: l.endIndex,
+          })),
+          lapCount: r.lapCount,
+          bestTime: r.bestTime,
+          bestPace: r.bestPace,
+          avgTime: r.avgTime,
+          avgPace: r.avgPace,
+          direction: r.direction as 'same' | 'reverse',
+          sectionDistance: r.sectionDistance,
+        })
+      );
 
       const best: ActivitySectionRecord | null = result.bestRecord
         ? {
             activityId: result.bestRecord.activityId,
             activityName: result.bestRecord.activityName,
             activityDate: new Date(result.bestRecord.activityDate * 1000),
-            laps: result.bestRecord.laps.map((l) => ({
-              id: l.id,
-              activityId: l.activityId,
-              time: l.time,
-              pace: l.pace,
-              distance: l.distance,
-              direction: l.direction as 'same' | 'reverse',
-              startIndex: l.startIndex,
-              endIndex: l.endIndex,
-            })),
+            laps: (result.bestRecord.laps || []).map(
+              (l: {
+                id: string;
+                activityId: string;
+                time: number;
+                pace: number;
+                distance: number;
+                direction: string;
+                startIndex: number;
+                endIndex: number;
+              }) => ({
+                id: l.id,
+                activityId: l.activityId,
+                time: l.time,
+                pace: l.pace,
+                distance: l.distance,
+                direction: l.direction as 'same' | 'reverse',
+                startIndex: l.startIndex,
+                endIndex: l.endIndex,
+              })
+            ),
             lapCount: result.bestRecord.lapCount,
             bestTime: result.bestRecord.bestTime,
             bestPace: result.bestRecord.bestPace,
@@ -225,7 +289,7 @@ export function useSectionPerformances(
       // Engine may not have data yet - return empty
       return { records: [], bestRecord: null };
     }
-  }, [section, streamsSynced]);
+  }, [section, streamsSynced, activities]);
 
   const refetch = useCallback(() => {
     setFetchKey((k) => k + 1);

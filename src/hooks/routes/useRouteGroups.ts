@@ -77,7 +77,7 @@ export function useRouteGroups(options: UseRouteGroupsOptions = {}): UseRouteGro
         representativeId: g.representativeId,
         activityIds: g.activityIds,
         sportType: g.sportType,
-        bounds: g.bounds,
+        bounds: g.bounds ?? null,
         name,
         activityCount,
         type: sportType as ActivityType,

@@ -275,7 +275,7 @@ export function useActivityBoundsCache(
 
     try {
       const engineBounds = engine.getAllActivityBounds();
-      if (!engineBounds || engineBounds.length === 0) return [];
+      if (!engineBounds || engineBounds.size === 0) return [];
 
       // Create lookup map for activity metadata
       const activityMap = new Map<string, Activity>();
@@ -284,15 +284,20 @@ export function useActivityBoundsCache(
       }
 
       // Merge engine bounds with cached metadata
-      return engineBounds.map((eb): ActivityBoundsItem => {
-        const cached = activityMap.get(eb.id);
+      // engineBounds is a Map<string, { minLat, maxLat, minLng, maxLng }>
+      // Convert to [[minLat, minLng], [maxLat, maxLng]] format
+      return Array.from(engineBounds.entries()).map(([id, b]): ActivityBoundsItem => {
+        const cached = activityMap.get(id);
         return {
-          id: eb.id,
-          bounds: eb.bounds,
-          type: eb.type as ActivityBoundsItem['type'],
+          id,
+          bounds: [
+            [b.minLat, b.minLng],
+            [b.maxLat, b.maxLng],
+          ],
+          type: (cached?.type || 'Ride') as ActivityBoundsItem['type'],
           name: cached?.name || '',
           date: cached?.start_date_local || '',
-          distance: eb.distance,
+          distance: cached?.distance || 0,
           duration: cached?.moving_time || 0,
         };
       });
