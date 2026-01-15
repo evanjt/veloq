@@ -5,8 +5,8 @@
  * Shows a banner at the top of the screen when syncing is in progress.
  */
 
-import React, { useEffect } from 'react';
-import { View, StyleSheet, Platform } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { View, StyleSheet, Platform, Animated, Easing } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -57,7 +57,30 @@ export function GlobalDataSync() {
   // Don't show banner on screens that have their own sync indicator
   const isOnMapScreen = routeParts.includes('map' as never);
   const isOnRoutesScreen = routeParts.includes('routes' as never);
-  const shouldShowBanner = isSyncing && !isOnMapScreen && !isOnRoutesScreen;
+  // Show banner when fetching activities OR syncing GPS data
+  const shouldShowBanner = (isFetching || isSyncing) && !isOnMapScreen && !isOnRoutesScreen;
+
+  // Animated value for indeterminate progress bar
+  const indeterminateAnim = useRef(new Animated.Value(0)).current;
+
+  // Run indeterminate animation when in fetching phase (no real-time progress available)
+  useEffect(() => {
+    if (shouldShowBanner && (progress.status === 'fetching' || (isFetching && !isSyncing))) {
+      // Loop animation for indeterminate state
+      const animation = Animated.loop(
+        Animated.timing(indeterminateAnim, {
+          toValue: 1,
+          duration: 1500,
+          easing: Easing.linear,
+          useNativeDriver: false,
+        })
+      );
+      animation.start();
+      return () => animation.stop();
+    } else {
+      indeterminateAnim.setValue(0);
+    }
+  }, [shouldShowBanner, progress.status, isFetching, isSyncing, indeterminateAnim]);
 
   if (!shouldShowBanner) {
     return null;
@@ -70,29 +93,87 @@ export function GlobalDataSync() {
   const progressPercent =
     progress.total > 0 ? Math.round((progress.completed / progress.total) * 100) : 0;
 
-  const statusText =
-    progress.status === 'computing' ? progress.message : `Syncing GPS data... ${progressPercent}%`;
+  // Determine status text based on current operation
+  const statusText = (() => {
+    // Activity list fetching (before GPS sync starts)
+    if (isFetching && !isSyncing) {
+      return 'Fetching activities...';
+    }
+    // GPS sync in progress - show real-time progress from Rust callbacks
+    if (progress.status === 'fetching') {
+      // Show real progress when available (callback updates completed count)
+      if (progress.total > 0 && progress.completed > 0) {
+        return `Downloading GPS data... ${progressPercent}%`;
+      }
+      return progress.total > 0
+        ? `Downloading GPS data for ${progress.total} activities...`
+        : progress.message || 'Downloading GPS data...';
+    }
+    if (progress.status === 'processing') {
+      return progress.total > 0
+        ? `Processing ${progress.total} routes...`
+        : progress.message || 'Processing routes...';
+    }
+    if (progress.status === 'computing') {
+      return progress.message || 'Detecting route sections...';
+    }
+    // Fallback for any other syncing state
+    if (isSyncing) {
+      return progress.message || `Syncing... ${progressPercent}%`;
+    }
+    return 'Syncing...';
+  })();
+
+  // Determine icon based on current operation
+  const iconName = (() => {
+    // Activity list fetching
+    if (isFetching && !isSyncing) {
+      return 'cloud-download-outline' as const;
+    }
+    // GPS data fetching from API
+    if (progress.status === 'fetching') {
+      return 'cloud-sync-outline' as const;
+    }
+    // Processing routes or computing sections
+    if (progress.status === 'processing' || progress.status === 'computing') {
+      return 'map-marker-path' as const;
+    }
+    return 'cloud-sync-outline' as const;
+  })();
+
+  // Determine if we should show indeterminate progress
+  // (when fetching activities list OR GPS data with no completed count yet)
+  const showIndeterminate =
+    (isFetching && !isSyncing) || (progress.status === 'fetching' && progress.completed === 0);
+
+  // Animated width for indeterminate progress bar (slides across)
+  const indeterminateLeft = indeterminateAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['-30%', '100%'],
+  });
 
   return (
     <View style={[styles.container, { paddingTop: topPadding }]}>
       <View style={styles.content}>
-        <MaterialCommunityIcons
-          name={progress.status === 'computing' ? 'map-marker-path' : 'cloud-sync-outline'}
-          size={16}
-          color={colors.textOnDark}
-        />
+        <MaterialCommunityIcons name={iconName} size={16} color={colors.textOnDark} />
         <Text style={styles.text}>{statusText}</Text>
-        {progress.total > 0 && (
+        {progress.total > 0 && progress.completed > 0 && (
           <Text style={styles.countText}>
             {progress.completed}/{progress.total}
           </Text>
         )}
       </View>
-      {progress.total > 0 && (
-        <View style={styles.progressTrack}>
+      <View style={styles.progressTrack}>
+        {showIndeterminate ? (
+          // Indeterminate sliding animation when no real progress available
+          <Animated.View
+            style={[styles.progressFill, styles.indeterminateFill, { left: indeterminateLeft }]}
+          />
+        ) : (
+          // Determinate progress bar when we have real progress
           <View style={[styles.progressFill, { width: `${progressPercent}%` }]} />
-        </View>
-      )}
+        )}
+      </View>
     </View>
   );
 }
@@ -126,5 +207,9 @@ const styles = StyleSheet.create({
   progressFill: {
     height: '100%',
     backgroundColor: colors.textOnDark,
+  },
+  indeterminateFill: {
+    width: '30%',
+    position: 'absolute',
   },
 });

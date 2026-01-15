@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
   View,
   Text,
@@ -6,10 +6,11 @@ import {
   ScrollView,
   TouchableOpacity,
   Alert,
+  LayoutChangeEvent,
 } from "react-native";
 import * as WebBrowser from "expo-web-browser";
 import { ScreenSafeAreaView } from "@/components/ui";
-import { router, Href } from "expo-router";
+import { router, Href, useLocalSearchParams } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { SegmentedButtons, Switch } from "react-native-paper";
 import { useTranslation } from "react-i18next";
@@ -126,6 +127,28 @@ export default function SettingsScreen() {
     useState<ThemePreference>("system");
   const [showLanguages, setShowLanguages] = useState(false);
   const [showActivityStyles, setShowActivityStyles] = useState(false);
+
+  // Scroll-to-anchor support
+  const { scrollTo } = useLocalSearchParams<{ scrollTo?: string }>();
+  const scrollViewRef = useRef<ScrollView>(null);
+  const dataCacheSectionY = useRef<number>(0);
+  const hasScrolled = useRef(false);
+
+  // Track data cache section position
+  const handleDataCacheSectionLayout = useCallback((event: LayoutChangeEvent) => {
+    dataCacheSectionY.current = event.nativeEvent.layout.y;
+    // Scroll if we haven't yet and have a scroll target
+    if (scrollTo === 'cache' && !hasScrolled.current && scrollViewRef.current) {
+      hasScrolled.current = true;
+      // Small delay to ensure layout is complete
+      setTimeout(() => {
+        scrollViewRef.current?.scrollTo({
+          y: dataCacheSectionY.current - 16,
+          animated: true,
+        });
+      }, 100);
+    }
+  }, [scrollTo]);
 
   const { data: athlete } = useAthlete();
   const {
@@ -414,7 +437,7 @@ export default function SettingsScreen() {
       testID="settings-screen"
       style={[styles.container, isDark && styles.containerDark]}
     >
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView ref={scrollViewRef} contentContainerStyle={styles.content}>
         {/* Header with back button */}
         <View style={styles.header}>
           <TouchableOpacity
@@ -552,9 +575,11 @@ export default function SettingsScreen() {
         </View>
 
         {/* Data Cache Section - Consolidated */}
-        <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>
-          {t("settings.dataCache").toUpperCase()}
-        </Text>
+        <View onLayout={handleDataCacheSectionLayout}>
+          <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>
+            {t("settings.dataCache").toUpperCase()}
+          </Text>
+        </View>
         <View style={[styles.section, isDark && styles.sectionDark]}>
           {/* Sync Status Banners */}
           {progress.status === "syncing" && (

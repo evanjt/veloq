@@ -116,8 +116,13 @@ export function useRoutePerformances(
         return { performances: [], best: null, currentRank: null };
       }
 
-      // Get calculated performances from Rust engine
-      const result = engine.getRoutePerformances(engineGroup.groupId, activityId);
+      // Get calculated performances from Rust engine (returns JSON string)
+      const resultJson = engine.getRoutePerformances(engineGroup.groupId, activityId);
+      const result = JSON.parse(resultJson) as {
+        performances: Array<Omit<RoutePerformancePoint, 'date'> & { date: number }>;
+        best: (Omit<RoutePerformancePoint, 'date'> & { date: number }) | null;
+        currentRank: number | null;
+      };
 
       // Convert to RoutePerformancePoint format (add Date objects)
       const points: RoutePerformancePoint[] = result.performances.map(
