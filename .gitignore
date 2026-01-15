@@ -59,8 +59,9 @@ modules/route-matcher-native/android/CMakeLists.txt
 modules/route-matcher-native/ios/Generated/
 modules/route-matcher-native/ios/Veloq.h
 modules/route-matcher-native/ios/Veloq.mm
-modules/route-matcher-native/src/generated/
-modules/route-matcher-native/src/NativeVeloq.ts
+# Keep TypeScript generated files (needed for CI, only change when Rust FFI changes)
+# modules/route-matcher-native/src/generated/
+# modules/route-matcher-native/src/NativeVeloq.ts
 modules/route-matcher-native/cpp/
 cpp/
 
