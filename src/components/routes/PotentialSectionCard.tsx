@@ -12,6 +12,7 @@ import { colors } from '@/theme/colors';
 import { typography } from '@/theme/typography';
 import { spacing, layout } from '@/theme/spacing';
 import { shadows } from '@/theme/shadows';
+import { getBoundsFromPoints } from '@/lib';
 import type { PotentialSection, RoutePoint } from '@/types';
 
 interface PotentialSectionCardProps {
@@ -32,18 +33,15 @@ function MiniPolylinePreview({ polyline }: { polyline: RoutePoint[] }) {
       return { svgPath: '', viewBox: '0 0 60 40' };
     }
 
-    // Calculate bounds
-    let minLat = Infinity,
-      maxLat = -Infinity;
-    let minLng = Infinity,
-      maxLng = -Infinity;
-
-    for (const point of polyline) {
-      minLat = Math.min(minLat, point.lat);
-      maxLat = Math.max(maxLat, point.lat);
-      minLng = Math.min(minLng, point.lng);
-      maxLng = Math.max(maxLng, point.lng);
+    // Calculate bounds using utility
+    const mapBounds = getBoundsFromPoints(polyline);
+    if (!mapBounds) {
+      return { svgPath: '', viewBox: '0 0 60 40' };
     }
+
+    // Extract min/max from MapLibre bounds format
+    const [minLng, minLat] = mapBounds.sw;
+    const [maxLng, maxLat] = mapBounds.ne;
 
     const width = 60;
     const height = 40;

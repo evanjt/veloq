@@ -14,7 +14,7 @@ import MapLibreGL, {
   MarkerView,
 } from '@maplibre/maplibre-react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { getActivityColor } from '@/lib';
+import { getActivityColor, getBoundsFromPoints } from '@/lib';
 import { colors, spacing, layout } from '@/theme';
 import { useMapPreferences } from '@/providers';
 import { getMapStyle, BaseMapView, isDarkStyle } from '@/components/maps';
@@ -71,32 +71,8 @@ export function RouteMapView({
   // Consensus points are only for internal lap detection, not for display
   const displayPoints = routeGroup.signature?.points || [];
 
-  // Calculate bounds from the representative route
-  const bounds = useMemo(() => {
-    const primaryPoints = displayPoints;
-    if (primaryPoints.length === 0) return null;
-
-    let minLat = Infinity,
-      maxLat = -Infinity;
-    let minLng = Infinity,
-      maxLng = -Infinity;
-
-    for (const point of primaryPoints) {
-      minLat = Math.min(minLat, point.lat);
-      maxLat = Math.max(maxLat, point.lat);
-      minLng = Math.min(minLng, point.lng);
-      maxLng = Math.max(maxLng, point.lng);
-    }
-
-    // Add small padding for traces that slightly exceed consensus bounds
-    const latPad = (maxLat - minLat) * 0.1;
-    const lngPad = (maxLng - minLng) * 0.1;
-
-    return {
-      ne: [maxLng + lngPad, maxLat + latPad] as [number, number],
-      sw: [minLng - lngPad, minLat - latPad] as [number, number],
-    };
-  }, [displayPoints]);
+  // Calculate bounds from the representative route (10% padding for traces)
+  const bounds = useMemo(() => getBoundsFromPoints(displayPoints, 0.1), [displayPoints]);
 
   // Create GeoJSON for individual activity traces - split into highlighted and non-highlighted
   const { fadedTracesGeoJSON, highlightedTraceGeoJSON } = useMemo(() => {
@@ -414,7 +390,11 @@ export function RouteMapView({
             <MarkerView coordinate={[endPoint.lng, endPoint.lat]}>
               <View style={styles.markerContainer}>
                 <View style={[styles.marker, styles.endMarker]}>
-                  <MaterialCommunityIcons name="flag-checkered" size={14} color={colors.textOnDark} />
+                  <MaterialCommunityIcons
+                    name="flag-checkered"
+                    size={14}
+                    color={colors.textOnDark}
+                  />
                 </View>
               </View>
             </MarkerView>

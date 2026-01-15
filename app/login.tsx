@@ -1,31 +1,33 @@
-import React, { useState } from 'react';
-import { View, StyleSheet, ScrollView, Linking, Pressable } from 'react-native';
-import { Text, Button, TextInput } from 'react-native-paper';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ScreenSafeAreaView } from '@/components/ui';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { router, Href } from 'expo-router';
-import { useTranslation } from 'react-i18next';
-import { useAuthStore } from '@/providers';
-import { colors, darkColors, spacing, layout, typography } from '@/theme';
-import { useTheme } from '@/hooks';
-import { createSharedStyles } from '@/styles';
-import { useQueryClient } from '@tanstack/react-query';
-import axios from 'axios';
+import React, { useState } from "react";
+import { View, StyleSheet, ScrollView, Linking, Pressable } from "react-native";
+import { Text, Button, TextInput } from "react-native-paper";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { ScreenSafeAreaView } from "@/components/ui";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { router, Href } from "expo-router";
+import { useTranslation } from "react-i18next";
+import { useAuthStore } from "@/providers";
+import { colors, darkColors, spacing, layout, typography } from "@/theme";
+import { useTheme } from "@/hooks";
+import { createSharedStyles } from "@/styles";
+import { useQueryClient } from "@tanstack/react-query";
+import axios from "axios";
 import {
   startOAuthFlow,
   handleOAuthCallback,
   isOAuthConfigured,
   INTERVALS_URLS,
-} from '@/services/oauth';
-import { CollapsibleSection } from '@/components/ui/CollapsibleSection';
+} from "@/services/oauth";
+import { CollapsibleSection } from "@/components/ui/CollapsibleSection";
 
 export default function LoginScreen() {
   const { t } = useTranslation();
   const { isDark, colors: themeColors } = useTheme();
   const shared = createSharedStyles(isDark);
   const insets = useSafeAreaInsets();
-  const setOAuthCredentials = useAuthStore((state) => state.setOAuthCredentials);
+  const setOAuthCredentials = useAuthStore(
+    (state) => state.setOAuthCredentials,
+  );
   const setCredentials = useAuthStore((state) => state.setCredentials);
   const enterDemoMode = useAuthStore((state) => state.enterDemoMode);
   const queryClient = useQueryClient();
@@ -33,7 +35,7 @@ export default function LoginScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [isApiKeyLoading, setIsApiKeyLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [apiKey, setApiKey] = useState('');
+  const [apiKey, setApiKey] = useState("");
   const [apiKeyExpanded, setApiKeyExpanded] = useState(false);
 
   const handleTryDemo = () => {
@@ -42,7 +44,7 @@ export default function LoginScreen() {
     // Enter demo mode
     enterDemoMode();
     // Navigate to main app
-    router.replace('/' as Href);
+    router.replace("/" as Href);
   };
 
   const handleCreateAccount = () => {
@@ -63,7 +65,7 @@ export default function LoginScreen() {
 
   const handleApiKeyLogin = async () => {
     if (!apiKey.trim()) {
-      setError(t('login.apiKeyRequired'));
+      setError(t("login.apiKeyRequired"));
       return;
     }
 
@@ -72,16 +74,19 @@ export default function LoginScreen() {
 
     try {
       // Validate API key by calling /athlete/me with temporary axios instance
-      const response = await axios.get('https://intervals.icu/api/v1/athlete/me', {
-        headers: {
-          Authorization: `Basic ${btoa('API_KEY:' + apiKey.trim())}`,
+      const response = await axios.get(
+        "https://intervals.icu/api/v1/athlete/me",
+        {
+          headers: {
+            Authorization: `Basic ${btoa("API_KEY:" + apiKey.trim())}`,
+          },
+          timeout: 10000,
         },
-        timeout: 10000,
-      });
+      );
 
       const athlete = response.data;
       if (!athlete?.id) {
-        throw new Error('Invalid response');
+        throw new Error("Invalid response");
       }
 
       // Clear any cached data from previous sessions
@@ -91,12 +96,12 @@ export default function LoginScreen() {
       await setCredentials(apiKey.trim(), athlete.id);
 
       // Navigate to main app
-      router.replace('/' as Href);
+      router.replace("/" as Href);
     } catch (err: unknown) {
       if (axios.isAxiosError(err) && err.response?.status === 401) {
-        setError(t('login.invalidApiKey'));
+        setError(t("login.invalidApiKey"));
       } else {
-        setError(t('login.connectionFailed'));
+        setError(t("login.connectionFailed"));
       }
     } finally {
       setIsApiKeyLoading(false);
@@ -105,7 +110,7 @@ export default function LoginScreen() {
 
   const handleOAuthLogin = async () => {
     if (!isOAuthConfigured()) {
-      setError(t('login.oauthNotConfigured'));
+      setError(t("login.oauthNotConfigured"));
       return;
     }
 
@@ -115,7 +120,7 @@ export default function LoginScreen() {
     try {
       const result = await startOAuthFlow();
 
-      if (result.type === 'success' && result.url) {
+      if (result.type === "success" && result.url) {
         // Handle the callback URL (token is already in URL from proxy)
         const tokenResponse = handleOAuthCallback(result.url);
 
@@ -123,20 +128,21 @@ export default function LoginScreen() {
         await setOAuthCredentials(
           tokenResponse.access_token,
           tokenResponse.athlete_id,
-          tokenResponse.athlete_name
+          tokenResponse.athlete_name,
         );
 
         // Success - navigate to main app
-        router.replace('/' as Href);
-      } else if (result.type === 'cancel') {
+        router.replace("/" as Href);
+      } else if (result.type === "cancel") {
         // User cancelled - no error needed
         setIsLoading(false);
         return;
       } else {
-        setError(t('login.oauthFailed'));
+        setError(t("login.oauthFailed"));
       }
     } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : t('login.connectionFailed');
+      const errorMessage =
+        err instanceof Error ? err.message : t("login.connectionFailed");
       setError(errorMessage);
     } finally {
       setIsLoading(false);
@@ -145,18 +151,29 @@ export default function LoginScreen() {
 
   return (
     <ScreenSafeAreaView style={shared.container} testID="login-screen">
-      <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+      >
         {/* Logo/Header */}
         <View style={styles.header}>
-          <Text style={[styles.title, isDark && styles.textLight]}>{t('login.title')}</Text>
-          <Text style={[styles.subtitle, isDark && styles.textDark]}>{t('login.subtitle')}</Text>
+          <Text style={[styles.title, isDark && styles.textLight]}>
+            {t("login.title")}
+          </Text>
+          <Text style={[styles.subtitle, isDark && styles.textDark]}>
+            {t("login.subtitle")}
+          </Text>
         </View>
 
         {/* Main Login Section */}
         <View style={[styles.card, isDark && styles.cardDark]}>
           {error && (
             <View style={styles.errorContainer}>
-              <MaterialCommunityIcons name="alert-circle" size={20} color={colors.error} />
+              <MaterialCommunityIcons
+                name="alert-circle"
+                size={20}
+                color={colors.error}
+              />
               <Text style={styles.errorText} testID="login-error-text">
                 {error}
               </Text>
@@ -174,14 +191,14 @@ export default function LoginScreen() {
             contentStyle={styles.oauthButtonContent}
             icon="login"
           >
-            {isLoading ? t('login.connecting') : t('login.loginWithIntervals')}
+            {isLoading ? t("login.connecting") : t("login.loginWithIntervals")}
           </Button>
 
           {/* Divider */}
           <View style={styles.dividerContainer}>
             <View style={[styles.divider, isDark && styles.dividerDark]} />
             <Text style={[styles.dividerText, isDark && styles.textDark]}>
-              {t('common.or', { defaultValue: 'or' })}
+              {t("common.or", { defaultValue: "or" })}
             </Text>
             <View style={[styles.divider, isDark && styles.dividerDark]} />
           </View>
@@ -195,25 +212,34 @@ export default function LoginScreen() {
             style={styles.demoButton}
             icon="play-circle-outline"
           >
-            {t('login.tryDemo', { defaultValue: 'Try Demo' })}
+            {t("login.tryDemo", { defaultValue: "Try Demo" })}
           </Button>
 
           {/* API Key Collapsible Section */}
           <CollapsibleSection
-            title={t('login.useApiKey')}
+            title={t("login.useApiKey")}
             expanded={apiKeyExpanded}
             onToggle={setApiKeyExpanded}
             icon="key-variant"
             style={styles.apiKeySection}
           >
             <View style={styles.apiKeyContent}>
-              <Text style={[styles.apiKeyDescription, isDark && styles.textDark]}>
-                {t('login.apiKeyDescription')}
+              <Text
+                style={[styles.apiKeyDescription, isDark && styles.textDark]}
+              >
+                {t("login.apiKeyDescription")}
               </Text>
 
-              <Pressable onPress={handleOpenDeveloperSettings} style={styles.getApiKeyLink}>
-                <Text style={styles.linkText}>{t('login.getApiKey')}</Text>
-                <MaterialCommunityIcons name="open-in-new" size={14} color={colors.primary} />
+              <Pressable
+                onPress={handleOpenDeveloperSettings}
+                style={styles.getApiKeyLink}
+              >
+                <Text style={styles.linkText}>{t("login.getApiKey")}</Text>
+                <MaterialCommunityIcons
+                  name="open-in-new"
+                  size={14}
+                  color={colors.primary}
+                />
               </Pressable>
 
               <TextInput
@@ -221,7 +247,7 @@ export default function LoginScreen() {
                 mode="outlined"
                 value={apiKey}
                 onChangeText={setApiKey}
-                placeholder={t('login.apiKeyPlaceholder')}
+                placeholder={t("login.apiKeyPlaceholder")}
                 secureTextEntry
                 autoCapitalize="none"
                 autoCorrect={false}
@@ -241,7 +267,9 @@ export default function LoginScreen() {
                 style={styles.apiKeyButton}
                 icon="login"
               >
-                {isApiKeyLoading ? t('login.connecting') : t('login.apiKeyConnect')}
+                {isApiKeyLoading
+                  ? t("login.connecting")
+                  : t("login.apiKeyConnect")}
               </Button>
 
               <View style={styles.localModeNote}>
@@ -250,8 +278,10 @@ export default function LoginScreen() {
                   size={14}
                   color={themeColors.textSecondary}
                 />
-                <Text style={[styles.localModeText, isDark && styles.textMuted]}>
-                  {t('login.localModeNote')}
+                <Text
+                  style={[styles.localModeText, isDark && styles.textMuted]}
+                >
+                  {t("login.localModeNote")}
                 </Text>
               </View>
             </View>
@@ -261,10 +291,10 @@ export default function LoginScreen() {
         {/* New User Section */}
         <View style={[styles.card, isDark && styles.cardDark]}>
           <Text style={[styles.newUserTitle, isDark && styles.textLight]}>
-            {t('login.noAccount')}
+            {t("login.noAccount")}
           </Text>
           <Text style={[styles.newUserText, isDark && styles.textDark]}>
-            {t('login.createAccountHint')}
+            {t("login.createAccountHint")}
           </Text>
           <Button
             mode="text"
@@ -272,22 +302,24 @@ export default function LoginScreen() {
             icon="open-in-new"
             style={styles.createAccountButton}
           >
-            {t('login.createAccount')}
+            {t("login.createAccount")}
           </Button>
         </View>
 
         {/* Disclaimer Footer */}
         <View style={styles.disclaimerContainer}>
           <Text style={[styles.disclaimerText, isDark && styles.textMuted]}>
-            {t('login.disclaimer')}
+            {t("login.disclaimer")}
           </Text>
           <View style={styles.linksRow}>
             <Pressable onPress={handleOpenPrivacy}>
-              <Text style={styles.linkText}>{t('login.privacyPolicy')}</Text>
+              <Text style={styles.linkText}>{t("login.privacyPolicy")}</Text>
             </Pressable>
-            <Text style={[styles.linkSeparator, isDark && styles.textMuted]}>|</Text>
+            <Text style={[styles.linkSeparator, isDark && styles.textMuted]}>
+              |
+            </Text>
             <Pressable onPress={handleOpenTerms}>
-              <Text style={styles.linkText}>{t('login.termsOfService')}</Text>
+              <Text style={styles.linkText}>{t("login.termsOfService")}</Text>
             </Pressable>
           </View>
         </View>
@@ -300,7 +332,7 @@ export default function LoginScreen() {
             color={themeColors.textSecondary}
           />
           <Text style={[styles.securityText, isDark && styles.textDark]}>
-            {t('login.securityNote')}
+            {t("login.securityNote")}
           </Text>
         </View>
       </ScrollView>
@@ -313,15 +345,15 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     padding: layout.screenPadding,
-    justifyContent: 'center',
+    justifyContent: "center",
   },
   header: {
-    alignItems: 'center',
+    alignItems: "center",
     marginBottom: spacing.xl,
   },
   title: {
     fontSize: 32,
-    fontWeight: '700',
+    fontWeight: "700",
     color: colors.textPrimary,
     marginBottom: spacing.xs,
   },
@@ -348,9 +380,9 @@ const styles = StyleSheet.create({
     backgroundColor: darkColors.surface,
   },
   errorContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(244, 67, 54, 0.1)',
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(244, 67, 54, 0.1)",
     padding: spacing.sm,
     borderRadius: 8,
     marginBottom: spacing.md,
@@ -368,8 +400,8 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
   },
   dividerContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginVertical: spacing.lg,
   },
   divider: {
@@ -402,22 +434,22 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   getApiKeyLink: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: spacing.xs,
     marginBottom: spacing.md,
   },
   apiKeyInput: {
     marginBottom: spacing.md,
-    backgroundColor: 'transparent',
+    backgroundColor: "transparent",
   },
   apiKeyButton: {
     backgroundColor: colors.primary,
   },
   localModeNote: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     gap: spacing.xs,
     marginTop: spacing.md,
   },
@@ -427,7 +459,7 @@ const styles = StyleSheet.create({
   },
   newUserTitle: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.textPrimary,
     marginBottom: spacing.xs,
   },
@@ -437,38 +469,38 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   createAccountButton: {
-    alignSelf: 'flex-start',
+    alignSelf: "flex-start",
     marginLeft: -spacing.sm,
   },
   disclaimerContainer: {
-    alignItems: 'center',
+    alignItems: "center",
     paddingHorizontal: spacing.md,
     marginBottom: spacing.md,
   },
   disclaimerText: {
     fontSize: 12,
     color: colors.textSecondary,
-    textAlign: 'center',
+    textAlign: "center",
     lineHeight: 18,
     marginBottom: spacing.sm,
   },
   linksRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: spacing.sm,
   },
   linkText: {
     fontSize: 12,
     color: colors.primary,
-    textDecorationLine: 'underline',
+    textDecorationLine: "underline",
   },
   linkSeparator: {
     color: colors.textSecondary,
   },
   securityNote: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     gap: spacing.xs,
     marginTop: spacing.md,
   },

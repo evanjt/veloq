@@ -1,27 +1,39 @@
-import React, { useMemo, useState, useCallback } from 'react';
+import React, { useMemo, useState, useCallback } from "react";
 import {
   View,
   ScrollView,
   StyleSheet,
   TouchableOpacity,
   RefreshControl,
-} from 'react-native';
-import { Text, IconButton, ActivityIndicator } from 'react-native-paper';
-import { ScreenSafeAreaView } from '@/components/ui';
-import { router, Href } from 'expo-router';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useTranslation } from 'react-i18next';
+} from "react-native";
+import { Text, IconButton, ActivityIndicator } from "react-native-paper";
+import { ScreenSafeAreaView } from "@/components/ui";
+import { router, Href } from "expo-router";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { useTranslation } from "react-i18next";
 import {
   WeeklySummary,
   ActivityHeatmap,
   SeasonComparison,
   EventPlanner,
   WorkoutLibrary,
-} from '@/components/stats';
-import { useActivities, useRouteGroups, useRouteProcessing, useTheme } from '@/hooks';
-import { useRouteSettings } from '@/providers';
-import { colors, darkColors, spacing, layout, typography, opacity } from '@/theme';
-import { createSharedStyles } from '@/styles';
+} from "@/components/stats";
+import {
+  useActivities,
+  useRouteGroups,
+  useRouteProcessing,
+  useTheme,
+} from "@/hooks";
+import { useRouteSettings } from "@/providers";
+import {
+  colors,
+  darkColors,
+  spacing,
+  layout,
+  typography,
+  opacity,
+} from "@/theme";
+import { createSharedStyles } from "@/styles";
 
 export default function TrainingScreen() {
   const { t } = useTranslation();
@@ -45,8 +57,8 @@ export default function TrainingScreen() {
     isFetching,
     refetch,
   } = useActivities({
-    oldest: twoYearsAgo.toISOString().split('T')[0],
-    newest: today.toISOString().split('T')[0],
+    oldest: twoYearsAgo.toISOString().split("T")[0],
+    newest: today.toISOString().split("T")[0],
     includeStats: true,
   });
 
@@ -61,13 +73,15 @@ export default function TrainingScreen() {
   const { groups: routeGroups, processedCount } = useRouteGroups({
     minActivities: 2,
   });
-  const { progress: routeProgress, isProcessing: isRouteProcessing } = useRouteProcessing();
+  const { progress: routeProgress, isProcessing: isRouteProcessing } =
+    useRouteProcessing();
 
   // Split activities by rolling year for season comparison
   // Current period: last 12 months ending today
   // Previous period: the 12 months before that
   const { currentYearActivities, previousYearActivities } = useMemo(() => {
-    if (!activities) return { currentYearActivities: [], previousYearActivities: [] };
+    if (!activities)
+      return { currentYearActivities: [], previousYearActivities: [] };
 
     const now = new Date();
     const oneYearAgo = new Date(now);
@@ -98,10 +112,12 @@ export default function TrainingScreen() {
           iconColor={themeColors.text}
           onPress={() => router.back()}
         />
-        <Text style={shared.headerTitle}>{t('trainingScreen.title')}</Text>
+        <Text style={shared.headerTitle}>{t("trainingScreen.title")}</Text>
         {/* Subtle loading indicator in header when fetching in background */}
-        <View style={{ width: 48, alignItems: 'center' }}>
-          {isFetching && !isRefreshing && <ActivityIndicator size="small" color={colors.primary} />}
+        <View style={{ width: 48, alignItems: "center" }}>
+          {isFetching && !isRefreshing && (
+            <ActivityIndicator size="small" color={colors.primary} />
+          )}
         </View>
       </View>
 
@@ -132,31 +148,45 @@ export default function TrainingScreen() {
         {/* Routes Section */}
         <TouchableOpacity
           style={[styles.card, isDark && styles.cardDark]}
-          onPress={() => router.push('/routes' as Href)}
+          onPress={() => router.push("/routes" as Href)}
           activeOpacity={0.7}
         >
           <View style={styles.routesSectionRow}>
             <View style={[styles.routesIcon, isDark && styles.routesIconDark]}>
-              <MaterialCommunityIcons name="map-marker-path" size={22} color={colors.primary} />
+              <MaterialCommunityIcons
+                name="map-marker-path"
+                size={22}
+                color={colors.primary}
+              />
             </View>
             <View style={styles.routesSectionInfo}>
-              <Text style={[styles.routesSectionTitle, isDark && styles.routesSectionTitleDark]}>
-                {t('trainingScreen.routes')}
+              <Text
+                style={[
+                  styles.routesSectionTitle,
+                  isDark && styles.routesSectionTitleDark,
+                ]}
+              >
+                {t("trainingScreen.routes")}
               </Text>
-              <Text style={[styles.routesSectionSubtitle, isDark && styles.routesSectionSubtitleDark]}>
+              <Text
+                style={[
+                  styles.routesSectionSubtitle,
+                  isDark && styles.routesSectionSubtitleDark,
+                ]}
+              >
                 {!isRouteMatchingEnabled
-                  ? t('trainingScreen.disabledInSettings')
+                  ? t("trainingScreen.disabledInSettings")
                   : isRouteProcessing
-                    ? t('trainingScreen.fetchingGps', {
+                    ? t("trainingScreen.fetchingGps", {
                         current: routeProgress.current,
                         total: routeProgress.total,
                       })
                     : routeGroups.length > 0
-                      ? t('trainingScreen.routesFromActivities', {
+                      ? t("trainingScreen.routesFromActivities", {
                           routes: routeGroups.length,
                           activities: processedCount,
                         })
-                      : t('trainingScreen.discoverRoutes')}
+                      : t("trainingScreen.discoverRoutes")}
               </Text>
             </View>
             {isRouteProcessing ? (
@@ -229,9 +259,9 @@ export default function TrainingScreen() {
 const styles = StyleSheet.create({
   // Note: container, headerTitle now use shared styles
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
   scrollView: {
     flex: 1,
@@ -251,31 +281,31 @@ const styles = StyleSheet.create({
   },
   loadingContainer: {
     padding: spacing.xl,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   routesSectionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: spacing.md,
   },
   routesIcon: {
     width: 44,
     height: 44,
     borderRadius: layout.borderRadiusSm + 4,
-    backgroundColor: colors.primary + '15',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: colors.primary + "15",
+    justifyContent: "center",
+    alignItems: "center",
   },
   routesIconDark: {
-    backgroundColor: colors.primary + '25',
+    backgroundColor: colors.primary + "25",
   },
   routesSectionInfo: {
     flex: 1,
   },
   routesSectionTitle: {
     ...typography.body,
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.textPrimary,
   },
   routesSectionTitleDark: {
@@ -292,18 +322,18 @@ const styles = StyleSheet.create({
   routesProgressContainer: {
     width: 24,
     height: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   routesProgressBar: {
     height: 3,
     backgroundColor: opacity.overlay.light,
     borderRadius: 1.5,
     marginTop: spacing.md,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   routesProgressFill: {
-    height: '100%',
+    height: "100%",
     backgroundColor: colors.primary,
     borderRadius: 1.5,
   },

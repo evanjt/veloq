@@ -1,11 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import {
-  View,
-  StyleSheet,
-  Animated,
-  ViewStyle,
-  DimensionValue,
-} from 'react-native';
+import { View, StyleSheet, Animated, ViewStyle, DimensionValue } from 'react-native';
 import { colors, darkColors, opacity } from '@/theme/colors';
 import { layout, spacing } from '@/theme/spacing';
 import { useTheme } from '@/hooks';

@@ -1,11 +1,5 @@
 import React, { useState } from 'react';
-import {
-  View,
-  StyleSheet,
-  TouchableOpacity,
-  ScrollView,
-  Linking,
-} from 'react-native';
+import { View, StyleSheet, TouchableOpacity, ScrollView, Linking } from 'react-native';
 import { useTheme } from '@/hooks';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';

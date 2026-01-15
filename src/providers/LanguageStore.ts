@@ -148,7 +148,6 @@ export function getAvailableLanguages(): LanguageGroup[] {
           label: 'Deutsch',
           variants: [
             { value: 'de-DE', label: 'DE' },
-            { value: 'de-CH', label: 'CH' },
             { value: 'de-CHZ', label: 'Züri' },
             { value: 'de-CHB', label: 'Bärn' },
           ],

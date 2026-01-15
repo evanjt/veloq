@@ -3,7 +3,13 @@
  * Shows a frequently-traveled section with all activities that traverse it.
  */
 
-import React, { useMemo, useCallback, useState, useEffect, useRef } from 'react';
+import React, {
+  useMemo,
+  useCallback,
+  useState,
+  useEffect,
+  useRef,
+} from "react";
 import {
   View,
   ScrollView,
@@ -14,13 +20,13 @@ import {
   TouchableOpacity,
   TextInput,
   Keyboard,
-} from 'react-native';
-import { Text, ActivityIndicator } from 'react-native-paper';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useLocalSearchParams, router } from 'expo-router';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useTranslation } from 'react-i18next';
-import { LinearGradient } from 'expo-linear-gradient';
+} from "react-native";
+import { Text, ActivityIndicator } from "react-native-paper";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useLocalSearchParams, router } from "expo-router";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { useTranslation } from "react-i18next";
+import { LinearGradient } from "expo-linear-gradient";
 import {
   useActivities,
   useFrequentSections,
@@ -28,11 +34,11 @@ import {
   useCustomSection,
   useTheme,
   type ActivitySectionRecord,
-} from '@/hooks';
-import { createSharedStyles } from '@/styles';
-import { SectionMapView, MiniTraceView } from '@/components/routes';
-import { UnifiedPerformanceChart } from '@/components/routes/performance';
-import { getRouteEngine } from '@/lib/native/routeEngine';
+} from "@/hooks";
+import { createSharedStyles } from "@/styles";
+import { SectionMapView, MiniTraceView } from "@/components/routes";
+import { UnifiedPerformanceChart } from "@/components/routes/performance";
+import { getRouteEngine } from "@/lib/native/routeEngine";
 import {
   formatDistance,
   formatRelativeDate,
@@ -42,18 +48,25 @@ import {
   formatSpeed,
   formatPace,
   isRunningActivity,
-} from '@/lib';
-import { getGpsTrack } from '@/lib';
-import { colors, darkColors, spacing, layout, typography, opacity } from '@/theme';
+} from "@/lib";
+import { getGpsTrack } from "@/lib";
+import {
+  colors,
+  darkColors,
+  spacing,
+  layout,
+  typography,
+  opacity,
+} from "@/theme";
 import type {
   Activity,
   ActivityType,
   RoutePoint,
   FrequentSection,
   PerformanceDataPoint,
-} from '@/types';
+} from "@/types";
 
-const { height: SCREEN_HEIGHT } = Dimensions.get('window');
+const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 const MAP_HEIGHT = Math.round(SCREEN_HEIGHT * 0.45);
 
 // Direction colors - using theme for consistency
@@ -95,8 +108,12 @@ function ActivityRow({
     router.push(`/activity/${activity.id}`);
   };
 
-  const isReverse = direction === 'reverse';
-  const traceColor = isHighlighted ? colors.chartCyan : isReverse ? REVERSE_COLOR : colors.sameDirection;
+  const isReverse = direction === "reverse";
+  const traceColor = isHighlighted
+    ? colors.chartCyan
+    : isReverse
+      ? REVERSE_COLOR
+      : colors.sameDirection;
   const activityColor = getActivityColor(activity.type);
 
   // Use actual section time/pace if available, otherwise fall back to proportional estimate
@@ -112,7 +129,9 @@ function ActivityRow({
     // Fall back to proportional estimate
     sectionTime =
       sectionDistance && activity.distance > 0
-        ? Math.round(activity.moving_time * (sectionDistance / activity.distance))
+        ? Math.round(
+            activity.moving_time * (sectionDistance / activity.distance),
+          )
         : activity.moving_time;
     sectionSpeed = sectionTime > 0 ? displayDistance / sectionTime : 0;
   }
@@ -139,7 +158,9 @@ function ActivityRow({
           isHighlighted={isHighlighted}
         />
       ) : (
-        <View style={[styles.activityIcon, { backgroundColor: traceColor + '20' }]}>
+        <View
+          style={[styles.activityIcon, { backgroundColor: traceColor + "20" }]}
+        >
           <MaterialCommunityIcons
             name={getActivityIcon(activity.type)}
             size={18}
@@ -149,17 +170,31 @@ function ActivityRow({
       )}
       <View style={styles.activityInfo}>
         <View style={styles.activityNameRow}>
-          <Text style={[styles.activityName, isDark && styles.textLight]} numberOfLines={1}>
+          <Text
+            style={[styles.activityName, isDark && styles.textLight]}
+            numberOfLines={1}
+          >
             {activity.name}
           </Text>
           {isReverse && (
-            <View style={[styles.directionBadge, { backgroundColor: REVERSE_COLOR + '15' }]}>
-              <MaterialCommunityIcons name="swap-horizontal" size={10} color={REVERSE_COLOR} />
+            <View
+              style={[
+                styles.directionBadge,
+                { backgroundColor: REVERSE_COLOR + "15" },
+              ]}
+            >
+              <MaterialCommunityIcons
+                name="swap-horizontal"
+                size={10}
+                color={REVERSE_COLOR}
+              />
             </View>
           )}
           {showLapCount && (
             <View style={[styles.lapBadge, isDark && styles.lapBadgeDark]}>
-              <Text style={[styles.lapBadgeText, isDark && styles.lapBadgeTextDark]}>
+              <Text
+                style={[styles.lapBadgeText, isDark && styles.lapBadgeTextDark]}
+              >
                 {lapCount}x
               </Text>
             </View>
@@ -177,7 +212,11 @@ function ActivityRow({
           {formatDuration(sectionTime)}
         </Text>
       </View>
-      <MaterialCommunityIcons name="chevron-right" size={20} color={isDark ? darkColors.textMuted : colors.divider} />
+      <MaterialCommunityIcons
+        name="chevron-right"
+        size={20}
+        color={isDark ? darkColors.textMuted : colors.divider}
+      />
     </Pressable>
   );
 }
@@ -189,11 +228,15 @@ export default function SectionDetailScreen() {
   const shared = createSharedStyles(isDark);
   const insets = useSafeAreaInsets();
 
-  const [highlightedActivityId, setHighlightedActivityId] = useState<string | null>(null);
+  const [highlightedActivityId, setHighlightedActivityId] = useState<
+    string | null
+  >(null);
   const [highlightedActivityPoints, setHighlightedActivityPoints] = useState<
     RoutePoint[] | undefined
   >(undefined);
-  const [shadowTrack, setShadowTrack] = useState<[number, number][] | undefined>(undefined);
+  const [shadowTrack, setShadowTrack] = useState<
+    [number, number][] | undefined
+  >(undefined);
   // Activity traces computed from GPS tracks (for custom sections)
   const [computedActivityTraces, setComputedActivityTraces] = useState<
     Record<string, RoutePoint[]>
@@ -201,17 +244,19 @@ export default function SectionDetailScreen() {
 
   // State for section renaming
   const [isEditing, setIsEditing] = useState(false);
-  const [editName, setEditName] = useState('');
+  const [editName, setEditName] = useState("");
   const [customName, setCustomName] = useState<string | null>(null);
   const nameInputRef = useRef<TextInput>(null);
 
   // Get section from engine (auto-detected) or custom sections storage
   // Custom section IDs start with "custom_" (e.g., "custom_1767268142052_qyfoos8")
-  const isCustomId = id?.startsWith('custom_');
+  const isCustomId = id?.startsWith("custom_");
 
   const { sections: allSections } = useFrequentSections({ minVisits: 1 });
   // Pass the full ID - custom sections are stored with the "custom_" prefix
-  const { section: customSection } = useCustomSection(isCustomId ? id : undefined);
+  const { section: customSection } = useCustomSection(
+    isCustomId ? id : undefined,
+  );
 
   // Check both sources - custom sections and engine-detected sections
   const section = useMemo(() => {
@@ -287,7 +332,10 @@ export default function SectionDetailScreen() {
     const traces: Record<string, RoutePoint[]> = {};
     for (const match of customSection.matches) {
       // Use Rust engine's extractSectionTrace for efficient trace extraction
-      const extractedTrace = engine.extractSectionTrace(match.activityId, customSection.polyline);
+      const extractedTrace = engine.extractSectionTrace(
+        match.activityId,
+        customSection.polyline,
+      );
 
       if (extractedTrace.length > 0) {
         traces[match.activityId] = extractedTrace;
@@ -309,7 +357,7 @@ export default function SectionDetailScreen() {
 
   // Handle starting to edit the section name
   const handleStartEditing = useCallback(() => {
-    const currentName = customName || section?.name || '';
+    const currentName = customName || section?.name || "";
     setEditName(currentName);
     setIsEditing(true);
     setTimeout(() => {
@@ -335,7 +383,7 @@ export default function SectionDetailScreen() {
   // Handle canceling the edit
   const handleCancelEdit = useCallback(() => {
     setIsEditing(false);
-    setEditName('');
+    setEditName("");
     Keyboard.dismiss();
   }, []);
 
@@ -374,17 +422,18 @@ export default function SectionDetailScreen() {
       setHighlightedActivityId(activityId);
       setHighlightedActivityPoints(activityPoints);
     },
-    []
+    [],
   );
 
   // Get date range for fetching activities
   const { oldest, newest } = useMemo(() => {
-    if (!section?.activityIds.length) return { oldest: undefined, newest: undefined };
+    if (!section?.activityIds.length)
+      return { oldest: undefined, newest: undefined };
     // We need to load all activities in the section
     // Use a wide date range since we'll filter by IDs
     return {
-      oldest: '2020-01-01',
-      newest: new Date().toISOString().split('T')[0],
+      oldest: "2020-01-01",
+      newest: new Date().toISOString().split("T")[0],
     };
   }, [section?.activityIds]);
 
@@ -407,10 +456,8 @@ export default function SectionDetailScreen() {
   }, [section, allActivities]);
 
   // Fetch actual section performance times from activity streams
-  const { records: performanceRecords, isLoading: isLoadingRecords } = useSectionPerformances(
-    section,
-    sectionActivities
-  );
+  const { records: performanceRecords, isLoading: isLoadingRecords } =
+    useSectionPerformances(section, sectionActivities);
 
   // Map of activity portions for direction lookup
   const portionMap = useMemo(() => {
@@ -420,96 +467,117 @@ export default function SectionDetailScreen() {
 
   // Prepare chart data for UnifiedPerformanceChart
   // Uses actual section times from records when available, otherwise proportional estimate
-  const { chartData, minSpeed, maxSpeed, bestIndex, hasReverseRuns } = useMemo(() => {
-    if (!section)
+  const { chartData, minSpeed, maxSpeed, bestIndex, hasReverseRuns } =
+    useMemo(() => {
+      if (!section)
+        return {
+          chartData: [],
+          minSpeed: 0,
+          maxSpeed: 1,
+          bestIndex: 0,
+          hasReverseRuns: false,
+        };
+
+      const dataPoints: (PerformanceDataPoint & { x: number })[] = [];
+
+      // Create a map of records by activity ID for quick lookup
+      const recordMap = new Map(
+        performanceRecords?.map((r) => [r.activityId, r]) || [],
+      );
+
+      // Sort activities by date
+      const sortedActivities = [...sectionActivities].sort(
+        (a, b) =>
+          new Date(a.start_date_local).getTime() -
+          new Date(b.start_date_local).getTime(),
+      );
+
+      let hasAnyReverse = false;
+
+      for (const activity of sortedActivities) {
+        const portion = portionMap.get(activity.id);
+        const tracePoints = sectionWithTraces?.activityTraces?.[activity.id];
+        const record = recordMap.get(activity.id);
+
+        // Use actual data from record if available, otherwise use proportional estimate
+        const sectionDistance =
+          record?.sectionDistance ||
+          portion?.distanceMeters ||
+          section.distanceMeters;
+        const direction =
+          record?.direction ||
+          (portion?.direction as "same" | "reverse") ||
+          "same";
+
+        if (direction === "reverse") hasAnyReverse = true;
+
+        // Use actual section pace/time from record, or fall back to proportional estimate
+        let sectionSpeed: number;
+        let sectionTime: number;
+        let lapCount = 1;
+
+        if (record) {
+          // Use actual measured values from stream data
+          sectionSpeed = record.bestPace;
+          sectionTime = Math.round(record.bestTime);
+          lapCount = record.lapCount;
+        } else {
+          // Fall back to proportional estimate
+          sectionSpeed =
+            activity.moving_time > 0
+              ? activity.distance / activity.moving_time
+              : 0;
+          sectionTime =
+            activity.distance > 0
+              ? Math.round(
+                  activity.moving_time * (sectionDistance / activity.distance),
+                )
+              : 0;
+        }
+
+        dataPoints.push({
+          x: 0,
+          id: activity.id,
+          activityId: activity.id,
+          speed: sectionSpeed,
+          date: new Date(activity.start_date_local),
+          activityName: activity.name,
+          direction,
+          lapPoints: tracePoints,
+          sectionTime,
+          sectionDistance,
+          lapCount,
+        });
+      }
+
+      const indexed = dataPoints.map((d, idx) => ({ ...d, x: idx }));
+
+      const speeds = indexed.map((d) => d.speed);
+      const min = speeds.length > 0 ? Math.min(...speeds) : 0;
+      const max = speeds.length > 0 ? Math.max(...speeds) : 1;
+      const padding = (max - min) * 0.15 || 0.5;
+
+      let bestIdx = 0;
+      for (let i = 1; i < indexed.length; i++) {
+        if (indexed[i].speed > indexed[bestIdx].speed) {
+          bestIdx = i;
+        }
+      }
+
       return {
-        chartData: [],
-        minSpeed: 0,
-        maxSpeed: 1,
-        bestIndex: 0,
-        hasReverseRuns: false,
+        chartData: indexed,
+        minSpeed: Math.max(0, min - padding),
+        maxSpeed: max + padding,
+        bestIndex: bestIdx,
+        hasReverseRuns: hasAnyReverse,
       };
-
-    const dataPoints: (PerformanceDataPoint & { x: number })[] = [];
-
-    // Create a map of records by activity ID for quick lookup
-    const recordMap = new Map(performanceRecords?.map((r) => [r.activityId, r]) || []);
-
-    // Sort activities by date
-    const sortedActivities = [...sectionActivities].sort(
-      (a, b) => new Date(a.start_date_local).getTime() - new Date(b.start_date_local).getTime()
-    );
-
-    let hasAnyReverse = false;
-
-    for (const activity of sortedActivities) {
-      const portion = portionMap.get(activity.id);
-      const tracePoints = sectionWithTraces?.activityTraces?.[activity.id];
-      const record = recordMap.get(activity.id);
-
-      // Use actual data from record if available, otherwise use proportional estimate
-      const sectionDistance =
-        record?.sectionDistance || portion?.distanceMeters || section.distanceMeters;
-      const direction = record?.direction || (portion?.direction as 'same' | 'reverse') || 'same';
-
-      if (direction === 'reverse') hasAnyReverse = true;
-
-      // Use actual section pace/time from record, or fall back to proportional estimate
-      let sectionSpeed: number;
-      let sectionTime: number;
-      let lapCount = 1;
-
-      if (record) {
-        // Use actual measured values from stream data
-        sectionSpeed = record.bestPace;
-        sectionTime = Math.round(record.bestTime);
-        lapCount = record.lapCount;
-      } else {
-        // Fall back to proportional estimate
-        sectionSpeed = activity.moving_time > 0 ? activity.distance / activity.moving_time : 0;
-        sectionTime =
-          activity.distance > 0
-            ? Math.round(activity.moving_time * (sectionDistance / activity.distance))
-            : 0;
-      }
-
-      dataPoints.push({
-        x: 0,
-        id: activity.id,
-        activityId: activity.id,
-        speed: sectionSpeed,
-        date: new Date(activity.start_date_local),
-        activityName: activity.name,
-        direction,
-        lapPoints: tracePoints,
-        sectionTime,
-        sectionDistance,
-        lapCount,
-      });
-    }
-
-    const indexed = dataPoints.map((d, idx) => ({ ...d, x: idx }));
-
-    const speeds = indexed.map((d) => d.speed);
-    const min = speeds.length > 0 ? Math.min(...speeds) : 0;
-    const max = speeds.length > 0 ? Math.max(...speeds) : 1;
-    const padding = (max - min) * 0.15 || 0.5;
-
-    let bestIdx = 0;
-    for (let i = 1; i < indexed.length; i++) {
-      if (indexed[i].speed > indexed[bestIdx].speed) {
-        bestIdx = i;
-      }
-    }
-
-    return {
-      chartData: indexed,
-      minSpeed: Math.max(0, min - padding),
-      maxSpeed: max + padding,
-      bestIndex: bestIdx,
-      hasReverseRuns: hasAnyReverse,
-    };
-  }, [section, sectionWithTraces, sectionActivities, performanceRecords, portionMap]);
+    }, [
+      section,
+      sectionWithTraces,
+      sectionActivities,
+      performanceRecords,
+      portionMap,
+    ]);
 
   if (!section) {
     return (
@@ -534,7 +602,7 @@ export default function SectionDetailScreen() {
             color={isDark ? darkColors.border : colors.divider}
           />
           <Text style={[styles.emptyText, isDark && styles.textLight]}>
-            {t('sections.sectionNotFound')}
+            {t("sections.sectionNotFound")}
           </Text>
         </View>
       </View>
@@ -567,7 +635,7 @@ export default function SectionDetailScreen() {
           </View>
 
           <LinearGradient
-            colors={['transparent', 'rgba(0,0,0,0.7)']}
+            colors={["transparent", "rgba(0,0,0,0.7)"]}
             style={styles.mapGradient}
             pointerEvents="none"
           />
@@ -578,14 +646,24 @@ export default function SectionDetailScreen() {
               onPress={() => router.back()}
               activeOpacity={0.7}
             >
-              <MaterialCommunityIcons name="arrow-left" size={24} color={colors.textOnDark} />
+              <MaterialCommunityIcons
+                name="arrow-left"
+                size={24}
+                color={colors.textOnDark}
+              />
             </TouchableOpacity>
           </View>
 
           <View style={styles.infoOverlay}>
             <View style={styles.sectionNameRow}>
-              <View style={[styles.typeIcon, { backgroundColor: activityColor }]}>
-                <MaterialCommunityIcons name={iconName} size={16} color={colors.textOnDark} />
+              <View
+                style={[styles.typeIcon, { backgroundColor: activityColor }]}
+              >
+                <MaterialCommunityIcons
+                  name={iconName}
+                  size={16}
+                  color={colors.textOnDark}
+                />
               </View>
               {isEditing ? (
                 <View style={styles.editNameContainer}>
@@ -595,17 +673,31 @@ export default function SectionDetailScreen() {
                     value={editName}
                     onChangeText={setEditName}
                     onSubmitEditing={handleSaveName}
-                    placeholder={t('sections.sectionNamePlaceholder')}
+                    placeholder={t("sections.sectionNamePlaceholder")}
                     placeholderTextColor="rgba(255,255,255,0.5)"
                     returnKeyType="done"
                     autoFocus
                     selectTextOnFocus
                   />
-                  <TouchableOpacity onPress={handleSaveName} style={styles.editNameButton}>
-                    <MaterialCommunityIcons name="check" size={20} color={colors.success} />
+                  <TouchableOpacity
+                    onPress={handleSaveName}
+                    style={styles.editNameButton}
+                  >
+                    <MaterialCommunityIcons
+                      name="check"
+                      size={20}
+                      color={colors.success}
+                    />
                   </TouchableOpacity>
-                  <TouchableOpacity onPress={handleCancelEdit} style={styles.editNameButton}>
-                    <MaterialCommunityIcons name="close" size={20} color={colors.error} />
+                  <TouchableOpacity
+                    onPress={handleCancelEdit}
+                    style={styles.editNameButton}
+                  >
+                    <MaterialCommunityIcons
+                      name="close"
+                      size={20}
+                      color={colors.error}
+                    />
                   </TouchableOpacity>
                 </View>
               ) : (
@@ -615,7 +707,9 @@ export default function SectionDetailScreen() {
                   activeOpacity={0.7}
                 >
                   <Text style={styles.heroSectionName} numberOfLines={1}>
-                    {customName || section.name || `Section ${section.id.split('_').pop()}`}
+                    {customName ||
+                      section.name ||
+                      `Section ${section.id.split("_").pop()}`}
                   </Text>
                   <MaterialCommunityIcons
                     name="pencil"
@@ -628,14 +722,16 @@ export default function SectionDetailScreen() {
             </View>
 
             <View style={styles.heroStatsRow}>
-              <Text style={styles.heroStat}>{formatDistance(section.distanceMeters)}</Text>
-              <Text style={styles.heroStatDivider}>·</Text>
               <Text style={styles.heroStat}>
-                {section.visitCount} {t('sections.traversals')}
+                {formatDistance(section.distanceMeters)}
               </Text>
               <Text style={styles.heroStatDivider}>·</Text>
               <Text style={styles.heroStat}>
-                {section.routeIds.length} {t('sections.routesCount')}
+                {section.visitCount} {t("sections.traversals")}
+              </Text>
+              <Text style={styles.heroStatDivider}>·</Text>
+              <Text style={styles.heroStat}>
+                {section.routeIds.length} {t("sections.routesCount")}
               </Text>
             </View>
           </View>
@@ -664,7 +760,7 @@ export default function SectionDetailScreen() {
           {/* Activities list */}
           <View style={styles.activitiesSection}>
             <Text style={[styles.sectionTitle, isDark && styles.textLight]}>
-              {t('sections.activities')}
+              {t("sections.activities")}
             </Text>
 
             {isLoading ? (
@@ -672,18 +768,26 @@ export default function SectionDetailScreen() {
                 <ActivityIndicator size="small" color={colors.primary} />
               </View>
             ) : sectionActivities.length === 0 ? (
-              <Text style={[styles.emptyActivities, isDark && styles.textMuted]}>
-                {t('sections.noActivitiesFound')}
+              <Text
+                style={[styles.emptyActivities, isDark && styles.textMuted]}
+              >
+                {t("sections.noActivitiesFound")}
               </Text>
             ) : (
-              <View style={[styles.activitiesCard, isDark && styles.activitiesCardDark]}>
+              <View
+                style={[
+                  styles.activitiesCard,
+                  isDark && styles.activitiesCardDark,
+                ]}
+              >
                 {sectionActivities.map((activity, index) => {
                   const portion = portionMap.get(activity.id);
-                  const tracePoints = sectionWithTraces?.activityTraces?.[activity.id];
+                  const tracePoints =
+                    sectionWithTraces?.activityTraces?.[activity.id];
                   const isHighlighted = highlightedActivityId === activity.id;
                   // Look up actual performance record for this activity
                   const record = performanceRecords?.find(
-                    (r: ActivitySectionRecord) => r.activityId === activity.id
+                    (r: ActivitySectionRecord) => r.activityId === activity.id,
                   );
 
                   return (
@@ -699,14 +803,18 @@ export default function SectionDetailScreen() {
                           activityPoints={tracePoints}
                           sectionPoints={section.polyline}
                           isHighlighted={isHighlighted}
-                          sectionDistance={record?.sectionDistance || portion?.distanceMeters}
+                          sectionDistance={
+                            record?.sectionDistance || portion?.distanceMeters
+                          }
                           lapCount={record?.lapCount}
                           actualSectionTime={record?.bestTime}
                           actualSectionPace={record?.bestPace}
                         />
                       </Pressable>
                       {index < sectionActivities.length - 1 && (
-                        <View style={[styles.divider, isDark && styles.dividerDark]} />
+                        <View
+                          style={[styles.divider, isDark && styles.dividerDark]}
+                        />
                       )}
                     </React.Fragment>
                   );
@@ -742,25 +850,25 @@ const styles = StyleSheet.create({
   },
   heroSection: {
     height: MAP_HEIGHT,
-    position: 'relative',
+    position: "relative",
   },
   mapContainer: {
     flex: 1,
   },
   mapGradient: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 0,
     left: 0,
     right: 0,
     height: 120,
   },
   floatingHeader: {
-    position: 'absolute',
+    position: "absolute",
     top: 0,
     left: 0,
     right: 0,
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: spacing.sm,
     paddingBottom: spacing.sm,
   },
@@ -768,12 +876,12 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(0, 0, 0, 0.4)",
+    justifyContent: "center",
+    alignItems: "center",
   },
   infoOverlay: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 0,
     left: 0,
     right: 0,
@@ -781,30 +889,30 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.md,
   },
   sectionNameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: spacing.sm,
   },
   typeIcon: {
     width: 28,
     height: 28,
     borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   heroSectionName: {
     flex: 1,
     fontSize: typography.statsValue.fontSize,
-    fontWeight: '700',
+    fontWeight: "700",
     color: colors.textOnDark,
-    textShadowColor: 'rgba(0, 0, 0, 0.5)',
+    textShadowColor: "rgba(0, 0, 0, 0.5)",
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 3,
   },
   nameEditTouchable: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: spacing.xs,
   },
   editIcon: {
@@ -812,9 +920,9 @@ const styles = StyleSheet.create({
   },
   editNameContainer: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.4)",
     borderRadius: 8,
     paddingHorizontal: spacing.sm,
     gap: spacing.xs,
@@ -822,31 +930,31 @@ const styles = StyleSheet.create({
   editNameInput: {
     flex: 1,
     fontSize: typography.cardTitle.fontSize,
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.textOnDark,
     paddingVertical: spacing.sm,
   },
   editNameButton: {
     padding: 6,
     borderRadius: 6,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    backgroundColor: "rgba(255, 255, 255, 0.15)",
   },
   heroStatsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginTop: 6,
-    flexWrap: 'wrap',
+    flexWrap: "wrap",
   },
   heroStat: {
     fontSize: typography.bodySmall.fontSize,
-    color: 'rgba(255, 255, 255, 0.9)',
-    textShadowColor: 'rgba(0, 0, 0, 0.5)',
+    color: "rgba(255, 255, 255, 0.9)",
+    textShadowColor: "rgba(0, 0, 0, 0.5)",
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,
   },
   heroStatDivider: {
     fontSize: typography.bodySmall.fontSize,
-    color: 'rgba(255, 255, 255, 0.5)',
+    color: "rgba(255, 255, 255, 0.5)",
     marginHorizontal: spacing.xs,
   },
   contentSection: {
@@ -855,8 +963,8 @@ const styles = StyleSheet.create({
   },
   emptyContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   emptyText: {
     fontSize: typography.body.fontSize,
@@ -871,37 +979,37 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: typography.body.fontSize,
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.textPrimary,
     marginBottom: spacing.sm,
   },
   loadingContainer: {
     padding: spacing.xl,
-    alignItems: 'center',
+    alignItems: "center",
   },
   emptyActivities: {
     fontSize: typography.bodySmall.fontSize,
     color: colors.textSecondary,
-    textAlign: 'center',
+    textAlign: "center",
     paddingVertical: spacing.lg,
   },
   activitiesCard: {
     backgroundColor: colors.surface,
     borderRadius: layout.borderRadius,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   activitiesCardDark: {
     backgroundColor: darkColors.surface,
   },
   activityRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     padding: spacing.md,
     gap: spacing.md,
   },
   activityRowDark: {},
   activityRowHighlighted: {
-    backgroundColor: 'rgba(0, 188, 212, 0.1)',
+    backgroundColor: "rgba(0, 188, 212, 0.1)",
   },
   activityRowPressed: {
     opacity: 0.7,
@@ -910,44 +1018,44 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   activityInfo: {
     flex: 1,
   },
   activityNameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: spacing.xs,
   },
   activityName: {
     fontSize: typography.bodySmall.fontSize + 1,
-    fontWeight: '500',
+    fontWeight: "500",
     color: colors.textPrimary,
     flex: 1,
   },
   directionBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: layout.borderRadiusSm,
     gap: 2,
   },
   lapBadge: {
-    backgroundColor: colors.primary + '15',
+    backgroundColor: colors.primary + "15",
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: layout.borderRadiusSm,
     marginLeft: 4,
   },
   lapBadgeDark: {
-    backgroundColor: colors.primary + '25',
+    backgroundColor: colors.primary + "25",
   },
   lapBadgeText: {
     fontSize: 10,
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.primary,
   },
   lapBadgeTextDark: {
@@ -958,11 +1066,11 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   activityStats: {
-    alignItems: 'flex-end',
+    alignItems: "flex-end",
   },
   activityDistance: {
     fontSize: typography.bodySmall.fontSize,
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.textPrimary,
   },
   activityTime: {

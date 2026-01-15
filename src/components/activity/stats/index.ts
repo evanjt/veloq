@@ -15,3 +15,7 @@ export { useCalorieMetrics } from './useCalorieMetrics';
 export { useWeatherImpact } from './useWeatherImpact';
 export { useFormAndTSB } from './useFormAndTSB';
 export { usePowerMetrics } from './usePowerMetrics';
+
+// Factory for creating metric hooks
+export { createMetricHook } from './createMetricHook';
+export type { MetricHookConfig, MetricHookResult } from './createMetricHook';

@@ -5,18 +5,13 @@
  * TSB = CTL - ATL, indicating freshness (+) vs fatigue (-).
  */
 
-import { useMemo } from 'react';
-import { useTranslation } from 'react-i18next';
 import type { WellnessData } from '@/types';
 import type { StatDetail } from './types';
 import { colors } from '@/theme/colors';
+import { createMetricHook } from './createMetricHook';
 
 interface UseFormAndTSBOptions {
   wellness?: WellnessData | null;
-}
-
-interface UseFormAndTSBResult {
-  stat: StatDetail | null;
 }
 
 /**
@@ -41,10 +36,10 @@ interface UseFormAndTSBResult {
  * }
  * ```
  */
-export function useFormAndTSB({ wellness }: UseFormAndTSBOptions): UseFormAndTSBResult {
-  const { t } = useTranslation();
+export const useFormAndTSB = createMetricHook<UseFormAndTSBOptions>({
+  name: 'useFormAndTSB',
 
-  const stat = useMemo(() => {
+  compute: ({ wellness }, t) => {
     // Require CTL and ATL
     if (!wellness?.ctl || !wellness?.atl) {
       return null;
@@ -57,7 +52,6 @@ export function useFormAndTSB({ wellness }: UseFormAndTSBOptions): UseFormAndTSB
     // Determine form level and color
     const isFresh = tsb > 5;
     const isFatigued = tsb < -10;
-    const isNeutral = !isFresh && !isFatigued;
 
     const color = isFresh ? colors.success : isFatigued ? colors.error : colors.chartYellow;
 
@@ -98,7 +92,7 @@ export function useFormAndTSB({ wellness }: UseFormAndTSBOptions): UseFormAndTSB
       explanation: t('activity.explanations.yourForm'),
       details,
     };
-  }, [wellness, t]);
+  },
 
-  return { stat };
-}
+  getDeps: ({ wellness }) => [wellness?.ctl, wellness?.atl],
+});

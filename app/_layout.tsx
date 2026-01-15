@@ -14,8 +14,8 @@ import {
   ReanimatedLogLevel,
 } from "react-native-reanimated";
 // Use legacy API for SDK 54 compatibility (new API uses File/Directory classes)
-import * as FileSystem from 'expo-file-system/legacy';
-import { Logger as MapLibreLogger } from '@maplibre/maplibre-react-native';
+import * as FileSystem from "expo-file-system/legacy";
+import { Logger as MapLibreLogger } from "@maplibre/maplibre-react-native";
 import {
   QueryProvider,
   MapPreferencesProvider,
@@ -27,10 +27,15 @@ import {
   initializeHRZones,
   initializeRouteSettings,
   initializeLanguage,
-} from '@/providers';
-import { initializeI18n } from '@/i18n';
-import { lightTheme, darkTheme, colors, darkColors } from '@/theme';
-import { CacheLoadingBanner, DemoBanner, GlobalDataSync, OfflineBanner } from '@/components/ui';
+} from "@/providers";
+import { initializeI18n } from "@/i18n";
+import { lightTheme, darkTheme, colors, darkColors } from "@/theme";
+import {
+  CacheLoadingBanner,
+  DemoBanner,
+  GlobalDataSync,
+  OfflineBanner,
+} from "@/components/ui";
 
 // Lazy load native module to avoid bundler errors
 function getRouteEngine() {
@@ -51,7 +56,7 @@ const getRouteDbPath = () => {
   const docDir = FileSystem.documentDirectory;
   if (!docDir) return null;
   // Strip file:// prefix if present for SQLite compatibility
-  const plainPath = docDir.startsWith('file://') ? docDir.slice(7) : docDir;
+  const plainPath = docDir.startsWith("file://") ? docDir.slice(7) : docDir;
   return `${plainPath}routes.db`;
 };
 
@@ -86,20 +91,20 @@ function AuthGate({ children }: { children: React.ReactNode }) {
         const dbPath = getRouteDbPath();
         if (!dbPath) {
           console.warn(
-            '[RouteEngine] Cannot initialize - document directory not available. ' +
-              'Route features will be disabled until app restart.'
+            "[RouteEngine] Cannot initialize - document directory not available. " +
+              "Route features will be disabled until app restart.",
           );
           return;
         }
         const success = engine.initWithPath(dbPath);
         if (success) {
           console.log(
-            `[RouteEngine] Initialized with persistent storage: ${engine.getActivityCount()} cached activities`
+            `[RouteEngine] Initialized with persistent storage: ${engine.getActivityCount()} cached activities`,
           );
         } else {
           console.warn(
             `[RouteEngine] Persistent init failed for path: ${dbPath}. ` +
-              'Route features will be disabled until app restart.'
+              "Route features will be disabled until app restart.",
           );
         }
       }
@@ -109,14 +114,14 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (isLoading) return;
 
-    const inLoginScreen = routeParts.includes('login' as never);
+    const inLoginScreen = routeParts.includes("login" as never);
 
     if (!isAuthenticated && !inLoginScreen) {
       // Not authenticated and not on login screen - redirect to login
-      router.replace('/login' as Href);
+      router.replace("/login" as Href);
     } else if (isAuthenticated && inLoginScreen) {
       // Authenticated but on login screen - redirect to main app
-      router.replace('/' as Href);
+      router.replace("/" as Href);
     }
   }, [isAuthenticated, isLoading, routeParts, router]);
 
@@ -125,8 +130,8 @@ function AuthGate({ children }: { children: React.ReactNode }) {
       <View
         style={{
           flex: 1,
-          justifyContent: 'center',
-          alignItems: 'center',
+          justifyContent: "center",
+          alignItems: "center",
           backgroundColor: darkColors.background,
         }}
       >
@@ -144,7 +149,7 @@ const SCREENSHOT_MODE = __DEV__ && false;
 export default function RootLayout() {
   const [appReady, setAppReady] = useState(false);
   const colorScheme = useColorScheme();
-  const theme = colorScheme === 'dark' ? darkTheme : lightTheme;
+  const theme = colorScheme === "dark" ? darkTheme : lightTheme;
   const initializeAuth = useAuthStore((state) => state.initialize);
 
   // Initialize theme, auth, sport preference, HR zones, route settings, and i18n on app start
@@ -175,8 +180,8 @@ export default function RootLayout() {
       <View
         style={{
           flex: 1,
-          justifyContent: 'center',
-          alignItems: 'center',
+          justifyContent: "center",
+          alignItems: "center",
           backgroundColor: darkColors.background,
         }}
       >
@@ -193,8 +198,8 @@ export default function RootLayout() {
             <MapPreferencesProvider>
               <PaperProvider theme={theme}>
                 <StatusBar
-                  style={colorScheme === 'dark' ? 'light' : 'dark'}
-                  translucent={Platform.OS === 'ios'}
+                  style={colorScheme === "dark" ? "light" : "dark"}
+                  translucent={Platform.OS === "ios"}
                   hidden={SCREENSHOT_MODE}
                   animated
                 />
@@ -204,19 +209,21 @@ export default function RootLayout() {
                   <DemoBanner />
                   <CacheLoadingBanner />
                   <Stack
-                  screenOptions={{
-                    headerShown: false,
-                    // iOS: Use default animation for native feel with gesture support
-                    // Android: Slide from right for Material Design
-                    animation: Platform.OS === 'ios' ? 'default' : 'slide_from_right',
-                    // Enable swipe-back gesture on both platforms
-                    gestureEnabled: true,
-                    gestureDirection: 'horizontal',
-                    // iOS: Blur effect for any translucent headers
-                    headerBlurEffect: Platform.OS === 'ios' ? 'prominent' : undefined,
-                    headerTransparent: Platform.OS === 'ios',
-                  }}
-                />
+                    screenOptions={{
+                      headerShown: false,
+                      // iOS: Use default animation for native feel with gesture support
+                      // Android: Slide from right for Material Design
+                      animation:
+                        Platform.OS === "ios" ? "default" : "slide_from_right",
+                      // Enable swipe-back gesture on both platforms
+                      gestureEnabled: true,
+                      gestureDirection: "horizontal",
+                      // iOS: Blur effect for any translucent headers
+                      headerBlurEffect:
+                        Platform.OS === "ios" ? "prominent" : undefined,
+                      headerTransparent: Platform.OS === "ios",
+                    }}
+                  />
                 </AuthGate>
               </PaperProvider>
             </MapPreferencesProvider>

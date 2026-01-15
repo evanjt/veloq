@@ -1,12 +1,12 @@
-import React, { useEffect, useState, useMemo, useCallback } from 'react';
-import { View, StyleSheet } from 'react-native';
-import { Text, IconButton } from 'react-native-paper';
-import { ScreenSafeAreaView } from '@/components/ui';
-import { router } from 'expo-router';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useTranslation } from 'react-i18next';
-import { RoutesList, SectionsList, DateRangeSummary } from '@/components';
-import { SwipeableTabs, type SwipeableTab } from '@/components/ui';
+import React, { useEffect, useState, useMemo, useCallback } from "react";
+import { View, StyleSheet } from "react-native";
+import { Text, IconButton } from "react-native-paper";
+import { ScreenSafeAreaView } from "@/components/ui";
+import { router } from "expo-router";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { useTranslation } from "react-i18next";
+import { RoutesList, SectionsList, DateRangeSummary } from "@/components";
+import { SwipeableTabs, type SwipeableTab } from "@/components/ui";
 import {
   useRouteProcessing,
   useActivities,
@@ -15,17 +15,17 @@ import {
   useEngineStats,
   useOldestActivityDate,
   useTheme,
-} from '@/hooks';
-import { useUnifiedSections } from '@/hooks/routes/useUnifiedSections';
-import { useRouteSettings, useSyncDateRange } from '@/providers';
-import { colors, darkColors, spacing } from '@/theme';
-import { createSharedStyles } from '@/styles';
-import { debug } from '@/lib';
-import type { ActivityType } from '@/types';
+} from "@/hooks";
+import { useUnifiedSections } from "@/hooks/routes/useUnifiedSections";
+import { useRouteSettings, useSyncDateRange } from "@/providers";
+import { colors, darkColors, spacing } from "@/theme";
+import { createSharedStyles } from "@/styles";
+import { debug } from "@/lib";
+import type { ActivityType } from "@/types";
 
-type TabType = 'routes' | 'sections';
+type TabType = "routes" | "sections";
 
-const log = debug.create('Routes');
+const log = debug.create("Routes");
 
 export default function RoutesScreen() {
   const { t } = useTranslation();
@@ -65,25 +65,25 @@ export default function RoutesScreen() {
   const { count: totalSections } = useUnifiedSections();
 
   // Tab state
-  const [activeTab, setActiveTab] = useState<TabType>('routes');
+  const [activeTab, setActiveTab] = useState<TabType>("routes");
 
   // Tabs configuration for SwipeableTabs
   const tabs = useMemo<[SwipeableTab, SwipeableTab]>(
     () => [
       {
-        key: 'routes',
-        label: t('trainingScreen.routes'),
-        icon: 'map-marker-path',
+        key: "routes",
+        label: t("trainingScreen.routes"),
+        icon: "map-marker-path",
         count: routeGroups.length,
       },
       {
-        key: 'sections',
-        label: t('trainingScreen.sections'),
-        icon: 'road-variant',
+        key: "sections",
+        label: t("trainingScreen.sections"),
+        icon: "road-variant",
         count: totalSections,
       },
     ],
-    [t, routeGroups.length, totalSections]
+    [t, routeGroups.length, totalSections],
   );
 
   // Date range state - default to full cached range (show all data)
@@ -121,7 +121,9 @@ export default function RoutesScreen() {
 
   // Min/max dates for timeline - use API oldest date for full extent
   const minDate = useMemo(() => {
-    return apiOldestDate ? new Date(apiOldestDate) : new Date(now.getFullYear() - 5, 0, 1);
+    return apiOldestDate
+      ? new Date(apiOldestDate)
+      : new Date(now.getFullYear() - 5, 0, 1);
   }, [apiOldestDate, now]);
 
   // Max date is always "now" (today)
@@ -134,16 +136,22 @@ export default function RoutesScreen() {
       setEndDate(end);
 
       // Expand the global sync date range to trigger GPS data fetching
-      const startStr = start.toISOString().split('T')[0];
-      const endStr = end.toISOString().split('T')[0];
+      const startStr = start.toISOString().split("T")[0];
+      const endStr = end.toISOString().split("T")[0];
       syncDateRange(startStr, endStr);
     },
-    [syncDateRange]
+    [syncDateRange],
   );
 
   // Format dates for API
-  const oldestStr = useMemo(() => startDate.toISOString().split('T')[0], [startDate]);
-  const newestStr = useMemo(() => endDate.toISOString().split('T')[0], [endDate]);
+  const oldestStr = useMemo(
+    () => startDate.toISOString().split("T")[0],
+    [startDate],
+  );
+  const newestStr = useMemo(
+    () => endDate.toISOString().split("T")[0],
+    [endDate],
+  );
 
   // Fetch activities for route processing based on selected date range
   const {
@@ -163,7 +171,10 @@ export default function RoutesScreen() {
 
   // Sync status for UI - include when fetching extended date range
   const isSyncing =
-    syncProgress.status === 'syncing' || isDataSyncing || isLoading || isFetchingExtended;
+    syncProgress.status === "syncing" ||
+    isDataSyncing ||
+    isLoading ||
+    isFetchingExtended;
 
   // Calculate cached range from engine activities (shows the full synced range)
   const { oldestSyncedDate, newestSyncedDate } = useMemo(() => {
@@ -190,51 +201,66 @@ export default function RoutesScreen() {
       return {
         completed: 0,
         total: 0,
-        message: t('mapScreen.loadingActivities') as string,
+        message: t("mapScreen.loadingActivities") as string,
         phase: 1,
       };
     }
 
     // Phase 2: Downloading GPS data (from bounds sync)
-    if (syncProgress.status === 'syncing') {
+    if (syncProgress.status === "syncing") {
       return {
         completed: syncProgress.completed,
         total: syncProgress.total,
         message: (syncProgress.total > 0
-          ? `${t('routesScreen.downloadingGps')} (${syncProgress.completed}/${syncProgress.total})`
-          : t('routesScreen.downloadingGps')) as string,
+          ? `${t("routesScreen.downloadingGps")} (${syncProgress.completed}/${syncProgress.total})`
+          : t("routesScreen.downloadingGps")) as string,
         phase: 2,
       };
     }
 
     // Phase 3: Analyzing routes (check BEFORE downloading status)
-    if (dataSyncProgress.status === 'computing') {
+    if (dataSyncProgress.status === "computing") {
       return {
         completed: 0,
         total: 0,
-        message: dataSyncProgress.message || (t('routesScreen.computingRoutes') as string),
+        message:
+          dataSyncProgress.message ||
+          (t("routesScreen.computingRoutes") as string),
         phase: 3,
       };
     }
 
     // Phase 2b: Fetching GPS (from route data sync)
-    if (isDataSyncing && dataSyncProgress.status === 'fetching' && dataSyncProgress.total > 0) {
+    if (
+      isDataSyncing &&
+      dataSyncProgress.status === "fetching" &&
+      dataSyncProgress.total > 0
+    ) {
       return {
         completed: dataSyncProgress.completed,
         total: dataSyncProgress.total,
         message:
-          `${t('routesScreen.downloadingGps')} (${dataSyncProgress.completed}/${dataSyncProgress.total})` as string,
+          `${t("routesScreen.downloadingGps")} (${dataSyncProgress.completed}/${dataSyncProgress.total})` as string,
         phase: 2,
       };
     }
 
     return null;
-  }, [isLoading, isFetchingExtended, syncProgress, isDataSyncing, dataSyncProgress, t]);
+  }, [
+    isLoading,
+    isFetchingExtended,
+    syncProgress,
+    isDataSyncing,
+    dataSyncProgress,
+    t,
+  ]);
 
   // Show disabled state if route matching is not enabled
   if (!isRouteMatchingEnabled) {
     return (
-      <ScreenSafeAreaView style={[styles.container, isDark && styles.containerDark]}>
+      <ScreenSafeAreaView
+        style={[styles.container, isDark && styles.containerDark]}
+      >
         <View style={styles.header}>
           <IconButton
             icon="arrow-left"
@@ -242,7 +268,7 @@ export default function RoutesScreen() {
             onPress={() => router.back()}
           />
           <Text style={[styles.headerTitle, isDark && styles.textLight]}>
-            {t('routesScreen.title')}
+            {t("routesScreen.title")}
           </Text>
           <View style={styles.headerRight} />
         </View>
@@ -254,19 +280,19 @@ export default function RoutesScreen() {
             color={isDark ? darkColors.textMuted : colors.border}
           />
           <Text style={[styles.disabledTitle, isDark && styles.textLight]}>
-            {t('routesScreen.matchingDisabled')}
+            {t("routesScreen.matchingDisabled")}
           </Text>
           <Text style={[styles.disabledText, isDark && styles.textMuted]}>
-            {t('routesScreen.enableInSettings')}
+            {t("routesScreen.enableInSettings")}
           </Text>
           <IconButton
             icon="cog"
             iconColor={colors.primary}
             size={32}
-            onPress={() => router.push('/settings')}
+            onPress={() => router.push("/settings")}
           />
           <Text style={[styles.disabledHint, isDark && styles.textMuted]}>
-            {t('routesScreen.goToSettings')}
+            {t("routesScreen.goToSettings")}
           </Text>
         </View>
       </ScreenSafeAreaView>
@@ -274,7 +300,9 @@ export default function RoutesScreen() {
   }
 
   return (
-    <ScreenSafeAreaView style={[styles.container, isDark && styles.containerDark]}>
+    <ScreenSafeAreaView
+      style={[styles.container, isDark && styles.containerDark]}
+    >
       <View style={styles.header}>
         <IconButton
           icon="arrow-left"
@@ -282,7 +310,7 @@ export default function RoutesScreen() {
           onPress={() => router.back()}
         />
         <Text style={[styles.headerTitle, isDark && styles.textLight]}>
-          {t('routesScreen.title')}
+          {t("routesScreen.title")}
         </Text>
         <View style={styles.headerRight} />
       </View>
@@ -320,18 +348,18 @@ const styles = StyleSheet.create({
     backgroundColor: darkColors.background,
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
   headerTitle: {
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.textPrimary,
   },
   headerRight: {
     width: 48,
-    alignItems: 'flex-end',
+    alignItems: "flex-end",
     paddingRight: spacing.sm,
   },
   textLight: {
@@ -342,21 +370,21 @@ const styles = StyleSheet.create({
   },
   disabledContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     paddingHorizontal: spacing.xl,
   },
   disabledTitle: {
     fontSize: 20,
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.textPrimary,
     marginTop: spacing.lg,
-    textAlign: 'center',
+    textAlign: "center",
   },
   disabledText: {
     fontSize: 15,
     color: colors.textSecondary,
-    textAlign: 'center',
+    textAlign: "center",
     marginTop: spacing.sm,
     lineHeight: 22,
   },

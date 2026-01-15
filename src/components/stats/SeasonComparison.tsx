@@ -1,11 +1,5 @@
 import React, { useMemo, useState, useRef, useCallback } from 'react';
-import {
-  View,
-  StyleSheet,
-  TouchableOpacity,
-  PanResponder,
-  LayoutChangeEvent,
-} from 'react-native';
+import { View, StyleSheet, TouchableOpacity, PanResponder, LayoutChangeEvent } from 'react-native';
 import { useTheme } from '@/hooks';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
@@ -299,7 +293,9 @@ export function SeasonComparison({
               <Text
                 style={[
                   styles.tooltipDiff,
-                  { color: selectedMonthDiff >= 0 ? colors.success : colors.warning },
+                  {
+                    color: selectedMonthDiff >= 0 ? colors.success : colors.warning,
+                  },
                 ]}
               >
                 {selectedMonthDiff >= 0 ? '+' : ''}
