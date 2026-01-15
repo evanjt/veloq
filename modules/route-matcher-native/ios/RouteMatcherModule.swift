@@ -4,6 +4,15 @@ import os.log
 // Logger for debugging
 private let logger = Logger(subsystem: "com.veloq.app", category: "RouteMatcher")
 
+// Extension to chunk arrays into smaller batches
+extension Array {
+    func chunked(into size: Int) -> [[Element]] {
+        stride(from: 0, to: count, by: size).map {
+            Array(self[$0..<Swift.min($0 + size, count)])
+        }
+    }
+}
+
 /**
  * Route Matcher native module powered by Rust.
  *
@@ -17,6 +26,9 @@ public class RouteMatcherModule: Module {
 
     public func definition() -> ModuleDefinition {
         Name("RouteMatcher")
+
+        // Define events that can be emitted to JavaScript
+        Events("onFetchProgress")
 
         // Module initialization - verify Rust library is available
         OnCreate {
@@ -583,25 +595,42 @@ public class RouteMatcherModule: Module {
 
         // Fetch activity map data from intervals.icu API
         // Uses connection pooling, rate limiting, and parallel fetching
+        // Processes in batches and emits progress events
         AsyncFunction("fetchActivityMaps") { (apiKey: String, activityIds: [String]) -> [[String: Any]] in
             logger.info("fetchActivityMaps: Fetching \(activityIds.count) activities")
             let startTime = Date()
+            let total = activityIds.count
+            let batchSize = 5 // Process 5 activities at a time for frequent progress updates
+            var allResults: [[String: Any]] = []
 
-            let results = fetchActivityMaps(apiKey: apiKey, activityIds: activityIds)
+            // Emit initial progress
+            self.sendEvent("onFetchProgress", ["completed": 0, "total": total])
+
+            // Process in batches
+            for (batchIndex, batch) in activityIds.chunked(into: batchSize).enumerated() {
+                let batchResults = fetchActivityMaps(apiKey: apiKey, activityIds: batch)
+
+                for result in batchResults {
+                    allResults.append([
+                        "activityId": result.activityId,
+                        "bounds": result.bounds,
+                        "latlngs": result.latlngs,
+                        "success": result.success,
+                        "error": result.error as Any
+                    ])
+                }
+
+                // Emit progress after each batch
+                let completed = min((batchIndex + 1) * batchSize, total)
+                self.sendEvent("onFetchProgress", ["completed": completed, "total": total])
+                logger.debug("fetchActivityMaps: Progress \(completed)/\(total)")
+            }
 
             let elapsed = Date().timeIntervalSince(startTime) * 1000
-            let successCount = results.filter { $0.success }.count
-            logger.info("fetchActivityMaps: \(successCount)/\(activityIds.count) success in \(Int(elapsed))ms")
+            let successCount = allResults.filter { ($0["success"] as? Bool) == true }.count
+            logger.info("fetchActivityMaps: \(successCount)/\(total) success in \(Int(elapsed))ms")
 
-            return results.map { result in
-                [
-                    "activityId": result.activityId,
-                    "bounds": result.bounds,
-                    "latlngs": result.latlngs,
-                    "success": result.success,
-                    "error": result.error as Any
-                ]
-            }
+            return allResults
         }
 
         // Heatmap: Query cell at location

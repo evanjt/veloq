@@ -21,6 +21,9 @@ class RouteMatcherModule : Module() {
   override fun definition() = ModuleDefinition {
     Name("RouteMatcher")
 
+    // Define events that can be emitted to JavaScript
+    Events("onFetchProgress")
+
     // Create a route signature from GPS points
     Function("createSignature") { activityId: String, points: List<Map<String, Double>>, config: Map<String, Any>? ->
       Log.i(TAG, "createSignature called for $activityId with ${points.size} points")
@@ -537,25 +540,42 @@ class RouteMatcherModule : Module() {
 
     // Fetch activity map data from intervals.icu API
     // Uses connection pooling, rate limiting, and parallel fetching
+    // Processes in batches and emits progress events
     AsyncFunction("fetchActivityMaps") { apiKey: String, activityIds: List<String> ->
       Log.i(TAG, "fetchActivityMaps: Fetching ${activityIds.size} activities")
       val startTime = System.currentTimeMillis()
+      val total = activityIds.size
+      val batchSize = 5 // Process 5 activities at a time for frequent progress updates
+      val allResults = mutableListOf<Map<String, Any?>>()
 
-      val results = fetchActivityMaps(apiKey, activityIds)
+      // Emit initial progress
+      sendEvent("onFetchProgress", mapOf("completed" to 0, "total" to total))
+
+      // Process in batches
+      activityIds.chunked(batchSize).forEachIndexed { batchIndex, batch ->
+        val batchResults = fetchActivityMaps(apiKey, batch)
+
+        batchResults.forEach { result ->
+          allResults.add(mapOf(
+            "activityId" to result.activityId,
+            "bounds" to result.bounds,
+            "latlngs" to result.latlngs,
+            "success" to result.success,
+            "error" to result.error
+          ))
+        }
+
+        // Emit progress after each batch
+        val completed = minOf((batchIndex + 1) * batchSize, total)
+        sendEvent("onFetchProgress", mapOf("completed" to completed, "total" to total))
+        Log.d(TAG, "fetchActivityMaps: Progress $completed/$total")
+      }
 
       val elapsed = System.currentTimeMillis() - startTime
-      val successCount = results.count { it.success }
-      Log.i(TAG, "fetchActivityMaps: $successCount/${activityIds.size} success in ${elapsed}ms")
+      val successCount = allResults.count { (it["success"] as? Boolean) == true }
+      Log.i(TAG, "fetchActivityMaps: $successCount/$total success in ${elapsed}ms")
 
-      results.map { result ->
-        mapOf(
-          "activityId" to result.activityId,
-          "bounds" to result.bounds,
-          "latlngs" to result.latlngs,
-          "success" to result.success,
-          "error" to result.error
-        )
-      }
+      allResults
     }
 
     // PersistentEngine: Set activity metrics for performance calculations
