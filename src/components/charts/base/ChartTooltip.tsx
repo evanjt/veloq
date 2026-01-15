@@ -5,11 +5,12 @@
  */
 
 import React, { ReactNode } from 'react';
-import { View, StyleSheet, useColorScheme } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { colors, darkColors } from '@/theme/colors';
 import { typography } from '@/theme/typography';
 import { spacing } from '@/theme/spacing';
+import { useTheme } from '@/hooks';
 
 export interface TooltipValue {
   label: string;
@@ -32,8 +33,7 @@ export const ChartTooltip = React.memo(function ChartTooltip({
   direction = 'row',
   children,
 }: ChartTooltipProps) {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const { isDark } = useTheme();
 
   if (children) {
     return <View style={styles.container}>{children}</View>;

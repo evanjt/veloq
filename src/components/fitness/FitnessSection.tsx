@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, TouchableOpacity, useColorScheme } from 'react-native';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { useTheme } from '@/hooks';
 import { Text, ActivityIndicator } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -24,8 +25,7 @@ interface FitnessSectionProps {
 
 export function FitnessSection({ expanded = true, onToggleExpand }: FitnessSectionProps) {
   const { t } = useTranslation();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const { isDark } = useTheme();
   const [timeRange, setTimeRange] = useState<TimeRange>('3m');
 
   const { data: wellness, isLoading, isError } = useWellness(timeRange);

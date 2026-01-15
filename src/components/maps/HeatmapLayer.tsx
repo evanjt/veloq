@@ -5,6 +5,7 @@
 
 import React, { useMemo } from 'react';
 import { ShapeSource, CircleLayer } from '@maplibre/maplibre-react-native';
+import { colors } from '@/theme';
 import type { HeatmapResult } from '@/hooks/useHeatmap';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -105,7 +106,7 @@ export function HeatmapLayer({
           circleStrokeWidth: highlightCommonPaths
             ? (['case', ['get', 'isCommonPath'], 1.5, 0] as any)
             : 0,
-          circleStrokeColor: '#FFFFFF',
+          circleStrokeColor: colors.textOnDark,
         }}
       />
     </ShapeSource>

@@ -9,10 +9,10 @@ import {
   StyleSheet,
   FlatList,
   RefreshControl,
-  useColorScheme,
   LayoutAnimation,
   Platform,
 } from 'react-native';
+import { useTheme } from '@/hooks';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -104,8 +104,7 @@ export function RoutesList({
   endDate,
 }: RoutesListProps) {
   const { t } = useTranslation();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const { isDark } = useTheme();
 
   // Don't filter by date - routes span multiple dates and should always be shown
   // The timeline on the Routes page is for selecting which activities to ANALYZE,

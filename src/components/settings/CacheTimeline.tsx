@@ -220,13 +220,13 @@ const styles = StyleSheet.create({
   },
   track: {
     height: 24,
-    backgroundColor: '#E0E0E0',
+    backgroundColor: colors.divider,
     borderRadius: 4,
     overflow: 'hidden',
     position: 'relative',
   },
   trackDark: {
-    backgroundColor: '#333',
+    backgroundColor: darkColors.border,
   },
   uncachedRegion: {
     position: 'absolute',
@@ -241,12 +241,12 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: colors.background,
     // Diagonal stripes using transform would require SVG, so we use a dotted pattern instead
     opacity: 0.5,
   },
   stripesDark: {
-    backgroundColor: '#222',
+    backgroundColor: darkColors.background,
   },
   cachedRegion: {
     position: 'absolute',
@@ -278,11 +278,11 @@ const styles = StyleSheet.create({
   },
   yearLabel: {
     fontSize: 9,
-    color: '#666',
+    color: colors.textSecondary,
     marginTop: 1,
   },
   yearLabelDark: {
-    color: '#888',
+    color: darkColors.textSecondary,
   },
   infoRow: {
     flexDirection: 'row',
@@ -335,18 +335,18 @@ const styles = StyleSheet.create({
     marginRight: 4,
   },
   legendDotStriped: {
-    backgroundColor: '#E0E0E0',
+    backgroundColor: colors.divider,
     borderWidth: 1,
-    borderColor: '#CCC',
+    borderColor: colors.border,
   },
   legendText: {
     fontSize: 11,
     color: colors.textSecondary,
   },
   textLight: {
-    color: '#FFFFFF',
+    color: colors.textOnDark,
   },
   textMuted: {
-    color: '#888',
+    color: darkColors.textSecondary,
   },
 });

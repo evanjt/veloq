@@ -5,7 +5,6 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  useColorScheme,
   Linking,
 } from 'react-native';
 import { ScreenSafeAreaView } from '@/components/ui';
@@ -13,7 +12,9 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import Constants from 'expo-constants';
-import { colors, spacing, layout } from '@/theme';
+import { colors, darkColors, spacing, layout, typography } from '@/theme';
+import { createSharedStyles } from '@/styles';
+import { useTheme } from '@/hooks';
 import { INTERVALS_URLS } from '@/services/oauth';
 
 const VELOQ_URLS = {
@@ -35,89 +36,88 @@ function LinkRow({ icon, label, url, isDark }: LinkRowProps) {
     Linking.openURL(url);
   };
 
+  const textColor = isDark ? darkColors.textPrimary : colors.textPrimary;
+  const mutedColor = isDark ? darkColors.textSecondary : colors.textSecondary;
+
   return (
     <TouchableOpacity style={styles.linkRow} onPress={handlePress} activeOpacity={0.7}>
       <MaterialCommunityIcons name={icon as any} size={22} color={colors.primary} />
-      <Text style={[styles.linkText, isDark && styles.textLight]}>{label}</Text>
-      <MaterialCommunityIcons
-        name="open-in-new"
-        size={18}
-        color={isDark ? '#666' : colors.textSecondary}
-      />
+      <Text style={[styles.linkText, { color: textColor }]}>{label}</Text>
+      <MaterialCommunityIcons name="open-in-new" size={18} color={mutedColor} />
     </TouchableOpacity>
   );
 }
 
 export default function AboutScreen() {
   const { t } = useTranslation();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const { isDark, colors: themeColors } = useTheme();
+  const shared = createSharedStyles(isDark);
 
   return (
-    <ScreenSafeAreaView testID="about-screen" style={[styles.container, isDark && styles.containerDark]}>
+    <ScreenSafeAreaView testID="about-screen" style={shared.container}>
       <ScrollView contentContainerStyle={styles.content}>
         {/* Header with back button */}
-        <View style={styles.header}>
+        <View style={shared.header}>
           <TouchableOpacity
             testID="nav-back-button"
             onPress={() => router.back()}
-            style={styles.backButton}
+            style={shared.backButton}
             accessibilityLabel={t('common.back')}
             accessibilityRole="button"
           >
             <MaterialCommunityIcons
               name="arrow-left"
               size={24}
-              color={isDark ? '#FFF' : colors.textPrimary}
+              color={themeColors.text}
             />
           </TouchableOpacity>
-          <Text style={[styles.headerTitle, isDark && styles.textLight]}>{t('about.title')}</Text>
+          <Text style={shared.headerTitle}>{t('about.title')}</Text>
           <View style={styles.headerSpacer} />
         </View>
 
         {/* App Info */}
-        <View style={[styles.section, isDark && styles.sectionDark]}>
+        <View style={styles.section(isDark)}>
           <View style={styles.appInfo}>
-            <View style={[styles.appIcon, isDark && styles.appIconDark]}>
+            <View style={styles.appIcon(isDark)}>
               <MaterialCommunityIcons name="bike-fast" size={40} color={colors.primary} />
             </View>
-            <Text style={[styles.appName, isDark && styles.textLight]}>Veloq</Text>
-            <Text style={[styles.appVersion, isDark && styles.textMuted]}>
+            <Text style={[styles.appName, shared.text]}>Veloq</Text>
+            <Text style={[styles.appVersion, shared.textSecondary]}>
               {t('about.version')} {Constants.expoConfig?.version ?? '0.0.1'}
             </Text>
-            <Text style={[styles.appDescription, isDark && styles.textMuted]}>
+            <Text style={[styles.appDescription, shared.textSecondary]}>
               {t('about.description')}
             </Text>
           </View>
         </View>
 
         {/* Disclaimer */}
-        <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>
+        <Text style={[styles.sectionLabel, shared.textSecondary]}>
           {t('about.disclaimerTitle').toUpperCase()}
         </Text>
-        <View style={[styles.section, isDark && styles.sectionDark]}>
-          <Text style={[styles.disclaimerText, isDark && styles.textMuted]}>
+        <View style={styles.section(isDark)}>
+          <Text style={[styles.disclaimerText, shared.textSecondary]}>
             {t('about.disclaimer')}
           </Text>
         </View>
 
         {/* intervals.icu Links */}
-        <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>INTERVALS.ICU</Text>
-        <View style={[styles.section, isDark && styles.sectionDark]}>
+        <Text style={[styles.sectionLabel, shared.textSecondary]}>INTERVALS.ICU</Text>
+        <View style={styles.section(isDark)}>
           <LinkRow
             icon="shield-account"
             label={t('about.intervalsPrivacy')}
             url={INTERVALS_URLS.privacyPolicy}
             isDark={isDark}
           />
-          <View style={[styles.divider, isDark && styles.dividerDark]} />
+          <View style={styles.linkDivider(isDark)} />
           <LinkRow
             icon="file-document"
             label={t('about.intervalsTerms')}
             url={INTERVALS_URLS.termsOfService}
             isDark={isDark}
           />
-          <View style={[styles.divider, isDark && styles.dividerDark]} />
+          <View style={styles.linkDivider(isDark)} />
           <LinkRow
             icon="api"
             label={t('about.intervalsApiTerms')}
@@ -127,29 +127,29 @@ export default function AboutScreen() {
         </View>
 
         {/* Veloq Links */}
-        <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>VELOQ</Text>
-        <View style={[styles.section, isDark && styles.sectionDark]}>
+        <Text style={[styles.sectionLabel, shared.textSecondary]}>VELOQ</Text>
+        <View style={styles.section(isDark)}>
           <LinkRow
             icon="shield-lock"
             label={t('about.veloqPrivacy')}
             url={VELOQ_URLS.privacy}
             isDark={isDark}
           />
-          <View style={[styles.divider, isDark && styles.dividerDark]} />
+          <View style={styles.linkDivider(isDark)} />
           <LinkRow
             icon="license"
             label={t('about.openSource')}
             url={VELOQ_URLS.license}
             isDark={isDark}
           />
-          <View style={[styles.divider, isDark && styles.dividerDark]} />
+          <View style={styles.linkDivider(isDark)} />
           <LinkRow
             icon="github"
             label={t('about.sourceCode')}
             url={VELOQ_URLS.github}
             isDark={isDark}
           />
-          <View style={[styles.divider, isDark && styles.dividerDark]} />
+          <View style={styles.linkDivider(isDark)} />
           <LinkRow
             icon="code-braces"
             label={t('about.tracematchSource')}
@@ -159,11 +159,11 @@ export default function AboutScreen() {
         </View>
 
         {/* Data Attribution */}
-        <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>
+        <Text style={[styles.sectionLabel, shared.textSecondary]}>
           {t('about.dataAttribution').toUpperCase()}
         </Text>
-        <View style={[styles.section, isDark && styles.sectionDark]}>
-          <Text style={[styles.attributionText, isDark && styles.textMuted]}>
+        <View style={styles.section(isDark)}>
+          <Text style={[styles.attributionText, shared.textSecondary]}>
             {t('about.garminNote')}
           </Text>
           <View style={styles.attributionLogos}>
@@ -171,46 +171,46 @@ export default function AboutScreen() {
               <MaterialCommunityIcons
                 name="watch"
                 size={20}
-                color={isDark ? '#888' : colors.textSecondary}
+                color={themeColors.textSecondary}
               />
-              <Text style={[styles.attributionName, isDark && styles.textLight]}>Garmin</Text>
+              <Text style={[styles.attributionName, shared.text]}>Garmin</Text>
             </View>
             <View style={styles.attributionItem}>
               <MaterialCommunityIcons
                 name="run"
                 size={20}
-                color={isDark ? '#888' : colors.textSecondary}
+                color={themeColors.textSecondary}
               />
-              <Text style={[styles.attributionName, isDark && styles.textLight]}>Strava</Text>
+              <Text style={[styles.attributionName, shared.text]}>Strava</Text>
             </View>
             <View style={styles.attributionItem}>
               <MaterialCommunityIcons
                 name="watch"
                 size={20}
-                color={isDark ? '#888' : colors.textSecondary}
+                color={themeColors.textSecondary}
               />
-              <Text style={[styles.attributionName, isDark && styles.textLight]}>Polar</Text>
+              <Text style={[styles.attributionName, shared.text]}>Polar</Text>
             </View>
             <View style={styles.attributionItem}>
               <MaterialCommunityIcons
                 name="watch"
                 size={20}
-                color={isDark ? '#888' : colors.textSecondary}
+                color={themeColors.textSecondary}
               />
-              <Text style={[styles.attributionName, isDark && styles.textLight]}>Wahoo</Text>
+              <Text style={[styles.attributionName, shared.text]}>Wahoo</Text>
             </View>
           </View>
-          <Text style={[styles.trademarkText, isDark && styles.textMuted]}>
+          <Text style={[styles.trademarkText, shared.textMuted]}>
             {t('attribution.garminTrademark')}
           </Text>
         </View>
 
         {/* Map Data */}
-        <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>
+        <Text style={[styles.sectionLabel, shared.textSecondary]}>
           {t('about.mapData').toUpperCase()}
         </Text>
-        <View style={[styles.section, isDark && styles.sectionDark]}>
-          <Text style={[styles.attributionText, isDark && styles.textMuted]}>
+        <View style={styles.section(isDark)}>
+          <Text style={[styles.attributionText, shared.textSecondary]}>
             {t('about.mapAttribution')}
           </Text>
         </View>
@@ -219,149 +219,112 @@ export default function AboutScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  containerDark: {
-    backgroundColor: '#121212',
-  },
+// Theme-aware section style helper
+const getSectionStyle = (isDark: boolean) => ({
+  backgroundColor: isDark ? darkColors.surface : colors.surface,
+  marginHorizontal: layout.screenPadding,
+  borderRadius: layout.borderRadius,
+  overflow: 'hidden' as const,
+});
+
+// Theme-aware app icon style helper
+const getAppIconStyle = (isDark: boolean) => ({
+  width: 80,
+  height: 80,
+  borderRadius: 20,
+  backgroundColor: isDark ? 'rgba(20, 184, 166, 0.15)' : 'rgba(20, 184, 166, 0.1)',
+  justifyContent: 'center' as const,
+  alignItems: 'center' as const,
+  marginBottom: spacing.md,
+});
+
+// Theme-aware link divider style helper
+const getLinkDividerStyle = (isDark: boolean) => ({
+  height: 1,
+  backgroundColor: isDark ? darkColors.border : colors.border,
+  marginLeft: spacing.md + 22 + spacing.sm,
+});
+
+const styles = {
+  // Static styles
   content: {
     paddingBottom: spacing.xl,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: layout.screenPadding,
-    paddingVertical: spacing.md,
-  },
-  backButton: {
-    padding: spacing.xs,
-    marginLeft: -spacing.xs,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: colors.textPrimary,
   },
   headerSpacer: {
     width: 32,
   },
   sectionLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.textSecondary,
+    ...typography.caption,
+    fontWeight: '600' as const,
     marginTop: spacing.lg,
     marginBottom: spacing.sm,
     marginHorizontal: layout.screenPadding,
     letterSpacing: 0.5,
   },
-  section: {
-    backgroundColor: colors.surface,
-    marginHorizontal: layout.screenPadding,
-    borderRadius: 12,
-    overflow: 'hidden',
-  },
-  sectionDark: {
-    backgroundColor: '#1E1E1E',
-  },
   appInfo: {
-    alignItems: 'center',
+    alignItems: 'center' as const,
     padding: spacing.lg,
   },
-  appIcon: {
-    width: 80,
-    height: 80,
-    borderRadius: 20,
-    backgroundColor: 'rgba(252, 76, 2, 0.1)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: spacing.md,
-  },
-  appIconDark: {
-    backgroundColor: 'rgba(252, 76, 2, 0.15)',
-  },
   appName: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: colors.textPrimary,
+    ...typography.sectionTitle,
     marginBottom: spacing.xs,
   },
   appVersion: {
-    fontSize: 14,
-    color: colors.textSecondary,
+    ...typography.bodySmall,
     marginBottom: spacing.sm,
   },
   appDescription: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    textAlign: 'center',
+    ...typography.bodySmall,
+    textAlign: 'center' as const,
     lineHeight: 20,
   },
   disclaimerText: {
-    fontSize: 14,
-    color: colors.textSecondary,
+    ...typography.bodySmall,
     lineHeight: 22,
     padding: spacing.md,
   },
   linkRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.md,
     gap: spacing.sm,
   },
   linkText: {
     flex: 1,
-    fontSize: 16,
-    color: colors.textPrimary,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: colors.border,
-    marginLeft: spacing.md + 22 + spacing.sm,
-  },
-  dividerDark: {
-    backgroundColor: '#333',
+    ...typography.body,
   },
   attributionText: {
-    fontSize: 14,
-    color: colors.textSecondary,
+    ...typography.bodySmall,
     lineHeight: 20,
     padding: spacing.md,
     paddingBottom: spacing.sm,
   },
   attributionLogos: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexDirection: 'row' as const,
+    flexWrap: 'wrap' as const,
     gap: spacing.md,
     paddingHorizontal: spacing.md,
     paddingBottom: spacing.sm,
   },
   attributionItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
     gap: spacing.xs,
   },
   attributionName: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: colors.textPrimary,
+    ...typography.bodyCompact,
+    fontWeight: '500' as const,
   },
   trademarkText: {
-    fontSize: 10,
-    color: colors.textSecondary,
+    ...typography.micro,
     opacity: 0.7,
     lineHeight: 14,
     paddingHorizontal: spacing.md,
     paddingBottom: spacing.md,
   },
-  textLight: {
-    color: '#FFF',
-  },
-  textMuted: {
-    color: '#888',
-  },
-});
+  // Theme-aware helpers
+  section: getSectionStyle,
+  appIcon: getAppIconStyle,
+  linkDivider: getLinkDividerStyle,
+};

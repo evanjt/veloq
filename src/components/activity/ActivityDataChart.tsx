@@ -1,5 +1,6 @@
 import React, { useMemo, useRef, useState, useCallback, useEffect } from 'react';
-import { View, StyleSheet, useColorScheme, Platform } from 'react-native';
+import { View, StyleSheet, Platform } from 'react-native';
+import { useTheme } from '@/hooks';
 import { Text } from 'react-native-paper';
 import { CartesianChart, Area } from 'victory-native';
 import { LinearGradient, vec } from '@shopify/react-native-skia';
@@ -53,8 +54,7 @@ export function ActivityDataChart({
   onInteractionChange,
 }: ActivityDataChartProps) {
   const { t } = useTranslation();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const { isDark } = useTheme();
   const isMetric = useMetricSystem();
 
   // Shared values for UI thread gesture tracking (native 120Hz performance)

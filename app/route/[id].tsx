@@ -3,7 +3,6 @@ import {
   View,
   ScrollView,
   StyleSheet,
-  useColorScheme,
   Pressable,
   Dimensions,
   StatusBar,
@@ -17,7 +16,8 @@ import { useLocalSearchParams, router, Href } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useActivities, useRouteGroups, useConsensusRoute, useRoutePerformances } from '@/hooks';
+import { useActivities, useRouteGroups, useConsensusRoute, useRoutePerformances, useTheme } from '@/hooks';
+import { createSharedStyles } from '@/styles';
 
 // Lazy load native module to avoid bundler errors
 function getRouteEngine() {
@@ -88,7 +88,7 @@ function ActivityRow({
   // Determine trace color based on direction
   const isReverse = direction === 'reverse';
   // Activity trace: cyan for highlighted, purple for reverse, blue for same
-  const traceColor = isHighlighted ? '#00BCD4' : isReverse ? REVERSE_COLOR : '#2196F3';
+  const traceColor = isHighlighted ? colors.chartCyan : isReverse ? REVERSE_COLOR : colors.sameDirection;
   const badgeColor = isReverse ? REVERSE_COLOR : colors.success;
 
   // Format overlap distance for display (e.g., "200m / 1.0km")
@@ -139,7 +139,7 @@ function ActivityRow({
           {/* PR badge for best performance */}
           {isBest && (
             <View style={[styles.prBadge, { backgroundColor: colors.primary }]}>
-              <MaterialCommunityIcons name="trophy" size={12} color="#FFF" />
+              <MaterialCommunityIcons name="trophy" size={12} color={colors.textOnDark} />
               <Text style={styles.prText}>PR</Text>
             </View>
           )}
@@ -179,7 +179,7 @@ function ActivityRow({
           {formatDuration(activity.moving_time)}
         </Text>
       </View>
-      <MaterialCommunityIcons name="chevron-right" size={20} color={isDark ? '#555' : '#CCC'} />
+      <MaterialCommunityIcons name="chevron-right" size={20} color={isDark ? darkColors.textMuted : colors.divider} />
     </Pressable>
   );
 }
@@ -187,8 +187,8 @@ function ActivityRow({
 export default function RouteDetailScreen() {
   const { t } = useTranslation();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const { isDark, colors: themeColors } = useTheme();
+  const shared = createSharedStyles(isDark);
   const insets = useSafeAreaInsets();
 
   // State for highlighted activity
@@ -419,7 +419,7 @@ export default function RouteDetailScreen() {
             <MaterialCommunityIcons
               name="arrow-left"
               size={24}
-              color={isDark ? '#FFFFFF' : colors.textPrimary}
+              color={isDark ? colors.textOnDark : colors.textPrimary}
             />
           </TouchableOpacity>
         </View>
@@ -427,7 +427,7 @@ export default function RouteDetailScreen() {
           <MaterialCommunityIcons
             name="map-marker-question-outline"
             size={48}
-            color={isDark ? '#444' : '#CCC'}
+            color={isDark ? darkColors.border : colors.divider}
           />
           <Text style={[styles.emptyText, isDark && styles.textLight]}>
             {t('routeDetail.routeNotFound')}
@@ -490,7 +490,7 @@ export default function RouteDetailScreen() {
               onPress={() => router.back()}
               activeOpacity={0.7}
             >
-              <MaterialCommunityIcons name="arrow-left" size={24} color="#FFFFFF" />
+              <MaterialCommunityIcons name="arrow-left" size={24} color={colors.textOnDark} />
             </TouchableOpacity>
           </View>
 
@@ -498,7 +498,7 @@ export default function RouteDetailScreen() {
           <View style={styles.infoOverlay}>
             <View style={styles.routeNameRow}>
               <View style={[styles.typeIcon, { backgroundColor: activityColor }]}>
-                <MaterialCommunityIcons name={iconName} size={16} color="#FFFFFF" />
+                <MaterialCommunityIcons name={iconName} size={16} color={colors.textOnDark} />
               </View>
               {isEditing ? (
                 <View style={styles.editNameContainer}>
@@ -515,10 +515,10 @@ export default function RouteDetailScreen() {
                     selectTextOnFocus
                   />
                   <TouchableOpacity onPress={handleSaveName} style={styles.editNameButton}>
-                    <MaterialCommunityIcons name="check" size={20} color="#4CAF50" />
+                    <MaterialCommunityIcons name="check" size={20} color={colors.success} />
                   </TouchableOpacity>
                   <TouchableOpacity onPress={handleCancelEdit} style={styles.editNameButton}>
-                    <MaterialCommunityIcons name="close" size={20} color="#FF5252" />
+                    <MaterialCommunityIcons name="close" size={20} color={colors.error} />
                   </TouchableOpacity>
                 </View>
               ) : (
@@ -882,7 +882,7 @@ const styles = StyleSheet.create({
   prText: {
     fontSize: typography.label.fontSize,
     fontWeight: '700',
-    color: '#FFF',
+    color: colors.textOnDark,
   },
   rankBadge: {
     paddingHorizontal: 6,

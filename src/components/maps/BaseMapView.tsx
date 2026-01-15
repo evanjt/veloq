@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useRef, useMemo, ReactNode, useEffect } from 'react';
-import { View, Text, StyleSheet, useColorScheme, TouchableOpacity, Animated } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native';
+import { useTheme } from '@/hooks';
 import {
   MapView,
   Camera,
@@ -103,9 +104,9 @@ export function BaseMapView({
   onClose,
 }: BaseMapViewProps) {
   const { t } = useTranslation();
-  const colorScheme = useColorScheme();
+  const { isDark: systemIsDark } = useTheme();
   const insets = useSafeAreaInsets();
-  const systemStyle: MapStyleType = colorScheme === 'dark' ? 'dark' : 'light';
+  const systemStyle: MapStyleType = systemIsDark ? 'dark' : 'light';
 
   const [mapStyle, setMapStyle] = useState<MapStyleType>(initialStyle ?? systemStyle);
   const [is3DMode, setIs3DMode] = useState(false);

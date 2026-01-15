@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
-import { View, StyleSheet, useColorScheme } from 'react-native';
+import { View, StyleSheet } from 'react-native';
+import { useTheme } from '@/hooks';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { CartesianChart, Line, Area } from 'victory-native';
@@ -28,8 +29,7 @@ function formatDate(dateStr: string): string {
 
 export function FTPTrendChart({ data, currentFTP, height = 180 }: FTPTrendChartProps) {
   const { t } = useTranslation();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const { isDark } = useTheme();
 
   // All hooks must be called before any conditional returns
   const chartData = useMemo(() => {

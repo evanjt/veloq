@@ -10,7 +10,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useNetwork } from '@/providers';
-import { darkColors } from '@/theme';
+import { colors, darkColors } from '@/theme';
 
 export function OfflineBanner() {
   const { t } = useTranslation();
@@ -29,7 +29,7 @@ export function OfflineBanner() {
   return (
     <View style={[styles.container, { paddingTop: topPadding }]}>
       <View style={styles.content}>
-        <MaterialCommunityIcons name="cloud-off-outline" size={16} color="#FFFFFF" />
+        <MaterialCommunityIcons name="cloud-off-outline" size={16} color={colors.textOnDark} />
         <Text style={styles.text}>{t('emptyState.offline.title')}</Text>
         <Text style={styles.subtitleText}>{t('emptyState.offline.description')}</Text>
       </View>
@@ -51,7 +51,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   text: {
-    color: '#FFFFFF',
+    color: colors.textOnDark,
     fontSize: 13,
     fontWeight: '600',
   },

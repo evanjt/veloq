@@ -4,7 +4,8 @@
  */
 
 import React, { useEffect, useRef } from 'react';
-import { View, StyleSheet, useColorScheme, Animated, ScrollView } from 'react-native';
+import { View, StyleSheet, Animated, ScrollView } from 'react-native';
+import { useTheme } from '@/hooks';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -20,8 +21,7 @@ interface ProcessingActivityListProps {
 
 function ActivityRow({ activity, index }: { activity: ProcessedActivityStatus; index: number }) {
   const { t } = useTranslation();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const { isDark } = useTheme();
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(20)).current;
@@ -148,8 +148,7 @@ export function ProcessingActivityList({
   total,
 }: ProcessingActivityListProps) {
   const { t } = useTranslation();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const { isDark } = useTheme();
   const scrollViewRef = useRef<ScrollView>(null);
 
   // Auto-scroll to bottom when new items are added

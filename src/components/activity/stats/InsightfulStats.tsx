@@ -8,7 +8,8 @@
  */
 
 import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, useColorScheme, TouchableOpacity, Linking } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Linking } from 'react-native';
+import { useTheme } from '@/hooks';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import * as WebBrowser from 'expo-web-browser';
@@ -33,8 +34,7 @@ export function InsightfulStats({
   recentActivities = [],
 }: InsightfulStatsProps) {
   const { t } = useTranslation();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const { isDark } = useTheme();
   const [selectedStat, setSelectedStat] = useState<StatDetail | null>(null);
 
   // Use extracted hook for stats computation

@@ -4,13 +4,13 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  useColorScheme,
   Image,
   Alert,
 } from 'react-native';
+import { useTheme } from '@/hooks';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as WebBrowser from 'expo-web-browser';
-import { colors, spacing } from '@/theme';
+import { colors, darkColors, spacing } from '@/theme';
 import { getAthleteId } from '@/api';
 import { useAthlete } from '@/hooks';
 
@@ -25,8 +25,7 @@ interface ProfileSectionProps {
 }
 
 export function ProfileSection({ athlete }: ProfileSectionProps) {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const { isDark } = useTheme();
   const [profileImageError, setProfileImageError] = useState(false);
 
   const profileUrl = athlete?.profile_medium || athlete?.profile;
@@ -63,7 +62,7 @@ export function ProfileSection({ athlete }: ProfileSectionProps) {
         <MaterialCommunityIcons
           name="chevron-right"
           size={24}
-          color={isDark ? '#666' : colors.textSecondary}
+          color={isDark ? darkColors.textMuted : colors.textSecondary}
         />
       </View>
     </TouchableOpacity>
@@ -72,13 +71,13 @@ export function ProfileSection({ athlete }: ProfileSectionProps) {
 
 const styles = StyleSheet.create({
   section: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface,
     borderRadius: 12,
     marginBottom: spacing.sm,
     overflow: 'hidden',
   },
   sectionDark: {
-    backgroundColor: '#1c1c1e',
+    backgroundColor: darkColors.surface,
   },
   profileRow: {
     flexDirection: 'row',
@@ -96,7 +95,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   profilePhotoDark: {
-    backgroundColor: '#2c2c2e',
+    backgroundColor: darkColors.surfaceElevated,
   },
   profileInfo: {
     flex: 1,
@@ -112,9 +111,9 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   textLight: {
-    color: '#fff',
+    color: colors.textOnDark,
   },
   textMuted: {
-    color: '#666',
+    color: colors.textSecondary,
   },
 });

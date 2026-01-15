@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
-import { View, StyleSheet, ActivityIndicator, Text, useColorScheme } from 'react-native';
+import { View, StyleSheet, ActivityIndicator, Text } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -9,17 +9,19 @@ import {
   useActivityBoundsCache,
   useOldestActivityDate,
   useActivities,
+  useTheme,
 } from '@/hooks';
 import { useRouteSettings, useSyncDateRange } from '@/providers';
 import { colors, darkColors, spacing, typography } from '@/theme';
+import { createSharedStyles } from '@/styles';
 import { formatLocalDate } from '@/lib';
 
 export default function MapScreen() {
   const { t } = useTranslation();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const { isDark, colors: themeColors } = useTheme();
+  const shared = createSharedStyles(isDark);
 
   // Get route settings
   const { settings: routeSettings } = useRouteSettings();
@@ -257,7 +259,7 @@ export default function MapScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000',
+    backgroundColor: darkColors.background,
   },
   loadingContainer: {
     flex: 1,

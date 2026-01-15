@@ -1,5 +1,6 @@
 import React, { useMemo, useRef, useEffect } from 'react';
-import { View, StyleSheet, useColorScheme, ScrollView } from 'react-native';
+import { View, StyleSheet, ScrollView } from 'react-native';
+import { useTheme } from '@/hooks';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { colors, darkColors } from '@/theme/colors';
@@ -45,8 +46,7 @@ export function ActivityHeatmap({
   cellSize = 12,
 }: ActivityHeatmapProps) {
   const { t } = useTranslation();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const { isDark } = useTheme();
   const intensityColors = isDark ? INTENSITY_COLORS : INTENSITY_COLORS_LIGHT;
   const scrollViewRef = useRef<ScrollView>(null);
 

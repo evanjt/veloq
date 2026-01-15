@@ -320,88 +320,103 @@
       <div class="container">
         <h1 data-i18n="title">Privacy Policy</h1>
         <p class="last-updated" data-i18n="lastUpdated">
-          Last updated: 31 December 2025
+          Last updated: 14 January 2026
         </p>
 
         <div class="highlight-box">
           <p data-i18n="overview">
-            Veloq operates entirely on your device. We do not run servers,
-            collect data, or process your personal information.
+            Veloq operates primarily on your device. We do not collect, sell, or share your personal information. The app fetches your fitness data directly from Intervals.icu and stores it locally for offline access.
           </p>
         </div>
 
-        <h2 data-i18n="dataHandling.title">Data Handling</h2>
+        <h2 data-i18n="authMethods.title">Authentication Methods</h2>
+        <p data-i18n="authMethods.intro">Veloq supports two ways to connect to your Intervals.icu account:</p>
+
+        <h3 data-i18n="authMethods.apiKey.title">API Key Mode (Local Only)</h3>
         <ul>
-          <li data-i18n="dataHandling.item1">
-            All data is fetched directly from Intervals.icu using your
-            credentials
-          </li>
-          <li data-i18n="dataHandling.item2">
-            Data is cached locally for offline access
-          </li>
-          <li data-i18n="dataHandling.item3">
-            No data is sent anywhere except Intervals.icu and map tile providers
-          </li>
+          <li data-i18n="authMethods.apiKey.item1">Your API key is stored encrypted on your device using platform secure storage (iOS Keychain / Android KeyStore)</li>
+          <li data-i18n="authMethods.apiKey.item2">The key never leaves your device — all API calls go directly to Intervals.icu</li>
+          <li data-i18n="authMethods.apiKey.item3">No backend servers involved</li>
+        </ul>
+
+        <h3 data-i18n="authMethods.oauth.title">OAuth Mode (Connected)</h3>
+        <ul>
+          <li data-i18n="authMethods.oauth.item1">Uses industry-standard OAuth 2.0 authentication</li>
+          <li data-i18n="authMethods.oauth.item2">A Cloudflare Worker proxy handles the token exchange to keep the client secret secure</li>
+          <li data-i18n="authMethods.oauth.item3">The proxy temporarily stores a state parameter (5-minute TTL) for CSRF protection</li>
+          <li data-i18n="authMethods.oauth.item4">Your access token is returned directly to your device and stored in secure storage</li>
+          <li data-i18n="authMethods.oauth.item5">The proxy does not store your access token</li>
+        </ul>
+
+        <h2 data-i18n="dataFetch.title">Data We Fetch</h2>
+        <p data-i18n="dataFetch.intro">From Intervals.icu (with your permission):</p>
+        <ul>
+          <li data-i18n="dataFetch.item1">Activities (routes, metrics, streams)</li>
+          <li data-i18n="dataFetch.item2">Wellness data (HRV, sleep, weight)</li>
+          <li data-i18n="dataFetch.item3">Calendar and planned workouts</li>
+          <li data-i18n="dataFetch.item4">Sport settings (zones, thresholds)</li>
         </ul>
 
         <h2 data-i18n="localStorage.title">Local Storage</h2>
-        <p data-i18n="localStorage.intro">Stored on your device only:</p>
+        <p data-i18n="localStorage.intro">All data is stored on your device only:</p>
         <ul>
           <li data-i18n="localStorage.item1">
-            <strong>API credentials</strong> - Encrypted using platform secure
-            storage
+            <strong>Credentials</strong> — Encrypted (SecureStore), retained until you disconnect
           </li>
           <li data-i18n="localStorage.item2">
-            <strong>Activity data</strong> - Cached for offline use
+            <strong>Activity data</strong> — 7 days cache, GPS tracks stored indefinitely
           </li>
           <li data-i18n="localStorage.item3">
-            <strong>Preferences</strong> - Theme, map settings
+            <strong>Preferences</strong> — Theme, map settings, retained until you clear app data
           </li>
         </ul>
 
         <h2 data-i18n="thirdParty.title">Third-Party Services</h2>
-        <ul>
-          <li data-i18n="thirdParty.item1">
-            <strong>Intervals.icu</strong> - Your fitness data source (<a
-              href="https://intervals.icu/privacy"
-              target="_blank"
-              >privacy policy</a
-            >)
-          </li>
-          <li data-i18n="thirdParty.item2">
-            <strong>Map tiles</strong> - OpenStreetMap, Carto, Stadia (standard
-            web requests)
-          </li>
-        </ul>
-        <p data-i18n="thirdParty.noTracking">
-          No analytics, ads, crash reporting, or tracking SDKs.
-        </p>
 
-        <h2 data-i18n="disclaimer.title">Disclaimer</h2>
-        <p data-i18n="disclaimer.content">
-          Veloq is an independent, open-source project and is
-          <strong
-            >not affiliated with, endorsed by, or officially connected to
-            Intervals.icu</strong
-          >
-          in any way. For information about how Intervals.icu handles your data,
-          please refer to their
-          <a href="https://intervals.icu/privacy" target="_blank"
-            >privacy policy</a
-          >.
+        <h3 data-i18n="thirdParty.intervals.title">Intervals.icu</h3>
+        <p data-i18n="thirdParty.intervals.desc">Your fitness data source. See their <a href="https://intervals.icu/privacy-policy.html" target="_blank">Privacy Policy</a> and <a href="https://forum.intervals.icu/tos" target="_blank">Terms of Service</a>.</p>
+
+        <h3 data-i18n="thirdParty.maps.title">Map Tile Providers</h3>
+        <p data-i18n="thirdParty.maps.desc">Standard web requests, no personal data sent:</p>
+        <ul>
+          <li>OpenFreeMap / OpenStreetMap (light mode)</li>
+          <li>CARTO (dark mode)</li>
+          <li>EOX Sentinel-2 (satellite imagery)</li>
+          <li>AWS Terrain Tiles (3D elevation)</li>
+        </ul>
+
+        <h3 data-i18n="thirdParty.cloudflare.title">Cloudflare Workers (OAuth mode only)</h3>
+        <ul>
+          <li data-i18n="thirdParty.cloudflare.item1">Temporarily stores OAuth state parameters (5-minute TTL)</li>
+          <li data-i18n="thirdParty.cloudflare.item2">May store webhook event notifications (24-hour TTL) for future push notification support</li>
+          <li data-i18n="thirdParty.cloudflare.item3">Does not store access tokens or personal data</li>
+        </ul>
+
+        <p data-i18n="thirdParty.noTracking">
+          No analytics, advertising, crash reporting, or tracking SDKs.
         </p>
 
         <h2 data-i18n="dataSharing.title">Data Sharing</h2>
         <p data-i18n="dataSharing.content">
-          None. The developer has no access to your data.
+          None. The developer has no access to your data. All data flows directly between your device and Intervals.icu, or through standard map tile requests (no personal data).
         </p>
 
         <h2 data-i18n="security.title">Security</h2>
         <ul>
-          <li data-i18n="security.item1">Encrypted credential storage</li>
-          <li data-i18n="security.item2">HTTPS for all network requests</li>
-          <li data-i18n="security.item3">No background telemetry</li>
+          <li data-i18n="security.item1">Credentials encrypted using platform secure storage</li>
+          <li data-i18n="security.item2">HTTPS/TLS for all network requests</li>
+          <li data-i18n="security.item3">OAuth state validation (CSRF protection)</li>
+          <li data-i18n="security.item4">Webhook signature verification (HMAC-SHA256)</li>
+          <li data-i18n="security.item5">No background telemetry or data collection</li>
         </ul>
+
+        <h2 data-i18n="disclaimer.title">Disclaimer</h2>
+        <p data-i18n="disclaimer.content">
+          Veloq is an independent, open-source project and is
+          <strong>not affiliated with, endorsed by, or officially connected to Intervals.icu</strong>
+          in any way. For information about how Intervals.icu handles your data,
+          please refer to their <a href="https://intervals.icu/privacy-policy.html" target="_blank">privacy policy</a>.
+        </p>
 
         <h2 data-i18n="children.title">Children's Privacy</h2>
         <p data-i18n="children.content">
@@ -409,20 +424,21 @@
         </p>
 
         <h2 data-i18n="rights.title">Your Rights</h2>
-        <p data-i18n="rights.content">
-          Delete all local data by uninstalling the app or clearing app data in
-          device settings.
-        </p>
+        <ul>
+          <li data-i18n="rights.item1"><strong>View your data:</strong> All data is visible within the app</li>
+          <li data-i18n="rights.item2"><strong>Delete your data:</strong> Uninstall the app or clear app data in device settings</li>
+          <li data-i18n="rights.item3"><strong>Revoke access:</strong> Disconnect your account in app settings, or revoke the OAuth app in Intervals.icu settings</li>
+        </ul>
 
         <h2 data-i18n="changes.title">Changes</h2>
         <p data-i18n="changes.content">
-          This policy may be updated. Check the "Last updated" date above.
+          This policy may be updated. Check the "Last updated" date above. Continued use after changes constitutes acceptance.
         </p>
 
         <h2 data-i18n="contact.title">Contact</h2>
         <p data-i18n="contact.content">
           <a href="https://github.com/evanjt/veloq/issues">GitHub Issues</a> or
-          <a href="mailto:developer@veloq.fit">developer@veloq.fit</a>
+          <a href="mailto:veloq@evanjt.com">veloq@evanjt.com</a>
         </p>
       </div>
     </main>
@@ -453,158 +469,186 @@
           "footer.releases": "Releases",
           "footer.contact": "Contact",
           title: "Privacy Policy",
-          lastUpdated: "Last updated: 31 December 2025",
+          lastUpdated: "Last updated: 14 January 2026",
           overview:
-            "Veloq operates entirely on your device. We do not run servers, collect data, or process your personal information.",
-          "dataHandling.title": "Data Handling",
-          "dataHandling.item1":
-            "All data is fetched directly from Intervals.icu using your credentials",
-          "dataHandling.item2": "Data is cached locally for offline access",
-          "dataHandling.item3":
-            "No data is sent anywhere except Intervals.icu and map tile providers",
+            "Veloq operates primarily on your device. We do not collect, sell, or share your personal information. The app fetches your fitness data directly from Intervals.icu and stores it locally for offline access.",
+          "authMethods.title": "Authentication Methods",
+          "authMethods.intro": "Veloq supports two ways to connect to your Intervals.icu account:",
+          "authMethods.apiKey.title": "API Key Mode (Local Only)",
+          "authMethods.apiKey.item1": "Your API key is stored encrypted on your device using platform secure storage (iOS Keychain / Android KeyStore)",
+          "authMethods.apiKey.item2": "The key never leaves your device — all API calls go directly to Intervals.icu",
+          "authMethods.apiKey.item3": "No backend servers involved",
+          "authMethods.oauth.title": "OAuth Mode (Connected)",
+          "authMethods.oauth.item1": "Uses industry-standard OAuth 2.0 authentication",
+          "authMethods.oauth.item2": "A Cloudflare Worker proxy handles the token exchange to keep the client secret secure",
+          "authMethods.oauth.item3": "The proxy temporarily stores a state parameter (5-minute TTL) for CSRF protection",
+          "authMethods.oauth.item4": "Your access token is returned directly to your device and stored in secure storage",
+          "authMethods.oauth.item5": "The proxy does not store your access token",
+          "dataFetch.title": "Data We Fetch",
+          "dataFetch.intro": "From Intervals.icu (with your permission):",
+          "dataFetch.item1": "Activities (routes, metrics, streams)",
+          "dataFetch.item2": "Wellness data (HRV, sleep, weight)",
+          "dataFetch.item3": "Calendar and planned workouts",
+          "dataFetch.item4": "Sport settings (zones, thresholds)",
           "localStorage.title": "Local Storage",
-          "localStorage.intro": "Stored on your device only:",
-          "localStorage.item1":
-            "<strong>API credentials</strong> - Encrypted using platform secure storage",
-          "localStorage.item2":
-            "<strong>Activity data</strong> - Cached for offline use",
-          "localStorage.item3":
-            "<strong>Preferences</strong> - Theme, map settings",
+          "localStorage.intro": "All data is stored on your device only:",
+          "localStorage.item1": "<strong>Credentials</strong> — Encrypted (SecureStore), retained until you disconnect",
+          "localStorage.item2": "<strong>Activity data</strong> — 7 days cache, GPS tracks stored indefinitely",
+          "localStorage.item3": "<strong>Preferences</strong> — Theme, map settings, retained until you clear app data",
           "thirdParty.title": "Third-Party Services",
-          "thirdParty.item1":
-            '<strong>Intervals.icu</strong> - Your fitness data source (<a href="https://intervals.icu/privacy" target="_blank">privacy policy</a>)',
-          "thirdParty.item2":
-            "<strong>Map tiles</strong> - OpenStreetMap, Carto, Stadia (standard web requests)",
-          "thirdParty.noTracking":
-            "No analytics, ads, crash reporting, or tracking SDKs.",
-          "disclaimer.title": "Disclaimer",
-          "disclaimer.content":
-            'Veloq is an independent, open-source project and is <strong>not affiliated with, endorsed by, or officially connected to Intervals.icu</strong> in any way. For information about how Intervals.icu handles your data, please refer to their <a href="https://intervals.icu/privacy" target="_blank">privacy policy</a>.',
+          "thirdParty.intervals.title": "Intervals.icu",
+          "thirdParty.intervals.desc": 'Your fitness data source. See their <a href="https://intervals.icu/privacy-policy.html" target="_blank">Privacy Policy</a> and <a href="https://forum.intervals.icu/tos" target="_blank">Terms of Service</a>.',
+          "thirdParty.maps.title": "Map Tile Providers",
+          "thirdParty.maps.desc": "Standard web requests, no personal data sent:",
+          "thirdParty.cloudflare.title": "Cloudflare Workers (OAuth mode only)",
+          "thirdParty.cloudflare.item1": "Temporarily stores OAuth state parameters (5-minute TTL)",
+          "thirdParty.cloudflare.item2": "May store webhook event notifications (24-hour TTL) for future push notification support",
+          "thirdParty.cloudflare.item3": "Does not store access tokens or personal data",
+          "thirdParty.noTracking": "No analytics, advertising, crash reporting, or tracking SDKs.",
           "dataSharing.title": "Data Sharing",
-          "dataSharing.content":
-            "None. The developer has no access to your data.",
+          "dataSharing.content": "None. The developer has no access to your data. All data flows directly between your device and Intervals.icu, or through standard map tile requests (no personal data).",
           "security.title": "Security",
-          "security.item1": "Encrypted credential storage",
-          "security.item2": "HTTPS for all network requests",
-          "security.item3": "No background telemetry",
+          "security.item1": "Credentials encrypted using platform secure storage",
+          "security.item2": "HTTPS/TLS for all network requests",
+          "security.item3": "OAuth state validation (CSRF protection)",
+          "security.item4": "Webhook signature verification (HMAC-SHA256)",
+          "security.item5": "No background telemetry or data collection",
+          "disclaimer.title": "Disclaimer",
+          "disclaimer.content": 'Veloq is an independent, open-source project and is <strong>not affiliated with, endorsed by, or officially connected to Intervals.icu</strong> in any way. For information about how Intervals.icu handles your data, please refer to their <a href="https://intervals.icu/privacy-policy.html" target="_blank">privacy policy</a>.',
           "children.title": "Children's Privacy",
-          "children.content":
-            "Not intended for users under 13. No data is collected from any user.",
+          "children.content": "Not intended for users under 13. No data is collected from any user.",
           "rights.title": "Your Rights",
-          "rights.content":
-            "Delete all local data by uninstalling the app or clearing app data in device settings.",
+          "rights.item1": "<strong>View your data:</strong> All data is visible within the app",
+          "rights.item2": "<strong>Delete your data:</strong> Uninstall the app or clear app data in device settings",
+          "rights.item3": "<strong>Revoke access:</strong> Disconnect your account in app settings, or revoke the OAuth app in Intervals.icu settings",
           "changes.title": "Changes",
-          "changes.content":
-            'This policy may be updated. Check the "Last updated" date above.',
+          "changes.content": 'This policy may be updated. Check the "Last updated" date above. Continued use after changes constitutes acceptance.',
           "contact.title": "Contact",
-          "contact.content":
-            '<a href="https://github.com/evanjt/veloq/issues">GitHub Issues</a> or <a href="mailto:developer@veloq.fit">developer@veloq.fit</a>',
+          "contact.content": '<a href="https://github.com/evanjt/veloq/issues">GitHub Issues</a> or <a href="mailto:veloq@evanjt.com">veloq@evanjt.com</a>',
         },
         es: {
           "nav.home": "Inicio",
           "footer.releases": "Versiones",
           "footer.contact": "Contacto",
           title: "Política de Privacidad",
-          lastUpdated: "Última actualización: 31 de diciembre de 2025",
+          lastUpdated: "Última actualización: 14 de enero de 2026",
           overview:
-            "Veloq opera completamente en tu dispositivo. No ejecutamos servidores, no recopilamos datos ni procesamos tu información personal.",
-          "dataHandling.title": "Manejo de Datos",
-          "dataHandling.item1":
-            "Todos los datos se obtienen directamente de Intervals.icu usando tus credenciales",
-          "dataHandling.item2":
-            "Los datos se almacenan localmente para acceso sin conexión",
-          "dataHandling.item3":
-            "No se envían datos a ningún lugar excepto Intervals.icu y proveedores de mapas",
+            "Veloq opera principalmente en tu dispositivo. No recopilamos, vendemos ni compartimos tu información personal. La aplicación obtiene tus datos de fitness directamente de Intervals.icu y los almacena localmente para acceso sin conexión.",
+          "authMethods.title": "Métodos de Autenticación",
+          "authMethods.intro": "Veloq soporta dos formas de conectar a tu cuenta de Intervals.icu:",
+          "authMethods.apiKey.title": "Modo Clave API (Solo Local)",
+          "authMethods.apiKey.item1": "Tu clave API se almacena encriptada en tu dispositivo usando almacenamiento seguro de la plataforma (iOS Keychain / Android KeyStore)",
+          "authMethods.apiKey.item2": "La clave nunca sale de tu dispositivo — todas las llamadas API van directamente a Intervals.icu",
+          "authMethods.apiKey.item3": "Sin servidores backend involucrados",
+          "authMethods.oauth.title": "Modo OAuth (Conectado)",
+          "authMethods.oauth.item1": "Usa autenticación OAuth 2.0 estándar de la industria",
+          "authMethods.oauth.item2": "Un proxy Cloudflare Worker maneja el intercambio de tokens para mantener el secreto del cliente seguro",
+          "authMethods.oauth.item3": "El proxy almacena temporalmente un parámetro de estado (TTL de 5 minutos) para protección CSRF",
+          "authMethods.oauth.item4": "Tu token de acceso se devuelve directamente a tu dispositivo y se almacena de forma segura",
+          "authMethods.oauth.item5": "El proxy no almacena tu token de acceso",
+          "dataFetch.title": "Datos que Obtenemos",
+          "dataFetch.intro": "De Intervals.icu (con tu permiso):",
+          "dataFetch.item1": "Actividades (rutas, métricas, streams)",
+          "dataFetch.item2": "Datos de bienestar (HRV, sueño, peso)",
+          "dataFetch.item3": "Calendario y entrenamientos planificados",
+          "dataFetch.item4": "Configuración deportiva (zonas, umbrales)",
           "localStorage.title": "Almacenamiento Local",
-          "localStorage.intro": "Almacenado solo en tu dispositivo:",
-          "localStorage.item1":
-            "<strong>Credenciales API</strong> - Encriptadas usando almacenamiento seguro de la plataforma",
-          "localStorage.item2":
-            "<strong>Datos de actividad</strong> - En caché para uso sin conexión",
-          "localStorage.item3":
-            "<strong>Preferencias</strong> - Tema, configuración del mapa",
+          "localStorage.intro": "Todos los datos se almacenan solo en tu dispositivo:",
+          "localStorage.item1": "<strong>Credenciales</strong> — Encriptadas (SecureStore), retenidas hasta que te desconectes",
+          "localStorage.item2": "<strong>Datos de actividad</strong> — Caché de 7 días, tracks GPS almacenados indefinidamente",
+          "localStorage.item3": "<strong>Preferencias</strong> — Tema, configuración del mapa, retenidos hasta que borres los datos de la app",
           "thirdParty.title": "Servicios de Terceros",
-          "thirdParty.item1":
-            '<strong>Intervals.icu</strong> - Tu fuente de datos de fitness (<a href="https://intervals.icu/privacy" target="_blank">política de privacidad</a>)',
-          "thirdParty.item2":
-            "<strong>Mapas</strong> - OpenStreetMap, Carto, Stadia (solicitudes web estándar)",
-          "thirdParty.noTracking":
-            "Sin análisis, anuncios, reportes de errores o SDKs de seguimiento.",
-          "disclaimer.title": "Aviso Legal",
-          "disclaimer.content":
-            'Veloq es un proyecto independiente de código abierto y <strong>no está afiliado, respaldado ni conectado oficialmente con Intervals.icu</strong> de ninguna manera. Para obtener información sobre cómo Intervals.icu maneja tus datos, consulta su <a href="https://intervals.icu/privacy" target="_blank">política de privacidad</a>.',
+          "thirdParty.intervals.title": "Intervals.icu",
+          "thirdParty.intervals.desc": 'Tu fuente de datos de fitness. Consulta su <a href="https://intervals.icu/privacy-policy.html" target="_blank">Política de Privacidad</a> y <a href="https://forum.intervals.icu/tos" target="_blank">Términos de Servicio</a>.',
+          "thirdParty.maps.title": "Proveedores de Mapas",
+          "thirdParty.maps.desc": "Solicitudes web estándar, sin datos personales enviados:",
+          "thirdParty.cloudflare.title": "Cloudflare Workers (solo modo OAuth)",
+          "thirdParty.cloudflare.item1": "Almacena temporalmente parámetros de estado OAuth (TTL de 5 minutos)",
+          "thirdParty.cloudflare.item2": "Puede almacenar notificaciones de eventos webhook (TTL de 24 horas) para futuro soporte de notificaciones push",
+          "thirdParty.cloudflare.item3": "No almacena tokens de acceso ni datos personales",
+          "thirdParty.noTracking": "Sin análisis, publicidad, informes de errores ni SDKs de seguimiento.",
           "dataSharing.title": "Compartir Datos",
-          "dataSharing.content":
-            "Ninguno. El desarrollador no tiene acceso a tus datos.",
+          "dataSharing.content": "Ninguno. El desarrollador no tiene acceso a tus datos. Todos los datos fluyen directamente entre tu dispositivo e Intervals.icu, o a través de solicitudes estándar de mapas (sin datos personales).",
           "security.title": "Seguridad",
-          "security.item1": "Almacenamiento de credenciales encriptado",
-          "security.item2": "HTTPS para todas las solicitudes de red",
-          "security.item3": "Sin telemetría en segundo plano",
+          "security.item1": "Credenciales encriptadas usando almacenamiento seguro de la plataforma",
+          "security.item2": "HTTPS/TLS para todas las solicitudes de red",
+          "security.item3": "Validación de estado OAuth (protección CSRF)",
+          "security.item4": "Verificación de firma webhook (HMAC-SHA256)",
+          "security.item5": "Sin telemetría en segundo plano ni recopilación de datos",
+          "disclaimer.title": "Aviso Legal",
+          "disclaimer.content": 'Veloq es un proyecto independiente de código abierto y <strong>no está afiliado, respaldado ni conectado oficialmente con Intervals.icu</strong> de ninguna manera. Para información sobre cómo Intervals.icu maneja tus datos, consulta su <a href="https://intervals.icu/privacy-policy.html" target="_blank">política de privacidad</a>.',
           "children.title": "Privacidad de Menores",
-          "children.content":
-            "No está destinado a usuarios menores de 13 años. No se recopilan datos de ningún usuario.",
+          "children.content": "No está destinado a usuarios menores de 13 años. No se recopilan datos de ningún usuario.",
           "rights.title": "Tus Derechos",
-          "rights.content":
-            "Elimina todos los datos locales desinstalando la aplicación o borrando los datos de la aplicación en la configuración del dispositivo.",
+          "rights.item1": "<strong>Ver tus datos:</strong> Todos los datos son visibles dentro de la aplicación",
+          "rights.item2": "<strong>Eliminar tus datos:</strong> Desinstala la aplicación o borra los datos de la app en la configuración del dispositivo",
+          "rights.item3": "<strong>Revocar acceso:</strong> Desconecta tu cuenta en la configuración de la app, o revoca la app OAuth en la configuración de Intervals.icu",
           "changes.title": "Cambios",
-          "changes.content":
-            'Esta política puede actualizarse. Consulta la fecha de "Última actualización" arriba.',
+          "changes.content": 'Esta política puede actualizarse. Consulta la fecha de "Última actualización" arriba. El uso continuado después de los cambios constituye aceptación.',
           "contact.title": "Contacto",
-          "contact.content":
-            '<a href="https://github.com/evanjt/veloq/issues">GitHub Issues</a> o <a href="mailto:developer@veloq.fit">developer@veloq.fit</a>',
+          "contact.content": '<a href="https://github.com/evanjt/veloq/issues">GitHub Issues</a> o <a href="mailto:veloq@evanjt.com">veloq@evanjt.com</a>',
         },
         fr: {
           "nav.home": "Accueil",
           "footer.releases": "Versions",
           "footer.contact": "Contact",
           title: "Politique de Confidentialité",
-          lastUpdated: "Dernière mise à jour : 31 décembre 2025",
+          lastUpdated: "Dernière mise à jour : 14 janvier 2026",
           overview:
-            "Veloq fonctionne entièrement sur votre appareil. Nous n'exploitons pas de serveurs, ne collectons pas de données et ne traitons pas vos informations personnelles.",
-          "dataHandling.title": "Gestion des Données",
-          "dataHandling.item1":
-            "Toutes les données sont récupérées directement depuis Intervals.icu en utilisant vos identifiants",
-          "dataHandling.item2":
-            "Les données sont mises en cache localement pour un accès hors ligne",
-          "dataHandling.item3":
-            "Aucune donnée n'est envoyée ailleurs qu'à Intervals.icu et aux fournisseurs de tuiles cartographiques",
+            "Veloq fonctionne principalement sur votre appareil. Nous ne collectons, vendons ni partageons vos informations personnelles. L'application récupère vos données fitness directement depuis Intervals.icu et les stocke localement pour un accès hors ligne.",
+          "authMethods.title": "Méthodes d'Authentification",
+          "authMethods.intro": "Veloq propose deux façons de se connecter à votre compte Intervals.icu :",
+          "authMethods.apiKey.title": "Mode Clé API (Local Uniquement)",
+          "authMethods.apiKey.item1": "Votre clé API est stockée chiffrée sur votre appareil via le stockage sécurisé de la plateforme (iOS Keychain / Android KeyStore)",
+          "authMethods.apiKey.item2": "La clé ne quitte jamais votre appareil — tous les appels API vont directement à Intervals.icu",
+          "authMethods.apiKey.item3": "Aucun serveur backend impliqué",
+          "authMethods.oauth.title": "Mode OAuth (Connecté)",
+          "authMethods.oauth.item1": "Utilise l'authentification OAuth 2.0 standard",
+          "authMethods.oauth.item2": "Un proxy Cloudflare Worker gère l'échange de jetons pour garder le secret client sécurisé",
+          "authMethods.oauth.item3": "Le proxy stocke temporairement un paramètre d'état (TTL de 5 minutes) pour la protection CSRF",
+          "authMethods.oauth.item4": "Votre jeton d'accès est retourné directement à votre appareil et stocké de manière sécurisée",
+          "authMethods.oauth.item5": "Le proxy ne stocke pas votre jeton d'accès",
+          "dataFetch.title": "Données que Nous Récupérons",
+          "dataFetch.intro": "Depuis Intervals.icu (avec votre permission) :",
+          "dataFetch.item1": "Activités (parcours, métriques, flux)",
+          "dataFetch.item2": "Données de bien-être (HRV, sommeil, poids)",
+          "dataFetch.item3": "Calendrier et entraînements planifiés",
+          "dataFetch.item4": "Paramètres sportifs (zones, seuils)",
           "localStorage.title": "Stockage Local",
-          "localStorage.intro": "Stocké uniquement sur votre appareil :",
-          "localStorage.item1":
-            "<strong>Identifiants API</strong> - Chiffrés via le stockage sécurisé de la plateforme",
-          "localStorage.item2":
-            "<strong>Données d'activité</strong> - En cache pour utilisation hors ligne",
-          "localStorage.item3":
-            "<strong>Préférences</strong> - Thème, paramètres de carte",
+          "localStorage.intro": "Toutes les données sont stockées uniquement sur votre appareil :",
+          "localStorage.item1": "<strong>Identifiants</strong> — Chiffrés (SecureStore), conservés jusqu'à déconnexion",
+          "localStorage.item2": "<strong>Données d'activité</strong> — Cache de 7 jours, traces GPS stockées indéfiniment",
+          "localStorage.item3": "<strong>Préférences</strong> — Thème, paramètres de carte, conservés jusqu'à effacement des données",
           "thirdParty.title": "Services Tiers",
-          "thirdParty.item1":
-            '<strong>Intervals.icu</strong> - Votre source de données fitness (<a href="https://intervals.icu/privacy" target="_blank">politique de confidentialité</a>)',
-          "thirdParty.item2":
-            "<strong>Tuiles cartographiques</strong> - OpenStreetMap, Carto, Stadia (requêtes web standard)",
-          "thirdParty.noTracking":
-            "Pas d'analytique, de publicités, de rapports d'erreurs ou de SDKs de suivi.",
-          "disclaimer.title": "Avertissement",
-          "disclaimer.content":
-            'Veloq est un projet open-source indépendant et n\'est <strong>pas affilié, approuvé ou officiellement connecté à Intervals.icu</strong> de quelque manière que ce soit. Pour plus d\'informations sur la façon dont Intervals.icu gère vos données, veuillez consulter leur <a href="https://intervals.icu/privacy" target="_blank">politique de confidentialité</a>.',
+          "thirdParty.intervals.title": "Intervals.icu",
+          "thirdParty.intervals.desc": 'Votre source de données fitness. Voir leur <a href="https://intervals.icu/privacy-policy.html" target="_blank">Politique de Confidentialité</a> et <a href="https://forum.intervals.icu/tos" target="_blank">Conditions d\'Utilisation</a>.',
+          "thirdParty.maps.title": "Fournisseurs de Tuiles Cartographiques",
+          "thirdParty.maps.desc": "Requêtes web standard, aucune donnée personnelle envoyée :",
+          "thirdParty.cloudflare.title": "Cloudflare Workers (mode OAuth uniquement)",
+          "thirdParty.cloudflare.item1": "Stocke temporairement les paramètres d'état OAuth (TTL de 5 minutes)",
+          "thirdParty.cloudflare.item2": "Peut stocker les notifications d'événements webhook (TTL de 24 heures) pour le support futur des notifications push",
+          "thirdParty.cloudflare.item3": "Ne stocke pas les jetons d'accès ni les données personnelles",
+          "thirdParty.noTracking": "Pas d'analytique, publicité, rapports d'erreurs ou SDKs de suivi.",
           "dataSharing.title": "Partage de Données",
-          "dataSharing.content":
-            "Aucun. Le développeur n'a pas accès à vos données.",
+          "dataSharing.content": "Aucun. Le développeur n'a pas accès à vos données. Toutes les données transitent directement entre votre appareil et Intervals.icu, ou via des requêtes de tuiles standard (sans données personnelles).",
           "security.title": "Sécurité",
-          "security.item1": "Stockage des identifiants chiffré",
-          "security.item2": "HTTPS pour toutes les requêtes réseau",
-          "security.item3": "Pas de télémétrie en arrière-plan",
+          "security.item1": "Identifiants chiffrés via le stockage sécurisé de la plateforme",
+          "security.item2": "HTTPS/TLS pour toutes les requêtes réseau",
+          "security.item3": "Validation d'état OAuth (protection CSRF)",
+          "security.item4": "Vérification de signature webhook (HMAC-SHA256)",
+          "security.item5": "Pas de télémétrie en arrière-plan ni collecte de données",
+          "disclaimer.title": "Avertissement",
+          "disclaimer.content": 'Veloq est un projet open-source indépendant et n\'est <strong>pas affilié, approuvé ou officiellement connecté à Intervals.icu</strong> de quelque manière que ce soit. Pour plus d\'informations sur la façon dont Intervals.icu gère vos données, veuillez consulter leur <a href="https://intervals.icu/privacy-policy.html" target="_blank">politique de confidentialité</a>.',
           "children.title": "Confidentialité des Enfants",
-          "children.content":
-            "Non destiné aux utilisateurs de moins de 13 ans. Aucune donnée n'est collectée auprès d'aucun utilisateur.",
+          "children.content": "Non destiné aux utilisateurs de moins de 13 ans. Aucune donnée n'est collectée auprès d'aucun utilisateur.",
           "rights.title": "Vos Droits",
-          "rights.content":
-            "Supprimez toutes les données locales en désinstallant l'application ou en effaçant les données de l'application dans les paramètres de l'appareil.",
+          "rights.item1": "<strong>Voir vos données :</strong> Toutes les données sont visibles dans l'application",
+          "rights.item2": "<strong>Supprimer vos données :</strong> Désinstallez l'application ou effacez les données dans les paramètres de l'appareil",
+          "rights.item3": "<strong>Révoquer l'accès :</strong> Déconnectez votre compte dans les paramètres de l'app, ou révoquez l'app OAuth dans les paramètres Intervals.icu",
           "changes.title": "Modifications",
-          "changes.content":
-            'Cette politique peut être mise à jour. Vérifiez la date de "Dernière mise à jour" ci-dessus.',
+          "changes.content": 'Cette politique peut être mise à jour. Vérifiez la date de "Dernière mise à jour" ci-dessus. L\'utilisation continue après les modifications constitue une acceptation.',
           "contact.title": "Contact",
-          "contact.content":
-            '<a href="https://github.com/evanjt/veloq/issues">GitHub Issues</a> ou <a href="mailto:developer@veloq.fit">developer@veloq.fit</a>',
+          "contact.content": '<a href="https://github.com/evanjt/veloq/issues">GitHub Issues</a> ou <a href="mailto:veloq@evanjt.com">veloq@evanjt.com</a>',
         },
       };
 

@@ -4,7 +4,8 @@
  */
 
 import React, { useMemo, useCallback, useState } from 'react';
-import { View, StyleSheet, useColorScheme, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { useTheme } from '@/hooks';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router, type Href } from 'expo-router';
@@ -49,8 +50,7 @@ export function RoutePerformanceSection({
   activityType,
 }: RoutePerformanceSectionProps) {
   const { t } = useTranslation();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const { isDark } = useTheme();
 
   const { routeGroup, performances, isLoading, best, currentRank } =
     useRoutePerformances(activityId);

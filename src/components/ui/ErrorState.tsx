@@ -1,10 +1,11 @@
 import React from 'react';
-import { StyleSheet, View, Text, StyleProp, ViewStyle, useColorScheme } from 'react-native';
+import { StyleSheet, View, Text, StyleProp, ViewStyle } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors, darkColors } from '@/theme/colors';
 import { typography } from '@/theme/typography';
 import { spacing } from '@/theme/spacing';
+import { useTheme } from '@/hooks';
 import { Button } from './Button';
 
 interface ErrorStateProps {
@@ -34,8 +35,7 @@ export function ErrorState({
   compact = false,
 }: ErrorStateProps) {
   const { t } = useTranslation();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const { isDark } = useTheme();
 
   const displayTitle = title ?? t('errorState.defaultTitle');
   const displayMessage = message ?? t('errorState.defaultMessage');

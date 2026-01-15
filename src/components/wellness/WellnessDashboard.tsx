@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
-import { View, StyleSheet, useColorScheme } from 'react-native';
+import { View, StyleSheet } from 'react-native';
+import { useTheme } from '@/hooks';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { colors, darkColors, spacing, typography, layout, opacity } from '@/theme';
@@ -36,8 +37,7 @@ function getAverage(data: WellnessData[], key: keyof WellnessData, days: number)
 
 export function WellnessDashboard({ data }: WellnessDashboardProps) {
   const { t } = useTranslation();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const { isDark } = useTheme();
 
   // Show empty state if no data
   if (!data || data.length === 0) {

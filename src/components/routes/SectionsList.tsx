@@ -7,7 +7,8 @@
  */
 
 import React, { useCallback, useMemo } from 'react';
-import { View, StyleSheet, FlatList, useColorScheme, Platform } from 'react-native';
+import { View, StyleSheet, FlatList, Platform } from 'react-native';
+import { useTheme } from '@/hooks';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -33,8 +34,7 @@ type SectionTracesMap = Map<string, ActivityTrace[]>;
 
 export function SectionsList({ sportType }: SectionsListProps) {
   const { t } = useTranslation();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const { isDark } = useTheme();
 
   const {
     sections: unifiedSections,

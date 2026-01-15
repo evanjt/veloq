@@ -1,5 +1,6 @@
 import React, { useMemo, useCallback, useState, useRef } from 'react';
-import { View, StyleSheet, useColorScheme, Switch, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, Switch, TouchableOpacity } from 'react-native';
+import { useTheme } from '@/hooks';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { CartesianChart, Line } from 'victory-native';
@@ -89,8 +90,7 @@ interface ChartPoint {
 
 export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceCurveChartProps) {
   const { t } = useTranslation();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const { isDark } = useTheme();
   const isRunning = sport === 'Run';
 
   // GAP toggle state (only for running)

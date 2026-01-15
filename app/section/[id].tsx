@@ -8,7 +8,6 @@ import {
   View,
   ScrollView,
   StyleSheet,
-  useColorScheme,
   Pressable,
   Dimensions,
   StatusBar,
@@ -27,8 +26,10 @@ import {
   useFrequentSections,
   useSectionPerformances,
   useCustomSection,
+  useTheme,
   type ActivitySectionRecord,
 } from '@/hooks';
+import { createSharedStyles } from '@/styles';
 import { SectionMapView, MiniTraceView } from '@/components/routes';
 import { UnifiedPerformanceChart } from '@/components/routes/performance';
 import { getRouteEngine } from '@/lib/native/routeEngine';
@@ -95,7 +96,7 @@ function ActivityRow({
   };
 
   const isReverse = direction === 'reverse';
-  const traceColor = isHighlighted ? '#00BCD4' : isReverse ? REVERSE_COLOR : '#2196F3';
+  const traceColor = isHighlighted ? colors.chartCyan : isReverse ? REVERSE_COLOR : colors.sameDirection;
   const activityColor = getActivityColor(activity.type);
 
   // Use actual section time/pace if available, otherwise fall back to proportional estimate
@@ -176,7 +177,7 @@ function ActivityRow({
           {formatDuration(sectionTime)}
         </Text>
       </View>
-      <MaterialCommunityIcons name="chevron-right" size={20} color={isDark ? '#555' : '#CCC'} />
+      <MaterialCommunityIcons name="chevron-right" size={20} color={isDark ? darkColors.textMuted : colors.divider} />
     </Pressable>
   );
 }
@@ -184,8 +185,8 @@ function ActivityRow({
 export default function SectionDetailScreen() {
   const { t } = useTranslation();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const { isDark, colors: themeColors } = useTheme();
+  const shared = createSharedStyles(isDark);
   const insets = useSafeAreaInsets();
 
   const [highlightedActivityId, setHighlightedActivityId] = useState<string | null>(null);
@@ -522,7 +523,7 @@ export default function SectionDetailScreen() {
             <MaterialCommunityIcons
               name="arrow-left"
               size={24}
-              color={isDark ? '#FFFFFF' : colors.textPrimary}
+              color={isDark ? colors.textOnDark : colors.textPrimary}
             />
           </TouchableOpacity>
         </View>
@@ -530,7 +531,7 @@ export default function SectionDetailScreen() {
           <MaterialCommunityIcons
             name="map-marker-question-outline"
             size={48}
-            color={isDark ? '#444' : '#CCC'}
+            color={isDark ? darkColors.border : colors.divider}
           />
           <Text style={[styles.emptyText, isDark && styles.textLight]}>
             {t('sections.sectionNotFound')}
@@ -577,14 +578,14 @@ export default function SectionDetailScreen() {
               onPress={() => router.back()}
               activeOpacity={0.7}
             >
-              <MaterialCommunityIcons name="arrow-left" size={24} color="#FFFFFF" />
+              <MaterialCommunityIcons name="arrow-left" size={24} color={colors.textOnDark} />
             </TouchableOpacity>
           </View>
 
           <View style={styles.infoOverlay}>
             <View style={styles.sectionNameRow}>
               <View style={[styles.typeIcon, { backgroundColor: activityColor }]}>
-                <MaterialCommunityIcons name={iconName} size={16} color="#FFFFFF" />
+                <MaterialCommunityIcons name={iconName} size={16} color={colors.textOnDark} />
               </View>
               {isEditing ? (
                 <View style={styles.editNameContainer}>
@@ -601,10 +602,10 @@ export default function SectionDetailScreen() {
                     selectTextOnFocus
                   />
                   <TouchableOpacity onPress={handleSaveName} style={styles.editNameButton}>
-                    <MaterialCommunityIcons name="check" size={20} color="#4CAF50" />
+                    <MaterialCommunityIcons name="check" size={20} color={colors.success} />
                   </TouchableOpacity>
                   <TouchableOpacity onPress={handleCancelEdit} style={styles.editNameButton}>
-                    <MaterialCommunityIcons name="close" size={20} color="#FF5252" />
+                    <MaterialCommunityIcons name="close" size={20} color={colors.error} />
                   </TouchableOpacity>
                 </View>
               ) : (

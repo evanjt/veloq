@@ -13,7 +13,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSegments } from 'expo-router';
 import { useActivities, useRouteDataSync } from '@/hooks';
 import { useAuthStore, useRouteSettings, useSyncDateRange } from '@/providers';
-import { colors } from '@/theme';
+import { colors, opacity } from '@/theme';
 
 export function GlobalDataSync() {
   const insets = useSafeAreaInsets();
@@ -79,7 +79,7 @@ export function GlobalDataSync() {
         <MaterialCommunityIcons
           name={progress.status === 'computing' ? 'map-marker-path' : 'cloud-sync-outline'}
           size={16}
-          color="#FFFFFF"
+          color={colors.textOnDark}
         />
         <Text style={styles.text}>{statusText}</Text>
         {progress.total > 0 && (
@@ -111,7 +111,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   text: {
-    color: '#FFFFFF',
+    color: colors.textOnDark,
     fontSize: 13,
     fontWeight: '600',
   },
@@ -125,6 +125,6 @@ const styles = StyleSheet.create({
   },
   progressFill: {
     height: '100%',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.textOnDark,
   },
 });

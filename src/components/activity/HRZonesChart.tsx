@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
-import { View, StyleSheet, useColorScheme, Text } from 'react-native';
+import { View, StyleSheet, Text } from 'react-native';
+import { useTheme } from '@/hooks';
 import { useTranslation } from 'react-i18next';
 import { colors, darkColors, opacity, typography, spacing, layout } from '@/theme';
 import { useHRZones } from '@/providers';
@@ -27,8 +28,7 @@ function formatDuration(seconds: number): string {
 
 export function HRZonesChart({ streams, activityType = 'Ride', activity }: HRZonesChartProps) {
   const { t } = useTranslation();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const { isDark } = useTheme();
 
   // Get HR zones from API (sport settings)
   const { data: sportSettings } = useSportSettings();

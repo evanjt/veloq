@@ -156,7 +156,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   text: {
-    color: '#FFFFFF',
+    color: colors.textOnDark,
     fontSize: 13,
     fontWeight: '600',
   },
@@ -170,6 +170,6 @@ const styles = StyleSheet.create({
   },
   progressFill: {
     height: '100%',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.textOnDark,
   },
 });

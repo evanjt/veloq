@@ -333,13 +333,13 @@ export function UnifiedPerformanceChart({
                           cx={points.speed[bestIndex].x!}
                           cy={points.speed[bestIndex].y!}
                           r={8}
-                          color="#FFB300"
+                          color={colors.chartGold}
                         />
                         <Circle
                           cx={points.speed[bestIndex].x!}
                           cy={points.speed[bestIndex].y!}
                           r={4}
-                          color="#FFFFFF"
+                          color={colors.textOnDark}
                         />
                       </>
                     )}
@@ -353,13 +353,13 @@ export function UnifiedPerformanceChart({
                           cx={points.speed[selectedIndex].x!}
                           cy={points.speed[selectedIndex].y!}
                           r={10}
-                          color="#00BCD4"
+                          color={colors.chartCyan}
                         />
                         <Circle
                           cx={points.speed[selectedIndex].x!}
                           cy={points.speed[selectedIndex].y!}
                           r={5}
-                          color="#FFFFFF"
+                          color={colors.textOnDark}
                         />
                       </>
                     )}
@@ -421,7 +421,7 @@ export function UnifiedPerformanceChart({
         </Text>
         <View style={styles.chartLegend}>
           <View style={styles.legendItem}>
-            <View style={[styles.legendDot, { backgroundColor: '#FFB300' }]} />
+            <View style={[styles.legendDot, { backgroundColor: colors.chartGold }]} />
             <Text style={[styles.legendText, isDark && styles.textMuted]}>
               {t('sections.best')}
             </Text>
@@ -500,7 +500,7 @@ export function UnifiedPerformanceChart({
             <MaterialCommunityIcons
               name="chevron-right"
               size={16}
-              color={isDark ? '#555' : '#CCC'}
+              color={isDark ? darkColors.textMuted : colors.border}
             />
           </View>
         </TouchableOpacity>
@@ -525,7 +525,7 @@ export function UnifiedPerformanceChart({
       {chartData[bestIndex] && (
         <View style={[styles.bestStats, isDark && styles.bestStatsDark]}>
           <View style={styles.bestStatItem}>
-            <Text style={[styles.bestStatValue, { color: '#FFB300' }]}>
+            <Text style={[styles.bestStatValue, { color: colors.chartGold }]}>
               {formatSpeedValue(chartData[bestIndex].speed)}
             </Text>
             <Text style={[styles.bestStatLabel, isDark && styles.textMuted]}>
@@ -548,7 +548,7 @@ export function UnifiedPerformanceChart({
 
 const styles = StyleSheet.create({
   chartCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     borderRadius: 16,
     marginHorizontal: 16,
     marginTop: 16,
@@ -599,7 +599,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#F5F5F5',
+    backgroundColor: colors.background,
     marginHorizontal: 16,
     marginBottom: 8,
     padding: 12,

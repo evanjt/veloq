@@ -4,7 +4,8 @@
  */
 
 import React from 'react';
-import { View, StyleSheet, useColorScheme, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { useTheme } from '@/hooks';
 import { Text, ProgressBar } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -45,8 +46,7 @@ function getStatusIcon(
 
 export function ProcessingBanner({ progress, onCancel, compact = false }: ProcessingBannerProps) {
   const { t } = useTranslation();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const { isDark } = useTheme();
 
   const getStatusMessage = (prog: RouteProcessingProgress): string => {
     if (prog.message) return prog.message;

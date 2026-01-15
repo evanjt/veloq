@@ -3,7 +3,7 @@ import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { formatRelativeDate } from '@/lib';
-import { colors, opacity, spacing, typography } from '@/theme';
+import { colors, darkColors, opacity, spacing, typography } from '@/theme';
 
 interface StatsRowProps {
   currentSpeed: number | null;
@@ -44,7 +44,7 @@ export function StatsRow({
       </View>
       <View style={[styles.statDivider, isDark && styles.statDividerDark]} />
       <View style={styles.stat}>
-        <Text style={[styles.statValue, { color: '#FFB300' }]}>
+        <Text style={[styles.statValue, { color: colors.chartGold }]}>
           {bestSpeed !== null ? formatSpeedValue(bestSpeed) : '-'}
         </Text>
         <Text style={[styles.statLabel, isDark && styles.textMuted]}>{t('routes.best')}</Text>
@@ -95,6 +95,6 @@ const styles = StyleSheet.create({
     color: colors.textOnDark,
   },
   textMuted: {
-    color: '#888',
+    color: darkColors.textSecondary,
   },
 });

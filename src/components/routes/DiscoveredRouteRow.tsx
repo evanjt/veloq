@@ -4,7 +4,8 @@
  */
 
 import React, { useEffect, useRef } from 'react';
-import { View, StyleSheet, useColorScheme, Animated } from 'react-native';
+import { View, StyleSheet, Animated } from 'react-native';
+import { useTheme } from '@/hooks';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Svg, { Polyline } from 'react-native-svg';
@@ -31,8 +32,7 @@ interface DiscoveredRouteRowProps {
 }
 
 function RoutePreview({ points }: { points: { x: number; y: number }[] }) {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const { isDark } = useTheme();
 
   if (points.length < 2) return null;
 
@@ -74,8 +74,7 @@ function RoutePreview({ points }: { points: { x: number; y: number }[] }) {
 }
 
 function PlaceholderPreview({ type }: { type: string }) {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const { isDark } = useTheme();
 
   const getIcon = () => {
     const t = type?.toLowerCase() || '';
@@ -101,8 +100,7 @@ function PlaceholderPreview({ type }: { type: string }) {
 
 export function DiscoveredRouteRow({ route, index }: DiscoveredRouteRowProps) {
   const { t } = useTranslation();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const { isDark } = useTheme();
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.95)).current;

@@ -3,12 +3,12 @@ import {
   View,
   StyleSheet,
   Animated,
-  useColorScheme,
   ViewStyle,
   DimensionValue,
 } from 'react-native';
 import { colors, darkColors, opacity } from '@/theme/colors';
 import { layout, spacing } from '@/theme/spacing';
+import { useTheme } from '@/hooks';
 
 interface ShimmerProps {
   width?: DimensionValue;
@@ -18,8 +18,7 @@ interface ShimmerProps {
 }
 
 export function Shimmer({ width = '100%', height = 20, borderRadius = 8, style }: ShimmerProps) {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const { isDark } = useTheme();
   const animatedValue = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -79,8 +78,7 @@ export function Shimmer({ width = '100%', height = 20, borderRadius = 8, style }
 
 // Pre-built skeleton patterns
 export function ActivityCardSkeleton() {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const { isDark } = useTheme();
 
   return (
     <View style={[styles.card, isDark && styles.cardDark]}>
@@ -138,8 +136,7 @@ export function StatsPillSkeleton() {
 }
 
 export function WellnessCardSkeleton() {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const { isDark } = useTheme();
 
   return (
     <View style={[styles.card, isDark && styles.cardDark]}>

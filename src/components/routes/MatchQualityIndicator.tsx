@@ -4,7 +4,8 @@
  */
 
 import React from 'react';
-import { View, StyleSheet, useColorScheme } from 'react-native';
+import { View, StyleSheet } from 'react-native';
+import { useTheme } from '@/hooks';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -46,8 +47,7 @@ export function MatchQualityIndicator({
   compact = false,
 }: MatchQualityIndicatorProps) {
   const { t } = useTranslation();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const { isDark } = useTheme();
 
   const getDirectionLabel = (dir: MatchDirection): string => {
     switch (dir) {

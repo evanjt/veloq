@@ -3,7 +3,6 @@ import {
   View,
   ScrollView,
   StyleSheet,
-  useColorScheme,
   RefreshControl,
   TouchableOpacity,
   Modal,
@@ -14,8 +13,9 @@ import { ScreenSafeAreaView } from '@/components/ui';
 import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { WellnessDashboard, WellnessTrendsChart } from '@/components/wellness';
-import { useWellness, type TimeRange } from '@/hooks';
+import { useWellness, useTheme, type TimeRange } from '@/hooks';
 import { colors, darkColors, spacing, layout, typography, opacity } from '@/theme';
+import { createSharedStyles } from '@/styles';
 import { SMOOTHING_PRESETS, getSmoothingDescription, type SmoothingWindow } from '@/lib';
 
 const TIME_RANGES: { id: TimeRange; label: string }[] = [
@@ -28,8 +28,8 @@ const TIME_RANGES: { id: TimeRange; label: string }[] = [
 
 export default function WellnessScreen() {
   const { t } = useTranslation();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const { isDark, colors: themeColors } = useTheme();
+  const shared = createSharedStyles(isDark);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [timeRange, setTimeRange] = useState<TimeRange>('1m');
   const [smoothingWindow, setSmoothingWindow] = useState<SmoothingWindow>('auto');
@@ -51,19 +51,17 @@ export default function WellnessScreen() {
 
   if (showFullPageLoading) {
     return (
-      <ScreenSafeAreaView style={[styles.container, isDark && styles.containerDark]}>
+      <ScreenSafeAreaView style={shared.container}>
         <View style={styles.header}>
           <IconButton
             icon="arrow-left"
-            iconColor={isDark ? '#FFFFFF' : colors.textPrimary}
+            iconColor={themeColors.text}
             onPress={() => router.back()}
           />
-          <Text style={[styles.headerTitle, isDark && styles.textLight]}>
-            {t('wellnessScreen.title')}
-          </Text>
+          <Text style={shared.headerTitle}>{t('wellnessScreen.title')}</Text>
           <View style={{ width: 48 }} />
         </View>
-        <View style={styles.loadingContainer}>
+        <View style={shared.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
         </View>
       </ScreenSafeAreaView>
@@ -71,16 +69,14 @@ export default function WellnessScreen() {
   }
 
   return (
-    <ScreenSafeAreaView style={[styles.container, isDark && styles.containerDark]}>
+    <ScreenSafeAreaView style={shared.container}>
       <View style={styles.header}>
         <IconButton
           icon="arrow-left"
-          iconColor={isDark ? '#FFFFFF' : colors.textPrimary}
+          iconColor={themeColors.text}
           onPress={() => router.back()}
         />
-        <Text style={[styles.headerTitle, isDark && styles.textLight]}>
-          {t('wellnessScreen.title')}
-        </Text>
+        <Text style={shared.headerTitle}>{t('wellnessScreen.title')}</Text>
         {/* Subtle loading indicator in header when fetching in background */}
         <View style={{ width: 48, alignItems: 'center' }}>
           {showBackgroundLoading && <ActivityIndicator size="small" color={colors.primary} />}
@@ -141,9 +137,7 @@ export default function WellnessScreen() {
               iconColor={
                 smoothingWindow !== 'auto'
                   ? colors.primary
-                  : isDark
-                    ? darkColors.textSecondary
-                    : colors.textSecondary
+                  : themeColors.textSecondary
               }
               size={18}
               style={{ margin: 0 }}
@@ -154,10 +148,10 @@ export default function WellnessScreen() {
         {/* Wellness Trends Chart */}
         <View style={[styles.card, isDark && styles.cardDark]}>
           <View style={styles.chartHeader}>
-            <Text style={[styles.sectionTitle, isDark && styles.textLight]}>
+            <Text style={[styles.sectionTitle, isDark && styles.sectionTitleDark]}>
               {t('wellnessScreen.trends')}
             </Text>
-            <Text style={[styles.smoothingLabel, isDark && styles.textDark]}>
+            <Text style={[styles.smoothingLabel, isDark && styles.smoothingLabelDark]}>
               {getSmoothingDescription(smoothingWindow, timeRange)}
             </Text>
           </View>
@@ -179,10 +173,10 @@ export default function WellnessScreen() {
       >
         <Pressable style={styles.modalOverlay} onPress={() => setShowSmoothingModal(false)}>
           <View style={[styles.modalContent, isDark && styles.modalContentDark]}>
-            <Text style={[styles.modalTitle, isDark && styles.textLight]}>
+            <Text style={[styles.modalTitle, isDark && styles.modalTitleDark]}>
               {t('wellness.smoothingTitle' as never)}
             </Text>
-            <Text style={[styles.modalDescription, isDark && styles.textDark]}>
+            <Text style={[styles.modalDescription, isDark && styles.modalDescriptionDark]}>
               {t('wellness.smoothingDescription' as never)}
             </Text>
             <View style={styles.smoothingOptions}>
@@ -212,7 +206,7 @@ export default function WellnessScreen() {
                 </TouchableOpacity>
               ))}
             </View>
-            <Text style={[styles.modalHint, isDark && styles.textDark]}>
+            <Text style={[styles.modalHint, isDark && styles.modalHintDark]}>
               {t('wellness.smoothingHint' as never)}
             </Text>
           </View>
@@ -223,33 +217,11 @@ export default function WellnessScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  containerDark: {
-    backgroundColor: darkColors.background,
-  },
+  // Note: container, loadingContainer, headerTitle now use shared styles
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-  },
-  headerTitle: {
-    fontSize: typography.cardTitle.fontSize,
-    fontWeight: '600',
-    color: colors.textPrimary,
-  },
-  textLight: {
-    color: colors.textOnDark,
-  },
-  textDark: {
-    color: darkColors.textSecondary,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   scrollView: {
     flex: 1,
@@ -268,9 +240,12 @@ const styles = StyleSheet.create({
     backgroundColor: darkColors.surface,
   },
   sectionTitle: {
-    fontSize: typography.body.fontSize,
+    ...typography.body,
     fontWeight: '600',
     color: colors.textPrimary,
+  },
+  sectionTitleDark: {
+    color: darkColors.textPrimary,
   },
   chartHeader: {
     flexDirection: 'row',
@@ -279,8 +254,11 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   smoothingLabel: {
-    fontSize: typography.caption.fontSize,
+    ...typography.caption,
     color: colors.textSecondary,
+  },
+  smoothingLabelDark: {
+    color: darkColors.textSecondary,
   },
   timeRangeRow: {
     flexDirection: 'row',
@@ -296,7 +274,7 @@ const styles = StyleSheet.create({
   },
   timeRangeButton: {
     paddingHorizontal: spacing.sm + 4,
-    paddingVertical: 6,
+    paddingVertical: spacing.xs,
     borderRadius: 14,
     backgroundColor: opacity.overlay.light,
   },
@@ -307,7 +285,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
   },
   timeRangeText: {
-    fontSize: typography.caption.fontSize,
+    ...typography.caption,
     fontWeight: '500',
     color: colors.textSecondary,
   },
@@ -330,14 +308,14 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.6)',
+    backgroundColor: opacity.overlay.full,
     justifyContent: 'center',
     alignItems: 'center',
     padding: spacing.lg,
   },
   modalContent: {
     backgroundColor: colors.surface,
-    borderRadius: 20,
+    borderRadius: layout.borderRadius + 4,
     padding: spacing.lg,
     width: '100%',
     maxWidth: 320,
@@ -346,17 +324,22 @@ const styles = StyleSheet.create({
     backgroundColor: darkColors.surface,
   },
   modalTitle: {
-    fontSize: typography.cardTitle.fontSize,
-    fontWeight: '600',
+    ...typography.cardTitle,
     color: colors.textPrimary,
     textAlign: 'center',
     marginBottom: spacing.xs,
   },
+  modalTitleDark: {
+    color: darkColors.textPrimary,
+  },
   modalDescription: {
-    fontSize: typography.bodySmall.fontSize,
+    ...typography.bodySmall,
     color: colors.textSecondary,
     textAlign: 'center',
     marginBottom: spacing.md,
+  },
+  modalDescriptionDark: {
+    color: darkColors.textSecondary,
   },
   smoothingOptions: {
     flexDirection: 'row',
@@ -378,7 +361,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
   },
   smoothingOptionText: {
-    fontSize: typography.caption.fontSize,
+    ...typography.caption,
     fontWeight: '500',
     color: colors.textSecondary,
   },
@@ -389,9 +372,12 @@ const styles = StyleSheet.create({
     color: colors.textOnDark,
   },
   modalHint: {
-    fontSize: typography.caption.fontSize,
+    ...typography.caption,
     color: colors.textSecondary,
     textAlign: 'center',
     fontStyle: 'italic',
+  },
+  modalHintDark: {
+    color: darkColors.textSecondary,
   },
 });

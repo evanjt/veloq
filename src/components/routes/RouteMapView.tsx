@@ -279,7 +279,7 @@ export function RouteMapView({
           <LineLayer
             id="highlightedLine"
             style={{
-              lineColor: '#00BCD4', // Cyan for highlighted activity
+              lineColor: colors.chartCyan, // Cyan for highlighted activity
               lineWidth: 4,
               lineCap: 'round',
               lineJoin: 'round',
@@ -293,7 +293,7 @@ export function RouteMapView({
         <MarkerView coordinate={[startPoint.lng, startPoint.lat]}>
           <View style={styles.markerContainer}>
             <View style={[styles.marker, styles.startMarker]}>
-              <MaterialCommunityIcons name="play" size={12} color="#FFFFFF" />
+              <MaterialCommunityIcons name="play" size={12} color={colors.textOnDark} />
             </View>
           </View>
         </MarkerView>
@@ -304,7 +304,7 @@ export function RouteMapView({
         <MarkerView coordinate={[endPoint.lng, endPoint.lat]}>
           <View style={styles.markerContainer}>
             <View style={[styles.marker, styles.endMarker]}>
-              <MaterialCommunityIcons name="flag-checkered" size={12} color="#FFFFFF" />
+              <MaterialCommunityIcons name="flag-checkered" size={12} color={colors.textOnDark} />
             </View>
           </View>
         </MarkerView>
@@ -347,7 +347,7 @@ export function RouteMapView({
         {/* Expand icon overlay */}
         {showExpandIcon && (
           <View style={styles.expandOverlay}>
-            <MaterialCommunityIcons name="fullscreen" size={20} color="#FFFFFF" />
+            <MaterialCommunityIcons name="fullscreen" size={20} color={colors.textOnDark} />
           </View>
         )}
       </TouchableOpacity>
@@ -389,7 +389,7 @@ export function RouteMapView({
               <LineLayer
                 id="highlightedLine"
                 style={{
-                  lineColor: '#00BCD4',
+                  lineColor: colors.chartCyan,
                   lineWidth: 4,
                   lineCap: 'round',
                   lineJoin: 'round',
@@ -403,7 +403,7 @@ export function RouteMapView({
             <MarkerView coordinate={[startPoint.lng, startPoint.lat]}>
               <View style={styles.markerContainer}>
                 <View style={[styles.marker, styles.startMarker]}>
-                  <MaterialCommunityIcons name="play" size={14} color="#FFFFFF" />
+                  <MaterialCommunityIcons name="play" size={14} color={colors.textOnDark} />
                 </View>
               </View>
             </MarkerView>
@@ -414,7 +414,7 @@ export function RouteMapView({
             <MarkerView coordinate={[endPoint.lng, endPoint.lat]}>
               <View style={styles.markerContainer}>
                 <View style={[styles.marker, styles.endMarker]}>
-                  <MaterialCommunityIcons name="flag-checkered" size={14} color="#FFFFFF" />
+                  <MaterialCommunityIcons name="flag-checkered" size={14} color={colors.textOnDark} />
                 </View>
               </View>
             </MarkerView>

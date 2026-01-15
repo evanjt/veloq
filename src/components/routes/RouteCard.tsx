@@ -4,7 +4,8 @@
  */
 
 import React from 'react';
-import { View, StyleSheet, Pressable, useColorScheme } from 'react-native';
+import { View, StyleSheet, Pressable } from 'react-native';
+import { useTheme } from '@/hooks';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router, Href } from 'expo-router';
@@ -20,8 +21,7 @@ interface RouteCardProps {
 
 export function RouteCard({ route }: RouteCardProps) {
   const { t } = useTranslation();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const { isDark } = useTheme();
 
   const handlePress = () => {
     router.push(`/route/${route.id}` as Href);

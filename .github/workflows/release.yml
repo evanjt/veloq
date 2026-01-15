@@ -72,6 +72,7 @@ jobs:
       version: ${{ steps.version.outputs.version }}
       version_code: ${{ steps.version.outputs.version_code }}
       aab_path: ${{ steps.prepare.outputs.aab_path }}
+      ipa_path: ${{ steps.prepare.outputs.ipa_path }}
     steps:
       - name: Checkout (for changelog)
         uses: actions/checkout@v4
@@ -126,13 +127,24 @@ jobs:
             echo "::warning::No AAB found in artifacts"
           fi
 
-          # Find and rename iOS artifact
+          # Find and rename iOS simulator artifact
           IOS=$(find artifacts -name "*-ios-simulator.zip" | head -1)
           if [ -n "$IOS" ]; then
             cp "$IOS" "release/veloq-${VERSION}-ios-simulator.zip"
-            echo "✅ iOS: veloq-${VERSION}-ios-simulator.zip"
+            echo "✅ iOS Simulator: veloq-${VERSION}-ios-simulator.zip"
           else
             echo "::warning::No iOS simulator artifact found"
+          fi
+
+          # Find and copy IPA
+          IPA=$(find artifacts -name "*.ipa" | head -1)
+          if [ -n "$IPA" ]; then
+            IPA_DEST="release/veloq-${VERSION}.ipa"
+            cp "$IPA" "$IPA_DEST"
+            echo "ipa_path=$IPA_DEST" >> $GITHUB_OUTPUT
+            echo "✅ IPA: veloq-${VERSION}.ipa"
+          else
+            echo "::notice::No IPA found (iOS signing may not be configured)"
           fi
 
           echo ""
@@ -181,6 +193,15 @@ jobs:
         with:
           name: release-aab
           path: ${{ steps.prepare.outputs.aab_path }}
+          retention-days: 1
+
+      # Upload IPA for deploy job
+      - name: Upload IPA for deployment
+        if: steps.prepare.outputs.ipa_path != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-ipa
+          path: ${{ steps.prepare.outputs.ipa_path }}
           retention-days: 1
 
   # ============================================
@@ -260,12 +281,71 @@ jobs:
           echo "To promote to production, go to [Google Play Console](https://play.google.com/console)." >> $GITHUB_STEP_SUMMARY
 
   # ============================================
-  # Deploy to TestFlight (optional, future)
+  # Deploy to TestFlight
   # ============================================
-  # To enable TestFlight deployment:
-  # 1. Enroll in Apple Developer Program ($99/year)
-  # 2. Create a private git repo for Match certificates
-  # 3. Run `fastlane match init` and `fastlane match appstore` locally
-  # 4. Add secrets: MATCH_GIT_URL, MATCH_SSH_PRIVATE_KEY, MATCH_PASSWORD,
-  #    ASC_KEY_ID, ASC_ISSUER_ID, ASC_API_KEY
-  # 5. Add deploy-testflight job here
+  deploy-testflight:
+    name: Deploy to TestFlight
+    needs: release
+    runs-on: macos-15
+    # Only runs if IPA was built and ASC credentials are configured
+    if: needs.release.outputs.ipa_path != ''
+    steps:
+      - name: Check for TestFlight credentials
+        id: check_creds
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_API_KEY: ${{ secrets.ASC_API_KEY }}
+        run: |
+          if [ -z "$ASC_KEY_ID" ] || [ -z "$ASC_ISSUER_ID" ] || [ -z "$ASC_API_KEY" ]; then
+            echo "skip=true" >> $GITHUB_OUTPUT
+            echo "::notice::Skipping TestFlight deployment - App Store Connect credentials not configured"
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Checkout repository
+        if: steps.check_creds.outputs.skip != 'true'
+        uses: actions/checkout@v4
+
+      - name: Setup Ruby
+        if: steps.check_creds.outputs.skip != 'true'
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.2"
+          working-directory: fastlane
+          bundler-cache: true
+
+      - name: Download IPA
+        if: steps.check_creds.outputs.skip != 'true'
+        uses: actions/download-artifact@v4
+        with:
+          name: release-ipa
+          path: release/
+
+      - name: Upload to TestFlight
+        if: steps.check_creds.outputs.skip != 'true'
+        working-directory: fastlane
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_API_KEY: ${{ secrets.ASC_API_KEY }}
+          IPA_PATH: ${{ github.workspace }}/release/veloq-${{ needs.release.outputs.version }}.ipa
+        run: |
+          if [ ! -f "$IPA_PATH" ]; then
+            echo "Error: IPA file not found at $IPA_PATH"
+            echo "Contents of workspace/release:"
+            ls -la "${{ github.workspace }}/release/" || echo "Directory not found"
+            exit 1
+          fi
+          bundle exec fastlane ios beta ipa:"$IPA_PATH"
+
+      - name: Summary
+        if: steps.check_creds.outputs.skip != 'true'
+        run: |
+          echo "## TestFlight Deployment" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Version:** ${{ needs.release.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Track:** Internal TestFlight" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Build will be available in [App Store Connect](https://appstoreconnect.apple.com) shortly." >> $GITHUB_STEP_SUMMARY

@@ -4,7 +4,8 @@
  */
 
 import React, { memo } from 'react';
-import { View, StyleSheet, useColorScheme } from 'react-native';
+import { View, StyleSheet } from 'react-native';
+import { useTheme } from '@/hooks';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Svg, { Polyline } from 'react-native-svg';
@@ -50,8 +51,7 @@ const RoutePreview = memo(function RoutePreview({
 
 function MatchRowComponent({ match }: MatchRowProps) {
   const { t } = useTranslation();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const { isDark } = useTheme();
 
   const getTypeIcon = (): 'bike' | 'run' | 'swim' | 'walk' | 'map-marker' => {
     const type = match.type?.toLowerCase() || '';

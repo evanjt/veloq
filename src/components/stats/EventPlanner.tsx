@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, StyleSheet, useColorScheme, TouchableOpacity, Linking } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Linking } from 'react-native';
+import { useTheme } from '@/hooks';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -49,8 +50,7 @@ const TYPE_ICONS: Record<Event['type'], MaterialIconName> = {
 
 export function EventPlanner({ events, athleteId }: EventPlannerProps) {
   const { t } = useTranslation();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const { isDark } = useTheme();
 
   const sortedEvents = [...(events || [])]
     .filter((e) => getDaysUntil(e.date) >= 0)

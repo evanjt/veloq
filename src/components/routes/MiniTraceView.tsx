@@ -7,6 +7,7 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import Svg, { Polyline } from 'react-native-svg';
+import { colors } from '@/theme';
 import type { RoutePoint } from '@/types';
 
 interface MiniTraceViewProps {
@@ -108,8 +109,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   highlighted: {
-    backgroundColor: 'rgba(0, 188, 212, 0.15)',
+    backgroundColor: colors.chartCyan + '26',
     borderWidth: 1,
-    borderColor: '#00BCD4',
+    borderColor: colors.chartCyan,
   },
 });

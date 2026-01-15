@@ -8,11 +8,12 @@
  */
 
 import React, { ReactNode } from 'react';
-import { View, StyleSheet, useColorScheme } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { GestureDetector, GestureType } from 'react-native-gesture-handler';
 import { colors, darkColors } from '@/theme/colors';
 import { typography } from '@/theme/typography';
+import { useTheme } from '@/hooks';
 
 export interface ChartPadding {
   top?: number;
@@ -56,8 +57,7 @@ export const ChartContainer = React.memo(function ChartContainer({
   headerRight,
   footer,
 }: ChartContainerProps) {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const { isDark } = useTheme();
 
   // Loading state
   if (isLoading) {

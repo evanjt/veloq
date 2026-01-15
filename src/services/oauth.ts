@@ -69,9 +69,12 @@ export function getProxyRedirectUri(): string {
 /**
  * Build the OAuth authorization URL
  * Redirects to the proxy, which then redirects to the app with the token
+ * Note: oauthState must be set before calling this function
  */
 export function buildAuthorizationUrl(): string {
-  oauthState = generateState();
+  if (!oauthState) {
+    throw new Error('OAuth state not initialized. Call startOAuthFlow() instead.');
+  }
 
   // The redirect_uri points to our proxy, not the app directly
   const proxyRedirectUri = getProxyRedirectUri();
@@ -88,14 +91,33 @@ export function buildAuthorizationUrl(): string {
 }
 
 /**
+ * Register the OAuth state with the proxy for CSRF protection
+ * This must be called before the OAuth flow starts
+ */
+async function registerStateWithProxy(state: string): Promise<void> {
+  const response = await fetch(`${OAUTH.PROXY_URL}/oauth/state`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ state }),
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to register OAuth state with proxy');
+  }
+}
+
+/**
  * Start the OAuth flow by opening the authorization URL in the browser
  *
  * Flow:
- * 1. App opens browser to intervals.icu/oauth/authorize
- * 2. User logs in and approves
- * 3. intervals.icu redirects to proxy with auth code
- * 4. Proxy exchanges code for token (with client_secret)
- * 5. Proxy redirects to app with token via deep link
+ * 1. App generates state and registers it with proxy (CSRF protection)
+ * 2. App opens browser to intervals.icu/oauth/authorize
+ * 3. User logs in and approves
+ * 4. intervals.icu redirects to proxy with auth code and state
+ * 5. Proxy validates state, exchanges code for token (with client_secret)
+ * 6. Proxy redirects to app with token via deep link
  */
 export async function startOAuthFlow(): Promise<WebBrowser.WebBrowserAuthSessionResult> {
   if (!isOAuthConfigured()) {
@@ -103,6 +125,13 @@ export async function startOAuthFlow(): Promise<WebBrowser.WebBrowserAuthSession
       'OAuth is not configured. Set CLIENT_ID and PROXY_URL in src/lib/utils/constants.ts'
     );
   }
+
+  // Generate state and register with proxy before building URL
+  const state = generateState();
+  oauthState = state;
+
+  // Register state with proxy for server-side validation
+  await registerStateWithProxy(state);
 
   const authUrl = buildAuthorizationUrl();
   const appCallbackUrl = `${OAUTH.APP_SCHEME}://oauth/callback`;

@@ -112,10 +112,12 @@ export const colors = {
   hike: '#A78BFA', // Violet-400
   workout: '#6366F1', // Indigo-500
 
-  // Fitness metric colors
+  // Fitness metric colors (matching intervals.icu)
   fitness: brand.blue, // CTL - Brand blue
   fatigue: '#A855F7', // ATL - Purple 
   form: brand.blue, // TSB - Use blue (neutral), color should be zone-based at runtime
+  fitnessBlue: '#42A5F5', // CTL display color (intervals.icu blue)
+  fatiguePurple: '#AB47BC', // ATL display color (intervals.icu purple)
 
   // Chart accent colors
   chartBlue: brand.blue,

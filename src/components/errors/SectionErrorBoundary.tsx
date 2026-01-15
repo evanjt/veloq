@@ -7,6 +7,7 @@
 
 import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { colors } from '@/theme';
 
 interface Props {
   children: ReactNode;
@@ -80,7 +81,7 @@ export class SectionErrorBoundary extends Component<Props, State> {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: colors.background,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
@@ -92,30 +93,30 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 20,
     fontWeight: '600',
-    color: '#1A1A1A',
+    color: colors.textPrimary,
     marginBottom: 12,
   },
   message: {
     fontSize: 16,
-    color: '#666666',
+    color: colors.textSecondary,
     textAlign: 'center',
     marginBottom: 16,
   },
   errorDetail: {
     fontSize: 14,
-    color: '#999999',
+    color: colors.textMuted,
     textAlign: 'center',
     marginBottom: 24,
     fontStyle: 'italic',
   },
   button: {
-    backgroundColor: '#FBBF24',
+    backgroundColor: colors.primary,
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 8,
   },
   buttonText: {
-    color: '#FFFFFF',
+    color: colors.textOnDark,
     fontSize: 16,
     fontWeight: '600',
   },

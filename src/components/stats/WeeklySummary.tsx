@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
-import { View, StyleSheet, useColorScheme, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { useTheme } from '@/hooks';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { colors, darkColors, opacity } from '@/theme/colors';
@@ -158,8 +159,7 @@ function calculateStats(activities: Activity[]) {
 
 export function WeeklySummary({ activities }: WeeklySummaryProps) {
   const { t } = useTranslation();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const { isDark } = useTheme();
   const [timeRange, setTimeRange] = useState<TimeRange>('week');
 
   const { currentStats, previousStats, labels } = useMemo(() => {

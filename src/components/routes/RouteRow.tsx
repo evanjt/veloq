@@ -4,7 +4,8 @@
  */
 
 import React, { memo, useState, useMemo, useEffect } from 'react';
-import { View, StyleSheet, useColorScheme, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { useTheme } from '@/hooks';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Svg, { Polyline, Defs, LinearGradient, Stop, Rect, Circle } from 'react-native-svg';
@@ -141,8 +142,7 @@ const RoutePreview = memo(function RoutePreview({ points, color, isDark }: Route
 
 function RouteRowComponent({ route, navigable = false }: RouteRowProps) {
   const { t } = useTranslation();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const { isDark } = useTheme();
   const [expanded, setExpanded] = useState(false);
   const [customName, setCustomName] = useState<string | null>(null);
 

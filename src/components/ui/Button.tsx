@@ -7,13 +7,13 @@ import {
   StyleProp,
   ViewStyle,
   TextStyle,
-  useColorScheme,
 } from 'react-native';
 import { AnimatedPressable } from './AnimatedPressable';
 import { colors, darkColors } from '@/theme/colors';
 import { typography } from '@/theme/typography';
 import { spacing, layout } from '@/theme/spacing';
 import { shadows } from '@/theme/shadows';
+import { useTheme } from '@/hooks';
 
 type ButtonVariant = 'primary' | 'secondary' | 'subtle' | 'danger';
 type ButtonSize = 'small' | 'medium' | 'large';
@@ -56,8 +56,7 @@ export function Button({
   style,
   textStyle,
 }: ButtonProps) {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const { isDark } = useTheme();
 
   const isDisabled = disabled || loading;
 

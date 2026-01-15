@@ -8,6 +8,7 @@
 import React, { useMemo, useEffect, useCallback } from 'react';
 import { MarkerView } from '@maplibre/maplibre-react-native';
 import { View, StyleSheet } from 'react-native';
+import { colors } from '@/theme';
 import type { Camera } from '@maplibre/maplibre-react-native';
 import type { LatLng } from '@/lib';
 
@@ -89,16 +90,16 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: 'rgba(252, 76, 2, 0.3)', // Primary color with opacity
+    backgroundColor: colors.primary + '4D', // Primary color with 30% opacity
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: '#FBBF24', // Primary color
+    borderColor: colors.primary,
   },
   innerMarker: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#FBBF24',
+    backgroundColor: colors.primary,
   },
 });

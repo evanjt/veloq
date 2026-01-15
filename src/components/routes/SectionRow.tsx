@@ -5,12 +5,13 @@
  */
 
 import React, { memo, useMemo } from 'react';
-import { View, StyleSheet, TouchableOpacity, useColorScheme } from 'react-native';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { useTheme } from '@/hooks';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Svg, { Polyline, G } from 'react-native-svg';
 import { useTranslation } from 'react-i18next';
-import { colors, spacing, layout } from '@/theme';
+import { colors, darkColors, spacing, layout } from '@/theme';
 import { debug } from '@/lib';
 import type { FrequentSection, RoutePoint } from '@/types';
 
@@ -67,8 +68,7 @@ export const SectionRow = memo(function SectionRow({
   onPress,
 }: SectionRowProps) {
   const { t } = useTranslation();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const { isDark } = useTheme();
 
   // Debug: log touch events
   const handlePressIn = () => {
@@ -199,14 +199,14 @@ export const SectionRow = memo(function SectionRow({
             <Polyline
               points={sectionPolylineString}
               fill="none"
-              stroke={isDark ? '#5B9BD5' : colors.primary}
+              stroke={isDark ? colors.chartBlue : colors.primary}
               strokeWidth={2}
               strokeLinecap="round"
               strokeLinejoin="round"
             />
           </Svg>
         ) : (
-          <MaterialCommunityIcons name={icon} size={24} color={isDark ? '#666' : colors.primary} />
+          <MaterialCommunityIcons name={icon} size={24} color={isDark ? darkColors.textMuted : colors.primary} />
         )}
       </View>
 
@@ -216,7 +216,7 @@ export const SectionRow = memo(function SectionRow({
           <MaterialCommunityIcons
             name={icon}
             size={14}
-            color={isDark ? '#888' : colors.textSecondary}
+            color={isDark ? darkColors.textSecondary : colors.textSecondary}
           />
           <Text style={[styles.name, isDark && styles.textLight]} numberOfLines={1}>
             {section.name || `Section ${section.id.slice(-6)}`}
@@ -228,7 +228,7 @@ export const SectionRow = memo(function SectionRow({
             <MaterialCommunityIcons
               name="map-marker-distance"
               size={12}
-              color={isDark ? '#666' : '#999'}
+              color={isDark ? darkColors.textMuted : colors.textMuted}
             />
             <Text style={[styles.statText, isDark && styles.textMuted]}>
               {formatDistance(section.distanceMeters)}
@@ -244,7 +244,7 @@ export const SectionRow = memo(function SectionRow({
             <MaterialCommunityIcons
               name="lightning-bolt"
               size={12}
-              color={isDark ? '#666' : '#999'}
+              color={isDark ? darkColors.textMuted : colors.textMuted}
             />
             <Text style={[styles.statText, isDark && styles.textMuted]}>
               {section.activityIds.length} {t('routes.activities')}
@@ -266,7 +266,7 @@ export const SectionRow = memo(function SectionRow({
 
       {/* Chevron */}
       {onPress && (
-        <MaterialCommunityIcons name="chevron-right" size={20} color={isDark ? '#444' : '#CCC'} />
+        <MaterialCommunityIcons name="chevron-right" size={20} color={isDark ? darkColors.textMuted : colors.border} />
       )}
     </TouchableOpacity>
   );
@@ -276,7 +276,7 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     marginHorizontal: layout.screenPadding,
     marginBottom: spacing.sm,
     padding: spacing.md,
@@ -288,19 +288,19 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   containerDark: {
-    backgroundColor: '#1E1E1E',
+    backgroundColor: darkColors.surfaceCard,
   },
   preview: {
     width: PREVIEW_WIDTH,
     height: PREVIEW_HEIGHT,
     borderRadius: 6,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: colors.background,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: spacing.md,
   },
   previewDark: {
-    backgroundColor: '#2A2A2A',
+    backgroundColor: darkColors.surfaceElevated,
   },
   info: {
     flex: 1,
@@ -337,9 +337,9 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
   },
   textLight: {
-    color: '#FFFFFF',
+    color: colors.textOnDark,
   },
   textMuted: {
-    color: '#888',
+    color: darkColors.textSecondary,
   },
 });

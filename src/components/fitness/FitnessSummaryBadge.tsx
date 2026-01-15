@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, StyleSheet, TouchableOpacity, useColorScheme } from 'react-native';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { useTheme } from '@/hooks';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -15,8 +16,7 @@ interface FitnessSummaryBadgeProps {
 
 export function FitnessSummaryBadge({ data, isLoading, onPress }: FitnessSummaryBadgeProps) {
   const { t } = useTranslation();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const { isDark } = useTheme();
 
   if (isLoading) {
     return (
@@ -59,7 +59,7 @@ export function FitnessSummaryBadge({ data, isLoading, onPress }: FitnessSummary
             {form}
           </Text>
         </View>
-        <MaterialCommunityIcons name="chevron-down" size={16} color={isDark ? '#AAA' : '#666'} />
+        <MaterialCommunityIcons name="chevron-down" size={16} color={isDark ? darkColors.textSecondary : colors.textSecondary} />
       </View>
     </TouchableOpacity>
   );
@@ -68,8 +68,7 @@ export function FitnessSummaryBadge({ data, isLoading, onPress }: FitnessSummary
 // Compact inline version for the header
 export function FitnessSummaryInline({ data }: { data: WellnessData[] | undefined }) {
   const { t } = useTranslation();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const { isDark } = useTheme();
 
   if (!data || data.length === 0) {
     return null;
