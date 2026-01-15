@@ -7,14 +7,14 @@
  */
 
 import React, { useState, useRef, useMemo, useCallback } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity, Dimensions } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { router, Href } from 'expo-router';
 import { CartesianChart, Line } from 'victory-native';
 import { Circle } from '@shopify/react-native-skia';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { Gesture, GestureDetector, ScrollView } from 'react-native-gesture-handler';
 import {
   useSharedValue,
   useDerivedValue,
@@ -32,11 +32,12 @@ import {
   formatShortDate as formatShortDateLib,
 } from '@/lib';
 import { colors, darkColors } from '@/theme';
+import { CHART_CONFIG } from '@/constants';
 import type { ActivityType, RoutePoint, PerformanceDataPoint } from '@/types';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CHART_HEIGHT = 120; // Reduced from 160
-const MIN_POINT_WIDTH = 44; // Comfortable spacing between points
+const MIN_POINT_WIDTH = 64; // Wider spacing so 6+ points triggers scrolling on most phones
 
 // Direction colors
 const REVERSE_COLOR = colors.reverseDirection;
@@ -105,6 +106,7 @@ export function UnifiedPerformanceChart({
 
   // Gesture tracking
   const touchX = useSharedValue(-1);
+  const scrollOffsetX = useSharedValue(0);
   const chartBoundsShared = useSharedValue({ left: 0, right: 1 });
   const lastNotifiedIdx = useRef<number | null>(null);
 
@@ -222,15 +224,16 @@ export function UnifiedPerformanceChart({
   }, [isPersisted, onActivitySelect]);
 
   // Pan gesture with long press activation for scrubbing
+  // Account for scroll offset when calculating position within scrollable chart
   const panGesture = Gesture.Pan()
-    .activateAfterLongPress(300)
+    .activateAfterLongPress(CHART_CONFIG.LONG_PRESS_DURATION)
     .onStart((e) => {
       'worklet';
-      touchX.value = e.x;
+      touchX.value = e.x + scrollOffsetX.value;
     })
     .onUpdate((e) => {
       'worklet';
-      touchX.value = e.x;
+      touchX.value = e.x + scrollOffsetX.value;
     })
     .onEnd(() => {
       'worklet';
@@ -244,7 +247,16 @@ export function UnifiedPerformanceChart({
     runOnJS(clearPersistedTooltip)();
   });
 
-  const gesture = Gesture.Race(panGesture, tapGesture);
+  // Simultaneous: both gestures can work - tap for quick dismiss, pan after long press
+  const gesture = Gesture.Simultaneous(tapGesture, panGesture);
+
+  // Track scroll position for accurate scrubbing
+  const handleScroll = useCallback(
+    (event: { nativeEvent: { contentOffset: { x: number } } }) => {
+      scrollOffsetX.value = event.nativeEvent.contentOffset.x;
+    },
+    [scrollOffsetX]
+  );
 
   // Animated crosshair
   const crosshairStyle = useAnimatedStyle(() => {
@@ -273,163 +285,161 @@ export function UnifiedPerformanceChart({
   };
 
   const chartContent = (
-    <GestureDetector gesture={gesture}>
-      <View style={[styles.chartInner, { width: chartWidth }]}>
-        {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-        <CartesianChart
-          data={chartData as unknown as Record<string, unknown>[]}
-          xKey={'x' as never}
-          yKeys={['speed'] as never}
-          domain={{ y: [minSpeed, maxSpeed] }}
-          padding={{ left: 32, right: 24, top: 24, bottom: 18 }}
-        >
-          {
-            (({ points, chartBounds }: any) => {
-              if (
-                chartBounds.left !== chartBoundsShared.value.left ||
-                chartBounds.right !== chartBoundsShared.value.right
-              ) {
-                chartBoundsShared.value = {
-                  left: chartBounds.left,
-                  right: chartBounds.right,
-                };
-              }
+    <View style={[styles.chartInner, { width: chartWidth }]}>
+      {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+      <CartesianChart
+        data={chartData as unknown as Record<string, unknown>[]}
+        xKey={'x' as never}
+        yKeys={['speed'] as never}
+        domain={{ y: [minSpeed, maxSpeed] }}
+        padding={{ left: 32, right: 24, top: 24, bottom: 18 }}
+      >
+        {
+          (({ points, chartBounds }: any) => {
+            if (
+              chartBounds.left !== chartBoundsShared.value.left ||
+              chartBounds.right !== chartBoundsShared.value.right
+            ) {
+              chartBoundsShared.value = {
+                left: chartBounds.left,
+                right: chartBounds.right,
+              };
+            }
 
-              const samePoints = points.speed.filter(
-                (_: any, idx: number) => chartData[idx]?.direction === 'same'
-              );
-              const reversePoints = points.speed.filter(
-                (_: any, idx: number) => chartData[idx]?.direction === 'reverse'
-              );
+            const samePoints = points.speed.filter(
+              (_: any, idx: number) => chartData[idx]?.direction === 'same'
+            );
+            const reversePoints = points.speed.filter(
+              (_: any, idx: number) => chartData[idx]?.direction === 'reverse'
+            );
 
-              return (
-                <>
-                  {/* Line connecting 'same' direction points */}
-                  {samePoints.length > 1 && (
-                    <Line
-                      points={samePoints}
-                      color={activityColor}
-                      strokeWidth={1.5}
-                      curveType="monotoneX"
-                      opacity={0.4}
+            return (
+              <>
+                {/* Line connecting 'same' direction points */}
+                {samePoints.length > 1 && (
+                  <Line
+                    points={samePoints}
+                    color={activityColor}
+                    strokeWidth={1.5}
+                    curveType="monotoneX"
+                    opacity={0.4}
+                  />
+                )}
+                {/* Line connecting 'reverse' direction points */}
+                {reversePoints.length > 1 && (
+                  <Line
+                    points={reversePoints}
+                    color={REVERSE_COLOR}
+                    strokeWidth={1.5}
+                    curveType="monotoneX"
+                    opacity={0.4}
+                  />
+                )}
+                {/* Regular points */}
+                {points.speed.map((point: any, idx: number) => {
+                  if (point.x == null || point.y == null) return null;
+                  const isSelected = idx === selectedIndex;
+                  const isBest = idx === bestIndex;
+                  if (isSelected || isBest) return null;
+                  const d = chartData[idx];
+                  const pointColor = d ? getPointColor(d.direction) : activityColor;
+                  return (
+                    <Circle
+                      key={`point-${idx}`}
+                      cx={point.x}
+                      cy={point.y}
+                      r={5}
+                      color={pointColor}
                     />
-                  )}
-                  {/* Line connecting 'reverse' direction points */}
-                  {reversePoints.length > 1 && (
-                    <Line
-                      points={reversePoints}
-                      color={REVERSE_COLOR}
-                      strokeWidth={1.5}
-                      curveType="monotoneX"
-                      opacity={0.4}
-                    />
-                  )}
-                  {/* Regular points */}
-                  {points.speed.map((point: any, idx: number) => {
-                    if (point.x == null || point.y == null) return null;
-                    const isSelected = idx === selectedIndex;
-                    const isBest = idx === bestIndex;
-                    if (isSelected || isBest) return null;
-                    const d = chartData[idx];
-                    const pointColor = d ? getPointColor(d.direction) : activityColor;
-                    return (
+                  );
+                })}
+                {/* Best performance - gold */}
+                {bestIndex !== selectedIndex &&
+                  points.speed[bestIndex] &&
+                  points.speed[bestIndex].x != null &&
+                  points.speed[bestIndex].y != null && (
+                    <>
                       <Circle
-                        key={`point-${idx}`}
-                        cx={point.x}
-                        cy={point.y}
-                        r={5}
-                        color={pointColor}
+                        cx={points.speed[bestIndex].x!}
+                        cy={points.speed[bestIndex].y!}
+                        r={8}
+                        color={colors.chartGold}
                       />
-                    );
-                  })}
-                  {/* Best performance - gold */}
-                  {bestIndex !== selectedIndex &&
-                    points.speed[bestIndex] &&
-                    points.speed[bestIndex].x != null &&
-                    points.speed[bestIndex].y != null && (
-                      <>
-                        <Circle
-                          cx={points.speed[bestIndex].x!}
-                          cy={points.speed[bestIndex].y!}
-                          r={8}
-                          color={colors.chartGold}
-                        />
-                        <Circle
-                          cx={points.speed[bestIndex].x!}
-                          cy={points.speed[bestIndex].y!}
-                          r={4}
-                          color={colors.textOnDark}
-                        />
-                      </>
-                    )}
-                  {/* Selected activity - cyan */}
-                  {selectedIndex >= 0 &&
-                    points.speed[selectedIndex] &&
-                    points.speed[selectedIndex].x != null &&
-                    points.speed[selectedIndex].y != null && (
-                      <>
-                        <Circle
-                          cx={points.speed[selectedIndex].x!}
-                          cy={points.speed[selectedIndex].y!}
-                          r={10}
-                          color={colors.chartCyan}
-                        />
-                        <Circle
-                          cx={points.speed[selectedIndex].x!}
-                          cy={points.speed[selectedIndex].y!}
-                          r={5}
-                          color={colors.textOnDark}
-                        />
-                      </>
-                    )}
-                </>
-              );
-            }) as any
-          }
-        </CartesianChart>
+                      <Circle
+                        cx={points.speed[bestIndex].x!}
+                        cy={points.speed[bestIndex].y!}
+                        r={4}
+                        color={colors.textOnDark}
+                      />
+                    </>
+                  )}
+                {/* Selected activity - cyan */}
+                {selectedIndex >= 0 &&
+                  points.speed[selectedIndex] &&
+                  points.speed[selectedIndex].x != null &&
+                  points.speed[selectedIndex].y != null && (
+                    <>
+                      <Circle
+                        cx={points.speed[selectedIndex].x!}
+                        cy={points.speed[selectedIndex].y!}
+                        r={10}
+                        color={colors.chartCyan}
+                      />
+                      <Circle
+                        cx={points.speed[selectedIndex].x!}
+                        cy={points.speed[selectedIndex].y!}
+                        r={5}
+                        color={colors.textOnDark}
+                      />
+                    </>
+                  )}
+              </>
+            );
+          }) as any
+        }
+      </CartesianChart>
 
-        {/* Crosshair */}
-        <Animated.View
-          style={[styles.crosshair, crosshairStyle, isDark && styles.crosshairDark]}
-          pointerEvents="none"
-        />
+      {/* Crosshair */}
+      <Animated.View
+        style={[styles.crosshair, crosshairStyle, isDark && styles.crosshairDark]}
+        pointerEvents="none"
+      />
 
-        {/* Y-axis labels */}
-        <View style={styles.yAxisOverlay} pointerEvents="none">
-          <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
-            {formatSpeedValue(maxSpeed)}
-          </Text>
-          <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
-            {formatSpeedValue((minSpeed + maxSpeed) / 2)}
-          </Text>
-          <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
-            {formatSpeedValue(minSpeed)}
-          </Text>
-        </View>
-
-        {/* X-axis labels (dates) */}
-        <View
-          style={[styles.xAxisOverlay, { width: chartWidth - 32 - 24, left: 32 }]}
-          pointerEvents="none"
-        >
-          {chartData.length > 0 && (
-            <>
-              <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
-                {formatShortDate(chartData[0].date)}
-              </Text>
-              {chartData.length >= 5 && (
-                <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
-                  {formatShortDate(chartData[Math.floor(chartData.length / 2)].date)}
-                </Text>
-              )}
-              <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
-                {formatShortDate(chartData[chartData.length - 1].date)}
-              </Text>
-            </>
-          )}
-        </View>
+      {/* Y-axis labels */}
+      <View style={styles.yAxisOverlay} pointerEvents="none">
+        <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
+          {formatSpeedValue(maxSpeed)}
+        </Text>
+        <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
+          {formatSpeedValue((minSpeed + maxSpeed) / 2)}
+        </Text>
+        <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
+          {formatSpeedValue(minSpeed)}
+        </Text>
       </View>
-    </GestureDetector>
+
+      {/* X-axis labels (dates) */}
+      <View
+        style={[styles.xAxisOverlay, { width: chartWidth - 32 - 24, left: 32 }]}
+        pointerEvents="none"
+      >
+        {chartData.length > 0 && (
+          <>
+            <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
+              {formatShortDate(chartData[0].date)}
+            </Text>
+            {chartData.length >= 5 && (
+              <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
+                {formatShortDate(chartData[Math.floor(chartData.length / 2)].date)}
+              </Text>
+            )}
+            <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
+              {formatShortDate(chartData[chartData.length - 1].date)}
+            </Text>
+          </>
+        )}
+      </View>
+    </View>
   );
 
   return (
@@ -489,21 +499,25 @@ export function UnifiedPerformanceChart({
       </View>
 
       {/* Chart with optional horizontal scrolling */}
-      <View style={styles.chartContainer}>
-        {needsScrolling ? (
-          <ScrollView
-            ref={scrollViewRef}
-            horizontal
-            showsHorizontalScrollIndicator={true}
-            contentContainerStyle={{ width: chartWidth }}
-            onContentSizeChange={scrollToEnd}
-          >
-            {chartContent}
-          </ScrollView>
-        ) : (
-          chartContent
-        )}
-      </View>
+      <GestureDetector gesture={gesture}>
+        <View style={styles.chartContainer}>
+          {needsScrolling ? (
+            <ScrollView
+              ref={scrollViewRef}
+              horizontal
+              showsHorizontalScrollIndicator={true}
+              contentContainerStyle={{ width: chartWidth }}
+              onContentSizeChange={scrollToEnd}
+              onScroll={handleScroll}
+              scrollEventThrottle={16}
+            >
+              {chartContent}
+            </ScrollView>
+          ) : (
+            chartContent
+          )}
+        </View>
+      </GestureDetector>
 
       {/* Selected activity tooltip - fixed position below chart */}
       <View style={styles.tooltipContainer}>

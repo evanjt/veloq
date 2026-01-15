@@ -38,6 +38,14 @@ const TS_SPEC_PATH = path.resolve(
 
 describe('FFI Binding Sync', () => {
   describe('Module file existence', () => {
+    it('TypeScript spec file should exist', () => {
+      expect(fs.existsSync(TS_SPEC_PATH)).toBe(true);
+    });
+  });
+
+  describe.skip('iOS binding validation (generated at build time)', () => {
+    // iOS bindings (Veloq.h, Veloq.mm) are generated during iOS build
+    // by uniffi-bindgen-react-native. These files don't exist in the repo.
     it('iOS Turbo Module header should exist', () => {
       expect(fs.existsSync(IOS_HEADER_PATH)).toBe(true);
     });
@@ -45,15 +53,11 @@ describe('FFI Binding Sync', () => {
     it('iOS Turbo Module implementation should exist', () => {
       expect(fs.existsSync(IOS_MM_PATH)).toBe(true);
     });
-
-    it('TypeScript spec file should exist', () => {
-      expect(fs.existsSync(TS_SPEC_PATH)).toBe(true);
-    });
   });
 
-  describe.skip('Kotlin binding validation (deprecated)', () => {
+  describe.skip('Kotlin binding validation (generated at build time)', () => {
+    // Bindings are generated during Android build by uniffi-bindgen-react-native
     it('Kotlin bindings are now generated at build time', () => {
-      // Bindings are now generated during Android build by uniffi-bindgen-react-native
       expect(true).toBe(true);
     });
   });
