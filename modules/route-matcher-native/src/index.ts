@@ -593,9 +593,7 @@ export function fetchActivityMaps(
 
 /**
  * Fetch activity map data with real-time progress updates.
- * Emits "onFetchProgress" events as each activity is fetched.
- *
- * Use addFetchProgressListener to receive progress updates.
+ * Uses Rust-powered HTTP client with connection pooling and rate limiting.
  *
  * @param apiKey - intervals.icu API key
  * @param activityIds - Array of activity IDs to fetch
@@ -609,16 +607,13 @@ export async function fetchActivityMapsWithProgress(
     `RUST fetchActivityMapsWithProgress called for ${activityIds.length} activities`,
   );
   const startTime = Date.now();
-  // AsyncFunction returns a Promise - await it so JS thread is free to process events
-  const result = await NativeModule.fetchActivityMapsWithProgress(
-    apiKey,
-    activityIds,
-  );
+
+  // Call the native Rust implementation
+  const result = await NativeModule.fetchActivityMaps(apiKey, activityIds);
+
   const elapsed = Date.now() - startTime;
-  const successCount =
-    result?.filter((r: ActivityMapResult) => r.success).length || 0;
-  const errorCount =
-    result?.filter((r: ActivityMapResult) => !r.success).length || 0;
+  const successCount = result?.filter((r: ActivityMapResult) => r.success).length || 0;
+  const errorCount = result?.filter((r: ActivityMapResult) => !r.success).length || 0;
   const rate = (activityIds.length / (elapsed / 1000)).toFixed(1);
   nativeLog(
     `RUST fetchActivityMapsWithProgress: ${successCount}/${activityIds.length} (${errorCount} errors) in ${elapsed}ms (${rate} req/s)`,

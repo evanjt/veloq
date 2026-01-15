@@ -577,6 +577,33 @@ public class RouteMatcherModule: Module {
             return persistentEngineExtractSectionTrace(activityId: activityId, sectionPolylineJson: polylineJson)
         }
 
+        // ==========================================================================
+        // HTTP Activity Fetching (high-performance with connection pooling)
+        // ==========================================================================
+
+        // Fetch activity map data from intervals.icu API
+        // Uses connection pooling, rate limiting, and parallel fetching
+        AsyncFunction("fetchActivityMaps") { (apiKey: String, activityIds: [String]) -> [[String: Any]] in
+            logger.info("fetchActivityMaps: Fetching \(activityIds.count) activities")
+            let startTime = Date()
+
+            let results = fetchActivityMaps(apiKey: apiKey, activityIds: activityIds)
+
+            let elapsed = Date().timeIntervalSince(startTime) * 1000
+            let successCount = results.filter { $0.success }.count
+            logger.info("fetchActivityMaps: \(successCount)/\(activityIds.count) success in \(Int(elapsed))ms")
+
+            return results.map { result in
+                [
+                    "activityId": result.activityId,
+                    "bounds": result.bounds,
+                    "latlngs": result.latlngs,
+                    "success": result.success,
+                    "error": result.error as Any
+                ]
+            }
+        }
+
         // Heatmap: Query cell at location
         // heatmapJson is a JSON string to avoid Expo Modules bridge issues with nulls
         Function("queryHeatmapCell") { (heatmapJson: String, lat: Double, lng: Double) -> [String: Any]? in

@@ -63,19 +63,48 @@ repositories {
 // Rust Native Library Build - Automatic incremental builds
 // =============================================================================
 // Uses the dev script (arm64 + x86_64 only) for fast iteration.
-// Gradle tracks source file changes and only rebuilds when needed.
+// Detects Rust source changes and rebuilds when source is newer than .so files.
 
 def repoRoot = file("${projectDir}/../../..").canonicalFile
-def rustSrcDir = file("${repoRoot}/rust/route-matcher/src")
-def rustCargoToml = file("${repoRoot}/rust/route-matcher/Cargo.toml")
-def devBuildScript = file("${repoRoot}/rust/route-matcher/scripts/build-android-dev.sh")
+def tracematchDir = file("${repoRoot}/../tracematch").canonicalFile
+def rustSrcDir = file("${tracematchDir}/src")
+def rustCargoToml = file("${tracematchDir}/Cargo.toml")
+def devBuildScript = file("${tracematchDir}/scripts/build-android-dev.sh")
 def jniLibsDir = file("src/main/jniLibs")
+
+// Helper function to get the newest modification time of Rust source files
+def getNewestSourceTime = {
+  long newest = 0
+  if (rustSrcDir.exists()) {
+    rustSrcDir.eachFileRecurse { file ->
+      if (file.name.endsWith('.rs')) {
+        newest = Math.max(newest, file.lastModified())
+      }
+    }
+  }
+  if (rustCargoToml.exists()) {
+    newest = Math.max(newest, rustCargoToml.lastModified())
+  }
+  return newest
+}
+
+// Helper function to get the oldest modification time of built .so files
+def getOldestLibTime = {
+  long oldest = Long.MAX_VALUE
+  if (jniLibsDir.exists()) {
+    def soFiles = fileTree(jniLibsDir).include('**/*.so')
+    soFiles.each { file ->
+      oldest = Math.min(oldest, file.lastModified())
+    }
+  }
+  return oldest == Long.MAX_VALUE ? 0 : oldest
+}
 
 task buildRustLibraries(type: Exec) {
   description = "Build Rust native library for Android (dev mode)"
   group = "rust"
 
-  workingDir "${repoRoot}/rust/route-matcher"
+  workingDir tracematchDir
   commandLine 'bash', devBuildScript.absolutePath
 
   // Track inputs for incremental builds
@@ -85,9 +114,10 @@ task buildRustLibraries(type: Exec) {
   // Track outputs
   outputs.dir(jniLibsDir)
 
-  // Skip Rust build if .so files already exist (CI provides pre-built libs)
+  // Rebuild if: no .so files exist, OR source is newer than built libraries
   onlyIf {
     println "=== buildRustLibraries.onlyIf evaluation ==="
+    println "Tracematch directory: ${tracematchDir.absolutePath}"
 
     // Check for CI environment variable first
     def prebuiltEnv = System.getenv("RUST_PREBUILT")
@@ -96,6 +126,13 @@ task buildRustLibraries(type: Exec) {
       println "RUST_PREBUILT=true - SKIPPING Rust build, using pre-built libraries from CI"
       println "==============================================="
       return false  // Skip the task
+    }
+
+    // Check if tracematch directory exists
+    if (!tracematchDir.exists()) {
+      println "ERROR: tracematch directory not found at: ${tracematchDir.absolutePath}"
+      println "==============================================="
+      return false
     }
 
     // Check if jniLibs directory exists
@@ -107,21 +144,32 @@ task buildRustLibraries(type: Exec) {
     }
 
     def soFiles = fileTree(jniLibsDir).include('**/*.so')
-    def libsExist = !soFiles.isEmpty()
+    if (soFiles.isEmpty()) {
+      println "No .so files found, will run Rust build..."
+      println "==============================================="
+      return true
+    }
+
+    // Compare timestamps: if source is newer than libs, rebuild
+    def newestSource = getNewestSourceTime()
+    def oldestLib = getOldestLibTime()
 
     println "jniLibs directory: ${jniLibsDir.absolutePath}"
     println "Found .so files: ${soFiles.files.size()}"
-    if (libsExist) {
-      soFiles.each { file ->
-        println "  - ${file.name} (${file.length()} bytes)"
-      }
-      println "Pre-built libraries found, SKIPPING Rust build"
+    soFiles.each { file ->
+      println "  - ${file.name} (${file.length()} bytes, modified: ${new Date(file.lastModified())})"
+    }
+    println "Newest Rust source: ${new Date(newestSource)}"
+    println "Oldest .so library: ${new Date(oldestLib)}"
+
+    if (newestSource > oldestLib) {
+      println "⚠️  Rust source is NEWER than built libraries - REBUILDING"
       println "==============================================="
-      false  // Skip the task
+      return true
     } else {
-      println "No pre-built libraries found, will run Rust build..."
+      println "✓ Built libraries are up-to-date, SKIPPING Rust build"
       println "==============================================="
-      true  // Run the task
+      return false
     }
   }
 
