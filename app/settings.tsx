@@ -667,15 +667,21 @@ export default function SettingsScreen() {
 
           <TouchableOpacity
             testID="settings-clear-cache"
-            style={styles.actionRow}
+            style={[styles.actionRow, isDemoMode && styles.actionRowDisabled]}
             onPress={handleClearCache}
+            disabled={isDemoMode}
           >
             <MaterialCommunityIcons
               name="delete-outline"
               size={22}
-              color={colors.error}
+              color={isDemoMode ? colors.textSecondary : colors.error}
             />
-            <Text style={[styles.actionText, styles.actionTextDanger]}>
+            <Text
+              style={[
+                styles.actionText,
+                isDemoMode ? styles.actionTextDisabled : styles.actionTextDanger,
+              ]}
+            >
               {t("settings.clearAllReload")}
             </Text>
             <MaterialCommunityIcons
@@ -1172,6 +1178,9 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.md,
     gap: spacing.sm,
+  },
+  actionRowDisabled: {
+    opacity: 0.5,
   },
   actionText: {
     flex: 1,
