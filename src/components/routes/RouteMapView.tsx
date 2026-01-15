@@ -74,6 +74,12 @@ export function RouteMapView({
   // Calculate bounds from the representative route (10% padding for traces)
   const bounds = useMemo(() => getBoundsFromPoints(displayPoints, 0.1), [displayPoints]);
 
+  // Helper to filter and convert points to GeoJSON coordinates, removing invalid values
+  const toValidCoordinates = (points: RoutePoint[]): [number, number][] =>
+    points
+      .filter((p) => Number.isFinite(p.lat) && Number.isFinite(p.lng))
+      .map((p) => [p.lng, p.lat]);
+
   // Create GeoJSON for individual activity traces - split into highlighted and non-highlighted
   const { fadedTracesGeoJSON, highlightedTraceGeoJSON } = useMemo(() => {
     if (activityTracesWithIds.length === 0) {
@@ -91,39 +97,51 @@ export function RouteMapView({
       fadedTraces.length > 0
         ? {
             type: 'FeatureCollection' as const,
-            features: fadedTraces.map((trace, idx) => ({
-              type: 'Feature' as const,
-              properties: { id: trace.id },
-              geometry: {
-                type: 'LineString' as const,
-                coordinates: trace.points.map((p) => [p.lng, p.lat]),
-              },
-            })),
+            features: fadedTraces
+              .map((trace) => {
+                const coords = toValidCoordinates(trace.points);
+                if (coords.length < 2) return null;
+                return {
+                  type: 'Feature' as const,
+                  properties: { id: trace.id },
+                  geometry: {
+                    type: 'LineString' as const,
+                    coordinates: coords,
+                  },
+                };
+              })
+              .filter((f): f is NonNullable<typeof f> => f !== null),
           }
         : null;
 
     // Use lap points if available, otherwise use full activity trace
     let highlightedGeo = null;
     if (hasLapHighlight) {
-      // Highlight specific lap section
-      highlightedGeo = {
-        type: 'Feature' as const,
-        properties: { id: 'lap' },
-        geometry: {
-          type: 'LineString' as const,
-          coordinates: highlightedLapPoints!.map((p) => [p.lng, p.lat]),
-        },
-      };
+      // Highlight specific lap section - filter out invalid points
+      const coords = toValidCoordinates(highlightedLapPoints!);
+      if (coords.length >= 2) {
+        highlightedGeo = {
+          type: 'Feature' as const,
+          properties: { id: 'lap' },
+          geometry: {
+            type: 'LineString' as const,
+            coordinates: coords,
+          },
+        };
+      }
     } else if (highlightedActivity) {
       // Highlight full activity trace
-      highlightedGeo = {
-        type: 'Feature' as const,
-        properties: { id: highlightedActivity.id },
-        geometry: {
-          type: 'LineString' as const,
-          coordinates: highlightedActivity.points.map((p) => [p.lng, p.lat]),
-        },
-      };
+      const coords = toValidCoordinates(highlightedActivity.points);
+      if (coords.length >= 2) {
+        highlightedGeo = {
+          type: 'Feature' as const,
+          properties: { id: highlightedActivity.id },
+          geometry: {
+            type: 'LineString' as const,
+            coordinates: coords,
+          },
+        };
+      }
     }
 
     return {
@@ -147,33 +165,41 @@ export function RouteMapView({
 
   const styleUrl = getMapStyle(mapStyle);
 
+  // Helper to validate a point has valid numeric coordinates
+  const isValidPoint = (p: RoutePoint | undefined): p is RoutePoint =>
+    p != null && Number.isFinite(p.lat) && Number.isFinite(p.lng);
+
   // Determine which points to use for start/end markers
   // If an activity is highlighted, show that activity's actual start/end
   // Otherwise, show the route's start/end
   const markerPoints = useMemo(() => {
     // If we have highlighted lap points, use those
     if (highlightedLapPoints && highlightedLapPoints.length > 1) {
-      return {
-        start: highlightedLapPoints[0],
-        end: highlightedLapPoints[highlightedLapPoints.length - 1],
-      };
+      const start = highlightedLapPoints[0];
+      const end = highlightedLapPoints[highlightedLapPoints.length - 1];
+      if (isValidPoint(start) && isValidPoint(end)) {
+        return { start, end };
+      }
     }
 
     // If we have a highlighted activity, find its trace and use those points
     if (highlightedActivityId) {
       const highlightedTrace = activityTracesWithIds.find((t) => t.id === highlightedActivityId);
       if (highlightedTrace && highlightedTrace.points.length > 1) {
-        return {
-          start: highlightedTrace.points[0],
-          end: highlightedTrace.points[highlightedTrace.points.length - 1],
-        };
+        const start = highlightedTrace.points[0];
+        const end = highlightedTrace.points[highlightedTrace.points.length - 1];
+        if (isValidPoint(start) && isValidPoint(end)) {
+          return { start, end };
+        }
       }
     }
 
     // Default to route's start/end
+    const start = displayPoints[0];
+    const end = displayPoints[displayPoints.length - 1];
     return {
-      start: displayPoints[0],
-      end: displayPoints[displayPoints.length - 1],
+      start: isValidPoint(start) ? start : undefined,
+      end: isValidPoint(end) ? end : undefined,
     };
   }, [highlightedLapPoints, highlightedActivityId, activityTracesWithIds, displayPoints]);
 

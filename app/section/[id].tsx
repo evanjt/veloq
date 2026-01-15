@@ -636,7 +636,9 @@ export default function SectionDetailScreen() {
         });
       }
 
-      const indexed = dataPoints.map((d, idx) => ({ ...d, x: idx }));
+      // Filter out invalid speed values (NaN would crash SVG renderer)
+      const validDataPoints = dataPoints.filter((d) => Number.isFinite(d.speed));
+      const indexed = validDataPoints.map((d, idx) => ({ ...d, x: idx }));
 
       const speeds = indexed.map((d) => d.speed);
       const min = speeds.length > 0 ? Math.min(...speeds) : 0;

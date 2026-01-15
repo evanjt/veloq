@@ -1,33 +1,21 @@
 /**
  * Hook for getting performance data for all activities in a route group.
- * Uses Rust engine for performance calculations.
+ * Uses API-provided metrics (average_speed, etc.) instead of recalculating.
+ * Match direction and percentage come from Rust engine.
  */
 
 import { useMemo } from 'react';
 import { useEngineGroups } from './useRouteEngine';
-import type { RouteGroup, MatchDirection } from '@/types';
+import type { Activity, RouteGroup, MatchDirection } from '@/types';
 import { toActivityType } from '@/types';
-
-// Lazy load routeEngine to avoid native module import errors
-function getRouteEngine() {
-  try {
-    const module = require('route-matcher-native');
-    return module.routeEngine || module.default?.routeEngine || null;
-  } catch (error) {
-    if (__DEV__) {
-      console.warn('[RouteMatcher] Failed to load native module:', error);
-    }
-    return null;
-  }
-}
 
 export interface RoutePerformancePoint {
   activityId: string;
   date: Date;
   name: string;
-  /** Speed in m/s */
+  /** Speed in m/s (from API's average_speed) */
   speed: number;
-  /** Duration in seconds */
+  /** Duration in seconds (elapsed_time from API) */
   duration: number;
   /** Moving time in seconds */
   movingTime: number;
@@ -60,9 +48,14 @@ interface UseRoutePerformancesResult {
   currentRank: number | null;
 }
 
+// Note: For routes, we use API data directly. Match info (direction, percentage)
+// is only needed for sections where we calculate segment-specific times.
+// Routes are already grouped by GPS similarity, so we default to 100% match.
+
 export function useRoutePerformances(
   activityId: string | undefined,
-  routeGroupId?: string
+  routeGroupId?: string,
+  activities?: Activity[]
 ): UseRoutePerformancesResult {
   const { groups } = useEngineGroups({ minActivities: 1 });
 
@@ -80,17 +73,17 @@ export function useRoutePerformances(
   }, [groups, routeGroupId, activityId]);
 
   // Convert to RouteGroup type
-  // Get the index of this group in the filtered list for generating a default name
+  // Get the index of this group in the full list (matching useRouteGroups naming convention)
   const groupIndex = useMemo(() => {
     if (!engineGroup) return 0;
-    const sameTypeGroups = groups.filter((g) => g.sportType === engineGroup.sportType);
-    return sameTypeGroups.findIndex((g) => g.groupId === engineGroup.groupId) + 1;
+    // Use global index (not sport-filtered) to match useRouteGroups naming
+    return groups.findIndex((g) => g.groupId === engineGroup.groupId) + 1;
   }, [groups, engineGroup]);
 
   const routeGroup = useMemo((): RouteGroup | null => {
     if (!engineGroup) return null;
-    // Use customName if set, otherwise generate a readable name like "Run Route 3"
-    const sportType = engineGroup.sportType || 'Route';
+    // Use customName if set, otherwise generate name matching useRouteGroups convention
+    const sportType = engineGroup.sportType || 'Ride';
     const defaultName = `${sportType} Route ${groupIndex}`;
     return {
       id: engineGroup.groupId,
@@ -103,79 +96,69 @@ export function useRoutePerformances(
     };
   }, [engineGroup, groupIndex]);
 
-  // Get performances from Rust engine
-  // NOTE: Requires metrics to be synced via useRouteDataSync
+  // Build performances from Activity objects (API data)
+  // No Rust calculation needed - we use API's average_speed directly
   const { performances, best, currentRank } = useMemo(() => {
-    if (!engineGroup) {
+    if (!engineGroup || !activities || activities.length === 0) {
       return { performances: [], best: null, currentRank: null };
     }
 
-    try {
-      const engine = getRouteEngine();
-      if (!engine) {
-        return { performances: [], best: null, currentRank: null };
-      }
+    // Filter to activities in this route group
+    const groupActivityIds = new Set(engineGroup.activityIds);
+    const groupActivities = activities.filter((a) => groupActivityIds.has(a.id));
 
-      // Get calculated performances from Rust engine (returns JSON string)
-      const resultJson = engine.getRoutePerformances(engineGroup.groupId, activityId);
-      const result = JSON.parse(resultJson) as {
-        performances: Array<Omit<RoutePerformancePoint, 'date'> & { date: number }>;
-        best: (Omit<RoutePerformancePoint, 'date'> & { date: number }) | null;
-        currentRank: number | null;
-      };
+    // Build performance points from API data
+    // Filter out activities with invalid speed (would crash chart)
+    const validActivities = groupActivities.filter(
+      (a) => Number.isFinite(a.average_speed) && a.average_speed > 0
+    );
 
-      // Convert to RoutePerformancePoint format (add Date objects)
-      const points: RoutePerformancePoint[] = result.performances.map(
-        (p: Omit<RoutePerformancePoint, 'date'> & { date: number }) => ({
-          activityId: p.activityId,
-          date: new Date(p.date * 1000), // Convert Unix timestamp to Date
-          name: p.name,
-          speed: p.speed,
-          duration: p.duration,
-          movingTime: p.movingTime,
-          distance: p.distance,
-          elevationGain: p.elevationGain,
-          avgHr: p.avgHr,
-          avgPower: p.avgPower,
-          isCurrent: p.isCurrent,
-          direction: p.direction as MatchDirection,
-          matchPercentage: p.matchPercentage,
-        })
-      );
+    const points: RoutePerformancePoint[] = validActivities.map((activity) => ({
+      activityId: activity.id,
+      date: new Date(activity.start_date_local),
+      name: activity.name,
+      speed: activity.average_speed, // Direct from API!
+      duration: activity.elapsed_time,
+      movingTime: activity.moving_time,
+      distance: activity.distance || 0,
+      elevationGain: activity.total_elevation_gain || 0,
+      avgHr: activity.average_heartrate ?? activity.icu_average_hr,
+      avgPower: activity.average_watts ?? activity.icu_average_watts,
+      isCurrent: activity.id === activityId,
+      direction: 'same' as MatchDirection, // Routes are grouped by similarity
+      matchPercentage: 100, // All activities in a route group match
+    }));
 
-      const bestPoint: RoutePerformancePoint | null = result.best
-        ? {
-            activityId: result.best.activityId,
-            date: new Date(result.best.date * 1000),
-            name: result.best.name,
-            speed: result.best.speed,
-            duration: result.best.duration,
-            movingTime: result.best.movingTime,
-            distance: result.best.distance,
-            elevationGain: result.best.elevationGain,
-            avgHr: result.best.avgHr,
-            avgPower: result.best.avgPower,
-            isCurrent: result.best.isCurrent,
-            direction: result.best.direction as MatchDirection,
-            matchPercentage: result.best.matchPercentage,
-          }
+    // Sort by date (oldest first for charting)
+    points.sort((a, b) => a.date.getTime() - b.date.getTime());
+
+    // Find best (fastest speed)
+    const bestPoint =
+      points.length > 0
+        ? points.reduce((best, p) => (p.speed > best.speed ? p : best), points[0])
         : null;
 
-      return {
-        performances: points,
-        best: bestPoint,
-        currentRank: result.currentRank,
-      };
-    } catch {
-      // Engine may not have metrics yet - return empty
-      return { performances: [], best: null, currentRank: null };
+    // Calculate current rank (1 = fastest)
+    let rank: number | null = null;
+    if (activityId && points.length > 0) {
+      const sortedBySpeed = [...points].sort((a, b) => b.speed - a.speed);
+      const idx = sortedBySpeed.findIndex((p) => p.activityId === activityId);
+      if (idx >= 0) {
+        rank = idx + 1;
+      }
     }
-  }, [engineGroup, activityId]);
+
+    return {
+      performances: points,
+      best: bestPoint,
+      currentRank: rank,
+    };
+  }, [engineGroup, activities, activityId]);
 
   return {
     routeGroup,
     performances,
-    isLoading: false, // Data is synchronous from Rust engine
+    isLoading: false,
     best,
     currentRank,
   };

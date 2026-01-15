@@ -5,7 +5,7 @@
 
 import React, { useMemo, useCallback, useState } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
-import { useTheme } from '@/hooks';
+import { useTheme, useActivities } from '@/hooks';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router, type Href } from 'expo-router';
@@ -52,8 +52,14 @@ export function RoutePerformanceSection({
   const { t } = useTranslation();
   const { isDark } = useTheme();
 
-  const { routeGroup, performances, isLoading, best, currentRank } =
-    useRoutePerformances(activityId);
+  // Fetch activities to pass to useRoutePerformances for building performance data
+  const { data: activities = [] } = useActivities();
+
+  const { routeGroup, performances, isLoading, best, currentRank } = useRoutePerformances(
+    activityId,
+    undefined,
+    activities
+  );
 
   // Tooltip state - persists after scrubbing ends so user can tap
   const [tooltipData, setTooltipData] = useState<RoutePerformancePoint | null>(null);
