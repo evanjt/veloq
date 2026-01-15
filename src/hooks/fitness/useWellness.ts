@@ -1,5 +1,6 @@
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { intervalsApi } from '@/api';
+import { useAuthStore } from '@/providers';
 import { formatLocalDate } from '@/lib';
 import type { WellnessData } from '@/types';
 
@@ -29,10 +30,13 @@ function getDateRange(range: TimeRange): { oldest: string; newest: string } {
 
 export function useWellness(range: TimeRange = '3m') {
   const { oldest, newest } = getDateRange(range);
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
 
   return useQuery<WellnessData[]>({
     queryKey: ['wellness', range],
     queryFn: () => intervalsApi.getWellness({ oldest, newest }),
+    // Only fetch if authenticated (prevents 404 when athleteId is missing)
+    enabled: isAuthenticated,
     staleTime: 1000 * 60 * 30, // 30 minutes - wellness data changes infrequently
     gcTime: 1000 * 60 * 60 * 24, // 24 hours
     placeholderData: keepPreviousData, // Keep previous data visible while fetching new range
@@ -44,6 +48,8 @@ export function useWellness(range: TimeRange = '3m') {
  * Used for showing Form (CTL/ATL/TSB) on activity detail pages
  */
 export function useWellnessForDate(date: string | undefined) {
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+
   return useQuery<WellnessData | null>({
     queryKey: ['wellness-date', date],
     queryFn: async () => {
@@ -55,7 +61,8 @@ export function useWellnessForDate(date: string | undefined) {
       });
       return data?.[0] || null;
     },
-    enabled: !!date,
+    // Only fetch if authenticated and date is provided
+    enabled: isAuthenticated && !!date,
     staleTime: 1000 * 60 * 60, // 1 hour - historical data doesn't change often
     gcTime: 1000 * 60 * 60 * 24, // 24 hours
   });

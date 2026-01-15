@@ -10,7 +10,7 @@
  * handles demo data the same way it handles real data.
  */
 
-import { demoRoutes, getRouteBounds, getRouteCoordinates } from './routes';
+import { demoRoutes, getRouteBounds, getRouteCoordinates, getRouteLocation } from './routes';
 
 // ============================================================================
 // TYPES (matching API responses)
@@ -130,7 +130,8 @@ function generateActivityName(
   type: string,
   hour: number,
   isLong: boolean,
-  isHard: boolean
+  isHard: boolean,
+  routeId?: string | null
 ): string {
   const timeOfDay = hour < 12 ? 'Morning' : hour < 17 ? 'Afternoon' : 'Evening';
 
@@ -144,9 +145,20 @@ function generateActivityName(
       if (isHard) return `${timeOfDay} Tempo Run`;
       return `${timeOfDay} Run`;
     case 'VirtualRide':
-      return `${timeOfDay} Zwift Session`;
+      // Use route name for virtual rides
+      if (routeId?.includes('grindelwald')) return `${timeOfDay} ROUVY - Grindelwald`;
+      if (routeId?.includes('lavaux')) return `${timeOfDay} ROUVY - Lavaux`;
+      if (routeId?.includes('vuelta')) return `${timeOfDay} ROUVY - La Vuelta`;
+      if (routeId?.includes('rio')) return `${timeOfDay} ROUVY - Rio`;
+      return `${timeOfDay} Virtual Ride`;
     case 'Swim':
-      return `${timeOfDay} Swim`;
+      if (routeId) return `${timeOfDay} Open Water Swim`;
+      return `${timeOfDay} Pool Swim`;
+    case 'Hike':
+      if (isLong) return `${timeOfDay} Mountain Hike`;
+      return `${timeOfDay} Valley Hike`;
+    case 'Walk':
+      return `${timeOfDay} Walk`;
     default:
       return `${timeOfDay} ${type}`;
   }
@@ -159,66 +171,105 @@ function generateActivities(): ApiActivity[] {
   const activities: ApiActivity[] = [];
   const now = new Date();
 
-  // Route IDs from realRoutes.json:
-  // route-1: Bay Loop Ride (Ride, SF, 45.7km)
-  // route-2: Richmond Park Circuit (Ride, London, 15.7km)
-  // route-3: Centennial Park Loop (Ride, Sydney, 10.4km)
-  // route-4: Vondelpark Circuit (Ride, Amsterdam, 4.1km)
-  // route-5: Central Park Run (Run, NYC, 13km)
-  // route-6: Bondi to Bronte (Run, Sydney, 5.4km)
-  // route-7: Hyde Park Run (Run, London, 6.5km)
-  // route-8: Bondi Beach Swim Course (Swim, Sydney, 0.7km)
-  // route-osm-9: Sydney Harbour Foreshore (Ride, Sydney, 1.9km)
+  // Route IDs from realRoutes.json (extracted from real activities):
+  // Outdoor Cycling (Valais, Switzerland):
+  //   route-valais-ride-1: Rhône Valley Ride (73km)
+  //   route-valais-ride-2: Alpine Approach (29km)
+  // Virtual Cycling (ROUVY):
+  //   route-rouvy-grindelwald: Grindelwald to Lauterbrunnen (23km)
+  //   route-rouvy-lavaux: Lavaux Vineyards (17km)
+  //   route-rouvy-rio: Rio de Janeiro Aterro (10km)
+  //   route-rouvy-vuelta: La Vuelta Stage 12 (21km)
+  // Running (Rio de Janeiro, Brazil):
+  //   route-rio-run-1 through route-rio-run-4 (3-15km)
+  // Open Water Swimming (La Orotava, Tenerife):
+  //   route-la-orotava-swim-1 through route-la-orotava-swim-4 (100-200m)
+  // Hiking (Lauterbrunnen, Switzerland):
+  //   route-lauterbrunnen-hike-1 through route-lauterbrunnen-hike-3 (0.7-10km)
+  // Walking (Cape Town, South Africa):
+  //   route-cape-town-walk-1 through route-cape-town-walk-8 (0.8-3km)
+
   const templates = [
+    // === OUTDOOR CYCLING (Valais, Switzerland) ===
     {
       type: 'Ride',
-      dist: 45000,
-      time: 5400,
-      elev: 450,
-      speed: 30,
+      dist: 30000,
+      time: 4500,
+      elev: 150,
+      speed: 24,
       hr: 145,
       watts: 180,
       tss: 65,
-      route: 'route-1', // Bay Loop Ride (SF, 45.7km)
+      route: 'route-valais-ride-2', // Alpine Approach (29km)
       isLong: false,
       isHard: false,
     },
     {
       type: 'Ride',
-      dist: 80000,
+      dist: 75000,
       time: 10800,
-      elev: 800,
-      speed: 27,
+      elev: 200,
+      speed: 25,
       hr: 135,
       watts: 165,
       tss: 120,
-      route: 'route-1', // Bay Loop Ride (longest available)
+      route: 'route-valais-ride-1', // Rhône Valley Ride (73km)
       isLong: true,
       isHard: false,
     },
+
+    // === VIRTUAL CYCLING (ROUVY routes) ===
     {
-      type: 'Ride',
-      dist: 35000,
-      time: 4500,
-      elev: 650,
-      speed: 28,
+      type: 'VirtualRide',
+      dist: 23000,
+      time: 3600,
+      elev: 270,
+      speed: 23,
+      hr: 150,
+      watts: 195,
+      tss: 55,
+      route: 'route-rouvy-grindelwald', // Grindelwald to Lauterbrunnen (Swiss Alps)
+      isLong: false,
+      isHard: false,
+    },
+    {
+      type: 'VirtualRide',
+      dist: 17000,
+      time: 2700,
+      elev: 280,
+      speed: 22,
       hr: 155,
       watts: 210,
-      tss: 80,
-      route: 'route-2', // Richmond Park Circuit (London, 15.7km)
+      tss: 50,
+      route: 'route-rouvy-lavaux', // Lavaux Vineyards (Lake Geneva)
       isLong: false,
       isHard: true,
     },
     {
+      type: 'VirtualRide',
+      dist: 21000,
+      time: 3300,
+      elev: 370,
+      speed: 23,
+      hr: 148,
+      watts: 190,
+      tss: 60,
+      route: 'route-rouvy-vuelta', // La Vuelta Stage 12 (Spain)
+      isLong: false,
+      isHard: false,
+    },
+
+    // === RUNNING (Rio de Janeiro, Brazil) ===
+    {
       type: 'Run',
-      dist: 8000,
-      time: 2700,
-      elev: 50,
-      speed: 10.7,
+      dist: 3000,
+      time: 1200,
+      elev: 20,
+      speed: 9,
       hr: 140,
       watts: 0,
-      tss: 35,
-      route: 'route-6', // Bondi to Bronte (Sydney, 5.4km)
+      tss: 25,
+      route: 'route-rio-run-1', // Short Rio run
       isLong: false,
       isHard: false,
     },
@@ -226,28 +277,30 @@ function generateActivities(): ApiActivity[] {
       type: 'Run',
       dist: 15000,
       time: 4800,
-      elev: 120,
+      elev: 50,
       speed: 11.2,
       hr: 145,
       watts: 0,
       tss: 70,
-      route: 'route-5', // Central Park Run (NYC, 13km)
+      route: 'route-rio-run-2', // Long Rio run (15km)
       isLong: true,
       isHard: false,
     },
     {
-      type: 'VirtualRide',
-      dist: 30000,
-      time: 3600,
-      elev: 350,
-      speed: 30,
-      hr: 150,
-      watts: 195,
-      tss: 55,
-      route: null,
+      type: 'Run',
+      dist: 3000,
+      time: 1100,
+      elev: 15,
+      speed: 9.8,
+      hr: 155,
+      watts: 0,
+      tss: 30,
+      route: 'route-rio-run-3', // Tempo Rio run
       isLong: false,
-      isHard: false,
+      isHard: true,
     },
+
+    // === OPEN WATER SWIMMING (La Orotava, Tenerife) ===
     {
       type: 'Swim',
       dist: 2500,
@@ -263,15 +316,84 @@ function generateActivities(): ApiActivity[] {
     },
     {
       type: 'Swim',
-      dist: 5000,
-      time: 6000,
+      dist: 500,
+      time: 1200,
       elev: 0,
-      speed: 3,
+      speed: 1.5,
       hr: 135,
       watts: 0,
-      tss: 60,
-      route: 'route-8', // Bondi Beach Swim Course (0.7km)
+      tss: 25,
+      route: 'route-la-orotava-swim-1', // Open water swim (Tenerife)
+      isLong: false,
+      isHard: false,
+    },
+    {
+      type: 'Swim',
+      dist: 400,
+      time: 900,
+      elev: 0,
+      speed: 1.6,
+      hr: 140,
+      watts: 0,
+      tss: 20,
+      route: 'route-la-orotava-swim-3', // Open water swim (Tenerife)
+      isLong: false,
+      isHard: true,
+    },
+
+    // === HIKING (Lauterbrunnen, Switzerland) ===
+    {
+      type: 'Hike',
+      dist: 10000,
+      time: 14400,
+      elev: 1000,
+      speed: 2.5,
+      hr: 115,
+      watts: 0,
+      tss: 80,
+      route: 'route-lauterbrunnen-hike-3', // Long mountain hike (10km)
       isLong: true,
+      isHard: false,
+    },
+    {
+      type: 'Hike',
+      dist: 1200,
+      time: 2400,
+      elev: 60,
+      speed: 1.8,
+      hr: 105,
+      watts: 0,
+      tss: 20,
+      route: 'route-lauterbrunnen-hike-2', // Short valley hike
+      isLong: false,
+      isHard: false,
+    },
+
+    // === WALKING (Cape Town, South Africa) ===
+    {
+      type: 'Walk',
+      dist: 3000,
+      time: 2400,
+      elev: 700,
+      speed: 4.5,
+      hr: 95,
+      watts: 0,
+      tss: 15,
+      route: 'route-cape-town-walk-3', // Table Mountain walk
+      isLong: false,
+      isHard: false,
+    },
+    {
+      type: 'Walk',
+      dist: 2300,
+      time: 1800,
+      elev: 140,
+      speed: 4.6,
+      hr: 90,
+      watts: 0,
+      tss: 12,
+      route: 'route-cape-town-walk-5', // Coastal walk
+      isLong: false,
       isHard: false,
     },
   ];
@@ -310,15 +432,29 @@ function generateActivities(): ApiActivity[] {
     }
 
     // Select template based on day
+    // Templates: 0-1=Ride, 2-4=VirtualRide, 5-7=Run, 8-10=Swim, 11-12=Hike, 13-14=Walk
     let template;
     if (dayOfWeek === 0) {
-      template = Math.random() > 0.3 ? templates[1] : templates[4];
-    } else if (dayOfWeek === 6) {
-      template = templates[Math.floor(Math.random() * 3)];
-    } else if (dayOfWeek === 2 || dayOfWeek === 5) {
+      // Sunday: Long activities - long ride, long run, or mountain hike
       const r = Math.random();
-      template = r < 0.4 ? templates[3] : r < 0.7 ? templates[6] : templates[5];
+      if (r < 0.4) template = templates[1]; // Long ride
+      else if (r < 0.7) template = templates[6]; // Long run
+      else template = templates[11]; // Mountain hike
+    } else if (dayOfWeek === 6) {
+      // Saturday: Outdoor activities - rides, runs, hikes, or walks
+      const r = Math.random();
+      if (r < 0.35) template = templates[Math.floor(Math.random() * 2)]; // Rides
+      else if (r < 0.6) template = templates[5 + Math.floor(Math.random() * 3)]; // Runs
+      else if (r < 0.8) template = templates[11 + Math.floor(Math.random() * 2)]; // Hikes
+      else template = templates[13 + Math.floor(Math.random() * 2)]; // Walks
+    } else if (dayOfWeek === 2 || dayOfWeek === 5) {
+      // Tuesday/Friday: Indoor or short activities - runs, swims, virtual rides
+      const r = Math.random();
+      if (r < 0.35) template = templates[5 + Math.floor(Math.random() * 3)]; // Runs
+      else if (r < 0.55) template = templates[8 + Math.floor(Math.random() * 3)]; // Swims
+      else template = templates[2 + Math.floor(Math.random() * 3)]; // Virtual rides
     } else {
+      // Other weekdays: Mix of everything
       template = templates[Math.floor(Math.random() * templates.length)];
     }
 
@@ -335,8 +471,12 @@ function generateActivities(): ApiActivity[] {
       template.type,
       hour,
       template.isLong,
-      template.isHard
+      template.isHard,
+      template.route
     );
+
+    // Get location from route
+    const location = template.route ? getRouteLocation(template.route) : { locality: null, country: null };
 
     activities.push({
       id: `demo-${activityId++}`,
@@ -373,14 +513,20 @@ function generateActivities(): ApiActivity[] {
       icu_power_zones: [125, 170, 210, 250, 290, 350],
       stream_types:
         template.type === 'Swim' && !template.route
-          ? ['time', 'heartrate', 'distance'] // Pool swim
+          ? ['time', 'heartrate', 'distance'] // Pool swim - no GPS
           : template.type === 'Swim' && template.route
             ? ['time', 'latlng', 'heartrate', 'distance'] // Open water swim with GPS
-            : template.type === 'VirtualRide'
-              ? ['time', 'heartrate', 'altitude', 'cadence', 'watts', 'velocity_smooth']
-              : template.type === 'Ride'
-                ? ['time', 'latlng', 'heartrate', 'altitude', 'cadence', 'watts', 'velocity_smooth']
-                : ['time', 'latlng', 'heartrate', 'altitude', 'cadence', 'velocity_smooth'],
+            : template.type === 'VirtualRide' && template.route
+              ? ['time', 'latlng', 'heartrate', 'altitude', 'cadence', 'watts', 'velocity_smooth'] // Virtual ride with GPS
+              : template.type === 'VirtualRide'
+                ? ['time', 'heartrate', 'altitude', 'cadence', 'watts', 'velocity_smooth'] // Virtual ride without GPS (fallback)
+                : template.type === 'Ride'
+                  ? ['time', 'latlng', 'heartrate', 'altitude', 'cadence', 'watts', 'velocity_smooth']
+                  : template.type === 'Hike' || template.type === 'Walk'
+                    ? ['time', 'latlng', 'heartrate', 'altitude'] // Hiking/walking
+                    : ['time', 'latlng', 'heartrate', 'altitude', 'cadence', 'velocity_smooth'], // Running
+      locality: location.locality,
+      country: location.country,
       // Store route ID for map lookups (not part of real API)
       _routeId: template.route,
     } as ApiActivity & { _routeId: string | null });
@@ -647,6 +793,31 @@ export function getActivityStreams(id: string): ApiActivityStreams | null {
       const hillEffect = -Math.sin(progress * Math.PI * 2) * (activity.average_speed * 0.15);
       const variation = (Math.random() - 0.5) * 2;
       return Math.max(1, activity.average_speed + hillEffect + variation);
+    });
+  }
+
+  // Distance stream - cumulative distance over time (required for charts)
+  // This is the X-axis for most activity charts
+  // Derived from velocity to ensure monotonically increasing values
+  if (activity.distance && streams.velocity_smooth && streams.time.length > 1) {
+    const totalDistance = activity.distance;
+    // Calculate cumulative distance from velocity
+    const rawDistance: number[] = [0];
+    for (let i = 1; i < streams.time.length; i++) {
+      const dt = streams.time[i] - streams.time[i - 1];
+      const avgVelocity = (streams.velocity_smooth[i] + streams.velocity_smooth[i - 1]) / 2;
+      rawDistance.push(rawDistance[i - 1] + avgVelocity * dt);
+    }
+    // Scale to match actual total distance
+    const calculatedTotal = rawDistance[rawDistance.length - 1];
+    const scale = calculatedTotal > 0 ? totalDistance / calculatedTotal : 1;
+    streams.distance = rawDistance.map((d) => Math.round(d * scale));
+  } else if (activity.distance) {
+    // Fallback: linear distance progression
+    const totalDistance = activity.distance;
+    streams.distance = streams.time.map((t) => {
+      const progress = t / duration;
+      return Math.round(totalDistance * progress);
     });
   }
 

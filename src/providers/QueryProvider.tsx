@@ -63,6 +63,10 @@ export function QueryProvider({ children }: QueryProviderProps) {
         // Don't persist activity streams (large data)
         dehydrateOptions: {
           shouldDehydrateQuery: (query) => {
+            // Never persist pending queries - they'll fail on rehydration
+            // https://tanstack.com/query/latest/docs/framework/react/plugins/persistQueryClient#persistqueryclient
+            if (query.state.status === 'pending') return false;
+
             const key = query.queryKey[0];
             // Skip persisting large data like streams
             if (key === 'activity-streams-v2') return false;

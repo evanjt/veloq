@@ -122,21 +122,27 @@ export function DisplaySettings({
               const showCheck = isSelected || isVariantOfThisLanguage;
 
               return (
-                <TouchableOpacity
+                <View
                   key={lang.value ?? 'system'}
                   style={[
                     styles.languageRow,
                     index > 0 && styles.languageRowBorder,
                     isDark && styles.languageRowDark,
                   ]}
-                  onPress={() => {
-                    onLanguageChange(lang.value ?? 'system');
-                    setShowLanguages(false);
-                  }}
                 >
-                  <Text style={[styles.languageLabel, isDark && styles.textLight]}>
-                    {lang.label}
-                  </Text>
+                  <TouchableOpacity
+                    onPress={() => {
+                      // For languages with variants, use the defaultVariant (or first variant)
+                      const valueToUse = lang.defaultVariant ?? lang.variants?.[0]?.value ?? lang.value ?? 'system';
+                      onLanguageChange(valueToUse);
+                      setShowLanguages(false);
+                    }}
+                    style={styles.languageLabelContainer}
+                  >
+                    <Text style={[styles.languageLabel, isDark && styles.textLight]}>
+                      {lang.label}
+                    </Text>
+                  </TouchableOpacity>
                   {lang.variants && (
                     <View style={styles.variantChips}>
                       {lang.variants.map((variant) => {
@@ -154,8 +160,7 @@ export function DisplaySettings({
                               isDark && styles.variantChipDark,
                               isVariantSelected && isDark && styles.variantChipSelectedDark,
                             ]}
-                            onPress={(e) => {
-                              e.stopPropagation();
+                            onPress={() => {
                               onLanguageChange(variant.value);
                               setShowLanguages(false);
                             }}
@@ -177,7 +182,7 @@ export function DisplaySettings({
                   {showCheck && !lang.variants && (
                     <MaterialCommunityIcons name="check" size={20} color={colors.primary} />
                   )}
-                </TouchableOpacity>
+                </View>
               );
             })
           )}
@@ -269,6 +274,10 @@ const styles = StyleSheet.create({
   },
   languageRowDark: {
     borderTopColor: darkColors.border,
+  },
+  languageLabelContainer: {
+    flex: 1,
+    paddingVertical: spacing.xs,
   },
   languageLabel: {
     fontSize: 16,
