@@ -158,6 +158,7 @@
       "european": "European",
       "asian": "Asian"
     },
+    "dialect": "Dialect",
     "cached": "Cached",
     "notCached": "Not cached",
     "expandCache": "Load more"

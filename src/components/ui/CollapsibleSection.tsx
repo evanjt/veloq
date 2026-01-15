@@ -34,6 +34,8 @@ interface CollapsibleSectionProps {
   estimatedHeight?: number;
   /** Whether to show divider below header */
   showDivider?: boolean;
+  /** Optional content to render on the right side of the header (before chevron) */
+  headerRight?: React.ReactNode;
 }
 
 export function CollapsibleSection({
@@ -46,6 +48,7 @@ export function CollapsibleSection({
   style,
   estimatedHeight = 200,
   showDivider = false,
+  headerRight,
 }: CollapsibleSectionProps) {
   const { isDark } = useTheme();
 
@@ -120,6 +123,7 @@ export function CollapsibleSection({
             )}
           </View>
         </View>
+        {headerRight}
         <Animated.View style={chevronStyle}>
           <MaterialCommunityIcons
             name="chevron-down"

@@ -103,6 +103,16 @@ export function getEffectiveLanguage(): SupportedLocale {
 }
 
 /**
+ * Language variant with optional dialect flag
+ */
+export type LanguageVariant = {
+  value: string;
+  label: string;
+  /** Mark as dialect/fun variant (shows gold dotted border in UI) */
+  isDialect?: boolean;
+};
+
+/**
  * Language option for UI
  */
 type LanguageOption = {
@@ -110,7 +120,7 @@ type LanguageOption = {
   label: string;
   description?: string;
   /** Sub-options for regional variants (e.g., English regional variants) */
-  variants?: Array<{ value: string; label: string }>;
+  variants?: LanguageVariant[];
   /** Default variant to use when clicking the language row (first variant if not specified) */
   defaultVariant?: string;
 };
@@ -145,8 +155,8 @@ export function getAvailableLanguages(): LanguageGroup[] {
           defaultVariant: 'de-DE',
           variants: [
             { value: 'de-DE', label: 'DE' },
-            { value: 'de-CHZ', label: 'Züri' },
-            { value: 'de-CHB', label: 'Bärn' },
+            { value: 'de-CHZ', label: 'Züri', isDialect: true },
+            { value: 'de-CHB', label: 'Bärn', isDialect: true },
           ],
         },
         {
@@ -155,8 +165,8 @@ export function getAvailableLanguages(): LanguageGroup[] {
           defaultVariant: 'en-GB',
           variants: [
             { value: 'en-GB', label: 'GB' },
-            { value: 'en-AU', label: 'AU' },
             { value: 'en-US', label: 'US' },
+            { value: 'en-AU', label: 'AU', isDialect: true },
           ],
         },
         {

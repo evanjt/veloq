@@ -531,6 +531,33 @@ class RouteMatcherModule : Module() {
       persistentEngineExtractSectionTrace(activityId, polylineJson)
     }
 
+    // ==========================================================================
+    // HTTP Activity Fetching (high-performance with connection pooling)
+    // ==========================================================================
+
+    // Fetch activity map data from intervals.icu API
+    // Uses connection pooling, rate limiting, and parallel fetching
+    AsyncFunction("fetchActivityMaps") { apiKey: String, activityIds: List<String> ->
+      Log.i(TAG, "fetchActivityMaps: Fetching ${activityIds.size} activities")
+      val startTime = System.currentTimeMillis()
+
+      val results = fetchActivityMaps(apiKey, activityIds)
+
+      val elapsed = System.currentTimeMillis() - startTime
+      val successCount = results.count { it.success }
+      Log.i(TAG, "fetchActivityMaps: $successCount/${activityIds.size} success in ${elapsed}ms")
+
+      results.map { result ->
+        mapOf(
+          "activityId" to result.activityId,
+          "bounds" to result.bounds,
+          "latlngs" to result.latlngs,
+          "success" to result.success,
+          "error" to result.error
+        )
+      }
+    }
+
     // PersistentEngine: Set activity metrics for performance calculations
     Function("persistentEngineSetActivityMetrics") { metrics: List<Map<String, Any?>> ->
       val nativeMetrics = metrics.map { m ->

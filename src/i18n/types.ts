@@ -322,6 +322,7 @@ export interface TranslationResource {
       european: string;
       asian: string;
     };
+    dialect: string;
   };
 
   alerts: {

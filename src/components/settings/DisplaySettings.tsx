@@ -4,7 +4,7 @@ import { useTheme } from '@/hooks';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { SegmentedButtons } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
-import { colors, darkColors, spacing, layout } from '@/theme';
+import { colors, darkColors, spacing, layout, brand } from '@/theme';
 import {
   type ThemePreference,
   type PrimarySport,
@@ -111,6 +111,21 @@ export function DisplaySettings({
           onToggle={setShowLanguages}
           icon="translate"
           estimatedHeight={500}
+          headerRight={
+            // Show dialect chip only when a dialect is selected
+            language === 'en-AU' || language === 'de-CHZ' || language === 'de-CHB' ? (
+              <View
+                style={[
+                  styles.dialectLegendChip,
+                  isDark && styles.dialectLegendChipDark,
+                ]}
+              >
+                <Text style={[styles.dialectLegendText, isDark && styles.textMuted]}>
+                  {t('settings.dialect')}
+                </Text>
+              </View>
+            ) : null
+          }
         >
           {availableLanguages.flatMap((group, groupIndex) =>
             group.languages.map((lang, langIndex) => {
@@ -157,9 +172,16 @@ export function DisplaySettings({
                             key={variant.value}
                             style={[
                               styles.variantChip,
-                              isVariantSelected && styles.variantChipSelected,
                               isDark && styles.variantChipDark,
+                              // Non-selected dialect: gold dotted border
+                              variant.isDialect && !isVariantSelected && styles.variantChipDialect,
+                              variant.isDialect && !isVariantSelected && isDark && styles.variantChipDialectDark,
+                              // Selected: teal background
+                              isVariantSelected && styles.variantChipSelected,
                               isVariantSelected && isDark && styles.variantChipSelectedDark,
+                              // Selected dialect: keep gold dotted border with teal background
+                              variant.isDialect && isVariantSelected && styles.variantChipDialectSelected,
+                              variant.isDialect && isVariantSelected && isDark && styles.variantChipDialectSelectedDark,
                             ]}
                             onPress={() => {
                               onLanguageChange(variant.value);
@@ -309,6 +331,24 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
     borderColor: colors.primary,
   },
+  variantChipDialect: {
+    borderColor: brand.gold,
+    borderStyle: 'dotted',
+  },
+  variantChipDialectDark: {
+    borderColor: brand.goldLight,
+    borderStyle: 'dotted',
+  },
+  variantChipDialectSelected: {
+    borderColor: brand.gold,
+    borderStyle: 'dotted',
+    borderWidth: 2,
+  },
+  variantChipDialectSelectedDark: {
+    borderColor: brand.goldLight,
+    borderStyle: 'dotted',
+    borderWidth: 2,
+  },
   variantChipText: {
     fontSize: 13,
     color: colors.textSecondary,
@@ -323,5 +363,24 @@ const styles = StyleSheet.create({
     marginHorizontal: layout.screenPadding,
     marginTop: spacing.md,
     lineHeight: 18,
+  },
+  dialectLegendChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: brand.gold,
+    borderStyle: 'dotted',
+    backgroundColor: colors.background,
+    marginRight: spacing.sm,
+  },
+  dialectLegendChipDark: {
+    borderColor: brand.goldLight,
+    backgroundColor: darkColors.surfaceElevated,
+  },
+  dialectLegendText: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    fontWeight: '500',
   },
 });
