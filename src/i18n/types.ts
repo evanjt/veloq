@@ -1,6 +1,6 @@
 /**
  * Supported locales in the app
- * en-AU is the default language
+ * en-GB is the default language (standard English)
  */
 export const SUPPORTED_LOCALES = [
   // English variants
@@ -42,80 +42,80 @@ export type SupportedLocale = (typeof SUPPORTED_LOCALES)[number];
  */
 export const LOCALE_FALLBACKS: Record<string, SupportedLocale[]> = {
   // Australian English variants
-  'en-AU': ['en-AU'],
+  'en-AU': ['en-AU', 'en-GB'],
   'en-NZ': ['en-AU', 'en-GB'],
 
   // British English variants (use British spelling)
-  'en-GB': ['en-GB', 'en-AU'],
-  'en-IE': ['en-GB', 'en-AU'],
-  'en-ZA': ['en-GB', 'en-AU'],
-  'en-IN': ['en-GB', 'en-AU'],
+  'en-GB': ['en-GB'],
+  'en-IE': ['en-GB'],
+  'en-ZA': ['en-GB'],
+  'en-IN': ['en-GB'],
 
   // American English variants
-  'en-US': ['en-US', 'en-AU'],
-  'en-CA': ['en-US', 'en-AU'],
+  'en-US': ['en-US', 'en-GB'],
+  'en-CA': ['en-US', 'en-GB'],
 
-  // Generic English -> Australian (our default)
-  en: ['en-AU'],
+  // Generic English -> British (standard English)
+  en: ['en-GB'],
 
   // Spanish variants
-  es: ['es', 'en-AU'],
-  'es-ES': ['es-ES', 'es', 'en-AU'],
-  'es-419': ['es-419', 'es', 'en-AU'],
-  'es-MX': ['es-419', 'es', 'en-AU'],
-  'es-AR': ['es-419', 'es', 'en-AU'],
-  'es-CO': ['es-419', 'es', 'en-AU'],
-  'es-CL': ['es-419', 'es', 'en-AU'],
-  'es-PE': ['es-419', 'es', 'en-AU'],
-  'es-VE': ['es-419', 'es', 'en-AU'],
+  es: ['es', 'en-GB'],
+  'es-ES': ['es-ES', 'es', 'en-GB'],
+  'es-419': ['es-419', 'es', 'en-GB'],
+  'es-MX': ['es-419', 'es', 'en-GB'],
+  'es-AR': ['es-419', 'es', 'en-GB'],
+  'es-CO': ['es-419', 'es', 'en-GB'],
+  'es-CL': ['es-419', 'es', 'en-GB'],
+  'es-PE': ['es-419', 'es', 'en-GB'],
+  'es-VE': ['es-419', 'es', 'en-GB'],
 
   // French variants
-  fr: ['fr', 'en-AU'],
-  'fr-FR': ['fr', 'en-AU'],
-  'fr-CA': ['fr', 'en-AU'],
-  'fr-BE': ['fr', 'en-AU'],
-  'fr-CH': ['fr', 'en-AU'],
+  fr: ['fr', 'en-GB'],
+  'fr-FR': ['fr', 'en-GB'],
+  'fr-CA': ['fr', 'en-GB'],
+  'fr-BE': ['fr', 'en-GB'],
+  'fr-CH': ['fr', 'en-GB'],
 
   // German variants
-  de: ['de-DE', 'en-AU'],
-  'de-DE': ['de-DE', 'en-AU'],
-  'de-AT': ['de-DE', 'en-AU'],
-  'de-CH': ['de-DE', 'en-AU'],
-  'de-CHZ': ['de-CHZ', 'de-DE', 'en-AU'],
-  'de-CHB': ['de-CHB', 'de-DE', 'en-AU'],
+  de: ['de-DE', 'en-GB'],
+  'de-DE': ['de-DE', 'en-GB'],
+  'de-AT': ['de-DE', 'en-GB'],
+  'de-CH': ['de-DE', 'en-GB'],
+  'de-CHZ': ['de-CHZ', 'de-DE', 'en-GB'],
+  'de-CHB': ['de-CHB', 'de-DE', 'en-GB'],
 
   // Dutch variants
-  nl: ['nl', 'en-AU'],
-  'nl-NL': ['nl', 'en-AU'],
-  'nl-BE': ['nl', 'en-AU'],
+  nl: ['nl', 'en-GB'],
+  'nl-NL': ['nl', 'en-GB'],
+  'nl-BE': ['nl', 'en-GB'],
 
   // Italian variants
-  it: ['it', 'en-AU'],
-  'it-IT': ['it', 'en-AU'],
-  'it-CH': ['it', 'en-AU'],
+  it: ['it', 'en-GB'],
+  'it-IT': ['it', 'en-GB'],
+  'it-CH': ['it', 'en-GB'],
 
   // Portuguese variants
-  pt: ['pt', 'pt-BR', 'en-AU'],
-  'pt-PT': ['pt', 'pt-BR', 'en-AU'],
-  'pt-BR': ['pt-BR', 'pt', 'en-AU'],
+  pt: ['pt', 'pt-BR', 'en-GB'],
+  'pt-PT': ['pt', 'pt-BR', 'en-GB'],
+  'pt-BR': ['pt-BR', 'pt', 'en-GB'],
 
   // Japanese
-  ja: ['ja', 'en-AU'],
-  'ja-JP': ['ja', 'en-AU'],
+  ja: ['ja', 'en-GB'],
+  'ja-JP': ['ja', 'en-GB'],
 
   // Chinese variants
-  zh: ['zh-Hans', 'en-AU'],
-  'zh-Hans': ['zh-Hans', 'en-AU'],
-  'zh-CN': ['zh-Hans', 'en-AU'],
-  'zh-SG': ['zh-Hans', 'en-AU'],
+  zh: ['zh-Hans', 'en-GB'],
+  'zh-Hans': ['zh-Hans', 'en-GB'],
+  'zh-CN': ['zh-Hans', 'en-GB'],
+  'zh-SG': ['zh-Hans', 'en-GB'],
 
   // Polish
-  pl: ['pl', 'en-AU'],
-  'pl-PL': ['pl', 'en-AU'],
+  pl: ['pl', 'en-GB'],
+  'pl-PL': ['pl', 'en-GB'],
 
   // Danish
-  da: ['da', 'en-AU'],
-  'da-DK': ['da', 'en-AU'],
+  da: ['da', 'en-GB'],
+  'da-DK': ['da', 'en-GB'],
 };
 
 /**
@@ -234,6 +234,7 @@ export interface TranslationResource {
     loginWithIntervals: string;
     oauthNotConfigured: string;
     oauthFailed: string;
+    oauthStateValidationFailed: string;
     gettingStarted: string;
     instructions: string;
     openSettings: string;
@@ -258,6 +259,8 @@ export interface TranslationResource {
     apiKeyConnect: string;
     localModeNote: string;
     connectedModeNote: string;
+    sessionExpired: string;
+    sessionRevoked: string;
   };
 
   demo: {

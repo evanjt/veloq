@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { View, StyleSheet, ScrollView, Linking, Pressable } from "react-native";
 import { Text, Button, TextInput } from "react-native-paper";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -17,7 +17,12 @@ import {
   handleOAuthCallback,
   isOAuthConfigured,
   INTERVALS_URLS,
+  getAppRedirectUri,
 } from "@/services/oauth";
+
+const VELOQ_URLS = {
+  privacy: "https://veloq.fit/privacy",
+};
 import { CollapsibleSection } from "@/components/ui/CollapsibleSection";
 import { clearAllAppCaches } from "@/lib/storage";
 import { useSyncDateRange } from "@/providers";
@@ -32,6 +37,8 @@ export default function LoginScreen() {
   );
   const setCredentials = useAuthStore((state) => state.setCredentials);
   const enterDemoMode = useAuthStore((state) => state.enterDemoMode);
+  const sessionExpired = useAuthStore((state) => state.sessionExpired);
+  const clearSessionExpired = useAuthStore((state) => state.clearSessionExpired);
   const queryClient = useQueryClient();
   const resetSyncDateRange = useSyncDateRange((state) => state.reset);
 
@@ -40,6 +47,18 @@ export default function LoginScreen() {
   const [error, setError] = useState<string | null>(null);
   const [apiKey, setApiKey] = useState("");
   const [apiKeyExpanded, setApiKeyExpanded] = useState(false);
+
+  // Show session expired message if redirected here due to token expiry
+  useEffect(() => {
+    if (sessionExpired) {
+      const message = sessionExpired === 'token_revoked'
+        ? t("login.sessionRevoked")
+        : t("login.sessionExpired");
+      setError(message);
+      // Clear the session expired flag after showing the message
+      clearSessionExpired();
+    }
+  }, [sessionExpired, t, clearSessionExpired]);
 
   const handleTryDemo = async () => {
     // Clear ALL cached data from previous sessions (including persisted caches)
@@ -56,11 +75,15 @@ export default function LoginScreen() {
     Linking.openURL(INTERVALS_URLS.signup);
   };
 
-  const handleOpenPrivacy = () => {
+  const handleOpenVeloqPrivacy = () => {
+    Linking.openURL(VELOQ_URLS.privacy);
+  };
+
+  const handleOpenIntervalsPrivacy = () => {
     Linking.openURL(INTERVALS_URLS.privacyPolicy);
   };
 
-  const handleOpenTerms = () => {
+  const handleOpenIntervalsTerms = () => {
     Linking.openURL(INTERVALS_URLS.termsOfService);
   };
 
@@ -128,6 +151,14 @@ export default function LoginScreen() {
       const result = await startOAuthFlow();
 
       if (result.type === "success" && result.url) {
+        // Validate that the callback URL matches expected scheme before processing
+        const expectedPrefix = getAppRedirectUri();
+        if (!result.url.startsWith(expectedPrefix)) {
+          setError(t("login.oauthInvalidCallback", { defaultValue: "Invalid OAuth callback URL" }));
+          setIsLoading(false);
+          return;
+        }
+
         // Handle the callback URL (token is already in URL from proxy)
         const tokenResponse = handleOAuthCallback(result.url);
 
@@ -153,8 +184,18 @@ export default function LoginScreen() {
         setError(t("login.oauthFailed"));
       }
     } catch (err: unknown) {
-      const errorMessage =
-        err instanceof Error ? err.message : t("login.connectionFailed");
+      let errorMessage = t("login.connectionFailed");
+      if (err instanceof Error) {
+        // Check for CSRF/state validation errors and show user-friendly message
+        if (
+          err.message.includes("state validation failed") ||
+          err.message.includes("missing state parameter")
+        ) {
+          errorMessage = t("login.oauthStateValidationFailed");
+        } else {
+          errorMessage = err.message;
+        }
+      }
       setError(errorMessage);
     } finally {
       setIsLoading(false);
@@ -323,15 +364,30 @@ export default function LoginScreen() {
           <Text style={[styles.disclaimerText, isDark && styles.textMuted]}>
             {t("login.disclaimer")}
           </Text>
+
+          {/* Veloq Privacy - prominent */}
+          <Pressable onPress={handleOpenVeloqPrivacy} style={styles.veloqPrivacyLink}>
+            <MaterialCommunityIcons
+              name="shield-lock"
+              size={14}
+              color={colors.primary}
+            />
+            <Text style={styles.linkText}>{t("about.veloqPrivacy")}</Text>
+          </Pressable>
+
+          {/* intervals.icu links - clearly labeled */}
+          <Text style={[styles.intervalsLabel, isDark && styles.textMuted]}>
+            intervals.icu:
+          </Text>
           <View style={styles.linksRow}>
-            <Pressable onPress={handleOpenPrivacy}>
-              <Text style={styles.linkText}>{t("login.privacyPolicy")}</Text>
+            <Pressable onPress={handleOpenIntervalsPrivacy}>
+              <Text style={styles.linkTextSmall}>{t("login.privacyPolicy")}</Text>
             </Pressable>
             <Text style={[styles.linkSeparator, isDark && styles.textMuted]}>
               |
             </Text>
-            <Pressable onPress={handleOpenTerms}>
-              <Text style={styles.linkText}>{t("login.termsOfService")}</Text>
+            <Pressable onPress={handleOpenIntervalsTerms}>
+              <Text style={styles.linkTextSmall}>{t("login.termsOfService")}</Text>
             </Pressable>
           </View>
         </View>
@@ -496,12 +552,28 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     marginBottom: spacing.sm,
   },
+  veloqPrivacyLink: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs,
+    marginBottom: spacing.md,
+  },
+  intervalsLabel: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    marginBottom: spacing.xs,
+  },
   linksRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.sm,
   },
   linkText: {
+    fontSize: 14,
+    color: colors.primary,
+    textDecorationLine: "underline",
+  },
+  linkTextSmall: {
     fontSize: 12,
     color: colors.primary,
     textDecorationLine: "underline",

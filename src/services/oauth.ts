@@ -38,6 +38,7 @@ export interface OAuthTokenResponse {
   scope: string;
   athlete_id: string;
   athlete_name: string;
+  state?: string;
 }
 
 export interface OAuthError {
@@ -169,6 +170,7 @@ export function parseCallbackUrl(url: string): OAuthTokenResponse | null {
         scope: (params.scope as string) || '',
         athlete_id: params.athlete_id as string,
         athlete_name: (params.athlete_name as string) || '',
+        state: (params.state as string) || undefined,
       };
     }
 
@@ -200,6 +202,10 @@ export function validateState(receivedState: string): boolean {
 /**
  * Handle the complete OAuth callback flow
  * With the proxy, the token is already in the redirect URL
+ *
+ * This function validates the CSRF state parameter to prevent attacks.
+ * The proxy also validates state server-side, but client-side validation
+ * provides defense in depth.
  */
 export function handleOAuthCallback(url: string): OAuthTokenResponse {
   const tokenResponse = parseCallbackUrl(url);
@@ -208,8 +214,15 @@ export function handleOAuthCallback(url: string): OAuthTokenResponse {
     throw new Error('Invalid OAuth callback URL - missing token data');
   }
 
-  // Note: State validation happens at the proxy level now
-  // The proxy validates state before exchanging the code
+  // Validate state parameter for CSRF protection
+  // The state should be present in the callback and match what we generated
+  if (!tokenResponse.state) {
+    throw new Error('OAuth callback missing state parameter - possible CSRF attack');
+  }
+
+  if (!validateState(tokenResponse.state)) {
+    throw new Error('OAuth state validation failed - possible CSRF attack');
+  }
 
   return tokenResponse;
 }

@@ -1,9 +1,11 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
-import { getStoredCredentials } from '@/providers';
+import { getStoredCredentials, useAuthStore } from '@/providers';
 
-// Extended config type to track retry count
+// Extended config type to track retry count and session expiry handling
 interface RetryableAxiosRequestConfig extends InternalAxiosRequestConfig {
   __retryCount?: number;
+  /** Skip session expiry handling for this request (e.g., auth validation) */
+  __skipSessionExpiry?: boolean;
 }
 
 export const apiClient = axios.create({
@@ -43,11 +45,41 @@ const NETWORK_BACKOFF = 2000; // 2 seconds for network errors
 // Network error codes that should trigger retry
 const NETWORK_ERROR_CODES = ['ERR_NETWORK', 'ECONNABORTED', 'ETIMEDOUT'];
 
+// Track if we're already handling session expiry to prevent infinite loops
+let isHandlingSessionExpiry = false;
+
 apiClient.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {
     const config = error.config as RetryableAxiosRequestConfig | undefined;
     if (!config) return Promise.reject(error);
+
+    // Handle 401 Unauthorized for OAuth sessions
+    // This indicates the access token has expired or been revoked
+    const isUnauthorized = error.response?.status === 401;
+    const { authMethod } = getStoredCredentials();
+    const isOAuthSession = authMethod === 'oauth';
+    const shouldHandleSessionExpiry =
+      isUnauthorized &&
+      isOAuthSession &&
+      !config.__skipSessionExpiry &&
+      !isHandlingSessionExpiry;
+
+    if (shouldHandleSessionExpiry) {
+      isHandlingSessionExpiry = true;
+
+      try {
+        // intervals.icu OAuth does not support refresh tokens
+        // We must clear credentials and redirect user to re-login
+        // See: https://forum.intervals.icu/t/intervals-icu-oauth-support/2759
+        await useAuthStore.getState().handleSessionExpired('token_expired');
+      } finally {
+        isHandlingSessionExpiry = false;
+      }
+
+      // Reject with the original error - the UI will handle showing login
+      return Promise.reject(error);
+    }
 
     // Initialize retry count
     const retryCount = config.__retryCount ?? 0;

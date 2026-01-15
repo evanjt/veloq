@@ -4,24 +4,25 @@ import { SUPPORTED_LOCALES, type SupportedLocale, getDeviceLocale, changeLanguag
 
 const STORAGE_KEY = 'veloq-language-preference';
 
-/** Simplified language choice - 'en', 'es', 'fr', or null for system */
-type LanguageChoice = string | null;
+/** Language choice - always an explicit locale (no 'system' option) */
+type LanguageChoice = string;
 
 interface LanguageState {
-  /** Current language choice. null means 'system' (auto-detect) */
-  language: LanguageChoice;
+  /** Current language choice (explicit locale) */
+  language: LanguageChoice | null; // null only before initialization
   /** Whether the store has been initialized */
   isInitialized: boolean;
-  /** Set a language choice or null for system default */
+  /** Set a language choice */
   setLanguage: (language: LanguageChoice) => Promise<void>;
 }
 
 /**
- * Map a simplified language choice to the appropriate locale
+ * Map a language choice to the appropriate locale
  * For English, uses device region to pick the right variant (AU/US/UK)
  */
-export function resolveLanguageToLocale(language: LanguageChoice): SupportedLocale {
+export function resolveLanguageToLocale(language: LanguageChoice | null): SupportedLocale {
   if (language === null) {
+    // Pre-initialization state - use device locale
     return getDeviceLocale();
   }
 
@@ -44,8 +45,8 @@ export function resolveLanguageToLocale(language: LanguageChoice): SupportedLoca
   if (language === 'pl') return 'pl';
   if (language === 'da') return 'da';
 
-  // Unknown language, default to English
-  return 'en-AU';
+  // Unknown language, default to British English
+  return 'en-GB';
 }
 
 /**
@@ -56,12 +57,8 @@ export const useLanguageStore = create<LanguageState>((set) => ({
   isInitialized: false,
 
   setLanguage: async (language) => {
-    // Save preference (can be 'en', 'es', 'fr', or null for system)
-    if (language === null) {
-      await AsyncStorage.removeItem(STORAGE_KEY);
-    } else {
-      await AsyncStorage.setItem(STORAGE_KEY, language);
-    }
+    // Save preference (always an explicit locale)
+    await AsyncStorage.setItem(STORAGE_KEY, language);
 
     // Resolve to the appropriate locale (handles English variants based on device region)
     const effectiveLocale = resolveLanguageToLocale(language);
@@ -74,6 +71,7 @@ export const useLanguageStore = create<LanguageState>((set) => ({
 /**
  * Initialize language on app start.
  * Call this early in _layout.tsx before rendering.
+ * On first launch, detects device locale and saves it as the explicit choice.
  */
 export async function initializeLanguage(): Promise<SupportedLocale> {
   try {
@@ -85,12 +83,16 @@ export async function initializeLanguage(): Promise<SupportedLocale> {
       return resolveLanguageToLocale(saved);
     }
 
-    // No saved preference - use system locale
-    useLanguageStore.setState({ language: null, isInitialized: true });
-    return getDeviceLocale();
+    // No saved preference - detect device locale and save it as explicit choice
+    const deviceLocale = getDeviceLocale();
+    await AsyncStorage.setItem(STORAGE_KEY, deviceLocale);
+    useLanguageStore.setState({ language: deviceLocale, isInitialized: true });
+    return deviceLocale;
   } catch {
-    useLanguageStore.setState({ language: null, isInitialized: true });
-    return getDeviceLocale();
+    // On error, still try to detect and save device locale
+    const deviceLocale = getDeviceLocale();
+    useLanguageStore.setState({ language: deviceLocale, isInitialized: true });
+    return deviceLocale;
   }
 }
 
@@ -116,7 +118,7 @@ export type LanguageVariant = {
  * Language option for UI
  */
 type LanguageOption = {
-  value: string | null;
+  value: string;
   label: string;
   description?: string;
   /** Sub-options for regional variants (e.g., English regional variants) */
@@ -136,18 +138,13 @@ export type LanguageGroup = {
 
 /**
  * Get language options for settings UI
- * Languages are listed alphabetically with System option first
+ * Languages are listed alphabetically
  */
 export function getAvailableLanguages(): LanguageGroup[] {
   return [
     {
       groupLabel: null,
       languages: [
-        {
-          value: null,
-          label: 'System',
-          description: 'Auto-detect from device',
-        },
         { value: 'da', label: 'Dansk' },
         {
           value: 'de',
@@ -220,15 +217,15 @@ export function isEnglishVariant(language: string | null): boolean {
 export function getEnglishVariantValue(language: string | null): string {
   if (language === null) {
     const deviceLocale = getDeviceLocale();
-    return deviceLocale.startsWith('en-') ? deviceLocale : 'en-AU';
+    return deviceLocale.startsWith('en-') ? deviceLocale : 'en-GB';
   }
   if (language === 'en') {
     // Resolve to device's regional variant
     const deviceLocale = getDeviceLocale();
-    return deviceLocale.startsWith('en-') ? deviceLocale : 'en-AU';
+    return deviceLocale.startsWith('en-') ? deviceLocale : 'en-GB';
   }
   if (language.startsWith('en-')) return language;
-  return 'en-AU';
+  return 'en-GB';
 }
 
 /**

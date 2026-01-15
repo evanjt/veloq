@@ -7,10 +7,11 @@
 
 // Import the Turbo Module to install JSI bindings
 import NativeVeloq from "./NativeVeloq";
+import { validateCustomSection } from "@/lib/validation/schemas";
 
 // Install the Rust crate into the JS runtime (installs NativeTracematch on globalThis)
 const installed = NativeVeloq.installRustCrate();
-if (!installed) {
+if (!installed && __DEV__) {
   console.warn(
     "[RouteMatcher] Failed to install Rust crate. Native functions may not work.",
   );
@@ -70,6 +71,94 @@ import {
 // For backward compatibility, also export the module initialization status
 export function isRouteMatcherInitialized(): boolean {
   return installed;
+}
+
+/**
+ * Maximum allowed length for user-provided names (route names, section names).
+ */
+const MAX_NAME_LENGTH = 255;
+
+/**
+ * Regular expression to detect control characters (except common whitespace).
+ * Allows: space, tab, newline, carriage return
+ * Blocks: null, bell, backspace, form feed, vertical tab, escape, etc.
+ */
+const CONTROL_CHAR_REGEX = /[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/;
+
+/**
+ * Safely parse JSON with error handling.
+ * Returns the fallback value if parsing fails or input is null/undefined.
+ *
+ * @param json - The JSON string to parse
+ * @param fallback - The fallback value to return on error
+ * @returns The parsed value or fallback
+ */
+function safeJsonParse<T>(json: string | null | undefined, fallback: T): T {
+  if (json === null || json === undefined || json === "") {
+    return fallback;
+  }
+  try {
+    return JSON.parse(json) as T;
+  } catch (error) {
+    if (__DEV__) {
+      console.error(
+        "[RouteMatcher] JSON parse error:",
+        error instanceof Error ? error.message : String(error),
+      );
+    }
+    return fallback;
+  }
+}
+
+/**
+ * Validate a user-provided name string.
+ * Throws an error if the name is invalid.
+ *
+ * @param name - The name to validate
+ * @param fieldName - The field name for error messages (e.g., "route name")
+ * @throws Error if validation fails
+ */
+function validateName(name: string, fieldName: string): void {
+  if (typeof name !== "string") {
+    throw new Error(`Invalid ${fieldName}: must be a string`);
+  }
+  if (name.length > MAX_NAME_LENGTH) {
+    throw new Error(
+      `Invalid ${fieldName}: exceeds maximum length of ${MAX_NAME_LENGTH} characters`,
+    );
+  }
+  if (CONTROL_CHAR_REGEX.test(name)) {
+    throw new Error(
+      `Invalid ${fieldName}: contains disallowed control characters`,
+    );
+  }
+}
+
+/**
+ * Validate a user-provided ID string.
+ * Throws an error if the ID is invalid.
+ *
+ * @param id - The ID to validate
+ * @param fieldName - The field name for error messages (e.g., "route ID")
+ * @throws Error if validation fails
+ */
+function validateId(id: string, fieldName: string): void {
+  if (typeof id !== "string") {
+    throw new Error(`Invalid ${fieldName}: must be a string`);
+  }
+  if (id.length === 0) {
+    throw new Error(`Invalid ${fieldName}: cannot be empty`);
+  }
+  if (id.length > MAX_NAME_LENGTH) {
+    throw new Error(
+      `Invalid ${fieldName}: exceeds maximum length of ${MAX_NAME_LENGTH} characters`,
+    );
+  }
+  if (CONTROL_CHAR_REGEX.test(id)) {
+    throw new Error(
+      `Invalid ${fieldName}: contains disallowed control characters`,
+    );
+  }
 }
 
 /**
@@ -140,9 +229,11 @@ export interface FetchProgressEvent {
 export function addFetchProgressListener(
   _callback: (event: FetchProgressEvent) => void,
 ): { remove: () => void } {
-  console.warn(
-    "[RouteMatcher] Progress events not supported in uniffi bindings. Use fetchActivityMaps without progress.",
-  );
+  if (__DEV__) {
+    console.warn(
+      "[RouteMatcher] Progress events not supported in uniffi bindings. Use fetchActivityMaps without progress.",
+    );
+  }
   return { remove: () => {} };
 }
 
@@ -311,16 +402,15 @@ class RouteEngineClient {
    */
   getGroups(): RouteGroup[] {
     const json = persistentEngineGetGroupsJson();
-    if (!json) return [];
-    const rawGroups = JSON.parse(json);
+    const rawGroups = safeJsonParse<Record<string, unknown>[]>(json, []);
     // Transform snake_case to camelCase (Rust serde uses snake_case by default)
     return rawGroups.map((g: Record<string, unknown>) => ({
-      groupId: g.group_id ?? g.groupId,
-      representativeId: g.representative_id ?? g.representativeId,
-      activityIds: g.activity_ids ?? g.activityIds ?? [],
-      sportType: g.sport_type ?? g.sportType,
-      bounds: g.bounds,
-      customName: g.custom_name ?? g.customName,
+      groupId: (g.group_id ?? g.groupId) as string,
+      representativeId: (g.representative_id ?? g.representativeId) as string,
+      activityIds: (g.activity_ids ?? g.activityIds ?? []) as string[],
+      sportType: (g.sport_type ?? g.sportType) as string,
+      bounds: g.bounds as RouteGroup["bounds"],
+      customName: (g.custom_name ?? g.customName) as string | undefined,
     }));
   }
 
@@ -336,7 +426,7 @@ class RouteEngineClient {
    */
   getSections(): FrequentSection[] {
     const json = persistentEngineGetSectionsJson();
-    return json ? JSON.parse(json) : [];
+    return safeJsonParse<FrequentSection[]>(json, []);
   }
 
   /**
@@ -347,23 +437,28 @@ class RouteEngineClient {
     { minLat: number; maxLat: number; minLng: number; maxLng: number }
   > {
     const json = persistentEngineGetAllActivityBoundsJson();
-    if (!json) return new Map();
-    const obj = JSON.parse(json);
+    const obj = safeJsonParse<Record<string, { minLat: number; maxLat: number; minLng: number; maxLng: number }>>(json, {});
     return new Map(Object.entries(obj));
   }
 
   /**
    * Set route name.
+   * @throws Error if routeId or name fails validation
    */
   setRouteName(routeId: string, name: string): void {
+    validateId(routeId, "route ID");
+    validateName(name, "route name");
     persistentEngineSetRouteName(routeId, name);
     this.notify("groups");
   }
 
   /**
    * Set section name.
+   * @throws Error if sectionId or name fails validation
    */
   setSectionName(sectionId: string, name: string): void {
+    validateId(sectionId, "section ID");
+    validateName(name, "section name");
     persistentEngineSetSectionName(sectionId, name);
     this.notify("sections");
   }
@@ -372,6 +467,7 @@ class RouteEngineClient {
    * Get route name.
    */
   getRouteName(routeId: string): string {
+    validateId(routeId, "route ID");
     return persistentEngineGetRouteName(routeId);
   }
 
@@ -379,6 +475,7 @@ class RouteEngineClient {
    * Get section name.
    */
   getSectionName(sectionId: string): string {
+    validateId(sectionId, "section ID");
     return persistentEngineGetSectionName(sectionId);
   }
 
@@ -387,6 +484,7 @@ class RouteEngineClient {
    * Returns flat array of coordinates [lat1, lng1, lat2, lng2, ...]
    */
   getGpsTrack(activityId: string): GpsPoint[] {
+    validateId(activityId, "activity ID");
     const flatCoords = persistentEngineGetGpsTrack(activityId);
     return flatCoordsToPoints(flatCoords);
   }
@@ -396,6 +494,7 @@ class RouteEngineClient {
    * Returns flat array of coordinates [lat1, lng1, lat2, lng2, ...]
    */
   getConsensusRoute(groupId: string): GpsPoint[] {
+    validateId(groupId, "group ID");
     const flatCoords = persistentEngineGetConsensusRoute(groupId);
     return flatCoordsToPoints(flatCoords);
   }
@@ -414,6 +513,11 @@ class RouteEngineClient {
     routeGroupId: string,
     currentActivityId: string,
   ): string {
+    validateId(routeGroupId, "route group ID");
+    // currentActivityId can be empty string to get all performances
+    if (currentActivityId !== "") {
+      validateId(currentActivityId, "activity ID");
+    }
     return persistentEngineGetRoutePerformancesJson(
       routeGroupId,
       currentActivityId,
@@ -424,6 +528,7 @@ class RouteEngineClient {
    * Get section performances (alias for route performances).
    */
   getSectionPerformances(sectionId: string): string {
+    validateId(sectionId, "section ID");
     return persistentEngineGetRoutePerformancesJson(sectionId, "");
   }
 
@@ -458,16 +563,20 @@ class RouteEngineClient {
    */
   getCustomSections(): CustomSection[] {
     const json = persistentEngineGetCustomSectionsJson();
-    return json ? JSON.parse(json) : [];
+    return safeJsonParse<CustomSection[]>(json, []);
   }
 
   /**
    * Add a custom section.
    * Accepts either a CustomSection object or JSON string.
+   * Validates the section data including size limits before passing to Rust.
+   * @throws Error if validation fails (invalid fields, size > 100KB, etc.)
    */
   addCustomSection(section: CustomSection | string): boolean {
-    const sectionJson =
-      typeof section === "string" ? section : JSON.stringify(section);
+    // Validate the section data (handles both object and JSON string input)
+    // This throws descriptive errors if validation fails
+    const validated = validateCustomSection(section);
+    const sectionJson = JSON.stringify(validated);
     const result = persistentEngineAddCustomSection(sectionJson);
     this.notify("sections");
     return result;
@@ -477,6 +586,7 @@ class RouteEngineClient {
    * Remove a custom section.
    */
   removeCustomSection(sectionId: string): boolean {
+    validateId(sectionId, "section ID");
     const result = persistentEngineRemoveCustomSection(sectionId);
     this.notify("sections");
     return result;
@@ -486,8 +596,9 @@ class RouteEngineClient {
    * Get custom section matches.
    */
   getCustomSectionMatches(sectionId: string): CustomSectionMatch[] {
+    validateId(sectionId, "section ID");
     const json = persistentEngineGetCustomSectionMatches(sectionId);
-    return json ? JSON.parse(json) : [];
+    return safeJsonParse<CustomSectionMatch[]>(json, []);
   }
 
   /**
@@ -497,8 +608,9 @@ class RouteEngineClient {
     sectionId: string,
     activityIds: string[],
   ): CustomSectionMatch[] {
+    validateId(sectionId, "section ID");
     const json = persistentEngineMatchCustomSection(sectionId, activityIds);
-    return json ? JSON.parse(json) : [];
+    return safeJsonParse<CustomSectionMatch[]>(json, []);
   }
 
   /**
@@ -508,6 +620,7 @@ class RouteEngineClient {
     activityId: string,
     sectionPolylineJson: string,
   ): GpsPoint[] {
+    validateId(activityId, "activity ID");
     const flatCoords = persistentEngineExtractSectionTrace(
       activityId,
       sectionPolylineJson,

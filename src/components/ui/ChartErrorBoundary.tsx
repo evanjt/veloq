@@ -32,7 +32,9 @@ export class ChartErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    console.error('[ChartErrorBoundary] Chart render error:', error, errorInfo);
+    if (__DEV__) {
+      console.error('[ChartErrorBoundary] Chart render error:', error, errorInfo);
+    }
   }
 
   render() {

@@ -148,6 +148,85 @@ export const SyncProgressSchema = z.object({
 export type SyncProgress = z.infer<typeof SyncProgressSchema>;
 
 // =============================================================================
+// Custom Section Schema (for native module validation)
+// =============================================================================
+
+/** Maximum payload size for custom sections (100KB) */
+export const CUSTOM_SECTION_MAX_SIZE_BYTES = 100 * 1024;
+
+/** GPS point schema for custom section polylines */
+const GpsPointSchema = z.object({
+  latitude: z.number().min(-90).max(90),
+  longitude: z.number().min(-180).max(180),
+  elevation: z.number().optional(),
+});
+
+/**
+ * Custom section schema.
+ * Validates user-created sections before passing to Rust engine.
+ * Enforces field length limits and coordinate bounds to prevent malformed data.
+ */
+export const CustomSectionSchema = z.object({
+  id: z.string().min(1).max(255),
+  name: z.string().min(1).max(255),
+  polyline: z.array(GpsPointSchema).min(2),
+  sourceActivityId: z.string().min(1).max(255),
+  startIndex: z.number().int().nonnegative(),
+  endIndex: z.number().int().nonnegative(),
+  sportType: z.string().min(1).max(50),
+  distanceMeters: z.number().nonnegative(),
+  createdAt: z.string().optional(),
+});
+
+/** Type inferred from CustomSectionSchema */
+export type ValidatedCustomSection = z.infer<typeof CustomSectionSchema>;
+
+/**
+ * Validates a custom section payload including size check.
+ * Throws descriptive errors for validation failures.
+ *
+ * @param input - Custom section data (object or JSON string)
+ * @returns Validated custom section object
+ * @throws Error if validation fails or payload exceeds size limit
+ */
+export function validateCustomSection(input: unknown): ValidatedCustomSection {
+  // Handle JSON string input
+  let data: unknown = input;
+  let jsonString: string;
+
+  if (typeof input === 'string') {
+    jsonString = input;
+    try {
+      data = JSON.parse(input);
+    } catch {
+      throw new Error('CustomSection validation failed: Invalid JSON string');
+    }
+  } else {
+    jsonString = JSON.stringify(input);
+  }
+
+  // Check payload size (100KB limit)
+  const sizeBytes = new TextEncoder().encode(jsonString).length;
+  if (sizeBytes > CUSTOM_SECTION_MAX_SIZE_BYTES) {
+    throw new Error(
+      `CustomSection validation failed: Payload size (${sizeBytes} bytes) exceeds maximum allowed size (${CUSTOM_SECTION_MAX_SIZE_BYTES} bytes)`
+    );
+  }
+
+  // Validate against schema
+  const result = CustomSectionSchema.safeParse(data);
+
+  if (!result.success) {
+    const issues = result.error.issues
+      .map((issue) => `${issue.path.join('.')}: ${issue.message}`)
+      .join('; ');
+    throw new Error(`CustomSection validation failed: ${issues}`);
+  }
+
+  return result.data;
+}
+
+// =============================================================================
 // Helper Functions
 // =============================================================================
 
@@ -176,7 +255,9 @@ export function safeParseWithSchema<T>(
   const result = schema.safeParse(data);
 
   if (!result.success) {
-    console.warn(`[Zod] ${context} validation failed:`, result.error.format());
+    if (__DEV__) {
+      console.warn(`[Zod] ${context} validation failed:`, result.error.format());
+    }
     return null;
   }
 
