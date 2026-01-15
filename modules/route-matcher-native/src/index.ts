@@ -58,6 +58,8 @@ import {
   ffiDetectSectionsMultiscale,
   defaultScalePresets,
   fetchActivityMaps,
+  fetchActivityMapsWithProgress as generatedFetchWithProgress,
+  type FetchProgressCallback,
   type PersistentEngineStats,
   type ActivityMetrics,
   type GpsPoint,
