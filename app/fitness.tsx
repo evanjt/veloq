@@ -3,7 +3,6 @@ import {
   View,
   ScrollView,
   StyleSheet,
-  useColorScheme,
   TouchableOpacity,
   RefreshControl,
 } from 'react-native';
@@ -18,6 +17,7 @@ import { NetworkErrorState, ErrorStatePreset } from '@/components/ui';
 import {
   useWellness,
   useActivities,
+  useTheme,
   getFormZone,
   FORM_ZONE_COLORS,
   FORM_ZONE_LABELS,
@@ -26,6 +26,7 @@ import {
 import { useNetwork } from '@/providers';
 import { formatLocalDate, formatShortDateWithWeekday } from '@/lib';
 import { colors, darkColors, spacing, layout, typography, opacity } from '@/theme';
+import { createSharedStyles } from '@/styles';
 
 const TIME_RANGES: { id: TimeRange; label: string }[] = [
   { id: '7d', label: '1W' },
@@ -55,8 +56,8 @@ const timeRangeToDays = (range: TimeRange): number => {
 
 export default function FitnessScreen() {
   const { t } = useTranslation();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const { isDark, colors: themeColors } = useTheme();
+  const shared = createSharedStyles(isDark);
   const [timeRange, setTimeRange] = useState<TimeRange>('3m');
   const [chartInteracting, setChartInteracting] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -132,21 +133,21 @@ export default function FitnessScreen() {
   // Only show full loading on initial load (no data yet)
   if (isLoading && !wellness) {
     return (
-      <ScreenSafeAreaView style={[styles.container, isDark && styles.containerDark]}>
+      <ScreenSafeAreaView style={shared.container}>
         <View style={styles.header}>
           <IconButton
             icon="arrow-left"
-            iconColor={isDark ? '#FFFFFF' : colors.textPrimary}
+            iconColor={themeColors.text}
             onPress={() => router.back()}
           />
-          <Text style={[styles.headerTitle, isDark && styles.textLight]}>
+          <Text style={shared.headerTitle}>
             {t('fitnessScreen.title')}
           </Text>
           <View style={{ width: 48 }} />
         </View>
-        <View style={styles.loadingContainer}>
+        <View style={shared.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={[styles.loadingText, isDark && styles.textDark]}>
+          <Text style={[styles.loadingText, isDark && styles.loadingTextDark]}>
             {t('fitnessScreen.loadingData')}
           </Text>
         </View>
@@ -163,19 +164,19 @@ export default function FitnessScreen() {
       axiosError?.code === 'ETIMEDOUT';
 
     return (
-      <ScreenSafeAreaView style={[styles.container, isDark && styles.containerDark]}>
+      <ScreenSafeAreaView style={shared.container}>
         <View style={styles.header}>
           <IconButton
             icon="arrow-left"
-            iconColor={isDark ? '#FFFFFF' : colors.textPrimary}
+            iconColor={themeColors.text}
             onPress={() => router.back()}
           />
-          <Text style={[styles.headerTitle, isDark && styles.textLight]}>
+          <Text style={shared.headerTitle}>
             {t('fitnessScreen.title')}
           </Text>
           <View style={{ width: 48 }} />
         </View>
-        <View style={styles.loadingContainer}>
+        <View style={shared.loadingContainer}>
           {isNetworkError ? (
             <NetworkErrorState onRetry={() => refetch()} />
           ) : (
@@ -187,16 +188,16 @@ export default function FitnessScreen() {
   }
 
   return (
-    <ScreenSafeAreaView style={[styles.container, isDark && styles.containerDark]}>
+    <ScreenSafeAreaView style={shared.container}>
       {/* Header */}
       <View style={styles.header}>
         <IconButton
           icon="arrow-left"
-          iconColor={isDark ? '#FFFFFF' : colors.textPrimary}
+          iconColor={themeColors.text}
           onPress={() => router.back()}
         />
         <View style={styles.headerTitleRow}>
-          <Text style={[styles.headerTitle, isDark && styles.textLight]}>
+          <Text style={shared.headerTitle}>
             {t('fitnessScreen.title')}
           </Text>
         </View>
@@ -222,40 +223,40 @@ export default function FitnessScreen() {
         }
       >
         {/* Current stats card */}
-        <View style={[styles.statsCard, isDark && styles.cardDark]}>
-          <Text style={[styles.statsDate, isDark && styles.textDark]}>
+        <View style={[styles.statsCard, isDark && styles.statsCardDark]}>
+          <Text style={[styles.statsDate, isDark && styles.statsDateDark]}>
             {displayDate ? formatDisplayDate(displayDate) : t('fitnessScreen.current')}
           </Text>
           <View style={styles.statsRow}>
             <View style={styles.statItem}>
-              <Text style={[styles.statLabel, isDark && styles.textDark]}>
+              <Text style={[styles.statLabel, isDark && styles.statLabelDark]}>
                 {t('metrics.fitness')}
               </Text>
-              <Text style={[styles.statValue, { color: '#42A5F5' }]}>
+              <Text style={[styles.statValue, { color: colors.fitnessBlue }]}>
                 {displayValues ? Math.round(displayValues.fitness) : '-'}
               </Text>
-              <Text style={[styles.statSubtext, isDark && styles.textDark]}>
+              <Text style={[styles.statSubtext, isDark && styles.statSubtextDark]}>
                 {t('fitnessScreen.ctl')}
               </Text>
             </View>
             <View style={styles.statItem}>
-              <Text style={[styles.statLabel, isDark && styles.textDark]}>
+              <Text style={[styles.statLabel, isDark && styles.statLabelDark]}>
                 {t('metrics.fatigue')}
               </Text>
-              <Text style={[styles.statValue, { color: '#AB47BC' }]}>
+              <Text style={[styles.statValue, { color: colors.fatiguePurple }]}>
                 {displayValues ? Math.round(displayValues.fatigue) : '-'}
               </Text>
-              <Text style={[styles.statSubtext, isDark && styles.textDark]}>
+              <Text style={[styles.statSubtext, isDark && styles.statSubtextDark]}>
                 {t('fitnessScreen.atl')}
               </Text>
             </View>
             <View style={styles.statItem}>
-              <Text style={[styles.statLabel, isDark && styles.textDark]}>{t('metrics.form')}</Text>
+              <Text style={[styles.statLabel, isDark && styles.statLabelDark]}>{t('metrics.form')}</Text>
               <Text
                 style={[
                   styles.statValue,
                   {
-                    color: formZone ? FORM_ZONE_COLORS[formZone] : colors.textPrimary,
+                    color: formZone ? FORM_ZONE_COLORS[formZone] : themeColors.text,
                   },
                 ]}
               >
@@ -267,7 +268,7 @@ export default function FitnessScreen() {
                 style={[
                   styles.statSubtext,
                   {
-                    color: formZone ? FORM_ZONE_COLORS[formZone] : colors.textSecondary,
+                    color: formZone ? FORM_ZONE_COLORS[formZone] : themeColors.textSecondary,
                   },
                 ]}
               >
@@ -304,9 +305,9 @@ export default function FitnessScreen() {
         </View>
 
         {/* Combined fitness charts card */}
-        <View style={[styles.chartCard, isDark && styles.cardDark]}>
+        <View style={[styles.chartCard, isDark && styles.chartCardDark]}>
           {/* Fitness/Fatigue chart */}
-          <Text style={[styles.chartTitle, isDark && styles.textLight]}>
+          <Text style={[styles.chartTitle, isDark && styles.chartTitleDark]}>
             {t('fitnessScreen.fitnessAndFatigue')}
           </Text>
           <FitnessChart
@@ -319,7 +320,7 @@ export default function FitnessScreen() {
           />
 
           {/* Activity dots chart */}
-          <View style={[styles.dotsSection, isDark && styles.sectionDark]}>
+          <View style={[styles.dotsSection, isDark && styles.dotsSectionDark]}>
             <ActivityDotsChart
               data={wellness}
               activities={activities || []}
@@ -332,8 +333,8 @@ export default function FitnessScreen() {
           </View>
 
           {/* Form zone chart */}
-          <View style={[styles.formSection, isDark && styles.sectionDark]}>
-            <Text style={[styles.chartTitle, isDark && styles.textLight]}>{t('metrics.form')}</Text>
+          <View style={[styles.formSection, isDark && styles.formSectionDark]}>
+            <Text style={[styles.chartTitle, isDark && styles.chartTitleDark]}>{t('metrics.form')}</Text>
             <FormZoneChart
               data={wellness}
               height={140}
@@ -346,14 +347,14 @@ export default function FitnessScreen() {
         </View>
 
         {/* Info section */}
-        <View style={[styles.infoCard, isDark && styles.cardDark]}>
-          <Text style={[styles.infoTitle, isDark && styles.textLight]}>
+        <View style={[styles.infoCard, isDark && styles.infoCardDark]}>
+          <Text style={[styles.infoTitle, isDark && styles.infoTitleDark]}>
             {t('fitnessScreen.understandingMetrics')}
           </Text>
 
           <View style={styles.infoRow}>
-            <View style={[styles.infoDot, { backgroundColor: '#42A5F5' }]} />
-            <Text style={[styles.infoText, isDark && styles.textDark]}>
+            <View style={[styles.infoDot, { backgroundColor: colors.fitnessBlue }]} />
+            <Text style={[styles.infoText, isDark && styles.infoTextDark]}>
               <Text style={[styles.infoHighlight, isDark && styles.infoHighlightDark]}>
                 {t('metrics.fitness')}
               </Text>{' '}
@@ -362,8 +363,8 @@ export default function FitnessScreen() {
           </View>
 
           <View style={styles.infoRow}>
-            <View style={[styles.infoDot, { backgroundColor: '#AB47BC' }]} />
-            <Text style={[styles.infoText, isDark && styles.textDark]}>
+            <View style={[styles.infoDot, { backgroundColor: colors.fatiguePurple }]} />
+            <Text style={[styles.infoText, isDark && styles.infoTextDark]}>
               <Text style={[styles.infoHighlight, isDark && styles.infoHighlightDark]}>
                 {t('metrics.fatigue')}
               </Text>{' '}
@@ -373,7 +374,7 @@ export default function FitnessScreen() {
 
           <View style={styles.infoRow}>
             <View style={[styles.infoDot, { backgroundColor: FORM_ZONE_COLORS.optimal }]} />
-            <Text style={[styles.infoText, isDark && styles.textDark]}>
+            <Text style={[styles.infoText, isDark && styles.infoTextDark]}>
               <Text style={[styles.infoHighlight, isDark && styles.infoHighlightDark]}>
                 {t('metrics.form')}
               </Text>{' '}
@@ -392,7 +393,7 @@ export default function FitnessScreen() {
           </View>
 
           <View style={[styles.referencesSection, isDark && styles.referencesSectionDark]}>
-            <Text style={[styles.referencesLabel, isDark && styles.textDark]}>
+            <Text style={[styles.referencesLabel, isDark && styles.referencesLabelDark]}>
               {t('fitnessScreen.learnMore')}
             </Text>
             <TouchableOpacity
@@ -433,13 +434,7 @@ function formatDisplayDate(dateStr: string): string {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  containerDark: {
-    backgroundColor: darkColors.background,
-  },
+  // Note: container, headerTitle, loadingContainer now use shared styles
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -449,17 +444,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-  },
-  headerTitle: {
-    fontSize: typography.cardTitle.fontSize,
-    fontWeight: '600',
-    color: colors.textPrimary,
-  },
-  textLight: {
-    color: colors.textOnDark,
-  },
-  textDark: {
-    color: darkColors.textSecondary,
   },
   scrollView: {
     flex: 1,
@@ -474,14 +458,17 @@ const styles = StyleSheet.create({
     padding: layout.cardPadding,
     marginBottom: spacing.md,
   },
-  cardDark: {
+  statsCardDark: {
     backgroundColor: darkColors.surface,
   },
   statsDate: {
-    fontSize: typography.caption.fontSize,
+    ...typography.caption,
     color: colors.textSecondary,
     textAlign: 'center',
     marginBottom: spacing.sm,
+  },
+  statsDateDark: {
+    color: darkColors.textSecondary,
   },
   statsRow: {
     flexDirection: 'row',
@@ -491,18 +478,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   statLabel: {
-    fontSize: typography.label.fontSize,
+    ...typography.label,
     color: colors.textSecondary,
     marginBottom: spacing.xs,
+  },
+  statLabelDark: {
+    color: darkColors.textSecondary,
   },
   statValue: {
     fontSize: 28,
     fontWeight: '700',
   },
   statSubtext: {
-    fontSize: typography.micro.fontSize,
+    ...typography.micro,
     color: colors.textSecondary,
     marginTop: 2,
+  },
+  statSubtextDark: {
+    color: darkColors.textSecondary,
   },
   timeRangeContainer: {
     flexDirection: 'row',
@@ -513,7 +506,7 @@ const styles = StyleSheet.create({
   },
   timeRangeButton: {
     paddingHorizontal: spacing.sm + 4,
-    paddingVertical: 6,
+    paddingVertical: spacing.xs,
     borderRadius: 14,
     backgroundColor: opacity.overlay.light,
   },
@@ -524,7 +517,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
   },
   timeRangeText: {
-    fontSize: typography.caption.fontSize,
+    ...typography.caption,
     fontWeight: '500',
     color: colors.textSecondary,
   },
@@ -540,11 +533,17 @@ const styles = StyleSheet.create({
     padding: layout.cardPadding,
     marginBottom: spacing.md,
   },
+  chartCardDark: {
+    backgroundColor: darkColors.surface,
+  },
   dotsSection: {
     marginTop: spacing.sm,
     paddingTop: spacing.sm,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: opacity.overlay.medium,
+  },
+  dotsSectionDark: {
+    borderTopColor: opacity.overlayDark.medium,
   },
   formSection: {
     marginTop: spacing.sm,
@@ -552,14 +551,17 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: opacity.overlay.medium,
   },
-  sectionDark: {
+  formSectionDark: {
     borderTopColor: opacity.overlayDark.medium,
   },
   chartTitle: {
-    fontSize: typography.bodySmall.fontSize,
+    ...typography.bodySmall,
     fontWeight: '600',
     color: colors.textPrimary,
     marginBottom: spacing.sm,
+  },
+  chartTitleDark: {
+    color: darkColors.textPrimary,
   },
   infoCard: {
     backgroundColor: colors.surface,
@@ -567,11 +569,17 @@ const styles = StyleSheet.create({
     padding: layout.cardPadding,
     marginBottom: spacing.md,
   },
+  infoCardDark: {
+    backgroundColor: darkColors.surface,
+  },
   infoTitle: {
-    fontSize: typography.bodySmall.fontSize,
+    ...typography.bodySmall,
     fontWeight: '600',
     color: colors.textPrimary,
     marginBottom: spacing.md,
+  },
+  infoTitleDark: {
+    color: darkColors.textPrimary,
   },
   infoRow: {
     flexDirection: 'row',
@@ -586,15 +594,18 @@ const styles = StyleSheet.create({
   },
   infoText: {
     flex: 1,
-    fontSize: typography.caption.fontSize,
+    ...typography.caption,
     color: colors.textSecondary,
     lineHeight: 18,
+  },
+  infoTextDark: {
+    color: darkColors.textSecondary,
   },
   infoHighlight: {
     fontWeight: '600',
   },
   infoHighlightDark: {
-    color: colors.textOnDark,
+    color: darkColors.textPrimary,
   },
   referencesSection: {
     marginTop: spacing.md,
@@ -606,30 +617,27 @@ const styles = StyleSheet.create({
     borderTopColor: opacity.overlayDark.medium,
   },
   referencesLabel: {
-    fontSize: typography.label.fontSize,
+    ...typography.label,
     fontWeight: '600',
     color: colors.textSecondary,
     marginBottom: spacing.xs,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
+  referencesLabelDark: {
+    color: darkColors.textSecondary,
+  },
   infoLink: {
-    fontSize: typography.caption.fontSize,
+    ...typography.caption,
     color: colors.primary,
     paddingVertical: spacing.xs,
   },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
   loadingText: {
-    fontSize: typography.bodySmall.fontSize,
+    ...typography.bodySmall,
     color: colors.textSecondary,
     marginTop: spacing.md,
   },
-  errorText: {
-    fontSize: typography.bodySmall.fontSize,
-    color: colors.error,
+  loadingTextDark: {
+    color: darkColors.textSecondary,
   },
 });

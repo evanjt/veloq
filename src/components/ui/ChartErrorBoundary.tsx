@@ -1,7 +1,8 @@
 import React, { Component, ReactNode } from 'react';
-import { View, StyleSheet, useColorScheme } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { colors, darkColors, typography, spacing } from '@/theme';
+import { useTheme } from '@/hooks';
 
 interface Props {
   children: ReactNode;
@@ -57,8 +58,7 @@ interface FallbackProps {
 }
 
 function ChartErrorFallback({ height, label, onRetry }: FallbackProps) {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const { isDark } = useTheme();
 
   return (
     <View style={[styles.container, { height }]}>

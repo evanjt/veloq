@@ -5,7 +5,6 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  useColorScheme,
   Image,
   Alert,
 } from 'react-native';
@@ -24,6 +23,7 @@ import {
   useRouteGroups,
   useActivities,
   useOldestActivityDate,
+  useTheme,
 } from '@/hooks';
 import { TimelineSlider } from '@/components/maps';
 import { formatLocalDate } from '@/lib';
@@ -48,7 +48,8 @@ import {
 import Constants from 'expo-constants';
 import { type SupportedLocale } from '@/i18n';
 import { type MapStyleType } from '@/components/maps';
-import { colors, spacing, layout } from '@/theme';
+import { colors, darkColors, spacing, layout } from '@/theme';
+import { createSharedStyles } from '@/styles';
 import { CollapsibleSection } from '@/components/ui';
 import type { ActivityType } from '@/types';
 
@@ -107,8 +108,8 @@ function formatBytes(bytes: number): string {
 
 export default function SettingsScreen() {
   const { t, i18n } = useTranslation();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const { isDark, colors: themeColors } = useTheme();
+  const shared = createSharedStyles(isDark);
   const [profileImageError, setProfileImageError] = useState(false);
   const [themePreference, setThemePreferenceState] = useState<ThemePreference>('system');
   const [showLanguages, setShowLanguages] = useState(false);
@@ -396,7 +397,7 @@ export default function SettingsScreen() {
             <MaterialCommunityIcons
               name="arrow-left"
               size={24}
-              color={isDark ? '#FFF' : colors.textPrimary}
+              color={isDark ? colors.textOnDark : colors.textPrimary}
             />
           </TouchableOpacity>
           <Text style={[styles.headerTitle, isDark && styles.textLight]}>
@@ -425,7 +426,7 @@ export default function SettingsScreen() {
                   onError={() => setProfileImageError(true)}
                 />
               ) : (
-                <MaterialCommunityIcons name="account" size={32} color={isDark ? '#AAA' : '#666'} />
+                <MaterialCommunityIcons name="account" size={32} color={isDark ? darkColors.textSecondary : colors.textMuted} />
               )}
             </View>
             <View style={styles.profileInfo}>
@@ -437,7 +438,7 @@ export default function SettingsScreen() {
             <MaterialCommunityIcons
               name="chevron-right"
               size={24}
-              color={isDark ? '#666' : colors.textSecondary}
+              color={isDark ? darkColors.textMuted : colors.textSecondary}
             />
           </View>
         </TouchableOpacity>
@@ -664,7 +665,7 @@ export default function SettingsScreen() {
             <MaterialCommunityIcons
               name={showActivityStyles ? 'chevron-up' : 'chevron-down'}
               size={20}
-              color={isDark ? '#666' : colors.textSecondary}
+              color={isDark ? darkColors.textMuted : colors.textSecondary}
             />
           </TouchableOpacity>
 
@@ -709,7 +710,7 @@ export default function SettingsScreen() {
           {/* Sync Status Banners */}
           {progress.status === 'syncing' && (
             <View style={styles.syncBanner}>
-              <MaterialCommunityIcons name="sync" size={18} color="#FFF" />
+              <MaterialCommunityIcons name="sync" size={18} color={colors.textOnDark} />
               <Text style={styles.syncBannerText}>
                 {progress.message || `Syncing ${progress.completed}/${progress.total}`}
               </Text>
@@ -717,7 +718,7 @@ export default function SettingsScreen() {
           )}
           {isRouteProcessing && (
             <View style={[styles.syncBanner, { backgroundColor: colors.chartPurple }]}>
-              <MaterialCommunityIcons name="map-marker-path" size={18} color="#FFF" />
+              <MaterialCommunityIcons name="map-marker-path" size={18} color={colors.textOnDark} />
               <Text style={styles.syncBannerText}>
                 {routeProgress.message ||
                   `Analysing ${routeProgress.current}/${routeProgress.total}`}
@@ -758,7 +759,7 @@ export default function SettingsScreen() {
                 <MaterialCommunityIcons
                   name="chevron-right"
                   size={20}
-                  color={isDark ? '#666' : colors.textSecondary}
+                  color={isDark ? darkColors.textMuted : colors.textSecondary}
                 />
               </TouchableOpacity>
 
@@ -778,7 +779,7 @@ export default function SettingsScreen() {
                     <MaterialCommunityIcons
                       name="chevron-right"
                       size={20}
-                      color={isDark ? '#666' : colors.textSecondary}
+                      color={isDark ? darkColors.textMuted : colors.textSecondary}
                     />
                   </TouchableOpacity>
                   <View style={[styles.divider, isDark && styles.dividerDark]} />
@@ -799,7 +800,7 @@ export default function SettingsScreen() {
             <MaterialCommunityIcons
               name="chevron-right"
               size={20}
-              color={isDark ? '#666' : colors.textSecondary}
+              color={isDark ? darkColors.textMuted : colors.textSecondary}
             />
           </TouchableOpacity>
 
@@ -905,7 +906,7 @@ export default function SettingsScreen() {
             <MaterialCommunityIcons
               name="chevron-right"
               size={20}
-              color={isDark ? '#666' : colors.textSecondary}
+              color={isDark ? darkColors.textMuted : colors.textSecondary}
             />
           </TouchableOpacity>
 
@@ -923,7 +924,7 @@ export default function SettingsScreen() {
             <MaterialCommunityIcons
               name="chevron-right"
               size={20}
-              color={isDark ? '#666' : colors.textSecondary}
+              color={isDark ? darkColors.textMuted : colors.textSecondary}
             />
           </TouchableOpacity>
         </View>
@@ -942,7 +943,7 @@ export default function SettingsScreen() {
                 <MaterialCommunityIcons
                   name="watch"
                   size={20}
-                  color={isDark ? '#888' : colors.textSecondary}
+                  color={isDark ? darkColors.textSecondary : colors.textSecondary}
                 />
                 <Text style={[styles.dataSourceName, isDark && styles.textLight]}>Garmin</Text>
               </View>
@@ -950,7 +951,7 @@ export default function SettingsScreen() {
                 <MaterialCommunityIcons
                   name="run"
                   size={20}
-                  color={isDark ? '#888' : colors.textSecondary}
+                  color={isDark ? darkColors.textSecondary : colors.textSecondary}
                 />
                 <Text style={[styles.dataSourceName, isDark && styles.textLight]}>Strava</Text>
               </View>
@@ -958,7 +959,7 @@ export default function SettingsScreen() {
                 <MaterialCommunityIcons
                   name="watch"
                   size={20}
-                  color={isDark ? '#888' : colors.textSecondary}
+                  color={isDark ? darkColors.textSecondary : colors.textSecondary}
                 />
                 <Text style={[styles.dataSourceName, isDark && styles.textLight]}>Polar</Text>
               </View>
@@ -966,7 +967,7 @@ export default function SettingsScreen() {
                 <MaterialCommunityIcons
                   name="watch"
                   size={20}
-                  color={isDark ? '#888' : colors.textSecondary}
+                  color={isDark ? darkColors.textSecondary : colors.textSecondary}
                 />
                 <Text style={[styles.dataSourceName, isDark && styles.textLight]}>Wahoo</Text>
               </View>
@@ -1022,7 +1023,7 @@ export default function SettingsScreen() {
                     <MaterialCommunityIcons
                       name="open-in-new"
                       size={14}
-                      color={isDark ? '#666' : colors.textSecondary}
+                      color={isDark ? darkColors.textMuted : colors.textSecondary}
                     />
                   </View>
                 </TouchableOpacity>
@@ -1047,7 +1048,7 @@ export default function SettingsScreen() {
             activeOpacity={0.7}
           >
             <View style={[styles.supportIconBg, { backgroundColor: 'rgba(233, 30, 99, 0.12)' }]}>
-              <MaterialCommunityIcons name="heart" size={24} color="#E91E63" />
+              <MaterialCommunityIcons name="heart" size={24} color={colors.chartPink} />
             </View>
             <Text style={[styles.supportTitle, isDark && styles.textLight]}>intervals.icu</Text>
             <Text style={[styles.supportSubtitle, isDark && styles.textMuted]}>
@@ -1063,10 +1064,10 @@ export default function SettingsScreen() {
             <View
               style={[
                 styles.supportIconBg,
-                { backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)' },
+                { backgroundColor: isDark ? darkColors.surfaceElevated : colors.divider },
               ]}
             >
-              <MaterialCommunityIcons name="github" size={24} color={isDark ? '#FFF' : '#333'} />
+              <MaterialCommunityIcons name="github" size={24} color={isDark ? colors.textOnDark : colors.textPrimary} />
             </View>
             <Text style={[styles.supportTitle, isDark && styles.textLight]}>@evanjt</Text>
             <Text style={[styles.supportSubtitle, isDark && styles.textMuted]}>
@@ -1093,7 +1094,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   containerDark: {
-    backgroundColor: '#121212',
+    backgroundColor: darkColors.background,
   },
   content: {
     paddingBottom: spacing.xl,
@@ -1136,7 +1137,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
   },
   sectionDark: {
-    backgroundColor: '#1E1E1E',
+    backgroundColor: darkColors.surfaceCard,
   },
   profileRow: {
     flexDirection: 'row',
@@ -1147,13 +1148,13 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#E8E8E8',
+    backgroundColor: colors.divider,
     justifyContent: 'center',
     alignItems: 'center',
     overflow: 'hidden',
   },
   profilePhotoDark: {
-    backgroundColor: '#333',
+    backgroundColor: darkColors.border,
   },
   profileInfo: {
     flex: 1,
@@ -1178,7 +1179,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   syncBannerText: {
-    color: '#FFF',
+    color: colors.textOnDark,
     fontSize: 14,
     fontWeight: '500',
   },
@@ -1215,7 +1216,7 @@ const styles = StyleSheet.create({
     borderTopColor: colors.border,
   },
   infoRowDark: {
-    borderTopColor: '#333',
+    borderTopColor: darkColors.border,
   },
   infoLabel: {
     fontSize: 14,
@@ -1250,7 +1251,7 @@ const styles = StyleSheet.create({
     marginLeft: spacing.md + 22 + spacing.sm, // icon + gap
   },
   dividerDark: {
-    backgroundColor: '#333',
+    backgroundColor: darkColors.border,
   },
   infoText: {
     fontSize: 13,
@@ -1285,7 +1286,7 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   supportCardDark: {
-    backgroundColor: '#1E1E1E',
+    backgroundColor: darkColors.surfaceCard,
     shadowOpacity: 0,
   },
   supportIconBg: {
@@ -1328,10 +1329,10 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   textLight: {
-    color: '#FFF',
+    color: colors.textOnDark,
   },
   textMuted: {
-    color: '#888',
+    color: darkColors.textSecondary,
   },
   themePickerContainer: {
     padding: spacing.md,
@@ -1387,7 +1388,7 @@ const styles = StyleSheet.create({
     borderTopColor: colors.border,
   },
   languageRowDark: {
-    borderTopColor: '#333',
+    borderTopColor: darkColors.border,
   },
   languageLabel: {
     fontSize: 16,
@@ -1407,8 +1408,8 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   variantChipDark: {
-    backgroundColor: '#2a2a2a',
-    borderColor: '#444',
+    backgroundColor: darkColors.surfaceElevated,
+    borderColor: darkColors.border,
   },
   variantChipSelected: {
     backgroundColor: colors.primary,
@@ -1424,7 +1425,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   variantChipTextSelected: {
-    color: '#fff',
+    color: colors.textOnDark,
   },
   dataSourcesContent: {
     padding: spacing.md,

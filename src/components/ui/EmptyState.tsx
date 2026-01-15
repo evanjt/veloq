@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '@/hooks';
-import { spacing } from '@/theme';
+import { spacing, brand, colors } from '@/theme';
 
 interface EmptyStateProps {
   /** Icon name from MaterialCommunityIcons */
@@ -221,7 +221,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.lg,
     borderRadius: 24,
     overflow: 'hidden',
-    shadowColor: '#14B8A6', // Teal glow
+    shadowColor: brand.teal,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -232,7 +232,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
   },
   actionText: {
-    color: '#FFFFFF',
+    color: colors.textOnDark,
     fontSize: 15,
     fontWeight: '600',
   },

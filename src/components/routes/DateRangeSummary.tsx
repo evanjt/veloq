@@ -99,8 +99,8 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.border,
   },
   containerDark: {
-    backgroundColor: '#121212',
-    borderBottomColor: '#333',
+    backgroundColor: darkColors.background,
+    borderBottomColor: darkColors.border,
   },
   syncBanner: {
     flexDirection: 'row',
@@ -146,9 +146,9 @@ const styles = StyleSheet.create({
     marginLeft: spacing.xs,
   },
   textLight: {
-    color: '#FFFFFF',
+    color: colors.textOnDark,
   },
   textMuted: {
-    color: '#888',
+    color: darkColors.textSecondary,
   },
 });

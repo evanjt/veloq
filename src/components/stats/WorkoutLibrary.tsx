@@ -2,11 +2,11 @@ import React, { useState } from 'react';
 import {
   View,
   StyleSheet,
-  useColorScheme,
   TouchableOpacity,
   ScrollView,
   Linking,
 } from 'react-native';
+import { useTheme } from '@/hooks';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -56,8 +56,7 @@ function formatDuration(seconds: number): string {
 
 export function WorkoutLibrary({ workouts, onSelectWorkout, athleteId }: WorkoutLibraryProps) {
   const { t } = useTranslation();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const { isDark } = useTheme();
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
   const displayWorkouts = workouts || [];

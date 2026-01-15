@@ -1,8 +1,9 @@
 import React from 'react';
-import { View, Text, StyleSheet, useColorScheme } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { colors, spacing } from '@/theme';
+import { colors, darkColors, spacing } from '@/theme';
+import { useTheme } from '@/hooks';
 
 interface GarminAttributionProps {
   /** The device name to check for Garmin branding */
@@ -48,8 +49,7 @@ export function GarminAttribution({
   variant = 'inline',
   size = 'small',
 }: GarminAttributionProps) {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const { isDark } = useTheme();
 
   const showAttribution = forceShow || isGarminDevice(deviceName);
 
@@ -89,8 +89,7 @@ interface DeviceAttributionProps {
 
 export function DeviceAttribution({ deviceName }: DeviceAttributionProps) {
   const { t } = useTranslation();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const { isDark } = useTheme();
 
   if (!deviceName) return null;
 
@@ -102,7 +101,7 @@ export function DeviceAttribution({ deviceName }: DeviceAttributionProps) {
         <MaterialCommunityIcons
           name="watch"
           size={14}
-          color={isDark ? '#666' : colors.textSecondary}
+          color={isDark ? darkColors.textSecondary : colors.textSecondary}
         />
         <Text style={[styles.deviceText, isDark && styles.deviceTextDark]}>
           {t('attribution.recordedWith', { device: deviceName })}
@@ -127,7 +126,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   textDark: {
-    color: '#888',
+    color: darkColors.textSecondary,
   },
   garminText: {
     fontWeight: '600',
@@ -156,7 +155,7 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   deviceTextDark: {
-    color: '#666',
+    color: darkColors.textSecondary,
   },
   attributionText: {
     fontSize: 9,
@@ -164,6 +163,6 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   attributionTextDark: {
-    color: '#555',
+    color: darkColors.textMuted,
   },
 });

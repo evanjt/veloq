@@ -4,7 +4,6 @@ import {
   FlatList,
   StyleSheet,
   RefreshControl,
-  useColorScheme,
   TouchableOpacity,
   Image,
   TextInput,
@@ -21,6 +20,7 @@ import {
   useInfiniteActivities,
   useAthlete,
   useWellness,
+  useTheme,
   getFormZone,
   FORM_ZONE_COLORS,
   getLatestFTP,
@@ -41,6 +41,7 @@ import {
 } from '@/components/ui';
 import { useNetwork } from '@/providers';
 import { colors, darkColors, opacity, spacing, layout, typography, shadows } from '@/theme';
+import { createSharedStyles } from '@/styles';
 
 // Activity type categories for filtering
 const ACTIVITY_TYPE_GROUPS = {
@@ -64,8 +65,8 @@ const ALL_TYPES = Object.values(ACTIVITY_TYPE_GROUPS).flat();
 
 export default function FeedScreen() {
   const { t } = useTranslation();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const { isDark, colors: themeColors } = useTheme();
+  const shared = createSharedStyles(isDark);
   const [profileImageError, setProfileImageError] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [showFilters, setShowFilters] = useState(false);
@@ -341,7 +342,7 @@ export default function FeedScreen() {
 
   if (isLoading && !allActivities.length) {
     return (
-      <ScreenSafeAreaView style={[styles.container, isDark && styles.containerDark]}>
+      <ScreenSafeAreaView style={shared.container}>
         <View style={styles.skeletonContainer}>
           {/* Header skeleton */}
           <View style={styles.header}>
@@ -370,7 +371,7 @@ export default function FeedScreen() {
   }
 
   return (
-    <ScreenSafeAreaView style={[styles.container, isDark && styles.containerDark]} testID="home-screen">
+    <ScreenSafeAreaView style={shared.container} testID="home-screen">
       {/* Header with profile and stat pills - outside FlatList */}
       <View style={styles.header}>
         {/* Profile photo - tap to open settings */}
@@ -399,7 +400,7 @@ export default function FeedScreen() {
                 onError={() => setProfileImageError(true)}
               />
             ) : (
-              <MaterialCommunityIcons name="account" size={20} color={isDark ? '#AAA' : '#666'} />
+              <MaterialCommunityIcons name="account" size={20} color={themeColors.textSecondary} />
             )}
           </View>
         </TouchableOpacity>
@@ -416,7 +417,7 @@ export default function FeedScreen() {
               <Text style={[styles.pillLabel, isDark && styles.textDark]}>
                 {t("metrics.hrv")}
               </Text>
-              <Text style={[styles.pillValue, { color: "#E91E63" }]}>
+              <Text style={[styles.pillValue, { color: colors.chartPink }]}>
                 {quickStats.hrv ?? "-"}
                 {quickStats.hrvTrend && (
                   <Text style={styles.trendArrow}>{quickStats.hrvTrend}</Text>
@@ -564,7 +565,7 @@ export default function FeedScreen() {
               <Text style={[styles.pillLabel, isDark && styles.textDark]}>
                 {t("metrics.fitness")}
               </Text>
-              <Text style={[styles.pillValue, { color: "#42A5F5" }]}>
+              <Text style={[styles.pillValue, { color: colors.fitnessBlue }]}>
                 {quickStats.fitness}
                 {quickStats.fitnessTrend && (
                   <Text style={styles.trendArrow}>
@@ -600,13 +601,13 @@ export default function FeedScreen() {
           <MaterialCommunityIcons
             name="magnify"
             size={20}
-            color={isDark ? '#888' : colors.textSecondary}
+            color={themeColors.textSecondary}
           />
           <TextInput
             testID="home-search-input"
             style={[styles.searchInput, isDark && styles.searchInputDark]}
             placeholder={t('feed.searchPlaceholder')}
-            placeholderTextColor={isDark ? '#666' : '#999'}
+            placeholderTextColor={themeColors.textMuted}
             value={searchQuery}
             onChangeText={setSearchQuery}
             onSubmitEditing={Keyboard.dismiss}
@@ -627,7 +628,7 @@ export default function FeedScreen() {
               <MaterialCommunityIcons
                 name="close-circle"
                 size={18}
-                color={isDark ? '#666' : '#999'}
+                color={themeColors.textMuted}
               />
             </TouchableOpacity>
           )}
@@ -647,7 +648,7 @@ export default function FeedScreen() {
             name="filter-variant"
             size={20}
             color={
-              showFilters || selectedTypeGroup ? '#FFF' : isDark ? '#AAA' : colors.textSecondary
+              showFilters || selectedTypeGroup ? colors.textOnDark : themeColors.textSecondary
             }
           />
         </TouchableOpacity>
@@ -698,9 +699,9 @@ export default function FeedScreen() {
             enabled={isOnline}
             colors={[colors.primary]}
             tintColor={colors.primary}
-            progressBackgroundColor={isDark ? '#1E1E1E' : '#FFFFFF'}
+            progressBackgroundColor={isDark ? darkColors.surface : colors.surface}
             title={Platform.OS === 'ios' ? t('common.pullToRefresh') : undefined}
-            titleColor={Platform.OS === 'ios' ? (isDark ? '#888' : '#666') : undefined}
+            titleColor={Platform.OS === 'ios' ? themeColors.textSecondary : undefined}
           />
         }
         onEndReached={handleEndReached}
@@ -718,13 +719,7 @@ export default function FeedScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  containerDark: {
-    backgroundColor: darkColors.background,
-  },
+  // Note: container now uses shared styles
   header: {
     flexDirection: 'row',
     alignItems: 'center',

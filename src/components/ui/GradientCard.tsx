@@ -1,6 +1,7 @@
 import React from 'react';
-import { View, StyleSheet, ViewStyle, useColorScheme } from 'react-native';
-import { shadows, darkColors } from '@/theme';
+import { View, StyleSheet, ViewStyle } from 'react-native';
+import { shadows, darkColors, colors } from '@/theme';
+import { useTheme } from '@/hooks';
 
 interface GradientCardProps {
   children: React.ReactNode;
@@ -17,14 +18,13 @@ export function GradientCard({
   padding = 16,
   variant = 'default',
 }: GradientCardProps) {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const { isDark } = useTheme();
 
   const getVariantStyle = () => {
     switch (variant) {
       case 'elevated':
         return {
-          backgroundColor: isDark ? darkColors.surfaceElevated : '#FFFFFF',
+          backgroundColor: isDark ? darkColors.surfaceElevated : colors.surface,
           // Platform-optimized shadows with subtle blue glow in dark mode
           ...(isDark ? shadows.modal : shadows.elevated),
         };
@@ -38,7 +38,7 @@ export function GradientCard({
         };
       default:
         return {
-          backgroundColor: isDark ? darkColors.surface : '#FFFFFF',
+          backgroundColor: isDark ? darkColors.surface : colors.surface,
         };
     }
   };

@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
-import { View, StyleSheet, useColorScheme } from 'react-native';
+import { View, StyleSheet } from 'react-native';
+import { useTheme } from '@/hooks';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { colors, darkColors } from '@/theme/colors';
@@ -51,8 +52,7 @@ function calculateDecoupling(
 
 export function DecouplingChart({ power, heartrate, height = 150 }: DecouplingChartProps) {
   const { t } = useTranslation();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const { isDark } = useTheme();
 
   // All hooks must be called before any conditional returns
   const analysis = useMemo(() => {

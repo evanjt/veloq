@@ -4,11 +4,12 @@
  */
 
 import React from 'react';
-import { View, StyleSheet, TouchableOpacity, useColorScheme } from 'react-native';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { useTheme } from '@/hooks';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { colors, spacing } from '@/theme';
+import { colors, darkColors, spacing } from '@/theme';
 import type { CellQueryResult, HeatmapCell } from '@/hooks/useHeatmap';
 
 interface HeatmapCellPopupProps {
@@ -29,8 +30,7 @@ export function HeatmapCellPopup({
   onActivitiesPress,
 }: HeatmapCellPopupProps) {
   const { t } = useTranslation();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const { isDark } = useTheme();
 
   const { cell, suggestedLabel } = cellResult;
   const hasRoutes = cell.routeRefs.length > 0;
@@ -56,7 +56,7 @@ export function HeatmapCellPopup({
           <MaterialCommunityIcons
             name="close"
             size={20}
-            color={isDark ? '#888' : colors.textSecondary}
+            color={isDark ? darkColors.textSecondary : colors.textSecondary}
           />
         </TouchableOpacity>
       </View>
@@ -82,7 +82,7 @@ export function HeatmapCellPopup({
                 <MaterialCommunityIcons
                   name="chevron-right"
                   size={18}
-                  color={isDark ? '#666' : '#CCC'}
+                  color={isDark ? darkColors.textMuted : colors.border}
                 />
               )}
             </TouchableOpacity>
@@ -134,7 +134,7 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   containerDark: {
-    backgroundColor: '#1E1E1E',
+    backgroundColor: darkColors.surfaceCard,
   },
   header: {
     flexDirection: 'row',
@@ -171,7 +171,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   routeItemDark: {
-    borderBottomColor: '#333',
+    borderBottomColor: darkColors.border,
   },
   routeName: {
     flex: 1,
@@ -207,7 +207,7 @@ const styles = StyleSheet.create({
   },
   densityBar: {
     height: 4,
-    backgroundColor: '#E0E0E0',
+    backgroundColor: colors.divider,
     borderRadius: 2,
     marginTop: spacing.md,
     overflow: 'hidden',
@@ -224,9 +224,9 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   textLight: {
-    color: '#FFFFFF',
+    color: colors.textOnDark,
   },
   textMuted: {
-    color: '#888',
+    color: darkColors.textSecondary,
   },
 });

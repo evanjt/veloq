@@ -1,5 +1,6 @@
 import React, { useMemo, useRef, useCallback, useState, useEffect } from 'react';
-import { View, StyleSheet, useColorScheme, Pressable } from 'react-native';
+import { View, StyleSheet, Pressable } from 'react-native';
+import { useTheme } from '@/hooks';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { CartesianChart, Line, Area } from 'victory-native';
@@ -62,8 +63,7 @@ export const FitnessChart = React.memo(function FitnessChart({
   onInteractionChange,
 }: FitnessChartProps) {
   const { t } = useTranslation();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const { isDark } = useTheme();
   const [tooltipData, setTooltipData] = useState<ChartDataPoint | null>(null);
   const [isActive, setIsActive] = useState(false);
   const [visibleLines, setVisibleLines] = useState({

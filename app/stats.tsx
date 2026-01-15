@@ -1,9 +1,8 @@
-import React, { useMemo, useState, useEffect, useCallback } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import {
   View,
   ScrollView,
   StyleSheet,
-  useColorScheme,
   TouchableOpacity,
   Linking,
 } from 'react-native';
@@ -26,21 +25,22 @@ import {
   useZoneDistribution,
   useEFTPHistory,
   getLatestFTP,
-  usePowerCurve,
   useSportSettings,
   getSettingsForSport,
   usePaceCurve,
+  useTheme,
 } from '@/hooks';
 import { useSportPreference, SPORT_COLORS, type PrimarySport } from '@/providers';
 import { formatPaceCompact } from '@/lib';
 import { colors, darkColors, spacing, layout, typography, opacity } from '@/theme';
+import { createSharedStyles } from '@/styles';
 
 type TimeRange = '42d' | '90d' | '180d' | '1y';
 
 export default function StatsScreen() {
   const { t } = useTranslation();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const { isDark, colors: themeColors } = useTheme();
+  const shared = createSharedStyles(isDark);
 
   const TIME_RANGE_OPTIONS: {
     value: TimeRange;
@@ -129,15 +129,15 @@ export default function StatsScreen() {
   );
 
   return (
-    <ScreenSafeAreaView style={[styles.container, isDark && styles.containerDark]}>
+    <ScreenSafeAreaView style={shared.container}>
       <View style={styles.header}>
         <IconButton
           icon="arrow-left"
-          iconColor={isDark ? '#FFFFFF' : colors.textPrimary}
+          iconColor={themeColors.text}
           onPress={() => router.back()}
         />
         <View style={styles.headerTitleRow}>
-          <Text style={[styles.headerTitle, isDark && styles.textLight]}>
+          <Text style={shared.headerTitle}>
             {t('statsScreen.title')}
           </Text>
           {fetchingActivities && (
@@ -189,7 +189,7 @@ export default function StatsScreen() {
           <MaterialCommunityIcons
             name="bike"
             size={16}
-            color={sportMode === 'Cycling' ? '#FFF' : isDark ? '#AAA' : colors.textSecondary}
+            color={sportMode === 'Cycling' ? colors.textOnDark : themeColors.textSecondary}
           />
           <Text
             style={[
@@ -215,7 +215,7 @@ export default function StatsScreen() {
           <MaterialCommunityIcons
             name="run"
             size={16}
-            color={sportMode === 'Running' ? '#FFF' : isDark ? '#AAA' : colors.textSecondary}
+            color={sportMode === 'Running' ? colors.textOnDark : themeColors.textSecondary}
           />
           <Text
             style={[
@@ -241,7 +241,7 @@ export default function StatsScreen() {
           <MaterialCommunityIcons
             name="swim"
             size={16}
-            color={sportMode === 'Swimming' ? '#FFF' : isDark ? '#AAA' : colors.textSecondary}
+            color={sportMode === 'Swimming' ? colors.textOnDark : themeColors.textSecondary}
           />
           <Text
             style={[
@@ -514,13 +514,7 @@ export default function StatsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  containerDark: {
-    backgroundColor: darkColors.background,
-  },
+  // Note: container, headerTitle now use shared styles
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -531,19 +525,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.sm,
   },
-  headerTitle: {
-    fontSize: typography.cardTitle.fontSize,
-    fontWeight: '600',
-    color: colors.textPrimary,
-  },
   headerLoader: {
     marginLeft: spacing.xs,
   },
-  textLight: {
-    color: colors.textOnDark,
-  },
   textDark: {
     color: darkColors.textSecondary,
+  },
+  textLight: {
+    color: darkColors.textPrimary,
   },
   timeRangeContainer: {
     flexDirection: 'row',

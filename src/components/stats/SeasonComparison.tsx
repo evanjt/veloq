@@ -2,11 +2,11 @@ import React, { useMemo, useState, useRef, useCallback } from 'react';
 import {
   View,
   StyleSheet,
-  useColorScheme,
   TouchableOpacity,
   PanResponder,
   LayoutChangeEvent,
 } from 'react-native';
+import { useTheme } from '@/hooks';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { colors, darkColors } from '@/theme/colors';
@@ -66,8 +66,7 @@ export function SeasonComparison({
   previousYearActivities,
 }: SeasonComparisonProps) {
   const { t } = useTranslation();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const { isDark } = useTheme();
   const [metric, setMetric] = useState<'hours' | 'distance' | 'tss'>('hours');
   const [selectedMonth, setSelectedMonth] = useState<number | null>(null);
   const chartWidth = useRef(0);

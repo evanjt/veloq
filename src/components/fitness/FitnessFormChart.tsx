@@ -1,5 +1,6 @@
 import React, { useMemo, useRef, useCallback, useState } from 'react';
-import { View, StyleSheet, useColorScheme } from 'react-native';
+import { View, StyleSheet } from 'react-native';
+import { useTheme } from '@/hooks';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { CartesianChart, Line, Area, Bar } from 'victory-native';
@@ -104,8 +105,7 @@ export function FitnessFormChart({
   onInteractionChange,
 }: FitnessFormChartProps) {
   const { t } = useTranslation();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const { isDark } = useTheme();
   const [tooltipData, setTooltipData] = useState<ChartDataPoint | null>(null);
   const [isActive, setIsActive] = useState(false);
 

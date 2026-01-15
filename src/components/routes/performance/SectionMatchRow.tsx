@@ -5,7 +5,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router, type Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { formatDistance, getActivityColor } from '@/lib';
-import { colors, opacity, spacing, layout, typography } from '@/theme';
+import { colors, darkColors, opacity, spacing, layout, typography } from '@/theme';
 import type { ActivityType } from '@/types';
 import type { SectionMatch } from '@/hooks/routes/useSectionMatches';
 
@@ -124,6 +124,6 @@ const styles = StyleSheet.create({
     color: colors.textOnDark,
   },
   textMuted: {
-    color: '#888',
+    color: darkColors.textSecondary,
   },
 });

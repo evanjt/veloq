@@ -95,64 +95,11 @@ npm test
 
 ---
 
-## Privacy Policy
+## Privacy & Legal
 
-**Last updated: December 26, 2025**
+**[Privacy Policy](https://veloq.fit/privacy)** — See full privacy policy on our website.
 
-### Overview
-
-Veloq operates entirely on your device. We do not run servers, collect data, or process your personal information.
-
-### Data Handling
-
-- All data is fetched directly from Intervals.icu using your credentials
-- Data is cached locally for offline access
-- No data is sent anywhere except Intervals.icu and map tile providers
-
-### Local Storage
-
-Stored on your device only:
-
-- **API credentials** — Encrypted using platform secure storage
-- **Activity data** — Cached for offline use
-- **Preferences** — Theme, map settings
-
-### Third-Party Services
-
-- **Intervals.icu** — Your fitness data source ([privacy policy](https://intervals.icu/privacy))
-- **Map tiles** — OpenStreetMap, Carto, Stadia (standard web requests)
-
-No analytics, ads, crash reporting, or tracking SDKs.
-
-### Data Sharing
-
-None. The developer has no access to your data.
-
-### Security
-
-- Encrypted credential storage
-- HTTPS for all network requests
-- No background telemetry
-
-### Children's Privacy
-
-Not intended for users under 13. No data is collected from any user.
-
-### Your Rights
-
-Delete all local data by uninstalling the app or clearing app data in device settings.
-
-### Changes
-
-Policy may be updated. Check the "Last updated" date.
-
-### Contact
-
-[GitHub Issues](https://github.com/evanjt/veloq/issues) or [veloq@evanjt.com](mailto:veloq@evanjt.com)
-
----
-
-## Disclaimer
+**Disclaimer:**
 
 Veloq is an independent, open-source project. It is **not affiliated with, endorsed by, or connected to intervals.icu** in any way.
 

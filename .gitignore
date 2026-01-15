@@ -76,3 +76,6 @@ android/keystore.properties
 coverage/
 CLAUDE.md
 *.log
+
+# Fastlane gems
+fastlane/vendor/bundle

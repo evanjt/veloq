@@ -1,23 +1,19 @@
 /**
  * Veloq OAuth Proxy - Cloudflare Worker
  *
- * Handles OAuth token exchange and webhooks for intervals.icu
- * Deploy via Cloudflare Dashboard: Workers & Pages > Create > Create Worker
+ * Handles OAuth token exchange for intervals.icu.
+ * See README.md for deployment instructions.
  *
- * Required secrets (set in Dashboard > Settings > Variables):
- * - INTERVALS_CLIENT_ID
- * - INTERVALS_CLIENT_SECRET
- * - WEBHOOK_SECRET
- *
- * Required KV namespace (create in Dashboard > KV > Create):
- * - Bind as "WEBHOOK_EVENTS"
+ * Environment:
+ * - INTERVALS_CLIENT_ID: OAuth client ID
+ * - INTERVALS_CLIENT_SECRET: OAuth client secret
+ * - OAUTH_STATES: KV namespace for CSRF state validation
  */
 
 interface Env {
   INTERVALS_CLIENT_ID: string;
   INTERVALS_CLIENT_SECRET: string;
-  WEBHOOK_SECRET: string;
-  WEBHOOK_EVENTS: KVNamespace;
+  OAUTH_STATES: KVNamespace;
 }
 
 interface IntervalsTokenResponse {
@@ -30,66 +26,101 @@ interface IntervalsTokenResponse {
   };
 }
 
-interface WebhookPayload {
-  type: string;
-  athlete_id?: string;
-  activity_id?: number;
-}
-
-interface StoredWebhookEvent {
-  event_type: string;
-  athlete_id?: string;
-  activity_id?: number;
-  timestamp: number;
-}
-
-const INTERVALS_TOKEN_URL = 'https://intervals.icu/api/oauth/token';
-const APP_SCHEME = 'veloq';
+const INTERVALS_TOKEN_URL = "https://intervals.icu/api/oauth/token";
+const APP_SCHEME = "veloq";
+/** State parameter TTL in seconds (5 minutes - OAuth code expires in 2 min) */
+const STATE_TTL_SECONDS = 300;
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
     const path = url.pathname;
 
+    // Add CORS headers for preflight requests
+    if (request.method === "OPTIONS") {
+      return new Response(null, {
+        headers: {
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+          "Access-Control-Allow-Headers": "Content-Type",
+        },
+      });
+    }
+
     try {
       // Health check
-      if (path === '/health') {
-        return new Response('OK', { status: 200 });
+      if (path === "/health") {
+        return new Response("OK", { status: 200 });
+      }
+
+      // Register OAuth state (app calls this before starting OAuth flow)
+      if (path === "/oauth/state" && request.method === "POST") {
+        return handleRegisterState(request, env);
       }
 
       // OAuth callback
-      if (path === '/oauth/callback' && request.method === 'GET') {
+      if (path === "/oauth/callback" && request.method === "GET") {
         return handleOAuthCallback(url, env);
       }
 
-      // Webhook receiver
-      if (path === '/webhooks/intervals' && request.method === 'POST') {
-        return handleWebhook(request, env);
-      }
-
-      // Get webhooks for athlete
-      if (path.startsWith('/webhooks/') && request.method === 'GET') {
-        const athleteId = path.replace('/webhooks/', '');
-        if (athleteId && athleteId !== 'intervals') {
-          return handleGetWebhooks(athleteId, env);
-        }
-      }
-
-      return new Response('Not Found', { status: 404 });
+      return new Response("Not Found", { status: 404 });
     } catch (error) {
-      console.error('Worker error:', error);
-      return new Response('Internal Server Error', { status: 500 });
+      console.error("Worker error:", error);
+      return new Response("Internal Server Error", { status: 500 });
     }
   },
 };
+
+/**
+ * Register a state parameter for CSRF protection
+ * App calls this before starting OAuth flow
+ */
+async function handleRegisterState(
+  request: Request,
+  env: Env
+): Promise<Response> {
+  try {
+    const body = (await request.json()) as { state?: string };
+    const state = body.state;
+
+    if (!state || typeof state !== "string" || state.length < 32) {
+      return new Response(
+        JSON.stringify({ error: "Invalid state parameter" }),
+        {
+          status: 400,
+          headers: { "Content-Type": "application/json" },
+        }
+      );
+    }
+
+    // Store state in KV with TTL
+    await env.OAUTH_STATES.put(state, "valid", {
+      expirationTtl: STATE_TTL_SECONDS,
+    });
+
+    return new Response(JSON.stringify({ success: true }), {
+      status: 200,
+      headers: {
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*",
+      },
+    });
+  } catch {
+    return new Response(JSON.stringify({ error: "Invalid request body" }), {
+      status: 400,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+}
 
 /**
  * Handle OAuth callback from intervals.icu
  * Exchanges authorization code for access token, then redirects to app
  */
 async function handleOAuthCallback(url: URL, env: Env): Promise<Response> {
-  const code = url.searchParams.get('code');
-  const error = url.searchParams.get('error');
+  const code = url.searchParams.get("code");
+  const state = url.searchParams.get("state");
+  const error = url.searchParams.get("error");
 
   // Handle error from intervals.icu
   if (error) {
@@ -98,8 +129,26 @@ async function handleOAuthCallback(url: URL, env: Env): Promise<Response> {
 
   // Validate code exists
   if (!code) {
-    return redirectToAppWithError('missing_code');
+    return redirectToAppWithError("missing_code");
   }
+
+  // Validate state parameter (CSRF protection)
+  if (!state) {
+    console.error("OAuth callback missing state parameter");
+    return redirectToAppWithError("missing_state");
+  }
+
+  const storedState = await env.OAUTH_STATES.get(state);
+  if (!storedState) {
+    console.error(
+      "OAuth state not found or expired:",
+      state.substring(0, 8) + "..."
+    );
+    return redirectToAppWithError("invalid_state");
+  }
+
+  // Delete state after validation (single use)
+  await env.OAUTH_STATES.delete(state);
 
   // Exchange code for token
   const formData = new URLSearchParams({
@@ -109,25 +158,25 @@ async function handleOAuthCallback(url: URL, env: Env): Promise<Response> {
   });
 
   const tokenResponse = await fetch(INTERVALS_TOKEN_URL, {
-    method: 'POST',
+    method: "POST",
     headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
+      "Content-Type": "application/x-www-form-urlencoded",
     },
     body: formData.toString(),
   });
 
   if (!tokenResponse.ok) {
     const errorText = await tokenResponse.text();
-    console.error('Token exchange failed:', tokenResponse.status, errorText);
-    return redirectToAppWithError('token_exchange_failed');
+    console.error("Token exchange failed:", tokenResponse.status, errorText);
+    return redirectToAppWithError("token_exchange_failed");
   }
 
   const tokenData: IntervalsTokenResponse = await tokenResponse.json();
 
   // Validate response
   if (!tokenData.access_token || !tokenData.athlete?.id) {
-    console.error('Invalid token response:', tokenData);
-    return redirectToAppWithError('invalid_response');
+    console.error("Invalid token response:", tokenData);
+    return redirectToAppWithError("invalid_response");
   }
 
   // Redirect to app with token
@@ -139,7 +188,7 @@ async function handleOAuthCallback(url: URL, env: Env): Promise<Response> {
  */
 function redirectToAppWithToken(token: IntervalsTokenResponse): Response {
   const params = new URLSearchParams({
-    success: 'true',
+    success: "true",
     access_token: token.access_token,
     token_type: token.token_type,
     scope: token.scope,
@@ -157,88 +206,11 @@ function redirectToAppWithToken(token: IntervalsTokenResponse): Response {
  */
 function redirectToAppWithError(error: string): Response {
   const params = new URLSearchParams({
-    success: 'false',
+    success: "false",
     error: error,
   });
 
   const redirectUrl = `${APP_SCHEME}://oauth/callback?${params.toString()}`;
 
   return Response.redirect(redirectUrl, 302);
-}
-
-/**
- * Handle incoming webhook from intervals.icu
- */
-async function handleWebhook(request: Request, env: Env): Promise<Response> {
-  const bodyText = await request.text();
-
-  // Parse webhook payload
-  let payload: WebhookPayload;
-  try {
-    payload = JSON.parse(bodyText);
-  } catch {
-    console.error('Failed to parse webhook payload');
-    return new Response('Invalid JSON', { status: 400 });
-  }
-
-  // Validate athlete_id
-  const athleteId = payload.athlete_id;
-  if (!athleteId) {
-    console.error('Webhook missing athlete_id');
-    return new Response('Missing athlete_id', { status: 400 });
-  }
-
-  // Create stored event
-  const event: StoredWebhookEvent = {
-    event_type: payload.type,
-    athlete_id: payload.athlete_id,
-    activity_id: payload.activity_id,
-    timestamp: Date.now(),
-  };
-
-  // Store in KV with 24-hour TTL
-  const key = `${athleteId}:${event.timestamp}`;
-  await env.WEBHOOK_EVENTS.put(key, JSON.stringify(event), {
-    expirationTtl: 86400, // 24 hours
-  });
-
-  console.log(`Stored webhook: ${payload.type} for athlete ${athleteId}`);
-
-  return new Response('OK', { status: 200 });
-}
-
-/**
- * Get pending webhooks for an athlete (app polls this)
- */
-async function handleGetWebhooks(athleteId: string, env: Env): Promise<Response> {
-  // List all keys for this athlete
-  const prefix = `${athleteId}:`;
-  const list = await env.WEBHOOK_EVENTS.list({ prefix });
-
-  const events: StoredWebhookEvent[] = [];
-
-  // Fetch and delete each event (one-time delivery)
-  for (const key of list.keys) {
-    const value = await env.WEBHOOK_EVENTS.get(key.name);
-    if (value) {
-      try {
-        const event: StoredWebhookEvent = JSON.parse(value);
-        events.push(event);
-      } catch {
-        // Skip invalid entries
-      }
-      // Delete after reading
-      await env.WEBHOOK_EVENTS.delete(key.name);
-    }
-  }
-
-  // Sort by timestamp (newest first)
-  events.sort((a, b) => b.timestamp - a.timestamp);
-
-  return new Response(JSON.stringify(events), {
-    status: 200,
-    headers: {
-      'Content-Type': 'application/json',
-    },
-  });
 }

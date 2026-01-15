@@ -1,6 +1,6 @@
 # Veloq OAuth Proxy
 
-Cloudflare Worker that handles OAuth token exchange and webhooks for intervals.icu.
+Cloudflare Worker that handles OAuth token exchange for intervals.icu.
 
 ## Why This Exists
 
@@ -11,9 +11,8 @@ intervals.icu OAuth requires a `client_secret` for token exchange. Embedding sec
 | Endpoint | Method | Description |
 |----------|--------|-------------|
 | `/health` | GET | Health check |
-| `/oauth/callback` | GET | Receives OAuth code, exchanges for token, redirects to app |
-| `/webhooks/intervals` | POST | Receives webhooks from intervals.icu |
-| `/webhooks/:athlete_id` | GET | App polls for pending webhook events |
+| `/oauth/state` | POST | Register OAuth state for CSRF protection (app calls before OAuth flow) |
+| `/oauth/callback` | GET | Receives OAuth code, validates state, exchanges for token, redirects to app |
 
 ## Deploy via Dashboard (No CLI Required)
 
@@ -34,12 +33,13 @@ intervals.icu OAuth requires a `client_secret` for token exchange. Embedding sec
 
 ### 3. Create KV Namespace
 
+**OAuth States (for CSRF protection):**
 1. Go to **Workers & Pages** > **KV**
 2. Click **Create a namespace**
-3. Name it: `veloq-webhook-events`
+3. Name it: `veloq-oauth-states`
 4. Go back to your worker > **Settings** > **Bindings**
 5. Click **Add** > **KV Namespace**
-6. Variable name: `WEBHOOK_EVENTS`
+6. Variable name: `OAUTH_STATES`
 7. Select your namespace
 8. Click **Deploy** to apply
 
@@ -53,61 +53,48 @@ intervals.icu OAuth requires a `client_secret` for token exchange. Embedding sec
 |--------------|-------|
 | `INTERVALS_CLIENT_ID` | Your OAuth client ID |
 | `INTERVALS_CLIENT_SECRET` | Your OAuth client secret |
-| `WEBHOOK_SECRET` | Your webhook secret |
 
 4. Click **Deploy** to apply
 
-### 5. Get Your Worker URL
+### 5. Custom Domain (Optional)
 
-Your worker is now live at:
-```
-https://veloq-oauth-proxy.<your-subdomain>.workers.dev
-```
+The worker is deployed at `https://auth.veloq.fit`.
 
 ## OAuth Flow
 
 ```
-1. App opens browser to:
+1. App generates state and registers it with proxy (CSRF protection):
+   POST https://auth.veloq.fit/oauth/state
+   Body: { "state": "random64chars..." }
+
+2. App opens browser to:
    https://intervals.icu/oauth/authorize?
      client_id=YOUR_ID&
-     redirect_uri=https://veloq-oauth-proxy.xxx.workers.dev/oauth/callback&
-     scope=ACTIVITY:READ,WELLNESS:READ&
-     state=random
+     redirect_uri=https://auth.veloq.fit/oauth/callback&
+     scope=ACTIVITY:READ,WELLNESS:READ,CALENDAR:READ,SETTINGS:READ&
+     state=random64chars...
 
-2. User logs in and approves
+3. User logs in and approves
 
-3. intervals.icu redirects to worker:
-   https://veloq-oauth-proxy.xxx.workers.dev/oauth/callback?code=xxx
+4. intervals.icu redirects to worker with code and state:
+   https://auth.veloq.fit/oauth/callback?code=xxx&state=random64chars...
 
-4. Worker exchanges code for token (with client_secret)
+5. Worker validates state against stored value (rejects if invalid/expired)
 
-5. Worker redirects to app:
+6. Worker exchanges code for token (with client_secret)
+
+7. Worker redirects to app:
    veloq://oauth/callback?success=true&access_token=xxx&athlete_id=xxx&athlete_name=xxx
 
-6. App stores token in Keychain
-```
-
-## Webhook Flow
-
-```
-1. intervals.icu POSTs to:
-   https://veloq-oauth-proxy.xxx.workers.dev/webhooks/intervals
-
-2. Worker stores event in KV with 24h TTL
-
-3. App polls:
-   GET /webhooks/:athlete_id
-
-4. Worker returns events and deletes them (one-time delivery)
+8. App stores token in Keychain
 ```
 
 ## Registration with intervals.icu
 
-To register your OAuth application, you'll need to provide:
+To register the OAuth application, provide:
 
 - **App name**: Veloq
-- **Redirect URI**: `https://veloq-oauth-proxy.<your-subdomain>.workers.dev/oauth/callback`
-- **Webhook URL**: `https://veloq-oauth-proxy.<your-subdomain>.workers.dev/webhooks/intervals`
+- **Redirect URI**: `https://auth.veloq.fit/oauth/callback`
 - **Requested scopes**: ACTIVITY:READ, WELLNESS:READ, CALENDAR:READ, SETTINGS:READ
 
 See the [intervals.icu API documentation](https://forum.intervals.icu/t/api-access-registering-your-own-app/781) for registration details.
@@ -134,19 +121,26 @@ wrangler login
 wrangler deploy
 wrangler secret put INTERVALS_CLIENT_ID
 wrangler secret put INTERVALS_CLIENT_SECRET
-wrangler secret put WEBHOOK_SECRET
 ```
 
 ## Testing
 
 Test the health endpoint:
 ```bash
-curl https://veloq-oauth-proxy.<your-subdomain>.workers.dev/health
+curl https://auth.veloq.fit/health
 # Should return: OK
 ```
 
-Test OAuth callback (will redirect to app):
+Test state registration:
 ```bash
-curl -I "https://veloq-oauth-proxy.<your-subdomain>.workers.dev/oauth/callback?code=test"
-# Should return 302 redirect to veloq://oauth/callback?success=false&error=token_exchange_failed
+curl -X POST https://auth.veloq.fit/oauth/state \
+  -H "Content-Type: application/json" \
+  -d '{"state":"test1234567890123456789012345678901234"}'
+# Should return: {"success":true}
+```
+
+Test OAuth callback (will fail without valid state):
+```bash
+curl -I "https://auth.veloq.fit/oauth/callback?code=test&state=invalid"
+# Should return 302 redirect to veloq://oauth/callback?success=false&error=invalid_state
 ```

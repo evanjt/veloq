@@ -20,7 +20,7 @@ export function ChartLegend({ currentActivityColor, hasReverseRuns, isDark }: Ch
   return (
     <View style={styles.legend}>
       <View style={styles.legendItem}>
-        <View style={[styles.legendDot, { backgroundColor: '#FFB300' }]} />
+        <View style={[styles.legendDot, { backgroundColor: colors.chartGold }]} />
         <Text style={[styles.legendText, isDark && styles.textMuted]}>{t('routes.best')}</Text>
       </View>
       <View style={styles.legendItem}>

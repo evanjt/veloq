@@ -3,7 +3,6 @@ import {
   View,
   ScrollView,
   StyleSheet,
-  useColorScheme,
   TouchableOpacity,
   Dimensions,
   Modal,
@@ -20,7 +19,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useTranslation } from 'react-i18next';
 import * as ScreenOrientation from 'expo-screen-orientation';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { useActivity, useActivityStreams, useWellnessForDate } from '@/hooks';
+import { useActivity, useActivityStreams, useWellnessForDate, useTheme } from '@/hooks';
+import { createSharedStyles } from '@/styles';
 import { useCustomSections } from '@/hooks/routes/useCustomSections';
 import { useRouteMatch } from '@/hooks/routes/useRouteMatch';
 import { useSectionMatches, type SectionMatch } from '@/hooks/routes/useSectionMatches';
@@ -83,8 +83,8 @@ const DEFAULT_CHART: Record<string, ChartTypeId> = {
 export default function ActivityDetailScreen() {
   const { t } = useTranslation();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const { isDark, colors: themeColors } = useTheme();
+  const shared = createSharedStyles(isDark);
   const insets = useSafeAreaInsets();
   // Use dynamic dimensions for fullscreen chart (updates after rotation)
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
@@ -268,7 +268,7 @@ export default function ActivityDetailScreen() {
     return (
       <ScreenSafeAreaView style={[styles.container, isDark && styles.containerDark]}>
         <View style={[styles.floatingHeader, { paddingTop: insets.top }]}>
-          <IconButton icon="arrow-left" iconColor="#FFFFFF" onPress={() => router.back()} />
+          <IconButton icon="arrow-left" iconColor={colors.textOnDark} onPress={() => router.back()} />
         </View>
         <View style={styles.loadingContainer}>
           <Text style={styles.errorText}>{t('activityDetail.failedToLoad')}</Text>
@@ -319,7 +319,7 @@ export default function ActivityDetailScreen() {
             onPress={() => router.back()}
             activeOpacity={0.7}
           >
-            <MaterialCommunityIcons name="arrow-left" size={24} color="#FFFFFF" />
+            <MaterialCommunityIcons name="arrow-left" size={24} color={colors.textOnDark} />
           </TouchableOpacity>
         </View>
 
@@ -369,7 +369,7 @@ export default function ActivityDetailScreen() {
                   accessibilityLabel="Chart display options"
                   accessibilityRole="button"
                 >
-                  <MaterialCommunityIcons name="cog" size={16} color={isDark ? '#FFF' : '#333'} />
+                  <MaterialCommunityIcons name="cog" size={16} color={isDark ? colors.textOnDark : colors.textPrimary} />
                 </TouchableOpacity>
                 <View style={styles.chartSelectorContainer}>
                   <ChartTypeSelector
@@ -388,7 +388,7 @@ export default function ActivityDetailScreen() {
                   <MaterialCommunityIcons
                     name="fullscreen"
                     size={16}
-                    color={isDark ? '#FFF' : '#333'}
+                    color={isDark ? colors.textOnDark : colors.textPrimary}
                   />
                 </TouchableOpacity>
               </View>
@@ -451,7 +451,7 @@ export default function ActivityDetailScreen() {
                     label={t('activityDetail.avgHR')}
                     value={formatHeartRate(activity.average_heartrate || activity.icu_average_hr!)}
                     isDark={isDark}
-                    color="#E91E63"
+                    color={colors.chartPink}
                   />
                 )}
                 {(activity.average_watts || activity.icu_average_watts) && (
@@ -459,7 +459,7 @@ export default function ActivityDetailScreen() {
                     label={t('activityDetail.avgPower')}
                     value={formatPower(activity.average_watts || activity.icu_average_watts!)}
                     isDark={isDark}
-                    color="#9C27B0"
+                    color={colors.chartPurple}
                   />
                 )}
                 {activity.average_cadence && (
@@ -569,7 +569,7 @@ export default function ActivityDetailScreen() {
               <MaterialCommunityIcons
                 name="road-variant"
                 size={48}
-                color={isDark ? '#444' : '#CCC'}
+                color={isDark ? darkColors.border : colors.divider}
               />
               <Text style={[styles.emptyStateTitle, isDark && styles.textLight]}>
                 {t('activityDetail.noMatchedSections')}
@@ -610,7 +610,7 @@ export default function ActivityDetailScreen() {
               onPress={closeChartFullscreen}
               activeOpacity={0.7}
             >
-              <MaterialCommunityIcons name="close" size={24} color={isDark ? '#FFF' : '#333'} />
+              <MaterialCommunityIcons name="close" size={24} color={isDark ? colors.textOnDark : colors.textPrimary} />
             </TouchableOpacity>
 
             {/* Chart type selector in fullscreen - centered, no config button needed */}
@@ -945,7 +945,7 @@ const styles = StyleSheet.create({
     marginLeft: 28,
   },
   textMuted: {
-    color: '#888',
+    color: darkColors.textSecondary,
   },
 
   // Empty state styles
@@ -1012,7 +1012,7 @@ const styles = StyleSheet.create({
   autoDetectedText: {
     fontSize: 10,
     fontWeight: '600',
-    color: '#4CAF50',
+    color: colors.success,
   },
   customBadge: {
     backgroundColor: 'rgba(156, 39, 176, 0.15)',
@@ -1026,6 +1026,6 @@ const styles = StyleSheet.create({
   customBadgeText: {
     fontSize: 10,
     fontWeight: '600',
-    color: '#9C27B0',
+    color: colors.chartPurple,
   },
 });

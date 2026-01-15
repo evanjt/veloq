@@ -603,18 +603,78 @@ jobs:
           restore-keys: |
             cocoapods-${{ runner.os }}-
 
-      - name: Setup Ruby & Install CocoaPods
-        if: steps.ios-prebuild-cache.outputs.cache-hit != 'true'
+      - name: Setup Ruby
         uses: ruby/setup-ruby@v1
         with:
           ruby-version: "3.2"
           bundler-cache: true
+          working-directory: fastlane
 
       - name: Install Pods
         if: steps.ios-prebuild-cache.outputs.cache-hit != 'true'
         working-directory: ios
         run: pod install
 
+      # ============================================
+      # iOS Signing (for IPA builds on main)
+      # ============================================
+      - name: Check for iOS signing credentials
+        id: check_ios_signing
+        env:
+          MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+        run: |
+          if [ -n "$MATCH_GIT_URL" ] && [ -n "$ASC_KEY_ID" ]; then
+            echo "has_signing=true" >> $GITHUB_OUTPUT
+            echo "✅ iOS signing credentials found"
+          else
+            echo "has_signing=false" >> $GITHUB_OUTPUT
+            echo "::notice::iOS signing not configured - skipping IPA build"
+          fi
+
+      - name: Setup SSH for Match
+        if: steps.check_ios_signing.outputs.has_signing == 'true' && (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch')
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.MATCH_SSH_PRIVATE_KEY }}
+
+      - name: Sync certificates with Match
+        if: steps.check_ios_signing.outputs.has_signing == 'true' && (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch')
+        env:
+          MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
+          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+          FASTLANE_TEAM_ID: ${{ secrets.FASTLANE_TEAM_ID }}
+        working-directory: fastlane
+        run: bundle exec fastlane match appstore --readonly
+
+      - name: Build signed IPA
+        if: steps.check_ios_signing.outputs.has_signing == 'true' && (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch')
+        env:
+          FASTLANE_TEAM_ID: ${{ secrets.FASTLANE_TEAM_ID }}
+        working-directory: fastlane
+        run: bundle exec fastlane ios build_release
+
+      - name: Rename IPA
+        if: steps.check_ios_signing.outputs.has_signing == 'true' && (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch')
+        run: |
+          mkdir -p artifacts
+          IPA_PATH=$(find . -name "*.ipa" -type f | head -1)
+          if [ -n "$IPA_PATH" ]; then
+            cp "$IPA_PATH" "artifacts/${{ steps.version.outputs.filename }}.ipa"
+            echo "✅ IPA: ${{ steps.version.outputs.filename }}.ipa"
+          fi
+
+      - name: Upload IPA artifact
+        if: steps.check_ios_signing.outputs.has_signing == 'true' && (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch')
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-ipa-${{ steps.version.outputs.filename }}
+          path: artifacts/*.ipa
+          retention-days: 30
+
+      # ============================================
+      # iOS Simulator Build (always runs)
+      # ============================================
       - name: Build iOS Simulator app
         run: |
           xcodebuild -workspace ios/veloq.xcworkspace \

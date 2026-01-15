@@ -4,7 +4,8 @@
  */
 
 import React from 'react';
-import { View, StyleSheet, useColorScheme, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { useTheme } from '@/hooks';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -21,15 +22,14 @@ interface CacheScopeNoticeProps {
 
 export function CacheScopeNotice({ processedCount, groupCount, onPress }: CacheScopeNoticeProps) {
   const { t } = useTranslation();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const { isDark } = useTheme();
 
   const content = (
     <View style={[styles.container, isDark && styles.containerDark]}>
       <MaterialCommunityIcons
         name="information-outline"
         size={16}
-        color={isDark ? '#888' : colors.textSecondary}
+        color={isDark ? darkColors.textSecondary : colors.textSecondary}
       />
       <Text style={[styles.text, isDark && styles.textDark]}>
         {t('routes.basedOnActivities', { count: processedCount })}

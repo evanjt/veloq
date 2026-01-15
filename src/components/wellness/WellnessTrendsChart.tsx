@@ -1,5 +1,6 @@
 import React, { useMemo, useState, useCallback } from 'react';
-import { View, StyleSheet, useColorScheme, LayoutChangeEvent } from 'react-native';
+import { View, StyleSheet, LayoutChangeEvent } from 'react-native';
+import { useTheme } from '@/hooks';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { CartesianChart, Line } from 'victory-native';
@@ -203,8 +204,7 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
   smoothingWindow = 'auto',
 }: WellnessTrendsChartProps) {
   const { t } = useTranslation();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const { isDark } = useTheme();
   const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
   const [containerWidth, setContainerWidth] = useState(0);
 

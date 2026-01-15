@@ -1,5 +1,6 @@
 import React, { useMemo, useRef, useState, useCallback } from 'react';
-import { View, StyleSheet, useColorScheme, Text } from 'react-native';
+import { View, StyleSheet, Text } from 'react-native';
+import { useTheme } from '@/hooks';
 import { CartesianChart, Area } from 'victory-native';
 import { LinearGradient, vec } from '@shopify/react-native-skia';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
@@ -61,8 +62,7 @@ export const CombinedPlot = React.memo(function CombinedPlot({
   onInteractionChange,
 }: CombinedPlotProps) {
   const { t } = useTranslation();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const { isDark } = useTheme();
   const isMetric = useMetricSystem();
 
   // Shared values for UI thread gesture tracking (native 120Hz performance)

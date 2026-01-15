@@ -3,7 +3,6 @@ import {
   View,
   ScrollView,
   StyleSheet,
-  useColorScheme,
   TouchableOpacity,
   RefreshControl,
 } from 'react-native';
@@ -19,14 +18,15 @@ import {
   EventPlanner,
   WorkoutLibrary,
 } from '@/components/stats';
-import { useActivities, useRouteGroups, useRouteProcessing } from '@/hooks';
+import { useActivities, useRouteGroups, useRouteProcessing, useTheme } from '@/hooks';
 import { useRouteSettings } from '@/providers';
-import { colors, spacing, layout } from '@/theme';
+import { colors, darkColors, spacing, layout, typography, opacity } from '@/theme';
+import { createSharedStyles } from '@/styles';
 
 export default function TrainingScreen() {
   const { t } = useTranslation();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const { isDark, colors: themeColors } = useTheme();
+  const shared = createSharedStyles(isDark);
 
   // Check if route matching is enabled
   const { settings: routeSettings } = useRouteSettings();
@@ -91,16 +91,14 @@ export default function TrainingScreen() {
   }, [activities]);
 
   return (
-    <ScreenSafeAreaView style={[styles.container, isDark && styles.containerDark]}>
+    <ScreenSafeAreaView style={shared.container}>
       <View style={styles.header}>
         <IconButton
           icon="arrow-left"
-          iconColor={isDark ? '#FFFFFF' : colors.textPrimary}
+          iconColor={themeColors.text}
           onPress={() => router.back()}
         />
-        <Text style={[styles.headerTitle, isDark && styles.textLight]}>
-          {t('trainingScreen.title')}
-        </Text>
+        <Text style={shared.headerTitle}>{t('trainingScreen.title')}</Text>
         {/* Subtle loading indicator in header when fetching in background */}
         <View style={{ width: 48, alignItems: 'center' }}>
           {isFetching && !isRefreshing && <ActivityIndicator size="small" color={colors.primary} />}
@@ -142,10 +140,10 @@ export default function TrainingScreen() {
               <MaterialCommunityIcons name="map-marker-path" size={22} color={colors.primary} />
             </View>
             <View style={styles.routesSectionInfo}>
-              <Text style={[styles.routesSectionTitle, isDark && styles.textLight]}>
+              <Text style={[styles.routesSectionTitle, isDark && styles.routesSectionTitleDark]}>
                 {t('trainingScreen.routes')}
               </Text>
-              <Text style={[styles.routesSectionSubtitle, isDark && styles.textMuted]}>
+              <Text style={[styles.routesSectionSubtitle, isDark && styles.routesSectionSubtitleDark]}>
                 {!isRouteMatchingEnabled
                   ? t('trainingScreen.disabledInSettings')
                   : isRouteProcessing
@@ -169,7 +167,7 @@ export default function TrainingScreen() {
               <MaterialCommunityIcons
                 name="chevron-right"
                 size={22}
-                color={isDark ? '#666' : colors.textSecondary}
+                color={themeColors.textSecondary}
               />
             )}
           </View>
@@ -229,25 +227,11 @@ export default function TrainingScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  containerDark: {
-    backgroundColor: '#121212',
-  },
+  // Note: container, headerTitle now use shared styles
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: colors.textPrimary,
-  },
-  textLight: {
-    color: '#FFFFFF',
   },
   scrollView: {
     flex: 1,
@@ -263,7 +247,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   cardDark: {
-    backgroundColor: '#1E1E1E',
+    backgroundColor: darkColors.surface,
   },
   loadingContainer: {
     padding: spacing.xl,
@@ -278,7 +262,7 @@ const styles = StyleSheet.create({
   routesIcon: {
     width: 44,
     height: 44,
-    borderRadius: 12,
+    borderRadius: layout.borderRadiusSm + 4,
     backgroundColor: colors.primary + '15',
     justifyContent: 'center',
     alignItems: 'center',
@@ -290,17 +274,20 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   routesSectionTitle: {
-    fontSize: 16,
+    ...typography.body,
     fontWeight: '600',
     color: colors.textPrimary,
   },
+  routesSectionTitleDark: {
+    color: darkColors.textPrimary,
+  },
   routesSectionSubtitle: {
-    fontSize: 13,
+    ...typography.bodyCompact,
     color: colors.textSecondary,
     marginTop: 2,
   },
-  textMuted: {
-    color: '#888',
+  routesSectionSubtitleDark: {
+    color: darkColors.textSecondary,
   },
   routesProgressContainer: {
     width: 24,
@@ -310,7 +297,7 @@ const styles = StyleSheet.create({
   },
   routesProgressBar: {
     height: 3,
-    backgroundColor: 'rgba(0, 0, 0, 0.08)',
+    backgroundColor: opacity.overlay.light,
     borderRadius: 1.5,
     marginTop: spacing.md,
     overflow: 'hidden',

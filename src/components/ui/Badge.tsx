@@ -6,12 +6,12 @@ import {
   StyleProp,
   ViewStyle,
   TextStyle,
-  useColorScheme,
 } from 'react-native';
 import { colors, darkColors } from '@/theme/colors';
 import { typography } from '@/theme/typography';
 import { spacing } from '@/theme/spacing';
 import { shadows } from '@/theme/shadows';
+import { useTheme } from '@/hooks';
 
 type BadgeVariant = 'primary' | 'secondary' | 'success' | 'warning' | 'error' | 'muted';
 type BadgeSize = 'small' | 'medium';
@@ -39,8 +39,7 @@ export function Badge({
   style,
   textStyle,
 }: BadgeProps) {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const { isDark } = useTheme();
 
   const containerStyle = [styles.base, styles[size], getVariantStyle(variant, isDark), style];
 

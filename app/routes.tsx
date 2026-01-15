@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
-import { View, StyleSheet, useColorScheme } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { Text, IconButton } from 'react-native-paper';
 import { ScreenSafeAreaView } from '@/components/ui';
 import { router } from 'expo-router';
@@ -14,10 +14,12 @@ import {
   useRouteGroups,
   useEngineStats,
   useOldestActivityDate,
+  useTheme,
 } from '@/hooks';
 import { useUnifiedSections } from '@/hooks/routes/useUnifiedSections';
 import { useRouteSettings, useSyncDateRange } from '@/providers';
-import { colors, spacing } from '@/theme';
+import { colors, darkColors, spacing } from '@/theme';
+import { createSharedStyles } from '@/styles';
 import { debug } from '@/lib';
 import type { ActivityType } from '@/types';
 
@@ -27,8 +29,8 @@ const log = debug.create('Routes');
 
 export default function RoutesScreen() {
   const { t } = useTranslation();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const { isDark, colors: themeColors } = useTheme();
+  const shared = createSharedStyles(isDark);
 
   // Check if route matching is enabled
   const { settings: routeSettings } = useRouteSettings();
@@ -236,7 +238,7 @@ export default function RoutesScreen() {
         <View style={styles.header}>
           <IconButton
             icon="arrow-left"
-            iconColor={isDark ? '#FFFFFF' : colors.textPrimary}
+            iconColor={isDark ? colors.textOnDark : colors.textPrimary}
             onPress={() => router.back()}
           />
           <Text style={[styles.headerTitle, isDark && styles.textLight]}>
@@ -249,7 +251,7 @@ export default function RoutesScreen() {
           <MaterialCommunityIcons
             name="map-marker-off"
             size={64}
-            color={isDark ? '#444' : '#CCC'}
+            color={isDark ? darkColors.textMuted : colors.border}
           />
           <Text style={[styles.disabledTitle, isDark && styles.textLight]}>
             {t('routesScreen.matchingDisabled')}
@@ -276,7 +278,7 @@ export default function RoutesScreen() {
       <View style={styles.header}>
         <IconButton
           icon="arrow-left"
-          iconColor={isDark ? '#FFFFFF' : colors.textPrimary}
+          iconColor={isDark ? colors.textOnDark : colors.textPrimary}
           onPress={() => router.back()}
         />
         <Text style={[styles.headerTitle, isDark && styles.textLight]}>
@@ -315,7 +317,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   containerDark: {
-    backgroundColor: '#121212',
+    backgroundColor: darkColors.background,
   },
   header: {
     flexDirection: 'row',
@@ -333,10 +335,10 @@ const styles = StyleSheet.create({
     paddingRight: spacing.sm,
   },
   textLight: {
-    color: '#FFFFFF',
+    color: colors.textOnDark,
   },
   textMuted: {
-    color: '#888',
+    color: darkColors.textSecondary,
   },
   disabledContainer: {
     flex: 1,

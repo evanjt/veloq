@@ -1,5 +1,6 @@
 import React, { useMemo, useRef, useCallback, useState } from 'react';
-import { View, StyleSheet, useColorScheme } from 'react-native';
+import { View, StyleSheet } from 'react-native';
+import { useTheme } from '@/hooks';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { CartesianChart, Line } from 'victory-native';
@@ -60,8 +61,7 @@ export const FormZoneChart = React.memo(function FormZoneChart({
   onInteractionChange,
 }: FormZoneChartProps) {
   const { t } = useTranslation();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const { isDark } = useTheme();
   const [selectedData, setSelectedData] = useState<ChartDataPoint | null>(null);
   const [isActive, setIsActive] = useState(false);
   const onDateSelectRef = useRef(onDateSelect);

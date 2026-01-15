@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useCallback, useRef, useMemo } from 'react';
-import { View, StyleSheet, useColorScheme, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text, IconButton } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ScreenSafeAreaView } from '@/components/ui';
@@ -12,10 +12,11 @@ import { router } from 'expo-router';
 import { MapView, Camera } from '@maplibre/maplibre-react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { colors, spacing, shadows } from '@/theme';
+import { colors, darkColors, spacing, shadows, typography } from '@/theme';
 import { useHeatmap, type CellQueryResult } from '@/hooks/useHeatmap';
 import { HeatmapLayer, HeatmapCellPopup } from '@/components/maps';
-import { useEngineStats } from '@/hooks';
+import { useEngineStats, useTheme } from '@/hooks';
+import { createSharedStyles } from '@/styles';
 import {
   type MapStyleType,
   getMapStyle,
@@ -34,9 +35,10 @@ const CELL_SIZES = [
 
 export default function HeatmapScreen() {
   const { t } = useTranslation();
-  const colorScheme = useColorScheme();
+  const { isDark: systemIsDark, colors: themeColors } = useTheme();
+  const shared = createSharedStyles(systemIsDark);
   const insets = useSafeAreaInsets();
-  const systemStyle: MapStyleType = colorScheme === 'dark' ? 'dark' : 'light';
+  const systemStyle: MapStyleType = systemIsDark ? 'dark' : 'light';
   const [mapStyle, setMapStyle] = useState<MapStyleType>(systemStyle);
   const [cellSize, setCellSize] = useState(100);
   const [selectedCell, setSelectedCell] = useState<CellQueryResult | null>(null);
@@ -106,14 +108,14 @@ export default function HeatmapScreen() {
   // Show empty state if no data
   if (!hasData) {
     return (
-      <ScreenSafeAreaView style={[styles.container, isDark && styles.containerDark]}>
+      <ScreenSafeAreaView style={shared.container}>
         <View style={styles.header}>
           <IconButton
             icon="arrow-left"
-            iconColor={isDark ? '#FFFFFF' : colors.textPrimary}
+            iconColor={themeColors.text}
             onPress={() => router.back()}
           />
-          <Text style={[styles.headerTitle, isDark && styles.textLight]}>
+          <Text style={[styles.headerTitle, systemIsDark && styles.headerTitleDark]}>
             {t('heatmapScreen.title')}
           </Text>
           <View style={styles.headerRight} />
@@ -123,12 +125,12 @@ export default function HeatmapScreen() {
           <MaterialCommunityIcons
             name="map-marker-off"
             size={64}
-            color={isDark ? '#444' : '#CCC'}
+            color={themeColors.textMuted}
           />
-          <Text style={[styles.emptyTitle, isDark && styles.textLight]}>
+          <Text style={[styles.emptyTitle, systemIsDark && styles.emptyTitleDark]}>
             {t('heatmapScreen.noActivityData')}
           </Text>
-          <Text style={[styles.emptyText, isDark && styles.textMuted]}>
+          <Text style={[styles.emptyText, systemIsDark && styles.emptyTextDark]}>
             {t('heatmapScreen.processFirstHint')}
           </Text>
           <TouchableOpacity style={styles.emptyButton} onPress={() => router.push('/routes')}>
@@ -184,7 +186,7 @@ export default function HeatmapScreen() {
           style={[styles.button, isDark && styles.buttonDark]}
           onPress={() => router.back()}
         >
-          <MaterialCommunityIcons name="close" size={24} color={isDark ? '#FFFFFF' : '#333333'} />
+          <MaterialCommunityIcons name="close" size={24} color={isDark ? colors.textOnDark : colors.textPrimary} />
         </TouchableOpacity>
 
         <View style={[styles.titleBadge, isDark && styles.titleBadgeDark]}>
@@ -208,7 +210,7 @@ export default function HeatmapScreen() {
           <MaterialCommunityIcons
             name={getStyleIcon(mapStyle)}
             size={24}
-            color={isDark ? '#FFFFFF' : '#333333'}
+            color={isDark ? colors.textOnDark : colors.textPrimary}
           />
         </TouchableOpacity>
       </View>
@@ -260,10 +262,7 @@ export default function HeatmapScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000',
-  },
-  containerDark: {
-    backgroundColor: '#121212',
+    backgroundColor: darkColors.background,
   },
   map: {
     flex: 1,
@@ -274,9 +273,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   headerTitle: {
-    fontSize: 18,
-    fontWeight: '600',
+    ...typography.cardTitle,
     color: colors.textPrimary,
+  },
+  headerTitleDark: {
+    color: darkColors.textPrimary,
   },
   headerRight: {
     width: 48,
@@ -356,7 +357,7 @@ const styles = StyleSheet.create({
   },
   attributionText: {
     fontSize: 9,
-    color: '#333333',
+    color: colors.textPrimary,
   },
   popup: {
     position: 'absolute',
@@ -370,18 +371,23 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.xl,
   },
   emptyTitle: {
-    fontSize: 20,
-    fontWeight: '600',
+    ...typography.sectionTitle,
     color: colors.textPrimary,
     marginTop: spacing.lg,
     textAlign: 'center',
   },
+  emptyTitleDark: {
+    color: darkColors.textPrimary,
+  },
   emptyText: {
-    fontSize: 15,
+    ...typography.body,
     color: colors.textSecondary,
     textAlign: 'center',
     marginTop: spacing.sm,
     lineHeight: 22,
+  },
+  emptyTextDark: {
+    color: darkColors.textSecondary,
   },
   emptyButton: {
     marginTop: spacing.lg,
@@ -391,9 +397,9 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
   emptyButtonText: {
-    fontSize: 15,
+    ...typography.body,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: colors.textOnDark,
   },
   loadingOverlay: {
     position: 'absolute',
@@ -422,9 +428,9 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
   textLight: {
-    color: '#FFFFFF',
+    color: darkColors.textPrimary,
   },
   textMuted: {
-    color: '#888',
+    color: darkColors.textMuted,
   },
 });

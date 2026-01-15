@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, StyleSheet, TouchableOpacity, useColorScheme, Text } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Text } from 'react-native';
+import { useTheme } from '@/hooks';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors, typography, layout, spacing } from '@/theme';
 import type { ChartConfig } from '@/lib';
@@ -24,8 +25,7 @@ function hexToRgba(hex: string, opacity: number): string {
 }
 
 export function ChartTypeSelector({ available, selected, onToggle }: ChartTypeSelectorProps) {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const { isDark } = useTheme();
 
   if (available.length === 0) {
     return null;

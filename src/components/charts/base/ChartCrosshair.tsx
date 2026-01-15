@@ -6,11 +6,11 @@
  */
 
 import React from 'react';
-import { StyleSheet, useColorScheme } from 'react-native';
+import { StyleSheet, ViewStyle } from 'react-native';
 import Animated, { AnimatedStyle } from 'react-native-reanimated';
-import { ViewStyle } from 'react-native';
 import { colors, darkColors } from '@/theme/colors';
 import { spacing } from '@/theme/spacing';
+import { useTheme } from '@/hooks';
 
 export interface ChartCrosshairProps {
   /** Animated style from useChartGestures */
@@ -32,8 +32,7 @@ export const ChartCrosshair = React.memo(function ChartCrosshair({
   topOffset = spacing.xs,
   bottomOffset = 20,
 }: ChartCrosshairProps) {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const { isDark } = useTheme();
 
   const defaultColor = isDark ? darkColors.textSecondary : colors.textSecondary;
 

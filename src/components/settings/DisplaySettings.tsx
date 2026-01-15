@@ -1,9 +1,10 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, useColorScheme } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { useTheme } from '@/hooks';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { SegmentedButtons } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
-import { colors, spacing } from '@/theme';
+import { colors, darkColors, spacing } from '@/theme';
 import {
   getThemePreference,
   type ThemePreference,
@@ -37,8 +38,7 @@ export function DisplaySettings({
   setShowLanguages,
 }: DisplaySettingsProps) {
   const { t } = useTranslation();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const { isDark } = useTheme();
   const availableLanguages = getAvailableLanguages();
 
   // Get the display label for the current language selection
@@ -232,19 +232,19 @@ const styles = StyleSheet.create({
     marginLeft: spacing.md,
   },
   textMuted: {
-    color: '#666',
+    color: colors.textSecondary,
   },
   textLight: {
-    color: '#fff',
+    color: colors.textOnDark,
   },
   section: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface,
     borderRadius: 12,
     marginBottom: spacing.sm,
     overflow: 'hidden',
   },
   sectionDark: {
-    backgroundColor: '#1c1c1e',
+    backgroundColor: darkColors.surface,
   },
   themePickerContainer: {
     padding: spacing.sm,
@@ -300,8 +300,8 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(0, 0, 0, 0.1)',
   },
   variantChipDark: {
-    backgroundColor: '#2c2c2e',
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: darkColors.surfaceElevated,
+    borderColor: darkColors.divider,
   },
   variantChipSelected: {
     backgroundColor: colors.primary,
@@ -316,7 +316,7 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
   variantChipTextSelected: {
-    color: '#fff',
+    color: colors.textOnDark,
     fontWeight: '600',
   },
 });

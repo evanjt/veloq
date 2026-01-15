@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
-import { View, StyleSheet, useColorScheme, Pressable } from 'react-native';
+import { View, StyleSheet, Pressable } from 'react-native';
+import { useTheme } from '@/hooks';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { colors, darkColors } from '@/theme/colors';
@@ -38,8 +39,7 @@ export const ZoneDistributionChart = React.memo(function ZoneDistributionChart({
   periodLabel,
 }: ZoneDistributionChartProps) {
   const { t } = useTranslation();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const { isDark } = useTheme();
 
   const displayTitle =
     title || (type === 'power' ? t('stats.powerZones') : t('stats.heartRateZones'));

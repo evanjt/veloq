@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, useColorScheme, ScrollView, Linking, Pressable } from 'react-native';
+import { View, StyleSheet, ScrollView, Linking, Pressable } from 'react-native';
 import { Text, Button, TextInput } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ScreenSafeAreaView } from '@/components/ui';
@@ -7,7 +7,9 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router, Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '@/providers';
-import { colors, spacing, layout } from '@/theme';
+import { colors, darkColors, spacing, layout, typography } from '@/theme';
+import { useTheme } from '@/hooks';
+import { createSharedStyles } from '@/styles';
 import { useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 import {
@@ -20,8 +22,8 @@ import { CollapsibleSection } from '@/components/ui/CollapsibleSection';
 
 export default function LoginScreen() {
   const { t } = useTranslation();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const { isDark, colors: themeColors } = useTheme();
+  const shared = createSharedStyles(isDark);
   const insets = useSafeAreaInsets();
   const setOAuthCredentials = useAuthStore((state) => state.setOAuthCredentials);
   const setCredentials = useAuthStore((state) => state.setCredentials);
@@ -142,7 +144,7 @@ export default function LoginScreen() {
   };
 
   return (
-    <ScreenSafeAreaView style={[styles.container, isDark && styles.containerDark]} testID="login-screen">
+    <ScreenSafeAreaView style={shared.container} testID="login-screen">
       <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
         {/* Logo/Header */}
         <View style={styles.header}>
@@ -224,9 +226,9 @@ export default function LoginScreen() {
                 autoCapitalize="none"
                 autoCorrect={false}
                 style={styles.apiKeyInput}
-                outlineColor={isDark ? '#444' : colors.border}
+                outlineColor={isDark ? darkColors.border : colors.border}
                 activeOutlineColor={colors.primary}
-                textColor={isDark ? '#FFF' : colors.textPrimary}
+                textColor={themeColors.text}
                 disabled={isApiKeyLoading}
               />
 
@@ -246,7 +248,7 @@ export default function LoginScreen() {
                 <MaterialCommunityIcons
                   name="shield-check"
                   size={14}
-                  color={isDark ? '#888' : colors.textSecondary}
+                  color={themeColors.textSecondary}
                 />
                 <Text style={[styles.localModeText, isDark && styles.textMuted]}>
                   {t('login.localModeNote')}
@@ -295,7 +297,7 @@ export default function LoginScreen() {
           <MaterialCommunityIcons
             name="shield-lock"
             size={16}
-            color={isDark ? '#888' : colors.textSecondary}
+            color={themeColors.textSecondary}
           />
           <Text style={[styles.securityText, isDark && styles.textDark]}>
             {t('login.securityNote')}
@@ -307,13 +309,7 @@ export default function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  containerDark: {
-    backgroundColor: '#121212',
-  },
+  // Note: container now uses shared styles
   scrollContent: {
     flexGrow: 1,
     padding: layout.screenPadding,
@@ -330,13 +326,13 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xs,
   },
   textLight: {
-    color: '#FFFFFF',
+    color: darkColors.textPrimary,
   },
   textDark: {
-    color: '#AAA',
+    color: darkColors.textSecondary,
   },
   textMuted: {
-    color: '#888',
+    color: darkColors.textMuted,
   },
   subtitle: {
     fontSize: 16,
@@ -349,7 +345,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   cardDark: {
-    backgroundColor: '#1E1E1E',
+    backgroundColor: darkColors.surface,
   },
   errorContainer: {
     flexDirection: 'row',
@@ -382,7 +378,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.border,
   },
   dividerDark: {
-    backgroundColor: '#333',
+    backgroundColor: darkColors.border,
   },
   dividerText: {
     marginHorizontal: spacing.md,

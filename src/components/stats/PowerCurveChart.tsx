@@ -1,5 +1,6 @@
 import React, { useMemo, useCallback, useState, useRef } from 'react';
-import { View, StyleSheet, useColorScheme } from 'react-native';
+import { View, StyleSheet } from 'react-native';
+import { useTheme } from '@/hooks';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { CartesianChart, Line } from 'victory-native';
@@ -68,8 +69,7 @@ export const PowerCurveChart = React.memo(function PowerCurveChart({
   ftp,
 }: PowerCurveChartProps) {
   const { t } = useTranslation();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const { isDark } = useTheme();
 
   const { data: curve, isLoading, error } = usePowerCurve({ sport, days });
 

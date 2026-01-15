@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet, Pressable, useColorScheme } from 'react-native';
+import { View, StyleSheet, Pressable } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router, Href } from 'expo-router';
@@ -8,6 +8,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQueryClient } from '@tanstack/react-query';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuthStore, useSyncDateRange } from '@/providers';
+import { useTheme } from '@/hooks';
+import { colors, brand } from '@/theme';
 import { clearAllGpsTracks, clearBoundsCache } from '@/lib/storage/gpsStorage';
 
 // Lazy load native module to avoid bundler errors
@@ -21,8 +23,7 @@ function getRouteEngine() {
 
 export function DemoBanner() {
   const { t } = useTranslation();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const { isDark } = useTheme();
   const insets = useSafeAreaInsets();
   const isDemoMode = useAuthStore((state) => state.isDemoMode);
   const hideDemoBanner = useAuthStore((state) => state.hideDemoBanner);
@@ -88,12 +89,12 @@ export function DemoBanner() {
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#5B9BD5', // Brand blue for demo mode
+    backgroundColor: brand.blue, // Brand blue for demo mode
     paddingHorizontal: 16,
     paddingBottom: 8,
   },
   containerDark: {
-    backgroundColor: '#3A7AB8', // Darker blue for dark mode
+    backgroundColor: brand.blueDark, // Darker blue for dark mode
   },
   pressed: {
     opacity: 0.8,
@@ -107,7 +108,7 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   text: {
-    color: '#FFFFFF',
+    color: colors.textOnDark,
     fontWeight: '600',
     fontSize: 14,
   },

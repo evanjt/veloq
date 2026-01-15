@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, useColorScheme, TouchableOpacity, Animated } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native';
+import { useTheme } from '@/hooks';
 import {
   MapView,
   Camera,
@@ -71,9 +72,9 @@ interface RegionalMapViewProps {
 
 export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
   const { t } = useTranslation();
-  const colorScheme = useColorScheme();
+  const { isDark: systemIsDark } = useTheme();
   const insets = useSafeAreaInsets();
-  const systemStyle: MapStyleType = colorScheme === 'dark' ? 'dark' : 'light';
+  const systemStyle: MapStyleType = systemIsDark ? 'dark' : 'light';
   const [mapStyle, setMapStyle] = useState<MapStyleType>(systemStyle);
   const [selected, setSelected] = useState<SelectedActivity | null>(null);
   const [is3DMode, setIs3DMode] = useState(false);
@@ -591,7 +592,7 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
                 <LineLayer
                   id="sectionsOutline"
                   style={{
-                    lineColor: '#FFFFFF',
+                    lineColor: colors.textOnDark,
                     lineWidth: ['interpolate', ['linear'], ['zoom'], 10, 5, 14, 7, 18, 9],
                     lineOpacity: 0.4,
                     lineCap: 'round',

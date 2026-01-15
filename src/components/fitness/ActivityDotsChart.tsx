@@ -1,5 +1,6 @@
 import React, { useMemo, useRef, useCallback, useState } from 'react';
-import { View, StyleSheet, useColorScheme, TouchableOpacity, Modal, Pressable } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Modal, Pressable } from 'react-native';
+import { useTheme } from '@/hooks';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { Canvas, Circle, Group } from '@shopify/react-native-skia';
@@ -76,8 +77,7 @@ export const ActivityDotsChart = React.memo(function ActivityDotsChart({
   onInteractionChange,
 }: ActivityDotsChartProps) {
   const { t } = useTranslation();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const { isDark } = useTheme();
   const [selectedData, setSelectedData] = useState<DotData | null>(null);
   const [isActive, setIsActive] = useState(false);
   const [chartWidth, setChartWidth] = useState(0);

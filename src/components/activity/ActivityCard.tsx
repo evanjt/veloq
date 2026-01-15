@@ -1,5 +1,6 @@
 import React, { useState, useCallback } from 'react';
-import { View, StyleSheet, Pressable, useColorScheme, Platform, Share } from 'react-native';
+import { View, StyleSheet, Pressable, Platform, Share } from 'react-native';
+import { useTheme } from '@/hooks';
 import { Text, Menu } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -35,8 +36,7 @@ interface ActivityCardProps {
 
 export const ActivityCard = React.memo(function ActivityCard({ activity }: ActivityCardProps) {
   const { t } = useTranslation();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const { isDark } = useTheme();
   const [menuVisible, setMenuVisible] = useState(false);
   const [menuAnchor, setMenuAnchor] = useState({ x: 0, y: 0 });
 
@@ -189,8 +189,8 @@ export const ActivityCard = React.memo(function ActivityCard({ activity }: Activ
           )}
           {activity.has_weather && activity.average_weather_temp != null && (
             <View style={styles.secondaryStat}>
-              <View style={[styles.secondaryStatIcon, { backgroundColor: '#03A9F4' + '20' }]}>
-                <MaterialCommunityIcons name="weather-partly-cloudy" size={14} color="#03A9F4" />
+              <View style={[styles.secondaryStatIcon, { backgroundColor: colors.info + '20' }]}>
+                <MaterialCommunityIcons name="weather-partly-cloudy" size={14} color={colors.info} />
               </View>
               <View>
                 <Text style={[styles.secondaryStatValue, isDark && styles.textLight]}>
@@ -350,6 +350,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   menuContentDark: {
-    backgroundColor: '#2A2A2A',
+    backgroundColor: darkColors.surfaceElevated,
   },
 });
