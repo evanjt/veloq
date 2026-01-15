@@ -147,7 +147,9 @@ export function useHeatmap(options: UseHeatmapOptions = {}): UseHeatmapResult {
         setIsReady(false);
       }
     } catch (error) {
-      console.error('[useHeatmap] Error generating heatmap:', error);
+      if (__DEV__) {
+        console.error('[useHeatmap] Error generating heatmap:', error);
+      }
       setHeatmap(null);
       setIsReady(false);
     }

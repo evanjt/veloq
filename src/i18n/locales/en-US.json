@@ -94,7 +94,10 @@
     "apiKeyPlaceholder": "Paste your API key here",
     "apiKeyConnect": "Connect with API Key",
     "localModeNote": "Local mode: All data stays on your device",
-    "connectedModeNote": "Enables push notifications for new activities"
+    "connectedModeNote": "Enables push notifications for new activities",
+    "oauthStateValidationFailed": "Security validation failed. Please try signing in again.",
+    "sessionExpired": "Your session has expired. Please sign in again.",
+    "sessionRevoked": "Your access was revoked. Please sign in again."
   },
   "demo": {
     "banner": "Demo Mode",

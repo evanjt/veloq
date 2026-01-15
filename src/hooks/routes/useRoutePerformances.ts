@@ -14,7 +14,9 @@ function getRouteEngine() {
     const module = require('route-matcher-native');
     return module.routeEngine || module.default?.routeEngine || null;
   } catch (error) {
-    console.warn('[RouteMatcher] Failed to load native module:', error);
+    if (__DEV__) {
+      console.warn('[RouteMatcher] Failed to load native module:', error);
+    }
     return null;
   }
 }

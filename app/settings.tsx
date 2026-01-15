@@ -161,8 +161,7 @@ export default function SettingsScreen() {
   };
 
   const handleLanguageChange = async (value: string) => {
-    const locale = value === "system" ? null : (value as SupportedLocale);
-    await setLanguage(locale);
+    await setLanguage(value);
   };
 
   const handleDefaultMapStyleChange = async (value: string) => {
@@ -448,7 +447,7 @@ export default function SettingsScreen() {
           onThemeChange={handleThemeChange}
           primarySport={primarySport}
           onSportChange={handleSportChange}
-          language={language}
+          language={language ?? "en-GB"}
           onLanguageChange={handleLanguageChange}
           showLanguages={showLanguages}
           setShowLanguages={setShowLanguages}
@@ -668,8 +667,9 @@ export default function SettingsScreen() {
           <TouchableOpacity
             testID="settings-clear-cache"
             style={[styles.actionRow, isDemoMode && styles.actionRowDisabled]}
-            onPress={handleClearCache}
+            onPress={isDemoMode ? undefined : handleClearCache}
             disabled={isDemoMode}
+            activeOpacity={isDemoMode ? 1 : 0.2}
           >
             <MaterialCommunityIcons
               name="delete-outline"

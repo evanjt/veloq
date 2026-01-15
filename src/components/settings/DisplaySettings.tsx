@@ -15,8 +15,8 @@ import {
 } from '@/providers';
 import { CollapsibleSection } from '@/components/ui';
 
-// LanguageChoice from useLanguageStore (string | null)
-type LanguageChoice = string | null;
+// LanguageChoice from useLanguageStore (always a string now, no System option)
+type LanguageChoice = string;
 
 interface DisplaySettingsProps {
   themePreference: ThemePreference;
@@ -47,7 +47,7 @@ export function DisplaySettings({
   const currentLanguageLabel = React.useMemo(() => {
     for (const group of availableLanguages) {
       for (const lang of group.languages) {
-        if (language === lang.value || (language === null && lang.value === null)) {
+        if (language === lang.value) {
           return lang.label;
         }
         // Check variants
@@ -58,12 +58,12 @@ export function DisplaySettings({
           }
         }
         // Check if current language is a variant of this language
-        if (lang.value && isLanguageVariant(language, lang.value)) {
+        if (isLanguageVariant(language, lang.value)) {
           return lang.label;
         }
       }
     }
-    return 'System';
+    return 'English'; // Fallback
   }, [language, availableLanguages]);
 
   return (
@@ -125,15 +125,13 @@ export function DisplaySettings({
           {availableLanguages.flatMap((group, groupIndex) =>
             group.languages.map((lang, langIndex) => {
               const index = groupIndex * 100 + langIndex;
-              const isSelected =
-                language === lang.value || (language === null && lang.value === null);
-              const isVariantOfThisLanguage =
-                lang.value !== null && isLanguageVariant(language, lang.value);
+              const isSelected = language === lang.value;
+              const isVariantOfThisLanguage = isLanguageVariant(language, lang.value);
               const showCheck = isSelected || isVariantOfThisLanguage;
 
               return (
                 <View
-                  key={lang.value ?? 'system'}
+                  key={lang.value}
                   style={[
                     styles.languageRow,
                     index > 0 && styles.languageRowBorder,
@@ -144,7 +142,7 @@ export function DisplaySettings({
                     onPress={() => {
                       // For languages with variants, use the defaultVariant (or first variant)
                       const valueToUse =
-                        lang.defaultVariant ?? lang.variants?.[0]?.value ?? lang.value ?? 'system';
+                        lang.defaultVariant ?? lang.variants?.[0]?.value ?? lang.value;
                       onLanguageChange(valueToUse);
                       setShowLanguages(false);
                     }}

@@ -7,7 +7,7 @@
  * Environment:
  * - INTERVALS_CLIENT_ID: OAuth client ID
  * - INTERVALS_CLIENT_SECRET: OAuth client secret
- * - OAUTH_STATES: KV namespace for CSRF state validation
+ * - OAUTH_STATES: KV namespace for CSRF state validation and rate limiting
  */
 
 interface Env {
@@ -15,6 +15,10 @@ interface Env {
   INTERVALS_CLIENT_SECRET: string;
   OAUTH_STATES: KVNamespace;
 }
+
+/** Rate limiting configuration */
+const RATE_LIMIT_MAX_REQUESTS = 10;
+const RATE_LIMIT_WINDOW_SECONDS = 60;
 
 interface IntervalsTokenResponse {
   token_type: string;
@@ -36,15 +40,10 @@ export default {
     const url = new URL(request.url);
     const path = url.pathname;
 
-    // Add CORS headers for preflight requests
+    // CORS is not needed - mobile app uses deep links, not browser requests
+    // Return 405 for OPTIONS requests since we don't support CORS
     if (request.method === "OPTIONS") {
-      return new Response(null, {
-        headers: {
-          "Access-Control-Allow-Origin": "*",
-          "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-          "Access-Control-Allow-Headers": "Content-Type",
-        },
-      });
+      return new Response("Method Not Allowed", { status: 405 });
     }
 
     try {
@@ -72,6 +71,34 @@ export default {
 };
 
 /**
+ * Check rate limit for an IP address
+ * Returns true if request should be allowed, false if rate limited
+ */
+async function checkRateLimit(ip: string, env: Env): Promise<boolean> {
+  const key = `rate:${ip}`;
+  const current = await env.OAUTH_STATES.get(key);
+
+  if (!current) {
+    // First request in window
+    await env.OAUTH_STATES.put(key, "1", {
+      expirationTtl: RATE_LIMIT_WINDOW_SECONDS,
+    });
+    return true;
+  }
+
+  const count = parseInt(current, 10);
+  if (count >= RATE_LIMIT_MAX_REQUESTS) {
+    return false;
+  }
+
+  // Increment counter (preserve existing TTL by using same window)
+  await env.OAUTH_STATES.put(key, String(count + 1), {
+    expirationTtl: RATE_LIMIT_WINDOW_SECONDS,
+  });
+  return true;
+}
+
+/**
  * Register a state parameter for CSRF protection
  * App calls this before starting OAuth flow
  */
@@ -79,6 +106,27 @@ async function handleRegisterState(
   request: Request,
   env: Env
 ): Promise<Response> {
+  // Get client IP for rate limiting
+  const ip =
+    request.headers.get("CF-Connecting-IP") ||
+    request.headers.get("X-Forwarded-For")?.split(",")[0]?.trim() ||
+    "unknown";
+
+  // Check rate limit
+  const allowed = await checkRateLimit(ip, env);
+  if (!allowed) {
+    return new Response(
+      JSON.stringify({ error: "Too many requests. Please try again later." }),
+      {
+        status: 429,
+        headers: {
+          "Content-Type": "application/json",
+          "Retry-After": String(RATE_LIMIT_WINDOW_SECONDS),
+        },
+      }
+    );
+  }
+
   try {
     const body = (await request.json()) as { state?: string };
     const state = body.state;
@@ -102,7 +150,6 @@ async function handleRegisterState(
       status: 200,
       headers: {
         "Content-Type": "application/json",
-        "Access-Control-Allow-Origin": "*",
       },
     });
   } catch {

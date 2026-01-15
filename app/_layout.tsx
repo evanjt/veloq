@@ -45,7 +45,9 @@ function getRouteEngine() {
     // Try to get the named export first, fall back to the default
     return module.routeEngine || module.default?.routeEngine || null;
   } catch (error) {
-    console.warn("[RouteMatcher] Failed to load native module:", error);
+    if (__DEV__) {
+      console.warn("[RouteMatcher] Failed to load native module:", error);
+    }
     return null;
   }
 }
@@ -72,7 +74,9 @@ function configureMapLibreLogger() {
     MapLibreLogger.setLogLevel("error");
     mapLibreLoggerConfigured = true;
   } catch (error) {
-    console.warn("[MapLibre] Failed to configure logger:", error);
+    if (__DEV__) {
+      console.warn("[MapLibre] Failed to configure logger:", error);
+    }
   }
 }
 
@@ -90,22 +94,26 @@ function AuthGate({ children }: { children: React.ReactNode }) {
       if (engine) {
         const dbPath = getRouteDbPath();
         if (!dbPath) {
-          console.warn(
-            "[RouteEngine] Cannot initialize - document directory not available. " +
-              "Route features will be disabled until app restart.",
-          );
+          if (__DEV__) {
+            console.warn(
+              "[RouteEngine] Cannot initialize - document directory not available. " +
+                "Route features will be disabled until app restart.",
+            );
+          }
           return;
         }
         const success = engine.initWithPath(dbPath);
-        if (success) {
-          console.log(
-            `[RouteEngine] Initialized with persistent storage: ${engine.getActivityCount()} cached activities`,
-          );
-        } else {
-          console.warn(
-            `[RouteEngine] Persistent init failed for path: ${dbPath}. ` +
-              "Route features will be disabled until app restart.",
-          );
+        if (__DEV__) {
+          if (success) {
+            console.log(
+              `[RouteEngine] Initialized with persistent storage: ${engine.getActivityCount()} cached activities`,
+            );
+          } else {
+            console.warn(
+              `[RouteEngine] Persistent init failed for path: ${dbPath}. ` +
+                "Route features will be disabled until app restart.",
+            );
+          }
         }
       }
     }

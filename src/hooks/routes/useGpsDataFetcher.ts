@@ -8,13 +8,13 @@
  * **Real Mode:** Fetches GPS tracks from intervals.icu API via Rust HTTP client
  */
 
-import { useCallback } from 'react';
-import { getNativeModule } from '@/lib/native/routeEngine';
-import { routeEngine } from 'route-matcher-native';
-import { getStoredCredentials, getSyncGeneration } from '@/providers';
-import { toActivityMetrics } from '@/lib/utils/activityMetrics';
-import type { Activity } from '@/types';
-import type { SyncProgress } from './useRouteSyncProgress';
+import { useCallback } from "react";
+import { getNativeModule } from "@/lib/native/routeEngine";
+import { routeEngine } from "route-matcher-native";
+import { getStoredCredentials, getSyncGeneration } from "@/providers";
+import { toActivityMetrics } from "@/lib/utils/activityMetrics";
+import type { Activity } from "@/types";
+import type { SyncProgress } from "./useRouteSyncProgress";
 
 export interface GpsFetchResult {
   /** Activity IDs that were successfully synced */
@@ -31,7 +31,9 @@ interface FetchDeps {
   /** Abort signal for cancellation */
   abortSignal: AbortSignal;
   /** Function to update progress state */
-  updateProgress: (updater: SyncProgress | ((prev: SyncProgress) => SyncProgress)) => void;
+  updateProgress: (
+    updater: SyncProgress | ((prev: SyncProgress) => SyncProgress),
+  ) => void;
 }
 
 /**
@@ -72,7 +74,10 @@ export function useGpsDataFetcher() {
    * @returns Sync result with synced IDs and message
    */
   const fetchDemoGps = useCallback(
-    async (activities: Activity[], deps: FetchDeps): Promise<GpsFetchResult> => {
+    async (
+      activities: Activity[],
+      deps: FetchDeps,
+    ): Promise<GpsFetchResult> => {
       const { isMountedRef, abortSignal, updateProgress } = deps;
 
       // Capture sync generation at start - results will be discarded if it changes
@@ -80,7 +85,7 @@ export function useGpsDataFetcher() {
 
       // Check for abort before starting
       if (abortSignal.aborted) {
-        return { syncedIds: [], withGpsCount: 0, message: 'Cancelled' };
+        return { syncedIds: [], withGpsCount: 0, message: "Cancelled" };
       }
 
       const nativeModule = getNativeModule();
@@ -88,22 +93,22 @@ export function useGpsDataFetcher() {
         return {
           syncedIds: [],
           withGpsCount: 0,
-          message: 'Engine not available',
+          message: "Engine not available",
         };
       }
 
       // Update progress
       if (isMountedRef.current) {
         updateProgress({
-          status: 'fetching',
+          status: "fetching",
           completed: 0,
           total: activities.length,
-          message: 'Loading demo GPS data...',
+          message: "Loading demo GPS data...",
         });
       }
 
       // Import demo fixtures
-      const { getActivityMap } = require('@/data/demo/fixtures');
+      const { getActivityMap } = require("@/data/demo/fixtures");
 
       const ids: string[] = [];
       const allCoords: number[] = [];
@@ -113,6 +118,24 @@ export function useGpsDataFetcher() {
       // Track failures for debugging
       let failedNoMap = 0;
       let failedNoCoords = 0;
+      let skippedInvalidCoords = 0;
+
+      /**
+       * Validates GPS coordinates are within valid bounds.
+       * @param lat - Latitude (-90 to 90)
+       * @param lng - Longitude (-180 to 180)
+       * @returns true if coordinates are valid
+       */
+      const isValidCoordinate = (lat: number, lng: number): boolean => {
+        return (
+          Number.isFinite(lat) &&
+          Number.isFinite(lng) &&
+          lat >= -90 &&
+          lat <= 90 &&
+          lng >= -180 &&
+          lng <= 180
+        );
+      };
 
       // Build flat coordinate arrays for Rust FFI
       for (const activity of activities) {
@@ -128,14 +151,28 @@ export function useGpsDataFetcher() {
 
         ids.push(activity.id);
         offsets.push(allCoords.length / 2);
-        sportTypes.push(activity.type || 'Ride');
+        sportTypes.push(activity.type || "Ride");
 
         // Add coordinates (latlngs are [[lat, lng], ...])
         for (const coord of map.latlngs) {
           if (coord && coord.length >= 2) {
-            allCoords.push(coord[0], coord[1]);
+            const lat = coord[0];
+            const lng = coord[1];
+            // Validate coordinate bounds before passing to Rust
+            if (isValidCoordinate(lat, lng)) {
+              allCoords.push(lat, lng);
+            } else {
+              skippedInvalidCoords++;
+            }
           }
         }
+      }
+
+      // Log skipped coordinates in development
+      if (__DEV__ && skippedInvalidCoords > 0) {
+        console.warn(
+          `[fetchDemoGps] Skipped ${skippedInvalidCoords} invalid coordinates (out of bounds or non-finite)`,
+        );
       }
 
       if (ids.length > 0 && isMountedRef.current) {
@@ -144,18 +181,23 @@ export function useGpsDataFetcher() {
         if (currentGeneration !== startGeneration) {
           if (__DEV__) {
             console.log(
-              `[fetchDemoGps] DISCARDING stale results: generation ${startGeneration} -> ${currentGeneration}`
+              `[fetchDemoGps] DISCARDING stale results: generation ${startGeneration} -> ${currentGeneration}`,
             );
           }
           return {
             syncedIds: [],
             withGpsCount: 0,
-            message: 'Sync reset - results discarded',
+            message: "Sync reset - results discarded",
           };
         }
 
         // Add to engine
-        await nativeModule.routeEngine.addActivities(ids, allCoords, offsets, sportTypes);
+        await nativeModule.routeEngine.addActivities(
+          ids,
+          allCoords,
+          offsets,
+          sportTypes,
+        );
 
         // Sync activity metrics for performance calculations
         const syncedActivities = activities.filter((a) => ids.includes(a.id));
@@ -173,18 +215,18 @@ export function useGpsDataFetcher() {
         while (isMountedRef.current && !abortSignal.aborted) {
           const status = nativeModule.routeEngine.pollSectionDetection();
 
-          if (status === 'running') {
+          if (status === "running") {
             updateProgress({
-              status: 'computing',
+              status: "computing",
               completed: ids.length,
               total: activities.length,
-              message: 'Detecting route sections...',
+              message: "Detecting route sections...",
             });
-          } else if (status === 'complete' || status === 'idle') {
+          } else if (status === "complete" || status === "idle") {
             break;
-          } else if (status === 'error') {
+          } else if (status === "error") {
             if (__DEV__) {
-              console.warn('[fetchDemoGps] Section detection error');
+              console.warn("[fetchDemoGps] Section detection error");
             }
             break;
           }
@@ -192,7 +234,7 @@ export function useGpsDataFetcher() {
           // Check timeout
           if (Date.now() - startTime > maxPollTime) {
             if (__DEV__) {
-              console.warn('[fetchDemoGps] Section detection timed out');
+              console.warn("[fetchDemoGps] Section detection timed out");
             }
             break;
           }
@@ -202,7 +244,7 @@ export function useGpsDataFetcher() {
 
         if (isMountedRef.current) {
           updateProgress({
-            status: 'complete',
+            status: "complete",
             completed: ids.length,
             total: activities.length,
             message: `Synced ${ids.length} demo activities`,
@@ -219,7 +261,7 @@ export function useGpsDataFetcher() {
       // Update progress to complete/idle when no valid GPS data found
       if (isMountedRef.current) {
         updateProgress({
-          status: 'idle',
+          status: "idle",
           completed: 0,
           total: activities.length,
           message: `No valid GPS data found (checked ${activities.length} activities)`,
@@ -234,17 +276,17 @@ export function useGpsDataFetcher() {
             `checked IDs: ${activities
               .slice(0, 3)
               .map((a) => a.id)
-              .join(', ')}...`
+              .join(", ")}...`,
         );
       }
 
       return {
         syncedIds: [],
         withGpsCount: activities.length,
-        message: 'No valid GPS data in fixtures',
+        message: "No valid GPS data in fixtures",
       };
     },
-    []
+    [],
   );
 
   /**
@@ -258,13 +300,16 @@ export function useGpsDataFetcher() {
    * @returns Sync result with synced IDs and message
    */
   const fetchApiGps = useCallback(
-    async (activities: Activity[], deps: FetchDeps): Promise<GpsFetchResult> => {
+    async (
+      activities: Activity[],
+      deps: FetchDeps,
+    ): Promise<GpsFetchResult> => {
       // Capture sync generation at start - results will be discarded if it changes
       const startGeneration = getSyncGeneration();
 
       if (__DEV__) {
         console.log(
-          `[fetchApiGps] Entered with ${activities.length} activities, generation=${startGeneration}`
+          `[fetchApiGps] Entered with ${activities.length} activities, generation=${startGeneration}`,
         );
       }
 
@@ -273,36 +318,36 @@ export function useGpsDataFetcher() {
       const nativeModule = getNativeModule();
       if (!nativeModule) {
         if (__DEV__) {
-          console.warn('[fetchApiGps] Native module not available!');
+          console.warn("[fetchApiGps] Native module not available!");
         }
         return {
           syncedIds: [],
           withGpsCount: 0,
-          message: 'Engine not available',
+          message: "Engine not available",
         };
       }
 
       if (__DEV__) {
-        console.log('[fetchApiGps] Getting credentials...');
+        console.log("[fetchApiGps] Getting credentials...");
       }
 
       // Get API credentials
       const creds = await getStoredCredentials();
       if (!isMountedRef.current || abortSignal.aborted) {
-        return { syncedIds: [], withGpsCount: 0, message: 'Cancelled' };
+        return { syncedIds: [], withGpsCount: 0, message: "Cancelled" };
       }
 
       if (!creds?.apiKey) {
-        throw new Error('No API key available');
+        throw new Error("No API key available");
       }
 
       // Update progress
       if (isMountedRef.current) {
         updateProgress({
-          status: 'fetching',
+          status: "fetching",
           completed: 0,
           total: activities.length,
-          message: 'Fetching GPS data...',
+          message: "Fetching GPS data...",
         });
       }
 
@@ -323,7 +368,10 @@ export function useGpsDataFetcher() {
         });
       } catch (listenerError) {
         if (__DEV__) {
-          console.warn('[fetchApiGps] Progress listener not available:', listenerError);
+          console.warn(
+            "[fetchApiGps] Progress listener not available:",
+            listenerError,
+          );
         }
         // Continue without progress updates - fetch will still work
       }
@@ -333,24 +381,31 @@ export function useGpsDataFetcher() {
         const activityIds = activities.map((a) => a.id);
 
         if (__DEV__) {
-          console.log(`[fetchApiGps] Starting fetch for ${activityIds.length} activities...`);
+          console.log(
+            `[fetchApiGps] Starting fetch for ${activityIds.length} activities...`,
+          );
         }
 
-        const results = await nativeModule.fetchActivityMapsWithProgress(creds.apiKey, activityIds);
+        const results = await nativeModule.fetchActivityMapsWithProgress(
+          creds.apiKey,
+          activityIds,
+        );
 
         if (__DEV__) {
           const successful = results.filter((r) => r.success);
-          const withCoords = results.filter((r) => r.latlngs && r.latlngs.length >= 4);
+          const withCoords = results.filter(
+            (r) => r.latlngs && r.latlngs.length >= 4,
+          );
           console.log(
             `[fetchApiGps] Fetch complete: ${results.length} results, ` +
-              `${successful.length} successful, ${withCoords.length} with coords`
+              `${successful.length} successful, ${withCoords.length} with coords`,
           );
           // Log first few failures for debugging
           const failures = results.filter((r) => !r.success).slice(0, 3);
           if (failures.length > 0) {
             console.log(
               `[fetchApiGps] Sample failures:`,
-              failures.map((f) => f.activityId)
+              failures.map((f) => f.activityId),
             );
           }
         }
@@ -360,22 +415,43 @@ export function useGpsDataFetcher() {
           return {
             syncedIds: [],
             withGpsCount: activities.length,
-            message: 'Cancelled',
+            message: "Cancelled",
           };
         }
 
         // Update progress to processing
         if (isMountedRef.current) {
           updateProgress({
-            status: 'processing',
+            status: "processing",
             completed: 0,
             total: results.length,
-            message: 'Processing routes...',
+            message: "Processing routes...",
           });
         }
 
         // Build flat coordinate arrays for the engine
-        const successfulResults = results.filter((r) => r.success && r.latlngs.length >= 4);
+        const successfulResults = results.filter(
+          (r) => r.success && r.latlngs.length >= 4,
+        );
+
+        /**
+         * Validates GPS coordinates are within valid bounds.
+         * @param lat - Latitude (-90 to 90)
+         * @param lng - Longitude (-180 to 180)
+         * @returns true if coordinates are valid
+         */
+        const isValidCoordinate = (lat: number, lng: number): boolean => {
+          return (
+            Number.isFinite(lat) &&
+            Number.isFinite(lng) &&
+            lat >= -90 &&
+            lat <= 90 &&
+            lng >= -180 &&
+            lng <= 180
+          );
+        };
+
+        let skippedInvalidCoords = 0;
 
         if (successfulResults.length > 0 && isMountedRef.current) {
           const ids: string[] = [];
@@ -389,10 +465,27 @@ export function useGpsDataFetcher() {
 
             ids.push(result.activityId);
             offsets.push(allCoords.length / 2);
-            sportTypes.push(activity.type || 'Ride');
+            sportTypes.push(activity.type || "Ride");
 
             // Add coordinates (already in flat [lat, lng, ...] format from Rust)
-            allCoords.push(...result.latlngs);
+            // Validate each coordinate pair before adding
+            const latlngs = result.latlngs;
+            for (let i = 0; i < latlngs.length - 1; i += 2) {
+              const lat = latlngs[i];
+              const lng = latlngs[i + 1];
+              if (isValidCoordinate(lat, lng)) {
+                allCoords.push(lat, lng);
+              } else {
+                skippedInvalidCoords++;
+              }
+            }
+          }
+
+          // Log skipped coordinates in development
+          if (__DEV__ && skippedInvalidCoords > 0) {
+            console.warn(
+              `[fetchApiGps] Skipped ${skippedInvalidCoords} invalid coordinates (out of bounds or non-finite)`,
+            );
           }
 
           // Add to engine
@@ -402,20 +495,27 @@ export function useGpsDataFetcher() {
             if (currentGeneration !== startGeneration) {
               if (__DEV__) {
                 console.log(
-                  `[fetchApiGps] DISCARDING stale results: generation ${startGeneration} -> ${currentGeneration}`
+                  `[fetchApiGps] DISCARDING stale results: generation ${startGeneration} -> ${currentGeneration}`,
                 );
               }
               return {
                 syncedIds: [],
                 withGpsCount: 0,
-                message: 'Sync reset - results discarded',
+                message: "Sync reset - results discarded",
               };
             }
 
-            await nativeModule.routeEngine.addActivities(ids, allCoords, offsets, sportTypes);
+            await nativeModule.routeEngine.addActivities(
+              ids,
+              allCoords,
+              offsets,
+              sportTypes,
+            );
 
             // Sync activity metrics for performance calculations
-            const syncedActivities = activities.filter((a) => ids.includes(a.id));
+            const syncedActivities = activities.filter((a) =>
+              ids.includes(a.id),
+            );
             const metrics = syncedActivities.map(toActivityMetrics);
             routeEngine.setActivityMetrics(metrics);
 
@@ -430,18 +530,18 @@ export function useGpsDataFetcher() {
             while (isMountedRef.current && !abortSignal.aborted) {
               const status = nativeModule.routeEngine.pollSectionDetection();
 
-              if (status === 'running') {
+              if (status === "running") {
                 updateProgress({
-                  status: 'computing',
+                  status: "computing",
                   completed: successfulResults.length,
                   total: activities.length,
-                  message: 'Detecting route sections...',
+                  message: "Detecting route sections...",
                 });
-              } else if (status === 'complete' || status === 'idle') {
+              } else if (status === "complete" || status === "idle") {
                 break;
-              } else if (status === 'error') {
+              } else if (status === "error") {
                 if (__DEV__) {
-                  console.warn('[fetchApiGps] Section detection error');
+                  console.warn("[fetchApiGps] Section detection error");
                 }
                 break;
               }
@@ -449,7 +549,7 @@ export function useGpsDataFetcher() {
               // Check timeout
               if (Date.now() - startTime > maxPollTime) {
                 if (__DEV__) {
-                  console.warn('[fetchApiGps] Section detection timed out');
+                  console.warn("[fetchApiGps] Section detection timed out");
                 }
                 break;
               }
@@ -462,7 +562,7 @@ export function useGpsDataFetcher() {
         // Final progress update
         if (isMountedRef.current) {
           updateProgress({
-            status: 'complete',
+            status: "complete",
             completed: successfulResults.length,
             total: activities.length,
             message: `Synced ${successfulResults.length} activities`,
@@ -479,7 +579,7 @@ export function useGpsDataFetcher() {
         subscription?.remove();
       }
     },
-    []
+    [],
   );
 
   return {

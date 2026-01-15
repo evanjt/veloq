@@ -102,9 +102,11 @@ export const useSyncDateRange = create<SyncDateRangeState>((set, get) => ({
 
     // Block expansion if locked (after reset/clear, until initial sync completes)
     if (current.isExpansionLocked) {
-      console.log(
-        `[SyncDateRange] Expansion BLOCKED (locked): requested ${requestedOldest} - ${requestedNewest}`
-      );
+      if (__DEV__) {
+        console.log(
+          `[SyncDateRange] Expansion BLOCKED (locked): requested ${requestedOldest} - ${requestedNewest}`
+        );
+      }
       return;
     }
 
@@ -121,9 +123,11 @@ export const useSyncDateRange = create<SyncDateRangeState>((set, get) => ({
         hasExpanded: true, // Mark that we've expanded (triggers route re-optimization)
       });
 
-      console.log(
-        `[SyncDateRange] Expanded range: ${current.oldest} - ${current.newest} -> ${newOldest} - ${newNewest}`
-      );
+      if (__DEV__) {
+        console.log(
+          `[SyncDateRange] Expanded range: ${current.oldest} - ${current.newest} -> ${newOldest} - ${newNewest}`
+        );
+      }
     }
   },
 
@@ -131,10 +135,12 @@ export const useSyncDateRange = create<SyncDateRangeState>((set, get) => ({
     const range = getDefaultRange();
     const current = get();
     const newGeneration = current.syncGeneration + 1;
-    console.log(
-      `[SyncDateRange] Reset to 90 days (${range.oldest} - ${range.newest}), ` +
-        `expansion LOCKED, generation ${current.syncGeneration} -> ${newGeneration}`
-    );
+    if (__DEV__) {
+      console.log(
+        `[SyncDateRange] Reset to 90 days (${range.oldest} - ${range.newest}), ` +
+          `expansion LOCKED, generation ${current.syncGeneration} -> ${newGeneration}`
+      );
+    }
     set({
       ...range,
       isFetchingExtended: false,
@@ -171,7 +177,9 @@ export const useSyncDateRange = create<SyncDateRangeState>((set, get) => ({
   },
 
   unlockExpansion: () => {
-    console.log('[SyncDateRange] Expansion manually UNLOCKED');
+    if (__DEV__) {
+      console.log('[SyncDateRange] Expansion manually UNLOCKED');
+    }
     set({ isExpansionLocked: false });
   },
 
@@ -180,7 +188,9 @@ export const useSyncDateRange = create<SyncDateRangeState>((set, get) => ({
     setTimeout(() => {
       const state = get();
       if (state.isExpansionLocked) {
-        console.log('[SyncDateRange] Expansion UNLOCKED after delay');
+        if (__DEV__) {
+          console.log('[SyncDateRange] Expansion UNLOCKED after delay');
+        }
         set({ isExpansionLocked: false });
       }
     }, 500);

@@ -98,12 +98,16 @@ export async function handleAsyncError<T>(
 
     switch (level) {
       case 'critical':
-        console.error(`${errorPrefix} Critical error:`, errorMessage);
-        console.error(error);
+        if (__DEV__) {
+          console.error(`${errorPrefix} Critical error:`, errorMessage);
+          console.error(error);
+        }
         // Re-throw for component to handle
         throw error;
       case 'warning':
-        console.warn(`${errorPrefix} Warning (using fallback):`, errorMessage);
+        if (__DEV__) {
+          console.warn(`${errorPrefix} Warning (using fallback):`, errorMessage);
+        }
         // Return fallback instead of throwing
         return fallback as T;
       case 'silent':
@@ -153,11 +157,15 @@ export function handleErrorSync<T>(
 
     switch (level) {
       case 'critical':
-        console.error(`${errorPrefix} Critical error:`, errorMessage);
-        console.error(error);
+        if (__DEV__) {
+          console.error(`${errorPrefix} Critical error:`, errorMessage);
+          console.error(error);
+        }
         throw error;
       case 'warning':
-        console.warn(`${errorPrefix} Warning (using fallback):`, errorMessage);
+        if (__DEV__) {
+          console.warn(`${errorPrefix} Warning (using fallback):`, errorMessage);
+        }
         return fallback as T;
       case 'silent':
         return fallback as T;

@@ -33,11 +33,15 @@ export function useRouteReoptimization() {
 
     const engine = getRouteEngine();
     if (!engine) {
-      console.warn('[useRouteReoptimization] Engine not initialized');
+      if (__DEV__) {
+        console.warn('[useRouteReoptimization] Engine not initialized');
+      }
       return;
     }
 
-    console.log('[useRouteReoptimization] Cache expansion detected, marking for re-computation');
+    if (__DEV__) {
+      console.log('[useRouteReoptimization] Cache expansion detected, marking for re-computation');
+    }
 
     // Mark engine for re-computation
     engine.markForRecomputation();

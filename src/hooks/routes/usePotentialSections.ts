@@ -108,9 +108,11 @@ export function usePotentialSections(
 
     const activityIds = engine.getActivityIds();
     if (activityIds.length < minActivities) {
-      console.log(
-        `[usePotentialSections] Not enough activities (${activityIds.length} < ${minActivities})`
-      );
+      if (__DEV__) {
+        console.log(
+          `[usePotentialSections] Not enough activities (${activityIds.length} < ${minActivities})`
+        );
+      }
       return;
     }
 
@@ -141,7 +143,9 @@ export function usePotentialSections(
       }
 
       if (ids.length === 0) {
-        console.log('[usePotentialSections] No valid GPS tracks found');
+        if (__DEV__) {
+          console.log('[usePotentialSections] No valid GPS tracks found');
+        }
         setIsDetecting(false);
         return;
       }
@@ -182,10 +186,14 @@ export function usePotentialSections(
       // Store potentials
       if (isMountedRef.current) {
         await setPotentials(potentials);
-        console.log(`[usePotentialSections] Detected ${potentials.length} potential sections`);
+        if (__DEV__) {
+          console.log(`[usePotentialSections] Detected ${potentials.length} potential sections`);
+        }
       }
     } catch (error) {
-      console.error('[usePotentialSections] Detection failed:', error);
+      if (__DEV__) {
+        console.error('[usePotentialSections] Detection failed:', error);
+      }
     } finally {
       if (isMountedRef.current) {
         setIsDetecting(false);

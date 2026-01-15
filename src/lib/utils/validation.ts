@@ -40,10 +40,14 @@ export function safeJsonParseWithSchema<T>(
     if (validator(parsed)) {
       return parsed;
     }
-    console.warn('[validation] Schema validation failed, using fallback');
+    if (__DEV__) {
+      console.warn('[validation] Schema validation failed, using fallback');
+    }
     return fallback;
   } catch (e) {
-    console.warn('[validation] JSON parse failed:', e);
+    if (__DEV__) {
+      console.warn('[validation] JSON parse failed:', e);
+    }
     return fallback;
   }
 }

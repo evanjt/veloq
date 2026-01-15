@@ -77,7 +77,9 @@ export function useRetentionCleanup(): UseRetentionCleanupResult {
       // Default to 90 days
       return 90;
     } catch (error) {
-      console.warn('[useRetentionCleanup] Failed to get retention days:', error);
+      if (__DEV__) {
+        console.warn('[useRetentionCleanup] Failed to get retention days:', error);
+      }
       return 90; // Fallback to default
     }
   }, []);
@@ -109,7 +111,9 @@ export function useRetentionCleanup(): UseRetentionCleanupResult {
         // Use provided retention days or get from preferences
         const days = retentionDays ?? (await getRetentionDays());
 
-        console.log(`[useRetentionCleanup] Starting cleanup (retention: ${days} days)`);
+        if (__DEV__) {
+          console.log(`[useRetentionCleanup] Starting cleanup (retention: ${days} days)`);
+        }
 
         // Call cleanup function
         const deleted = engine.cleanupOldActivities(days);
@@ -120,13 +124,17 @@ export function useRetentionCleanup(): UseRetentionCleanupResult {
           error: null,
         });
 
-        console.log(`[useRetentionCleanup] Completed: ${deleted} activities removed`);
+        if (__DEV__) {
+          console.log(`[useRetentionCleanup] Completed: ${deleted} activities removed`);
+        }
         return deleted;
       } catch (error) {
         const errorMessage =
           error instanceof Error ? error.message : 'Unknown error during cleanup';
 
-        console.error('[useRetentionCleanup] Cleanup failed:', error);
+        if (__DEV__) {
+          console.error('[useRetentionCleanup] Cleanup failed:', error);
+        }
 
         setState({
           deletedCount: 0,

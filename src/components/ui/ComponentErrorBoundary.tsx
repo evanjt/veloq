@@ -37,11 +37,13 @@ export class ComponentErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     const { componentName, onError } = this.props;
-    console.error(
-      `[ComponentErrorBoundary] ${componentName || 'Component'} render error:`,
-      error,
-      errorInfo
-    );
+    if (__DEV__) {
+      console.error(
+        `[ComponentErrorBoundary] ${componentName || 'Component'} render error:`,
+        error,
+        errorInfo
+      );
+    }
     onError?.(error, errorInfo);
   }
 

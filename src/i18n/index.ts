@@ -51,8 +51,8 @@ export function getDeviceLocale(): SupportedLocale {
     }
   }
 
-  // Default to Australian English
-  return 'en-AU';
+  // Default to British English (standard English, not a dialect)
+  return 'en-GB';
 }
 
 /**
@@ -95,7 +95,7 @@ export async function initializeI18n(savedLocale?: SupportedLocale | null): Prom
   await i18n.use(initReactI18next).init({
     resources,
     lng: locale,
-    fallbackLng: LOCALE_FALLBACKS[locale] || ['en-AU'],
+    fallbackLng: LOCALE_FALLBACKS[locale] || ['en-GB'],
 
     // Tell i18next which locales are valid
     supportedLngs: SUPPORTED_LOCALES as unknown as string[],
@@ -128,7 +128,7 @@ export async function initializeI18n(savedLocale?: SupportedLocale | null): Prom
     const originalToResolveHierarchy = langUtils.toResolveHierarchy.bind(langUtils);
     langUtils.toResolveHierarchy = (code: string, fallbackCode?: string) => {
       if (CUSTOM_LOCALE_CODES.includes(code as any)) {
-        return LOCALE_FALLBACKS[code] || [code, 'de-DE', 'en-AU'];
+        return LOCALE_FALLBACKS[code] || [code, 'de-DE', 'en-GB'];
       }
       return originalToResolveHierarchy(code, fallbackCode);
     };
@@ -139,7 +139,7 @@ export async function initializeI18n(savedLocale?: SupportedLocale | null): Prom
  * Change the current language
  */
 export async function changeLanguage(locale: SupportedLocale): Promise<void> {
-  const fallbacks = LOCALE_FALLBACKS[locale] || ['en-AU'];
+  const fallbacks = LOCALE_FALLBACKS[locale] || ['en-GB'];
   i18n.options.fallbackLng = fallbacks;
   await i18n.changeLanguage(locale);
 }
