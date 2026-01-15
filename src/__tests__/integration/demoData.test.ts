@@ -126,8 +126,8 @@ describe('Demo Data Integration Tests', () => {
     });
 
     it('activities with GPS have stream_types including latlng', () => {
-      const activitiesWithGps = demoActivities.filter(
-        (a: ApiActivity) => a.stream_types?.includes('latlng')
+      const activitiesWithGps = demoActivities.filter((a: ApiActivity) =>
+        a.stream_types?.includes('latlng')
       );
 
       // Should have some GPS activities in demo data
@@ -277,8 +277,8 @@ describe('Demo Data Integration Tests', () => {
     });
 
     it('generates heart rate stream with realistic values', () => {
-      const activitiesWithHr = demoActivities.filter(
-        (a: ApiActivity) => a.stream_types?.includes('heartrate')
+      const activitiesWithHr = demoActivities.filter((a: ApiActivity) =>
+        a.stream_types?.includes('heartrate')
       );
 
       expect(activitiesWithHr.length).toBeGreaterThan(0);

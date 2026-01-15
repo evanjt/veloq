@@ -133,7 +133,8 @@ export function DisplaySettings({
                   <TouchableOpacity
                     onPress={() => {
                       // For languages with variants, use the defaultVariant (or first variant)
-                      const valueToUse = lang.defaultVariant ?? lang.variants?.[0]?.value ?? lang.value ?? 'system';
+                      const valueToUse =
+                        lang.defaultVariant ?? lang.variants?.[0]?.value ?? lang.value ?? 'system';
                       onLanguageChange(valueToUse);
                       setShowLanguages(false);
                     }}

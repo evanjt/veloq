@@ -437,21 +437,28 @@ function generateActivities(): ApiActivity[] {
     if (dayOfWeek === 0) {
       // Sunday: Long activities - long ride, long run, or mountain hike
       const r = Math.random();
-      if (r < 0.4) template = templates[1]; // Long ride
-      else if (r < 0.7) template = templates[6]; // Long run
+      if (r < 0.4)
+        template = templates[1]; // Long ride
+      else if (r < 0.7)
+        template = templates[6]; // Long run
       else template = templates[11]; // Mountain hike
     } else if (dayOfWeek === 6) {
       // Saturday: Outdoor activities - rides, runs, hikes, or walks
       const r = Math.random();
-      if (r < 0.35) template = templates[Math.floor(Math.random() * 2)]; // Rides
-      else if (r < 0.6) template = templates[5 + Math.floor(Math.random() * 3)]; // Runs
-      else if (r < 0.8) template = templates[11 + Math.floor(Math.random() * 2)]; // Hikes
+      if (r < 0.35)
+        template = templates[Math.floor(Math.random() * 2)]; // Rides
+      else if (r < 0.6)
+        template = templates[5 + Math.floor(Math.random() * 3)]; // Runs
+      else if (r < 0.8)
+        template = templates[11 + Math.floor(Math.random() * 2)]; // Hikes
       else template = templates[13 + Math.floor(Math.random() * 2)]; // Walks
     } else if (dayOfWeek === 2 || dayOfWeek === 5) {
       // Tuesday/Friday: Indoor or short activities - runs, swims, virtual rides
       const r = Math.random();
-      if (r < 0.35) template = templates[5 + Math.floor(Math.random() * 3)]; // Runs
-      else if (r < 0.55) template = templates[8 + Math.floor(Math.random() * 3)]; // Swims
+      if (r < 0.35)
+        template = templates[5 + Math.floor(Math.random() * 3)]; // Runs
+      else if (r < 0.55)
+        template = templates[8 + Math.floor(Math.random() * 3)]; // Swims
       else template = templates[2 + Math.floor(Math.random() * 3)]; // Virtual rides
     } else {
       // Other weekdays: Mix of everything
@@ -476,7 +483,9 @@ function generateActivities(): ApiActivity[] {
     );
 
     // Get location from route
-    const location = template.route ? getRouteLocation(template.route) : { locality: null, country: null };
+    const location = template.route
+      ? getRouteLocation(template.route)
+      : { locality: null, country: null };
 
     activities.push({
       id: `demo-${activityId++}`,
@@ -521,7 +530,15 @@ function generateActivities(): ApiActivity[] {
               : template.type === 'VirtualRide'
                 ? ['time', 'heartrate', 'altitude', 'cadence', 'watts', 'velocity_smooth'] // Virtual ride without GPS (fallback)
                 : template.type === 'Ride'
-                  ? ['time', 'latlng', 'heartrate', 'altitude', 'cadence', 'watts', 'velocity_smooth']
+                  ? [
+                      'time',
+                      'latlng',
+                      'heartrate',
+                      'altitude',
+                      'cadence',
+                      'watts',
+                      'velocity_smooth',
+                    ]
                   : template.type === 'Hike' || template.type === 'Walk'
                     ? ['time', 'latlng', 'heartrate', 'altitude'] // Hiking/walking
                     : ['time', 'latlng', 'heartrate', 'altitude', 'cadence', 'velocity_smooth'], // Running
