@@ -225,14 +225,15 @@ export interface FetchProgressEvent {
 
 /**
  * Add a listener for fetch progress events.
- * @deprecated Use fetchActivityMapsWithProgress with a callback instead.
+ * @deprecated Use fetchActivityMapsWithProgress with onProgress callback instead.
+ * This global listener approach is no longer needed - pass callback directly to fetch function.
  */
 export function addFetchProgressListener(
   _callback: (event: FetchProgressEvent) => void,
 ): { remove: () => void } {
   if (__DEV__) {
     console.warn(
-      "[RouteMatcher] addFetchProgressListener is deprecated. Use fetchActivityMapsWithProgress instead.",
+      "[RouteMatcher] addFetchProgressListener is deprecated. Use fetchActivityMapsWithProgress with onProgress callback instead.",
     );
   }
   return { remove: () => {} };
@@ -244,31 +245,28 @@ export function addFetchProgressListener(
 export type EngineStats = PersistentEngineStats;
 
 /**
- * Fetch activity maps with real-time progress reporting via callback.
- * The callback is called after each activity is fetched from the API.
+ * Fetch activity maps with progress reporting.
+ * Uses the Rust callback interface for real-time progress updates.
  */
 export async function fetchActivityMapsWithProgress(
   apiKey: string,
   activityIds: string[],
   onProgress?: (event: FetchProgressEvent) => void,
 ): Promise<FfiActivityMapResult[]> {
-  // If no progress callback provided, use the simpler version
   if (!onProgress) {
+    // No progress callback - use regular function
     return fetchActivityMaps(apiKey, activityIds);
   }
 
-  // Import the generated function with callback support
-  const { fetchActivityMapsWithProgress: fetchWithCallback } = await import('./generated/tracematch');
-
-  // Create the callback implementation
-  const callback = {
+  // Create callback adapter that conforms to FetchProgressCallback interface
+  const callback: FetchProgressCallback = {
     onProgress: (completed: number, total: number) => {
       onProgress({ completed, total });
     },
   };
 
-  // Call the Rust function with the callback
-  return fetchWithCallback(apiKey, activityIds, callback);
+  // Call the generated function with callback
+  return generatedFetchWithProgress(apiKey, activityIds, callback);
 }
 
 /**

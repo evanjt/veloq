@@ -685,7 +685,7 @@ export function getActivityMap(id: string, boundsOnly = false): ApiActivityMap |
   const route = routeId ? demoRoutes.find((r) => r.id === routeId) : null;
 
   if (route && routeId) {
-    const coords = getRouteCoordinates(routeId, true);
+    const coords = getRouteCoordinates(routeId);
     const bounds = getRouteBounds(coords);
     return {
       bounds,
@@ -695,17 +695,14 @@ export function getActivityMap(id: string, boundsOnly = false): ApiActivityMap |
     };
   }
 
-  // Fallback: generate simple route around demo location
+  // Fallback: generate simple circular route around demo location (Sydney)
   const coords: [number, number][] = [];
   const baseLat = -33.89;
   const baseLng = 151.2;
   const points = 50;
   for (let i = 0; i < points; i++) {
     const angle = (i / points) * Math.PI * 2;
-    coords.push([
-      baseLat + Math.sin(angle) * 0.01 + (Math.random() - 0.5) * 0.001,
-      baseLng + Math.cos(angle) * 0.01 + (Math.random() - 0.5) * 0.001,
-    ]);
+    coords.push([baseLat + Math.sin(angle) * 0.01, baseLng + Math.cos(angle) * 0.01]);
   }
   coords.push(coords[0]); // Close loop
 

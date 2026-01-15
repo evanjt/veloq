@@ -27,22 +27,14 @@ export interface DemoRoute {
 export const demoRoutes: DemoRoute[] = realRoutesData as DemoRoute[];
 
 /**
- * Get a route's coordinates with optional variation
+ * Get a route's coordinates (exact, no variation)
+ * Activities using the same route template get identical coordinates,
+ * which allows route matching to correctly group them.
  */
-export function getRouteCoordinates(
-  routeId: string,
-  addVariation: boolean = true
-): [number, number][] {
+export function getRouteCoordinates(routeId: string): [number, number][] {
   const route = demoRoutes.find((r) => r.id === routeId);
   if (!route) return [];
-
-  if (!addVariation) return route.coordinates;
-
-  // Add slight variation for different "rides" on the same route
-  return route.coordinates.map(([lat, lng]) => [
-    lat + (Math.random() - 0.5) * 0.00005,
-    lng + (Math.random() - 0.5) * 0.00005,
-  ]);
+  return route.coordinates;
 }
 
 /**

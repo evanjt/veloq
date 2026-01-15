@@ -121,7 +121,7 @@ function ActivityRow({
 
   // Format delta from PR for display (e.g., "+0:45" or "-1:30")
   const deltaDisplay = useMemo(() => {
-    if (deltaFromPR === undefined || isBest) return null;
+    if (deltaFromPR === undefined || !Number.isFinite(deltaFromPR) || isBest) return null;
     const absDelta = Math.abs(deltaFromPR);
     const minutes = Math.floor(absDelta / 60);
     const seconds = Math.round(absDelta % 60);
@@ -130,7 +130,7 @@ function ActivityRow({
   }, [deltaFromPR, isBest]);
 
   const deltaColor = useMemo(() => {
-    if (deltaFromPR === undefined) return colors.textSecondary;
+    if (deltaFromPR === undefined || !Number.isFinite(deltaFromPR)) return colors.textSecondary;
     return deltaFromPR <= 0 ? colors.success : colors.error;
   }, [deltaFromPR]);
 
@@ -301,12 +301,20 @@ export default function RouteDetailScreen() {
     [allGroups, id],
   );
 
-  // Get performance data from Rust engine (precise calculations using GPS matching)
+  // Fetch activities for the past year (route groups can contain older activities)
+  // Moved up so we can pass to useRoutePerformances
+  const { data: allActivities, isLoading } = useActivities({
+    days: 365,
+    includeStats: false,
+  });
+
+  // Get performance data using API metrics (average_speed, etc.)
+  // No Rust calculation needed - we use the intervals.icu API data directly
   const {
     performances,
     best: bestPerformance,
     currentRank,
-  } = useRoutePerformances(id, engineGroup?.id);
+  } = useRoutePerformances(id, engineGroup?.id, allActivities);
 
   // Get consensus route points from Rust engine
   const { points: consensusPoints } = useConsensusRoute(id);
@@ -407,12 +415,6 @@ export default function RouteDetailScreen() {
     }
   }, [engineGroup?.activityIds]);
 
-  // Fetch activities for the past year (route groups can contain older activities)
-  const { data: allActivities, isLoading } = useActivities({
-    days: 365,
-    includeStats: false,
-  });
-
   // Filter to only activities in this route group (deduplicated)
   const routeActivities = React.useMemo(() => {
     if (!routeGroupBase || !allActivities) return [];
@@ -440,9 +442,10 @@ export default function RouteDetailScreen() {
         };
       }
 
-      // Convert performances to chart data format (filter out 'partial' directions)
+      // Convert performances to chart data format
+      // Filter out 'partial' directions and invalid speed values (NaN would crash SVG renderer)
       const validPerformances = performances.filter(
-        (p) => p.direction !== "partial",
+        (p) => p.direction !== "partial" && Number.isFinite(p.speed),
       );
       const dataPoints: (PerformanceDataPoint & { x: number })[] =
         validPerformances.map((perf, idx) => {
@@ -517,12 +520,19 @@ export default function RouteDetailScreen() {
         lastActivity: null,
       };
     }
-    const durations = performances.map((p) => p.duration);
-    const avgDuration = durations.reduce((a, b) => a + b, 0) / durations.length;
+    // Filter out invalid durations (NaN, undefined, non-finite)
+    const validDurations = performances
+      .map((p) => p.duration)
+      .filter((d) => Number.isFinite(d));
+    const avgDuration =
+      validDurations.length > 0
+        ? validDurations.reduce((a, b) => a + b, 0) / validDurations.length
+        : null;
     const dates = performances.map((p) => p.date.getTime());
     const lastActivityDate = new Date(Math.max(...dates));
+    const bestTime = bestPerformance?.duration;
     return {
-      bestTime: bestPerformance?.duration ?? null,
+      bestTime: bestTime !== undefined && Number.isFinite(bestTime) ? bestTime : null,
       avgTime: avgDuration,
       totalActivities: performances.length,
       lastActivity: lastActivityDate,
@@ -789,7 +799,10 @@ export default function RouteDetailScreen() {
                   const activityDuration = perfData?.duration;
                   const bestDuration = bestPerformance?.duration;
                   const deltaFromPR =
-                    activityDuration !== undefined && bestDuration !== undefined
+                    activityDuration !== undefined &&
+                    bestDuration !== undefined &&
+                    Number.isFinite(activityDuration) &&
+                    Number.isFinite(bestDuration)
                       ? activityDuration - bestDuration
                       : undefined;
                   return (

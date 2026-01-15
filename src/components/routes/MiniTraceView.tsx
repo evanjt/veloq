@@ -33,15 +33,21 @@ export function MiniTraceView({
   isHighlighted = false,
   size = 36,
 }: MiniTraceViewProps) {
-  if (primaryPoints.length < 2) return null;
+  // Filter out invalid points (NaN coordinates would crash SVG renderer)
+  const isValidPoint = (p: RoutePoint) => Number.isFinite(p.lat) && Number.isFinite(p.lng);
+
+  const validPrimaryPoints = primaryPoints.filter(isValidPoint);
+  const validReferencePoints = referencePoints?.filter(isValidPoint);
+
+  if (validPrimaryPoints.length < 2) return null;
 
   const padding = 3;
 
   // Combine all points to calculate shared bounds
   const allPoints =
-    referencePoints && referencePoints.length > 0
-      ? [...primaryPoints, ...referencePoints]
-      : primaryPoints;
+    validReferencePoints && validReferencePoints.length > 0
+      ? [...validPrimaryPoints, ...validReferencePoints]
+      : validPrimaryPoints;
 
   const lats = allPoints.map((p) => p.lat);
   const lngs = allPoints.map((p) => p.lng);
@@ -60,11 +66,13 @@ export function MiniTraceView({
       y: (1 - (p.lat - minLat) / latRange) * (size - padding * 2) + padding,
     }));
 
-  const primaryScaled = scalePoints(primaryPoints);
+  const primaryScaled = scalePoints(validPrimaryPoints);
   const primaryString = primaryScaled.map((p) => `${p.x},${p.y}`).join(' ');
 
   const referenceScaled =
-    referencePoints && referencePoints.length > 1 ? scalePoints(referencePoints) : null;
+    validReferencePoints && validReferencePoints.length > 1
+      ? scalePoints(validReferencePoints)
+      : null;
   const referenceString = referenceScaled
     ? referenceScaled.map((p) => `${p.x},${p.y}`).join(' ')
     : null;

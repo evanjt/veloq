@@ -677,5 +677,23 @@
     "uniqueRoutes": "{{count}} unique routes",
     "lastVisit": "Last visit",
     "showActivities": "Show Activities"
+  },
+  "about": {
+    "title": "About & Legal",
+    "version": "Version",
+    "description": "A fast mobile client for intervals.icu with a focus on maps and visual analytics.",
+    "disclaimerTitle": "Disclaimer",
+    "disclaimer": "Veloq is an independent, open-source project. It is not affiliated with, endorsed by, or connected to intervals.icu in any way.",
+    "intervalsPrivacy": "intervals.icu Privacy Policy",
+    "intervalsTerms": "intervals.icu Terms of Service",
+    "intervalsApiTerms": "intervals.icu API Terms",
+    "veloqPrivacy": "Veloq Privacy Policy",
+    "openSource": "Open Source Licence (Apache 2.0)",
+    "sourceCode": "Source Code",
+    "tracematchSource": "Tracematch Source Code",
+    "dataAttribution": "Data Attribution",
+    "garminNote": "Activity data may include information from Garmin, Strava, Polar, Wahoo, and other devices connected to your intervals.icu account.",
+    "mapData": "Map Data",
+    "mapAttribution": "Map tiles provided by OpenStreetMap, Carto, and Stadia Maps. Map data copyright OpenStreetMap contributors."
   }
 }
