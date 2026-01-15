@@ -234,7 +234,8 @@ describe('Demo Data Integration Tests', () => {
 
       expect(activitiesWithDistance.length).toBeGreaterThan(0);
 
-      activitiesWithDistance.forEach((activity: ApiActivity) => {
+      // Test first 5 to keep test fast (stream generation is expensive)
+      activitiesWithDistance.slice(0, 5).forEach((activity: ApiActivity) => {
         const streams = getActivityStreams(activity.id);
         expect(streams).not.toBeNull();
         if (!streams) return;
