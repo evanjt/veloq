@@ -60,10 +60,7 @@ apiClient.interceptors.response.use(
     const { authMethod } = getStoredCredentials();
     const isOAuthSession = authMethod === 'oauth';
     const shouldHandleSessionExpiry =
-      isUnauthorized &&
-      isOAuthSession &&
-      !config.__skipSessionExpiry &&
-      !isHandlingSessionExpiry;
+      isUnauthorized && isOAuthSession && !config.__skipSessionExpiry && !isHandlingSessionExpiry;
 
     if (shouldHandleSessionExpiry) {
       isHandlingSessionExpiry = true;

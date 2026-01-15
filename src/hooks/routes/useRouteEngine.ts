@@ -8,16 +8,12 @@
  * Data persists across app restarts - GPS tracks, routes, sections are all cached in SQLite.
  */
 
-import { useEffect, useState, useCallback, useMemo } from "react";
-import { InteractionManager } from "react-native";
+import { useEffect, useState, useCallback, useMemo } from 'react';
+import { InteractionManager } from 'react-native';
 // Use legacy API for SDK 54 compatibility (new API uses File/Directory classes)
-import * as FileSystem from "expo-file-system/legacy";
-import { getRouteEngine } from "@/lib/native/routeEngine";
-import type {
-  RouteGroup,
-  FrequentSection,
-  PersistentEngineStats,
-} from "route-matcher-native";
+import * as FileSystem from 'expo-file-system/legacy';
+import { getRouteEngine } from '@/lib/native/routeEngine';
+import type { RouteGroup, FrequentSection, PersistentEngineStats } from 'route-matcher-native';
 
 // Default database path for persistent engine
 // FileSystem.documentDirectory returns a file:// URI, but SQLite needs a plain path
@@ -25,7 +21,7 @@ const getDefaultDbPath = () => {
   const docDir = FileSystem.documentDirectory;
   if (!docDir) return null;
   // Strip file:// prefix if present for SQLite compatibility
-  const plainPath = docDir.startsWith("file://") ? docDir.slice(7) : docDir;
+  const plainPath = docDir.startsWith('file://') ? docDir.slice(7) : docDir;
   return `${plainPath}routes.db`;
 };
 
@@ -95,20 +91,15 @@ export function useRouteEngine(): UseRouteEngineResult {
     if (!docDir) return false;
 
     // Normalize document directory (strip file:// prefix for comparison)
-    const normalizedDocDir = docDir.startsWith("file://")
-      ? docDir.slice(7)
-      : docDir;
+    const normalizedDocDir = docDir.startsWith('file://') ? docDir.slice(7) : docDir;
 
     // Normalize the provided path (strip file:// prefix if present)
-    const normalizedPath = path.startsWith("file://") ? path.slice(7) : path;
+    const normalizedPath = path.startsWith('file://') ? path.slice(7) : path;
 
     // Reject paths containing path traversal sequences
-    if (normalizedPath.includes("..")) {
+    if (normalizedPath.includes('..')) {
       if (__DEV__) {
-        console.error(
-          "[useRouteEngine] Rejected path with traversal sequence:",
-          normalizedPath,
-        );
+        console.error('[useRouteEngine] Rejected path with traversal sequence:', normalizedPath);
       }
       return false;
     }
@@ -116,10 +107,7 @@ export function useRouteEngine(): UseRouteEngineResult {
     // Ensure path is within the document directory
     if (!normalizedPath.startsWith(normalizedDocDir)) {
       if (__DEV__) {
-        console.error(
-          "[useRouteEngine] Rejected path outside document directory:",
-          normalizedPath,
-        );
+        console.error('[useRouteEngine] Rejected path outside document directory:', normalizedPath);
       }
       return false;
     }
@@ -144,7 +132,7 @@ export function useRouteEngine(): UseRouteEngineResult {
   useEffect(() => {
     const engine = getRouteEngine();
     if (!engine) return;
-    const unsubscribe = engine.subscribe("activities", () => {
+    const unsubscribe = engine.subscribe('activities', () => {
       const eng = getRouteEngine();
       setActivityCount(eng ? eng.getActivityCount() : 0);
     });
@@ -172,7 +160,7 @@ interface UseEngineGroupsOptions {
   /** Minimum number of activities in group */
   minActivities?: number;
   /** Sort order */
-  sortBy?: "count" | "id";
+  sortBy?: 'count' | 'id';
 }
 
 interface UseEngineGroupsResult {
@@ -203,10 +191,8 @@ interface UseEngineGroupsResult {
  * }
  * ```
  */
-export function useEngineGroups(
-  options: UseEngineGroupsOptions = {},
-): UseEngineGroupsResult {
-  const { minActivities = 2, sortBy = "count" } = options;
+export function useEngineGroups(options: UseEngineGroupsOptions = {}): UseEngineGroupsResult {
+  const { minActivities = 2, sortBy = 'count' } = options;
 
   const [groups, setGroups] = useState<RouteGroup[]>([]);
 
@@ -217,7 +203,7 @@ export function useEngineGroups(
       setGroups(allGroups || []);
     } catch (e) {
       if (__DEV__) {
-        console.error("[useEngineGroups] Error getting groups:", e);
+        console.error('[useEngineGroups] Error getting groups:', e);
       }
       setGroups([]);
     }
@@ -230,7 +216,7 @@ export function useEngineGroups(
     });
     const engine = getRouteEngine();
     if (!engine) return () => task.cancel();
-    const unsubscribe = engine.subscribe("groups", refresh);
+    const unsubscribe = engine.subscribe('groups', refresh);
     return () => {
       task.cancel();
       unsubscribe();
@@ -241,10 +227,8 @@ export function useEngineGroups(
   const result = useMemo(() => {
     let filtered = groups.filter((g) => g.activityIds?.length >= minActivities);
 
-    if (sortBy === "count") {
-      filtered.sort(
-        (a, b) => (b.activityIds?.length ?? 0) - (a.activityIds?.length ?? 0),
-      );
+    if (sortBy === 'count') {
+      filtered.sort((a, b) => (b.activityIds?.length ?? 0) - (a.activityIds?.length ?? 0));
     } else {
       filtered.sort((a, b) => a.groupId.localeCompare(b.groupId));
     }
@@ -294,9 +278,7 @@ interface UseEngineSectionsResult {
  * }
  * ```
  */
-export function useEngineSections(
-  options: UseEngineSectionsOptions = {},
-): UseEngineSectionsResult {
+export function useEngineSections(options: UseEngineSectionsOptions = {}): UseEngineSectionsResult {
   const { sportType, minVisits = 1 } = options;
 
   const [sections, setSections] = useState<FrequentSection[]>([]);
@@ -314,7 +296,7 @@ export function useEngineSections(
     });
     const engine = getRouteEngine();
     if (!engine) return () => task.cancel();
-    const unsubscribe = engine.subscribe("sections", refresh);
+    const unsubscribe = engine.subscribe('sections', refresh);
     return () => {
       task.cancel();
       unsubscribe();
@@ -379,21 +361,14 @@ interface UseViewportActivitiesResult {
  * }
  * ```
  */
-export function useViewportActivities(
-  bounds: Bounds | null,
-): UseViewportActivitiesResult {
+export function useViewportActivities(bounds: Bounds | null): UseViewportActivitiesResult {
   const [activityIds, setActivityIds] = useState<string[]>([]);
 
   useEffect(() => {
     if (bounds) {
       const engine = getRouteEngine();
       const ids = engine
-        ? engine.queryViewport(
-            bounds.minLat,
-            bounds.maxLat,
-            bounds.minLng,
-            bounds.maxLng,
-          )
+        ? engine.queryViewport(bounds.minLat, bounds.maxLat, bounds.minLng, bounds.maxLng)
         : [];
       setActivityIds(ids);
     } else {
@@ -452,9 +427,9 @@ export function useEngineStats(): PersistentEngineStats {
     refresh();
     const engine = getRouteEngine();
     if (!engine) return;
-    const unsub1 = engine.subscribe("activities", refresh);
-    const unsub2 = engine.subscribe("groups", refresh);
-    const unsub3 = engine.subscribe("sections", refresh);
+    const unsub1 = engine.subscribe('activities', refresh);
+    const unsub2 = engine.subscribe('groups', refresh);
+    const unsub3 = engine.subscribe('sections', refresh);
     return () => {
       unsub1();
       unsub2();
@@ -490,9 +465,7 @@ interface UseConsensusRouteResult {
  * }
  * ```
  */
-export function useConsensusRoute(
-  groupId: string | null,
-): UseConsensusRouteResult {
+export function useConsensusRoute(groupId: string | null): UseConsensusRouteResult {
   const [points, setPoints] = useState<Array<{
     lat: number;
     lng: number;
