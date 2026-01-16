@@ -302,6 +302,7 @@ export default function RoutesScreen() {
   return (
     <ScreenSafeAreaView
       style={[styles.container, isDark && styles.containerDark]}
+      testID="routes-screen"
     >
       <View style={styles.header}>
         <IconButton

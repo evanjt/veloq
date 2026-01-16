@@ -244,7 +244,7 @@ export default function MapScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <View style={styles.container} testID="map-screen">
       {/* Main map view */}
       <ComponentErrorBoundary componentName="Map">
         <RegionalMapView

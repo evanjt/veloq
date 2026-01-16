@@ -1,0 +1,200 @@
+name: E2E Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  e2e-android:
+    name: E2E Tests (Android)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Setup JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: AVD Cache
+        uses: actions/cache@v4
+        id: avd-cache
+        with:
+          path: |
+            ~/.android/avd/*
+            ~/.android/adb*
+          key: avd-33-x86_64
+
+      - name: Create AVD
+        if: steps.avd-cache.outputs.cache-hit != 'true'
+        run: |
+          echo "y" | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --install "system-images;android-33;google_apis;x86_64"
+          echo "no" | $ANDROID_HOME/cmdline-tools/latest/bin/avdmanager create avd -n Pixel_5_API_33 -k "system-images;android-33;google_apis;x86_64" --device "pixel_5" --force
+
+      - name: Expo Prebuild (Android)
+        run: npx expo prebuild --platform android --clean
+
+      - name: Download tracematch binaries
+        run: |
+          TRACEMATCH_VERSION=$(jq -r '.tracematchVersion' package.json)
+          curl -L "https://github.com/evanjt/tracematch/releases/download/v${TRACEMATCH_VERSION}/tracematch-android-${TRACEMATCH_VERSION}.zip" -o tracematch-android.zip
+          unzip -o tracematch-android.zip -d modules/route-matcher-native/android/src/main/
+
+      - name: Build Android app for Detox
+        run: npm run e2e:build:android
+
+      - name: Run E2E Tests
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 33
+          target: google_apis
+          arch: x86_64
+          avd-name: Pixel_5_API_33
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
+          disable-animations: true
+          script: npm run e2e:test:android -- --headless
+
+      - name: Upload Android Screenshots
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: android-screenshots
+          path: e2e/screenshots/
+          retention-days: 30
+
+      - name: Upload Detox Artifacts
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: detox-android-artifacts
+          path: artifacts/
+          retention-days: 7
+
+  e2e-ios:
+    name: E2E Tests (iOS)
+    runs-on: macos-14
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.2'
+          bundler-cache: true
+
+      - name: Install CocoaPods
+        run: gem install cocoapods
+
+      - name: Expo Prebuild (iOS)
+        run: npx expo prebuild --platform ios --clean
+
+      - name: Download tracematch XCFramework
+        run: |
+          TRACEMATCH_VERSION=$(jq -r '.tracematchVersion' package.json)
+          curl -L "https://github.com/evanjt/tracematch/releases/download/v${TRACEMATCH_VERSION}/tracematch-ios-${TRACEMATCH_VERSION}.zip" -o tracematch-ios.zip
+          unzip -o tracematch-ios.zip -d modules/route-matcher-native/ios/
+
+      - name: Cache CocoaPods
+        uses: actions/cache@v4
+        with:
+          path: ios/Pods
+          key: pods-${{ hashFiles('ios/Podfile.lock') }}
+          restore-keys: pods-
+
+      - name: Install Pods
+        run: cd ios && pod install
+
+      - name: Boot iOS Simulator
+        run: |
+          xcrun simctl boot "iPhone 15" || true
+          xcrun simctl bootstatus "iPhone 15" -b
+
+      - name: Build iOS app for Detox
+        run: npm run e2e:build:ios
+
+      - name: Run E2E Tests
+        run: npm run e2e:test:ios -- --headless
+
+      - name: Upload iOS Screenshots
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ios-screenshots
+          path: e2e/screenshots/
+          retention-days: 30
+
+      - name: Upload Detox Artifacts
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: detox-ios-artifacts
+          path: artifacts/
+          retention-days: 7
+
+  screenshots-summary:
+    name: Screenshots Summary
+    needs: [e2e-android, e2e-ios]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Download Android Screenshots
+        uses: actions/download-artifact@v4
+        with:
+          name: android-screenshots
+          path: screenshots/android
+        continue-on-error: true
+
+      - name: Download iOS Screenshots
+        uses: actions/download-artifact@v4
+        with:
+          name: ios-screenshots
+          path: screenshots/ios
+        continue-on-error: true
+
+      - name: List Screenshots
+        run: |
+          echo "## Android Screenshots" >> $GITHUB_STEP_SUMMARY
+          if [ -d "screenshots/android" ]; then
+            ls -la screenshots/android/ >> $GITHUB_STEP_SUMMARY || echo "No Android screenshots found"
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## iOS Screenshots" >> $GITHUB_STEP_SUMMARY
+          if [ -d "screenshots/ios" ]; then
+            ls -la screenshots/ios/ >> $GITHUB_STEP_SUMMARY || echo "No iOS screenshots found"
+          fi
+
+      - name: Upload Combined Screenshots
+        uses: actions/upload-artifact@v4
+        with:
+          name: all-screenshots
+          path: screenshots/
+          retention-days: 30

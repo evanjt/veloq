@@ -208,7 +208,7 @@ export default function FitnessScreen() {
   }
 
   return (
-    <ScreenSafeAreaView style={shared.container}>
+    <ScreenSafeAreaView style={shared.container} testID="fitness-screen">
       {/* Header */}
       <View style={styles.header}>
         <IconButton

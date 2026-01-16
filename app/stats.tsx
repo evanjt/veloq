@@ -140,7 +140,7 @@ export default function StatsScreen() {
     useActivityStreams(decouplingActivity?.id || "");
 
   return (
-    <ScreenSafeAreaView style={shared.container}>
+    <ScreenSafeAreaView style={shared.container} testID="stats-screen">
       <View style={styles.header}>
         <IconButton
           icon="arrow-left"
