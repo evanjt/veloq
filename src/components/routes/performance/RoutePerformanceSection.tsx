@@ -1,9 +1,10 @@
 /**
  * Route performance section for activity detail view.
  * Shows route match info and performance chart over time.
+ * Uses UnifiedPerformanceChart for consistent styling with route page.
  */
 
-import React, { useMemo, useCallback, useState } from 'react';
+import React, { useMemo, useCallback } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { useTheme, useActivities } from '@/hooks';
 import { Text } from 'react-native-paper';
@@ -11,38 +12,14 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router, type Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useRoutePerformances } from '@/hooks';
-import {
-  formatSpeed,
-  formatPace,
-  isRunningActivity,
-  getActivityColor,
-  formatShortDate as formatShortDateLib,
-} from '@/lib';
+import { getActivityColor } from '@/lib';
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
-import type { ActivityType } from '@/types';
-import type { RoutePerformancePoint } from '@/hooks/routes/useRoutePerformances';
-import { StatsRow } from './StatsRow';
-import { ChartLegend } from './ChartLegend';
-import { PerformanceChart } from './PerformanceChart';
+import type { ActivityType, PerformanceDataPoint } from '@/types';
+import { UnifiedPerformanceChart, type ChartSummaryStats } from './UnifiedPerformanceChart';
 
 interface RoutePerformanceSectionProps {
   activityId: string;
   activityType: ActivityType;
-}
-
-function formatShortDate(date: Date): string {
-  return formatShortDateLib(date);
-}
-
-function getDirectionIcon(direction: string) {
-  switch (direction) {
-    case 'reverse':
-      return 'swap-horizontal' as const;
-    case 'partial':
-      return 'arrow-split-vertical' as const;
-    default:
-      return 'arrow-right' as const;
-  }
 }
 
 export function RoutePerformanceSection({
@@ -62,59 +39,100 @@ export function RoutePerformanceSection({
     activities
   );
 
-  // Tooltip state - persists after scrubbing ends so user can tap
-  const [tooltipData, setTooltipData] = useState<RoutePerformancePoint | null>(null);
-  const [isActive, setIsActive] = useState(false);
-  const [isPersisted, setIsPersisted] = useState(false);
-
-  // Check if we have any reverse runs for legend
-  const hasReverseRuns = useMemo(() => {
-    return performances.some((p) => p.direction === 'reverse');
-  }, [performances]);
-
-  const showPace = isRunningActivity(activityType);
   const activityColor = getActivityColor(activityType);
 
-  // Cyan/teal stands out from gold (best), green (match badges), and activity colors
-  const currentActivityColor = '#00BCD4';
+  // Get match percentage for current activity
+  const currentPerformance = performances.find((p) => p.isCurrent);
+  const currentMatch = currentPerformance?.matchPercentage;
 
-  // Format speed/pace for display
-  const formatSpeedValue = useCallback(
-    (speed: number) => {
-      if (showPace) {
-        return formatPace(speed);
-      }
-      return formatSpeed(speed);
-    },
-    [showPace]
-  );
-
-  // Handle tooltip updates from chart
-  const handleTooltipUpdate = useCallback(
-    (point: RoutePerformancePoint | null, persisted: boolean) => {
-      if (point === null) {
-        setTooltipData(null);
-        setIsActive(false);
-        setIsPersisted(false);
-      } else if (persisted) {
-        setTooltipData(point);
-        setIsActive(false);
-        setIsPersisted(true);
-      } else {
-        setTooltipData(point);
-        setIsActive(true);
-        setIsPersisted(false);
-      }
-    },
-    []
-  );
-
-  // Navigate to activity when tapping tooltip
-  const handleActivityPress = useCallback(() => {
-    if (tooltipData) {
-      router.push(`/activity/${tooltipData.activityId}` as Href);
+  // Convert performances to chart data format expected by UnifiedPerformanceChart
+  const { chartData, minSpeed, maxSpeed, bestIndex, hasReverseRuns } = useMemo(() => {
+    if (performances.length === 0) {
+      return {
+        chartData: [],
+        minSpeed: 0,
+        maxSpeed: 1,
+        bestIndex: 0,
+        hasReverseRuns: false,
+      };
     }
-  }, [tooltipData]);
+
+    // Filter out invalid speed values and convert to chart format
+    const validPerformances = performances.filter(
+      (p) => p.direction !== 'partial' && Number.isFinite(p.speed) && p.speed > 0
+    );
+
+    const dataPoints: (PerformanceDataPoint & { x: number })[] = validPerformances.map(
+      (perf, idx) => ({
+        x: idx,
+        id: perf.activityId,
+        activityId: perf.activityId,
+        speed: perf.speed,
+        date: perf.date,
+        activityName: perf.name,
+        direction: perf.direction as 'same' | 'reverse',
+        matchPercentage: perf.matchPercentage,
+        lapNumber: 1,
+        totalLaps: validPerformances.length,
+      })
+    );
+
+    const speeds = dataPoints.map((d) => d.speed);
+    const min = speeds.length > 0 ? Math.min(...speeds) : 0;
+    const max = speeds.length > 0 ? Math.max(...speeds) : 1;
+    const padding = (max - min) * 0.15 || 0.5;
+
+    // Find best (fastest) index
+    let bestIdx = 0;
+    if (best) {
+      bestIdx = dataPoints.findIndex((d) => d.activityId === best.activityId);
+      if (bestIdx === -1) bestIdx = 0;
+    } else {
+      for (let i = 1; i < dataPoints.length; i++) {
+        if (dataPoints[i].speed > dataPoints[bestIdx].speed) {
+          bestIdx = i;
+        }
+      }
+    }
+
+    const hasAnyReverse = dataPoints.some((d) => d.direction === 'reverse');
+
+    return {
+      chartData: dataPoints,
+      minSpeed: Math.max(0, min - padding),
+      maxSpeed: max + padding,
+      bestIndex: bestIdx,
+      hasReverseRuns: hasAnyReverse,
+    };
+  }, [performances, best]);
+
+  // Build summary stats for the chart header
+  const summaryStats = useMemo((): ChartSummaryStats => {
+    if (performances.length === 0) {
+      return {
+        bestTime: null,
+        avgTime: null,
+        totalActivities: 0,
+        lastActivity: null,
+      };
+    }
+
+    const validDurations = performances.map((p) => p.duration).filter((d) => Number.isFinite(d));
+    const avgDuration =
+      validDurations.length > 0
+        ? validDurations.reduce((a, b) => a + b, 0) / validDurations.length
+        : null;
+    const dates = performances.map((p) => p.date.getTime());
+    const lastActivityDate = new Date(Math.max(...dates));
+    const bestTime = best?.duration;
+
+    return {
+      bestTime: bestTime !== undefined && Number.isFinite(bestTime) ? bestTime : null,
+      avgTime: avgDuration,
+      totalActivities: performances.length,
+      lastActivity: lastActivityDate,
+    };
+  }, [performances, best]);
 
   const handleRoutePress = useCallback(() => {
     if (routeGroup) {
@@ -127,38 +145,24 @@ export function RoutePerformanceSection({
     return null;
   }
 
-  // Get current activity performance
-  const currentPerformance = performances.find((p) => p.isCurrent);
-  const displayPerformance = tooltipData || currentPerformance;
-
-  // Get match percentage for current activity
-  const currentMatch = currentPerformance?.matchPercentage;
+  // Need at least 2 data points to show chart
+  if (chartData.length < 2) {
+    return null;
+  }
 
   return (
-    <View style={[styles.container, isDark && styles.containerDark]}>
-      {/* Section Title with Match Badge */}
-      <View style={styles.sectionHeader}>
-        <View style={styles.sectionTitle}>
-          <Text style={[styles.sectionTitleText, isDark && styles.textMuted]}>
-            {t('routes.matchedRoute')}
-          </Text>
-          {currentMatch !== undefined && (
-            <View style={[styles.matchBadge, { backgroundColor: colors.success + '20' }]}>
-              <Text style={[styles.matchText, { color: colors.success }]}>
-                {Math.round(currentMatch)}% {t('routes.match')}
-              </Text>
-            </View>
-          )}
-        </View>
-      </View>
-
-      {/* Route Header */}
-      <TouchableOpacity style={styles.header} onPress={handleRoutePress} activeOpacity={0.7}>
+    <View style={styles.container}>
+      {/* Route Header Card */}
+      <TouchableOpacity
+        style={[styles.headerCard, isDark && styles.headerCardDark]}
+        onPress={handleRoutePress}
+        activeOpacity={0.7}
+      >
         <View style={styles.headerLeft}>
           <View style={[styles.iconBadge, { backgroundColor: activityColor + '20' }]}>
             <MaterialCommunityIcons name="map-marker-path" size={16} color={activityColor} />
           </View>
-          <View>
+          <View style={styles.headerInfo}>
             <Text style={[styles.routeName, isDark && styles.textLight]} numberOfLines={1}>
               {routeGroup.name}
             </Text>
@@ -168,104 +172,29 @@ export function RoutePerformanceSection({
             </Text>
           </View>
         </View>
-        <MaterialCommunityIcons name="chevron-right" size={20} color={isDark ? '#555' : '#CCC'} />
+        <View style={styles.headerRight}>
+          {currentMatch !== undefined && (
+            <View style={[styles.matchBadge, { backgroundColor: colors.success + '20' }]}>
+              <Text style={[styles.matchText, { color: colors.success }]}>
+                {Math.round(currentMatch)}%
+              </Text>
+            </View>
+          )}
+          <MaterialCommunityIcons name="chevron-right" size={20} color={isDark ? '#555' : '#CCC'} />
+        </View>
       </TouchableOpacity>
 
-      {/* Selected activity info - OUTSIDE gesture area so it's tappable */}
-      {(isActive || isPersisted) && tooltipData && (
-        <TouchableOpacity
-          style={[styles.selectedActivity, isDark && styles.selectedActivityDark]}
-          onPress={handleActivityPress}
-          activeOpacity={0.7}
-        >
-          <View style={styles.selectedActivityLeft}>
-            <View
-              style={[
-                styles.selectedActivityIcon,
-                { backgroundColor: currentActivityColor + '20' },
-              ]}
-            >
-              <MaterialCommunityIcons
-                name="lightning-bolt"
-                size={16}
-                color={currentActivityColor}
-              />
-            </View>
-            <View style={styles.selectedActivityInfo}>
-              <Text
-                style={[styles.selectedActivityName, isDark && styles.textLight]}
-                numberOfLines={1}
-              >
-                {tooltipData.name}
-              </Text>
-              <View style={styles.selectedActivityMeta}>
-                <Text style={[styles.selectedActivityDate, isDark && styles.textMuted]}>
-                  {formatShortDate(tooltipData.date)}
-                </Text>
-                <View
-                  style={[styles.selectedMatchBadge, { backgroundColor: colors.success + '20' }]}
-                >
-                  <Text style={[styles.selectedMatchText, { color: colors.success }]}>
-                    {Math.round(tooltipData.matchPercentage)}%
-                  </Text>
-                </View>
-                {tooltipData.direction !== 'same' && (
-                  <View
-                    style={[
-                      styles.directionBadge,
-                      tooltipData.direction === 'reverse' && styles.directionReverse,
-                    ]}
-                  >
-                    <MaterialCommunityIcons
-                      name={getDirectionIcon(tooltipData.direction)}
-                      size={10}
-                      color={tooltipData.direction === 'reverse' ? '#EC4899' : '#F59E0B'}
-                    />
-                  </View>
-                )}
-              </View>
-            </View>
-          </View>
-          <View style={styles.selectedActivityRight}>
-            <Text style={[styles.selectedActivitySpeed, { color: currentActivityColor }]}>
-              {formatSpeedValue(tooltipData.speed)}
-            </Text>
-            <MaterialCommunityIcons
-              name="chevron-right"
-              size={18}
-              color={isDark ? '#555' : '#CCC'}
-            />
-          </View>
-        </TouchableOpacity>
-      )}
-
-      {/* Performance Chart */}
-      <PerformanceChart
-        performances={performances}
-        bestActivityId={best?.activityId}
+      {/* Performance Chart - UnifiedPerformanceChart provides its own card styling */}
+      <UnifiedPerformanceChart
+        chartData={chartData}
+        activityType={activityType}
         isDark={isDark}
-        formatSpeedValue={formatSpeedValue}
-        currentActivityColor={currentActivityColor}
-        onTooltipUpdate={handleTooltipUpdate}
-      />
-
-      {/* Stats Row */}
-      <StatsRow
-        currentSpeed={displayPerformance?.speed ?? null}
-        bestSpeed={best?.speed ?? null}
-        bestDate={best?.date ?? null}
-        formatSpeedValue={formatSpeedValue}
-        showPace={showPace}
-        isTooltipActive={(isActive || isPersisted) && tooltipData !== null}
-        isDark={isDark}
-        currentActivityColor={currentActivityColor}
-      />
-
-      {/* Legend */}
-      <ChartLegend
-        currentActivityColor={currentActivityColor}
+        minSpeed={minSpeed}
+        maxSpeed={maxSpeed}
+        bestIndex={bestIndex}
         hasReverseRuns={hasReverseRuns}
-        isDark={isDark}
+        tooltipBadgeType="match"
+        summaryStats={summaryStats}
       />
     </View>
   );
@@ -273,55 +202,37 @@ export function RoutePerformanceSection({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: colors.surface,
-    borderRadius: 16,
     marginHorizontal: spacing.md,
     marginTop: spacing.md,
-    overflow: 'hidden',
+  },
+  headerCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: colors.surface,
+    borderRadius: 12,
+    padding: spacing.md,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
     shadowRadius: 8,
     elevation: 2,
   },
-  containerDark: {
+  headerCardDark: {
     backgroundColor: darkColors.surface,
-  },
-  sectionHeader: {
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.md,
-    paddingBottom: spacing.xs,
-  },
-  sectionTitle: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  sectionTitleText: {
-    fontSize: typography.label.fontSize,
-    fontWeight: '600',
-    letterSpacing: 0.5,
-    color: colors.textSecondary,
-  },
-  matchBadge: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-    borderRadius: 10,
-  },
-  matchText: {
-    fontSize: typography.label.fontSize,
-    fontWeight: '600',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: spacing.md,
   },
   headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
+    gap: spacing.sm,
+  },
+  headerInfo: {
+    flex: 1,
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: spacing.sm,
   },
   iconBadge: {
@@ -341,87 +252,19 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     marginTop: 1,
   },
+  matchBadge: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    borderRadius: 10,
+  },
+  matchText: {
+    fontSize: typography.label.fontSize,
+    fontWeight: '600',
+  },
   textLight: {
     color: colors.textOnDark,
   },
   textMuted: {
     color: darkColors.textMuted,
-  },
-  selectedActivity: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: 'rgba(0, 188, 212, 0.08)',
-    marginHorizontal: spacing.md,
-    marginBottom: spacing.sm,
-    padding: spacing.sm,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(0, 188, 212, 0.2)',
-  },
-  selectedActivityDark: {
-    backgroundColor: 'rgba(0, 188, 212, 0.12)',
-    borderColor: 'rgba(0, 188, 212, 0.3)',
-  },
-  selectedActivityLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-    gap: spacing.sm,
-  },
-  selectedActivityIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: layout.borderRadiusSm,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  selectedActivityInfo: {
-    flex: 1,
-  },
-  selectedActivityName: {
-    fontSize: typography.bodyCompact.fontSize,
-    fontWeight: '600',
-    color: colors.textPrimary,
-  },
-  selectedActivityMeta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    marginTop: 2,
-  },
-  selectedActivityDate: {
-    fontSize: typography.label.fontSize,
-    color: colors.textSecondary,
-  },
-  selectedMatchBadge: {
-    paddingHorizontal: 5,
-    paddingVertical: 1,
-    borderRadius: 6,
-  },
-  selectedMatchText: {
-    fontSize: typography.micro.fontSize,
-    fontWeight: '600',
-  },
-  selectedActivityRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
-  selectedActivitySpeed: {
-    fontSize: typography.bodySmall.fontSize,
-    fontWeight: '700',
-  },
-  directionBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 152, 0, 0.15)',
-    paddingHorizontal: spacing.xs,
-    paddingVertical: 1,
-    borderRadius: spacing.xs,
-    gap: 2,
-  },
-  directionReverse: {
-    backgroundColor: 'rgba(233, 30, 99, 0.15)',
   },
 });

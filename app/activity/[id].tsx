@@ -552,16 +552,6 @@ export default function ActivityDetailScreen() {
           {/* Insightful Stats - Interactive stats with context and explanations */}
           <InsightfulStats activity={activity} wellness={activityWellness} />
 
-          {/* Route Performance - show chart inline if this activity matches a route */}
-          {matchedRoute && (
-            <ComponentErrorBoundary componentName="Route Performance">
-              <RoutePerformanceSection
-                activityId={activity.id}
-                activityType={activity.type}
-              />
-            </ComponentErrorBoundary>
-          )}
-
           {/* Device attribution with Garmin branding when applicable */}
           {activity.device_name && (
             <View style={styles.deviceAttributionContainer}>
