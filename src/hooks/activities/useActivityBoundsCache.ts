@@ -276,33 +276,21 @@ export function useActivityBoundsCache(
   const activities = useMemo<ActivityBoundsItem[]>(() => {
     // If no GPS activities, return empty
     if (allGpsActivities.length === 0) {
-      if (__DEV__) {
-        console.log('[ActivityBoundsCache] No GPS activities from cache');
-      }
       return [];
     }
 
     // Try to get bounds from engine
     const engine = getRouteEngine();
     if (!engine || activityCount === 0) {
-      if (__DEV__) {
-        console.log(
-          `[ActivityBoundsCache] Engine check failed: engine=${!!engine}, activityCount=${activityCount}`
-        );
-      }
       return [];
     }
 
     try {
       const engineBounds = engine.getAllActivityBounds();
       if (!engineBounds || engineBounds.size === 0) {
-        if (__DEV__) {
-          console.log(
-            `[ActivityBoundsCache] No bounds in engine: size=${engineBounds?.size ?? 'null'}`
-          );
-        }
         return [];
       }
+
       // Create lookup map for activity metadata
       const activityMap = new Map<string, Activity>();
       for (const a of allGpsActivities) {
@@ -330,12 +318,6 @@ export function useActivityBoundsCache(
           distance: cached.distance || 0,
           duration: cached.moving_time || 0,
         });
-      }
-
-      if (__DEV__) {
-        console.log(
-          `[ActivityBoundsCache] Returning ${result.length} activities with metadata (${engineBounds.size} in engine, ${allGpsActivities.length} in cache)`
-        );
       }
 
       return result;

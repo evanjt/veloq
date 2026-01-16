@@ -663,6 +663,7 @@ export interface TranslationResource {
     averageTime: string;
     totalTraversals: string;
     lastActivity: string;
+    defaultName: string;
   };
 
   errorState: {
@@ -873,6 +874,8 @@ export interface TranslationResource {
     selected: string;
     cached: string;
     notSynced: string;
+    showRoutes: string;
+    hideRoutes: string;
     activityTypes: {
       ride: string;
       run: string;

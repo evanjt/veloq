@@ -10,10 +10,18 @@
 
 import { useCallback } from 'react';
 import { getNativeModule } from '@/lib/native/routeEngine';
-import { routeEngine } from 'route-matcher-native';
+import {
+  routeEngine,
+  detectSectionsMultiscale,
+  gpsPointsToRoutePoints,
+  SectionConfig,
+  type RouteGroup,
+  type ActivitySportType,
+} from 'route-matcher-native';
 import { getStoredCredentials, getSyncGeneration } from '@/providers';
+import { usePotentialSections as usePotentialSectionsStore } from '@/providers/PotentialSectionsStore';
 import { toActivityMetrics } from '@/lib/utils/activityMetrics';
-import type { Activity } from '@/types';
+import type { Activity, PotentialSection } from '@/types';
 import type { SyncProgress } from './useRouteSyncProgress';
 
 export interface GpsFetchResult {
@@ -32,6 +40,134 @@ interface FetchDeps {
   abortSignal: AbortSignal;
   /** Function to update progress state */
   updateProgress: (updater: SyncProgress | ((prev: SyncProgress) => SyncProgress)) => void;
+}
+
+/**
+ * Minimum number of activities before running potential section detection.
+ */
+const MIN_ACTIVITIES_FOR_POTENTIAL_DETECTION = 10;
+
+/**
+ * Run potential section detection and store results.
+ * This runs AFTER regular section detection completes during GPS sync.
+ */
+async function runPotentialSectionDetection(
+  nativeModule: ReturnType<typeof getNativeModule>,
+  updateProgress?: (p: SyncProgress) => void
+): Promise<void> {
+  if (!nativeModule) return;
+
+  const activityIds = nativeModule.routeEngine.getActivityIds();
+  if (activityIds.length < MIN_ACTIVITIES_FOR_POTENTIAL_DETECTION) {
+    if (__DEV__) {
+      console.log(
+        `[runPotentialSectionDetection] Not enough activities (${activityIds.length} < ${MIN_ACTIVITIES_FOR_POTENTIAL_DETECTION})`
+      );
+    }
+    return;
+  }
+
+  // Check if we already have potentials stored
+  const existingPotentials = usePotentialSectionsStore.getState().potentials;
+  if (existingPotentials.length > 0) {
+    if (__DEV__) {
+      console.log(
+        `[runPotentialSectionDetection] Already have ${existingPotentials.length} stored potentials, skipping`
+      );
+    }
+    return;
+  }
+
+  if (__DEV__) {
+    console.log(
+      `[runPotentialSectionDetection] Running detection for ${activityIds.length} activities`
+    );
+  }
+
+  updateProgress?.({
+    status: 'computing',
+    completed: 0,
+    total: 0,
+    message: 'Detecting potential sections...',
+  });
+
+  try {
+    // Build flat coordinate arrays for the detection API
+    const ids: string[] = [];
+    const allCoords: number[] = [];
+    const offsets: number[] = [];
+    const activitySportTypes: ActivitySportType[] = [];
+
+    for (const id of activityIds) {
+      const track = nativeModule.routeEngine.getGpsTrack(id);
+      if (track.length >= 4) {
+        ids.push(id);
+        offsets.push(allCoords.length / 2);
+        activitySportTypes.push({
+          activityId: id,
+          sportType: 'Ride', // Default - could be improved by storing sport type in engine
+        });
+
+        for (const point of track) {
+          allCoords.push(point.latitude, point.longitude);
+        }
+      }
+    }
+
+    if (ids.length === 0) {
+      if (__DEV__) {
+        console.log('[runPotentialSectionDetection] No valid GPS tracks found');
+      }
+      return;
+    }
+
+    // Get route groups for linking sections
+    const groups: RouteGroup[] = nativeModule.routeEngine.getGroups();
+
+    // Create section config for potential detection
+    const config = SectionConfig.create({
+      proximityThreshold: 50,
+      minSectionLength: 200,
+      maxSectionLength: 5000,
+      minActivities: 2,
+      clusterTolerance: 80,
+      samplePoints: 50,
+      detectionMode: 'discovery',
+      includePotentials: true,
+      scalePresets: [],
+      preserveHierarchy: false,
+    });
+
+    // Run multi-scale detection
+    const result = detectSectionsMultiscale(
+      ids,
+      allCoords,
+      offsets,
+      activitySportTypes,
+      groups,
+      config
+    );
+
+    // Convert native PotentialSection to app type
+    const potentials: PotentialSection[] = result.potentials.map((p) => ({
+      ...p,
+      polyline: gpsPointsToRoutePoints(p.polyline),
+    }));
+
+    // Store potentials
+    if (potentials.length > 0) {
+      await usePotentialSectionsStore.getState().setPotentials(potentials);
+      if (__DEV__) {
+        console.log(
+          `[runPotentialSectionDetection] Stored ${potentials.length} potential sections`
+        );
+      }
+    }
+  } catch (error) {
+    if (__DEV__) {
+      console.error('[runPotentialSectionDetection] Detection failed:', error);
+    }
+  }
 }
 
 /**
@@ -230,6 +366,11 @@ export function useGpsDataFetcher() {
           }
 
           await new Promise((resolve) => setTimeout(resolve, pollInterval));
+        }
+
+        // Run potential section detection after regular detection completes
+        if (isMountedRef.current && !abortSignal.aborted) {
+          await runPotentialSectionDetection(nativeModule, updateProgress);
         }
 
         if (isMountedRef.current) {
@@ -554,6 +695,11 @@ export function useGpsDataFetcher() {
             }
 
             await new Promise((resolve) => setTimeout(resolve, pollInterval));
+          }
+
+          // Run potential section detection after regular detection completes
+          if (isMountedRef.current && !abortSignal.aborted) {
+            await runPotentialSectionDetection(nativeModule, updateProgress);
           }
         }
       }

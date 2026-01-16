@@ -9,7 +9,6 @@
  */
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
-import { InteractionManager } from 'react-native';
 // Use legacy API for SDK 54 compatibility (new API uses File/Directory classes)
 import * as FileSystem from 'expo-file-system/legacy';
 import { getRouteEngine } from '@/lib/native/routeEngine';
@@ -194,7 +193,15 @@ interface UseEngineGroupsResult {
 export function useEngineGroups(options: UseEngineGroupsOptions = {}): UseEngineGroupsResult {
   const { minActivities = 2, sortBy = 'count' } = options;
 
-  const [groups, setGroups] = useState<RouteGroup[]>([]);
+  // Initialize synchronously from engine - data is already in memory
+  const [groups, setGroups] = useState<RouteGroup[]>(() => {
+    try {
+      const engine = getRouteEngine();
+      return engine ? engine.getGroups() : [];
+    } catch {
+      return [];
+    }
+  });
 
   const refresh = useCallback(() => {
     try {
@@ -209,18 +216,12 @@ export function useEngineGroups(options: UseEngineGroupsOptions = {}): UseEngine
     }
   }, []);
 
-  // Subscribe to group changes - defer initial load until after animations
+  // Subscribe to group changes for updates
   useEffect(() => {
-    const task = InteractionManager.runAfterInteractions(() => {
-      refresh();
-    });
     const engine = getRouteEngine();
-    if (!engine) return () => task.cancel();
+    if (!engine) return;
     const unsubscribe = engine.subscribe('groups', refresh);
-    return () => {
-      task.cancel();
-      unsubscribe();
-    };
+    return unsubscribe;
   }, [refresh]);
 
   // Filter and sort
@@ -281,7 +282,15 @@ interface UseEngineSectionsResult {
 export function useEngineSections(options: UseEngineSectionsOptions = {}): UseEngineSectionsResult {
   const { sportType, minVisits = 1 } = options;
 
-  const [sections, setSections] = useState<FrequentSection[]>([]);
+  // Initialize synchronously from engine - data is already in memory
+  const [sections, setSections] = useState<FrequentSection[]>(() => {
+    try {
+      const engine = getRouteEngine();
+      return engine ? engine.getSections() : [];
+    } catch {
+      return [];
+    }
+  });
 
   const refresh = useCallback(() => {
     const engine = getRouteEngine();
@@ -289,18 +298,12 @@ export function useEngineSections(options: UseEngineSectionsOptions = {}): UseEn
     setSections(allSections);
   }, []);
 
-  // Subscribe to section changes - defer initial load until after animations
+  // Subscribe to section changes for updates
   useEffect(() => {
-    const task = InteractionManager.runAfterInteractions(() => {
-      refresh();
-    });
     const engine = getRouteEngine();
-    if (!engine) return () => task.cancel();
+    if (!engine) return;
     const unsubscribe = engine.subscribe('sections', refresh);
-    return () => {
-      task.cancel();
-      unsubscribe();
-    };
+    return unsubscribe;
   }, [refresh]);
 
   // Filter

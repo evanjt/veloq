@@ -210,7 +210,7 @@ export const SectionRow = memo(function SectionRow({
             color={isDark ? darkColors.textSecondary : colors.textSecondary}
           />
           <Text style={[styles.name, isDark && styles.textLight]} numberOfLines={1}>
-            {section.name || `Section ${section.id.slice(-6)}`}
+            {section.name || t('sections.defaultName', { number: section.id.slice(-6) })}
           </Text>
         </View>
 

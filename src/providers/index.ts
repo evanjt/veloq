@@ -43,6 +43,7 @@ export {
   getSectionDismissals,
   initializeSectionDismissals,
 } from './SectionDismissalsStore';
+export { useSupersededSections, initializeSupersededSections } from './SupersededSectionsStore';
 // RouteMatchStore has been replaced by Rust persistent engine.
 // Use hooks from src/hooks/routes/useRouteEngine.ts instead.
 export {

@@ -5,19 +5,14 @@
  * - Potential sections for discovery (suggestions)
  */
 
-import { useMemo, useCallback, useRef } from 'react';
+import { useMemo } from 'react';
 import { useFrequentSections } from './useFrequentSections';
 import { useCustomSections } from './useCustomSections';
 import { usePotentialSections } from './usePotentialSections';
 import { useSectionDismissals } from '@/providers/SectionDismissalsStore';
+import { useSupersededSections } from '@/providers';
 import { getRouteEngine } from '@/lib/native/routeEngine';
-import type {
-  FrequentSection,
-  CustomSectionWithMatches,
-  PotentialSection,
-  UnifiedSection,
-  RoutePoint,
-} from '@/types';
+import type { FrequentSection, UnifiedSection, RoutePoint } from '@/types';
 
 export interface UseUnifiedSectionsOptions {
   /** Filter by sport type */
@@ -70,18 +65,8 @@ function generateSectionName(section: FrequentSection): string {
 }
 
 /**
- * Create a hash key for caching overlap calculations.
- */
-function createPolylineKey(polyline: RoutePoint[]): string {
-  // Use first point, last point, and length as a quick hash
-  if (polyline.length === 0) return 'empty';
-  const first = polyline[0];
-  const last = polyline[polyline.length - 1];
-  return `${first.lat},${first.lng}-${last.lat},${last.lng}-${polyline.length}`;
-}
-
-/**
- * Compute overlap between two polylines with memoization.
+ * Compute overlap between two polylines.
+ * Only used for potential sections (not for custom/auto overlap which is pre-computed).
  * Returns 0-1 representing the fraction of overlap.
  */
 function computePolylineOverlap(
@@ -119,45 +104,6 @@ function computePolylineOverlap(
 }
 
 /**
- * Memoized overlap calculator with LRU cache.
- */
-function useOverlapCalculator() {
-  const cache = useRef<Map<string, number>>(new Map());
-
-  const calculateOverlap = useCallback(
-    (polylineA: RoutePoint[], polylineB: RoutePoint[]): number => {
-      // Create cache key
-      const keyA = createPolylineKey(polylineA);
-      const keyB = createPolylineKey(polylineB);
-      const cacheKey = `${keyA}|${keyB}`;
-
-      // Check cache
-      const cached = cache.current.get(cacheKey);
-      if (cached !== undefined) {
-        return cached;
-      }
-
-      // Calculate and cache
-      const result = computePolylineOverlap(polylineA, polylineB);
-
-      // Limit cache size to prevent memory bloat (LRU with max 100 entries)
-      if (cache.current.size >= 100) {
-        const firstKey = cache.current.keys().next().value;
-        if (firstKey) {
-          cache.current.delete(firstKey);
-        }
-      }
-      cache.current.set(cacheKey, result);
-
-      return result;
-    },
-    []
-  );
-
-  return calculateOverlap;
-}
-
-/**
  * Hook for unified sections combining all section types.
  */
 export function useUnifiedSections(
@@ -165,11 +111,22 @@ export function useUnifiedSections(
 ): UseUnifiedSectionsResult {
   const { sportType, includeCustom = true, includePotentials = true } = options;
 
-  // Get memoized overlap calculator
-  const calculateOverlap = useOverlapCalculator();
+  // Get pre-computed superseded sections (computed when custom sections are created)
+  // NOTE: Select raw data, not the Set - calling getAllSuperseded() in selector
+  // creates new Set on every render, causing infinite loop
+  const supersededBy = useSupersededSections((s) => s.supersededBy);
+  const supersededSet = useMemo(() => {
+    const result = new Set<string>();
+    for (const autoIds of Object.values(supersededBy)) {
+      for (const id of autoIds) {
+        result.add(id);
+      }
+    }
+    return result;
+  }, [supersededBy]);
 
   // Load auto-detected sections from engine
-  const { sections: engineSections, isReady: engineReady } = useFrequentSections({ sportType });
+  const { sections: engineSections } = useFrequentSections({ sportType });
 
   // Load custom sections
   const {
@@ -178,7 +135,7 @@ export function useUnifiedSections(
     error: customError,
   } = useCustomSections({ sportType, includeMatches: true });
 
-  // Load potential sections from multi-scale detection
+  // Load potential sections from storage (pre-computed during GPS sync)
   const { potentials: rawPotentials } = usePotentialSections({ sportType });
 
   // Get dismissals
@@ -190,13 +147,19 @@ export function useUnifiedSections(
   }, [rawPotentials, isDismissed]);
 
   // Combine all sections
+  // NOTE: Overlap calculation for auto vs custom sections is pre-computed and stored
+  // in SupersededSectionsStore when custom sections are created.
+  // Overlap for potential sections is still computed here (less frequent, smaller dataset).
   const unified = useMemo(() => {
     const result: UnifiedSection[] = [];
+    const seenIds = new Set<string>(); // Track IDs to prevent duplicates
 
     // Add custom sections first (user-created take priority)
     // Note: custom.id already has "custom_" prefix from generateId()
     if (includeCustom) {
       for (const custom of customSections) {
+        if (seenIds.has(custom.id)) continue;
+        seenIds.add(custom.id);
         result.push({
           id: custom.id,
           name: custom.name,
@@ -210,14 +173,14 @@ export function useUnifiedSections(
       }
     }
 
-    // Add auto-detected sections (excluding those that overlap with custom)
+    // Add auto-detected sections (excluding those superseded by custom sections)
+    // Superseded list is pre-computed when custom sections are created
     for (const engine of engineSections) {
-      // Check if there's a custom section that overlaps significantly
-      const hasCustomOverlap = customSections.some(
-        (c) => calculateOverlap(c.polyline, engine.polyline) > 0.8
-      );
+      if (seenIds.has(engine.id)) continue;
 
-      if (!hasCustomOverlap) {
+      // Use pre-computed superseded list (instant lookup instead of O(n²) overlap calculation)
+      if (!supersededSet.has(engine.id)) {
+        seenIds.add(engine.id);
         result.push({
           id: engine.id,
           name: generateSectionName(engine),
@@ -232,14 +195,20 @@ export function useUnifiedSections(
     }
 
     // Add potential sections (suggestions)
+    // Overlap check for potentials is still computed here (smaller dataset, less frequent)
     if (includePotentials) {
       for (const potential of potentialSections) {
-        // Check if there's already a similar section
+        // Skip if we already have this ID
+        if (seenIds.has(potential.id)) continue;
+
+        // Check if there's already a similar section (by polyline overlap)
+        // This is computed on-demand but potentials are rare and the result set is small
         const hasOverlap = result.some(
-          (s) => calculateOverlap(potential.polyline, s.polyline) > 0.8
+          (s) => computePolylineOverlap(potential.polyline, s.polyline) > 0.8
         );
 
         if (!hasOverlap) {
+          seenIds.add(potential.id);
           const distanceKm = potential.distanceMeters / 1000;
           const distanceStr =
             distanceKm >= 1
@@ -280,7 +249,7 @@ export function useUnifiedSections(
     potentialSections,
     includeCustom,
     includePotentials,
-    calculateOverlap,
+    supersededSet,
   ]);
 
   // Compute counts

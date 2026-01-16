@@ -355,6 +355,8 @@
     "resetOrientation": "Straighten up the map",
     "sectionSelected": "Section picked",
     "selected": "Picked",
+    "showRoutes": "Show routes",
+    "hideRoutes": "Hide routes",
     "startPercent": "Start: {{percent}}%",
     "syncingActivities": "Syncing {{completed}}/{{total}} activities",
     "tapSelectEnd": "Tap to pick the end",
@@ -485,7 +487,12 @@
     "scrubHintScrollable": "Swipe to scroll • Hold to flick through",
     "sectionNamePlaceholder": "Section name",
     "sectionNotFound": "Can't find that section",
-    "traversals": "times through"
+    "traversals": "times through",
+    "bestTime": "Best Time",
+    "averageTime": "Average Time",
+    "totalTraversals": "Total Traversals",
+    "lastActivity": "Last Activity",
+    "defaultName": "Section {{number}}"
   },
   "settings": {
     "account": "Your Account",

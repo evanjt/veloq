@@ -139,6 +139,16 @@ import {
 } from './mapStyles';
 import type { ActivityType, RoutePoint } from '@/types';
 
+/** Section overlay for map visualization */
+export interface SectionOverlay {
+  /** Unique section ID */
+  id: string;
+  /** Section's consensus polyline */
+  sectionPolyline: LatLng[];
+  /** Activity's trace portion that overlaps with this section */
+  activityPortion?: LatLng[];
+}
+
 /** Calculate distance between two coordinates using Haversine formula */
 function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6371000; // Earth's radius in meters
@@ -187,6 +197,8 @@ interface ActivityMapViewProps {
   onCreationCancelled?: () => void;
   /** Route overlay coordinates to show (e.g., matched route trace) */
   routeOverlay?: LatLng[] | null;
+  /** Section overlays for sections tab - all matched sections with activity portions */
+  sectionOverlays?: SectionOverlay[] | null;
 }
 
 export function ActivityMapView({
@@ -203,6 +215,7 @@ export function ActivityMapView({
   onSectionCreated,
   onCreationCancelled,
   routeOverlay,
+  sectionOverlays,
 }: ActivityMapViewProps) {
   const { getStyleForActivity } = useMapPreferences();
   const preferredStyle = getStyleForActivity(activityType);
@@ -497,6 +510,49 @@ export function ActivityMapView({
     };
   }, [routeOverlay]);
 
+  // Section overlays GeoJSON (for showing all matched sections)
+  const sectionOverlaysGeoJSON = useMemo(() => {
+    if (!sectionOverlays || sectionOverlays.length === 0) return null;
+
+    return sectionOverlays
+      .map((overlay) => {
+        // Build section polyline GeoJSON
+        const validSectionPoints = overlay.sectionPolyline.filter(
+          (c) => !isNaN(c.latitude) && !isNaN(c.longitude)
+        );
+        const sectionGeo =
+          validSectionPoints.length >= 2
+            ? {
+                type: 'Feature' as const,
+                properties: { id: overlay.id, type: 'section' },
+                geometry: {
+                  type: 'LineString' as const,
+                  coordinates: validSectionPoints.map((c) => [c.longitude, c.latitude]),
+                },
+              }
+            : null;
+
+        // Build activity portion GeoJSON
+        const validPortionPoints = overlay.activityPortion?.filter(
+          (c) => !isNaN(c.latitude) && !isNaN(c.longitude)
+        );
+        const portionGeo =
+          validPortionPoints && validPortionPoints.length >= 2
+            ? {
+                type: 'Feature' as const,
+                properties: { id: overlay.id, type: 'portion' },
+                geometry: {
+                  type: 'LineString' as const,
+                  coordinates: validPortionPoints.map((c) => [c.longitude, c.latitude]),
+                },
+              }
+            : null;
+
+        return { id: overlay.id, sectionGeo, portionGeo };
+      })
+      .filter((o) => o.sectionGeo || o.portionGeo);
+  }, [sectionOverlays]);
+
   // Route coordinates for BaseMapView/Map3DWebView [lng, lat] format
   const routeCoords = useMemo(() => {
     return validCoordinates.map((c) => [c.longitude, c.latitude] as [number, number]);
@@ -622,7 +678,44 @@ export function ActivityMapView({
               </ShapeSource>
             )}
 
-            {/* Route line */}
+            {/* Section overlays - render all matched sections */}
+            {sectionOverlaysGeoJSON &&
+              sectionOverlaysGeoJSON.map((overlay, index) => (
+                <React.Fragment key={`section-overlay-${overlay.id}`}>
+                  {/* Master section polyline - cyan, rendered underneath */}
+                  {overlay.sectionGeo && (
+                    <ShapeSource id={`sectionSource-${index}`} shape={overlay.sectionGeo}>
+                      <LineLayer
+                        id={`sectionLine-${index}`}
+                        style={{
+                          lineColor: '#00BCD4',
+                          lineWidth: 6,
+                          lineCap: 'round',
+                          lineJoin: 'round',
+                          lineOpacity: 0.5,
+                        }}
+                      />
+                    </ShapeSource>
+                  )}
+                  {/* Activity's portion on this section - magenta highlight */}
+                  {overlay.portionGeo && (
+                    <ShapeSource id={`portionSource-${index}`} shape={overlay.portionGeo}>
+                      <LineLayer
+                        id={`portionLine-${index}`}
+                        style={{
+                          lineColor: '#E91E63',
+                          lineWidth: 4,
+                          lineCap: 'round',
+                          lineJoin: 'round',
+                          lineOpacity: 1,
+                        }}
+                      />
+                    </ShapeSource>
+                  )}
+                </React.Fragment>
+              ))}
+
+            {/* Route line - slightly fade when showing section overlays */}
             {routeGeoJSON && (
               <ShapeSource id="routeSource" shape={routeGeoJSON}>
                 <LineLayer
@@ -632,7 +725,7 @@ export function ActivityMapView({
                     lineWidth: 4,
                     lineCap: 'round',
                     lineJoin: 'round',
-                    lineOpacity: overlayGeoJSON ? 0.85 : 1,
+                    lineOpacity: sectionOverlaysGeoJSON ? 0.8 : overlayGeoJSON ? 0.85 : 1,
                   }}
                 />
               </ShapeSource>
@@ -753,6 +846,24 @@ export function ActivityMapView({
             <View style={styles.legendRow}>
               <View style={[styles.legendLine, { backgroundColor: activityColor }]} />
               <Text style={styles.legendText}>This activity</Text>
+            </View>
+          </View>
+        )}
+
+        {/* Section overlays legend */}
+        {sectionOverlaysGeoJSON && sectionOverlaysGeoJSON.length > 0 && !isFullscreen && (
+          <View style={styles.overlayLegend}>
+            <View style={styles.legendRow}>
+              <View style={[styles.legendLine, { backgroundColor: '#00BCD4' }]} />
+              <Text style={styles.legendText}>Section</Text>
+            </View>
+            <View style={styles.legendRow}>
+              <View style={[styles.legendLine, { backgroundColor: '#E91E63' }]} />
+              <Text style={styles.legendText}>Your effort</Text>
+            </View>
+            <View style={styles.legendRow}>
+              <View style={[styles.legendLine, { backgroundColor: activityColor }]} />
+              <Text style={styles.legendText}>Full activity</Text>
             </View>
           </View>
         )}

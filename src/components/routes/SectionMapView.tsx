@@ -308,11 +308,42 @@ export function SectionMapView({
         <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
         <BaseMapView
           routeCoordinates={sectionCoords}
-          routeColor={activityColor}
+          routeColor={highlightedTraceGeoJSON ? activityColor + '66' : activityColor}
           bounds={bounds || undefined}
           initialStyle={mapStyle}
           onClose={closeFullscreen}
         >
+          {/* Shadow track (full activity route) - rendered first so it's behind */}
+          {shadowGeoJSON && (
+            <ShapeSource id="fullscreenShadowSource" shape={shadowGeoJSON}>
+              <LineLayer
+                id="fullscreenShadowLine"
+                style={{
+                  lineColor: colors.gray500,
+                  lineOpacity: 0.5,
+                  lineWidth: 3,
+                  lineCap: 'round',
+                  lineJoin: 'round',
+                }}
+              />
+            </ShapeSource>
+          )}
+
+          {/* Highlighted activity trace */}
+          {highlightedTraceGeoJSON && (
+            <ShapeSource id="fullscreenHighlightedSource" shape={highlightedTraceGeoJSON}>
+              <LineLayer
+                id="fullscreenHighlightedLine"
+                style={{
+                  lineColor: colors.chartCyan,
+                  lineWidth: 4,
+                  lineCap: 'round',
+                  lineJoin: 'round',
+                }}
+              />
+            </ShapeSource>
+          )}
+
           {/* Start marker */}
           {startPoint && (
             <MarkerView coordinate={[startPoint.lng, startPoint.lat]}>

@@ -460,14 +460,31 @@ class RouteEngineClient {
 
   /**
    * Get all activity bounds.
+   * Rust returns array of {id, bounds: [[minLat, minLng], [maxLat, maxLng]], activity_type, distance}
    */
   getAllActivityBounds(): Map<
     string,
     { minLat: number; maxLat: number; minLng: number; maxLng: number }
   > {
     const json = persistentEngineGetAllActivityBoundsJson();
-    const obj = safeJsonParse<Record<string, { minLat: number; maxLat: number; minLng: number; maxLng: number }>>(json, {});
-    return new Map(Object.entries(obj));
+    // Rust returns an array, not an object
+    interface RustBoundsInfo {
+      id: string;
+      bounds: [[number, number], [number, number]]; // [[minLat, minLng], [maxLat, maxLng]]
+      activity_type: string;
+      distance: number;
+    }
+    const arr = safeJsonParse<RustBoundsInfo[]>(json, []);
+    const result = new Map<string, { minLat: number; maxLat: number; minLng: number; maxLng: number }>();
+    for (const item of arr) {
+      result.set(item.id, {
+        minLat: item.bounds[0][0],
+        minLng: item.bounds[0][1],
+        maxLat: item.bounds[1][0],
+        maxLng: item.bounds[1][1],
+      });
+    }
+    return result;
   }
 
   /**
@@ -554,11 +571,15 @@ class RouteEngineClient {
   }
 
   /**
-   * Get section performances (alias for route performances).
+   * Get section performances with accurate time-based calculations.
+   * Uses time streams to calculate actual traversal times for each section lap.
+   *
+   * Note: FFI function not yet implemented in Rust - returns empty string to trigger fallback.
    */
-  getSectionPerformances(sectionId: string): string {
-    validateId(sectionId, "section ID");
-    return persistentEngineGetRoutePerformancesJson(sectionId, "");
+  getSectionPerformances(_sectionId: string): string {
+    // FFI function persistentEngineGetSectionPerformancesJson not available
+    // Return empty string so callers use their fallback logic
+    return "";
   }
 
   /**
@@ -566,6 +587,18 @@ class RouteEngineClient {
    */
   setActivityMetrics(metrics: ActivityMetrics[]): void {
     persistentEngineSetActivityMetrics(metrics);
+  }
+
+  /**
+   * Set time streams for activities.
+   * Time streams are cumulative seconds at each GPS point, used for section performance calculations.
+   * @param streams - Array of { activityId, times } objects where times is cumulative seconds
+   *
+   * Note: FFI function not yet implemented in Rust - this is a no-op.
+   */
+  setTimeStreams(_streams: Array<{ activityId: string; times: number[] }>): void {
+    // FFI function persistentEngineSetTimeStreamsFlat not available
+    // No-op until Rust implementation is added
   }
 
   /**

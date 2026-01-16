@@ -188,7 +188,8 @@ export function UnifiedPerformanceChart({
           setIsActive(false);
           setIsPersisted(true);
           if (onActivitySelect && tooltipData) {
-            onActivitySelect(tooltipData.id, tooltipData.lapPoints);
+            // Use activityId (not id) for map highlighting - id may include lap suffix
+            onActivitySelect(tooltipData.activityId, tooltipData.lapPoints);
           }
         }
         lastNotifiedIdx.current = null;
@@ -302,7 +303,8 @@ export function UnifiedPerformanceChart({
     };
   }, [chartData.length]);
 
-  if (chartData.length < 2) return null;
+  // Allow single data point charts (for new custom sections with 1 activity)
+  if (chartData.length < 1) return null;
 
   const getPointColor = (direction: 'same' | 'reverse') => {
     return direction === 'reverse' ? REVERSE_COLOR : activityColor;
@@ -642,6 +644,14 @@ export function UnifiedPerformanceChart({
                 <Text style={[styles.tooltipDate, isDark && styles.textMuted]}>
                   {formatShortDate(tooltipData.date)}
                 </Text>
+                {tooltipData.lapNumber != null &&
+                  tooltipData.totalLaps != null &&
+                  tooltipData.totalLaps > 1 && (
+                    <Text style={[styles.tooltipDate, isDark && styles.textMuted]}>
+                      {' · Lap '}
+                      {tooltipData.lapNumber}/{tooltipData.totalLaps}
+                    </Text>
+                  )}
                 {tooltipBadgeType === 'match' && tooltipData.matchPercentage != null && (
                   <View
                     style={[styles.matchBadgeSmall, { backgroundColor: colors.success + '20' }]}

@@ -1,40 +1,46 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
-import { useTranslation } from 'react-i18next';
 import { colors } from '@/theme/colors';
 import { typography } from '@/theme/typography';
 import { spacing, layout } from '@/theme/spacing';
 import { shadows } from '@/theme/shadows';
 import { getActivityTypeConfig } from '../ActivityTypeFilter';
-import type { FrequentSection } from '@/types';
+import { formatDuration } from '@/lib';
+import type { ActivityType } from '@/types';
 
-interface SectionPopupProps {
-  section: FrequentSection;
+interface RouteGroupInfo {
+  id: string;
+  name: string;
+  activityCount: number;
+  sportType: string;
+  type: ActivityType;
+  bestTime?: number;
+}
+
+interface RoutePopupProps {
+  route: RouteGroupInfo;
   bottom: number;
   onClose: () => void;
   onViewDetails?: () => void;
 }
 
-export function SectionPopup({ section, bottom, onClose, onViewDetails }: SectionPopupProps) {
-  const { t } = useTranslation();
-  const config = getActivityTypeConfig(section.sportType);
+export function RoutePopup({ route, bottom, onClose, onViewDetails }: RoutePopupProps) {
+  const config = getActivityTypeConfig(route.type);
 
   return (
     <View style={[styles.popup, { bottom }]}>
       <View style={styles.popupHeader}>
         <View style={styles.popupInfo}>
           <Text style={styles.popupTitle} numberOfLines={1}>
-            {section.name || t('sections.defaultName', { number: section.id.slice(-6) })}
+            {route.name}
           </Text>
-          <Text style={styles.popupDate}>
-            {section.visitCount} visits • {Math.round(section.distanceMeters)}m
-          </Text>
+          <Text style={styles.popupDate}>{route.activityCount} activities</Text>
         </View>
         <TouchableOpacity
           onPress={onClose}
           style={styles.popupIconButton}
-          accessibilityLabel="Close section popup"
+          accessibilityLabel="Close route popup"
           accessibilityRole="button"
         >
           <MaterialCommunityIcons name="close" size={22} color={colors.textSecondary} />
@@ -44,23 +50,21 @@ export function SectionPopup({ section, bottom, onClose, onViewDetails }: Sectio
       <View style={styles.popupStats}>
         <View style={styles.popupStat}>
           <Ionicons name={config.icon} size={20} color={config.color} />
-          <Text style={styles.popupStatValue}>{section.sportType}</Text>
+          <Text style={styles.popupStatValue}>{route.sportType}</Text>
         </View>
-        <View style={styles.popupStat}>
-          <MaterialCommunityIcons name="run" size={20} color={colors.chartBlue} />
-          <Text style={styles.popupStatValue}>{section.activityIds.length} activities</Text>
-        </View>
-        <View style={styles.popupStat}>
-          <MaterialCommunityIcons name="map-marker-path" size={20} color={colors.chartAmber} />
-          <Text style={styles.popupStatValue}>{section.routeIds.length} routes</Text>
-        </View>
+        {route.bestTime && route.bestTime > 0 && (
+          <View style={styles.popupStat}>
+            <MaterialCommunityIcons name="trophy" size={20} color={colors.chartAmber} />
+            <Text style={styles.popupStatValue}>{formatDuration(route.bestTime)}</Text>
+          </View>
+        )}
       </View>
 
       {onViewDetails && (
         <TouchableOpacity
           onPress={onViewDetails}
           style={styles.viewDetailsButton}
-          accessibilityLabel="View section details"
+          accessibilityLabel="View route details"
           accessibilityRole="button"
         >
           <Text style={styles.viewDetailsText}>View Details</Text>
@@ -110,8 +114,6 @@ const styles = StyleSheet.create({
     paddingVertical: layout.cardMargin,
     borderTopWidth: 1,
     borderTopColor: colors.divider,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.divider,
   },
   popupStat: {
     flexDirection: 'row',

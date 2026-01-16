@@ -27,12 +27,16 @@ interface MapControlStackProps {
   isHeatmapMode: boolean;
   /** Whether sections are visible */
   showSections: boolean;
+  /** Whether routes are visible */
+  showRoutes: boolean;
   /** Whether user location is active */
   userLocationActive: boolean;
   /** Heatmap data (for showing heatmap toggle) */
   heatmap: HeatmapResult | null;
   /** Sections data (for showing sections toggle) */
   sections: FrequentSection[];
+  /** Number of routes (for showing routes toggle) */
+  routeCount: number;
   /** Animated bearing value for compass */
   bearingAnim: Animated.Value;
   /** Callback to toggle 3D mode */
@@ -45,6 +49,8 @@ interface MapControlStackProps {
   onToggleHeatmap: () => void;
   /** Callback to toggle sections */
   onToggleSections: () => void;
+  /** Callback to toggle routes */
+  onToggleRoutes: () => void;
 }
 
 export function MapControlStack({
@@ -54,15 +60,18 @@ export function MapControlStack({
   can3D,
   isHeatmapMode,
   showSections,
+  showRoutes,
   userLocationActive,
   heatmap,
   sections,
+  routeCount,
   bearingAnim,
   onToggle3D,
   onResetOrientation,
   onGetLocation,
   onToggleHeatmap,
   onToggleSections,
+  onToggleRoutes,
 }: MapControlStackProps) {
   const { t } = useTranslation();
   const show3D = is3DMode && can3D;
@@ -183,6 +192,29 @@ export function MapControlStack({
             size={22}
             color={
               showSections ? colors.textOnDark : isDark ? colors.textOnDark : colors.textSecondary
+            }
+          />
+        </TouchableOpacity>
+      )}
+
+      {/* Routes toggle - only shown when routes exist and not in heatmap mode */}
+      {routeCount > 0 && !isHeatmapMode && (
+        <TouchableOpacity
+          style={[
+            styles.controlButton,
+            isDark && styles.controlButtonDark,
+            showRoutes && styles.controlButtonActive,
+          ]}
+          onPress={onToggleRoutes}
+          activeOpacity={0.8}
+          accessibilityLabel={showRoutes ? t('maps.hideRoutes') : t('maps.showRoutes')}
+          accessibilityRole="button"
+        >
+          <MaterialCommunityIcons
+            name="map-marker-path"
+            size={22}
+            color={
+              showRoutes ? colors.textOnDark : isDark ? colors.textOnDark : colors.textSecondary
             }
           />
         </TouchableOpacity>

@@ -201,24 +201,13 @@ export function usePotentialSections(
     }
   }, [minActivities, setPotentials]);
 
-  // Auto-detect on mount if conditions are met
-  useEffect(() => {
-    if (!isLoaded || !autoDetect || hasDetectedRef.current) return;
-
-    const task = InteractionManager.runAfterInteractions(() => {
-      // Check if we have enough activities
-      const engine = getRouteEngine();
-      if (!engine) return;
-
-      const activityCount = engine.getActivityCount();
-      if (activityCount >= minActivities && storedPotentials.length === 0) {
-        hasDetectedRef.current = true;
-        detect();
-      }
-    });
-
-    return () => task.cancel();
-  }, [isLoaded, autoDetect, minActivities, storedPotentials.length, detect]);
+  // Auto-detect is now DISABLED on page load.
+  // Potential section detection runs during GPS sync in useGpsDataFetcher.ts
+  // This prevents expensive computation during UI navigation.
+  // Manual detection can still be triggered via the detect() function.
+  //
+  // NOTE: The autoDetect option is kept for backward compatibility but is ignored.
+  // Detection happens in the background during GPS sync, not on component mount.
 
   // Cleanup on unmount
   useEffect(() => {
