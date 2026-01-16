@@ -4,6 +4,7 @@
  */
 
 import { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { ActivityBoundsItem, FrequentSection } from '@/types';
 import { getActivityTypeConfig } from '../ActivityTypeFilter';
 import type { RouteSignature } from '@/hooks/routes';
@@ -40,6 +41,8 @@ export function useMapGeoJSON({
   showTraces,
   selectedActivityId,
 }: UseMapGeoJSONOptions): UseMapGeoJSONResult {
+  const { t } = useTranslation();
+
   // Build GeoJSON feature collection for activity markers
   // NOTE: Does NOT include isSelected - use MapLibre expressions with selectedActivityId
   const markersGeoJSON = useMemo(() => {
@@ -114,7 +117,7 @@ export function useMapGeoJSON({
         id: section.id,
         properties: {
           id: section.id,
-          name: section.name || `Section ${section.id.slice(-6)}`,
+          name: section.name || t('sections.defaultName', { number: section.id.slice(-6) }),
           sportType: section.sportType,
           visitCount: section.visitCount,
           distanceMeters: section.distanceMeters,
@@ -131,7 +134,7 @@ export function useMapGeoJSON({
       type: 'FeatureCollection' as const,
       features,
     };
-  }, [sections]);
+  }, [sections, t]);
 
   return {
     markersGeoJSON,

@@ -250,14 +250,22 @@ export function SectionsList({ sportType }: SectionsListProps) {
     if (section.engineData) {
       return section.engineData;
     }
-    // Otherwise, construct a compatible object
+    // Otherwise, construct a compatible object (for custom sections)
+    // Include source activity if not already in matches
+    const matchActivityIds = section.customData?.matches.map((m) => m.activityId) ?? [];
+    const sourceActivityId = section.customData?.sourceActivityId;
+    const activityIds =
+      sourceActivityId && !matchActivityIds.includes(sourceActivityId)
+        ? [sourceActivityId, ...matchActivityIds]
+        : matchActivityIds;
+
     return {
       id: section.id,
       sportType: section.sportType,
       polyline: section.polyline,
-      activityIds: section.customData?.matches.map((m) => m.activityId) ?? [],
+      activityIds,
       routeIds: [],
-      visitCount: section.visitCount,
+      visitCount: activityIds.length,
       distanceMeters: section.distanceMeters,
       name: section.name,
     };

@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native';
+import { useRouter } from 'expo-router';
 import { useTheme } from '@/hooks';
 import {
   MapView,
@@ -32,12 +33,13 @@ import {
 import type { ActivityBoundsItem } from '@/types';
 import { HeatmapLayer } from './HeatmapLayer';
 import { useHeatmap, type CellQueryResult } from '@/hooks/useHeatmap';
-import { useFrequentSections, useRouteSignatures } from '@/hooks/routes';
-import type { FrequentSection } from '@/types';
+import { useFrequentSections, useRouteSignatures, useRouteGroups } from '@/hooks/routes';
+import type { FrequentSection, ActivityType } from '@/types';
 import {
   ActivityPopup,
   HeatmapCellInfo,
   SectionPopup,
+  RoutePopup,
   MapControlStack,
   getMarkerSize,
   useMapHandlers,
@@ -72,6 +74,7 @@ interface RegionalMapViewProps {
 
 export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
   const { t } = useTranslation();
+  const router = useRouter();
   const { isDark: systemIsDark } = useTheme();
   const insets = useSafeAreaInsets();
   const systemStyle: MapStyleType = systemIsDark ? 'dark' : 'light';
@@ -80,11 +83,20 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
   const [is3DMode, setIs3DMode] = useState(false);
   const [isHeatmapMode, setIsHeatmapMode] = useState(false);
   const [showSections, setShowSections] = useState(true);
+  const [showRoutes, setShowRoutes] = useState(true);
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
   const [visibleActivityIds, setVisibleActivityIds] = useState<Set<string> | null>(null);
   const [currentZoom, setCurrentZoom] = useState(10);
   const [selectedCell, setSelectedCell] = useState<CellQueryResult | null>(null);
   const [selectedSection, setSelectedSection] = useState<FrequentSection | null>(null);
+  const [selectedRoute, setSelectedRoute] = useState<{
+    id: string;
+    name: string;
+    activityCount: number;
+    sportType: string;
+    type: ActivityType;
+    bestTime?: number;
+  } | null>(null);
   const cameraRef = useRef<React.ElementRef<typeof Camera>>(null);
 
   // Get route signatures from Rust engine for trace rendering
@@ -95,6 +107,9 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
 
   // Frequent sections from route matching
   const { sections } = useFrequentSections({ minVisits: 2 });
+
+  // Route groups for displaying routes on the map
+  const { groups: routeGroups } = useRouteGroups({ minActivities: 2 });
 
   // ===========================================
   // 120HZ OPTIMIZATION: Pre-compute and cache activity centers
@@ -272,13 +287,19 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
   };
 
   // Filter activities to only those visible in viewport (for performance)
-  // Falls back to all activities if viewport not yet determined
+  // Only enable viewport culling for large activity counts to avoid marker flashing
+  // With < 500 activities, showing all is fast enough and provides better UX
+  const VIEWPORT_CULLING_THRESHOLD = 500;
   const visibleActivities = useMemo(() => {
+    // Skip viewport culling for small activity counts - prevents marker flashing during pan
+    if (activities.length < VIEWPORT_CULLING_THRESHOLD) {
+      return activities;
+    }
     if (!visibleActivityIds) {
       // No viewport info yet - show all activities
       return activities;
     }
-    // Filter to only visible activities
+    // Filter to only visible activities (only for large datasets)
     return activities.filter((a) => visibleActivityIds.has(a.id));
   }, [activities, visibleActivityIds]);
 
@@ -342,7 +363,7 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
         id: section.id,
         properties: {
           id: section.id,
-          name: section.name || `Section ${section.id.slice(-6)}`,
+          name: section.name || t('sections.defaultName', { number: section.id.slice(-6) }),
           sportType: section.sportType,
           visitCount: section.visitCount,
           distanceMeters: section.distanceMeters,
@@ -359,7 +380,98 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
       type: 'FeatureCollection' as const,
       features,
     };
-  }, [sections]);
+  }, [sections, t]);
+
+  // ===========================================
+  // ROUTES GEOJSON - Polylines for route groups
+  // ===========================================
+  const routesGeoJSON = useMemo(() => {
+    if (!showRoutes || routeGroups.length === 0) return null;
+
+    const features = routeGroups
+      .filter((group) => routeSignatures[group.representativeId])
+      .map((group) => {
+        const signature = routeSignatures[group.representativeId];
+        const coordinates = signature.points.map((pt) => [pt.lng, pt.lat]);
+
+        return {
+          type: 'Feature' as const,
+          id: group.id,
+          properties: {
+            id: group.id,
+            name: group.name,
+            activityCount: group.activityCount,
+            sportType: group.sportType,
+            type: group.type,
+            bestTime: group.bestTime,
+          },
+          geometry: {
+            type: 'LineString' as const,
+            coordinates,
+          },
+        };
+      });
+
+    return {
+      type: 'FeatureCollection' as const,
+      features,
+    };
+  }, [showRoutes, routeGroups, routeSignatures]);
+
+  // ===========================================
+  // ROUTE MARKERS GEOJSON - Start points for routes
+  // ===========================================
+  const routeMarkersGeoJSON = useMemo(() => {
+    if (!showRoutes || routeGroups.length === 0) return null;
+
+    const features = routeGroups
+      .filter((group) => routeSignatures[group.representativeId])
+      .map((group) => {
+        const signature = routeSignatures[group.representativeId];
+        const startPoint = signature.points[0];
+
+        return {
+          type: 'Feature' as const,
+          id: `marker-${group.id}`,
+          properties: {
+            id: group.id,
+            name: group.name,
+            activityCount: group.activityCount,
+          },
+          geometry: {
+            type: 'Point' as const,
+            coordinates: [startPoint.lng, startPoint.lat],
+          },
+        };
+      });
+
+    return {
+      type: 'FeatureCollection' as const,
+      features,
+    };
+  }, [showRoutes, routeGroups, routeSignatures]);
+
+  // Handle route press - show route popup
+  const handleRoutePress = useCallback(
+    (event: { features?: Array<{ properties?: Record<string, unknown> | null }> }) => {
+      const feature = event.features?.[0];
+      const routeId = feature?.properties?.id as string | undefined;
+      if (routeId) {
+        const route = routeGroups.find((g) => g.id === routeId);
+        if (route) {
+          setSelectedRoute({
+            id: route.id,
+            name: route.name,
+            activityCount: route.activityCount,
+            sportType: route.sportType,
+            type: route.type,
+            bestTime: route.bestTime,
+          });
+        }
+      }
+    },
+    [routeGroups]
+  );
 
   // ===========================================
   // NATIVE MARKER RENDERING - Uses CircleLayer instead of React components
@@ -566,6 +678,46 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
               );
             })}
 
+          {/* Routes layer - dashed polylines for route groups */}
+          {showRoutes && !isHeatmapMode && routesGeoJSON && routesGeoJSON.features.length > 0 && (
+            <ShapeSource
+              id="routes"
+              shape={routesGeoJSON}
+              onPress={handleRoutePress}
+              hitbox={{ width: 20, height: 20 }}
+            >
+              <LineLayer
+                id="routesLine"
+                style={{
+                  lineColor: '#9C27B0',
+                  lineWidth: 3,
+                  lineOpacity: 0.7,
+                  lineDasharray: [3, 2],
+                  lineCap: 'round',
+                  lineJoin: 'round',
+                }}
+              />
+            </ShapeSource>
+          )}
+
+          {/* Route markers - start points for routes */}
+          {showRoutes &&
+            !isHeatmapMode &&
+            routeMarkersGeoJSON &&
+            routeMarkersGeoJSON.features.length > 0 && (
+              <ShapeSource id="route-markers" shape={routeMarkersGeoJSON}>
+                <CircleLayer
+                  id="routeMarkerCircle"
+                  style={{
+                    circleRadius: 10,
+                    circleColor: '#9C27B0',
+                    circleStrokeWidth: 2,
+                    circleStrokeColor: '#FFFFFF',
+                  }}
+                />
+              </ShapeSource>
+            )}
+
           {/* Sections layer - frequent road/trail sections */}
           {showSections &&
             !isHeatmapMode &&
@@ -716,15 +868,18 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
         can3D={can3D}
         isHeatmapMode={isHeatmapMode}
         showSections={showSections}
+        showRoutes={showRoutes}
         userLocationActive={!!userLocation}
         heatmap={heatmap}
         sections={sections}
+        routeCount={routeGroups.length}
         bearingAnim={bearingAnim}
         onToggle3D={toggle3D}
         onResetOrientation={resetOrientation}
         onGetLocation={handleGetLocation}
         onToggleHeatmap={toggleHeatmap}
         onToggleSections={toggleSections}
+        onToggleRoutes={() => setShowRoutes((prev) => !prev)}
       />
 
       {/* Attribution */}
@@ -758,6 +913,23 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
           section={selectedSection}
           bottom={insets.bottom + 200}
           onClose={() => setSelectedSection(null)}
+          onViewDetails={() => {
+            setSelectedSection(null);
+            router.push(`/section/${selectedSection.id}`);
+          }}
+        />
+      )}
+
+      {/* Route popup - shows when a route is tapped */}
+      {selectedRoute && (
+        <RoutePopup
+          route={selectedRoute}
+          bottom={insets.bottom + 200}
+          onClose={() => setSelectedRoute(null)}
+          onViewDetails={() => {
+            setSelectedRoute(null);
+            router.push(`/route/${selectedRoute.id}`);
+          }}
         />
       )}
     </View>

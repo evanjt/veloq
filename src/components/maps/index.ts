@@ -1,6 +1,6 @@
 export { ActivityMapView } from './ActivityMapView';
 export { RegionalMapView } from './RegionalMapView';
-export { TimelineSlider } from './timeline';
+export { TimelineSlider, SyncProgressBanner } from './timeline';
 export {
   ActivityTypeFilter,
   getActivityTypeConfig,

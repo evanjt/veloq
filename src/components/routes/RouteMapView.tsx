@@ -206,6 +206,27 @@ export function RouteMapView({
   const startPoint = markerPoints.start;
   const endPoint = markerPoints.end;
 
+  // Handle map press - either open fullscreen or call custom handler
+  // NOTE: All hooks must be called before any early returns
+  const handleMapPress = useCallback(() => {
+    if (enableFullscreen) {
+      setIsFullscreen(true);
+    } else if (onPress) {
+      onPress();
+    }
+  }, [enableFullscreen, onPress]);
+
+  const closeFullscreen = useCallback(() => {
+    setIsFullscreen(false);
+  }, []);
+
+  // Route coordinates for BaseMapView [lng, lat] format
+  const routeCoords = useMemo(() => {
+    return displayPoints.map((p) => [p.lng, p.lat] as [number, number]);
+  }, [displayPoints]);
+
+  const isDark = isDarkStyle(mapStyle);
+
   if (!bounds || displayPoints.length === 0) {
     return (
       <View style={[styles.placeholder, { height, backgroundColor: activityColor + '20' }]}>
@@ -313,26 +334,6 @@ export function RouteMapView({
       )}
     </MapView>
   );
-
-  // Handle map press - either open fullscreen or call custom handler
-  const handleMapPress = useCallback(() => {
-    if (enableFullscreen) {
-      setIsFullscreen(true);
-    } else if (onPress) {
-      onPress();
-    }
-  }, [enableFullscreen, onPress]);
-
-  const closeFullscreen = useCallback(() => {
-    setIsFullscreen(false);
-  }, []);
-
-  // Route coordinates for BaseMapView [lng, lat] format
-  const routeCoords = useMemo(() => {
-    return displayPoints.map((p) => [p.lng, p.lat] as [number, number]);
-  }, [displayPoints]);
-
-  const isDark = isDarkStyle(mapStyle);
 
   // Show fullscreen expand icon if enableFullscreen is true
   const showExpandIcon = enableFullscreen && !interactive;

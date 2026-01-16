@@ -88,7 +88,9 @@ jobs:
         run: |
           cd android && ./gradlew assembleRelease assembleAndroidTest \
             -DtestBuildType=release \
-            -x :react-native-reanimated:bundleReleaseLocalLintAar \
+            -x lint \
+            -x lintVitalAnalyzeRelease \
+            -x lintVitalReportRelease \
             --no-daemon \
             --max-workers=2
         env:

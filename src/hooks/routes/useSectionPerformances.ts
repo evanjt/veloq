@@ -138,9 +138,10 @@ export function useSectionPerformances(
         }
       }
 
-      // Note: Time streams sync to Rust engine is not yet implemented in the native module
-      // The performance calculations will use distance-based estimates for now
-      // TODO: Add setTimeStreams to Rust FFI for accurate time-based calculations
+      // Sync time streams to Rust engine for accurate performance calculations
+      if (streams.length > 0) {
+        routeEngine.setTimeStreams(streams);
+      }
 
       setStreamsSynced(true);
     } catch {

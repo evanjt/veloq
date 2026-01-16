@@ -20,6 +20,7 @@ import {
   TouchableOpacity,
   TextInput,
   Keyboard,
+  Alert,
 } from "react-native";
 import { Text, ActivityIndicator } from "react-native-paper";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -49,7 +50,6 @@ import {
   formatPace,
   isRunningActivity,
 } from "@/lib";
-import { getGpsTrack } from "@/lib";
 import {
   colors,
   darkColors,
@@ -342,20 +342,41 @@ export default function SectionDetailScreen() {
 
     // Check if it's a custom section and convert to FrequentSection shape
     if (customSection) {
-      return {
-        id: customSection.id,
-        sportType: customSection.sportType,
-        polyline: customSection.polyline,
-        activityIds: customSection.matches.map((m) => m.activityId),
-        activityPortions: customSection.matches.map((m) => ({
+      // Include source activity if not already in matches
+      const matchActivityIds = customSection.matches.map((m) => m.activityId);
+      const includeSourceActivity = !matchActivityIds.includes(customSection.sourceActivityId);
+
+      const activityIds = includeSourceActivity
+        ? [customSection.sourceActivityId, ...matchActivityIds]
+        : matchActivityIds;
+
+      const activityPortions = [
+        // Include source activity portion if not in matches
+        ...(includeSourceActivity ? [{
+          activityId: customSection.sourceActivityId,
+          startIndex: customSection.startIndex,
+          endIndex: customSection.endIndex,
+          distanceMeters: customSection.distanceMeters,
+          direction: 'same' as const,
+        }] : []),
+        // Include all match portions
+        ...customSection.matches.map((m) => ({
           activityId: m.activityId,
           startIndex: m.startIndex,
           endIndex: m.endIndex,
           distanceMeters: m.distanceMeters ?? customSection.distanceMeters,
           direction: m.direction,
         })),
+      ];
+
+      return {
+        id: customSection.id,
+        sportType: customSection.sportType,
+        polyline: customSection.polyline,
+        activityIds,
+        activityPortions,
         routeIds: [],
-        visitCount: customSection.matches.length,
+        visitCount: activityIds.length,
         distanceMeters: customSection.distanceMeters,
         name: customSection.name,
       } as FrequentSection;
@@ -370,14 +391,15 @@ export default function SectionDetailScreen() {
     return null;
   }, [allSections, customSection, id, isCustomId]);
 
-  // Merge computed activity traces into the section (for custom sections)
+  // Merge computed activity traces into the section
+  // Always use computedActivityTraces when available, as they use extractSectionTrace
+  // which correctly extracts points near the section polyline (avoiding straight-line artifacts)
   const sectionWithTraces = useMemo(() => {
     if (!section) return null;
 
-    // For engine sections, activityTraces are pre-computed
-    if (section.activityTraces) return section;
-
-    // For custom sections, merge in the computed traces
+    // Always prefer computed traces (from extractSectionTrace) over pre-computed ones
+    // Pre-computed activityTraces from Rust may use simple index slicing which creates
+    // straight lines when the activity takes a different path between section entry/exit
     if (Object.keys(computedActivityTraces).length > 0) {
       return {
         ...section,
@@ -385,14 +407,20 @@ export default function SectionDetailScreen() {
       };
     }
 
+    // Fall back to engine's activityTraces if we haven't computed our own yet
+    if (section.activityTraces && Object.keys(section.activityTraces).length > 0) {
+      return section;
+    }
+
     return section;
   }, [section, computedActivityTraces]);
 
-  // For custom sections: compute activity traces using Rust engine
-  // Uses Rust extractSectionTrace for efficient point extraction near section polyline,
-  // avoiding "straight line" artifacts from simple index slicing
+  // Compute activity traces using Rust engine's extractSectionTrace
+  // This extracts points from each activity that are within proximity of the section polyline,
+  // correctly handling cases where activities take different paths between entry/exit points
+  // Works for both custom sections AND engine-detected sections
   useEffect(() => {
-    if (!customSection || !customSection.matches.length) {
+    if (!section || !section.activityIds.length) {
       setComputedActivityTraces({});
       return;
     }
@@ -406,29 +434,30 @@ export default function SectionDetailScreen() {
     const traces: Record<string, RoutePoint[]> = {};
     // Convert polyline to JSON string for Rust engine
     const polylineJson = JSON.stringify(
-      customSection.polyline.map((p) => ({
+      section.polyline.map((p) => ({
         latitude: p.lat,
         longitude: p.lng,
       })),
     );
 
-    for (const match of customSection.matches) {
+    for (const activityId of section.activityIds) {
       // Use Rust engine's extractSectionTrace for efficient trace extraction
+      // This finds points within proximity of the section polyline, not a simple index slice
       const extractedTrace = engine.extractSectionTrace(
-        match.activityId,
+        activityId,
         polylineJson,
       );
 
       if (extractedTrace.length > 0) {
         // Convert GpsPoint[] to RoutePoint[]
-        traces[match.activityId] = extractedTrace.map((p) => ({
+        traces[activityId] = extractedTrace.map((p) => ({
           lat: p.latitude,
           lng: p.longitude,
         }));
       }
     }
     setComputedActivityTraces(traces);
-  }, [customSection]);
+  }, [section]);
 
   // Load custom section name from Rust engine on mount
   useEffect(() => {
@@ -474,33 +503,28 @@ export default function SectionDetailScreen() {
   }, []);
 
   // Load full GPS track when an activity is highlighted (for shadow display)
+  // Uses Rust engine which has all GPS tracks in SQLite (not FileSystem storage)
   useEffect(() => {
     if (!highlightedActivityId) {
       setShadowTrack(undefined);
       return;
     }
 
-    let isMounted = true;
+    // Get GPS track from Rust engine (synchronous, data is in SQLite)
+    const engine = getRouteEngine();
+    if (!engine) {
+      setShadowTrack(undefined);
+      return;
+    }
 
-    // Load the full GPS track for the highlighted activity
-    getGpsTrack(highlightedActivityId)
-      .then((track) => {
-        if (!isMounted) return;
-        if (track && track.length > 0) {
-          setShadowTrack(track);
-        } else {
-          setShadowTrack(undefined);
-        }
-      })
-      .catch(() => {
-        if (isMounted) {
-          setShadowTrack(undefined);
-        }
-      });
-
-    return () => {
-      isMounted = false;
-    };
+    const gpsPoints = engine.getGpsTrack(highlightedActivityId);
+    if (gpsPoints && gpsPoints.length > 0) {
+      // Convert GpsPoint[] to [lat, lng][] format expected by SectionMapView
+      const track: [number, number][] = gpsPoints.map((p) => [p.latitude, p.longitude]);
+      setShadowTrack(track);
+    } else {
+      setShadowTrack(undefined);
+    }
   }, [highlightedActivityId]);
 
   const handleActivitySelect = useCallback(
@@ -590,50 +614,72 @@ export default function SectionDetailScreen() {
           record?.sectionDistance ||
           portion?.distanceMeters ||
           section.distanceMeters;
-        const direction =
-          record?.direction ||
-          (portion?.direction as "same" | "reverse") ||
-          "same";
 
-        if (direction === "reverse") hasAnyReverse = true;
+        // If we have multiple laps from performance records, create a data point for each
+        if (record && record.laps && record.laps.length > 0) {
+          for (let lapIdx = 0; lapIdx < record.laps.length; lapIdx++) {
+            const lap = record.laps[lapIdx];
+            const direction = lap.direction || "same";
+            if (direction === "reverse") hasAnyReverse = true;
 
-        // Use actual section pace/time from record, or fall back to proportional estimate
-        let sectionSpeed: number;
-        let sectionTime: number;
-        let lapCount = 1;
-
-        if (record) {
-          // Use actual measured values from stream data
-          sectionSpeed = record.bestPace;
-          sectionTime = Math.round(record.bestTime);
-          lapCount = record.lapCount;
+            dataPoints.push({
+              x: 0,
+              id: `${activity.id}_lap${lapIdx}`,
+              activityId: activity.id,
+              speed: lap.pace,
+              date: new Date(activity.start_date_local),
+              activityName: activity.name,
+              direction,
+              lapPoints: tracePoints, // Use same trace for all laps (shows section portion)
+              sectionTime: Math.round(lap.time),
+              sectionDistance: lap.distance || sectionDistance,
+              lapCount: record.laps.length,
+              lapNumber: lapIdx + 1,
+              totalLaps: record.laps.length,
+            });
+          }
         } else {
-          // Fall back to proportional estimate
-          sectionSpeed =
-            activity.moving_time > 0
-              ? activity.distance / activity.moving_time
-              : 0;
-          sectionTime =
-            activity.distance > 0
-              ? Math.round(
-                  activity.moving_time * (sectionDistance / activity.distance),
-                )
-              : 0;
-        }
+          // Fall back to single data point (no lap data or proportional estimate)
+          const direction =
+            record?.direction ||
+            (portion?.direction as "same" | "reverse") ||
+            "same";
 
-        dataPoints.push({
-          x: 0,
-          id: activity.id,
-          activityId: activity.id,
-          speed: sectionSpeed,
-          date: new Date(activity.start_date_local),
-          activityName: activity.name,
-          direction,
-          lapPoints: tracePoints,
-          sectionTime,
-          sectionDistance,
-          lapCount,
-        });
+          if (direction === "reverse") hasAnyReverse = true;
+
+          let sectionSpeed: number;
+          let sectionTime: number;
+
+          if (record) {
+            sectionSpeed = record.bestPace;
+            sectionTime = Math.round(record.bestTime);
+          } else {
+            sectionSpeed =
+              activity.moving_time > 0
+                ? activity.distance / activity.moving_time
+                : 0;
+            sectionTime =
+              activity.distance > 0
+                ? Math.round(
+                    activity.moving_time * (sectionDistance / activity.distance),
+                  )
+                : 0;
+          }
+
+          dataPoints.push({
+            x: 0,
+            id: activity.id,
+            activityId: activity.id,
+            speed: sectionSpeed,
+            date: new Date(activity.start_date_local),
+            activityName: activity.name,
+            direction,
+            lapPoints: tracePoints,
+            sectionTime,
+            sectionDistance,
+            lapCount: 1,
+          });
+        }
       }
 
       // Filter out invalid speed values (NaN would crash SVG renderer)
@@ -767,7 +813,7 @@ export default function SectionDetailScreen() {
             <SectionMapView
               section={section}
               height={MAP_HEIGHT}
-              interactive={false}
+              interactive={true}
               enableFullscreen={true}
               shadowTrack={shadowTrack}
               highlightedActivityId={highlightedActivityId}
@@ -850,7 +896,7 @@ export default function SectionDetailScreen() {
                   <Text style={styles.heroSectionName} numberOfLines={1}>
                     {customName ||
                       section.name ||
-                      `Section ${section.id.split("_").pop()}`}
+                      t("sections.defaultName", { number: section.id.split("_").pop() })}
                   </Text>
                   <MaterialCommunityIcons
                     name="pencil"
@@ -954,7 +1000,7 @@ export default function SectionDetailScreen() {
           )}
 
           {/* Performance chart */}
-          {chartData.length >= 2 && (
+          {chartData.length >= 1 && (
             <View style={styles.chartSection}>
               <UnifiedPerformanceChart
                 chartData={chartData}

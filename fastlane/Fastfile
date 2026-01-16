@@ -83,7 +83,9 @@ platform :ios do
       clean: false,  # Don't clean - faster and avoids cache issues
       include_bitcode: false,
       buildlog_path: "artifacts",  # Save full xcodebuild log for debugging
-      xcargs: "-verbose OTHER_CODE_SIGN_FLAGS='--keychain ~/Library/Keychains/login.keychain-db'"
+      # NOTE: Don't use --keychain with ~ path - tilde doesn't expand in xcargs.
+      # Match already configured certs in login.keychain, codesign will find them.
+      xcargs: "-verbose"
     )
   end
 

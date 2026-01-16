@@ -7,6 +7,7 @@ import { useCallback, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getRouteEngine } from '@/lib/native/routeEngine';
 import { gpsPointsToRoutePoints, routePointsToGpsPoints } from 'route-matcher-native';
+import { useSupersededSections } from '@/providers';
 import type {
   CustomSection,
   CustomSectionMatch,
@@ -77,6 +78,69 @@ function generateSectionName(existingNames: Set<string>): string {
     index++;
   }
   return `Custom Section ${index}`;
+}
+
+/**
+ * Overlap threshold for considering sections as superseded.
+ * If a custom section overlaps >80% with an auto section, the auto section is hidden.
+ */
+const OVERLAP_THRESHOLD = 0.8;
+
+/**
+ * Compute overlap between two polylines.
+ * Returns 0-1 representing the fraction of polylineA points that are close to polylineB.
+ */
+function computePolylineOverlap(
+  polylineA: RoutePoint[],
+  polylineB: RoutePoint[],
+  thresholdMeters = 50
+): number {
+  if (polylineA.length === 0 || polylineB.length === 0) return 0;
+
+  const R = 6371000; // Earth radius in meters
+  let matchedCount = 0;
+
+  for (const pointA of polylineA) {
+    for (const pointB of polylineB) {
+      // Simplified Haversine
+      const dLat = ((pointB.lat - pointA.lat) * Math.PI) / 180;
+      const dLon = ((pointB.lng - pointA.lng) * Math.PI) / 180;
+      const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos((pointA.lat * Math.PI) / 180) *
+          Math.cos((pointB.lat * Math.PI) / 180) *
+          Math.sin(dLon / 2) *
+          Math.sin(dLon / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      const distance = R * c;
+
+      if (distance <= thresholdMeters) {
+        matchedCount++;
+        break; // This point matches, move to next
+      }
+    }
+  }
+
+  return matchedCount / polylineA.length;
+}
+
+/**
+ * Find auto-detected sections that significantly overlap with a custom section.
+ */
+function findSupersededSections(
+  customPolyline: RoutePoint[],
+  autoSections: Array<{ id: string; polyline: RoutePoint[] }>
+): string[] {
+  const superseded: string[] = [];
+
+  for (const autoSection of autoSections) {
+    const overlap = computePolylineOverlap(autoSection.polyline, customPolyline);
+    if (overlap > OVERLAP_THRESHOLD) {
+      superseded.push(autoSection.id);
+    }
+  }
+
+  return superseded;
 }
 
 /**
@@ -192,6 +256,32 @@ export function useCustomSections(options: UseCustomSectionsOptions = {}): UseCu
         throw new Error('Failed to add custom section');
       }
 
+      // Compute which auto-detected sections this custom section supersedes
+      // This pre-computation avoids expensive overlap calculations during UI navigation
+      try {
+        const autoSections = engine.getSections();
+        // Convert GpsPoint polylines to RoutePoint for overlap calculation
+        // Only extract the fields needed for overlap calculation
+        const autoSectionsForOverlap = autoSections.map((s) => ({
+          id: s.id,
+          polyline: gpsPointsToRoutePoints(s.polyline),
+        }));
+        const supersededIds = findSupersededSections(params.polyline, autoSectionsForOverlap);
+        if (supersededIds.length > 0) {
+          await useSupersededSections.getState().setSuperseded(section.id, supersededIds);
+          if (__DEV__) {
+            console.log(
+              `[useCustomSections] Custom section ${section.id} supersedes ${supersededIds.length} auto sections`
+            );
+          }
+        }
+      } catch (overlapError) {
+        // Don't fail section creation if overlap computation fails
+        if (__DEV__) {
+          console.warn('[useCustomSections] Failed to compute superseded sections:', overlapError);
+        }
+      }
+
       await invalidate();
       return section;
     },
@@ -207,6 +297,10 @@ export function useCustomSections(options: UseCustomSectionsOptions = {}): UseCu
       }
 
       engine.removeCustomSection(sectionId);
+
+      // Remove superseded entries for this custom section
+      await useSupersededSections.getState().removeSuperseded(sectionId);
+
       await invalidate();
     },
     [invalidate]

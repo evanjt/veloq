@@ -9,7 +9,6 @@ import { RoutesList, SectionsList, DateRangeSummary } from "@/components";
 import { SwipeableTabs, type SwipeableTab } from "@/components/ui";
 import {
   useRouteProcessing,
-  useActivities,
   useActivityBoundsCache,
   useRouteGroups,
   useEngineStats,
@@ -57,6 +56,7 @@ export default function RoutesScreen() {
     isReady: boundsReady,
     progress: syncProgress,
     syncDateRange,
+    sync: triggerSync,
   } = useActivityBoundsCache();
 
   // Get route groups to count (use minActivities: 2 to match the list)
@@ -153,29 +153,8 @@ export default function RoutesScreen() {
     [syncDateRange],
   );
 
-  // Format dates for API
-  const oldestStr = useMemo(
-    () => startDate.toISOString().split("T")[0],
-    [startDate],
-  );
-  const newestStr = useMemo(
-    () => endDate.toISOString().split("T")[0],
-    [endDate],
-  );
-
-  // Fetch activities for route processing based on selected date range
-  const {
-    data: activities,
-    refetch,
-    isRefetching,
-    isLoading,
-  } = useActivities({
-    oldest: oldestStr,
-    newest: newestStr,
-    includeStats: false,
-  });
-
   // Read GPS sync progress from shared store (GlobalDataSync is the single sync coordinator)
+  // No need to call useActivities here - GlobalDataSync handles activity fetching
   const dataSyncProgress = useSyncDateRange((s) => s.gpsSyncProgress);
   const isDataSyncing = useSyncDateRange((s) => s.isGpsSyncing);
 
@@ -183,8 +162,20 @@ export default function RoutesScreen() {
   const isSyncing =
     syncProgress.status === "syncing" ||
     isDataSyncing ||
-    isLoading ||
     isFetchingExtended;
+
+  // Track refetch state for pull-to-refresh
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // Handle pull-to-refresh
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    try {
+      await triggerSync();
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [triggerSync]);
 
   // Calculate cached range from engine activities (shows the full synced range)
   const { oldestSyncedDate, newestSyncedDate } = useMemo(() => {
@@ -206,8 +197,8 @@ export default function RoutesScreen() {
   // Convert sync/processing progress to unified phased format
   // Phases: 1) Loading activities, 2) Downloading GPS, 3) Analyzing routes
   const timelineSyncProgress = useMemo(() => {
-    // Phase 1: Loading activities from API
-    if (isLoading || isFetchingExtended) {
+    // Phase 1: Loading activities from API / extending date range
+    if (isFetchingExtended) {
       return {
         completed: 0,
         total: 0,
@@ -257,7 +248,6 @@ export default function RoutesScreen() {
 
     return null;
   }, [
-    isLoading,
     isFetchingExtended,
     syncProgress,
     isDataSyncing,
@@ -332,7 +322,7 @@ export default function RoutesScreen() {
         oldestDate={oldestSyncedDate}
         newestDate={newestSyncedDate}
         isDark={isDark}
-        isLoading={isLoading}
+        isLoading={isSyncing}
         syncMessage={timelineSyncProgress?.message || null}
       />
 
@@ -343,7 +333,7 @@ export default function RoutesScreen() {
         onTabChange={(key) => setActiveTab(key as TabType)}
         isDark={isDark}
       >
-        <RoutesList onRefresh={() => refetch()} isRefreshing={isRefetching} />
+        <RoutesList onRefresh={handleRefresh} isRefreshing={isRefreshing} />
         <SectionsList />
       </SwipeableTabs>
     </ScreenSafeAreaView>

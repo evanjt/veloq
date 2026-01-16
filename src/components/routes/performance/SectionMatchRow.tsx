@@ -42,7 +42,7 @@ export function SectionMatchRow({ match, activityType, isDark, isLast }: Section
       </View>
       <View style={styles.sectionInfo}>
         <Text style={[styles.sectionName, isDark && styles.textLight]} numberOfLines={1}>
-          {section.name || `Section ${section.id.split('_').pop()}`}
+          {section.name || t('sections.defaultName', { number: section.id.split('_').pop() })}
         </Text>
         <View style={styles.sectionMeta}>
           <Text style={[styles.sectionDistance, isDark && styles.textMuted]}>

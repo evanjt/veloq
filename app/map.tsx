@@ -3,7 +3,8 @@ import { View, StyleSheet, ActivityIndicator, Text } from "react-native";
 import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { RegionalMapView, TimelineSlider } from "@/components/maps";
+import { useQueryClient } from "@tanstack/react-query";
+import { RegionalMapView, TimelineSlider, SyncProgressBanner } from "@/components/maps";
 import { ComponentErrorBoundary } from "@/components/ui";
 import {
   useActivityBoundsCache,
@@ -15,6 +16,7 @@ import { useRouteSettings, useSyncDateRange } from "@/providers";
 import { colors, darkColors, spacing, typography } from "@/theme";
 import { createSharedStyles } from "@/styles";
 import { formatLocalDate } from "@/lib";
+import type { Activity } from "@/types";
 
 export default function MapScreen() {
   const { t } = useTranslation();
@@ -22,6 +24,7 @@ export default function MapScreen() {
   const insets = useSafeAreaInsets();
   const { isDark, colors: themeColors } = useTheme();
   const shared = createSharedStyles(isDark);
+  const queryClient = useQueryClient();
 
   // Get route settings
   const { settings: routeSettings } = useRouteSettings();
@@ -59,22 +62,44 @@ export default function MapScreen() {
     isFetchingActivities ||
     isFetchingExtended;
 
-  // Calculate cached range from synced activities
+  // Calculate cached range from activities that are actually in the Rust engine
+  // This shows the full extent of cached GPS data (not old API fetches)
   const { oldestSyncedDate, newestSyncedDate } = useMemo(() => {
-    if (!syncedActivities || syncedActivities.length === 0) {
+    // Get activity IDs that are actually in the engine
+    const { getRouteEngine } = require("@/lib/native/routeEngine");
+    const engine = getRouteEngine();
+    if (!engine) {
       return { oldestSyncedDate: null, newestSyncedDate: null };
     }
+
+    const engineIds = new Set(engine.getActivityIds());
+    if (engineIds.size === 0) {
+      return { oldestSyncedDate: null, newestSyncedDate: null };
+    }
+
+    // Get all activities from TanStack Query cache
+    const queries = queryClient.getQueriesData<Activity[]>({
+      queryKey: ["activities"],
+    });
+
     let oldest: string | null = null;
     let newest: string | null = null;
-    for (const a of syncedActivities) {
-      const date = a.start_date_local;
-      if (date) {
-        if (!oldest || date < oldest) oldest = date;
-        if (!newest || date > newest) newest = date;
+
+    // Only consider activities that are in the engine (actually cached with GPS data)
+    for (const [_key, data] of queries) {
+      if (!data) continue;
+      for (const activity of data) {
+        if (!engineIds.has(activity.id)) continue; // Skip if not in engine
+        const date = activity.start_date_local;
+        if (date) {
+          if (!oldest || date < oldest) oldest = date;
+          if (!newest || date > newest) newest = date;
+        }
       }
     }
+
     return { oldestSyncedDate: oldest, newestSyncedDate: newest };
-  }, [syncedActivities]);
+  }, [queryClient, activities]); // Re-compute when activities change
 
   // Selected date range (default: last 90 days)
   const [startDate, setStartDate] = useState<Date>(() => {
@@ -103,17 +128,13 @@ export default function MapScreen() {
 
   // Filter activities by date range and type
   const filteredActivities = useMemo(() => {
-    const result = activities.filter((activity) => {
+    return activities.filter((activity) => {
       const activityDate = new Date(activity.date);
       const inDateRange = activityDate >= startDate && activityDate <= endDate;
       const matchesType =
         selectedTypes.size === 0 || selectedTypes.has(activity.type);
       return inDateRange && matchesType;
     });
-    if (__DEV__) {
-      console.log(`[MapScreen] Filtered: ${result.length}/${activities.length} activities (range: ${startDate.toISOString().slice(0,10)} to ${endDate.toISOString().slice(0,10)}, types: ${[...selectedTypes].join(',')})`);
-    }
-    return result;
   }, [activities, startDate, endDate, selectedTypes]);
 
   // Handle date range change
@@ -225,6 +246,70 @@ export default function MapScreen() {
     t,
   ]);
 
+  // Compute loading screen progress (similar to timelineSyncProgress but for initial load)
+  const loadingProgress = useMemo(() => {
+    // Phase 1: Loading activities from API
+    if (isFetchingActivities || isFetchingExtended) {
+      return {
+        completed: 0,
+        total: 0,
+        message: t("mapScreen.loadingActivities") as string,
+      };
+    }
+    // Phase 2: Syncing activity bounds/GPS cache
+    if (progress.status === "syncing") {
+      return {
+        completed: progress.completed,
+        total: progress.total,
+        message:
+          progress.total > 0
+            ? (t("maps.syncingActivities", {
+                completed: progress.completed,
+                total: progress.total,
+              }) as string)
+            : (t("maps.syncingActivities", {
+                completed: 0,
+                total: 0,
+              }) as string),
+      };
+    }
+    // Phase 3: Computing routes/sections
+    if (gpsSyncProgress.status === "computing") {
+      return {
+        completed: 0,
+        total: 0,
+        message:
+          gpsSyncProgress.message ||
+          (t("routesScreen.computingRoutes") as string),
+      };
+    }
+    // Phase 4: Downloading GPS data
+    if (isGpsSyncing && gpsSyncProgress.status === "fetching") {
+      return {
+        completed: gpsSyncProgress.completed,
+        total: gpsSyncProgress.total,
+        message:
+          gpsSyncProgress.total > 0
+            ? (t("routesScreen.downloadingGps", {
+                completed: gpsSyncProgress.completed,
+                total: gpsSyncProgress.total,
+              }) as string)
+            : (t("routesScreen.downloadingGps", {
+                completed: 0,
+                total: 0,
+              }) as string),
+      };
+    }
+    return null;
+  }, [
+    isFetchingActivities,
+    isFetchingExtended,
+    progress,
+    isGpsSyncing,
+    gpsSyncProgress,
+    t,
+  ]);
+
   // Show loading state if not ready
   if (!isReady) {
     return (
@@ -235,13 +320,14 @@ export default function MapScreen() {
         <Text style={[styles.loadingText, isDark && styles.loadingTextDark]}>
           {t("mapScreen.loadingActivities")}
         </Text>
-        {isSyncing && progress && (
-          <Text style={[styles.progressText, isDark && styles.loadingTextDark]}>
-            {t("mapScreen.syncing", {
-              completed: progress.completed,
-              total: progress.total,
-            })}
-          </Text>
+        {loadingProgress && (
+          <View style={styles.loadingBannerContainer}>
+            <SyncProgressBanner
+              completed={loadingProgress.completed}
+              total={loadingProgress.total}
+              message={loadingProgress.message}
+            />
+          </View>
         )}
       </View>
     );
@@ -309,10 +395,11 @@ const styles = StyleSheet.create({
   loadingTextDark: {
     color: darkColors.textSecondary,
   },
-  progressText: {
-    marginTop: spacing.sm,
-    fontSize: typography.bodySmall.fontSize,
-    color: colors.textSecondary,
+  loadingBannerContainer: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
   },
   sliderContainer: {
     position: "absolute",

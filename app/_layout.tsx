@@ -27,6 +27,7 @@ import {
   initializeHRZones,
   initializeRouteSettings,
   initializeLanguage,
+  initializeSupersededSections,
 } from "@/providers";
 import { initializeI18n } from "@/i18n";
 import { lightTheme, darkTheme, colors, darkColors } from "@/theme";
@@ -177,6 +178,7 @@ export default function RootLayout() {
         initializeSportPreference(),
         initializeHRZones(),
         initializeRouteSettings(),
+        initializeSupersededSections(),
       ]);
     }
     initialize().finally(() => setAppReady(true));

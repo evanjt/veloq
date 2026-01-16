@@ -32,6 +32,9 @@ import {
   useSectionMatches,
   type SectionMatch,
 } from "@/hooks/routes/useSectionMatches";
+import { useFrequentSections } from "@/hooks/routes/useFrequentSections";
+import { routeEngine } from "route-matcher-native";
+import { intervalsApi } from "@/api";
 import {
   ActivityMapView,
   CombinedPlot,
@@ -39,7 +42,9 @@ import {
   HRZonesChart,
   InsightfulStats,
   RoutePerformanceSection,
+  MiniTraceView,
 } from "@/components";
+import type { SectionOverlay } from "@/components/maps/ActivityMapView";
 import { SwipeableTabs, type SwipeableTab } from "@/components/ui";
 import type { SectionCreationResult } from "@/components/maps/ActivityMapView";
 import {
@@ -149,20 +154,347 @@ export default function ActivityDetailScreen() {
     return convertLatLngTuples(representativeStreams.latlng);
   }, [activeTab, representativeStreams]);
 
+  // Get coordinates from streams or polyline (defined early for section overlays)
+  const coordinates = useMemo(() => {
+    if (streams?.latlng) {
+      return convertLatLngTuples(streams.latlng);
+    }
+    if (activity?.polyline) {
+      return decodePolyline(activity.polyline);
+    }
+    return [];
+  }, [streams?.latlng, activity?.polyline]);
+
   // Get auto-detected sections from engine that include this activity
   const { sections: engineSectionMatches, count: engineSectionCount } =
     useSectionMatches(id);
 
+  // Get all sections with full polyline data
+  const { sections: allFrequentSections } = useFrequentSections({ minVisits: 1 });
+
   // Filter custom sections that match this activity
+  // Include sections where this is the source activity OR where matches include this activity
   const customMatchedSections = useMemo(() => {
     if (!id) return [];
-    return sections.filter((section) =>
-      section.matches.some((match) => match.activityId === id),
+    return sections.filter(
+      (section) =>
+        section.sourceActivityId === id ||
+        section.matches.some((match) => match.activityId === id),
     );
   }, [sections, id]);
 
   // Total section count (auto-detected + custom)
   const totalSectionCount = engineSectionCount + customMatchedSections.length;
+
+  // Computed activity traces for this activity on each section
+  // Uses engine's extractSectionTrace for accurate trace extraction
+  const [computedActivityTraces, setComputedActivityTraces] = useState<
+    Record<string, { latitude: number; longitude: number }[]>
+  >({});
+
+  // Create stable section IDs string to avoid infinite loops
+  const engineSectionIds = useMemo(
+    () => engineSectionMatches.map((m) => m.section.id).sort().join(','),
+    [engineSectionMatches]
+  );
+  const customSectionIds = useMemo(
+    () => customMatchedSections.map((s) => s.id).sort().join(','),
+    [customMatchedSections]
+  );
+
+  // Compute activity traces using Rust engine's extractSectionTrace
+  useEffect(() => {
+    if (activeTab !== "sections" || !id) {
+      return;
+    }
+
+    const allSections = [...engineSectionMatches.map((m) => m.section), ...customMatchedSections];
+    if (allSections.length === 0) {
+      setComputedActivityTraces({});
+      return;
+    }
+
+    const traces: Record<string, { latitude: number; longitude: number }[]> = {};
+
+    for (const section of allSections) {
+      // Get the polyline - prefer from allFrequentSections (converted format)
+      const fullSection = allFrequentSections.find((s) => s.id === section.id);
+      const polyline = fullSection?.polyline || section.polyline || [];
+
+      if (polyline.length < 2) continue;
+
+      // Convert polyline to JSON for Rust engine (expects latitude/longitude)
+      const polylineJson = JSON.stringify(
+        polyline.map((p: { lat?: number; lng?: number; latitude?: number; longitude?: number }) => ({
+          latitude: p.lat ?? p.latitude ?? 0,
+          longitude: p.lng ?? p.longitude ?? 0,
+        }))
+      );
+
+      // Use Rust engine's extractSectionTrace
+      const extractedTrace = routeEngine.extractSectionTrace(id, polylineJson);
+
+      if (extractedTrace && extractedTrace.length > 0) {
+        // Convert GpsPoint[] to LatLng format
+        traces[section.id] = extractedTrace.map((p) => ({
+          latitude: p.latitude,
+          longitude: p.longitude,
+        }));
+      }
+    }
+
+    setComputedActivityTraces(traces);
+  // Use stable string IDs instead of array references to prevent infinite loops
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, id, engineSectionIds, customSectionIds]);
+
+  // Build section overlays when on Sections tab
+  const sectionOverlays = useMemo((): SectionOverlay[] | null => {
+    if (activeTab !== "sections") return null;
+    if (!engineSectionMatches.length && !customMatchedSections.length) return null;
+    if (coordinates.length === 0) return null;
+
+    const overlays: SectionOverlay[] = [];
+
+    // Process engine-detected sections
+    for (const match of engineSectionMatches) {
+      // Get full section data from allFrequentSections (has converted RoutePoint polyline and activityTraces)
+      const fullSection = allFrequentSections.find((s) => s.id === match.section.id);
+      const polylineSource = fullSection?.polyline || match.section.polyline || [];
+
+      // Handle both RoutePoint ({lat, lng}) and GpsPoint ({latitude, longitude}) formats
+      // fullSection.polyline has lat/lng, match.section.polyline has latitude/longitude
+      const sectionPolyline = polylineSource.map((p: { lat?: number; lng?: number; latitude?: number; longitude?: number }) => ({
+        latitude: p.lat ?? p.latitude ?? 0,
+        longitude: p.lng ?? p.longitude ?? 0,
+      }));
+
+      // Try to get activity's portion from multiple sources (in order of preference):
+      // 1. computedActivityTraces (extracted via engine.extractSectionTrace - most accurate)
+      // 2. activityTraces from section data (pre-computed by engine)
+      // 3. portion indices (slice from coordinates - least accurate)
+      let activityPortion;
+
+      // First try computed traces - these use extractSectionTrace for accuracy
+      const computedTrace = computedActivityTraces[match.section.id];
+      if (computedTrace && computedTrace.length > 0) {
+        activityPortion = computedTrace;
+      } else {
+        // Try activityTraces from section data
+        const activityTrace = fullSection?.activityTraces?.[id!] || match.section.activityTraces?.[id!];
+        if (activityTrace && activityTrace.length > 0) {
+          // Convert RoutePoint to LatLng format
+          activityPortion = activityTrace.map((p: { lat?: number; lng?: number; latitude?: number; longitude?: number }) => ({
+            latitude: p.lat ?? p.latitude ?? 0,
+            longitude: p.lng ?? p.longitude ?? 0,
+          }));
+        } else if (match.portion?.startIndex != null && match.portion?.endIndex != null) {
+          // Fall back to using portion indices
+          const start = Math.max(0, match.portion.startIndex);
+          const end = Math.min(coordinates.length - 1, match.portion.endIndex);
+          if (end > start) {
+            activityPortion = coordinates.slice(start, end + 1);
+          }
+        }
+      }
+
+      overlays.push({
+        id: match.section.id,
+        sectionPolyline,
+        activityPortion,
+      });
+    }
+
+    // Process custom sections
+    for (const section of customMatchedSections) {
+      const sectionPolyline = section.polyline.map((p) => ({
+        latitude: p.lat,
+        longitude: p.lng,
+      }));
+
+      // Try computed traces first (from extractSectionTrace)
+      let activityPortion;
+      const computedTrace = computedActivityTraces[section.id];
+      if (computedTrace && computedTrace.length > 0) {
+        activityPortion = computedTrace;
+      } else {
+        // Fall back to using indices
+        const activityMatch = section.matches.find((m) => m.activityId === id);
+        if (activityMatch?.startIndex != null && activityMatch?.endIndex != null) {
+          // Use match indices
+          const start = Math.max(0, activityMatch.startIndex);
+          const end = Math.min(coordinates.length - 1, activityMatch.endIndex);
+          if (end > start) {
+            activityPortion = coordinates.slice(start, end + 1);
+          }
+        } else if (section.sourceActivityId === id) {
+          // This is the source activity - use the section's original indices
+          const start = Math.max(0, section.startIndex);
+          const end = Math.min(coordinates.length - 1, section.endIndex);
+          if (end > start) {
+            activityPortion = coordinates.slice(start, end + 1);
+          }
+        }
+      }
+
+      overlays.push({
+        id: section.id,
+        sectionPolyline,
+        activityPortion,
+      });
+    }
+
+    return overlays;
+  }, [activeTab, engineSectionMatches, customMatchedSections, coordinates, id, allFrequentSections, computedActivityTraces]);
+
+  // Helper to get activity portion as RoutePoint[] for MiniTraceView
+  // Uses computed traces when available, falls back to portion indices
+  const getActivityPortion = useCallback(
+    (sectionId: string, portion?: { startIndex?: number; endIndex?: number }) => {
+      // First try computed traces
+      const computedTrace = computedActivityTraces[sectionId];
+      if (computedTrace && computedTrace.length > 0) {
+        return computedTrace.map((c) => ({ lat: c.latitude, lng: c.longitude }));
+      }
+      // Fall back to portion indices
+      if (portion?.startIndex == null || portion?.endIndex == null) return undefined;
+      const start = Math.max(0, portion.startIndex);
+      const end = Math.min(coordinates.length - 1, portion.endIndex);
+      if (end <= start || coordinates.length === 0) return undefined;
+      return coordinates
+        .slice(start, end + 1)
+        .map((c) => ({ lat: c.latitude, lng: c.longitude }));
+    },
+    [coordinates, computedActivityTraces],
+  );
+
+  // Helper to calculate section elapsed time from streams
+  const getSectionTime = useCallback(
+    (portion?: { startIndex?: number; endIndex?: number }): number | undefined => {
+      if (!streams?.time || portion?.startIndex == null || portion?.endIndex == null) {
+        return undefined;
+      }
+      const timeArray = streams.time;
+      const start = Math.max(0, portion.startIndex);
+      const end = Math.min(timeArray.length - 1, portion.endIndex);
+      if (end <= start) return undefined;
+      // Time array contains cumulative seconds from activity start
+      return timeArray[end] - timeArray[start];
+    },
+    [streams?.time],
+  );
+
+  // Format time in mm:ss or h:mm:ss
+  const formatSectionTime = (seconds: number): string => {
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = Math.floor(seconds % 60);
+    if (h > 0) {
+      return `${h}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
+    }
+    return `${m}:${s.toString().padStart(2, "0")}`;
+  };
+
+  // Calculate pace (min/km or min/mi) from time and distance
+  const formatSectionPace = (seconds: number, meters: number): string => {
+    if (meters <= 0 || seconds <= 0) return "--";
+    const minPerKm = (seconds / 60) / (meters / 1000);
+    const paceMin = Math.floor(minPerKm);
+    const paceSec = Math.round((minPerKm - paceMin) * 60);
+    return `${paceMin}:${paceSec.toString().padStart(2, "0")}/km`;
+  };
+
+  // Collect all activity IDs from matched sections for performance data
+  const sectionActivityIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const match of engineSectionMatches) {
+      for (const actId of match.section.activityIds) {
+        ids.add(actId);
+      }
+    }
+    for (const section of customMatchedSections) {
+      // Include source activity
+      ids.add(section.sourceActivityId);
+      // Include matched activities
+      for (const m of section.matches) {
+        ids.add(m.activityId);
+      }
+    }
+    return Array.from(ids);
+  }, [engineSectionMatches, customMatchedSections]);
+
+  // Fetch and sync time streams for section performance calculations
+  const [performanceDataReady, setPerformanceDataReady] = useState(false);
+  useEffect(() => {
+    if (activeTab !== "sections" || sectionActivityIds.length === 0) {
+      return;
+    }
+
+    let cancelled = false;
+    const fetchTimeStreams = async () => {
+      try {
+        const streamsToSync: Array<{ activityId: string; times: number[] }> = [];
+
+        // Fetch in batches of 5 to avoid overwhelming the API
+        const batchSize = 5;
+        for (let i = 0; i < sectionActivityIds.length && !cancelled; i += batchSize) {
+          const batch = sectionActivityIds.slice(i, i + batchSize);
+          const results = await Promise.all(
+            batch.map(async (activityId) => {
+              try {
+                const apiStreams = await intervalsApi.getActivityStreams(activityId, ["time"]);
+                return { activityId, times: apiStreams.time || [] };
+              } catch {
+                return { activityId, times: [] as number[] };
+              }
+            })
+          );
+
+          for (const result of results) {
+            if (result.times.length > 0) {
+              streamsToSync.push(result);
+            }
+          }
+        }
+
+        if (!cancelled && streamsToSync.length > 0) {
+          routeEngine.setTimeStreams(streamsToSync);
+          setPerformanceDataReady(true);
+        }
+      } catch {
+        // Ignore errors
+      }
+    };
+
+    fetchTimeStreams();
+    return () => { cancelled = true; };
+  }, [activeTab, sectionActivityIds]);
+
+  // Get best time for a section from engine (cached performances)
+  const getSectionBestTime = useCallback((sectionId: string): number | undefined => {
+    if (!performanceDataReady) return undefined;
+    try {
+      const resultJson = routeEngine.getSectionPerformances(sectionId);
+      if (!resultJson) return undefined;
+      const result = JSON.parse(resultJson);
+      return result?.bestRecord?.bestTime;
+    } catch {
+      return undefined;
+    }
+  }, [performanceDataReady]);
+
+  // Format time delta with +/- sign
+  const formatTimeDelta = (currentTime: number, bestTime: number): { text: string; isAhead: boolean } => {
+    const delta = currentTime - bestTime;
+    const absDelta = Math.abs(delta);
+    const m = Math.floor(absDelta / 60);
+    const s = Math.floor(absDelta % 60);
+    const timeStr = m > 0 ? `${m}:${s.toString().padStart(2, "0")}` : `${s}s`;
+    if (delta <= 0) {
+      return { text: delta === 0 ? "PR" : `-${timeStr}`, isAhead: true };
+    }
+    return { text: `+${timeStr}`, isAhead: false };
+  };
 
   // Tabs configuration
   const tabs = useMemo<SwipeableTab[]>(
@@ -281,17 +613,6 @@ export default function ActivityDetailScreen() {
     setSectionCreationMode(false);
   }, []);
 
-  // Get coordinates from streams or polyline
-  const coordinates = useMemo(() => {
-    if (streams?.latlng) {
-      return convertLatLngTuples(streams.latlng);
-    }
-    if (activity?.polyline) {
-      return decodePolyline(activity.polyline);
-    }
-    return [];
-  }, [streams?.latlng, activity?.polyline]);
-
   if (isLoading) {
     return (
       <ScreenSafeAreaView
@@ -350,6 +671,7 @@ export default function ActivityDetailScreen() {
             onSectionCreated={handleSectionCreated}
             onCreationCancelled={handleSectionCreationCancelled}
             routeOverlay={activeTab === "routes" ? routeOverlayCoordinates : null}
+            sectionOverlays={activeTab === "sections" ? sectionOverlays : null}
           />
         </View>
 
@@ -611,82 +933,186 @@ export default function ActivityDetailScreen() {
             <>
               {/* Auto-detected sections from engine */}
               {engineSectionMatches.map((match) => (
-                <TouchableOpacity
-                  key={`engine-${match.section.id}`}
-                  style={[styles.sectionCard, isDark && styles.cardDark]}
-                  onPress={() =>
-                    router.push(`/section/${match.section.id}` as Href)
-                  }
-                  activeOpacity={0.7}
-                >
-                  <View style={styles.sectionHeader}>
-                    <MaterialCommunityIcons
-                      name="road-variant"
-                      size={20}
-                      color={colors.primary}
-                    />
-                    <Text
-                      style={[styles.sectionName, isDark && styles.textLight]}
-                    >
-                      {match.section.name || t("routes.autoDetected")}
-                    </Text>
-                    <View
-                      style={[
-                        styles.autoDetectedBadge,
-                        isDark && styles.autoDetectedBadgeDark,
-                      ]}
-                    >
-                      <Text style={styles.autoDetectedText}>
-                        {t("routes.autoDetected")}
-                      </Text>
-                    </View>
-                  </View>
-                  <Text
-                    style={[styles.sectionMeta, isDark && styles.textMuted]}
+                  <TouchableOpacity
+                    key={`engine-${match.section.id}-${performanceDataReady}`}
+                    style={[styles.sectionCard, isDark && styles.cardDark]}
+                    onPress={() =>
+                      router.push(`/section/${match.section.id}` as Href)
+                    }
+                    activeOpacity={0.7}
                   >
-                    {formatDistance(match.distance)} ·{" "}
-                    {match.section.visitCount} {t("routes.visits")}
-                  </Text>
-                </TouchableOpacity>
+                    <View style={styles.sectionCardContent}>
+                      {/* Mini trace preview */}
+                      <View style={[styles.sectionPreview, isDark && styles.sectionPreviewDark]}>
+                        {(() => {
+                          const activityPortion = getActivityPortion(match.section.id, match.portion);
+                          return activityPortion && activityPortion.length > 1 ? (
+                            <MiniTraceView
+                              primaryPoints={activityPortion}
+                              primaryColor="#E91E63"
+                              referenceColor="#E91E63"
+                              size={48}
+                            />
+                          ) : (
+                            <MaterialCommunityIcons
+                              name="road-variant"
+                              size={24}
+                              color={colors.primary}
+                            />
+                          );
+                        })()}
+                      </View>
+
+                      {/* Section info */}
+                      <View style={styles.sectionInfo}>
+                        <View style={styles.sectionHeader}>
+                          <Text
+                            style={[styles.sectionName, isDark && styles.textLight]}
+                            numberOfLines={1}
+                          >
+                            {match.section.name || t("routes.autoDetected")}
+                          </Text>
+                          <View
+                            style={[
+                              styles.autoDetectedBadge,
+                              isDark && styles.autoDetectedBadgeDark,
+                            ]}
+                          >
+                            <Text style={styles.autoDetectedText}>
+                              {t("routes.autoDetected")}
+                            </Text>
+                          </View>
+                        </View>
+                        {(() => {
+                          const sectionTime = getSectionTime(match.portion);
+                          const bestTime = getSectionBestTime(match.section.id);
+                          const delta = sectionTime != null && bestTime != null
+                            ? formatTimeDelta(sectionTime, bestTime)
+                            : null;
+                          return (
+                            <>
+                              <Text
+                                style={[styles.sectionMeta, isDark && styles.textMuted]}
+                              >
+                                {formatDistance(match.distance)} ·{" "}
+                                {match.section.visitCount} {t("routes.visits")}
+                              </Text>
+                              {sectionTime != null && (
+                                <View style={styles.sectionTimeRow}>
+                                  <Text style={[styles.sectionTime, isDark && styles.textLight]}>
+                                    {formatSectionTime(sectionTime)} · {formatSectionPace(sectionTime, match.distance)}
+                                  </Text>
+                                  {delta && (
+                                    <Text style={[
+                                      styles.sectionDelta,
+                                      delta.isAhead ? styles.deltaAhead : styles.deltaBehind,
+                                    ]}>
+                                      {delta.text}
+                                    </Text>
+                                  )}
+                                </View>
+                              )}
+                            </>
+                          );
+                        })()}
+                      </View>
+                    </View>
+                  </TouchableOpacity>
               ))}
 
               {/* Custom sections */}
               {customMatchedSections.map((section) => (
-                <TouchableOpacity
-                  key={`custom-${section.id}`}
-                  style={[styles.sectionCard, isDark && styles.cardDark]}
-                  onPress={() => router.push(`/section/${section.id}` as Href)}
-                  activeOpacity={0.7}
-                >
-                  <View style={styles.sectionHeader}>
-                    <MaterialCommunityIcons
-                      name="road-variant"
-                      size={20}
-                      color={colors.primary}
-                    />
-                    <Text
-                      style={[styles.sectionName, isDark && styles.textLight]}
-                    >
-                      {section.name}
-                    </Text>
-                    <View
-                      style={[
-                        styles.customBadge,
-                        isDark && styles.customBadgeDark,
-                      ]}
-                    >
-                      <Text style={styles.customBadgeText}>
-                        {t("routes.custom")}
-                      </Text>
-                    </View>
-                  </View>
-                  <Text
-                    style={[styles.sectionMeta, isDark && styles.textMuted]}
+                  <TouchableOpacity
+                    key={`custom-${section.id}`}
+                    style={[styles.sectionCard, isDark && styles.cardDark]}
+                    onPress={() => router.push(`/section/${section.id}` as Href)}
+                    activeOpacity={0.7}
                   >
-                    {formatDistance(section.distanceMeters)} ·{" "}
-                    {section.matches.length} {t("routes.visits")}
-                  </Text>
-                </TouchableOpacity>
+                    <View style={styles.sectionCardContent}>
+                      {/* Mini trace preview */}
+                      <View style={[styles.sectionPreview, isDark && styles.sectionPreviewDark]}>
+                        {(() => {
+                          const activityMatch = section.matches.find((m) => m.activityId === id);
+                          // Use match indices, or section's original indices if this is source activity
+                          const portionIndices = activityMatch ?? (section.sourceActivityId === id ? section : undefined);
+                          const activityPortion = getActivityPortion(section.id, portionIndices);
+                          return activityPortion && activityPortion.length > 1 ? (
+                            <MiniTraceView
+                              primaryPoints={activityPortion}
+                              primaryColor="#9C27B0"
+                              referenceColor="#9C27B0"
+                              size={48}
+                            />
+                          ) : (
+                            <MaterialCommunityIcons
+                              name="road-variant"
+                              size={24}
+                              color={colors.primary}
+                            />
+                          );
+                        })()}
+                      </View>
+
+                      {/* Section info */}
+                      <View style={styles.sectionInfo}>
+                        <View style={styles.sectionHeader}>
+                          <Text
+                            style={[styles.sectionName, isDark && styles.textLight]}
+                            numberOfLines={1}
+                          >
+                            {section.name}
+                          </Text>
+                          <View
+                            style={[
+                              styles.customBadge,
+                              isDark && styles.customBadgeDark,
+                            ]}
+                          >
+                            <Text style={styles.customBadgeText}>
+                              {t("routes.custom")}
+                            </Text>
+                          </View>
+                        </View>
+                        {(() => {
+                          const activityMatch = section.matches.find((m) => m.activityId === id);
+                          // Use match or section's original indices for source activity
+                          const portionIndices = activityMatch ?? (section.sourceActivityId === id ? section : undefined);
+                          const sectionTime = getSectionTime(portionIndices);
+                          const bestTime = getSectionBestTime(section.id);
+                          const delta = sectionTime != null && bestTime != null
+                            ? formatTimeDelta(sectionTime, bestTime)
+                            : null;
+                          // Count visits: matches + 1 if this is the source activity
+                          const visitCount = section.matches.length + (section.sourceActivityId === id && !activityMatch ? 1 : 0);
+                          return (
+                            <>
+                              <Text
+                                style={[styles.sectionMeta, isDark && styles.textMuted]}
+                              >
+                                {formatDistance(section.distanceMeters)} ·{" "}
+                                {visitCount} {t("routes.visits")}
+                              </Text>
+                              {sectionTime != null && (
+                                <View style={styles.sectionTimeRow}>
+                                  <Text style={[styles.sectionTime, isDark && styles.textLight]}>
+                                    {formatSectionTime(sectionTime)} · {formatSectionPace(sectionTime, section.distanceMeters)}
+                                  </Text>
+                                  {delta && (
+                                    <Text style={[
+                                      styles.sectionDelta,
+                                      delta.isAhead ? styles.deltaAhead : styles.deltaBehind,
+                                    ]}>
+                                      {delta.text}
+                                    </Text>
+                                  )}
+                                </View>
+                              )}
+                            </>
+                          );
+                        })()}
+                      </View>
+                    </View>
+                  </TouchableOpacity>
               ))}
             </>
           ) : (
@@ -1128,7 +1554,52 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.textSecondary,
     marginTop: spacing.xs,
-    marginLeft: 28,
+  },
+  sectionTimeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 2,
+    gap: spacing.sm,
+  },
+  sectionTime: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: colors.textPrimary,
+  },
+  sectionDelta: {
+    fontSize: 14,
+    fontWeight: "700",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    overflow: "hidden",
+  },
+  deltaAhead: {
+    backgroundColor: "rgba(76, 175, 80, 0.15)",
+    color: "#4CAF50",
+  },
+  deltaBehind: {
+    backgroundColor: "rgba(244, 67, 54, 0.15)",
+    color: "#F44336",
+  },
+  sectionCardContent: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  sectionPreview: {
+    width: 48,
+    height: 48,
+    borderRadius: 8,
+    backgroundColor: "rgba(0, 0, 0, 0.03)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: spacing.md,
+  },
+  sectionPreviewDark: {
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
+  },
+  sectionInfo: {
+    flex: 1,
   },
   textMuted: {
     color: darkColors.textSecondary,
