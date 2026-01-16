@@ -47,14 +47,6 @@ jobs:
           node-version: "${{ env.NODE_VERSION }}"
           cache: "npm"
 
-      - name: Cache node_modules
-        uses: actions/cache@v4
-        with:
-          path: node_modules
-          key: node-modules-${{ runner.os }}-${{ hashFiles('**/package-lock.json') }}
-          restore-keys: |
-            node-modules-${{ runner.os }}-
-
       - name: Install dependencies
         run: npm ci
 
@@ -309,14 +301,6 @@ jobs:
           node-version: "${{ env.NODE_VERSION }}"
           cache: "npm"
 
-      - name: Cache node_modules
-        uses: actions/cache@v4
-        with:
-          path: node_modules
-          key: node-modules-${{ runner.os }}-${{ hashFiles('**/package-lock.json') }}
-          restore-keys: |
-            node-modules-${{ runner.os }}-
-
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
@@ -416,14 +400,11 @@ jobs:
         if: steps.android-prebuild-cache.outputs.cache-hit != 'true'
         run: npx expo prebuild --platform android
 
-      # Create Gradle init script to fix Maven Central 403 errors
-      # Forces all Maven Central requests through repo1.maven.org mirror
-      - name: Create Gradle init script for CI
+      # Install Gradle init script to fix Maven Central 403 errors
+      - name: Install Gradle init script
         run: |
           mkdir -p ~/.gradle
-          echo "ZGVmIHJlcG9VcmwgPSAiaHR0cHM6Ly9yZXBvMS5tYXZlbi5vcmcvbWF2ZW4yLyIKCmJlZm9yZVNldHRpbmdzIHsgc2V0dGluZ3MgLT4KICBzZXR0aW5ncy5wbHVnaW5NYW5hZ2VtZW50IHsKICAgIHJlcG9zaXRvcmllcyB7CiAgICAgIG1hdmVuIHsgdXJsID0gdXJpKHJlcG9VcmwpOyBuYW1lID0gIk1hdmVuQ2VudHJhbE1pcnJvciIgfQogICAgICBncmFkbGVQbHVnaW5Qb3J0YWwoKQogICAgICBnb29nbGUoKQogICAgfQogIH0KfQoKc2V0dGluZ3NFdmFsdWF0ZWQgeyBzZXR0aW5ncyAtPgogIHNldHRpbmdzLnBsdWdpbk1hbmFnZW1lbnQgewogICAgcmVwb3NpdG9yaWVzIHsKICAgICAgY2xlYXIoKQogICAgICBtYXZlbiB7IHVybCA9IHVyaShyZXBvVXJsKTsgbmFtZSA9ICJNYXZlbkNlbnRyYWxNaXJyb3IiIH0KICAgICAgZ3JhZGxlUGx1Z2luUG9ydGFsKCkKICAgICAgZ29vZ2xlKCkKICAgIH0KICB9Cn0KCmFsbHByb2plY3RzIHsKICBidWlsZHNjcmlwdCB7CiAgICByZXBvc2l0b3JpZXMgewogICAgICBtYXZlbiB7IHVybCA9IHVyaShyZXBvVXJsKTsgbmFtZSA9ICJNYXZlbkNlbnRyYWxNaXJyb3IiIH0KICAgICAgZ29vZ2xlKCkKICAgIH0KICB9CiAgcmVwb3NpdG9yaWVzIHsKICAgIG1hdmVuIHsgdXJsID0gdXJpKHJlcG9VcmwpOyBuYW1lID0gIk1hdmVuQ2VudHJhbE1pcnJvciIgfQogICAgZ29vZ2xlKCkKICB9Cn0K" | base64 -d > ~/.gradle/init.gradle
-          echo "=== init.gradle contents ==="
-          cat ~/.gradle/init.gradle
+          cp .github/ci-init.gradle ~/.gradle/init.gradle
 
       # Setup signing AFTER prebuild creates android/ directory
       - name: Setup signing
@@ -499,10 +480,17 @@ jobs:
           echo "✅ Cleaned dex archives"
 
       - name: Build Android APK
+        if: github.ref != 'refs/heads/main' && github.event_name != 'workflow_dispatch'
         env:
           RUST_PREBUILT: "true"
-        run: |
-          cd android && ./gradlew assembleRelease --no-daemon
+        run: cd android && ./gradlew assembleRelease --no-daemon
+
+      - name: Build Android APK + AAB
+        # Build both in single Gradle invocation on main (faster than separate builds)
+        if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
+        env:
+          RUST_PREBUILT: "true"
+        run: cd android && ./gradlew assembleRelease bundleRelease --no-daemon
 
       - name: Copy APK
         run: |
@@ -520,16 +508,6 @@ jobs:
           name: android-apk-${{ steps.version.outputs.filename }}
           path: artifacts/*.apk
           retention-days: 30
-
-      - name: Build AAB for Play Store
-        # Build AAB on main branch (needed for release artifact promotion)
-        if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
-        env:
-          RUST_PREBUILT: "true"
-        run: |
-          # Android folder and dependencies are already set up from APK build
-          # Just run Gradle to build the AAB
-          cd android && ./gradlew bundleRelease --no-daemon
 
       - name: Rename AAB
         if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
@@ -601,6 +579,7 @@ jobs:
     name: Build iOS App
     needs: [test, verify-signing]
     runs-on: macos-15
+    timeout-minutes: 90
     outputs:
       version: ${{ steps.version.outputs.version }}
       version_code: ${{ steps.version.outputs.version_code }}
@@ -653,14 +632,6 @@ jobs:
           node-version: "${{ env.NODE_VERSION }}"
           cache: "npm"
 
-      - name: Cache node_modules
-        uses: actions/cache@v4
-        with:
-          path: node_modules
-          key: node-modules-${{ runner.os }}-${{ hashFiles('**/package-lock.json') }}
-          restore-keys: |
-            node-modules-${{ runner.os }}-
-
       # ============================================
       # Download tracematch binaries
       # ============================================
@@ -699,7 +670,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ios
-          key: ios-prebuild-${{ runner.os }}-${{ hashFiles('app.json', 'package.json', 'plugins/**', 'expo-modules/**/*.json', 'modules/**/ios/**') }}
+          key: ios-prebuild-${{ runner.os }}-${{ hashFiles('app.json', 'package.json', 'package-lock.json', 'plugins/**', 'expo-modules/**/*.json', 'modules/**/ios/**') }}
           restore-keys: |
             ios-prebuild-${{ runner.os }}-
 
@@ -731,9 +702,11 @@ jobs:
           working-directory: fastlane
 
       - name: Install Pods
-        if: steps.ios-prebuild-cache.outputs.cache-hit != 'true'
         working-directory: ios
-        run: pod install
+        run: |
+          # Always run pod install - it's fast if nothing changed and ensures consistency
+          # This handles cases where prebuild cache hit but pods are stale
+          pod install
 
       # ============================================
       # iOS Signing (for IPA builds on main)
@@ -767,14 +740,67 @@ jobs:
         working-directory: fastlane
         run: bundle exec fastlane match appstore --readonly
 
+      # Start watchdog to print diagnostics if build goes silent
+      - name: Start build watchdog
+        if: steps.check_ios_signing.outputs.has_signing == 'true' && (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch')
+        run: |
+          # Watchdog prints system state every 5 minutes to help debug hangs
+          (
+            sleep 300  # Wait 5 min before first check
+            while true; do
+              echo ""
+              echo "========== WATCHDOG: $(date) =========="
+              echo "--- Active xcodebuild processes ---"
+              ps aux | grep -E 'xcodebuild|codesign' | grep -v grep || echo "No xcodebuild running"
+              echo "--- Memory usage ---"
+              vm_stat | head -10
+              echo "--- Disk usage ---"
+              df -h / | tail -1
+              echo "--- Last 5 lines of build log (if exists) ---"
+              tail -5 fastlane/artifacts/Veloq-Veloq.log 2>/dev/null || echo "No log yet"
+              echo "========================================"
+              sleep 300
+            done
+          ) &
+          echo $! > /tmp/watchdog.pid
+          echo "Watchdog started with PID $(cat /tmp/watchdog.pid)"
+
       - name: Build signed IPA
         if: steps.check_ios_signing.outputs.has_signing == 'true' && (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch')
+        timeout-minutes: 45
         env:
           MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
           MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
           FASTLANE_TEAM_ID: ${{ secrets.FASTLANE_TEAM_ID }}
         working-directory: fastlane
-        run: bundle exec fastlane ios build_release
+        run: |
+          echo "=== Starting IPA build at $(date) ==="
+          echo "--- System info ---"
+          sw_vers
+          xcodebuild -version
+          echo "--- Available disk space ---"
+          df -h /
+          echo "--- Starting fastlane ---"
+          bundle exec fastlane ios build_release
+          echo "=== Build completed at $(date) ==="
+
+      - name: Stop watchdog
+        if: always() && steps.check_ios_signing.outputs.has_signing == 'true' && (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch')
+        run: |
+          if [ -f /tmp/watchdog.pid ]; then
+            kill $(cat /tmp/watchdog.pid) 2>/dev/null || true
+            echo "Watchdog stopped"
+          fi
+
+      - name: Upload build logs on failure
+        if: failure() && steps.check_ios_signing.outputs.has_signing == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-build-logs-${{ steps.version.outputs.filename }}
+          path: |
+            fastlane/artifacts/*.log
+            ~/Library/Logs/gym/*.log
+          retention-days: 7
 
       - name: Rename IPA
         if: steps.check_ios_signing.outputs.has_signing == 'true' && (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch')
@@ -858,39 +884,5 @@ jobs:
         with:
           name: ios-ipa-${{ steps.version.outputs.filename }}
           path: artifacts/*.ipa
-          retention-days: 30
-
-      # ============================================
-      # iOS Simulator Build (always runs)
-      # ============================================
-      - name: Build iOS Simulator app
-        run: |
-          xcodebuild -workspace ios/veloq.xcworkspace \
-            -scheme Veloq \
-            -configuration Release \
-            -sdk iphonesimulator \
-            -arch x86_64 \
-            -derivedDataPath ios/build \
-            CODE_SIGNING_ALLOWED=NO \
-            2>&1 | tee build.log || (echo "=== Build failed, showing last 100 lines ===" && tail -100 build.log && exit 1)
-
-      - name: Package .app
-        run: |
-          mkdir -p artifacts
-          APP_PATH=$(find ios/build/Build/Products/Release-iphonesimulator -name "*.app" -type d | head -1)
-          if [ -n "$APP_PATH" ]; then
-            cd "$(dirname "$APP_PATH")"
-            zip -r "$GITHUB_WORKSPACE/artifacts/${{ steps.version.outputs.filename }}-ios-simulator.zip" "$(basename "$APP_PATH")"
-          else
-            echo "ERROR: No .app found!"
-            find ios/build -name "*.app" -type d
-            exit 1
-          fi
-
-      - name: Upload iOS artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: ios-simulator-${{ steps.version.outputs.filename }}
-          path: artifacts/*-ios-simulator.zip
           retention-days: 30
 

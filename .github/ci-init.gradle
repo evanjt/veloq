@@ -1,0 +1,39 @@
+// Gradle init script for CI builds
+// Forces Maven Central requests through repo1.maven.org to avoid 403 errors on GitHub Actions
+// See: https://github.com/gradle/gradle/issues/15406
+
+def repoUrl = "https://repo1.maven.org/maven2/"
+
+beforeSettings { settings ->
+  settings.pluginManagement {
+    repositories {
+      maven { url = uri(repoUrl); name = "MavenCentralMirror" }
+      gradlePluginPortal()
+      google()
+    }
+  }
+}
+
+settingsEvaluated { settings ->
+  settings.pluginManagement {
+    repositories {
+      clear()
+      maven { url = uri(repoUrl); name = "MavenCentralMirror" }
+      gradlePluginPortal()
+      google()
+    }
+  }
+}
+
+allprojects {
+  buildscript {
+    repositories {
+      maven { url = uri(repoUrl); name = "MavenCentralMirror" }
+      google()
+    }
+  }
+  repositories {
+    maven { url = uri(repoUrl); name = "MavenCentralMirror" }
+    google()
+  }
+}
