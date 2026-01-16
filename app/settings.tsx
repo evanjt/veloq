@@ -28,7 +28,12 @@ import {
 } from "@/hooks";
 import { TimelineSlider } from "@/components/maps";
 import { formatLocalDate } from "@/lib";
-import { estimateRoutesDatabaseSize, clearAllAppCaches } from "@/lib";
+import {
+  estimateRoutesDatabaseSize,
+  clearAllAppCaches,
+  getOfflineTileCacheSize,
+  clearOfflineTileCache,
+} from "@/lib";
 import {
   getThemePreference,
   setThemePreference,
@@ -38,6 +43,7 @@ import {
   useRouteSettings,
   useLanguageStore,
   useSyncDateRange,
+  useMapTileSettings,
   type ThemePreference,
   type PrimarySport,
 } from "@/providers";
@@ -318,6 +324,10 @@ export default function SettingsScreen() {
   const { settings: routeSettings, setEnabled: setRouteMatchingEnabled } =
     useRouteSettings();
 
+  // Map tile caching settings
+  const { settings: tileSettings, setEnabled: setTileCachingEnabled } =
+    useMapTileSettings();
+
   // TanStack Query cache for clearing and stats
   const queryClient = useQueryClient();
 
@@ -343,6 +353,9 @@ export default function SettingsScreen() {
     routes: 0,
   });
 
+  // Tile cache size state
+  const [tileCacheSize, setTileCacheSize] = useState<number>(0);
+
   // Fetch cache sizes on mount and when caches change
   // Note: callback is intentionally stable (no deps) - it always fetches fresh data
   const refreshCacheSizes = useCallback(async () => {
@@ -350,9 +363,16 @@ export default function SettingsScreen() {
     setCacheSizes({ routes });
   }, []);
 
+  // Fetch tile cache size
+  const refreshTileCacheSize = useCallback(async () => {
+    const size = await getOfflineTileCacheSize();
+    setTileCacheSize(size);
+  }, []);
+
   useEffect(() => {
     refreshCacheSizes();
-  }, [refreshCacheSizes, cacheStats.totalActivities, routeProcessedCount]);
+    refreshTileCacheSize();
+  }, [refreshCacheSizes, refreshTileCacheSize, cacheStats.totalActivities, routeProcessedCount]);
 
   // Get reset function from SyncDateRangeStore
   const resetSyncDateRange = useSyncDateRange((s) => s.reset);
@@ -413,6 +433,28 @@ export default function SettingsScreen() {
               await clearRouteCache();
               // Cache cleared via Rust engine
               refreshCacheSizes();
+            } catch {
+              Alert.alert(t("alerts.error"), t("alerts.failedToClear"));
+            }
+          },
+        },
+      ],
+    );
+  };
+
+  const handleClearTileCache = () => {
+    Alert.alert(
+      t("alerts.clearTileCacheTitle"),
+      t("alerts.clearTileCacheMessage"),
+      [
+        { text: t("common.cancel"), style: "cancel" },
+        {
+          text: t("alerts.clearReload"),
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await clearOfflineTileCache();
+              refreshTileCacheSize();
             } catch {
               Alert.alert(t("alerts.error"), t("alerts.failedToClear"));
             }
@@ -585,6 +627,93 @@ export default function SettingsScreen() {
               </Text>
             </View>
           )}
+        </View>
+
+        {/* Offline Maps Section */}
+        <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>
+          {t("settings.offlineMaps").toUpperCase()}
+        </Text>
+        <View style={[styles.section, isDark && styles.sectionDark]}>
+          {/* Toggle for tile caching */}
+          <View style={styles.toggleRow}>
+            <View style={styles.toggleInfo}>
+              <Text style={[styles.toggleLabel, isDark && styles.textLight]}>
+                {t("settings.cacheMapTiles")}
+              </Text>
+              <Text
+                style={[styles.toggleDescription, isDark && styles.textMuted]}
+              >
+                {t("settings.cacheMapTilesDescription")}
+              </Text>
+            </View>
+            <Switch
+              value={tileSettings.enabled}
+              onValueChange={setTileCachingEnabled}
+              color={colors.primary}
+            />
+          </View>
+
+          <View style={[styles.divider, isDark && styles.dividerDark]} />
+
+          {/* Cache size display */}
+          <View style={[styles.infoRow, isDark && styles.infoRowDark]}>
+            <Text style={[styles.infoLabel, isDark && styles.textMuted]}>
+              {t("settings.tileCache")}
+            </Text>
+            <Text style={[styles.infoValue, isDark && styles.textLight]}>
+              {tileSettings.enabled ? formatBytes(tileCacheSize) : "-"}
+            </Text>
+          </View>
+
+          {/* Clear tile cache button */}
+          <TouchableOpacity
+            style={[
+              styles.actionRow,
+              (!tileSettings.enabled || tileCacheSize === 0) &&
+                styles.actionRowDisabled,
+            ]}
+            onPress={
+              tileSettings.enabled && tileCacheSize > 0
+                ? handleClearTileCache
+                : undefined
+            }
+            disabled={!tileSettings.enabled || tileCacheSize === 0}
+            activeOpacity={
+              !tileSettings.enabled || tileCacheSize === 0 ? 1 : 0.2
+            }
+          >
+            <MaterialCommunityIcons
+              name="delete-outline"
+              size={22}
+              color={
+                !tileSettings.enabled || tileCacheSize === 0
+                  ? colors.textSecondary
+                  : colors.error
+              }
+            />
+            <Text
+              style={[
+                styles.actionText,
+                !tileSettings.enabled || tileCacheSize === 0
+                  ? styles.actionTextDisabled
+                  : styles.actionTextDanger,
+              ]}
+            >
+              {t("settings.clearTileCache")}
+            </Text>
+            <MaterialCommunityIcons
+              name="chevron-right"
+              size={20}
+              color={isDark ? darkColors.textMuted : colors.textSecondary}
+            />
+          </TouchableOpacity>
+
+          {/* Explanatory text */}
+          <Text style={[styles.infoTextInline, isDark && styles.textMuted]}>
+            {tileSettings.enabled
+              ? t("settings.tileCacheHint")
+              : t("settings.tileCacheDisabledHint")}
+          </Text>
         </View>
 
         {/* Data Cache Section - Consolidated */}

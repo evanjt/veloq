@@ -29,6 +29,7 @@ import {
   initializeLanguage,
   initializeSupersededSections,
   initializeDisabledSections,
+  initializeMapTileSettings,
 } from "@/providers";
 import { initializeI18n } from "@/i18n";
 import { lightTheme, darkTheme, colors, darkColors } from "@/theme";
@@ -181,6 +182,7 @@ export default function RootLayout() {
         initializeRouteSettings(),
         initializeSupersededSections(),
         initializeDisabledSections(),
+        initializeMapTileSettings(),
       ]);
     }
     initialize().finally(() => setAppReady(true));

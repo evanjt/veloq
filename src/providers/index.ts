@@ -65,3 +65,9 @@ export {
 export { useSyncDateRange, getSyncGeneration, type GpsSyncProgress } from './SyncDateRangeStore';
 export { NetworkProvider, useNetwork } from './NetworkContext';
 export { TopSafeAreaProvider, useTopSafeArea, useScreenSafeAreaEdges } from './TopSafeAreaContext';
+export {
+  useMapTileSettings,
+  isTileCachingEnabled,
+  initializeMapTileSettings,
+  MAX_TILE_CACHE_SIZE_MB,
+} from './MapTileSettingsStore';

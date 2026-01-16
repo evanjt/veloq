@@ -283,6 +283,13 @@ export interface TranslationResource {
     primarySportHintRunning: string;
     primarySportHintSwimming: string;
     maps: string;
+    offlineMaps: string;
+    cacheMapTiles: string;
+    cacheMapTilesDescription: string;
+    tileCache: string;
+    clearTileCache: string;
+    tileCacheHint: string;
+    tileCacheDisabledHint: string;
     defaultStyle: string;
     satellite: string;
     customiseByActivity: string;
@@ -339,6 +346,8 @@ export interface TranslationResource {
     clearReload: string;
     clearRouteCacheTitle: string;
     clearRouteCacheMessage: string;
+    clearTileCacheTitle: string;
+    clearTileCacheMessage: string;
     syncAllTitle: string;
     syncAllMessage: string;
     sync: string;
