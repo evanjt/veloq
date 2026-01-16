@@ -472,6 +472,9 @@ export interface TranslationResource {
     yearsAgo: string;
     current: string;
     now: string;
+    days: string;
+    months: string;
+    years: string;
   };
 
   units: {
@@ -632,11 +635,15 @@ export interface TranslationResource {
     sectionCreated: string;
     sectionCreatedDescription: string;
     sectionCreationFailed: string;
+    overDays: string;
+    overMonths: string;
+    overYears: string;
   };
 
   sections: {
     performanceOverTime: string;
     best: string;
+    current: string;
     same: string;
     reverse: string;
     scrubHint: string;
@@ -704,11 +711,14 @@ export interface TranslationResource {
     avgPower: string;
     tabs: {
       charts: string;
+      route: string;
       routes: string;
       sections: string;
     };
     noMatchedSections: string;
     noMatchedSectionsDescription: string;
+    noRouteMatch: string;
+    noRouteMatchDescription: string;
   };
 
   routeDetail: {

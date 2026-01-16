@@ -260,7 +260,10 @@
     "monthsAgo": "{{count}} måneder siden",
     "yearsAgo": "{{count}} år siden",
     "current": "Nuværende",
-    "now": "Nu"
+    "now": "Now",
+    "days": "Days",
+    "months": "Months",
+    "years": "Years"
   },
   "units": {
     "km": "km",

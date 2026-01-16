@@ -282,7 +282,10 @@
     "monthsAgo": "{{count}} mesi fa",
     "yearsAgo": "{{count}} anni fa",
     "current": "Attuale",
-    "now": "Ora"
+    "now": "Now",
+    "days": "Days",
+    "months": "Months",
+    "years": "Years"
   },
   "units": {
     "km": "km",

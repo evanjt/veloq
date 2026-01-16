@@ -282,7 +282,10 @@
     "monthsAgo": "{{count}} miesiecy temu",
     "yearsAgo": "{{count}} lat temu",
     "current": "Biezacy",
-    "now": "Teraz"
+    "now": "Now",
+    "days": "Days",
+    "months": "Months",
+    "years": "Years"
   },
   "units": {
     "km": "km",

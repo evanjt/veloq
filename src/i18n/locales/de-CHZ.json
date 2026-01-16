@@ -282,7 +282,10 @@
     "monthsAgo": "vor {{count}} Mönet",
     "yearsAgo": "vor {{count}} Jahr",
     "current": "Jetzt",
-    "now": "Jetzt grad"
+    "now": "Now",
+    "days": "Days",
+    "months": "Months",
+    "years": "Years"
   },
   "units": {
     "km": "km",

@@ -474,6 +474,7 @@
     "best": "PB",
     "bestPace": "Best pace",
     "bestSpeed": "Best speed",
+    "current": "Current",
     "date": "When",
     "noActivitiesFound": "No activities found, mate",
     "performanceOverTime": "How you're tracking",
@@ -640,7 +641,10 @@
     "today": "Today",
     "weeksAgo": "{{count}} weeks back",
     "yearsAgo": "{{count}} donkey's years back",
-    "yesterday": "Yesty"
+    "yesterday": "Yesty",
+    "days": "Days",
+    "months": "Months",
+    "years": "Years"
   },
   "trainingScreen": {
     "checkingActivities": "Checking {{count}} activities...",

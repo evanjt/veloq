@@ -289,7 +289,10 @@
     "monthsAgo": "{{count}} months ago",
     "yearsAgo": "{{count}} years ago",
     "current": "Current",
-    "now": "Now"
+    "now": "Now",
+    "days": "Days",
+    "months": "Months",
+    "years": "Years"
   },
   "units": {
     "km": "km",
@@ -449,11 +452,15 @@
     "defaultActivityName": "Activity {{number}}",
     "sectionCreated": "Section Created",
     "sectionCreatedDescription": "Your custom section has been created and activities have been matched",
-    "sectionCreationFailed": "Failed to create section. Please try again."
+    "sectionCreationFailed": "Failed to create section. Please try again.",
+    "overDays": "over {{count}} days",
+    "overMonths": "over {{count}} months",
+    "overYears": "over {{count}} years"
   },
   "sections": {
     "performanceOverTime": "Performance Over Time",
     "best": "Best",
+    "current": "Current",
     "same": "Same",
     "reverse": "Reverse",
     "scrubHint": "Hold to scrub through activities",
@@ -513,11 +520,14 @@
     "avgPower": "Avg Power",
     "tabs": {
       "charts": "Charts",
+      "route": "Route",
       "routes": "Routes",
       "sections": "Sections"
     },
     "noMatchedSections": "No matched sections",
-    "noMatchedSectionsDescription": "Sections matching this activity will appear here"
+    "noMatchedSectionsDescription": "Sections matching this activity will appear here",
+    "noRouteMatch": "No route match yet",
+    "noRouteMatchDescription": "Complete this route a few more times to start tracking your performance, or expand your timeline in Settings to include older activities."
   },
   "routeDetail": {
     "routeNotFound": "Route not found"

@@ -6,7 +6,7 @@
  * The key difference is the tooltip badge: routes show match %, sections show time.
  */
 
-import React, { useState, useRef, useMemo, useCallback } from 'react';
+import React, { useState, useRef, useMemo, useCallback, useEffect } from 'react';
 import { View, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -52,6 +52,10 @@ export interface ChartSummaryStats {
   avgTime: number | null;
   totalActivities: number;
   lastActivity: Date | null;
+  /** Current activity time - for activity detail context */
+  currentTime?: number | null;
+  /** Best activity date - for "Best On" display */
+  bestDate?: Date | null;
 }
 
 export interface UnifiedPerformanceChartProps {
@@ -77,6 +81,12 @@ export interface UnifiedPerformanceChartProps {
   selectedActivityId?: string | null;
   /** Optional summary stats to show in header */
   summaryStats?: ChartSummaryStats;
+  /** Index of current activity being viewed (for activity detail context) */
+  currentIndex?: number;
+  /** Variant: 'route' for route page, 'activity' for activity detail - affects stats display */
+  variant?: 'route' | 'activity';
+  /** When true, removes card styling (used when embedded in parent card) */
+  embedded?: boolean;
 }
 
 export function UnifiedPerformanceChart({
@@ -91,6 +101,9 @@ export function UnifiedPerformanceChart({
   onActivitySelect,
   selectedActivityId,
   summaryStats,
+  currentIndex,
+  variant = 'route',
+  embedded = false,
 }: UnifiedPerformanceChartProps) {
   const { t } = useTranslation();
   const showPace = isRunningActivity(activityType);
@@ -125,6 +138,15 @@ export function UnifiedPerformanceChart({
       scrollViewRef.current.scrollToEnd({ animated: false });
     }
   }, [needsScrolling]);
+
+  // Scroll to end on initial mount
+  useEffect(() => {
+    if (needsScrolling) {
+      // Small delay to ensure layout is complete
+      const timer = setTimeout(scrollToEnd, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [needsScrolling, scrollToEnd]);
 
   // Find currently selected index for highlighting
   const selectedIndex = useMemo(() => {
@@ -284,6 +306,25 @@ export function UnifiedPerformanceChart({
     return direction === 'reverse' ? REVERSE_COLOR : activityColor;
   };
 
+  // Calculate time range for display
+  const timeRangeDisplay = useMemo(() => {
+    if (chartData.length < 2) return null;
+    const firstDate = chartData[0].date;
+    const lastDate = chartData[chartData.length - 1].date;
+    const daysDiff = Math.round((lastDate.getTime() - firstDate.getTime()) / (1000 * 60 * 60 * 24));
+    if (daysDiff < 7) {
+      return null; // Don't show for very short spans
+    } else if (daysDiff < 60) {
+      return { value: `${daysDiff}`, label: t('time.days') };
+    } else if (daysDiff < 365) {
+      const months = Math.round(daysDiff / 30);
+      return { value: `${months}`, label: t('time.months') };
+    } else {
+      const years = Math.round((daysDiff / 365) * 10) / 10;
+      return { value: `${years}`, label: t('time.years') };
+    }
+  }, [chartData, t]);
+
   const chartContent = (
     <View style={[styles.chartInner, { width: chartWidth }]}>
       {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
@@ -292,7 +333,7 @@ export function UnifiedPerformanceChart({
         xKey={'x' as never}
         yKeys={['speed'] as never}
         domain={{ x: [-0.5, chartData.length - 0.5], y: [minSpeed, maxSpeed] }}
-        padding={{ left: 32, right: 24, top: 24, bottom: 18 }}
+        padding={{ left: 32, right: 24, top: 40, bottom: 18 }}
       >
         {
           (({ points, chartBounds }: any) => {
@@ -340,7 +381,9 @@ export function UnifiedPerformanceChart({
                   if (point.x == null || point.y == null) return null;
                   const isSelected = idx === selectedIndex;
                   const isBest = idx === bestIndex;
-                  if (isSelected || isBest) return null;
+                  const isCurrent = idx === currentIndex;
+                  // Skip special points - they'll be drawn last
+                  if (isSelected || isBest || isCurrent) return null;
                   const d = chartData[idx];
                   const pointColor = d ? getPointColor(d.direction) : activityColor;
                   return (
@@ -353,8 +396,9 @@ export function UnifiedPerformanceChart({
                     />
                   );
                 })}
-                {/* Best performance - gold */}
+                {/* Best performance - gold (if not also current or selected) */}
                 {bestIndex !== selectedIndex &&
+                  bestIndex !== currentIndex &&
                   points.speed[bestIndex] &&
                   points.speed[bestIndex].x != null &&
                   points.speed[bestIndex].y != null && (
@@ -373,7 +417,29 @@ export function UnifiedPerformanceChart({
                       />
                     </>
                   )}
-                {/* Selected activity - cyan */}
+                {/* Current activity - cyan (if not selected) */}
+                {currentIndex !== undefined &&
+                  currentIndex >= 0 &&
+                  currentIndex !== selectedIndex &&
+                  points.speed[currentIndex] &&
+                  points.speed[currentIndex].x != null &&
+                  points.speed[currentIndex].y != null && (
+                    <>
+                      <Circle
+                        cx={points.speed[currentIndex].x!}
+                        cy={points.speed[currentIndex].y!}
+                        r={9}
+                        color={colors.chartCyan}
+                      />
+                      <Circle
+                        cx={points.speed[currentIndex].x!}
+                        cy={points.speed[currentIndex].y!}
+                        r={4}
+                        color={colors.textOnDark}
+                      />
+                    </>
+                  )}
+                {/* Selected activity - cyan larger (scrubbing) */}
                 {selectedIndex >= 0 &&
                   points.speed[selectedIndex] &&
                   points.speed[selectedIndex].x != null &&
@@ -443,7 +509,7 @@ export function UnifiedPerformanceChart({
   );
 
   return (
-    <View style={[styles.chartCard, isDark && styles.chartCardDark]}>
+    <View style={[!embedded && styles.chartCard, !embedded && isDark && styles.chartCardDark]}>
       {/* Compact header with title + summary stats */}
       <View style={styles.chartHeader}>
         <View style={styles.headerTop}>
@@ -451,6 +517,14 @@ export function UnifiedPerformanceChart({
             {t('sections.performanceOverTime')}
           </Text>
           <View style={styles.chartLegend}>
+            {variant === 'activity' && currentIndex !== undefined && currentIndex >= 0 && (
+              <View style={styles.legendItem}>
+                <View style={[styles.legendDot, { backgroundColor: colors.chartCyan }]} />
+                <Text style={[styles.legendText, isDark && styles.textMuted]}>
+                  {t('sections.current')}
+                </Text>
+              </View>
+            )}
             <View style={styles.legendItem}>
               <View style={[styles.legendDot, { backgroundColor: colors.chartGold }]} />
               <Text style={[styles.legendText, isDark && styles.textMuted]}>
@@ -467,8 +541,8 @@ export function UnifiedPerformanceChart({
             )}
           </View>
         </View>
-        {/* Compact summary stats row */}
-        {summaryStats && summaryStats.totalActivities > 0 && (
+        {/* Compact summary stats row - different layout for route vs activity variant */}
+        {summaryStats && summaryStats.totalActivities > 0 && variant === 'route' && (
           <View style={styles.summaryRow}>
             <View style={styles.summaryItem}>
               <Text style={[styles.summaryValue, { color: colors.chartGold }]}>
@@ -486,7 +560,9 @@ export function UnifiedPerformanceChart({
               <Text style={[styles.summaryValue, isDark && styles.textLight]}>
                 {summaryStats.totalActivities}
               </Text>
-              <Text style={[styles.summaryLabel, isDark && styles.textMuted]}>Total</Text>
+              <Text style={[styles.summaryLabel, isDark && styles.textMuted]}>
+                {timeRangeDisplay ? timeRangeDisplay.label : 'Total'}
+              </Text>
             </View>
             <View style={styles.summaryItem}>
               <Text style={[styles.summaryValue, isDark && styles.textLight]}>
@@ -494,6 +570,39 @@ export function UnifiedPerformanceChart({
               </Text>
               <Text style={[styles.summaryLabel, isDark && styles.textMuted]}>Last</Text>
             </View>
+          </View>
+        )}
+        {/* Activity variant: Current, Best, Best On, Time Range */}
+        {summaryStats && summaryStats.totalActivities > 0 && variant === 'activity' && (
+          <View style={styles.summaryRow}>
+            <View style={styles.summaryItem}>
+              <Text style={[styles.summaryValue, { color: colors.chartCyan }]}>
+                {summaryStats.currentTime ? formatDuration(summaryStats.currentTime) : '-'}
+              </Text>
+              <Text style={[styles.summaryLabel, isDark && styles.textMuted]}>Current</Text>
+            </View>
+            <View style={styles.summaryItem}>
+              <Text style={[styles.summaryValue, { color: colors.chartGold }]}>
+                {summaryStats.bestTime ? formatDuration(summaryStats.bestTime) : '-'}
+              </Text>
+              <Text style={[styles.summaryLabel, isDark && styles.textMuted]}>Best</Text>
+            </View>
+            <View style={styles.summaryItem}>
+              <Text style={[styles.summaryValue, isDark && styles.textLight]}>
+                {summaryStats.bestDate ? formatShortDate(summaryStats.bestDate) : '-'}
+              </Text>
+              <Text style={[styles.summaryLabel, isDark && styles.textMuted]}>Best On</Text>
+            </View>
+            {timeRangeDisplay && (
+              <View style={styles.summaryItem}>
+                <Text style={[styles.summaryValue, isDark && styles.textLight]}>
+                  {timeRangeDisplay.value}
+                </Text>
+                <Text style={[styles.summaryLabel, isDark && styles.textMuted]}>
+                  {timeRangeDisplay.label}
+                </Text>
+              </View>
+            )}
           </View>
         )}
       </View>
@@ -590,7 +699,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderRadius: 12,
     marginTop: 12,
-    overflow: 'hidden',
+    paddingTop: 8,
   },
   chartCardDark: {
     backgroundColor: darkColors.surfaceCard,
@@ -609,6 +718,10 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: colors.textPrimary,
+  },
+  timeRangeText: {
+    fontSize: 11,
+    color: colors.textMuted,
   },
   chartLegend: {
     flexDirection: 'row',
@@ -652,14 +765,16 @@ const styles = StyleSheet.create({
   },
   chartContainer: {
     height: CHART_HEIGHT,
+    overflow: 'visible',
   },
   chartInner: {
     height: CHART_HEIGHT,
     position: 'relative',
+    overflow: 'visible',
   },
   crosshair: {
     position: 'absolute',
-    top: 24,
+    top: 40,
     bottom: 18,
     width: 1,
     backgroundColor: 'rgba(0, 188, 212, 0.5)',
@@ -670,7 +785,7 @@ const styles = StyleSheet.create({
   yAxisOverlay: {
     position: 'absolute',
     left: 4,
-    top: 24,
+    top: 40,
     bottom: 18,
     justifyContent: 'space-between',
   },

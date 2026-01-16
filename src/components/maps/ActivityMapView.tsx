@@ -185,6 +185,8 @@ interface ActivityMapViewProps {
   onSectionCreated?: (result: SectionCreationResult) => void;
   /** Called when section creation is cancelled */
   onCreationCancelled?: () => void;
+  /** Route overlay coordinates to show (e.g., matched route trace) */
+  routeOverlay?: LatLng[] | null;
 }
 
 export function ActivityMapView({
@@ -200,6 +202,7 @@ export function ActivityMapView({
   creationMode = false,
   onSectionCreated,
   onCreationCancelled,
+  routeOverlay,
 }: ActivityMapViewProps) {
   const { getStyleForActivity } = useMapPreferences();
   const preferredStyle = getStyleForActivity(activityType);
@@ -479,6 +482,21 @@ export function ActivityMapView({
     };
   }, [validCoordinates]);
 
+  // Route overlay GeoJSON (for showing matched route trace)
+  const overlayGeoJSON = useMemo(() => {
+    if (!routeOverlay || routeOverlay.length < 2) return null;
+    const validOverlay = routeOverlay.filter((c) => !isNaN(c.latitude) && !isNaN(c.longitude));
+    if (validOverlay.length < 2) return null;
+    return {
+      type: 'Feature' as const,
+      properties: {},
+      geometry: {
+        type: 'LineString' as const,
+        coordinates: validOverlay.map((c) => [c.longitude, c.latitude]),
+      },
+    };
+  }, [routeOverlay]);
+
   // Route coordinates for BaseMapView/Map3DWebView [lng, lat] format
   const routeCoords = useMemo(() => {
     return validCoordinates.map((c) => [c.longitude, c.latitude] as [number, number]);
@@ -588,6 +606,22 @@ export function ActivityMapView({
               animationDuration={0}
             />
 
+            {/* Route overlay (matched route trace) - rendered first so activity line is on top */}
+            {overlayGeoJSON && (
+              <ShapeSource id="overlaySource" shape={overlayGeoJSON}>
+                <LineLayer
+                  id="overlayLine"
+                  style={{
+                    lineColor: '#00E5FF',
+                    lineWidth: 5,
+                    lineCap: 'round',
+                    lineJoin: 'round',
+                    lineOpacity: 0.5,
+                  }}
+                />
+              </ShapeSource>
+            )}
+
             {/* Route line */}
             {routeGeoJSON && (
               <ShapeSource id="routeSource" shape={routeGeoJSON}>
@@ -598,6 +632,7 @@ export function ActivityMapView({
                     lineWidth: 4,
                     lineCap: 'round',
                     lineJoin: 'round',
+                    lineOpacity: overlayGeoJSON ? 0.85 : 1,
                   }}
                 />
               </ShapeSource>
@@ -705,6 +740,20 @@ export function ActivityMapView({
                 ? `${MAP_ATTRIBUTIONS[mapStyle]} | ${TERRAIN_ATTRIBUTION}`
                 : MAP_ATTRIBUTIONS[mapStyle]}
             </Text>
+          </View>
+        )}
+
+        {/* Route overlay legend */}
+        {overlayGeoJSON && !isFullscreen && (
+          <View style={styles.overlayLegend}>
+            <View style={styles.legendRow}>
+              <View style={[styles.legendLine, { backgroundColor: '#00E5FF' }]} />
+              <Text style={styles.legendText}>Route</Text>
+            </View>
+            <View style={styles.legendRow}>
+              <View style={[styles.legendLine, { backgroundColor: activityColor }]} />
+              <Text style={styles.legendText}>This activity</Text>
+            </View>
           </View>
         )}
       </View>
@@ -946,5 +995,31 @@ const styles = StyleSheet.create({
   attributionText: {
     fontSize: 8,
     color: colors.textSecondary,
+  },
+  overlayLegend: {
+    position: 'absolute',
+    bottom: spacing.sm + 36,
+    right: spacing.sm,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: spacing.sm,
+    zIndex: 10,
+    gap: 4,
+  },
+  legendRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  legendLine: {
+    width: 16,
+    height: 3,
+    borderRadius: 2,
+  },
+  legendText: {
+    fontSize: 11,
+    color: colors.textOnDark,
+    fontWeight: '500',
   },
 });

@@ -262,7 +262,10 @@
     "monthsAgo": "Il y a {{count}} mois",
     "yearsAgo": "Il y a {{count}} ans",
     "current": "Actuel",
-    "now": "Maintenant"
+    "now": "Maintenant",
+    "days": "jours",
+    "months": "mois",
+    "years": "ans"
   },
   "units": {
     "km": "km",
@@ -422,11 +425,15 @@
     "defaultActivityName": "Activité {{number}}",
     "sectionCreated": "Section créée",
     "sectionCreatedDescription": "Votre section personnalisée a été créée et les activités ont été associées",
-    "sectionCreationFailed": "Échec de la création de la section. Veuillez réessayer."
+    "sectionCreationFailed": "Échec de la création de la section. Veuillez réessayer.",
+    "overDays": "sur {{count}} jours",
+    "overMonths": "sur {{count}} mois",
+    "overYears": "sur {{count}} ans"
   },
   "sections": {
     "performanceOverTime": "Performance au Fil du Temps",
     "best": "Meilleur",
+    "current": "Actuel",
     "same": "Même sens",
     "reverse": "Sens inverse",
     "scrubHint": "Maintenez pour parcourir les activités",
@@ -486,11 +493,14 @@
     "avgPower": "Puiss Moy",
     "tabs": {
       "charts": "Graphiques",
+      "route": "Parcours",
       "routes": "Parcours",
       "sections": "Sections"
     },
     "noMatchedSections": "Aucune section correspondante",
-    "noMatchedSectionsDescription": "Les sections correspondant à cette activité apparaîtront ici"
+    "noMatchedSectionsDescription": "Les sections correspondant à cette activité apparaîtront ici",
+    "noRouteMatch": "Pas encore de correspondance",
+    "noRouteMatchDescription": "Effectuez ce parcours quelques fois de plus pour suivre vos performances, ou élargissez votre période dans les Paramètres."
   },
   "routeDetail": {
     "routeNotFound": "Itinéraire non trouvé"
