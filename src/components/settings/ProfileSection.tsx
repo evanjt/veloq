@@ -5,7 +5,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as WebBrowser from 'expo-web-browser';
 import { colors, darkColors, spacing } from '@/theme';
 import { getAthleteId } from '@/api';
-import { useAthlete } from '@/hooks';
+import { useAuthStore } from '@/providers';
 
 interface Athlete {
   name?: string;
@@ -20,18 +20,41 @@ interface ProfileSectionProps {
 export function ProfileSection({ athlete }: ProfileSectionProps) {
   const { isDark } = useTheme();
   const [profileImageError, setProfileImageError] = useState(false);
+  const authMethod = useAuthStore((state) => state.authMethod);
 
   const profileUrl = athlete?.profile_medium || athlete?.profile;
   const hasValidProfileUrl =
     profileUrl && typeof profileUrl === 'string' && profileUrl.startsWith('http');
 
+  // Get auth method badge text
+  const getAuthBadge = (): string => {
+    switch (authMethod) {
+      case 'oauth':
+        return 'OAuth';
+      case 'apiKey':
+        return 'API key';
+      case 'demo':
+        return 'Demo mode';
+      default:
+        return '';
+    }
+  };
+
+  const isDemo = authMethod === 'demo';
+
   return (
     <TouchableOpacity
       style={[styles.section, isDark && styles.sectionDark]}
-      onPress={() =>
-        WebBrowser.openBrowserAsync(`https://intervals.icu/athlete/${getAthleteId()}/activities`)
+      onPress={
+        isDemo
+          ? undefined
+          : () =>
+              WebBrowser.openBrowserAsync(
+                `https://intervals.icu/athlete/${getAthleteId()}/activities`
+              )
       }
-      activeOpacity={0.7}
+      activeOpacity={isDemo ? 1 : 0.7}
+      disabled={isDemo}
     >
       <View style={styles.profileRow}>
         <View style={[styles.profilePhoto, isDark && styles.profilePhotoDark]}>
@@ -50,13 +73,17 @@ export function ProfileSection({ athlete }: ProfileSectionProps) {
           <Text style={[styles.profileName, isDark && styles.textLight]}>
             {athlete?.name || 'Athlete'}
           </Text>
-          <Text style={[styles.profileEmail, isDark && styles.textMuted]}>intervals.icu</Text>
+          <Text style={[styles.profileEmail, isDark && styles.textMuted]}>
+            {authMethod === 'demo' ? getAuthBadge() : `intervals.icu · ${getAuthBadge()}`}
+          </Text>
         </View>
-        <MaterialCommunityIcons
-          name="chevron-right"
-          size={24}
-          color={isDark ? darkColors.textMuted : colors.textSecondary}
-        />
+        {!isDemo && (
+          <MaterialCommunityIcons
+            name="chevron-right"
+            size={24}
+            color={isDark ? darkColors.textMuted : colors.textSecondary}
+          />
+        )}
       </View>
     </TouchableOpacity>
   );

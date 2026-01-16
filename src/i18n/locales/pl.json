@@ -518,9 +518,7 @@
   "attribution": {
     "recordedWith": "Zarejestrowane za pomoca {{device}}",
     "garminTrademark": "Garmin i logo Garmin sa znakami towarowymi Garmin Ltd.",
-    "demoData": "Tryb demo uzywa prawdziwych tras aktywności z otwartych zbiorow danych.",
-    "osm": "Wspoltworcy OpenStreetMap",
-    "osmLicense": "Dane tras na licencji Open Database License (ODbL)"
+    "demoData": "Tryb demo uzywa prawdziwych sladow aktywnosci. Uzyte za zgoda autora."
   },
   "stats": {
     "activityCalendar": "Kalendarz aktywnosci",

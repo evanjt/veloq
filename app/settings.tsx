@@ -223,9 +223,21 @@ export default function SettingsScreen() {
   const isFetchingExtended = useSyncDateRange((s) => s.isFetchingExtended);
   const isGpsSyncing = useSyncDateRange((s) => s.isGpsSyncing);
 
-  // Timeline slider state
-  const [startDate, setStartDate] = useState<Date>(() => new Date(syncOldest));
-  const [endDate, setEndDate] = useState<Date>(() => new Date(syncNewest));
+  // Timeline slider state - reflects actual cached data range
+  // Start date tracks the oldest loaded activity date (only expands left)
+  // End date is always "now" (fixed at right edge)
+  const cachedStartDate = useMemo(() => {
+    if (cacheStats.oldestDate) {
+      return new Date(cacheStats.oldestDate);
+    }
+    // Fallback to sync store oldest if no cached data yet
+    return new Date(syncOldest);
+  }, [cacheStats.oldestDate, syncOldest]);
+
+  const cachedEndDate = useMemo(() => {
+    // End date is always now (today) - fixed at right edge
+    return new Date();
+  }, []);
 
   // Combined syncing state
   const isSyncing =
@@ -262,23 +274,16 @@ export default function SettingsScreen() {
   }, [apiOldestDate, allActivities]);
 
   // Handle date range change from timeline slider
-  // Only allow expansion - start can only go earlier, end can only go later
+  // Only allow expansion - start can only go earlier (left), end is fixed at "now"
   const handleRangeChange = useCallback(
-    (start: Date, end: Date) => {
-      // Only expand, never contract
-      const newStart = start < startDate ? start : startDate;
-      const newEnd = end > endDate ? end : endDate;
-
-      // Only update if actually expanded
-      if (newStart < startDate || newEnd > endDate) {
-        setStartDate(newStart);
-        setEndDate(newEnd);
-
-        // Trigger sync for the expanded date range
-        syncDateRange(formatLocalDate(newStart), formatLocalDate(newEnd));
+    (start: Date, _end: Date) => {
+      // Only allow expansion to earlier dates
+      if (start < cachedStartDate) {
+        // Trigger sync for the expanded date range (end is always "now")
+        syncDateRange(formatLocalDate(start), formatLocalDate(new Date()));
       }
     },
-    [syncDateRange, startDate, endDate],
+    [syncDateRange, cachedStartDate],
   );
 
   // Route matching cache
@@ -348,19 +353,12 @@ export default function SettingsScreen() {
             // 1. FIRST: Reset sync date range to 90 days (locks expansion)
             resetSyncDateRange();
 
-            // 2. Reset local slider state to 90 days
-            const today = new Date();
-            const ninetyDaysAgo = new Date(today);
-            ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
-            setStartDate(ninetyDaysAgo);
-            setEndDate(today);
-
-            // 3. Clear GPS/bounds cache and route cache
+            // 2. Clear GPS/bounds cache and route cache
             // Note: clearCache() already calls engine.clear(), so don't call clearRouteCache()
             // as that would emit a second 'syncReset' event and trigger duplicate syncs
             await clearCache();
 
-            // 4. REMOVE queries entirely (not just clear) - prevents old date ranges persisting
+            // 3. REMOVE queries entirely (not just clear) - prevents old date ranges persisting
             queryClient.removeQueries({ queryKey: ["activities"] });
             queryClient.removeQueries({ queryKey: ["wellness"] });
             queryClient.removeQueries({ queryKey: ["powerCurve"] });
@@ -368,7 +366,7 @@ export default function SettingsScreen() {
             queryClient.removeQueries({ queryKey: ["athlete"] });
             await AsyncStorage.removeItem("veloq-query-cache");
 
-            // 5. Refetch with new 90-day range
+            // 4. Refetch with new 90-day range
             // Note: GlobalDataSync automatically triggers GPS sync when activities are refetched
             queryClient.refetchQueries({ queryKey: ["activities"] });
             queryClient.refetchQueries({ queryKey: ["wellness"] });
@@ -615,11 +613,12 @@ export default function SettingsScreen() {
           )}
 
           {/* Timeline Slider for date range selection - simplified for settings */}
+          {/* fixedEnd: right handle locked at "now", expandOnly: left handle can only move left */}
           <TimelineSlider
             minDate={minDateForSlider}
             maxDate={maxDateForSlider}
-            startDate={startDate}
-            endDate={endDate}
+            startDate={cachedStartDate}
+            endDate={cachedEndDate}
             onRangeChange={handleRangeChange}
             isLoading={isSyncing}
             activityCount={cacheStats.totalActivities}
@@ -630,6 +629,8 @@ export default function SettingsScreen() {
             showActivityFilter={false}
             showCachedRange={false}
             showLegend={false}
+            fixedEnd={true}
+            expandOnly={true}
           />
 
           <View style={[styles.divider, isDark && styles.dividerDark]} />
@@ -969,42 +970,6 @@ export default function SettingsScreen() {
                   style={[styles.dataSourcesText, isDark && styles.textMuted]}
                 >
                   {t("attribution.demoData")}
-                </Text>
-                <TouchableOpacity
-                  onPress={() =>
-                    WebBrowser.openBrowserAsync(
-                      "https://www.openstreetmap.org/copyright",
-                    )
-                  }
-                  activeOpacity={0.7}
-                >
-                  <View style={styles.dataSourceItem}>
-                    <MaterialCommunityIcons
-                      name="map-marker-path"
-                      size={20}
-                      color={colors.primary}
-                    />
-                    <Text
-                      style={[
-                        styles.dataSourceName,
-                        isDark && styles.textLight,
-                      ]}
-                    >
-                      {t("attribution.osm")}
-                    </Text>
-                    <MaterialCommunityIcons
-                      name="open-in-new"
-                      size={14}
-                      color={
-                        isDark ? darkColors.textMuted : colors.textSecondary
-                      }
-                    />
-                  </View>
-                </TouchableOpacity>
-                <Text
-                  style={[styles.trademarkText, isDark && styles.textMuted]}
-                >
-                  {t("attribution.osmLicense")}
                 </Text>
               </View>
             </View>

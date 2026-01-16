@@ -7,9 +7,9 @@ compatibility_date = "2024-01-01"
 # Then bind here or via Dashboard > Settings > Bindings
 
 # Required: Stores OAuth state parameters (CSRF protection) and rate limit counters
-# [[kv_namespaces]]
-# binding = "OAUTH_STATES"
-# id = "your-oauth-states-namespace-id"
+[[kv_namespaces]]
+binding = "OAUTH_STATES"
+id = "54c9bae1afed491e8cd0177102800b8d"
 
 # Secrets (set via Dashboard or `wrangler secret put`)
 # - INTERVALS_CLIENT_ID

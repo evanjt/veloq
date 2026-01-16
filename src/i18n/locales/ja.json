@@ -518,9 +518,7 @@
   "attribution": {
     "recordedWith": "{{device}}で記録",
     "garminTrademark": "GarminとGarminロゴはGarmin Ltd.の商標です。",
-    "demoData": "デモモードはオープンデータセットの実際のアクティビティルートを使用しています。",
-    "osm": "OpenStreetMap貢献者",
-    "osmLicense": "ルートデータはOpen Database License (ODbL)でライセンスされています"
+    "demoData": "デモモードは実際のアクティビティトレースを使用しています。作者の許可を得て使用しています。"
   },
   "stats": {
     "activityCalendar": "アクティビティカレンダー",

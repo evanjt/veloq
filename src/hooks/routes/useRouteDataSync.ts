@@ -177,6 +177,14 @@ export function useRouteDataSync(
           if (__DEV__) {
             console.warn('[RouteDataSync] Native module not available');
           }
+          if (isMountedRef.current) {
+            updateProgress({
+              status: 'complete',
+              completed: 0,
+              total: 0,
+              message: 'Native module unavailable',
+            });
+          }
           markSyncComplete();
           return;
         }
@@ -203,6 +211,15 @@ export function useRouteDataSync(
         if (withGps.length === 0) {
           if (__DEV__) {
             console.log('[RouteDataSync] No new activities to sync');
+          }
+          // Set complete status so lastSyncTimestamp is updated
+          if (isMountedRef.current) {
+            updateProgress({
+              status: 'complete',
+              completed: engineActivityIds.size,
+              total: engineActivityIds.size,
+              message: 'All activities synced',
+            });
           }
           markSyncComplete();
           return;

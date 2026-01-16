@@ -146,10 +146,8 @@
     "syncAllTitle": "Sync the lot"
   },
   "attribution": {
-    "demoData": "Demo mode uses real activity routes from open datasets.",
+    "demoData": "Demo mode uses real activity traces. Used with permission from the author.",
     "garminTrademark": "Garmin and the Garmin logo are trademarks of Garmin Ltd.",
-    "osm": "The legends at OpenStreetMap",
-    "osmLicense": "Route data under Open Database License (ODbL)",
     "recordedWith": "Tracked with {{device}}"
   },
   "cache": {

@@ -496,9 +496,7 @@
   "attribution": {
     "recordedWith": "Gravado com {{device}}",
     "garminTrademark": "Garmin e o logotipo Garmin sao marcas registradas da Garmin Ltd.",
-    "demoData": "O modo demo utiliza rotas de atividade reais de conjuntos de dados abertos.",
-    "osm": "Colaboradores OpenStreetMap",
-    "osmLicense": "Dados de rotas licenciados sob Open Database License (ODbL)"
+    "demoData": "O modo demo utiliza trajetos de atividade reais. Utilizados com permissao do autor."
   },
   "stats": {
     "activityCalendar": "Calendario de atividades",

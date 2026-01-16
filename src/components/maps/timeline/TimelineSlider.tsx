@@ -53,6 +53,10 @@ interface TimelineSliderProps {
   showCachedRange?: boolean;
   /** Show legend (default: true) */
   showLegend?: boolean;
+  /** Fix end handle at "now" - cannot be dragged (default: false) */
+  fixedEnd?: boolean;
+  /** Only allow start handle to move left (expand range, never contract) (default: false) */
+  expandOnly?: boolean;
 }
 
 // Larger touch area for handles
@@ -82,6 +86,8 @@ export function TimelineSlider({
   showActivityFilter = true,
   showCachedRange = true,
   showLegend = true,
+  fixedEnd = false,
+  expandOnly = false,
 }: TimelineSliderProps) {
   const { t } = useTranslation();
   const [trackWidth, setTrackWidth] = useState(0);
@@ -278,18 +284,21 @@ export function TimelineSlider({
       const snappedResult = snapToNearest(tapPosition);
       const targetPos = snappedResult.position;
 
+      // In expandOnly mode, only allow tapping to positions left of current start
+      if (expandOnly && targetPos >= startPos.value) {
+        return;
+      }
+
       if (targetPos >= endPos.value) {
-        startPos.value = targetPos;
-        endPos.value = 1;
-        triggerHaptic();
-        updateDatesFromPositions(targetPos, 1);
+        // Don't move past end position
+        return;
       } else {
         startPos.value = targetPos;
         triggerHaptic();
         updateDatesFromPositions(targetPos, endPos.value);
       }
     },
-    [trackWidth, snapToNearest, triggerHaptic, updateDatesFromPositions]
+    [trackWidth, snapToNearest, triggerHaptic, updateDatesFromPositions, expandOnly]
   );
 
   // Gestures
@@ -310,10 +319,14 @@ export function TimelineSlider({
     .onUpdate((e) => {
       if (trackWidth === 0) return;
       const delta = e.translationX / trackWidth;
-      const newPos = Math.max(
-        0,
-        Math.min(endPos.value - MIN_RANGE, startPosAtGestureStart.value + delta)
-      );
+      let newPos = startPosAtGestureStart.value + delta;
+
+      // In expandOnly mode, only allow moving left (lower position values)
+      if (expandOnly) {
+        newPos = Math.min(newPos, startPosAtGestureStart.value);
+      }
+
+      newPos = Math.max(0, Math.min(endPos.value - MIN_RANGE, newPos));
       startPos.value = newPos;
     })
     .onEnd(() => {
@@ -422,23 +435,39 @@ export function TimelineSlider({
 
             <Animated.View style={[styles.selectedRange, rangeStyle]} />
 
-            {/* Start handle */}
+            {/* Start handle - bracket style [ for expandable */}
             <GestureDetector gesture={startGesture}>
               <Animated.View style={[styles.handleContainer, startHandleStyle]}>
-                <View style={[styles.handle, isDark && styles.handleDark]}>
-                  <View style={styles.handleInner} />
-                </View>
+                {expandOnly ? (
+                  <View style={[styles.bracketHandle, isDark && styles.bracketHandleDark]}>
+                    <View style={[styles.bracketVertical, isDark && styles.bracketLineDark]} />
+                    <View style={[styles.bracketHorizontalTop, isDark && styles.bracketLineDark]} />
+                    <View
+                      style={[styles.bracketHorizontalBottom, isDark && styles.bracketLineDark]}
+                    />
+                  </View>
+                ) : (
+                  <View style={[styles.handle, isDark && styles.handleDark]}>
+                    <View style={styles.handleInner} />
+                  </View>
+                )}
               </Animated.View>
             </GestureDetector>
 
-            {/* End handle */}
-            <GestureDetector gesture={endGesture}>
+            {/* End handle - line style | for fixed, or circle for draggable */}
+            {!fixedEnd ? (
+              <GestureDetector gesture={endGesture}>
+                <Animated.View style={[styles.handleContainer, endHandleStyle]}>
+                  <View style={[styles.handle, isDark && styles.handleDark]}>
+                    <View style={styles.handleInner} />
+                  </View>
+                </Animated.View>
+              </GestureDetector>
+            ) : (
               <Animated.View style={[styles.handleContainer, endHandleStyle]}>
-                <View style={[styles.handle, isDark && styles.handleDark]}>
-                  <View style={styles.handleInner} />
-                </View>
+                <View style={[styles.lineHandle, isDark && styles.lineHandleDark]} />
               </Animated.View>
-            </GestureDetector>
+            )}
           </View>
         </GestureDetector>
 
@@ -552,6 +581,53 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
+    backgroundColor: colors.primary,
+  },
+  // Bracket handle [ for expandable start
+  bracketHandle: {
+    width: 20,
+    height: 24,
+    justifyContent: 'center',
+    alignItems: 'flex-start',
+  },
+  bracketVertical: {
+    position: 'absolute',
+    left: 4,
+    width: 3,
+    height: 24,
+    backgroundColor: colors.primary,
+    borderRadius: 1.5,
+  },
+  bracketHorizontalTop: {
+    position: 'absolute',
+    left: 4,
+    top: 0,
+    width: 10,
+    height: 3,
+    backgroundColor: colors.primary,
+    borderRadius: 1.5,
+  },
+  bracketHorizontalBottom: {
+    position: 'absolute',
+    left: 4,
+    bottom: 0,
+    width: 10,
+    height: 3,
+    backgroundColor: colors.primary,
+    borderRadius: 1.5,
+  },
+  bracketHandleDark: {},
+  bracketLineDark: {
+    backgroundColor: colors.primary,
+  },
+  // Line handle | for fixed end
+  lineHandle: {
+    width: 3,
+    height: 24,
+    backgroundColor: colors.primary,
+    borderRadius: 1.5,
+  },
+  lineHandleDark: {
     backgroundColor: colors.primary,
   },
   tickContainer: {

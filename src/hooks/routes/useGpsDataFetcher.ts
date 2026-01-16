@@ -324,8 +324,17 @@ export function useGpsDataFetcher() {
         return { syncedIds: [], withGpsCount: 0, message: 'Cancelled' };
       }
 
-      if (!creds?.apiKey) {
-        throw new Error('No API key available');
+      // Build auth header based on auth method
+      let authHeader: string;
+      if (creds.authMethod === 'oauth' && creds.accessToken) {
+        // OAuth: Bearer token
+        authHeader = `Bearer ${creds.accessToken}`;
+      } else if (creds.apiKey) {
+        // API key: Basic auth with "API_KEY" as username
+        const encoded = btoa(`API_KEY:${creds.apiKey}`);
+        authHeader = `Basic ${encoded}`;
+      } else {
+        throw new Error('No credentials available');
       }
 
       // Update progress
@@ -371,7 +380,7 @@ export function useGpsDataFetcher() {
 
         try {
           const batchResults = await nativeModule.fetchActivityMapsWithProgress(
-            creds.apiKey,
+            authHeader,
             batchIds,
             undefined // No callback - we update progress between batches
           );

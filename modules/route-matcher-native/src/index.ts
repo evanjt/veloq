@@ -247,15 +247,19 @@ export type EngineStats = PersistentEngineStats;
 /**
  * Fetch activity maps with progress reporting.
  * Uses the Rust callback interface for real-time progress updates.
+ *
+ * @param authHeader - Pre-formatted Authorization header value:
+ *   - For API key auth: "Basic {base64(API_KEY:key)}"
+ *   - For OAuth: "Bearer {access_token}"
  */
 export async function fetchActivityMapsWithProgress(
-  apiKey: string,
+  authHeader: string,
   activityIds: string[],
   onProgress?: (event: FetchProgressEvent) => void,
 ): Promise<FfiActivityMapResult[]> {
   if (!onProgress) {
     // No progress callback - use regular function
-    return fetchActivityMaps(apiKey, activityIds);
+    return fetchActivityMaps(authHeader, activityIds);
   }
 
   // Create callback adapter that conforms to FetchProgressCallback interface
@@ -266,7 +270,7 @@ export async function fetchActivityMapsWithProgress(
   };
 
   // Call the generated function with callback
-  return generatedFetchWithProgress(apiKey, activityIds, callback);
+  return generatedFetchWithProgress(authHeader, activityIds, callback);
 }
 
 /**
@@ -337,6 +341,8 @@ class RouteEngineClient {
   ): Promise<void> {
     persistentEngineAddActivities(activityIds, allCoords, offsets, sportTypes);
     this.notify("activities");
+    // Notify groups so UI can refresh route counts (groups are computed lazily)
+    this.notify("groups");
   }
 
   /**

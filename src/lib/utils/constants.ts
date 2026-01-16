@@ -94,7 +94,7 @@ export const API_DEFAULTS = {
  */
 export const OAUTH = {
   /** OAuth client ID (public - safe to embed in app) */
-  CLIENT_ID: '', // Set after David registers the app
+  CLIENT_ID: '182',
   /** OAuth proxy URL (Cloudflare Worker that holds client_secret) */
   PROXY_URL: 'https://auth.veloq.fit',
   /** intervals.icu authorization endpoint */
