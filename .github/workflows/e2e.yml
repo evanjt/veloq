@@ -224,6 +224,11 @@ jobs:
       - name: Install Pods
         run: cd ios && pod install
 
+      - name: Install applesimutils
+        run: |
+          brew tap wix/brew
+          brew install applesimutils
+
       - name: List available simulators
         run: xcrun simctl list devices available
 
