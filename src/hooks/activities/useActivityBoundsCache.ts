@@ -112,7 +112,15 @@ export function useActivityBoundsCache(
     status: 'idle',
   });
   const [isReady, setIsReady] = useState(true);
-  const [activityCount, setActivityCount] = useState(0);
+  // Initialize activity count synchronously from engine to avoid first-render returning empty
+  const [activityCount, setActivityCount] = useState(() => {
+    try {
+      const engine = getRouteEngine();
+      return engine ? engine.getActivityCount() : 0;
+    } catch {
+      return 0;
+    }
+  });
   const [cachedActivitiesVersion, setCachedActivitiesVersion] = useState(0);
   const queryClient = useQueryClient();
   const lastSyncTimestamp = useSyncDateRange((s) => s.lastSyncTimestamp);
@@ -267,16 +275,34 @@ export function useActivityBoundsCache(
   // Get activities with bounds from engine for map display
   const activities = useMemo<ActivityBoundsItem[]>(() => {
     // If no GPS activities, return empty
-    if (allGpsActivities.length === 0) return [];
+    if (allGpsActivities.length === 0) {
+      if (__DEV__) {
+        console.log('[ActivityBoundsCache] No GPS activities from cache');
+      }
+      return [];
+    }
 
     // Try to get bounds from engine
     const engine = getRouteEngine();
-    if (!engine || activityCount === 0) return [];
+    if (!engine || activityCount === 0) {
+      if (__DEV__) {
+        console.log(
+          `[ActivityBoundsCache] Engine check failed: engine=${!!engine}, activityCount=${activityCount}`
+        );
+      }
+      return [];
+    }
 
     try {
       const engineBounds = engine.getAllActivityBounds();
-      if (!engineBounds || engineBounds.size === 0) return [];
-
+      if (!engineBounds || engineBounds.size === 0) {
+        if (__DEV__) {
+          console.log(
+            `[ActivityBoundsCache] No bounds in engine: size=${engineBounds?.size ?? 'null'}`
+          );
+        }
+        return [];
+      }
       // Create lookup map for activity metadata
       const activityMap = new Map<string, Activity>();
       for (const a of allGpsActivities) {
@@ -284,23 +310,35 @@ export function useActivityBoundsCache(
       }
 
       // Merge engine bounds with cached metadata
-      // engineBounds is a Map<string, { minLat, maxLat, minLng, maxLng }>
-      // Convert to [[minLat, minLng], [maxLat, maxLng]] format
-      return Array.from(engineBounds.entries()).map(([id, b]): ActivityBoundsItem => {
+      // Only include activities that have metadata (are in the sync range)
+      // Activities without metadata would have empty dates, breaking date filtering
+      const result: ActivityBoundsItem[] = [];
+      for (const [id, b] of engineBounds.entries()) {
         const cached = activityMap.get(id);
-        return {
+        // Skip activities without metadata - they'd have invalid dates
+        if (!cached) continue;
+
+        result.push({
           id,
           bounds: [
             [b.minLat, b.minLng],
             [b.maxLat, b.maxLng],
           ],
-          type: (cached?.type || 'Ride') as ActivityBoundsItem['type'],
-          name: cached?.name || '',
-          date: cached?.start_date_local || '',
-          distance: cached?.distance || 0,
-          duration: cached?.moving_time || 0,
-        };
-      });
+          type: (cached.type || 'Ride') as ActivityBoundsItem['type'],
+          name: cached.name || '',
+          date: cached.start_date_local || '',
+          distance: cached.distance || 0,
+          duration: cached.moving_time || 0,
+        });
+      }
+
+      if (__DEV__) {
+        console.log(
+          `[ActivityBoundsCache] Returning ${result.length} activities with metadata (${engineBounds.size} in engine, ${allGpsActivities.length} in cache)`
+        );
+      }
+
+      return result;
     } catch {
       return [];
     }

@@ -103,13 +103,17 @@ export default function MapScreen() {
 
   // Filter activities by date range and type
   const filteredActivities = useMemo(() => {
-    return activities.filter((activity) => {
+    const result = activities.filter((activity) => {
       const activityDate = new Date(activity.date);
       const inDateRange = activityDate >= startDate && activityDate <= endDate;
       const matchesType =
         selectedTypes.size === 0 || selectedTypes.has(activity.type);
       return inDateRange && matchesType;
     });
+    if (__DEV__) {
+      console.log(`[MapScreen] Filtered: ${result.length}/${activities.length} activities (range: ${startDate.toISOString().slice(0,10)} to ${endDate.toISOString().slice(0,10)}, types: ${[...selectedTypes].join(',')})`);
+    }
+    return result;
   }, [activities, startDate, endDate, selectedTypes]);
 
   // Handle date range change
