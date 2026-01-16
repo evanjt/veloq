@@ -740,6 +740,28 @@ jobs:
         working-directory: fastlane
         run: bundle exec fastlane match appstore --readonly
 
+      # Unlock keychain and prevent auto-lock during build
+      # This fixes hangs when signing embedded frameworks like MapLibre
+      - name: Unlock keychain for signing
+        if: steps.check_ios_signing.outputs.has_signing == 'true' && (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch')
+        run: |
+          # Find the keychain that match created (usually login.keychain-db)
+          KEYCHAIN_PATH=~/Library/Keychains/login.keychain-db
+
+          # Unlock keychain (empty password on GitHub runners)
+          security unlock-keychain -p "" "$KEYCHAIN_PATH" 2>/dev/null || true
+
+          # Prevent keychain from auto-locking (set to no timeout)
+          security set-keychain-settings -t 3600 "$KEYCHAIN_PATH" 2>/dev/null || true
+
+          # Make it the default keychain for codesign
+          security default-keychain -s "$KEYCHAIN_PATH" 2>/dev/null || true
+
+          # Allow codesign to access keys without prompting
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "" "$KEYCHAIN_PATH" 2>/dev/null || true
+
+          echo "✅ Keychain configured for signing"
+
       # Start watchdog to print diagnostics if build goes silent
       - name: Start build watchdog
         if: steps.check_ios_signing.outputs.has_signing == 'true' && (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch')

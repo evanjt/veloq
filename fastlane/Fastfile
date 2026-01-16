@@ -83,7 +83,7 @@ platform :ios do
       clean: false,  # Don't clean - faster and avoids cache issues
       include_bitcode: false,
       buildlog_path: "artifacts",  # Save full xcodebuild log for debugging
-      xcargs: "-verbose"  # More detailed output
+      xcargs: "-verbose OTHER_CODE_SIGN_FLAGS='--keychain ~/Library/Keychains/login.keychain-db'"
     )
   end
 

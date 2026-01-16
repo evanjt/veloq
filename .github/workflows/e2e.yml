@@ -54,9 +54,28 @@ jobs:
 
       - name: Download tracematch binaries
         run: |
-          TRACEMATCH_VERSION=$(jq -r '.tracematchVersion' package.json)
-          curl -L "https://github.com/evanjt/tracematch/releases/download/v${TRACEMATCH_VERSION}/tracematch-android-${TRACEMATCH_VERSION}.zip" -o tracematch-android.zip
-          unzip -o tracematch-android.zip -d modules/route-matcher-native/android/src/main/
+          TRACEMATCH_VERSION=$(node -p "require('./package.json').tracematchVersion")
+          echo "=== Downloading tracematch v${TRACEMATCH_VERSION} ==="
+          RELEASE_URL="https://github.com/evanjt/tracematch/releases/download/${TRACEMATCH_VERSION}"
+
+          # Download Android binaries
+          curl -sL "${RELEASE_URL}/tracematch-android-${TRACEMATCH_VERSION}.zip" -o /tmp/android.zip
+          unzip -q /tmp/android.zip -d /tmp/tracematch
+
+          # Install .so files
+          mkdir -p modules/route-matcher-native/android/src/main/jniLibs
+          for arch in arm64-v8a armeabi-v7a x86_64 x86; do
+            mkdir -p "modules/route-matcher-native/android/src/main/jniLibs/$arch"
+            cp "/tmp/tracematch/android/jniLibs/$arch/libtracematch.so" \
+               "modules/route-matcher-native/android/src/main/jniLibs/$arch/"
+            echo "✓ Installed $arch"
+          done
+
+          # Install Kotlin bindings
+          mkdir -p modules/route-matcher-native/android/src/main/java/uniffi/tracematch
+          cp /tmp/tracematch/android/kotlin/uniffi/tracematch/tracematch.kt \
+             modules/route-matcher-native/android/src/main/java/uniffi/tracematch/
+          echo "✓ Installed Kotlin bindings"
 
       - name: Build Android app for Detox
         run: npm run e2e:build:android
@@ -119,9 +138,29 @@ jobs:
 
       - name: Download tracematch XCFramework
         run: |
-          TRACEMATCH_VERSION=$(jq -r '.tracematchVersion' package.json)
-          curl -L "https://github.com/evanjt/tracematch/releases/download/v${TRACEMATCH_VERSION}/tracematch-ios-${TRACEMATCH_VERSION}.zip" -o tracematch-ios.zip
-          unzip -o tracematch-ios.zip -d modules/route-matcher-native/ios/
+          TRACEMATCH_VERSION=$(node -p "require('./package.json').tracematchVersion")
+          echo "=== Downloading tracematch v${TRACEMATCH_VERSION} for iOS ==="
+          RELEASE_URL="https://github.com/evanjt/tracematch/releases/download/${TRACEMATCH_VERSION}"
+
+          # Download iOS binaries
+          curl -sL "${RELEASE_URL}/tracematch-ios-${TRACEMATCH_VERSION}.zip" -o /tmp/ios.zip
+          unzip -q /tmp/ios.zip -d /tmp/tracematch
+
+          # Install XCFramework
+          mkdir -p modules/route-matcher-native/ios/Frameworks
+          cp -r /tmp/tracematch/ios/RouteMatcherFFI.xcframework \
+                modules/route-matcher-native/ios/Frameworks/
+          echo "✓ Installed XCFramework"
+
+          # Install Swift bindings
+          mkdir -p modules/route-matcher-native/ios/Generated
+          cp /tmp/tracematch/ios/Generated/tracematch.swift \
+             modules/route-matcher-native/ios/Generated/
+          cp /tmp/tracematch/ios/Generated/tracematchFFI.h \
+             modules/route-matcher-native/ios/Generated/
+          cp /tmp/tracematch/ios/Generated/tracematchFFI.modulemap \
+             modules/route-matcher-native/ios/Generated/
+          echo "✓ Installed Swift bindings"
 
       - name: Cache CocoaPods
         uses: actions/cache@v4
