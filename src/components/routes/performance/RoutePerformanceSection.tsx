@@ -53,7 +53,8 @@ export function RoutePerformanceSection({
   const { isDark } = useTheme();
 
   // Fetch activities to pass to useRoutePerformances for building performance data
-  const { data: activities = [] } = useActivities();
+  // Need a long time range to capture all activities in the route group
+  const { data: activities = [] } = useActivities({ days: 365 * 3 });
 
   const { routeGroup, performances, isLoading, best, currentRank } = useRoutePerformances(
     activityId,
