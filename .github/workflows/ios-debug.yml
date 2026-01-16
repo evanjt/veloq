@@ -74,7 +74,52 @@ jobs:
         run: cd ios && pod install
 
       # ============================================
-      # Option 1: Dedicated Keychain (default)
+      # Verify secrets based on signing method
+      # ============================================
+      - name: Verify p12 secrets (apple-actions)
+        if: inputs.signing_method == 'apple-actions'
+        env:
+          IOS_DISTRIBUTION_CERT_P12: ${{ secrets.IOS_DISTRIBUTION_CERT_P12 }}
+          IOS_DISTRIBUTION_CERT_PASSWORD: ${{ secrets.IOS_DISTRIBUTION_CERT_PASSWORD }}
+        run: |
+          echo "=== Verifying p12 certificate secrets ==="
+          missing=()
+          [ -z "$IOS_DISTRIBUTION_CERT_P12" ] && missing+=("IOS_DISTRIBUTION_CERT_P12")
+          [ -z "$IOS_DISTRIBUTION_CERT_PASSWORD" ] && missing+=("IOS_DISTRIBUTION_CERT_PASSWORD")
+
+          if [ ${#missing[@]} -gt 0 ]; then
+            echo "::error::Missing secrets for apple-actions method: ${missing[*]}"
+            exit 1
+          fi
+
+          # Verify base64 decodes to valid p12
+          echo "$IOS_DISTRIBUTION_CERT_P12" | base64 -d > /tmp/test.p12 2>/dev/null || {
+            echo "::error::IOS_DISTRIBUTION_CERT_P12 is not valid base64"
+            exit 1
+          }
+
+          # Check file size (p12 should be at least a few KB)
+          SIZE=$(stat -f%z /tmp/test.p12 2>/dev/null || stat -c%s /tmp/test.p12)
+          echo "Certificate file size: $SIZE bytes"
+
+          if [ "$SIZE" -lt 1000 ]; then
+            echo "::error::p12 file too small ($SIZE bytes) - likely invalid"
+            rm /tmp/test.p12
+            exit 1
+          fi
+
+          # Try to read the p12 with the password
+          openssl pkcs12 -in /tmp/test.p12 -nokeys -passin pass:"$IOS_DISTRIBUTION_CERT_PASSWORD" -info 2>&1 | head -5 || {
+            echo "::error::Cannot read p12 file - password may be incorrect"
+            rm /tmp/test.p12
+            exit 1
+          }
+
+          rm /tmp/test.p12
+          echo "✅ p12 certificate and password verified"
+
+      # ============================================
+      # Option 1: Dedicated Keychain
       # ============================================
       - name: Setup SSH for Match
         if: inputs.signing_method == 'dedicated-keychain' || inputs.signing_method == ''
