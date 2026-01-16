@@ -15,14 +15,14 @@ module.exports = {
       binaryPath:
         'ios/build/Build/Products/Debug-iphonesimulator/Veloq.app',
       build:
-        'xcodebuild -workspace ios/Veloq.xcworkspace -scheme Veloq -configuration Debug -sdk iphonesimulator -derivedDataPath ios/build',
+        'xcodebuild -workspace ios/Veloq.xcworkspace -scheme Veloq -configuration Debug -sdk iphonesimulator -derivedDataPath ios/build CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO -quiet',
     },
     'ios.release': {
       type: 'ios.app',
       binaryPath:
         'ios/build/Build/Products/Release-iphonesimulator/Veloq.app',
       build:
-        'xcodebuild -workspace ios/Veloq.xcworkspace -scheme Veloq -configuration Release -sdk iphonesimulator -derivedDataPath ios/build',
+        'xcodebuild -workspace ios/Veloq.xcworkspace -scheme Veloq -configuration Release -sdk iphonesimulator -derivedDataPath ios/build CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO -quiet',
     },
     'android.debug': {
       type: 'android.apk',

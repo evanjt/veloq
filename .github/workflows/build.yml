@@ -778,30 +778,82 @@ jobs:
 
           echo "✅ Keychain configuration complete"
 
+      # Pre-build diagnostics to help debug signing issues
+      - name: Pre-build diagnostics
+        if: steps.check_ios_signing.outputs.has_signing == 'true' && (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch')
+        run: |
+          echo "=== Pre-build Diagnostics ==="
+
+          echo "--- System Info ---"
+          sw_vers
+          xcodebuild -version
+
+          echo "--- Disk Space ---"
+          df -h /
+
+          echo "--- Memory ---"
+          vm_stat | head -5
+
+          echo "--- Network: Testing Apple timestamp server connectivity ---"
+          # This is the server codesign contacts for timestamps
+          curl -sI --connect-timeout 5 https://timestamp.apple.com/ts01 && echo "✅ timestamp.apple.com reachable" || echo "⚠️ timestamp.apple.com NOT reachable (--timestamp=none should help)"
+
+          echo "--- Network: Testing Apple Developer services ---"
+          curl -sI --connect-timeout 5 https://developer.apple.com && echo "✅ developer.apple.com reachable" || echo "⚠️ developer.apple.com NOT reachable"
+
+          echo "--- Keychain: Signing identities ---"
+          security find-identity -v -p codesigning | head -10
+
+          echo "--- Checking for codesign binary ---"
+          which codesign
+          codesign --version 2>&1 || echo "codesign version not available"
+
+          echo "--- MapLibre framework location ---"
+          find ios/Pods -name "MapLibre*.framework" -o -name "Mapbox*.framework" 2>/dev/null | head -5 || echo "MapLibre not in Pods yet"
+
+          echo "=== End Pre-build Diagnostics ==="
+
       # Start watchdog to print diagnostics if build goes silent
       - name: Start build watchdog
         if: steps.check_ios_signing.outputs.has_signing == 'true' && (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch')
         run: |
-          # Watchdog prints system state every 5 minutes to help debug hangs
+          # Aggressive watchdog: checks every 60 seconds, detailed codesign monitoring
           (
-            sleep 300  # Wait 5 min before first check
+            sleep 60  # First check after 1 minute
             while true; do
               echo ""
               echo "========== WATCHDOG: $(date) =========="
-              echo "--- Active xcodebuild processes ---"
-              ps aux | grep -E 'xcodebuild|codesign' | grep -v grep || echo "No xcodebuild running"
-              echo "--- Memory usage ---"
-              vm_stat | head -10
+
+              echo "--- Active processes (xcodebuild, codesign, security) ---"
+              ps aux | grep -E 'xcodebuild|codesign|security' | grep -v grep || echo "No relevant processes"
+
+              echo "--- Codesign processes with full command line ---"
+              pgrep -fl codesign 2>/dev/null || echo "No codesign running"
+
+              echo "--- Open network connections from codesign ---"
+              lsof -i -n -P 2>/dev/null | grep -i codesign || echo "No codesign network connections"
+
+              echo "--- System load ---"
+              uptime
+
+              echo "--- Memory pressure ---"
+              memory_pressure 2>/dev/null || vm_stat | head -5
+
               echo "--- Disk usage ---"
               df -h / | tail -1
-              echo "--- Last 5 lines of build log (if exists) ---"
-              tail -5 fastlane/artifacts/Veloq-Veloq.log 2>/dev/null || echo "No log yet"
+
+              echo "--- Last 20 lines of build log ---"
+              tail -20 fastlane/artifacts/Veloq-Veloq.log 2>/dev/null || echo "No log yet"
+
+              echo "--- Checking for stuck codesign (running > 2 min) ---"
+              ps -eo pid,etime,command | grep codesign | grep -v grep || echo "No codesign process"
+
               echo "========================================"
-              sleep 300
+              sleep 60  # Check every minute
             done
           ) &
           echo $! > /tmp/watchdog.pid
-          echo "Watchdog started with PID $(cat /tmp/watchdog.pid)"
+          echo "Watchdog started with PID $(cat /tmp/watchdog.pid) - checking every 60s"
 
       - name: Build signed IPA
         if: steps.check_ios_signing.outputs.has_signing == 'true' && (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch')
@@ -813,11 +865,7 @@ jobs:
         working-directory: fastlane
         run: |
           echo "=== Starting IPA build at $(date) ==="
-          echo "--- System info ---"
-          sw_vers
-          xcodebuild -version
-          echo "--- Available disk space ---"
-          df -h /
+          echo "Build will use OTHER_CODE_SIGN_FLAGS='--timestamp=none' to avoid timestamp server hangs"
           echo "--- Starting fastlane ---"
           bundle exec fastlane ios build_release
           echo "=== Build completed at $(date) ==="
@@ -830,6 +878,34 @@ jobs:
             echo "Watchdog stopped"
           fi
 
+      - name: Capture diagnostic info on failure
+        if: failure() && steps.check_ios_signing.outputs.has_signing == 'true'
+        run: |
+          echo "=== Capturing failure diagnostics ==="
+          mkdir -p fastlane/artifacts/diagnostics
+
+          echo "--- Final process state ---" > fastlane/artifacts/diagnostics/processes.txt
+          ps aux >> fastlane/artifacts/diagnostics/processes.txt 2>&1
+
+          echo "--- Codesign processes ---" > fastlane/artifacts/diagnostics/codesign.txt
+          pgrep -fl codesign >> fastlane/artifacts/diagnostics/codesign.txt 2>&1 || echo "No codesign" >> fastlane/artifacts/diagnostics/codesign.txt
+
+          echo "--- Network connections ---" > fastlane/artifacts/diagnostics/network.txt
+          lsof -i -n -P >> fastlane/artifacts/diagnostics/network.txt 2>&1 || echo "lsof failed" >> fastlane/artifacts/diagnostics/network.txt
+
+          echo "--- System log (last 100 lines) ---" > fastlane/artifacts/diagnostics/system.log
+          log show --last 5m --predicate 'process == "codesign" OR process == "xcodebuild"' >> fastlane/artifacts/diagnostics/system.log 2>&1 || echo "log show failed" >> fastlane/artifacts/diagnostics/system.log
+
+          echo "--- Keychain state ---" > fastlane/artifacts/diagnostics/keychain.txt
+          security list-keychains >> fastlane/artifacts/diagnostics/keychain.txt 2>&1
+          security find-identity -v -p codesigning >> fastlane/artifacts/diagnostics/keychain.txt 2>&1
+
+          echo "--- Memory state ---" > fastlane/artifacts/diagnostics/memory.txt
+          vm_stat >> fastlane/artifacts/diagnostics/memory.txt 2>&1
+          top -l 1 -n 10 >> fastlane/artifacts/diagnostics/memory.txt 2>&1
+
+          echo "=== Diagnostics captured ==="
+
       - name: Upload build logs on failure
         if: failure() && steps.check_ios_signing.outputs.has_signing == 'true'
         uses: actions/upload-artifact@v4
@@ -837,6 +913,7 @@ jobs:
           name: ios-build-logs-${{ steps.version.outputs.filename }}
           path: |
             fastlane/artifacts/*.log
+            fastlane/artifacts/diagnostics/*
             ~/Library/Logs/gym/*.log
           retention-days: 7
 
