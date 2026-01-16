@@ -361,10 +361,12 @@ export default function RouteDetailScreen() {
   // Handle saving the edited route name
   // Uses renameRoute hook which triggers engine event for consistent UI updates
   const handleSaveName = useCallback(() => {
+    // Dismiss keyboard and close edit UI immediately for responsive feel
+    Keyboard.dismiss();
+    setIsEditing(false);
+
     const trimmedName = editName.trim();
     if (!trimmedName || !id) {
-      setIsEditing(false);
-      Keyboard.dismiss();
       return;
     }
 
@@ -382,15 +384,15 @@ export default function RouteDetailScreen() {
       return;
     }
 
+    // Update local state immediately for instant feedback
+    setCustomName(trimmedName);
+
+    // Fire rename synchronously - Rust engine updates immediately
     try {
       renameRoute(id, trimmedName);
-      setCustomName(trimmedName);
     } catch (error) {
       console.error("Failed to save route name:", error);
     }
-
-    setIsEditing(false);
-    Keyboard.dismiss();
   }, [editName, id, renameRoute, t]);
 
   // Handle canceling the edit
@@ -632,6 +634,7 @@ export default function RouteDetailScreen() {
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       >
         {/* Hero Map Section */}
         <View style={styles.heroSection}>

@@ -216,13 +216,8 @@ describe('Translation Completeness', () => {
           console.log(`\n✅ ${locale}: 100% complete (${referenceKeys.length} keys)`);
         }
 
-        // Allow partial translations during development - this will just warn
-        if (missingKeys.length > 0) {
-          console.warn(`\n⚠️  ${locale} is ${completeness.toFixed(1)}% complete`);
-        }
-
-        // For now, we'll pass the test but log the missing keys
-        // To enforce completeness, uncomment: expect(missingKeys).toEqual([]);
+        // Fail if any keys are missing
+        expect(missingKeys).toEqual([]);
       });
 
       test('should not have extra keys not in reference', () => {

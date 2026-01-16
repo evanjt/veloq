@@ -785,6 +785,14 @@ class RouteEngineClient {
   private notify(event: string): void {
     this.listeners.get(event)?.forEach((cb) => cb());
   }
+
+  /**
+   * Manually trigger a refresh for subscribers of the given event type.
+   * Use this to refresh UI after navigating back from a detail page.
+   */
+  triggerRefresh(event: "groups" | "sections" | "activities"): void {
+    this.notify(event);
+  }
 }
 
 // Export the singleton instance for backward compatibility

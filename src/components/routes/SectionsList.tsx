@@ -8,6 +8,7 @@
 
 import React, { useCallback, useMemo, useState } from 'react';
 import { View, StyleSheet, FlatList, Platform, TouchableOpacity } from 'react-native';
+import { useFocusEffect } from 'expo-router';
 import { useTheme } from '@/hooks';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -16,6 +17,7 @@ import { router, Href } from 'expo-router';
 import { colors, darkColors, spacing, layout } from '@/theme';
 import { useUnifiedSections } from '@/hooks/routes/useUnifiedSections';
 import { useEngineGroups } from '@/hooks/routes/useRouteEngine';
+import { getRouteEngine } from '@/lib/native/routeEngine';
 import { SectionRow, ActivityTrace } from './SectionRow';
 import { PotentialSectionCard } from './PotentialSectionCard';
 import { useCustomSections } from '@/hooks/routes/useCustomSections';
@@ -66,6 +68,17 @@ export function SectionsList({ sportType }: SectionsListProps) {
 
   // Get route groups to compute routeIds for custom sections
   const { groups: routeGroups } = useEngineGroups({ minActivities: 1 });
+
+  // Refresh data when screen gains focus (e.g., returning from detail page after rename)
+  useFocusEffect(
+    useCallback(() => {
+      const engine = getRouteEngine();
+      if (engine) {
+        // Trigger a 'sections' event to refresh all subscribers
+        engine.triggerRefresh('sections');
+      }
+    }, [])
+  );
 
   // Create a mapping from activity ID to route group IDs
   // This lets us quickly find which routes a custom section's activities belong to

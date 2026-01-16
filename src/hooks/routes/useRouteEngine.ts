@@ -12,6 +12,7 @@ import { useEffect, useState, useCallback, useMemo } from 'react';
 // Use legacy API for SDK 54 compatibility (new API uses File/Directory classes)
 import * as FileSystem from 'expo-file-system/legacy';
 import { getRouteEngine } from '@/lib/native/routeEngine';
+import { generateSectionName } from '@/lib/utils/sectionNaming';
 import type { RouteGroup, FrequentSection, PersistentEngineStats } from 'route-matcher-native';
 
 // Default database path for persistent engine
@@ -306,7 +307,7 @@ export function useEngineSections(options: UseEngineSectionsOptions = {}): UseEn
     return unsubscribe;
   }, [refresh]);
 
-  // Filter
+  // Filter and apply names
   const result = useMemo(() => {
     let filtered = sections;
 
@@ -316,8 +317,14 @@ export function useEngineSections(options: UseEngineSectionsOptions = {}): UseEn
 
     filtered = filtered.filter((s) => s.visitCount >= minVisits);
 
+    // Apply proper display names to all sections
+    const namedSections = filtered.map((s) => ({
+      ...s,
+      name: generateSectionName(s),
+    }));
+
     return {
-      sections: filtered,
+      sections: namedSections,
       totalCount: sections.length,
       refresh,
     };
