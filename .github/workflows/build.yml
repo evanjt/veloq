@@ -148,6 +148,8 @@ jobs:
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
           ASC_API_KEY: ${{ secrets.ASC_API_KEY }}
           FASTLANE_TEAM_ID: ${{ secrets.FASTLANE_TEAM_ID }}
+          IOS_DISTRIBUTION_CERT_P12: ${{ secrets.IOS_DISTRIBUTION_CERT_P12 }}
+          IOS_DISTRIBUTION_CERT_PASSWORD: ${{ secrets.IOS_DISTRIBUTION_CERT_PASSWORD }}
         run: |
           echo "=== Verifying iOS signing configuration ==="
 
@@ -159,6 +161,8 @@ jobs:
           [ -z "$ASC_ISSUER_ID" ] && missing+=("ASC_ISSUER_ID")
           [ -z "$ASC_API_KEY" ] && missing+=("ASC_API_KEY")
           [ -z "$FASTLANE_TEAM_ID" ] && missing+=("FASTLANE_TEAM_ID")
+          [ -z "$IOS_DISTRIBUTION_CERT_P12" ] && missing+=("IOS_DISTRIBUTION_CERT_P12")
+          [ -z "$IOS_DISTRIBUTION_CERT_PASSWORD" ] && missing+=("IOS_DISTRIBUTION_CERT_PASSWORD")
 
           if [ ${#missing[@]} -gt 0 ]; then
             echo "::error::Missing iOS signing secrets: ${missing[*]}"
@@ -166,6 +170,40 @@ jobs:
           fi
 
           echo "✅ All iOS signing secrets configured"
+
+      - name: Verify p12 certificate
+        if: matrix.platform == 'ios' && (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch')
+        env:
+          IOS_DISTRIBUTION_CERT_P12: ${{ secrets.IOS_DISTRIBUTION_CERT_P12 }}
+          IOS_DISTRIBUTION_CERT_PASSWORD: ${{ secrets.IOS_DISTRIBUTION_CERT_PASSWORD }}
+        run: |
+          echo "=== Verifying p12 certificate ==="
+
+          # Verify base64 decodes to valid p12
+          echo "$IOS_DISTRIBUTION_CERT_P12" | base64 -d > /tmp/test.p12 2>/dev/null || {
+            echo "::error::IOS_DISTRIBUTION_CERT_P12 is not valid base64"
+            exit 1
+          }
+
+          # Check file size (p12 should be at least a few KB)
+          SIZE=$(stat -f%z /tmp/test.p12 2>/dev/null || stat -c%s /tmp/test.p12)
+          echo "Certificate file size: $SIZE bytes"
+
+          if [ "$SIZE" -lt 1000 ]; then
+            echo "::error::p12 file too small ($SIZE bytes) - likely invalid"
+            rm /tmp/test.p12
+            exit 1
+          fi
+
+          # Try to read the p12 with the password
+          openssl pkcs12 -in /tmp/test.p12 -nokeys -passin pass:"$IOS_DISTRIBUTION_CERT_PASSWORD" -info 2>&1 | head -5 || {
+            echo "::error::Cannot read p12 file - password may be incorrect"
+            rm /tmp/test.p12
+            exit 1
+          }
+
+          rm /tmp/test.p12
+          echo "✅ p12 certificate and password verified"
 
       - name: Setup SSH for Match
         if: matrix.platform == 'ios' && (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch')
@@ -716,8 +754,9 @@ jobs:
         env:
           MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          IOS_DISTRIBUTION_CERT_P12: ${{ secrets.IOS_DISTRIBUTION_CERT_P12 }}
         run: |
-          if [ -n "$MATCH_GIT_URL" ] && [ -n "$ASC_KEY_ID" ]; then
+          if [ -n "$MATCH_GIT_URL" ] && [ -n "$ASC_KEY_ID" ] && [ -n "$IOS_DISTRIBUTION_CERT_P12" ]; then
             echo "has_signing=true" >> $GITHUB_OUTPUT
             echo "✅ iOS signing credentials found"
           else
@@ -725,13 +764,23 @@ jobs:
             echo "::notice::iOS signing not configured - skipping IPA build"
           fi
 
+      # Import certificate via Apple-Actions (fixes codesign hanging issue)
+      # See: https://github.com/orgs/community/discussions/70145
+      - name: Import code signing certificate
+        if: steps.check_ios_signing.outputs.has_signing == 'true' && (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch')
+        uses: apple-actions/import-codesign-certs@v3
+        with:
+          p12-file-base64: ${{ secrets.IOS_DISTRIBUTION_CERT_P12 }}
+          p12-password: ${{ secrets.IOS_DISTRIBUTION_CERT_PASSWORD }}
+
       - name: Setup SSH for Match
         if: steps.check_ios_signing.outputs.has_signing == 'true' && (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch')
         uses: webfactory/ssh-agent@v0.9.0
         with:
           ssh-private-key: ${{ secrets.MATCH_SSH_PRIVATE_KEY }}
 
-      - name: Sync certificates with Match
+      # Match now only syncs provisioning profiles (certificate imported above)
+      - name: Sync provisioning profiles with Match
         if: steps.check_ios_signing.outputs.has_signing == 'true' && (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch')
         env:
           MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
@@ -739,44 +788,6 @@ jobs:
           FASTLANE_TEAM_ID: ${{ secrets.FASTLANE_TEAM_ID }}
         working-directory: fastlane
         run: bundle exec fastlane match appstore --readonly
-
-      # Configure keychain ACLs so codesign can access keys without UI prompts
-      - name: Configure keychain for signing
-        if: steps.check_ios_signing.outputs.has_signing == 'true' && (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch')
-        run: |
-          echo "=== Configuring keychain for code signing ==="
-
-          # Use absolute path (tilde doesn't expand in all contexts)
-          KEYCHAIN_PATH="$HOME/Library/Keychains/login.keychain-db"
-
-          echo "Keychain path: $KEYCHAIN_PATH"
-          ls -la "$KEYCHAIN_PATH" 2>/dev/null || echo "Note: login.keychain-db not found (may use different name)"
-
-          # Show current keychain search list
-          echo "--- Current keychain search list ---"
-          security list-keychains -d user
-
-          # Show signing identities available (these were installed by Match)
-          echo "--- Available signing identities ---"
-          security find-identity -v -p codesigning
-
-          # Unlock keychain (empty password on GitHub runners)
-          echo "--- Unlocking keychain ---"
-          security unlock-keychain -p "" "$KEYCHAIN_PATH" 2>&1 || echo "Unlock returned non-zero (may already be unlocked)"
-
-          # Prevent keychain from auto-locking during long builds
-          security set-keychain-settings -t 7200 -u "$KEYCHAIN_PATH" 2>&1 || echo "set-keychain-settings returned non-zero"
-
-          # CRITICAL: Set partition list to allow codesign access without UI prompts
-          # This is what prevents hangs when signing embedded frameworks
-          echo "--- Setting partition list ACLs ---"
-          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "" "$KEYCHAIN_PATH" 2>&1 || {
-            echo "⚠️ set-key-partition-list failed - this may cause signing hangs"
-            echo "Trying without keychain password..."
-            security set-key-partition-list -S apple-tool:,apple:,codesign: -s "$KEYCHAIN_PATH" 2>&1 || true
-          }
-
-          echo "✅ Keychain configuration complete"
 
       # Pre-build diagnostics to help debug signing issues
       - name: Pre-build diagnostics

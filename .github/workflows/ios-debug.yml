@@ -259,7 +259,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ios-debug-ipa
-          path: fastlane/artifacts/*.ipa
+          path: artifacts/*.ipa
           retention-days: 7
 
       - name: Upload build logs on failure
