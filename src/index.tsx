@@ -16,14 +16,14 @@ export * from './../modules/route-matcher-native/src/generated/tracematch';
 // Now import the bindings so we can:
 // - intialize them
 // - export them as namespaced objects as the default export.
-import * as ts from './../modules/route-matcher-native/src/generated/tracematch';
+import * as tracematch from './../modules/route-matcher-native/src/generated/tracematch';
 
 // Initialize the generated bindings: mostly checksums, but also callbacks.
 // - the boolean flag ensures this loads exactly once, even if the JS code
 //   is reloaded (e.g. during development with metro).
 let initialized = false;
 if (!initialized) {
-  ts.default.initialize();
+  tracematch.default.initialize();
   initialized = true;
 }
 
@@ -36,5 +36,5 @@ export async function uniffiInitAsync() {
 
 // Export the crates as individually namespaced objects.
 export default {
-  ts,
+  tracematch,
 };

@@ -21,7 +21,7 @@
     "format:check": "prettier --config config/.prettierrc --ignore-path config/.prettierignore --check \"src/**/*.{ts,tsx}\"",
     "ubrn:build:android": "uniffi-bindgen-react-native build android --release",
     "ubrn:build:ios": "uniffi-bindgen-react-native build ios --release",
-    "ubrn:generate": "uniffi-bindgen-react-native generate turbo-module ts && ./scripts/patch-ubrn-generated.sh",
+    "ubrn:generate": "uniffi-bindgen-react-native generate turbo-module tracematch && ./scripts/patch-ubrn-generated.sh",
     "postinstall": "patch-package",
     "prepare": "husky",
     "e2e:build:ios": "detox build --configuration ios.sim.release",
