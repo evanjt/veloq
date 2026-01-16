@@ -292,7 +292,9 @@ export function UnifiedPerformanceChart({
     }
 
     const chartWidthPx = bounds.right - bounds.left;
-    const xPos = bounds.left + (idx / (len - 1)) * chartWidthPx;
+    // Domain is [-0.5, len-0.5], so data points at idx are at x=idx
+    // Ratio should be (idx + 0.5) / len to account for 0.5 padding on each side
+    const xPos = bounds.left + ((idx + 0.5) / len) * chartWidthPx;
 
     return {
       opacity: 1,

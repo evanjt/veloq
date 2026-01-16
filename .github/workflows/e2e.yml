@@ -77,8 +77,22 @@ jobs:
              modules/route-matcher-native/android/src/main/java/uniffi/tracematch/
           echo "✓ Installed Kotlin bindings"
 
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /usr/local/share/boost
+          df -h
+
       - name: Build Android app for Detox
-        run: npm run e2e:build:android
+        run: |
+          cd android && ./gradlew assembleRelease assembleAndroidTest \
+            -DtestBuildType=release \
+            -x :react-native-reanimated:bundleReleaseLocalLintAar \
+            --no-daemon \
+            --max-workers=2
+        env:
+          GRADLE_OPTS: "-Xmx4096m -XX:+HeapDumpOnOutOfMemoryError"
 
       - name: Run E2E Tests
         uses: reactivecircus/android-emulator-runner@v2
@@ -177,10 +191,14 @@ jobs:
       - name: Install Pods
         run: cd ios && pod install
 
+      - name: List available simulators
+        run: xcrun simctl list devices available
+
       - name: Boot iOS Simulator
         run: |
-          xcrun simctl boot "iPhone 15" || true
-          xcrun simctl bootstatus "iPhone 15" -b
+          # Xcode 16.x ships with iPhone 16 by default
+          xcrun simctl boot "iPhone 16" || true
+          xcrun simctl bootstatus "iPhone 16" -b
 
       - name: Build iOS app for Detox
         run: npm run e2e:build:ios

@@ -298,7 +298,9 @@ export interface TranslationResource {
     clearRouteDescription: string;
     activities: string;
     routesCount: string;
+    sectionsCount: string;
     total: string;
+    database: string;
     dateRange: string;
     noData: string;
     lastSynced: string;

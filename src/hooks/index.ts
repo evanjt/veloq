@@ -68,6 +68,7 @@ export {
   type ActivitySectionRecord,
 } from './routes/useSectionPerformances';
 export { useCustomSections, useCustomSection } from './routes/useCustomSections';
+export { useUnifiedSections } from './routes/useUnifiedSections';
 export { useHeatmap, type UseHeatmapOptions, type UseHeatmapResult } from './useHeatmap';
 
 // Route Engine hooks (stateful Rust backend)
