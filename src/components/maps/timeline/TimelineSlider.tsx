@@ -380,13 +380,12 @@ export function TimelineSlider({
 
   return (
     <View style={styles.wrapper}>
-      {syncProgress && (
-        <SyncProgressBanner
-          completed={syncProgress.completed}
-          total={syncProgress.total}
-          message={syncProgress.message}
-        />
-      )}
+      <SyncProgressBanner
+        completed={syncProgress?.completed ?? 0}
+        total={syncProgress?.total ?? 0}
+        message={syncProgress?.message}
+        visible={!!syncProgress}
+      />
 
       <View style={[styles.container, isDark && styles.containerDark]}>
         {/* Activity category filter */}

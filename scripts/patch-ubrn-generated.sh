@@ -26,7 +26,7 @@ if [ -f "$ADAPTER_FILE" ]; then
 #include <jsi/jsi.h>
 #include <fbjni/fbjni.h>
 #include <ReactCommon/CallInvokerHolder.h>
-#include "veloq.h"
+#include "tracematch.hpp"
 
 namespace jsi = facebook::jsi;
 namespace react = facebook::react;
@@ -48,18 +48,38 @@ Java_com_veloq_VeloqModule_nativeInstallRustCrate(
     auto jsCallInvoker = callInvokerHolder->cthis()->getCallInvoker();
 
     auto runtime = reinterpret_cast<jsi::Runtime *>(rtPtr);
-    return veloq::installRustCrate(*runtime, jsCallInvoker);
+    NativeTracematch::registerModule(*runtime, jsCallInvoker);
+    return true;
 }
 
 extern "C"
 JNIEXPORT jboolean JNICALL
 Java_com_veloq_VeloqModule_nativeCleanupRustCrate(JNIEnv *env, jclass type, jlong rtPtr) {
     auto runtime = reinterpret_cast<jsi::Runtime *>(rtPtr);
-    return veloq::cleanupRustCrate(*runtime);
+    NativeTracematch::unregisterModule(*runtime);
+    return true;
 }
 EOF
     else
         echo "  cpp-adapter.cpp already patched"
+    fi
+fi
+
+***REMOVED***
+# Patch 2: CMakeLists.txt - Fix source file paths
+# The generated CMakeLists.txt references wrong paths for the cpp files
+***REMOVED***
+CMAKE_FILE="$MODULE_DIR/android/CMakeLists.txt"
+
+if [ -f "$CMAKE_FILE" ]; then
+    if grep -q "../../../cpp/veloq.cpp" "$CMAKE_FILE" || grep -q "../cpp/ts.cpp" "$CMAKE_FILE"; then
+        echo "  Patching CMakeLists.txt source paths..."
+        sed -i 's|../../../cpp/veloq.cpp||g' "$CMAKE_FILE"
+        sed -i 's|../cpp/ts.cpp|../cpp/tracematch.cpp|g' "$CMAKE_FILE"
+        # Clean up any empty lines in add_library
+        sed -i '/add_library/,/)/{/^[[:space:]]*$/d}' "$CMAKE_FILE"
+    else
+        echo "  CMakeLists.txt already patched"
     fi
 fi
 

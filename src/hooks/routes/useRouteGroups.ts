@@ -3,8 +3,9 @@
  * Provides filtered and sorted lists of route groups from the Rust engine.
  */
 
-import { useMemo } from 'react';
+import { useMemo, useCallback } from 'react';
 import { useEngineGroups } from './useRouteEngine';
+import { getRouteEngine } from '@/lib/native/routeEngine';
 import type { ActivityType } from '@/types';
 
 interface UseRouteGroupsOptions {
@@ -60,6 +61,8 @@ interface UseRouteGroupsResult {
   processedCount: number;
   /** Whether the store is initialized */
   isReady: boolean;
+  /** Rename a route (triggers refresh via engine events) */
+  renameRoute: (routeId: string, name: string) => void;
 }
 
 export function useRouteGroups(options: UseRouteGroupsOptions = {}): UseRouteGroupsResult {
@@ -68,6 +71,18 @@ export function useRouteGroups(options: UseRouteGroupsOptions = {}): UseRouteGro
   const { groups: rawGroups, totalCount } = useEngineGroups({
     minActivities: 1,
   });
+
+  // Rename a route - uses Rust engine as single source of truth
+  // The engine will persist the name and fire 'groups' event to trigger refresh
+  const renameRoute = useCallback((routeId: string, name: string) => {
+    const engine = getRouteEngine();
+    if (!engine) {
+      throw new Error('Route engine not initialized');
+    }
+    engine.setRouteName(routeId, name);
+    // No need to manually refresh - engine fires 'groups' event which
+    // triggers useEngineGroups subscriber to call refresh()
+  }, []);
 
   const result = useMemo(() => {
     // Convert engine groups to extended format
@@ -128,8 +143,31 @@ export function useRouteGroups(options: UseRouteGroupsOptions = {}): UseRouteGro
       totalCount,
       processedCount: rawGroups.reduce((sum, g) => sum + g.activityIds.length, 0),
       isReady: true,
+      renameRoute,
     };
-  }, [rawGroups, type, minActivities, sortBy, totalCount]);
+  }, [rawGroups, type, minActivities, sortBy, totalCount, renameRoute]);
+
+  return result;
+}
+
+/**
+ * Get all route display names (custom or auto-generated).
+ * Used for uniqueness validation when renaming routes.
+ * Returns a map of routeId -> displayName for all routes.
+ */
+export function getAllRouteDisplayNames(): Record<string, string> {
+  const engine = getRouteEngine();
+  if (!engine) return {};
+
+  const groups = engine.getGroups();
+  const customNames = engine.getAllRouteNames();
+  const result: Record<string, string> = {};
+
+  groups.forEach((group, index) => {
+    const sportType = group.sportType || 'Ride';
+    // Use custom name if set, otherwise generate default name
+    result[group.groupId] = customNames[group.groupId] || `${sportType} Route ${index + 1}`;
+  });
 
   return result;
 }

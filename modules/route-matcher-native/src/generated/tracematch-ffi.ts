@@ -55,12 +55,12 @@ interface NativeModuleInterface {
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
   ubrn_uniffi_tracematch_fn_func_fetch_activity_maps(
-    apiKey: Uint8Array,
+    authHeader: Uint8Array,
     activityIds: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
   ubrn_uniffi_tracematch_fn_func_fetch_activity_maps_with_progress(
-    apiKey: Uint8Array,
+    authHeader: Uint8Array,
     activityIds: Uint8Array,
     callback: bigint,
     uniffi_out_err: UniffiRustCallStatus,
@@ -206,7 +206,14 @@ interface NativeModuleInterface {
     currentActivityId: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
+  ubrn_uniffi_tracematch_fn_func_persistent_engine_get_section_detection_progress(
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
   ubrn_uniffi_tracematch_fn_func_persistent_engine_get_section_name(
+    sectionId: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
+  ubrn_uniffi_tracematch_fn_func_persistent_engine_get_section_performances_json(
     sectionId: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
@@ -263,6 +270,12 @@ interface NativeModuleInterface {
     name: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): void;
+  ubrn_uniffi_tracematch_fn_func_persistent_engine_set_time_streams_flat(
+    activityIds: Uint8Array,
+    allTimes: Uint8Array,
+    offsets: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
   ubrn_uniffi_tracematch_fn_func_persistent_engine_start_section_detection(
     sportFilter: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
@@ -311,7 +324,9 @@ interface NativeModuleInterface {
   ubrn_uniffi_tracematch_checksum_func_persistent_engine_get_groups_json(): number;
   ubrn_uniffi_tracematch_checksum_func_persistent_engine_get_route_name(): number;
   ubrn_uniffi_tracematch_checksum_func_persistent_engine_get_route_performances_json(): number;
+  ubrn_uniffi_tracematch_checksum_func_persistent_engine_get_section_detection_progress(): number;
   ubrn_uniffi_tracematch_checksum_func_persistent_engine_get_section_name(): number;
+  ubrn_uniffi_tracematch_checksum_func_persistent_engine_get_section_performances_json(): number;
   ubrn_uniffi_tracematch_checksum_func_persistent_engine_get_sections_json(): number;
   ubrn_uniffi_tracematch_checksum_func_persistent_engine_get_stats(): number;
   ubrn_uniffi_tracematch_checksum_func_persistent_engine_init(): number;
@@ -325,6 +340,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_tracematch_checksum_func_persistent_engine_set_activity_metrics(): number;
   ubrn_uniffi_tracematch_checksum_func_persistent_engine_set_route_name(): number;
   ubrn_uniffi_tracematch_checksum_func_persistent_engine_set_section_name(): number;
+  ubrn_uniffi_tracematch_checksum_func_persistent_engine_set_time_streams_flat(): number;
   ubrn_uniffi_tracematch_checksum_func_persistent_engine_start_section_detection(): number;
   ubrn_uniffi_tracematch_checksum_func_process_routes_from_flat(): number;
   ubrn_uniffi_tracematch_checksum_method_fetchprogresscallback_on_progress(): number;

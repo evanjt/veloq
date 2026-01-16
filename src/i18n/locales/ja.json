@@ -151,7 +151,9 @@
     "recordedWith": "{{device}}で記録"
   },
   "cache": {
-    "analyzingRoutes": "ルートを分析中",
+    "analyzingRoutes": "Analyzing routes",
+    "analyzingRoutesProgress": "Analyzing routes... {{percent}}%",
+    "routeAnalysisComplete": "Route analysis complete",
     "syncingActivities": "アクティビティを同期中"
   },
   "common": {
@@ -462,7 +464,6 @@
   },
   "routesScreen": {
     "analysingRoutes": "ルート分析中 {{current}}/{{total}}",
-    "analyzingRoutes": "ルート分析中",
     "computingRoutes": "ルート計算中...",
     "downloadingGps": "トラックをダウンロード中",
     "enableInSettings": "設定でルートマッチングを有効にすると、アクティビティから繰り返しルートを自動検出します。",

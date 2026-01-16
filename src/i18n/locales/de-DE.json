@@ -154,7 +154,9 @@
     "recordedWith": "Aufgezeichnet mit {{device}}"
   },
   "cache": {
-    "analyzingRoutes": "Analysiere Routen",
+    "analyzingRoutes": "Analyzing routes",
+    "analyzingRoutesProgress": "Analyzing routes... {{percent}}%",
+    "routeAnalysisComplete": "Route analysis complete",
     "syncingActivities": "Synchronisiere Aktivitäten"
   },
   "common": {
@@ -468,7 +470,6 @@
   },
   "routesScreen": {
     "analysingRoutes": "Analysiere Routen {{current}}/{{total}}",
-    "analyzingRoutes": "Routen analysieren",
     "computingRoutes": "Berechne Routen...",
     "downloadingGps": "Spuren werden heruntergeladen",
     "enableInSettings": "Aktiviere den Routenabgleich in den Einstellungen, um automatisch wiederkehrende Routen aus deinen Aktivitäten zu erkennen.",

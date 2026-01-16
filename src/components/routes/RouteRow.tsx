@@ -3,7 +3,7 @@
  * Displays the route with activity count and preview polyline.
  */
 
-import React, { memo, useState, useMemo, useEffect } from 'react';
+import React, { memo, useState, useMemo } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { useTheme } from '@/hooks';
 import { Text } from 'react-native-paper';
@@ -12,14 +12,7 @@ import Svg, { Polyline, Defs, LinearGradient, Stop, Rect, Circle } from 'react-n
 import { router, Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { colors, darkColors, opacity, spacing, layout, typography } from '@/theme';
-import {
-  getActivityColor,
-  loadCustomRouteNames,
-  getRouteDisplayName,
-  formatPace,
-  formatSpeed,
-  isRunningActivity,
-} from '@/lib';
+import { getActivityColor, formatPace, formatSpeed, isRunningActivity } from '@/lib';
 import { useConsensusRoute } from '@/hooks/routes/useRouteEngine';
 import { toActivityType } from '@/types/routes';
 import type { DiscoveredRouteInfo, RouteGroup } from '@/types';
@@ -151,30 +144,14 @@ function RouteRowComponent({ route, navigable = false }: RouteRowProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const [expanded, setExpanded] = useState(false);
-  const [customName, setCustomName] = useState<string | null>(null);
 
   // Lazy load consensus route for RouteGroup (non-blocking)
   const { points: consensusPoints } = useConsensusRoute(isRouteGroup(route) ? route.id : null);
 
-  // Load custom route name if available
-  useEffect(() => {
-    loadCustomRouteNames()
-      .then((names) => {
-        if (names[route.id]) {
-          setCustomName(names[route.id]);
-        }
-      })
-      .catch(() => {
-        // Silently ignore - custom name is optional
-      });
-  }, [route.id]);
-
-  // Display name uses custom name if set, otherwise auto-generated name
-  // Ensure it's always a valid string to avoid React Native text rendering errors
+  // Display name comes from parent via route.name (which includes custom name from useRouteGroups)
+  // This ensures reactivity when names change via the hook chain
   const displayName =
-    customName ||
-    route.name ||
-    (t('routes.defaultRouteName' as never, { type: route.type }) as string);
+    route.name || (t('routes.defaultRouteName' as never, { type: route.type }) as string);
 
   // Get activity color for the route type
   // RouteGroup.type is ActivityType, DiscoveredRouteInfo.type is string

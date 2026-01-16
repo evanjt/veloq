@@ -6,8 +6,8 @@
  * so no expensive on-the-fly computation is needed here.
  */
 
-import React, { useCallback, useMemo } from 'react';
-import { View, StyleSheet, FlatList, Platform } from 'react-native';
+import React, { useCallback, useMemo, useState } from 'react';
+import { View, StyleSheet, FlatList, Platform, TouchableOpacity } from 'react-native';
 import { useTheme } from '@/hooks';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -15,6 +15,7 @@ import { useTranslation } from 'react-i18next';
 import { router, Href } from 'expo-router';
 import { colors, darkColors, spacing, layout } from '@/theme';
 import { useUnifiedSections } from '@/hooks/routes/useUnifiedSections';
+import { useEngineGroups } from '@/hooks/routes/useRouteEngine';
 import { SectionRow, ActivityTrace } from './SectionRow';
 import { PotentialSectionCard } from './PotentialSectionCard';
 import { useCustomSections } from '@/hooks/routes/useCustomSections';
@@ -32,9 +33,20 @@ interface SectionsListProps {
 /** Map of section ID to activity traces for that section */
 type SectionTracesMap = Map<string, ActivityTrace[]>;
 
+type HiddenFilters = {
+  custom: boolean;
+  auto: boolean;
+  disabled: boolean;
+};
+
 export function SectionsList({ sportType }: SectionsListProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
+  const [hiddenFilters, setHiddenFilters] = useState<HiddenFilters>({
+    custom: false,
+    auto: false,
+    disabled: false,
+  });
 
   const {
     sections: unifiedSections,
@@ -42,6 +54,7 @@ export function SectionsList({ sportType }: SectionsListProps) {
     autoCount,
     customCount,
     potentialCount,
+    disabledCount,
     isLoading,
   } = useUnifiedSections({
     sportType,
@@ -51,7 +64,28 @@ export function SectionsList({ sportType }: SectionsListProps) {
 
   const { createSection } = useCustomSections();
 
-  // Separate regular sections from potential sections
+  // Get route groups to compute routeIds for custom sections
+  const { groups: routeGroups } = useEngineGroups({ minActivities: 1 });
+
+  // Create a mapping from activity ID to route group IDs
+  // This lets us quickly find which routes a custom section's activities belong to
+  const activityToRouteIds = useMemo(() => {
+    const mapping = new Map<string, string[]>();
+    for (const group of routeGroups) {
+      const groupId = group.groupId;
+      for (const activityId of group.activityIds || []) {
+        const existing = mapping.get(activityId);
+        if (existing) {
+          existing.push(groupId);
+        } else {
+          mapping.set(activityId, [groupId]);
+        }
+      }
+    }
+    return mapping;
+  }, [routeGroups]);
+
+  // Separate regular sections from potential sections and apply filter
   const { regularSections, potentialSections } = useMemo(() => {
     const regular: UnifiedSection[] = [];
     const potential: UnifiedSection[] = [];
@@ -60,12 +94,32 @@ export function SectionsList({ sportType }: SectionsListProps) {
       if (section.source === 'potential') {
         potential.push(section);
       } else {
+        // Apply hide filters - hide if the filter is set for this type
+        const isCustom = section.source === 'custom';
+        const isAuto = section.source === 'auto' && !section.isDisabled;
+        const isDisabledAuto = section.source === 'auto' && section.isDisabled;
+
+        if (
+          (isCustom && hiddenFilters.custom) ||
+          (isAuto && hiddenFilters.auto) ||
+          (isDisabledAuto && hiddenFilters.disabled)
+        ) {
+          continue; // Skip (hide) this section
+        }
         regular.push(section);
       }
     }
 
     return { regularSections: regular, potentialSections: potential };
-  }, [unifiedSections]);
+  }, [unifiedSections, hiddenFilters]);
+
+  // Toggle filter - pressing hides/shows that type
+  const handleFilterPress = useCallback((filterType: keyof HiddenFilters) => {
+    setHiddenFilters((current) => ({
+      ...current,
+      [filterType]: !current[filterType],
+    }));
+  }, []);
 
   const isReady = !isLoading;
 
@@ -203,24 +257,86 @@ export function SectionsList({ sportType }: SectionsListProps) {
         </Text>
       </View>
 
-      {/* Section type counts */}
-      {(customCount > 0 || autoCount > 0) && (
+      {/* Section type counts - clickable to hide/show types */}
+      {(customCount > 0 || autoCount > 0 || disabledCount > 0) && (
         <View style={styles.sectionCounts}>
           {customCount > 0 && (
-            <View style={[styles.countBadge, styles.customBadge]}>
-              <MaterialCommunityIcons name="account" size={12} color={colors.primary} />
-              <Text style={[styles.countText, { color: colors.primary }]}>
+            <TouchableOpacity
+              style={[
+                styles.countBadge,
+                styles.customBadge,
+                hiddenFilters.custom && styles.countBadgeHidden,
+              ]}
+              onPress={() => handleFilterPress('custom')}
+              activeOpacity={0.7}
+            >
+              <MaterialCommunityIcons
+                name={hiddenFilters.custom ? 'eye-off' : 'account'}
+                size={12}
+                color={hiddenFilters.custom ? colors.textDisabled : colors.primary}
+              />
+              <Text
+                style={[
+                  styles.countText,
+                  { color: hiddenFilters.custom ? colors.textDisabled : colors.primary },
+                  hiddenFilters.custom && styles.countTextHidden,
+                ]}
+              >
                 {customCount} {t('routes.custom')}
               </Text>
-            </View>
+            </TouchableOpacity>
           )}
           {autoCount > 0 && (
-            <View style={[styles.countBadge, styles.autoBadge]}>
-              <MaterialCommunityIcons name="auto-fix" size={12} color={colors.success} />
-              <Text style={[styles.countText, { color: colors.success }]}>
+            <TouchableOpacity
+              style={[
+                styles.countBadge,
+                styles.autoBadge,
+                hiddenFilters.auto && styles.countBadgeHidden,
+              ]}
+              onPress={() => handleFilterPress('auto')}
+              activeOpacity={0.7}
+            >
+              <MaterialCommunityIcons
+                name={hiddenFilters.auto ? 'eye-off' : 'auto-fix'}
+                size={12}
+                color={hiddenFilters.auto ? colors.textDisabled : colors.success}
+              />
+              <Text
+                style={[
+                  styles.countText,
+                  { color: hiddenFilters.auto ? colors.textDisabled : colors.success },
+                  hiddenFilters.auto && styles.countTextHidden,
+                ]}
+              >
                 {autoCount} {t('routes.autoDetected')}
               </Text>
-            </View>
+            </TouchableOpacity>
+          )}
+          {disabledCount > 0 && (
+            <TouchableOpacity
+              style={[
+                styles.countBadge,
+                styles.disabledBadge,
+                hiddenFilters.disabled && styles.countBadgeHidden,
+              ]}
+              onPress={() => handleFilterPress('disabled')}
+              activeOpacity={0.7}
+            >
+              <MaterialCommunityIcons
+                name="eye-off"
+                size={12}
+                color={hiddenFilters.disabled ? colors.textDisabled : colors.warning}
+              />
+              <Text
+                style={[
+                  styles.countText,
+                  { color: hiddenFilters.disabled ? colors.textDisabled : colors.warning },
+                  hiddenFilters.disabled && styles.countTextHidden,
+                ]}
+              >
+                {disabledCount} {t('sections.disabled')}
+              </Text>
+            </TouchableOpacity>
           )}
         </View>
       )}
@@ -245,37 +361,51 @@ export function SectionsList({ sportType }: SectionsListProps) {
   );
 
   // Convert UnifiedSection to FrequentSection-like object for SectionRow
-  const toFrequentSection = useCallback((section: UnifiedSection): FrequentSection => {
-    // If we have engineData, use it directly
-    if (section.engineData) {
-      return section.engineData;
-    }
-    // Otherwise, construct a compatible object (for custom sections)
-    // Include source activity if not already in matches
-    const matchActivityIds = section.customData?.matches.map((m) => m.activityId) ?? [];
-    const sourceActivityId = section.customData?.sourceActivityId;
-    const activityIds =
-      sourceActivityId && !matchActivityIds.includes(sourceActivityId)
-        ? [sourceActivityId, ...matchActivityIds]
-        : matchActivityIds;
+  const toFrequentSection = useCallback(
+    (section: UnifiedSection): FrequentSection => {
+      // If we have engineData, use it directly
+      if (section.engineData) {
+        return section.engineData;
+      }
+      // Otherwise, construct a compatible object (for custom sections)
+      // Include source activity if not already in matches
+      const matchActivityIds = section.customData?.matches.map((m) => m.activityId) ?? [];
+      const sourceActivityId = section.customData?.sourceActivityId;
+      const activityIds =
+        sourceActivityId && !matchActivityIds.includes(sourceActivityId)
+          ? [sourceActivityId, ...matchActivityIds]
+          : matchActivityIds;
 
-    return {
-      id: section.id,
-      sportType: section.sportType,
-      polyline: section.polyline,
-      activityIds,
-      routeIds: [],
-      visitCount: activityIds.length,
-      distanceMeters: section.distanceMeters,
-      name: section.name,
-    };
-  }, []);
+      // Compute routeIds by finding which routes contain this section's activities
+      const routeIdSet = new Set<string>();
+      for (const activityId of activityIds) {
+        const routes = activityToRouteIds.get(activityId);
+        if (routes) {
+          for (const routeId of routes) {
+            routeIdSet.add(routeId);
+          }
+        }
+      }
+
+      return {
+        id: section.id,
+        sportType: section.sportType,
+        polyline: section.polyline,
+        activityIds,
+        routeIds: Array.from(routeIdSet),
+        visitCount: activityIds.length,
+        distanceMeters: section.distanceMeters,
+        name: section.name,
+      };
+    },
+    [activityToRouteIds]
+  );
 
   const renderItem = useCallback(
     ({ item }: { item: UnifiedSection }) => {
       const frequentSection = toFrequentSection(item);
       return (
-        <View>
+        <View style={item.isDisabled ? styles.disabledSection : undefined}>
           <SectionRow
             section={frequentSection}
             activityTraces={sectionTraces.get(item.id)}
@@ -285,6 +415,13 @@ export function SectionsList({ sportType }: SectionsListProps) {
           {item.source === 'custom' && (
             <View style={styles.sourceBadge}>
               <Text style={styles.sourceBadgeText}>{t('routes.custom')}</Text>
+            </View>
+          )}
+          {/* Show disabled badge */}
+          {item.isDisabled && (
+            <View style={styles.disabledIndicator}>
+              <MaterialCommunityIcons name="eye-off" size={12} color={colors.warning} />
+              <Text style={styles.disabledIndicatorText}>{t('sections.disabled')}</Text>
             </View>
           )}
         </View>
@@ -390,9 +527,19 @@ const styles = StyleSheet.create({
   autoBadge: {
     backgroundColor: colors.success + '20',
   },
+  disabledBadge: {
+    backgroundColor: colors.warning + '20',
+  },
+  countBadgeHidden: {
+    backgroundColor: colors.gray200,
+    opacity: 0.7,
+  },
   countText: {
     fontSize: 12,
     fontWeight: '600',
+  },
+  countTextHidden: {
+    textDecorationLine: 'line-through',
   },
   suggestionsContainer: {
     paddingHorizontal: spacing.md,
@@ -417,5 +564,25 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '600',
     color: colors.textOnDark,
+  },
+  disabledSection: {
+    opacity: 0.6,
+  },
+  disabledIndicator: {
+    position: 'absolute',
+    top: spacing.sm,
+    left: spacing.md + spacing.lg,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: colors.warning + '30',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  disabledIndicatorText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: colors.warning,
   },
 });

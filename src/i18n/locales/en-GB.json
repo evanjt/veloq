@@ -155,6 +155,8 @@
   },
   "cache": {
     "analyzingRoutes": "Analysing routes",
+    "analyzingRoutesProgress": "Analysing routes... {{percent}}%",
+    "routeAnalysisComplete": "Route analysis complete",
     "syncingActivities": "Syncing activities"
   },
   "common": {
@@ -165,7 +167,9 @@
     "confirm": "Confirm",
     "create": "Create",
     "delete": "Delete",
+    "disable": "Disable",
     "done": "Done",
+    "enable": "Enable",
     "error": "Error",
     "loading": "Loading...",
     "loadingMore": "Loading more...",
@@ -321,9 +325,12 @@
     "noAccount": "New to intervals.icu?",
     "oauthFailed": "Sign in failed. Please try again.",
     "oauthNotConfigured": "OAuth is not configured. Use API key login instead.",
+    "oauthStateValidationFailed": "Security validation failed. Please try signing in again.",
     "openSettings": "Open Intervals.icu Settings",
     "privacyPolicy": "Privacy Policy",
     "securityNote": "Your credentials are stored securely on your device",
+    "sessionExpired": "Your session has expired. Please sign in again.",
+    "sessionRevoked": "Your access was revoked. Please sign in again.",
     "subtitle": "Connect to Intervals.icu",
     "termsOfService": "Terms of Service",
     "title": "Veloq",
@@ -393,7 +400,11 @@
     "wellness": "Wellness"
   },
   "routeDetail": {
-    "routeNotFound": "Route not found"
+    "avgTime": "Avg Time",
+    "bestTime": "Best Time",
+    "lastActivity": "Last Activity",
+    "routeNotFound": "Route not found",
+    "totalActivities": "Total"
   },
   "routes": {
     "activities": "activities",
@@ -468,7 +479,6 @@
   },
   "routesScreen": {
     "analysingRoutes": "Analysing routes {{current}}/{{total}}",
-    "analyzingRoutes": "Analysing routes...",
     "computingRoutes": "Computing routes...",
     "downloadingGps": "Downloading tracks",
     "enableInSettings": "Enable route matching in Settings to automatically detect repeated routes from your activities.",
@@ -487,6 +497,11 @@
     "current": "Current",
     "date": "Date",
     "defaultName": "Section {{number}}",
+    "deleteSection": "Delete Section",
+    "deleteSectionConfirm": "Are you sure you want to delete this section? This action cannot be undone.",
+    "disableSection": "Disable Section",
+    "disableSectionConfirm": "This section will be hidden from activity details. You can re-enable it later from the sections list.",
+    "disabled": "Disabled",
     "lastActivity": "Last Activity",
     "noActivitiesFound": "No activities found",
     "performanceOverTime": "Performance Over Time",

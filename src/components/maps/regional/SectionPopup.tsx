@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -7,6 +7,7 @@ import { typography } from '@/theme/typography';
 import { spacing, layout } from '@/theme/spacing';
 import { shadows } from '@/theme/shadows';
 import { getActivityTypeConfig } from '../ActivityTypeFilter';
+import { getRouteEngine } from '@/lib/native/routeEngine';
 import type { FrequentSection } from '@/types';
 
 interface SectionPopupProps {
@@ -20,12 +21,21 @@ export function SectionPopup({ section, bottom, onClose, onViewDetails }: Sectio
   const { t } = useTranslation();
   const config = getActivityTypeConfig(section.sportType);
 
+  // Get custom name from Rust engine (single source of truth)
+  const displayName = useMemo(() => {
+    const engine = getRouteEngine();
+    const customName = engine?.getSectionName(section.id);
+    if (customName) return customName;
+    if (section.name) return section.name;
+    return t('sections.defaultName', { number: section.id.slice(-6) }) as string;
+  }, [section.id, section.name, t]);
+
   return (
     <View style={[styles.popup, { bottom }]}>
       <View style={styles.popupHeader}>
         <View style={styles.popupInfo}>
           <Text style={styles.popupTitle} numberOfLines={1}>
-            {section.name || t('sections.defaultName', { number: section.id.slice(-6) })}
+            {displayName}
           </Text>
           <Text style={styles.popupDate}>
             {section.visitCount} visits • {Math.round(section.distanceMeters)}m

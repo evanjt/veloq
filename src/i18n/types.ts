@@ -167,6 +167,8 @@ export interface TranslationResource {
     cancel: string;
     save: string;
     delete: string;
+    disable: string;
+    enable: string;
     confirm: string;
     back: string;
     next: string;
@@ -633,6 +635,8 @@ export interface TranslationResource {
     visits: string;
     autoDetected: string;
     custom: string;
+    duplicateNameMessage: string;
+    duplicateNameTitle: string;
     createSection: string;
     sectionCreated: string;
     sectionCreatedDescription: string;
@@ -664,6 +668,13 @@ export interface TranslationResource {
     totalTraversals: string;
     lastActivity: string;
     defaultName: string;
+    deleteSection: string;
+    deleteSectionConfirm: string;
+    disableSection: string;
+    duplicateNameMessage: string;
+    duplicateNameTitle: string;
+    disableSectionConfirm: string;
+    disabled: string;
   };
 
   errorState: {
@@ -704,6 +715,8 @@ export interface TranslationResource {
   cache: {
     syncingActivities: string;
     analyzingRoutes: string;
+    analyzingRoutesProgress: string;
+    routeAnalysisComplete: string;
   };
 
   activityDetail: {

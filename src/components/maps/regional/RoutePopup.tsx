@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import { colors } from '@/theme/colors';
@@ -7,6 +7,7 @@ import { spacing, layout } from '@/theme/spacing';
 import { shadows } from '@/theme/shadows';
 import { getActivityTypeConfig } from '../ActivityTypeFilter';
 import { formatDuration } from '@/lib';
+import { getRouteEngine } from '@/lib/native/routeEngine';
 import type { ActivityType } from '@/types';
 
 interface RouteGroupInfo {
@@ -28,12 +29,20 @@ interface RoutePopupProps {
 export function RoutePopup({ route, bottom, onClose, onViewDetails }: RoutePopupProps) {
   const config = getActivityTypeConfig(route.type);
 
+  // Get custom name from Rust engine (single source of truth)
+  // Falls back to route.name which may already include custom name from useRouteGroups
+  const displayName = useMemo(() => {
+    const engine = getRouteEngine();
+    const customName = engine?.getRouteName(route.id);
+    return customName || route.name;
+  }, [route.id, route.name]);
+
   return (
     <View style={[styles.popup, { bottom }]}>
       <View style={styles.popupHeader}>
         <View style={styles.popupInfo}>
           <Text style={styles.popupTitle} numberOfLines={1}>
-            {route.name}
+            {displayName}
           </Text>
           <Text style={styles.popupDate}>{route.activityCount} activities</Text>
         </View>

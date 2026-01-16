@@ -33,10 +33,14 @@ import {
   useFrequentSections,
   useSectionPerformances,
   useCustomSection,
+  useCustomSections,
   useTheme,
   type ActivitySectionRecord,
 } from "@/hooks";
+import { useEngineGroups } from "@/hooks/routes/useRouteEngine";
+import { getAllSectionDisplayNames } from "@/hooks/routes/useUnifiedSections";
 import { createSharedStyles } from "@/styles";
+import { useDisabledSections } from "@/providers";
 import { SectionMapView, MiniTraceView } from "@/components/routes";
 import { UnifiedPerformanceChart } from "@/components/routes/performance";
 import { getRouteEngine } from "@/lib/native/routeEngine";
@@ -331,6 +335,31 @@ export default function SectionDetailScreen() {
   const { section: customSection } = useCustomSection(
     isCustomId ? id : undefined,
   );
+  const { removeSection, renameSection } = useCustomSections();
+
+  // Get route groups to compute routeIds for custom sections
+  const { groups: routeGroups } = useEngineGroups({ minActivities: 1 });
+
+  // Create a mapping from activity ID to route group IDs
+  const activityToRouteIds = useMemo(() => {
+    const mapping = new Map<string, string[]>();
+    for (const group of routeGroups) {
+      const groupId = group.groupId;
+      for (const activityId of group.activityIds || []) {
+        const existing = mapping.get(activityId);
+        if (existing) {
+          existing.push(groupId);
+        } else {
+          mapping.set(activityId, [groupId]);
+        }
+      }
+    }
+    return mapping;
+  }, [routeGroups]);
+
+  // Disabled sections state
+  const { isDisabled, disable, enable } = useDisabledSections();
+  const isSectionDisabled = id ? isDisabled(id) : false;
 
   // Check both sources - custom sections and engine-detected sections
   const section = useMemo(() => {
@@ -369,13 +398,24 @@ export default function SectionDetailScreen() {
         })),
       ];
 
+      // Compute routeIds by finding which routes contain this section's activities
+      const routeIdSet = new Set<string>();
+      for (const activityId of activityIds) {
+        const routes = activityToRouteIds.get(activityId);
+        if (routes) {
+          for (const routeId of routes) {
+            routeIdSet.add(routeId);
+          }
+        }
+      }
+
       return {
         id: customSection.id,
         sportType: customSection.sportType,
         polyline: customSection.polyline,
         activityIds,
         activityPortions,
-        routeIds: [],
+        routeIds: Array.from(routeIdSet),
         visitCount: activityIds.length,
         distanceMeters: customSection.distanceMeters,
         name: customSection.name,
@@ -389,7 +429,7 @@ export default function SectionDetailScreen() {
     }
 
     return null;
-  }, [allSections, customSection, id, isCustomId]);
+  }, [allSections, customSection, id, isCustomId, activityToRouteIds]);
 
   // Merge computed activity traces into the section
   // Always use computedActivityTraces when available, as they use extractSectionTrace
@@ -481,19 +521,39 @@ export default function SectionDetailScreen() {
   }, [customName, section?.name]);
 
   // Handle saving the edited section name
-  // Uses Rust engine as the single source of truth for section names
+  // Uses renameSection hook which invalidates React Query cache for consistent UI updates
   const handleSaveName = useCallback(() => {
-    const trimmedName = editName.trim();
-    if (trimmedName && id) {
-      const engine = getRouteEngine();
-      if (engine) {
-        engine.setSectionName(id, trimmedName);
-      }
-      setCustomName(trimmedName);
-    }
-    setIsEditing(false);
+    // Dismiss keyboard and close edit UI immediately for responsive feel
     Keyboard.dismiss();
-  }, [editName, id]);
+    setIsEditing(false);
+
+    const trimmedName = editName.trim();
+    if (!trimmedName || !id) {
+      return;
+    }
+
+    // Check uniqueness against ALL section names (custom + auto-generated)
+    const allDisplayNames = getAllSectionDisplayNames();
+    const isDuplicate = Object.entries(allDisplayNames).some(
+      ([existingId, name]) => existingId !== id && name === trimmedName
+    );
+
+    if (isDuplicate) {
+      Alert.alert(
+        t("sections.duplicateNameTitle"),
+        t("sections.duplicateNameMessage")
+      );
+      return;
+    }
+
+    // Update local state immediately for instant feedback
+    setCustomName(trimmedName);
+
+    // Fire rename in background - don't await, cache invalidation happens async
+    renameSection(id, trimmedName).catch((error) => {
+      console.error("Failed to save section name:", error);
+    });
+  }, [editName, id, renameSection, t]);
 
   // Handle canceling the edit
   const handleCancelEdit = useCallback(() => {
@@ -501,6 +561,54 @@ export default function SectionDetailScreen() {
     setEditName("");
     Keyboard.dismiss();
   }, []);
+
+  // Handle deleting a custom section
+  const handleDeleteSection = useCallback(() => {
+    if (!id || !isCustomId) return;
+
+    Alert.alert(
+      t("sections.deleteSection"),
+      t("sections.deleteSectionConfirm"),
+      [
+        { text: t("common.cancel"), style: "cancel" },
+        {
+          text: t("common.delete"),
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await removeSection(id);
+              router.back();
+            } catch (error) {
+              console.error("Failed to delete section:", error);
+            }
+          },
+        },
+      ]
+    );
+  }, [id, isCustomId, removeSection, t]);
+
+  // Handle disabling/enabling an auto-detected section
+  const handleToggleDisable = useCallback(() => {
+    if (!id || isCustomId) return;
+
+    if (isSectionDisabled) {
+      // Re-enable
+      enable(id);
+    } else {
+      // Disable with confirmation
+      Alert.alert(
+        t("sections.disableSection"),
+        t("sections.disableSectionConfirm"),
+        [
+          { text: t("common.cancel"), style: "cancel" },
+          {
+            text: t("common.disable"),
+            onPress: () => disable(id),
+          },
+        ]
+      );
+    }
+  }, [id, isCustomId, isSectionDisabled, enable, disable, t]);
 
   // Load full GPS track when an activity is highlighted (for shadow display)
   // Uses Rust engine which has all GPS tracks in SQLite (not FileSystem storage)
@@ -839,6 +947,35 @@ export default function SectionDetailScreen() {
                 color={colors.textOnDark}
               />
             </TouchableOpacity>
+            <View style={styles.headerSpacer} />
+            {isCustomId ? (
+              <TouchableOpacity
+                style={styles.deleteButton}
+                onPress={handleDeleteSection}
+                activeOpacity={0.7}
+              >
+                <MaterialCommunityIcons
+                  name="delete-outline"
+                  size={24}
+                  color={colors.textOnDark}
+                />
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                style={[
+                  styles.deleteButton,
+                  isSectionDisabled && styles.disabledButtonActive,
+                ]}
+                onPress={handleToggleDisable}
+                activeOpacity={0.7}
+              >
+                <MaterialCommunityIcons
+                  name={isSectionDisabled ? "eye-off" : "eye-off-outline"}
+                  size={24}
+                  color={isSectionDisabled ? colors.error : colors.textOnDark}
+                />
+              </TouchableOpacity>
+            )}
           </View>
 
           <View style={styles.infoOverlay}>
@@ -926,6 +1063,24 @@ export default function SectionDetailScreen() {
 
         {/* Content below hero */}
         <View style={styles.contentSection}>
+          {/* Disabled banner */}
+          {isSectionDisabled && (
+            <TouchableOpacity
+              style={[styles.disabledBanner, isDark && styles.disabledBannerDark]}
+              onPress={handleToggleDisable}
+              activeOpacity={0.8}
+            >
+              <MaterialCommunityIcons
+                name="eye-off"
+                size={18}
+                color={colors.warning}
+              />
+              <Text style={styles.disabledBannerText}>
+                {t("sections.disabled")} — {t("common.enable")}
+              </Text>
+            </TouchableOpacity>
+          )}
+
           {/* Summary Stats Card */}
           {chartData.length > 0 && (
             <View
@@ -1146,6 +1301,20 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
+  headerSpacer: {
+    flex: 1,
+  },
+  deleteButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(0, 0, 0, 0.4)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  disabledButtonActive: {
+    backgroundColor: "rgba(0, 0, 0, 0.6)",
+  },
   infoOverlay: {
     position: "absolute",
     bottom: 0,
@@ -1226,6 +1395,27 @@ const styles = StyleSheet.create({
   contentSection: {
     padding: layout.screenPadding,
     paddingTop: spacing.lg,
+  },
+  disabledBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    backgroundColor: colors.warning + "15",
+    borderWidth: 1,
+    borderColor: colors.warning + "30",
+    borderRadius: layout.borderRadius,
+    padding: spacing.md,
+    marginBottom: spacing.lg,
+  },
+  disabledBannerDark: {
+    backgroundColor: colors.warning + "20",
+    borderColor: colors.warning + "40",
+  },
+  disabledBannerText: {
+    flex: 1,
+    fontSize: typography.bodySmall.fontSize,
+    fontWeight: "500",
+    color: colors.warning,
   },
   emptyContainer: {
     flex: 1,

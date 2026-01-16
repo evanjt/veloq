@@ -423,7 +423,7 @@ export default function ActivityDetailScreen() {
     return Array.from(ids);
   }, [engineSectionMatches, customMatchedSections]);
 
-  // Fetch and sync time streams for section performance calculations
+  // Fetch and sync time streams to Rust engine for section performance calculations
   const [performanceDataReady, setPerformanceDataReady] = useState(false);
   useEffect(() => {
     if (activeTab !== "sections" || sectionActivityIds.length === 0) {
@@ -458,6 +458,7 @@ export default function ActivityDetailScreen() {
         }
 
         if (!cancelled && streamsToSync.length > 0) {
+          // Sync time streams to Rust engine
           routeEngine.setTimeStreams(streamsToSync);
           setPerformanceDataReady(true);
         }
@@ -470,7 +471,7 @@ export default function ActivityDetailScreen() {
     return () => { cancelled = true; };
   }, [activeTab, sectionActivityIds]);
 
-  // Get best time for a section from engine (cached performances)
+  // Get best time for a section from Rust engine (uses synced time streams)
   const getSectionBestTime = useCallback((sectionId: string): number | undefined => {
     if (!performanceDataReady) return undefined;
     try {
@@ -1567,20 +1568,14 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
   sectionDelta: {
-    fontSize: 14,
-    fontWeight: "700",
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-    overflow: "hidden",
+    fontSize: typography.caption.fontSize,
+    fontWeight: "600",
   },
   deltaAhead: {
-    backgroundColor: "rgba(76, 175, 80, 0.15)",
-    color: "#4CAF50",
+    color: colors.success,
   },
   deltaBehind: {
-    backgroundColor: "rgba(244, 67, 54, 0.15)",
-    color: "#F44336",
+    color: colors.error,
   },
   sectionCardContent: {
     flexDirection: "row",

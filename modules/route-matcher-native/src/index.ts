@@ -55,6 +55,8 @@ import {
   persistentEngineMatchCustomSection,
   persistentEngineGetCustomSectionMatches,
   persistentEngineExtractSectionTrace,
+  persistentEngineGetSectionPerformancesJson,
+  persistentEngineSetTimeStreamsFlat,
   ffiDetectSectionsMultiscale,
   defaultScalePresets,
   fetchActivityMaps,
@@ -73,6 +75,18 @@ import {
 // For backward compatibility, also export the module initialization status
 export function isRouteMatcherInitialized(): boolean {
   return installed;
+}
+
+/**
+ * Progress state for section detection.
+ */
+export interface SectionDetectionProgress {
+  /** Current phase: "loading", "building_rtrees", "finding_overlaps", "clustering", "building_sections", "postprocessing", "complete" */
+  phase: string;
+  /** Number of items completed in current phase */
+  completed: number;
+  /** Total items in current phase */
+  total: number;
 }
 
 /**
@@ -415,6 +429,42 @@ class RouteEngineClient {
   }
 
   /**
+   * Get section detection progress.
+   * Returns { phase, completed, total } or null if no detection running.
+   * NOTE: Requires regenerating bindings after Rust rebuild: `npm run ubrn:generate`
+   */
+  getSectionDetectionProgress(): SectionDetectionProgress | null {
+    // Import dynamically to handle case where function doesn't exist yet
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const generated = require("./generated/tracematch");
+      if (typeof generated.persistentEngineGetSectionDetectionProgress !== "function") {
+        return null;
+      }
+      const json = generated.persistentEngineGetSectionDetectionProgress() as string;
+
+      if (!json || json === "{}") {
+        return null;
+      }
+      const data = JSON.parse(json) as {
+        phase?: string;
+        completed?: number;
+        total?: number;
+      };
+      if (!data.phase) {
+        return null;
+      }
+      return {
+        phase: data.phase,
+        completed: data.completed ?? 0,
+        total: data.total ?? 0,
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  /**
    * Get groups as JSON.
    */
   getGroupsJson(): string {
@@ -526,6 +576,24 @@ class RouteEngineClient {
   }
 
   /**
+   * Get all custom route names.
+   * Returns a map of routeId -> customName for all routes with custom names.
+   */
+  getAllRouteNames(): Record<string, string> {
+    const json = persistentEngineGetAllRouteNamesJson();
+    return json ? JSON.parse(json) : {};
+  }
+
+  /**
+   * Get all custom section names.
+   * Returns a map of sectionId -> customName for all sections with custom names.
+   */
+  getAllSectionNames(): Record<string, string> {
+    const json = persistentEngineGetAllSectionNamesJson();
+    return json ? JSON.parse(json) : {};
+  }
+
+  /**
    * Get GPS track for an activity.
    * Returns flat array of coordinates [lat1, lng1, lat2, lng2, ...]
    */
@@ -573,13 +641,10 @@ class RouteEngineClient {
   /**
    * Get section performances with accurate time-based calculations.
    * Uses time streams to calculate actual traversal times for each section lap.
-   *
-   * Note: FFI function not yet implemented in Rust - returns empty string to trigger fallback.
+   * Supports both engine-detected sections and custom sections.
    */
-  getSectionPerformances(_sectionId: string): string {
-    // FFI function persistentEngineGetSectionPerformancesJson not available
-    // Return empty string so callers use their fallback logic
-    return "";
+  getSectionPerformances(sectionId: string): string {
+    return persistentEngineGetSectionPerformancesJson(sectionId);
   }
 
   /**
@@ -593,12 +658,22 @@ class RouteEngineClient {
    * Set time streams for activities.
    * Time streams are cumulative seconds at each GPS point, used for section performance calculations.
    * @param streams - Array of { activityId, times } objects where times is cumulative seconds
-   *
-   * Note: FFI function not yet implemented in Rust - this is a no-op.
    */
-  setTimeStreams(_streams: Array<{ activityId: string; times: number[] }>): void {
-    // FFI function persistentEngineSetTimeStreamsFlat not available
-    // No-op until Rust implementation is added
+  setTimeStreams(streams: Array<{ activityId: string; times: number[] }>): void {
+    if (streams.length === 0) return;
+
+    // Convert to flat format for FFI
+    const activityIds: string[] = [];
+    const allTimes: number[] = [];
+    const offsets: number[] = [0];
+
+    for (const stream of streams) {
+      activityIds.push(stream.activityId);
+      allTimes.push(...stream.times);
+      offsets.push(allTimes.length);
+    }
+
+    persistentEngineSetTimeStreamsFlat(activityIds, allTimes, offsets);
   }
 
   /**

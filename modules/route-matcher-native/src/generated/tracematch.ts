@@ -202,16 +202,20 @@ export function defaultScalePresets(): Array<ScalePreset> {
  *
  * Uses connection pooling and parallel fetching for maximum performance.
  * Automatically retries on 429 errors with exponential backoff.
+ *
+ * The auth_header should be a pre-formatted Authorization header value:
+ * - For API key auth: "Basic {base64(API_KEY:key)}"
+ * - For OAuth: "Bearer {access_token}"
  */
 export function fetchActivityMaps(
-  apiKey: string,
+  authHeader: string,
   activityIds: Array<string>,
 ): Array<FfiActivityMapResult> {
   return FfiConverterArrayTypeFfiActivityMapResult.lift(
     uniffiCaller.rustCall(
       /*caller:*/ (callStatus) => {
         return nativeModule().ubrn_uniffi_tracematch_fn_func_fetch_activity_maps(
-          FfiConverterString.lower(apiKey),
+          FfiConverterString.lower(authHeader),
           FfiConverterArrayString.lower(activityIds),
           callStatus,
         );
@@ -225,9 +229,13 @@ export function fetchActivityMaps(
  *
  * Same as fetch_activity_maps but calls the progress callback after each
  * activity is fetched, allowing the UI to show real-time progress.
+ *
+ * The auth_header should be a pre-formatted Authorization header value:
+ * - For API key auth: "Basic {base64(API_KEY:key)}"
+ * - For OAuth: "Bearer {access_token}"
  */
 export function fetchActivityMapsWithProgress(
-  apiKey: string,
+  authHeader: string,
   activityIds: Array<string>,
   callback: FetchProgressCallback,
 ): Array<FfiActivityMapResult> {
@@ -235,7 +243,7 @@ export function fetchActivityMapsWithProgress(
     uniffiCaller.rustCall(
       /*caller:*/ (callStatus) => {
         return nativeModule().ubrn_uniffi_tracematch_fn_func_fetch_activity_maps_with_progress(
-          FfiConverterString.lower(apiKey),
+          FfiConverterString.lower(authHeader),
           FfiConverterArrayString.lower(activityIds),
           FfiConverterTypeFetchProgressCallback.lower(callback),
           callStatus,
@@ -839,6 +847,23 @@ export function persistentEngineGetRoutePerformancesJson(
   );
 }
 /**
+ * Get current section detection progress.
+ * Returns JSON with format: {"phase": "finding_overlaps", "completed": 45, "total": 120}
+ * Returns empty JSON "{}" if no detection is running.
+ */
+export function persistentEngineGetSectionDetectionProgress(): string {
+  return FfiConverterString.lift(
+    uniffiCaller.rustCall(
+      /*caller:*/ (callStatus) => {
+        return nativeModule().ubrn_uniffi_tracematch_fn_func_persistent_engine_get_section_detection_progress(
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    ),
+  );
+}
+/**
  * Get the custom name for a section.
  * Returns empty string if no custom name is set.
  */
@@ -847,6 +872,25 @@ export function persistentEngineGetSectionName(sectionId: string): string {
     uniffiCaller.rustCall(
       /*caller:*/ (callStatus) => {
         return nativeModule().ubrn_uniffi_tracematch_fn_func_persistent_engine_get_section_name(
+          FfiConverterString.lower(sectionId),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    ),
+  );
+}
+/**
+ * Get section performances as JSON.
+ * Returns accurate time-based section traversal data.
+ */
+export function persistentEngineGetSectionPerformancesJson(
+  sectionId: string,
+): string {
+  return FfiConverterString.lift(
+    uniffiCaller.rustCall(
+      /*caller:*/ (callStatus) => {
+        return nativeModule().ubrn_uniffi_tracematch_fn_func_persistent_engine_get_section_performances_json(
           FfiConverterString.lower(sectionId),
           callStatus,
         );
@@ -1080,6 +1124,31 @@ export function persistentEngineSetSectionName(
       nativeModule().ubrn_uniffi_tracematch_fn_func_persistent_engine_set_section_name(
         FfiConverterString.lower(sectionId),
         FfiConverterString.lower(name),
+        callStatus,
+      );
+    },
+    /*liftString:*/ FfiConverterString.lift,
+  );
+}
+/**
+ * Set time streams for activities from flat buffer.
+ * Time streams are cumulative seconds at each GPS point, used for section performance calculations.
+ * Parameters:
+ * - activity_ids: Vec of activity IDs
+ * - all_times: Flat array of all time values concatenated
+ * - offsets: Start offset for each activity's times in all_times (length = activity_ids.len() + 1)
+ */
+export function persistentEngineSetTimeStreamsFlat(
+  activityIds: Array<string>,
+  allTimes: Array</*u32*/ number>,
+  offsets: Array</*u32*/ number>,
+): void {
+  uniffiCaller.rustCall(
+    /*caller:*/ (callStatus) => {
+      nativeModule().ubrn_uniffi_tracematch_fn_func_persistent_engine_set_time_streams_flat(
+        FfiConverterArrayString.lower(activityIds),
+        FfiConverterArrayUInt32.lower(allTimes),
+        FfiConverterArrayUInt32.lower(offsets),
         callStatus,
       );
     },
@@ -3049,6 +3118,7 @@ export type PersistentEngineStats = {
   sectionCount: /*u32*/ number;
   groupsDirty: boolean;
   sectionsDirty: boolean;
+  gpsTrackCount: /*u32*/ number;
 };
 
 /**
@@ -3094,6 +3164,7 @@ const FfiConverterTypePersistentEngineStats = (() => {
         sectionCount: FfiConverterUInt32.read(from),
         groupsDirty: FfiConverterBool.read(from),
         sectionsDirty: FfiConverterBool.read(from),
+        gpsTrackCount: FfiConverterUInt32.read(from),
       };
     }
     write(value: TypeName, into: RustBuffer): void {
@@ -3104,6 +3175,7 @@ const FfiConverterTypePersistentEngineStats = (() => {
       FfiConverterUInt32.write(value.sectionCount, into);
       FfiConverterBool.write(value.groupsDirty, into);
       FfiConverterBool.write(value.sectionsDirty, into);
+      FfiConverterUInt32.write(value.gpsTrackCount, into);
     }
     allocationSize(value: TypeName): number {
       return (
@@ -3113,7 +3185,8 @@ const FfiConverterTypePersistentEngineStats = (() => {
         FfiConverterUInt32.allocationSize(value.groupCount) +
         FfiConverterUInt32.allocationSize(value.sectionCount) +
         FfiConverterBool.allocationSize(value.groupsDirty) +
-        FfiConverterBool.allocationSize(value.sectionsDirty)
+        FfiConverterBool.allocationSize(value.sectionsDirty) +
+        FfiConverterUInt32.allocationSize(value.gpsTrackCount)
       );
     }
   }
@@ -4775,7 +4848,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_tracematch_checksum_func_fetch_activity_maps() !==
-    3986
+    8460
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_tracematch_checksum_func_fetch_activity_maps",
@@ -4783,7 +4856,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_tracematch_checksum_func_fetch_activity_maps_with_progress() !==
-    13231
+    44477
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_tracematch_checksum_func_fetch_activity_maps_with_progress",
@@ -5030,11 +5103,27 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_tracematch_checksum_func_persistent_engine_get_section_detection_progress() !==
+    37519
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_tracematch_checksum_func_persistent_engine_get_section_detection_progress",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_tracematch_checksum_func_persistent_engine_get_section_name() !==
     63920
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_tracematch_checksum_func_persistent_engine_get_section_name",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_tracematch_checksum_func_persistent_engine_get_section_performances_json() !==
+    43523
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_tracematch_checksum_func_persistent_engine_get_section_performances_json",
     );
   }
   if (
@@ -5139,6 +5228,14 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_tracematch_checksum_func_persistent_engine_set_section_name",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_tracematch_checksum_func_persistent_engine_set_time_streams_flat() !==
+    47396
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_tracematch_checksum_func_persistent_engine_set_time_streams_flat",
     );
   }
   if (
