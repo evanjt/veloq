@@ -396,9 +396,15 @@ class RouteEngineClient {
 
   /**
    * Poll section detection status.
+   * When detection completes, automatically notifies 'sections' subscribers.
    */
   pollSectionDetection(): string {
-    return persistentEnginePollSections();
+    const status = persistentEnginePollSections();
+    // Notify subscribers when section detection completes
+    if (status === "complete") {
+      this.notify("sections");
+    }
+    return status;
   }
 
   /**

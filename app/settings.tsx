@@ -24,6 +24,7 @@ import {
   useActivities,
   useOldestActivityDate,
   useTheme,
+  useUnifiedSections,
 } from "@/hooks";
 import { TimelineSlider } from "@/components/maps";
 import { formatLocalDate } from "@/lib";
@@ -222,17 +223,28 @@ export default function SettingsScreen() {
   const syncNewest = useSyncDateRange((s) => s.newest);
   const isFetchingExtended = useSyncDateRange((s) => s.isFetchingExtended);
   const isGpsSyncing = useSyncDateRange((s) => s.isGpsSyncing);
+  const isExpansionLocked = useSyncDateRange((s) => s.isExpansionLocked);
 
   // Timeline slider state - reflects actual cached data range
   // Start date tracks the oldest loaded activity date (only expands left)
   // End date is always "now" (fixed at right edge)
   const cachedStartDate = useMemo(() => {
+    // After a reset, isExpansionLocked is true - use the sync store's 90-day range
+    // This prevents showing stale cache data during the reset transition
+    if (isExpansionLocked) {
+      return new Date(syncOldest);
+    }
+    // Normal operation: show the OLDER (more expanded) of the two dates
+    // This prevents snap-back when user drags to expand but data hasn't loaded yet
     if (cacheStats.oldestDate) {
-      return new Date(cacheStats.oldestDate);
+      const cacheOldest = new Date(cacheStats.oldestDate);
+      const syncStart = new Date(syncOldest);
+      // Return the earlier date (smaller timestamp = further in the past)
+      return cacheOldest < syncStart ? cacheOldest : syncStart;
     }
     // Fallback to sync store oldest if no cached data yet
     return new Date(syncOldest);
-  }, [cacheStats.oldestDate, syncOldest]);
+  }, [cacheStats.oldestDate, syncOldest, isExpansionLocked]);
 
   const cachedEndDate = useMemo(() => {
     // End date is always now (today) - fixed at right edge
@@ -298,6 +310,9 @@ export default function SettingsScreen() {
     useRouteGroups({
       minActivities: 2,
     });
+
+  // Get unified sections count (auto-detected + custom)
+  const { count: totalSections } = useUnifiedSections();
 
   // Route matching settings
   const { settings: routeSettings, setEnabled: setRouteMatchingEnabled } =
@@ -635,58 +650,33 @@ export default function SettingsScreen() {
 
           <View style={[styles.divider, isDark && styles.dividerDark]} />
 
-          {routeSettings.enabled && (
+          {routeSettings.enabled && isRouteProcessing && (
             <>
               <TouchableOpacity
                 style={styles.actionRow}
-                onPress={() => router.push("/routes" as Href)}
+                onPress={cancelRouteProcessing}
               >
                 <MaterialCommunityIcons
-                  name="map-marker-path"
+                  name="pause-circle-outline"
                   size={22}
-                  color={colors.primary}
+                  color={colors.warning}
                 />
-                <Text style={[styles.actionText, isDark && styles.textLight]}>
-                  {t("settings.viewRoutes")}
+                <Text
+                  style={[styles.actionText, isDark && styles.textLight]}
+                >
+                  {t("settings.pauseRouteProcessing")}
                 </Text>
                 <MaterialCommunityIcons
                   name="chevron-right"
                   size={20}
-                  color={isDark ? darkColors.textMuted : colors.textSecondary}
+                  color={
+                    isDark ? darkColors.textMuted : colors.textSecondary
+                  }
                 />
               </TouchableOpacity>
-
-              <View style={[styles.divider, isDark && styles.dividerDark]} />
-
-              {isRouteProcessing && (
-                <>
-                  <TouchableOpacity
-                    style={styles.actionRow}
-                    onPress={cancelRouteProcessing}
-                  >
-                    <MaterialCommunityIcons
-                      name="pause-circle-outline"
-                      size={22}
-                      color={colors.warning}
-                    />
-                    <Text
-                      style={[styles.actionText, isDark && styles.textLight]}
-                    >
-                      {t("settings.pauseRouteProcessing")}
-                    </Text>
-                    <MaterialCommunityIcons
-                      name="chevron-right"
-                      size={20}
-                      color={
-                        isDark ? darkColors.textMuted : colors.textSecondary
-                      }
-                    />
-                  </TouchableOpacity>
-                  <View
-                    style={[styles.divider, isDark && styles.dividerDark]}
-                  />
-                </>
-              )}
+              <View
+                style={[styles.divider, isDark && styles.dividerDark]}
+              />
             </>
           )}
 
@@ -721,32 +711,60 @@ export default function SettingsScreen() {
 
           {/* Cache Stats - inline */}
           <View style={styles.statRow}>
-            <View style={styles.statItem}>
+            <TouchableOpacity
+              style={styles.statItem}
+              onPress={() => router.push("/map" as Href)}
+              activeOpacity={0.7}
+            >
               <Text style={[styles.statValue, isDark && styles.textLight]}>
                 {cacheStats.totalActivities}
               </Text>
-              <Text style={[styles.statLabel, isDark && styles.textMuted]}>
-                {t("settings.activities")}
+              <Text style={[styles.statLabel, styles.statLabelClickable]}>
+                {t("settings.activities")} ›
               </Text>
-            </View>
+            </TouchableOpacity>
             <View style={styles.statDivider} />
-            <View style={styles.statItem}>
+            <TouchableOpacity
+              style={styles.statItem}
+              onPress={() => router.push("/routes" as Href)}
+              disabled={!routeSettings.enabled}
+              activeOpacity={0.7}
+            >
               <Text style={[styles.statValue, isDark && styles.textLight]}>
                 {routeSettings.enabled ? routeGroups.length : "-"}
               </Text>
-              <Text style={[styles.statLabel, isDark && styles.textMuted]}>
-                {t("settings.routesCount")}
+              <Text
+                style={[
+                  styles.statLabel,
+                  routeSettings.enabled
+                    ? styles.statLabelClickable
+                    : isDark && styles.textMuted,
+                ]}
+              >
+                {t("settings.routesCount")} ›
               </Text>
-            </View>
+            </TouchableOpacity>
             <View style={styles.statDivider} />
-            <View style={styles.statItem}>
+            <TouchableOpacity
+              style={styles.statItem}
+              onPress={() => router.push("/routes?tab=sections" as Href)}
+              disabled={!routeSettings.enabled}
+              activeOpacity={0.7}
+            >
               <Text style={[styles.statValue, isDark && styles.textLight]}>
-                {formatBytes(cacheSizes.routes)}
+                {routeSettings.enabled ? totalSections : "-"}
               </Text>
-              <Text style={[styles.statLabel, isDark && styles.textMuted]}>
-                Database
+              <Text
+                style={[
+                  styles.statLabel,
+                  routeSettings.enabled
+                    ? styles.statLabelClickable
+                    : isDark && styles.textMuted,
+                ]}
+              >
+                {t("settings.sectionsCount")} ›
               </Text>
-            </View>
+            </TouchableOpacity>
           </View>
 
           <View style={[styles.infoRow, isDark && styles.infoRowDark]}>
@@ -783,6 +801,15 @@ export default function SettingsScreen() {
             </Text>
             <Text style={[styles.infoValue, isDark && styles.textLight]}>
               {queryCacheStats.totalQueries}
+            </Text>
+          </View>
+
+          <View style={[styles.infoRow, isDark && styles.infoRowDark]}>
+            <Text style={[styles.infoLabel, isDark && styles.textMuted]}>
+              {t("settings.database")}
+            </Text>
+            <Text style={[styles.infoValue, isDark && styles.textLight]}>
+              {formatBytes(cacheSizes.routes)}
             </Text>
           </View>
 
@@ -1140,6 +1167,11 @@ const styles = StyleSheet.create({
   statDivider: {
     width: 1,
     backgroundColor: colors.border,
+  },
+  statLabelClickable: {
+    fontSize: 12,
+    color: colors.primary,
+    marginTop: 2,
   },
   infoRow: {
     flexDirection: "row",

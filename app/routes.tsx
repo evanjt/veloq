@@ -2,7 +2,7 @@ import React, { useEffect, useState, useMemo, useCallback } from "react";
 import { View, StyleSheet } from "react-native";
 import { Text, IconButton } from "react-native-paper";
 import { ScreenSafeAreaView } from "@/components/ui";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 import { RoutesList, SectionsList, DateRangeSummary } from "@/components";
@@ -31,6 +31,7 @@ export default function RoutesScreen() {
   const { t } = useTranslation();
   const { isDark, colors: themeColors } = useTheme();
   const shared = createSharedStyles(isDark);
+  const { tab } = useLocalSearchParams<{ tab?: string }>();
 
   // Check if route matching is enabled
   const { settings: routeSettings } = useRouteSettings();
@@ -64,8 +65,17 @@ export default function RoutesScreen() {
   // Get unified sections count (auto-detected + custom)
   const { count: totalSections } = useUnifiedSections();
 
-  // Tab state
-  const [activeTab, setActiveTab] = useState<TabType>("routes");
+  // Tab state - initialize from URL param if provided
+  const [activeTab, setActiveTab] = useState<TabType>(() =>
+    tab === "sections" ? "sections" : "routes"
+  );
+
+  // Update tab when URL param changes (e.g., navigating from settings with ?tab=sections)
+  useEffect(() => {
+    if (tab === "sections" || tab === "routes") {
+      setActiveTab(tab);
+    }
+  }, [tab]);
 
   // Tabs configuration for SwipeableTabs
   const tabs = useMemo<[SwipeableTab, SwipeableTab]>(
