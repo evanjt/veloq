@@ -70,6 +70,9 @@ platform :ios do
       code_sign_identity: "iPhone Distribution"
     )
 
+    # Ensure artifacts directory exists for build logs
+    FileUtils.mkdir_p("artifacts")
+
     build_app(
       workspace: "ios/veloq.xcworkspace",
       scheme: "Veloq",
@@ -77,8 +80,10 @@ platform :ios do
       export_method: "app-store",
       output_directory: "artifacts",
       output_name: "veloq.ipa",
-      clean: true,
-      include_bitcode: false
+      clean: false,  # Don't clean - faster and avoids cache issues
+      include_bitcode: false,
+      buildlog_path: "artifacts",  # Save full xcodebuild log for debugging
+      xcargs: "-verbose"  # More detailed output
     )
   end
 
