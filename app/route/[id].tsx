@@ -311,10 +311,10 @@ export default function RouteDetailScreen() {
     [allGroups, id],
   );
 
-  // Fetch activities for the past year (route groups can contain older activities)
+  // Fetch activities for 3 years (route groups can contain older activities)
   // Moved up so we can pass to useRoutePerformances
   const { data: allActivities, isLoading } = useActivities({
-    days: 365,
+    days: 365 * 3,
     includeStats: false,
   });
 
