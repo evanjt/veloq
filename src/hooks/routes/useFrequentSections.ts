@@ -7,6 +7,7 @@
 import { useMemo } from 'react';
 import { useEngineSections } from './useRouteEngine';
 import { gpsPointsToRoutePoints } from 'route-matcher-native';
+import { useDisabledSections } from '@/providers';
 import type { FrequentSection } from '@/types';
 
 /**
@@ -44,6 +45,8 @@ export interface UseFrequentSectionsOptions {
   minVisits?: number;
   /** Sort order */
   sortBy?: 'visits' | 'distance' | 'name';
+  /** Exclude disabled sections (default: true) */
+  excludeDisabled?: boolean;
 }
 
 export interface UseFrequentSectionsResult {
@@ -58,13 +61,16 @@ export interface UseFrequentSectionsResult {
 export function useFrequentSections(
   options: UseFrequentSectionsOptions = {}
 ): UseFrequentSectionsResult {
-  const { sportType, minVisits = 3, sortBy = 'visits' } = options;
+  const { sportType, minVisits = 3, sortBy = 'visits', excludeDisabled = true } = options;
 
   const { sections: rawSections, totalCount } = useEngineSections({
     sportType,
     minVisits: 1,
   });
   const isReady = true;
+
+  // Get disabled sections for filtering
+  const disabledIds = useDisabledSections((s) => s.disabledIds);
 
   const sections = useMemo(() => {
     // Convert native FrequentSection (GpsPoint polyline) to app FrequentSection (RoutePoint polyline)
@@ -88,6 +94,11 @@ export function useFrequentSections(
     // Filter by minimum visits
     filtered = filtered.filter((s) => s.visitCount >= minVisits);
 
+    // Filter out disabled sections
+    if (excludeDisabled) {
+      filtered = filtered.filter((s) => !disabledIds.has(s.id));
+    }
+
     // Sort
     switch (sortBy) {
       case 'visits':
@@ -102,7 +113,7 @@ export function useFrequentSections(
     }
 
     return filtered;
-  }, [rawSections, sportType, minVisits, sortBy]);
+  }, [rawSections, sportType, minVisits, sortBy, excludeDisabled, disabledIds]);
 
   return {
     sections,

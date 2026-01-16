@@ -151,7 +151,9 @@
     "recordedWith": "Grabado con {{device}}"
   },
   "cache": {
-    "analyzingRoutes": "Analizando rutas",
+    "analyzingRoutes": "Analyzing routes",
+    "analyzingRoutesProgress": "Analyzing routes... {{percent}}%",
+    "routeAnalysisComplete": "Route analysis complete",
     "syncingActivities": "Sincronizando actividades"
   },
   "common": {
@@ -462,7 +464,6 @@
   },
   "routesScreen": {
     "analysingRoutes": "Analizando rutas {{current}}/{{total}}",
-    "analyzingRoutes": "Analizando rutas",
     "computingRoutes": "Calculando rutas...",
     "downloadingGps": "Descargando trazas",
     "enableInSettings": "Activa la coincidencia de rutas en Ajustes para detectar automáticamente rutas repetidas de tus actividades.",

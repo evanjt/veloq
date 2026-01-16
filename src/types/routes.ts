@@ -488,6 +488,8 @@ export interface UnifiedSection {
   visitCount: number;
   /** Source type: where this section came from */
   source: 'auto' | 'custom' | 'potential';
+  /** Whether this section is disabled (hidden from activity details) */
+  isDisabled?: boolean;
   /** For custom sections: the full custom section data */
   customData?: CustomSectionWithMatches;
   /** For auto sections: the full engine section data */

@@ -411,6 +411,7 @@ export function useViewportActivities(bounds: Bounds | null): UseViewportActivit
 export function useEngineStats(): PersistentEngineStats {
   const [stats, setStats] = useState<PersistentEngineStats>({
     activityCount: 0,
+    gpsTrackCount: 0,
     signatureCacheSize: 0,
     consensusCacheSize: 0,
     groupCount: 0,

@@ -182,60 +182,64 @@ export default function MapScreen() {
   }, [apiOldestDate, activities, startDate]);
 
   // Compute sync progress for timeline display
-  // Phases: 1) Loading activities, 2) Syncing bounds/GPS, 3) Analyzing routes
+  // Unified progress across all phases (0-100%) for smooth animation
+  // Phase weights: Loading=10%, Syncing bounds=20%, Downloading GPS=30%, Analyzing=40%
   const timelineSyncProgress = useMemo(() => {
-    // Phase 1: Loading activities from API
+    // Phase 1: Loading activities from API (0-10%)
     if (isFetchingActivities || isFetchingExtended) {
+      // Indeterminate progress during initial load
       return {
-        completed: 0,
-        total: 0,
+        completed: 5,
+        total: 100,
         message: t("mapScreen.loadingActivities") as string,
       };
     }
-    // Phase 2: Syncing activity bounds/GPS cache
+
+    // Phase 2: Syncing activity bounds/GPS cache (10-30%)
     if (progress.status === "syncing") {
+      const phaseProgress = progress.total > 0 ? progress.completed / progress.total : 0;
+      const overallProgress = Math.round(10 + phaseProgress * 20);
       return {
-        completed: progress.completed,
-        total: progress.total,
-        message:
-          progress.total > 0
-            ? (t("maps.syncingActivities", {
-                completed: progress.completed,
-                total: progress.total,
-              }) as string)
-            : (t("maps.syncingActivities", {
-                completed: 0,
-                total: 0,
-              }) as string),
+        completed: overallProgress,
+        total: 100,
+        message: t("maps.syncingActivities", {
+          completed: progress.completed,
+          total: progress.total,
+        }) as string,
       };
     }
-    // Phase 3b: Computing routes/sections (check BEFORE generic syncing)
-    if (gpsSyncProgress.status === "computing") {
+
+    // Phase 3a: Downloading GPS data (30-60%)
+    if (isGpsSyncing && gpsSyncProgress.status === "fetching") {
+      const phaseProgress = gpsSyncProgress.total > 0
+        ? gpsSyncProgress.completed / gpsSyncProgress.total
+        : 0;
+      const overallProgress = Math.round(30 + phaseProgress * 30);
       return {
-        completed: 0,
-        total: 0,
+        completed: overallProgress,
+        total: 100,
+        message: t("routesScreen.downloadingGps", {
+          completed: gpsSyncProgress.completed,
+          total: gpsSyncProgress.total,
+        }) as string,
+      };
+    }
+
+    // Phase 3b: Computing routes/sections (60-100%)
+    if (gpsSyncProgress.status === "computing") {
+      const phaseProgress = gpsSyncProgress.total > 0
+        ? gpsSyncProgress.completed / gpsSyncProgress.total
+        : 0;
+      const overallProgress = Math.round(60 + phaseProgress * 40);
+      return {
+        completed: overallProgress,
+        total: 100,
         message:
           gpsSyncProgress.message ||
           (t("routesScreen.computingRoutes") as string),
       };
     }
-    // Phase 3a: Downloading GPS data
-    if (isGpsSyncing && gpsSyncProgress.status === "fetching") {
-      return {
-        completed: gpsSyncProgress.completed,
-        total: gpsSyncProgress.total,
-        message:
-          gpsSyncProgress.total > 0
-            ? (t("routesScreen.downloadingGps", {
-                completed: gpsSyncProgress.completed,
-                total: gpsSyncProgress.total,
-              }) as string)
-            : (t("routesScreen.downloadingGps", {
-                completed: 0,
-                total: 0,
-              }) as string),
-      };
-    }
+
     return null;
   }, [
     isFetchingActivities,
@@ -246,60 +250,62 @@ export default function MapScreen() {
     t,
   ]);
 
-  // Compute loading screen progress (similar to timelineSyncProgress but for initial load)
+  // Compute loading screen progress (unified 0-100% like timelineSyncProgress)
   const loadingProgress = useMemo(() => {
-    // Phase 1: Loading activities from API
+    // Phase 1: Loading activities from API (0-10%)
     if (isFetchingActivities || isFetchingExtended) {
       return {
-        completed: 0,
-        total: 0,
+        completed: 5,
+        total: 100,
         message: t("mapScreen.loadingActivities") as string,
       };
     }
-    // Phase 2: Syncing activity bounds/GPS cache
+
+    // Phase 2: Syncing activity bounds/GPS cache (10-30%)
     if (progress.status === "syncing") {
+      const phaseProgress = progress.total > 0 ? progress.completed / progress.total : 0;
+      const overallProgress = Math.round(10 + phaseProgress * 20);
       return {
-        completed: progress.completed,
-        total: progress.total,
-        message:
-          progress.total > 0
-            ? (t("maps.syncingActivities", {
-                completed: progress.completed,
-                total: progress.total,
-              }) as string)
-            : (t("maps.syncingActivities", {
-                completed: 0,
-                total: 0,
-              }) as string),
+        completed: overallProgress,
+        total: 100,
+        message: t("maps.syncingActivities", {
+          completed: progress.completed,
+          total: progress.total,
+        }) as string,
       };
     }
-    // Phase 3: Computing routes/sections
-    if (gpsSyncProgress.status === "computing") {
+
+    // Phase 3a: Downloading GPS data (30-60%)
+    if (isGpsSyncing && gpsSyncProgress.status === "fetching") {
+      const phaseProgress = gpsSyncProgress.total > 0
+        ? gpsSyncProgress.completed / gpsSyncProgress.total
+        : 0;
+      const overallProgress = Math.round(30 + phaseProgress * 30);
       return {
-        completed: 0,
-        total: 0,
+        completed: overallProgress,
+        total: 100,
+        message: t("routesScreen.downloadingGps", {
+          completed: gpsSyncProgress.completed,
+          total: gpsSyncProgress.total,
+        }) as string,
+      };
+    }
+
+    // Phase 3b: Computing routes/sections (60-100%)
+    if (gpsSyncProgress.status === "computing") {
+      const phaseProgress = gpsSyncProgress.total > 0
+        ? gpsSyncProgress.completed / gpsSyncProgress.total
+        : 0;
+      const overallProgress = Math.round(60 + phaseProgress * 40);
+      return {
+        completed: overallProgress,
+        total: 100,
         message:
           gpsSyncProgress.message ||
           (t("routesScreen.computingRoutes") as string),
       };
     }
-    // Phase 4: Downloading GPS data
-    if (isGpsSyncing && gpsSyncProgress.status === "fetching") {
-      return {
-        completed: gpsSyncProgress.completed,
-        total: gpsSyncProgress.total,
-        message:
-          gpsSyncProgress.total > 0
-            ? (t("routesScreen.downloadingGps", {
-                completed: gpsSyncProgress.completed,
-                total: gpsSyncProgress.total,
-              }) as string)
-            : (t("routesScreen.downloadingGps", {
-                completed: 0,
-                total: 0,
-              }) as string),
-      };
-    }
+
     return null;
   }, [
     isFetchingActivities,
@@ -320,15 +326,14 @@ export default function MapScreen() {
         <Text style={[styles.loadingText, isDark && styles.loadingTextDark]}>
           {t("mapScreen.loadingActivities")}
         </Text>
-        {loadingProgress && (
-          <View style={styles.loadingBannerContainer}>
-            <SyncProgressBanner
-              completed={loadingProgress.completed}
-              total={loadingProgress.total}
-              message={loadingProgress.message}
-            />
-          </View>
-        )}
+        <View style={styles.loadingBannerContainer}>
+          <SyncProgressBanner
+            completed={loadingProgress?.completed ?? 0}
+            total={loadingProgress?.total ?? 100}
+            message={loadingProgress?.message}
+            visible={!!loadingProgress}
+          />
+        </View>
       </View>
     );
   }

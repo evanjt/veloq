@@ -15,6 +15,7 @@ import {
   TouchableOpacity,
   TextInput,
   Keyboard,
+  Alert,
 } from "react-native";
 import { Text, ActivityIndicator } from "react-native-paper";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -29,6 +30,7 @@ import {
   useRoutePerformances,
   useTheme,
 } from "@/hooks";
+import { getAllRouteDisplayNames } from "@/hooks/routes/useRouteGroups";
 import { createSharedStyles } from "@/styles";
 
 // Lazy load native module to avoid bundler errors
@@ -305,7 +307,7 @@ export default function RouteDetailScreen() {
   );
 
   // Get route groups from engine
-  const { groups: allGroups } = useRouteGroups({ minActivities: 1 });
+  const { groups: allGroups, renameRoute } = useRouteGroups({ minActivities: 1 });
   const engineGroup = useMemo(
     () => allGroups.find((g) => g.id === id) || null,
     [allGroups, id],
@@ -357,16 +359,39 @@ export default function RouteDetailScreen() {
   }, [customName, routeGroupBase?.name]);
 
   // Handle saving the edited route name
+  // Uses renameRoute hook which triggers engine event for consistent UI updates
   const handleSaveName = useCallback(() => {
     const trimmedName = editName.trim();
-    if (trimmedName && id) {
-      const engine = getRouteEngine();
-      if (engine) engine.setRouteName(id, trimmedName);
-      setCustomName(trimmedName);
+    if (!trimmedName || !id) {
+      setIsEditing(false);
+      Keyboard.dismiss();
+      return;
     }
+
+    // Check uniqueness against ALL route names (custom + auto-generated)
+    const allDisplayNames = getAllRouteDisplayNames();
+    const isDuplicate = Object.entries(allDisplayNames).some(
+      ([existingId, name]) => existingId !== id && name === trimmedName
+    );
+
+    if (isDuplicate) {
+      Alert.alert(
+        t("routes.duplicateNameTitle"),
+        t("routes.duplicateNameMessage")
+      );
+      return;
+    }
+
+    try {
+      renameRoute(id, trimmedName);
+      setCustomName(trimmedName);
+    } catch (error) {
+      console.error("Failed to save route name:", error);
+    }
+
     setIsEditing(false);
     Keyboard.dismiss();
-  }, [editName, id]);
+  }, [editName, id, renameRoute, t]);
 
   // Handle canceling the edit
   const handleCancelEdit = useCallback(() => {

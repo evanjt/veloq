@@ -10,7 +10,7 @@ import { useFrequentSections } from './useFrequentSections';
 import { useCustomSections } from './useCustomSections';
 import { usePotentialSections } from './usePotentialSections';
 import { useSectionDismissals } from '@/providers/SectionDismissalsStore';
-import { useSupersededSections } from '@/providers';
+import { useSupersededSections, useDisabledSections } from '@/providers';
 import { getRouteEngine } from '@/lib/native/routeEngine';
 import type { FrequentSection, UnifiedSection, RoutePoint } from '@/types';
 
@@ -34,6 +34,8 @@ export interface UseUnifiedSectionsResult {
   customCount: number;
   /** Potential section count */
   potentialCount: number;
+  /** Disabled section count */
+  disabledCount: number;
   /** Loading state */
   isLoading: boolean;
   /** Error state */
@@ -126,7 +128,8 @@ export function useUnifiedSections(
   }, [supersededBy]);
 
   // Load auto-detected sections from engine
-  const { sections: engineSections } = useFrequentSections({ sportType });
+  // Pass excludeDisabled: false because we handle disabled sections ourselves (sort to bottom with visual indicator)
+  const { sections: engineSections } = useFrequentSections({ sportType, excludeDisabled: false });
 
   // Load custom sections
   const {
@@ -140,6 +143,10 @@ export function useUnifiedSections(
 
   // Get dismissals
   const isDismissed = useSectionDismissals((s) => s.isDismissed);
+
+  // Get disabled sections
+  const disabledIds = useDisabledSections((s) => s.disabledIds);
+  const isDisabled = (id: string) => disabledIds.has(id);
 
   // Filter out dismissed potentials
   const potentialSections = useMemo(() => {
@@ -189,6 +196,7 @@ export function useUnifiedSections(
           distanceMeters: engine.distanceMeters,
           visitCount: engine.visitCount,
           source: 'auto',
+          isDisabled: isDisabled(engine.id),
           engineData: engine,
         });
       }
@@ -229,8 +237,12 @@ export function useUnifiedSections(
       }
     }
 
-    // Sort by visit count (most visited first), then by source (custom > auto > potential)
+    // Sort: disabled sections last, then by source (custom > auto > potential), then by visit count
     result.sort((a, b) => {
+      // Disabled sections go to the bottom
+      if (a.isDisabled && !b.isDisabled) return 1;
+      if (!a.isDisabled && b.isDisabled) return -1;
+
       // Source priority
       const sourcePriority = { custom: 0, auto: 1, potential: 2 };
       const aPriority = sourcePriority[a.source];
@@ -250,12 +262,14 @@ export function useUnifiedSections(
     includeCustom,
     includePotentials,
     supersededSet,
+    disabledIds,
   ]);
 
   // Compute counts
-  const autoCount = unified.filter((s) => s.source === 'auto').length;
+  const autoCount = unified.filter((s) => s.source === 'auto' && !s.isDisabled).length;
   const customCount = unified.filter((s) => s.source === 'custom').length;
   const potentialCount = unified.filter((s) => s.source === 'potential').length;
+  const disabledCount = unified.filter((s) => s.isDisabled).length;
 
   return {
     sections: unified,
@@ -263,6 +277,7 @@ export function useUnifiedSections(
     autoCount,
     customCount,
     potentialCount,
+    disabledCount,
     isLoading: customLoading,
     error: customError || null,
   };
@@ -283,4 +298,43 @@ export function useUnifiedSection(sectionId: string | undefined): {
   }, [sections, sectionId]);
 
   return { section, isLoading };
+}
+
+/**
+ * Get all section display names (custom or auto-generated).
+ * Used for uniqueness validation when renaming sections.
+ * Returns a map of sectionId -> displayName for all sections.
+ */
+export function getAllSectionDisplayNames(): Record<string, string> {
+  const engine = getRouteEngine();
+  if (!engine) return {};
+
+  const sections = engine.getSections();
+  const customNames = engine.getAllSectionNames();
+  const customSections = engine.getCustomSections();
+  const result: Record<string, string> = {};
+
+  // Auto-detected sections
+  for (const section of sections) {
+    // Use custom name from engine if set, otherwise generate name
+    if (customNames[section.id]) {
+      result[section.id] = customNames[section.id];
+    } else if (section.name) {
+      result[section.id] = section.name;
+    } else {
+      // Auto-generate from sport type and distance
+      const distanceKm = section.distanceMeters / 1000;
+      const distanceStr =
+        distanceKm >= 1 ? `${distanceKm.toFixed(1)}km` : `${Math.round(section.distanceMeters)}m`;
+      result[section.id] = `${section.sportType} Section (${distanceStr})`;
+    }
+  }
+
+  // Custom sections (user-created)
+  for (const section of customSections) {
+    // Custom sections always have a name (required at creation)
+    result[section.id] = section.name;
+  }
+
+  return result;
 }

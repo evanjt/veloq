@@ -228,7 +228,9 @@ export const SectionRow = memo(function SectionRow({
 
           <View style={styles.stat}>
             <MaterialCommunityIcons name="repeat" size={12} color={isDark ? '#666' : '#999'} />
-            <Text style={[styles.statText, isDark && styles.textMuted]}>{section.visitCount}x</Text>
+            <Text style={[styles.statText, isDark && styles.textMuted]}>
+              {section.visitCount} {t('sections.traversals')}
+            </Text>
           </View>
 
           <View style={styles.stat}>

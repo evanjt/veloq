@@ -450,9 +450,6 @@ export function ActivityMapView({
   // Camera ref for programmatic control
   const cameraRef = useRef<React.ElementRef<typeof Camera>>(null);
 
-  // Track if initial bounds have been applied - prevents camera reset on parent re-renders
-  const [initialBoundsApplied, setInitialBoundsApplied] = useState(false);
-
   // Reset bearing to north
   const resetOrientation = useCallback(() => {
     if (is3DMode && is3DReady) {
@@ -472,16 +469,35 @@ export function ActivityMapView({
 
   const bounds = useMemo(() => getMapLibreBounds(validCoordinates), [validCoordinates]);
 
-  // Mark initial bounds as applied after first render with valid bounds
+  // Create a stable key for the current activity's coordinates
+  // This detects when we're viewing a different activity
+  const coordinatesKey = useMemo(() => {
+    if (validCoordinates.length === 0) return '';
+    const first = validCoordinates[0];
+    const last = validCoordinates[validCoordinates.length - 1];
+    return `${validCoordinates.length}-${first.latitude.toFixed(5)}-${first.longitude.toFixed(5)}-${last.latitude.toFixed(5)}-${last.longitude.toFixed(5)}`;
+  }, [validCoordinates]);
+
+  // Track which coordinatesKey we've applied bounds for
+  const appliedBoundsKeyRef = useRef<string>('');
+
+  // Apply bounds imperatively when coordinates change (different activity)
+  // Using imperative API ensures Camera props stay consistent across re-renders
   useEffect(() => {
-    if (bounds && !initialBoundsApplied) {
-      // Small delay to ensure camera has time to apply bounds
+    if (bounds && coordinatesKey && coordinatesKey !== appliedBoundsKeyRef.current) {
+      // Small delay to ensure map is ready
       const timer = setTimeout(() => {
-        setInitialBoundsApplied(true);
+        cameraRef.current?.fitBounds(
+          bounds.ne,
+          bounds.sw,
+          [50, 50, 50, 50], // padding: [top, right, bottom, left]
+          0 // animationDuration
+        );
+        appliedBoundsKeyRef.current = coordinatesKey;
       }, 100);
       return () => clearTimeout(timer);
     }
-  }, [bounds, initialBoundsApplied]);
+  }, [bounds, coordinatesKey]);
 
   const routeGeoJSON = useMemo(() => {
     if (validCoordinates.length === 0) return null;
@@ -646,20 +662,8 @@ export function ActivityMapView({
           >
             <Camera
               ref={cameraRef}
-              // Only apply bounds on initial mount - prevents camera reset on parent re-renders
-              // After initial bounds are applied, user can freely pan/zoom
-              {...(!initialBoundsApplied && bounds
-                ? {
-                    bounds,
-                    padding: {
-                      paddingTop: 50,
-                      paddingRight: 50,
-                      paddingBottom: 50,
-                      paddingLeft: 50,
-                    },
-                  }
-                : {})}
-              animationDuration={0}
+              // Bounds are applied imperatively via fitBounds() to avoid
+              // Camera prop changes that can corrupt zoom when overlays are added
             />
 
             {/* Route overlay (matched route trace) - rendered first so activity line is on top */}

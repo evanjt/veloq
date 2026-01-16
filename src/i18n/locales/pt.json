@@ -151,7 +151,9 @@
     "recordedWith": "Gravado com {{device}}"
   },
   "cache": {
-    "analyzingRoutes": "A analisar percursos",
+    "analyzingRoutes": "Analyzing routes",
+    "analyzingRoutesProgress": "Analyzing routes... {{percent}}%",
+    "routeAnalysisComplete": "Route analysis complete",
     "syncingActivities": "A sincronizar atividades"
   },
   "common": {
@@ -462,7 +464,6 @@
   },
   "routesScreen": {
     "analysingRoutes": "A analisar percursos {{current}}/{{total}}",
-    "analyzingRoutes": "A analisar percursos",
     "computingRoutes": "A calcular percursos...",
     "downloadingGps": "A transferir trilhos",
     "enableInSettings": "Ative a correspondencia de percursos nas Definicoes para detetar automaticamente percursos repetidos das suas atividades.",

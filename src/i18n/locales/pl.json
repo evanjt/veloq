@@ -151,7 +151,9 @@
     "recordedWith": "Zarejestrowane za pomoca {{device}}"
   },
   "cache": {
-    "analyzingRoutes": "Analiza tras",
+    "analyzingRoutes": "Analyzing routes",
+    "analyzingRoutesProgress": "Analyzing routes... {{percent}}%",
+    "routeAnalysisComplete": "Route analysis complete",
     "syncingActivities": "Synchronizacja aktywnosci"
   },
   "common": {
@@ -462,7 +464,6 @@
   },
   "routesScreen": {
     "analysingRoutes": "Analiza tras {{current}}/{{total}}",
-    "analyzingRoutes": "Analiza tras",
     "computingRoutes": "Obliczanie tras...",
     "downloadingGps": "Pobieranie śladów",
     "enableInSettings": "Wlacz dopasowywanie tras w Ustawieniach, aby automatycznie wykrywac powtarzajace sie trasy z Twoich aktywnosci.",

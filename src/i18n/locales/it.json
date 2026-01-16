@@ -151,7 +151,9 @@
     "recordedWith": "Registrato con {{device}}"
   },
   "cache": {
-    "analyzingRoutes": "Analisi percorsi",
+    "analyzingRoutes": "Analyzing routes",
+    "analyzingRoutesProgress": "Analyzing routes... {{percent}}%",
+    "routeAnalysisComplete": "Route analysis complete",
     "syncingActivities": "Sincronizzazione attivita"
   },
   "common": {
@@ -462,7 +464,6 @@
   },
   "routesScreen": {
     "analysingRoutes": "Analisi percorsi {{current}}/{{total}}",
-    "analyzingRoutes": "Analisi percorsi",
     "computingRoutes": "Calcolo percorsi...",
     "downloadingGps": "Download tracce",
     "enableInSettings": "Abilita la corrispondenza percorsi nelle Impostazioni per rilevare automaticamente i percorsi ripetuti dalle tue attivita.",

@@ -123,8 +123,11 @@
     "failedToLoad": "Couldn't load that activity",
     "noMatchedSections": "No matched sections yet",
     "noMatchedSectionsDescription": "Sections matching this activity will rock up here",
+    "noRouteMatch": "No route match yet",
+    "noRouteMatchDescription": "Do this route a few more times to start tracking your performance, or expand your timeline in Settings to include older activities.",
     "tabs": {
       "charts": "Graphs",
+      "route": "Route",
       "routes": "Routes",
       "sections": "Sections"
     }
@@ -151,7 +154,9 @@
     "recordedWith": "Tracked with {{device}}"
   },
   "cache": {
-    "analyzingRoutes": "Crunching routes",
+    "analyzingRoutes": "Analysing routes",
+    "analyzingRoutesProgress": "Analysing routes... {{percent}}%",
+    "routeAnalysisComplete": "Route analysis complete",
     "syncingActivities": "Grabbing activities"
   },
   "common": {
@@ -162,7 +167,9 @@
     "confirm": "Too easy",
     "create": "Whip one up",
     "delete": "Chuck it",
+    "disable": "Turn off",
     "done": "No worries",
+    "enable": "Turn on",
     "error": "Strewth",
     "loading": "Hang on a tick...",
     "loadingMore": "Grabbing more...",
@@ -318,9 +325,12 @@
     "noAccount": "New to intervals.icu?",
     "oauthFailed": "Sign in didn't work. Have another crack.",
     "oauthNotConfigured": "OAuth isn't set up yet. Use API key login instead.",
+    "oauthStateValidationFailed": "Security check failed. Give signing in another go.",
     "openSettings": "Open Intervals.icu Settings",
     "privacyPolicy": "Privacy Policy",
     "securityNote": "Your details are safe as houses on your device",
+    "sessionExpired": "Your session's run out. Sign in again, mate.",
+    "sessionRevoked": "Your access was pulled. Sign in again.",
     "subtitle": "Hook up to Intervals.icu",
     "termsOfService": "Terms of Service",
     "title": "Veloq",
@@ -390,7 +400,11 @@
     "wellness": "How ya goin'"
   },
   "routeDetail": {
-    "routeNotFound": "Can't find that route"
+    "avgTime": "Avg Time",
+    "bestTime": "Best Time",
+    "lastActivity": "Last Activity",
+    "routeNotFound": "Can't find that route",
+    "totalActivities": "Total"
   },
   "routes": {
     "activities": "activities",
@@ -430,6 +444,9 @@
     "noMatchingRoutes": "Couldn't find any matching routes",
     "noRoutesYet": "No routes yet, mate",
     "noSectionsMatchFilter": "No sections match that filter",
+    "overDays": "over {{count}} days",
+    "overMonths": "over {{count}} months",
+    "overYears": "over {{count}} years",
     "overlap": "{{distance}}km overlap",
     "partOfRoutes": "Part of {{count}} route",
     "partOfRoutesPlural": "Part of {{count}} routes",
@@ -462,7 +479,6 @@
   },
   "routesScreen": {
     "analysingRoutes": "Analysing routes {{current}}/{{total}}",
-    "analyzingRoutes": "Analysing routes",
     "computingRoutes": "Crunching routes...",
     "downloadingGps": "Grabbing tracks",
     "enableInSettings": "Flick on route matching in Settings to automatically spot routes you've done before.",
@@ -473,11 +489,20 @@
   },
   "sections": {
     "activities": "Activities",
+    "averageTime": "Average Time",
     "best": "PB",
     "bestPace": "Best pace",
     "bestSpeed": "Best speed",
+    "bestTime": "Best Time",
     "current": "Current",
     "date": "When",
+    "defaultName": "Section {{number}}",
+    "deleteSection": "Delete Section",
+    "deleteSectionConfirm": "You sure you want to chuck this section? Can't undo this one.",
+    "disableSection": "Disable Section",
+    "disableSectionConfirm": "This section will be hidden from activity details. You can turn it back on later from the sections list.",
+    "disabled": "Disabled",
+    "lastActivity": "Last Activity",
     "noActivitiesFound": "No activities found, mate",
     "performanceOverTime": "How you're tracking",
     "reverse": "Other way",
@@ -487,12 +512,8 @@
     "scrubHintScrollable": "Swipe to scroll • Hold to flick through",
     "sectionNamePlaceholder": "Section name",
     "sectionNotFound": "Can't find that section",
-    "traversals": "times through",
-    "bestTime": "Best Time",
-    "averageTime": "Average Time",
     "totalTraversals": "Total Traversals",
-    "lastActivity": "Last Activity",
-    "defaultName": "Section {{number}}"
+    "traversals": "times through"
   },
   "settings": {
     "account": "Your Account",
@@ -505,9 +526,12 @@
     "clearAllReload": "Chuck it all & Reload",
     "clearAllReloadDescription": "This'll chuck all your cached data, tracks, and route matching stuff, then reload the lot. Might take a few minutes.",
     "clearRouteDescription": "This'll clear all the route matching data and get straight into re-analysing your tracks.",
+    "connectedViaApiKey": "Connected via API key",
+    "connectionMethod": "Connection",
     "customiseByActivity": "Tweak by activity type",
     "dark": "Dark",
     "dataCache": "Data Stash",
+    "database": "Database",
     "dataSources": "Where it comes from",
     "dataSourcesDescription": "Your activity and wellness data comes from intervals.icu, which hooks into heaps of fitness platforms and devices.",
     "dateRange": "Date range",
@@ -515,6 +539,7 @@
     "defaultMapHint": "'Default' uses the map style above",
     "defaultStyle": "Default style",
     "demoDataSources": "Demo data sources",
+    "demoMode": "Demo mode",
     "disconnectAccount": "Pull the plug",
     "disconnectDescription": "This'll chuck your API credentials from the app. You'll need to enter them again to use it.",
     "enableRouteMatching": "Turn on route matching",
@@ -544,6 +569,8 @@
     "routeMatchingDescription": "Automatically spot routes you've done before from your activities",
     "routesCount": "Routes",
     "satellite": "Satellite view",
+    "sectionsCount": "Sections",
+    "signedInToIntervals": "Signed in to intervals.icu",
     "sponsorDev": "Shout the dev a coffee",
     "subscribe": "Chip in",
     "support": "Lend a hand",

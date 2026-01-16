@@ -5,6 +5,7 @@
 
 import { useMemo } from 'react';
 import { useEngineSections } from './useRouteEngine';
+import { useDisabledSections } from '@/providers';
 import type { FrequentSection, SectionPortion } from '@/types';
 
 /**
@@ -49,6 +50,9 @@ export function useSectionMatches(activityId: string | undefined): UseSectionMat
   const { sections: allSections, totalCount } = useEngineSections();
   const isReady = totalCount > 0;
 
+  // Get disabled sections to filter them out
+  const disabledIds = useDisabledSections((s) => s.disabledIds);
+
   const sections = useMemo(() => {
     if (!activityId || allSections.length === 0) {
       return [];
@@ -59,6 +63,11 @@ export function useSectionMatches(activityId: string | undefined): UseSectionMat
     for (const section of allSections) {
       // Validate section structure to prevent crashes from malformed engine data
       if (!isValidSection(section)) {
+        continue;
+      }
+
+      // Skip disabled sections
+      if (disabledIds.has(section.id)) {
         continue;
       }
 
@@ -80,7 +89,7 @@ export function useSectionMatches(activityId: string | undefined): UseSectionMat
     matches.sort((a, b) => b.section.visitCount - a.section.visitCount);
 
     return matches;
-  }, [activityId, allSections]);
+  }, [activityId, allSections, disabledIds]);
 
   return {
     sections,
