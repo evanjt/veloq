@@ -6,11 +6,17 @@ import { colors, shadows } from '@/theme';
 interface MapFABProps {
   onPress: () => void;
   style?: ViewStyle;
+  testID?: string;
 }
 
-export function MapFAB({ onPress, style }: MapFABProps) {
+export function MapFAB({ onPress, style, testID = 'map-fab' }: MapFABProps) {
   return (
-    <TouchableOpacity style={[styles.fab, style]} onPress={onPress} activeOpacity={0.8}>
+    <TouchableOpacity
+      style={[styles.fab, style]}
+      onPress={onPress}
+      activeOpacity={0.8}
+      testID={testID}
+    >
       <Ionicons name="map" size={24} color={colors.surface} />
     </TouchableOpacity>
   );
