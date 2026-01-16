@@ -263,7 +263,10 @@
     "monthsAgo": "vor {{count}} Monaten",
     "yearsAgo": "vor {{count}} Jahren",
     "current": "Aktuell",
-    "now": "Jetzt"
+    "now": "Jetzt",
+    "days": "Tage",
+    "months": "Monate",
+    "years": "Jahre"
   },
   "units": {
     "km": "km",
@@ -423,11 +426,15 @@
     "defaultActivityName": "Aktivität {{number}}",
     "sectionCreated": "Abschnitt erstellt",
     "sectionCreatedDescription": "Dein benutzerdefinierter Abschnitt wurde erstellt und Aktivitäten wurden zugeordnet",
-    "sectionCreationFailed": "Abschnitt konnte nicht erstellt werden. Bitte versuche es erneut."
+    "sectionCreationFailed": "Abschnitt konnte nicht erstellt werden. Bitte versuche es erneut.",
+    "overDays": "über {{count}} Tage",
+    "overMonths": "über {{count}} Monate",
+    "overYears": "über {{count}} Jahre"
   },
   "sections": {
     "performanceOverTime": "Leistung über Zeit",
     "best": "Beste",
+    "current": "Aktuell",
     "same": "Gleich",
     "reverse": "Umgekehrt",
     "scrubHint": "Halten zum Durchblättern der Aktivitäten",
@@ -487,11 +494,14 @@
     "avgPower": "Ø Leistung",
     "tabs": {
       "charts": "Diagramme",
+      "route": "Route",
       "routes": "Routen",
       "sections": "Abschnitte"
     },
     "noMatchedSections": "Keine übereinstimmenden Abschnitte",
-    "noMatchedSectionsDescription": "Abschnitte, die zu dieser Aktivität passen, werden hier angezeigt"
+    "noMatchedSectionsDescription": "Abschnitte, die zu dieser Aktivität passen, werden hier angezeigt",
+    "noRouteMatch": "Noch keine Routenübereinstimmung",
+    "noRouteMatchDescription": "Absolviere diese Route noch ein paar Mal, um deine Leistung zu verfolgen, oder erweitere deinen Zeitraum in den Einstellungen."
   },
   "routeDetail": {
     "routeNotFound": "Route nicht gefunden"

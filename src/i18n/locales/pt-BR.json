@@ -260,7 +260,10 @@
     "monthsAgo": "{{count}} meses atras",
     "yearsAgo": "{{count}} anos atras",
     "current": "Atual",
-    "now": "Agora"
+    "now": "Now",
+    "days": "Days",
+    "months": "Months",
+    "years": "Years"
   },
   "units": {
     "km": "km",

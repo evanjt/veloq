@@ -135,8 +135,19 @@ export default function ActivityDetailScreen() {
   const [activeTab, setActiveTab] = useState<TabType>("charts");
 
   // Get matched route for this activity
-  const { routeGroup: matchedRoute } = useRouteMatch(id);
+  const { routeGroup: matchedRoute, representativeActivityId } = useRouteMatch(id);
   const matchedRouteCount = matchedRoute ? 1 : 0;
+
+  // Fetch representative activity streams for route overlay (only when on Routes tab)
+  const { data: representativeStreams } = useActivityStreams(
+    activeTab === "routes" && representativeActivityId ? representativeActivityId : ""
+  );
+
+  // Convert representative activity latlng to coordinates for route overlay
+  const routeOverlayCoordinates = useMemo(() => {
+    if (activeTab !== "routes" || !representativeStreams?.latlng) return null;
+    return convertLatLngTuples(representativeStreams.latlng);
+  }, [activeTab, representativeStreams]);
 
   // Get auto-detected sections from engine that include this activity
   const { sections: engineSectionMatches, count: engineSectionCount } =
@@ -163,9 +174,8 @@ export default function ActivityDetailScreen() {
       },
       {
         key: "routes",
-        label: t("activityDetail.tabs.routes"),
+        label: t("activityDetail.tabs.route"),
         icon: "map-marker-path",
-        count: matchedRouteCount,
       },
       {
         key: "sections",
@@ -339,6 +349,7 @@ export default function ActivityDetailScreen() {
             creationMode={sectionCreationMode}
             onSectionCreated={handleSectionCreated}
             onCreationCancelled={handleSectionCreationCancelled}
+            routeOverlay={activeTab === "routes" ? routeOverlayCoordinates : null}
           />
         </View>
 
@@ -566,12 +577,28 @@ export default function ActivityDetailScreen() {
           contentContainerStyle={styles.tabScrollContent}
           showsVerticalScrollIndicator={false}
         >
-          <ComponentErrorBoundary componentName="Route Performance">
-            <RoutePerformanceSection
-              activityId={activity.id}
-              activityType={activity.type}
-            />
-          </ComponentErrorBoundary>
+          {matchedRoute ? (
+            <ComponentErrorBoundary componentName="Route Performance">
+              <RoutePerformanceSection
+                activityId={activity.id}
+                activityType={activity.type}
+              />
+            </ComponentErrorBoundary>
+          ) : (
+            <View style={styles.noMatchContainer}>
+              <MaterialCommunityIcons
+                name="map-marker-question"
+                size={48}
+                color={isDark ? "#555" : "#CCC"}
+              />
+              <Text style={[styles.noMatchTitle, isDark && styles.textLight]}>
+                {t("activityDetail.noRouteMatch")}
+              </Text>
+              <Text style={[styles.noMatchDescription, isDark && styles.textMuted]}>
+                {t("activityDetail.noRouteMatchDescription")}
+              </Text>
+            </View>
+          )}
         </ScrollView>
 
         {/* Tab 3: Sections */}
@@ -1049,6 +1076,28 @@ const styles = StyleSheet.create({
   },
   tabScrollContent: {
     paddingBottom: spacing.xl,
+  },
+
+  // No route match styles
+  noMatchContainer: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: spacing.xl * 2,
+    paddingHorizontal: spacing.lg,
+  },
+  noMatchTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: colors.textPrimary,
+    marginTop: spacing.md,
+    textAlign: "center",
+  },
+  noMatchDescription: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    marginTop: spacing.sm,
+    textAlign: "center",
+    lineHeight: 20,
   },
 
   // Section card styles

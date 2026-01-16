@@ -17,6 +17,8 @@ interface UseRouteMatchResult {
   totalInGroup: number;
   /** Whether the activity has been processed */
   isProcessed: boolean;
+  /** ID of the representative activity for this route */
+  representativeActivityId: string | null;
 }
 
 export function useRouteMatch(activityId: string | undefined): UseRouteMatchResult {
@@ -29,6 +31,7 @@ export function useRouteMatch(activityId: string | undefined): UseRouteMatchResu
         rank: null,
         totalInGroup: 0,
         isProcessed: false,
+        representativeActivityId: null,
       };
     }
 
@@ -41,6 +44,7 @@ export function useRouteMatch(activityId: string | undefined): UseRouteMatchResu
         rank: null,
         totalInGroup: 0,
         isProcessed: true, // It was processed but not in a group
+        representativeActivityId: null,
       };
     }
 
@@ -71,6 +75,7 @@ export function useRouteMatch(activityId: string | undefined): UseRouteMatchResu
       rank,
       totalInGroup: routeGroup.activityIds.length,
       isProcessed: true,
+      representativeActivityId: routeGroup.representativeId || null,
     };
   }, [activityId, groups]);
 }

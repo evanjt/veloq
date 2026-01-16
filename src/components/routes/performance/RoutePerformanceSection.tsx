@@ -46,13 +46,14 @@ export function RoutePerformanceSection({
   const currentMatch = currentPerformance?.matchPercentage;
 
   // Convert performances to chart data format expected by UnifiedPerformanceChart
-  const { chartData, minSpeed, maxSpeed, bestIndex, hasReverseRuns } = useMemo(() => {
+  const { chartData, minSpeed, maxSpeed, bestIndex, currentIndex, hasReverseRuns } = useMemo(() => {
     if (performances.length === 0) {
       return {
         chartData: [],
         minSpeed: 0,
         maxSpeed: 1,
         bestIndex: 0,
+        currentIndex: -1,
         hasReverseRuns: false,
       };
     }
@@ -80,7 +81,8 @@ export function RoutePerformanceSection({
     const speeds = dataPoints.map((d) => d.speed);
     const min = speeds.length > 0 ? Math.min(...speeds) : 0;
     const max = speeds.length > 0 ? Math.max(...speeds) : 1;
-    const padding = (max - min) * 0.15 || 0.5;
+    // Use 25% padding to ensure highlighted dots (r=10) aren't clipped at edges
+    const padding = (max - min) * 0.25 || 0.5;
 
     // Find best (fastest) index
     let bestIdx = 0;
@@ -95,6 +97,9 @@ export function RoutePerformanceSection({
       }
     }
 
+    // Find current activity index
+    const currIdx = dataPoints.findIndex((d) => d.activityId === activityId);
+
     const hasAnyReverse = dataPoints.some((d) => d.direction === 'reverse');
 
     return {
@@ -102,9 +107,10 @@ export function RoutePerformanceSection({
       minSpeed: Math.max(0, min - padding),
       maxSpeed: max + padding,
       bestIndex: bestIdx,
+      currentIndex: currIdx,
       hasReverseRuns: hasAnyReverse,
     };
-  }, [performances, best]);
+  }, [performances, best, activityId]);
 
   // Build summary stats for the chart header
   const summaryStats = useMemo((): ChartSummaryStats => {
@@ -114,6 +120,8 @@ export function RoutePerformanceSection({
         avgTime: null,
         totalActivities: 0,
         lastActivity: null,
+        currentTime: null,
+        bestDate: null,
       };
     }
 
@@ -125,14 +133,18 @@ export function RoutePerformanceSection({
     const dates = performances.map((p) => p.date.getTime());
     const lastActivityDate = new Date(Math.max(...dates));
     const bestTime = best?.duration;
+    const bestDate = best?.date;
+    const currentTime = currentPerformance?.duration;
 
     return {
       bestTime: bestTime !== undefined && Number.isFinite(bestTime) ? bestTime : null,
       avgTime: avgDuration,
       totalActivities: performances.length,
       lastActivity: lastActivityDate,
+      currentTime: currentTime !== undefined && Number.isFinite(currentTime) ? currentTime : null,
+      bestDate: bestDate ?? null,
     };
-  }, [performances, best]);
+  }, [performances, best, currentPerformance]);
 
   const handleRoutePress = useCallback(() => {
     if (routeGroup) {
@@ -151,13 +163,9 @@ export function RoutePerformanceSection({
   }
 
   return (
-    <View style={styles.container}>
-      {/* Route Header Card */}
-      <TouchableOpacity
-        style={[styles.headerCard, isDark && styles.headerCardDark]}
-        onPress={handleRoutePress}
-        activeOpacity={0.7}
-      >
+    <View style={[styles.container, isDark && styles.containerDark]}>
+      {/* Route Header - integrated into the card */}
+      <TouchableOpacity style={styles.header} onPress={handleRoutePress} activeOpacity={0.7}>
         <View style={styles.headerLeft}>
           <View style={[styles.iconBadge, { backgroundColor: activityColor + '20' }]}>
             <MaterialCommunityIcons name="map-marker-path" size={16} color={activityColor} />
@@ -184,7 +192,7 @@ export function RoutePerformanceSection({
         </View>
       </TouchableOpacity>
 
-      {/* Performance Chart - UnifiedPerformanceChart provides its own card styling */}
+      {/* Performance Chart - integrated with header */}
       <UnifiedPerformanceChart
         chartData={chartData}
         activityType={activityType}
@@ -195,6 +203,9 @@ export function RoutePerformanceSection({
         hasReverseRuns={hasReverseRuns}
         tooltipBadgeType="match"
         summaryStats={summaryStats}
+        currentIndex={currentIndex}
+        variant="activity"
+        embedded
       />
     </View>
   );
@@ -204,22 +215,24 @@ const styles = StyleSheet.create({
   container: {
     marginHorizontal: spacing.md,
     marginTop: spacing.md,
-  },
-  headerCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
     backgroundColor: colors.surface,
     borderRadius: 12,
-    padding: spacing.md,
+    paddingBottom: 4,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
     shadowRadius: 8,
     elevation: 2,
   },
-  headerCardDark: {
-    backgroundColor: darkColors.surface,
+  containerDark: {
+    backgroundColor: darkColors.surfaceCard,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: spacing.md,
+    paddingBottom: spacing.sm,
   },
   headerLeft: {
     flexDirection: 'row',

@@ -282,7 +282,10 @@
     "monthsAgo": "{{count}}ヶ月前",
     "yearsAgo": "{{count}}年前",
     "current": "現在",
-    "now": "今"
+    "now": "Now",
+    "days": "Days",
+    "months": "Months",
+    "years": "Years"
   },
   "units": {
     "km": "km",

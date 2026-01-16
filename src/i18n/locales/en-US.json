@@ -282,7 +282,10 @@
     "monthsAgo": "{{count}} months ago",
     "yearsAgo": "{{count}} years ago",
     "current": "Current",
-    "now": "Now"
+    "now": "Now",
+    "days": "Days",
+    "months": "Months",
+    "years": "Years"
   },
   "units": {
     "km": "km",
@@ -502,11 +505,15 @@
     "scaleLong": "Long",
     "suggestion": "Suggested",
     "suggestions": "Suggestions",
-    "potentialSectionDescription": "Potential {{sport}} section you've done {{count}} times"
+    "potentialSectionDescription": "Potential {{sport}} section you've done {{count}} times",
+    "overDays": "over {{count}} days",
+    "overMonths": "over {{count}} months",
+    "overYears": "over {{count}} years"
   },
   "sections": {
     "performanceOverTime": "Performance Over Time",
     "best": "Best",
+    "current": "Current",
     "same": "Same",
     "reverse": "Reverse",
     "scrubHint": "Hold to scrub through activities",
@@ -567,7 +574,15 @@
     "avgPace": "Avg Pace",
     "avgSpeed": "Avg Speed",
     "avgHR": "Avg HR",
-    "avgPower": "Avg Power"
+    "avgPower": "Avg Power",
+    "tabs": {
+      "charts": "Charts",
+      "route": "Route",
+      "routes": "Routes",
+      "sections": "Sections"
+    },
+    "noRouteMatch": "No route match yet",
+    "noRouteMatchDescription": "Complete this route a few more times to start tracking your performance, or expand your timeline in Settings to include older activities."
   },
   "routeDetail": {
     "routeNotFound": "Route not found",

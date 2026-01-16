@@ -1,13 +1,21 @@
 /**
  * Hook for getting performance data for all activities in a route group.
  * Uses API-provided metrics (average_speed, etc.) instead of recalculating.
- * Match direction and percentage come from Rust engine.
+ * Match direction and percentage come from Rust engine's checkpoint-based matching.
  */
 
 import { useMemo } from 'react';
 import { useEngineGroups } from './useRouteEngine';
+import { getRouteEngine } from '@/lib/native/routeEngine';
 import type { Activity, RouteGroup, MatchDirection } from '@/types';
 import { toActivityType } from '@/types';
+
+/** Match info returned from the Rust engine */
+interface RustMatchInfo {
+  activity_id: string;
+  match_percentage: number;
+  direction: string;
+}
 
 export interface RoutePerformancePoint {
   activityId: string;
@@ -47,10 +55,6 @@ interface UseRoutePerformancesResult {
   /** Current activity's rank (1 = fastest) */
   currentRank: number | null;
 }
-
-// Note: For routes, we use API data directly. Match info (direction, percentage)
-// is only needed for sections where we calculate segment-specific times.
-// Routes are already grouped by GPS similarity, so we default to 100% match.
 
 export function useRoutePerformances(
   activityId: string | undefined,
@@ -96,8 +100,39 @@ export function useRoutePerformances(
     };
   }, [engineGroup, groupIndex]);
 
-  // Build performances from Activity objects (API data)
-  // No Rust calculation needed - we use API's average_speed directly
+  // Get match info from Rust engine (checkpoint-based matching)
+  // This provides accurate percentages reflecting how well each activity matches the route
+  const matchInfoMap = useMemo((): Map<string, RustMatchInfo> => {
+    if (!engineGroup) return new Map();
+
+    try {
+      const engine = getRouteEngine();
+      if (!engine) return new Map();
+
+      // Get match data from Rust engine (includes direction and match_percentage)
+      const json = engine.getRoutePerformances(engineGroup.groupId, activityId || '');
+      if (!json) return new Map();
+
+      const parsed = JSON.parse(json);
+      const performances = parsed.performances || [];
+
+      // Build lookup map by activity ID
+      const map = new Map<string, RustMatchInfo>();
+      for (const perf of performances) {
+        map.set(perf.activity_id, {
+          activity_id: perf.activity_id,
+          match_percentage: perf.match_percentage ?? 100,
+          direction: perf.direction ?? 'same',
+        });
+      }
+      return map;
+    } catch {
+      // Fallback if engine unavailable or JSON parsing fails
+      return new Map();
+    }
+  }, [engineGroup, activityId]);
+
+  // Build performances from Activity objects (API data) + match info from Rust
   const { performances, best, currentRank } = useMemo(() => {
     if (!engineGroup || !activities || activities.length === 0) {
       return { performances: [], best: null, currentRank: null };
@@ -113,21 +148,28 @@ export function useRoutePerformances(
       (a) => Number.isFinite(a.average_speed) && a.average_speed > 0
     );
 
-    const points: RoutePerformancePoint[] = validActivities.map((activity) => ({
-      activityId: activity.id,
-      date: new Date(activity.start_date_local),
-      name: activity.name,
-      speed: activity.average_speed, // Direct from API!
-      duration: activity.elapsed_time,
-      movingTime: activity.moving_time,
-      distance: activity.distance || 0,
-      elevationGain: activity.total_elevation_gain || 0,
-      avgHr: activity.average_heartrate ?? activity.icu_average_hr,
-      avgPower: activity.average_watts ?? activity.icu_average_watts,
-      isCurrent: activity.id === activityId,
-      direction: 'same' as MatchDirection, // Routes are grouped by similarity
-      matchPercentage: 100, // All activities in a route group match
-    }));
+    const points: RoutePerformancePoint[] = validActivities.map((activity) => {
+      // Get match info from Rust engine (or fallback to defaults)
+      const matchInfo = matchInfoMap.get(activity.id);
+      const matchPercentage = matchInfo?.match_percentage ?? 100;
+      const direction = (matchInfo?.direction ?? 'same') as MatchDirection;
+
+      return {
+        activityId: activity.id,
+        date: new Date(activity.start_date_local),
+        name: activity.name,
+        speed: activity.average_speed, // Direct from API!
+        duration: activity.elapsed_time,
+        movingTime: activity.moving_time,
+        distance: activity.distance || 0,
+        elevationGain: activity.total_elevation_gain || 0,
+        avgHr: activity.average_heartrate ?? activity.icu_average_hr,
+        avgPower: activity.average_watts ?? activity.icu_average_watts,
+        isCurrent: activity.id === activityId,
+        direction,
+        matchPercentage,
+      };
+    });
 
     // Sort by date (oldest first for charting)
     points.sort((a, b) => a.date.getTime() - b.date.getTime());
@@ -153,7 +195,7 @@ export function useRoutePerformances(
       best: bestPoint,
       currentRank: rank,
     };
-  }, [engineGroup, activities, activityId]);
+  }, [engineGroup, activities, activityId, matchInfoMap]);
 
   return {
     routeGroup,
