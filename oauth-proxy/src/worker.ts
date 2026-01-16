@@ -226,14 +226,15 @@ async function handleOAuthCallback(url: URL, env: Env): Promise<Response> {
     return redirectToAppWithError("invalid_response");
   }
 
-  // Redirect to app with token
-  return redirectToAppWithToken(tokenData);
+  // Redirect to app with token (include state for client-side CSRF validation)
+  return redirectToAppWithToken(tokenData, state);
 }
 
 /**
  * Redirect to app with successful token
+ * Uses HTML page with JavaScript redirect since 302 redirects don't work for custom URL schemes
  */
-function redirectToAppWithToken(token: IntervalsTokenResponse): Response {
+function redirectToAppWithToken(token: IntervalsTokenResponse, state: string): Response {
   const params = new URLSearchParams({
     success: "true",
     access_token: token.access_token,
@@ -241,15 +242,36 @@ function redirectToAppWithToken(token: IntervalsTokenResponse): Response {
     scope: token.scope,
     athlete_id: token.athlete.id,
     athlete_name: token.athlete.name,
+    state: state,
   });
 
   const redirectUrl = `${APP_SCHEME}://oauth/callback?${params.toString()}`;
 
-  return Response.redirect(redirectUrl, 302);
+  // Return HTML page that redirects to the app
+  // 302 redirects don't work for custom URL schemes (veloq://)
+  const html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Redirecting to Veloq...</title>
+  <meta http-equiv="refresh" content="0;url=${redirectUrl}">
+</head>
+<body>
+  <p>Redirecting to Veloq...</p>
+  <p>If you are not redirected automatically, <a href="${redirectUrl}">tap here</a>.</p>
+  <script>window.location.href = "${redirectUrl}";</script>
+</body>
+</html>`;
+
+  return new Response(html, {
+    status: 200,
+    headers: { "Content-Type": "text/html; charset=utf-8" },
+  });
 }
 
 /**
  * Redirect to app with error
+ * Uses HTML page with JavaScript redirect since 302 redirects don't work for custom URL schemes
  */
 function redirectToAppWithError(error: string): Response {
   const params = new URLSearchParams({
@@ -259,5 +281,23 @@ function redirectToAppWithError(error: string): Response {
 
   const redirectUrl = `${APP_SCHEME}://oauth/callback?${params.toString()}`;
 
-  return Response.redirect(redirectUrl, 302);
+  // Return HTML page that redirects to the app
+  const html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Redirecting to Veloq...</title>
+  <meta http-equiv="refresh" content="0;url=${redirectUrl}">
+</head>
+<body>
+  <p>Redirecting to Veloq...</p>
+  <p>If you are not redirected automatically, <a href="${redirectUrl}">tap here</a>.</p>
+  <script>window.location.href = "${redirectUrl}";</script>
+</body>
+</html>`;
+
+  return new Response(html, {
+    status: 200,
+    headers: { "Content-Type": "text/html; charset=utf-8" },
+  });
 }

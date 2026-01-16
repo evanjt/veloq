@@ -330,10 +330,9 @@ export function useActivityBoundsCache(
 
   const sync = useCallback(
     async (days: number | 'all' = 90) => {
-      // Clear the Rust engine state
-      const engine = getRouteEngine();
-      if (engine) engine.clear();
-      setActivityCount(0);
+      // Don't clear the engine - let it retain cached activities
+      // The sync process will add new activities incrementally
+      // Only clearCache() should wipe the database (for logout, etc.)
 
       // Actively refetch activities (not just invalidate, which only marks stale)
       // Using 'all' type ensures refetch even when no component is watching

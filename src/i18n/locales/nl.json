@@ -496,9 +496,7 @@
   "attribution": {
     "recordedWith": "Opgenomen met {{device}}",
     "garminTrademark": "Garmin en het Garmin-logo zijn handelsmerken van Garmin Ltd.",
-    "demoData": "Demo-modus gebruikt echte activiteitsroutes uit open datasets.",
-    "osm": "OpenStreetMap-bijdragers",
-    "osmLicense": "Routegegevens gelicentieerd onder Open Database License (ODbL)"
+    "demoData": "Demo-modus gebruikt echte activiteitssporen. Gebruikt met toestemming van de auteur."
   },
   "stats": {
     "activityCalendar": "Activiteitenkalender",

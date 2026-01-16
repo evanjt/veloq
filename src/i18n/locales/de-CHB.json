@@ -518,9 +518,7 @@
   "attribution": {
     "recordedWith": "Ufgnoh mit {{device}}",
     "garminTrademark": "Garmin u s Garmin-Logo sy Marke vo Garmin Ltd.",
-    "demoData": "Demo bruucht echti Route us offene Datesätz.",
-    "osm": "OpenStreetMap-Lüt",
-    "osmLicense": "Routedate under Open Database License (ODbL)"
+    "demoData": "Demo bruucht echti Aktivitätsspure. Mit Erlaubnis vom Autor bruucht."
   },
   "stats": {
     "activityCalendar": "Chaländer",

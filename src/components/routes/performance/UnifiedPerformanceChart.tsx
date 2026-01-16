@@ -291,7 +291,7 @@ export function UnifiedPerformanceChart({
         data={chartData as unknown as Record<string, unknown>[]}
         xKey={'x' as never}
         yKeys={['speed'] as never}
-        domain={{ y: [minSpeed, maxSpeed] }}
+        domain={{ x: [-0.5, chartData.length - 0.5], y: [minSpeed, maxSpeed] }}
         padding={{ left: 32, right: 24, top: 24, bottom: 18 }}
       >
         {
@@ -498,24 +498,20 @@ export function UnifiedPerformanceChart({
         )}
       </View>
 
-      {/* Chart with optional horizontal scrolling */}
+      {/* Chart with horizontal scrolling */}
       <GestureDetector gesture={gesture}>
         <View style={styles.chartContainer}>
-          {needsScrolling ? (
-            <ScrollView
-              ref={scrollViewRef}
-              horizontal
-              showsHorizontalScrollIndicator={true}
-              contentContainerStyle={{ width: chartWidth }}
-              onContentSizeChange={scrollToEnd}
-              onScroll={handleScroll}
-              scrollEventThrottle={16}
-            >
-              {chartContent}
-            </ScrollView>
-          ) : (
-            chartContent
-          )}
+          <ScrollView
+            ref={scrollViewRef}
+            horizontal
+            showsHorizontalScrollIndicator={needsScrolling}
+            contentContainerStyle={{ width: chartWidth }}
+            onContentSizeChange={scrollToEnd}
+            onScroll={handleScroll}
+            scrollEventThrottle={16}
+          >
+            {chartContent}
+          </ScrollView>
         </View>
       </GestureDetector>
 
@@ -593,7 +589,6 @@ const styles = StyleSheet.create({
   chartCard: {
     backgroundColor: colors.surface,
     borderRadius: 12,
-    marginHorizontal: 16,
     marginTop: 12,
     overflow: 'hidden',
   },

@@ -39,6 +39,16 @@ function getRouteEngine() {
     return null;
   }
 }
+
+// Helper to convert GPS points (latitude/longitude) to route points (lat/lng)
+function gpsPointsToRoutePoints(
+  points: Array<{ latitude: number; longitude: number }>
+): Array<{ lat: number; lng: number }> {
+  return points.map((p) => ({
+    lat: p.latitude,
+    lng: p.longitude,
+  }));
+}
 import { RouteMapView, MiniTraceView } from "@/components/routes";
 import { UnifiedPerformanceChart } from "@/components/routes/performance";
 import {
@@ -396,12 +406,14 @@ export default function RouteDetailScreen() {
       // Load GPS track for each activity (simplified for mini trace display)
       for (const activityId of engineGroup.activityIds) {
         try {
-          const points = engine.getGpsTrack(activityId);
-          if (points && points.length > 0) {
+          const gpsPoints = engine.getGpsTrack(activityId);
+          if (gpsPoints && gpsPoints.length > 0) {
+            // Convert from GpsPoint (latitude/longitude) to RoutePoint (lat/lng)
+            const routePoints = gpsPointsToRoutePoints(gpsPoints);
             // Simplify to ~50 points for mini trace preview
-            const step = Math.max(1, Math.floor(points.length / 50));
-            const simplified = points.filter(
-              (_: { lat: number; lng: number }, i: number) => i % step === 0,
+            const step = Math.max(1, Math.floor(routePoints.length / 50));
+            const simplified = routePoints.filter(
+              (_, i: number) => i % step === 0,
             );
             result[activityId] = { points: simplified };
           }

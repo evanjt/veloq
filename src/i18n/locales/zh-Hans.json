@@ -518,9 +518,7 @@
   "attribution": {
     "recordedWith": "使用 {{device}} 记录",
     "garminTrademark": "Garmin 和 Garmin 标志是 Garmin Ltd. 的商标。",
-    "demoData": "演示模式使用来自开放数据集的真实活动路线。",
-    "osm": "OpenStreetMap 贡献者",
-    "osmLicense": "路线数据采用开放数据库许可证 (ODbL) 授权"
+    "demoData": "演示模式使用真实活动轨迹。已获得作者许可使用。"
   },
   "stats": {
     "activityCalendar": "活动日历",

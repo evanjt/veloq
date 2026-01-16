@@ -496,9 +496,7 @@
   "attribution": {
     "recordedWith": "Optaget med {{device}}",
     "garminTrademark": "Garmin og Garmin-logoet er varemærker tilhørende Garmin Ltd.",
-    "demoData": "Demotilstand bruger rigtige aktivitetsruter fra åbne datasæt.",
-    "osm": "OpenStreetMap-bidragydere",
-    "osmLicense": "Rutedata licenseret under Open Database License (ODbL)"
+    "demoData": "Demotilstand bruger rigtige aktivitetsspor. Brugt med tilladelse fra forfatteren."
   },
   "stats": {
     "activityCalendar": "Aktivitetskalender",
