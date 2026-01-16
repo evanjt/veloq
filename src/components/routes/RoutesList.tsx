@@ -3,7 +3,7 @@
  * Main list showing all route groups.
  */
 
-import React, { useEffect, useRef, memo, useMemo } from 'react';
+import React, { useEffect, useRef, memo, useMemo, useCallback } from 'react';
 import {
   View,
   StyleSheet,
@@ -12,6 +12,7 @@ import {
   LayoutAnimation,
   Platform,
 } from 'react-native';
+import { useFocusEffect } from 'expo-router';
 import { useTheme } from '@/hooks';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -19,6 +20,7 @@ import { useTranslation } from 'react-i18next';
 import { colors, darkColors, opacity, spacing, layout, typography } from '@/theme';
 import { UI } from '@/lib/utils/constants';
 import { useRouteGroups, useRouteProcessing } from '@/hooks';
+import { getRouteEngine } from '@/lib/native/routeEngine';
 import { CacheScopeNotice } from './CacheScopeNotice';
 import { RouteRow } from './RouteRow';
 import type { DiscoveredRouteInfo, RouteGroup } from '@/types';
@@ -115,6 +117,17 @@ export function RoutesList({
   });
 
   const { progress } = useRouteProcessing();
+
+  // Refresh data when screen gains focus (e.g., returning from detail page after rename)
+  useFocusEffect(
+    useCallback(() => {
+      const engine = getRouteEngine();
+      if (engine) {
+        // Trigger a 'groups' event to refresh all subscribers
+        engine.triggerRefresh('groups');
+      }
+    }, [])
+  );
 
   const showProcessing = progress.status === 'processing';
 

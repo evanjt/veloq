@@ -914,6 +914,7 @@ export default function SectionDetailScreen() {
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       >
         {/* Hero Map Section */}
         <View style={styles.heroSection}>

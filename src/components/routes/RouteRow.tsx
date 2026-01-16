@@ -306,6 +306,7 @@ function RouteRowComponent({ route, navigable = false }: RouteRowProps) {
 export const RouteRow = memo(RouteRowComponent, (prevProps, nextProps) => {
   return (
     prevProps.route.id === nextProps.route.id &&
+    prevProps.route.name === nextProps.route.name &&
     prevProps.route.activityCount === nextProps.route.activityCount &&
     prevProps.navigable === nextProps.navigable
   );
