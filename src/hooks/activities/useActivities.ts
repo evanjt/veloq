@@ -2,7 +2,8 @@ import { useQuery, useInfiniteQuery, keepPreviousData } from '@tanstack/react-qu
 import { useMemo } from 'react';
 import { intervalsApi } from '@/api';
 import { formatLocalDate } from '@/lib';
-import type { Activity } from '@/types';
+import { getActivityStreams, storeActivityStreams } from '@/lib/storage';
+import type { Activity, ActivityStreams } from '@/types';
 
 interface UseActivitiesOptions {
   /** Number of days to fetch (from today backwards) */
@@ -138,21 +139,44 @@ export function useActivity(id: string) {
   });
 }
 
+/**
+ * Fetch activity streams with offline-first support.
+ * 1. Check FileSystem cache first
+ * 2. If not cached, fetch from API
+ * 3. Store in FileSystem for offline access
+ */
+async function fetchStreamsWithOfflineSupport(id: string): Promise<ActivityStreams> {
+  // Try to load from FileSystem cache first
+  const cached = await getActivityStreams(id);
+  if (cached) {
+    return cached;
+  }
+
+  // Not cached - fetch from API
+  const streams = await intervalsApi.getActivityStreams(id, [
+    'latlng',
+    'altitude',
+    'fixed_altitude',
+    'heartrate',
+    'watts',
+    'cadence',
+    'distance',
+    'time',
+    'velocity_smooth',
+  ]);
+
+  // Store in FileSystem for offline access (fire and forget)
+  storeActivityStreams(id, streams).catch(() => {
+    // Ignore storage errors - not critical
+  });
+
+  return streams;
+}
+
 export function useActivityStreams(id: string) {
   return useQuery({
     queryKey: ['activity-streams-v3', id],
-    queryFn: () =>
-      intervalsApi.getActivityStreams(id, [
-        'latlng',
-        'altitude',
-        'fixed_altitude',
-        'heartrate',
-        'watts',
-        'cadence',
-        'distance',
-        'time',
-        'velocity_smooth',
-      ]),
+    queryFn: () => fetchStreamsWithOfflineSupport(id),
     // Streams NEVER change - infinite staleTime
     staleTime: Infinity,
     gcTime: 1000 * 60 * 60 * 24 * 30, // 30 days

@@ -546,6 +546,17 @@ function getRouteEngine() {
 }
 
 /**
+ * Lazy load stream storage to avoid circular imports.
+ */
+function getStreamStorage() {
+  try {
+    return require('./streamStorage');
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Clear all app caches comprehensively.
  * Should be called when transitioning between auth states (login/logout/demo).
  *
@@ -553,7 +564,7 @@ function getRouteEngine() {
  * - TanStack Query in-memory cache (via passed queryClient)
  * - Persisted query cache in AsyncStorage
  * - Rust engine cache (SQLite)
- * - FileSystem GPS tracks and bounds caches
+ * - FileSystem GPS tracks, activity streams, and bounds caches
  *
  * Does NOT clear:
  * - AuthStore (caller handles this)
@@ -573,8 +584,11 @@ export async function clearAllAppCaches(queryClient: { clear: () => void }): Pro
   const routeEngine = getRouteEngine();
   if (routeEngine) routeEngine.clear();
 
-  // 4. Clear FileSystem caches (GPS tracks and bounds)
-  await Promise.all([clearAllGpsTracks(), clearBoundsCache()]);
+  // 4. Clear FileSystem caches (GPS tracks, activity streams, and bounds)
+  const streamStorage = getStreamStorage();
+  const clearStreams = streamStorage?.clearAllActivityStreams?.() ?? Promise.resolve();
+
+  await Promise.all([clearAllGpsTracks(), clearBoundsCache(), clearStreams]);
 
   log.log('Cleared all app caches');
 }
