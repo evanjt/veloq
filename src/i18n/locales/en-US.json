@@ -541,6 +541,7 @@
     "dataSourcesDescription": "Activity and wellness data is synced from intervals.icu, which integrates with various fitness platforms and devices.",
     "database": "Database",
     "dateRange": "Date Range",
+    "streamsCache": "Streams Cache",
     "default": "Default",
     "defaultMapHint": "'Default' uses the map style set above",
     "defaultStyle": "Default Style",

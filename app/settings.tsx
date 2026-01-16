@@ -33,6 +33,8 @@ import {
   clearAllAppCaches,
   getOfflineTileCacheSize,
   clearOfflineTileCache,
+  estimateStreamsStorageSize,
+  getActivityStreamCount,
 } from "@/lib";
 import {
   getThemePreference,
@@ -348,9 +350,15 @@ export default function SettingsScreen() {
     };
   }, [queryClient, cacheStats.totalActivities]); // Re-compute when activities change
 
-  // Cache sizes state (only routes database now, bounds/GPS are in SQLite)
-  const [cacheSizes, setCacheSizes] = useState<{ routes: number }>({
+  // Cache sizes state (routes database and activity streams)
+  const [cacheSizes, setCacheSizes] = useState<{
+    routes: number;
+    streams: number;
+    streamCount: number;
+  }>({
     routes: 0,
+    streams: 0,
+    streamCount: 0,
   });
 
   // Tile cache size state
@@ -359,8 +367,12 @@ export default function SettingsScreen() {
   // Fetch cache sizes on mount and when caches change
   // Note: callback is intentionally stable (no deps) - it always fetches fresh data
   const refreshCacheSizes = useCallback(async () => {
-    const routes = await estimateRoutesDatabaseSize();
-    setCacheSizes({ routes });
+    const [routes, streams, streamCount] = await Promise.all([
+      estimateRoutesDatabaseSize(),
+      estimateStreamsStorageSize(),
+      getActivityStreamCount(),
+    ]);
+    setCacheSizes({ routes, streams, streamCount });
   }, []);
 
   // Fetch tile cache size
@@ -939,6 +951,17 @@ export default function SettingsScreen() {
             </Text>
             <Text style={[styles.infoValue, isDark && styles.textLight]}>
               {formatBytes(cacheSizes.routes)}
+            </Text>
+          </View>
+
+          <View style={[styles.infoRow, isDark && styles.infoRowDark]}>
+            <Text style={[styles.infoLabel, isDark && styles.textMuted]}>
+              {t("settings.streamsCache")}
+            </Text>
+            <Text style={[styles.infoValue, isDark && styles.textLight]}>
+              {cacheSizes.streamCount > 0
+                ? `${cacheSizes.streamCount} ${t("settings.activities").toLowerCase()} (${formatBytes(cacheSizes.streams)})`
+                : t("settings.noData")}
             </Text>
           </View>
 

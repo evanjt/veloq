@@ -311,6 +311,7 @@ export interface TranslationResource {
     total: string;
     database: string;
     dateRange: string;
+    streamsCache: string;
     noData: string;
     lastSynced: string;
     bounds: string;
