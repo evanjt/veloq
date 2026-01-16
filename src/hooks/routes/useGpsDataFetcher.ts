@@ -22,6 +22,7 @@ import {
 import { getStoredCredentials, getSyncGeneration } from '@/providers';
 import { usePotentialSections as usePotentialSectionsStore } from '@/providers/PotentialSectionsStore';
 import { toActivityMetrics } from '@/lib/utils/activityMetrics';
+import { cacheActivityTiles, type ActivityBounds } from '@/lib/storage/tileCache';
 import type { Activity, PotentialSection } from '@/types';
 import type { SyncProgress } from './useRouteSyncProgress';
 
@@ -817,6 +818,23 @@ export function useGpsDataFetcher() {
           // Run potential section detection after regular detection completes
           if (isMountedRef.current && !abortSignal.aborted) {
             await runPotentialSectionDetection(nativeModule, updateProgress);
+          }
+
+          // Cache map tiles for activity regions (non-blocking, runs in background)
+          // This is intentionally fire-and-forget - tile caching shouldn't block the sync flow
+          if (isMountedRef.current && !abortSignal.aborted) {
+            const activityBounds: ActivityBounds[] = successfulResults
+              .filter((r) => r.bounds && r.bounds.length === 4)
+              .map((r) => ({ activityId: r.activityId, bounds: r.bounds }));
+
+            if (activityBounds.length > 0) {
+              // Fire and forget - don't await, let it run in background
+              cacheActivityTiles(activityBounds).catch((error) => {
+                if (__DEV__) {
+                  console.warn('[fetchApiGps] Tile caching error (non-fatal):', error);
+                }
+              });
+            }
           }
         }
       }

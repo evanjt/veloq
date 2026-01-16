@@ -11,8 +11,26 @@
  */
 
 import { debug } from '../utils/debug';
+import { MAP_STYLE_URLS } from '@/components/maps/mapStyles';
 
 const log = debug.create('TileCache');
+
+/** Default style URL for offline caching (light style works best offline) */
+const DEFAULT_CACHE_STYLE_URL = MAP_STYLE_URLS.light;
+
+/**
+ * Lazy load MapTileSettings store to avoid issues in Jest/test environments.
+ * The store uses AsyncStorage which isn't available in tests.
+ */
+function getMapTileSettings() {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { useMapTileSettings } = require('@/providers/MapTileSettingsStore');
+    return useMapTileSettings;
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Lazy load MapLibre to avoid issues in Jest/test environments.
@@ -170,4 +188,102 @@ export async function cacheRegionTiles(
     log.error('Failed to create offline pack:', error);
     throw error;
   }
+}
+
+/**
+ * Activity bounds from FfiActivityMapResult.
+ * Format: [ne_lat, ne_lng, sw_lat, sw_lng]
+ */
+export interface ActivityBounds {
+  activityId: string;
+  bounds: number[]; // [ne_lat, ne_lng, sw_lat, sw_lng]
+}
+
+/**
+ * Cache tiles for multiple activity regions.
+ * Checks if tile caching is enabled before proceeding.
+ * Skips activities with invalid or missing bounds.
+ *
+ * @param activities - Array of activity bounds from GPS sync
+ * @param minZoom - Minimum zoom level (default: 10)
+ * @param maxZoom - Maximum zoom level (default: 13)
+ * @returns Number of activities queued for tile caching
+ */
+export async function cacheActivityTiles(
+  activities: ActivityBounds[],
+  minZoom = 10,
+  maxZoom = 13
+): Promise<number> {
+  // Check if tile caching is enabled
+  const useMapTileSettings = getMapTileSettings();
+  if (!useMapTileSettings) {
+    log.log('MapTileSettings store not available');
+    return 0;
+  }
+
+  const { settings } = useMapTileSettings.getState();
+  if (!settings.enabled) {
+    log.log('Tile caching disabled, skipping');
+    return 0;
+  }
+
+  const MapLibreGL = getMapLibreGL();
+  if (!MapLibreGL) {
+    log.log('MapLibre not available');
+    return 0;
+  }
+
+  // Filter activities with valid bounds
+  const validActivities = activities.filter((a) => {
+    // Bounds should be [ne_lat, ne_lng, sw_lat, sw_lng] - 4 elements
+    if (!a.bounds || a.bounds.length !== 4) return false;
+    // Check for valid coordinate ranges
+    const [neLat, neLng, swLat, swLng] = a.bounds;
+    return (
+      isFinite(neLat) &&
+      isFinite(neLng) &&
+      isFinite(swLat) &&
+      isFinite(swLng) &&
+      Math.abs(neLat) <= 90 &&
+      Math.abs(swLat) <= 90 &&
+      Math.abs(neLng) <= 180 &&
+      Math.abs(swLng) <= 180
+    );
+  });
+
+  if (validActivities.length === 0) {
+    log.log('No activities with valid bounds to cache');
+    return 0;
+  }
+
+  log.log(`Caching tiles for ${validActivities.length} activities`);
+
+  let cachedCount = 0;
+
+  for (const activity of validActivities) {
+    try {
+      const [neLat, neLng, swLat, swLng] = activity.bounds;
+
+      // Convert to the format expected by cacheRegionTiles
+      // Note: bounds format for MapLibre is [[sw_lng, sw_lat], [ne_lng, ne_lat]]
+      // Our cacheRegionTiles expects { ne: [lng, lat], sw: [lng, lat] }
+      await cacheRegionTiles(
+        {
+          ne: [neLng, neLat],
+          sw: [swLng, swLat],
+        },
+        `activity-${activity.activityId}`,
+        DEFAULT_CACHE_STYLE_URL,
+        minZoom,
+        maxZoom
+      );
+      cachedCount++;
+    } catch (error) {
+      // Log but don't fail the entire batch
+      log.error(`Failed to cache tiles for activity ${activity.activityId}:`, error);
+    }
+  }
+
+  log.log(`Queued ${cachedCount} activities for tile caching`);
+  return cachedCount;
 }
