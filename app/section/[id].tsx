@@ -269,6 +269,11 @@ function ActivityRow({
           <Text style={[styles.activityDate, isDark && styles.textMuted]}>
             {formatRelativeDate(activity.start_date_local)}
           </Text>
+          {showLapCount && (
+            <Text style={[styles.traversalCount, isDark && styles.textMuted]}>
+              · {lapCount} traversals
+            </Text>
+          )}
           {/* vs-PR delta */}
           {delta !== null && !isBest && (
             <Text
@@ -1052,7 +1057,7 @@ export default function SectionDetailScreen() {
               </Text>
               <Text style={styles.heroStatDivider}>·</Text>
               <Text style={styles.heroStat}>
-                {section.visitCount} {t("sections.traversals")}
+                {chartData.length} {t("sections.traversals")}
               </Text>
               <Text style={styles.heroStatDivider}>·</Text>
               <Text style={styles.heroStat}>
@@ -1134,7 +1139,7 @@ export default function SectionDetailScreen() {
                   <Text
                     style={[styles.summaryValue, isDark && styles.textLight]}
                   >
-                    {section.visitCount}
+                    {chartData.length}
                   </Text>
                 </View>
                 <View style={styles.summaryItem}>
@@ -1556,6 +1561,10 @@ const styles = StyleSheet.create({
     marginTop: 1,
   },
   activityDate: {
+    fontSize: typography.caption.fontSize,
+    color: colors.textSecondary,
+  },
+  traversalCount: {
     fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
   },

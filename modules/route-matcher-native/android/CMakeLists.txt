@@ -36,13 +36,13 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fstack-protector-all")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror")
 
-# Link against libtracematch.so - use absolute path for build, SONAME for runtime
-set(TRACEMATCH_LIB ${CMAKE_SOURCE_DIR}/src/main/jniLibs/${ANDROID_ABI}/libtracematch.so)
-add_library(tracematch SHARED IMPORTED)
-set_target_properties(tracematch PROPERTIES
-    IMPORTED_LOCATION ${TRACEMATCH_LIB}
-    IMPORTED_NO_SONAME FALSE
+cmake_path(
+  SET MY_RUST_LIB
+  ${CMAKE_SOURCE_DIR}/src/main/jniLibs/${ANDROID_ABI}/libtracematch.so
+  NORMALIZE
 )
+add_library(my_rust_lib SHARED IMPORTED)
+set_target_properties(my_rust_lib PROPERTIES IMPORTED_LOCATION ${MY_RUST_LIB} IMPORTED_NO_SONAME ON)
 
 # Add ReactAndroid libraries, being careful to account for different versions.
 find_package(ReactAndroid REQUIRED CONFIG)
@@ -71,5 +71,5 @@ target_link_libraries(
   fbjni::fbjni
   ReactAndroid::jsi
   ${LOGCAT}
-  tracematch
+  my_rust_lib
 )
