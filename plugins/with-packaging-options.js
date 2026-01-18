@@ -1,33 +1,24 @@
 const { withAppBuildGradle } = require("@expo/config-plugins");
 
 /**
- * Expo config plugin that fixes duplicate class errors during Android DEX merging.
+ * Expo config plugin that fixes duplicate class and native library conflicts
+ * during Android builds.
  *
- * Fixes the "Type androidx.annotation.experimental.R is defined multiple times" error
- * that occurs when multiple dependencies include the same AndroidX annotation classes.
+ * Fixes:
+ * 1. Duplicate androidx.annotation.experimental.R class error
+ *    - Forces a single version of annotation-experimental
  *
- * This is a common issue with React Native projects using libraries like:
- * - @maplibre/maplibre-react-native
- * - @shopify/react-native-skia
- * - react-native-reanimated
- * - react-native-gesture-handler
- * - react-native-screens
- *
- * Solution: Force a single version of annotation-experimental across all dependencies
- * to prevent duplicate R.class files during DEX merging.
+ * 2. Duplicate libfbjni.so error during androidTest builds
+ *    - Adds pickFirsts to resolve the conflict
  */
 
 function withPackagingOptions(config) {
   return withAppBuildGradle(config, (config) => {
-    const contents = config.modResults.contents;
+    let contents = config.modResults.contents;
 
-    // Skip if fix already exists
-    if (contents.includes("annotation-experimental")) {
-      return config;
-    }
-
-    // Force a single version of annotation-experimental to fix duplicate R class
-    const dependencyFix = `
+    // Fix 1: Force a single version of annotation-experimental
+    if (!contents.includes("annotation-experimental")) {
+      const dependencyFix = `
 
 // Fix duplicate class: androidx.annotation.experimental.R
 // Multiple dependencies pull in different versions of annotation-experimental,
@@ -39,19 +30,26 @@ configurations.configureEach {
 }
 `;
 
-    // Insert before the dependencies block at the end of the file
-    // or after android block closes
-    if (contents.includes("dependencies {")) {
-      // Insert before the first dependencies block
-      config.modResults.contents = contents.replace(
-        /^dependencies\s*\{/m,
-        `${dependencyFix}\ndependencies {`
-      );
-    } else {
-      // Fallback: append to end of file
-      config.modResults.contents = contents + dependencyFix;
+      if (contents.includes("dependencies {")) {
+        contents = contents.replace(
+          /^dependencies\s*\{/m,
+          `${dependencyFix}\ndependencies {`
+        );
+      } else {
+        contents = contents + dependencyFix;
+      }
     }
 
+    // Fix 2: Add pickFirsts for libfbjni.so conflict in androidTest builds
+    if (!contents.includes("libfbjni.so")) {
+      // Find the packagingOptions.jniLibs block and add pickFirsts
+      contents = contents.replace(
+        /(packagingOptions\s*\{\s*\n\s*jniLibs\s*\{[^}]*)(useLegacyPackaging[^\n]*)/,
+        `$1$2\n            // Fix duplicate libfbjni.so conflict\n            pickFirsts += ['**/libfbjni.so']`
+      );
+    }
+
+    config.modResults.contents = contents;
     return config;
   });
 }

@@ -1,0 +1,531 @@
+name: Build & Test Simulator Apps
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      skip_e2e:
+        description: 'Skip E2E tests'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  NODE_VERSION: "20"
+
+jobs:
+  # ============================================
+  # Detect changes to skip unnecessary builds
+  # ============================================
+  changes:
+    name: Detect Changes
+    runs-on: ubuntu-latest
+    outputs:
+      ios: ${{ steps.filter.outputs.ios }}
+      android: ${{ steps.filter.outputs.android }}
+      source_hash: ${{ steps.hash.outputs.source_hash }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check for changes
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            ios:
+              - 'src/**'
+              - 'app/**'
+              - 'app.json'
+              - 'package.json'
+              - 'modules/**/ios/**'
+              - 'modules/**/src/**'
+              - 'modules/**/cpp/**'
+              - 'plugins/**'
+            android:
+              - 'src/**'
+              - 'app/**'
+              - 'app.json'
+              - 'package.json'
+              - 'modules/**/android/**'
+              - 'modules/**/src/**'
+              - 'modules/**/cpp/**'
+              - 'plugins/**'
+
+      - name: Calculate source hash
+        id: hash
+        run: |
+          # Include all files that affect the build
+          HASH=$(cat <(find src app modules/*/src plugins .github -type f \( -name "*.ts" -o -name "*.tsx" -o -name "*.js" -o -name "*.json" -o -name "*.gradle" \) -exec sha256sum {} \; 2>/dev/null) <(sha256sum package.json app.json 2>/dev/null) | sort | sha256sum | cut -d' ' -f1 | head -c 12)
+          echo "source_hash=$HASH" >> $GITHUB_OUTPUT
+
+  # ============================================
+  # iOS Simulator Builds (always runs, uses cache to skip compilation)
+  # ============================================
+  ios-simulator:
+    needs: changes
+    name: iOS ${{ matrix.config }}
+    runs-on: macos-15
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        config: [Debug, Release]
+    outputs:
+      artifact_name: ${{ steps.version.outputs.artifact_name }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: '16.4'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - run: npm ci
+
+      - name: Get version info
+        id: version
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          SHORT_SHA=$(git rev-parse --short HEAD)
+          CONFIG_LOWER=$(echo "${{ matrix.config }}" | tr '[:upper:]' '[:lower:]')
+          # Include all files that affect the build: src, app, modules (JS + native code), plugins
+          SOURCE_HASH=$(cat <(find src app modules plugins -type f \( -name "*.ts" -o -name "*.tsx" -o -name "*.js" -o -name "*.json" -o -name "*.swift" -o -name "*.m" -o -name "*.mm" -o -name "*.h" -o -name "*.kt" -o -name "*.java" -o -name "*.podspec" \) -exec sha256sum {} \; 2>/dev/null) <(sha256sum package.json app.json 2>/dev/null) | sort | sha256sum | cut -d' ' -f1 | head -c 12)
+
+          echo "artifact_name=ios-${{ matrix.config }}-${SOURCE_HASH}" >> $GITHUB_OUTPUT
+          echo "filename=veloq-${VERSION}-${SHORT_SHA}-simulator-${CONFIG_LOWER}" >> $GITHUB_OUTPUT
+          echo "source_hash=$SOURCE_HASH" >> $GITHUB_OUTPUT
+
+      - name: Cache built iOS app
+        id: app-cache
+        uses: actions/cache@v4
+        with:
+          path: ios/build/Build/Products/${{ matrix.config }}-iphonesimulator/Veloq.app
+          # v9: force rebuild with fresh prebuild that has correct codegenConfig
+          key: ios-app-v9-${{ matrix.config }}-${{ steps.version.outputs.source_hash }}
+
+      # Download tracematch BEFORE prebuild since expo prebuild runs pod install
+      # which requires the Generated folder with modulemap to exist
+      - name: Download tracematch XCFramework
+        if: steps.app-cache.outputs.cache-hit != 'true'
+        run: |
+          TRACEMATCH_VERSION=$(node -p "require('./package.json').tracematchVersion")
+          RELEASE_URL="https://github.com/evanjt/route-matcher/releases/download/${TRACEMATCH_VERSION}"
+          curl -sL "${RELEASE_URL}/tracematch-ios-${TRACEMATCH_VERSION}.zip" -o /tmp/ios.zip
+          unzip -q /tmp/ios.zip -d /tmp/tracematch
+
+          # Install XCFramework (rename to match podspec: TracematchFFI.xcframework)
+          mkdir -p modules/route-matcher-native/ios/Frameworks
+          cp -r /tmp/tracematch/ios/RouteMatcherFFI.xcframework \
+                modules/route-matcher-native/ios/Frameworks/TracematchFFI.xcframework
+
+          # Install Swift bindings and headers
+          mkdir -p modules/route-matcher-native/ios/Generated
+          cp /tmp/tracematch/ios/Generated/tracematch.swift \
+             modules/route-matcher-native/ios/Generated/
+          cp /tmp/tracematch/ios/Generated/tracematchFFI.h \
+             modules/route-matcher-native/ios/Generated/
+          cp /tmp/tracematch/ios/Generated/tracematchFFI.modulemap \
+             modules/route-matcher-native/ios/Generated/
+
+          # Copy C++ entry points into module directory where CocoaPods can find them
+          # (CocoaPods source_files doesn't support traversing up directories reliably)
+          mkdir -p modules/route-matcher-native/ios/cpp
+          cp cpp/veloq.h modules/route-matcher-native/ios/cpp/
+          cp cpp/veloq.cpp modules/route-matcher-native/ios/cpp/
+          cp modules/route-matcher-native/cpp/tracematch.hpp modules/route-matcher-native/ios/cpp/
+          cp modules/route-matcher-native/cpp/tracematch.cpp modules/route-matcher-native/ios/cpp/
+          echo "✓ Copied C++ entry points to module ios/cpp/"
+
+          echo "✓ Installed iOS XCFramework, Swift bindings, and C++ entry points"
+
+      - name: Cache iOS prebuild
+        if: steps.app-cache.outputs.cache-hit != 'true'
+        id: ios-prebuild-cache
+        uses: actions/cache@v4
+        with:
+          path: ios
+          # v9: include modules/**/package.json for codegenConfig changes
+          key: ios-sim-prebuild-v9-${{ runner.os }}-${{ hashFiles('app.json', 'package.json', 'package-lock.json', 'plugins/**', 'modules/**/ios/**', 'modules/**/package.json') }}
+          restore-keys: ios-sim-prebuild-v9-${{ runner.os }}-
+
+      - name: Expo Prebuild
+        if: steps.app-cache.outputs.cache-hit != 'true' && steps.ios-prebuild-cache.outputs.cache-hit != 'true'
+        run: npx expo prebuild --platform ios --clean
+
+      - name: Cache CocoaPods
+        if: steps.app-cache.outputs.cache-hit != 'true'
+        uses: actions/cache@v4
+        with:
+          path: |
+            ios/Pods
+            ~/Library/Caches/CocoaPods
+          # v8: add codegenConfig to app package.json for TurboModule registration
+          key: pods-sim-v8-${{ runner.os }}-${{ hashFiles('ios/Podfile.lock') }}
+          restore-keys: pods-sim-v8-${{ runner.os }}-
+
+      - name: Install CocoaPods
+        if: steps.app-cache.outputs.cache-hit != 'true'
+        run: |
+          gem install cocoapods
+          cd ios && pod install
+
+      - name: Initialize simulator
+        if: steps.app-cache.outputs.cache-hit != 'true'
+        run: |
+          xcrun simctl list > /dev/null 2>&1 || true
+          if ! xcrun simctl list devices available | grep -q "iPhone"; then
+            xcodebuild -downloadPlatform iOS || exit 1
+          fi
+
+      - name: Find simulator
+        if: steps.app-cache.outputs.cache-hit != 'true'
+        id: simulator
+        run: |
+          DEVICE_UDID=$(xcrun simctl list devices available | grep -E "iPhone 16 \(" | grep -v -E "(Pro|Plus)" | head -1 | sed -E 's/.*\(([A-F0-9-]+)\).*/\1/')
+          if [ -z "$DEVICE_UDID" ]; then
+            DEVICE_UDID=$(xcrun simctl list devices available | grep -E "iPhone 15 \(" | grep -v -E "(Pro|Plus)" | head -1 | sed -E 's/.*\(([A-F0-9-]+)\).*/\1/')
+          fi
+          xcrun simctl boot "$DEVICE_UDID" || true
+          echo "udid=$DEVICE_UDID" >> $GITHUB_OUTPUT
+
+      - name: Build iOS App
+        if: steps.app-cache.outputs.cache-hit != 'true'
+        run: |
+          xcodebuild -workspace ios/Veloq.xcworkspace \
+            -scheme Veloq \
+            -configuration ${{ matrix.config }} \
+            -sdk iphonesimulator \
+            -destination "id=${{ steps.simulator.outputs.udid }}" \
+            -derivedDataPath ios/build \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            2>&1 | tee ios-build.log || {
+              tail -100 ios-build.log
+              exit 1
+            }
+
+      - name: Skip build (cache hit)
+        if: steps.app-cache.outputs.cache-hit == 'true'
+        run: echo "✓ Using cached iOS app (hash ${{ steps.version.outputs.source_hash }})"
+
+      - name: Verify and package build
+        run: |
+          APP_PATH="ios/build/Build/Products/${{ matrix.config }}-iphonesimulator/Veloq.app"
+          if [ ! -d "$APP_PATH" ]; then
+            echo "ERROR: App not found"
+            exit 1
+          fi
+          # Verify executable exists
+          if [ ! -f "$APP_PATH/Veloq" ]; then
+            echo "ERROR: Missing executable at $APP_PATH/Veloq"
+            ls -la "$APP_PATH/"
+            exit 1
+          fi
+          echo "App size: $(du -sh "$APP_PATH" | cut -f1)"
+          echo "Executable: $(ls -la "$APP_PATH/Veloq")"
+          # Zip with -y to preserve symlinks
+          cd "$(dirname "$APP_PATH")"
+          zip -yr Veloq.app.zip Veloq.app
+          echo "Created Veloq.app.zip ($(du -sh Veloq.app.zip | cut -f1))"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.version.outputs.artifact_name }}
+          path: ios/build/Build/Products/${{ matrix.config }}-iphonesimulator/Veloq.app.zip
+          retention-days: 7
+
+      - name: Upload build log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-${{ matrix.config }}-build-log
+          path: ios-build.log
+          retention-days: 3
+
+  # ============================================
+  # Android Build (Release for E2E - has JS bundle embedded)
+  # ============================================
+  android-release:
+    needs: changes
+    name: Android Release
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    outputs:
+      artifact_name: ${{ steps.version.outputs.artifact_name }}
+    env:
+      JAVA_TOOL_OPTIONS: "-Dhttp.agent=Gradle -Dhttps.agent=Gradle"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: android-actions/setup-android@v3
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: false
+
+      - run: npm ci
+
+      - name: Get version info
+        id: version
+        run: |
+          # Include all files that affect the build: src, app, modules (JS + native), plugins
+          SOURCE_HASH=$(cat <(find src app modules plugins -type f \( -name "*.ts" -o -name "*.tsx" -o -name "*.js" -o -name "*.json" -o -name "*.swift" -o -name "*.m" -o -name "*.mm" -o -name "*.h" -o -name "*.kt" -o -name "*.java" -o -name "*.podspec" -o -name "*.gradle" \) -exec sha256sum {} \; 2>/dev/null) <(sha256sum package.json app.json 2>/dev/null) | sort | sha256sum | cut -d' ' -f1 | head -c 12)
+          echo "artifact_name=android-release-${SOURCE_HASH}" >> $GITHUB_OUTPUT
+          echo "source_hash=$SOURCE_HASH" >> $GITHUB_OUTPUT
+
+      - name: Cache built APKs
+        id: apk-cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            android/app/build/outputs/apk/release/app-release.apk
+            android/app/build/outputs/apk/androidTest/release/app-release-androidTest.apk
+          # v4: force rebuild with fresh prebuild that has correct codegenConfig
+          key: android-release-apk-v4-${{ steps.version.outputs.source_hash }}
+
+      - name: Cache Android prebuild
+        if: steps.apk-cache.outputs.cache-hit != 'true'
+        id: android-prebuild-cache
+        uses: actions/cache@v4
+        with:
+          path: android
+          # v3: include modules/**/package.json for codegenConfig changes
+          key: android-release-prebuild-v3-${{ runner.os }}-${{ hashFiles('app.json', 'package.json', 'modules/**/android/**', 'modules/**/package.json') }}
+
+      - name: Expo Prebuild
+        if: steps.apk-cache.outputs.cache-hit != 'true' && steps.android-prebuild-cache.outputs.cache-hit != 'true'
+        run: npx expo prebuild --platform android --clean
+
+      - name: Download tracematch binaries
+        if: steps.apk-cache.outputs.cache-hit != 'true'
+        run: |
+          TRACEMATCH_VERSION=$(node -p "require('./package.json').tracematchVersion")
+          RELEASE_URL="https://github.com/evanjt/route-matcher/releases/download/${TRACEMATCH_VERSION}"
+          curl -sL "${RELEASE_URL}/tracematch-android-${TRACEMATCH_VERSION}.zip" -o /tmp/android.zip
+          unzip -q /tmp/android.zip -d /tmp/tracematch
+          mkdir -p modules/route-matcher-native/android/src/main/jniLibs
+          for arch in arm64-v8a armeabi-v7a x86_64 x86; do
+            mkdir -p "modules/route-matcher-native/android/src/main/jniLibs/$arch"
+            cp "/tmp/tracematch/android/jniLibs/$arch/libtracematch.so" "modules/route-matcher-native/android/src/main/jniLibs/$arch/"
+          done
+          # NOTE: We do NOT install tracematch.kt from the release (that's JNA-based, JVM-only).
+          # The repo has committed VeloqModule.kt (JNI-based) which is the correct TurboModule wrapper.
+
+      - name: Install Gradle init script
+        if: steps.apk-cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p ~/.gradle
+          cp .github/ci-init.gradle ~/.gradle/init.gradle
+
+      - name: Build Release APKs
+        if: steps.apk-cache.outputs.cache-hit != 'true'
+        env:
+          RUST_PREBUILT: "true"
+        run: cd android && ./gradlew assembleRelease assembleAndroidTest -DtestBuildType=release --no-daemon
+
+      - name: Skip build (cache hit)
+        if: steps.apk-cache.outputs.cache-hit == 'true'
+        run: echo "✓ Using cached APKs (hash ${{ steps.version.outputs.source_hash }})"
+
+      - name: Upload APKs
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.version.outputs.artifact_name }}
+          path: |
+            android/app/build/outputs/apk/release/app-release.apk
+            android/app/build/outputs/apk/androidTest/release/app-release-androidTest.apk
+          retention-days: 7
+
+  # ============================================
+  # E2E Tests - iOS (depends on iOS Debug build)
+  # ============================================
+  e2e-ios:
+    needs: ios-simulator
+    if: ${{ !inputs.skip_e2e }}
+    name: E2E iOS
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - run: npm ci
+
+      - name: Get artifact name
+        id: artifact
+        run: |
+          # Must match hash calculation in ios-simulator job (v3: includes native code)
+          # Use Release build - it has JS bundle embedded (Debug needs Metro bundler)
+          SOURCE_HASH=$(cat <(find src app modules plugins -type f \( -name "*.ts" -o -name "*.tsx" -o -name "*.js" -o -name "*.json" -o -name "*.swift" -o -name "*.m" -o -name "*.mm" -o -name "*.h" -o -name "*.kt" -o -name "*.java" -o -name "*.podspec" \) -exec sha256sum {} \; 2>/dev/null) <(sha256sum package.json app.json 2>/dev/null) | sort | sha256sum | cut -d' ' -f1 | head -c 12)
+          echo "name=ios-Release-${SOURCE_HASH}" >> $GITHUB_OUTPUT
+
+      - name: Download iOS app
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ steps.artifact.outputs.name }}
+          path: /tmp/ios-artifact
+
+      - name: Extract iOS app
+        run: |
+          mkdir -p ios/build/Build/Products/Release-iphonesimulator
+          unzip /tmp/ios-artifact/Veloq.app.zip -d ios/build/Build/Products/Release-iphonesimulator/
+          ls -la ios/build/Build/Products/Release-iphonesimulator/
+          ls -la ios/build/Build/Products/Release-iphonesimulator/Veloq.app/ | head -10
+          # Verify executable
+          file ios/build/Build/Products/Release-iphonesimulator/Veloq.app/Veloq
+
+      - name: Install applesimutils
+        run: |
+          brew tap wix/brew
+          brew install applesimutils
+
+      - name: List available simulators
+        run: |
+          xcrun simctl list devices available | grep -E "iPhone (15|16)" | head -10
+
+      - name: Run E2E Tests
+        run: |
+          # Use release configuration - it has JS bundle embedded
+          npx detox test --configuration ios.sim.release --headless --record-logs all --loglevel verbose
+
+      - name: Upload E2E results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-ios-results
+          path: |
+            artifacts/
+            e2e/*.png
+            e2e/*.log
+          retention-days: 7
+        continue-on-error: true
+
+  # ============================================
+  # E2E Tests - Android (depends on Android Release build)
+  # ============================================
+  e2e-android:
+    needs: android-release
+    if: ${{ !inputs.skip_e2e }}
+    name: E2E Android
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: android-actions/setup-android@v3
+
+      - run: npm ci
+
+      - name: Get artifact name
+        id: artifact
+        run: |
+          # Must match hash calculation in android-release job (v3: includes native code)
+          # Use Release build - it has JS bundle embedded (Debug needs Metro bundler)
+          SOURCE_HASH=$(cat <(find src app modules plugins -type f \( -name "*.ts" -o -name "*.tsx" -o -name "*.js" -o -name "*.json" -o -name "*.swift" -o -name "*.m" -o -name "*.mm" -o -name "*.h" -o -name "*.kt" -o -name "*.java" -o -name "*.podspec" -o -name "*.gradle" \) -exec sha256sum {} \; 2>/dev/null) <(sha256sum package.json app.json 2>/dev/null) | sort | sha256sum | cut -d' ' -f1 | head -c 12)
+          echo "name=android-release-${SOURCE_HASH}" >> $GITHUB_OUTPUT
+
+      - name: Download APKs
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ steps.artifact.outputs.name }}
+          path: android/app/build/outputs/apk
+
+      - name: Organize APKs
+        run: |
+          mkdir -p android/app/build/outputs/apk/release
+          mkdir -p android/app/build/outputs/apk/androidTest/release
+          # Move files to expected locations
+          if [ -f android/app/build/outputs/apk/app-release.apk ]; then
+            mv android/app/build/outputs/apk/app-release.apk android/app/build/outputs/apk/release/
+          fi
+          if [ -f android/app/build/outputs/apk/app-release-androidTest.apk ]; then
+            mv android/app/build/outputs/apk/app-release-androidTest.apk android/app/build/outputs/apk/androidTest/release/
+          fi
+          find android/app/build/outputs/apk -name "*.apk"
+
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/local/lib/android/sdk/ndk
+          sudo rm -rf /usr/local/lib/android/sdk/build-tools/3[0-3]*
+          sudo rm -rf /usr/local/lib/android/sdk/platforms/android-[1-2]*
+          sudo rm -rf /usr/local/lib/android/sdk/platforms/android-3[0-2]
+          sudo docker image prune --all --force || true
+
+      - name: Create AVD
+        run: |
+          # Use default target (no Google APIs) for faster boot - API 30 is most stable on CI
+          echo "y" | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --install "system-images;android-30;default;x86_64"
+          echo "no" | $ANDROID_HOME/cmdline-tools/latest/bin/avdmanager create avd \
+            -n Pixel_5_API_30 \
+            -k "system-images;android-30;default;x86_64" \
+            --device "pixel_5" \
+            --force
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Run E2E Tests
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          target: default
+          arch: x86_64
+          avd-name: Pixel_5_API_30
+          emulator-boot-timeout: 600
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -accel on
+          disable-animations: true
+          script: |
+            adb wait-for-device
+            adb shell settings put global window_animation_scale 0
+            adb shell settings put global transition_animation_scale 0
+            adb shell settings put global animator_duration_scale 0
+            npx detox test --configuration android.emu.release --headless --record-logs all --loglevel verbose
+
+      - name: Upload E2E results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-android-results
+          path: |
+            artifacts/
+            e2e/*.png
+            e2e/*.log
+          retention-days: 7
+        continue-on-error: true

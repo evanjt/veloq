@@ -37,3 +37,15 @@ allprojects {
     google()
   }
 }
+
+// Fix duplicate libfbjni.so conflict in androidTest builds
+// This affects react-native-gesture-handler and other modules that include fbjni
+// Using pluginManager.withPlugin ensures this runs when the plugin is applied, not after evaluation
+allprojects {
+  pluginManager.withPlugin('com.android.library') {
+    android.packagingOptions.jniLibs.pickFirsts += ['**/libfbjni.so']
+  }
+  pluginManager.withPlugin('com.android.application') {
+    android.packagingOptions.jniLibs.pickFirsts += ['**/libfbjni.so']
+  }
+}

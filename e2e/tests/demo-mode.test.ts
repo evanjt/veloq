@@ -1,4 +1,4 @@
-import { device, element, by, expect } from 'detox';
+import { device, element, by, expect, waitFor } from 'detox';
 
 describe('Demo Mode', () => {
   beforeAll(async () => {
@@ -7,6 +7,10 @@ describe('Demo Mode', () => {
 
   beforeEach(async () => {
     await device.reloadReactNative();
+    // Wait for app to finish initializing (debug builds are slower)
+    await waitFor(element(by.id('login-screen')))
+      .toBeVisible()
+      .withTimeout(30000);
   });
 
   it('should display login screen on fresh start', async () => {

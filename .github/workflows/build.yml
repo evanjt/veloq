@@ -414,25 +414,24 @@ jobs:
             echo "✓ Installed $arch"
           done
 
-          # Install Kotlin bindings
-          mkdir -p modules/route-matcher-native/android/src/main/java/uniffi/tracematch
-          cp /tmp/tracematch/android/kotlin/uniffi/tracematch/tracematch.kt \
-             modules/route-matcher-native/android/src/main/java/uniffi/tracematch/
-          echo "✓ Installed Kotlin bindings"
+          # NOTE: We do NOT install tracematch.kt (JNA-based Kotlin bindings) from the release.
+          # The veloq repo has committed VeloqModule.kt (JNI-based) which is the correct
+          # TurboModule implementation for React Native. tracematch.kt uses JNA which
+          # doesn't work on Android.
 
           # Verify installation
-          echo "=== Verifying installation ==="
+          echo "=== Verifying .so installation ==="
           find modules/route-matcher-native/android/src/main/jniLibs -name "*.so" -exec ls -lh {} \;
-          ls -la modules/route-matcher-native/android/src/main/java/uniffi/tracematch/
 
       - name: Cache Android prebuild
         id: android-prebuild-cache
         uses: actions/cache@v4
         with:
           path: android
-          key: android-prebuild-${{ runner.os }}-${{ hashFiles('app.json', 'package.json', 'package-lock.json', 'plugins/**', 'expo-modules/**/*.json', 'modules/**/android/**', 'node_modules/react-native-vector-icons/package.json', 'node_modules/react-native-webview/package.json') }}
+          # v3: force cache invalidation after fixing JNA/JNI Kotlin bindings issue
+          key: android-prebuild-v3-${{ runner.os }}-${{ hashFiles('app.json', 'package.json', 'package-lock.json', 'plugins/**', 'expo-modules/**/*.json', 'modules/**/android/**', 'modules/**/package.json', 'node_modules/react-native-vector-icons/package.json', 'node_modules/react-native-webview/package.json') }}
           restore-keys: |
-            android-prebuild-${{ runner.os }}-
+            android-prebuild-v3-${{ runner.os }}-
 
       - name: Generate Android native project
         if: steps.android-prebuild-cache.outputs.cache-hit != 'true'
@@ -494,12 +493,13 @@ jobs:
             fi
           done
 
-          # Verify Kotlin bindings
-          KOTLIN_BINDING="modules/route-matcher-native/android/src/main/java/uniffi/tracematch/tracematch.kt"
-          if [ -f "$KOTLIN_BINDING" ]; then
-            echo "✓ Kotlin bindings: $KOTLIN_BINDING"
+          # Verify VeloqModule.kt (JNI-based TurboModule wrapper - committed in repo)
+          # NOTE: We do NOT use tracematch.kt from releases (that's JNA-based, JVM-only)
+          VELOQ_MODULE="modules/route-matcher-native/android/src/main/java/com/veloq/VeloqModule.kt"
+          if [ -f "$VELOQ_MODULE" ]; then
+            echo "✓ VeloqModule.kt (JNI): $VELOQ_MODULE"
           else
-            echo "✗ Kotlin bindings not found"
+            echo "✗ VeloqModule.kt not found - this should be committed in the repo"
             all_ok=false
           fi
 
@@ -683,10 +683,10 @@ jobs:
           curl -sL "${RELEASE_URL}/tracematch-ios-${TRACEMATCH_VERSION}.zip" -o /tmp/ios.zip
           unzip -q /tmp/ios.zip -d /tmp/tracematch
 
-          # Install XCFramework
+          # Install XCFramework (rename to match podspec: TracematchFFI.xcframework)
           mkdir -p modules/route-matcher-native/ios/Frameworks
           cp -r /tmp/tracematch/ios/RouteMatcherFFI.xcframework \
-                modules/route-matcher-native/ios/Frameworks/
+                modules/route-matcher-native/ios/Frameworks/TracematchFFI.xcframework
           echo "✓ Installed XCFramework"
 
           # Install Swift bindings
@@ -699,18 +699,29 @@ jobs:
              modules/route-matcher-native/ios/Generated/
           echo "✓ Installed Swift bindings"
 
+          # Copy C++ entry points into module directory where CocoaPods can find them
+          # (CocoaPods source_files doesn't support traversing up directories reliably)
+          mkdir -p modules/route-matcher-native/ios/cpp
+          cp cpp/veloq.h modules/route-matcher-native/ios/cpp/
+          cp cpp/veloq.cpp modules/route-matcher-native/ios/cpp/
+          cp modules/route-matcher-native/cpp/tracematch.hpp modules/route-matcher-native/ios/cpp/
+          cp modules/route-matcher-native/cpp/tracematch.cpp modules/route-matcher-native/ios/cpp/
+          echo "✓ Copied C++ entry points to module ios/cpp/"
+
           # Verify
           ls -la modules/route-matcher-native/ios/Frameworks/
           ls -la modules/route-matcher-native/ios/Generated/
+          ls -la modules/route-matcher-native/ios/cpp/
 
       - name: Cache iOS prebuild
         id: ios-prebuild-cache
         uses: actions/cache@v4
         with:
           path: ios
-          key: ios-prebuild-${{ runner.os }}-${{ hashFiles('app.json', 'package.json', 'package-lock.json', 'plugins/**', 'expo-modules/**/*.json', 'modules/**/ios/**') }}
+          # v5: include modules/**/package.json for codegenConfig changes
+          key: ios-prebuild-v5-${{ runner.os }}-${{ hashFiles('app.json', 'package.json', 'package-lock.json', 'plugins/**', 'expo-modules/**/*.json', 'modules/**/ios/**', 'modules/**/package.json') }}
           restore-keys: |
-            ios-prebuild-${{ runner.os }}-
+            ios-prebuild-v5-${{ runner.os }}-
 
       # ============================================
       # iOS Build

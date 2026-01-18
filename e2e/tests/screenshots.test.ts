@@ -1,4 +1,4 @@
-import { device, element, by, expect } from 'detox';
+import { device, element, by, expect, waitFor } from 'detox';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -13,6 +13,10 @@ describe('screenshots', () => {
 
     // Launch app fresh and enter demo mode
     await device.launchApp({ newInstance: true });
+    // Wait for app to finish initializing (debug builds are slower)
+    await waitFor(element(by.id('login-demo-button')))
+      .toBeVisible()
+      .withTimeout(30000);
     await element(by.id('login-demo-button')).tap();
     await expect(element(by.id('home-screen'))).toBeVisible();
 
