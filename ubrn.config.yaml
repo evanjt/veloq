@@ -15,6 +15,7 @@ android:
     - x86
   apiLevel: 24
   jniLibs: src/main/jniLibs
+  useSharedLibrary: true
 
 ios:
   directory: modules/route-matcher-native/ios

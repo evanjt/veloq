@@ -68,7 +68,7 @@ jobs:
     needs: changes
     name: iOS ${{ matrix.config }}
     runs-on: macos-15
-    timeout-minutes: 45
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
@@ -259,7 +259,7 @@ jobs:
     needs: changes
     name: Android Release
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
     outputs:
       artifact_name: ${{ steps.version.outputs.artifact_name }}
     env:
@@ -364,7 +364,7 @@ jobs:
     if: ${{ !inputs.skip_e2e }}
     name: E2E iOS
     runs-on: macos-15
-    timeout-minutes: 45
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
 
@@ -432,7 +432,7 @@ jobs:
     if: ${{ !inputs.skip_e2e }}
     name: E2E Android
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
 
