@@ -1,8 +1,12 @@
-import { device, element, by, expect } from 'detox';
+import { device, element, by, expect, waitFor } from 'detox';
 
 describe('Navigation', () => {
   beforeAll(async () => {
     await device.launchApp({ newInstance: true });
+    // Wait for app to finish initializing (debug builds are slower)
+    await waitFor(element(by.id('login-demo-button')))
+      .toBeVisible()
+      .withTimeout(30000);
     // Enter demo mode first
     await element(by.id('login-demo-button')).tap();
     await expect(element(by.id('home-screen'))).toBeVisible();

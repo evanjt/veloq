@@ -15,25 +15,49 @@ Pod::Spec.new do |s|
   s.platforms    = { :ios => min_ios_version_supported }
   s.source       = { :git => "https://github.com/evanjt/veloq", :tag => "#{s.version}" }
 
-  # Source files: iOS module + codegen output + C++ bindings
-  s.source_files = "ios/**/*.{h,m,mm}", "../cpp/**/*.{hpp,cpp,c,h}"
+  # Source files:
+  # *.{h,m,mm} = Veloq.h, Veloq.mm (TurboModule wrapper) in same directory as podspec
+  # Generated/**/*.{swift,h} = UniFFI Swift bindings and FFI headers (downloaded in CI)
+  # cpp/**/*.{hpp,cpp,h} = C++ entry points copied here in CI (veloq.h/cpp, tracematch.hpp/cpp)
+  s.source_files = "*.{h,m,mm}", "Generated/**/*.{swift,h}", "cpp/**/*.{hpp,cpp,h}"
+
+  # Mark C++ headers as private to prevent Swift from trying to import them
+  # (cstdint and C++ namespaces aren't compatible with Objective-C module imports)
+  s.private_header_files = "cpp/**/*.{h,hpp}"
+
+  # Note: module_map removed because CocoaPods doesn't support Swift static
+  # libraries with custom module maps. The TurboModule is ObjC++ so doesn't need it.
+  # If Swift imports are needed later, build as dynamic framework instead.
 
   # Rust XCFramework - built by uniffi-bindgen-react-native
-  s.vendored_frameworks = "ios/Frameworks/TracematchFFI.xcframework"
+  # Downloaded during CI to Frameworks/ in same directory as podspec
+  s.vendored_frameworks = "Frameworks/TracematchFFI.xcframework"
 
   s.dependency "uniffi-bindgen-react-native"
+
+  # Base header search paths for veloq.h (in local cpp/) and Generated headers
+  base_header_paths = "\"${PODS_TARGET_SRCROOT}/cpp\" \"${PODS_TARGET_SRCROOT}/Generated\""
 
   # Use install_modules_dependencies helper to install the dependencies if React Native version >=0.71.0.
   if respond_to?(:install_modules_dependencies, true)
     install_modules_dependencies(s)
+    # For RN 0.71+, set header search paths
+    s.pod_target_xcconfig = {
+      "HEADER_SEARCH_PATHS" => base_header_paths,
+      "SWIFT_INCLUDE_PATHS" => "\"${PODS_TARGET_SRCROOT}/Generated\""
+    }
+    # -ObjC ensures the linker loads all ObjC classes, preventing Veloq from being stripped
+    # as "unused" (the TurboModule is only accessed via NSClassFromString at runtime)
+    s.user_target_xcconfig = { "OTHER_LDFLAGS" => "-ObjC" }
   else
     s.dependency "React-Core"
 
     # Don't install the dependencies when we run `pod install` in the old architecture.
     if ENV['RCT_NEW_ARCH_ENABLED'] == '1' then
       s.compiler_flags = folly_compiler_flags + " -DRCT_NEW_ARCH_ENABLED=1"
-      s.pod_target_xcconfig    = {
-          "HEADER_SEARCH_PATHS" => "\"$(PODS_ROOT)/boost\"",
+      s.pod_target_xcconfig = {
+          "HEADER_SEARCH_PATHS" => "\"$(PODS_ROOT)/boost\" " + base_header_paths,
+          "SWIFT_INCLUDE_PATHS" => "\"${PODS_TARGET_SRCROOT}/Generated\"",
           "OTHER_CPLUSPLUSFLAGS" => "-DFOLLY_NO_CONFIG -DFOLLY_MOBILE=1 -DFOLLY_USE_LIBCPP=1",
           "CLANG_CXX_LANGUAGE_STANDARD" => "c++17"
       }
@@ -42,6 +66,12 @@ Pod::Spec.new do |s|
       s.dependency "RCTRequired"
       s.dependency "RCTTypeSafety"
       s.dependency "ReactCommon/turbomodule/core"
+    else
+      # Old architecture
+      s.pod_target_xcconfig = {
+        "HEADER_SEARCH_PATHS" => base_header_paths,
+        "SWIFT_INCLUDE_PATHS" => "\"${PODS_TARGET_SRCROOT}/Generated\""
+      }
     end
   end
 end
