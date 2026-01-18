@@ -1,0 +1,8 @@
+What's new in 0.0.3:
+
+- Route performance stats and traces on activity map
+- Custom section creation and matching improvements
+- Timeline controls moved to settings for cleaner activity view
+- OAuth authentication fixes and improved error handling
+- iOS build stability improvements
+- Bug fixes for race conditions and section performance indicators
