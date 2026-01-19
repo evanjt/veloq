@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef, useMemo, ReactNode, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Animated, Platform } from 'react-native';
 import { useTheme } from '@/hooks';
 import {
   MapView,
@@ -111,6 +111,27 @@ export function BaseMapView({
   const [mapStyle, setMapStyle] = useState<MapStyleType>(initialStyle ?? systemStyle);
   const [is3DMode, setIs3DMode] = useState(false);
   const [is3DReady, setIs3DReady] = useState(false);
+
+  // iOS simulator tile loading retry mechanism
+  const [mapKey, setMapKey] = useState(0);
+  const retryCountRef = useRef(0);
+  const MAX_RETRIES = 3;
+  const RETRY_DELAY_MS = 1000;
+
+  const handleMapLoadError = useCallback(() => {
+    if (Platform.OS === 'ios' && retryCountRef.current < MAX_RETRIES) {
+      retryCountRef.current += 1;
+      console.log(`[Map] Load failed, retrying (${retryCountRef.current}/${MAX_RETRIES})...`);
+      setTimeout(() => {
+        setMapKey((k) => k + 1);
+      }, RETRY_DELAY_MS * retryCountRef.current); // Exponential backoff
+    }
+  }, []);
+
+  // Reset retry count when style changes
+  useEffect(() => {
+    retryCountRef.current = 0;
+  }, [mapStyle]);
 
   const internalCameraRef = useRef<React.ElementRef<typeof Camera>>(null);
   const cameraRef = externalCameraRef || internalCameraRef;
@@ -347,6 +368,7 @@ export function BaseMapView({
       {/* 2D Map - always rendered, hidden when 3D is ready */}
       <View style={[styles.mapLayer, is3DMode && is3DReady && styles.hiddenLayer]}>
         <MapView
+          key={`map-${mapKey}`}
           style={styles.map}
           mapStyle={mapStyleValue}
           logoEnabled={false}
@@ -354,6 +376,7 @@ export function BaseMapView({
           compassEnabled={false}
           onPress={onPress}
           onRegionIsChanging={handleRegionIsChanging}
+          onDidFailLoadingMap={handleMapLoadError}
         >
           <Camera
             ref={cameraRef}

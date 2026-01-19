@@ -6,12 +6,14 @@ module.exports = {
       root: path.resolve(__dirname, 'modules/route-matcher-native'),
       platforms: {
         ios: {
-          podspecPath: path.resolve(__dirname, 'modules/route-matcher-native/ios/RouteMatcherNative.podspec'),
+          podspecPath: 'ios/RouteMatcherNative.podspec',
         },
         android: {
-          sourceDir: path.resolve(__dirname, 'modules/route-matcher-native/android'),
+          sourceDir: 'android',
           packageImportPath: 'import com.veloq.VeloqPackage;',
           packageInstance: 'new VeloqPackage()',
+          libraryName: 'Veloq',
+          cmakeListsPath: 'build/generated/source/codegen/jni/CMakeLists.txt',
         },
       },
     },

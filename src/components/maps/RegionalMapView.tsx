@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Animated, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTheme } from '@/hooks';
 import {
@@ -98,6 +98,29 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
     bestTime?: number;
   } | null>(null);
   const cameraRef = useRef<React.ElementRef<typeof Camera>>(null);
+
+  // iOS simulator tile loading retry mechanism
+  const [mapKey, setMapKey] = useState(0);
+  const retryCountRef = useRef(0);
+  const MAX_RETRIES = 3;
+  const RETRY_DELAY_MS = 1000;
+
+  const handleMapLoadError = useCallback(() => {
+    if (Platform.OS === 'ios' && retryCountRef.current < MAX_RETRIES) {
+      retryCountRef.current += 1;
+      console.log(
+        `[RegionalMap] Load failed, retrying (${retryCountRef.current}/${MAX_RETRIES})...`
+      );
+      setTimeout(() => {
+        setMapKey((k) => k + 1);
+      }, RETRY_DELAY_MS * retryCountRef.current);
+    }
+  }, []);
+
+  // Reset retry count when style changes
+  useEffect(() => {
+    retryCountRef.current = 0;
+  }, [mapStyle]);
 
   // Get route signatures from Rust engine for trace rendering
   const routeSignatures = useRouteSignatures();
@@ -586,6 +609,7 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
         />
       ) : (
         <MapView
+          key={`regional-map-${mapKey}`}
           ref={mapRef}
           style={styles.map}
           mapStyle={mapStyleValue}
@@ -595,6 +619,7 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
           onPress={handleMapPress}
           onRegionIsChanging={handleRegionIsChanging}
           onRegionDidChange={handleRegionDidChange}
+          onDidFailLoadingMap={handleMapLoadError}
         >
           {/* Camera with ref for programmatic control */}
           {/* Uses center biased toward recent activities (longitude from recent, latitude from all) */}

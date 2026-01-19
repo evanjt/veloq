@@ -5,7 +5,8 @@
 
 import React, { useMemo, useRef, useState, useCallback } from 'react';
 import { View, StyleSheet, TouchableOpacity, Modal, StatusBar } from 'react-native';
-import MapLibreGL, {
+import {
+  MapView,
   Camera,
   ShapeSource,
   LineLayer,
@@ -49,8 +50,6 @@ function isValidActivityType(sportType: string): sportType is ActivityType {
   ]);
   return validTypes.has(sportType);
 }
-
-const { MapView } = MapLibreGL;
 
 interface SectionMapViewProps {
   section: FrequentSection;

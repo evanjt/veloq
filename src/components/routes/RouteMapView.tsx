@@ -7,7 +7,8 @@
 
 import React, { useMemo, useRef, useState, useCallback } from 'react';
 import { View, StyleSheet, TouchableOpacity, Modal, StatusBar } from 'react-native';
-import MapLibreGL, {
+import {
+  MapView,
   Camera,
   ShapeSource,
   LineLayer,
@@ -19,8 +20,6 @@ import { colors, spacing, layout } from '@/theme';
 import { useMapPreferences } from '@/providers';
 import { getMapStyle, BaseMapView, isDarkStyle } from '@/components/maps';
 import type { RouteGroup, RoutePoint } from '@/types';
-
-const { MapView } = MapLibreGL;
 
 /** Minimal route group type for map display - only needs points and distance for signature */
 type RouteGroupForMap = Omit<RouteGroup, 'signature'> & {

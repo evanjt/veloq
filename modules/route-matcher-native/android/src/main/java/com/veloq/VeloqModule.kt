@@ -37,8 +37,6 @@ class VeloqModule(reactContext: ReactApplicationContext) :
     const val NAME = "Veloq"
 
     init {
-      // Load tracematch first - it's a dependency of veloq
-      System.loadLibrary("tracematch")
       System.loadLibrary("veloq")
     }
   }

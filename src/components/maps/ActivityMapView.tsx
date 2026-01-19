@@ -108,7 +108,16 @@
  */
 
 import React, { useMemo, useState, useRef, useCallback, useEffect } from 'react';
-import { View, StyleSheet, TouchableOpacity, Modal, StatusBar, Animated, Text } from 'react-native';
+import {
+  View,
+  StyleSheet,
+  TouchableOpacity,
+  Modal,
+  StatusBar,
+  Animated,
+  Text,
+  Platform,
+} from 'react-native';
 import {
   MapView,
   Camera,
@@ -233,6 +242,29 @@ export function ActivityMapView({
 
   // Track if user manually overrode the style
   const [userOverride, setUserOverride] = useState(false);
+
+  // iOS simulator tile loading retry mechanism
+  const [mapKey, setMapKey] = useState(0);
+  const retryCountRef = useRef(0);
+  const MAX_RETRIES = 3;
+  const RETRY_DELAY_MS = 1000;
+
+  const handleMapLoadError = useCallback(() => {
+    if (Platform.OS === 'ios' && retryCountRef.current < MAX_RETRIES) {
+      retryCountRef.current += 1;
+      console.log(
+        `[ActivityMap] Load failed, retrying (${retryCountRef.current}/${MAX_RETRIES})...`
+      );
+      setTimeout(() => {
+        setMapKey((k) => k + 1);
+      }, RETRY_DELAY_MS * retryCountRef.current);
+    }
+  }, []);
+
+  // Reset retry count when style changes
+  useEffect(() => {
+    retryCountRef.current = 0;
+  }, [mapStyle]);
 
   // Parse and validate coordinates early so they're available for callbacks
   const coordinates = useMemo(() => {
@@ -648,6 +680,7 @@ export function ActivityMapView({
           ]}
         >
           <MapView
+            key={`activity-map-${mapKey}`}
             style={styles.map}
             mapStyle={mapStyleValue}
             logoEnabled={false}
@@ -659,6 +692,7 @@ export function ActivityMapView({
             pitchEnabled={false}
             onRegionIsChanging={handleRegionIsChanging}
             onPress={handleMapPress}
+            onDidFailLoadingMap={handleMapLoadError}
           >
             <Camera
               ref={cameraRef}
