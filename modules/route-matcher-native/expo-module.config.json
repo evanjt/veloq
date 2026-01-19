@@ -1,0 +1,10 @@
+{
+  "platforms": ["ios", "android"],
+  "ios": {
+    "podspecPath": "ios/RouteMatcherNative.podspec",
+    "modules": []
+  },
+  "android": {
+    "modules": []
+  }
+}

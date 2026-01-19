@@ -2,25 +2,24 @@
 package com.veloq
 
 import com.facebook.react.bridge.ReactApplicationContext
-import com.facebook.react.bridge.ReactContextBaseJavaModule
-import com.facebook.react.bridge.ReactMethod
 import com.facebook.react.module.annotations.ReactModule
 import com.facebook.react.turbomodule.core.interfaces.CallInvokerHolder
 
 @ReactModule(name = VeloqModule.NAME)
 class VeloqModule(reactContext: ReactApplicationContext) :
-  ReactContextBaseJavaModule(reactContext) {
+  NativeVeloqSpec(reactContext) {
 
   override fun getName(): String {
     return NAME
   }
 
-  // Two native methods implemented in cpp-adapter.cpp
+  // Two native methods implemented in cpp-adapter.cpp, and ultimately
+  // veloq.cpp
+
   external fun nativeInstallRustCrate(runtimePointer: Long, callInvoker: CallInvokerHolder): Boolean
   external fun nativeCleanupRustCrate(runtimePointer: Long): Boolean
 
-  @ReactMethod(isBlockingSynchronousMethod = true)
-  fun installRustCrate(): Boolean {
+  override fun installRustCrate(): Boolean {
     val context = this.reactApplicationContext
     return nativeInstallRustCrate(
       context.javaScriptContextHolder!!.get(),
@@ -28,8 +27,7 @@ class VeloqModule(reactContext: ReactApplicationContext) :
     )
   }
 
-  @ReactMethod(isBlockingSynchronousMethod = true)
-  fun cleanupRustCrate(): Boolean {
+  override fun cleanupRustCrate(): Boolean {
     return nativeCleanupRustCrate(
       this.reactApplicationContext.javaScriptContextHolder!!.get()
     )
@@ -39,6 +37,8 @@ class VeloqModule(reactContext: ReactApplicationContext) :
     const val NAME = "Veloq"
 
     init {
+      // Load tracematch first - it's a dependency of veloq
+      System.loadLibrary("tracematch")
       System.loadLibrary("veloq")
     }
   }
