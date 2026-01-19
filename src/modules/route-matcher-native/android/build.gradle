@@ -99,6 +99,12 @@ android {
     }
   }
 
+  // Don't package libc++_shared.so - React Native already provides it
+  // This prevents "2 files found with path 'lib/*/libc++_shared.so'" errors
+  packagingOptions {
+    exclude '**/libc++_shared.so'
+  }
+
   lintOptions {
     disable "GradleCompatible"
   }
