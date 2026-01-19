@@ -403,9 +403,35 @@ function bindingsExist() {
 }
 
 /**
+ * Check if all patches are already applied.
+ */
+function allPatchesApplied(platform) {
+  // Check cpp-adapter.cpp is patched (Android only)
+  if (platform === "android") {
+    const adapterFile = path.join(MODULE_DIR, "android/cpp-adapter.cpp");
+    if (existsSync(adapterFile)) {
+      const content = readFileSync(adapterFile, "utf8");
+      if (!content.includes("jni::static_ref_cast")) return false;
+    }
+  }
+  return true;
+}
+
+/**
  * Run the pre-build setup (downloads, builds, generates, patches).
  */
 async function runPreBuildSetup(platform) {
+  const hasBinaries = binariesExist(platform);
+  const hasBindings = bindingsExist();
+  const hasPatches = allPatchesApplied(platform);
+
+  // Quick exit if everything is ready - single line output
+  if (hasBinaries && hasBindings && hasPatches) {
+    console.log(`[route-matcher-native] ${platform} ready`);
+    return;
+  }
+
+  // Verbose output only when work needs to be done
   console.log("\n[route-matcher-native] Running pre-build setup...");
   console.log(`  Platform: ${platform}`);
   console.log(`  CI: ${isCI()}`);
@@ -415,7 +441,7 @@ async function runPreBuildSetup(platform) {
   console.log(`  Tracematch version: ${version}`);
 
   // Step 1: Get binaries (download or build)
-  if (!binariesExist(platform)) {
+  if (!hasBinaries) {
     if (isCI() || !hasLocalRust()) {
       // Download pre-built binaries
       console.log("\n  Downloading pre-built binaries...");
@@ -433,15 +459,11 @@ async function runPreBuildSetup(platform) {
         buildIOSFromSource();
       }
     }
-  } else {
-    console.log(`\n  ${platform} binaries already exist, skipping download/build`);
   }
 
   // Step 2: Generate bindings
-  if (!bindingsExist()) {
+  if (!hasBindings) {
     generateBindings();
-  } else {
-    console.log("  Bindings already exist, skipping generation");
   }
 
   // Step 3: Apply patches
