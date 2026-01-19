@@ -5,11 +5,11 @@
     "version": "0.0.3",
     "scheme": "veloq",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./src/assets/icon.png",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/splash-icon.png",
+      "image": "./src/assets/splash-icon.png",
       "resizeMode": "contain",
       "backgroundColor": "#5B9BD5"
     },
@@ -34,7 +34,7 @@
       "package": "com.veloq.app",
       "versionCode": 3,
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
+        "foregroundImage": "./src/assets/adaptive-icon.png",
         "backgroundColor": "#5B9BD5"
       },
       "edgeToEdgeEnabled": true,
@@ -48,14 +48,14 @@
       ]
     },
     "web": {
-      "favicon": "./assets/favicon.png",
+      "favicon": "./src/assets/favicon.png",
       "bundler": "metro"
     },
     "plugins": [
-      "./plugins/with-gradle-repositories",
-      "./plugins/with-release-signing",
-      "./plugins/with-packaging-options",
-      "./plugins/with-route-matcher-native",
+      "./src/plugins/with-gradle-repositories",
+      "./src/plugins/with-release-signing",
+      "./src/plugins/with-packaging-options",
+      "./src/plugins/with-route-matcher-native",
       "@config-plugins/detox",
       "expo-router",
       "expo-localization",

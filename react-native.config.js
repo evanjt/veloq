@@ -3,7 +3,7 @@ const path = require('path');
 module.exports = {
   dependencies: {
     'route-matcher-native': {
-      root: path.resolve(__dirname, 'modules/route-matcher-native'),
+      root: path.resolve(__dirname, 'src/modules/route-matcher-native'),
       platforms: {
         ios: {
           podspecPath: 'ios/RouteMatcherNative.podspec',

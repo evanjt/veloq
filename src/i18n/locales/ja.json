@@ -324,6 +324,7 @@
     "loginWithIntervals": "Sign in with intervals.icu",
     "noAccount": "New to intervals.icu?",
     "oauthFailed": "Sign in failed. Please try again.",
+    "oauthInvalidCallback": "Invalid OAuth callback URL",
     "oauthNotConfigured": "OAuth is not configured. Use API key login instead.",
     "oauthStateValidationFailed": "セキュリティ検証に失敗しました。もう一度ログインしてください。",
     "openSettings": "Intervals.icu設定を開く",

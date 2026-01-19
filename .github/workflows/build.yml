@@ -229,7 +229,7 @@ jobs:
         with:
           ruby-version: "3.2"
           bundler-cache: true
-          working-directory: fastlane
+          working-directory: config/fastlane
 
       - name: Verify certificates via Match
         if: matrix.platform == 'ios' && (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch')
@@ -237,7 +237,7 @@ jobs:
           MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
           MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
           FASTLANE_TEAM_ID: ${{ secrets.FASTLANE_TEAM_ID }}
-        working-directory: fastlane
+        working-directory: config/fastlane
         run: |
           echo "=== Syncing certificates from Match (readonly) ==="
           bundle exec fastlane match appstore --readonly --verbose
@@ -406,11 +406,11 @@ jobs:
           unzip -q /tmp/android.zip -d /tmp/tracematch
 
           # Install .so files
-          mkdir -p modules/route-matcher-native/android/src/main/jniLibs
+          mkdir -p src/modules/route-matcher-native/android/src/main/jniLibs
           for arch in arm64-v8a armeabi-v7a x86_64 x86; do
-            mkdir -p "modules/route-matcher-native/android/src/main/jniLibs/$arch"
+            mkdir -p "src/modules/route-matcher-native/android/src/main/jniLibs/$arch"
             cp "/tmp/tracematch/android/jniLibs/$arch/libtracematch.so" \
-               "modules/route-matcher-native/android/src/main/jniLibs/$arch/"
+               "src/modules/route-matcher-native/android/src/main/jniLibs/$arch/"
             echo "✓ Installed $arch"
           done
 
@@ -421,7 +421,7 @@ jobs:
 
           # Verify installation
           echo "=== Verifying .so installation ==="
-          find modules/route-matcher-native/android/src/main/jniLibs -name "*.so" -exec ls -lh {} \;
+          find src/modules/route-matcher-native/android/src/main/jniLibs -name "*.so" -exec ls -lh {} \;
 
       - name: Cache Android prebuild
         id: android-prebuild-cache
@@ -470,7 +470,7 @@ jobs:
           echo "=== Verifying .so files before Gradle build ==="
 
           # Check if jniLibs directory exists
-          if [ ! -d "modules/route-matcher-native/android/src/main/jniLibs" ]; then
+          if [ ! -d "src/modules/route-matcher-native/android/src/main/jniLibs" ]; then
             echo "ERROR: jniLibs directory not found!"
             exit 1
           fi
@@ -478,7 +478,7 @@ jobs:
           # Verify each architecture
           all_ok=true
           for arch in arm64-v8a armeabi-v7a x86_64 x86; do
-            so_file="modules/route-matcher-native/android/src/main/jniLibs/$arch/libtracematch.so"
+            so_file="src/modules/route-matcher-native/android/src/main/jniLibs/$arch/libtracematch.so"
             if [ -f "$so_file" ]; then
               size=$(stat -c%s "$so_file" 2>/dev/null || stat -f%z "$so_file" 2>/dev/null || echo "0")
               if [ "$size" -gt 0 ]; then
@@ -495,7 +495,7 @@ jobs:
 
           # Verify VeloqModule.kt (JNI-based TurboModule wrapper - committed in repo)
           # NOTE: We do NOT use tracematch.kt from releases (that's JNA-based, JVM-only)
-          VELOQ_MODULE="modules/route-matcher-native/android/src/main/java/com/veloq/VeloqModule.kt"
+          VELOQ_MODULE="src/modules/route-matcher-native/android/src/main/java/com/veloq/VeloqModule.kt"
           if [ -f "$VELOQ_MODULE" ]; then
             echo "✓ VeloqModule.kt (JNI): $VELOQ_MODULE"
           else
@@ -684,34 +684,34 @@ jobs:
           unzip -q /tmp/ios.zip -d /tmp/tracematch
 
           # Install XCFramework (rename to match podspec: TracematchFFI.xcframework)
-          mkdir -p modules/route-matcher-native/ios/Frameworks
+          mkdir -p src/modules/route-matcher-native/ios/Frameworks
           cp -r /tmp/tracematch/ios/RouteMatcherFFI.xcframework \
-                modules/route-matcher-native/ios/Frameworks/TracematchFFI.xcframework
+                src/modules/route-matcher-native/ios/Frameworks/TracematchFFI.xcframework
           echo "✓ Installed XCFramework"
 
           # Install Swift bindings
-          mkdir -p modules/route-matcher-native/ios/Generated
+          mkdir -p src/modules/route-matcher-native/ios/Generated
           cp /tmp/tracematch/ios/Generated/tracematch.swift \
-             modules/route-matcher-native/ios/Generated/
+             src/modules/route-matcher-native/ios/Generated/
           cp /tmp/tracematch/ios/Generated/tracematchFFI.h \
-             modules/route-matcher-native/ios/Generated/
+             src/modules/route-matcher-native/ios/Generated/
           cp /tmp/tracematch/ios/Generated/tracematchFFI.modulemap \
-             modules/route-matcher-native/ios/Generated/
+             src/modules/route-matcher-native/ios/Generated/
           echo "✓ Installed Swift bindings"
 
           # Copy C++ files into module ios/cpp/ where CocoaPods can find them
           # (CocoaPods source_files doesn't support traversing up directories reliably)
-          mkdir -p modules/route-matcher-native/ios/cpp
-          cp modules/route-matcher-native/cpp/veloq.h modules/route-matcher-native/ios/cpp/
-          cp modules/route-matcher-native/cpp/veloq.cpp modules/route-matcher-native/ios/cpp/
-          cp modules/route-matcher-native/cpp/tracematch.hpp modules/route-matcher-native/ios/cpp/
-          cp modules/route-matcher-native/cpp/tracematch.cpp modules/route-matcher-native/ios/cpp/
+          mkdir -p src/modules/route-matcher-native/ios/cpp
+          cp src/modules/route-matcher-native/cpp/veloq.h src/modules/route-matcher-native/ios/cpp/
+          cp src/modules/route-matcher-native/cpp/veloq.cpp src/modules/route-matcher-native/ios/cpp/
+          cp src/modules/route-matcher-native/cpp/tracematch.hpp src/modules/route-matcher-native/ios/cpp/
+          cp src/modules/route-matcher-native/cpp/tracematch.cpp src/modules/route-matcher-native/ios/cpp/
           echo "✓ Copied C++ files to module ios/cpp/"
 
           # Verify
-          ls -la modules/route-matcher-native/ios/Frameworks/
-          ls -la modules/route-matcher-native/ios/Generated/
-          ls -la modules/route-matcher-native/ios/cpp/
+          ls -la src/modules/route-matcher-native/ios/Frameworks/
+          ls -la src/modules/route-matcher-native/ios/Generated/
+          ls -la src/modules/route-matcher-native/ios/cpp/
 
       - name: Cache iOS prebuild
         id: ios-prebuild-cache
@@ -748,7 +748,7 @@ jobs:
         with:
           ruby-version: "3.2"
           bundler-cache: true
-          working-directory: fastlane
+          working-directory: config/fastlane
 
       - name: Install Pods
         working-directory: ios
@@ -797,7 +797,7 @@ jobs:
           MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
           MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
           FASTLANE_TEAM_ID: ${{ secrets.FASTLANE_TEAM_ID }}
-        working-directory: fastlane
+        working-directory: config/fastlane
         run: bundle exec fastlane match appstore --readonly
 
       # Pre-build diagnostics to help debug signing issues
@@ -865,7 +865,7 @@ jobs:
               df -h / | tail -1
 
               echo "--- Last 20 lines of build log ---"
-              tail -20 fastlane/artifacts/Veloq-Veloq.log 2>/dev/null || echo "No log yet"
+              tail -20 config/fastlane/artifacts/Veloq-Veloq.log 2>/dev/null || echo "No log yet"
 
               echo "--- Checking for stuck codesign (running > 2 min) ---"
               ps -eo pid,etime,command | grep codesign | grep -v grep || echo "No codesign process"
@@ -884,7 +884,7 @@ jobs:
           MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
           MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
           FASTLANE_TEAM_ID: ${{ secrets.FASTLANE_TEAM_ID }}
-        working-directory: fastlane
+        working-directory: config/fastlane
         run: |
           echo "=== Starting IPA build at $(date) ==="
           echo "Build will use OTHER_CODE_SIGN_FLAGS='--timestamp=none' to avoid timestamp server hangs"
@@ -904,27 +904,27 @@ jobs:
         if: failure() && steps.check_ios_signing.outputs.has_signing == 'true'
         run: |
           echo "=== Capturing failure diagnostics ==="
-          mkdir -p fastlane/artifacts/diagnostics
+          mkdir -p config/fastlane/artifacts/diagnostics
 
-          echo "--- Final process state ---" > fastlane/artifacts/diagnostics/processes.txt
-          ps aux >> fastlane/artifacts/diagnostics/processes.txt 2>&1
+          echo "--- Final process state ---" > config/fastlane/artifacts/diagnostics/processes.txt
+          ps aux >> config/fastlane/artifacts/diagnostics/processes.txt 2>&1
 
-          echo "--- Codesign processes ---" > fastlane/artifacts/diagnostics/codesign.txt
-          pgrep -fl codesign >> fastlane/artifacts/diagnostics/codesign.txt 2>&1 || echo "No codesign" >> fastlane/artifacts/diagnostics/codesign.txt
+          echo "--- Codesign processes ---" > config/fastlane/artifacts/diagnostics/codesign.txt
+          pgrep -fl codesign >> config/fastlane/artifacts/diagnostics/codesign.txt 2>&1 || echo "No codesign" >> config/fastlane/artifacts/diagnostics/codesign.txt
 
-          echo "--- Network connections ---" > fastlane/artifacts/diagnostics/network.txt
-          lsof -i -n -P >> fastlane/artifacts/diagnostics/network.txt 2>&1 || echo "lsof failed" >> fastlane/artifacts/diagnostics/network.txt
+          echo "--- Network connections ---" > config/fastlane/artifacts/diagnostics/network.txt
+          lsof -i -n -P >> config/fastlane/artifacts/diagnostics/network.txt 2>&1 || echo "lsof failed" >> config/fastlane/artifacts/diagnostics/network.txt
 
-          echo "--- System log (last 100 lines) ---" > fastlane/artifacts/diagnostics/system.log
-          log show --last 5m --predicate 'process == "codesign" OR process == "xcodebuild"' >> fastlane/artifacts/diagnostics/system.log 2>&1 || echo "log show failed" >> fastlane/artifacts/diagnostics/system.log
+          echo "--- System log (last 100 lines) ---" > config/fastlane/artifacts/diagnostics/system.log
+          log show --last 5m --predicate 'process == "codesign" OR process == "xcodebuild"' >> config/fastlane/artifacts/diagnostics/system.log 2>&1 || echo "log show failed" >> config/fastlane/artifacts/diagnostics/system.log
 
-          echo "--- Keychain state ---" > fastlane/artifacts/diagnostics/keychain.txt
-          security list-keychains >> fastlane/artifacts/diagnostics/keychain.txt 2>&1
-          security find-identity -v -p codesigning >> fastlane/artifacts/diagnostics/keychain.txt 2>&1
+          echo "--- Keychain state ---" > config/fastlane/artifacts/diagnostics/keychain.txt
+          security list-keychains >> config/fastlane/artifacts/diagnostics/keychain.txt 2>&1
+          security find-identity -v -p codesigning >> config/fastlane/artifacts/diagnostics/keychain.txt 2>&1
 
-          echo "--- Memory state ---" > fastlane/artifacts/diagnostics/memory.txt
-          vm_stat >> fastlane/artifacts/diagnostics/memory.txt 2>&1
-          top -l 1 -n 10 >> fastlane/artifacts/diagnostics/memory.txt 2>&1
+          echo "--- Memory state ---" > config/fastlane/artifacts/diagnostics/memory.txt
+          vm_stat >> config/fastlane/artifacts/diagnostics/memory.txt 2>&1
+          top -l 1 -n 10 >> config/fastlane/artifacts/diagnostics/memory.txt 2>&1
 
           echo "=== Diagnostics captured ==="
 
@@ -934,8 +934,8 @@ jobs:
         with:
           name: ios-build-logs-${{ steps.version.outputs.filename }}
           path: |
-            fastlane/artifacts/*.log
-            fastlane/artifacts/diagnostics/*
+            config/fastlane/artifacts/*.log
+            config/fastlane/artifacts/diagnostics/*
             ~/Library/Logs/gym/*.log
           retention-days: 7
 

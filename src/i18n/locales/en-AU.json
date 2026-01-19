@@ -324,6 +324,7 @@
     "loginWithIntervals": "Sign in with intervals.icu",
     "noAccount": "New to intervals.icu?",
     "oauthFailed": "Sign in didn't work. Have another crack.",
+    "oauthInvalidCallback": "Invalid OAuth callback URL",
     "oauthNotConfigured": "OAuth isn't set up yet. Use API key login instead.",
     "oauthStateValidationFailed": "Security check failed. Give signing in another go.",
     "openSettings": "Open Intervals.icu Settings",

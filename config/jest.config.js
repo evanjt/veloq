@@ -4,6 +4,7 @@ module.exports = {
   silent: true,
   rootDir: "..",
   testMatch: ["**/__tests__/**/*.test.ts", "**/__tests__/**/*.test.tsx"],
+  testPathIgnorePatterns: ["/node_modules/", "/__tests__/e2e/"],
   moduleNameMapper: {
     "^@/theme$": "<rootDir>/src/__tests__/__mocks__/theme.js",
     "^@/(.*)$": "<rootDir>/src/$1",

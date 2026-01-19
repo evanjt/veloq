@@ -1,0 +1,29 @@
+crate:
+  directory: ../../../../tracematch
+  manifest: Cargo.toml
+
+bindings:
+  ts: src/generated
+  cpp: cpp
+
+android:
+  directory: android
+  targets:
+    - arm64-v8a
+    - armeabi-v7a
+    - x86_64
+    - x86
+  apiLevel: 24
+  jniLibs: src/main/jniLibs
+  useSharedLibrary: true
+
+ios:
+  directory: ios
+  targets:
+    - aarch64-apple-ios
+    - aarch64-apple-ios-sim
+    - x86_64-apple-ios
+  frameworkName: TracematchFFI
+
+turboModule:
+  name: RouteMatcher

@@ -325,6 +325,7 @@
     "oauthStateValidationFailed": "Sikkerhedskontrol mislykkedes. Prøv venligst at logge ind igen.",
     "noAccount": "New to intervals.icu?",
     "oauthFailed": "Sign in failed. Please try again.",
+    "oauthInvalidCallback": "Invalid OAuth callback URL",
     "oauthNotConfigured": "OAuth is not configured. Use API key login instead.",
     "openSettings": "Åbn Intervals.icu Indstillinger",
     "privacyPolicy": "Privacy Policy",

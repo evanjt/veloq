@@ -12,7 +12,7 @@ import * as path from 'path';
 
 const TS_SPEC_PATH = path.resolve(
   __dirname,
-  '../../../modules/route-matcher-native/src/NativeVeloq.ts'
+  '../../modules/route-matcher-native/src/NativeVeloq.ts'
 );
 
 describe('FFI Binding Sync', () => {

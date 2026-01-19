@@ -324,6 +324,7 @@
     "loginWithIntervals": "Mit intervals.icu ylogge",
     "noAccount": "No kes Konto?",
     "oauthFailed": "Het nid klappt, probiers nomau!",
+    "oauthInvalidCallback": "Invalid OAuth callback URL",
     "oauthNotConfigured": "OAuth geit nid, nimm e API-Schlüssu",
     "oauthStateValidationFailed": "Sicherheitsprüefig fehlgschlage. Probiers nomau, gäu!",
     "openSettings": "Ystellige ufmache",

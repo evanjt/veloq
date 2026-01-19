@@ -324,6 +324,7 @@
     "loginWithIntervals": "Iniciar sesión con intervals.icu",
     "noAccount": "¿Nuevo en intervals.icu?",
     "oauthFailed": "Error al iniciar sesión. Inténtalo de nuevo.",
+    "oauthInvalidCallback": "Invalid OAuth callback URL",
     "oauthNotConfigured": "OAuth no está configurado. Usa la clave API en su lugar.",
     "oauthStateValidationFailed": "Verificación de seguridad fallida. Por favor, inténtalo de nuevo.",
     "openSettings": "Abrir Ajustes de Intervals.icu",
