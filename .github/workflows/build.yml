@@ -58,12 +58,19 @@ jobs:
           echo "Downloading tracematch v${TRACEMATCH_VERSION} from crates.io..."
           mkdir -p ../tracematch
           curl -sL "https://static.crates.io/crates/tracematch/${TRACEMATCH_VERSION}/download" | tar -xzf - --strip-components=1 -C ../tracematch
+          echo "Crate downloaded to: $(realpath ../tracematch)"
+          ls ../tracematch/Cargo.toml
 
           # Generate TypeScript and C++ bindings
           cd src/modules/route-matcher-native
+          echo "Working directory: $(pwd)"
+          echo "Crate path resolves to: $(realpath ../../../../tracematch 2>/dev/null || echo 'NOT FOUND')"
           npx uniffi-bindgen-react-native generate turbo-module tracematch
-          echo "✓ Generated bindings"
-          ls -la src/generated/
+
+          # Verify generated files
+          echo "Looking for generated files..."
+          find . -name "*.ts" -path "*/generated/*" 2>/dev/null || echo "No .ts files in generated/"
+          ls -la src/generated/ 2>/dev/null || echo "src/generated/ not found"
 
       - name: Run ${{ matrix.name }}
         run: ${{ matrix.cmd }}
