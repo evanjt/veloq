@@ -70,6 +70,11 @@ import {
   type CustomSectionMatch,
 } from './generated/tracematch';
 
+// For backward compatibility, also export the module initialization status
+export function isRouteMatcherInitialized(): boolean {
+  return installed;
+}
+
 /**
  * Progress state for section detection.
  */
@@ -224,6 +229,22 @@ export const getDefaultScalePresets = defaultScalePresets;
 export interface FetchProgressEvent {
   completed: number;
   total: number;
+}
+
+/**
+ * Add a listener for fetch progress events.
+ * @deprecated Use fetchActivityMapsWithProgress with onProgress callback instead.
+ * This global listener approach is no longer needed - pass callback directly to fetch function.
+ */
+export function addFetchProgressListener(_callback: (event: FetchProgressEvent) => void): {
+  remove: () => void;
+} {
+  if (__DEV__) {
+    console.warn(
+      '[RouteMatcher] addFetchProgressListener is deprecated. Use fetchActivityMapsWithProgress with onProgress callback instead.'
+    );
+  }
+  return { remove: () => {} };
 }
 
 /**

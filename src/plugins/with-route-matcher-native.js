@@ -239,6 +239,70 @@ function generateBindings() {
 }
 
 /**
+ * Patch generated route-matcher-native.cpp to fix include path.
+ * uniffi-bindgen-react-native generates #include "/tracematch.hpp" which is wrong.
+ */
+function patchGeneratedCpp() {
+  const cppFile = path.join(MODULE_DIR, "cpp/route-matcher-native.cpp");
+
+  if (!existsSync(cppFile)) {
+    return;
+  }
+
+  let content = readFileSync(cppFile, "utf8");
+  if (content.includes('"/tracematch.hpp"')) {
+    console.log("  Patching route-matcher-native.cpp include path...");
+    content = content.replace('"/tracematch.hpp"', '"tracematch.hpp"');
+    writeFileSync(cppFile, content);
+    console.log("  route-matcher-native.cpp patched");
+  }
+}
+
+/**
+ * Patch CMakeLists.txt to use 'veloq' library name instead of 'route-matcher-native'.
+ * VeloqModule.kt loads System.loadLibrary("veloq") so we need libveloq.so.
+ */
+function patchCMakeLists() {
+  const cmakeFile = path.join(MODULE_DIR, "android/CMakeLists.txt");
+
+  if (!existsSync(cmakeFile)) {
+    return;
+  }
+
+  let content = readFileSync(cmakeFile, "utf8");
+  if (content.includes("add_library(route-matcher-native")) {
+    console.log("  Patching CMakeLists.txt to use veloq library name...");
+    content = content.replace(/route-matcher-native\.cpp/g, "veloq.cpp");
+    content = content.replace(/add_library\(route-matcher-native/g, "add_library(veloq");
+    content = content.replace(/target_link_libraries\(route-matcher-native/g, "target_link_libraries(veloq");
+    content = content.replace(/target_link_libraries\(\s*route-matcher-native/g, "target_link_libraries(\n  veloq");
+    writeFileSync(cmakeFile, content);
+    console.log("  CMakeLists.txt patched");
+  }
+}
+
+/**
+ * Remove auto-generated files that conflict with our custom Veloq module.
+ * uniffi-bindgen-react-native generates RouteMatcherNative* files but we use Veloq*.
+ */
+function removeConflictingGeneratedFiles() {
+  const filesToRemove = [
+    path.join(MODULE_DIR, "src/NativeRouteMatcherNative.ts"),
+    path.join(MODULE_DIR, "android/src/main/java/com/veloq/RouteMatcherNativeModule.kt"),
+    path.join(MODULE_DIR, "android/src/main/java/com/veloq/RouteMatcherNativePackage.kt"),
+    path.join(MODULE_DIR, "ios/RouteMatcherNative.h"),
+    path.join(MODULE_DIR, "ios/RouteMatcherNative.mm"),
+  ];
+
+  for (const file of filesToRemove) {
+    if (existsSync(file)) {
+      console.log(`  Removing conflicting ${path.basename(file)}...`);
+      fs.unlinkSync(file);
+    }
+  }
+}
+
+/**
  * Patch cpp-adapter.cpp for React Native 0.81+ compatibility.
  */
 function patchCppAdapter() {
@@ -318,11 +382,24 @@ function binariesExist(platform) {
 
 /**
  * Check if bindings already exist.
+ * We check for both the generated tracematch.ts AND our custom index.ts with routeEngine wrapper.
  */
 function bindingsExist() {
   const generatedTs = path.join(MODULE_DIR, "src/generated/tracematch.ts");
-  const generatedCpp = path.join(MODULE_DIR, "ios/cpp/tracematch.cpp");
-  return existsSync(generatedTs) && existsSync(generatedCpp);
+  const indexTs = path.join(MODULE_DIR, "src/index.ts");
+
+  // Check generated bindings exist
+  if (!existsSync(generatedTs)) return false;
+
+  // Check our custom index.ts exists and has the routeEngine wrapper
+  if (existsSync(indexTs)) {
+    const content = readFileSync(indexTs, "utf8");
+    if (content.includes("routeEngine") && content.includes("NativeVeloq")) {
+      return true; // Our custom version exists, don't regenerate
+    }
+  }
+
+  return false;
 }
 
 /**
@@ -368,7 +445,10 @@ async function runPreBuildSetup(platform) {
   }
 
   // Step 3: Apply patches
+  patchGeneratedCpp();
+  removeConflictingGeneratedFiles();
   if (platform === "android") {
+    patchCMakeLists();
     patchCppAdapter();
   }
 
