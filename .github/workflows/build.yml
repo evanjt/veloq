@@ -699,14 +699,14 @@ jobs:
              modules/route-matcher-native/ios/Generated/
           echo "✓ Installed Swift bindings"
 
-          # Copy C++ entry points into module directory where CocoaPods can find them
+          # Copy C++ files into module ios/cpp/ where CocoaPods can find them
           # (CocoaPods source_files doesn't support traversing up directories reliably)
           mkdir -p modules/route-matcher-native/ios/cpp
-          cp cpp/veloq.h modules/route-matcher-native/ios/cpp/
-          cp cpp/veloq.cpp modules/route-matcher-native/ios/cpp/
+          cp modules/route-matcher-native/cpp/veloq.h modules/route-matcher-native/ios/cpp/
+          cp modules/route-matcher-native/cpp/veloq.cpp modules/route-matcher-native/ios/cpp/
           cp modules/route-matcher-native/cpp/tracematch.hpp modules/route-matcher-native/ios/cpp/
           cp modules/route-matcher-native/cpp/tracematch.cpp modules/route-matcher-native/ios/cpp/
-          echo "✓ Copied C++ entry points to module ios/cpp/"
+          echo "✓ Copied C++ files to module ios/cpp/"
 
           # Verify
           ls -la modules/route-matcher-native/ios/Frameworks/

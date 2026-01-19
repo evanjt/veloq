@@ -1,13 +1,13 @@
 crate:
-  directory: ../tracematch
+  directory: ../../../tracematch
   manifest: Cargo.toml
 
 bindings:
-  ts: modules/route-matcher-native/src/generated
-  cpp: modules/route-matcher-native/cpp
+  ts: src/generated
+  cpp: cpp
 
 android:
-  directory: modules/route-matcher-native/android
+  directory: android
   targets:
     - arm64-v8a
     - armeabi-v7a
@@ -18,7 +18,7 @@ android:
   useSharedLibrary: true
 
 ios:
-  directory: modules/route-matcher-native/ios
+  directory: ios
   targets:
     - aarch64-apple-ios
     - aarch64-apple-ios-sim

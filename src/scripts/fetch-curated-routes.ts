@@ -230,7 +230,12 @@ function simplifyToTargetPoints(points: Coordinate[], targetPoints: number): Coo
 function validateContinuity(coords: Coordinate[]): { valid: boolean; maxGap: number } {
   let maxGap = 0;
   for (let i = 1; i < coords.length; i++) {
-    const gap = haversineDistance(coords[i - 1].lat, coords[i - 1].lng, coords[i].lat, coords[i].lng);
+    const gap = haversineDistance(
+      coords[i - 1].lat,
+      coords[i - 1].lng,
+      coords[i].lat,
+      coords[i].lng
+    );
     maxGap = Math.max(maxGap, gap);
   }
   return { valid: maxGap <= MAX_GAP_METERS, maxGap };
@@ -561,7 +566,9 @@ async function main() {
     region: 'Sydney, Australia',
     attribution: 'Generated demo route',
   });
-  console.log(`  Added: ${swimCoords.length} points, ${(calculateDistance(swimCoords) / 1000).toFixed(1)} km`);
+  console.log(
+    `  Added: ${swimCoords.length} points, ${(calculateDistance(swimCoords) / 1000).toFixed(1)} km`
+  );
 
   // Optionally try to fetch real OSM routes as well
   console.log('\n=== Attempting OSM Fetch (optional) ===\n');
@@ -588,7 +595,9 @@ async function main() {
       // Validate continuity
       const { valid, maxGap } = validateContinuity(coords);
       if (!valid) {
-        console.log(`  Route has gap of ${Math.round(maxGap)}m (max ${MAX_GAP_METERS}m), skipping.`);
+        console.log(
+          `  Route has gap of ${Math.round(maxGap)}m (max ${MAX_GAP_METERS}m), skipping.`
+        );
         continue;
       }
 

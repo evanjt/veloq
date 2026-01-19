@@ -17,14 +17,12 @@ get_filename_component(UNIFFI_BINDGEN_PATH "${UNIFFI_BINDGEN_PATH}" DIRECTORY)
 
 # Specifies a path to native header files.
 include_directories(
-    ../../../cpp
     ../cpp
-
     ${UNIFFI_BINDGEN_PATH}/cpp/includes
 )
 
 add_library(veloq            SHARED
-    ../../../cpp/veloq.cpp
+    ../cpp/veloq.cpp
     ../cpp/tracematch.cpp
     cpp-adapter.cpp
 )

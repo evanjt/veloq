@@ -52,12 +52,6 @@ def supportsNamespace() {
 android {
   if (supportsNamespace()) {
     namespace "com.veloq"
-
-    sourceSets {
-      main {
-        manifest.srcFile "src/main/AndroidManifestNew.xml"
-      }
-    }
   }
 
   ndkVersion getExtOrDefault("ndkVersion")
