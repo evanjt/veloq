@@ -419,7 +419,7 @@ module.exports = function withRouteMatcherNative(config) {
     // Add the pod after use_expo_modules!
     const podLine = `
   # Local native module for Rust bindings (uniffi-bindgen-react-native)
-  pod 'RouteMatcherNative', :path => '../modules/route-matcher-native/ios'
+  pod 'RouteMatcherNative', :path => '../src/modules/route-matcher-native/ios'
 `;
 
     config.modResults.contents = contents.replace(
