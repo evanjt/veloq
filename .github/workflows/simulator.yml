@@ -40,25 +40,19 @@ jobs:
               - 'app/**'
               - 'app.json'
               - 'package.json'
-              - 'modules/**/ios/**'
-              - 'modules/**/src/**'
-              - 'modules/**/cpp/**'
               - 'plugins/**'
             android:
               - 'src/**'
               - 'app/**'
               - 'app.json'
               - 'package.json'
-              - 'modules/**/android/**'
-              - 'modules/**/src/**'
-              - 'modules/**/cpp/**'
               - 'plugins/**'
 
       - name: Calculate source hash
         id: hash
         run: |
-          # Include all files that affect the build
-          HASH=$(cat <(find src app modules/*/src plugins .github -type f \( -name "*.ts" -o -name "*.tsx" -o -name "*.js" -o -name "*.json" -o -name "*.gradle" \) -exec sha256sum {} \; 2>/dev/null) <(sha256sum package.json app.json 2>/dev/null) | sort | sha256sum | cut -d' ' -f1 | head -c 12)
+          # Include all files that affect the build (modules are under src/)
+          HASH=$(cat <(find src app plugins .github -type f \( -name "*.ts" -o -name "*.tsx" -o -name "*.js" -o -name "*.json" -o -name "*.gradle" \) -exec sha256sum {} \; 2>/dev/null) <(sha256sum package.json app.json 2>/dev/null) | sort | sha256sum | cut -d' ' -f1 | head -c 12)
           echo "source_hash=$HASH" >> $GITHUB_OUTPUT
 
   # ============================================
@@ -108,8 +102,8 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ios/build/Build/Products/${{ matrix.config }}-iphonesimulator/Veloq.app
-          # v9: force rebuild with fresh prebuild that has correct codegenConfig
-          key: ios-app-v9-${{ matrix.config }}-${{ steps.version.outputs.source_hash }}
+          # v10: bindings now generated from crates.io source
+          key: ios-app-v10-${{ matrix.config }}-${{ steps.version.outputs.source_hash }}
 
       # Download tracematch BEFORE prebuild since expo prebuild runs pod install
       # which requires the Generated folder with modulemap to exist
@@ -122,29 +116,44 @@ jobs:
           unzip -q /tmp/ios.zip -d /tmp/tracematch
 
           # Install XCFramework (rename to match podspec: TracematchFFI.xcframework)
-          mkdir -p modules/route-matcher-native/ios/Frameworks
+          mkdir -p src/modules/route-matcher-native/ios/Frameworks
           cp -r /tmp/tracematch/ios/RouteMatcherFFI.xcframework \
-                modules/route-matcher-native/ios/Frameworks/TracematchFFI.xcframework
+                src/modules/route-matcher-native/ios/Frameworks/TracematchFFI.xcframework
 
           # Install Swift bindings and headers
-          mkdir -p modules/route-matcher-native/ios/Generated
+          mkdir -p src/modules/route-matcher-native/ios/Generated
           cp /tmp/tracematch/ios/Generated/tracematch.swift \
-             modules/route-matcher-native/ios/Generated/
+             src/modules/route-matcher-native/ios/Generated/
           cp /tmp/tracematch/ios/Generated/tracematchFFI.h \
-             modules/route-matcher-native/ios/Generated/
+             src/modules/route-matcher-native/ios/Generated/
           cp /tmp/tracematch/ios/Generated/tracematchFFI.modulemap \
-             modules/route-matcher-native/ios/Generated/
+             src/modules/route-matcher-native/ios/Generated/
 
-          # Copy C++ entry points into module directory where CocoaPods can find them
-          # (CocoaPods source_files doesn't support traversing up directories reliably)
-          mkdir -p modules/route-matcher-native/ios/cpp
-          cp cpp/veloq.h modules/route-matcher-native/ios/cpp/
-          cp cpp/veloq.cpp modules/route-matcher-native/ios/cpp/
-          cp modules/route-matcher-native/cpp/tracematch.hpp modules/route-matcher-native/ios/cpp/
-          cp modules/route-matcher-native/cpp/tracematch.cpp modules/route-matcher-native/ios/cpp/
-          echo "✓ Copied C++ entry points to module ios/cpp/"
+          echo "✓ Installed iOS XCFramework and Swift bindings"
 
-          echo "✓ Installed iOS XCFramework, Swift bindings, and C++ entry points"
+      - name: Generate tracematch bindings
+        if: steps.app-cache.outputs.cache-hit != 'true'
+        run: |
+          # Download crate source from crates.io for binding generation
+          TRACEMATCH_VERSION=$(node -p "require('./package.json').tracematchVersion")
+          echo "Downloading tracematch v${TRACEMATCH_VERSION} from crates.io..."
+          mkdir -p ../tracematch
+          curl -sL "https://static.crates.io/crates/tracematch/${TRACEMATCH_VERSION}/download" | tar -xzf - --strip-components=1 -C ../tracematch
+
+          # Generate TypeScript and C++ bindings
+          cd src/modules/route-matcher-native
+          npx uniffi-bindgen-react-native generate turbo-module tracematch
+          echo "✓ Generated TypeScript and C++ bindings"
+          ls -la src/generated/
+          ls -la cpp/
+
+          # Copy C++ files into module ios/cpp/ where CocoaPods can find them
+          mkdir -p ios/cpp
+          cp cpp/veloq.h ios/cpp/
+          cp cpp/veloq.cpp ios/cpp/
+          cp cpp/tracematch.hpp ios/cpp/
+          cp cpp/tracematch.cpp ios/cpp/
+          echo "✓ Copied C++ files to module ios/cpp/"
 
       - name: Cache iOS prebuild
         if: steps.app-cache.outputs.cache-hit != 'true'
@@ -152,8 +161,8 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ios
-          # v9: include modules/**/package.json for codegenConfig changes
-          key: ios-sim-prebuild-v9-${{ runner.os }}-${{ hashFiles('app.json', 'package.json', 'package-lock.json', 'plugins/**', 'modules/**/ios/**', 'modules/**/package.json') }}
+          # v10: fix path to src/modules
+          key: ios-sim-prebuild-v10-${{ runner.os }}-${{ hashFiles('app.json', 'package.json', 'package-lock.json', 'plugins/**', 'src/modules/**/ios/**', 'src/modules/**/package.json') }}
           restore-keys: ios-sim-prebuild-v9-${{ runner.os }}-
 
       - name: Expo Prebuild
@@ -300,8 +309,8 @@ jobs:
           path: |
             android/app/build/outputs/apk/release/app-release.apk
             android/app/build/outputs/apk/androidTest/release/app-release-androidTest.apk
-          # v4: force rebuild with fresh prebuild that has correct codegenConfig
-          key: android-release-apk-v4-${{ steps.version.outputs.source_hash }}
+          # v5: bindings now generated from crates.io source
+          key: android-release-apk-v5-${{ steps.version.outputs.source_hash }}
 
       - name: Cache Android prebuild
         if: steps.apk-cache.outputs.cache-hit != 'true'
@@ -309,8 +318,8 @@ jobs:
         uses: actions/cache@v4
         with:
           path: android
-          # v3: include modules/**/package.json for codegenConfig changes
-          key: android-release-prebuild-v3-${{ runner.os }}-${{ hashFiles('app.json', 'package.json', 'modules/**/android/**', 'modules/**/package.json') }}
+          # v4: fix path to src/modules
+          key: android-release-prebuild-v4-${{ runner.os }}-${{ hashFiles('app.json', 'package.json', 'src/modules/**/android/**', 'src/modules/**/package.json') }}
 
       - name: Expo Prebuild
         if: steps.apk-cache.outputs.cache-hit != 'true' && steps.android-prebuild-cache.outputs.cache-hit != 'true'
@@ -323,13 +332,29 @@ jobs:
           RELEASE_URL="https://github.com/evanjt/route-matcher/releases/download/${TRACEMATCH_VERSION}"
           curl -sL "${RELEASE_URL}/tracematch-android-${TRACEMATCH_VERSION}.zip" -o /tmp/android.zip
           unzip -q /tmp/android.zip -d /tmp/tracematch
-          mkdir -p modules/route-matcher-native/android/src/main/jniLibs
+          mkdir -p src/modules/route-matcher-native/android/src/main/jniLibs
           for arch in arm64-v8a armeabi-v7a x86_64 x86; do
-            mkdir -p "modules/route-matcher-native/android/src/main/jniLibs/$arch"
-            cp "/tmp/tracematch/android/jniLibs/$arch/libtracematch.so" "modules/route-matcher-native/android/src/main/jniLibs/$arch/"
+            mkdir -p "src/modules/route-matcher-native/android/src/main/jniLibs/$arch"
+            cp "/tmp/tracematch/android/jniLibs/$arch/libtracematch.so" "src/modules/route-matcher-native/android/src/main/jniLibs/$arch/"
           done
           # NOTE: We do NOT install tracematch.kt from the release (that's JNA-based, JVM-only).
           # The repo has committed VeloqModule.kt (JNI-based) which is the correct TurboModule wrapper.
+
+      - name: Generate tracematch bindings
+        if: steps.apk-cache.outputs.cache-hit != 'true'
+        run: |
+          # Download crate source from crates.io for binding generation
+          TRACEMATCH_VERSION=$(node -p "require('./package.json').tracematchVersion")
+          echo "Downloading tracematch v${TRACEMATCH_VERSION} from crates.io..."
+          mkdir -p ../tracematch
+          curl -sL "https://static.crates.io/crates/tracematch/${TRACEMATCH_VERSION}/download" | tar -xzf - --strip-components=1 -C ../tracematch
+
+          # Generate TypeScript and C++ bindings
+          cd src/modules/route-matcher-native
+          npx uniffi-bindgen-react-native generate turbo-module tracematch
+          echo "✓ Generated TypeScript and C++ bindings"
+          ls -la src/generated/
+          ls -la cpp/
 
       - name: Install Gradle init script
         if: steps.apk-cache.outputs.cache-hit != 'true'

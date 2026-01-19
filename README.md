@@ -1,124 +1,64 @@
-# Veloq
+<p align="center">
+  <img src="docs/icon.png" width="80" alt="Veloq">
+</p>
 
-A fast, offline-first mobile client for [Intervals.icu](https://intervals.icu) with a focus on maps and visual analytics.
+<h1 align="center">Veloq</h1>
+
+<p align="center">
+  <strong>Open-source mobile client for <a href="https://intervals.icu">Intervals.icu</a></strong><br>
+  Maps, charts, and fitness tracking — open source, your data stays yours.
+</p>
+
+<p align="center">
+  <a href="https://veloq.fit">Website</a> •
+  <a href="https://github.com/evanjt/veloq/releases">Download</a> •
+  <a href="https://veloq.fit/privacy">Privacy</a>
+</p>
+
+---
+
+<p align="center">
+  <img src="docs/screenshots/01-feed.png" width="19%" alt="Activity Feed">
+  <img src="docs/screenshots/02-activity-map.png" width="19%" alt="Activity Map">
+  <img src="docs/screenshots/04-charts.png" width="19%" alt="Charts">
+  <img src="docs/screenshots/05-fitness.png" width="19%" alt="Fitness">
+  <img src="docs/screenshots/07-routes.png" width="19%" alt="Routes">
+</p>
 
 ## Features
 
-### Map-First Visualization
+- **Maps** — Interactive GPS visualization with 3D terrain and heatmaps
+- **Charts** — Heart rate, power, pace, elevation with synchronized map scrubbing
+- **Route Matching** — Automatic detection of repeated routes for progress tracking
+- **Fitness** — CTL/ATL/TSB model with form zone visualization
 
-- **Regional Activity Map** — View all your activities on an interactive map with timeline filtering. Slide through weeks, months, or years to see where you've trained.
-- **Activity Heatmap** — Density visualization showing your most frequently traveled routes. Tap cells to see which activities passed through.
-- **3D Terrain Mode** — Explore activities with elevation rendering and synchronized map-chart scrubbing.
-- **Multiple Map Styles** — Switch between light, dark, and satellite views. Configure default styles per activity type.
-
-### Rich Activity Analysis
-
-- **Multi-Metric Charts** — Overlay heart rate, power, pace, elevation, and cadence on a single interactive chart. Toggle between combined and stacked views.
-- **Synchronized Scrubbing** — Drag through charts to highlight your position on the map in real-time.
-- **Zone Distribution** — Pie charts showing time spent in each power and heart rate zone.
-- **Training Metrics** — TSS, intensity factor, efficiency factor, and aerobic decoupling calculated for each activity.
-- **Lap Breakdown** — View per-lap statistics for structured workouts.
-
-### Route Intelligence
-
-- **Automatic Route Matching** — The app detects when you repeat a route, grouping activities regardless of start point or direction.
-- **Performance Comparison** — Track your times on repeated routes to measure progress over months or years.
-- **Frequent Sections** — Identify commonly traveled portions of routes with detailed match analysis.
-- **GPS Geometry Analysis** — Route matching uses modified Hausdorff distance algorithms implemented in Rust for speed and accuracy.
-
-### Fitness Tracking
-
-- **CTL/ATL/TSB Model** — Monitor your chronic training load (fitness), acute training load (fatigue), and training stress balance (form).
-- **Form Zone Visualization** — See at a glance whether you're fresh, fatigued, or peaked.
-- **Long-Term Trends** — View fitness progression over weeks, months, or an entire year.
-
-### Wellness Metrics
-
-- **HRV & Resting Heart Rate** — Track heart rate variability and morning heart rate trends.
-- **Sleep Data** — Duration, quality, and sleep score visualization.
-- **Subjective Metrics** — Stress, fatigue, soreness, mood, and motivation tracking.
-- **Body Metrics** — Weight, body fat, and blood pressure trends.
-
-### Performance Analysis
-
-- **Power Curves** — Best efforts at every duration from 1 second to multiple hours.
-- **Pace Curves** — Running and swimming performance modeling with critical speed calculations.
-- **FTP & Threshold Tracking** — Monitor functional threshold power and lactate threshold changes over time.
-- **Sport-Specific Views** — Switch between cycling, running, and swimming with appropriate metrics for each.
-
-### Offline-First Architecture
-
-- **Aggressive Caching** — Activity data is stored locally for instant access without network.
-- **Background Sync** — New activities download automatically when connected.
-- **Checkpoint Resume** — Long sync operations resume where they left off if interrupted.
-- **Configurable Storage** — Control how much data to cache and for how long.
-
-## Screenshots
-
-<!-- TODO: Add screenshots -->
+See [veloq.fit](https://veloq.fit) for the full feature list.
 
 ## Getting Started
 
-1. Get your API key from [Intervals.icu Settings](https://intervals.icu/settings) → Developer Settings
-2. Install Veloq from [GitHub Releases](https://github.com/evanjt/veloq/releases) or F-Droid
-3. Enter your athlete ID and API key
+1. Download from [GitHub Releases](https://github.com/evanjt/veloq/releases)
+2. Sign in with **OAuth** or use an **API key** from [Intervals.icu Settings](https://intervals.icu/settings)
 
 ## Development
 
 ```bash
 npm install
-npm start
 
-# Platform-specific
-npm run android
-npm run ios
-
-# Build Rust module (required for native builds)
-npm run build:rust:android
-npm run build:rust:ios
-
-# Tests
-npm test
+npx expo run:android    # Run on Android
+npm expo run:ios        # Run on iOS
 ```
 
-### Architecture
+**Stack:** React Native + Expo, TanStack Query, Zustand, Victory Native, MapLibre, Rust (route matching)
 
-| Layer          | Technology                                   |
-| -------------- | -------------------------------------------- |
-| UI Framework   | React Native + Expo SDK 54                   |
-| Server State   | TanStack Query with AsyncStorage persistence |
-| Local State    | Zustand                                      |
-| Charts         | Victory Native + Skia                        |
-| Maps           | MapLibre GL                                  |
-| Route Matching | Custom Rust module with UniFFI bindings      |
-| UI Components  | React Native Paper                           |
+## Privacy
 
----
+Veloq doesn't store your data — but we have no control over data stored on intervals.icu. All analytics and activity data is sourced from there. OAuth uses a lightweight proxy for token exchange; API key mode is fully serverless.
 
-## Privacy & Legal
+Routes and sections are generated on-device using [tracematch](https://github.com/evanjt/tracematch).
 
-**[Privacy Policy](https://veloq.fit/privacy)** — See full privacy policy on our website.
-
-**Disclaimer:**
-
-Veloq is an independent, open-source project. It is **not affiliated with, endorsed by, or connected to intervals.icu** in any way.
-
-By using Veloq, you agree to:
-- [intervals.icu Terms of Service](https://forum.intervals.icu/tos)
-- [intervals.icu Privacy Policy](https://intervals.icu/privacy-policy.html)
-- [intervals.icu API Terms and Conditions](https://forum.intervals.icu/t/intervals-icu-api-terms-and-conditions/114087)
-
-### Data Attribution
-
-Activity data displayed in Veloq may include information from:
-- **Garmin** devices and services (Garmin and the Garmin logo are trademarks of Garmin Ltd.)
-- **Strava** (for activities synced to intervals.icu via Strava)
-- **Polar**, **Wahoo**, and other fitness devices connected to your intervals.icu account
-
-Map tiles are provided by OpenStreetMap, Carto, and Stadia Maps. Map data is copyright OpenStreetMap contributors.
-
----
+- [Privacy Policy](https://veloq.fit/privacy)
+- [intervals.icu Terms](https://forum.intervals.icu/tos)
 
 ## License
 
-Apache License 2.0 — See [LICENSE](LICENSE)
+[Apache 2.0](LICENSE)
