@@ -1,4 +1,3 @@
-const { withPodfile } = require("@expo/config-plugins");
 const { execSync, spawnSync } = require("child_process");
 const fs = require("fs");
 const path = require("path");
@@ -31,8 +30,10 @@ function isCI() {
  */
 function hasLocalRust() {
   if (process.env.VELOQ_LOCAL_RUST === "1") return true;
+  if (process.env.VELOQ_LOCAL_RUST === "0") return false;
   const cargoToml = path.resolve(PROJECT_ROOT, "../tracematch/Cargo.toml");
-  return existsSync(cargoToml);
+  if (!existsSync(cargoToml)) return false;
+  try { execSync("cargo --version", { stdio: "ignore" }); return true; } catch { return false; }
 }
 
 /**
@@ -320,7 +321,7 @@ function binariesExist(platform) {
  */
 function bindingsExist() {
   const generatedTs = path.join(MODULE_DIR, "src/generated/tracematch.ts");
-  const generatedCpp = path.join(MODULE_DIR, "cpp/tracematch.cpp");
+  const generatedCpp = path.join(MODULE_DIR, "ios/cpp/tracematch.cpp");
   return existsSync(generatedTs) && existsSync(generatedCpp);
 }
 
@@ -407,29 +408,8 @@ module.exports = function withRouteMatcherNative(config) {
     console.warn("[route-matcher-native] Pre-build setup failed:", error.message);
   }
 
-  // Add iOS pod injection
-  return withPodfile(config, (config) => {
-    const contents = config.modResults.contents;
-
-    // Skip if already added
-    if (contents.includes("RouteMatcherNative")) {
-      return config;
-    }
-
-    // Add the pod after use_expo_modules!
-    const podLine = `
-  # Local native module for Rust bindings (uniffi-bindgen-react-native)
-  pod 'RouteMatcherNative', :path => '../src/modules/route-matcher-native/ios'
-`;
-
-    config.modResults.contents = contents.replace(
-      "use_expo_modules!",
-      `use_expo_modules!
-${podLine}`
-    );
-
-    return config;
-  });
+  // iOS pod is auto-linked via expo-modules-autolinking, no manual injection needed
+  return config;
 };
 
 // Export for synchronous setup call
