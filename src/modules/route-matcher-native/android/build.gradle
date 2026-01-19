@@ -99,10 +99,13 @@ android {
     }
   }
 
-  // Don't package libc++_shared.so - React Native already provides it
-  // This prevents "2 files found with path 'lib/*/libc++_shared.so'" errors
+  // Don't package shared libraries that React Native already provides
+  // This prevents "2 files found with path 'lib/*/*.so'" duplicate errors
   packagingOptions {
     exclude '**/libc++_shared.so'
+    exclude '**/libjsi.so'
+    exclude '**/libfbjni.so'
+    exclude '**/libreactnative.so'
   }
 
   lintOptions {
