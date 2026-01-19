@@ -51,14 +51,17 @@ yarn-error.*
 src/modules/route-matcher-native/android/src/main/jniLibs/
 src/modules/route-matcher-native/ios/Frameworks/
 
-# UniFFI generated bindings (generated at build time by Expo plugin)
-src/modules/route-matcher-native/cpp/tracematch.cpp
-src/modules/route-matcher-native/cpp/tracematch.hpp
-src/modules/route-matcher-native/src/generated/
+# UniFFI generated bindings - runtime copies (created during build)
 src/modules/route-matcher-native/android/cpp-adapter.cpp
 src/modules/route-matcher-native/android/src/main/java/uniffi/
 src/modules/route-matcher-native/ios/Generated/
 src/modules/route-matcher-native/ios/cpp/
+
+# NOTE: These bindings ARE committed (required for builds, can't generate without Rust toolchain):
+# src/modules/route-matcher-native/src/generated/tracematch.ts
+# src/modules/route-matcher-native/src/generated/tracematch-ffi.ts
+# src/modules/route-matcher-native/cpp/tracematch.cpp
+# src/modules/route-matcher-native/cpp/tracematch.hpp
 
 # NOTE: These files ARE committed (hand-written or project-specific):
 # - src/modules/route-matcher-native/cpp/veloq.cpp, veloq.h (JSI entry points)

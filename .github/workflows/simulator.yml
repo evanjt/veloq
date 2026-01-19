@@ -131,28 +131,13 @@ jobs:
 
           echo "✓ Installed iOS XCFramework and Swift bindings"
 
-      - name: Generate tracematch bindings
-        if: steps.app-cache.outputs.cache-hit != 'true'
-        run: |
-          # Download crate source from crates.io for binding generation
-          TRACEMATCH_VERSION=$(node -p "require('./package.json').tracematchVersion")
-          echo "Downloading tracematch v${TRACEMATCH_VERSION} from crates.io..."
-          mkdir -p ../tracematch
-          curl -sL "https://static.crates.io/crates/tracematch/${TRACEMATCH_VERSION}/download" | tar -xzf - --strip-components=1 -C ../tracematch
-
-          # Generate TypeScript and C++ bindings
-          cd src/modules/route-matcher-native
-          npx uniffi-bindgen-react-native generate turbo-module tracematch
-          echo "✓ Generated TypeScript and C++ bindings"
-          ls -la src/generated/
-          ls -la cpp/
-
           # Copy C++ files into module ios/cpp/ where CocoaPods can find them
-          mkdir -p ios/cpp
-          cp cpp/veloq.h ios/cpp/
-          cp cpp/veloq.cpp ios/cpp/
-          cp cpp/tracematch.hpp ios/cpp/
-          cp cpp/tracematch.cpp ios/cpp/
+          # (TypeScript/C++ bindings are committed to repo)
+          mkdir -p src/modules/route-matcher-native/ios/cpp
+          cp src/modules/route-matcher-native/cpp/veloq.h src/modules/route-matcher-native/ios/cpp/
+          cp src/modules/route-matcher-native/cpp/veloq.cpp src/modules/route-matcher-native/ios/cpp/
+          cp src/modules/route-matcher-native/cpp/tracematch.hpp src/modules/route-matcher-native/ios/cpp/
+          cp src/modules/route-matcher-native/cpp/tracematch.cpp src/modules/route-matcher-native/ios/cpp/
           echo "✓ Copied C++ files to module ios/cpp/"
 
       - name: Cache iOS prebuild
@@ -339,22 +324,7 @@ jobs:
           done
           # NOTE: We do NOT install tracematch.kt from the release (that's JNA-based, JVM-only).
           # The repo has committed VeloqModule.kt (JNI-based) which is the correct TurboModule wrapper.
-
-      - name: Generate tracematch bindings
-        if: steps.apk-cache.outputs.cache-hit != 'true'
-        run: |
-          # Download crate source from crates.io for binding generation
-          TRACEMATCH_VERSION=$(node -p "require('./package.json').tracematchVersion")
-          echo "Downloading tracematch v${TRACEMATCH_VERSION} from crates.io..."
-          mkdir -p ../tracematch
-          curl -sL "https://static.crates.io/crates/tracematch/${TRACEMATCH_VERSION}/download" | tar -xzf - --strip-components=1 -C ../tracematch
-
-          # Generate TypeScript and C++ bindings
-          cd src/modules/route-matcher-native
-          npx uniffi-bindgen-react-native generate turbo-module tracematch
-          echo "✓ Generated TypeScript and C++ bindings"
-          ls -la src/generated/
-          ls -la cpp/
+          # TypeScript/C++ bindings are already committed to the repo.
 
       - name: Install Gradle init script
         if: steps.apk-cache.outputs.cache-hit != 'true'

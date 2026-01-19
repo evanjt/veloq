@@ -50,28 +50,6 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Generate tracematch bindings
-        if: matrix.name == 'typescript'
-        run: |
-          # Download crate source from crates.io
-          TRACEMATCH_VERSION=$(node -p "require('./package.json').tracematchVersion")
-          echo "Downloading tracematch v${TRACEMATCH_VERSION} from crates.io..."
-          mkdir -p ../tracematch
-          curl -sL "https://static.crates.io/crates/tracematch/${TRACEMATCH_VERSION}/download" | tar -xzf - --strip-components=1 -C ../tracematch
-          echo "Crate downloaded to: $(realpath ../tracematch)"
-          ls ../tracematch/Cargo.toml
-
-          # Generate TypeScript and C++ bindings
-          cd src/modules/route-matcher-native
-          echo "Working directory: $(pwd)"
-          echo "Crate path resolves to: $(realpath ../../../../tracematch 2>/dev/null || echo 'NOT FOUND')"
-          npx uniffi-bindgen-react-native generate turbo-module tracematch
-
-          # Verify generated files
-          echo "Looking for generated files..."
-          find . -name "*.ts" -path "*/generated/*" 2>/dev/null || echo "No .ts files in generated/"
-          ls -la src/generated/ 2>/dev/null || echo "src/generated/ not found"
-
       - name: Run ${{ matrix.name }}
         run: ${{ matrix.cmd }}
 
@@ -445,21 +423,6 @@ jobs:
           echo "=== Verifying .so installation ==="
           find src/modules/route-matcher-native/android/src/main/jniLibs -name "*.so" -exec ls -lh {} \;
 
-      - name: Generate tracematch bindings
-        run: |
-          # Download crate source from crates.io for binding generation
-          TRACEMATCH_VERSION=$(node -p "require('./package.json').tracematchVersion")
-          echo "Downloading tracematch v${TRACEMATCH_VERSION} from crates.io..."
-          mkdir -p ../tracematch
-          curl -sL "https://static.crates.io/crates/tracematch/${TRACEMATCH_VERSION}/download" | tar -xzf - --strip-components=1 -C ../tracematch
-
-          # Generate TypeScript and C++ bindings
-          cd src/modules/route-matcher-native
-          npx uniffi-bindgen-react-native generate turbo-module tracematch
-          echo "✓ Generated TypeScript and C++ bindings"
-          ls -la src/generated/
-          ls -la cpp/
-
       - name: Cache Android prebuild
         id: android-prebuild-cache
         uses: actions/cache@v4
@@ -740,29 +703,14 @@ jobs:
           ls -la src/modules/route-matcher-native/ios/Frameworks/
           ls -la src/modules/route-matcher-native/ios/Generated/
 
-      - name: Generate tracematch bindings
-        run: |
-          # Download crate source from crates.io for binding generation
-          TRACEMATCH_VERSION=$(node -p "require('./package.json').tracematchVersion")
-          echo "Downloading tracematch v${TRACEMATCH_VERSION} from crates.io..."
-          mkdir -p ../tracematch
-          curl -sL "https://static.crates.io/crates/tracematch/${TRACEMATCH_VERSION}/download" | tar -xzf - --strip-components=1 -C ../tracematch
-
-          # Generate TypeScript and C++ bindings
-          cd src/modules/route-matcher-native
-          npx uniffi-bindgen-react-native generate turbo-module tracematch
-          echo "✓ Generated TypeScript and C++ bindings"
-          ls -la src/generated/
-          ls -la cpp/
-
           # Copy C++ files into module ios/cpp/ where CocoaPods can find them
-          mkdir -p ios/cpp
-          cp cpp/veloq.h ios/cpp/
-          cp cpp/veloq.cpp ios/cpp/
-          cp cpp/tracematch.hpp ios/cpp/
-          cp cpp/tracematch.cpp ios/cpp/
+          # (TypeScript bindings are committed to repo, C++ bindings need local copy)
+          mkdir -p src/modules/route-matcher-native/ios/cpp
+          cp src/modules/route-matcher-native/cpp/veloq.h src/modules/route-matcher-native/ios/cpp/
+          cp src/modules/route-matcher-native/cpp/veloq.cpp src/modules/route-matcher-native/ios/cpp/
+          cp src/modules/route-matcher-native/cpp/tracematch.hpp src/modules/route-matcher-native/ios/cpp/
+          cp src/modules/route-matcher-native/cpp/tracematch.cpp src/modules/route-matcher-native/ios/cpp/
           echo "✓ Copied C++ files to module ios/cpp/"
-          ls -la ios/cpp/
 
       - name: Cache iOS prebuild
         id: ios-prebuild-cache
