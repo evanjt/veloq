@@ -165,11 +165,11 @@ describe('screenshots', () => {
   });
 
   it(`03-charts${suffix}: Activity Charts`, async () => {
-    // Scroll down to see charts (must scroll on the ScrollView, not the outer container)
-    await waitFor(element(by.id('activity-charts-scrollview')))
+    // Charts are visible below the map (42% of screen height) - no scroll needed
+    // Just wait for the activity detail screen to be visible and take screenshot
+    await waitFor(element(by.id('activity-detail-screen')))
       .toBeVisible()
       .withTimeout(5000);
-    await element(by.id('activity-charts-scrollview')).scroll(400, 'down');
     await new Promise((resolve) => setTimeout(resolve, 1000));
     await device.takeScreenshot(`03-charts${suffix}`);
   });
@@ -199,23 +199,17 @@ describe('screenshots', () => {
   });
 
   it(`07-regional-map${suffix}: Regional Map`, async () => {
-    // Navigate to map - use FAB tap on Android, deep link on iOS
-    const isIOS = device.getPlatform() === 'ios';
-    if (isIOS) {
-      // Deep link is more reliable than FAB tap on iOS
-      await navigateViaDeepLink('map', 'map-screen');
-    } else {
-      // FAB tap works reliably on Android
-      await navigateViaDeepLink('', 'home-screen');
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      await waitFor(element(by.id('map-fab')))
-        .toBeVisible()
-        .withTimeout(5000);
-      await element(by.id('map-fab')).tap();
-      await waitFor(element(by.id('map-screen')))
-        .toBeVisible()
-        .withTimeout(10000);
-    }
+    // Navigate to home first, then tap FAB to open map (same approach for both platforms)
+    await navigateViaDeepLink('', 'home-screen');
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    await waitFor(element(by.id('map-fab')))
+      .toBeVisible()
+      .withTimeout(5000);
+    await element(by.id('map-fab')).tap();
+    // Map screen may take time to load - use longer timeout
+    await waitFor(element(by.id('map-screen')))
+      .toBeVisible()
+      .withTimeout(20000);
 
     // Configure map style for regional map
     if (config.mapStyle !== 'light') {
