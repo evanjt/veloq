@@ -1,11 +1,11 @@
 #!/bin/bash
-# Capture all screenshots for both platforms and themes
+# Capture all screenshots for all platforms and themes
 # Usage: ./scripts/capture-all-screenshots.sh [platform]
 # Example: ./scripts/capture-all-screenshots.sh ios
 
 set -e
 
-PLATFORM="${1:-all}"  # ios, android, or all
+PLATFORM="${1:-all}"  # ios, ipad, android, or all
 OUTPUT_DIR="screenshots"
 SCRIPT_DIR="$(dirname "$0")"
 
@@ -21,6 +21,8 @@ run_screenshots() {
 
     if [ "$platform" = "ios" ]; then
         config_name="ios.sim.release"
+    elif [ "$platform" = "ipad" ]; then
+        config_name="ipad.sim.release"
     else
         config_name="android.emu.release"
     fi
@@ -41,13 +43,22 @@ run_screenshots() {
     "$SCRIPT_DIR/collect-screenshots.sh" "$platform" "$theme"
 }
 
-# Run for iOS
+# Run for iOS (iPhone)
 if [ "$PLATFORM" = "all" ] || [ "$PLATFORM" = "ios" ]; then
     echo "=== iOS Light Mode ==="
     run_screenshots "ios" "light"
 
     echo "=== iOS Dark Mode ==="
     run_screenshots "ios" "dark"
+fi
+
+# Run for iPad
+if [ "$PLATFORM" = "all" ] || [ "$PLATFORM" = "ipad" ]; then
+    echo "=== iPad Light Mode ==="
+    run_screenshots "ipad" "light"
+
+    echo "=== iPad Dark Mode ==="
+    run_screenshots "ipad" "dark"
 fi
 
 # Run for Android

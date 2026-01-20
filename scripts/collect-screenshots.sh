@@ -5,7 +5,7 @@
 
 set -e
 
-PLATFORM="${1:-all}"  # ios, android, or all
+PLATFORM="${1:-all}"  # ios, ipad, android, or all
 THEME="${2:-all}"     # light, dark, or all
 OUTPUT_DIR="screenshots"
 
@@ -20,6 +20,8 @@ collect_from_artifacts() {
 
     if [ "$platform" = "ios" ]; then
         config_name="ios.sim.release"
+    elif [ "$platform" = "ipad" ]; then
+        config_name="ipad.sim.release"
     else
         config_name="android.emu.release"
     fi
@@ -75,6 +77,11 @@ collect_from_artifacts() {
 if [ "$PLATFORM" = "all" ] || [ "$PLATFORM" = "ios" ]; then
     echo "=== Collecting iOS screenshots ==="
     collect_from_artifacts "ios" "$THEME"
+fi
+
+if [ "$PLATFORM" = "all" ] || [ "$PLATFORM" = "ipad" ]; then
+    echo "=== Collecting iPad screenshots ==="
+    collect_from_artifacts "ipad" "$THEME"
 fi
 
 if [ "$PLATFORM" = "all" ] || [ "$PLATFORM" = "android" ]; then

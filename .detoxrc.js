@@ -48,6 +48,10 @@ module.exports = {
       // Local: iPhone 17 Pro Max, CI: iPhone 16 (override via DETOX_DEVICE_TYPE env var)
       device: { type: process.env.DETOX_DEVICE_TYPE || 'iPhone 17 Pro Max' },
     },
+    'simulator.ipad': {
+      type: 'ios.simulator',
+      device: { type: 'iPad Pro 13-inch (M5)' },
+    },
     'simulator.fallback': {
       type: 'ios.simulator',
       device: { type: 'iPhone 16' },
@@ -65,6 +69,14 @@ module.exports = {
     },
     'ios.sim.release': {
       device: 'simulator',
+      app: 'ios.release',
+    },
+    'ipad.sim.debug': {
+      device: 'simulator.ipad',
+      app: 'ios.debug',
+    },
+    'ipad.sim.release': {
+      device: 'simulator.ipad',
       app: 'ios.release',
     },
     'android.emu.debug': {

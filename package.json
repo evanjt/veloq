@@ -32,8 +32,11 @@
     "e2e:screenshots:android:satellite": "SCREENSHOT_MAP_STYLE=satellite detox test --configuration android.emu.release --testNamePattern screenshots",
     "e2e:screenshots:ios:3d": "SCREENSHOT_MAP_STYLE=satellite SCREENSHOT_3D=true detox test --configuration ios.sim.release --testNamePattern screenshots",
     "e2e:screenshots:android:3d": "SCREENSHOT_MAP_STYLE=satellite SCREENSHOT_3D=true detox test --configuration android.emu.release --testNamePattern screenshots",
+    "e2e:screenshots:ipad": "detox test --configuration ipad.sim.release --testNamePattern screenshots",
+    "e2e:screenshots:ipad:dark": "SCREENSHOT_THEME=dark detox test --configuration ipad.sim.release --testNamePattern screenshots",
     "e2e:screenshots:collect": "./scripts/collect-screenshots.sh",
     "e2e:screenshots:all:ios": "./scripts/capture-all-screenshots.sh ios",
+    "e2e:screenshots:all:ipad": "./scripts/capture-all-screenshots.sh ipad",
     "e2e:screenshots:all:android": "./scripts/capture-all-screenshots.sh android",
     "e2e:screenshots:all": "./scripts/capture-all-screenshots.sh all"
   },
