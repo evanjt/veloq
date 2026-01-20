@@ -100,8 +100,43 @@ const MAX_NAME_LENGTH = 255;
 const CONTROL_CHAR_REGEX = /[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/;
 
 /**
+ * Convert snake_case keys to camelCase.
+ * Handles both flat and nested objects/arrays.
+ */
+function snakeToCamel(obj: unknown): unknown {
+  if (Array.isArray(obj)) {
+    return obj.map(snakeToCamel);
+  }
+  if (obj !== null && typeof obj === 'object') {
+    const result: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(obj)) {
+      const camelKey = key.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
+      result[camelKey] = snakeToCamel(value);
+    }
+    return result;
+  }
+  return obj;
+}
+
+/**
+ * Check if an object has snake_case keys (indicating old Rust binary).
+ * Only checks top-level keys for performance.
+ */
+function hasSnakeCaseKeys(obj: unknown): boolean {
+  if (obj !== null && typeof obj === 'object' && !Array.isArray(obj)) {
+    return Object.keys(obj).some((key) => key.includes('_'));
+  }
+  if (Array.isArray(obj) && obj.length > 0) {
+    return hasSnakeCaseKeys(obj[0]);
+  }
+  return false;
+}
+
+/**
  * Safely parse JSON with error handling.
  * Returns the fallback value if parsing fails or input is null/undefined.
+ * Automatically transforms snake_case to camelCase for backward compatibility
+ * with older Rust binaries that don't have serde(rename_all = "camelCase").
  *
  * @param json - The JSON string to parse
  * @param fallback - The fallback value to return on error
@@ -112,7 +147,12 @@ function safeJsonParse<T>(json: string | null | undefined, fallback: T): T {
     return fallback;
   }
   try {
-    return JSON.parse(json) as T;
+    const parsed = JSON.parse(json);
+    // Transform snake_case to camelCase if needed (backward compat with old binaries)
+    if (hasSnakeCaseKeys(parsed)) {
+      return snakeToCamel(parsed) as T;
+    }
+    return parsed as T;
   } catch (error) {
     if (__DEV__) {
       console.error(

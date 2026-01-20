@@ -201,6 +201,19 @@ async function runPotentialSectionDetection(
     // Get route groups for linking sections
     const groups: RouteGroup[] = nativeModule.routeEngine.getGroups();
 
+    // Debug: Check for undefined fields in groups
+    if (__DEV__ && groups.length > 0) {
+      const firstGroup = groups[0];
+      console.log('[runPotentialSectionDetection] First group sample:', {
+        groupId: firstGroup.groupId,
+        representativeId: firstGroup.representativeId,
+        sportType: firstGroup.sportType,
+        hasGroupId: 'groupId' in firstGroup,
+        hasGroup_id: 'group_id' in firstGroup,
+        keys: Object.keys(firstGroup),
+      });
+    }
+
     // Create section config for potential detection
     const config = SectionConfig.create({
       proximityThreshold: 50,
