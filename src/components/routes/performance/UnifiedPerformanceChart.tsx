@@ -215,7 +215,8 @@ export function UnifiedPerformanceChart({
       if (point) {
         setTooltipData(point);
         if (onActivitySelect) {
-          onActivitySelect(point.id, point.lapPoints);
+          // Use activityId (not id) for map highlighting - id may include lap suffix
+          onActivitySelect(point.activityId, point.lapPoints);
         }
       }
     },

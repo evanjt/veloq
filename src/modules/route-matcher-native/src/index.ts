@@ -57,7 +57,6 @@ import {
   persistentEngineSetTimeStreamsFlat,
   ffiDetectSectionsMultiscale,
   defaultScalePresets,
-  fetchActivityMaps,
   fetchActivityMapsWithProgress as generatedFetchWithProgress,
   type FetchProgressCallback,
   type PersistentEngineStats,
@@ -265,19 +264,13 @@ export async function fetchActivityMapsWithProgress(
   activityIds: string[],
   onProgress?: (event: FetchProgressEvent) => void
 ): Promise<FfiActivityMapResult[]> {
-  if (!onProgress) {
-    // No progress callback - use regular function
-    return fetchActivityMaps(authHeader, activityIds);
-  }
-
   // Create callback adapter that conforms to FetchProgressCallback interface
   const callback: FetchProgressCallback = {
     onProgress: (completed: number, total: number) => {
-      onProgress({ completed, total });
+      onProgress?.({ completed, total });
     },
   };
 
-  // Call the generated function with callback
   return generatedFetchWithProgress(authHeader, activityIds, callback);
 }
 

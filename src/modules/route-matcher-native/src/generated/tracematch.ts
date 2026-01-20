@@ -70,113 +70,6 @@ const uniffiIsDebug =
 // Public interface members begin here.
 
 /**
- * Get conservative section config (fewer sections, higher confidence)
- */
-export function conservativeSectionConfig(): SectionConfig {
-  return FfiConverterTypeSectionConfig.lift(
-    uniffiCaller.rustCall(
-      /*caller:*/ (callStatus) => {
-        return nativeModule().ubrn_uniffi_tracematch_fn_func_conservative_section_config(
-          callStatus
-        );
-      },
-      /*liftString:*/ FfiConverterString.lift
-    )
-  );
-}
-/**
- * Create a route signature from GPS points.
- */
-export function createSignature(
-  activityId: string,
-  points: Array<GpsPoint>
-): RouteSignature | undefined {
-  return FfiConverterOptionalTypeRouteSignature.lift(
-    uniffiCaller.rustCall(
-      /*caller:*/ (callStatus) => {
-        return nativeModule().ubrn_uniffi_tracematch_fn_func_create_signature(
-          FfiConverterString.lower(activityId),
-          FfiConverterArrayTypeGpsPoint.lower(points),
-          callStatus
-        );
-      },
-      /*liftString:*/ FfiConverterString.lift
-    )
-  );
-}
-/**
- * Create a route signature with custom configuration.
- */
-export function createSignatureWithConfig(
-  activityId: string,
-  points: Array<GpsPoint>,
-  config: MatchConfig
-): RouteSignature | undefined {
-  return FfiConverterOptionalTypeRouteSignature.lift(
-    uniffiCaller.rustCall(
-      /*caller:*/ (callStatus) => {
-        return nativeModule().ubrn_uniffi_tracematch_fn_func_create_signature_with_config(
-          FfiConverterString.lower(activityId),
-          FfiConverterArrayTypeGpsPoint.lower(points),
-          FfiConverterTypeMatchConfig.lower(config),
-          callStatus
-        );
-      },
-      /*liftString:*/ FfiConverterString.lift
-    )
-  );
-}
-/**
- * Create signatures from flat coordinate buffers (optimized for TypedArray input).
- * Each track's coords array contains [lat1, lng1, lat2, lng2, ...].
- * This avoids the overhead of deserializing GpsPoint objects.
- */
-export function createSignaturesFromFlat(
-  tracks: Array<FlatGpsTrack>,
-  config: MatchConfig
-): Array<RouteSignature> {
-  return FfiConverterArrayTypeRouteSignature.lift(
-    uniffiCaller.rustCall(
-      /*caller:*/ (callStatus) => {
-        return nativeModule().ubrn_uniffi_tracematch_fn_func_create_signatures_from_flat(
-          FfiConverterArrayTypeFlatGpsTrack.lower(tracks),
-          FfiConverterTypeMatchConfig.lower(config),
-          callStatus
-        );
-      },
-      /*liftString:*/ FfiConverterString.lift
-    )
-  );
-}
-/**
- * Get default configuration.
- */
-export function defaultConfig(): MatchConfig {
-  return FfiConverterTypeMatchConfig.lift(
-    uniffiCaller.rustCall(
-      /*caller:*/ (callStatus) => {
-        return nativeModule().ubrn_uniffi_tracematch_fn_func_default_config(callStatus);
-      },
-      /*liftString:*/ FfiConverterString.lift
-    )
-  );
-}
-/**
- * Get default custom section matching config.
- */
-export function defaultCustomSectionMatchConfig(): CustomSectionMatchConfig {
-  return FfiConverterTypeCustomSectionMatchConfig.lift(
-    uniffiCaller.rustCall(
-      /*caller:*/ (callStatus) => {
-        return nativeModule().ubrn_uniffi_tracematch_fn_func_default_custom_section_match_config(
-          callStatus
-        );
-      },
-      /*liftString:*/ FfiConverterString.lift
-    )
-  );
-}
-/**
  * Get default scale presets for multi-scale detection
  */
 export function defaultScalePresets(): Array<ScalePreset> {
@@ -184,37 +77,6 @@ export function defaultScalePresets(): Array<ScalePreset> {
     uniffiCaller.rustCall(
       /*caller:*/ (callStatus) => {
         return nativeModule().ubrn_uniffi_tracematch_fn_func_default_scale_presets(callStatus);
-      },
-      /*liftString:*/ FfiConverterString.lift
-    )
-  );
-}
-/**
- * Fetch map data for multiple activities in parallel.
- *
- * This function respects intervals.icu rate limits:
- * - 30 req/s burst limit
- * - 131 req/10s sustained limit
- *
- * Uses connection pooling and parallel fetching for maximum performance.
- * Automatically retries on 429 errors with exponential backoff.
- *
- * The auth_header should be a pre-formatted Authorization header value:
- * - For API key auth: "Basic {base64(API_KEY:key)}"
- * - For OAuth: "Bearer {access_token}"
- */
-export function fetchActivityMaps(
-  authHeader: string,
-  activityIds: Array<string>
-): Array<FfiActivityMapResult> {
-  return FfiConverterArrayTypeFfiActivityMapResult.lift(
-    uniffiCaller.rustCall(
-      /*caller:*/ (callStatus) => {
-        return nativeModule().ubrn_uniffi_tracematch_fn_func_fetch_activity_maps(
-          FfiConverterString.lower(authHeader),
-          FfiConverterArrayString.lower(activityIds),
-          callStatus
-        );
       },
       /*liftString:*/ FfiConverterString.lift
     )
@@ -242,28 +104,6 @@ export function fetchActivityMapsWithProgress(
           FfiConverterString.lower(authHeader),
           FfiConverterArrayString.lower(activityIds),
           FfiConverterTypeFetchProgressCallback.lower(callback),
-          callStatus
-        );
-      },
-      /*liftString:*/ FfiConverterString.lift
-    )
-  );
-}
-/**
- * Compare two routes and return match result.
- */
-export function ffiCompareRoutes(
-  sig1: RouteSignature,
-  sig2: RouteSignature,
-  config: MatchConfig
-): MatchResult | undefined {
-  return FfiConverterOptionalTypeMatchResult.lift(
-    uniffiCaller.rustCall(
-      /*caller:*/ (callStatus) => {
-        return nativeModule().ubrn_uniffi_tracematch_fn_func_ffi_compare_routes(
-          FfiConverterTypeRouteSignature.lower(sig1),
-          FfiConverterTypeRouteSignature.lower(sig2),
-          FfiConverterTypeMatchConfig.lower(config),
           callStatus
         );
       },
@@ -306,57 +146,6 @@ export function ffiDetectSectionsMultiscale(
   );
 }
 /**
- * Optimized section detection using downsampling and grid partitioning.
- * 20-50x faster than full resolution detection, suitable for mobile devices.
- */
-export function ffiDetectSectionsOptimized(
-  activityIds: Array<string>,
-  allCoords: Array</*f64*/ number>,
-  offsets: Array</*u32*/ number>,
-  sportTypes: Array<ActivitySportType>,
-  config: SectionConfig
-): Array<FrequentSection> {
-  return FfiConverterArrayTypeFrequentSection.lift(
-    uniffiCaller.rustCall(
-      /*caller:*/ (callStatus) => {
-        return nativeModule().ubrn_uniffi_tracematch_fn_func_ffi_detect_sections_optimized(
-          FfiConverterArrayString.lower(activityIds),
-          FfiConverterArrayFloat64.lower(allCoords),
-          FfiConverterArrayUInt32.lower(offsets),
-          FfiConverterArrayTypeActivitySportType.lower(sportTypes),
-          FfiConverterTypeSectionConfig.lower(config),
-          callStatus
-        );
-      },
-      /*liftString:*/ FfiConverterString.lift
-    )
-  );
-}
-/**
- * Find all sections that exist within a given GPS route.
- *
- * Returns a list of section matches with their positions in the route.
- */
-export function ffiFindSectionsInRoute(
-  route: Array<GpsPoint>,
-  sections: Array<FrequentSection>,
-  config: SectionConfig
-): Array<SectionMatch> {
-  return FfiConverterArrayTypeSectionMatch.lift(
-    uniffiCaller.rustCall(
-      /*caller:*/ (callStatus) => {
-        return nativeModule().ubrn_uniffi_tracematch_fn_func_ffi_find_sections_in_route(
-          FfiConverterArrayTypeGpsPoint.lower(route),
-          FfiConverterArrayTypeFrequentSection.lower(sections),
-          FfiConverterTypeSectionConfig.lower(config),
-          callStatus
-        );
-      },
-      /*liftString:*/ FfiConverterString.lift
-    )
-  );
-}
-/**
  * Generate a heatmap from route signatures.
  * Uses the simplified GPS traces (~100 points each) for efficient generation.
  */
@@ -374,156 +163,6 @@ export function ffiGenerateHeatmap(
           FfiConverterTypeHeatmapConfig.lower(config),
           callStatus
         );
-      },
-      /*liftString:*/ FfiConverterString.lift
-    )
-  );
-}
-/**
- * Incremental grouping: efficiently add new signatures to existing groups.
- * Only compares new vs existing and new vs new - O(n×m) instead of O(n²).
- */
-export function ffiGroupIncremental(
-  newSignatures: Array<RouteSignature>,
-  existingGroups: Array<RouteGroup>,
-  existingSignatures: Array<RouteSignature>,
-  config: MatchConfig
-): Array<RouteGroup> {
-  return FfiConverterArrayTypeRouteGroup.lift(
-    uniffiCaller.rustCall(
-      /*caller:*/ (callStatus) => {
-        return nativeModule().ubrn_uniffi_tracematch_fn_func_ffi_group_incremental(
-          FfiConverterArrayTypeRouteSignature.lower(newSignatures),
-          FfiConverterArrayTypeRouteGroup.lower(existingGroups),
-          FfiConverterArrayTypeRouteSignature.lower(existingSignatures),
-          FfiConverterTypeMatchConfig.lower(config),
-          callStatus
-        );
-      },
-      /*liftString:*/ FfiConverterString.lift
-    )
-  );
-}
-/**
- * Group signatures into route groups.
- */
-export function ffiGroupSignatures(
-  signatures: Array<RouteSignature>,
-  config: MatchConfig
-): Array<RouteGroup> {
-  return FfiConverterArrayTypeRouteGroup.lift(
-    uniffiCaller.rustCall(
-      /*caller:*/ (callStatus) => {
-        return nativeModule().ubrn_uniffi_tracematch_fn_func_ffi_group_signatures(
-          FfiConverterArrayTypeRouteSignature.lower(signatures),
-          FfiConverterTypeMatchConfig.lower(config),
-          callStatus
-        );
-      },
-      /*liftString:*/ FfiConverterString.lift
-    )
-  );
-}
-/**
- * Query the heatmap at a specific location.
- */
-export function ffiQueryHeatmapCell(
-  heatmap: HeatmapResult,
-  lat: /*f64*/ number,
-  lng: /*f64*/ number
-): CellQueryResult | undefined {
-  return FfiConverterOptionalTypeCellQueryResult.lift(
-    uniffiCaller.rustCall(
-      /*caller:*/ (callStatus) => {
-        return nativeModule().ubrn_uniffi_tracematch_fn_func_ffi_query_heatmap_cell(
-          FfiConverterTypeHeatmapResult.lower(heatmap),
-          FfiConverterFloat64.lower(lat),
-          FfiConverterFloat64.lower(lng),
-          callStatus
-        );
-      },
-      /*liftString:*/ FfiConverterString.lift
-    )
-  );
-}
-/**
- * Recalculate a section's polyline based on its activity traces.
- *
- * Useful when a section's polyline has drifted or is biased.
- */
-export function ffiRecalculateSectionPolyline(
-  section: FrequentSection,
-  config: SectionConfig
-): FrequentSection {
-  return FfiConverterTypeFrequentSection.lift(
-    uniffiCaller.rustCall(
-      /*caller:*/ (callStatus) => {
-        return nativeModule().ubrn_uniffi_tracematch_fn_func_ffi_recalculate_section_polyline(
-          FfiConverterTypeFrequentSection.lower(section),
-          FfiConverterTypeSectionConfig.lower(config),
-          callStatus
-        );
-      },
-      /*liftString:*/ FfiConverterString.lift
-    )
-  );
-}
-/**
- * Split a section at a specific polyline index.
- *
- * Returns two new sections split at the given index.
- */
-export function ffiSplitSectionAtIndex(
-  section: FrequentSection,
-  splitIndex: /*u32*/ number
-): SplitResult | undefined {
-  return FfiConverterOptionalTypeSplitResult.lift(
-    uniffiCaller.rustCall(
-      /*caller:*/ (callStatus) => {
-        return nativeModule().ubrn_uniffi_tracematch_fn_func_ffi_split_section_at_index(
-          FfiConverterTypeFrequentSection.lower(section),
-          FfiConverterUInt32.lower(splitIndex),
-          callStatus
-        );
-      },
-      /*liftString:*/ FfiConverterString.lift
-    )
-  );
-}
-/**
- * Split a section at a geographic point.
- *
- * Returns two new sections if the point is close enough to the section's polyline.
- */
-export function ffiSplitSectionAtPoint(
-  section: FrequentSection,
-  lat: /*f64*/ number,
-  lng: /*f64*/ number,
-  maxDistanceMeters: /*f64*/ number
-): SplitResult | undefined {
-  return FfiConverterOptionalTypeSplitResult.lift(
-    uniffiCaller.rustCall(
-      /*caller:*/ (callStatus) => {
-        return nativeModule().ubrn_uniffi_tracematch_fn_func_ffi_split_section_at_point(
-          FfiConverterTypeFrequentSection.lower(section),
-          FfiConverterFloat64.lower(lat),
-          FfiConverterFloat64.lower(lng),
-          FfiConverterFloat64.lower(maxDistanceMeters),
-          callStatus
-        );
-      },
-      /*liftString:*/ FfiConverterString.lift
-    )
-  );
-}
-/**
- * Get legacy section config (backward compatible single-scale)
- */
-export function legacySectionConfig(): SectionConfig {
-  return FfiConverterTypeSectionConfig.lift(
-    uniffiCaller.rustCall(
-      /*caller:*/ (callStatus) => {
-        return nativeModule().ubrn_uniffi_tracematch_fn_func_legacy_section_config(callStatus);
       },
       /*liftString:*/ FfiConverterString.lift
     )
@@ -1137,27 +776,6 @@ export function persistentEngineStartSectionDetection(sportFilter: string | unde
       /*caller:*/ (callStatus) => {
         return nativeModule().ubrn_uniffi_tracematch_fn_func_persistent_engine_start_section_detection(
           FfiConverterOptionalString.lower(sportFilter),
-          callStatus
-        );
-      },
-      /*liftString:*/ FfiConverterString.lift
-    )
-  );
-}
-/**
- * Process routes end-to-end from flat buffers: create signatures AND group them.
- * Most efficient way to process many activities from TypedArray input.
- */
-export function processRoutesFromFlat(
-  tracks: Array<FlatGpsTrack>,
-  config: MatchConfig
-): Array<RouteGroup> {
-  return FfiConverterArrayTypeRouteGroup.lift(
-    uniffiCaller.rustCall(
-      /*caller:*/ (callStatus) => {
-        return nativeModule().ubrn_uniffi_tracematch_fn_func_process_routes_from_flat(
-          FfiConverterArrayTypeFlatGpsTrack.lower(tracks),
-          FfiConverterTypeMatchConfig.lower(config),
           callStatus
         );
       },
@@ -2012,68 +1630,6 @@ const FfiConverterTypeFfiActivityMapResult = (() => {
         FfiConverterArrayFloat64.allocationSize(value.latlngs) +
         FfiConverterBool.allocationSize(value.success) +
         FfiConverterOptionalString.allocationSize(value.error)
-      );
-    }
-  }
-  return new FFIConverter();
-})();
-
-/**
- * Input for flat buffer processing (zero-copy from JS TypedArray)
- */
-export type FlatGpsTrack = {
-  activityId: string;
-  /**
-   * Flat array of coordinates: [lat1, lng1, lat2, lng2, ...]
-   */
-  coords: Array</*f64*/ number>;
-};
-
-/**
- * Generated factory for {@link FlatGpsTrack} record objects.
- */
-export const FlatGpsTrack = (() => {
-  const defaults = () => ({});
-  const create = (() => {
-    return uniffiCreateRecord<FlatGpsTrack, ReturnType<typeof defaults>>(defaults);
-  })();
-  return Object.freeze({
-    /**
-     * Create a frozen instance of {@link FlatGpsTrack}, with defaults specified
-     * in Rust, in the {@link tracematch} crate.
-     */
-    create,
-
-    /**
-     * Create a frozen instance of {@link FlatGpsTrack}, with defaults specified
-     * in Rust, in the {@link tracematch} crate.
-     */
-    new: create,
-
-    /**
-     * Defaults specified in the {@link tracematch} crate.
-     */
-    defaults: () => Object.freeze(defaults()) as Partial<FlatGpsTrack>,
-  });
-})();
-
-const FfiConverterTypeFlatGpsTrack = (() => {
-  type TypeName = FlatGpsTrack;
-  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
-    read(from: RustBuffer): TypeName {
-      return {
-        activityId: FfiConverterString.read(from),
-        coords: FfiConverterArrayFloat64.read(from),
-      };
-    }
-    write(value: TypeName, into: RustBuffer): void {
-      FfiConverterString.write(value.activityId, into);
-      FfiConverterArrayFloat64.write(value.coords, into);
-    }
-    allocationSize(value: TypeName): number {
-      return (
-        FfiConverterString.allocationSize(value.activityId) +
-        FfiConverterArrayFloat64.allocationSize(value.coords)
       );
     }
   }
@@ -4478,18 +4034,10 @@ const FfiConverterOptionalInt64 = new FfiConverterOptional(FfiConverterInt64);
 // FfiConverter for Bounds | undefined
 const FfiConverterOptionalTypeBounds = new FfiConverterOptional(FfiConverterTypeBounds);
 
-// FfiConverter for CellQueryResult | undefined
-const FfiConverterOptionalTypeCellQueryResult = new FfiConverterOptional(
-  FfiConverterTypeCellQueryResult
-);
-
 // FfiConverter for HeatmapBounds | undefined
 const FfiConverterOptionalTypeHeatmapBounds = new FfiConverterOptional(
   FfiConverterTypeHeatmapBounds
 );
-
-// FfiConverter for MatchResult | undefined
-const FfiConverterOptionalTypeMatchResult = new FfiConverterOptional(FfiConverterTypeMatchResult);
 
 // FfiConverter for PersistentEngineStats | undefined
 const FfiConverterOptionalTypePersistentEngineStats = new FfiConverterOptional(
@@ -4501,18 +4049,10 @@ const FfiConverterOptionalTypeRoutePerformance = new FfiConverterOptional(
   FfiConverterTypeRoutePerformance
 );
 
-// FfiConverter for RouteSignature | undefined
-const FfiConverterOptionalTypeRouteSignature = new FfiConverterOptional(
-  FfiConverterTypeRouteSignature
-);
-
 // FfiConverter for SectionPerformanceRecord | undefined
 const FfiConverterOptionalTypeSectionPerformanceRecord = new FfiConverterOptional(
   FfiConverterTypeSectionPerformanceRecord
 );
-
-// FfiConverter for SplitResult | undefined
-const FfiConverterOptionalTypeSplitResult = new FfiConverterOptional(FfiConverterTypeSplitResult);
 
 // FfiConverter for string | undefined
 const FfiConverterOptionalString = new FfiConverterOptional(FfiConverterString);
@@ -4543,9 +4083,6 @@ const FfiConverterArrayTypeActivitySportType = new FfiConverterArray(
 const FfiConverterArrayTypeFfiActivityMapResult = new FfiConverterArray(
   FfiConverterTypeFfiActivityMapResult
 );
-
-// FfiConverter for Array<FlatGpsTrack>
-const FfiConverterArrayTypeFlatGpsTrack = new FfiConverterArray(FfiConverterTypeFlatGpsTrack);
 
 // FfiConverter for Array<FrequentSection>
 const FfiConverterArrayTypeFrequentSection = new FfiConverterArray(FfiConverterTypeFrequentSection);
@@ -4580,9 +4117,6 @@ const FfiConverterArrayTypeScalePreset = new FfiConverterArray(FfiConverterTypeS
 
 // FfiConverter for Array<SectionLap>
 const FfiConverterArrayTypeSectionLap = new FfiConverterArray(FfiConverterTypeSectionLap);
-
-// FfiConverter for Array<SectionMatch>
-const FfiConverterArrayTypeSectionMatch = new FfiConverterArray(FfiConverterTypeSectionMatch);
 
 // FfiConverter for Array<SectionPerformanceRecord>
 const FfiConverterArrayTypeSectionPerformanceRecord = new FfiConverterArray(
@@ -4625,47 +4159,9 @@ function uniffiEnsureInitialized() {
       bindingsContractVersion
     );
   }
-  if (nativeModule().ubrn_uniffi_tracematch_checksum_func_conservative_section_config() !== 44484) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      'uniffi_tracematch_checksum_func_conservative_section_config'
-    );
-  }
-  if (nativeModule().ubrn_uniffi_tracematch_checksum_func_create_signature() !== 34980) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      'uniffi_tracematch_checksum_func_create_signature'
-    );
-  }
-  if (nativeModule().ubrn_uniffi_tracematch_checksum_func_create_signature_with_config() !== 4764) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      'uniffi_tracematch_checksum_func_create_signature_with_config'
-    );
-  }
-  if (nativeModule().ubrn_uniffi_tracematch_checksum_func_create_signatures_from_flat() !== 13757) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      'uniffi_tracematch_checksum_func_create_signatures_from_flat'
-    );
-  }
-  if (nativeModule().ubrn_uniffi_tracematch_checksum_func_default_config() !== 60146) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      'uniffi_tracematch_checksum_func_default_config'
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_tracematch_checksum_func_default_custom_section_match_config() !==
-    38925
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      'uniffi_tracematch_checksum_func_default_custom_section_match_config'
-    );
-  }
   if (nativeModule().ubrn_uniffi_tracematch_checksum_func_default_scale_presets() !== 6194) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       'uniffi_tracematch_checksum_func_default_scale_presets'
-    );
-  }
-  if (nativeModule().ubrn_uniffi_tracematch_checksum_func_fetch_activity_maps() !== 8460) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      'uniffi_tracematch_checksum_func_fetch_activity_maps'
     );
   }
   if (
@@ -4676,11 +4172,6 @@ function uniffiEnsureInitialized() {
       'uniffi_tracematch_checksum_func_fetch_activity_maps_with_progress'
     );
   }
-  if (nativeModule().ubrn_uniffi_tracematch_checksum_func_ffi_compare_routes() !== 17282) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      'uniffi_tracematch_checksum_func_ffi_compare_routes'
-    );
-  }
   if (
     nativeModule().ubrn_uniffi_tracematch_checksum_func_ffi_detect_sections_multiscale() !== 46737
   ) {
@@ -4688,58 +4179,9 @@ function uniffiEnsureInitialized() {
       'uniffi_tracematch_checksum_func_ffi_detect_sections_multiscale'
     );
   }
-  if (
-    nativeModule().ubrn_uniffi_tracematch_checksum_func_ffi_detect_sections_optimized() !== 42847
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      'uniffi_tracematch_checksum_func_ffi_detect_sections_optimized'
-    );
-  }
-  if (nativeModule().ubrn_uniffi_tracematch_checksum_func_ffi_find_sections_in_route() !== 4802) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      'uniffi_tracematch_checksum_func_ffi_find_sections_in_route'
-    );
-  }
   if (nativeModule().ubrn_uniffi_tracematch_checksum_func_ffi_generate_heatmap() !== 44771) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       'uniffi_tracematch_checksum_func_ffi_generate_heatmap'
-    );
-  }
-  if (nativeModule().ubrn_uniffi_tracematch_checksum_func_ffi_group_incremental() !== 37620) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      'uniffi_tracematch_checksum_func_ffi_group_incremental'
-    );
-  }
-  if (nativeModule().ubrn_uniffi_tracematch_checksum_func_ffi_group_signatures() !== 7624) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      'uniffi_tracematch_checksum_func_ffi_group_signatures'
-    );
-  }
-  if (nativeModule().ubrn_uniffi_tracematch_checksum_func_ffi_query_heatmap_cell() !== 6800) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      'uniffi_tracematch_checksum_func_ffi_query_heatmap_cell'
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_tracematch_checksum_func_ffi_recalculate_section_polyline() !== 31041
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      'uniffi_tracematch_checksum_func_ffi_recalculate_section_polyline'
-    );
-  }
-  if (nativeModule().ubrn_uniffi_tracematch_checksum_func_ffi_split_section_at_index() !== 24818) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      'uniffi_tracematch_checksum_func_ffi_split_section_at_index'
-    );
-  }
-  if (nativeModule().ubrn_uniffi_tracematch_checksum_func_ffi_split_section_at_point() !== 48700) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      'uniffi_tracematch_checksum_func_ffi_split_section_at_point'
-    );
-  }
-  if (nativeModule().ubrn_uniffi_tracematch_checksum_func_legacy_section_config() !== 44917) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      'uniffi_tracematch_checksum_func_legacy_section_config'
     );
   }
   if (
@@ -5014,11 +4456,6 @@ function uniffiEnsureInitialized() {
       'uniffi_tracematch_checksum_func_persistent_engine_start_section_detection'
     );
   }
-  if (nativeModule().ubrn_uniffi_tracematch_checksum_func_process_routes_from_flat() !== 49526) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      'uniffi_tracematch_checksum_func_process_routes_from_flat'
-    );
-  }
   if (
     nativeModule().ubrn_uniffi_tracematch_checksum_method_fetchprogresscallback_on_progress() !==
     36192
@@ -5044,7 +4481,6 @@ export default Object.freeze({
     FfiConverterTypeCustomSectionMatchConfig,
     FfiConverterTypeDetectionStats,
     FfiConverterTypeFfiActivityMapResult,
-    FfiConverterTypeFlatGpsTrack,
     FfiConverterTypeFrequentSection,
     FfiConverterTypeGpsPoint,
     FfiConverterTypeHeatmapBounds,

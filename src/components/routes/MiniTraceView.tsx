@@ -56,14 +56,21 @@ export function MiniTraceView({
   const minLng = Math.min(...lngs);
   const maxLng = Math.max(...lngs);
 
-  const latRange = maxLat - minLat || 1;
-  const lngRange = maxLng - minLng || 1;
+  const latRange = maxLat - minLat || 0.0001;
+  const lngRange = maxLng - minLng || 0.0001;
+  // Use uniform scaling to preserve aspect ratio (prevents distortion)
+  const range = Math.max(latRange, lngRange);
 
-  // Scale function using shared bounds
+  // Center the trace in the available space
+  const drawSize = size - padding * 2;
+  const latOffset = (range - latRange) / 2;
+  const lngOffset = (range - lngRange) / 2;
+
+  // Scale function using uniform bounds (preserves geometry)
   const scalePoints = (points: RoutePoint[]) =>
     points.map((p) => ({
-      x: ((p.lng - minLng) / lngRange) * (size - padding * 2) + padding,
-      y: (1 - (p.lat - minLat) / latRange) * (size - padding * 2) + padding,
+      x: ((p.lng - minLng + lngOffset) / range) * drawSize + padding,
+      y: (1 - (p.lat - minLat + latOffset) / range) * drawSize + padding,
     }));
 
   const primaryScaled = scalePoints(validPrimaryPoints);

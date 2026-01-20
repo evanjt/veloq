@@ -109,62 +109,18 @@ typedef struct UniffiVTableCallbackInterfaceFetchProgressCallback {
 } UniffiVTableCallbackInterfaceFetchProgressCallback;
 void uniffi_tracematch_fn_init_callback_vtable_fetchprogresscallback(
     UniffiVTableCallbackInterfaceFetchProgressCallback *vtable);
-RustBuffer uniffi_tracematch_fn_func_conservative_section_config(
-    RustCallStatus *uniffi_out_err);
-RustBuffer uniffi_tracematch_fn_func_create_signature(
-    RustBuffer activity_id, RustBuffer points, RustCallStatus *uniffi_out_err);
-RustBuffer uniffi_tracematch_fn_func_create_signature_with_config(
-    RustBuffer activity_id, RustBuffer points, RustBuffer config,
-    RustCallStatus *uniffi_out_err);
-RustBuffer uniffi_tracematch_fn_func_create_signatures_from_flat(
-    RustBuffer tracks, RustBuffer config, RustCallStatus *uniffi_out_err);
-RustBuffer
-uniffi_tracematch_fn_func_default_config(RustCallStatus *uniffi_out_err);
-RustBuffer uniffi_tracematch_fn_func_default_custom_section_match_config(
-    RustCallStatus *uniffi_out_err);
 RustBuffer
 uniffi_tracematch_fn_func_default_scale_presets(RustCallStatus *uniffi_out_err);
-RustBuffer
-uniffi_tracematch_fn_func_fetch_activity_maps(RustBuffer auth_header,
-                                              RustBuffer activity_ids,
-                                              RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_tracematch_fn_func_fetch_activity_maps_with_progress(
     RustBuffer auth_header, RustBuffer activity_ids, uint64_t callback,
     RustCallStatus *uniffi_out_err);
-RustBuffer
-uniffi_tracematch_fn_func_ffi_compare_routes(RustBuffer sig1, RustBuffer sig2,
-                                             RustBuffer config,
-                                             RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_tracematch_fn_func_ffi_detect_sections_multiscale(
     RustBuffer activity_ids, RustBuffer all_coords, RustBuffer offsets,
     RustBuffer sport_types, RustBuffer groups, RustBuffer config,
     RustCallStatus *uniffi_out_err);
-RustBuffer uniffi_tracematch_fn_func_ffi_detect_sections_optimized(
-    RustBuffer activity_ids, RustBuffer all_coords, RustBuffer offsets,
-    RustBuffer sport_types, RustBuffer config, RustCallStatus *uniffi_out_err);
-RustBuffer uniffi_tracematch_fn_func_ffi_find_sections_in_route(
-    RustBuffer route, RustBuffer sections, RustBuffer config,
-    RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_tracematch_fn_func_ffi_generate_heatmap(
     RustBuffer signatures, RustBuffer activity_data, RustBuffer config,
     RustCallStatus *uniffi_out_err);
-RustBuffer uniffi_tracematch_fn_func_ffi_group_incremental(
-    RustBuffer new_signatures, RustBuffer existing_groups,
-    RustBuffer existing_signatures, RustBuffer config,
-    RustCallStatus *uniffi_out_err);
-RustBuffer uniffi_tracematch_fn_func_ffi_group_signatures(
-    RustBuffer signatures, RustBuffer config, RustCallStatus *uniffi_out_err);
-RustBuffer uniffi_tracematch_fn_func_ffi_query_heatmap_cell(
-    RustBuffer heatmap, double lat, double lng, RustCallStatus *uniffi_out_err);
-RustBuffer uniffi_tracematch_fn_func_ffi_recalculate_section_polyline(
-    RustBuffer section, RustBuffer config, RustCallStatus *uniffi_out_err);
-RustBuffer uniffi_tracematch_fn_func_ffi_split_section_at_index(
-    RustBuffer section, uint32_t split_index, RustCallStatus *uniffi_out_err);
-RustBuffer uniffi_tracematch_fn_func_ffi_split_section_at_point(
-    RustBuffer section, double lat, double lng, double max_distance_meters,
-    RustCallStatus *uniffi_out_err);
-RustBuffer
-uniffi_tracematch_fn_func_legacy_section_config(RustCallStatus *uniffi_out_err);
 void uniffi_tracematch_fn_func_persistent_engine_add_activities(
     RustBuffer activity_ids, RustBuffer all_coords, RustBuffer offsets,
     RustBuffer sport_types, RustCallStatus *uniffi_out_err);
@@ -249,8 +205,6 @@ void uniffi_tracematch_fn_func_persistent_engine_set_time_streams_flat(
     RustCallStatus *uniffi_out_err);
 int8_t uniffi_tracematch_fn_func_persistent_engine_start_section_detection(
     RustBuffer sport_filter, RustCallStatus *uniffi_out_err);
-RustBuffer uniffi_tracematch_fn_func_process_routes_from_flat(
-    RustBuffer tracks, RustBuffer config, RustCallStatus *uniffi_out_err);
 RustBuffer ffi_tracematch_rustbuffer_alloc(uint64_t size,
                                            RustCallStatus *uniffi_out_err);
 RustBuffer ffi_tracematch_rustbuffer_from_bytes(ForeignBytes bytes,
@@ -377,27 +331,10 @@ void ffi_tracematch_rust_future_free_void(
     /*handle*/ uint64_t handle);
 void ffi_tracematch_rust_future_complete_void(
     /*handle*/ uint64_t handle, RustCallStatus *uniffi_out_err);
-uint16_t uniffi_tracematch_checksum_func_conservative_section_config();
-uint16_t uniffi_tracematch_checksum_func_create_signature();
-uint16_t uniffi_tracematch_checksum_func_create_signature_with_config();
-uint16_t uniffi_tracematch_checksum_func_create_signatures_from_flat();
-uint16_t uniffi_tracematch_checksum_func_default_config();
-uint16_t uniffi_tracematch_checksum_func_default_custom_section_match_config();
 uint16_t uniffi_tracematch_checksum_func_default_scale_presets();
-uint16_t uniffi_tracematch_checksum_func_fetch_activity_maps();
 uint16_t uniffi_tracematch_checksum_func_fetch_activity_maps_with_progress();
-uint16_t uniffi_tracematch_checksum_func_ffi_compare_routes();
 uint16_t uniffi_tracematch_checksum_func_ffi_detect_sections_multiscale();
-uint16_t uniffi_tracematch_checksum_func_ffi_detect_sections_optimized();
-uint16_t uniffi_tracematch_checksum_func_ffi_find_sections_in_route();
 uint16_t uniffi_tracematch_checksum_func_ffi_generate_heatmap();
-uint16_t uniffi_tracematch_checksum_func_ffi_group_incremental();
-uint16_t uniffi_tracematch_checksum_func_ffi_group_signatures();
-uint16_t uniffi_tracematch_checksum_func_ffi_query_heatmap_cell();
-uint16_t uniffi_tracematch_checksum_func_ffi_recalculate_section_polyline();
-uint16_t uniffi_tracematch_checksum_func_ffi_split_section_at_index();
-uint16_t uniffi_tracematch_checksum_func_ffi_split_section_at_point();
-uint16_t uniffi_tracematch_checksum_func_legacy_section_config();
 uint16_t uniffi_tracematch_checksum_func_persistent_engine_add_activities();
 uint16_t uniffi_tracematch_checksum_func_persistent_engine_add_custom_section();
 uint16_t
@@ -452,7 +389,6 @@ uint16_t
 uniffi_tracematch_checksum_func_persistent_engine_set_time_streams_flat();
 uint16_t
 uniffi_tracematch_checksum_func_persistent_engine_start_section_detection();
-uint16_t uniffi_tracematch_checksum_func_process_routes_from_flat();
 uint16_t uniffi_tracematch_checksum_method_fetchprogresscallback_on_progress();
 uint32_t ffi_tracematch_uniffi_contract_version();
 }
@@ -2165,77 +2101,6 @@ NativeTracematch::NativeTracematch(
             ->cpp_uniffi_tracematch_fn_init_callback_vtable_fetchprogresscallback(
                 rt, thisVal, args, count);
       });
-  props["ubrn_uniffi_tracematch_fn_func_conservative_section_config"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(
-              rt, "ubrn_uniffi_tracematch_fn_func_conservative_section_config"),
-          0,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this
-                ->cpp_uniffi_tracematch_fn_func_conservative_section_config(
-                    rt, thisVal, args, count);
-          });
-  props["ubrn_uniffi_tracematch_fn_func_create_signature"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(
-              rt, "ubrn_uniffi_tracematch_fn_func_create_signature"),
-          2,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this->cpp_uniffi_tracematch_fn_func_create_signature(
-                rt, thisVal, args, count);
-          });
-  props["ubrn_uniffi_tracematch_fn_func_create_signature_with_config"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(
-              rt,
-              "ubrn_uniffi_tracematch_fn_func_create_signature_with_config"),
-          3,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this
-                ->cpp_uniffi_tracematch_fn_func_create_signature_with_config(
-                    rt, thisVal, args, count);
-          });
-  props["ubrn_uniffi_tracematch_fn_func_create_signatures_from_flat"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(
-              rt, "ubrn_uniffi_tracematch_fn_func_create_signatures_from_flat"),
-          2,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this
-                ->cpp_uniffi_tracematch_fn_func_create_signatures_from_flat(
-                    rt, thisVal, args, count);
-          });
-  props["ubrn_uniffi_tracematch_fn_func_default_config"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(
-              rt, "ubrn_uniffi_tracematch_fn_func_default_config"),
-          0,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this->cpp_uniffi_tracematch_fn_func_default_config(
-                rt, thisVal, args, count);
-          });
-  props["ubrn_uniffi_tracematch_fn_func_default_custom_section_match_config"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(rt, "ubrn_uniffi_tracematch_fn_func_"
-                                        "default_custom_section_match_config"),
-          0,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this
-                ->cpp_uniffi_tracematch_fn_func_default_custom_section_match_config(
-                    rt, thisVal, args, count);
-          });
   props["ubrn_uniffi_tracematch_fn_func_default_scale_presets"] =
       jsi::Function::createFromHostFunction(
           rt,
@@ -2245,17 +2110,6 @@ NativeTracematch::NativeTracematch(
           [this](jsi::Runtime &rt, const jsi::Value &thisVal,
                  const jsi::Value *args, size_t count) -> jsi::Value {
             return this->cpp_uniffi_tracematch_fn_func_default_scale_presets(
-                rt, thisVal, args, count);
-          });
-  props["ubrn_uniffi_tracematch_fn_func_fetch_activity_maps"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(
-              rt, "ubrn_uniffi_tracematch_fn_func_fetch_activity_maps"),
-          2,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this->cpp_uniffi_tracematch_fn_func_fetch_activity_maps(
                 rt, thisVal, args, count);
           });
   props["ubrn_uniffi_tracematch_fn_func_fetch_activity_maps_with_progress"] =
@@ -2270,17 +2124,6 @@ NativeTracematch::NativeTracematch(
                 ->cpp_uniffi_tracematch_fn_func_fetch_activity_maps_with_progress(
                     rt, thisVal, args, count);
           });
-  props["ubrn_uniffi_tracematch_fn_func_ffi_compare_routes"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(
-              rt, "ubrn_uniffi_tracematch_fn_func_ffi_compare_routes"),
-          3,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this->cpp_uniffi_tracematch_fn_func_ffi_compare_routes(
-                rt, thisVal, args, count);
-          });
   props["ubrn_uniffi_tracematch_fn_func_ffi_detect_sections_multiscale"] =
       jsi::Function::createFromHostFunction(
           rt,
@@ -2294,31 +2137,6 @@ NativeTracematch::NativeTracematch(
                 ->cpp_uniffi_tracematch_fn_func_ffi_detect_sections_multiscale(
                     rt, thisVal, args, count);
           });
-  props["ubrn_uniffi_tracematch_fn_func_ffi_detect_sections_optimized"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(
-              rt,
-              "ubrn_uniffi_tracematch_fn_func_ffi_detect_sections_optimized"),
-          5,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this
-                ->cpp_uniffi_tracematch_fn_func_ffi_detect_sections_optimized(
-                    rt, thisVal, args, count);
-          });
-  props["ubrn_uniffi_tracematch_fn_func_ffi_find_sections_in_route"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(
-              rt, "ubrn_uniffi_tracematch_fn_func_ffi_find_sections_in_route"),
-          3,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this
-                ->cpp_uniffi_tracematch_fn_func_ffi_find_sections_in_route(
-                    rt, thisVal, args, count);
-          });
   props["ubrn_uniffi_tracematch_fn_func_ffi_generate_heatmap"] =
       jsi::Function::createFromHostFunction(
           rt,
@@ -2328,86 +2146,6 @@ NativeTracematch::NativeTracematch(
           [this](jsi::Runtime &rt, const jsi::Value &thisVal,
                  const jsi::Value *args, size_t count) -> jsi::Value {
             return this->cpp_uniffi_tracematch_fn_func_ffi_generate_heatmap(
-                rt, thisVal, args, count);
-          });
-  props["ubrn_uniffi_tracematch_fn_func_ffi_group_incremental"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(
-              rt, "ubrn_uniffi_tracematch_fn_func_ffi_group_incremental"),
-          4,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this->cpp_uniffi_tracematch_fn_func_ffi_group_incremental(
-                rt, thisVal, args, count);
-          });
-  props["ubrn_uniffi_tracematch_fn_func_ffi_group_signatures"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(
-              rt, "ubrn_uniffi_tracematch_fn_func_ffi_group_signatures"),
-          2,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this->cpp_uniffi_tracematch_fn_func_ffi_group_signatures(
-                rt, thisVal, args, count);
-          });
-  props["ubrn_uniffi_tracematch_fn_func_ffi_query_heatmap_cell"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(
-              rt, "ubrn_uniffi_tracematch_fn_func_ffi_query_heatmap_cell"),
-          3,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this->cpp_uniffi_tracematch_fn_func_ffi_query_heatmap_cell(
-                rt, thisVal, args, count);
-          });
-  props["ubrn_uniffi_tracematch_fn_func_ffi_recalculate_section_polyline"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(rt, "ubrn_uniffi_tracematch_fn_func_ffi_"
-                                        "recalculate_section_polyline"),
-          2,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this
-                ->cpp_uniffi_tracematch_fn_func_ffi_recalculate_section_polyline(
-                    rt, thisVal, args, count);
-          });
-  props["ubrn_uniffi_tracematch_fn_func_ffi_split_section_at_index"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(
-              rt, "ubrn_uniffi_tracematch_fn_func_ffi_split_section_at_index"),
-          2,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this
-                ->cpp_uniffi_tracematch_fn_func_ffi_split_section_at_index(
-                    rt, thisVal, args, count);
-          });
-  props["ubrn_uniffi_tracematch_fn_func_ffi_split_section_at_point"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(
-              rt, "ubrn_uniffi_tracematch_fn_func_ffi_split_section_at_point"),
-          4,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this
-                ->cpp_uniffi_tracematch_fn_func_ffi_split_section_at_point(
-                    rt, thisVal, args, count);
-          });
-  props["ubrn_uniffi_tracematch_fn_func_legacy_section_config"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(
-              rt, "ubrn_uniffi_tracematch_fn_func_legacy_section_config"),
-          0,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this->cpp_uniffi_tracematch_fn_func_legacy_section_config(
                 rt, thisVal, args, count);
           });
   props["ubrn_uniffi_tracematch_fn_func_persistent_engine_add_activities"] =
@@ -2842,87 +2580,6 @@ NativeTracematch::NativeTracematch(
             ->cpp_uniffi_tracematch_fn_func_persistent_engine_start_section_detection(
                 rt, thisVal, args, count);
       });
-  props["ubrn_uniffi_tracematch_fn_func_process_routes_from_flat"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(
-              rt, "ubrn_uniffi_tracematch_fn_func_process_routes_from_flat"),
-          2,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this->cpp_uniffi_tracematch_fn_func_process_routes_from_flat(
-                rt, thisVal, args, count);
-          });
-  props["ubrn_uniffi_tracematch_checksum_func_conservative_section_config"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(rt, "ubrn_uniffi_tracematch_checksum_func_"
-                                        "conservative_section_config"),
-          0,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this
-                ->cpp_uniffi_tracematch_checksum_func_conservative_section_config(
-                    rt, thisVal, args, count);
-          });
-  props["ubrn_uniffi_tracematch_checksum_func_create_signature"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(
-              rt, "ubrn_uniffi_tracematch_checksum_func_create_signature"),
-          0,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this->cpp_uniffi_tracematch_checksum_func_create_signature(
-                rt, thisVal, args, count);
-          });
-  props["ubrn_uniffi_tracematch_checksum_func_create_signature_with_config"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(rt, "ubrn_uniffi_tracematch_checksum_func_"
-                                        "create_signature_with_config"),
-          0,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this
-                ->cpp_uniffi_tracematch_checksum_func_create_signature_with_config(
-                    rt, thisVal, args, count);
-          });
-  props["ubrn_uniffi_tracematch_checksum_func_create_signatures_from_flat"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(rt, "ubrn_uniffi_tracematch_checksum_func_"
-                                        "create_signatures_from_flat"),
-          0,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this
-                ->cpp_uniffi_tracematch_checksum_func_create_signatures_from_flat(
-                    rt, thisVal, args, count);
-          });
-  props["ubrn_uniffi_tracematch_checksum_func_default_config"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(
-              rt, "ubrn_uniffi_tracematch_checksum_func_default_config"),
-          0,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this->cpp_uniffi_tracematch_checksum_func_default_config(
-                rt, thisVal, args, count);
-          });
-  props["ubrn_uniffi_tracematch_checksum_func_default_custom_section_match_"
-        "config"] = jsi::Function::createFromHostFunction(
-      rt,
-      jsi::PropNameID::forAscii(rt, "ubrn_uniffi_tracematch_checksum_func_"
-                                    "default_custom_section_match_config"),
-      0,
-      [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-             const jsi::Value *args, size_t count) -> jsi::Value {
-        return this
-            ->cpp_uniffi_tracematch_checksum_func_default_custom_section_match_config(
-                rt, thisVal, args, count);
-      });
   props["ubrn_uniffi_tracematch_checksum_func_default_scale_presets"] =
       jsi::Function::createFromHostFunction(
           rt,
@@ -2933,18 +2590,6 @@ NativeTracematch::NativeTracematch(
                  const jsi::Value *args, size_t count) -> jsi::Value {
             return this
                 ->cpp_uniffi_tracematch_checksum_func_default_scale_presets(
-                    rt, thisVal, args, count);
-          });
-  props["ubrn_uniffi_tracematch_checksum_func_fetch_activity_maps"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(
-              rt, "ubrn_uniffi_tracematch_checksum_func_fetch_activity_maps"),
-          0,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this
-                ->cpp_uniffi_tracematch_checksum_func_fetch_activity_maps(
                     rt, thisVal, args, count);
           });
   props["ubrn_uniffi_tracematch_checksum_func_fetch_activity_maps_with_"
@@ -2959,17 +2604,6 @@ NativeTracematch::NativeTracematch(
             ->cpp_uniffi_tracematch_checksum_func_fetch_activity_maps_with_progress(
                 rt, thisVal, args, count);
       });
-  props["ubrn_uniffi_tracematch_checksum_func_ffi_compare_routes"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(
-              rt, "ubrn_uniffi_tracematch_checksum_func_ffi_compare_routes"),
-          0,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this->cpp_uniffi_tracematch_checksum_func_ffi_compare_routes(
-                rt, thisVal, args, count);
-          });
   props["ubrn_uniffi_tracematch_checksum_func_ffi_detect_sections_multiscale"] =
       jsi::Function::createFromHostFunction(
           rt,
@@ -2982,30 +2616,6 @@ NativeTracematch::NativeTracematch(
                 ->cpp_uniffi_tracematch_checksum_func_ffi_detect_sections_multiscale(
                     rt, thisVal, args, count);
           });
-  props["ubrn_uniffi_tracematch_checksum_func_ffi_detect_sections_optimized"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(rt, "ubrn_uniffi_tracematch_checksum_func_"
-                                        "ffi_detect_sections_optimized"),
-          0,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this
-                ->cpp_uniffi_tracematch_checksum_func_ffi_detect_sections_optimized(
-                    rt, thisVal, args, count);
-          });
-  props["ubrn_uniffi_tracematch_checksum_func_ffi_find_sections_in_route"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(rt, "ubrn_uniffi_tracematch_checksum_func_"
-                                        "ffi_find_sections_in_route"),
-          0,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this
-                ->cpp_uniffi_tracematch_checksum_func_ffi_find_sections_in_route(
-                    rt, thisVal, args, count);
-          });
   props["ubrn_uniffi_tracematch_checksum_func_ffi_generate_heatmap"] =
       jsi::Function::createFromHostFunction(
           rt,
@@ -3016,91 +2626,6 @@ NativeTracematch::NativeTracematch(
                  const jsi::Value *args, size_t count) -> jsi::Value {
             return this
                 ->cpp_uniffi_tracematch_checksum_func_ffi_generate_heatmap(
-                    rt, thisVal, args, count);
-          });
-  props["ubrn_uniffi_tracematch_checksum_func_ffi_group_incremental"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(
-              rt, "ubrn_uniffi_tracematch_checksum_func_ffi_group_incremental"),
-          0,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this
-                ->cpp_uniffi_tracematch_checksum_func_ffi_group_incremental(
-                    rt, thisVal, args, count);
-          });
-  props["ubrn_uniffi_tracematch_checksum_func_ffi_group_signatures"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(
-              rt, "ubrn_uniffi_tracematch_checksum_func_ffi_group_signatures"),
-          0,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this
-                ->cpp_uniffi_tracematch_checksum_func_ffi_group_signatures(
-                    rt, thisVal, args, count);
-          });
-  props["ubrn_uniffi_tracematch_checksum_func_ffi_query_heatmap_cell"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(
-              rt,
-              "ubrn_uniffi_tracematch_checksum_func_ffi_query_heatmap_cell"),
-          0,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this
-                ->cpp_uniffi_tracematch_checksum_func_ffi_query_heatmap_cell(
-                    rt, thisVal, args, count);
-          });
-  props["ubrn_uniffi_tracematch_checksum_func_ffi_recalculate_section_"
-        "polyline"] = jsi::Function::createFromHostFunction(
-      rt,
-      jsi::PropNameID::forAscii(rt, "ubrn_uniffi_tracematch_checksum_func_ffi_"
-                                    "recalculate_section_polyline"),
-      0,
-      [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-             const jsi::Value *args, size_t count) -> jsi::Value {
-        return this
-            ->cpp_uniffi_tracematch_checksum_func_ffi_recalculate_section_polyline(
-                rt, thisVal, args, count);
-      });
-  props["ubrn_uniffi_tracematch_checksum_func_ffi_split_section_at_index"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(rt, "ubrn_uniffi_tracematch_checksum_func_"
-                                        "ffi_split_section_at_index"),
-          0,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this
-                ->cpp_uniffi_tracematch_checksum_func_ffi_split_section_at_index(
-                    rt, thisVal, args, count);
-          });
-  props["ubrn_uniffi_tracematch_checksum_func_ffi_split_section_at_point"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(rt, "ubrn_uniffi_tracematch_checksum_func_"
-                                        "ffi_split_section_at_point"),
-          0,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this
-                ->cpp_uniffi_tracematch_checksum_func_ffi_split_section_at_point(
-                    rt, thisVal, args, count);
-          });
-  props["ubrn_uniffi_tracematch_checksum_func_legacy_section_config"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(
-              rt, "ubrn_uniffi_tracematch_checksum_func_legacy_section_config"),
-          0,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this
-                ->cpp_uniffi_tracematch_checksum_func_legacy_section_config(
                     rt, thisVal, args, count);
           });
   props["ubrn_uniffi_tracematch_checksum_func_persistent_engine_add_"
@@ -3547,19 +3072,6 @@ NativeTracematch::NativeTracematch(
             ->cpp_uniffi_tracematch_checksum_func_persistent_engine_start_section_detection(
                 rt, thisVal, args, count);
       });
-  props["ubrn_uniffi_tracematch_checksum_func_process_routes_from_flat"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(
-              rt,
-              "ubrn_uniffi_tracematch_checksum_func_process_routes_from_flat"),
-          0,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this
-                ->cpp_uniffi_tracematch_checksum_func_process_routes_from_flat(
-                    rt, thisVal, args, count);
-          });
   props["ubrn_uniffi_tracematch_checksum_method_fetchprogresscallback_on_"
         "progress"] = jsi::Function::createFromHostFunction(
       rt,
@@ -3673,116 +3185,12 @@ jsi::Value NativeTracematch::
   return jsi::Value::undefined();
 }
 jsi::Value
-NativeTracematch::cpp_uniffi_tracematch_fn_func_conservative_section_config(
-    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-    size_t count) {
-  RustCallStatus status =
-      uniffi::tracematch::Bridging<RustCallStatus>::rustSuccess(rt);
-  auto value = uniffi_tracematch_fn_func_conservative_section_config(&status);
-  uniffi::tracematch::Bridging<RustCallStatus>::copyIntoJs(
-      rt, callInvoker, status, args[count - 1]);
-
-  return uniffi::tracematch::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
-}
-jsi::Value NativeTracematch::cpp_uniffi_tracematch_fn_func_create_signature(
-    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-    size_t count) {
-  RustCallStatus status =
-      uniffi::tracematch::Bridging<RustCallStatus>::rustSuccess(rt);
-  auto value = uniffi_tracematch_fn_func_create_signature(
-      uniffi::tracematch::Bridging<RustBuffer>::fromJs(rt, callInvoker,
-                                                       args[0]),
-      uniffi::tracematch::Bridging<RustBuffer>::fromJs(rt, callInvoker,
-                                                       args[1]),
-      &status);
-  uniffi::tracematch::Bridging<RustCallStatus>::copyIntoJs(
-      rt, callInvoker, status, args[count - 1]);
-
-  return uniffi::tracematch::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
-}
-jsi::Value
-NativeTracematch::cpp_uniffi_tracematch_fn_func_create_signature_with_config(
-    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-    size_t count) {
-  RustCallStatus status =
-      uniffi::tracematch::Bridging<RustCallStatus>::rustSuccess(rt);
-  auto value = uniffi_tracematch_fn_func_create_signature_with_config(
-      uniffi::tracematch::Bridging<RustBuffer>::fromJs(rt, callInvoker,
-                                                       args[0]),
-      uniffi::tracematch::Bridging<RustBuffer>::fromJs(rt, callInvoker,
-                                                       args[1]),
-      uniffi::tracematch::Bridging<RustBuffer>::fromJs(rt, callInvoker,
-                                                       args[2]),
-      &status);
-  uniffi::tracematch::Bridging<RustCallStatus>::copyIntoJs(
-      rt, callInvoker, status, args[count - 1]);
-
-  return uniffi::tracematch::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
-}
-jsi::Value
-NativeTracematch::cpp_uniffi_tracematch_fn_func_create_signatures_from_flat(
-    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-    size_t count) {
-  RustCallStatus status =
-      uniffi::tracematch::Bridging<RustCallStatus>::rustSuccess(rt);
-  auto value = uniffi_tracematch_fn_func_create_signatures_from_flat(
-      uniffi::tracematch::Bridging<RustBuffer>::fromJs(rt, callInvoker,
-                                                       args[0]),
-      uniffi::tracematch::Bridging<RustBuffer>::fromJs(rt, callInvoker,
-                                                       args[1]),
-      &status);
-  uniffi::tracematch::Bridging<RustCallStatus>::copyIntoJs(
-      rt, callInvoker, status, args[count - 1]);
-
-  return uniffi::tracematch::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
-}
-jsi::Value NativeTracematch::cpp_uniffi_tracematch_fn_func_default_config(
-    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-    size_t count) {
-  RustCallStatus status =
-      uniffi::tracematch::Bridging<RustCallStatus>::rustSuccess(rt);
-  auto value = uniffi_tracematch_fn_func_default_config(&status);
-  uniffi::tracematch::Bridging<RustCallStatus>::copyIntoJs(
-      rt, callInvoker, status, args[count - 1]);
-
-  return uniffi::tracematch::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
-}
-jsi::Value NativeTracematch::
-    cpp_uniffi_tracematch_fn_func_default_custom_section_match_config(
-        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-        size_t count) {
-  RustCallStatus status =
-      uniffi::tracematch::Bridging<RustCallStatus>::rustSuccess(rt);
-  auto value =
-      uniffi_tracematch_fn_func_default_custom_section_match_config(&status);
-  uniffi::tracematch::Bridging<RustCallStatus>::copyIntoJs(
-      rt, callInvoker, status, args[count - 1]);
-
-  return uniffi::tracematch::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
-}
-jsi::Value
 NativeTracematch::cpp_uniffi_tracematch_fn_func_default_scale_presets(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
     size_t count) {
   RustCallStatus status =
       uniffi::tracematch::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value = uniffi_tracematch_fn_func_default_scale_presets(&status);
-  uniffi::tracematch::Bridging<RustCallStatus>::copyIntoJs(
-      rt, callInvoker, status, args[count - 1]);
-
-  return uniffi::tracematch::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
-}
-jsi::Value NativeTracematch::cpp_uniffi_tracematch_fn_func_fetch_activity_maps(
-    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-    size_t count) {
-  RustCallStatus status =
-      uniffi::tracematch::Bridging<RustCallStatus>::rustSuccess(rt);
-  auto value = uniffi_tracematch_fn_func_fetch_activity_maps(
-      uniffi::tracematch::Bridging<RustBuffer>::fromJs(rt, callInvoker,
-                                                       args[0]),
-      uniffi::tracematch::Bridging<RustBuffer>::fromJs(rt, callInvoker,
-                                                       args[1]),
-      &status);
   uniffi::tracematch::Bridging<RustCallStatus>::copyIntoJs(
       rt, callInvoker, status, args[count - 1]);
 
@@ -3800,24 +3208,6 @@ jsi::Value NativeTracematch::
       uniffi::tracematch::Bridging<RustBuffer>::fromJs(rt, callInvoker,
                                                        args[1]),
       uniffi_jsi::Bridging<uint64_t>::fromJs(rt, callInvoker, args[2]),
-      &status);
-  uniffi::tracematch::Bridging<RustCallStatus>::copyIntoJs(
-      rt, callInvoker, status, args[count - 1]);
-
-  return uniffi::tracematch::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
-}
-jsi::Value NativeTracematch::cpp_uniffi_tracematch_fn_func_ffi_compare_routes(
-    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-    size_t count) {
-  RustCallStatus status =
-      uniffi::tracematch::Bridging<RustCallStatus>::rustSuccess(rt);
-  auto value = uniffi_tracematch_fn_func_ffi_compare_routes(
-      uniffi::tracematch::Bridging<RustBuffer>::fromJs(rt, callInvoker,
-                                                       args[0]),
-      uniffi::tracematch::Bridging<RustBuffer>::fromJs(rt, callInvoker,
-                                                       args[1]),
-      uniffi::tracematch::Bridging<RustBuffer>::fromJs(rt, callInvoker,
-                                                       args[2]),
       &status);
   uniffi::tracematch::Bridging<RustCallStatus>::copyIntoJs(
       rt, callInvoker, status, args[count - 1]);
@@ -3849,48 +3239,6 @@ NativeTracematch::cpp_uniffi_tracematch_fn_func_ffi_detect_sections_multiscale(
 
   return uniffi::tracematch::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
 }
-jsi::Value
-NativeTracematch::cpp_uniffi_tracematch_fn_func_ffi_detect_sections_optimized(
-    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-    size_t count) {
-  RustCallStatus status =
-      uniffi::tracematch::Bridging<RustCallStatus>::rustSuccess(rt);
-  auto value = uniffi_tracematch_fn_func_ffi_detect_sections_optimized(
-      uniffi::tracematch::Bridging<RustBuffer>::fromJs(rt, callInvoker,
-                                                       args[0]),
-      uniffi::tracematch::Bridging<RustBuffer>::fromJs(rt, callInvoker,
-                                                       args[1]),
-      uniffi::tracematch::Bridging<RustBuffer>::fromJs(rt, callInvoker,
-                                                       args[2]),
-      uniffi::tracematch::Bridging<RustBuffer>::fromJs(rt, callInvoker,
-                                                       args[3]),
-      uniffi::tracematch::Bridging<RustBuffer>::fromJs(rt, callInvoker,
-                                                       args[4]),
-      &status);
-  uniffi::tracematch::Bridging<RustCallStatus>::copyIntoJs(
-      rt, callInvoker, status, args[count - 1]);
-
-  return uniffi::tracematch::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
-}
-jsi::Value
-NativeTracematch::cpp_uniffi_tracematch_fn_func_ffi_find_sections_in_route(
-    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-    size_t count) {
-  RustCallStatus status =
-      uniffi::tracematch::Bridging<RustCallStatus>::rustSuccess(rt);
-  auto value = uniffi_tracematch_fn_func_ffi_find_sections_in_route(
-      uniffi::tracematch::Bridging<RustBuffer>::fromJs(rt, callInvoker,
-                                                       args[0]),
-      uniffi::tracematch::Bridging<RustBuffer>::fromJs(rt, callInvoker,
-                                                       args[1]),
-      uniffi::tracematch::Bridging<RustBuffer>::fromJs(rt, callInvoker,
-                                                       args[2]),
-      &status);
-  uniffi::tracematch::Bridging<RustCallStatus>::copyIntoJs(
-      rt, callInvoker, status, args[count - 1]);
-
-  return uniffi::tracematch::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
-}
 jsi::Value NativeTracematch::cpp_uniffi_tracematch_fn_func_ffi_generate_heatmap(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
     size_t count) {
@@ -3904,121 +3252,6 @@ jsi::Value NativeTracematch::cpp_uniffi_tracematch_fn_func_ffi_generate_heatmap(
       uniffi::tracematch::Bridging<RustBuffer>::fromJs(rt, callInvoker,
                                                        args[2]),
       &status);
-  uniffi::tracematch::Bridging<RustCallStatus>::copyIntoJs(
-      rt, callInvoker, status, args[count - 1]);
-
-  return uniffi::tracematch::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
-}
-jsi::Value
-NativeTracematch::cpp_uniffi_tracematch_fn_func_ffi_group_incremental(
-    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-    size_t count) {
-  RustCallStatus status =
-      uniffi::tracematch::Bridging<RustCallStatus>::rustSuccess(rt);
-  auto value = uniffi_tracematch_fn_func_ffi_group_incremental(
-      uniffi::tracematch::Bridging<RustBuffer>::fromJs(rt, callInvoker,
-                                                       args[0]),
-      uniffi::tracematch::Bridging<RustBuffer>::fromJs(rt, callInvoker,
-                                                       args[1]),
-      uniffi::tracematch::Bridging<RustBuffer>::fromJs(rt, callInvoker,
-                                                       args[2]),
-      uniffi::tracematch::Bridging<RustBuffer>::fromJs(rt, callInvoker,
-                                                       args[3]),
-      &status);
-  uniffi::tracematch::Bridging<RustCallStatus>::copyIntoJs(
-      rt, callInvoker, status, args[count - 1]);
-
-  return uniffi::tracematch::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
-}
-jsi::Value NativeTracematch::cpp_uniffi_tracematch_fn_func_ffi_group_signatures(
-    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-    size_t count) {
-  RustCallStatus status =
-      uniffi::tracematch::Bridging<RustCallStatus>::rustSuccess(rt);
-  auto value = uniffi_tracematch_fn_func_ffi_group_signatures(
-      uniffi::tracematch::Bridging<RustBuffer>::fromJs(rt, callInvoker,
-                                                       args[0]),
-      uniffi::tracematch::Bridging<RustBuffer>::fromJs(rt, callInvoker,
-                                                       args[1]),
-      &status);
-  uniffi::tracematch::Bridging<RustCallStatus>::copyIntoJs(
-      rt, callInvoker, status, args[count - 1]);
-
-  return uniffi::tracematch::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
-}
-jsi::Value
-NativeTracematch::cpp_uniffi_tracematch_fn_func_ffi_query_heatmap_cell(
-    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-    size_t count) {
-  RustCallStatus status =
-      uniffi::tracematch::Bridging<RustCallStatus>::rustSuccess(rt);
-  auto value = uniffi_tracematch_fn_func_ffi_query_heatmap_cell(
-      uniffi::tracematch::Bridging<RustBuffer>::fromJs(rt, callInvoker,
-                                                       args[0]),
-      uniffi_jsi::Bridging<double>::fromJs(rt, callInvoker, args[1]),
-      uniffi_jsi::Bridging<double>::fromJs(rt, callInvoker, args[2]), &status);
-  uniffi::tracematch::Bridging<RustCallStatus>::copyIntoJs(
-      rt, callInvoker, status, args[count - 1]);
-
-  return uniffi::tracematch::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
-}
-jsi::Value NativeTracematch::
-    cpp_uniffi_tracematch_fn_func_ffi_recalculate_section_polyline(
-        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-        size_t count) {
-  RustCallStatus status =
-      uniffi::tracematch::Bridging<RustCallStatus>::rustSuccess(rt);
-  auto value = uniffi_tracematch_fn_func_ffi_recalculate_section_polyline(
-      uniffi::tracematch::Bridging<RustBuffer>::fromJs(rt, callInvoker,
-                                                       args[0]),
-      uniffi::tracematch::Bridging<RustBuffer>::fromJs(rt, callInvoker,
-                                                       args[1]),
-      &status);
-  uniffi::tracematch::Bridging<RustCallStatus>::copyIntoJs(
-      rt, callInvoker, status, args[count - 1]);
-
-  return uniffi::tracematch::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
-}
-jsi::Value
-NativeTracematch::cpp_uniffi_tracematch_fn_func_ffi_split_section_at_index(
-    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-    size_t count) {
-  RustCallStatus status =
-      uniffi::tracematch::Bridging<RustCallStatus>::rustSuccess(rt);
-  auto value = uniffi_tracematch_fn_func_ffi_split_section_at_index(
-      uniffi::tracematch::Bridging<RustBuffer>::fromJs(rt, callInvoker,
-                                                       args[0]),
-      uniffi_jsi::Bridging<uint32_t>::fromJs(rt, callInvoker, args[1]),
-      &status);
-  uniffi::tracematch::Bridging<RustCallStatus>::copyIntoJs(
-      rt, callInvoker, status, args[count - 1]);
-
-  return uniffi::tracematch::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
-}
-jsi::Value
-NativeTracematch::cpp_uniffi_tracematch_fn_func_ffi_split_section_at_point(
-    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-    size_t count) {
-  RustCallStatus status =
-      uniffi::tracematch::Bridging<RustCallStatus>::rustSuccess(rt);
-  auto value = uniffi_tracematch_fn_func_ffi_split_section_at_point(
-      uniffi::tracematch::Bridging<RustBuffer>::fromJs(rt, callInvoker,
-                                                       args[0]),
-      uniffi_jsi::Bridging<double>::fromJs(rt, callInvoker, args[1]),
-      uniffi_jsi::Bridging<double>::fromJs(rt, callInvoker, args[2]),
-      uniffi_jsi::Bridging<double>::fromJs(rt, callInvoker, args[3]), &status);
-  uniffi::tracematch::Bridging<RustCallStatus>::copyIntoJs(
-      rt, callInvoker, status, args[count - 1]);
-
-  return uniffi::tracematch::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
-}
-jsi::Value
-NativeTracematch::cpp_uniffi_tracematch_fn_func_legacy_section_config(
-    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-    size_t count) {
-  RustCallStatus status =
-      uniffi::tracematch::Bridging<RustCallStatus>::rustSuccess(rt);
-  auto value = uniffi_tracematch_fn_func_legacy_section_config(&status);
   uniffi::tracematch::Bridging<RustCallStatus>::copyIntoJs(
       rt, callInvoker, status, args[count - 1]);
 
@@ -4563,83 +3796,10 @@ jsi::Value NativeTracematch::
   return uniffi_jsi::Bridging<int8_t>::toJs(rt, callInvoker, value);
 }
 jsi::Value
-NativeTracematch::cpp_uniffi_tracematch_fn_func_process_routes_from_flat(
-    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-    size_t count) {
-  RustCallStatus status =
-      uniffi::tracematch::Bridging<RustCallStatus>::rustSuccess(rt);
-  auto value = uniffi_tracematch_fn_func_process_routes_from_flat(
-      uniffi::tracematch::Bridging<RustBuffer>::fromJs(rt, callInvoker,
-                                                       args[0]),
-      uniffi::tracematch::Bridging<RustBuffer>::fromJs(rt, callInvoker,
-                                                       args[1]),
-      &status);
-  uniffi::tracematch::Bridging<RustCallStatus>::copyIntoJs(
-      rt, callInvoker, status, args[count - 1]);
-
-  return uniffi::tracematch::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
-}
-jsi::Value NativeTracematch::
-    cpp_uniffi_tracematch_checksum_func_conservative_section_config(
-        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-        size_t count) {
-  auto value = uniffi_tracematch_checksum_func_conservative_section_config();
-
-  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
-}
-jsi::Value
-NativeTracematch::cpp_uniffi_tracematch_checksum_func_create_signature(
-    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-    size_t count) {
-  auto value = uniffi_tracematch_checksum_func_create_signature();
-
-  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
-}
-jsi::Value NativeTracematch::
-    cpp_uniffi_tracematch_checksum_func_create_signature_with_config(
-        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-        size_t count) {
-  auto value = uniffi_tracematch_checksum_func_create_signature_with_config();
-
-  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
-}
-jsi::Value NativeTracematch::
-    cpp_uniffi_tracematch_checksum_func_create_signatures_from_flat(
-        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-        size_t count) {
-  auto value = uniffi_tracematch_checksum_func_create_signatures_from_flat();
-
-  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
-}
-jsi::Value NativeTracematch::cpp_uniffi_tracematch_checksum_func_default_config(
-    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-    size_t count) {
-  auto value = uniffi_tracematch_checksum_func_default_config();
-
-  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
-}
-jsi::Value NativeTracematch::
-    cpp_uniffi_tracematch_checksum_func_default_custom_section_match_config(
-        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-        size_t count) {
-  auto value =
-      uniffi_tracematch_checksum_func_default_custom_section_match_config();
-
-  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
-}
-jsi::Value
 NativeTracematch::cpp_uniffi_tracematch_checksum_func_default_scale_presets(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
     size_t count) {
   auto value = uniffi_tracematch_checksum_func_default_scale_presets();
-
-  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
-}
-jsi::Value
-NativeTracematch::cpp_uniffi_tracematch_checksum_func_fetch_activity_maps(
-    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-    size_t count) {
-  auto value = uniffi_tracematch_checksum_func_fetch_activity_maps();
 
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
@@ -4652,14 +3812,6 @@ jsi::Value NativeTracematch::
 
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
-jsi::Value
-NativeTracematch::cpp_uniffi_tracematch_checksum_func_ffi_compare_routes(
-    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-    size_t count) {
-  auto value = uniffi_tracematch_checksum_func_ffi_compare_routes();
-
-  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
-}
 jsi::Value NativeTracematch::
     cpp_uniffi_tracematch_checksum_func_ffi_detect_sections_multiscale(
         jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
@@ -4668,84 +3820,11 @@ jsi::Value NativeTracematch::
 
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
-jsi::Value NativeTracematch::
-    cpp_uniffi_tracematch_checksum_func_ffi_detect_sections_optimized(
-        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-        size_t count) {
-  auto value = uniffi_tracematch_checksum_func_ffi_detect_sections_optimized();
-
-  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
-}
-jsi::Value NativeTracematch::
-    cpp_uniffi_tracematch_checksum_func_ffi_find_sections_in_route(
-        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-        size_t count) {
-  auto value = uniffi_tracematch_checksum_func_ffi_find_sections_in_route();
-
-  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
-}
 jsi::Value
 NativeTracematch::cpp_uniffi_tracematch_checksum_func_ffi_generate_heatmap(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
     size_t count) {
   auto value = uniffi_tracematch_checksum_func_ffi_generate_heatmap();
-
-  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
-}
-jsi::Value
-NativeTracematch::cpp_uniffi_tracematch_checksum_func_ffi_group_incremental(
-    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-    size_t count) {
-  auto value = uniffi_tracematch_checksum_func_ffi_group_incremental();
-
-  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
-}
-jsi::Value
-NativeTracematch::cpp_uniffi_tracematch_checksum_func_ffi_group_signatures(
-    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-    size_t count) {
-  auto value = uniffi_tracematch_checksum_func_ffi_group_signatures();
-
-  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
-}
-jsi::Value
-NativeTracematch::cpp_uniffi_tracematch_checksum_func_ffi_query_heatmap_cell(
-    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-    size_t count) {
-  auto value = uniffi_tracematch_checksum_func_ffi_query_heatmap_cell();
-
-  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
-}
-jsi::Value NativeTracematch::
-    cpp_uniffi_tracematch_checksum_func_ffi_recalculate_section_polyline(
-        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-        size_t count) {
-  auto value =
-      uniffi_tracematch_checksum_func_ffi_recalculate_section_polyline();
-
-  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
-}
-jsi::Value NativeTracematch::
-    cpp_uniffi_tracematch_checksum_func_ffi_split_section_at_index(
-        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-        size_t count) {
-  auto value = uniffi_tracematch_checksum_func_ffi_split_section_at_index();
-
-  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
-}
-jsi::Value NativeTracematch::
-    cpp_uniffi_tracematch_checksum_func_ffi_split_section_at_point(
-        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-        size_t count) {
-  auto value = uniffi_tracematch_checksum_func_ffi_split_section_at_point();
-
-  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
-}
-jsi::Value
-NativeTracematch::cpp_uniffi_tracematch_checksum_func_legacy_section_config(
-    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-    size_t count) {
-  auto value = uniffi_tracematch_checksum_func_legacy_section_config();
 
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
@@ -5067,14 +4146,6 @@ jsi::Value NativeTracematch::
         size_t count) {
   auto value =
       uniffi_tracematch_checksum_func_persistent_engine_start_section_detection();
-
-  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
-}
-jsi::Value
-NativeTracematch::cpp_uniffi_tracematch_checksum_func_process_routes_from_flat(
-    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-    size_t count) {
-  auto value = uniffi_tracematch_checksum_func_process_routes_from_flat();
 
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }

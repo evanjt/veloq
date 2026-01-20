@@ -26,47 +26,13 @@ interface NativeModuleInterface {
   ubrn_uniffi_tracematch_fn_init_callback_vtable_fetchprogresscallback(
     vtable: UniffiVTableCallbackInterfaceFetchProgressCallback
   ): void;
-  ubrn_uniffi_tracematch_fn_func_conservative_section_config(
-    uniffi_out_err: UniffiRustCallStatus
-  ): Uint8Array;
-  ubrn_uniffi_tracematch_fn_func_create_signature(
-    activityId: Uint8Array,
-    points: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus
-  ): Uint8Array;
-  ubrn_uniffi_tracematch_fn_func_create_signature_with_config(
-    activityId: Uint8Array,
-    points: Uint8Array,
-    config: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus
-  ): Uint8Array;
-  ubrn_uniffi_tracematch_fn_func_create_signatures_from_flat(
-    tracks: Uint8Array,
-    config: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus
-  ): Uint8Array;
-  ubrn_uniffi_tracematch_fn_func_default_config(uniffi_out_err: UniffiRustCallStatus): Uint8Array;
-  ubrn_uniffi_tracematch_fn_func_default_custom_section_match_config(
-    uniffi_out_err: UniffiRustCallStatus
-  ): Uint8Array;
   ubrn_uniffi_tracematch_fn_func_default_scale_presets(
-    uniffi_out_err: UniffiRustCallStatus
-  ): Uint8Array;
-  ubrn_uniffi_tracematch_fn_func_fetch_activity_maps(
-    authHeader: Uint8Array,
-    activityIds: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_tracematch_fn_func_fetch_activity_maps_with_progress(
     authHeader: Uint8Array,
     activityIds: Uint8Array,
     callback: bigint,
-    uniffi_out_err: UniffiRustCallStatus
-  ): Uint8Array;
-  ubrn_uniffi_tracematch_fn_func_ffi_compare_routes(
-    sig1: Uint8Array,
-    sig2: Uint8Array,
-    config: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_tracematch_fn_func_ffi_detect_sections_multiscale(
@@ -78,62 +44,10 @@ interface NativeModuleInterface {
     config: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
-  ubrn_uniffi_tracematch_fn_func_ffi_detect_sections_optimized(
-    activityIds: Uint8Array,
-    allCoords: Uint8Array,
-    offsets: Uint8Array,
-    sportTypes: Uint8Array,
-    config: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus
-  ): Uint8Array;
-  ubrn_uniffi_tracematch_fn_func_ffi_find_sections_in_route(
-    route: Uint8Array,
-    sections: Uint8Array,
-    config: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus
-  ): Uint8Array;
   ubrn_uniffi_tracematch_fn_func_ffi_generate_heatmap(
     signatures: Uint8Array,
     activityData: Uint8Array,
     config: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus
-  ): Uint8Array;
-  ubrn_uniffi_tracematch_fn_func_ffi_group_incremental(
-    newSignatures: Uint8Array,
-    existingGroups: Uint8Array,
-    existingSignatures: Uint8Array,
-    config: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus
-  ): Uint8Array;
-  ubrn_uniffi_tracematch_fn_func_ffi_group_signatures(
-    signatures: Uint8Array,
-    config: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus
-  ): Uint8Array;
-  ubrn_uniffi_tracematch_fn_func_ffi_query_heatmap_cell(
-    heatmap: Uint8Array,
-    lat: number,
-    lng: number,
-    uniffi_out_err: UniffiRustCallStatus
-  ): Uint8Array;
-  ubrn_uniffi_tracematch_fn_func_ffi_recalculate_section_polyline(
-    section: Uint8Array,
-    config: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus
-  ): Uint8Array;
-  ubrn_uniffi_tracematch_fn_func_ffi_split_section_at_index(
-    section: Uint8Array,
-    splitIndex: number,
-    uniffi_out_err: UniffiRustCallStatus
-  ): Uint8Array;
-  ubrn_uniffi_tracematch_fn_func_ffi_split_section_at_point(
-    section: Uint8Array,
-    lat: number,
-    lng: number,
-    maxDistanceMeters: number,
-    uniffi_out_err: UniffiRustCallStatus
-  ): Uint8Array;
-  ubrn_uniffi_tracematch_fn_func_legacy_section_config(
     uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_tracematch_fn_func_persistent_engine_add_activities(
@@ -278,32 +192,10 @@ interface NativeModuleInterface {
     sportFilter: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus
   ): number;
-  ubrn_uniffi_tracematch_fn_func_process_routes_from_flat(
-    tracks: Uint8Array,
-    config: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus
-  ): Uint8Array;
-  ubrn_uniffi_tracematch_checksum_func_conservative_section_config(): number;
-  ubrn_uniffi_tracematch_checksum_func_create_signature(): number;
-  ubrn_uniffi_tracematch_checksum_func_create_signature_with_config(): number;
-  ubrn_uniffi_tracematch_checksum_func_create_signatures_from_flat(): number;
-  ubrn_uniffi_tracematch_checksum_func_default_config(): number;
-  ubrn_uniffi_tracematch_checksum_func_default_custom_section_match_config(): number;
   ubrn_uniffi_tracematch_checksum_func_default_scale_presets(): number;
-  ubrn_uniffi_tracematch_checksum_func_fetch_activity_maps(): number;
   ubrn_uniffi_tracematch_checksum_func_fetch_activity_maps_with_progress(): number;
-  ubrn_uniffi_tracematch_checksum_func_ffi_compare_routes(): number;
   ubrn_uniffi_tracematch_checksum_func_ffi_detect_sections_multiscale(): number;
-  ubrn_uniffi_tracematch_checksum_func_ffi_detect_sections_optimized(): number;
-  ubrn_uniffi_tracematch_checksum_func_ffi_find_sections_in_route(): number;
   ubrn_uniffi_tracematch_checksum_func_ffi_generate_heatmap(): number;
-  ubrn_uniffi_tracematch_checksum_func_ffi_group_incremental(): number;
-  ubrn_uniffi_tracematch_checksum_func_ffi_group_signatures(): number;
-  ubrn_uniffi_tracematch_checksum_func_ffi_query_heatmap_cell(): number;
-  ubrn_uniffi_tracematch_checksum_func_ffi_recalculate_section_polyline(): number;
-  ubrn_uniffi_tracematch_checksum_func_ffi_split_section_at_index(): number;
-  ubrn_uniffi_tracematch_checksum_func_ffi_split_section_at_point(): number;
-  ubrn_uniffi_tracematch_checksum_func_legacy_section_config(): number;
   ubrn_uniffi_tracematch_checksum_func_persistent_engine_add_activities(): number;
   ubrn_uniffi_tracematch_checksum_func_persistent_engine_add_custom_section(): number;
   ubrn_uniffi_tracematch_checksum_func_persistent_engine_cancel_section_detection(): number;
@@ -340,7 +232,6 @@ interface NativeModuleInterface {
   ubrn_uniffi_tracematch_checksum_func_persistent_engine_set_section_name(): number;
   ubrn_uniffi_tracematch_checksum_func_persistent_engine_set_time_streams_flat(): number;
   ubrn_uniffi_tracematch_checksum_func_persistent_engine_start_section_detection(): number;
-  ubrn_uniffi_tracematch_checksum_func_process_routes_from_flat(): number;
   ubrn_uniffi_tracematch_checksum_method_fetchprogresscallback_on_progress(): number;
   ubrn_ffi_tracematch_uniffi_contract_version(): number;
 }
