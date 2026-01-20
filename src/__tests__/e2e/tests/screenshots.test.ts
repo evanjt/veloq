@@ -118,21 +118,18 @@ describe('screenshots', () => {
   });
 
   it(`02-activity-map${suffix}: Activity Map`, async () => {
-    // Tap on first activity in the list (Android) or use deep link (iOS for FlatList reliability)
-    const isIOS = device.getPlatform() === 'ios';
-    if (isIOS) {
-      // Deep link is more reliable than FlatList tap on iOS
-      await navigateViaDeepLink('activity/demo-0', 'activity-detail-screen', 15000);
-    } else {
-      // FlatList tap works reliably on Android
-      await waitFor(element(by.id('home-activity-list')))
-        .toBeVisible()
-        .withTimeout(5000);
-      await element(by.id('home-activity-list')).atIndex(0).tap();
-      await waitFor(element(by.id('activity-detail-screen')))
-        .toBeVisible()
-        .withTimeout(10000);
-    }
+    // Navigate to home first to ensure we're in demo mode with data loaded
+    await navigateViaDeepLink('', 'home-screen');
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+
+    // Tap on first activity in the list (same approach for both platforms)
+    await waitFor(element(by.id('home-activity-list')))
+      .toBeVisible()
+      .withTimeout(5000);
+    await element(by.id('home-activity-list')).atIndex(0).tap();
+    await waitFor(element(by.id('activity-detail-screen')))
+      .toBeVisible()
+      .withTimeout(10000);
 
     // Wait for actual content to load (not just the loading/error screen)
     await waitFor(element(by.id('activity-detail-content')))
