@@ -368,6 +368,22 @@ describe('Source code fix verification', () => {
       expect(hasFlatMapPattern).toBe(true);
       expect(hasOldFragmentPattern).toBe(false);
     });
+
+    it('must use filter(Boolean) for section marker rendering', () => {
+      const filePath = path.join(componentsDir, 'ActivityMapView.tsx');
+      const source = fs.readFileSync(filePath, 'utf-8');
+
+      // Count occurrences of .filter(Boolean) - should be at least 4:
+      // 1. Section overlays flatMap (line ~785)
+      // 2. Section markers map (line ~825)
+      // 3. Fullscreen section overlays flatMap (line ~1110)
+      // 4. Fullscreen section markers map (line ~1135)
+      const filterBooleanMatches = source.match(/\.filter\(Boolean\)/g);
+      const filterCount = filterBooleanMatches ? filterBooleanMatches.length : 0;
+
+      // At least 4 filter(Boolean) calls for complete crash protection
+      expect(filterCount).toBeGreaterThanOrEqual(4);
+    });
   });
 
   describe('RegionalMapView.tsx', () => {

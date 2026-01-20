@@ -785,41 +785,44 @@ export function ActivityMapView({
                 .filter(Boolean)}
 
             {/* Numbered markers at center of each section */}
+            {/* filter(Boolean) prevents null children crash on iOS MapLibre */}
             {sectionOverlaysGeoJSON &&
-              sectionOverlaysGeoJSON.map((overlay, index) => {
-                if (!overlay.sectionGeo?.geometry?.coordinates?.length) return null;
-                const coords = overlay.sectionGeo.geometry.coordinates;
-                const midIndex = Math.floor(coords.length / 2);
-                const centerCoord = coords[midIndex];
-                if (!centerCoord) return null;
+              sectionOverlaysGeoJSON
+                .map((overlay, index) => {
+                  if (!overlay.sectionGeo?.geometry?.coordinates?.length) return null;
+                  const coords = overlay.sectionGeo.geometry.coordinates;
+                  const midIndex = Math.floor(coords.length / 2);
+                  const centerCoord = coords[midIndex];
+                  if (!centerCoord) return null;
 
-                const isHighlighted = highlightedSectionId === overlay.id;
-                const isDimmed = highlightedSectionId && !isHighlighted;
+                  const isHighlighted = highlightedSectionId === overlay.id;
+                  const isDimmed = highlightedSectionId && !isHighlighted;
 
-                return (
-                  <MarkerView
-                    key={`sectionMarker-${overlay.id}`}
-                    coordinate={[centerCoord[0], centerCoord[1]]}
-                  >
-                    <View
-                      style={[
-                        styles.sectionNumberMarker,
-                        isDimmed && styles.sectionNumberMarkerDimmed,
-                        isHighlighted && styles.sectionNumberMarkerHighlighted,
-                      ]}
+                  return (
+                    <MarkerView
+                      key={`sectionMarker-${overlay.id}`}
+                      coordinate={[centerCoord[0], centerCoord[1]]}
                     >
-                      <Text
+                      <View
                         style={[
-                          styles.sectionNumberText,
-                          isHighlighted && styles.sectionNumberTextHighlighted,
+                          styles.sectionNumberMarker,
+                          isDimmed && styles.sectionNumberMarkerDimmed,
+                          isHighlighted && styles.sectionNumberMarkerHighlighted,
                         ]}
                       >
-                        {index + 1}
-                      </Text>
-                    </View>
-                  </MarkerView>
-                );
-              })}
+                        <Text
+                          style={[
+                            styles.sectionNumberText,
+                            isHighlighted && styles.sectionNumberTextHighlighted,
+                          ]}
+                        >
+                          {index + 1}
+                        </Text>
+                      </View>
+                    </MarkerView>
+                  );
+                })
+                .filter(Boolean)}
 
             {/* Route line - slightly fade when showing section overlays */}
             {routeGeoJSON && (
@@ -1107,26 +1110,29 @@ export function ActivityMapView({
               .filter(Boolean)}
 
           {/* Numbered markers at center of each section in fullscreen */}
+          {/* filter(Boolean) prevents null children crash on iOS MapLibre */}
           {sectionOverlaysGeoJSON &&
-            sectionOverlaysGeoJSON.map((overlay, index) => {
-              if (!overlay.sectionGeo?.geometry?.coordinates?.length) return null;
-              const coords = overlay.sectionGeo.geometry.coordinates;
-              const midIndex = Math.floor(coords.length / 2);
-              const centerCoord = coords[midIndex];
-              if (!centerCoord) return null;
-              const style = getSectionStyle(index);
+            sectionOverlaysGeoJSON
+              .map((overlay, index) => {
+                if (!overlay.sectionGeo?.geometry?.coordinates?.length) return null;
+                const coords = overlay.sectionGeo.geometry.coordinates;
+                const midIndex = Math.floor(coords.length / 2);
+                const centerCoord = coords[midIndex];
+                if (!centerCoord) return null;
+                const style = getSectionStyle(index);
 
-              return (
-                <MarkerView
-                  key={`fs-sectionMarker-${overlay.id}`}
-                  coordinate={[centerCoord[0], centerCoord[1]]}
-                >
-                  <View style={[styles.sectionNumberMarker, { borderColor: style.color }]}>
-                    <Text style={styles.sectionNumberText}>{index + 1}</Text>
-                  </View>
-                </MarkerView>
-              );
-            })}
+                return (
+                  <MarkerView
+                    key={`fs-sectionMarker-${overlay.id}`}
+                    coordinate={[centerCoord[0], centerCoord[1]]}
+                  >
+                    <View style={[styles.sectionNumberMarker, { borderColor: style.color }]}>
+                      <Text style={styles.sectionNumberText}>{index + 1}</Text>
+                    </View>
+                  </MarkerView>
+                );
+              })
+              .filter(Boolean)}
 
           {/* Start marker */}
           {startPoint && (

@@ -26,6 +26,10 @@ module.exports = {
         'ios/build/Build/Products/Release-iphonesimulator/Veloq.app',
       build:
         'xcodebuild -workspace ios/Veloq.xcworkspace -scheme Veloq -configuration Release -sdk iphonesimulator -derivedDataPath ios/build',
+      launchArgs: {
+        // Print busy resources in CI for debugging
+        detoxPrintBusyIdleResources: 'YES',
+      },
     },
     'android.debug': {
       type: 'android.apk',
@@ -34,12 +38,18 @@ module.exports = {
         'android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk',
       build:
         'cd android && ./gradlew :app:assembleDebug :app:assembleAndroidTest -DtestBuildType=debug',
+      launchArgs: {
+        detoxPrintBusyIdleResources: true,
+      },
     },
     'android.release': {
       type: 'android.apk',
       binaryPath: 'android/app/build/outputs/apk/release/app-release.apk',
       build:
         'cd android && ./gradlew :app:assembleRelease :app:assembleAndroidTest -DtestBuildType=release',
+      launchArgs: {
+        detoxPrintBusyIdleResources: true,
+      },
     },
   },
   devices: {

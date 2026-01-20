@@ -2,7 +2,7 @@
   "expo": {
     "name": "Veloq",
     "slug": "veloq",
-    "version": "0.0.4",
+    "version": "0.0.5",
     "scheme": "veloq",
     "orientation": "default",
     "icon": "./src/assets/icon.png",
@@ -16,7 +16,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.veloq.app",
-      "buildNumber": "4",
+      "buildNumber": "5",
       "infoPlist": {
         "CFBundleDevelopmentRegion": "en-AU",
         "CFBundleLocalizations": ["en-AU", "en-US", "en-GB", "es", "fr"],
@@ -32,7 +32,7 @@
     },
     "android": {
       "package": "com.veloq.app",
-      "versionCode": 4,
+      "versionCode": 5,
       "adaptiveIcon": {
         "foregroundImage": "./src/assets/adaptive-icon.png",
         "backgroundColor": "#5B9BD5"

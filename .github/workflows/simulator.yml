@@ -576,7 +576,7 @@ jobs:
           DETOX_DEVICE_TYPE: ${{ steps.simulator.outputs.device }}
         run: |
           npx detox test --configuration ios.sim.release --headless \
-            --testPathPattern 'demo-mode|navigation' \
+            --testPathPattern "demo-mode|navigation" \
             --record-logs all --loglevel verbose
 
       - name: Upload results
@@ -787,7 +787,7 @@ jobs:
             adb shell settings put global window_animation_scale 0
             adb shell settings put global transition_animation_scale 0
             adb shell settings put global animator_duration_scale 0
-            DETOX_DEVICE_AVD_NAME=Pixel_5_API_30 npx detox test --configuration android.emu.release --headless --testPathPattern 'demo-mode|navigation' --record-logs all --loglevel verbose
+            DETOX_DEVICE_AVD_NAME=Pixel_5_API_30 npx detox test --configuration android.emu.release --headless --testPathPattern "demo-mode|navigation" --record-logs all --loglevel verbose
 
       - name: Upload results
         if: always()
