@@ -1,0 +1,6 @@
+What's new in 0.0.4:
+
+- Improved route section display with clearer visual distinction
+- Fixed map crash when loading activities with sparse GPS data
+- Added iPad support with optimized layouts
+- Performance improvements and bug fixes
