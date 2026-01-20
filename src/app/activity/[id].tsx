@@ -658,7 +658,7 @@ export default function ActivityDetailScreen() {
       style={[styles.container, isDark && styles.containerDark]}
     >
       {/* Hero Map Section - fixed at top */}
-      <View style={styles.heroSection}>
+      <View testID="activity-detail-content" style={styles.heroSection}>
         {/* Map - full bleed */}
         <View style={styles.mapContainer}>
           <ActivityMapView

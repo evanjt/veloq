@@ -134,6 +134,11 @@ describe('screenshots', () => {
         .withTimeout(10000);
     }
 
+    // Wait for actual content to load (not just the loading/error screen)
+    await waitFor(element(by.id('activity-detail-content')))
+      .toBeVisible()
+      .withTimeout(15000);
+
     // Configure map style if not default
     if (config.mapStyle !== 'light') {
       // Tap style toggle until we get the desired style
@@ -166,10 +171,10 @@ describe('screenshots', () => {
 
   it(`03-charts${suffix}: Activity Charts`, async () => {
     // Charts are visible below the map (42% of screen height) - no scroll needed
-    // Just wait for the activity detail screen to be visible and take screenshot
-    await waitFor(element(by.id('activity-detail-screen')))
+    // Wait for content to be loaded (not loading/error state)
+    await waitFor(element(by.id('activity-detail-content')))
       .toBeVisible()
-      .withTimeout(5000);
+      .withTimeout(10000);
     await new Promise((resolve) => setTimeout(resolve, 1000));
     await device.takeScreenshot(`03-charts${suffix}`);
   });
