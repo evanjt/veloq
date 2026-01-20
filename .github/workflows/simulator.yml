@@ -425,14 +425,25 @@ jobs:
             --testPathPattern "screenshots" \
             --record-logs all --loglevel verbose
 
+      - name: Collect and flatten screenshots
+        if: always()
+        run: |
+          mkdir -p screenshots-flat
+          # Find all screenshot PNGs (exclude diagnostic images like DETOX_VISIBILITY_*)
+          find artifacts -name "*.png" ! -name "DETOX_*" ! -name "testDone.png" ! -name "testFnFailure.png" -exec cp {} screenshots-flat/ \;
+          # Rename to include platform suffix
+          cd screenshots-flat
+          for f in *.png; do
+            [ -f "$f" ] && mv "$f" "${f%.png}-ios.png" 2>/dev/null || true
+          done
+          ls -la screenshots-flat/ || true
+
       - name: Upload screenshots
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: screenshots-ios
-          path: |
-            artifacts/
-            src/__tests__/e2e/screenshots/
+          path: screenshots-flat/
           retention-days: 14
 
   # ============================================
@@ -492,14 +503,23 @@ jobs:
             --testPathPattern "screenshots" \
             --record-logs all --loglevel verbose
 
+      - name: Collect and flatten screenshots
+        if: always()
+        run: |
+          mkdir -p screenshots-flat
+          find artifacts -name "*.png" ! -name "DETOX_*" ! -name "testDone.png" ! -name "testFnFailure.png" -exec cp {} screenshots-flat/ \;
+          cd screenshots-flat
+          for f in *.png; do
+            [ -f "$f" ] && mv "$f" "${f%.png}-ipad.png" 2>/dev/null || true
+          done
+          ls -la screenshots-flat/ || true
+
       - name: Upload screenshots
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: screenshots-ipad
-          path: |
-            artifacts/
-            src/__tests__/e2e/screenshots/
+          path: screenshots-flat/
           retention-days: 14
 
   # ============================================
@@ -556,7 +576,7 @@ jobs:
           DETOX_DEVICE_TYPE: ${{ steps.simulator.outputs.device }}
         run: |
           npx detox test --configuration ios.sim.release --headless \
-            --testPathPattern "(demo-mode|navigation)" \
+            --testPathPattern 'demo-mode|navigation' \
             --record-logs all --loglevel verbose
 
       - name: Upload results
@@ -656,18 +676,25 @@ jobs:
             adb shell settings put global window_animation_scale 0
             adb shell settings put global transition_animation_scale 0
             adb shell settings put global animator_duration_scale 0
-            DETOX_DEVICE_AVD_NAME=Pixel_5_API_30 npx detox test --configuration android.emu.release --headless \
-              --testPathPattern "screenshots" \
-              --record-logs all --loglevel verbose
+            DETOX_DEVICE_AVD_NAME=Pixel_5_API_30 npx detox test --configuration android.emu.release --headless --testPathPattern screenshots --record-logs all --loglevel verbose
+
+      - name: Collect and flatten screenshots
+        if: always()
+        run: |
+          mkdir -p screenshots-flat
+          find artifacts -name "*.png" ! -name "DETOX_*" ! -name "testDone.png" ! -name "testFnFailure.png" -exec cp {} screenshots-flat/ \;
+          cd screenshots-flat
+          for f in *.png; do
+            [ -f "$f" ] && mv "$f" "${f%.png}-android.png" 2>/dev/null || true
+          done
+          ls -la screenshots-flat/ || true
 
       - name: Upload screenshots
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: screenshots-android
-          path: |
-            artifacts/
-            src/__tests__/e2e/screenshots/
+          path: screenshots-flat/
           retention-days: 14
 
   # ============================================
@@ -760,9 +787,7 @@ jobs:
             adb shell settings put global window_animation_scale 0
             adb shell settings put global transition_animation_scale 0
             adb shell settings put global animator_duration_scale 0
-            DETOX_DEVICE_AVD_NAME=Pixel_5_API_30 npx detox test --configuration android.emu.release --headless \
-              --testPathPattern "(demo-mode|navigation)" \
-              --record-logs all --loglevel verbose
+            DETOX_DEVICE_AVD_NAME=Pixel_5_API_30 npx detox test --configuration android.emu.release --headless --testPathPattern 'demo-mode|navigation' --record-logs all --loglevel verbose
 
       - name: Upload results
         if: always()

@@ -72,15 +72,26 @@ describe('screenshots', () => {
 
     // Hide demo banner for clean screenshots
     try {
-      // Scroll down until we find the demo banner switch (it's near the bottom)
+      // Scroll to bottom of settings where demo banner switch is located
+      // Use multiple scroll attempts to ensure we reach it
+      for (let i = 0; i < 5; i++) {
+        try {
+          await element(by.id('settings-scrollview')).scroll(500, 'down');
+        } catch {
+          // Reached end of scroll
+          break;
+        }
+      }
+      await new Promise((resolve) => setTimeout(resolve, 300));
+
+      // Now try to find and tap the switch
       await waitFor(element(by.id('hide-demo-banner-switch')))
         .toBeVisible()
-        .whileElement(by.id('settings-scrollview'))
-        .scroll(300, 'down');
+        .withTimeout(3000);
       await element(by.id('hide-demo-banner-switch')).tap();
-      await new Promise((resolve) => setTimeout(resolve, 300));
-    } catch {
-      console.log('Could not hide demo banner, continuing with banner visible');
+      await new Promise((resolve) => setTimeout(resolve, 500));
+    } catch (e) {
+      console.log('Could not hide demo banner:', e);
     }
 
     // Configure theme if dark mode is requested
