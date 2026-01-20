@@ -467,24 +467,11 @@ class RouteEngineClient {
 
   /**
    * Get groups parsed from JSON.
-   * Transforms snake_case keys from Rust serde to camelCase expected by TypeScript.
+   * Rust now outputs camelCase directly via serde(rename_all = "camelCase").
    */
   getGroups(): RouteGroup[] {
     const json = persistentEngineGetGroupsJson();
-    const rawGroups = safeJsonParse<Record<string, unknown>[]>(json, []);
-    // Transform snake_case to camelCase (Rust serde uses snake_case by default)
-    return rawGroups.map((g: Record<string, unknown>) => ({
-      groupId: (g.group_id ?? g.groupId) as string,
-      representativeId: (g.representative_id ?? g.representativeId) as string,
-      activityIds: (g.activity_ids ?? g.activityIds ?? []) as string[],
-      sportType: (g.sport_type ?? g.sportType) as string,
-      bounds: g.bounds as RouteGroup['bounds'],
-      customName: (g.custom_name ?? g.customName) as string | undefined,
-      bestTime: (g.best_time ?? g.bestTime) as number | undefined,
-      avgTime: (g.avg_time ?? g.avgTime) as number | undefined,
-      bestPace: (g.best_pace ?? g.bestPace) as number | undefined,
-      bestActivityId: (g.best_activity_id ?? g.bestActivityId) as string | undefined,
-    }));
+    return safeJsonParse<RouteGroup[]>(json, []);
   }
 
   /**
@@ -504,18 +491,17 @@ class RouteEngineClient {
 
   /**
    * Get all activity bounds.
-   * Rust returns array of {id, bounds: [[minLat, minLng], [maxLat, maxLng]], activity_type, distance}
+   * Rust returns array of {id, bounds: [[minLat, minLng], [maxLat, maxLng]], activityType, distance}
    */
   getAllActivityBounds(): Map<
     string,
     { minLat: number; maxLat: number; minLng: number; maxLng: number }
   > {
     const json = persistentEngineGetAllActivityBoundsJson();
-    // Rust returns an array, not an object
     interface RustBoundsInfo {
       id: string;
       bounds: [[number, number], [number, number]]; // [[minLat, minLng], [maxLat, maxLng]]
-      activity_type: string;
+      activityType: string;
       distance: number;
     }
     const arr = safeJsonParse<RustBoundsInfo[]>(json, []);

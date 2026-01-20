@@ -117,3 +117,35 @@ export const INTERVALS_URLS = {
   /** Developer Settings section for API key */
   developerSettings: 'https://intervals.icu/settings#developer',
 } as const;
+
+/**
+ * Section visualization styles for map rendering
+ * Patterns use small, tight thatches (short dashes with small gaps)
+ * to create distinct textures while appearing as continuous lines
+ * Patterns cycle first, then colors (6 patterns x 3 colors = 18 unique styles)
+ */
+export const SECTION_PATTERNS: (number[] | undefined)[] = [
+  undefined, // solid
+  [4, 2], // tight thatches
+  [2, 2], // very tight thatches (dotted look)
+  [6, 2, 2, 2], // dash-dot pattern
+  [3, 3], // even spacing thatches
+  [8, 3], // slightly longer thatches
+];
+
+export const SECTION_COLORS = ['#00BCD4', '#009688', '#4CAF50'] as const;
+
+/**
+ * Get visual style for a section by index
+ * Cycles through patterns first, then colors
+ */
+export function getSectionStyle(index: number) {
+  const patternIndex = index % SECTION_PATTERNS.length;
+  const colorIndex = Math.floor(index / SECTION_PATTERNS.length) % SECTION_COLORS.length;
+  return {
+    pattern: SECTION_PATTERNS[patternIndex],
+    color: SECTION_COLORS[colorIndex],
+    patternIndex,
+    colorIndex,
+  };
+}

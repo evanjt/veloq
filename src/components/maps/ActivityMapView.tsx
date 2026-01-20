@@ -127,7 +127,13 @@ import {
 } from '@maplibre/maplibre-react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
-import { decodePolyline, LatLng, getActivityColor, getMapLibreBounds } from '@/lib';
+import {
+  decodePolyline,
+  LatLng,
+  getActivityColor,
+  getMapLibreBounds,
+  getSectionStyle,
+} from '@/lib';
 import { colors, darkColors } from '@/theme/colors';
 import { typography } from '@/theme/typography';
 import { spacing, layout } from '@/theme/spacing';
@@ -208,6 +214,8 @@ interface ActivityMapViewProps {
   routeOverlay?: LatLng[] | null;
   /** Section overlays for sections tab - all matched sections with activity portions */
   sectionOverlays?: SectionOverlay[] | null;
+  /** Section ID to highlight (dims other sections when set) */
+  highlightedSectionId?: string | null;
 }
 
 export function ActivityMapView({
@@ -225,6 +233,7 @@ export function ActivityMapView({
   onCreationCancelled,
   routeOverlay,
   sectionOverlays,
+  highlightedSectionId,
 }: ActivityMapViewProps) {
   const { getStyleForActivity } = useMapPreferences();
   const preferredStyle = getStyleForActivity(activityType);
@@ -721,45 +730,96 @@ export function ActivityMapView({
             {/* which causes iOS crash: -[__NSArrayM insertObject:atIndex:]: object cannot be nil */}
             {sectionOverlaysGeoJSON &&
               sectionOverlaysGeoJSON
-                .flatMap((overlay, index) => [
-                  overlay.sectionGeo ? (
-                    <ShapeSource
-                      key={`sectionSource-${overlay.id}`}
-                      id={`sectionSource-${index}`}
-                      shape={overlay.sectionGeo}
-                    >
-                      <LineLayer
-                        id={`sectionLine-${index}`}
-                        style={{
-                          lineColor: '#00BCD4',
-                          lineWidth: 6,
-                          lineCap: 'round',
-                          lineJoin: 'round',
-                          lineOpacity: 0.5,
-                        }}
-                      />
-                    </ShapeSource>
-                  ) : null,
-                  overlay.portionGeo ? (
-                    <ShapeSource
-                      key={`portionSource-${overlay.id}`}
-                      id={`portionSource-${index}`}
-                      shape={overlay.portionGeo}
-                    >
-                      <LineLayer
-                        id={`portionLine-${index}`}
-                        style={{
-                          lineColor: '#E91E63',
-                          lineWidth: 4,
-                          lineCap: 'round',
-                          lineJoin: 'round',
-                          lineOpacity: 1,
-                        }}
-                      />
-                    </ShapeSource>
-                  ) : null,
-                ])
+                .flatMap((overlay, index) => {
+                  const style = getSectionStyle(index);
+                  const isHighlighted = highlightedSectionId === overlay.id;
+                  const isDimmed = highlightedSectionId && !isHighlighted;
+                  // When highlighted: bright yellow, full opacity, thicker line
+                  // When dimmed: very faint
+                  const sectionColor = isHighlighted ? '#FFD700' : style.color;
+                  const sectionOpacity = isDimmed ? 0.1 : isHighlighted ? 1 : 0.7;
+                  const sectionWidth = isHighlighted ? 8 : 6;
+                  const portionColor = isHighlighted ? '#FF4500' : '#E91E63';
+                  const portionOpacity = isDimmed ? 0.1 : 1;
+                  const portionWidth = isHighlighted ? 6 : 4;
+
+                  return [
+                    overlay.sectionGeo ? (
+                      <ShapeSource
+                        key={`sectionSource-${overlay.id}`}
+                        id={`sectionSource-${index}`}
+                        shape={overlay.sectionGeo}
+                      >
+                        <LineLayer
+                          id={`sectionLine-${index}`}
+                          style={{
+                            lineColor: sectionColor,
+                            lineWidth: sectionWidth,
+                            lineCap: 'round',
+                            lineJoin: 'round',
+                            lineOpacity: sectionOpacity,
+                          }}
+                        />
+                      </ShapeSource>
+                    ) : null,
+                    overlay.portionGeo ? (
+                      <ShapeSource
+                        key={`portionSource-${overlay.id}`}
+                        id={`portionSource-${index}`}
+                        shape={overlay.portionGeo}
+                      >
+                        <LineLayer
+                          id={`portionLine-${index}`}
+                          style={{
+                            lineColor: portionColor,
+                            lineWidth: portionWidth,
+                            lineCap: 'round',
+                            lineJoin: 'round',
+                            lineOpacity: portionOpacity,
+                          }}
+                        />
+                      </ShapeSource>
+                    ) : null,
+                  ];
+                })
                 .filter(Boolean)}
+
+            {/* Numbered markers at center of each section */}
+            {sectionOverlaysGeoJSON &&
+              sectionOverlaysGeoJSON.map((overlay, index) => {
+                if (!overlay.sectionGeo?.geometry?.coordinates?.length) return null;
+                const coords = overlay.sectionGeo.geometry.coordinates;
+                const midIndex = Math.floor(coords.length / 2);
+                const centerCoord = coords[midIndex];
+                if (!centerCoord) return null;
+
+                const isHighlighted = highlightedSectionId === overlay.id;
+                const isDimmed = highlightedSectionId && !isHighlighted;
+
+                return (
+                  <MarkerView
+                    key={`sectionMarker-${overlay.id}`}
+                    coordinate={[centerCoord[0], centerCoord[1]]}
+                  >
+                    <View
+                      style={[
+                        styles.sectionNumberMarker,
+                        isDimmed && styles.sectionNumberMarkerDimmed,
+                        isHighlighted && styles.sectionNumberMarkerHighlighted,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.sectionNumberText,
+                          isHighlighted && styles.sectionNumberTextHighlighted,
+                        ]}
+                      >
+                        {index + 1}
+                      </Text>
+                    </View>
+                  </MarkerView>
+                );
+              })}
 
             {/* Route line - slightly fade when showing section overlays */}
             {routeGeoJSON && (
@@ -1000,6 +1060,74 @@ export function ActivityMapView({
           initialStyle={mapStyle}
           onClose={closeFullscreen}
         >
+          {/* Section overlays in fullscreen */}
+          {sectionOverlaysGeoJSON &&
+            sectionOverlaysGeoJSON
+              .flatMap((overlay, index) => {
+                const style = getSectionStyle(index);
+                return [
+                  overlay.sectionGeo ? (
+                    <ShapeSource
+                      key={`fs-sectionSource-${overlay.id}`}
+                      id={`fs-sectionSource-${index}`}
+                      shape={overlay.sectionGeo}
+                    >
+                      <LineLayer
+                        id={`fs-sectionLine-${index}`}
+                        style={{
+                          lineColor: style.color,
+                          lineWidth: 6,
+                          lineCap: 'round',
+                          lineJoin: 'round',
+                          lineOpacity: 0.7,
+                        }}
+                      />
+                    </ShapeSource>
+                  ) : null,
+                  overlay.portionGeo ? (
+                    <ShapeSource
+                      key={`fs-portionSource-${overlay.id}`}
+                      id={`fs-portionSource-${index}`}
+                      shape={overlay.portionGeo}
+                    >
+                      <LineLayer
+                        id={`fs-portionLine-${index}`}
+                        style={{
+                          lineColor: '#E91E63',
+                          lineWidth: 4,
+                          lineCap: 'round',
+                          lineJoin: 'round',
+                          lineOpacity: 1,
+                        }}
+                      />
+                    </ShapeSource>
+                  ) : null,
+                ];
+              })
+              .filter(Boolean)}
+
+          {/* Numbered markers at center of each section in fullscreen */}
+          {sectionOverlaysGeoJSON &&
+            sectionOverlaysGeoJSON.map((overlay, index) => {
+              if (!overlay.sectionGeo?.geometry?.coordinates?.length) return null;
+              const coords = overlay.sectionGeo.geometry.coordinates;
+              const midIndex = Math.floor(coords.length / 2);
+              const centerCoord = coords[midIndex];
+              if (!centerCoord) return null;
+              const style = getSectionStyle(index);
+
+              return (
+                <MarkerView
+                  key={`fs-sectionMarker-${overlay.id}`}
+                  coordinate={[centerCoord[0], centerCoord[1]]}
+                >
+                  <View style={[styles.sectionNumberMarker, { borderColor: style.color }]}>
+                    <Text style={styles.sectionNumberText}>{index + 1}</Text>
+                  </View>
+                </MarkerView>
+              );
+            })}
+
           {/* Start marker */}
           {startPoint && (
             <MarkerView coordinate={[startPoint.longitude, startPoint.latitude]}>
@@ -1178,5 +1306,38 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: colors.textOnDark,
     fontWeight: '500',
+  },
+  sectionNumberMarker: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#1A1A1A',
+    borderWidth: 2.5,
+    borderColor: '#00BCD4',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.4,
+    shadowRadius: 3,
+    elevation: 4,
+  },
+  sectionNumberMarkerDimmed: {
+    opacity: 0.2,
+  },
+  sectionNumberMarkerHighlighted: {
+    backgroundColor: '#FFD700',
+    borderColor: '#FF8C00',
+    borderWidth: 3,
+    transform: [{ scale: 1.2 }],
+  },
+  sectionNumberText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  sectionNumberTextHighlighted: {
+    color: '#000000',
   },
 });

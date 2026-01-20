@@ -76,27 +76,13 @@ export const SectionRow = memo(function SectionRow({
     onPress?.();
   };
 
-  // Compute bounds that encompass section polyline and all activity traces
+  // Compute bounds from section polyline only (not activity traces)
+  // This ensures the thumbnail accurately represents the section geometry
   const bounds = useMemo(() => {
-    // Collect all points: section polyline and activity traces
-    const allPoints: { lat: number; lng: number }[] = [];
-
-    // Include section polyline
-    if (section.polyline?.length) {
-      allPoints.push(...section.polyline);
-    }
-
-    // Include activity traces (convert [lat, lng] tuples to {lat, lng})
-    if (activityTraces?.length) {
-      for (const trace of activityTraces) {
-        for (const [lat, lng] of trace.points) {
-          allPoints.push({ lat, lng });
-        }
-      }
-    }
+    if (!section.polyline?.length) return null;
 
     // Use utility for bounds calculation
-    const mapBounds = getBoundsFromPoints(allPoints);
+    const mapBounds = getBoundsFromPoints(section.polyline);
     if (!mapBounds) return null;
 
     // Extract min/max from MapLibre bounds format
@@ -109,7 +95,7 @@ export const SectionRow = memo(function SectionRow({
     const range = Math.max(latRange, lngRange);
 
     return { minLat, maxLat, minLng, maxLng, range };
-  }, [section.polyline, activityTraces]);
+  }, [section.polyline]);
 
   // Normalize point to SVG coordinates
   const normalizePoint = (lat: number, lng: number): { x: number; y: number } => {
