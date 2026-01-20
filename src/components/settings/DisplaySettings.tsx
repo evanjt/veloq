@@ -82,16 +82,19 @@ export function DisplaySettings({
                 value: 'system',
                 label: t('settings.system'),
                 icon: 'cellphone',
+                testID: 'theme-button-system',
               },
               {
                 value: 'light',
                 label: t('settings.light'),
                 icon: 'white-balance-sunny',
+                testID: 'theme-button-light',
               },
               {
                 value: 'dark',
                 label: t('settings.dark'),
                 icon: 'moon-waning-crescent',
+                testID: 'theme-button-dark',
               },
             ]}
             style={styles.themePicker}

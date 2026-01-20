@@ -81,6 +81,7 @@ export const ActivityCard = React.memo(function ActivityCard({ activity }: Activ
 
   return (
     <Pressable
+      testID={`activity-card-${activity.id}`}
       onPress={handlePress}
       onLongPress={handleLongPress}
       delayLongPress={500}

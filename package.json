@@ -1,6 +1,6 @@
 {
   "name": "veloq",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "tracematchVersion": "0.0.4",
   "repository": {
     "type": "git",
@@ -25,7 +25,13 @@
     "e2e:test:ios": "detox test --configuration ios.sim.release",
     "e2e:test:android": "detox test --configuration android.emu.release",
     "e2e:screenshots:ios": "detox test --configuration ios.sim.release --testNamePattern screenshots",
-    "e2e:screenshots:android": "detox test --configuration android.emu.release --testNamePattern screenshots"
+    "e2e:screenshots:android": "detox test --configuration android.emu.release --testNamePattern screenshots",
+    "e2e:screenshots:ios:dark": "SCREENSHOT_THEME=dark detox test --configuration ios.sim.release --testNamePattern screenshots",
+    "e2e:screenshots:android:dark": "SCREENSHOT_THEME=dark detox test --configuration android.emu.release --testNamePattern screenshots",
+    "e2e:screenshots:ios:satellite": "SCREENSHOT_MAP_STYLE=satellite detox test --configuration ios.sim.release --testNamePattern screenshots",
+    "e2e:screenshots:android:satellite": "SCREENSHOT_MAP_STYLE=satellite detox test --configuration android.emu.release --testNamePattern screenshots",
+    "e2e:screenshots:ios:3d": "SCREENSHOT_MAP_STYLE=satellite SCREENSHOT_3D=true detox test --configuration ios.sim.release --testNamePattern screenshots",
+    "e2e:screenshots:android:3d": "SCREENSHOT_MAP_STYLE=satellite SCREENSHOT_3D=true detox test --configuration android.emu.release --testNamePattern screenshots"
   },
   "dependencies": {
     "@expo/ngrok": "^4.1.3",

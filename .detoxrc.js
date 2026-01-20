@@ -33,29 +33,29 @@ module.exports = {
       testBinaryPath:
         'android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk',
       build:
-        'cd android && ./gradlew assembleDebug assembleAndroidTest -DtestBuildType=debug',
+        'cd android && ./gradlew :app:assembleDebug :app:assembleAndroidTest -DtestBuildType=debug',
     },
     'android.release': {
       type: 'android.apk',
       binaryPath: 'android/app/build/outputs/apk/release/app-release.apk',
       build:
-        'cd android && ./gradlew assembleRelease assembleAndroidTest -DtestBuildType=release',
+        'cd android && ./gradlew :app:assembleRelease :app:assembleAndroidTest -DtestBuildType=release',
     },
   },
   devices: {
     simulator: {
       type: 'ios.simulator',
-      // Prefer iPhone 16, fallback to any available iPhone
-      device: { type: 'iPhone 16' },
+      // Local: iPhone 17 Pro Max, CI: iPhone 16 (override via DETOX_DEVICE_TYPE env var)
+      device: { type: process.env.DETOX_DEVICE_TYPE || 'iPhone 17 Pro Max' },
     },
     'simulator.fallback': {
       type: 'ios.simulator',
-      device: { type: 'iPhone 15' },
+      device: { type: 'iPhone 16' },
     },
     emulator: {
       type: 'android.emulator',
-      // Use API 30 default target for faster CI boot (no Google APIs overhead)
-      device: { avdName: 'Pixel_5_API_30' },
+      // Local: Pixel_5_API_35, CI: Pixel_5_API_30 (override via DETOX_DEVICE_AVD_NAME env var)
+      device: { avdName: process.env.DETOX_DEVICE_AVD_NAME || 'Pixel_5_API_35' },
     },
   },
   configurations: {

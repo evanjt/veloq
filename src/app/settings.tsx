@@ -436,7 +436,11 @@ export default function SettingsScreen() {
       testID="settings-screen"
       style={[styles.container, isDark && styles.containerDark]}
     >
-      <ScrollView ref={scrollViewRef} contentContainerStyle={styles.content}>
+      <ScrollView
+        testID="settings-scrollview"
+        ref={scrollViewRef}
+        contentContainerStyle={styles.content}
+      >
         {/* Header with back button */}
         <View style={styles.header}>
           <TouchableOpacity
@@ -884,6 +888,7 @@ export default function SettingsScreen() {
                   </Text>
                 </View>
                 <Switch
+                  testID="hide-demo-banner-switch"
                   value={hideDemoBanner}
                   onValueChange={setHideDemoBanner}
                   color={colors.primary}

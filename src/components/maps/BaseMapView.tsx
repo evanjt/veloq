@@ -275,6 +275,7 @@ export function BaseMapView({
       {/* Style toggle */}
       {showStyleToggle && (
         <TouchableOpacity
+          testID="map-style-toggle"
           style={[
             styles.button,
             styles.styleButton,
@@ -298,6 +299,7 @@ export function BaseMapView({
       <View style={[styles.controlStack, { top: insets.top + 12 }]}>
         {show3DToggle && has3DRoute && (
           <TouchableOpacity
+            testID="map-3d-toggle"
             style={[
               styles.controlButton,
               isDark && styles.controlButtonDark,
