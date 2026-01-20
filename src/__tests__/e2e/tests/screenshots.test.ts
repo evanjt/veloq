@@ -122,14 +122,11 @@ describe('screenshots', () => {
     await navigateViaDeepLink('', 'home-screen');
     await new Promise((resolve) => setTimeout(resolve, 1000));
 
-    // Tap on first activity in the list (same approach for both platforms)
-    await waitFor(element(by.id('home-activity-list')))
-      .toBeVisible()
-      .withTimeout(5000);
-    await element(by.id('home-activity-list')).atIndex(0).tap();
-    await waitFor(element(by.id('activity-detail-screen')))
+    // Tap on first demo activity card (activity-card-demo-0)
+    await waitFor(element(by.id('activity-card-demo-0')))
       .toBeVisible()
       .withTimeout(10000);
+    await element(by.id('activity-card-demo-0')).tap();
 
     // Wait for actual content to load (not just the loading/error screen)
     await waitFor(element(by.id('activity-detail-content')))
