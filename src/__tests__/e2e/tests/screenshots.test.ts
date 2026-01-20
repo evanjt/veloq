@@ -118,15 +118,9 @@ describe('screenshots', () => {
   });
 
   it(`02-activity-map${suffix}: Activity Map`, async () => {
-    // Navigate to home first to ensure we're in demo mode with data loaded
-    await navigateViaDeepLink('', 'home-screen');
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-
-    // Tap on first demo activity card (activity-card-demo-0)
-    await waitFor(element(by.id('activity-card-demo-0')))
-      .toBeVisible()
-      .withTimeout(10000);
-    await element(by.id('activity-card-demo-0')).tap();
+    // Navigate directly to first demo activity via deep link
+    await device.openURL({ url: 'veloq://activity/demo-0' });
+    await new Promise((resolve) => setTimeout(resolve, 500));
 
     // Wait for actual content to load (not just the loading/error screen)
     await waitFor(element(by.id('activity-detail-content')))

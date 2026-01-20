@@ -401,7 +401,7 @@ function generateActivities(): ApiActivity[] {
   // Track CTL/ATL for realistic values
   let ctl = 35;
   let atl = 35;
-  let activityId = 1000;
+  let activityId = 0;
 
   for (let daysAgo = 365; daysAgo >= 0; daysAgo--) {
     const date = new Date(now);
