@@ -74,7 +74,7 @@ android {
     }
     externalNativeBuild {
       cmake {
-        arguments '-DANDROID_STL=c++_shared', '-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON'
+        arguments '-DANDROID_STL=c++_shared'
         abiFilters (*reactNativeArchitectures())
       }
     }
@@ -97,15 +97,6 @@ android {
     release {
       minifyEnabled false
     }
-  }
-
-  // Don't package shared libraries that React Native already provides
-  // This prevents "2 files found with path 'lib/*/*.so'" duplicate errors
-  packagingOptions {
-    exclude '**/libc++_shared.so'
-    exclude '**/libjsi.so'
-    exclude '**/libfbjni.so'
-    exclude '**/libreactnative.so'
   }
 
   lintOptions {

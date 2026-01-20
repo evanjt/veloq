@@ -83,10 +83,38 @@ export function defaultScalePresets(): Array<ScalePreset> {
   );
 }
 /**
+ * Fetch map data for multiple activities.
+ *
+ * The auth_header should be a pre-formatted Authorization header value:
+ * - For API key auth: "Basic {base64(API_KEY:key)}"
+ * - For OAuth: "Bearer {access_token}"
+ */
+export function fetchActivityMaps(
+  authHeader: string,
+  activityIds: Array<string>
+): Array<FfiActivityMapResult> {
+  return FfiConverterArrayTypeFfiActivityMapResult.lift(
+    uniffiCaller.rustCall(
+      /*caller:*/ (callStatus) => {
+        return nativeModule().ubrn_uniffi_tracematch_fn_func_fetch_activity_maps(
+          FfiConverterString.lower(authHeader),
+          FfiConverterArrayString.lower(activityIds),
+          callStatus
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift
+    )
+  );
+}
+/**
  * Fetch map data with real-time progress callbacks.
  *
  * Same as fetch_activity_maps but calls the progress callback after each
  * activity is fetched, allowing the UI to show real-time progress.
+ *
+ * NOTE: The callback is invoked from tokio worker threads. This may cause
+ * crashes with some FFI runtimes (like React Native's Hermes) that aren't
+ * thread-safe. Use fetch_activity_maps without callback if you experience crashes.
  *
  * The auth_header should be a pre-formatted Authorization header value:
  * - For API key auth: "Basic {base64(API_KEY:key)}"
@@ -4164,9 +4192,14 @@ function uniffiEnsureInitialized() {
       'uniffi_tracematch_checksum_func_default_scale_presets'
     );
   }
+  if (nativeModule().ubrn_uniffi_tracematch_checksum_func_fetch_activity_maps() !== 28985) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      'uniffi_tracematch_checksum_func_fetch_activity_maps'
+    );
+  }
   if (
     nativeModule().ubrn_uniffi_tracematch_checksum_func_fetch_activity_maps_with_progress() !==
-    44477
+    34541
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       'uniffi_tracematch_checksum_func_fetch_activity_maps_with_progress'

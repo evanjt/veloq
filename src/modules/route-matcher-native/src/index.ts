@@ -57,6 +57,7 @@ import {
   persistentEngineSetTimeStreamsFlat,
   ffiDetectSectionsMultiscale,
   defaultScalePresets,
+  fetchActivityMaps,
   fetchActivityMapsWithProgress as generatedFetchWithProgress,
   type FetchProgressCallback,
   type PersistentEngineStats,
@@ -252,22 +253,28 @@ export function addFetchProgressListener(_callback: (event: FetchProgressEvent) 
 export type EngineStats = PersistentEngineStats;
 
 /**
- * Fetch activity maps with progress reporting.
- * Uses the Rust callback interface for real-time progress updates.
+ * Fetch activity maps with optional progress reporting.
  *
  * @param authHeader - Pre-formatted Authorization header value:
  *   - For API key auth: "Basic {base64(API_KEY:key)}"
  *   - For OAuth: "Bearer {access_token}"
+ * @param onProgress - Optional callback for progress updates. If not provided,
+ *   uses the non-callback version which is safer for React Native.
  */
 export async function fetchActivityMapsWithProgress(
   authHeader: string,
   activityIds: string[],
   onProgress?: (event: FetchProgressEvent) => void
 ): Promise<FfiActivityMapResult[]> {
+  if (!onProgress) {
+    // Use non-callback version - avoids cross-thread FFI callback issues
+    return fetchActivityMaps(authHeader, activityIds);
+  }
+
   // Create callback adapter that conforms to FetchProgressCallback interface
   const callback: FetchProgressCallback = {
     onProgress: (completed: number, total: number) => {
-      onProgress?.({ completed, total });
+      onProgress({ completed, total });
     },
   };
 

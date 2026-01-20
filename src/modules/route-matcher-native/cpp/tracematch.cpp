@@ -111,6 +111,10 @@ void uniffi_tracematch_fn_init_callback_vtable_fetchprogresscallback(
     UniffiVTableCallbackInterfaceFetchProgressCallback *vtable);
 RustBuffer
 uniffi_tracematch_fn_func_default_scale_presets(RustCallStatus *uniffi_out_err);
+RustBuffer
+uniffi_tracematch_fn_func_fetch_activity_maps(RustBuffer auth_header,
+                                              RustBuffer activity_ids,
+                                              RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_tracematch_fn_func_fetch_activity_maps_with_progress(
     RustBuffer auth_header, RustBuffer activity_ids, uint64_t callback,
     RustCallStatus *uniffi_out_err);
@@ -332,6 +336,7 @@ void ffi_tracematch_rust_future_free_void(
 void ffi_tracematch_rust_future_complete_void(
     /*handle*/ uint64_t handle, RustCallStatus *uniffi_out_err);
 uint16_t uniffi_tracematch_checksum_func_default_scale_presets();
+uint16_t uniffi_tracematch_checksum_func_fetch_activity_maps();
 uint16_t uniffi_tracematch_checksum_func_fetch_activity_maps_with_progress();
 uint16_t uniffi_tracematch_checksum_func_ffi_detect_sections_multiscale();
 uint16_t uniffi_tracematch_checksum_func_ffi_generate_heatmap();
@@ -2112,6 +2117,17 @@ NativeTracematch::NativeTracematch(
             return this->cpp_uniffi_tracematch_fn_func_default_scale_presets(
                 rt, thisVal, args, count);
           });
+  props["ubrn_uniffi_tracematch_fn_func_fetch_activity_maps"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt, "ubrn_uniffi_tracematch_fn_func_fetch_activity_maps"),
+          2,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_uniffi_tracematch_fn_func_fetch_activity_maps(
+                rt, thisVal, args, count);
+          });
   props["ubrn_uniffi_tracematch_fn_func_fetch_activity_maps_with_progress"] =
       jsi::Function::createFromHostFunction(
           rt,
@@ -2590,6 +2606,18 @@ NativeTracematch::NativeTracematch(
                  const jsi::Value *args, size_t count) -> jsi::Value {
             return this
                 ->cpp_uniffi_tracematch_checksum_func_default_scale_presets(
+                    rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_tracematch_checksum_func_fetch_activity_maps"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt, "ubrn_uniffi_tracematch_checksum_func_fetch_activity_maps"),
+          0,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_tracematch_checksum_func_fetch_activity_maps(
                     rt, thisVal, args, count);
           });
   props["ubrn_uniffi_tracematch_checksum_func_fetch_activity_maps_with_"
@@ -3191,6 +3219,22 @@ NativeTracematch::cpp_uniffi_tracematch_fn_func_default_scale_presets(
   RustCallStatus status =
       uniffi::tracematch::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value = uniffi_tracematch_fn_func_default_scale_presets(&status);
+  uniffi::tracematch::Bridging<RustCallStatus>::copyIntoJs(
+      rt, callInvoker, status, args[count - 1]);
+
+  return uniffi::tracematch::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeTracematch::cpp_uniffi_tracematch_fn_func_fetch_activity_maps(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::tracematch::Bridging<RustCallStatus>::rustSuccess(rt);
+  auto value = uniffi_tracematch_fn_func_fetch_activity_maps(
+      uniffi::tracematch::Bridging<RustBuffer>::fromJs(rt, callInvoker,
+                                                       args[0]),
+      uniffi::tracematch::Bridging<RustBuffer>::fromJs(rt, callInvoker,
+                                                       args[1]),
+      &status);
   uniffi::tracematch::Bridging<RustCallStatus>::copyIntoJs(
       rt, callInvoker, status, args[count - 1]);
 
@@ -3800,6 +3844,14 @@ NativeTracematch::cpp_uniffi_tracematch_checksum_func_default_scale_presets(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
     size_t count) {
   auto value = uniffi_tracematch_checksum_func_default_scale_presets();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value
+NativeTracematch::cpp_uniffi_tracematch_checksum_func_fetch_activity_maps(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  auto value = uniffi_tracematch_checksum_func_fetch_activity_maps();
 
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
