@@ -102,8 +102,8 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ios/build/Build/Products/${{ matrix.config }}-iphonesimulator/Veloq.app
-          # v10: bindings now generated from crates.io source
-          key: ios-app-v10-${{ matrix.config }}-${{ steps.version.outputs.source_hash }}
+          # v11: Xcode 26.2 on macOS 26
+          key: ios-app-v11-${{ matrix.config }}-${{ steps.version.outputs.source_hash }}
 
       # Download tracematch BEFORE prebuild since expo prebuild runs pod install
       # which requires the Generated folder with modulemap to exist
@@ -146,9 +146,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ios
-          # v10: fix path to src/modules
-          key: ios-sim-prebuild-v10-${{ runner.os }}-${{ hashFiles('app.json', 'package.json', 'package-lock.json', 'plugins/**', 'src/modules/**/ios/**', 'src/modules/**/package.json') }}
-          restore-keys: ios-sim-prebuild-v9-${{ runner.os }}-
+          # v11: Xcode 26.2 on macOS 26
+          key: ios-sim-prebuild-v11-${{ runner.os }}-${{ hashFiles('app.json', 'package.json', 'package-lock.json', 'plugins/**', 'src/modules/**/ios/**', 'src/modules/**/package.json') }}
+          restore-keys: ios-sim-prebuild-v10-${{ runner.os }}-
 
       - name: Expo Prebuild
         if: steps.app-cache.outputs.cache-hit != 'true' && steps.ios-prebuild-cache.outputs.cache-hit != 'true'
@@ -161,8 +161,8 @@ jobs:
           path: |
             ios/Pods
             ~/Library/Caches/CocoaPods
-          # v8: add codegenConfig to app package.json for TurboModule registration
-          key: pods-sim-v8-${{ runner.os }}-${{ hashFiles('ios/Podfile.lock') }}
+          # v9: Xcode 26.2 on macOS 26
+          key: pods-sim-v9-${{ runner.os }}-${{ hashFiles('ios/Podfile.lock') }}
           restore-keys: pods-sim-v8-${{ runner.os }}-
 
       - name: Install CocoaPods
@@ -183,10 +183,13 @@ jobs:
         if: steps.app-cache.outputs.cache-hit != 'true'
         id: simulator
         run: |
-          DEVICE_UDID=$(xcrun simctl list devices available | grep -E "iPhone 16 \(" | grep -v -E "(Pro|Plus)" | head -1 | sed -E 's/.*\(([A-F0-9-]+)\).*/\1/')
+          # Use iPhone 17 for build (Xcode 26.x)
+          DEVICE_UDID=$(xcrun simctl list devices available | grep -E "iPhone 17 \(" | head -1 | sed -E 's/.*\(([A-F0-9-]+)\).*/\1/')
           if [ -z "$DEVICE_UDID" ]; then
-            DEVICE_UDID=$(xcrun simctl list devices available | grep -E "iPhone 15 \(" | grep -v -E "(Pro|Plus)" | head -1 | sed -E 's/.*\(([A-F0-9-]+)\).*/\1/')
+            # Fallback to any available iPhone
+            DEVICE_UDID=$(xcrun simctl list devices available | grep -E "iPhone" | head -1 | sed -E 's/.*\(([A-F0-9-]+)\).*/\1/')
           fi
+          echo "Found simulator UDID: $DEVICE_UDID"
           xcrun simctl boot "$DEVICE_UDID" || true
           echo "udid=$DEVICE_UDID" >> $GITHUB_OUTPUT
 
@@ -409,14 +412,8 @@ jobs:
       - name: Find 6.9" iPhone simulator
         id: simulator
         run: |
-          # Find Pro Max model for 6.9" screenshots (iPhone 17 Pro Max > 16 Pro Max > 15 Pro Max)
-          DEVICE=$(xcrun simctl list devices available | grep -E "iPhone 17 Pro Max" | head -1 | sed -E 's/^[[:space:]]*([^(]+) \(.*/\1/')
-          if [ -z "$DEVICE" ]; then
-            DEVICE=$(xcrun simctl list devices available | grep -E "iPhone 16 Pro Max" | head -1 | sed -E 's/^[[:space:]]*([^(]+) \(.*/\1/')
-          fi
-          if [ -z "$DEVICE" ]; then
-            DEVICE=$(xcrun simctl list devices available | grep -E "iPhone 15 Pro Max" | head -1 | sed -E 's/^[[:space:]]*([^(]+) \(.*/\1/')
-          fi
+          # Use iPhone 17 Pro Max for 6.9" screenshots (Xcode 26.x)
+          DEVICE="iPhone 17 Pro Max"
           echo "device=$DEVICE" >> $GITHUB_OUTPUT
           echo "Using 6.9\" iPhone simulator: $DEVICE"
 
@@ -482,12 +479,8 @@ jobs:
       - name: Find 13" iPad simulator
         id: simulator
         run: |
-          # Find iPad Pro 13-inch for 13" screenshots
-          DEVICE=$(xcrun simctl list devices available | grep -E "iPad Pro 13-inch" | head -1 | sed -E 's/^[[:space:]]*([^(]+) \(.*/\1/')
-          if [ -z "$DEVICE" ]; then
-            # Fallback to 12.9-inch (older naming)
-            DEVICE=$(xcrun simctl list devices available | grep -E "iPad Pro.*12.9" | head -1 | sed -E 's/^[[:space:]]*([^(]+) \(.*/\1/')
-          fi
+          # Use iPad Pro 13-inch (M5) for 13" screenshots (Xcode 26.x)
+          DEVICE="iPad Pro 13-inch (M5)"
           echo "device=$DEVICE" >> $GITHUB_OUTPUT
           echo "Using 13\" iPad simulator: $DEVICE"
 
@@ -554,13 +547,8 @@ jobs:
       - name: Find 6.9" iPhone simulator
         id: simulator
         run: |
-          DEVICE=$(xcrun simctl list devices available | grep -E "iPhone 17 Pro Max" | head -1 | sed -E 's/^[[:space:]]*([^(]+) \(.*/\1/')
-          if [ -z "$DEVICE" ]; then
-            DEVICE=$(xcrun simctl list devices available | grep -E "iPhone 16 Pro Max" | head -1 | sed -E 's/^[[:space:]]*([^(]+) \(.*/\1/')
-          fi
-          if [ -z "$DEVICE" ]; then
-            DEVICE=$(xcrun simctl list devices available | grep -E "iPhone 15 Pro Max" | head -1 | sed -E 's/^[[:space:]]*([^(]+) \(.*/\1/')
-          fi
+          # Use iPhone 17 Pro Max for functional tests (Xcode 26.x)
+          DEVICE="iPhone 17 Pro Max"
           echo "device=$DEVICE" >> $GITHUB_OUTPUT
 
       - name: Run Functional Tests
