@@ -99,12 +99,13 @@ android {
     }
   }
 
+  // Don't package shared libraries that React Native already provides
+  // This prevents "2 files found with path 'lib/*/*.so'" duplicate errors
   packagingOptions {
-    // Prevent duplicate libc++_shared.so from route-matcher-native and React Native
-    pickFirst 'lib/arm64-v8a/libc++_shared.so'
-    pickFirst 'lib/armeabi-v7a/libc++_shared.so'
-    pickFirst 'lib/x86/libc++_shared.so'
-    pickFirst 'lib/x86_64/libc++_shared.so'
+    exclude '**/libc++_shared.so'
+    exclude '**/libjsi.so'
+    exclude '**/libfbjni.so'
+    exclude '**/libreactnative.so'
   }
 
   lintOptions {
