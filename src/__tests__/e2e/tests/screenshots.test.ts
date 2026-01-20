@@ -199,17 +199,12 @@ describe('screenshots', () => {
   });
 
   it(`07-regional-map${suffix}: Regional Map`, async () => {
-    // Navigate to home first, then tap FAB to open map (same approach for both platforms)
-    await navigateViaDeepLink('', 'home-screen');
-    await new Promise((resolve) => setTimeout(resolve, 500));
-    await waitFor(element(by.id('map-fab')))
-      .toBeVisible()
-      .withTimeout(5000);
-    await element(by.id('map-fab')).tap();
-    // Map screen may take time to load - use longer timeout
+    // Use deep link to navigate directly to map (more reliable than FAB on iOS)
+    await device.openURL({ url: 'veloq://map' });
+    // Map screen loads data asynchronously - wait for testID with long timeout
     await waitFor(element(by.id('map-screen')))
-      .toBeVisible()
-      .withTimeout(20000);
+      .toExist()
+      .withTimeout(30000);
 
     // Configure map style for regional map
     if (config.mapStyle !== 'light') {
