@@ -663,45 +663,50 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
           {/* Sorted to render selected activity last (on top) */}
           {/* Only renders visible activities for performance (viewport culling) */}
           {/* Hidden in heatmap mode */}
+          {/* filter(Boolean) prevents null children crash on iOS MapLibre */}
           {!isHeatmapMode &&
-            sortedVisibleActivities.map((activity) => {
-              const config = getActivityTypeConfig(activity.type);
-              // Use pre-computed center (no format detection during render!)
-              const center = activityCenters[activity.id];
-              const size = getMarkerSize(activity.distance);
-              const isSelected = selectedActivityId === activity.id;
-              const markerSize = isSelected ? size + 8 : size;
-              // Larger icon ratio to fill more of the marker
-              const iconSize = isSelected ? size * 0.75 : size * 0.7;
+            sortedVisibleActivities
+              .map((activity) => {
+                const config = getActivityTypeConfig(activity.type);
+                // Use pre-computed center (no format detection during render!)
+                const center = activityCenters[activity.id];
+                // Skip if center not computed yet (prevents iOS crash with undefined coordinate)
+                if (!center) return null;
+                const size = getMarkerSize(activity.distance);
+                const isSelected = selectedActivityId === activity.id;
+                const markerSize = isSelected ? size + 8 : size;
+                // Larger icon ratio to fill more of the marker
+                const iconSize = isSelected ? size * 0.75 : size * 0.7;
 
-              return (
-                <MarkerView
-                  key={`marker-${activity.id}`}
-                  coordinate={center}
-                  anchor={{ x: 0.5, y: 0.5 }}
-                  allowOverlap={true}
-                >
-                  {/* Single view with fixed dimensions - no flex/dynamic sizing */}
-                  <View
-                    pointerEvents="none"
-                    style={{
-                      width: markerSize,
-                      height: markerSize,
-                      borderRadius: markerSize / 2,
-                      backgroundColor: config.color,
-                      // Thinner border to give more space for the icon
-                      borderWidth: isSelected ? 2 : 1.5,
-                      borderColor: isSelected ? colors.primary : colors.textOnDark,
-                      justifyContent: 'center',
-                      alignItems: 'center',
-                      ...shadows.elevated,
-                    }}
+                return (
+                  <MarkerView
+                    key={`marker-${activity.id}`}
+                    coordinate={center}
+                    anchor={{ x: 0.5, y: 0.5 }}
+                    allowOverlap={true}
                   >
-                    <Ionicons name={config.icon} size={iconSize} color={colors.textOnDark} />
-                  </View>
-                </MarkerView>
-              );
-            })}
+                    {/* Single view with fixed dimensions - no flex/dynamic sizing */}
+                    <View
+                      pointerEvents="none"
+                      style={{
+                        width: markerSize,
+                        height: markerSize,
+                        borderRadius: markerSize / 2,
+                        backgroundColor: config.color,
+                        // Thinner border to give more space for the icon
+                        borderWidth: isSelected ? 2 : 1.5,
+                        borderColor: isSelected ? colors.primary : colors.textOnDark,
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        ...shadows.elevated,
+                      }}
+                    >
+                      <Ionicons name={config.icon} size={iconSize} color={colors.textOnDark} />
+                    </View>
+                  </MarkerView>
+                );
+              })
+              .filter(Boolean)}
 
           {/* Routes layer - dashed polylines for route groups */}
           {showRoutes && !isHeatmapMode && routesGeoJSON && routesGeoJSON.features.length > 0 && (

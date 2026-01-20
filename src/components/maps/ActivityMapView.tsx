@@ -717,12 +717,17 @@ export function ActivityMapView({
             )}
 
             {/* Section overlays - render all matched sections */}
+            {/* Using flatMap + filter(Boolean) to avoid passing null children to MapView */}
+            {/* which causes iOS crash: -[__NSArrayM insertObject:atIndex:]: object cannot be nil */}
             {sectionOverlaysGeoJSON &&
-              sectionOverlaysGeoJSON.map((overlay, index) => (
-                <React.Fragment key={`section-overlay-${overlay.id}`}>
-                  {/* Master section polyline - cyan, rendered underneath */}
-                  {overlay.sectionGeo && (
-                    <ShapeSource id={`sectionSource-${index}`} shape={overlay.sectionGeo}>
+              sectionOverlaysGeoJSON
+                .flatMap((overlay, index) => [
+                  overlay.sectionGeo ? (
+                    <ShapeSource
+                      key={`sectionSource-${overlay.id}`}
+                      id={`sectionSource-${index}`}
+                      shape={overlay.sectionGeo}
+                    >
                       <LineLayer
                         id={`sectionLine-${index}`}
                         style={{
@@ -734,10 +739,13 @@ export function ActivityMapView({
                         }}
                       />
                     </ShapeSource>
-                  )}
-                  {/* Activity's portion on this section - magenta highlight */}
-                  {overlay.portionGeo && (
-                    <ShapeSource id={`portionSource-${index}`} shape={overlay.portionGeo}>
+                  ) : null,
+                  overlay.portionGeo ? (
+                    <ShapeSource
+                      key={`portionSource-${overlay.id}`}
+                      id={`portionSource-${index}`}
+                      shape={overlay.portionGeo}
+                    >
                       <LineLayer
                         id={`portionLine-${index}`}
                         style={{
@@ -749,9 +757,9 @@ export function ActivityMapView({
                         }}
                       />
                     </ShapeSource>
-                  )}
-                </React.Fragment>
-              ))}
+                  ) : null,
+                ])
+                .filter(Boolean)}
 
             {/* Route line - slightly fade when showing section overlays */}
             {routeGeoJSON && (
