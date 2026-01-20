@@ -155,7 +155,7 @@ jobs:
         id: changelog
         run: |
           VERSION_CODE="${{ steps.version.outputs.version_code }}"
-          CHANGELOG_FILE="fastlane/metadata/android/en-US/changelogs/${VERSION_CODE}.txt"
+          CHANGELOG_FILE="config/fastlane/metadata/android/en-US/changelogs/${VERSION_CODE}.txt"
           if [ -f "$CHANGELOG_FILE" ]; then
             CHANGELOG=$(cat "$CHANGELOG_FILE")
           else
@@ -235,7 +235,7 @@ jobs:
         uses: ruby/setup-ruby@v1
         with:
           ruby-version: "3.2"
-          working-directory: fastlane
+          working-directory: config/fastlane
           bundler-cache: true
 
       - name: Download AAB
@@ -253,7 +253,7 @@ jobs:
 
       - name: Upload to Play Store (internal track)
         if: steps.check_creds.outputs.skip != 'true'
-        working-directory: fastlane
+        working-directory: config/fastlane
         env:
           SUPPLY_JSON_KEY: ${{ github.workspace }}/play_store_credentials.json
           AAB_PATH: ${{ github.workspace }}/release/veloq-${{ needs.release.outputs.version }}.aab
@@ -313,7 +313,7 @@ jobs:
         uses: ruby/setup-ruby@v1
         with:
           ruby-version: "3.2"
-          working-directory: fastlane
+          working-directory: config/fastlane
           bundler-cache: true
 
       - name: Download IPA
@@ -325,7 +325,7 @@ jobs:
 
       - name: Upload to TestFlight
         if: steps.check_creds.outputs.skip != 'true'
-        working-directory: fastlane
+        working-directory: config/fastlane
         env:
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
