@@ -618,7 +618,10 @@ export default function ActivityDetailScreen() {
 
   if (isLoading) {
     return (
-      <ScreenSafeAreaView style={[styles.container, isDark && styles.containerDark]}>
+      <ScreenSafeAreaView
+        testID="activity-detail-screen"
+        style={[styles.container, isDark && styles.containerDark]}
+      >
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
         </View>
@@ -628,7 +631,10 @@ export default function ActivityDetailScreen() {
 
   if (error || !activity) {
     return (
-      <ScreenSafeAreaView style={[styles.container, isDark && styles.containerDark]}>
+      <ScreenSafeAreaView
+        testID="activity-detail-screen"
+        style={[styles.container, isDark && styles.containerDark]}
+      >
         <View style={[styles.floatingHeader, { paddingTop: insets.top }]}>
           <IconButton
             icon="arrow-left"
