@@ -118,14 +118,21 @@ describe('screenshots', () => {
   });
 
   it(`02-activity-map${suffix}: Activity Map`, async () => {
-    // Tap on first activity in the list
-    await waitFor(element(by.id('home-activity-list')))
-      .toBeVisible()
-      .withTimeout(5000);
-    await element(by.id('home-activity-list')).atIndex(0).tap();
-    await waitFor(element(by.id('activity-detail-screen')))
-      .toBeVisible()
-      .withTimeout(10000);
+    // Tap on first activity in the list (Android) or use deep link (iOS for FlatList reliability)
+    const isIOS = device.getPlatform() === 'ios';
+    if (isIOS) {
+      // Deep link is more reliable than FlatList tap on iOS
+      await navigateViaDeepLink('activity/demo-0', 'activity-detail-screen', 15000);
+    } else {
+      // FlatList tap works reliably on Android
+      await waitFor(element(by.id('home-activity-list')))
+        .toBeVisible()
+        .withTimeout(5000);
+      await element(by.id('home-activity-list')).atIndex(0).tap();
+      await waitFor(element(by.id('activity-detail-screen')))
+        .toBeVisible()
+        .withTimeout(10000);
+    }
 
     // Configure map style if not default
     if (config.mapStyle !== 'light') {
@@ -189,19 +196,23 @@ describe('screenshots', () => {
   });
 
   it(`07-regional-map${suffix}: Regional Map`, async () => {
-    // Navigate back to home first
-    await navigateViaDeepLink('', 'home-screen');
-    await new Promise((resolve) => setTimeout(resolve, 500));
-
-    // Use the map FAB button to open the regional map
-    await waitFor(element(by.id('map-fab')))
-      .toBeVisible()
-      .withTimeout(5000);
-    await element(by.id('map-fab')).tap();
-
-    await waitFor(element(by.id('map-screen')))
-      .toBeVisible()
-      .withTimeout(10000);
+    // Navigate to map - use FAB tap on Android, deep link on iOS
+    const isIOS = device.getPlatform() === 'ios';
+    if (isIOS) {
+      // Deep link is more reliable than FAB tap on iOS
+      await navigateViaDeepLink('map', 'map-screen');
+    } else {
+      // FAB tap works reliably on Android
+      await navigateViaDeepLink('', 'home-screen');
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      await waitFor(element(by.id('map-fab')))
+        .toBeVisible()
+        .withTimeout(5000);
+      await element(by.id('map-fab')).tap();
+      await waitFor(element(by.id('map-screen')))
+        .toBeVisible()
+        .withTimeout(10000);
+    }
 
     // Configure map style for regional map
     if (config.mapStyle !== 'light') {
