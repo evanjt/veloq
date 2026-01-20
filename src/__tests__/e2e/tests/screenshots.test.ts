@@ -114,6 +114,8 @@ describe('screenshots', () => {
     await waitFor(element(by.id('home-screen')))
       .toBeVisible()
       .withTimeout(5000);
+    // Wait for map tiles to load in activity card previews
+    await new Promise((resolve) => setTimeout(resolve, 3000));
     await device.takeScreenshot(`01-feed${suffix}`);
   });
 

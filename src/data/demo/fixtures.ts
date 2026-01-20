@@ -402,6 +402,16 @@ function generateActivities(): ApiActivity[] {
   let ctl = 35;
   let atl = 35;
   let activityId = 0;
+  let lastRoute: string | null = null;
+
+  // Helper to select a template from a range, avoiding the last used route
+  const selectTemplate = (indices: number[]): (typeof templates)[0] => {
+    // Filter to templates with different routes than last used
+    const candidates = indices.filter((i) => templates[i].route !== lastRoute);
+    // If all have same route (shouldn't happen), fall back to original list
+    const pool = candidates.length > 0 ? candidates : indices;
+    return templates[pool[Math.floor(Math.random() * pool.length)]];
+  };
 
   for (let daysAgo = 365; daysAgo >= 0; daysAgo--) {
     const date = new Date(now);
@@ -438,31 +448,31 @@ function generateActivities(): ApiActivity[] {
       // Sunday: Long activities - long ride, long run, or mountain hike
       const r = Math.random();
       if (r < 0.4)
-        template = templates[1]; // Long ride
+        template = selectTemplate([1]); // Long ride
       else if (r < 0.7)
-        template = templates[6]; // Long run
-      else template = templates[11]; // Mountain hike
+        template = selectTemplate([6]); // Long run
+      else template = selectTemplate([11]); // Mountain hike
     } else if (dayOfWeek === 6) {
       // Saturday: Outdoor activities - rides, runs, hikes, or walks
       const r = Math.random();
       if (r < 0.35)
-        template = templates[Math.floor(Math.random() * 2)]; // Rides
+        template = selectTemplate([0, 1]); // Rides
       else if (r < 0.6)
-        template = templates[5 + Math.floor(Math.random() * 3)]; // Runs
+        template = selectTemplate([5, 6, 7]); // Runs
       else if (r < 0.8)
-        template = templates[11 + Math.floor(Math.random() * 2)]; // Hikes
-      else template = templates[13 + Math.floor(Math.random() * 2)]; // Walks
+        template = selectTemplate([11, 12]); // Hikes
+      else template = selectTemplate([13, 14]); // Walks
     } else if (dayOfWeek === 2 || dayOfWeek === 5) {
       // Tuesday/Friday: Indoor or short activities - runs, swims, virtual rides
       const r = Math.random();
       if (r < 0.35)
-        template = templates[5 + Math.floor(Math.random() * 3)]; // Runs
+        template = selectTemplate([5, 6, 7]); // Runs
       else if (r < 0.55)
-        template = templates[8 + Math.floor(Math.random() * 3)]; // Swims
-      else template = templates[2 + Math.floor(Math.random() * 3)]; // Virtual rides
+        template = selectTemplate([8, 9, 10]); // Swims
+      else template = selectTemplate([2, 3, 4]); // Virtual rides
     } else {
       // Other weekdays: Mix of everything
-      template = templates[Math.floor(Math.random() * templates.length)];
+      template = selectTemplate([...Array(templates.length).keys()]);
     }
 
     const variance = (0.85 + Math.random() * 0.3) * seasonMult;
@@ -547,6 +557,9 @@ function generateActivities(): ApiActivity[] {
       // Store route ID for map lookups (not part of real API)
       _routeId: template.route,
     } as ApiActivity & { _routeId: string | null });
+
+    // Track last route to avoid consecutive duplicates
+    lastRoute = template.route;
   }
 
   return activities;

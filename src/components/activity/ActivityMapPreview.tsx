@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useCallback } from 'react';
 import { View, StyleSheet, ActivityIndicator } from 'react-native';
 import {
   MapView,
@@ -24,6 +24,11 @@ export function ActivityMapPreview({ activity, height = 160 }: ActivityMapPrevie
   const { getStyleForActivity } = useMapPreferences();
   const mapStyle = getStyleForActivity(activity.type);
   const activityColor = getActivityColor(activity.type);
+  const [mapReady, setMapReady] = useState(false);
+
+  const handleMapFullyRendered = useCallback(() => {
+    setMapReady(true);
+  }, []);
 
   // Check if activity has GPS data available
   const hasGpsData = activity.stream_types?.includes('latlng');
@@ -80,7 +85,10 @@ export function ActivityMapPreview({ activity, height = 160 }: ActivityMapPrevie
   }
 
   return (
-    <View style={[styles.container, { height }]}>
+    <View
+      style={[styles.container, { height }]}
+      testID={mapReady ? `activity-map-preview-ready-${activity.id}` : undefined}
+    >
       <MapView
         style={styles.map}
         mapStyle={styleUrl}
@@ -91,6 +99,7 @@ export function ActivityMapPreview({ activity, height = 160 }: ActivityMapPrevie
         zoomEnabled={false}
         rotateEnabled={false}
         pitchEnabled={false}
+        onDidFinishRenderingMapFully={handleMapFullyRendered}
       >
         <Camera
           bounds={bounds}

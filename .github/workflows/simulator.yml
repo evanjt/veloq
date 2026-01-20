@@ -61,7 +61,7 @@ jobs:
   ios-simulator:
     needs: changes
     name: iOS ${{ matrix.config }}
-    runs-on: macos-15
+    runs-on: macos-26
     timeout-minutes: 60
     strategy:
       fail-fast: false
@@ -372,7 +372,7 @@ jobs:
     needs: ios-simulator
     if: ${{ !inputs.skip_e2e }}
     name: Screenshots iOS
-    runs-on: macos-15
+    runs-on: macos-26
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
@@ -406,7 +406,23 @@ jobs:
           brew tap wix/brew
           brew install applesimutils
 
+      - name: Find 6.9" iPhone simulator
+        id: simulator
+        run: |
+          # Find Pro Max model for 6.9" screenshots (iPhone 17 Pro Max > 16 Pro Max > 15 Pro Max)
+          DEVICE=$(xcrun simctl list devices available | grep -E "iPhone 17 Pro Max" | head -1 | sed -E 's/^[[:space:]]*([^(]+) \(.*/\1/')
+          if [ -z "$DEVICE" ]; then
+            DEVICE=$(xcrun simctl list devices available | grep -E "iPhone 16 Pro Max" | head -1 | sed -E 's/^[[:space:]]*([^(]+) \(.*/\1/')
+          fi
+          if [ -z "$DEVICE" ]; then
+            DEVICE=$(xcrun simctl list devices available | grep -E "iPhone 15 Pro Max" | head -1 | sed -E 's/^[[:space:]]*([^(]+) \(.*/\1/')
+          fi
+          echo "device=$DEVICE" >> $GITHUB_OUTPUT
+          echo "Using 6.9\" iPhone simulator: $DEVICE"
+
       - name: Capture Screenshots
+        env:
+          DETOX_DEVICE_TYPE: ${{ steps.simulator.outputs.device }}
         run: |
           npx detox test --configuration ios.sim.release --headless \
             --testPathPattern "screenshots" \
@@ -423,13 +439,84 @@ jobs:
           retention-days: 14
 
   # ============================================
+  # Screenshots - iPad (PRIMARY - must succeed)
+  # ============================================
+  screenshots-ipad:
+    needs: ios-simulator
+    if: ${{ !inputs.skip_e2e }}
+    name: Screenshots iPad
+    runs-on: macos-26
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - run: npm ci
+
+      - name: Get artifact name
+        id: artifact
+        run: |
+          SOURCE_HASH=$(cat <(find src app modules plugins -type f \( -name "*.ts" -o -name "*.tsx" -o -name "*.js" -o -name "*.json" -o -name "*.swift" -o -name "*.m" -o -name "*.mm" -o -name "*.h" -o -name "*.kt" -o -name "*.java" -o -name "*.podspec" \) -exec sha256sum {} \; 2>/dev/null) <(sha256sum package.json app.json 2>/dev/null) | sort | sha256sum | cut -d' ' -f1 | head -c 12)
+          echo "name=ios-Release-${SOURCE_HASH}" >> $GITHUB_OUTPUT
+
+      - name: Download iOS app
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ steps.artifact.outputs.name }}
+          path: /tmp/ios-artifact
+
+      - name: Extract iOS app
+        run: |
+          mkdir -p ios/build/Build/Products/Release-iphonesimulator
+          unzip /tmp/ios-artifact/Veloq.app.zip -d ios/build/Build/Products/Release-iphonesimulator/
+
+      - name: Install applesimutils
+        run: |
+          brew tap wix/brew
+          brew install applesimutils
+
+      - name: Find 13" iPad simulator
+        id: simulator
+        run: |
+          # Find iPad Pro 13-inch for 13" screenshots
+          DEVICE=$(xcrun simctl list devices available | grep -E "iPad Pro 13-inch" | head -1 | sed -E 's/^[[:space:]]*([^(]+) \(.*/\1/')
+          if [ -z "$DEVICE" ]; then
+            # Fallback to 12.9-inch (older naming)
+            DEVICE=$(xcrun simctl list devices available | grep -E "iPad Pro.*12.9" | head -1 | sed -E 's/^[[:space:]]*([^(]+) \(.*/\1/')
+          fi
+          echo "device=$DEVICE" >> $GITHUB_OUTPUT
+          echo "Using 13\" iPad simulator: $DEVICE"
+
+      - name: Capture Screenshots
+        env:
+          DETOX_DEVICE_TYPE: ${{ steps.simulator.outputs.device }}
+        run: |
+          npx detox test --configuration ios.sim.release --headless \
+            --testPathPattern "screenshots" \
+            --record-logs all --loglevel verbose
+
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshots-ipad
+          path: |
+            artifacts/
+            src/__tests__/e2e/screenshots/
+          retention-days: 14
+
+  # ============================================
   # E2E Functional Tests - iOS (SECONDARY - failures don't block)
   # ============================================
   e2e-ios-functional:
     needs: ios-simulator
     if: ${{ !inputs.skip_e2e }}
     name: E2E iOS (optional)
-    runs-on: macos-15
+    runs-on: macos-26
     timeout-minutes: 30
     continue-on-error: true
     steps:
@@ -464,7 +551,21 @@ jobs:
           brew tap wix/brew
           brew install applesimutils
 
+      - name: Find 6.9" iPhone simulator
+        id: simulator
+        run: |
+          DEVICE=$(xcrun simctl list devices available | grep -E "iPhone 17 Pro Max" | head -1 | sed -E 's/^[[:space:]]*([^(]+) \(.*/\1/')
+          if [ -z "$DEVICE" ]; then
+            DEVICE=$(xcrun simctl list devices available | grep -E "iPhone 16 Pro Max" | head -1 | sed -E 's/^[[:space:]]*([^(]+) \(.*/\1/')
+          fi
+          if [ -z "$DEVICE" ]; then
+            DEVICE=$(xcrun simctl list devices available | grep -E "iPhone 15 Pro Max" | head -1 | sed -E 's/^[[:space:]]*([^(]+) \(.*/\1/')
+          fi
+          echo "device=$DEVICE" >> $GITHUB_OUTPUT
+
       - name: Run Functional Tests
+        env:
+          DETOX_DEVICE_TYPE: ${{ steps.simulator.outputs.device }}
         run: |
           npx detox test --configuration ios.sim.release --headless \
             --testPathPattern "(demo-mode|navigation)" \
@@ -552,6 +653,8 @@ jobs:
 
       - name: Capture Screenshots
         uses: reactivecircus/android-emulator-runner@v2
+        env:
+          DETOX_DEVICE_AVD_NAME: Pixel_5_API_30
         with:
           api-level: 30
           target: default
@@ -565,7 +668,7 @@ jobs:
             adb shell settings put global window_animation_scale 0
             adb shell settings put global transition_animation_scale 0
             adb shell settings put global animator_duration_scale 0
-            npx detox test --configuration android.emu.release --headless \
+            DETOX_DEVICE_AVD_NAME=Pixel_5_API_30 npx detox test --configuration android.emu.release --headless \
               --testPathPattern "screenshots" \
               --record-logs all --loglevel verbose
 
@@ -654,6 +757,8 @@ jobs:
 
       - name: Run Functional Tests
         uses: reactivecircus/android-emulator-runner@v2
+        env:
+          DETOX_DEVICE_AVD_NAME: Pixel_5_API_30
         with:
           api-level: 30
           target: default
@@ -667,7 +772,7 @@ jobs:
             adb shell settings put global window_animation_scale 0
             adb shell settings put global transition_animation_scale 0
             adb shell settings put global animator_duration_scale 0
-            npx detox test --configuration android.emu.release --headless \
+            DETOX_DEVICE_AVD_NAME=Pixel_5_API_30 npx detox test --configuration android.emu.release --headless \
               --testPathPattern "(demo-mode|navigation)" \
               --record-logs all --loglevel verbose
 
