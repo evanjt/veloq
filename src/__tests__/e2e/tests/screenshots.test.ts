@@ -165,8 +165,11 @@ describe('screenshots', () => {
   });
 
   it(`03-charts${suffix}: Activity Charts`, async () => {
-    // Scroll down to see charts
-    await element(by.id('activity-detail-screen')).scroll(400, 'down');
+    // Scroll down to see charts (must scroll on the ScrollView, not the outer container)
+    await waitFor(element(by.id('activity-charts-scrollview')))
+      .toBeVisible()
+      .withTimeout(5000);
+    await element(by.id('activity-charts-scrollview')).scroll(400, 'down');
     await new Promise((resolve) => setTimeout(resolve, 1000));
     await device.takeScreenshot(`03-charts${suffix}`);
   });

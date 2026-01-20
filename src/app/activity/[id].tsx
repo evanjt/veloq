@@ -728,6 +728,7 @@ export default function ActivityDetailScreen() {
       >
         {/* Tab 1: Charts */}
         <ScrollView
+          testID="activity-charts-scrollview"
           style={styles.tabScrollView}
           contentContainerStyle={styles.tabScrollContent}
           showsVerticalScrollIndicator={false}

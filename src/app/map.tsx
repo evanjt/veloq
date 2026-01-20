@@ -286,7 +286,10 @@ export default function MapScreen() {
   // Show loading state if not ready
   if (!isReady) {
     return (
-      <View style={[styles.loadingContainer, isDark && styles.loadingContainerDark]}>
+      <View
+        testID="map-screen"
+        style={[styles.loadingContainer, isDark && styles.loadingContainerDark]}
+      >
         <ActivityIndicator size="large" color={colors.primary} />
         <Text style={[styles.loadingText, isDark && styles.loadingTextDark]}>
           {t('mapScreen.loadingActivities')}
