@@ -35,11 +35,18 @@ describe('Demo Mode', () => {
     await expect(element(by.id('home-activity-list'))).toBeVisible();
   });
 
-  it('should show API key error for empty input', async () => {
-    // Expand API key section first
+  it('should show API key error for invalid input', async () => {
+    // Expand API key section
     await element(by.text('Use API Key instead')).tap();
-    // Try to submit empty API key
+
+    // Verify button exists (it's disabled when empty, so we can't tap it)
+    await expect(element(by.id('login-apikey-button'))).toExist();
+
+    // Enter invalid API key (too short) to enable the button
+    await element(by.id('login-apikey-input')).typeText('test');
     await element(by.id('login-apikey-button')).tap();
+
+    // Error should be visible (invalid API key)
     await expect(element(by.id('login-error-text'))).toBeVisible();
   });
 });

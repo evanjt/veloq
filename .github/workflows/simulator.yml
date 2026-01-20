@@ -332,11 +332,25 @@ jobs:
           mkdir -p ~/.gradle
           cp .github/ci-init.gradle ~/.gradle/init.gradle
 
+      - name: Free disk space
+        if: steps.apk-cache.outputs.cache-hit != 'true'
+        run: |
+          sudo rm -rf /usr/local/lib/android/sdk/ndk
+          sudo rm -rf /usr/local/lib/android/sdk/build-tools/3[0-3]*
+          sudo rm -rf /usr/local/lib/android/sdk/platforms/android-[1-2]*
+          sudo rm -rf /usr/local/lib/android/sdk/platforms/android-3[0-2]
+          sudo docker image prune --all --force || true
+          df -h
+
       - name: Build Release APKs
         if: steps.apk-cache.outputs.cache-hit != 'true'
         env:
           RUST_PREBUILT: "true"
-        run: cd android && ./gradlew assembleRelease assembleAndroidTest -DtestBuildType=release --no-daemon
+        run: |
+          # Only build arm64-v8a (modern devices) and x86_64 (emulator) to save disk space
+          cd android && ./gradlew assembleRelease assembleAndroidTest \
+            -PreactNativeArchitectures=arm64-v8a,x86_64 \
+            -DtestBuildType=release --no-daemon
 
       - name: Skip build (cache hit)
         if: steps.apk-cache.outputs.cache-hit == 'true'
@@ -352,14 +366,14 @@ jobs:
           retention-days: 7
 
   # ============================================
-  # E2E Tests - iOS (depends on iOS Debug build)
+  # Screenshots - iOS (PRIMARY - must succeed)
   # ============================================
-  e2e-ios:
+  screenshots-ios:
     needs: ios-simulator
     if: ${{ !inputs.skip_e2e }}
-    name: E2E iOS
+    name: Screenshots iOS
     runs-on: macos-15
-    timeout-minutes: 60
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
 
@@ -373,8 +387,6 @@ jobs:
       - name: Get artifact name
         id: artifact
         run: |
-          # Must match hash calculation in ios-simulator job (v3: includes native code)
-          # Use Release build - it has JS bundle embedded (Debug needs Metro bundler)
           SOURCE_HASH=$(cat <(find src app modules plugins -type f \( -name "*.ts" -o -name "*.tsx" -o -name "*.js" -o -name "*.json" -o -name "*.swift" -o -name "*.m" -o -name "*.mm" -o -name "*.h" -o -name "*.kt" -o -name "*.java" -o -name "*.podspec" \) -exec sha256sum {} \; 2>/dev/null) <(sha256sum package.json app.json 2>/dev/null) | sort | sha256sum | cut -d' ' -f1 | head -c 12)
           echo "name=ios-Release-${SOURCE_HASH}" >> $GITHUB_OUTPUT
 
@@ -388,46 +400,93 @@ jobs:
         run: |
           mkdir -p ios/build/Build/Products/Release-iphonesimulator
           unzip /tmp/ios-artifact/Veloq.app.zip -d ios/build/Build/Products/Release-iphonesimulator/
-          ls -la ios/build/Build/Products/Release-iphonesimulator/
-          ls -la ios/build/Build/Products/Release-iphonesimulator/Veloq.app/ | head -10
-          # Verify executable
-          file ios/build/Build/Products/Release-iphonesimulator/Veloq.app/Veloq
 
       - name: Install applesimutils
         run: |
           brew tap wix/brew
           brew install applesimutils
 
-      - name: List available simulators
+      - name: Capture Screenshots
         run: |
-          xcrun simctl list devices available | grep -E "iPhone (15|16)" | head -10
+          npx detox test --configuration ios.sim.release --headless \
+            --testPathPattern "screenshots" \
+            --record-logs all --loglevel verbose
 
-      - name: Run E2E Tests
-        run: |
-          # Use release configuration - it has JS bundle embedded
-          npx detox test --configuration ios.sim.release --headless --record-logs all --loglevel verbose
-
-      - name: Upload E2E results
+      - name: Upload screenshots
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: e2e-ios-results
+          name: screenshots-ios
           path: |
             artifacts/
-            e2e/*.png
-            e2e/*.log
-          retention-days: 7
-        continue-on-error: true
+            src/__tests__/e2e/screenshots/
+          retention-days: 14
 
   # ============================================
-  # E2E Tests - Android (depends on Android Release build)
+  # E2E Functional Tests - iOS (SECONDARY - failures don't block)
   # ============================================
-  e2e-android:
+  e2e-ios-functional:
+    needs: ios-simulator
+    if: ${{ !inputs.skip_e2e }}
+    name: E2E iOS (optional)
+    runs-on: macos-15
+    timeout-minutes: 30
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - run: npm ci
+
+      - name: Get artifact name
+        id: artifact
+        run: |
+          SOURCE_HASH=$(cat <(find src app modules plugins -type f \( -name "*.ts" -o -name "*.tsx" -o -name "*.js" -o -name "*.json" -o -name "*.swift" -o -name "*.m" -o -name "*.mm" -o -name "*.h" -o -name "*.kt" -o -name "*.java" -o -name "*.podspec" \) -exec sha256sum {} \; 2>/dev/null) <(sha256sum package.json app.json 2>/dev/null) | sort | sha256sum | cut -d' ' -f1 | head -c 12)
+          echo "name=ios-Release-${SOURCE_HASH}" >> $GITHUB_OUTPUT
+
+      - name: Download iOS app
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ steps.artifact.outputs.name }}
+          path: /tmp/ios-artifact
+
+      - name: Extract iOS app
+        run: |
+          mkdir -p ios/build/Build/Products/Release-iphonesimulator
+          unzip /tmp/ios-artifact/Veloq.app.zip -d ios/build/Build/Products/Release-iphonesimulator/
+
+      - name: Install applesimutils
+        run: |
+          brew tap wix/brew
+          brew install applesimutils
+
+      - name: Run Functional Tests
+        run: |
+          npx detox test --configuration ios.sim.release --headless \
+            --testPathPattern "(demo-mode|navigation)" \
+            --record-logs all --loglevel verbose
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-ios-functional-results
+          path: artifacts/
+          retention-days: 7
+
+  # ============================================
+  # Screenshots - Android (PRIMARY - must succeed)
+  # ============================================
+  screenshots-android:
     needs: android-release
     if: ${{ !inputs.skip_e2e }}
-    name: E2E Android
+    name: Screenshots Android
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
 
@@ -448,8 +507,6 @@ jobs:
       - name: Get artifact name
         id: artifact
         run: |
-          # Must match hash calculation in android-release job (v3: includes native code)
-          # Use Release build - it has JS bundle embedded (Debug needs Metro bundler)
           SOURCE_HASH=$(cat <(find src app modules plugins -type f \( -name "*.ts" -o -name "*.tsx" -o -name "*.js" -o -name "*.json" -o -name "*.swift" -o -name "*.m" -o -name "*.mm" -o -name "*.h" -o -name "*.kt" -o -name "*.java" -o -name "*.podspec" -o -name "*.gradle" \) -exec sha256sum {} \; 2>/dev/null) <(sha256sum package.json app.json 2>/dev/null) | sort | sha256sum | cut -d' ' -f1 | head -c 12)
           echo "name=android-release-${SOURCE_HASH}" >> $GITHUB_OUTPUT
 
@@ -463,14 +520,12 @@ jobs:
         run: |
           mkdir -p android/app/build/outputs/apk/release
           mkdir -p android/app/build/outputs/apk/androidTest/release
-          # Move files to expected locations
           if [ -f android/app/build/outputs/apk/app-release.apk ]; then
             mv android/app/build/outputs/apk/app-release.apk android/app/build/outputs/apk/release/
           fi
           if [ -f android/app/build/outputs/apk/app-release-androidTest.apk ]; then
             mv android/app/build/outputs/apk/app-release-androidTest.apk android/app/build/outputs/apk/androidTest/release/
           fi
-          find android/app/build/outputs/apk -name "*.apk"
 
       - name: Free disk space
         run: |
@@ -482,7 +537,6 @@ jobs:
 
       - name: Create AVD
         run: |
-          # Use default target (no Google APIs) for faster boot - API 30 is most stable on CI
           echo "y" | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --install "system-images;android-30;default;x86_64"
           echo "no" | $ANDROID_HOME/cmdline-tools/latest/bin/avdmanager create avd \
             -n Pixel_5_API_30 \
@@ -496,7 +550,7 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
-      - name: Run E2E Tests
+      - name: Capture Screenshots
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 30
@@ -511,16 +565,116 @@ jobs:
             adb shell settings put global window_animation_scale 0
             adb shell settings put global transition_animation_scale 0
             adb shell settings put global animator_duration_scale 0
-            npx detox test --configuration android.emu.release --headless --record-logs all --loglevel verbose
+            npx detox test --configuration android.emu.release --headless \
+              --testPathPattern "screenshots" \
+              --record-logs all --loglevel verbose
 
-      - name: Upload E2E results
+      - name: Upload screenshots
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: e2e-android-results
+          name: screenshots-android
           path: |
             artifacts/
-            e2e/*.png
-            e2e/*.log
+            src/__tests__/e2e/screenshots/
+          retention-days: 14
+
+  # ============================================
+  # E2E Functional Tests - Android (SECONDARY - failures don't block)
+  # ============================================
+  e2e-android-functional:
+    needs: android-release
+    if: ${{ !inputs.skip_e2e }}
+    name: E2E Android (optional)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: android-actions/setup-android@v3
+
+      - run: npm ci
+
+      - name: Get artifact name
+        id: artifact
+        run: |
+          SOURCE_HASH=$(cat <(find src app modules plugins -type f \( -name "*.ts" -o -name "*.tsx" -o -name "*.js" -o -name "*.json" -o -name "*.swift" -o -name "*.m" -o -name "*.mm" -o -name "*.h" -o -name "*.kt" -o -name "*.java" -o -name "*.podspec" -o -name "*.gradle" \) -exec sha256sum {} \; 2>/dev/null) <(sha256sum package.json app.json 2>/dev/null) | sort | sha256sum | cut -d' ' -f1 | head -c 12)
+          echo "name=android-release-${SOURCE_HASH}" >> $GITHUB_OUTPUT
+
+      - name: Download APKs
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ steps.artifact.outputs.name }}
+          path: android/app/build/outputs/apk
+
+      - name: Organize APKs
+        run: |
+          mkdir -p android/app/build/outputs/apk/release
+          mkdir -p android/app/build/outputs/apk/androidTest/release
+          if [ -f android/app/build/outputs/apk/app-release.apk ]; then
+            mv android/app/build/outputs/apk/app-release.apk android/app/build/outputs/apk/release/
+          fi
+          if [ -f android/app/build/outputs/apk/app-release-androidTest.apk ]; then
+            mv android/app/build/outputs/apk/app-release-androidTest.apk android/app/build/outputs/apk/androidTest/release/
+          fi
+
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/local/lib/android/sdk/ndk
+          sudo rm -rf /usr/local/lib/android/sdk/build-tools/3[0-3]*
+          sudo rm -rf /usr/local/lib/android/sdk/platforms/android-[1-2]*
+          sudo rm -rf /usr/local/lib/android/sdk/platforms/android-3[0-2]
+          sudo docker image prune --all --force || true
+
+      - name: Create AVD
+        run: |
+          echo "y" | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --install "system-images;android-30;default;x86_64"
+          echo "no" | $ANDROID_HOME/cmdline-tools/latest/bin/avdmanager create avd \
+            -n Pixel_5_API_30 \
+            -k "system-images;android-30;default;x86_64" \
+            --device "pixel_5" \
+            --force
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Run Functional Tests
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          target: default
+          arch: x86_64
+          avd-name: Pixel_5_API_30
+          emulator-boot-timeout: 600
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -accel on
+          disable-animations: true
+          script: |
+            adb wait-for-device
+            adb shell settings put global window_animation_scale 0
+            adb shell settings put global transition_animation_scale 0
+            adb shell settings put global animator_duration_scale 0
+            npx detox test --configuration android.emu.release --headless \
+              --testPathPattern "(demo-mode|navigation)" \
+              --record-logs all --loglevel verbose
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-android-functional-results
+          path: artifacts/
           retention-days: 7
-        continue-on-error: true

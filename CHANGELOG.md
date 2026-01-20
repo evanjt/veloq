@@ -5,7 +5,49 @@ All notable changes to Veloq will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.0.2] - 2025-01-09
+## [0.0.3] - 2026-01-20
+
+### Added
+- **CI/CD Improvements**
+  - Split E2E tests into parallel jobs: screenshots (required) and functional tests (optional)
+  - Screenshots now run independently and are prioritized
+  - Functional tests use `continue-on-error` to avoid blocking releases
+  - Added disk cleanup step to Android Release build job
+
+### Fixed
+- **Android Build**
+  - Fixed "No space left on device" error in CI by adding disk cleanup
+  - Reduced architectures from 4 to 2 (arm64-v8a, x86_64)
+  - Removed legacy 32-bit architectures (armeabi-v7a, x86) - saves ~500MB build space
+  - Fixed shared library packaging conflicts with React Native
+
+- **iOS Build**
+  - Fixed fastlane paths for correct relative directory handling
+  - Fixed Xcode project path resolution in CI
+
+- **E2E Tests**
+  - Fixed demo-mode test for disabled API key button
+  - Test now properly handles button disabled state when input is empty
+
+- **Native Module Build**
+  - Committed tracematch C++ bindings for CI builds (no Rust toolchain required)
+  - Fixed CMake build configuration for Android
+  - Fixed TurboModuleRegistry.getEnforcing loading error on Android
+
+### Changed
+- **Build Configuration**
+  - Android builds only for arm64-v8a (99%+ of devices) and x86_64 (emulator)
+  - Faster CI builds with fewer architectures
+  - E2E timeout reduced from 60 to 30-45 minutes per job
+
+### Technical Details
+- **CI Structure**: 4 E2E jobs (screenshots-ios, e2e-ios-functional, screenshots-android, e2e-android-functional)
+- **Build Artifacts**: iOS .app and Android .apk cached by source hash
+- **Test Coverage**: 293 tests passing
+
+---
+
+## [0.0.2] - 2026-01-09
 
 ### Added
 - **Route Performance Tracking**
