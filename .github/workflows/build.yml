@@ -66,7 +66,7 @@ jobs:
           - platform: android
             runs-on: ubuntu-latest
           - platform: ios
-            runs-on: macos-15
+            runs-on: macos-26
     steps:
       # ---- Android Signing Verification ----
       - name: Verify Android signing
@@ -616,7 +616,7 @@ jobs:
   build-ios:
     name: Build iOS App
     needs: [test, verify-signing]
-    runs-on: macos-15
+    runs-on: macos-26
     timeout-minutes: 90
     outputs:
       version: ${{ steps.version.outputs.version }}

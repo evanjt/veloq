@@ -286,7 +286,7 @@ jobs:
   deploy-testflight:
     name: Deploy to TestFlight
     needs: release
-    runs-on: macos-15
+    runs-on: macos-26
     # Only runs if IPA was built and ASC credentials are configured
     if: needs.release.outputs.ipa_path != ''
     steps:
