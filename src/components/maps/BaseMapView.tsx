@@ -401,8 +401,8 @@ export function BaseMapView({
             </ShapeSource>
           )}
 
-          {/* Custom children (markers, etc.) */}
-          {children}
+          {/* Custom children (markers, etc.) - filter null to prevent iOS crash */}
+          {React.Children.toArray(children).filter(Boolean)}
         </MapView>
       </View>
 

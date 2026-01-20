@@ -15,6 +15,8 @@
  */
 
 import type { LatLng } from '@/lib/geo/polyline';
+import * as fs from 'fs';
+import * as path from 'path';
 
 // Type matching the SectionOverlay structure used in ActivityMapView
 interface SectionOverlay {
@@ -339,6 +341,66 @@ describe('MapView null children crash prevention', () => {
       expect(result).toHaveLength(1);
       expect(result?.[0].sectionGeo).not.toBeNull();
       expect(result?.[0].portionGeo).toBeNull();
+    });
+  });
+});
+
+/**
+ * SOURCE CODE VERIFICATION TESTS
+ *
+ * These tests verify that the actual source files contain the necessary
+ * fix patterns. They will FAIL if the fix is reverted.
+ */
+describe('Source code fix verification', () => {
+  const componentsDir = path.resolve(__dirname, '../../components/maps');
+
+  describe('ActivityMapView.tsx', () => {
+    it('must use flatMap+filter pattern for section overlays (not React.Fragment)', () => {
+      const filePath = path.join(componentsDir, 'ActivityMapView.tsx');
+      const source = fs.readFileSync(filePath, 'utf-8');
+
+      // Must have flatMap + filter(Boolean) pattern
+      const hasFlatMapPattern = source.includes('.flatMap(') && source.includes('.filter(Boolean)');
+
+      // Must NOT have the old React.Fragment pattern for section overlays
+      const hasOldFragmentPattern = source.includes('<React.Fragment key={`section-overlay-');
+
+      expect(hasFlatMapPattern).toBe(true);
+      expect(hasOldFragmentPattern).toBe(false);
+    });
+  });
+
+  describe('RegionalMapView.tsx', () => {
+    it('must guard against undefined activity centers', () => {
+      const filePath = path.join(componentsDir, 'RegionalMapView.tsx');
+      const source = fs.readFileSync(filePath, 'utf-8');
+
+      // Must have null check for center
+      const hasNullGuard = source.includes('if (!center) return null');
+
+      // Must filter the result
+      const hasFilter = source.includes('.filter(Boolean)');
+
+      expect(hasNullGuard).toBe(true);
+      expect(hasFilter).toBe(true);
+    });
+  });
+
+  describe('BaseMapView.tsx', () => {
+    it('must filter null children before passing to MapView', () => {
+      const filePath = path.join(componentsDir, 'BaseMapView.tsx');
+      const source = fs.readFileSync(filePath, 'utf-8');
+
+      // Must have children filtering using React.Children
+      // Pattern: React.Children.toArray(children).filter(Boolean)
+      const hasChildrenFilter =
+        source.includes('React.Children.toArray') || source.includes('Children.toArray');
+
+      // The filtered children should be used somewhere
+      const hasFilteredChildren = source.includes('.filter(Boolean)');
+
+      expect(hasChildrenFilter).toBe(true);
+      expect(hasFilteredChildren).toBe(true);
     });
   });
 });
