@@ -69,7 +69,7 @@ export default function WellnessScreen() {
   }
 
   return (
-    <ScreenSafeAreaView style={shared.container}>
+    <ScreenSafeAreaView style={shared.container} testID="wellness-screen">
       <View style={styles.header}>
         <IconButton icon="arrow-left" iconColor={themeColors.text} onPress={() => router.back()} />
         <Text style={shared.headerTitle}>{t('wellnessScreen.title')}</Text>

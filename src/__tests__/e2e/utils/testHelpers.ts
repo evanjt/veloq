@@ -4,7 +4,12 @@
  * Utilities for handling common E2E testing challenges:
  * - App synchronization (timers, network requests)
  * - Element visibility with retries
- * - Navigation helpers
+ * - Deep link navigation (preferred for reliability)
+ *
+ * Key patterns:
+ * 1. Use deep links for navigation (veloq://path) - more reliable than tapping
+ * 2. Disable synchronization for operations (TanStack Query keeps app "busy")
+ * 3. Use waitFor with timeout for element assertions
  */
 
 import { device, element, by, waitFor, expect } from 'detox';
@@ -13,6 +18,26 @@ import { device, element, by, waitFor, expect } from 'detox';
  * Default timeout for element visibility (ms)
  */
 const DEFAULT_TIMEOUT = 30000;
+
+/**
+ * Available deep link routes in the app
+ */
+export const ROUTES = {
+  HOME: '',
+  FITNESS: 'fitness',
+  ROUTES: 'routes',
+  STATS: 'stats',
+  SETTINGS: 'settings',
+  ABOUT: 'about',
+  MAP: 'map',
+  LOGIN: 'login',
+  HEATMAP: 'heatmap',
+  WELLNESS: 'wellness',
+  TRAINING: 'training',
+  ACTIVITY: (id: string) => `activity/${id}`,
+  ROUTE_DETAIL: (id: string) => `route/${id}`,
+  SECTION_DETAIL: (id: string) => `section/${id}`,
+} as const;
 
 /**
  * Wait for an element to be visible, with synchronization disabled.
@@ -188,4 +213,64 @@ export async function scrollDown(testID: string, distance: number = 500): Promis
   } finally {
     await device.enableSynchronization();
   }
+}
+
+/**
+ * Navigate to a screen via deep link.
+ * This is the preferred navigation method as it's more reliable than tapping.
+ *
+ * @param route - The route path (e.g., 'fitness', 'settings', 'activity/demo-0')
+ * @param expectedScreenId - The testID of the expected screen
+ * @param timeout - Maximum time to wait for screen to appear
+ */
+export async function navigateViaDeepLink(
+  route: string,
+  expectedScreenId: string,
+  timeout: number = DEFAULT_TIMEOUT
+): Promise<void> {
+  await device.disableSynchronization();
+  try {
+    await device.openURL({ url: `veloq://${route}` });
+    // Small delay to let navigation complete
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    await waitFor(element(by.id(expectedScreenId)))
+      .toBeVisible()
+      .withTimeout(timeout);
+  } finally {
+    await device.enableSynchronization();
+  }
+}
+
+/**
+ * Navigate to a screen via deep link and wait for it to exist (not necessarily visible).
+ * Useful for screens that may have loading states.
+ *
+ * @param route - The route path
+ * @param expectedScreenId - The testID of the expected screen
+ * @param timeout - Maximum time to wait
+ */
+export async function navigateViaDeepLinkAndWaitForExist(
+  route: string,
+  expectedScreenId: string,
+  timeout: number = DEFAULT_TIMEOUT
+): Promise<void> {
+  await device.disableSynchronization();
+  try {
+    await device.openURL({ url: `veloq://${route}` });
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    await waitFor(element(by.id(expectedScreenId)))
+      .toExist()
+      .withTimeout(timeout);
+  } finally {
+    await device.enableSynchronization();
+  }
+}
+
+/**
+ * Small delay helper for waiting for animations/data loading.
+ *
+ * @param ms - Milliseconds to wait
+ */
+export function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }

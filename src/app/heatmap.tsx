@@ -138,7 +138,7 @@ export default function HeatmapScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <View style={styles.container} testID="heatmap-screen">
       <MapView
         style={styles.map}
         mapStyle={mapStyleValue}

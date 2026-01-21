@@ -85,7 +85,7 @@ export default function TrainingScreen() {
   }, [activities]);
 
   return (
-    <ScreenSafeAreaView style={shared.container}>
+    <ScreenSafeAreaView style={shared.container} testID="training-screen">
       <View style={styles.header}>
         <IconButton icon="arrow-left" iconColor={themeColors.text} onPress={() => router.back()} />
         <Text style={shared.headerTitle}>{t('trainingScreen.title')}</Text>
