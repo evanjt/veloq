@@ -211,8 +211,13 @@ export function formatPower(watts: number): string {
 export function formatRelativeDate(dateString: string): string {
   const date = new Date(dateString);
   const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+  // Compare calendar days, not elapsed time
+  // This ensures "yesterday at 4pm" shows as "Yesterday" even if checked at 8am today
+  const dateDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const nowDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const diffDays = Math.round((nowDay.getTime() - dateDay.getTime()) / (1000 * 60 * 60 * 24));
+
   const isCurrentYear = date.getFullYear() === now.getFullYear();
   const locale = getIntlLocale();
 

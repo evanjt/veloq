@@ -7,6 +7,7 @@
  */
 
 import React, { useCallback, useMemo, useState } from 'react';
+import { useSyncDateRange } from '@/providers/SyncDateRangeStore';
 import { View, StyleSheet, FlatList, Platform, TouchableOpacity } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { useTheme } from '@/hooks';
@@ -20,6 +21,7 @@ import { useEngineGroups } from '@/hooks/routes/useRouteEngine';
 import { getRouteEngine } from '@/lib/native/routeEngine';
 import { SectionRow, ActivityTrace } from './SectionRow';
 import { PotentialSectionCard } from './PotentialSectionCard';
+import { DataRangeFooter } from './DataRangeFooter';
 import { useCustomSections } from '@/hooks/routes/useCustomSections';
 import { useSectionDismissals } from '@/providers/SectionDismissalsStore';
 import { debug } from '@/lib';
@@ -65,6 +67,16 @@ export function SectionsList({ sportType }: SectionsListProps) {
   });
 
   const { createSection } = useCustomSections();
+
+  // Get cached date range for footer
+  const syncOldest = useSyncDateRange((s) => s.oldest);
+  const syncNewest = useSyncDateRange((s) => s.newest);
+  const cacheDays = useMemo(() => {
+    if (!syncOldest || !syncNewest) return 90; // default
+    return Math.ceil(
+      (new Date(syncNewest).getTime() - new Date(syncOldest).getTime()) / (1000 * 60 * 60 * 24)
+    );
+  }, [syncOldest, syncNewest]);
 
   // Get route groups to compute routeIds for custom sections
   const { groups: routeGroups } = useEngineGroups({ minActivities: 1 });
@@ -443,6 +455,11 @@ export function SectionsList({ sportType }: SectionsListProps) {
     [sectionTraces, handleSectionPress, toFrequentSection, t]
   );
 
+  const renderFooter = () => {
+    if (regularSections.length === 0) return null;
+    return <DataRangeFooter days={cacheDays} isDark={isDark} />;
+  };
+
   return (
     <FlatList
       data={regularSections}
@@ -450,6 +467,7 @@ export function SectionsList({ sportType }: SectionsListProps) {
       renderItem={renderItem}
       ListHeaderComponent={renderHeader}
       ListEmptyComponent={renderEmpty}
+      ListFooterComponent={renderFooter}
       contentContainerStyle={regularSections.length === 0 ? styles.emptyList : styles.list}
       showsVerticalScrollIndicator={false}
       keyboardShouldPersistTaps="handled"

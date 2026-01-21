@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
+import { useSyncDateRange } from '@/providers/SyncDateRangeStore';
 import {
   View,
   ScrollView,
@@ -36,6 +37,7 @@ import {
   RoutePerformanceSection,
   MiniTraceView,
 } from '@/components';
+import { DataRangeFooter } from '@/components/routes';
 import type { SectionOverlay } from '@/components/maps/ActivityMapView';
 import { SwipeableTabs, type SwipeableTab } from '@/components/ui';
 import type { SectionCreationResult } from '@/components/maps/ActivityMapView';
@@ -126,6 +128,16 @@ export default function ActivityDetailScreen() {
   const pressStartTimeRef = useRef<number>(0);
   const highlightTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const LONG_PRESS_THRESHOLD = 200; // ms - anything longer is a hold, not a tap
+
+  // Get cached date range for footer
+  const syncOldest = useSyncDateRange((s) => s.oldest);
+  const syncNewest = useSyncDateRange((s) => s.newest);
+  const cacheDays = useMemo(() => {
+    if (!syncOldest || !syncNewest) return 90; // default
+    return Math.ceil(
+      (new Date(syncNewest).getTime() - new Date(syncOldest).getTime()) / (1000 * 60 * 60 * 24)
+    );
+  }, [syncOldest, syncNewest]);
 
   // Tab state for swipeable tabs
   type TabType = 'charts' | 'routes' | 'sections';
@@ -907,6 +919,9 @@ export default function ActivityDetailScreen() {
               </Text>
             </View>
           )}
+
+          {/* Data range footer */}
+          <DataRangeFooter days={cacheDays} isDark={isDark} />
         </ScrollView>
 
         {/* Tab 3: Sections */}
@@ -1184,6 +1199,9 @@ export default function ActivityDetailScreen() {
               <Text style={styles.createSectionButtonText}>{t('routes.createSection')}</Text>
             </TouchableOpacity>
           )}
+
+          {/* Data range footer */}
+          <DataRangeFooter days={cacheDays} isDark={isDark} />
         </ScrollView>
       </SwipeableTabs>
 

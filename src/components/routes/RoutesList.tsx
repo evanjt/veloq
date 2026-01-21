@@ -4,6 +4,7 @@
  */
 
 import React, { useEffect, useRef, memo, useMemo, useCallback } from 'react';
+import { useSyncDateRange } from '@/providers/SyncDateRangeStore';
 import {
   View,
   StyleSheet,
@@ -23,6 +24,7 @@ import { useRouteGroups, useRouteProcessing } from '@/hooks';
 import { getRouteEngine } from '@/lib/native/routeEngine';
 import { CacheScopeNotice } from './CacheScopeNotice';
 import { RouteRow } from './RouteRow';
+import { DataRangeFooter } from './DataRangeFooter';
 import type { DiscoveredRouteInfo, RouteGroup } from '@/types';
 
 interface RoutesListProps {
@@ -117,6 +119,16 @@ export function RoutesList({
   });
 
   const { progress } = useRouteProcessing();
+
+  // Get cached date range for footer
+  const oldest = useSyncDateRange((s) => s.oldest);
+  const newest = useSyncDateRange((s) => s.newest);
+  const cacheDays = useMemo(() => {
+    if (!oldest || !newest) return 90; // default
+    return Math.ceil(
+      (new Date(newest).getTime() - new Date(oldest).getTime()) / (1000 * 60 * 60 * 24)
+    );
+  }, [oldest, newest]);
 
   // Refresh data when screen gains focus (e.g., returning from detail page after rename)
   useFocusEffect(
@@ -260,6 +272,11 @@ export function RoutesList({
     );
   };
 
+  const renderFooter = () => {
+    if (groups.length === 0) return null;
+    return <DataRangeFooter days={cacheDays} isDark={isDark} />;
+  };
+
   return (
     <FlatList
       data={groups}
@@ -267,6 +284,7 @@ export function RoutesList({
       renderItem={({ item }) => <RouteRow route={item as unknown as RouteGroup} navigable />}
       ListHeaderComponent={renderHeader}
       ListEmptyComponent={renderEmpty}
+      ListFooterComponent={renderFooter}
       contentContainerStyle={groups.length === 0 ? styles.emptyList : styles.list}
       showsVerticalScrollIndicator={false}
       // Performance optimizations

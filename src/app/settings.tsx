@@ -725,9 +725,21 @@ export default function SettingsScreen() {
                 ? (() => {
                     const oldest = new Date(cacheStats.oldestDate);
                     const newest = new Date(cacheStats.newestDate);
-                    const days = Math.ceil(
-                      (newest.getTime() - oldest.getTime()) / (1000 * 60 * 60 * 24)
+                    // Use calendar days for accurate day counting
+                    const oldestDay = new Date(
+                      oldest.getFullYear(),
+                      oldest.getMonth(),
+                      oldest.getDate()
                     );
+                    const newestDay = new Date(
+                      newest.getFullYear(),
+                      newest.getMonth(),
+                      newest.getDate()
+                    );
+                    const days =
+                      Math.round(
+                        (newestDay.getTime() - oldestDay.getTime()) / (1000 * 60 * 60 * 24)
+                      ) + 1; // +1 to include both start and end days
                     return `${formatDate(cacheStats.oldestDate, i18n.language)} - ${formatDate(cacheStats.newestDate, i18n.language)} (${t('stats.daysCount', { count: days })})`;
                   })()
                 : t('settings.noData')}

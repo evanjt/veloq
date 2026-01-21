@@ -1,4 +1,5 @@
 import React, { useMemo, useCallback, useState, useEffect, useRef } from 'react';
+import { useSyncDateRange } from '@/providers/SyncDateRangeStore';
 import {
   View,
   ScrollView,
@@ -45,7 +46,7 @@ function gpsPointsToRoutePoints(
     lng: p.longitude,
   }));
 }
-import { RouteMapView, MiniTraceView } from '@/components/routes';
+import { RouteMapView, MiniTraceView, DataRangeFooter } from '@/components/routes';
 import { UnifiedPerformanceChart } from '@/components/routes/performance';
 import {
   formatDistance,
@@ -228,6 +229,16 @@ export default function RouteDetailScreen() {
   const { isDark, colors: themeColors } = useTheme();
   const shared = createSharedStyles(isDark);
   const insets = useSafeAreaInsets();
+
+  // Get cached date range for footer
+  const oldest = useSyncDateRange((s) => s.oldest);
+  const newest = useSyncDateRange((s) => s.newest);
+  const cacheDays = useMemo(() => {
+    if (!oldest || !newest) return 90; // default
+    return Math.ceil(
+      (new Date(newest).getTime() - new Date(oldest).getTime()) / (1000 * 60 * 60 * 24)
+    );
+  }, [oldest, newest]);
 
   // State for highlighted activity
   const [highlightedActivityId, setHighlightedActivityId] = useState<string | null>(null);
@@ -767,6 +778,9 @@ export default function RouteDetailScreen() {
               </View>
             )}
           </View>
+
+          {/* Data range footer */}
+          <DataRangeFooter days={cacheDays} isDark={isDark} />
         </View>
       </ScrollView>
     </View>

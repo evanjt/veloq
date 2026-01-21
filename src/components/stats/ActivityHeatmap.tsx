@@ -87,10 +87,17 @@ export function ActivityHeatmap({
     let calculatedWeeks = minWeeks;
 
     if (oldestDate !== null) {
-      const msPerWeek = 7 * 24 * 60 * 60 * 1000;
-      const weeksSinceOldest = Math.ceil(
-        (today.getTime() - (oldestDate as Date).getTime()) / msPerWeek
+      // Use calendar days for accurate week calculation
+      const todayDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+      const oldestDay = new Date(
+        (oldestDate as Date).getFullYear(),
+        (oldestDate as Date).getMonth(),
+        (oldestDate as Date).getDate()
       );
+      const daysSinceOldest = Math.round(
+        (todayDay.getTime() - oldestDay.getTime()) / (1000 * 60 * 60 * 24)
+      );
+      const weeksSinceOldest = Math.ceil(daysSinceOldest / 7);
       // Add 1 week buffer to ensure the oldest activity is visible
       calculatedWeeks = Math.min(Math.max(weeksSinceOldest + 1, minWeeks), maxWeeks);
     }

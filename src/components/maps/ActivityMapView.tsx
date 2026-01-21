@@ -258,21 +258,31 @@ export function ActivityMapView({
   const MAX_RETRIES = 3;
   const RETRY_DELAY_MS = 1000;
 
+  // Track when map is ready to receive camera commands
+  const [mapReady, setMapReady] = useState(false);
+
   const handleMapLoadError = useCallback(() => {
     if (Platform.OS === 'ios' && retryCountRef.current < MAX_RETRIES) {
       retryCountRef.current += 1;
       console.log(
         `[ActivityMap] Load failed, retrying (${retryCountRef.current}/${MAX_RETRIES})...`
       );
+      setMapReady(false); // Reset ready state before retry
       setTimeout(() => {
         setMapKey((k) => k + 1);
       }, RETRY_DELAY_MS * retryCountRef.current);
     }
   }, []);
 
-  // Reset retry count when style changes
+  // Handle map finishing loading - now safe to apply camera commands
+  const handleMapFinishLoading = useCallback(() => {
+    setMapReady(true);
+  }, []);
+
+  // Reset retry count and map ready state when style changes (map reloads)
   useEffect(() => {
     retryCountRef.current = 0;
+    setMapReady(false);
   }, [mapStyle]);
 
   // Parse and validate coordinates early so they're available for callbacks
@@ -522,23 +532,25 @@ export function ActivityMapView({
   // Track which coordinatesKey we've applied bounds for
   const appliedBoundsKeyRef = useRef<string>('');
 
+  // Reset applied bounds when style changes (map reloads and needs fresh bounds)
+  useEffect(() => {
+    appliedBoundsKeyRef.current = '';
+  }, [mapStyle]);
+
   // Apply bounds imperatively when coordinates change (different activity)
   // Using imperative API ensures Camera props stay consistent across re-renders
+  // Wait for mapReady to avoid race condition where fitBounds is called before map is initialized
   useEffect(() => {
-    if (bounds && coordinatesKey && coordinatesKey !== appliedBoundsKeyRef.current) {
-      // Small delay to ensure map is ready
-      const timer = setTimeout(() => {
-        cameraRef.current?.fitBounds(
-          bounds.ne,
-          bounds.sw,
-          [50, 50, 50, 50], // padding: [top, right, bottom, left]
-          0 // animationDuration
-        );
-        appliedBoundsKeyRef.current = coordinatesKey;
-      }, 100);
-      return () => clearTimeout(timer);
+    if (mapReady && bounds && coordinatesKey && coordinatesKey !== appliedBoundsKeyRef.current) {
+      cameraRef.current?.fitBounds(
+        bounds.ne,
+        bounds.sw,
+        [50, 50, 50, 50], // padding: [top, right, bottom, left]
+        0 // animationDuration
+      );
+      appliedBoundsKeyRef.current = coordinatesKey;
     }
-  }, [bounds, coordinatesKey]);
+  }, [mapReady, bounds, coordinatesKey]);
 
   const routeGeoJSON = useMemo(() => {
     if (validCoordinates.length === 0) return null;
@@ -702,6 +714,7 @@ export function ActivityMapView({
             onRegionIsChanging={handleRegionIsChanging}
             onPress={handleMapPress}
             onDidFailLoadingMap={handleMapLoadError}
+            onDidFinishLoadingMap={handleMapFinishLoading}
           >
             <Camera
               ref={cameraRef}

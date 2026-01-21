@@ -157,10 +157,7 @@ export function RoutePerformanceSection({
     return null;
   }
 
-  // Need at least 2 data points to show chart
-  if (chartData.length < 2) {
-    return null;
-  }
+  const showChart = chartData.length >= 2;
 
   return (
     <View style={[styles.container, isDark && styles.containerDark]}>
@@ -192,21 +189,29 @@ export function RoutePerformanceSection({
         </View>
       </TouchableOpacity>
 
-      {/* Performance Chart - integrated with header */}
-      <UnifiedPerformanceChart
-        chartData={chartData}
-        activityType={activityType}
-        isDark={isDark}
-        minSpeed={minSpeed}
-        maxSpeed={maxSpeed}
-        bestIndex={bestIndex}
-        hasReverseRuns={hasReverseRuns}
-        tooltipBadgeType="match"
-        summaryStats={summaryStats}
-        currentIndex={currentIndex}
-        variant="activity"
-        embedded
-      />
+      {/* Performance Chart - only show with 2+ data points */}
+      {showChart ? (
+        <UnifiedPerformanceChart
+          chartData={chartData}
+          activityType={activityType}
+          isDark={isDark}
+          minSpeed={minSpeed}
+          maxSpeed={maxSpeed}
+          bestIndex={bestIndex}
+          hasReverseRuns={hasReverseRuns}
+          tooltipBadgeType="match"
+          summaryStats={summaryStats}
+          currentIndex={currentIndex}
+          variant="activity"
+          embedded
+        />
+      ) : (
+        <View style={styles.firstRunHint}>
+          <Text style={[styles.firstRunText, isDark && styles.textMuted]}>
+            {t('routes.firstRunHint')}
+          </Text>
+        </View>
+      )}
     </View>
   );
 }
@@ -279,5 +284,15 @@ const styles = StyleSheet.create({
   },
   textMuted: {
     color: darkColors.textMuted,
+  },
+  firstRunHint: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.lg,
+    alignItems: 'center',
+  },
+  firstRunText: {
+    fontSize: typography.bodySmall.fontSize,
+    color: colors.textSecondary,
+    textAlign: 'center',
   },
 });

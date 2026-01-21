@@ -27,9 +27,11 @@ interface EventPlannerProps {
 function getDaysUntil(dateStr: string): number {
   const target = new Date(dateStr);
   const today = new Date();
+  // Zero out both dates to compare calendar days only
   today.setHours(0, 0, 0, 0);
+  target.setHours(0, 0, 0, 0);
   const diff = target.getTime() - today.getTime();
-  return Math.ceil(diff / (1000 * 60 * 60 * 24));
+  return Math.round(diff / (1000 * 60 * 60 * 24));
 }
 
 function formatDate(dateStr: string): string {

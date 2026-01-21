@@ -4,6 +4,7 @@
  */
 
 import React, { useMemo, useCallback, useState, useEffect, useRef } from 'react';
+import { useSyncDateRange } from '@/providers/SyncDateRangeStore';
 import {
   View,
   ScrollView,
@@ -35,7 +36,7 @@ import { useEngineGroups } from '@/hooks/routes/useRouteEngine';
 import { getAllSectionDisplayNames } from '@/hooks/routes/useUnifiedSections';
 import { createSharedStyles } from '@/styles';
 import { useDisabledSections } from '@/providers';
-import { SectionMapView, MiniTraceView } from '@/components/routes';
+import { SectionMapView, MiniTraceView, DataRangeFooter } from '@/components/routes';
 import { UnifiedPerformanceChart } from '@/components/routes/performance';
 import { getRouteEngine } from '@/lib/native/routeEngine';
 import {
@@ -264,6 +265,16 @@ export default function SectionDetailScreen() {
   const { isDark, colors: themeColors } = useTheme();
   const shared = createSharedStyles(isDark);
   const insets = useSafeAreaInsets();
+
+  // Get cached date range for footer
+  const syncOldest = useSyncDateRange((s) => s.oldest);
+  const syncNewest = useSyncDateRange((s) => s.newest);
+  const cacheDays = useMemo(() => {
+    if (!syncOldest || !syncNewest) return 90; // default
+    return Math.ceil(
+      (new Date(syncNewest).getTime() - new Date(syncOldest).getTime()) / (1000 * 60 * 60 * 24)
+    );
+  }, [syncOldest, syncNewest]);
 
   const [highlightedActivityId, setHighlightedActivityId] = useState<string | null>(null);
   const [highlightedActivityPoints, setHighlightedActivityPoints] = useState<
@@ -1081,6 +1092,9 @@ export default function SectionDetailScreen() {
               </View>
             )}
           </View>
+
+          {/* Data range footer */}
+          <DataRangeFooter days={cacheDays} isDark={isDark} />
         </View>
       </ScrollView>
     </View>

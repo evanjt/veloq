@@ -151,7 +151,24 @@ export function usePotentialSections(
       }
 
       // Get route groups for linking sections
-      const groups: RouteGroup[] = engine.getGroups();
+      const rawGroups: RouteGroup[] = engine.getGroups();
+
+      // Filter and sanitize groups - FFI requires all string fields to be non-null/non-empty
+      const groups = rawGroups
+        .filter(
+          (g) =>
+            g.groupId != null &&
+            g.groupId !== '' &&
+            g.representativeId != null &&
+            g.representativeId !== '' &&
+            g.activityIds != null &&
+            g.activityIds.length > 0
+        )
+        .map((g) => ({
+          ...g,
+          // Ensure sportType is never null/empty - default to 'Ride' if missing
+          sportType: g.sportType || 'Ride',
+        }));
 
       // Create default section config
       const config = SectionConfig.create({

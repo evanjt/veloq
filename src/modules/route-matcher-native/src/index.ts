@@ -511,7 +511,24 @@ class RouteEngineClient {
    */
   getGroups(): RouteGroup[] {
     const json = persistentEngineGetGroupsJson();
-    return safeJsonParse<RouteGroup[]>(json, []);
+    const groups = safeJsonParse<RouteGroup[]>(json, []);
+
+    // Debug: Log any groups with null/undefined sportType
+    if (__DEV__) {
+      const invalidGroups = groups.filter((g) => g.sportType == null);
+      if (invalidGroups.length > 0) {
+        console.warn(
+          `[RouteMatcher] ${invalidGroups.length} groups have null sportType:`,
+          invalidGroups.map((g) => ({
+            groupId: g.groupId,
+            activityIds: g.activityIds.slice(0, 3),
+            sportType: g.sportType,
+          }))
+        );
+      }
+    }
+
+    return groups;
   }
 
   /**

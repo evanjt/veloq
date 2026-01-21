@@ -9,4 +9,5 @@ export { SectionRow } from './SectionRow';
 export { SectionsList } from './SectionsList';
 export { SectionMapView } from './SectionMapView';
 export { DateRangeSummary } from './DateRangeSummary';
+export { DataRangeFooter } from './DataRangeFooter';
 export { MiniTraceView } from './MiniTraceView';

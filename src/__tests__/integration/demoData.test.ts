@@ -83,8 +83,10 @@ describe('Demo Data Integration Tests', () => {
       const firstDate = new Date(sorted[0].id);
       const lastDate = new Date(sorted[sorted.length - 1].id);
 
-      // Should have at least 30 days of data
-      const daysDiff = (lastDate.getTime() - firstDate.getTime()) / (1000 * 60 * 60 * 24);
+      // Should have at least 30 days of data - use calendar days
+      const firstDay = new Date(firstDate.getFullYear(), firstDate.getMonth(), firstDate.getDate());
+      const lastDay = new Date(lastDate.getFullYear(), lastDate.getMonth(), lastDate.getDate());
+      const daysDiff = Math.round((lastDay.getTime() - firstDay.getTime()) / (1000 * 60 * 60 * 24));
       expect(daysDiff).toBeGreaterThanOrEqual(30);
     });
 

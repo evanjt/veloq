@@ -199,19 +199,29 @@ async function runPotentialSectionDetection(
     }
 
     // Get route groups for linking sections
-    const groups: RouteGroup[] = nativeModule.routeEngine.getGroups();
+    const rawGroups: RouteGroup[] = nativeModule.routeEngine.getGroups();
 
-    // Debug: Check for undefined fields in groups
-    if (__DEV__ && groups.length > 0) {
-      const firstGroup = groups[0];
-      console.log('[runPotentialSectionDetection] First group sample:', {
-        groupId: firstGroup.groupId,
-        representativeId: firstGroup.representativeId,
-        sportType: firstGroup.sportType,
-        hasGroupId: 'groupId' in firstGroup,
-        hasGroup_id: 'group_id' in firstGroup,
-        keys: Object.keys(firstGroup),
-      });
+    // Filter and sanitize groups - FFI requires all string fields to be non-null/non-empty
+    const groups = rawGroups
+      .filter(
+        (g) =>
+          g.groupId != null &&
+          g.groupId !== '' &&
+          g.representativeId != null &&
+          g.representativeId !== '' &&
+          g.activityIds != null &&
+          g.activityIds.length > 0
+      )
+      .map((g) => ({
+        ...g,
+        // Ensure sportType is never null/empty - default to 'Ride' if missing
+        sportType: g.sportType || 'Ride',
+      }));
+
+    if (__DEV__ && rawGroups.length !== groups.length) {
+      console.log(
+        `[runPotentialSectionDetection] Filtered ${rawGroups.length - groups.length} invalid groups (null/empty string fields)`
+      );
     }
 
     // Create section config for potential detection
