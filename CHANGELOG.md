@@ -5,6 +5,95 @@ All notable changes to Veloq will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.5] - 2026-01-21
+
+### Added
+- **3D Map Enhancements**
+  - 3D terrain view now available without selecting a specific activity
+  - 3D map preserves current camera position when toggling from 2D
+  - Routes, sections, and traces visible in 3D view (same layers as 2D)
+
+- **Section Detail Improvements**
+  - Map markers showing section endpoints
+  - Chart scrubbing in section performance list
+  - Time gap compression in section plots for cleaner visualization
+  - Forward and reverse direction separation
+
+### Fixed
+- **Performance**
+  - Fixed scrubbing lag by moving time stream caching to Rust engine
+  - Reduced loading times through navigation by using Rust engine cache
+
+- **Map Centering**
+  - Map now centers on most recent activity location instead of cached position
+
+- **Date Display**
+  - Fixed activity timestamps to show correct date (not "today" for yesterday's activities)
+
+- **MapLibre Stability**
+  - Fixed crash with sparse polylines in section GeoJSON
+  - Added validation for null coordinates in map layers
+
+- **Android Build**
+  - Added Gradle exclusions to fix build conflicts
+  - Updated to tracematch 0.0.8
+
+### Changed
+- **Heatmap Feature**
+  - Temporarily disabled heatmap generation (pending data validation fixes)
+  - Heatmap toggle button hidden when feature is disabled
+
+### Technical Details
+- **Tracematch**: Updated to 0.0.8
+- **CI/CD**: E2E test deep links, screenshot previews in CI
+
+---
+
+## [0.0.4] - 2026-01-20
+
+### Added
+- **E2E Testing Improvements**
+  - iPad screenshot support
+  - Screenshot collection and organization scripts
+  - Dark mode, satellite, and 3D screenshot variants
+  - Platform-specific navigation for iOS tests
+  - TestIDs for map loading states, charts, activity details
+
+- **Platform Support**
+  - All screen orientations now supported (was portrait-only)
+  - 16KB page alignment for modern Android devices
+
+### Fixed
+- **Android Build**
+  - Fixed TurboModuleRegistry.getEnforcing loading error
+  - Committed tracematch C++ bindings for CI builds (no Rust toolchain required)
+  - Excluded duplicate RN shared libraries from module packaging
+  - Fixed CMake build configuration
+
+- **iOS Build**
+  - Corrected fastlane paths for relative directory handling
+  - Updated to latest iOS SDK
+
+- **CI/CD**
+  - Fixed release GitHub Action workflow
+  - Split screenshots from E2E functional tests
+  - Improved build artifact caching
+
+### Changed
+- **Section Logic**
+  - Improved traversal direction detection for sections
+  - Better handling of bidirectional routes
+
+- **Build Configuration**
+  - Removed deprecated Expo `edgeToEdge` property
+  - Updated to Xcode 26.2
+
+### Technical Details
+- **Tracematch**: 0.0.7
+- **Build Time**: ~60 min timeout for E2E tests
+
+---
+
 ## [0.0.3] - 2026-01-20
 
 ### Added
