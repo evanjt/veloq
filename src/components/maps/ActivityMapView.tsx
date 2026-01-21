@@ -797,46 +797,6 @@ export function ActivityMapView({
                 })
                 .filter(Boolean)}
 
-            {/* Numbered markers at center of each section */}
-            {/* filter(Boolean) prevents null children crash on iOS MapLibre */}
-            {sectionOverlaysGeoJSON &&
-              sectionOverlaysGeoJSON
-                .map((overlay, index) => {
-                  if (!overlay.sectionGeo?.geometry?.coordinates?.length) return null;
-                  const coords = overlay.sectionGeo.geometry.coordinates;
-                  const midIndex = Math.floor(coords.length / 2);
-                  const centerCoord = coords[midIndex];
-                  if (!centerCoord) return null;
-
-                  const isHighlighted = highlightedSectionId === overlay.id;
-                  const isDimmed = highlightedSectionId && !isHighlighted;
-
-                  return (
-                    <MarkerView
-                      key={`sectionMarker-${overlay.id}`}
-                      coordinate={[centerCoord[0], centerCoord[1]]}
-                    >
-                      <View
-                        style={[
-                          styles.sectionNumberMarker,
-                          isDimmed && styles.sectionNumberMarkerDimmed,
-                          isHighlighted && styles.sectionNumberMarkerHighlighted,
-                        ]}
-                      >
-                        <Text
-                          style={[
-                            styles.sectionNumberText,
-                            isHighlighted && styles.sectionNumberTextHighlighted,
-                          ]}
-                        >
-                          {index + 1}
-                        </Text>
-                      </View>
-                    </MarkerView>
-                  );
-                })
-                .filter(Boolean)}
-
             {/* Route line - slightly fade when showing section overlays */}
             {routeGeoJSON && (
               <ShapeSource id="routeSource" shape={routeGeoJSON}>
@@ -930,6 +890,77 @@ export function ActivityMapView({
                 </View>
               </MarkerView>
             )}
+
+            {/* Numbered markers at center of each section, offset to the side */}
+            {sectionOverlaysGeoJSON &&
+              sectionOverlaysGeoJSON
+                .map((overlay, index) => {
+                  // Get coordinates from sectionGeo or portionGeo
+                  const coords =
+                    overlay.sectionGeo?.geometry?.coordinates ||
+                    overlay.portionGeo?.geometry?.coordinates;
+                  if (!coords || coords.length < 2) return null;
+
+                  // Use midpoint of the trace
+                  const midIndex = Math.floor(coords.length / 2);
+                  const midCoord = coords[midIndex];
+                  if (
+                    !midCoord ||
+                    typeof midCoord[0] !== 'number' ||
+                    typeof midCoord[1] !== 'number'
+                  )
+                    return null;
+
+                  // Calculate perpendicular offset from trace direction
+                  const prevIndex = Math.max(0, midIndex - 1);
+                  const nextIndex = Math.min(coords.length - 1, midIndex + 1);
+                  const prevCoord = coords[prevIndex];
+                  const nextCoord = coords[nextIndex];
+
+                  // Direction vector along the trace
+                  const dx = nextCoord[0] - prevCoord[0];
+                  const dy = nextCoord[1] - prevCoord[1];
+                  const len = Math.sqrt(dx * dx + dy * dy);
+
+                  // Perpendicular offset (to the right of travel direction)
+                  const offsetDistance = 0.00035; // ~35 meters at equator
+                  const offsetLng = len > 0 ? (-dy / len) * offsetDistance : 0;
+                  const offsetLat = len > 0 ? (dx / len) * offsetDistance : 0;
+
+                  const markerLng = midCoord[0] + offsetLng;
+                  const markerLat = midCoord[1] + offsetLat;
+
+                  const sectionStyle = getSectionStyle(index);
+                  const isHighlighted = highlightedSectionId === overlay.id;
+                  const isDimmed = highlightedSectionId && !isHighlighted;
+
+                  return (
+                    <MarkerView
+                      key={`sectionMarker-${overlay.id}`}
+                      coordinate={[markerLng, markerLat]}
+                      anchor={{ x: 0.5, y: 0.5 }}
+                    >
+                      <View
+                        style={[
+                          styles.sectionNumberMarker,
+                          { borderColor: sectionStyle.color },
+                          isDimmed && styles.sectionNumberMarkerDimmed,
+                          isHighlighted && styles.sectionNumberMarkerHighlighted,
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.sectionNumberText,
+                            isHighlighted && styles.sectionNumberTextHighlighted,
+                          ]}
+                        >
+                          {index + 1}
+                        </Text>
+                      </View>
+                    </MarkerView>
+                  );
+                })
+                .filter(Boolean)}
           </MapView>
         </View>
 
