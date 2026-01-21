@@ -275,6 +275,14 @@ const ActivityRow = memo(function ActivityRow({
 });
 
 export default function SectionDetailScreen() {
+  // Defer map loading until after interactions complete for faster perceived load
+  useEffect(() => {
+    const handle = InteractionManager.runAfterInteractions(() => {
+      setMapReady(true);
+    });
+    return () => handle.cancel();
+  }, []);
+
   const { t } = useTranslation();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { isDark, colors: themeColors } = useTheme();
@@ -308,6 +316,8 @@ export default function SectionDetailScreen() {
   const [computedActivityTraces, setComputedActivityTraces] = useState<
     Record<string, RoutePoint[]>
   >({});
+  // Defer map loading until after first paint for faster perceived load
+  const [mapReady, setMapReady] = useState(false);
 
   // State for section renaming
   const [isEditing, setIsEditing] = useState(false);
@@ -1003,17 +1013,23 @@ export default function SectionDetailScreen() {
         {/* Hero Map Section */}
         <View style={styles.heroSection}>
           <View style={styles.mapContainer}>
-            <SectionMapView
-              section={section}
-              height={MAP_HEIGHT}
-              interactive={true}
-              enableFullscreen={true}
-              shadowTrack={shadowTrack}
-              highlightedActivityId={mapHighlightedActivityId}
-              highlightedLapPoints={mapHighlightedLapPoints}
-              allActivityTraces={sectionWithTraces?.activityTraces}
-              isScrubbing={isScrubbing}
-            />
+            {mapReady ? (
+              <SectionMapView
+                section={section}
+                height={MAP_HEIGHT}
+                interactive={true}
+                enableFullscreen={true}
+                shadowTrack={shadowTrack}
+                highlightedActivityId={mapHighlightedActivityId}
+                highlightedLapPoints={mapHighlightedLapPoints}
+                allActivityTraces={sectionWithTraces?.activityTraces}
+                isScrubbing={isScrubbing}
+              />
+            ) : (
+              <View style={[styles.mapPlaceholder, { height: MAP_HEIGHT }]}>
+                <ActivityIndicator size="large" color={colors.primary} />
+              </View>
+            )}
           </View>
 
           <LinearGradient
@@ -1200,57 +1216,56 @@ export default function SectionDetailScreen() {
             <Text style={[styles.sectionTitle, isDark && styles.textLight]}>
               {t('sections.activities')}
             </Text>
-
-            {isLoading ? (
-              <View style={styles.loadingContainer}>
-                <ActivityIndicator size="small" color={colors.primary} />
-              </View>
-            ) : sectionActivities.length === 0 ? (
-              <Text style={[styles.emptyActivities, isDark && styles.textMuted]}>
-                {t('sections.noActivitiesFound')}
-              </Text>
-            ) : (
-              <View style={[styles.activitiesCard, isDark && styles.activitiesCardDark]}>
-                {sectionActivities.map((activity, index) => {
-                  const portion = portionMap.get(activity.id);
-                  const tracePoints = sectionWithTraces?.activityTraces?.[activity.id];
-                  const isHighlighted = listHighlightedActivityId === activity.id;
-                  // Look up actual performance record for this activity (O(1) map lookup)
-                  const record = performanceRecordMap.get(activity.id);
-                  // Get rank and check if best
-                  const activityRank = rankMap.get(activity.id);
-                  const isBest = activity.id === bestActivityId;
-
-                  return (
-                    <React.Fragment key={activity.id}>
-                      <ActivityRow
-                        activity={activity}
-                        isDark={isDark}
-                        direction={record?.direction || portion?.direction}
-                        activityPoints={tracePoints}
-                        sectionPoints={section.polyline}
-                        isHighlighted={isHighlighted}
-                        sectionDistance={record?.sectionDistance || portion?.distanceMeters}
-                        lapCount={record?.lapCount}
-                        actualSectionTime={record?.bestTime}
-                        actualSectionPace={record?.bestPace}
-                        isBest={isBest}
-                        rank={activityRank}
-                        bestTime={bestTimeValue}
-                        onHighlightChange={handleRowHighlightChange}
-                      />
-                      {index < sectionActivities.length - 1 && (
-                        <View style={[styles.divider, isDark && styles.dividerDark]} />
-                      )}
-                    </React.Fragment>
-                  );
-                })}
-              </View>
-            )}
           </View>
 
-          {/* Data range footer */}
-          <DataRangeFooter days={cacheDays} isDark={isDark} />
+          {/* Activity rows */}
+          {isLoading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="small" color={colors.primary} />
+            </View>
+          ) : sectionActivities.length === 0 ? (
+            <Text style={[styles.emptyActivities, isDark && styles.textMuted]}>
+              {t('sections.noActivitiesFound')}
+            </Text>
+          ) : (
+            <View style={[styles.activitiesCard, isDark && styles.activitiesCardDark]}>
+              {sectionActivities.map((activity, index) => {
+                const portion = portionMap.get(activity.id);
+                const record = performanceRecordMap.get(activity.id);
+                const isHighlighted = listHighlightedActivityId === activity.id;
+                const isBest = bestActivityId === activity.id;
+                const rank = rankMap.get(activity.id);
+                const activityTracePoints = sectionWithTraces?.activityTraces?.[activity.id];
+
+                return (
+                  <React.Fragment key={activity.id}>
+                    {index > 0 && <View style={[styles.divider, isDark && styles.dividerDark]} />}
+                    <ActivityRow
+                      activity={activity}
+                      isDark={isDark}
+                      direction={record?.direction || portion?.direction}
+                      activityPoints={activityTracePoints}
+                      sectionPoints={section.polyline}
+                      isHighlighted={isHighlighted}
+                      sectionDistance={record?.sectionDistance || portion?.distanceMeters}
+                      lapCount={record?.lapCount}
+                      actualSectionTime={record?.bestTime}
+                      actualSectionPace={record?.bestPace}
+                      isBest={isBest}
+                      rank={rank}
+                      bestTime={bestTimeValue}
+                      onHighlightChange={handleRowHighlightChange}
+                    />
+                  </React.Fragment>
+                );
+              })}
+            </View>
+          )}
+
+          {/* Footer */}
+          <View style={styles.listFooterContainer}>
+            <DataRangeFooter days={cacheDays} isDark={isDark} />
+          </View>
         </View>
       </ScrollView>
     </View>
@@ -1277,12 +1292,44 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingBottom: spacing.xl,
   },
+  flatListContent: {
+    paddingBottom: spacing.xl,
+  },
+  activitiesCardWrapper: {
+    marginHorizontal: spacing.md,
+  },
+  activitiesCardContent: {
+    backgroundColor: colors.surface,
+    marginHorizontal: spacing.md,
+  },
+  activitiesCardContentDark: {
+    backgroundColor: darkColors.surface,
+  },
+  firstActivityCell: {
+    borderTopLeftRadius: layout.borderRadius,
+    borderTopRightRadius: layout.borderRadius,
+    overflow: 'hidden',
+  },
+  lastActivityCell: {
+    borderBottomLeftRadius: layout.borderRadius,
+    borderBottomRightRadius: layout.borderRadius,
+    overflow: 'hidden',
+  },
+  listFooterContainer: {
+    marginTop: spacing.md,
+  },
   heroSection: {
     height: MAP_HEIGHT,
     position: 'relative',
   },
   mapContainer: {
     flex: 1,
+  },
+  mapPlaceholder: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: darkColors.background,
   },
   mapGradient: {
     position: 'absolute',
@@ -1501,8 +1548,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: spacing.md,
     gap: spacing.md,
+    backgroundColor: colors.surface,
+    marginHorizontal: spacing.md,
   },
-  activityRowDark: {},
+  activityRowDark: {
+    backgroundColor: darkColors.surface,
+  },
   activityRowHighlighted: {
     backgroundColor: 'rgba(0, 188, 212, 0.1)',
   },

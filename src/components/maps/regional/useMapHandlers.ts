@@ -31,6 +31,7 @@ interface UseMapHandlersOptions {
   setUserLocation: (value: [number, number] | null) => void;
   setVisibleActivityIds: (value: Set<string> | null) => void;
   setCurrentZoom: (value: number) => void;
+  setCurrentCenter: (value: [number, number] | null) => void;
   cameraRef: React.RefObject<React.ElementRef<typeof Camera> | null>;
   map3DRef: React.RefObject<Map3DWebViewRef | null>;
   bearingAnim: Animated.Value;
@@ -71,6 +72,7 @@ export function useMapHandlers({
   setUserLocation,
   setVisibleActivityIds,
   setCurrentZoom,
+  setCurrentCenter,
   cameraRef,
   map3DRef,
   bearingAnim,
@@ -197,7 +199,7 @@ export function useMapHandlers({
     [bearingAnim, currentZoomLevel]
   );
 
-  // Handle region change end - track zoom level and update visible activities
+  // Handle region change end - track zoom level, center, and update visible activities
   const handleRegionDidChange = useCallback(
     (feature: GeoJSON.Feature) => {
       const properties = feature.properties as
@@ -212,17 +214,25 @@ export function useMapHandlers({
         setCurrentZoom(properties.zoomLevel);
       }
 
-      if (properties?.visibleBounds && activitySpatialIndex.ready) {
+      if (properties?.visibleBounds) {
         const [[swLng, swLat], [neLng, neLat]] = properties.visibleBounds;
-        const viewport = mapBoundsToViewport([swLng, swLat], [neLng, neLat]);
-        const visibleIds = activitySpatialIndex.queryViewport(viewport);
 
-        if (visibleIds.length > 0 || activitySpatialIndex.size === 0) {
-          setVisibleActivityIds(new Set(visibleIds));
+        // Calculate and store center from visible bounds
+        const centerLng = (swLng + neLng) / 2;
+        const centerLat = (swLat + neLat) / 2;
+        setCurrentCenter([centerLng, centerLat]);
+
+        if (activitySpatialIndex.ready) {
+          const viewport = mapBoundsToViewport([swLng, swLat], [neLng, neLat]);
+          const visibleIds = activitySpatialIndex.queryViewport(viewport);
+
+          if (visibleIds.length > 0 || activitySpatialIndex.size === 0) {
+            setVisibleActivityIds(new Set(visibleIds));
+          }
         }
       }
     },
-    [currentZoomLevel, setCurrentZoom, setVisibleActivityIds]
+    [currentZoomLevel, setCurrentZoom, setCurrentCenter, setVisibleActivityIds]
   );
 
   // Get user location (one-time jump, no tracking)

@@ -6,8 +6,8 @@ import { getBoundsFromPoints } from '@/lib';
 import type { MapStyleType } from './mapStyles';
 
 interface Map3DWebViewProps {
-  /** Route coordinates as [lng, lat] pairs */
-  coordinates: [number, number][];
+  /** Route coordinates as [lng, lat] pairs (optional - if not provided, just shows terrain) */
+  coordinates?: [number, number][];
   /** Map theme */
   mapStyle: MapStyleType;
   /** Route line color */
@@ -16,6 +16,16 @@ interface Map3DWebViewProps {
   initialPitch?: number;
   /** Terrain exaggeration factor */
   terrainExaggeration?: number;
+  /** Initial center as [lng, lat] - used when no coordinates provided */
+  initialCenter?: [number, number];
+  /** Initial zoom level - used when no coordinates provided */
+  initialZoom?: number;
+  /** GeoJSON for routes layer */
+  routesGeoJSON?: GeoJSON.FeatureCollection;
+  /** GeoJSON for sections layer */
+  sectionsGeoJSON?: GeoJSON.FeatureCollection;
+  /** GeoJSON for traces layer */
+  tracesGeoJSON?: GeoJSON.FeatureCollection;
 }
 
 export interface Map3DWebViewRef {
@@ -38,11 +48,16 @@ interface Map3DWebViewPropsInternal extends Map3DWebViewProps {
 export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInternal>(
   function Map3DWebView(
     {
-      coordinates,
+      coordinates = [],
       mapStyle,
       routeColor = colors.primary,
       initialPitch = 60,
       terrainExaggeration = 1.5,
+      initialCenter,
+      initialZoom = 12,
+      routesGeoJSON,
+      sectionsGeoJSON,
+      tracesGeoJSON,
       onMapReady,
       onBearingChange,
     },
@@ -104,10 +119,17 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       return getBoundsFromPoints(points, 0.1);
     }, [coordinates]);
 
+    // Use initial center/zoom when no coordinates provided
+    const hasRoute = coordinates.length > 0;
+
     // Generate the HTML for the WebView
     const html = useMemo(() => {
       const coordsJSON = JSON.stringify(coordinates);
       const boundsJSON = bounds ? JSON.stringify(bounds) : 'null';
+      const centerJSON = initialCenter ? JSON.stringify(initialCenter) : 'null';
+      const routesJSON = routesGeoJSON ? JSON.stringify(routesGeoJSON) : 'null';
+      const sectionsJSON = sectionsGeoJSON ? JSON.stringify(sectionsGeoJSON) : 'null';
+      const tracesJSON = tracesGeoJSON ? JSON.stringify(tracesGeoJSON) : 'null';
       const isSatellite = mapStyle === 'satellite';
       const isDark = mapStyle === 'dark' || mapStyle === 'satellite';
 
@@ -154,19 +176,35 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
   <script>
     const coordinates = ${coordsJSON};
     const bounds = ${boundsJSON};
+    const center = ${centerJSON};
+    const routesData = ${routesJSON};
+    const sectionsData = ${sectionsJSON};
+    const tracesData = ${tracesJSON};
     const isSatellite = ${isSatellite};
 
     // Create map with appropriate style
-    window.map = new maplibregl.Map({
+    // Use bounds if available (from route), otherwise use center/zoom
+    const mapOptions = {
       container: 'map',
       style: ${styleConfig},
-      bounds: bounds ? [bounds.sw, bounds.ne] : undefined,
-      fitBoundsOptions: { padding: 50 },
       pitch: ${initialPitch},
       maxPitch: 85,
       bearing: 0,
       attributionControl: false,
-    });
+    };
+
+    if (bounds) {
+      mapOptions.bounds = [bounds.sw, bounds.ne];
+      mapOptions.fitBoundsOptions = { padding: 50 };
+    } else if (center) {
+      mapOptions.center = center;
+      mapOptions.zoom = ${initialZoom};
+    } else {
+      mapOptions.center = [0, 0];
+      mapOptions.zoom = 2;
+    }
+
+    window.map = new maplibregl.Map(mapOptions);
 
     const map = window.map;
 
@@ -280,12 +318,93 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
           },
         });
       }
+
+      // Add routes layer (grouped routes from activities)
+      if (routesData && routesData.features && routesData.features.length > 0) {
+        map.addSource('routes-source', {
+          type: 'geojson',
+          data: routesData,
+        });
+
+        map.addLayer({
+          id: 'routes-layer',
+          type: 'line',
+          source: 'routes-source',
+          layout: {
+            'line-join': 'round',
+            'line-cap': 'round',
+          },
+          paint: {
+            'line-color': ['get', 'color'],
+            'line-width': 3,
+            'line-opacity': 0.7,
+          },
+        });
+      }
+
+      // Add sections layer (frequent sections)
+      if (sectionsData && sectionsData.features && sectionsData.features.length > 0) {
+        map.addSource('sections-source', {
+          type: 'geojson',
+          data: sectionsData,
+        });
+
+        map.addLayer({
+          id: 'sections-layer',
+          type: 'line',
+          source: 'sections-source',
+          layout: {
+            'line-join': 'round',
+            'line-cap': 'round',
+          },
+          paint: {
+            'line-color': '#FFD700',
+            'line-width': 4,
+            'line-opacity': 0.8,
+          },
+        });
+      }
+
+      // Add traces layer (GPS traces when zoomed in)
+      if (tracesData && tracesData.features && tracesData.features.length > 0) {
+        map.addSource('traces-source', {
+          type: 'geojson',
+          data: tracesData,
+        });
+
+        map.addLayer({
+          id: 'traces-layer',
+          type: 'line',
+          source: 'traces-source',
+          layout: {
+            'line-join': 'round',
+            'line-cap': 'round',
+          },
+          paint: {
+            'line-color': ['get', 'color'],
+            'line-width': 2,
+            'line-opacity': 0.6,
+          },
+        });
+      }
     });
   </script>
 </body>
 </html>
     `;
-    }, [coordinates, bounds, mapStyle, routeColor, initialPitch, terrainExaggeration]);
+    }, [
+      coordinates,
+      bounds,
+      initialCenter,
+      initialZoom,
+      mapStyle,
+      routeColor,
+      initialPitch,
+      terrainExaggeration,
+      routesGeoJSON,
+      sectionsGeoJSON,
+      tracesGeoJSON,
+    ]);
 
     return (
       <View style={styles.container}>

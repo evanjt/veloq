@@ -87,6 +87,7 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
   const [visibleActivityIds, setVisibleActivityIds] = useState<Set<string> | null>(null);
   const [currentZoom, setCurrentZoom] = useState(10);
+  const [currentCenter, setCurrentCenter] = useState<[number, number] | null>(null);
   const [selectedCell, setSelectedCell] = useState<CellQueryResult | null>(null);
   const [selectedSection, setSelectedSection] = useState<FrequentSection | null>(null);
   const [selectedRoute, setSelectedRoute] = useState<{
@@ -184,7 +185,7 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
 
   // Calculate bounds from activities (used for initial camera position)
   // Uses normalizeBounds to auto-detect coordinate format from API
-  // Returns bounds AND a center biased toward recent activities
+  // Returns bounds AND centers on the most recent activity's location
   const calculateBoundsAndCenter = useCallback((activityList: ActivityBoundsItem[]) => {
     if (activityList.length === 0) return null;
 
@@ -201,30 +202,20 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
       maxLng = Math.max(maxLng, normalized.maxLng);
     }
 
-    // Calculate center longitude biased toward recent activities
-    // Sort by date descending and take most recent activities for center calculation
-    const recentCount = Math.min(20, activityList.length);
+    // Find the most recent activity and center on it
     const sortedByDate = [...activityList].sort((a, b) =>
       (b.date || '').localeCompare(a.date || '')
     );
-    const recentActivities = sortedByDate.slice(0, recentCount);
+    const mostRecent = sortedByDate[0];
+    const recentBounds = normalizeBounds(mostRecent.bounds);
+    const centerLng = (recentBounds.minLng + recentBounds.maxLng) / 2;
+    const centerLat = (recentBounds.minLat + recentBounds.maxLat) / 2;
 
-    // Calculate average longitude from recent activities
-    let recentLngSum = 0;
-    for (const activity of recentActivities) {
-      const normalized = normalizeBounds(activity.bounds);
-      recentLngSum += (normalized.minLng + normalized.maxLng) / 2;
-    }
-    const recentCenterLng = recentLngSum / recentActivities.length;
-
-    // Latitude center uses full bounds (so we see activities at all latitudes)
-    const centerLat = (minLat + maxLat) / 2;
-
-    // Calculate zoom level based on bounds span
+    // Calculate zoom level based on full bounds span
     // Using Mercator projection formula: zoom = log2(360 / lonSpan) or log2(180 / latSpan)
     const latSpan = maxLat - minLat;
     const lngSpan = maxLng - minLng;
-    // Add padding factor (0.8) to ensure some margin around activities
+    // Add padding factor to ensure some margin around activities
     const latZoom = Math.log2(180 / (latSpan || 1)) - 0.5;
     const lngZoom = Math.log2(360 / (lngSpan || 1)) - 0.5;
     // Use the smaller zoom (shows more area) to fit all activities
@@ -235,24 +226,27 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
         ne: [maxLng, maxLat] as [number, number],
         sw: [minLng, minLat] as [number, number],
       },
-      center: [recentCenterLng, centerLat] as [number, number],
+      center: [centerLng, centerLat] as [number, number],
       zoomLevel,
     };
   }, []);
 
-  // Set initial bounds only once when we first have activities
-  // This prevents the map from jumping around during background sync
+  // Set initial bounds once when we first have activities
+  // This prevents the zoom from jumping during background sync
+  // But center is always computed fresh to reflect most recent activity
   useEffect(() => {
     if (initialBoundsRef.current === null && activities.length > 0) {
       initialBoundsRef.current = calculateBoundsAndCenter(activities);
     }
   }, [activities, calculateBoundsAndCenter]);
 
-  // Use the stored initial bounds and center for the camera default
-  const mapData = initialBoundsRef.current || calculateBoundsAndCenter(activities);
-  const mapBounds = mapData?.bounds ?? null;
-  const mapCenter = mapData?.center ?? null;
-  const mapZoom = mapData?.zoomLevel ?? 2;
+  // Compute center from current activities (always uses most recent activity)
+  // But use cached bounds/zoom to prevent jumping during sync
+  const currentData = calculateBoundsAndCenter(activities);
+  const cachedData = initialBoundsRef.current;
+  const mapBounds = cachedData?.bounds ?? currentData?.bounds ?? null;
+  const mapCenter = currentData?.center ?? cachedData?.center ?? null;
+  const mapZoom = cachedData?.zoomLevel ?? currentData?.zoomLevel ?? 2;
 
   // Extract handlers to separate hook
   const {
@@ -285,6 +279,7 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
     setUserLocation,
     setVisibleActivityIds,
     setCurrentZoom,
+    setCurrentCenter,
     cameraRef,
     map3DRef,
     bearingAnim,
@@ -601,7 +596,7 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
     };
   }, [selected?.mapData]);
 
-  // Get 3D route coordinates from selected activity
+  // Get 3D route coordinates from selected activity (if any)
   const route3DCoords = useMemo(() => {
     if (!selected?.mapData?.latlngs) return [];
 
@@ -610,9 +605,9 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
       .map(([lat, lng]) => [lng, lat] as [number, number]); // Convert to [lng, lat]
   }, [selected?.mapData]);
 
-  // 3D is available when we have route data to display
-  const can3D = !!selected && route3DCoords.length > 0;
-  // Show 3D view when enabled and we have route data
+  // 3D is available when we have any activities (terrain can be shown without a specific route)
+  const can3D = activities.length > 0;
+  // Show 3D view when enabled
   const show3D = is3DMode && can3D;
 
   return (
@@ -620,9 +615,14 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
       {show3D ? (
         <Map3DWebView
           ref={map3DRef}
-          coordinates={route3DCoords}
+          coordinates={route3DCoords.length > 0 ? route3DCoords : undefined}
           mapStyle={mapStyle}
-          routeColor={getActivityTypeConfig(selected.activity.type).color}
+          routeColor={selected ? getActivityTypeConfig(selected.activity.type).color : undefined}
+          initialCenter={currentCenter ?? mapCenter ?? undefined}
+          initialZoom={currentZoom}
+          routesGeoJSON={showRoutes ? (routesGeoJSON ?? undefined) : undefined}
+          sectionsGeoJSON={showSections ? (sectionsGeoJSON ?? undefined) : undefined}
+          tracesGeoJSON={showTraces ? (tracesGeoJSON ?? undefined) : undefined}
         />
       ) : (
         <MapView
