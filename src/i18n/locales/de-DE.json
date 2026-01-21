@@ -191,27 +191,39 @@
     "clearFilters": "Filter löschen",
     "error": {
       "description": "Dieser Inhalt konnte nicht geladen werden",
-      "title": "Etwas ist schiefgelaufen"
+      "title": "Etwas ist schiefgelaufen",
+    "expandInSettings": "Expand in Settings",
+    "dataRangeHint": "Based on {{duration}} of activity data"
     },
     "networkError": {
       "description": "Überprüfe deine Internetverbindung und versuche es erneut",
-      "title": "Verbindungsfehler"
+      "title": "Verbindungsfehler",
+    "expandInSettings": "Expand in Settings",
+    "dataRangeHint": "Based on {{duration}} of activity data"
     },
     "noActivities": {
       "description": "Deine Aktivitäten erscheinen hier, sobald du mit Intervals.icu synchronisierst",
-      "title": "Noch keine Aktivitäten"
+      "title": "Noch keine Aktivitäten",
+    "expandInSettings": "Expand in Settings",
+    "dataRangeHint": "Based on {{duration}} of activity data"
     },
     "noData": {
       "description": "Absolviere einige Aktivitäten, um deine Statistiken zu sehen",
-      "title": "Keine Daten verfügbar"
+      "title": "Keine Daten verfügbar",
+    "expandInSettings": "Expand in Settings",
+    "dataRangeHint": "Based on {{duration}} of activity data"
     },
     "noResults": {
       "description": "Versuche deine Suche oder Filter anzupassen",
-      "title": "Keine Ergebnisse gefunden"
+      "title": "Keine Ergebnisse gefunden",
+    "expandInSettings": "Expand in Settings",
+    "dataRangeHint": "Based on {{duration}} of activity data"
     },
     "offline": {
       "description": "Einige Funktionen könnten eingeschränkt sein",
-      "title": "Du bist offline"
+      "title": "Du bist offline",
+    "expandInSettings": "Expand in Settings",
+    "dataRangeHint": "Based on {{duration}} of activity data"
     },
     "refresh": "Aktualisieren"
   },
@@ -301,7 +313,9 @@
     "goToRoutes": "Zu Routen",
     "noActivityData": "Keine Aktivitätsdaten",
     "processFirstHint": "Verarbeite zuerst einige Aktivitäten im Routen-Bildschirm, um eine Heatmap zu erstellen.",
-    "title": "Heatmap"
+    "title": "Heatmap",
+    "expandInSettings": "Expand in Settings",
+    "dataRangeHint": "Based on {{duration}} of activity data"
   },
   "login": {
     "apiKey": "API-Schlüssel",
@@ -478,7 +492,10 @@
     "thisPace": "Dieses Tempo",
     "thisSpeed": "Diese Geschwindigkeit",
     "visits": "Besuche",
-    "waiting": "Warte..."
+    "waiting": "Warte...",
+    "firstRunHint": "Run this route again to compare your performance over time",
+    "expandInSettings": "Expand in Settings",
+    "dataRangeHint": "Based on {{duration}} of activity data"
   },
   "routesScreen": {
     "analysingRoutes": "Analysiere Routen {{current}}/{{total}}",
@@ -488,7 +505,9 @@
     "expandDateRange": "Datumsbereich erweitern",
     "goToSettings": "Zu Einstellungen",
     "matchingDisabled": "Routenabgleich deaktiviert",
-    "title": "Routen"
+    "title": "Routen",
+    "expandInSettings": "Expand in Settings",
+    "dataRangeHint": "Based on {{duration}} of activity data"
   },
   "sections": {
     "activities": "Aktivitäten",
@@ -518,7 +537,8 @@
     "sectionNamePlaceholder": "Abschnittsname",
     "sectionNotFound": "Abschnitt nicht gefunden",
     "totalTraversals": "Gesamte Durchquerungen",
-    "traversals": "Durchfahrten"
+    "traversals": "Durchfahrten",
+    "forward": "Forward"
   },
   "settings": {
     "account": "Konto",
@@ -683,7 +703,9 @@
     "weeksAgo": "vor {{count}} Wochen",
     "years": "Jahre",
     "yearsAgo": "vor {{count}} Jahren",
-    "yesterday": "Gestern"
+    "yesterday": "Gestern",
+    "daysCount": "{{count}} days",
+    "yearsCount": "{{count}} years"
   },
   "trainingScreen": {
     "checkingActivities": "Prüfe {{count}} Aktivitäten...",

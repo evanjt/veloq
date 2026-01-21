@@ -191,27 +191,39 @@
     "clearFilters": "Limpar filtros",
     "error": {
       "description": "Nao foi possivel carregar este conteudo",
-      "title": "Algo correu mal"
+      "title": "Algo correu mal",
+    "expandInSettings": "Expand in Settings",
+    "dataRangeHint": "Based on {{duration}} of activity data"
     },
     "networkError": {
       "description": "Verifique a sua ligacao a internet e tente novamente",
-      "title": "Erro de ligacao"
+      "title": "Erro de ligacao",
+    "expandInSettings": "Expand in Settings",
+    "dataRangeHint": "Based on {{duration}} of activity data"
     },
     "noActivities": {
       "description": "As suas atividades aparecerao aqui apos sincronizar com o Intervals.icu",
-      "title": "Sem atividades ainda"
+      "title": "Sem atividades ainda",
+    "expandInSettings": "Expand in Settings",
+    "dataRangeHint": "Based on {{duration}} of activity data"
     },
     "noData": {
       "description": "Complete algumas atividades para ver as suas estatisticas",
-      "title": "Sem dados disponiveis"
+      "title": "Sem dados disponiveis",
+    "expandInSettings": "Expand in Settings",
+    "dataRangeHint": "Based on {{duration}} of activity data"
     },
     "noResults": {
       "description": "Tente ajustar a sua pesquisa ou filtros",
-      "title": "Nenhum resultado encontrado"
+      "title": "Nenhum resultado encontrado",
+    "expandInSettings": "Expand in Settings",
+    "dataRangeHint": "Based on {{duration}} of activity data"
     },
     "offline": {
       "description": "Algumas funcionalidades podem estar limitadas",
-      "title": "Esta offline"
+      "title": "Esta offline",
+    "expandInSettings": "Expand in Settings",
+    "dataRangeHint": "Based on {{duration}} of activity data"
     },
     "refresh": "Atualizar"
   },
@@ -301,7 +313,9 @@
     "goToRoutes": "Ir para Percursos",
     "noActivityData": "Sem dados de atividade",
     "processFirstHint": "Processe primeiro algumas atividades no ecra Percursos para gerar um mapa de calor.",
-    "title": "Mapa de calor"
+    "title": "Mapa de calor",
+    "expandInSettings": "Expand in Settings",
+    "dataRangeHint": "Based on {{duration}} of activity data"
   },
   "login": {
     "apiKey": "Chave API",
@@ -478,7 +492,10 @@
     "thisPace": "Este ritmo",
     "thisSpeed": "Esta velocidade",
     "visits": "visitas",
-    "waiting": "A aguardar..."
+    "waiting": "A aguardar...",
+    "firstRunHint": "Run this route again to compare your performance over time",
+    "expandInSettings": "Expand in Settings",
+    "dataRangeHint": "Based on {{duration}} of activity data"
   },
   "routesScreen": {
     "analysingRoutes": "A analisar percursos {{current}}/{{total}}",
@@ -488,7 +505,9 @@
     "expandDateRange": "Expandir intervalo de datas",
     "goToSettings": "Ir para Definicoes",
     "matchingDisabled": "Correspondencia de percursos desativada",
-    "title": "Percursos"
+    "title": "Percursos",
+    "expandInSettings": "Expand in Settings",
+    "dataRangeHint": "Based on {{duration}} of activity data"
   },
   "sections": {
     "activities": "Atividades",
@@ -518,7 +537,8 @@
     "sectionNamePlaceholder": "Nome do troco",
     "sectionNotFound": "Troco nao encontrado",
     "totalTraversals": "Total de Travessias",
-    "traversals": "travessias"
+    "traversals": "travessias",
+    "forward": "Forward"
   },
   "settings": {
     "account": "Conta",
@@ -683,7 +703,9 @@
     "weeksAgo": "ha {{count}} semanas",
     "years": "Years",
     "yearsAgo": "ha {{count}} anos",
-    "yesterday": "Ontem"
+    "yesterday": "Ontem",
+    "daysCount": "{{count}} days",
+    "yearsCount": "{{count}} years"
   },
   "trainingScreen": {
     "checkingActivities": "A verificar {{count}} atividades...",

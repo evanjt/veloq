@@ -459,6 +459,7 @@
     "reverse": "Reverse",
     "routeNamePlaceholder": "Route name",
     "routesFound": "{{count}} routes found",
+    "firstRunHint": "Run this route again to compare your performance over time",
     "routesWillAppear": "Routes will appear after your activities are analyzed",
     "routesWithTwoPlus": "Routes with 2+ activities on similar paths will appear here",
     "same": "Same",
@@ -478,7 +479,9 @@
     "thisPace": "This pace",
     "thisSpeed": "This speed",
     "visits": "visits",
-    "waiting": "Waiting..."
+    "waiting": "Waiting...",
+    "expandInSettings": "Expand in Settings",
+    "dataRangeHint": "Based on {{duration}} of activity data"
   },
   "routesScreen": {
     "analysingRoutes": "Analyzing routes {{current}}/{{total}}",
@@ -486,6 +489,8 @@
     "downloadingGps": "Downloading tracks",
     "enableInSettings": "Enable route matching in Settings to automatically detect repeated routes from your activities.",
     "expandDateRange": "Expand date range",
+    "expandInSettings": "Expand in Settings",
+    "dataRangeHint": "Based on {{duration}} of activity data",
     "goToSettings": "Go to Settings",
     "matchingDisabled": "Route Matching Disabled",
     "title": "Routes"
@@ -507,6 +512,7 @@
     "duplicateNameTitle": "Name Already Exists",
     "disableSectionConfirm": "This section will be hidden from activity details. You can re-enable it later from the sections list.",
     "disabled": "Disabled",
+    "forward": "Forward",
     "lastActivity": "Last Activity",
     "noActivitiesFound": "No activities found",
     "performanceOverTime": "Performance Over Time",
@@ -676,6 +682,7 @@
     "current": "Current",
     "days": "Days",
     "daysAgo": "{{count}} days ago",
+    "daysCount": "{{count}} days",
     "months": "Months",
     "monthsAgo": "{{count}} months ago",
     "now": "Now",
@@ -683,6 +690,7 @@
     "weeksAgo": "{{count}} weeks ago",
     "years": "Years",
     "yearsAgo": "{{count}} years ago",
+    "yearsCount": "{{count}} years",
     "yesterday": "Yesterday"
   },
   "trainingScreen": {

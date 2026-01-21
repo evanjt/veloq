@@ -191,27 +191,39 @@
     "clearFilters": "Cancella filtri",
     "error": {
       "description": "Non siamo riusciti a caricare questo contenuto",
-      "title": "Qualcosa e andato storto"
+      "title": "Qualcosa e andato storto",
+    "expandInSettings": "Expand in Settings",
+    "dataRangeHint": "Based on {{duration}} of activity data"
     },
     "networkError": {
       "description": "Controlla la connessione internet e riprova",
-      "title": "Errore di connessione"
+      "title": "Errore di connessione",
+    "expandInSettings": "Expand in Settings",
+    "dataRangeHint": "Based on {{duration}} of activity data"
     },
     "noActivities": {
       "description": "Le tue attivita appariranno qui dopo la sincronizzazione con Intervals.icu",
-      "title": "Nessuna attivita ancora"
+      "title": "Nessuna attivita ancora",
+    "expandInSettings": "Expand in Settings",
+    "dataRangeHint": "Based on {{duration}} of activity data"
     },
     "noData": {
       "description": "Completa alcune attivita per vedere le tue statistiche",
-      "title": "Nessun dato disponibile"
+      "title": "Nessun dato disponibile",
+    "expandInSettings": "Expand in Settings",
+    "dataRangeHint": "Based on {{duration}} of activity data"
     },
     "noResults": {
       "description": "Prova a modificare la ricerca o i filtri",
-      "title": "Nessun risultato trovato"
+      "title": "Nessun risultato trovato",
+    "expandInSettings": "Expand in Settings",
+    "dataRangeHint": "Based on {{duration}} of activity data"
     },
     "offline": {
       "description": "Alcune funzionalita potrebbero essere limitate",
-      "title": "Sei offline"
+      "title": "Sei offline",
+    "expandInSettings": "Expand in Settings",
+    "dataRangeHint": "Based on {{duration}} of activity data"
     },
     "refresh": "Aggiorna"
   },
@@ -301,7 +313,9 @@
     "goToRoutes": "Vai ai Percorsi",
     "noActivityData": "Nessun dato attivita",
     "processFirstHint": "Elabora prima alcune attivita nella schermata Percorsi per generare una mappa di calore.",
-    "title": "Mappa di calore"
+    "title": "Mappa di calore",
+    "expandInSettings": "Expand in Settings",
+    "dataRangeHint": "Based on {{duration}} of activity data"
   },
   "login": {
     "apiKey": "Chiave API",
@@ -478,7 +492,10 @@
     "thisPace": "Questo passo",
     "thisSpeed": "Questa velocita",
     "visits": "visite",
-    "waiting": "In attesa..."
+    "waiting": "In attesa...",
+    "firstRunHint": "Run this route again to compare your performance over time",
+    "expandInSettings": "Expand in Settings",
+    "dataRangeHint": "Based on {{duration}} of activity data"
   },
   "routesScreen": {
     "analysingRoutes": "Analisi percorsi {{current}}/{{total}}",
@@ -488,7 +505,9 @@
     "expandDateRange": "Espandi intervallo date",
     "goToSettings": "Vai alle Impostazioni",
     "matchingDisabled": "Corrispondenza percorsi disabilitata",
-    "title": "Percorsi"
+    "title": "Percorsi",
+    "expandInSettings": "Expand in Settings",
+    "dataRangeHint": "Based on {{duration}} of activity data"
   },
   "sections": {
     "activities": "Attivita",
@@ -518,7 +537,8 @@
     "sectionNamePlaceholder": "Nome tratto",
     "sectionNotFound": "Tratto non trovato",
     "totalTraversals": "Attraversamenti totali",
-    "traversals": "attraversamenti"
+    "traversals": "attraversamenti",
+    "forward": "Forward"
   },
   "settings": {
     "account": "Account",
@@ -683,7 +703,9 @@
     "weeksAgo": "{{count}} settimane fa",
     "years": "Years",
     "yearsAgo": "{{count}} anni fa",
-    "yesterday": "Ieri"
+    "yesterday": "Ieri",
+    "daysCount": "{{count}} days",
+    "yearsCount": "{{count}} years"
   },
   "trainingScreen": {
     "checkingActivities": "Controllo {{count}} attivita...",

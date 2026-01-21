@@ -478,7 +478,10 @@
     "thisPace": "This pace",
     "thisSpeed": "This speed",
     "visits": "visits",
-    "waiting": "Hang on..."
+    "waiting": "Hang on...",
+    "firstRunHint": "Run this route again to compare your performance over time",
+    "expandInSettings": "Expand in Settings",
+    "dataRangeHint": "Based on {{duration}} of activity data"
   },
   "routesScreen": {
     "analysingRoutes": "Analysing routes {{current}}/{{total}}",
@@ -488,7 +491,9 @@
     "goToSettings": "Go to Settings",
     "matchingDisabled": "Route Matching's Off",
     "title": "Routes",
-    "expandDateRange": "Stretch out the date range"
+    "expandDateRange": "Stretch out the date range",
+    "expandInSettings": "Expand in Settings",
+    "dataRangeHint": "Based on {{duration}} of activity data"
   },
   "sections": {
     "activities": "Activities",
@@ -518,7 +523,8 @@
     "sectionNamePlaceholder": "Section name",
     "sectionNotFound": "Can't find that section",
     "totalTraversals": "Total Traversals",
-    "traversals": "times through"
+    "traversals": "times through",
+    "forward": "Forward"
   },
   "settings": {
     "account": "Your Account",
@@ -683,7 +689,9 @@
     "yesterday": "Yesty",
     "days": "Days",
     "months": "Months",
-    "years": "Years"
+    "years": "Years",
+    "daysCount": "{{count}} days",
+    "yearsCount": "{{count}} years"
   },
   "trainingScreen": {
     "checkingActivities": "Checking {{count}} activities...",

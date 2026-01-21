@@ -471,9 +471,11 @@ export interface TranslationResource {
     today: string;
     yesterday: string;
     daysAgo: string;
+    daysCount: string;
     weeksAgo: string;
     monthsAgo: string;
     yearsAgo: string;
+    yearsCount: string;
     current: string;
     now: string;
     days: string;
@@ -549,6 +551,8 @@ export interface TranslationResource {
     computingRoutes: string;
     downloadingGps: string;
     expandDateRange: string;
+    expandInSettings: string;
+    dataRangeHint: string;
   };
 
   statsScreen: {
@@ -582,6 +586,7 @@ export interface TranslationResource {
 
   routes: {
     basedOnActivities: string;
+    firstRunHint: string;
     routesFound: string;
     sameDirection: string;
     reverse: string;
@@ -644,6 +649,8 @@ export interface TranslationResource {
     overDays: string;
     overMonths: string;
     overYears: string;
+    dataRangeHint: string;
+    expandInSettings: string;
   };
 
   sections: {
@@ -675,6 +682,7 @@ export interface TranslationResource {
     duplicateNameTitle: string;
     disableSectionConfirm: string;
     disabled: string;
+    forward: string;
   };
 
   errorState: {

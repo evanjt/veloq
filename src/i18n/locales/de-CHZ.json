@@ -191,27 +191,39 @@
     "clearFilters": "Filter lösche",
     "error": {
       "description": "Öppis isch schiefggange",
-      "title": "Siech!"
+      "title": "Siech!",
+    "expandInSettings": "Expand in Settings",
+    "dataRangeHint": "Based on {{duration}} of activity data"
     },
     "networkError": {
       "description": "Lueg dini Internetverbindig aa",
-      "title": "Kei Verbindig!"
+      "title": "Kei Verbindig!",
+    "expandInSettings": "Expand in Settings",
+    "dataRangeHint": "Based on {{duration}} of activity data"
     },
     "noActivities": {
       "description": "Dini Aktivitäte chömed wenn du synced",
-      "title": "No kei Aktivitäte"
+      "title": "No kei Aktivitäte",
+    "expandInSettings": "Expand in Settings",
+    "dataRangeHint": "Based on {{duration}} of activity data"
     },
     "noData": {
       "description": "Mach es paar Aktivitäte",
-      "title": "Kei Date da"
+      "title": "Kei Date da",
+    "expandInSettings": "Expand in Settings",
+    "dataRangeHint": "Based on {{duration}} of activity data"
     },
     "noResults": {
       "description": "Probier dini Suechi oder Filter aazpasse",
-      "title": "Nüüt gfunde!"
+      "title": "Nüüt gfunde!",
+    "expandInSettings": "Expand in Settings",
+    "dataRangeHint": "Based on {{duration}} of activity data"
     },
     "offline": {
       "description": "Es paar Sache gönd vilicht nöd",
-      "title": "Du bisch offline"
+      "title": "Du bisch offline",
+    "expandInSettings": "Expand in Settings",
+    "dataRangeHint": "Based on {{duration}} of activity data"
     },
     "refresh": "Nöi lade"
   },
@@ -301,7 +313,9 @@
     "goToRoutes": "Zu Route",
     "noActivityData": "Kei Date da",
     "processFirstHint": "Mach zerscht es paar Route, denn chunts.",
-    "title": "Heatmap"
+    "title": "Heatmap",
+    "expandInSettings": "Expand in Settings",
+    "dataRangeHint": "Based on {{duration}} of activity data"
   },
   "login": {
     "apiKey": "API-Schlüssel",
@@ -478,7 +492,10 @@
     "thisPace": "Das Tempo",
     "thisSpeed": "Die Speed",
     "visits": "Bsüech",
-    "waiting": "Momäntli..."
+    "waiting": "Momäntli...",
+    "firstRunHint": "Run this route again to compare your performance over time",
+    "expandInSettings": "Expand in Settings",
+    "dataRangeHint": "Based on {{duration}} of activity data"
   },
   "routesScreen": {
     "analysingRoutes": "Analysiere {{current}}/{{total}}",
@@ -488,7 +505,9 @@
     "expandDateRange": "Meh Ziit zeige",
     "goToSettings": "Zu Istellige",
     "matchingDisabled": "Route-Matching us",
-    "title": "Route"
+    "title": "Route",
+    "expandInSettings": "Expand in Settings",
+    "dataRangeHint": "Based on {{duration}} of activity data"
   },
   "sections": {
     "activities": "Aktivitäte",
@@ -518,7 +537,8 @@
     "sectionNamePlaceholder": "Abschnittsname",
     "sectionNotFound": "Abschnitt nöd gfunde",
     "totalTraversals": "Total Durchfahrte",
-    "traversals": "Durchfahrte"
+    "traversals": "Durchfahrte",
+    "forward": "Forward"
   },
   "settings": {
     "account": "Konto",
@@ -683,7 +703,9 @@
     "weeksAgo": "vor {{count}} Wuche",
     "years": "Years",
     "yearsAgo": "vor {{count}} Jahr",
-    "yesterday": "Geschter"
+    "yesterday": "Geschter",
+    "daysCount": "{{count}} days",
+    "yearsCount": "{{count}} years"
   },
   "trainingScreen": {
     "checkingActivities": "{{count}} Aktivitäte am prüefe...",

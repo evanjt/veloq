@@ -438,48 +438,21 @@ jobs:
           done
           ls -la screenshots-flat/ || true
 
-      - name: Generate screenshot preview
+      - name: Generate screenshot summary
         if: always()
         run: |
-          echo "## 📱 iOS Screenshots" >> $GITHUB_STEP_SUMMARY
+          echo "## iOS Screenshots" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-
-          # Count screenshots
-          count=$(ls screenshots-flat/*.png 2>/dev/null | wc -l)
-          echo "**$count screenshots captured**" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-
-          # Show first 3 screenshots as inline previews (very small thumbnails)
-          echo "### Preview (first 3)" >> $GITHUB_STEP_SUMMARY
-          shown=0
+          echo "| # | Screen |" >> $GITHUB_STEP_SUMMARY
+          echo "|---|--------|" >> $GITHUB_STEP_SUMMARY
+          i=1
           for img in screenshots-flat/*.png; do
-            if [ -f "$img" ] && [ $shown -lt 3 ]; then
+            if [ -f "$img" ]; then
               name=$(basename "$img" .png | sed 's/-ios$//')
-              # Resize to very small thumbnail (150px) and convert to JPEG for smaller size
-              sips -Z 150 "$img" --out "/tmp/thumb.png" 2>/dev/null
-              base64_img=$(base64 -i "/tmp/thumb.png")
-              echo "**$name**" >> $GITHUB_STEP_SUMMARY
-              echo "" >> $GITHUB_STEP_SUMMARY
-              echo "<img src=\"data:image/png;base64,$base64_img\" width=\"150\"/>" >> $GITHUB_STEP_SUMMARY
-              echo "" >> $GITHUB_STEP_SUMMARY
-              shown=$((shown + 1))
+              echo "| $i | $name |" >> $GITHUB_STEP_SUMMARY
+              i=$((i + 1))
             fi
           done
-
-          # List all screenshot names
-          if [ $count -gt 3 ]; then
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "<details><summary>📋 All $count screenshots</summary>" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            for img in screenshots-flat/*.png; do
-              [ -f "$img" ] && echo "- $(basename "$img" .png | sed 's/-ios$//')" >> $GITHUB_STEP_SUMMARY
-            done
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "</details>" >> $GITHUB_STEP_SUMMARY
-          fi
-
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "📥 Download full-resolution screenshots from the **screenshots-ios** artifact below." >> $GITHUB_STEP_SUMMARY
 
       - name: Upload screenshots
         if: always()
@@ -557,44 +530,21 @@ jobs:
           done
           ls -la screenshots-flat/ || true
 
-      - name: Generate screenshot preview
+      - name: Generate screenshot summary
         if: always()
         run: |
-          echo "## 📱 iPad Screenshots" >> $GITHUB_STEP_SUMMARY
+          echo "## iPad Screenshots" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-
-          count=$(ls screenshots-flat/*.png 2>/dev/null | wc -l)
-          echo "**$count screenshots captured**" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-
-          echo "### Preview (first 3)" >> $GITHUB_STEP_SUMMARY
-          shown=0
+          echo "| # | Screen |" >> $GITHUB_STEP_SUMMARY
+          echo "|---|--------|" >> $GITHUB_STEP_SUMMARY
+          i=1
           for img in screenshots-flat/*.png; do
-            if [ -f "$img" ] && [ $shown -lt 3 ]; then
+            if [ -f "$img" ]; then
               name=$(basename "$img" .png | sed 's/-ipad$//')
-              sips -Z 150 "$img" --out "/tmp/thumb.png" 2>/dev/null
-              base64_img=$(base64 -i "/tmp/thumb.png")
-              echo "**$name**" >> $GITHUB_STEP_SUMMARY
-              echo "" >> $GITHUB_STEP_SUMMARY
-              echo "<img src=\"data:image/png;base64,$base64_img\" width=\"150\"/>" >> $GITHUB_STEP_SUMMARY
-              echo "" >> $GITHUB_STEP_SUMMARY
-              shown=$((shown + 1))
+              echo "| $i | $name |" >> $GITHUB_STEP_SUMMARY
+              i=$((i + 1))
             fi
           done
-
-          if [ $count -gt 3 ]; then
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "<details><summary>📋 All $count screenshots</summary>" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            for img in screenshots-flat/*.png; do
-              [ -f "$img" ] && echo "- $(basename "$img" .png | sed 's/-ipad$//')" >> $GITHUB_STEP_SUMMARY
-            done
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "</details>" >> $GITHUB_STEP_SUMMARY
-          fi
-
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "📥 Download full-resolution screenshots from the **screenshots-ipad** artifact below." >> $GITHUB_STEP_SUMMARY
 
       - name: Upload screenshots
         if: always()
@@ -771,45 +721,21 @@ jobs:
           done
           ls -la screenshots-flat/ || true
 
-      - name: Generate screenshot preview
+      - name: Generate screenshot summary
         if: always()
         run: |
-          echo "## 📱 Android Screenshots" >> $GITHUB_STEP_SUMMARY
+          echo "## Android Screenshots" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-
-          count=$(ls screenshots-flat/*.png 2>/dev/null | wc -l)
-          echo "**$count screenshots captured**" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-
-          echo "### Preview (first 3)" >> $GITHUB_STEP_SUMMARY
-          shown=0
+          echo "| # | Screen |" >> $GITHUB_STEP_SUMMARY
+          echo "|---|--------|" >> $GITHUB_STEP_SUMMARY
+          i=1
           for img in screenshots-flat/*.png; do
-            if [ -f "$img" ] && [ $shown -lt 3 ]; then
+            if [ -f "$img" ]; then
               name=$(basename "$img" .png | sed 's/-android$//')
-              # Use ImageMagick on Linux to resize
-              convert "$img" -resize 150x150 "/tmp/thumb.png" 2>/dev/null || cp "$img" "/tmp/thumb.png"
-              base64_img=$(base64 -w0 "/tmp/thumb.png")
-              echo "**$name**" >> $GITHUB_STEP_SUMMARY
-              echo "" >> $GITHUB_STEP_SUMMARY
-              echo "<img src=\"data:image/png;base64,$base64_img\" width=\"150\"/>" >> $GITHUB_STEP_SUMMARY
-              echo "" >> $GITHUB_STEP_SUMMARY
-              shown=$((shown + 1))
+              echo "| $i | $name |" >> $GITHUB_STEP_SUMMARY
+              i=$((i + 1))
             fi
           done
-
-          if [ $count -gt 3 ]; then
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "<details><summary>📋 All $count screenshots</summary>" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            for img in screenshots-flat/*.png; do
-              [ -f "$img" ] && echo "- $(basename "$img" .png | sed 's/-android$//')" >> $GITHUB_STEP_SUMMARY
-            done
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "</details>" >> $GITHUB_STEP_SUMMARY
-          fi
-
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "📥 Download full-resolution screenshots from the **screenshots-android** artifact below." >> $GITHUB_STEP_SUMMARY
 
       - name: Upload screenshots
         if: always()

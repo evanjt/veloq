@@ -191,27 +191,39 @@
     "clearFilters": "Ryd filtre",
     "error": {
       "description": "Vi kunne ikke indlæse dette indhold",
-      "title": "Noget gik galt"
+      "title": "Noget gik galt",
+    "expandInSettings": "Expand in Settings",
+    "dataRangeHint": "Based on {{duration}} of activity data"
     },
     "networkError": {
       "description": "Tjek din internetforbindelse og prøv igen",
-      "title": "Forbindelsesfejl"
+      "title": "Forbindelsesfejl",
+    "expandInSettings": "Expand in Settings",
+    "dataRangeHint": "Based on {{duration}} of activity data"
     },
     "noActivities": {
       "description": "Dine aktiviteter vises her, når du synkroniserer med Intervals.icu",
-      "title": "Ingen aktiviteter endnu"
+      "title": "Ingen aktiviteter endnu",
+    "expandInSettings": "Expand in Settings",
+    "dataRangeHint": "Based on {{duration}} of activity data"
     },
     "noData": {
       "description": "Gennemfør nogle aktiviteter for at se din statistik",
-      "title": "Ingen data tilgængelig"
+      "title": "Ingen data tilgængelig",
+    "expandInSettings": "Expand in Settings",
+    "dataRangeHint": "Based on {{duration}} of activity data"
     },
     "noResults": {
       "description": "Prøv at justere din søgning eller filtre",
-      "title": "Ingen resultater fundet"
+      "title": "Ingen resultater fundet",
+    "expandInSettings": "Expand in Settings",
+    "dataRangeHint": "Based on {{duration}} of activity data"
     },
     "offline": {
       "description": "Nogle funktioner kan være begrænsede",
-      "title": "Du er offline"
+      "title": "Du er offline",
+    "expandInSettings": "Expand in Settings",
+    "dataRangeHint": "Based on {{duration}} of activity data"
     },
     "refresh": "Opdater"
   },
@@ -301,7 +313,9 @@
     "goToRoutes": "Gå til Ruter",
     "noActivityData": "Ingen aktivitetsdata",
     "processFirstHint": "Behandl nogle aktiviteter på Ruter-skærmen først for at generere et varmekort.",
-    "title": "Varmekort"
+    "title": "Varmekort",
+    "expandInSettings": "Expand in Settings",
+    "dataRangeHint": "Based on {{duration}} of activity data"
   },
   "login": {
     "apiKey": "API-nøgle",
@@ -478,7 +492,10 @@
     "thisPace": "Dette tempo",
     "thisSpeed": "Denne hastighed",
     "visits": "besøg",
-    "waiting": "Venter..."
+    "waiting": "Venter...",
+    "firstRunHint": "Run this route again to compare your performance over time",
+    "expandInSettings": "Expand in Settings",
+    "dataRangeHint": "Based on {{duration}} of activity data"
   },
   "routesScreen": {
     "analysingRoutes": "Analyserer ruter {{current}}/{{total}}",
@@ -488,7 +505,9 @@
     "expandDateRange": "Udvid datointerval",
     "goToSettings": "Gå til Indstillinger",
     "matchingDisabled": "Rutematchning deaktiveret",
-    "title": "Ruter"
+    "title": "Ruter",
+    "expandInSettings": "Expand in Settings",
+    "dataRangeHint": "Based on {{duration}} of activity data"
   },
   "sections": {
     "activities": "Aktiviteter",
@@ -518,7 +537,8 @@
     "sectionNamePlaceholder": "Sektionsnavn",
     "sectionNotFound": "Sektion ikke fundet",
     "totalTraversals": "Samlede gennemkørsler",
-    "traversals": "gennemkørsler"
+    "traversals": "gennemkørsler",
+    "forward": "Forward"
   },
   "settings": {
     "account": "Konto",
@@ -683,7 +703,9 @@
     "weeksAgo": "{{count}} uger siden",
     "years": "Years",
     "yearsAgo": "{{count}} år siden",
-    "yesterday": "I går"
+    "yesterday": "I går",
+    "daysCount": "{{count}} days",
+    "yearsCount": "{{count}} years"
   },
   "trainingScreen": {
     "checkingActivities": "Tjekker {{count}} aktiviteter...",

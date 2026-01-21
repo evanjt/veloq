@@ -191,27 +191,39 @@
     "clearFilters": "Filters wissen",
     "error": {
       "description": "We konden deze inhoud niet laden",
-      "title": "Er ging iets mis"
+      "title": "Er ging iets mis",
+    "expandInSettings": "Expand in Settings",
+    "dataRangeHint": "Based on {{duration}} of activity data"
     },
     "networkError": {
       "description": "Controleer je internetverbinding en probeer opnieuw",
-      "title": "Verbindingsfout"
+      "title": "Verbindingsfout",
+    "expandInSettings": "Expand in Settings",
+    "dataRangeHint": "Based on {{duration}} of activity data"
     },
     "noActivities": {
       "description": "Je activiteiten verschijnen hier zodra je synchroniseert met Intervals.icu",
-      "title": "Nog geen activiteiten"
+      "title": "Nog geen activiteiten",
+    "expandInSettings": "Expand in Settings",
+    "dataRangeHint": "Based on {{duration}} of activity data"
     },
     "noData": {
       "description": "Voltooi enkele activiteiten om je statistieken te zien",
-      "title": "Geen gegevens beschikbaar"
+      "title": "Geen gegevens beschikbaar",
+    "expandInSettings": "Expand in Settings",
+    "dataRangeHint": "Based on {{duration}} of activity data"
     },
     "noResults": {
       "description": "Probeer je zoekopdracht of filters aan te passen",
-      "title": "Geen resultaten gevonden"
+      "title": "Geen resultaten gevonden",
+    "expandInSettings": "Expand in Settings",
+    "dataRangeHint": "Based on {{duration}} of activity data"
     },
     "offline": {
       "description": "Sommige functies kunnen beperkt zijn",
-      "title": "Je bent offline"
+      "title": "Je bent offline",
+    "expandInSettings": "Expand in Settings",
+    "dataRangeHint": "Based on {{duration}} of activity data"
     },
     "refresh": "Vernieuwen"
   },
@@ -301,7 +313,9 @@
     "goToRoutes": "Naar Routes",
     "noActivityData": "Geen activiteitsgegevens",
     "processFirstHint": "Verwerk eerst enkele activiteiten in het Routes-scherm om een heatmap te genereren.",
-    "title": "Heatmap"
+    "title": "Heatmap",
+    "expandInSettings": "Expand in Settings",
+    "dataRangeHint": "Based on {{duration}} of activity data"
   },
   "login": {
     "apiKey": "API-sleutel",
@@ -478,7 +492,10 @@
     "thisPace": "Dit tempo",
     "thisSpeed": "Deze snelheid",
     "visits": "bezoeken",
-    "waiting": "Wachten..."
+    "waiting": "Wachten...",
+    "firstRunHint": "Run this route again to compare your performance over time",
+    "expandInSettings": "Expand in Settings",
+    "dataRangeHint": "Based on {{duration}} of activity data"
   },
   "routesScreen": {
     "analysingRoutes": "Routes analyseren {{current}}/{{total}}",
@@ -488,7 +505,9 @@
     "expandDateRange": "Datumbereik uitbreiden",
     "goToSettings": "Naar Instellingen",
     "matchingDisabled": "Route-matching uitgeschakeld",
-    "title": "Routes"
+    "title": "Routes",
+    "expandInSettings": "Expand in Settings",
+    "dataRangeHint": "Based on {{duration}} of activity data"
   },
   "sections": {
     "activities": "Activiteiten",
@@ -518,7 +537,8 @@
     "sectionNamePlaceholder": "Sectienaam",
     "sectionNotFound": "Sectie niet gevonden",
     "totalTraversals": "Totaal doorkruisingen",
-    "traversals": "doorgangen"
+    "traversals": "doorgangen",
+    "forward": "Forward"
   },
   "settings": {
     "account": "Account",
@@ -683,7 +703,9 @@
     "weeksAgo": "{{count}} weken geleden",
     "years": "Years",
     "yearsAgo": "{{count}} jaar geleden",
-    "yesterday": "Gisteren"
+    "yesterday": "Gisteren",
+    "daysCount": "{{count}} days",
+    "yearsCount": "{{count}} years"
   },
   "trainingScreen": {
     "checkingActivities": "{{count}} activiteiten controleren...",

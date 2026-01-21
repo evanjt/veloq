@@ -191,27 +191,39 @@
     "clearFilters": "フィルターをクリア",
     "error": {
       "description": "このコンテンツを読み込めませんでした",
-      "title": "問題が発生しました"
+      "title": "問題が発生しました",
+    "expandInSettings": "Expand in Settings",
+    "dataRangeHint": "Based on {{duration}} of activity data"
     },
     "networkError": {
       "description": "インターネット接続を確認して再試行してください",
-      "title": "接続エラー"
+      "title": "接続エラー",
+    "expandInSettings": "Expand in Settings",
+    "dataRangeHint": "Based on {{duration}} of activity data"
     },
     "noActivities": {
       "description": "Intervals.icuと同期すると、アクティビティがここに表示されます",
-      "title": "まだアクティビティがありません"
+      "title": "まだアクティビティがありません",
+    "expandInSettings": "Expand in Settings",
+    "dataRangeHint": "Based on {{duration}} of activity data"
     },
     "noData": {
       "description": "統計を見るにはアクティビティを完了してください",
-      "title": "データがありません"
+      "title": "データがありません",
+    "expandInSettings": "Expand in Settings",
+    "dataRangeHint": "Based on {{duration}} of activity data"
     },
     "noResults": {
       "description": "検索やフィルターを調整してみてください",
-      "title": "結果が見つかりません"
+      "title": "結果が見つかりません",
+    "expandInSettings": "Expand in Settings",
+    "dataRangeHint": "Based on {{duration}} of activity data"
     },
     "offline": {
       "description": "一部の機能が制限される場合があります",
-      "title": "オフラインです"
+      "title": "オフラインです",
+    "expandInSettings": "Expand in Settings",
+    "dataRangeHint": "Based on {{duration}} of activity data"
     },
     "refresh": "更新"
   },
@@ -301,7 +313,9 @@
     "goToRoutes": "ルートへ",
     "noActivityData": "アクティビティデータなし",
     "processFirstHint": "ヒートマップを生成するには、まずルート画面でアクティビティを処理してください。",
-    "title": "ヒートマップ"
+    "title": "ヒートマップ",
+    "expandInSettings": "Expand in Settings",
+    "dataRangeHint": "Based on {{duration}} of activity data"
   },
   "login": {
     "apiKey": "APIキー",
@@ -478,7 +492,10 @@
     "thisPace": "このペース",
     "thisSpeed": "この速度",
     "visits": "訪問",
-    "waiting": "待機中..."
+    "waiting": "待機中...",
+    "firstRunHint": "Run this route again to compare your performance over time",
+    "expandInSettings": "Expand in Settings",
+    "dataRangeHint": "Based on {{duration}} of activity data"
   },
   "routesScreen": {
     "analysingRoutes": "ルート分析中 {{current}}/{{total}}",
@@ -488,7 +505,9 @@
     "expandDateRange": "日付範囲を拡張",
     "goToSettings": "設定へ",
     "matchingDisabled": "ルートマッチング無効",
-    "title": "ルート"
+    "title": "ルート",
+    "expandInSettings": "Expand in Settings",
+    "dataRangeHint": "Based on {{duration}} of activity data"
   },
   "sections": {
     "activities": "アクティビティ",
@@ -518,7 +537,8 @@
     "sectionNamePlaceholder": "区間名",
     "sectionNotFound": "区間が見つかりません",
     "totalTraversals": "合計通過回数",
-    "traversals": "通過回数"
+    "traversals": "通過回数",
+    "forward": "Forward"
   },
   "settings": {
     "account": "アカウント",
@@ -683,7 +703,9 @@
     "weeksAgo": "{{count}}週間前",
     "years": "Years",
     "yearsAgo": "{{count}}年前",
-    "yesterday": "昨日"
+    "yesterday": "昨日",
+    "daysCount": "{{count}} days",
+    "yearsCount": "{{count}} years"
   },
   "trainingScreen": {
     "checkingActivities": "{{count}}件のアクティビティを確認中...",

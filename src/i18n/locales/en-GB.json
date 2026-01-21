@@ -191,27 +191,39 @@
     "clearFilters": "Clear filters",
     "error": {
       "description": "We couldn't load this content",
-      "title": "Something went wrong"
+      "title": "Something went wrong",
+    "expandInSettings": "Expand in Settings",
+    "dataRangeHint": "Based on {{duration}} of activity data"
     },
     "networkError": {
       "description": "Check your internet connection and try again",
-      "title": "Connection error"
+      "title": "Connection error",
+    "expandInSettings": "Expand in Settings",
+    "dataRangeHint": "Based on {{duration}} of activity data"
     },
     "noActivities": {
       "description": "Your activities will appear here once you sync with Intervals.icu",
-      "title": "No activities yet"
+      "title": "No activities yet",
+    "expandInSettings": "Expand in Settings",
+    "dataRangeHint": "Based on {{duration}} of activity data"
     },
     "noData": {
       "description": "Complete some activities to see your stats",
-      "title": "No data available"
+      "title": "No data available",
+    "expandInSettings": "Expand in Settings",
+    "dataRangeHint": "Based on {{duration}} of activity data"
     },
     "noResults": {
       "description": "Try adjusting your search or filters",
-      "title": "No results found"
+      "title": "No results found",
+    "expandInSettings": "Expand in Settings",
+    "dataRangeHint": "Based on {{duration}} of activity data"
     },
     "offline": {
       "description": "Some features may be limited",
-      "title": "You're offline"
+      "title": "You're offline",
+    "expandInSettings": "Expand in Settings",
+    "dataRangeHint": "Based on {{duration}} of activity data"
     },
     "refresh": "Refresh"
   },
@@ -301,7 +313,9 @@
     "goToRoutes": "Go to Routes",
     "noActivityData": "No Activity Data",
     "processFirstHint": "Process some activities in the Routes screen first to generate a heatmap.",
-    "title": "Heatmap"
+    "title": "Heatmap",
+    "expandInSettings": "Expand in Settings",
+    "dataRangeHint": "Based on {{duration}} of activity data"
   },
   "login": {
     "apiKey": "API Key",
@@ -478,7 +492,10 @@
     "thisPace": "This pace",
     "thisSpeed": "This speed",
     "visits": "visits",
-    "waiting": "Waiting..."
+    "waiting": "Waiting...",
+    "firstRunHint": "Run this route again to compare your performance over time",
+    "expandInSettings": "Expand in Settings",
+    "dataRangeHint": "Based on {{duration}} of activity data"
   },
   "routesScreen": {
     "analysingRoutes": "Analysing routes {{current}}/{{total}}",
@@ -488,7 +505,9 @@
     "expandDateRange": "Expand date range",
     "goToSettings": "Go to Settings",
     "matchingDisabled": "Route Matching Disabled",
-    "title": "Routes"
+    "title": "Routes",
+    "expandInSettings": "Expand in Settings",
+    "dataRangeHint": "Based on {{duration}} of activity data"
   },
   "sections": {
     "activities": "Activities",
@@ -518,7 +537,8 @@
     "sectionNamePlaceholder": "Section name",
     "sectionNotFound": "Section not found",
     "totalTraversals": "Total Traversals",
-    "traversals": "traversals"
+    "traversals": "traversals",
+    "forward": "Forward"
   },
   "settings": {
     "account": "Account",
@@ -683,7 +703,9 @@
     "weeksAgo": "{{count}} weeks ago",
     "years": "Years",
     "yearsAgo": "{{count}} years ago",
-    "yesterday": "Yesterday"
+    "yesterday": "Yesterday",
+    "daysCount": "{{count}} days",
+    "yearsCount": "{{count}} years"
   },
   "trainingScreen": {
     "checkingActivities": "Checking {{count}} activities...",

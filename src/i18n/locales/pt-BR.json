@@ -191,27 +191,39 @@
     "clearFilters": "Limpar filtros",
     "error": {
       "description": "Nao foi possivel carregar este conteudo",
-      "title": "Algo deu errado"
+      "title": "Algo deu errado",
+    "expandInSettings": "Expand in Settings",
+    "dataRangeHint": "Based on {{duration}} of activity data"
     },
     "networkError": {
       "description": "Verifique sua conexao com a internet e tente novamente",
-      "title": "Erro de conexao"
+      "title": "Erro de conexao",
+    "expandInSettings": "Expand in Settings",
+    "dataRangeHint": "Based on {{duration}} of activity data"
     },
     "noActivities": {
       "description": "Suas atividades aparecerao aqui apos sincronizar com o Intervals.icu",
-      "title": "Sem atividades ainda"
+      "title": "Sem atividades ainda",
+    "expandInSettings": "Expand in Settings",
+    "dataRangeHint": "Based on {{duration}} of activity data"
     },
     "noData": {
       "description": "Complete algumas atividades para ver suas estatisticas",
-      "title": "Sem dados disponiveis"
+      "title": "Sem dados disponiveis",
+    "expandInSettings": "Expand in Settings",
+    "dataRangeHint": "Based on {{duration}} of activity data"
     },
     "noResults": {
       "description": "Tente ajustar sua busca ou filtros",
-      "title": "Nenhum resultado encontrado"
+      "title": "Nenhum resultado encontrado",
+    "expandInSettings": "Expand in Settings",
+    "dataRangeHint": "Based on {{duration}} of activity data"
     },
     "offline": {
       "description": "Algumas funcionalidades podem estar limitadas",
-      "title": "Voce esta offline"
+      "title": "Voce esta offline",
+    "expandInSettings": "Expand in Settings",
+    "dataRangeHint": "Based on {{duration}} of activity data"
     },
     "refresh": "Atualizar"
   },
@@ -301,7 +313,9 @@
     "goToRoutes": "Ir para Rotas",
     "noActivityData": "Sem dados de atividade",
     "processFirstHint": "Processe primeiro algumas atividades na tela Rotas para gerar um mapa de calor.",
-    "title": "Mapa de calor"
+    "title": "Mapa de calor",
+    "expandInSettings": "Expand in Settings",
+    "dataRangeHint": "Based on {{duration}} of activity data"
   },
   "login": {
     "apiKey": "Chave de API",
@@ -478,7 +492,10 @@
     "thisPace": "Este ritmo",
     "thisSpeed": "Esta velocidade",
     "visits": "visitas",
-    "waiting": "Aguardando..."
+    "waiting": "Aguardando...",
+    "firstRunHint": "Run this route again to compare your performance over time",
+    "expandInSettings": "Expand in Settings",
+    "dataRangeHint": "Based on {{duration}} of activity data"
   },
   "routesScreen": {
     "analysingRoutes": "Analisando rotas {{current}}/{{total}}",
@@ -488,7 +505,9 @@
     "expandDateRange": "Expandir intervalo de datas",
     "goToSettings": "Ir para Configuracoes",
     "matchingDisabled": "Correspondencia de rotas desativada",
-    "title": "Rotas"
+    "title": "Rotas",
+    "expandInSettings": "Expand in Settings",
+    "dataRangeHint": "Based on {{duration}} of activity data"
   },
   "sections": {
     "activities": "Atividades",
@@ -518,7 +537,8 @@
     "sectionNamePlaceholder": "Nome do trecho",
     "sectionNotFound": "Trecho nao encontrado",
     "totalTraversals": "Total de Travessias",
-    "traversals": "travessias"
+    "traversals": "travessias",
+    "forward": "Forward"
   },
   "settings": {
     "account": "Conta",
@@ -683,7 +703,9 @@
     "weeksAgo": "{{count}} semanas atras",
     "years": "Years",
     "yearsAgo": "{{count}} anos atras",
-    "yesterday": "Ontem"
+    "yesterday": "Ontem",
+    "daysCount": "{{count}} days",
+    "yearsCount": "{{count}} years"
   },
   "trainingScreen": {
     "checkingActivities": "Verificando {{count}} atividades...",

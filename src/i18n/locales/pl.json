@@ -191,27 +191,39 @@
     "clearFilters": "Wyczysc filtry",
     "error": {
       "description": "Nie udalo sie wczytac tej tresci",
-      "title": "Cos poszlo nie tak"
+      "title": "Cos poszlo nie tak",
+    "expandInSettings": "Expand in Settings",
+    "dataRangeHint": "Based on {{duration}} of activity data"
     },
     "networkError": {
       "description": "Sprawdz polaczenie internetowe i sprobuj ponownie",
-      "title": "Blad polaczenia"
+      "title": "Blad polaczenia",
+    "expandInSettings": "Expand in Settings",
+    "dataRangeHint": "Based on {{duration}} of activity data"
     },
     "noActivities": {
       "description": "Twoje aktywnosci pojawia sie tutaj po synchronizacji z Intervals.icu",
-      "title": "Brak aktywnosci"
+      "title": "Brak aktywnosci",
+    "expandInSettings": "Expand in Settings",
+    "dataRangeHint": "Based on {{duration}} of activity data"
     },
     "noData": {
       "description": "Wykonaj aktywnosci, aby zobaczyc statystyki",
-      "title": "Brak dostepnych danych"
+      "title": "Brak dostepnych danych",
+    "expandInSettings": "Expand in Settings",
+    "dataRangeHint": "Based on {{duration}} of activity data"
     },
     "noResults": {
       "description": "Sprobuj dostosowac wyszukiwanie lub filtry",
-      "title": "Nie znaleziono wynikow"
+      "title": "Nie znaleziono wynikow",
+    "expandInSettings": "Expand in Settings",
+    "dataRangeHint": "Based on {{duration}} of activity data"
     },
     "offline": {
       "description": "Niektore funkcje moga byc ograniczone",
-      "title": "Jestes offline"
+      "title": "Jestes offline",
+    "expandInSettings": "Expand in Settings",
+    "dataRangeHint": "Based on {{duration}} of activity data"
     },
     "refresh": "Odswiez"
   },
@@ -301,7 +313,9 @@
     "goToRoutes": "Przejdz do Tras",
     "noActivityData": "Brak danych aktywnosci",
     "processFirstHint": "Najpierw przetworz aktywnosci na ekranie Tras, aby wygenerowac mape ciepla.",
-    "title": "Mapa ciepla"
+    "title": "Mapa ciepla",
+    "expandInSettings": "Expand in Settings",
+    "dataRangeHint": "Based on {{duration}} of activity data"
   },
   "login": {
     "apiKey": "Klucz API",
@@ -478,7 +492,10 @@
     "thisPace": "To tempo",
     "thisSpeed": "Ta predkosc",
     "visits": "wizyty",
-    "waiting": "Oczekiwanie..."
+    "waiting": "Oczekiwanie...",
+    "firstRunHint": "Run this route again to compare your performance over time",
+    "expandInSettings": "Expand in Settings",
+    "dataRangeHint": "Based on {{duration}} of activity data"
   },
   "routesScreen": {
     "analysingRoutes": "Analiza tras {{current}}/{{total}}",
@@ -488,7 +505,9 @@
     "expandDateRange": "Rozszerz zakres dat",
     "goToSettings": "Przejdz do Ustawien",
     "matchingDisabled": "Dopasowywanie tras wylaczone",
-    "title": "Trasy"
+    "title": "Trasy",
+    "expandInSettings": "Expand in Settings",
+    "dataRangeHint": "Based on {{duration}} of activity data"
   },
   "sections": {
     "activities": "Aktywnosci",
@@ -518,7 +537,8 @@
     "sectionNamePlaceholder": "Nazwa odcinka",
     "sectionNotFound": "Nie znaleziono odcinka",
     "totalTraversals": "Łączna Liczba Przejazdów",
-    "traversals": "przejazdy"
+    "traversals": "przejazdy",
+    "forward": "Forward"
   },
   "settings": {
     "account": "Konto",
@@ -683,7 +703,9 @@
     "weeksAgo": "{{count}} tygodni temu",
     "years": "Years",
     "yearsAgo": "{{count}} lat temu",
-    "yesterday": "Wczoraj"
+    "yesterday": "Wczoraj",
+    "daysCount": "{{count}} days",
+    "yearsCount": "{{count}} years"
   },
   "trainingScreen": {
     "checkingActivities": "Sprawdzanie {{count}} aktywnosci...",

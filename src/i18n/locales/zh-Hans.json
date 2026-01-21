@@ -191,27 +191,39 @@
     "clearFilters": "清除筛选",
     "error": {
       "description": "我们无法加载此内容",
-      "title": "出错了"
+      "title": "出错了",
+    "expandInSettings": "Expand in Settings",
+    "dataRangeHint": "Based on {{duration}} of activity data"
     },
     "networkError": {
       "description": "请检查您的网络连接并重试",
-      "title": "连接错误"
+      "title": "连接错误",
+    "expandInSettings": "Expand in Settings",
+    "dataRangeHint": "Based on {{duration}} of activity data"
     },
     "noActivities": {
       "description": "与 Intervals.icu 同步后，您的活动将显示在这里",
-      "title": "暂无活动"
+      "title": "暂无活动",
+    "expandInSettings": "Expand in Settings",
+    "dataRangeHint": "Based on {{duration}} of activity data"
     },
     "noData": {
       "description": "完成一些活动后即可查看您的统计数据",
-      "title": "无可用数据"
+      "title": "无可用数据",
+    "expandInSettings": "Expand in Settings",
+    "dataRangeHint": "Based on {{duration}} of activity data"
     },
     "noResults": {
       "description": "尝试调整您的搜索或筛选条件",
-      "title": "未找到结果"
+      "title": "未找到结果",
+    "expandInSettings": "Expand in Settings",
+    "dataRangeHint": "Based on {{duration}} of activity data"
     },
     "offline": {
       "description": "部分功能可能受限",
-      "title": "您已离线"
+      "title": "您已离线",
+    "expandInSettings": "Expand in Settings",
+    "dataRangeHint": "Based on {{duration}} of activity data"
     },
     "refresh": "刷新"
   },
@@ -301,7 +313,9 @@
     "goToRoutes": "前往路线",
     "noActivityData": "无活动数据",
     "processFirstHint": "首先在路线页面处理一些活动以生成热力图。",
-    "title": "热力图"
+    "title": "热力图",
+    "expandInSettings": "Expand in Settings",
+    "dataRangeHint": "Based on {{duration}} of activity data"
   },
   "login": {
     "apiKey": "API 密钥",
@@ -478,7 +492,10 @@
     "thisPace": "此配速",
     "thisSpeed": "此速度",
     "visits": "访问",
-    "waiting": "等待中..."
+    "waiting": "等待中...",
+    "firstRunHint": "Run this route again to compare your performance over time",
+    "expandInSettings": "Expand in Settings",
+    "dataRangeHint": "Based on {{duration}} of activity data"
   },
   "routesScreen": {
     "analysingRoutes": "正在分析路线 {{current}}/{{total}}",
@@ -488,7 +505,9 @@
     "expandDateRange": "扩展日期范围",
     "goToSettings": "前往设置",
     "matchingDisabled": "路线匹配已禁用",
-    "title": "路线"
+    "title": "路线",
+    "expandInSettings": "Expand in Settings",
+    "dataRangeHint": "Based on {{duration}} of activity data"
   },
   "sections": {
     "activities": "活动",
@@ -518,7 +537,8 @@
     "sectionNamePlaceholder": "路段名称",
     "sectionNotFound": "未找到路段",
     "totalTraversals": "总通过次数",
-    "traversals": "次通过"
+    "traversals": "次通过",
+    "forward": "Forward"
   },
   "settings": {
     "account": "账户",
@@ -683,7 +703,9 @@
     "weeksAgo": "{{count}} 周前",
     "years": "Years",
     "yearsAgo": "{{count}} 年前",
-    "yesterday": "昨天"
+    "yesterday": "昨天",
+    "daysCount": "{{count}} days",
+    "yearsCount": "{{count}} years"
   },
   "trainingScreen": {
     "checkingActivities": "正在检查 {{count}} 个活动...",
