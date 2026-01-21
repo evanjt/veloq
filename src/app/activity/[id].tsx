@@ -10,6 +10,7 @@ import {
   StatusBar,
   useWindowDimensions,
   Alert,
+  PanResponder,
 } from 'react-native';
 import { Text, IconButton, ActivityIndicator } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -20,6 +21,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useTranslation } from 'react-i18next';
 import * as ScreenOrientation from 'expo-screen-orientation';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import * as Haptics from 'expo-haptics';
 import { useActivity, useActivityStreams, useWellnessForDate, useTheme } from '@/hooks';
 import { createSharedStyles } from '@/styles';
 import { useCustomSections } from '@/hooks/routes/useCustomSections';
@@ -124,10 +126,15 @@ export default function ActivityDetailScreen() {
   const { createSection, sections } = useCustomSections();
   // Highlighted section ID for map (when user holds a section row)
   const [highlightedSectionId, setHighlightedSectionId] = useState<string | null>(null);
-  // Track press start time to distinguish tap from hold
+  // Track press timing and timeout for long-press detection
   const pressStartTimeRef = useRef<number>(0);
   const highlightTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const LONG_PRESS_THRESHOLD = 200; // ms - anything longer is a hold, not a tap
+  // Track section row layouts for drag-to-highlight feature
+  const sectionRowLayoutsRef = useRef<Map<string, { y: number; height: number }>>(new Map());
+  const sectionsScrollOffsetRef = useRef(0);
+  const sectionsContainerYRef = useRef(0);
+  const sectionsContainerRef = useRef<View>(null);
+  const isDraggingRef = useRef(false);
 
   // Get cached date range for footer
   const syncOldest = useSyncDateRange((s) => s.oldest);
@@ -138,6 +145,9 @@ export default function ActivityDetailScreen() {
       (new Date(syncNewest).getTime() - new Date(syncOldest).getTime()) / (1000 * 60 * 60 * 24)
     );
   }, [syncOldest, syncNewest]);
+
+  // Long press threshold for section highlighting
+  const LONG_PRESS_THRESHOLD = 200;
 
   // Tab state for swipeable tabs
   type TabType = 'charts' | 'routes' | 'sections';
@@ -184,6 +194,65 @@ export default function ActivityDetailScreen() {
         section.sourceActivityId === id || section.matches.some((match) => match.activityId === id)
     );
   }, [sections, id]);
+
+  // Build ordered list of section IDs for drag-to-highlight
+  const orderedSectionIds = useMemo(() => {
+    const engineIds = engineSectionMatches.map((m) => m.section.id);
+    const customIds = customMatchedSections.map((s) => s.id);
+    return [...engineIds, ...customIds];
+  }, [engineSectionMatches, customMatchedSections]);
+
+  // Find which section is at a given Y position relative to the sections container
+  const findSectionAtY = useCallback(
+    (absoluteY: number): string | null => {
+      const relativeY = absoluteY - sectionsContainerYRef.current + sectionsScrollOffsetRef.current;
+      for (const sectionId of orderedSectionIds) {
+        const layout = sectionRowLayoutsRef.current.get(sectionId);
+        if (layout && relativeY >= layout.y && relativeY < layout.y + layout.height) {
+          return sectionId;
+        }
+      }
+      return null;
+    },
+    [orderedSectionIds]
+  );
+
+  // PanResponder for drag-to-highlight - claims gesture when dragging is active
+  const sectionsPanResponder = useMemo(
+    () =>
+      PanResponder.create({
+        // Claim gesture when dragging is active
+        onStartShouldSetPanResponder: () => isDraggingRef.current,
+        onMoveShouldSetPanResponder: () => isDraggingRef.current,
+        // Prevent other responders from taking over while dragging
+        onPanResponderTerminationRequest: () => !isDraggingRef.current,
+        onStartShouldSetPanResponderCapture: () => isDraggingRef.current,
+        onMoveShouldSetPanResponderCapture: () => isDraggingRef.current,
+        onPanResponderGrant: () => {
+          // We've claimed the gesture
+        },
+        onPanResponderMove: (_, gestureState) => {
+          if (!isDraggingRef.current) return;
+          const sectionId = findSectionAtY(gestureState.moveY);
+          setHighlightedSectionId((prev) => {
+            if (sectionId && sectionId !== prev) {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              return sectionId;
+            }
+            return prev;
+          });
+        },
+        onPanResponderRelease: () => {
+          isDraggingRef.current = false;
+          setHighlightedSectionId(null);
+        },
+        onPanResponderTerminate: () => {
+          isDraggingRef.current = false;
+          setHighlightedSectionId(null);
+        },
+      }),
+    [findSectionAtY]
+  );
 
   // Total section count (auto-detected + custom)
   const totalSectionCount = engineSectionCount + customMatchedSections.length;
@@ -925,284 +994,328 @@ export default function ActivityDetailScreen() {
         </ScrollView>
 
         {/* Tab 3: Sections */}
-        <ScrollView
+        <View
+          ref={sectionsContainerRef}
           style={styles.tabScrollView}
-          contentContainerStyle={styles.tabScrollContent}
-          showsVerticalScrollIndicator={false}
+          {...sectionsPanResponder.panHandlers}
         >
-          {totalSectionCount > 0 ? (
-            <>
-              {/* Auto-detected sections from engine */}
-              {engineSectionMatches.map((match, index) => {
-                const style = getSectionStyle(index);
-                return (
-                  <TouchableOpacity
-                    key={`engine-${match.section.id}-${performanceDataReady}`}
-                    style={[styles.sectionCard, isDark && styles.cardDark]}
-                    onPress={() => {
-                      // Only navigate if it was a quick tap, not a long press
-                      const pressDuration = Date.now() - pressStartTimeRef.current;
-                      if (pressDuration < LONG_PRESS_THRESHOLD) {
-                        router.push(`/section/${match.section.id}` as Href);
-                      }
-                    }}
-                    onPressIn={() => {
-                      pressStartTimeRef.current = Date.now();
-                      // Only highlight after holding for the threshold duration
-                      highlightTimeoutRef.current = setTimeout(() => {
-                        setHighlightedSectionId(match.section.id);
-                      }, LONG_PRESS_THRESHOLD);
-                    }}
-                    onPressOut={() => {
-                      // Cancel pending highlight if released quickly
-                      if (highlightTimeoutRef.current) {
-                        clearTimeout(highlightTimeoutRef.current);
-                        highlightTimeoutRef.current = null;
-                      }
-                      setHighlightedSectionId(null);
-                    }}
-                    activeOpacity={0.7}
-                  >
-                    <View style={styles.sectionCardContent}>
-                      {/* Number badge matching map marker */}
-                      <View style={[styles.sectionNumberBadge, { borderColor: style.color }]}>
-                        <Text style={styles.sectionNumberBadgeText}>{index + 1}</Text>
-                      </View>
-                      {/* Mini trace preview - shows section's canonical polyline */}
-                      <View style={[styles.sectionPreview, isDark && styles.sectionPreviewDark]}>
-                        {(() => {
-                          // Get full section with polyline in RoutePoint format
-                          const fullSection = allFrequentSections.find(
-                            (s) => s.id === match.section.id
-                          );
-                          const sectionPolyline = fullSection?.polyline;
-                          return sectionPolyline && sectionPolyline.length > 1 ? (
-                            <MiniTraceView
-                              primaryPoints={sectionPolyline}
-                              primaryColor={style.color}
-                              referenceColor={style.color}
-                              size={48}
-                            />
-                          ) : (
-                            <MaterialCommunityIcons
-                              name="road-variant"
-                              size={24}
-                              color={colors.primary}
-                            />
-                          );
-                        })()}
-                      </View>
-
-                      {/* Section info */}
-                      <View style={styles.sectionInfo}>
-                        <View style={styles.sectionHeader}>
-                          <Text
-                            style={[styles.sectionName, isDark && styles.textLight]}
-                            numberOfLines={1}
-                          >
-                            {match.section.name || t('routes.autoDetected')}
-                          </Text>
-                          <View
-                            style={[
-                              styles.autoDetectedBadge,
-                              isDark && styles.autoDetectedBadgeDark,
-                            ]}
-                          >
-                            <Text style={styles.autoDetectedText}>{t('routes.autoDetected')}</Text>
-                          </View>
+          <ScrollView
+            contentContainerStyle={styles.tabScrollContent}
+            showsVerticalScrollIndicator={false}
+            scrollEnabled={!isDraggingRef.current}
+            onScroll={(e) => {
+              sectionsScrollOffsetRef.current = e.nativeEvent.contentOffset.y;
+            }}
+            scrollEventThrottle={16}
+          >
+            {totalSectionCount > 0 ? (
+              <>
+                {/* Auto-detected sections from engine */}
+                {engineSectionMatches.map((match, index) => {
+                  const style = getSectionStyle(index);
+                  return (
+                    <TouchableOpacity
+                      key={`engine-${match.section.id}-${performanceDataReady}`}
+                      style={[styles.sectionCard, isDark && styles.cardDark]}
+                      onLayout={(e) => {
+                        sectionRowLayoutsRef.current.set(match.section.id, {
+                          y: e.nativeEvent.layout.y,
+                          height: e.nativeEvent.layout.height,
+                        });
+                      }}
+                      onPress={() => {
+                        // Only navigate if it was a quick tap, not a long press
+                        const pressDuration = Date.now() - pressStartTimeRef.current;
+                        if (pressDuration < LONG_PRESS_THRESHOLD) {
+                          router.push(`/section/${match.section.id}` as Href);
+                        }
+                      }}
+                      onPressIn={() => {
+                        pressStartTimeRef.current = Date.now();
+                        // Enable drag-to-highlight mode after holding for the threshold
+                        highlightTimeoutRef.current = setTimeout(() => {
+                          // Measure container position for drag calculations
+                          sectionsContainerRef.current?.measureInWindow((_x, y) => {
+                            sectionsContainerYRef.current = y;
+                          });
+                          isDraggingRef.current = true;
+                          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                          setHighlightedSectionId(match.section.id);
+                        }, LONG_PRESS_THRESHOLD);
+                      }}
+                      onPressOut={() => {
+                        // Cancel pending highlight if released quickly (before threshold)
+                        if (highlightTimeoutRef.current) {
+                          clearTimeout(highlightTimeoutRef.current);
+                          highlightTimeoutRef.current = null;
+                        }
+                        // If not in drag mode, clear highlight immediately
+                        if (!isDraggingRef.current) {
+                          setHighlightedSectionId(null);
+                        }
+                        // If in drag mode, touch end handler will clear it
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <View style={styles.sectionCardContent}>
+                        {/* Number badge matching map marker */}
+                        <View style={[styles.sectionNumberBadge, { borderColor: style.color }]}>
+                          <Text style={styles.sectionNumberBadgeText}>{index + 1}</Text>
                         </View>
-                        {(() => {
-                          const sectionTime = getSectionTime(match.portion);
-                          const bestTime = getSectionBestTime(match.section.id);
-                          const delta =
-                            sectionTime != null && bestTime != null
-                              ? formatTimeDelta(sectionTime, bestTime)
-                              : null;
-                          return (
-                            <>
-                              <Text style={[styles.sectionMeta, isDark && styles.textMuted]}>
-                                {formatDistance(match.distance)} · {match.section.visitCount}{' '}
-                                {t('routes.visits')}
-                              </Text>
-                              {sectionTime != null && (
-                                <View style={styles.sectionTimeRow}>
-                                  <Text style={[styles.sectionTime, isDark && styles.textLight]}>
-                                    {formatSectionTime(sectionTime)} ·{' '}
-                                    {formatSectionPace(sectionTime, match.distance)}
-                                  </Text>
-                                  {delta && (
-                                    <Text
-                                      style={[
-                                        styles.sectionDelta,
-                                        delta.isAhead ? styles.deltaAhead : styles.deltaBehind,
-                                      ]}
-                                    >
-                                      {delta.text}
-                                    </Text>
-                                  )}
-                                </View>
-                              )}
-                            </>
-                          );
-                        })()}
-                      </View>
-                    </View>
-                  </TouchableOpacity>
-                );
-              })}
-
-              {/* Custom sections */}
-              {customMatchedSections.map((section, customIndex) => {
-                const sectionIndex = engineSectionMatches.length + customIndex;
-                const style = getSectionStyle(sectionIndex);
-                return (
-                  <TouchableOpacity
-                    key={`custom-${section.id}`}
-                    style={[styles.sectionCard, isDark && styles.cardDark]}
-                    onPressIn={() => {
-                      pressStartTimeRef.current = Date.now();
-                      // Only highlight after holding for the threshold duration
-                      highlightTimeoutRef.current = setTimeout(() => {
-                        setHighlightedSectionId(section.id);
-                      }, LONG_PRESS_THRESHOLD);
-                    }}
-                    onPressOut={() => {
-                      // Cancel pending highlight if released quickly
-                      if (highlightTimeoutRef.current) {
-                        clearTimeout(highlightTimeoutRef.current);
-                        highlightTimeoutRef.current = null;
-                      }
-                      setHighlightedSectionId(null);
-                    }}
-                    onPress={() => {
-                      // Only navigate if it was a quick tap, not a long press
-                      const pressDuration = Date.now() - pressStartTimeRef.current;
-                      if (pressDuration < LONG_PRESS_THRESHOLD) {
-                        router.push(`/section/${section.id}` as Href);
-                      }
-                    }}
-                    activeOpacity={0.7}
-                  >
-                    <View style={styles.sectionCardContent}>
-                      {/* Number badge matching map marker */}
-                      <View style={[styles.sectionNumberBadge, { borderColor: style.color }]}>
-                        <Text style={styles.sectionNumberBadgeText}>{sectionIndex + 1}</Text>
-                      </View>
-                      {/* Mini trace preview - shows section's canonical polyline */}
-                      <View style={[styles.sectionPreview, isDark && styles.sectionPreviewDark]}>
-                        {(() => {
-                          // Custom sections have polyline directly
-                          const sectionPolyline = section.polyline;
-                          return sectionPolyline && sectionPolyline.length > 1 ? (
-                            <MiniTraceView
-                              primaryPoints={sectionPolyline}
-                              primaryColor={style.color}
-                              referenceColor={style.color}
-                              size={48}
-                            />
-                          ) : (
-                            <MaterialCommunityIcons
-                              name="road-variant"
-                              size={24}
-                              color={colors.primary}
-                            />
-                          );
-                        })()}
-                      </View>
-
-                      {/* Section info */}
-                      <View style={styles.sectionInfo}>
-                        <View style={styles.sectionHeader}>
-                          <Text
-                            style={[styles.sectionName, isDark && styles.textLight]}
-                            numberOfLines={1}
-                          >
-                            {section.name}
-                          </Text>
-                          <View style={[styles.customBadge, isDark && styles.customBadgeDark]}>
-                            <Text style={styles.customBadgeText}>{t('routes.custom')}</Text>
-                          </View>
+                        {/* Mini trace preview - shows section's canonical polyline */}
+                        <View style={[styles.sectionPreview, isDark && styles.sectionPreviewDark]}>
+                          {(() => {
+                            // Get full section with polyline in RoutePoint format
+                            const fullSection = allFrequentSections.find(
+                              (s) => s.id === match.section.id
+                            );
+                            const sectionPolyline = fullSection?.polyline;
+                            return sectionPolyline && sectionPolyline.length > 1 ? (
+                              <MiniTraceView
+                                primaryPoints={sectionPolyline}
+                                primaryColor={style.color}
+                                referenceColor={style.color}
+                                size={48}
+                              />
+                            ) : (
+                              <MaterialCommunityIcons
+                                name="road-variant"
+                                size={24}
+                                color={colors.primary}
+                              />
+                            );
+                          })()}
                         </View>
-                        {(() => {
-                          const activityMatch = section.matches.find((m) => m.activityId === id);
-                          // Use match or section's original indices for source activity
-                          const portionIndices =
-                            activityMatch ??
-                            (section.sourceActivityId === id ? section : undefined);
-                          const sectionTime = getSectionTime(portionIndices);
-                          const bestTime = getSectionBestTime(section.id);
-                          const delta =
-                            sectionTime != null && bestTime != null
-                              ? formatTimeDelta(sectionTime, bestTime)
-                              : null;
-                          // Count visits: matches + 1 if this is the source activity
-                          const visitCount =
-                            section.matches.length +
-                            (section.sourceActivityId === id && !activityMatch ? 1 : 0);
-                          return (
-                            <>
-                              <Text style={[styles.sectionMeta, isDark && styles.textMuted]}>
-                                {formatDistance(section.distanceMeters)} · {visitCount}{' '}
-                                {t('routes.visits')}
+
+                        {/* Section info */}
+                        <View style={styles.sectionInfo}>
+                          <View style={styles.sectionHeader}>
+                            <Text
+                              style={[styles.sectionName, isDark && styles.textLight]}
+                              numberOfLines={1}
+                            >
+                              {match.section.name || t('routes.autoDetected')}
+                            </Text>
+                            <View
+                              style={[
+                                styles.autoDetectedBadge,
+                                isDark && styles.autoDetectedBadgeDark,
+                              ]}
+                            >
+                              <Text style={styles.autoDetectedText}>
+                                {t('routes.autoDetected')}
                               </Text>
-                              {sectionTime != null && (
-                                <View style={styles.sectionTimeRow}>
-                                  <Text style={[styles.sectionTime, isDark && styles.textLight]}>
-                                    {formatSectionTime(sectionTime)} ·{' '}
-                                    {formatSectionPace(sectionTime, section.distanceMeters)}
-                                  </Text>
-                                  {delta && (
-                                    <Text
-                                      style={[
-                                        styles.sectionDelta,
-                                        delta.isAhead ? styles.deltaAhead : styles.deltaBehind,
-                                      ]}
-                                    >
-                                      {delta.text}
+                            </View>
+                          </View>
+                          {(() => {
+                            const sectionTime = getSectionTime(match.portion);
+                            const bestTime = getSectionBestTime(match.section.id);
+                            const delta =
+                              sectionTime != null && bestTime != null
+                                ? formatTimeDelta(sectionTime, bestTime)
+                                : null;
+                            return (
+                              <>
+                                <Text style={[styles.sectionMeta, isDark && styles.textMuted]}>
+                                  {formatDistance(match.distance)} · {match.section.visitCount}{' '}
+                                  {t('routes.visits')}
+                                </Text>
+                                {sectionTime != null && (
+                                  <View style={styles.sectionTimeRow}>
+                                    <Text style={[styles.sectionTime, isDark && styles.textLight]}>
+                                      {formatSectionTime(sectionTime)} ·{' '}
+                                      {formatSectionPace(sectionTime, match.distance)}
                                     </Text>
-                                  )}
-                                </View>
-                              )}
-                            </>
-                          );
-                        })()}
+                                    {delta && (
+                                      <Text
+                                        style={[
+                                          styles.sectionDelta,
+                                          delta.isAhead ? styles.deltaAhead : styles.deltaBehind,
+                                        ]}
+                                      >
+                                        {delta.text}
+                                      </Text>
+                                    )}
+                                  </View>
+                                )}
+                              </>
+                            );
+                          })()}
+                        </View>
                       </View>
-                    </View>
-                  </TouchableOpacity>
-                );
-              })}
-            </>
-          ) : (
-            <View style={styles.emptyStateContainer}>
-              <MaterialCommunityIcons
-                name="road-variant"
-                size={48}
-                color={isDark ? darkColors.border : colors.divider}
-              />
-              <Text style={[styles.emptyStateTitle, isDark && styles.textLight]}>
-                {t('activityDetail.noMatchedSections')}
-              </Text>
-              <Text style={[styles.emptyStateDescription, isDark && styles.textMuted]}>
-                {t('activityDetail.noMatchedSectionsDescription')}
-              </Text>
-            </View>
-          )}
+                    </TouchableOpacity>
+                  );
+                })}
 
-          {/* Create Section Button */}
-          {coordinates.length > 0 && !sectionCreationMode && (
-            <TouchableOpacity
-              style={[styles.createSectionButton, isDark && styles.createSectionButtonDark]}
-              onPress={() => setSectionCreationMode(true)}
-              activeOpacity={0.7}
-            >
-              <MaterialCommunityIcons name="plus" size={20} color={colors.textOnPrimary} />
-              <Text style={styles.createSectionButtonText}>{t('routes.createSection')}</Text>
-            </TouchableOpacity>
-          )}
+                {/* Custom sections */}
+                {customMatchedSections.map((section, customIndex) => {
+                  const sectionIndex = engineSectionMatches.length + customIndex;
+                  const style = getSectionStyle(sectionIndex);
+                  return (
+                    <TouchableOpacity
+                      key={`custom-${section.id}`}
+                      style={[styles.sectionCard, isDark && styles.cardDark]}
+                      onLayout={(e) => {
+                        sectionRowLayoutsRef.current.set(section.id, {
+                          y: e.nativeEvent.layout.y,
+                          height: e.nativeEvent.layout.height,
+                        });
+                      }}
+                      onPressIn={() => {
+                        pressStartTimeRef.current = Date.now();
+                        // Enable drag-to-highlight mode after holding for the threshold
+                        highlightTimeoutRef.current = setTimeout(() => {
+                          // Measure container position for drag calculations
+                          sectionsContainerRef.current?.measureInWindow((_x, y) => {
+                            sectionsContainerYRef.current = y;
+                          });
+                          isDraggingRef.current = true;
+                          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                          setHighlightedSectionId(section.id);
+                        }, LONG_PRESS_THRESHOLD);
+                      }}
+                      onPressOut={() => {
+                        // Cancel pending highlight if released quickly (before threshold)
+                        if (highlightTimeoutRef.current) {
+                          clearTimeout(highlightTimeoutRef.current);
+                          highlightTimeoutRef.current = null;
+                        }
+                        // If not in drag mode, clear highlight immediately
+                        if (!isDraggingRef.current) {
+                          setHighlightedSectionId(null);
+                        }
+                        // If in drag mode, touch end handler will clear it
+                      }}
+                      onPress={() => {
+                        // Only navigate if it was a quick tap, not a long press
+                        const pressDuration = Date.now() - pressStartTimeRef.current;
+                        if (pressDuration < LONG_PRESS_THRESHOLD) {
+                          router.push(`/section/${section.id}` as Href);
+                        }
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <View style={styles.sectionCardContent}>
+                        {/* Number badge matching map marker */}
+                        <View style={[styles.sectionNumberBadge, { borderColor: style.color }]}>
+                          <Text style={styles.sectionNumberBadgeText}>{sectionIndex + 1}</Text>
+                        </View>
+                        {/* Mini trace preview - shows section's canonical polyline */}
+                        <View style={[styles.sectionPreview, isDark && styles.sectionPreviewDark]}>
+                          {(() => {
+                            // Custom sections have polyline directly
+                            const sectionPolyline = section.polyline;
+                            return sectionPolyline && sectionPolyline.length > 1 ? (
+                              <MiniTraceView
+                                primaryPoints={sectionPolyline}
+                                primaryColor={style.color}
+                                referenceColor={style.color}
+                                size={48}
+                              />
+                            ) : (
+                              <MaterialCommunityIcons
+                                name="road-variant"
+                                size={24}
+                                color={colors.primary}
+                              />
+                            );
+                          })()}
+                        </View>
 
-          {/* Data range footer */}
-          <DataRangeFooter days={cacheDays} isDark={isDark} />
-        </ScrollView>
+                        {/* Section info */}
+                        <View style={styles.sectionInfo}>
+                          <View style={styles.sectionHeader}>
+                            <Text
+                              style={[styles.sectionName, isDark && styles.textLight]}
+                              numberOfLines={1}
+                            >
+                              {section.name}
+                            </Text>
+                            <View style={[styles.customBadge, isDark && styles.customBadgeDark]}>
+                              <Text style={styles.customBadgeText}>{t('routes.custom')}</Text>
+                            </View>
+                          </View>
+                          {(() => {
+                            const activityMatch = section.matches.find((m) => m.activityId === id);
+                            // Use match or section's original indices for source activity
+                            const portionIndices =
+                              activityMatch ??
+                              (section.sourceActivityId === id ? section : undefined);
+                            const sectionTime = getSectionTime(portionIndices);
+                            const bestTime = getSectionBestTime(section.id);
+                            const delta =
+                              sectionTime != null && bestTime != null
+                                ? formatTimeDelta(sectionTime, bestTime)
+                                : null;
+                            // Count visits: matches + 1 if this is the source activity
+                            const visitCount =
+                              section.matches.length +
+                              (section.sourceActivityId === id && !activityMatch ? 1 : 0);
+                            return (
+                              <>
+                                <Text style={[styles.sectionMeta, isDark && styles.textMuted]}>
+                                  {formatDistance(section.distanceMeters)} · {visitCount}{' '}
+                                  {t('routes.visits')}
+                                </Text>
+                                {sectionTime != null && (
+                                  <View style={styles.sectionTimeRow}>
+                                    <Text style={[styles.sectionTime, isDark && styles.textLight]}>
+                                      {formatSectionTime(sectionTime)} ·{' '}
+                                      {formatSectionPace(sectionTime, section.distanceMeters)}
+                                    </Text>
+                                    {delta && (
+                                      <Text
+                                        style={[
+                                          styles.sectionDelta,
+                                          delta.isAhead ? styles.deltaAhead : styles.deltaBehind,
+                                        ]}
+                                      >
+                                        {delta.text}
+                                      </Text>
+                                    )}
+                                  </View>
+                                )}
+                              </>
+                            );
+                          })()}
+                        </View>
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })}
+              </>
+            ) : (
+              <View style={styles.emptyStateContainer}>
+                <MaterialCommunityIcons
+                  name="road-variant"
+                  size={48}
+                  color={isDark ? darkColors.border : colors.divider}
+                />
+                <Text style={[styles.emptyStateTitle, isDark && styles.textLight]}>
+                  {t('activityDetail.noMatchedSections')}
+                </Text>
+                <Text style={[styles.emptyStateDescription, isDark && styles.textMuted]}>
+                  {t('activityDetail.noMatchedSectionsDescription')}
+                </Text>
+              </View>
+            )}
+
+            {/* Create Section Button */}
+            {coordinates.length > 0 && !sectionCreationMode && (
+              <TouchableOpacity
+                style={[styles.createSectionButton, isDark && styles.createSectionButtonDark]}
+                onPress={() => setSectionCreationMode(true)}
+                activeOpacity={0.7}
+              >
+                <MaterialCommunityIcons name="plus" size={20} color={colors.textOnPrimary} />
+                <Text style={styles.createSectionButtonText}>{t('routes.createSection')}</Text>
+              </TouchableOpacity>
+            )}
+
+            {/* Data range footer */}
+            <DataRangeFooter days={cacheDays} isDark={isDark} />
+          </ScrollView>
+        </View>
       </SwipeableTabs>
 
       {/* Fullscreen Chart Modal - Landscape */}

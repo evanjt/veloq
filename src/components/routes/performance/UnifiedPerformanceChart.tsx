@@ -58,6 +58,13 @@ function formatShortDate(date: Date): string {
   return formatShortDateLib(date);
 }
 
+/** Format date for axis labels - includes year as 2-digit suffix */
+function formatAxisDate(date: Date): string {
+  const month = date.toLocaleDateString(undefined, { month: 'short' });
+  const year = date.getFullYear().toString().slice(-2);
+  return `${month} '${year}`;
+}
+
 /** Summary statistics to display in the chart header */
 export interface ChartSummaryStats {
   bestTime: number | null;
@@ -276,16 +283,38 @@ export function UnifiedPerformanceChart({
         return 0.05 + ((t - firstTime) / totalRange) * 0.9;
       };
 
+      // Generate monthly labels
       const labels: { date: Date; position: number }[] = [];
-      labels.push({ date: sortedDates[0].date, position: convertDateToX(sortedDates[0].date) });
-      if (sortedDates.length > 1) {
-        labels.push({
-          date: sortedDates[sortedDates.length - 1].date,
-          position: convertDateToX(sortedDates[sortedDates.length - 1].date),
-        });
+      const firstDate = sortedDates[0].date;
+      const lastDate = sortedDates[sortedDates.length - 1].date;
+
+      const currentMonth = new Date(firstDate.getFullYear(), firstDate.getMonth(), 1);
+      while (currentMonth <= lastDate) {
+        if (currentMonth >= firstDate || currentMonth.getMonth() === firstDate.getMonth()) {
+          labels.push({
+            date: new Date(currentMonth),
+            position: convertDateToX(currentMonth),
+          });
+        }
+        currentMonth.setMonth(currentMonth.getMonth() + 1);
       }
 
-      return { dateToX: convertDateToX, gaps: [] as GapWithPosition[], timeAxisLabels: labels };
+      // Filter out labels that are too close together
+      // Need at least ~70px between labels to avoid overlap (labels are ~50px wide)
+      const chartContentW = BASE_CHART_WIDTH - CHART_PADDING_LEFT - CHART_PADDING_RIGHT;
+      const minSpacing = 70 / chartContentW; // Convert pixels to normalized position
+      const uniqueLabels = labels
+        .sort((a, b) => a.position - b.position)
+        .filter(
+          (label, idx, arr) =>
+            idx === 0 || Math.abs(label.position - arr[idx - 1].position) >= minSpacing
+        );
+
+      return {
+        dateToX: convertDateToX,
+        gaps: [] as GapWithPosition[],
+        timeAxisLabels: uniqueLabels,
+      };
     }
 
     // Build time mapping with gap compression
@@ -363,38 +392,45 @@ export function UnifiedPerformanceChart({
       };
     });
 
-    // Generate time axis labels - include start, end, and points around gaps
+    // Generate time axis labels - monthly labels plus gap boundaries
     const labels: { date: Date; position: number }[] = [];
 
-    // Always include first date
-    labels.push({ date: sortedDates[0].date, position: convertDateToX(sortedDates[0].date) });
+    const firstDate = sortedDates[0].date;
+    const lastDate = sortedDates[sortedDates.length - 1].date;
 
-    // Add labels at gap boundaries (before and after each gap)
+    // Generate monthly labels (first of each month between first and last date)
+    const currentMonth = new Date(firstDate.getFullYear(), firstDate.getMonth(), 1);
+    while (currentMonth <= lastDate) {
+      // Only add if within range (at least close to first date)
+      if (currentMonth >= firstDate || currentMonth.getMonth() === firstDate.getMonth()) {
+        labels.push({
+          date: new Date(currentMonth),
+          position: convertDateToX(currentMonth),
+        });
+      }
+      // Move to next month
+      currentMonth.setMonth(currentMonth.getMonth() + 1);
+    }
+
+    // Add labels at gap boundaries (before and after each gap) for context
     gapsWithPositions.forEach((gap, idx) => {
       const gapInfo = detectedGaps[idx];
       if (gapInfo) {
-        // Label before the gap
         labels.push({ date: gapInfo.startDate, position: convertDateToX(gapInfo.startDate) });
-        // Label after the gap
         labels.push({ date: gapInfo.endDate, position: convertDateToX(gapInfo.endDate) });
       }
     });
 
-    // Always include last date
-    if (sortedDates.length > 1) {
-      labels.push({
-        date: sortedDates[sortedDates.length - 1].date,
-        position: convertDateToX(sortedDates[sortedDates.length - 1].date),
-      });
-    }
-
-    // Remove duplicates and sort by position
+    // Remove duplicates (labels too close together) and sort by position
+    // Need at least ~70px between labels to avoid overlap (labels are ~50px wide)
+    const chartContentW = chartWidth - CHART_PADDING_LEFT - CHART_PADDING_RIGHT;
+    const minSpacing = 70 / chartContentW; // Convert pixels to normalized position
     const uniqueLabels = labels
+      .sort((a, b) => a.position - b.position)
       .filter(
         (label, idx, arr) =>
-          arr.findIndex((l) => Math.abs(l.position - label.position) < 0.05) === idx
-      )
-      .sort((a, b) => a.position - b.position);
+          idx === 0 || Math.abs(label.position - arr[idx - 1].position) >= minSpacing
+      );
 
     return { dateToX: convertDateToX, gaps: gapsWithPositions, timeAxisLabels: uniqueLabels };
   }, [chartData, detectedGaps, expandedGaps]);
@@ -569,19 +605,23 @@ export function UnifiedPerformanceChart({
   );
 
   // Tap gesture to clear selection
+  // Use maxDuration and maxDistance to prevent interfering with scroll momentum
   const tapGesture = useMemo(
     () =>
-      Gesture.Tap().onEnd(() => {
-        'worklet';
-        runOnJS(clearSelection)();
-      }),
+      Gesture.Tap()
+        .maxDuration(200) // Only register quick taps
+        .onEnd(() => {
+          'worklet';
+          runOnJS(clearSelection)();
+        }),
     [clearSelection]
   );
 
-  // Combined gesture
+  // Combined gesture - use Native() to allow ScrollView to handle scroll momentum properly
+  const nativeGesture = useMemo(() => Gesture.Native(), []);
   const composedGesture = useMemo(
-    () => Gesture.Simultaneous(tapGesture, panGesture),
-    [tapGesture, panGesture]
+    () => Gesture.Simultaneous(nativeGesture, Gesture.Simultaneous(tapGesture, panGesture)),
+    [nativeGesture, tapGesture, panGesture]
   );
 
   // Crosshair animation
@@ -828,7 +868,7 @@ export function UnifiedPerformanceChart({
                   idx === timeAxisLabels.length - 1 && styles.timeAxisLabelLast,
                 ]}
               >
-                {formatShortDate(label.date)}
+                {formatAxisDate(label.date)}
               </Text>
             ))}
           </View>
@@ -980,16 +1020,12 @@ export function UnifiedPerformanceChart({
           scrollEnabled={isScrollable}
           onScroll={handleForwardScroll}
           scrollEventThrottle={16}
+          decelerationRate={0.999}
+          nestedScrollEnabled={true}
         >
-          <GestureDetector gesture={composedGesture}>
-            <Animated.View style={{ height: LANE_HEIGHT, width: chartWidth }}>
-              {renderLaneChart(forwardLane, activityColor, 'forward')}
-              <Animated.View
-                style={[styles.crosshair, crosshairStyle, isDark && styles.crosshairDark]}
-                pointerEvents="none"
-              />
-            </Animated.View>
-          </GestureDetector>
+          <View style={{ height: LANE_HEIGHT, width: chartWidth }}>
+            {renderLaneChart(forwardLane, activityColor, 'forward')}
+          </View>
         </ScrollView>
       )}
 
@@ -1032,16 +1068,12 @@ export function UnifiedPerformanceChart({
           scrollEnabled={isScrollable}
           onScroll={handleReverseScroll}
           scrollEventThrottle={16}
+          decelerationRate={0.999}
+          nestedScrollEnabled={true}
         >
-          <GestureDetector gesture={composedGesture}>
-            <Animated.View style={{ height: LANE_HEIGHT, width: chartWidth }}>
-              {renderLaneChart(reverseLane, colors.reverseDirection, 'reverse')}
-              <Animated.View
-                style={[styles.crosshair, crosshairStyle, isDark && styles.crosshairDark]}
-                pointerEvents="none"
-              />
-            </Animated.View>
-          </GestureDetector>
+          <View style={{ height: LANE_HEIGHT, width: chartWidth }}>
+            {renderLaneChart(reverseLane, colors.reverseDirection, 'reverse')}
+          </View>
         </ScrollView>
       )}
 
@@ -1053,6 +1085,8 @@ export function UnifiedPerformanceChart({
         scrollEnabled={isScrollable}
         onScroll={handleTimeAxisScroll}
         scrollEventThrottle={16}
+        decelerationRate={0.999}
+        nestedScrollEnabled={true}
         style={styles.timeAxisScroll}
       >
         <View style={[styles.timeAxisContent, { width: chartWidth }]}>
@@ -1069,7 +1103,7 @@ export function UnifiedPerformanceChart({
                   { left: leftPos - 20 },
                 ]}
               >
-                {formatShortDate(label.date)}
+                {formatAxisDate(label.date)}
               </Text>
             );
           })}

@@ -99,15 +99,6 @@ android {
     }
   }
 
-  // Don't package shared libraries that React Native already provides
-  // This prevents "2 files found with path 'lib/*/*.so'" duplicate errors
-  packagingOptions {
-    exclude '**/libc++_shared.so'
-    exclude '**/libjsi.so'
-    exclude '**/libfbjni.so'
-    exclude '**/libreactnative.so'
-  }
-
   lintOptions {
     disable "GradleCompatible"
   }

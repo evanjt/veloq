@@ -176,6 +176,9 @@ async function runPotentialSectionDetection(
     const activitySportTypes: ActivitySportType[] = [];
 
     for (const id of activityIds) {
+      // Skip null/empty activity IDs - FFI requires non-null strings
+      if (id == null || id === '') continue;
+
       const track = nativeModule.routeEngine.getGpsTrack(id);
       if (track.length >= 4) {
         ids.push(id);
@@ -216,7 +219,11 @@ async function runPotentialSectionDetection(
         ...g,
         // Ensure sportType is never null/empty - default to 'Ride' if missing
         sportType: g.sportType || 'Ride',
-      }));
+        // Filter out any null/empty activity IDs within the array
+        activityIds: g.activityIds.filter((id): id is string => id != null && id !== ''),
+      }))
+      // After filtering activityIds, remove groups that ended up empty
+      .filter((g) => g.activityIds.length > 0);
 
     if (__DEV__ && rawGroups.length !== groups.length) {
       console.log(
