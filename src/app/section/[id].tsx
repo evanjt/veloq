@@ -280,6 +280,9 @@ export default function SectionDetailScreen() {
     RoutePoint[] | undefined
   >(undefined);
   const [shadowTrack, setShadowTrack] = useState<[number, number][] | undefined>(undefined);
+  // Pre-cached GPS tracks for fast scrubbing (loaded in background when section loads)
+  const gpsTrackCacheRef = useRef<Map<string, [number, number][]>>(new Map());
+  const [cacheReady, setCacheReady] = useState(false);
   // Activity traces computed from GPS tracks (for custom sections)
   const [computedActivityTraces, setComputedActivityTraces] = useState<
     Record<string, RoutePoint[]>
@@ -551,15 +554,84 @@ export default function SectionDetailScreen() {
     }
   }, [id, isCustomId, isSectionDisabled, enable, disable, t]);
 
-  // Load full GPS track when an activity is highlighted (for shadow display)
-  // Uses Rust engine which has all GPS tracks in SQLite (not FileSystem storage)
+  // Pre-cache all GPS tracks for activities in this section (for fast scrubbing)
+  // Runs in background when section loads, populates gpsTrackCacheRef
+  useEffect(() => {
+    if (!section?.activityIds?.length) {
+      gpsTrackCacheRef.current.clear();
+      setCacheReady(false);
+      return;
+    }
+
+    const engine = getRouteEngine();
+    if (!engine) {
+      setCacheReady(false);
+      return;
+    }
+
+    // Clear previous cache
+    gpsTrackCacheRef.current.clear();
+    setCacheReady(false);
+
+    // Load GPS tracks in background using requestIdleCallback pattern
+    const activityIds = [...section.activityIds];
+    let currentIndex = 0;
+    let cancelled = false;
+
+    const loadNextBatch = () => {
+      if (cancelled) return;
+
+      // Load a batch of tracks (5 at a time to avoid blocking)
+      const batchSize = 5;
+      const endIndex = Math.min(currentIndex + batchSize, activityIds.length);
+
+      for (let i = currentIndex; i < endIndex; i++) {
+        const activityId = activityIds[i];
+        const gpsPoints = engine.getGpsTrack(activityId);
+        if (gpsPoints && gpsPoints.length > 0) {
+          const track: [number, number][] = gpsPoints.map((p) => [p.latitude, p.longitude]);
+          gpsTrackCacheRef.current.set(activityId, track);
+        }
+      }
+
+      currentIndex = endIndex;
+
+      if (currentIndex < activityIds.length) {
+        // Schedule next batch
+        setTimeout(loadNextBatch, 0);
+      } else {
+        // All loaded
+        setCacheReady(true);
+      }
+    };
+
+    // Start loading after a short delay to not block initial render
+    const timeoutId = setTimeout(loadNextBatch, 100);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timeoutId);
+      // Clear cache on unmount
+      gpsTrackCacheRef.current.clear();
+      setCacheReady(false);
+    };
+  }, [section?.activityIds]);
+
+  // Show GPS track when an activity is highlighted (uses pre-cached data for fast scrubbing)
   useEffect(() => {
     if (!highlightedActivityId) {
       setShadowTrack(undefined);
       return;
     }
 
-    // Get GPS track from Rust engine (synchronous, data is in SQLite)
+    // First check the cache (fast path for scrubbing)
+    const cachedTrack = gpsTrackCacheRef.current.get(highlightedActivityId);
+    if (cachedTrack) {
+      setShadowTrack(cachedTrack);
+      return;
+    }
+
+    // Fallback: fetch from Rust if not cached yet (initial load before cache is ready)
     const engine = getRouteEngine();
     if (!engine) {
       setShadowTrack(undefined);
@@ -568,8 +640,9 @@ export default function SectionDetailScreen() {
 
     const gpsPoints = engine.getGpsTrack(highlightedActivityId);
     if (gpsPoints && gpsPoints.length > 0) {
-      // Convert GpsPoint[] to [lat, lng][] format expected by SectionMapView
       const track: [number, number][] = gpsPoints.map((p) => [p.latitude, p.longitude]);
+      // Also add to cache for future use
+      gpsTrackCacheRef.current.set(highlightedActivityId, track);
       setShadowTrack(track);
     } else {
       setShadowTrack(undefined);

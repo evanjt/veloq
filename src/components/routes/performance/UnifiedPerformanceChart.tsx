@@ -126,6 +126,7 @@ export function UnifiedPerformanceChart({
 
   // Gesture tracking for scrubbing
   const touchX = useSharedValue(-1);
+  const scrollOffsetX = useSharedValue(0); // Track scroll position for accurate scrub positioning
   const forwardScrollRef = useRef<ScrollView>(null);
   const reverseScrollRef = useRef<ScrollView>(null);
   const timeAxisScrollRef = useRef<ScrollView>(null);
@@ -141,26 +142,30 @@ export function UnifiedPerformanceChart({
 
   const handleForwardScroll = useCallback(
     (event: { nativeEvent: { contentOffset: { x: number } } }) => {
+      const offsetX = event.nativeEvent.contentOffset.x;
+      scrollOffsetX.value = offsetX; // Track for scrubbing
       if (isScrolling.current && isScrolling.current !== 'forward') return;
       isScrolling.current = 'forward';
-      syncScroll(event.nativeEvent.contentOffset.x, 'forward');
+      syncScroll(offsetX, 'forward');
       setTimeout(() => {
         isScrolling.current = null;
       }, 50);
     },
-    [syncScroll]
+    [syncScroll, scrollOffsetX]
   );
 
   const handleReverseScroll = useCallback(
     (event: { nativeEvent: { contentOffset: { x: number } } }) => {
+      const offsetX = event.nativeEvent.contentOffset.x;
+      scrollOffsetX.value = offsetX; // Track for scrubbing
       if (isScrolling.current && isScrolling.current !== 'reverse') return;
       isScrolling.current = 'reverse';
-      syncScroll(event.nativeEvent.contentOffset.x, 'reverse');
+      syncScroll(offsetX, 'reverse');
       setTimeout(() => {
         isScrolling.current = null;
       }, 50);
     },
-    [syncScroll]
+    [syncScroll, scrollOffsetX]
   );
 
   const handleTimeAxisScroll = useCallback(
@@ -536,12 +541,13 @@ export function UnifiedPerformanceChart({
   }, [onActivitySelect]);
 
   // Update selection based on touch X position (for scrubbing)
+  // Takes the touch X relative to the visible area and the current scroll offset
   const updateSelectionFromTouch = useCallback(
-    (x: number) => {
+    (x: number, scrollOffset: number) => {
       if (chartData.length === 0) return;
 
-      // Calculate normalized X position (0-1 range)
-      const chartX = x - CHART_PADDING_LEFT;
+      // Account for scroll offset: touch position + scroll offset = position in chart content
+      const chartX = x + scrollOffset - CHART_PADDING_LEFT;
       const normalizedX = Math.max(0, Math.min(1, chartX / chartContentWidth));
 
       // Find the closest data point by comparing normalized X (date-based) positions
@@ -573,10 +579,10 @@ export function UnifiedPerformanceChart({
 
   // Animated reaction to update selection when touchX changes
   useAnimatedReaction(
-    () => touchX.value,
-    (currentX) => {
-      if (currentX >= 0) {
-        runOnJS(updateSelectionFromTouch)(currentX);
+    () => ({ x: touchX.value, scroll: scrollOffsetX.value }),
+    (current) => {
+      if (current.x >= 0) {
+        runOnJS(updateSelectionFromTouch)(current.x, current.scroll);
       }
     },
     [updateSelectionFromTouch]
@@ -624,14 +630,16 @@ export function UnifiedPerformanceChart({
     [nativeGesture, tapGesture, panGesture]
   );
 
-  // Crosshair animation
+  // Crosshair animation - accounts for scroll offset so crosshair appears at touch position
   const crosshairStyle = useAnimatedStyle(() => {
     if (touchX.value < 0) {
       return { opacity: 0, transform: [{ translateX: 0 }] };
     }
+    // Add scroll offset: touch position is relative to visible viewport,
+    // but crosshair is inside scrollable content, so we need to offset
     return {
       opacity: 1,
-      transform: [{ translateX: touchX.value }],
+      transform: [{ translateX: touchX.value + scrollOffsetX.value }],
     };
   }, []);
 
@@ -1011,22 +1019,29 @@ export function UnifiedPerformanceChart({
         </Pressable>
       </View>
 
-      {/* Forward Lane Chart (scrollable) */}
+      {/* Forward Lane Chart (scrollable with gesture handling) */}
       {forwardExpanded && (
-        <ScrollView
-          ref={forwardScrollRef}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          scrollEnabled={isScrollable}
-          onScroll={handleForwardScroll}
-          scrollEventThrottle={16}
-          decelerationRate={0.999}
-          nestedScrollEnabled={true}
-        >
-          <View style={{ height: LANE_HEIGHT, width: chartWidth }}>
-            {renderLaneChart(forwardLane, activityColor, 'forward')}
-          </View>
-        </ScrollView>
+        <GestureDetector gesture={composedGesture}>
+          <ScrollView
+            ref={forwardScrollRef}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            scrollEnabled={isScrollable && !isScrubbing}
+            onScroll={handleForwardScroll}
+            scrollEventThrottle={16}
+            decelerationRate={0.999}
+            nestedScrollEnabled={true}
+          >
+            <Animated.View style={{ height: LANE_HEIGHT, width: chartWidth }}>
+              {renderLaneChart(forwardLane, activityColor, 'forward')}
+              {/* Crosshair */}
+              <Animated.View
+                style={[styles.crosshair, crosshairStyle, isDark && styles.crosshairDark]}
+                pointerEvents="none"
+              />
+            </Animated.View>
+          </ScrollView>
+        </GestureDetector>
       )}
 
       {/* Reverse Lane Header (fixed) */}
@@ -1059,22 +1074,29 @@ export function UnifiedPerformanceChart({
         </Pressable>
       </View>
 
-      {/* Reverse Lane Chart (scrollable, synced with forward) */}
+      {/* Reverse Lane Chart (scrollable with gesture handling, synced with forward) */}
       {reverseExpanded && (
-        <ScrollView
-          ref={reverseScrollRef}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          scrollEnabled={isScrollable}
-          onScroll={handleReverseScroll}
-          scrollEventThrottle={16}
-          decelerationRate={0.999}
-          nestedScrollEnabled={true}
-        >
-          <View style={{ height: LANE_HEIGHT, width: chartWidth }}>
-            {renderLaneChart(reverseLane, colors.reverseDirection, 'reverse')}
-          </View>
-        </ScrollView>
+        <GestureDetector gesture={composedGesture}>
+          <ScrollView
+            ref={reverseScrollRef}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            scrollEnabled={isScrollable && !isScrubbing}
+            onScroll={handleReverseScroll}
+            scrollEventThrottle={16}
+            decelerationRate={0.999}
+            nestedScrollEnabled={true}
+          >
+            <Animated.View style={{ height: LANE_HEIGHT, width: chartWidth }}>
+              {renderLaneChart(reverseLane, colors.reverseDirection, 'reverse')}
+              {/* Crosshair */}
+              <Animated.View
+                style={[styles.crosshair, crosshairStyle, isDark && styles.crosshairDark]}
+                pointerEvents="none"
+              />
+            </Animated.View>
+          </ScrollView>
+        </GestureDetector>
       )}
 
       {/* Time axis - scrolls with charts, two rows: dates on top, gap markers below */}
