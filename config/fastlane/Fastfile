@@ -1,8 +1,8 @@
 default_platform(:android)
 
-***REMOVED***=
+# ==============================
 # Android Lanes
-***REMOVED***=
+# ==============================
 
 platform :android do
   desc "Deploy AAB to Google Play Store"
@@ -47,9 +47,9 @@ platform :android do
   end
 end
 
-***REMOVED***=
+# ==============================
 # iOS Lanes (requires Apple Developer account)
-***REMOVED***=
+# ==============================
 
 platform :ios do
   desc "Sync certificates and provisioning profiles via Match"
