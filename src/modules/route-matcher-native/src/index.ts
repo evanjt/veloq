@@ -63,6 +63,7 @@ import {
   persistentEngineExtractSectionTrace,
   persistentEngineGetSectionPerformancesJson,
   persistentEngineSetTimeStreamsFlat,
+  persistentEngineGetActivitiesMissingTimeStreams,
   ffiDetectSectionsMultiscale,
   defaultScalePresets,
   fetchActivityMaps,
@@ -813,6 +814,17 @@ class RouteEngineClient {
     }
 
     persistentEngineSetTimeStreamsFlat(activityIds, allTimes, offsets);
+  }
+
+  /**
+   * Get activity IDs that are missing cached time streams.
+   * Used to determine which activities need time streams fetched from API.
+   * @param activityIds - List of activity IDs to check
+   * @returns Activity IDs that don't have cached time streams (either in memory or SQLite)
+   */
+  getActivitiesMissingTimeStreams(activityIds: string[]): string[] {
+    if (activityIds.length === 0) return [];
+    return persistentEngineGetActivitiesMissingTimeStreams(activityIds);
   }
 
   /**

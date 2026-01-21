@@ -1,9 +1,15 @@
 /**
  * Hero map view for section detail page.
  * Displays the section polyline (medoid trace) prominently.
+ *
+ * Performance optimization: Pre-loads all activity traces as a FeatureCollection
+ * and uses filter expressions to show/hide them. This avoids expensive shape
+ * geometry updates when the user scrubs through different activities.
+ *
+ * Wrapped in React.memo to prevent re-renders during scrubbing when props are stable.
  */
 
-import React, { useMemo, useRef, useState, useCallback } from 'react';
+import React, { useMemo, useRef, useState, useCallback, memo } from 'react';
 import { View, StyleSheet, TouchableOpacity, Modal, StatusBar } from 'react-native';
 import {
   MapView,
@@ -12,6 +18,7 @@ import {
   LineLayer,
   MarkerView,
 } from '@maplibre/maplibre-react-native';
+import type { Expression } from '@maplibre/maplibre-react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { getActivityColor, getBoundsFromPoints } from '@/lib';
 import { colors, spacing, layout } from '@/theme';
@@ -64,9 +71,18 @@ interface SectionMapViewProps {
   highlightedActivityId?: string | null;
   /** Specific lap points to highlight (takes precedence over highlightedActivityId) */
   highlightedLapPoints?: RoutePoint[];
+  /**
+   * Pre-loaded activity traces for fast scrubbing.
+   * When provided, all traces are rendered in a single FeatureCollection
+   * and a filter expression is used to show only the highlighted one.
+   * This avoids expensive shape geometry updates during scrubbing.
+   */
+  allActivityTraces?: Record<string, RoutePoint[]>;
+  /** Whether user is actively scrubbing - skips expensive renders during scrub */
+  isScrubbing?: boolean;
 }
 
-export function SectionMapView({
+export const SectionMapView = memo(function SectionMapView({
   section,
   height = 200,
   interactive = false,
@@ -74,6 +90,8 @@ export function SectionMapView({
   shadowTrack,
   highlightedActivityId = null,
   highlightedLapPoints,
+  allActivityTraces,
+  isScrubbing = false,
 }: SectionMapViewProps) {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const { getStyleForActivity } = useMapPreferences();
@@ -119,8 +137,42 @@ export function SectionMapView({
     };
   }, [shadowTrack]);
 
+  // Create FeatureCollection with ALL activity traces for fast scrubbing
+  // This is computed once when allActivityTraces changes, not on each highlight change
+  const allTracesFeatureCollection = useMemo(() => {
+    if (!allActivityTraces || Object.keys(allActivityTraces).length === 0) return null;
+
+    const features = Object.entries(allActivityTraces)
+      .filter(([_, points]) => points && points.length > 1)
+      .map(([activityId, points]) => ({
+        type: 'Feature' as const,
+        properties: { activityId },
+        geometry: {
+          type: 'LineString' as const,
+          coordinates: points.map((p) => [p.lng, p.lat]),
+        },
+      }));
+
+    return {
+      type: 'FeatureCollection' as const,
+      features,
+    };
+  }, [allActivityTraces]);
+
+  // Filter expression to show only the highlighted activity trace
+  // This is a lightweight update - MapLibre only changes visibility, no geometry re-processing
+  const highlightedTraceFilter = useMemo((): Expression | undefined => {
+    if (!highlightedActivityId || !allTracesFeatureCollection) return undefined;
+    // MapLibre expression: ["==", ["get", "activityId"], "some-id"]
+    return ['==', ['get', 'activityId'], highlightedActivityId];
+  }, [highlightedActivityId, allTracesFeatureCollection]);
+
   // Create GeoJSON for highlighted trace (activity being scrubbed)
+  // This is the fallback when allActivityTraces is not provided
   const highlightedTraceGeoJSON = useMemo(() => {
+    // If we have pre-loaded traces, use the filter approach instead
+    if (allTracesFeatureCollection) return null;
+
     // Lap points take precedence
     if (highlightedLapPoints && highlightedLapPoints.length > 1) {
       return {
@@ -149,7 +201,25 @@ export function SectionMapView({
     }
 
     return null;
-  }, [highlightedActivityId, highlightedLapPoints, section.activityTraces]);
+  }, [
+    highlightedActivityId,
+    highlightedLapPoints,
+    section.activityTraces,
+    allTracesFeatureCollection,
+  ]);
+
+  // GeoJSON for highlighted lap points (when scrubbing shows specific lap portion)
+  const highlightedLapGeoJSON = useMemo(() => {
+    if (!highlightedLapPoints || highlightedLapPoints.length < 2) return null;
+    return {
+      type: 'Feature' as const,
+      properties: { id: 'highlighted-lap' },
+      geometry: {
+        type: 'LineString' as const,
+        coordinates: highlightedLapPoints.map((p) => [p.lng, p.lat]),
+      },
+    };
+  }, [highlightedLapPoints]);
 
   // Adjust opacity when something is highlighted
   const sectionOpacity = highlightedActivityId || highlightedLapPoints ? 0.4 : 1;
@@ -191,7 +261,7 @@ export function SectionMapView({
         animationDuration={0}
       />
 
-      {/* Shadow track (full activity route) - rendered first so it's behind */}
+      {/* Shadow track (full activity route) */}
       {shadowGeoJSON && (
         <ShapeSource id="shadowSource" shape={shadowGeoJSON}>
           <LineLayer
@@ -223,8 +293,39 @@ export function SectionMapView({
         </ShapeSource>
       )}
 
-      {/* Highlighted activity trace */}
-      {highlightedTraceGeoJSON && (
+      {/* Pre-loaded activity traces with filter - SKIP during scrubbing to avoid lag */}
+      {!isScrubbing && allTracesFeatureCollection && highlightedTraceFilter && (
+        <ShapeSource id="allTracesSource" shape={allTracesFeatureCollection}>
+          <LineLayer
+            id="allTracesLine"
+            filter={highlightedTraceFilter}
+            style={{
+              lineColor: colors.chartCyan,
+              lineWidth: 4,
+              lineCap: 'round',
+              lineJoin: 'round',
+            }}
+          />
+        </ShapeSource>
+      )}
+
+      {/* Highlighted lap points overlay - SHOW during scrubbing (small, fast to render) */}
+      {highlightedLapGeoJSON && (
+        <ShapeSource id="highlightedLapSource" shape={highlightedLapGeoJSON}>
+          <LineLayer
+            id="highlightedLapLine"
+            style={{
+              lineColor: colors.chartCyan,
+              lineWidth: 5,
+              lineCap: 'round',
+              lineJoin: 'round',
+            }}
+          />
+        </ShapeSource>
+      )}
+
+      {/* Fallback: Highlighted activity trace - SKIP during scrubbing */}
+      {!isScrubbing && highlightedTraceGeoJSON && (
         <ShapeSource id="highlightedSource" shape={highlightedTraceGeoJSON}>
           <LineLayer
             id="highlightedLine"
@@ -279,23 +380,39 @@ export function SectionMapView({
 
   const isDark = isDarkStyle(mapStyle);
 
-  const showExpandIcon = enableFullscreen && !interactive;
+  // When interactive, don't wrap in TouchableOpacity (would intercept zoom/pan gestures)
+  // Instead show a dedicated fullscreen button
+  const showExpandButton = enableFullscreen && interactive;
+  const showExpandOverlay = enableFullscreen && !interactive;
 
   return (
     <>
-      <TouchableOpacity
-        style={[styles.container, { height }]}
-        onPress={handleMapPress}
-        activeOpacity={enableFullscreen ? 0.9 : 1}
-        disabled={!enableFullscreen}
-      >
-        {mapContent}
-        {showExpandIcon && (
-          <View style={styles.expandOverlay}>
-            <MaterialCommunityIcons name="fullscreen" size={20} color={colors.textOnDark} />
-          </View>
-        )}
-      </TouchableOpacity>
+      {interactive ? (
+        // Interactive map - no TouchableOpacity wrapper, use dedicated button for fullscreen
+        <View style={[styles.container, { height }]}>
+          {mapContent}
+          {showExpandButton && (
+            <TouchableOpacity style={styles.expandButton} onPress={handleMapPress}>
+              <MaterialCommunityIcons name="fullscreen" size={20} color={colors.textOnDark} />
+            </TouchableOpacity>
+          )}
+        </View>
+      ) : (
+        // Non-interactive map - tap anywhere to fullscreen
+        <TouchableOpacity
+          style={[styles.container, { height }]}
+          onPress={handleMapPress}
+          activeOpacity={enableFullscreen ? 0.9 : 1}
+          disabled={!enableFullscreen}
+        >
+          {mapContent}
+          {showExpandOverlay && (
+            <View style={styles.expandOverlay}>
+              <MaterialCommunityIcons name="fullscreen" size={20} color={colors.textOnDark} />
+            </View>
+          )}
+        </TouchableOpacity>
+      )}
 
       {/* Fullscreen modal using BaseMapView */}
       <Modal
@@ -307,7 +424,9 @@ export function SectionMapView({
         <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
         <BaseMapView
           routeCoordinates={sectionCoords}
-          routeColor={highlightedTraceGeoJSON ? activityColor + '66' : activityColor}
+          routeColor={
+            highlightedActivityId || highlightedTraceGeoJSON ? activityColor + '66' : activityColor
+          }
           bounds={bounds || undefined}
           initialStyle={mapStyle}
           onClose={closeFullscreen}
@@ -328,7 +447,38 @@ export function SectionMapView({
             </ShapeSource>
           )}
 
-          {/* Highlighted activity trace */}
+          {/* Pre-loaded activity traces with filter (fast scrubbing) */}
+          {allTracesFeatureCollection && (
+            <ShapeSource id="fullscreenAllTracesSource" shape={allTracesFeatureCollection}>
+              <LineLayer
+                id="fullscreenAllTracesLine"
+                filter={highlightedTraceFilter}
+                style={{
+                  lineColor: colors.chartCyan,
+                  lineWidth: 4,
+                  lineCap: 'round',
+                  lineJoin: 'round',
+                }}
+              />
+            </ShapeSource>
+          )}
+
+          {/* Highlighted lap points overlay */}
+          {highlightedLapGeoJSON && (
+            <ShapeSource id="fullscreenHighlightedLapSource" shape={highlightedLapGeoJSON}>
+              <LineLayer
+                id="fullscreenHighlightedLapLine"
+                style={{
+                  lineColor: colors.chartCyan,
+                  lineWidth: 5,
+                  lineCap: 'round',
+                  lineJoin: 'round',
+                }}
+              />
+            </ShapeSource>
+          )}
+
+          {/* Fallback: Highlighted activity trace (when allActivityTraces not provided) */}
           {highlightedTraceGeoJSON && (
             <ShapeSource id="fullscreenHighlightedSource" shape={highlightedTraceGeoJSON}>
               <LineLayer
@@ -372,7 +522,7 @@ export function SectionMapView({
       </Modal>
     </>
   );
-}
+});
 
 const styles = StyleSheet.create({
   container: {
@@ -412,6 +562,14 @@ const styles = StyleSheet.create({
     backgroundColor: colors.error,
   },
   expandOverlay: {
+    position: 'absolute',
+    bottom: spacing.sm,
+    right: spacing.sm,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    borderRadius: 6,
+    padding: spacing.xs,
+  },
+  expandButton: {
     position: 'absolute',
     bottom: spacing.sm,
     right: spacing.sm,

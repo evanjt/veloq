@@ -3,7 +3,7 @@
  * Shows a frequently-traveled section with all activities that traverse it.
  */
 
-import React, { useMemo, useCallback, useState, useEffect, useRef } from 'react';
+import React, { useMemo, useCallback, useState, useEffect, useRef, memo } from 'react';
 import { useSyncDateRange } from '@/providers/SyncDateRangeStore';
 import {
   View,
@@ -16,6 +16,7 @@ import {
   TextInput,
   Keyboard,
   Alert,
+  InteractionManager,
 } from 'react-native';
 import { Text, ActivityIndicator } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -87,9 +88,12 @@ interface ActivityRowProps {
   rank?: number;
   /** Best time in seconds (for delta calculation) */
   bestTime?: number;
+  /** Stable callback for highlight - receives activity ID, pass null to clear */
+  onHighlightChange?: (activityId: string | null) => void;
 }
 
-function ActivityRow({
+// Memoized activity row to prevent unnecessary re-renders
+const ActivityRow = memo(function ActivityRow({
   activity,
   isDark,
   direction,
@@ -103,10 +107,20 @@ function ActivityRow({
   isBest = false,
   rank,
   bestTime,
+  onHighlightChange,
 }: ActivityRowProps) {
-  const handlePress = () => {
+  const handlePress = useCallback(() => {
     router.push(`/activity/${activity.id}`);
-  };
+  }, [activity.id]);
+
+  // Create stable callbacks using activity.id (captured in closure)
+  const handlePressIn = useCallback(() => {
+    onHighlightChange?.(activity.id);
+  }, [onHighlightChange, activity.id]);
+
+  const handlePressOut = useCallback(() => {
+    onHighlightChange?.(null);
+  }, [onHighlightChange]);
 
   const isReverse = direction === 'reverse';
   const traceColor = isHighlighted
@@ -160,6 +174,8 @@ function ActivityRow({
   return (
     <Pressable
       onPress={handlePress}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
       style={({ pressed }) => [
         styles.activityRow,
         isDark && styles.activityRowDark,
@@ -256,7 +272,7 @@ function ActivityRow({
       />
     </Pressable>
   );
-}
+});
 
 export default function SectionDetailScreen() {
   const { t } = useTranslation();
@@ -279,7 +295,12 @@ export default function SectionDetailScreen() {
   const [highlightedActivityPoints, setHighlightedActivityPoints] = useState<
     RoutePoint[] | undefined
   >(undefined);
-  const [shadowTrack, setShadowTrack] = useState<[number, number][] | undefined>(undefined);
+  // Ref to track current highlighted activity (avoids stale closure in callbacks)
+  const highlightedActivityIdRef = useRef<string | null>(null);
+  // Track if user is actively scrubbing - used to defer expensive shadow track updates
+  const [isScrubbing, setIsScrubbing] = useState(false);
+  // Committed activity ID - only updates when scrubbing stops (for shadow track)
+  const [committedActivityId, setCommittedActivityId] = useState<string | null>(null);
   // Pre-cached GPS tracks for fast scrubbing (loaded in background when section loads)
   const gpsTrackCacheRef = useRef<Map<string, [number, number][]>>(new Map());
   const [cacheReady, setCacheReady] = useState(false);
@@ -413,10 +434,11 @@ export default function SectionDetailScreen() {
     return section;
   }, [section, computedActivityTraces]);
 
-  // Compute activity traces using Rust engine's extractSectionTrace
+  // Compute activity traces using Rust engine's extractSectionTrace in background batches
   // This extracts points from each activity that are within proximity of the section polyline,
   // correctly handling cases where activities take different paths between entry/exit points
   // Works for both custom sections AND engine-detected sections
+  // Runs in batches to avoid blocking the main thread
   useEffect(() => {
     if (!section || !section.activityIds.length) {
       setComputedActivityTraces({});
@@ -429,8 +451,7 @@ export default function SectionDetailScreen() {
       return;
     }
 
-    const traces: Record<string, RoutePoint[]> = {};
-    // Convert polyline to JSON string for Rust engine
+    // Convert polyline to JSON string for Rust engine (do this once)
     const polylineJson = JSON.stringify(
       section.polyline.map((p) => ({
         latitude: p.lat,
@@ -438,20 +459,38 @@ export default function SectionDetailScreen() {
       }))
     );
 
-    for (const activityId of section.activityIds) {
-      // Use Rust engine's extractSectionTrace for efficient trace extraction
-      // This finds points within proximity of the section polyline, not a simple index slice
-      const extractedTrace = engine.extractSectionTrace(activityId, polylineJson);
+    const activityIds = [...section.activityIds];
+    let cancelled = false;
+    const traces: Record<string, RoutePoint[]> = {};
 
-      if (extractedTrace.length > 0) {
-        // Convert GpsPoint[] to RoutePoint[]
-        traces[activityId] = extractedTrace.map((p) => ({
-          lat: p.latitude,
-          lng: p.longitude,
-        }));
+    // Load ALL traces synchronously in one batch for fast availability
+    // This ensures lapPoints is available when user selects a chart point
+    // The FFI calls are fast (~10ms each) and we need them ready immediately
+    const loadAllTraces = () => {
+      if (cancelled) return;
+
+      for (const activityId of activityIds) {
+        if (cancelled) break;
+        const extractedTrace = engine.extractSectionTrace(activityId, polylineJson);
+        if (extractedTrace.length > 0) {
+          traces[activityId] = extractedTrace.map((p) => ({
+            lat: p.latitude,
+            lng: p.longitude,
+          }));
+        }
       }
-    }
-    setComputedActivityTraces(traces);
+
+      if (!cancelled) {
+        setComputedActivityTraces({ ...traces });
+      }
+    };
+
+    // Run immediately - traces are needed for chart interaction
+    loadAllTraces();
+
+    return () => {
+      cancelled = true;
+    };
   }, [section]);
 
   // Load custom section name from Rust engine on mount
@@ -573,89 +612,139 @@ export default function SectionDetailScreen() {
     gpsTrackCacheRef.current.clear();
     setCacheReady(false);
 
-    // Load GPS tracks in background using requestIdleCallback pattern
-    const activityIds = [...section.activityIds];
-    let currentIndex = 0;
-    let cancelled = false;
-
-    const loadNextBatch = () => {
-      if (cancelled) return;
-
-      // Load a batch of tracks (5 at a time to avoid blocking)
-      const batchSize = 5;
-      const endIndex = Math.min(currentIndex + batchSize, activityIds.length);
-
-      for (let i = currentIndex; i < endIndex; i++) {
-        const activityId = activityIds[i];
-        const gpsPoints = engine.getGpsTrack(activityId);
-        if (gpsPoints && gpsPoints.length > 0) {
-          const track: [number, number][] = gpsPoints.map((p) => [p.latitude, p.longitude]);
-          gpsTrackCacheRef.current.set(activityId, track);
-        }
+    // Load ALL GPS tracks synchronously for immediate availability
+    // This ensures shadowTrack doesn't need FFI fallback when user selects a point
+    const activityIds = section.activityIds;
+    for (const activityId of activityIds) {
+      const gpsPoints = engine.getGpsTrack(activityId);
+      if (gpsPoints && gpsPoints.length > 0) {
+        const track: [number, number][] = gpsPoints.map((p) => [p.latitude, p.longitude]);
+        gpsTrackCacheRef.current.set(activityId, track);
       }
-
-      currentIndex = endIndex;
-
-      if (currentIndex < activityIds.length) {
-        // Schedule next batch
-        setTimeout(loadNextBatch, 0);
-      } else {
-        // All loaded
-        setCacheReady(true);
-      }
-    };
-
-    // Start loading after a short delay to not block initial render
-    const timeoutId = setTimeout(loadNextBatch, 100);
+    }
+    setCacheReady(true);
 
     return () => {
-      cancelled = true;
-      clearTimeout(timeoutId);
-      // Clear cache on unmount
       gpsTrackCacheRef.current.clear();
       setCacheReady(false);
     };
   }, [section?.activityIds]);
 
-  // Show GPS track when an activity is highlighted (uses pre-cached data for fast scrubbing)
-  useEffect(() => {
-    if (!highlightedActivityId) {
-      setShadowTrack(undefined);
-      return;
+  // Douglas-Peucker line simplification for fast map rendering
+  // Reduces point count while preserving shape (tolerance ~5m at equator)
+  const simplifyTrack = useCallback(
+    (points: [number, number][], tolerance = 0.00005): [number, number][] => {
+      if (points.length <= 2) return points;
+
+      // Find the point with the maximum distance from the line between first and last
+      let maxDist = 0;
+      let maxIndex = 0;
+      const [startLat, startLng] = points[0];
+      const [endLat, endLng] = points[points.length - 1];
+
+      for (let i = 1; i < points.length - 1; i++) {
+        const [lat, lng] = points[i];
+        // Perpendicular distance from point to line
+        const dist =
+          Math.abs(
+            (endLng - startLng) * (startLat - lat) - (startLng - lng) * (endLat - startLat)
+          ) / Math.sqrt((endLng - startLng) ** 2 + (endLat - startLat) ** 2);
+
+        if (dist > maxDist) {
+          maxDist = dist;
+          maxIndex = i;
+        }
+      }
+
+      // If max distance is greater than tolerance, recursively simplify
+      if (maxDist > tolerance) {
+        const left = simplifyTrack(points.slice(0, maxIndex + 1), tolerance);
+        const right = simplifyTrack(points.slice(maxIndex), tolerance);
+        return [...left.slice(0, -1), ...right];
+      }
+
+      // Otherwise, return just the endpoints
+      return [points[0], points[points.length - 1]];
+    },
+    []
+  );
+
+  // Cache for simplified tracks (separate from full tracks)
+  const simplifiedTrackCacheRef = useRef<Map<string, [number, number][]>>(new Map());
+
+  // Compute shadow track directly from cache (no useEffect, no extra render)
+  // Uses simplified geometry for fast MapLibre rendering
+  const shadowTrack = useMemo(() => {
+    if (!highlightedActivityId) return undefined;
+
+    // Check simplified cache first
+    const simplifiedCached = simplifiedTrackCacheRef.current.get(highlightedActivityId);
+    if (simplifiedCached) {
+      return simplifiedCached;
     }
 
-    // First check the cache (fast path for scrubbing)
+    // Get full track from cache
     const cachedTrack = gpsTrackCacheRef.current.get(highlightedActivityId);
     if (cachedTrack) {
-      setShadowTrack(cachedTrack);
-      return;
+      const simplified = simplifyTrack(cachedTrack);
+      simplifiedTrackCacheRef.current.set(highlightedActivityId, simplified);
+      return simplified;
     }
 
-    // Fallback: fetch from Rust if not cached yet (initial load before cache is ready)
+    // Fallback: fetch from Rust if not cached yet
     const engine = getRouteEngine();
-    if (!engine) {
-      setShadowTrack(undefined);
-      return;
-    }
+    if (!engine) return undefined;
 
     const gpsPoints = engine.getGpsTrack(highlightedActivityId);
     if (gpsPoints && gpsPoints.length > 0) {
       const track: [number, number][] = gpsPoints.map((p) => [p.latitude, p.longitude]);
-      // Also add to cache for future use
       gpsTrackCacheRef.current.set(highlightedActivityId, track);
-      setShadowTrack(track);
-    } else {
-      setShadowTrack(undefined);
+      const simplified = simplifyTrack(track);
+      simplifiedTrackCacheRef.current.set(highlightedActivityId, simplified);
+      return simplified;
     }
-  }, [highlightedActivityId]);
+
+    return undefined;
+  }, [highlightedActivityId, simplifyTrack]);
+
+  // Track scrubbing state in ref for use in callbacks (avoids stale closure)
+  const isScrubbingRef = useRef(false);
 
   const handleActivitySelect = useCallback(
     (activityId: string | null, activityPoints?: RoutePoint[]) => {
+      highlightedActivityIdRef.current = activityId;
       setHighlightedActivityId(activityId);
       setHighlightedActivityPoints(activityPoints);
     },
     []
   );
+
+  // Handle scrubbing state changes
+  const handleScrubChange = useCallback((scrubbing: boolean) => {
+    isScrubbingRef.current = scrubbing;
+    setIsScrubbing(scrubbing);
+    if (!scrubbing) {
+      // Scrubbing stopped - commit the activity for the activities list highlight
+      setCommittedActivityId(highlightedActivityIdRef.current);
+    }
+  }, []);
+
+  // Map props for section trace - updates during scrubbing (fast, small polyline)
+  // Shadow track still uses committedActivityId (stable during scrubbing) to avoid expensive updates
+  const mapHighlightedActivityId = highlightedActivityId;
+  const mapHighlightedLapPoints = highlightedActivityPoints;
+
+  // Memoize activities list highlighted ID - only updates when NOT scrubbing
+  // This prevents the activities list from re-rendering during scrubbing
+  const listHighlightedActivityId = useMemo(() => {
+    return isScrubbing ? committedActivityId : highlightedActivityId;
+  }, [isScrubbing, committedActivityId, highlightedActivityId]);
+
+  // Stable callback for ActivityRow highlight changes
+  // This callback is memoized and won't change between renders, so it doesn't break ActivityRow's memo
+  const handleRowHighlightChange = useCallback((activityId: string | null) => {
+    setHighlightedActivityId(activityId);
+  }, []);
 
   // Get date range for fetching activities
   const { oldest, newest } = useMemo(() => {
@@ -687,16 +776,26 @@ export default function SectionDetailScreen() {
   }, [section, allActivities]);
 
   // Fetch actual section performance times from activity streams
+  // This loads in the background - we show estimated times first, then update when ready
   const { records: performanceRecords, isLoading: isLoadingRecords } = useSectionPerformances(
     section,
     sectionActivities
   );
+
+  // Show loading indicator while fetching performance data (but don't block the UI)
+  const hasPerformanceData = performanceRecords && performanceRecords.length > 0;
 
   // Map of activity portions for direction lookup
   const portionMap = useMemo(() => {
     if (!section?.activityPortions) return new Map();
     return new Map(section.activityPortions.map((p) => [p.activityId, p]));
   }, [section?.activityPortions]);
+
+  // Map of performance records for fast lookup (avoid .find() in render loop)
+  const performanceRecordMap = useMemo(() => {
+    if (!performanceRecords) return new Map<string, ActivitySectionRecord>();
+    return new Map(performanceRecords.map((r) => [r.activityId, r]));
+  }, [performanceRecords]);
 
   // Prepare chart data for UnifiedPerformanceChart
   // Uses actual section times from records when available, otherwise proportional estimate
@@ -910,8 +1009,10 @@ export default function SectionDetailScreen() {
               interactive={true}
               enableFullscreen={true}
               shadowTrack={shadowTrack}
-              highlightedActivityId={highlightedActivityId}
-              highlightedLapPoints={highlightedActivityPoints}
+              highlightedActivityId={mapHighlightedActivityId}
+              highlightedLapPoints={mapHighlightedLapPoints}
+              allActivityTraces={sectionWithTraces?.activityTraces}
+              isScrubbing={isScrubbing}
             />
           </View>
 
@@ -1088,6 +1189,7 @@ export default function SectionDetailScreen() {
                 hasReverseRuns={hasReverseRuns}
                 tooltipBadgeType="time"
                 onActivitySelect={handleActivitySelect}
+                onScrubChange={handleScrubChange}
                 selectedActivityId={highlightedActivityId}
               />
             </View>
@@ -1112,37 +1214,31 @@ export default function SectionDetailScreen() {
                 {sectionActivities.map((activity, index) => {
                   const portion = portionMap.get(activity.id);
                   const tracePoints = sectionWithTraces?.activityTraces?.[activity.id];
-                  const isHighlighted = highlightedActivityId === activity.id;
-                  // Look up actual performance record for this activity
-                  const record = performanceRecords?.find(
-                    (r: ActivitySectionRecord) => r.activityId === activity.id
-                  );
+                  const isHighlighted = listHighlightedActivityId === activity.id;
+                  // Look up actual performance record for this activity (O(1) map lookup)
+                  const record = performanceRecordMap.get(activity.id);
                   // Get rank and check if best
                   const activityRank = rankMap.get(activity.id);
                   const isBest = activity.id === bestActivityId;
 
                   return (
                     <React.Fragment key={activity.id}>
-                      <Pressable
-                        onPressIn={() => setHighlightedActivityId(activity.id)}
-                        onPressOut={() => setHighlightedActivityId(null)}
-                      >
-                        <ActivityRow
-                          activity={activity}
-                          isDark={isDark}
-                          direction={record?.direction || portion?.direction}
-                          activityPoints={tracePoints}
-                          sectionPoints={section.polyline}
-                          isHighlighted={isHighlighted}
-                          sectionDistance={record?.sectionDistance || portion?.distanceMeters}
-                          lapCount={record?.lapCount}
-                          actualSectionTime={record?.bestTime}
-                          actualSectionPace={record?.bestPace}
-                          isBest={isBest}
-                          rank={activityRank}
-                          bestTime={bestTimeValue}
-                        />
-                      </Pressable>
+                      <ActivityRow
+                        activity={activity}
+                        isDark={isDark}
+                        direction={record?.direction || portion?.direction}
+                        activityPoints={tracePoints}
+                        sectionPoints={section.polyline}
+                        isHighlighted={isHighlighted}
+                        sectionDistance={record?.sectionDistance || portion?.distanceMeters}
+                        lapCount={record?.lapCount}
+                        actualSectionTime={record?.bestTime}
+                        actualSectionPace={record?.bestPace}
+                        isBest={isBest}
+                        rank={activityRank}
+                        bestTime={bestTimeValue}
+                        onHighlightChange={handleRowHighlightChange}
+                      />
                       {index < sectionActivities.length - 1 && (
                         <View style={[styles.divider, isDark && styles.dividerDark]} />
                       )}

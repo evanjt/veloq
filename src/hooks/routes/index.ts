@@ -4,6 +4,7 @@ export { useRoutePerformances } from './useRoutePerformances';
 export { useRouteProcessing } from './useRouteProcessing';
 export { useRouteSignatures, type RouteSignature } from './useRouteSignatures';
 export { useFrequentSections } from './useFrequentSections';
+export { useEngineSections } from './useRouteEngine';
 export { useSectionMatches } from './useSectionMatches';
 export {
   useSectionPerformances,

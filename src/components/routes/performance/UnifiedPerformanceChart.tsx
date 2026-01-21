@@ -85,6 +85,8 @@ export interface UnifiedPerformanceChartProps {
   hasReverseRuns: boolean;
   tooltipBadgeType: 'match' | 'time';
   onActivitySelect?: (activityId: string | null, activityPoints?: RoutePoint[]) => void;
+  /** Called when scrubbing state changes - useful for deferring expensive updates during scrub */
+  onScrubChange?: (isScrubbing: boolean) => void;
   selectedActivityId?: string | null;
   summaryStats?: ChartSummaryStats;
   currentIndex?: number;
@@ -109,6 +111,7 @@ export function UnifiedPerformanceChart({
   hasReverseRuns,
   tooltipBadgeType,
   onActivitySelect,
+  onScrubChange,
   summaryStats,
   currentIndex,
   variant = 'route',
@@ -588,6 +591,15 @@ export function UnifiedPerformanceChart({
     [updateSelectionFromTouch]
   );
 
+  // Callbacks for gesture state changes
+  const onGestureStart = useCallback(() => {
+    onScrubChange?.(true);
+  }, [onScrubChange]);
+
+  const onGestureEnd = useCallback(() => {
+    onScrubChange?.(false);
+  }, [onScrubChange]);
+
   // Pan gesture for scrubbing
   const panGesture = useMemo(
     () =>
@@ -596,6 +608,7 @@ export function UnifiedPerformanceChart({
         .onStart((e) => {
           'worklet';
           touchX.value = e.x;
+          runOnJS(onGestureStart)();
           runOnJS(setIsScrubbing)(true);
         })
         .onUpdate((e) => {
@@ -605,9 +618,10 @@ export function UnifiedPerformanceChart({
         .onEnd(() => {
           'worklet';
           touchX.value = -1;
+          runOnJS(onGestureEnd)();
           runOnJS(setIsScrubbing)(false);
         }),
-    [touchX]
+    [touchX, onGestureStart, onGestureEnd]
   );
 
   // Tap gesture to clear selection

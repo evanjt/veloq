@@ -52,7 +52,7 @@ export interface ActivitySectionRecord {
 interface UseSectionPerformancesResult {
   /** Performance records grouped by activity */
   records: ActivitySectionRecord[];
-  /** Whether streams are being loaded */
+  /** Whether streams are being loaded from API (not from cache) */
   isLoading: boolean;
   /** Error message if loading failed */
   error: string | null;
@@ -70,7 +70,8 @@ interface Activity {
 
 /**
  * Hook for calculating accurate section performance times.
- * Fetches activity streams, syncs to Rust engine, and uses Rust for calculations.
+ * Uses cached time streams from Rust engine (SQLite) when available.
+ * Only fetches from API for activities missing from cache.
  *
  * @param section - The section to calculate performances for
  * @param activities - Activities that have traversed this section
@@ -79,13 +80,13 @@ export function useSectionPerformances(
   section: FrequentSection | null,
   activities: Activity[] | undefined
 ): UseSectionPerformancesResult {
-  const [streamsSynced, setStreamsSynced] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fetchKey, setFetchKey] = useState(0); // For refetch
+  const [fetchComplete, setFetchComplete] = useState(false);
 
   // Get unique activity IDs that need streams
-  const activityIdsToFetch = useMemo(() => {
+  const allActivityIds = useMemo(() => {
     if (!section?.activityPortions || !activities) return [];
     const activityIdSet = new Set(activities.map((a) => a.id));
     const ids = new Set<string>();
@@ -97,24 +98,33 @@ export function useSectionPerformances(
     return Array.from(ids);
   }, [section?.activityPortions, activities]);
 
-  // Fetch streams and sync to Rust engine
-  const fetchAndSyncStreams = useCallback(async () => {
-    if (activityIdsToFetch.length === 0) {
-      setStreamsSynced(true);
+  // Fetch ONLY missing streams from API (ones not in Rust cache/SQLite)
+  const fetchMissingStreams = useCallback(async () => {
+    if (allActivityIds.length === 0) {
+      setFetchComplete(true);
       return;
     }
 
+    // Check which activities are missing from cache (memory + SQLite)
+    const missingIds = routeEngine.getActivitiesMissingTimeStreams(allActivityIds);
+
+    // If all time streams are cached, we're done immediately
+    if (missingIds.length === 0) {
+      setFetchComplete(true);
+      return;
+    }
+
+    // Only show loading for API fetches
     setIsLoading(true);
     setError(null);
-    setStreamsSynced(false);
 
     try {
       const streams: Array<{ activityId: string; times: number[] }> = [];
 
-      // Fetch streams in parallel with concurrency limit
+      // Fetch ONLY missing streams in parallel with concurrency limit
       const batchSize = 5;
-      for (let i = 0; i < activityIdsToFetch.length; i += batchSize) {
-        const batch = activityIdsToFetch.slice(i, i + batchSize);
+      for (let i = 0; i < missingIds.length; i += batchSize) {
+        const batch = missingIds.slice(i, i + batchSize);
         const results = await Promise.all(
           batch.map(async (activityId) => {
             try {
@@ -138,38 +148,40 @@ export function useSectionPerformances(
         }
       }
 
-      // Sync time streams to Rust engine for accurate performance calculations
+      // Sync newly fetched time streams to Rust engine (will persist to SQLite)
       if (streams.length > 0) {
         routeEngine.setTimeStreams(streams);
       }
 
-      setStreamsSynced(true);
+      setFetchComplete(true);
     } catch {
       setError('Failed to load activity streams');
     } finally {
       setIsLoading(false);
     }
-  }, [activityIdsToFetch]);
+  }, [allActivityIds]);
 
-  // Fetch streams when section/activities change or refetch is triggered
+  // Fetch missing streams when section/activities change or refetch is triggered
   useEffect(() => {
-    if (activityIdsToFetch.length > 0) {
-      fetchAndSyncStreams();
+    setFetchComplete(false);
+    if (allActivityIds.length > 0) {
+      fetchMissingStreams();
     } else {
-      setStreamsSynced(true);
+      setFetchComplete(true);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [section?.id, activityIdsToFetch, fetchKey]);
+  }, [section?.id, allActivityIds, fetchKey]);
 
   // Get performance records from Rust engine
+  // Rust auto-loads time streams from SQLite if not in memory
   const { records, bestRecord } = useMemo(() => {
-    if (!section || !streamsSynced || !activities) {
+    if (!section || !activities || !fetchComplete) {
       return { records: [], bestRecord: null };
     }
 
     try {
       // Get calculated performances from Rust engine
-      // Note: getSectionPerformances returns JSON string
+      // Rust auto-loads time streams from SQLite for any missing from memory
       const resultJson = routeEngine.getSectionPerformances(section.id);
       if (!resultJson) {
         return { records: [], bestRecord: null };
@@ -290,7 +302,7 @@ export function useSectionPerformances(
       // Engine may not have data yet - return empty
       return { records: [], bestRecord: null };
     }
-  }, [section, streamsSynced, activities]);
+  }, [section, fetchComplete, activities]);
 
   const refetch = useCallback(() => {
     setFetchKey((k) => k + 1);

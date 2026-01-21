@@ -221,6 +221,14 @@ async function runPotentialSectionDetection(
         sportType: g.sportType || 'Ride',
         // Filter out any null/empty activity IDs within the array
         activityIds: g.activityIds.filter((id): id is string => id != null && id !== ''),
+        // Convert null to undefined for optional fields - FFI expects undefined, not null
+        // (JSON parsing produces null, but UniFFI optional converters expect undefined)
+        customName: g.customName ?? undefined,
+        bestActivityId: g.bestActivityId ?? undefined,
+        bounds: g.bounds ?? undefined,
+        bestTime: g.bestTime ?? undefined,
+        avgTime: g.avgTime ?? undefined,
+        bestPace: g.bestPace ?? undefined,
       }))
       // After filtering activityIds, remove groups that ended up empty
       .filter((g) => g.activityIds.length > 0);

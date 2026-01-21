@@ -68,6 +68,10 @@ protected:
   cpp_uniffi_tracematch_fn_func_persistent_engine_extract_section_trace(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
+  jsi::Value
+  cpp_uniffi_tracematch_fn_func_persistent_engine_get_activities_missing_time_streams(
+      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+      size_t count);
   jsi::Value cpp_uniffi_tracematch_fn_func_persistent_engine_get_activity_count(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
@@ -155,6 +159,10 @@ protected:
   jsi::Value cpp_uniffi_tracematch_fn_func_persistent_engine_get_sections_json(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
+  jsi::Value
+  cpp_uniffi_tracematch_fn_func_persistent_engine_get_simplified_gps_track(
+      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+      size_t count);
   jsi::Value cpp_uniffi_tracematch_fn_func_persistent_engine_get_stats(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
@@ -240,6 +248,10 @@ protected:
       size_t count);
   jsi::Value
   cpp_uniffi_tracematch_checksum_func_persistent_engine_extract_section_trace(
+      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+      size_t count);
+  jsi::Value
+  cpp_uniffi_tracematch_checksum_func_persistent_engine_get_activities_missing_time_streams(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
   jsi::Value
@@ -336,6 +348,10 @@ protected:
       size_t count);
   jsi::Value
   cpp_uniffi_tracematch_checksum_func_persistent_engine_get_sections_json(
+      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+      size_t count);
+  jsi::Value
+  cpp_uniffi_tracematch_checksum_func_persistent_engine_get_simplified_gps_track(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
   jsi::Value cpp_uniffi_tracematch_checksum_func_persistent_engine_get_stats(

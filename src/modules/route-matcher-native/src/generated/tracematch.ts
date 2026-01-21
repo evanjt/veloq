@@ -309,6 +309,25 @@ export function persistentEngineExtractSectionTrace(
   );
 }
 /**
+ * Check which activities are missing cached time streams.
+ * Returns activity IDs that need to be fetched from the API.
+ */
+export function persistentEngineGetActivitiesMissingTimeStreams(
+  activityIds: Array<string>
+): Array<string> {
+  return FfiConverterArrayString.lift(
+    uniffiCaller.rustCall(
+      /*caller:*/ (callStatus) => {
+        return nativeModule().ubrn_uniffi_tracematch_fn_func_persistent_engine_get_activities_missing_time_streams(
+          FfiConverterArrayString.lower(activityIds),
+          callStatus
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift
+    )
+  );
+}
+/**
  * Get activity count.
  */
 export function persistentEngineGetActivityCount(): /*u32*/ number {
@@ -682,6 +701,24 @@ export function persistentEngineGetSectionsJson(): string {
     uniffiCaller.rustCall(
       /*caller:*/ (callStatus) => {
         return nativeModule().ubrn_uniffi_tracematch_fn_func_persistent_engine_get_sections_json(
+          callStatus
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift
+    )
+  );
+}
+/**
+ * Get simplified GPS track for an activity as flat coordinates.
+ * Uses Douglas-Peucker algorithm to reduce points for fast map rendering.
+ * Tolerance of 0.00005 (~5m) gives good visual fidelity with ~50-200 points.
+ */
+export function persistentEngineGetSimplifiedGpsTrack(activityId: string): Array</*f64*/ number> {
+  return FfiConverterArrayFloat64.lift(
+    uniffiCaller.rustCall(
+      /*caller:*/ (callStatus) => {
+        return nativeModule().ubrn_uniffi_tracematch_fn_func_persistent_engine_get_simplified_gps_track(
+          FfiConverterString.lower(activityId),
           callStatus
         );
       },
@@ -4595,6 +4632,14 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_tracematch_checksum_func_persistent_engine_get_activities_missing_time_streams() !==
+    33342
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      'uniffi_tracematch_checksum_func_persistent_engine_get_activities_missing_time_streams'
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_tracematch_checksum_func_persistent_engine_get_activity_count() !==
     23990
   ) {
@@ -4782,6 +4827,14 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       'uniffi_tracematch_checksum_func_persistent_engine_get_sections_json'
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_tracematch_checksum_func_persistent_engine_get_simplified_gps_track() !==
+    22780
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      'uniffi_tracematch_checksum_func_persistent_engine_get_simplified_gps_track'
     );
   }
   if (nativeModule().ubrn_uniffi_tracematch_checksum_func_persistent_engine_get_stats() !== 15398) {

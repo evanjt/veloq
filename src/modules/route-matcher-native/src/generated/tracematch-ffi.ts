@@ -81,6 +81,10 @@ interface NativeModuleInterface {
     sectionPolylineJson: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
+  ubrn_uniffi_tracematch_fn_func_persistent_engine_get_activities_missing_time_streams(
+    activityIds: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus
+  ): Uint8Array;
   ubrn_uniffi_tracematch_fn_func_persistent_engine_get_activity_count(
     uniffi_out_err: UniffiRustCallStatus
   ): number;
@@ -165,6 +169,10 @@ interface NativeModuleInterface {
   ubrn_uniffi_tracematch_fn_func_persistent_engine_get_sections_json(
     uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
+  ubrn_uniffi_tracematch_fn_func_persistent_engine_get_simplified_gps_track(
+    activityId: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus
+  ): Uint8Array;
   ubrn_uniffi_tracematch_fn_func_persistent_engine_get_stats(
     uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
@@ -236,6 +244,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_tracematch_checksum_func_persistent_engine_cleanup_old_activities(): number;
   ubrn_uniffi_tracematch_checksum_func_persistent_engine_clear(): number;
   ubrn_uniffi_tracematch_checksum_func_persistent_engine_extract_section_trace(): number;
+  ubrn_uniffi_tracematch_checksum_func_persistent_engine_get_activities_missing_time_streams(): number;
   ubrn_uniffi_tracematch_checksum_func_persistent_engine_get_activity_count(): number;
   ubrn_uniffi_tracematch_checksum_func_persistent_engine_get_activity_ids(): number;
   ubrn_uniffi_tracematch_checksum_func_persistent_engine_get_all_activity_bounds_json(): number;
@@ -260,6 +269,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_tracematch_checksum_func_persistent_engine_get_section_summaries_for_sport_json(): number;
   ubrn_uniffi_tracematch_checksum_func_persistent_engine_get_section_summaries_json(): number;
   ubrn_uniffi_tracematch_checksum_func_persistent_engine_get_sections_json(): number;
+  ubrn_uniffi_tracematch_checksum_func_persistent_engine_get_simplified_gps_track(): number;
   ubrn_uniffi_tracematch_checksum_func_persistent_engine_get_stats(): number;
   ubrn_uniffi_tracematch_checksum_func_persistent_engine_init(): number;
   ubrn_uniffi_tracematch_checksum_func_persistent_engine_is_initialized(): number;

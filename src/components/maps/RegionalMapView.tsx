@@ -33,7 +33,7 @@ import {
 import type { ActivityBoundsItem } from '@/types';
 import { HeatmapLayer } from './HeatmapLayer';
 import { useHeatmap, type CellQueryResult } from '@/hooks/useHeatmap';
-import { useFrequentSections, useRouteSignatures, useRouteGroups } from '@/hooks/routes';
+import { useEngineSections, useRouteSignatures, useRouteGroups } from '@/hooks/routes';
 import type { FrequentSection, ActivityType } from '@/types';
 import {
   ActivityPopup,
@@ -128,8 +128,10 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
   // Heatmap data from route matching cache
   const { heatmap, queryCell } = useHeatmap();
 
-  // Frequent sections from route matching
-  const { sections } = useFrequentSections({ minVisits: 2 });
+  // Frequent sections from route matching (with polylines loaded)
+  // useEngineSections loads full section data from Rust engine including polylines
+  // This fixes iOS crash when sectionsGeoJSON creates LineString with empty coordinates
+  const { sections } = useEngineSections({ minVisits: 2 });
 
   // Route groups for displaying routes on the map
   const { groups: routeGroups } = useRouteGroups({ minActivities: 2 });
@@ -377,27 +379,42 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
   const sectionsGeoJSON = useMemo(() => {
     if (sections.length === 0) return null;
 
-    const features = sections.map((section) => {
-      const coordinates = section.polyline.map((pt) => [pt.lng, pt.lat]);
-      const config = getActivityTypeConfig(section.sportType);
+    const features = sections
+      .map((section) => {
+        // Filter out NaN coordinates and validate polyline has at least 2 points
+        // GeoJSON LineString requires minimum 2 coordinates to be valid
+        // Invalid GeoJSON causes iOS crash: -[__NSArrayM insertObject:atIndex:]: object cannot be nil
+        const validPoints = section.polyline.filter((pt) => !isNaN(pt.lat) && !isNaN(pt.lng));
 
-      return {
-        type: 'Feature' as const,
-        id: section.id,
-        properties: {
+        // Skip sections with insufficient valid coordinates
+        if (validPoints.length < 2) {
+          return null;
+        }
+
+        const coordinates = validPoints.map((pt) => [pt.lng, pt.lat]);
+        const config = getActivityTypeConfig(section.sportType);
+
+        return {
+          type: 'Feature' as const,
           id: section.id,
-          name: section.name || t('sections.defaultName', { number: section.id.slice(-6) }),
-          sportType: section.sportType,
-          visitCount: section.visitCount,
-          distanceMeters: section.distanceMeters,
-          color: config.color,
-        },
-        geometry: {
-          type: 'LineString' as const,
-          coordinates,
-        },
-      };
-    });
+          properties: {
+            id: section.id,
+            name: section.name || t('sections.defaultName', { number: section.id.slice(-6) }),
+            sportType: section.sportType,
+            visitCount: section.visitCount,
+            distanceMeters: section.distanceMeters,
+            color: config.color,
+          },
+          geometry: {
+            type: 'LineString' as const,
+            coordinates,
+          },
+        };
+      })
+      .filter((f): f is NonNullable<typeof f> => f !== null); // Remove null entries (sections with invalid polylines)
+
+    // Return null if no valid features (prevents rendering empty FeatureCollection)
+    if (features.length === 0) return null;
 
     return {
       type: 'FeatureCollection' as const,
