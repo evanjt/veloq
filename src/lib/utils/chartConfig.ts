@@ -56,7 +56,7 @@ export const CHART_CONFIGS: Record<ChartTypeId, ChartConfig> = {
     id: 'power',
     label: 'Power',
     icon: 'lightning-bolt',
-    color: '#FBBF24',
+    color: '#FBBF24', // Amber (power)
     streamKey: 'watts',
     unit: 'W',
     getStream: (streams) => streams.watts,
@@ -163,7 +163,7 @@ export const CHART_CONFIGS: Record<ChartTypeId, ChartConfig> = {
     id: 'watts',
     label: 'Watts',
     icon: 'lightning-bolt',
-    color: '#FBBF24',
+    color: '#FBBF24', // Amber (power)
     streamKey: 'watts',
     unit: 'W',
     getStream: (streams) => streams.watts,

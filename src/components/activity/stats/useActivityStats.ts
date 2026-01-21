@@ -68,7 +68,7 @@
  * **Color System:**
  * - Green (#10B981): Good/optimal (low HR, high power, fresh form)
  * - Yellow/Amber (#F59E0B): Caution (moderate intensity, neutral form)
- * - Red/Orange (#FBBF24): High intensity (very hot, fatigued)
+ * - Red (#EF4444): High intensity (very hot, fatigued)
  * - Pink (#EC4899): Heart rate moderate
  * - Blue (#3B82F6): Cold conditions
  *
@@ -214,7 +214,7 @@ export function useActivityStats({
         intensity > 100
           ? colors.error
           : intensity > 85
-            ? '#F59E0B' // Amber-500 
+            ? '#F59E0B' // Amber-500
             : intensity > 70
               ? colors.chartYellow
               : colors.success;

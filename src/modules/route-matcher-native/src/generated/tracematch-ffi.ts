@@ -111,6 +111,16 @@ interface NativeModuleInterface {
     activityId: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
+  ubrn_uniffi_tracematch_fn_func_persistent_engine_get_group_by_id_json(
+    groupId: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus
+  ): Uint8Array;
+  ubrn_uniffi_tracematch_fn_func_persistent_engine_get_group_count(
+    uniffi_out_err: UniffiRustCallStatus
+  ): number;
+  ubrn_uniffi_tracematch_fn_func_persistent_engine_get_group_summaries_json(
+    uniffi_out_err: UniffiRustCallStatus
+  ): Uint8Array;
   ubrn_uniffi_tracematch_fn_func_persistent_engine_get_groups_json(
     uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
@@ -123,6 +133,13 @@ interface NativeModuleInterface {
     currentActivityId: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
+  ubrn_uniffi_tracematch_fn_func_persistent_engine_get_section_by_id_json(
+    sectionId: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus
+  ): Uint8Array;
+  ubrn_uniffi_tracematch_fn_func_persistent_engine_get_section_count(
+    uniffi_out_err: UniffiRustCallStatus
+  ): number;
   ubrn_uniffi_tracematch_fn_func_persistent_engine_get_section_detection_progress(
     uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
@@ -132,6 +149,17 @@ interface NativeModuleInterface {
   ): Uint8Array;
   ubrn_uniffi_tracematch_fn_func_persistent_engine_get_section_performances_json(
     sectionId: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus
+  ): Uint8Array;
+  ubrn_uniffi_tracematch_fn_func_persistent_engine_get_section_polyline(
+    sectionId: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus
+  ): Uint8Array;
+  ubrn_uniffi_tracematch_fn_func_persistent_engine_get_section_summaries_for_sport_json(
+    sportType: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus
+  ): Uint8Array;
+  ubrn_uniffi_tracematch_fn_func_persistent_engine_get_section_summaries_json(
     uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_tracematch_fn_func_persistent_engine_get_sections_json(
@@ -217,12 +245,20 @@ interface NativeModuleInterface {
   ubrn_uniffi_tracematch_checksum_func_persistent_engine_get_custom_section_matches(): number;
   ubrn_uniffi_tracematch_checksum_func_persistent_engine_get_custom_sections_json(): number;
   ubrn_uniffi_tracematch_checksum_func_persistent_engine_get_gps_track(): number;
+  ubrn_uniffi_tracematch_checksum_func_persistent_engine_get_group_by_id_json(): number;
+  ubrn_uniffi_tracematch_checksum_func_persistent_engine_get_group_count(): number;
+  ubrn_uniffi_tracematch_checksum_func_persistent_engine_get_group_summaries_json(): number;
   ubrn_uniffi_tracematch_checksum_func_persistent_engine_get_groups_json(): number;
   ubrn_uniffi_tracematch_checksum_func_persistent_engine_get_route_name(): number;
   ubrn_uniffi_tracematch_checksum_func_persistent_engine_get_route_performances_json(): number;
+  ubrn_uniffi_tracematch_checksum_func_persistent_engine_get_section_by_id_json(): number;
+  ubrn_uniffi_tracematch_checksum_func_persistent_engine_get_section_count(): number;
   ubrn_uniffi_tracematch_checksum_func_persistent_engine_get_section_detection_progress(): number;
   ubrn_uniffi_tracematch_checksum_func_persistent_engine_get_section_name(): number;
   ubrn_uniffi_tracematch_checksum_func_persistent_engine_get_section_performances_json(): number;
+  ubrn_uniffi_tracematch_checksum_func_persistent_engine_get_section_polyline(): number;
+  ubrn_uniffi_tracematch_checksum_func_persistent_engine_get_section_summaries_for_sport_json(): number;
+  ubrn_uniffi_tracematch_checksum_func_persistent_engine_get_section_summaries_json(): number;
   ubrn_uniffi_tracematch_checksum_func_persistent_engine_get_sections_json(): number;
   ubrn_uniffi_tracematch_checksum_func_persistent_engine_get_stats(): number;
   ubrn_uniffi_tracematch_checksum_func_persistent_engine_init(): number;

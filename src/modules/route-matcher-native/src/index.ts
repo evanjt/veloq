@@ -34,6 +34,14 @@ import {
   persistentEngineCancelSectionDetection,
   persistentEngineGetGroupsJson,
   persistentEngineGetSectionsJson,
+  persistentEngineGetSectionCount,
+  persistentEngineGetGroupCount,
+  persistentEngineGetSectionSummariesJson,
+  persistentEngineGetSectionSummariesForSportJson,
+  persistentEngineGetGroupSummariesJson,
+  persistentEngineGetSectionByIdJson,
+  persistentEngineGetGroupByIdJson,
+  persistentEngineGetSectionPolyline,
   persistentEngineGetAllActivityBoundsJson,
   persistentEngineSetRouteName,
   persistentEngineSetSectionName,
@@ -68,6 +76,8 @@ import {
   type FfiActivityMapResult,
   type CustomSection,
   type CustomSectionMatch,
+  type SectionSummary,
+  type GroupSummary,
 } from './generated/tracematch';
 
 // For backward compatibility, also export the module initialization status
@@ -544,6 +554,101 @@ class RouteEngineClient {
   getSections(): FrequentSection[] {
     const json = persistentEngineGetSectionsJson();
     return safeJsonParse<FrequentSection[]>(json, []);
+  }
+
+  // ========================================================================
+  // Lightweight Query Methods (Query on-demand, don't cache in JS)
+  // ========================================================================
+
+  /**
+   * Get section count directly from SQLite (no data loading).
+   * This is O(1) and doesn't require loading sections into memory.
+   */
+  getSectionCount(): number {
+    return persistentEngineGetSectionCount();
+  }
+
+  /**
+   * Get group count directly from SQLite (no data loading).
+   * This is O(1) and doesn't require loading groups into memory.
+   */
+  getGroupCount(): number {
+    return persistentEngineGetGroupCount();
+  }
+
+  /**
+   * Get lightweight section summaries without polyline data.
+   * Use this for list views where you only need metadata.
+   */
+  getSectionSummaries(): SectionSummary[] {
+    const json = persistentEngineGetSectionSummariesJson();
+    return safeJsonParse<SectionSummary[]>(json, []);
+  }
+
+  /**
+   * Get section summaries filtered by sport type.
+   */
+  getSectionSummariesForSport(sportType: string): SectionSummary[] {
+    const json = persistentEngineGetSectionSummariesForSportJson(sportType);
+    return safeJsonParse<SectionSummary[]>(json, []);
+  }
+
+  /**
+   * Get lightweight group summaries without full activity ID lists.
+   * Use this for list views where you only need metadata.
+   */
+  getGroupSummaries(): GroupSummary[] {
+    const json = persistentEngineGetGroupSummariesJson();
+    return safeJsonParse<GroupSummary[]>(json, []);
+  }
+
+  /**
+   * Get a single section by ID with full data (including polyline).
+   * Use this for detail pages where you need complete section data.
+   */
+  getSectionById(sectionId: string): FrequentSection | null {
+    validateId(sectionId, 'section ID');
+    const json = persistentEngineGetSectionByIdJson(sectionId);
+    if (!json) return null;
+    try {
+      return JSON.parse(json) as FrequentSection;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Get a single group by ID with full data (including activity IDs).
+   * Use this for detail pages where you need complete group data.
+   */
+  getGroupById(groupId: string): RouteGroup | null {
+    validateId(groupId, 'group ID');
+    const json = persistentEngineGetGroupByIdJson(groupId);
+    if (!json) return null;
+    try {
+      return JSON.parse(json) as RouteGroup;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Get section polyline only (flat coordinates for map rendering).
+   * Returns array of GpsPoint or empty array if not found.
+   */
+  getSectionPolyline(sectionId: string): GpsPoint[] {
+    validateId(sectionId, 'section ID');
+    const flatCoords = persistentEngineGetSectionPolyline(sectionId);
+    // Convert flat [lat1, lng1, lat2, lng2, ...] to GpsPoint[]
+    const points: GpsPoint[] = [];
+    for (let i = 0; i < flatCoords.length; i += 2) {
+      points.push({
+        latitude: flatCoords[i],
+        longitude: flatCoords[i + 1],
+        elevation: undefined,
+      });
+    }
+    return points;
   }
 
   /**

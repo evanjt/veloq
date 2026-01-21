@@ -17,7 +17,7 @@ export const DEFAULT_HR_ZONES: HRZone[] = [
   { id: 1, name: 'Recovery', min: 0.5, max: 0.6, color: '#94A3B8' }, // Slate-400
   { id: 2, name: 'Endurance', min: 0.6, max: 0.7, color: '#22C55E' }, // Green-500
   { id: 3, name: 'Tempo', min: 0.7, max: 0.8, color: '#EAB308' }, // Yellow-500
-  { id: 4, name: 'Threshold', min: 0.8, max: 0.9, color: '#F59E0B' }, // Amber-500 
+  { id: 4, name: 'Threshold', min: 0.8, max: 0.9, color: '#F59E0B' }, // Amber-500
   { id: 5, name: 'VO2max', min: 0.9, max: 1.0, color: '#EF4444' }, // Red-500
 ];
 

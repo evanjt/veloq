@@ -162,6 +162,8 @@ export function useUnifiedSections(
 
     // Add auto-detected sections (excluding those superseded by custom sections)
     // Superseded list is pre-computed when custom sections are created
+    // Note: engineSections now use lightweight summaries (empty polyline/activityIds)
+    // Polylines are lazy-loaded via useSectionPolyline in SectionRow
     for (const engine of engineSections) {
       if (seenIds.has(engine.id)) continue;
 
@@ -171,13 +173,13 @@ export function useUnifiedSections(
         result.push({
           id: engine.id,
           name: generateSectionName(engine),
-          polyline: engine.polyline,
+          polyline: engine.polyline, // Empty for list view, lazy-loaded in SectionRow
           sportType: engine.sportType,
           distanceMeters: engine.distanceMeters,
           visitCount: engine.visitCount,
           source: 'auto',
           isDisabled: isDisabled(engine.id),
-          engineData: engine,
+          engineData: engine, // Lightweight - no polyline/activityTraces
         });
       }
     }

@@ -82,7 +82,7 @@ export const colors = {
   successLight: '#4ADE80',
   error: '#EF4444',
   errorLight: '#F87171',
-  warning: '#F59E0B', // Amber
+  warning: '#F59E0B',
   warningLight: '#FBBF24',
   info: brand.blue,
   infoLight: brand.blueLight,
@@ -104,7 +104,7 @@ export const colors = {
   gray800: '#27272A',
   gray900: '#18181B',
 
-  // Activity type colors 
+  // Activity type colors
   ride: '#3B82F6', // Blue-500 - Royal blue for cycling
   run: '#10B981', // Emerald-500 - Fresh green
   swim: '#06B6D4', // Cyan-500 - Aqua/teal
@@ -114,7 +114,7 @@ export const colors = {
 
   // Fitness metric colors (matching intervals.icu)
   fitness: brand.blue, // CTL - Brand blue
-  fatigue: '#A855F7', // ATL - Purple 
+  fatigue: '#A855F7', // ATL - Purple
   form: brand.blue, // TSB - Use blue (neutral), color should be zone-based at runtime
   fitnessBlue: '#42A5F5', // CTL display color (intervals.icu blue)
   fatiguePurple: '#AB47BC', // ATL display color (intervals.icu purple)
@@ -152,7 +152,7 @@ export const colors = {
 
   // Event priority colors
   eventPriorityA: '#EC4899', // Pink - priority race
-  eventPriorityB: '#F59E0B', // Amber - secondary 
+  eventPriorityB: '#F59E0B', // Amber - secondary
   eventPriorityC: '#71717A', // Gray - training
 
   // Workout step colors
@@ -348,7 +348,7 @@ export const zoneColors = {
   zone1: '#94A3B8', // Slate-400 - Recovery
   zone2: '#22C55E', // Green-500 - Endurance
   zone3: '#EAB308', // Yellow-500 - Tempo
-  zone4: '#F59E0B', // Amber-500 - Threshold 
+  zone4: '#F59E0B', // Amber-500 - Threshold
   zone5: '#EF4444', // Red-500 - VO2max
   zone6: '#A855F7', // Purple-500 - Anaerobic
   zone7: '#EC4899', // Pink-500 - Neuromuscular

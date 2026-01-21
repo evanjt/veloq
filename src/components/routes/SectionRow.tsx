@@ -2,11 +2,14 @@
  * Section row component.
  * Displays a frequently-traveled road section with polyline preview and stats.
  * Now shows activity traces overlaid on section for richer visualization.
+ *
+ * Supports both full sections (FrequentSection) and lightweight summaries (SectionSummary).
+ * When using summaries, the polyline is lazy-loaded on-demand.
  */
 
 import React, { memo, useMemo } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
-import { useTheme } from '@/hooks';
+import { useTheme, useSectionPolyline } from '@/hooks';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Svg, { Polyline, G } from 'react-native-svg';
@@ -14,6 +17,7 @@ import { useTranslation } from 'react-i18next';
 import { colors, darkColors, spacing, layout } from '@/theme';
 import { debug, formatDistance, getBoundsFromPoints } from '@/lib';
 import type { FrequentSection, RoutePoint } from '@/types';
+import type { SectionSummary } from 'route-matcher-native';
 
 const log = debug.create('SectionRow');
 
@@ -24,11 +28,68 @@ export interface ActivityTrace {
   points: [number, number][];
 }
 
+/**
+ * Section data that can be displayed in a row.
+ * Supports both full FrequentSection and lightweight SectionSummary.
+ */
+interface SectionRowData {
+  id: string;
+  name?: string;
+  sportType: string;
+  distanceMeters: number;
+  visitCount: number;
+  /** Number of activities (from activityCount or activityIds.length) */
+  activityCount: number;
+  /** Number of routes (optional, only in full FrequentSection) */
+  routeCount?: number;
+  /** Polyline (optional - will be lazy-loaded if not provided) */
+  polyline?: RoutePoint[];
+}
+
 interface SectionRowProps {
-  section: FrequentSection;
+  /** Section data - can be FrequentSection or SectionSummary */
+  section: FrequentSection | SectionSummary | SectionRowData;
   /** Optional pre-loaded activity traces for this section */
   activityTraces?: ActivityTrace[];
   onPress?: () => void;
+}
+
+/**
+ * Normalize section data to a common format.
+ * Handles both FrequentSection (with polyline, activityIds, routeIds) and
+ * SectionSummary (lightweight, no polyline).
+ */
+function normalizeSectionData(
+  section: FrequentSection | SectionSummary | SectionRowData
+): SectionRowData {
+  // Check if it's a FrequentSection (has activityIds array)
+  if ('activityIds' in section && Array.isArray(section.activityIds)) {
+    return {
+      id: section.id,
+      name: section.name,
+      sportType: section.sportType,
+      distanceMeters: section.distanceMeters,
+      visitCount: section.visitCount,
+      activityCount: section.activityIds.length,
+      routeCount: 'routeIds' in section ? section.routeIds?.length : undefined,
+      polyline: section.polyline,
+    };
+  }
+  // Check if it's a SectionSummary (has activityCount number)
+  if ('activityCount' in section && typeof section.activityCount === 'number') {
+    return {
+      id: section.id,
+      name: section.name,
+      sportType: section.sportType,
+      distanceMeters: section.distanceMeters,
+      visitCount: section.visitCount,
+      activityCount: section.activityCount,
+      routeCount: undefined, // Not available in summary
+      polyline: undefined, // Will be lazy-loaded
+    };
+  }
+  // Already normalized
+  return section as SectionRowData;
 }
 
 // Sport type to icon mapping
@@ -55,12 +116,24 @@ const PREVIEW_HEIGHT = 40;
 const PREVIEW_PADDING = 4;
 
 export const SectionRow = memo(function SectionRow({
-  section,
+  section: rawSection,
   activityTraces,
   onPress,
 }: SectionRowProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
+
+  // Normalize section data to common format
+  const section = useMemo(() => normalizeSectionData(rawSection), [rawSection]);
+
+  // Lazy-load polyline if not provided (e.g., when using SectionSummary)
+  // This is fast - Rust query with LRU caching
+  const { polyline: lazyPolyline } = useSectionPolyline(
+    section.polyline ? null : section.id // Only fetch if not already provided
+  );
+
+  // Use provided polyline or lazy-loaded one
+  const polyline = section.polyline || lazyPolyline;
 
   // Debug: log touch events
   const handlePressIn = () => {
@@ -79,10 +152,10 @@ export const SectionRow = memo(function SectionRow({
   // Compute bounds from section polyline only (not activity traces)
   // This ensures the thumbnail accurately represents the section geometry
   const bounds = useMemo(() => {
-    if (!section.polyline?.length) return null;
+    if (!polyline?.length) return null;
 
     // Use utility for bounds calculation
-    const mapBounds = getBoundsFromPoints(section.polyline);
+    const mapBounds = getBoundsFromPoints(polyline);
     if (!mapBounds) return null;
 
     // Extract min/max from MapLibre bounds format
@@ -95,7 +168,7 @@ export const SectionRow = memo(function SectionRow({
     const range = Math.max(latRange, lngRange);
 
     return { minLat, maxLat, minLng, maxLng, range };
-  }, [section.polyline]);
+  }, [polyline]);
 
   // Normalize point to SVG coordinates
   const normalizePoint = (lat: number, lng: number): { x: number; y: number } => {
@@ -112,14 +185,14 @@ export const SectionRow = memo(function SectionRow({
 
   // Normalize section polyline
   const sectionPolylineString = useMemo(() => {
-    if (!section.polyline?.length || !bounds) return '';
-    return section.polyline
+    if (!polyline?.length || !bounds) return '';
+    return polyline
       .map((p) => {
         const { x, y } = normalizePoint(p.lat, p.lng);
         return `${x},${y}`;
       })
       .join(' ');
-  }, [section.polyline, bounds]);
+  }, [polyline, bounds]);
 
   // Normalize activity traces
   const normalizedTraces = useMemo(() => {
@@ -226,19 +299,19 @@ export const SectionRow = memo(function SectionRow({
               color={isDark ? darkColors.textMuted : colors.textMuted}
             />
             <Text style={[styles.statText, isDark && styles.textMuted]}>
-              {section.activityIds.length} {t('routes.activities')}
+              {section.activityCount} {t('routes.activities')}
             </Text>
           </View>
         </View>
 
-        {/* Routes using this section */}
-        {section.routeIds.length > 0 && (
+        {/* Routes using this section (only shown if routeCount is available) */}
+        {section.routeCount !== undefined && section.routeCount > 0 && (
           <Text style={[styles.routes, isDark && styles.textMuted]} numberOfLines={1}>
-            {section.routeIds.length > 1
+            {section.routeCount > 1
               ? t('routes.partOfRoutesPlural', {
-                  count: section.routeIds.length,
+                  count: section.routeCount,
                 })
-              : t('routes.partOfRoutes', { count: section.routeIds.length })}
+              : t('routes.partOfRoutes', { count: section.routeCount })}
           </Text>
         )}
       </View>

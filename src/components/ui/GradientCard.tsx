@@ -73,7 +73,7 @@ export const GRADIENT_PRESETS = {
   premium: ['#D4AF37', '#5B9BD5'], // Gold to blue (special moments)
   success: ['#4ADE80', '#22C55E'], // Green
   info: ['#7DB3E3', '#5B9BD5'], // Brand blue
-  warning: ['#FBBF24', '#F59E0B'], // Amber 
+  warning: ['#FBBF24', '#F59E0B'], // Amber
   purple: ['#C084FC', '#A855F7'], // Purple
   ocean: ['#22D3EE', '#06B6D4'], // Cyan
   fitness: ['#7DB3E3', '#5B9BD5'], // Brand blue (CTL)

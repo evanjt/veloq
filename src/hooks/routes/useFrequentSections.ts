@@ -2,41 +2,16 @@
  * Hook for accessing frequent sections from the Rust engine.
  * Sections are auto-detected road sections that are frequently traveled,
  * even when the full routes differ.
+ *
+ * Uses lightweight SectionSummary for list views (no polyline/activity traces).
+ * Full FrequentSection data is loaded on-demand via useSectionDetail.
  */
 
 import { useMemo } from 'react';
-import { useEngineSections } from './useRouteEngine';
-import { gpsPointsToRoutePoints } from 'route-matcher-native';
+import { useSectionSummaries } from './useRouteEngine';
 import { useDisabledSections } from '@/providers';
 import type { FrequentSection } from '@/types';
-
-/**
- * Type guard to validate Rust engine section data at runtime.
- * Prevents crashes when native module returns malformed data.
- * Accepts both GpsPoint (from native) and RoutePoint (app) polyline formats.
- *
- * @param obj - Unknown object from Rust engine
- * @returns True if object matches FrequentSection structure
- */
-function isFrequentSection(obj: unknown): boolean {
-  if (typeof obj !== 'object' || obj === null) {
-    return false;
-  }
-
-  const section = obj as Record<string, unknown>;
-
-  // Required fields with type checks
-  return (
-    typeof section.id === 'string' &&
-    typeof section.sportType === 'string' &&
-    Array.isArray(section.polyline) &&
-    typeof section.visitCount === 'number' &&
-    typeof section.distanceMeters === 'number' &&
-    Array.isArray(section.activityIds) &&
-    Array.isArray(section.routeIds)
-    // Optional fields are not validated (they can be undefined)
-  );
-}
+import type { SectionSummary } from 'route-matcher-native';
 
 export interface UseFrequentSectionsOptions {
   /** Filter by sport type (e.g., "Run", "Ride") */
@@ -50,7 +25,7 @@ export interface UseFrequentSectionsOptions {
 }
 
 export interface UseFrequentSectionsResult {
-  /** Filtered and sorted sections */
+  /** Filtered and sorted sections (lightweight - no polylines) */
   sections: FrequentSection[];
   /** Total number of sections (before filtering) */
   totalCount: number;
@@ -58,12 +33,31 @@ export interface UseFrequentSectionsResult {
   isReady: boolean;
 }
 
+/**
+ * Convert SectionSummary to FrequentSection-like object.
+ * Polylines are lazy-loaded via useSectionPolyline in SectionRow.
+ */
+function summaryToFrequentSection(summary: SectionSummary): FrequentSection {
+  return {
+    id: summary.id,
+    name: summary.name,
+    sportType: summary.sportType,
+    polyline: [], // Lazy-loaded via useSectionPolyline
+    activityIds: [], // Not needed for list view (count available in summary)
+    routeIds: [], // Not needed for list view
+    visitCount: summary.visitCount,
+    distanceMeters: summary.distanceMeters,
+    confidence: summary.confidence,
+  };
+}
+
 export function useFrequentSections(
   options: UseFrequentSectionsOptions = {}
 ): UseFrequentSectionsResult {
   const { sportType, minVisits = 3, sortBy = 'visits', excludeDisabled = true } = options;
 
-  const { sections: rawSections, totalCount } = useEngineSections({
+  // Use lightweight summaries - no polylines loaded, queries SQLite on-demand
+  const { count: totalCount, summaries } = useSectionSummaries({
     sportType,
     minVisits: 1,
   });
@@ -73,20 +67,10 @@ export function useFrequentSections(
   const disabledIds = useDisabledSections((s) => s.disabledIds);
 
   const sections = useMemo(() => {
-    // Convert native FrequentSection (GpsPoint polyline) to app FrequentSection (RoutePoint polyline)
-    // Also filter and validate in one pass - removes malformed data
-    let filtered: FrequentSection[] = rawSections.filter(isFrequentSection).map((s) => ({
-      ...s,
-      polyline: gpsPointsToRoutePoints(s.polyline),
-      // Convert activity traces if present
-      activityTraces: s.activityTraces
-        ? Object.fromEntries(
-            Object.entries(s.activityTraces).map(([id, pts]) => [id, gpsPointsToRoutePoints(pts)])
-          )
-        : undefined,
-    }));
+    // Convert summaries to FrequentSection format
+    let filtered = summaries.map(summaryToFrequentSection);
 
-    // Filter by sport type (already done by useEngineSections, but double-check)
+    // Filter by sport type (already done by useSectionSummaries, but double-check)
     if (sportType) {
       filtered = filtered.filter((s) => s.sportType === sportType);
     }
@@ -113,7 +97,7 @@ export function useFrequentSections(
     }
 
     return filtered;
-  }, [rawSections, sportType, minVisits, sortBy, excludeDisabled, disabledIds]);
+  }, [summaries, sportType, minVisits, sortBy, excludeDisabled, disabledIds]);
 
   return {
     sections,

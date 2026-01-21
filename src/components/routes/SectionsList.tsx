@@ -9,7 +9,6 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { useSyncDateRange } from '@/providers/SyncDateRangeStore';
 import { View, StyleSheet, FlatList, Platform, TouchableOpacity } from 'react-native';
-import { useFocusEffect } from 'expo-router';
 import { useTheme } from '@/hooks';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -17,9 +16,8 @@ import { useTranslation } from 'react-i18next';
 import { router, Href } from 'expo-router';
 import { colors, darkColors, spacing, layout } from '@/theme';
 import { useUnifiedSections } from '@/hooks/routes/useUnifiedSections';
-import { useEngineGroups } from '@/hooks/routes/useRouteEngine';
-import { getRouteEngine } from '@/lib/native/routeEngine';
-import { SectionRow, ActivityTrace } from './SectionRow';
+import { useGroupSummaries } from '@/hooks/routes/useRouteEngine';
+import { SectionRow } from './SectionRow';
 import { PotentialSectionCard } from './PotentialSectionCard';
 import { DataRangeFooter } from './DataRangeFooter';
 import { useCustomSections } from '@/hooks/routes/useCustomSections';
@@ -33,9 +31,6 @@ interface SectionsListProps {
   /** Filter by sport type */
   sportType?: string;
 }
-
-/** Map of section ID to activity traces for that section */
-type SectionTracesMap = Map<string, ActivityTrace[]>;
 
 type HiddenFilters = {
   custom: boolean;
@@ -78,37 +73,21 @@ export function SectionsList({ sportType }: SectionsListProps) {
     );
   }, [syncOldest, syncNewest]);
 
-  // Get route groups to compute routeIds for custom sections
-  const { groups: routeGroups } = useEngineGroups({ minActivities: 1 });
+  // Get route group summaries to compute routeIds for custom sections
+  // Uses lightweight query-on-demand pattern (no memory bloat)
+  const { summaries: routeGroups } = useGroupSummaries({ minActivities: 1 });
 
-  // Refresh data when screen gains focus (e.g., returning from detail page after rename)
-  useFocusEffect(
-    useCallback(() => {
-      const engine = getRouteEngine();
-      if (engine) {
-        // Trigger a 'sections' event to refresh all subscribers
-        engine.triggerRefresh('sections');
-      }
-    }, [])
-  );
+  // Note: useFocusEffect refresh removed - hooks now subscribe to engine events
+  // and automatically refresh when data changes (e.g., after renaming)
 
   // Create a mapping from activity ID to route group IDs
-  // This lets us quickly find which routes a custom section's activities belong to
+  // Note: Group summaries don't include activityIds, so this mapping is empty
+  // TODO: If routeIds are needed for custom sections, fetch group details on-demand
   const activityToRouteIds = useMemo(() => {
-    const mapping = new Map<string, string[]>();
-    for (const group of routeGroups) {
-      const groupId = group.groupId;
-      for (const activityId of group.activityIds || []) {
-        const existing = mapping.get(activityId);
-        if (existing) {
-          existing.push(groupId);
-        } else {
-          mapping.set(activityId, [groupId]);
-        }
-      }
-    }
-    return mapping;
-  }, [routeGroups]);
+    // Group summaries don't include activity IDs to save memory
+    // Return empty map - routeIds for custom sections will be computed elsewhere if needed
+    return new Map<string, string[]>();
+  }, []);
 
   // Separate regular sections from potential sections and apply filter
   const { regularSections, potentialSections } = useMemo(() => {
@@ -148,38 +127,8 @@ export function SectionsList({ sportType }: SectionsListProps) {
 
   const isReady = !isLoading;
 
-  // Convert pre-computed activity traces from sections to the format expected by SectionRow
-  // This is instant since traces are already computed by Rust during section detection
-  const sectionTraces = useMemo((): SectionTracesMap => {
-    const tracesMap = new Map<string, ActivityTrace[]>();
-
-    for (const section of regularSections) {
-      // Get activityTraces from engineData if available
-      const engineData = section.engineData;
-      if (!engineData?.activityTraces) continue;
-
-      const traces: ActivityTrace[] = [];
-      // Use first 4 activities for preview
-      const activityIds = engineData.activityIds.slice(0, 4);
-
-      for (const activityId of activityIds) {
-        const points = engineData.activityTraces[activityId];
-        if (points && points.length > 2) {
-          // Convert RoutePoint[] to [lat, lng][] format expected by SectionRow
-          traces.push({
-            activityId,
-            points: points.map((p) => [p.lat, p.lng] as [number, number]),
-          });
-        }
-      }
-
-      if (traces.length > 0) {
-        tracesMap.set(section.id, traces);
-      }
-    }
-
-    return tracesMap;
-  }, [regularSections]);
+  // Note: Activity traces are no longer pre-loaded to reduce memory usage
+  // Polylines are now lazy-loaded via useSectionPolyline in SectionRow
 
   // Navigate to section detail page
   const handleSectionPress = useCallback((section: UnifiedSection) => {
@@ -431,11 +380,7 @@ export function SectionsList({ sportType }: SectionsListProps) {
       const frequentSection = toFrequentSection(item);
       return (
         <View style={item.isDisabled ? styles.disabledSection : undefined}>
-          <SectionRow
-            section={frequentSection}
-            activityTraces={sectionTraces.get(item.id)}
-            onPress={() => handleSectionPress(item)}
-          />
+          <SectionRow section={frequentSection} onPress={() => handleSectionPress(item)} />
           {/* Show source badge for custom sections */}
           {item.source === 'custom' && (
             <View style={styles.sourceBadge}>
@@ -452,7 +397,7 @@ export function SectionsList({ sportType }: SectionsListProps) {
         </View>
       );
     },
-    [sectionTraces, handleSectionPress, toFrequentSection, t]
+    [handleSectionPress, toFrequentSection, t]
   );
 
   const renderFooter = () => {

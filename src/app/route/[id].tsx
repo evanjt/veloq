@@ -18,13 +18,8 @@ import { useLocalSearchParams, router, Href } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { LinearGradient } from 'expo-linear-gradient';
-import {
-  useActivities,
-  useRouteGroups,
-  useConsensusRoute,
-  useRoutePerformances,
-  useTheme,
-} from '@/hooks';
+import { useActivities, useConsensusRoute, useRoutePerformances, useTheme } from '@/hooks';
+import { useGroupDetail } from '@/hooks/routes/useRouteEngine';
 import { getAllRouteDisplayNames } from '@/hooks/routes/useRouteGroups';
 import { createSharedStyles } from '@/styles';
 
@@ -57,6 +52,7 @@ import {
 } from '@/lib';
 import { colors, darkColors, spacing, layout, typography, opacity } from '@/theme';
 import type { Activity, ActivityType, RoutePoint, PerformanceDataPoint } from '@/types';
+import { toActivityType } from '@/types/routes';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 const MAP_HEIGHT = Math.round(SCREEN_HEIGHT * 0.45); // 45% of screen for hero map
@@ -272,9 +268,18 @@ export default function RouteDetailScreen() {
     []
   );
 
-  // Get route groups from engine
-  const { groups: allGroups, renameRoute } = useRouteGroups({ minActivities: 1 });
-  const engineGroup = useMemo(() => allGroups.find((g) => g.id === id) || null, [allGroups, id]);
+  // Get route group from engine using lightweight on-demand query (with LRU caching)
+  const { group: engineGroup } = useGroupDetail(id || null);
+
+  // Rename function - calls engine directly (no need to load all groups)
+  const renameRoute = useCallback((routeId: string, name: string) => {
+    const engine = getRouteEngine();
+    if (!engine) {
+      throw new Error('Route engine not initialized');
+    }
+    engine.setRouteName(routeId, name);
+    // Engine fires 'groups' event which triggers subscribers to refresh
+  }, []);
 
   // Fetch activities for 3 years (route groups can contain older activities)
   // Moved up so we can pass to useRoutePerformances
@@ -289,21 +294,22 @@ export default function RouteDetailScreen() {
     performances,
     best: bestPerformance,
     currentRank,
-  } = useRoutePerformances(id, engineGroup?.id, allActivities);
+  } = useRoutePerformances(id, engineGroup?.groupId, allActivities);
 
   // Get consensus route points from Rust engine
   const { points: consensusPoints } = useConsensusRoute(id);
 
   // Create a compatible routeGroup object with expected properties
-  // Note: signature is populated later once routeStats is computed
+  // Note: Native RouteGroup uses groupId, sportType, customName (different from extended type)
   const routeGroupBase = useMemo(() => {
     if (!engineGroup) return null;
+    const sportType = engineGroup.sportType || 'Ride';
     return {
-      id: engineGroup.id,
-      name: engineGroup.name || `${engineGroup.type || 'Ride'} Route`, // Use the generated name from useRouteGroups
-      type: engineGroup.type || 'Ride',
+      id: engineGroup.groupId,
+      name: engineGroup.customName || `${sportType} Route`, // Use custom name or auto-generate
+      type: toActivityType(sportType),
       activityIds: engineGroup.activityIds,
-      activityCount: engineGroup.activityCount,
+      activityCount: engineGroup.activityIds.length,
       firstDate: '', // Not available from engine
       lastDate: '', // Will be computed from activities
       signature: null as { points: any[]; distance: number } | null,

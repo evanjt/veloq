@@ -1,12 +1,13 @@
 /**
  * Hook for accessing route groups.
  * Provides filtered and sorted lists of route groups from the Rust engine.
+ * Uses lightweight summaries (no activityIds arrays) for list views.
  */
 
 import { useMemo, useCallback } from 'react';
-import { useEngineGroups } from './useRouteEngine';
+import { useGroupSummaries } from './useRouteEngine';
 import { getRouteEngine } from '@/lib/native/routeEngine';
-import type { ActivityType } from '@/types';
+import { toActivityType, type ActivityType } from '@/types';
 
 interface UseRouteGroupsOptions {
   /** Filter by activity type */
@@ -68,8 +69,10 @@ interface UseRouteGroupsResult {
 export function useRouteGroups(options: UseRouteGroupsOptions = {}): UseRouteGroupsResult {
   const { type, minActivities = 2, sortBy = 'count' } = options;
 
-  const { groups: rawGroups, totalCount } = useEngineGroups({
-    minActivities: 1,
+  // Use lightweight summaries instead of full groups (no activityIds arrays)
+  const { count: totalCount, summaries } = useGroupSummaries({
+    minActivities: 1, // Get all, filter below
+    sortBy: 'count',
   });
 
   // Rename a route - uses Rust engine as single source of truth
@@ -81,36 +84,35 @@ export function useRouteGroups(options: UseRouteGroupsOptions = {}): UseRouteGro
     }
     engine.setRouteName(routeId, name);
     // No need to manually refresh - engine fires 'groups' event which
-    // triggers useEngineGroups subscriber to call refresh()
+    // triggers useGroupSummaries subscriber to call refresh()
   }, []);
 
   const result = useMemo(() => {
-    // Convert engine groups to extended format
+    // Convert summaries to extended format
     // NOTE: Signature is NOT loaded here to avoid blocking render with sync FFI calls.
     // Use useConsensusRoute hook to load signature lazily when needed.
-    const extended: RouteGroupExtended[] = rawGroups.map((g, index) => {
+    const extended: RouteGroupExtended[] = summaries.map((g, index) => {
       const sportType = g.sportType || 'Ride';
-      const activityCount = g.activityIds.length;
 
-      // Use custom name from Rust engine if set, otherwise generate default
+      // Use custom name from summary if set, otherwise generate default
       const name = g.customName || `${sportType} Route ${index + 1}`;
 
       return {
         id: g.groupId,
         representativeId: g.representativeId,
-        activityIds: g.activityIds,
+        activityIds: [], // Not loaded in summaries - use useGroupDetail for full data
         sportType: g.sportType,
         bounds: g.bounds ?? null,
         name,
-        activityCount,
-        type: sportType as ActivityType,
+        activityCount: g.activityCount,
+        type: toActivityType(sportType),
         // Signature loaded lazily via useConsensusRoute to avoid blocking render
         signature: undefined,
-        // Performance stats from engine (populated when metrics are synced)
-        bestTime: g.bestTime,
-        avgTime: g.avgTime,
-        bestPace: g.bestPace,
-        bestActivityId: g.bestActivityId,
+        // Performance stats not in summaries - use useGroupDetail for full data
+        bestTime: undefined,
+        avgTime: undefined,
+        bestPace: undefined,
+        bestActivityId: undefined,
       };
     });
 
@@ -141,11 +143,12 @@ export function useRouteGroups(options: UseRouteGroupsOptions = {}): UseRouteGro
     return {
       groups: sorted,
       totalCount,
-      processedCount: rawGroups.reduce((sum, g) => sum + g.activityIds.length, 0),
+      // processedCount from sum of activityCount (no need for full activityIds arrays)
+      processedCount: summaries.reduce((sum, g) => sum + g.activityCount, 0),
       isReady: true,
       renameRoute,
     };
-  }, [rawGroups, type, minActivities, sortBy, totalCount, renameRoute]);
+  }, [summaries, type, minActivities, sortBy, totalCount, renameRoute]);
 
   return result;
 }
@@ -159,14 +162,14 @@ export function getAllRouteDisplayNames(): Record<string, string> {
   const engine = getRouteEngine();
   if (!engine) return {};
 
-  const groups = engine.getGroups();
-  const customNames = engine.getAllRouteNames();
+  // Use lightweight summaries instead of full groups
+  const summaries = engine.getGroupSummaries();
   const result: Record<string, string> = {};
 
-  groups.forEach((group, index) => {
-    const sportType = group.sportType || 'Ride';
+  summaries.forEach((summary, index) => {
+    const sportType = summary.sportType || 'Ride';
     // Use custom name if set, otherwise generate default name
-    result[group.groupId] = customNames[group.groupId] || `${sportType} Route ${index + 1}`;
+    result[summary.groupId] = summary.customName || `${sportType} Route ${index + 1}`;
   });
 
   return result;

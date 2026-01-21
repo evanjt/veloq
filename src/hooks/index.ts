@@ -79,6 +79,12 @@ export {
   useViewportActivities,
   useEngineStats,
   useConsensusRoute,
+  // Query-on-demand hooks (lightweight, no memory bloat)
+  useSectionSummaries,
+  useSectionDetail,
+  useGroupSummaries,
+  useGroupDetail,
+  useSectionPolyline,
 } from './routes/useRouteEngine';
 export { useRouteDataSync } from './routes/useRouteDataSync';
 export { useRouteReoptimization } from './routes/useRouteReoptimization';

@@ -86,7 +86,7 @@ export function useChartColors(): ChartColorScheme {
       zone1: zoneColors.zone1,
       zone2: zoneColors.zone2,
       zone3: zoneColors.zone3,
-      zone4: zoneColors.zone4, // Amber
+      zone4: zoneColors.zone4,
       zone5: zoneColors.zone5,
       zone6: zoneColors.zone6,
       zone7: zoneColors.zone7,

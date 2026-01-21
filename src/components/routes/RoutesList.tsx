@@ -1,9 +1,12 @@
 /**
  * Routes list component.
  * Main list showing all route groups.
+ *
+ * Uses lightweight GroupSummary for list display (no activity IDs array).
+ * Full group data is only loaded on detail page.
  */
 
-import React, { useEffect, useRef, memo, useMemo, useCallback } from 'react';
+import React, { useEffect, useRef, memo, useMemo } from 'react';
 import { useSyncDateRange } from '@/providers/SyncDateRangeStore';
 import {
   View,
@@ -13,19 +16,18 @@ import {
   LayoutAnimation,
   Platform,
 } from 'react-native';
-import { useFocusEffect } from 'expo-router';
-import { useTheme } from '@/hooks';
+import { useTheme, useGroupSummaries, useRouteProcessing } from '@/hooks';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { colors, darkColors, opacity, spacing, layout, typography } from '@/theme';
 import { UI } from '@/lib/utils/constants';
-import { useRouteGroups, useRouteProcessing } from '@/hooks';
-import { getRouteEngine } from '@/lib/native/routeEngine';
 import { CacheScopeNotice } from './CacheScopeNotice';
 import { RouteRow } from './RouteRow';
 import { DataRangeFooter } from './DataRangeFooter';
 import type { DiscoveredRouteInfo, RouteGroup } from '@/types';
+import { toActivityType } from '@/types/routes';
+import type { GroupSummary } from 'route-matcher-native';
 
 interface RoutesListProps {
   /** Callback when list is pulled to refresh */
@@ -101,6 +103,22 @@ const DiscoveredRoutesList = memo(
   }
 );
 
+/**
+ * Convert GroupSummary to RouteGroup-like object for RouteRow.
+ * Uses empty activityIds since RouteRow with navigable=true doesn't need them.
+ */
+function summaryToRouteGroup(summary: GroupSummary, index: number): RouteGroup {
+  const sportType = summary.sportType || 'Ride';
+  return {
+    id: summary.groupId,
+    name: summary.customName || `${sportType} Route ${index + 1}`,
+    type: toActivityType(sportType),
+    activityCount: summary.activityCount,
+    activityIds: [], // Not needed for navigable rows (empty array to satisfy type)
+    signature: null, // Loaded lazily via useConsensusRoute in RouteRow
+  };
+}
+
 export function RoutesList({
   onRefresh,
   isRefreshing = false,
@@ -110,13 +128,23 @@ export function RoutesList({
   const { t } = useTranslation();
   const { isDark } = useTheme();
 
-  // Don't filter by date - routes span multiple dates and should always be shown
-  // The timeline on the Routes page is for selecting which activities to ANALYZE,
-  // not for filtering which discovered routes to DISPLAY
-  const { groups, totalCount, processedCount, isReady } = useRouteGroups({
+  // Use lightweight summaries - no activity IDs loaded, just counts and metadata
+  // This prevents memory bloat when many activities are cached
+  const { count: totalCount, summaries } = useGroupSummaries({
     minActivities: 2,
     sortBy: 'count',
   });
+
+  // Convert summaries to RouteGroup format for RouteRow
+  const groups = useMemo(() => summaries.map((s, i) => summaryToRouteGroup(s, i)), [summaries]);
+
+  // Calculate processed count from summaries
+  const processedCount = useMemo(
+    () => summaries.reduce((sum, s) => sum + s.activityCount, 0),
+    [summaries]
+  );
+
+  const isReady = true; // Summaries are always ready (query on demand)
 
   const { progress } = useRouteProcessing();
 
@@ -130,16 +158,8 @@ export function RoutesList({
     );
   }, [oldest, newest]);
 
-  // Refresh data when screen gains focus (e.g., returning from detail page after rename)
-  useFocusEffect(
-    useCallback(() => {
-      const engine = getRouteEngine();
-      if (engine) {
-        // Trigger a 'groups' event to refresh all subscribers
-        engine.triggerRefresh('groups');
-      }
-    }, [])
-  );
+  // Note: useFocusEffect refresh removed - useGroupSummaries subscribes to engine events
+  // and automatically refreshes when data changes (e.g., after renaming on detail page)
 
   const showProcessing = progress.status === 'processing';
 

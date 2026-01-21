@@ -25,14 +25,13 @@ import { useTranslation } from 'react-i18next';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
   useActivities,
-  useFrequentSections,
   useSectionPerformances,
   useCustomSection,
   useCustomSections,
   useTheme,
   type ActivitySectionRecord,
 } from '@/hooks';
-import { useEngineGroups } from '@/hooks/routes/useRouteEngine';
+import { useSectionDetail, useGroupSummaries } from '@/hooks/routes/useRouteEngine';
 import { getAllSectionDisplayNames } from '@/hooks/routes/useUnifiedSections';
 import { createSharedStyles } from '@/styles';
 import { useDisabledSections } from '@/providers';
@@ -296,30 +295,24 @@ export default function SectionDetailScreen() {
   // Custom section IDs start with "custom_" (e.g., "custom_1767268142052_qyfoos8")
   const isCustomId = id?.startsWith('custom_');
 
-  const { sections: allSections } = useFrequentSections({ minVisits: 1 });
+  // For auto-detected sections, use useSectionDetail which fetches full data on-demand (with LRU caching)
+  const { section: engineSection } = useSectionDetail(!isCustomId ? id : null);
+
   // Pass the full ID - custom sections are stored with the "custom_" prefix
   const { section: customSection } = useCustomSection(isCustomId ? id : undefined);
   const { removeSection, renameSection } = useCustomSections();
 
-  // Get route groups to compute routeIds for custom sections
-  const { groups: routeGroups } = useEngineGroups({ minActivities: 1 });
+  // Get route group summaries to compute routeIds for custom sections
+  // Note: Group summaries don't include activityIds to save memory
+  const { summaries: routeGroups } = useGroupSummaries({ minActivities: 1 });
 
   // Create a mapping from activity ID to route group IDs
+  // Note: This is empty since summaries don't include activityIds
+  // TODO: If routeIds are needed, fetch group details on-demand
   const activityToRouteIds = useMemo(() => {
-    const mapping = new Map<string, string[]>();
-    for (const group of routeGroups) {
-      const groupId = group.groupId;
-      for (const activityId of group.activityIds || []) {
-        const existing = mapping.get(activityId);
-        if (existing) {
-          existing.push(groupId);
-        } else {
-          mapping.set(activityId, [groupId]);
-        }
-      }
-    }
-    return mapping;
-  }, [routeGroups]);
+    // Group summaries don't include activity IDs to save memory
+    return new Map<string, string[]>();
+  }, []);
 
   // Disabled sections state
   const { isDisabled, disable, enable } = useDisabledSections();
@@ -327,10 +320,9 @@ export default function SectionDetailScreen() {
 
   // Check both sources - custom sections and engine-detected sections
   const section = useMemo(() => {
-    // First check engine sections (only if not a custom_ prefixed ID)
-    if (!isCustomId) {
-      const engineSection = allSections.find((sec) => sec.id === id);
-      if (engineSection) return engineSection;
+    // First check engine sections (fetched via useSectionDetail)
+    if (!isCustomId && engineSection) {
+      return engineSection;
     }
 
     // Check if it's a custom section and convert to FrequentSection shape
@@ -367,6 +359,7 @@ export default function SectionDetailScreen() {
       ];
 
       // Compute routeIds by finding which routes contain this section's activities
+      // Note: activityToRouteIds is empty since we use lightweight group summaries
       const routeIdSet = new Set<string>();
       for (const activityId of activityIds) {
         const routes = activityToRouteIds.get(activityId);
@@ -390,14 +383,8 @@ export default function SectionDetailScreen() {
       } as FrequentSection;
     }
 
-    // Fallback: check engine sections even for custom_ prefixed IDs (shouldn't happen but safe)
-    if (isCustomId) {
-      const engineSection = allSections.find((sec) => sec.id === id);
-      if (engineSection) return engineSection;
-    }
-
     return null;
-  }, [allSections, customSection, id, isCustomId, activityToRouteIds]);
+  }, [engineSection, customSection, isCustomId, activityToRouteIds]);
 
   // Merge computed activity traces into the section
   // Always use computedActivityTraces when available, as they use extractSectionTrace

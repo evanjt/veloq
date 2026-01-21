@@ -448,6 +448,52 @@ export function persistentEngineGetGpsTrack(activityId: string): Array</*f64*/ n
   );
 }
 /**
+ * Get a single group by ID (full data with activity IDs).
+ */
+export function persistentEngineGetGroupByIdJson(groupId: string): string | undefined {
+  return FfiConverterOptionalString.lift(
+    uniffiCaller.rustCall(
+      /*caller:*/ (callStatus) => {
+        return nativeModule().ubrn_uniffi_tracematch_fn_func_persistent_engine_get_group_by_id_json(
+          FfiConverterString.lower(groupId),
+          callStatus
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift
+    )
+  );
+}
+/**
+ * Get group count directly from SQLite (no data loading).
+ */
+export function persistentEngineGetGroupCount(): /*u32*/ number {
+  return FfiConverterUInt32.lift(
+    uniffiCaller.rustCall(
+      /*caller:*/ (callStatus) => {
+        return nativeModule().ubrn_uniffi_tracematch_fn_func_persistent_engine_get_group_count(
+          callStatus
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift
+    )
+  );
+}
+/**
+ * Get lightweight group summaries without full activity ID lists.
+ */
+export function persistentEngineGetGroupSummariesJson(): string {
+  return FfiConverterString.lift(
+    uniffiCaller.rustCall(
+      /*caller:*/ (callStatus) => {
+        return nativeModule().ubrn_uniffi_tracematch_fn_func_persistent_engine_get_group_summaries_json(
+          callStatus
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift
+    )
+  );
+}
+/**
  * Get route groups as JSON.
  */
 export function persistentEngineGetGroupsJson(): string {
@@ -500,6 +546,37 @@ export function persistentEngineGetRoutePerformancesJson(
   );
 }
 /**
+ * Get a single section by ID (full data with polyline).
+ */
+export function persistentEngineGetSectionByIdJson(sectionId: string): string | undefined {
+  return FfiConverterOptionalString.lift(
+    uniffiCaller.rustCall(
+      /*caller:*/ (callStatus) => {
+        return nativeModule().ubrn_uniffi_tracematch_fn_func_persistent_engine_get_section_by_id_json(
+          FfiConverterString.lower(sectionId),
+          callStatus
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift
+    )
+  );
+}
+/**
+ * Get section count directly from SQLite (no data loading).
+ */
+export function persistentEngineGetSectionCount(): /*u32*/ number {
+  return FfiConverterUInt32.lift(
+    uniffiCaller.rustCall(
+      /*caller:*/ (callStatus) => {
+        return nativeModule().ubrn_uniffi_tracematch_fn_func_persistent_engine_get_section_count(
+          callStatus
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift
+    )
+  );
+}
+/**
  * Get current section detection progress.
  * Returns JSON with format: {"phase": "finding_overlaps", "completed": 45, "total": 120}
  * Returns empty JSON "{}" if no detection is running.
@@ -543,6 +620,53 @@ export function persistentEngineGetSectionPerformancesJson(sectionId: string): s
       /*caller:*/ (callStatus) => {
         return nativeModule().ubrn_uniffi_tracematch_fn_func_persistent_engine_get_section_performances_json(
           FfiConverterString.lower(sectionId),
+          callStatus
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift
+    )
+  );
+}
+/**
+ * Get section polyline only (flat coordinates for map rendering).
+ */
+export function persistentEngineGetSectionPolyline(sectionId: string): Array</*f64*/ number> {
+  return FfiConverterArrayFloat64.lift(
+    uniffiCaller.rustCall(
+      /*caller:*/ (callStatus) => {
+        return nativeModule().ubrn_uniffi_tracematch_fn_func_persistent_engine_get_section_polyline(
+          FfiConverterString.lower(sectionId),
+          callStatus
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift
+    )
+  );
+}
+/**
+ * Get section summaries filtered by sport type.
+ */
+export function persistentEngineGetSectionSummariesForSportJson(sportType: string): string {
+  return FfiConverterString.lift(
+    uniffiCaller.rustCall(
+      /*caller:*/ (callStatus) => {
+        return nativeModule().ubrn_uniffi_tracematch_fn_func_persistent_engine_get_section_summaries_for_sport_json(
+          FfiConverterString.lower(sportType),
+          callStatus
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift
+    )
+  );
+}
+/**
+ * Get lightweight section summaries without polyline data.
+ */
+export function persistentEngineGetSectionSummariesJson(): string {
+  return FfiConverterString.lift(
+    uniffiCaller.rustCall(
+      /*caller:*/ (callStatus) => {
+        return nativeModule().ubrn_uniffi_tracematch_fn_func_persistent_engine_get_section_summaries_json(
           callStatus
         );
       },
@@ -1934,6 +2058,100 @@ const FfiConverterTypeGpsPoint = (() => {
         FfiConverterFloat64.allocationSize(value.latitude) +
         FfiConverterFloat64.allocationSize(value.longitude) +
         FfiConverterOptionalFloat64.allocationSize(value.elevation)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * Lightweight group metadata for list views.
+ * Used to avoid loading full group data with activity ID arrays when only summary info is needed.
+ */
+export type GroupSummary = {
+  /**
+   * Unique group ID
+   */
+  groupId: string;
+  /**
+   * Representative activity ID
+   */
+  representativeId: string;
+  /**
+   * Sport type ("Run", "Ride", etc.)
+   */
+  sportType: string;
+  /**
+   * Number of activities in this group
+   */
+  activityCount: /*u32*/ number;
+  /**
+   * Custom name (user-defined, None if not set)
+   */
+  customName: string | undefined;
+  /**
+   * Bounding box for map display
+   */
+  bounds: Bounds | undefined;
+};
+
+/**
+ * Generated factory for {@link GroupSummary} record objects.
+ */
+export const GroupSummary = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<GroupSummary, ReturnType<typeof defaults>>(defaults);
+  })();
+  return Object.freeze({
+    /**
+     * Create a frozen instance of {@link GroupSummary}, with defaults specified
+     * in Rust, in the {@link tracematch} crate.
+     */
+    create,
+
+    /**
+     * Create a frozen instance of {@link GroupSummary}, with defaults specified
+     * in Rust, in the {@link tracematch} crate.
+     */
+    new: create,
+
+    /**
+     * Defaults specified in the {@link tracematch} crate.
+     */
+    defaults: () => Object.freeze(defaults()) as Partial<GroupSummary>,
+  });
+})();
+
+const FfiConverterTypeGroupSummary = (() => {
+  type TypeName = GroupSummary;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        groupId: FfiConverterString.read(from),
+        representativeId: FfiConverterString.read(from),
+        sportType: FfiConverterString.read(from),
+        activityCount: FfiConverterUInt32.read(from),
+        customName: FfiConverterOptionalString.read(from),
+        bounds: FfiConverterOptionalTypeBounds.read(from),
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      FfiConverterString.write(value.groupId, into);
+      FfiConverterString.write(value.representativeId, into);
+      FfiConverterString.write(value.sportType, into);
+      FfiConverterUInt32.write(value.activityCount, into);
+      FfiConverterOptionalString.write(value.customName, into);
+      FfiConverterOptionalTypeBounds.write(value.bounds, into);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.groupId) +
+        FfiConverterString.allocationSize(value.representativeId) +
+        FfiConverterString.allocationSize(value.sportType) +
+        FfiConverterUInt32.allocationSize(value.activityCount) +
+        FfiConverterOptionalString.allocationSize(value.customName) +
+        FfiConverterOptionalTypeBounds.allocationSize(value.bounds)
       );
     }
   }
@@ -3970,6 +4188,121 @@ const FfiConverterTypeSectionPortion = (() => {
 })();
 
 /**
+ * Lightweight section metadata for list views (no polyline data).
+ * Used to avoid loading full section data with polylines when only summary info is needed.
+ */
+export type SectionSummary = {
+  /**
+   * Unique section ID
+   */
+  id: string;
+  /**
+   * Custom name (user-defined, None if not set)
+   */
+  name: string | undefined;
+  /**
+   * Sport type ("Run", "Ride", etc.)
+   */
+  sportType: string;
+  /**
+   * Number of times this section was visited
+   */
+  visitCount: /*u32*/ number;
+  /**
+   * Section length in meters
+   */
+  distanceMeters: /*f64*/ number;
+  /**
+   * Number of activities that traverse this section
+   */
+  activityCount: /*u32*/ number;
+  /**
+   * Confidence score (0.0-1.0)
+   */
+  confidence: /*f64*/ number;
+  /**
+   * Detection scale (e.g., "neighborhood", "city")
+   */
+  scale: string | undefined;
+  /**
+   * Bounding box for map display
+   */
+  bounds: Bounds | undefined;
+};
+
+/**
+ * Generated factory for {@link SectionSummary} record objects.
+ */
+export const SectionSummary = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<SectionSummary, ReturnType<typeof defaults>>(defaults);
+  })();
+  return Object.freeze({
+    /**
+     * Create a frozen instance of {@link SectionSummary}, with defaults specified
+     * in Rust, in the {@link tracematch} crate.
+     */
+    create,
+
+    /**
+     * Create a frozen instance of {@link SectionSummary}, with defaults specified
+     * in Rust, in the {@link tracematch} crate.
+     */
+    new: create,
+
+    /**
+     * Defaults specified in the {@link tracematch} crate.
+     */
+    defaults: () => Object.freeze(defaults()) as Partial<SectionSummary>,
+  });
+})();
+
+const FfiConverterTypeSectionSummary = (() => {
+  type TypeName = SectionSummary;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        id: FfiConverterString.read(from),
+        name: FfiConverterOptionalString.read(from),
+        sportType: FfiConverterString.read(from),
+        visitCount: FfiConverterUInt32.read(from),
+        distanceMeters: FfiConverterFloat64.read(from),
+        activityCount: FfiConverterUInt32.read(from),
+        confidence: FfiConverterFloat64.read(from),
+        scale: FfiConverterOptionalString.read(from),
+        bounds: FfiConverterOptionalTypeBounds.read(from),
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      FfiConverterString.write(value.id, into);
+      FfiConverterOptionalString.write(value.name, into);
+      FfiConverterString.write(value.sportType, into);
+      FfiConverterUInt32.write(value.visitCount, into);
+      FfiConverterFloat64.write(value.distanceMeters, into);
+      FfiConverterUInt32.write(value.activityCount, into);
+      FfiConverterFloat64.write(value.confidence, into);
+      FfiConverterOptionalString.write(value.scale, into);
+      FfiConverterOptionalTypeBounds.write(value.bounds, into);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.id) +
+        FfiConverterOptionalString.allocationSize(value.name) +
+        FfiConverterString.allocationSize(value.sportType) +
+        FfiConverterUInt32.allocationSize(value.visitCount) +
+        FfiConverterFloat64.allocationSize(value.distanceMeters) +
+        FfiConverterUInt32.allocationSize(value.activityCount) +
+        FfiConverterFloat64.allocationSize(value.confidence) +
+        FfiConverterOptionalString.allocationSize(value.scale) +
+        FfiConverterOptionalTypeBounds.allocationSize(value.bounds)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * Result of splitting a section
  */
 export type SplitResult = {
@@ -4333,6 +4666,30 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_tracematch_checksum_func_persistent_engine_get_group_by_id_json() !==
+    11711
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      'uniffi_tracematch_checksum_func_persistent_engine_get_group_by_id_json'
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_tracematch_checksum_func_persistent_engine_get_group_count() !==
+    46014
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      'uniffi_tracematch_checksum_func_persistent_engine_get_group_count'
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_tracematch_checksum_func_persistent_engine_get_group_summaries_json() !==
+    14543
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      'uniffi_tracematch_checksum_func_persistent_engine_get_group_summaries_json'
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_tracematch_checksum_func_persistent_engine_get_groups_json() !==
     40609
   ) {
@@ -4353,6 +4710,22 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       'uniffi_tracematch_checksum_func_persistent_engine_get_route_performances_json'
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_tracematch_checksum_func_persistent_engine_get_section_by_id_json() !==
+    64668
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      'uniffi_tracematch_checksum_func_persistent_engine_get_section_by_id_json'
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_tracematch_checksum_func_persistent_engine_get_section_count() !==
+    34418
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      'uniffi_tracematch_checksum_func_persistent_engine_get_section_count'
     );
   }
   if (
@@ -4377,6 +4750,30 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       'uniffi_tracematch_checksum_func_persistent_engine_get_section_performances_json'
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_tracematch_checksum_func_persistent_engine_get_section_polyline() !==
+    63702
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      'uniffi_tracematch_checksum_func_persistent_engine_get_section_polyline'
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_tracematch_checksum_func_persistent_engine_get_section_summaries_for_sport_json() !==
+    42101
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      'uniffi_tracematch_checksum_func_persistent_engine_get_section_summaries_for_sport_json'
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_tracematch_checksum_func_persistent_engine_get_section_summaries_json() !==
+    23571
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      'uniffi_tracematch_checksum_func_persistent_engine_get_section_summaries_json'
     );
   }
   if (
@@ -4516,6 +4913,7 @@ export default Object.freeze({
     FfiConverterTypeFfiActivityMapResult,
     FfiConverterTypeFrequentSection,
     FfiConverterTypeGpsPoint,
+    FfiConverterTypeGroupSummary,
     FfiConverterTypeHeatmapBounds,
     FfiConverterTypeHeatmapCell,
     FfiConverterTypeHeatmapConfig,
@@ -4537,6 +4935,7 @@ export default Object.freeze({
     FfiConverterTypeSectionPerformanceRecord,
     FfiConverterTypeSectionPerformanceResult,
     FfiConverterTypeSectionPortion,
+    FfiConverterTypeSectionSummary,
     FfiConverterTypeSplitResult,
   },
 });

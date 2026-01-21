@@ -12,7 +12,7 @@ export const SPORT_API_TYPES: Record<PrimarySport, string[]> = {
   Swimming: ['Swim', 'OpenWaterSwim'],
 };
 
-// Sport-specific colors 
+// Sport-specific colors
 export const SPORT_COLORS: Record<PrimarySport, string> = {
   Cycling: '#3B82F6', // Blue-500 - Royal blue
   Running: '#10B981', // Emerald-500

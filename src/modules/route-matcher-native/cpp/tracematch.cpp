@@ -160,6 +160,12 @@ RustBuffer uniffi_tracematch_fn_func_persistent_engine_get_custom_sections_json(
     RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_tracematch_fn_func_persistent_engine_get_gps_track(
     RustBuffer activity_id, RustCallStatus *uniffi_out_err);
+RustBuffer uniffi_tracematch_fn_func_persistent_engine_get_group_by_id_json(
+    RustBuffer group_id, RustCallStatus *uniffi_out_err);
+uint32_t uniffi_tracematch_fn_func_persistent_engine_get_group_count(
+    RustCallStatus *uniffi_out_err);
+RustBuffer uniffi_tracematch_fn_func_persistent_engine_get_group_summaries_json(
+    RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_tracematch_fn_func_persistent_engine_get_groups_json(
     RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_tracematch_fn_func_persistent_engine_get_route_name(
@@ -167,6 +173,10 @@ RustBuffer uniffi_tracematch_fn_func_persistent_engine_get_route_name(
 RustBuffer
 uniffi_tracematch_fn_func_persistent_engine_get_route_performances_json(
     RustBuffer route_group_id, RustBuffer current_activity_id,
+    RustCallStatus *uniffi_out_err);
+RustBuffer uniffi_tracematch_fn_func_persistent_engine_get_section_by_id_json(
+    RustBuffer section_id, RustCallStatus *uniffi_out_err);
+uint32_t uniffi_tracematch_fn_func_persistent_engine_get_section_count(
     RustCallStatus *uniffi_out_err);
 RustBuffer
 uniffi_tracematch_fn_func_persistent_engine_get_section_detection_progress(
@@ -176,6 +186,14 @@ RustBuffer uniffi_tracematch_fn_func_persistent_engine_get_section_name(
 RustBuffer
 uniffi_tracematch_fn_func_persistent_engine_get_section_performances_json(
     RustBuffer section_id, RustCallStatus *uniffi_out_err);
+RustBuffer uniffi_tracematch_fn_func_persistent_engine_get_section_polyline(
+    RustBuffer section_id, RustCallStatus *uniffi_out_err);
+RustBuffer
+uniffi_tracematch_fn_func_persistent_engine_get_section_summaries_for_sport_json(
+    RustBuffer sport_type, RustCallStatus *uniffi_out_err);
+RustBuffer
+uniffi_tracematch_fn_func_persistent_engine_get_section_summaries_json(
+    RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_tracematch_fn_func_persistent_engine_get_sections_json(
     RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_tracematch_fn_func_persistent_engine_get_stats(
@@ -364,15 +382,29 @@ uniffi_tracematch_checksum_func_persistent_engine_get_custom_section_matches();
 uint16_t
 uniffi_tracematch_checksum_func_persistent_engine_get_custom_sections_json();
 uint16_t uniffi_tracematch_checksum_func_persistent_engine_get_gps_track();
+uint16_t
+uniffi_tracematch_checksum_func_persistent_engine_get_group_by_id_json();
+uint16_t uniffi_tracematch_checksum_func_persistent_engine_get_group_count();
+uint16_t
+uniffi_tracematch_checksum_func_persistent_engine_get_group_summaries_json();
 uint16_t uniffi_tracematch_checksum_func_persistent_engine_get_groups_json();
 uint16_t uniffi_tracematch_checksum_func_persistent_engine_get_route_name();
 uint16_t
 uniffi_tracematch_checksum_func_persistent_engine_get_route_performances_json();
 uint16_t
+uniffi_tracematch_checksum_func_persistent_engine_get_section_by_id_json();
+uint16_t uniffi_tracematch_checksum_func_persistent_engine_get_section_count();
+uint16_t
 uniffi_tracematch_checksum_func_persistent_engine_get_section_detection_progress();
 uint16_t uniffi_tracematch_checksum_func_persistent_engine_get_section_name();
 uint16_t
 uniffi_tracematch_checksum_func_persistent_engine_get_section_performances_json();
+uint16_t
+uniffi_tracematch_checksum_func_persistent_engine_get_section_polyline();
+uint16_t
+uniffi_tracematch_checksum_func_persistent_engine_get_section_summaries_for_sport_json();
+uint16_t
+uniffi_tracematch_checksum_func_persistent_engine_get_section_summaries_json();
 uint16_t uniffi_tracematch_checksum_func_persistent_engine_get_sections_json();
 uint16_t uniffi_tracematch_checksum_func_persistent_engine_get_stats();
 uint16_t uniffi_tracematch_checksum_func_persistent_engine_init();
@@ -2344,6 +2376,42 @@ NativeTracematch::NativeTracematch(
                 ->cpp_uniffi_tracematch_fn_func_persistent_engine_get_gps_track(
                     rt, thisVal, args, count);
           });
+  props["ubrn_uniffi_tracematch_fn_func_persistent_engine_get_group_by_id_"
+        "json"] = jsi::Function::createFromHostFunction(
+      rt,
+      jsi::PropNameID::forAscii(rt, "ubrn_uniffi_tracematch_fn_func_persistent_"
+                                    "engine_get_group_by_id_json"),
+      1,
+      [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+             const jsi::Value *args, size_t count) -> jsi::Value {
+        return this
+            ->cpp_uniffi_tracematch_fn_func_persistent_engine_get_group_by_id_json(
+                rt, thisVal, args, count);
+      });
+  props["ubrn_uniffi_tracematch_fn_func_persistent_engine_get_group_count"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(rt, "ubrn_uniffi_tracematch_fn_func_"
+                                        "persistent_engine_get_group_count"),
+          0,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_tracematch_fn_func_persistent_engine_get_group_count(
+                    rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_tracematch_fn_func_persistent_engine_get_group_summaries_"
+        "json"] = jsi::Function::createFromHostFunction(
+      rt,
+      jsi::PropNameID::forAscii(rt, "ubrn_uniffi_tracematch_fn_func_persistent_"
+                                    "engine_get_group_summaries_json"),
+      0,
+      [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+             const jsi::Value *args, size_t count) -> jsi::Value {
+        return this
+            ->cpp_uniffi_tracematch_fn_func_persistent_engine_get_group_summaries_json(
+                rt, thisVal, args, count);
+      });
   props["ubrn_uniffi_tracematch_fn_func_persistent_engine_get_groups_json"] =
       jsi::Function::createFromHostFunction(
           rt,
@@ -2380,6 +2448,30 @@ NativeTracematch::NativeTracematch(
             ->cpp_uniffi_tracematch_fn_func_persistent_engine_get_route_performances_json(
                 rt, thisVal, args, count);
       });
+  props["ubrn_uniffi_tracematch_fn_func_persistent_engine_get_section_by_id_"
+        "json"] = jsi::Function::createFromHostFunction(
+      rt,
+      jsi::PropNameID::forAscii(rt, "ubrn_uniffi_tracematch_fn_func_persistent_"
+                                    "engine_get_section_by_id_json"),
+      1,
+      [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+             const jsi::Value *args, size_t count) -> jsi::Value {
+        return this
+            ->cpp_uniffi_tracematch_fn_func_persistent_engine_get_section_by_id_json(
+                rt, thisVal, args, count);
+      });
+  props["ubrn_uniffi_tracematch_fn_func_persistent_engine_get_section_count"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(rt, "ubrn_uniffi_tracematch_fn_func_"
+                                        "persistent_engine_get_section_count"),
+          0,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_tracematch_fn_func_persistent_engine_get_section_count(
+                    rt, thisVal, args, count);
+          });
   props["ubrn_uniffi_tracematch_fn_func_persistent_engine_get_section_"
         "detection_progress"] = jsi::Function::createFromHostFunction(
       rt,
@@ -2414,6 +2506,43 @@ NativeTracematch::NativeTracematch(
              const jsi::Value *args, size_t count) -> jsi::Value {
         return this
             ->cpp_uniffi_tracematch_fn_func_persistent_engine_get_section_performances_json(
+                rt, thisVal, args, count);
+      });
+  props["ubrn_uniffi_tracematch_fn_func_persistent_engine_get_section_"
+        "polyline"] = jsi::Function::createFromHostFunction(
+      rt,
+      jsi::PropNameID::forAscii(rt, "ubrn_uniffi_tracematch_fn_func_persistent_"
+                                    "engine_get_section_polyline"),
+      1,
+      [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+             const jsi::Value *args, size_t count) -> jsi::Value {
+        return this
+            ->cpp_uniffi_tracematch_fn_func_persistent_engine_get_section_polyline(
+                rt, thisVal, args, count);
+      });
+  props["ubrn_uniffi_tracematch_fn_func_persistent_engine_get_section_"
+        "summaries_for_sport_json"] = jsi::Function::createFromHostFunction(
+      rt,
+      jsi::PropNameID::forAscii(rt,
+                                "ubrn_uniffi_tracematch_fn_func_persistent_"
+                                "engine_get_section_summaries_for_sport_json"),
+      1,
+      [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+             const jsi::Value *args, size_t count) -> jsi::Value {
+        return this
+            ->cpp_uniffi_tracematch_fn_func_persistent_engine_get_section_summaries_for_sport_json(
+                rt, thisVal, args, count);
+      });
+  props["ubrn_uniffi_tracematch_fn_func_persistent_engine_get_section_"
+        "summaries_json"] = jsi::Function::createFromHostFunction(
+      rt,
+      jsi::PropNameID::forAscii(rt, "ubrn_uniffi_tracematch_fn_func_persistent_"
+                                    "engine_get_section_summaries_json"),
+      0,
+      [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+             const jsi::Value *args, size_t count) -> jsi::Value {
+        return this
+            ->cpp_uniffi_tracematch_fn_func_persistent_engine_get_section_summaries_json(
                 rt, thisVal, args, count);
       });
   props["ubrn_uniffi_tracematch_fn_func_persistent_engine_get_sections_json"] =
@@ -2843,6 +2972,43 @@ NativeTracematch::NativeTracematch(
             ->cpp_uniffi_tracematch_checksum_func_persistent_engine_get_gps_track(
                 rt, thisVal, args, count);
       });
+  props["ubrn_uniffi_tracematch_checksum_func_persistent_engine_get_group_by_"
+        "id_json"] = jsi::Function::createFromHostFunction(
+      rt,
+      jsi::PropNameID::forAscii(rt, "ubrn_uniffi_tracematch_checksum_func_"
+                                    "persistent_engine_get_group_by_id_json"),
+      0,
+      [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+             const jsi::Value *args, size_t count) -> jsi::Value {
+        return this
+            ->cpp_uniffi_tracematch_checksum_func_persistent_engine_get_group_by_id_json(
+                rt, thisVal, args, count);
+      });
+  props["ubrn_uniffi_tracematch_checksum_func_persistent_engine_get_group_"
+        "count"] = jsi::Function::createFromHostFunction(
+      rt,
+      jsi::PropNameID::forAscii(rt, "ubrn_uniffi_tracematch_checksum_func_"
+                                    "persistent_engine_get_group_count"),
+      0,
+      [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+             const jsi::Value *args, size_t count) -> jsi::Value {
+        return this
+            ->cpp_uniffi_tracematch_checksum_func_persistent_engine_get_group_count(
+                rt, thisVal, args, count);
+      });
+  props["ubrn_uniffi_tracematch_checksum_func_persistent_engine_get_group_"
+        "summaries_json"] = jsi::Function::createFromHostFunction(
+      rt,
+      jsi::PropNameID::forAscii(rt,
+                                "ubrn_uniffi_tracematch_checksum_func_"
+                                "persistent_engine_get_group_summaries_json"),
+      0,
+      [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+             const jsi::Value *args, size_t count) -> jsi::Value {
+        return this
+            ->cpp_uniffi_tracematch_checksum_func_persistent_engine_get_group_summaries_json(
+                rt, thisVal, args, count);
+      });
   props["ubrn_uniffi_tracematch_checksum_func_persistent_engine_get_groups_"
         "json"] = jsi::Function::createFromHostFunction(
       rt,
@@ -2878,6 +3044,30 @@ NativeTracematch::NativeTracematch(
              const jsi::Value *args, size_t count) -> jsi::Value {
         return this
             ->cpp_uniffi_tracematch_checksum_func_persistent_engine_get_route_performances_json(
+                rt, thisVal, args, count);
+      });
+  props["ubrn_uniffi_tracematch_checksum_func_persistent_engine_get_section_by_"
+        "id_json"] = jsi::Function::createFromHostFunction(
+      rt,
+      jsi::PropNameID::forAscii(rt, "ubrn_uniffi_tracematch_checksum_func_"
+                                    "persistent_engine_get_section_by_id_json"),
+      0,
+      [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+             const jsi::Value *args, size_t count) -> jsi::Value {
+        return this
+            ->cpp_uniffi_tracematch_checksum_func_persistent_engine_get_section_by_id_json(
+                rt, thisVal, args, count);
+      });
+  props["ubrn_uniffi_tracematch_checksum_func_persistent_engine_get_section_"
+        "count"] = jsi::Function::createFromHostFunction(
+      rt,
+      jsi::PropNameID::forAscii(rt, "ubrn_uniffi_tracematch_checksum_func_"
+                                    "persistent_engine_get_section_count"),
+      0,
+      [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+             const jsi::Value *args, size_t count) -> jsi::Value {
+        return this
+            ->cpp_uniffi_tracematch_checksum_func_persistent_engine_get_section_count(
                 rt, thisVal, args, count);
       });
   props["ubrn_uniffi_tracematch_checksum_func_persistent_engine_get_section_"
@@ -2916,6 +3106,44 @@ NativeTracematch::NativeTracematch(
              const jsi::Value *args, size_t count) -> jsi::Value {
         return this
             ->cpp_uniffi_tracematch_checksum_func_persistent_engine_get_section_performances_json(
+                rt, thisVal, args, count);
+      });
+  props["ubrn_uniffi_tracematch_checksum_func_persistent_engine_get_section_"
+        "polyline"] = jsi::Function::createFromHostFunction(
+      rt,
+      jsi::PropNameID::forAscii(rt, "ubrn_uniffi_tracematch_checksum_func_"
+                                    "persistent_engine_get_section_polyline"),
+      0,
+      [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+             const jsi::Value *args, size_t count) -> jsi::Value {
+        return this
+            ->cpp_uniffi_tracematch_checksum_func_persistent_engine_get_section_polyline(
+                rt, thisVal, args, count);
+      });
+  props["ubrn_uniffi_tracematch_checksum_func_persistent_engine_get_section_"
+        "summaries_for_sport_json"] = jsi::Function::createFromHostFunction(
+      rt,
+      jsi::PropNameID::forAscii(
+          rt, "ubrn_uniffi_tracematch_checksum_func_persistent_engine_get_"
+              "section_summaries_for_sport_json"),
+      0,
+      [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+             const jsi::Value *args, size_t count) -> jsi::Value {
+        return this
+            ->cpp_uniffi_tracematch_checksum_func_persistent_engine_get_section_summaries_for_sport_json(
+                rt, thisVal, args, count);
+      });
+  props["ubrn_uniffi_tracematch_checksum_func_persistent_engine_get_section_"
+        "summaries_json"] = jsi::Function::createFromHostFunction(
+      rt,
+      jsi::PropNameID::forAscii(rt,
+                                "ubrn_uniffi_tracematch_checksum_func_"
+                                "persistent_engine_get_section_summaries_json"),
+      0,
+      [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+             const jsi::Value *args, size_t count) -> jsi::Value {
+        return this
+            ->cpp_uniffi_tracematch_checksum_func_persistent_engine_get_section_summaries_json(
                 rt, thisVal, args, count);
       });
   props["ubrn_uniffi_tracematch_checksum_func_persistent_engine_get_sections_"
@@ -3523,6 +3751,48 @@ NativeTracematch::cpp_uniffi_tracematch_fn_func_persistent_engine_get_gps_track(
   return uniffi::tracematch::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
 }
 jsi::Value NativeTracematch::
+    cpp_uniffi_tracematch_fn_func_persistent_engine_get_group_by_id_json(
+        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+        size_t count) {
+  RustCallStatus status =
+      uniffi::tracematch::Bridging<RustCallStatus>::rustSuccess(rt);
+  auto value = uniffi_tracematch_fn_func_persistent_engine_get_group_by_id_json(
+      uniffi::tracematch::Bridging<RustBuffer>::fromJs(rt, callInvoker,
+                                                       args[0]),
+      &status);
+  uniffi::tracematch::Bridging<RustCallStatus>::copyIntoJs(
+      rt, callInvoker, status, args[count - 1]);
+
+  return uniffi::tracematch::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeTracematch::
+    cpp_uniffi_tracematch_fn_func_persistent_engine_get_group_count(
+        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+        size_t count) {
+  RustCallStatus status =
+      uniffi::tracematch::Bridging<RustCallStatus>::rustSuccess(rt);
+  auto value =
+      uniffi_tracematch_fn_func_persistent_engine_get_group_count(&status);
+  uniffi::tracematch::Bridging<RustCallStatus>::copyIntoJs(
+      rt, callInvoker, status, args[count - 1]);
+
+  return uniffi_jsi::Bridging<uint32_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeTracematch::
+    cpp_uniffi_tracematch_fn_func_persistent_engine_get_group_summaries_json(
+        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+        size_t count) {
+  RustCallStatus status =
+      uniffi::tracematch::Bridging<RustCallStatus>::rustSuccess(rt);
+  auto value =
+      uniffi_tracematch_fn_func_persistent_engine_get_group_summaries_json(
+          &status);
+  uniffi::tracematch::Bridging<RustCallStatus>::copyIntoJs(
+      rt, callInvoker, status, args[count - 1]);
+
+  return uniffi::tracematch::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeTracematch::
     cpp_uniffi_tracematch_fn_func_persistent_engine_get_groups_json(
         jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
         size_t count) {
@@ -3569,6 +3839,35 @@ jsi::Value NativeTracematch::
   return uniffi::tracematch::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
 }
 jsi::Value NativeTracematch::
+    cpp_uniffi_tracematch_fn_func_persistent_engine_get_section_by_id_json(
+        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+        size_t count) {
+  RustCallStatus status =
+      uniffi::tracematch::Bridging<RustCallStatus>::rustSuccess(rt);
+  auto value =
+      uniffi_tracematch_fn_func_persistent_engine_get_section_by_id_json(
+          uniffi::tracematch::Bridging<RustBuffer>::fromJs(rt, callInvoker,
+                                                           args[0]),
+          &status);
+  uniffi::tracematch::Bridging<RustCallStatus>::copyIntoJs(
+      rt, callInvoker, status, args[count - 1]);
+
+  return uniffi::tracematch::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeTracematch::
+    cpp_uniffi_tracematch_fn_func_persistent_engine_get_section_count(
+        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+        size_t count) {
+  RustCallStatus status =
+      uniffi::tracematch::Bridging<RustCallStatus>::rustSuccess(rt);
+  auto value =
+      uniffi_tracematch_fn_func_persistent_engine_get_section_count(&status);
+  uniffi::tracematch::Bridging<RustCallStatus>::copyIntoJs(
+      rt, callInvoker, status, args[count - 1]);
+
+  return uniffi_jsi::Bridging<uint32_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeTracematch::
     cpp_uniffi_tracematch_fn_func_persistent_engine_get_section_detection_progress(
         jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
         size_t count) {
@@ -3607,6 +3906,51 @@ jsi::Value NativeTracematch::
       uniffi_tracematch_fn_func_persistent_engine_get_section_performances_json(
           uniffi::tracematch::Bridging<RustBuffer>::fromJs(rt, callInvoker,
                                                            args[0]),
+          &status);
+  uniffi::tracematch::Bridging<RustCallStatus>::copyIntoJs(
+      rt, callInvoker, status, args[count - 1]);
+
+  return uniffi::tracematch::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeTracematch::
+    cpp_uniffi_tracematch_fn_func_persistent_engine_get_section_polyline(
+        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+        size_t count) {
+  RustCallStatus status =
+      uniffi::tracematch::Bridging<RustCallStatus>::rustSuccess(rt);
+  auto value = uniffi_tracematch_fn_func_persistent_engine_get_section_polyline(
+      uniffi::tracematch::Bridging<RustBuffer>::fromJs(rt, callInvoker,
+                                                       args[0]),
+      &status);
+  uniffi::tracematch::Bridging<RustCallStatus>::copyIntoJs(
+      rt, callInvoker, status, args[count - 1]);
+
+  return uniffi::tracematch::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeTracematch::
+    cpp_uniffi_tracematch_fn_func_persistent_engine_get_section_summaries_for_sport_json(
+        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+        size_t count) {
+  RustCallStatus status =
+      uniffi::tracematch::Bridging<RustCallStatus>::rustSuccess(rt);
+  auto value =
+      uniffi_tracematch_fn_func_persistent_engine_get_section_summaries_for_sport_json(
+          uniffi::tracematch::Bridging<RustBuffer>::fromJs(rt, callInvoker,
+                                                           args[0]),
+          &status);
+  uniffi::tracematch::Bridging<RustCallStatus>::copyIntoJs(
+      rt, callInvoker, status, args[count - 1]);
+
+  return uniffi::tracematch::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeTracematch::
+    cpp_uniffi_tracematch_fn_func_persistent_engine_get_section_summaries_json(
+        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+        size_t count) {
+  RustCallStatus status =
+      uniffi::tracematch::Bridging<RustCallStatus>::rustSuccess(rt);
+  auto value =
+      uniffi_tracematch_fn_func_persistent_engine_get_section_summaries_json(
           &status);
   uniffi::tracematch::Bridging<RustCallStatus>::copyIntoJs(
       rt, callInvoker, status, args[count - 1]);
@@ -4015,6 +4359,33 @@ jsi::Value NativeTracematch::
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
 jsi::Value NativeTracematch::
+    cpp_uniffi_tracematch_checksum_func_persistent_engine_get_group_by_id_json(
+        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+        size_t count) {
+  auto value =
+      uniffi_tracematch_checksum_func_persistent_engine_get_group_by_id_json();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeTracematch::
+    cpp_uniffi_tracematch_checksum_func_persistent_engine_get_group_count(
+        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+        size_t count) {
+  auto value =
+      uniffi_tracematch_checksum_func_persistent_engine_get_group_count();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeTracematch::
+    cpp_uniffi_tracematch_checksum_func_persistent_engine_get_group_summaries_json(
+        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+        size_t count) {
+  auto value =
+      uniffi_tracematch_checksum_func_persistent_engine_get_group_summaries_json();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeTracematch::
     cpp_uniffi_tracematch_checksum_func_persistent_engine_get_groups_json(
         jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
         size_t count) {
@@ -4042,6 +4413,24 @@ jsi::Value NativeTracematch::
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
 jsi::Value NativeTracematch::
+    cpp_uniffi_tracematch_checksum_func_persistent_engine_get_section_by_id_json(
+        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+        size_t count) {
+  auto value =
+      uniffi_tracematch_checksum_func_persistent_engine_get_section_by_id_json();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeTracematch::
+    cpp_uniffi_tracematch_checksum_func_persistent_engine_get_section_count(
+        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+        size_t count) {
+  auto value =
+      uniffi_tracematch_checksum_func_persistent_engine_get_section_count();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeTracematch::
     cpp_uniffi_tracematch_checksum_func_persistent_engine_get_section_detection_progress(
         jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
         size_t count) {
@@ -4065,6 +4454,33 @@ jsi::Value NativeTracematch::
         size_t count) {
   auto value =
       uniffi_tracematch_checksum_func_persistent_engine_get_section_performances_json();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeTracematch::
+    cpp_uniffi_tracematch_checksum_func_persistent_engine_get_section_polyline(
+        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+        size_t count) {
+  auto value =
+      uniffi_tracematch_checksum_func_persistent_engine_get_section_polyline();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeTracematch::
+    cpp_uniffi_tracematch_checksum_func_persistent_engine_get_section_summaries_for_sport_json(
+        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+        size_t count) {
+  auto value =
+      uniffi_tracematch_checksum_func_persistent_engine_get_section_summaries_for_sport_json();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeTracematch::
+    cpp_uniffi_tracematch_checksum_func_persistent_engine_get_section_summaries_json(
+        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+        size_t count) {
+  auto value =
+      uniffi_tracematch_checksum_func_persistent_engine_get_section_summaries_json();
 
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
