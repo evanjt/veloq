@@ -8,8 +8,9 @@ const { withAppBuildGradle } = require("@expo/config-plugins");
  * 1. Duplicate androidx.annotation.experimental.R class error
  *    - Forces a single version of annotation-experimental
  *
- * 2. Duplicate libfbjni.so error during androidTest builds
- *    - Adds pickFirsts to resolve the conflict
+ * 2. Duplicate native library errors during androidTest builds
+ *    - libfbjni.so: conflict between react-native and other deps
+ *    - libc++_shared.so: conflict between route-matcher-native and react-android
  */
 
 function withPackagingOptions(config) {
@@ -40,12 +41,12 @@ configurations.configureEach {
       }
     }
 
-    // Fix 2: Add pickFirsts for libfbjni.so conflict in androidTest builds
-    if (!contents.includes("libfbjni.so")) {
+    // Fix 2: Add pickFirsts for native library conflicts in androidTest builds
+    if (!contents.includes("libc++_shared.so")) {
       // Find the packagingOptions.jniLibs block and add pickFirsts
       contents = contents.replace(
         /(packagingOptions\s*\{\s*\n\s*jniLibs\s*\{[^}]*)(useLegacyPackaging[^\n]*)/,
-        `$1$2\n            // Fix duplicate libfbjni.so conflict\n            pickFirsts += ['**/libfbjni.so']`
+        `$1$2\n            // Fix duplicate native lib conflicts between route-matcher-native and react-android\n            pickFirsts += ['**/libfbjni.so', '**/libc++_shared.so']`
       );
     }
 
