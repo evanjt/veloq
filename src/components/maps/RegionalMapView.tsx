@@ -720,6 +720,29 @@ export function RegionalMapView({
       .filter((m): m is NonNullable<typeof m> => m !== null);
   }, [routeGroups, routeSignatures]);
 
+  // ===========================================
+  // USER LOCATION GEOJSON - Rendered as CircleLayer to avoid Fabric crash
+  // ===========================================
+  // CRITICAL: Always render ShapeSource with valid geometry
+  // Using CircleLayer instead of MarkerView prevents Fabric view recycling crash
+  const userLocationGeoJSON = useMemo((): GeoJSON.FeatureCollection => {
+    // Always return valid GeoJSON - use opacity to hide when no location
+    const coordinate = userLocation ?? [0, 0];
+    return {
+      type: 'FeatureCollection',
+      features: [
+        {
+          type: 'Feature',
+          properties: { hasLocation: !!userLocation },
+          geometry: {
+            type: 'Point',
+            coordinates: coordinate,
+          },
+        },
+      ],
+    };
+  }, [userLocation]);
+
   // Handle route press - show route popup
   const handleRoutePress = useCallback(
     (event: { features?: Array<{ properties?: Record<string, unknown> | null }> }) => {
@@ -1122,12 +1145,14 @@ export function RegionalMapView({
               id="sectionsLine"
               style={{
                 lineColor: ['get', 'color'],
+                // Note: zoom expressions cannot be nested inside case expressions
+                // Use fixed widths when selection is active to avoid MapLibre crash
                 lineWidth: selectedSection
                   ? [
                       'case',
                       ['==', ['get', 'id'], selectedSection.id],
-                      8, // Bold fixed width when selected
-                      ['interpolate', ['linear'], ['zoom'], 10, 3, 14, 5, 18, 7],
+                      8, // Bold when selected
+                      4, // Fixed width for unselected (can't use zoom interpolate here)
                     ]
                   : ['interpolate', ['linear'], ['zoom'], 10, 3, 14, 5, 18, 7],
                 lineOpacity:
@@ -1150,12 +1175,14 @@ export function RegionalMapView({
               id="sectionsOutline"
               style={{
                 lineColor: colors.textOnDark,
+                // Note: zoom expressions cannot be nested inside case expressions
+                // Use fixed widths when selection is active to avoid MapLibre crash
                 lineWidth: selectedSection
                   ? [
                       'case',
                       ['==', ['get', 'id'], selectedSection.id],
-                      10, // Bold fixed width when selected
-                      ['interpolate', ['linear'], ['zoom'], 10, 5, 14, 7, 18, 9],
+                      10, // Bold when selected
+                      6, // Fixed width for unselected (can't use zoom interpolate here)
                     ]
                   : ['interpolate', ['linear'], ['zoom'], 10, 5, 14, 7, 18, 9],
                 lineOpacity:
@@ -1332,18 +1359,29 @@ export function RegionalMapView({
             );
           })}
 
-          {/* User location marker - native patch handles nil safety */}
-          {userLocation && (
-            <MarkerView
-              key="user-location-marker"
-              coordinate={userLocation}
-              anchor={{ x: 0.5, y: 0.5 }}
-            >
-              <View style={styles.userLocationMarker}>
-                <View style={styles.userLocationDot} />
-              </View>
-            </MarkerView>
-          )}
+          {/* User location marker - using ShapeSource + CircleLayer to avoid Fabric crash */}
+          {/* CRITICAL: Always render to prevent add/remove cycles that crash iOS */}
+          <ShapeSource id="user-location" shape={userLocationGeoJSON}>
+            <CircleLayer
+              id="user-location-outer"
+              style={{
+                circleRadius: 12,
+                circleColor: colors.primary,
+                circleOpacity: userLocation ? 0.3 : 0,
+                circleStrokeWidth: 0,
+              }}
+            />
+            <CircleLayer
+              id="user-location-inner"
+              style={{
+                circleRadius: 6,
+                circleColor: colors.primary,
+                circleOpacity: userLocation ? 1 : 0,
+                circleStrokeWidth: 2,
+                circleStrokeColor: colors.textOnDark,
+              }}
+            />
+          </ShapeSource>
         </MapView>
       )}
       {/* Close button */}

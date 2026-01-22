@@ -8,6 +8,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getRouteEngine } from '@/lib/native/routeEngine';
 import { gpsPointsToRoutePoints, routePointsToGpsPoints } from 'route-matcher-native';
 import { useSupersededSections } from '@/providers';
+import { simplifyPolyline } from '@/lib/utils/geometry';
 import type {
   CustomSection,
   CustomSectionMatch,
@@ -227,6 +228,16 @@ export function useCustomSections(options: UseCustomSectionsOptions = {}): UseCu
         throw new Error('Route engine not initialized');
       }
 
+      // Simplify polyline to reduce storage size while preserving shape
+      // Use 5m tolerance - captures road curves without excess points
+      const simplifiedPolyline = simplifyPolyline(params.polyline, 5);
+
+      if (__DEV__) {
+        console.log(
+          `[useCustomSections] Simplified ${params.polyline.length} → ${simplifiedPolyline.length} points`
+        );
+      }
+
       // Get existing names for unique name generation
       const existingSections = engine.getCustomSections();
       const existingNames = new Set(existingSections.map((s) => s.name));
@@ -235,7 +246,7 @@ export function useCustomSections(options: UseCustomSectionsOptions = {}): UseCu
       const section: CustomSection = {
         id: generateId(),
         name,
-        polyline: params.polyline,
+        polyline: simplifiedPolyline,
         startIndex: params.startIndex,
         endIndex: params.endIndex,
         sourceActivityId: params.sourceActivityId,
@@ -258,6 +269,7 @@ export function useCustomSections(options: UseCustomSectionsOptions = {}): UseCu
 
       // Compute which auto-detected sections this custom section supersedes
       // This pre-computation avoids expensive overlap calculations during UI navigation
+      // Note: Use original polyline for overlap (not simplified) for accuracy
       try {
         const autoSections = engine.getSections();
         // Convert GpsPoint polylines to RoutePoint for overlap calculation

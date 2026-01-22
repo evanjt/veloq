@@ -151,8 +151,8 @@ export type SyncProgress = z.infer<typeof SyncProgressSchema>;
 // Custom Section Schema (for native module validation)
 // =============================================================================
 
-/** Maximum payload size for custom sections (100KB) */
-export const CUSTOM_SECTION_MAX_SIZE_BYTES = 100 * 1024;
+/** Maximum payload size for custom sections (500KB) */
+export const CUSTOM_SECTION_MAX_SIZE_BYTES = 500 * 1024;
 
 /** GPS point schema for custom section polylines */
 const GpsPointSchema = z.object({
@@ -205,11 +205,22 @@ export function validateCustomSection(input: unknown): ValidatedCustomSection {
     jsonString = JSON.stringify(input);
   }
 
-  // Check payload size (100KB limit)
+  // Check payload size (500KB limit)
   const sizeBytes = new TextEncoder().encode(jsonString).length;
   if (sizeBytes > CUSTOM_SECTION_MAX_SIZE_BYTES) {
+    // Calculate how much over the limit we are
+    const overBy = sizeBytes - CUSTOM_SECTION_MAX_SIZE_BYTES;
+    const overByPercent = Math.ceil((overBy / CUSTOM_SECTION_MAX_SIZE_BYTES) * 100);
+
+    // Estimate distance reduction needed (rough: bytes ≈ proportional to distance)
+    const parsed = typeof data === 'object' ? data : {};
+    const distanceMeters = (parsed as Record<string, unknown>)?.distanceMeters;
+    const distance = typeof distanceMeters === 'number' ? distanceMeters : 0;
+    const reductionNeeded = Math.ceil((overByPercent / 100) * distance);
+
+    // Include details in error message for parsing in UI
     throw new Error(
-      `CustomSection validation failed: Payload size (${sizeBytes} bytes) exceeds maximum allowed size (${CUSTOM_SECTION_MAX_SIZE_BYTES} bytes)`
+      `Payload size exceeded|${sizeBytes}|${CUSTOM_SECTION_MAX_SIZE_BYTES}|${reductionNeeded}`
     );
   }
 

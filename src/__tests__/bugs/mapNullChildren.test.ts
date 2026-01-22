@@ -355,38 +355,36 @@ describe('Source code fix verification', () => {
   const componentsDir = path.resolve(__dirname, '../../components/maps');
 
   describe('ActivityMapView.tsx', () => {
-    it('must use flatMap+filter pattern for section overlays (not React.Fragment)', () => {
+    it('must use consolidated ShapeSources for section overlays (Fabric crash prevention)', () => {
       const filePath = path.join(componentsDir, 'ActivityMapView.tsx');
       const source = fs.readFileSync(filePath, 'utf-8');
 
-      // Must have flatMap + filter(Boolean) pattern
-      const hasFlatMapPattern = source.includes('.flatMap(') && source.includes('.filter(Boolean)');
+      // Must use consolidated GeoJSONs to avoid Fabric add/remove cycles
+      const hasConsolidatedSections = source.includes('consolidatedSectionsGeoJSON');
+      const hasConsolidatedPortions = source.includes('consolidatedPortionsGeoJSON');
 
       // Must NOT have the old React.Fragment pattern for section overlays
       const hasOldFragmentPattern = source.includes('<React.Fragment key={`section-overlay-');
 
-      expect(hasFlatMapPattern).toBe(true);
+      expect(hasConsolidatedSections).toBe(true);
+      expect(hasConsolidatedPortions).toBe(true);
       expect(hasOldFragmentPattern).toBe(false);
     });
 
-    it('must use null-safe rendering patterns for section overlays and markers', () => {
+    it('must use stable ShapeSource IDs for section overlays', () => {
       const filePath = path.join(componentsDir, 'ActivityMapView.tsx');
       const source = fs.readFileSync(filePath, 'utf-8');
 
-      // Count occurrences of .filter(Boolean) - should be at least 3:
-      // 1. Section markers map in main view (non-fullscreen)
-      // 2. Fullscreen section overlays flatMap
-      // 3. Fullscreen section markers map
-      const filterBooleanMatches = source.match(/\.filter\(Boolean\)/g);
-      const filterCount = filterBooleanMatches ? filterBooleanMatches.length : 0;
+      // Must have stable ShapeSource IDs (not dynamic ones based on overlay.id)
+      const hasStableSectionSourceId = source.includes('id="section-overlays-consolidated"');
+      const hasStablePortionSourceId = source.includes('id="portion-overlays-consolidated"');
+      const hasFullscreenSectionSourceId = source.includes('id="fs-section-overlays-consolidated"');
+      const hasFullscreenPortionSourceId = source.includes('id="fs-portion-overlays-consolidated"');
 
-      // At least 3 filter(Boolean) calls for crash protection
-      expect(filterCount).toBeGreaterThanOrEqual(3);
-
-      // Main map section overlays use IIFE with forEach (builds clean array, never nulls)
-      // This is actually safer than flatMap+filter since nulls never exist
-      const hasIIFEPattern = source.includes('const children: React.ReactElement[] = []');
-      expect(hasIIFEPattern).toBe(true);
+      expect(hasStableSectionSourceId).toBe(true);
+      expect(hasStablePortionSourceId).toBe(true);
+      expect(hasFullscreenSectionSourceId).toBe(true);
+      expect(hasFullscreenPortionSourceId).toBe(true);
     });
   });
 

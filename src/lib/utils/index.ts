@@ -6,3 +6,4 @@ export * from './debug';
 export * from './constants';
 export * from './validation';
 export * from './smoothing';
+export * from './geometry';

@@ -192,38 +192,38 @@
     "error": {
       "description": "Non siamo riusciti a caricare questo contenuto",
       "title": "Qualcosa e andato storto",
-    "expandInSettings": "Expand in Settings",
-    "dataRangeHint": "Based on {{duration}} of activity data"
+    "expandInSettings": "Espandi nelle impostazioni",
+    "dataRangeHint": "Basato su {{duration}} di dati delle attività"
     },
     "networkError": {
       "description": "Controlla la connessione internet e riprova",
       "title": "Errore di connessione",
-    "expandInSettings": "Expand in Settings",
-    "dataRangeHint": "Based on {{duration}} of activity data"
+    "expandInSettings": "Espandi nelle impostazioni",
+    "dataRangeHint": "Basato su {{duration}} di dati delle attività"
     },
     "noActivities": {
       "description": "Le tue attivita appariranno qui dopo la sincronizzazione con Intervals.icu",
       "title": "Nessuna attivita ancora",
-    "expandInSettings": "Expand in Settings",
-    "dataRangeHint": "Based on {{duration}} of activity data"
+    "expandInSettings": "Espandi nelle impostazioni",
+    "dataRangeHint": "Basato su {{duration}} di dati delle attività"
     },
     "noData": {
       "description": "Completa alcune attivita per vedere le tue statistiche",
       "title": "Nessun dato disponibile",
-    "expandInSettings": "Expand in Settings",
-    "dataRangeHint": "Based on {{duration}} of activity data"
+    "expandInSettings": "Espandi nelle impostazioni",
+    "dataRangeHint": "Basato su {{duration}} di dati delle attività"
     },
     "noResults": {
       "description": "Prova a modificare la ricerca o i filtri",
       "title": "Nessun risultato trovato",
-    "expandInSettings": "Expand in Settings",
-    "dataRangeHint": "Based on {{duration}} of activity data"
+    "expandInSettings": "Espandi nelle impostazioni",
+    "dataRangeHint": "Basato su {{duration}} di dati delle attività"
     },
     "offline": {
       "description": "Alcune funzionalita potrebbero essere limitate",
       "title": "Sei offline",
-    "expandInSettings": "Expand in Settings",
-    "dataRangeHint": "Based on {{duration}} of activity data"
+    "expandInSettings": "Espandi nelle impostazioni",
+    "dataRangeHint": "Basato su {{duration}} di dati delle attività"
     },
     "refresh": "Aggiorna"
   },
@@ -314,8 +314,8 @@
     "noActivityData": "Nessun dato attivita",
     "processFirstHint": "Elabora prima alcune attivita nella schermata Percorsi per generare una mappa di calore.",
     "title": "Mappa di calore",
-    "expandInSettings": "Expand in Settings",
-    "dataRangeHint": "Based on {{duration}} of activity data"
+    "expandInSettings": "Espandi nelle impostazioni",
+    "dataRangeHint": "Basato su {{duration}} di dati delle attività"
   },
   "login": {
     "apiKey": "Chiave API",
@@ -485,6 +485,12 @@
     "sectionCreated": "Tratto creato",
     "sectionCreatedDescription": "Il tuo tratto personalizzato è stato creato e le attività sono state abbinate",
     "sectionCreationFailed": "Impossibile creare il tratto. Riprova.",
+    "sectionTooLarge": "La sezione è troppo grande. Prova a selezionare una porzione più corta.",
+    "sectionTooLargeWithHint": "La sezione è troppo grande. Prova a ridurla di almeno {{reduction}}.",
+    "legendSection": "Tratto",
+    "legendYourEffort": "Il tuo sforzo",
+    "legendFullActivity": "Attività completa",
+    "pointCountHint": "{{count}} punti GPS",
     "sectionsDescription": "I tratti vengono rilevati quando percorri le stesse strade piu volte, anche su percorsi diversi",
     "selected": "Selezionato",
     "suggestion": "Suggerimento",
@@ -495,9 +501,9 @@
     "thisSpeed": "Questa velocita",
     "visits": "visite",
     "waiting": "In attesa...",
-    "firstRunHint": "Run this route again to compare your performance over time",
-    "expandInSettings": "Expand in Settings",
-    "dataRangeHint": "Based on {{duration}} of activity data"
+    "firstRunHint": "Percorri di nuovo questo percorso per confrontare le tue prestazioni nel tempo",
+    "expandInSettings": "Espandi nelle impostazioni",
+    "dataRangeHint": "Basato su {{duration}} di dati delle attività"
   },
   "routesScreen": {
     "analysingRoutes": "Analisi percorsi {{current}}/{{total}}",
@@ -508,8 +514,8 @@
     "goToSettings": "Vai alle Impostazioni",
     "matchingDisabled": "Corrispondenza percorsi disabilitata",
     "title": "Percorsi",
-    "expandInSettings": "Expand in Settings",
-    "dataRangeHint": "Based on {{duration}} of activity data"
+    "expandInSettings": "Espandi nelle impostazioni",
+    "dataRangeHint": "Basato su {{duration}} di dati delle attività"
   },
   "sections": {
     "activities": "Attivita",

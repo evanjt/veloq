@@ -87,6 +87,12 @@ export function SectionCreationTools({
     return distance;
   }, [creationMode, startIndex, endIndex, coordinates, haversineDistance]);
 
+  // Calculate section point count for UI feedback
+  const sectionPointCount = useMemo(() => {
+    if (!creationMode || startIndex === null || endIndex === null) return null;
+    return endIndex - startIndex + 1;
+  }, [creationMode, startIndex, endIndex]);
+
   // Handle tap on map to select point
   const handlePointSelect = useCallback(
     (index: number) => {
@@ -164,6 +170,7 @@ export function SectionCreationTools({
       endIndex={endIndex}
       coordinateCount={coordinates.length}
       sectionDistance={sectionDistance}
+      sectionPointCount={sectionPointCount}
       onConfirm={handleConfirm}
       onCancel={handleCancel}
       onReset={handleReset}

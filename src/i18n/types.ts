@@ -646,6 +646,12 @@ export interface TranslationResource {
     sectionCreated: string;
     sectionCreatedDescription: string;
     sectionCreationFailed: string;
+    sectionTooLarge: string;
+    sectionTooLargeWithHint: string;
+    legendSection: string;
+    legendYourEffort: string;
+    legendFullActivity: string;
+    pointCountHint: string;
     overDays: string;
     overMonths: string;
     overYears: string;

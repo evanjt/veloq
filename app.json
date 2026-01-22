@@ -15,6 +15,7 @@
     },
     "ios": {
       "supportsTablet": true,
+      "requireFullScreen": true,
       "bundleIdentifier": "com.veloq.app",
       "buildNumber": "6",
       "infoPlist": {
@@ -60,6 +61,12 @@
       "./src/plugins/with-maplibre-nil-safety",
       "@config-plugins/detox",
       "expo-router",
+      [
+        "expo-screen-orientation",
+        {
+          "initialOrientation": "DEFAULT"
+        }
+      ],
       "expo-localization",
       "@maplibre/maplibre-react-native",
       "expo-web-browser",

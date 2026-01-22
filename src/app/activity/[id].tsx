@@ -669,14 +669,16 @@ export default function ActivityDetailScreen() {
 
   // Open fullscreen chart with landscape orientation
   const openChartFullscreen = useCallback(async () => {
-    setIsChartFullscreen(true);
+    // Lock orientation BEFORE showing modal to avoid iOS orientation conflict
     await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE);
+    setIsChartFullscreen(true);
   }, []);
 
   // Close fullscreen chart and restore portrait orientation
   const closeChartFullscreen = useCallback(async () => {
-    await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP);
+    // Hide modal BEFORE unlocking orientation to avoid iOS orientation conflict
     setIsChartFullscreen(false);
+    await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP);
   }, []);
 
   // Handle section creation completion
@@ -696,7 +698,23 @@ export default function ActivityDetailScreen() {
         });
         Alert.alert(t('routes.sectionCreated'), t('routes.sectionCreatedDescription'));
       } catch (error) {
-        Alert.alert(t('common.error'), t('routes.sectionCreationFailed'));
+        let message = t('routes.sectionCreationFailed');
+
+        // Parse detailed error message for payload size issues
+        if (error instanceof Error && error.message.startsWith('Payload size exceeded')) {
+          const parts = error.message.split('|');
+          const reductionMeters = parseInt(parts[3], 10);
+
+          if (reductionMeters > 0) {
+            const reductionKm = Math.ceil(reductionMeters / 1000);
+            const reductionDisplay = reductionKm > 1 ? `${reductionKm} km` : `${reductionMeters} m`;
+            message = t('routes.sectionTooLargeWithHint', { reduction: reductionDisplay });
+          } else {
+            message = t('routes.sectionTooLarge');
+          }
+        }
+
+        Alert.alert(t('common.error'), message);
       }
     },
     [activity, createSection, t]
@@ -1326,6 +1344,7 @@ export default function ActivityDetailScreen() {
         visible={isChartFullscreen}
         animationType="fade"
         statusBarTranslucent
+        supportedOrientations={['landscape-left', 'landscape-right']}
         onRequestClose={closeChartFullscreen}
       >
         <GestureHandlerRootView style={{ flex: 1 }}>

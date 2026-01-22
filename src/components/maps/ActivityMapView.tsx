@@ -118,6 +118,7 @@ import {
   Text,
   Platform,
 } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import {
   MapView,
   Camera,
@@ -235,6 +236,7 @@ export function ActivityMapView({
   sectionOverlays,
   highlightedSectionId,
 }: ActivityMapViewProps) {
+  const { t } = useTranslation();
   const { getStyleForActivity } = useMapPreferences();
   const preferredStyle = getStyleForActivity(activityType);
   const [mapStyle, setMapStyle] = useState<MapStyleType>(initialStyle ?? preferredStyle);
@@ -605,13 +607,47 @@ export function ActivityMapView({
     (overlayGeoJSON.type === 'FeatureCollection' && overlayGeoJSON.features.length > 0);
 
   // Section overlays GeoJSON (for showing all matched sections)
-  const sectionOverlaysGeoJSON = useMemo(() => {
-    if (!sectionOverlays || sectionOverlays.length === 0) return null;
+  // CRITICAL: Returns both sectionOverlaysGeoJSON (for markers) and consolidated GeoJSONs (for rendering)
+  // The consolidated GeoJSONs always have valid geometry to prevent Fabric add/remove crashes
+  const { sectionOverlaysGeoJSON, consolidatedSectionsGeoJSON, consolidatedPortionsGeoJSON } =
+    useMemo(() => {
+      // Minimal valid geometry for when there are no overlays
+      const minimalLine: GeoJSON.FeatureCollection = {
+        type: 'FeatureCollection',
+        features: [
+          {
+            type: 'Feature',
+            properties: { _placeholder: true },
+            geometry: {
+              type: 'LineString',
+              coordinates: [
+                [0, 0],
+                [0, 0.0001],
+              ],
+            },
+          },
+        ],
+      };
 
-    let skippedSections = 0;
-    let skippedPortions = 0;
-    const result = sectionOverlays
-      .map((overlay) => {
+      if (!sectionOverlays || sectionOverlays.length === 0) {
+        return {
+          sectionOverlaysGeoJSON: null,
+          consolidatedSectionsGeoJSON: minimalLine,
+          consolidatedPortionsGeoJSON: minimalLine,
+        };
+      }
+
+      let skippedSections = 0;
+      let skippedPortions = 0;
+      const sectionFeatures: GeoJSON.Feature[] = [];
+      const portionFeatures: GeoJSON.Feature[] = [];
+      const overlayData: Array<{
+        id: string;
+        sectionGeo: GeoJSON.Feature | null;
+        portionGeo: GeoJSON.Feature | null;
+      }> = [];
+
+      sectionOverlays.forEach((overlay) => {
         // Build section polyline GeoJSON - also filter Infinity values
         const validSectionPoints = overlay.sectionPolyline.filter(
           (c) =>
@@ -620,19 +656,19 @@ export function ActivityMapView({
             !isNaN(c.latitude) &&
             !isNaN(c.longitude)
         );
-        const sectionGeo =
-          validSectionPoints.length >= 2
-            ? {
-                type: 'Feature' as const,
-                properties: { id: overlay.id, type: 'section' },
-                geometry: {
-                  type: 'LineString' as const,
-                  coordinates: validSectionPoints.map((c) => [c.longitude, c.latitude]),
-                },
-              }
-            : null;
 
-        if (!sectionGeo && overlay.sectionPolyline.length > 0) {
+        let sectionGeo: GeoJSON.Feature | null = null;
+        if (validSectionPoints.length >= 2) {
+          sectionGeo = {
+            type: 'Feature',
+            properties: { id: overlay.id, type: 'section' },
+            geometry: {
+              type: 'LineString',
+              coordinates: validSectionPoints.map((c) => [c.longitude, c.latitude]),
+            },
+          };
+          sectionFeatures.push(sectionGeo);
+        } else if (overlay.sectionPolyline.length > 0) {
           skippedSections++;
           if (__DEV__) {
             console.warn(
@@ -649,19 +685,19 @@ export function ActivityMapView({
             !isNaN(c.latitude) &&
             !isNaN(c.longitude)
         );
-        const portionGeo =
-          validPortionPoints && validPortionPoints.length >= 2
-            ? {
-                type: 'Feature' as const,
-                properties: { id: overlay.id, type: 'portion' },
-                geometry: {
-                  type: 'LineString' as const,
-                  coordinates: validPortionPoints.map((c) => [c.longitude, c.latitude]),
-                },
-              }
-            : null;
 
-        if (!portionGeo && overlay.activityPortion && overlay.activityPortion.length > 0) {
+        let portionGeo: GeoJSON.Feature | null = null;
+        if (validPortionPoints && validPortionPoints.length >= 2) {
+          portionGeo = {
+            type: 'Feature',
+            properties: { id: overlay.id, type: 'portion' },
+            geometry: {
+              type: 'LineString',
+              coordinates: validPortionPoints.map((c) => [c.longitude, c.latitude]),
+            },
+          };
+          portionFeatures.push(portionGeo);
+        } else if (overlay.activityPortion && overlay.activityPortion.length > 0) {
           skippedPortions++;
           if (__DEV__) {
             console.warn(
@@ -670,18 +706,29 @@ export function ActivityMapView({
           }
         }
 
-        return { id: overlay.id, sectionGeo, portionGeo };
-      })
-      .filter((o) => o.sectionGeo || o.portionGeo);
+        if (sectionGeo || portionGeo) {
+          overlayData.push({ id: overlay.id, sectionGeo, portionGeo });
+        }
+      });
 
-    if (__DEV__ && (skippedSections > 0 || skippedPortions > 0)) {
-      console.warn(
-        `[ActivityMapView] sectionOverlaysGeoJSON: skipped ${skippedSections} sections, ${skippedPortions} portions with invalid polylines`
-      );
-    }
+      if (__DEV__ && (skippedSections > 0 || skippedPortions > 0)) {
+        console.warn(
+          `[ActivityMapView] sectionOverlaysGeoJSON: skipped ${skippedSections} sections, ${skippedPortions} portions with invalid polylines`
+        );
+      }
 
-    return result.length > 0 ? result : null;
-  }, [sectionOverlays]);
+      return {
+        sectionOverlaysGeoJSON: overlayData.length > 0 ? overlayData : null,
+        consolidatedSectionsGeoJSON:
+          sectionFeatures.length > 0
+            ? { type: 'FeatureCollection' as const, features: sectionFeatures }
+            : minimalLine,
+        consolidatedPortionsGeoJSON:
+          portionFeatures.length > 0
+            ? { type: 'FeatureCollection' as const, features: portionFeatures }
+            : minimalLine,
+      };
+    }, [sectionOverlays]);
 
   // Route coordinates for BaseMapView/Map3DWebView [lng, lat] format
   const routeCoords = useMemo(() => {
@@ -715,6 +762,12 @@ export function ActivityMapView({
     }
     return distance;
   }, [creationMode, startIndex, endIndex, validCoordinates]);
+
+  // Section creation: calculate point count for UI feedback
+  const sectionPointCount = useMemo(() => {
+    if (!creationMode || startIndex === null || endIndex === null) return null;
+    return endIndex - startIndex + 1;
+  }, [creationMode, startIndex, endIndex]);
 
   // Section creation: GeoJSON for selected portion
   // CRITICAL: Always return valid GeoJSON to avoid add/remove cycles that crash iOS MapLibre
@@ -762,12 +815,12 @@ export function ActivityMapView({
       'ShapeSource:overlaySource': 'always (hasData=' + overlayHasData + ')',
       'ShapeSource:routeSource': 'always (hasData=' + routeHasData + ')',
       'ShapeSource:sectionSource': 'always (hasData=' + sectionHasData + ')',
-      // MarkerViews still conditionally rendered (not crash source, need real coords)
-      'MarkerView:start': !!startPoint,
-      'MarkerView:end': !!endPoint,
-      'MarkerView:highlight': !!highlightPoint,
-      'MarkerView:sectionStart': !!sectionStartPoint,
-      'MarkerView:sectionEnd': !!sectionEndPoint,
+      // All MarkerViews now always rendered with opacity control to prevent Fabric crash
+      'MarkerView:start': 'always (visible=' + !!startPoint + ')',
+      'MarkerView:end': 'always (visible=' + !!endPoint + ')',
+      'MarkerView:highlight': 'always (visible=' + !!highlightPoint + ')',
+      'MarkerView:sectionStart': 'always (visible=' + !!sectionStartPoint + ')',
+      'MarkerView:sectionEnd': 'always (visible=' + !!sectionEndPoint + ')',
       sectionOverlaysCount: sectionOverlaysGeoJSON?.length ?? 0,
     });
 
@@ -860,82 +913,32 @@ export function ActivityMapView({
             </ShapeSource>
 
             {/* Section overlays - render all matched sections */}
-            {/* CRITICAL: Build array without nulls to avoid iOS MapLibre crash */}
-            {/* The native MLRNMapView crashes when React reconciliation passes intermediate nulls */}
-            {(() => {
-              if (!sectionOverlaysGeoJSON) return null;
-
-              // Pre-build the children array WITHOUT any nulls
-              const children: React.ReactElement[] = [];
-
-              sectionOverlaysGeoJSON.forEach((overlay, index) => {
-                const style = getSectionStyle(index);
-                const isHighlighted = highlightedSectionId === overlay.id;
-                const isDimmed = highlightedSectionId && !isHighlighted;
-                const sectionColor = isHighlighted ? '#FFD700' : style.color;
-                const sectionOpacity = isDimmed ? 0.1 : isHighlighted ? 1 : 0.7;
-                const sectionWidth = isHighlighted ? 8 : 6;
-                const portionColor = isHighlighted ? '#FF4500' : '#E91E63';
-                const portionOpacity = isDimmed ? 0.1 : 1;
-                const portionWidth = isHighlighted ? 6 : 4;
-
-                // Debug: Log each overlay being processed
-                if (__DEV__) {
-                  console.log(`[ActivityMapView] RENDERING OVERLAY ${index}:`, {
-                    id: overlay.id,
-                    hasSectionGeo: !!overlay.sectionGeo,
-                    sectionCoordsCount: overlay.sectionGeo?.geometry?.coordinates?.length ?? 0,
-                    hasPortionGeo: !!overlay.portionGeo,
-                    portionCoordsCount: overlay.portionGeo?.geometry?.coordinates?.length ?? 0,
-                  });
-                }
-
-                // Only push non-null components - use stable IDs based on overlay.id
-                if (overlay.sectionGeo) {
-                  children.push(
-                    <ShapeSource
-                      key={`sectionSource-${overlay.id}`}
-                      id={`sectionSource-${overlay.id}`}
-                      shape={overlay.sectionGeo}
-                    >
-                      <LineLayer
-                        id={`sectionLine-${overlay.id}`}
-                        style={{
-                          lineColor: sectionColor,
-                          lineWidth: sectionWidth,
-                          lineCap: 'round',
-                          lineJoin: 'round',
-                          lineOpacity: sectionOpacity,
-                        }}
-                      />
-                    </ShapeSource>
-                  );
-                }
-
-                if (overlay.portionGeo) {
-                  children.push(
-                    <ShapeSource
-                      key={`portionSource-${overlay.id}`}
-                      id={`portionSource-${overlay.id}`}
-                      shape={overlay.portionGeo}
-                    >
-                      <LineLayer
-                        id={`portionLine-${overlay.id}`}
-                        style={{
-                          lineColor: portionColor,
-                          lineWidth: portionWidth,
-                          lineCap: 'round',
-                          lineJoin: 'round',
-                          lineOpacity: portionOpacity,
-                        }}
-                      />
-                    </ShapeSource>
-                  );
-                }
-              });
-
-              return children.length > 0 ? children : null;
-            })()}
+            {/* CRITICAL: Always render stable ShapeSources to avoid Fabric crash */}
+            {/* Using consolidated GeoJSONs prevents add/remove cycles during state changes */}
+            <ShapeSource id="section-overlays-consolidated" shape={consolidatedSectionsGeoJSON}>
+              <LineLayer
+                id="section-overlays-line"
+                style={{
+                  lineColor: colors.secondary,
+                  lineWidth: 6,
+                  lineCap: 'round',
+                  lineJoin: 'round',
+                  lineOpacity: sectionOverlaysGeoJSON ? 0.7 : 0,
+                }}
+              />
+            </ShapeSource>
+            <ShapeSource id="portion-overlays-consolidated" shape={consolidatedPortionsGeoJSON}>
+              <LineLayer
+                id="portion-overlays-line"
+                style={{
+                  lineColor: '#E91E63',
+                  lineWidth: 4,
+                  lineCap: 'round',
+                  lineJoin: 'round',
+                  lineOpacity: sectionOverlaysGeoJSON ? 1 : 0,
+                }}
+              />
+            </ShapeSource>
 
             {/* Route line - slightly fade when showing section overlays */}
             {/* CRITICAL: Always render ShapeSource to avoid add/remove cycles that crash iOS MapLibre */}
@@ -953,41 +956,44 @@ export function ActivityMapView({
             </ShapeSource>
 
             {/* Start marker */}
-            {startPoint && (
-              <MarkerView coordinate={[startPoint.longitude, startPoint.latitude]}>
-                <View style={styles.markerContainer}>
-                  <View style={[styles.marker, styles.startMarker]}>
-                    <MaterialCommunityIcons name="play" size={14} color={colors.textOnDark} />
-                  </View>
+            {/* CRITICAL: Always render to avoid Fabric crash - control visibility via opacity */}
+            <MarkerView
+              coordinate={startPoint ? [startPoint.longitude, startPoint.latitude] : [0, 0]}
+            >
+              <View style={[styles.markerContainer, { opacity: startPoint ? 1 : 0 }]}>
+                <View style={[styles.marker, styles.startMarker]}>
+                  <MaterialCommunityIcons name="play" size={14} color={colors.textOnDark} />
                 </View>
-              </MarkerView>
-            )}
+              </View>
+            </MarkerView>
 
             {/* End marker */}
-            {endPoint && (
-              <MarkerView coordinate={[endPoint.longitude, endPoint.latitude]}>
-                <View style={styles.markerContainer}>
-                  <View style={[styles.marker, styles.endMarker]}>
-                    <MaterialCommunityIcons
-                      name="flag-checkered"
-                      size={14}
-                      color={colors.textOnDark}
-                    />
-                  </View>
+            {/* CRITICAL: Always render to avoid Fabric crash - control visibility via opacity */}
+            <MarkerView coordinate={endPoint ? [endPoint.longitude, endPoint.latitude] : [0, 0]}>
+              <View style={[styles.markerContainer, { opacity: endPoint ? 1 : 0 }]}>
+                <View style={[styles.marker, styles.endMarker]}>
+                  <MaterialCommunityIcons
+                    name="flag-checkered"
+                    size={14}
+                    color={colors.textOnDark}
+                  />
                 </View>
-              </MarkerView>
-            )}
+              </View>
+            </MarkerView>
 
             {/* Highlight marker from elevation chart */}
-            {highlightPoint && (
-              <MarkerView coordinate={[highlightPoint.longitude, highlightPoint.latitude]}>
-                <View style={styles.markerContainer}>
-                  <View style={styles.highlightMarker}>
-                    <View style={styles.highlightMarkerInner} />
-                  </View>
+            {/* CRITICAL: Always render to avoid Fabric crash - control visibility via opacity */}
+            <MarkerView
+              coordinate={
+                highlightPoint ? [highlightPoint.longitude, highlightPoint.latitude] : [0, 0]
+              }
+            >
+              <View style={[styles.markerContainer, { opacity: highlightPoint ? 1 : 0 }]}>
+                <View style={styles.highlightMarker}>
+                  <View style={styles.highlightMarkerInner} />
                 </View>
-              </MarkerView>
-            )}
+              </View>
+            </MarkerView>
 
             {/* Section creation: selected section line */}
             {/* CRITICAL: Always render ShapeSource to avoid add/remove cycles that crash iOS MapLibre */}
@@ -1004,39 +1010,51 @@ export function ActivityMapView({
             </ShapeSource>
 
             {/* Section creation: start marker */}
-            {sectionStartPoint && (
-              <MarkerView coordinate={[sectionStartPoint.longitude, sectionStartPoint.latitude]}>
-                <View style={styles.markerContainer}>
-                  <View style={[styles.marker, styles.sectionStartMarker]}>
-                    <MaterialCommunityIcons name="flag" size={14} color={colors.textOnDark} />
-                  </View>
+            {/* CRITICAL: Always render to avoid Fabric crash - control visibility via opacity */}
+            <MarkerView
+              coordinate={
+                sectionStartPoint
+                  ? [sectionStartPoint.longitude, sectionStartPoint.latitude]
+                  : [0, 0]
+              }
+            >
+              <View style={[styles.markerContainer, { opacity: sectionStartPoint ? 1 : 0 }]}>
+                <View style={[styles.marker, styles.sectionStartMarker]}>
+                  <MaterialCommunityIcons name="flag" size={14} color={colors.textOnDark} />
                 </View>
-              </MarkerView>
-            )}
+              </View>
+            </MarkerView>
 
             {/* Section creation: end marker */}
-            {sectionEndPoint && (
-              <MarkerView coordinate={[sectionEndPoint.longitude, sectionEndPoint.latitude]}>
-                <View style={styles.markerContainer}>
-                  <View style={[styles.marker, styles.sectionEndMarker]}>
-                    <MaterialCommunityIcons
-                      name="flag-checkered"
-                      size={14}
-                      color={colors.textOnDark}
-                    />
-                  </View>
+            {/* CRITICAL: Always render to avoid Fabric crash - control visibility via opacity */}
+            <MarkerView
+              coordinate={
+                sectionEndPoint ? [sectionEndPoint.longitude, sectionEndPoint.latitude] : [0, 0]
+              }
+            >
+              <View style={[styles.markerContainer, { opacity: sectionEndPoint ? 1 : 0 }]}>
+                <View style={[styles.marker, styles.sectionEndMarker]}>
+                  <MaterialCommunityIcons
+                    name="flag-checkered"
+                    size={14}
+                    color={colors.textOnDark}
+                  />
                 </View>
-              </MarkerView>
-            )}
+              </View>
+            </MarkerView>
 
             {/* Numbered markers at center of each section, offset to the side */}
             {sectionOverlaysGeoJSON &&
               sectionOverlaysGeoJSON
                 .map((overlay, index) => {
-                  // Get coordinates from sectionGeo or portionGeo
-                  const coords =
-                    overlay.sectionGeo?.geometry?.coordinates ||
-                    overlay.portionGeo?.geometry?.coordinates;
+                  // Get coordinates from sectionGeo or portionGeo (both are LineString)
+                  const sectionGeom = overlay.sectionGeo?.geometry as
+                    | GeoJSON.LineString
+                    | undefined;
+                  const portionGeom = overlay.portionGeo?.geometry as
+                    | GeoJSON.LineString
+                    | undefined;
+                  const coords = sectionGeom?.coordinates || portionGeom?.coordinates;
                   if (!coords || coords.length < 2) return null;
 
                   // Use midpoint of the trace
@@ -1146,15 +1164,15 @@ export function ActivityMapView({
           <View style={styles.overlayLegend}>
             <View style={styles.legendRow}>
               <View style={[styles.legendLine, { backgroundColor: '#00BCD4' }]} />
-              <Text style={styles.legendText}>Section</Text>
+              <Text style={styles.legendText}>{t('routes.legendSection')}</Text>
             </View>
             <View style={styles.legendRow}>
               <View style={[styles.legendLine, { backgroundColor: '#E91E63' }]} />
-              <Text style={styles.legendText}>Your effort</Text>
+              <Text style={styles.legendText}>{t('routes.legendYourEffort')}</Text>
             </View>
             <View style={styles.legendRow}>
               <View style={[styles.legendLine, { backgroundColor: activityColor }]} />
-              <Text style={styles.legendText}>Full activity</Text>
+              <Text style={styles.legendText}>{t('routes.legendFullActivity')}</Text>
             </View>
           </View>
         )}
@@ -1246,58 +1264,40 @@ export function ActivityMapView({
           onClose={closeFullscreen}
         >
           {/* Section overlays in fullscreen */}
-          {sectionOverlaysGeoJSON &&
-            sectionOverlaysGeoJSON
-              .flatMap((overlay, index) => {
-                const style = getSectionStyle(index);
-                return [
-                  overlay.sectionGeo ? (
-                    <ShapeSource
-                      key={`fs-sectionSource-${overlay.id}`}
-                      id={`fs-sectionSource-${index}`}
-                      shape={overlay.sectionGeo}
-                    >
-                      <LineLayer
-                        id={`fs-sectionLine-${index}`}
-                        style={{
-                          lineColor: style.color,
-                          lineWidth: 6,
-                          lineCap: 'round',
-                          lineJoin: 'round',
-                          lineOpacity: 0.7,
-                        }}
-                      />
-                    </ShapeSource>
-                  ) : null,
-                  overlay.portionGeo ? (
-                    <ShapeSource
-                      key={`fs-portionSource-${overlay.id}`}
-                      id={`fs-portionSource-${index}`}
-                      shape={overlay.portionGeo}
-                    >
-                      <LineLayer
-                        id={`fs-portionLine-${index}`}
-                        style={{
-                          lineColor: '#E91E63',
-                          lineWidth: 4,
-                          lineCap: 'round',
-                          lineJoin: 'round',
-                          lineOpacity: 1,
-                        }}
-                      />
-                    </ShapeSource>
-                  ) : null,
-                ];
-              })
-              .filter(Boolean)}
+          {/* CRITICAL: Always render stable ShapeSources to avoid Fabric crash */}
+          <ShapeSource id="fs-section-overlays-consolidated" shape={consolidatedSectionsGeoJSON}>
+            <LineLayer
+              id="fs-section-overlays-line"
+              style={{
+                lineColor: colors.secondary,
+                lineWidth: 6,
+                lineCap: 'round',
+                lineJoin: 'round',
+                lineOpacity: sectionOverlaysGeoJSON ? 0.7 : 0,
+              }}
+            />
+          </ShapeSource>
+          <ShapeSource id="fs-portion-overlays-consolidated" shape={consolidatedPortionsGeoJSON}>
+            <LineLayer
+              id="fs-portion-overlays-line"
+              style={{
+                lineColor: '#E91E63',
+                lineWidth: 4,
+                lineCap: 'round',
+                lineJoin: 'round',
+                lineOpacity: sectionOverlaysGeoJSON ? 1 : 0,
+              }}
+            />
+          </ShapeSource>
 
           {/* Numbered markers at center of each section in fullscreen */}
           {/* filter(Boolean) prevents null children crash on iOS MapLibre */}
           {sectionOverlaysGeoJSON &&
             sectionOverlaysGeoJSON
               .map((overlay, index) => {
-                if (!overlay.sectionGeo?.geometry?.coordinates?.length) return null;
-                const coords = overlay.sectionGeo.geometry.coordinates;
+                const sectionGeom = overlay.sectionGeo?.geometry as GeoJSON.LineString | undefined;
+                if (!sectionGeom?.coordinates?.length) return null;
+                const coords = sectionGeom.coordinates;
                 const midIndex = Math.floor(coords.length / 2);
                 const centerCoord = coords[midIndex];
                 if (!centerCoord) return null;
@@ -1317,30 +1317,26 @@ export function ActivityMapView({
               .filter(Boolean)}
 
           {/* Start marker */}
-          {startPoint && (
-            <MarkerView coordinate={[startPoint.longitude, startPoint.latitude]}>
-              <View style={styles.markerContainer}>
-                <View style={[styles.marker, styles.startMarker]}>
-                  <MaterialCommunityIcons name="play" size={14} color={colors.textOnDark} />
-                </View>
+          {/* CRITICAL: Always render to avoid Fabric crash - control visibility via opacity */}
+          <MarkerView
+            coordinate={startPoint ? [startPoint.longitude, startPoint.latitude] : [0, 0]}
+          >
+            <View style={[styles.markerContainer, { opacity: startPoint ? 1 : 0 }]}>
+              <View style={[styles.marker, styles.startMarker]}>
+                <MaterialCommunityIcons name="play" size={14} color={colors.textOnDark} />
               </View>
-            </MarkerView>
-          )}
+            </View>
+          </MarkerView>
 
           {/* End marker */}
-          {endPoint && (
-            <MarkerView coordinate={[endPoint.longitude, endPoint.latitude]}>
-              <View style={styles.markerContainer}>
-                <View style={[styles.marker, styles.endMarker]}>
-                  <MaterialCommunityIcons
-                    name="flag-checkered"
-                    size={14}
-                    color={colors.textOnDark}
-                  />
-                </View>
+          {/* CRITICAL: Always render to avoid Fabric crash - control visibility via opacity */}
+          <MarkerView coordinate={endPoint ? [endPoint.longitude, endPoint.latitude] : [0, 0]}>
+            <View style={[styles.markerContainer, { opacity: endPoint ? 1 : 0 }]}>
+              <View style={[styles.marker, styles.endMarker]}>
+                <MaterialCommunityIcons name="flag-checkered" size={14} color={colors.textOnDark} />
               </View>
-            </MarkerView>
-          )}
+            </View>
+          </MarkerView>
         </BaseMapView>
       </Modal>
 
@@ -1352,6 +1348,7 @@ export function ActivityMapView({
           endIndex={endIndex}
           coordinateCount={validCoordinates.length}
           sectionDistance={sectionDistance}
+          sectionPointCount={sectionPointCount}
           onConfirm={handleCreationConfirm}
           onCancel={handleCreationCancel}
           onReset={handleCreationReset}

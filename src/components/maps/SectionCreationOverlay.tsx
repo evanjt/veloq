@@ -5,6 +5,7 @@
 
 import React from 'react';
 import { View, StyleSheet, TouchableOpacity, Text } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { colors } from '@/theme/colors';
@@ -25,12 +26,26 @@ interface SectionCreationOverlayProps {
   coordinateCount: number;
   /** Distance of selected section in meters */
   sectionDistance: number | null;
+  /** Number of GPS points in the selected section */
+  sectionPointCount: number | null;
   /** Called when user confirms the section */
   onConfirm: () => void;
   /** Called when user cancels creation */
   onCancel: () => void;
   /** Called to reset selection */
   onReset: () => void;
+}
+
+/**
+ * Get color based on section distance.
+ * Green: <10km, Yellow: 10-30km, Orange: 30-50km, Red: >50km
+ */
+function getSectionSizeColor(distanceMeters: number | null): string {
+  if (distanceMeters === null) return colors.primary;
+  if (distanceMeters < 10000) return colors.success; // Green: <10km
+  if (distanceMeters < 30000) return '#FFC107'; // Yellow: 10-30km
+  if (distanceMeters < 50000) return '#FF9800'; // Orange: 30-50km
+  return colors.error; // Red: >50km
 }
 
 /**
@@ -43,11 +58,13 @@ export function SectionCreationOverlay({
   endIndex,
   coordinateCount,
   sectionDistance,
+  sectionPointCount,
   onConfirm,
   onCancel,
   onReset,
 }: SectionCreationOverlayProps) {
   const { t } = useTranslation();
+  const insets = useSafeAreaInsets();
 
   const getInstructions = () => {
     switch (state) {
@@ -83,8 +100,8 @@ export function SectionCreationOverlay({
 
   return (
     <View style={styles.container} pointerEvents="box-none">
-      {/* Top instruction banner */}
-      <View style={styles.instructionBanner}>
+      {/* Top instruction banner - positioned below Dynamic Island/notch */}
+      <View style={[styles.instructionBanner, { marginTop: insets.top }]}>
         <View style={styles.instructionContent}>
           <MaterialCommunityIcons
             name={state === 'complete' ? 'check-circle' : 'gesture-tap'}
@@ -94,8 +111,17 @@ export function SectionCreationOverlay({
           <Text style={styles.instructionText}>{getInstructions()}</Text>
         </View>
         {getProgress() && <Text style={styles.progressText}>{getProgress()}</Text>}
-        {sectionDistance !== null && state === 'complete' && (
-          <Text style={styles.distanceText}>{formatDistance(sectionDistance)}</Text>
+        {sectionDistance !== null && startIndex !== null && (
+          <View style={styles.distanceContainer}>
+            <Text style={[styles.distanceText, { color: getSectionSizeColor(sectionDistance) }]}>
+              {formatDistance(sectionDistance)}
+            </Text>
+            {sectionPointCount !== null && sectionPointCount > 500 && (
+              <Text style={styles.pointCountHint}>
+                {t('routes.pointCountHint', { count: sectionPointCount })}
+              </Text>
+            )}
+          </View>
         )}
       </View>
 
@@ -170,11 +196,19 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     marginTop: spacing.xs,
   },
+  distanceContainer: {
+    alignItems: 'center',
+    marginTop: spacing.xs,
+  },
   distanceText: {
     ...typography.body,
     fontWeight: '700',
     color: colors.primary,
-    marginTop: spacing.xs,
+  },
+  pointCountHint: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    marginTop: 2,
   },
   actionContainer: {
     flexDirection: 'row',
