@@ -12,6 +12,7 @@
     "mapData": "Données cartographiques",
     "openSource": "Licence Open Source (Apache 2.0)",
     "sourceCode": "Code source",
+    "thirdPartyLicenses": "Licences tierces",
     "title": "À propos et mentions légales",
     "tracematchSource": "Code source Tracematch",
     "veloqPrivacy": "Politique de confidentialité Veloq",
@@ -351,6 +352,11 @@
     "title": "Veloq",
     "tryDemo": "Essayer la Démo",
     "useApiKey": "Utiliser la Clé API"
+  },
+  "licenses": {
+    "footer": "Appuyez sur un badge de licence pour voir le texte complet. Appuyez sur l'icône de lien pour visiter le dépôt du projet.",
+    "intro": "Veloq est construit avec des logiciels open-source. Cet écran liste les bibliothèques tierces et leurs licences.",
+    "title": "Licences tierces"
   },
   "mapScreen": {
     "loadingActivities": "Chargement des activités...",

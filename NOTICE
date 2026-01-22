@@ -17,15 +17,176 @@ limitations under the License.
 
 ===============================================================================
 
-This project uses the following third-party libraries:
+THIRD-PARTY SOFTWARE NOTICES
 
-- React Native (MIT License) - https://github.com/facebook/react-native
-- Expo (MIT License) - https://github.com/expo/expo
-- TanStack Query (MIT License) - https://github.com/TanStack/query
-- Zustand (MIT License) - https://github.com/pmndrs/zustand
-- Victory Native (MIT License) - https://github.com/FormidableLabs/victory
-- MapLibre GL (BSD-3-Clause) - https://github.com/maplibre/maplibre-react-native
-- React Native Paper (MIT License) - https://github.com/callstack/react-native-paper
-- React Native Skia (MIT License) - https://github.com/Shopify/react-native-skia
+This product includes software from the following projects:
 
-For the complete list of dependencies, see package.json.
+-------------------------------------------------------------------------------
+React and React Native
+-------------------------------------------------------------------------------
+Copyright (c) Meta Platforms, Inc. and affiliates.
+License: MIT
+https://github.com/facebook/react-native
+
+-------------------------------------------------------------------------------
+Expo
+-------------------------------------------------------------------------------
+Copyright (c) 2015-present 650 Industries, Inc. (aka Expo)
+License: MIT
+https://github.com/expo/expo
+
+-------------------------------------------------------------------------------
+TanStack Query
+-------------------------------------------------------------------------------
+Copyright (c) 2021-present Tanner Linsley
+License: MIT
+https://github.com/TanStack/query
+
+-------------------------------------------------------------------------------
+Zustand
+-------------------------------------------------------------------------------
+Copyright (c) 2019 Paul Henschel
+License: MIT
+https://github.com/pmndrs/zustand
+
+-------------------------------------------------------------------------------
+Victory Native
+-------------------------------------------------------------------------------
+Copyright (c) 2015-present Nearform
+License: MIT
+https://github.com/FormidableLabs/victory
+
+-------------------------------------------------------------------------------
+MapLibre GL Native / React Native
+-------------------------------------------------------------------------------
+Copyright (c) 2020-present MapLibre contributors
+License: MIT (React Native bindings), BSD-3-Clause (GL JS core)
+https://github.com/maplibre/maplibre-react-native
+
+-------------------------------------------------------------------------------
+React Native Paper
+-------------------------------------------------------------------------------
+Copyright (c) 2017-present Callstack
+License: MIT
+https://github.com/callstack/react-native-paper
+
+-------------------------------------------------------------------------------
+React Native Skia
+-------------------------------------------------------------------------------
+Copyright (c) 2021-present Shopify Inc.
+License: MIT
+https://github.com/Shopify/react-native-skia
+
+-------------------------------------------------------------------------------
+React Native Gesture Handler
+-------------------------------------------------------------------------------
+Copyright (c) 2016-present Software Mansion
+License: MIT
+https://github.com/software-mansion/react-native-gesture-handler
+
+-------------------------------------------------------------------------------
+React Native Reanimated
+-------------------------------------------------------------------------------
+Copyright (c) 2016-present Software Mansion
+License: MIT
+https://github.com/software-mansion/react-native-reanimated
+
+-------------------------------------------------------------------------------
+Zod
+-------------------------------------------------------------------------------
+Copyright (c) 2020-present Colin McDonnell
+License: MIT
+https://github.com/colinhacks/zod
+
+-------------------------------------------------------------------------------
+i18next
+-------------------------------------------------------------------------------
+Copyright (c) 2022-present i18next
+License: MIT
+https://github.com/i18next/i18next
+
+-------------------------------------------------------------------------------
+Axios
+-------------------------------------------------------------------------------
+Copyright (c) 2014-present Matt Zabriskie & Collaborators
+License: MIT
+https://github.com/axios/axios
+
+===============================================================================
+
+RUST NATIVE ENGINE (tracematch)
+
+The tracematch crate is developed by Evan Thomas and licensed under Apache-2.0.
+It includes the following third-party dependencies:
+
+-------------------------------------------------------------------------------
+UniFFI
+-------------------------------------------------------------------------------
+Copyright (c) Mozilla Foundation
+License: MPL-2.0
+https://github.com/mozilla/uniffi-rs
+
+MPL-2.0 Compliance: Source code available at the repository above.
+UniFFI is used unmodified for FFI binding generation.
+
+-------------------------------------------------------------------------------
+geo / geo-types / rstar
+-------------------------------------------------------------------------------
+Copyright (c) 2015-present GeoRust Project Developers
+License: MIT OR Apache-2.0
+https://github.com/georust/geo
+
+-------------------------------------------------------------------------------
+ring
+-------------------------------------------------------------------------------
+Copyright (c) 2015-2024 Brian Smith
+License: Apache-2.0 AND ISC
+https://github.com/briansmith/ring
+
+-------------------------------------------------------------------------------
+rustls
+-------------------------------------------------------------------------------
+Copyright (c) 2016-present rustls contributors
+License: Apache-2.0 OR ISC OR MIT
+https://github.com/rustls/rustls
+
+-------------------------------------------------------------------------------
+tokio
+-------------------------------------------------------------------------------
+Copyright (c) 2019-present Tokio Contributors
+License: MIT
+https://github.com/tokio-rs/tokio
+
+-------------------------------------------------------------------------------
+serde
+-------------------------------------------------------------------------------
+Copyright (c) 2014-present Erick Tryzelaar and David Tolnay
+License: MIT OR Apache-2.0
+https://github.com/serde-rs/serde
+
+-------------------------------------------------------------------------------
+rayon
+-------------------------------------------------------------------------------
+Copyright (c) 2014-present Josh Stone and Niko Matsakis
+License: MIT OR Apache-2.0
+https://github.com/rayon-rs/rayon
+
+-------------------------------------------------------------------------------
+ICU4X (icu_* crates)
+-------------------------------------------------------------------------------
+Copyright (c) Unicode, Inc.
+License: Unicode-3.0
+https://github.com/unicode-org/icu4x
+
+===============================================================================
+
+MAP DATA ATTRIBUTION
+
+This application uses map data which requires the following attribution:
+
+Map data: OpenStreetMap contributors
+https://www.openstreetmap.org/copyright
+
+===============================================================================
+
+For complete license information, see THIRD_PARTY_LICENSES.md

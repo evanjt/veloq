@@ -12,6 +12,7 @@
     "mapData": "Chartedate",
     "openSource": "Open Source Lizänz (Apache 2.0)",
     "sourceCode": "Quäucode",
+    "thirdPartyLicenses": "Drittabieter-Lizänze",
     "title": "Über u Rächtlechs",
     "tracematchSource": "Tracematch Quäucode",
     "veloqPrivacy": "Veloq Dateschutz",
@@ -351,6 +352,11 @@
     "title": "Veloq",
     "tryDemo": "Demo aluege",
     "useApiKey": "Mit API-Schlüssu"
+  },
+  "licenses": {
+    "footer": "Tipp uf es Lizänz-Badge um dr voui Tekscht z gseh. Tipp ufs Link-Symbol um s Projekt-Repository z bsueche.",
+    "intro": "Veloq isch mit Open-Source-Software bout. Die Site zeigt d Drittabieter-Bibliotheke u ihri Lizänze.",
+    "title": "Drittabieter-Lizänze"
   },
   "mapScreen": {
     "loadingActivities": "Bim Lade...",

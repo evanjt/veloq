@@ -10,9 +10,10 @@
     "intervalsTerms": "intervals.icu Terms of Service",
     "mapAttribution": "Map tiles provided by OpenStreetMap, Carto, and Stadia Maps. Map data copyright OpenStreetMap contributors.",
     "mapData": "Map Data",
-    "openSource": "Open Source License (Apache 2.0)",
-    "sourceCode": "Source Code",
-    "title": "About & Legal",
+    "openSource": "Licenza Open Source (Apache 2.0)",
+    "sourceCode": "Codice Sorgente",
+    "thirdPartyLicenses": "Licenze di Terze Parti",
+    "title": "Informazioni e Note Legali",
     "tracematchSource": "Tracematch Source Code",
     "veloqPrivacy": "Veloq Privacy Policy",
     "version": "Version"
@@ -358,7 +359,12 @@
     "termsOfService": "Terms of Service",
     "title": "Veloq",
     "tryDemo": "Prova Demo",
-    "useApiKey": "Use API Key instead"
+    "useApiKey": "Usa chiave API"
+  },
+  "licenses": {
+    "footer": "Tocca qualsiasi badge di licenza per vedere il testo completo. Tocca l'icona del link per visitare il repository del progetto.",
+    "intro": "Veloq e costruito con software open-source. Questa schermata elenca le librerie di terze parti e le loro licenze.",
+    "title": "Licenze di Terze Parti"
   },
   "mapScreen": {
     "loadingActivities": "Caricamento attivita...",

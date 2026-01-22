@@ -10,9 +10,10 @@
     "intervalsTerms": "intervals.icu Terms of Service",
     "mapAttribution": "Map tiles provided by OpenStreetMap, Carto, and Stadia Maps. Map data copyright OpenStreetMap contributors.",
     "mapData": "Map Data",
-    "openSource": "Open Source License (Apache 2.0)",
-    "sourceCode": "Source Code",
-    "title": "About & Legal",
+    "openSource": "开源许可证 (Apache 2.0)",
+    "sourceCode": "源代码",
+    "thirdPartyLicenses": "第三方许可证",
+    "title": "关于与法律",
     "tracematchSource": "Tracematch Source Code",
     "veloqPrivacy": "Veloq Privacy Policy",
     "version": "Version"
@@ -350,7 +351,12 @@
     "termsOfService": "Terms of Service",
     "title": "Veloq",
     "tryDemo": "试用演示",
-    "useApiKey": "Use API Key instead"
+    "useApiKey": "使用API密钥"
+  },
+  "licenses": {
+    "footer": "点击任何许可证徽章查看完整许可证文本。点击链接图标访问项目仓库。",
+    "intro": "Veloq使用开源软件构建。此屏幕列出了第三方库及其许可证。",
+    "title": "第三方许可证"
   },
   "mapScreen": {
     "loadingActivities": "加载活动中...",

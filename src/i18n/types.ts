@@ -361,6 +361,7 @@ export interface TranslationResource {
     veloqPrivacy: string;
     openSource: string;
     sourceCode: string;
+    thirdPartyLicenses: string;
     tracematchSource: string;
     dataAttribution: string;
     garminNote: string;
@@ -577,6 +578,12 @@ export interface TranslationResource {
     goToRoutes: string;
     generatingHeatmap: string;
     activitiesCount: string;
+  };
+
+  licenses: {
+    title: string;
+    intro: string;
+    footer: string;
   };
 
   mapScreen: {

@@ -12,6 +12,7 @@
     "mapData": "Chartdate",
     "openSource": "Open Source Lizenz (Apache 2.0)",
     "sourceCode": "Quellcode",
+    "thirdPartyLicenses": "Drittabieter-Lizenze",
     "title": "Über & Rächtlichs",
     "tracematchSource": "Tracematch Quellcode",
     "veloqPrivacy": "Veloq Dateschutz",
@@ -351,6 +352,11 @@
     "title": "Veloq",
     "tryDemo": "Demo aluege",
     "useApiKey": "Mit API-Schlüssel"
+  },
+  "licenses": {
+    "footer": "Tipp uf es Lizenz-Badge um de voll Text z gseh. Tipp ufs Link-Symbol um s Projekt-Repository z bsueche.",
+    "intro": "Veloq isch mit Open-Source-Software baut. Die Siite zeigt d Drittabieter-Bibliotheke und ihri Lizenze.",
+    "title": "Drittabieter-Lizenze"
   },
   "mapScreen": {
     "loadingActivities": "Am Lade...",

@@ -41,6 +41,30 @@ function LinkRow({ icon, label, url, isDark }: LinkRowProps) {
   );
 }
 
+interface NavRowProps {
+  icon: string;
+  label: string;
+  route: string;
+  isDark: boolean;
+}
+
+function NavRow({ icon, label, route, isDark }: NavRowProps) {
+  const handlePress = () => {
+    router.push(route as any);
+  };
+
+  const textColor = isDark ? darkColors.textPrimary : colors.textPrimary;
+  const mutedColor = isDark ? darkColors.textSecondary : colors.textSecondary;
+
+  return (
+    <TouchableOpacity style={styles.linkRow} onPress={handlePress} activeOpacity={0.7}>
+      <MaterialCommunityIcons name={icon as any} size={22} color={colors.primary} />
+      <Text style={[styles.linkText, { color: textColor }]}>{label}</Text>
+      <MaterialCommunityIcons name="chevron-right" size={22} color={mutedColor} />
+    </TouchableOpacity>
+  );
+}
+
 export default function AboutScreen() {
   const { t } = useTranslation();
   const { isDark, colors: themeColors } = useTheme();
@@ -127,6 +151,13 @@ export default function AboutScreen() {
             icon="license"
             label={t('about.openSource')}
             url={VELOQ_URLS.license}
+            isDark={isDark}
+          />
+          <View style={styles.linkDivider(isDark)} />
+          <NavRow
+            icon="file-document-multiple"
+            label={t('about.thirdPartyLicenses')}
+            route="/licenses"
             isDark={isDark}
           />
           <View style={styles.linkDivider(isDark)} />

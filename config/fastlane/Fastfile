@@ -28,7 +28,7 @@ platform :android do
       track: track,
       aab: aab_path,
       mapping: mapping_path,
-      metadata_path: "metadata/android",
+      metadata_path: File.join(__dir__, "metadata/android"),
       skip_upload_metadata: false,
       skip_upload_images: true,
       skip_upload_screenshots: true,
@@ -146,7 +146,7 @@ platform :ios do
       submit_for_review: true,
       automatic_release: true,
       force: true,
-      metadata_path: "metadata/ios"
+      metadata_path: File.join(__dir__, "metadata/ios")
     )
   end
 end
