@@ -2,8 +2,30 @@ import React from 'react';
 import { View, StyleSheet, TouchableOpacity, Text } from 'react-native';
 import { useTheme } from '@/hooks';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { colors, typography, layout, spacing } from '@/theme';
-import type { ChartConfig } from '@/lib';
+import type { ChartConfig, ChartTypeId } from '@/lib';
+
+/** Chart type translation key type */
+type ChartTypeKey =
+  | 'chartTypes.power'
+  | 'chartTypes.hr'
+  | 'chartTypes.cad'
+  | 'chartTypes.speed'
+  | 'chartTypes.pace'
+  | 'chartTypes.elev';
+
+/** Map chart IDs to translation keys */
+const CHART_LABEL_KEYS: Partial<Record<ChartTypeId, ChartTypeKey>> = {
+  power: 'chartTypes.power',
+  heartrate: 'chartTypes.hr',
+  cadence: 'chartTypes.cad',
+  speed: 'chartTypes.speed',
+  pace: 'chartTypes.pace',
+  elevation: 'chartTypes.elev',
+  altitude: 'chartTypes.elev',
+  watts: 'chartTypes.power',
+};
 
 interface ChartTypeSelectorProps {
   /** Available chart types (only those with data) */
@@ -26,6 +48,7 @@ function hexToRgba(hex: string, opacity: number): string {
 
 export function ChartTypeSelector({ available, selected, onToggle }: ChartTypeSelectorProps) {
   const { isDark } = useTheme();
+  const { t } = useTranslation();
 
   if (available.length === 0) {
     return null;
@@ -39,6 +62,9 @@ export function ChartTypeSelector({ available, selected, onToggle }: ChartTypeSe
         // Use full color when selected, faded color when unselected
         const bgColor = isSelected ? config.color : hexToRgba(config.color, isDark ? 0.25 : 0.15);
         const textColor = isSelected ? colors.textOnDark : config.color;
+        // Use translated label if available, fallback to config.label
+        const labelKey = CHART_LABEL_KEYS[config.id];
+        const label = labelKey ? (t(labelKey) as string) : config.label;
 
         return (
           <TouchableOpacity
@@ -48,7 +74,7 @@ export function ChartTypeSelector({ available, selected, onToggle }: ChartTypeSe
             activeOpacity={0.7}
           >
             <MaterialCommunityIcons name={config.icon} size={12} color={textColor} />
-            <Text style={[styles.chipLabel, { color: textColor }]}>{config.label}</Text>
+            <Text style={[styles.chipLabel, { color: textColor }]}>{label}</Text>
           </TouchableOpacity>
         );
       })}

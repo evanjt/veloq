@@ -490,6 +490,7 @@
     "legendSection": "Section",
     "legendYourEffort": "Votre effort",
     "legendFullActivity": "Activité complète",
+    "legendRoute": "Itinéraire",
     "pointCountHint": "{{count}} points GPS",
     "sectionsDescription": "Les sections sont détectées lorsque vous empruntez les mêmes routes plusieurs fois, même sur des parcours différents",
     "selected": "Sélectionné",

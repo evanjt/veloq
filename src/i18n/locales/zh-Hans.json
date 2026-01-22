@@ -490,6 +490,7 @@
     "legendSection": "路段",
     "legendYourEffort": "您的表现",
     "legendFullActivity": "完整活动",
+    "legendRoute": "路线",
     "pointCountHint": "{{count}}个GPS点",
     "sectionsDescription": "当您多次经过相同的道路时，即使在不同的路线上，也会检测到路段",
     "selected": "已选择",

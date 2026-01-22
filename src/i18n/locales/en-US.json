@@ -159,6 +159,14 @@
     "routeAnalysisComplete": "Route analysis complete",
     "syncingActivities": "Syncing activities"
   },
+  "chartTypes": {
+    "power": "Power",
+    "hr": "HR",
+    "cad": "Cad",
+    "speed": "Speed",
+    "pace": "Pace",
+    "elev": "Elev"
+  },
   "common": {
     "activities": "activities",
     "back": "Back",
@@ -477,6 +485,7 @@
     "legendSection": "Section",
     "legendYourEffort": "Your effort",
     "legendFullActivity": "Full activity",
+    "legendRoute": "Route",
     "pointCountHint": "{{count}} GPS points",
     "sectionsDescription": "Sections are detected when you travel the same roads multiple times, even on different routes",
     "selected": "Selected",

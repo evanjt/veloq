@@ -490,6 +490,7 @@
     "legendSection": "Abschnitt",
     "legendYourEffort": "Deine Leistung",
     "legendFullActivity": "Gesamte Aktivität",
+    "legendRoute": "Route",
     "pointCountHint": "{{count}} GPS-Punkte",
     "sectionsDescription": "Abschnitte werden erkannt, wenn du dieselben Straßen mehrmals befährst, auch auf verschiedenen Routen",
     "selected": "Ausgewählt",

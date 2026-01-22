@@ -159,6 +159,14 @@
     "routeAnalysisComplete": "Route analysis complete",
     "syncingActivities": "Sincronizzazione attivita"
   },
+  "chartTypes": {
+    "power": "Pot",
+    "hr": "FC",
+    "cad": "Cad",
+    "speed": "Vel",
+    "pace": "Passo",
+    "elev": "Elev"
+  },
   "common": {
     "activities": "activities",
     "back": "Indietro",
@@ -395,14 +403,14 @@
   "metrics": {
     "css": "CSS",
     "fatigue": "Affaticamento",
-    "fitness": "Forma fisica",
+    "fitness": "Forma",
     "form": "Forma",
     "ftp": "FTP",
     "hr": "FC",
     "hrv": "HRV",
     "pace": "Passo",
-    "rhr": "FC a riposo",
-    "week": "Settimana"
+    "rhr": "FCR",
+    "week": "Sett."
   },
   "navigation": {
     "activities": "Attivita",
@@ -490,6 +498,7 @@
     "legendSection": "Tratto",
     "legendYourEffort": "Il tuo sforzo",
     "legendFullActivity": "Attività completa",
+    "legendRoute": "Percorso",
     "pointCountHint": "{{count}} punti GPS",
     "sectionsDescription": "I tratti vengono rilevati quando percorri le stesse strade piu volte, anche su percorsi diversi",
     "selected": "Selezionato",
@@ -594,9 +603,9 @@
     "pauseRouteProcessing": "Sospendi elaborazione percorsi",
     "primarySport": "Sport principale",
     "primarySportHint": "Influisce sulle metriche della schermata principale e sulla visualizzazione predefinita delle statistiche.",
-    "primarySportHintCycling": "FTP shown in feed header. Performance page shows Power Curve, power zones, eFTP trend, and decoupling.",
-    "primarySportHintRunning": "Threshold pace and LTHR shown in feed header. Performance page shows Pace Curve, running power, and HR zones.",
-    "primarySportHintSwimming": "CSS (Critical Swim Speed) shown in feed header. Performance page shows Swim Pace Curve and HR zones.",
+    "primarySportHintCycling": "FTP mostrato nell'intestazione. La pagina Prestazioni mostra Curva di potenza, zone di potenza, trend eFTP e disaccoppiamento.",
+    "primarySportHintRunning": "Passo soglia e LTHR mostrati nell'intestazione. La pagina Prestazioni mostra Curva del passo, potenza di corsa e zone FC.",
+    "primarySportHintSwimming": "CSS (Velocità critica di nuoto) mostrato nell'intestazione. La pagina Prestazioni mostra Curva del passo nuoto e zone FC.",
     "reanalyseRoutes": "Rianalizza solo i percorsi",
     "routeMatching": "Corrispondenza percorsi",
     "routeMatchingDescription": "Rileva automaticamente i percorsi ripetuti dalle tue attivita",

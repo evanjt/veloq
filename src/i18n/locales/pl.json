@@ -490,6 +490,7 @@
     "legendSection": "Odcinek",
     "legendYourEffort": "Twój wysiłek",
     "legendFullActivity": "Pełna aktywność",
+    "legendRoute": "Trasa",
     "pointCountHint": "{{count}} punktów GPS",
     "sectionsDescription": "Odcinki sa wykrywane, gdy wielokrotnie przejezdzasz te same drogi, nawet na roznych trasach",
     "selected": "Wybrana",

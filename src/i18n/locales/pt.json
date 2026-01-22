@@ -490,6 +490,7 @@
     "legendSection": "Troço",
     "legendYourEffort": "O seu esforço",
     "legendFullActivity": "Atividade completa",
+    "legendRoute": "Rota",
     "pointCountHint": "{{count}} pontos GPS",
     "sectionsDescription": "Os trocos sao detetados quando percorre as mesmas estradas varias vezes, mesmo em percursos diferentes",
     "selected": "Selecionado",

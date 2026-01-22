@@ -1070,11 +1070,9 @@ export default function ActivityDetailScreen() {
                           clearTimeout(highlightTimeoutRef.current);
                           highlightTimeoutRef.current = null;
                         }
-                        // If not in drag mode, clear highlight immediately
-                        if (!isDraggingRef.current) {
-                          setHighlightedSectionId(null);
-                        }
-                        // If in drag mode, touch end handler will clear it
+                        // Always clear highlight and drag state on release
+                        isDraggingRef.current = false;
+                        setHighlightedSectionId(null);
                       }}
                       activeOpacity={0.7}
                     >
@@ -1201,11 +1199,9 @@ export default function ActivityDetailScreen() {
                           clearTimeout(highlightTimeoutRef.current);
                           highlightTimeoutRef.current = null;
                         }
-                        // If not in drag mode, clear highlight immediately
-                        if (!isDraggingRef.current) {
-                          setHighlightedSectionId(null);
-                        }
-                        // If in drag mode, touch end handler will clear it
+                        // Always clear highlight and drag state on release
+                        isDraggingRef.current = false;
+                        setHighlightedSectionId(null);
                       }}
                       onPress={() => {
                         // Only navigate if it was a quick tap, not a long press

@@ -651,6 +651,7 @@ export interface TranslationResource {
     legendSection: string;
     legendYourEffort: string;
     legendFullActivity: string;
+    legendRoute: string;
     pointCountHint: string;
     overDays: string;
     overMonths: string;
@@ -731,6 +732,15 @@ export interface TranslationResource {
     analyzingRoutes: string;
     analyzingRoutesProgress: string;
     routeAnalysisComplete: string;
+  };
+
+  chartTypes: {
+    power: string;
+    hr: string;
+    cad: string;
+    speed: string;
+    pace: string;
+    elev: string;
   };
 
   activityDetail: {

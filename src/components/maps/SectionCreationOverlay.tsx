@@ -1,10 +1,19 @@
 /**
  * Overlay component for creating custom sections on an activity map.
- * Handles tap-to-select start/end points and displays visual feedback.
+ * Compact bottom bar design that maximizes map visibility.
  */
 
-import React from 'react';
-import { View, StyleSheet, TouchableOpacity, Text } from 'react-native';
+import React, { useState } from 'react';
+import {
+  View,
+  StyleSheet,
+  TouchableOpacity,
+  Text,
+  Animated,
+  LayoutAnimation,
+  Platform,
+  UIManager,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -12,6 +21,11 @@ import { colors } from '@/theme/colors';
 import { typography } from '@/theme/typography';
 import { spacing, layout } from '@/theme/spacing';
 import { shadows } from '@/theme/shadows';
+
+// Enable LayoutAnimation on Android
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 
 export type CreationState = 'idle' | 'selectingStart' | 'selectingEnd' | 'confirming' | 'complete';
 
@@ -42,15 +56,15 @@ interface SectionCreationOverlayProps {
  */
 function getSectionSizeColor(distanceMeters: number | null): string {
   if (distanceMeters === null) return colors.primary;
-  if (distanceMeters < 10000) return colors.success; // Green: <10km
-  if (distanceMeters < 30000) return '#FFC107'; // Yellow: 10-30km
-  if (distanceMeters < 50000) return '#FF9800'; // Orange: 30-50km
-  return colors.error; // Red: >50km
+  if (distanceMeters < 10000) return colors.success;
+  if (distanceMeters < 30000) return '#FFC107';
+  if (distanceMeters < 50000) return '#FF9800';
+  return colors.error;
 }
 
 /**
- * Overlay UI for section creation mode.
- * Shows instructions, selection status, and confirm/cancel buttons.
+ * Compact bottom bar overlay for section creation.
+ * Shows status pill in center with action buttons on sides.
  */
 export function SectionCreationOverlay({
   state,
@@ -65,18 +79,7 @@ export function SectionCreationOverlay({
 }: SectionCreationOverlayProps) {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
-
-  const getInstructions = () => {
-    switch (state) {
-      case 'idle':
-      case 'selectingStart':
-        return t('maps.tapSelectStart' as never);
-      case 'selectingEnd':
-        return t('maps.tapSelectEnd' as never);
-      case 'complete':
-        return t('maps.sectionSelected' as never);
-    }
-  };
+  const [expanded, setExpanded] = useState(false);
 
   const formatDistance = (meters: number) => {
     if (meters >= 1000) {
@@ -85,82 +88,132 @@ export function SectionCreationOverlay({
     return `${Math.round(meters)} m`;
   };
 
+  const getStatusIcon = (): keyof typeof MaterialCommunityIcons.glyphMap => {
+    switch (state) {
+      case 'idle':
+      case 'selectingStart':
+        return 'flag-outline';
+      case 'selectingEnd':
+        return 'flag-checkered';
+      case 'complete':
+        return 'check-circle';
+      default:
+        return 'flag-outline';
+    }
+  };
+
+  const getStatusText = () => {
+    switch (state) {
+      case 'idle':
+      case 'selectingStart':
+        return t('maps.tapSelectStart' as never);
+      case 'selectingEnd':
+        return t('maps.tapSelectEnd' as never);
+      case 'complete':
+        if (sectionDistance !== null) {
+          return formatDistance(sectionDistance);
+        }
+        return t('maps.sectionSelected' as never);
+      default:
+        return '';
+    }
+  };
+
   const getProgress = () => {
-    if (startIndex === null) return null;
+    if (startIndex === null || coordinateCount === 0) return null;
     const startPercent = ((startIndex / coordinateCount) * 100).toFixed(0);
     if (endIndex === null) {
-      return t('maps.startPercent' as never, { percent: startPercent });
+      return `${startPercent}%`;
     }
     const endPercent = ((endIndex / coordinateCount) * 100).toFixed(0);
-    return t('maps.rangePercent' as never, {
-      start: startPercent,
-      end: endPercent,
-    });
+    return `${startPercent}% - ${endPercent}%`;
   };
+
+  const toggleExpanded = () => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setExpanded(!expanded);
+  };
+
+  const isComplete = state === 'complete';
+  const hasSelection = startIndex !== null;
+  const statusColor = isComplete ? getSectionSizeColor(sectionDistance) : colors.primary;
 
   return (
     <View style={styles.container} pointerEvents="box-none">
-      {/* Top instruction banner - positioned below Dynamic Island/notch */}
-      <View style={[styles.instructionBanner, { marginTop: insets.top }]}>
-        <View style={styles.instructionContent}>
-          <MaterialCommunityIcons
-            name={state === 'complete' ? 'check-circle' : 'gesture-tap'}
-            size={20}
-            color={state === 'complete' ? colors.success : colors.primary}
-          />
-          <Text style={styles.instructionText}>{getInstructions()}</Text>
-        </View>
-        {getProgress() && <Text style={styles.progressText}>{getProgress()}</Text>}
-        {sectionDistance !== null && startIndex !== null && (
-          <View style={styles.distanceContainer}>
-            <Text style={[styles.distanceText, { color: getSectionSizeColor(sectionDistance) }]}>
-              {formatDistance(sectionDistance)}
-            </Text>
-            {sectionPointCount !== null && sectionPointCount > 500 && (
-              <Text style={styles.pointCountHint}>
-                {t('routes.pointCountHint', { count: sectionPointCount })}
-              </Text>
-            )}
-          </View>
-        )}
-      </View>
-
-      {/* Bottom action buttons */}
-      <View style={styles.actionContainer}>
+      {/* Compact bottom bar */}
+      <View style={[styles.bottomBar, { paddingBottom: Math.max(insets.bottom, spacing.sm) }]}>
         {/* Cancel button */}
         <TouchableOpacity
-          style={[styles.actionButton, styles.cancelButton]}
+          style={[styles.iconButton, styles.cancelButton]}
           onPress={onCancel}
           activeOpacity={0.8}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
-          <MaterialCommunityIcons name="close" size={24} color={colors.textOnDark} />
-          <Text style={styles.buttonText}>{t('common.cancel')}</Text>
+          <MaterialCommunityIcons name="close" size={22} color={colors.textOnDark} />
         </TouchableOpacity>
 
-        {/* Reset button - only show when we have a selection */}
-        {startIndex !== null && (
-          <TouchableOpacity
-            style={[styles.actionButton, styles.resetButton]}
-            onPress={onReset}
-            activeOpacity={0.8}
-          >
-            <MaterialCommunityIcons name="refresh" size={24} color={colors.textSecondary} />
-            <Text style={[styles.buttonText, styles.resetButtonText]}>
-              {t('common.reset' as never)}
+        {/* Center status pill - expandable */}
+        <TouchableOpacity
+          style={[styles.statusPill, expanded && styles.statusPillExpanded]}
+          onPress={toggleExpanded}
+          activeOpacity={0.9}
+        >
+          <View style={styles.statusRow}>
+            <MaterialCommunityIcons name={getStatusIcon()} size={18} color={statusColor} />
+            <Text style={[styles.statusText, isComplete && { color: statusColor }]}>
+              {getStatusText()}
             </Text>
-          </TouchableOpacity>
-        )}
+            {(hasSelection || isComplete) && (
+              <MaterialCommunityIcons
+                name={expanded ? 'chevron-down' : 'chevron-up'}
+                size={16}
+                color={colors.textSecondary}
+              />
+            )}
+          </View>
 
-        {/* Confirm button - only show when complete */}
-        {state === 'complete' && (
+          {/* Expanded details */}
+          {expanded && hasSelection && (
+            <View style={styles.expandedContent}>
+              {getProgress() && (
+                <View style={styles.detailRow}>
+                  <MaterialCommunityIcons name="percent" size={14} color={colors.textSecondary} />
+                  <Text style={styles.detailText}>{getProgress()}</Text>
+                </View>
+              )}
+              {sectionPointCount !== null && (
+                <View style={styles.detailRow}>
+                  <MaterialCommunityIcons
+                    name="map-marker-multiple"
+                    size={14}
+                    color={colors.textSecondary}
+                  />
+                  <Text style={styles.detailText}>
+                    {t('routes.pointCountHint', { count: sectionPointCount })}
+                  </Text>
+                </View>
+              )}
+              {/* Reset option in expanded view */}
+              <TouchableOpacity style={styles.resetRow} onPress={onReset}>
+                <MaterialCommunityIcons name="refresh" size={14} color={colors.primary} />
+                <Text style={styles.resetText}>{t('common.reset' as never)}</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </TouchableOpacity>
+
+        {/* Create button - only when complete */}
+        {isComplete ? (
           <TouchableOpacity
-            style={[styles.actionButton, styles.confirmButton]}
+            style={[styles.iconButton, styles.confirmButton]}
             onPress={onConfirm}
             activeOpacity={0.8}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            <MaterialCommunityIcons name="check" size={24} color={colors.textOnDark} />
-            <Text style={styles.buttonText}>{t('common.create' as never)}</Text>
+            <MaterialCommunityIcons name="check" size={22} color={colors.textOnDark} />
           </TouchableOpacity>
+        ) : (
+          <View style={styles.iconButtonPlaceholder} />
         )}
       </View>
     </View>
@@ -170,75 +223,86 @@ export function SectionCreationOverlay({
 const styles = StyleSheet.create({
   container: {
     ...StyleSheet.absoluteFillObject,
-    justifyContent: 'space-between',
-    padding: spacing.md,
+    justifyContent: 'flex-end',
     zIndex: 200,
   },
-  instructionBanner: {
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-    borderRadius: layout.borderRadius,
-    padding: spacing.md,
-    alignItems: 'center',
-    ...shadows.modal,
-  },
-  instructionContent: {
+  bottomBar: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.sm,
     gap: spacing.sm,
   },
-  instructionText: {
-    ...typography.body,
-    fontWeight: '600',
-    color: colors.textPrimary,
-  },
-  progressText: {
-    ...typography.caption,
-    color: colors.textSecondary,
-    marginTop: spacing.xs,
-  },
-  distanceContainer: {
+  iconButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center',
-    marginTop: spacing.xs,
-  },
-  distanceText: {
-    ...typography.body,
-    fontWeight: '700',
-    color: colors.primary,
-  },
-  pointCountHint: {
-    ...typography.caption,
-    color: colors.textSecondary,
-    marginTop: 2,
-  },
-  actionContainer: {
-    flexDirection: 'row',
     justifyContent: 'center',
-    gap: spacing.md,
-  },
-  actionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderRadius: layout.borderRadius,
     ...shadows.elevated,
+  },
+  iconButtonPlaceholder: {
+    width: 44,
+    height: 44,
   },
   cancelButton: {
     backgroundColor: colors.error,
   },
-  resetButton: {
-    backgroundColor: colors.surface,
-  },
   confirmButton: {
     backgroundColor: colors.success,
   },
-  buttonText: {
+  statusPill: {
+    flex: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    borderRadius: 22,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    minHeight: 44,
+    justifyContent: 'center',
+    ...shadows.elevated,
+  },
+  statusPillExpanded: {
+    borderRadius: layout.borderRadius,
+  },
+  statusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+  },
+  statusText: {
     ...typography.body,
     fontWeight: '600',
-    color: colors.textOnDark,
+    color: colors.textPrimary,
   },
-  resetButtonText: {
+  expandedContent: {
+    marginTop: spacing.sm,
+    paddingTop: spacing.sm,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+    gap: spacing.xs,
+  },
+  detailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  detailText: {
+    ...typography.caption,
     color: colors.textSecondary,
+  },
+  resetRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    marginTop: spacing.xs,
+    paddingVertical: spacing.xs,
+  },
+  resetText: {
+    ...typography.caption,
+    color: colors.primary,
+    fontWeight: '600',
   },
 });

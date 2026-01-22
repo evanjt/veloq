@@ -490,6 +490,7 @@
     "legendSection": "Section",
     "legendYourEffort": "Your effort",
     "legendFullActivity": "Full activity",
+    "legendRoute": "Route",
     "pointCountHint": "{{count}} GPS points",
     "sectionsDescription": "Sections are detected when you travel the same roads multiple times, even on different routes",
     "selected": "Selected",

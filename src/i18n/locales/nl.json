@@ -490,6 +490,7 @@
     "legendSection": "Sectie",
     "legendYourEffort": "Jouw inspanning",
     "legendFullActivity": "Volledige activiteit",
+    "legendRoute": "Route",
     "pointCountHint": "{{count}} GPS-punten",
     "sectionsDescription": "Secties worden gedetecteerd wanneer je dezelfde wegen meerdere keren aflegt, zelfs op verschillende routes",
     "selected": "Geselecteerd",

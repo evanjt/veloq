@@ -490,6 +490,7 @@
     "legendSection": "区間",
     "legendYourEffort": "あなたの実績",
     "legendFullActivity": "全アクティビティ",
+    "legendRoute": "ルート",
     "pointCountHint": "{{count}} GPSポイント",
     "sectionsDescription": "異なるルートでも同じ道を複数回通ると区間が検出されます",
     "selected": "選択中",

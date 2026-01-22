@@ -912,35 +912,7 @@ export function ActivityMapView({
               />
             </ShapeSource>
 
-            {/* Section overlays - render all matched sections */}
-            {/* CRITICAL: Always render stable ShapeSources to avoid Fabric crash */}
-            {/* Using consolidated GeoJSONs prevents add/remove cycles during state changes */}
-            <ShapeSource id="section-overlays-consolidated" shape={consolidatedSectionsGeoJSON}>
-              <LineLayer
-                id="section-overlays-line"
-                style={{
-                  lineColor: colors.secondary,
-                  lineWidth: 6,
-                  lineCap: 'round',
-                  lineJoin: 'round',
-                  lineOpacity: sectionOverlaysGeoJSON ? 0.7 : 0,
-                }}
-              />
-            </ShapeSource>
-            <ShapeSource id="portion-overlays-consolidated" shape={consolidatedPortionsGeoJSON}>
-              <LineLayer
-                id="portion-overlays-line"
-                style={{
-                  lineColor: '#E91E63',
-                  lineWidth: 4,
-                  lineCap: 'round',
-                  lineJoin: 'round',
-                  lineOpacity: sectionOverlaysGeoJSON ? 1 : 0,
-                }}
-              />
-            </ShapeSource>
-
-            {/* Route line - slightly fade when showing section overlays */}
+            {/* Route line - render first so section overlays appear on top */}
             {/* CRITICAL: Always render ShapeSource to avoid add/remove cycles that crash iOS MapLibre */}
             <ShapeSource id="routeSource" shape={routeGeoJSON}>
               <LineLayer
@@ -951,6 +923,50 @@ export function ActivityMapView({
                   lineCap: 'round',
                   lineJoin: 'round',
                   lineOpacity: sectionOverlaysGeoJSON ? 0.8 : overlayHasData ? 0.85 : 1,
+                }}
+              />
+            </ShapeSource>
+
+            {/* Section overlays - render after route line so they appear on top */}
+            {/* CRITICAL: Always render stable ShapeSources to avoid Fabric crash */}
+            {/* Using consolidated GeoJSONs prevents add/remove cycles during state changes */}
+            <ShapeSource id="section-overlays-consolidated" shape={consolidatedSectionsGeoJSON}>
+              <LineLayer
+                id="section-overlays-line"
+                style={{
+                  lineColor: highlightedSectionId
+                    ? ['case', ['==', ['get', 'id'], highlightedSectionId], '#F59E0B', '#DC2626']
+                    : '#DC2626',
+                  lineWidth: highlightedSectionId
+                    ? ['case', ['==', ['get', 'id'], highlightedSectionId], 8, 6]
+                    : 6,
+                  lineCap: 'round',
+                  lineJoin: 'round',
+                  lineOpacity: sectionOverlaysGeoJSON
+                    ? highlightedSectionId
+                      ? ['case', ['==', ['get', 'id'], highlightedSectionId], 1, 0.4]
+                      : 0.8
+                    : 0,
+                }}
+              />
+            </ShapeSource>
+            <ShapeSource id="portion-overlays-consolidated" shape={consolidatedPortionsGeoJSON}>
+              <LineLayer
+                id="portion-overlays-line"
+                style={{
+                  lineColor: highlightedSectionId
+                    ? ['case', ['==', ['get', 'id'], highlightedSectionId], '#F59E0B', '#DC2626']
+                    : '#DC2626',
+                  lineWidth: highlightedSectionId
+                    ? ['case', ['==', ['get', 'id'], highlightedSectionId], 6, 4]
+                    : 4,
+                  lineCap: 'round',
+                  lineJoin: 'round',
+                  lineOpacity: sectionOverlaysGeoJSON
+                    ? highlightedSectionId
+                      ? ['case', ['==', ['get', 'id'], highlightedSectionId], 1, 0.4]
+                      : 1
+                    : 0,
                 }}
               />
             </ShapeSource>
@@ -1150,11 +1166,11 @@ export function ActivityMapView({
           <View style={styles.overlayLegend}>
             <View style={styles.legendRow}>
               <View style={[styles.legendLine, { backgroundColor: '#00E5FF' }]} />
-              <Text style={styles.legendText}>Route</Text>
+              <Text style={styles.legendText}>{t('routes.legendRoute')}</Text>
             </View>
             <View style={styles.legendRow}>
               <View style={[styles.legendLine, { backgroundColor: activityColor }]} />
-              <Text style={styles.legendText}>This activity</Text>
+              <Text style={styles.legendText}>{t('routes.thisActivity')}</Text>
             </View>
           </View>
         )}
@@ -1269,11 +1285,11 @@ export function ActivityMapView({
             <LineLayer
               id="fs-section-overlays-line"
               style={{
-                lineColor: colors.secondary,
+                lineColor: '#DC2626',
                 lineWidth: 6,
                 lineCap: 'round',
                 lineJoin: 'round',
-                lineOpacity: sectionOverlaysGeoJSON ? 0.7 : 0,
+                lineOpacity: sectionOverlaysGeoJSON ? 0.8 : 0,
               }}
             />
           </ShapeSource>
@@ -1281,7 +1297,7 @@ export function ActivityMapView({
             <LineLayer
               id="fs-portion-overlays-line"
               style={{
-                lineColor: '#E91E63',
+                lineColor: '#DC2626',
                 lineWidth: 4,
                 lineCap: 'round',
                 lineJoin: 'round',

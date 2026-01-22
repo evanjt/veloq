@@ -490,6 +490,7 @@
     "legendSection": "Sektion",
     "legendYourEffort": "Din indsats",
     "legendFullActivity": "Fuld aktivitet",
+    "legendRoute": "Rute",
     "pointCountHint": "{{count}} GPS-punkter",
     "sectionsDescription": "Sektioner registreres, når du rejser de samme veje flere gange, selv på forskellige ruter",
     "selected": "Valgt",
