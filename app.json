@@ -56,6 +56,7 @@
       "./src/plugins/with-release-signing",
       "./src/plugins/with-packaging-options",
       "./src/plugins/with-route-matcher-native",
+      "./src/plugins/with-r8-config",
       "@config-plugins/detox",
       "expo-router",
       "expo-localization",

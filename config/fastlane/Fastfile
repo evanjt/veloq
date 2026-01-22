@@ -9,15 +9,25 @@ platform :android do
   lane :deploy do |options|
     track = options[:track] || "internal"
     aab_path = options[:aab]
+    mapping_path = options[:mapping]
 
     UI.user_error!("No AAB file specified. Use aab:<path>") unless aab_path
     UI.user_error!("AAB file not found: #{aab_path}") unless File.exist?(aab_path)
 
+    # Auto-detect mapping file if not specified (R8 generates this during release builds)
+    if mapping_path.nil?
+      project_root = File.expand_path("../..", __dir__)
+      default_mapping = File.join(project_root, "android/app/build/outputs/mapping/release/mapping.txt")
+      mapping_path = default_mapping if File.exist?(default_mapping)
+    end
+
     UI.message("Uploading #{aab_path} to #{track} track...")
+    UI.message("Mapping file: #{mapping_path || 'none'}") if mapping_path
 
     supply(
       track: track,
       aab: aab_path,
+      mapping: mapping_path,
       skip_upload_metadata: false,
       skip_upload_images: true,
       skip_upload_screenshots: true,
