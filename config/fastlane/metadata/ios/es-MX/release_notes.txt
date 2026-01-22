@@ -1,5 +1,8 @@
-Novedades en 0.0.6:
+Novedades en 0.0.7:
 
-- Corregido el fallo de iOS al ver actividades con datos GPS inválidos
-- Mejora de la estabilidad del mapa en todas las vistas
-- Validación GeoJSON mejorada para prevenir fallos
+- Corregidos varios fallos en iOS (botón de ubicación, gráficos a pantalla completa, creación de secciones)
+- Añadido interruptor de actividades en la vista de mapa regional
+- Nuevas opciones de mapa aéreo/satélite
+- Creación de secciones personalizadas con leyenda del mapa
+- Mejorada la estabilidad al cambiar estados del mapa
+- Reducidos los requisitos de puntos GPS para crear secciones

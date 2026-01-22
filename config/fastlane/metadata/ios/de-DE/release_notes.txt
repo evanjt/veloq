@@ -1,5 +1,8 @@
-Neu in 0.0.6:
+Neu in 0.0.7:
 
-- iOS-Absturz beim Anzeigen von Aktivitäten mit ungültigen GPS-Daten behoben
-- Verbesserte Kartenstabilität in allen Kartenansichten
-- Verbesserte GeoJSON-Validierung zur Vermeidung von Abstürzen
+- Mehrere iOS-Abstürze behoben (Standort-Button, Vollbild-Diagramme, Abschnitterstellung)
+- Aktivitäten-Umschalter in der regionalen Kartenansicht hinzugefügt
+- Neue Luftbild-/Satellitenkartenoptionen
+- Benutzerdefinierte Abschnitterstellung mit Kartenlegende
+- Verbesserte Stabilität beim Wechseln der Kartenzustände
+- Reduzierte GPS-Punktanforderungen für Abschnitterstellung

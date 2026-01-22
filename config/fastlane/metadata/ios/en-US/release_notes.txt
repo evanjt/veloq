@@ -1,5 +1,8 @@
-What's new in 0.0.6:
+What's new in 0.0.7:
 
-- Fixed iOS crash when viewing activities with invalid GPS data
-- Improved map stability across all map views
-- Enhanced GeoJSON validation to prevent crashes
+- Fixed multiple iOS crashes (location button, fullscreen charts, section creation)
+- Added activity toggle in regional map view
+- New aerial/satellite basemap options
+- Custom section creation with map legend
+- Improved stability when switching map states
+- Relaxed GPS point requirements for section creation
