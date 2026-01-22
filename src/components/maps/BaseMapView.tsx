@@ -232,13 +232,15 @@ export function BaseMapView({
   // Build route GeoJSON
   // GeoJSON LineString requires minimum 2 coordinates - invalid data causes iOS crash:
   // -[__NSArrayM insertObject:atIndex:]: object cannot be nil (MLRNMapView.m:207)
-  const routeGeoJSON = useMemo(() => {
-    if (!routeCoordinates || routeCoordinates.length < 2) return null;
+  // CRITICAL: Always return valid GeoJSON to avoid iOS MapLibre crash during view reconciliation
+  const routeGeoJSON = useMemo((): GeoJSON.FeatureCollection | GeoJSON.Feature => {
+    const emptyCollection: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: [] };
+    if (!routeCoordinates || routeCoordinates.length < 2) return emptyCollection;
     // Filter out NaN/Infinity coordinates
     const validCoords = routeCoordinates.filter(
       ([lng, lat]) => Number.isFinite(lng) && Number.isFinite(lat)
     );
-    if (validCoords.length < 2) return null;
+    if (validCoords.length < 2) return emptyCollection;
     return {
       type: 'Feature' as const,
       properties: {},
@@ -393,20 +395,18 @@ export function BaseMapView({
             animationDuration={0}
           />
 
-          {/* Route line */}
-          {routeGeoJSON && (
-            <ShapeSource id="routeSource" shape={routeGeoJSON}>
-              <LineLayer
-                id="routeLine"
-                style={{
-                  lineColor: routeColor,
-                  lineWidth: 4,
-                  lineCap: 'round',
-                  lineJoin: 'round',
-                }}
-              />
-            </ShapeSource>
-          )}
+          {/* Route line - CRITICAL: Always render to avoid iOS crash */}
+          <ShapeSource id="routeSource" shape={routeGeoJSON}>
+            <LineLayer
+              id="routeLine"
+              style={{
+                lineColor: routeColor,
+                lineWidth: 4,
+                lineCap: 'round',
+                lineJoin: 'round',
+              }}
+            />
+          </ShapeSource>
 
           {/* Custom children (markers, etc.) - filter null to prevent iOS crash */}
           {React.Children.toArray(children).filter(Boolean)}

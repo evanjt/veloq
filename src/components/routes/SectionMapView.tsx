@@ -112,15 +112,18 @@ export const SectionMapView = memo(function SectionMapView({
   const bounds = useMemo(() => getBoundsFromPoints(displayPoints, 0.15), [displayPoints]);
 
   // Create GeoJSON for the section polyline
-  // GeoJSON LineString requires minimum 2 coordinates - invalid data causes iOS crash:
-  // -[__NSArrayM insertObject:atIndex:]: object cannot be nil (MLRNMapView.m:207)
-  const sectionGeoJSON = useMemo(() => {
+  // CRITICAL: Always return valid GeoJSON to avoid iOS MapLibre crash during view reconciliation
+  // Empty FeatureCollection is safe - LineLayer just doesn't render anything
+  const emptyCollection: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: [] };
+
+  // GeoJSON LineString requires minimum 2 coordinates
+  const sectionGeoJSON = useMemo((): GeoJSON.FeatureCollection | GeoJSON.Feature => {
     // Filter out NaN/Infinity coordinates
     const validPoints = displayPoints.filter(
       (p) => Number.isFinite(p.lat) && Number.isFinite(p.lng)
     );
     // LineString requires at least 2 valid coordinates
-    if (validPoints.length < 2) return null;
+    if (validPoints.length < 2) return emptyCollection;
     return {
       type: 'Feature' as const,
       properties: {},
@@ -132,14 +135,13 @@ export const SectionMapView = memo(function SectionMapView({
   }, [displayPoints]);
 
   // Create GeoJSON for the shadow track (full activity route)
-  // Filter NaN/Infinity to prevent iOS MapLibre crash
-  const shadowGeoJSON = useMemo(() => {
-    if (!shadowTrack || shadowTrack.length < 2) return null;
+  const shadowGeoJSON = useMemo((): GeoJSON.FeatureCollection | GeoJSON.Feature => {
+    if (!shadowTrack || shadowTrack.length < 2) return emptyCollection;
     // Filter out NaN/Infinity coordinates
     const validCoords = shadowTrack.filter(
       ([lat, lng]) => Number.isFinite(lat) && Number.isFinite(lng)
     );
-    if (validCoords.length < 2) return null;
+    if (validCoords.length < 2) return emptyCollection;
     return {
       type: 'Feature' as const,
       properties: {},
@@ -151,10 +153,8 @@ export const SectionMapView = memo(function SectionMapView({
   }, [shadowTrack]);
 
   // Create FeatureCollection with ALL activity traces for fast scrubbing
-  // This is computed once when allActivityTraces changes, not on each highlight change
-  // Filter NaN/Infinity coordinates to prevent iOS MapLibre crash
-  const allTracesFeatureCollection = useMemo(() => {
-    if (!allActivityTraces || Object.keys(allActivityTraces).length === 0) return null;
+  const allTracesFeatureCollection = useMemo((): GeoJSON.FeatureCollection => {
+    if (!allActivityTraces || Object.keys(allActivityTraces).length === 0) return emptyCollection;
 
     const features = Object.entries(allActivityTraces)
       .map(([activityId, points]) => {
@@ -174,28 +174,24 @@ export const SectionMapView = memo(function SectionMapView({
       })
       .filter((f): f is NonNullable<typeof f> => f !== null);
 
-    if (features.length === 0) return null;
-
-    return {
-      type: 'FeatureCollection' as const,
-      features,
-    };
+    return { type: 'FeatureCollection', features };
   }, [allActivityTraces]);
 
+  // Helper to check if allTracesFeatureCollection has data
+  const hasAllTraces = allTracesFeatureCollection.features.length > 0;
+
   // Filter expression to show only the highlighted activity trace
-  // This is a lightweight update - MapLibre only changes visibility, no geometry re-processing
   const highlightedTraceFilter = useMemo((): Expression | undefined => {
-    if (!highlightedActivityId || !allTracesFeatureCollection) return undefined;
+    if (!highlightedActivityId || !hasAllTraces) return undefined;
     // MapLibre expression: ["==", ["get", "activityId"], "some-id"]
     return ['==', ['get', 'activityId'], highlightedActivityId];
-  }, [highlightedActivityId, allTracesFeatureCollection]);
+  }, [highlightedActivityId, hasAllTraces]);
 
   // Create GeoJSON for highlighted trace (activity being scrubbed)
   // This is the fallback when allActivityTraces is not provided
-  // Filter NaN/Infinity coordinates to prevent iOS MapLibre crash
-  const highlightedTraceGeoJSON = useMemo(() => {
+  const highlightedTraceGeoJSON = useMemo((): GeoJSON.FeatureCollection | GeoJSON.Feature => {
     // If we have pre-loaded traces, use the filter approach instead
-    if (allTracesFeatureCollection) return null;
+    if (hasAllTraces) return emptyCollection;
 
     // Lap points take precedence
     if (highlightedLapPoints && highlightedLapPoints.length > 1) {
@@ -203,7 +199,7 @@ export const SectionMapView = memo(function SectionMapView({
       const validPoints = highlightedLapPoints.filter(
         (p) => Number.isFinite(p.lat) && Number.isFinite(p.lng)
       );
-      if (validPoints.length < 2) return null;
+      if (validPoints.length < 2) return emptyCollection;
       return {
         type: 'Feature' as const,
         properties: { id: 'highlighted-lap' },
@@ -222,7 +218,7 @@ export const SectionMapView = memo(function SectionMapView({
         const validPoints = activityTrace.filter(
           (p) => Number.isFinite(p.lat) && Number.isFinite(p.lng)
         );
-        if (validPoints.length < 2) return null;
+        if (validPoints.length < 2) return emptyCollection;
         return {
           type: 'Feature' as const,
           properties: { id: highlightedActivityId },
@@ -234,23 +230,17 @@ export const SectionMapView = memo(function SectionMapView({
       }
     }
 
-    return null;
-  }, [
-    highlightedActivityId,
-    highlightedLapPoints,
-    section.activityTraces,
-    allTracesFeatureCollection,
-  ]);
+    return emptyCollection;
+  }, [highlightedActivityId, highlightedLapPoints, section.activityTraces, hasAllTraces]);
 
   // GeoJSON for highlighted lap points (when scrubbing shows specific lap portion)
-  // Filter NaN/Infinity coordinates to prevent iOS MapLibre crash
-  const highlightedLapGeoJSON = useMemo(() => {
-    if (!highlightedLapPoints || highlightedLapPoints.length < 2) return null;
+  const highlightedLapGeoJSON = useMemo((): GeoJSON.FeatureCollection | GeoJSON.Feature => {
+    if (!highlightedLapPoints || highlightedLapPoints.length < 2) return emptyCollection;
     // Filter out NaN/Infinity coordinates
     const validPoints = highlightedLapPoints.filter(
       (p) => Number.isFinite(p.lat) && Number.isFinite(p.lng)
     );
-    if (validPoints.length < 2) return null;
+    if (validPoints.length < 2) return emptyCollection;
     return {
       type: 'Feature' as const,
       properties: { id: 'highlighted-lap' },
@@ -302,84 +292,78 @@ export const SectionMapView = memo(function SectionMapView({
       />
 
       {/* Shadow track (full activity route) */}
-      {shadowGeoJSON && (
-        <ShapeSource id="shadowSource" shape={shadowGeoJSON}>
-          <LineLayer
-            id="shadowLine"
-            style={{
-              lineColor: colors.gray500, // Neutral gray - distinct from section color
-              lineOpacity: 0.5,
-              lineWidth: 3,
-              lineCap: 'round',
-              lineJoin: 'round',
-            }}
-          />
-        </ShapeSource>
-      )}
+      {/* CRITICAL: Always render all ShapeSources to avoid iOS crash during view reconciliation */}
+      {/* Shadow track (full activity route) */}
+      <ShapeSource id="shadowSource" shape={shadowGeoJSON}>
+        <LineLayer
+          id="shadowLine"
+          style={{
+            lineColor: colors.gray500,
+            lineOpacity: 0.5,
+            lineWidth: 3,
+            lineCap: 'round',
+            lineJoin: 'round',
+          }}
+        />
+      </ShapeSource>
 
       {/* Section polyline */}
-      {sectionGeoJSON && (
-        <ShapeSource id="sectionSource" shape={sectionGeoJSON}>
-          <LineLayer
-            id="sectionLine"
-            style={{
-              lineColor: activityColor,
-              lineOpacity: sectionOpacity,
-              lineWidth: 4,
-              lineCap: 'round',
-              lineJoin: 'round',
-            }}
-          />
-        </ShapeSource>
-      )}
+      <ShapeSource id="sectionSource" shape={sectionGeoJSON}>
+        <LineLayer
+          id="sectionLine"
+          style={{
+            lineColor: activityColor,
+            lineOpacity: sectionOpacity,
+            lineWidth: 4,
+            lineCap: 'round',
+            lineJoin: 'round',
+          }}
+        />
+      </ShapeSource>
 
-      {/* Pre-loaded activity traces with filter - SKIP during scrubbing to avoid lag */}
-      {!isScrubbing && allTracesFeatureCollection && highlightedTraceFilter && (
-        <ShapeSource id="allTracesSource" shape={allTracesFeatureCollection}>
-          <LineLayer
-            id="allTracesLine"
-            filter={highlightedTraceFilter}
-            style={{
-              lineColor: colors.chartCyan,
-              lineWidth: 4,
-              lineCap: 'round',
-              lineJoin: 'round',
-            }}
-          />
-        </ShapeSource>
-      )}
+      {/* Pre-loaded activity traces with filter */}
+      <ShapeSource id="allTracesSource" shape={allTracesFeatureCollection}>
+        <LineLayer
+          id="allTracesLine"
+          filter={highlightedTraceFilter}
+          style={{
+            lineColor: colors.chartCyan,
+            lineWidth: 4,
+            lineCap: 'round',
+            lineJoin: 'round',
+            lineOpacity: !isScrubbing && hasAllTraces && highlightedTraceFilter ? 1 : 0,
+          }}
+        />
+      </ShapeSource>
 
-      {/* Highlighted lap points overlay - SHOW during scrubbing (small, fast to render) */}
-      {highlightedLapGeoJSON && (
-        <ShapeSource id="highlightedLapSource" shape={highlightedLapGeoJSON}>
-          <LineLayer
-            id="highlightedLapLine"
-            style={{
-              lineColor: colors.chartCyan,
-              lineWidth: 5,
-              lineCap: 'round',
-              lineJoin: 'round',
-            }}
-          />
-        </ShapeSource>
-      )}
+      {/* Highlighted lap points overlay */}
+      <ShapeSource id="highlightedLapSource" shape={highlightedLapGeoJSON}>
+        <LineLayer
+          id="highlightedLapLine"
+          style={{
+            lineColor: colors.chartCyan,
+            lineWidth: 5,
+            lineCap: 'round',
+            lineJoin: 'round',
+          }}
+        />
+      </ShapeSource>
 
-      {/* Fallback: Highlighted activity trace - SKIP during scrubbing */}
-      {!isScrubbing && highlightedTraceGeoJSON && (
-        <ShapeSource id="highlightedSource" shape={highlightedTraceGeoJSON}>
-          <LineLayer
-            id="highlightedLine"
-            style={{
-              lineColor: colors.chartCyan, // Cyan for highlighted activity (same as RouteMapView)
-              lineWidth: 4,
-              lineCap: 'round',
-              lineJoin: 'round',
-            }}
-          />
-        </ShapeSource>
-      )}
+      {/* Fallback: Highlighted activity trace */}
+      <ShapeSource id="highlightedSource" shape={highlightedTraceGeoJSON}>
+        <LineLayer
+          id="highlightedLine"
+          style={{
+            lineColor: colors.chartCyan,
+            lineWidth: 4,
+            lineCap: 'round',
+            lineJoin: 'round',
+            lineOpacity: !isScrubbing ? 1 : 0,
+          }}
+        />
+      </ShapeSource>
 
-      {/* Start marker */}
+      {/* Start marker - keep conditional as MarkerViews need valid coordinates */}
       {startPoint && (
         <MarkerView coordinate={[startPoint.lng, startPoint.lat]}>
           <View style={styles.markerContainer}>
@@ -471,67 +455,61 @@ export const SectionMapView = memo(function SectionMapView({
           initialStyle={mapStyle}
           onClose={closeFullscreen}
         >
-          {/* Shadow track (full activity route) - rendered first so it's behind */}
-          {shadowGeoJSON && (
-            <ShapeSource id="fullscreenShadowSource" shape={shadowGeoJSON}>
-              <LineLayer
-                id="fullscreenShadowLine"
-                style={{
-                  lineColor: colors.gray500,
-                  lineOpacity: 0.5,
-                  lineWidth: 3,
-                  lineCap: 'round',
-                  lineJoin: 'round',
-                }}
-              />
-            </ShapeSource>
-          )}
+          {/* CRITICAL: Always render all ShapeSources to avoid iOS crash */}
+          {/* Shadow track (full activity route) */}
+          <ShapeSource id="fullscreenShadowSource" shape={shadowGeoJSON}>
+            <LineLayer
+              id="fullscreenShadowLine"
+              style={{
+                lineColor: colors.gray500,
+                lineOpacity: 0.5,
+                lineWidth: 3,
+                lineCap: 'round',
+                lineJoin: 'round',
+              }}
+            />
+          </ShapeSource>
 
-          {/* Pre-loaded activity traces with filter (fast scrubbing) */}
-          {allTracesFeatureCollection && (
-            <ShapeSource id="fullscreenAllTracesSource" shape={allTracesFeatureCollection}>
-              <LineLayer
-                id="fullscreenAllTracesLine"
-                filter={highlightedTraceFilter}
-                style={{
-                  lineColor: colors.chartCyan,
-                  lineWidth: 4,
-                  lineCap: 'round',
-                  lineJoin: 'round',
-                }}
-              />
-            </ShapeSource>
-          )}
+          {/* Pre-loaded activity traces with filter */}
+          <ShapeSource id="fullscreenAllTracesSource" shape={allTracesFeatureCollection}>
+            <LineLayer
+              id="fullscreenAllTracesLine"
+              filter={highlightedTraceFilter}
+              style={{
+                lineColor: colors.chartCyan,
+                lineWidth: 4,
+                lineCap: 'round',
+                lineJoin: 'round',
+                lineOpacity: hasAllTraces && highlightedTraceFilter ? 1 : 0,
+              }}
+            />
+          </ShapeSource>
 
           {/* Highlighted lap points overlay */}
-          {highlightedLapGeoJSON && (
-            <ShapeSource id="fullscreenHighlightedLapSource" shape={highlightedLapGeoJSON}>
-              <LineLayer
-                id="fullscreenHighlightedLapLine"
-                style={{
-                  lineColor: colors.chartCyan,
-                  lineWidth: 5,
-                  lineCap: 'round',
-                  lineJoin: 'round',
-                }}
-              />
-            </ShapeSource>
-          )}
+          <ShapeSource id="fullscreenHighlightedLapSource" shape={highlightedLapGeoJSON}>
+            <LineLayer
+              id="fullscreenHighlightedLapLine"
+              style={{
+                lineColor: colors.chartCyan,
+                lineWidth: 5,
+                lineCap: 'round',
+                lineJoin: 'round',
+              }}
+            />
+          </ShapeSource>
 
-          {/* Fallback: Highlighted activity trace (when allActivityTraces not provided) */}
-          {highlightedTraceGeoJSON && (
-            <ShapeSource id="fullscreenHighlightedSource" shape={highlightedTraceGeoJSON}>
-              <LineLayer
-                id="fullscreenHighlightedLine"
-                style={{
-                  lineColor: colors.chartCyan,
-                  lineWidth: 4,
-                  lineCap: 'round',
-                  lineJoin: 'round',
-                }}
-              />
-            </ShapeSource>
-          )}
+          {/* Fallback: Highlighted activity trace */}
+          <ShapeSource id="fullscreenHighlightedSource" shape={highlightedTraceGeoJSON}>
+            <LineLayer
+              id="fullscreenHighlightedLine"
+              style={{
+                lineColor: colors.chartCyan,
+                lineWidth: 4,
+                lineCap: 'round',
+                lineJoin: 'round',
+              }}
+            />
+          </ShapeSource>
 
           {/* Start marker */}
           {startPoint && (

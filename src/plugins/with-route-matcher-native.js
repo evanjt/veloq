@@ -82,7 +82,7 @@ function downloadFile(url, dest) {
  * Download and extract Android native libraries.
  */
 async function downloadAndroidLibs(version) {
-  const url = `https://github.com/evanjt/route-matcher/releases/download/${version}/tracematch-android-${version}.zip`;
+  const url = `https://github.com/evanjt/tracematch/releases/download/${version}/tracematch-android-${version}.zip`;
   const jniLibsDir = path.join(MODULE_DIR, "android/src/main/jniLibs");
   const tempZip = path.join(PROJECT_ROOT, "tmp-android.zip");
 
@@ -114,7 +114,7 @@ async function downloadAndroidLibs(version) {
  * Download and extract iOS framework and bindings.
  */
 async function downloadIOSFramework(version) {
-  const url = `https://github.com/evanjt/route-matcher/releases/download/${version}/tracematch-ios-${version}.zip`;
+  const url = `https://github.com/evanjt/tracematch/releases/download/${version}/tracematch-ios-${version}.zip`;
   const frameworksDir = path.join(MODULE_DIR, "ios/Frameworks");
   const generatedDir = path.join(MODULE_DIR, "ios/Generated");
   const tempZip = path.join(PROJECT_ROOT, "tmp-ios.zip");
@@ -236,6 +236,34 @@ function generateBindings() {
   });
 
   console.log("  Bindings generated");
+}
+
+/**
+ * Copy cpp files from module's cpp directory to ios/cpp for Xcode build.
+ * This must run AFTER generateBindings() since that creates the cpp files.
+ */
+function copyIOSCppFiles() {
+  const moduleCppDir = path.join(MODULE_DIR, "cpp");
+  const iosCppDir = path.join(MODULE_DIR, "ios/cpp");
+
+  if (!existsSync(moduleCppDir)) {
+    console.log("  Warning: cpp directory not found, skipping iOS cpp copy");
+    return;
+  }
+
+  mkdirSync(iosCppDir, { recursive: true });
+  const cppExtensions = [".h", ".hpp", ".cpp"];
+  const files = fs.readdirSync(moduleCppDir);
+  let copied = 0;
+  for (const file of files) {
+    if (cppExtensions.some((ext) => file.endsWith(ext))) {
+      fs.copyFileSync(path.join(moduleCppDir, file), path.join(iosCppDir, file));
+      copied++;
+    }
+  }
+  if (copied > 0) {
+    console.log(`  Copied ${copied} cpp files to ios/cpp`);
+  }
 }
 
 /**
@@ -375,7 +403,13 @@ function binariesExist(platform) {
     return existsSync(path.join(jniLibsDir, "libtracematch.so"));
   } else if (platform === "ios") {
     const frameworksDir = path.join(MODULE_DIR, "ios/Frameworks/TracematchFFI.xcframework");
-    return existsSync(frameworksDir);
+    const iosCppDir = path.join(MODULE_DIR, "ios/cpp");
+    // Check both xcframework and cpp files exist
+    return (
+      existsSync(frameworksDir) &&
+      existsSync(path.join(iosCppDir, "veloq.cpp")) &&
+      existsSync(path.join(iosCppDir, "tracematch.hpp"))
+    );
   }
   return false;
 }
@@ -472,6 +506,9 @@ async function runPreBuildSetup(platform) {
   if (platform === "android") {
     patchCMakeLists();
     patchCppAdapter();
+  } else if (platform === "ios") {
+    // Copy cpp files to ios/cpp after bindings are generated
+    copyIOSCppFiles();
   }
 
   console.log("\n[route-matcher-native] Pre-build setup complete!\n");

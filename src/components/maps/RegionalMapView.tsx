@@ -1,5 +1,13 @@
 import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Animated, Platform } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  Pressable,
+  Animated,
+  Platform,
+} from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTheme } from '@/hooks';
 import {
@@ -83,6 +91,7 @@ export function RegionalMapView({
   const { t } = useTranslation();
   const router = useRouter();
   const { isDark: systemIsDark } = useTheme();
+  const [showActivities, setShowActivities] = useState(true);
   const insets = useSafeAreaInsets();
   const systemStyle: MapStyleType = systemIsDark ? 'dark' : 'light';
   const [mapStyle, setMapStyle] = useState<MapStyleType>(systemStyle);
@@ -280,6 +289,7 @@ export function RegionalMapView({
 
   // Extract handlers to separate hook
   const {
+    handleMarkerTap,
     handleClosePopup,
     handleViewDetails,
     handleZoomToActivity,
@@ -366,24 +376,36 @@ export function RegionalMapView({
   // ===========================================
   // Build GeoJSON for GPS traces from route signatures
   // NOTE: Does NOT include isSelected - use MapLibre expressions with selectedActivityId
-  const tracesGeoJSON = useMemo(() => {
-    if (!showTraces) return null;
+  // CRITICAL: Always return valid FeatureCollection to avoid iOS MapLibre crash
+  // when ShapeSources are conditionally added/removed during React reconciliation
+  const tracesGeoJSON = useMemo((): GeoJSON.FeatureCollection => {
+    const emptyCollection: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: [] };
+    if (!showTraces) return emptyCollection;
 
+    let skippedCount = 0;
     const features = visibleActivities
       .filter((activity) => routeSignatures[activity.id]) // Only activities with signatures
       .map((activity) => {
         const signature = routeSignatures[activity.id];
         const config = getActivityTypeConfig(activity.type);
+        const originalCount = signature.points.length;
 
         // Filter out NaN/Infinity coordinates and convert to GeoJSON [lng, lat]
-        // GeoJSON LineString requires minimum 2 coordinates - invalid data causes iOS crash:
-        // -[__NSArrayM insertObject:atIndex:]: object cannot be nil (MLRNMapView.m:207)
+        // GeoJSON LineString requires minimum 2 coordinates - invalid data causes iOS crash
         const coordinates = signature.points
           .filter((pt) => Number.isFinite(pt.lng) && Number.isFinite(pt.lat))
           .map((pt) => [pt.lng, pt.lat]);
 
         // Skip traces with insufficient valid coordinates
-        if (coordinates.length < 2) return null;
+        if (coordinates.length < 2) {
+          skippedCount++;
+          if (__DEV__) {
+            console.warn(
+              `[RegionalMapView] INVALID TRACE: activity=${activity.id} originalPoints=${originalCount} validPoints=${coordinates.length}`
+            );
+          }
+          return null;
+        }
 
         return {
           type: 'Feature' as const,
@@ -400,33 +422,48 @@ export function RegionalMapView({
       })
       .filter((f): f is NonNullable<typeof f> => f !== null);
 
-    if (features.length === 0) return null;
+    if (__DEV__ && skippedCount > 0) {
+      console.warn(
+        `[RegionalMapView] tracesGeoJSON: skipped ${skippedCount} traces with insufficient coordinates`
+      );
+    }
 
-    return {
-      type: 'FeatureCollection' as const,
-      features,
-    };
+    return { type: 'FeatureCollection', features };
   }, [showTraces, visibleActivities, routeSignatures]);
 
   // ===========================================
   // SECTIONS GEOJSON - Frequent road/trail sections
   // ===========================================
-  const sectionsGeoJSON = useMemo(() => {
-    if (sections.length === 0) return null;
+  // CRITICAL: Always return valid FeatureCollection to avoid iOS MapLibre crash
+  const sectionsGeoJSON = useMemo((): GeoJSON.FeatureCollection => {
+    const emptyCollection: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: [] };
+    if (sections.length === 0) return emptyCollection;
 
+    let skippedCount = 0;
     const features = sections
       .map((section) => {
         // Filter out NaN coordinates and validate polyline has at least 2 points
         // GeoJSON LineString requires minimum 2 coordinates to be valid
-        // Invalid GeoJSON causes iOS crash: -[__NSArrayM insertObject:atIndex:]: object cannot be nil
+        const originalCount = section.polyline.length;
         const validPoints = section.polyline.filter((pt) => !isNaN(pt.lat) && !isNaN(pt.lng));
 
+        // Also filter Infinity values
+        const finitePoints = validPoints.filter(
+          (pt) => Number.isFinite(pt.lat) && Number.isFinite(pt.lng)
+        );
+
         // Skip sections with insufficient valid coordinates
-        if (validPoints.length < 2) {
+        if (finitePoints.length < 2) {
+          skippedCount++;
+          if (__DEV__) {
+            console.warn(
+              `[RegionalMapView] INVALID SECTION: id=${section.id} name="${section.name}" originalPoints=${originalCount} validPoints=${validPoints.length} finitePoints=${finitePoints.length}`
+            );
+          }
           return null;
         }
 
-        const coordinates = validPoints.map((pt) => [pt.lng, pt.lat]);
+        const coordinates = finitePoints.map((pt) => [pt.lng, pt.lat]);
         const config = getActivityTypeConfig(section.sportType);
 
         return {
@@ -446,35 +483,47 @@ export function RegionalMapView({
           },
         };
       })
-      .filter((f): f is NonNullable<typeof f> => f !== null); // Remove null entries (sections with invalid polylines)
+      .filter((f): f is NonNullable<typeof f> => f !== null);
 
-    // Return null if no valid features (prevents rendering empty FeatureCollection)
-    if (features.length === 0) return null;
+    if (__DEV__ && skippedCount > 0) {
+      console.warn(
+        `[RegionalMapView] sectionsGeoJSON: skipped ${skippedCount}/${sections.length} sections with invalid polylines`
+      );
+    }
 
-    return {
-      type: 'FeatureCollection' as const,
-      features,
-    };
+    return { type: 'FeatureCollection', features };
   }, [sections, t]);
 
   // ===========================================
   // ROUTES GEOJSON - Polylines for route groups
   // ===========================================
-  const routesGeoJSON = useMemo(() => {
-    if (!showRoutes || routeGroups.length === 0) return null;
+  // CRITICAL: Always return valid FeatureCollection to avoid iOS MapLibre crash
+  const routesGeoJSON = useMemo((): GeoJSON.FeatureCollection => {
+    const emptyCollection: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: [] };
+    if (!showRoutes || routeGroups.length === 0) return emptyCollection;
 
+    let skippedCount = 0;
     const features = routeGroups
       .filter((group) => routeSignatures[group.representativeId])
       .map((group) => {
         const signature = routeSignatures[group.representativeId];
+        const originalCount = signature.points.length;
         // Filter out NaN/Infinity coordinates
-        // GeoJSON LineString requires minimum 2 coordinates - invalid data causes iOS crash
+        // GeoJSON LineString requires minimum 2 coordinates
         const coordinates = signature.points
           .filter((pt) => Number.isFinite(pt.lng) && Number.isFinite(pt.lat))
           .map((pt) => [pt.lng, pt.lat]);
 
         // Skip routes with insufficient valid coordinates
-        if (coordinates.length < 2) return null;
+        if (coordinates.length < 2) {
+          skippedCount++;
+          if (__DEV__) {
+            console.warn(
+              `[RegionalMapView] INVALID ROUTE: groupId=${group.id} name="${group.name}" originalPoints=${originalCount} validPoints=${coordinates.length}`
+            );
+          }
+          return null;
+        }
 
         return {
           type: 'Feature' as const,
@@ -495,25 +544,40 @@ export function RegionalMapView({
       })
       .filter((f): f is NonNullable<typeof f> => f !== null);
 
-    if (features.length === 0) return null;
+    if (__DEV__ && skippedCount > 0) {
+      console.warn(
+        `[RegionalMapView] routesGeoJSON: skipped ${skippedCount}/${routeGroups.length} routes with invalid polylines`
+      );
+    }
 
-    return {
-      type: 'FeatureCollection' as const,
-      features,
-    };
+    return { type: 'FeatureCollection', features };
   }, [showRoutes, routeGroups, routeSignatures]);
 
   // ===========================================
   // ROUTE MARKERS GEOJSON - Start points for routes
   // ===========================================
-  const routeMarkersGeoJSON = useMemo(() => {
-    if (!showRoutes || routeGroups.length === 0) return null;
+  // CRITICAL: Always return valid FeatureCollection to avoid iOS MapLibre crash
+  const routeMarkersGeoJSON = useMemo((): GeoJSON.FeatureCollection => {
+    const emptyCollection: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: [] };
+    if (!showRoutes || routeGroups.length === 0) return emptyCollection;
 
+    let skippedCount = 0;
     const features = routeGroups
       .filter((group) => routeSignatures[group.representativeId])
       .map((group) => {
         const signature = routeSignatures[group.representativeId];
         const startPoint = signature.points[0];
+
+        // Skip if no start point or invalid coordinates
+        if (!startPoint || !Number.isFinite(startPoint.lng) || !Number.isFinite(startPoint.lat)) {
+          skippedCount++;
+          if (__DEV__) {
+            console.warn(
+              `[RegionalMapView] INVALID ROUTE MARKER: groupId=${group.id} startPoint=${JSON.stringify(startPoint)}`
+            );
+          }
+          return null;
+        }
 
         return {
           type: 'Feature' as const,
@@ -528,12 +592,67 @@ export function RegionalMapView({
             coordinates: [startPoint.lng, startPoint.lat],
           },
         };
-      });
+      })
+      .filter((f): f is NonNullable<typeof f> => f !== null);
 
-    return {
-      type: 'FeatureCollection' as const,
-      features,
-    };
+    if (__DEV__ && skippedCount > 0) {
+      console.warn(
+        `[RegionalMapView] routeMarkersGeoJSON: skipped ${skippedCount} route markers with invalid start points`
+      );
+    }
+
+    return { type: 'FeatureCollection', features };
+  }, [showRoutes, routeGroups, routeSignatures]);
+
+  // ===========================================
+  // SECTION MARKERS - Start points for sections (for MarkerView rendering)
+  // ===========================================
+  const sectionMarkers = useMemo(() => {
+    if (!showSections || sections.length === 0) return [];
+
+    return sections
+      .map((section) => {
+        // Get first point of section polyline
+        const startPoint = section.polyline[0];
+        if (!startPoint || !Number.isFinite(startPoint.lng) || !Number.isFinite(startPoint.lat)) {
+          return null;
+        }
+
+        return {
+          id: section.id,
+          name: section.name,
+          coordinate: [startPoint.lng, startPoint.lat] as [number, number],
+          sportType: section.sportType,
+          visitCount: section.visitCount,
+        };
+      })
+      .filter((m): m is NonNullable<typeof m> => m !== null);
+  }, [showSections, sections]);
+
+  // ===========================================
+  // ROUTE MARKERS - Start points for routes (for MarkerView rendering)
+  // ===========================================
+  const routeMarkers = useMemo(() => {
+    if (!showRoutes || routeGroups.length === 0) return [];
+
+    return routeGroups
+      .filter((group) => routeSignatures[group.representativeId])
+      .map((group) => {
+        const signature = routeSignatures[group.representativeId];
+        const startPoint = signature.points[0];
+        if (!startPoint || !Number.isFinite(startPoint.lng) || !Number.isFinite(startPoint.lat)) {
+          return null;
+        }
+
+        return {
+          id: group.id,
+          name: group.name,
+          coordinate: [startPoint.lng, startPoint.lat] as [number, number],
+          activityCount: group.activityCount,
+          sportType: group.sportType,
+        };
+      })
+      .filter((m): m is NonNullable<typeof m> => m !== null);
   }, [showRoutes, routeGroups, routeSignatures]);
 
   // Handle route press - show route popup
@@ -584,28 +703,49 @@ export function RegionalMapView({
   // ===========================================
   // Build GeoJSON feature collection for activity markers (only visible ones)
   // NOTE: Does NOT include isSelected - use MapLibre expressions with selectedActivityId
+  // iOS crash fix: Filter out activities with undefined/invalid centers to prevent
+  // -[__NSArrayM insertObject:atIndex:]: object cannot be nil (MLRNMapView.m:207)
   const markersGeoJSON = useMemo(() => {
-    const features = visibleActivities.map((activity) => {
-      // Use pre-computed center (no format detection during render!)
-      const center = activityCenters[activity.id];
-      const config = getActivityTypeConfig(activity.type);
-      const size = getMarkerSize(activity.distance);
+    let skippedCount = 0;
+    const features = visibleActivities
+      .map((activity) => {
+        // Use pre-computed center (no format detection during render!)
+        const center = activityCenters[activity.id];
+        // Skip if center not computed or invalid (prevents iOS crash)
+        if (!center || !Number.isFinite(center[0]) || !Number.isFinite(center[1])) {
+          skippedCount++;
+          if (__DEV__) {
+            console.warn(
+              `[RegionalMapView] INVALID MARKER: activity=${activity.id} center=${JSON.stringify(center)}`
+            );
+          }
+          return null;
+        }
+        const config = getActivityTypeConfig(activity.type);
+        const size = getMarkerSize(activity.distance);
 
-      return {
-        type: 'Feature' as const,
-        id: activity.id,
-        properties: {
+        return {
+          type: 'Feature' as const,
           id: activity.id,
-          type: activity.type,
-          color: config.color,
-          size: size,
-        },
-        geometry: {
-          type: 'Point' as const,
-          coordinates: center,
-        },
-      };
-    });
+          properties: {
+            id: activity.id,
+            type: activity.type,
+            color: config.color,
+            size: size,
+          },
+          geometry: {
+            type: 'Point' as const,
+            coordinates: center,
+          },
+        };
+      })
+      .filter((f): f is NonNullable<typeof f> => f !== null);
+
+    if (__DEV__ && skippedCount > 0) {
+      console.warn(
+        `[RegionalMapView] markersGeoJSON: skipped ${skippedCount}/${visibleActivities.length} activities with invalid centers`
+      );
+    }
 
     return {
       type: 'FeatureCollection' as const,
@@ -618,23 +758,45 @@ export function RegionalMapView({
 
   // Build route GeoJSON for selected activity
   // Uses the same coordinate conversion as ActivityMapView for consistency
-  const routeGeoJSON = useMemo(() => {
-    if (!selected?.mapData?.latlngs) return null;
+  // CRITICAL: Always return valid GeoJSON to avoid iOS MapLibre crash
+  const routeGeoJSON = useMemo((): GeoJSON.FeatureCollection | GeoJSON.Feature => {
+    const emptyCollection: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: [] };
+    if (!selected?.mapData?.latlngs) return emptyCollection;
 
     // Filter out null values first
     const nonNullCoords = selected.mapData.latlngs.filter((c): c is [number, number] => c !== null);
 
-    if (nonNullCoords.length === 0) return null;
+    if (nonNullCoords.length === 0) {
+      if (__DEV__) {
+        console.warn(
+          `[RegionalMapView] routeGeoJSON: no non-null coords for activity=${selected.activity.id}`
+        );
+      }
+      return emptyCollection;
+    }
 
     // Convert to LatLng objects using the same function as ActivityMapView
     const latLngCoords = convertLatLngTuples(nonNullCoords);
 
-    // Filter valid coordinates and convert to GeoJSON format [lng, lat]
+    // Filter valid coordinates (including Infinity check) and convert to GeoJSON format [lng, lat]
     const validCoords = latLngCoords
-      .filter((c) => !isNaN(c.latitude) && !isNaN(c.longitude))
+      .filter(
+        (c) =>
+          Number.isFinite(c.latitude) &&
+          Number.isFinite(c.longitude) &&
+          !isNaN(c.latitude) &&
+          !isNaN(c.longitude)
+      )
       .map((c) => [c.longitude, c.latitude]);
 
-    if (validCoords.length === 0) return null;
+    if (validCoords.length < 2) {
+      if (__DEV__) {
+        console.warn(
+          `[RegionalMapView] routeGeoJSON: insufficient valid coords for activity=${selected.activity.id} original=${nonNullCoords.length} valid=${validCoords.length}`
+        );
+      }
+      return emptyCollection;
+    }
 
     return {
       type: 'Feature' as const,
@@ -644,7 +806,12 @@ export function RegionalMapView({
         coordinates: validCoords,
       },
     };
-  }, [selected?.mapData]);
+  }, [selected?.mapData, selected?.activity.id]);
+
+  // Helper to check if routeGeoJSON has data
+  const routeHasData =
+    routeGeoJSON.type === 'Feature' ||
+    (routeGeoJSON.type === 'FeatureCollection' && routeGeoJSON.features.length > 0);
 
   // Get 3D route coordinates from selected activity (if any)
   // Filter NaN/Infinity to prevent invalid GeoJSON in Map3DWebView
@@ -661,6 +828,39 @@ export function RegionalMapView({
   const can3D = activities.length > 0;
   // Show 3D view when enabled
   const show3D = is3DMode && can3D;
+
+  // Debug: Log GeoJSON state before render to identify crash source
+  useEffect(() => {
+    if (__DEV__) {
+      console.log('[RegionalMapView] MAP STATE BEFORE RENDER:', {
+        markersFeatures: markersGeoJSON.features.length,
+        tracesFeatures: tracesGeoJSON?.features.length ?? 0,
+        sectionsFeatures: sectionsGeoJSON?.features.length ?? 0,
+        routesFeatures: routesGeoJSON?.features.length ?? 0,
+        routeMarkersFeatures: routeMarkersGeoJSON?.features.length ?? 0,
+        hasRouteGeoJSON: !!routeGeoJSON,
+        hasHeatmap: !!heatmap,
+        isHeatmapMode,
+        showRoutes,
+        showSections,
+        showTraces,
+        selectedActivity: selected?.activity.id ?? null,
+      });
+    }
+  }, [
+    markersGeoJSON,
+    tracesGeoJSON,
+    sectionsGeoJSON,
+    routesGeoJSON,
+    routeMarkersGeoJSON,
+    routeGeoJSON,
+    heatmap,
+    isHeatmapMode,
+    showRoutes,
+    showSections,
+    showTraces,
+    selected?.activity.id,
+  ]);
 
   return (
     <View style={styles.container}>
@@ -705,58 +905,60 @@ export function RegionalMapView({
             animationDuration={0}
           />
 
-          {/* Invisible ShapeSource for tap detection only - no visual rendering */}
-          {/* This handles taps without intercepting gestures */}
-          {/* Hidden in heatmap mode */}
-          {!isHeatmapMode && (
-            <ShapeSource
-              id="activity-markers"
-              shape={markersGeoJSON}
-              onPress={handleMarkerPress}
-              hitbox={{ width: 44, height: 44 }}
-            >
-              {/* Invisible circles just for hit detection */}
-              <CircleLayer
-                id="marker-hitarea"
-                style={{
-                  circleRadius: ['/', ['get', 'size'], 2],
-                  circleColor: 'transparent',
-                  circleStrokeWidth: 0,
-                }}
-              />
-            </ShapeSource>
-          )}
+          {/* ShapeSource for tap detection - uses nearly invisible circles */}
+          {/* CRITICAL: Always render to avoid iOS crash during view reconciliation */}
+          {/* NOTE: circleColor must NOT be 'transparent' - MapLibre won't register taps on transparent features */}
+          <ShapeSource
+            id="activity-markers"
+            shape={markersGeoJSON}
+            onPress={!isHeatmapMode && showActivities ? handleMarkerPress : undefined}
+            hitbox={{ width: 44, height: 44 }}
+          >
+            {/* Nearly invisible circles for hit detection - opacity 0.01 is invisible but still tappable */}
+            <CircleLayer
+              id="marker-hitarea"
+              style={{
+                circleRadius: !isHeatmapMode && showActivities ? ['/', ['get', 'size'], 2] : 0,
+                circleColor: '#000000',
+                circleOpacity: 0.01,
+                circleStrokeWidth: 0,
+              }}
+            />
+          </ShapeSource>
 
-          {/* Activity markers - visual only, rendered as MarkerView for correct z-ordering */}
-          {/* pointerEvents="none" ensures these don't intercept any touches */}
+          {/* Activity markers - tappable, rendered as MarkerView for correct z-ordering */}
+          {/* CRITICAL: Always render MarkerViews to avoid iOS crash during reconciliation */}
+          {/* Use opacity to hide instead of conditional rendering */}
           {/* Sorted to render selected activity last (on top) */}
-          {/* Only renders visible activities for performance (viewport culling) */}
-          {/* Hidden in heatmap mode */}
           {/* filter(Boolean) prevents null children crash on iOS MapLibre */}
-          {!isHeatmapMode &&
-            sortedVisibleActivities
-              .map((activity) => {
-                const config = getActivityTypeConfig(activity.type);
-                // Use pre-computed center (no format detection during render!)
-                const center = activityCenters[activity.id];
-                // Skip if center not computed yet (prevents iOS crash with undefined coordinate)
-                if (!center) return null;
-                const size = getMarkerSize(activity.distance);
-                const isSelected = selectedActivityId === activity.id;
-                const markerSize = isSelected ? size + 8 : size;
-                // Larger icon ratio to fill more of the marker
-                const iconSize = isSelected ? size * 0.75 : size * 0.7;
+          {sortedVisibleActivities
+            .map((activity) => {
+              const config = getActivityTypeConfig(activity.type);
+              // Use pre-computed center (no format detection during render!)
+              const center = activityCenters[activity.id];
+              // Skip if center not computed yet (prevents iOS crash with undefined coordinate)
+              if (!center) return null;
+              const size = getMarkerSize(activity.distance);
+              const isSelected = selectedActivityId === activity.id;
+              const markerSize = isSelected ? size + 8 : size;
+              // Larger icon ratio to fill more of the marker
+              const iconSize = isSelected ? size * 0.75 : size * 0.7;
+              // Hide markers when activities toggle is off or in heatmap mode
+              const isVisible = showActivities && !isHeatmapMode;
 
-                return (
-                  <MarkerView
-                    key={`marker-${activity.id}`}
-                    coordinate={center}
-                    anchor={{ x: 0.5, y: 0.5 }}
-                    allowOverlap={true}
+              return (
+                <MarkerView
+                  key={`marker-${activity.id}`}
+                  coordinate={center}
+                  anchor={{ x: 0.5, y: 0.5 }}
+                  allowOverlap={true}
+                >
+                  {/* Pressable marker - handles taps directly since MarkerView intercepts touches */}
+                  <Pressable
+                    onPress={isVisible ? () => handleMarkerTap(activity) : undefined}
+                    disabled={!isVisible}
                   >
-                    {/* Single view with fixed dimensions - no flex/dynamic sizing */}
                     <View
-                      pointerEvents="none"
                       style={{
                         width: markerSize,
                         height: markerSize,
@@ -767,92 +969,132 @@ export function RegionalMapView({
                         borderColor: isSelected ? colors.primary : colors.textOnDark,
                         justifyContent: 'center',
                         alignItems: 'center',
+                        opacity: isVisible ? 1 : 0,
                         ...shadows.elevated,
                       }}
                     >
                       <Ionicons name={config.icon} size={iconSize} color={colors.textOnDark} />
                     </View>
-                  </MarkerView>
-                );
-              })
-              .filter(Boolean)}
+                  </Pressable>
+                </MarkerView>
+              );
+            })
+            .filter(Boolean)}
 
           {/* Routes layer - dashed polylines for route groups */}
-          {showRoutes && !isHeatmapMode && routesGeoJSON && routesGeoJSON.features.length > 0 && (
-            <ShapeSource
-              id="routes"
-              shape={routesGeoJSON}
-              onPress={handleRoutePress}
-              hitbox={{ width: 20, height: 20 }}
-            >
-              <LineLayer
-                id="routesLine"
-                style={{
-                  lineColor: '#9C27B0',
-                  lineWidth: 3,
-                  lineOpacity: 0.7,
-                  lineDasharray: [3, 2],
-                  lineCap: 'round',
-                  lineJoin: 'round',
-                }}
-              />
-            </ShapeSource>
-          )}
+          {/* CRITICAL: Always render ShapeSource to avoid iOS MapLibre crash during reconciliation */}
+          <ShapeSource
+            id="routes"
+            shape={routesGeoJSON}
+            onPress={handleRoutePress}
+            hitbox={{ width: 44, height: 44 }}
+          >
+            <LineLayer
+              id="routesLine"
+              style={{
+                lineColor: '#9C27B0',
+                lineWidth: [
+                  'case',
+                  ['==', ['get', 'id'], selectedRoute?.id ?? ''],
+                  6, // Bold when selected
+                  3,
+                ],
+                lineOpacity:
+                  showRoutes && !isHeatmapMode
+                    ? [
+                        'case',
+                        ['==', ['get', 'id'], selectedRoute?.id ?? ''],
+                        1, // Full opacity when selected
+                        0.7,
+                      ]
+                    : 0,
+                lineDasharray: [3, 2],
+                lineCap: 'round',
+                lineJoin: 'round',
+              }}
+            />
+          </ShapeSource>
 
           {/* Route markers - start points for routes */}
-          {showRoutes &&
-            !isHeatmapMode &&
-            routeMarkersGeoJSON &&
-            routeMarkersGeoJSON.features.length > 0 && (
-              <ShapeSource id="route-markers" shape={routeMarkersGeoJSON}>
-                <CircleLayer
-                  id="routeMarkerCircle"
-                  style={{
-                    circleRadius: 10,
-                    circleColor: '#9C27B0',
-                    circleStrokeWidth: 2,
-                    circleStrokeColor: '#FFFFFF',
-                  }}
-                />
-              </ShapeSource>
-            )}
+          {/* CRITICAL: Always render ShapeSource to avoid iOS MapLibre crash */}
+          {/* Visual markers rendered as MarkerViews below for icon support */}
+          <ShapeSource id="route-markers" shape={routeMarkersGeoJSON}>
+            <CircleLayer
+              id="routeMarkerCircle"
+              style={{
+                circleRadius: 0, // Hidden - using MarkerViews instead
+                circleOpacity: 0,
+              }}
+            />
+          </ShapeSource>
 
           {/* Sections layer - frequent road/trail sections */}
-          {showSections &&
-            !isHeatmapMode &&
-            sectionsGeoJSON &&
-            sectionsGeoJSON.features.length > 0 && (
-              <ShapeSource
-                id="sections"
-                shape={sectionsGeoJSON}
-                onPress={handleSectionPress}
-                hitbox={{ width: 20, height: 20 }}
-              >
-                {/* Section lines - thicker and more prominent than traces */}
-                <LineLayer
-                  id="sectionsLine"
-                  style={{
-                    lineColor: ['get', 'color'],
-                    lineWidth: ['interpolate', ['linear'], ['zoom'], 10, 3, 14, 5, 18, 7],
-                    lineOpacity: 0.85,
-                    lineCap: 'round',
-                    lineJoin: 'round',
-                  }}
-                />
-                {/* Section outline for better visibility */}
-                <LineLayer
-                  id="sectionsOutline"
-                  style={{
-                    lineColor: colors.textOnDark,
-                    lineWidth: ['interpolate', ['linear'], ['zoom'], 10, 5, 14, 7, 18, 9],
-                    lineOpacity: 0.4,
-                    lineCap: 'round',
-                    lineJoin: 'round',
-                  }}
-                  belowLayerID="sectionsLine"
-                />
-              </ShapeSource>
-            )}
+          {/* CRITICAL: Always render ShapeSource to avoid iOS MapLibre crash */}
+          <ShapeSource
+            id="sections"
+            shape={sectionsGeoJSON}
+            onPress={handleSectionPress}
+            hitbox={{ width: 44, height: 44 }}
+          >
+            {/* Section lines - thicker and more prominent than traces */}
+            {/* Note: MapLibre doesn't allow nested zoom-based interpolations in case expressions */}
+            <LineLayer
+              id="sectionsLine"
+              style={{
+                lineColor: ['get', 'color'],
+                lineWidth: selectedSection
+                  ? [
+                      'case',
+                      ['==', ['get', 'id'], selectedSection.id],
+                      8, // Bold fixed width when selected
+                      ['interpolate', ['linear'], ['zoom'], 10, 3, 14, 5, 18, 7],
+                    ]
+                  : ['interpolate', ['linear'], ['zoom'], 10, 3, 14, 5, 18, 7],
+                lineOpacity:
+                  showSections && !isHeatmapMode
+                    ? selectedSection
+                      ? [
+                          'case',
+                          ['==', ['get', 'id'], selectedSection.id],
+                          1, // Full opacity when selected
+                          0.85,
+                        ]
+                      : 0.85
+                    : 0,
+                lineCap: 'round',
+                lineJoin: 'round',
+              }}
+            />
+            {/* Section outline for better visibility */}
+            <LineLayer
+              id="sectionsOutline"
+              style={{
+                lineColor: colors.textOnDark,
+                lineWidth: selectedSection
+                  ? [
+                      'case',
+                      ['==', ['get', 'id'], selectedSection.id],
+                      10, // Bold fixed width when selected
+                      ['interpolate', ['linear'], ['zoom'], 10, 5, 14, 7, 18, 9],
+                    ]
+                  : ['interpolate', ['linear'], ['zoom'], 10, 5, 14, 7, 18, 9],
+                lineOpacity:
+                  showSections && !isHeatmapMode
+                    ? selectedSection
+                      ? [
+                          'case',
+                          ['==', ['get', 'id'], selectedSection.id],
+                          0.6, // More visible when selected
+                          0.4,
+                        ]
+                      : 0.4
+                    : 0,
+                lineCap: 'round',
+                lineJoin: 'round',
+              }}
+              belowLayerID="sectionsLine"
+            />
+          </ShapeSource>
 
           {/* Heatmap layer - shown when heatmap mode is active */}
           {isHeatmapMode && heatmap && (
@@ -865,48 +1107,150 @@ export function RegionalMapView({
           )}
 
           {/* GPS traces - simplified routes shown when zoomed in (hidden in heatmap mode) */}
-          {/* Rendered with low opacity, below the selected activity route */}
-          {!isHeatmapMode && tracesGeoJSON && tracesGeoJSON.features.length > 0 && (
-            <ShapeSource id="activity-traces" shape={tracesGeoJSON}>
-              <LineLayer
-                id="tracesLine"
-                style={{
-                  lineColor: ['get', 'color'],
-                  lineWidth: [
-                    'case',
-                    // Hide selected trace (full route shown instead)
-                    // Uses selectedActivityId variable instead of isSelected property for 120Hz
-                    ['==', ['get', 'id'], selectedActivityId ?? ''],
-                    0,
-                    2,
-                  ],
-                  lineOpacity: 0.4,
-                  lineCap: 'round',
-                  lineJoin: 'round',
-                }}
-              />
-            </ShapeSource>
-          )}
+          {/* CRITICAL: Always render ShapeSource to avoid iOS MapLibre crash */}
+          <ShapeSource id="activity-traces" shape={tracesGeoJSON}>
+            <LineLayer
+              id="tracesLine"
+              style={{
+                lineColor: ['get', 'color'],
+                lineWidth: [
+                  'case',
+                  // Hide selected trace (full route shown instead)
+                  // Uses selectedActivityId variable instead of isSelected property for 120Hz
+                  ['==', ['get', 'id'], selectedActivityId ?? ''],
+                  0,
+                  2,
+                ],
+                lineOpacity: !isHeatmapMode ? 0.4 : 0,
+                lineCap: 'round',
+                lineJoin: 'round',
+              }}
+            />
+          </ShapeSource>
 
           {/* Selected activity route */}
-          {/* Key forces re-render when activity changes to ensure proper positioning */}
-          {routeGeoJSON && selected && (
-            <ShapeSource
-              key={`route-${selected.activity.id}`}
-              id={`route-${selected.activity.id}`}
-              shape={routeGeoJSON}
-            >
-              <LineLayer
-                id={`routeLine-${selected.activity.id}`}
-                style={{
-                  lineColor: getActivityTypeConfig(selected.activity.type).color,
-                  lineWidth: 4,
-                  lineCap: 'round',
-                  lineJoin: 'round',
-                }}
-              />
-            </ShapeSource>
-          )}
+          {/* CRITICAL: Always render with fixed ID to avoid iOS MapLibre crash */}
+          <ShapeSource id="selected-route" shape={routeGeoJSON}>
+            {/* Outline layer for better visibility */}
+            <LineLayer
+              id="selected-routeOutline"
+              style={{
+                lineColor: colors.textOnDark,
+                lineWidth: 8,
+                lineCap: 'round',
+                lineJoin: 'round',
+                lineOpacity: routeHasData ? 0.5 : 0,
+              }}
+            />
+            <LineLayer
+              id="selected-routeLine"
+              style={{
+                lineColor: selected ? getActivityTypeConfig(selected.activity.type).color : '#000',
+                lineWidth: 5,
+                lineCap: 'round',
+                lineJoin: 'round',
+                lineOpacity: routeHasData ? 1 : 0,
+              }}
+            />
+          </ShapeSource>
+
+          {/* Section markers - start points with road icon */}
+          {/* CRITICAL: Always render to avoid iOS crash - use opacity to hide */}
+          {sectionMarkers.map((marker) => {
+            const isVisible = showSections && !isHeatmapMode;
+            const isSelected = selectedSection?.id === marker.id;
+            const section = sections.find((s) => s.id === marker.id);
+
+            return (
+              <MarkerView
+                key={`section-marker-${marker.id}`}
+                coordinate={marker.coordinate}
+                anchor={{ x: 0.5, y: 0.5 }}
+                allowOverlap={true}
+              >
+                <Pressable
+                  onPress={isVisible && section ? () => setSelectedSection(section) : undefined}
+                  disabled={!isVisible}
+                >
+                  <View
+                    style={{
+                      width: 32,
+                      height: 32,
+                      borderRadius: 16,
+                      backgroundColor: isSelected ? colors.primary : '#4CAF50',
+                      borderWidth: 2,
+                      borderColor: colors.textOnDark,
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                      opacity: isVisible ? 1 : 0,
+                      ...shadows.elevated,
+                    }}
+                  >
+                    <MaterialCommunityIcons
+                      name="road-variant"
+                      size={18}
+                      color={colors.textOnDark}
+                    />
+                  </View>
+                </Pressable>
+              </MarkerView>
+            );
+          })}
+
+          {/* Route markers - start points with path icon */}
+          {/* CRITICAL: Always render to avoid iOS crash - use opacity to hide */}
+          {routeMarkers.map((marker) => {
+            const isVisible = showRoutes && !isHeatmapMode;
+            const isSelected = selectedRoute?.id === marker.id;
+            const route = routeGroups.find((g) => g.id === marker.id);
+
+            return (
+              <MarkerView
+                key={`route-marker-${marker.id}`}
+                coordinate={marker.coordinate}
+                anchor={{ x: 0.5, y: 0.5 }}
+                allowOverlap={true}
+              >
+                <Pressable
+                  onPress={
+                    isVisible && route
+                      ? () =>
+                          setSelectedRoute({
+                            id: route.id,
+                            name: route.name,
+                            activityCount: route.activityCount,
+                            sportType: route.sportType,
+                            type: route.type,
+                            bestTime: route.bestTime,
+                          })
+                      : undefined
+                  }
+                  disabled={!isVisible}
+                >
+                  <View
+                    style={{
+                      width: 32,
+                      height: 32,
+                      borderRadius: 16,
+                      backgroundColor: isSelected ? colors.primary : '#9C27B0',
+                      borderWidth: 2,
+                      borderColor: colors.textOnDark,
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                      opacity: isVisible ? 1 : 0,
+                      ...shadows.elevated,
+                    }}
+                  >
+                    <MaterialCommunityIcons
+                      name="map-marker-path"
+                      size={18}
+                      color={colors.textOnDark}
+                    />
+                  </View>
+                </Pressable>
+              </MarkerView>
+            );
+          })}
 
           {/* User location marker */}
           {userLocation && (
@@ -918,7 +1262,6 @@ export function RegionalMapView({
           )}
         </MapView>
       )}
-
       {/* Close button */}
       <TouchableOpacity
         style={[
@@ -938,7 +1281,6 @@ export function RegionalMapView({
           color={isDark ? colors.textOnDark : colors.textSecondary}
         />
       </TouchableOpacity>
-
       {/* Style toggle */}
       <TouchableOpacity
         style={[
@@ -958,7 +1300,6 @@ export function RegionalMapView({
           color={isDark ? colors.textOnDark : colors.textSecondary}
         />
       </TouchableOpacity>
-
       {/* Control button stack - positioned in middle of right side */}
       <MapControlStack
         top={insets.top + 64}
@@ -966,26 +1307,27 @@ export function RegionalMapView({
         is3DMode={is3DMode}
         can3D={can3D}
         isHeatmapMode={isHeatmapMode}
+        showActivities={showActivities}
         showSections={showSections}
         showRoutes={showRoutes}
         userLocationActive={!!userLocation}
         heatmap={heatmap}
         sections={sections}
         routeCount={routeGroups.length}
+        activityCount={activities.length}
         bearingAnim={bearingAnim}
         onToggle3D={toggle3D}
         onResetOrientation={resetOrientation}
         onGetLocation={handleGetLocation}
         onToggleHeatmap={toggleHeatmap}
+        onToggleActivities={() => setShowActivities((prev) => !prev)}
         onToggleSections={toggleSections}
         onToggleRoutes={() => setShowRoutes((prev) => !prev)}
       />
-
       {/* Attribution */}
       <View style={[styles.attribution, { bottom: insets.bottom + 8 + attributionBottomOffset }]}>
         <Text style={styles.attributionText}>{attributionText}</Text>
       </View>
-
       {/* Selected activity popup - positioned above the timeline slider */}
       {selected && (
         <ActivityPopup
@@ -996,7 +1338,6 @@ export function RegionalMapView({
           onViewDetails={handleViewDetails}
         />
       )}
-
       {/* Heatmap cell popup - shows when a heatmap cell is selected */}
       {isHeatmapMode && selectedCell && (
         <HeatmapCellInfo
@@ -1005,7 +1346,6 @@ export function RegionalMapView({
           onClose={() => setSelectedCell(null)}
         />
       )}
-
       {/* Section popup - shows when a section is tapped */}
       {selectedSection && (
         <SectionPopup
@@ -1018,7 +1358,6 @@ export function RegionalMapView({
           }}
         />
       )}
-
       {/* Route popup - shows when a route is tapped */}
       {selectedRoute && (
         <RoutePopup

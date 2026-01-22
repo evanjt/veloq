@@ -554,8 +554,16 @@ export function ActivityMapView({
 
   // GeoJSON LineString requires minimum 2 coordinates - invalid data causes iOS crash:
   // -[__NSArrayM insertObject:atIndex:]: object cannot be nil (MLRNMapView.m:207)
-  const routeGeoJSON = useMemo(() => {
-    if (validCoordinates.length < 2) return null;
+  // CRITICAL: Always return valid GeoJSON to avoid add/remove cycles that crash iOS MapLibre
+  const routeGeoJSON = useMemo((): GeoJSON.FeatureCollection | GeoJSON.Feature => {
+    if (validCoordinates.length < 2) {
+      if (__DEV__) {
+        console.warn(
+          `[ActivityMapView] routeGeoJSON: insufficient coordinates (${validCoordinates.length})`
+        );
+      }
+      return { type: 'FeatureCollection' as const, features: [] };
+    }
     return {
       type: 'Feature' as const,
       properties: {},
@@ -566,11 +574,21 @@ export function ActivityMapView({
     };
   }, [validCoordinates]);
 
+  const routeHasData =
+    routeGeoJSON.type === 'Feature' ||
+    (routeGeoJSON.type === 'FeatureCollection' && routeGeoJSON.features.length > 0);
+
   // Route overlay GeoJSON (for showing matched route trace)
-  const overlayGeoJSON = useMemo(() => {
-    if (!routeOverlay || routeOverlay.length < 2) return null;
+  // CRITICAL: Always return a valid GeoJSON to avoid add/remove cycles that crash iOS MapLibre
+  // When there's no data, return an empty FeatureCollection instead of null
+  const overlayGeoJSON = useMemo((): GeoJSON.FeatureCollection | GeoJSON.Feature => {
+    if (!routeOverlay || routeOverlay.length < 2) {
+      return { type: 'FeatureCollection' as const, features: [] };
+    }
     const validOverlay = routeOverlay.filter((c) => !isNaN(c.latitude) && !isNaN(c.longitude));
-    if (validOverlay.length < 2) return null;
+    if (validOverlay.length < 2) {
+      return { type: 'FeatureCollection' as const, features: [] };
+    }
     return {
       type: 'Feature' as const,
       properties: {},
@@ -581,15 +599,26 @@ export function ActivityMapView({
     };
   }, [routeOverlay]);
 
+  // Helper to check if overlay has data (for logging)
+  const overlayHasData =
+    overlayGeoJSON.type === 'Feature' ||
+    (overlayGeoJSON.type === 'FeatureCollection' && overlayGeoJSON.features.length > 0);
+
   // Section overlays GeoJSON (for showing all matched sections)
   const sectionOverlaysGeoJSON = useMemo(() => {
     if (!sectionOverlays || sectionOverlays.length === 0) return null;
 
-    return sectionOverlays
+    let skippedSections = 0;
+    let skippedPortions = 0;
+    const result = sectionOverlays
       .map((overlay) => {
-        // Build section polyline GeoJSON
+        // Build section polyline GeoJSON - also filter Infinity values
         const validSectionPoints = overlay.sectionPolyline.filter(
-          (c) => !isNaN(c.latitude) && !isNaN(c.longitude)
+          (c) =>
+            Number.isFinite(c.latitude) &&
+            Number.isFinite(c.longitude) &&
+            !isNaN(c.latitude) &&
+            !isNaN(c.longitude)
         );
         const sectionGeo =
           validSectionPoints.length >= 2
@@ -603,9 +632,22 @@ export function ActivityMapView({
               }
             : null;
 
-        // Build activity portion GeoJSON
+        if (!sectionGeo && overlay.sectionPolyline.length > 0) {
+          skippedSections++;
+          if (__DEV__) {
+            console.warn(
+              `[ActivityMapView] INVALID SECTION OVERLAY: id=${overlay.id} originalPoints=${overlay.sectionPolyline.length} validPoints=${validSectionPoints.length}`
+            );
+          }
+        }
+
+        // Build activity portion GeoJSON - also filter Infinity values
         const validPortionPoints = overlay.activityPortion?.filter(
-          (c) => !isNaN(c.latitude) && !isNaN(c.longitude)
+          (c) =>
+            Number.isFinite(c.latitude) &&
+            Number.isFinite(c.longitude) &&
+            !isNaN(c.latitude) &&
+            !isNaN(c.longitude)
         );
         const portionGeo =
           validPortionPoints && validPortionPoints.length >= 2
@@ -619,9 +661,26 @@ export function ActivityMapView({
               }
             : null;
 
+        if (!portionGeo && overlay.activityPortion && overlay.activityPortion.length > 0) {
+          skippedPortions++;
+          if (__DEV__) {
+            console.warn(
+              `[ActivityMapView] INVALID PORTION OVERLAY: id=${overlay.id} originalPoints=${overlay.activityPortion.length} validPoints=${validPortionPoints?.length ?? 0}`
+            );
+          }
+        }
+
         return { id: overlay.id, sectionGeo, portionGeo };
       })
       .filter((o) => o.sectionGeo || o.portionGeo);
+
+    if (__DEV__ && (skippedSections > 0 || skippedPortions > 0)) {
+      console.warn(
+        `[ActivityMapView] sectionOverlaysGeoJSON: skipped ${skippedSections} sections, ${skippedPortions} portions with invalid polylines`
+      );
+    }
+
+    return result.length > 0 ? result : null;
   }, [sectionOverlays]);
 
   // Route coordinates for BaseMapView/Map3DWebView [lng, lat] format
@@ -658,11 +717,16 @@ export function ActivityMapView({
   }, [creationMode, startIndex, endIndex, validCoordinates]);
 
   // Section creation: GeoJSON for selected portion
-  const sectionGeoJSON = useMemo(() => {
-    if (!creationMode || startIndex === null) return null;
+  // CRITICAL: Always return valid GeoJSON to avoid add/remove cycles that crash iOS MapLibre
+  const sectionGeoJSON = useMemo((): GeoJSON.FeatureCollection | GeoJSON.Feature => {
+    if (!creationMode || startIndex === null) {
+      return { type: 'FeatureCollection' as const, features: [] };
+    }
     const end = endIndex ?? startIndex;
     const sectionCoords = validCoordinates.slice(startIndex, end + 1);
-    if (sectionCoords.length < 2) return null;
+    if (sectionCoords.length < 2) {
+      return { type: 'FeatureCollection' as const, features: [] };
+    }
     return {
       type: 'Feature' as const,
       properties: {},
@@ -673,6 +737,10 @@ export function ActivityMapView({
     };
   }, [creationMode, startIndex, endIndex, validCoordinates]);
 
+  const sectionHasData =
+    sectionGeoJSON.type === 'Feature' ||
+    (sectionGeoJSON.type === 'FeatureCollection' && sectionGeoJSON.features.length > 0);
+
   // Section creation: get selected start/end points for markers
   const sectionStartPoint =
     creationMode && startIndex !== null ? validCoordinates[startIndex] : null;
@@ -681,7 +749,58 @@ export function ActivityMapView({
   const mapStyleValue = getMapStyle(mapStyle);
   const isDark = isDarkStyle(mapStyle);
 
+  // Debug: Log all map children state before render to identify iOS crash source
+  // Use ref to track render count for debugging
+  const renderCountRef = React.useRef(0);
+  renderCountRef.current += 1;
+
+  // Log synchronously (not in useEffect) to capture state RIGHT BEFORE render
+  if (__DEV__) {
+    console.log(`[ActivityMapView] RENDER #${renderCountRef.current} - MAP CHILDREN:`, {
+      // All ShapeSources are ALWAYS rendered now (with empty FeatureCollection when no data)
+      // This prevents add/remove cycles that crash iOS MapLibre native views
+      'ShapeSource:overlaySource': 'always (hasData=' + overlayHasData + ')',
+      'ShapeSource:routeSource': 'always (hasData=' + routeHasData + ')',
+      'ShapeSource:sectionSource': 'always (hasData=' + sectionHasData + ')',
+      // MarkerViews still conditionally rendered (not crash source, need real coords)
+      'MarkerView:start': !!startPoint,
+      'MarkerView:end': !!endPoint,
+      'MarkerView:highlight': !!highlightPoint,
+      'MarkerView:sectionStart': !!sectionStartPoint,
+      'MarkerView:sectionEnd': !!sectionEndPoint,
+      sectionOverlaysCount: sectionOverlaysGeoJSON?.length ?? 0,
+    });
+
+    // Log coordinate details for debugging invalid geometry
+    if (
+      overlayHasData &&
+      overlayGeoJSON.type === 'Feature' &&
+      overlayGeoJSON.geometry.type === 'LineString'
+    ) {
+      const coords = overlayGeoJSON.geometry.coordinates;
+      console.log(
+        `[ActivityMapView] overlaySource coords: ${coords.length} points, first: [${coords[0]}], last: [${coords[coords.length - 1]}]`
+      );
+    }
+    if (
+      routeHasData &&
+      routeGeoJSON.type === 'Feature' &&
+      routeGeoJSON.geometry.type === 'LineString'
+    ) {
+      const coords = routeGeoJSON.geometry.coordinates;
+      console.log(
+        `[ActivityMapView] routeSource coords: ${coords.length} points, first: [${coords[0]}], last: [${coords[coords.length - 1]}]`
+      );
+    }
+  }
+
   if (!bounds || validCoordinates.length === 0) {
+    if (__DEV__) {
+      console.log('[ActivityMapView] EARLY RETURN: no bounds or coordinates', {
+        hasBounds: !!bounds,
+        validCoordinatesCount: validCoordinates.length,
+      });
+    }
     return (
       <View style={[styles.placeholder, { height }]}>
         <MaterialCommunityIcons name="map-marker-off" size={48} color={colors.textSecondary} />
@@ -725,95 +844,113 @@ export function ActivityMapView({
             />
 
             {/* Route overlay (matched route trace) - rendered first so activity line is on top */}
-            {overlayGeoJSON && (
-              <ShapeSource id="overlaySource" shape={overlayGeoJSON}>
-                <LineLayer
-                  id="overlayLine"
-                  style={{
-                    lineColor: '#00E5FF',
-                    lineWidth: 5,
-                    lineCap: 'round',
-                    lineJoin: 'round',
-                    lineOpacity: 0.5,
-                  }}
-                />
-              </ShapeSource>
-            )}
+            {/* CRITICAL: Always render ShapeSource to avoid add/remove cycles that crash iOS MapLibre */}
+            {/* When no data, overlayGeoJSON is an empty FeatureCollection, not null */}
+            <ShapeSource id="overlaySource" shape={overlayGeoJSON}>
+              <LineLayer
+                id="overlayLine"
+                style={{
+                  lineColor: '#00E5FF',
+                  lineWidth: 5,
+                  lineCap: 'round',
+                  lineJoin: 'round',
+                  lineOpacity: 0.5,
+                }}
+              />
+            </ShapeSource>
 
             {/* Section overlays - render all matched sections */}
-            {/* Using flatMap + filter(Boolean) to avoid passing null children to MapView */}
-            {/* which causes iOS crash: -[__NSArrayM insertObject:atIndex:]: object cannot be nil */}
-            {sectionOverlaysGeoJSON &&
-              sectionOverlaysGeoJSON
-                .flatMap((overlay, index) => {
-                  const style = getSectionStyle(index);
-                  const isHighlighted = highlightedSectionId === overlay.id;
-                  const isDimmed = highlightedSectionId && !isHighlighted;
-                  // When highlighted: bright yellow, full opacity, thicker line
-                  // When dimmed: very faint
-                  const sectionColor = isHighlighted ? '#FFD700' : style.color;
-                  const sectionOpacity = isDimmed ? 0.1 : isHighlighted ? 1 : 0.7;
-                  const sectionWidth = isHighlighted ? 8 : 6;
-                  const portionColor = isHighlighted ? '#FF4500' : '#E91E63';
-                  const portionOpacity = isDimmed ? 0.1 : 1;
-                  const portionWidth = isHighlighted ? 6 : 4;
+            {/* CRITICAL: Build array without nulls to avoid iOS MapLibre crash */}
+            {/* The native MLRNMapView crashes when React reconciliation passes intermediate nulls */}
+            {(() => {
+              if (!sectionOverlaysGeoJSON) return null;
 
-                  return [
-                    overlay.sectionGeo ? (
-                      <ShapeSource
-                        key={`sectionSource-${overlay.id}`}
-                        id={`sectionSource-${index}`}
-                        shape={overlay.sectionGeo}
-                      >
-                        <LineLayer
-                          id={`sectionLine-${index}`}
-                          style={{
-                            lineColor: sectionColor,
-                            lineWidth: sectionWidth,
-                            lineCap: 'round',
-                            lineJoin: 'round',
-                            lineOpacity: sectionOpacity,
-                          }}
-                        />
-                      </ShapeSource>
-                    ) : null,
-                    overlay.portionGeo ? (
-                      <ShapeSource
-                        key={`portionSource-${overlay.id}`}
-                        id={`portionSource-${index}`}
-                        shape={overlay.portionGeo}
-                      >
-                        <LineLayer
-                          id={`portionLine-${index}`}
-                          style={{
-                            lineColor: portionColor,
-                            lineWidth: portionWidth,
-                            lineCap: 'round',
-                            lineJoin: 'round',
-                            lineOpacity: portionOpacity,
-                          }}
-                        />
-                      </ShapeSource>
-                    ) : null,
-                  ];
-                })
-                .filter(Boolean)}
+              // Pre-build the children array WITHOUT any nulls
+              const children: React.ReactElement[] = [];
+
+              sectionOverlaysGeoJSON.forEach((overlay, index) => {
+                const style = getSectionStyle(index);
+                const isHighlighted = highlightedSectionId === overlay.id;
+                const isDimmed = highlightedSectionId && !isHighlighted;
+                const sectionColor = isHighlighted ? '#FFD700' : style.color;
+                const sectionOpacity = isDimmed ? 0.1 : isHighlighted ? 1 : 0.7;
+                const sectionWidth = isHighlighted ? 8 : 6;
+                const portionColor = isHighlighted ? '#FF4500' : '#E91E63';
+                const portionOpacity = isDimmed ? 0.1 : 1;
+                const portionWidth = isHighlighted ? 6 : 4;
+
+                // Debug: Log each overlay being processed
+                if (__DEV__) {
+                  console.log(`[ActivityMapView] RENDERING OVERLAY ${index}:`, {
+                    id: overlay.id,
+                    hasSectionGeo: !!overlay.sectionGeo,
+                    sectionCoordsCount: overlay.sectionGeo?.geometry?.coordinates?.length ?? 0,
+                    hasPortionGeo: !!overlay.portionGeo,
+                    portionCoordsCount: overlay.portionGeo?.geometry?.coordinates?.length ?? 0,
+                  });
+                }
+
+                // Only push non-null components - use stable IDs based on overlay.id
+                if (overlay.sectionGeo) {
+                  children.push(
+                    <ShapeSource
+                      key={`sectionSource-${overlay.id}`}
+                      id={`sectionSource-${overlay.id}`}
+                      shape={overlay.sectionGeo}
+                    >
+                      <LineLayer
+                        id={`sectionLine-${overlay.id}`}
+                        style={{
+                          lineColor: sectionColor,
+                          lineWidth: sectionWidth,
+                          lineCap: 'round',
+                          lineJoin: 'round',
+                          lineOpacity: sectionOpacity,
+                        }}
+                      />
+                    </ShapeSource>
+                  );
+                }
+
+                if (overlay.portionGeo) {
+                  children.push(
+                    <ShapeSource
+                      key={`portionSource-${overlay.id}`}
+                      id={`portionSource-${overlay.id}`}
+                      shape={overlay.portionGeo}
+                    >
+                      <LineLayer
+                        id={`portionLine-${overlay.id}`}
+                        style={{
+                          lineColor: portionColor,
+                          lineWidth: portionWidth,
+                          lineCap: 'round',
+                          lineJoin: 'round',
+                          lineOpacity: portionOpacity,
+                        }}
+                      />
+                    </ShapeSource>
+                  );
+                }
+              });
+
+              return children.length > 0 ? children : null;
+            })()}
 
             {/* Route line - slightly fade when showing section overlays */}
-            {routeGeoJSON && (
-              <ShapeSource id="routeSource" shape={routeGeoJSON}>
-                <LineLayer
-                  id="routeLine"
-                  style={{
-                    lineColor: activityColor,
-                    lineWidth: 4,
-                    lineCap: 'round',
-                    lineJoin: 'round',
-                    lineOpacity: sectionOverlaysGeoJSON ? 0.8 : overlayGeoJSON ? 0.85 : 1,
-                  }}
-                />
-              </ShapeSource>
-            )}
+            {/* CRITICAL: Always render ShapeSource to avoid add/remove cycles that crash iOS MapLibre */}
+            <ShapeSource id="routeSource" shape={routeGeoJSON}>
+              <LineLayer
+                id="routeLine"
+                style={{
+                  lineColor: activityColor,
+                  lineWidth: 4,
+                  lineCap: 'round',
+                  lineJoin: 'round',
+                  lineOpacity: sectionOverlaysGeoJSON ? 0.8 : overlayHasData ? 0.85 : 1,
+                }}
+              />
+            </ShapeSource>
 
             {/* Start marker */}
             {startPoint && (
@@ -853,19 +990,18 @@ export function ActivityMapView({
             )}
 
             {/* Section creation: selected section line */}
-            {sectionGeoJSON && (
-              <ShapeSource id="sectionSource" shape={sectionGeoJSON}>
-                <LineLayer
-                  id="sectionLine"
-                  style={{
-                    lineColor: colors.success,
-                    lineWidth: 6,
-                    lineCap: 'round',
-                    lineJoin: 'round',
-                  }}
-                />
-              </ShapeSource>
-            )}
+            {/* CRITICAL: Always render ShapeSource to avoid add/remove cycles that crash iOS MapLibre */}
+            <ShapeSource id="sectionSource" shape={sectionGeoJSON}>
+              <LineLayer
+                id="sectionLine"
+                style={{
+                  lineColor: colors.success,
+                  lineWidth: 6,
+                  lineCap: 'round',
+                  lineJoin: 'round',
+                }}
+              />
+            </ShapeSource>
 
             {/* Section creation: start marker */}
             {sectionStartPoint && (

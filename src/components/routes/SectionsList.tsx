@@ -22,9 +22,7 @@ import { PotentialSectionCard } from './PotentialSectionCard';
 import { DataRangeFooter } from './DataRangeFooter';
 import { useCustomSections } from '@/hooks/routes/useCustomSections';
 import { useSectionDismissals } from '@/providers/SectionDismissalsStore';
-import { useAuthStore } from '@/providers';
 import { debug } from '@/lib';
-import { allCrashTestSections } from '@/data/demo';
 import type { UnifiedSection, FrequentSection } from '@/types';
 
 const log = debug.create('SectionsList');
@@ -43,7 +41,6 @@ type HiddenFilters = {
 export function SectionsList({ sportType }: SectionsListProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
-  const isDemoMode = useAuthStore((state) => state.isDemoMode);
   const [hiddenFilters, setHiddenFilters] = useState<HiddenFilters>({
     custom: false,
     auto: false,
@@ -117,25 +114,8 @@ export function SectionsList({ sportType }: SectionsListProps) {
       }
     }
 
-    // In demo mode, add crash test sections at the top for iOS MapLibre validation testing
-    if (isDemoMode) {
-      const crashTestUnified: UnifiedSection[] = allCrashTestSections.map((section) => ({
-        id: section.id,
-        source: 'auto' as const,
-        sportType: section.sportType,
-        polyline: section.polyline,
-        activityIds: section.activityIds,
-        routeIds: section.routeIds,
-        visitCount: section.visitCount,
-        distanceMeters: section.distanceMeters,
-        name: `(Crash Test) ${section.name ?? section.id}`,
-        isDisabled: false,
-      }));
-      return { regularSections: [...crashTestUnified, ...regular], potentialSections: potential };
-    }
-
     return { regularSections: regular, potentialSections: potential };
-  }, [unifiedSections, hiddenFilters, isDemoMode]);
+  }, [unifiedSections, hiddenFilters]);
 
   // Toggle filter - pressing hides/shows that type
   const handleFilterPress = useCallback((filterType: keyof HiddenFilters) => {

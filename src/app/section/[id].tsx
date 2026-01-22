@@ -57,7 +57,6 @@ import type {
   FrequentSection,
   PerformanceDataPoint,
 } from '@/types';
-import { isCrashTestSectionId, getCrashTestSection } from '@/data/demo';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 const MAP_HEIGHT = Math.round(SCREEN_HEIGHT * 0.45);
@@ -355,11 +354,6 @@ export default function SectionDetailScreen() {
 
   // Check both sources - custom sections and engine-detected sections
   const section = useMemo(() => {
-    // Check for crash test sections (for iOS MapLibre validation testing)
-    if (id && isCrashTestSectionId(id)) {
-      return getCrashTestSection(id);
-    }
-
     // First check engine sections (fetched via useSectionDetail)
     if (!isCustomId && engineSection) {
       return engineSection;

@@ -25,6 +25,8 @@ interface MapControlStackProps {
   can3D: boolean;
   /** Whether heatmap mode is enabled */
   isHeatmapMode: boolean;
+  /** Whether activities are visible */
+  showActivities: boolean;
   /** Whether sections are visible */
   showSections: boolean;
   /** Whether routes are visible */
@@ -37,6 +39,8 @@ interface MapControlStackProps {
   sections: FrequentSection[];
   /** Number of routes (for showing routes toggle) */
   routeCount: number;
+  /** Number of activities (for showing activities toggle) */
+  activityCount: number;
   /** Animated bearing value for compass */
   bearingAnim: Animated.Value;
   /** Callback to toggle 3D mode */
@@ -47,6 +51,8 @@ interface MapControlStackProps {
   onGetLocation: () => void;
   /** Callback to toggle heatmap */
   onToggleHeatmap: () => void;
+  /** Callback to toggle activities */
+  onToggleActivities: () => void;
   /** Callback to toggle sections */
   onToggleSections: () => void;
   /** Callback to toggle routes */
@@ -59,17 +65,20 @@ export function MapControlStack({
   is3DMode,
   can3D,
   isHeatmapMode,
+  showActivities,
   showSections,
   showRoutes,
   userLocationActive,
   heatmap,
   sections,
   routeCount,
+  activityCount,
   bearingAnim,
   onToggle3D,
   onResetOrientation,
   onGetLocation,
   onToggleHeatmap,
+  onToggleActivities,
   onToggleSections,
   onToggleRoutes,
 }: MapControlStackProps) {
@@ -169,6 +178,29 @@ export function MapControlStack({
             size={22}
             color={
               isHeatmapMode ? colors.textOnDark : isDark ? colors.textOnDark : colors.textSecondary
+            }
+          />
+        </TouchableOpacity>
+      )}
+
+      {/* Activities toggle - only shown when activities exist and not in heatmap mode */}
+      {activityCount > 0 && !isHeatmapMode && (
+        <TouchableOpacity
+          style={[
+            styles.controlButton,
+            isDark && styles.controlButtonDark,
+            showActivities && styles.controlButtonActive,
+          ]}
+          onPress={onToggleActivities}
+          activeOpacity={0.8}
+          accessibilityLabel={showActivities ? 'Hide activities' : 'Show activities'}
+          accessibilityRole="button"
+        >
+          <MaterialCommunityIcons
+            name="map-marker-multiple"
+            size={22}
+            color={
+              showActivities ? colors.textOnDark : isDark ? colors.textOnDark : colors.textSecondary
             }
           />
         </TouchableOpacity>

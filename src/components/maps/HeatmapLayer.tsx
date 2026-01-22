@@ -49,28 +49,51 @@ export function HeatmapLayer({
   highlightCommonPaths = true,
 }: HeatmapLayerProps) {
   // Convert heatmap cells to GeoJSON
+  // iOS crash fix: Validate cell coordinates to prevent invalid GeoJSON
   const geoJSON = useMemo((): GeoJSON.FeatureCollection => {
     if (!heatmap || heatmap.cells.length === 0) {
       return { type: 'FeatureCollection', features: [] };
     }
 
-    const features: GeoJSON.Feature[] = heatmap.cells.map((cell) => ({
-      type: 'Feature',
-      id: `cell-${cell.row}-${cell.col}`,
-      properties: {
-        row: cell.row,
-        col: cell.col,
-        density: cell.density,
-        visitCount: cell.visitCount,
-        uniqueRouteCount: cell.uniqueRouteCount,
-        activityCount: cell.activityIds.length,
-        isCommonPath: cell.isCommonPath,
-      },
-      geometry: {
-        type: 'Point',
-        coordinates: [cell.centerLng, cell.centerLat],
-      },
-    }));
+    let skippedCount = 0;
+    const features: GeoJSON.Feature[] = heatmap.cells
+      .map((cell) => {
+        // Validate coordinates
+        if (!Number.isFinite(cell.centerLng) || !Number.isFinite(cell.centerLat)) {
+          skippedCount++;
+          if (__DEV__) {
+            console.warn(
+              `[HeatmapLayer] INVALID CELL: row=${cell.row} col=${cell.col} centerLng=${cell.centerLng} centerLat=${cell.centerLat}`
+            );
+          }
+          return null;
+        }
+
+        return {
+          type: 'Feature' as const,
+          id: `cell-${cell.row}-${cell.col}`,
+          properties: {
+            row: cell.row,
+            col: cell.col,
+            density: cell.density,
+            visitCount: cell.visitCount,
+            uniqueRouteCount: cell.uniqueRouteCount,
+            activityCount: cell.activityIds.length,
+            isCommonPath: cell.isCommonPath,
+          },
+          geometry: {
+            type: 'Point' as const,
+            coordinates: [cell.centerLng, cell.centerLat],
+          },
+        };
+      })
+      .filter((f): f is NonNullable<typeof f> => f !== null);
+
+    if (__DEV__ && skippedCount > 0) {
+      console.warn(
+        `[HeatmapLayer] Skipped ${skippedCount}/${heatmap.cells.length} cells with invalid coordinates`
+      );
+    }
 
     return { type: 'FeatureCollection', features };
   }, [heatmap]);
