@@ -378,10 +378,29 @@ export function RegionalMapView({
   // NOTE: Does NOT include isSelected - use MapLibre expressions with selectedActivityId
   // CRITICAL: Always return valid FeatureCollection to avoid iOS MapLibre crash
   // when ShapeSources are conditionally added/removed during React reconciliation
+  // Fabric crash fix: Keep feature count STABLE to avoid "Attempt to recycle a mounted view"
+  // Always include all traces in the GeoJSON - control visibility via layer opacity instead
+  // This prevents Fabric from needing to add/remove views when zoom changes
   const tracesGeoJSON = useMemo((): GeoJSON.FeatureCollection => {
-    const emptyCollection: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: [] };
-    if (!showTraces) return emptyCollection;
+    // Minimal valid geometry when no activities
+    const minimalGeometry: GeoJSON.FeatureCollection = {
+      type: 'FeatureCollection',
+      features: [
+        {
+          type: 'Feature',
+          properties: { id: '__placeholder__', color: 'transparent' },
+          geometry: {
+            type: 'LineString',
+            coordinates: [
+              [0, 0],
+              [0, 0.0001],
+            ],
+          },
+        },
+      ],
+    };
 
+    // Always build full traces regardless of showTraces - visibility controlled by layer opacity
     let skippedCount = 0;
     const features = visibleActivities
       .filter((activity) => routeSignatures[activity.id]) // Only activities with signatures
@@ -428,16 +447,34 @@ export function RegionalMapView({
       );
     }
 
+    // Return minimal geometry only if no features at all
+    if (features.length === 0) return minimalGeometry;
+
     return { type: 'FeatureCollection', features };
-  }, [showTraces, visibleActivities, routeSignatures]);
+  }, [visibleActivities, routeSignatures]); // Removed showTraces dependency - always build all traces
 
   // ===========================================
   // SECTIONS GEOJSON - Frequent road/trail sections
   // ===========================================
   // CRITICAL: Always return valid FeatureCollection to avoid iOS MapLibre crash
   const sectionsGeoJSON = useMemo((): GeoJSON.FeatureCollection => {
-    const emptyCollection: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: [] };
-    if (sections.length === 0) return emptyCollection;
+    const minimalGeometry: GeoJSON.FeatureCollection = {
+      type: 'FeatureCollection',
+      features: [
+        {
+          type: 'Feature',
+          properties: {},
+          geometry: {
+            type: 'LineString',
+            coordinates: [
+              [0, 0],
+              [0, 0.0001],
+            ],
+          },
+        },
+      ],
+    };
+    if (sections.length === 0) return minimalGeometry;
 
     let skippedCount = 0;
     const features = sections
@@ -499,8 +536,23 @@ export function RegionalMapView({
   // ===========================================
   // CRITICAL: Always return valid FeatureCollection to avoid iOS MapLibre crash
   const routesGeoJSON = useMemo((): GeoJSON.FeatureCollection => {
-    const emptyCollection: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: [] };
-    if (!showRoutes || routeGroups.length === 0) return emptyCollection;
+    const minimalGeometry: GeoJSON.FeatureCollection = {
+      type: 'FeatureCollection',
+      features: [
+        {
+          type: 'Feature',
+          properties: {},
+          geometry: {
+            type: 'LineString',
+            coordinates: [
+              [0, 0],
+              [0, 0.0001],
+            ],
+          },
+        },
+      ],
+    };
+    if (!showRoutes || routeGroups.length === 0) return minimalGeometry;
 
     let skippedCount = 0;
     const features = routeGroups
@@ -558,8 +610,17 @@ export function RegionalMapView({
   // ===========================================
   // CRITICAL: Always return valid FeatureCollection to avoid iOS MapLibre crash
   const routeMarkersGeoJSON = useMemo((): GeoJSON.FeatureCollection => {
-    const emptyCollection: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: [] };
-    if (!showRoutes || routeGroups.length === 0) return emptyCollection;
+    const minimalGeometry: GeoJSON.FeatureCollection = {
+      type: 'FeatureCollection',
+      features: [
+        {
+          type: 'Feature',
+          properties: {},
+          geometry: { type: 'Point', coordinates: [0, 0] },
+        },
+      ],
+    };
+    if (!showRoutes || routeGroups.length === 0) return minimalGeometry;
 
     let skippedCount = 0;
     const features = routeGroups
@@ -607,8 +668,10 @@ export function RegionalMapView({
   // ===========================================
   // SECTION MARKERS - Start points for sections (for MarkerView rendering)
   // ===========================================
+  // CRITICAL: Do NOT filter based on showSections - always compute markers
+  // to keep MarkerViews stable and avoid iOS crash during reconciliation
   const sectionMarkers = useMemo(() => {
-    if (!showSections || sections.length === 0) return [];
+    if (sections.length === 0) return [];
 
     return sections
       .map((section) => {
@@ -627,13 +690,15 @@ export function RegionalMapView({
         };
       })
       .filter((m): m is NonNullable<typeof m> => m !== null);
-  }, [showSections, sections]);
+  }, [sections]);
 
   // ===========================================
   // ROUTE MARKERS - Start points for routes (for MarkerView rendering)
   // ===========================================
+  // CRITICAL: Do NOT filter based on showRoutes - always compute markers
+  // to keep MarkerViews stable and avoid iOS crash during reconciliation
   const routeMarkers = useMemo(() => {
-    if (!showRoutes || routeGroups.length === 0) return [];
+    if (routeGroups.length === 0) return [];
 
     return routeGroups
       .filter((group) => routeSignatures[group.representativeId])
@@ -653,7 +718,7 @@ export function RegionalMapView({
         };
       })
       .filter((m): m is NonNullable<typeof m> => m !== null);
-  }, [showRoutes, routeGroups, routeSignatures]);
+  }, [routeGroups, routeSignatures]);
 
   // Handle route press - show route popup
   const handleRoutePress = useCallback(
@@ -760,8 +825,23 @@ export function RegionalMapView({
   // Uses the same coordinate conversion as ActivityMapView for consistency
   // CRITICAL: Always return valid GeoJSON to avoid iOS MapLibre crash
   const routeGeoJSON = useMemo((): GeoJSON.FeatureCollection | GeoJSON.Feature => {
-    const emptyCollection: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: [] };
-    if (!selected?.mapData?.latlngs) return emptyCollection;
+    const minimalGeometry: GeoJSON.FeatureCollection = {
+      type: 'FeatureCollection',
+      features: [
+        {
+          type: 'Feature',
+          properties: {},
+          geometry: {
+            type: 'LineString',
+            coordinates: [
+              [0, 0],
+              [0, 0.0001],
+            ],
+          },
+        },
+      ],
+    };
+    if (!selected?.mapData?.latlngs) return minimalGeometry;
 
     // Filter out null values first
     const nonNullCoords = selected.mapData.latlngs.filter((c): c is [number, number] => c !== null);
@@ -772,7 +852,7 @@ export function RegionalMapView({
           `[RegionalMapView] routeGeoJSON: no non-null coords for activity=${selected.activity.id}`
         );
       }
-      return emptyCollection;
+      return minimalGeometry;
     }
 
     // Convert to LatLng objects using the same function as ActivityMapView
@@ -795,7 +875,7 @@ export function RegionalMapView({
           `[RegionalMapView] routeGeoJSON: insufficient valid coords for activity=${selected.activity.id} original=${nonNullCoords.length} valid=${validCoords.length}`
         );
       }
-      return emptyCollection;
+      return minimalGeometry;
     }
 
     return {
@@ -1096,15 +1176,14 @@ export function RegionalMapView({
             />
           </ShapeSource>
 
-          {/* Heatmap layer - shown when heatmap mode is active */}
-          {isHeatmapMode && heatmap && (
-            <HeatmapLayer
-              heatmap={heatmap}
-              onCellPress={handleHeatmapCellPress}
-              opacity={0.7}
-              highlightCommonPaths={true}
-            />
-          )}
+          {/* Heatmap layer - iOS crash fix: always render, control via visible prop */}
+          <HeatmapLayer
+            heatmap={heatmap}
+            onCellPress={handleHeatmapCellPress}
+            opacity={0.7}
+            highlightCommonPaths={true}
+            visible={isHeatmapMode && !!heatmap}
+          />
 
           {/* GPS traces - simplified routes shown when zoomed in (hidden in heatmap mode) */}
           {/* CRITICAL: Always render ShapeSource to avoid iOS MapLibre crash */}
@@ -1121,7 +1200,8 @@ export function RegionalMapView({
                   0,
                   2,
                 ],
-                lineOpacity: !isHeatmapMode ? 0.4 : 0,
+                // Fabric crash fix: Control visibility via opacity, not feature count
+                lineOpacity: showTraces && !isHeatmapMode ? 0.4 : 0,
                 lineCap: 'round',
                 lineJoin: 'round',
               }}
@@ -1252,9 +1332,13 @@ export function RegionalMapView({
             );
           })}
 
-          {/* User location marker */}
+          {/* User location marker - native patch handles nil safety */}
           {userLocation && (
-            <MarkerView coordinate={userLocation} anchor={{ x: 0.5, y: 0.5 }}>
+            <MarkerView
+              key="user-location-marker"
+              coordinate={userLocation}
+              anchor={{ x: 0.5, y: 0.5 }}
+            >
               <View style={styles.userLocationMarker}>
                 <View style={styles.userLocationDot} />
               </View>

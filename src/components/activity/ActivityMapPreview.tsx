@@ -50,17 +50,45 @@ export function ActivityMapPreview({ activity, height = 160 }: ActivityMapPrevie
 
   const bounds = useMemo(() => getMapLibreBounds(validCoordinates), [validCoordinates]);
 
-  // GeoJSON LineString requires minimum 2 coordinates - invalid data causes iOS crash:
-  // -[__NSArrayM insertObject:atIndex:]: object cannot be nil (MLRNMapView.m:207)
-  const routeGeoJSON = useMemo(() => {
-    if (validCoordinates.length < 2) return null;
+  // iOS crash fix: Always return valid GeoJSON, never null
+  // Using minimal valid LineString to avoid MapLibre "Invalid geometry" warnings
+  const { routeGeoJSON, hasRouteData } = useMemo(() => {
+    if (validCoordinates.length < 2) {
+      return {
+        routeGeoJSON: {
+          type: 'FeatureCollection' as const,
+          features: [
+            {
+              type: 'Feature' as const,
+              properties: {},
+              geometry: {
+                type: 'LineString' as const,
+                coordinates: [
+                  [0, 0],
+                  [0, 0.0001],
+                ],
+              },
+            },
+          ],
+        },
+        hasRouteData: false,
+      };
+    }
     return {
-      type: 'Feature' as const,
-      properties: {},
-      geometry: {
-        type: 'LineString' as const,
-        coordinates: validCoordinates.map((c) => [c.longitude, c.latitude]),
+      routeGeoJSON: {
+        type: 'FeatureCollection' as const,
+        features: [
+          {
+            type: 'Feature' as const,
+            properties: {},
+            geometry: {
+              type: 'LineString' as const,
+              coordinates: validCoordinates.map((c) => [c.longitude, c.latitude]),
+            },
+          },
+        ],
       },
+      hasRouteData: true,
     };
   }, [validCoordinates]);
 
@@ -114,20 +142,19 @@ export function ActivityMapPreview({ activity, height = 160 }: ActivityMapPrevie
           animationDuration={0}
         />
 
-        {/* Route line */}
-        {routeGeoJSON && (
-          <ShapeSource id="routeSource" shape={routeGeoJSON}>
-            <LineLayer
-              id="routeLine"
-              style={{
-                lineColor: activityColor,
-                lineWidth: 3,
-                lineCap: 'round',
-                lineJoin: 'round',
-              }}
-            />
-          </ShapeSource>
-        )}
+        {/* Route line - iOS crash fix: always render ShapeSource */}
+        <ShapeSource id="routeSource" shape={routeGeoJSON}>
+          <LineLayer
+            id="routeLine"
+            style={{
+              lineColor: activityColor,
+              lineOpacity: hasRouteData ? 1 : 0,
+              lineWidth: 3,
+              lineCap: 'round',
+              lineJoin: 'round',
+            }}
+          />
+        </ShapeSource>
 
         {/* Start marker */}
         {startPoint && (

@@ -79,93 +79,148 @@ export function RouteMapView({
       .filter((p) => Number.isFinite(p.lat) && Number.isFinite(p.lng))
       .map((p) => [p.lng, p.lat]);
 
+  // Minimal valid geometry for iOS crash prevention
+  // Using a real LineString at [0,0] instead of empty features to avoid MapLibre warnings
+  const EMPTY_LINE_GEOJSON: GeoJSON.FeatureCollection = {
+    type: 'FeatureCollection',
+    features: [
+      {
+        type: 'Feature',
+        properties: {},
+        geometry: {
+          type: 'LineString',
+          coordinates: [
+            [0, 0],
+            [0, 0.0001],
+          ],
+        },
+      },
+    ],
+  };
+
   // Create GeoJSON for individual activity traces - split into highlighted and non-highlighted
-  const { fadedTracesGeoJSON, highlightedTraceGeoJSON } = useMemo(() => {
-    if (activityTracesWithIds.length === 0) {
-      return { fadedTracesGeoJSON: null, highlightedTraceGeoJSON: null };
-    }
-
-    // Check if we have lap-specific points to highlight (takes precedence)
-    const hasLapHighlight = highlightedLapPoints && highlightedLapPoints.length > 1;
-
-    // Separate highlighted trace from others
-    const fadedTraces = activityTracesWithIds.filter((t) => t.id !== highlightedActivityId);
-    const highlightedActivity = activityTracesWithIds.find((t) => t.id === highlightedActivityId);
-
-    const faded =
-      fadedTraces.length > 0
-        ? {
-            type: 'FeatureCollection' as const,
-            features: fadedTraces
-              .map((trace) => {
-                const coords = toValidCoordinates(trace.points);
-                if (coords.length < 2) return null;
-                return {
-                  type: 'Feature' as const,
-                  properties: { id: trace.id },
-                  geometry: {
-                    type: 'LineString' as const,
-                    coordinates: coords,
-                  },
-                };
-              })
-              .filter((f): f is NonNullable<typeof f> => f !== null),
-          }
-        : null;
-
-    // Use lap points if available, otherwise use full activity trace
-    let highlightedGeo = null;
-    if (hasLapHighlight) {
-      // Highlight specific lap section - filter out invalid points
-      const coords = toValidCoordinates(highlightedLapPoints!);
-      if (coords.length >= 2) {
-        highlightedGeo = {
-          type: 'Feature' as const,
-          properties: { id: 'lap' },
-          geometry: {
-            type: 'LineString' as const,
-            coordinates: coords,
-          },
+  // iOS crash fix: Always return valid GeoJSON, never null
+  const { fadedTracesGeoJSON, highlightedTraceGeoJSON, hasFadedTraces, hasHighlightedTrace } =
+    useMemo(() => {
+      if (activityTracesWithIds.length === 0) {
+        return {
+          fadedTracesGeoJSON: EMPTY_LINE_GEOJSON,
+          highlightedTraceGeoJSON: EMPTY_LINE_GEOJSON,
+          hasFadedTraces: false,
+          hasHighlightedTrace: false,
         };
       }
-    } else if (highlightedActivity) {
-      // Highlight full activity trace
-      const coords = toValidCoordinates(highlightedActivity.points);
-      if (coords.length >= 2) {
-        highlightedGeo = {
-          type: 'Feature' as const,
-          properties: { id: highlightedActivity.id },
-          geometry: {
-            type: 'LineString' as const,
-            coordinates: coords,
-          },
-        };
-      }
-    }
 
-    return {
-      fadedTracesGeoJSON: faded,
-      highlightedTraceGeoJSON: highlightedGeo,
-    };
-  }, [activityTracesWithIds, highlightedActivityId, highlightedLapPoints]);
+      // Check if we have lap-specific points to highlight (takes precedence)
+      const hasLapHighlight = highlightedLapPoints && highlightedLapPoints.length > 1;
+
+      // Separate highlighted trace from others
+      const fadedTraces = activityTracesWithIds.filter((t) => t.id !== highlightedActivityId);
+      const highlightedActivity = activityTracesWithIds.find((t) => t.id === highlightedActivityId);
+
+      const fadedFeatures = fadedTraces
+        .map((trace) => {
+          const coords = toValidCoordinates(trace.points);
+          if (coords.length < 2) return null;
+          return {
+            type: 'Feature' as const,
+            properties: { id: trace.id },
+            geometry: {
+              type: 'LineString' as const,
+              coordinates: coords,
+            },
+          };
+        })
+        .filter((f): f is NonNullable<typeof f> => f !== null);
+
+      const faded: GeoJSON.FeatureCollection = {
+        type: 'FeatureCollection',
+        features: fadedFeatures,
+      };
+
+      // Use lap points if available, otherwise use full activity trace
+      let highlightedGeo: GeoJSON.FeatureCollection = EMPTY_LINE_GEOJSON;
+      let hasHighlight = false;
+
+      if (hasLapHighlight) {
+        // Highlight specific lap section - filter out invalid points
+        const coords = toValidCoordinates(highlightedLapPoints!);
+        if (coords.length >= 2) {
+          highlightedGeo = {
+            type: 'FeatureCollection',
+            features: [
+              {
+                type: 'Feature',
+                properties: { id: 'lap' },
+                geometry: {
+                  type: 'LineString',
+                  coordinates: coords,
+                },
+              },
+            ],
+          };
+          hasHighlight = true;
+        }
+      } else if (highlightedActivity) {
+        // Highlight full activity trace
+        const coords = toValidCoordinates(highlightedActivity.points);
+        if (coords.length >= 2) {
+          highlightedGeo = {
+            type: 'FeatureCollection',
+            features: [
+              {
+                type: 'Feature',
+                properties: { id: highlightedActivity.id },
+                geometry: {
+                  type: 'LineString',
+                  coordinates: coords,
+                },
+              },
+            ],
+          };
+          hasHighlight = true;
+        }
+      }
+
+      return {
+        fadedTracesGeoJSON: faded,
+        highlightedTraceGeoJSON: highlightedGeo,
+        hasFadedTraces: fadedFeatures.length > 0,
+        hasHighlightedTrace: hasHighlight,
+      };
+    }, [activityTracesWithIds, highlightedActivityId, highlightedLapPoints]);
 
   // Create GeoJSON for the consensus/main route
   // GeoJSON LineString requires minimum 2 coordinates - invalid data causes iOS crash:
   // -[__NSArrayM insertObject:atIndex:]: object cannot be nil (MLRNMapView.m:207)
-  const routeGeoJSON = useMemo(() => {
+  // iOS crash fix: Always return valid GeoJSON, use hasRouteData flag for visibility
+  const { routeGeoJSON, hasRouteData } = useMemo(() => {
     // Filter out NaN/Infinity coordinates
     const validPoints = displayPoints.filter(
       (p) => Number.isFinite(p.lat) && Number.isFinite(p.lng)
     );
     // LineString requires at least 2 valid coordinates
-    if (validPoints.length < 2) return null;
+    if (validPoints.length < 2) {
+      return {
+        routeGeoJSON: EMPTY_LINE_GEOJSON,
+        hasRouteData: false,
+      };
+    }
     return {
-      type: 'Feature' as const,
-      properties: {},
-      geometry: {
-        type: 'LineString' as const,
-        coordinates: validPoints.map((p) => [p.lng, p.lat]),
+      routeGeoJSON: {
+        type: 'FeatureCollection' as const,
+        features: [
+          {
+            type: 'Feature' as const,
+            properties: {},
+            geometry: {
+              type: 'LineString' as const,
+              coordinates: validPoints.map((p) => [p.lng, p.lat]),
+            },
+          },
+        ],
       },
+      hasRouteData: true,
     };
   }, [displayPoints]);
 
@@ -271,51 +326,49 @@ export function RouteMapView({
       />
 
       {/* Faded individual activity traces (render first, behind everything) */}
-      {fadedTracesGeoJSON && (
-        <ShapeSource id="fadedTracesSource" shape={fadedTracesGeoJSON}>
-          <LineLayer
-            id="fadedTracesLine"
-            style={{
-              lineColor: activityColor,
-              lineOpacity: fadedOpacity,
-              lineWidth: 2,
-              lineCap: 'round',
-              lineJoin: 'round',
-            }}
-          />
-        </ShapeSource>
-      )}
+      {/* iOS crash fix: Always render ShapeSource, control visibility via opacity */}
+      <ShapeSource id="fadedTracesSource" shape={fadedTracesGeoJSON}>
+        <LineLayer
+          id="fadedTracesLine"
+          style={{
+            lineColor: activityColor,
+            lineOpacity: hasFadedTraces ? fadedOpacity : 0,
+            lineWidth: 2,
+            lineCap: 'round',
+            lineJoin: 'round',
+          }}
+        />
+      </ShapeSource>
 
       {/* Consensus/main route line */}
-      {routeGeoJSON && (
-        <ShapeSource id="routeSource" shape={routeGeoJSON}>
-          <LineLayer
-            id="routeLine"
-            style={{
-              lineColor: activityColor,
-              lineOpacity: consensusOpacity,
-              lineWidth: 4,
-              lineCap: 'round',
-              lineJoin: 'round',
-            }}
-          />
-        </ShapeSource>
-      )}
+      {/* iOS crash fix: Always render ShapeSource */}
+      <ShapeSource id="routeSource" shape={routeGeoJSON}>
+        <LineLayer
+          id="routeLine"
+          style={{
+            lineColor: activityColor,
+            lineOpacity: hasRouteData ? consensusOpacity : 0,
+            lineWidth: 4,
+            lineCap: 'round',
+            lineJoin: 'round',
+          }}
+        />
+      </ShapeSource>
 
       {/* Highlighted activity trace (render on top, most prominent) */}
-      {highlightedTraceGeoJSON && (
-        <ShapeSource id="highlightedSource" shape={highlightedTraceGeoJSON}>
-          <LineLayer
-            id="highlightedLine"
-            style={{
-              lineColor: colors.chartCyan, // Cyan for highlighted activity
-              lineWidth: 4,
-              lineCap: 'round',
-              lineJoin: 'round',
-            }}
-          />
-        </ShapeSource>
-      )}
+      {/* iOS crash fix: Always render ShapeSource */}
+      <ShapeSource id="highlightedSource" shape={highlightedTraceGeoJSON}>
+        <LineLayer
+          id="highlightedLine"
+          style={{
+            lineColor: colors.chartCyan, // Cyan for highlighted activity
+            lineOpacity: hasHighlightedTrace ? 1 : 0,
+            lineWidth: 4,
+            lineCap: 'round',
+            lineJoin: 'round',
+          }}
+        />
+      </ShapeSource>
 
       {/* Start marker */}
       {startPoint && (
@@ -376,36 +429,33 @@ export function RouteMapView({
           initialStyle={mapStyle}
           onClose={closeFullscreen}
         >
-          {/* Faded activity traces */}
-          {fadedTracesGeoJSON && (
-            <ShapeSource id="fadedTracesSource" shape={fadedTracesGeoJSON}>
-              <LineLayer
-                id="fadedTracesLine"
-                style={{
-                  lineColor: activityColor,
-                  lineOpacity: 0.2,
-                  lineWidth: 2,
-                  lineCap: 'round',
-                  lineJoin: 'round',
-                }}
-              />
-            </ShapeSource>
-          )}
+          {/* Faded activity traces - iOS crash fix: always render */}
+          <ShapeSource id="fadedTracesSource" shape={fadedTracesGeoJSON}>
+            <LineLayer
+              id="fadedTracesLine"
+              style={{
+                lineColor: activityColor,
+                lineOpacity: hasFadedTraces ? 0.2 : 0,
+                lineWidth: 2,
+                lineCap: 'round',
+                lineJoin: 'round',
+              }}
+            />
+          </ShapeSource>
 
-          {/* Highlighted trace */}
-          {highlightedTraceGeoJSON && (
-            <ShapeSource id="highlightedSource" shape={highlightedTraceGeoJSON}>
-              <LineLayer
-                id="highlightedLine"
-                style={{
-                  lineColor: colors.chartCyan,
-                  lineWidth: 4,
-                  lineCap: 'round',
-                  lineJoin: 'round',
-                }}
-              />
-            </ShapeSource>
-          )}
+          {/* Highlighted trace - iOS crash fix: always render */}
+          <ShapeSource id="highlightedSource" shape={highlightedTraceGeoJSON}>
+            <LineLayer
+              id="highlightedLine"
+              style={{
+                lineColor: colors.chartCyan,
+                lineOpacity: hasHighlightedTrace ? 1 : 0,
+                lineWidth: 4,
+                lineCap: 'round',
+                lineJoin: 'round',
+              }}
+            />
+          </ShapeSource>
 
           {/* Start marker */}
           {startPoint && (

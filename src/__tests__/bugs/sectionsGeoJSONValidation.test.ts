@@ -463,8 +463,9 @@ describe('Source code verification', () => {
     const filePath = path.resolve(__dirname, '../../components/maps/RegionalMapView.tsx');
     const source = fs.readFileSync(filePath, 'utf-8');
 
-    // Should check for minimum 2 valid points
-    expect(source).toMatch(/validPoints\.length\s*<\s*2/);
+    // Should check for minimum 2 valid points (after filtering NaN and Infinity)
+    // The code uses finitePoints.length < 2 (which is validPoints filtered for Infinity)
+    expect(source).toMatch(/finitePoints\.length\s*<\s*2/);
   });
 
   it('RegionalMapView sectionsGeoJSON filters NaN coordinates', () => {

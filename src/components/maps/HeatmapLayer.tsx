@@ -11,14 +11,16 @@ import type { HeatmapResult } from '@/hooks/useHeatmap';
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 interface HeatmapLayerProps {
-  /** Heatmap data from useHeatmap */
-  heatmap: HeatmapResult;
+  /** Heatmap data from useHeatmap (can be null when not in heatmap mode) */
+  heatmap: HeatmapResult | null;
   /** Called when a cell is tapped */
   onCellPress?: (row: number, col: number) => void;
   /** Opacity of the heatmap (0-1) */
   opacity?: number;
   /** Whether to show common paths differently */
   highlightCommonPaths?: boolean;
+  /** Whether the heatmap is visible (iOS crash fix: always render, control via opacity) */
+  visible?: boolean;
 }
 
 // Color stops for density gradient (blue -> purple -> gold)
@@ -47,9 +49,10 @@ export function HeatmapLayer({
   onCellPress,
   opacity = 0.7,
   highlightCommonPaths = true,
+  visible = true,
 }: HeatmapLayerProps) {
   // Convert heatmap cells to GeoJSON
-  // iOS crash fix: Validate cell coordinates to prevent invalid GeoJSON
+  // iOS crash fix: Always return valid GeoJSON, never null
   const geoJSON = useMemo((): GeoJSON.FeatureCollection => {
     if (!heatmap || heatmap.cells.length === 0) {
       return { type: 'FeatureCollection', features: [] };
@@ -107,15 +110,15 @@ export function HeatmapLayer({
     }
   };
 
-  if (geoJSON.features.length === 0) {
-    return null;
-  }
+  // iOS crash fix: Always render the ShapeSource, use opacity to hide
+  // Never return null to avoid triggering native add/remove operations
+  const effectiveOpacity = visible && geoJSON.features.length > 0 ? opacity : 0;
 
   return (
     <ShapeSource
       id="heatmap-cells"
       shape={geoJSON}
-      onPress={handlePress}
+      onPress={visible ? handlePress : undefined}
       hitbox={{ width: 20, height: 20 }}
     >
       {/* Main heatmap circles */}
@@ -123,12 +126,13 @@ export function HeatmapLayer({
       <CircleLayer
         id="heatmap-circles"
         style={{
-          circleRadius: CIRCLE_RADIUS as any,
+          circleRadius: visible ? (CIRCLE_RADIUS as any) : 0,
           circleColor: DENSITY_COLORS as any,
-          circleOpacity: opacity,
-          circleStrokeWidth: highlightCommonPaths
-            ? (['case', ['get', 'isCommonPath'], 1.5, 0] as any)
-            : 0,
+          circleOpacity: effectiveOpacity,
+          circleStrokeWidth:
+            visible && highlightCommonPaths
+              ? (['case', ['get', 'isCommonPath'], 1.5, 0] as any)
+              : 0,
           circleStrokeColor: colors.textOnDark,
         }}
       />

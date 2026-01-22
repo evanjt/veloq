@@ -369,20 +369,24 @@ describe('Source code fix verification', () => {
       expect(hasOldFragmentPattern).toBe(false);
     });
 
-    it('must use filter(Boolean) for section marker rendering', () => {
+    it('must use null-safe rendering patterns for section overlays and markers', () => {
       const filePath = path.join(componentsDir, 'ActivityMapView.tsx');
       const source = fs.readFileSync(filePath, 'utf-8');
 
-      // Count occurrences of .filter(Boolean) - should be at least 4:
-      // 1. Section overlays flatMap (line ~785)
-      // 2. Section markers map (line ~825)
-      // 3. Fullscreen section overlays flatMap (line ~1110)
-      // 4. Fullscreen section markers map (line ~1135)
+      // Count occurrences of .filter(Boolean) - should be at least 3:
+      // 1. Section markers map in main view (non-fullscreen)
+      // 2. Fullscreen section overlays flatMap
+      // 3. Fullscreen section markers map
       const filterBooleanMatches = source.match(/\.filter\(Boolean\)/g);
       const filterCount = filterBooleanMatches ? filterBooleanMatches.length : 0;
 
-      // At least 4 filter(Boolean) calls for complete crash protection
-      expect(filterCount).toBeGreaterThanOrEqual(4);
+      // At least 3 filter(Boolean) calls for crash protection
+      expect(filterCount).toBeGreaterThanOrEqual(3);
+
+      // Main map section overlays use IIFE with forEach (builds clean array, never nulls)
+      // This is actually safer than flatMap+filter since nulls never exist
+      const hasIIFEPattern = source.includes('const children: React.ReactElement[] = []');
+      expect(hasIIFEPattern).toBe(true);
     });
   });
 

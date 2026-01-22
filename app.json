@@ -57,6 +57,7 @@
       "./src/plugins/with-packaging-options",
       "./src/plugins/with-route-matcher-native",
       "./src/plugins/with-r8-config",
+      "./src/plugins/with-maplibre-nil-safety",
       "@config-plugins/detox",
       "expo-router",
       "expo-localization",
