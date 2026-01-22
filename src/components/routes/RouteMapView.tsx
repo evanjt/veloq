@@ -150,14 +150,21 @@ export function RouteMapView({
   }, [activityTracesWithIds, highlightedActivityId, highlightedLapPoints]);
 
   // Create GeoJSON for the consensus/main route
+  // GeoJSON LineString requires minimum 2 coordinates - invalid data causes iOS crash:
+  // -[__NSArrayM insertObject:atIndex:]: object cannot be nil (MLRNMapView.m:207)
   const routeGeoJSON = useMemo(() => {
-    if (displayPoints.length === 0) return null;
+    // Filter out NaN/Infinity coordinates
+    const validPoints = displayPoints.filter(
+      (p) => Number.isFinite(p.lat) && Number.isFinite(p.lng)
+    );
+    // LineString requires at least 2 valid coordinates
+    if (validPoints.length < 2) return null;
     return {
       type: 'Feature' as const,
       properties: {},
       geometry: {
         type: 'LineString' as const,
-        coordinates: displayPoints.map((p) => [p.lng, p.lat]),
+        coordinates: validPoints.map((p) => [p.lng, p.lat]),
       },
     };
   }, [displayPoints]);

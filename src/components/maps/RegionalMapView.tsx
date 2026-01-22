@@ -29,6 +29,7 @@ import {
   getStyleIcon,
   MAP_ATTRIBUTIONS,
   TERRAIN_ATTRIBUTION,
+  getCombinedSatelliteAttribution,
 } from './mapStyles';
 import type { ActivityBoundsItem } from '@/types';
 import { HeatmapLayer } from './HeatmapLayer';
@@ -70,9 +71,15 @@ interface RegionalMapViewProps {
   activities: ActivityBoundsItem[];
   /** Callback to go back */
   onClose: () => void;
+  /** Extra bottom offset for attribution (e.g., when timeline slider is shown) */
+  attributionBottomOffset?: number;
 }
 
-export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
+export function RegionalMapView({
+  activities,
+  onClose,
+  attributionBottomOffset = 0,
+}: RegionalMapViewProps) {
   const { t } = useTranslation();
   const router = useRouter();
   const { isDark: systemIsDark } = useTheme();
@@ -178,10 +185,25 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
   const currentZoomLevel = useRef(10); // Track current zoom for compass updates
 
   const isDark = isDarkStyle(mapStyle);
-  const mapStyleValue = getMapStyle(mapStyle);
-  const attributionText = is3DMode
-    ? `${MAP_ATTRIBUTIONS[mapStyle]} | ${TERRAIN_ATTRIBUTION}`
-    : MAP_ATTRIBUTIONS[mapStyle];
+
+  // Get map style value - combined satellite style includes all regional sources
+  const mapStyleValue = useMemo(() => {
+    return getMapStyle(mapStyle);
+  }, [mapStyle]);
+
+  // Dynamic attribution based on visible satellite sources at current location
+  const attributionText = useMemo(() => {
+    if (mapStyle === 'satellite' && currentCenter) {
+      const satAttribution = getCombinedSatelliteAttribution(
+        currentCenter[1],
+        currentCenter[0],
+        currentZoom
+      );
+      return is3DMode ? `${satAttribution} | ${TERRAIN_ATTRIBUTION}` : satAttribution;
+    }
+    const baseAttribution = MAP_ATTRIBUTIONS[mapStyle];
+    return is3DMode ? `${baseAttribution} | ${TERRAIN_ATTRIBUTION}` : baseAttribution;
+  }, [mapStyle, currentCenter, currentZoom, is3DMode]);
 
   // Calculate bounds from activities (used for initial camera position)
   // Uses normalizeBounds to auto-detect coordinate format from API
@@ -247,6 +269,14 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
   const mapBounds = cachedData?.bounds ?? currentData?.bounds ?? null;
   const mapCenter = currentData?.center ?? cachedData?.center ?? null;
   const mapZoom = cachedData?.zoomLevel ?? currentData?.zoomLevel ?? 2;
+
+  // Initialize currentCenter from mapCenter for region-aware satellite source detection
+  useEffect(() => {
+    if (currentCenter === null && mapCenter !== null) {
+      setCurrentCenter(mapCenter);
+      setCurrentZoom(mapZoom);
+    }
+  }, [currentCenter, mapCenter, mapZoom]);
 
   // Extract handlers to separate hook
   const {
@@ -345,8 +375,15 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
         const signature = routeSignatures[activity.id];
         const config = getActivityTypeConfig(activity.type);
 
-        // Convert signature points to GeoJSON coordinates [lng, lat]
-        const coordinates = signature.points.map((pt) => [pt.lng, pt.lat]);
+        // Filter out NaN/Infinity coordinates and convert to GeoJSON [lng, lat]
+        // GeoJSON LineString requires minimum 2 coordinates - invalid data causes iOS crash:
+        // -[__NSArrayM insertObject:atIndex:]: object cannot be nil (MLRNMapView.m:207)
+        const coordinates = signature.points
+          .filter((pt) => Number.isFinite(pt.lng) && Number.isFinite(pt.lat))
+          .map((pt) => [pt.lng, pt.lat]);
+
+        // Skip traces with insufficient valid coordinates
+        if (coordinates.length < 2) return null;
 
         return {
           type: 'Feature' as const,
@@ -360,7 +397,10 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
             coordinates,
           },
         };
-      });
+      })
+      .filter((f): f is NonNullable<typeof f> => f !== null);
+
+    if (features.length === 0) return null;
 
     return {
       type: 'FeatureCollection' as const,
@@ -427,7 +467,14 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
       .filter((group) => routeSignatures[group.representativeId])
       .map((group) => {
         const signature = routeSignatures[group.representativeId];
-        const coordinates = signature.points.map((pt) => [pt.lng, pt.lat]);
+        // Filter out NaN/Infinity coordinates
+        // GeoJSON LineString requires minimum 2 coordinates - invalid data causes iOS crash
+        const coordinates = signature.points
+          .filter((pt) => Number.isFinite(pt.lng) && Number.isFinite(pt.lat))
+          .map((pt) => [pt.lng, pt.lat]);
+
+        // Skip routes with insufficient valid coordinates
+        if (coordinates.length < 2) return null;
 
         return {
           type: 'Feature' as const,
@@ -445,7 +492,10 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
             coordinates,
           },
         };
-      });
+      })
+      .filter((f): f is NonNullable<typeof f> => f !== null);
+
+    if (features.length === 0) return null;
 
     return {
       type: 'FeatureCollection' as const,
@@ -597,11 +647,13 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
   }, [selected?.mapData]);
 
   // Get 3D route coordinates from selected activity (if any)
+  // Filter NaN/Infinity to prevent invalid GeoJSON in Map3DWebView
   const route3DCoords = useMemo(() => {
     if (!selected?.mapData?.latlngs) return [];
 
     return selected.mapData.latlngs
       .filter((c): c is [number, number] => c !== null)
+      .filter(([lat, lng]) => Number.isFinite(lat) && Number.isFinite(lng))
       .map(([lat, lng]) => [lng, lat] as [number, number]); // Convert to [lng, lat]
   }, [selected?.mapData]);
 
@@ -930,7 +982,7 @@ export function RegionalMapView({ activities, onClose }: RegionalMapViewProps) {
       />
 
       {/* Attribution */}
-      <View style={[styles.attribution, { bottom: insets.bottom + 8 }]}>
+      <View style={[styles.attribution, { bottom: insets.bottom + 8 + attributionBottomOffset }]}>
         <Text style={styles.attributionText}>{attributionText}</Text>
       </View>
 

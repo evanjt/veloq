@@ -1,0 +1,23 @@
+#!/bin/sh
+
+# Check if we're pushing a tag (version release)
+# Tags look like: refs/tags/v0.0.5
+while read local_ref local_sha remote_ref remote_sha
+do
+  if echo "$local_ref" | grep -q "^refs/tags/"; then
+    tag_name=$(echo "$local_ref" | sed 's|refs/tags/||')
+    echo "Pushing tag: $tag_name"
+    echo "Validating store metadata for release..."
+
+    npx tsx scripts/validate-store-metadata.ts
+
+    if [ $? -ne 0 ]; then
+      echo ""
+      echo "Store metadata validation failed!"
+      echo "Please fix the issues above before pushing the release tag."
+      exit 1
+    fi
+  fi
+done
+
+exit 0

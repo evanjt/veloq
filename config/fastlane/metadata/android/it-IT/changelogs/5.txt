@@ -1,0 +1,10 @@
+What's new in 0.0.5:
+
+- 3D terrain view now available anytime (no activity selection required)
+- 3D map shows routes, sections, and traces like 2D view
+- Section chart scrubbing and time gap compression
+- Map now centers on your most recent activity location
+- Fixed scrubbing performance with Rust engine caching
+- Fixed date display for yesterday's activities
+- Fixed MapLibre crash with sparse GPS data
+- Temporarily disabled heatmap (pending fixes)

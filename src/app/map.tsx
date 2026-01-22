@@ -310,7 +310,11 @@ export default function MapScreen() {
     <View style={styles.container} testID="map-screen">
       {/* Main map view */}
       <ComponentErrorBoundary componentName="Map">
-        <RegionalMapView activities={filteredActivities} onClose={handleClose} />
+        <RegionalMapView
+          activities={filteredActivities}
+          onClose={handleClose}
+          attributionBottomOffset={160}
+        />
       </ComponentErrorBoundary>
 
       {/* Timeline slider with integrated filters (bottom overlay) */}

@@ -123,6 +123,57 @@ const DEMO_ATHLETE: ApiAthlete = {
   icu_resting_hr: 55,
 };
 
+// ============================================================================
+// CRASH TEST ACTIVITY - For iOS MapLibre validation testing
+// ============================================================================
+// This activity has intentionally invalid GPS data (single point) that would
+// crash iOS MapLibre if not properly validated.
+// Error: -[__NSArrayM insertObject:atIndex:]: object cannot be nil
+// Location: MLRNMapView.m:207
+
+export const CRASH_TEST_ACTIVITY_ID = 'demo_crash_test';
+
+// Use yesterday noon to avoid timezone filtering issues
+// Combined with being LAST in array (before reverse), this appears FIRST in feed
+const crashTestDate = new Date();
+crashTestDate.setDate(crashTestDate.getDate() - 1);
+crashTestDate.setHours(12, 0, 0, 0);
+
+const CRASH_TEST_ACTIVITY: ApiActivity & { _routeId: string | null } = {
+  id: CRASH_TEST_ACTIVITY_ID,
+  start_date_local: crashTestDate.toISOString(), // Current time (most recent)
+  type: 'Run',
+  name: '🧪 CRASH TEST - Tap to verify fix',
+  description:
+    'This activity tests iOS MapLibre crash fix. If viewing the map does not crash, the fix is working.',
+  distance: 100,
+  moving_time: 60,
+  elapsed_time: 60,
+  total_elevation_gain: 0,
+  total_elevation_loss: 0,
+  average_speed: 1.67,
+  max_speed: 2.0,
+  average_heartrate: 120,
+  max_heartrate: 130,
+  average_cadence: 80,
+  average_temp: 20,
+  calories: 10,
+  device_name: 'Crash Test Device',
+  trainer: false,
+  commute: false,
+  icu_training_load: 5,
+  icu_intensity: 0.5,
+  icu_ftp: null,
+  icu_atl: 35,
+  icu_ctl: 35,
+  icu_hr_zones: [60, 30, 10, 0, 0],
+  icu_power_zones: [],
+  stream_types: ['time', 'latlng', 'heartrate'],
+  locality: 'Crash Test',
+  country: 'Testland',
+  _routeId: null, // Will be handled specially in getActivityMap
+};
+
 /**
  * Generate activity name based on type, time of day, and workout style
  */
@@ -650,9 +701,22 @@ function generateWellness(): ApiWellness[] {
 // FIXTURE DATA (generated once on module load)
 // ============================================================================
 
+const generatedActivities = generateActivities();
+// CRASH_TEST_ACTIVITY must be LAST in array because getActivities() reverses the list
+// After reverse(), this will appear FIRST (most recent) in the activity feed
+const allActivities = [...generatedActivities, CRASH_TEST_ACTIVITY];
+
+// Debug: Log crash test activity (last in array = first after reverse in getActivities)
+console.log('[DEMO FIXTURES] Loaded', allActivities.length, 'activities');
+console.log(
+  '[DEMO FIXTURES] Last activity (will be first):',
+  allActivities[allActivities.length - 1]?.id,
+  allActivities[allActivities.length - 1]?.name
+);
+
 export const fixtures = {
   athlete: DEMO_ATHLETE,
-  activities: generateActivities(),
+  activities: allActivities,
   wellness: generateWellness(),
 };
 
@@ -667,14 +731,24 @@ export function getActivity(id: string): ApiActivity | undefined {
 export function getActivities(params?: { oldest?: string; newest?: string }): ApiActivity[] {
   let result = [...fixtures.activities];
 
+  // Debug: Check if crash test is in initial list
+  const hasCrashTest = result.some((a) => a.id === CRASH_TEST_ACTIVITY_ID);
+  console.log('[getActivities] Initial count:', result.length, 'Has crash test:', hasCrashTest);
+
   if (params?.oldest) {
     const oldest = new Date(params.oldest);
     result = result.filter((a) => new Date(a.start_date_local) >= oldest);
+    console.log('[getActivities] After oldest filter:', result.length);
   }
   if (params?.newest) {
     const newest = new Date(params.newest);
     result = result.filter((a) => new Date(a.start_date_local) <= newest);
+    console.log('[getActivities] After newest filter:', result.length);
   }
+
+  // Debug: Check if crash test survived filtering
+  const hasCrashTestAfter = result.some((a) => a.id === CRASH_TEST_ACTIVITY_ID);
+  console.log('[getActivities] Final count:', result.length, 'Has crash test:', hasCrashTestAfter);
 
   return result.reverse(); // Newest first
 }
@@ -682,6 +756,20 @@ export function getActivities(params?: { oldest?: string; newest?: string }): Ap
 export function getActivityMap(id: string, boundsOnly = false): ApiActivityMap | null {
   const activity = getActivity(id) as ApiActivity & { _routeId?: string };
   if (!activity) return null;
+
+  // CRASH TEST: Return single-point GPS data that would crash iOS MapLibre
+  // if not properly validated (GeoJSON LineString requires minimum 2 points)
+  if (id === CRASH_TEST_ACTIVITY_ID) {
+    return {
+      bounds: [
+        [45.0, 7.0],
+        [45.0, 7.0],
+      ], // Single point bounds
+      latlngs: boundsOnly ? null : [[45.0, 7.0]], // CRASH TRIGGER: Only 1 point
+      route: null,
+      weather: null,
+    };
+  }
 
   // Pool swims don't have maps, but open water swims with routes do
   const routeId = activity._routeId;

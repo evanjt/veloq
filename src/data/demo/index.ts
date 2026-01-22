@@ -11,6 +11,15 @@ export {
   getRouteLocation,
 } from './routes';
 
+// Crash test sections for iOS MapLibre validation testing
+export {
+  CRASH_TEST_SECTION_ID,
+  crashTestSection,
+  allCrashTestSections,
+  isCrashTestSectionId,
+  getCrashTestSection,
+} from './crashTestSection';
+
 // Fixture-based API exports (primary demo data source)
 export {
   fixtures,
@@ -19,6 +28,7 @@ export {
   getActivityMap,
   getActivityStreams,
   getWellness,
+  CRASH_TEST_ACTIVITY_ID,
   type ApiActivity,
   type ApiWellness,
   type ApiActivityMap,

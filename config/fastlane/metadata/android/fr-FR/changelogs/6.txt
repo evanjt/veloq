@@ -1,0 +1,5 @@
+Nouveautés de la version 0.0.6:
+
+- Correction du crash iOS lors de l'affichage d'activités avec des données GPS invalides
+- Amélioration de la stabilité des cartes dans toutes les vues
+- Validation GeoJSON améliorée pour éviter les crashs

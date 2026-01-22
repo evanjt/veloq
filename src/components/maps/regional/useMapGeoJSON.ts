@@ -74,6 +74,8 @@ export function useMapGeoJSON({
   }, [visibleActivities, activityCenters]);
 
   // Build GeoJSON for GPS traces from route signatures
+  // GeoJSON LineString requires minimum 2 coordinates - invalid data causes iOS crash:
+  // -[__NSArrayM insertObject:atIndex:]: object cannot be nil (MLRNMapView.m:207)
   const tracesGeoJSON = useMemo(() => {
     if (!showTraces) return null;
 
@@ -82,7 +84,13 @@ export function useMapGeoJSON({
       .map((activity) => {
         const signature = routeSignatures[activity.id];
         const config = getActivityTypeConfig(activity.type);
-        const coordinates = signature.points.map((pt) => [pt.lng, pt.lat]);
+        // Filter out NaN/Infinity coordinates
+        const coordinates = signature.points
+          .filter((pt) => Number.isFinite(pt.lng) && Number.isFinite(pt.lat))
+          .map((pt) => [pt.lng, pt.lat]);
+
+        // Skip traces with insufficient valid coordinates
+        if (coordinates.length < 2) return null;
 
         return {
           type: 'Feature' as const,
@@ -96,7 +104,10 @@ export function useMapGeoJSON({
             coordinates,
           },
         };
-      });
+      })
+      .filter((f): f is NonNullable<typeof f> => f !== null);
+
+    if (features.length === 0) return null;
 
     return {
       type: 'FeatureCollection' as const,
@@ -105,30 +116,42 @@ export function useMapGeoJSON({
   }, [showTraces, visibleActivities, routeSignatures]);
 
   // Build GeoJSON for frequent sections
+  // GeoJSON LineString requires minimum 2 coordinates - invalid data causes iOS crash
   const sectionsGeoJSON = useMemo(() => {
     if (sections.length === 0) return null;
 
-    const features = sections.map((section) => {
-      const coordinates = section.polyline.map((pt) => [pt.lng, pt.lat]);
-      const config = getActivityTypeConfig(section.sportType);
+    const features = sections
+      .map((section) => {
+        // Filter out NaN/Infinity coordinates
+        const validPoints = section.polyline.filter(
+          (pt) => Number.isFinite(pt.lng) && Number.isFinite(pt.lat)
+        );
+        // Skip sections with insufficient valid coordinates
+        if (validPoints.length < 2) return null;
 
-      return {
-        type: 'Feature' as const,
-        id: section.id,
-        properties: {
+        const coordinates = validPoints.map((pt) => [pt.lng, pt.lat]);
+        const config = getActivityTypeConfig(section.sportType);
+
+        return {
+          type: 'Feature' as const,
           id: section.id,
-          name: section.name || t('sections.defaultName', { number: section.id.slice(-6) }),
-          sportType: section.sportType,
-          visitCount: section.visitCount,
-          distanceMeters: section.distanceMeters,
-          color: config.color,
-        },
-        geometry: {
-          type: 'LineString' as const,
-          coordinates,
-        },
-      };
-    });
+          properties: {
+            id: section.id,
+            name: section.name || t('sections.defaultName', { number: section.id.slice(-6) }),
+            sportType: section.sportType,
+            visitCount: section.visitCount,
+            distanceMeters: section.distanceMeters,
+            color: config.color,
+          },
+          geometry: {
+            type: 'LineString' as const,
+            coordinates,
+          },
+        };
+      })
+      .filter((f): f is NonNullable<typeof f> => f !== null);
+
+    if (features.length === 0) return null;
 
     return {
       type: 'FeatureCollection' as const,

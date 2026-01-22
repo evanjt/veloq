@@ -28,6 +28,7 @@ import { useCustomSections } from '@/hooks/routes/useCustomSections';
 import { useRouteMatch } from '@/hooks/routes/useRouteMatch';
 import { useSectionMatches, type SectionMatch } from '@/hooks/routes/useSectionMatches';
 import { useFrequentSections } from '@/hooks/routes/useFrequentSections';
+import { CRASH_TEST_ACTIVITY_ID, allCrashTestSections } from '@/data/demo';
 import { routeEngine } from 'route-matcher-native';
 import { intervalsApi } from '@/api';
 import {
@@ -182,6 +183,24 @@ export default function ActivityDetailScreen() {
   // Get auto-detected sections from engine that include this activity
   const { sections: engineSectionMatches, count: engineSectionCount } = useSectionMatches(id);
 
+  // Inject crash test sections when viewing the crash test activity
+  // This allows users to tap these sections and test the iOS MapLibre crash fix
+  const crashTestSectionMatches: SectionMatch[] = useMemo(() => {
+    if (id !== CRASH_TEST_ACTIVITY_ID) return [];
+    return allCrashTestSections.map((section) => ({
+      section,
+      direction: 'same' as const,
+      distance: section.distanceMeters,
+    }));
+  }, [id]);
+
+  // Combine engine sections with crash test sections
+  const allSectionMatches = useMemo(() => {
+    return [...crashTestSectionMatches, ...engineSectionMatches];
+  }, [crashTestSectionMatches, engineSectionMatches]);
+
+  const totalEngineSectionCount = engineSectionCount + crashTestSectionMatches.length;
+
   // Get all sections with full polyline data
   const { sections: allFrequentSections } = useFrequentSections({ minVisits: 1 });
 
@@ -197,10 +216,10 @@ export default function ActivityDetailScreen() {
 
   // Build ordered list of section IDs for drag-to-highlight
   const orderedSectionIds = useMemo(() => {
-    const engineIds = engineSectionMatches.map((m) => m.section.id);
+    const engineIds = allSectionMatches.map((m) => m.section.id);
     const customIds = customMatchedSections.map((s) => s.id);
     return [...engineIds, ...customIds];
-  }, [engineSectionMatches, customMatchedSections]);
+  }, [allSectionMatches, customMatchedSections]);
 
   // Find which section is at a given Y position relative to the sections container
   const findSectionAtY = useCallback(
@@ -254,8 +273,8 @@ export default function ActivityDetailScreen() {
     [findSectionAtY]
   );
 
-  // Total section count (auto-detected + custom)
-  const totalSectionCount = engineSectionCount + customMatchedSections.length;
+  // Total section count (auto-detected + crash test + custom)
+  const totalSectionCount = totalEngineSectionCount + customMatchedSections.length;
 
   // Computed activity traces for this activity on each section
   // Uses engine's extractSectionTrace for accurate trace extraction
@@ -266,11 +285,11 @@ export default function ActivityDetailScreen() {
   // Create stable section IDs string to avoid infinite loops
   const engineSectionIds = useMemo(
     () =>
-      engineSectionMatches
+      allSectionMatches
         .map((m) => m.section.id)
         .sort()
         .join(','),
-    [engineSectionMatches]
+    [allSectionMatches]
   );
   const customSectionIds = useMemo(
     () =>
@@ -287,15 +306,15 @@ export default function ActivityDetailScreen() {
       return;
     }
 
-    const allSections = [...engineSectionMatches.map((m) => m.section), ...customMatchedSections];
-    if (allSections.length === 0) {
+    const combinedSections = [...allSectionMatches.map((m) => m.section), ...customMatchedSections];
+    if (combinedSections.length === 0) {
       setComputedActivityTraces({});
       return;
     }
 
     const traces: Record<string, { latitude: number; longitude: number }[]> = {};
 
-    for (const section of allSections) {
+    for (const section of combinedSections) {
       // Get the polyline - prefer from allFrequentSections (converted format)
       const fullSection = allFrequentSections.find((s) => s.id === section.id);
       const polyline = fullSection?.polyline || section.polyline || [];
@@ -332,13 +351,13 @@ export default function ActivityDetailScreen() {
   // Build section overlays when on Sections tab
   const sectionOverlays = useMemo((): SectionOverlay[] | null => {
     if (activeTab !== 'sections') return null;
-    if (!engineSectionMatches.length && !customMatchedSections.length) return null;
+    if (!allSectionMatches.length && !customMatchedSections.length) return null;
     if (coordinates.length === 0) return null;
 
     const overlays: SectionOverlay[] = [];
 
-    // Process engine-detected sections
-    for (const match of engineSectionMatches) {
+    // Process engine-detected sections (includes crash test sections)
+    for (const match of allSectionMatches) {
       // Get full section data from allFrequentSections (has converted RoutePoint polyline and activityTraces)
       const fullSection = allFrequentSections.find((s) => s.id === match.section.id);
       const polylineSource = fullSection?.polyline || match.section.polyline || [];
@@ -433,7 +452,7 @@ export default function ActivityDetailScreen() {
     return overlays;
   }, [
     activeTab,
-    engineSectionMatches,
+    allSectionMatches,
     customMatchedSections,
     coordinates,
     id,
@@ -499,7 +518,7 @@ export default function ActivityDetailScreen() {
   // Collect all activity IDs from matched sections for performance data
   const sectionActivityIds = useMemo(() => {
     const ids = new Set<string>();
-    for (const match of engineSectionMatches) {
+    for (const match of allSectionMatches) {
       for (const actId of match.section.activityIds) {
         ids.add(actId);
       }
@@ -513,7 +532,7 @@ export default function ActivityDetailScreen() {
       }
     }
     return Array.from(ids);
-  }, [engineSectionMatches, customMatchedSections]);
+  }, [allSectionMatches, customMatchedSections]);
 
   // Fetch and sync time streams to Rust engine for section performance calculations
   const [performanceDataReady, setPerformanceDataReady] = useState(false);
@@ -1010,8 +1029,8 @@ export default function ActivityDetailScreen() {
           >
             {totalSectionCount > 0 ? (
               <>
-                {/* Auto-detected sections from engine */}
-                {engineSectionMatches.map((match, index) => {
+                {/* Auto-detected sections from engine (includes crash test sections) */}
+                {allSectionMatches.map((match, index) => {
                   const style = getSectionStyle(index);
                   return (
                     <TouchableOpacity
@@ -1149,7 +1168,7 @@ export default function ActivityDetailScreen() {
 
                 {/* Custom sections */}
                 {customMatchedSections.map((section, customIndex) => {
-                  const sectionIndex = engineSectionMatches.length + customIndex;
+                  const sectionIndex = allSectionMatches.length + customIndex;
                   const style = getSectionStyle(sectionIndex);
                   return (
                     <TouchableOpacity

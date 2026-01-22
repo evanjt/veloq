@@ -1,0 +1,5 @@
+Nieuw in 0.0.6:
+
+- iOS-crash opgelost bij het bekijken van activiteiten met ongeldige GPS-gegevens
+- Verbeterde kaartstabiliteit in alle kaartweergaven
+- Verbeterde GeoJSON-validatie om crashes te voorkomen

@@ -4,6 +4,9 @@ import { WebView } from 'react-native-webview';
 import { colors, darkColors } from '@/theme/colors';
 import { getBoundsFromPoints } from '@/lib';
 import type { MapStyleType } from './mapStyles';
+import { getCombinedSatelliteStyle, SATELLITE_SOURCES } from './mapStyles';
+import { DARK_MATTER_STYLE } from './darkMatterStyle';
+import { SWITZERLAND_SIMPLE } from './countryBoundaries';
 
 interface Map3DWebViewProps {
   /** Route coordinates as [lng, lat] pairs (optional - if not provided, just shows terrain) */
@@ -133,28 +136,12 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       const isSatellite = mapStyle === 'satellite';
       const isDark = mapStyle === 'dark' || mapStyle === 'satellite';
 
-      // For satellite, we build a custom style; for others, use the style URL
+      // For satellite, we use combined style with all regional sources layered
+      // For dark, we use the bundled Dark Matter style with OpenFreeMap tiles
       const styleConfig = isSatellite
-        ? `{
-          version: 8,
-          sources: {
-            'satellite': {
-              type: 'raster',
-              tiles: ['https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2020_3857/default/g/{z}/{y}/{x}.jpg'],
-              tileSize: 256,
-              maxzoom: 14
-            }
-          },
-          layers: [{
-            id: 'satellite-layer',
-            type: 'raster',
-            source: 'satellite',
-            minzoom: 0,
-            maxzoom: 22
-          }]
-        }`
+        ? JSON.stringify(getCombinedSatelliteStyle())
         : mapStyle === 'dark'
-          ? `'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json'`
+          ? JSON.stringify(DARK_MATTER_STYLE)
           : `'https://tiles.openfreemap.org/styles/liberty'`;
 
       return `

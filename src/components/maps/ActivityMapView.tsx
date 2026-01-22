@@ -552,8 +552,10 @@ export function ActivityMapView({
     }
   }, [mapReady, bounds, coordinatesKey]);
 
+  // GeoJSON LineString requires minimum 2 coordinates - invalid data causes iOS crash:
+  // -[__NSArrayM insertObject:atIndex:]: object cannot be nil (MLRNMapView.m:207)
   const routeGeoJSON = useMemo(() => {
-    if (validCoordinates.length === 0) return null;
+    if (validCoordinates.length < 2) return null;
     return {
       type: 'Feature' as const,
       properties: {},

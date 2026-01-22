@@ -1,6 +1,6 @@
 {
   "name": "veloq",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "tracematchVersion": "0.0.8",
   "repository": {
     "type": "git",
@@ -38,7 +38,11 @@
     "e2e:screenshots:all:ios": "./scripts/capture-all-screenshots.sh ios",
     "e2e:screenshots:all:ipad": "./scripts/capture-all-screenshots.sh ipad",
     "e2e:screenshots:all:android": "./scripts/capture-all-screenshots.sh android",
-    "e2e:screenshots:all": "./scripts/capture-all-screenshots.sh all"
+    "e2e:screenshots:all": "./scripts/capture-all-screenshots.sh all",
+    "store:validate": "npx tsx scripts/validate-store-metadata.ts",
+    "store:changelog": "npx tsx scripts/store-metadata.ts changelog",
+    "store:sync": "npx tsx scripts/store-metadata.ts sync-metadata",
+    "store:locales": "npx tsx scripts/store-metadata.ts list-locales"
   },
   "dependencies": {
     "@expo/ngrok": "^4.1.3",

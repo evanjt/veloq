@@ -112,46 +112,69 @@ export const SectionMapView = memo(function SectionMapView({
   const bounds = useMemo(() => getBoundsFromPoints(displayPoints, 0.15), [displayPoints]);
 
   // Create GeoJSON for the section polyline
+  // GeoJSON LineString requires minimum 2 coordinates - invalid data causes iOS crash:
+  // -[__NSArrayM insertObject:atIndex:]: object cannot be nil (MLRNMapView.m:207)
   const sectionGeoJSON = useMemo(() => {
-    if (displayPoints.length === 0) return null;
+    // Filter out NaN/Infinity coordinates
+    const validPoints = displayPoints.filter(
+      (p) => Number.isFinite(p.lat) && Number.isFinite(p.lng)
+    );
+    // LineString requires at least 2 valid coordinates
+    if (validPoints.length < 2) return null;
     return {
       type: 'Feature' as const,
       properties: {},
       geometry: {
         type: 'LineString' as const,
-        coordinates: displayPoints.map((p) => [p.lng, p.lat]),
+        coordinates: validPoints.map((p) => [p.lng, p.lat]),
       },
     };
   }, [displayPoints]);
 
   // Create GeoJSON for the shadow track (full activity route)
+  // Filter NaN/Infinity to prevent iOS MapLibre crash
   const shadowGeoJSON = useMemo(() => {
     if (!shadowTrack || shadowTrack.length < 2) return null;
+    // Filter out NaN/Infinity coordinates
+    const validCoords = shadowTrack.filter(
+      ([lat, lng]) => Number.isFinite(lat) && Number.isFinite(lng)
+    );
+    if (validCoords.length < 2) return null;
     return {
       type: 'Feature' as const,
       properties: {},
       geometry: {
         type: 'LineString' as const,
-        coordinates: shadowTrack.map(([lat, lng]) => [lng, lat]),
+        coordinates: validCoords.map(([lat, lng]) => [lng, lat]),
       },
     };
   }, [shadowTrack]);
 
   // Create FeatureCollection with ALL activity traces for fast scrubbing
   // This is computed once when allActivityTraces changes, not on each highlight change
+  // Filter NaN/Infinity coordinates to prevent iOS MapLibre crash
   const allTracesFeatureCollection = useMemo(() => {
     if (!allActivityTraces || Object.keys(allActivityTraces).length === 0) return null;
 
     const features = Object.entries(allActivityTraces)
-      .filter(([_, points]) => points && points.length > 1)
-      .map(([activityId, points]) => ({
-        type: 'Feature' as const,
-        properties: { activityId },
-        geometry: {
-          type: 'LineString' as const,
-          coordinates: points.map((p) => [p.lng, p.lat]),
-        },
-      }));
+      .map(([activityId, points]) => {
+        if (!points) return null;
+        // Filter out NaN/Infinity coordinates
+        const validPoints = points.filter((p) => Number.isFinite(p.lat) && Number.isFinite(p.lng));
+        // LineString requires at least 2 valid coordinates
+        if (validPoints.length < 2) return null;
+        return {
+          type: 'Feature' as const,
+          properties: { activityId },
+          geometry: {
+            type: 'LineString' as const,
+            coordinates: validPoints.map((p) => [p.lng, p.lat]),
+          },
+        };
+      })
+      .filter((f): f is NonNullable<typeof f> => f !== null);
+
+    if (features.length === 0) return null;
 
     return {
       type: 'FeatureCollection' as const,
@@ -169,18 +192,24 @@ export const SectionMapView = memo(function SectionMapView({
 
   // Create GeoJSON for highlighted trace (activity being scrubbed)
   // This is the fallback when allActivityTraces is not provided
+  // Filter NaN/Infinity coordinates to prevent iOS MapLibre crash
   const highlightedTraceGeoJSON = useMemo(() => {
     // If we have pre-loaded traces, use the filter approach instead
     if (allTracesFeatureCollection) return null;
 
     // Lap points take precedence
     if (highlightedLapPoints && highlightedLapPoints.length > 1) {
+      // Filter out NaN/Infinity coordinates
+      const validPoints = highlightedLapPoints.filter(
+        (p) => Number.isFinite(p.lat) && Number.isFinite(p.lng)
+      );
+      if (validPoints.length < 2) return null;
       return {
         type: 'Feature' as const,
         properties: { id: 'highlighted-lap' },
         geometry: {
           type: 'LineString' as const,
-          coordinates: highlightedLapPoints.map((p) => [p.lng, p.lat]),
+          coordinates: validPoints.map((p) => [p.lng, p.lat]),
         },
       };
     }
@@ -189,12 +218,17 @@ export const SectionMapView = memo(function SectionMapView({
     if (highlightedActivityId && section.activityTraces) {
       const activityTrace = section.activityTraces[highlightedActivityId];
       if (activityTrace && activityTrace.length > 1) {
+        // Filter out NaN/Infinity coordinates
+        const validPoints = activityTrace.filter(
+          (p) => Number.isFinite(p.lat) && Number.isFinite(p.lng)
+        );
+        if (validPoints.length < 2) return null;
         return {
           type: 'Feature' as const,
           properties: { id: highlightedActivityId },
           geometry: {
             type: 'LineString' as const,
-            coordinates: activityTrace.map((p) => [p.lng, p.lat]),
+            coordinates: validPoints.map((p) => [p.lng, p.lat]),
           },
         };
       }
@@ -209,14 +243,20 @@ export const SectionMapView = memo(function SectionMapView({
   ]);
 
   // GeoJSON for highlighted lap points (when scrubbing shows specific lap portion)
+  // Filter NaN/Infinity coordinates to prevent iOS MapLibre crash
   const highlightedLapGeoJSON = useMemo(() => {
     if (!highlightedLapPoints || highlightedLapPoints.length < 2) return null;
+    // Filter out NaN/Infinity coordinates
+    const validPoints = highlightedLapPoints.filter(
+      (p) => Number.isFinite(p.lat) && Number.isFinite(p.lng)
+    );
+    if (validPoints.length < 2) return null;
     return {
       type: 'Feature' as const,
       properties: { id: 'highlighted-lap' },
       geometry: {
         type: 'LineString' as const,
-        coordinates: highlightedLapPoints.map((p) => [p.lng, p.lat]),
+        coordinates: validPoints.map((p) => [p.lng, p.lat]),
       },
     };
   }, [highlightedLapPoints]);

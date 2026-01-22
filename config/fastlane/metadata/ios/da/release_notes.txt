@@ -1,0 +1,5 @@
+Nyheder i 0.0.6:
+
+- Rettet iOS-nedbrud ved visning af aktiviteter med ugyldige GPS-data
+- Forbedret kortstabilitet i alle kortvisninger
+- Forbedret GeoJSON-validering for at forhindre nedbrud

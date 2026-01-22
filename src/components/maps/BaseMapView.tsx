@@ -230,14 +230,21 @@ export function BaseMapView({
   }, [cameraRef]);
 
   // Build route GeoJSON
+  // GeoJSON LineString requires minimum 2 coordinates - invalid data causes iOS crash:
+  // -[__NSArrayM insertObject:atIndex:]: object cannot be nil (MLRNMapView.m:207)
   const routeGeoJSON = useMemo(() => {
-    if (!routeCoordinates || routeCoordinates.length === 0) return null;
+    if (!routeCoordinates || routeCoordinates.length < 2) return null;
+    // Filter out NaN/Infinity coordinates
+    const validCoords = routeCoordinates.filter(
+      ([lng, lat]) => Number.isFinite(lng) && Number.isFinite(lat)
+    );
+    if (validCoords.length < 2) return null;
     return {
       type: 'Feature' as const,
       properties: {},
       geometry: {
         type: 'LineString' as const,
-        coordinates: routeCoordinates,
+        coordinates: validCoords,
       },
     };
   }, [routeCoordinates]);
