@@ -22,7 +22,13 @@ import { useTranslation } from 'react-i18next';
 import * as ScreenOrientation from 'expo-screen-orientation';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import * as Haptics from 'expo-haptics';
-import { useActivity, useActivityStreams, useWellnessForDate, useTheme } from '@/hooks';
+import {
+  useActivity,
+  useActivityStreams,
+  useWellnessForDate,
+  useTheme,
+  useMetricSystem,
+} from '@/hooks';
 import { createSharedStyles } from '@/styles';
 import { useCustomSections } from '@/hooks/routes/useCustomSections';
 import { useRouteMatch } from '@/hooks/routes/useRouteMatch';
@@ -94,6 +100,7 @@ export default function ActivityDetailScreen() {
   const { t } = useTranslation();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { isDark, colors: themeColors } = useTheme();
+  const isMetric = useMetricSystem();
   const shared = createSharedStyles(isDark);
   const insets = useSafeAreaInsets();
   // Use dynamic dimensions for fullscreen chart (updates after rotation)
@@ -496,10 +503,11 @@ export default function ActivityDetailScreen() {
   // Calculate pace (min/km or min/mi) from time and distance
   const formatSectionPace = (seconds: number, meters: number): string => {
     if (meters <= 0 || seconds <= 0) return '--';
-    const minPerKm = seconds / 60 / (meters / 1000);
-    const paceMin = Math.floor(minPerKm);
-    const paceSec = Math.round((minPerKm - paceMin) * 60);
-    return `${paceMin}:${paceSec.toString().padStart(2, '0')}/km`;
+    const distance = isMetric ? meters / 1000 : meters / 1609.344; // km or mi
+    const minPer = seconds / 60 / distance;
+    const paceMin = Math.floor(minPer);
+    const paceSec = Math.round((minPer - paceMin) * 60);
+    return `${paceMin}:${paceSec.toString().padStart(2, '0')}${isMetric ? '/km' : '/mi'}`;
   };
 
   // Collect all activity IDs from matched sections for performance data
@@ -821,12 +829,12 @@ export default function ActivityDetailScreen() {
           <View style={styles.metaRow}>
             <Text style={styles.activityDate}>{formatDateTime(activity.start_date_local)}</Text>
             <View style={styles.inlineStats}>
-              <Text style={styles.inlineStat}>{formatDistance(activity.distance)}</Text>
+              <Text style={styles.inlineStat}>{formatDistance(activity.distance, isMetric)}</Text>
               <Text style={styles.inlineStatDivider}>·</Text>
               <Text style={styles.inlineStat}>{formatDuration(activity.moving_time)}</Text>
               <Text style={styles.inlineStatDivider}>·</Text>
               <Text style={styles.inlineStat}>
-                {formatElevation(activity.total_elevation_gain)}
+                {formatElevation(activity.total_elevation_gain, isMetric)}
               </Text>
             </View>
           </View>
@@ -933,13 +941,13 @@ export default function ActivityDetailScreen() {
                 {showPace ? (
                   <CompactStat
                     label={t('activityDetail.avgPace')}
-                    value={formatPace(activity.average_speed)}
+                    value={formatPace(activity.average_speed, isMetric)}
                     isDark={isDark}
                   />
                 ) : (
                   <CompactStat
                     label={t('activityDetail.avgSpeed')}
-                    value={formatSpeed(activity.average_speed)}
+                    value={formatSpeed(activity.average_speed, isMetric)}
                     isDark={isDark}
                   />
                 )}
@@ -1144,8 +1152,8 @@ export default function ActivityDetailScreen() {
                             return (
                               <>
                                 <Text style={[styles.sectionMeta, isDark && styles.textMuted]}>
-                                  {formatDistance(match.distance)} · {match.section.visitCount}{' '}
-                                  {t('routes.visits')}
+                                  {formatDistance(match.distance, isMetric)} ·{' '}
+                                  {match.section.visitCount} {t('routes.visits')}
                                 </Text>
                                 {sectionTime != null && (
                                   <View style={styles.sectionTimeRow}>
@@ -1279,7 +1287,7 @@ export default function ActivityDetailScreen() {
                             return (
                               <>
                                 <Text style={[styles.sectionMeta, isDark && styles.textMuted]}>
-                                  {formatDistance(section.distanceMeters)} · {visitCount}{' '}
+                                  {formatDistance(section.distanceMeters, isMetric)} · {visitCount}{' '}
                                   {t('routes.visits')}
                                 </Text>
                                 {sectionTime != null && (

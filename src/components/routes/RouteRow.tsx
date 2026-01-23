@@ -5,14 +5,20 @@
 
 import React, { memo, useState, useMemo } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
-import { useTheme } from '@/hooks';
+import { useTheme, useMetricSystem } from '@/hooks';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Svg, { Polyline, Defs, LinearGradient, Stop, Rect, Circle } from 'react-native-svg';
 import { router, Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { colors, darkColors, opacity, spacing, layout, typography } from '@/theme';
-import { getActivityColor, formatPace, formatSpeed, isRunningActivity } from '@/lib';
+import {
+  getActivityColor,
+  formatPace,
+  formatSpeed,
+  formatDistance,
+  isRunningActivity,
+} from '@/lib';
 import { useConsensusRoute } from '@/hooks/routes/useRouteEngine';
 import { toActivityType } from '@/types/routes';
 import type { DiscoveredRouteInfo, RouteGroup } from '@/types';
@@ -143,6 +149,7 @@ const RoutePreview = memo(function RoutePreview({ points, color, isDark }: Route
 function RouteRowComponent({ route, navigable = false }: RouteRowProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
+  const isMetric = useMetricSystem();
   const [expanded, setExpanded] = useState(false);
 
   // Lazy load consensus route for RouteGroup (non-blocking)
@@ -188,11 +195,6 @@ function RouteRowComponent({ route, navigable = false }: RouteRowProps) {
     return 'map-marker';
   };
 
-  const formatDistance = (meters?: number) => {
-    if (!meters) return '';
-    return `${(meters / 1000).toFixed(1)}km`;
-  };
-
   // Get distance from either type
   // Note: RouteGroup no longer has signature.distance since we lazy-load consensus
   const distance = isRouteGroup(route) ? undefined : route.distance;
@@ -210,8 +212,8 @@ function RouteRowComponent({ route, navigable = false }: RouteRowProps) {
   // Format pace/speed for display
   const formattedPace = useMemo(() => {
     if (!bestPace || bestPace <= 0) return null;
-    return showPace ? formatPace(bestPace) : formatSpeed(bestPace);
-  }, [bestPace, showPace]);
+    return showPace ? formatPace(bestPace, isMetric) : formatSpeed(bestPace, isMetric);
+  }, [bestPace, showPace, isMetric]);
 
   const handlePress = () => {
     if (navigable) {
@@ -251,7 +253,7 @@ function RouteRowComponent({ route, navigable = false }: RouteRowProps) {
           <View style={styles.metaRow}>
             {distance && distance > 0 && (
               <Text style={[styles.metaText, isDark && styles.textMuted]}>
-                {formatDistance(distance)}
+                {formatDistance(distance, isMetric)}
               </Text>
             )}
             {formattedPace && (

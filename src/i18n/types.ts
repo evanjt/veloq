@@ -329,6 +329,21 @@ export interface TranslationResource {
       asian: string;
     };
     dialect: string;
+    units: string;
+    unitsAuto: string;
+    unitsAutoHint: string;
+    unitsAutoHintWithIntervals: string;
+    unitsMetric: string;
+    unitsMetricHint: string;
+    unitsImperial: string;
+    unitsImperialHint: string;
+    cached: string;
+    notCached: string;
+    expandCache: string;
+    connectionMethod: string;
+    connectedViaApiKey: string;
+    demoMode: string;
+    signedInToIntervals: string;
   };
 
   alerts: {

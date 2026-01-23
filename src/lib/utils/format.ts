@@ -7,6 +7,11 @@
 
 import { i18n, getCurrentLanguage } from '@/i18n';
 
+// Unit conversion constants
+const KM_TO_MI = 0.621371;
+const M_TO_FT = 3.28084;
+const MPS_TO_MPH = 2.23694;
+
 /**
  * Map app locale codes to valid Intl/BCP 47 locale codes for date formatting.
  *
@@ -34,30 +39,44 @@ function getIntlLocale(): string {
 }
 
 /**
- * Format distance in meters or kilometers.
+ * Format distance in meters/kilometers (metric) or feet/miles (imperial).
  *
  * Shows meters for distances < 1km, kilometers with 1 decimal for larger distances.
+ * In imperial mode, shows feet for < 0.25 miles, miles with 1 decimal otherwise.
  * Handles invalid values gracefully.
  *
  * @param meters - Distance in meters
- * @returns Formatted distance string (e.g., "500 m", "5.2 km")
+ * @param isMetric - Whether to use metric units (default: true)
+ * @returns Formatted distance string (e.g., "500 m", "5.2 km", "0.8 mi")
  *
  * @example
  * ```ts
- * formatDistance(500);   // "500 m"
- * formatDistance(1500);  // "1.5 km"
- * formatDistance(NaN);   // "0 m"
+ * formatDistance(500);          // "500 m"
+ * formatDistance(1500);         // "1.5 km"
+ * formatDistance(1500, false);  // "0.9 mi"
+ * formatDistance(NaN);          // "0 m"
  * ```
  */
-export function formatDistance(meters: number): string {
+export function formatDistance(meters: number, isMetric = true): string {
   if (!Number.isFinite(meters) || meters < 0) {
-    return '0 m';
+    return isMetric ? '0 m' : '0 ft';
   }
-  if (meters < 1000) {
-    return `${Math.round(meters)} m`;
+
+  if (isMetric) {
+    if (meters < 1000) {
+      return `${Math.round(meters)} m`;
+    }
+    const km = meters / 1000;
+    return `${km.toFixed(1)} km`;
+  } else {
+    const feet = meters * M_TO_FT;
+    const miles = (meters / 1000) * KM_TO_MI;
+    // Show feet for short distances (< 0.25 miles = ~400m)
+    if (miles < 0.25) {
+      return `${Math.round(feet)} ft`;
+    }
+    return `${miles.toFixed(1)} mi`;
   }
-  const km = meters / 1000;
-  return `${km.toFixed(1)} km`;
 }
 
 /**
@@ -91,85 +110,162 @@ export function formatDuration(seconds: number): string {
 }
 
 /**
- * Format pace as minutes per kilometer.
+ * Format pace as minutes per kilometer (metric) or per mile (imperial).
  *
- * Shows running/cycling pace in MM:SS /km format.
+ * Shows running/cycling pace in MM:SS /km or /mi format.
  * Returns "--:--" for invalid or non-positive values.
  *
  * @param metersPerSecond - Speed in meters per second
- * @returns Formatted pace string (e.g., "5:30 /km", "--:--")
+ * @param isMetric - Whether to use metric units (default: true)
+ * @returns Formatted pace string (e.g., "5:30 /km", "8:51 /mi", "--:--")
  *
  * @example
  * ```ts
- * formatPace(3.0);    // "5:33 /km" (≈ 10.8 km/h)
- * formatPace(0);      // "--:--"
+ * formatPace(3.0);          // "5:33 /km" (≈ 10.8 km/h)
+ * formatPace(3.0, false);   // "8:56 /mi"
+ * formatPace(0);            // "--:--"
  * ```
  */
-export function formatPace(metersPerSecond: number): string {
+export function formatPace(metersPerSecond: number, isMetric = true): string {
   if (!Number.isFinite(metersPerSecond) || metersPerSecond <= 0) return '--:--';
-  const totalSeconds = Math.round(1000 / metersPerSecond);
+
+  // Seconds per km
+  const secondsPerKm = 1000 / metersPerSecond;
+  // Seconds per mile = seconds per km / KM_TO_MI
+  const totalSeconds = isMetric ? secondsPerKm : secondsPerKm / KM_TO_MI;
+
   const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  return `${minutes}:${seconds.toString().padStart(2, '0')} /km`;
+  const seconds = Math.round(totalSeconds % 60);
+  const unit = isMetric ? '/km' : '/mi';
+  return `${minutes}:${seconds.toString().padStart(2, '0')} ${unit}`;
 }
 
 /**
  * Compact pace format for UI pills (no units).
  *
- * Same as formatPace but without the "/km" suffix for compact display.
+ * Same as formatPace but without the "/km" or "/mi" suffix for compact display.
  *
  * @param metersPerSecond - Speed in meters per second
+ * @param isMetric - Whether to use metric units (default: true)
  * @returns Formatted pace string (e.g., "5:30", "--:--")
  */
-export function formatPaceCompact(metersPerSecond: number): string {
+export function formatPaceCompact(metersPerSecond: number, isMetric = true): string {
   if (!Number.isFinite(metersPerSecond) || metersPerSecond <= 0) return '--:--';
-  const totalSeconds = Math.round(1000 / metersPerSecond);
+
+  const secondsPerKm = 1000 / metersPerSecond;
+  const totalSeconds = isMetric ? secondsPerKm : secondsPerKm / KM_TO_MI;
+
   const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
+  const seconds = Math.round(totalSeconds % 60);
   return `${minutes}:${seconds.toString().padStart(2, '0')}`;
 }
 
 /**
- * Format swim pace in minutes per 100 meters.
+ * Format swim pace in minutes per 100 meters (metric) or per 100 yards (imperial).
  *
- * Swimming uses per-100m pace instead of per-km.
+ * Swimming uses per-100m or per-100yd pace instead of per-km.
  *
  * @param metersPerSecond - Speed in meters per second
+ * @param isMetric - Whether to use metric units (default: true)
  * @returns Formatted swim pace string (e.g., "2:30", "--:--")
  */
-export function formatSwimPace(metersPerSecond: number): string {
+export function formatSwimPace(metersPerSecond: number, isMetric = true): string {
   if (!Number.isFinite(metersPerSecond) || metersPerSecond <= 0) return '--:--';
-  const totalSeconds = Math.round(100 / metersPerSecond);
+
+  // 100 yards = 91.44 meters
+  const distance = isMetric ? 100 : 91.44;
+  const totalSeconds = Math.round(distance / metersPerSecond);
+
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
   return `${minutes}:${seconds.toString().padStart(2, '0')}`;
 }
 
 /**
- * Format speed in kilometers per hour.
+ * Format speed in kilometers per hour (metric) or miles per hour (imperial).
  *
- * Converts meters per second to km/h with 1 decimal precision.
+ * Converts meters per second to km/h or mph with 1 decimal precision.
  *
  * @param metersPerSecond - Speed in meters per second
- * @returns Formatted speed string (e.g., "25.5 km/h", "0.0 km/h")
+ * @param isMetric - Whether to use metric units (default: true)
+ * @returns Formatted speed string (e.g., "25.5 km/h", "15.8 mph")
  *
  * @example
  * ```ts
- * formatSpeed(10);    // "36.0 km/h"
- * formatSpeed(-1);    // "0.0 km/h"
+ * formatSpeed(10);          // "36.0 km/h"
+ * formatSpeed(10, false);   // "22.4 mph"
+ * formatSpeed(-1);          // "0.0 km/h"
  * ```
  */
-export function formatSpeed(metersPerSecond: number): string {
+export function formatSpeed(metersPerSecond: number, isMetric = true): string {
   if (!Number.isFinite(metersPerSecond) || metersPerSecond < 0) {
-    return '0.0 km/h';
+    return isMetric ? '0.0 km/h' : '0.0 mph';
   }
-  const kmh = metersPerSecond * 3.6;
-  return `${kmh.toFixed(1)} km/h`;
+
+  if (isMetric) {
+    const kmh = metersPerSecond * 3.6;
+    return `${kmh.toFixed(1)} km/h`;
+  } else {
+    const mph = metersPerSecond * MPS_TO_MPH;
+    return `${mph.toFixed(1)} mph`;
+  }
 }
 
-export function formatElevation(meters: number | undefined | null): string {
-  if (meters == null || isNaN(meters)) return '0 m';
-  return `${Math.round(meters)} m`;
+/**
+ * Format elevation in meters (metric) or feet (imperial).
+ *
+ * @param meters - Elevation in meters
+ * @param isMetric - Whether to use metric units (default: true)
+ * @returns Formatted elevation string (e.g., "150 m", "492 ft")
+ */
+export function formatElevation(meters: number | undefined | null, isMetric = true): string {
+  if (meters == null || isNaN(meters)) return isMetric ? '0 m' : '0 ft';
+
+  if (isMetric) {
+    return `${Math.round(meters)} m`;
+  } else {
+    return `${Math.round(meters * M_TO_FT)} ft`;
+  }
+}
+
+/**
+ * Format temperature in Celsius (metric) or Fahrenheit (imperial).
+ *
+ * @param celsius - Temperature in Celsius
+ * @param isMetric - Whether to use metric units (default: true)
+ * @returns Formatted temperature string (e.g., "20°C", "68°F")
+ */
+export function formatTemperature(celsius: number | undefined | null, isMetric = true): string {
+  if (celsius == null || !Number.isFinite(celsius)) return isMetric ? '--°C' : '--°F';
+
+  if (isMetric) {
+    return `${Math.round(celsius)}°C`;
+  } else {
+    const fahrenheit = celsius * 1.8 + 32;
+    return `${Math.round(fahrenheit)}°F`;
+  }
+}
+
+/**
+ * Format wind speed in m/s (metric) or mph (imperial).
+ *
+ * @param metersPerSecond - Wind speed in meters per second
+ * @param isMetric - Whether to use metric units (default: true)
+ * @returns Formatted wind speed string (e.g., "5 m/s", "11 mph")
+ */
+export function formatWindSpeed(
+  metersPerSecond: number | undefined | null,
+  isMetric = true
+): string {
+  if (metersPerSecond == null || !Number.isFinite(metersPerSecond) || metersPerSecond < 0) {
+    return isMetric ? '0 m/s' : '0 mph';
+  }
+
+  if (isMetric) {
+    return `${Math.round(metersPerSecond)} m/s`;
+  } else {
+    return `${Math.round(metersPerSecond * MPS_TO_MPH)} mph`;
+  }
 }
 
 export function formatHeartRate(bpm: number): string {

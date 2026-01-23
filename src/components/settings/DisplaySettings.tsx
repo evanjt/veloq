@@ -8,10 +8,13 @@ import { colors, darkColors, spacing, layout, brand } from '@/theme';
 import {
   type ThemePreference,
   type PrimarySport,
+  type UnitPreference,
+  type IntervalsUnitPreferences,
   getAvailableLanguages,
   isEnglishVariant,
   getEnglishVariantValue,
   isLanguageVariant,
+  getIntervalsPreferenceLabel,
 } from '@/providers';
 import { CollapsibleSection } from '@/components/ui';
 
@@ -21,6 +24,9 @@ type LanguageChoice = string;
 interface DisplaySettingsProps {
   themePreference: ThemePreference;
   onThemeChange: (value: string) => void;
+  unitPreference: UnitPreference;
+  onUnitChange: (value: string) => void;
+  intervalsUnitPreference: IntervalsUnitPreferences | null;
   primarySport: PrimarySport;
   onSportChange: (value: string) => void;
   language: LanguageChoice;
@@ -32,6 +38,9 @@ interface DisplaySettingsProps {
 export function DisplaySettings({
   themePreference,
   onThemeChange,
+  unitPreference,
+  onUnitChange,
+  intervalsUnitPreference,
   primarySport,
   onSportChange,
   language,
@@ -101,6 +110,48 @@ export function DisplaySettings({
           />
         </View>
       </View>
+
+      {/* Units Section */}
+      <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>
+        {t('settings.units').toUpperCase()}
+      </Text>
+      <View style={[styles.section, isDark && styles.sectionDark]}>
+        <View style={styles.themePickerContainer}>
+          <SegmentedButtons
+            value={unitPreference}
+            onValueChange={onUnitChange}
+            buttons={[
+              {
+                value: 'auto',
+                label: t('settings.unitsAuto'),
+                icon: 'cellphone-cog',
+              },
+              {
+                value: 'metric',
+                label: t('settings.unitsMetric'),
+                icon: 'ruler',
+              },
+              {
+                value: 'imperial',
+                label: t('settings.unitsImperial'),
+                icon: 'ruler',
+              },
+            ]}
+            style={styles.themePicker}
+          />
+        </View>
+      </View>
+      <Text style={[styles.infoText, isDark && styles.textMuted]}>
+        {unitPreference === 'auto'
+          ? intervalsUnitPreference
+            ? t('settings.unitsAutoHintWithIntervals', {
+                setting: getIntervalsPreferenceLabel(intervalsUnitPreference),
+              })
+            : t('settings.unitsAutoHint')
+          : unitPreference === 'metric'
+            ? t('settings.unitsMetricHint')
+            : t('settings.unitsImperialHint')}
+      </Text>
 
       {/* Language Section */}
       <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>

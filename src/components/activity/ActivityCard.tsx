@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { View, StyleSheet, Pressable, Platform, Share } from 'react-native';
-import { useTheme } from '@/hooks';
+import { useTheme, useMetricSystem } from '@/hooks';
 import { Text, Menu } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -14,6 +14,7 @@ import {
   formatHeartRate,
   formatPower,
   formatRelativeDate,
+  formatTemperature,
   formatTSS,
   formatCalories,
   getActivityIcon,
@@ -37,6 +38,7 @@ interface ActivityCardProps {
 export const ActivityCard = React.memo(function ActivityCard({ activity }: ActivityCardProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
+  const isMetric = useMetricSystem();
   const [menuVisible, setMenuVisible] = useState(false);
   const [menuAnchor, setMenuAnchor] = useState({ x: 0, y: 0 });
 
@@ -114,14 +116,16 @@ export const ActivityCard = React.memo(function ActivityCard({ activity }: Activ
           <View style={styles.statsOverlay}>
             <View style={styles.statPill}>
               <Text style={[styles.statValue, { color: activityColor }]}>
-                {formatDistance(activity.distance)}
+                {formatDistance(activity.distance, isMetric)}
               </Text>
             </View>
             <View style={styles.statPill}>
               <Text style={styles.statValue}>{formatDuration(activity.moving_time)}</Text>
             </View>
             <View style={styles.statPill}>
-              <Text style={styles.statValue}>{formatElevation(activity.total_elevation_gain)}</Text>
+              <Text style={styles.statValue}>
+                {formatElevation(activity.total_elevation_gain, isMetric)}
+              </Text>
             </View>
           </View>
         </View>
@@ -199,7 +203,7 @@ export const ActivityCard = React.memo(function ActivityCard({ activity }: Activ
               </View>
               <View>
                 <Text style={[styles.secondaryStatValue, isDark && styles.textLight]}>
-                  {Math.round(activity.average_weather_temp)}°C
+                  {formatTemperature(activity.average_weather_temp, isMetric)}
                 </Text>
                 <Text style={[styles.secondaryStatLabel, isDark && styles.statLabelDark]}>
                   {t('activity.temp')}

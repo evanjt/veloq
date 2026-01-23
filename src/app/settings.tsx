@@ -38,8 +38,10 @@ import {
   useRouteSettings,
   useLanguageStore,
   useSyncDateRange,
+  useUnitPreference,
   type ThemePreference,
   type PrimarySport,
+  type UnitPreference,
 } from '@/providers';
 import Constants from 'expo-constants';
 import { type SupportedLocale } from '@/i18n';
@@ -165,6 +167,7 @@ export default function SettingsScreen() {
   const setHideDemoBanner = useAuthStore((state) => state.setHideDemoBanner);
   const { primarySport, setPrimarySport } = useSportPreference();
   const { language, setLanguage } = useLanguageStore();
+  const { unitPreference, setUnitPreference, intervalsPreferences } = useUnitPreference();
 
   // Load saved theme preference on mount
   useEffect(() => {
@@ -188,6 +191,10 @@ export default function SettingsScreen() {
 
   const handleLanguageChange = async (value: string) => {
     await setLanguage(value);
+  };
+
+  const handleUnitChange = async (value: string) => {
+    await setUnitPreference(value as UnitPreference);
   };
 
   const handleDefaultMapStyleChange = async (value: string) => {
@@ -467,10 +474,13 @@ export default function SettingsScreen() {
           <ProfileSection athlete={athlete} />
         </View>
 
-        {/* Display Settings: Appearance, Language, Primary Sport */}
+        {/* Display Settings: Appearance, Units, Language, Primary Sport */}
         <DisplaySettings
           themePreference={themePreference}
           onThemeChange={handleThemeChange}
+          unitPreference={unitPreference}
+          onUnitChange={handleUnitChange}
+          intervalsUnitPreference={intervalsPreferences}
           primarySport={primarySport}
           onSportChange={handleSportChange}
           language={language ?? 'en-GB'}

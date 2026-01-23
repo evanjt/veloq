@@ -21,6 +21,7 @@ import {
   initializeLanguage,
   initializeSupersededSections,
   initializeDisabledSections,
+  initializeUnitPreference,
 } from '@/providers';
 import { initializeI18n } from '@/i18n';
 import { lightTheme, darkTheme, colors, darkColors } from '@/theme';
@@ -164,6 +165,7 @@ export default function RootLayout() {
         initializeTheme(),
         initializeAuth(),
         initializeSportPreference(),
+        initializeUnitPreference(),
         initializeHRZones(),
         initializeRouteSettings(),
         initializeSupersededSections(),

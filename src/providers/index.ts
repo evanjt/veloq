@@ -65,3 +65,12 @@ export {
 export { useSyncDateRange, getSyncGeneration, type GpsSyncProgress } from './SyncDateRangeStore';
 export { NetworkProvider, useNetwork } from './NetworkContext';
 export { TopSafeAreaProvider, useTopSafeArea, useScreenSafeAreaEdges } from './TopSafeAreaContext';
+export {
+  useUnitPreference,
+  getIsMetric,
+  resolveIsMetric,
+  getIntervalsPreferenceLabel,
+  initializeUnitPreference,
+  type UnitPreference,
+  type IntervalsUnitPreferences,
+} from './UnitPreferenceStore';
