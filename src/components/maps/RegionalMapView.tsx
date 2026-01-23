@@ -1,13 +1,5 @@
 import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  Pressable,
-  Animated,
-  Platform,
-} from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Animated, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTheme } from '@/hooks';
 import {
@@ -101,8 +93,8 @@ export function RegionalMapView({
   const [selected, setSelected] = useState<SelectedActivity | null>(null);
   const [is3DMode, setIs3DMode] = useState(false);
   const [isHeatmapMode, setIsHeatmapMode] = useState(false);
-  const [showSections, setShowSections] = useState(true);
-  const [showRoutes, setShowRoutes] = useState(true);
+  const [showSections, setShowSections] = useState(false);
+  const [showRoutes, setShowRoutes] = useState(false);
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
   const [visibleActivityIds, setVisibleActivityIds] = useState<Set<string> | null>(null);
   const [currentZoom, setCurrentZoom] = useState(10);
@@ -1033,30 +1025,10 @@ export function RegionalMapView({
             animationDuration={0}
           />
 
-          {/* ShapeSource for tap detection - uses nearly invisible circles */}
-          {/* CRITICAL: Always render to avoid iOS crash during view reconciliation */}
-          {/* NOTE: circleColor must NOT be 'transparent' - MapLibre won't register taps on transparent features */}
-          <ShapeSource
-            id="activity-markers"
-            shape={markersGeoJSON}
-            onPress={!isHeatmapMode && showActivities ? handleMarkerPress : undefined}
-            hitbox={{ width: 44, height: 44 }}
-          >
-            {/* Nearly invisible circles for hit detection - opacity 0.01 is invisible but still tappable */}
-            <CircleLayer
-              id="marker-hitarea"
-              style={{
-                circleRadius: !isHeatmapMode && showActivities ? ['/', ['get', 'size'], 2] : 0,
-                circleColor: '#000000',
-                circleOpacity: 0.01,
-                circleStrokeWidth: 0,
-              }}
-            />
-          </ShapeSource>
-
-          {/* Activity markers - tappable, rendered as MarkerView for correct z-ordering */}
+          {/* Activity markers - visual only, taps handled by ShapeSource rendered later */}
           {/* CRITICAL: Always render MarkerViews to avoid iOS crash during reconciliation */}
           {/* Use opacity to hide instead of conditional rendering */}
+          {/* pointerEvents="none" ensures these don't intercept touches (fixes Android rendering) */}
           {/* Sorted to render selected activity last (on top) */}
           {/* filter(Boolean) prevents null children crash on iOS MapLibre */}
           {sortedVisibleActivities
@@ -1081,33 +1053,50 @@ export function RegionalMapView({
                   anchor={{ x: 0.5, y: 0.5 }}
                   allowOverlap={true}
                 >
-                  {/* Pressable marker - handles taps directly since MarkerView intercepts touches */}
-                  <Pressable
-                    onPress={isVisible ? () => handleMarkerTap(activity) : undefined}
-                    disabled={!isVisible}
+                  {/* pointerEvents="none" is CRITICAL for Android - Pressable breaks marker rendering */}
+                  <View
+                    pointerEvents="none"
+                    style={{
+                      width: markerSize,
+                      height: markerSize,
+                      borderRadius: markerSize / 2,
+                      backgroundColor: config.color,
+                      // Thinner border to give more space for the icon
+                      borderWidth: isSelected ? 2 : 1.5,
+                      borderColor: isSelected ? colors.primary : colors.textOnDark,
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                      opacity: isVisible ? 1 : 0,
+                      ...shadows.elevated,
+                    }}
                   >
-                    <View
-                      style={{
-                        width: markerSize,
-                        height: markerSize,
-                        borderRadius: markerSize / 2,
-                        backgroundColor: config.color,
-                        // Thinner border to give more space for the icon
-                        borderWidth: isSelected ? 2 : 1.5,
-                        borderColor: isSelected ? colors.primary : colors.textOnDark,
-                        justifyContent: 'center',
-                        alignItems: 'center',
-                        opacity: isVisible ? 1 : 0,
-                        ...shadows.elevated,
-                      }}
-                    >
-                      <Ionicons name={config.icon} size={iconSize} color={colors.textOnDark} />
-                    </View>
-                  </Pressable>
+                    <Ionicons name={config.icon} size={iconSize} color={colors.textOnDark} />
+                  </View>
                 </MarkerView>
               );
             })
             .filter(Boolean)}
+
+          {/* Activity marker tap detection - rendered AFTER MarkerViews so it's on top */}
+          {/* CRITICAL: Always render to avoid iOS crash during view reconciliation */}
+          {/* NOTE: circleColor must NOT be 'transparent' - MapLibre won't register taps on transparent features */}
+          <ShapeSource
+            id="activity-markers-hitarea"
+            shape={markersGeoJSON}
+            onPress={!isHeatmapMode && showActivities ? handleMarkerPress : undefined}
+            hitbox={{ width: 44, height: 44 }}
+          >
+            {/* Nearly invisible circles for hit detection - opacity 0.01 is invisible but still tappable */}
+            <CircleLayer
+              id="marker-hitarea"
+              style={{
+                circleRadius: !isHeatmapMode && showActivities ? ['/', ['get', 'size'], 2] : 0,
+                circleColor: '#000000',
+                circleOpacity: 0.01,
+                circleStrokeWidth: 0,
+              }}
+            />
+          </ShapeSource>
 
           {/* Routes layer - dashed polylines for route groups */}
           {/* CRITICAL: Always render ShapeSource to avoid iOS MapLibre crash during reconciliation */}
@@ -1288,10 +1277,11 @@ export function RegionalMapView({
 
           {/* Section markers - start points with road icon */}
           {/* CRITICAL: Always render to avoid iOS crash - use opacity to hide */}
+          {/* pointerEvents="none" is CRITICAL for Android - Pressable breaks marker positioning */}
+          {/* Tap the section polyline to select (handled by ShapeSource onPress) */}
           {sectionMarkers.map((marker) => {
             const isVisible = showSections && !isHeatmapMode;
             const isSelected = selectedSection?.id === marker.id;
-            const section = sections.find((s) => s.id === marker.id);
 
             return (
               <MarkerView
@@ -1300,41 +1290,34 @@ export function RegionalMapView({
                 anchor={{ x: 0.5, y: 0.5 }}
                 allowOverlap={true}
               >
-                <Pressable
-                  onPress={isVisible && section ? () => setSelectedSection(section) : undefined}
-                  disabled={!isVisible}
+                <View
+                  pointerEvents="none"
+                  style={{
+                    width: 32,
+                    height: 32,
+                    borderRadius: 16,
+                    backgroundColor: isSelected ? colors.primary : '#4CAF50',
+                    borderWidth: 2,
+                    borderColor: colors.textOnDark,
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    opacity: isVisible ? 1 : 0,
+                    ...shadows.elevated,
+                  }}
                 >
-                  <View
-                    style={{
-                      width: 32,
-                      height: 32,
-                      borderRadius: 16,
-                      backgroundColor: isSelected ? colors.primary : '#4CAF50',
-                      borderWidth: 2,
-                      borderColor: colors.textOnDark,
-                      justifyContent: 'center',
-                      alignItems: 'center',
-                      opacity: isVisible ? 1 : 0,
-                      ...shadows.elevated,
-                    }}
-                  >
-                    <MaterialCommunityIcons
-                      name="road-variant"
-                      size={18}
-                      color={colors.textOnDark}
-                    />
-                  </View>
-                </Pressable>
+                  <MaterialCommunityIcons name="road-variant" size={18} color={colors.textOnDark} />
+                </View>
               </MarkerView>
             );
           })}
 
           {/* Route markers - start points with path icon */}
           {/* CRITICAL: Always render to avoid iOS crash - use opacity to hide */}
+          {/* pointerEvents="none" is CRITICAL for Android - Pressable breaks marker positioning */}
+          {/* Tap the route polyline to select (handled by ShapeSource onPress) */}
           {routeMarkers.map((marker) => {
             const isVisible = showRoutes && !isHeatmapMode;
             const isSelected = selectedRoute?.id === marker.id;
-            const route = routeGroups.find((g) => g.id === marker.id);
 
             return (
               <MarkerView
@@ -1343,43 +1326,27 @@ export function RegionalMapView({
                 anchor={{ x: 0.5, y: 0.5 }}
                 allowOverlap={true}
               >
-                <Pressable
-                  onPress={
-                    isVisible && route
-                      ? () =>
-                          setSelectedRoute({
-                            id: route.id,
-                            name: route.name,
-                            activityCount: route.activityCount,
-                            sportType: route.sportType,
-                            type: route.type,
-                            bestTime: route.bestTime,
-                          })
-                      : undefined
-                  }
-                  disabled={!isVisible}
+                <View
+                  pointerEvents="none"
+                  style={{
+                    width: 32,
+                    height: 32,
+                    borderRadius: 16,
+                    backgroundColor: isSelected ? colors.primary : '#9C27B0',
+                    borderWidth: 2,
+                    borderColor: colors.textOnDark,
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    opacity: isVisible ? 1 : 0,
+                    ...shadows.elevated,
+                  }}
                 >
-                  <View
-                    style={{
-                      width: 32,
-                      height: 32,
-                      borderRadius: 16,
-                      backgroundColor: isSelected ? colors.primary : '#9C27B0',
-                      borderWidth: 2,
-                      borderColor: colors.textOnDark,
-                      justifyContent: 'center',
-                      alignItems: 'center',
-                      opacity: isVisible ? 1 : 0,
-                      ...shadows.elevated,
-                    }}
-                  >
-                    <MaterialCommunityIcons
-                      name="map-marker-path"
-                      size={18}
-                      color={colors.textOnDark}
-                    />
-                  </View>
-                </Pressable>
+                  <MaterialCommunityIcons
+                    name="map-marker-path"
+                    size={18}
+                    color={colors.textOnDark}
+                  />
+                </View>
               </MarkerView>
             );
           })}
