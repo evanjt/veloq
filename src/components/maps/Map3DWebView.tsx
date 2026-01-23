@@ -397,7 +397,7 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       <View style={styles.container}>
         <WebView
           ref={webViewRef}
-          source={{ html }}
+          source={{ html, baseUrl: 'https://veloq.fit/' }}
           style={styles.webview}
           scrollEnabled={false}
           bounces={false}
