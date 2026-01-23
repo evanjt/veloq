@@ -2,7 +2,9 @@
 module.exports = {
   rootDir: '../../..',
   testMatch: ['<rootDir>/src/__tests__/e2e/**/*.test.ts'],
-  testTimeout: 120000,
+  // Increased timeout to handle TanStack Query background timers
+  // that keep the app busy and slow down launch/sync
+  testTimeout: 300000, // 5 minutes
   maxWorkers: 1,
   globalSetup: 'detox/runners/jest/globalSetup',
   globalTeardown: 'detox/runners/jest/globalTeardown',

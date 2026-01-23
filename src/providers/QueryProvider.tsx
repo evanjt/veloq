@@ -10,13 +10,16 @@ const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       staleTime: 1000 * 60 * 5, // 5 minutes
-      gcTime: 1000 * 60 * 60 * 24 * 7, // 7 days - keep in memory longer for offline
+      gcTime: 1000 * 60 * 60 * 24, // 24 hours - reduced from 7 days to prevent memory bloat
       retry: 2,
       networkMode: 'offlineFirst',
       refetchOnReconnect: true,
     },
   },
 });
+
+// Export for manual cache management (e.g., clearing on navigation)
+export { queryClient };
 
 const asyncStoragePersister = createAsyncStoragePersister({
   storage: AsyncStorage,
@@ -68,8 +71,10 @@ export function QueryProvider({ children }: QueryProviderProps) {
             if (query.state.status === 'pending') return false;
 
             const key = query.queryKey[0];
-            // Skip persisting large data like streams
-            if (key === 'activity-streams-v2') return false;
+            // Skip persisting large data like streams (100-500KB per activity)
+            if (key === 'activity-streams-v3') return false;
+            // Also skip individual activity data (we persist the list, not each activity)
+            if (key === 'activity') return false;
             return true;
           },
         },

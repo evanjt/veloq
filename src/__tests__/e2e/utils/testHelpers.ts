@@ -40,10 +40,10 @@ export const ROUTES = {
 } as const;
 
 /**
- * Wait for an element to be visible, with synchronization disabled.
+ * Wait for an element to be visible.
  *
- * This is necessary because the app has background timers (TanStack Query,
- * animations) that prevent Detox from ever seeing the app as "idle".
+ * NOTE: Synchronization should already be disabled globally via launchAppFresh().
+ * This function no longer toggles sync on/off per operation.
  *
  * @param testID - The testID of the element to wait for
  * @param timeout - Maximum time to wait (default 30s)
@@ -52,134 +52,124 @@ export async function waitForElement(
   testID: string,
   timeout: number = DEFAULT_TIMEOUT
 ): Promise<void> {
-  await device.disableSynchronization();
-  try {
-    await waitFor(element(by.id(testID)))
-      .toBeVisible()
-      .withTimeout(timeout);
-  } finally {
-    await device.enableSynchronization();
-  }
+  await waitFor(element(by.id(testID)))
+    .toBeVisible()
+    .withTimeout(timeout);
 }
 
 /**
- * Wait for text to be visible, with synchronization disabled.
+ * Wait for text to be visible.
  *
  * @param text - The text to wait for
  * @param timeout - Maximum time to wait (default 30s)
  */
 export async function waitForText(text: string, timeout: number = DEFAULT_TIMEOUT): Promise<void> {
-  await device.disableSynchronization();
-  try {
-    await waitFor(element(by.text(text)))
-      .toBeVisible()
-      .withTimeout(timeout);
-  } finally {
-    await device.enableSynchronization();
-  }
+  await waitFor(element(by.text(text)))
+    .toBeVisible()
+    .withTimeout(timeout);
 }
 
 /**
- * Tap an element by testID, with synchronization disabled.
+ * Tap an element by testID.
  *
  * @param testID - The testID of the element to tap
  */
 export async function tapElement(testID: string): Promise<void> {
-  await device.disableSynchronization();
-  try {
-    await element(by.id(testID)).tap();
-  } finally {
-    await device.enableSynchronization();
-  }
+  await element(by.id(testID)).tap();
 }
 
 /**
- * Tap an element by text, with synchronization disabled.
+ * Tap an element by text.
  *
  * @param text - The text of the element to tap
  */
 export async function tapText(text: string): Promise<void> {
-  await device.disableSynchronization();
-  try {
-    await element(by.text(text)).tap();
-  } finally {
-    await device.enableSynchronization();
-  }
+  await element(by.text(text)).tap();
 }
 
 /**
- * Type text into an input field, with synchronization disabled.
+ * Type text into an input field.
  *
  * @param testID - The testID of the input element
  * @param text - The text to type
  */
 export async function typeInElement(testID: string, text: string): Promise<void> {
-  await device.disableSynchronization();
-  try {
-    await element(by.id(testID)).typeText(text);
-  } finally {
-    await device.enableSynchronization();
-  }
+  await element(by.id(testID)).typeText(text);
 }
 
 /**
- * Assert an element is visible, with synchronization disabled.
+ * Assert an element is visible.
  *
  * @param testID - The testID of the element
  */
 export async function expectVisible(testID: string): Promise<void> {
-  await device.disableSynchronization();
-  try {
-    await expect(element(by.id(testID))).toBeVisible();
-  } finally {
-    await device.enableSynchronization();
-  }
+  await expect(element(by.id(testID))).toBeVisible();
 }
 
 /**
- * Assert an element exists (may not be visible), with synchronization disabled.
+ * Assert an element exists (may not be visible).
  *
  * @param testID - The testID of the element
  */
 export async function expectExists(testID: string): Promise<void> {
-  await device.disableSynchronization();
-  try {
-    await expect(element(by.id(testID))).toExist();
-  } finally {
-    await device.enableSynchronization();
-  }
+  await expect(element(by.id(testID))).toExist();
 }
 
 /**
- * Assert text is visible, with synchronization disabled.
+ * Assert text is visible.
  *
  * @param text - The text to check
  */
 export async function expectTextVisible(text: string): Promise<void> {
-  await device.disableSynchronization();
-  try {
-    await expect(element(by.text(text))).toBeVisible();
-  } finally {
-    await device.enableSynchronization();
-  }
+  await expect(element(by.text(text))).toBeVisible();
 }
 
 /**
  * Launch the app fresh and wait for the login screen.
  * Use this in beforeAll/beforeEach for consistent test setup.
+ *
+ * IMPORTANT: Due to TanStack Query background timers that keep the JS thread busy,
+ * we must use detach: true to skip Detox's idle waiting entirely.
  */
 export async function launchAppFresh(): Promise<void> {
-  await device.launchApp({ newInstance: true });
-  await waitForElement('login-screen');
+  // Launch with detach: true to skip idle synchronization
+  // This is necessary because TanStack Query keeps the JS thread "busy"
+  // Note: detach is a valid runtime option but not in Detox types
+  await device.launchApp({
+    newInstance: true,
+    detach: true,
+    launchArgs: { detoxDisableSynchronization: 1 },
+  } as Parameters<typeof device.launchApp>[0]);
+
+  // Also call the API method to ensure sync stays disabled for all operations
+  await device.disableSynchronization();
+
+  // Wait for React Native to boot and render (since we skipped idle waiting)
+  await new Promise((resolve) => setTimeout(resolve, 5000));
+
+  // Now wait for login screen
+  await waitFor(element(by.id('login-screen')))
+    .toBeVisible()
+    .withTimeout(60000);
 }
 
 /**
  * Reload React Native and wait for the login screen.
  * Use this between tests to reset app state.
+ *
+ * IMPORTANT: Sync must already be disabled from launchAppFresh.
  */
 export async function reloadAndWaitForLogin(): Promise<void> {
+  // Reload React Native - sync should already be disabled
   await device.reloadReactNative();
-  await waitForElement('login-screen');
+
+  // Wait for RN to settle after reload
+  await new Promise((resolve) => setTimeout(resolve, 2000));
+
+  // Wait for login screen
+  await waitFor(element(by.id('login-screen')))
+    .toBeVisible()
+    .withTimeout(30000);
 }
 
 /**
@@ -207,12 +197,7 @@ export async function navigateToTab(tabLabel: string): Promise<void> {
  * @param distance - Distance to scroll in pixels
  */
 export async function scrollDown(testID: string, distance: number = 500): Promise<void> {
-  await device.disableSynchronization();
-  try {
-    await element(by.id(testID)).scroll(distance, 'down');
-  } finally {
-    await device.enableSynchronization();
-  }
+  await element(by.id(testID)).scroll(distance, 'down');
 }
 
 /**
@@ -228,17 +213,12 @@ export async function navigateViaDeepLink(
   expectedScreenId: string,
   timeout: number = DEFAULT_TIMEOUT
 ): Promise<void> {
-  await device.disableSynchronization();
-  try {
-    await device.openURL({ url: `veloq://${route}` });
-    // Small delay to let navigation complete
-    await new Promise((resolve) => setTimeout(resolve, 500));
-    await waitFor(element(by.id(expectedScreenId)))
-      .toBeVisible()
-      .withTimeout(timeout);
-  } finally {
-    await device.enableSynchronization();
-  }
+  await device.openURL({ url: `veloq://${route}` });
+  // Small delay to let navigation complete
+  await new Promise((resolve) => setTimeout(resolve, 500));
+  await waitFor(element(by.id(expectedScreenId)))
+    .toBeVisible()
+    .withTimeout(timeout);
 }
 
 /**
@@ -254,16 +234,11 @@ export async function navigateViaDeepLinkAndWaitForExist(
   expectedScreenId: string,
   timeout: number = DEFAULT_TIMEOUT
 ): Promise<void> {
-  await device.disableSynchronization();
-  try {
-    await device.openURL({ url: `veloq://${route}` });
-    await new Promise((resolve) => setTimeout(resolve, 500));
-    await waitFor(element(by.id(expectedScreenId)))
-      .toExist()
-      .withTimeout(timeout);
-  } finally {
-    await device.enableSynchronization();
-  }
+  await device.openURL({ url: `veloq://${route}` });
+  await new Promise((resolve) => setTimeout(resolve, 500));
+  await waitFor(element(by.id(expectedScreenId)))
+    .toExist()
+    .withTimeout(timeout);
 }
 
 /**

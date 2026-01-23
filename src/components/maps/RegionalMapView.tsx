@@ -164,16 +164,38 @@ export function RegionalMapView({
   // This avoids calling getBoundsCenter() (which does format detection) during render
   const activityCenters = useMemo(() => {
     const centers: Record<string, [number, number]> = {};
+    let fromSignature = 0;
+    let fromBounds = 0;
+
     for (const activity of activities) {
       // Try to use pre-computed center from RouteSignature (computed in Rust)
       const signature = routeSignatures[activity.id];
       if (signature?.center) {
         centers[activity.id] = [signature.center.lng, signature.center.lat];
+        fromSignature++;
       } else {
         // Fallback: compute from bounds (only for activities without signatures)
         centers[activity.id] = getBoundsCenter(activity.bounds);
+        fromBounds++;
       }
     }
+
+    // Debug logging to diagnose Android positioning issue
+    if (__DEV__ && activities.length > 0) {
+      console.log(
+        `[RegionalMapView] activityCenters: ${fromSignature} from signatures, ${fromBounds} from bounds`
+      );
+      // Log first few centers for debugging
+      const sampleIds = activities.slice(0, 3).map((a) => a.id);
+      for (const id of sampleIds) {
+        const activity = activities.find((a) => a.id === id);
+        const center = centers[id];
+        console.log(
+          `[RegionalMapView] Activity ${id}: center=[${center?.[0]?.toFixed(4)}, ${center?.[1]?.toFixed(4)}] bounds=${JSON.stringify(activity?.bounds)}`
+        );
+      }
+    }
+
     return centers;
   }, [activities, routeSignatures]);
 

@@ -364,11 +364,10 @@
   "login": {
     "apiKey": "API-Schlüssu",
     "apiKeyConnect": "Verbinge",
-    "apiKeyDescription": "Loukau-Modus. Schlüssu blybt uf dym Handy. Kei Push.",
+    "apiKeyDescription": "Loukau-Modus. Schlüssu blybt uf dym Handy.",
     "apiKeyPlaceholder": "Schlüssu hie yne",
     "apiKeyRequired": "Du bruuchsch e API-Schlüssu, gäu!",
     "connect": "Verbinge",
-    "connectedModeNote": "Mit Push-Nachrichte für nöii Aktivitäte",
     "connecting": "Wart chly...",
     "connectionFailed": "Het nid klappt. Lueg nomau!",
     "createAccount": "Konto mache",

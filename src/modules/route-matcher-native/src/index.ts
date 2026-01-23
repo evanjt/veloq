@@ -668,6 +668,15 @@ class RouteEngineClient {
       distance: number;
     }
     const arr = safeJsonParse<RustBoundsInfo[]>(json, []);
+
+    // Debug: Log first item's raw JSON structure to verify Rust output format
+    if (__DEV__ && arr.length > 0) {
+      const sample = arr[0];
+      console.log(
+        `[RouteEngine.getAllActivityBounds] Sample raw bounds from Rust: id=${sample.id}, bounds=${JSON.stringify(sample.bounds)}`
+      );
+    }
+
     const result = new Map<
       string,
       { minLat: number; maxLat: number; minLng: number; maxLng: number }

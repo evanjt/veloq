@@ -364,11 +364,10 @@
   "login": {
     "apiKey": "Clé API",
     "apiKeyConnect": "Connecter avec Clé API",
-    "apiKeyDescription": "Mode local. Votre clé ne quitte jamais votre appareil. Pas de notifications.",
+    "apiKeyDescription": "Mode local. Votre clé ne quitte jamais votre appareil.",
     "apiKeyPlaceholder": "Collez votre clé API ici",
     "apiKeyRequired": "La clé API est requise",
     "connect": "Connecter",
-    "connectedModeNote": "Active les notifications pour les nouvelles activités",
     "connecting": "Connexion...",
     "connectionFailed": "Échec de la connexion. Veuillez vérifier votre clé API et réessayer.",
     "createAccount": "Créer un Compte",

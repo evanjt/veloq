@@ -107,6 +107,10 @@ module.exports = {
       shutdownDevice: false,
     },
   },
+  session: {
+    // Disable synchronization check since TanStack Query keeps JS thread busy
+    debugSynchronization: 0,
+  },
   artifacts: {
     rootDir: 'artifacts',
     plugins: {

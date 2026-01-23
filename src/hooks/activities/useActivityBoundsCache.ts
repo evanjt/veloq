@@ -269,7 +269,18 @@ export function useActivityBoundsCache(
       }
     }
 
-    return allActivities.filter((a) => a.stream_types?.includes('latlng'));
+    const gpsActivities = allActivities.filter((a) => a.stream_types?.includes('latlng'));
+
+    // Memory safety: cap at 5000 activities to prevent extreme memory usage
+    // Sort by date descending to keep most recent if we hit the cap
+    if (gpsActivities.length > 5000) {
+      gpsActivities.sort(
+        (a, b) => new Date(b.start_date_local).getTime() - new Date(a.start_date_local).getTime()
+      );
+      return gpsActivities.slice(0, 5000);
+    }
+
+    return gpsActivities;
   }, [queryClient, cachedActivitiesVersion, syncOldest, syncNewest]);
 
   // Get activities with bounds from engine for map display
@@ -301,10 +312,20 @@ export function useActivityBoundsCache(
       // Only include activities that have metadata (are in the sync range)
       // Activities without metadata would have empty dates, breaking date filtering
       const result: ActivityBoundsItem[] = [];
+      let debugCount = 0;
+
       for (const [id, b] of engineBounds.entries()) {
         const cached = activityMap.get(id);
         // Skip activities without metadata - they'd have invalid dates
         if (!cached) continue;
+
+        // Debug: Log first 3 activities' raw bounds from engine
+        if (__DEV__ && debugCount < 3) {
+          console.log(
+            `[useActivityBoundsCache] Raw engine bounds for ${id}: minLat=${b.minLat?.toFixed(4)}, minLng=${b.minLng?.toFixed(4)}, maxLat=${b.maxLat?.toFixed(4)}, maxLng=${b.maxLng?.toFixed(4)}`
+          );
+          debugCount++;
+        }
 
         result.push({
           id,
@@ -318,6 +339,12 @@ export function useActivityBoundsCache(
           distance: cached.distance || 0,
           duration: cached.moving_time || 0,
         });
+      }
+
+      if (__DEV__) {
+        console.log(
+          `[useActivityBoundsCache] Built ${result.length} activities from engine bounds (${engineBounds.size} total in engine)`
+        );
       }
 
       return result;

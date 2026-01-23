@@ -260,7 +260,6 @@ export interface TranslationResource {
     apiKeyPlaceholder: string;
     apiKeyConnect: string;
     localModeNote: string;
-    connectedModeNote: string;
     sessionExpired: string;
     sessionRevoked: string;
   };

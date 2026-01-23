@@ -364,11 +364,10 @@
   "login": {
     "apiKey": "API Key",
     "apiKeyConnect": "Connect with API Key",
-    "apiKeyDescription": "For local-only mode. Your key never leaves your device. No push notifications.",
+    "apiKeyDescription": "For local-only mode. Your key never leaves your device.",
     "apiKeyPlaceholder": "Paste your API key here",
     "apiKeyRequired": "API Key is required",
     "connect": "Connect",
-    "connectedModeNote": "Enables push notifications for new activities",
     "connecting": "Connecting...",
     "connectionFailed": "Failed to connect. Please check your API key and try again.",
     "createAccount": "Create Account",

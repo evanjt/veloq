@@ -350,11 +350,10 @@
   "login": {
     "apiKey": "API Key",
     "apiKeyConnect": "Hook me up with API Key",
-    "apiKeyDescription": "For local-only mode. Your key stays put on your device. No push notifications.",
+    "apiKeyDescription": "For local-only mode. Your key stays put on your device.",
     "apiKeyPlaceholder": "Chuck your API key in here",
     "apiKeyRequired": "You'll need an API key, mate",
     "connect": "Hook me up",
-    "connectedModeNote": "Lets you get push notifications for new activities",
     "connecting": "Connecting...",
     "connectionFailed": "Couldn't connect, mate. Check your API key and give it another go.",
     "createAccount": "Create account",

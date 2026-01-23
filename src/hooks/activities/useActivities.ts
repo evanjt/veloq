@@ -133,7 +133,8 @@ export function useActivity(id: string) {
     queryFn: () => intervalsApi.getActivity(id),
     // Single activity - cache for 1 hour, rarely changes
     staleTime: 1000 * 60 * 60,
-    gcTime: 1000 * 60 * 60 * 24 * 30, // 30 days
+    // GC after 4 hours to prevent memory bloat when viewing many activities
+    gcTime: 1000 * 60 * 60 * 4,
     enabled: !!id,
   });
 }
@@ -153,9 +154,10 @@ export function useActivityStreams(id: string) {
         'time',
         'velocity_smooth',
       ]),
-    // Streams NEVER change - infinite staleTime
+    // Streams NEVER change - infinite staleTime prevents refetching
     staleTime: Infinity,
-    gcTime: 1000 * 60 * 60 * 24 * 30, // 30 days
+    // GC after 2 hours - streams are large (100-500KB) and rarely needed after viewing
+    gcTime: 1000 * 60 * 60 * 2,
     enabled: !!id,
   });
 }
