@@ -21,6 +21,7 @@
   "activity": {
     "activityStats": "Aktivitätsstatistiken",
     "avg": "Ø",
+    "chartHint": "Halten zum Scrubben • Chip halten für Achse",
     "cadence": "Trittfrequenz",
     "cal": "CAL",
     "calories": "Kalorien",

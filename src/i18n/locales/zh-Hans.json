@@ -21,6 +21,7 @@
   "activity": {
     "activityStats": "活动统计",
     "avg": "平均",
+    "chartHint": "长按拖动 • 长按芯片切换坐标轴",
     "cadence": "踏频",
     "cal": "卡路里",
     "calories": "卡路里",

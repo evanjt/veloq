@@ -81,12 +81,15 @@ interface RegionalMapViewProps {
   onClose: () => void;
   /** Extra bottom offset for attribution (e.g., when timeline slider is shown) */
   attributionBottomOffset?: number;
+  /** Show attribution (default: true) */
+  showAttribution?: boolean;
 }
 
 export function RegionalMapView({
   activities,
   onClose,
   attributionBottomOffset = 0,
+  showAttribution = true,
 }: RegionalMapViewProps) {
   const { t } = useTranslation();
   const router = useRouter();
@@ -1447,9 +1450,11 @@ export function RegionalMapView({
         onToggleRoutes={() => setShowRoutes((prev) => !prev)}
       />
       {/* Attribution */}
-      <View style={[styles.attribution, { bottom: insets.bottom + 8 + attributionBottomOffset }]}>
-        <Text style={styles.attributionText}>{attributionText}</Text>
-      </View>
+      {showAttribution && (
+        <View style={[styles.attribution, { bottom: insets.bottom + attributionBottomOffset }]}>
+          <Text style={styles.attributionText}>{attributionText}</Text>
+        </View>
+      )}
       {/* Selected activity popup - positioned above the timeline slider */}
       {selected && (
         <ActivityPopup
@@ -1555,14 +1560,16 @@ const styles = StyleSheet.create({
   },
   attribution: {
     position: 'absolute',
-    right: spacing.sm,
+    bottom: 0,
+    right: 0,
     backgroundColor: 'rgba(255, 255, 255, 0.7)',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: spacing.xs,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderTopLeftRadius: spacing.sm,
+    zIndex: 5,
   },
   attributionText: {
-    fontSize: typography.pillLabel.fontSize,
+    fontSize: 9,
     color: colors.textSecondary,
   },
 });

@@ -21,6 +21,7 @@
   "activity": {
     "activityStats": "アクティビティ統計",
     "avg": "平均",
+    "chartHint": "長押しでスクラブ • チップ長押しで軸変更",
     "cadence": "ケイデンス",
     "cal": "CAL",
     "calories": "カロリー",

@@ -21,6 +21,7 @@
   "activity": {
     "activityStats": "Estadisticas de actividad",
     "avg": "prom",
+    "chartHint": "Mantened para desplazaros • Mantened el chip para el eje",
     "cadence": "Cadencia",
     "cal": "CAL",
     "calories": "Calorias",

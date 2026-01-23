@@ -21,6 +21,7 @@
   "activity": {
     "activityStats": "Statistiques d'activité",
     "avg": "moy",
+    "chartHint": "Maintenez pour parcourir • Maintenez la puce pour l'axe",
     "cadence": "Cadence",
     "cal": "CAL",
     "calories": "Calories",

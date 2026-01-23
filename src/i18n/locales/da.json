@@ -21,6 +21,7 @@
   "activity": {
     "activityStats": "Aktivitetsstatistik",
     "avg": "gns",
+    "chartHint": "Hold for at skrubbe • Hold chip for akse",
     "cadence": "Kadence",
     "cal": "KAL",
     "calories": "Kalorier",

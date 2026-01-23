@@ -313,7 +313,7 @@ export default function MapScreen() {
         <RegionalMapView
           activities={filteredActivities}
           onClose={handleClose}
-          attributionBottomOffset={160}
+          showAttribution={false}
         />
       </ComponentErrorBoundary>
 
@@ -326,6 +326,12 @@ export default function MapScreen() {
         ]}
         pointerEvents="box-none"
       >
+        {/* Attribution pill - positioned at top right of panel */}
+        <View style={[styles.attributionPill, isDark && styles.attributionPillDark]}>
+          <Text style={[styles.attributionText, isDark && styles.attributionTextDark]}>
+            © OpenFreeMap © OpenMapTiles © OpenStreetMap
+          </Text>
+        </View>
         <TimelineSlider
           minDate={minDateForSlider}
           maxDate={maxDateForSlider}
@@ -381,8 +387,29 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     zIndex: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.85)',
   },
   sliderContainerDark: {
-    backgroundColor: 'rgba(30, 30, 30, 0.95)',
+    backgroundColor: 'rgba(30, 30, 30, 0.85)',
+  },
+  attributionPill: {
+    position: 'absolute',
+    top: -19,
+    right: 0,
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderTopLeftRadius: spacing.sm,
+    zIndex: 1,
+  },
+  attributionPillDark: {
+    backgroundColor: 'rgba(30, 30, 30, 0.8)',
+  },
+  attributionText: {
+    fontSize: 9,
+    color: colors.textSecondary,
+  },
+  attributionTextDark: {
+    color: darkColors.textSecondary,
   },
 });

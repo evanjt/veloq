@@ -367,8 +367,10 @@ export function BaseMapView({
 
       {/* Attribution */}
       {showAttribution && (
-        <View style={[styles.attribution, { bottom: insets.bottom + 8 }]}>
-          <Text style={styles.attributionText}>{attributionText}</Text>
+        <View style={[styles.attribution, { bottom: insets.bottom }]}>
+          <View style={styles.attributionPill}>
+            <Text style={styles.attributionText}>{attributionText}</Text>
+          </View>
         </View>
       )}
     </>
@@ -495,15 +497,21 @@ const styles = StyleSheet.create({
   },
   attribution: {
     position: 'absolute',
-    right: spacing.sm,
+    bottom: 0,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    paddingBottom: 4,
+    zIndex: 5,
+  },
+  attributionPill: {
     backgroundColor: 'rgba(255, 255, 255, 0.7)',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: spacing.xs,
-    zIndex: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: spacing.sm,
   },
   attributionText: {
-    fontSize: typography.pillLabel.fontSize,
+    fontSize: 9,
     color: colors.textSecondary,
   },
 });

@@ -21,6 +21,7 @@
   "activity": {
     "activityStats": "Stats",
     "avg": "Ø",
+    "chartHint": "Halte zum Scrolle • Chip halte für d Achse",
     "cadence": "Kadenz",
     "cal": "CAL",
     "calories": "Kalorii",

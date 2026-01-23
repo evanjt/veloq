@@ -198,6 +198,8 @@ interface ActivityMapViewProps {
   activityType: ActivityType;
   height?: number;
   showStyleToggle?: boolean;
+  /** Show map attribution (default: true) */
+  showAttribution?: boolean;
   initialStyle?: MapStyleType;
   /** Index into coordinates array to highlight (from elevation chart) */
   highlightIndex?: number | null;
@@ -225,6 +227,7 @@ export function ActivityMapView({
   activityType,
   height = 300,
   showStyleToggle = false,
+  showAttribution = true,
   initialStyle,
   highlightIndex,
   enableFullscreen = false,
@@ -1105,10 +1108,10 @@ export function ActivityMapView({
           </Animated.View>
         )}
 
-        {/* Attribution */}
-        {showStyleToggle && !isFullscreen && (
-          <View style={styles.attribution}>
-            <Text style={styles.attributionText}>
+        {/* Attribution - inline mode uses subtle text, fullscreen uses pill */}
+        {(showAttribution || isFullscreen) && (
+          <View style={[styles.attribution, isFullscreen && styles.attributionPill]}>
+            <Text style={[styles.attributionText, isFullscreen && styles.attributionTextPill]}>
               {is3DMode
                 ? `${MAP_ATTRIBUTIONS[mapStyle]} | ${TERRAIN_ATTRIBUTION}`
                 : MAP_ATTRIBUTIONS[mapStyle]}
@@ -1425,17 +1428,33 @@ const styles = StyleSheet.create({
   },
   attribution: {
     position: 'absolute',
-    bottom: spacing.sm,
+    bottom: 4,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    zIndex: 5,
+  },
+  attributionPill: {
+    left: 'auto',
     right: spacing.sm,
-    backgroundColor: 'rgba(255, 255, 255, 0.7)',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: spacing.xs,
-    zIndex: 10,
+    bottom: spacing.sm,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: spacing.sm,
   },
   attributionText: {
-    fontSize: 8,
+    fontSize: 9,
+    color: 'rgba(255, 255, 255, 0.5)',
+    textShadowColor: 'rgba(0, 0, 0, 0.5)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+  },
+  attributionTextPill: {
     color: colors.textSecondary,
+    textShadowColor: 'transparent',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 0,
   },
   overlayLegend: {
     position: 'absolute',

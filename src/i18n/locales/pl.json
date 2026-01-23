@@ -21,6 +21,7 @@
   "activity": {
     "activityStats": "Statystyki aktywnosci",
     "avg": "sr.",
+    "chartHint": "Przytrzymaj, aby przewijać • Przytrzymaj chip, aby zmienić oś",
     "cadence": "Kadencja",
     "cal": "KAL",
     "calories": "Kalorie",

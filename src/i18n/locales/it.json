@@ -21,6 +21,7 @@
   "activity": {
     "activityStats": "Statistiche attivita",
     "avg": "med",
+    "chartHint": "Tieni premuto per scorrere • Tieni premuto il chip per l'asse",
     "cadence": "Cadenza",
     "cal": "CAL",
     "calories": "Calorie",

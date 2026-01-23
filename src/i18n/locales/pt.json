@@ -21,6 +21,7 @@
   "activity": {
     "activityStats": "Estatisticas da atividade",
     "avg": "med",
+    "chartHint": "Segure para deslizar • Segure o chip para o eixo",
     "cadence": "Cadencia",
     "cal": "CAL",
     "calories": "Calorias",

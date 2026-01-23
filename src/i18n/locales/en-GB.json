@@ -21,6 +21,7 @@
   "activity": {
     "activityStats": "Activity Stats",
     "avg": "avg",
+    "chartHint": "Hold to scrub • Hold chip for axis",
     "cadence": "Cadence",
     "cal": "CAL",
     "calories": "Calories",
