@@ -575,7 +575,6 @@ export default function FeedScreen() {
             // iOS-specific keyboard optimizations
             keyboardAppearance={isDark ? 'dark' : 'light'}
             enablesReturnKeyAutomatically={Platform.OS === 'ios'}
-            clearButtonMode={Platform.OS === 'ios' ? 'while-editing' : undefined}
           />
           {searchQuery.length > 0 && (
             <TouchableOpacity
