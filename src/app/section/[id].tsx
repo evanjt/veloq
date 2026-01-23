@@ -30,6 +30,7 @@ import {
   useCustomSection,
   useCustomSections,
   useTheme,
+  useMetricSystem,
   type ActivitySectionRecord,
 } from '@/hooks';
 import { useSectionDetail, useGroupSummaries } from '@/hooks/routes/useRouteEngine';
@@ -287,6 +288,7 @@ export default function SectionDetailScreen() {
   const { t } = useTranslation();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { isDark, colors: themeColors } = useTheme();
+  const isMetric = useMetricSystem();
   const shared = createSharedStyles(isDark);
   const insets = useSafeAreaInsets();
 
@@ -811,6 +813,13 @@ export default function SectionDetailScreen() {
   // Prepare chart data for UnifiedPerformanceChart
   // Uses actual section times from records when available, otherwise proportional estimate
   const { chartData, minSpeed, maxSpeed, bestIndex, hasReverseRuns } = useMemo(() => {
+    console.log('[SectionDetail] chartData recompute:', {
+      isLoadingRecords,
+      hasSection: !!section,
+      sectionActivitiesCount: sectionActivities.length,
+      performanceRecordsCount: performanceRecords?.length ?? 0,
+    });
+
     if (!section)
       return {
         chartData: [],
@@ -841,33 +850,29 @@ export default function SectionDetailScreen() {
       const sectionDistance =
         record?.sectionDistance || portion?.distanceMeters || section.distanceMeters;
 
-      // If we have multiple laps from performance records, create a data point for each
+      // Use fastest lap only (one entry per activity)
       if (record && record.laps && record.laps.length > 0) {
-        for (let lapIdx = 0; lapIdx < record.laps.length; lapIdx++) {
-          const lap = record.laps[lapIdx];
-          const direction = lap.direction || 'same';
-          if (direction === 'reverse') hasAnyReverse = true;
+        // Find fastest lap (highest pace/speed)
+        const fastestLap = record.laps.reduce((best, lap) => (lap.pace > best.pace ? lap : best));
+        const direction = fastestLap.direction || 'same';
+        if (direction === 'reverse') hasAnyReverse = true;
 
-          dataPoints.push({
-            x: 0,
-            id: `${activity.id}_lap${lapIdx}`,
-            activityId: activity.id,
-            speed: lap.pace,
-            date: new Date(activity.start_date_local),
-            activityName: activity.name,
-            direction,
-            lapPoints: tracePoints, // Use same trace for all laps (shows section portion)
-            sectionTime: Math.round(lap.time),
-            sectionDistance: lap.distance || sectionDistance,
-            lapCount: record.laps.length,
-            lapNumber: lapIdx + 1,
-            totalLaps: record.laps.length,
-          });
-        }
+        dataPoints.push({
+          x: 0,
+          id: activity.id,
+          activityId: activity.id,
+          speed: fastestLap.pace,
+          date: new Date(activity.start_date_local),
+          activityName: activity.name,
+          direction,
+          lapPoints: tracePoints,
+          sectionTime: Math.round(fastestLap.time),
+          sectionDistance: fastestLap.distance || sectionDistance,
+          lapCount: record.laps.length,
+        });
       } else {
         // Fall back to single data point (no lap data or proportional estimate)
         const direction = record?.direction || (portion?.direction as 'same' | 'reverse') || 'same';
-
         if (direction === 'reverse') hasAnyReverse = true;
 
         let sectionSpeed: number;
@@ -927,13 +932,30 @@ export default function SectionDetailScreen() {
 
   // Compute performance rankings by speed (higher speed = better = rank 1)
   // Also compute summary statistics
-  const { rankMap, bestActivityId, bestTimeValue, averageTime, lastActivityDate } = useMemo(() => {
+  const {
+    rankMap,
+    bestActivityId,
+    bestTimeValue,
+    bestPaceValue,
+    averageTime,
+    averagePace,
+    lastActivityDate,
+  } = useMemo(() => {
+    console.log('[SectionDetail] stats recompute:', {
+      chartDataLength: chartData.length,
+      firstEntry: chartData[0]
+        ? { time: chartData[0].sectionTime, speed: chartData[0].speed }
+        : null,
+    });
+
     if (chartData.length === 0) {
       return {
         rankMap: new Map<string, number>(),
         bestActivityId: null as string | null,
         bestTimeValue: undefined as number | undefined,
+        bestPaceValue: undefined as number | undefined,
         averageTime: undefined as number | undefined,
+        averagePace: undefined as number | undefined,
         lastActivityDate: undefined as string | undefined,
       };
     }
@@ -948,6 +970,7 @@ export default function SectionDetailScreen() {
     // Best is rank 1
     const bestId = sorted.length > 0 ? sorted[0].activityId : null;
     const bestTime = sorted.length > 0 ? sorted[0].sectionTime : undefined;
+    const bestPace = sorted.length > 0 ? sorted[0].speed : undefined;
 
     // Calculate average time
     const times = chartData
@@ -955,6 +978,13 @@ export default function SectionDetailScreen() {
       .filter((t): t is number => t !== undefined && t > 0);
     const avgTime =
       times.length > 0 ? times.reduce((sum, t) => sum + t, 0) / times.length : undefined;
+
+    // Calculate average pace (speed in m/s)
+    const speeds = chartData
+      .map((d) => d.speed)
+      .filter((s): s is number => Number.isFinite(s) && s > 0);
+    const avgPace =
+      speeds.length > 0 ? speeds.reduce((sum, s) => sum + s, 0) / speeds.length : undefined;
 
     // Get last activity date
     const dates = chartData.map((d) => d.date.getTime());
@@ -964,7 +994,9 @@ export default function SectionDetailScreen() {
       rankMap: map,
       bestActivityId: bestId,
       bestTimeValue: bestTime,
+      bestPaceValue: bestPace,
       averageTime: avgTime,
+      averagePace: avgPace,
       lastActivityDate: lastDate,
     };
   }, [chartData]);
@@ -1119,7 +1151,9 @@ export default function SectionDetailScreen() {
             </View>
 
             <View style={styles.heroStatsRow}>
-              <Text style={styles.heroStat}>{formatDistance(section.distanceMeters)}</Text>
+              <Text style={styles.heroStat}>
+                {formatDistance(section.distanceMeters, isMetric)}
+              </Text>
               <Text style={styles.heroStatDivider}>·</Text>
               <Text style={styles.heroStat}>
                 {chartData.length} {t('sections.traversals')}
@@ -1149,7 +1183,7 @@ export default function SectionDetailScreen() {
           )}
 
           {/* Summary Stats Card */}
-          {chartData.length > 0 && (
+          {!isLoadingRecords && chartData.length > 0 && (
             <View style={[styles.summaryCard, isDark && styles.summaryCardDark]}>
               <View style={styles.summaryRow}>
                 <View style={styles.summaryItem}>
@@ -1159,7 +1193,19 @@ export default function SectionDetailScreen() {
                   <View style={styles.summaryValueRow}>
                     <MaterialCommunityIcons name="trophy" size={14} color={colors.primary} />
                     <Text style={[styles.summaryValue, isDark && styles.textLight]}>
-                      {bestTimeValue !== undefined ? formatDuration(bestTimeValue) : '--:--'}
+                      {isLoadingRecords
+                        ? '--:--'
+                        : bestTimeValue !== undefined
+                          ? formatDuration(bestTimeValue)
+                          : '--:--'}
+                      {!isLoadingRecords &&
+                        isRunningActivity(section.sportType as ActivityType) &&
+                        bestPaceValue !== undefined && (
+                          <Text style={[styles.summaryValueSecondary, isDark && styles.textMuted]}>
+                            {' '}
+                            ({formatPace(bestPaceValue, isMetric)})
+                          </Text>
+                        )}
                     </Text>
                   </View>
                 </View>
@@ -1168,7 +1214,19 @@ export default function SectionDetailScreen() {
                     {t('sections.averageTime')}
                   </Text>
                   <Text style={[styles.summaryValue, isDark && styles.textLight]}>
-                    {averageTime !== undefined ? formatDuration(averageTime) : '--:--'}
+                    {isLoadingRecords
+                      ? '--:--'
+                      : averageTime !== undefined
+                        ? formatDuration(averageTime)
+                        : '--:--'}
+                    {!isLoadingRecords &&
+                      isRunningActivity(section.sportType as ActivityType) &&
+                      averagePace !== undefined && (
+                        <Text style={[styles.summaryValueSecondary, isDark && styles.textMuted]}>
+                          {' '}
+                          ({formatPace(averagePace, isMetric)})
+                        </Text>
+                      )}
                   </Text>
                 </View>
               </View>
@@ -1194,7 +1252,7 @@ export default function SectionDetailScreen() {
           )}
 
           {/* Performance chart */}
-          {chartData.length >= 1 && (
+          {!isLoadingRecords && chartData.length >= 1 && (
             <View style={styles.chartSection}>
               <UnifiedPerformanceChart
                 chartData={chartData}
@@ -1508,6 +1566,10 @@ const styles = StyleSheet.create({
     fontSize: typography.body.fontSize,
     fontWeight: '600',
     color: colors.textPrimary,
+  },
+  summaryValueSecondary: {
+    fontSize: typography.caption.fontSize,
+    fontWeight: '400',
   },
   summaryValueRow: {
     flexDirection: 'row',

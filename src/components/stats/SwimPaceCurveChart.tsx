@@ -1,6 +1,6 @@
 import React, { useMemo, useCallback, useState, useRef } from 'react';
 import { View, StyleSheet } from 'react-native';
-import { useTheme } from '@/hooks';
+import { useTheme, useMetricSystem } from '@/hooks';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { CartesianChart, Line } from 'victory-native';
@@ -18,6 +18,7 @@ import { typography } from '@/theme/typography';
 import { spacing } from '@/theme/spacing';
 import { CHART_CONFIG } from '@/constants';
 import { usePaceCurve, paceToMinPer100m } from '@/hooks';
+import { formatDistance } from '@/lib';
 
 interface SwimPaceCurveChartProps {
   /** Number of days to include (default 365) */
@@ -47,13 +48,6 @@ function formatTime(totalSeconds: number): string {
   return `${minutes}:${seconds.toString().padStart(2, '0')}`;
 }
 
-// Format distance
-function formatDistance(meters: number): string {
-  if (meters < 1000) return `${Math.round(meters)}m`;
-  if (meters < 10000) return `${(meters / 1000).toFixed(1)}km`;
-  return `${Math.round(meters / 1000)}km`;
-}
-
 // Convert m/s to seconds per 100m
 function speedToSecsPer100m(metersPerSecond: number): number {
   if (metersPerSecond <= 0) return 0;
@@ -73,6 +67,7 @@ interface ChartPoint {
 export function SwimPaceCurveChart({ days = 365, height = 200 }: SwimPaceCurveChartProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
+  const isMetric = useMetricSystem();
 
   const { data: curve, isLoading, error } = usePaceCurve({ sport: 'Swim', days });
 
@@ -275,7 +270,7 @@ export function SwimPaceCurveChart({ days = 365, height = 200 }: SwimPaceCurveCh
               {t('activity.distance')}
             </Text>
             <Text style={[styles.valueNumber, { color: CHART_COLOR }]}>
-              {formatDistance(displayData.distance)}
+              {formatDistance(displayData.distance, isMetric)}
             </Text>
           </View>
           <View style={styles.valueItem}>

@@ -5,12 +5,13 @@
 
 import React, { useEffect, useRef } from 'react';
 import { View, StyleSheet, Animated } from 'react-native';
-import { useTheme } from '@/hooks';
+import { useTheme, useMetricSystem } from '@/hooks';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Svg, { Polyline } from 'react-native-svg';
 import { useTranslation } from 'react-i18next';
 import { colors, darkColors, opacity, spacing, layout, typography } from '@/theme';
+import { formatDistance } from '@/lib';
 
 export interface DiscoveredRoute {
   id: string;
@@ -101,6 +102,7 @@ function PlaceholderPreview({ type }: { type: string }) {
 export function DiscoveredRouteRow({ route, index }: DiscoveredRouteRowProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
+  const isMetric = useMetricSystem();
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.95)).current;
@@ -149,11 +151,6 @@ export function DiscoveredRouteRow({ route, index }: DiscoveredRouteRowProps) {
     }
   }, [route.isActive, pulseAnim]);
 
-  const formatDistance = (meters?: number) => {
-    if (!meters) return null;
-    return `${(meters / 1000).toFixed(1)} km`;
-  };
-
   return (
     <Animated.View
       style={[
@@ -198,7 +195,7 @@ export function DiscoveredRouteRow({ route, index }: DiscoveredRouteRowProps) {
 
           {route.distance && (
             <Text style={[styles.distanceText, isDark && styles.textMuted]}>
-              {formatDistance(route.distance)}
+              {formatDistance(route.distance, isMetric)}
             </Text>
           )}
         </View>

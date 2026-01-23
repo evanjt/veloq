@@ -5,7 +5,7 @@
 
 import React from 'react';
 import { View, StyleSheet, Pressable } from 'react-native';
-import { useTheme } from '@/hooks';
+import { useTheme, useMetricSystem } from '@/hooks';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router, Href } from 'expo-router';
@@ -22,6 +22,7 @@ interface RouteCardProps {
 export function RouteCard({ route }: RouteCardProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
+  const isMetric = useMetricSystem();
 
   const handlePress = () => {
     router.push(`/route/${route.id}` as Href);
@@ -51,7 +52,7 @@ export function RouteCard({ route }: RouteCardProps) {
               {route.name}
             </Text>
             <Text style={[styles.subtitle, isDark && styles.subtitleDark]} numberOfLines={1}>
-              {formatDistance(route.signature?.distance ?? 0)} · {route.activityCount}{' '}
+              {formatDistance(route.signature?.distance ?? 0, isMetric)} · {route.activityCount}{' '}
               {t('routes.activities')}
             </Text>
           </View>

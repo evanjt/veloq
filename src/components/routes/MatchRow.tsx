@@ -5,12 +5,13 @@
 
 import React, { memo } from 'react';
 import { View, StyleSheet } from 'react-native';
-import { useTheme } from '@/hooks';
+import { useTheme, useMetricSystem } from '@/hooks';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Svg, { Polyline } from 'react-native-svg';
 import { useTranslation } from 'react-i18next';
 import { colors, darkColors, opacity, spacing, layout, typography } from '@/theme';
+import { formatDistance } from '@/lib';
 import type { DiscoveredMatchInfo } from '@/types';
 
 interface MatchRowProps {
@@ -52,6 +53,7 @@ const RoutePreview = memo(function RoutePreview({
 function MatchRowComponent({ match }: MatchRowProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
+  const isMetric = useMetricSystem();
 
   const getTypeIcon = (): 'bike' | 'run' | 'swim' | 'walk' | 'map-marker' => {
     const type = match.type?.toLowerCase() || '';
@@ -60,11 +62,6 @@ function MatchRowComponent({ match }: MatchRowProps) {
     if (type.includes('swim')) return 'swim';
     if (type.includes('walk') || type.includes('hike')) return 'walk';
     return 'map-marker';
-  };
-
-  const formatDistance = (meters?: number) => {
-    if (!meters) return '';
-    return `${(meters / 1000).toFixed(1)}km`;
   };
 
   return (
@@ -97,7 +94,7 @@ function MatchRowComponent({ match }: MatchRowProps) {
         <View style={styles.metaRow}>
           {match.distance && match.distance > 0 && (
             <Text style={[styles.metaText, isDark && styles.textMuted]}>
-              {formatDistance(match.distance)}
+              {formatDistance(match.distance, isMetric)}
             </Text>
           )}
           <Text style={[styles.matchPercent, { color: colors.success }]}>

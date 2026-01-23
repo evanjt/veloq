@@ -1,11 +1,12 @@
 import React, { useMemo, useState } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
-import { useTheme } from '@/hooks';
+import { useTheme, useMetricSystem } from '@/hooks';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { colors, darkColors, opacity } from '@/theme/colors';
 import { typography } from '@/theme/typography';
 import { spacing, layout } from '@/theme/spacing';
+import { formatDistance } from '@/lib';
 import type { Activity } from '@/types';
 
 type TimeRange = 'week' | 'month' | '3m' | '6m' | 'year';
@@ -24,11 +25,6 @@ function formatDuration(seconds: number): string {
     return `${hours}h ${mins}m`;
   }
   return `${mins}m`;
-}
-
-function formatDistance(meters: number): string {
-  const km = meters / 1000;
-  return `${km.toFixed(1)} km`;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -160,6 +156,7 @@ function calculateStats(activities: Activity[]) {
 export function WeeklySummary({ activities }: WeeklySummaryProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
+  const isMetric = useMetricSystem();
   const [timeRange, setTimeRange] = useState<TimeRange>('week');
 
   const { currentStats, previousStats, labels } = useMemo(() => {
@@ -278,7 +275,7 @@ export function WeeklySummary({ activities }: WeeklySummaryProps) {
 
         <View style={styles.statItem}>
           <Text style={[styles.statValue, isDark && styles.textLight]}>
-            {formatDistance(currentStats.distance)}
+            {formatDistance(currentStats.distance, isMetric)}
           </Text>
           <Text style={[styles.statLabel, isDark && styles.textDark]}>
             {t('activity.distance')}

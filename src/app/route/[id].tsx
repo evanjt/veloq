@@ -18,7 +18,13 @@ import { useLocalSearchParams, router, Href } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useActivities, useConsensusRoute, useRoutePerformances, useTheme } from '@/hooks';
+import {
+  useActivities,
+  useConsensusRoute,
+  useRoutePerformances,
+  useTheme,
+  useMetricSystem,
+} from '@/hooks';
 import { useGroupDetail } from '@/hooks/routes/useRouteEngine';
 import { getAllRouteDisplayNames } from '@/hooks/routes/useRouteGroups';
 import { createSharedStyles } from '@/styles';
@@ -65,6 +71,7 @@ const CONSENSUS_COLOR = colors.consensusRoute; // Orange for the consensus/main 
 interface ActivityRowProps {
   activity: Activity;
   isDark: boolean;
+  isMetric: boolean;
   matchPercentage?: number;
   direction?: string;
   /** Route points for this activity's GPS trace */
@@ -86,6 +93,7 @@ interface ActivityRowProps {
 function ActivityRow({
   activity,
   isDark,
+  isMetric,
   matchPercentage,
   direction,
   activityPoints,
@@ -201,7 +209,7 @@ function ActivityRow({
       </View>
       <View style={styles.activityStats}>
         <Text style={[styles.activityDistance, isDark && styles.textLight]}>
-          {formatDistance(activity.distance)}
+          {formatDistance(activity.distance, isMetric)}
         </Text>
         <Text style={[styles.activityTime, isDark && styles.textMuted]}>
           {formatDuration(activity.moving_time)}
@@ -224,6 +232,7 @@ export default function RouteDetailScreen() {
   const { t } = useTranslation();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { isDark, colors: themeColors } = useTheme();
+  const isMetric = useMetricSystem();
   const shared = createSharedStyles(isDark);
   const insets = useSafeAreaInsets();
 
@@ -455,7 +464,7 @@ export default function RouteDetailScreen() {
           speed: perf.speed,
           date: perf.date,
           activityName: perf.name,
-          direction: perf.direction as 'same' | 'reverse', // Cast after filtering 'partial'
+          direction: perf.direction as 'same' | 'reverse',
           matchPercentage: perf.matchPercentage,
           lapNumber: 1,
           totalLaps: validPerformances.length,
@@ -682,7 +691,7 @@ export default function RouteDetailScreen() {
 
             {/* Stats row */}
             <View style={styles.heroStatsRow}>
-              <Text style={styles.heroStat}>{formatDistance(routeStats.distance)}</Text>
+              <Text style={styles.heroStat}>{formatDistance(routeStats.distance, isMetric)}</Text>
               <Text style={styles.heroStatDivider}>·</Text>
               <Text style={styles.heroStat}>{routeGroup.activityCount} activities</Text>
               <Text style={styles.heroStatDivider}>·</Text>
@@ -765,6 +774,7 @@ export default function RouteDetailScreen() {
                         <ActivityRow
                           activity={activity}
                           isDark={isDark}
+                          isMetric={isMetric}
                           matchPercentage={matchPercentage}
                           direction={direction}
                           activityPoints={activityPoints}

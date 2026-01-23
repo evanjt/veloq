@@ -5,6 +5,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router, type Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { formatDistance, getActivityColor } from '@/lib';
+import { useMetricSystem } from '@/hooks';
 import { colors, darkColors, opacity, spacing, layout, typography } from '@/theme';
 import type { ActivityType } from '@/types';
 import type { SectionMatch } from '@/hooks/routes/useSectionMatches';
@@ -18,6 +19,7 @@ interface SectionRowProps {
 
 export function SectionMatchRow({ match, activityType, isDark, isLast }: SectionRowProps) {
   const { t } = useTranslation();
+  const isMetric = useMetricSystem();
   const { section, direction, distance } = match;
   const activityColor = getActivityColor(activityType);
   const isReverse = direction === 'reverse';
@@ -46,7 +48,7 @@ export function SectionMatchRow({ match, activityType, isDark, isLast }: Section
         </Text>
         <View style={styles.sectionMeta}>
           <Text style={[styles.sectionDistance, isDark && styles.textMuted]}>
-            {formatDistance(distance)}
+            {formatDistance(distance, isMetric)}
           </Text>
           <Text style={[styles.sectionDot, isDark && styles.textMuted]}>·</Text>
           <Text style={[styles.sectionVisits, isDark && styles.textMuted]}>

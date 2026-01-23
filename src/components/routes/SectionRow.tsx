@@ -9,7 +9,7 @@
 
 import React, { memo, useMemo } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
-import { useTheme, useSectionPolyline } from '@/hooks';
+import { useTheme, useSectionPolyline, useMetricSystem } from '@/hooks';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Svg, { Polyline, G } from 'react-native-svg';
@@ -122,6 +122,7 @@ export const SectionRow = memo(function SectionRow({
 }: SectionRowProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
+  const isMetric = useMetricSystem();
 
   // Normalize section data to common format
   const section = useMemo(() => normalizeSectionData(rawSection), [rawSection]);
@@ -281,7 +282,7 @@ export const SectionRow = memo(function SectionRow({
               color={isDark ? darkColors.textMuted : colors.textMuted}
             />
             <Text style={[styles.statText, isDark && styles.textMuted]}>
-              {formatDistance(section.distanceMeters)}
+              {formatDistance(section.distanceMeters, isMetric)}
             </Text>
           </View>
 

@@ -4,6 +4,8 @@
  */
 
 import { getRouteEngine } from '@/lib/native/routeEngine';
+import { resolveIsMetric } from '@/providers';
+import { formatDistance } from '@/lib/utils/format';
 
 /**
  * Minimal section data needed for name generation.
@@ -33,9 +35,8 @@ export function generateSectionName(section: SectionNameData): string {
   if (section.name) return section.name;
 
   // Auto-generate from sport type and distance
-  const distanceKm = section.distanceMeters / 1000;
-  const distanceStr =
-    distanceKm >= 1 ? `${distanceKm.toFixed(1)}km` : `${Math.round(section.distanceMeters)}m`;
+  const isMetric = resolveIsMetric();
+  const distanceStr = formatDistance(section.distanceMeters, isMetric);
 
   return `${section.sportType} Section (${distanceStr})`;
 }

@@ -12,7 +12,8 @@ import { colors } from '@/theme/colors';
 import { typography } from '@/theme/typography';
 import { spacing, layout } from '@/theme/spacing';
 import { shadows } from '@/theme/shadows';
-import { getBoundsFromPoints } from '@/lib';
+import { getBoundsFromPoints, formatDistance } from '@/lib';
+import { useMetricSystem } from '@/hooks';
 import type { PotentialSection, RoutePoint } from '@/types';
 
 interface PotentialSectionCardProps {
@@ -81,13 +82,7 @@ function MiniPolylinePreview({ polyline }: { polyline: RoutePoint[] }) {
  */
 export function PotentialSectionCard({ section, onPromote, onDismiss }: PotentialSectionCardProps) {
   const { t } = useTranslation();
-
-  const formatDistance = (meters: number) => {
-    if (meters >= 1000) {
-      return `${(meters / 1000).toFixed(1)} km`;
-    }
-    return `${Math.round(meters)} m`;
-  };
+  const isMetric = useMetricSystem();
 
   const getScaleLabel = (scale: string): string => {
     switch (scale) {
@@ -142,7 +137,9 @@ export function PotentialSectionCard({ section, onPromote, onDismiss }: Potentia
                 size={14}
                 color={colors.textSecondary}
               />
-              <Text style={styles.metaText}>{formatDistance(section.distanceMeters)}</Text>
+              <Text style={styles.metaText}>
+                {formatDistance(section.distanceMeters, isMetric)}
+              </Text>
             </View>
             <View style={styles.metaItem}>
               <MaterialCommunityIcons name="ruler" size={14} color={colors.textSecondary} />

@@ -7,6 +7,7 @@ import { typography } from '@/theme/typography';
 import { spacing, layout } from '@/theme/spacing';
 import { shadows } from '@/theme/shadows';
 import { formatDistance, formatDuration, formatFullDateWithWeekday } from '@/lib';
+import { useMetricSystem } from '@/hooks';
 import { getActivityTypeConfig } from '../ActivityTypeFilter';
 import type { ActivityBoundsItem, ActivityMapData } from '@/types';
 
@@ -32,6 +33,7 @@ export function ActivityPopup({
   onViewDetails,
 }: ActivityPopupProps) {
   const { t } = useTranslation();
+  const isMetric = useMetricSystem();
   const config = getActivityTypeConfig(selected.activity.type);
 
   return (
@@ -70,7 +72,9 @@ export function ActivityPopup({
         </View>
         <View style={styles.popupStat}>
           <MaterialCommunityIcons name="map-marker-distance" size={20} color={colors.chartBlue} />
-          <Text style={styles.popupStatValue}>{formatDistance(selected.activity.distance)}</Text>
+          <Text style={styles.popupStatValue}>
+            {formatDistance(selected.activity.distance, isMetric)}
+          </Text>
         </View>
         <View style={styles.popupStat}>
           <MaterialCommunityIcons name="clock-outline" size={20} color={colors.chartAmber} />

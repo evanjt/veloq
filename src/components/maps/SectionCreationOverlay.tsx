@@ -21,6 +21,8 @@ import { colors } from '@/theme/colors';
 import { typography } from '@/theme/typography';
 import { spacing, layout } from '@/theme/spacing';
 import { shadows } from '@/theme/shadows';
+import { formatDistance } from '@/lib';
+import { useMetricSystem } from '@/hooks';
 
 // Enable LayoutAnimation on Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -91,14 +93,8 @@ export function SectionCreationOverlay({
 }: SectionCreationOverlayProps) {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
+  const isMetric = useMetricSystem();
   const [expanded, setExpanded] = useState(false);
-
-  const formatDistance = (meters: number) => {
-    if (meters >= 1000) {
-      return `${(meters / 1000).toFixed(2)} km`;
-    }
-    return `${Math.round(meters)} m`;
-  };
 
   const getStatusIcon = (): keyof typeof MaterialCommunityIcons.glyphMap => {
     switch (state) {
@@ -123,7 +119,7 @@ export function SectionCreationOverlay({
         return t('maps.tapSelectEnd' as never);
       case 'complete':
         if (sectionDistance !== null) {
-          return formatDistance(sectionDistance);
+          return formatDistance(sectionDistance, isMetric);
         }
         return t('maps.sectionSelected' as never);
       default:

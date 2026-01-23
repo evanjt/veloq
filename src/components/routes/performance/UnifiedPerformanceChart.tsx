@@ -463,7 +463,8 @@ export function UnifiedPerformanceChart({
 
     const calculateLaneStats = (
       points: (PerformanceDataPoint & { x: number })[],
-      indices: number[]
+      indices: number[],
+      globalBestIndex: number
     ): LaneData => {
       if (points.length === 0) {
         return {
@@ -476,13 +477,13 @@ export function UnifiedPerformanceChart({
         };
       }
 
-      let best = 0;
+      // Use global best - only mark PR if it's in this lane
+      const globalBestLocalIdx = indices.indexOf(globalBestIndex);
       let current = -1;
       let min = Infinity;
       let max = -Infinity;
 
       points.forEach((p, idx) => {
-        if (p.speed > points[best].speed) best = idx;
         if (currentIndex !== undefined && indices[idx] === currentIndex) current = idx;
         min = Math.min(min, p.speed);
         max = Math.max(max, p.speed);
@@ -492,7 +493,7 @@ export function UnifiedPerformanceChart({
       return {
         points,
         originalIndices: indices,
-        bestIndex: best,
+        bestIndex: globalBestLocalIdx,
         currentIndex: current,
         minSpeed: min - padding,
         maxSpeed: max + padding,
@@ -500,10 +501,10 @@ export function UnifiedPerformanceChart({
     };
 
     return {
-      forwardLane: calculateLaneStats(forwardPoints, forwardIndices),
-      reverseLane: calculateLaneStats(reversePoints, reverseIndices),
+      forwardLane: calculateLaneStats(forwardPoints, forwardIndices, bestIndex),
+      reverseLane: calculateLaneStats(reversePoints, reverseIndices, bestIndex),
     };
-  }, [chartData, currentIndex, dateToX]);
+  }, [chartData, currentIndex, dateToX, bestIndex]);
 
   const hasForward = forwardLane.points.length > 0;
   const hasReverse = reverseLane.points.length > 0;

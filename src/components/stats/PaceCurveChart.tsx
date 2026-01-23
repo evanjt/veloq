@@ -1,6 +1,6 @@
 import React, { useMemo, useCallback, useState, useRef } from 'react';
 import { View, StyleSheet, Switch, TouchableOpacity } from 'react-native';
-import { useTheme } from '@/hooks';
+import { useTheme, useMetricSystem } from '@/hooks';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { CartesianChart, Line } from 'victory-native';
@@ -20,7 +20,7 @@ import { spacing, layout } from '@/theme/spacing';
 import { CHART_CONFIG } from '@/constants';
 import { usePaceCurve } from '@/hooks';
 import { useActivities } from '@/hooks';
-import { formatFullDate } from '@/lib';
+import { formatFullDate, formatDistance } from '@/lib';
 
 interface PaceCurveChartProps {
   sport?: string;
@@ -60,13 +60,6 @@ function formatTime(totalSeconds: number): string {
   return `${minutes}:${seconds.toString().padStart(2, '0')}`;
 }
 
-// Format distance
-function formatDistance(meters: number): string {
-  if (meters < 1000) return `${Math.round(meters)}m`;
-  if (meters < 10000) return `${(meters / 1000).toFixed(2)}km`;
-  return `${(meters / 1000).toFixed(1)}km`;
-}
-
 // Format date range
 function formatDateRange(startDate?: string, endDate?: string): string {
   if (!startDate || !endDate) return '';
@@ -92,6 +85,7 @@ interface ChartPoint {
 export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceCurveChartProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
+  const isMetric = useMetricSystem();
   const isRunning = sport === 'Run';
 
   // GAP toggle state (only for running)
@@ -420,7 +414,7 @@ export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceC
             {t('activity.distance')}
           </Text>
           <Text style={[styles.valueNumber, { color: CHART_COLOR }]}>
-            {formatDistance(displayData.distance)}
+            {formatDistance(displayData.distance, isMetric)}
           </Text>
         </View>
         <View style={styles.valueItem}>

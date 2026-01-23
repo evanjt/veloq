@@ -301,14 +301,8 @@ export function getAllSectionDisplayNames(): Record<string, string> {
     // Use custom name from engine if set, otherwise generate name
     if (customNames[section.id]) {
       result[section.id] = customNames[section.id];
-    } else if (section.name) {
-      result[section.id] = section.name;
     } else {
-      // Auto-generate from sport type and distance
-      const distanceKm = section.distanceMeters / 1000;
-      const distanceStr =
-        distanceKm >= 1 ? `${distanceKm.toFixed(1)}km` : `${Math.round(section.distanceMeters)}m`;
-      result[section.id] = `${section.sportType} Section (${distanceStr})`;
+      result[section.id] = generateSectionName(section);
     }
   }
 
