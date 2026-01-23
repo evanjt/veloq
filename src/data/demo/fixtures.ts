@@ -146,10 +146,10 @@ function generateActivityName(
       return `${timeOfDay} Run`;
     case 'VirtualRide':
       // Use route name for virtual rides
-      if (routeId?.includes('grindelwald')) return `${timeOfDay} ROUVY - Grindelwald`;
-      if (routeId?.includes('lavaux')) return `${timeOfDay} ROUVY - Lavaux`;
-      if (routeId?.includes('vuelta')) return `${timeOfDay} ROUVY - La Vuelta`;
-      if (routeId?.includes('rio')) return `${timeOfDay} ROUVY - Rio`;
+      if (routeId?.includes('grindelwald')) return `${timeOfDay} Virtual Ride - Swiss Alps`;
+      if (routeId?.includes('lavaux')) return `${timeOfDay} Virtual Ride - Vineyards`;
+      if (routeId?.includes('vuelta')) return `${timeOfDay} Virtual Ride - Stage Climb`;
+      if (routeId?.includes('rio')) return `${timeOfDay} Virtual Ride - Coastal`;
       return `${timeOfDay} Virtual Ride`;
     case 'Swim':
       if (routeId) return `${timeOfDay} Open Water Swim`;
@@ -175,7 +175,7 @@ function generateActivities(): ApiActivity[] {
   // Outdoor Cycling (Valais, Switzerland):
   //   route-valais-ride-1: Rhône Valley Ride (73km)
   //   route-valais-ride-2: Alpine Approach (29km)
-  // Virtual Cycling (ROUVY):
+  // Virtual Cycling:
   //   route-rouvy-grindelwald: Grindelwald to Lauterbrunnen (23km)
   //   route-rouvy-lavaux: Lavaux Vineyards (17km)
   //   route-rouvy-rio: Rio de Janeiro Aterro (10km)
@@ -218,7 +218,7 @@ function generateActivities(): ApiActivity[] {
       isHard: false,
     },
 
-    // === VIRTUAL CYCLING (ROUVY routes) ===
+    // === VIRTUAL CYCLING ===
     {
       type: 'VirtualRide',
       dist: 23000,
@@ -691,7 +691,7 @@ export function getActivityMap(id: string, boundsOnly = false): ApiActivityMap |
     return null;
   }
 
-  // Virtual rides now have real GPS routes (from ROUVY etc.), check routeId
+  // Virtual rides now have real GPS routes, check routeId
   if (activity.type === 'VirtualRide' && !routeId) {
     return null;
   }

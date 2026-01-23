@@ -27,7 +27,13 @@ interface UseMapHandlersOptions {
   setIsHeatmapMode: (value: boolean | ((prev: boolean) => boolean)) => void;
   setSelectedCell: (value: CellQueryResult | null) => void;
   setSelectedSection: (value: FrequentSection | null) => void;
+  showActivities: boolean;
+  setShowActivities: (value: boolean | ((prev: boolean) => boolean)) => void;
+  showSections: boolean;
   setShowSections: (value: boolean | ((prev: boolean) => boolean)) => void;
+  showRoutes: boolean;
+  setShowRoutes: (value: boolean | ((prev: boolean) => boolean)) => void;
+  setSelectedRoute: (value: null) => void;
   setUserLocation: (value: [number, number] | null) => void;
   setVisibleActivityIds: (value: Set<string> | null) => void;
   setCurrentZoom: (value: number) => void;
@@ -52,7 +58,9 @@ interface UseMapHandlersResult {
   handleRegionDidChange: (feature: GeoJSON.Feature) => void;
   handleGetLocation: () => Promise<void>;
   toggleHeatmap: () => void;
+  toggleActivities: () => void;
   toggleSections: () => void;
+  toggleRoutes: () => void;
   resetOrientation: () => void;
   userLocationTimeoutRef: React.MutableRefObject<ReturnType<typeof setTimeout> | null>;
 }
@@ -68,7 +76,13 @@ export function useMapHandlers({
   setIsHeatmapMode,
   setSelectedCell,
   setSelectedSection,
+  showActivities,
+  setShowActivities,
+  showSections,
   setShowSections,
+  showRoutes,
+  setShowRoutes,
+  setSelectedRoute,
   setUserLocation,
   setVisibleActivityIds,
   setCurrentZoom,
@@ -281,10 +295,38 @@ export function useMapHandlers({
     }
   }, [isHeatmapMode, setIsHeatmapMode, setSelected, setSelectedCell]);
 
-  // Toggle sections visibility
+  // Toggle activities visibility - clear selection when hiding
+  const toggleActivities = useCallback(() => {
+    setShowActivities((current) => {
+      if (current) {
+        // We're hiding activities, clear selection
+        setSelected(null);
+      }
+      return !current;
+    });
+  }, [setShowActivities, setSelected]);
+
+  // Toggle sections visibility - clear selection when hiding
   const toggleSections = useCallback(() => {
-    setShowSections((current) => !current);
-  }, [setShowSections]);
+    setShowSections((current) => {
+      if (current) {
+        // We're hiding sections, clear selection
+        setSelectedSection(null);
+      }
+      return !current;
+    });
+  }, [setShowSections, setSelectedSection]);
+
+  // Toggle routes visibility - clear selection when hiding
+  const toggleRoutes = useCallback(() => {
+    setShowRoutes((current) => {
+      if (current) {
+        // We're hiding routes, clear selection
+        setSelectedRoute(null);
+      }
+      return !current;
+    });
+  }, [setShowRoutes, setSelectedRoute]);
 
   // Reset bearing to north (and pitch in 3D mode)
   const resetOrientation = useCallback(() => {
@@ -327,7 +369,9 @@ export function useMapHandlers({
     handleRegionDidChange,
     handleGetLocation,
     toggleHeatmap,
+    toggleActivities,
     toggleSections,
+    toggleRoutes,
     resetOrientation,
     userLocationTimeoutRef,
   };

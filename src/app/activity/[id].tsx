@@ -41,7 +41,6 @@ import {
 } from '@/components';
 import { DataRangeFooter } from '@/components/routes';
 import type { SectionOverlay } from '@/components/maps/ActivityMapView';
-import { MAP_ATTRIBUTIONS } from '@/components/maps/mapStyles';
 import { SwipeableTabs, type SwipeableTab } from '@/components/ui';
 import type { SectionCreationResult } from '@/components/maps/ActivityMapView';
 import {
@@ -123,6 +122,7 @@ export default function ActivityDetailScreen() {
   const [chartsInitialized, setChartsInitialized] = useState(false);
   // Track fullscreen chart mode
   const [isChartFullscreen, setIsChartFullscreen] = useState(false);
+  // Track current map style for attribution
 
   // Section creation mode
   const [sectionCreationMode, setSectionCreationMode] = useState(false);
@@ -779,7 +779,7 @@ export default function ActivityDetailScreen() {
             activityType={activity.type}
             height={MAP_HEIGHT}
             showStyleToggle={!sectionCreationMode}
-            showAttribution={false}
+            showAttribution={true}
             highlightIndex={highlightIndex}
             enableFullscreen={!sectionCreationMode}
             on3DModeChange={handle3DModeChange}
@@ -830,9 +830,6 @@ export default function ActivityDetailScreen() {
               </Text>
             </View>
           </View>
-
-          {/* Map attribution */}
-          <Text style={styles.mapAttribution}>{MAP_ATTRIBUTIONS.light}</Text>
         </View>
       </View>
 
@@ -1539,14 +1536,6 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.5)',
     marginHorizontal: 6,
   },
-  mapAttribution: {
-    position: 'absolute',
-    bottom: -spacing.md,
-    right: 0,
-    fontSize: 9,
-    color: 'rgba(255,255,255,0.9)',
-  },
-
   // Chart section
   chartSection: {
     paddingHorizontal: spacing.md,

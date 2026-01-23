@@ -72,7 +72,7 @@ export function getRouteForActivity(activityType: string, distance: number): Dem
   // Determine which route types match this activity
   const matchingTypes: DemoRoute['type'][] = [];
   if (activityType === 'VirtualRide') {
-    // Virtual rides use VirtualRide routes (real GPS from ROUVY etc.)
+    // Virtual rides use VirtualRide routes (real GPS data)
     matchingTypes.push('VirtualRide');
   } else if (activityType === 'Ride') {
     matchingTypes.push('Ride', 'VirtualRide'); // Outdoor rides can use virtual routes too

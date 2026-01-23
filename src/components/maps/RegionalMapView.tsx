@@ -1,5 +1,13 @@
 import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Animated, Platform } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  Pressable,
+  Animated,
+  Platform,
+} from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTheme } from '@/hooks';
 import {
@@ -75,6 +83,8 @@ interface RegionalMapViewProps {
   attributionBottomOffset?: number;
   /** Show attribution (default: true) */
   showAttribution?: boolean;
+  /** Callback when attribution text changes */
+  onAttributionChange?: (attribution: string) => void;
 }
 
 export function RegionalMapView({
@@ -82,6 +92,7 @@ export function RegionalMapView({
   onClose,
   attributionBottomOffset = 0,
   showAttribution = true,
+  onAttributionChange,
 }: RegionalMapViewProps) {
   const { t } = useTranslation();
   const router = useRouter();
@@ -172,22 +183,6 @@ export function RegionalMapView({
       }
     }
 
-    // Debug logging to diagnose Android positioning issue
-    if (__DEV__ && activities.length > 0) {
-      console.log(
-        `[RegionalMapView] activityCenters: ${fromSignature} from signatures, ${fromBounds} from bounds`
-      );
-      // Log first few centers for debugging
-      const sampleIds = activities.slice(0, 3).map((a) => a.id);
-      for (const id of sampleIds) {
-        const activity = activities.find((a) => a.id === id);
-        const center = centers[id];
-        console.log(
-          `[RegionalMapView] Activity ${id}: center=[${center?.[0]?.toFixed(4)}, ${center?.[1]?.toFixed(4)}] bounds=${JSON.stringify(activity?.bounds)}`
-        );
-      }
-    }
-
     return centers;
   }, [activities, routeSignatures]);
 
@@ -219,17 +214,25 @@ export function RegionalMapView({
 
   // Dynamic attribution based on visible satellite sources at current location
   const attributionText = useMemo(() => {
+    let result: string;
     if (mapStyle === 'satellite' && currentCenter) {
       const satAttribution = getCombinedSatelliteAttribution(
         currentCenter[1],
         currentCenter[0],
         currentZoom
       );
-      return is3DMode ? `${satAttribution} | ${TERRAIN_ATTRIBUTION}` : satAttribution;
+      result = is3DMode ? `${satAttribution} | ${TERRAIN_ATTRIBUTION}` : satAttribution;
+    } else {
+      const baseAttribution = MAP_ATTRIBUTIONS[mapStyle];
+      result = is3DMode ? `${baseAttribution} | ${TERRAIN_ATTRIBUTION}` : baseAttribution;
     }
-    const baseAttribution = MAP_ATTRIBUTIONS[mapStyle];
-    return is3DMode ? `${baseAttribution} | ${TERRAIN_ATTRIBUTION}` : baseAttribution;
+    return result;
   }, [mapStyle, currentCenter, currentZoom, is3DMode]);
+
+  // Notify parent when attribution changes
+  useEffect(() => {
+    onAttributionChange?.(attributionText);
+  }, [attributionText, onAttributionChange]);
 
   // Calculate bounds from activities (used for initial camera position)
   // Uses normalizeBounds to auto-detect coordinate format from API
@@ -297,10 +300,15 @@ export function RegionalMapView({
   const mapZoom = cachedData?.zoomLevel ?? currentData?.zoomLevel ?? 2;
 
   // Initialize currentCenter from mapCenter for region-aware satellite source detection
+  // This effect runs when mapCenter is computed from activities and currentCenter hasn't been set yet
+  // Also handles the case when mapCenter changes significantly (e.g., new activities loaded)
   useEffect(() => {
-    if (currentCenter === null && mapCenter !== null) {
-      setCurrentCenter(mapCenter);
-      setCurrentZoom(mapZoom);
+    if (mapCenter !== null) {
+      if (currentCenter === null) {
+        // First initialization
+        setCurrentCenter(mapCenter);
+        setCurrentZoom(mapZoom);
+      }
     }
   }, [currentCenter, mapCenter, mapZoom]);
 
@@ -318,7 +326,9 @@ export function RegionalMapView({
     handleRegionDidChange,
     handleGetLocation,
     toggleHeatmap,
+    toggleActivities,
     toggleSections,
+    toggleRoutes,
     resetOrientation,
     userLocationTimeoutRef,
   } = useMapHandlers({
@@ -332,7 +342,13 @@ export function RegionalMapView({
     setIsHeatmapMode,
     setSelectedCell,
     setSelectedSection,
+    showActivities,
+    setShowActivities,
+    showSections,
     setShowSections,
+    showRoutes,
+    setShowRoutes,
+    setSelectedRoute,
     setUserLocation,
     setVisibleActivityIds,
     setCurrentZoom,
@@ -352,6 +368,26 @@ export function RegionalMapView({
       }
     };
   }, [userLocationTimeoutRef]);
+
+  // Clear selections when their corresponding group visibility is turned off
+  // This is a safety net to ensure selections are always cleared when hiding groups
+  useEffect(() => {
+    if (!showActivities && selected) {
+      setSelected(null);
+    }
+  }, [showActivities, selected]);
+
+  useEffect(() => {
+    if (!showSections && selectedSection) {
+      setSelectedSection(null);
+    }
+  }, [showSections, selectedSection]);
+
+  useEffect(() => {
+    if (!showRoutes && selectedRoute) {
+      setSelectedRoute(null);
+    }
+  }, [showRoutes, selectedRoute]);
 
   // Toggle map style (cycles through light → dark → satellite)
   const toggleStyle = () => {
@@ -949,39 +985,6 @@ export function RegionalMapView({
   // Show 3D view when enabled
   const show3D = is3DMode && can3D;
 
-  // Debug: Log GeoJSON state before render to identify crash source
-  useEffect(() => {
-    if (__DEV__) {
-      console.log('[RegionalMapView] MAP STATE BEFORE RENDER:', {
-        markersFeatures: markersGeoJSON.features.length,
-        tracesFeatures: tracesGeoJSON?.features.length ?? 0,
-        sectionsFeatures: sectionsGeoJSON?.features.length ?? 0,
-        routesFeatures: routesGeoJSON?.features.length ?? 0,
-        routeMarkersFeatures: routeMarkersGeoJSON?.features.length ?? 0,
-        hasRouteGeoJSON: !!routeGeoJSON,
-        hasHeatmap: !!heatmap,
-        isHeatmapMode,
-        showRoutes,
-        showSections,
-        showTraces,
-        selectedActivity: selected?.activity.id ?? null,
-      });
-    }
-  }, [
-    markersGeoJSON,
-    tracesGeoJSON,
-    sectionsGeoJSON,
-    routesGeoJSON,
-    routeMarkersGeoJSON,
-    routeGeoJSON,
-    heatmap,
-    isHeatmapMode,
-    showRoutes,
-    showSections,
-    showTraces,
-    selected?.activity.id,
-  ]);
-
   return (
     <View style={styles.container}>
       {show3D ? (
@@ -1046,6 +1049,29 @@ export function RegionalMapView({
               // Hide markers when activities toggle is off or in heatmap mode
               const isVisible = showActivities && !isHeatmapMode;
 
+              // Platform-specific tap handling:
+              // - iOS: Use Pressable because MarkerView blocks ShapeSource taps
+              // - Android: Use pointerEvents="none" because Pressable breaks marker positioning
+              const markerContent = (
+                <View
+                  pointerEvents={Platform.OS === 'android' ? 'none' : 'auto'}
+                  style={{
+                    width: markerSize,
+                    height: markerSize,
+                    borderRadius: markerSize / 2,
+                    backgroundColor: config.color,
+                    borderWidth: isSelected ? 2 : 1.5,
+                    borderColor: isSelected ? colors.primary : colors.textOnDark,
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    opacity: isVisible ? 1 : 0,
+                    ...shadows.elevated,
+                  }}
+                >
+                  <Ionicons name={config.icon} size={iconSize} color={colors.textOnDark} />
+                </View>
+              );
+
               return (
                 <MarkerView
                   key={`marker-${activity.id}`}
@@ -1053,25 +1079,16 @@ export function RegionalMapView({
                   anchor={{ x: 0.5, y: 0.5 }}
                   allowOverlap={true}
                 >
-                  {/* pointerEvents="none" is CRITICAL for Android - Pressable breaks marker rendering */}
-                  <View
-                    pointerEvents="none"
-                    style={{
-                      width: markerSize,
-                      height: markerSize,
-                      borderRadius: markerSize / 2,
-                      backgroundColor: config.color,
-                      // Thinner border to give more space for the icon
-                      borderWidth: isSelected ? 2 : 1.5,
-                      borderColor: isSelected ? colors.primary : colors.textOnDark,
-                      justifyContent: 'center',
-                      alignItems: 'center',
-                      opacity: isVisible ? 1 : 0,
-                      ...shadows.elevated,
-                    }}
-                  >
-                    <Ionicons name={config.icon} size={iconSize} color={colors.textOnDark} />
-                  </View>
+                  {Platform.OS === 'ios' ? (
+                    <Pressable
+                      onPress={isVisible ? () => handleMarkerTap(activity) : undefined}
+                      disabled={!isVisible}
+                    >
+                      {markerContent}
+                    </Pressable>
+                  ) : (
+                    markerContent
+                  )}
                 </MarkerView>
               );
             })
@@ -1109,6 +1126,7 @@ export function RegionalMapView({
             <LineLayer
               id="routesLine"
               style={{
+                visibility: showRoutes && !isHeatmapMode ? 'visible' : 'none',
                 lineColor: '#9C27B0',
                 lineWidth: [
                   'case',
@@ -1116,15 +1134,12 @@ export function RegionalMapView({
                   6, // Bold when selected
                   3,
                 ],
-                lineOpacity:
-                  showRoutes && !isHeatmapMode
-                    ? [
-                        'case',
-                        ['==', ['get', 'id'], selectedRoute?.id ?? ''],
-                        1, // Full opacity when selected
-                        0.7,
-                      ]
-                    : 0,
+                lineOpacity: [
+                  'case',
+                  ['==', ['get', 'id'], selectedRoute?.id ?? ''],
+                  1, // Full opacity when selected
+                  0.7,
+                ],
                 lineDasharray: [3, 2],
                 lineCap: 'round',
                 lineJoin: 'round',
@@ -1434,9 +1449,9 @@ export function RegionalMapView({
         onResetOrientation={resetOrientation}
         onGetLocation={handleGetLocation}
         onToggleHeatmap={toggleHeatmap}
-        onToggleActivities={() => setShowActivities((prev) => !prev)}
+        onToggleActivities={toggleActivities}
         onToggleSections={toggleSections}
-        onToggleRoutes={() => setShowRoutes((prev) => !prev)}
+        onToggleRoutes={toggleRoutes}
       />
       {/* Attribution */}
       {showAttribution && (

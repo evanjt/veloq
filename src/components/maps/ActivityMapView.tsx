@@ -107,7 +107,16 @@
  * ```
  */
 
-import React, { useMemo, useState, useRef, useCallback, useEffect } from 'react';
+import React, {
+  useMemo,
+  useState,
+  useRef,
+  useCallback,
+  useEffect,
+  memo,
+  useImperativeHandle,
+  forwardRef,
+} from 'react';
 import {
   View,
   StyleSheet,
@@ -152,8 +161,79 @@ import {
   getStyleIcon,
   MAP_ATTRIBUTIONS,
   TERRAIN_ATTRIBUTION,
+  getCombinedSatelliteAttribution,
 } from './mapStyles';
 import type { ActivityType, RoutePoint } from '@/types';
+
+/** Attribution overlay component that manages its own state to avoid parent re-renders */
+interface AttributionOverlayRef {
+  setAttribution: (text: string) => void;
+}
+
+interface AttributionOverlayProps {
+  initialAttribution: string;
+  isFullscreen: boolean;
+}
+
+const AttributionOverlay = memo(
+  forwardRef<AttributionOverlayRef, AttributionOverlayProps>(
+    ({ initialAttribution, isFullscreen }, ref) => {
+      const [attribution, setAttribution] = useState(initialAttribution);
+
+      useImperativeHandle(ref, () => ({
+        setAttribution,
+      }));
+
+      return (
+        <View
+          style={[attributionStyles.attribution, isFullscreen && attributionStyles.attributionPill]}
+        >
+          <Text
+            style={[
+              attributionStyles.attributionText,
+              isFullscreen && attributionStyles.attributionTextPill,
+            ]}
+          >
+            {attribution}
+          </Text>
+        </View>
+      );
+    }
+  )
+);
+
+const attributionStyles = StyleSheet.create({
+  attribution: {
+    position: 'absolute',
+    bottom: 4,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    zIndex: 5,
+  },
+  attributionPill: {
+    left: 'auto',
+    right: spacing.sm,
+    bottom: spacing.sm,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: spacing.sm,
+  },
+  attributionText: {
+    fontSize: 9,
+    color: 'rgba(255, 255, 255, 0.5)',
+    textShadowColor: 'rgba(0, 0, 0, 0.5)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+  },
+  attributionTextPill: {
+    color: colors.textSecondary,
+    textShadowColor: 'transparent',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 0,
+  },
+});
 
 /** Section overlay for map visualization */
 export interface SectionOverlay {
@@ -207,6 +287,10 @@ interface ActivityMapViewProps {
   enableFullscreen?: boolean;
   /** Called when 3D mode is toggled - parent can disable scroll */
   on3DModeChange?: (is3D: boolean) => void;
+  /** Called when map style changes - parent can update attribution */
+  onStyleChange?: (style: MapStyleType) => void;
+  /** Called when attribution text changes (due to style or viewport change) */
+  onAttributionChange?: (attribution: string) => void;
   /** Enable section creation mode */
   creationMode?: boolean;
   /** Called when a section is created */
@@ -232,6 +316,8 @@ export function ActivityMapView({
   highlightIndex,
   enableFullscreen = false,
   on3DModeChange,
+  onStyleChange,
+  onAttributionChange,
   creationMode = false,
   onSectionCreated,
   onCreationCancelled,
@@ -280,13 +366,35 @@ export function ActivityMapView({
   }, []);
 
   // Handle map finishing loading - now safe to apply camera commands
+  // Also restore camera position if we saved one before style change
   const handleMapFinishLoading = useCallback(() => {
     setMapReady(true);
+    // Restore camera position after style change
+    if (pendingCameraRestoreRef.current) {
+      const { center, zoom } = pendingCameraRestoreRef.current;
+      cameraRef.current?.setCamera({
+        centerCoordinate: center,
+        zoomLevel: zoom,
+        animationDuration: 0,
+      });
+      pendingCameraRestoreRef.current = null;
+    }
   }, []);
 
+  // Track if we need to restore camera after style change
+  const pendingCameraRestoreRef = useRef<{ center: [number, number]; zoom: number } | null>(null);
+
   // Reset retry count and map ready state when style changes (map reloads)
+  // Save current camera position to restore after reload
   useEffect(() => {
     retryCountRef.current = 0;
+    // Save current camera position before style change resets it
+    if (currentCenterRef.current && currentZoomRef.current) {
+      pendingCameraRestoreRef.current = {
+        center: currentCenterRef.current,
+        zoom: currentZoomRef.current,
+      };
+    }
     setMapReady(false);
   }, [mapStyle]);
 
@@ -336,6 +444,11 @@ export function ActivityMapView({
   useEffect(() => {
     on3DModeChange?.(is3DMode);
   }, [is3DMode, on3DModeChange]);
+
+  // Notify parent when map style changes (for external attribution display)
+  useEffect(() => {
+    onStyleChange?.(mapStyle);
+  }, [mapStyle, onStyleChange]);
 
   // Reset 3D ready state when toggling off
   useEffect(() => {
@@ -535,12 +648,8 @@ export function ActivityMapView({
   }, [validCoordinates]);
 
   // Track which coordinatesKey we've applied bounds for
+  // NOTE: Do NOT reset this when style changes - we want to preserve camera position
   const appliedBoundsKeyRef = useRef<string>('');
-
-  // Reset applied bounds when style changes (map reloads and needs fresh bounds)
-  useEffect(() => {
-    appliedBoundsKeyRef.current = '';
-  }, [mapStyle]);
 
   // Apply bounds imperatively when coordinates change (different activity)
   // Using imperative API ensures Camera props stay consistent across re-renders
@@ -805,13 +914,99 @@ export function ActivityMapView({
   const mapStyleValue = getMapStyle(mapStyle);
   const isDark = isDarkStyle(mapStyle);
 
-  if (!bounds || validCoordinates.length === 0) {
-    if (__DEV__) {
-      console.log('[ActivityMapView] EARLY RETURN: no bounds or coordinates', {
-        hasBounds: !!bounds,
-        validCoordinatesCount: validCoordinates.length,
-      });
+  // Track current map viewport for dynamic attribution using refs to avoid re-renders during gestures
+  const currentCenterRef = useRef<[number, number] | null>(null);
+  const currentZoomRef = useRef(12);
+  const attributionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Ref to update attribution without causing parent re-render
+  const attributionRef = useRef<AttributionOverlayRef>(null);
+  const initialAttributionRef = useRef(MAP_ATTRIBUTIONS[mapStyle]);
+  // Store latest values in refs to avoid stale closure in debounced callback
+  const mapStyleRef = useRef(mapStyle);
+  const is3DModeRef = useRef(is3DMode);
+  const onAttributionChangeRef = useRef(onAttributionChange);
+  mapStyleRef.current = mapStyle;
+  is3DModeRef.current = is3DMode;
+  onAttributionChangeRef.current = onAttributionChange;
+
+  // Compute attribution from current viewport - uses refs for latest values
+  const computeAttributionFromRefs = useCallback(() => {
+    const center = currentCenterRef.current;
+    const zoom = currentZoomRef.current;
+    const style = mapStyleRef.current;
+    const is3D = is3DModeRef.current;
+
+    if (style === 'satellite' && center) {
+      const satAttribution = getCombinedSatelliteAttribution(
+        center[1], // lat
+        center[0], // lng
+        zoom
+      );
+      return is3D ? `${satAttribution} | ${TERRAIN_ATTRIBUTION}` : satAttribution;
     }
+    const baseAttribution = MAP_ATTRIBUTIONS[style];
+    return is3D ? `${baseAttribution} | ${TERRAIN_ATTRIBUTION}` : baseAttribution;
+  }, []);
+
+  // Handle region change end - update refs only, debounce attribution callback
+  const handleRegionDidChange = useCallback(
+    (feature: GeoJSON.Feature) => {
+      const properties = feature.properties as
+        | {
+            zoomLevel?: number;
+            visibleBounds?: [[number, number], [number, number]];
+          }
+        | undefined;
+
+      if (properties?.zoomLevel !== undefined) {
+        currentZoomRef.current = properties.zoomLevel;
+      }
+
+      if (properties?.visibleBounds) {
+        const [[swLng, swLat], [neLng, neLat]] = properties.visibleBounds;
+        const centerLng = (swLng + neLng) / 2;
+        const centerLat = (swLat + neLat) / 2;
+        currentCenterRef.current = [centerLng, centerLat];
+      }
+
+      // Debounce attribution update to avoid interfering with map gestures
+      if (attributionTimeoutRef.current) {
+        clearTimeout(attributionTimeoutRef.current);
+      }
+      attributionTimeoutRef.current = setTimeout(() => {
+        // Use refs to get latest values (avoids stale closure)
+        const newAttribution = computeAttributionFromRefs();
+        // Update via ref to avoid parent re-render
+        attributionRef.current?.setAttribution(newAttribution);
+        onAttributionChangeRef.current?.(newAttribution);
+      }, 300);
+    },
+    [computeAttributionFromRefs]
+  );
+
+  // Update attribution when mapStyle or is3DMode changes (immediate, not debounced)
+  // Cancel any pending debounced update to avoid flicker
+  useEffect(() => {
+    if (attributionTimeoutRef.current) {
+      clearTimeout(attributionTimeoutRef.current);
+      attributionTimeoutRef.current = null;
+    }
+    const newAttribution = computeAttributionFromRefs();
+    // Update via ref to avoid parent re-render
+    attributionRef.current?.setAttribution(newAttribution);
+    onAttributionChange?.(newAttribution);
+  }, [mapStyle, is3DMode, computeAttributionFromRefs, onAttributionChange]);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (attributionTimeoutRef.current) {
+        clearTimeout(attributionTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  if (!bounds || validCoordinates.length === 0) {
     return (
       <View style={[styles.placeholder, { height }]}>
         <MaterialCommunityIcons name="map-marker-off" size={48} color={colors.textSecondary} />
@@ -844,6 +1039,7 @@ export function ActivityMapView({
             rotateEnabled={true}
             pitchEnabled={false}
             onRegionIsChanging={handleRegionIsChanging}
+            onRegionDidChange={handleRegionDidChange}
             onPress={handleMapPress}
             onDidFailLoadingMap={handleMapLoadError}
             onDidFinishLoadingMap={handleMapFinishLoading}
@@ -1108,15 +1304,13 @@ export function ActivityMapView({
           </Animated.View>
         )}
 
-        {/* Attribution - inline mode uses subtle text, fullscreen uses pill */}
+        {/* Attribution - uses ref-based updates to avoid map re-renders */}
         {(showAttribution || isFullscreen) && (
-          <View style={[styles.attribution, isFullscreen && styles.attributionPill]}>
-            <Text style={[styles.attributionText, isFullscreen && styles.attributionTextPill]}>
-              {is3DMode
-                ? `${MAP_ATTRIBUTIONS[mapStyle]} | ${TERRAIN_ATTRIBUTION}`
-                : MAP_ATTRIBUTIONS[mapStyle]}
-            </Text>
-          </View>
+          <AttributionOverlay
+            ref={attributionRef}
+            initialAttribution={initialAttributionRef.current}
+            isFullscreen={isFullscreen}
+          />
         )}
 
         {/* Route overlay legend */}
@@ -1425,36 +1619,6 @@ const styles = StyleSheet.create({
   },
   controlButtonActive: {
     backgroundColor: colors.primary,
-  },
-  attribution: {
-    position: 'absolute',
-    bottom: 4,
-    left: 0,
-    right: 0,
-    alignItems: 'center',
-    zIndex: 5,
-  },
-  attributionPill: {
-    left: 'auto',
-    right: spacing.sm,
-    bottom: spacing.sm,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: spacing.sm,
-  },
-  attributionText: {
-    fontSize: 9,
-    color: 'rgba(255, 255, 255, 0.5)',
-    textShadowColor: 'rgba(0, 0, 0, 0.5)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
-  },
-  attributionTextPill: {
-    color: colors.textSecondary,
-    textShadowColor: 'transparent',
-    textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 0,
   },
   overlayLegend: {
     position: 'absolute',

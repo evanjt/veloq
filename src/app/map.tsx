@@ -21,6 +21,9 @@ export default function MapScreen() {
   const shared = createSharedStyles(isDark);
   const queryClient = useQueryClient();
 
+  // Attribution text from map (updated dynamically)
+  const [attribution, setAttribution] = useState('© OpenFreeMap © OpenMapTiles © OpenStreetMap');
+
   // Get route settings
   const { settings: routeSettings } = useRouteSettings();
 
@@ -314,6 +317,7 @@ export default function MapScreen() {
           activities={filteredActivities}
           onClose={handleClose}
           showAttribution={false}
+          onAttributionChange={setAttribution}
         />
       </ComponentErrorBoundary>
 
@@ -329,7 +333,7 @@ export default function MapScreen() {
         {/* Attribution pill - positioned at top right of panel */}
         <View style={[styles.attributionPill, isDark && styles.attributionPillDark]}>
           <Text style={[styles.attributionText, isDark && styles.attributionTextDark]}>
-            © OpenFreeMap © OpenMapTiles © OpenStreetMap
+            {attribution}
           </Text>
         </View>
         <TimelineSlider

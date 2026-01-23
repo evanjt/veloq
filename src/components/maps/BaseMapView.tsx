@@ -26,6 +26,7 @@ import {
   getStyleIcon,
   MAP_ATTRIBUTIONS,
   TERRAIN_ATTRIBUTION,
+  getCombinedSatelliteAttribution,
 } from './mapStyles';
 
 export interface BaseMapViewProps {
@@ -111,6 +112,8 @@ export function BaseMapView({
   const [mapStyle, setMapStyle] = useState<MapStyleType>(initialStyle ?? systemStyle);
   const [is3DMode, setIs3DMode] = useState(false);
   const [is3DReady, setIs3DReady] = useState(false);
+  const [currentCenter, setCurrentCenter] = useState<[number, number] | null>(null);
+  const [currentZoom, setCurrentZoom] = useState(10);
 
   // iOS simulator tile loading retry mechanism
   const [mapKey, setMapKey] = useState(0);
@@ -207,6 +210,27 @@ export function BaseMapView({
     [bearingAnim]
   );
 
+  // Handle region change end - track center and zoom for dynamic attribution
+  const handleRegionDidChange = useCallback((feature: GeoJSON.Feature) => {
+    const properties = feature.properties as
+      | {
+          zoomLevel?: number;
+          visibleBounds?: [[number, number], [number, number]];
+        }
+      | undefined;
+
+    if (properties?.zoomLevel !== undefined) {
+      setCurrentZoom(properties.zoomLevel);
+    }
+
+    if (properties?.visibleBounds) {
+      const [[swLng, swLat], [neLng, neLat]] = properties.visibleBounds;
+      const centerLng = (swLng + neLng) / 2;
+      const centerLat = (swLat + neLat) / 2;
+      setCurrentCenter([centerLng, centerLat]);
+    }
+  }, []);
+
   // Get user location and refocus camera
   const handleGetLocation = useCallback(async () => {
     try {
@@ -251,10 +275,20 @@ export function BaseMapView({
     };
   }, [routeCoordinates]);
 
-  // Get attribution text
-  const attributionText = is3DMode
-    ? `${MAP_ATTRIBUTIONS[mapStyle]} | ${TERRAIN_ATTRIBUTION}`
-    : MAP_ATTRIBUTIONS[mapStyle];
+  // Dynamic attribution based on map style and current location
+  // For satellite mode, shows regional attributions (swisstopo, IGN, etc.) based on map center
+  const attributionText = useMemo(() => {
+    if (mapStyle === 'satellite' && currentCenter) {
+      const satAttribution = getCombinedSatelliteAttribution(
+        currentCenter[1], // lat
+        currentCenter[0], // lng
+        currentZoom
+      );
+      return is3DMode ? `${satAttribution} | ${TERRAIN_ATTRIBUTION}` : satAttribution;
+    }
+    const baseAttribution = MAP_ATTRIBUTIONS[mapStyle];
+    return is3DMode ? `${baseAttribution} | ${TERRAIN_ATTRIBUTION}` : baseAttribution;
+  }, [mapStyle, currentCenter, currentZoom, is3DMode]);
 
   // Render controls (shared between 2D and 3D)
   const renderControls = () => (
@@ -389,6 +423,7 @@ export function BaseMapView({
           compassEnabled={false}
           onPress={onPress}
           onRegionIsChanging={handleRegionIsChanging}
+          onRegionDidChange={handleRegionDidChange}
           onDidFailLoadingMap={handleMapLoadError}
         >
           <Camera
