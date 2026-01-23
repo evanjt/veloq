@@ -39,8 +39,8 @@ export interface RoutePerformancePoint {
   isCurrent: boolean;
   /** Match direction: same, reverse, or partial */
   direction: MatchDirection;
-  /** Match percentage (0-100) */
-  matchPercentage: number;
+  /** Match percentage (0-100), undefined if not computed */
+  matchPercentage?: number;
 }
 
 interface UseRoutePerformancesResult {
@@ -117,13 +117,18 @@ export function useRoutePerformances(
       const performances = parsed.performances || [];
 
       // Build lookup map by activity ID
+      // Only include entries that have actual match_percentage computed (not 100% fallback)
       const map = new Map<string, RustMatchInfo>();
       for (const perf of performances) {
-        map.set(perf.activity_id, {
-          activity_id: perf.activity_id,
-          match_percentage: perf.match_percentage ?? 100,
-          direction: perf.direction ?? 'same',
-        });
+        // Only store if match_percentage exists and isn't the 100% fallback
+        // A real match percentage from checkpoint matching is rarely exactly 100
+        if (perf.match_percentage !== undefined && perf.match_percentage !== 100) {
+          map.set(perf.activity_id, {
+            activity_id: perf.activity_id,
+            match_percentage: perf.match_percentage,
+            direction: perf.direction ?? 'same',
+          });
+        }
       }
       return map;
     } catch {
@@ -149,9 +154,9 @@ export function useRoutePerformances(
     );
 
     const points: RoutePerformancePoint[] = validActivities.map((activity) => {
-      // Get match info from Rust engine (or fallback to defaults)
+      // Get match info from Rust engine (undefined if not computed)
       const matchInfo = matchInfoMap.get(activity.id);
-      const matchPercentage = matchInfo?.match_percentage ?? 100;
+      const matchPercentage = matchInfo?.match_percentage;
       const direction = (matchInfo?.direction ?? 'same') as MatchDirection;
 
       return {

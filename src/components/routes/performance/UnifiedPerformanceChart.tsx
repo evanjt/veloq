@@ -832,41 +832,80 @@ export function UnifiedPerformanceChart({
         </View>
 
         {/* Summary stats */}
-        {summaryStats && summaryStats.totalActivities > 0 && variant === 'activity' && (
+        {summaryStats && summaryStats.totalActivities > 0 && (
           <View style={styles.summaryRow}>
-            <View style={styles.summaryItem}>
-              <Text style={[styles.summaryValue, { color: colors.chartCyan }]}>
-                {summaryStats.currentTime ? formatDuration(summaryStats.currentTime) : '-'}
-              </Text>
-              <Text style={[styles.summaryLabel, isDark && styles.textMuted]}>
-                {t('sections.current')}
-              </Text>
-            </View>
-            <View style={styles.summaryItem}>
-              <Text style={[styles.summaryValue, { color: colors.chartGold }]}>
-                {summaryStats.bestTime ? formatDuration(summaryStats.bestTime) : '-'}
-              </Text>
-              <Text style={[styles.summaryLabel, isDark && styles.textMuted]}>
-                {t('sections.best')}
-              </Text>
-            </View>
-            <View style={styles.summaryItem}>
-              <Text style={[styles.summaryValue, isDark && styles.textLight]}>
-                {summaryStats.bestDate ? formatShortDate(summaryStats.bestDate) : '-'}
-              </Text>
-              <Text style={[styles.summaryLabel, isDark && styles.textMuted]}>
-                {t('routes.bestOn')}
-              </Text>
-            </View>
-            {timeRangeDisplay && (
-              <View style={styles.summaryItem}>
-                <Text style={[styles.summaryValue, isDark && styles.textLight]}>
-                  {timeRangeDisplay.value}
-                </Text>
-                <Text style={[styles.summaryLabel, isDark && styles.textMuted]}>
-                  {timeRangeDisplay.label}
-                </Text>
-              </View>
+            {variant === 'activity' ? (
+              <>
+                <View style={styles.summaryItem}>
+                  <Text style={[styles.summaryValue, { color: colors.chartCyan }]}>
+                    {summaryStats.currentTime ? formatDuration(summaryStats.currentTime) : '-'}
+                  </Text>
+                  <Text style={[styles.summaryLabel, isDark && styles.textMuted]}>
+                    {t('sections.current')}
+                  </Text>
+                </View>
+                <View style={styles.summaryItem}>
+                  <Text style={[styles.summaryValue, { color: colors.chartGold }]}>
+                    {summaryStats.bestTime ? formatDuration(summaryStats.bestTime) : '-'}
+                  </Text>
+                  <Text style={[styles.summaryLabel, isDark && styles.textMuted]}>
+                    {t('sections.best')}
+                  </Text>
+                </View>
+                <View style={styles.summaryItem}>
+                  <Text style={[styles.summaryValue, isDark && styles.textLight]}>
+                    {summaryStats.bestDate ? formatShortDate(summaryStats.bestDate) : '-'}
+                  </Text>
+                  <Text style={[styles.summaryLabel, isDark && styles.textMuted]}>
+                    {t('routes.bestOn')}
+                  </Text>
+                </View>
+                {timeRangeDisplay && (
+                  <View style={styles.summaryItem}>
+                    <Text style={[styles.summaryValue, isDark && styles.textLight]}>
+                      {timeRangeDisplay.value}
+                    </Text>
+                    <Text style={[styles.summaryLabel, isDark && styles.textMuted]}>
+                      {timeRangeDisplay.label}
+                    </Text>
+                  </View>
+                )}
+              </>
+            ) : (
+              <>
+                <View style={styles.summaryItem}>
+                  <Text style={[styles.summaryValue, { color: colors.chartGold }]}>
+                    {summaryStats.bestTime ? formatDuration(summaryStats.bestTime) : '-'}
+                  </Text>
+                  <Text style={[styles.summaryLabel, isDark && styles.textMuted]}>
+                    {t('sections.bestTime')}
+                  </Text>
+                </View>
+                <View style={styles.summaryItem}>
+                  <Text style={[styles.summaryValue, isDark && styles.textLight]}>
+                    {summaryStats.avgTime ? formatDuration(summaryStats.avgTime) : '-'}
+                  </Text>
+                  <Text style={[styles.summaryLabel, isDark && styles.textMuted]}>
+                    {t('sections.averageTime')}
+                  </Text>
+                </View>
+                <View style={styles.summaryItem}>
+                  <Text style={[styles.summaryValue, isDark && styles.textLight]}>
+                    {summaryStats.lastActivity ? formatShortDate(summaryStats.lastActivity) : '-'}
+                  </Text>
+                  <Text style={[styles.summaryLabel, isDark && styles.textMuted]}>
+                    {t('sections.lastActivity')}
+                  </Text>
+                </View>
+                <View style={styles.summaryItem}>
+                  <Text style={[styles.summaryValue, isDark && styles.textLight]}>
+                    {summaryStats.totalActivities}
+                  </Text>
+                  <Text style={[styles.summaryLabel, isDark && styles.textMuted]}>
+                    {t('sections.traversals')}
+                  </Text>
+                </View>
+              </>
             )}
           </View>
         )}
@@ -976,42 +1015,81 @@ export function UnifiedPerformanceChart({
         </View>
       </View>
 
-      {/* Summary stats for activity variant */}
-      {summaryStats && summaryStats.totalActivities > 0 && variant === 'activity' && (
+      {/* Summary stats */}
+      {summaryStats && summaryStats.totalActivities > 0 && (
         <View style={styles.summaryRow}>
-          <View style={styles.summaryItem}>
-            <Text style={[styles.summaryValue, { color: colors.chartCyan }]}>
-              {summaryStats.currentTime ? formatDuration(summaryStats.currentTime) : '-'}
-            </Text>
-            <Text style={[styles.summaryLabel, isDark && styles.textMuted]}>
-              {t('sections.current')}
-            </Text>
-          </View>
-          <View style={styles.summaryItem}>
-            <Text style={[styles.summaryValue, { color: colors.chartGold }]}>
-              {summaryStats.bestTime ? formatDuration(summaryStats.bestTime) : '-'}
-            </Text>
-            <Text style={[styles.summaryLabel, isDark && styles.textMuted]}>
-              {t('sections.best')}
-            </Text>
-          </View>
-          <View style={styles.summaryItem}>
-            <Text style={[styles.summaryValue, isDark && styles.textLight]}>
-              {summaryStats.bestDate ? formatShortDate(summaryStats.bestDate) : '-'}
-            </Text>
-            <Text style={[styles.summaryLabel, isDark && styles.textMuted]}>
-              {t('routes.bestOn')}
-            </Text>
-          </View>
-          {timeRangeDisplay && (
-            <View style={styles.summaryItem}>
-              <Text style={[styles.summaryValue, isDark && styles.textLight]}>
-                {timeRangeDisplay.value}
-              </Text>
-              <Text style={[styles.summaryLabel, isDark && styles.textMuted]}>
-                {timeRangeDisplay.label}
-              </Text>
-            </View>
+          {variant === 'activity' ? (
+            <>
+              <View style={styles.summaryItem}>
+                <Text style={[styles.summaryValue, { color: colors.chartCyan }]}>
+                  {summaryStats.currentTime ? formatDuration(summaryStats.currentTime) : '-'}
+                </Text>
+                <Text style={[styles.summaryLabel, isDark && styles.textMuted]}>
+                  {t('sections.current')}
+                </Text>
+              </View>
+              <View style={styles.summaryItem}>
+                <Text style={[styles.summaryValue, { color: colors.chartGold }]}>
+                  {summaryStats.bestTime ? formatDuration(summaryStats.bestTime) : '-'}
+                </Text>
+                <Text style={[styles.summaryLabel, isDark && styles.textMuted]}>
+                  {t('sections.best')}
+                </Text>
+              </View>
+              <View style={styles.summaryItem}>
+                <Text style={[styles.summaryValue, isDark && styles.textLight]}>
+                  {summaryStats.bestDate ? formatShortDate(summaryStats.bestDate) : '-'}
+                </Text>
+                <Text style={[styles.summaryLabel, isDark && styles.textMuted]}>
+                  {t('routes.bestOn')}
+                </Text>
+              </View>
+              {timeRangeDisplay && (
+                <View style={styles.summaryItem}>
+                  <Text style={[styles.summaryValue, isDark && styles.textLight]}>
+                    {timeRangeDisplay.value}
+                  </Text>
+                  <Text style={[styles.summaryLabel, isDark && styles.textMuted]}>
+                    {timeRangeDisplay.label}
+                  </Text>
+                </View>
+              )}
+            </>
+          ) : (
+            <>
+              <View style={styles.summaryItem}>
+                <Text style={[styles.summaryValue, { color: colors.chartGold }]}>
+                  {summaryStats.bestTime ? formatDuration(summaryStats.bestTime) : '-'}
+                </Text>
+                <Text style={[styles.summaryLabel, isDark && styles.textMuted]}>
+                  {t('sections.bestTime')}
+                </Text>
+              </View>
+              <View style={styles.summaryItem}>
+                <Text style={[styles.summaryValue, isDark && styles.textLight]}>
+                  {summaryStats.avgTime ? formatDuration(summaryStats.avgTime) : '-'}
+                </Text>
+                <Text style={[styles.summaryLabel, isDark && styles.textMuted]}>
+                  {t('sections.averageTime')}
+                </Text>
+              </View>
+              <View style={styles.summaryItem}>
+                <Text style={[styles.summaryValue, isDark && styles.textLight]}>
+                  {summaryStats.lastActivity ? formatShortDate(summaryStats.lastActivity) : '-'}
+                </Text>
+                <Text style={[styles.summaryLabel, isDark && styles.textMuted]}>
+                  {t('sections.lastActivity')}
+                </Text>
+              </View>
+              <View style={styles.summaryItem}>
+                <Text style={[styles.summaryValue, isDark && styles.textLight]}>
+                  {summaryStats.totalActivities}
+                </Text>
+                <Text style={[styles.summaryLabel, isDark && styles.textMuted]}>
+                  {t('sections.traversals')}
+                </Text>
+              </View>
+            </>
           )}
         </View>
       )}

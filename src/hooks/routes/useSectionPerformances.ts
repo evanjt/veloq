@@ -52,8 +52,10 @@ export interface ActivitySectionRecord {
 interface UseSectionPerformancesResult {
   /** Performance records grouped by activity */
   records: ActivitySectionRecord[];
-  /** Whether streams are being loaded from API (not from cache) */
+  /** Whether data is still loading (not yet ready to display) */
   isLoading: boolean;
+  /** Whether streams are being fetched from API */
+  isFetchingFromApi: boolean;
   /** Error message if loading failed */
   error: string | null;
   /** Best overall record (fastest time) */
@@ -310,7 +312,8 @@ export function useSectionPerformances(
 
   return {
     records,
-    isLoading,
+    isLoading: !fetchComplete,
+    isFetchingFromApi: isLoading,
     error,
     bestRecord,
     refetch,

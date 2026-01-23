@@ -1029,70 +1029,75 @@ export function RegionalMapView({
           />
 
           {/* Activity markers - visual only, taps handled by ShapeSource rendered later */}
-          {/* CRITICAL: Always render MarkerViews to avoid iOS crash during reconciliation */}
-          {/* Use opacity to hide instead of conditional rendering */}
+          {/* CRITICAL: Always render ALL MarkerViews to avoid iOS Fabric crash during reconciliation */}
+          {/* iOS crash: -[__NSArrayM insertObject:atIndex:]: object cannot be nil (MLRNMapView.m:207) */}
+          {/* Never return null - use opacity:0 and fallback coordinate for invalid centers */}
           {/* pointerEvents="none" ensures these don't intercept touches (fixes Android rendering) */}
           {/* Sorted to render selected activity last (on top) */}
-          {/* filter(Boolean) prevents null children crash on iOS MapLibre */}
-          {sortedVisibleActivities
-            .map((activity) => {
-              const config = getActivityTypeConfig(activity.type);
-              // Use pre-computed center (no format detection during render!)
-              const center = activityCenters[activity.id];
-              // Skip if center not computed yet (prevents iOS crash with undefined coordinate)
-              if (!center) return null;
-              const size = getMarkerSize(activity.distance);
-              const isSelected = selectedActivityId === activity.id;
-              const markerSize = isSelected ? size + 8 : size;
-              // Larger icon ratio to fill more of the marker
-              const iconSize = isSelected ? size * 0.75 : size * 0.7;
-              // Hide markers when activities toggle is off or in heatmap mode
-              const isVisible = showActivities && !isHeatmapMode;
+          {sortedVisibleActivities.map((activity) => {
+            const config = getActivityTypeConfig(activity.type);
+            // Use pre-computed center (no format detection during render!)
+            const center = activityCenters[activity.id];
+            // Validate center has valid finite coordinates
+            const hasValidCenter =
+              center &&
+              Array.isArray(center) &&
+              center.length >= 2 &&
+              Number.isFinite(center[0]) &&
+              Number.isFinite(center[1]);
+            // Use fallback coordinate [0, 0] for invalid centers (will be hidden via opacity)
+            const safeCenter: [number, number] = hasValidCenter ? center : [0, 0];
+            const size = getMarkerSize(activity.distance);
+            const isSelected = selectedActivityId === activity.id;
+            const markerSize = isSelected ? size + 8 : size;
+            // Larger icon ratio to fill more of the marker
+            const iconSize = isSelected ? size * 0.75 : size * 0.7;
+            // Hide markers when: no valid center, activities toggle is off, or in heatmap mode
+            const isVisible = hasValidCenter && showActivities && !isHeatmapMode;
 
-              // Platform-specific tap handling:
-              // - iOS: Use Pressable because MarkerView blocks ShapeSource taps
-              // - Android: Use pointerEvents="none" because Pressable breaks marker positioning
-              const markerContent = (
-                <View
-                  pointerEvents={Platform.OS === 'android' ? 'none' : 'auto'}
-                  style={{
-                    width: markerSize,
-                    height: markerSize,
-                    borderRadius: markerSize / 2,
-                    backgroundColor: config.color,
-                    borderWidth: isSelected ? 2 : 1.5,
-                    borderColor: isSelected ? colors.primary : colors.textOnDark,
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    opacity: isVisible ? 1 : 0,
-                    ...shadows.elevated,
-                  }}
-                >
-                  <Ionicons name={config.icon} size={iconSize} color={colors.textOnDark} />
-                </View>
-              );
+            // Platform-specific tap handling:
+            // - iOS: Use Pressable because MarkerView blocks ShapeSource taps
+            // - Android: Use pointerEvents="none" because Pressable breaks marker positioning
+            const markerContent = (
+              <View
+                pointerEvents={Platform.OS === 'android' ? 'none' : 'auto'}
+                style={{
+                  width: markerSize,
+                  height: markerSize,
+                  borderRadius: markerSize / 2,
+                  backgroundColor: config.color,
+                  borderWidth: isSelected ? 2 : 1.5,
+                  borderColor: isSelected ? colors.primary : colors.textOnDark,
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  opacity: isVisible ? 1 : 0,
+                  ...shadows.elevated,
+                }}
+              >
+                <Ionicons name={config.icon} size={iconSize} color={colors.textOnDark} />
+              </View>
+            );
 
-              return (
-                <MarkerView
-                  key={`marker-${activity.id}`}
-                  coordinate={center}
-                  anchor={{ x: 0.5, y: 0.5 }}
-                  allowOverlap={true}
-                >
-                  {Platform.OS === 'ios' ? (
-                    <Pressable
-                      onPress={isVisible ? () => handleMarkerTap(activity) : undefined}
-                      disabled={!isVisible}
-                    >
-                      {markerContent}
-                    </Pressable>
-                  ) : (
-                    markerContent
-                  )}
-                </MarkerView>
-              );
-            })
-            .filter(Boolean)}
+            return (
+              <MarkerView
+                key={`marker-${activity.id}`}
+                coordinate={safeCenter}
+                anchor={{ x: 0.5, y: 0.5 }}
+                allowOverlap={true}
+              >
+                {Platform.OS === 'ios' ? (
+                  <Pressable
+                    onPress={isVisible ? () => handleMarkerTap(activity) : undefined}
+                    disabled={!isVisible}
+                  >
+                    {markerContent}
+                  </Pressable>
+                ) : (
+                  markerContent
+                )}
+              </MarkerView>
+            );
+          })}
 
           {/* Activity marker tap detection - rendered AFTER MarkerViews so it's on top */}
           {/* CRITICAL: Always render to avoid iOS crash during view reconciliation */}

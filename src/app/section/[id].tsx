@@ -38,7 +38,7 @@ import { getAllSectionDisplayNames } from '@/hooks/routes/useUnifiedSections';
 import { createSharedStyles } from '@/styles';
 import { useDisabledSections } from '@/providers';
 import { SectionMapView, MiniTraceView, DataRangeFooter } from '@/components/routes';
-import { UnifiedPerformanceChart } from '@/components/routes/performance';
+import { UnifiedPerformanceChart, type ChartSummaryStats } from '@/components/routes/performance';
 import { getRouteEngine } from '@/lib/native/routeEngine';
 import {
   formatDistance,
@@ -932,15 +932,7 @@ export default function SectionDetailScreen() {
 
   // Compute performance rankings by speed (higher speed = better = rank 1)
   // Also compute summary statistics
-  const {
-    rankMap,
-    bestActivityId,
-    bestTimeValue,
-    bestPaceValue,
-    averageTime,
-    averagePace,
-    lastActivityDate,
-  } = useMemo(() => {
+  const { rankMap, bestActivityId, bestTimeValue, averageTime, lastActivityDate } = useMemo(() => {
     console.log('[SectionDetail] stats recompute:', {
       chartDataLength: chartData.length,
       firstEntry: chartData[0]
@@ -953,9 +945,7 @@ export default function SectionDetailScreen() {
         rankMap: new Map<string, number>(),
         bestActivityId: null as string | null,
         bestTimeValue: undefined as number | undefined,
-        bestPaceValue: undefined as number | undefined,
         averageTime: undefined as number | undefined,
-        averagePace: undefined as number | undefined,
         lastActivityDate: undefined as string | undefined,
       };
     }
@@ -970,7 +960,6 @@ export default function SectionDetailScreen() {
     // Best is rank 1
     const bestId = sorted.length > 0 ? sorted[0].activityId : null;
     const bestTime = sorted.length > 0 ? sorted[0].sectionTime : undefined;
-    const bestPace = sorted.length > 0 ? sorted[0].speed : undefined;
 
     // Calculate average time
     const times = chartData
@@ -978,13 +967,6 @@ export default function SectionDetailScreen() {
       .filter((t): t is number => t !== undefined && t > 0);
     const avgTime =
       times.length > 0 ? times.reduce((sum, t) => sum + t, 0) / times.length : undefined;
-
-    // Calculate average pace (speed in m/s)
-    const speeds = chartData
-      .map((d) => d.speed)
-      .filter((s): s is number => Number.isFinite(s) && s > 0);
-    const avgPace =
-      speeds.length > 0 ? speeds.reduce((sum, s) => sum + s, 0) / speeds.length : undefined;
 
     // Get last activity date
     const dates = chartData.map((d) => d.date.getTime());
@@ -994,12 +976,20 @@ export default function SectionDetailScreen() {
       rankMap: map,
       bestActivityId: bestId,
       bestTimeValue: bestTime,
-      bestPaceValue: bestPace,
       averageTime: avgTime,
-      averagePace: avgPace,
       lastActivityDate: lastDate,
     };
   }, [chartData]);
+
+  // Summary stats for the chart header
+  const summaryStats = useMemo((): ChartSummaryStats => {
+    return {
+      bestTime: bestTimeValue ?? null,
+      avgTime: averageTime ?? null,
+      totalActivities: chartData.length,
+      lastActivity: lastActivityDate ? new Date(lastActivityDate) : null,
+    };
+  }, [bestTimeValue, averageTime, chartData.length, lastActivityDate]);
 
   if (!section) {
     return (
@@ -1182,76 +1172,7 @@ export default function SectionDetailScreen() {
             </TouchableOpacity>
           )}
 
-          {/* Summary Stats Card */}
-          {!isLoadingRecords && chartData.length > 0 && (
-            <View style={[styles.summaryCard, isDark && styles.summaryCardDark]}>
-              <View style={styles.summaryRow}>
-                <View style={styles.summaryItem}>
-                  <Text style={[styles.summaryLabel, isDark && styles.textMuted]}>
-                    {t('sections.bestTime')}
-                  </Text>
-                  <View style={styles.summaryValueRow}>
-                    <MaterialCommunityIcons name="trophy" size={14} color={colors.primary} />
-                    <Text style={[styles.summaryValue, isDark && styles.textLight]}>
-                      {isLoadingRecords
-                        ? '--:--'
-                        : bestTimeValue !== undefined
-                          ? formatDuration(bestTimeValue)
-                          : '--:--'}
-                      {!isLoadingRecords &&
-                        isRunningActivity(section.sportType as ActivityType) &&
-                        bestPaceValue !== undefined && (
-                          <Text style={[styles.summaryValueSecondary, isDark && styles.textMuted]}>
-                            {' '}
-                            ({formatPace(bestPaceValue, isMetric)})
-                          </Text>
-                        )}
-                    </Text>
-                  </View>
-                </View>
-                <View style={styles.summaryItem}>
-                  <Text style={[styles.summaryLabel, isDark && styles.textMuted]}>
-                    {t('sections.averageTime')}
-                  </Text>
-                  <Text style={[styles.summaryValue, isDark && styles.textLight]}>
-                    {isLoadingRecords
-                      ? '--:--'
-                      : averageTime !== undefined
-                        ? formatDuration(averageTime)
-                        : '--:--'}
-                    {!isLoadingRecords &&
-                      isRunningActivity(section.sportType as ActivityType) &&
-                      averagePace !== undefined && (
-                        <Text style={[styles.summaryValueSecondary, isDark && styles.textMuted]}>
-                          {' '}
-                          ({formatPace(averagePace, isMetric)})
-                        </Text>
-                      )}
-                  </Text>
-                </View>
-              </View>
-              <View style={styles.summaryRow}>
-                <View style={styles.summaryItem}>
-                  <Text style={[styles.summaryLabel, isDark && styles.textMuted]}>
-                    {t('sections.totalTraversals')}
-                  </Text>
-                  <Text style={[styles.summaryValue, isDark && styles.textLight]}>
-                    {chartData.length}
-                  </Text>
-                </View>
-                <View style={styles.summaryItem}>
-                  <Text style={[styles.summaryLabel, isDark && styles.textMuted]}>
-                    {t('sections.lastActivity')}
-                  </Text>
-                  <Text style={[styles.summaryValue, isDark && styles.textLight]}>
-                    {lastActivityDate ? formatRelativeDate(lastActivityDate) : '-'}
-                  </Text>
-                </View>
-              </View>
-            </View>
-          )}
-
-          {/* Performance chart */}
+          {/* Performance chart with embedded stats - only show when data is ready */}
           {!isLoadingRecords && chartData.length >= 1 && (
             <View style={styles.chartSection}>
               <UnifiedPerformanceChart
@@ -1266,6 +1187,7 @@ export default function SectionDetailScreen() {
                 onActivitySelect={handleActivitySelect}
                 onScrubChange={handleScrubChange}
                 selectedActivityId={highlightedActivityId}
+                summaryStats={summaryStats}
               />
             </View>
           )}
@@ -1540,41 +1462,6 @@ const styles = StyleSheet.create({
     fontSize: typography.body.fontSize,
     color: colors.textPrimary,
     marginTop: spacing.md,
-  },
-  summaryCard: {
-    backgroundColor: colors.surface,
-    borderRadius: layout.borderRadius,
-    padding: spacing.md,
-    marginBottom: spacing.lg,
-  },
-  summaryCardDark: {
-    backgroundColor: darkColors.surface,
-  },
-  summaryRow: {
-    flexDirection: 'row',
-    marginBottom: spacing.sm,
-  },
-  summaryItem: {
-    flex: 1,
-  },
-  summaryLabel: {
-    fontSize: typography.caption.fontSize,
-    color: colors.textSecondary,
-    marginBottom: 2,
-  },
-  summaryValue: {
-    fontSize: typography.body.fontSize,
-    fontWeight: '600',
-    color: colors.textPrimary,
-  },
-  summaryValueSecondary: {
-    fontSize: typography.caption.fontSize,
-    fontWeight: '400',
-  },
-  summaryValueRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
   },
   chartSection: {
     marginBottom: spacing.lg,

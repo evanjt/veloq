@@ -178,30 +178,72 @@ const MLRN_POINT_ANNOTATION_PATCHED = `- (void)insertReactSubview:(UIView *)subv
   }
 }`;
 
-function patchFile(filePath, original, patched, fileName) {
+function patchFile(filePath, original, patched, fileName, isCritical = false) {
+  console.log(`[with-maplibre-nil-safety] Processing ${fileName}...`);
+
   if (!fs.existsSync(filePath)) {
-    console.warn(`[with-maplibre-nil-safety] ${fileName} not found at ${filePath}`);
+    const msg = `[with-maplibre-nil-safety] ERROR: ${fileName} not found at ${filePath}`;
+    console.error(msg);
+    if (isCritical) {
+      throw new Error(msg);
+    }
     return false;
   }
 
   let contents = fs.readFileSync(filePath, "utf8");
+  console.log(`[with-maplibre-nil-safety] ${fileName} size: ${contents.length} bytes`);
 
   // Check if already patched
   if (contents.includes("Nil safety check to prevent crash")) {
-    console.log(`[with-maplibre-nil-safety] ${fileName} already patched`);
+    console.log(`[with-maplibre-nil-safety] ✓ ${fileName} already patched`);
     return true;
   }
 
-  // Apply patch
+  // Try exact string match first
   if (contents.includes(original)) {
     contents = contents.replace(original, patched);
     fs.writeFileSync(filePath, contents);
-    console.log(`[with-maplibre-nil-safety] Patched ${fileName}`);
+    console.log(`[with-maplibre-nil-safety] ✓ Patched ${fileName} (exact match)`);
     return true;
-  } else {
-    console.warn(`[with-maplibre-nil-safety] Could not find expected code in ${fileName}`);
-    return false;
   }
+
+  // Fallback: try regex-based patching for insertReactSubview
+  console.log(`[with-maplibre-nil-safety] Exact match failed for ${fileName}, trying regex fallback...`);
+
+  // Regex to find insertReactSubview method and add nil check
+  const insertRegex = /(- \(void\)insertReactSubview:\([^)]+\)subview atIndex:\([^)]+\)atIndex \{\n)/;
+  const nilCheck = `$1  // Nil safety check to prevent crash during React reconciliation
+  // https://github.com/react-native-maps/react-native-maps/issues/5217
+  if (subview == nil) {
+    NSLog(@"[${fileName.replace('.m', '')}] Warning: Attempted to insert nil subview at index %ld", (long)atIndex);
+    return;
+  }
+`;
+
+  if (insertRegex.test(contents)) {
+    contents = contents.replace(insertRegex, nilCheck);
+    fs.writeFileSync(filePath, contents);
+    console.log(`[with-maplibre-nil-safety] ✓ Patched ${fileName} (regex fallback)`);
+    return true;
+  }
+
+  // If we get here, patching failed
+  const msg = `[with-maplibre-nil-safety] ERROR: Could not patch ${fileName} - no matching pattern found`;
+  console.error(msg);
+
+  // Log a snippet of the file around insertReactSubview for debugging
+  const idx = contents.indexOf("insertReactSubview");
+  if (idx > -1) {
+    console.error(`[with-maplibre-nil-safety] Found insertReactSubview at index ${idx}`);
+    console.error(`[with-maplibre-nil-safety] Context: ${contents.substring(Math.max(0, idx - 50), idx + 200).replace(/\n/g, '\\n')}`);
+  } else {
+    console.error(`[with-maplibre-nil-safety] insertReactSubview not found in file at all`);
+  }
+
+  if (isCritical) {
+    throw new Error(msg);
+  }
+  return false;
 }
 
 function withMapLibreNilSafety(config) {
@@ -211,29 +253,44 @@ function withMapLibreNilSafety(config) {
       const projectRoot = config.modRequest.projectRoot;
       const maplibrePath = path.join(projectRoot, MAPLIBRE_IOS_PATH);
 
-      // Patch MLRNMapView.m
-      patchFile(
+      console.log("[with-maplibre-nil-safety] Starting MapLibre iOS nil-safety patches...");
+      console.log(`[with-maplibre-nil-safety] MapLibre path: ${maplibrePath}`);
+
+      const results = {};
+
+      // Patch MLRNMapView.m - CRITICAL (this is the primary crash site)
+      results.MLRNMapView = patchFile(
         path.join(maplibrePath, "MLRNMapView.m"),
         MLRN_MAP_VIEW_ORIGINAL,
         MLRN_MAP_VIEW_PATCHED,
-        "MLRNMapView.m"
+        "MLRNMapView.m",
+        true // critical - throw error if fails
       );
 
       // Patch MLRNSource.m
-      patchFile(
+      results.MLRNSource = patchFile(
         path.join(maplibrePath, "MLRNSource.m"),
         MLRN_SOURCE_ORIGINAL,
         MLRN_SOURCE_PATCHED,
-        "MLRNSource.m"
+        "MLRNSource.m",
+        false
       );
 
       // Patch MLRNPointAnnotation.m
-      patchFile(
+      results.MLRNPointAnnotation = patchFile(
         path.join(maplibrePath, "MLRNPointAnnotation.m"),
         MLRN_POINT_ANNOTATION_ORIGINAL,
         MLRN_POINT_ANNOTATION_PATCHED,
-        "MLRNPointAnnotation.m"
+        "MLRNPointAnnotation.m",
+        false
       );
+
+      // Summary
+      console.log("[with-maplibre-nil-safety] ========== PATCH SUMMARY ==========");
+      for (const [file, success] of Object.entries(results)) {
+        console.log(`[with-maplibre-nil-safety] ${success ? "✓" : "✗"} ${file}.m`);
+      }
+      console.log("[with-maplibre-nil-safety] ====================================");
 
       return config;
     },

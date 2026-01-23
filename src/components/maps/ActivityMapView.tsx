@@ -1214,79 +1214,87 @@ export function ActivityMapView({
             </MarkerView>
 
             {/* Numbered markers at center of each section, offset to the side */}
+            {/* CRITICAL: Always render ALL markers - never return null to avoid iOS Fabric crash */}
+            {/* iOS crash: -[__NSArrayM insertObject:atIndex:]: object cannot be nil (MLRNMapView.m:207) */}
             {sectionOverlaysGeoJSON &&
-              sectionOverlaysGeoJSON
-                .map((overlay, index) => {
-                  // Get coordinates from sectionGeo or portionGeo (both are LineString)
-                  const sectionGeom = overlay.sectionGeo?.geometry as
-                    | GeoJSON.LineString
-                    | undefined;
-                  const portionGeom = overlay.portionGeo?.geometry as
-                    | GeoJSON.LineString
-                    | undefined;
-                  const coords = sectionGeom?.coordinates || portionGeom?.coordinates;
-                  if (!coords || coords.length < 2) return null;
+              sectionOverlaysGeoJSON.map((overlay, index) => {
+                // Get coordinates from sectionGeo or portionGeo (both are LineString)
+                const sectionGeom = overlay.sectionGeo?.geometry as GeoJSON.LineString | undefined;
+                const portionGeom = overlay.portionGeo?.geometry as GeoJSON.LineString | undefined;
+                const coords = sectionGeom?.coordinates || portionGeom?.coordinates;
+                const hasValidCoords = coords && coords.length >= 2;
 
+                // Calculate marker position only if we have valid coords
+                let markerLng = 0;
+                let markerLat = 0;
+                let hasValidMarkerPosition = false;
+
+                if (hasValidCoords) {
                   // Use midpoint of the trace
                   const midIndex = Math.floor(coords.length / 2);
                   const midCoord = coords[midIndex];
                   if (
-                    !midCoord ||
-                    typeof midCoord[0] !== 'number' ||
-                    typeof midCoord[1] !== 'number'
-                  )
-                    return null;
+                    midCoord &&
+                    typeof midCoord[0] === 'number' &&
+                    typeof midCoord[1] === 'number' &&
+                    Number.isFinite(midCoord[0]) &&
+                    Number.isFinite(midCoord[1])
+                  ) {
+                    // Calculate perpendicular offset from trace direction
+                    const prevIndex = Math.max(0, midIndex - 1);
+                    const nextIndex = Math.min(coords.length - 1, midIndex + 1);
+                    const prevCoord = coords[prevIndex];
+                    const nextCoord = coords[nextIndex];
 
-                  // Calculate perpendicular offset from trace direction
-                  const prevIndex = Math.max(0, midIndex - 1);
-                  const nextIndex = Math.min(coords.length - 1, midIndex + 1);
-                  const prevCoord = coords[prevIndex];
-                  const nextCoord = coords[nextIndex];
+                    // Direction vector along the trace
+                    const dx = nextCoord[0] - prevCoord[0];
+                    const dy = nextCoord[1] - prevCoord[1];
+                    const len = Math.sqrt(dx * dx + dy * dy);
 
-                  // Direction vector along the trace
-                  const dx = nextCoord[0] - prevCoord[0];
-                  const dy = nextCoord[1] - prevCoord[1];
-                  const len = Math.sqrt(dx * dx + dy * dy);
+                    // Perpendicular offset (to the right of travel direction)
+                    const offsetDistance = 0.00035; // ~35 meters at equator
+                    const offsetLng = len > 0 ? (-dy / len) * offsetDistance : 0;
+                    const offsetLat = len > 0 ? (dx / len) * offsetDistance : 0;
 
-                  // Perpendicular offset (to the right of travel direction)
-                  const offsetDistance = 0.00035; // ~35 meters at equator
-                  const offsetLng = len > 0 ? (-dy / len) * offsetDistance : 0;
-                  const offsetLat = len > 0 ? (dx / len) * offsetDistance : 0;
+                    markerLng = midCoord[0] + offsetLng;
+                    markerLat = midCoord[1] + offsetLat;
+                    hasValidMarkerPosition =
+                      Number.isFinite(markerLng) && Number.isFinite(markerLat);
+                  }
+                }
 
-                  const markerLng = midCoord[0] + offsetLng;
-                  const markerLat = midCoord[1] + offsetLat;
+                const sectionStyle = getSectionStyle(index);
+                const isHighlighted = highlightedSectionId === overlay.id;
+                const isDimmed = highlightedSectionId && !isHighlighted;
 
-                  const sectionStyle = getSectionStyle(index);
-                  const isHighlighted = highlightedSectionId === overlay.id;
-                  const isDimmed = highlightedSectionId && !isHighlighted;
-
-                  return (
-                    <MarkerView
-                      key={`sectionMarker-${overlay.id}`}
-                      coordinate={[markerLng, markerLat]}
-                      anchor={{ x: 0.5, y: 0.5 }}
+                return (
+                  <MarkerView
+                    key={`sectionMarker-${overlay.id}`}
+                    coordinate={[markerLng, markerLat]}
+                    anchor={{ x: 0.5, y: 0.5 }}
+                  >
+                    <View
+                      style={[
+                        styles.sectionNumberMarker,
+                        { borderColor: sectionStyle.color },
+                        isDimmed && styles.sectionNumberMarkerDimmed,
+                        isHighlighted && styles.sectionNumberMarkerHighlighted,
+                        // Hide marker if position is invalid
+                        !hasValidMarkerPosition && { opacity: 0 },
+                      ]}
                     >
-                      <View
+                      <Text
                         style={[
-                          styles.sectionNumberMarker,
-                          { borderColor: sectionStyle.color },
-                          isDimmed && styles.sectionNumberMarkerDimmed,
-                          isHighlighted && styles.sectionNumberMarkerHighlighted,
+                          styles.sectionNumberText,
+                          isHighlighted && styles.sectionNumberTextHighlighted,
                         ]}
                       >
-                        <Text
-                          style={[
-                            styles.sectionNumberText,
-                            isHighlighted && styles.sectionNumberTextHighlighted,
-                          ]}
-                        >
-                          {index + 1}
-                        </Text>
-                      </View>
-                    </MarkerView>
-                  );
-                })
-                .filter(Boolean)}
+                        {index + 1}
+                      </Text>
+                    </View>
+                  </MarkerView>
+                );
+              })}
           </MapView>
         </View>
 
@@ -1459,30 +1467,53 @@ export function ActivityMapView({
           </ShapeSource>
 
           {/* Numbered markers at center of each section in fullscreen */}
-          {/* filter(Boolean) prevents null children crash on iOS MapLibre */}
+          {/* CRITICAL: Always render ALL markers - never return null to avoid iOS Fabric crash */}
+          {/* iOS crash: -[__NSArrayM insertObject:atIndex:]: object cannot be nil (MLRNMapView.m:207) */}
           {sectionOverlaysGeoJSON &&
-            sectionOverlaysGeoJSON
-              .map((overlay, index) => {
-                const sectionGeom = overlay.sectionGeo?.geometry as GeoJSON.LineString | undefined;
-                if (!sectionGeom?.coordinates?.length) return null;
-                const coords = sectionGeom.coordinates;
+            sectionOverlaysGeoJSON.map((overlay, index) => {
+              const sectionGeom = overlay.sectionGeo?.geometry as GeoJSON.LineString | undefined;
+              const coords = sectionGeom?.coordinates;
+              const hasValidCoords = coords && coords.length > 0;
+
+              // Calculate center coordinate, default to [0,0] if invalid
+              let centerLng = 0;
+              let centerLat = 0;
+              let hasValidCenter = false;
+
+              if (hasValidCoords) {
                 const midIndex = Math.floor(coords.length / 2);
                 const centerCoord = coords[midIndex];
-                if (!centerCoord) return null;
-                const style = getSectionStyle(index);
+                if (
+                  centerCoord &&
+                  Number.isFinite(centerCoord[0]) &&
+                  Number.isFinite(centerCoord[1])
+                ) {
+                  centerLng = centerCoord[0];
+                  centerLat = centerCoord[1];
+                  hasValidCenter = true;
+                }
+              }
 
-                return (
-                  <MarkerView
-                    key={`fs-sectionMarker-${overlay.id}`}
-                    coordinate={[centerCoord[0], centerCoord[1]]}
+              const style = getSectionStyle(index);
+
+              return (
+                <MarkerView
+                  key={`fs-sectionMarker-${overlay.id}`}
+                  coordinate={[centerLng, centerLat]}
+                >
+                  <View
+                    style={[
+                      styles.sectionNumberMarker,
+                      { borderColor: style.color },
+                      // Hide marker if position is invalid
+                      !hasValidCenter && { opacity: 0 },
+                    ]}
                   >
-                    <View style={[styles.sectionNumberMarker, { borderColor: style.color }]}>
-                      <Text style={styles.sectionNumberText}>{index + 1}</Text>
-                    </View>
-                  </MarkerView>
-                );
-              })
-              .filter(Boolean)}
+                    <Text style={styles.sectionNumberText}>{index + 1}</Text>
+                  </View>
+                </MarkerView>
+              );
+            })}
 
           {/* Start marker */}
           {/* CRITICAL: Always render to avoid Fabric crash - control visibility via opacity */}
