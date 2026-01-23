@@ -16,6 +16,7 @@ import {
 import Animated from 'react-native-reanimated';
 import { router } from 'expo-router';
 import { colors, darkColors, opacity, spacing, layout, typography } from '@/theme';
+import { CHART_CONFIG } from '@/constants';
 import { getActivityColor, sortByDateId } from '@/lib';
 import type { Activity, ActivityType, WellnessData } from '@/types';
 
@@ -301,7 +302,7 @@ export const ActivityDotsChart = React.memo(function ActivityDotsChart({
       touchX.value = -1;
     })
     .minDistance(0)
-    .activateAfterLongPress(700);
+    .activateAfterLongPress(CHART_CONFIG.LONG_PRESS_DURATION);
 
   const crosshairStyle = useAnimatedStyle(() => {
     'worklet';

@@ -2,7 +2,7 @@ import React, { useMemo, useRef, useState, useCallback } from 'react';
 import { View, StyleSheet, Text } from 'react-native';
 import { useTheme } from '@/hooks';
 import { CartesianChart, Area } from 'victory-native';
-import { LinearGradient, vec } from '@shopify/react-native-skia';
+import { LinearGradient, vec, Line as SkiaLine, DashPathEffect } from '@shopify/react-native-skia';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   useSharedValue,
@@ -35,6 +35,8 @@ interface CombinedPlotProps {
   height?: number;
   onPointSelect?: (index: number | null) => void;
   onInteractionChange?: (isInteracting: boolean) => void;
+  /** When set, show Y-axis for this metric (for long-press preview in multi-metric mode) */
+  previewMetricId?: ChartTypeId | null;
 }
 
 interface MetricValue {
@@ -60,6 +62,7 @@ export const CombinedPlot = React.memo(function CombinedPlot({
   height = 180,
   onPointSelect,
   onInteractionChange,
+  previewMetricId,
 }: CombinedPlotProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
@@ -86,7 +89,7 @@ export const CombinedPlot = React.memo(function CombinedPlot({
   // Track last notified index to avoid redundant updates
   const lastNotifiedIdx = useRef<number | null>(null);
 
-  // Build normalized data for all selected series
+  // Build normalized data for all selected series (+ preview if unselected)
   const { chartData, seriesInfo, indexMap, maxDist } = useMemo(() => {
     const distance = streams.distance || [];
     if (distance.length === 0) {
@@ -94,15 +97,22 @@ export const CombinedPlot = React.memo(function CombinedPlot({
         chartData: [],
         seriesInfo: [] as (DataSeries & {
           range: { min: number; max: number; range: number };
+          isPreview?: boolean;
         })[],
         indexMap: [] as number[],
         maxDist: 1,
       };
     }
 
+    // Determine which charts to render (selected + preview if unselected)
+    const chartsToRender = [...selectedCharts];
+    if (previewMetricId && !selectedCharts.includes(previewMetricId)) {
+      chartsToRender.push(previewMetricId);
+    }
+
     // Collect all series data
-    const series: DataSeries[] = [];
-    for (const chartId of selectedCharts) {
+    const series: (DataSeries & { isPreview?: boolean })[] = [];
+    for (const chartId of chartsToRender) {
       const config = chartConfigs[chartId];
       if (!config) continue;
       const rawData = config.getStream?.(streams);
@@ -112,6 +122,7 @@ export const CombinedPlot = React.memo(function CombinedPlot({
         config,
         rawData,
         color: config.color,
+        isPreview: chartId === previewMetricId && !selectedCharts.includes(chartId),
       });
     }
 
@@ -120,6 +131,7 @@ export const CombinedPlot = React.memo(function CombinedPlot({
         chartData: [],
         seriesInfo: [] as (DataSeries & {
           range: { min: number; max: number; range: number };
+          isPreview?: boolean;
         })[],
         indexMap: [] as number[],
         maxDist: 1,
@@ -168,7 +180,7 @@ export const CombinedPlot = React.memo(function CombinedPlot({
       maxDist: computedMaxDist,
       xValues: distances,
     };
-  }, [streams, selectedCharts, chartConfigs, isMetric]);
+  }, [streams, selectedCharts, chartConfigs, isMetric, previewMetricId]);
 
   // Sync x-values to shared value for UI thread access
   React.useEffect(() => {
@@ -324,6 +336,39 @@ export const CombinedPlot = React.memo(function CombinedPlot({
     });
   }, [seriesInfo, isMetric]);
 
+  // Format Y-axis values for single metric display
+  const formatYAxisValue = useCallback(
+    (value: number, series: (typeof seriesInfo)[0]) => {
+      let displayValue = value;
+      if (!isMetric && series.config.convertToImperial) {
+        displayValue = series.config.convertToImperial(value);
+      }
+      if (series.config.formatValue) {
+        return series.config.formatValue(displayValue, isMetric);
+      }
+      return Math.round(displayValue).toString();
+    },
+    [isMetric]
+  );
+
+  // Always show Y-axis (for first selected metric, or preview if active)
+  const yAxisSeries = previewMetricId
+    ? seriesInfo.find((s) => s.id === previewMetricId)
+    : seriesInfo[0];
+
+  // Show color accent when multiple metrics (to identify which Y-axis it is)
+  const showYAxisAccent = seriesInfo.length > 1 || previewMetricId != null;
+
+  // Calculate normalized average position for the Y-axis series (for average line)
+  const yAxisAvgNormalized = useMemo(() => {
+    if (!yAxisSeries) return null;
+    const validValues = yAxisSeries.rawData.filter((v) => !isNaN(v) && isFinite(v));
+    if (validValues.length === 0) return null;
+    const rawAvg = validValues.reduce((sum, v) => sum + v, 0) / validValues.length;
+    const { min, range } = yAxisSeries.range;
+    return (rawAvg - min) / range;
+  }, [yAxisSeries]);
+
   if (chartData.length === 0 || seriesInfo.length === 0) {
     return (
       <View style={[styles.placeholder, { height }]}>
@@ -411,21 +456,46 @@ export const CombinedPlot = React.memo(function CombinedPlot({
 
                 return (
                   <>
-                    {seriesInfo.map((series) => (
-                      <Area
-                        key={series.id}
-                        points={points[series.id] as Parameters<typeof Area>[0]['points']}
-                        y0={chartBounds.bottom}
-                        curveType="natural"
-                        opacity={seriesInfo.length > 1 ? 0.7 : 0.85}
+                    {seriesInfo.map((series) => {
+                      // Preview series gets slightly lower opacity to indicate temporary
+                      const baseOpacity = seriesInfo.length > 1 ? 0.7 : 0.85;
+                      const opacity = series.isPreview ? 0.5 : baseOpacity;
+                      return (
+                        <Area
+                          key={series.id}
+                          points={points[series.id] as Parameters<typeof Area>[0]['points']}
+                          y0={chartBounds.bottom}
+                          curveType="natural"
+                          opacity={opacity}
+                        >
+                          <LinearGradient
+                            start={vec(0, chartBounds.top)}
+                            end={vec(0, chartBounds.bottom)}
+                            colors={[series.color + 'CC', series.color + '30']}
+                          />
+                        </Area>
+                      );
+                    })}
+                    {/* Subtle average line for the Y-axis metric */}
+                    {yAxisSeries && yAxisAvgNormalized != null && (
+                      <SkiaLine
+                        p1={vec(
+                          chartBounds.left,
+                          chartBounds.top +
+                            (1 - yAxisAvgNormalized) * (chartBounds.bottom - chartBounds.top)
+                        )}
+                        p2={vec(
+                          chartBounds.right,
+                          chartBounds.top +
+                            (1 - yAxisAvgNormalized) * (chartBounds.bottom - chartBounds.top)
+                        )}
+                        color={yAxisSeries.color}
+                        strokeWidth={1}
+                        opacity={0.4}
                       >
-                        <LinearGradient
-                          start={vec(0, chartBounds.top)}
-                          end={vec(0, chartBounds.bottom)}
-                          colors={[series.color + 'CC', series.color + '30']}
-                        />
-                      </Area>
-                    ))}
+                        <DashPathEffect intervals={[4, 4]} />
+                      </SkiaLine>
+                    )}
                   </>
                 );
               }}
@@ -437,13 +507,42 @@ export const CombinedPlot = React.memo(function CombinedPlot({
               pointerEvents="none"
             />
 
-            {/* X-axis labels */}
+            {/* X-axis labels with hint */}
             <View style={styles.xAxis} pointerEvents="none">
               <Text style={[styles.xLabel, isDark && styles.xLabelDark]}>0</Text>
+              <Text style={[styles.xAxisHint, isDark && styles.xAxisHintDark]}>
+                {t('activity.chartHint', 'Hold to scrub • Hold chip for axis')}
+              </Text>
               <Text style={[styles.xLabel, isDark && styles.xLabelDark]}>
                 {(maxDist / 2).toFixed(1)}
               </Text>
             </View>
+
+            {/* Y-axis labels - always shown for first metric (or preview) */}
+            {yAxisSeries && (
+              <View style={styles.yAxis} pointerEvents="none">
+                <Text
+                  style={[
+                    styles.yLabel,
+                    styles.yLabelTop,
+                    isDark && styles.yLabelDark,
+                    showYAxisAccent && { borderLeftWidth: 2, borderLeftColor: yAxisSeries.color },
+                  ]}
+                >
+                  {formatYAxisValue(yAxisSeries.range.max, yAxisSeries)}
+                </Text>
+                <Text
+                  style={[
+                    styles.yLabel,
+                    styles.yLabelBottom,
+                    isDark && styles.yLabelDark,
+                    showYAxisAccent && { borderLeftWidth: 2, borderLeftColor: yAxisSeries.color },
+                  ]}
+                >
+                  {formatYAxisValue(yAxisSeries.range.min, yAxisSeries)}
+                </Text>
+              </View>
+            )}
 
             {/* Distance indicator - overlaid on bottom right of chart */}
             <View
@@ -569,7 +668,46 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: colors.textSecondary,
   },
+  xAxisHint: {
+    fontSize: typography.micro.fontSize,
+    fontWeight: '400',
+    color: colors.textMuted,
+    fontStyle: 'italic',
+  },
+  xAxisHintDark: {
+    color: darkColors.textMuted,
+  },
   xLabelDark: {
     color: darkColors.textMuted,
+  },
+  yAxis: {
+    position: 'absolute',
+    left: 4,
+    top: 0,
+    bottom: 20,
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  yLabel: {
+    fontSize: typography.micro.fontSize,
+    fontWeight: '500',
+    color: colors.textSecondary,
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    paddingHorizontal: 3,
+    paddingVertical: 1,
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  yLabelTop: {
+    // Offset down so label is centered on the top line
+    marginTop: -2,
+  },
+  yLabelBottom: {
+    // Offset up so label is centered on the bottom line
+    marginBottom: -4,
+  },
+  yLabelDark: {
+    color: darkColors.textMuted,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
   },
 });

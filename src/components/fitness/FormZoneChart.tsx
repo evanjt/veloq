@@ -16,6 +16,7 @@ import {
 } from 'react-native-reanimated';
 import Animated from 'react-native-reanimated';
 import { colors, darkColors, opacity, typography, spacing, layout } from '@/theme';
+import { CHART_CONFIG } from '@/constants';
 import {
   calculateTSB,
   getFormZone,
@@ -190,7 +191,7 @@ export const FormZoneChart = React.memo(function FormZoneChart({
       touchX.value = -1;
     })
     .minDistance(0)
-    .activateAfterLongPress(700);
+    .activateAfterLongPress(CHART_CONFIG.LONG_PRESS_DURATION);
 
   // Update shared selected index when local selection changes (for instant sync)
   useAnimatedReaction(

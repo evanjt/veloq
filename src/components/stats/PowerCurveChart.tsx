@@ -16,6 +16,7 @@ import Animated, {
 import { colors, darkColors } from '@/theme/colors';
 import { typography } from '@/theme/typography';
 import { spacing } from '@/theme/spacing';
+import { CHART_CONFIG } from '@/constants';
 import { usePowerCurve } from '@/hooks';
 
 interface PowerCurveChartProps {
@@ -222,7 +223,7 @@ export const PowerCurveChart = React.memo(function PowerCurveChart({
       touchX.value = -1;
     })
     .minDistance(0)
-    .activateAfterLongPress(700);
+    .activateAfterLongPress(CHART_CONFIG.LONG_PRESS_DURATION);
 
   const crosshairStyle = useAnimatedStyle(() => {
     'worklet';

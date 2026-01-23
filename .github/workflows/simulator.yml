@@ -438,22 +438,6 @@ jobs:
           done
           ls -la screenshots-flat/ || true
 
-      - name: Generate screenshot summary
-        if: always()
-        run: |
-          echo "## iOS Screenshots" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "| # | Screen |" >> $GITHUB_STEP_SUMMARY
-          echo "|---|--------|" >> $GITHUB_STEP_SUMMARY
-          i=1
-          for img in screenshots-flat/*.png; do
-            if [ -f "$img" ]; then
-              name=$(basename "$img" .png | sed 's/-ios$//')
-              echo "| $i | $name |" >> $GITHUB_STEP_SUMMARY
-              i=$((i + 1))
-            fi
-          done
-
       - name: Upload screenshots
         if: always()
         uses: actions/upload-artifact@v4
@@ -529,22 +513,6 @@ jobs:
             [ -f "$f" ] && mv "$f" "${f%.png}-ipad.png" 2>/dev/null || true
           done
           ls -la screenshots-flat/ || true
-
-      - name: Generate screenshot summary
-        if: always()
-        run: |
-          echo "## iPad Screenshots" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "| # | Screen |" >> $GITHUB_STEP_SUMMARY
-          echo "|---|--------|" >> $GITHUB_STEP_SUMMARY
-          i=1
-          for img in screenshots-flat/*.png; do
-            if [ -f "$img" ]; then
-              name=$(basename "$img" .png | sed 's/-ipad$//')
-              echo "| $i | $name |" >> $GITHUB_STEP_SUMMARY
-              i=$((i + 1))
-            fi
-          done
 
       - name: Upload screenshots
         if: always()
@@ -720,22 +688,6 @@ jobs:
             [ -f "$f" ] && mv "$f" "${f%.png}-android.png" 2>/dev/null || true
           done
           ls -la screenshots-flat/ || true
-
-      - name: Generate screenshot summary
-        if: always()
-        run: |
-          echo "## Android Screenshots" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "| # | Screen |" >> $GITHUB_STEP_SUMMARY
-          echo "|---|--------|" >> $GITHUB_STEP_SUMMARY
-          i=1
-          for img in screenshots-flat/*.png; do
-            if [ -f "$img" ]; then
-              name=$(basename "$img" .png | sed 's/-android$//')
-              echo "| $i | $name |" >> $GITHUB_STEP_SUMMARY
-              i=$((i + 1))
-            fi
-          done
 
       - name: Upload screenshots
         if: always()

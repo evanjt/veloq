@@ -16,6 +16,7 @@ import Animated, {
 import { colors, darkColors } from '@/theme/colors';
 import { typography } from '@/theme/typography';
 import { spacing } from '@/theme/spacing';
+import { CHART_CONFIG } from '@/constants';
 import { usePaceCurve, paceToMinPer100m } from '@/hooks';
 
 interface SwimPaceCurveChartProps {
@@ -220,7 +221,7 @@ export function SwimPaceCurveChart({ days = 365, height = 200 }: SwimPaceCurveCh
       touchX.value = -1;
     })
     .minDistance(0)
-    .activateAfterLongPress(700);
+    .activateAfterLongPress(CHART_CONFIG.LONG_PRESS_DURATION);
 
   const crosshairStyle = useAnimatedStyle(() => {
     'worklet';

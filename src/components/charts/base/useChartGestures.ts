@@ -17,6 +17,7 @@
 
 import { useCallback, useRef, useState } from 'react';
 import { Gesture, GestureType } from 'react-native-gesture-handler';
+import { CHART_CONFIG } from '@/constants';
 import {
   useSharedValue,
   useAnimatedReaction,
@@ -106,7 +107,7 @@ export function useChartGestures<T extends ChartPoint = ChartPoint>(
     onSelect,
     onInteractionChange,
     enabled = true,
-    activationDelay = 700,
+    activationDelay = CHART_CONFIG.LONG_PRESS_DURATION,
     sharedSelectedIdx,
     xDomain,
   } = options;

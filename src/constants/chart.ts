@@ -26,11 +26,11 @@ export const CHART_CONFIG = {
    * Long press duration for gesture activation.
    *
    * Duration in milliseconds to distinguish between scroll and long-press gestures.
-   * 700ms is the standard for "long press" interactions.
+   * 500ms matches iOS default long-press duration for discoverability.
    *
-   * @defaultValue 700
+   * @defaultValue 500
    */
-  LONG_PRESS_DURATION: 700,
+  LONG_PRESS_DURATION: 500,
 
   /**
    * Minimum distance for pan gesture.

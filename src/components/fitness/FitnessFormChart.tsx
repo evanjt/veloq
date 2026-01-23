@@ -14,6 +14,7 @@ import Animated, {
   useAnimatedStyle,
 } from 'react-native-reanimated';
 import { colors, darkColors, opacity, spacing, layout, typography } from '@/theme';
+import { CHART_CONFIG } from '@/constants';
 import { calculateTSB, getFormZone, FORM_ZONE_COLORS } from '@/hooks';
 import { sortByDateId, formatShortDate, formatShortDateWithWeekday } from '@/lib';
 import type { WellnessData } from '@/types';
@@ -251,7 +252,7 @@ export function FitnessFormChart({
       touchX.value = -1;
     })
     .minDistance(0)
-    .activateAfterLongPress(700);
+    .activateAfterLongPress(CHART_CONFIG.LONG_PRESS_DURATION);
 
   // Crosshair style
   const crosshairStyle = useAnimatedStyle(() => {

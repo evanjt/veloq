@@ -116,6 +116,8 @@ export default function ActivityDetailScreen() {
   const [selectedCharts, setSelectedCharts] = useState<ChartTypeId[]>([]);
   // Track if charts are expanded (stacked) or combined (overlay)
   const [chartsExpanded, setChartsExpanded] = useState(false);
+  // Track which metric is being previewed (long-press on chip shows its Y-axis)
+  const [previewMetricId, setPreviewMetricId] = useState<ChartTypeId | null>(null);
   // Track if we've initialized the default chart selection
   const [chartsInitialized, setChartsInitialized] = useState(false);
   // Track fullscreen chart mode
@@ -865,6 +867,8 @@ export default function ActivityDetailScreen() {
                     available={availableCharts}
                     selected={selectedCharts}
                     onToggle={handleChartToggle}
+                    onPreviewStart={(id) => setPreviewMetricId(id as ChartTypeId)}
+                    onPreviewEnd={() => setPreviewMetricId(null)}
                   />
                 </View>
                 <TouchableOpacity
@@ -902,6 +906,7 @@ export default function ActivityDetailScreen() {
                           height={180}
                           onPointSelect={handlePointSelect}
                           onInteractionChange={handleInteractionChange}
+                          previewMetricId={previewMetricId}
                         />
                       </View>
                     );
@@ -916,6 +921,7 @@ export default function ActivityDetailScreen() {
                       height={180}
                       onPointSelect={handlePointSelect}
                       onInteractionChange={handleInteractionChange}
+                      previewMetricId={previewMetricId}
                     />
                   </View>
                 ))}
@@ -1373,6 +1379,8 @@ export default function ActivityDetailScreen() {
                 available={availableCharts}
                 selected={selectedCharts}
                 onToggle={handleChartToggle}
+                onPreviewStart={(id) => setPreviewMetricId(id as ChartTypeId)}
+                onPreviewEnd={() => setPreviewMetricId(null)}
               />
             </View>
 
@@ -1386,6 +1394,7 @@ export default function ActivityDetailScreen() {
                   height={windowHeight - 100}
                   onPointSelect={handlePointSelect}
                   onInteractionChange={handleInteractionChange}
+                  previewMetricId={previewMetricId}
                 />
               </View>
             )}

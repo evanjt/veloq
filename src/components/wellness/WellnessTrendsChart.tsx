@@ -8,6 +8,7 @@ import { Circle, Line as SkiaLine } from '@shopify/react-native-skia';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { useSharedValue, useAnimatedStyle, runOnJS } from 'react-native-reanimated';
 import { colors, darkColors, spacing, typography, opacity } from '@/theme';
+import { CHART_CONFIG } from '@/constants';
 import {
   sortByDateId,
   smoothDataPoints,
@@ -343,7 +344,7 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
       runOnJS(clearSelection)();
     })
     .minDistance(0)
-    .activateAfterLongPress(700);
+    .activateAfterLongPress(CHART_CONFIG.LONG_PRESS_DURATION);
 
   const onLayout = useCallback((e: LayoutChangeEvent) => {
     setContainerWidth(e.nativeEvent.layout.width);

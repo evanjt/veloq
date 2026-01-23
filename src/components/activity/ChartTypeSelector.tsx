@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, StyleSheet, TouchableOpacity, Text } from 'react-native';
+import React, { useRef, useCallback } from 'react';
+import { View, StyleSheet, Pressable, Text } from 'react-native';
 import { useTheme } from '@/hooks';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -34,6 +34,10 @@ interface ChartTypeSelectorProps {
   selected: string[];
   /** Toggle a chart type on/off */
   onToggle: (id: string) => void;
+  /** Called when user starts long-pressing a chip (to preview Y-axis) */
+  onPreviewStart?: (id: string) => void;
+  /** Called when user stops long-pressing a chip */
+  onPreviewEnd?: () => void;
 }
 
 /** Convert hex color to rgba with opacity */
@@ -46,9 +50,45 @@ function hexToRgba(hex: string, opacity: number): string {
   return `rgba(${r}, ${g}, ${b}, ${opacity})`;
 }
 
-export function ChartTypeSelector({ available, selected, onToggle }: ChartTypeSelectorProps) {
+export function ChartTypeSelector({
+  available,
+  selected,
+  onToggle,
+  onPreviewStart,
+  onPreviewEnd,
+}: ChartTypeSelectorProps) {
   const { isDark } = useTheme();
   const { t } = useTranslation();
+  const isLongPressRef = useRef(false);
+
+  const handlePressIn = useCallback(() => {
+    isLongPressRef.current = false;
+  }, []);
+
+  const handleLongPress = useCallback(
+    (id: string) => {
+      isLongPressRef.current = true;
+      onPreviewStart?.(id);
+    },
+    [onPreviewStart]
+  );
+
+  const handlePressOut = useCallback(() => {
+    if (isLongPressRef.current) {
+      onPreviewEnd?.();
+    }
+    isLongPressRef.current = false;
+  }, [onPreviewEnd]);
+
+  const handlePress = useCallback(
+    (id: string) => {
+      // Only toggle if it wasn't a long press
+      if (!isLongPressRef.current) {
+        onToggle(id);
+      }
+    },
+    [onToggle]
+  );
 
   if (available.length === 0) {
     return null;
@@ -67,15 +107,21 @@ export function ChartTypeSelector({ available, selected, onToggle }: ChartTypeSe
         const label = labelKey ? (t(labelKey) as string) : config.label;
 
         return (
-          <TouchableOpacity
+          <Pressable
             key={config.id}
-            style={[styles.chip, { backgroundColor: bgColor }]}
-            onPress={() => onToggle(config.id)}
-            activeOpacity={0.7}
+            style={({ pressed }) => [
+              styles.chip,
+              { backgroundColor: bgColor, opacity: pressed ? 0.7 : 1 },
+            ]}
+            onPressIn={handlePressIn}
+            onPress={() => handlePress(config.id)}
+            onLongPress={() => handleLongPress(config.id)}
+            onPressOut={handlePressOut}
+            delayLongPress={300}
           >
             <MaterialCommunityIcons name={config.icon} size={12} color={textColor} />
             <Text style={[styles.chipLabel, { color: textColor }]}>{label}</Text>
-          </TouchableOpacity>
+          </Pressable>
         );
       })}
     </View>
