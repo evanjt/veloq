@@ -121,7 +121,9 @@
     "avgPace": "Ritmo medio",
     "avgPower": "Potencia media",
     "avgSpeed": "Velocidade media",
+    "chartDisplayOptions": "Opções de exibição do gráfico",
     "failedToLoad": "Falha ao carregar atividade",
+    "fullscreenChart": "Gráfico em ecrã inteiro",
     "noMatchedSections": "Sem troços correspondentes",
     "noMatchedSectionsDescription": "Os troços que correspondem a esta atividade aparecerão aqui",
     "noRouteMatch": "Ainda sem correspondência de rota",
@@ -155,10 +157,38 @@
     "recordedWith": "Gravado com {{device}}"
   },
   "cache": {
+    "addingActivities": "A adicionar atividades...",
+    "allActivitiesSynced": "Todas as atividades sincronizadas",
     "analyzingRoutes": "Analyzing routes",
     "analyzingRoutesProgress": "Analyzing routes... {{percent}}%",
+    "cancelled": "Cancelado",
+    "complete": "Concluído",
+    "detectingSections": "A detetar secções...",
+    "engineNotAvailable": "Motor indisponível",
+    "fetchingGpsData": "A obter dados GPS...",
+    "loadingDemoGps": "A carregar dados GPS de demonstração...",
+    "nativeModuleUnavailable": "Módulo nativo indisponível",
+    "noValidGpsData": "Sem dados GPS válidos",
+    "offlineUsingCached": "Offline - a usar rotas em cache",
+    "processingRoutes": "A processar rotas...",
     "routeAnalysisComplete": "Route analysis complete",
+    "syncFailed": "Falha na sincronização",
+    "syncResetDiscarded": "Sincronização reiniciada - resultados descartados",
     "syncingActivities": "A sincronizar atividades"
+  },
+  "chartTypes": {
+    "cad": "Cad",
+    "elev": "Elev",
+    "hr": "FC",
+    "pace": "Ritmo",
+    "power": "Pot",
+    "speed": "Vel",
+    "dist": "Dist",
+    "alt": "Alt",
+    "temp": "Temp",
+    "watts": "Watts",
+    "movingTime": "Moving Time",
+    "elapsedTime": "Elapsed Time"
   },
   "common": {
     "activities": "activities",
@@ -191,44 +221,50 @@
   "emptyState": {
     "clearFilters": "Limpar filtros",
     "error": {
+      "dataRangeHint": "Based on {{duration}} of activity data",
       "description": "Nao foi possivel carregar este conteudo",
-      "title": "Algo correu mal",
-    "expandInSettings": "Expand in Settings",
-    "dataRangeHint": "Based on {{duration}} of activity data"
+      "expandInSettings": "Expand in Settings",
+      "title": "Algo correu mal"
     },
     "networkError": {
+      "dataRangeHint": "Based on {{duration}} of activity data",
       "description": "Verifique a sua ligacao a internet e tente novamente",
-      "title": "Erro de ligacao",
-    "expandInSettings": "Expand in Settings",
-    "dataRangeHint": "Based on {{duration}} of activity data"
+      "expandInSettings": "Expand in Settings",
+      "title": "Erro de ligacao"
     },
     "noActivities": {
+      "dataRangeHint": "Based on {{duration}} of activity data",
       "description": "As suas atividades aparecerao aqui apos sincronizar com o Intervals.icu",
-      "title": "Sem atividades ainda",
-    "expandInSettings": "Expand in Settings",
-    "dataRangeHint": "Based on {{duration}} of activity data"
+      "expandInSettings": "Expand in Settings",
+      "title": "Sem atividades ainda"
     },
     "noData": {
+      "dataRangeHint": "Based on {{duration}} of activity data",
       "description": "Complete algumas atividades para ver as suas estatisticas",
-      "title": "Sem dados disponiveis",
-    "expandInSettings": "Expand in Settings",
-    "dataRangeHint": "Based on {{duration}} of activity data"
+      "expandInSettings": "Expand in Settings",
+      "title": "Sem dados disponiveis"
     },
     "noResults": {
+      "dataRangeHint": "Based on {{duration}} of activity data",
       "description": "Tente ajustar a sua pesquisa ou filtros",
-      "title": "Nenhum resultado encontrado",
-    "expandInSettings": "Expand in Settings",
-    "dataRangeHint": "Based on {{duration}} of activity data"
+      "expandInSettings": "Expand in Settings",
+      "title": "Nenhum resultado encontrado"
     },
     "offline": {
+      "dataRangeHint": "Based on {{duration}} of activity data",
       "description": "Algumas funcionalidades podem estar limitadas",
-      "title": "Esta offline",
-    "expandInSettings": "Expand in Settings",
-    "dataRangeHint": "Based on {{duration}} of activity data"
+      "expandInSettings": "Expand in Settings",
+      "title": "Esta offline"
     },
     "refresh": "Atualizar"
   },
   "errorState": {
+    "chartLabels": {
+      "activityChart": "Gráfico de atividade",
+      "elevation": "Elevação",
+      "fitnessChart": "Gráfico de forma física",
+      "heartRateZones": "Zonas de frequência cardíaca"
+    },
     "defaultMessage": "Falha ao carregar dados. Tente novamente.",
     "defaultTitle": "Algo correu mal",
     "tryAgain": "Tentar novamente"
@@ -304,19 +340,25 @@
   },
   "heatmap": {
     "lastVisit": "Ultima visita",
+    "routesLabel": "Rotas:",
     "showActivities": "Mostrar atividades",
     "uniqueRoutes": "{{count}} percursos unicos",
     "visitedTimes": "Visitado {{count}} vezes"
   },
   "heatmapScreen": {
     "activitiesCount": "{{count}} atividades",
+    "dataRangeHint": "Based on {{duration}} of activity data",
+    "expandInSettings": "Expand in Settings",
     "generatingHeatmap": "A gerar mapa de calor...",
     "goToRoutes": "Ir para Percursos",
     "noActivityData": "Sem dados de atividade",
     "processFirstHint": "Processe primeiro algumas atividades no ecra Percursos para gerar um mapa de calor.",
-    "title": "Mapa de calor",
-    "expandInSettings": "Expand in Settings",
-    "dataRangeHint": "Based on {{duration}} of activity data"
+    "title": "Mapa de calor"
+  },
+  "licenses": {
+    "footer": "Toque em qualquer selo de licenca para ver o texto completo. Toque no icone de link para visitar o repositorio do projeto.",
+    "intro": "O Veloq e construido com software de codigo aberto. Esta tela lista as bibliotecas de terceiros e suas licencas.",
+    "title": "Licencas de Terceiros"
   },
   "login": {
     "apiKey": "Chave API",
@@ -353,11 +395,6 @@
     "tryDemo": "Experimentar Demo",
     "useApiKey": "Usar chave API"
   },
-  "licenses": {
-    "footer": "Toque em qualquer selo de licenca para ver o texto completo. Toque no icone de link para visitar o repositorio do projeto.",
-    "intro": "O Veloq e construido com software de codigo aberto. Esta tela lista as bibliotecas de terceiros e suas licencas.",
-    "title": "Licencas de Terceiros"
-  },
   "mapScreen": {
     "loadingActivities": "A carregar atividades...",
     "syncing": "A sincronizar: {{completed}}/{{total}}"
@@ -375,8 +412,11 @@
     "allClear": "Todos",
     "cached": "Em cache",
     "clear": "Limpar",
+    "closeHeatmapPopup": "Fechar popup de mapa de calor",
     "closeMap": "Fechar mapa",
     "closePopup": "Fechar popup de atividade",
+    "closeRoutePopup": "Fechar popup de rota",
+    "closeSectionPopup": "Fechar popup de secção",
     "disable3D": "Desativar vista 3D",
     "enable3D": "Ativar vista 3D",
     "goToLocation": "Ir para a minha localizacao",
@@ -432,8 +472,6 @@
   "routes": {
     "activities": "atividades",
     "adjustSportTypeFilter": "Tente ajustar o filtro de tipo de desporto",
-    "duplicateNameMessage": "Por favor, escolha um nome diferente. Cada rota deve ter um nome único.",
-    "duplicateNameTitle": "Nome já existe",
     "analysingActivities": "Passo 2: A analisar {{current}} de {{total}} atividades",
     "analysingRoutes": "A analisar percursos",
     "analysisComplete": "Analise concluida",
@@ -446,15 +484,24 @@
     "checkingActivities": "Passo 1: A verificar {{count}} atividades...",
     "createSection": "Criar troço",
     "custom": "Personalizado",
+    "dataRangeHint": "Based on {{duration}} of activity data",
     "defaultActivityName": "Atividade {{number}}",
     "defaultRouteName": "Percurso {{type}}",
+    "duplicateNameMessage": "Por favor, escolha um nome diferente. Cada rota deve ter um nome único.",
+    "duplicateNameTitle": "Nome já existe",
     "errorOccurred": "Ocorreu um erro",
+    "expandInSettings": "Expand in Settings",
     "expandTimeline": "Expanda a cronologia para analisar mais atividades. A correspondencia de percursos continuara em segundo plano ate estar concluida.",
     "fastest": "#{{rank}} mais rapido",
     "fetchingGpsData": "Passo 2: A obter dados de trilhos...",
+    "firstRunHint": "Run this route again to compare your performance over time",
     "foundPotentialMatches": "Encontradas {{count}} correspondencias potenciais",
     "frequentSectionsInfo": "Os trocos frequentes sao trechos de estrada que percorre frequentemente, detetados automaticamente a partir dos seus trilhos de atividade.",
     "groupingRoutes": "Passo 3: A agrupar percursos...",
+    "legendFullActivity": "Atividade completa",
+    "legendRoute": "Rota",
+    "legendSection": "Troço",
+    "legendYourEffort": "O seu esforço",
     "loadingRoutes": "A carregar percursos...",
     "loadingSections": "A carregar trocos...",
     "lookingForRoutes": "A procurar percursos correspondentes...",
@@ -471,11 +518,12 @@
     "noSectionsMatchFilter": "Nenhum troco corresponde ao filtro",
     "overDays": "em {{count}} dias",
     "overMonths": "em {{count}} meses",
-    "overlap": "{{distance}}km de sobreposicao",
     "overYears": "em {{count}} anos",
+    "overlap": "{{distance}}km de sobreposicao",
     "partOfRoutes": "Parte de {{count}} percurso",
     "partOfRoutesPlural": "Parte de {{count}} percursos",
     "partial": "Parcial",
+    "pointCountHint": "{{count}} pontos GPS",
     "potentialSectionDescription": "Percorreu este caminho de {{sport}} {{count}} vezes. Criar um troço para acompanhar o seu desempenho?",
     "readyToProcess": "Pronto para processar",
     "reverse": "Inverso",
@@ -491,13 +539,10 @@
     "sectionCreated": "Troço criado",
     "sectionCreatedDescription": "O seu troço personalizado foi criado e as atividades foram associadas",
     "sectionCreationFailed": "Falha ao criar o troço. Por favor, tente novamente.",
+    "sectionLargeWarning": "Secção grande - pode afetar o desempenho",
     "sectionTooLarge": "O troço é demasiado grande. Tente selecionar uma porção mais curta.",
+    "sectionTooLargeWarning": "A secção pode ser demasiado grande para guardar",
     "sectionTooLargeWithHint": "O troço é demasiado grande. Tente encurtá-lo em pelo menos {{reduction}}.",
-    "legendSection": "Troço",
-    "legendYourEffort": "O seu esforço",
-    "legendFullActivity": "Atividade completa",
-    "legendRoute": "Rota",
-    "pointCountHint": "{{count}} pontos GPS",
     "sectionsDescription": "Os trocos sao detetados quando percorre as mesmas estradas varias vezes, mesmo em percursos diferentes",
     "selected": "Selecionado",
     "suggestion": "Sugestão",
@@ -508,21 +553,19 @@
     "thisSpeed": "Esta velocidade",
     "visits": "visitas",
     "waiting": "A aguardar...",
-    "firstRunHint": "Run this route again to compare your performance over time",
-    "expandInSettings": "Expand in Settings",
-    "dataRangeHint": "Based on {{duration}} of activity data"
+    "pr": "PR"
   },
   "routesScreen": {
     "analysingRoutes": "A analisar percursos {{current}}/{{total}}",
     "computingRoutes": "A calcular percursos...",
+    "dataRangeHint": "Based on {{duration}} of activity data",
     "downloadingGps": "A transferir trilhos",
     "enableInSettings": "Ative a correspondencia de percursos nas Definicoes para detetar automaticamente percursos repetidos das suas atividades.",
     "expandDateRange": "Expandir intervalo de datas",
+    "expandInSettings": "Expand in Settings",
     "goToSettings": "Ir para Definicoes",
     "matchingDisabled": "Correspondencia de percursos desativada",
-    "title": "Percursos",
-    "expandInSettings": "Expand in Settings",
-    "dataRangeHint": "Based on {{duration}} of activity data"
+    "title": "Percursos"
   },
   "sections": {
     "activities": "Atividades",
@@ -541,6 +584,7 @@
     "disabled": "Desativada",
     "duplicateNameMessage": "Por favor, escolha um nome diferente. Cada seção deve ter um nome único.",
     "duplicateNameTitle": "Nome já existe",
+    "forward": "Forward",
     "lastActivity": "Última Atividade",
     "noActivitiesFound": "Nenhuma atividade encontrada",
     "performanceOverTime": "Desempenho ao longo do tempo",
@@ -552,8 +596,7 @@
     "sectionNamePlaceholder": "Nome do troco",
     "sectionNotFound": "Troco nao encontrado",
     "totalTraversals": "Total de Travessias",
-    "traversals": "travessias",
-    "forward": "Forward"
+    "traversals": "travessias"
   },
   "settings": {
     "account": "Conta",
@@ -571,9 +614,9 @@
     "customiseByActivity": "Personalizar por tipo de atividade",
     "dark": "Escuro",
     "dataCache": "Cache de dados",
-    "database": "Banco de dados",
     "dataSources": "Fontes de dados",
     "dataSourcesDescription": "Os dados de atividade e bem-estar sao sincronizados do intervals.icu, que se integra com varias plataformas e dispositivos de fitness.",
+    "database": "Banco de dados",
     "dateRange": "Intervalo de datas",
     "default": "Predefinido",
     "defaultMapHint": "'Predefinido' usa o estilo de mapa definido acima",
@@ -639,6 +682,7 @@
     "completeDecouplingHint": "Complete um esforco prolongado com dados de potencia e frequencia cardiaca para ver a analise de desacoplamento",
     "completePowerActivities": "Complete atividades com potencia para ver a tendencia do FTP",
     "createWorkoutsHint": "Crie treinos no intervals.icu para os ver aqui",
+    "current": "Atual",
     "daysCount": "{{count}} dias",
     "decouplingExplanation": "O desacoplamento mede a deriva cardiaca - quanto a frequencia cardiaca aumenta em relacao a potencia durante esforcos prolongados. Quanto menor, melhor, indicando producao eficiente de energia aerobica.",
     "efficiency": "Eficiencia",
@@ -670,6 +714,7 @@
     "paceCurve": "Curva de ritmo",
     "powerCurve": "Curva de potencia",
     "powerZones": "Zonas de potencia",
+    "previous": "Anterior",
     "race": "Corrida",
     "seasonComparison": "Comparacao sazonal",
     "secondHalf": "Segunda metade",
@@ -691,7 +736,9 @@
     "vsPrevious6Months": "vs 6 meses anteriores",
     "week": "Semana",
     "workoutLibrary": "Biblioteca de treinos",
-    "year": "Ano"
+    "year": "Ano",
+    "distanceHalf": "Half",
+    "distanceMile": "Mile"
   },
   "statsScreen": {
     "days42": "42 dias",
@@ -705,12 +752,16 @@
     "paceCurve": "Curva de ritmo",
     "powerCurve": "Curva de potencia",
     "title": "Desempenho",
-    "year1": "1 ano"
+    "year1": "1 ano",
+    "paceCurveInfo": "CS (critical speed) and D' are calculated using the 2 parameter model. Intervals.icu uses your best 1k, 2k, 3k, 4k and 5k times keeping those that take between 2 and 15+ minutes.",
+    "powerCurveInfo": "Estimated FTP is calculated using power curves from FastFitness.Tips and Morton's 3 parameter critical power model. The algorithm requires just 1 max effort of between 180 seconds and 30 minutes. W' is relative to eFTP.",
+    "ref": "Ref"
   },
   "time": {
     "current": "Atual",
     "days": "Days",
     "daysAgo": "ha {{count}} dias",
+    "daysCount": "{{count}} days",
     "months": "Months",
     "monthsAgo": "ha {{count}} meses",
     "now": "Now",
@@ -718,9 +769,8 @@
     "weeksAgo": "ha {{count}} semanas",
     "years": "Years",
     "yearsAgo": "ha {{count}} anos",
-    "yesterday": "Ontem",
-    "daysCount": "{{count}} days",
-    "yearsCount": "{{count}} years"
+    "yearsCount": "{{count}} years",
+    "yesterday": "Ontem"
   },
   "trainingScreen": {
     "checkingActivities": "A verificar {{count}} atividades...",
@@ -769,7 +819,11 @@
     "smoothingHint": "Auto usa suavizacao otima para o intervalo selecionado",
     "smoothingTitle": "Suavizacao de dados",
     "trendHint": "As tendencias de VFC, sono e FC em repouso aparecerao aqui quando os dados forem registados",
-    "weight": "Peso"
+    "weight": "Peso",
+    "auto": "Auto",
+    "dayAverage": "{{count}}-day average",
+    "none": "None",
+    "rawData": "Raw data"
   },
   "wellnessScreen": {
     "title": "Bem-estar",

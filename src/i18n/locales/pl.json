@@ -121,7 +121,9 @@
     "avgPace": "Sr. tempo",
     "avgPower": "Sr. moc",
     "avgSpeed": "Sr. predkosc",
+    "chartDisplayOptions": "Opcje wyświetlania wykresu",
     "failedToLoad": "Nie udalo sie wczytac aktywnosci",
+    "fullscreenChart": "Wykres pełnoekranowy",
     "noMatchedSections": "Brak pasujących odcinków",
     "noMatchedSectionsDescription": "Odcinki pasujące do tej aktywności pojawią się tutaj",
     "noRouteMatch": "Brak dopasowania trasy",
@@ -155,10 +157,38 @@
     "recordedWith": "Zarejestrowane za pomoca {{device}}"
   },
   "cache": {
+    "addingActivities": "Dodawanie aktywności...",
+    "allActivitiesSynced": "Wszystkie aktywności zsynchronizowane",
     "analyzingRoutes": "Analyzing routes",
     "analyzingRoutesProgress": "Analyzing routes... {{percent}}%",
+    "cancelled": "Anulowano",
+    "complete": "Zakończono",
+    "detectingSections": "Wykrywanie sekcji...",
+    "engineNotAvailable": "Silnik niedostępny",
+    "fetchingGpsData": "Pobieranie danych GPS...",
+    "loadingDemoGps": "Ładowanie danych GPS demo...",
+    "nativeModuleUnavailable": "Moduł natywny niedostępny",
+    "noValidGpsData": "Brak prawidłowych danych GPS",
+    "offlineUsingCached": "Offline - używam tras z pamięci podręcznej",
+    "processingRoutes": "Przetwarzanie tras...",
     "routeAnalysisComplete": "Route analysis complete",
+    "syncFailed": "Synchronizacja nie powiodła się",
+    "syncResetDiscarded": "Sync zresetowana - wyniki odrzucone",
     "syncingActivities": "Synchronizacja aktywnosci"
+  },
+  "chartTypes": {
+    "cad": "Kad",
+    "elev": "Wys",
+    "hr": "Tętno",
+    "pace": "Tempo",
+    "power": "Moc",
+    "speed": "Pręd",
+    "dist": "Dist",
+    "alt": "Alt",
+    "temp": "Temp",
+    "watts": "Watts",
+    "movingTime": "Moving Time",
+    "elapsedTime": "Elapsed Time"
   },
   "common": {
     "activities": "activities",
@@ -191,44 +221,50 @@
   "emptyState": {
     "clearFilters": "Wyczysc filtry",
     "error": {
+      "dataRangeHint": "Based on {{duration}} of activity data",
       "description": "Nie udalo sie wczytac tej tresci",
-      "title": "Cos poszlo nie tak",
-    "expandInSettings": "Expand in Settings",
-    "dataRangeHint": "Based on {{duration}} of activity data"
+      "expandInSettings": "Expand in Settings",
+      "title": "Cos poszlo nie tak"
     },
     "networkError": {
+      "dataRangeHint": "Based on {{duration}} of activity data",
       "description": "Sprawdz polaczenie internetowe i sprobuj ponownie",
-      "title": "Blad polaczenia",
-    "expandInSettings": "Expand in Settings",
-    "dataRangeHint": "Based on {{duration}} of activity data"
+      "expandInSettings": "Expand in Settings",
+      "title": "Blad polaczenia"
     },
     "noActivities": {
+      "dataRangeHint": "Based on {{duration}} of activity data",
       "description": "Twoje aktywnosci pojawia sie tutaj po synchronizacji z Intervals.icu",
-      "title": "Brak aktywnosci",
-    "expandInSettings": "Expand in Settings",
-    "dataRangeHint": "Based on {{duration}} of activity data"
+      "expandInSettings": "Expand in Settings",
+      "title": "Brak aktywnosci"
     },
     "noData": {
+      "dataRangeHint": "Based on {{duration}} of activity data",
       "description": "Wykonaj aktywnosci, aby zobaczyc statystyki",
-      "title": "Brak dostepnych danych",
-    "expandInSettings": "Expand in Settings",
-    "dataRangeHint": "Based on {{duration}} of activity data"
+      "expandInSettings": "Expand in Settings",
+      "title": "Brak dostepnych danych"
     },
     "noResults": {
+      "dataRangeHint": "Based on {{duration}} of activity data",
       "description": "Sprobuj dostosowac wyszukiwanie lub filtry",
-      "title": "Nie znaleziono wynikow",
-    "expandInSettings": "Expand in Settings",
-    "dataRangeHint": "Based on {{duration}} of activity data"
+      "expandInSettings": "Expand in Settings",
+      "title": "Nie znaleziono wynikow"
     },
     "offline": {
+      "dataRangeHint": "Based on {{duration}} of activity data",
       "description": "Niektore funkcje moga byc ograniczone",
-      "title": "Jestes offline",
-    "expandInSettings": "Expand in Settings",
-    "dataRangeHint": "Based on {{duration}} of activity data"
+      "expandInSettings": "Expand in Settings",
+      "title": "Jestes offline"
     },
     "refresh": "Odswiez"
   },
   "errorState": {
+    "chartLabels": {
+      "activityChart": "Wykres aktywności",
+      "elevation": "Wysokość",
+      "fitnessChart": "Wykres formy",
+      "heartRateZones": "Strefy tętna"
+    },
     "defaultMessage": "Nie udalo sie wczytac danych. Sprobuj ponownie.",
     "defaultTitle": "Cos poszlo nie tak",
     "tryAgain": "Sprobuj ponownie"
@@ -304,19 +340,25 @@
   },
   "heatmap": {
     "lastVisit": "Ostatnia wizyta",
+    "routesLabel": "Trasy:",
     "showActivities": "Pokaz aktywnosci",
     "uniqueRoutes": "{{count}} unikalnych tras",
     "visitedTimes": "Odwiedzono {{count}} razy"
   },
   "heatmapScreen": {
     "activitiesCount": "{{count}} aktywnosci",
+    "dataRangeHint": "Based on {{duration}} of activity data",
+    "expandInSettings": "Expand in Settings",
     "generatingHeatmap": "Generowanie mapy ciepla...",
     "goToRoutes": "Przejdz do Tras",
     "noActivityData": "Brak danych aktywnosci",
     "processFirstHint": "Najpierw przetworz aktywnosci na ekranie Tras, aby wygenerowac mape ciepla.",
-    "title": "Mapa ciepla",
-    "expandInSettings": "Expand in Settings",
-    "dataRangeHint": "Based on {{duration}} of activity data"
+    "title": "Mapa ciepla"
+  },
+  "licenses": {
+    "footer": "Dotknij dowolnej plakietki licencji, aby zobaczyc pelny tekst. Dotknij ikony linku, aby odwiedzic repozytorium projektu.",
+    "intro": "Veloq jest zbudowany z oprogramowania open-source. Ten ekran wyswietla biblioteki innych firm i ich licencje.",
+    "title": "Licencje Stron Trzecich"
   },
   "login": {
     "apiKey": "Klucz API",
@@ -342,21 +384,16 @@
     "oauthInvalidCallback": "Invalid OAuth callback URL",
     "oauthNotConfigured": "OAuth is not configured. Use API key login instead.",
     "oauthStateValidationFailed": "Weryfikacja bezpieczeństwa nie powiodła się. Spróbuj zalogować się ponownie.",
-    "sessionExpired": "Twoja sesja wygasła. Zaloguj się ponownie.",
-    "sessionRevoked": "Twój dostęp został cofnięty. Zaloguj się ponownie.",
     "openSettings": "Otworz ustawienia Intervals.icu",
     "privacyPolicy": "Privacy Policy",
     "securityNote": "Twoje dane uwierzytelniajace sa bezpiecznie przechowywane na urzadzeniu",
+    "sessionExpired": "Twoja sesja wygasła. Zaloguj się ponownie.",
+    "sessionRevoked": "Twój dostęp został cofnięty. Zaloguj się ponownie.",
     "subtitle": "Polacz z Intervals.icu",
     "termsOfService": "Terms of Service",
     "title": "Veloq",
     "tryDemo": "Wyprobuj demo",
     "useApiKey": "Uzyj klucza API"
-  },
-  "licenses": {
-    "footer": "Dotknij dowolnej plakietki licencji, aby zobaczyc pelny tekst. Dotknij ikony linku, aby odwiedzic repozytorium projektu.",
-    "intro": "Veloq jest zbudowany z oprogramowania open-source. Ten ekran wyswietla biblioteki innych firm i ich licencje.",
-    "title": "Licencje Stron Trzecich"
   },
   "mapScreen": {
     "loadingActivities": "Wczytywanie aktywnosci...",
@@ -375,8 +412,11 @@
     "allClear": "Wszystkie",
     "cached": "W pamieci",
     "clear": "Wyczysc",
+    "closeHeatmapPopup": "Zamknij popup mapy ciepła",
     "closeMap": "Zamknij mape",
     "closePopup": "Zamknij okno aktywnosci",
+    "closeRoutePopup": "Zamknij popup trasy",
+    "closeSectionPopup": "Zamknij popup sekcji",
     "disable3D": "Wylacz widok 3D",
     "enable3D": "Wlacz widok 3D",
     "goToLocation": "Idz do mojej lokalizacji",
@@ -444,17 +484,24 @@
     "checkingActivities": "Krok 1: Sprawdzanie {{count}} aktywnosci...",
     "createSection": "Utwórz odcinek",
     "custom": "Własny",
+    "dataRangeHint": "Based on {{duration}} of activity data",
     "defaultActivityName": "Aktywność {{number}}",
     "defaultRouteName": "Trasa {{type}}",
     "duplicateNameMessage": "Proszę wybrać inną nazwę. Każda trasa musi mieć unikalną nazwę.",
     "duplicateNameTitle": "Nazwa już istnieje",
     "errorOccurred": "Wystapil blad",
+    "expandInSettings": "Expand in Settings",
     "expandTimeline": "Rozszerz os czasu, aby przeanalizowac wiecej aktywnosci. Dopasowywanie tras bedzie kontynuowane w tle az do zakonczenia.",
     "fastest": "#{{rank}} najszybsza",
     "fetchingGpsData": "Krok 2: Pobieranie danych śladów...",
+    "firstRunHint": "Run this route again to compare your performance over time",
     "foundPotentialMatches": "Znaleziono {{count}} potencjalnych dopasowań",
     "frequentSectionsInfo": "Czeste odcinki to fragmenty drog, ktore czesto przejezdzasz, automatycznie wykrywane ze śladów aktywności.",
     "groupingRoutes": "Krok 3: Grupowanie tras...",
+    "legendFullActivity": "Pełna aktywność",
+    "legendRoute": "Trasa",
+    "legendSection": "Odcinek",
+    "legendYourEffort": "Twój wysiłek",
     "loadingRoutes": "Wczytywanie tras...",
     "loadingSections": "Wczytywanie odcinkow...",
     "lookingForRoutes": "Szukanie pasujacych tras...",
@@ -476,6 +523,7 @@
     "partOfRoutes": "Czesc {{count}} trasy",
     "partOfRoutesPlural": "Czesc {{count}} tras",
     "partial": "Czesciowy",
+    "pointCountHint": "{{count}} punktów GPS",
     "potentialSectionDescription": "Przejechałeś tę trasę {{sport}} {{count}} razy. Utworzyć odcinek, aby śledzić swoje wyniki?",
     "readyToProcess": "Gotowe do przetworzenia",
     "reverse": "Odwrotny",
@@ -491,13 +539,10 @@
     "sectionCreated": "Utworzono odcinek",
     "sectionCreatedDescription": "Twój własny odcinek został utworzony i dopasowano aktywności",
     "sectionCreationFailed": "Nie udało się utworzyć odcinka. Spróbuj ponownie.",
+    "sectionLargeWarning": "Duża sekcja - może wpłynąć na wydajność",
     "sectionTooLarge": "Odcinek jest zbyt duży. Spróbuj wybrać krótszą część.",
+    "sectionTooLargeWarning": "Sekcja może być zbyt duża do zapisania",
     "sectionTooLargeWithHint": "Odcinek jest zbyt duży. Spróbuj skrócić go o co najmniej {{reduction}}.",
-    "legendSection": "Odcinek",
-    "legendYourEffort": "Twój wysiłek",
-    "legendFullActivity": "Pełna aktywność",
-    "legendRoute": "Trasa",
-    "pointCountHint": "{{count}} punktów GPS",
     "sectionsDescription": "Odcinki sa wykrywane, gdy wielokrotnie przejezdzasz te same drogi, nawet na roznych trasach",
     "selected": "Wybrana",
     "suggestion": "Sugestia",
@@ -508,21 +553,19 @@
     "thisSpeed": "Ta predkosc",
     "visits": "wizyty",
     "waiting": "Oczekiwanie...",
-    "firstRunHint": "Run this route again to compare your performance over time",
-    "expandInSettings": "Expand in Settings",
-    "dataRangeHint": "Based on {{duration}} of activity data"
+    "pr": "PR"
   },
   "routesScreen": {
     "analysingRoutes": "Analiza tras {{current}}/{{total}}",
     "computingRoutes": "Obliczanie tras...",
+    "dataRangeHint": "Based on {{duration}} of activity data",
     "downloadingGps": "Pobieranie śladów",
     "enableInSettings": "Wlacz dopasowywanie tras w Ustawieniach, aby automatycznie wykrywac powtarzajace sie trasy z Twoich aktywnosci.",
     "expandDateRange": "Rozszerz zakres dat",
+    "expandInSettings": "Expand in Settings",
     "goToSettings": "Przejdz do Ustawien",
     "matchingDisabled": "Dopasowywanie tras wylaczone",
-    "title": "Trasy",
-    "expandInSettings": "Expand in Settings",
-    "dataRangeHint": "Based on {{duration}} of activity data"
+    "title": "Trasy"
   },
   "sections": {
     "activities": "Aktywnosci",
@@ -541,6 +584,7 @@
     "disabled": "Wyłączona",
     "duplicateNameMessage": "Proszę wybrać inną nazwę. Każda sekcja musi mieć unikalną nazwę.",
     "duplicateNameTitle": "Nazwa już istnieje",
+    "forward": "Forward",
     "lastActivity": "Ostatnia Aktywność",
     "noActivitiesFound": "Nie znaleziono aktywnosci",
     "performanceOverTime": "Wyniki w czasie",
@@ -552,8 +596,7 @@
     "sectionNamePlaceholder": "Nazwa odcinka",
     "sectionNotFound": "Nie znaleziono odcinka",
     "totalTraversals": "Łączna Liczba Przejazdów",
-    "traversals": "przejazdy",
-    "forward": "Forward"
+    "traversals": "przejazdy"
   },
   "settings": {
     "account": "Konto",
@@ -563,17 +606,17 @@
     "cacheHint": "Buforuje lokalizacje aktywności i ślady dla Mapy świata i dopasowywania tras. Użyj osi czasu, aby rozszerzyć zakres dat.",
     "cached": "Cached",
     "cachedQueries": "Zapytania w pamieci podrecznej",
-    "connectedViaApiKey": "Połączono przez klucz API",
-    "connectionMethod": "Połączenie",
     "clearAllReload": "Wyczysc wszystko i przeladuj",
     "clearAllReloadDescription": "Wyczyści wszystkie zbuforowane dane aktywnosci, ślady aktywności i dane dopasowania tras, a nastepnie rozpocznie ponowne ladowanie. Moze to potrwac kilka minut.",
     "clearRouteDescription": "Wyczyści wszystkie dane dopasowania tras i natychmiast ponownie przeanalizuje ślady aktywności.",
+    "connectedViaApiKey": "Połączono przez klucz API",
+    "connectionMethod": "Połączenie",
     "customiseByActivity": "Dostosuj wedlug typu aktywnosci",
     "dark": "Ciemny",
-    "database": "Baza danych",
     "dataCache": "Pamiec podreczna danych",
     "dataSources": "Zrodla danych",
     "dataSourcesDescription": "Dane aktywnosci i zdrowia sa synchronizowane z intervals.icu, ktory integruje sie z roznymi platformami fitness i urzadzeniami.",
+    "database": "Baza danych",
     "dateRange": "Zakres dat",
     "default": "Domyslny",
     "defaultMapHint": "'Domyslny' uzywa stylu mapy ustawionego powyzej",
@@ -639,6 +682,7 @@
     "completeDecouplingHint": "Wykonaj dlugi wysiek z danymi mocy i tetna, aby zobaczyc analize rozsprzezenia",
     "completePowerActivities": "Wykonaj aktywnosci z miernikiem mocy, aby zobaczyc trend FTP",
     "createWorkoutsHint": "Stworz treningi w intervals.icu, aby je tutaj zobaczyc",
+    "current": "Bieżący",
     "daysCount": "{{count}} dni",
     "decouplingExplanation": "Rozsprzezenie mierzy dryf sercowy - jak bardzo tetno wzrasta wzgledem mocy podczas dlugotrwalych wysikow. Nizsze jest lepsze, wskazujac na wydajna produkcje energii tlenowej.",
     "efficiency": "Wydajnosc",
@@ -670,6 +714,7 @@
     "paceCurve": "Krzywa tempa",
     "powerCurve": "Krzywa mocy",
     "powerZones": "Strefy mocy",
+    "previous": "Poprzedni",
     "race": "Zawody",
     "seasonComparison": "Porownanie sezonow",
     "secondHalf": "Druga polowa",
@@ -691,7 +736,9 @@
     "vsPrevious6Months": "vs poprzednie 6 miesiecy",
     "week": "Tydzien",
     "workoutLibrary": "Biblioteka treningow",
-    "year": "Rok"
+    "year": "Rok",
+    "distanceHalf": "Half",
+    "distanceMile": "Mile"
   },
   "statsScreen": {
     "days42": "42 dni",
@@ -705,12 +752,16 @@
     "paceCurve": "Krzywa tempa",
     "powerCurve": "Krzywa mocy",
     "title": "Wyniki",
-    "year1": "1 rok"
+    "year1": "1 rok",
+    "paceCurveInfo": "CS (critical speed) and D' are calculated using the 2 parameter model. Intervals.icu uses your best 1k, 2k, 3k, 4k and 5k times keeping those that take between 2 and 15+ minutes.",
+    "powerCurveInfo": "Estimated FTP is calculated using power curves from FastFitness.Tips and Morton's 3 parameter critical power model. The algorithm requires just 1 max effort of between 180 seconds and 30 minutes. W' is relative to eFTP.",
+    "ref": "Ref"
   },
   "time": {
     "current": "Biezacy",
     "days": "Days",
     "daysAgo": "{{count}} dni temu",
+    "daysCount": "{{count}} days",
     "months": "Months",
     "monthsAgo": "{{count}} miesiecy temu",
     "now": "Now",
@@ -718,9 +769,8 @@
     "weeksAgo": "{{count}} tygodni temu",
     "years": "Years",
     "yearsAgo": "{{count}} lat temu",
-    "yesterday": "Wczoraj",
-    "daysCount": "{{count}} days",
-    "yearsCount": "{{count}} years"
+    "yearsCount": "{{count}} years",
+    "yesterday": "Wczoraj"
   },
   "trainingScreen": {
     "checkingActivities": "Sprawdzanie {{count}} aktywnosci...",
@@ -769,7 +819,11 @@
     "smoothingHint": "Auto uzywa optymalnego wygladzania dla wybranego zakresu czasowego",
     "smoothingTitle": "Wygladzanie danych",
     "trendHint": "Trendy HRV, snu i tetna spoczynkowego pojawia sie tutaj po zalogowaniu danych",
-    "weight": "Waga"
+    "weight": "Waga",
+    "auto": "Auto",
+    "dayAverage": "{{count}}-day average",
+    "none": "None",
+    "rawData": "Raw data"
   },
   "wellnessScreen": {
     "title": "Zdrowie",

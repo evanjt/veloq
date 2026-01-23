@@ -126,6 +126,8 @@
     "noMatchedSectionsDescription": "Sections matching this activity will appear here",
     "noRouteMatch": "No route match yet",
     "noRouteMatchDescription": "Complete this route a few more times to start tracking your performance, or expand your timeline in Settings to include older activities.",
+    "chartDisplayOptions": "Chart display options",
+    "fullscreenChart": "Fullscreen chart",
     "tabs": {
       "charts": "Charts",
       "route": "Route",
@@ -158,7 +160,21 @@
     "analyzingRoutes": "Analyzing routes",
     "analyzingRoutesProgress": "Analyzing routes... {{percent}}%",
     "routeAnalysisComplete": "Route analysis complete",
-    "syncingActivities": "Syncing activities"
+    "syncingActivities": "Syncing activities",
+    "addingActivities": "Adding activities...",
+    "complete": "Complete",
+    "offlineUsingCached": "Offline - using cached routes",
+    "nativeModuleUnavailable": "Native module unavailable",
+    "allActivitiesSynced": "All activities synced",
+    "syncFailed": "Sync failed",
+    "detectingSections": "Detecting potential sections...",
+    "cancelled": "Cancelled",
+    "engineNotAvailable": "Engine not available",
+    "loadingDemoGps": "Loading demo GPS data...",
+    "syncResetDiscarded": "Sync reset - results discarded",
+    "noValidGpsData": "No valid GPS data in fixtures",
+    "fetchingGpsData": "Fetching GPS data...",
+    "processingRoutes": "Processing routes..."
   },
   "chartTypes": {
     "power": "Power",
@@ -166,7 +182,13 @@
     "cad": "Cad",
     "speed": "Speed",
     "pace": "Pace",
-    "elev": "Elev"
+    "elev": "Elev",
+    "dist": "Dist",
+    "alt": "Alt",
+    "temp": "Temp",
+    "watts": "Watts",
+    "movingTime": "Moving Time",
+    "elapsedTime": "Elapsed Time"
   },
   "common": {
     "activities": "activities",
@@ -227,7 +249,13 @@
   "errorState": {
     "defaultMessage": "Failed to load data. Please try again.",
     "defaultTitle": "Something went wrong",
-    "tryAgain": "Try Again"
+    "tryAgain": "Try Again",
+    "chartLabels": {
+      "activityChart": "Activity Chart",
+      "heartRateZones": "Heart Rate Zones",
+      "elevation": "Elevation",
+      "fitnessChart": "Fitness Chart"
+    }
   },
   "feed": {
     "activitiesCount": "{{count}} Activities",
@@ -302,7 +330,8 @@
     "lastVisit": "Last visit",
     "showActivities": "Show Activities",
     "uniqueRoutes": "{{count}} unique routes",
-    "visitedTimes": "Visited {{count}} times"
+    "visitedTimes": "Visited {{count}} times",
+    "routesLabel": "Routes:"
   },
   "heatmapScreen": {
     "activitiesCount": "{{count}} activities",
@@ -371,6 +400,9 @@
     "clear": "Clear",
     "closeMap": "Close map",
     "closePopup": "Close activity popup",
+    "closeRoutePopup": "Close route popup",
+    "closeSectionPopup": "Close section popup",
+    "closeHeatmapPopup": "Close heatmap popup",
     "disable3D": "Disable 3D view",
     "enable3D": "Enable 3D view",
     "goToLocation": "Go to my location",
@@ -425,6 +457,7 @@
   },
   "routes": {
     "activities": "activities",
+    "pr": "PR",
     "adjustSportTypeFilter": "Try adjusting the sport type filter",
     "analysingActivities": "Step 2: Analyzing {{current}} of {{total}} activities",
     "analysingRoutes": "Analyzing routes",
@@ -488,6 +521,8 @@
     "sectionCreationFailed": "Failed to create section. Please try again.",
     "sectionTooLarge": "Section is too large. Try selecting a shorter portion.",
     "sectionTooLargeWithHint": "Section is too large. Try making it at least {{reduction}} shorter.",
+    "sectionLargeWarning": "Large section - may affect performance",
+    "sectionTooLargeWarning": "Section may be too large to save",
     "legendSection": "Section",
     "legendYourEffort": "Your effort",
     "legendFullActivity": "Full activity",
@@ -619,6 +654,8 @@
   },
   "stats": {
     "activities": "Activities",
+    "distanceHalf": "Half",
+    "distanceMile": "Mile",
     "activitiesCount": "{{count}} activities",
     "activityCalendar": "Activity Calendar",
     "addEventsHint": "Add events on intervals.icu to see them here",
@@ -666,6 +703,8 @@
     "powerZones": "Power Zones",
     "race": "Race",
     "seasonComparison": "Season Comparison",
+    "current": "Current",
+    "previous": "Previous",
     "secondHalf": "Second Half",
     "sixMonths": "6M",
     "swimPaceCurve": "Swim Pace Curve",
@@ -697,7 +736,10 @@
     "months6": "6 Months",
     "pace": "Pace",
     "paceCurve": "Pace Curve",
+    "paceCurveInfo": "CS (critical speed) and D' are calculated using the 2 parameter model. Intervals.icu uses your best 1k, 2k, 3k, 4k and 5k times keeping those that take between 2 and 15+ minutes.",
     "powerCurve": "Power Curve",
+    "powerCurveInfo": "Estimated FTP is calculated using power curves from FastFitness.Tips and Morton's 3 parameter critical power model. The algorithm requires just 1 max effort of between 180 seconds and 30 minutes. W' is relative to eFTP.",
+    "ref": "Ref",
     "title": "Performance",
     "year1": "1 Year"
   },
@@ -747,7 +789,9 @@
     "watts": "W"
   },
   "wellness": {
+    "auto": "Auto",
     "connectHint": "Connect a wearable or log wellness data in Intervals.icu",
+    "dayAverage": "{{count}}-day average",
     "dragToExplore": "Drag to explore",
     "hrs": "hrs",
     "insightExtraRecovery": "Consider extra recovery today",
@@ -755,7 +799,9 @@
     "insightStable": "Metrics look stable",
     "lastDays": "Last {{count}} days",
     "noData": "No wellness data available",
+    "none": "None",
     "noTrendData": "No trend data available",
+    "rawData": "Raw data",
     "restingHR": "Resting HR",
     "sleep": "Sleep",
     "sleepScore": "Sleep Score",

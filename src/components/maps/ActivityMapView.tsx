@@ -802,51 +802,6 @@ export function ActivityMapView({
   const mapStyleValue = getMapStyle(mapStyle);
   const isDark = isDarkStyle(mapStyle);
 
-  // Debug: Log all map children state before render to identify iOS crash source
-  // Use ref to track render count for debugging
-  const renderCountRef = React.useRef(0);
-  renderCountRef.current += 1;
-
-  // Log synchronously (not in useEffect) to capture state RIGHT BEFORE render
-  if (__DEV__) {
-    console.log(`[ActivityMapView] RENDER #${renderCountRef.current} - MAP CHILDREN:`, {
-      // All ShapeSources are ALWAYS rendered now (with empty FeatureCollection when no data)
-      // This prevents add/remove cycles that crash iOS MapLibre native views
-      'ShapeSource:overlaySource': 'always (hasData=' + overlayHasData + ')',
-      'ShapeSource:routeSource': 'always (hasData=' + routeHasData + ')',
-      'ShapeSource:sectionSource': 'always (hasData=' + sectionHasData + ')',
-      // All MarkerViews now always rendered with opacity control to prevent Fabric crash
-      'MarkerView:start': 'always (visible=' + !!startPoint + ')',
-      'MarkerView:end': 'always (visible=' + !!endPoint + ')',
-      'MarkerView:highlight': 'always (visible=' + !!highlightPoint + ')',
-      'MarkerView:sectionStart': 'always (visible=' + !!sectionStartPoint + ')',
-      'MarkerView:sectionEnd': 'always (visible=' + !!sectionEndPoint + ')',
-      sectionOverlaysCount: sectionOverlaysGeoJSON?.length ?? 0,
-    });
-
-    // Log coordinate details for debugging invalid geometry
-    if (
-      overlayHasData &&
-      overlayGeoJSON.type === 'Feature' &&
-      overlayGeoJSON.geometry.type === 'LineString'
-    ) {
-      const coords = overlayGeoJSON.geometry.coordinates;
-      console.log(
-        `[ActivityMapView] overlaySource coords: ${coords.length} points, first: [${coords[0]}], last: [${coords[coords.length - 1]}]`
-      );
-    }
-    if (
-      routeHasData &&
-      routeGeoJSON.type === 'Feature' &&
-      routeGeoJSON.geometry.type === 'LineString'
-    ) {
-      const coords = routeGeoJSON.geometry.coordinates;
-      console.log(
-        `[ActivityMapView] routeSource coords: ${coords.length} points, first: [${coords[0]}], last: [${coords[coords.length - 1]}]`
-      );
-    }
-  }
-
   if (!bounds || validCoordinates.length === 0) {
     if (__DEV__) {
       console.log('[ActivityMapView] EARLY RETURN: no bounds or coordinates', {

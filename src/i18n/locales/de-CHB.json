@@ -121,7 +121,9 @@
     "avgPace": "Ø Tempo",
     "avgPower": "Ø Watt",
     "avgSpeed": "Ø Gschw.",
+    "chartDisplayOptions": "Diagramm-Aazeigeopzione",
     "failedToLoad": "Häregott, Aktivität het nid wöue lade!",
+    "fullscreenChart": "Vollbild-Diagramm",
     "noMatchedSections": "Kei passendi Abschnitt",
     "noMatchedSectionsDescription": "Passendi Abschnitt chöme hie",
     "noRouteMatch": "No kei Routeübereinschtimmig",
@@ -155,10 +157,38 @@
     "recordedWith": "Ufgnoh mit {{device}}"
   },
   "cache": {
+    "addingActivities": "Aktivitäte wärde hinzuegfüegt...",
+    "allActivitiesSynced": "Aui Aktivitäte synchronisiert",
     "analyzingRoutes": "Analyzing routes",
     "analyzingRoutesProgress": "Analyzing routes... {{percent}}%",
+    "cancelled": "Abbbroche",
+    "complete": "Fertig",
+    "detectingSections": "Abschnitt wärde erkennt...",
+    "engineNotAvailable": "Engine nid verfüegbar",
+    "fetchingGpsData": "GPS-Date wärde abgrüeft...",
+    "loadingDemoGps": "Demo-GPS-Date wärde glade...",
+    "nativeModuleUnavailable": "Natives Modul nid verfüegbar",
+    "noValidGpsData": "Kei güutige GPS-Date",
+    "offlineUsingCached": "Offline - bruuche zwüschegspeichereti Route",
+    "processingRoutes": "Route wärde verarbeitet...",
     "routeAnalysisComplete": "Route analysis complete",
+    "syncFailed": "Synchronisierig fehlgschlage",
+    "syncResetDiscarded": "Sync zrügggsetzt - Ergebniss verwörfe",
     "syncingActivities": "Aktivitäte sync'd..."
+  },
+  "chartTypes": {
+    "cad": "Kad",
+    "elev": "Höhe",
+    "hr": "HF",
+    "pace": "Pace",
+    "power": "Leist",
+    "speed": "Tempo",
+    "dist": "Dist",
+    "alt": "Alt",
+    "temp": "Temp",
+    "watts": "Watts",
+    "movingTime": "Moving Time",
+    "elapsedTime": "Elapsed Time"
   },
   "common": {
     "activities": "Aktivitäte",
@@ -191,44 +221,50 @@
   "emptyState": {
     "clearFilters": "Fiuter lösche",
     "error": {
+      "dataRangeHint": "Based on {{duration}} of activity data",
       "description": "Öppis isch schiefgloffe",
-      "title": "Häregott!",
-    "expandInSettings": "Expand in Settings",
-    "dataRangeHint": "Based on {{duration}} of activity data"
+      "expandInSettings": "Expand in Settings",
+      "title": "Häregott!"
     },
     "networkError": {
+      "dataRangeHint": "Based on {{duration}} of activity data",
       "description": "Lueg dyni Internetverbindig aa",
-      "title": "Kei Verbindig!",
-    "expandInSettings": "Expand in Settings",
-    "dataRangeHint": "Based on {{duration}} of activity data"
+      "expandInSettings": "Expand in Settings",
+      "title": "Kei Verbindig!"
     },
     "noActivities": {
+      "dataRangeHint": "Based on {{duration}} of activity data",
       "description": "Dyni Aktivitäte chöme we du synchronisiersch",
-      "title": "No kei Aktivitäte",
-    "expandInSettings": "Expand in Settings",
-    "dataRangeHint": "Based on {{duration}} of activity data"
+      "expandInSettings": "Expand in Settings",
+      "title": "No kei Aktivitäte"
     },
     "noData": {
+      "dataRangeHint": "Based on {{duration}} of activity data",
       "description": "Mach es paar Aktivitäte",
-      "title": "Kei Date da",
-    "expandInSettings": "Expand in Settings",
-    "dataRangeHint": "Based on {{duration}} of activity data"
+      "expandInSettings": "Expand in Settings",
+      "title": "Kei Date da"
     },
     "noResults": {
+      "dataRangeHint": "Based on {{duration}} of activity data",
       "description": "Probier dyni Suechi oder Fiuter aazpasse",
-      "title": "Äuä nüt gfunge!",
-    "expandInSettings": "Expand in Settings",
-    "dataRangeHint": "Based on {{duration}} of activity data"
+      "expandInSettings": "Expand in Settings",
+      "title": "Äuä nüt gfunge!"
     },
     "offline": {
+      "dataRangeHint": "Based on {{duration}} of activity data",
       "description": "Es paar Sache göh vilech nid",
-      "title": "Du bisch offline",
-    "expandInSettings": "Expand in Settings",
-    "dataRangeHint": "Based on {{duration}} of activity data"
+      "expandInSettings": "Expand in Settings",
+      "title": "Du bisch offline"
     },
     "refresh": "Nöi lade"
   },
   "errorState": {
+    "chartLabels": {
+      "activityChart": "Aktivitätsdiagramm",
+      "elevation": "Höchi",
+      "fitnessChart": "Fitnessdiagramm",
+      "heartRateZones": "Herzfrequänzzonen"
+    },
     "defaultMessage": "Het nid klappt. Probiers nomau, gäu!",
     "defaultTitle": "Häregott nomau!",
     "tryAgain": "Nomau!"
@@ -304,19 +340,25 @@
   },
   "heatmap": {
     "lastVisit": "Letscht Mau",
+    "routesLabel": "Route:",
     "showActivities": "Aktivitäte zeige",
     "uniqueRoutes": "{{count}} verschiedeni Route",
     "visitedTimes": "{{count}} Mau bsuecht"
   },
   "heatmapScreen": {
     "activitiesCount": "{{count}} Aktivitäte",
+    "dataRangeHint": "Based on {{duration}} of activity data",
+    "expandInSettings": "Expand in Settings",
     "generatingHeatmap": "Bim Heatmap mache...",
     "goToRoutes": "Zu Route",
     "noActivityData": "Kei Date da",
     "processFirstHint": "Mach zersch es paar Route, de chunnts.",
-    "title": "Heatmap",
-    "expandInSettings": "Expand in Settings",
-    "dataRangeHint": "Based on {{duration}} of activity data"
+    "title": "Heatmap"
+  },
+  "licenses": {
+    "footer": "Tipp uf es Lizänz-Badge um dr voui Tekscht z gseh. Tipp ufs Link-Symbol um s Projekt-Repository z bsueche.",
+    "intro": "Veloq isch mit Open-Source-Software bout. Die Site zeigt d Drittabieter-Bibliotheke u ihri Lizänze.",
+    "title": "Drittabieter-Lizänze"
   },
   "login": {
     "apiKey": "API-Schlüssu",
@@ -353,11 +395,6 @@
     "tryDemo": "Demo aluege",
     "useApiKey": "Mit API-Schlüssu"
   },
-  "licenses": {
-    "footer": "Tipp uf es Lizänz-Badge um dr voui Tekscht z gseh. Tipp ufs Link-Symbol um s Projekt-Repository z bsueche.",
-    "intro": "Veloq isch mit Open-Source-Software bout. Die Site zeigt d Drittabieter-Bibliotheke u ihri Lizänze.",
-    "title": "Drittabieter-Lizänze"
-  },
   "mapScreen": {
     "loadingActivities": "Bim Lade...",
     "syncing": "Sync: {{completed}}/{{total}}"
@@ -375,8 +412,11 @@
     "allClear": "Aui",
     "cached": "Im Cache",
     "clear": "Lösche",
+    "closeHeatmapPopup": "Heatmap-Popup schliesse",
     "closeMap": "Charte zuemache",
     "closePopup": "Zuemache",
+    "closeRoutePopup": "Route-Popup schliesse",
+    "closeSectionPopup": "Abschnitt-Popup schliesse",
     "disable3D": "3D us",
     "enable3D": "3D aa",
     "goToLocation": "Zu mym Standort",
@@ -444,17 +484,24 @@
     "checkingActivities": "1: {{count}} Aktivitäte prüefe...",
     "createSection": "Abschnitt mache",
     "custom": "Eigete",
+    "dataRangeHint": "Based on {{duration}} of activity data",
     "defaultActivityName": "Aktivität {{number}}",
     "defaultRouteName": "{{type}} Route",
     "duplicateNameMessage": "Bitte wäu ene angere Name. Jedi Route muess en eigete Name ha.",
     "duplicateNameTitle": "Name git's scho",
     "errorOccurred": "Häregott, öppis isch schiefgloffe!",
+    "expandInSettings": "Expand in Settings",
     "expandTimeline": "Mach d Zytlinie grösser für meh.",
     "fastest": "#{{rank}} schnäuschti",
     "fetchingGpsData": "2: GPS-Date lade...",
+    "firstRunHint": "Run this route again to compare your performance over time",
     "foundPotentialMatches": "{{count}} möglechs gfunge, gäu!",
     "frequentSectionsInfo": "Hüüfigi Abschnitt sy Stück wo du geng fahrsch",
     "groupingRoutes": "3: Route gruppiere...",
+    "legendFullActivity": "Ganzi Aktivität",
+    "legendRoute": "Route",
+    "legendSection": "Abschnitt",
+    "legendYourEffort": "Dini Leistig",
     "loadingRoutes": "Route lade...",
     "loadingSections": "Abschnitt lade...",
     "lookingForRoutes": "Bim Sueche...",
@@ -476,6 +523,7 @@
     "partOfRoutes": "Teiu vo {{count}} Route",
     "partOfRoutesPlural": "Teiu vo {{count}} Route",
     "partial": "Teuwys",
+    "pointCountHint": "{{count}} GPS-Pünkt",
     "potentialSectionDescription": "Du bisch dr {{sport}}-Wäg {{count}} Mau gfahre. Wotsch e Abschnitt mache?",
     "readyToProcess": "Parat!",
     "reverse": "Angers ume",
@@ -491,13 +539,10 @@
     "sectionCreated": "Henne guet, Abschnitt gmacht!",
     "sectionCreatedDescription": "Dy Abschnitt isch parat, Aktivitäte sy zuegordnet",
     "sectionCreationFailed": "Häregott, het nid klappt!",
+    "sectionLargeWarning": "Grosse Abschnitt - cha d Leistig beeiträchtigt",
     "sectionTooLarge": "Abschnitt isch z'gross. Nimm e chürzere Teil.",
+    "sectionTooLargeWarning": "Abschnitt isch vilech z gross zum Speichere",
     "sectionTooLargeWithHint": "Abschnitt isch z'gross. Mach ne mindestens {{reduction}} chürzer.",
-    "legendSection": "Abschnitt",
-    "legendYourEffort": "Dini Leistig",
-    "legendFullActivity": "Ganzi Aktivität",
-    "legendRoute": "Route",
-    "pointCountHint": "{{count}} GPS-Pünkt",
     "sectionsDescription": "Abschnitt wärde erkannt we du glychi Strass meh aus einisch fahrsch",
     "selected": "Usgwäut",
     "suggestion": "Vorschlag",
@@ -508,21 +553,19 @@
     "thisSpeed": "Die Gschwindigkeit",
     "visits": "Bsüech",
     "waiting": "Wart chly...",
-    "firstRunHint": "Run this route again to compare your performance over time",
-    "expandInSettings": "Expand in Settings",
-    "dataRangeHint": "Based on {{duration}} of activity data"
+    "pr": "PR"
   },
   "routesScreen": {
     "analysingRoutes": "Analysiere {{current}}/{{total}}",
     "computingRoutes": "Bim Berechne...",
+    "dataRangeHint": "Based on {{duration}} of activity data",
     "downloadingGps": "GPS abelade...",
     "enableInSettings": "Mach Route-Matching aa i de Ystellige, gäu!",
     "expandDateRange": "Meh Zyt zeige",
+    "expandInSettings": "Expand in Settings",
     "goToSettings": "Zu Ystellige",
     "matchingDisabled": "Route-Matching us",
-    "title": "Route",
-    "expandInSettings": "Expand in Settings",
-    "dataRangeHint": "Based on {{duration}} of activity data"
+    "title": "Route"
   },
   "sections": {
     "activities": "Aktivitäte",
@@ -541,6 +584,7 @@
     "disabled": "Deaktiviert",
     "duplicateNameMessage": "Bitte wäu ene angere Name. Jede Abschnitt muess en eigete Name ha.",
     "duplicateNameTitle": "Name git's scho",
+    "forward": "Forward",
     "lastActivity": "Letschti Aktivität",
     "noActivitiesFound": "Kei Aktivitäte gfunge",
     "performanceOverTime": "Leischtig über Zyt",
@@ -552,8 +596,7 @@
     "sectionNamePlaceholder": "Abschnittsname",
     "sectionNotFound": "Äuä Abschnitt nid gfunge",
     "totalTraversals": "Totau Durchfahrte",
-    "traversals": "Durchfahrte",
-    "forward": "Forward"
+    "traversals": "Durchfahrte"
   },
   "settings": {
     "account": "Konto",
@@ -564,16 +607,16 @@
     "cached": "Im Cache",
     "cachedQueries": "Zwüschegspychereti Abfrage",
     "clearAllReload": "Aus lösche u nöi lade",
-    "connectedViaApiKey": "Verbunge über API-Schlüssu",
-    "connectionMethod": "Verbindig",
     "clearAllReloadDescription": "Löscht aus u started nöi. Cha es Momäntli gah.",
     "clearRouteDescription": "Analysiert GPS-Spuure nöi.",
+    "connectedViaApiKey": "Verbunge über API-Schlüssu",
+    "connectionMethod": "Verbindig",
     "customiseByActivity": "Pro Aktivität",
     "dark": "Dunkel",
     "dataCache": "Cache",
-    "database": "Datenbank",
     "dataSources": "Datequäue",
     "dataSourcesDescription": "Date chöme vo intervals.icu",
+    "database": "Datenbank",
     "dateRange": "Zytruum",
     "default": "Standard",
     "defaultMapHint": "Bruucht dr Chartestiu vo obe",
@@ -639,6 +682,7 @@
     "completeDecouplingHint": "Mach e längeri Fahrt mit Watt u Puus",
     "completePowerActivities": "Mach Aktivitäte mit Wattmässer",
     "createWorkoutsHint": "Mach Workouts uf intervals.icu",
+    "current": "Aktuell",
     "daysCount": "{{count}} Täg",
     "decouplingExplanation": "Zeigt wie fescht dy Puus im Verhäutnis zu de Watt bi längere Fahrte stygt. Weniger = besser.",
     "efficiency": "Effizienz",
@@ -670,6 +714,7 @@
     "paceCurve": "Tempokurve",
     "powerCurve": "Wattkurve",
     "powerZones": "Wattzone",
+    "previous": "Vorherig",
     "race": "Renne",
     "seasonComparison": "Saison-Verglych",
     "secondHalf": "Zweiti Häufti",
@@ -691,7 +736,9 @@
     "vsPrevious6Months": "vs vorheri 6 Mönet",
     "week": "Wuche",
     "workoutLibrary": "Workouts",
-    "year": "Jahr"
+    "year": "Jahr",
+    "distanceHalf": "Half",
+    "distanceMile": "Mile"
   },
   "statsScreen": {
     "days42": "42 Täg",
@@ -705,12 +752,16 @@
     "paceCurve": "Tempokurve",
     "powerCurve": "Wattkurve",
     "title": "Leischtig",
-    "year1": "1 Jahr"
+    "year1": "1 Jahr",
+    "paceCurveInfo": "CS (critical speed) and D' are calculated using the 2 parameter model. Intervals.icu uses your best 1k, 2k, 3k, 4k and 5k times keeping those that take between 2 and 15+ minutes.",
+    "powerCurveInfo": "Estimated FTP is calculated using power curves from FastFitness.Tips and Morton's 3 parameter critical power model. The algorithm requires just 1 max effort of between 180 seconds and 30 minutes. W' is relative to eFTP.",
+    "ref": "Ref"
   },
   "time": {
     "current": "Itze",
     "days": "Days",
     "daysAgo": "vor {{count}} Täg",
+    "daysCount": "{{count}} days",
     "months": "Months",
     "monthsAgo": "vor {{count}} Mönet",
     "now": "Now",
@@ -718,9 +769,8 @@
     "weeksAgo": "vor {{count}} Wuche",
     "years": "Years",
     "yearsAgo": "vor {{count}} Jahr",
-    "yesterday": "Geschter",
-    "daysCount": "{{count}} days",
-    "yearsCount": "{{count}} years"
+    "yearsCount": "{{count}} years",
+    "yesterday": "Geschter"
   },
   "trainingScreen": {
     "checkingActivities": "Bim {{count}} Aktivitäte prüefe...",
@@ -769,7 +819,11 @@
     "smoothingHint": "Auto bruucht optimaui Glättig",
     "smoothingTitle": "Glättig",
     "trendHint": "Trends chöme we Date yygäh wärde",
-    "weight": "Gwicht"
+    "weight": "Gwicht",
+    "auto": "Auto",
+    "dayAverage": "{{count}}-day average",
+    "none": "None",
+    "rawData": "Raw data"
   },
   "wellnessScreen": {
     "title": "Woubefinge",

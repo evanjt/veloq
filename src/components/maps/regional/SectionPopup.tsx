@@ -73,7 +73,7 @@ export function SectionPopup({ section, bottom, onClose, onViewDetails }: Sectio
           accessibilityLabel="View section details"
           accessibilityRole="button"
         >
-          <Text style={styles.viewDetailsText}>View Details</Text>
+          <Text style={styles.viewDetailsText}>{t('maps.viewDetails')}</Text>
           <MaterialCommunityIcons name="chevron-right" size={20} color={colors.primary} />
         </TouchableOpacity>
       )}

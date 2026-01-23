@@ -121,7 +121,9 @@
     "avgPace": "平均配速",
     "avgPower": "平均功率",
     "avgSpeed": "平均速度",
+    "chartDisplayOptions": "图表显示选项",
     "failedToLoad": "加载活动失败",
+    "fullscreenChart": "全屏图表",
     "noMatchedSections": "没有匹配的路段",
     "noMatchedSectionsDescription": "与此活动匹配的路段将显示在这里",
     "noRouteMatch": "暂无路线匹配",
@@ -155,10 +157,38 @@
     "recordedWith": "使用 {{device}} 记录"
   },
   "cache": {
+    "addingActivities": "正在添加活动...",
+    "allActivitiesSynced": "所有活动已同步",
     "analyzingRoutes": "Analyzing routes",
     "analyzingRoutesProgress": "Analyzing routes... {{percent}}%",
+    "cancelled": "已取消",
+    "complete": "完成",
+    "detectingSections": "正在检测路段...",
+    "engineNotAvailable": "引擎不可用",
+    "fetchingGpsData": "正在获取GPS数据...",
+    "loadingDemoGps": "正在加载演示GPS数据...",
+    "nativeModuleUnavailable": "原生模块不可用",
+    "noValidGpsData": "没有有效的GPS数据",
+    "offlineUsingCached": "离线 - 使用缓存路线",
+    "processingRoutes": "正在处理路线...",
     "routeAnalysisComplete": "Route analysis complete",
+    "syncFailed": "同步失败",
+    "syncResetDiscarded": "同步已重置 - 结果已丢弃",
     "syncingActivities": "正在同步活动"
+  },
+  "chartTypes": {
+    "cad": "踏频",
+    "elev": "海拔",
+    "hr": "心率",
+    "pace": "配速",
+    "power": "功率",
+    "speed": "速度",
+    "dist": "Dist",
+    "alt": "Alt",
+    "temp": "Temp",
+    "watts": "Watts",
+    "movingTime": "Moving Time",
+    "elapsedTime": "Elapsed Time"
   },
   "common": {
     "activities": "activities",
@@ -191,44 +221,50 @@
   "emptyState": {
     "clearFilters": "清除筛选",
     "error": {
+      "dataRangeHint": "Based on {{duration}} of activity data",
       "description": "我们无法加载此内容",
-      "title": "出错了",
-    "expandInSettings": "Expand in Settings",
-    "dataRangeHint": "Based on {{duration}} of activity data"
+      "expandInSettings": "Expand in Settings",
+      "title": "出错了"
     },
     "networkError": {
+      "dataRangeHint": "Based on {{duration}} of activity data",
       "description": "请检查您的网络连接并重试",
-      "title": "连接错误",
-    "expandInSettings": "Expand in Settings",
-    "dataRangeHint": "Based on {{duration}} of activity data"
+      "expandInSettings": "Expand in Settings",
+      "title": "连接错误"
     },
     "noActivities": {
+      "dataRangeHint": "Based on {{duration}} of activity data",
       "description": "与 Intervals.icu 同步后，您的活动将显示在这里",
-      "title": "暂无活动",
-    "expandInSettings": "Expand in Settings",
-    "dataRangeHint": "Based on {{duration}} of activity data"
+      "expandInSettings": "Expand in Settings",
+      "title": "暂无活动"
     },
     "noData": {
+      "dataRangeHint": "Based on {{duration}} of activity data",
       "description": "完成一些活动后即可查看您的统计数据",
-      "title": "无可用数据",
-    "expandInSettings": "Expand in Settings",
-    "dataRangeHint": "Based on {{duration}} of activity data"
+      "expandInSettings": "Expand in Settings",
+      "title": "无可用数据"
     },
     "noResults": {
+      "dataRangeHint": "Based on {{duration}} of activity data",
       "description": "尝试调整您的搜索或筛选条件",
-      "title": "未找到结果",
-    "expandInSettings": "Expand in Settings",
-    "dataRangeHint": "Based on {{duration}} of activity data"
+      "expandInSettings": "Expand in Settings",
+      "title": "未找到结果"
     },
     "offline": {
+      "dataRangeHint": "Based on {{duration}} of activity data",
       "description": "部分功能可能受限",
-      "title": "您已离线",
-    "expandInSettings": "Expand in Settings",
-    "dataRangeHint": "Based on {{duration}} of activity data"
+      "expandInSettings": "Expand in Settings",
+      "title": "您已离线"
     },
     "refresh": "刷新"
   },
   "errorState": {
+    "chartLabels": {
+      "activityChart": "活动图表",
+      "elevation": "海拔",
+      "fitnessChart": "健身图表",
+      "heartRateZones": "心率区间"
+    },
     "defaultMessage": "加载数据失败。请重试。",
     "defaultTitle": "出错了",
     "tryAgain": "重试"
@@ -304,19 +340,25 @@
   },
   "heatmap": {
     "lastVisit": "上次访问",
+    "routesLabel": "路线:",
     "showActivities": "显示活动",
     "uniqueRoutes": "{{count}} 条独特路线",
     "visitedTimes": "访问 {{count}} 次"
   },
   "heatmapScreen": {
     "activitiesCount": "{{count}} 个活动",
+    "dataRangeHint": "Based on {{duration}} of activity data",
+    "expandInSettings": "Expand in Settings",
     "generatingHeatmap": "正在生成热力图...",
     "goToRoutes": "前往路线",
     "noActivityData": "无活动数据",
     "processFirstHint": "首先在路线页面处理一些活动以生成热力图。",
-    "title": "热力图",
-    "expandInSettings": "Expand in Settings",
-    "dataRangeHint": "Based on {{duration}} of activity data"
+    "title": "热力图"
+  },
+  "licenses": {
+    "footer": "点击任何许可证徽章查看完整许可证文本。点击链接图标访问项目仓库。",
+    "intro": "Veloq使用开源软件构建。此屏幕列出了第三方库及其许可证。",
+    "title": "第三方许可证"
   },
   "login": {
     "apiKey": "API 密钥",
@@ -353,11 +395,6 @@
     "tryDemo": "试用演示",
     "useApiKey": "使用API密钥"
   },
-  "licenses": {
-    "footer": "点击任何许可证徽章查看完整许可证文本。点击链接图标访问项目仓库。",
-    "intro": "Veloq使用开源软件构建。此屏幕列出了第三方库及其许可证。",
-    "title": "第三方许可证"
-  },
   "mapScreen": {
     "loadingActivities": "加载活动中...",
     "syncing": "同步中: {{completed}}/{{total}}"
@@ -375,8 +412,11 @@
     "allClear": "全部",
     "cached": "已缓存",
     "clear": "清除",
+    "closeHeatmapPopup": "关闭热力图弹窗",
     "closeMap": "关闭地图",
     "closePopup": "关闭活动弹窗",
+    "closeRoutePopup": "关闭路线弹窗",
+    "closeSectionPopup": "关闭路段弹窗",
     "disable3D": "禁用 3D 视图",
     "enable3D": "启用 3D 视图",
     "goToLocation": "前往我的位置",
@@ -444,17 +484,24 @@
     "checkingActivities": "第 1 步: 正在检查 {{count}} 个活动...",
     "createSection": "创建路段",
     "custom": "自定义",
+    "dataRangeHint": "Based on {{duration}} of activity data",
     "defaultActivityName": "活动 {{number}}",
     "defaultRouteName": "{{type}}路线",
     "duplicateNameMessage": "请选择一个不同的名称。每条路线必须有唯一的名称。",
     "duplicateNameTitle": "名称已存在",
     "errorOccurred": "发生错误",
+    "expandInSettings": "Expand in Settings",
     "expandTimeline": "扩展时间线以分析更多活动。路线匹配将在后台继续进行直到完成。",
     "fastest": "第 {{rank}} 快",
     "fetchingGpsData": "第 2 步: 获取轨迹数据...",
+    "firstRunHint": "Run this route again to compare your performance over time",
     "foundPotentialMatches": "发现 {{count}} 个潜在匹配",
     "frequentSectionsInfo": "常用路段是您经常经过的道路，从您的活动轨迹中自动检测。",
     "groupingRoutes": "第 3 步: 正在分组路线...",
+    "legendFullActivity": "完整活动",
+    "legendRoute": "路线",
+    "legendSection": "路段",
+    "legendYourEffort": "您的表现",
     "loadingRoutes": "加载路线中...",
     "loadingSections": "加载路段中...",
     "lookingForRoutes": "正在寻找匹配路线...",
@@ -471,11 +518,12 @@
     "noSectionsMatchFilter": "没有匹配筛选条件的路段",
     "overDays": "{{count}}天内",
     "overMonths": "{{count}}个月内",
-    "overlap": "{{distance}}km 重叠",
     "overYears": "{{count}}年内",
+    "overlap": "{{distance}}km 重叠",
     "partOfRoutes": "属于 {{count}} 条路线",
     "partOfRoutesPlural": "属于 {{count}} 条路线",
     "partial": "部分",
+    "pointCountHint": "{{count}}个GPS点",
     "potentialSectionDescription": "您已经走过这条{{sport}}路径{{count}}次。创建路段来跟踪您的表现？",
     "readyToProcess": "准备处理",
     "reverse": "反向",
@@ -491,13 +539,10 @@
     "sectionCreated": "路段已创建",
     "sectionCreatedDescription": "您的自定义路段已创建，活动已匹配",
     "sectionCreationFailed": "创建路段失败，请重试。",
+    "sectionLargeWarning": "大型路段 - 可能影响性能",
     "sectionTooLarge": "路段太大，请选择较短的部分。",
+    "sectionTooLargeWarning": "路段可能太大无法保存",
     "sectionTooLargeWithHint": "路段太大，请至少缩短{{reduction}}。",
-    "legendSection": "路段",
-    "legendYourEffort": "您的表现",
-    "legendFullActivity": "完整活动",
-    "legendRoute": "路线",
-    "pointCountHint": "{{count}}个GPS点",
     "sectionsDescription": "当您多次经过相同的道路时，即使在不同的路线上，也会检测到路段",
     "selected": "已选择",
     "suggestion": "建议",
@@ -508,21 +553,19 @@
     "thisSpeed": "此速度",
     "visits": "访问",
     "waiting": "等待中...",
-    "firstRunHint": "Run this route again to compare your performance over time",
-    "expandInSettings": "Expand in Settings",
-    "dataRangeHint": "Based on {{duration}} of activity data"
+    "pr": "PR"
   },
   "routesScreen": {
     "analysingRoutes": "正在分析路线 {{current}}/{{total}}",
     "computingRoutes": "正在计算路线...",
+    "dataRangeHint": "Based on {{duration}} of activity data",
     "downloadingGps": "下载轨迹数据",
     "enableInSettings": "在设置中启用路线匹配，以自动从您的活动中检测重复路线。",
     "expandDateRange": "扩展日期范围",
+    "expandInSettings": "Expand in Settings",
     "goToSettings": "前往设置",
     "matchingDisabled": "路线匹配已禁用",
-    "title": "路线",
-    "expandInSettings": "Expand in Settings",
-    "dataRangeHint": "Based on {{duration}} of activity data"
+    "title": "路线"
   },
   "sections": {
     "activities": "活动",
@@ -541,6 +584,7 @@
     "disabled": "已禁用",
     "duplicateNameMessage": "请选择一个不同的名称。每个区段必须有唯一的名称。",
     "duplicateNameTitle": "名称已存在",
+    "forward": "Forward",
     "lastActivity": "最后活动",
     "noActivitiesFound": "未找到活动",
     "performanceOverTime": "历史表现",
@@ -552,8 +596,7 @@
     "sectionNamePlaceholder": "路段名称",
     "sectionNotFound": "未找到路段",
     "totalTraversals": "总通过次数",
-    "traversals": "次通过",
-    "forward": "Forward"
+    "traversals": "次通过"
   },
   "settings": {
     "account": "账户",
@@ -570,10 +613,10 @@
     "connectionMethod": "连接",
     "customiseByActivity": "按活动类型自定义",
     "dark": "深色",
-    "database": "数据库",
     "dataCache": "数据缓存",
     "dataSources": "数据来源",
     "dataSourcesDescription": "活动和健康数据从 intervals.icu 同步，该平台与各种健身平台和设备集成。",
+    "database": "数据库",
     "dateRange": "日期范围",
     "default": "默认",
     "defaultMapHint": "「默认」使用上方设置的地图样式",
@@ -639,6 +682,7 @@
     "completeDecouplingHint": "完成一次带功率和心率数据的持续性训练后即可查看脱耦分析",
     "completePowerActivities": "完成带功率的活动后即可查看您的 FTP 趋势",
     "createWorkoutsHint": "在 intervals.icu 创建训练即可在此查看",
+    "current": "当前",
     "daysCount": "{{count}} 天",
     "decouplingExplanation": "脱耦测量心脏漂移——在持续性训练中心率相对于功率输出上升的程度。越低越好，表示有氧能量产生效率高。",
     "efficiency": "效率",
@@ -670,6 +714,7 @@
     "paceCurve": "配速曲线",
     "powerCurve": "功率曲线",
     "powerZones": "功率区间",
+    "previous": "上一个",
     "race": "比赛",
     "seasonComparison": "赛季对比",
     "secondHalf": "后半程",
@@ -691,7 +736,9 @@
     "vsPrevious6Months": "vs 前 6 个月",
     "week": "周",
     "workoutLibrary": "训练库",
-    "year": "年"
+    "year": "年",
+    "distanceHalf": "Half",
+    "distanceMile": "Mile"
   },
   "statsScreen": {
     "days42": "42 天",
@@ -705,12 +752,16 @@
     "paceCurve": "配速曲线",
     "powerCurve": "功率曲线",
     "title": "表现",
-    "year1": "1 年"
+    "year1": "1 年",
+    "paceCurveInfo": "CS (critical speed) and D' are calculated using the 2 parameter model. Intervals.icu uses your best 1k, 2k, 3k, 4k and 5k times keeping those that take between 2 and 15+ minutes.",
+    "powerCurveInfo": "Estimated FTP is calculated using power curves from FastFitness.Tips and Morton's 3 parameter critical power model. The algorithm requires just 1 max effort of between 180 seconds and 30 minutes. W' is relative to eFTP.",
+    "ref": "Ref"
   },
   "time": {
     "current": "当前",
     "days": "Days",
     "daysAgo": "{{count}} 天前",
+    "daysCount": "{{count}} days",
     "months": "Months",
     "monthsAgo": "{{count}} 个月前",
     "now": "Now",
@@ -718,9 +769,8 @@
     "weeksAgo": "{{count}} 周前",
     "years": "Years",
     "yearsAgo": "{{count}} 年前",
-    "yesterday": "昨天",
-    "daysCount": "{{count}} days",
-    "yearsCount": "{{count}} years"
+    "yearsCount": "{{count}} years",
+    "yesterday": "昨天"
   },
   "trainingScreen": {
     "checkingActivities": "正在检查 {{count}} 个活动...",
@@ -769,7 +819,11 @@
     "smoothingHint": "自动为所选时间范围使用最佳平滑",
     "smoothingTitle": "数据平滑",
     "trendHint": "记录数据后，心率变异性、睡眠和静息心率趋势将显示在这里",
-    "weight": "体重"
+    "weight": "体重",
+    "auto": "Auto",
+    "dayAverage": "{{count}}-day average",
+    "none": "None",
+    "rawData": "Raw data"
   },
   "wellnessScreen": {
     "title": "健康",

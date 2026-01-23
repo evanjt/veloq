@@ -109,6 +109,7 @@ const ActivityRow = memo(function ActivityRow({
   bestTime,
   onHighlightChange,
 }: ActivityRowProps) {
+  const { t } = useTranslation();
   const handlePress = useCallback(() => {
     router.push(`/activity/${activity.id}`);
   }, [activity.id]);
@@ -209,7 +210,7 @@ const ActivityRow = memo(function ActivityRow({
           {isBest && (
             <View style={[styles.prBadge, { backgroundColor: colors.primary }]}>
               <MaterialCommunityIcons name="trophy" size={12} color={colors.textOnDark} />
-              <Text style={styles.prText}>PR</Text>
+              <Text style={styles.prText}>{t('routes.pr')}</Text>
             </View>
           )}
           {/* Rank badge for non-best performances (top 10) */}

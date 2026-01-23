@@ -337,20 +337,16 @@ const styles = StyleSheet.create({
   },
   variantChipDialect: {
     borderColor: brand.gold,
-    borderStyle: 'dotted',
   },
   variantChipDialectDark: {
     borderColor: brand.goldLight,
-    borderStyle: 'dotted',
   },
   variantChipDialectSelected: {
     borderColor: brand.gold,
-    borderStyle: 'dotted',
     borderWidth: 2,
   },
   variantChipDialectSelectedDark: {
     borderColor: brand.goldLight,
-    borderStyle: 'dotted',
     borderWidth: 2,
   },
   variantChipText: {
@@ -374,7 +370,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1.5,
     borderColor: brand.gold,
-    borderStyle: 'dotted',
     backgroundColor: colors.background,
     marginRight: spacing.sm,
   },

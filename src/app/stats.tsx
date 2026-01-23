@@ -311,11 +311,7 @@ export default function StatsScreen() {
             {/* Power Curve Info */}
             <View style={styles.infoFooter}>
               <Text style={[styles.infoText, isDark && styles.textDark]}>
-                Estimated FTP is calculated using power curves from FastFitness.Tips and Morton's 3
-                parameter critical power model. The algorithm requires just 1 max effort of between
-                180 seconds and 30 minutes. Note that all data for the selected power curves is used
-                and there is no decay so the eFTP value on the chart may differ to your current
-                eFTP. W' is relative to eFTP.
+                {t('statsScreen.powerCurveInfo')}
               </Text>
               <View style={styles.refLinks}>
                 <TouchableOpacity onPress={() => Linking.openURL('https://intervals.icu/power')}>
@@ -325,7 +321,7 @@ export default function StatsScreen() {
                 <TouchableOpacity
                   onPress={() => Linking.openURL('https://doi.org/10.1080/00140139608964484')}
                 >
-                  <Text style={styles.refLink}>Ref</Text>
+                  <Text style={styles.refLink}>{t('statsScreen.ref')}</Text>
                 </TouchableOpacity>
               </View>
               <Text style={[styles.garminNote, isDark && styles.textDark]}>
@@ -405,11 +401,11 @@ export default function StatsScreen() {
 
             {/* Pace Curve Info */}
             <View style={styles.infoFooter}>
-              <Text style={[styles.infoTextTitle, isDark && styles.textDark]}>Pace Curve</Text>
+              <Text style={[styles.infoTextTitle, isDark && styles.textDark]}>
+                {t('statsScreen.paceCurve')}
+              </Text>
               <Text style={[styles.infoText, isDark && styles.textDark]}>
-                CS (critical speed) and D' are calculated using the 2 parameter model. Intervals.icu
-                uses your best 1k, 2k, 3k, 4k and 5k times keeping those that take between 2 and 15+
-                minutes.
+                {t('statsScreen.paceCurveInfo')}
               </Text>
               <View style={styles.refLinks}>
                 <TouchableOpacity onPress={() => Linking.openURL('https://intervals.icu/pace')}>
@@ -421,7 +417,7 @@ export default function StatsScreen() {
                     Linking.openURL('https://www.tandfonline.com/doi/abs/10.1080/02640410500497642')
                   }
                 >
-                  <Text style={styles.refLink}>Ref</Text>
+                  <Text style={styles.refLink}>{t('statsScreen.ref')}</Text>
                 </TouchableOpacity>
                 <Text style={[styles.refSeparator, isDark && styles.textDark]}>•</Text>
                 <TouchableOpacity
@@ -429,18 +425,18 @@ export default function StatsScreen() {
                     Linking.openURL('http://www.georgeron.com/2020/04/Critical-Power-Concept.html')
                   }
                 >
-                  <Text style={styles.refLink}>Ref</Text>
+                  <Text style={styles.refLink}>{t('statsScreen.ref')}</Text>
                 </TouchableOpacity>
               </View>
             </View>
 
             {/* Power Curve Info (for runners with power meters) */}
             <View style={styles.infoFooter}>
-              <Text style={[styles.infoTextTitle, isDark && styles.textDark]}>Power Curve</Text>
+              <Text style={[styles.infoTextTitle, isDark && styles.textDark]}>
+                {t('statsScreen.powerCurve')}
+              </Text>
               <Text style={[styles.infoText, isDark && styles.textDark]}>
-                Estimated FTP is calculated using power curves from FastFitness.Tips and Morton's 3
-                parameter critical power model. The algorithm requires just 1 max effort of between
-                180 seconds and 30 minutes. W' is relative to eFTP.
+                {t('statsScreen.powerCurveInfo')}
               </Text>
               <View style={styles.refLinks}>
                 <TouchableOpacity onPress={() => Linking.openURL('https://intervals.icu/power')}>
@@ -450,7 +446,7 @@ export default function StatsScreen() {
                 <TouchableOpacity
                   onPress={() => Linking.openURL('https://doi.org/10.1080/00140139608964484')}
                 >
-                  <Text style={styles.refLink}>Ref</Text>
+                  <Text style={styles.refLink}>{t('statsScreen.ref')}</Text>
                 </TouchableOpacity>
               </View>
               <Text style={[styles.garminNote, isDark && styles.textDark]}>

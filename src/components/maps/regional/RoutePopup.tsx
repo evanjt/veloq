@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import { colors } from '@/theme/colors';
 import { typography } from '@/theme/typography';
@@ -27,6 +28,7 @@ interface RoutePopupProps {
 }
 
 export function RoutePopup({ route, bottom, onClose, onViewDetails }: RoutePopupProps) {
+  const { t } = useTranslation();
   const config = getActivityTypeConfig(route.type);
 
   // Get custom name from Rust engine (single source of truth)
@@ -76,7 +78,7 @@ export function RoutePopup({ route, bottom, onClose, onViewDetails }: RoutePopup
           accessibilityLabel="View route details"
           accessibilityRole="button"
         >
-          <Text style={styles.viewDetailsText}>View Details</Text>
+          <Text style={styles.viewDetailsText}>{t('maps.viewDetails')}</Text>
           <MaterialCommunityIcons name="chevron-right" size={20} color={colors.primary} />
         </TouchableOpacity>
       )}

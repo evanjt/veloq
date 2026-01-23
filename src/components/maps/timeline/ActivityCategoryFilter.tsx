@@ -119,7 +119,7 @@ export function ActivityCategoryFilter({
                 !isSelected && { color: config.color },
               ]}
             >
-              {config.label}
+              {t(`maps.activityTypes.${config.labelKey}`)}
             </Text>
           </TouchableOpacity>
         );

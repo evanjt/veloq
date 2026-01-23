@@ -96,6 +96,7 @@ function ActivityRow({
   rank,
   deltaFromPR,
 }: ActivityRowProps) {
+  const { t } = useTranslation();
   const handlePress = () => {
     router.push(`/activity/${activity.id}`);
   };
@@ -162,7 +163,7 @@ function ActivityRow({
           {isBest && (
             <View style={[styles.prBadge, { backgroundColor: colors.primary }]}>
               <MaterialCommunityIcons name="trophy" size={12} color={colors.textOnDark} />
-              <Text style={styles.prText}>PR</Text>
+              <Text style={styles.prText}>{t('routes.pr')}</Text>
             </View>
           )}
           {/* Rank badge for non-best performances */}

@@ -121,7 +121,9 @@
     "avgPace": "Gns tempo",
     "avgPower": "Gns kraft",
     "avgSpeed": "Gns hastighed",
+    "chartDisplayOptions": "Diagramvisningsindstillinger",
     "failedToLoad": "Kunne ikke indlæse aktivitet",
+    "fullscreenChart": "Fuldskærmsdiagram",
     "noMatchedSections": "Ingen matchede sektioner",
     "noMatchedSectionsDescription": "Sektioner, der matcher denne aktivitet, vises her",
     "noRouteMatch": "Ingen rutematch endnu",
@@ -155,10 +157,38 @@
     "recordedWith": "Optaget med {{device}}"
   },
   "cache": {
+    "addingActivities": "Tilføjer aktiviteter...",
+    "allActivitiesSynced": "Alle aktiviteter synkroniseret",
     "analyzingRoutes": "Analyzing routes",
     "analyzingRoutesProgress": "Analyzing routes... {{percent}}%",
+    "cancelled": "Annulleret",
+    "complete": "Fuldført",
+    "detectingSections": "Registrerer sektioner...",
+    "engineNotAvailable": "Motor ikke tilgængelig",
+    "fetchingGpsData": "Henter GPS-data...",
+    "loadingDemoGps": "Indlæser demo GPS-data...",
+    "nativeModuleUnavailable": "Nativt modul ikke tilgængeligt",
+    "noValidGpsData": "Ingen gyldige GPS-data",
+    "offlineUsingCached": "Offline - bruger cachede ruter",
+    "processingRoutes": "Behandler ruter...",
     "routeAnalysisComplete": "Route analysis complete",
+    "syncFailed": "Synkronisering fejlede",
+    "syncResetDiscarded": "Sync nulstillet - resultater kasseret",
     "syncingActivities": "Synkroniserer aktiviteter"
+  },
+  "chartTypes": {
+    "cad": "Kad",
+    "elev": "Højde",
+    "hr": "Puls",
+    "pace": "Tempo",
+    "power": "Effekt",
+    "speed": "Fart",
+    "dist": "Dist",
+    "alt": "Alt",
+    "temp": "Temp",
+    "watts": "Watts",
+    "movingTime": "Moving Time",
+    "elapsedTime": "Elapsed Time"
   },
   "common": {
     "activities": "activities",
@@ -191,44 +221,50 @@
   "emptyState": {
     "clearFilters": "Ryd filtre",
     "error": {
+      "dataRangeHint": "Based on {{duration}} of activity data",
       "description": "Vi kunne ikke indlæse dette indhold",
-      "title": "Noget gik galt",
-    "expandInSettings": "Expand in Settings",
-    "dataRangeHint": "Based on {{duration}} of activity data"
+      "expandInSettings": "Expand in Settings",
+      "title": "Noget gik galt"
     },
     "networkError": {
+      "dataRangeHint": "Based on {{duration}} of activity data",
       "description": "Tjek din internetforbindelse og prøv igen",
-      "title": "Forbindelsesfejl",
-    "expandInSettings": "Expand in Settings",
-    "dataRangeHint": "Based on {{duration}} of activity data"
+      "expandInSettings": "Expand in Settings",
+      "title": "Forbindelsesfejl"
     },
     "noActivities": {
+      "dataRangeHint": "Based on {{duration}} of activity data",
       "description": "Dine aktiviteter vises her, når du synkroniserer med Intervals.icu",
-      "title": "Ingen aktiviteter endnu",
-    "expandInSettings": "Expand in Settings",
-    "dataRangeHint": "Based on {{duration}} of activity data"
+      "expandInSettings": "Expand in Settings",
+      "title": "Ingen aktiviteter endnu"
     },
     "noData": {
+      "dataRangeHint": "Based on {{duration}} of activity data",
       "description": "Gennemfør nogle aktiviteter for at se din statistik",
-      "title": "Ingen data tilgængelig",
-    "expandInSettings": "Expand in Settings",
-    "dataRangeHint": "Based on {{duration}} of activity data"
+      "expandInSettings": "Expand in Settings",
+      "title": "Ingen data tilgængelig"
     },
     "noResults": {
+      "dataRangeHint": "Based on {{duration}} of activity data",
       "description": "Prøv at justere din søgning eller filtre",
-      "title": "Ingen resultater fundet",
-    "expandInSettings": "Expand in Settings",
-    "dataRangeHint": "Based on {{duration}} of activity data"
+      "expandInSettings": "Expand in Settings",
+      "title": "Ingen resultater fundet"
     },
     "offline": {
+      "dataRangeHint": "Based on {{duration}} of activity data",
       "description": "Nogle funktioner kan være begrænsede",
-      "title": "Du er offline",
-    "expandInSettings": "Expand in Settings",
-    "dataRangeHint": "Based on {{duration}} of activity data"
+      "expandInSettings": "Expand in Settings",
+      "title": "Du er offline"
     },
     "refresh": "Opdater"
   },
   "errorState": {
+    "chartLabels": {
+      "activityChart": "Aktivitetsdiagram",
+      "elevation": "Højde",
+      "fitnessChart": "Fitnessdiagram",
+      "heartRateZones": "Pulszoner"
+    },
     "defaultMessage": "Kunne ikke indlæse data. Prøv venligst igen.",
     "defaultTitle": "Noget gik galt",
     "tryAgain": "Prøv igen"
@@ -304,19 +340,25 @@
   },
   "heatmap": {
     "lastVisit": "Sidste besøg",
+    "routesLabel": "Ruter:",
     "showActivities": "Vis aktiviteter",
     "uniqueRoutes": "{{count}} unikke ruter",
     "visitedTimes": "Besøgt {{count}} gange"
   },
   "heatmapScreen": {
     "activitiesCount": "{{count}} aktiviteter",
+    "dataRangeHint": "Based on {{duration}} of activity data",
+    "expandInSettings": "Expand in Settings",
     "generatingHeatmap": "Genererer varmekort...",
     "goToRoutes": "Gå til Ruter",
     "noActivityData": "Ingen aktivitetsdata",
     "processFirstHint": "Behandl nogle aktiviteter på Ruter-skærmen først for at generere et varmekort.",
-    "title": "Varmekort",
-    "expandInSettings": "Expand in Settings",
-    "dataRangeHint": "Based on {{duration}} of activity data"
+    "title": "Varmekort"
+  },
+  "licenses": {
+    "footer": "Tryk pa et licensmærke for at se den fulde licenstekst. Tryk pa linkikonet for at besøge projektets repository.",
+    "intro": "Veloq er bygget med open source-software. Denne skærm viser tredjepartsbiblioteker og deres licenser.",
+    "title": "Tredjepartslicenser"
   },
   "login": {
     "apiKey": "API-nøgle",
@@ -337,11 +379,11 @@
     "invalidApiKey": "Ugyldig API-nøgle. Tjek venligst din nøgle og prøv igen.",
     "localModeNote": "Local mode: All data stays on your device",
     "loginWithIntervals": "Sign in with intervals.icu",
-    "oauthStateValidationFailed": "Sikkerhedskontrol mislykkedes. Prøv venligst at logge ind igen.",
     "noAccount": "New to intervals.icu?",
     "oauthFailed": "Sign in failed. Please try again.",
     "oauthInvalidCallback": "Invalid OAuth callback URL",
     "oauthNotConfigured": "OAuth is not configured. Use API key login instead.",
+    "oauthStateValidationFailed": "Sikkerhedskontrol mislykkedes. Prøv venligst at logge ind igen.",
     "openSettings": "Åbn Intervals.icu Indstillinger",
     "privacyPolicy": "Privacy Policy",
     "securityNote": "Dine legitimationsoplysninger gemmes sikkert på din enhed",
@@ -352,11 +394,6 @@
     "title": "Veloq",
     "tryDemo": "Prøv demo",
     "useApiKey": "Brug API-nøgle i stedet"
-  },
-  "licenses": {
-    "footer": "Tryk pa et licensmærke for at se den fulde licenstekst. Tryk pa linkikonet for at besøge projektets repository.",
-    "intro": "Veloq er bygget med open source-software. Denne skærm viser tredjepartsbiblioteker og deres licenser.",
-    "title": "Tredjepartslicenser"
   },
   "mapScreen": {
     "loadingActivities": "Indlæser aktiviteter...",
@@ -375,8 +412,11 @@
     "allClear": "Alle",
     "cached": "Cachelagret",
     "clear": "Ryd",
+    "closeHeatmapPopup": "Luk heatmap-popup",
     "closeMap": "Luk kort",
     "closePopup": "Luk aktivitets-popup",
+    "closeRoutePopup": "Luk rute-popup",
+    "closeSectionPopup": "Luk sektions-popup",
     "disable3D": "Deaktivér 3D-visning",
     "enable3D": "Aktivér 3D-visning",
     "goToLocation": "Gå til min placering",
@@ -444,17 +484,24 @@
     "checkingActivities": "Trin 1: Tjekker {{count}} aktiviteter...",
     "createSection": "Opret sektion",
     "custom": "Brugerdefineret",
+    "dataRangeHint": "Based on {{duration}} of activity data",
     "defaultActivityName": "Aktivitet {{number}}",
     "defaultRouteName": "{{type}} rute",
     "duplicateNameMessage": "Vælg venligst et andet navn. Hver rute skal have et unikt navn.",
     "duplicateNameTitle": "Navn findes allerede",
     "errorOccurred": "Der opstod en fejl",
+    "expandInSettings": "Expand in Settings",
     "expandTimeline": "Udvid tidslinjen for at analysere flere aktiviteter. Rutematchning fortsætter i baggrunden indtil den er færdig.",
     "fastest": "#{{rank}} hurtigste",
     "fetchingGpsData": "Trin 2: Henter spordata...",
+    "firstRunHint": "Run this route again to compare your performance over time",
     "foundPotentialMatches": "Fandt {{count}} potentielle match",
     "frequentSectionsInfo": "Hyppige sektioner er vejstrækninger, du ofte rejser på, registreret automatisk fra dine aktivitetsspor.",
     "groupingRoutes": "Trin 3: Grupperer ruter...",
+    "legendFullActivity": "Fuld aktivitet",
+    "legendRoute": "Rute",
+    "legendSection": "Sektion",
+    "legendYourEffort": "Din indsats",
     "loadingRoutes": "Indlæser ruter...",
     "loadingSections": "Indlæser sektioner...",
     "lookingForRoutes": "Leder efter matchende ruter...",
@@ -476,6 +523,7 @@
     "partOfRoutes": "Del af {{count}} rute",
     "partOfRoutesPlural": "Del af {{count}} ruter",
     "partial": "Delvis",
+    "pointCountHint": "{{count}} GPS-punkter",
     "potentialSectionDescription": "Du har brugt denne {{sport}}-sti {{count}} gange. Opret en sektion for at spore din præstation?",
     "readyToProcess": "Klar til at behandle",
     "reverse": "Omvendt",
@@ -491,13 +539,10 @@
     "sectionCreated": "Sektion oprettet",
     "sectionCreatedDescription": "Din brugerdefinerede sektion er oprettet, og aktiviteter er blevet matchet",
     "sectionCreationFailed": "Kunne ikke oprette sektion. Prøv venligst igen.",
+    "sectionLargeWarning": "Stor sektion - kan påvirke ydeevnen",
     "sectionTooLarge": "Sektionen er for stor. Prøv at vælge en kortere del.",
+    "sectionTooLargeWarning": "Sektionen er muligvis for stor til at gemme",
     "sectionTooLargeWithHint": "Sektionen er for stor. Prøv at gøre den mindst {{reduction}} kortere.",
-    "legendSection": "Sektion",
-    "legendYourEffort": "Din indsats",
-    "legendFullActivity": "Fuld aktivitet",
-    "legendRoute": "Rute",
-    "pointCountHint": "{{count}} GPS-punkter",
     "sectionsDescription": "Sektioner registreres, når du rejser de samme veje flere gange, selv på forskellige ruter",
     "selected": "Valgt",
     "suggestion": "Forslag",
@@ -508,21 +553,19 @@
     "thisSpeed": "Denne hastighed",
     "visits": "besøg",
     "waiting": "Venter...",
-    "firstRunHint": "Run this route again to compare your performance over time",
-    "expandInSettings": "Expand in Settings",
-    "dataRangeHint": "Based on {{duration}} of activity data"
+    "pr": "PR"
   },
   "routesScreen": {
     "analysingRoutes": "Analyserer ruter {{current}}/{{total}}",
     "computingRoutes": "Beregner ruter...",
+    "dataRangeHint": "Based on {{duration}} of activity data",
     "downloadingGps": "Downloader spor",
     "enableInSettings": "Aktivér rutematchning i Indstillinger for automatisk at registrere gentagne ruter fra dine aktiviteter.",
     "expandDateRange": "Udvid datointerval",
+    "expandInSettings": "Expand in Settings",
     "goToSettings": "Gå til Indstillinger",
     "matchingDisabled": "Rutematchning deaktiveret",
-    "title": "Ruter",
-    "expandInSettings": "Expand in Settings",
-    "dataRangeHint": "Based on {{duration}} of activity data"
+    "title": "Ruter"
   },
   "sections": {
     "activities": "Aktiviteter",
@@ -541,6 +584,7 @@
     "disabled": "Deaktiveret",
     "duplicateNameMessage": "Vælg venligst et andet navn. Hver sektion skal have et unikt navn.",
     "duplicateNameTitle": "Navn findes allerede",
+    "forward": "Forward",
     "lastActivity": "Seneste aktivitet",
     "noActivitiesFound": "Ingen aktiviteter fundet",
     "performanceOverTime": "Præstation over tid",
@@ -552,15 +596,12 @@
     "sectionNamePlaceholder": "Sektionsnavn",
     "sectionNotFound": "Sektion ikke fundet",
     "totalTraversals": "Samlede gennemkørsler",
-    "traversals": "gennemkørsler",
-    "forward": "Forward"
+    "traversals": "gennemkørsler"
   },
   "settings": {
     "account": "Konto",
     "activities": "Aktiviteter",
     "appearance": "Udseende",
-    "connectedViaApiKey": "Forbundet via API-nøgle",
-    "connectionMethod": "Forbindelse",
     "bounds": "Grænser",
     "cacheHint": "Cacher aktivitetsplaceringer og spor til verdenskort og rutematchning. Brug tidslinjen til at udvide datointervallet.",
     "cached": "Cached",
@@ -568,12 +609,14 @@
     "clearAllReload": "Ryd alt og genindlæs",
     "clearAllReloadDescription": "Dette vil rydde alle cachelagrede aktivitetsdata, aktivitetsspor og rutematchningsdata og derefter starte genindlæsning. Dette kan tage et par minutter.",
     "clearRouteDescription": "Dette vil rydde alle rutematchningsdata og straks genanalysere aktivitetsspor.",
+    "connectedViaApiKey": "Forbundet via API-nøgle",
+    "connectionMethod": "Forbindelse",
     "customiseByActivity": "Tilpas efter aktivitetstype",
     "dark": "Mørk",
-    "database": "Database",
     "dataCache": "Datacache",
     "dataSources": "Datakilder",
     "dataSourcesDescription": "Aktivitets- og velværedata synkroniseres fra intervals.icu, som integrerer med forskellige fitnessplatforme og enheder.",
+    "database": "Database",
     "dateRange": "Datointerval",
     "default": "Standard",
     "defaultMapHint": "'Standard' bruger kortstilen indstillet ovenfor",
@@ -639,6 +682,7 @@
     "completeDecouplingHint": "Gennemfør en vedvarende indsats med kraft- og pulsdata for at se afkoblingsanalyse",
     "completePowerActivities": "Gennemfør kraftbaserede aktiviteter for at se din FTP-tendens",
     "createWorkoutsHint": "Opret træninger på intervals.icu for at se dem her",
+    "current": "Nuværende",
     "daysCount": "{{count}} dage",
     "decouplingExplanation": "Afkobling måler hjertedrift - hvor meget din puls stiger i forhold til kraftudvikling under vedvarende indsatser. Lavere er bedre og indikerer effektiv aerob energiproduktion.",
     "efficiency": "Effektivitet",
@@ -670,6 +714,7 @@
     "paceCurve": "Tempokurve",
     "powerCurve": "Kraftkurve",
     "powerZones": "Kraftzoner",
+    "previous": "Forrige",
     "race": "Løb",
     "seasonComparison": "Sæsonsammenligning",
     "secondHalf": "Anden halvdel",
@@ -691,7 +736,9 @@
     "vsPrevious6Months": "vs forrige 6 måneder",
     "week": "Uge",
     "workoutLibrary": "Træningsbibliotek",
-    "year": "År"
+    "year": "År",
+    "distanceHalf": "Half",
+    "distanceMile": "Mile"
   },
   "statsScreen": {
     "days42": "42 dage",
@@ -705,12 +752,16 @@
     "paceCurve": "Tempokurve",
     "powerCurve": "Kraftkurve",
     "title": "Præstation",
-    "year1": "1 år"
+    "year1": "1 år",
+    "paceCurveInfo": "CS (critical speed) and D' are calculated using the 2 parameter model. Intervals.icu uses your best 1k, 2k, 3k, 4k and 5k times keeping those that take between 2 and 15+ minutes.",
+    "powerCurveInfo": "Estimated FTP is calculated using power curves from FastFitness.Tips and Morton's 3 parameter critical power model. The algorithm requires just 1 max effort of between 180 seconds and 30 minutes. W' is relative to eFTP.",
+    "ref": "Ref"
   },
   "time": {
     "current": "Nuværende",
     "days": "Days",
     "daysAgo": "{{count}} dage siden",
+    "daysCount": "{{count}} days",
     "months": "Months",
     "monthsAgo": "{{count}} måneder siden",
     "now": "Now",
@@ -718,9 +769,8 @@
     "weeksAgo": "{{count}} uger siden",
     "years": "Years",
     "yearsAgo": "{{count}} år siden",
-    "yesterday": "I går",
-    "daysCount": "{{count}} days",
-    "yearsCount": "{{count}} years"
+    "yearsCount": "{{count}} years",
+    "yesterday": "I går"
   },
   "trainingScreen": {
     "checkingActivities": "Tjekker {{count}} aktiviteter...",
@@ -769,7 +819,11 @@
     "smoothingHint": "Auto bruger optimal udglatning for det valgte tidsinterval",
     "smoothingTitle": "Dataudglatning",
     "trendHint": "HRV-, søvn- og hvilepulstendenser vises her, når data logges",
-    "weight": "Vægt"
+    "weight": "Vægt",
+    "auto": "Auto",
+    "dayAverage": "{{count}}-day average",
+    "none": "None",
+    "rawData": "Raw data"
   },
   "wellnessScreen": {
     "title": "Velvære",

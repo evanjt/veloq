@@ -229,7 +229,7 @@ export function SeasonComparison({
       {/* Legend */}
       <View style={styles.legend}>
         <View style={styles.legendRow}>
-          <Text style={[styles.legendTitle, isDark && styles.textLight]}>Current</Text>
+          <Text style={[styles.legendTitle, isDark && styles.textLight]}>{t('stats.current')}</Text>
           <View style={styles.legendItems}>
             <View style={styles.legendItem}>
               <View style={[styles.legendDot, { backgroundColor: colorCurrentNewer }]} />
@@ -246,7 +246,9 @@ export function SeasonComparison({
           </View>
         </View>
         <View style={styles.legendRow}>
-          <Text style={[styles.legendTitle, isDark && styles.textLight]}>Previous</Text>
+          <Text style={[styles.legendTitle, isDark && styles.textLight]}>
+            {t('stats.previous')}
+          </Text>
           <View style={styles.legendItems}>
             <View style={styles.legendItem}>
               <View style={[styles.legendDot, { backgroundColor: colorPreviousNewer }]} />
@@ -306,14 +308,18 @@ export function SeasonComparison({
         ) : (
           <>
             <View style={styles.summaryItem}>
-              <Text style={[styles.summaryLabel, isDark && styles.textDark]}>Current</Text>
+              <Text style={[styles.summaryLabel, isDark && styles.textDark]}>
+                {t('stats.current')}
+              </Text>
               <Text style={[styles.summaryValue, isDark && styles.textLight]}>
                 {totals.currentTotal}
                 {metricLabels[metric].unit}
               </Text>
             </View>
             <View style={styles.summaryItem}>
-              <Text style={[styles.summaryLabel, isDark && styles.textDark]}>Previous</Text>
+              <Text style={[styles.summaryLabel, isDark && styles.textDark]}>
+                {t('stats.previous')}
+              </Text>
               <Text style={[styles.summaryValue, isDark && styles.textLight]}>
                 {totals.previousTotal}
                 {metricLabels[metric].unit}

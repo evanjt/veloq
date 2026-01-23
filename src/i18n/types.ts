@@ -567,7 +567,10 @@ export interface TranslationResource {
     heartRate: string;
     maxHr: string;
     paceCurve: string;
+    paceCurveInfo: string;
     powerCurve: string;
+    powerCurveInfo: string;
+    ref: string;
     garminNote: string;
   };
 
@@ -594,6 +597,7 @@ export interface TranslationResource {
   routes: {
     basedOnActivities: string;
     firstRunHint: string;
+    pr: string;
     routesFound: string;
     sameDirection: string;
     reverse: string;
@@ -748,6 +752,12 @@ export interface TranslationResource {
     speed: string;
     pace: string;
     elev: string;
+    dist: string;
+    alt: string;
+    temp: string;
+    watts: string;
+    movingTime: string;
+    elapsedTime: string;
   };
 
   activityDetail: {
@@ -787,6 +797,10 @@ export interface TranslationResource {
   stats: {
     activityCalendar: string;
     activitiesCount: string;
+    current: string;
+    distanceHalf: string;
+    distanceMile: string;
+    previous: string;
     noActivityData: string;
     completeActivitiesHeatmap: string;
     less: string;
@@ -856,20 +870,27 @@ export interface TranslationResource {
   };
 
   wellness: {
-    noData: string;
+    auto: string;
     connectHint: string;
+    dayAverage: string;
+    dragToExplore: string;
+    hrs: string;
+    insightExtraRecovery: string;
+    insightGoodRecovery: string;
+    insightStable: string;
+    lastDays: string;
+    noData: string;
+    none: string;
+    noTrendData: string;
+    rawData: string;
     restingHR: string;
     sleep: string;
     sleepScore: string;
-    weight: string;
-    hrs: string;
-    insightGoodRecovery: string;
-    insightExtraRecovery: string;
-    insightStable: string;
-    noTrendData: string;
+    smoothingDescription: string;
+    smoothingHint: string;
+    smoothingTitle: string;
     trendHint: string;
-    dragToExplore: string;
-    lastDays: string;
+    weight: string;
   };
 
   fitness: {

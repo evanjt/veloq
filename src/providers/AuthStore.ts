@@ -2,6 +2,16 @@ import { create } from 'zustand';
 import * as SecureStore from 'expo-secure-store';
 import type { Athlete } from '@/types';
 
+// Lazy import to avoid circular dependencies
+function getRouteEngine() {
+  try {
+    const module = require('route-matcher-native');
+    return module.routeEngine || module.default?.routeEngine || null;
+  } catch {
+    return null;
+  }
+}
+
 const API_KEY_STORAGE_KEY = 'intervals_api_key';
 const ATHLETE_ID_STORAGE_KEY = 'intervals_athlete_id';
 const ACCESS_TOKEN_STORAGE_KEY = 'intervals_access_token';
@@ -77,6 +87,17 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       } else if (apiKey && athleteId) {
         authMethod = 'apiKey';
         isAuthenticated = true;
+      } else {
+        // No valid credentials found - clear any stale route engine data
+        // This handles the case where demo mode was active but app was restarted
+        // (demo mode doesn't persist, but SQLite cache does)
+        const engine = getRouteEngine();
+        if (engine) {
+          engine.clear();
+          if (__DEV__) {
+            console.log('[AuthStore] Cleared route engine - no persisted credentials');
+          }
+        }
       }
 
       set({

@@ -121,7 +121,9 @@
     "avgPace": "Avg Pace",
     "avgPower": "Avg Power",
     "avgSpeed": "Avg Speed",
+    "chartDisplayOptions": "Chart display options",
     "failedToLoad": "Failed to load activity",
+    "fullscreenChart": "Fullscreen chart",
     "noMatchedSections": "No matched sections",
     "noMatchedSectionsDescription": "Sections matching this activity will appear here",
     "noRouteMatch": "No route match yet",
@@ -155,10 +157,38 @@
     "recordedWith": "Recorded with {{device}}"
   },
   "cache": {
+    "addingActivities": "Adding activities...",
+    "allActivitiesSynced": "All activities synced",
     "analyzingRoutes": "Analysing routes",
     "analyzingRoutesProgress": "Analysing routes... {{percent}}%",
+    "cancelled": "Cancelled",
+    "complete": "Complete",
+    "detectingSections": "Detecting potential sections...",
+    "engineNotAvailable": "Engine not available",
+    "fetchingGpsData": "Fetching GPS data...",
+    "loadingDemoGps": "Loading demo GPS data...",
+    "nativeModuleUnavailable": "Native module unavailable",
+    "noValidGpsData": "No valid GPS data in fixtures",
+    "offlineUsingCached": "Offline - using cached routes",
+    "processingRoutes": "Processing routes...",
     "routeAnalysisComplete": "Route analysis complete",
+    "syncFailed": "Sync failed",
+    "syncResetDiscarded": "Sync reset - results discarded",
     "syncingActivities": "Syncing activities"
+  },
+  "chartTypes": {
+    "cad": "Cad",
+    "elev": "Elev",
+    "hr": "HR",
+    "pace": "Pace",
+    "power": "Power",
+    "speed": "Speed",
+    "dist": "Dist",
+    "alt": "Alt",
+    "temp": "Temp",
+    "watts": "Watts",
+    "movingTime": "Moving Time",
+    "elapsedTime": "Elapsed Time"
   },
   "common": {
     "activities": "activities",
@@ -191,44 +221,50 @@
   "emptyState": {
     "clearFilters": "Clear filters",
     "error": {
+      "dataRangeHint": "Based on {{duration}} of activity data",
       "description": "We couldn't load this content",
-      "title": "Something went wrong",
-    "expandInSettings": "Expand in Settings",
-    "dataRangeHint": "Based on {{duration}} of activity data"
+      "expandInSettings": "Expand in Settings",
+      "title": "Something went wrong"
     },
     "networkError": {
+      "dataRangeHint": "Based on {{duration}} of activity data",
       "description": "Check your internet connection and try again",
-      "title": "Connection error",
-    "expandInSettings": "Expand in Settings",
-    "dataRangeHint": "Based on {{duration}} of activity data"
+      "expandInSettings": "Expand in Settings",
+      "title": "Connection error"
     },
     "noActivities": {
+      "dataRangeHint": "Based on {{duration}} of activity data",
       "description": "Your activities will appear here once you sync with Intervals.icu",
-      "title": "No activities yet",
-    "expandInSettings": "Expand in Settings",
-    "dataRangeHint": "Based on {{duration}} of activity data"
+      "expandInSettings": "Expand in Settings",
+      "title": "No activities yet"
     },
     "noData": {
+      "dataRangeHint": "Based on {{duration}} of activity data",
       "description": "Complete some activities to see your stats",
-      "title": "No data available",
-    "expandInSettings": "Expand in Settings",
-    "dataRangeHint": "Based on {{duration}} of activity data"
+      "expandInSettings": "Expand in Settings",
+      "title": "No data available"
     },
     "noResults": {
+      "dataRangeHint": "Based on {{duration}} of activity data",
       "description": "Try adjusting your search or filters",
-      "title": "No results found",
-    "expandInSettings": "Expand in Settings",
-    "dataRangeHint": "Based on {{duration}} of activity data"
+      "expandInSettings": "Expand in Settings",
+      "title": "No results found"
     },
     "offline": {
+      "dataRangeHint": "Based on {{duration}} of activity data",
       "description": "Some features may be limited",
-      "title": "You're offline",
-    "expandInSettings": "Expand in Settings",
-    "dataRangeHint": "Based on {{duration}} of activity data"
+      "expandInSettings": "Expand in Settings",
+      "title": "You're offline"
     },
     "refresh": "Refresh"
   },
   "errorState": {
+    "chartLabels": {
+      "activityChart": "Activity Chart",
+      "elevation": "Elevation",
+      "fitnessChart": "Fitness Chart",
+      "heartRateZones": "Heart Rate Zones"
+    },
     "defaultMessage": "Failed to load data. Please try again.",
     "defaultTitle": "Something went wrong",
     "tryAgain": "Try Again"
@@ -304,19 +340,25 @@
   },
   "heatmap": {
     "lastVisit": "Last visit",
+    "routesLabel": "Routes:",
     "showActivities": "Show Activities",
     "uniqueRoutes": "{{count}} unique routes",
     "visitedTimes": "Visited {{count}} times"
   },
   "heatmapScreen": {
     "activitiesCount": "{{count}} activities",
+    "dataRangeHint": "Based on {{duration}} of activity data",
+    "expandInSettings": "Expand in Settings",
     "generatingHeatmap": "Generating heatmap...",
     "goToRoutes": "Go to Routes",
     "noActivityData": "No Activity Data",
     "processFirstHint": "Process some activities in the Routes screen first to generate a heatmap.",
-    "title": "Heatmap",
-    "expandInSettings": "Expand in Settings",
-    "dataRangeHint": "Based on {{duration}} of activity data"
+    "title": "Heatmap"
+  },
+  "licenses": {
+    "footer": "Tap any licence badge to view the full licence text. Tap the link icon to visit the project repository.",
+    "intro": "Veloq is built with open-source software. This screen lists the third-party libraries and their licences.",
+    "title": "Third-Party Licences"
   },
   "login": {
     "apiKey": "API Key",
@@ -353,11 +395,6 @@
     "tryDemo": "Try Demo",
     "useApiKey": "Use API Key instead"
   },
-  "licenses": {
-    "footer": "Tap any licence badge to view the full licence text. Tap the link icon to visit the project repository.",
-    "intro": "Veloq is built with open-source software. This screen lists the third-party libraries and their licences.",
-    "title": "Third-Party Licences"
-  },
   "mapScreen": {
     "loadingActivities": "Loading activities...",
     "syncing": "Syncing: {{completed}}/{{total}}"
@@ -375,8 +412,11 @@
     "allClear": "All",
     "cached": "Cached",
     "clear": "Clear",
+    "closeHeatmapPopup": "Close heatmap popup",
     "closeMap": "Close map",
     "closePopup": "Close activity popup",
+    "closeRoutePopup": "Close route popup",
+    "closeSectionPopup": "Close section popup",
     "disable3D": "Disable 3D view",
     "enable3D": "Enable 3D view",
     "goToLocation": "Go to my location",
@@ -444,17 +484,24 @@
     "checkingActivities": "Step 1: Checking {{count}} activities...",
     "createSection": "Create Section",
     "custom": "Custom",
+    "dataRangeHint": "Based on {{duration}} of activity data",
     "defaultActivityName": "Activity {{number}}",
     "defaultRouteName": "{{type}} Route",
     "duplicateNameMessage": "Please choose a different name. Each route must have a unique name.",
     "duplicateNameTitle": "Name Already Exists",
     "errorOccurred": "An error occurred",
+    "expandInSettings": "Expand in Settings",
     "expandTimeline": "Expand the timeline to analyse more activities. Route matching will continue in the background until complete.",
     "fastest": "#{{rank}} fastest",
     "fetchingGpsData": "Step 2: Fetching track data...",
+    "firstRunHint": "Run this route again to compare your performance over time",
     "foundPotentialMatches": "Found {{count}} potential matches",
     "frequentSectionsInfo": "Frequent sections are road sections you travel often, detected automatically from your activity tracks.",
     "groupingRoutes": "Step 3: Grouping routes...",
+    "legendFullActivity": "Full activity",
+    "legendRoute": "Route",
+    "legendSection": "Section",
+    "legendYourEffort": "Your effort",
     "loadingRoutes": "Loading routes...",
     "loadingSections": "Loading sections...",
     "lookingForRoutes": "Looking for matching routes...",
@@ -476,6 +523,7 @@
     "partOfRoutes": "Part of {{count}} route",
     "partOfRoutesPlural": "Part of {{count}} routes",
     "partial": "Partial",
+    "pointCountHint": "{{count}} GPS points",
     "potentialSectionDescription": "You've used this {{sport}} path {{count}} times. Create a section to track your performance?",
     "readyToProcess": "Ready to process",
     "reverse": "Reverse",
@@ -491,13 +539,10 @@
     "sectionCreated": "Section Created",
     "sectionCreatedDescription": "Your custom section has been created and activities have been matched",
     "sectionCreationFailed": "Failed to create section. Please try again.",
+    "sectionLargeWarning": "Large section - may affect performance",
     "sectionTooLarge": "Section is too large. Try selecting a shorter portion.",
+    "sectionTooLargeWarning": "Section may be too large to save",
     "sectionTooLargeWithHint": "Section is too large. Try making it at least {{reduction}} shorter.",
-    "legendSection": "Section",
-    "legendYourEffort": "Your effort",
-    "legendFullActivity": "Full activity",
-    "legendRoute": "Route",
-    "pointCountHint": "{{count}} GPS points",
     "sectionsDescription": "Sections are detected when you travel the same roads multiple times, even on different routes",
     "selected": "Selected",
     "suggestion": "Suggestion",
@@ -508,21 +553,19 @@
     "thisSpeed": "This speed",
     "visits": "visits",
     "waiting": "Waiting...",
-    "firstRunHint": "Run this route again to compare your performance over time",
-    "expandInSettings": "Expand in Settings",
-    "dataRangeHint": "Based on {{duration}} of activity data"
+    "pr": "PR"
   },
   "routesScreen": {
     "analysingRoutes": "Analysing routes {{current}}/{{total}}",
     "computingRoutes": "Computing routes...",
+    "dataRangeHint": "Based on {{duration}} of activity data",
     "downloadingGps": "Downloading tracks",
     "enableInSettings": "Enable route matching in Settings to automatically detect repeated routes from your activities.",
     "expandDateRange": "Expand date range",
+    "expandInSettings": "Expand in Settings",
     "goToSettings": "Go to Settings",
     "matchingDisabled": "Route Matching Disabled",
-    "title": "Routes",
-    "expandInSettings": "Expand in Settings",
-    "dataRangeHint": "Based on {{duration}} of activity data"
+    "title": "Routes"
   },
   "sections": {
     "activities": "Activities",
@@ -541,6 +584,7 @@
     "disabled": "Disabled",
     "duplicateNameMessage": "Please choose a different name. Each section must have a unique name.",
     "duplicateNameTitle": "Name Already Exists",
+    "forward": "Forward",
     "lastActivity": "Last Activity",
     "noActivitiesFound": "No activities found",
     "performanceOverTime": "Performance Over Time",
@@ -552,8 +596,7 @@
     "sectionNamePlaceholder": "Section name",
     "sectionNotFound": "Section not found",
     "totalTraversals": "Total Traversals",
-    "traversals": "traversals",
-    "forward": "Forward"
+    "traversals": "traversals"
   },
   "settings": {
     "account": "Account",
@@ -639,6 +682,7 @@
     "completeDecouplingHint": "Complete a sustained effort with power and heart rate data to see decoupling analysis",
     "completePowerActivities": "Complete power-based activities to see your FTP trend",
     "createWorkoutsHint": "Create workouts on intervals.icu to see them here",
+    "current": "Current",
     "daysCount": "{{count}} days",
     "decouplingExplanation": "Decoupling measures cardiac drift - how much your heart rate rises relative to power output during sustained efforts. Lower is better, indicating efficient aerobic energy production.",
     "efficiency": "Efficiency",
@@ -670,6 +714,7 @@
     "paceCurve": "Pace Curve",
     "powerCurve": "Power Curve",
     "powerZones": "Power Zones",
+    "previous": "Previous",
     "race": "Race",
     "seasonComparison": "Season Comparison",
     "secondHalf": "Second Half",
@@ -691,7 +736,9 @@
     "vsPrevious6Months": "vs previous 6 months",
     "week": "Week",
     "workoutLibrary": "Workout Library",
-    "year": "Year"
+    "year": "Year",
+    "distanceHalf": "Half",
+    "distanceMile": "Mile"
   },
   "statsScreen": {
     "days42": "42 Days",
@@ -705,12 +752,16 @@
     "paceCurve": "Pace Curve",
     "powerCurve": "Power Curve",
     "title": "Performance",
-    "year1": "1 Year"
+    "year1": "1 Year",
+    "paceCurveInfo": "CS (critical speed) and D' are calculated using the 2 parameter model. Intervals.icu uses your best 1k, 2k, 3k, 4k and 5k times keeping those that take between 2 and 15+ minutes.",
+    "powerCurveInfo": "Estimated FTP is calculated using power curves from FastFitness.Tips and Morton's 3 parameter critical power model. The algorithm requires just 1 max effort of between 180 seconds and 30 minutes. W' is relative to eFTP.",
+    "ref": "Ref"
   },
   "time": {
     "current": "Current",
     "days": "Days",
     "daysAgo": "{{count}} days ago",
+    "daysCount": "{{count}} days",
     "months": "Months",
     "monthsAgo": "{{count}} months ago",
     "now": "Now",
@@ -718,9 +769,8 @@
     "weeksAgo": "{{count}} weeks ago",
     "years": "Years",
     "yearsAgo": "{{count}} years ago",
-    "yesterday": "Yesterday",
-    "daysCount": "{{count}} days",
-    "yearsCount": "{{count}} years"
+    "yearsCount": "{{count}} years",
+    "yesterday": "Yesterday"
   },
   "trainingScreen": {
     "checkingActivities": "Checking {{count}} activities...",
@@ -769,7 +819,11 @@
     "smoothingHint": "Auto uses optimal smoothing for the selected time range",
     "smoothingTitle": "Data Smoothing",
     "trendHint": "HRV, sleep, and resting HR trends will appear here when data is logged",
-    "weight": "Weight"
+    "weight": "Weight",
+    "auto": "Auto",
+    "dayAverage": "{{count}}-day average",
+    "none": "None",
+    "rawData": "Raw data"
   },
   "wellnessScreen": {
     "title": "Wellness",

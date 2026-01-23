@@ -7,50 +7,54 @@ import { typography } from '@/theme/typography';
 import { spacing, layout } from '@/theme/spacing';
 import type { ActivityType } from '@/types';
 
+// Activity type label keys for translation
+type ActivityLabelKey = 'ride' | 'run' | 'swim' | 'walk' | 'hike' | 'other';
+
 // Main activity categories (matching theme colors)
+// Note: Labels are translation keys (maps.activityTypes.{key})
 export const ACTIVITY_CATEGORIES: Record<
   string,
   {
     color: string;
     icon: keyof typeof Ionicons.glyphMap;
-    label: string;
+    labelKey: ActivityLabelKey; // Translation key suffix (e.g., 'ride' -> maps.activityTypes.ride)
     types: string[]; // API types that belong to this category
   }
 > = {
   Ride: {
     color: colors.ride,
     icon: 'bicycle',
-    label: 'Ride',
+    labelKey: 'ride',
     types: ['Ride', 'VirtualRide', 'EBikeRide', 'MountainBikeRide', 'GravelRide', 'Velomobile'],
   },
   Run: {
     color: colors.run,
     icon: 'walk',
-    label: 'Run',
+    labelKey: 'run',
     types: ['Run', 'TrailRun', 'VirtualRun', 'Treadmill'],
   },
   Swim: {
     color: colors.swim,
     icon: 'water',
-    label: 'Swim',
+    labelKey: 'swim',
     types: ['Swim', 'OpenWaterSwim'],
   },
   Walk: {
     color: colors.walk,
     icon: 'footsteps',
-    label: 'Walk',
+    labelKey: 'walk',
     types: ['Walk'],
   },
   Hike: {
     color: colors.hike,
     icon: 'trail-sign',
-    label: 'Hike',
+    labelKey: 'hike',
     types: ['Hike'],
   },
   Other: {
     color: colors.workout,
     icon: 'fitness',
-    label: 'Other',
+    labelKey: 'other',
     types: [], // Catch-all for anything not in other categories
   },
 };
@@ -164,7 +168,7 @@ export function ActivityTypeFilter({
                   !isSelected && { color: config.color },
                 ]}
               >
-                {config.label}
+                {t(`maps.activityTypes.${config.labelKey}`)}
               </Text>
             </TouchableOpacity>
           );

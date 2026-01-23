@@ -121,7 +121,9 @@
     "avgPace": "平均ペース",
     "avgPower": "平均パワー",
     "avgSpeed": "平均速度",
+    "chartDisplayOptions": "グラフ表示オプション",
     "failedToLoad": "アクティビティの読み込みに失敗しました",
+    "fullscreenChart": "フルスクリーンチャート",
     "noMatchedSections": "一致する区間がありません",
     "noMatchedSectionsDescription": "このアクティビティに一致する区間がここに表示されます",
     "noRouteMatch": "ルートの一致がありません",
@@ -155,10 +157,38 @@
     "recordedWith": "{{device}}で記録"
   },
   "cache": {
+    "addingActivities": "アクティビティを追加中...",
+    "allActivitiesSynced": "すべてのアクティビティが同期されました",
     "analyzingRoutes": "Analyzing routes",
     "analyzingRoutesProgress": "Analyzing routes... {{percent}}%",
+    "cancelled": "キャンセルされました",
+    "complete": "完了",
+    "detectingSections": "セクションを検出中...",
+    "engineNotAvailable": "エンジンが利用できません",
+    "fetchingGpsData": "GPSデータを取得中...",
+    "loadingDemoGps": "デモGPSデータを読み込み中...",
+    "nativeModuleUnavailable": "ネイティブモジュールが利用できません",
+    "noValidGpsData": "有効なGPSデータがありません",
+    "offlineUsingCached": "オフライン - キャッシュされたルートを使用",
+    "processingRoutes": "ルートを処理中...",
     "routeAnalysisComplete": "Route analysis complete",
+    "syncFailed": "同期に失敗しました",
+    "syncResetDiscarded": "同期がリセットされました - 結果は破棄されました",
     "syncingActivities": "アクティビティを同期中"
+  },
+  "chartTypes": {
+    "cad": "ケイデンス",
+    "elev": "標高",
+    "hr": "心拍",
+    "pace": "ペース",
+    "power": "パワー",
+    "speed": "速度",
+    "dist": "Dist",
+    "alt": "Alt",
+    "temp": "Temp",
+    "watts": "Watts",
+    "movingTime": "Moving Time",
+    "elapsedTime": "Elapsed Time"
   },
   "common": {
     "activities": "activities",
@@ -191,44 +221,50 @@
   "emptyState": {
     "clearFilters": "フィルターをクリア",
     "error": {
+      "dataRangeHint": "Based on {{duration}} of activity data",
       "description": "このコンテンツを読み込めませんでした",
-      "title": "問題が発生しました",
-    "expandInSettings": "Expand in Settings",
-    "dataRangeHint": "Based on {{duration}} of activity data"
+      "expandInSettings": "Expand in Settings",
+      "title": "問題が発生しました"
     },
     "networkError": {
+      "dataRangeHint": "Based on {{duration}} of activity data",
       "description": "インターネット接続を確認して再試行してください",
-      "title": "接続エラー",
-    "expandInSettings": "Expand in Settings",
-    "dataRangeHint": "Based on {{duration}} of activity data"
+      "expandInSettings": "Expand in Settings",
+      "title": "接続エラー"
     },
     "noActivities": {
+      "dataRangeHint": "Based on {{duration}} of activity data",
       "description": "Intervals.icuと同期すると、アクティビティがここに表示されます",
-      "title": "まだアクティビティがありません",
-    "expandInSettings": "Expand in Settings",
-    "dataRangeHint": "Based on {{duration}} of activity data"
+      "expandInSettings": "Expand in Settings",
+      "title": "まだアクティビティがありません"
     },
     "noData": {
+      "dataRangeHint": "Based on {{duration}} of activity data",
       "description": "統計を見るにはアクティビティを完了してください",
-      "title": "データがありません",
-    "expandInSettings": "Expand in Settings",
-    "dataRangeHint": "Based on {{duration}} of activity data"
+      "expandInSettings": "Expand in Settings",
+      "title": "データがありません"
     },
     "noResults": {
+      "dataRangeHint": "Based on {{duration}} of activity data",
       "description": "検索やフィルターを調整してみてください",
-      "title": "結果が見つかりません",
-    "expandInSettings": "Expand in Settings",
-    "dataRangeHint": "Based on {{duration}} of activity data"
+      "expandInSettings": "Expand in Settings",
+      "title": "結果が見つかりません"
     },
     "offline": {
+      "dataRangeHint": "Based on {{duration}} of activity data",
       "description": "一部の機能が制限される場合があります",
-      "title": "オフラインです",
-    "expandInSettings": "Expand in Settings",
-    "dataRangeHint": "Based on {{duration}} of activity data"
+      "expandInSettings": "Expand in Settings",
+      "title": "オフラインです"
     },
     "refresh": "更新"
   },
   "errorState": {
+    "chartLabels": {
+      "activityChart": "アクティビティチャート",
+      "elevation": "標高",
+      "fitnessChart": "フィットネスチャート",
+      "heartRateZones": "心拍ゾーン"
+    },
     "defaultMessage": "データの読み込みに失敗しました。再試行してください。",
     "defaultTitle": "問題が発生しました",
     "tryAgain": "再試行"
@@ -304,19 +340,25 @@
   },
   "heatmap": {
     "lastVisit": "最終訪問",
+    "routesLabel": "ルート:",
     "showActivities": "アクティビティを表示",
     "uniqueRoutes": "{{count}}ユニークルート",
     "visitedTimes": "{{count}}回訪問"
   },
   "heatmapScreen": {
     "activitiesCount": "{{count}}件のアクティビティ",
+    "dataRangeHint": "Based on {{duration}} of activity data",
+    "expandInSettings": "Expand in Settings",
     "generatingHeatmap": "ヒートマップを生成中...",
     "goToRoutes": "ルートへ",
     "noActivityData": "アクティビティデータなし",
     "processFirstHint": "ヒートマップを生成するには、まずルート画面でアクティビティを処理してください。",
-    "title": "ヒートマップ",
-    "expandInSettings": "Expand in Settings",
-    "dataRangeHint": "Based on {{duration}} of activity data"
+    "title": "ヒートマップ"
+  },
+  "licenses": {
+    "footer": "ライセンスバッジをタップすると、完全なライセンステキストが表示されます。リンクアイコンをタップすると、プロジェクトリポジトリにアクセスできます。",
+    "intro": "Veloqはオープンソースソフトウェアで構築されています。この画面では、サードパーティライブラリとそのライセンスを一覧表示しています。",
+    "title": "サードパーティライセンス"
   },
   "login": {
     "apiKey": "APIキー",
@@ -353,11 +395,6 @@
     "tryDemo": "デモを試す",
     "useApiKey": "APIキーを使用"
   },
-  "licenses": {
-    "footer": "ライセンスバッジをタップすると、完全なライセンステキストが表示されます。リンクアイコンをタップすると、プロジェクトリポジトリにアクセスできます。",
-    "intro": "Veloqはオープンソースソフトウェアで構築されています。この画面では、サードパーティライブラリとそのライセンスを一覧表示しています。",
-    "title": "サードパーティライセンス"
-  },
   "mapScreen": {
     "loadingActivities": "アクティビティを読み込み中...",
     "syncing": "同期中: {{completed}}/{{total}}"
@@ -375,8 +412,11 @@
     "allClear": "すべて",
     "cached": "キャッシュ済み",
     "clear": "クリア",
+    "closeHeatmapPopup": "ヒートマップポップアップを閉じる",
     "closeMap": "マップを閉じる",
     "closePopup": "アクティビティポップアップを閉じる",
+    "closeRoutePopup": "ルートポップアップを閉じる",
+    "closeSectionPopup": "セクションポップアップを閉じる",
     "disable3D": "3Dビューを無効化",
     "enable3D": "3Dビューを有効化",
     "goToLocation": "現在地へ移動",
@@ -444,17 +484,24 @@
     "checkingActivities": "ステップ1: {{count}}件のアクティビティを確認中...",
     "createSection": "区間を作成",
     "custom": "カスタム",
+    "dataRangeHint": "Based on {{duration}} of activity data",
     "defaultActivityName": "アクティビティ {{number}}",
     "defaultRouteName": "{{type}}ルート",
     "duplicateNameMessage": "別の名前を選択してください。各ルートには一意の名前が必要です。",
     "duplicateNameTitle": "名前が既に存在します",
     "errorOccurred": "エラーが発生しました",
+    "expandInSettings": "Expand in Settings",
     "expandTimeline": "タイムラインを拡張してより多くのアクティビティを分析。ルートマッチングは完了までバックグラウンドで継続します。",
     "fastest": "#{{rank}}位",
     "fetchingGpsData": "ステップ2: トラックデータを取得中...",
+    "firstRunHint": "Run this route again to compare your performance over time",
     "foundPotentialMatches": "{{count}}件の候補を発見",
     "frequentSectionsInfo": "よく通る区間は、アクティビティトラックから自動検出された頻繁に通る道路セグメントです。",
     "groupingRoutes": "ステップ3: ルートをグループ化中...",
+    "legendFullActivity": "全アクティビティ",
+    "legendRoute": "ルート",
+    "legendSection": "区間",
+    "legendYourEffort": "あなたの実績",
     "loadingRoutes": "ルートを読み込み中...",
     "loadingSections": "区間を読み込み中...",
     "lookingForRoutes": "一致するルートを検索中...",
@@ -476,6 +523,7 @@
     "partOfRoutes": "{{count}}ルートの一部",
     "partOfRoutesPlural": "{{count}}ルートの一部",
     "partial": "部分一致",
+    "pointCountHint": "{{count}} GPSポイント",
     "potentialSectionDescription": "この{{sport}}パスを{{count}}回通りました。パフォーマンスを追跡するために区間を作成しますか？",
     "readyToProcess": "処理準備完了",
     "reverse": "逆方向",
@@ -491,13 +539,10 @@
     "sectionCreated": "区間を作成しました",
     "sectionCreatedDescription": "カスタム区間が作成され、アクティビティがマッチングされました",
     "sectionCreationFailed": "区間の作成に失敗しました。もう一度お試しください。",
+    "sectionLargeWarning": "大きなセクション - パフォーマンスに影響する可能性があります",
     "sectionTooLarge": "区間が大きすぎます。より短い部分を選択してください。",
+    "sectionTooLargeWarning": "セクションが大きすぎて保存できない可能性があります",
     "sectionTooLargeWithHint": "区間が大きすぎます。少なくとも{{reduction}}短くしてください。",
-    "legendSection": "区間",
-    "legendYourEffort": "あなたの実績",
-    "legendFullActivity": "全アクティビティ",
-    "legendRoute": "ルート",
-    "pointCountHint": "{{count}} GPSポイント",
     "sectionsDescription": "異なるルートでも同じ道を複数回通ると区間が検出されます",
     "selected": "選択中",
     "suggestion": "提案",
@@ -508,21 +553,19 @@
     "thisSpeed": "この速度",
     "visits": "訪問",
     "waiting": "待機中...",
-    "firstRunHint": "Run this route again to compare your performance over time",
-    "expandInSettings": "Expand in Settings",
-    "dataRangeHint": "Based on {{duration}} of activity data"
+    "pr": "PR"
   },
   "routesScreen": {
     "analysingRoutes": "ルート分析中 {{current}}/{{total}}",
     "computingRoutes": "ルート計算中...",
+    "dataRangeHint": "Based on {{duration}} of activity data",
     "downloadingGps": "トラックをダウンロード中",
     "enableInSettings": "設定でルートマッチングを有効にすると、アクティビティから繰り返しルートを自動検出します。",
     "expandDateRange": "日付範囲を拡張",
+    "expandInSettings": "Expand in Settings",
     "goToSettings": "設定へ",
     "matchingDisabled": "ルートマッチング無効",
-    "title": "ルート",
-    "expandInSettings": "Expand in Settings",
-    "dataRangeHint": "Based on {{duration}} of activity data"
+    "title": "ルート"
   },
   "sections": {
     "activities": "アクティビティ",
@@ -541,6 +584,7 @@
     "disabled": "無効",
     "duplicateNameMessage": "別の名前を選択してください。各セクションには一意の名前が必要です。",
     "duplicateNameTitle": "名前が既に存在します",
+    "forward": "Forward",
     "lastActivity": "最後のアクティビティ",
     "noActivitiesFound": "アクティビティが見つかりません",
     "performanceOverTime": "時系列パフォーマンス",
@@ -552,15 +596,12 @@
     "sectionNamePlaceholder": "区間名",
     "sectionNotFound": "区間が見つかりません",
     "totalTraversals": "合計通過回数",
-    "traversals": "通過回数",
-    "forward": "Forward"
+    "traversals": "通過回数"
   },
   "settings": {
     "account": "アカウント",
     "activities": "アクティビティ",
     "appearance": "外観",
-    "connectedViaApiKey": "APIキーで接続中",
-    "connectionMethod": "接続",
     "bounds": "範囲",
     "cacheHint": "ワールドマップとルートマッチング用にアクティビティの場所とトラックをキャッシュします。タイムラインを使用して日付範囲を拡張できます。",
     "cached": "Cached",
@@ -568,12 +609,14 @@
     "clearAllReload": "すべてクリアして再読み込み",
     "clearAllReloadDescription": "キャッシュされたすべてのアクティビティデータ、アクティビティトラック、ルートマッチングデータをクリアし、再読み込みを開始します。数分かかる場合があります。",
     "clearRouteDescription": "すべてのルートマッチングデータをクリアし、アクティビティトラックを即座に再分析します。",
+    "connectedViaApiKey": "APIキーで接続中",
+    "connectionMethod": "接続",
     "customiseByActivity": "アクティビティタイプ別にカスタマイズ",
     "dark": "ダーク",
     "dataCache": "データキャッシュ",
-    "database": "データベース",
     "dataSources": "データソース",
     "dataSourcesDescription": "アクティビティとウェルネスデータはintervals.icuから同期されます。intervals.icuは様々なフィットネスプラットフォームやデバイスと統合しています。",
+    "database": "データベース",
     "dateRange": "日付範囲",
     "default": "デフォルト",
     "defaultMapHint": "「デフォルト」は上記で設定したマップスタイルを使用",
@@ -639,6 +682,7 @@
     "completeDecouplingHint": "デカップリング分析を見るにはパワーと心拍データ付きの持続的な運動を完了してください",
     "completePowerActivities": "FTPトレンドを見るにはパワー付きアクティビティを完了してください",
     "createWorkoutsHint": "intervals.icuでワークアウトを作成するとここに表示されます",
+    "current": "現在",
     "daysCount": "{{count}}日",
     "decouplingExplanation": "デカップリングは心臓ドリフトを測定します - 持続的な運動中にパワー出力に対して心拍数がどれだけ上昇するかです。低いほど良く、効率的な有酸素エネルギー生成を示します。",
     "efficiency": "効率",
@@ -670,6 +714,7 @@
     "paceCurve": "ペースカーブ",
     "powerCurve": "パワーカーブ",
     "powerZones": "パワーゾーン",
+    "previous": "前回",
     "race": "レース",
     "seasonComparison": "シーズン比較",
     "secondHalf": "後半",
@@ -691,7 +736,9 @@
     "vsPrevious6Months": "vs 前6ヶ月",
     "week": "週",
     "workoutLibrary": "ワークアウトライブラリ",
-    "year": "年"
+    "year": "年",
+    "distanceHalf": "Half",
+    "distanceMile": "Mile"
   },
   "statsScreen": {
     "days42": "42日",
@@ -705,12 +752,16 @@
     "paceCurve": "ペースカーブ",
     "powerCurve": "パワーカーブ",
     "title": "パフォーマンス",
-    "year1": "1年"
+    "year1": "1年",
+    "paceCurveInfo": "CS (critical speed) and D' are calculated using the 2 parameter model. Intervals.icu uses your best 1k, 2k, 3k, 4k and 5k times keeping those that take between 2 and 15+ minutes.",
+    "powerCurveInfo": "Estimated FTP is calculated using power curves from FastFitness.Tips and Morton's 3 parameter critical power model. The algorithm requires just 1 max effort of between 180 seconds and 30 minutes. W' is relative to eFTP.",
+    "ref": "Ref"
   },
   "time": {
     "current": "現在",
     "days": "Days",
     "daysAgo": "{{count}}日前",
+    "daysCount": "{{count}} days",
     "months": "Months",
     "monthsAgo": "{{count}}ヶ月前",
     "now": "Now",
@@ -718,9 +769,8 @@
     "weeksAgo": "{{count}}週間前",
     "years": "Years",
     "yearsAgo": "{{count}}年前",
-    "yesterday": "昨日",
-    "daysCount": "{{count}} days",
-    "yearsCount": "{{count}} years"
+    "yearsCount": "{{count}} years",
+    "yesterday": "昨日"
   },
   "trainingScreen": {
     "checkingActivities": "{{count}}件のアクティビティを確認中...",
@@ -769,7 +819,11 @@
     "smoothingHint": "自動は選択した期間に最適な平滑化を使用します",
     "smoothingTitle": "データ平滑化",
     "trendHint": "データが記録されると、HRV、睡眠、安静時心拍のトレンドがここに表示されます",
-    "weight": "体重"
+    "weight": "体重",
+    "auto": "Auto",
+    "dayAverage": "{{count}}-day average",
+    "none": "None",
+    "rawData": "Raw data"
   },
   "wellnessScreen": {
     "title": "ウェルネス",

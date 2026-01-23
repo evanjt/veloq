@@ -51,15 +51,27 @@ interface SectionCreationOverlayProps {
 }
 
 /**
- * Get color based on section distance.
- * Green: <10km, Yellow: 10-30km, Orange: 30-50km, Red: >50km
+ * Get color based on section point count.
+ * Correlates with storage size (~65 bytes/point, 500KB limit ≈ 7,700 points).
+ * Green: <2000, Yellow: 2000-5000, Orange: 5000-7000, Red: >7000
  */
-function getSectionSizeColor(distanceMeters: number | null): string {
-  if (distanceMeters === null) return colors.primary;
-  if (distanceMeters < 10000) return colors.success;
-  if (distanceMeters < 30000) return '#FFC107';
-  if (distanceMeters < 50000) return '#FF9800';
+function getSectionSizeColor(pointCount: number | null): string {
+  if (pointCount === null) return colors.primary;
+  if (pointCount < 2000) return colors.success;
+  if (pointCount < 5000) return '#FFC107';
+  if (pointCount < 7000) return '#FF9800';
   return colors.error;
+}
+
+/**
+ * Get warning message for large sections.
+ * Returns null if section size is acceptable.
+ */
+function getSectionSizeWarning(pointCount: number | null): string | null {
+  if (pointCount === null) return null;
+  if (pointCount >= 7000) return 'Section may be too large to save';
+  if (pointCount >= 5000) return 'Large section - may affect performance';
+  return null;
 }
 
 /**
@@ -136,7 +148,8 @@ export function SectionCreationOverlay({
 
   const isComplete = state === 'complete';
   const hasSelection = startIndex !== null;
-  const statusColor = isComplete ? getSectionSizeColor(sectionDistance) : colors.primary;
+  const statusColor = isComplete ? getSectionSizeColor(sectionPointCount) : colors.primary;
+  const sizeWarning = isComplete ? getSectionSizeWarning(sectionPointCount) : null;
 
   return (
     <View style={styles.container} pointerEvents="box-none">
@@ -191,6 +204,12 @@ export function SectionCreationOverlay({
                   <Text style={styles.detailText}>
                     {t('routes.pointCountHint', { count: sectionPointCount })}
                   </Text>
+                </View>
+              )}
+              {sizeWarning && (
+                <View style={styles.warningRow}>
+                  <MaterialCommunityIcons name="alert-outline" size={14} color={statusColor} />
+                  <Text style={[styles.detailText, { color: statusColor }]}>{sizeWarning}</Text>
                 </View>
               )}
               {/* Reset option in expanded view */}
@@ -287,6 +306,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
+  },
+  warningRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    marginTop: spacing.xs,
   },
   detailText: {
     ...typography.caption,

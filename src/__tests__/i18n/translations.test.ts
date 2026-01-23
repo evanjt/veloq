@@ -15,7 +15,7 @@ import * as path from 'path';
 import { glob } from 'glob';
 
 // Reference locale (the source of truth)
-const REFERENCE_LOCALE = 'en-AU';
+const REFERENCE_LOCALE = 'en-US';
 
 // Path to locales directory
 const LOCALES_DIR = path.join(__dirname, '../../i18n/locales');

@@ -121,7 +121,9 @@
     "avgPace": "Gem. tempo",
     "avgPower": "Gem. vermogen",
     "avgSpeed": "Gem. snelh.",
+    "chartDisplayOptions": "Grafiekweergaveopties",
     "failedToLoad": "Activiteit laden mislukt",
+    "fullscreenChart": "Grafiek op volledig scherm",
     "noMatchedSections": "Geen overeenkomende secties",
     "noMatchedSectionsDescription": "Secties die overeenkomen met deze activiteit verschijnen hier",
     "noRouteMatch": "Nog geen route-overeenkomst",
@@ -155,10 +157,38 @@
     "recordedWith": "Opgenomen met {{device}}"
   },
   "cache": {
+    "addingActivities": "Activiteiten toevoegen...",
+    "allActivitiesSynced": "Alle activiteiten gesynchroniseerd",
     "analyzingRoutes": "Analyzing routes",
     "analyzingRoutesProgress": "Analyzing routes... {{percent}}%",
+    "cancelled": "Geannuleerd",
+    "complete": "Voltooid",
+    "detectingSections": "Secties detecteren...",
+    "engineNotAvailable": "Engine niet beschikbaar",
+    "fetchingGpsData": "GPS-gegevens ophalen...",
+    "loadingDemoGps": "Demo GPS-gegevens laden...",
+    "nativeModuleUnavailable": "Native module niet beschikbaar",
+    "noValidGpsData": "Geen geldige GPS-gegevens",
+    "offlineUsingCached": "Offline - gecachte routes gebruiken",
+    "processingRoutes": "Routes verwerken...",
     "routeAnalysisComplete": "Route analysis complete",
+    "syncFailed": "Synchronisatie mislukt",
+    "syncResetDiscarded": "Sync gereset - resultaten verwijderd",
     "syncingActivities": "Activiteiten synchroniseren"
+  },
+  "chartTypes": {
+    "cad": "Cad",
+    "elev": "Hoogte",
+    "hr": "HF",
+    "pace": "Tempo",
+    "power": "Verm",
+    "speed": "Snel",
+    "dist": "Dist",
+    "alt": "Alt",
+    "temp": "Temp",
+    "watts": "Watts",
+    "movingTime": "Moving Time",
+    "elapsedTime": "Elapsed Time"
   },
   "common": {
     "activities": "activities",
@@ -191,44 +221,50 @@
   "emptyState": {
     "clearFilters": "Filters wissen",
     "error": {
+      "dataRangeHint": "Based on {{duration}} of activity data",
       "description": "We konden deze inhoud niet laden",
-      "title": "Er ging iets mis",
-    "expandInSettings": "Expand in Settings",
-    "dataRangeHint": "Based on {{duration}} of activity data"
+      "expandInSettings": "Expand in Settings",
+      "title": "Er ging iets mis"
     },
     "networkError": {
+      "dataRangeHint": "Based on {{duration}} of activity data",
       "description": "Controleer je internetverbinding en probeer opnieuw",
-      "title": "Verbindingsfout",
-    "expandInSettings": "Expand in Settings",
-    "dataRangeHint": "Based on {{duration}} of activity data"
+      "expandInSettings": "Expand in Settings",
+      "title": "Verbindingsfout"
     },
     "noActivities": {
+      "dataRangeHint": "Based on {{duration}} of activity data",
       "description": "Je activiteiten verschijnen hier zodra je synchroniseert met Intervals.icu",
-      "title": "Nog geen activiteiten",
-    "expandInSettings": "Expand in Settings",
-    "dataRangeHint": "Based on {{duration}} of activity data"
+      "expandInSettings": "Expand in Settings",
+      "title": "Nog geen activiteiten"
     },
     "noData": {
+      "dataRangeHint": "Based on {{duration}} of activity data",
       "description": "Voltooi enkele activiteiten om je statistieken te zien",
-      "title": "Geen gegevens beschikbaar",
-    "expandInSettings": "Expand in Settings",
-    "dataRangeHint": "Based on {{duration}} of activity data"
+      "expandInSettings": "Expand in Settings",
+      "title": "Geen gegevens beschikbaar"
     },
     "noResults": {
+      "dataRangeHint": "Based on {{duration}} of activity data",
       "description": "Probeer je zoekopdracht of filters aan te passen",
-      "title": "Geen resultaten gevonden",
-    "expandInSettings": "Expand in Settings",
-    "dataRangeHint": "Based on {{duration}} of activity data"
+      "expandInSettings": "Expand in Settings",
+      "title": "Geen resultaten gevonden"
     },
     "offline": {
+      "dataRangeHint": "Based on {{duration}} of activity data",
       "description": "Sommige functies kunnen beperkt zijn",
-      "title": "Je bent offline",
-    "expandInSettings": "Expand in Settings",
-    "dataRangeHint": "Based on {{duration}} of activity data"
+      "expandInSettings": "Expand in Settings",
+      "title": "Je bent offline"
     },
     "refresh": "Vernieuwen"
   },
   "errorState": {
+    "chartLabels": {
+      "activityChart": "Activiteitgrafiek",
+      "elevation": "Hoogte",
+      "fitnessChart": "Fitnessgrafiek",
+      "heartRateZones": "Hartslagzones"
+    },
     "defaultMessage": "Gegevens laden mislukt. Probeer opnieuw.",
     "defaultTitle": "Er ging iets mis",
     "tryAgain": "Opnieuw proberen"
@@ -304,19 +340,25 @@
   },
   "heatmap": {
     "lastVisit": "Laatste bezoek",
+    "routesLabel": "Routes:",
     "showActivities": "Activiteiten tonen",
     "uniqueRoutes": "{{count}} unieke routes",
     "visitedTimes": "{{count}} keer bezocht"
   },
   "heatmapScreen": {
     "activitiesCount": "{{count}} activiteiten",
+    "dataRangeHint": "Based on {{duration}} of activity data",
+    "expandInSettings": "Expand in Settings",
     "generatingHeatmap": "Heatmap genereren...",
     "goToRoutes": "Naar Routes",
     "noActivityData": "Geen activiteitsgegevens",
     "processFirstHint": "Verwerk eerst enkele activiteiten in het Routes-scherm om een heatmap te genereren.",
-    "title": "Heatmap",
-    "expandInSettings": "Expand in Settings",
-    "dataRangeHint": "Based on {{duration}} of activity data"
+    "title": "Heatmap"
+  },
+  "licenses": {
+    "footer": "Tik op een licentiebadge om de volledige licentietekst te bekijken. Tik op het linkpictogram om de projectrepository te bezoeken.",
+    "intro": "Veloq is gebouwd met open-source software. Dit scherm toont de bibliotheken van derden en hun licenties.",
+    "title": "Licenties van Derden"
   },
   "login": {
     "apiKey": "API-sleutel",
@@ -353,11 +395,6 @@
     "tryDemo": "Demo proberen",
     "useApiKey": "Gebruik API-sleutel"
   },
-  "licenses": {
-    "footer": "Tik op een licentiebadge om de volledige licentietekst te bekijken. Tik op het linkpictogram om de projectrepository te bezoeken.",
-    "intro": "Veloq is gebouwd met open-source software. Dit scherm toont de bibliotheken van derden en hun licenties.",
-    "title": "Licenties van Derden"
-  },
   "mapScreen": {
     "loadingActivities": "Activiteiten laden...",
     "syncing": "Synchroniseren: {{completed}}/{{total}}"
@@ -375,8 +412,11 @@
     "allClear": "Alle",
     "cached": "Gecached",
     "clear": "Wissen",
+    "closeHeatmapPopup": "Heatmap-popup sluiten",
     "closeMap": "Kaart sluiten",
     "closePopup": "Activiteit-popup sluiten",
+    "closeRoutePopup": "Route-popup sluiten",
+    "closeSectionPopup": "Sectie-popup sluiten",
     "disable3D": "3D-weergave uitschakelen",
     "enable3D": "3D-weergave inschakelen",
     "goToLocation": "Naar mijn locatie",
@@ -444,17 +484,24 @@
     "checkingActivities": "Stap 1: {{count}} activiteiten controleren...",
     "createSection": "Sectie aanmaken",
     "custom": "Aangepast",
+    "dataRangeHint": "Based on {{duration}} of activity data",
     "defaultActivityName": "Activiteit {{number}}",
     "defaultRouteName": "{{type}} route",
     "duplicateNameMessage": "Kies een andere naam. Elke route moet een unieke naam hebben.",
     "duplicateNameTitle": "Naam bestaat al",
     "errorOccurred": "Er is een fout opgetreden",
+    "expandInSettings": "Expand in Settings",
     "expandTimeline": "Breid de tijdlijn uit om meer activiteiten te analyseren. Route-matching gaat op de achtergrond door tot voltooid.",
     "fastest": "#{{rank}} snelste",
     "fetchingGpsData": "Stap 2: Spoorgegevens laden...",
+    "firstRunHint": "Run this route again to compare your performance over time",
     "foundPotentialMatches": "{{count}} potentiële overeenkomsten gevonden",
     "frequentSectionsInfo": "Frequente secties zijn weggedeeltes die je vaak aflegt, automatisch gedetecteerd uit je activiteitssporen.",
     "groupingRoutes": "Stap 3: Routes groeperen...",
+    "legendFullActivity": "Volledige activiteit",
+    "legendRoute": "Route",
+    "legendSection": "Sectie",
+    "legendYourEffort": "Jouw inspanning",
     "loadingRoutes": "Routes laden...",
     "loadingSections": "Secties laden...",
     "lookingForRoutes": "Zoeken naar overeenkomende routes...",
@@ -476,6 +523,7 @@
     "partOfRoutes": "Onderdeel van {{count}} route",
     "partOfRoutesPlural": "Onderdeel van {{count}} routes",
     "partial": "Gedeeltelijk",
+    "pointCountHint": "{{count}} GPS-punten",
     "potentialSectionDescription": "Je hebt dit {{sport}}-pad {{count}} keer afgelegd. Een sectie aanmaken om je prestaties te volgen?",
     "readyToProcess": "Klaar om te verwerken",
     "reverse": "Omgekeerd",
@@ -491,13 +539,10 @@
     "sectionCreated": "Sectie aangemaakt",
     "sectionCreatedDescription": "Je aangepaste sectie is aangemaakt en activiteiten zijn gekoppeld",
     "sectionCreationFailed": "Sectie aanmaken mislukt. Probeer het opnieuw.",
+    "sectionLargeWarning": "Grote sectie - kan prestaties beïnvloeden",
     "sectionTooLarge": "Sectie is te groot. Probeer een korter gedeelte te selecteren.",
+    "sectionTooLargeWarning": "Sectie is mogelijk te groot om op te slaan",
     "sectionTooLargeWithHint": "Sectie is te groot. Probeer deze minstens {{reduction}} korter te maken.",
-    "legendSection": "Sectie",
-    "legendYourEffort": "Jouw inspanning",
-    "legendFullActivity": "Volledige activiteit",
-    "legendRoute": "Route",
-    "pointCountHint": "{{count}} GPS-punten",
     "sectionsDescription": "Secties worden gedetecteerd wanneer je dezelfde wegen meerdere keren aflegt, zelfs op verschillende routes",
     "selected": "Geselecteerd",
     "suggestion": "Suggestie",
@@ -508,21 +553,19 @@
     "thisSpeed": "Deze snelheid",
     "visits": "bezoeken",
     "waiting": "Wachten...",
-    "firstRunHint": "Run this route again to compare your performance over time",
-    "expandInSettings": "Expand in Settings",
-    "dataRangeHint": "Based on {{duration}} of activity data"
+    "pr": "PR"
   },
   "routesScreen": {
     "analysingRoutes": "Routes analyseren {{current}}/{{total}}",
     "computingRoutes": "Routes berekenen...",
+    "dataRangeHint": "Based on {{duration}} of activity data",
     "downloadingGps": "Sporen downloaden",
     "enableInSettings": "Schakel route-matching in via Instellingen om automatisch herhaalde routes uit je activiteiten te detecteren.",
     "expandDateRange": "Datumbereik uitbreiden",
+    "expandInSettings": "Expand in Settings",
     "goToSettings": "Naar Instellingen",
     "matchingDisabled": "Route-matching uitgeschakeld",
-    "title": "Routes",
-    "expandInSettings": "Expand in Settings",
-    "dataRangeHint": "Based on {{duration}} of activity data"
+    "title": "Routes"
   },
   "sections": {
     "activities": "Activiteiten",
@@ -541,6 +584,7 @@
     "disabled": "Uitgeschakeld",
     "duplicateNameMessage": "Kies een andere naam. Elke sectie moet een unieke naam hebben.",
     "duplicateNameTitle": "Naam bestaat al",
+    "forward": "Forward",
     "lastActivity": "Laatste activiteit",
     "noActivitiesFound": "Geen activiteiten gevonden",
     "performanceOverTime": "Prestaties door de tijd",
@@ -552,15 +596,12 @@
     "sectionNamePlaceholder": "Sectienaam",
     "sectionNotFound": "Sectie niet gevonden",
     "totalTraversals": "Totaal doorkruisingen",
-    "traversals": "doorgangen",
-    "forward": "Forward"
+    "traversals": "doorgangen"
   },
   "settings": {
     "account": "Account",
     "activities": "Activiteiten",
     "appearance": "Weergave",
-    "connectedViaApiKey": "Verbonden via API-sleutel",
-    "connectionMethod": "Verbinding",
     "bounds": "Grenzen",
     "cacheHint": "Slaat activiteitlocaties en sporen op voor Wereldkaart en route-matching. Gebruik de tijdlijn om het datumbereik uit te breiden.",
     "cached": "Cached",
@@ -568,18 +609,20 @@
     "clearAllReload": "Alles wissen & herladen",
     "clearAllReloadDescription": "Dit wist alle gecachte activiteitsgegevens, sporen en route-matching gegevens, en start het herladen. Dit kan enkele minuten duren.",
     "clearRouteDescription": "Dit wist alle route-matching gegevens en analyseert sporen onmiddellijk opnieuw.",
+    "connectedViaApiKey": "Verbonden via API-sleutel",
+    "connectionMethod": "Verbinding",
     "customiseByActivity": "Aanpassen per activiteitstype",
     "dark": "Donker",
-    "database": "Database",
     "dataCache": "Datacache",
     "dataSources": "Gegevensbronnen",
-    "demoMode": "Demomodus",
     "dataSourcesDescription": "Activiteits- en welzijnsgegevens worden gesynchroniseerd van intervals.icu, dat integreert met verschillende fitnessplatforms en apparaten.",
+    "database": "Database",
     "dateRange": "Datumbereik",
     "default": "Standaard",
     "defaultMapHint": "'Standaard' gebruikt de hierboven ingestelde kaartstijl",
     "defaultStyle": "Standaardstijl",
     "demoDataSources": "Demo-gegevensbronnen",
+    "demoMode": "Demomodus",
     "dialect": "Dialect",
     "disconnectAccount": "Account loskoppelen",
     "disconnectDescription": "Dit verwijdert je API-gegevens uit de app. Je moet ze opnieuw invoeren om de app te gebruiken.",
@@ -639,6 +682,7 @@
     "completeDecouplingHint": "Voltooi een langere inspanning met vermogens- en hartslaggegevens om de ontkoppelingsanalyse te zien",
     "completePowerActivities": "Voltooi activiteiten met vermogensmeter om je FTP-trend te zien",
     "createWorkoutsHint": "Maak workouts aan op intervals.icu om ze hier te zien",
+    "current": "Huidig",
     "daysCount": "{{count}} dagen",
     "decouplingExplanation": "Ontkoppeling meet hartdrift - hoeveel je hartslag stijgt ten opzichte van vermogensafgifte tijdens langdurige inspanningen. Lager is beter en duidt op efficiënte aerobe energieproductie.",
     "efficiency": "Efficiëntie",
@@ -670,6 +714,7 @@
     "paceCurve": "Tempocurve",
     "powerCurve": "Vermogenscurve",
     "powerZones": "Vermogenszones",
+    "previous": "Vorige",
     "race": "Wedstrijd",
     "seasonComparison": "Seizoensvergelijking",
     "secondHalf": "Tweede helft",
@@ -691,7 +736,9 @@
     "vsPrevious6Months": "vs vorige 6 maanden",
     "week": "Week",
     "workoutLibrary": "Workout-bibliotheek",
-    "year": "Jaar"
+    "year": "Jaar",
+    "distanceHalf": "Half",
+    "distanceMile": "Mile"
   },
   "statsScreen": {
     "days42": "42 Dagen",
@@ -705,12 +752,16 @@
     "paceCurve": "Tempocurve",
     "powerCurve": "Vermogenscurve",
     "title": "Prestaties",
-    "year1": "1 Jaar"
+    "year1": "1 Jaar",
+    "paceCurveInfo": "CS (critical speed) and D' are calculated using the 2 parameter model. Intervals.icu uses your best 1k, 2k, 3k, 4k and 5k times keeping those that take between 2 and 15+ minutes.",
+    "powerCurveInfo": "Estimated FTP is calculated using power curves from FastFitness.Tips and Morton's 3 parameter critical power model. The algorithm requires just 1 max effort of between 180 seconds and 30 minutes. W' is relative to eFTP.",
+    "ref": "Ref"
   },
   "time": {
     "current": "Huidig",
     "days": "Days",
     "daysAgo": "{{count}} dagen geleden",
+    "daysCount": "{{count}} days",
     "months": "Months",
     "monthsAgo": "{{count}} maanden geleden",
     "now": "Now",
@@ -718,9 +769,8 @@
     "weeksAgo": "{{count}} weken geleden",
     "years": "Years",
     "yearsAgo": "{{count}} jaar geleden",
-    "yesterday": "Gisteren",
-    "daysCount": "{{count}} days",
-    "yearsCount": "{{count}} years"
+    "yearsCount": "{{count}} years",
+    "yesterday": "Gisteren"
   },
   "trainingScreen": {
     "checkingActivities": "{{count}} activiteiten controleren...",
@@ -769,7 +819,11 @@
     "smoothingHint": "Auto gebruikt optimale smoothing voor het geselecteerde tijdsbereik",
     "smoothingTitle": "Data smoothing",
     "trendHint": "HRV-, slaap- en rusthartslag-trends verschijnen hier wanneer gegevens worden gelogd",
-    "weight": "Gewicht"
+    "weight": "Gewicht",
+    "auto": "Auto",
+    "dayAverage": "{{count}}-day average",
+    "none": "None",
+    "rawData": "Raw data"
   },
   "wellnessScreen": {
     "title": "Welzijn",
