@@ -23,7 +23,7 @@ include_directories(
     ${UNIFFI_BINDGEN_PATH}/cpp/includes
 )
 
-add_library(veloqrs            SHARED
+add_library(veloqrs_jni            SHARED
     ../cpp/veloqrs.cpp
     ../cpp/generated/veloqrs.cpp
     cpp-adapter.cpp
@@ -58,9 +58,9 @@ endif()
 # https://github.com/react-native-community/discussions-and-proposals/discussions/816
 # This if-then-else can be removed once this library does not support version below 0.76
 if (REACTNATIVE_MERGED_SO)
-  target_link_libraries(veloqrs ReactAndroid::reactnative)
+  target_link_libraries(veloqrs_jni ReactAndroid::reactnative)
 else()
-  target_link_libraries(veloqrs
+  target_link_libraries(veloqrs_jni
     ReactAndroid::turbomodulejsijni
     ReactAndroid::react_nativemodule_core
   )
@@ -68,7 +68,7 @@ endif()
 
 find_package(fbjni REQUIRED CONFIG)
 target_link_libraries(
-  veloqrs
+  veloqrs_jni
   fbjni::fbjni
   ReactAndroid::jsi
   ${LOGCAT}

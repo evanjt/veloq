@@ -64,13 +64,18 @@ function normalizeSectionData(
 ): SectionRowData {
   // Check if it's a FrequentSection (has activityIds array)
   if ('activityIds' in section && Array.isArray(section.activityIds)) {
+    // Use activityCount if available (preserved from SectionSummary), else count array
+    const activityCount =
+      'activityCount' in section && typeof section.activityCount === 'number'
+        ? section.activityCount
+        : section.activityIds.length;
     return {
       id: section.id,
       name: section.name,
       sportType: section.sportType,
       distanceMeters: section.distanceMeters,
       visitCount: section.visitCount,
-      activityCount: section.activityIds.length,
+      activityCount,
       routeCount: 'routeIds' in section ? section.routeIds?.length : undefined,
       polyline: section.polyline,
     };
@@ -129,12 +134,14 @@ export const SectionRow = memo(function SectionRow({
 
   // Lazy-load polyline if not provided (e.g., when using SectionSummary)
   // This is fast - Rust query with LRU caching
+  // Note: Check length, not truthiness - empty array [] is truthy but means "not loaded"
   const { polyline: lazyPolyline } = useSectionPolyline(
-    section.polyline ? null : section.id // Only fetch if not already provided
+    section.polyline?.length ? null : section.id
   );
 
   // Use provided polyline or lazy-loaded one
-  const polyline = section.polyline || lazyPolyline;
+  // Note: Check length, not truthiness - empty array [] is truthy
+  const polyline = section.polyline?.length ? section.polyline : lazyPolyline;
 
   // Debug: log touch events
   const handlePressIn = () => {

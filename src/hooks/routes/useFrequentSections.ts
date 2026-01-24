@@ -37,7 +37,9 @@ export interface UseFrequentSectionsResult {
  * Convert SectionSummary to FrequentSection-like object.
  * Polylines are lazy-loaded via useSectionPolyline in SectionRow.
  */
-function summaryToFrequentSection(summary: SectionSummary): FrequentSection {
+function summaryToFrequentSection(
+  summary: SectionSummary
+): FrequentSection & { activityCount: number } {
   return {
     id: summary.id,
     name: summary.name,
@@ -48,6 +50,7 @@ function summaryToFrequentSection(summary: SectionSummary): FrequentSection {
     visitCount: summary.visitCount,
     distanceMeters: summary.distanceMeters,
     confidence: summary.confidence,
+    activityCount: summary.activityCount, // Preserve for display
   };
 }
 

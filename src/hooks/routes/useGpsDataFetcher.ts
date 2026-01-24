@@ -370,6 +370,9 @@ export function useGpsDataFetcher() {
           await new Promise((resolve) => setTimeout(resolve, pollInterval));
         }
 
+        // Section detection complete - refresh groups now that they're computed
+        routeEngine.triggerRefresh('groups');
+
         // Run potential section detection after regular detection completes
         if (isMountedRef.current && !abortSignal.aborted) {
           await runPotentialSectionDetection(nativeModule, updateProgress);
@@ -678,6 +681,9 @@ export function useGpsDataFetcher() {
 
           await new Promise((resolve) => setTimeout(resolve, pollInterval));
         }
+
+        // Section detection complete - refresh groups now that they're computed
+        routeEngine.triggerRefresh('groups');
 
         // Run potential section detection
         if (isMountedRef.current && !abortSignal.aborted) {
