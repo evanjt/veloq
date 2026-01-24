@@ -97,3 +97,6 @@ config/fastlane/vendor/bundle
 # E2E test artifacts
 artifacts/
 screenshots/
+
+# Worktrees
+.worktrees/

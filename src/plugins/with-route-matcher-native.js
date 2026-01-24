@@ -160,29 +160,98 @@ async function downloadIOSFramework(version) {
 }
 
 /**
+ * Detect connected Android device architecture via ADB.
+ */
+function detectAndroidArch() {
+  try {
+    // Get list of connected devices
+    const devices = execSync("adb devices 2>/dev/null", { encoding: "utf8" })
+      .split("\n")
+      .filter((line) => line.includes("\tdevice"))
+      .map((line) => line.split("\t")[0]);
+
+    if (devices.length === 0) return null;
+
+    // Get primary ABI from first device
+    const abi = execSync(`adb -s ${devices[0]} shell getprop ro.product.cpu.abi 2>/dev/null`, {
+      encoding: "utf8",
+    }).trim();
+
+    return abi || null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Build Android native libraries from source using cargo-ndk.
+ * Only builds for detected device arch, or all if no device connected.
+ * Copies from tracematch/target if already built, otherwise builds.
  */
 function buildAndroidFromSource() {
-  console.log("  Building Android libs from source...");
   const cratePath = path.resolve(PROJECT_ROOT, "../tracematch");
   const jniLibsDir = path.join(MODULE_DIR, "android/src/main/jniLibs");
 
-  const targets = [
+  const allTargets = [
     { rust: "aarch64-linux-android", android: "arm64-v8a" },
     { rust: "armv7-linux-androideabi", android: "armeabi-v7a" },
     { rust: "x86_64-linux-android", android: "x86_64" },
     { rust: "i686-linux-android", android: "x86" },
   ];
 
-  for (const { rust, android } of targets) {
-    console.log(`    Building for ${android}...`);
-    execSync(
-      `cargo ndk -t ${rust} --platform 24 -o "${jniLibsDir}" build --release`,
-      { cwd: cratePath, stdio: "inherit" }
-    );
+  // Detect device architecture
+  const detectedArch = detectAndroidArch();
+  let targets = allTargets;
+
+  if (detectedArch) {
+    const target = allTargets.find((t) => t.android === detectedArch);
+    if (target) {
+      targets = [target];
+      console.log(`  Detected device: ${detectedArch}`);
+    }
+  } else {
+    console.log("  No device detected, building all architectures");
   }
 
-  console.log("  Android build complete");
+  // Process each target
+  for (const { rust, android } of targets) {
+    const targetDir = path.join(jniLibsDir, android);
+    const localSo = path.join(targetDir, "libtracematch.so");
+    const tracematchSo = path.join(cratePath, "target", rust, "release", "libtracematch.so");
+
+    // Always clear local copy first
+    if (existsSync(localSo)) {
+      fs.unlinkSync(localSo);
+    }
+    mkdirSync(targetDir, { recursive: true });
+
+    // Check if pre-built exists in tracematch/target
+    if (existsSync(tracematchSo)) {
+      console.log(`    Copying ${android} from cache`);
+      fs.copyFileSync(tracematchSo, localSo);
+    } else {
+      // Build this architecture
+      console.log(`    Building ${android}...`);
+      execSync(
+        `cargo ndk -t ${rust} --platform 24 -o "${jniLibsDir}" build --release --features ffi`,
+        { cwd: cratePath, stdio: "inherit" }
+      );
+    }
+  }
+
+  // Write build info
+  const gitHash = execSync("git rev-parse --short HEAD", { cwd: cratePath, encoding: "utf8" }).trim();
+  let dirty = "";
+  try {
+    execSync("git diff --quiet", { cwd: cratePath });
+  } catch {
+    dirty = "-dirty";
+  }
+  const timestamp = new Date().toISOString().replace(/[:-]/g, "").slice(0, 15);
+  const buildInfo = path.join(jniLibsDir, "BUILD_INFO");
+  writeFileSync(buildInfo, `Build: ${gitHash}${dirty}-${timestamp}\nArchs: ${targets.map((t) => t.android).join(" ")}\nDate: ${new Date()}\n`);
+
+  console.log(`  Android ready: ${gitHash}${dirty}`);
 }
 
 /**

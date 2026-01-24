@@ -1,7 +1,7 @@
 /**
  * Hook for getting performance data for all activities in a route group.
  * Uses API-provided metrics (average_speed, etc.) instead of recalculating.
- * Match direction and percentage come from Rust engine's checkpoint-based matching.
+ * Match direction and percentage come from Rust engine's AMD-based matching.
  */
 
 import { useMemo } from 'react';
@@ -10,10 +10,10 @@ import { getRouteEngine } from '@/lib/native/routeEngine';
 import type { Activity, RouteGroup, MatchDirection } from '@/types';
 import { toActivityType } from '@/types';
 
-/** Match info returned from the Rust engine */
+/** Match info returned from the Rust engine (uses camelCase from serde) */
 interface RustMatchInfo {
-  activity_id: string;
-  match_percentage: number;
+  activityId: string;
+  matchPercentage: number;
   direction: string;
 }
 
@@ -39,7 +39,7 @@ export interface RoutePerformancePoint {
   isCurrent: boolean;
   /** Match direction: same, reverse, or partial */
   direction: MatchDirection;
-  /** Match percentage (0-100), undefined if not computed */
+  /** Match percentage (0-100), undefined if no match data */
   matchPercentage?: number;
 }
 
@@ -111,25 +111,29 @@ export function useRoutePerformances(
 
       // Get match data from Rust engine (includes direction and match_percentage)
       const json = engine.getRoutePerformances(engineGroup.groupId, activityId || '');
+      console.log('[useRoutePerformances] Raw JSON from engine:', json?.substring(0, 500));
       if (!json) return new Map();
 
       const parsed = JSON.parse(json);
       const performances = parsed.performances || [];
+      console.log('[useRoutePerformances] Parsed performances count:', performances.length);
+      if (performances.length > 0) {
+        console.log('[useRoutePerformances] First perf:', JSON.stringify(performances[0]));
+      }
 
-      // Build lookup map by activity ID
-      // Only include entries that have actual match_percentage computed (not 100% fallback)
+      // Build lookup map by activity ID (note: Rust uses camelCase via serde)
       const map = new Map<string, RustMatchInfo>();
       for (const perf of performances) {
-        // Only store if match_percentage exists and isn't the 100% fallback
-        // A real match percentage from checkpoint matching is rarely exactly 100
-        if (perf.match_percentage !== undefined && perf.match_percentage !== 100) {
-          map.set(perf.activity_id, {
-            activity_id: perf.activity_id,
-            match_percentage: perf.match_percentage,
+        // Check for both undefined and null (Option<f64> serializes as null when None)
+        if (perf.matchPercentage != null) {
+          map.set(perf.activityId, {
+            activityId: perf.activityId,
+            matchPercentage: perf.matchPercentage,
             direction: perf.direction ?? 'same',
           });
         }
       }
+      console.log('[useRoutePerformances] Match info map size:', map.size);
       return map;
     } catch {
       // Fallback if engine unavailable or JSON parsing fails
@@ -154,9 +158,9 @@ export function useRoutePerformances(
     );
 
     const points: RoutePerformancePoint[] = validActivities.map((activity) => {
-      // Get match info from Rust engine (undefined if not computed)
+      // Get match info from Rust engine - no fallbacks
       const matchInfo = matchInfoMap.get(activity.id);
-      const matchPercentage = matchInfo?.match_percentage;
+      const matchPercentage = matchInfo?.matchPercentage; // undefined if no match data
       const direction = (matchInfo?.direction ?? 'same') as MatchDirection;
 
       return {

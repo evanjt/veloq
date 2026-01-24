@@ -380,8 +380,10 @@ export default function RouteDetailScreen() {
 
   // Build match data from performances array
   const performancesMap = useMemo(() => {
-    const map: Record<string, { direction: string; matchPercentage?: number; duration: number }> =
-      {};
+    const map: Record<
+      string,
+      { direction: string; matchPercentage: number | undefined; duration: number }
+    > = {};
     for (const perf of performances) {
       map[perf.activityId] = {
         direction: perf.direction,
