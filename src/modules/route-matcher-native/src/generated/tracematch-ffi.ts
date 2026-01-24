@@ -55,6 +55,9 @@ interface NativeModuleInterface {
     config: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
+  ubrn_uniffi_tracematch_fn_func_get_download_progress(
+    uniffi_out_err: UniffiRustCallStatus
+  ): Uint8Array;
   ubrn_uniffi_tracematch_fn_func_persistent_engine_add_activities(
     activityIds: Uint8Array,
     allCoords: Uint8Array,
@@ -238,6 +241,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_tracematch_checksum_func_fetch_activity_maps_with_progress(): number;
   ubrn_uniffi_tracematch_checksum_func_ffi_detect_sections_multiscale(): number;
   ubrn_uniffi_tracematch_checksum_func_ffi_generate_heatmap(): number;
+  ubrn_uniffi_tracematch_checksum_func_get_download_progress(): number;
   ubrn_uniffi_tracematch_checksum_func_persistent_engine_add_activities(): number;
   ubrn_uniffi_tracematch_checksum_func_persistent_engine_add_custom_section(): number;
   ubrn_uniffi_tracematch_checksum_func_persistent_engine_cancel_section_detection(): number;

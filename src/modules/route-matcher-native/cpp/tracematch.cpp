@@ -125,6 +125,8 @@ RustBuffer uniffi_tracematch_fn_func_ffi_detect_sections_multiscale(
 RustBuffer uniffi_tracematch_fn_func_ffi_generate_heatmap(
     RustBuffer signatures, RustBuffer activity_data, RustBuffer config,
     RustCallStatus *uniffi_out_err);
+RustBuffer
+uniffi_tracematch_fn_func_get_download_progress(RustCallStatus *uniffi_out_err);
 void uniffi_tracematch_fn_func_persistent_engine_add_activities(
     RustBuffer activity_ids, RustBuffer all_coords, RustBuffer offsets,
     RustBuffer sport_types, RustCallStatus *uniffi_out_err);
@@ -363,6 +365,7 @@ uint16_t uniffi_tracematch_checksum_func_fetch_activity_maps();
 uint16_t uniffi_tracematch_checksum_func_fetch_activity_maps_with_progress();
 uint16_t uniffi_tracematch_checksum_func_ffi_detect_sections_multiscale();
 uint16_t uniffi_tracematch_checksum_func_ffi_generate_heatmap();
+uint16_t uniffi_tracematch_checksum_func_get_download_progress();
 uint16_t uniffi_tracematch_checksum_func_persistent_engine_add_activities();
 uint16_t uniffi_tracematch_checksum_func_persistent_engine_add_custom_section();
 uint16_t
@@ -2205,6 +2208,17 @@ NativeTracematch::NativeTracematch(
             return this->cpp_uniffi_tracematch_fn_func_ffi_generate_heatmap(
                 rt, thisVal, args, count);
           });
+  props["ubrn_uniffi_tracematch_fn_func_get_download_progress"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt, "ubrn_uniffi_tracematch_fn_func_get_download_progress"),
+          0,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_uniffi_tracematch_fn_func_get_download_progress(
+                rt, thisVal, args, count);
+          });
   props["ubrn_uniffi_tracematch_fn_func_persistent_engine_add_activities"] =
       jsi::Function::createFromHostFunction(
           rt,
@@ -2817,6 +2831,18 @@ NativeTracematch::NativeTracematch(
                  const jsi::Value *args, size_t count) -> jsi::Value {
             return this
                 ->cpp_uniffi_tracematch_checksum_func_ffi_generate_heatmap(
+                    rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_tracematch_checksum_func_get_download_progress"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt, "ubrn_uniffi_tracematch_checksum_func_get_download_progress"),
+          0,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_tracematch_checksum_func_get_download_progress(
                     rt, thisVal, args, count);
           });
   props["ubrn_uniffi_tracematch_checksum_func_persistent_engine_add_"
@@ -3589,6 +3615,18 @@ jsi::Value NativeTracematch::cpp_uniffi_tracematch_fn_func_ffi_generate_heatmap(
 
   return uniffi::tracematch::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
 }
+jsi::Value
+NativeTracematch::cpp_uniffi_tracematch_fn_func_get_download_progress(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::tracematch::Bridging<RustCallStatus>::rustSuccess(rt);
+  auto value = uniffi_tracematch_fn_func_get_download_progress(&status);
+  uniffi::tracematch::Bridging<RustCallStatus>::copyIntoJs(
+      rt, callInvoker, status, args[count - 1]);
+
+  return uniffi::tracematch::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
+}
 jsi::Value NativeTracematch::
     cpp_uniffi_tracematch_fn_func_persistent_engine_add_activities(
         jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
@@ -4313,6 +4351,14 @@ NativeTracematch::cpp_uniffi_tracematch_checksum_func_ffi_generate_heatmap(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
     size_t count) {
   auto value = uniffi_tracematch_checksum_func_ffi_generate_heatmap();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value
+NativeTracematch::cpp_uniffi_tracematch_checksum_func_get_download_progress(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  auto value = uniffi_tracematch_checksum_func_get_download_progress();
 
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }

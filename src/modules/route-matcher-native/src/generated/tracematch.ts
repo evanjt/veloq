@@ -197,6 +197,25 @@ export function ffiGenerateHeatmap(
   );
 }
 /**
+ * Get current download progress for FFI polling.
+ *
+ * TypeScript should poll this every 100ms during fetch operations
+ * to get smooth progress updates without cross-thread callback issues.
+ *
+ * Returns DownloadProgressResult with completed/total/active fields.
+ * When active is false, the download has completed (or never started).
+ */
+export function getDownloadProgress(): DownloadProgressResult {
+  return FfiConverterTypeDownloadProgressResult.lift(
+    uniffiCaller.rustCall(
+      /*caller:*/ (callStatus) => {
+        return nativeModule().ubrn_uniffi_tracematch_fn_func_get_download_progress(callStatus);
+      },
+      /*liftString:*/ FfiConverterString.lift
+    )
+  );
+}
+/**
  * Add activities from flat coordinate buffers.
  * Coordinates are [lat1, lng1, lat2, lng2, ...] for each activity.
  */
@@ -1749,6 +1768,79 @@ const FfiConverterTypeDetectionStats = (() => {
 })();
 
 /**
+ * Result of polling download progress.
+ * Used by TypeScript to show real-time progress without cross-thread callbacks.
+ */
+export type DownloadProgressResult = {
+  /**
+   * Number of activities fetched so far
+   */
+  completed: /*u32*/ number;
+  /**
+   * Total number of activities to fetch
+   */
+  total: /*u32*/ number;
+  /**
+   * Whether a download is currently active
+   */
+  active: boolean;
+};
+
+/**
+ * Generated factory for {@link DownloadProgressResult} record objects.
+ */
+export const DownloadProgressResult = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<DownloadProgressResult, ReturnType<typeof defaults>>(defaults);
+  })();
+  return Object.freeze({
+    /**
+     * Create a frozen instance of {@link DownloadProgressResult}, with defaults specified
+     * in Rust, in the {@link tracematch} crate.
+     */
+    create,
+
+    /**
+     * Create a frozen instance of {@link DownloadProgressResult}, with defaults specified
+     * in Rust, in the {@link tracematch} crate.
+     */
+    new: create,
+
+    /**
+     * Defaults specified in the {@link tracematch} crate.
+     */
+    defaults: () => Object.freeze(defaults()) as Partial<DownloadProgressResult>,
+  });
+})();
+
+const FfiConverterTypeDownloadProgressResult = (() => {
+  type TypeName = DownloadProgressResult;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        completed: FfiConverterUInt32.read(from),
+        total: FfiConverterUInt32.read(from),
+        active: FfiConverterBool.read(from),
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      FfiConverterUInt32.write(value.completed, into);
+      FfiConverterUInt32.write(value.total, into);
+      FfiConverterBool.write(value.active, into);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterUInt32.allocationSize(value.completed) +
+        FfiConverterUInt32.allocationSize(value.total) +
+        FfiConverterBool.allocationSize(value.active)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * Result of fetching activity map data from intervals.icu
  */
 export type FfiActivityMapResult = {
@@ -2566,12 +2658,12 @@ const FfiConverterTypeHeatmapResult = (() => {
 export type MatchConfig = {
   /**
    * AMD threshold for perfect match (100%). Routes with AMD below this are considered identical.
-   * Default: 30.0 meters (accounts for GPS variance of 5-10m)
+   * Default: 15.0 meters (tighter threshold to show deviations)
    */
   perfectThreshold: /*f64*/ number;
   /**
    * AMD threshold for no match (0%). Routes with AMD above this are considered different.
-   * Default: 250.0 meters
+   * Default: 100.0 meters (tighter range for visible deviation percentages)
    */
   zeroThreshold: /*f64*/ number;
   /**
@@ -3228,9 +3320,9 @@ export type RoutePerformance = {
    */
   direction: string;
   /**
-   * Match percentage (0-100)
+   * Match percentage (0-100), None if no match data available
    */
-  matchPercentage: /*f64*/ number;
+  matchPercentage: /*f64*/ number | undefined;
 };
 
 /**
@@ -3278,7 +3370,7 @@ const FfiConverterTypeRoutePerformance = (() => {
         avgPower: FfiConverterOptionalUInt16.read(from),
         isCurrent: FfiConverterBool.read(from),
         direction: FfiConverterString.read(from),
-        matchPercentage: FfiConverterFloat64.read(from),
+        matchPercentage: FfiConverterOptionalFloat64.read(from),
       };
     }
     write(value: TypeName, into: RustBuffer): void {
@@ -3294,7 +3386,7 @@ const FfiConverterTypeRoutePerformance = (() => {
       FfiConverterOptionalUInt16.write(value.avgPower, into);
       FfiConverterBool.write(value.isCurrent, into);
       FfiConverterString.write(value.direction, into);
-      FfiConverterFloat64.write(value.matchPercentage, into);
+      FfiConverterOptionalFloat64.write(value.matchPercentage, into);
     }
     allocationSize(value: TypeName): number {
       return (
@@ -3310,7 +3402,7 @@ const FfiConverterTypeRoutePerformance = (() => {
         FfiConverterOptionalUInt16.allocationSize(value.avgPower) +
         FfiConverterBool.allocationSize(value.isCurrent) +
         FfiConverterString.allocationSize(value.direction) +
-        FfiConverterFloat64.allocationSize(value.matchPercentage)
+        FfiConverterOptionalFloat64.allocationSize(value.matchPercentage)
       );
     }
   }
@@ -4587,6 +4679,11 @@ function uniffiEnsureInitialized() {
       'uniffi_tracematch_checksum_func_ffi_generate_heatmap'
     );
   }
+  if (nativeModule().ubrn_uniffi_tracematch_checksum_func_get_download_progress() !== 26682) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      'uniffi_tracematch_checksum_func_get_download_progress'
+    );
+  }
   if (
     nativeModule().ubrn_uniffi_tracematch_checksum_func_persistent_engine_add_activities() !== 49919
   ) {
@@ -4963,6 +5060,7 @@ export default Object.freeze({
     FfiConverterTypeCustomSectionMatch,
     FfiConverterTypeCustomSectionMatchConfig,
     FfiConverterTypeDetectionStats,
+    FfiConverterTypeDownloadProgressResult,
     FfiConverterTypeFfiActivityMapResult,
     FfiConverterTypeFrequentSection,
     FfiConverterTypeGpsPoint,
