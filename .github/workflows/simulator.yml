@@ -174,27 +174,26 @@ jobs:
 
       - name: Generate UniFFI Bindings
         if: steps.app-cache.outputs.cache-hit != 'true'
-        working-directory: modules/veloqrs/rust
+        working-directory: modules/veloqrs
         run: |
-          # Generate Swift bindings from the Rust library
-          cargo run -p veloqrs --bin uniffi-bindgen generate \
-            --library target/aarch64-apple-ios-sim/release/libveloqrs.a \
-            --language swift \
-            --out-dir ../ios/Generated
-
-          echo "✓ Generated Swift bindings"
+          # Generate TypeScript/C++ bindings using uniffi-bindgen-react-native
+          npx uniffi-bindgen-react-native generate turbo-module veloqrs
+          echo "✓ Generated UniFFI bindings"
+          ls -la cpp/ cpp/generated/
 
       - name: Setup C++ files for CocoaPods
         if: steps.app-cache.outputs.cache-hit != 'true'
         run: |
           # Copy C++ files into module ios/cpp/ where CocoaPods can find them
-          # (TypeScript/C++ bindings are committed to repo)
           mkdir -p modules/veloqrs/ios/cpp
-          cp modules/veloqrs/cpp/veloq.h modules/veloqrs/ios/cpp/
-          cp modules/veloqrs/cpp/veloq.cpp modules/veloqrs/ios/cpp/
-          cp modules/veloqrs/cpp/tracematch.hpp modules/veloqrs/ios/cpp/
-          cp modules/veloqrs/cpp/tracematch.cpp modules/veloqrs/ios/cpp/
+          # Turbo module files
+          cp modules/veloqrs/cpp/veloqrs.h modules/veloqrs/ios/cpp/ 2>/dev/null || true
+          cp modules/veloqrs/cpp/veloqrs.cpp modules/veloqrs/ios/cpp/ 2>/dev/null || true
+          # Generated bindings
+          cp modules/veloqrs/cpp/generated/veloqrs.hpp modules/veloqrs/ios/cpp/ 2>/dev/null || true
+          cp modules/veloqrs/cpp/generated/veloqrs.cpp modules/veloqrs/ios/cpp/ 2>/dev/null || true
           echo "✓ Copied C++ files to module ios/cpp/"
+          ls -la modules/veloqrs/ios/cpp/
 
       - name: Cache iOS prebuild
         if: steps.app-cache.outputs.cache-hit != 'true'

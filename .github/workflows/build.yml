@@ -720,15 +720,26 @@ jobs:
           echo "✓ XCFramework created"
           ls -la ../ios/Frameworks/
 
+      - name: Generate UniFFI bindings for iOS
+        working-directory: modules/veloqrs
+        run: |
+          echo "=== Generating UniFFI C++/TypeScript bindings ==="
+          npx uniffi-bindgen-react-native generate turbo-module veloqrs
+          echo "✓ Generated bindings"
+          ls -la cpp/ cpp/generated/
+
       - name: Copy C++ files for iOS build
         run: |
           # Copy C++ files into module ios/cpp/ where CocoaPods can find them
           mkdir -p modules/veloqrs/ios/cpp
-          cp modules/veloqrs/cpp/veloq.h modules/veloqrs/ios/cpp/ 2>/dev/null || true
-          cp modules/veloqrs/cpp/veloq.cpp modules/veloqrs/ios/cpp/ 2>/dev/null || true
-          cp modules/veloqrs/cpp/veloqrs.hpp modules/veloqrs/ios/cpp/ 2>/dev/null || true
+          # Turbo module files
+          cp modules/veloqrs/cpp/veloqrs.h modules/veloqrs/ios/cpp/ 2>/dev/null || true
           cp modules/veloqrs/cpp/veloqrs.cpp modules/veloqrs/ios/cpp/ 2>/dev/null || true
+          # Generated bindings
+          cp modules/veloqrs/cpp/generated/veloqrs.hpp modules/veloqrs/ios/cpp/ 2>/dev/null || true
+          cp modules/veloqrs/cpp/generated/veloqrs.cpp modules/veloqrs/ios/cpp/ 2>/dev/null || true
           echo "✓ Copied C++ files to module ios/cpp/"
+          ls -la modules/veloqrs/ios/cpp/
 
       - name: Cache iOS prebuild
         id: ios-prebuild-cache
