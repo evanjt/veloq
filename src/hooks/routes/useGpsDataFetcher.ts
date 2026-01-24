@@ -16,6 +16,7 @@ import {
   detectSectionsMultiscale,
   gpsPointsToRoutePoints,
   SectionConfig,
+  getDownloadProgress,
   type RouteGroup,
   type ActivitySportType,
 } from 'route-matcher-native';
@@ -630,52 +631,47 @@ export function useGpsDataFetcher() {
         console.log(`[fetchApiGps] Starting fetch for ${activityIds.length} activities...`);
       }
 
-      // Batch activities to avoid blocking the JS thread for too long
-      // Large batches (50+) can cause ANR on Android due to blocking FFI
-      const BATCH_SIZE = 10;
-      const allResults: Awaited<ReturnType<typeof nativeModule.fetchActivityMapsWithProgress>> = [];
-
-      for (let i = 0; i < activityIds.length; i += BATCH_SIZE) {
-        const batchIds = activityIds.slice(i, i + BATCH_SIZE);
-
-        if (__DEV__) {
-          console.log(
-            `[fetchApiGps] Fetching batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(activityIds.length / BATCH_SIZE)} (${batchIds.length} activities)`
-          );
-        }
-
-        // Update progress between batches
-        if (isMountedRef.current) {
-          updateProgress((p) => ({
-            ...p,
-            completed: i,
-            total: activityIds.length,
-            message: `Fetching GPS data... ${Math.round((i / activityIds.length) * 100)}%`,
-          }));
-        }
-
-        try {
-          const batchResults = await nativeModule.fetchActivityMapsWithProgress(
-            authHeader,
-            batchIds,
-            undefined // No callback - we update progress between batches
-          );
-          allResults.push(...batchResults);
-        } catch (fetchError) {
-          console.error(`[fetchApiGps] Batch ${i / BATCH_SIZE + 1} error:`, fetchError);
-          // Continue with other batches instead of failing completely
-        }
-
-        // Check for abort between batches
-        if (!isMountedRef.current || abortSignal.aborted) {
-          return { syncedIds: [], withGpsCount: 0, message: 'Cancelled' };
-        }
-
-        // Small delay between batches to let the UI breathe
-        await new Promise((resolve) => setTimeout(resolve, 50));
+      // Update initial progress
+      if (isMountedRef.current) {
+        updateProgress({
+          status: 'fetching',
+          completed: 0,
+          total: activityIds.length,
+          message: `Downloading GPS data... 0/${activityIds.length}`,
+        });
       }
 
-      const results = allResults;
+      // Start fetch - sends all IDs to Rust in one call (Rust handles rate limiting)
+      const fetchPromise = nativeModule.fetchActivityMaps(authHeader, activityIds);
+
+      // Poll for progress while fetch runs (avoids cross-thread callback issues)
+      const pollInterval = setInterval(() => {
+        if (!isMountedRef.current || abortSignal.aborted) {
+          clearInterval(pollInterval);
+          return;
+        }
+
+        const progress = getDownloadProgress();
+
+        if (progress.active) {
+          updateProgress({
+            status: 'fetching',
+            completed: progress.completed,
+            total: progress.total,
+            message: `Downloading GPS data... ${progress.completed}/${progress.total}`,
+          });
+        }
+      }, 100);
+
+      // Wait for completion
+      let results: Awaited<ReturnType<typeof nativeModule.fetchActivityMaps>>;
+      try {
+        results = await fetchPromise;
+      } finally {
+        clearInterval(pollInterval);
+      }
+
+      const allResults = results;
 
       if (__DEV__) {
         const successful = results.filter((r) => r.success);
