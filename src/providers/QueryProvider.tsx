@@ -14,6 +14,9 @@ const queryClient = new QueryClient({
       retry: 2,
       networkMode: 'offlineFirst',
       refetchOnReconnect: true,
+      // Prevent refetches on every screen navigation - only refetch on explicit pull-to-refresh
+      refetchOnMount: false,
+      refetchOnWindowFocus: false,
     },
   },
 });

@@ -1,3 +1,8 @@
+// Enable screen freezing BEFORE any other imports
+// This prevents inactive screens from re-rendering during navigation
+import { enableFreeze } from 'react-native-screens';
+enableFreeze(true);
+
 import { useEffect, useState } from 'react';
 import { Stack, useSegments, useRouter, Href } from 'expo-router';
 import { PaperProvider } from 'react-native-paper';
@@ -13,6 +18,7 @@ import {
   MapPreferencesProvider,
   NetworkProvider,
   TopSafeAreaProvider,
+  ScrollVisibilityProvider,
   initializeTheme,
   useAuthStore,
   initializeSportPreference,
@@ -22,10 +28,17 @@ import {
   initializeSupersededSections,
   initializeDisabledSections,
   initializeUnitPreference,
+  initializeDashboardPreferences,
 } from '@/providers';
 import { initializeI18n } from '@/i18n';
 import { lightTheme, darkTheme, colors, darkColors } from '@/theme';
-import { CacheLoadingBanner, DemoBanner, GlobalDataSync, OfflineBanner } from '@/components/ui';
+import {
+  CacheLoadingBanner,
+  DemoBanner,
+  GlobalDataSync,
+  OfflineBanner,
+  FloatingMenu,
+} from '@/components/ui';
 
 // Lazy load native module to avoid bundler errors
 function getRouteEngine() {
@@ -161,6 +174,7 @@ export default function RootLayout() {
       // Then initialize i18n with the saved locale
       await initializeI18n(savedLocale);
       // Initialize other providers in parallel
+      // Dashboard preferences uses 'Cycling' fallback if sport preference isn't loaded yet
       await Promise.all([
         initializeTheme(),
         initializeAuth(),
@@ -170,6 +184,7 @@ export default function RootLayout() {
         initializeRouteSettings(),
         initializeSupersededSections(),
         initializeDisabledSections(),
+        initializeDashboardPreferences(), // Uses stored prefs or defaults to Cycling
       ]);
     }
     initialize().finally(() => setAppReady(true));
@@ -205,24 +220,27 @@ export default function RootLayout() {
                   animated
                 />
                 <AuthGate>
-                  <OfflineBanner />
-                  <GlobalDataSync />
-                  <DemoBanner />
-                  <CacheLoadingBanner />
-                  <Stack
-                    screenOptions={{
-                      headerShown: false,
-                      // iOS: Use default animation for native feel with gesture support
-                      // Android: Slide from right for Material Design
-                      animation: Platform.OS === 'ios' ? 'default' : 'slide_from_right',
-                      // Enable swipe-back gesture on both platforms
-                      gestureEnabled: true,
-                      gestureDirection: 'horizontal',
-                      // iOS: Blur effect for any translucent headers
-                      headerBlurEffect: Platform.OS === 'ios' ? 'prominent' : undefined,
-                      headerTransparent: Platform.OS === 'ios',
-                    }}
-                  />
+                  <ScrollVisibilityProvider>
+                    <OfflineBanner />
+                    <GlobalDataSync />
+                    <DemoBanner />
+                    <CacheLoadingBanner />
+                    <Stack
+                      screenOptions={{
+                        headerShown: false,
+                        // iOS: Use default animation for native feel with gesture support
+                        // Android: Slide from right for Material Design
+                        animation: Platform.OS === 'ios' ? 'default' : 'slide_from_right',
+                        // Enable swipe-back gesture on both platforms
+                        gestureEnabled: true,
+                        gestureDirection: 'horizontal',
+                        // iOS: Blur effect for any translucent headers
+                        headerBlurEffect: Platform.OS === 'ios' ? 'prominent' : undefined,
+                        headerTransparent: Platform.OS === 'ios',
+                      }}
+                    />
+                    <FloatingMenu />
+                  </ScrollVisibilityProvider>
                 </AuthGate>
               </PaperProvider>
             </MapPreferencesProvider>

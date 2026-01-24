@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { View, ScrollView, StyleSheet, TouchableOpacity, RefreshControl } from 'react-native';
 import { Text, IconButton, ActivityIndicator } from 'react-native-paper';
 import { ScreenSafeAreaView } from '@/components/ui';
@@ -21,6 +21,7 @@ import { useNetwork } from '@/providers';
 import { formatLocalDate, formatShortDateWithWeekday } from '@/lib';
 import { colors, darkColors, spacing, layout, typography, opacity } from '@/theme';
 import { createSharedStyles } from '@/styles';
+import { logMount, logUnmount, logRender } from '@/lib/debug/renderTimer';
 
 const TIME_RANGES: { id: TimeRange; label: string }[] = [
   { id: '7d', label: '1W' },
@@ -49,6 +50,13 @@ const timeRangeToDays = (range: TimeRange): number => {
 };
 
 export default function FitnessScreen() {
+  // DEBUG: Track render timing
+  logRender('FitnessScreen');
+  useEffect(() => {
+    logMount('FitnessScreen');
+    return () => logUnmount('FitnessScreen');
+  }, []);
+
   const { t } = useTranslation();
   const { isDark, colors: themeColors } = useTheme();
   const shared = createSharedStyles(isDark);

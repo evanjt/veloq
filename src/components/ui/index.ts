@@ -7,7 +7,7 @@ export {
 } from './Shimmer';
 export { GradientText, GlowText, AnimatedNumber } from './GradientText';
 export { GradientCard, GlassCard } from './GradientCard';
-export { MapFAB } from './MapFAB';
+export { FloatingMenu } from './FloatingMenu';
 export { CompassArrow } from './CompassArrow';
 export {
   AnimatedPressable,

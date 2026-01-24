@@ -218,6 +218,7 @@ export interface TranslationResource {
   };
 
   metrics: {
+    activityCount: string;
     hrv: string;
     rhr: string;
     week: string;
@@ -344,6 +345,11 @@ export interface TranslationResource {
     connectedViaApiKey: string;
     demoMode: string;
     signedInToIntervals: string;
+    dashboardMetrics: string;
+    customiseMetrics: string;
+    metricsHint: string;
+    availableMetrics: string;
+    resetToDefaults: string;
   };
 
   alerts: {

@@ -64,6 +64,11 @@ export {
 } from './LanguageStore';
 export { useSyncDateRange, getSyncGeneration, type GpsSyncProgress } from './SyncDateRangeStore';
 export { NetworkProvider, useNetwork } from './NetworkContext';
+export {
+  ScrollVisibilityProvider,
+  useScrollVisibilityContext,
+  useScrollVisibilitySafe,
+} from './ScrollVisibilityContext';
 export { TopSafeAreaProvider, useTopSafeArea, useScreenSafeAreaEdges } from './TopSafeAreaContext';
 export {
   useUnitPreference,
@@ -74,3 +79,13 @@ export {
   type UnitPreference,
   type IntervalsUnitPreferences,
 } from './UnitPreferenceStore';
+export {
+  useDashboardPreferences,
+  initializeDashboardPreferences,
+  getMetricDefinition,
+  getMetricsForSport,
+  AVAILABLE_METRICS,
+  type MetricId,
+  type MetricDefinition,
+  type MetricPreference,
+} from './DashboardPreferencesStore';

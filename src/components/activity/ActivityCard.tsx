@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { View, StyleSheet, Pressable, Platform, Share } from 'react-native';
+import { View, StyleSheet, Pressable, Platform, Share, useWindowDimensions } from 'react-native';
 import { useTheme, useMetricSystem } from '@/hooks';
 import { Text, Menu } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -35,10 +35,15 @@ interface ActivityCardProps {
   activity: Activity;
 }
 
+// Breakpoint for narrow screens (icon-only mode for stats)
+const NARROW_SCREEN_WIDTH = 380;
+
 export const ActivityCard = React.memo(function ActivityCard({ activity }: ActivityCardProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const isMetric = useMetricSystem();
+  const { width: screenWidth } = useWindowDimensions();
+  const isNarrowScreen = screenWidth < NARROW_SCREEN_WIDTH;
   const [menuVisible, setMenuVisible] = useState(false);
   const [menuAnchor, setMenuAnchor] = useState({ x: 0, y: 0 });
 
@@ -130,85 +135,167 @@ export const ActivityCard = React.memo(function ActivityCard({ activity }: Activ
           </View>
         </View>
 
-        {/* Secondary stats with better styling */}
-        <View style={[styles.secondaryStats, isDark && styles.secondaryStatsDark]}>
+        {/* Secondary stats - adaptive layout for narrow screens */}
+        <View
+          style={[
+            styles.secondaryStats,
+            isDark && styles.secondaryStatsDark,
+            isNarrowScreen && styles.secondaryStatsNarrow,
+          ]}
+        >
           {activity.icu_training_load && (
-            <View style={styles.secondaryStat}>
-              <View style={[styles.secondaryStatIcon, { backgroundColor: colors.primary + '20' }]}>
-                <MaterialCommunityIcons name="fire" size={14} color={colors.primary} />
+            <View style={[styles.secondaryStat, isNarrowScreen && styles.secondaryStatNarrow]}>
+              <View
+                style={[
+                  styles.secondaryStatIcon,
+                  { backgroundColor: colors.primary + '20' },
+                  isNarrowScreen && styles.secondaryStatIconNarrow,
+                ]}
+              >
+                <MaterialCommunityIcons
+                  name="fire"
+                  size={isNarrowScreen ? 12 : 14}
+                  color={colors.primary}
+                />
               </View>
-              <View>
-                <Text style={[styles.secondaryStatValue, isDark && styles.textLight]}>
+              {isNarrowScreen ? (
+                <Text style={[styles.secondaryStatValueNarrow, isDark && styles.textLight]}>
                   {formatTSS(activity.icu_training_load)}
                 </Text>
-                <Text style={[styles.secondaryStatLabel, isDark && styles.statLabelDark]}>
-                  {t('activity.tss')}
-                </Text>
-              </View>
+              ) : (
+                <View>
+                  <Text style={[styles.secondaryStatValue, isDark && styles.textLight]}>
+                    {formatTSS(activity.icu_training_load)}
+                  </Text>
+                  <Text style={[styles.secondaryStatLabel, isDark && styles.statLabelDark]}>
+                    {t('activity.tss')}
+                  </Text>
+                </View>
+              )}
             </View>
           )}
           {(activity.average_heartrate || activity.icu_average_hr) && (
-            <View style={styles.secondaryStat}>
-              <View style={[styles.secondaryStatIcon, { backgroundColor: colors.error + '20' }]}>
-                <MaterialCommunityIcons name="heart-pulse" size={14} color={colors.error} />
+            <View style={[styles.secondaryStat, isNarrowScreen && styles.secondaryStatNarrow]}>
+              <View
+                style={[
+                  styles.secondaryStatIcon,
+                  { backgroundColor: colors.error + '20' },
+                  isNarrowScreen && styles.secondaryStatIconNarrow,
+                ]}
+              >
+                <MaterialCommunityIcons
+                  name="heart-pulse"
+                  size={isNarrowScreen ? 12 : 14}
+                  color={colors.error}
+                />
               </View>
-              <View>
-                <Text style={[styles.secondaryStatValue, isDark && styles.textLight]}>
+              {isNarrowScreen ? (
+                <Text style={[styles.secondaryStatValueNarrow, isDark && styles.textLight]}>
                   {formatHeartRate(activity.average_heartrate || activity.icu_average_hr!)}
                 </Text>
-                <Text style={[styles.secondaryStatLabel, isDark && styles.statLabelDark]}>
-                  {t('metrics.hr')}
-                </Text>
-              </View>
+              ) : (
+                <View>
+                  <Text style={[styles.secondaryStatValue, isDark && styles.textLight]}>
+                    {formatHeartRate(activity.average_heartrate || activity.icu_average_hr!)}
+                  </Text>
+                  <Text style={[styles.secondaryStatLabel, isDark && styles.statLabelDark]}>
+                    {t('metrics.hr')}
+                  </Text>
+                </View>
+              )}
             </View>
           )}
           {(activity.average_watts || activity.icu_average_watts) && (
-            <View style={styles.secondaryStat}>
-              <View style={[styles.secondaryStatIcon, { backgroundColor: colors.warning + '20' }]}>
-                <MaterialCommunityIcons name="lightning-bolt" size={14} color={colors.warning} />
+            <View style={[styles.secondaryStat, isNarrowScreen && styles.secondaryStatNarrow]}>
+              <View
+                style={[
+                  styles.secondaryStatIcon,
+                  { backgroundColor: colors.warning + '20' },
+                  isNarrowScreen && styles.secondaryStatIconNarrow,
+                ]}
+              >
+                <MaterialCommunityIcons
+                  name="lightning-bolt"
+                  size={isNarrowScreen ? 12 : 14}
+                  color={colors.warning}
+                />
               </View>
-              <View>
-                <Text style={[styles.secondaryStatValue, isDark && styles.textLight]}>
+              {isNarrowScreen ? (
+                <Text style={[styles.secondaryStatValueNarrow, isDark && styles.textLight]}>
                   {formatPower(activity.average_watts || activity.icu_average_watts!)}
                 </Text>
-                <Text style={[styles.secondaryStatLabel, isDark && styles.statLabelDark]}>
-                  {t('activity.pwr')}
-                </Text>
-              </View>
+              ) : (
+                <View>
+                  <Text style={[styles.secondaryStatValue, isDark && styles.textLight]}>
+                    {formatPower(activity.average_watts || activity.icu_average_watts!)}
+                  </Text>
+                  <Text style={[styles.secondaryStatLabel, isDark && styles.statLabelDark]}>
+                    {t('activity.pwr')}
+                  </Text>
+                </View>
+              )}
             </View>
           )}
           {activity.calories && (
-            <View style={styles.secondaryStat}>
-              <View style={[styles.secondaryStatIcon, { backgroundColor: colors.success + '20' }]}>
-                <MaterialCommunityIcons name="food-apple" size={14} color={colors.success} />
+            <View style={[styles.secondaryStat, isNarrowScreen && styles.secondaryStatNarrow]}>
+              <View
+                style={[
+                  styles.secondaryStatIcon,
+                  { backgroundColor: colors.success + '20' },
+                  isNarrowScreen && styles.secondaryStatIconNarrow,
+                ]}
+              >
+                <MaterialCommunityIcons
+                  name="food-apple"
+                  size={isNarrowScreen ? 12 : 14}
+                  color={colors.success}
+                />
               </View>
-              <View>
-                <Text style={[styles.secondaryStatValue, isDark && styles.textLight]}>
+              {isNarrowScreen ? (
+                <Text style={[styles.secondaryStatValueNarrow, isDark && styles.textLight]}>
                   {formatCalories(activity.calories)}
                 </Text>
-                <Text style={[styles.secondaryStatLabel, isDark && styles.statLabelDark]}>
-                  {t('activity.cal')}
-                </Text>
-              </View>
+              ) : (
+                <View>
+                  <Text style={[styles.secondaryStatValue, isDark && styles.textLight]}>
+                    {formatCalories(activity.calories)}
+                  </Text>
+                  <Text style={[styles.secondaryStatLabel, isDark && styles.statLabelDark]}>
+                    {t('activity.cal')}
+                  </Text>
+                </View>
+              )}
             </View>
           )}
           {activity.has_weather && activity.average_weather_temp != null && (
-            <View style={styles.secondaryStat}>
-              <View style={[styles.secondaryStatIcon, { backgroundColor: colors.info + '20' }]}>
+            <View style={[styles.secondaryStat, isNarrowScreen && styles.secondaryStatNarrow]}>
+              <View
+                style={[
+                  styles.secondaryStatIcon,
+                  { backgroundColor: colors.info + '20' },
+                  isNarrowScreen && styles.secondaryStatIconNarrow,
+                ]}
+              >
                 <MaterialCommunityIcons
                   name="weather-partly-cloudy"
-                  size={14}
+                  size={isNarrowScreen ? 12 : 14}
                   color={colors.info}
                 />
               </View>
-              <View>
-                <Text style={[styles.secondaryStatValue, isDark && styles.textLight]}>
+              {isNarrowScreen ? (
+                <Text style={[styles.secondaryStatValueNarrow, isDark && styles.textLight]}>
                   {formatTemperature(activity.average_weather_temp, isMetric)}
                 </Text>
-                <Text style={[styles.secondaryStatLabel, isDark && styles.statLabelDark]}>
-                  {t('activity.temp')}
-                </Text>
-              </View>
+              ) : (
+                <View>
+                  <Text style={[styles.secondaryStatValue, isDark && styles.textLight]}>
+                    {formatTemperature(activity.average_weather_temp, isMetric)}
+                  </Text>
+                  <Text style={[styles.secondaryStatLabel, isDark && styles.statLabelDark]}>
+                    {t('activity.temp')}
+                  </Text>
+                </View>
+              )}
             </View>
           )}
         </View>
@@ -327,10 +414,19 @@ const styles = StyleSheet.create({
   secondaryStatsDark: {
     borderTopColor: opacity.overlayDark.medium,
   },
+  // Narrow screen: reduced gaps, more compact
+  secondaryStatsNarrow: {
+    gap: spacing.sm,
+    paddingVertical: spacing.sm,
+  },
   secondaryStat: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
+  },
+  // Narrow screen: tighter spacing
+  secondaryStatNarrow: {
+    gap: spacing.xs,
   },
   secondaryStatIcon: {
     width: 28,
@@ -339,8 +435,19 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  // Narrow screen: smaller icons
+  secondaryStatIconNarrow: {
+    width: 22,
+    height: 22,
+  },
   secondaryStatValue: {
     fontSize: typography.bodySmall.fontSize,
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  // Narrow screen: compact value without label
+  secondaryStatValueNarrow: {
+    fontSize: typography.bodyCompact.fontSize,
     fontWeight: '700',
     color: colors.textPrimary,
   },

@@ -18,6 +18,7 @@ export { usePowerCurve, usePaceCurve, useChartColors } from './charts';
 
 // UI hooks
 export { useTheme, useMetricSystem } from './ui';
+export { useScrollVisibility } from './useScrollVisibility';
 
 // Export types from ui
 export type { Theme, ThemeColors } from './ui';

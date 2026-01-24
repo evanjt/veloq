@@ -39,15 +39,21 @@ import {
   useLanguageStore,
   useSyncDateRange,
   useUnitPreference,
+  useDashboardPreferences,
+  getMetricDefinition,
+  getMetricsForSport,
+  AVAILABLE_METRICS,
   type ThemePreference,
   type PrimarySport,
   type UnitPreference,
+  type MetricId,
 } from '@/providers';
 import Constants from 'expo-constants';
 import { type SupportedLocale } from '@/i18n';
 import { type MapStyleType } from '@/components/maps';
 import { colors, darkColors, spacing, layout } from '@/theme';
 import { ProfileSection, DisplaySettings } from '@/components/settings';
+import { logMount, logUnmount, logRender } from '@/lib/debug/renderTimer';
 import type { ActivityType } from '@/types';
 
 // Activity type groups for map settings
@@ -124,6 +130,13 @@ function formatBytes(bytes: number): string {
 }
 
 export default function SettingsScreen() {
+  // DEBUG: Track render timing
+  logRender('SettingsScreen');
+  useEffect(() => {
+    logMount('SettingsScreen');
+    return () => logUnmount('SettingsScreen');
+  }, []);
+
   const { t, i18n } = useTranslation();
   const { isDark } = useTheme();
   const [themePreference, setThemePreferenceState] = useState<ThemePreference>('system');
@@ -169,6 +182,49 @@ export default function SettingsScreen() {
   const { language, setLanguage } = useLanguageStore();
   const { unitPreference, setUnitPreference, intervalsPreferences } = useUnitPreference();
 
+  // Dashboard metrics customization
+  const {
+    metrics: allMetrics,
+    setMetricEnabled,
+    reorderMetrics,
+    resetToDefaults: resetMetricsToDefaults,
+    getEnabledMetrics,
+  } = useDashboardPreferences();
+  const [showDashboardMetrics, setShowDashboardMetrics] = useState(false);
+
+  // Filter metrics for current sport (hide sport-specific metrics for other sports)
+  const filteredMetrics = useMemo(() => {
+    return getMetricsForSport(allMetrics, primarySport).sort((a, b) => {
+      // Enabled metrics first, then by order
+      if (a.enabled !== b.enabled) return a.enabled ? -1 : 1;
+      return a.order - b.order;
+    });
+  }, [allMetrics, primarySport]);
+
+  const enabledMetrics = useMemo(() => {
+    return filteredMetrics.filter((m) => m.enabled).sort((a, b) => a.order - b.order);
+  }, [filteredMetrics]);
+
+  const handleMetricToggle = (id: MetricId, enabled: boolean) => {
+    setMetricEnabled(id, enabled);
+  };
+
+  const handleMetricMoveUp = (metricId: MetricId) => {
+    const enabledList = enabledMetrics;
+    const currentIndex = enabledList.findIndex((m) => m.id === metricId);
+    if (currentIndex > 0) {
+      reorderMetrics(currentIndex, currentIndex - 1);
+    }
+  };
+
+  const handleMetricMoveDown = (metricId: MetricId) => {
+    const enabledList = enabledMetrics;
+    const currentIndex = enabledList.findIndex((m) => m.id === metricId);
+    if (currentIndex < enabledList.length - 1) {
+      reorderMetrics(currentIndex, currentIndex + 1);
+    }
+  };
+
   // Load saved theme preference on mount
   useEffect(() => {
     getThemePreference()
@@ -210,9 +266,15 @@ export default function SettingsScreen() {
     await setActivityGroupStyle(group.types, style);
   };
 
-  // Fetch activities to get date range for cache stats
+  // Get sync state from global store first (needed for activity fetch range)
+  const syncOldest = useSyncDateRange((s) => s.oldest);
+  const syncNewest = useSyncDateRange((s) => s.newest);
+
+  // Fetch activities only for the synced date range (not 10 years!)
+  // This dramatically improves settings screen load time
   const { data: allActivities } = useActivities({
-    days: 365 * 10,
+    oldest: syncOldest,
+    newest: syncNewest,
     includeStats: false,
   });
 
@@ -223,9 +285,7 @@ export default function SettingsScreen() {
   // Fetch oldest activity date from API for timeline extent
   const { data: apiOldestDate } = useOldestActivityDate();
 
-  // Get sync state from global store
-  const syncOldest = useSyncDateRange((s) => s.oldest);
-  const syncNewest = useSyncDateRange((s) => s.newest);
+  // Get additional sync state from global store
   const isFetchingExtended = useSyncDateRange((s) => s.isFetchingExtended);
   const isGpsSyncing = useSyncDateRange((s) => s.isGpsSyncing);
   const isExpansionLocked = useSyncDateRange((s) => s.isExpansionLocked);
@@ -488,6 +548,132 @@ export default function SettingsScreen() {
           showLanguages={showLanguages}
           setShowLanguages={setShowLanguages}
         />
+
+        {/* Dashboard Metrics Section */}
+        <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>
+          {t('settings.dashboardMetrics').toUpperCase()}
+        </Text>
+        <View style={[styles.section, isDark && styles.sectionDark]}>
+          <TouchableOpacity
+            style={styles.actionRow}
+            onPress={() => setShowDashboardMetrics(!showDashboardMetrics)}
+          >
+            <MaterialCommunityIcons
+              name="view-dashboard-outline"
+              size={22}
+              color={colors.primary}
+            />
+            <Text style={[styles.actionText, isDark && styles.textLight]}>
+              {t('settings.customiseMetrics')}
+            </Text>
+            <MaterialCommunityIcons
+              name={showDashboardMetrics ? 'chevron-up' : 'chevron-down'}
+              size={20}
+              color={isDark ? darkColors.textMuted : colors.textSecondary}
+            />
+          </TouchableOpacity>
+
+          {showDashboardMetrics && (
+            <View style={styles.metricsContainer}>
+              <Text style={[styles.metricsHint, isDark && styles.textMuted]}>
+                {t('settings.metricsHint')}
+              </Text>
+
+              {/* Enabled metrics with reorder */}
+              {enabledMetrics.length > 0 && (
+                <View style={styles.enabledMetricsList}>
+                  {enabledMetrics.map((metric, index) => {
+                    const def = getMetricDefinition(metric.id);
+                    if (!def) return null;
+                    return (
+                      <View
+                        key={metric.id}
+                        style={[styles.metricRow, isDark && styles.metricRowDark]}
+                      >
+                        <View style={styles.metricReorderButtons}>
+                          <TouchableOpacity
+                            onPress={() => handleMetricMoveUp(metric.id)}
+                            disabled={index === 0}
+                            style={styles.reorderButton}
+                          >
+                            <MaterialCommunityIcons
+                              name="chevron-up"
+                              size={20}
+                              color={index === 0 ? colors.textSecondary : colors.primary}
+                            />
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            onPress={() => handleMetricMoveDown(metric.id)}
+                            disabled={index === enabledMetrics.length - 1}
+                            style={styles.reorderButton}
+                          >
+                            <MaterialCommunityIcons
+                              name="chevron-down"
+                              size={20}
+                              color={
+                                index === enabledMetrics.length - 1
+                                  ? colors.textSecondary
+                                  : colors.primary
+                              }
+                            />
+                          </TouchableOpacity>
+                        </View>
+                        <Text style={[styles.metricLabel, isDark && styles.textLight]}>
+                          {t(def.labelKey as never)}
+                        </Text>
+                        <Switch
+                          value={true}
+                          onValueChange={(enabled) => handleMetricToggle(metric.id, enabled)}
+                          color={colors.primary}
+                        />
+                      </View>
+                    );
+                  })}
+                </View>
+              )}
+
+              {/* Disabled metrics */}
+              {filteredMetrics.filter((m) => !m.enabled).length > 0 && (
+                <>
+                  <Text style={[styles.disabledMetricsLabel, isDark && styles.textMuted]}>
+                    {t('settings.availableMetrics')}
+                  </Text>
+                  {filteredMetrics
+                    .filter((m) => !m.enabled)
+                    .map((metric) => {
+                      const def = getMetricDefinition(metric.id);
+                      if (!def) return null;
+                      return (
+                        <View
+                          key={metric.id}
+                          style={[styles.metricRow, isDark && styles.metricRowDark]}
+                        >
+                          <View style={styles.metricReorderButtons} />
+                          <Text style={[styles.metricLabel, isDark && styles.textLight]}>
+                            {t(def.labelKey as never)}
+                          </Text>
+                          <Switch
+                            value={false}
+                            onValueChange={(enabled) => handleMetricToggle(metric.id, enabled)}
+                            color={colors.primary}
+                          />
+                        </View>
+                      );
+                    })}
+                </>
+              )}
+
+              {/* Reset button */}
+              <TouchableOpacity
+                style={styles.resetButton}
+                onPress={() => resetMetricsToDefaults(primarySport)}
+              >
+                <MaterialCommunityIcons name="refresh" size={18} color={colors.primary} />
+                <Text style={styles.resetButtonText}>{t('settings.resetToDefaults')}</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
 
         {/* Maps Section */}
         <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>
@@ -1280,5 +1466,63 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: spacing.xl,
     marginBottom: spacing.md,
+  },
+  // Dashboard Metrics styles
+  metricsContainer: {
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.md,
+  },
+  metricsHint: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    marginBottom: spacing.md,
+    lineHeight: 18,
+  },
+  enabledMetricsList: {
+    marginBottom: spacing.md,
+  },
+  metricRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  metricRowDark: {
+    borderBottomColor: darkColors.border,
+  },
+  metricReorderButtons: {
+    flexDirection: 'column',
+    width: 28,
+    marginRight: spacing.sm,
+  },
+  reorderButton: {
+    padding: 2,
+  },
+  metricLabel: {
+    flex: 1,
+    fontSize: 15,
+    color: colors.textPrimary,
+  },
+  disabledMetricsLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    marginTop: spacing.md,
+    marginBottom: spacing.sm,
+    letterSpacing: 0.5,
+  },
+  resetButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.md,
+    marginTop: spacing.md,
+    gap: spacing.xs,
+  },
+  resetButtonText: {
+    fontSize: 14,
+    color: colors.primary,
+    fontWeight: '500',
   },
 });

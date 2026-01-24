@@ -69,12 +69,11 @@ jobs:
         working-directory: modules/veloqrs/rust
         run: |
           cargo build --release -p veloqrs
-          cd ..
           npx uniffi-bindgen-react-native generate jsi bindings \
-            --ts-dir src/generated \
-            --cpp-dir cpp/generated \
+            --ts-dir ../src/generated \
+            --cpp-dir ../cpp/generated \
             --library \
-            rust/target/release/libveloqrs.so
+            target/release/libveloqrs.so
 
       - name: Run ${{ matrix.name }}
         run: ${{ matrix.cmd }}

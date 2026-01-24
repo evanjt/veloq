@@ -64,10 +64,21 @@ export function SeasonComparison({
   const [metric, setMetric] = useState<'hours' | 'distance' | 'tss'>('hours');
   const [selectedMonth, setSelectedMonth] = useState<number | null>(null);
   const chartWidth = useRef(0);
+  const chartLeft = useRef(0);
+  const initialX = useRef(0);
+  const initialMonth = useRef(0);
 
-  // Handle chart layout to get width for touch calculations
+  // Handle chart layout to get width and position for touch calculations
   const onChartLayout = useCallback((event: LayoutChangeEvent) => {
     chartWidth.current = event.nativeEvent.layout.width;
+    chartLeft.current = event.nativeEvent.layout.x;
+  }, []);
+
+  // Calculate month index from x position relative to chart
+  const getMonthFromX = useCallback((x: number) => {
+    if (chartWidth.current === 0) return 0;
+    const monthIndex = Math.floor((x / chartWidth.current) * 12);
+    return Math.max(0, Math.min(11, monthIndex));
   }, []);
 
   // Pan responder for scrubbing
@@ -76,15 +87,19 @@ export function SeasonComparison({
       PanResponder.create({
         onStartShouldSetPanResponder: () => true,
         onMoveShouldSetPanResponder: () => true,
+        // Prevent parent ScrollView from stealing the gesture while scrubbing
+        onPanResponderTerminationRequest: () => false,
         onPanResponderGrant: (evt) => {
-          const x = evt.nativeEvent.locationX;
-          const monthIndex = Math.floor((x / chartWidth.current) * 12);
-          setSelectedMonth(Math.max(0, Math.min(11, monthIndex)));
+          // Store initial position and month for relative calculations
+          initialX.current = evt.nativeEvent.locationX;
+          initialMonth.current = getMonthFromX(initialX.current);
+          setSelectedMonth(initialMonth.current);
         },
-        onPanResponderMove: (evt) => {
-          const x = evt.nativeEvent.locationX;
-          const monthIndex = Math.floor((x / chartWidth.current) * 12);
-          setSelectedMonth(Math.max(0, Math.min(11, monthIndex)));
+        onPanResponderMove: (_evt, gestureState) => {
+          // Use dx (delta from start) for more reliable tracking
+          const currentX = initialX.current + gestureState.dx;
+          const monthIndex = getMonthFromX(currentX);
+          setSelectedMonth(monthIndex);
         },
         onPanResponderRelease: () => {
           setSelectedMonth(null);
@@ -93,7 +108,7 @@ export function SeasonComparison({
           setSelectedMonth(null);
         },
       }),
-    []
+    [getMonthFromX]
   );
 
   // Show empty state if no activities
