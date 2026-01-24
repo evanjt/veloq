@@ -51,24 +51,19 @@ yarn-error.*
 modules/veloqrs/android/src/main/jniLibs/
 modules/veloqrs/ios/Frameworks/
 
-# UniFFI generated bindings - runtime copies (created during iOS build)
+# UniFFI generated bindings (generated fresh in CI, not committed)
+modules/veloqrs/src/generated/
+modules/veloqrs/cpp/
 modules/veloqrs/android/src/main/java/uniffi/
 modules/veloqrs/ios/Generated/
 modules/veloqrs/ios/cpp/
 
-# NOTE: These bindings ARE committed (required for builds, can't generate without Rust toolchain):
-# modules/veloqrs/src/generated/veloqrs.ts
-# modules/veloqrs/src/generated/veloqrs-ffi.ts
-# modules/veloqrs/cpp/veloqrs.cpp
-# modules/veloqrs/cpp/veloqrs.hpp
-# modules/veloqrs/android/cpp-adapter.cpp
-
 # NOTE: These files ARE committed (hand-written or project-specific):
-# - modules/veloqrs/cpp/veloq.cpp, veloq.h (JSI entry points)
 # - modules/veloqrs/android/CMakeLists.txt, build.gradle
 # - modules/veloqrs/android/src/main/java/com/veloq/*.kt
+# - modules/veloqrs/android/cpp-adapter.cpp
 # - modules/veloqrs/ios/*.h, *.mm, *.podspec
-# - modules/veloqrs/src/index.ts, NativeVeloq.ts
+# - modules/veloqrs/src/index.ts, NativeVeloqrs.ts
 
 # Android build cache
 modules/veloqrs/android/build/

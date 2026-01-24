@@ -6,7 +6,7 @@
 import { useCallback, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getRouteEngine } from '@/lib/native/routeEngine';
-import { gpsPointsToRoutePoints, routePointsToGpsPoints } from 'veloqrs';
+import { gpsPointsToRoutePoints, routePointsToGpsPoints, type GpsPoint } from 'veloqrs';
 import { useSupersededSections } from '@/providers';
 import { simplifyPolyline } from '@/lib/utils/geometry';
 import type {
@@ -184,7 +184,8 @@ export function useCustomSections(options: UseCustomSectionsOptions = {}): UseCu
         return {
           id: s.id,
           name: s.name,
-          polyline: gpsPointsToRoutePoints(s.polyline),
+          // Rust JSON returns GpsPoint format (latitude/longitude), convert to RoutePoint (lat/lng)
+          polyline: gpsPointsToRoutePoints(s.polyline as unknown as GpsPoint[]),
           startIndex: s.startIndex,
           endIndex: s.endIndex,
           sourceActivityId: s.sourceActivityId,
@@ -255,14 +256,15 @@ export function useCustomSections(options: UseCustomSectionsOptions = {}): UseCu
         createdAt: new Date().toISOString(),
       };
 
-      // Convert RoutePoints to GpsPoints for Rust engine
-      const engineSection = {
+      // Convert RoutePoints to GpsPoints for Rust engine and pass as JSON string
+      // Rust expects latitude/longitude format, so we convert and stringify
+      const engineSectionJson = JSON.stringify({
         ...section,
         polyline: routePointsToGpsPoints(section.polyline),
-      };
+      });
 
       // Add to Rust engine (which handles storage and matching)
-      const success = engine.addCustomSection(engineSection);
+      const success = engine.addCustomSection(engineSectionJson);
       if (!success) {
         throw new Error('Failed to add custom section');
       }

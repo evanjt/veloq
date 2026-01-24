@@ -172,14 +172,27 @@ jobs:
 
           echo "✓ Built iOS simulator XCFramework"
 
+      - name: Build Rust for host (binding generation)
+        if: steps.app-cache.outputs.cache-hit != 'true'
+        working-directory: modules/veloqrs/rust
+        run: |
+          # Build for macOS host to generate bindings (faster than iOS targets)
+          cargo build --release -p veloqrs
+          echo "✓ Built for host platform"
+
       - name: Generate UniFFI Bindings
         if: steps.app-cache.outputs.cache-hit != 'true'
-        working-directory: modules/veloqrs
+        working-directory: modules/veloqrs/rust
         run: |
-          # Generate TypeScript/C++ bindings using uniffi-bindgen-react-native
-          npx uniffi-bindgen-react-native generate turbo-module veloqrs
+          # Generate TypeScript/C++ bindings from host library
+          # Uses 'jsi bindings' to avoid overwriting custom index.ts
+          npx uniffi-bindgen-react-native generate jsi bindings \
+            --ts-dir ../src/generated \
+            --cpp-dir ../cpp/generated \
+            --library \
+            target/release/libveloqrs.dylib
           echo "✓ Generated UniFFI bindings"
-          ls -la cpp/ cpp/generated/
+          ls -la ../cpp/ ../cpp/generated/
 
       - name: Setup C++ files for CocoaPods
         if: steps.app-cache.outputs.cache-hit != 'true'

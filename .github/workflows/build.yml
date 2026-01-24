@@ -40,6 +40,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          submodules: ${{ matrix.name == 'typescript' && 'recursive' || 'false' }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -49,6 +51,30 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      # TypeScript check requires generated bindings from Rust
+      - name: Setup Rust
+        if: matrix.name == 'typescript'
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust
+        if: matrix.name == 'typescript'
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: modules/veloqrs/rust
+          key: typecheck
+
+      - name: Build Rust and generate bindings
+        if: matrix.name == 'typescript'
+        working-directory: modules/veloqrs/rust
+        run: |
+          cargo build --release -p veloqrs
+          cd ..
+          npx uniffi-bindgen-react-native generate jsi bindings \
+            --ts-dir src/generated \
+            --cpp-dir cpp/generated \
+            --library \
+            rust/target/release/libveloqrs.so
 
       - name: Run ${{ matrix.name }}
         run: ${{ matrix.cmd }}
@@ -720,13 +746,25 @@ jobs:
           echo "✓ XCFramework created"
           ls -la ../ios/Frameworks/
 
+      - name: Build Rust for host (binding generation)
+        working-directory: modules/veloqrs/rust
+        run: |
+          # Build for macOS host to generate bindings
+          cargo build --release -p veloqrs
+          echo "✓ Built for host platform"
+
       - name: Generate UniFFI bindings for iOS
-        working-directory: modules/veloqrs
+        working-directory: modules/veloqrs/rust
         run: |
           echo "=== Generating UniFFI C++/TypeScript bindings ==="
-          npx uniffi-bindgen-react-native generate turbo-module veloqrs
+          # Use 'jsi bindings' to avoid overwriting custom index.ts
+          npx uniffi-bindgen-react-native generate jsi bindings \
+            --ts-dir ../src/generated \
+            --cpp-dir ../cpp/generated \
+            --library \
+            target/release/libveloqrs.dylib
           echo "✓ Generated bindings"
-          ls -la cpp/ cpp/generated/
+          ls -la ../cpp/ ../cpp/generated/
 
       - name: Copy C++ files for iOS build
         run: |

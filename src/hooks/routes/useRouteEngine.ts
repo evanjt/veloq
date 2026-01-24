@@ -263,13 +263,6 @@ function convertNativeSectionToApp(native: NativeFrequentSection): FrequentSecti
   // Convert polyline from GpsPoint[] to RoutePoint[]
   const polyline = gpsPointsToRoutePoints(native.polyline);
 
-  // Convert activity traces if present
-  const activityTraces = native.activityTraces
-    ? Object.fromEntries(
-        Object.entries(native.activityTraces).map(([id, pts]) => [id, gpsPointsToRoutePoints(pts)])
-      )
-    : undefined;
-
   return {
     id: native.id,
     sportType: native.sportType,
@@ -281,7 +274,6 @@ function convertNativeSectionToApp(native: NativeFrequentSection): FrequentSecti
     visitCount: native.visitCount,
     distanceMeters: native.distanceMeters,
     name: native.name,
-    activityTraces,
     confidence: native.confidence,
     observationCount: native.observationCount,
     averageSpread: native.averageSpread,

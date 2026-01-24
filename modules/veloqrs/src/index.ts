@@ -71,17 +71,33 @@ import {
   getDownloadProgress as ffiGetDownloadProgress,
   type FetchProgressCallback,
   type PersistentEngineStats,
-  type ActivityMetrics,
-  type GpsPoint,
-  type RouteGroup,
-  type FrequentSection,
+  type FfiActivityMetrics,
+  type FfiGpsPoint,
+  type FfiRouteGroup,
+  type FfiFrequentSection,
   type FfiActivityMapResult,
-  type CustomSection,
-  type CustomSectionMatch,
   type SectionSummary,
   type GroupSummary,
   type DownloadProgressResult,
+  FfiSectionConfig,
+  type FfiHeatmapResult,
+  type FfiHeatmapCell,
+  type FfiCellQueryResult,
+  type FfiActivityHeatmapData,
 } from './generated/veloqrs';
+
+// Re-export types with shorter names for convenience
+export type ActivityMetrics = FfiActivityMetrics;
+export type GpsPoint = FfiGpsPoint;
+export type RouteGroup = FfiRouteGroup;
+export type FrequentSection = FfiFrequentSection;
+export type SectionConfig = FfiSectionConfig;
+export type HeatmapResult = FfiHeatmapResult;
+export type HeatmapCell = FfiHeatmapCell;
+export type CellQueryResult = FfiCellQueryResult;
+export type ActivityHeatmapData = FfiActivityHeatmapData;
+// These are already exported without Ffi prefix:
+export type { PersistentEngineStats, SectionSummary, GroupSummary, DownloadProgressResult };
 
 // For backward compatibility, also export the module initialization status
 export function isRouteMatcherInitialized(): boolean {
@@ -98,6 +114,54 @@ export interface SectionDetectionProgress {
   completed: number;
   /** Total items in current phase */
   total: number;
+}
+
+/**
+ * A user-created custom section.
+ * Created by selecting a portion of an activity's GPS track.
+ */
+export interface CustomSection {
+  /** Unique section ID */
+  id: string;
+  /** User-defined or auto-generated name */
+  name: string;
+  /** GPS points defining the section */
+  polyline: RoutePoint[];
+  /** Start index in the source activity's GPS track */
+  startIndex: number;
+  /** End index in the source activity's GPS track */
+  endIndex: number;
+  /** Activity ID this section was created from */
+  sourceActivityId: string;
+  /** Sport type (e.g., "Ride", "Run") */
+  sportType: string;
+  /** Section length in meters */
+  distanceMeters: number;
+  /** ISO timestamp when the section was created */
+  createdAt: string;
+}
+
+/**
+ * Match result for a custom section against an activity.
+ */
+export interface CustomSectionMatch {
+  /** Activity ID that matches this section */
+  activityId: string;
+  /** Start index in the activity's GPS track where section starts */
+  startIndex: number;
+  /** End index in the activity's GPS track where section ends */
+  endIndex: number;
+  /** Direction: 'same' or 'reverse' relative to section definition */
+  direction: 'same' | 'reverse';
+  /** Distance of the matched portion in meters */
+  distanceMeters: number;
+  /**
+   * Extracted GPS points that are actually near the section polyline.
+   * Use this for visualization instead of slicing by indices to avoid
+   * "straight line" artifacts from points that deviate from the section.
+   * Optional for backward compatibility - will be populated when available.
+   */
+  trace?: RoutePoint[];
 }
 
 /**
@@ -304,11 +368,6 @@ export function addFetchProgressListener(_callback: (event: FetchProgressEvent) 
  * Alias for EngineStats - backward compatibility.
  */
 export type EngineStats = PersistentEngineStats;
-
-/**
- * Re-export the DownloadProgressResult type for polling-based progress.
- */
-export type { DownloadProgressResult };
 
 /**
  * Fetch activity maps with optional progress reporting.

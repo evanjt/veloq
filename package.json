@@ -35,12 +35,6 @@
     "e2e:screenshots:android:3d": "SCREENSHOT_MAP_STYLE=satellite SCREENSHOT_3D=true detox test --configuration android.emu.release --testNamePattern screenshots",
     "e2e:screenshots:ipad": "detox test --configuration ipad.sim.release --testNamePattern screenshots",
     "e2e:screenshots:ipad:dark": "SCREENSHOT_THEME=dark detox test --configuration ipad.sim.release --testNamePattern screenshots",
-    "e2e:screenshots:collect": "./scripts/collect-screenshots.sh",
-    "e2e:screenshots:all:ios": "./scripts/capture-all-screenshots.sh ios",
-    "e2e:screenshots:all:ipad": "./scripts/capture-all-screenshots.sh ipad",
-    "e2e:screenshots:all:android": "./scripts/capture-all-screenshots.sh android",
-    "e2e:screenshots:all": "./scripts/capture-all-screenshots.sh all",
-    "store:validate": "npx tsx scripts/validate-store-metadata.ts",
     "store:changelog": "npx tsx scripts/store-metadata.ts changelog",
     "store:sync": "npx tsx scripts/store-metadata.ts sync-metadata",
     "store:locales": "npx tsx scripts/store-metadata.ts list-locales"

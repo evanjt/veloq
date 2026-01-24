@@ -11,7 +11,7 @@ import { getRouteEngine } from '@/lib/native/routeEngine';
 import {
   detectSectionsMultiscale,
   gpsPointsToRoutePoints,
-  SectionConfig,
+  FfiSectionConfig,
   type RouteGroup,
   type ActivitySportType,
 } from 'veloqrs';
@@ -171,7 +171,7 @@ export function usePotentialSections(
         }));
 
       // Create default section config
-      const config = SectionConfig.create({
+      const config = FfiSectionConfig.create({
         proximityThreshold: 50,
         minSectionLength: 200,
         maxSectionLength: 5000,
@@ -195,9 +195,11 @@ export function usePotentialSections(
       );
 
       // Convert native PotentialSection to app type (GpsPoint -> RoutePoint)
+      // FfiPotentialSection doesn't have visitCount, derive from activityIds length
       const potentials: PotentialSection[] = result.potentials.map((p) => ({
         ...p,
         polyline: gpsPointsToRoutePoints(p.polyline),
+        visitCount: p.activityIds.length,
       }));
 
       // Store potentials
