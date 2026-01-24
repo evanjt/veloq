@@ -11,8 +11,10 @@ name = "veloqrs"
 crate-type = ["rlib", "staticlib", "cdylib"]
 
 [features]
-default = ["persistence"]
+default = ["persistence", "http", "ffi"]
 persistence = []
+http = []
+ffi = []
 
 [dependencies]
 # Core algorithm library

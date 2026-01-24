@@ -1,0 +1,14 @@
+# Generated C++ bindings
+cpp/generated/
+cpp/veloqrs.cpp
+cpp/veloqrs.h
+
+# Generated TypeScript bindings
+src/generated/
+
+# Built native libraries
+android/src/main/jniLibs/
+ios/Frameworks/
+
+# Rust build artifacts
+rust/target/

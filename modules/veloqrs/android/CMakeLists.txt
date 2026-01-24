@@ -18,14 +18,14 @@ get_filename_component(UNIFFI_BINDGEN_PATH "${UNIFFI_BINDGEN_PATH}" DIRECTORY)
 # Specifies a path to native header files.
 include_directories(
     ../cpp
-    ../cpp
+    ../cpp/generated
 
     ${UNIFFI_BINDGEN_PATH}/cpp/includes
 )
 
-add_library(veloq            SHARED
-    ../cpp/veloq.cpp
-    ../cpp/tracematch.cpp
+add_library(veloqrs_jni            SHARED
+    ../cpp/veloqrs.cpp
+    ../cpp/generated/veloqrs.cpp
     cpp-adapter.cpp
 )
 
@@ -58,9 +58,9 @@ endif()
 # https://github.com/react-native-community/discussions-and-proposals/discussions/816
 # This if-then-else can be removed once this library does not support version below 0.76
 if (REACTNATIVE_MERGED_SO)
-  target_link_libraries(veloq ReactAndroid::reactnative)
+  target_link_libraries(veloqrs_jni ReactAndroid::reactnative)
 else()
-  target_link_libraries(veloq
+  target_link_libraries(veloqrs_jni
     ReactAndroid::turbomodulejsijni
     ReactAndroid::react_nativemodule_core
   )
@@ -68,7 +68,7 @@ endif()
 
 find_package(fbjni REQUIRED CONFIG)
 target_link_libraries(
-  veloq
+  veloqrs_jni
   fbjni::fbjni
   ReactAndroid::jsi
   ${LOGCAT}

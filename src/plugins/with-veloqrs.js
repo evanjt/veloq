@@ -181,9 +181,11 @@ function generateBindings() {
 
 /**
  * Copy cpp files from module's cpp directory to ios/cpp for Xcode build.
+ * Handles both cpp/ (turbo module) and cpp/generated/ (bindings) directories.
  */
 function copyIOSCppFiles() {
   const moduleCppDir = path.join(MODULE_DIR, "cpp");
+  const moduleGeneratedDir = path.join(MODULE_DIR, "cpp/generated");
   const iosCppDir = path.join(MODULE_DIR, "ios/cpp");
 
   if (!existsSync(moduleCppDir)) {
@@ -193,92 +195,73 @@ function copyIOSCppFiles() {
 
   mkdirSync(iosCppDir, { recursive: true });
   const cppExtensions = [".h", ".hpp", ".cpp"];
-  const files = fs.readdirSync(moduleCppDir);
   let copied = 0;
-  for (const file of files) {
-    if (cppExtensions.some((ext) => file.endsWith(ext))) {
-      fs.copyFileSync(path.join(moduleCppDir, file), path.join(iosCppDir, file));
+
+  // Copy turbo module files from cpp/
+  const turboFiles = fs.readdirSync(moduleCppDir);
+  for (const file of turboFiles) {
+    const filePath = path.join(moduleCppDir, file);
+    if (fs.statSync(filePath).isFile() && cppExtensions.some((ext) => file.endsWith(ext))) {
+      fs.copyFileSync(filePath, path.join(iosCppDir, file));
       copied++;
     }
   }
+
+  // Copy bindings files from cpp/generated/
+  if (existsSync(moduleGeneratedDir)) {
+    const generatedFiles = fs.readdirSync(moduleGeneratedDir);
+    for (const file of generatedFiles) {
+      if (cppExtensions.some((ext) => file.endsWith(ext))) {
+        fs.copyFileSync(path.join(moduleGeneratedDir, file), path.join(iosCppDir, file));
+        copied++;
+      }
+    }
+  }
+
   if (copied > 0) {
     console.log(`  Copied ${copied} cpp files to ios/cpp`);
   }
 }
 
 /**
- * Patch and rename generated cpp files.
- * uniffi-bindgen-react-native may generate files with different names.
+ * Patch generated cpp files for include path issues.
+ * uniffi-bindgen-react-native sometimes generates incorrect include paths.
  */
 function patchGeneratedCpp() {
-  const oldCppFile = path.join(MODULE_DIR, "cpp/veloqrs.cpp");
-  const newCppFile = path.join(MODULE_DIR, "cpp/veloq.cpp");
-  const oldHFile = path.join(MODULE_DIR, "cpp/veloqrs.h");
-  const newHFile = path.join(MODULE_DIR, "cpp/veloq.h");
+  const cppFile = path.join(MODULE_DIR, "cpp/veloqrs.cpp");
 
-  // Rename cpp file if needed (uniffi generates veloqrs.cpp, CMakeLists expects veloq.cpp)
-  if (existsSync(oldCppFile) && !existsSync(newCppFile)) {
-    console.log("  Renaming veloqrs.cpp to veloq.cpp...");
-    fs.renameSync(oldCppFile, newCppFile);
+  if (!existsSync(cppFile)) {
+    return;
   }
 
-  // Rename header file if needed
-  if (existsSync(oldHFile) && !existsSync(newHFile)) {
-    console.log("  Renaming veloqrs.h to veloq.h...");
-    fs.renameSync(oldHFile, newHFile);
+  let content = readFileSync(cppFile, "utf8");
+  let modified = false;
+
+  // Fix absolute include path bug in uniffi-bindgen-react-native
+  if (content.includes('"/generated/veloqrs.hpp"')) {
+    content = content.replace('"/generated/veloqrs.hpp"', '"generated/veloqrs.hpp"');
+    modified = true;
   }
 
-  // Patch include path in veloq.cpp
-  if (existsSync(newCppFile)) {
-    let content = readFileSync(newCppFile, "utf8");
-    let modified = false;
-
-    if (content.includes('"/veloqrs.hpp"')) {
-      content = content.replace('"/veloqrs.hpp"', '"veloqrs.hpp"');
-      modified = true;
-    }
-    if (content.includes('"veloqrs.h"')) {
-      content = content.replace('"veloqrs.h"', '"veloq.h"');
-      modified = true;
-    }
-
-    if (modified) {
-      console.log("  Patching veloq.cpp include paths...");
-      writeFileSync(newCppFile, content);
-      console.log("  veloq.cpp patched");
-    }
+  if (modified) {
+    console.log("  Patching veloqrs.cpp include paths...");
+    writeFileSync(cppFile, content);
   }
 }
 
 /**
- * Remove auto-generated files that conflict with our custom Veloq module.
+ * Restore custom index.ts if it was overwritten by uniffi generation.
  */
-function removeConflictingGeneratedFiles() {
-  const filesToRemove = [
-    path.join(MODULE_DIR, "src/NativeVeloqrs.ts"),
-    path.join(MODULE_DIR, "android/src/main/java/com/veloq/VeloqrsModule.kt"),
-    path.join(MODULE_DIR, "android/src/main/java/com/veloq/VeloqrsPackage.kt"),
-    path.join(MODULE_DIR, "ios/Veloqrs.h"),
-    path.join(MODULE_DIR, "ios/Veloqrs.mm"),
-  ];
-
-  for (const file of filesToRemove) {
-    if (existsSync(file)) {
-      console.log(`  Removing conflicting ${path.basename(file)}...`);
-      fs.unlinkSync(file);
-    }
-  }
-
-  // Remove auto-generated index.ts if it doesn't have routeEngine (our custom version)
+function restoreCustomIndexTs() {
   const indexTs = path.join(MODULE_DIR, "src/index.ts");
   if (existsSync(indexTs)) {
     const content = readFileSync(indexTs, "utf8");
+    // Our custom index.ts exports routeEngine - if it's missing, restore from git
     if (!content.includes("routeEngine")) {
-      console.log("  Removing auto-generated index.ts (custom version in git)...");
-      fs.unlinkSync(indexTs);
+      console.log("  Restoring custom index.ts from git...");
       try {
         execSync("git checkout HEAD -- src/index.ts", { cwd: MODULE_DIR, stdio: "ignore" });
-        console.log("  Restored custom index.ts from git");
+        console.log("  Restored custom index.ts");
       } catch {
         console.log("  Warning: Could not restore index.ts from git");
       }
@@ -360,7 +343,7 @@ function binariesExist(platform) {
     const iosCppDir = path.join(MODULE_DIR, "ios/cpp");
     return (
       existsSync(frameworksDir) &&
-      existsSync(path.join(iosCppDir, "veloq.cpp")) &&
+      existsSync(path.join(iosCppDir, "veloqrs.cpp")) &&
       existsSync(path.join(iosCppDir, "veloqrs.hpp"))
     );
   }
@@ -443,7 +426,7 @@ async function runPreBuildSetup(platform) {
 
   // Step 3: Apply patches
   patchGeneratedCpp();
-  removeConflictingGeneratedFiles();
+  restoreCustomIndexTs();
   if (platform === "android") {
     patchCppAdapter();
   } else if (platform === "ios") {

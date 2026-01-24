@@ -5,6 +5,7 @@
     "modules": []
   },
   "android": {
-    "modules": []
+    "modules": [],
+    "packageClassNames": ["com.veloq.VeloqrsPackage"]
   }
 }

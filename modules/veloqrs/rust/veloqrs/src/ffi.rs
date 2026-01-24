@@ -226,7 +226,7 @@ pub fn ffi_generate_heatmap(
 // =============================================================================
 
 /// Result of fetching activity map data from intervals.icu
-#[cfg(feature = "http")]
+
 #[derive(Debug, Clone, uniffi::Record)]
 pub struct FfiActivityMapResult {
     pub activity_id: String,
@@ -243,7 +243,7 @@ pub struct FfiActivityMapResult {
 /// The auth_header should be a pre-formatted Authorization header value:
 /// - For API key auth: "Basic {base64(API_KEY:key)}"
 /// - For OAuth: "Bearer {access_token}"
-#[cfg(feature = "http")]
+
 #[uniffi::export]
 pub fn fetch_activity_maps(
     auth_header: String,
@@ -309,7 +309,7 @@ pub fn fetch_activity_maps(
 /// The auth_header should be a pre-formatted Authorization header value:
 /// - For API key auth: "Basic {base64(API_KEY:key)}"
 /// - For OAuth: "Bearer {access_token}"
-#[cfg(feature = "http")]
+
 #[uniffi::export]
 pub fn fetch_activity_maps_with_progress(
     auth_header: String,
@@ -379,7 +379,7 @@ pub fn fetch_activity_maps_with_progress(
 ///
 /// Returns DownloadProgressResult with completed/total/active fields.
 /// When active is false, the download has completed (or never started).
-#[cfg(feature = "http")]
+
 #[uniffi::export]
 pub fn get_download_progress() -> DownloadProgressResult {
     let (completed, total, active) = crate::http::get_download_progress();
@@ -398,7 +398,7 @@ pub fn get_download_progress() -> DownloadProgressResult {
 ///
 /// This is preferred over fetch_activity_maps() for UI responsiveness as it
 /// doesn't block the JavaScript thread.
-#[cfg(feature = "http")]
+
 #[uniffi::export]
 pub fn start_background_fetch(auth_header: String, activity_ids: Vec<String>) {
     init_logging();
@@ -419,7 +419,7 @@ pub fn start_background_fetch(auth_header: String, activity_ids: Vec<String>) {
 /// Returns None if fetch is still in progress (check get_download_progress().active).
 /// Returns the results and clears storage when complete.
 /// Each call after completion returns None until a new fetch is started.
-#[cfg(feature = "http")]
+
 #[uniffi::export]
 pub fn take_background_fetch_results() -> Option<Vec<FfiActivityMapResult>> {
     init_logging();
@@ -471,7 +471,7 @@ pub fn take_background_fetch_results() -> Option<Vec<FfiActivityMapResult>> {
 // =============================================================================
 
 /// Result of the combined fetch and store operation.
-#[cfg(all(feature = "http", feature = "persistence"))]
+
 #[derive(Debug, Clone, uniffi::Record)]
 pub struct FetchAndStoreResult {
     /// Activity IDs that were successfully fetched and stored
@@ -493,7 +493,7 @@ pub struct FetchAndStoreResult {
 }
 
 /// Sport type mapping for activities.
-#[cfg(all(feature = "http", feature = "persistence"))]
+
 #[derive(Debug, Clone, uniffi::Record)]
 pub struct ActivitySportMapping {
     pub activity_id: String,
@@ -511,7 +511,7 @@ pub struct ActivitySportMapping {
 /// - No ~1.7MB GPS data transfer from Rust to TypeScript
 /// - No ~865KB GPS data transfer from TypeScript back to Rust
 /// - Direct storage in SQLite without serialization overhead
-#[cfg(all(feature = "http", feature = "persistence"))]
+
 #[uniffi::export]
 pub fn start_fetch_and_store(
     auth_header: String,
@@ -801,11 +801,11 @@ pub fn start_fetch_and_store(
 }
 
 /// Storage for fetch+store results
-#[cfg(all(feature = "http", feature = "persistence"))]
+
 static FETCH_AND_STORE_RESULT: std::sync::Mutex<Option<FetchAndStoreResult>> =
     std::sync::Mutex::new(None);
 
-#[cfg(all(feature = "http", feature = "persistence"))]
+
 fn store_fetch_and_store_result(result: FetchAndStoreResult) {
     if let Ok(mut guard) = FETCH_AND_STORE_RESULT.lock() {
         *guard = Some(result);
@@ -816,7 +816,7 @@ fn store_fetch_and_store_result(result: FetchAndStoreResult) {
 ///
 /// Returns None if operation is still in progress.
 /// Returns the result and clears storage when complete.
-#[cfg(all(feature = "http", feature = "persistence"))]
+
 #[uniffi::export]
 pub fn take_fetch_and_store_result() -> Option<FetchAndStoreResult> {
     init_logging();

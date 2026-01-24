@@ -652,7 +652,6 @@ impl ActivityFetcher {
 
 /// Synchronous wrapper for FFI - runs the async code on a tokio runtime
 /// Accepts a pre-formatted auth header (e.g., "Basic ..." or "Bearer ...")
-#[cfg(feature = "ffi")]
 pub fn fetch_activity_maps_sync(
     auth_header: String,
     activity_ids: Vec<String>,

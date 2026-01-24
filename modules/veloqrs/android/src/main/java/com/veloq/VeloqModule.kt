@@ -7,14 +7,14 @@ import com.facebook.react.turbomodule.core.interfaces.CallInvokerHolder
 
 @ReactModule(name = VeloqModule.NAME)
 class VeloqModule(reactContext: ReactApplicationContext) :
-  NativeVeloqSpec(reactContext) {
+  NativeVeloqrsSpec(reactContext) {
 
   override fun getName(): String {
     return NAME
   }
 
   // Two native methods implemented in cpp-adapter.cpp, and ultimately
-  // veloq.cpp
+  // veloqrs.cpp
 
   external fun nativeInstallRustCrate(runtimePointer: Long, callInvoker: CallInvokerHolder): Boolean
   external fun nativeCleanupRustCrate(runtimePointer: Long): Boolean
@@ -34,10 +34,10 @@ class VeloqModule(reactContext: ReactApplicationContext) :
   }
 
   companion object {
-    const val NAME = "Veloq"
+    const val NAME = "Veloqrs"
 
     init {
-      System.loadLibrary("veloq")
+      System.loadLibrary("veloqrs_jni")
     }
   }
 }

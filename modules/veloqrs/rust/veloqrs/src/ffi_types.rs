@@ -68,6 +68,63 @@ impl From<FfiBounds> for tracematch::Bounds {
     }
 }
 
+/// Activity metrics for FFI
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+pub struct FfiActivityMetrics {
+    pub activity_id: String,
+    pub name: String,
+    /// Unix timestamp (seconds since epoch)
+    pub date: i64,
+    /// Distance in meters
+    pub distance: f64,
+    /// Moving time in seconds
+    pub moving_time: u32,
+    /// Elapsed time in seconds
+    pub elapsed_time: u32,
+    /// Total elevation gain in meters
+    pub elevation_gain: f64,
+    /// Average heart rate (optional)
+    pub avg_hr: Option<u16>,
+    /// Average power in watts (optional)
+    pub avg_power: Option<u16>,
+    /// Sport type (e.g., "Ride", "Run")
+    pub sport_type: String,
+}
+
+impl From<tracematch::ActivityMetrics> for FfiActivityMetrics {
+    fn from(m: tracematch::ActivityMetrics) -> Self {
+        Self {
+            activity_id: m.activity_id,
+            name: m.name,
+            date: m.date,
+            distance: m.distance,
+            moving_time: m.moving_time,
+            elapsed_time: m.elapsed_time,
+            elevation_gain: m.elevation_gain,
+            avg_hr: m.avg_hr,
+            avg_power: m.avg_power,
+            sport_type: m.sport_type,
+        }
+    }
+}
+
+impl From<FfiActivityMetrics> for tracematch::ActivityMetrics {
+    fn from(m: FfiActivityMetrics) -> Self {
+        Self {
+            activity_id: m.activity_id,
+            name: m.name,
+            date: m.date,
+            distance: m.distance,
+            moving_time: m.moving_time,
+            elapsed_time: m.elapsed_time,
+            elevation_gain: m.elevation_gain,
+            avg_hr: m.avg_hr,
+            avg_power: m.avg_power,
+            sport_type: m.sport_type,
+        }
+    }
+}
+
 // ============================================================================
 // Route Types
 // ============================================================================

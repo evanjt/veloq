@@ -8,8 +8,8 @@
   "main": "expo-router/entry",
   "scripts": {
     "start": "npx expo start",
-    "android": "npx expo run:android",
-    "ios": "npx expo run:ios",
+    "android": "npm run generate:android --prefix modules/veloqrs && npx expo run:android",
+    "ios": "npm run generate:ios --prefix modules/veloqrs && npx expo run:ios",
     "build:info": "cat modules/veloqrs/android/src/main/jniLibs/BUILD_INFO 2>/dev/null || echo 'No build info found'",
     "web": "npx expo start --web",
     "test": "jest --config config/jest.config.js",

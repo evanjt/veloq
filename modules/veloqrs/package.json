@@ -12,7 +12,13 @@
   "main": "src/index.ts",
   "types": "src/index.ts",
   "react-native": "src/index.ts",
-  "scripts": {},
+  "scripts": {
+    "generate:android": "npx uniffi-bindgen-react-native build android --release --and-generate --targets ${VELOQ_ANDROID_TARGET:-arm64-v8a} && npm run fix-includes",
+    "generate:android:all": "npx uniffi-bindgen-react-native build android --release --and-generate && npm run fix-includes",
+    "generate:ios": "npx uniffi-bindgen-react-native build ios --release --and-generate --targets ${VELOQ_IOS_TARGET:-aarch64-apple-ios-sim} && npm run fix-includes",
+    "generate:ios:all": "npx uniffi-bindgen-react-native build ios --release --and-generate && npm run fix-includes",
+    "fix-includes": "sed -i 's|#include \"/generated/veloqrs.hpp\"|#include \"generated/veloqrs.hpp\"|g' cpp/veloqrs.cpp 2>/dev/null || true"
+  },
   "peerDependencies": {
     "expo": "*",
     "react": "*",

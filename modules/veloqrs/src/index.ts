@@ -6,17 +6,17 @@
  */
 
 // Import the Turbo Module to install JSI bindings
-import NativeVeloq from './NativeVeloq';
+import NativeVeloqrs from './NativeVeloqrs';
 import { validateCustomSection } from '@/lib/validation/schemas';
 
-// Install the Rust crate into the JS runtime (installs NativeTracematch on globalThis)
-const installed = NativeVeloq.installRustCrate();
+// Install the Rust crate into the JS runtime (installs NativeVeloqrs on globalThis)
+const installed = NativeVeloqrs.installRustCrate();
 if (!installed && __DEV__) {
   console.warn('[RouteMatcher] Failed to install Rust crate. Native functions may not work.');
 }
 
 // Re-export all generated types and functions
-export * from './generated/tracematch';
+export * from './generated/veloqrs';
 
 // Import generated functions for the routeEngine compatibility layer
 import {
@@ -81,7 +81,7 @@ import {
   type SectionSummary,
   type GroupSummary,
   type DownloadProgressResult,
-} from './generated/tracematch';
+} from './generated/veloqrs';
 
 // For backward compatibility, also export the module initialization status
 export function isRouteMatcherInitialized(): boolean {
@@ -501,7 +501,7 @@ class RouteEngineClient {
     // Import dynamically to handle case where function doesn't exist yet
     try {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const generated = require('./generated/tracematch');
+      const generated = require('./generated/veloqrs');
       if (typeof generated.persistentEngineGetSectionDetectionProgress !== 'function') {
         return null;
       }

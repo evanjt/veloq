@@ -4,7 +4,7 @@ crate:
 
 bindings:
   ts: src/generated
-  cpp: cpp
+  cpp: cpp/generated
 
 android:
   directory: android
@@ -26,4 +26,5 @@ ios:
   frameworkName: VeloqrsFFI
 
 turboModule:
-  name: Veloqrs
+  name: Veloq
+  cpp: cpp

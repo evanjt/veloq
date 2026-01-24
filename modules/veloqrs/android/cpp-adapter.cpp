@@ -4,7 +4,7 @@
 #include <jsi/jsi.h>
 #include <fbjni/fbjni.h>
 #include <ReactCommon/CallInvokerHolder.h>
-#include "tracematch.hpp"
+#include "veloqrs.hpp"
 
 namespace jsi = facebook::jsi;
 namespace react = facebook::react;
@@ -18,15 +18,13 @@ Java_com_veloq_VeloqModule_nativeInstallRustCrate(
     jlong rtPtr,
     jobject callInvokerHolderJavaObj
 ) {
-    // Use fbjni to properly extract the CallInvoker from the Java holder object
-    // This approach is compatible with React Native 0.76+ (new architecture)
     auto callInvokerHolder = jni::static_ref_cast<react::CallInvokerHolder::javaobject>(
         jni::make_local(callInvokerHolderJavaObj)
     );
     auto jsCallInvoker = callInvokerHolder->cthis()->getCallInvoker();
 
     auto runtime = reinterpret_cast<jsi::Runtime *>(rtPtr);
-    NativeTracematch::registerModule(*runtime, jsCallInvoker);
+    NativeVeloqrs::registerModule(*runtime, jsCallInvoker);
     return true;
 }
 
@@ -34,6 +32,6 @@ extern "C"
 JNIEXPORT jboolean JNICALL
 Java_com_veloq_VeloqModule_nativeCleanupRustCrate(JNIEnv *env, jclass type, jlong rtPtr) {
     auto runtime = reinterpret_cast<jsi::Runtime *>(rtPtr);
-    NativeTracematch::unregisterModule(*runtime);
+    NativeVeloqrs::unregisterModule(*runtime);
     return true;
 }

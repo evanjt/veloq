@@ -1330,13 +1330,9 @@ impl PersistentRouteEngine {
             sig_ms
         );
 
-        // Phase 2: Group signatures and capture match info
+        // Phase 2: Group signatures and capture match info (uses parallel rayon)
         let group_start = Instant::now();
-        #[cfg(feature = "parallel")]
-        let result = crate::group_signatures_parallel_with_matches(&signatures, &self.match_config);
-
-        #[cfg(not(feature = "parallel"))]
-        let result = crate::group_signatures_with_matches(&signatures, &self.match_config);
+        let result = tracematch::group_signatures_parallel_with_matches(&signatures, &self.match_config);
 
         let group_ms = group_start.elapsed().as_millis();
         log::info!(
@@ -3299,8 +3295,7 @@ impl PersistentRouteEngine {
 
 /// Statistics for the persistent engine.
 #[cfg(feature = "persistence")]
-#[derive(Debug, Clone)]
-#[cfg_attr(feature = "ffi", derive(uniffi::Record))]
+#[derive(Debug, Clone, uniffi::Record)]
 pub struct PersistentEngineStats {
     pub activity_count: u32,
     pub signature_cache_size: u32,
@@ -3591,8 +3586,9 @@ pub mod persistent_engine_ffi {
 
     /// Set activity metrics for performance calculations.
     #[uniffi::export]
-    pub fn persistent_engine_set_activity_metrics(metrics: Vec<ActivityMetrics>) {
+    pub fn persistent_engine_set_activity_metrics(metrics: Vec<crate::FfiActivityMetrics>) {
         with_persistent_engine(|e| {
+            let metrics: Vec<ActivityMetrics> = metrics.into_iter().map(|m| m.into()).collect();
             e.set_activity_metrics(metrics).ok();
         });
     }
@@ -4076,7 +4072,7 @@ pub mod persistent_engine_ffi {
             track_map.insert(activity_id.clone(), track);
 
             // Use the existing trace extraction algorithm
-            let traces = crate::sections::extract_all_activity_traces(
+            let traces = tracematch::sections::extract_all_activity_traces(
                 std::slice::from_ref(&activity_id),
                 &polyline,
                 &track_map,
