@@ -351,7 +351,8 @@ export function useActivityBoundsCache(
     } catch {
       return [];
     }
-  }, [activityCount, allGpsActivities, cachedActivitiesVersion]);
+    // IMPORTANT: Do NOT add cachedActivitiesVersion - it causes re-renders during sync
+  }, [activityCount, allGpsActivities]);
 
   // Expand the global sync date range - triggers GlobalDataSync to fetch more data
   const expandRange = useSyncDateRange((s) => s.expandRange);
