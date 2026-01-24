@@ -1,0 +1,9 @@
+Neu in Version 0.0.8:
+
+- 10x schnellere Initialsynchronisierung mit neuem Hintergrund-Download-Engine
+- Maßeinheiten-Wechsel zwischen metrisch und imperial (automatische Erkennung von intervals.icu)
+- Diagramm-Verbesserungen: Y-Achsen-Beschriftungen und Durchschnittslinie mit Tooltip
+- Reduzierter Speicherverbrauch
+- Fehlerhafte Umrechnungen bei imperial Einheiten behoben
+- Lizenzbildschirm für Drittanbieter hinzugefügt
+- Verbesserungen bei Übersetzungen und Kartenattributionen

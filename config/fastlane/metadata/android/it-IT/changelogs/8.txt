@@ -1,0 +1,9 @@
+Novità nella versione 0.0.8:
+
+- Sincronizzazione iniziale 10x più veloce con il nuovo motore di download in background
+- Selettore unità imperiali/metriche (rileva automaticamente da intervals.icu)
+- Miglioramenti dei grafici: etichette dell'asse Y e linea media con tooltip
+- Riduzione dell'utilizzo della memoria
+- Corretti i calcoli in unità imperiali
+- Aggiunta schermata delle licenze di terze parti
+- Miglioramenti delle traduzioni e dell'attribuzione delle mappe

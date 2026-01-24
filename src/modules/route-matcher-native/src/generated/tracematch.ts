@@ -991,6 +991,95 @@ export function persistentEngineStartSectionDetection(sportFilter: string | unde
     )
   );
 }
+/**
+ * Start a non-blocking background fetch.
+ *
+ * This returns immediately and the fetch runs in a background thread.
+ * Poll get_download_progress() to monitor progress.
+ * When active becomes false, call take_background_fetch_results() to get the data.
+ *
+ * This is preferred over fetch_activity_maps() for UI responsiveness as it
+ * doesn't block the JavaScript thread.
+ */
+export function startBackgroundFetch(authHeader: string, activityIds: Array<string>): void {
+  uniffiCaller.rustCall(
+    /*caller:*/ (callStatus) => {
+      nativeModule().ubrn_uniffi_tracematch_fn_func_start_background_fetch(
+        FfiConverterString.lower(authHeader),
+        FfiConverterArrayString.lower(activityIds),
+        callStatus
+      );
+    },
+    /*liftString:*/ FfiConverterString.lift
+  );
+}
+/**
+ * Start a background fetch that downloads GPS data and stores it directly
+ * in the persistent engine. This eliminates the FFI round-trip where GPS
+ * data would otherwise be sent to TypeScript and back.
+ *
+ * Poll get_download_progress() to monitor progress.
+ * When active becomes false, call take_fetch_and_store_result() to get the result.
+ *
+ * This is ~3x faster than the separate fetch + addActivities approach because:
+ * - No ~1.7MB GPS data transfer from Rust to TypeScript
+ * - No ~865KB GPS data transfer from TypeScript back to Rust
+ * - Direct storage in SQLite without serialization overhead
+ */
+export function startFetchAndStore(
+  authHeader: string,
+  activityIds: Array<string>,
+  sportTypes: Array<ActivitySportMapping>
+): void {
+  uniffiCaller.rustCall(
+    /*caller:*/ (callStatus) => {
+      nativeModule().ubrn_uniffi_tracematch_fn_func_start_fetch_and_store(
+        FfiConverterString.lower(authHeader),
+        FfiConverterArrayString.lower(activityIds),
+        FfiConverterArrayTypeActivitySportMapping.lower(sportTypes),
+        callStatus
+      );
+    },
+    /*liftString:*/ FfiConverterString.lift
+  );
+}
+/**
+ * Take the results from a completed background fetch.
+ *
+ * Returns None if fetch is still in progress (check get_download_progress().active).
+ * Returns the results and clears storage when complete.
+ * Each call after completion returns None until a new fetch is started.
+ */
+export function takeBackgroundFetchResults(): Array<FfiActivityMapResult> | undefined {
+  return FfiConverterOptionalArrayTypeFfiActivityMapResult.lift(
+    uniffiCaller.rustCall(
+      /*caller:*/ (callStatus) => {
+        return nativeModule().ubrn_uniffi_tracematch_fn_func_take_background_fetch_results(
+          callStatus
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift
+    )
+  );
+}
+/**
+ * Take the result from a completed fetch+store operation.
+ *
+ * Returns None if operation is still in progress.
+ * Returns the result and clears storage when complete.
+ */
+export function takeFetchAndStoreResult(): FetchAndStoreResult | undefined {
+  return FfiConverterOptionalTypeFetchAndStoreResult.lift(
+    uniffiCaller.rustCall(
+      /*caller:*/ (callStatus) => {
+        return nativeModule().ubrn_uniffi_tracematch_fn_func_take_fetch_and_store_result(
+          callStatus
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift
+    )
+  );
+}
 
 /**
  * Callback interface for receiving progress updates during fetch operations.
@@ -1225,6 +1314,65 @@ const FfiConverterTypeActivityMetrics = (() => {
         FfiConverterFloat64.allocationSize(value.elevationGain) +
         FfiConverterOptionalUInt16.allocationSize(value.avgHr) +
         FfiConverterOptionalUInt16.allocationSize(value.avgPower) +
+        FfiConverterString.allocationSize(value.sportType)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * Sport type mapping for activities.
+ */
+export type ActivitySportMapping = {
+  activityId: string;
+  sportType: string;
+};
+
+/**
+ * Generated factory for {@link ActivitySportMapping} record objects.
+ */
+export const ActivitySportMapping = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<ActivitySportMapping, ReturnType<typeof defaults>>(defaults);
+  })();
+  return Object.freeze({
+    /**
+     * Create a frozen instance of {@link ActivitySportMapping}, with defaults specified
+     * in Rust, in the {@link tracematch} crate.
+     */
+    create,
+
+    /**
+     * Create a frozen instance of {@link ActivitySportMapping}, with defaults specified
+     * in Rust, in the {@link tracematch} crate.
+     */
+    new: create,
+
+    /**
+     * Defaults specified in the {@link tracematch} crate.
+     */
+    defaults: () => Object.freeze(defaults()) as Partial<ActivitySportMapping>,
+  });
+})();
+
+const FfiConverterTypeActivitySportMapping = (() => {
+  type TypeName = ActivitySportMapping;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        activityId: FfiConverterString.read(from),
+        sportType: FfiConverterString.read(from),
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      FfiConverterString.write(value.activityId, into);
+      FfiConverterString.write(value.sportType, into);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.activityId) +
         FfiConverterString.allocationSize(value.sportType)
       );
     }
@@ -1834,6 +1982,85 @@ const FfiConverterTypeDownloadProgressResult = (() => {
         FfiConverterUInt32.allocationSize(value.completed) +
         FfiConverterUInt32.allocationSize(value.total) +
         FfiConverterBool.allocationSize(value.active)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * Result of the combined fetch and store operation.
+ */
+export type FetchAndStoreResult = {
+  /**
+   * Activity IDs that were successfully fetched and stored
+   */
+  syncedIds: Array<string>;
+  /**
+   * Activity IDs that failed to fetch
+   */
+  failedIds: Array<string>;
+  /**
+   * Total number of activities processed
+   */
+  total: /*u32*/ number;
+  /**
+   * Number successfully synced
+   */
+  successCount: /*u32*/ number;
+};
+
+/**
+ * Generated factory for {@link FetchAndStoreResult} record objects.
+ */
+export const FetchAndStoreResult = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FetchAndStoreResult, ReturnType<typeof defaults>>(defaults);
+  })();
+  return Object.freeze({
+    /**
+     * Create a frozen instance of {@link FetchAndStoreResult}, with defaults specified
+     * in Rust, in the {@link tracematch} crate.
+     */
+    create,
+
+    /**
+     * Create a frozen instance of {@link FetchAndStoreResult}, with defaults specified
+     * in Rust, in the {@link tracematch} crate.
+     */
+    new: create,
+
+    /**
+     * Defaults specified in the {@link tracematch} crate.
+     */
+    defaults: () => Object.freeze(defaults()) as Partial<FetchAndStoreResult>,
+  });
+})();
+
+const FfiConverterTypeFetchAndStoreResult = (() => {
+  type TypeName = FetchAndStoreResult;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        syncedIds: FfiConverterArrayString.read(from),
+        failedIds: FfiConverterArrayString.read(from),
+        total: FfiConverterUInt32.read(from),
+        successCount: FfiConverterUInt32.read(from),
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      FfiConverterArrayString.write(value.syncedIds, into);
+      FfiConverterArrayString.write(value.failedIds, into);
+      FfiConverterUInt32.write(value.total, into);
+      FfiConverterUInt32.write(value.successCount, into);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterArrayString.allocationSize(value.syncedIds) +
+        FfiConverterArrayString.allocationSize(value.failedIds) +
+        FfiConverterUInt32.allocationSize(value.total) +
+        FfiConverterUInt32.allocationSize(value.successCount)
       );
     }
   }
@@ -4524,6 +4751,11 @@ const FfiConverterOptionalInt64 = new FfiConverterOptional(FfiConverterInt64);
 // FfiConverter for Bounds | undefined
 const FfiConverterOptionalTypeBounds = new FfiConverterOptional(FfiConverterTypeBounds);
 
+// FfiConverter for FetchAndStoreResult | undefined
+const FfiConverterOptionalTypeFetchAndStoreResult = new FfiConverterOptional(
+  FfiConverterTypeFetchAndStoreResult
+);
+
 // FfiConverter for HeatmapBounds | undefined
 const FfiConverterOptionalTypeHeatmapBounds = new FfiConverterOptional(
   FfiConverterTypeHeatmapBounds
@@ -4563,6 +4795,11 @@ const FfiConverterArrayTypeActivityHeatmapData = new FfiConverterArray(
 
 // FfiConverter for Array<ActivityMetrics>
 const FfiConverterArrayTypeActivityMetrics = new FfiConverterArray(FfiConverterTypeActivityMetrics);
+
+// FfiConverter for Array<ActivitySportMapping>
+const FfiConverterArrayTypeActivitySportMapping = new FfiConverterArray(
+  FfiConverterTypeActivitySportMapping
+);
 
 // FfiConverter for Array<ActivitySportType>
 const FfiConverterArrayTypeActivitySportType = new FfiConverterArray(
@@ -4626,6 +4863,11 @@ const FfiConverterArrayUInt32 = new FfiConverterArray(FfiConverterUInt32);
 const FfiConverterMapStringArrayTypeGpsPoint = new FfiConverterMap(
   FfiConverterString,
   FfiConverterArrayTypeGpsPoint
+);
+
+// FfiConverter for Array<FfiActivityMapResult> | undefined
+const FfiConverterOptionalArrayTypeFfiActivityMapResult = new FfiConverterOptional(
+  FfiConverterArrayTypeFfiActivityMapResult
 );
 
 /**
@@ -5036,6 +5278,28 @@ function uniffiEnsureInitialized() {
       'uniffi_tracematch_checksum_func_persistent_engine_start_section_detection'
     );
   }
+  if (nativeModule().ubrn_uniffi_tracematch_checksum_func_start_background_fetch() !== 45594) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      'uniffi_tracematch_checksum_func_start_background_fetch'
+    );
+  }
+  if (nativeModule().ubrn_uniffi_tracematch_checksum_func_start_fetch_and_store() !== 30545) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      'uniffi_tracematch_checksum_func_start_fetch_and_store'
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_tracematch_checksum_func_take_background_fetch_results() !== 27357
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      'uniffi_tracematch_checksum_func_take_background_fetch_results'
+    );
+  }
+  if (nativeModule().ubrn_uniffi_tracematch_checksum_func_take_fetch_and_store_result() !== 32739) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      'uniffi_tracematch_checksum_func_take_fetch_and_store_result'
+    );
+  }
   if (
     nativeModule().ubrn_uniffi_tracematch_checksum_method_fetchprogresscallback_on_progress() !==
     36192
@@ -5053,6 +5317,7 @@ export default Object.freeze({
   converters: {
     FfiConverterTypeActivityHeatmapData,
     FfiConverterTypeActivityMetrics,
+    FfiConverterTypeActivitySportMapping,
     FfiConverterTypeActivitySportType,
     FfiConverterTypeBounds,
     FfiConverterTypeCellQueryResult,
@@ -5061,6 +5326,7 @@ export default Object.freeze({
     FfiConverterTypeCustomSectionMatchConfig,
     FfiConverterTypeDetectionStats,
     FfiConverterTypeDownloadProgressResult,
+    FfiConverterTypeFetchAndStoreResult,
     FfiConverterTypeFfiActivityMapResult,
     FfiConverterTypeFrequentSection,
     FfiConverterTypeGpsPoint,

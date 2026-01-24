@@ -447,17 +447,7 @@ export function BaseMapView({
 
           {/* Custom children (markers, etc.) - filter null to prevent iOS crash */}
           {/* iOS crash: -[__NSArrayM insertObject:atIndex:]: object cannot be nil (MLRNMapView.m:207) */}
-          {React.Children.toArray(children).filter((child) => {
-            if (child == null) {
-              if (__DEV__) {
-                console.warn(
-                  '[BaseMapView] Filtered out null/undefined child - this may cause iOS crashes if not handled'
-                );
-              }
-              return false;
-            }
-            return true;
-          })}
+          {React.Children.toArray(children).filter(Boolean)}
         </MapView>
       </View>
 

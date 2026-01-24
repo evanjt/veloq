@@ -1,0 +1,9 @@
+Hvad er nyt i 0.0.8:
+
+- 10 gange hurtigere indledende synkronisering med ny baggrunds-downloadmotor
+- Valg mellem imperiale og metriske enheder (auto-registrerer fra intervals.icu)
+- Diagramforbedringer: Y-akselabeler og gennemsnitslinje med tooltip
+- Reduceret hukommelsesforbrug
+- Rettet imperiale enhedsberegninger
+- Tilføjet skærm for tredjepartslicentser
+- Forbedringer af oversættelser og kortattribution

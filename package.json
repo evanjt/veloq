@@ -1,7 +1,7 @@
 {
   "name": "veloq",
-  "version": "0.0.7",
-  "tracematchVersion": "0.0.8",
+  "version": "0.0.8",
+  "tracematchVersion": "0.0.9",
   "repository": {
     "type": "git",
     "url": "https://github.com/evanjt/veloq"

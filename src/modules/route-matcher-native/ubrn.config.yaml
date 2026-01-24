@@ -1,5 +1,5 @@
 crate:
-  directory: ../../../../tracematch
+  directory: /home/evan/projects/personal/intervals/tracematch/.worktrees/fast-background-sync
   manifest: Cargo.toml
 
 bindings:

@@ -1,0 +1,9 @@
+Nouveautés dans 0.0.8 :
+
+- Synchronisation initiale 10x plus rapide avec le nouveau moteur de téléchargement en arrière-plan
+- Sélecteur d'unités impériales/métriques (détection automatique depuis intervals.icu)
+- Améliorations des graphiques : étiquettes d'axes Y et ligne moyenne avec infobulle
+- Réduction de la consommation mémoire
+- Correction des calculs en unités impériales
+- Écran des licences tierces ajouté
+- Améliorations des traductions et des attributions cartographiques

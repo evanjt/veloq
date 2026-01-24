@@ -1,0 +1,9 @@
+What's new in 0.0.8:
+
+- 10x faster initial sync with new background download engine
+- Imperial/metric unit selector (auto-detects from intervals.icu)
+- Chart improvements: Y-axis labels and average line with tooltip
+- Reduced memory usage
+- Fixed imperial unit calculations
+- Added third-party licenses screen
+- Translation and map attribution improvements

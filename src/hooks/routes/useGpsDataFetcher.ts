@@ -16,9 +16,14 @@ import {
   detectSectionsMultiscale,
   gpsPointsToRoutePoints,
   SectionConfig,
+  startBackgroundFetch,
   getDownloadProgress,
+  takeBackgroundFetchResults,
+  startFetchAndStore,
+  takeFetchAndStoreResult,
   type RouteGroup,
   type ActivitySportType,
+  type ActivitySportMapping,
 } from 'route-matcher-native';
 import { getStoredCredentials, getSyncGeneration } from '@/providers';
 import { usePotentialSections as usePotentialSectionsStore } from '@/providers/PotentialSectionsStore';
@@ -127,162 +132,23 @@ function getSectionDetectionMessage(phase: string, completed: number, total: num
 
 /**
  * Run potential section detection and store results.
- * This runs AFTER regular section detection completes during GPS sync.
+ *
+ * NOTE: This is intentionally SKIPPED during initial sync to keep the sync fast.
+ * Potential sections (1-2 activity overlaps) are a nice-to-have feature that
+ * can be detected lazily when the user views the Routes screen.
+ *
+ * The full implementation has been moved to a separate lazy detection system.
+ * This stub is kept to maintain the API signature for callers.
  */
 async function runPotentialSectionDetection(
-  nativeModule: ReturnType<typeof getNativeModule>,
-  updateProgress?: (p: SyncProgress) => void
+  _nativeModule: ReturnType<typeof getNativeModule>,
+  _updateProgress?: (p: SyncProgress) => void
 ): Promise<void> {
-  if (!nativeModule) return;
-
-  const activityIds = nativeModule.routeEngine.getActivityIds();
-  if (activityIds.length < MIN_ACTIVITIES_FOR_POTENTIAL_DETECTION) {
-    if (__DEV__) {
-      console.log(
-        `[runPotentialSectionDetection] Not enough activities (${activityIds.length} < ${MIN_ACTIVITIES_FOR_POTENTIAL_DETECTION})`
-      );
-    }
-    return;
-  }
-
-  // Check if we already have potentials stored
-  const existingPotentials = usePotentialSectionsStore.getState().potentials;
-  if (existingPotentials.length > 0) {
-    if (__DEV__) {
-      console.log(
-        `[runPotentialSectionDetection] Already have ${existingPotentials.length} stored potentials, skipping`
-      );
-    }
-    return;
-  }
-
+  // Skip potential section detection during sync to keep it fast
+  // This operation is expensive (54+ FFI calls for getGpsTrack + synchronous detection)
+  // and blocks the UI. Potential sections can be detected lazily when viewing Routes screen.
   if (__DEV__) {
-    console.log(
-      `[runPotentialSectionDetection] Running detection for ${activityIds.length} activities`
-    );
-  }
-
-  updateProgress?.({
-    status: 'computing',
-    completed: 0,
-    total: 0,
-    message: 'Detecting potential sections...',
-  });
-
-  try {
-    // Build flat coordinate arrays for the detection API
-    const ids: string[] = [];
-    const allCoords: number[] = [];
-    const offsets: number[] = [];
-    const activitySportTypes: ActivitySportType[] = [];
-
-    for (const id of activityIds) {
-      // Skip null/empty activity IDs - FFI requires non-null strings
-      if (id == null || id === '') continue;
-
-      const track = nativeModule.routeEngine.getGpsTrack(id);
-      if (track.length >= 4) {
-        ids.push(id);
-        offsets.push(allCoords.length / 2);
-        activitySportTypes.push({
-          activityId: id,
-          sportType: 'Ride', // Default - could be improved by storing sport type in engine
-        });
-
-        for (const point of track) {
-          allCoords.push(point.latitude, point.longitude);
-        }
-      }
-    }
-
-    if (ids.length === 0) {
-      if (__DEV__) {
-        console.log('[runPotentialSectionDetection] No valid GPS tracks found');
-      }
-      return;
-    }
-
-    // Get route groups for linking sections
-    const rawGroups: RouteGroup[] = nativeModule.routeEngine.getGroups();
-
-    // Filter and sanitize groups - FFI requires all string fields to be non-null/non-empty
-    const groups = rawGroups
-      .filter(
-        (g) =>
-          g.groupId != null &&
-          g.groupId !== '' &&
-          g.representativeId != null &&
-          g.representativeId !== '' &&
-          g.activityIds != null &&
-          g.activityIds.length > 0
-      )
-      .map((g) => ({
-        ...g,
-        // Ensure sportType is never null/empty - default to 'Ride' if missing
-        sportType: g.sportType || 'Ride',
-        // Filter out any null/empty activity IDs within the array
-        activityIds: g.activityIds.filter((id): id is string => id != null && id !== ''),
-        // Convert null to undefined for optional fields - FFI expects undefined, not null
-        // (JSON parsing produces null, but UniFFI optional converters expect undefined)
-        customName: g.customName ?? undefined,
-        bestActivityId: g.bestActivityId ?? undefined,
-        bounds: g.bounds ?? undefined,
-        bestTime: g.bestTime ?? undefined,
-        avgTime: g.avgTime ?? undefined,
-        bestPace: g.bestPace ?? undefined,
-      }))
-      // After filtering activityIds, remove groups that ended up empty
-      .filter((g) => g.activityIds.length > 0);
-
-    if (__DEV__ && rawGroups.length !== groups.length) {
-      console.log(
-        `[runPotentialSectionDetection] Filtered ${rawGroups.length - groups.length} invalid groups (null/empty string fields)`
-      );
-    }
-
-    // Create section config for potential detection
-    const config = SectionConfig.create({
-      proximityThreshold: 50,
-      minSectionLength: 200,
-      maxSectionLength: 5000,
-      minActivities: 2,
-      clusterTolerance: 80,
-      samplePoints: 50,
-      detectionMode: 'discovery',
-      includePotentials: true,
-      scalePresets: [],
-      preserveHierarchy: false,
-    });
-
-    // Run multi-scale detection
-    const result = detectSectionsMultiscale(
-      ids,
-      allCoords,
-      offsets,
-      activitySportTypes,
-      groups,
-      config
-    );
-
-    // Convert native PotentialSection to app type
-    const potentials: PotentialSection[] = result.potentials.map((p) => ({
-      ...p,
-      polyline: gpsPointsToRoutePoints(p.polyline),
-    }));
-
-    // Store potentials
-    if (potentials.length > 0) {
-      await usePotentialSectionsStore.getState().setPotentials(potentials);
-      if (__DEV__) {
-        console.log(
-          `[runPotentialSectionDetection] Stored ${potentials.length} potential sections`
-        );
-      }
-    }
-  } catch (error) {
-    if (__DEV__) {
-      console.error('[runPotentialSectionDetection] Detection failed:', error);
-    }
+    console.log('[runPotentialSectionDetection] Skipping during sync for performance');
   }
 }
 
@@ -624,11 +490,15 @@ export function useGpsDataFetcher() {
         });
       }
 
-      // Fetch GPS data using Rust HTTP client
+      // Build sport type mapping for Rust
       const activityIds = activities.map((a) => a.id);
+      const sportTypes: ActivitySportMapping[] = activities.map((a) => ({
+        activityId: a.id,
+        sportType: a.type || 'Ride',
+      }));
 
       if (__DEV__) {
-        console.log(`[fetchApiGps] Starting fetch for ${activityIds.length} activities...`);
+        console.log(`[fetchApiGps] Starting fetch+store for ${activityIds.length} activities...`);
       }
 
       // Update initial progress
@@ -641,17 +511,23 @@ export function useGpsDataFetcher() {
         });
       }
 
-      // Start fetch - sends all IDs to Rust in one call (Rust handles rate limiting)
-      const fetchPromise = nativeModule.fetchActivityMaps(authHeader, activityIds);
+      // Start combined fetch+store - Rust downloads GPS data and stores directly
+      // NO FFI round-trip: GPS data never crosses to TypeScript and back
+      startFetchAndStore(authHeader, activityIds, sportTypes);
 
-      // Poll for progress while fetch runs (avoids cross-thread callback issues)
-      const pollInterval = setInterval(() => {
-        if (!isMountedRef.current || abortSignal.aborted) {
-          clearInterval(pollInterval);
-          return;
-        }
+      // Poll for progress every 100ms until complete
+      let pollCount = 0;
+      while (isMountedRef.current && !abortSignal.aborted) {
+        await new Promise((resolve) => setTimeout(resolve, 100));
 
         const progress = getDownloadProgress();
+        pollCount++;
+
+        if (__DEV__ && pollCount <= 5) {
+          console.log(
+            `[fetchApiGps] Poll #${pollCount}: active=${progress.active}, completed=${progress.completed}/${progress.total}`
+          );
+        }
 
         if (progress.active) {
           updateProgress({
@@ -660,37 +536,50 @@ export function useGpsDataFetcher() {
             total: progress.total,
             message: `Downloading GPS data... ${progress.completed}/${progress.total}`,
           });
+        } else {
+          if (__DEV__) {
+            console.log(
+              `[fetchApiGps] Polling stopped: active=false after ${pollCount} polls, final progress: ${progress.completed}/${progress.total}`
+            );
+          }
+          break;
         }
-      }, 100);
-
-      // Wait for completion
-      let results: Awaited<ReturnType<typeof nativeModule.fetchActivityMaps>>;
-      try {
-        results = await fetchPromise;
-      } finally {
-        clearInterval(pollInterval);
       }
 
-      const allResults = results;
+      // Get result (just IDs - no GPS data transfer!)
+      if (__DEV__) {
+        console.log('[fetchApiGps] Calling takeFetchAndStoreResult()...');
+      }
+      const result = takeFetchAndStoreResult();
 
       if (__DEV__) {
-        const successful = results.filter((r) => r.success);
-        const withCoords = results.filter((r) => r.latlngs && r.latlngs.length >= 4);
         console.log(
-          `[fetchApiGps] Fetch complete: ${results.length} results, ` +
-            `${successful.length} successful, ${withCoords.length} with coords`
+          '[fetchApiGps] takeFetchAndStoreResult returned:',
+          result ? `${result.successCount}/${result.total}` : 'null'
         );
-        // Log first few failures for debugging
-        const failures = results.filter((r) => !r.success).slice(0, 3);
-        if (failures.length > 0) {
-          console.log(
-            `[fetchApiGps] Sample failures:`,
-            failures.map((f) => f.activityId)
-          );
+      }
+
+      if (!result) {
+        console.warn('[fetchApiGps] Result was null - Rust may have failed');
+        return {
+          syncedIds: [],
+          withGpsCount: activities.length,
+          message: 'Cancelled',
+        };
+      }
+
+      if (__DEV__) {
+        // Log Rust result in Expo console (timing logged via adb logcat)
+        console.log(
+          `[RUST: fetch_and_store] Complete: ${result.successCount}/${result.total} synced, ` +
+            `${result.failedIds.length} failed`
+        );
+        if (result.failedIds.length > 0) {
+          console.log(`[fetchApiGps] Sample failures:`, result.failedIds.slice(0, 3));
         }
       }
 
-      // Check mount state and abort signal after async operation
+      // Check mount state and abort signal
       if (!isMountedRef.current || abortSignal.aborted) {
         return {
           syncedIds: [],
@@ -699,159 +588,96 @@ export function useGpsDataFetcher() {
         };
       }
 
-      // Update progress to processing
-      if (isMountedRef.current) {
-        updateProgress({
-          status: 'processing',
-          completed: 0,
-          total: results.length,
-          message: 'Processing routes...',
-        });
-      }
-
-      // Build flat coordinate arrays for the engine
-      const successfulResults = results.filter((r) => r.success && r.latlngs.length >= 4);
-
-      /**
-       * Validates GPS coordinates are within valid bounds.
-       * @param lat - Latitude (-90 to 90)
-       * @param lng - Longitude (-180 to 180)
-       * @returns true if coordinates are valid
-       */
-      const isValidCoordinate = (lat: number, lng: number): boolean => {
-        return (
-          Number.isFinite(lat) &&
-          Number.isFinite(lng) &&
-          lat >= -90 &&
-          lat <= 90 &&
-          lng >= -180 &&
-          lng <= 180
-        );
-      };
-
-      let skippedInvalidCoords = 0;
-
-      if (successfulResults.length > 0 && isMountedRef.current) {
-        const ids: string[] = [];
-        const allCoords: number[] = [];
-        const offsets: number[] = [];
-        const sportTypes: string[] = [];
-
-        for (const result of successfulResults) {
-          const activity = activities.find((a) => a.id === result.activityId);
-          if (!activity) continue;
-
-          ids.push(result.activityId);
-          offsets.push(allCoords.length / 2);
-          sportTypes.push(activity.type || 'Ride');
-
-          // Add coordinates (already in flat [lat, lng, ...] format from Rust)
-          // Validate each coordinate pair before adding
-          const latlngs = result.latlngs;
-          for (let i = 0; i < latlngs.length - 1; i += 2) {
-            const lat = latlngs[i];
-            const lng = latlngs[i + 1];
-            if (isValidCoordinate(lat, lng)) {
-              allCoords.push(lat, lng);
-            } else {
-              skippedInvalidCoords++;
-            }
-          }
-        }
-
-        // Log skipped coordinates in development
-        if (__DEV__ && skippedInvalidCoords > 0) {
-          console.warn(
-            `[fetchApiGps] Skipped ${skippedInvalidCoords} invalid coordinates (out of bounds or non-finite)`
+      // Check if sync generation has changed
+      const currentGeneration = getSyncGeneration();
+      if (currentGeneration !== startGeneration) {
+        if (__DEV__) {
+          console.log(
+            `[fetchApiGps] DISCARDING stale results: generation ${startGeneration} -> ${currentGeneration}`
           );
         }
+        return {
+          syncedIds: [],
+          withGpsCount: 0,
+          message: 'Sync reset - results discarded',
+        };
+      }
 
-        // Add to engine
-        if (ids.length > 0 && isMountedRef.current) {
-          // Check if sync generation has changed (reset occurred during fetch)
-          const currentGeneration = getSyncGeneration();
-          if (currentGeneration !== startGeneration) {
+      // Activities already stored in Rust engine by startFetchAndStore
+      // Just need to sync metrics and start section detection
+
+      if (result.syncedIds.length > 0 && isMountedRef.current) {
+        // Sync activity metrics for performance calculations
+        const syncedActivities = activities.filter((a) => result.syncedIds.includes(a.id));
+        const metrics = syncedActivities.map(toActivityMetrics);
+        routeEngine.setActivityMetrics(metrics);
+
+        updateProgress({
+          status: 'computing',
+          completed: 0,
+          total: 100,
+          message: 'Starting route analysis...',
+        });
+
+        await new Promise((resolve) => setTimeout(resolve, 0));
+
+        // Start section detection
+        resetProgressTracker();
+        nativeModule.routeEngine.startSectionDetection();
+
+        // Poll for section detection completion
+        const pollInterval = 150;
+        const maxPollTime = 60000;
+        const startTime = Date.now();
+        let lastPercent = -1;
+
+        while (isMountedRef.current && !abortSignal.aborted) {
+          const status = nativeModule.routeEngine.pollSectionDetection();
+
+          if (status === 'running') {
+            const progress = nativeModule.routeEngine.getSectionDetectionProgress();
+            const overallPercent = progress
+              ? calculateOverallProgress(progress.phase, progress.completed, progress.total)
+              : lastPercent >= 0
+                ? lastPercent
+                : 0;
+
+            if (overallPercent !== lastPercent) {
+              const message = progress
+                ? getSectionDetectionMessage(progress.phase, progress.completed, progress.total)
+                : i18n.t('cache.analyzingRoutes');
+
+              updateProgress({
+                status: 'computing',
+                completed: overallPercent,
+                total: 100,
+                message,
+              });
+              lastPercent = overallPercent;
+            }
+          } else if (status === 'complete' || status === 'idle') {
+            break;
+          } else if (status === 'error') {
             if (__DEV__) {
-              console.log(
-                `[fetchApiGps] DISCARDING stale results: generation ${startGeneration} -> ${currentGeneration}`
-              );
+              console.warn('[fetchApiGps] Section detection error');
             }
-            return {
-              syncedIds: [],
-              withGpsCount: 0,
-              message: 'Sync reset - results discarded',
-            };
+            break;
           }
 
-          await nativeModule.routeEngine.addActivities(ids, allCoords, offsets, sportTypes);
-
-          // Sync activity metrics for performance calculations
-          const syncedActivities = activities.filter((a) => ids.includes(a.id));
-          const metrics = syncedActivities.map(toActivityMetrics);
-          routeEngine.setActivityMetrics(metrics);
-
-          // Start section detection and poll for progress
-          // Reset the progress tracker for a fresh sync
-          resetProgressTracker();
-          nativeModule.routeEngine.startSectionDetection();
-
-          // Poll for section detection completion with smooth progress updates
-          const pollInterval = 150; // ms - faster polling for smoother animations
-          const maxPollTime = 60000; // 60 seconds
-          const startTime = Date.now();
-          let lastPercent = -1;
-
-          while (isMountedRef.current && !abortSignal.aborted) {
-            const status = nativeModule.routeEngine.pollSectionDetection();
-
-            if (status === 'running') {
-              // Get progress and calculate overall percentage
-              const progress = nativeModule.routeEngine.getSectionDetectionProgress();
-              // If no progress yet, keep the last percentage (don't reset to 0)
-              const overallPercent = progress
-                ? calculateOverallProgress(progress.phase, progress.completed, progress.total)
-                : lastPercent >= 0
-                  ? lastPercent
-                  : 0;
-
-              // Update on every percentage change - the animation will smooth transitions
-              if (overallPercent !== lastPercent) {
-                const message = progress
-                  ? getSectionDetectionMessage(progress.phase, progress.completed, progress.total)
-                  : i18n.t('cache.analyzingRoutes');
-
-                updateProgress({
-                  status: 'computing',
-                  completed: overallPercent,
-                  total: 100,
-                  message,
-                });
-                lastPercent = overallPercent;
-              }
-            } else if (status === 'complete' || status === 'idle') {
-              break;
-            } else if (status === 'error') {
-              if (__DEV__) {
-                console.warn('[fetchApiGps] Section detection error');
-              }
-              break;
+          if (Date.now() - startTime > maxPollTime) {
+            if (__DEV__) {
+              console.warn('[fetchApiGps] Section detection timed out');
             }
-
-            // Check timeout
-            if (Date.now() - startTime > maxPollTime) {
-              if (__DEV__) {
-                console.warn('[fetchApiGps] Section detection timed out');
-              }
-              break;
-            }
-
-            await new Promise((resolve) => setTimeout(resolve, pollInterval));
+            break;
           }
 
-          // Run potential section detection after regular detection completes
-          if (isMountedRef.current && !abortSignal.aborted) {
-            await runPotentialSectionDetection(nativeModule, updateProgress);
-          }
+          await new Promise((resolve) => setTimeout(resolve, pollInterval));
+        }
+
+        // Run potential section detection
+        if (isMountedRef.current && !abortSignal.aborted) {
+          await new Promise((resolve) => setTimeout(resolve, 0));
+          await runPotentialSectionDetection(nativeModule, updateProgress);
         }
       }
 
@@ -859,16 +685,16 @@ export function useGpsDataFetcher() {
       if (isMountedRef.current) {
         updateProgress({
           status: 'complete',
-          completed: successfulResults.length,
+          completed: result.successCount,
           total: activities.length,
-          message: `Synced ${successfulResults.length} activities`,
+          message: `Synced ${result.successCount} activities`,
         });
       }
 
       return {
-        syncedIds: successfulResults.map((r) => r.activityId),
+        syncedIds: result.syncedIds,
         withGpsCount: activities.length,
-        message: `Synced ${successfulResults.length} activities`,
+        message: `Synced ${result.successCount} activities`,
       };
     },
     []

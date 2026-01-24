@@ -852,8 +852,11 @@ export function RegionalMapView({
       .map((activity) => {
         // Use pre-computed center (no format detection during render!)
         const center = activityCenters[activity.id];
-        // Skip if center not computed or invalid (prevents iOS crash)
-        if (!center || !Number.isFinite(center[0]) || !Number.isFinite(center[1])) {
+        // iOS crash fix: guard against undefined activity centers
+        // -[__NSArrayM insertObject:atIndex:]: object cannot be nil (MLRNMapView.m:207)
+        if (!center) return null;
+        // Skip if center has invalid coordinates (prevents iOS crash)
+        if (!Number.isFinite(center[0]) || !Number.isFinite(center[1])) {
           skippedCount++;
           if (__DEV__) {
             console.warn(
@@ -880,7 +883,7 @@ export function RegionalMapView({
           },
         };
       })
-      .filter((f): f is NonNullable<typeof f> => f !== null);
+      .filter(Boolean);
 
     if (__DEV__ && skippedCount > 0) {
       console.warn(
@@ -890,7 +893,7 @@ export function RegionalMapView({
 
     return {
       type: 'FeatureCollection' as const,
-      features,
+      features: features as GeoJSON.Feature[],
     };
   }, [visibleActivities, activityCenters]);
 

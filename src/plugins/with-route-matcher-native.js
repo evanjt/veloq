@@ -336,22 +336,46 @@ function copyIOSCppFiles() {
 }
 
 /**
- * Patch generated route-matcher-native.cpp to fix include path.
- * uniffi-bindgen-react-native generates #include "/tracematch.hpp" which is wrong.
+ * Patch and rename generated cpp files.
+ * uniffi-bindgen-react-native generates route-matcher-native.cpp but CMakeLists expects veloq.cpp.
  */
 function patchGeneratedCpp() {
-  const cppFile = path.join(MODULE_DIR, "cpp/route-matcher-native.cpp");
+  const oldCppFile = path.join(MODULE_DIR, "cpp/route-matcher-native.cpp");
+  const newCppFile = path.join(MODULE_DIR, "cpp/veloq.cpp");
+  const oldHFile = path.join(MODULE_DIR, "cpp/route-matcher-native.h");
+  const newHFile = path.join(MODULE_DIR, "cpp/veloq.h");
 
-  if (!existsSync(cppFile)) {
-    return;
+  // Rename cpp file if needed
+  if (existsSync(oldCppFile) && !existsSync(newCppFile)) {
+    console.log("  Renaming route-matcher-native.cpp to veloq.cpp...");
+    fs.renameSync(oldCppFile, newCppFile);
   }
 
-  let content = readFileSync(cppFile, "utf8");
-  if (content.includes('"/tracematch.hpp"')) {
-    console.log("  Patching route-matcher-native.cpp include path...");
-    content = content.replace('"/tracematch.hpp"', '"tracematch.hpp"');
-    writeFileSync(cppFile, content);
-    console.log("  route-matcher-native.cpp patched");
+  // Rename header file if needed
+  if (existsSync(oldHFile) && !existsSync(newHFile)) {
+    console.log("  Renaming route-matcher-native.h to veloq.h...");
+    fs.renameSync(oldHFile, newHFile);
+  }
+
+  // Patch include path in veloq.cpp
+  if (existsSync(newCppFile)) {
+    let content = readFileSync(newCppFile, "utf8");
+    let modified = false;
+
+    if (content.includes('"/tracematch.hpp"')) {
+      content = content.replace('"/tracematch.hpp"', '"tracematch.hpp"');
+      modified = true;
+    }
+    if (content.includes('"route-matcher-native.h"')) {
+      content = content.replace('"route-matcher-native.h"', '"veloq.h"');
+      modified = true;
+    }
+
+    if (modified) {
+      console.log("  Patching veloq.cpp include paths...");
+      writeFileSync(newCppFile, content);
+      console.log("  veloq.cpp patched");
+    }
   }
 }
 
@@ -381,6 +405,7 @@ function patchCMakeLists() {
 /**
  * Remove auto-generated files that conflict with our custom Veloq module.
  * uniffi-bindgen-react-native generates RouteMatcherNative* files but we use Veloq*.
+ * Also patches index.ts to use NativeVeloq instead of NativeRouteMatcherNative.
  */
 function removeConflictingGeneratedFiles() {
   const filesToRemove = [
@@ -395,6 +420,26 @@ function removeConflictingGeneratedFiles() {
     if (existsSync(file)) {
       console.log(`  Removing conflicting ${path.basename(file)}...`);
       fs.unlinkSync(file);
+    }
+  }
+
+  // Remove auto-generated index.ts if it doesn't have routeEngine (our custom version)
+  // The custom index.ts with routeEngine wrapper should be preserved in git
+  const indexTs = path.join(MODULE_DIR, "src/index.ts");
+  if (existsSync(indexTs)) {
+    const content = readFileSync(indexTs, "utf8");
+    // If this is the auto-generated version (has NativeRouteMatcherNative), remove it
+    // Git checkout will restore our custom version on next build
+    if (content.includes("NativeRouteMatcherNative") && !content.includes("routeEngine")) {
+      console.log("  Removing auto-generated index.ts (custom version in git)...");
+      fs.unlinkSync(indexTs);
+      // Restore from git
+      try {
+        execSync("git checkout HEAD -- src/index.ts", { cwd: MODULE_DIR, stdio: "ignore" });
+        console.log("  Restored custom index.ts from git");
+      } catch {
+        console.log("  Warning: Could not restore index.ts from git");
+      }
     }
   }
 }
@@ -485,7 +530,7 @@ function binariesExist(platform) {
 
 /**
  * Check if bindings already exist.
- * We check for both the generated tracematch.ts AND our custom index.ts with routeEngine wrapper.
+ * We check for the generated tracematch.ts AND that index.ts uses NativeVeloq.
  */
 function bindingsExist() {
   const generatedTs = path.join(MODULE_DIR, "src/generated/tracematch.ts");
@@ -494,11 +539,11 @@ function bindingsExist() {
   // Check generated bindings exist
   if (!existsSync(generatedTs)) return false;
 
-  // Check our custom index.ts exists and has the routeEngine wrapper
+  // Check index.ts exists and uses NativeVeloq (patched version)
   if (existsSync(indexTs)) {
     const content = readFileSync(indexTs, "utf8");
-    if (content.includes("routeEngine") && content.includes("NativeVeloq")) {
-      return true; // Our custom version exists, don't regenerate
+    if (content.includes("NativeVeloq")) {
+      return true; // Patched version exists
     }
   }
 

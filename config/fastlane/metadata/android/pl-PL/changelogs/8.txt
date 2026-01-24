@@ -1,0 +1,9 @@
+Nowości w wersji 0.0.8:
+
+- Synchronizacja początkowa 10x szybsza dzięki nowemu silnikowi pobierania w tle
+- Selektor jednostek imperialnych/metrycznych (automatyczne wykrywanie z intervals.icu)
+- Ulepszenia wykresów: etykiety osi Y i linia średniej z podpowiedzią
+- Zmniejszone użycie pamięci
+- Poprawiona konwersja jednostek imperialnych
+- Dodany ekran licencji stron trzecich
+- Ulepszenia tłumaczeń i atrybutów map

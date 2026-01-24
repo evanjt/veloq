@@ -1,0 +1,9 @@
+Novidades na versão 0.0.8:
+
+- Sincronização inicial 10x mais rápida com novo motor de download em segundo plano
+- Seletor de unidades imperiais/métricas (detecção automática a partir de intervals.icu)
+- Melhorias nos gráficos: rótulos do eixo Y e linha média com tooltip
+- Redução do uso de memória
+- Corrigidos cálculos de unidades imperiais
+- Adicionada tela de licenças de terceiros
+- Melhorias na tradução e atribuição de mapas

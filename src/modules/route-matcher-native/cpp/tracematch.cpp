@@ -234,6 +234,16 @@ void uniffi_tracematch_fn_func_persistent_engine_set_time_streams_flat(
     RustCallStatus *uniffi_out_err);
 int8_t uniffi_tracematch_fn_func_persistent_engine_start_section_detection(
     RustBuffer sport_filter, RustCallStatus *uniffi_out_err);
+void uniffi_tracematch_fn_func_start_background_fetch(
+    RustBuffer auth_header, RustBuffer activity_ids,
+    RustCallStatus *uniffi_out_err);
+void uniffi_tracematch_fn_func_start_fetch_and_store(
+    RustBuffer auth_header, RustBuffer activity_ids, RustBuffer sport_types,
+    RustCallStatus *uniffi_out_err);
+RustBuffer uniffi_tracematch_fn_func_take_background_fetch_results(
+    RustCallStatus *uniffi_out_err);
+RustBuffer uniffi_tracematch_fn_func_take_fetch_and_store_result(
+    RustCallStatus *uniffi_out_err);
 RustBuffer ffi_tracematch_rustbuffer_alloc(uint64_t size,
                                            RustCallStatus *uniffi_out_err);
 RustBuffer ffi_tracematch_rustbuffer_from_bytes(ForeignBytes bytes,
@@ -438,6 +448,10 @@ uint16_t
 uniffi_tracematch_checksum_func_persistent_engine_set_time_streams_flat();
 uint16_t
 uniffi_tracematch_checksum_func_persistent_engine_start_section_detection();
+uint16_t uniffi_tracematch_checksum_func_start_background_fetch();
+uint16_t uniffi_tracematch_checksum_func_start_fetch_and_store();
+uint16_t uniffi_tracematch_checksum_func_take_background_fetch_results();
+uint16_t uniffi_tracematch_checksum_func_take_fetch_and_store_result();
 uint16_t uniffi_tracematch_checksum_method_fetchprogresscallback_on_progress();
 uint32_t ffi_tracematch_uniffi_contract_version();
 }
@@ -2773,6 +2787,53 @@ NativeTracematch::NativeTracematch(
             ->cpp_uniffi_tracematch_fn_func_persistent_engine_start_section_detection(
                 rt, thisVal, args, count);
       });
+  props["ubrn_uniffi_tracematch_fn_func_start_background_fetch"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt, "ubrn_uniffi_tracematch_fn_func_start_background_fetch"),
+          2,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_uniffi_tracematch_fn_func_start_background_fetch(
+                rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_tracematch_fn_func_start_fetch_and_store"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt, "ubrn_uniffi_tracematch_fn_func_start_fetch_and_store"),
+          3,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_uniffi_tracematch_fn_func_start_fetch_and_store(
+                rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_tracematch_fn_func_take_background_fetch_results"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt,
+              "ubrn_uniffi_tracematch_fn_func_take_background_fetch_results"),
+          0,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_tracematch_fn_func_take_background_fetch_results(
+                    rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_tracematch_fn_func_take_fetch_and_store_result"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt, "ubrn_uniffi_tracematch_fn_func_take_fetch_and_store_result"),
+          0,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_tracematch_fn_func_take_fetch_and_store_result(
+                    rt, thisVal, args, count);
+          });
   props["ubrn_uniffi_tracematch_checksum_func_default_scale_presets"] =
       jsi::Function::createFromHostFunction(
           rt,
@@ -3414,6 +3475,55 @@ NativeTracematch::NativeTracematch(
             ->cpp_uniffi_tracematch_checksum_func_persistent_engine_start_section_detection(
                 rt, thisVal, args, count);
       });
+  props["ubrn_uniffi_tracematch_checksum_func_start_background_fetch"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt,
+              "ubrn_uniffi_tracematch_checksum_func_start_background_fetch"),
+          0,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_tracematch_checksum_func_start_background_fetch(
+                    rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_tracematch_checksum_func_start_fetch_and_store"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt, "ubrn_uniffi_tracematch_checksum_func_start_fetch_and_store"),
+          0,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_tracematch_checksum_func_start_fetch_and_store(
+                    rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_tracematch_checksum_func_take_background_fetch_results"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(rt, "ubrn_uniffi_tracematch_checksum_func_"
+                                        "take_background_fetch_results"),
+          0,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_tracematch_checksum_func_take_background_fetch_results(
+                    rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_tracematch_checksum_func_take_fetch_and_store_result"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(rt, "ubrn_uniffi_tracematch_checksum_func_"
+                                        "take_fetch_and_store_result"),
+          0,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_tracematch_checksum_func_take_fetch_and_store_result(
+                    rt, thisVal, args, count);
+          });
   props["ubrn_uniffi_tracematch_checksum_method_fetchprogresscallback_on_"
         "progress"] = jsi::Function::createFromHostFunction(
       rt,
@@ -4314,6 +4424,66 @@ jsi::Value NativeTracematch::
   return uniffi_jsi::Bridging<int8_t>::toJs(rt, callInvoker, value);
 }
 jsi::Value
+NativeTracematch::cpp_uniffi_tracematch_fn_func_start_background_fetch(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::tracematch::Bridging<RustCallStatus>::rustSuccess(rt);
+  uniffi_tracematch_fn_func_start_background_fetch(
+      uniffi::tracematch::Bridging<RustBuffer>::fromJs(rt, callInvoker,
+                                                       args[0]),
+      uniffi::tracematch::Bridging<RustBuffer>::fromJs(rt, callInvoker,
+                                                       args[1]),
+      &status);
+  uniffi::tracematch::Bridging<RustCallStatus>::copyIntoJs(
+      rt, callInvoker, status, args[count - 1]);
+
+  return jsi::Value::undefined();
+}
+jsi::Value
+NativeTracematch::cpp_uniffi_tracematch_fn_func_start_fetch_and_store(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::tracematch::Bridging<RustCallStatus>::rustSuccess(rt);
+  uniffi_tracematch_fn_func_start_fetch_and_store(
+      uniffi::tracematch::Bridging<RustBuffer>::fromJs(rt, callInvoker,
+                                                       args[0]),
+      uniffi::tracematch::Bridging<RustBuffer>::fromJs(rt, callInvoker,
+                                                       args[1]),
+      uniffi::tracematch::Bridging<RustBuffer>::fromJs(rt, callInvoker,
+                                                       args[2]),
+      &status);
+  uniffi::tracematch::Bridging<RustCallStatus>::copyIntoJs(
+      rt, callInvoker, status, args[count - 1]);
+
+  return jsi::Value::undefined();
+}
+jsi::Value
+NativeTracematch::cpp_uniffi_tracematch_fn_func_take_background_fetch_results(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::tracematch::Bridging<RustCallStatus>::rustSuccess(rt);
+  auto value = uniffi_tracematch_fn_func_take_background_fetch_results(&status);
+  uniffi::tracematch::Bridging<RustCallStatus>::copyIntoJs(
+      rt, callInvoker, status, args[count - 1]);
+
+  return uniffi::tracematch::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
+}
+jsi::Value
+NativeTracematch::cpp_uniffi_tracematch_fn_func_take_fetch_and_store_result(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::tracematch::Bridging<RustCallStatus>::rustSuccess(rt);
+  auto value = uniffi_tracematch_fn_func_take_fetch_and_store_result(&status);
+  uniffi::tracematch::Bridging<RustCallStatus>::copyIntoJs(
+      rt, callInvoker, status, args[count - 1]);
+
+  return uniffi::tracematch::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
+}
+jsi::Value
 NativeTracematch::cpp_uniffi_tracematch_checksum_func_default_scale_presets(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
     size_t count) {
@@ -4770,6 +4940,38 @@ jsi::Value NativeTracematch::
         size_t count) {
   auto value =
       uniffi_tracematch_checksum_func_persistent_engine_start_section_detection();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value
+NativeTracematch::cpp_uniffi_tracematch_checksum_func_start_background_fetch(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  auto value = uniffi_tracematch_checksum_func_start_background_fetch();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value
+NativeTracematch::cpp_uniffi_tracematch_checksum_func_start_fetch_and_store(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  auto value = uniffi_tracematch_checksum_func_start_fetch_and_store();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeTracematch::
+    cpp_uniffi_tracematch_checksum_func_take_background_fetch_results(
+        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+        size_t count) {
+  auto value = uniffi_tracematch_checksum_func_take_background_fetch_results();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeTracematch::
+    cpp_uniffi_tracematch_checksum_func_take_fetch_and_store_result(
+        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+        size_t count) {
+  auto value = uniffi_tracematch_checksum_func_take_fetch_and_store_result();
 
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }

@@ -1,0 +1,9 @@
+Wat is er nieuw in 0.0.8:
+
+- 10x snellere initiële synchronisatie met nieuwe downloadengine op de achtergrond
+- Keuze voor imperiale/metrische eenheden (auto-detectie van intervals.icu)
+- Grafiekverbeteringen: Y-as labels en gemiddeldelijntje met tooltip
+- Verminderd geheugengebruik
+- Vastgestelde imperiale eenheidsberekeningen
+- Scherm met licenties van derden toegevoegd
+- Vertalings- en kaartverwijzingsverbeteringen

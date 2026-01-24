@@ -236,6 +236,23 @@ interface NativeModuleInterface {
     sportFilter: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus
   ): number;
+  ubrn_uniffi_tracematch_fn_func_start_background_fetch(
+    authHeader: Uint8Array,
+    activityIds: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus
+  ): void;
+  ubrn_uniffi_tracematch_fn_func_start_fetch_and_store(
+    authHeader: Uint8Array,
+    activityIds: Uint8Array,
+    sportTypes: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus
+  ): void;
+  ubrn_uniffi_tracematch_fn_func_take_background_fetch_results(
+    uniffi_out_err: UniffiRustCallStatus
+  ): Uint8Array;
+  ubrn_uniffi_tracematch_fn_func_take_fetch_and_store_result(
+    uniffi_out_err: UniffiRustCallStatus
+  ): Uint8Array;
   ubrn_uniffi_tracematch_checksum_func_default_scale_presets(): number;
   ubrn_uniffi_tracematch_checksum_func_fetch_activity_maps(): number;
   ubrn_uniffi_tracematch_checksum_func_fetch_activity_maps_with_progress(): number;
@@ -288,6 +305,10 @@ interface NativeModuleInterface {
   ubrn_uniffi_tracematch_checksum_func_persistent_engine_set_section_name(): number;
   ubrn_uniffi_tracematch_checksum_func_persistent_engine_set_time_streams_flat(): number;
   ubrn_uniffi_tracematch_checksum_func_persistent_engine_start_section_detection(): number;
+  ubrn_uniffi_tracematch_checksum_func_start_background_fetch(): number;
+  ubrn_uniffi_tracematch_checksum_func_start_fetch_and_store(): number;
+  ubrn_uniffi_tracematch_checksum_func_take_background_fetch_results(): number;
+  ubrn_uniffi_tracematch_checksum_func_take_fetch_and_store_result(): number;
   ubrn_uniffi_tracematch_checksum_method_fetchprogresscallback_on_progress(): number;
   ubrn_ffi_tracematch_uniffi_contract_version(): number;
 }
