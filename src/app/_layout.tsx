@@ -238,7 +238,15 @@ export default function RootLayout() {
                         headerBlurEffect: Platform.OS === 'ios' ? 'prominent' : undefined,
                         headerTransparent: Platform.OS === 'ios',
                       }}
-                    />
+                    >
+                      {/* Tabs group - no animation, instant switching */}
+                      <Stack.Screen
+                        name="(tabs)"
+                        options={{
+                          animation: 'none',
+                        }}
+                      />
+                    </Stack>
                     <FloatingMenu />
                   </ScrollVisibilityProvider>
                 </AuthGate>
