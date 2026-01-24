@@ -5,8 +5,12 @@
 //! - SQLite persistence layer
 //! - HTTP client for intervals.icu API
 
-// Re-export all public types from tracematch
+// Re-export algorithm types from tracematch (without UniFFI derives)
 pub use tracematch::*;
+
+// FFI-safe types with UniFFI derives
+pub mod ffi_types;
+pub use ffi_types::*;
 
 // Persistence layer with SQLite storage
 pub mod persistence;

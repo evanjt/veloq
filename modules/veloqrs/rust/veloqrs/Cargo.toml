@@ -10,6 +10,10 @@ publish = false
 name = "veloqrs"
 crate-type = ["rlib", "staticlib", "cdylib"]
 
+[features]
+default = ["persistence"]
+persistence = []
+
 [dependencies]
 # Core algorithm library
 tracematch = { path = "../tracematch" }

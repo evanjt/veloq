@@ -105,7 +105,7 @@ pub struct SectionSummary {
     /// Detection scale (e.g., "neighborhood", "city")
     pub scale: Option<String>,
     /// Bounding box for map display
-    pub bounds: Option<Bounds>,
+    pub bounds: Option<crate::FfiBounds>,
 }
 
 /// Lightweight group metadata for list views.
@@ -124,7 +124,7 @@ pub struct GroupSummary {
     /// Custom name (user-defined, None if not set)
     pub custom_name: Option<String>,
     /// Bounding box for map display
-    pub bounds: Option<Bounds>,
+    pub bounds: Option<crate::FfiBounds>,
 }
 
 /// Progress state for section detection, shared between threads.
@@ -911,7 +911,7 @@ impl PersistentRouteEngine {
     ///
     /// # Example
     /// ```no_run
-    /// # use tracematch::persistence::PersistentRouteEngine;
+    /// # use veloqrs::persistence::PersistentRouteEngine;
     /// # let mut engine: PersistentRouteEngine = unsafe { std::mem::zeroed() };
     /// // Delete activities older than 90 days
     /// let deleted = engine.cleanup_old_activities(90).unwrap();
@@ -970,7 +970,7 @@ impl PersistentRouteEngine {
     ///
     /// # Example
     /// ```no_run
-    /// # use tracematch::persistence::PersistentRouteEngine;
+    /// # use veloqrs::persistence::PersistentRouteEngine;
     /// # let mut engine: PersistentRouteEngine = unsafe { std::mem::zeroed() };
     /// // User expanded cache from 90 days to 1 year
     /// engine.mark_for_recomputation();
@@ -1706,7 +1706,7 @@ impl PersistentRouteEngine {
                     }
 
                     if min_lat < f64::MAX {
-                        Some(Bounds {
+                        Some(crate::FfiBounds {
                             min_lat,
                             max_lat,
                             min_lng,
@@ -1787,7 +1787,7 @@ impl PersistentRouteEngine {
                     row.get::<_, Option<f64>>(6)?,
                     row.get::<_, Option<f64>>(7)?,
                 ) {
-                    Some(Bounds {
+                    Some(crate::FfiBounds {
                         min_lat,
                         max_lat,
                         min_lng,
@@ -2120,13 +2120,13 @@ impl PersistentRouteEngine {
                 total_points / tracks.len().max(1)
             );
 
-            // Detect sections using multi-scale algorithm with progress
-            let result = crate::sections::detect_sections_multiscale_with_progress(
+            // Detect sections using multi-scale algorithm
+            progress_clone.set_phase("detecting", tracks.len() as u32);
+            let result = tracematch::sections::detect_sections_multiscale(
                 &tracks,
                 &sport_map,
                 &groups,
                 &section_config,
-                &progress_clone,
             );
 
             log::info!(

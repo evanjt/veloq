@@ -521,15 +521,11 @@ jobs:
 
       - name: Build Android APK
         if: github.ref != 'refs/heads/main' && github.event_name != 'workflow_dispatch'
-        env:
-          RUST_PREBUILT: "true"
         run: cd android && ./gradlew assembleRelease --no-daemon
 
       - name: Build Android APK + AAB
         # Build both in single Gradle invocation on main (faster than separate builds)
         if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
-        env:
-          RUST_PREBUILT: "true"
         run: cd android && ./gradlew assembleRelease bundleRelease --no-daemon
 
       - name: Copy APK

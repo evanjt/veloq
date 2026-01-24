@@ -4,9 +4,14 @@
 //! to Kotlin and Swift. All FFI functions are prefixed with `ffi_` to avoid
 //! naming conflicts with the internal API.
 
-use crate::{GpsPoint, RouteGroup, RouteSignature, elapsed_ms, init_logging};
+use crate::ffi_types::{
+    FfiActivityHeatmapData, FfiHeatmapConfig, FfiHeatmapResult, FfiMultiScaleSectionResult,
+    FfiRouteGroup, FfiRouteSignature, FfiScalePreset, FfiSectionConfig,
+};
+use crate::{elapsed_ms, init_logging};
 use log::info;
 use std::time::Instant;
+use tracematch::GpsPoint;
 
 // ============================================================================
 // Callback Interfaces
@@ -47,8 +52,8 @@ pub struct ActivitySportType {
 
 /// Get default scale presets for multi-scale detection
 #[uniffi::export]
-pub fn default_scale_presets() -> Vec<crate::ScalePreset> {
-    crate::ScalePreset::default_presets()
+pub fn default_scale_presets() -> Vec<FfiScalePreset> {
+    crate::ffi_types::default_scale_presets()
 }
 
 /// Detect sections at multiple scales with potential section suggestions.
@@ -64,9 +69,9 @@ pub fn ffi_detect_sections_multiscale(
     all_coords: Vec<f64>,
     offsets: Vec<u32>,
     sport_types: Vec<ActivitySportType>,
-    groups: Vec<RouteGroup>,
-    config: crate::SectionConfig,
-) -> crate::MultiScaleSectionResult {
+    groups: Vec<FfiRouteGroup>,
+    config: FfiSectionConfig,
+) -> FfiMultiScaleSectionResult {
     init_logging();
     let ffi_start = Instant::now();
     info!(
@@ -119,9 +124,11 @@ pub fn ffi_detect_sections_multiscale(
         elapsed_ms(sport_map_start)
     );
 
-    // Phase 3: Run detection algorithm
+    // Phase 3: Convert FFI types to tracematch types and run detection
     let detect_start = Instant::now();
-    let result = crate::sections::detect_sections_multiscale(&tracks, &sport_map, &groups, &config);
+    let tm_groups: Vec<tracematch::RouteGroup> = groups.into_iter().map(Into::into).collect();
+    let tm_config: tracematch::SectionConfig = config.into();
+    let result = tracematch::sections::detect_sections_multiscale(&tracks, &sport_map, &tm_groups, &tm_config);
     info!(
         "[RUST: detect_sections_multiscale] Detection complete: {} raw sections, {} raw potentials ({} ms)",
         result.sections.len(),
@@ -153,11 +160,12 @@ pub fn ffi_detect_sections_multiscale(
         elapsed_ms(ffi_start)
     );
 
-    crate::MultiScaleSectionResult {
+    // Convert back to FFI types
+    FfiMultiScaleSectionResult::from(tracematch::MultiScaleSectionResult {
         sections: filtered_sections,
         potentials: filtered_potentials,
         stats: result.stats,
-    }
+    })
 }
 
 // ============================================================================
@@ -168,10 +176,10 @@ pub fn ffi_detect_sections_multiscale(
 /// Uses the simplified GPS traces (~100 points each) for efficient generation.
 #[uniffi::export]
 pub fn ffi_generate_heatmap(
-    signatures: Vec<RouteSignature>,
-    activity_data: Vec<crate::ActivityHeatmapData>,
-    config: crate::HeatmapConfig,
-) -> crate::HeatmapResult {
+    signatures: Vec<FfiRouteSignature>,
+    activity_data: Vec<FfiActivityHeatmapData>,
+    config: FfiHeatmapConfig,
+) -> FfiHeatmapResult {
     init_logging();
     let ffi_start = Instant::now();
     info!(
@@ -180,11 +188,11 @@ pub fn ffi_generate_heatmap(
         config.cell_size_meters
     );
 
-    // Phase 1: Build data map
+    // Phase 1: Convert FFI types and build data map
     let map_start = Instant::now();
-    let data_map: std::collections::HashMap<String, crate::ActivityHeatmapData> = activity_data
+    let data_map: std::collections::HashMap<String, tracematch::ActivityHeatmapData> = activity_data
         .into_iter()
-        .map(|d| (d.activity_id.clone(), d))
+        .map(|d| (d.activity_id.clone(), d.into()))
         .collect();
     info!(
         "[RUST: generate_heatmap] Built data map with {} entries ({} ms)",
@@ -192,9 +200,11 @@ pub fn ffi_generate_heatmap(
         elapsed_ms(map_start)
     );
 
-    // Phase 2: Generate heatmap
+    // Phase 2: Convert signatures and generate heatmap
     let gen_start = Instant::now();
-    let result = crate::generate_heatmap(&signatures, &data_map, &config);
+    let tm_signatures: Vec<tracematch::RouteSignature> = signatures.into_iter().map(Into::into).collect();
+    let tm_config: tracematch::HeatmapConfig = config.into();
+    let result = tracematch::generate_heatmap(&tm_signatures, &data_map, &tm_config);
     info!(
         "[RUST: generate_heatmap] Generated {} cells, {} routes, {} activities ({} ms)",
         result.cells.len(),
@@ -208,7 +218,7 @@ pub fn ffi_generate_heatmap(
         elapsed_ms(ffi_start)
     );
 
-    result
+    FfiHeatmapResult::from(result)
 }
 
 // =============================================================================
