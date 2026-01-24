@@ -68,6 +68,7 @@ import {
   defaultScalePresets,
   fetchActivityMaps,
   fetchActivityMapsWithProgress as generatedFetchWithProgress,
+  getDownloadProgress as ffiGetDownloadProgress,
   type FetchProgressCallback,
   type PersistentEngineStats,
   type ActivityMetrics,
@@ -79,6 +80,7 @@ import {
   type CustomSectionMatch,
   type SectionSummary,
   type GroupSummary,
+  type DownloadProgressResult,
 } from './generated/tracematch';
 
 // For backward compatibility, also export the module initialization status
@@ -304,6 +306,11 @@ export function addFetchProgressListener(_callback: (event: FetchProgressEvent) 
 export type EngineStats = PersistentEngineStats;
 
 /**
+ * Re-export the DownloadProgressResult type for polling-based progress.
+ */
+export type { DownloadProgressResult };
+
+/**
  * Fetch activity maps with optional progress reporting.
  *
  * @param authHeader - Pre-formatted Authorization header value:
@@ -330,6 +337,18 @@ export async function fetchActivityMapsWithProgress(
   };
 
   return generatedFetchWithProgress(authHeader, activityIds, callback);
+}
+
+/**
+ * Get current download progress for polling.
+ *
+ * Call this every 100ms during fetch operations to get smooth progress updates.
+ * Avoids cross-thread FFI callback issues by using atomic counters in Rust.
+ *
+ * @returns Progress with completed/total/active fields
+ */
+export function getDownloadProgress(): DownloadProgressResult {
+  return ffiGetDownloadProgress();
 }
 
 /**
