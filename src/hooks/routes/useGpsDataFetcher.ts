@@ -607,6 +607,11 @@ export function useGpsDataFetcher() {
       // Just need to sync metrics and start section detection
 
       if (result.syncedIds.length > 0 && isMountedRef.current) {
+        // Notify UI that activities have been added
+        // startFetchAndStore bypasses RouteEngineClient.addActivities() so we must trigger manually
+        routeEngine.triggerRefresh('activities');
+        routeEngine.triggerRefresh('groups');
+
         // Sync activity metrics for performance calculations
         const syncedActivities = activities.filter((a) => result.syncedIds.includes(a.id));
         const metrics = syncedActivities.map(toActivityMetrics);
