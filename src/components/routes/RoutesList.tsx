@@ -27,7 +27,7 @@ import { RouteRow } from './RouteRow';
 import { DataRangeFooter } from './DataRangeFooter';
 import type { DiscoveredRouteInfo, RouteGroup } from '@/types';
 import { toActivityType } from '@/types/routes';
-import type { GroupSummary } from 'route-matcher-native';
+import type { GroupSummary } from 'veloqrs';
 
 interface RoutesListProps {
   /** Callback when list is pulled to refresh */

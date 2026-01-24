@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { intervalsApi } from '@/api';
-import { routeEngine } from 'route-matcher-native';
+import { routeEngine } from 'veloqrs';
 import type { FrequentSection, ActivityStreams } from '@/types';
 
 /**

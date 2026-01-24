@@ -539,7 +539,7 @@ export async function estimateRoutesDatabaseSize(): Promise<number> {
  */
 function getRouteEngine() {
   try {
-    return require('route-matcher-native').routeEngine;
+    return require('veloqrs').routeEngine;
   } catch {
     return null;
   }

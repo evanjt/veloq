@@ -1,7 +1,6 @@
 {
   "name": "veloq",
   "version": "0.0.8",
-  "tracematchVersion": "0.0.9",
   "repository": {
     "type": "git",
     "url": "https://github.com/evanjt/veloq"
@@ -11,7 +10,7 @@
     "start": "npx expo start",
     "android": "npx expo run:android",
     "ios": "npx expo run:ios",
-    "build:info": "cat src/modules/route-matcher-native/android/src/main/jniLibs/BUILD_INFO 2>/dev/null || echo 'No build info found'",
+    "build:info": "cat modules/veloqrs/android/src/main/jniLibs/BUILD_INFO 2>/dev/null || echo 'No build info found'",
     "web": "npx expo start --web",
     "test": "jest --config config/jest.config.js",
     "test:watch": "jest --config config/jest.config.js --watch",
@@ -88,7 +87,7 @@
     "react-native-svg": "15.12.1",
     "react-native-webview": "13.15.0",
     "react-native-worklets": "0.5.1",
-    "route-matcher-native": "./src/modules/route-matcher-native",
+    "veloqrs": "./modules/veloqrs",
     "victory-native": "^41.20.2",
     "zod": "^4.3.5",
     "zustand": "^5.0.9"

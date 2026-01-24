@@ -1,0 +1,494 @@
+const { execSync, spawnSync } = require("child_process");
+const fs = require("fs");
+const path = require("path");
+const { existsSync, mkdirSync, readFileSync, writeFileSync } = fs;
+
+/**
+ * Expo config plugin for veloqrs native module.
+ *
+ * This plugin:
+ * 1. Detects local dev vs CI environment
+ * 2. Builds from source (local with Rust) or uses pre-built binaries (CI)
+ * 3. Generates TypeScript/C++ bindings with uniffi-bindgen-react-native
+ * 4. Patches generated files for React Native 0.81+ compatibility
+ */
+
+const MODULE_DIR = path.resolve(__dirname, "../../modules/veloqrs");
+const PROJECT_ROOT = path.resolve(__dirname, "../..");
+const RUST_DIR = path.join(MODULE_DIR, "rust");
+
+/**
+ * Check if we're running in CI environment.
+ */
+function isCI() {
+  return process.env.CI === "true" || process.env.GITHUB_ACTIONS === "true";
+}
+
+/**
+ * Check if local Rust development is available.
+ */
+function hasLocalRust() {
+  if (process.env.VELOQ_LOCAL_RUST === "1") return true;
+  if (process.env.VELOQ_LOCAL_RUST === "0") return false;
+  const cargoToml = path.join(RUST_DIR, "veloqrs/Cargo.toml");
+  if (!existsSync(cargoToml)) return false;
+  try { execSync("cargo --version", { stdio: "ignore" }); return true; } catch { return false; }
+}
+
+/**
+ * Detect connected Android device architecture via ADB.
+ */
+function detectAndroidArch() {
+  try {
+    const devices = execSync("adb devices 2>/dev/null", { encoding: "utf8" })
+      .split("\n")
+      .filter((line) => line.includes("\tdevice"))
+      .map((line) => line.split("\t")[0]);
+
+    if (devices.length === 0) return null;
+
+    const abi = execSync(`adb -s ${devices[0]} shell getprop ro.product.cpu.abi 2>/dev/null`, {
+      encoding: "utf8",
+    }).trim();
+
+    return abi || null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Build Android native libraries from source using cargo-ndk.
+ * Only builds for detected device arch, or all if no device connected.
+ */
+function buildAndroidFromSource() {
+  const jniLibsDir = path.join(MODULE_DIR, "android/src/main/jniLibs");
+
+  const allTargets = [
+    { rust: "aarch64-linux-android", android: "arm64-v8a" },
+    { rust: "armv7-linux-androideabi", android: "armeabi-v7a" },
+    { rust: "x86_64-linux-android", android: "x86_64" },
+    { rust: "i686-linux-android", android: "x86" },
+  ];
+
+  // Detect device architecture
+  const detectedArch = detectAndroidArch();
+  let targets = allTargets;
+
+  if (detectedArch) {
+    const target = allTargets.find((t) => t.android === detectedArch);
+    if (target) {
+      targets = [target];
+      console.log(`  Detected device: ${detectedArch}`);
+    }
+  } else {
+    console.log("  No device detected, building all architectures");
+  }
+
+  // Process each target
+  for (const { rust, android } of targets) {
+    const targetDir = path.join(jniLibsDir, android);
+    const localSo = path.join(targetDir, "libveloqrs.so");
+    const builtSo = path.join(RUST_DIR, "target", rust, "release", "libveloqrs.so");
+
+    // Always clear local copy first
+    if (existsSync(localSo)) {
+      fs.unlinkSync(localSo);
+    }
+    mkdirSync(targetDir, { recursive: true });
+
+    // Check if pre-built exists in rust/target
+    if (existsSync(builtSo)) {
+      console.log(`    Copying ${android} from cache`);
+      fs.copyFileSync(builtSo, localSo);
+    } else {
+      // Build this architecture
+      console.log(`    Building ${android}...`);
+      execSync(
+        `cargo ndk -t ${rust} --platform 24 -o "${jniLibsDir}" build --release -p veloqrs`,
+        { cwd: RUST_DIR, stdio: "inherit" }
+      );
+    }
+  }
+
+  // Write build info
+  const gitHash = execSync("git rev-parse --short HEAD", { cwd: RUST_DIR, encoding: "utf8" }).trim();
+  let dirty = "";
+  try {
+    execSync("git diff --quiet", { cwd: RUST_DIR });
+  } catch {
+    dirty = "-dirty";
+  }
+  const timestamp = new Date().toISOString().replace(/[:-]/g, "").slice(0, 15);
+  const buildInfo = path.join(jniLibsDir, "BUILD_INFO");
+  writeFileSync(buildInfo, `Build: ${gitHash}${dirty}-${timestamp}\nArchs: ${targets.map((t) => t.android).join(" ")}\nDate: ${new Date()}\n`);
+
+  console.log(`  Android ready: ${gitHash}${dirty}`);
+}
+
+/**
+ * Build iOS framework from source.
+ */
+function buildIOSFromSource() {
+  console.log("  Building iOS framework from source...");
+  const frameworksDir = path.join(MODULE_DIR, "ios/Frameworks");
+
+  const targets = ["aarch64-apple-ios", "aarch64-apple-ios-sim", "x86_64-apple-ios"];
+
+  for (const target of targets) {
+    console.log(`    Building for ${target}...`);
+    execSync(`cargo build --target ${target} --release -p veloqrs`, {
+      cwd: RUST_DIR,
+      stdio: "inherit",
+    });
+  }
+
+  // Create XCFramework using xcodebuild
+  mkdirSync(frameworksDir, { recursive: true });
+  const xcframeworkPath = path.join(frameworksDir, "VeloqrsFFI.xcframework");
+  const targetDir = path.join(RUST_DIR, "target");
+
+  // Remove existing xcframework
+  if (existsSync(xcframeworkPath)) {
+    fs.rmSync(xcframeworkPath, { recursive: true, force: true });
+  }
+
+  console.log("    Creating XCFramework...");
+  execSync(
+    `xcodebuild -create-xcframework \
+      -library ${targetDir}/aarch64-apple-ios/release/libveloqrs.a \
+      -library ${targetDir}/aarch64-apple-ios-sim/release/libveloqrs.a \
+      -output "${xcframeworkPath}"`,
+    { stdio: "inherit" }
+  );
+
+  console.log("  iOS build complete");
+}
+
+/**
+ * Generate TypeScript/C++ bindings using uniffi-bindgen-react-native.
+ */
+function generateBindings() {
+  console.log("  Generating bindings with uniffi-bindgen-react-native...");
+
+  execSync("npx uniffi-bindgen-react-native generate turbo-module veloqrs", {
+    cwd: MODULE_DIR,
+    stdio: "inherit",
+  });
+
+  console.log("  Bindings generated");
+}
+
+/**
+ * Copy cpp files from module's cpp directory to ios/cpp for Xcode build.
+ */
+function copyIOSCppFiles() {
+  const moduleCppDir = path.join(MODULE_DIR, "cpp");
+  const iosCppDir = path.join(MODULE_DIR, "ios/cpp");
+
+  if (!existsSync(moduleCppDir)) {
+    console.log("  Warning: cpp directory not found, skipping iOS cpp copy");
+    return;
+  }
+
+  mkdirSync(iosCppDir, { recursive: true });
+  const cppExtensions = [".h", ".hpp", ".cpp"];
+  const files = fs.readdirSync(moduleCppDir);
+  let copied = 0;
+  for (const file of files) {
+    if (cppExtensions.some((ext) => file.endsWith(ext))) {
+      fs.copyFileSync(path.join(moduleCppDir, file), path.join(iosCppDir, file));
+      copied++;
+    }
+  }
+  if (copied > 0) {
+    console.log(`  Copied ${copied} cpp files to ios/cpp`);
+  }
+}
+
+/**
+ * Patch and rename generated cpp files.
+ * uniffi-bindgen-react-native may generate files with different names.
+ */
+function patchGeneratedCpp() {
+  const oldCppFile = path.join(MODULE_DIR, "cpp/veloqrs.cpp");
+  const newCppFile = path.join(MODULE_DIR, "cpp/veloq.cpp");
+  const oldHFile = path.join(MODULE_DIR, "cpp/veloqrs.h");
+  const newHFile = path.join(MODULE_DIR, "cpp/veloq.h");
+
+  // Rename cpp file if needed (uniffi generates veloqrs.cpp, CMakeLists expects veloq.cpp)
+  if (existsSync(oldCppFile) && !existsSync(newCppFile)) {
+    console.log("  Renaming veloqrs.cpp to veloq.cpp...");
+    fs.renameSync(oldCppFile, newCppFile);
+  }
+
+  // Rename header file if needed
+  if (existsSync(oldHFile) && !existsSync(newHFile)) {
+    console.log("  Renaming veloqrs.h to veloq.h...");
+    fs.renameSync(oldHFile, newHFile);
+  }
+
+  // Patch include path in veloq.cpp
+  if (existsSync(newCppFile)) {
+    let content = readFileSync(newCppFile, "utf8");
+    let modified = false;
+
+    if (content.includes('"/veloqrs.hpp"')) {
+      content = content.replace('"/veloqrs.hpp"', '"veloqrs.hpp"');
+      modified = true;
+    }
+    if (content.includes('"veloqrs.h"')) {
+      content = content.replace('"veloqrs.h"', '"veloq.h"');
+      modified = true;
+    }
+
+    if (modified) {
+      console.log("  Patching veloq.cpp include paths...");
+      writeFileSync(newCppFile, content);
+      console.log("  veloq.cpp patched");
+    }
+  }
+}
+
+/**
+ * Remove auto-generated files that conflict with our custom Veloq module.
+ */
+function removeConflictingGeneratedFiles() {
+  const filesToRemove = [
+    path.join(MODULE_DIR, "src/NativeVeloqrs.ts"),
+    path.join(MODULE_DIR, "android/src/main/java/com/veloq/VeloqrsModule.kt"),
+    path.join(MODULE_DIR, "android/src/main/java/com/veloq/VeloqrsPackage.kt"),
+    path.join(MODULE_DIR, "ios/Veloqrs.h"),
+    path.join(MODULE_DIR, "ios/Veloqrs.mm"),
+  ];
+
+  for (const file of filesToRemove) {
+    if (existsSync(file)) {
+      console.log(`  Removing conflicting ${path.basename(file)}...`);
+      fs.unlinkSync(file);
+    }
+  }
+
+  // Remove auto-generated index.ts if it doesn't have routeEngine (our custom version)
+  const indexTs = path.join(MODULE_DIR, "src/index.ts");
+  if (existsSync(indexTs)) {
+    const content = readFileSync(indexTs, "utf8");
+    if (!content.includes("routeEngine")) {
+      console.log("  Removing auto-generated index.ts (custom version in git)...");
+      fs.unlinkSync(indexTs);
+      try {
+        execSync("git checkout HEAD -- src/index.ts", { cwd: MODULE_DIR, stdio: "ignore" });
+        console.log("  Restored custom index.ts from git");
+      } catch {
+        console.log("  Warning: Could not restore index.ts from git");
+      }
+    }
+  }
+}
+
+/**
+ * Patch cpp-adapter.cpp for React Native 0.81+ compatibility.
+ */
+function patchCppAdapter() {
+  const adapterFile = path.join(MODULE_DIR, "android/cpp-adapter.cpp");
+
+  if (!existsSync(adapterFile)) {
+    console.log("  cpp-adapter.cpp not found, skipping patch");
+    return;
+  }
+
+  const content = readFileSync(adapterFile, "utf8");
+  if (content.includes("jni::static_ref_cast")) {
+    console.log("  cpp-adapter.cpp already patched");
+    return;
+  }
+
+  console.log("  Patching cpp-adapter.cpp for RN 0.81+...");
+
+  const patchedContent = `// Generated by uniffi-bindgen-react-native
+// Patched for React Native 0.81+ compatibility (CallInvokerHolder changes)
+#include <jni.h>
+#include <jsi/jsi.h>
+#include <fbjni/fbjni.h>
+#include <ReactCommon/CallInvokerHolder.h>
+#include "veloqrs.hpp"
+
+namespace jsi = facebook::jsi;
+namespace react = facebook::react;
+namespace jni = facebook::jni;
+
+extern "C"
+JNIEXPORT jboolean JNICALL
+Java_com_veloq_VeloqModule_nativeInstallRustCrate(
+    JNIEnv *env,
+    jclass type,
+    jlong rtPtr,
+    jobject callInvokerHolderJavaObj
+) {
+    auto callInvokerHolder = jni::static_ref_cast<react::CallInvokerHolder::javaobject>(
+        jni::make_local(callInvokerHolderJavaObj)
+    );
+    auto jsCallInvoker = callInvokerHolder->cthis()->getCallInvoker();
+
+    auto runtime = reinterpret_cast<jsi::Runtime *>(rtPtr);
+    NativeVeloqrs::registerModule(*runtime, jsCallInvoker);
+    return true;
+}
+
+extern "C"
+JNIEXPORT jboolean JNICALL
+Java_com_veloq_VeloqModule_nativeCleanupRustCrate(JNIEnv *env, jclass type, jlong rtPtr) {
+    auto runtime = reinterpret_cast<jsi::Runtime *>(rtPtr);
+    NativeVeloqrs::unregisterModule(*runtime);
+    return true;
+}
+`;
+
+  writeFileSync(adapterFile, patchedContent);
+  console.log("  cpp-adapter.cpp patched");
+}
+
+/**
+ * Check if binaries already exist.
+ */
+function binariesExist(platform) {
+  if (platform === "android") {
+    const jniLibsDir = path.join(MODULE_DIR, "android/src/main/jniLibs/arm64-v8a");
+    return existsSync(path.join(jniLibsDir, "libveloqrs.so"));
+  } else if (platform === "ios") {
+    const frameworksDir = path.join(MODULE_DIR, "ios/Frameworks/VeloqrsFFI.xcframework");
+    const iosCppDir = path.join(MODULE_DIR, "ios/cpp");
+    return (
+      existsSync(frameworksDir) &&
+      existsSync(path.join(iosCppDir, "veloq.cpp")) &&
+      existsSync(path.join(iosCppDir, "veloqrs.hpp"))
+    );
+  }
+  return false;
+}
+
+/**
+ * Check if bindings already exist.
+ */
+function bindingsExist() {
+  const generatedTs = path.join(MODULE_DIR, "src/generated/veloqrs.ts");
+  const indexTs = path.join(MODULE_DIR, "src/index.ts");
+
+  if (!existsSync(generatedTs)) return false;
+
+  if (existsSync(indexTs)) {
+    const content = readFileSync(indexTs, "utf8");
+    if (content.includes("NativeVeloq")) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+/**
+ * Check if all patches are already applied.
+ */
+function allPatchesApplied(platform) {
+  if (platform === "android") {
+    const adapterFile = path.join(MODULE_DIR, "android/cpp-adapter.cpp");
+    if (existsSync(adapterFile)) {
+      const content = readFileSync(adapterFile, "utf8");
+      if (!content.includes("jni::static_ref_cast")) return false;
+    }
+  }
+  return true;
+}
+
+/**
+ * Run the pre-build setup.
+ */
+async function runPreBuildSetup(platform) {
+  const hasBinaries = binariesExist(platform);
+  const hasBindings = bindingsExist();
+  const hasPatches = allPatchesApplied(platform);
+
+  if (hasBinaries && hasBindings && hasPatches) {
+    console.log(`[veloqrs] ${platform} ready`);
+    return;
+  }
+
+  console.log("\n[veloqrs] Running pre-build setup...");
+  console.log(`  Platform: ${platform}`);
+  console.log(`  CI: ${isCI()}`);
+  console.log(`  Local Rust: ${hasLocalRust()}`);
+
+  // Step 1: Get binaries (build from source if local Rust available)
+  if (!hasBinaries) {
+    if (isCI()) {
+      // In CI, binaries should be pre-built by separate workflow jobs
+      console.log("  Warning: Binaries not found in CI - they should be pre-built");
+    } else if (hasLocalRust()) {
+      console.log("\n  Building from source...");
+      if (platform === "android") {
+        buildAndroidFromSource();
+      } else if (platform === "ios") {
+        buildIOSFromSource();
+      }
+    } else {
+      console.log("  Error: No pre-built binaries and no local Rust available");
+      console.log("  Please install Rust or ensure CI has built the binaries");
+    }
+  }
+
+  // Step 2: Generate bindings
+  if (!hasBindings) {
+    generateBindings();
+  }
+
+  // Step 3: Apply patches
+  patchGeneratedCpp();
+  removeConflictingGeneratedFiles();
+  if (platform === "android") {
+    patchCppAdapter();
+  } else if (platform === "ios") {
+    copyIOSCppFiles();
+  }
+
+  console.log("\n[veloqrs] Pre-build setup complete!\n");
+}
+
+/**
+ * Main plugin function.
+ */
+module.exports = function withVeloqrs(config) {
+  const platform = process.env.EXPO_PLATFORM || "android";
+
+  try {
+    const result = spawnSync(
+      "node",
+      ["-e", `require('${__filename.replace(/'/g, "\\'")}')._runSetupSync('${platform}')`],
+      {
+        stdio: "inherit",
+        cwd: PROJECT_ROOT,
+        env: { ...process.env, FORCE_COLOR: "1" },
+      }
+    );
+
+    if (result.status !== 0) {
+      console.warn("[veloqrs] Pre-build setup had warnings or errors");
+    }
+  } catch (error) {
+    console.warn("[veloqrs] Pre-build setup failed:", error.message);
+  }
+
+  return config;
+};
+
+// Export for synchronous setup call
+module.exports._runSetupSync = function (platform) {
+  runPreBuildSetup(platform)
+    .then(() => process.exit(0))
+    .catch((error) => {
+      console.error("Setup failed:", error);
+      process.exit(1);
+    });
+};
+
+// Export for testing
+module.exports._runPreBuildSetup = runPreBuildSetup;

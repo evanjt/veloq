@@ -1,0 +1,3 @@
+[submodule "modules/veloqrs/rust/tracematch"]
+	path = modules/veloqrs/rust/tracematch
+	url = git@github.com:evanjt/tracematch.git

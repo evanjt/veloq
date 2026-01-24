@@ -9,7 +9,7 @@ import { formatDistance } from '@/lib/utils/format';
 
 /**
  * Minimal section data needed for name generation.
- * Works with both FrequentSection from @/types and from route-matcher-native.
+ * Works with both FrequentSection from @/types and from veloqrs.
  */
 interface SectionNameData {
   id: string;

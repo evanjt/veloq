@@ -34,7 +34,7 @@ import { useCustomSections } from '@/hooks/routes/useCustomSections';
 import { useRouteMatch } from '@/hooks/routes/useRouteMatch';
 import { useSectionMatches, type SectionMatch } from '@/hooks/routes/useSectionMatches';
 import { useFrequentSections } from '@/hooks/routes/useFrequentSections';
-import { routeEngine } from 'route-matcher-native';
+import { routeEngine } from 'veloqrs';
 import { intervalsApi } from '@/api';
 import {
   ActivityMapView,

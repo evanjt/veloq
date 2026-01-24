@@ -6,12 +6,7 @@
  */
 
 import { useCallback } from 'react';
-import type {
-  HeatmapResult,
-  HeatmapCell,
-  CellQueryResult,
-  ActivityHeatmapData,
-} from 'route-matcher-native';
+import type { HeatmapResult, HeatmapCell, CellQueryResult, ActivityHeatmapData } from 'veloqrs';
 
 export interface UseHeatmapOptions {
   /** Grid cell size in meters (default: 100m) */

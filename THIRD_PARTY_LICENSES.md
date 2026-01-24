@@ -282,15 +282,4 @@ See: https://www.unicode.org/license.txt
 
 ---
 
-## Compliance Checklist
-
-For commercial distribution, ensure:
-
-- [ ] This file is included in the distributed application (Settings > About > Licenses)
-- [ ] Map attribution is visible on all map screens
-- [ ] NOTICE file is included in source distributions
-- [ ] MPL-2.0 source availability is documented (uniffi-rs GitHub link)
-
----
-
-*Last updated: 2026-01-22*
+*Last updated: 2026-01-24*

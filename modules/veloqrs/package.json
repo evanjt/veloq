@@ -1,5 +1,5 @@
 {
-  "name": "route-matcher-native",
+  "name": "veloqrs",
   "version": "0.1.0",
   "description": "Native Rust-powered route matching for Expo/React Native",
   "author": "Evan Thomas <evan@evanjt.com>",

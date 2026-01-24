@@ -32,7 +32,7 @@ import { createSharedStyles } from '@/styles';
 // Lazy load native module to avoid bundler errors
 function getRouteEngine() {
   try {
-    return require('route-matcher-native').routeEngine;
+    return require('veloqrs').routeEngine;
   } catch {
     return null;
   }

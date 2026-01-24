@@ -17,7 +17,7 @@ import { useTranslation } from 'react-i18next';
 import { colors, darkColors, spacing, layout } from '@/theme';
 import { debug, formatDistance, getBoundsFromPoints } from '@/lib';
 import type { FrequentSection, RoutePoint } from '@/types';
-import type { SectionSummary } from 'route-matcher-native';
+import type { SectionSummary } from 'veloqrs';
 
 const log = debug.create('SectionRow');
 

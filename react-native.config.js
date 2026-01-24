@@ -2,11 +2,11 @@ const path = require('path');
 
 module.exports = {
   dependencies: {
-    'route-matcher-native': {
-      root: path.resolve(__dirname, 'src/modules/route-matcher-native'),
+    'veloqrs': {
+      root: path.resolve(__dirname, 'modules/veloqrs'),
       platforms: {
         ios: {
-          podspecPath: 'ios/RouteMatcherNative.podspec',
+          podspecPath: 'ios/Veloqrs.podspec',
         },
         android: {
           sourceDir: 'android',

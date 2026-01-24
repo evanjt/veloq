@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { InteractionManager } from 'react-native';
 import { getRouteEngine } from '@/lib/native/routeEngine';
-import { gpsPointsToRoutePoints } from 'route-matcher-native';
+import { gpsPointsToRoutePoints } from 'veloqrs';
 
 export interface RouteSignature {
   points: Array<{ lat: number; lng: number }>;

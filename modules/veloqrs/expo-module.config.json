@@ -1,7 +1,7 @@
 {
   "platforms": ["ios", "android"],
   "ios": {
-    "podspecPath": "ios/RouteMatcherNative.podspec",
+    "podspecPath": "ios/Veloqrs.podspec",
     "modules": []
   },
   "android": {

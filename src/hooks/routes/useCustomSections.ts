@@ -6,7 +6,7 @@
 import { useCallback, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getRouteEngine } from '@/lib/native/routeEngine';
-import { gpsPointsToRoutePoints, routePointsToGpsPoints } from 'route-matcher-native';
+import { gpsPointsToRoutePoints, routePointsToGpsPoints } from 'veloqrs';
 import { useSupersededSections } from '@/providers';
 import { simplifyPolyline } from '@/lib/utils/geometry';
 import type {

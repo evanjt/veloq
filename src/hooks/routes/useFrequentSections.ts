@@ -11,7 +11,7 @@ import { useMemo } from 'react';
 import { useSectionSummaries } from './useRouteEngine';
 import { useDisabledSections } from '@/providers';
 import type { FrequentSection } from '@/types';
-import type { SectionSummary } from 'route-matcher-native';
+import type { SectionSummary } from 'veloqrs';
 
 export interface UseFrequentSectionsOptions {
   /** Filter by sport type (e.g., "Run", "Ride") */

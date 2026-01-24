@@ -47,36 +47,36 @@ yarn-error.*
 # Rust build artifacts
 **/target/
 
-# Native library binaries (downloaded from GitHub releases)
-src/modules/route-matcher-native/android/src/main/jniLibs/
-src/modules/route-matcher-native/ios/Frameworks/
+# Native library binaries (built from source or downloaded in CI)
+modules/veloqrs/android/src/main/jniLibs/
+modules/veloqrs/ios/Frameworks/
 
 # UniFFI generated bindings - runtime copies (created during iOS build)
-src/modules/route-matcher-native/android/src/main/java/uniffi/
-src/modules/route-matcher-native/ios/Generated/
-src/modules/route-matcher-native/ios/cpp/
+modules/veloqrs/android/src/main/java/uniffi/
+modules/veloqrs/ios/Generated/
+modules/veloqrs/ios/cpp/
 
 # NOTE: These bindings ARE committed (required for builds, can't generate without Rust toolchain):
-# src/modules/route-matcher-native/src/generated/tracematch.ts
-# src/modules/route-matcher-native/src/generated/tracematch-ffi.ts
-# src/modules/route-matcher-native/cpp/tracematch.cpp
-# src/modules/route-matcher-native/cpp/tracematch.hpp
-# src/modules/route-matcher-native/android/cpp-adapter.cpp
+# modules/veloqrs/src/generated/veloqrs.ts
+# modules/veloqrs/src/generated/veloqrs-ffi.ts
+# modules/veloqrs/cpp/veloqrs.cpp
+# modules/veloqrs/cpp/veloqrs.hpp
+# modules/veloqrs/android/cpp-adapter.cpp
 
 # NOTE: These files ARE committed (hand-written or project-specific):
-# - src/modules/route-matcher-native/cpp/veloq.cpp, veloq.h (JSI entry points)
-# - src/modules/route-matcher-native/android/CMakeLists.txt, build.gradle
-# - src/modules/route-matcher-native/android/src/main/java/com/veloq/*.kt
-# - src/modules/route-matcher-native/ios/*.h, *.mm, *.podspec
-# - src/modules/route-matcher-native/src/index.ts, NativeVeloq.ts
+# - modules/veloqrs/cpp/veloq.cpp, veloq.h (JSI entry points)
+# - modules/veloqrs/android/CMakeLists.txt, build.gradle
+# - modules/veloqrs/android/src/main/java/com/veloq/*.kt
+# - modules/veloqrs/ios/*.h, *.mm, *.podspec
+# - modules/veloqrs/src/index.ts, NativeVeloq.ts
 
 # Android build cache
-src/modules/route-matcher-native/android/build/
-src/modules/route-matcher-native/android/.gradle/
-src/modules/route-matcher-native/android/.cxx/
+modules/veloqrs/android/build/
+modules/veloqrs/android/.gradle/
+modules/veloqrs/android/.cxx/
 
 # iOS build cache
-src/modules/route-matcher-native/ios/build/
+modules/veloqrs/ios/build/
 
 # Temporary build outputs
 /tmp/

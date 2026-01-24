@@ -56,7 +56,7 @@
       "./src/plugins/with-gradle-repositories",
       "./src/plugins/with-release-signing",
       "./src/plugins/with-packaging-options",
-      "./src/plugins/with-route-matcher-native",
+      "./src/plugins/with-veloqrs",
       "./src/plugins/with-r8-config",
       "./src/plugins/with-maplibre-nil-safety",
       "@config-plugins/detox",

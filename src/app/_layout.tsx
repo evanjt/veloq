@@ -30,7 +30,7 @@ import { CacheLoadingBanner, DemoBanner, GlobalDataSync, OfflineBanner } from '@
 // Lazy load native module to avoid bundler errors
 function getRouteEngine() {
   try {
-    const module = require('route-matcher-native');
+    const module = require('veloqrs');
     // The module exports both a default export and a named routeEngine export
     // Try to get the named export first, fall back to the default
     return module.routeEngine || module.default?.routeEngine || null;

@@ -296,6 +296,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
       - name: Get version info
         id: version
@@ -395,33 +397,33 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Download tracematch binaries from GitHub releases
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android,i686-linux-android
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: modules/veloqrs/rust
+
+      - name: Install cargo-ndk
+        run: cargo install cargo-ndk
+
+      - name: Build Rust libraries for Android
+        working-directory: modules/veloqrs/rust
         run: |
-          TRACEMATCH_VERSION=$(node -p "require('./package.json').tracematchVersion")
-          echo "=== Downloading tracematch v${TRACEMATCH_VERSION} ==="
-          RELEASE_URL="https://github.com/evanjt/route-matcher/releases/download/${TRACEMATCH_VERSION}"
+          echo "=== Building veloqrs for Android ==="
+          mkdir -p ../android/src/main/jniLibs
 
-          # Download Android binaries
-          curl -sL "${RELEASE_URL}/tracematch-android-${TRACEMATCH_VERSION}.zip" -o /tmp/android.zip
-          unzip -q /tmp/android.zip -d /tmp/tracematch
-
-          # Install .so files
-          mkdir -p src/modules/route-matcher-native/android/src/main/jniLibs
-          for arch in arm64-v8a armeabi-v7a x86_64 x86; do
-            mkdir -p "src/modules/route-matcher-native/android/src/main/jniLibs/$arch"
-            cp "/tmp/tracematch/android/jniLibs/$arch/libtracematch.so" \
-               "src/modules/route-matcher-native/android/src/main/jniLibs/$arch/"
-            echo "✓ Installed $arch"
-          done
-
-          # NOTE: We do NOT install tracematch.kt (JNA-based Kotlin bindings) from the release.
-          # The veloq repo has committed VeloqModule.kt (JNI-based) which is the correct
-          # TurboModule implementation for React Native. tracematch.kt uses JNA which
-          # doesn't work on Android.
+          # Build for all Android architectures
+          cargo ndk -t aarch64-linux-android -t armv7-linux-androideabi -t x86_64-linux-android -t i686-linux-android \
+            --platform 24 -o ../android/src/main/jniLibs \
+            build --release -p veloqrs
 
           # Verify installation
           echo "=== Verifying .so installation ==="
-          find src/modules/route-matcher-native/android/src/main/jniLibs -name "*.so" -exec ls -lh {} \;
+          find ../android/src/main/jniLibs -name "*.so" -exec ls -lh {} \;
 
       - name: Cache Android prebuild
         id: android-prebuild-cache
@@ -465,12 +467,12 @@ jobs:
 
           echo "✅ Signing configured"
 
-      - name: Verify tracematch libraries before build
+      - name: Verify veloqrs libraries before build
         run: |
           echo "=== Verifying .so files before Gradle build ==="
 
           # Check if jniLibs directory exists
-          if [ ! -d "src/modules/route-matcher-native/android/src/main/jniLibs" ]; then
+          if [ ! -d "modules/veloqrs/android/src/main/jniLibs" ]; then
             echo "ERROR: jniLibs directory not found!"
             exit 1
           fi
@@ -478,7 +480,7 @@ jobs:
           # Verify each architecture
           all_ok=true
           for arch in arm64-v8a armeabi-v7a x86_64 x86; do
-            so_file="src/modules/route-matcher-native/android/src/main/jniLibs/$arch/libtracematch.so"
+            so_file="modules/veloqrs/android/src/main/jniLibs/$arch/libveloqrs.so"
             if [ -f "$so_file" ]; then
               size=$(stat -c%s "$so_file" 2>/dev/null || stat -f%z "$so_file" 2>/dev/null || echo "0")
               if [ "$size" -gt 0 ]; then
@@ -494,8 +496,8 @@ jobs:
           done
 
           # Verify VeloqModule.kt (JNI-based TurboModule wrapper - committed in repo)
-          # NOTE: We do NOT use tracematch.kt from releases (that's JNA-based, JVM-only)
-          VELOQ_MODULE="src/modules/route-matcher-native/android/src/main/java/com/veloq/VeloqModule.kt"
+          # NOTE: We do NOT use veloqrs.kt from releases (that's JNA-based, JVM-only)
+          VELOQ_MODULE="modules/veloqrs/android/src/main/java/com/veloq/VeloqModule.kt"
           if [ -f "$VELOQ_MODULE" ]; then
             echo "✓ VeloqModule.kt (JNI): $VELOQ_MODULE"
           else
@@ -504,11 +506,11 @@ jobs:
           fi
 
           if [ "$all_ok" = "false" ]; then
-            echo "ERROR: tracematch libraries verification failed!"
+            echo "ERROR: veloqrs libraries verification failed!"
             exit 1
           fi
 
-          echo "✅ All tracematch libraries verified!"
+          echo "✅ All veloqrs libraries verified!"
 
       - name: Clean stale dex archives
         run: |
@@ -627,6 +629,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
       - name: Setup Xcode
         uses: maxim-lobanov/setup-xcode@v1
@@ -676,45 +680,58 @@ jobs:
           cache: "npm"
 
       # ============================================
-      # Download tracematch binaries
+      # Build Rust libraries for iOS
       # ============================================
-      - name: Download tracematch binaries from GitHub releases
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-ios,aarch64-apple-ios-sim,x86_64-apple-ios
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: modules/veloqrs/rust
+
+      - name: Build Rust libraries for iOS
+        working-directory: modules/veloqrs/rust
         run: |
-          TRACEMATCH_VERSION=$(node -p "require('./package.json').tracematchVersion")
-          echo "=== Downloading tracematch v${TRACEMATCH_VERSION} for iOS ==="
-          RELEASE_URL="https://github.com/evanjt/route-matcher/releases/download/${TRACEMATCH_VERSION}"
+          echo "=== Building veloqrs for iOS ==="
 
-          # Download iOS binaries
-          curl -sL "${RELEASE_URL}/tracematch-ios-${TRACEMATCH_VERSION}.zip" -o /tmp/ios.zip
-          unzip -q /tmp/ios.zip -d /tmp/tracematch
+          # Build for all iOS architectures
+          for target in aarch64-apple-ios aarch64-apple-ios-sim x86_64-apple-ios; do
+            echo "Building for $target..."
+            cargo build --release --target $target -p veloqrs
+          done
 
-          # Install XCFramework (rename to match podspec: TracematchFFI.xcframework)
-          mkdir -p src/modules/route-matcher-native/ios/Frameworks
-          cp -r /tmp/tracematch/ios/RouteMatcherFFI.xcframework \
-                src/modules/route-matcher-native/ios/Frameworks/TracematchFFI.xcframework
-          echo "✓ Installed XCFramework"
+          # Create fat library for simulator (arm64 + x86_64)
+          echo "Creating fat library for simulator..."
+          mkdir -p target/sim-fat
+          lipo -create \
+            target/aarch64-apple-ios-sim/release/libveloqrs.a \
+            target/x86_64-apple-ios/release/libveloqrs.a \
+            -output target/sim-fat/libveloqrs.a
 
-          # Install Swift bindings
-          mkdir -p src/modules/route-matcher-native/ios/Generated
-          cp /tmp/tracematch/ios/Generated/tracematch.swift \
-             src/modules/route-matcher-native/ios/Generated/
-          cp /tmp/tracematch/ios/Generated/tracematchFFI.h \
-             src/modules/route-matcher-native/ios/Generated/
-          cp /tmp/tracematch/ios/Generated/tracematchFFI.modulemap \
-             src/modules/route-matcher-native/ios/Generated/
-          echo "✓ Installed Swift bindings"
+          # Create XCFramework
+          echo "Creating XCFramework..."
+          mkdir -p ../ios/Frameworks
+          rm -rf ../ios/Frameworks/VeloqrsFFI.xcframework
 
-          # Verify XCFramework and Swift bindings
-          ls -la src/modules/route-matcher-native/ios/Frameworks/
-          ls -la src/modules/route-matcher-native/ios/Generated/
+          xcodebuild -create-xcframework \
+            -library target/aarch64-apple-ios/release/libveloqrs.a \
+            -library target/sim-fat/libveloqrs.a \
+            -output ../ios/Frameworks/VeloqrsFFI.xcframework
 
+          echo "✓ XCFramework created"
+          ls -la ../ios/Frameworks/
+
+      - name: Copy C++ files for iOS build
+        run: |
           # Copy C++ files into module ios/cpp/ where CocoaPods can find them
-          # (TypeScript bindings are committed to repo, C++ bindings need local copy)
-          mkdir -p src/modules/route-matcher-native/ios/cpp
-          cp src/modules/route-matcher-native/cpp/veloq.h src/modules/route-matcher-native/ios/cpp/
-          cp src/modules/route-matcher-native/cpp/veloq.cpp src/modules/route-matcher-native/ios/cpp/
-          cp src/modules/route-matcher-native/cpp/tracematch.hpp src/modules/route-matcher-native/ios/cpp/
-          cp src/modules/route-matcher-native/cpp/tracematch.cpp src/modules/route-matcher-native/ios/cpp/
+          mkdir -p modules/veloqrs/ios/cpp
+          cp modules/veloqrs/cpp/veloq.h modules/veloqrs/ios/cpp/ 2>/dev/null || true
+          cp modules/veloqrs/cpp/veloq.cpp modules/veloqrs/ios/cpp/ 2>/dev/null || true
+          cp modules/veloqrs/cpp/veloqrs.hpp modules/veloqrs/ios/cpp/ 2>/dev/null || true
+          cp modules/veloqrs/cpp/veloqrs.cpp modules/veloqrs/ios/cpp/ 2>/dev/null || true
           echo "✓ Copied C++ files to module ios/cpp/"
 
       - name: Cache iOS prebuild

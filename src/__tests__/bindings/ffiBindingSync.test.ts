@@ -10,10 +10,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
-const TS_SPEC_PATH = path.resolve(
-  __dirname,
-  '../../modules/route-matcher-native/src/NativeVeloq.ts'
-);
+const TS_SPEC_PATH = path.resolve(__dirname, '../../../modules/veloqrs/src/NativeVeloq.ts');
 
 describe('FFI Binding Sync', () => {
   describe('Module file existence', () => {

@@ -3,7 +3,7 @@ android/
 ios/
 .expo/
 rust/
-modules/route-matcher-native/android/
-modules/route-matcher-native/ios/
+modules/veloqrs/android/
+modules/veloqrs/ios/
 *.lock
 *.log

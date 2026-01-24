@@ -14,7 +14,7 @@ import {
   SectionConfig,
   type RouteGroup,
   type ActivitySportType,
-} from 'route-matcher-native';
+} from 'veloqrs';
 import { usePotentialSections as usePotentialSectionsStore } from '@/providers/PotentialSectionsStore';
 import type { PotentialSection } from '@/types';
 

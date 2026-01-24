@@ -115,29 +115,29 @@ jobs:
           curl -sL "${RELEASE_URL}/tracematch-ios-${TRACEMATCH_VERSION}.zip" -o /tmp/ios.zip
           unzip -q /tmp/ios.zip -d /tmp/tracematch
 
-          # Install XCFramework (rename to match podspec: TracematchFFI.xcframework)
-          mkdir -p src/modules/route-matcher-native/ios/Frameworks
+          # Install XCFramework (rename to match podspec: VeloqrsFFI.xcframework)
+          mkdir -p modules/veloqrs/ios/Frameworks
           cp -r /tmp/tracematch/ios/RouteMatcherFFI.xcframework \
-                src/modules/route-matcher-native/ios/Frameworks/TracematchFFI.xcframework
+                modules/veloqrs/ios/Frameworks/VeloqrsFFI.xcframework
 
           # Install Swift bindings and headers
-          mkdir -p src/modules/route-matcher-native/ios/Generated
+          mkdir -p modules/veloqrs/ios/Generated
           cp /tmp/tracematch/ios/Generated/tracematch.swift \
-             src/modules/route-matcher-native/ios/Generated/
+             modules/veloqrs/ios/Generated/
           cp /tmp/tracematch/ios/Generated/tracematchFFI.h \
-             src/modules/route-matcher-native/ios/Generated/
+             modules/veloqrs/ios/Generated/
           cp /tmp/tracematch/ios/Generated/tracematchFFI.modulemap \
-             src/modules/route-matcher-native/ios/Generated/
+             modules/veloqrs/ios/Generated/
 
           echo "✓ Installed iOS XCFramework and Swift bindings"
 
           # Copy C++ files into module ios/cpp/ where CocoaPods can find them
           # (TypeScript/C++ bindings are committed to repo)
-          mkdir -p src/modules/route-matcher-native/ios/cpp
-          cp src/modules/route-matcher-native/cpp/veloq.h src/modules/route-matcher-native/ios/cpp/
-          cp src/modules/route-matcher-native/cpp/veloq.cpp src/modules/route-matcher-native/ios/cpp/
-          cp src/modules/route-matcher-native/cpp/tracematch.hpp src/modules/route-matcher-native/ios/cpp/
-          cp src/modules/route-matcher-native/cpp/tracematch.cpp src/modules/route-matcher-native/ios/cpp/
+          mkdir -p modules/veloqrs/ios/cpp
+          cp modules/veloqrs/cpp/veloq.h modules/veloqrs/ios/cpp/
+          cp modules/veloqrs/cpp/veloq.cpp modules/veloqrs/ios/cpp/
+          cp modules/veloqrs/cpp/tracematch.hpp modules/veloqrs/ios/cpp/
+          cp modules/veloqrs/cpp/tracematch.cpp modules/veloqrs/ios/cpp/
           echo "✓ Copied C++ files to module ios/cpp/"
 
       - name: Cache iOS prebuild
@@ -147,7 +147,7 @@ jobs:
         with:
           path: ios
           # v11: Xcode 26.2 on macOS 26
-          key: ios-sim-prebuild-v11-${{ runner.os }}-${{ hashFiles('app.json', 'package.json', 'package-lock.json', 'plugins/**', 'src/modules/**/ios/**', 'src/modules/**/package.json') }}
+          key: ios-sim-prebuild-v11-${{ runner.os }}-${{ hashFiles('app.json', 'package.json', 'package-lock.json', 'plugins/**', 'modules/veloqrs/ios/**', 'modules/veloqrs/package.json') }}
           restore-keys: ios-sim-prebuild-v10-${{ runner.os }}-
 
       - name: Expo Prebuild
@@ -307,7 +307,7 @@ jobs:
         with:
           path: android
           # v4: fix path to src/modules
-          key: android-release-prebuild-v4-${{ runner.os }}-${{ hashFiles('app.json', 'package.json', 'src/modules/**/android/**', 'src/modules/**/package.json') }}
+          key: android-release-prebuild-v4-${{ runner.os }}-${{ hashFiles('app.json', 'package.json', 'modules/veloqrs/android/**', 'modules/veloqrs/package.json') }}
 
       - name: Expo Prebuild
         if: steps.apk-cache.outputs.cache-hit != 'true' && steps.android-prebuild-cache.outputs.cache-hit != 'true'
@@ -320,10 +320,10 @@ jobs:
           RELEASE_URL="https://github.com/evanjt/route-matcher/releases/download/${TRACEMATCH_VERSION}"
           curl -sL "${RELEASE_URL}/tracematch-android-${TRACEMATCH_VERSION}.zip" -o /tmp/android.zip
           unzip -q /tmp/android.zip -d /tmp/tracematch
-          mkdir -p src/modules/route-matcher-native/android/src/main/jniLibs
+          mkdir -p modules/veloqrs/android/src/main/jniLibs
           for arch in arm64-v8a armeabi-v7a x86_64 x86; do
-            mkdir -p "src/modules/route-matcher-native/android/src/main/jniLibs/$arch"
-            cp "/tmp/tracematch/android/jniLibs/$arch/libtracematch.so" "src/modules/route-matcher-native/android/src/main/jniLibs/$arch/"
+            mkdir -p "modules/veloqrs/android/src/main/jniLibs/$arch"
+            cp "/tmp/tracematch/android/jniLibs/$arch/libveloqrs.so" "modules/veloqrs/android/src/main/jniLibs/$arch/"
           done
           # NOTE: We do NOT install tracematch.kt from the release (that's JNA-based, JVM-only).
           # The repo has committed VeloqModule.kt (JNI-based) which is the correct TurboModule wrapper.

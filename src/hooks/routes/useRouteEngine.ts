@@ -20,7 +20,7 @@ import {
   type PersistentEngineStats,
   type SectionSummary,
   type GroupSummary,
-} from 'route-matcher-native';
+} from 'veloqrs';
 import type { FrequentSection } from '@/types';
 
 // Default database path for persistent engine

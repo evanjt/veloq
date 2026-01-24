@@ -1,5 +1,5 @@
 crate:
-  directory: /home/evan/projects/personal/intervals/tracematch/.worktrees/fast-background-sync
+  directory: rust/veloqrs
   manifest: Cargo.toml
 
 bindings:
@@ -23,7 +23,7 @@ ios:
     - aarch64-apple-ios
     - aarch64-apple-ios-sim
     - x86_64-apple-ios
-  frameworkName: TracematchFFI
+  frameworkName: VeloqrsFFI
 
 turboModule:
-  name: RouteMatcher
+  name: Veloqrs

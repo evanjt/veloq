@@ -6,7 +6,7 @@
  */
 
 import type { Activity } from '@/types';
-import { type ActivityMetrics } from 'route-matcher-native';
+import { type ActivityMetrics } from 'veloqrs';
 
 /**
  * Convert Activity to ActivityMetrics for Rust engine.

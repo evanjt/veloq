@@ -1,0 +1,3 @@
+[workspace]
+members = ["tracematch", "veloqrs"]
+resolver = "2"

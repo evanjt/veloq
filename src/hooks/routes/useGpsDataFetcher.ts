@@ -24,7 +24,7 @@ import {
   type RouteGroup,
   type ActivitySportType,
   type ActivitySportMapping,
-} from 'route-matcher-native';
+} from 'veloqrs';
 import { getStoredCredentials, getSyncGeneration } from '@/providers';
 import { usePotentialSections as usePotentialSectionsStore } from '@/providers/PotentialSectionsStore';
 import { toActivityMetrics } from '@/lib/utils/activityMetrics';

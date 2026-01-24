@@ -7,11 +7,11 @@ import { useCallback, useState } from 'react';
 import type { ActivityType } from '@/types';
 
 // Lazy load native module to avoid bundler errors
-let _routeEngine: typeof import('route-matcher-native').routeEngine | null = null;
+let _routeEngine: typeof import('veloqrs').routeEngine | null = null;
 function getRouteEngine() {
   if (!_routeEngine) {
     try {
-      _routeEngine = require('route-matcher-native').routeEngine;
+      _routeEngine = require('veloqrs').routeEngine;
     } catch {
       return null;
     }

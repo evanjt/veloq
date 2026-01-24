@@ -5,7 +5,7 @@ import type { Athlete } from '@/types';
 // Lazy import to avoid circular dependencies
 function getRouteEngine() {
   try {
-    const module = require('route-matcher-native');
+    const module = require('veloqrs');
     return module.routeEngine || module.default?.routeEngine || null;
   } catch {
     return null;
