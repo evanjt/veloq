@@ -308,7 +308,10 @@ export const FitnessChart = React.memo(function FitnessChart({
               <Text style={[styles.valueLabel, isDark && styles.textDark]}>
                 {t('metrics.fitness')}
               </Text>
-              <Text style={[styles.valueNumber, { color: COLORS.fitness }]}>
+              <Text
+                testID="fitness-ctl-value"
+                style={[styles.valueNumber, { color: COLORS.fitness }]}
+              >
                 {Math.round(displayData.fitness)}
               </Text>
             </View>
@@ -316,7 +319,10 @@ export const FitnessChart = React.memo(function FitnessChart({
               <Text style={[styles.valueLabel, isDark && styles.textDark]}>
                 {t('metrics.fatigue')}
               </Text>
-              <Text style={[styles.valueNumber, { color: COLORS.fatigue }]}>
+              <Text
+                testID="fitness-atl-value"
+                style={[styles.valueNumber, { color: COLORS.fatigue }]}
+              >
                 {Math.round(displayData.fatigue)}
               </Text>
             </View>

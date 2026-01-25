@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, memo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, Alert } from 'react-native';
 import { useTheme } from '@/hooks';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -17,7 +17,7 @@ interface ProfileSectionProps {
   athlete?: Athlete;
 }
 
-export function ProfileSection({ athlete }: ProfileSectionProps) {
+function ProfileSectionComponent({ athlete }: ProfileSectionProps) {
   const { isDark } = useTheme();
   const [profileImageError, setProfileImageError] = useState(false);
   const authMethod = useAuthStore((state) => state.authMethod);
@@ -88,6 +88,9 @@ export function ProfileSection({ athlete }: ProfileSectionProps) {
     </TouchableOpacity>
   );
 }
+
+// Memoize to prevent re-renders when parent re-renders
+export const ProfileSection = memo(ProfileSectionComponent);
 
 const styles = StyleSheet.create({
   section: {

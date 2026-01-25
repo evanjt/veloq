@@ -379,7 +379,7 @@ export function TimelineSlider({
   );
 
   return (
-    <View style={styles.wrapper}>
+    <View style={styles.wrapper} testID="timeline-slider">
       <SyncProgressBanner
         completed={syncProgress?.completed ?? 0}
         total={syncProgress?.total ?? 0}

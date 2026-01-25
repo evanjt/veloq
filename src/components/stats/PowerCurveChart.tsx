@@ -265,20 +265,24 @@ export const PowerCurveChart = React.memo(function PowerCurveChart({
   const displayData = tooltipData || chartData[chartData.length - 1];
 
   return (
-    <View style={[styles.container, { height }]}>
+    <View style={[styles.container, { height }]} testID="power-curve-chart">
       {/* Header with values */}
       <View style={styles.header}>
         <Text style={[styles.title, isDark && styles.textLight]}>{t('stats.powerCurve')}</Text>
         <View style={styles.valuesRow}>
           <View style={styles.valueItem}>
             <Text style={[styles.valueLabel, isDark && styles.textDark]}>{t('stats.time')}</Text>
-            <Text style={[styles.valueNumber, { color }]}>{formatDuration(displayData.secs)}</Text>
+            <Text testID="power-curve-duration" style={[styles.valueNumber, { color }]}>
+              {formatDuration(displayData.secs)}
+            </Text>
           </View>
           <View style={styles.valueItem}>
             <Text style={[styles.valueLabel, isDark && styles.textDark]}>
               {t('activity.power')}
             </Text>
-            <Text style={[styles.valueNumber, { color }]}>{Math.round(displayData.watts)}w</Text>
+            <Text testID="power-curve-watts" style={[styles.valueNumber, { color }]}>
+              {Math.round(displayData.watts)}w
+            </Text>
           </View>
         </View>
       </View>

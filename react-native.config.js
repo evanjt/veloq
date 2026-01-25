@@ -10,10 +10,9 @@ module.exports = {
         },
         android: {
           sourceDir: 'android',
-          packageImportPath: 'import com.veloq.VeloqPackage;',
-          packageInstance: 'new VeloqPackage()',
-          libraryName: 'Veloq',
-          cmakeListsPath: 'build/generated/source/codegen/jni/CMakeLists.txt',
+          packageImportPath: 'import com.veloq.VeloqrsPackage;',
+          packageInstance: 'new VeloqrsPackage()',
+          libraryName: 'Veloqrs',
         },
       },
     },

@@ -64,6 +64,8 @@ import {
   persistentEngineGetSectionPerformancesJson,
   persistentEngineSetTimeStreamsFlat,
   persistentEngineGetActivitiesMissingTimeStreams,
+  persistentEngineGetAllMapActivitiesComplete,
+  persistentEngineGetMapActivitiesFiltered,
   ffiDetectSectionsMultiscale,
   defaultScalePresets,
   fetchActivityMaps,
@@ -84,6 +86,7 @@ import {
   type FfiHeatmapCell,
   type FfiCellQueryResult,
   type FfiActivityHeatmapData,
+  type MapActivityComplete,
 } from './generated/veloqrs';
 
 // Re-export types with shorter names for convenience
@@ -97,7 +100,7 @@ export type HeatmapCell = FfiHeatmapCell;
 export type CellQueryResult = FfiCellQueryResult;
 export type ActivityHeatmapData = FfiActivityHeatmapData;
 // These are already exported without Ffi prefix:
-export type { PersistentEngineStats, SectionSummary, GroupSummary, DownloadProgressResult };
+export type { PersistentEngineStats, SectionSummary, GroupSummary, DownloadProgressResult, MapActivityComplete };
 
 // For backward compatibility, also export the module initialization status
 export function isRouteMatcherInitialized(): boolean {
@@ -768,6 +771,31 @@ class RouteEngineClient {
       });
     }
     return result;
+  }
+
+  /**
+   * Get all map activities with complete data.
+   * Returns activities with bounds, name, date, distance, duration, sportType.
+   */
+  getAllMapActivitiesComplete(): MapActivityComplete[] {
+    return persistentEngineGetAllMapActivitiesComplete();
+  }
+
+  /**
+   * Get map activities filtered by date range and sport types.
+   * All filtering happens in Rust for maximum performance.
+   */
+  getMapActivitiesFiltered(
+    startDate: Date,
+    endDate: Date,
+    sportTypesArray?: string[]
+  ): MapActivityComplete[] {
+    const startTs = BigInt(Math.floor(startDate.getTime() / 1000));
+    const endTs = BigInt(Math.floor(endDate.getTime() / 1000));
+    const sportTypesJson = sportTypesArray?.length
+      ? JSON.stringify(sportTypesArray)
+      : '';
+    return persistentEngineGetMapActivitiesFiltered(startTs, endTs, sportTypesJson);
   }
 
   /**

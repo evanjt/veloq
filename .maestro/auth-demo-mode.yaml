@@ -1,0 +1,37 @@
+# Demo Mode Authentication Tests
+# Tests the login screen and demo mode entry flow
+
+appId: com.veloq.app
+---
+- launchApp
+
+# Wait for login screen
+- extendedWaitUntil:
+    visible:
+      id: "login-screen"
+    timeout: 30000
+
+# Test: Login screen displays correctly
+- assertVisible:
+    id: "login-oauth-button"
+- assertVisible:
+    id: "login-demo-button"
+
+# Test: API key section is expandable
+- tapOn: "Use API Key instead"
+- assertVisible:
+    id: "login-apikey-input"
+- assertVisible:
+    id: "login-apikey-button"
+
+# Test: Enter demo mode
+- tapOn:
+    id: "login-demo-button"
+
+- extendedWaitUntil:
+    visible:
+      id: "home-screen"
+    timeout: 15000
+
+# Verify demo mode indicators
+- assertVisible: "Demo Mode"

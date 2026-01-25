@@ -96,7 +96,7 @@ export function ChartTypeSelector({
 
   // Use flexWrap instead of horizontal scroll to avoid gesture conflict with tab swipe
   return (
-    <View style={styles.container}>
+    <View style={styles.container} testID="chart-type-selector">
       {available.map((config) => {
         const isSelected = selected.includes(config.id);
         // Use full color when selected, faded color when unselected
@@ -109,6 +109,7 @@ export function ChartTypeSelector({
         return (
           <Pressable
             key={config.id}
+            testID={`chart-type-${config.id}`}
             style={({ pressed }) => [
               styles.chip,
               { backgroundColor: bgColor, opacity: pressed ? 0.7 : 1 },

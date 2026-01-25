@@ -59,7 +59,6 @@
       "./src/plugins/with-veloqrs",
       "./src/plugins/with-r8-config",
       "./src/plugins/with-maplibre-nil-safety",
-      "@config-plugins/detox",
       "expo-router",
       [
         "expo-screen-orientation",

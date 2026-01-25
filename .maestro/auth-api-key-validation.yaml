@@ -1,0 +1,31 @@
+# API Key Validation Test
+# Tests that invalid API keys show an error
+
+appId: com.veloq.app
+---
+- launchApp
+
+- extendedWaitUntil:
+    visible:
+      id: "login-screen"
+    timeout: 30000
+
+# Expand API key section
+- tapOn: "Use API Key instead"
+- assertVisible:
+    id: "login-apikey-input"
+
+# Enter invalid API key
+- tapOn:
+    id: "login-apikey-input"
+- inputText: "invalid-test-key"
+
+# Tap connect button
+- tapOn:
+    id: "login-apikey-button"
+
+# Wait for error to appear (network call takes time)
+- extendedWaitUntil:
+    visible:
+      id: "login-error-text"
+    timeout: 15000

@@ -224,11 +224,12 @@ function RouteRowComponent({ route, navigable = false }: RouteRowProps) {
   };
 
   return (
-    <View style={styles.wrapper}>
+    <View style={styles.wrapper} testID={`route-row-${route.id}`}>
       <TouchableOpacity
         style={[styles.container, isDark && styles.containerDark]}
         onPress={handlePress}
         activeOpacity={0.7}
+        testID={`route-row-${route.id}-touch`}
       >
         {/* Route preview with map-like backdrop */}
         <View style={styles.previewBox}>

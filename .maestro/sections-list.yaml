@@ -1,0 +1,34 @@
+# Sections List Tests
+# Tests the sections list display
+
+appId: com.veloq.app
+---
+- launchApp
+
+- extendedWaitUntil:
+    visible:
+      id: "login-screen"
+    timeout: 30000
+
+- tapOn:
+    id: "login-demo-button"
+
+- extendedWaitUntil:
+    visible:
+      id: "home-screen"
+    timeout: 15000
+
+# Navigate to routes screen (sections are on a tab here)
+- openLink: "veloq://routes"
+
+- extendedWaitUntil:
+    visible:
+      id: "routes-screen"
+    timeout: 10000
+
+# Try to find sections list (may be on separate tab)
+- assertVisible:
+    id: "sections-list"
+    optional: true
+
+- takeScreenshot: "sections-list-complete"

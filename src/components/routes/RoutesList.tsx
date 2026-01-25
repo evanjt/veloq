@@ -299,6 +299,7 @@ export function RoutesList({
 
   return (
     <FlatList
+      testID="routes-list"
       data={groups}
       keyExtractor={(item) => item.id}
       renderItem={({ item }) => <RouteRow route={item as unknown as RouteGroup} navigable />}

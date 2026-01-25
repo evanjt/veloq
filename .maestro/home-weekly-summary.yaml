@@ -1,0 +1,66 @@
+# Weekly Summary Component Tests
+# Tests the weekly summary stats and time range toggles on home screen
+
+appId: com.veloq.app
+---
+- launchApp
+
+- extendedWaitUntil:
+    visible:
+      id: "login-screen"
+    timeout: 30000
+
+- tapOn:
+    id: "login-demo-button"
+
+- extendedWaitUntil:
+    visible:
+      id: "home-screen"
+    timeout: 15000
+
+# Verify weekly summary container is visible
+- assertVisible:
+    id: "weekly-summary"
+
+# Switch to year view first (demo data may not have activities in current week)
+- tapOn:
+    id: "weekly-summary-range-year"
+
+# Wait for stats to appear (demo data should have yearly activities)
+- extendedWaitUntil:
+    visible:
+      id: "weekly-summary-count"
+    timeout: 5000
+
+# Verify all stats are displayed
+- assertVisible:
+    id: "weekly-summary-count"
+- assertVisible:
+    id: "weekly-summary-duration"
+- assertVisible:
+    id: "weekly-summary-distance"
+- assertVisible:
+    id: "weekly-summary-tss"
+
+# Test other time range toggles
+- tapOn:
+    id: "weekly-summary-range-6m"
+- assertVisible:
+    id: "weekly-summary"
+
+- tapOn:
+    id: "weekly-summary-range-3m"
+- assertVisible:
+    id: "weekly-summary"
+
+- tapOn:
+    id: "weekly-summary-range-month"
+- assertVisible:
+    id: "weekly-summary"
+
+- tapOn:
+    id: "weekly-summary-range-week"
+- assertVisible:
+    id: "weekly-summary"
+
+- takeScreenshot: "weekly-summary-complete"

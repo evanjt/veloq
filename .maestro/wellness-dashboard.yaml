@@ -1,0 +1,35 @@
+# Wellness Dashboard Tests
+# Tests the wellness metrics display (HRV, RHR, sleep, etc.)
+
+appId: com.veloq.app
+---
+- launchApp
+
+- extendedWaitUntil:
+    visible:
+      id: "login-screen"
+    timeout: 30000
+
+- tapOn:
+    id: "login-demo-button"
+
+- extendedWaitUntil:
+    visible:
+      id: "home-screen"
+    timeout: 15000
+
+# Navigate to wellness screen
+- openLink: "veloq://wellness"
+
+- extendedWaitUntil:
+    visible:
+      id: "wellness-screen"
+    timeout: 10000
+
+# Verify wellness dashboard container
+- extendedWaitUntil:
+    visible:
+      id: "wellness-dashboard"
+    timeout: 10000
+
+- takeScreenshot: "wellness-dashboard-complete"

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useTheme } from '@/hooks';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -35,7 +35,7 @@ interface DisplaySettingsProps {
   setShowLanguages: (show: boolean) => void;
 }
 
-export function DisplaySettings({
+function DisplaySettingsComponent({
   themePreference,
   onThemeChange,
   unitPreference,
@@ -307,6 +307,9 @@ export function DisplaySettings({
     </>
   );
 }
+
+// Memoize to prevent re-renders when parent re-renders
+export const DisplaySettings = memo(DisplaySettingsComponent);
 
 const styles = StyleSheet.create({
   sectionLabel: {

@@ -1,0 +1,15 @@
+# Maestro E2E Test Configuration
+# Shared settings for all test flows
+
+# App identifier (used in all flows)
+# Android: com.veloq.app
+# iOS: com.veloq.app (bundle identifier)
+appId: com.veloq.app
+
+# Deep link scheme for navigation
+# Uses veloq:// scheme defined in app.json
+env:
+  SCHEME: veloq
+  # Demo activity IDs for testing
+  DEMO_ACTIVITY_0: demo-0
+  DEMO_ACTIVITY_1: demo-1

@@ -53,7 +53,6 @@ import { type SupportedLocale } from '@/i18n';
 import { type MapStyleType } from '@/components/maps';
 import { colors, darkColors, spacing, layout } from '@/theme';
 import { ProfileSection, DisplaySettings } from '@/components/settings';
-import { logMount, logUnmount, logRender } from '@/lib/debug/renderTimer';
 import type { ActivityType } from '@/types';
 
 // Activity type groups for map settings
@@ -130,13 +129,6 @@ function formatBytes(bytes: number): string {
 }
 
 export default function SettingsScreen() {
-  // DEBUG: Track render timing
-  logRender('SettingsScreen');
-  useEffect(() => {
-    logMount('SettingsScreen');
-    return () => logUnmount('SettingsScreen');
-  }, []);
-
   const { t, i18n } = useTranslation();
   const { isDark } = useTheme();
   const [themePreference, setThemePreferenceState] = useState<ThemePreference>('system');
@@ -278,9 +270,7 @@ export default function SettingsScreen() {
     includeStats: false,
   });
 
-  const { progress, cacheStats, clearCache, sync, syncDateRange } = useActivityBoundsCache({
-    activitiesWithDates: allActivities,
-  });
+  const { progress, cacheStats, clearCache, sync, syncDateRange } = useActivityBoundsCache();
 
   // Fetch oldest activity date from API for timeline extent
   const { data: apiOldestDate } = useOldestActivityDate();

@@ -407,6 +407,7 @@ export function SectionsList({ sportType }: SectionsListProps) {
 
   return (
     <FlatList
+      testID="sections-list"
       data={regularSections}
       keyExtractor={(item) => item.id}
       renderItem={renderItem}

@@ -138,19 +138,60 @@ function getDateRanges(range: TimeRange): {
   }
 }
 
-function filterActivities(activities: Activity[], start: Date, end: Date): Activity[] {
-  return activities.filter((a) => {
-    const date = new Date(a.start_date_local);
-    return date >= start && date <= end;
-  });
-}
+// Optimized: Single-pass computation of stats for both periods
+function computeStatsForPeriods(
+  activities: Activity[],
+  currentStart: Date,
+  currentEnd: Date,
+  previousStart: Date,
+  previousEnd: Date
+) {
+  // Pre-compute timestamps for faster comparison
+  const currentStartTs = currentStart.getTime();
+  const currentEndTs = currentEnd.getTime();
+  const previousStartTs = previousStart.getTime();
+  const previousEndTs = previousEnd.getTime();
 
-function calculateStats(activities: Activity[]) {
-  const count = activities.length;
-  const duration = activities.reduce((sum, a) => sum + (a.moving_time || 0), 0);
-  const distance = activities.reduce((sum, a) => sum + (a.distance || 0), 0);
-  const tss = Math.round(activities.reduce((sum, a) => sum + (a.icu_training_load || 0), 0));
-  return { count, duration, distance, tss };
+  // Single pass accumulating both current and previous stats
+  let currentCount = 0,
+    currentDuration = 0,
+    currentDistance = 0,
+    currentTss = 0;
+  let previousCount = 0,
+    previousDuration = 0,
+    previousDistance = 0,
+    previousTss = 0;
+
+  for (const activity of activities) {
+    const activityTs = new Date(activity.start_date_local).getTime();
+
+    if (activityTs >= currentStartTs && activityTs <= currentEndTs) {
+      currentCount++;
+      currentDuration += activity.moving_time || 0;
+      currentDistance += activity.distance || 0;
+      currentTss += activity.icu_training_load || 0;
+    } else if (activityTs >= previousStartTs && activityTs <= previousEndTs) {
+      previousCount++;
+      previousDuration += activity.moving_time || 0;
+      previousDistance += activity.distance || 0;
+      previousTss += activity.icu_training_load || 0;
+    }
+  }
+
+  return {
+    currentStats: {
+      count: currentCount,
+      duration: currentDuration,
+      distance: currentDistance,
+      tss: Math.round(currentTss),
+    },
+    previousStats: {
+      count: previousCount,
+      duration: previousDuration,
+      distance: previousDistance,
+      tss: Math.round(previousTss),
+    },
+  };
 }
 
 export function WeeklySummary({ activities }: WeeklySummaryProps) {
@@ -169,16 +210,16 @@ export function WeeklySummary({ activities }: WeeklySummaryProps) {
     }
 
     const ranges = getDateRanges(timeRange);
-    const currentActivities = filterActivities(activities, ranges.currentStart, ranges.currentEnd);
-    const previousActivities = filterActivities(
+    const stats = computeStatsForPeriods(
       activities,
+      ranges.currentStart,
+      ranges.currentEnd,
       ranges.previousStart,
       ranges.previousEnd
     );
 
     return {
-      currentStats: calculateStats(currentActivities),
-      previousStats: calculateStats(previousActivities),
+      ...stats,
       labels: getTimeRangeLabel(timeRange, t as (key: string) => any),
     };
   }, [activities, timeRange, t]);
@@ -191,7 +232,7 @@ export function WeeklySummary({ activities }: WeeklySummaryProps) {
   // Show empty state if no activities in current period
   if (currentStats.count === 0) {
     return (
-      <View style={styles.container}>
+      <View style={styles.container} testID="weekly-summary">
         <View style={styles.header}>
           <Text style={[styles.title, isDark && styles.textLight]}>{labels.current}</Text>
           <View style={styles.timeRangeSelector}>
@@ -218,7 +259,7 @@ export function WeeklySummary({ activities }: WeeklySummaryProps) {
             ))}
           </View>
         </View>
-        <View style={styles.emptyState}>
+        <View style={styles.emptyState} testID="weekly-summary-empty">
           <Text style={[styles.emptyText, isDark && styles.textDark]}>
             {t('stats.noActivitiesInPeriod')}
           </Text>
@@ -228,7 +269,7 @@ export function WeeklySummary({ activities }: WeeklySummaryProps) {
   }
 
   return (
-    <View style={styles.container}>
+    <View style={styles.container} testID="weekly-summary">
       {/* Header with time range selector */}
       <View style={styles.header}>
         <Text style={[styles.title, isDark && styles.textLight]}>{labels.current}</Text>
@@ -236,6 +277,7 @@ export function WeeklySummary({ activities }: WeeklySummaryProps) {
           {TIME_RANGE_IDS.map((rangeId) => (
             <TouchableOpacity
               key={rangeId}
+              testID={`weekly-summary-range-${rangeId}`}
               style={[
                 styles.timeRangeButton,
                 isDark && styles.timeRangeButtonDark,
@@ -260,12 +302,20 @@ export function WeeklySummary({ activities }: WeeklySummaryProps) {
       {/* Stats grid */}
       <View style={styles.statsGrid}>
         <View style={styles.statItem}>
-          <Text style={[styles.statValue, isDark && styles.textLight]}>{currentStats.count}</Text>
+          <Text
+            testID="weekly-summary-count"
+            style={[styles.statValue, isDark && styles.textLight]}
+          >
+            {currentStats.count}
+          </Text>
           <Text style={[styles.statLabel, isDark && styles.textDark]}>{t('stats.activities')}</Text>
         </View>
 
         <View style={styles.statItem}>
-          <Text style={[styles.statValue, isDark && styles.textLight]}>
+          <Text
+            testID="weekly-summary-duration"
+            style={[styles.statValue, isDark && styles.textLight]}
+          >
             {formatDuration(currentStats.duration)}
           </Text>
           <Text style={[styles.statLabel, isDark && styles.textDark]}>
@@ -274,7 +324,10 @@ export function WeeklySummary({ activities }: WeeklySummaryProps) {
         </View>
 
         <View style={styles.statItem}>
-          <Text style={[styles.statValue, isDark && styles.textLight]}>
+          <Text
+            testID="weekly-summary-distance"
+            style={[styles.statValue, isDark && styles.textLight]}
+          >
             {formatDistance(currentStats.distance, isMetric)}
           </Text>
           <Text style={[styles.statLabel, isDark && styles.textDark]}>
@@ -283,7 +336,9 @@ export function WeeklySummary({ activities }: WeeklySummaryProps) {
         </View>
 
         <View style={styles.statItem}>
-          <Text style={[styles.statValue, isDark && styles.textLight]}>{currentStats.tss}</Text>
+          <Text testID="weekly-summary-tss" style={[styles.statValue, isDark && styles.textLight]}>
+            {currentStats.tss}
+          </Text>
           <Text style={[styles.statLabel, isDark && styles.textDark]}>{t('stats.loadTss')}</Text>
         </View>
       </View>

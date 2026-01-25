@@ -1,0 +1,50 @@
+# Settings Theme Toggle Tests
+# Tests theme switching in settings
+
+appId: com.veloq.app
+---
+- launchApp
+
+- extendedWaitUntil:
+    visible:
+      id: "login-screen"
+    timeout: 30000
+
+- tapOn:
+    id: "login-demo-button"
+
+- extendedWaitUntil:
+    visible:
+      id: "home-screen"
+    timeout: 15000
+
+# Navigate to settings
+- openLink: "veloq://settings"
+
+- extendedWaitUntil:
+    visible:
+      id: "settings-screen"
+    timeout: 10000
+
+# Verify theme buttons exist
+- assertVisible:
+    id: "theme-button-system"
+- assertVisible:
+    id: "theme-button-light"
+- assertVisible:
+    id: "theme-button-dark"
+
+# Switch to dark theme
+- tapOn:
+    id: "theme-button-dark"
+- takeScreenshot: "settings-dark-theme"
+
+# Switch to light theme
+- tapOn:
+    id: "theme-button-light"
+- takeScreenshot: "settings-light-theme"
+
+# Switch back to system
+- tapOn:
+    id: "theme-button-system"
+- takeScreenshot: "settings-system-theme"

@@ -120,15 +120,20 @@ export const ActivityCard = React.memo(function ActivityCard({ activity }: Activ
           {/* Stats overlay at bottom of map */}
           <View style={styles.statsOverlay}>
             <View style={styles.statPill}>
-              <Text style={[styles.statValue, { color: activityColor }]}>
+              <Text
+                testID={`activity-card-${activity.id}-distance`}
+                style={[styles.statValue, { color: activityColor }]}
+              >
                 {formatDistance(activity.distance, isMetric)}
               </Text>
             </View>
             <View style={styles.statPill}>
-              <Text style={styles.statValue}>{formatDuration(activity.moving_time)}</Text>
+              <Text testID={`activity-card-${activity.id}-duration`} style={styles.statValue}>
+                {formatDuration(activity.moving_time)}
+              </Text>
             </View>
             <View style={styles.statPill}>
-              <Text style={styles.statValue}>
+              <Text testID={`activity-card-${activity.id}-elevation`} style={styles.statValue}>
                 {formatElevation(activity.total_elevation_gain, isMetric)}
               </Text>
             </View>

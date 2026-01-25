@@ -1,0 +1,28 @@
+# OSX
+#
+.DS_Store
+
+# Android/IntelliJ
+#
+build/
+.idea
+.gradle
+local.properties
+*.iml
+*.hprof
+.cxx/
+
+# Bundle artifacts
+*.jsbundle
+
+# Generated test app from uniffi-bindgen-react-native
+app/
+gradle/
+gradlew
+gradlew.bat
+settings.gradle
+gradle.properties
+debug.keystore
+
+# Generated bindings (regenerated on build)
+generated/

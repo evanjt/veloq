@@ -13,11 +13,14 @@
   "types": "src/index.ts",
   "react-native": "src/index.ts",
   "scripts": {
+    "clean": "./scripts/clean.sh",
     "generate:android": "npx uniffi-bindgen-react-native build android --release --and-generate --targets ${VELOQ_ANDROID_TARGET:-arm64-v8a} && npm run fix-includes",
     "generate:android:all": "npx uniffi-bindgen-react-native build android --release --and-generate && npm run fix-includes",
     "generate:ios": "npx uniffi-bindgen-react-native build ios --release --and-generate --targets ${VELOQ_IOS_TARGET:-aarch64-apple-ios-sim} && npm run fix-includes",
     "generate:ios:all": "npx uniffi-bindgen-react-native build ios --release --and-generate && npm run fix-includes",
-    "fix-includes": "sed -i 's|#include \"/generated/veloqrs.hpp\"|#include \"generated/veloqrs.hpp\"|g' cpp/veloqrs.cpp 2>/dev/null || true"
+    "fix-includes": "./scripts/fix-generated.sh",
+    "android": "expo run:android",
+    "ios": "expo run:ios"
   },
   "peerDependencies": {
     "expo": "*",
@@ -28,17 +31,16 @@
     "expo-modules-core": "*"
   },
   "codegenConfig": {
-    "name": "Veloq",
+    "name": "Veloqrs",
     "type": "modules",
     "jsSrcsDir": "src",
-    "includesGeneratedCode": false,
     "android": {
       "javaPackageName": "com.veloq"
-    },
-    "ios": {
-      "modulesProvider": {
-        "Veloq": "Veloq"
-      }
     }
+  },
+  "dependencies": {
+    "expo": "~54.0.30",
+    "react": "19.1.0",
+    "react-native": "0.81.5"
   }
 }

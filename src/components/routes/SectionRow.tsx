@@ -223,6 +223,7 @@ export const SectionRow = memo(function SectionRow({
 
   return (
     <TouchableOpacity
+      testID={`section-row-${section.id}`}
       style={[styles.container, isDark && styles.containerDark]}
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}

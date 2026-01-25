@@ -1,0 +1,61 @@
+# Data Verification Tests
+# Verifies that key data components display correctly with demo data
+
+appId: com.veloq.app
+---
+- launchApp
+
+- extendedWaitUntil:
+    visible:
+      id: "login-screen"
+    timeout: 30000
+
+# Enter demo mode
+- tapOn:
+    id: "login-demo-button"
+
+- extendedWaitUntil:
+    visible:
+      id: "home-screen"
+    timeout: 15000
+
+# Verify weekly summary component is present
+- assertVisible:
+    id: "weekly-summary"
+
+# Navigate to Fitness and check CTL/ATL values display
+- openLink: "veloq://fitness"
+- extendedWaitUntil:
+    visible:
+      id: "fitness-screen"
+    timeout: 10000
+- extendedWaitUntil:
+    visible:
+      id: "fitness-ctl-value"
+    timeout: 10000
+- assertVisible:
+    id: "fitness-atl-value"
+
+# Navigate to Routes and verify list loads
+- openLink: "veloq://routes"
+- extendedWaitUntil:
+    visible:
+      id: "routes-screen"
+    timeout: 10000
+- extendedWaitUntil:
+    visible:
+      id: "routes-list"
+    timeout: 10000
+
+# Navigate to activity detail and verify stats display
+- openLink: "veloq://activity/demo-0"
+- extendedWaitUntil:
+    visible:
+      id: "activity-detail-content"
+    timeout: 15000
+
+# Verify chart type selector appears
+- extendedWaitUntil:
+    visible:
+      id: "chart-type-selector"
+    timeout: 10000

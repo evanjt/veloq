@@ -2,7 +2,7 @@ name: Build & Test Simulator Apps
 
 on:
   push:
-    branches: [main]
+    branches: ['**']  # Run on all branch pushes
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -360,15 +360,13 @@ jobs:
           echo "artifact_name=android-release-${SOURCE_HASH}" >> $GITHUB_OUTPUT
           echo "source_hash=$SOURCE_HASH" >> $GITHUB_OUTPUT
 
-      - name: Cache built APKs
+      - name: Cache built APK
         id: apk-cache
         uses: actions/cache@v4
         with:
-          path: |
-            android/app/build/outputs/apk/release/app-release.apk
-            android/app/build/outputs/apk/androidTest/release/app-release-androidTest.apk
-          # v6: Build Rust from source (submodule)
-          key: android-release-apk-v6-${{ steps.version.outputs.source_hash }}
+          path: android/app/build/outputs/apk/release/app-release.apk
+          # v7: Maestro doesn't need androidTest APK
+          key: android-release-apk-v7-${{ steps.version.outputs.source_hash }}
 
       - name: Cache Android prebuild
         if: steps.apk-cache.outputs.cache-hit != 'true'
@@ -376,8 +374,8 @@ jobs:
         uses: actions/cache@v4
         with:
           path: android
-          # v5: Build Rust from source (submodule)
-          key: android-release-prebuild-v5-${{ runner.os }}-${{ hashFiles('app.json', 'package.json', 'modules/veloqrs/android/**', 'modules/veloqrs/package.json') }}
+          # v6: Removed Detox plugin
+          key: android-release-prebuild-v6-${{ runner.os }}-${{ hashFiles('app.json', 'package.json', 'modules/veloqrs/android/**', 'modules/veloqrs/package.json') }}
 
       - name: Expo Prebuild
         if: steps.apk-cache.outputs.cache-hit != 'true' && steps.android-prebuild-cache.outputs.cache-hit != 'true'
@@ -445,34 +443,32 @@ jobs:
           sudo docker image prune --all --force || true
           df -h
 
-      - name: Build Release APKs
+      - name: Build Release APK
         if: steps.apk-cache.outputs.cache-hit != 'true'
         run: |
           # Only build arm64-v8a (modern devices) and x86_64 (emulator) to save disk space
-          cd android && ./gradlew assembleRelease assembleAndroidTest \
+          cd android && ./gradlew assembleRelease \
             -PreactNativeArchitectures=arm64-v8a,x86_64 \
-            -DtestBuildType=release --no-daemon
+            --no-daemon
 
       - name: Skip build (cache hit)
         if: steps.apk-cache.outputs.cache-hit == 'true'
-        run: echo "✓ Using cached APKs (hash ${{ steps.version.outputs.source_hash }})"
+        run: echo "✓ Using cached APK (hash ${{ steps.version.outputs.source_hash }})"
 
-      - name: Upload APKs
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: ${{ steps.version.outputs.artifact_name }}
-          path: |
-            android/app/build/outputs/apk/release/app-release.apk
-            android/app/build/outputs/apk/androidTest/release/app-release-androidTest.apk
+          path: android/app/build/outputs/apk/release/app-release.apk
           retention-days: 7
 
   # ============================================
-  # Screenshots - iOS (PRIMARY - must succeed)
+  # E2E Tests - iOS with Maestro
   # ============================================
-  screenshots-ios:
+  e2e-ios:
     needs: ios-simulator
     if: ${{ !inputs.skip_e2e }}
-    name: Screenshots iOS
+    name: E2E iOS (Maestro)
     runs-on: macos-26
     timeout-minutes: 30
     steps:
@@ -502,36 +498,45 @@ jobs:
           mkdir -p ios/build/Build/Products/Release-iphonesimulator
           unzip /tmp/ios-artifact/Veloq.app.zip -d ios/build/Build/Products/Release-iphonesimulator/
 
-      - name: Install applesimutils
+      - name: Install Maestro
         run: |
-          brew tap wix/brew
-          brew install applesimutils
+          curl -Ls "https://get.maestro.mobile.dev" | bash
+          echo "$HOME/.maestro/bin" >> $GITHUB_PATH
 
-      - name: Find 6.9" iPhone simulator
+      - name: Install idb companion
+        run: brew install idb-companion
+
+      - name: Find and boot simulator
         id: simulator
         run: |
-          # Use iPhone 17 Pro Max for 6.9" screenshots (Xcode 26.x)
+          # Use iPhone 17 Pro Max for tests
           DEVICE="iPhone 17 Pro Max"
-          echo "device=$DEVICE" >> $GITHUB_OUTPUT
-          echo "Using 6.9\" iPhone simulator: $DEVICE"
+          UDID=$(xcrun simctl list devices available | grep "$DEVICE" | head -1 | sed -E 's/.*\(([A-F0-9-]+)\).*/\1/')
+          if [ -z "$UDID" ]; then
+            UDID=$(xcrun simctl list devices available | grep "iPhone" | head -1 | sed -E 's/.*\(([A-F0-9-]+)\).*/\1/')
+          fi
+          echo "Using simulator: $UDID"
+          xcrun simctl boot "$UDID" || true
+          echo "udid=$UDID" >> $GITHUB_OUTPUT
 
-      - name: Capture Screenshots
-        env:
-          DETOX_DEVICE_TYPE: ${{ steps.simulator.outputs.device }}
+      - name: Install app on simulator
         run: |
-          npx detox test --configuration ios.sim.release --headless \
-            --testPathPattern "screenshots" \
-            --record-logs all --loglevel verbose
+          xcrun simctl install "${{ steps.simulator.outputs.udid }}" ios/build/Build/Products/Release-iphonesimulator/Veloq.app
 
-      - name: Collect and flatten screenshots
+      - name: Run Maestro tests
+        run: |
+          export PATH="$HOME/.maestro/bin:$PATH"
+          mkdir -p screenshots
+          # Run smoke test first, then all other tests
+          maestro test .maestro/smoke.yaml --format junit --output maestro-report.xml || true
+          maestro test .maestro/ --format junit --output maestro-report-full.xml
+
+      - name: Collect screenshots
         if: always()
         run: |
           mkdir -p screenshots-flat
-          # Find all screenshot PNGs (exclude diagnostic images like DETOX_VISIBILITY_*)
-          find artifacts -name "*.png" ! -name "DETOX_*" ! -name "testDone.png" ! -name "testFnFailure.png" -exec cp {} screenshots-flat/ \;
-          # Rename to include platform suffix
-          cd screenshots-flat
-          for f in *.png; do
+          find ~/.maestro -name "*.png" -exec cp {} screenshots-flat/ \; 2>/dev/null || true
+          for f in screenshots-flat/*.png; do
             [ -f "$f" ] && mv "$f" "${f%.png}-ios.png" 2>/dev/null || true
           done
           ls -la screenshots-flat/ || true
@@ -544,154 +549,21 @@ jobs:
           path: screenshots-flat/
           retention-days: 14
 
-  # ============================================
-  # Screenshots - iPad (PRIMARY - must succeed)
-  # ============================================
-  screenshots-ipad:
-    needs: ios-simulator
-    if: ${{ !inputs.skip_e2e }}
-    name: Screenshots iPad
-    runs-on: macos-26
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: npm
-
-      - run: npm ci
-
-      - name: Get artifact name
-        id: artifact
-        run: |
-          SOURCE_HASH=$(cat <(find src app modules plugins -type f \( -name "*.ts" -o -name "*.tsx" -o -name "*.js" -o -name "*.json" -o -name "*.swift" -o -name "*.m" -o -name "*.mm" -o -name "*.h" -o -name "*.kt" -o -name "*.java" -o -name "*.podspec" -o -name "*.rs" -o -name "*.toml" \) -exec sha256sum {} \; 2>/dev/null) <(sha256sum package.json app.json 2>/dev/null) | sort | sha256sum | cut -d' ' -f1 | head -c 12)
-          echo "name=ios-Release-${SOURCE_HASH}" >> $GITHUB_OUTPUT
-
-      - name: Download iOS app
-        uses: actions/download-artifact@v4
-        with:
-          name: ${{ steps.artifact.outputs.name }}
-          path: /tmp/ios-artifact
-
-      - name: Extract iOS app
-        run: |
-          mkdir -p ios/build/Build/Products/Release-iphonesimulator
-          unzip /tmp/ios-artifact/Veloq.app.zip -d ios/build/Build/Products/Release-iphonesimulator/
-
-      - name: Install applesimutils
-        run: |
-          brew tap wix/brew
-          brew install applesimutils
-
-      - name: Find 13" iPad simulator
-        id: simulator
-        run: |
-          # Use iPad Pro 13-inch (M5) for 13" screenshots (Xcode 26.x)
-          DEVICE="iPad Pro 13-inch (M5)"
-          echo "device=$DEVICE" >> $GITHUB_OUTPUT
-          echo "Using 13\" iPad simulator: $DEVICE"
-
-      - name: Capture Screenshots
-        env:
-          DETOX_DEVICE_TYPE: ${{ steps.simulator.outputs.device }}
-        run: |
-          npx detox test --configuration ios.sim.release --headless \
-            --testPathPattern "screenshots" \
-            --record-logs all --loglevel verbose
-
-      - name: Collect and flatten screenshots
-        if: always()
-        run: |
-          mkdir -p screenshots-flat
-          find artifacts -name "*.png" ! -name "DETOX_*" ! -name "testDone.png" ! -name "testFnFailure.png" -exec cp {} screenshots-flat/ \;
-          cd screenshots-flat
-          for f in *.png; do
-            [ -f "$f" ] && mv "$f" "${f%.png}-ipad.png" 2>/dev/null || true
-          done
-          ls -la screenshots-flat/ || true
-
-      - name: Upload screenshots
+      - name: Upload test report
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: screenshots-ipad
-          path: screenshots-flat/
-          retention-days: 14
-
-  # ============================================
-  # E2E Functional Tests - iOS (SECONDARY - failures don't block)
-  # ============================================
-  e2e-ios-functional:
-    needs: ios-simulator
-    if: ${{ !inputs.skip_e2e }}
-    name: E2E iOS (optional)
-    runs-on: macos-26
-    timeout-minutes: 30
-    continue-on-error: true
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: npm
-
-      - run: npm ci
-
-      - name: Get artifact name
-        id: artifact
-        run: |
-          SOURCE_HASH=$(cat <(find src app modules plugins -type f \( -name "*.ts" -o -name "*.tsx" -o -name "*.js" -o -name "*.json" -o -name "*.swift" -o -name "*.m" -o -name "*.mm" -o -name "*.h" -o -name "*.kt" -o -name "*.java" -o -name "*.podspec" -o -name "*.rs" -o -name "*.toml" \) -exec sha256sum {} \; 2>/dev/null) <(sha256sum package.json app.json 2>/dev/null) | sort | sha256sum | cut -d' ' -f1 | head -c 12)
-          echo "name=ios-Release-${SOURCE_HASH}" >> $GITHUB_OUTPUT
-
-      - name: Download iOS app
-        uses: actions/download-artifact@v4
-        with:
-          name: ${{ steps.artifact.outputs.name }}
-          path: /tmp/ios-artifact
-
-      - name: Extract iOS app
-        run: |
-          mkdir -p ios/build/Build/Products/Release-iphonesimulator
-          unzip /tmp/ios-artifact/Veloq.app.zip -d ios/build/Build/Products/Release-iphonesimulator/
-
-      - name: Install applesimutils
-        run: |
-          brew tap wix/brew
-          brew install applesimutils
-
-      - name: Find 6.9" iPhone simulator
-        id: simulator
-        run: |
-          # Use iPhone 17 Pro Max for functional tests (Xcode 26.x)
-          DEVICE="iPhone 17 Pro Max"
-          echo "device=$DEVICE" >> $GITHUB_OUTPUT
-
-      - name: Run Functional Tests
-        env:
-          DETOX_DEVICE_TYPE: ${{ steps.simulator.outputs.device }}
-        run: |
-          npx detox test --configuration ios.sim.release --headless \
-            --testPathPattern "demo-mode|navigation" \
-            --record-logs all --loglevel verbose
-
-      - name: Upload results
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: e2e-ios-functional-results
-          path: artifacts/
+          name: maestro-ios-report
+          path: maestro-report*.xml
           retention-days: 7
 
   # ============================================
-  # Screenshots - Android (PRIMARY - must succeed)
+  # E2E Tests - Android with Maestro
   # ============================================
-  screenshots-android:
+  e2e-android:
     needs: android-release
     if: ${{ !inputs.skip_e2e }}
-    name: Screenshots Android
+    name: E2E Android (Maestro)
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
@@ -717,22 +589,16 @@ jobs:
           SOURCE_HASH=$(cat <(find src app modules plugins -type f \( -name "*.ts" -o -name "*.tsx" -o -name "*.js" -o -name "*.json" -o -name "*.swift" -o -name "*.m" -o -name "*.mm" -o -name "*.h" -o -name "*.kt" -o -name "*.java" -o -name "*.podspec" -o -name "*.gradle" -o -name "*.rs" -o -name "*.toml" \) -exec sha256sum {} \; 2>/dev/null) <(sha256sum package.json app.json 2>/dev/null) | sort | sha256sum | cut -d' ' -f1 | head -c 12)
           echo "name=android-release-${SOURCE_HASH}" >> $GITHUB_OUTPUT
 
-      - name: Download APKs
+      - name: Download APK
         uses: actions/download-artifact@v4
         with:
           name: ${{ steps.artifact.outputs.name }}
-          path: android/app/build/outputs/apk
+          path: /tmp/android-artifact
 
-      - name: Organize APKs
+      - name: Install Maestro
         run: |
-          mkdir -p android/app/build/outputs/apk/release
-          mkdir -p android/app/build/outputs/apk/androidTest/release
-          if [ -f android/app/build/outputs/apk/app-release.apk ]; then
-            mv android/app/build/outputs/apk/app-release.apk android/app/build/outputs/apk/release/
-          fi
-          if [ -f android/app/build/outputs/apk/app-release-androidTest.apk ]; then
-            mv android/app/build/outputs/apk/app-release-androidTest.apk android/app/build/outputs/apk/androidTest/release/
-          fi
+          curl -Ls "https://get.maestro.mobile.dev" | bash
+          echo "$HOME/.maestro/bin" >> $GITHUB_PATH
 
       - name: Free disk space
         run: |
@@ -757,10 +623,8 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
-      - name: Capture Screenshots
+      - name: Run Maestro tests
         uses: reactivecircus/android-emulator-runner@v2
-        env:
-          DETOX_DEVICE_AVD_NAME: Pixel_5_API_30
         with:
           api-level: 30
           target: default
@@ -770,19 +634,26 @@ jobs:
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -accel on
           disable-animations: true
           script: |
+            export PATH="$HOME/.maestro/bin:$PATH"
             adb wait-for-device
             adb shell settings put global window_animation_scale 0
             adb shell settings put global transition_animation_scale 0
             adb shell settings put global animator_duration_scale 0
-            DETOX_DEVICE_AVD_NAME=Pixel_5_API_30 npx detox test --configuration android.emu.release --headless --testPathPattern screenshots --record-logs all --loglevel verbose
 
-      - name: Collect and flatten screenshots
+            # Install APK
+            adb install /tmp/android-artifact/app-release.apk
+
+            # Run tests
+            mkdir -p screenshots
+            maestro test .maestro/smoke.yaml --format junit --output maestro-report.xml || true
+            maestro test .maestro/ --format junit --output maestro-report-full.xml
+
+      - name: Collect screenshots
         if: always()
         run: |
           mkdir -p screenshots-flat
-          find artifacts -name "*.png" ! -name "DETOX_*" ! -name "testDone.png" ! -name "testFnFailure.png" -exec cp {} screenshots-flat/ \;
-          cd screenshots-flat
-          for f in *.png; do
+          find ~/.maestro -name "*.png" -exec cp {} screenshots-flat/ \; 2>/dev/null || true
+          for f in screenshots-flat/*.png; do
             [ -f "$f" ] && mv "$f" "${f%.png}-android.png" 2>/dev/null || true
           done
           ls -la screenshots-flat/ || true
@@ -795,102 +666,10 @@ jobs:
           path: screenshots-flat/
           retention-days: 14
 
-  # ============================================
-  # E2E Functional Tests - Android (SECONDARY - failures don't block)
-  # ============================================
-  e2e-android-functional:
-    needs: android-release
-    if: ${{ !inputs.skip_e2e }}
-    name: E2E Android (optional)
-    runs-on: ubuntu-latest
-    timeout-minutes: 45
-    continue-on-error: true
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: npm
-
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: 17
-
-      - uses: android-actions/setup-android@v3
-
-      - run: npm ci
-
-      - name: Get artifact name
-        id: artifact
-        run: |
-          SOURCE_HASH=$(cat <(find src app modules plugins -type f \( -name "*.ts" -o -name "*.tsx" -o -name "*.js" -o -name "*.json" -o -name "*.swift" -o -name "*.m" -o -name "*.mm" -o -name "*.h" -o -name "*.kt" -o -name "*.java" -o -name "*.podspec" -o -name "*.gradle" -o -name "*.rs" -o -name "*.toml" \) -exec sha256sum {} \; 2>/dev/null) <(sha256sum package.json app.json 2>/dev/null) | sort | sha256sum | cut -d' ' -f1 | head -c 12)
-          echo "name=android-release-${SOURCE_HASH}" >> $GITHUB_OUTPUT
-
-      - name: Download APKs
-        uses: actions/download-artifact@v4
-        with:
-          name: ${{ steps.artifact.outputs.name }}
-          path: android/app/build/outputs/apk
-
-      - name: Organize APKs
-        run: |
-          mkdir -p android/app/build/outputs/apk/release
-          mkdir -p android/app/build/outputs/apk/androidTest/release
-          if [ -f android/app/build/outputs/apk/app-release.apk ]; then
-            mv android/app/build/outputs/apk/app-release.apk android/app/build/outputs/apk/release/
-          fi
-          if [ -f android/app/build/outputs/apk/app-release-androidTest.apk ]; then
-            mv android/app/build/outputs/apk/app-release-androidTest.apk android/app/build/outputs/apk/androidTest/release/
-          fi
-
-      - name: Free disk space
-        run: |
-          sudo rm -rf /usr/local/lib/android/sdk/ndk
-          sudo rm -rf /usr/local/lib/android/sdk/build-tools/3[0-3]*
-          sudo rm -rf /usr/local/lib/android/sdk/platforms/android-[1-2]*
-          sudo rm -rf /usr/local/lib/android/sdk/platforms/android-3[0-2]
-          sudo docker image prune --all --force || true
-
-      - name: Create AVD
-        run: |
-          echo "y" | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --install "system-images;android-30;default;x86_64"
-          echo "no" | $ANDROID_HOME/cmdline-tools/latest/bin/avdmanager create avd \
-            -n Pixel_5_API_30 \
-            -k "system-images;android-30;default;x86_64" \
-            --device "pixel_5" \
-            --force
-
-      - name: Enable KVM
-        run: |
-          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
-          sudo udevadm control --reload-rules
-          sudo udevadm trigger --name-match=kvm
-
-      - name: Run Functional Tests
-        uses: reactivecircus/android-emulator-runner@v2
-        env:
-          DETOX_DEVICE_AVD_NAME: Pixel_5_API_30
-        with:
-          api-level: 30
-          target: default
-          arch: x86_64
-          avd-name: Pixel_5_API_30
-          emulator-boot-timeout: 600
-          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -accel on
-          disable-animations: true
-          script: |
-            adb wait-for-device
-            adb shell settings put global window_animation_scale 0
-            adb shell settings put global transition_animation_scale 0
-            adb shell settings put global animator_duration_scale 0
-            DETOX_DEVICE_AVD_NAME=Pixel_5_API_30 npx detox test --configuration android.emu.release --headless --testPathPattern "demo-mode|navigation" --record-logs all --loglevel verbose
-
-      - name: Upload results
+      - name: Upload test report
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: e2e-android-functional-results
-          path: artifacts/
+          name: maestro-android-report
+          path: maestro-report*.xml
           retention-days: 7

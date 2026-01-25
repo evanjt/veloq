@@ -28,13 +28,6 @@ function formatSleepHours(seconds: number | undefined): string {
   return hours.toFixed(1);
 }
 
-function getAverage(data: WellnessData[], key: keyof WellnessData, days: number): number | null {
-  const recent = data.slice(0, days).filter((d) => d[key] != null);
-  if (recent.length === 0) return null;
-  const sum = recent.reduce((acc, d) => acc + ((d[key] as number) || 0), 0);
-  return sum / recent.length;
-}
-
 export function WellnessDashboard({ data }: WellnessDashboardProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
@@ -58,29 +51,73 @@ export function WellnessDashboard({ data }: WellnessDashboardProps) {
 
   const sourceData = data;
 
+  // Optimized: Single-pass computation of all metrics and 7-day averages
   const metrics: MetricTrend[] = useMemo(() => {
     const sorted = [...sourceData].sort((a, b) => b.id.localeCompare(a.id));
+    const latest = sorted[0];
 
-    const currentHRV = sorted[0]?.hrv ?? null;
-    const prevHRV = getAverage(sorted.slice(1), 'hrv', 7);
+    // Current values (from latest record)
+    const currentHRV = latest?.hrv ?? null;
+    const currentRHR = latest?.restingHR ?? null;
+    const currentSleep = latest?.sleepSecs ?? null;
+    const currentSleepScore = latest?.sleepScore ?? null;
 
-    const currentRHR = sorted[0]?.restingHR ?? null;
-    const prevRHR = getAverage(sorted.slice(1), 'restingHR', 7);
+    // Single-pass: compute 7-day averages and find weight in one loop
+    // Start from index 1 to get "previous" averages (excluding today)
+    let hrvSum = 0,
+      hrvCount = 0;
+    let rhrSum = 0,
+      rhrCount = 0;
+    let sleepSum = 0,
+      sleepCount = 0;
+    let sleepScoreSum = 0,
+      sleepScoreCount = 0;
+    let weightSum = 0,
+      weightCount = 0;
+    let currentWeight: number | null = null;
+    let weightRecordIdx = -1;
 
-    const currentSleep = sorted[0]?.sleepSecs ?? null;
-    const prevSleep = getAverage(sorted.slice(1), 'sleepSecs', 7);
+    // First, find the most recent weight record
+    for (let i = 0; i < sorted.length; i++) {
+      if (sorted[i].weight != null) {
+        currentWeight = sorted[i].weight!;
+        weightRecordIdx = i;
+        break;
+      }
+    }
 
-    const currentSleepScore = sorted[0]?.sleepScore ?? null;
-    const prevSleepScore = getAverage(sorted.slice(1), 'sleepScore', 7);
+    // Single pass for 7-day averages (days 1-7, excluding day 0 which is "today")
+    const maxDays = Math.min(8, sorted.length); // Days 1-7 = indices 1-7
+    for (let i = 1; i < maxDays; i++) {
+      const d = sorted[i];
+      if (d.hrv != null && hrvCount < 7) {
+        hrvSum += d.hrv;
+        hrvCount++;
+      }
+      if (d.restingHR != null && rhrCount < 7) {
+        rhrSum += d.restingHR;
+        rhrCount++;
+      }
+      if (d.sleepSecs != null && sleepCount < 7) {
+        sleepSum += d.sleepSecs;
+        sleepCount++;
+      }
+      if (d.sleepScore != null && sleepScoreCount < 7) {
+        sleepScoreSum += d.sleepScore;
+        sleepScoreCount++;
+      }
+      // For weight average, exclude the record we're using as current
+      if (d.weight != null && i !== weightRecordIdx && weightCount < 7) {
+        weightSum += d.weight;
+        weightCount++;
+      }
+    }
 
-    // Find the most recent weight (look back if today is null)
-    const weightRecord = sorted.find((d) => d.weight != null);
-    const currentWeight = weightRecord?.weight ?? null;
-    const prevWeight = getAverage(
-      sorted.filter((d) => d !== weightRecord),
-      'weight',
-      7
-    );
+    const prevHRV = hrvCount > 0 ? hrvSum / hrvCount : null;
+    const prevRHR = rhrCount > 0 ? rhrSum / rhrCount : null;
+    const prevSleep = sleepCount > 0 ? sleepSum / sleepCount : null;
+    const prevSleepScore = sleepScoreCount > 0 ? sleepScoreSum / sleepScoreCount : null;
+    const prevWeight = weightCount > 0 ? weightSum / weightCount : null;
 
     const getTrend = (current: number | null, prev: number | null): 'up' | 'down' | 'stable' => {
       if (current === null || prev === null) return 'stable';
@@ -226,15 +263,22 @@ export function WellnessDashboard({ data }: WellnessDashboardProps) {
   }, [metrics, t]);
 
   return (
-    <View style={styles.container}>
+    <View style={styles.container} testID="wellness-dashboard">
       <View style={styles.trendRow}>
         {trendIndicators.map((indicator, idx) => (
-          <View key={indicator.label} style={styles.trendItem}>
+          <View
+            key={indicator.label}
+            style={styles.trendItem}
+            testID={`wellness-${indicator.label.toLowerCase().replace(/\s+/g, '-')}`}
+          >
             <Text style={[styles.trendLabel, isDark && styles.textDark]}>{indicator.label}</Text>
             <View style={styles.trendValueRow}>
               {indicator.value !== null ? (
                 <>
-                  <Text style={[styles.trendValue, isDark && styles.textLight]}>
+                  <Text
+                    testID={`wellness-${indicator.label.toLowerCase().replace(/\s+/g, '-')}-value`}
+                    style={[styles.trendValue, isDark && styles.textLight]}
+                  >
                     {indicator.value}
                   </Text>
                   <Text style={[styles.trendArrow, { color: indicator.color }]}>

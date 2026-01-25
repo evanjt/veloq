@@ -1,0 +1,35 @@
+# Map Timeline Slider Tests
+# Tests the timeline slider on the map screen
+
+appId: com.veloq.app
+---
+- launchApp
+
+- extendedWaitUntil:
+    visible:
+      id: "login-screen"
+    timeout: 30000
+
+- tapOn:
+    id: "login-demo-button"
+
+- extendedWaitUntil:
+    visible:
+      id: "home-screen"
+    timeout: 15000
+
+# Navigate to map screen
+- openLink: "veloq://map"
+
+- extendedWaitUntil:
+    visible:
+      id: "map-screen"
+    timeout: 15000
+
+# Verify timeline slider exists
+- extendedWaitUntil:
+    visible:
+      id: "timeline-slider"
+    timeout: 10000
+
+- takeScreenshot: "map-timeline-complete"

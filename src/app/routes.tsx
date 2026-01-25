@@ -49,10 +49,8 @@ export default function RoutesScreen() {
   const syncNewest = useSyncDateRange((s) => s.newest);
   const isFetchingExtended = useSyncDateRange((s) => s.isFetchingExtended);
 
-  // Get cached bounds for timeline limits
-  // Also get activities from engine to determine the full cached range
+  // Get sync state from engine cache
   const {
-    activities: cachedActivities,
     isReady: boundsReady,
     progress: syncProgress,
     syncDateRange,
@@ -109,25 +107,13 @@ export default function RoutesScreen() {
   // NOTE: We only update the slider state here, NOT the sync range.
   // Expansion should only happen from explicit user action (timeline drag).
   useEffect(() => {
-    if (!hasInitialized && cachedActivities && cachedActivities.length > 0) {
-      // Find the oldest and newest activity dates from the engine cache
-      let oldest: Date | null = null;
-      let newest: Date | null = null;
-      for (const a of cachedActivities) {
-        const date = a.date ? new Date(a.date) : null;
-        if (date) {
-          if (!oldest || date < oldest) oldest = date;
-          if (!newest || date > newest) newest = date;
-        }
-      }
-      if (oldest && newest) {
-        setStartDate(oldest);
-        setEndDate(newest);
-        // Do NOT call syncDateRange here - expansion should only happen from user action
-        setHasInitialized(true);
-      }
+    if (!hasInitialized && boundsReady) {
+      // Use sync date range from store (represents what we've synced)
+      setStartDate(new Date(syncOldest));
+      setEndDate(new Date(syncNewest));
+      setHasInitialized(true);
     }
-  }, [hasInitialized, cachedActivities]);
+  }, [hasInitialized, boundsReady, syncOldest, syncNewest]);
 
   // Min/max dates for timeline - use API oldest date for full extent
   const minDate = useMemo(() => {
@@ -172,22 +158,22 @@ export default function RoutesScreen() {
     }
   }, [triggerSync]);
 
-  // Calculate cached range from engine activities (shows the full synced range)
-  const { oldestSyncedDate, newestSyncedDate } = useMemo(() => {
-    if (!cachedActivities || cachedActivities.length === 0) {
-      return { oldestSyncedDate: null, newestSyncedDate: null };
+  // Calculate cached range from sync store and engine activity count
+  const { oldestSyncedDate, newestSyncedDate, activityCount } = useMemo(() => {
+    const { getRouteEngine } = require('@/lib/native/routeEngine');
+    const engine = getRouteEngine();
+    const count = engine ? engine.getActivityCount() : 0;
+
+    if (count === 0) {
+      return { oldestSyncedDate: null, newestSyncedDate: null, activityCount: 0 };
     }
-    let oldest: string | null = null;
-    let newest: string | null = null;
-    for (const a of cachedActivities) {
-      const date = a.date;
-      if (date) {
-        if (!oldest || date < oldest) oldest = date;
-        if (!newest || date > newest) newest = date;
-      }
-    }
-    return { oldestSyncedDate: oldest, newestSyncedDate: newest };
-  }, [cachedActivities]);
+
+    return {
+      oldestSyncedDate: syncOldest,
+      newestSyncedDate: syncNewest,
+      activityCount: count,
+    };
+  }, [boundsReady, syncOldest, syncNewest]);
 
   // Convert sync/processing progress to unified phased format
   // Phases: 1) Loading activities, 2) Downloading GPS, 3) Analyzing routes
@@ -299,7 +285,7 @@ export default function RoutesScreen() {
 
       {/* Date range summary - shows cached range with link to expand */}
       <DateRangeSummary
-        activityCount={cachedActivities?.length || 0}
+        activityCount={activityCount}
         oldestDate={oldestSyncedDate}
         newestDate={newestSyncedDate}
         isDark={isDark}

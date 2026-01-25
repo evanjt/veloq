@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useCallback, useEffect } from 'react';
+import React, { useMemo, useState, useCallback } from 'react';
 import {
   View,
   FlatList,
@@ -39,7 +39,6 @@ import {
 } from '@/providers';
 import type { MetricId } from '@/providers';
 import { formatPaceCompact, formatSwimPace } from '@/lib';
-import { logMount, logUnmount, logRender } from '@/lib/debug/renderTimer';
 import { ActivityCard } from '@/components/activity/ActivityCard';
 import {
   ActivityCardSkeleton,
@@ -73,13 +72,6 @@ const ACTIVITY_TYPE_GROUPS = {
 const ALL_TYPES = Object.values(ACTIVITY_TYPE_GROUPS).flat();
 
 export default function FeedScreen() {
-  // DEBUG: Track render timing
-  logRender('FeedScreen');
-  useEffect(() => {
-    logMount('FeedScreen');
-    return () => logUnmount('FeedScreen');
-  }, []);
-
   const { t } = useTranslation();
   const { isDark, colors: themeColors } = useTheme();
   const shared = createSharedStyles(isDark);
@@ -181,6 +173,7 @@ export default function FeedScreen() {
   }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   // Compute quick stats from wellness and activities data
+  // Optimized: Single-pass over activities for all weekly/FTP stats
   const quickStats = useMemo(() => {
     // Get latest wellness data for form and HRV
     const sorted = wellnessData ? [...wellnessData].sort((a, b) => b.id.localeCompare(a.id)) : [];
@@ -216,50 +209,63 @@ export default function FeedScreen() {
     const hrvTrend = getTrend(hrv, prevHrv, 2);
     const rhrTrend = getTrend(rhr, prevRhr, 1);
 
-    // Calculate week totals from activities
-    const weekMs = 7 * 24 * 60 * 60 * 1000;
+    // Pre-compute date boundaries once (avoid creating Date objects in loop)
     const now = Date.now();
-    const weekAgo = new Date(now - weekMs);
-    const twoWeeksAgo = new Date(now - weekMs * 2);
+    const weekMs = 7 * 24 * 60 * 60 * 1000;
+    const weekAgoTs = now - weekMs;
+    const twoWeeksAgoTs = now - weekMs * 2;
+    const thirtyDaysAgoTs = now - 30 * 24 * 60 * 60 * 1000;
 
-    // Current week activities
-    const weekActivities =
-      allActivities?.filter((a: Activity) => new Date(a.start_date_local) >= weekAgo) ?? [];
-    const weekCount = weekActivities.length;
-    const weekSeconds = weekActivities.reduce(
-      (sum: number, a: Activity) => sum + (a.moving_time || 0),
-      0
-    );
+    // Single-pass: Compute all activity-based metrics in one loop
+    let weekCount = 0;
+    let weekSeconds = 0;
+    let prevWeekCount = 0;
+    let prevWeekSeconds = 0;
+    let latestFtp: number | null = null;
+    let latestFtpDate = 0;
+    let prevFtp: number | null = null;
+    let prevFtpDate = 0;
+
+    if (allActivities) {
+      for (const activity of allActivities) {
+        const activityTs = new Date(activity.start_date_local).getTime();
+
+        // Current week stats
+        if (activityTs >= weekAgoTs) {
+          weekCount++;
+          weekSeconds += activity.moving_time || 0;
+        }
+        // Previous week stats
+        else if (activityTs >= twoWeeksAgoTs) {
+          prevWeekCount++;
+          prevWeekSeconds += activity.moving_time || 0;
+        }
+
+        // Track FTP values
+        if (activity.icu_ftp) {
+          // Latest FTP (most recent)
+          if (activityTs > latestFtpDate) {
+            latestFtpDate = activityTs;
+            latestFtp = activity.icu_ftp;
+          }
+          // Previous FTP (~30 days ago) - most recent before threshold
+          if (activityTs <= thirtyDaysAgoTs && activityTs > prevFtpDate) {
+            prevFtpDate = activityTs;
+            prevFtp = activity.icu_ftp;
+          }
+        }
+      }
+    }
+
     const weekHours = Math.round((weekSeconds / 3600) * 10) / 10;
-
-    // Previous week activities for trend
-    const prevWeekActivities =
-      allActivities?.filter((a: Activity) => {
-        const date = new Date(a.start_date_local);
-        return date >= twoWeeksAgo && date < weekAgo;
-      }) ?? [];
-    const prevWeekCount = prevWeekActivities.length;
-    const prevWeekSeconds = prevWeekActivities.reduce(
-      (sum: number, a: Activity) => sum + (a.moving_time || 0),
-      0
-    );
     const prevWeekHours = Math.round((prevWeekSeconds / 3600) * 10) / 10;
 
     const weekHoursTrend = getTrend(weekHours, prevWeekHours, 0.5);
     const weekCountTrend = getTrend(weekCount, prevWeekCount, 1);
 
-    // Get latest FTP from activities with trend
-    const ftp = getLatestFTP(allActivities) ?? null;
-    // Get FTP from ~30 days ago for trend
-    const thirtyDaysAgo = new Date(now - 30 * 24 * 60 * 60 * 1000);
-    const olderActivitiesWithFtp =
-      allActivities
-        ?.filter((a) => new Date(a.start_date_local) <= thirtyDaysAgo && a.icu_ftp)
-        .sort(
-          (a, b) => new Date(b.start_date_local).getTime() - new Date(a.start_date_local).getTime()
-        ) ?? [];
-    const prevFtp = olderActivitiesWithFtp[0]?.icu_ftp ?? ftp;
-    const ftpTrend = getTrend(ftp, prevFtp, 3);
+    // Use latest FTP, fallback to getLatestFTP for edge cases
+    const ftp = latestFtp ?? getLatestFTP(allActivities) ?? null;
+    const ftpTrend = getTrend(ftp, prevFtp ?? ftp, 3);
 
     return {
       fitness,

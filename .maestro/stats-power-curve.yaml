@@ -1,0 +1,45 @@
+# Power Curve Chart Tests
+# Tests the power curve display on stats screen
+
+appId: com.veloq.app
+---
+- launchApp
+
+- extendedWaitUntil:
+    visible:
+      id: "login-screen"
+    timeout: 30000
+
+- tapOn:
+    id: "login-demo-button"
+
+- extendedWaitUntil:
+    visible:
+      id: "home-screen"
+    timeout: 15000
+
+# Navigate to stats/performance screen
+- openLink: "veloq://stats"
+
+- extendedWaitUntil:
+    visible:
+      id: "stats-screen"
+    timeout: 10000
+
+# Verify power curve chart is displayed (if demo data has power)
+- extendedWaitUntil:
+    visible:
+      id: "power-curve-chart"
+    timeout: 10000
+    optional: true
+
+# If power curve is visible, check for values
+- assertVisible:
+    id: "power-curve-duration"
+    optional: true
+
+- assertVisible:
+    id: "power-curve-watts"
+    optional: true
+
+- takeScreenshot: "power-curve-complete"

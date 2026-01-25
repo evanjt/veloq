@@ -1,17 +1,24 @@
-import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { View, StyleSheet, ActivityIndicator, Text } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useQueryClient } from '@tanstack/react-query';
 import { RegionalMapView, TimelineSlider, SyncProgressBanner } from '@/components/maps';
 import { ComponentErrorBoundary } from '@/components/ui';
-import { useActivityBoundsCache, useOldestActivityDate, useActivities, useTheme } from '@/hooks';
+import {
+  useActivityBoundsCache,
+  useOldestActivityDate,
+  useActivities,
+  useTheme,
+  useEngineMapActivities,
+} from '@/hooks';
 import { useRouteSettings, useSyncDateRange } from '@/providers';
 import { colors, darkColors, spacing, typography } from '@/theme';
 import { createSharedStyles } from '@/styles';
 import { formatLocalDate } from '@/lib';
-import type { Activity } from '@/types';
+
+// Debounce delay for expensive operations during timeline scrubbing
+const FILTER_DEBOUNCE_MS = 100;
 
 export default function MapScreen() {
   const { t } = useTranslation();
@@ -19,7 +26,6 @@ export default function MapScreen() {
   const insets = useSafeAreaInsets();
   const { isDark, colors: themeColors } = useTheme();
   const shared = createSharedStyles(isDark);
-  const queryClient = useQueryClient();
 
   // Attribution text from map (updated dynamically)
   const [attribution, setAttribution] = useState('© OpenFreeMap © OpenMapTiles © OpenStreetMap');
@@ -35,17 +41,17 @@ export default function MapScreen() {
   // Fetch the true oldest activity date from API (for timeline extent)
   const { data: apiOldestDate } = useOldestActivityDate();
 
-  // Fetch activities for the current sync range (for cache stats)
-  const { data: syncedActivities, isFetching: isFetchingActivities } = useActivities({
+  // Fetch activities for the current sync range (triggers GlobalDataSync)
+  const { isFetching: isFetchingActivities } = useActivities({
     oldest: syncOldest,
     newest: syncNewest,
     includeStats: false,
   });
 
-  // Load cached bounds - pass activities for cache range calculation
-  const { activities, isReady, progress, syncDateRange } = useActivityBoundsCache({
-    activitiesWithDates: syncedActivities,
-  });
+  // Get sync state from engine cache
+  const { isReady, progress, syncDateRange, cacheStats } = useActivityBoundsCache();
+  const oldestSyncedDate = cacheStats.oldestDate;
+  const newestSyncedDate = cacheStats.newestDate;
 
   // Read GPS sync progress from shared store (GlobalDataSync is the single sync coordinator)
   const gpsSyncProgress = useSyncDateRange((s) => s.gpsSyncProgress);
@@ -54,45 +60,6 @@ export default function MapScreen() {
   // Combined syncing state
   const isSyncing =
     progress.status === 'syncing' || isGpsSyncing || isFetchingActivities || isFetchingExtended;
-
-  // Calculate cached range from activities that are actually in the Rust engine
-  // This shows the full extent of cached GPS data (not old API fetches)
-  const { oldestSyncedDate, newestSyncedDate } = useMemo(() => {
-    // Get activity IDs that are actually in the engine
-    const { getRouteEngine } = require('@/lib/native/routeEngine');
-    const engine = getRouteEngine();
-    if (!engine) {
-      return { oldestSyncedDate: null, newestSyncedDate: null };
-    }
-
-    const engineIds = new Set(engine.getActivityIds());
-    if (engineIds.size === 0) {
-      return { oldestSyncedDate: null, newestSyncedDate: null };
-    }
-
-    // Get all activities from TanStack Query cache
-    const queries = queryClient.getQueriesData<Activity[]>({
-      queryKey: ['activities'],
-    });
-
-    let oldest: string | null = null;
-    let newest: string | null = null;
-
-    // Only consider activities that are in the engine (actually cached with GPS data)
-    for (const [_key, data] of queries) {
-      if (!data) continue;
-      for (const activity of data) {
-        if (!engineIds.has(activity.id)) continue; // Skip if not in engine
-        const date = activity.start_date_local;
-        if (date) {
-          if (!oldest || date < oldest) oldest = date;
-          if (!newest || date > newest) newest = date;
-        }
-      }
-    }
-
-    return { oldestSyncedDate: oldest, newestSyncedDate: newest };
-  }, [queryClient, activities]); // Re-compute when activities change
 
   // Selected date range (default: last 90 days)
   const [startDate, setStartDate] = useState<Date>(() => {
@@ -105,12 +72,14 @@ export default function MapScreen() {
   // Selected activity types
   const [selectedTypes, setSelectedTypes] = useState<Set<string>>(new Set());
 
-  // Get available activity types from data
-  const availableTypes = useMemo(() => {
-    const types = new Set<string>();
-    activities.forEach((a) => types.add(a.type));
-    return Array.from(types).sort();
-  }, [activities]);
+  // Get filtered activities directly from Rust engine
+  // Filtering happens in Rust (single O(n) pass) - no JS filtering needed
+  const { activities: filteredActivities, availableTypes } = useEngineMapActivities({
+    startDate,
+    endDate,
+    selectedTypes,
+    enabled: isReady,
+  });
 
   // Initialize selected types when data loads
   useEffect(() => {
@@ -119,59 +88,51 @@ export default function MapScreen() {
     }
   }, [availableTypes]);
 
-  // Filter activities by date range and type
-  const filteredActivities = useMemo(() => {
-    return activities.filter((activity) => {
-      const activityDate = new Date(activity.date);
-      const inDateRange = activityDate >= startDate && activityDate <= endDate;
-      const matchesType = selectedTypes.size === 0 || selectedTypes.has(activity.type);
-      return inDateRange && matchesType;
-    });
-  }, [activities, startDate, endDate, selectedTypes]);
+  // Debounced sync for date range changes during timeline scrubbing
+  // This prevents hammering the API while the user drags the slider
+  const syncDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Handle date range change
+  // Handle date range change - update state immediately, debounce sync
   const handleRangeChange = useCallback(
     (start: Date, end: Date) => {
+      // Update local state immediately for responsive UI
       setStartDate(start);
       setEndDate(end);
 
-      // Trigger sync for the new date range if needed
-      syncDateRange(formatLocalDate(start), formatLocalDate(end));
+      // Clear any pending sync
+      if (syncDebounceRef.current) {
+        clearTimeout(syncDebounceRef.current);
+      }
+
+      // Debounce the expensive sync operation
+      syncDebounceRef.current = setTimeout(() => {
+        syncDateRange(formatLocalDate(start), formatLocalDate(end));
+      }, FILTER_DEBOUNCE_MS);
     },
     [syncDateRange]
   );
+
+  // Clean up debounce timer on unmount
+  useEffect(() => {
+    return () => {
+      if (syncDebounceRef.current) {
+        clearTimeout(syncDebounceRef.current);
+      }
+    };
+  }, []);
 
   // Handle close
   const handleClose = useCallback(() => {
     router.back();
   }, [router]);
 
-  // Calculate min/max dates for slider
-  // Use apiOldestDate from API as the full timeline extent
+  // Calculate min/max dates for slider using API oldest date
   const { minDateForSlider, maxDateForSlider } = useMemo(() => {
     const now = new Date();
-
-    // Use the oldest activity date from API if available
-    if (apiOldestDate) {
-      return {
-        minDateForSlider: new Date(apiOldestDate),
-        maxDateForSlider: now,
-      };
-    }
-
-    // Fallback: use cached activities or selected date
-    if (activities.length === 0) {
-      return { minDateForSlider: startDate, maxDateForSlider: now };
-    }
-
-    const dates = activities.map((a) => new Date(a.date).getTime());
-    const oldestActivityTime = Math.min(...dates);
-
-    return {
-      minDateForSlider: new Date(oldestActivityTime),
-      maxDateForSlider: now,
-    };
-  }, [apiOldestDate, activities, startDate]);
+    // Use API oldest date, fallback to 90 days ago if not available yet
+    const minDate = apiOldestDate ? new Date(apiOldestDate) : startDate;
+    return { minDateForSlider: minDate, maxDateForSlider: now };
+  }, [apiOldestDate, startDate]);
 
   // Compute sync progress for timeline display
   // Unified progress across all phases (0-100%) for smooth animation

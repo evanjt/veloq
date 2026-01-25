@@ -38,6 +38,7 @@ class VeloqrsModule(reactContext: ReactApplicationContext) :
 
     init {
       System.loadLibrary("veloqrs")
+      System.loadLibrary("veloqrs_jni")
     }
   }
 }

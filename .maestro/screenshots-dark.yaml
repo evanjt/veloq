@@ -1,0 +1,99 @@
+# Screenshot Capture - Dark Theme
+# Captures screenshots in dark mode for App Store marketing
+
+appId: com.veloq.app
+---
+- launchApp
+
+- extendedWaitUntil:
+    visible:
+      id: "login-screen"
+    timeout: 30000
+
+# Enter demo mode
+- tapOn:
+    id: "login-demo-button"
+
+- extendedWaitUntil:
+    visible:
+      id: "home-screen"
+    timeout: 15000
+
+# Navigate to settings to enable dark mode
+- openLink: "veloq://settings"
+- extendedWaitUntil:
+    visible:
+      id: "settings-screen"
+    timeout: 10000
+
+# Tap dark theme button
+- tapOn:
+    id: "theme-button-dark"
+
+# Screenshot 1: Activity Feed
+- openLink: "veloq://"
+- extendedWaitUntil:
+    visible:
+      id: "home-screen"
+    timeout: 10000
+- extendedWaitUntil:
+    visible:
+      id: "weekly-summary"
+    timeout: 10000
+- takeScreenshot: "01-activity-feed-dark"
+
+# Screenshot 2: Fitness Tracking
+- openLink: "veloq://fitness"
+- extendedWaitUntil:
+    visible:
+      id: "fitness-ctl-value"
+    timeout: 15000
+- takeScreenshot: "02-fitness-dark"
+
+# Screenshot 3: Training Calendar
+- openLink: "veloq://training"
+- extendedWaitUntil:
+    visible:
+      id: "training-screen"
+    timeout: 10000
+- takeScreenshot: "03-training-dark"
+
+# Screenshot 4: Regional Map
+- openLink: "veloq://map"
+- extendedWaitUntil:
+    visible:
+      id: "map-screen"
+    timeout: 15000
+- takeScreenshot: "04-map-dark"
+
+# Screenshot 5: Routes List
+- openLink: "veloq://routes"
+- extendedWaitUntil:
+    visible:
+      id: "routes-list"
+    timeout: 10000
+- takeScreenshot: "05-routes-dark"
+
+# Screenshot 6: Activity Detail
+- openLink: "veloq://activity/demo-0"
+- extendedWaitUntil:
+    visible:
+      id: "activity-detail-content"
+    timeout: 15000
+- takeScreenshot: "06-activity-detail-dark"
+
+# Screenshot 7: Stats/Performance
+- openLink: "veloq://stats"
+- extendedWaitUntil:
+    visible:
+      id: "stats-screen"
+    timeout: 10000
+- takeScreenshot: "07-stats-dark"
+
+# Screenshot 8: Settings (already in dark mode)
+- openLink: "veloq://settings"
+- extendedWaitUntil:
+    visible:
+      id: "settings-screen"
+    timeout: 10000
+- takeScreenshot: "08-settings-dark"

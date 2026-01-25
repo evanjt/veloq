@@ -12,7 +12,7 @@ namespace jni = facebook::jni;
 
 extern "C"
 JNIEXPORT jboolean JNICALL
-Java_com_veloq_VeloqModule_nativeInstallRustCrate(
+Java_com_veloq_VeloqrsModule_nativeInstallRustCrate(
     JNIEnv *env,
     jclass type,
     jlong rtPtr,
@@ -30,7 +30,7 @@ Java_com_veloq_VeloqModule_nativeInstallRustCrate(
 
 extern "C"
 JNIEXPORT jboolean JNICALL
-Java_com_veloq_VeloqModule_nativeCleanupRustCrate(JNIEnv *env, jclass type, jlong rtPtr) {
+Java_com_veloq_VeloqrsModule_nativeCleanupRustCrate(JNIEnv *env, jclass type, jlong rtPtr) {
     auto runtime = reinterpret_cast<jsi::Runtime *>(rtPtr);
     NativeVeloqrs::unregisterModule(*runtime);
     return true;

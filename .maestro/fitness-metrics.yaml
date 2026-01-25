@@ -1,0 +1,39 @@
+# Fitness Metrics Tests
+# Tests the fitness chart CTL/ATL values display
+
+appId: com.veloq.app
+---
+- launchApp
+
+- extendedWaitUntil:
+    visible:
+      id: "login-screen"
+    timeout: 30000
+
+- tapOn:
+    id: "login-demo-button"
+
+- extendedWaitUntil:
+    visible:
+      id: "home-screen"
+    timeout: 15000
+
+# Navigate to fitness screen
+- openLink: "veloq://fitness"
+
+- extendedWaitUntil:
+    visible:
+      id: "fitness-screen"
+    timeout: 10000
+
+# Verify CTL (fitness) value is displayed
+- extendedWaitUntil:
+    visible:
+      id: "fitness-ctl-value"
+    timeout: 10000
+
+# Verify ATL (fatigue) value is displayed
+- assertVisible:
+    id: "fitness-atl-value"
+
+- takeScreenshot: "fitness-metrics-complete"

@@ -127,6 +127,29 @@ pub struct GroupSummary {
     pub bounds: Option<crate::FfiBounds>,
 }
 
+/// Complete activity data for map display.
+/// Contains both spatial bounds and metadata for filtering and display.
+#[cfg(feature = "persistence")]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, uniffi::Record)]
+pub struct MapActivityComplete {
+    /// Activity ID
+    #[serde(rename = "activityId")]
+    pub activity_id: String,
+    /// Sport type ("Run", "Ride", etc.)
+    #[serde(rename = "sportType")]
+    pub sport_type: String,
+    /// Bounding box for map display
+    pub bounds: crate::FfiBounds,
+    /// Start date as Unix timestamp (seconds since epoch)
+    pub date: i64,
+    /// Activity name
+    pub name: String,
+    /// Total distance in meters
+    pub distance: f64,
+    /// Total duration in seconds (moving time)
+    pub duration: u32,
+}
+
 /// Progress state for section detection, shared between threads.
 #[cfg(feature = "persistence")]
 #[derive(Debug, Clone)]
@@ -379,7 +402,12 @@ impl PersistentRouteEngine {
                 max_lat REAL NOT NULL,
                 min_lng REAL NOT NULL,
                 max_lng REAL NOT NULL,
-                created_at INTEGER DEFAULT (strftime('%s', 'now'))
+                created_at INTEGER DEFAULT (strftime('%s', 'now')),
+                -- Extended metadata for map display (added 2026-01-25)
+                start_date INTEGER,           -- Unix timestamp (seconds)
+                name TEXT,                    -- Activity name
+                distance_meters REAL,         -- Total distance in meters
+                duration_secs INTEGER         -- Total duration in seconds
             );
 
             -- Signatures stored separately (LRU cached)
@@ -501,6 +529,33 @@ impl PersistentRouteEngine {
             PRAGMA foreign_keys = ON;
         "#,
         )?;
+
+        // Run migrations for existing databases
+        Self::migrate_schema(conn)?;
+
+        Ok(())
+    }
+
+    /// Migrate schema for existing databases (add new columns if missing).
+    fn migrate_schema(conn: &Connection) -> SqlResult<()> {
+        // Check if start_date column exists
+        let has_start_date: bool = conn
+            .prepare("SELECT start_date FROM activities LIMIT 0")
+            .is_ok();
+
+        if !has_start_date {
+            // Add new columns to activities table
+            conn.execute_batch(
+                r#"
+                ALTER TABLE activities ADD COLUMN start_date INTEGER;
+                ALTER TABLE activities ADD COLUMN name TEXT;
+                ALTER TABLE activities ADD COLUMN distance_meters REAL;
+                ALTER TABLE activities ADD COLUMN duration_secs INTEGER;
+                "#,
+            )?;
+            log::info!("[PersistentEngine] Migrated activities table: added metadata columns");
+        }
+
         Ok(())
     }
 
@@ -1005,6 +1060,23 @@ impl PersistentRouteEngine {
         Ok(())
     }
 
+    /// Update activity metadata (date, name, distance, duration).
+    /// Called after GPS sync to add metadata from intervals.icu API.
+    pub fn update_activity_metadata(
+        &self,
+        id: &str,
+        start_date: Option<i64>,
+        name: Option<&str>,
+        distance_meters: Option<f64>,
+        duration_secs: Option<i64>,
+    ) -> SqlResult<()> {
+        self.db.execute(
+            "UPDATE activities SET start_date = ?, name = ?, distance_meters = ?, duration_secs = ? WHERE id = ?",
+            params![start_date, name, distance_meters, duration_secs, id],
+        )?;
+        Ok(())
+    }
+
     fn store_gps_track(&self, id: &str, coords: &[GpsPoint]) -> SqlResult<()> {
         let track_data = rmp_serde::to_vec(coords).unwrap_or_default();
         self.db.execute(
@@ -1114,6 +1186,120 @@ impl PersistentRouteEngine {
             .locate_in_envelope_intersecting(&search_bounds)
             .map(|b| b.activity_id.clone())
             .collect()
+    }
+
+    /// Get all activities with complete metadata for map display.
+    /// Queries the database for metadata fields (date, name, distance, duration).
+    pub fn get_all_map_activities_complete(&self) -> Vec<MapActivityComplete> {
+        let mut stmt = match self.db.prepare(
+            "SELECT id, sport_type, min_lat, max_lat, min_lng, max_lng,
+                    COALESCE(start_date, 0) as start_date,
+                    COALESCE(name, '') as name,
+                    COALESCE(distance_meters, 0.0) as distance_meters,
+                    COALESCE(duration_secs, 0) as duration_secs
+             FROM activities"
+        ) {
+            Ok(s) => s,
+            Err(e) => {
+                log::error!("[PersistentEngine] Failed to prepare query: {}", e);
+                return Vec::new();
+            }
+        };
+
+        let results = stmt.query_map([], |row| {
+            Ok(MapActivityComplete {
+                activity_id: row.get(0)?,
+                sport_type: row.get(1)?,
+                bounds: crate::FfiBounds {
+                    min_lat: row.get(2)?,
+                    max_lat: row.get(3)?,
+                    min_lng: row.get(4)?,
+                    max_lng: row.get(5)?,
+                },
+                date: row.get(6)?,
+                name: row.get(7)?,
+                distance: row.get(8)?,
+                duration: row.get(9)?,
+            })
+        });
+
+        match results {
+            Ok(rows) => rows.filter_map(|r| r.ok()).collect(),
+            Err(e) => {
+                log::error!("[PersistentEngine] Failed to query activities: {}", e);
+                Vec::new()
+            }
+        }
+    }
+
+    /// Get activities filtered by date range and sport types.
+    /// - start_ts: Unix timestamp (seconds) for start of range
+    /// - end_ts: Unix timestamp (seconds) for end of range
+    /// - sport_types: Optional list of sport types to include (empty = all)
+    pub fn get_map_activities_filtered(
+        &self,
+        start_ts: i64,
+        end_ts: i64,
+        sport_types: &[String],
+    ) -> Vec<MapActivityComplete> {
+        // Build query based on filters
+        let base_query = "SELECT id, sport_type, min_lat, max_lat, min_lng, max_lng,
+                                 COALESCE(start_date, 0) as start_date,
+                                 COALESCE(name, '') as name,
+                                 COALESCE(distance_meters, 0.0) as distance_meters,
+                                 COALESCE(duration_secs, 0) as duration_secs
+                          FROM activities
+                          WHERE (start_date IS NULL OR (start_date >= ? AND start_date <= ?))";
+
+        let query = if sport_types.is_empty() {
+            base_query.to_string()
+        } else {
+            let placeholders = sport_types.iter().map(|_| "?").collect::<Vec<_>>().join(",");
+            format!("{} AND sport_type IN ({})", base_query, placeholders)
+        };
+
+        let mut stmt = match self.db.prepare(&query) {
+            Ok(s) => s,
+            Err(e) => {
+                log::error!("[PersistentEngine] Failed to prepare filtered query: {}", e);
+                return Vec::new();
+            }
+        };
+
+        // Build params
+        let mut params: Vec<Box<dyn rusqlite::ToSql>> = vec![
+            Box::new(start_ts),
+            Box::new(end_ts),
+        ];
+        for sport in sport_types {
+            params.push(Box::new(sport.clone()));
+        }
+        let param_refs: Vec<&dyn rusqlite::ToSql> = params.iter().map(|p| p.as_ref()).collect();
+
+        let results = stmt.query_map(param_refs.as_slice(), |row| {
+            Ok(MapActivityComplete {
+                activity_id: row.get(0)?,
+                sport_type: row.get(1)?,
+                bounds: crate::FfiBounds {
+                    min_lat: row.get(2)?,
+                    max_lat: row.get(3)?,
+                    min_lng: row.get(4)?,
+                    max_lng: row.get(5)?,
+                },
+                date: row.get(6)?,
+                name: row.get(7)?,
+                distance: row.get(8)?,
+                duration: row.get(9)?,
+            })
+        });
+
+        match results {
+            Ok(rows) => rows.filter_map(|r| r.ok()).collect(),
+            Err(e) => {
+                log::error!("[PersistentEngine] Failed to query filtered activities: {}", e);
+                Vec::new()
+            }
+        }
     }
 
     /// Get a signature, loading from DB if not cached.
@@ -4089,6 +4275,173 @@ pub mod persistent_engine_ffi {
                 }
                 None => vec![],
             }
+        })
+        .unwrap_or_default()
+    }
+
+    // ========================================================================
+    // Engine-Centric Data Functions (Performance Optimization)
+    // ========================================================================
+
+    /// Lightweight activity data for map display within a viewport.
+    /// Returns only the fields needed for rendering: id, sport_type, bounds.
+    #[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+    pub struct MapActivityData {
+        pub activity_id: String,
+        pub sport_type: String,
+        pub bounds: crate::FfiBounds,
+    }
+
+    /// Get all activities with complete data for map display.
+    /// Joins metadata (bounds) with metrics (name, date, distance) in a single call.
+    /// Much faster than fetching separately and merging in JS.
+    #[uniffi::export]
+    pub fn persistent_engine_get_all_map_activities_complete() -> Vec<MapActivityComplete> {
+        with_persistent_engine(|e| {
+            e.activity_metadata
+                .iter()
+                .filter_map(|(id, meta)| {
+                    // Join with metrics to get name, date, distance
+                    let metrics = e.activity_metrics.get(id)?;
+                    Some(MapActivityComplete {
+                        activity_id: id.clone(),
+                        name: metrics.name.clone(),
+                        sport_type: meta.sport_type.clone(),
+                        date: metrics.date,
+                        distance: metrics.distance,
+                        duration: metrics.moving_time,
+                        bounds: meta.bounds.into(),
+                    })
+                })
+                .collect()
+        })
+        .unwrap_or_default()
+    }
+
+    /// Get activities filtered by date range and optionally by sport types.
+    /// Performs filtering in Rust for maximum efficiency.
+    ///
+    /// Arguments:
+    /// - start_date: Unix timestamp (seconds) for start of range
+    /// - end_date: Unix timestamp (seconds) for end of range
+    /// - sport_types_json: JSON array of sport types to include, or empty string for all
+    #[uniffi::export]
+    pub fn persistent_engine_get_map_activities_filtered(
+        start_date: i64,
+        end_date: i64,
+        sport_types_json: String,
+    ) -> Vec<MapActivityComplete> {
+        with_persistent_engine(|e| {
+            // Parse sport types filter (empty = all types)
+            let sport_filter: Option<std::collections::HashSet<String>> = if sport_types_json.is_empty() {
+                None
+            } else {
+                serde_json::from_str::<Vec<String>>(&sport_types_json)
+                    .ok()
+                    .map(|v| v.into_iter().collect())
+            };
+
+            e.activity_metadata
+                .iter()
+                .filter_map(|(id, meta)| {
+                    // Join with metrics
+                    let metrics = e.activity_metrics.get(id)?;
+
+                    // Filter by date range
+                    if metrics.date < start_date || metrics.date > end_date {
+                        return None;
+                    }
+
+                    // Filter by sport type if specified
+                    if let Some(ref filter) = sport_filter {
+                        if !filter.contains(&meta.sport_type) {
+                            return None;
+                        }
+                    }
+
+                    Some(MapActivityComplete {
+                        activity_id: id.clone(),
+                        name: metrics.name.clone(),
+                        sport_type: meta.sport_type.clone(),
+                        date: metrics.date,
+                        distance: metrics.distance,
+                        duration: metrics.moving_time,
+                        bounds: meta.bounds.into(),
+                    })
+                })
+                .collect()
+        })
+        .unwrap_or_default()
+    }
+
+    /// Get activities within a viewport, returning minimal data for map rendering.
+    /// More efficient than loading full activity metrics.
+    #[uniffi::export]
+    pub fn persistent_engine_get_map_activities_in_viewport(
+        min_lat: f64,
+        max_lat: f64,
+        min_lng: f64,
+        max_lng: f64,
+    ) -> Vec<MapActivityData> {
+        with_persistent_engine(|e| {
+            let viewport = Bounds { min_lat, max_lat, min_lng, max_lng };
+            let activity_ids = e.query_viewport(&viewport);
+
+            activity_ids
+                .iter()
+                .filter_map(|id| {
+                    let meta = e.activity_metadata.get(id)?;
+                    Some(MapActivityData {
+                        activity_id: id.clone(),
+                        sport_type: meta.sport_type.clone(),
+                        bounds: meta.bounds.into(),
+                    })
+                })
+                .collect()
+        })
+        .unwrap_or_default()
+    }
+
+    /// Get recent activities with metrics, sorted by date descending.
+    /// Efficient for Feed screen - pre-computed, no client-side iteration needed.
+    #[uniffi::export]
+    pub fn persistent_engine_get_recent_activities_json(limit: u32) -> String {
+        with_persistent_engine(|e| {
+            // Get all activity metrics and sort by date descending
+            let mut metrics: Vec<&ActivityMetrics> = e.activity_metrics.values().collect();
+            metrics.sort_by(|a, b| b.date.cmp(&a.date));
+
+            // Take only the requested limit
+            let recent: Vec<_> = metrics
+                .into_iter()
+                .take(limit as usize)
+                .map(|m| crate::FfiActivityMetrics::from(m.clone()))
+                .collect();
+
+            serde_json::to_string(&recent).unwrap_or_else(|_| "[]".to_string())
+        })
+        .unwrap_or_else(|| "[]".to_string())
+    }
+
+    /// Get total count of activities with metrics stored in the engine.
+    #[uniffi::export]
+    pub fn persistent_engine_get_metrics_count() -> u32 {
+        with_persistent_engine(|e| e.activity_metrics.len() as u32).unwrap_or(0)
+    }
+
+    /// Get all activity bounds as a vector of MapActivityData.
+    /// Useful for map rendering - returns all activities with minimal data.
+    #[uniffi::export]
+    pub fn persistent_engine_get_all_map_activities() -> Vec<MapActivityData> {
+        with_persistent_engine(|e| {
+            e.activity_metadata
+                .iter()
+                .map(|(id, meta)| MapActivityData {
+                    activity_id: id.clone(),
+                    sport_type: meta.sport_type.clone(),
+                    bounds: meta.bounds.into(),
+                })
+                .collect()
         })
         .unwrap_or_default()
     }

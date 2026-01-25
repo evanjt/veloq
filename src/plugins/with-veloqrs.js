@@ -167,14 +167,28 @@ function buildIOSFromSource() {
 
 /**
  * Generate TypeScript/C++ bindings using uniffi-bindgen-react-native.
+ * Uses the build command with --and-generate which properly generates all bindings.
  */
 function generateBindings() {
   console.log("  Generating bindings with uniffi-bindgen-react-native...");
 
-  execSync("npx uniffi-bindgen-react-native generate turbo-module veloqrs", {
-    cwd: MODULE_DIR,
-    stdio: "inherit",
-  });
+  // The library file must exist for binding generation
+  const libPath = path.join(MODULE_DIR, "android/src/main/jniLibs/arm64-v8a/libveloqrs.so");
+
+  if (!existsSync(libPath)) {
+    console.log("  Warning: Library not found, skipping bindings generation");
+    return;
+  }
+
+  // Use the build command with --and-generate to generate all bindings correctly
+  // This generates both C++ (cpp/generated/) and TypeScript (src/generated/) bindings
+  execSync(
+    `npx uniffi-bindgen-react-native build android --release --and-generate --targets arm64-v8a`,
+    { cwd: MODULE_DIR, stdio: "inherit" }
+  );
+
+  // Run the fix-includes script
+  execSync("./scripts/fix-generated.sh", { cwd: MODULE_DIR, stdio: "inherit" });
 
   console.log("  Bindings generated");
 }
@@ -302,7 +316,7 @@ namespace jni = facebook::jni;
 
 extern "C"
 JNIEXPORT jboolean JNICALL
-Java_com_veloq_VeloqModule_nativeInstallRustCrate(
+Java_com_veloq_VeloqrsModule_nativeInstallRustCrate(
     JNIEnv *env,
     jclass type,
     jlong rtPtr,
@@ -320,7 +334,7 @@ Java_com_veloq_VeloqModule_nativeInstallRustCrate(
 
 extern "C"
 JNIEXPORT jboolean JNICALL
-Java_com_veloq_VeloqModule_nativeCleanupRustCrate(JNIEnv *env, jclass type, jlong rtPtr) {
+Java_com_veloq_VeloqrsModule_nativeCleanupRustCrate(JNIEnv *env, jclass type, jlong rtPtr) {
     auto runtime = reinterpret_cast<jsi::Runtime *>(rtPtr);
     NativeVeloqrs::unregisterModule(*runtime);
     return true;
@@ -351,13 +365,17 @@ function binariesExist(platform) {
 }
 
 /**
- * Check if bindings already exist.
+ * Check if bindings already exist (both TypeScript AND C++).
  */
 function bindingsExist() {
   const generatedTs = path.join(MODULE_DIR, "src/generated/veloqrs.ts");
+  const generatedCpp = path.join(MODULE_DIR, "cpp/generated/veloqrs.cpp");
+  const generatedHpp = path.join(MODULE_DIR, "cpp/generated/veloqrs.hpp");
   const indexTs = path.join(MODULE_DIR, "src/index.ts");
 
+  // Must have both TypeScript and C++ bindings
   if (!existsSync(generatedTs)) return false;
+  if (!existsSync(generatedCpp) || !existsSync(generatedHpp)) return false;
 
   if (existsSync(indexTs)) {
     const content = readFileSync(indexTs, "utf8");
@@ -401,27 +419,31 @@ async function runPreBuildSetup(platform) {
   console.log(`  CI: ${isCI()}`);
   console.log(`  Local Rust: ${hasLocalRust()}`);
 
-  // Step 1: Get binaries (build from source if local Rust available)
-  if (!hasBinaries) {
+  // For local development: build + generate in one step
+  // Rust incremental build is fast if nothing changed
+  if (!hasBinaries || !hasBindings) {
     if (isCI()) {
       // In CI, binaries should be pre-built by separate workflow jobs
-      console.log("  Warning: Binaries not found in CI - they should be pre-built");
+      console.log("  Warning: Binaries/bindings not found in CI - they should be pre-built");
     } else if (hasLocalRust()) {
-      console.log("\n  Building from source...");
+      console.log("\n  Building and generating bindings...");
       if (platform === "android") {
-        buildAndroidFromSource();
+        // Single command: builds Rust (incremental), copies .so, generates all bindings
+        const arch = detectAndroidArch() || "arm64-v8a";
+        console.log(`  Target architecture: ${arch}`);
+        execSync(
+          `npx uniffi-bindgen-react-native build android --release --and-generate --targets ${arch}`,
+          { cwd: MODULE_DIR, stdio: "inherit" }
+        );
+        execSync("./scripts/fix-generated.sh", { cwd: MODULE_DIR, stdio: "inherit" });
       } else if (platform === "ios") {
         buildIOSFromSource();
+        generateBindings();
       }
     } else {
       console.log("  Error: No pre-built binaries and no local Rust available");
       console.log("  Please install Rust or ensure CI has built the binaries");
     }
-  }
-
-  // Step 2: Generate bindings
-  if (!hasBindings) {
-    generateBindings();
   }
 
   // Step 3: Apply patches

@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { View, ScrollView, StyleSheet, TouchableOpacity, RefreshControl } from 'react-native';
 import { Text, IconButton, ActivityIndicator } from 'react-native-paper';
 import { ScreenSafeAreaView } from '@/components/ui';
@@ -21,7 +21,6 @@ import { useNetwork } from '@/providers';
 import { formatLocalDate, formatShortDateWithWeekday } from '@/lib';
 import { colors, darkColors, spacing, layout, typography, opacity } from '@/theme';
 import { createSharedStyles } from '@/styles';
-import { logMount, logUnmount, logRender } from '@/lib/debug/renderTimer';
 
 const TIME_RANGES: { id: TimeRange; label: string }[] = [
   { id: '7d', label: '1W' },
@@ -50,13 +49,6 @@ const timeRangeToDays = (range: TimeRange): number => {
 };
 
 export default function FitnessScreen() {
-  // DEBUG: Track render timing
-  logRender('FitnessScreen');
-  useEffect(() => {
-    logMount('FitnessScreen');
-    return () => logUnmount('FitnessScreen');
-  }, []);
-
   const { t } = useTranslation();
   const { isDark, colors: themeColors } = useTheme();
   const shared = createSharedStyles(isDark);
@@ -114,8 +106,8 @@ export default function FitnessScreen() {
     setIsRefreshing(false);
   }, [refetch]);
 
-  // Get current (latest) values for display when not selecting
-  const getCurrentValues = () => {
+  // Memoize current (latest) values - only recompute when wellness data changes
+  const currentValues = useMemo(() => {
     if (!wellness || wellness.length === 0) return null;
     const sorted = [...wellness].sort((a, b) => b.id.localeCompare(a.id));
     const latest = sorted[0];
@@ -125,9 +117,7 @@ export default function FitnessScreen() {
     const fitness = Math.round(fitnessRaw);
     const fatigue = Math.round(fatigueRaw);
     return { fitness, fatigue, form: fitness - fatigue, date: latest.id };
-  };
-
-  const currentValues = getCurrentValues();
+  }, [wellness]);
   const displayValues = selectedValues || currentValues;
   const displayDate = selectedDate || currentValues?.date;
   const formZone = displayValues ? getFormZone(displayValues.form) : null;
