@@ -181,7 +181,7 @@ function generateActivityName(
 function generateActivities(): ApiActivity[] {
   const activities: ApiActivity[] = [];
   const referenceDate = getDemoReferenceDate();
-  const activitiesPerDate = new Map<string, number>();
+  let globalActivityIndex = 0; // Global index for simple demo-N IDs
 
   // Route IDs from realRoutes.json (extracted from real activities):
   // Outdoor Cycling (Valais, Switzerland):
@@ -513,10 +513,9 @@ function generateActivities(): ApiActivity[] {
       ? getRouteLocation(template.route)
       : { locality: null, country: null };
 
-    // Generate deterministic activity ID
-    const indexOnDate = activitiesPerDate.get(dateStr) || 0;
-    activitiesPerDate.set(dateStr, indexOnDate + 1);
-    const activityId = generateActivityId(dateStr, indexOnDate);
+    // Generate deterministic activity ID using global index
+    const activityId = generateActivityId(dateStr, globalActivityIndex);
+    globalActivityIndex++;
 
     activities.push({
       id: activityId,

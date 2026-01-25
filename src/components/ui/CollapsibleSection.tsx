@@ -36,6 +36,8 @@ interface CollapsibleSectionProps {
   showDivider?: boolean;
   /** Optional content to render on the right side of the header (before chevron) */
   headerRight?: React.ReactNode;
+  /** Optional test ID for the header */
+  testID?: string;
 }
 
 export function CollapsibleSection({
@@ -49,6 +51,7 @@ export function CollapsibleSection({
   estimatedHeight = 200,
   showDivider = false,
   headerRight,
+  testID,
 }: CollapsibleSectionProps) {
   const { isDark } = useTheme();
 
@@ -86,6 +89,7 @@ export function CollapsibleSection({
   return (
     <View style={[styles.container, style]}>
       <AnimatedPressable
+        testID={testID}
         onPress={handlePress}
         pressScale={0.99}
         hapticType="light"

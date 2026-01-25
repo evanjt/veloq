@@ -21,10 +21,10 @@
   "activity": {
     "activityStats": "Stats",
     "avg": "Ø",
-    "chartHint": "Haute zum Scrolle • Chip haute für d Achse",
     "cadence": "Kadenz",
     "cal": "CAL",
     "calories": "Kalorien",
+    "chartHint": "Haute zum Scrolle • Chip haute für d Achse",
     "conditions": {
       "cold": "Chaut",
       "hot": "Heiss"
@@ -178,18 +178,18 @@
     "syncingActivities": "Aktivitäte sync'd..."
   },
   "chartTypes": {
+    "alt": "Alt",
     "cad": "Kad",
+    "dist": "Dist",
+    "elapsedTime": "Elapsed Time",
     "elev": "Höhe",
     "hr": "HF",
+    "movingTime": "Moving Time",
     "pace": "Pace",
     "power": "Leist",
     "speed": "Tempo",
-    "dist": "Dist",
-    "alt": "Alt",
     "temp": "Temp",
-    "watts": "Watts",
-    "movingTime": "Moving Time",
-    "elapsedTime": "Elapsed Time"
+    "watts": "Watts"
   },
   "common": {
     "activities": "Aktivitäte",
@@ -419,9 +419,9 @@
     "closeSectionPopup": "Abschnitt-Popup schliesse",
     "disable3D": "3D us",
     "enable3D": "3D aa",
-    "goToLocation": "Zu mym Standort",
     "fitAll": "Fit all activities",
     "fitAllHint": "Long press to fit all activities",
+    "goToLocation": "Zu mym Standort",
     "hideActivities": "Aktivitäte verberge",
     "hideRoutes": "Route verberge",
     "loadingRoute": "Route lade...",
@@ -528,6 +528,7 @@
     "partial": "Teuwys",
     "pointCountHint": "{{count}} GPS-Pünkt",
     "potentialSectionDescription": "Du bisch dr {{sport}}-Wäg {{count}} Mau gfahre. Wotsch e Abschnitt mache?",
+    "pr": "PR",
     "readyToProcess": "Parat!",
     "reverse": "Angers ume",
     "routeNamePlaceholder": "Routename",
@@ -555,8 +556,7 @@
     "thisPace": "Das Tempo",
     "thisSpeed": "Die Gschwindigkeit",
     "visits": "Bsüech",
-    "waiting": "Wart chly...",
-    "pr": "PR"
+    "waiting": "Wart chly..."
   },
   "routesScreen": {
     "analysingRoutes": "Analysiere {{current}}/{{total}}",
@@ -618,11 +618,11 @@
     "customiseByActivity": "Pro Aktivität",
     "customiseMetrics": "Dashboard-Metriken anpassen",
     "dark": "Dunkel",
+    "dashboardMetrics": "Dashboard-Metriken",
     "dataCache": "Cache",
     "dataSources": "Datequäue",
     "dataSourcesDescription": "Date chöme vo intervals.icu",
     "database": "Datenbank",
-    "dashboardMetrics": "Dashboard-Metriken",
     "dateRange": "Zytruum",
     "default": "Standard",
     "defaultMapHint": "Bruucht dr Chartestiu vo obe",
@@ -635,6 +635,7 @@
     "enableRouteMatching": "Route-Matching aa",
     "expandCache": "Meh lade",
     "gpsTraces": "GPS-Spuure",
+    "heroMetric": "Hauptmetrik",
     "hideDemoBanner": "Demo-Banner verstecke",
     "hideDemoBannerHint": "Banner verstecke für Screenshots",
     "language": "Spraach",
@@ -645,6 +646,7 @@
     "lastSynced": "Zletscht sync'd",
     "light": "Häu",
     "maps": "Charte",
+    "maxMetricsHint": "Maximal 4 Metriken",
     "metricsHint": "Metriken ein-/ausschalten und mit den Pfeilen neu anordnen. Nur aktivierte Metriken erscheinen in der Dashboard-Kopfzeile.",
     "noData": "Nüt da",
     "notCached": "Nid im Cache",
@@ -661,10 +663,13 @@
     "routesCount": "Route",
     "satellite": "Satellit",
     "sectionsCount": "Abschnitt",
+    "showSparkline": "Sparkline anzeigen",
     "signedInToIntervals": "Bi intervals.icu aagmäudet",
     "sponsorDev": "Entwickler sponsere",
     "subscribe": "Abonniere",
+    "summaryCard": "Übersichtskarte",
     "support": "Support",
+    "supportingMetrics": "Unterstützende Metriken",
     "syncAllHistory": "Aus synchronisiere",
     "syncAllHistoryDescription": "Bis zu 10 Jahr. Für mega tüüfi Route-Analyse, gäu!",
     "syncInProgress": "Wart chly, gäu...",
@@ -701,6 +706,8 @@
     "current": "Aktuell",
     "daysCount": "{{count}} Täg",
     "decouplingExplanation": "Zeigt wie fescht dy Puus im Verhäutnis zu de Watt bi längere Fahrte stygt. Weniger = besser.",
+    "distanceHalf": "Half",
+    "distanceMile": "Mile",
     "efficiency": "Effizienz",
     "estimatedFtp": "Gschätzti FTP",
     "firstHalf": "Erschti Häufti",
@@ -752,9 +759,7 @@
     "vsPrevious6Months": "vs vorheri 6 Mönet",
     "week": "Wuche",
     "workoutLibrary": "Workouts",
-    "year": "Jahr",
-    "distanceHalf": "Half",
-    "distanceMile": "Mile"
+    "year": "Jahr"
   },
   "statsScreen": {
     "days42": "42 Täg",
@@ -766,12 +771,12 @@
     "months6": "6 Mönet",
     "pace": "Tempo",
     "paceCurve": "Tempokurve",
-    "powerCurve": "Wattkurve",
-    "title": "Leischtig",
-    "year1": "1 Jahr",
     "paceCurveInfo": "CS (critical speed) and D' are calculated using the 2 parameter model. Intervals.icu uses your best 1k, 2k, 3k, 4k and 5k times keeping those that take between 2 and 15+ minutes.",
+    "powerCurve": "Wattkurve",
     "powerCurveInfo": "Estimated FTP is calculated using power curves from FastFitness.Tips and Morton's 3 parameter critical power model. The algorithm requires just 1 max effort of between 180 seconds and 30 minutes. W' is relative to eFTP.",
-    "ref": "Ref"
+    "ref": "Ref",
+    "title": "Leischtig",
+    "year1": "1 Jahr"
   },
   "time": {
     "current": "Itze",
@@ -819,7 +824,9 @@
     "watts": "W"
   },
   "wellness": {
+    "auto": "Auto",
     "connectHint": "Verbing es Wearable oder gib Date i Intervals.icu yy",
+    "dayAverage": "{{count}}-day average",
     "dragToExplore": "Züüch zum Erkunde",
     "hrs": "Stg",
     "insightExtraRecovery": "Hüt villech chly meh usspanne",
@@ -828,6 +835,8 @@
     "lastDays": "Letschti {{count}} Täg",
     "noData": "Kei Woubefingesdate",
     "noTrendData": "Kei Trenddate",
+    "none": "None",
+    "rawData": "Raw data",
     "restingHR": "Ruehpuus",
     "sleep": "Schlaaf",
     "sleepScore": "Schlaaf-Score",
@@ -835,11 +844,7 @@
     "smoothingHint": "Auto bruucht optimaui Glättig",
     "smoothingTitle": "Glättig",
     "trendHint": "Trends chöme we Date yygäh wärde",
-    "weight": "Gwicht",
-    "auto": "Auto",
-    "dayAverage": "{{count}}-day average",
-    "none": "None",
-    "rawData": "Raw data"
+    "weight": "Gwicht"
   },
   "wellnessScreen": {
     "title": "Woubefinge",

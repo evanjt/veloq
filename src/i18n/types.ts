@@ -350,6 +350,11 @@ export interface TranslationResource {
     metricsHint: string;
     availableMetrics: string;
     resetToDefaults: string;
+    summaryCard: string;
+    heroMetric: string;
+    showSparkline: string;
+    supportingMetrics: string;
+    maxMetricsHint: string;
   };
 
   alerts: {

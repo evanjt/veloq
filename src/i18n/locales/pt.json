@@ -21,10 +21,10 @@
   "activity": {
     "activityStats": "Estatisticas da atividade",
     "avg": "med",
-    "chartHint": "Segure para deslizar • Segure o chip para o eixo",
     "cadence": "Cadencia",
     "cal": "CAL",
     "calories": "Calorias",
+    "chartHint": "Segure para deslizar • Segure o chip para o eixo",
     "conditions": {
       "cold": "Cold",
       "hot": "Hot"
@@ -178,18 +178,18 @@
     "syncingActivities": "A sincronizar atividades"
   },
   "chartTypes": {
+    "alt": "Alt",
     "cad": "Cad",
+    "dist": "Dist",
+    "elapsedTime": "Elapsed Time",
     "elev": "Elev",
     "hr": "FC",
+    "movingTime": "Moving Time",
     "pace": "Ritmo",
     "power": "Pot",
     "speed": "Vel",
-    "dist": "Dist",
-    "alt": "Alt",
     "temp": "Temp",
-    "watts": "Watts",
-    "movingTime": "Moving Time",
-    "elapsedTime": "Elapsed Time"
+    "watts": "Watts"
   },
   "common": {
     "activities": "activities",
@@ -419,9 +419,9 @@
     "closeSectionPopup": "Fechar popup de secção",
     "disable3D": "Desativar vista 3D",
     "enable3D": "Ativar vista 3D",
-    "goToLocation": "Ir para a minha localizacao",
     "fitAll": "Fit all activities",
     "fitAllHint": "Long press to fit all activities",
+    "goToLocation": "Ir para a minha localizacao",
     "hideActivities": "Ocultar atividades",
     "hideRoutes": "Ocultar rotas",
     "loadingRoute": "A carregar percurso...",
@@ -528,6 +528,7 @@
     "partial": "Parcial",
     "pointCountHint": "{{count}} pontos GPS",
     "potentialSectionDescription": "Percorreu este caminho de {{sport}} {{count}} vezes. Criar um troço para acompanhar o seu desempenho?",
+    "pr": "PR",
     "readyToProcess": "Pronto para processar",
     "reverse": "Inverso",
     "routeNamePlaceholder": "Nome do percurso",
@@ -555,8 +556,7 @@
     "thisPace": "Este ritmo",
     "thisSpeed": "Esta velocidade",
     "visits": "visitas",
-    "waiting": "A aguardar...",
-    "pr": "PR"
+    "waiting": "A aguardar..."
   },
   "routesScreen": {
     "analysingRoutes": "A analisar percursos {{current}}/{{total}}",
@@ -635,6 +635,7 @@
     "enableRouteMatching": "Ativar correspondencia de percursos",
     "expandCache": "Load more",
     "gpsTraces": "Trilhos de atividade",
+    "heroMetric": "Métrica Principal",
     "hideDemoBanner": "Ocultar banner demo",
     "hideDemoBannerHint": "Ocultar o banner para capturas de ecra",
     "language": "Idioma",
@@ -645,6 +646,7 @@
     "lastSynced": "Ultima sincronizacao",
     "light": "Claro",
     "maps": "Mapas",
+    "maxMetricsHint": "Máximo 4 métricas",
     "metricsHint": "Ative/desative métricas e reordene-as usando as setas. Apenas as métricas ativadas aparecem no cabeçalho do painel.",
     "noData": "Sem dados",
     "notCached": "Not cached",
@@ -661,10 +663,13 @@
     "routesCount": "Percursos",
     "satellite": "Satelite",
     "sectionsCount": "Seções",
+    "showSparkline": "Mostrar Sparkline",
     "signedInToIntervals": "Conectado ao intervals.icu",
     "sponsorDev": "Apoiar programador",
     "subscribe": "Subscrever",
+    "summaryCard": "Cartão Resumo",
     "support": "Suporte",
+    "supportingMetrics": "Métricas de Suporte",
     "syncAllHistory": "Sincronizar todo o historico",
     "syncAllHistoryDescription": "Isto ira sincronizar ate 10 anos de dados de atividades em segundo plano. Permite uma analise e comparacao de percursos mais aprofundada.",
     "syncInProgress": "Aguarde a conclusao da sincronizacao atual.",
@@ -701,6 +706,8 @@
     "current": "Atual",
     "daysCount": "{{count}} dias",
     "decouplingExplanation": "O desacoplamento mede a deriva cardiaca - quanto a frequencia cardiaca aumenta em relacao a potencia durante esforcos prolongados. Quanto menor, melhor, indicando producao eficiente de energia aerobica.",
+    "distanceHalf": "Half",
+    "distanceMile": "Mile",
     "efficiency": "Eficiencia",
     "estimatedFtp": "FTP estimado",
     "firstHalf": "Primeira metade",
@@ -752,9 +759,7 @@
     "vsPrevious6Months": "vs 6 meses anteriores",
     "week": "Semana",
     "workoutLibrary": "Biblioteca de treinos",
-    "year": "Ano",
-    "distanceHalf": "Half",
-    "distanceMile": "Mile"
+    "year": "Ano"
   },
   "statsScreen": {
     "days42": "42 dias",
@@ -766,12 +771,12 @@
     "months6": "6 meses",
     "pace": "Ritmo",
     "paceCurve": "Curva de ritmo",
-    "powerCurve": "Curva de potencia",
-    "title": "Desempenho",
-    "year1": "1 ano",
     "paceCurveInfo": "CS (critical speed) and D' are calculated using the 2 parameter model. Intervals.icu uses your best 1k, 2k, 3k, 4k and 5k times keeping those that take between 2 and 15+ minutes.",
+    "powerCurve": "Curva de potencia",
     "powerCurveInfo": "Estimated FTP is calculated using power curves from FastFitness.Tips and Morton's 3 parameter critical power model. The algorithm requires just 1 max effort of between 180 seconds and 30 minutes. W' is relative to eFTP.",
-    "ref": "Ref"
+    "ref": "Ref",
+    "title": "Desempenho",
+    "year1": "1 ano"
   },
   "time": {
     "current": "Atual",
@@ -819,7 +824,9 @@
     "watts": "W"
   },
   "wellness": {
+    "auto": "Auto",
     "connectHint": "Ligue um dispositivo vestivel ou registe dados de bem-estar no Intervals.icu",
+    "dayAverage": "{{count}}-day average",
     "dragToExplore": "Arraste para explorar",
     "hrs": "horas",
     "insightExtraRecovery": "Considere recuperacao extra hoje",
@@ -828,6 +835,8 @@
     "lastDays": "Ultimos {{count}} dias",
     "noData": "Sem dados de bem-estar disponiveis",
     "noTrendData": "Sem dados de tendencia disponiveis",
+    "none": "None",
+    "rawData": "Raw data",
     "restingHR": "FC em repouso",
     "sleep": "Sono",
     "sleepScore": "Pontuacao de sono",
@@ -835,11 +844,7 @@
     "smoothingHint": "Auto usa suavizacao otima para o intervalo selecionado",
     "smoothingTitle": "Suavizacao de dados",
     "trendHint": "As tendencias de VFC, sono e FC em repouso aparecerao aqui quando os dados forem registados",
-    "weight": "Peso",
-    "auto": "Auto",
-    "dayAverage": "{{count}}-day average",
-    "none": "None",
-    "rawData": "Raw data"
+    "weight": "Peso"
   },
   "wellnessScreen": {
     "title": "Bem-estar",

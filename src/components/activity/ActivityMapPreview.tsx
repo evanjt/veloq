@@ -1,5 +1,5 @@
-import React, { useMemo, useState, useCallback } from 'react';
-import { View, StyleSheet, ActivityIndicator } from 'react-native';
+import React, { useMemo, useState, useCallback, useEffect } from 'react';
+import { View, StyleSheet, ActivityIndicator, InteractionManager } from 'react-native';
 import {
   MapView,
   Camera,
@@ -25,6 +25,18 @@ export function ActivityMapPreview({ activity, height = 160 }: ActivityMapPrevie
   const mapStyle = getStyleForActivity(activity.type);
   const activityColor = getActivityColor(activity.type);
   const [mapReady, setMapReady] = useState(false);
+
+  // Tile loading fix: Stagger map rendering to avoid overwhelming connection limits
+  // Mobile platforms limit concurrent connections per host (~4-5), causing tiles to fail
+  // when many MapViews load simultaneously. Wait for interactions to complete before rendering.
+  const [shouldRenderMap, setShouldRenderMap] = useState(false);
+
+  useEffect(() => {
+    const handle = InteractionManager.runAfterInteractions(() => {
+      setShouldRenderMap(true);
+    });
+    return () => handle.cancel();
+  }, []);
 
   const handleMapFullyRendered = useCallback(() => {
     setMapReady(true);
@@ -105,8 +117,8 @@ export function ActivityMapPreview({ activity, height = 160 }: ActivityMapPrevie
     );
   }
 
-  // Loading streams or no bounds
-  if (isLoading || !bounds || validCoordinates.length === 0) {
+  // Loading streams or no bounds, or waiting for staggered render on iOS
+  if (isLoading || !bounds || validCoordinates.length === 0 || !shouldRenderMap) {
     return (
       <View style={[styles.placeholder, { height, backgroundColor: activityColor + '10' }]}>
         <ActivityIndicator size="small" color={activityColor} />

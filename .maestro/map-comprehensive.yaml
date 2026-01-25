@@ -6,7 +6,15 @@
 
 appId: com.veloq.app
 ---
-- launchApp
+- launchApp:
+    clearState: true
+
+# Dismiss any system alerts
+- runFlow:
+    when:
+      visible: "Not Now"
+    commands:
+      - tapOn: "Not Now"
 
 - extendedWaitUntil:
     visible:

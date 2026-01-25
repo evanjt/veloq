@@ -253,6 +253,7 @@ export default function LoginScreen() {
 
           {/* API Key Collapsible Section */}
           <CollapsibleSection
+            testID="login-apikey-section"
             title={t('login.useApiKey')}
             expanded={apiKeyExpanded}
             onToggle={setApiKeyExpanded}

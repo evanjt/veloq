@@ -21,10 +21,10 @@
   "activity": {
     "activityStats": "活动统计",
     "avg": "平均",
-    "chartHint": "长按拖动 • 长按芯片切换坐标轴",
     "cadence": "踏频",
     "cal": "卡路里",
     "calories": "卡路里",
+    "chartHint": "长按拖动 • 长按芯片切换坐标轴",
     "conditions": {
       "cold": "Cold",
       "hot": "Hot"
@@ -178,18 +178,18 @@
     "syncingActivities": "正在同步活动"
   },
   "chartTypes": {
+    "alt": "Alt",
     "cad": "踏频",
+    "dist": "Dist",
+    "elapsedTime": "Elapsed Time",
     "elev": "海拔",
     "hr": "心率",
+    "movingTime": "Moving Time",
     "pace": "配速",
     "power": "功率",
     "speed": "速度",
-    "dist": "Dist",
-    "alt": "Alt",
     "temp": "Temp",
-    "watts": "Watts",
-    "movingTime": "Moving Time",
-    "elapsedTime": "Elapsed Time"
+    "watts": "Watts"
   },
   "common": {
     "activities": "activities",
@@ -419,9 +419,9 @@
     "closeSectionPopup": "关闭路段弹窗",
     "disable3D": "禁用 3D 视图",
     "enable3D": "启用 3D 视图",
-    "goToLocation": "前往我的位置",
     "fitAll": "Fit all activities",
     "fitAllHint": "Long press to fit all activities",
+    "goToLocation": "前往我的位置",
     "hideActivities": "隐藏活动",
     "hideRoutes": "隐藏路线",
     "loadingRoute": "加载路线中...",
@@ -528,6 +528,7 @@
     "partial": "部分",
     "pointCountHint": "{{count}}个GPS点",
     "potentialSectionDescription": "您已经走过这条{{sport}}路径{{count}}次。创建路段来跟踪您的表现？",
+    "pr": "PR",
     "readyToProcess": "准备处理",
     "reverse": "反向",
     "routeNamePlaceholder": "路线名称",
@@ -555,8 +556,7 @@
     "thisPace": "此配速",
     "thisSpeed": "此速度",
     "visits": "访问",
-    "waiting": "等待中...",
-    "pr": "PR"
+    "waiting": "等待中..."
   },
   "routesScreen": {
     "analysingRoutes": "正在分析路线 {{current}}/{{total}}",
@@ -618,10 +618,10 @@
     "customiseByActivity": "按活动类型自定义",
     "customiseMetrics": "自定义仪表板指标",
     "dark": "深色",
+    "dashboardMetrics": "仪表板指标",
     "dataCache": "数据缓存",
     "dataSources": "数据来源",
     "dataSourcesDescription": "活动和健康数据从 intervals.icu 同步，该平台与各种健身平台和设备集成。",
-    "dashboardMetrics": "仪表板指标",
     "database": "数据库",
     "dateRange": "日期范围",
     "default": "默认",
@@ -635,6 +635,7 @@
     "enableRouteMatching": "启用路线匹配",
     "expandCache": "Load more",
     "gpsTraces": "活动轨迹",
+    "heroMetric": "Hero Metric",
     "hideDemoBanner": "隐藏演示横幅",
     "hideDemoBannerHint": "隐藏横幅以便截图",
     "language": "语言",
@@ -645,6 +646,7 @@
     "lastSynced": "上次同步",
     "light": "浅色",
     "maps": "地图",
+    "maxMetricsHint": "Maximum 4 metrics",
     "metricsHint": "开关指标并使用箭头重新排序。仅启用的指标会显示在仪表板标题中。",
     "noData": "无数据",
     "notCached": "Not cached",
@@ -661,10 +663,13 @@
     "routesCount": "路线",
     "satellite": "卫星",
     "sectionsCount": "区段",
+    "showSparkline": "Show Sparkline",
     "signedInToIntervals": "已登录intervals.icu",
     "sponsorDev": "赞助开发者",
     "subscribe": "订阅",
+    "summaryCard": "Summary Card",
     "support": "支持",
+    "supportingMetrics": "Supporting Metrics",
     "syncAllHistory": "同步全部历史",
     "syncAllHistoryDescription": "这将在后台同步最多 10 年的活动数据。这可以实现更深入的路线分析和比较。",
     "syncInProgress": "请等待当前同步完成。",
@@ -701,6 +706,8 @@
     "current": "当前",
     "daysCount": "{{count}} 天",
     "decouplingExplanation": "脱耦测量心脏漂移——在持续性训练中心率相对于功率输出上升的程度。越低越好，表示有氧能量产生效率高。",
+    "distanceHalf": "Half",
+    "distanceMile": "Mile",
     "efficiency": "效率",
     "estimatedFtp": "估算 FTP",
     "firstHalf": "前半程",
@@ -752,9 +759,7 @@
     "vsPrevious6Months": "vs 前 6 个月",
     "week": "周",
     "workoutLibrary": "训练库",
-    "year": "年",
-    "distanceHalf": "Half",
-    "distanceMile": "Mile"
+    "year": "年"
   },
   "statsScreen": {
     "days42": "42 天",
@@ -766,12 +771,12 @@
     "months6": "6 个月",
     "pace": "配速",
     "paceCurve": "配速曲线",
-    "powerCurve": "功率曲线",
-    "title": "表现",
-    "year1": "1 年",
     "paceCurveInfo": "CS (critical speed) and D' are calculated using the 2 parameter model. Intervals.icu uses your best 1k, 2k, 3k, 4k and 5k times keeping those that take between 2 and 15+ minutes.",
+    "powerCurve": "功率曲线",
     "powerCurveInfo": "Estimated FTP is calculated using power curves from FastFitness.Tips and Morton's 3 parameter critical power model. The algorithm requires just 1 max effort of between 180 seconds and 30 minutes. W' is relative to eFTP.",
-    "ref": "Ref"
+    "ref": "Ref",
+    "title": "表现",
+    "year1": "1 年"
   },
   "time": {
     "current": "当前",
@@ -819,7 +824,9 @@
     "watts": "瓦"
   },
   "wellness": {
+    "auto": "Auto",
     "connectHint": "连接可穿戴设备或在 Intervals.icu 记录健康数据",
+    "dayAverage": "{{count}}-day average",
     "dragToExplore": "拖动探索",
     "hrs": "小时",
     "insightExtraRecovery": "今天考虑额外休息",
@@ -828,6 +835,8 @@
     "lastDays": "最近 {{count}} 天",
     "noData": "无可用健康数据",
     "noTrendData": "无可用趋势数据",
+    "none": "None",
+    "rawData": "Raw data",
     "restingHR": "静息心率",
     "sleep": "睡眠",
     "sleepScore": "睡眠评分",
@@ -835,11 +844,7 @@
     "smoothingHint": "自动为所选时间范围使用最佳平滑",
     "smoothingTitle": "数据平滑",
     "trendHint": "记录数据后，心率变异性、睡眠和静息心率趋势将显示在这里",
-    "weight": "体重",
-    "auto": "Auto",
-    "dayAverage": "{{count}}-day average",
-    "none": "None",
-    "rawData": "Raw data"
+    "weight": "体重"
   },
   "wellnessScreen": {
     "title": "健康",

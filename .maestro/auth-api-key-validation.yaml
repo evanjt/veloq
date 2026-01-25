@@ -3,7 +3,15 @@
 
 appId: com.veloq.app
 ---
-- launchApp
+- launchApp:
+    clearState: true
+
+# Dismiss any system alerts
+- runFlow:
+    when:
+      visible: "Not Now"
+    commands:
+      - tapOn: "Not Now"
 
 - extendedWaitUntil:
     visible:
@@ -11,7 +19,8 @@ appId: com.veloq.app
     timeout: 30000
 
 # Expand API key section
-- tapOn: "Use API Key instead"
+- tapOn:
+    id: "login-apikey-section"
 - assertVisible:
     id: "login-apikey-input"
 

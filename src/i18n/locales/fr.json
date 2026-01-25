@@ -21,10 +21,10 @@
   "activity": {
     "activityStats": "Statistiques d'activité",
     "avg": "moy",
-    "chartHint": "Maintenez pour parcourir • Maintenez la puce pour l'axe",
     "cadence": "Cadence",
     "cal": "CAL",
     "calories": "Calories",
+    "chartHint": "Maintenez pour parcourir • Maintenez la puce pour l'axe",
     "conditions": {
       "cold": "Froid",
       "hot": "Chaud"
@@ -178,18 +178,18 @@
     "syncingActivities": "Synchronisation des activités"
   },
   "chartTypes": {
+    "alt": "Alt",
     "cad": "Cad",
+    "dist": "Dist",
+    "elapsedTime": "Elapsed Time",
     "elev": "Élév",
     "hr": "FC",
+    "movingTime": "Moving Time",
     "pace": "Allure",
     "power": "Puis",
     "speed": "Vit",
-    "dist": "Dist",
-    "alt": "Alt",
     "temp": "Temp",
-    "watts": "Watts",
-    "movingTime": "Moving Time",
-    "elapsedTime": "Elapsed Time"
+    "watts": "Watts"
   },
   "common": {
     "activities": "activités",
@@ -419,9 +419,9 @@
     "closeSectionPopup": "Fermer la popup de section",
     "disable3D": "Désactiver la vue 3D",
     "enable3D": "Activer la vue 3D",
-    "goToLocation": "Aller à ma position",
     "fitAll": "Fit all activities",
     "fitAllHint": "Long press to fit all activities",
+    "goToLocation": "Aller à ma position",
     "hideActivities": "Masquer les activités",
     "hideRoutes": "Masquer les routes",
     "loadingRoute": "Chargement du parcours...",
@@ -528,6 +528,7 @@
     "partial": "Partiel",
     "pointCountHint": "{{count}} points GPS",
     "potentialSectionDescription": "Vous avez emprunté ce chemin {{sport}} {{count}} fois. Créer une section pour suivre vos performances ?",
+    "pr": "PR",
     "readyToProcess": "Prêt à traiter",
     "reverse": "Inverse",
     "routeNamePlaceholder": "Nom du parcours",
@@ -555,8 +556,7 @@
     "thisPace": "Cette allure",
     "thisSpeed": "Cette vitesse",
     "visits": "visites",
-    "waiting": "En attente...",
-    "pr": "PR"
+    "waiting": "En attente..."
   },
   "routesScreen": {
     "analysingRoutes": "Analyse des parcours {{current}}/{{total}}",
@@ -635,6 +635,7 @@
     "enableRouteMatching": "Activer la correspondance de parcours",
     "expandCache": "Load more",
     "gpsTraces": "Traces d'activités",
+    "heroMetric": "Métrique Principale",
     "hideDemoBanner": "Masquer la bannière démo",
     "hideDemoBannerHint": "Masquer la bannière pour les captures d'écran",
     "language": "Langue",
@@ -645,6 +646,7 @@
     "lastSynced": "Dernière synchro",
     "light": "Clair",
     "maps": "Cartes",
+    "maxMetricsHint": "Maximum 4 métriques",
     "metricsHint": "Activez/désactivez les métriques et réorganisez-les avec les flèches. Seules les métriques activées apparaissent dans l'en-tête du tableau de bord.",
     "noData": "Pas de données",
     "notCached": "Not cached",
@@ -661,10 +663,13 @@
     "routesCount": "Parcours",
     "satellite": "Satellite",
     "sectionsCount": "Sections",
+    "showSparkline": "Afficher Sparkline",
     "signedInToIntervals": "Connecté à intervals.icu",
     "sponsorDev": "Sponsoriser le dev",
     "subscribe": "S'abonner",
+    "summaryCard": "Carte Résumé",
     "support": "Support",
+    "supportingMetrics": "Métriques de Support",
     "syncAllHistory": "Synchroniser tout l'historique",
     "syncAllHistoryDescription": "Cela synchronisera jusqu'à 10 ans de données d'activités en arrière-plan. Cela permet une analyse de parcours plus approfondie.",
     "syncInProgress": "Veuillez attendre la fin de la synchronisation en cours.",
@@ -701,6 +706,8 @@
     "current": "Actuel",
     "daysCount": "{{count}} jours",
     "decouplingExplanation": "Le découplage mesure la dérive cardiaque - combien votre fréquence cardiaque augmente par rapport à la puissance lors d'efforts soutenus. Plus bas est mieux, indiquant une production d'énergie aérobie efficace.",
+    "distanceHalf": "Half",
+    "distanceMile": "Mile",
     "efficiency": "Efficacité",
     "estimatedFtp": "FTP estimé",
     "firstHalf": "Première moitié",
@@ -752,9 +759,7 @@
     "vsPrevious6Months": "vs 6 mois précédents",
     "week": "Semaine",
     "workoutLibrary": "Bibliothèque d'entraînements",
-    "year": "Année",
-    "distanceHalf": "Half",
-    "distanceMile": "Mile"
+    "year": "Année"
   },
   "statsScreen": {
     "days42": "42 Jours",
@@ -766,12 +771,12 @@
     "months6": "6 Mois",
     "pace": "Allure",
     "paceCurve": "Courbe d'allure",
-    "powerCurve": "Courbe de puissance",
-    "title": "Performance",
-    "year1": "1 An",
     "paceCurveInfo": "CS (critical speed) and D' are calculated using the 2 parameter model. Intervals.icu uses your best 1k, 2k, 3k, 4k and 5k times keeping those that take between 2 and 15+ minutes.",
+    "powerCurve": "Courbe de puissance",
     "powerCurveInfo": "Estimated FTP is calculated using power curves from FastFitness.Tips and Morton's 3 parameter critical power model. The algorithm requires just 1 max effort of between 180 seconds and 30 minutes. W' is relative to eFTP.",
-    "ref": "Ref"
+    "ref": "Ref",
+    "title": "Performance",
+    "year1": "1 An"
   },
   "time": {
     "current": "Actuel",
@@ -819,7 +824,9 @@
     "watts": "W"
   },
   "wellness": {
+    "auto": "Auto",
     "connectHint": "Connectez un wearable ou enregistrez des données de bien-être dans Intervals.icu",
+    "dayAverage": "{{count}}-day average",
     "dragToExplore": "Glissez pour explorer",
     "hrs": "hrs",
     "insightExtraRecovery": "Envisagez une récupération supplémentaire aujourd'hui",
@@ -828,6 +835,8 @@
     "lastDays": "{{count}} derniers jours",
     "noData": "Aucune donnée de bien-être",
     "noTrendData": "Aucune donnée de tendance",
+    "none": "None",
+    "rawData": "Raw data",
     "restingHR": "FC au repos",
     "sleep": "Sommeil",
     "sleepScore": "Score de sommeil",
@@ -835,11 +844,7 @@
     "smoothingHint": "Auto utilise le lissage optimal pour la période sélectionnée",
     "smoothingTitle": "Lissage des données",
     "trendHint": "Les tendances VFC, sommeil et FC au repos apparaîtront ici lorsque des données seront enregistrées",
-    "weight": "Poids",
-    "auto": "Auto",
-    "dayAverage": "{{count}}-day average",
-    "none": "None",
-    "rawData": "Raw data"
+    "weight": "Poids"
   },
   "wellnessScreen": {
     "title": "Bien-être",

@@ -3,11 +3,15 @@
  * Extracts handler logic from the main component for better organization.
  */
 
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 import { Animated } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as Location from 'expo-location';
 import type { Camera, OnPressEvent } from '@maplibre/maplibre-react-native';
+import { LocationManager } from '@maplibre/maplibre-react-native';
+
+// Cache for last known location (avoid slow GPS re-acquisition)
+const LOCATION_CACHE_MAX_AGE_MS = 30000; // 30 seconds
 import { normalizeBounds, activitySpatialIndex, mapBoundsToViewport } from '@/lib';
 import { intervalsApi } from '@/api';
 import type { ActivityBoundsItem } from '@/types';
@@ -34,6 +38,7 @@ interface UseMapHandlersOptions {
   showRoutes: boolean;
   setShowRoutes: (value: boolean | ((prev: boolean) => boolean)) => void;
   setSelectedRoute: (value: null) => void;
+  userLocation: [number, number] | null;
   setUserLocation: (value: [number, number] | null) => void;
   setVisibleActivityIds: (value: Set<string> | null) => void;
   setCurrentZoom: (value: number) => void;
@@ -83,6 +88,7 @@ export function useMapHandlers({
   showRoutes,
   setShowRoutes,
   setSelectedRoute,
+  userLocation,
   setUserLocation,
   setVisibleActivityIds,
   setCurrentZoom,
@@ -258,8 +264,11 @@ export function useMapHandlers({
     [currentZoomLevel, setCurrentZoom, setCurrentCenter, setVisibleActivityIds]
   );
 
-  // Get user location (one-time jump, no tracking)
-  // Shows location dot and zooms once - dot stays visible until map is closed
+  // Cache last location to avoid slow GPS re-acquisition
+  const lastLocationRef = useRef<{ coords: [number, number]; timestamp: number } | null>(null);
+
+  // One-time jump to user location (shows dot, no tracking)
+  // Each press gets location, shows dot, centers map once
   const handleGetLocation = useCallback(async () => {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
@@ -267,26 +276,50 @@ export function useMapHandlers({
         return;
       }
 
-      const location = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced,
-      });
+      let coords: [number, number];
 
-      const coords: [number, number] = [location.coords.longitude, location.coords.latitude];
+      // Use cached location if recent (within 30 seconds)
+      const cached = lastLocationRef.current;
+      const now = Date.now();
+      if (cached && now - cached.timestamp < LOCATION_CACHE_MAX_AGE_MS) {
+        coords = cached.coords;
+      } else {
+        // Get fresh location
+        const location = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced,
+        });
+        coords = [location.coords.longitude, location.coords.latitude];
+        // Cache it
+        lastLocationRef.current = { coords, timestamp: now };
+      }
+
+      // Show the dot at user's location
       setUserLocation(coords);
 
-      // v10 API: setCamera with animationDuration
+      // Center map on location (one-time, no tracking)
       cameraRef.current?.setCamera({
         centerCoordinate: coords,
         zoomLevel: 13,
         animationDuration: 500,
+        animationMode: 'moveTo',
       });
 
-      // Note: User location dot stays visible until map is closed
-      // No auto-clear timeout - user can pan away freely after zoom
+      // After animation, stop any native tracking (but keep dot visible)
+      setTimeout(() => {
+        try {
+          LocationManager.stop();
+        } catch {
+          // Ignore
+        }
+        cameraRef.current?.setCamera({
+          animationDuration: 0,
+          animationMode: 'moveTo',
+        });
+      }, 600);
     } catch {
       // Silently fail - location is optional
     }
-  }, [setUserLocation, cameraRef]);
+  }, [cameraRef, setUserLocation]);
 
   // Toggle heatmap mode
   const toggleHeatmap = useCallback(() => {

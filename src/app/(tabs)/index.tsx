@@ -5,14 +5,11 @@ import {
   StyleSheet,
   RefreshControl,
   TouchableOpacity,
-  Image,
   TextInput,
   ActivityIndicator,
   Keyboard,
   Platform,
-  ScrollView,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Text } from 'react-native-paper';
 import { ScreenSafeAreaView } from '@/components/ui';
 import { router, Href } from 'expo-router';
@@ -25,27 +22,19 @@ import {
   useTheme,
   getFormZone,
   FORM_ZONE_COLORS,
+  FORM_ZONE_LABELS,
   getLatestFTP,
   useSportSettings,
   getSettingsForSport,
   usePaceCurve,
 } from '@/hooks';
 import type { Activity } from '@/types';
-import {
-  useSportPreference,
-  SPORT_COLORS,
-  useDashboardPreferences,
-  getMetricsForSport,
-} from '@/providers';
+import { useSportPreference, SPORT_COLORS, useDashboardPreferences } from '@/providers';
 import type { MetricId } from '@/providers';
 import { formatPaceCompact, formatSwimPace } from '@/lib';
 import { ActivityCard } from '@/components/activity/ActivityCard';
-import {
-  ActivityCardSkeleton,
-  StatsPillSkeleton,
-  NetworkErrorState,
-  ErrorStatePreset,
-} from '@/components/ui';
+import { ActivityCardSkeleton, NetworkErrorState, ErrorStatePreset } from '@/components/ui';
+import { SummaryCard } from '@/components/home';
 import { useScrollVisibilitySafe } from '@/providers';
 import { useNetwork } from '@/providers';
 import { colors, darkColors, opacity, spacing, layout, typography, shadows } from '@/theme';
@@ -75,7 +64,6 @@ export default function FeedScreen() {
   const { t } = useTranslation();
   const { isDark, colors: themeColors } = useTheme();
   const shared = createSharedStyles(isDark);
-  const [profileImageError, setProfileImageError] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [selectedTypeGroup, setSelectedTypeGroup] = useState<string | null>(null);
@@ -86,17 +74,8 @@ export default function FeedScreen() {
   const { isOnline } = useNetwork();
   const { onScroll: onScrollForMenu } = useScrollVisibilitySafe();
 
-  // Dashboard preferences for pill customization
-  const { metrics: allMetrics } = useDashboardPreferences();
-
-  // Get enabled metrics filtered by sport and sorted by order
-  const enabledPillMetrics = useMemo(() => {
-    const sportFiltered = getMetricsForSport(allMetrics, primarySport);
-    return sportFiltered
-      .filter((m) => m.enabled)
-      .sort((a, b) => a.order - b.order)
-      .map((m) => m.id);
-  }, [allMetrics, primarySport]);
+  // Dashboard preferences for summary card
+  const { summaryCard } = useDashboardPreferences();
 
   // Fetch pace curve for running threshold pace (only when running is selected)
   const { data: runPaceCurve } = usePaceCurve({
@@ -104,10 +83,8 @@ export default function FeedScreen() {
     enabled: primarySport === 'Running',
   });
 
-  // Validate profile URL - must be a non-empty string starting with http
+  // Profile URL for SummaryCard
   const profileUrl = athlete?.profile_medium || athlete?.profile;
-  const hasValidProfileUrl =
-    profileUrl && typeof profileUrl === 'string' && profileUrl.startsWith('http');
 
   const {
     data,
@@ -153,12 +130,8 @@ export default function FeedScreen() {
     return filtered;
   }, [allActivities, searchQuery, selectedTypeGroup]);
 
-  // Fetch wellness data for the header badge (short range for quick load)
-  const {
-    data: wellnessData,
-    isLoading: wellnessLoading,
-    refetch: refetchWellness,
-  } = useWellness('7d');
+  // Fetch wellness data for the summary card (short range for quick load)
+  const { data: wellnessData, refetch: refetchWellness } = useWellness('1m');
 
   // Combined refresh handler - fetches fresh data
   const handleRefresh = async () => {
@@ -288,6 +261,74 @@ export default function FeedScreen() {
   const formZone = getFormZone(quickStats.form);
   const formColor = formZone ? FORM_ZONE_COLORS[formZone] : colors.success;
 
+  // Build hero metric data based on summaryCard preferences
+  const heroData = useMemo(() => {
+    const metric = summaryCard.heroMetric;
+
+    // Get metric value, label, color, and trend based on hero metric type
+    switch (metric) {
+      case 'form':
+        return {
+          value: quickStats.form,
+          label: t('metrics.form'),
+          color: formColor,
+          zoneLabel: formZone ? FORM_ZONE_LABELS[formZone] : undefined,
+          zoneColor: formColor,
+          trend: quickStats.formTrend,
+        };
+      case 'fitness':
+        return {
+          value: quickStats.fitness,
+          label: t('metrics.fitness'),
+          color: colors.fitnessBlue,
+          zoneLabel: undefined,
+          zoneColor: undefined,
+          trend: quickStats.fitnessTrend,
+        };
+      case 'hrv':
+        return {
+          value: quickStats.hrv ?? '-',
+          label: t('metrics.hrv'),
+          color: colors.chartPink,
+          zoneLabel: undefined,
+          zoneColor: undefined,
+          trend: quickStats.hrvTrend,
+        };
+      default:
+        return {
+          value: quickStats.form,
+          label: t('metrics.form'),
+          color: formColor,
+          zoneLabel: formZone ? FORM_ZONE_LABELS[formZone] : undefined,
+          zoneColor: formColor,
+          trend: quickStats.formTrend,
+        };
+    }
+  }, [summaryCard.heroMetric, quickStats, formColor, formZone, t]);
+
+  // Build sparkline data from wellness (last 7 days)
+  const sparklineData = useMemo(() => {
+    if (!wellnessData || wellnessData.length === 0) return undefined;
+
+    // Sort by date ascending for sparkline
+    const sorted = [...wellnessData].sort((a, b) => a.id.localeCompare(b.id)).slice(-30);
+
+    switch (summaryCard.heroMetric) {
+      case 'form':
+        return sorted.map((w) => {
+          const ctl = w.ctl ?? w.ctlLoad ?? 0;
+          const atl = w.atl ?? w.atlLoad ?? 0;
+          return ctl - atl;
+        });
+      case 'fitness':
+        return sorted.map((w) => w.ctl ?? w.ctlLoad ?? 0);
+      case 'hrv':
+        return sorted.map((w) => w.hrv ?? 0);
+      default:
+        return undefined;
+    }
+  }, [wellnessData, summaryCard.heroMetric]);
+
   // Get sport-specific metrics from sport settings and pace curve
   const sportMetrics = useMemo(() => {
     const runSettings = getSettingsForSport(sportSettings, 'Run');
@@ -306,12 +347,86 @@ export default function FeedScreen() {
     };
   }, [sportSettings, runPaceCurve]);
 
+  // Build supporting metrics array from preferences
+  const supportingMetrics = useMemo(() => {
+    return summaryCard.supportingMetrics.slice(0, 4).map((metricId: MetricId) => {
+      switch (metricId) {
+        case 'fitness':
+          return {
+            label: t('metrics.fitness'),
+            value: quickStats.fitness,
+            color: colors.fitnessBlue,
+            trend: quickStats.fitnessTrend,
+          };
+        case 'form':
+          return {
+            label: t('metrics.form'),
+            value: quickStats.form > 0 ? `+${quickStats.form}` : quickStats.form,
+            color: formColor,
+            trend: quickStats.formTrend,
+          };
+        case 'hrv':
+          return {
+            label: t('metrics.hrv'),
+            value: quickStats.hrv ?? '-',
+            color: colors.chartPink,
+            trend: quickStats.hrvTrend,
+          };
+        case 'rhr':
+          return {
+            label: t('metrics.rhr'),
+            value: quickStats.rhr ?? '-',
+            color: undefined,
+            trend: quickStats.rhrTrend,
+          };
+        case 'ftp':
+          return {
+            label: t('metrics.ftp'),
+            value: quickStats.ftp ?? '-',
+            color: SPORT_COLORS.Cycling,
+            trend: quickStats.ftpTrend,
+          };
+        case 'thresholdPace':
+          return {
+            label: t('metrics.pace'),
+            value: sportMetrics.thresholdPace ? formatPaceCompact(sportMetrics.thresholdPace) : '-',
+            color: SPORT_COLORS.Running,
+            trend: undefined,
+          };
+        case 'css':
+          return {
+            label: t('metrics.css'),
+            value: sportMetrics.css ? formatSwimPace(sportMetrics.css) : '-',
+            color: SPORT_COLORS.Swimming,
+            trend: undefined,
+          };
+        case 'weekHours':
+          return {
+            label: t('metrics.week'),
+            value: `${quickStats.weekHours}h`,
+            color: undefined,
+            trend: quickStats.weekHoursTrend,
+          };
+        case 'weekCount':
+          return {
+            label: '#',
+            value: quickStats.weekCount,
+            color: undefined,
+            trend: quickStats.weekCountTrend,
+          };
+        default:
+          return {
+            label: metricId,
+            value: '-',
+            color: undefined,
+            trend: undefined,
+          };
+      }
+    });
+  }, [summaryCard.supportingMetrics, quickStats, formColor, sportMetrics, t]);
+
   const renderActivity = ({ item }: { item: Activity }) => <ActivityCard activity={item} />;
 
-  const navigateToFitness = () => router.push('/fitness');
-  const navigateToWellness = () => router.push('/wellness');
-  const navigateToTraining = () => router.push('/training');
-  const navigateToStats = () => router.push('/stats');
   const navigateToSettings = () => router.push('/settings' as Href);
 
   const toggleFilters = () => setShowFilters(!showFilters);
@@ -378,16 +493,21 @@ export default function FeedScreen() {
     return (
       <ScreenSafeAreaView style={shared.container}>
         <View style={styles.skeletonContainer}>
-          {/* Header skeleton */}
-          <View style={styles.header}>
-            <View
-              style={[
-                styles.profilePhoto,
-                styles.profilePlaceholder,
-                isDark && styles.profilePlaceholderDark,
-              ]}
-            />
-            <StatsPillSkeleton />
+          {/* Summary card skeleton */}
+          <View style={[styles.summaryCardSkeleton, isDark && styles.summaryCardSkeletonDark]}>
+            <View style={styles.skeletonRow}>
+              <View style={[styles.skeletonCircle, isDark && styles.skeletonElementDark]} />
+              <View style={styles.skeletonSpacer} />
+            </View>
+            <View style={styles.skeletonHero}>
+              <View style={[styles.skeletonHeroValue, isDark && styles.skeletonElementDark]} />
+              <View style={[styles.skeletonHeroLabel, isDark && styles.skeletonElementDark]} />
+            </View>
+            <View style={styles.skeletonMetrics}>
+              <View style={[styles.skeletonMetric, isDark && styles.skeletonElementDark]} />
+              <View style={[styles.skeletonMetric, isDark && styles.skeletonElementDark]} />
+              <View style={[styles.skeletonMetric, isDark && styles.skeletonElementDark]} />
+            </View>
           </View>
           {/* Section header skeleton */}
           <View style={styles.sectionHeader}>
@@ -406,329 +526,20 @@ export default function FeedScreen() {
 
   return (
     <ScreenSafeAreaView style={shared.container} testID="home-screen">
-      {/* Header with profile and stat pills - outside FlatList */}
-      <View style={styles.header}>
-        {/* Profile photo - tap to open settings */}
-        <TouchableOpacity
-          testID="nav-settings-button"
-          onPress={navigateToSettings}
-          activeOpacity={0.7}
-          style={[
-            styles.profilePhotoTouchArea,
-            isDark && styles.profilePlaceholder,
-            isDark && styles.profilePlaceholderDark,
-          ]}
-        >
-          <View
-            style={[
-              styles.profilePhoto,
-              isDark && styles.profilePlaceholder,
-              isDark && styles.profilePlaceholderDark,
-            ]}
-          >
-            {hasValidProfileUrl && !profileImageError ? (
-              <Image
-                source={{ uri: profileUrl }}
-                style={StyleSheet.absoluteFill}
-                resizeMode="cover"
-                onError={() => setProfileImageError(true)}
-              />
-            ) : (
-              <MaterialCommunityIcons name="account" size={20} color={themeColors.textSecondary} />
-            )}
-          </View>
-        </TouchableOpacity>
-
-        {/* Stats pills - horizontally scrollable with fade indicator */}
-        <View style={styles.pillScrollContainer}>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.pillScrollContent}
-          >
-            {enabledPillMetrics.map((metricId: MetricId) => {
-              // HRV pill (includes RHR as secondary)
-              if (metricId === 'hrv') {
-                return (
-                  <TouchableOpacity
-                    key="hrv"
-                    style={[styles.pill, isDark && styles.pillDark]}
-                    onPress={navigateToWellness}
-                    activeOpacity={0.7}
-                  >
-                    <View style={styles.pillItem}>
-                      <Text style={[styles.pillLabel, isDark && styles.textDark]}>
-                        {t('metrics.hrv')}
-                      </Text>
-                      <Text style={[styles.pillValue, { color: colors.chartPink }]}>
-                        {quickStats.hrv ?? '-'}
-                        {quickStats.hrvTrend && (
-                          <Text style={styles.trendArrow}>{quickStats.hrvTrend}</Text>
-                        )}
-                      </Text>
-                    </View>
-                    {quickStats.rhr && (
-                      <>
-                        <Text style={[styles.pillDivider, isDark && styles.pillDividerDark]}>
-                          |
-                        </Text>
-                        <View style={styles.pillItem}>
-                          <Text style={[styles.pillLabel, isDark && styles.textDark]}>
-                            {t('metrics.rhr')}
-                          </Text>
-                          <Text style={[styles.pillValueSmall, isDark && styles.textDark]}>
-                            {quickStats.rhr}
-                            {quickStats.rhrTrend && (
-                              <Text style={styles.trendArrowSmall}>{quickStats.rhrTrend}</Text>
-                            )}
-                          </Text>
-                        </View>
-                      </>
-                    )}
-                  </TouchableOpacity>
-                );
-              }
-
-              // RHR standalone pill (when enabled separately)
-              if (metricId === 'rhr') {
-                return (
-                  <TouchableOpacity
-                    key="rhr"
-                    style={[styles.pill, isDark && styles.pillDark]}
-                    onPress={navigateToWellness}
-                    activeOpacity={0.7}
-                  >
-                    <View style={styles.pillItem}>
-                      <Text style={[styles.pillLabel, isDark && styles.textDark]}>
-                        {t('metrics.rhr')}
-                      </Text>
-                      <Text style={[styles.pillValue, isDark && styles.textLight]}>
-                        {quickStats.rhr ?? '-'}
-                        {quickStats.rhrTrend && (
-                          <Text style={styles.trendArrow}>{quickStats.rhrTrend}</Text>
-                        )}
-                      </Text>
-                    </View>
-                  </TouchableOpacity>
-                );
-              }
-
-              // Week hours pill (includes count as secondary)
-              if (metricId === 'weekHours') {
-                return (
-                  <TouchableOpacity
-                    key="weekHours"
-                    style={[styles.pill, isDark && styles.pillDark]}
-                    onPress={navigateToTraining}
-                    activeOpacity={0.7}
-                  >
-                    <View style={styles.pillItem}>
-                      <Text style={[styles.pillLabel, isDark && styles.textDark]}>
-                        {t('metrics.week')}
-                      </Text>
-                      <Text style={[styles.pillValue, isDark && styles.textLight]}>
-                        {quickStats.weekHours}h
-                        {quickStats.weekHoursTrend && (
-                          <Text style={styles.trendArrow}>{quickStats.weekHoursTrend}</Text>
-                        )}
-                      </Text>
-                    </View>
-                    <Text style={[styles.pillDivider, isDark && styles.pillDividerDark]}>|</Text>
-                    <View style={styles.pillItem}>
-                      <Text style={[styles.pillLabel, isDark && styles.textDark]}>#</Text>
-                      <Text style={[styles.pillValueSmall, isDark && styles.textDark]}>
-                        {quickStats.weekCount}
-                        {quickStats.weekCountTrend && (
-                          <Text style={styles.trendArrowSmall}>{quickStats.weekCountTrend}</Text>
-                        )}
-                      </Text>
-                    </View>
-                  </TouchableOpacity>
-                );
-              }
-
-              // Week count standalone pill
-              if (metricId === 'weekCount') {
-                return (
-                  <TouchableOpacity
-                    key="weekCount"
-                    style={[styles.pill, isDark && styles.pillDark]}
-                    onPress={navigateToTraining}
-                    activeOpacity={0.7}
-                  >
-                    <View style={styles.pillItem}>
-                      <Text style={[styles.pillLabel, isDark && styles.textDark]}>#</Text>
-                      <Text style={[styles.pillValue, isDark && styles.textLight]}>
-                        {quickStats.weekCount}
-                        {quickStats.weekCountTrend && (
-                          <Text style={styles.trendArrow}>{quickStats.weekCountTrend}</Text>
-                        )}
-                      </Text>
-                    </View>
-                  </TouchableOpacity>
-                );
-              }
-
-              // FTP pill (Cycling)
-              if (metricId === 'ftp') {
-                return (
-                  <TouchableOpacity
-                    key="ftp"
-                    style={[styles.pill, isDark && styles.pillDark]}
-                    onPress={navigateToStats}
-                    activeOpacity={0.7}
-                  >
-                    <View style={styles.pillItem}>
-                      <Text style={[styles.pillLabel, isDark && styles.textDark]}>
-                        {t('metrics.ftp')}
-                      </Text>
-                      <Text style={[styles.pillValue, { color: SPORT_COLORS.Cycling }]}>
-                        {quickStats.ftp ?? '-'}
-                        {quickStats.ftpTrend && (
-                          <Text style={styles.trendArrow}>{quickStats.ftpTrend}</Text>
-                        )}
-                      </Text>
-                    </View>
-                  </TouchableOpacity>
-                );
-              }
-
-              // Threshold Pace pill (Running)
-              if (metricId === 'thresholdPace') {
-                return (
-                  <TouchableOpacity
-                    key="thresholdPace"
-                    style={[styles.pill, isDark && styles.pillDark]}
-                    onPress={navigateToStats}
-                    activeOpacity={0.7}
-                  >
-                    <View style={styles.pillItem}>
-                      <Text style={[styles.pillLabel, isDark && styles.textDark]}>
-                        {t('metrics.pace')}
-                      </Text>
-                      <Text style={[styles.pillValue, { color: SPORT_COLORS.Running }]}>
-                        {sportMetrics.thresholdPace
-                          ? formatPaceCompact(sportMetrics.thresholdPace)
-                          : '-'}
-                      </Text>
-                    </View>
-                    {sportMetrics.runLthr && (
-                      <>
-                        <Text style={[styles.pillDivider, isDark && styles.pillDividerDark]}>
-                          |
-                        </Text>
-                        <View style={styles.pillItem}>
-                          <Text style={[styles.pillLabel, isDark && styles.textDark]}>
-                            {t('metrics.hr')}
-                          </Text>
-                          <Text style={[styles.pillValueSmall, isDark && styles.textDark]}>
-                            {sportMetrics.runLthr}
-                          </Text>
-                        </View>
-                      </>
-                    )}
-                  </TouchableOpacity>
-                );
-              }
-
-              // CSS pill (Swimming)
-              if (metricId === 'css') {
-                return (
-                  <TouchableOpacity
-                    key="css"
-                    style={[styles.pill, isDark && styles.pillDark]}
-                    onPress={navigateToStats}
-                    activeOpacity={0.7}
-                  >
-                    <View style={styles.pillItem}>
-                      <Text style={[styles.pillLabel, isDark && styles.textDark]}>
-                        {t('metrics.css')}
-                      </Text>
-                      <Text style={[styles.pillValue, { color: SPORT_COLORS.Swimming }]}>
-                        {sportMetrics.css ? formatSwimPace(sportMetrics.css) : '-'}
-                      </Text>
-                    </View>
-                  </TouchableOpacity>
-                );
-              }
-
-              // Fitness pill (includes Form as secondary)
-              if (metricId === 'fitness') {
-                return (
-                  <TouchableOpacity
-                    key="fitness"
-                    style={[styles.pill, isDark && styles.pillDark]}
-                    onPress={navigateToFitness}
-                    activeOpacity={0.7}
-                  >
-                    <View style={styles.pillItem}>
-                      <Text style={[styles.pillLabel, isDark && styles.textDark]}>
-                        {t('metrics.fitness')}
-                      </Text>
-                      <Text style={[styles.pillValue, { color: colors.fitnessBlue }]}>
-                        {quickStats.fitness}
-                        {quickStats.fitnessTrend && (
-                          <Text style={styles.trendArrow}>{quickStats.fitnessTrend}</Text>
-                        )}
-                      </Text>
-                    </View>
-                    <Text style={[styles.pillDivider, isDark && styles.pillDividerDark]}>|</Text>
-                    <View style={styles.pillItem}>
-                      <Text style={[styles.pillLabel, isDark && styles.textDark]}>
-                        {t('metrics.form')}
-                      </Text>
-                      <Text style={[styles.pillValue, { color: formColor }]}>
-                        {quickStats.form > 0 ? '+' : ''}
-                        {quickStats.form}
-                        {quickStats.formTrend && (
-                          <Text style={styles.trendArrow}>{quickStats.formTrend}</Text>
-                        )}
-                      </Text>
-                    </View>
-                  </TouchableOpacity>
-                );
-              }
-
-              // Form standalone pill
-              if (metricId === 'form') {
-                return (
-                  <TouchableOpacity
-                    key="form"
-                    style={[styles.pill, isDark && styles.pillDark]}
-                    onPress={navigateToFitness}
-                    activeOpacity={0.7}
-                  >
-                    <View style={styles.pillItem}>
-                      <Text style={[styles.pillLabel, isDark && styles.textDark]}>
-                        {t('metrics.form')}
-                      </Text>
-                      <Text style={[styles.pillValue, { color: formColor }]}>
-                        {quickStats.form > 0 ? '+' : ''}
-                        {quickStats.form}
-                        {quickStats.formTrend && (
-                          <Text style={styles.trendArrow}>{quickStats.formTrend}</Text>
-                        )}
-                      </Text>
-                    </View>
-                  </TouchableOpacity>
-                );
-              }
-
-              return null;
-            })}
-          </ScrollView>
-          {/* Fade indicator on right edge */}
-          <LinearGradient
-            colors={
-              isDark ? ['transparent', darkColors.background] : ['transparent', colors.background]
-            }
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.pillFadeIndicator}
-            pointerEvents="none"
-          />
-        </View>
-      </View>
+      {/* Summary card with hero metric and supporting stats */}
+      <SummaryCard
+        profileUrl={profileUrl}
+        onProfilePress={navigateToSettings}
+        heroValue={heroData.value}
+        heroLabel={heroData.label}
+        heroColor={heroData.color}
+        heroZoneLabel={heroData.zoneLabel}
+        heroZoneColor={heroData.zoneColor}
+        heroTrend={heroData.trend}
+        sparklineData={sparklineData}
+        showSparkline={summaryCard.showSparkline}
+        supportingMetrics={supportingMetrics}
+      />
 
       {/* Search and Filter bar - outside FlatList to preserve focus */}
       <View style={styles.searchContainer}>
@@ -845,114 +656,70 @@ export default function FeedScreen() {
 }
 
 const styles = StyleSheet.create({
-  // Note: container now uses shared styles
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: layout.screenPadding,
-    paddingVertical: spacing.sm,
+  // Summary card skeleton styles
+  summaryCardSkeleton: {
+    borderRadius: layout.borderRadius,
+    padding: layout.cardPadding,
+    marginHorizontal: layout.screenPadding,
+    marginBottom: spacing.md,
+    backgroundColor: colors.surface,
+    ...shadows.card,
   },
-  profilePhoto: {
+  summaryCardSkeletonDark: {
+    backgroundColor: darkColors.surface,
+    ...shadows.none,
+    borderWidth: 1,
+    borderColor: darkColors.border,
+  },
+  skeletonRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: spacing.md,
+  },
+  skeletonCircle: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    overflow: 'hidden',
-  },
-  profilePhotoTouchArea: {
-    width: 44, // Accessibility minimum
-    height: 44, // Accessibility minimum
-    borderRadius: 22,
-    overflow: 'hidden',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  profilePlaceholder: {
     backgroundColor: colors.divider,
+  },
+  skeletonSpacer: {
+    flex: 1,
+  },
+  skeletonHero: {
+    alignItems: 'center',
+    paddingVertical: spacing.md,
+  },
+  skeletonHeroValue: {
+    width: 60,
+    height: 32,
+    borderRadius: 4,
+    backgroundColor: colors.divider,
+    marginBottom: spacing.xs,
+  },
+  skeletonHeroLabel: {
+    width: 40,
+    height: 14,
+    borderRadius: 4,
+    backgroundColor: colors.divider,
+  },
+  skeletonMetrics: {
+    flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: opacity.overlay.medium,
+    paddingTop: spacing.md,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.divider,
+    gap: spacing.lg,
   },
-  profilePlaceholderDark: {
+  skeletonMetric: {
+    width: 50,
+    height: 14,
+    borderRadius: 4,
+    backgroundColor: colors.divider,
+  },
+  skeletonElementDark: {
     backgroundColor: darkColors.border,
-    borderColor: opacity.overlayDark.heavy,
-  },
-  pillScrollContainer: {
-    flex: 1,
-    position: 'relative',
-    marginLeft: spacing.sm,
-  },
-  pillScrollContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingRight: spacing.lg, // Extra padding so last pill isn't under fade
-  },
-  pillFadeIndicator: {
-    position: 'absolute',
-    right: 0,
-    top: 0,
-    bottom: 0,
-    width: 24,
-  },
-  pillRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  pill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-    borderRadius: 14,
-    paddingHorizontal: 8,
-    paddingVertical: 6,
-    borderWidth: 1,
-    borderColor: 'rgba(0, 0, 0, 0.04)',
-    // Platform-optimized subtle shadow for pills
-    ...shadows.pill,
-  },
-  pillDark: {
-    backgroundColor: 'rgba(40, 40, 40, 0.9)',
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-    ...shadows.none,
-  },
-  pillItem: {
-    alignItems: 'center',
-    paddingHorizontal: 2,
-  },
-  pillLabel: {
-    fontSize: typography.label.fontSize,
-    fontWeight: typography.label.fontWeight,
-    color: colors.textSecondary,
-    marginBottom: 1,
-  },
-  pillValue: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: colors.textPrimary,
-  },
-  pillValueSmall: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.textSecondary,
-  },
-  pillDivider: {
-    fontSize: 10,
-    color: 'rgba(0, 0, 0, 0.15)',
-    marginHorizontal: 4,
-  },
-  pillDividerDark: {
-    color: 'rgba(255, 255, 255, 0.2)',
-  },
-  trendArrow: {
-    fontSize: 11,
-    marginLeft: 1,
-  },
-  trendArrowSmall: {
-    fontSize: 9,
-    marginLeft: 1,
   },
   textLight: {
     color: colors.textOnDark,

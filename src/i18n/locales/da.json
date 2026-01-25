@@ -21,10 +21,10 @@
   "activity": {
     "activityStats": "Aktivitetsstatistik",
     "avg": "gns",
-    "chartHint": "Hold for at skrubbe • Hold chip for akse",
     "cadence": "Kadence",
     "cal": "KAL",
     "calories": "Kalorier",
+    "chartHint": "Hold for at skrubbe • Hold chip for akse",
     "conditions": {
       "cold": "Koldt",
       "hot": "Varmt"
@@ -178,18 +178,18 @@
     "syncingActivities": "Synkroniserer aktiviteter"
   },
   "chartTypes": {
+    "alt": "Alt",
     "cad": "Kad",
+    "dist": "Dist",
+    "elapsedTime": "Elapsed Time",
     "elev": "Højde",
     "hr": "Puls",
+    "movingTime": "Moving Time",
     "pace": "Tempo",
     "power": "Effekt",
     "speed": "Fart",
-    "dist": "Dist",
-    "alt": "Alt",
     "temp": "Temp",
-    "watts": "Watts",
-    "movingTime": "Moving Time",
-    "elapsedTime": "Elapsed Time"
+    "watts": "Watts"
   },
   "common": {
     "activities": "activities",
@@ -419,9 +419,9 @@
     "closeSectionPopup": "Luk sektions-popup",
     "disable3D": "Deaktivér 3D-visning",
     "enable3D": "Aktivér 3D-visning",
-    "goToLocation": "Gå til min placering",
     "fitAll": "Fit all activities",
     "fitAllHint": "Long press to fit all activities",
+    "goToLocation": "Gå til min placering",
     "hideActivities": "Skjul aktiviteter",
     "hideRoutes": "Skjul ruter",
     "loadingRoute": "Indlæser rute...",
@@ -528,6 +528,7 @@
     "partial": "Delvis",
     "pointCountHint": "{{count}} GPS-punkter",
     "potentialSectionDescription": "Du har brugt denne {{sport}}-sti {{count}} gange. Opret en sektion for at spore din præstation?",
+    "pr": "PR",
     "readyToProcess": "Klar til at behandle",
     "reverse": "Omvendt",
     "routeNamePlaceholder": "Rutenavn",
@@ -555,8 +556,7 @@
     "thisPace": "Dette tempo",
     "thisSpeed": "Denne hastighed",
     "visits": "besøg",
-    "waiting": "Venter...",
-    "pr": "PR"
+    "waiting": "Venter..."
   },
   "routesScreen": {
     "analysingRoutes": "Analyserer ruter {{current}}/{{total}}",
@@ -618,11 +618,11 @@
     "customiseByActivity": "Tilpas efter aktivitetstype",
     "customiseMetrics": "Tilpas dashboard-målinger",
     "dark": "Mørk",
+    "dashboardMetrics": "Dashboard-målinger",
     "dataCache": "Datacache",
     "dataSources": "Datakilder",
     "dataSourcesDescription": "Aktivitets- og velværedata synkroniseres fra intervals.icu, som integrerer med forskellige fitnessplatforme og enheder.",
     "database": "Database",
-    "dashboardMetrics": "Dashboard-målinger",
     "dateRange": "Datointerval",
     "default": "Standard",
     "defaultMapHint": "'Standard' bruger kortstilen indstillet ovenfor",
@@ -635,6 +635,7 @@
     "enableRouteMatching": "Aktivér rutematchning",
     "expandCache": "Load more",
     "gpsTraces": "Aktivitetsspor",
+    "heroMetric": "Hovedmetrik",
     "hideDemoBanner": "Skjul demobanner",
     "hideDemoBannerHint": "Skjul banneret til skærmbilleder",
     "language": "Sprog",
@@ -645,6 +646,7 @@
     "lastSynced": "Sidst synkroniseret",
     "light": "Lys",
     "maps": "Kort",
+    "maxMetricsHint": "Maksimalt 4 metrikker",
     "metricsHint": "Slå målinger til/fra og omarranger dem med pilene. Kun aktiverede målinger vises i dashboard-headeren.",
     "noData": "Ingen data",
     "notCached": "Not cached",
@@ -661,10 +663,13 @@
     "routesCount": "Ruter",
     "satellite": "Satellit",
     "sectionsCount": "Sektioner",
+    "showSparkline": "Vis Sparkline",
     "signedInToIntervals": "Logget ind på intervals.icu",
     "sponsorDev": "Støt udvikler",
     "subscribe": "Abonner",
+    "summaryCard": "Oversigtkort",
     "support": "Support",
+    "supportingMetrics": "Understøttende Metrikker",
     "syncAllHistory": "Synkroniser al historik",
     "syncAllHistoryDescription": "Dette vil synkronisere op til 10 års aktivitetsdata i baggrunden. Dette muliggør dybere ruteanalyse og sammenligning.",
     "syncInProgress": "Vent venligst på at den nuværende synkronisering afsluttes.",
@@ -701,6 +706,8 @@
     "current": "Nuværende",
     "daysCount": "{{count}} dage",
     "decouplingExplanation": "Afkobling måler hjertedrift - hvor meget din puls stiger i forhold til kraftudvikling under vedvarende indsatser. Lavere er bedre og indikerer effektiv aerob energiproduktion.",
+    "distanceHalf": "Half",
+    "distanceMile": "Mile",
     "efficiency": "Effektivitet",
     "estimatedFtp": "Estimeret FTP",
     "firstHalf": "Første halvdel",
@@ -752,9 +759,7 @@
     "vsPrevious6Months": "vs forrige 6 måneder",
     "week": "Uge",
     "workoutLibrary": "Træningsbibliotek",
-    "year": "År",
-    "distanceHalf": "Half",
-    "distanceMile": "Mile"
+    "year": "År"
   },
   "statsScreen": {
     "days42": "42 dage",
@@ -766,12 +771,12 @@
     "months6": "6 måneder",
     "pace": "Tempo",
     "paceCurve": "Tempokurve",
-    "powerCurve": "Kraftkurve",
-    "title": "Præstation",
-    "year1": "1 år",
     "paceCurveInfo": "CS (critical speed) and D' are calculated using the 2 parameter model. Intervals.icu uses your best 1k, 2k, 3k, 4k and 5k times keeping those that take between 2 and 15+ minutes.",
+    "powerCurve": "Kraftkurve",
     "powerCurveInfo": "Estimated FTP is calculated using power curves from FastFitness.Tips and Morton's 3 parameter critical power model. The algorithm requires just 1 max effort of between 180 seconds and 30 minutes. W' is relative to eFTP.",
-    "ref": "Ref"
+    "ref": "Ref",
+    "title": "Præstation",
+    "year1": "1 år"
   },
   "time": {
     "current": "Nuværende",
@@ -819,7 +824,9 @@
     "watts": "W"
   },
   "wellness": {
+    "auto": "Auto",
     "connectHint": "Forbind en wearable eller log velværedata i Intervals.icu",
+    "dayAverage": "{{count}}-day average",
     "dragToExplore": "Træk for at udforske",
     "hrs": "timer",
     "insightExtraRecovery": "Overvej ekstra restitution i dag",
@@ -828,6 +835,8 @@
     "lastDays": "Sidste {{count}} dage",
     "noData": "Ingen velværedata tilgængelig",
     "noTrendData": "Ingen tendensdata tilgængelig",
+    "none": "None",
+    "rawData": "Raw data",
     "restingHR": "Hvilepuls",
     "sleep": "Søvn",
     "sleepScore": "Søvnscore",
@@ -835,11 +844,7 @@
     "smoothingHint": "Auto bruger optimal udglatning for det valgte tidsinterval",
     "smoothingTitle": "Dataudglatning",
     "trendHint": "HRV-, søvn- og hvilepulstendenser vises her, når data logges",
-    "weight": "Vægt",
-    "auto": "Auto",
-    "dayAverage": "{{count}}-day average",
-    "none": "None",
-    "rawData": "Raw data"
+    "weight": "Vægt"
   },
   "wellnessScreen": {
     "title": "Velvære",

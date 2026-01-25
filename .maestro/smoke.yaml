@@ -3,7 +3,15 @@
 
 appId: com.veloq.app
 ---
-- launchApp
+- launchApp:
+    clearState: true
+
+# Dismiss any system alerts that might appear after clearing state
+- runFlow:
+    when:
+      visible: "Not Now"
+    commands:
+      - tapOn: "Not Now"
 
 # Wait for login screen (30s timeout for React Native boot)
 - extendedWaitUntil:
@@ -28,6 +36,7 @@ appId: com.veloq.app
     timeout: 15000
 
 # Verify demo mode indicator
-- assertVisible: "Demo Mode"
+- assertVisible:
+    id: "demo-mode-banner"
 
 - takeScreenshot: "smoke-complete"

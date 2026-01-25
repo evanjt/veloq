@@ -21,10 +21,10 @@
   "activity": {
     "activityStats": "Activiteitsstatistieken",
     "avg": "gem",
-    "chartHint": "Houd vast om te scrubben • Houd chip vast voor as",
     "cadence": "Cadans",
     "cal": "CAL",
     "calories": "Calorieën",
+    "chartHint": "Houd vast om te scrubben • Houd chip vast voor as",
     "conditions": {
       "cold": "Koud",
       "hot": "Warm"
@@ -178,18 +178,18 @@
     "syncingActivities": "Activiteiten synchroniseren"
   },
   "chartTypes": {
+    "alt": "Alt",
     "cad": "Cad",
+    "dist": "Dist",
+    "elapsedTime": "Elapsed Time",
     "elev": "Hoogte",
     "hr": "HF",
+    "movingTime": "Moving Time",
     "pace": "Tempo",
     "power": "Verm",
     "speed": "Snel",
-    "dist": "Dist",
-    "alt": "Alt",
     "temp": "Temp",
-    "watts": "Watts",
-    "movingTime": "Moving Time",
-    "elapsedTime": "Elapsed Time"
+    "watts": "Watts"
   },
   "common": {
     "activities": "activities",
@@ -419,9 +419,9 @@
     "closeSectionPopup": "Sectie-popup sluiten",
     "disable3D": "3D-weergave uitschakelen",
     "enable3D": "3D-weergave inschakelen",
-    "goToLocation": "Naar mijn locatie",
     "fitAll": "Fit all activities",
     "fitAllHint": "Long press to fit all activities",
+    "goToLocation": "Naar mijn locatie",
     "hideActivities": "Verberg activiteiten",
     "hideRoutes": "Verberg routes",
     "loadingRoute": "Route laden...",
@@ -528,6 +528,7 @@
     "partial": "Gedeeltelijk",
     "pointCountHint": "{{count}} GPS-punten",
     "potentialSectionDescription": "Je hebt dit {{sport}}-pad {{count}} keer afgelegd. Een sectie aanmaken om je prestaties te volgen?",
+    "pr": "PR",
     "readyToProcess": "Klaar om te verwerken",
     "reverse": "Omgekeerd",
     "routeNamePlaceholder": "Routenaam",
@@ -555,8 +556,7 @@
     "thisPace": "Dit tempo",
     "thisSpeed": "Deze snelheid",
     "visits": "bezoeken",
-    "waiting": "Wachten...",
-    "pr": "PR"
+    "waiting": "Wachten..."
   },
   "routesScreen": {
     "analysingRoutes": "Routes analyseren {{current}}/{{total}}",
@@ -618,11 +618,11 @@
     "customiseByActivity": "Aanpassen per activiteitstype",
     "customiseMetrics": "Dashboard-statistieken aanpassen",
     "dark": "Donker",
+    "dashboardMetrics": "Dashboard-statistieken",
     "dataCache": "Datacache",
     "dataSources": "Gegevensbronnen",
     "dataSourcesDescription": "Activiteits- en welzijnsgegevens worden gesynchroniseerd van intervals.icu, dat integreert met verschillende fitnessplatforms en apparaten.",
     "database": "Database",
-    "dashboardMetrics": "Dashboard-statistieken",
     "dateRange": "Datumbereik",
     "default": "Standaard",
     "defaultMapHint": "'Standaard' gebruikt de hierboven ingestelde kaartstijl",
@@ -635,6 +635,7 @@
     "enableRouteMatching": "Route-matching inschakelen",
     "expandCache": "Load more",
     "gpsTraces": "Activiteitssporen",
+    "heroMetric": "Hoofdmetriek",
     "hideDemoBanner": "Demo-banner verbergen",
     "hideDemoBannerHint": "Banner verbergen voor screenshots",
     "language": "Taal",
@@ -645,6 +646,7 @@
     "lastSynced": "Laatst gesynchroniseerd",
     "light": "Licht",
     "maps": "Kaarten",
+    "maxMetricsHint": "Maximaal 4 metrieken",
     "metricsHint": "Schakel statistieken aan/uit en herorden ze met de pijlen. Alleen ingeschakelde statistieken verschijnen in de dashboardkop.",
     "noData": "Geen gegevens",
     "notCached": "Not cached",
@@ -661,10 +663,13 @@
     "routesCount": "Routes",
     "satellite": "Satelliet",
     "sectionsCount": "Secties",
+    "showSparkline": "Sparkline tonen",
     "signedInToIntervals": "Ingelogd bij intervals.icu",
     "sponsorDev": "Sponsor ontwikkelaar",
     "subscribe": "Abonneren",
+    "summaryCard": "Samenvattingskaart",
     "support": "Ondersteuning",
+    "supportingMetrics": "Ondersteunende Metrieken",
     "syncAllHistory": "Alle geschiedenis synchroniseren",
     "syncAllHistoryDescription": "Dit synchroniseert tot 10 jaar activiteitsgegevens op de achtergrond. Dit maakt diepere route-analyse en vergelijking mogelijk.",
     "syncInProgress": "Wacht tot de huidige synchronisatie is voltooid.",
@@ -701,6 +706,8 @@
     "current": "Huidig",
     "daysCount": "{{count}} dagen",
     "decouplingExplanation": "Ontkoppeling meet hartdrift - hoeveel je hartslag stijgt ten opzichte van vermogensafgifte tijdens langdurige inspanningen. Lager is beter en duidt op efficiënte aerobe energieproductie.",
+    "distanceHalf": "Half",
+    "distanceMile": "Mile",
     "efficiency": "Efficiëntie",
     "estimatedFtp": "Geschatte FTP",
     "firstHalf": "Eerste helft",
@@ -752,9 +759,7 @@
     "vsPrevious6Months": "vs vorige 6 maanden",
     "week": "Week",
     "workoutLibrary": "Workout-bibliotheek",
-    "year": "Jaar",
-    "distanceHalf": "Half",
-    "distanceMile": "Mile"
+    "year": "Jaar"
   },
   "statsScreen": {
     "days42": "42 Dagen",
@@ -766,12 +771,12 @@
     "months6": "6 Maanden",
     "pace": "Tempo",
     "paceCurve": "Tempocurve",
-    "powerCurve": "Vermogenscurve",
-    "title": "Prestaties",
-    "year1": "1 Jaar",
     "paceCurveInfo": "CS (critical speed) and D' are calculated using the 2 parameter model. Intervals.icu uses your best 1k, 2k, 3k, 4k and 5k times keeping those that take between 2 and 15+ minutes.",
+    "powerCurve": "Vermogenscurve",
     "powerCurveInfo": "Estimated FTP is calculated using power curves from FastFitness.Tips and Morton's 3 parameter critical power model. The algorithm requires just 1 max effort of between 180 seconds and 30 minutes. W' is relative to eFTP.",
-    "ref": "Ref"
+    "ref": "Ref",
+    "title": "Prestaties",
+    "year1": "1 Jaar"
   },
   "time": {
     "current": "Huidig",
@@ -819,7 +824,9 @@
     "watts": "W"
   },
   "wellness": {
+    "auto": "Auto",
     "connectHint": "Verbind een wearable of log welzijnsgegevens in Intervals.icu",
+    "dayAverage": "{{count}}-day average",
     "dragToExplore": "Sleep om te verkennen",
     "hrs": "uur",
     "insightExtraRecovery": "Overweeg extra herstel vandaag",
@@ -828,6 +835,8 @@
     "lastDays": "Laatste {{count}} dagen",
     "noData": "Geen welzijnsgegevens beschikbaar",
     "noTrendData": "Geen trendgegevens beschikbaar",
+    "none": "None",
+    "rawData": "Raw data",
     "restingHR": "Rusthartslag",
     "sleep": "Slaap",
     "sleepScore": "Slaapscore",
@@ -835,11 +844,7 @@
     "smoothingHint": "Auto gebruikt optimale smoothing voor het geselecteerde tijdsbereik",
     "smoothingTitle": "Data smoothing",
     "trendHint": "HRV-, slaap- en rusthartslag-trends verschijnen hier wanneer gegevens worden gelogd",
-    "weight": "Gewicht",
-    "auto": "Auto",
-    "dayAverage": "{{count}}-day average",
-    "none": "None",
-    "rawData": "Raw data"
+    "weight": "Gewicht"
   },
   "wellnessScreen": {
     "title": "Welzijn",

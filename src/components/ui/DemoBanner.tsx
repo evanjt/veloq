@@ -40,6 +40,7 @@ export function DemoBanner() {
 
   return (
     <Pressable
+      testID="demo-mode-banner"
       onPress={handlePress}
       style={({ pressed }) => [
         styles.container,

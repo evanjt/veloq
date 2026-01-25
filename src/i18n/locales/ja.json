@@ -21,10 +21,10 @@
   "activity": {
     "activityStats": "アクティビティ統計",
     "avg": "平均",
-    "chartHint": "長押しでスクラブ • チップ長押しで軸変更",
     "cadence": "ケイデンス",
     "cal": "CAL",
     "calories": "カロリー",
+    "chartHint": "長押しでスクラブ • チップ長押しで軸変更",
     "conditions": {
       "cold": "Cold",
       "hot": "Hot"
@@ -178,18 +178,18 @@
     "syncingActivities": "アクティビティを同期中"
   },
   "chartTypes": {
+    "alt": "Alt",
     "cad": "ケイデンス",
+    "dist": "Dist",
+    "elapsedTime": "Elapsed Time",
     "elev": "標高",
     "hr": "心拍",
+    "movingTime": "Moving Time",
     "pace": "ペース",
     "power": "パワー",
     "speed": "速度",
-    "dist": "Dist",
-    "alt": "Alt",
     "temp": "Temp",
-    "watts": "Watts",
-    "movingTime": "Moving Time",
-    "elapsedTime": "Elapsed Time"
+    "watts": "Watts"
   },
   "common": {
     "activities": "activities",
@@ -419,9 +419,9 @@
     "closeSectionPopup": "セクションポップアップを閉じる",
     "disable3D": "3Dビューを無効化",
     "enable3D": "3Dビューを有効化",
-    "goToLocation": "現在地へ移動",
     "fitAll": "Fit all activities",
     "fitAllHint": "Long press to fit all activities",
+    "goToLocation": "現在地へ移動",
     "hideActivities": "アクティビティを非表示",
     "hideRoutes": "ルートを非表示",
     "loadingRoute": "ルートを読み込み中...",
@@ -528,6 +528,7 @@
     "partial": "部分一致",
     "pointCountHint": "{{count}} GPSポイント",
     "potentialSectionDescription": "この{{sport}}パスを{{count}}回通りました。パフォーマンスを追跡するために区間を作成しますか？",
+    "pr": "PR",
     "readyToProcess": "処理準備完了",
     "reverse": "逆方向",
     "routeNamePlaceholder": "ルート名",
@@ -555,8 +556,7 @@
     "thisPace": "このペース",
     "thisSpeed": "この速度",
     "visits": "訪問",
-    "waiting": "待機中...",
-    "pr": "PR"
+    "waiting": "待機中..."
   },
   "routesScreen": {
     "analysingRoutes": "ルート分析中 {{current}}/{{total}}",
@@ -618,10 +618,10 @@
     "customiseByActivity": "アクティビティタイプ別にカスタマイズ",
     "customiseMetrics": "ダッシュボード指標をカスタマイズ",
     "dark": "ダーク",
+    "dashboardMetrics": "ダッシュボード指標",
     "dataCache": "データキャッシュ",
     "dataSources": "データソース",
     "dataSourcesDescription": "アクティビティとウェルネスデータはintervals.icuから同期されます。intervals.icuは様々なフィットネスプラットフォームやデバイスと統合しています。",
-    "dashboardMetrics": "ダッシュボード指標",
     "database": "データベース",
     "dateRange": "日付範囲",
     "default": "デフォルト",
@@ -635,6 +635,7 @@
     "enableRouteMatching": "ルートマッチングを有効化",
     "expandCache": "Load more",
     "gpsTraces": "アクティビティトラック",
+    "heroMetric": "メイン指標",
     "hideDemoBanner": "デモバナーを非表示",
     "hideDemoBannerHint": "スクリーンショット用にバナーを非表示",
     "language": "言語",
@@ -645,6 +646,7 @@
     "lastSynced": "最終同期",
     "light": "ライト",
     "maps": "マップ",
+    "maxMetricsHint": "最大4つの指標",
     "metricsHint": "指標のオン/オフを切り替え、矢印で並べ替えます。有効な指標のみがダッシュボードヘッダーに表示されます。",
     "noData": "データなし",
     "notCached": "Not cached",
@@ -661,10 +663,13 @@
     "routesCount": "ルート",
     "satellite": "衛星",
     "sectionsCount": "セクション",
+    "showSparkline": "スパークライン表示",
     "signedInToIntervals": "intervals.icuにログイン中",
     "sponsorDev": "開発者を支援",
     "subscribe": "購読",
+    "summaryCard": "サマリーカード",
     "support": "サポート",
+    "supportingMetrics": "サポート指標",
     "syncAllHistory": "全履歴を同期",
     "syncAllHistoryDescription": "最大10年分のアクティビティデータをバックグラウンドで同期します。より深いルート分析と比較が可能になります。",
     "syncInProgress": "現在の同期が完了するまでお待ちください。",
@@ -701,6 +706,8 @@
     "current": "現在",
     "daysCount": "{{count}}日",
     "decouplingExplanation": "デカップリングは心臓ドリフトを測定します - 持続的な運動中にパワー出力に対して心拍数がどれだけ上昇するかです。低いほど良く、効率的な有酸素エネルギー生成を示します。",
+    "distanceHalf": "Half",
+    "distanceMile": "Mile",
     "efficiency": "効率",
     "estimatedFtp": "推定FTP",
     "firstHalf": "前半",
@@ -752,9 +759,7 @@
     "vsPrevious6Months": "vs 前6ヶ月",
     "week": "週",
     "workoutLibrary": "ワークアウトライブラリ",
-    "year": "年",
-    "distanceHalf": "Half",
-    "distanceMile": "Mile"
+    "year": "年"
   },
   "statsScreen": {
     "days42": "42日",
@@ -766,12 +771,12 @@
     "months6": "6ヶ月",
     "pace": "ペース",
     "paceCurve": "ペースカーブ",
-    "powerCurve": "パワーカーブ",
-    "title": "パフォーマンス",
-    "year1": "1年",
     "paceCurveInfo": "CS (critical speed) and D' are calculated using the 2 parameter model. Intervals.icu uses your best 1k, 2k, 3k, 4k and 5k times keeping those that take between 2 and 15+ minutes.",
+    "powerCurve": "パワーカーブ",
     "powerCurveInfo": "Estimated FTP is calculated using power curves from FastFitness.Tips and Morton's 3 parameter critical power model. The algorithm requires just 1 max effort of between 180 seconds and 30 minutes. W' is relative to eFTP.",
-    "ref": "Ref"
+    "ref": "Ref",
+    "title": "パフォーマンス",
+    "year1": "1年"
   },
   "time": {
     "current": "現在",
@@ -819,7 +824,9 @@
     "watts": "W"
   },
   "wellness": {
+    "auto": "Auto",
     "connectHint": "ウェアラブルを接続するか、Intervals.icuでウェルネスデータを記録してください",
+    "dayAverage": "{{count}}-day average",
     "dragToExplore": "ドラッグして探索",
     "hrs": "時間",
     "insightExtraRecovery": "今日は追加の回復を検討してください",
@@ -828,6 +835,8 @@
     "lastDays": "過去{{count}}日",
     "noData": "ウェルネスデータがありません",
     "noTrendData": "トレンドデータがありません",
+    "none": "None",
+    "rawData": "Raw data",
     "restingHR": "安静時心拍",
     "sleep": "睡眠",
     "sleepScore": "睡眠スコア",
@@ -835,11 +844,7 @@
     "smoothingHint": "自動は選択した期間に最適な平滑化を使用します",
     "smoothingTitle": "データ平滑化",
     "trendHint": "データが記録されると、HRV、睡眠、安静時心拍のトレンドがここに表示されます",
-    "weight": "体重",
-    "auto": "Auto",
-    "dayAverage": "{{count}}-day average",
-    "none": "None",
-    "rawData": "Raw data"
+    "weight": "体重"
   },
   "wellnessScreen": {
     "title": "ウェルネス",

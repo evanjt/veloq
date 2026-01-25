@@ -134,9 +134,13 @@ export function RegionalMapView({
     }
   }, []);
 
-  // Reset retry count when style changes
+  // Reset retry count and camera applied flag when style changes or map remounts
   useEffect(() => {
     retryCountRef.current = 0;
+    // Reset camera flag when map remounts so initial position is applied again
+    if (mapKey > 0) {
+      initialCameraAppliedRef.current = false;
+    }
   }, [mapStyle, mapKey]);
 
   // Get route signatures from Rust engine for trace rendering
@@ -209,6 +213,8 @@ export function RegionalMapView({
     center: [number, number];
     zoomLevel: number;
   } | null>(null);
+  // Track if initial camera position has been applied (prevents Android re-centering bug)
+  const initialCameraAppliedRef = useRef(false);
 
   // ===========================================
   // GESTURE TRACKING - For compass updates
@@ -325,6 +331,26 @@ export function RegionalMapView({
     }
   }, [currentCenter, mapCenter, mapZoom]);
 
+  // ANDROID FIX: Compute initial camera settings only once to prevent re-centering on re-renders
+  // MapLibre on Android may reapply defaultSettings when props change, causing unwanted camera jumps
+  // We track this in a ref so it persists across renders but doesn't cause re-renders
+  const initialCameraSettings = useMemo(() => {
+    // Already applied - return undefined to prevent re-centering
+    if (initialCameraAppliedRef.current) {
+      return undefined;
+    }
+    // Not ready yet - return undefined and wait
+    if (!mapCenter) {
+      return undefined;
+    }
+    // First time with valid center - mark as applied and return settings
+    initialCameraAppliedRef.current = true;
+    return {
+      centerCoordinate: mapCenter,
+      zoomLevel: mapZoom,
+    };
+  }, [mapCenter, mapZoom]);
+
   // Extract handlers to separate hook
   const {
     handleMarkerTap,
@@ -362,6 +388,7 @@ export function RegionalMapView({
     showRoutes,
     setShowRoutes,
     setSelectedRoute,
+    userLocation,
     setUserLocation,
     setVisibleActivityIds,
     setCurrentZoom,
@@ -1085,17 +1112,13 @@ export function RegionalMapView({
         >
           {/* Camera with ref for programmatic control */}
           {/* Uses center biased toward recent activities (longitude from recent, latitude from all) */}
+          {/* ANDROID FIX: Only pass defaultSettings once to prevent re-centering on re-renders */}
+          {/* CRITICAL: followUserLocation must be explicitly false to prevent auto-centering */}
           <Camera
             ref={cameraRef}
-            defaultSettings={
-              mapCenter
-                ? {
-                    centerCoordinate: mapCenter,
-                    zoomLevel: mapZoom,
-                  }
-                : undefined
-            }
+            defaultSettings={initialCameraSettings}
             animationDuration={0}
+            followUserLocation={false}
           />
 
           {/* Activity markers - visual only, taps handled by ShapeSource rendered later */}

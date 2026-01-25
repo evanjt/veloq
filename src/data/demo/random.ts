@@ -118,11 +118,12 @@ export function formatLocalISOString(date: Date): string {
 }
 
 /**
- * Generate date-based activity ID
- * Format: demo-YYYY-MM-DD-N where N is index for that day
+ * Generate deterministic activity ID
+ * Format: demo-YYYY-MM-DD-N where N is a per-day index
+ * This ensures stable IDs for testing and deep links
  */
-export function generateActivityId(dateStr: string, indexOnDay: number): string {
-  return `demo-${dateStr}-${indexOnDay}`;
+export function generateActivityId(dateStr: string, dayIndex: number): string {
+  return `demo-${dateStr}-${dayIndex}`;
 }
 
 /**

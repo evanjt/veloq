@@ -6,6 +6,7 @@ import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const STORAGE_KEY = 'dashboard_preferences';
+const SUMMARY_CARD_STORAGE_KEY = 'dashboard_summary_card';
 
 // Available metric types
 export type MetricId =
@@ -47,6 +48,19 @@ export interface MetricPreference {
   order: number;
 }
 
+// Summary card preferences
+export interface SummaryCardPreferences {
+  heroMetric: MetricId;
+  showSparkline: boolean;
+  supportingMetrics: MetricId[];
+}
+
+const DEFAULT_SUMMARY_CARD: SummaryCardPreferences = {
+  heroMetric: 'form',
+  showSparkline: true,
+  supportingMetrics: ['fitness', 'ftp', 'weekHours', 'weekCount'],
+};
+
 // Default metrics by sport
 const DEFAULT_METRICS_BY_SPORT: Record<string, MetricId[]> = {
   Cycling: ['fitness', 'form', 'ftp', 'weekHours'],
@@ -66,6 +80,7 @@ function createDefaultPreferences(enabledIds: MetricId[]): MetricPreference[] {
 
 interface DashboardPreferencesState {
   metrics: MetricPreference[];
+  summaryCard: SummaryCardPreferences;
   isInitialized: boolean;
 
   // Actions
@@ -73,10 +88,12 @@ interface DashboardPreferencesState {
   reorderMetrics: (fromIndex: number, toIndex: number) => void;
   resetToDefaults: (sport: string) => void;
   getEnabledMetrics: () => MetricPreference[];
+  setSummaryCardPreferences: (prefs: Partial<SummaryCardPreferences>) => void;
 }
 
 export const useDashboardPreferences = create<DashboardPreferencesState>((set, get) => ({
   metrics: createDefaultPreferences(DEFAULT_METRICS_BY_SPORT.Cycling),
+  summaryCard: DEFAULT_SUMMARY_CARD,
   isInitialized: false,
 
   setMetricEnabled: (id, enabled) => {
@@ -125,6 +142,15 @@ export const useDashboardPreferences = create<DashboardPreferencesState>((set, g
       .metrics.filter((m) => m.enabled)
       .sort((a, b) => a.order - b.order);
   },
+
+  setSummaryCardPreferences: (prefs) => {
+    set((state) => {
+      const newSummaryCard = { ...state.summaryCard, ...prefs };
+      // Persist
+      persistSummaryCard(newSummaryCard);
+      return { summaryCard: newSummaryCard };
+    });
+  },
 }));
 
 // Persistence helpers
@@ -138,27 +164,50 @@ async function persistPreferences(metrics: MetricPreference[]): Promise<void> {
   }
 }
 
+async function persistSummaryCard(summaryCard: SummaryCardPreferences): Promise<void> {
+  try {
+    await AsyncStorage.setItem(SUMMARY_CARD_STORAGE_KEY, JSON.stringify(summaryCard));
+  } catch (error) {
+    if (__DEV__) {
+      console.warn('[DashboardPreferences] Failed to persist summary card:', error);
+    }
+  }
+}
+
 export async function initializeDashboardPreferences(
   primarySport: string = 'Cycling'
 ): Promise<void> {
   try {
-    const stored = await AsyncStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      const metrics = JSON.parse(stored) as MetricPreference[];
-      useDashboardPreferences.setState({ metrics, isInitialized: true });
+    const [storedMetrics, storedSummaryCard] = await Promise.all([
+      AsyncStorage.getItem(STORAGE_KEY),
+      AsyncStorage.getItem(SUMMARY_CARD_STORAGE_KEY),
+    ]);
+
+    let metrics: MetricPreference[];
+    if (storedMetrics) {
+      metrics = JSON.parse(storedMetrics) as MetricPreference[];
     } else {
       // No stored preferences - use sport-specific defaults
       const defaultIds = DEFAULT_METRICS_BY_SPORT[primarySport] || DEFAULT_METRICS_BY_SPORT.Other;
-      const metrics = createDefaultPreferences(defaultIds);
-      useDashboardPreferences.setState({ metrics, isInitialized: true });
+      metrics = createDefaultPreferences(defaultIds);
     }
+
+    const summaryCard: SummaryCardPreferences = storedSummaryCard
+      ? JSON.parse(storedSummaryCard)
+      : DEFAULT_SUMMARY_CARD;
+
+    useDashboardPreferences.setState({ metrics, summaryCard, isInitialized: true });
   } catch (error) {
     if (__DEV__) {
       console.warn('[DashboardPreferences] Failed to initialize:', error);
     }
     // Fall back to cycling defaults
     const metrics = createDefaultPreferences(DEFAULT_METRICS_BY_SPORT.Cycling);
-    useDashboardPreferences.setState({ metrics, isInitialized: true });
+    useDashboardPreferences.setState({
+      metrics,
+      summaryCard: DEFAULT_SUMMARY_CARD,
+      isInitialized: true,
+    });
   }
 }
 

@@ -21,10 +21,10 @@
   "activity": {
     "activityStats": "Statystyki aktywnosci",
     "avg": "sr.",
-    "chartHint": "Przytrzymaj, aby przewijać • Przytrzymaj chip, aby zmienić oś",
     "cadence": "Kadencja",
     "cal": "KAL",
     "calories": "Kalorie",
+    "chartHint": "Przytrzymaj, aby przewijać • Przytrzymaj chip, aby zmienić oś",
     "conditions": {
       "cold": "Cold",
       "hot": "Hot"
@@ -178,18 +178,18 @@
     "syncingActivities": "Synchronizacja aktywnosci"
   },
   "chartTypes": {
+    "alt": "Alt",
     "cad": "Kad",
+    "dist": "Dist",
+    "elapsedTime": "Elapsed Time",
     "elev": "Wys",
     "hr": "Tętno",
+    "movingTime": "Moving Time",
     "pace": "Tempo",
     "power": "Moc",
     "speed": "Pręd",
-    "dist": "Dist",
-    "alt": "Alt",
     "temp": "Temp",
-    "watts": "Watts",
-    "movingTime": "Moving Time",
-    "elapsedTime": "Elapsed Time"
+    "watts": "Watts"
   },
   "common": {
     "activities": "activities",
@@ -419,9 +419,9 @@
     "closeSectionPopup": "Zamknij popup sekcji",
     "disable3D": "Wylacz widok 3D",
     "enable3D": "Wlacz widok 3D",
-    "goToLocation": "Idz do mojej lokalizacji",
     "fitAll": "Fit all activities",
     "fitAllHint": "Long press to fit all activities",
+    "goToLocation": "Idz do mojej lokalizacji",
     "hideActivities": "Ukryj aktywności",
     "hideRoutes": "Ukryj trasy",
     "loadingRoute": "Wczytywanie trasy...",
@@ -528,6 +528,7 @@
     "partial": "Czesciowy",
     "pointCountHint": "{{count}} punktów GPS",
     "potentialSectionDescription": "Przejechałeś tę trasę {{sport}} {{count}} razy. Utworzyć odcinek, aby śledzić swoje wyniki?",
+    "pr": "PR",
     "readyToProcess": "Gotowe do przetworzenia",
     "reverse": "Odwrotny",
     "routeNamePlaceholder": "Nazwa trasy",
@@ -555,8 +556,7 @@
     "thisPace": "To tempo",
     "thisSpeed": "Ta predkosc",
     "visits": "wizyty",
-    "waiting": "Oczekiwanie...",
-    "pr": "PR"
+    "waiting": "Oczekiwanie..."
   },
   "routesScreen": {
     "analysingRoutes": "Analiza tras {{current}}/{{total}}",
@@ -618,11 +618,11 @@
     "customiseByActivity": "Dostosuj wedlug typu aktywnosci",
     "customiseMetrics": "Dostosuj metryki pulpitu",
     "dark": "Ciemny",
+    "dashboardMetrics": "Metryki pulpitu",
     "dataCache": "Pamiec podreczna danych",
     "dataSources": "Zrodla danych",
     "dataSourcesDescription": "Dane aktywnosci i zdrowia sa synchronizowane z intervals.icu, ktory integruje sie z roznymi platformami fitness i urzadzeniami.",
     "database": "Baza danych",
-    "dashboardMetrics": "Metryki pulpitu",
     "dateRange": "Zakres dat",
     "default": "Domyslny",
     "defaultMapHint": "'Domyslny' uzywa stylu mapy ustawionego powyzej",
@@ -635,6 +635,7 @@
     "enableRouteMatching": "Wlacz dopasowywanie tras",
     "expandCache": "Load more",
     "gpsTraces": "Ślady aktywności",
+    "heroMetric": "Główna Metryka",
     "hideDemoBanner": "Ukryj baner demo",
     "hideDemoBannerHint": "Ukryj baner dla zrzutow ekranu",
     "language": "Jezyk",
@@ -645,6 +646,7 @@
     "lastSynced": "Ostatnia synchronizacja",
     "light": "Jasny",
     "maps": "Mapy",
+    "maxMetricsHint": "Maksymalnie 4 metryki",
     "metricsHint": "Włączaj/wyłączaj metryki i zmieniaj ich kolejność strzałkami. Tylko włączone metryki są wyświetlane w nagłówku pulpitu.",
     "noData": "Brak danych",
     "notCached": "Not cached",
@@ -661,10 +663,13 @@
     "routesCount": "Trasy",
     "satellite": "Satelita",
     "sectionsCount": "Sekcje",
+    "showSparkline": "Pokaż Sparkline",
     "signedInToIntervals": "Zalogowano do intervals.icu",
     "sponsorDev": "Wesprzyj dewelopera",
     "subscribe": "Subskrybuj",
+    "summaryCard": "Karta Podsumowania",
     "support": "Wsparcie",
+    "supportingMetrics": "Metryki Pomocnicze",
     "syncAllHistory": "Synchronizuj cala historie",
     "syncAllHistoryDescription": "Zsynchronizuje do 10 lat danych aktywnosci w tle. Umozliwia glębsza analize tras i porownania.",
     "syncInProgress": "Poczekaj na zakonczenie biezacej synchronizacji.",
@@ -701,6 +706,8 @@
     "current": "Bieżący",
     "daysCount": "{{count}} dni",
     "decouplingExplanation": "Rozsprzezenie mierzy dryf sercowy - jak bardzo tetno wzrasta wzgledem mocy podczas dlugotrwalych wysikow. Nizsze jest lepsze, wskazujac na wydajna produkcje energii tlenowej.",
+    "distanceHalf": "Half",
+    "distanceMile": "Mile",
     "efficiency": "Wydajnosc",
     "estimatedFtp": "Szacowane FTP",
     "firstHalf": "Pierwsza polowa",
@@ -752,9 +759,7 @@
     "vsPrevious6Months": "vs poprzednie 6 miesiecy",
     "week": "Tydzien",
     "workoutLibrary": "Biblioteka treningow",
-    "year": "Rok",
-    "distanceHalf": "Half",
-    "distanceMile": "Mile"
+    "year": "Rok"
   },
   "statsScreen": {
     "days42": "42 dni",
@@ -766,12 +771,12 @@
     "months6": "6 miesiecy",
     "pace": "Tempo",
     "paceCurve": "Krzywa tempa",
-    "powerCurve": "Krzywa mocy",
-    "title": "Wyniki",
-    "year1": "1 rok",
     "paceCurveInfo": "CS (critical speed) and D' are calculated using the 2 parameter model. Intervals.icu uses your best 1k, 2k, 3k, 4k and 5k times keeping those that take between 2 and 15+ minutes.",
+    "powerCurve": "Krzywa mocy",
     "powerCurveInfo": "Estimated FTP is calculated using power curves from FastFitness.Tips and Morton's 3 parameter critical power model. The algorithm requires just 1 max effort of between 180 seconds and 30 minutes. W' is relative to eFTP.",
-    "ref": "Ref"
+    "ref": "Ref",
+    "title": "Wyniki",
+    "year1": "1 rok"
   },
   "time": {
     "current": "Biezacy",
@@ -819,7 +824,9 @@
     "watts": "W"
   },
   "wellness": {
+    "auto": "Auto",
     "connectHint": "Polacz urzadzenie noszone lub rejestruj dane zdrowia w Intervals.icu",
+    "dayAverage": "{{count}}-day average",
     "dragToExplore": "Przeciagnij, aby eksplorować",
     "hrs": "godz.",
     "insightExtraRecovery": "Rozważ dodatkowa regeneracje dzisiaj",
@@ -828,6 +835,8 @@
     "lastDays": "Ostatnie {{count}} dni",
     "noData": "Brak dostepnych danych zdrowia",
     "noTrendData": "Brak dostepnych danych trendow",
+    "none": "None",
+    "rawData": "Raw data",
     "restingHR": "Tetno spoczynkowe",
     "sleep": "Sen",
     "sleepScore": "Wynik snu",
@@ -835,11 +844,7 @@
     "smoothingHint": "Auto uzywa optymalnego wygladzania dla wybranego zakresu czasowego",
     "smoothingTitle": "Wygladzanie danych",
     "trendHint": "Trendy HRV, snu i tetna spoczynkowego pojawia sie tutaj po zalogowaniu danych",
-    "weight": "Waga",
-    "auto": "Auto",
-    "dayAverage": "{{count}}-day average",
-    "none": "None",
-    "rawData": "Raw data"
+    "weight": "Waga"
   },
   "wellnessScreen": {
     "title": "Zdrowie",
