@@ -8,6 +8,7 @@ import { calculateTSB, getFormZone } from '@/lib/algorithms/fitness';
 import { sortByDateId } from '@/lib/utils/activityUtils';
 import { demoWellness } from '@/data/demo/wellness';
 import { fixtures, getActivityStreams, type ApiActivity } from '@/data/demo/fixtures';
+import { DEMO_REFERENCE_DATE } from '@/data/demo/random';
 import type { WellnessData } from '@/types';
 
 // Use fixture-based activities (the primary demo data source)
@@ -299,6 +300,107 @@ describe('Demo Data Integration Tests', () => {
           expect(hr).toBeGreaterThanOrEqual(60);
           expect(hr).toBeLessThanOrEqual(200);
         });
+      });
+    });
+  });
+
+  describe('Deterministic Data Generation', () => {
+    it('activity IDs use deterministic date-based format', () => {
+      // All IDs should match format: demo-YYYY-MM-DD-N
+      const idPattern = /^demo-\d{4}-\d{2}-\d{2}-\d+$/;
+
+      demoActivities.forEach((activity: ApiActivity) => {
+        expect(activity.id).toMatch(idPattern);
+      });
+    });
+
+    it('has activities near reference date', () => {
+      // Find activities in January 2026 (near reference date)
+      const januaryActivities = demoActivities.filter((a: ApiActivity) =>
+        a.id.startsWith('demo-2026-01-')
+      );
+
+      // Should have at least a few activities in January 2026
+      expect(januaryActivities.length).toBeGreaterThan(5);
+
+      // All should have valid date-based IDs
+      januaryActivities.forEach((a: ApiActivity) => {
+        expect(a.id).toMatch(/^demo-2026-01-\d{2}-\d+$/);
+      });
+    });
+
+    it('activity IDs are unique', () => {
+      const ids = demoActivities.map((a: ApiActivity) => a.id);
+      const uniqueIds = new Set(ids);
+
+      expect(uniqueIds.size).toBe(ids.length);
+    });
+
+    it('activity dates align with IDs', () => {
+      demoActivities.forEach((activity: ApiActivity) => {
+        // Extract date from ID: demo-YYYY-MM-DD-N → YYYY-MM-DD
+        const idDate = activity.id.replace(/^demo-/, '').replace(/-\d+$/, '');
+        const activityDate = activity.start_date_local.split('T')[0];
+
+        expect(idDate).toBe(activityDate);
+      });
+    });
+
+    it('wellness data uses reference date range', () => {
+      // Wellness should end at or near reference date
+      const lastWellnessDate = demoWellness[demoWellness.length - 1].id;
+      expect(lastWellnessDate).toBe(DEMO_REFERENCE_DATE);
+    });
+
+    it('streams are reproducible for the same activity', () => {
+      // Use the first activity (guaranteed to exist)
+      const activity = demoActivities[0];
+      expect(activity).toBeDefined();
+      if (!activity) return;
+
+      // Generate streams twice
+      const streams1 = getActivityStreams(activity.id);
+      const streams2 = getActivityStreams(activity.id);
+
+      expect(streams1).not.toBeNull();
+      expect(streams2).not.toBeNull();
+      if (!streams1 || !streams2) return;
+
+      // Time stream should be identical
+      expect(streams1.time).toEqual(streams2.time);
+
+      // Heart rate stream should be identical
+      expect(streams1.heartrate).toEqual(streams2.heartrate);
+
+      // Distance stream should be identical
+      expect(streams1.distance).toEqual(streams2.distance);
+    });
+
+    it('activities for the same date have sequential indices', () => {
+      // Group activities by date
+      const byDate = new Map<string, string[]>();
+      demoActivities.forEach((a: ApiActivity) => {
+        const date = a.start_date_local.split('T')[0];
+        if (!byDate.has(date)) {
+          byDate.set(date, []);
+        }
+        byDate.get(date)!.push(a.id);
+      });
+
+      // For each date with multiple activities, indices should be sequential
+      byDate.forEach((ids, _date) => {
+        if (ids.length > 1) {
+          const indices = ids.map((id) => {
+            const match = id.match(/-(\d+)$/);
+            return match ? parseInt(match[1], 10) : -1;
+          });
+          indices.sort((a, b) => a - b);
+
+          // Should be 0, 1, 2, ... (sequential)
+          indices.forEach((idx, i) => {
+            expect(idx).toBe(i);
+          });
+        }
       });
     });
   });

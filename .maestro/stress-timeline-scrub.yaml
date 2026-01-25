@@ -1,0 +1,52 @@
+# Stress Test: Timeline Scrubbing
+# Rapidly interacts with the timeline slider on map screen
+# Tests for race conditions in date filtering and map updates
+
+appId: com.veloq.app
+---
+- launchApp
+
+- extendedWaitUntil:
+    visible:
+      id: "login-screen"
+    timeout: 30000
+
+- tapOn:
+    id: "login-demo-button"
+
+- extendedWaitUntil:
+    visible:
+      id: "home-screen"
+    timeout: 15000
+
+# Navigate to map screen
+- openLink: "veloq://map"
+
+- extendedWaitUntil:
+    visible:
+      id: "map-screen"
+    timeout: 15000
+
+# Wait for timeline slider to be ready
+- extendedWaitUntil:
+    visible:
+      id: "timeline-slider"
+    timeout: 15000
+
+# Tap on timeline slider area repeatedly (simulates scrubbing)
+# Note: Maestro can't do true drag gestures easily, so we tap repeatedly
+- repeat:
+    times: 20
+    commands:
+      - tapOn:
+          id: "timeline-slider"
+          optional: true
+
+# Verify map screen is still responsive
+- assertVisible:
+    id: "map-screen"
+
+- assertVisible:
+    id: "timeline-slider"
+
+- takeScreenshot: "stress-timeline-scrub-complete"

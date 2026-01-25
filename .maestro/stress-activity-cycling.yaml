@@ -1,0 +1,80 @@
+# Stress Test: Activity Cycling
+# Rapidly cycles through different demo activities to test loading and rendering
+# Tests for memory leaks and race conditions in activity detail loading
+
+appId: com.veloq.app
+---
+- launchApp
+
+- extendedWaitUntil:
+    visible:
+      id: "login-screen"
+    timeout: 30000
+
+- tapOn:
+    id: "login-demo-button"
+
+- extendedWaitUntil:
+    visible:
+      id: "home-screen"
+    timeout: 15000
+
+# Cycle through demo activities rapidly (demo-0 through demo-9)
+- repeat:
+    times: 3
+    commands:
+      - openLink: "veloq://activity/demo-0"
+      - extendedWaitUntil:
+          visible:
+            id: "activity-detail-content"
+          timeout: 5000
+          optional: true
+
+      - openLink: "veloq://activity/demo-1"
+      - extendedWaitUntil:
+          visible:
+            id: "activity-detail-content"
+          timeout: 5000
+          optional: true
+
+      - openLink: "veloq://activity/demo-2"
+      - extendedWaitUntil:
+          visible:
+            id: "activity-detail-content"
+          timeout: 5000
+          optional: true
+
+      - openLink: "veloq://activity/demo-3"
+      - extendedWaitUntil:
+          visible:
+            id: "activity-detail-content"
+          timeout: 5000
+          optional: true
+
+      - openLink: "veloq://activity/demo-4"
+      - extendedWaitUntil:
+          visible:
+            id: "activity-detail-content"
+          timeout: 5000
+          optional: true
+
+# Very rapid switching (no waiting)
+- repeat:
+    times: 5
+    commands:
+      - openLink: "veloq://activity/demo-0"
+      - openLink: "veloq://activity/demo-1"
+      - openLink: "veloq://activity/demo-2"
+
+# Return to home and verify app is still responsive
+- openLink: "veloq://"
+
+- extendedWaitUntil:
+    visible:
+      id: "home-screen"
+    timeout: 10000
+
+- assertVisible:
+    id: "home-activity-list"
+
+- takeScreenshot: "stress-activity-cycling-complete"

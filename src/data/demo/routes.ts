@@ -8,6 +8,7 @@
 
 import realRoutesData from './realRoutes.json';
 import { getBoundsFromPoints } from '@/lib';
+import { createDateSeededRandom } from './random';
 
 export interface DemoRoute {
   id: string;
@@ -67,8 +68,15 @@ export function getRouteBounds(coords: [number, number][]): [[number, number], [
 
 /**
  * Map activity template to a route
+ * @param activityType - Activity type (e.g., 'Ride', 'Run')
+ * @param distance - Expected distance in meters
+ * @param dateStr - Optional date string for deterministic selection
  */
-export function getRouteForActivity(activityType: string, distance: number): DemoRoute | null {
+export function getRouteForActivity(
+  activityType: string,
+  distance: number,
+  dateStr?: string
+): DemoRoute | null {
   // Determine which route types match this activity
   const matchingTypes: DemoRoute['type'][] = [];
   if (activityType === 'VirtualRide') {
@@ -103,7 +111,13 @@ export function getRouteForActivity(activityType: string, distance: number): Dem
     return demoRoutes.find((r) => matchingTypes.includes(r.type)) || null;
   }
 
-  return routes[Math.floor(Math.random() * routes.length)];
+  // Use deterministic selection if date provided, otherwise first match
+  if (dateStr) {
+    const routeRandom = createDateSeededRandom(dateStr + '-route');
+    return routes[Math.floor(routeRandom() * routes.length)];
+  }
+
+  return routes[0];
 }
 
 /**

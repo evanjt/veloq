@@ -40,7 +40,7 @@ export function RoutePopup({ route, bottom, onClose, onViewDetails }: RoutePopup
   }, [route.id, route.name]);
 
   return (
-    <View style={[styles.popup, { bottom }]}>
+    <View testID="route-popup" style={[styles.popup, { bottom }]}>
       <View style={styles.popupHeader}>
         <View style={styles.popupInfo}>
           <Text style={styles.popupTitle} numberOfLines={1}>

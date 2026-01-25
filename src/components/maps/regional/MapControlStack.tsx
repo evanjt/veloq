@@ -89,6 +89,7 @@ export function MapControlStack({
     <View style={[styles.controlStack, { top }]}>
       {/* 3D Toggle - only active when activity with route is selected */}
       <TouchableOpacity
+        testID="map-toggle-3d"
         style={[
           styles.controlButton,
           isDark && styles.controlButtonDark,
@@ -121,6 +122,7 @@ export function MapControlStack({
 
       {/* North Arrow - tap to reset orientation */}
       <TouchableOpacity
+        testID="map-compass"
         style={[styles.controlButton, isDark && styles.controlButtonDark]}
         onPress={onResetOrientation}
         activeOpacity={0.8}
@@ -137,6 +139,7 @@ export function MapControlStack({
 
       {/* Location button */}
       <TouchableOpacity
+        testID="map-location"
         style={[
           styles.controlButton,
           isDark && styles.controlButtonDark,
@@ -163,6 +166,7 @@ export function MapControlStack({
       {/* Heatmap toggle - only shown when heatmap data is available */}
       {heatmap && heatmap.cells.length > 0 && (
         <TouchableOpacity
+          testID="map-toggle-heatmap"
           style={[
             styles.controlButton,
             isDark && styles.controlButtonDark,
@@ -186,6 +190,7 @@ export function MapControlStack({
       {/* Activities toggle - only shown when activities exist and not in heatmap mode */}
       {activityCount > 0 && !isHeatmapMode && (
         <TouchableOpacity
+          testID="map-toggle-activities"
           style={[
             styles.controlButton,
             isDark && styles.controlButtonDark,
@@ -209,6 +214,7 @@ export function MapControlStack({
       {/* Sections toggle - only shown when sections exist and not in heatmap mode */}
       {sections.length > 0 && !isHeatmapMode && (
         <TouchableOpacity
+          testID="map-toggle-sections"
           style={[
             styles.controlButton,
             isDark && styles.controlButtonDark,
@@ -232,6 +238,7 @@ export function MapControlStack({
       {/* Routes toggle - only shown when routes exist and not in heatmap mode */}
       {routeCount > 0 && !isHeatmapMode && (
         <TouchableOpacity
+          testID="map-toggle-routes"
           style={[
             styles.controlButton,
             isDark && styles.controlButtonDark,

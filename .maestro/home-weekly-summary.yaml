@@ -1,5 +1,6 @@
 # Weekly Summary Component Tests
-# Tests the weekly summary stats and time range toggles on home screen
+# Tests the weekly summary stats and time range toggles on TRAINING screen
+# Note: WeeklySummary is on training screen, not home screen
 
 appId: com.veloq.app
 ---
@@ -18,9 +19,19 @@ appId: com.veloq.app
       id: "home-screen"
     timeout: 15000
 
+# Navigate to training screen where WeeklySummary lives
+- openLink: "veloq://training"
+
+- extendedWaitUntil:
+    visible:
+      id: "training-screen"
+    timeout: 10000
+
 # Verify weekly summary container is visible
-- assertVisible:
-    id: "weekly-summary"
+- extendedWaitUntil:
+    visible:
+      id: "weekly-summary"
+    timeout: 10000
 
 # Switch to year view first (demo data may not have activities in current week)
 - tapOn:

@@ -30,7 +30,7 @@ appId: com.veloq.app
 - tapOn:
     id: "theme-button-dark"
 
-# Screenshot 1: Activity Feed
+# Screenshot 1: Activity Feed (wait for activity list, not weekly-summary)
 - openLink: "veloq://"
 - extendedWaitUntil:
     visible:
@@ -38,7 +38,7 @@ appId: com.veloq.app
     timeout: 10000
 - extendedWaitUntil:
     visible:
-      id: "weekly-summary"
+      id: "home-activity-list"
     timeout: 10000
 - takeScreenshot: "01-activity-feed-dark"
 
@@ -50,11 +50,15 @@ appId: com.veloq.app
     timeout: 15000
 - takeScreenshot: "02-fitness-dark"
 
-# Screenshot 3: Training Calendar
+# Screenshot 3: Training Calendar (has weekly summary)
 - openLink: "veloq://training"
 - extendedWaitUntil:
     visible:
       id: "training-screen"
+    timeout: 10000
+- extendedWaitUntil:
+    visible:
+      id: "weekly-summary"
     timeout: 10000
 - takeScreenshot: "03-training-dark"
 

@@ -31,7 +31,7 @@ export function SectionPopup({ section, bottom, onClose, onViewDetails }: Sectio
   }, [section.id, section.name, t]);
 
   return (
-    <View style={[styles.popup, { bottom }]}>
+    <View testID="section-popup" style={[styles.popup, { bottom }]}>
       <View style={styles.popupHeader}>
         <View style={styles.popupInfo}>
           <Text style={styles.popupTitle} numberOfLines={1}>

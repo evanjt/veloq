@@ -48,7 +48,9 @@ Pod::Spec.new do |s|
     }
     # -ObjC ensures the linker loads all ObjC classes, preventing Veloq from being stripped
     # as "unused" (the TurboModule is only accessed via NSClassFromString at runtime)
-    s.user_target_xcconfig = { "OTHER_LDFLAGS" => "-ObjC" }
+    # -lveloqrs_ffi explicitly links the Rust library (renamed from libveloqrs.a to avoid
+    # case-insensitive conflict with libVeloqrs.a on macOS)
+    s.user_target_xcconfig = { "OTHER_LDFLAGS" => "-ObjC -lveloqrs_ffi" }
   else
     s.dependency "React-Core"
 

@@ -19,9 +19,22 @@ appId: com.veloq.app
       id: "home-screen"
     timeout: 15000
 
-# Verify weekly summary component is present
-- assertVisible:
-    id: "weekly-summary"
+# Verify home screen activity list is present
+- extendedWaitUntil:
+    visible:
+      id: "home-activity-list"
+    timeout: 10000
+
+# Navigate to training screen to check weekly summary
+- openLink: "veloq://training"
+- extendedWaitUntil:
+    visible:
+      id: "training-screen"
+    timeout: 10000
+- extendedWaitUntil:
+    visible:
+      id: "weekly-summary"
+    timeout: 10000
 
 # Navigate to Fitness and check CTL/ATL values display
 - openLink: "veloq://fitness"

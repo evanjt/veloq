@@ -53,7 +53,8 @@ modules/veloqrs/ios/Frameworks/
 
 # UniFFI generated bindings (generated fresh in CI, not committed)
 modules/veloqrs/src/generated/
-modules/veloqrs/cpp/
+modules/veloqrs/cpp/*
+!modules/veloqrs/cpp/veloq.h
 modules/veloqrs/android/src/main/java/uniffi/
 modules/veloqrs/ios/Generated/
 modules/veloqrs/ios/cpp/
@@ -62,6 +63,7 @@ modules/veloqrs/ios/cpp/
 # - modules/veloqrs/android/CMakeLists.txt, build.gradle
 # - modules/veloqrs/android/src/main/java/com/veloq/*.kt
 # - modules/veloqrs/android/cpp-adapter.cpp
+# - modules/veloqrs/cpp/veloq.h (namespace wrapper for veloq:: -> veloqrs::)
 # - modules/veloqrs/ios/*.h, *.mm, *.podspec
 # - modules/veloqrs/src/index.ts, NativeVeloqrs.ts
 

@@ -1,0 +1,118 @@
+# Stress Test: Map View Toggle Buttons
+# Rapidly toggles activity/route/section buttons and sport filters to trigger race conditions
+# Known issue: Rapid toggling can crash iOS
+
+appId: com.veloq.app
+---
+- launchApp
+
+- extendedWaitUntil:
+    visible:
+      id: "login-screen"
+    timeout: 30000
+
+- tapOn:
+    id: "login-demo-button"
+
+- extendedWaitUntil:
+    visible:
+      id: "home-screen"
+    timeout: 15000
+
+# Navigate to map screen
+- openLink: "veloq://map"
+
+- extendedWaitUntil:
+    visible:
+      id: "map-screen"
+    timeout: 15000
+
+# Wait for map controls to load
+- extendedWaitUntil:
+    visible:
+      id: "map-toggle-activities"
+    timeout: 10000
+    optional: true
+
+# Stress test: Rapidly toggle activity layer (10 times)
+- repeat:
+    times: 10
+    commands:
+      - tapOn:
+          id: "map-toggle-activities"
+          optional: true
+
+# Stress test: Rapidly toggle route layer (10 times)
+- repeat:
+    times: 10
+    commands:
+      - tapOn:
+          id: "map-toggle-routes"
+          optional: true
+
+# Stress test: Rapidly toggle section layer (10 times)
+- repeat:
+    times: 10
+    commands:
+      - tapOn:
+          id: "map-toggle-sections"
+          optional: true
+
+# Stress test: Rapidly toggle heatmap (10 times)
+- repeat:
+    times: 10
+    commands:
+      - tapOn:
+          id: "map-toggle-heatmap"
+          optional: true
+
+# Mixed rapid toggling - most likely to trigger race conditions
+- repeat:
+    times: 5
+    commands:
+      - tapOn:
+          id: "map-toggle-activities"
+          optional: true
+      - tapOn:
+          id: "map-toggle-routes"
+          optional: true
+      - tapOn:
+          id: "map-toggle-sections"
+          optional: true
+      - tapOn:
+          id: "map-toggle-activities"
+          optional: true
+
+# Stress test sport type filters - rapid cycling through categories
+- repeat:
+    times: 5
+    commands:
+      - tapOn:
+          id: "map-filter-ride"
+          optional: true
+      - tapOn:
+          id: "map-filter-run"
+          optional: true
+      - tapOn:
+          id: "map-filter-swim"
+          optional: true
+      - tapOn:
+          id: "map-filter-walk"
+          optional: true
+      - tapOn:
+          id: "map-filter-hike"
+          optional: true
+
+# Clear all then select all rapidly
+- repeat:
+    times: 5
+    commands:
+      - tapOn:
+          id: "map-filter-clear"
+          optional: true
+
+# Verify map is still responsive after stress test
+- assertVisible:
+    id: "map-screen"
+
+- takeScreenshot: "stress-map-toggles-complete"

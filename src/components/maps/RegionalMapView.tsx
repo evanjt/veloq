@@ -1063,6 +1063,7 @@ export function RegionalMapView({
             // - Android: Use pointerEvents="none" because Pressable breaks marker positioning
             const markerContent = (
               <View
+                testID={`map-activity-marker-${activity.id}`}
                 pointerEvents={Platform.OS === 'android' ? 'none' : 'auto'}
                 style={{
                   width: markerSize,
@@ -1090,6 +1091,7 @@ export function RegionalMapView({
               >
                 {Platform.OS === 'ios' ? (
                   <Pressable
+                    testID={`map-activity-marker-tap-${activity.id}`}
                     onPress={isVisible ? () => handleMarkerTap(activity) : undefined}
                     disabled={!isVisible}
                   >
@@ -1314,6 +1316,7 @@ export function RegionalMapView({
                 allowOverlap={true}
               >
                 <View
+                  testID={`map-section-marker-${marker.id}`}
                   pointerEvents="none"
                   style={{
                     width: 32,
@@ -1350,6 +1353,7 @@ export function RegionalMapView({
                 allowOverlap={true}
               >
                 <View
+                  testID={`map-route-marker-${marker.id}`}
                   pointerEvents="none"
                   style={{
                     width: 32,

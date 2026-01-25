@@ -1,4 +1,11 @@
 import type { PowerCurve, PaceCurve } from '@/types';
+import { DEMO_REFERENCE_DATE, getDemoReferenceDate, formatDateId } from './random';
+
+// Calculate deterministic date range (42 days before reference date)
+const referenceDate = getDemoReferenceDate();
+const startDate = new Date(referenceDate);
+startDate.setDate(startDate.getDate() - 42);
+const paceCurveStartDate = formatDateId(startDate);
 
 // Realistic power curve for a ~250W FTP rider
 export const demoPowerCurve: PowerCurve = {
@@ -27,8 +34,8 @@ export const demoPaceCurve: PaceCurve = {
   criticalSpeed: 3.45, // ~4:50/km
   dPrime: 200,
   r2: 0.98,
-  startDate: new Date(Date.now() - 42 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-  endDate: new Date().toISOString().split('T')[0],
+  startDate: paceCurveStartDate,
+  endDate: DEMO_REFERENCE_DATE,
   days: 42,
 };
 

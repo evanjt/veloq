@@ -18,15 +18,17 @@ appId: com.veloq.app
       id: "home-screen"
     timeout: 15000
 
-# Wait for activity list to load
+# Wait for activity list to load (home screen has activity-list, not weekly-summary)
 - extendedWaitUntil:
     visible:
-      id: "weekly-summary"
+      id: "home-activity-list"
     timeout: 10000
 
-# Verify first activity card is tappable
-- assertVisible:
-    id: "activity-card-demo-0"
+# Verify first activity card is visible
+- extendedWaitUntil:
+    visible:
+      id: "activity-card-demo-0"
+    timeout: 10000
 
 # Verify activity card stats are displayed
 - assertVisible:

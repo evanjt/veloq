@@ -1,0 +1,57 @@
+# Stress Test: Activity Detail Section Navigation
+# Rapidly navigates in/out of sections within activity detail view
+# Tests for race conditions in section loading and map updates
+
+appId: com.veloq.app
+---
+- launchApp
+
+- extendedWaitUntil:
+    visible:
+      id: "login-screen"
+    timeout: 30000
+
+- tapOn:
+    id: "login-demo-button"
+
+- extendedWaitUntil:
+    visible:
+      id: "home-screen"
+    timeout: 15000
+
+# Navigate to activity detail
+- openLink: "veloq://activity/demo-0"
+
+- extendedWaitUntil:
+    visible:
+      id: "activity-detail-content"
+    timeout: 15000
+
+# Look for sections tab if it exists
+- tapOn:
+    text: "Sections"
+    optional: true
+
+# Wait for sections to potentially load
+- extendedWaitUntil:
+    visible:
+      id: "activity-sections-list"
+    timeout: 10000
+    optional: true
+
+# Try to tap first section row multiple times rapidly
+- repeat:
+    times: 5
+    commands:
+      - tapOn:
+          id: "section-row-0"
+          optional: true
+      - tapOn:
+          id: "section-back-button"
+          optional: true
+
+# Verify we're still on activity detail and not crashed
+- assertVisible:
+    id: "activity-detail-screen"
+
+- takeScreenshot: "stress-activity-sections-complete"

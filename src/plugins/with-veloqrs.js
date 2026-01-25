@@ -126,107 +126,140 @@ function buildAndroidFromSource() {
   console.log(`  Android ready: ${gitHash}${dirty}`);
 }
 
+
 /**
- * Build iOS framework from source.
+ * Remove auto-generated iOS files that conflict with our handwritten ones.
+ * ubrn generates Veloqrs.h/Veloqrs.mm based on crate name, but we use
+ * handwritten Veloq.h/Veloq.mm based on turboModule name.
  */
-function buildIOSFromSource() {
-  console.log("  Building iOS framework from source...");
-  const frameworksDir = path.join(MODULE_DIR, "ios/Frameworks");
+function cleanupIOSGeneratedConflicts() {
+  const conflictingFiles = [
+    path.join(MODULE_DIR, "ios/Veloqrs.h"),
+    path.join(MODULE_DIR, "ios/Veloqrs.mm"),
+  ];
 
-  const targets = ["aarch64-apple-ios", "aarch64-apple-ios-sim", "x86_64-apple-ios"];
-
-  for (const target of targets) {
-    console.log(`    Building for ${target}...`);
-    execSync(`cargo build --target ${target} --release -p veloqrs`, {
-      cwd: RUST_DIR,
-      stdio: "inherit",
-    });
+  for (const file of conflictingFiles) {
+    if (existsSync(file)) {
+      console.log(`  Removing conflicting generated file: ${path.basename(file)}`);
+      fs.unlinkSync(file);
+    }
   }
-
-  // Create XCFramework using xcodebuild
-  mkdirSync(frameworksDir, { recursive: true });
-  const xcframeworkPath = path.join(frameworksDir, "VeloqrsFFI.xcframework");
-  const targetDir = path.join(RUST_DIR, "target");
-
-  // Remove existing xcframework
-  if (existsSync(xcframeworkPath)) {
-    fs.rmSync(xcframeworkPath, { recursive: true, force: true });
-  }
-
-  console.log("    Creating XCFramework...");
-  execSync(
-    `xcodebuild -create-xcframework \
-      -library ${targetDir}/aarch64-apple-ios/release/libveloqrs.a \
-      -library ${targetDir}/aarch64-apple-ios-sim/release/libveloqrs.a \
-      -output "${xcframeworkPath}"`,
-    { stdio: "inherit" }
-  );
-
-  console.log("  iOS build complete");
 }
 
 /**
- * Generate TypeScript/C++ bindings using uniffi-bindgen-react-native.
- * Uses the build command with --and-generate which properly generates all bindings.
+ * Move XCFramework to the location expected by the podspec.
+ * ubrn puts it at module root, podspec expects it in ios/Frameworks/.
  */
-function generateBindings() {
-  console.log("  Generating bindings with uniffi-bindgen-react-native...");
+function moveIOSXCFramework() {
+  const srcPath = path.join(MODULE_DIR, "VeloqrsFFI.xcframework");
+  const destDir = path.join(MODULE_DIR, "ios/Frameworks");
+  const destPath = path.join(destDir, "VeloqrsFFI.xcframework");
 
-  // The library file must exist for binding generation
-  const libPath = path.join(MODULE_DIR, "android/src/main/jniLibs/arm64-v8a/libveloqrs.so");
-
-  if (!existsSync(libPath)) {
-    console.log("  Warning: Library not found, skipping bindings generation");
+  if (!existsSync(srcPath)) {
+    console.log("  Warning: XCFramework not found at module root");
     return;
   }
 
-  // Use the build command with --and-generate to generate all bindings correctly
-  // This generates both C++ (cpp/generated/) and TypeScript (src/generated/) bindings
-  execSync(
-    `npx uniffi-bindgen-react-native build android --release --and-generate --targets arm64-v8a`,
-    { cwd: MODULE_DIR, stdio: "inherit" }
-  );
+  // Remove existing if present
+  if (existsSync(destPath)) {
+    fs.rmSync(destPath, { recursive: true, force: true });
+  }
 
-  // Run the fix-includes script
-  execSync("./scripts/fix-generated.sh", { cwd: MODULE_DIR, stdio: "inherit" });
+  mkdirSync(destDir, { recursive: true });
+  fs.renameSync(srcPath, destPath);
+  console.log("  Moved XCFramework to ios/Frameworks/");
+}
 
-  console.log("  Bindings generated");
+/**
+ * Rename the library inside the XCFramework to avoid case-insensitive conflict.
+ *
+ * Problem: On macOS (case-insensitive), the linker finds libVeloqrs.a (the Pod output)
+ * when searching for -lveloqrs, instead of libveloqrs.a (the Rust library).
+ *
+ * Solution: Rename libveloqrs.a to libveloqrs_ffi.a inside the XCFramework.
+ */
+function renameXCFrameworkLibrary() {
+  const xcframeworkPath = path.join(MODULE_DIR, "ios/Frameworks/VeloqrsFFI.xcframework");
+
+  if (!existsSync(xcframeworkPath)) {
+    console.log("  Warning: XCFramework not found, skipping library rename");
+    return;
+  }
+
+  const slices = ["ios-arm64", "ios-arm64_x86_64-simulator"];
+
+  for (const slice of slices) {
+    const oldPath = path.join(xcframeworkPath, slice, "libveloqrs.a");
+    const newPath = path.join(xcframeworkPath, slice, "libveloqrs_ffi.a");
+
+    if (existsSync(oldPath) && !existsSync(newPath)) {
+      fs.renameSync(oldPath, newPath);
+      console.log(`  Renamed ${slice}/libveloqrs.a -> libveloqrs_ffi.a`);
+    }
+  }
+
+  // Update Info.plist
+  const infoPlistPath = path.join(xcframeworkPath, "Info.plist");
+  if (existsSync(infoPlistPath)) {
+    let content = readFileSync(infoPlistPath, "utf8");
+    if (content.includes("libveloqrs.a")) {
+      content = content.replace(/libveloqrs\.a/g, "libveloqrs_ffi.a");
+      writeFileSync(infoPlistPath, content);
+      console.log("  Updated Info.plist with new library name");
+    }
+  }
 }
 
 /**
  * Copy cpp files from module's cpp directory to ios/cpp for Xcode build.
- * Handles both cpp/ (turbo module) and cpp/generated/ (bindings) directories.
+ * Creates proper subdirectory structure to avoid naming conflicts:
+ * - ios/cpp/veloqrs_entry.cpp (renamed from veloqrs.cpp to avoid conflict)
+ * - ios/cpp/veloqrs.h, veloq.h
+ * - ios/cpp/generated/veloqrs.cpp, veloqrs.hpp
  */
 function copyIOSCppFiles() {
   const moduleCppDir = path.join(MODULE_DIR, "cpp");
   const moduleGeneratedDir = path.join(MODULE_DIR, "cpp/generated");
   const iosCppDir = path.join(MODULE_DIR, "ios/cpp");
+  const iosCppGeneratedDir = path.join(MODULE_DIR, "ios/cpp/generated");
 
   if (!existsSync(moduleCppDir)) {
     console.log("  Warning: cpp directory not found, skipping iOS cpp copy");
     return;
   }
 
-  mkdirSync(iosCppDir, { recursive: true });
-  const cppExtensions = [".h", ".hpp", ".cpp"];
+  // Clean and recreate ios/cpp
+  if (existsSync(iosCppDir)) {
+    fs.rmSync(iosCppDir, { recursive: true, force: true });
+  }
+  mkdirSync(iosCppGeneratedDir, { recursive: true });
+
   let copied = 0;
 
-  // Copy turbo module files from cpp/
-  const turboFiles = fs.readdirSync(moduleCppDir);
-  for (const file of turboFiles) {
-    const filePath = path.join(moduleCppDir, file);
-    if (fs.statSync(filePath).isFile() && cppExtensions.some((ext) => file.endsWith(ext))) {
-      fs.copyFileSync(filePath, path.join(iosCppDir, file));
+  // Copy turbo module header files from cpp/
+  const headerFiles = ["veloqrs.h", "veloq.h"];
+  for (const file of headerFiles) {
+    const srcPath = path.join(moduleCppDir, file);
+    if (existsSync(srcPath)) {
+      fs.copyFileSync(srcPath, path.join(iosCppDir, file));
       copied++;
     }
   }
 
-  // Copy bindings files from cpp/generated/
+  // Copy turbo module entry with renamed filename to avoid conflict with generated veloqrs.cpp
+  const turboModuleEntry = path.join(moduleCppDir, "veloqrs.cpp");
+  if (existsSync(turboModuleEntry)) {
+    fs.copyFileSync(turboModuleEntry, path.join(iosCppDir, "veloqrs_entry.cpp"));
+    copied++;
+  }
+
+  // Copy bindings files to generated/ subdirectory
   if (existsSync(moduleGeneratedDir)) {
     const generatedFiles = fs.readdirSync(moduleGeneratedDir);
     for (const file of generatedFiles) {
-      if (cppExtensions.some((ext) => file.endsWith(ext))) {
-        fs.copyFileSync(path.join(moduleGeneratedDir, file), path.join(iosCppDir, file));
+      const srcPath = path.join(moduleGeneratedDir, file);
+      if (fs.statSync(srcPath).isFile()) {
+        fs.copyFileSync(srcPath, path.join(iosCppGeneratedDir, file));
         copied++;
       }
     }
@@ -346,11 +379,13 @@ Java_com_veloq_VeloqrsModule_nativeCleanupRustCrate(JNIEnv *env, jclass type, jl
 }
 
 /**
- * Check if binaries already exist.
+ * Check if binaries already exist for the detected architecture.
  */
 function binariesExist(platform) {
   if (platform === "android") {
-    const jniLibsDir = path.join(MODULE_DIR, "android/src/main/jniLibs/arm64-v8a");
+    // Check for detected device architecture, not hardcoded arm64-v8a
+    const detectedArch = detectAndroidArch() || "arm64-v8a";
+    const jniLibsDir = path.join(MODULE_DIR, "android/src/main/jniLibs", detectedArch);
     return existsSync(path.join(jniLibsDir, "libveloqrs.so"));
   } else if (platform === "ios") {
     const frameworksDir = path.join(MODULE_DIR, "ios/Frameworks/VeloqrsFFI.xcframework");
@@ -437,8 +472,19 @@ async function runPreBuildSetup(platform) {
         );
         execSync("./scripts/fix-generated.sh", { cwd: MODULE_DIR, stdio: "inherit" });
       } else if (platform === "ios") {
-        buildIOSFromSource();
-        generateBindings();
+        // Single command: builds Rust for iOS, creates XCFramework, generates all bindings
+        console.log("  Building iOS with uniffi-bindgen-react-native...");
+        execSync(
+          `npx uniffi-bindgen-react-native build ios --release --and-generate`,
+          { cwd: MODULE_DIR, stdio: "inherit" }
+        );
+        execSync("./scripts/fix-generated.sh", { cwd: MODULE_DIR, stdio: "inherit" });
+        // Remove auto-generated Veloqrs.h/mm that conflict with handwritten Veloq.h/mm
+        cleanupIOSGeneratedConflicts();
+        // Move XCFramework from module root to ios/Frameworks/
+        moveIOSXCFramework();
+        // Rename library to avoid case-insensitive conflict with libVeloqrs.a
+        renameXCFrameworkLibrary();
       }
     } else {
       console.log("  Error: No pre-built binaries and no local Rust available");

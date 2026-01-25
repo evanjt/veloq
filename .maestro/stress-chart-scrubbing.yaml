@@ -1,0 +1,56 @@
+# Stress Test: Chart Scrubbing
+# Rapidly toggles chart types and simulates scrubbing to find render issues
+
+appId: com.veloq.app
+---
+- launchApp
+
+- extendedWaitUntil:
+    visible:
+      id: "login-screen"
+    timeout: 30000
+
+- tapOn:
+    id: "login-demo-button"
+
+- extendedWaitUntil:
+    visible:
+      id: "home-screen"
+    timeout: 15000
+
+# Navigate to activity detail with charts
+- openLink: "veloq://activity/demo-0"
+
+- extendedWaitUntil:
+    visible:
+      id: "activity-detail-content"
+    timeout: 15000
+
+# Wait for chart type selector
+- extendedWaitUntil:
+    visible:
+      id: "chart-type-selector"
+    timeout: 10000
+
+# Rapidly toggle between chart types (10 times)
+- repeat:
+    times: 10
+    commands:
+      - tapOn:
+          id: "chart-type-heartrate"
+          optional: true
+      - tapOn:
+          id: "chart-type-power"
+          optional: true
+      - tapOn:
+          id: "chart-type-elevation"
+          optional: true
+      - tapOn:
+          id: "chart-type-speed"
+          optional: true
+
+# Verify chart selector is still visible (app hasn't crashed)
+- assertVisible:
+    id: "chart-type-selector"
+
+- takeScreenshot: "stress-chart-scrubbing-complete"

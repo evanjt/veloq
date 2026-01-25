@@ -11,6 +11,16 @@
  */
 
 import { demoRoutes, getRouteBounds, getRouteCoordinates, getRouteLocation } from './routes';
+import {
+  getDemoReferenceDate,
+  formatDateId,
+  formatLocalISOString,
+  generateActivityId,
+  createDateSeededRandom,
+  createActivitySeededRandom,
+  isRestDay,
+  getTimeOfDay,
+} from './random';
 
 // ============================================================================
 // TYPES (matching API responses)
@@ -166,10 +176,12 @@ function generateActivityName(
 
 /**
  * Generate a year of activities in API format
+ * Uses deterministic random for reproducible data
  */
 function generateActivities(): ApiActivity[] {
   const activities: ApiActivity[] = [];
-  const now = new Date();
+  const referenceDate = getDemoReferenceDate();
+  const activitiesPerDate = new Map<string, number>();
 
   // Route IDs from realRoutes.json (extracted from real activities):
   // Outdoor Cycling (Valais, Switzerland):
@@ -401,22 +413,28 @@ function generateActivities(): ApiActivity[] {
   // Track CTL/ATL for realistic values
   let ctl = 35;
   let atl = 35;
-  let activityId = 0;
   let lastRoute: string | null = null;
 
-  // Helper to select a template from a range, avoiding the last used route
-  const selectTemplate = (indices: number[]): (typeof templates)[0] => {
+  // Helper to select a template from a range, avoiding the last used route (deterministic)
+  const selectTemplate = (indices: number[], random: () => number): (typeof templates)[0] => {
     // Filter to templates with different routes than last used
     const candidates = indices.filter((i) => templates[i].route !== lastRoute);
     // If all have same route (shouldn't happen), fall back to original list
     const pool = candidates.length > 0 ? candidates : indices;
-    return templates[pool[Math.floor(Math.random() * pool.length)]];
+    return templates[pool[Math.floor(random() * pool.length)]];
   };
 
   for (let daysAgo = 365; daysAgo >= 0; daysAgo--) {
-    const date = new Date(now);
+    const date = new Date(referenceDate);
     date.setDate(date.getDate() - daysAgo);
-    date.setHours(7 + Math.floor(Math.random() * 3), Math.floor(Math.random() * 60), 0, 0);
+    const dateStr = formatDateId(date);
+
+    // Create date-seeded random for this day's activities
+    const dayRandom = createDateSeededRandom(dateStr + '-activity');
+
+    // Set time of day deterministically
+    const timeOfDay = getTimeOfDay(dateStr);
+    date.setHours(timeOfDay.hours, timeOfDay.minutes, 0, 0);
 
     // Seasonal variation
     const month = date.getMonth();
@@ -431,51 +449,49 @@ function generateActivities(): ApiActivity[] {
 
     const dayOfWeek = date.getDay();
 
-    // Rest days
-    const isRest =
-      (dayOfWeek === 1 && Math.random() < 0.8) || (dayOfWeek === 4 && Math.random() < 0.5);
-    if (isRest) {
+    // Rest days (deterministic)
+    if (isRestDay(dateStr, dayOfWeek)) {
       // Update CTL/ATL even on rest days
       atl = atl + (0 - atl) / 7;
       ctl = ctl + (0 - ctl) / 42;
       continue;
     }
 
-    // Select template based on day
+    // Select template based on day (using deterministic random)
     // Templates: 0-1=Ride, 2-4=VirtualRide, 5-7=Run, 8-10=Swim, 11-12=Hike, 13-14=Walk
     let template;
     if (dayOfWeek === 0) {
       // Sunday: Long activities - long ride, long run, or mountain hike
-      const r = Math.random();
+      const r = dayRandom();
       if (r < 0.4)
-        template = selectTemplate([1]); // Long ride
+        template = selectTemplate([1], dayRandom); // Long ride
       else if (r < 0.7)
-        template = selectTemplate([6]); // Long run
-      else template = selectTemplate([11]); // Mountain hike
+        template = selectTemplate([6], dayRandom); // Long run
+      else template = selectTemplate([11], dayRandom); // Mountain hike
     } else if (dayOfWeek === 6) {
       // Saturday: Outdoor activities - rides, runs, hikes, or walks
-      const r = Math.random();
+      const r = dayRandom();
       if (r < 0.35)
-        template = selectTemplate([0, 1]); // Rides
+        template = selectTemplate([0, 1], dayRandom); // Rides
       else if (r < 0.6)
-        template = selectTemplate([5, 6, 7]); // Runs
+        template = selectTemplate([5, 6, 7], dayRandom); // Runs
       else if (r < 0.8)
-        template = selectTemplate([11, 12]); // Hikes
-      else template = selectTemplate([13, 14]); // Walks
+        template = selectTemplate([11, 12], dayRandom); // Hikes
+      else template = selectTemplate([13, 14], dayRandom); // Walks
     } else if (dayOfWeek === 2 || dayOfWeek === 5) {
       // Tuesday/Friday: Indoor or short activities - runs, swims, virtual rides
-      const r = Math.random();
+      const r = dayRandom();
       if (r < 0.35)
-        template = selectTemplate([5, 6, 7]); // Runs
+        template = selectTemplate([5, 6, 7], dayRandom); // Runs
       else if (r < 0.55)
-        template = selectTemplate([8, 9, 10]); // Swims
-      else template = selectTemplate([2, 3, 4]); // Virtual rides
+        template = selectTemplate([8, 9, 10], dayRandom); // Swims
+      else template = selectTemplate([2, 3, 4], dayRandom); // Virtual rides
     } else {
       // Other weekdays: Mix of everything
-      template = selectTemplate([...Array(templates.length).keys()]);
+      template = selectTemplate([...Array(templates.length).keys()], dayRandom);
     }
 
-    const variance = (0.85 + Math.random() * 0.3) * seasonMult;
+    const variance = (0.85 + dayRandom() * 0.3) * seasonMult;
     const tss = Math.round(template.tss * variance);
 
     // Update CTL/ATL
@@ -497,9 +513,14 @@ function generateActivities(): ApiActivity[] {
       ? getRouteLocation(template.route)
       : { locality: null, country: null };
 
+    // Generate deterministic activity ID
+    const indexOnDate = activitiesPerDate.get(dateStr) || 0;
+    activitiesPerDate.set(dateStr, indexOnDate + 1);
+    const activityId = generateActivityId(dateStr, indexOnDate);
+
     activities.push({
-      id: `demo-${activityId++}`,
-      start_date_local: date.toISOString(),
+      id: activityId,
+      start_date_local: formatLocalISOString(date),
       type: template.type,
       name: activityName,
       description: null,
@@ -510,15 +531,15 @@ function generateActivities(): ApiActivity[] {
       total_elevation_loss: Math.round(template.elev * variance * 0.95),
       average_speed: template.speed * variance,
       max_speed: template.speed * variance * 1.3,
-      average_heartrate: Math.round(template.hr * (0.95 + Math.random() * 0.1)),
+      average_heartrate: Math.round(template.hr * (0.95 + dayRandom() * 0.1)),
       max_heartrate: Math.round(template.hr * 1.2),
       average_cadence:
         template.type === 'Run'
-          ? 85 + Math.random() * 10
+          ? 85 + dayRandom() * 10
           : template.type === 'Ride'
-            ? 85 + Math.random() * 15
+            ? 85 + dayRandom() * 15
             : null,
-      average_temp: 18 + Math.random() * 10,
+      average_temp: 18 + dayRandom() * 10,
       calories: Math.round(tss * 8),
       device_name: 'Demo Device',
       trainer: template.type === 'VirtualRide',
@@ -567,10 +588,11 @@ function generateActivities(): ApiActivity[] {
 
 /**
  * Generate a year of wellness data in API format
+ * Uses deterministic random for reproducible data
  */
 function generateWellness(): ApiWellness[] {
   const wellness: ApiWellness[] = [];
-  const now = new Date();
+  const referenceDate = getDemoReferenceDate();
 
   let ctl = 35;
   let atl = 35;
@@ -579,9 +601,12 @@ function generateWellness(): ApiWellness[] {
   const baseHrv = 50;
 
   for (let daysAgo = 365; daysAgo >= 0; daysAgo--) {
-    const date = new Date(now);
+    const date = new Date(referenceDate);
     date.setDate(date.getDate() - daysAgo);
-    const dateStr = date.toISOString().split('T')[0];
+    const dateStr = formatDateId(date);
+
+    // Create date-seeded random for this day's wellness
+    const wellnessRandom = createDateSeededRandom(dateStr + '-wellness-fixture');
 
     // Seasonal target CTL
     const month = date.getMonth();
@@ -594,26 +619,26 @@ function generateWellness(): ApiWellness[] {
             ? 55
             : 45;
 
-    // Simulate daily load
+    // Simulate daily load (deterministic)
     const dayOfWeek = date.getDay();
-    const isRest = dayOfWeek === 1 || (dayOfWeek === 4 && Math.random() < 0.5);
+    const isRest = dayOfWeek === 1 || (dayOfWeek === 4 && wellnessRandom() < 0.5);
     const dailyTss = isRest
       ? 0
       : dayOfWeek === 0 || dayOfWeek === 6
-        ? 80 + Math.random() * 50
-        : 40 + Math.random() * 40;
+        ? 80 + wellnessRandom() * 50
+        : 40 + wellnessRandom() * 40;
 
     // Update CTL/ATL
     atl = atl + (dailyTss - atl) / 7;
     ctl = ctl + (dailyTss - ctl) / 42;
     ctl += (targetCtl - ctl) * 0.01;
 
-    // Derived metrics
+    // Derived metrics (deterministic)
     const fatigueFactor = atl / 50;
-    const rhr = Math.round(baseRhr + fatigueFactor * 5 + (Math.random() - 0.5) * 4);
-    const hrv = Math.round(baseHrv - fatigueFactor * 5 + (Math.random() - 0.5) * 10);
-    const sleepHours = 7 + (isRest ? 0.5 : 0) + (Math.random() - 0.5) * 1.5;
-    const sleepScore = Math.round(70 + (sleepHours - 6) * 10 + Math.random() * 10);
+    const rhr = Math.round(baseRhr + fatigueFactor * 5 + (wellnessRandom() - 0.5) * 4);
+    const hrv = Math.round(baseHrv - fatigueFactor * 5 + (wellnessRandom() - 0.5) * 10);
+    const sleepHours = 7 + (isRest ? 0.5 : 0) + (wellnessRandom() - 0.5) * 1.5;
+    const sleepScore = Math.round(70 + (sleepHours - 6) * 10 + wellnessRandom() * 10);
 
     wellness.push({
       id: dateStr,
@@ -638,7 +663,7 @@ function generateWellness(): ApiWellness[] {
       sleepSecs: Math.round(sleepHours * 3600),
       sleepScore: Math.max(50, Math.min(100, sleepScore)),
       sleepQuality: sleepScore >= 80 ? 3 : sleepScore >= 60 ? 2 : 1,
-      steps: Math.round((isRest ? 5000 : 10000) + Math.random() * 5000),
+      steps: Math.round((isRest ? 5000 : 10000) + wellnessRandom() * 5000),
       vo2max: 50 + (ctl - 40) * 0.1,
     });
   }
@@ -733,6 +758,9 @@ export function getActivityStreams(id: string): ApiActivityStreams | null {
   const activity = getActivity(id);
   if (!activity) return null;
 
+  // Create activity-seeded random for reproducible stream data
+  const streamRandom = createActivitySeededRandom(id + '-streams');
+
   const duration = activity.moving_time;
   const points = Math.min(Math.max(duration / 5, 100), 1000); // 100-1000 points, ~5 sec intervals
   const interval = Math.ceil(duration / points);
@@ -747,7 +775,7 @@ export function getActivityStreams(id: string): ApiActivityStreams | null {
     const progress = t / duration;
     const warmup = Math.min(1, progress * 5); // Warmup effect
     const fatigue = progress * 5; // Cardiac drift
-    const variation = (Math.random() - 0.5) * 10;
+    const variation = (streamRandom() - 0.5) * 10;
     return Math.round(Math.max(80, Math.min(200, baseHr * 0.85 * warmup + fatigue + variation)));
   });
 
@@ -759,7 +787,7 @@ export function getActivityStreams(id: string): ApiActivityStreams | null {
       // Create some intervals/variability
       const intervalPhase = Math.sin(progress * Math.PI * 8) * 0.2;
       const base = ftp * (0.65 + intervalPhase);
-      return Math.round(Math.max(50, base + (Math.random() - 0.5) * ftp * 0.3));
+      return Math.round(Math.max(50, base + (streamRandom() - 0.5) * ftp * 0.3));
     });
   }
 
@@ -788,7 +816,7 @@ export function getActivityStreams(id: string): ApiActivityStreams | null {
       const hill1 = Math.sin(progress * Math.PI * 2) * (maxElev / 3);
       const hill2 = Math.sin(progress * Math.PI * 4 + 1) * (maxElev / 4);
       const hill3 = Math.sin(progress * Math.PI * 6 + 2) * (maxElev / 6);
-      const noise = (Math.random() - 0.5) * 5;
+      const noise = (streamRandom() - 0.5) * 5;
       return Math.round(Math.max(0, baseAltitude + hill1 + hill2 + hill3 + noise));
     });
 
@@ -803,13 +831,13 @@ export function getActivityStreams(id: string): ApiActivityStreams | null {
       const progress = t / duration;
       // Simulate cadence variation (lower on climbs, higher on descents)
       const hillEffect = Math.sin(progress * Math.PI * 2) * 5;
-      const variation = (Math.random() - 0.5) * 8;
+      const variation = (streamRandom() - 0.5) * 8;
       return Math.round(Math.max(60, Math.min(120, baseCadence + hillEffect + variation)));
     });
   } else if (activity.type === 'Run') {
     const baseCadence = activity.average_cadence || 170; // Running cadence in spm
     streams.cadence = streams.time.map(() => {
-      const variation = (Math.random() - 0.5) * 6;
+      const variation = (streamRandom() - 0.5) * 6;
       return Math.round(Math.max(150, Math.min(190, baseCadence + variation)));
     });
   }
@@ -820,7 +848,7 @@ export function getActivityStreams(id: string): ApiActivityStreams | null {
       const progress = t / duration;
       // Slower on uphills, faster on downhills
       const hillEffect = -Math.sin(progress * Math.PI * 2) * (activity.average_speed * 0.15);
-      const variation = (Math.random() - 0.5) * 2;
+      const variation = (streamRandom() - 0.5) * 2;
       return Math.max(1, activity.average_speed + hillEffect + variation);
     });
   }

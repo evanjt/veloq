@@ -19,10 +19,10 @@ appId: com.veloq.app
       id: "home-screen"
     timeout: 15000
 
-# Screenshot 1: Activity Feed
+# Screenshot 1: Activity Feed (wait for activity list, not weekly-summary)
 - extendedWaitUntil:
     visible:
-      id: "weekly-summary"
+      id: "home-activity-list"
     timeout: 10000
 - takeScreenshot: "01-activity-feed-light"
 
@@ -34,11 +34,15 @@ appId: com.veloq.app
     timeout: 15000
 - takeScreenshot: "02-fitness-light"
 
-# Screenshot 3: Training Calendar
+# Screenshot 3: Training Calendar (has weekly summary)
 - openLink: "veloq://training"
 - extendedWaitUntil:
     visible:
       id: "training-screen"
+    timeout: 10000
+- extendedWaitUntil:
+    visible:
+      id: "weekly-summary"
     timeout: 10000
 - takeScreenshot: "03-training-light"
 

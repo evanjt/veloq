@@ -83,6 +83,7 @@ export function ActivityCategoryFilter({
     >
       {/* All/Clear toggle */}
       <TouchableOpacity
+        testID="map-filter-clear"
         style={[styles.controlChip, isDark && styles.controlChipDark]}
         onPress={toggleAllTypes}
       >
@@ -99,6 +100,7 @@ export function ActivityCategoryFilter({
         return (
           <TouchableOpacity
             key={category}
+            testID={`map-filter-${category.toLowerCase()}`}
             style={[
               styles.filterChip,
               isSelected && { backgroundColor: config.color },

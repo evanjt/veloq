@@ -37,7 +37,7 @@ export function ActivityPopup({
   const config = getActivityTypeConfig(selected.activity.type);
 
   return (
-    <View style={[styles.popup, { bottom }]}>
+    <View testID="activity-popup" style={[styles.popup, { bottom }]}>
       <View style={styles.popupHeader}>
         <View style={styles.popupInfo}>
           <Text style={styles.popupTitle} numberOfLines={1}>
@@ -89,7 +89,11 @@ export function ActivityPopup({
         </View>
       )}
 
-      <TouchableOpacity style={styles.viewDetailsButton} onPress={onViewDetails}>
+      <TouchableOpacity
+        testID="activity-popup-view-details"
+        style={styles.viewDetailsButton}
+        onPress={onViewDetails}
+      >
         <Text style={styles.viewDetailsText}>{t('maps.viewDetails')}</Text>
         <MaterialCommunityIcons name="chevron-right" size={20} color={colors.primary} />
       </TouchableOpacity>
