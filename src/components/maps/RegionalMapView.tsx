@@ -434,24 +434,12 @@ export function RegionalMapView({
   // Fabric crash fix: Keep feature count STABLE to avoid "Attempt to recycle a mounted view"
   // Always include all traces in the GeoJSON - control visibility via layer opacity instead
   // This prevents Fabric from needing to add/remove views when zoom changes
-  // NOTE: Placeholder uses [-180, -90] (south pole) to avoid visible artifact at [0, 0]
+  // NOTE: Empty FeatureCollection is valid - control visibility via layer opacity
   const tracesGeoJSON = useMemo((): GeoJSON.FeatureCollection => {
-    // Minimal valid geometry when no activities
-    const minimalGeometry: GeoJSON.FeatureCollection = {
+    // Empty collection when no activities (ShapeSource stays mounted, avoiding Fabric crash)
+    const emptyCollection: GeoJSON.FeatureCollection = {
       type: 'FeatureCollection',
-      features: [
-        {
-          type: 'Feature',
-          properties: { id: '__placeholder__', color: 'transparent' },
-          geometry: {
-            type: 'LineString',
-            coordinates: [
-              [-180, -90],
-              [-180, -89.9999],
-            ],
-          },
-        },
-      ],
+      features: [],
     };
 
     // Always build full traces regardless of showTraces - visibility controlled by layer opacity
@@ -502,7 +490,7 @@ export function RegionalMapView({
     }
 
     // Return minimal geometry only if no features at all
-    if (features.length === 0) return minimalGeometry;
+    if (features.length === 0) return emptyCollection;
 
     return { type: 'FeatureCollection', features };
   }, [visibleActivities, routeSignatures]); // Removed showTraces dependency - always build all traces
@@ -510,26 +498,13 @@ export function RegionalMapView({
   // ===========================================
   // SECTIONS GEOJSON - Frequent road/trail sections
   // ===========================================
-  // CRITICAL: Always return valid FeatureCollection to avoid iOS MapLibre crash
-  // NOTE: Placeholder uses [-180, -90] (south pole) to avoid visible artifact at [0, 0]
+  // CRITICAL: Always render ShapeSource to avoid Fabric crash - use empty FeatureCollection when no data
   const sectionsGeoJSON = useMemo((): GeoJSON.FeatureCollection => {
-    const minimalGeometry: GeoJSON.FeatureCollection = {
+    const emptyCollection: GeoJSON.FeatureCollection = {
       type: 'FeatureCollection',
-      features: [
-        {
-          type: 'Feature',
-          properties: {},
-          geometry: {
-            type: 'LineString',
-            coordinates: [
-              [-180, -90],
-              [-180, -89.9999],
-            ],
-          },
-        },
-      ],
+      features: [],
     };
-    if (sections.length === 0) return minimalGeometry;
+    if (sections.length === 0) return emptyCollection;
 
     let skippedCount = 0;
     const features = sections
@@ -589,26 +564,13 @@ export function RegionalMapView({
   // ===========================================
   // ROUTES GEOJSON - Polylines for route groups
   // ===========================================
-  // CRITICAL: Always return valid FeatureCollection to avoid iOS MapLibre crash
-  // NOTE: Placeholder uses [-180, -90] (south pole) to avoid visible artifact at [0, 0]
+  // CRITICAL: Always render ShapeSource to avoid Fabric crash - use empty FeatureCollection when no data
   const routesGeoJSON = useMemo((): GeoJSON.FeatureCollection => {
-    const minimalGeometry: GeoJSON.FeatureCollection = {
+    const emptyCollection: GeoJSON.FeatureCollection = {
       type: 'FeatureCollection',
-      features: [
-        {
-          type: 'Feature',
-          properties: {},
-          geometry: {
-            type: 'LineString',
-            coordinates: [
-              [-180, -90],
-              [-180, -89.9999],
-            ],
-          },
-        },
-      ],
+      features: [],
     };
-    if (!showRoutes || routeGroups.length === 0) return minimalGeometry;
+    if (!showRoutes || routeGroups.length === 0) return emptyCollection;
 
     let skippedCount = 0;
     const features = routeGroups
@@ -664,20 +626,13 @@ export function RegionalMapView({
   // ===========================================
   // ROUTE MARKERS GEOJSON - Start points for routes
   // ===========================================
-  // CRITICAL: Always return valid FeatureCollection to avoid iOS MapLibre crash
-  // NOTE: Placeholder uses [-180, -90] (south pole) to avoid visible dot at [0, 0]
+  // CRITICAL: Always render ShapeSource to avoid Fabric crash - use empty FeatureCollection when no data
   const routeMarkersGeoJSON = useMemo((): GeoJSON.FeatureCollection => {
-    const minimalGeometry: GeoJSON.FeatureCollection = {
+    const emptyCollection: GeoJSON.FeatureCollection = {
       type: 'FeatureCollection',
-      features: [
-        {
-          type: 'Feature',
-          properties: {},
-          geometry: { type: 'Point', coordinates: [-180, -90] },
-        },
-      ],
+      features: [],
     };
-    if (!showRoutes || routeGroups.length === 0) return minimalGeometry;
+    if (!showRoutes || routeGroups.length === 0) return emptyCollection;
 
     let skippedCount = 0;
     const features = routeGroups
@@ -780,22 +735,22 @@ export function RegionalMapView({
   // ===========================================
   // USER LOCATION GEOJSON - Rendered as CircleLayer to avoid Fabric crash
   // ===========================================
-  // CRITICAL: Always render ShapeSource with valid geometry
+  // CRITICAL: Always render ShapeSource to avoid Fabric crash - use empty FeatureCollection when no location
   // Using CircleLayer instead of MarkerView prevents Fabric view recycling crash
-  // NOTE: Placeholder uses [-180, -90] (south pole) to avoid visible dot at [0, 0]
   const userLocationGeoJSON = useMemo((): GeoJSON.FeatureCollection => {
-    // Always return valid GeoJSON - use opacity to hide when no location
-    // Use remote coordinate as placeholder to avoid visible artifact at [0, 0]
-    const coordinate = userLocation ?? [-180, -90];
+    // Return empty collection when no location - visibility controlled via layer opacity
+    if (!userLocation) {
+      return { type: 'FeatureCollection', features: [] };
+    }
     return {
       type: 'FeatureCollection',
       features: [
         {
           type: 'Feature',
-          properties: { hasLocation: !!userLocation },
+          properties: { hasLocation: true },
           geometry: {
             type: 'Point',
-            coordinates: coordinate,
+            coordinates: userLocation,
           },
         },
       ],
@@ -908,26 +863,13 @@ export function RegionalMapView({
 
   // Build route GeoJSON for selected activity
   // Uses the same coordinate conversion as ActivityMapView for consistency
-  // CRITICAL: Always return valid GeoJSON to avoid iOS MapLibre crash
-  // NOTE: Placeholder uses [-180, -90] (south pole) to avoid visible artifact at [0, 0]
+  // CRITICAL: Always render ShapeSource to avoid Fabric crash - use empty FeatureCollection when no data
   const routeGeoJSON = useMemo((): GeoJSON.FeatureCollection | GeoJSON.Feature => {
-    const minimalGeometry: GeoJSON.FeatureCollection = {
+    const emptyCollection: GeoJSON.FeatureCollection = {
       type: 'FeatureCollection',
-      features: [
-        {
-          type: 'Feature',
-          properties: {},
-          geometry: {
-            type: 'LineString',
-            coordinates: [
-              [-180, -90],
-              [-180, -89.9999],
-            ],
-          },
-        },
-      ],
+      features: [],
     };
-    if (!selected?.mapData?.latlngs) return minimalGeometry;
+    if (!selected?.mapData?.latlngs) return emptyCollection;
 
     // Filter out null values first
     const nonNullCoords = selected.mapData.latlngs.filter((c): c is [number, number] => c !== null);
@@ -938,7 +880,7 @@ export function RegionalMapView({
           `[RegionalMapView] routeGeoJSON: no non-null coords for activity=${selected.activity.id}`
         );
       }
-      return minimalGeometry;
+      return emptyCollection;
     }
 
     // Convert to LatLng objects using the same function as ActivityMapView
@@ -961,7 +903,7 @@ export function RegionalMapView({
           `[RegionalMapView] routeGeoJSON: insufficient valid coords for activity=${selected.activity.id} original=${nonNullCoords.length} valid=${validCoords.length}`
         );
       }
-      return minimalGeometry;
+      return emptyCollection;
     }
 
     return {

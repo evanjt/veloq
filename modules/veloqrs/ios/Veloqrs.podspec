@@ -35,8 +35,9 @@ Pod::Spec.new do |s|
 
   s.dependency "uniffi-bindgen-react-native"
 
-  # Base header search paths for veloq.h (in local cpp/) and Generated headers
-  base_header_paths = "\"${PODS_TARGET_SRCROOT}/cpp\" \"${PODS_TARGET_SRCROOT}/Generated\""
+  # Base header search paths for cpp headers and Generated headers
+  # Include ${PODS_TARGET_SRCROOT} for "cpp/veloqrs.h" includes (avoids case-insensitive conflict with Veloqrs.h)
+  base_header_paths = "\"${PODS_TARGET_SRCROOT}\" \"${PODS_TARGET_SRCROOT}/cpp\" \"${PODS_TARGET_SRCROOT}/Generated\""
 
   # Use install_modules_dependencies helper to install the dependencies if React Native version >=0.71.0.
   if respond_to?(:install_modules_dependencies, true)

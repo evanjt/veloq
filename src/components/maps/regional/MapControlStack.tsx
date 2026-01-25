@@ -57,6 +57,8 @@ interface MapControlStackProps {
   onToggleSections: () => void;
   /** Callback to toggle routes */
   onToggleRoutes: () => void;
+  /** Callback to fit all activities in view */
+  onFitAll: () => void;
 }
 
 export function MapControlStack({
@@ -81,6 +83,7 @@ export function MapControlStack({
   onToggleActivities,
   onToggleSections,
   onToggleRoutes,
+  onFitAll,
 }: MapControlStackProps) {
   const { t } = useTranslation();
   const show3D = is3DMode && can3D;
@@ -162,6 +165,24 @@ export function MapControlStack({
           }
         />
       </TouchableOpacity>
+
+      {/* Fit all activities in view */}
+      {activityCount > 0 && (
+        <TouchableOpacity
+          testID="map-fit-all"
+          style={[styles.controlButton, isDark && styles.controlButtonDark]}
+          onPress={onFitAll}
+          activeOpacity={0.8}
+          accessibilityLabel={t('maps.fitAll')}
+          accessibilityRole="button"
+        >
+          <MaterialCommunityIcons
+            name="fit-to-screen-outline"
+            size={22}
+            color={isDark ? colors.textOnDark : colors.textSecondary}
+          />
+        </TouchableOpacity>
+      )}
 
       {/* Heatmap toggle - only shown when heatmap data is available */}
       {heatmap && heatmap.cells.length > 0 && (
