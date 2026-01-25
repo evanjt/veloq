@@ -434,6 +434,7 @@ export function RegionalMapView({
   // Fabric crash fix: Keep feature count STABLE to avoid "Attempt to recycle a mounted view"
   // Always include all traces in the GeoJSON - control visibility via layer opacity instead
   // This prevents Fabric from needing to add/remove views when zoom changes
+  // NOTE: Placeholder uses [-180, -90] (south pole) to avoid visible artifact at [0, 0]
   const tracesGeoJSON = useMemo((): GeoJSON.FeatureCollection => {
     // Minimal valid geometry when no activities
     const minimalGeometry: GeoJSON.FeatureCollection = {
@@ -445,8 +446,8 @@ export function RegionalMapView({
           geometry: {
             type: 'LineString',
             coordinates: [
-              [0, 0],
-              [0, 0.0001],
+              [-180, -90],
+              [-180, -89.9999],
             ],
           },
         },
@@ -510,6 +511,7 @@ export function RegionalMapView({
   // SECTIONS GEOJSON - Frequent road/trail sections
   // ===========================================
   // CRITICAL: Always return valid FeatureCollection to avoid iOS MapLibre crash
+  // NOTE: Placeholder uses [-180, -90] (south pole) to avoid visible artifact at [0, 0]
   const sectionsGeoJSON = useMemo((): GeoJSON.FeatureCollection => {
     const minimalGeometry: GeoJSON.FeatureCollection = {
       type: 'FeatureCollection',
@@ -520,8 +522,8 @@ export function RegionalMapView({
           geometry: {
             type: 'LineString',
             coordinates: [
-              [0, 0],
-              [0, 0.0001],
+              [-180, -90],
+              [-180, -89.9999],
             ],
           },
         },
@@ -588,6 +590,7 @@ export function RegionalMapView({
   // ROUTES GEOJSON - Polylines for route groups
   // ===========================================
   // CRITICAL: Always return valid FeatureCollection to avoid iOS MapLibre crash
+  // NOTE: Placeholder uses [-180, -90] (south pole) to avoid visible artifact at [0, 0]
   const routesGeoJSON = useMemo((): GeoJSON.FeatureCollection => {
     const minimalGeometry: GeoJSON.FeatureCollection = {
       type: 'FeatureCollection',
@@ -598,8 +601,8 @@ export function RegionalMapView({
           geometry: {
             type: 'LineString',
             coordinates: [
-              [0, 0],
-              [0, 0.0001],
+              [-180, -90],
+              [-180, -89.9999],
             ],
           },
         },
@@ -662,6 +665,7 @@ export function RegionalMapView({
   // ROUTE MARKERS GEOJSON - Start points for routes
   // ===========================================
   // CRITICAL: Always return valid FeatureCollection to avoid iOS MapLibre crash
+  // NOTE: Placeholder uses [-180, -90] (south pole) to avoid visible dot at [0, 0]
   const routeMarkersGeoJSON = useMemo((): GeoJSON.FeatureCollection => {
     const minimalGeometry: GeoJSON.FeatureCollection = {
       type: 'FeatureCollection',
@@ -669,7 +673,7 @@ export function RegionalMapView({
         {
           type: 'Feature',
           properties: {},
-          geometry: { type: 'Point', coordinates: [0, 0] },
+          geometry: { type: 'Point', coordinates: [-180, -90] },
         },
       ],
     };
@@ -778,9 +782,11 @@ export function RegionalMapView({
   // ===========================================
   // CRITICAL: Always render ShapeSource with valid geometry
   // Using CircleLayer instead of MarkerView prevents Fabric view recycling crash
+  // NOTE: Placeholder uses [-180, -90] (south pole) to avoid visible dot at [0, 0]
   const userLocationGeoJSON = useMemo((): GeoJSON.FeatureCollection => {
     // Always return valid GeoJSON - use opacity to hide when no location
-    const coordinate = userLocation ?? [0, 0];
+    // Use remote coordinate as placeholder to avoid visible artifact at [0, 0]
+    const coordinate = userLocation ?? [-180, -90];
     return {
       type: 'FeatureCollection',
       features: [
@@ -903,6 +909,7 @@ export function RegionalMapView({
   // Build route GeoJSON for selected activity
   // Uses the same coordinate conversion as ActivityMapView for consistency
   // CRITICAL: Always return valid GeoJSON to avoid iOS MapLibre crash
+  // NOTE: Placeholder uses [-180, -90] (south pole) to avoid visible artifact at [0, 0]
   const routeGeoJSON = useMemo((): GeoJSON.FeatureCollection | GeoJSON.Feature => {
     const minimalGeometry: GeoJSON.FeatureCollection = {
       type: 'FeatureCollection',
@@ -913,8 +920,8 @@ export function RegionalMapView({
           geometry: {
             type: 'LineString',
             coordinates: [
-              [0, 0],
-              [0, 0.0001],
+              [-180, -90],
+              [-180, -89.9999],
             ],
           },
         },
@@ -1048,8 +1055,8 @@ export function RegionalMapView({
               center.length >= 2 &&
               Number.isFinite(center[0]) &&
               Number.isFinite(center[1]);
-            // Use fallback coordinate [0, 0] for invalid centers (will be hidden via opacity)
-            const safeCenter: [number, number] = hasValidCenter ? center : [0, 0];
+            // Use fallback coordinate [-180, -90] for invalid centers (will be hidden via opacity)
+            const safeCenter: [number, number] = hasValidCenter ? center : [-180, -90];
             const size = getMarkerSize(activity.distance);
             const isSelected = selectedActivityId === activity.id;
             const markerSize = isSelected ? size + 8 : size;

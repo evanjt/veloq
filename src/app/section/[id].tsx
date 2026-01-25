@@ -1025,7 +1025,7 @@ export default function SectionDetailScreen() {
   const iconName = getActivityIcon(section.sportType as ActivityType);
 
   return (
-    <View style={[styles.container, isDark && styles.containerDark]}>
+    <View testID="section-detail-screen" style={[styles.container, isDark && styles.containerDark]}>
       <StatusBar barStyle="light-content" />
       <ScrollView
         style={styles.scrollView}

@@ -42,6 +42,7 @@ export function SectionPopup({ section, bottom, onClose, onViewDetails }: Sectio
           </Text>
         </View>
         <TouchableOpacity
+          testID="section-popup-close"
           onPress={onClose}
           style={styles.popupIconButton}
           accessibilityLabel="Close section popup"
@@ -68,6 +69,7 @@ export function SectionPopup({ section, bottom, onClose, onViewDetails }: Sectio
 
       {onViewDetails && (
         <TouchableOpacity
+          testID="section-popup-view-details"
           onPress={onViewDetails}
           style={styles.viewDetailsButton}
           accessibilityLabel="View section details"

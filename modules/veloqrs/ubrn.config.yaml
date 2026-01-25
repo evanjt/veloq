@@ -26,5 +26,5 @@ ios:
   frameworkName: VeloqrsFFI
 
 turboModule:
-  name: Veloq
+  name: Veloqrs
   cpp: cpp

@@ -47,6 +47,7 @@ export function ActivityPopup({
         </View>
         <View style={styles.popupHeaderButtons}>
           <TouchableOpacity
+            testID="activity-popup-zoom"
             onPress={onZoom}
             style={styles.popupIconButton}
             accessibilityLabel={t('maps.zoomToActivity')}
@@ -55,6 +56,7 @@ export function ActivityPopup({
             <MaterialCommunityIcons name="crosshairs-gps" size={22} color={colors.primary} />
           </TouchableOpacity>
           <TouchableOpacity
+            testID="activity-popup-close"
             onPress={onClose}
             style={styles.popupIconButton}
             accessibilityLabel={t('maps.closePopup')}

@@ -593,7 +593,7 @@ export default function RouteDetailScreen() {
   const hasMapData = routeActivities.length > 0;
 
   return (
-    <View style={[styles.container, isDark && styles.containerDark]}>
+    <View testID="route-detail-screen" style={[styles.container, isDark && styles.containerDark]}>
       <StatusBar barStyle="light-content" />
       <ScrollView
         style={styles.scrollView}

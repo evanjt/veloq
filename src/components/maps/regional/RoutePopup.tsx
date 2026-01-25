@@ -49,6 +49,7 @@ export function RoutePopup({ route, bottom, onClose, onViewDetails }: RoutePopup
           <Text style={styles.popupDate}>{route.activityCount} activities</Text>
         </View>
         <TouchableOpacity
+          testID="route-popup-close"
           onPress={onClose}
           style={styles.popupIconButton}
           accessibilityLabel="Close route popup"
@@ -73,6 +74,7 @@ export function RoutePopup({ route, bottom, onClose, onViewDetails }: RoutePopup
 
       {onViewDetails && (
         <TouchableOpacity
+          testID="route-popup-view-details"
           onPress={onViewDetails}
           style={styles.viewDetailsButton}
           accessibilityLabel="View route details"

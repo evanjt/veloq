@@ -128,19 +128,19 @@ function buildAndroidFromSource() {
 
 
 /**
- * Remove auto-generated iOS files that conflict with our handwritten ones.
- * ubrn generates Veloqrs.h/Veloqrs.mm based on crate name, but we use
- * handwritten Veloq.h/Veloq.mm based on turboModule name.
+ * Remove obsolete iOS files from old turboModule.name config.
+ * With turboModule.name: Veloqrs (matching crate name), ubrn generates
+ * correct Veloqrs.h/Veloqrs.mm. The old Veloq.h/Veloq.mm are no longer needed.
  */
 function cleanupIOSGeneratedConflicts() {
-  const conflictingFiles = [
-    path.join(MODULE_DIR, "ios/Veloqrs.h"),
-    path.join(MODULE_DIR, "ios/Veloqrs.mm"),
+  const obsoleteFiles = [
+    path.join(MODULE_DIR, "ios/Veloq.h"),
+    path.join(MODULE_DIR, "ios/Veloq.mm"),
   ];
 
-  for (const file of conflictingFiles) {
+  for (const file of obsoleteFiles) {
     if (existsSync(file)) {
-      console.log(`  Removing conflicting generated file: ${path.basename(file)}`);
+      console.log(`  Removing obsolete file: ${path.basename(file)}`);
       fs.unlinkSync(file);
     }
   }
