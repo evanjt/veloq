@@ -19,6 +19,7 @@ import type {
   ActivityDetail,
   ActivityStreams,
   Athlete,
+  AthleteSummary,
   WellnessData,
   PowerCurve,
   PaceCurve,
@@ -160,7 +161,85 @@ export const mockIntervalsApi = {
     const map = getActivityMap(id, boundsOnly);
     return map as ActivityMapData | null;
   },
+
+  /**
+   * Get athlete summary (weekly stats aggregated by calendar week)
+   * Generates mock data from demo activities
+   */
+  async getAthleteSummary(params: { start: string; end: string }): Promise<AthleteSummary[]> {
+    await delay(100);
+    const activities = getActivities({
+      oldest: params.start,
+      newest: params.end,
+    }) as Activity[];
+
+    // Group activities by ISO week (Monday-Sunday)
+    const weekMap = new Map<string, Activity[]>();
+    for (const activity of activities) {
+      const date = new Date(activity.start_date_local);
+      const monday = getMonday(date);
+      const weekKey = monday.toISOString().split('T')[0];
+      if (!weekMap.has(weekKey)) {
+        weekMap.set(weekKey, []);
+      }
+      weekMap.get(weekKey)!.push(activity);
+    }
+
+    // Convert to AthleteSummary array
+    const summaries: AthleteSummary[] = [];
+    for (const [weekDate, weekActivities] of weekMap) {
+      const totalTime = weekActivities.reduce((sum, a) => sum + (a.moving_time || 0), 0);
+      const totalDistance = weekActivities.reduce((sum, a) => sum + (a.distance || 0), 0);
+      const totalLoad = weekActivities.reduce((sum, a) => sum + (a.icu_training_load || 0), 0);
+      const totalCalories = weekActivities.reduce((sum, a) => sum + (a.calories || 0), 0);
+      const totalElevation = weekActivities.reduce(
+        (sum, a) => sum + (a.total_elevation_gain || 0),
+        0
+      );
+
+      summaries.push({
+        date: weekDate,
+        count: weekActivities.length,
+        time: totalTime,
+        moving_time: totalTime,
+        elapsed_time: totalTime,
+        calories: totalCalories,
+        total_elevation_gain: totalElevation,
+        training_load: totalLoad,
+        srpe: 0,
+        distance: totalDistance,
+        eftp: null,
+        eftpPerKg: null,
+        athlete_id: 'demo',
+        athlete_name: 'Demo User',
+        fitness: 50,
+        fatigue: 30,
+        form: 20,
+        rampRate: 0,
+        weight: 70,
+        timeInZones: [],
+        timeInZonesTot: totalTime,
+        byCategory: [],
+        mostRecentWellnessId: weekDate,
+      });
+    }
+
+    // Sort by date descending (newest first)
+    return summaries.sort((a, b) => b.date.localeCompare(a.date));
+  },
 };
+
+/**
+ * Get Monday of the week for a given date (ISO week: Monday-Sunday)
+ */
+function getMonday(date: Date): Date {
+  const d = new Date(date);
+  const day = d.getDay();
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Adjust when day is Sunday
+  d.setDate(diff);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
 
 // ============================================================================
 // Test utilities

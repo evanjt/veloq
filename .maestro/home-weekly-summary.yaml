@@ -1,6 +1,9 @@
 # Weekly Summary Component Tests
 # Tests the weekly summary stats and time range toggles on TRAINING screen
 # Note: WeeklySummary is on training screen, not home screen
+#
+# Weekly view now uses calendar weeks (Mon-Sun) matching intervals.icu
+# Shows week number and date range (e.g., "Week 4 (Jan 19-25)")
 
 appId: com.veloq.app
 ---

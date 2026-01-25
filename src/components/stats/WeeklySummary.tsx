@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
-import { useTheme, useMetricSystem } from '@/hooks';
-import { Text } from 'react-native-paper';
+import { useTheme, useMetricSystem, useAthleteSummary, getISOWeekNumber } from '@/hooks';
+import { Text, ActivityIndicator } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { colors, darkColors, opacity } from '@/theme/colors';
 import { typography } from '@/theme/typography';
@@ -27,13 +27,57 @@ function formatDuration(seconds: number): string {
   return `${mins}m`;
 }
 
+/**
+ * Get the Monday of the week for a given date (ISO week: Monday-Sunday)
+ */
+function getMonday(date: Date): Date {
+  const d = new Date(date);
+  const day = d.getDay();
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+  d.setDate(diff);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+/**
+ * Get the Sunday of the week for a given date
+ */
+function getSunday(date: Date): Date {
+  const monday = getMonday(date);
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  return sunday;
+}
+
+/**
+ * Format week range for display (e.g., "Jan 20-26")
+ */
+function formatWeekRange(monday: Date): string {
+  const sunday = getSunday(monday);
+  const mondayMonth = monday.toLocaleString('en-US', { month: 'short' });
+  const sundayMonth = sunday.toLocaleString('en-US', { month: 'short' });
+
+  if (mondayMonth === sundayMonth) {
+    return `${mondayMonth} ${monday.getDate()}-${sunday.getDate()}`;
+  }
+  return `${mondayMonth} ${monday.getDate()} - ${sundayMonth} ${sunday.getDate()}`;
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function getTimeRangeLabel(
   range: TimeRange,
-  t: (key: string) => any
+  t: (key: string) => any,
+  weekNumber?: number,
+  weekRange?: string
 ): { current: string; previous: string } {
   switch (range) {
     case 'week':
+      if (weekNumber && weekRange) {
+        return {
+          current: `${t('stats.thisWeek')}: #${weekNumber} (${weekRange})`,
+          previous: t('stats.vsLastWeek') as string,
+        };
+      }
       return {
         current: t('stats.thisWeek') as string,
         previous: t('stats.vsLastWeek') as string,
@@ -88,11 +132,9 @@ function getDateRanges(range: TimeRange): {
 
   switch (range) {
     case 'week': {
-      // Current week (last 7 days)
-      const currentStart = new Date(today);
-      currentStart.setDate(currentStart.getDate() - 6);
-      const currentEnd = today;
-      // Previous week (7-14 days ago)
+      // Calendar week (Monday-Sunday) - matches intervals.icu
+      const currentStart = getMonday(today);
+      const currentEnd = getSunday(today);
       const previousStart = new Date(currentStart);
       previousStart.setDate(previousStart.getDate() - 7);
       const previousEnd = new Date(currentStart);
@@ -100,37 +142,29 @@ function getDateRanges(range: TimeRange): {
       return { currentStart, currentEnd, previousStart, previousEnd };
     }
     case 'month': {
-      // Current month
       const currentStart = new Date(now.getFullYear(), now.getMonth(), 1);
       const currentEnd = today;
-      // Previous month
       const previousStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
       const previousEnd = new Date(now.getFullYear(), now.getMonth(), 0);
       return { currentStart, currentEnd, previousStart, previousEnd };
     }
     case '3m': {
-      // Last 3 months
       const currentStart = new Date(now.getFullYear(), now.getMonth() - 2, 1);
       const currentEnd = today;
-      // Previous 3 months
       const previousStart = new Date(now.getFullYear(), now.getMonth() - 5, 1);
       const previousEnd = new Date(now.getFullYear(), now.getMonth() - 2, 0);
       return { currentStart, currentEnd, previousStart, previousEnd };
     }
     case '6m': {
-      // Last 6 months
       const currentStart = new Date(now.getFullYear(), now.getMonth() - 5, 1);
       const currentEnd = today;
-      // Previous 6 months
       const previousStart = new Date(now.getFullYear(), now.getMonth() - 11, 1);
       const previousEnd = new Date(now.getFullYear(), now.getMonth() - 5, 0);
       return { currentStart, currentEnd, previousStart, previousEnd };
     }
     case 'year': {
-      // This year
       const currentStart = new Date(now.getFullYear(), 0, 1);
       const currentEnd = today;
-      // Last year
       const previousStart = new Date(now.getFullYear() - 1, 0, 1);
       const previousEnd = new Date(now.getFullYear() - 1, 11, 31);
       return { currentStart, currentEnd, previousStart, previousEnd };
@@ -146,13 +180,11 @@ function computeStatsForPeriods(
   previousStart: Date,
   previousEnd: Date
 ) {
-  // Pre-compute timestamps for faster comparison
   const currentStartTs = currentStart.getTime();
-  const currentEndTs = currentEnd.getTime();
+  const currentEndTs = currentEnd.getTime() + 24 * 60 * 60 * 1000 - 1; // End of day
   const previousStartTs = previousStart.getTime();
-  const previousEndTs = previousEnd.getTime();
+  const previousEndTs = previousEnd.getTime() + 24 * 60 * 60 * 1000 - 1;
 
-  // Single pass accumulating both current and previous stats
   let currentCount = 0,
     currentDuration = 0,
     currentDistance = 0,
@@ -200,12 +232,44 @@ export function WeeklySummary({ activities }: WeeklySummaryProps) {
   const isMetric = useMetricSystem();
   const [timeRange, setTimeRange] = useState<TimeRange>('week');
 
+  // Fetch athlete summary for calendar week view
+  const { data: summaryData, isLoading: isLoadingSummary } = useAthleteSummary(4);
+
+  // Compute stats based on time range
   const { currentStats, previousStats, labels } = useMemo(() => {
+    const today = new Date();
+    const currentMonday = getMonday(today);
+    const weekNum = getISOWeekNumber(today);
+    const weekRangeStr = formatWeekRange(currentMonday);
+
+    // For 'week' range, use API data (matches intervals.icu calendar weeks)
+    if (timeRange === 'week' && summaryData) {
+      const current = summaryData.currentWeek;
+      const previous = summaryData.previousWeek;
+
+      return {
+        currentStats: {
+          count: current?.count ?? 0,
+          duration: current?.moving_time ?? 0,
+          distance: current?.distance ?? 0,
+          tss: Math.round(current?.training_load ?? 0),
+        },
+        previousStats: {
+          count: previous?.count ?? 0,
+          duration: previous?.moving_time ?? 0,
+          distance: previous?.distance ?? 0,
+          tss: Math.round(previous?.training_load ?? 0),
+        },
+        labels: getTimeRangeLabel(timeRange, t as (key: string) => any, weekNum, weekRangeStr),
+      };
+    }
+
+    // For other time ranges, use client-side calculation
     if (!activities || activities.length === 0) {
       return {
         currentStats: { count: 0, duration: 0, distance: 0, tss: 0 },
         previousStats: { count: 0, duration: 0, distance: 0, tss: 0 },
-        labels: getTimeRangeLabel(timeRange, t as (key: string) => any),
+        labels: getTimeRangeLabel(timeRange, t as (key: string) => any, weekNum, weekRangeStr),
       };
     }
 
@@ -220,17 +284,20 @@ export function WeeklySummary({ activities }: WeeklySummaryProps) {
 
     return {
       ...stats,
-      labels: getTimeRangeLabel(timeRange, t as (key: string) => any),
+      labels: getTimeRangeLabel(timeRange, t as (key: string) => any, weekNum, weekRangeStr),
     };
-  }, [activities, timeRange, t]);
+  }, [activities, timeRange, summaryData, t]);
 
   const tssChange =
     previousStats.tss > 0 ? ((currentStats.tss - previousStats.tss) / previousStats.tss) * 100 : 0;
 
   const isLoadIncreasing = tssChange > 0;
 
+  // Show loading state while fetching calendar data
+  const isLoading = timeRange === 'week' && isLoadingSummary;
+
   // Show empty state if no activities in current period
-  if (currentStats.count === 0) {
+  if (!isLoading && currentStats.count === 0) {
     return (
       <View style={styles.container} testID="weekly-summary">
         <View style={styles.header}>
@@ -270,7 +337,7 @@ export function WeeklySummary({ activities }: WeeklySummaryProps) {
 
   return (
     <View style={styles.container} testID="weekly-summary">
-      {/* Header with time range selector */}
+      {/* Header with title and time range selector */}
       <View style={styles.header}>
         <Text style={[styles.title, isDark && styles.textLight]}>{labels.current}</Text>
         <View style={styles.timeRangeSelector}>
@@ -299,63 +366,81 @@ export function WeeklySummary({ activities }: WeeklySummaryProps) {
         </View>
       </View>
 
-      {/* Stats grid */}
-      <View style={styles.statsGrid}>
-        <View style={styles.statItem}>
-          <Text
-            testID="weekly-summary-count"
-            style={[styles.statValue, isDark && styles.textLight]}
-          >
-            {currentStats.count}
-          </Text>
-          <Text style={[styles.statLabel, isDark && styles.textDark]}>{t('stats.activities')}</Text>
+      {/* Loading indicator */}
+      {isLoading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="small" color={colors.primary} />
         </View>
+      ) : (
+        <>
+          {/* Stats grid */}
+          <View style={styles.statsGrid}>
+            <View style={styles.statItem}>
+              <Text
+                testID="weekly-summary-count"
+                style={[styles.statValue, isDark && styles.textLight]}
+              >
+                {currentStats.count}
+              </Text>
+              <Text style={[styles.statLabel, isDark && styles.textDark]}>
+                {t('stats.activities')}
+              </Text>
+            </View>
 
-        <View style={styles.statItem}>
-          <Text
-            testID="weekly-summary-duration"
-            style={[styles.statValue, isDark && styles.textLight]}
-          >
-            {formatDuration(currentStats.duration)}
-          </Text>
-          <Text style={[styles.statLabel, isDark && styles.textDark]}>
-            {t('activity.duration')}
-          </Text>
-        </View>
+            <View style={styles.statItem}>
+              <Text
+                testID="weekly-summary-duration"
+                style={[styles.statValue, isDark && styles.textLight]}
+              >
+                {formatDuration(currentStats.duration)}
+              </Text>
+              <Text style={[styles.statLabel, isDark && styles.textDark]}>
+                {t('activity.duration')}
+              </Text>
+            </View>
 
-        <View style={styles.statItem}>
-          <Text
-            testID="weekly-summary-distance"
-            style={[styles.statValue, isDark && styles.textLight]}
-          >
-            {formatDistance(currentStats.distance, isMetric)}
-          </Text>
-          <Text style={[styles.statLabel, isDark && styles.textDark]}>
-            {t('activity.distance')}
-          </Text>
-        </View>
+            <View style={styles.statItem}>
+              <Text
+                testID="weekly-summary-distance"
+                style={[styles.statValue, isDark && styles.textLight]}
+              >
+                {formatDistance(currentStats.distance, isMetric)}
+              </Text>
+              <Text style={[styles.statLabel, isDark && styles.textDark]}>
+                {t('activity.distance')}
+              </Text>
+            </View>
 
-        <View style={styles.statItem}>
-          <Text testID="weekly-summary-tss" style={[styles.statValue, isDark && styles.textLight]}>
-            {currentStats.tss}
-          </Text>
-          <Text style={[styles.statLabel, isDark && styles.textDark]}>{t('stats.loadTss')}</Text>
-        </View>
-      </View>
+            <View style={styles.statItem}>
+              <Text
+                testID="weekly-summary-tss"
+                style={[styles.statValue, isDark && styles.textLight]}
+              >
+                {currentStats.tss}
+              </Text>
+              <Text style={[styles.statLabel, isDark && styles.textDark]}>
+                {t('stats.loadTss')}
+              </Text>
+            </View>
+          </View>
 
-      {/* Comparison with previous period */}
-      {previousStats.tss > 0 && (
-        <View style={styles.comparisonRow}>
-          <Text style={[styles.comparisonLabel, isDark && styles.textDark]}>{labels.previous}</Text>
-          <Text
-            style={[
-              styles.comparisonValue,
-              { color: isLoadIncreasing ? colors.warning : colors.success },
-            ]}
-          >
-            {isLoadIncreasing ? '▲' : '▼'} {Math.abs(tssChange).toFixed(0)}%
-          </Text>
-        </View>
+          {/* Comparison with previous period */}
+          {previousStats.tss > 0 && (
+            <View style={styles.comparisonRow}>
+              <Text style={[styles.comparisonLabel, isDark && styles.textDark]}>
+                {labels.previous}
+              </Text>
+              <Text
+                style={[
+                  styles.comparisonValue,
+                  { color: isLoadIncreasing ? colors.warning : colors.success },
+                ]}
+              >
+                {isLoadIncreasing ? '▲' : '▼'} {Math.abs(tssChange).toFixed(0)}%
+              </Text>
+            </View>
+          )}
+        </>
       )}
     </View>
   );
@@ -364,15 +449,13 @@ export function WeeklySummary({ activities }: WeeklySummaryProps) {
 const styles = StyleSheet.create({
   container: {},
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
     marginBottom: spacing.md,
   },
   title: {
     fontSize: typography.body.fontSize,
     fontWeight: '700',
     color: colors.textPrimary,
+    marginBottom: spacing.sm,
   },
   textLight: {
     color: colors.textOnDark,
@@ -447,5 +530,10 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: typography.bodySmall.fontSize,
     color: colors.textSecondary,
+  },
+  loadingContainer: {
+    padding: spacing.xl,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

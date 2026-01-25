@@ -14,6 +14,7 @@ import {
   MapView,
   Camera,
   MarkerView,
+  PointAnnotation,
   ShapeSource,
   LineLayer,
   CircleLayer,
@@ -1008,13 +1009,10 @@ export function RegionalMapView({
             // Hide markers when: no valid center, activities toggle is off, or in heatmap mode
             const isVisible = hasValidCenter && showActivities && !isHeatmapMode;
 
-            // Platform-specific tap handling:
-            // - iOS: Use Pressable because MarkerView blocks ShapeSource taps
-            // - Android: Use pointerEvents="none" because Pressable breaks marker positioning
-            const markerContent = (
+            // Visual marker content
+            const markerVisual = (
               <View
                 testID={`map-activity-marker-${activity.id}`}
-                pointerEvents="none"
                 style={{
                   width: markerSize,
                   height: markerSize,
@@ -1032,6 +1030,9 @@ export function RegionalMapView({
               </View>
             );
 
+            // Platform-specific tap handling:
+            // - iOS: Pressable wrapper (ShapeSource onPress doesn't work with new arch)
+            // - Android: pointerEvents="none" lets taps through to ShapeSource CircleLayer
             return (
               <MarkerView
                 key={`marker-${activity.id}`}
@@ -1039,43 +1040,54 @@ export function RegionalMapView({
                 anchor={{ x: 0.5, y: 0.5 }}
                 allowOverlap={true}
               >
-                {markerContent}
+                {Platform.OS === 'ios' ? (
+                  <Pressable
+                    onPress={isVisible ? () => handleMarkerTap(activity) : undefined}
+                    hitSlop={8}
+                  >
+                    {markerVisual}
+                  </Pressable>
+                ) : (
+                  <View pointerEvents="none">{markerVisual}</View>
+                )}
               </MarkerView>
             );
           })}
 
-          {/* Activity marker tap detection - rendered AFTER MarkerViews so it's on top */}
-          {/* CRITICAL: Always render to avoid iOS crash during view reconciliation */}
-          {/* NOTE: circleColor must NOT be 'transparent' - MapLibre won't register taps on transparent features */}
+          {/* Activity marker hit detection - Android only (iOS uses Pressable in MarkerView) */}
+          {/* CRITICAL: Always render ShapeSource to avoid iOS crash during view reconciliation */}
           <ShapeSource
             id="activity-markers-hitarea"
             shape={markersGeoJSON}
-            onPress={!isHeatmapMode && showActivities ? handleMarkerPress : undefined}
-            hitbox={{ width: 44, height: 44 }}
+            onPress={
+              Platform.OS === 'android' && !isHeatmapMode && showActivities
+                ? handleMarkerPress
+                : undefined
+            }
+            hitbox={{ width: 36, height: 36 }}
           >
-            {/* Nearly invisible circles for hit detection - opacity 0.01 is invisible but still tappable */}
-            {/* Radius scales inversely with zoom: larger at low zoom (world view) for easier tapping */}
+            {/* Invisible circles for hit detection - Android only, sized to match visual markers */}
             <CircleLayer
               id="marker-hitarea"
               style={{
                 circleRadius:
-                  !isHeatmapMode && showActivities
+                  Platform.OS === 'android' && !isHeatmapMode && showActivities
                     ? [
                         'interpolate',
                         ['linear'],
                         ['zoom'],
-                        2,
-                        30, // World view: 30px radius
+                        1,
+                        18, // World view: modest hitarea to avoid overlap
                         6,
-                        24, // Continental: 24px
+                        16, // Continental
                         10,
-                        20, // Regional: 20px
+                        14, // Regional
                         14,
-                        16, // City: 16px
+                        12, // City level
                       ]
                     : 0,
                 circleColor: '#000000',
-                circleOpacity: 0.01,
+                circleOpacity: 0.01, // Nearly invisible but tappable
                 circleStrokeWidth: 0,
               }}
             />

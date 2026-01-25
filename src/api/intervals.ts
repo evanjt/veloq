@@ -10,6 +10,7 @@ import type {
   ActivityDetail,
   ActivityStreams,
   Athlete,
+  AthleteSummary,
   WellnessData,
   PowerCurve,
   PaceCurve,
@@ -357,6 +358,32 @@ export const intervalsApi = {
     }
     const response = await apiClient.get<ActivityMapData>(`/activity/${id}/map`, {
       params: boundsOnly ? { boundsOnly: true } : undefined,
+    });
+    return response.data;
+  },
+
+  /**
+   * Get athlete summary (weekly stats) for a date range
+   * Returns aggregated stats per calendar week (Monday-Sunday) - matches intervals.icu display
+   * @param start - Start date (ISO format: YYYY-MM-DD)
+   * @param end - End date (ISO format: YYYY-MM-DD)
+   */
+  async getAthleteSummary(params: { start: string; end: string }): Promise<AthleteSummary[]> {
+    if (isDemoMode()) return mockIntervalsApi.getAthleteSummary(params);
+    const athleteId = getAthleteId();
+    const response = await apiClient.get<AthleteSummary[]>(
+      `/athlete/${athleteId}/athlete-summary`,
+      {
+        params: {
+          start: params.start,
+          end: params.end,
+        },
+      }
+    );
+    log.log('getAthleteSummary', {
+      start: params.start,
+      end: params.end,
+      weeks: response.data.length,
     });
     return response.data;
   },

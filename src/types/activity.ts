@@ -308,3 +308,82 @@ export interface ActivityMapData {
   route: unknown | null;
   weather: unknown | null;
 }
+
+// Athlete summary for a week (from /athlete-summary endpoint)
+// Returns aggregated stats per calendar week (Monday-Sunday)
+export interface AthleteSummary {
+  /** Monday of the week (ISO date: YYYY-MM-DD) */
+  date: string;
+  /** Number of activities in this week */
+  count: number;
+  /** Total time in seconds */
+  time: number;
+  /** Total moving time in seconds */
+  moving_time: number;
+  /** Total elapsed time in seconds */
+  elapsed_time: number;
+  /** Total calories burned */
+  calories: number;
+  /** Total elevation gain in meters */
+  total_elevation_gain: number;
+  /** Total training load (TSS) */
+  training_load: number;
+  /** Session RPE load */
+  srpe: number;
+  /** Total distance in meters */
+  distance: number;
+  /** Estimated FTP for this period */
+  eftp: number | null;
+  /** Estimated FTP per kg */
+  eftpPerKg: number | null;
+  /** Athlete ID */
+  athlete_id: string;
+  /** Athlete name */
+  athlete_name: string;
+  /** Fitness (CTL) at end of this week */
+  fitness: number;
+  /** Fatigue (ATL) at end of this week */
+  fatigue: number;
+  /** Form (TSB) at end of this week */
+  form: number;
+  /** Ramp rate */
+  rampRate: number;
+  /** Athlete weight */
+  weight: number | null;
+  /** Time in HR zones (seconds per zone) */
+  timeInZones: number[];
+  /** Total time across all zones */
+  timeInZonesTot: number;
+  /** Per-sport category breakdown */
+  byCategory: AthleteSummaryCategory[];
+  /** Most recent wellness entry ID */
+  mostRecentWellnessId: string;
+}
+
+// Per-sport breakdown within athlete summary
+export interface AthleteSummaryCategory {
+  /** Sport category (e.g., 'Run', 'Ride') */
+  category: string;
+  /** Number of activities */
+  count: number;
+  /** Total time in seconds */
+  time: number;
+  /** Total moving time in seconds */
+  moving_time: number;
+  /** Total elapsed time in seconds */
+  elapsed_time: number;
+  /** Total calories burned */
+  calories: number;
+  /** Total elevation gain in meters */
+  total_elevation_gain: number;
+  /** Total training load (TSS) */
+  training_load: number;
+  /** Session RPE load */
+  srpe: number;
+  /** Total distance in meters */
+  distance: number;
+  /** Estimated FTP for this period */
+  eftp: number | null;
+  /** Estimated FTP per kg */
+  eftpPerKg: number | null;
+}

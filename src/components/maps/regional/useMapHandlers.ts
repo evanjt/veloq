@@ -150,7 +150,7 @@ export function useMapHandlers({
     });
   }, [selected, cameraRef]);
 
-  // Handle marker tap via ShapeSource press
+  // Handle marker tap via ShapeSource press (Android only)
   const handleMarkerPress = useCallback(
     (event: { features?: GeoJSON.Feature[] }) => {
       const feature = event.features?.[0];
