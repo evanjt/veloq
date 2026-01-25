@@ -1,8 +1,7 @@
 # Stress Test: Map Marker Taps
 # Tests tapping on activity markers rendered via MarkerView
 # Verifies that markers are accessible and tappable via testID
-# Demo activity IDs use format: demo-YYYY-MM-DD-N (e.g., demo-2026-01-14-0)
-# Reference date: 2026-01-15 (some dates may be rest days)
+# Uses stable test activity IDs (demo-test-N) that never change regardless of date
 
 appId: com.veloq.app
 ---
@@ -36,11 +35,10 @@ appId: com.veloq.app
     timeout: 10000
     optional: true
 
-# Try to tap on demo activity markers (format: demo-YYYY-MM-DD-N)
-# Reference date is 2026-01-15, use nearby dates that are likely to have activities
+# Try to tap on stable test activity markers (format: demo-test-N)
 # These use MarkerView which renders React Native Views with testIDs
 - tapOn:
-    id: "map-activity-marker-demo-2026-01-14-0"
+    id: "map-activity-marker-demo-test-0"
     optional: true
 
 # If marker was tapped, activity popup should appear
@@ -63,18 +61,18 @@ appId: com.veloq.app
       id: "map-screen"
     timeout: 10000
 
-# Try tapping multiple markers rapidly (using dates near reference)
+# Try tapping multiple markers rapidly (using stable test activities)
 - repeat:
     times: 3
     commands:
       - tapOn:
-          id: "map-activity-marker-demo-2026-01-14-0"
+          id: "map-activity-marker-demo-test-0"
           optional: true
       - tapOn:
-          id: "map-activity-marker-demo-2026-01-13-0"
+          id: "map-activity-marker-demo-test-1"
           optional: true
       - tapOn:
-          id: "map-activity-marker-demo-2026-01-12-0"
+          id: "map-activity-marker-demo-test-2"
           optional: true
 
 # Verify map is still responsive

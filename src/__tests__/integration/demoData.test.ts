@@ -305,12 +305,30 @@ describe('Demo Data Integration Tests', () => {
   });
 
   describe('Deterministic Data Generation', () => {
+    // Filter out stable test activities for date-based ID tests
+    const dateBasedActivities = demoActivities.filter(
+      (a: ApiActivity) => !a.id.startsWith('demo-test-')
+    );
+
     it('activity IDs use deterministic date-based format', () => {
-      // All IDs should match format: demo-YYYY-MM-DD-N
+      // Date-based IDs should match format: demo-YYYY-MM-DD-N
+      // Stable test activities (demo-test-N) are excluded
       const idPattern = /^demo-\d{4}-\d{2}-\d{2}-\d+$/;
 
-      demoActivities.forEach((activity: ApiActivity) => {
+      dateBasedActivities.forEach((activity: ApiActivity) => {
         expect(activity.id).toMatch(idPattern);
+      });
+    });
+
+    it('stable test activities exist with correct format', () => {
+      // Stable test activities should match format: demo-test-N
+      const stableActivities = demoActivities.filter((a: ApiActivity) =>
+        a.id.startsWith('demo-test-')
+      );
+
+      expect(stableActivities.length).toBeGreaterThanOrEqual(5);
+      stableActivities.forEach((activity: ApiActivity) => {
+        expect(activity.id).toMatch(/^demo-test-\d+$/);
       });
     });
 
@@ -337,7 +355,8 @@ describe('Demo Data Integration Tests', () => {
     });
 
     it('activity dates align with IDs', () => {
-      demoActivities.forEach((activity: ApiActivity) => {
+      // Only check date-based activities (stable test activities have different ID format)
+      dateBasedActivities.forEach((activity: ApiActivity) => {
         // Extract date from ID: demo-YYYY-MM-DD-N → YYYY-MM-DD
         const idDate = activity.id.replace(/^demo-/, '').replace(/-\d+$/, '');
         const activityDate = activity.start_date_local.split('T')[0];
@@ -377,9 +396,9 @@ describe('Demo Data Integration Tests', () => {
     });
 
     it('activities for the same date have sequential indices', () => {
-      // Group activities by date
+      // Group activities by date (dateBasedActivities excludes stable test activities)
       const byDate = new Map<string, string[]>();
-      demoActivities.forEach((a: ApiActivity) => {
+      dateBasedActivities.forEach((a: ApiActivity) => {
         const date = a.start_date_local.split('T')[0];
         if (!byDate.has(date)) {
           byDate.set(date, []);
