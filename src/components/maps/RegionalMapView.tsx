@@ -1,13 +1,5 @@
 import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  Pressable,
-  Animated,
-  Platform,
-} from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Animated, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTheme } from '@/hooks';
 import {
@@ -939,8 +931,92 @@ export function RegionalMapView({
   // Show 3D view when enabled
   const show3D = is3DMode && can3D;
 
+  // iOS tap handler - uses screen coordinates directly since MapView.onPress doesn't work with Fabric
+  const handleiOSTap = useCallback(
+    async (screenX: number, screenY: number) => {
+      if (!showActivities || isHeatmapMode) {
+        if (selected) setSelected(null);
+        return;
+      }
+
+      // Find nearest marker by screen distance
+      let nearestActivity: (typeof activities)[0] | null = null;
+      let nearestDistance = Infinity;
+
+      for (const activity of activities) {
+        const center = activityCenters[activity.id];
+        if (!center) continue;
+
+        const markerScreenPos = await mapRef.current?.getPointInView(center);
+        if (!markerScreenPos) continue;
+
+        const dx = screenX - markerScreenPos[0];
+        const dy = screenY - markerScreenPos[1];
+        const distance = Math.sqrt(dx * dx + dy * dy);
+
+        if (distance < nearestDistance) {
+          nearestDistance = distance;
+          nearestActivity = activity;
+        }
+      }
+
+      const PIXEL_THRESHOLD = 40;
+      if (nearestActivity && nearestDistance < PIXEL_THRESHOLD) {
+        handleMarkerTap(nearestActivity);
+      } else if (selected) {
+        setSelected(null);
+      }
+    },
+    [
+      activities,
+      activityCenters,
+      handleMarkerTap,
+      selected,
+      setSelected,
+      showActivities,
+      isHeatmapMode,
+    ]
+  );
+
+  // Track touch start for iOS tap detection (to distinguish taps from gestures)
+  const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
+
   return (
-    <View style={styles.container}>
+    <View
+      style={styles.container}
+      onTouchStart={
+        Platform.OS === 'ios'
+          ? (e) => {
+              touchStartRef.current = {
+                x: e.nativeEvent.locationX,
+                y: e.nativeEvent.locationY,
+                time: Date.now(),
+              };
+            }
+          : undefined
+      }
+      onTouchEnd={
+        Platform.OS === 'ios'
+          ? (e) => {
+              const start = touchStartRef.current;
+              if (!start) return;
+
+              const dx = Math.abs(e.nativeEvent.locationX - start.x);
+              const dy = Math.abs(e.nativeEvent.locationY - start.y);
+              const duration = Date.now() - start.time;
+
+              // Only treat as tap if: short duration, minimal movement, not in button area
+              const isTap = duration < 300 && dx < 10 && dy < 10;
+              const isInMapArea = e.nativeEvent.locationY > insets.top + 60; // Below buttons
+
+              if (isTap && isInMapArea && !show3D) {
+                handleiOSTap(e.nativeEvent.locationX, e.nativeEvent.locationY);
+              }
+              touchStartRef.current = null;
+            }
+          : undefined
+      }
+    >
       {show3D ? (
         <Map3DWebView
           ref={map3DRef}
@@ -962,7 +1038,7 @@ export function RegionalMapView({
           logoEnabled={false}
           attributionEnabled={false}
           compassEnabled={false}
-          onPress={handleMapPress}
+          onPress={Platform.OS === 'android' ? handleMapPress : undefined}
           onRegionIsChanging={handleRegionIsChanging}
           onRegionDidChange={handleRegionDidChange}
           onDidFailLoadingMap={handleMapLoadError}
@@ -1030,9 +1106,10 @@ export function RegionalMapView({
               </View>
             );
 
-            // Platform-specific tap handling:
-            // - iOS: Pressable wrapper (ShapeSource onPress doesn't work with new arch)
-            // - Android: pointerEvents="none" lets taps through to ShapeSource CircleLayer
+            // Tap handling:
+            // - iOS: MapView.onPress with pixel-based detection (ShapeSource.onPress broken with Fabric)
+            // - Android: ShapeSource + CircleLayer native tap detection
+            // Both platforms use pointerEvents="none" - no touch interception from markers
             return (
               <MarkerView
                 key={`marker-${activity.id}`}
@@ -1040,16 +1117,7 @@ export function RegionalMapView({
                 anchor={{ x: 0.5, y: 0.5 }}
                 allowOverlap={true}
               >
-                {Platform.OS === 'ios' ? (
-                  <Pressable
-                    onPress={isVisible ? () => handleMarkerTap(activity) : undefined}
-                    hitSlop={8}
-                  >
-                    {markerVisual}
-                  </Pressable>
-                ) : (
-                  <View pointerEvents="none">{markerVisual}</View>
-                )}
+                <View pointerEvents="none">{markerVisual}</View>
               </MarkerView>
             );
           })}
@@ -1371,6 +1439,7 @@ export function RegionalMapView({
           </ShapeSource>
         </MapView>
       )}
+
       {/* Close button */}
       <TouchableOpacity
         style={[

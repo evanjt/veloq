@@ -101,14 +101,20 @@ export function useMapHandlers({
   // Handle marker tap - no auto-zoom to prevent jarring camera movements
   const handleMarkerTap = useCallback(
     async (activity: ActivityBoundsItem) => {
+      console.log('[handleMarkerTap] tapped activity:', activity.id);
       // Set loading state - don't zoom, just show the popup
       setSelected({ activity, mapData: null, isLoading: true });
 
       try {
         // Fetch full map data (with coordinates)
         const mapData = await intervalsApi.getActivityMap(activity.id, false);
+        console.log('[handleMarkerTap] mapData received:', {
+          hasLatlngs: !!mapData?.latlngs,
+          latlngsLength: mapData?.latlngs?.length,
+        });
         setSelected({ activity, mapData, isLoading: false });
-      } catch {
+      } catch (err) {
+        console.log('[handleMarkerTap] error fetching mapData:', err);
         setSelected({ activity, mapData: null, isLoading: false });
       }
     },
@@ -165,12 +171,17 @@ export function useMapHandlers({
     [activities, handleMarkerTap]
   );
 
-  // Handle map press - close popup when tapping empty space
-  const handleMapPress = useCallback(() => {
-    if (selected) {
-      setSelected(null);
-    }
-  }, [selected, setSelected]);
+  // Handle map press - Android only (iOS uses onTouchEnd on container View)
+  // ShapeSource.onPress doesn't fire on iOS with new architecture (Fabric)
+  const handleMapPress = useCallback(
+    (_feature?: GeoJSON.Feature) => {
+      // Close popup if tapped on empty space
+      if (selected) {
+        setSelected(null);
+      }
+    },
+    [selected, setSelected]
+  );
 
   // Handle section press
   const handleSectionPress = useCallback(
