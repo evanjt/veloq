@@ -120,7 +120,7 @@ export function ActivityMapPreview({ activity, height = 160 }: ActivityMapPrevie
       testID={mapReady ? `activity-map-preview-ready-${activity.id}` : undefined}
     >
       <MapView
-        style={styles.map}
+        style={[styles.map, { opacity: mapReady ? 1 : 0 }]}
         mapStyle={styleUrl}
         logoEnabled={false}
         attributionEnabled={false}
@@ -132,11 +132,15 @@ export function ActivityMapPreview({ activity, height = 160 }: ActivityMapPrevie
         onDidFinishRenderingMapFully={handleMapFullyRendered}
       >
         <Camera
-          bounds={{
-            ne: [bounds.ne[0], bounds.ne[1]],
-            sw: [bounds.sw[0], bounds.sw[1]],
+          defaultSettings={{
+            bounds: {
+              ne: [bounds.ne[0], bounds.ne[1]],
+              sw: [bounds.sw[0], bounds.sw[1]],
+            },
+            padding: { paddingTop: 30, paddingRight: 30, paddingBottom: 30, paddingLeft: 30 },
+            animationMode: 'moveTo',
+            animationDuration: 0,
           }}
-          padding={{ paddingTop: 30, paddingRight: 30, paddingBottom: 30, paddingLeft: 30 }}
         />
 
         {/* Route line - iOS crash fix: always render ShapeSource */}

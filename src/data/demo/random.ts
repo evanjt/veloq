@@ -5,8 +5,20 @@
  * reproducible sequences of "random" values.
  */
 
-/** Reference date for all demo data generation (fixed for reproducibility) */
-export const DEMO_REFERENCE_DATE = '2026-01-15';
+/**
+ * Reference date for demo data generation.
+ * Uses today's date so demo mode always has current data.
+ * Seeding is deterministic based on day offset, not absolute date.
+ */
+function getTodayDateString(): string {
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, '0');
+  const day = String(today.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+export const DEMO_REFERENCE_DATE = getTodayDateString();
 
 /**
  * Mulberry32 PRNG - fast, simple, 32-bit state

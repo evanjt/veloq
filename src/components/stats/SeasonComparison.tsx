@@ -1,5 +1,13 @@
 import React, { useMemo, useState, useRef, useCallback } from 'react';
-import { View, StyleSheet, TouchableOpacity, PanResponder, LayoutChangeEvent } from 'react-native';
+import {
+  View,
+  StyleSheet,
+  TouchableOpacity,
+  PanResponder,
+  LayoutChangeEvent,
+  findNodeHandle,
+  UIManager,
+} from 'react-native';
 import { useTheme } from '@/hooks';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
@@ -64,14 +72,21 @@ export function SeasonComparison({
   const [metric, setMetric] = useState<'hours' | 'distance' | 'tss'>('hours');
   const [selectedMonth, setSelectedMonth] = useState<number | null>(null);
   const chartWidth = useRef(0);
-  const chartLeft = useRef(0);
-  const initialX = useRef(0);
-  const initialMonth = useRef(0);
+  const chartPageX = useRef(0);
+  const chartRef = useRef<View>(null);
 
-  // Handle chart layout to get width and position for touch calculations
+  // Handle chart layout to get width and absolute position for touch calculations
   const onChartLayout = useCallback((event: LayoutChangeEvent) => {
     chartWidth.current = event.nativeEvent.layout.width;
-    chartLeft.current = event.nativeEvent.layout.x;
+    // Measure absolute position after layout
+    if (chartRef.current) {
+      const nodeHandle = findNodeHandle(chartRef.current);
+      if (nodeHandle) {
+        UIManager.measure(nodeHandle, (_x, _y, _width, _height, pageX) => {
+          chartPageX.current = pageX;
+        });
+      }
+    }
   }, []);
 
   // Calculate month index from x position relative to chart
@@ -82,6 +97,8 @@ export function SeasonComparison({
   }, []);
 
   // Pan responder for scrubbing
+  // Uses pageX (absolute screen coordinates) to avoid issues with touch target
+  // being a child element (bars) where locationX would be relative to that child
   const panResponder = useMemo(
     () =>
       PanResponder.create({
@@ -90,15 +107,16 @@ export function SeasonComparison({
         // Prevent parent ScrollView from stealing the gesture while scrubbing
         onPanResponderTerminationRequest: () => false,
         onPanResponderGrant: (evt) => {
-          // Store initial position and month for relative calculations
-          initialX.current = evt.nativeEvent.locationX;
-          initialMonth.current = getMonthFromX(initialX.current);
-          setSelectedMonth(initialMonth.current);
+          // Use pageX (absolute) and subtract chart's absolute position
+          // This avoids issues where locationX is relative to a child element
+          const relativeX = evt.nativeEvent.pageX - chartPageX.current;
+          const monthIndex = getMonthFromX(relativeX);
+          setSelectedMonth(monthIndex);
         },
-        onPanResponderMove: (_evt, gestureState) => {
-          // Use dx (delta from start) for more reliable tracking
-          const currentX = initialX.current + gestureState.dx;
-          const monthIndex = getMonthFromX(currentX);
+        onPanResponderMove: (evt) => {
+          // Use pageX for consistent coordinate calculation
+          const relativeX = evt.nativeEvent.pageX - chartPageX.current;
+          const monthIndex = getMonthFromX(relativeX);
           setSelectedMonth(monthIndex);
         },
         onPanResponderRelease: () => {
@@ -357,6 +375,7 @@ export function SeasonComparison({
 
       {/* Chart */}
       <View
+        ref={chartRef}
         style={[styles.chartContainer, { height }]}
         onLayout={onChartLayout}
         {...panResponder.panHandlers}

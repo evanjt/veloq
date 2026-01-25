@@ -365,10 +365,14 @@ export function ActivityMapView({
     }
   }, []);
 
+  // Track pending initial bounds to apply on map load
+  const pendingInitialBoundsRef = useRef<{ ne: [number, number]; sw: [number, number] } | null>(
+    null
+  );
+
   // Handle map finishing loading - now safe to apply camera commands
   // Also restore camera position if we saved one before style change
   const handleMapFinishLoading = useCallback(() => {
-    setMapReady(true);
     // Restore camera position after style change
     if (pendingCameraRestoreRef.current) {
       const { center, zoom } = pendingCameraRestoreRef.current;
@@ -376,9 +380,29 @@ export function ActivityMapView({
         centerCoordinate: center,
         zoomLevel: zoom,
         animationDuration: 0,
+        animationMode: 'moveTo',
       });
       pendingCameraRestoreRef.current = null;
+    } else if (pendingInitialBoundsRef.current) {
+      // Apply initial bounds on first load - use setCamera with moveTo to avoid animation
+      // (fitBounds hardcodes easeTo which always animates)
+      cameraRef.current?.setCamera({
+        bounds: {
+          ne: pendingInitialBoundsRef.current.ne,
+          sw: pendingInitialBoundsRef.current.sw,
+        },
+        padding: {
+          paddingTop: 50,
+          paddingRight: 50,
+          paddingBottom: 50,
+          paddingLeft: 50,
+        },
+        animationDuration: 0,
+        animationMode: 'moveTo',
+      });
     }
+    // Small delay to let camera settle before showing map
+    setTimeout(() => setMapReady(true), 50);
   }, []);
 
   // Track if we need to restore camera after style change
@@ -638,6 +662,14 @@ export function ActivityMapView({
 
   const bounds = useMemo(() => getMapLibreBounds(validCoordinates), [validCoordinates]);
 
+  // Stable initial camera settings - computed once when bounds first become available
+  // This prevents the map from animating when coordinates update (e.g., streams load after polyline)
+  const initialBoundsRef = useRef<{ ne: [number, number]; sw: [number, number] } | null>(null);
+  if (bounds && !initialBoundsRef.current) {
+    initialBoundsRef.current = bounds;
+    pendingInitialBoundsRef.current = bounds;
+  }
+
   // Create a stable key for the current activity's coordinates
   // This detects when we're viewing a different activity
   const coordinatesKey = useMemo(() => {
@@ -653,15 +685,21 @@ export function ActivityMapView({
 
   // Apply bounds imperatively when coordinates change (different activity)
   // Using imperative API ensures Camera props stay consistent across re-renders
-  // Wait for mapReady to avoid race condition where fitBounds is called before map is initialized
+  // Wait for mapReady to avoid race condition where setCamera is called before map is initialized
+  // NOTE: Use setCamera with moveTo instead of fitBounds - fitBounds hardcodes easeTo which animates
   useEffect(() => {
     if (mapReady && bounds && coordinatesKey && coordinatesKey !== appliedBoundsKeyRef.current) {
-      cameraRef.current?.fitBounds(
-        bounds.ne,
-        bounds.sw,
-        [50, 50, 50, 50], // [top, right, bottom, left]
-        0
-      );
+      cameraRef.current?.setCamera({
+        bounds: { ne: bounds.ne, sw: bounds.sw },
+        padding: {
+          paddingTop: 50,
+          paddingRight: 50,
+          paddingBottom: 50,
+          paddingLeft: 50,
+        },
+        animationDuration: 0,
+        animationMode: 'moveTo',
+      });
       appliedBoundsKeyRef.current = coordinatesKey;
     }
   }, [mapReady, bounds, coordinatesKey]);
@@ -1031,7 +1069,7 @@ export function ActivityMapView({
         >
           <MapView
             key={`activity-map-${mapKey}`}
-            style={styles.map}
+            style={[styles.map, { opacity: mapReady ? 1 : 0 }]}
             mapStyle={mapStyleValue}
             logoEnabled={false}
             attributionEnabled={false}
@@ -1048,8 +1086,22 @@ export function ActivityMapView({
           >
             <Camera
               ref={cameraRef}
-              // Bounds are applied imperatively via fitBounds() to avoid
-              // Camera prop changes that can corrupt zoom when overlays are added
+              defaultSettings={
+                initialBoundsRef.current
+                  ? {
+                      bounds: { ne: initialBoundsRef.current.ne, sw: initialBoundsRef.current.sw },
+                      padding: {
+                        paddingTop: 50,
+                        paddingRight: 50,
+                        paddingBottom: 50,
+                        paddingLeft: 50,
+                      },
+                      animationMode: 'moveTo',
+                      animationDuration: 0,
+                    }
+                  : undefined
+              }
+              // Additional bounds updates applied imperatively via fitBounds() when activity changes
             />
 
             {/* Route overlay (matched route trace) - rendered first so activity line is on top */}
