@@ -3,9 +3,10 @@ import { View, StyleSheet, ActivityIndicator } from 'react-native';
 import {
   MapView,
   Camera,
-  ShapeSource,
+  GeoJSONSource,
   LineLayer,
   MarkerView,
+  type LngLatBounds,
 } from '@maplibre/maplibre-react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { convertLatLngTuples, getActivityColor, getMapLibreBounds } from '@/lib';
@@ -122,28 +123,24 @@ export function ActivityMapPreview({ activity, height = 160 }: ActivityMapPrevie
       <MapView
         style={styles.map}
         mapStyle={styleUrl}
-        logoEnabled={false}
-        attributionEnabled={false}
-        compassEnabled={false}
-        scrollEnabled={false}
-        zoomEnabled={false}
-        rotateEnabled={false}
-        pitchEnabled={false}
+        logo={false}
+        attribution={false}
+        compass={false}
+        dragPan={false}
+        touchAndDoubleTapZoom={false}
+        touchRotate={false}
+        touchPitch={false}
         onDidFinishRenderingMapFully={handleMapFullyRendered}
       >
         <Camera
-          bounds={bounds}
-          padding={{
-            paddingTop: 30,
-            paddingRight: 30,
-            paddingBottom: 30,
-            paddingLeft: 30,
+          initialViewState={{
+            bounds: [bounds.sw[0], bounds.sw[1], bounds.ne[0], bounds.ne[1]] as LngLatBounds,
+            padding: { top: 30, right: 30, bottom: 30, left: 30 },
           }}
-          animationDuration={0}
         />
 
-        {/* Route line - iOS crash fix: always render ShapeSource */}
-        <ShapeSource id="routeSource" shape={routeGeoJSON}>
+        {/* Route line - iOS crash fix: always render GeoJSONSource */}
+        <GeoJSONSource id="routeSource" data={routeGeoJSON}>
           <LineLayer
             id="routeLine"
             style={{
@@ -154,7 +151,7 @@ export function ActivityMapPreview({ activity, height = 160 }: ActivityMapPrevie
               lineJoin: 'round',
             }}
           />
-        </ShapeSource>
+        </GeoJSONSource>
 
         {/* Start marker */}
         {startPoint && (

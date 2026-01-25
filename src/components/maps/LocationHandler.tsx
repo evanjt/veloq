@@ -9,7 +9,7 @@ import React, { useRef, useEffect, useCallback } from 'react';
 import { TouchableOpacity, StyleSheet, ViewStyle } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
-import type { Camera } from '@maplibre/maplibre-react-native';
+import type { Camera, CameraRef } from '@maplibre/maplibre-react-native';
 import { colors } from '@/theme/colors';
 import { shadows } from '@/theme/shadows';
 import { spacing } from '@/theme/spacing';
@@ -58,10 +58,10 @@ export function LocationHandler({ cameraRef, onLocationUpdate, style }: Location
       const coords: [number, number] = [location.coords.longitude, location.coords.latitude];
       onLocationUpdate(coords);
 
-      cameraRef.current?.setCamera({
-        centerCoordinate: coords,
-        zoomLevel: 13,
-        animationDuration: 500,
+      (cameraRef.current as CameraRef | null)?.flyTo({
+        center: coords,
+        zoom: 13,
+        duration: 500,
       });
 
       // Clear previous timeout

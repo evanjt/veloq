@@ -9,7 +9,12 @@ import { Text, IconButton } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ScreenSafeAreaView } from '@/components/ui';
 import { router } from 'expo-router';
-import { MapView, Camera } from '@maplibre/maplibre-react-native';
+import {
+  MapView,
+  Camera,
+  type CameraRef,
+  type LngLatBounds,
+} from '@maplibre/maplibre-react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { colors, darkColors, spacing, shadows, typography } from '@/theme';
@@ -142,27 +147,26 @@ export default function HeatmapScreen() {
       <MapView
         style={styles.map}
         mapStyle={mapStyleValue}
-        logoEnabled={false}
-        attributionEnabled={false}
-        compassEnabled={false}
+        logo={false}
+        attribution={false}
+        compass={false}
         onPress={handleClosePopup}
       >
         <Camera
-          ref={cameraRef}
-          defaultSettings={
+          ref={cameraRef as React.RefObject<CameraRef>}
+          initialViewState={
             initialBounds
               ? {
-                  bounds: initialBounds,
-                  padding: {
-                    paddingTop: 100,
-                    paddingRight: 40,
-                    paddingBottom: 200,
-                    paddingLeft: 40,
-                  },
+                  bounds: [
+                    initialBounds.sw[0],
+                    initialBounds.sw[1],
+                    initialBounds.ne[0],
+                    initialBounds.ne[1],
+                  ] as LngLatBounds,
+                  padding: { top: 100, right: 40, bottom: 200, left: 40 },
                 }
               : undefined
           }
-          animationDuration={0}
         />
 
         {/* Heatmap layer */}

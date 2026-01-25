@@ -14,11 +14,12 @@ import { View, StyleSheet, TouchableOpacity, Modal, StatusBar } from 'react-nati
 import {
   MapView,
   Camera,
-  ShapeSource,
+  GeoJSONSource,
   LineLayer,
   MarkerView,
+  type LngLatBounds,
+  type Expression,
 } from '@maplibre/maplibre-react-native';
-import type { Expression } from '@maplibre/maplibre-react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { getActivityColor, getBoundsFromPoints } from '@/lib';
 import { colors, spacing, layout } from '@/theme';
@@ -272,29 +273,25 @@ export const SectionMapView = memo(function SectionMapView({
       ref={mapRef}
       style={styles.map}
       mapStyle={styleUrl}
-      logoEnabled={false}
-      attributionEnabled={false}
-      compassEnabled={interactive}
-      scrollEnabled={interactive}
-      zoomEnabled={interactive}
-      rotateEnabled={interactive}
-      pitchEnabled={false}
+      logo={false}
+      attribution={false}
+      compass={interactive}
+      dragPan={interactive}
+      touchAndDoubleTapZoom={interactive}
+      touchRotate={interactive}
+      touchPitch={false}
     >
       <Camera
-        bounds={bounds}
-        padding={{
-          paddingTop: 40,
-          paddingRight: 40,
-          paddingBottom: 40,
-          paddingLeft: 40,
+        initialViewState={{
+          bounds: [bounds.sw[0], bounds.sw[1], bounds.ne[0], bounds.ne[1]] as LngLatBounds,
+          padding: { top: 40, right: 40, bottom: 40, left: 40 },
         }}
-        animationDuration={0}
       />
 
       {/* Shadow track (full activity route) */}
-      {/* CRITICAL: Always render all ShapeSources to avoid iOS crash during view reconciliation */}
+      {/* CRITICAL: Always render all GeoJSONSources to avoid iOS crash during view reconciliation */}
       {/* Shadow track (full activity route) */}
-      <ShapeSource id="shadowSource" shape={shadowGeoJSON}>
+      <GeoJSONSource id="shadowSource" data={shadowGeoJSON}>
         <LineLayer
           id="shadowLine"
           style={{
@@ -305,10 +302,10 @@ export const SectionMapView = memo(function SectionMapView({
             lineJoin: 'round',
           }}
         />
-      </ShapeSource>
+      </GeoJSONSource>
 
       {/* Section polyline */}
-      <ShapeSource id="sectionSource" shape={sectionGeoJSON}>
+      <GeoJSONSource id="sectionSource" data={sectionGeoJSON}>
         <LineLayer
           id="sectionLine"
           style={{
@@ -319,10 +316,10 @@ export const SectionMapView = memo(function SectionMapView({
             lineJoin: 'round',
           }}
         />
-      </ShapeSource>
+      </GeoJSONSource>
 
       {/* Pre-loaded activity traces with filter */}
-      <ShapeSource id="allTracesSource" shape={allTracesFeatureCollection}>
+      <GeoJSONSource id="allTracesSource" data={allTracesFeatureCollection}>
         <LineLayer
           id="allTracesLine"
           filter={highlightedTraceFilter}
@@ -334,10 +331,10 @@ export const SectionMapView = memo(function SectionMapView({
             lineOpacity: !isScrubbing && hasAllTraces && highlightedTraceFilter ? 1 : 0,
           }}
         />
-      </ShapeSource>
+      </GeoJSONSource>
 
       {/* Highlighted lap points overlay */}
-      <ShapeSource id="highlightedLapSource" shape={highlightedLapGeoJSON}>
+      <GeoJSONSource id="highlightedLapSource" data={highlightedLapGeoJSON}>
         <LineLayer
           id="highlightedLapLine"
           style={{
@@ -347,10 +344,10 @@ export const SectionMapView = memo(function SectionMapView({
             lineJoin: 'round',
           }}
         />
-      </ShapeSource>
+      </GeoJSONSource>
 
       {/* Fallback: Highlighted activity trace */}
-      <ShapeSource id="highlightedSource" shape={highlightedTraceGeoJSON}>
+      <GeoJSONSource id="highlightedSource" data={highlightedTraceGeoJSON}>
         <LineLayer
           id="highlightedLine"
           style={{
@@ -361,7 +358,7 @@ export const SectionMapView = memo(function SectionMapView({
             lineOpacity: !isScrubbing ? 1 : 0,
           }}
         />
-      </ShapeSource>
+      </GeoJSONSource>
 
       {/* Start marker - keep conditional as MarkerViews need valid coordinates */}
       {startPoint && (
@@ -455,9 +452,9 @@ export const SectionMapView = memo(function SectionMapView({
           initialStyle={mapStyle}
           onClose={closeFullscreen}
         >
-          {/* CRITICAL: Always render all ShapeSources to avoid iOS crash */}
+          {/* CRITICAL: Always render all GeoJSONSources to avoid iOS crash */}
           {/* Shadow track (full activity route) */}
-          <ShapeSource id="fullscreenShadowSource" shape={shadowGeoJSON}>
+          <GeoJSONSource id="fullscreenShadowSource" data={shadowGeoJSON}>
             <LineLayer
               id="fullscreenShadowLine"
               style={{
@@ -468,10 +465,10 @@ export const SectionMapView = memo(function SectionMapView({
                 lineJoin: 'round',
               }}
             />
-          </ShapeSource>
+          </GeoJSONSource>
 
           {/* Pre-loaded activity traces with filter */}
-          <ShapeSource id="fullscreenAllTracesSource" shape={allTracesFeatureCollection}>
+          <GeoJSONSource id="fullscreenAllTracesSource" data={allTracesFeatureCollection}>
             <LineLayer
               id="fullscreenAllTracesLine"
               filter={highlightedTraceFilter}
@@ -483,10 +480,10 @@ export const SectionMapView = memo(function SectionMapView({
                 lineOpacity: hasAllTraces && highlightedTraceFilter ? 1 : 0,
               }}
             />
-          </ShapeSource>
+          </GeoJSONSource>
 
           {/* Highlighted lap points overlay */}
-          <ShapeSource id="fullscreenHighlightedLapSource" shape={highlightedLapGeoJSON}>
+          <GeoJSONSource id="fullscreenHighlightedLapSource" data={highlightedLapGeoJSON}>
             <LineLayer
               id="fullscreenHighlightedLapLine"
               style={{
@@ -496,10 +493,10 @@ export const SectionMapView = memo(function SectionMapView({
                 lineJoin: 'round',
               }}
             />
-          </ShapeSource>
+          </GeoJSONSource>
 
           {/* Fallback: Highlighted activity trace */}
-          <ShapeSource id="fullscreenHighlightedSource" shape={highlightedTraceGeoJSON}>
+          <GeoJSONSource id="fullscreenHighlightedSource" data={highlightedTraceGeoJSON}>
             <LineLayer
               id="fullscreenHighlightedLine"
               style={{
@@ -509,7 +506,7 @@ export const SectionMapView = memo(function SectionMapView({
                 lineJoin: 'round',
               }}
             />
-          </ShapeSource>
+          </GeoJSONSource>
 
           {/* Start marker */}
           {startPoint && (

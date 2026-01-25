@@ -111,8 +111,8 @@ function countChildrenBeforeFix(overlays: SectionOverlayGeoJSON[] | null): {
 
   for (const overlay of overlays) {
     // React.Fragment would contain these children:
-    // {overlay.sectionGeo && <ShapeSource>} - could be false
-    // {overlay.portionGeo && <ShapeSource>} - could be false
+    // {overlay.sectionGeo && <GeoJSONSource>} - could be false
+    // {overlay.portionGeo && <GeoJSONSource>} - could be false
     total += 2; // Each fragment has 2 potential children
 
     if (!overlay.sectionGeo) nullChildren++;
@@ -212,7 +212,7 @@ describe('MapView null children crash prevention', () => {
   describe('React rendering pattern - CRITICAL CRASH SCENARIO', () => {
     it('BEFORE FIX: React.Fragment pattern passes null children to MapView', () => {
       // This overlay has valid portionGeo but null sectionGeo
-      // The React.Fragment would contain: [false, <ShapeSource>]
+      // The React.Fragment would contain: [false, <GeoJSONSource>]
       // MapLibre iOS crashes when trying to insert false/null
       const overlaysWithPartialNulls: SectionOverlayGeoJSON[] = [
         {
@@ -355,7 +355,7 @@ describe('Source code fix verification', () => {
   const componentsDir = path.resolve(__dirname, '../../components/maps');
 
   describe('ActivityMapView.tsx', () => {
-    it('must use consolidated ShapeSources for section overlays (Fabric crash prevention)', () => {
+    it('must use consolidated GeoJSONSources for section overlays (Fabric crash prevention)', () => {
       const filePath = path.join(componentsDir, 'ActivityMapView.tsx');
       const source = fs.readFileSync(filePath, 'utf-8');
 
@@ -371,11 +371,11 @@ describe('Source code fix verification', () => {
       expect(hasOldFragmentPattern).toBe(false);
     });
 
-    it('must use stable ShapeSource IDs for section overlays', () => {
+    it('must use stable GeoJSONSource IDs for section overlays', () => {
       const filePath = path.join(componentsDir, 'ActivityMapView.tsx');
       const source = fs.readFileSync(filePath, 'utf-8');
 
-      // Must have stable ShapeSource IDs (not dynamic ones based on overlay.id)
+      // Must have stable GeoJSONSource IDs (not dynamic ones based on overlay.id)
       const hasStableSectionSourceId = source.includes('id="section-overlays-consolidated"');
       const hasStablePortionSourceId = source.includes('id="portion-overlays-consolidated"');
       const hasFullscreenSectionSourceId = source.includes('id="fs-section-overlays-consolidated"');

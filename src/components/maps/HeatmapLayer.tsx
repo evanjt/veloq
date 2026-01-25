@@ -4,7 +4,9 @@
  */
 
 import React, { useMemo } from 'react';
-import { ShapeSource, CircleLayer } from '@maplibre/maplibre-react-native';
+import { NativeSyntheticEvent } from 'react-native';
+import { GeoJSONSource, CircleLayer } from '@maplibre/maplibre-react-native';
+import type { PressEventWithFeatures } from '@maplibre/maplibre-react-native';
 import { colors } from '@/theme';
 import type { HeatmapResult } from '@/hooks/useHeatmap';
 
@@ -102,24 +104,24 @@ export function HeatmapLayer({
   }, [heatmap]);
 
   // Handle cell press
-  const handlePress = (event: { features?: GeoJSON.Feature[] }) => {
+  const handlePress = (event: NativeSyntheticEvent<PressEventWithFeatures>) => {
     if (!onCellPress) return;
-    const feature = event.features?.[0];
+    const feature = event.nativeEvent.features?.[0];
     if (feature?.properties) {
       onCellPress(feature.properties.row as number, feature.properties.col as number);
     }
   };
 
-  // iOS crash fix: Always render the ShapeSource, use opacity to hide
+  // iOS crash fix: Always render the GeoJSONSource, use opacity to hide
   // Never return null to avoid triggering native add/remove operations
   const effectiveOpacity = visible && geoJSON.features.length > 0 ? opacity : 0;
 
   return (
-    <ShapeSource
+    <GeoJSONSource
       id="heatmap-cells"
-      shape={geoJSON}
+      data={geoJSON}
       onPress={visible ? handlePress : undefined}
-      hitbox={{ width: 20, height: 20 }}
+      hitbox={{ top: 10, right: 10, bottom: 10, left: 10 }}
     >
       {/* Main heatmap circles */}
       {/* Note: MapLibre style expressions are arrays but TS types expect primitives */}
@@ -136,6 +138,6 @@ export function HeatmapLayer({
           circleStrokeColor: colors.textOnDark,
         }}
       />
-    </ShapeSource>
+    </GeoJSONSource>
   );
 }

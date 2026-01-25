@@ -1,5 +1,14 @@
 import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Animated, Platform } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  Animated,
+  Platform,
+  NativeSyntheticEvent,
+} from 'react-native';
+import type { PressEventWithFeatures } from '@maplibre/maplibre-react-native';
 import { useRouter } from 'expo-router';
 import { useTheme } from '@/hooks';
 import {
@@ -7,9 +16,11 @@ import {
   Camera,
   MarkerView,
   PointAnnotation,
-  ShapeSource,
+  GeoJSONSource,
   LineLayer,
   CircleLayer,
+  type MapViewRef,
+  type CameraRef,
 } from '@maplibre/maplibre-react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Ionicons } from '@expo/vector-icons';
@@ -753,8 +764,8 @@ export function RegionalMapView({
 
   // Handle route press - show route popup
   const handleRoutePress = useCallback(
-    (event: { features?: Array<{ properties?: Record<string, unknown> | null }> }) => {
-      const feature = event.features?.[0];
+    (event: NativeSyntheticEvent<PressEventWithFeatures>) => {
+      const feature = event.nativeEvent.features?.[0];
       const routeId = feature?.properties?.id as string | undefined;
       if (routeId) {
         const route = routeGroups.find((g) => g.id === routeId);
@@ -947,7 +958,7 @@ export function RegionalMapView({
         const center = activityCenters[activity.id];
         if (!center) continue;
 
-        const markerScreenPos = await mapRef.current?.getPointInView(center);
+        const markerScreenPos = await mapRef.current?.project(center);
         if (!markerScreenPos) continue;
 
         const dx = screenX - markerScreenPos[0];
@@ -1035,9 +1046,9 @@ export function RegionalMapView({
           ref={mapRef}
           style={styles.map}
           mapStyle={mapStyleValue}
-          logoEnabled={false}
-          attributionEnabled={false}
-          compassEnabled={false}
+          logo={false}
+          attribution={false}
+          compass={false}
           onPress={Platform.OS === 'android' ? handleMapPress : undefined}
           onRegionIsChanging={handleRegionIsChanging}
           onRegionDidChange={handleRegionDidChange}
@@ -1046,16 +1057,15 @@ export function RegionalMapView({
           {/* Camera with ref for programmatic control */}
           {/* Uses center biased toward recent activities (longitude from recent, latitude from all) */}
           <Camera
-            ref={cameraRef}
-            defaultSettings={
+            ref={cameraRef as React.RefObject<CameraRef>}
+            initialViewState={
               mapCenter
                 ? {
-                    centerCoordinate: mapCenter,
-                    zoomLevel: mapZoom,
+                    center: mapCenter,
+                    zoom: mapZoom,
                   }
                 : undefined
             }
-            animationDuration={0}
           />
 
           {/* Activity markers - visual only, taps handled by ShapeSource rendered later */}
@@ -1124,15 +1134,15 @@ export function RegionalMapView({
 
           {/* Activity marker hit detection - Android only (iOS uses Pressable in MarkerView) */}
           {/* CRITICAL: Always render ShapeSource to avoid iOS crash during view reconciliation */}
-          <ShapeSource
+          <GeoJSONSource
             id="activity-markers-hitarea"
-            shape={markersGeoJSON}
+            data={markersGeoJSON}
             onPress={
               Platform.OS === 'android' && !isHeatmapMode && showActivities
                 ? handleMarkerPress
                 : undefined
             }
-            hitbox={{ width: 36, height: 36 }}
+            hitbox={{ top: 18, right: 18, bottom: 18, left: 18 }}
           >
             {/* Invisible circles for hit detection - Android only, sized to match visual markers */}
             <CircleLayer
@@ -1159,15 +1169,15 @@ export function RegionalMapView({
                 circleStrokeWidth: 0,
               }}
             />
-          </ShapeSource>
+          </GeoJSONSource>
 
           {/* Routes layer - dashed polylines for route groups */}
           {/* CRITICAL: Always render ShapeSource to avoid iOS MapLibre crash during reconciliation */}
-          <ShapeSource
+          <GeoJSONSource
             id="routes"
-            shape={routesGeoJSON}
+            data={routesGeoJSON}
             onPress={handleRoutePress}
-            hitbox={{ width: 44, height: 44 }}
+            hitbox={{ top: 22, right: 22, bottom: 22, left: 22 }}
           >
             <LineLayer
               id="routesLine"
@@ -1191,12 +1201,12 @@ export function RegionalMapView({
                 lineJoin: 'round',
               }}
             />
-          </ShapeSource>
+          </GeoJSONSource>
 
           {/* Route markers - start points for routes */}
           {/* CRITICAL: Always render ShapeSource to avoid iOS MapLibre crash */}
           {/* Visual markers rendered as MarkerViews below for icon support */}
-          <ShapeSource id="route-markers" shape={routeMarkersGeoJSON}>
+          <GeoJSONSource id="route-markers" data={routeMarkersGeoJSON}>
             <CircleLayer
               id="routeMarkerCircle"
               style={{
@@ -1204,15 +1214,15 @@ export function RegionalMapView({
                 circleOpacity: 0,
               }}
             />
-          </ShapeSource>
+          </GeoJSONSource>
 
           {/* Sections layer - frequent road/trail sections */}
           {/* CRITICAL: Always render ShapeSource to avoid iOS MapLibre crash */}
-          <ShapeSource
+          <GeoJSONSource
             id="sections"
-            shape={sectionsGeoJSON}
+            data={sectionsGeoJSON}
             onPress={handleSectionPress}
-            hitbox={{ width: 44, height: 44 }}
+            hitbox={{ top: 22, right: 22, bottom: 22, left: 22 }}
           >
             {/* Section lines - thicker and more prominent than traces */}
             {/* Note: MapLibre doesn't allow nested zoom-based interpolations in case expressions */}
@@ -1276,7 +1286,7 @@ export function RegionalMapView({
               }}
               belowLayerID="sectionsLine"
             />
-          </ShapeSource>
+          </GeoJSONSource>
 
           {/* Heatmap layer - iOS crash fix: always render, control via visible prop */}
           <HeatmapLayer
@@ -1289,7 +1299,7 @@ export function RegionalMapView({
 
           {/* GPS traces - simplified routes shown when zoomed in (hidden in heatmap mode) */}
           {/* CRITICAL: Always render ShapeSource to avoid iOS MapLibre crash */}
-          <ShapeSource id="activity-traces" shape={tracesGeoJSON}>
+          <GeoJSONSource id="activity-traces" data={tracesGeoJSON}>
             <LineLayer
               id="tracesLine"
               style={{
@@ -1308,11 +1318,11 @@ export function RegionalMapView({
                 lineJoin: 'round',
               }}
             />
-          </ShapeSource>
+          </GeoJSONSource>
 
           {/* Selected activity route */}
           {/* CRITICAL: Always render with fixed ID to avoid iOS MapLibre crash */}
-          <ShapeSource id="selected-route" shape={routeGeoJSON}>
+          <GeoJSONSource id="selected-route" data={routeGeoJSON}>
             {/* Outline layer for better visibility */}
             <LineLayer
               id="selected-routeOutline"
@@ -1334,7 +1344,7 @@ export function RegionalMapView({
                 lineOpacity: routeHasData ? 1 : 0,
               }}
             />
-          </ShapeSource>
+          </GeoJSONSource>
 
           {/* Section markers - start points with road icon */}
           {/* CRITICAL: Always render to avoid iOS crash - use opacity to hide */}
@@ -1416,7 +1426,7 @@ export function RegionalMapView({
 
           {/* User location marker - using ShapeSource + CircleLayer to avoid Fabric crash */}
           {/* CRITICAL: Always render to prevent add/remove cycles that crash iOS */}
-          <ShapeSource id="user-location" shape={userLocationGeoJSON}>
+          <GeoJSONSource id="user-location" data={userLocationGeoJSON}>
             <CircleLayer
               id="user-location-outer"
               style={{
@@ -1436,7 +1446,7 @@ export function RegionalMapView({
                 circleStrokeColor: colors.textOnDark,
               }}
             />
-          </ShapeSource>
+          </GeoJSONSource>
         </MapView>
       )}
 

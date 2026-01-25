@@ -1,10 +1,23 @@
 import React, { useState, useCallback, useRef, useMemo, ReactNode, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Animated, Platform } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  Animated,
+  Platform,
+  NativeSyntheticEvent,
+} from 'react-native';
+import type {
+  ViewStateChangeEvent,
+  CameraRef,
+  LngLatBounds,
+} from '@maplibre/maplibre-react-native';
 import { useTheme } from '@/hooks';
 import {
   MapView,
   Camera,
-  ShapeSource,
+  GeoJSONSource,
   LineLayer,
   MarkerView,
 } from '@maplibre/maplibre-react-native';
@@ -187,9 +200,10 @@ export function BaseMapView({
     if (is3DMode && is3DReady) {
       map3DRef.current?.resetOrientation();
     } else {
-      cameraRef.current?.setCamera({
-        heading: 0,
-        animationDuration: 300,
+      cameraRef.current?.easeTo({
+        center: currentCenter || [0, 0],
+        bearing: 0,
+        duration: 300,
       });
     }
     Animated.timing(bearingAnim, {
@@ -197,36 +211,34 @@ export function BaseMapView({
       duration: 300,
       useNativeDriver: true,
     }).start();
-  }, [is3DMode, is3DReady, bearingAnim, cameraRef]);
+  }, [is3DMode, is3DReady, bearingAnim, cameraRef, currentCenter]);
 
   // Handle region change for compass (real-time during gesture)
   const handleRegionIsChanging = useCallback(
-    (feature: GeoJSON.Feature) => {
-      const properties = feature.properties as { heading?: number } | undefined;
-      if (properties?.heading !== undefined) {
-        bearingAnim.setValue(-properties.heading);
+    (event: NativeSyntheticEvent<ViewStateChangeEvent>) => {
+      const { bearing } = event.nativeEvent;
+      if (bearing !== undefined) {
+        bearingAnim.setValue(-bearing);
       }
     },
     [bearingAnim]
   );
 
   // Handle region change end - track center and zoom for dynamic attribution
-  const handleRegionDidChange = useCallback((feature: GeoJSON.Feature) => {
-    const properties = feature.properties as
-      | {
-          zoomLevel?: number;
-          visibleBounds?: [[number, number], [number, number]];
-        }
-      | undefined;
+  const handleRegionDidChange = useCallback((event: NativeSyntheticEvent<ViewStateChangeEvent>) => {
+    const { zoom, bounds, center } = event.nativeEvent;
 
-    if (properties?.zoomLevel !== undefined) {
-      setCurrentZoom(properties.zoomLevel);
+    if (zoom !== undefined) {
+      setCurrentZoom(zoom);
     }
 
-    if (properties?.visibleBounds) {
-      const [[swLng, swLat], [neLng, neLat]] = properties.visibleBounds;
-      const centerLng = (swLng + neLng) / 2;
-      const centerLat = (swLat + neLat) / 2;
+    // v11: center is [lng, lat], bounds is [west, south, east, north]
+    if (center) {
+      setCurrentCenter(center);
+    } else if (bounds) {
+      const [west, south, east, north] = bounds;
+      const centerLng = (west + east) / 2;
+      const centerLat = (south + north) / 2;
       setCurrentCenter([centerLng, centerLat]);
     }
   }, []);
@@ -243,10 +255,10 @@ export function BaseMapView({
 
       const coords: [number, number] = [location.coords.longitude, location.coords.latitude];
 
-      cameraRef.current?.setCamera({
-        centerCoordinate: coords,
-        zoomLevel: 14,
-        animationDuration: 500,
+      cameraRef.current?.flyTo({
+        center: coords,
+        zoom: 14,
+        duration: 500,
       });
     } catch {
       // Silently fail - location is optional
@@ -418,22 +430,38 @@ export function BaseMapView({
           key={`map-${mapKey}`}
           style={styles.map}
           mapStyle={mapStyleValue}
-          logoEnabled={false}
-          attributionEnabled={false}
-          compassEnabled={false}
-          onPress={onPress}
+          logo={false}
+          attribution={false}
+          compass={false}
+          onPress={onPress ? () => onPress({} as GeoJSON.Feature) : undefined}
           onRegionIsChanging={handleRegionIsChanging}
           onRegionDidChange={handleRegionDidChange}
           onDidFailLoadingMap={handleMapLoadError}
         >
           <Camera
-            ref={cameraRef}
-            defaultSettings={bounds ? { bounds, padding } : undefined}
-            animationDuration={0}
+            ref={cameraRef as React.RefObject<CameraRef>}
+            initialViewState={
+              bounds
+                ? {
+                    bounds: [
+                      bounds.sw[0],
+                      bounds.sw[1],
+                      bounds.ne[0],
+                      bounds.ne[1],
+                    ] as LngLatBounds,
+                    padding: {
+                      top: padding.paddingTop,
+                      right: padding.paddingRight,
+                      bottom: padding.paddingBottom,
+                      left: padding.paddingLeft,
+                    },
+                  }
+                : undefined
+            }
           />
 
           {/* Route line - CRITICAL: Always render to avoid iOS crash */}
-          <ShapeSource id="routeSource" shape={routeGeoJSON}>
+          <GeoJSONSource id="routeSource" data={routeGeoJSON}>
             <LineLayer
               id="routeLine"
               style={{
@@ -443,7 +471,7 @@ export function BaseMapView({
                 lineJoin: 'round',
               }}
             />
-          </ShapeSource>
+          </GeoJSONSource>
 
           {/* Custom children (markers, etc.) - filter null to prevent iOS crash */}
           {/* iOS crash: -[__NSArrayM insertObject:atIndex:]: object cannot be nil (MLRNMapView.m:207) */}

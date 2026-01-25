@@ -4,10 +4,16 @@
  */
 
 import { useCallback, useRef, useEffect } from 'react';
-import { Animated } from 'react-native';
+import { Animated, NativeSyntheticEvent } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as Location from 'expo-location';
-import type { Camera } from '@maplibre/maplibre-react-native';
+import type {
+  Camera,
+  CameraRef,
+  ViewStateChangeEvent,
+  PressEventWithFeatures,
+  LngLatBounds,
+} from '@maplibre/maplibre-react-native';
 import { normalizeBounds, activitySpatialIndex, mapBoundsToViewport } from '@/lib';
 import { intervalsApi } from '@/api';
 import type { ActivityBoundsItem } from '@/types';
@@ -50,12 +56,12 @@ interface UseMapHandlersResult {
   handleClosePopup: () => void;
   handleViewDetails: () => void;
   handleZoomToActivity: () => void;
-  handleMarkerPress: (event: { features?: GeoJSON.Feature[] }) => void;
+  handleMarkerPress: (event: NativeSyntheticEvent<PressEventWithFeatures>) => void;
   handleMapPress: () => void;
-  handleSectionPress: (event: { features?: GeoJSON.Feature[] }) => void;
+  handleSectionPress: (event: NativeSyntheticEvent<PressEventWithFeatures>) => void;
   handleHeatmapCellPress: (row: number, col: number) => void;
-  handleRegionIsChanging: (feature: GeoJSON.Feature) => void;
-  handleRegionDidChange: (feature: GeoJSON.Feature) => void;
+  handleRegionIsChanging: (event: NativeSyntheticEvent<ViewStateChangeEvent>) => void;
+  handleRegionDidChange: (event: NativeSyntheticEvent<ViewStateChangeEvent>) => void;
   handleGetLocation: () => Promise<void>;
   toggleHeatmap: () => void;
   toggleActivities: () => void;
@@ -139,27 +145,23 @@ export function useMapHandlers({
     if (!selected) return;
 
     const normalized = normalizeBounds(selected.activity.bounds);
-    const bounds = {
-      ne: [normalized.maxLng, normalized.maxLat] as [number, number],
-      sw: [normalized.minLng, normalized.minLat] as [number, number],
-    };
+    const bounds: LngLatBounds = [
+      normalized.minLng,
+      normalized.minLat,
+      normalized.maxLng,
+      normalized.maxLat,
+    ];
 
-    cameraRef.current?.setCamera({
-      bounds,
-      padding: {
-        paddingTop: 100,
-        paddingRight: 60,
-        paddingBottom: 280,
-        paddingLeft: 60,
-      },
-      animationDuration: 500,
+    (cameraRef.current as CameraRef | null)?.fitBounds(bounds, {
+      padding: { top: 100, right: 60, bottom: 280, left: 60 },
+      duration: 500,
     });
   }, [selected, cameraRef]);
 
-  // Handle marker tap via ShapeSource press (Android only)
+  // Handle marker tap via GeoJSONSource press (Android only)
   const handleMarkerPress = useCallback(
-    (event: { features?: GeoJSON.Feature[] }) => {
-      const feature = event.features?.[0];
+    (event: NativeSyntheticEvent<PressEventWithFeatures>) => {
+      const feature = event.nativeEvent.features?.[0];
       if (!feature?.properties?.id) return;
 
       const activityId = feature.properties.id;
@@ -172,7 +174,7 @@ export function useMapHandlers({
   );
 
   // Handle map press - Android only (iOS uses onTouchEnd on container View)
-  // ShapeSource.onPress doesn't fire on iOS with new architecture (Fabric)
+  // GeoJSONSource.onPress doesn't fire on iOS with new architecture (Fabric)
   const handleMapPress = useCallback(
     (_feature?: GeoJSON.Feature) => {
       // Close popup if tapped on empty space
@@ -185,8 +187,8 @@ export function useMapHandlers({
 
   // Handle section press
   const handleSectionPress = useCallback(
-    (event: { features?: GeoJSON.Feature[] }) => {
-      const feature = event.features?.[0];
+    (event: NativeSyntheticEvent<PressEventWithFeatures>) => {
+      const feature = event.nativeEvent.features?.[0];
       if (!feature?.properties?.id) return;
 
       const sectionId = feature.properties.id;
@@ -213,13 +215,13 @@ export function useMapHandlers({
 
   // Handle map region change to update compass (real-time during gesture)
   const handleRegionIsChanging = useCallback(
-    (feature: GeoJSON.Feature) => {
-      const properties = feature.properties as { heading?: number; zoomLevel?: number } | undefined;
-      if (properties?.heading !== undefined) {
-        bearingAnim.setValue(-properties.heading);
+    (event: NativeSyntheticEvent<ViewStateChangeEvent>) => {
+      const { bearing, zoom } = event.nativeEvent;
+      if (bearing !== undefined) {
+        bearingAnim.setValue(-bearing);
       }
-      if (properties?.zoomLevel !== undefined) {
-        currentZoomLevel.current = properties.zoomLevel;
+      if (zoom !== undefined) {
+        currentZoomLevel.current = zoom;
       }
     },
     [bearingAnim, currentZoomLevel]
@@ -227,29 +229,31 @@ export function useMapHandlers({
 
   // Handle region change end - track zoom level, center, and update visible activities
   const handleRegionDidChange = useCallback(
-    (feature: GeoJSON.Feature) => {
-      const properties = feature.properties as
-        | {
-            zoomLevel?: number;
-            visibleBounds?: [[number, number], [number, number]];
-          }
-        | undefined;
+    (event: NativeSyntheticEvent<ViewStateChangeEvent>) => {
+      const { zoom, bounds, center } = event.nativeEvent;
 
-      if (properties?.zoomLevel !== undefined) {
-        currentZoomLevel.current = properties.zoomLevel;
-        setCurrentZoom(properties.zoomLevel);
+      if (zoom !== undefined) {
+        currentZoomLevel.current = zoom;
+        setCurrentZoom(zoom);
       }
 
-      if (properties?.visibleBounds) {
-        const [[swLng, swLat], [neLng, neLat]] = properties.visibleBounds;
+      // v11: center is [lng, lat], bounds is [west, south, east, north]
+      if (center) {
+        setCurrentCenter(center);
+      }
 
-        // Calculate and store center from visible bounds
-        const centerLng = (swLng + neLng) / 2;
-        const centerLat = (swLat + neLat) / 2;
-        setCurrentCenter([centerLng, centerLat]);
+      if (bounds) {
+        const [west, south, east, north] = bounds;
+
+        // Calculate center if not provided
+        if (!center) {
+          const centerLng = (west + east) / 2;
+          const centerLat = (south + north) / 2;
+          setCurrentCenter([centerLng, centerLat]);
+        }
 
         if (activitySpatialIndex.ready) {
-          const viewport = mapBoundsToViewport([swLng, swLat], [neLng, neLat]);
+          const viewport = mapBoundsToViewport([west, south], [east, north]);
           const visibleIds = activitySpatialIndex.queryViewport(viewport);
 
           if (visibleIds.length > 0 || activitySpatialIndex.size === 0) {
@@ -276,10 +280,10 @@ export function useMapHandlers({
       const coords: [number, number] = [location.coords.longitude, location.coords.latitude];
       setUserLocation(coords);
 
-      cameraRef.current?.setCamera({
-        centerCoordinate: coords,
-        zoomLevel: 13,
-        animationDuration: 500,
+      (cameraRef.current as CameraRef | null)?.flyTo({
+        center: coords,
+        zoom: 13,
+        duration: 500,
       });
 
       if (userLocationTimeoutRef.current) {
@@ -345,9 +349,10 @@ export function useMapHandlers({
     if (is3DMode) {
       map3DRef.current?.resetOrientation();
     } else {
-      cameraRef.current?.setCamera({
-        heading: 0,
-        animationDuration: 300,
+      (cameraRef.current as CameraRef | null)?.easeTo({
+        center: [0, 0], // Will be ignored if not provided properly
+        bearing: 0,
+        duration: 300,
       });
     }
     Animated.timing(bearingAnim, {
@@ -384,20 +389,11 @@ export function useMapHandlers({
     // Validate bounds
     if (!Number.isFinite(minLat) || !Number.isFinite(maxLat)) return;
 
-    const cameraBounds = {
-      ne: [maxLng, maxLat] as [number, number],
-      sw: [minLng, minLat] as [number, number],
-    };
+    const cameraBounds: LngLatBounds = [minLng, minLat, maxLng, maxLat];
 
-    cameraRef.current?.setCamera({
-      bounds: cameraBounds,
-      padding: {
-        paddingTop: 100,
-        paddingRight: 60,
-        paddingBottom: 280,
-        paddingLeft: 60,
-      },
-      animationDuration: 500,
+    (cameraRef.current as CameraRef | null)?.fitBounds(cameraBounds, {
+      padding: { top: 100, right: 60, bottom: 280, left: 60 },
+      duration: 500,
     });
   }, [activities, cameraRef]);
 
