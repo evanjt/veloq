@@ -420,6 +420,8 @@
     "disable3D": "3Dビューを無効化",
     "enable3D": "3Dビューを有効化",
     "goToLocation": "現在地へ移動",
+    "fitAll": "Fit all activities",
+    "fitAllHint": "Long press to fit all activities",
     "hideActivities": "アクティビティを非表示",
     "hideRoutes": "ルートを非表示",
     "loadingRoute": "ルートを読み込み中...",

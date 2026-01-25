@@ -406,6 +406,8 @@
     "disable3D": "Flatten it out",
     "enable3D": "Make it 3D",
     "goToLocation": "Go to my spot",
+    "fitAll": "Fit all activities",
+    "fitAllHint": "Long press to fit all activities",
     "hideActivities": "Hide activities",
     "hideRoutes": "Hide routes",
     "loadingRoute": "Grabbing route...",

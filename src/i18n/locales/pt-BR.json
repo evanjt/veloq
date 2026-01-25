@@ -420,6 +420,8 @@
     "disable3D": "Desativar vista 3D",
     "enable3D": "Ativar vista 3D",
     "goToLocation": "Ir para minha localizacao",
+    "fitAll": "Fit all activities",
+    "fitAllHint": "Long press to fit all activities",
     "hideActivities": "Ocultar atividades",
     "hideRoutes": "Ocultar rotas",
     "loadingRoute": "Carregando rota...",

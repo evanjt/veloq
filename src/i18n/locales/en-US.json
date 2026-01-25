@@ -405,6 +405,8 @@
     "closeHeatmapPopup": "Close heatmap popup",
     "disable3D": "Disable 3D view",
     "enable3D": "Enable 3D view",
+    "fitAll": "Fit all activities",
+    "fitAllHint": "Long press to fit all activities",
     "goToLocation": "Go to my location",
     "hideActivities": "Hide activities",
     "hideRoutes": "Hide routes",

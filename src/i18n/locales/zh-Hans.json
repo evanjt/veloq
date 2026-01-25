@@ -420,6 +420,8 @@
     "disable3D": "禁用 3D 视图",
     "enable3D": "启用 3D 视图",
     "goToLocation": "前往我的位置",
+    "fitAll": "Fit all activities",
+    "fitAllHint": "Long press to fit all activities",
     "hideActivities": "隐藏活动",
     "hideRoutes": "隐藏路线",
     "loadingRoute": "加载路线中...",

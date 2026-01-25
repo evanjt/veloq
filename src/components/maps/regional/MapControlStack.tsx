@@ -140,49 +140,60 @@ export function MapControlStack({
         />
       </TouchableOpacity>
 
-      {/* Location button */}
-      <TouchableOpacity
-        testID="map-location"
-        style={[
-          styles.controlButton,
-          isDark && styles.controlButtonDark,
-          userLocationActive && styles.controlButtonActive,
-        ]}
-        onPress={onGetLocation}
-        activeOpacity={0.8}
-        accessibilityLabel={t('maps.goToLocation')}
-        accessibilityRole="button"
-      >
-        <MaterialCommunityIcons
-          name="crosshairs-gps"
-          size={22}
-          color={
-            userLocationActive
-              ? colors.textOnDark
-              : isDark
-                ? colors.textOnDark
-                : colors.textSecondary
-          }
-        />
-      </TouchableOpacity>
-
-      {/* Fit all activities in view */}
-      {activityCount > 0 && (
+      {/* Combined location + fit-all button
+          Shows both icons stacked: location on top, fit-all on bottom
+          Tap top half = go to location, tap bottom half = fit all */}
+      <View style={styles.dualButtonContainer}>
+        {/* Top: Location */}
         <TouchableOpacity
-          testID="map-fit-all"
-          style={[styles.controlButton, isDark && styles.controlButtonDark]}
-          onPress={onFitAll}
+          testID="map-location"
+          style={[
+            styles.dualButtonHalf,
+            isDark && styles.controlButtonDark,
+            userLocationActive && styles.controlButtonActive,
+            styles.dualButtonTop,
+          ]}
+          onPress={onGetLocation}
           activeOpacity={0.8}
-          accessibilityLabel={t('maps.fitAll')}
+          accessibilityLabel={t('maps.goToLocation')}
           accessibilityRole="button"
         >
           <MaterialCommunityIcons
-            name="fit-to-screen-outline"
-            size={22}
-            color={isDark ? colors.textOnDark : colors.textSecondary}
+            name="crosshairs-gps"
+            size={18}
+            color={
+              userLocationActive
+                ? colors.textOnDark
+                : isDark
+                  ? colors.textOnDark
+                  : colors.textSecondary
+            }
           />
         </TouchableOpacity>
-      )}
+        {/* Divider line */}
+        <View style={[styles.dualButtonDivider, isDark && styles.dualButtonDividerDark]} />
+        {/* Bottom: Fit All */}
+        {activityCount > 0 && (
+          <TouchableOpacity
+            testID="map-fit-all"
+            style={[
+              styles.dualButtonHalf,
+              isDark && styles.controlButtonDark,
+              styles.dualButtonBottom,
+            ]}
+            onPress={onFitAll}
+            activeOpacity={0.8}
+            accessibilityLabel={t('maps.fitAll')}
+            accessibilityRole="button"
+          >
+            <MaterialCommunityIcons
+              name="fit-to-screen-outline"
+              size={18}
+              color={isDark ? colors.textOnDark : colors.textSecondary}
+            />
+          </TouchableOpacity>
+        )}
+      </View>
 
       {/* Heatmap toggle - only shown when heatmap data is available */}
       {heatmap && heatmap.cells.length > 0 && (
@@ -208,76 +219,104 @@ export function MapControlStack({
         </TouchableOpacity>
       )}
 
-      {/* Activities toggle - only shown when activities exist and not in heatmap mode */}
-      {activityCount > 0 && !isHeatmapMode && (
-        <TouchableOpacity
-          testID="map-toggle-activities"
-          style={[
-            styles.controlButton,
-            isDark && styles.controlButtonDark,
-            showActivities && styles.controlButtonActive,
-          ]}
-          onPress={onToggleActivities}
-          activeOpacity={0.8}
-          accessibilityLabel={showActivities ? 'Hide activities' : 'Show activities'}
-          accessibilityRole="button"
-        >
-          <MaterialCommunityIcons
-            name="map-marker-multiple"
-            size={22}
-            color={
-              showActivities ? colors.textOnDark : isDark ? colors.textOnDark : colors.textSecondary
-            }
-          />
-        </TouchableOpacity>
-      )}
-
-      {/* Sections toggle - only shown when sections exist and not in heatmap mode */}
-      {sections.length > 0 && !isHeatmapMode && (
-        <TouchableOpacity
-          testID="map-toggle-sections"
-          style={[
-            styles.controlButton,
-            isDark && styles.controlButtonDark,
-            showSections && styles.controlButtonActive,
-          ]}
-          onPress={onToggleSections}
-          activeOpacity={0.8}
-          accessibilityLabel={showSections ? 'Hide sections' : 'Show sections'}
-          accessibilityRole="button"
-        >
-          <MaterialCommunityIcons
-            name="road-variant"
-            size={22}
-            color={
-              showSections ? colors.textOnDark : isDark ? colors.textOnDark : colors.textSecondary
-            }
-          />
-        </TouchableOpacity>
-      )}
-
-      {/* Routes toggle - only shown when routes exist and not in heatmap mode */}
-      {routeCount > 0 && !isHeatmapMode && (
-        <TouchableOpacity
-          testID="map-toggle-routes"
-          style={[
-            styles.controlButton,
-            isDark && styles.controlButtonDark,
-            showRoutes && styles.controlButtonActive,
-          ]}
-          onPress={onToggleRoutes}
-          activeOpacity={0.8}
-          accessibilityLabel={showRoutes ? t('maps.hideRoutes') : t('maps.showRoutes')}
-          accessibilityRole="button"
-        >
-          <MaterialCommunityIcons
-            name="map-marker-path"
-            size={22}
-            color={
-              showRoutes ? colors.textOnDark : isDark ? colors.textOnDark : colors.textSecondary
-            }
-          />
-        </TouchableOpacity>
+      {/* Combined layer toggles (activities/sections/routes) - stacked when multiple exist */}
+      {!isHeatmapMode && (activityCount > 0 || sections.length > 0 || routeCount > 0) && (
+        <View style={[styles.layerToggleContainer, isDark && styles.layerToggleContainerDark]}>
+          {/* Activities toggle */}
+          {activityCount > 0 && (
+            <>
+              <TouchableOpacity
+                testID="map-toggle-activities"
+                style={[
+                  styles.layerToggleItem,
+                  showActivities && styles.controlButtonActive,
+                  // Round top if first item
+                  sections.length === 0 && routeCount === 0 && styles.layerToggleSingle,
+                  (sections.length > 0 || routeCount > 0) && styles.layerToggleTop,
+                ]}
+                onPress={onToggleActivities}
+                activeOpacity={0.8}
+                accessibilityLabel={showActivities ? 'Hide activities' : 'Show activities'}
+                accessibilityRole="button"
+              >
+                <MaterialCommunityIcons
+                  name="map-marker-multiple"
+                  size={18}
+                  color={
+                    showActivities
+                      ? colors.textOnDark
+                      : isDark
+                        ? colors.textOnDark
+                        : colors.textSecondary
+                  }
+                />
+              </TouchableOpacity>
+              {(sections.length > 0 || routeCount > 0) && (
+                <View style={[styles.dualButtonDivider, isDark && styles.dualButtonDividerDark]} />
+              )}
+            </>
+          )}
+          {/* Sections toggle */}
+          {sections.length > 0 && (
+            <>
+              <TouchableOpacity
+                testID="map-toggle-sections"
+                style={[
+                  styles.layerToggleItem,
+                  showSections && styles.controlButtonActive,
+                  // Round appropriately based on position
+                  activityCount === 0 && routeCount === 0 && styles.layerToggleSingle,
+                  activityCount === 0 && routeCount > 0 && styles.layerToggleTop,
+                  activityCount > 0 && routeCount === 0 && styles.layerToggleBottom,
+                ]}
+                onPress={onToggleSections}
+                activeOpacity={0.8}
+                accessibilityLabel={showSections ? 'Hide sections' : 'Show sections'}
+                accessibilityRole="button"
+              >
+                <MaterialCommunityIcons
+                  name="road-variant"
+                  size={18}
+                  color={
+                    showSections
+                      ? colors.textOnDark
+                      : isDark
+                        ? colors.textOnDark
+                        : colors.textSecondary
+                  }
+                />
+              </TouchableOpacity>
+              {routeCount > 0 && (
+                <View style={[styles.dualButtonDivider, isDark && styles.dualButtonDividerDark]} />
+              )}
+            </>
+          )}
+          {/* Routes toggle */}
+          {routeCount > 0 && (
+            <TouchableOpacity
+              testID="map-toggle-routes"
+              style={[
+                styles.layerToggleItem,
+                showRoutes && styles.controlButtonActive,
+                // Round appropriately based on position
+                activityCount === 0 && sections.length === 0 && styles.layerToggleSingle,
+                (activityCount > 0 || sections.length > 0) && styles.layerToggleBottom,
+              ]}
+              onPress={onToggleRoutes}
+              activeOpacity={0.8}
+              accessibilityLabel={showRoutes ? t('maps.hideRoutes') : t('maps.showRoutes')}
+              accessibilityRole="button"
+            >
+              <MaterialCommunityIcons
+                name="map-marker-path"
+                size={18}
+                color={
+                  showRoutes ? colors.textOnDark : isDark ? colors.textOnDark : colors.textSecondary
+                }
+              />
+            </TouchableOpacity>
+          )}
+        </View>
       )}
     </View>
   );
@@ -306,5 +345,63 @@ const styles = StyleSheet.create({
   },
   controlButtonDisabled: {
     opacity: 0.5,
+  },
+  // Dual button styles (location + fit-all combined)
+  dualButtonContainer: {
+    width: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    overflow: 'hidden',
+    ...shadows.mapOverlay,
+  },
+  dualButtonHalf: {
+    width: 40,
+    height: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  dualButtonTop: {
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+  },
+  dualButtonBottom: {
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
+  },
+  dualButtonDivider: {
+    height: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.1)',
+    marginHorizontal: 8,
+  },
+  dualButtonDividerDark: {
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  // Layer toggle styles (activities/sections/routes combined)
+  layerToggleContainer: {
+    width: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    overflow: 'hidden',
+    ...shadows.mapOverlay,
+  },
+  layerToggleContainerDark: {
+    backgroundColor: darkColors.surfaceCard,
+  },
+  layerToggleItem: {
+    width: 40,
+    height: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  layerToggleSingle: {
+    borderRadius: 20,
+  },
+  layerToggleTop: {
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+  },
+  layerToggleBottom: {
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
   },
 });

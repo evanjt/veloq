@@ -420,6 +420,8 @@
     "disable3D": "3D us",
     "enable3D": "3D aa",
     "goToLocation": "Zu mym Standort",
+    "fitAll": "Fit all activities",
+    "fitAllHint": "Long press to fit all activities",
     "hideActivities": "Aktivitäte verberge",
     "hideRoutes": "Route verberge",
     "loadingRoute": "Route lade...",

@@ -330,6 +330,7 @@ export function RegionalMapView({
     toggleSections,
     toggleRoutes,
     resetOrientation,
+    handleFitAll,
     userLocationTimeoutRef,
   } = useMapHandlers({
     activities,
@@ -1013,7 +1014,7 @@ export function RegionalMapView({
             const markerContent = (
               <View
                 testID={`map-activity-marker-${activity.id}`}
-                pointerEvents={Platform.OS === 'android' ? 'none' : 'auto'}
+                pointerEvents="none"
                 style={{
                   width: markerSize,
                   height: markerSize,
@@ -1038,17 +1039,7 @@ export function RegionalMapView({
                 anchor={{ x: 0.5, y: 0.5 }}
                 allowOverlap={true}
               >
-                {Platform.OS === 'ios' ? (
-                  <Pressable
-                    testID={`map-activity-marker-tap-${activity.id}`}
-                    onPress={isVisible ? () => handleMarkerTap(activity) : undefined}
-                    disabled={!isVisible}
-                  >
-                    {markerContent}
-                  </Pressable>
-                ) : (
-                  markerContent
-                )}
+                {markerContent}
               </MarkerView>
             );
           })}
@@ -1063,10 +1054,26 @@ export function RegionalMapView({
             hitbox={{ width: 44, height: 44 }}
           >
             {/* Nearly invisible circles for hit detection - opacity 0.01 is invisible but still tappable */}
+            {/* Radius scales inversely with zoom: larger at low zoom (world view) for easier tapping */}
             <CircleLayer
               id="marker-hitarea"
               style={{
-                circleRadius: !isHeatmapMode && showActivities ? ['/', ['get', 'size'], 2] : 0,
+                circleRadius:
+                  !isHeatmapMode && showActivities
+                    ? [
+                        'interpolate',
+                        ['linear'],
+                        ['zoom'],
+                        2,
+                        30, // World view: 30px radius
+                        6,
+                        24, // Continental: 24px
+                        10,
+                        20, // Regional: 20px
+                        14,
+                        16, // City: 16px
+                      ]
+                    : 0,
                 circleColor: '#000000',
                 circleOpacity: 0.01,
                 circleStrokeWidth: 0,
@@ -1413,6 +1420,7 @@ export function RegionalMapView({
         onToggleActivities={toggleActivities}
         onToggleSections={toggleSections}
         onToggleRoutes={toggleRoutes}
+        onFitAll={handleFitAll}
       />
       {/* Attribution */}
       {showAttribution && (

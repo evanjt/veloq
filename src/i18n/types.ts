@@ -948,6 +948,7 @@ export interface TranslationResource {
     disable3D: string;
     resetOrientation: string;
     goToLocation: string;
+    fitAll: string;
     zoomToActivity: string;
     closePopup: string;
     loadingRoute: string;

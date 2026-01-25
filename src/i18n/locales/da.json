@@ -420,6 +420,8 @@
     "disable3D": "Deaktivér 3D-visning",
     "enable3D": "Aktivér 3D-visning",
     "goToLocation": "Gå til min placering",
+    "fitAll": "Fit all activities",
+    "fitAllHint": "Long press to fit all activities",
     "hideActivities": "Skjul aktiviteter",
     "hideRoutes": "Skjul ruter",
     "loadingRoute": "Indlæser rute...",

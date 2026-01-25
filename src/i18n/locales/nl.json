@@ -420,6 +420,8 @@
     "disable3D": "3D-weergave uitschakelen",
     "enable3D": "3D-weergave inschakelen",
     "goToLocation": "Naar mijn locatie",
+    "fitAll": "Fit all activities",
+    "fitAllHint": "Long press to fit all activities",
     "hideActivities": "Verberg activiteiten",
     "hideRoutes": "Verberg routes",
     "loadingRoute": "Route laden...",

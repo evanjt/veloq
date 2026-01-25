@@ -62,6 +62,7 @@ interface UseMapHandlersResult {
   toggleSections: () => void;
   toggleRoutes: () => void;
   resetOrientation: () => void;
+  handleFitAll: () => void;
   userLocationTimeoutRef: React.MutableRefObject<ReturnType<typeof setTimeout> | null>;
 }
 
@@ -345,6 +346,50 @@ export function useMapHandlers({
     }).start();
   }, [is3DMode, map3DRef, cameraRef, bearingAnim]);
 
+  // Fit all activities in view - recalculates bounds from all current activities
+  const handleFitAll = useCallback(() => {
+    if (activities.length === 0) return;
+
+    // Calculate bounds from all activities
+    // bounds format: [[minLat, minLng], [maxLat, maxLng]]
+    let minLat = Infinity;
+    let maxLat = -Infinity;
+    let minLng = Infinity;
+    let maxLng = -Infinity;
+
+    for (const activity of activities) {
+      const bounds = activity.bounds;
+      if (bounds && Array.isArray(bounds) && bounds.length === 2) {
+        const [min, max] = bounds;
+        if (Array.isArray(min) && Array.isArray(max) && min.length >= 2 && max.length >= 2) {
+          minLat = Math.min(minLat, min[0]);
+          minLng = Math.min(minLng, min[1]);
+          maxLat = Math.max(maxLat, max[0]);
+          maxLng = Math.max(maxLng, max[1]);
+        }
+      }
+    }
+
+    // Validate bounds
+    if (!Number.isFinite(minLat) || !Number.isFinite(maxLat)) return;
+
+    const cameraBounds = {
+      ne: [maxLng, maxLat] as [number, number],
+      sw: [minLng, minLat] as [number, number],
+    };
+
+    cameraRef.current?.setCamera({
+      bounds: cameraBounds,
+      padding: {
+        paddingTop: 100,
+        paddingRight: 60,
+        paddingBottom: 280,
+        paddingLeft: 60,
+      },
+      animationDuration: 500,
+    });
+  }, [activities, cameraRef]);
+
   // Clean up location timeout on unmount to prevent setState after unmount
   useEffect(() => {
     isMountedRef.current = true;
@@ -373,6 +418,7 @@ export function useMapHandlers({
     toggleSections,
     toggleRoutes,
     resetOrientation,
+    handleFitAll,
     userLocationTimeoutRef,
   };
 }
