@@ -12,7 +12,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { configureReanimatedLogger, ReanimatedLogLevel } from 'react-native-reanimated';
 // Use legacy API for SDK 54 compatibility (new API uses File/Directory classes)
 import * as FileSystem from 'expo-file-system/legacy';
-import { LogManager as MapLibreLogger } from '@maplibre/maplibre-react-native';
+import MapLibre, { Logger as MapLibreLogger } from '@maplibre/maplibre-react-native';
 import {
   QueryProvider,
   MapPreferencesProvider,

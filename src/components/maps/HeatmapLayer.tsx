@@ -4,9 +4,7 @@
  */
 
 import React, { useMemo } from 'react';
-import { NativeSyntheticEvent } from 'react-native';
 import { ShapeSource, CircleLayer } from '@maplibre/maplibre-react-native';
-import type { PressEventWithFeatures } from '@maplibre/maplibre-react-native';
 import { colors } from '@/theme';
 import type { HeatmapResult } from '@/hooks/useHeatmap';
 
@@ -104,9 +102,9 @@ export function HeatmapLayer({
   }, [heatmap]);
 
   // Handle cell press
-  const handlePress = (event: NativeSyntheticEvent<PressEventWithFeatures>) => {
+  const handlePress = (event: { features?: GeoJSON.Feature[] }) => {
     if (!onCellPress) return;
-    const feature = event.nativeEvent.features?.[0];
+    const feature = event.features?.[0];
     if (feature?.properties) {
       onCellPress(feature.properties.row as number, feature.properties.col as number);
     }

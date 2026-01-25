@@ -126,7 +126,6 @@ import {
   Animated,
   Text,
   Platform,
-  NativeSyntheticEvent,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import {
@@ -135,13 +134,6 @@ import {
   ShapeSource,
   LineLayer,
   MarkerView,
-} from '@maplibre/maplibre-react-native';
-import type {
-  CameraRef,
-  ViewStateChangeEvent,
-  PressEventWithFeatures,
-  PressEvent,
-  CameraBounds,
 } from '@maplibre/maplibre-react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
@@ -380,10 +372,10 @@ export function ActivityMapView({
     // Restore camera position after style change
     if (pendingCameraRestoreRef.current) {
       const { center, zoom } = pendingCameraRestoreRef.current;
-      (cameraRef.current as CameraRef | null)?.easeTo({
-        center,
-        zoom,
-        duration: 0,
+      cameraRef.current?.setCamera({
+        centerCoordinate: center,
+        zoomLevel: zoom,
+        animationDuration: 0,
       });
       pendingCameraRestoreRef.current = null;
     }
@@ -488,10 +480,10 @@ export function ActivityMapView({
 
       const coords: [number, number] = [location.coords.longitude, location.coords.latitude];
 
-      (cameraRef.current as CameraRef | null)?.flyTo({
-        center: coords,
-        zoom: 14,
-        duration: 500,
+      cameraRef.current?.setCamera({
+        centerCoordinate: coords,
+        zoomLevel: 14,
+        animationDuration: 500,
       });
     } catch {
       // Silently fail
@@ -511,8 +503,7 @@ export function ActivityMapView({
   // Handle map press - using MapView's native onPress instead of gesture detector
   // This properly distinguishes taps from zoom/pan gestures
   const handleMapPress = useCallback(
-    (event: NativeSyntheticEvent<PressEventWithFeatures | PressEvent>) => {
-      const feature = 'features' in event.nativeEvent ? event.nativeEvent.features?.[0] : undefined;
+    (feature: GeoJSON.Feature) => {
       // In creation mode, handle point selection
       if (creationMode && feature?.geometry?.type === 'Point') {
         const [lng, lat] = feature.geometry.coordinates as [number, number];
@@ -616,10 +607,10 @@ export function ActivityMapView({
 
   // Handle map region change to update compass
   const handleRegionIsChanging = useCallback(
-    (event: NativeSyntheticEvent<ViewStateChangeEvent>) => {
-      const { bearing } = event.nativeEvent;
-      if (bearing !== undefined) {
-        bearingAnim.setValue(-bearing);
+    (feature: GeoJSON.Feature) => {
+      const properties = feature.properties as { heading?: number } | undefined;
+      if (properties?.heading !== undefined) {
+        bearingAnim.setValue(-properties.heading);
       }
     },
     [bearingAnim]
@@ -633,11 +624,9 @@ export function ActivityMapView({
     if (is3DMode && is3DReady) {
       map3DRef.current?.resetOrientation();
     } else {
-      // easeTo requires center, but it will be ignored when we only want to change bearing
-      (cameraRef.current as CameraRef | null)?.easeTo({
-        center: [0, 0],
-        bearing: 0,
-        duration: 300,
+      cameraRef.current?.setCamera({
+        heading: 0,
+        animationDuration: 300,
       });
     }
     Animated.timing(bearingAnim, {
@@ -667,11 +656,10 @@ export function ActivityMapView({
   // Wait for mapReady to avoid race condition where fitBounds is called before map is initialized
   useEffect(() => {
     if (mapReady && bounds && coordinatesKey && coordinatesKey !== appliedBoundsKeyRef.current) {
-      const cameraBounds: CameraBounds = { ne: bounds.ne, sw: bounds.sw };
-      (cameraRef.current as CameraRef | null)?.fitBounds(
-        cameraBounds.ne,
-        cameraBounds.sw,
-        { paddingTop: 50, paddingRight: 50, paddingBottom: 50, paddingLeft: 50 },
+      cameraRef.current?.fitBounds(
+        bounds.ne,
+        bounds.sw,
+        [50, 50, 50, 50], // [top, right, bottom, left]
         0
       );
       appliedBoundsKeyRef.current = coordinatesKey;
@@ -962,20 +950,24 @@ export function ActivityMapView({
 
   // Handle region change end - update refs only, debounce attribution callback
   const handleRegionDidChange = useCallback(
-    (event: NativeSyntheticEvent<ViewStateChangeEvent>) => {
-      const { zoom, bounds, center } = event.nativeEvent;
+    (feature: GeoJSON.Feature) => {
+      const properties = feature.properties as
+        | { zoomLevel?: number; visibleBounds?: [[number, number], [number, number]] }
+        | undefined;
+      const { zoomLevel, visibleBounds } = properties ?? {};
 
-      if (zoom !== undefined) {
-        currentZoomRef.current = zoom;
+      if (zoomLevel !== undefined) {
+        currentZoomRef.current = zoomLevel;
       }
 
-      // v11: bounds is [west, south, east, north], center is [lng, lat]
-      if (center) {
-        currentCenterRef.current = center;
-      } else if (bounds) {
-        const [west, south, east, north] = bounds;
-        const centerLng = (west + east) / 2;
-        const centerLat = (south + north) / 2;
+      // v10: center is from feature.geometry.coordinates [lng, lat]
+      // v10: visibleBounds is [[swLng, swLat], [neLng, neLat]]
+      if (feature.geometry?.type === 'Point') {
+        currentCenterRef.current = feature.geometry.coordinates as [number, number];
+      } else if (visibleBounds) {
+        const [[swLng, swLat], [neLng, neLat]] = visibleBounds;
+        const centerLng = (swLng + neLng) / 2;
+        const centerLat = (swLat + neLat) / 2;
         currentCenterRef.current = [centerLng, centerLat];
       }
 

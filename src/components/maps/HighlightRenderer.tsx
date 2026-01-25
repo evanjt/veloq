@@ -6,7 +6,7 @@
  */
 
 import React, { useMemo, useEffect, useCallback } from 'react';
-import { MarkerView, type CameraRef } from '@maplibre/maplibre-react-native';
+import { MarkerView } from '@maplibre/maplibre-react-native';
 import { View, StyleSheet } from 'react-native';
 import { colors } from '@/theme';
 import type { Camera } from '@maplibre/maplibre-react-native';
@@ -61,10 +61,10 @@ export function HighlightRenderer({
     if (!followHighlight || !highlightPoint) return;
 
     // Animate camera to highlight position
-    (cameraRef.current as CameraRef | null)?.flyTo({
-      center: [highlightPoint.longitude, highlightPoint.latitude],
-      zoom: 15, // Close zoom to see the point clearly
-      duration: 300,
+    cameraRef.current?.setCamera({
+      centerCoordinate: [highlightPoint.longitude, highlightPoint.latitude],
+      zoomLevel: 15, // Close zoom to see the point clearly
+      animationDuration: 300,
     });
   }, [followHighlight, highlightPoint, cameraRef]);
 

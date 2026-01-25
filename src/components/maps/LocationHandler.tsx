@@ -5,11 +5,11 @@
  * Requests foreground permissions on demand and handles permission denial gracefully.
  */
 
-import React, { useRef, useEffect, useCallback } from 'react';
+import React, { useCallback } from 'react';
 import { TouchableOpacity, StyleSheet, ViewStyle } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
-import type { Camera, CameraRef } from '@maplibre/maplibre-react-native';
+import type { Camera } from '@maplibre/maplibre-react-native';
 import { colors } from '@/theme/colors';
 import { shadows } from '@/theme/shadows';
 import { spacing } from '@/theme/spacing';
@@ -27,7 +27,8 @@ interface LocationHandlerProps {
  * GPS location button.
  *
  * Requests foreground location permissions on first tap, then animates the map
- * camera to the user's current position. Shows a location marker for 3 seconds.
+ * camera to the user's current position. Shows a location marker that stays
+ * visible until the component unmounts.
  *
  * Silently fails if permission is denied or location services are unavailable.
  *
@@ -40,10 +41,8 @@ interface LocationHandlerProps {
  * ```
  */
 export function LocationHandler({ cameraRef, onLocationUpdate, style }: LocationHandlerProps) {
-  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const isMountedRef = useRef(true);
-
   // Get user location (one-time jump, no tracking)
+  // Shows location dot and zooms once - dot stays visible until component unmounts
   const handleGetLocation = useCallback(async () => {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
@@ -58,38 +57,18 @@ export function LocationHandler({ cameraRef, onLocationUpdate, style }: Location
       const coords: [number, number] = [location.coords.longitude, location.coords.latitude];
       onLocationUpdate(coords);
 
-      (cameraRef.current as CameraRef | null)?.flyTo({
-        center: coords,
-        zoom: 13,
-        duration: 500,
+      cameraRef.current?.setCamera({
+        centerCoordinate: coords,
+        zoomLevel: 13,
+        animationDuration: 500,
       });
 
-      // Clear previous timeout
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-      }
-
-      // Clear location marker after 3 seconds
-      timeoutRef.current = setTimeout(() => {
-        if (isMountedRef.current) {
-          onLocationUpdate(null);
-        }
-      }, 3000);
+      // Note: User location dot stays visible until component unmounts
+      // No auto-clear timeout - user can pan away freely after zoom
     } catch {
       // Silently fail - location is optional
     }
   }, [cameraRef, onLocationUpdate]);
-
-  // Clean up timeout on unmount
-  useEffect(() => {
-    isMountedRef.current = true;
-    return () => {
-      isMountedRef.current = false;
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-      }
-    };
-  }, []);
 
   return (
     <TouchableOpacity

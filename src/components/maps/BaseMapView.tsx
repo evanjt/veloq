@@ -1,18 +1,5 @@
 import React, { useState, useCallback, useRef, useMemo, ReactNode, useEffect } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  Animated,
-  Platform,
-  NativeSyntheticEvent,
-} from 'react-native';
-import type {
-  ViewStateChangeEvent,
-  CameraRef,
-  CameraBounds,
-} from '@maplibre/maplibre-react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Animated, Platform } from 'react-native';
 import { useTheme } from '@/hooks';
 import {
   MapView,
@@ -200,10 +187,9 @@ export function BaseMapView({
     if (is3DMode && is3DReady) {
       map3DRef.current?.resetOrientation();
     } else {
-      cameraRef.current?.easeTo({
-        center: currentCenter || [0, 0],
-        bearing: 0,
-        duration: 300,
+      cameraRef.current?.setCamera({
+        heading: 0,
+        animationDuration: 300,
       });
     }
     Animated.timing(bearingAnim, {
@@ -211,34 +197,37 @@ export function BaseMapView({
       duration: 300,
       useNativeDriver: true,
     }).start();
-  }, [is3DMode, is3DReady, bearingAnim, cameraRef, currentCenter]);
+  }, [is3DMode, is3DReady, bearingAnim, cameraRef]);
 
   // Handle region change for compass (real-time during gesture)
   const handleRegionIsChanging = useCallback(
-    (event: NativeSyntheticEvent<ViewStateChangeEvent>) => {
-      const { bearing } = event.nativeEvent;
-      if (bearing !== undefined) {
-        bearingAnim.setValue(-bearing);
+    (feature: GeoJSON.Feature) => {
+      const properties = feature.properties as { heading?: number } | undefined;
+      if (properties?.heading !== undefined) {
+        bearingAnim.setValue(-properties.heading);
       }
     },
     [bearingAnim]
   );
 
   // Handle region change end - track center and zoom for dynamic attribution
-  const handleRegionDidChange = useCallback((event: NativeSyntheticEvent<ViewStateChangeEvent>) => {
-    const { zoom, bounds, center } = event.nativeEvent;
+  const handleRegionDidChange = useCallback((feature: GeoJSON.Feature) => {
+    const properties = feature.properties as
+      | { zoomLevel?: number; visibleBounds?: [[number, number], [number, number]] }
+      | undefined;
+    const { zoomLevel, visibleBounds } = properties ?? {};
 
-    if (zoom !== undefined) {
-      setCurrentZoom(zoom);
+    if (zoomLevel !== undefined) {
+      setCurrentZoom(zoomLevel);
     }
 
-    // v11: center is [lng, lat], bounds is [west, south, east, north]
-    if (center) {
-      setCurrentCenter(center);
-    } else if (bounds) {
-      const [west, south, east, north] = bounds;
-      const centerLng = (west + east) / 2;
-      const centerLat = (south + north) / 2;
+    // v10: center is from feature.geometry.coordinates [lng, lat]
+    if (feature.geometry?.type === 'Point') {
+      setCurrentCenter(feature.geometry.coordinates as [number, number]);
+    } else if (visibleBounds) {
+      const [[swLng, swLat], [neLng, neLat]] = visibleBounds;
+      const centerLng = (swLng + neLng) / 2;
+      const centerLat = (swLat + neLat) / 2;
       setCurrentCenter([centerLng, centerLat]);
     }
   }, []);
@@ -255,10 +244,10 @@ export function BaseMapView({
 
       const coords: [number, number] = [location.coords.longitude, location.coords.latitude];
 
-      cameraRef.current?.flyTo({
-        center: coords,
-        zoom: 14,
-        duration: 500,
+      cameraRef.current?.setCamera({
+        centerCoordinate: coords,
+        zoomLevel: 14,
+        animationDuration: 500,
       });
     } catch {
       // Silently fail - location is optional
@@ -439,9 +428,10 @@ export function BaseMapView({
           onDidFailLoadingMap={handleMapLoadError}
         >
           <Camera
-            ref={cameraRef as React.RefObject<CameraRef>}
-            bounds={bounds ? { ne: bounds.ne, sw: bounds.sw } : undefined}
-            padding={padding}
+            ref={cameraRef}
+            defaultSettings={
+              bounds ? { bounds: { ne: bounds.ne, sw: bounds.sw }, padding } : undefined
+            }
           />
 
           {/* Route line - CRITICAL: Always render to avoid iOS crash */}

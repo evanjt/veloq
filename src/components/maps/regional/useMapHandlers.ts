@@ -3,17 +3,11 @@
  * Extracts handler logic from the main component for better organization.
  */
 
-import { useCallback, useRef, useEffect } from 'react';
-import { Animated, NativeSyntheticEvent } from 'react-native';
+import { useCallback } from 'react';
+import { Animated } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as Location from 'expo-location';
-import type {
-  Camera,
-  CameraRef,
-  CameraBounds,
-  OnPressEvent,
-  RegionPayload,
-} from '@maplibre/maplibre-react-native';
+import type { Camera, OnPressEvent } from '@maplibre/maplibre-react-native';
 import { normalizeBounds, activitySpatialIndex, mapBoundsToViewport } from '@/lib';
 import { intervalsApi } from '@/api';
 import type { ActivityBoundsItem } from '@/types';
@@ -60,8 +54,8 @@ interface UseMapHandlersResult {
   handleMapPress: () => void;
   handleSectionPress: (event: OnPressEvent) => void;
   handleHeatmapCellPress: (row: number, col: number) => void;
-  handleRegionIsChanging: (feature: GeoJSON.Feature<GeoJSON.Point, RegionPayload>) => void;
-  handleRegionDidChange: (feature: GeoJSON.Feature<GeoJSON.Point, RegionPayload>) => void;
+  handleRegionIsChanging: (feature: GeoJSON.Feature) => void;
+  handleRegionDidChange: (feature: GeoJSON.Feature) => void;
   handleGetLocation: () => Promise<void>;
   toggleHeatmap: () => void;
   toggleActivities: () => void;
@@ -69,7 +63,6 @@ interface UseMapHandlersResult {
   toggleRoutes: () => void;
   resetOrientation: () => void;
   handleFitAll: () => void;
-  userLocationTimeoutRef: React.MutableRefObject<ReturnType<typeof setTimeout> | null>;
 }
 
 export function useMapHandlers({
@@ -101,8 +94,6 @@ export function useMapHandlers({
   is3DMode,
 }: UseMapHandlersOptions): UseMapHandlersResult {
   const router = useRouter();
-  const userLocationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const isMountedRef = useRef(true);
 
   // Handle marker tap - no auto-zoom to prevent jarring camera movements
   const handleMarkerTap = useCallback(
@@ -148,10 +139,10 @@ export function useMapHandlers({
     const ne: [number, number] = [normalized.maxLng, normalized.maxLat];
     const sw: [number, number] = [normalized.minLng, normalized.minLat];
 
-    (cameraRef.current as CameraRef | null)?.fitBounds(
+    cameraRef.current?.fitBounds(
       ne,
       sw,
-      { paddingTop: 100, paddingRight: 60, paddingBottom: 280, paddingLeft: 60 },
+      [100, 60, 280, 60], // [top, right, bottom, left]
       500
     );
   }, [selected, cameraRef]);
@@ -213,8 +204,9 @@ export function useMapHandlers({
 
   // Handle map region change to update compass (real-time during gesture)
   const handleRegionIsChanging = useCallback(
-    (feature: GeoJSON.Feature<GeoJSON.Point, RegionPayload>) => {
-      const { heading, zoomLevel } = feature.properties;
+    (feature: GeoJSON.Feature) => {
+      const properties = feature.properties as { heading?: number; zoomLevel?: number } | undefined;
+      const { heading, zoomLevel } = properties ?? {};
       if (heading !== undefined) {
         bearingAnim.setValue(-heading);
       }
@@ -227,9 +219,15 @@ export function useMapHandlers({
 
   // Handle region change end - track zoom level, center, and update visible activities
   const handleRegionDidChange = useCallback(
-    (feature: GeoJSON.Feature<GeoJSON.Point, RegionPayload>) => {
-      const { zoomLevel, visibleBounds } = feature.properties;
-      const center = feature.geometry.coordinates as [number, number];
+    (feature: GeoJSON.Feature) => {
+      const properties = feature.properties as
+        | { zoomLevel?: number; visibleBounds?: [[number, number], [number, number]] }
+        | undefined;
+      const { zoomLevel, visibleBounds } = properties ?? {};
+      const center =
+        feature.geometry?.type === 'Point'
+          ? (feature.geometry.coordinates as [number, number])
+          : undefined;
 
       if (zoomLevel !== undefined) {
         currentZoomLevel.current = zoomLevel;
@@ -261,6 +259,7 @@ export function useMapHandlers({
   );
 
   // Get user location (one-time jump, no tracking)
+  // Shows location dot and zooms once - dot stays visible until map is closed
   const handleGetLocation = useCallback(async () => {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
@@ -275,27 +274,19 @@ export function useMapHandlers({
       const coords: [number, number] = [location.coords.longitude, location.coords.latitude];
       setUserLocation(coords);
 
-      // v10 API: setCamera for zoom + animation, then flyTo for position
-      (cameraRef.current as CameraRef | null)?.setCamera({
+      // v10 API: setCamera with animationDuration
+      cameraRef.current?.setCamera({
         centerCoordinate: coords,
         zoomLevel: 13,
         animationDuration: 500,
-        animationMode: 'flyTo',
       });
 
-      if (userLocationTimeoutRef.current) {
-        clearTimeout(userLocationTimeoutRef.current);
-      }
-
-      userLocationTimeoutRef.current = setTimeout(() => {
-        if (isMountedRef.current) {
-          setUserLocation(null);
-        }
-      }, 3000);
+      // Note: User location dot stays visible until map is closed
+      // No auto-clear timeout - user can pan away freely after zoom
     } catch {
       // Silently fail - location is optional
     }
-  }, [setUserLocation, cameraRef, isMountedRef]);
+  }, [setUserLocation, cameraRef]);
 
   // Toggle heatmap mode
   const toggleHeatmap = useCallback(() => {
@@ -346,11 +337,9 @@ export function useMapHandlers({
     if (is3DMode) {
       map3DRef.current?.resetOrientation();
     } else {
-      // v10 API: use setCamera with animationMode
-      (cameraRef.current as CameraRef | null)?.setCamera({
+      cameraRef.current?.setCamera({
         heading: 0,
         animationDuration: 300,
-        animationMode: 'easeTo',
       });
     }
     Animated.timing(bearingAnim, {
@@ -391,24 +380,13 @@ export function useMapHandlers({
     const ne: [number, number] = [maxLng, maxLat];
     const sw: [number, number] = [minLng, minLat];
 
-    (cameraRef.current as CameraRef | null)?.fitBounds(
+    cameraRef.current?.fitBounds(
       ne,
       sw,
       [100, 60, 280, 60], // [top, right, bottom, left]
       500
     );
   }, [activities, cameraRef]);
-
-  // Clean up location timeout on unmount to prevent setState after unmount
-  useEffect(() => {
-    isMountedRef.current = true;
-    return () => {
-      isMountedRef.current = false;
-      if (userLocationTimeoutRef.current) {
-        clearTimeout(userLocationTimeoutRef.current);
-      }
-    };
-  }, []);
 
   return {
     handleMarkerTap,
@@ -428,6 +406,5 @@ export function useMapHandlers({
     toggleRoutes,
     resetOrientation,
     handleFitAll,
-    userLocationTimeoutRef,
   };
 }

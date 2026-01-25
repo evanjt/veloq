@@ -1,14 +1,5 @@
 import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  Animated,
-  Platform,
-  NativeSyntheticEvent,
-} from 'react-native';
-import type { PressEventWithFeatures } from '@maplibre/maplibre-react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Animated, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTheme } from '@/hooks';
 import {
@@ -20,7 +11,6 @@ import {
   LineLayer,
   CircleLayer,
   type MapViewRef,
-  type CameraRef,
 } from '@maplibre/maplibre-react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Ionicons } from '@expo/vector-icons';
@@ -132,10 +122,6 @@ export function RegionalMapView({
   const MAX_RETRIES = 3;
   const RETRY_DELAY_MS = 1000;
 
-  // Track when map is fully rendered - needed for MarkerView positioning on Android
-  // v11 has a race condition where coordinates aren't applied if set before map is ready
-  const [mapFullyRendered, setMapFullyRendered] = useState(false);
-
   const handleMapLoadError = useCallback(() => {
     if (Platform.OS === 'ios' && retryCountRef.current < MAX_RETRIES) {
       retryCountRef.current += 1;
@@ -148,10 +134,9 @@ export function RegionalMapView({
     }
   }, []);
 
-  // Reset retry count and map rendered state when style changes
+  // Reset retry count when style changes
   useEffect(() => {
     retryCountRef.current = 0;
-    setMapFullyRendered(false);
   }, [mapStyle, mapKey]);
 
   // Get route signatures from Rust engine for trace rendering
@@ -359,7 +344,6 @@ export function RegionalMapView({
     toggleRoutes,
     resetOrientation,
     handleFitAll,
-    userLocationTimeoutRef,
   } = useMapHandlers({
     activities,
     sections,
@@ -388,15 +372,6 @@ export function RegionalMapView({
     currentZoomLevel,
     is3DMode,
   });
-
-  // Cleanup timeout on unmount
-  useEffect(() => {
-    return () => {
-      if (userLocationTimeoutRef.current) {
-        clearTimeout(userLocationTimeoutRef.current);
-      }
-    };
-  }, [userLocationTimeoutRef]);
 
   // Clear selections when their corresponding group visibility is turned off
   // This is a safety net to ensure selections are always cleared when hiding groups
@@ -788,8 +763,8 @@ export function RegionalMapView({
 
   // Handle route press - show route popup
   const handleRoutePress = useCallback(
-    (event: NativeSyntheticEvent<PressEventWithFeatures>) => {
-      const feature = event.nativeEvent.features?.[0];
+    (event: { features?: GeoJSON.Feature[] }) => {
+      const feature = event.features?.[0];
       const routeId = feature?.properties?.id as string | undefined;
       if (routeId) {
         const route = routeGroups.find((g) => g.id === routeId);
@@ -982,7 +957,7 @@ export function RegionalMapView({
         const center = activityCenters[activity.id];
         if (!center) continue;
 
-        const markerScreenPos = await mapRef.current?.project(center);
+        const markerScreenPos = await mapRef.current?.getPointInView(center);
         if (!markerScreenPos) continue;
 
         const dx = screenX - markerScreenPos[0];
@@ -1107,125 +1082,109 @@ export function RegionalMapView({
           onRegionIsChanging={handleRegionIsChanging}
           onRegionDidChange={handleRegionDidChange}
           onDidFailLoadingMap={handleMapLoadError}
-          onDidFinishRenderingMapFully={() => {
-            // Delay MarkerView rendering to work around race conditions
-            setTimeout(() => setMapFullyRendered(true), 100);
-          }}
         >
           {/* Camera with ref for programmatic control */}
           {/* Uses center biased toward recent activities (longitude from recent, latitude from all) */}
           <Camera
-            ref={cameraRef as React.RefObject<CameraRef>}
-            centerCoordinate={mapCenter ?? undefined}
-            zoomLevel={mapZoom}
+            ref={cameraRef}
+            defaultSettings={
+              mapCenter
+                ? {
+                    centerCoordinate: mapCenter,
+                    zoomLevel: mapZoom,
+                  }
+                : undefined
+            }
+            animationDuration={0}
           />
 
           {/* Activity markers - visual only, taps handled by ShapeSource rendered later */}
-          {/* CRITICAL: Always render ALL MarkerViews to avoid iOS Fabric crash during reconciliation */}
-          {/* iOS crash: -[__NSArrayM insertObject:atIndex:]: object cannot be nil (MLRNMapView.m:207) */}
-          {/* Never return null - use opacity:0 and fallback coordinate for invalid centers */}
+          {/* CRITICAL: Always render MarkerViews to avoid iOS crash during reconciliation */}
+          {/* Use opacity to hide instead of conditional rendering */}
           {/* pointerEvents="none" ensures these don't intercept touches (fixes Android rendering) */}
           {/* Sorted to render selected activity last (on top) */}
-          {sortedVisibleActivities.map((activity) => {
-            const config = getActivityTypeConfig(activity.type);
-            // Use pre-computed center (no format detection during render!)
-            const center = activityCenters[activity.id];
-            // Validate center has valid finite coordinates
-            const hasValidCenter =
-              center &&
-              Array.isArray(center) &&
-              center.length >= 2 &&
-              Number.isFinite(center[0]) &&
-              Number.isFinite(center[1]);
-            // Use fallback coordinate [-180, -90] for invalid centers (will be hidden via opacity)
-            const safeCenter: [number, number] = hasValidCenter ? center : [-180, -90];
-            const size = getMarkerSize(activity.distance);
-            const isSelected = selectedActivityId === activity.id;
-            const markerSize = isSelected ? size + 8 : size;
-            // Larger icon ratio to fill more of the marker
-            const iconSize = isSelected ? size * 0.75 : size * 0.7;
-            // Hide markers when: no valid center, activities toggle is off, in heatmap mode,
-            // or on Android before map is fully rendered (v11 has race condition with coordinates)
-            const isVisible =
-              hasValidCenter &&
-              showActivities &&
-              !isHeatmapMode &&
-              (Platform.OS === 'ios' || mapFullyRendered);
+          {/* filter(Boolean) prevents null children crash on iOS MapLibre */}
+          {sortedVisibleActivities
+            .map((activity) => {
+              const config = getActivityTypeConfig(activity.type);
+              // Use pre-computed center (no format detection during render!)
+              const center = activityCenters[activity.id];
+              // Skip if center not computed yet (prevents iOS crash with undefined coordinate)
+              if (!center) return null;
+              const size = getMarkerSize(activity.distance);
+              const isSelected = selectedActivityId === activity.id;
+              const markerSize = isSelected ? size + 8 : size;
+              // Larger icon ratio to fill more of the marker
+              const iconSize = isSelected ? size * 0.75 : size * 0.7;
+              // Hide markers when activities toggle is off or in heatmap mode
+              const isVisible = showActivities && !isHeatmapMode;
 
-            // Visual marker content
-            const markerVisual = (
-              <View
-                testID={`map-activity-marker-${activity.id}`}
-                style={{
-                  width: markerSize,
-                  height: markerSize,
-                  borderRadius: markerSize / 2,
-                  backgroundColor: config.color,
-                  borderWidth: isSelected ? 2 : 1.5,
-                  borderColor: isSelected ? colors.primary : colors.textOnDark,
-                  justifyContent: 'center',
-                  alignItems: 'center',
-                  opacity: isVisible ? 1 : 0,
-                  ...shadows.elevated,
-                }}
-              >
-                <Ionicons name={config.icon} size={iconSize} color={colors.textOnDark} />
-              </View>
-            );
+              return (
+                <MarkerView
+                  key={`marker-${activity.id}`}
+                  coordinate={center}
+                  anchor={{ x: 0.5, y: 0.5 }}
+                  allowOverlap={true}
+                >
+                  {/* pointerEvents="none" is CRITICAL for Android - Pressable breaks marker rendering */}
+                  <View
+                    pointerEvents="none"
+                    testID={`map-activity-marker-${activity.id}`}
+                    style={{
+                      width: markerSize,
+                      height: markerSize,
+                      borderRadius: markerSize / 2,
+                      backgroundColor: config.color,
+                      borderWidth: isSelected ? 2 : 1.5,
+                      borderColor: isSelected ? colors.primary : colors.textOnDark,
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                      opacity: isVisible ? 1 : 0,
+                      ...shadows.elevated,
+                    }}
+                  >
+                    <Ionicons name={config.icon} size={iconSize} color={colors.textOnDark} />
+                  </View>
+                </MarkerView>
+              );
+            })
+            .filter(Boolean)}
 
-            // Tap handling:
-            // - iOS: MapView.onPress with pixel-based detection (ShapeSource.onPress broken with Fabric)
-            // - Android: ShapeSource + CircleLayer native tap detection
-            // Both platforms use pointerEvents="none" - no touch interception from markers
-            return (
-              <MarkerView
-                key={`marker-${activity.id}`}
-                coordinate={safeCenter}
-                anchor={{ x: 0.5, y: 0.5 }}
-                allowOverlap={true}
-              >
-                <View pointerEvents="none">{markerVisual}</View>
-              </MarkerView>
-            );
-          })}
-
-          {/* Activity markers - CircleLayer for Android (MarkerView broken in v11), tap areas for both */}
-          {/* Android: CircleLayer shows colored circles since v11 MarkerView positioning is broken */}
-          {/* iOS: CircleLayer provides hit detection; MarkerViews above show icons */}
+          {/* Activity marker hit detection - Android only (iOS uses touch gestures on container) */}
           {/* CRITICAL: Always render ShapeSource to avoid iOS crash during view reconciliation */}
           <ShapeSource
             id="activity-markers-hitarea"
             shape={markersGeoJSON}
-            onPress={!isHeatmapMode && showActivities ? handleMarkerPress : undefined}
-            hitbox={{ width: 44, height: 44 }}
+            onPress={
+              Platform.OS === 'android' && !isHeatmapMode && showActivities
+                ? handleMarkerPress
+                : undefined
+            }
+            hitbox={{ width: 36, height: 36 }}
           >
+            {/* Invisible circles for hit detection - Android only, sized to match visual markers */}
             <CircleLayer
               id="marker-hitarea"
               style={{
-                // On Android: Show colored circles as fallback until MarkerViews render correctly
-                // On iOS: Invisible hit detection only (MarkerViews handle visuals)
                 circleRadius:
-                  !isHeatmapMode && showActivities
+                  Platform.OS === 'android' && !isHeatmapMode && showActivities
                     ? [
                         'interpolate',
                         ['linear'],
                         ['zoom'],
                         1,
-                        8, // World view
+                        18, // World view: modest hitarea to avoid overlap
                         6,
-                        10, // Continental
+                        16, // Continental
                         10,
-                        12, // Regional
+                        14, // Regional
                         14,
-                        14, // City level
+                        12, // City level
                       ]
                     : 0,
-                // Android fallback: colored circles; iOS: invisible (MarkerViews show icons)
-                circleColor: Platform.OS === 'android' ? ['get', 'color'] : 'transparent',
-                circleOpacity:
-                  !isHeatmapMode && showActivities && Platform.OS === 'android' ? 1 : 0,
-                circleStrokeWidth: Platform.OS === 'android' ? 2 : 0,
-                circleStrokeColor: '#FFFFFF',
+                circleColor: '#000000',
+                circleOpacity: 0.01, // Nearly invisible but tappable
+                circleStrokeWidth: 0,
               }}
             />
           </ShapeSource>
