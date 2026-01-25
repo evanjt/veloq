@@ -13,7 +13,7 @@ import {
   MapView,
   Camera,
   type CameraRef,
-  type LngLatBounds,
+  type CameraBounds,
 } from '@maplibre/maplibre-react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -147,24 +147,17 @@ export default function HeatmapScreen() {
       <MapView
         style={styles.map}
         mapStyle={mapStyleValue}
-        logo={false}
-        attribution={false}
-        compass={false}
+        logoEnabled={false}
+        attributionEnabled={false}
+        compassEnabled={false}
         onPress={handleClosePopup}
       >
         <Camera
           ref={cameraRef as React.RefObject<CameraRef>}
-          initialViewState={
+          bounds={initialBounds ? { ne: initialBounds.ne, sw: initialBounds.sw } : undefined}
+          padding={
             initialBounds
-              ? {
-                  bounds: [
-                    initialBounds.sw[0],
-                    initialBounds.sw[1],
-                    initialBounds.ne[0],
-                    initialBounds.ne[1],
-                  ] as LngLatBounds,
-                  padding: { top: 100, right: 40, bottom: 200, left: 40 },
-                }
+              ? { paddingTop: 100, paddingRight: 40, paddingBottom: 200, paddingLeft: 40 }
               : undefined
           }
         />

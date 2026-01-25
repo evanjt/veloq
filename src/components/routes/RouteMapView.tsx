@@ -10,10 +10,10 @@ import { View, StyleSheet, TouchableOpacity, Modal, StatusBar } from 'react-nati
 import {
   MapView,
   Camera,
-  GeoJSONSource,
+  ShapeSource,
   LineLayer,
   MarkerView,
-  type LngLatBounds,
+  type CameraBounds,
 } from '@maplibre/maplibre-react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { getActivityColor, getBoundsFromPoints } from '@/lib';
@@ -306,25 +306,23 @@ export function RouteMapView({
       ref={mapRef}
       style={styles.map}
       mapStyle={styleUrl}
-      logo={false}
-      attribution={false}
-      compass={interactive}
-      dragPan={interactive}
-      touchAndDoubleTapZoom={interactive}
-      touchRotate={interactive}
-      touchPitch={false}
+      logoEnabled={false}
+      attributionEnabled={false}
+      compassEnabled={interactive}
+      scrollEnabled={interactive}
+      zoomEnabled={interactive}
+      rotateEnabled={interactive}
+      pitchEnabled={false}
       onPress={onPress}
     >
       <Camera
-        initialViewState={{
-          bounds: [bounds.sw[0], bounds.sw[1], bounds.ne[0], bounds.ne[1]] as LngLatBounds,
-          padding: { top: 40, right: 40, bottom: 40, left: 40 },
-        }}
+        bounds={{ ne: bounds.ne, sw: bounds.sw }}
+        padding={{ paddingTop: 40, paddingRight: 40, paddingBottom: 40, paddingLeft: 40 }}
       />
 
       {/* Faded individual activity traces (render first, behind everything) */}
-      {/* iOS crash fix: Always render GeoJSONSource, control visibility via opacity */}
-      <GeoJSONSource id="fadedTracesSource" data={fadedTracesGeoJSON}>
+      {/* iOS crash fix: Always render ShapeSource, control visibility via opacity */}
+      <ShapeSource id="fadedTracesSource" shape={fadedTracesGeoJSON}>
         <LineLayer
           id="fadedTracesLine"
           style={{
@@ -335,11 +333,11 @@ export function RouteMapView({
             lineJoin: 'round',
           }}
         />
-      </GeoJSONSource>
+      </ShapeSource>
 
       {/* Consensus/main route line */}
-      {/* iOS crash fix: Always render GeoJSONSource */}
-      <GeoJSONSource id="routeSource" data={routeGeoJSON}>
+      {/* iOS crash fix: Always render ShapeSource */}
+      <ShapeSource id="routeSource" shape={routeGeoJSON}>
         <LineLayer
           id="routeLine"
           style={{
@@ -350,11 +348,11 @@ export function RouteMapView({
             lineJoin: 'round',
           }}
         />
-      </GeoJSONSource>
+      </ShapeSource>
 
       {/* Highlighted activity trace (render on top, most prominent) */}
-      {/* iOS crash fix: Always render GeoJSONSource */}
-      <GeoJSONSource id="highlightedSource" data={highlightedTraceGeoJSON}>
+      {/* iOS crash fix: Always render ShapeSource */}
+      <ShapeSource id="highlightedSource" shape={highlightedTraceGeoJSON}>
         <LineLayer
           id="highlightedLine"
           style={{
@@ -365,7 +363,7 @@ export function RouteMapView({
             lineJoin: 'round',
           }}
         />
-      </GeoJSONSource>
+      </ShapeSource>
 
       {/* Start marker */}
       {startPoint && (
@@ -427,7 +425,7 @@ export function RouteMapView({
           onClose={closeFullscreen}
         >
           {/* Faded activity traces - iOS crash fix: always render */}
-          <GeoJSONSource id="fadedTracesSource" data={fadedTracesGeoJSON}>
+          <ShapeSource id="fadedTracesSource" shape={fadedTracesGeoJSON}>
             <LineLayer
               id="fadedTracesLine"
               style={{
@@ -438,10 +436,10 @@ export function RouteMapView({
                 lineJoin: 'round',
               }}
             />
-          </GeoJSONSource>
+          </ShapeSource>
 
           {/* Highlighted trace - iOS crash fix: always render */}
-          <GeoJSONSource id="highlightedSource" data={highlightedTraceGeoJSON}>
+          <ShapeSource id="highlightedSource" shape={highlightedTraceGeoJSON}>
             <LineLayer
               id="highlightedLine"
               style={{
@@ -452,7 +450,7 @@ export function RouteMapView({
                 lineJoin: 'round',
               }}
             />
-          </GeoJSONSource>
+          </ShapeSource>
 
           {/* Start marker */}
           {startPoint && (

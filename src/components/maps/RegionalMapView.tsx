@@ -16,7 +16,7 @@ import {
   Camera,
   MarkerView,
   PointAnnotation,
-  GeoJSONSource,
+  ShapeSource,
   LineLayer,
   CircleLayer,
   type MapViewRef,
@@ -132,6 +132,10 @@ export function RegionalMapView({
   const MAX_RETRIES = 3;
   const RETRY_DELAY_MS = 1000;
 
+  // Track when map is fully rendered - needed for MarkerView positioning on Android
+  // v11 has a race condition where coordinates aren't applied if set before map is ready
+  const [mapFullyRendered, setMapFullyRendered] = useState(false);
+
   const handleMapLoadError = useCallback(() => {
     if (Platform.OS === 'ios' && retryCountRef.current < MAX_RETRIES) {
       retryCountRef.current += 1;
@@ -144,10 +148,11 @@ export function RegionalMapView({
     }
   }, []);
 
-  // Reset retry count when style changes
+  // Reset retry count and map rendered state when style changes
   useEffect(() => {
     retryCountRef.current = 0;
-  }, [mapStyle]);
+    setMapFullyRendered(false);
+  }, [mapStyle, mapKey]);
 
   // Get route signatures from Rust engine for trace rendering
   const routeSignatures = useRouteSignatures();
@@ -185,6 +190,25 @@ export function RegionalMapView({
         centers[activity.id] = getBoundsCenter(activity.bounds);
         fromBounds++;
       }
+    }
+
+    // DEBUG: Log first few centers to diagnose positioning issue
+    if (__DEV__ && activities.length > 0) {
+      const first3 = activities.slice(0, 3);
+      console.log('[RegionalMapView] Activity centers debug:');
+      for (const a of first3) {
+        const center = centers[a.id];
+        const sig = routeSignatures[a.id];
+        console.log(
+          `  ${a.id}: center=[${center[0].toFixed(4)}, ${center[1].toFixed(4)}] (lng, lat)`,
+          {
+            fromSignature: !!sig?.center,
+            bounds: a.bounds,
+            sigCenter: sig?.center,
+          }
+        );
+      }
+      console.log(`  Sources: ${fromSignature} from signature, ${fromBounds} from bounds`);
     }
 
     return centers;
@@ -971,11 +995,30 @@ export function RegionalMapView({
         }
       }
 
-      const PIXEL_THRESHOLD = 40;
+      // Zoom-dependent threshold: larger at world zoom (markers clustered), smaller at city zoom
+      // currentZoomLevel is tracked via handleRegionDidChange
+      const zoom = currentZoomLevel.current;
+      const PIXEL_THRESHOLD = zoom < 4 ? 80 : zoom < 8 ? 60 : zoom < 12 ? 44 : 30;
+
+      console.log(
+        '[iOS tap] nearest:',
+        nearestActivity?.id,
+        'dist:',
+        nearestDistance.toFixed(0),
+        'threshold:',
+        PIXEL_THRESHOLD,
+        'selected:',
+        selected?.activity?.id
+      );
+
       if (nearestActivity && nearestDistance < PIXEL_THRESHOLD) {
+        console.log('[iOS tap] HIT - selecting:', nearestActivity.id);
         handleMarkerTap(nearestActivity);
       } else if (selected) {
+        console.log('[iOS tap] MISS - clearing selection');
         setSelected(null);
+      } else {
+        console.log('[iOS tap] MISS - nothing selected');
       }
     },
     [
@@ -986,6 +1029,7 @@ export function RegionalMapView({
       setSelected,
       showActivities,
       isHeatmapMode,
+      currentZoomLevel,
     ]
   );
 
@@ -1010,6 +1054,7 @@ export function RegionalMapView({
         Platform.OS === 'ios'
           ? (e) => {
               const start = touchStartRef.current;
+              console.log('[iOS touchEnd] start:', !!start);
               if (!start) return;
 
               const dx = Math.abs(e.nativeEvent.locationX - start.x);
@@ -1019,6 +1064,15 @@ export function RegionalMapView({
               // Only treat as tap if: short duration, minimal movement, not in button area
               const isTap = duration < 300 && dx < 10 && dy < 10;
               const isInMapArea = e.nativeEvent.locationY > insets.top + 60; // Below buttons
+
+              console.log(
+                '[iOS touchEnd] isTap:',
+                isTap,
+                'isInMapArea:',
+                isInMapArea,
+                'show3D:',
+                show3D
+              );
 
               if (isTap && isInMapArea && !show3D) {
                 handleiOSTap(e.nativeEvent.locationX, e.nativeEvent.locationY);
@@ -1046,26 +1100,24 @@ export function RegionalMapView({
           ref={mapRef}
           style={styles.map}
           mapStyle={mapStyleValue}
-          logo={false}
-          attribution={false}
-          compass={false}
+          logoEnabled={false}
+          attributionEnabled={false}
+          compassEnabled={false}
           onPress={Platform.OS === 'android' ? handleMapPress : undefined}
           onRegionIsChanging={handleRegionIsChanging}
           onRegionDidChange={handleRegionDidChange}
           onDidFailLoadingMap={handleMapLoadError}
+          onDidFinishRenderingMapFully={() => {
+            // Delay MarkerView rendering to work around race conditions
+            setTimeout(() => setMapFullyRendered(true), 100);
+          }}
         >
           {/* Camera with ref for programmatic control */}
           {/* Uses center biased toward recent activities (longitude from recent, latitude from all) */}
           <Camera
             ref={cameraRef as React.RefObject<CameraRef>}
-            initialViewState={
-              mapCenter
-                ? {
-                    center: mapCenter,
-                    zoom: mapZoom,
-                  }
-                : undefined
-            }
+            centerCoordinate={mapCenter ?? undefined}
+            zoomLevel={mapZoom}
           />
 
           {/* Activity markers - visual only, taps handled by ShapeSource rendered later */}
@@ -1092,8 +1144,13 @@ export function RegionalMapView({
             const markerSize = isSelected ? size + 8 : size;
             // Larger icon ratio to fill more of the marker
             const iconSize = isSelected ? size * 0.75 : size * 0.7;
-            // Hide markers when: no valid center, activities toggle is off, or in heatmap mode
-            const isVisible = hasValidCenter && showActivities && !isHeatmapMode;
+            // Hide markers when: no valid center, activities toggle is off, in heatmap mode,
+            // or on Android before map is fully rendered (v11 has race condition with coordinates)
+            const isVisible =
+              hasValidCenter &&
+              showActivities &&
+              !isHeatmapMode &&
+              (Platform.OS === 'ios' || mapFullyRendered);
 
             // Visual marker content
             const markerVisual = (
@@ -1132,52 +1189,54 @@ export function RegionalMapView({
             );
           })}
 
-          {/* Activity marker hit detection - Android only (iOS uses Pressable in MarkerView) */}
+          {/* Activity markers - CircleLayer for Android (MarkerView broken in v11), tap areas for both */}
+          {/* Android: CircleLayer shows colored circles since v11 MarkerView positioning is broken */}
+          {/* iOS: CircleLayer provides hit detection; MarkerViews above show icons */}
           {/* CRITICAL: Always render ShapeSource to avoid iOS crash during view reconciliation */}
-          <GeoJSONSource
+          <ShapeSource
             id="activity-markers-hitarea"
-            data={markersGeoJSON}
-            onPress={
-              Platform.OS === 'android' && !isHeatmapMode && showActivities
-                ? handleMarkerPress
-                : undefined
-            }
-            hitbox={{ top: 18, right: 18, bottom: 18, left: 18 }}
+            shape={markersGeoJSON}
+            onPress={!isHeatmapMode && showActivities ? handleMarkerPress : undefined}
+            hitbox={{ width: 44, height: 44 }}
           >
-            {/* Invisible circles for hit detection - Android only, sized to match visual markers */}
             <CircleLayer
               id="marker-hitarea"
               style={{
+                // On Android: Show colored circles as fallback until MarkerViews render correctly
+                // On iOS: Invisible hit detection only (MarkerViews handle visuals)
                 circleRadius:
-                  Platform.OS === 'android' && !isHeatmapMode && showActivities
+                  !isHeatmapMode && showActivities
                     ? [
                         'interpolate',
                         ['linear'],
                         ['zoom'],
                         1,
-                        18, // World view: modest hitarea to avoid overlap
+                        8, // World view
                         6,
-                        16, // Continental
+                        10, // Continental
                         10,
-                        14, // Regional
+                        12, // Regional
                         14,
-                        12, // City level
+                        14, // City level
                       ]
                     : 0,
-                circleColor: '#000000',
-                circleOpacity: 0.01, // Nearly invisible but tappable
-                circleStrokeWidth: 0,
+                // Android fallback: colored circles; iOS: invisible (MarkerViews show icons)
+                circleColor: Platform.OS === 'android' ? ['get', 'color'] : 'transparent',
+                circleOpacity:
+                  !isHeatmapMode && showActivities && Platform.OS === 'android' ? 1 : 0,
+                circleStrokeWidth: Platform.OS === 'android' ? 2 : 0,
+                circleStrokeColor: '#FFFFFF',
               }}
             />
-          </GeoJSONSource>
+          </ShapeSource>
 
           {/* Routes layer - dashed polylines for route groups */}
           {/* CRITICAL: Always render ShapeSource to avoid iOS MapLibre crash during reconciliation */}
-          <GeoJSONSource
+          <ShapeSource
             id="routes"
-            data={routesGeoJSON}
+            shape={routesGeoJSON}
             onPress={handleRoutePress}
-            hitbox={{ top: 22, right: 22, bottom: 22, left: 22 }}
+            hitbox={{ width: 44, height: 44 }}
           >
             <LineLayer
               id="routesLine"
@@ -1201,12 +1260,12 @@ export function RegionalMapView({
                 lineJoin: 'round',
               }}
             />
-          </GeoJSONSource>
+          </ShapeSource>
 
           {/* Route markers - start points for routes */}
           {/* CRITICAL: Always render ShapeSource to avoid iOS MapLibre crash */}
           {/* Visual markers rendered as MarkerViews below for icon support */}
-          <GeoJSONSource id="route-markers" data={routeMarkersGeoJSON}>
+          <ShapeSource id="route-markers" shape={routeMarkersGeoJSON}>
             <CircleLayer
               id="routeMarkerCircle"
               style={{
@@ -1214,15 +1273,15 @@ export function RegionalMapView({
                 circleOpacity: 0,
               }}
             />
-          </GeoJSONSource>
+          </ShapeSource>
 
           {/* Sections layer - frequent road/trail sections */}
           {/* CRITICAL: Always render ShapeSource to avoid iOS MapLibre crash */}
-          <GeoJSONSource
+          <ShapeSource
             id="sections"
-            data={sectionsGeoJSON}
+            shape={sectionsGeoJSON}
             onPress={handleSectionPress}
-            hitbox={{ top: 22, right: 22, bottom: 22, left: 22 }}
+            hitbox={{ width: 44, height: 44 }}
           >
             {/* Section lines - thicker and more prominent than traces */}
             {/* Note: MapLibre doesn't allow nested zoom-based interpolations in case expressions */}
@@ -1286,7 +1345,7 @@ export function RegionalMapView({
               }}
               belowLayerID="sectionsLine"
             />
-          </GeoJSONSource>
+          </ShapeSource>
 
           {/* Heatmap layer - iOS crash fix: always render, control via visible prop */}
           <HeatmapLayer
@@ -1299,7 +1358,7 @@ export function RegionalMapView({
 
           {/* GPS traces - simplified routes shown when zoomed in (hidden in heatmap mode) */}
           {/* CRITICAL: Always render ShapeSource to avoid iOS MapLibre crash */}
-          <GeoJSONSource id="activity-traces" data={tracesGeoJSON}>
+          <ShapeSource id="activity-traces" shape={tracesGeoJSON}>
             <LineLayer
               id="tracesLine"
               style={{
@@ -1318,11 +1377,11 @@ export function RegionalMapView({
                 lineJoin: 'round',
               }}
             />
-          </GeoJSONSource>
+          </ShapeSource>
 
           {/* Selected activity route */}
           {/* CRITICAL: Always render with fixed ID to avoid iOS MapLibre crash */}
-          <GeoJSONSource id="selected-route" data={routeGeoJSON}>
+          <ShapeSource id="selected-route" shape={routeGeoJSON}>
             {/* Outline layer for better visibility */}
             <LineLayer
               id="selected-routeOutline"
@@ -1344,7 +1403,7 @@ export function RegionalMapView({
                 lineOpacity: routeHasData ? 1 : 0,
               }}
             />
-          </GeoJSONSource>
+          </ShapeSource>
 
           {/* Section markers - start points with road icon */}
           {/* CRITICAL: Always render to avoid iOS crash - use opacity to hide */}
@@ -1426,7 +1485,7 @@ export function RegionalMapView({
 
           {/* User location marker - using ShapeSource + CircleLayer to avoid Fabric crash */}
           {/* CRITICAL: Always render to prevent add/remove cycles that crash iOS */}
-          <GeoJSONSource id="user-location" data={userLocationGeoJSON}>
+          <ShapeSource id="user-location" shape={userLocationGeoJSON}>
             <CircleLayer
               id="user-location-outer"
               style={{
@@ -1446,7 +1505,7 @@ export function RegionalMapView({
                 circleStrokeColor: colors.textOnDark,
               }}
             />
-          </GeoJSONSource>
+          </ShapeSource>
         </MapView>
       )}
 

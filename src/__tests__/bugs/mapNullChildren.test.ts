@@ -355,7 +355,7 @@ describe('Source code fix verification', () => {
   const componentsDir = path.resolve(__dirname, '../../components/maps');
 
   describe('ActivityMapView.tsx', () => {
-    it('must use consolidated GeoJSONSources for section overlays (Fabric crash prevention)', () => {
+    it('must use consolidated ShapeSources for section overlays (Fabric crash prevention)', () => {
       const filePath = path.join(componentsDir, 'ActivityMapView.tsx');
       const source = fs.readFileSync(filePath, 'utf-8');
 
@@ -371,11 +371,11 @@ describe('Source code fix verification', () => {
       expect(hasOldFragmentPattern).toBe(false);
     });
 
-    it('must use stable GeoJSONSource IDs for section overlays', () => {
+    it('must use stable ShapeSource IDs for section overlays', () => {
       const filePath = path.join(componentsDir, 'ActivityMapView.tsx');
       const source = fs.readFileSync(filePath, 'utf-8');
 
-      // Must have stable GeoJSONSource IDs (not dynamic ones based on overlay.id)
+      // Must have stable ShapeSource IDs (not dynamic ones based on overlay.id)
       const hasStableSectionSourceId = source.includes('id="section-overlays-consolidated"');
       const hasStablePortionSourceId = source.includes('id="portion-overlays-consolidated"');
       const hasFullscreenSectionSourceId = source.includes('id="fs-section-overlays-consolidated"');

@@ -132,7 +132,7 @@ import { useTranslation } from 'react-i18next';
 import {
   MapView,
   Camera,
-  GeoJSONSource,
+  ShapeSource,
   LineLayer,
   MarkerView,
 } from '@maplibre/maplibre-react-native';
@@ -140,8 +140,8 @@ import type {
   CameraRef,
   ViewStateChangeEvent,
   PressEventWithFeatures,
-  LngLatBounds,
   PressEvent,
+  CameraBounds,
 } from '@maplibre/maplibre-react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
@@ -667,11 +667,13 @@ export function ActivityMapView({
   // Wait for mapReady to avoid race condition where fitBounds is called before map is initialized
   useEffect(() => {
     if (mapReady && bounds && coordinatesKey && coordinatesKey !== appliedBoundsKeyRef.current) {
-      const cameraBounds: LngLatBounds = [bounds.sw[0], bounds.sw[1], bounds.ne[0], bounds.ne[1]];
-      (cameraRef.current as CameraRef | null)?.fitBounds(cameraBounds, {
-        padding: { top: 50, right: 50, bottom: 50, left: 50 },
-        duration: 0,
-      });
+      const cameraBounds: CameraBounds = { ne: bounds.ne, sw: bounds.sw };
+      (cameraRef.current as CameraRef | null)?.fitBounds(
+        cameraBounds.ne,
+        cameraBounds.sw,
+        { paddingTop: 50, paddingRight: 50, paddingBottom: 50, paddingLeft: 50 },
+        0
+      );
       appliedBoundsKeyRef.current = coordinatesKey;
     }
   }, [mapReady, bounds, coordinatesKey]);
@@ -1039,13 +1041,13 @@ export function ActivityMapView({
             key={`activity-map-${mapKey}`}
             style={styles.map}
             mapStyle={mapStyleValue}
-            logo={false}
-            attribution={false}
-            compass={false}
-            dragPan={true}
-            touchAndDoubleTapZoom={true}
-            touchRotate={true}
-            touchPitch={false}
+            logoEnabled={false}
+            attributionEnabled={false}
+            compassEnabled={false}
+            scrollEnabled={true}
+            zoomEnabled={true}
+            rotateEnabled={true}
+            pitchEnabled={false}
             onRegionIsChanging={handleRegionIsChanging}
             onRegionDidChange={handleRegionDidChange}
             onPress={handleMapPress}
@@ -1059,9 +1061,9 @@ export function ActivityMapView({
             />
 
             {/* Route overlay (matched route trace) - rendered first so activity line is on top */}
-            {/* CRITICAL: Always render GeoJSONSource to avoid add/remove cycles that crash iOS MapLibre */}
+            {/* CRITICAL: Always render ShapeSource to avoid add/remove cycles that crash iOS MapLibre */}
             {/* When no data, overlayGeoJSON is an empty FeatureCollection, not null */}
-            <GeoJSONSource id="overlaySource" data={overlayGeoJSON}>
+            <ShapeSource id="overlaySource" shape={overlayGeoJSON}>
               <LineLayer
                 id="overlayLine"
                 style={{
@@ -1072,11 +1074,11 @@ export function ActivityMapView({
                   lineOpacity: 0.5,
                 }}
               />
-            </GeoJSONSource>
+            </ShapeSource>
 
             {/* Route line - render first so section overlays appear on top */}
-            {/* CRITICAL: Always render GeoJSONSource to avoid add/remove cycles that crash iOS MapLibre */}
-            <GeoJSONSource id="routeSource" data={routeGeoJSON}>
+            {/* CRITICAL: Always render ShapeSource to avoid add/remove cycles that crash iOS MapLibre */}
+            <ShapeSource id="routeSource" shape={routeGeoJSON}>
               <LineLayer
                 id="routeLine"
                 style={{
@@ -1087,12 +1089,12 @@ export function ActivityMapView({
                   lineOpacity: sectionOverlaysGeoJSON ? 0.8 : overlayHasData ? 0.85 : 1,
                 }}
               />
-            </GeoJSONSource>
+            </ShapeSource>
 
             {/* Section overlays - render after route line so they appear on top */}
-            {/* CRITICAL: Always render stable GeoJSONSources to avoid Fabric crash */}
+            {/* CRITICAL: Always render stable ShapeSources to avoid Fabric crash */}
             {/* Using consolidated GeoJSONs prevents add/remove cycles during state changes */}
-            <GeoJSONSource id="section-overlays-consolidated" data={consolidatedSectionsGeoJSON}>
+            <ShapeSource id="section-overlays-consolidated" shape={consolidatedSectionsGeoJSON}>
               <LineLayer
                 id="section-overlays-line"
                 style={{
@@ -1111,8 +1113,8 @@ export function ActivityMapView({
                     : 0,
                 }}
               />
-            </GeoJSONSource>
-            <GeoJSONSource id="portion-overlays-consolidated" data={consolidatedPortionsGeoJSON}>
+            </ShapeSource>
+            <ShapeSource id="portion-overlays-consolidated" shape={consolidatedPortionsGeoJSON}>
               <LineLayer
                 id="portion-overlays-line"
                 style={{
@@ -1131,7 +1133,7 @@ export function ActivityMapView({
                     : 0,
                 }}
               />
-            </GeoJSONSource>
+            </ShapeSource>
 
             {/* Start marker */}
             {/* CRITICAL: Always render to avoid Fabric crash - control visibility via opacity */}
@@ -1174,8 +1176,8 @@ export function ActivityMapView({
             </MarkerView>
 
             {/* Section creation: selected section line */}
-            {/* CRITICAL: Always render GeoJSONSource to avoid add/remove cycles that crash iOS MapLibre */}
-            <GeoJSONSource id="sectionSource" data={sectionGeoJSON}>
+            {/* CRITICAL: Always render ShapeSource to avoid add/remove cycles that crash iOS MapLibre */}
+            <ShapeSource id="sectionSource" shape={sectionGeoJSON}>
               <LineLayer
                 id="sectionLine"
                 style={{
@@ -1185,7 +1187,7 @@ export function ActivityMapView({
                   lineJoin: 'round',
                 }}
               />
-            </GeoJSONSource>
+            </ShapeSource>
 
             {/* Section creation: start marker */}
             {/* CRITICAL: Always render to avoid Fabric crash - control visibility via opacity */}
@@ -1448,8 +1450,8 @@ export function ActivityMapView({
           onClose={closeFullscreen}
         >
           {/* Section overlays in fullscreen */}
-          {/* CRITICAL: Always render stable GeoJSONSources to avoid Fabric crash */}
-          <GeoJSONSource id="fs-section-overlays-consolidated" data={consolidatedSectionsGeoJSON}>
+          {/* CRITICAL: Always render stable ShapeSources to avoid Fabric crash */}
+          <ShapeSource id="fs-section-overlays-consolidated" shape={consolidatedSectionsGeoJSON}>
             <LineLayer
               id="fs-section-overlays-line"
               style={{
@@ -1460,8 +1462,8 @@ export function ActivityMapView({
                 lineOpacity: sectionOverlaysGeoJSON ? 0.8 : 0,
               }}
             />
-          </GeoJSONSource>
-          <GeoJSONSource id="fs-portion-overlays-consolidated" data={consolidatedPortionsGeoJSON}>
+          </ShapeSource>
+          <ShapeSource id="fs-portion-overlays-consolidated" shape={consolidatedPortionsGeoJSON}>
             <LineLayer
               id="fs-portion-overlays-line"
               style={{
@@ -1472,7 +1474,7 @@ export function ActivityMapView({
                 lineOpacity: sectionOverlaysGeoJSON ? 1 : 0,
               }}
             />
-          </GeoJSONSource>
+          </ShapeSource>
 
           {/* Numbered markers at center of each section in fullscreen */}
           {/* CRITICAL: Always render ALL markers - never return null to avoid iOS Fabric crash */}

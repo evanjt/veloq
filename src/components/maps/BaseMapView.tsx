@@ -11,13 +11,13 @@ import {
 import type {
   ViewStateChangeEvent,
   CameraRef,
-  LngLatBounds,
+  CameraBounds,
 } from '@maplibre/maplibre-react-native';
 import { useTheme } from '@/hooks';
 import {
   MapView,
   Camera,
-  GeoJSONSource,
+  ShapeSource,
   LineLayer,
   MarkerView,
 } from '@maplibre/maplibre-react-native';
@@ -430,9 +430,9 @@ export function BaseMapView({
           key={`map-${mapKey}`}
           style={styles.map}
           mapStyle={mapStyleValue}
-          logo={false}
-          attribution={false}
-          compass={false}
+          logoEnabled={false}
+          attributionEnabled={false}
+          compassEnabled={false}
           onPress={onPress ? () => onPress({} as GeoJSON.Feature) : undefined}
           onRegionIsChanging={handleRegionIsChanging}
           onRegionDidChange={handleRegionDidChange}
@@ -440,28 +440,12 @@ export function BaseMapView({
         >
           <Camera
             ref={cameraRef as React.RefObject<CameraRef>}
-            initialViewState={
-              bounds
-                ? {
-                    bounds: [
-                      bounds.sw[0],
-                      bounds.sw[1],
-                      bounds.ne[0],
-                      bounds.ne[1],
-                    ] as LngLatBounds,
-                    padding: {
-                      top: padding.paddingTop,
-                      right: padding.paddingRight,
-                      bottom: padding.paddingBottom,
-                      left: padding.paddingLeft,
-                    },
-                  }
-                : undefined
-            }
+            bounds={bounds ? { ne: bounds.ne, sw: bounds.sw } : undefined}
+            padding={padding}
           />
 
           {/* Route line - CRITICAL: Always render to avoid iOS crash */}
-          <GeoJSONSource id="routeSource" data={routeGeoJSON}>
+          <ShapeSource id="routeSource" shape={routeGeoJSON}>
             <LineLayer
               id="routeLine"
               style={{
@@ -471,7 +455,7 @@ export function BaseMapView({
                 lineJoin: 'round',
               }}
             />
-          </GeoJSONSource>
+          </ShapeSource>
 
           {/* Custom children (markers, etc.) - filter null to prevent iOS crash */}
           {/* iOS crash: -[__NSArrayM insertObject:atIndex:]: object cannot be nil (MLRNMapView.m:207) */}

@@ -3,10 +3,9 @@ import { View, StyleSheet, ActivityIndicator } from 'react-native';
 import {
   MapView,
   Camera,
-  GeoJSONSource,
+  ShapeSource,
   LineLayer,
   MarkerView,
-  type LngLatBounds,
 } from '@maplibre/maplibre-react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { convertLatLngTuples, getActivityColor, getMapLibreBounds } from '@/lib';
@@ -123,24 +122,25 @@ export function ActivityMapPreview({ activity, height = 160 }: ActivityMapPrevie
       <MapView
         style={styles.map}
         mapStyle={styleUrl}
-        logo={false}
-        attribution={false}
-        compass={false}
-        dragPan={false}
-        touchAndDoubleTapZoom={false}
-        touchRotate={false}
-        touchPitch={false}
+        logoEnabled={false}
+        attributionEnabled={false}
+        compassEnabled={false}
+        scrollEnabled={false}
+        zoomEnabled={false}
+        rotateEnabled={false}
+        pitchEnabled={false}
         onDidFinishRenderingMapFully={handleMapFullyRendered}
       >
         <Camera
-          initialViewState={{
-            bounds: [bounds.sw[0], bounds.sw[1], bounds.ne[0], bounds.ne[1]] as LngLatBounds,
-            padding: { top: 30, right: 30, bottom: 30, left: 30 },
+          bounds={{
+            ne: [bounds.ne[0], bounds.ne[1]],
+            sw: [bounds.sw[0], bounds.sw[1]],
           }}
+          padding={{ paddingTop: 30, paddingRight: 30, paddingBottom: 30, paddingLeft: 30 }}
         />
 
-        {/* Route line - iOS crash fix: always render GeoJSONSource */}
-        <GeoJSONSource id="routeSource" data={routeGeoJSON}>
+        {/* Route line - iOS crash fix: always render ShapeSource */}
+        <ShapeSource id="routeSource" shape={routeGeoJSON}>
           <LineLayer
             id="routeLine"
             style={{
@@ -151,7 +151,7 @@ export function ActivityMapPreview({ activity, height = 160 }: ActivityMapPrevie
               lineJoin: 'round',
             }}
           />
-        </GeoJSONSource>
+        </ShapeSource>
 
         {/* Start marker */}
         {startPoint && (
