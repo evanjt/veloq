@@ -7,7 +7,6 @@
  */
 
 import React, { useEffect, useRef, memo, useMemo } from 'react';
-import { useSyncDateRange } from '@/providers/SyncDateRangeStore';
 import {
   View,
   StyleSheet,
@@ -16,7 +15,7 @@ import {
   LayoutAnimation,
   Platform,
 } from 'react-native';
-import { useTheme, useGroupSummaries, useRouteProcessing } from '@/hooks';
+import { useTheme, useGroupSummaries, useRouteProcessing, useEngineStats } from '@/hooks';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -148,15 +147,17 @@ export function RoutesList({
 
   const { progress } = useRouteProcessing();
 
-  // Get cached date range for footer
-  const oldest = useSyncDateRange((s) => s.oldest);
-  const newest = useSyncDateRange((s) => s.newest);
+  // Get cached date range from engine stats (actual cached data, not sync request range)
+  const engineStats = useEngineStats();
   const cacheDays = useMemo(() => {
-    if (!oldest || !newest) return 90; // default
-    return Math.ceil(
-      (new Date(newest).getTime() - new Date(oldest).getTime()) / (1000 * 60 * 60 * 24)
-    );
-  }, [oldest, newest]);
+    const { oldestDate, newestDate } = engineStats;
+    console.log('[RoutesList] engineStats dates:', { oldestDate, newestDate, engineStats });
+    if (!oldestDate || !newestDate) return 90; // default when no data
+    // Dates are Unix timestamps in seconds (bigint from Rust i64)
+    const oldest = Number(oldestDate);
+    const newest = Number(newestDate);
+    return Math.ceil((newest - oldest) / (60 * 60 * 24));
+  }, [engineStats]);
 
   // Note: useFocusEffect refresh removed - useGroupSummaries subscribes to engine events
   // and automatically refreshes when data changes (e.g., after renaming on detail page)

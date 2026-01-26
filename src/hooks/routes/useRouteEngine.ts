@@ -470,6 +470,8 @@ export function useEngineStats(): PersistentEngineStats {
     sectionCount: 0,
     groupsDirty: false,
     sectionsDirty: false,
+    oldestDate: undefined,
+    newestDate: undefined,
   });
 
   const refresh = useCallback(() => {

@@ -2679,6 +2679,141 @@ impl PersistentRouteEngine {
         serde_json::to_string(&self.get_custom_sections()).unwrap_or_else(|_| "[]".to_string())
     }
 
+    /// Create a custom section from activity indices.
+    /// Loads GPS track from SQLite and slices it - no coordinate transfer needed.
+    pub fn create_custom_section_from_indices(
+        &mut self,
+        activity_id: &str,
+        start_index: u32,
+        end_index: u32,
+        sport_type: &str,
+        name: Option<&str>,
+    ) -> Result<crate::CustomSection, String> {
+        // 1. Load GPS track from SQLite
+        let track = self
+            .get_gps_track(activity_id)
+            .ok_or_else(|| format!("GPS track not found for activity {}", activity_id))?;
+
+        // 2. Validate indices
+        if start_index >= end_index || end_index as usize > track.len() {
+            return Err(format!(
+                "Invalid indices: {}..{} for track of length {}",
+                start_index,
+                end_index,
+                track.len()
+            ));
+        }
+
+        // 3. Slice and simplify polyline
+        let slice = &track[start_index as usize..end_index as usize];
+        let simplified = crate::algorithms::douglas_peucker(slice, 0.00005); // ~5m tolerance
+
+        // 4. Calculate distance
+        let distance = tracematch::matching::calculate_route_distance(&simplified);
+
+        // 5. Generate ID
+        let id = format!(
+            "custom_{}_{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_millis(),
+            &activity_id[..8.min(activity_id.len())]
+        );
+
+        // 6. Generate unique name if not provided
+        let section_name = name.map(String::from).unwrap_or_else(|| {
+            let existing: std::collections::HashSet<String> = self
+                .get_custom_sections()
+                .iter()
+                .map(|s| s.name.clone())
+                .collect();
+            let mut idx = 1;
+            loop {
+                let candidate = format!("Custom Section {}", idx);
+                if !existing.contains(&candidate) {
+                    return candidate;
+                }
+                idx += 1;
+            }
+        });
+
+        // 7. Create timestamp (ISO 8601)
+        let created_at = {
+            let duration = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default();
+            let secs = duration.as_secs();
+            // Manual ISO 8601 format: 2024-01-26T12:34:56Z
+            let days = secs / 86400;
+            let time = secs % 86400;
+            let hours = time / 3600;
+            let mins = (time % 3600) / 60;
+            let secs_rem = time % 60;
+            // Calculate year/month/day from days since 1970
+            let mut year = 1970i32;
+            let mut remaining_days = days as i32;
+            loop {
+                let days_in_year = if year % 4 == 0 && (year % 100 != 0 || year % 400 == 0) {
+                    366
+                } else {
+                    365
+                };
+                if remaining_days < days_in_year {
+                    break;
+                }
+                remaining_days -= days_in_year;
+                year += 1;
+            }
+            let is_leap = year % 4 == 0 && (year % 100 != 0 || year % 400 == 0);
+            let days_in_month = [
+                31,
+                if is_leap { 29 } else { 28 },
+                31,
+                30,
+                31,
+                30,
+                31,
+                31,
+                30,
+                31,
+                30,
+                31,
+            ];
+            let mut month = 1;
+            for &dim in &days_in_month {
+                if remaining_days < dim {
+                    break;
+                }
+                remaining_days -= dim;
+                month += 1;
+            }
+            let day = remaining_days + 1;
+            format!(
+                "{:04}-{:02}-{:02}T{:02}:{:02}:{:02}Z",
+                year, month, day, hours, mins, secs_rem
+            )
+        };
+
+        let section = crate::CustomSection {
+            id,
+            name: section_name,
+            polyline: simplified,
+            source_activity_id: activity_id.to_string(),
+            start_index,
+            end_index,
+            sport_type: sport_type.to_string(),
+            distance_meters: distance,
+            created_at,
+        };
+
+        // 8. Store in database
+        self.add_custom_section(&section)
+            .map_err(|e| format!("Failed to store section: {:?}", e))?;
+
+        Ok(section)
+    }
+
     /// Add a match for a custom section.
     pub fn add_custom_section_match(
         &mut self,
@@ -3466,6 +3601,16 @@ impl PersistentRouteEngine {
             .query_row("SELECT COUNT(*) FROM gps_tracks", [], |row| row.get(0))
             .unwrap_or(0);
 
+        // Get oldest and newest activity dates from activity_metrics table (always has dates)
+        let (oldest_date, newest_date): (Option<i64>, Option<i64>) = self
+            .db
+            .query_row(
+                "SELECT MIN(date), MAX(date) FROM activity_metrics",
+                [],
+                |row| Ok((row.get(0).ok(), row.get(1).ok())),
+            )
+            .unwrap_or((None, None));
+
         PersistentEngineStats {
             activity_count: self.activity_metadata.len() as u32,
             signature_cache_size: self.signature_cache.len() as u32,
@@ -3475,6 +3620,8 @@ impl PersistentRouteEngine {
             groups_dirty: self.groups_dirty,
             sections_dirty: self.sections_dirty,
             gps_track_count,
+            oldest_date,
+            newest_date,
         }
     }
 }
@@ -3491,6 +3638,10 @@ pub struct PersistentEngineStats {
     pub groups_dirty: bool,
     pub sections_dirty: bool,
     pub gps_track_count: u32,
+    /// Oldest activity date (Unix timestamp in seconds), or None if no activities
+    pub oldest_date: Option<i64>,
+    /// Newest activity date (Unix timestamp in seconds), or None if no activities
+    pub newest_date: Option<i64>,
 }
 
 // ============================================================================
@@ -4107,6 +4258,81 @@ pub mod persistent_engine_ffi {
         }
     }
 
+    /// Detect potential sections using GPS tracks from SQLite.
+    /// This eliminates the N+1 FFI call pattern - single call, all loading internal.
+    /// Returns JSON array of potential sections.
+    #[uniffi::export]
+    pub fn persistent_engine_detect_potentials(sport_filter: Option<String>) -> String {
+        with_persistent_engine(|e| {
+            // Get activity IDs (optionally filtered by sport)
+            let activity_ids: Vec<String> = if let Some(ref sport) = sport_filter {
+                e.activity_metadata
+                    .values()
+                    .filter(|m| &m.sport_type == sport)
+                    .map(|m| m.id.clone())
+                    .collect()
+            } else {
+                e.activity_metadata.keys().cloned().collect()
+            };
+
+            if activity_ids.is_empty() {
+                return "[]".to_string();
+            }
+
+            // Load tracks from SQLite
+            let mut tracks: Vec<(String, Vec<GpsPoint>)> = Vec::new();
+            for id in &activity_ids {
+                if let Some(track) = e.get_gps_track(id) {
+                    if track.len() >= 4 {
+                        tracks.push((id.clone(), track));
+                    }
+                }
+            }
+
+            if tracks.is_empty() {
+                return "[]".to_string();
+            }
+
+            // Build sport type map
+            let sport_map: HashMap<String, String> = e
+                .activity_metadata
+                .values()
+                .map(|m| (m.id.clone(), m.sport_type.clone()))
+                .collect();
+
+            // Get existing groups
+            let groups = e.get_groups();
+
+            // Create config with potentials enabled and lower threshold
+            let config = SectionConfig {
+                include_potentials: true,
+                min_activities: 1, // Low threshold to find potential sections
+                ..e.section_config.clone()
+            };
+
+            log::info!(
+                "tracematch: [PersistentEngine] Detecting potentials from {} tracks",
+                tracks.len()
+            );
+
+            // Run detection
+            let result = tracematch::sections::detect_sections_multiscale(
+                &tracks,
+                &sport_map,
+                &groups,
+                &config,
+            );
+
+            log::info!(
+                "tracematch: [PersistentEngine] Found {} potential sections",
+                result.potentials.len()
+            );
+
+            serde_json::to_string(&result.potentials).unwrap_or_else(|_| "[]".to_string())
+        })
+        .unwrap_or_else(|| "[]".to_string())
+    }
+
     // ========================================================================
     // Custom Section FFI
     // ========================================================================
@@ -4167,6 +4393,70 @@ pub mod persistent_engine_ffi {
         }
 
         added
+    }
+
+    /// Create a custom section from activity indices.
+    /// Loads GPS track from SQLite internally - no coordinate transfer needed.
+    /// Returns JSON of the created section, or empty string on error.
+    #[uniffi::export]
+    pub fn persistent_engine_create_section_from_indices(
+        activity_id: String,
+        start_index: u32,
+        end_index: u32,
+        sport_type: String,
+        name: Option<String>,
+    ) -> String {
+        let result = with_persistent_engine(|e| {
+            e.create_custom_section_from_indices(
+                &activity_id,
+                start_index,
+                end_index,
+                &sport_type,
+                name.as_deref(),
+            )
+        });
+
+        match result {
+            Some(Ok(section)) => {
+                let section_id = section.id.clone();
+                info!(
+                    "tracematch: [PersistentEngine] Created section from indices: {} ({}→{} of {})",
+                    section_id, start_index, end_index, activity_id
+                );
+
+                // Match against all activities
+                with_persistent_engine(|e| {
+                    let activity_ids = e.get_activity_ids();
+                    if !activity_ids.is_empty() {
+                        let config = crate::CustomSectionMatchConfig::default();
+                        let matches = e.match_custom_section_against_activities(
+                            &section_id,
+                            &activity_ids,
+                            &config,
+                        );
+                        info!(
+                            "tracematch: [PersistentEngine] Matched section {} against {} activities, found {} matches",
+                            section_id,
+                            activity_ids.len(),
+                            matches.len()
+                        );
+                    }
+                });
+
+                serde_json::to_string(&section).unwrap_or_default()
+            }
+            Some(Err(e)) => {
+                log::error!(
+                    "tracematch: [PersistentEngine] Failed to create section from indices: {}",
+                    e
+                );
+                String::new()
+            }
+            None => {
+                log::error!("tracematch: [PersistentEngine] Engine not initialized");
+                String::new()
+            }
+        }
     }
 
     /// Remove a custom section.
@@ -4443,6 +4733,97 @@ pub mod persistent_engine_ffi {
                 })
                 .collect()
         })
+        .unwrap_or_default()
+    }
+
+    // ========================================================================
+    // Polyline Encoding FFI (Google Polyline Algorithm)
+    // ~60% size reduction vs raw [lat,lng] arrays
+    // ========================================================================
+
+    /// Encode flat coordinates [lat, lng, lat, lng, ...] to Google polyline string.
+    /// Precision: 5 decimal places (standard for GPS).
+    #[uniffi::export]
+    pub fn encode_coordinates_to_polyline(coords: Vec<f64>) -> String {
+        use geo::LineString;
+
+        if coords.len() < 4 || coords.len() % 2 != 0 {
+            return String::new();
+        }
+
+        // Convert to geo::LineString (expects (x, y) = (lng, lat) order)
+        let line: LineString<f64> = coords
+            .chunks(2)
+            .map(|chunk| (chunk[1], chunk[0])) // (lng, lat)
+            .collect();
+
+        polyline::encode_coordinates(line, 5).unwrap_or_default()
+    }
+
+    /// Decode Google polyline string to flat coordinates [lat, lng, lat, lng, ...].
+    #[uniffi::export]
+    pub fn decode_polyline_to_coordinates(encoded: String) -> Vec<f64> {
+        if encoded.is_empty() {
+            return Vec::new();
+        }
+
+        polyline::decode_polyline(&encoded, 5)
+            .map(|line| {
+                line.coords()
+                    .flat_map(|c| vec![c.y, c.x]) // (lat, lng) from (x, y)
+                    .collect()
+            })
+            .unwrap_or_default()
+    }
+
+    /// Get GPS track as encoded polyline string.
+    /// Much smaller than flat coordinate arrays.
+    #[uniffi::export]
+    pub fn persistent_engine_get_gps_track_encoded(activity_id: String) -> String {
+        use geo::LineString;
+
+        with_persistent_engine(|e| {
+            e.get_gps_track(&activity_id).map(|track| {
+                let line: LineString<f64> = track
+                    .iter()
+                    .map(|p| (p.longitude, p.latitude))
+                    .collect();
+                polyline::encode_coordinates(line, 5).unwrap_or_default()
+            })
+        })
+        .flatten()
+        .unwrap_or_default()
+    }
+
+    /// Get section polyline as encoded string.
+    #[uniffi::export]
+    pub fn persistent_engine_get_section_polyline_encoded(section_id: String) -> String {
+        use geo::LineString;
+
+        with_persistent_engine(|e| {
+            // Try auto-detected sections first
+            if let Some(section) = e.sections.iter().find(|s| s.id == section_id) {
+                let line: LineString<f64> = section
+                    .polyline
+                    .iter()
+                    .map(|p| (p.longitude, p.latitude))
+                    .collect();
+                return Some(polyline::encode_coordinates(line, 5).unwrap_or_default());
+            }
+
+            // Try custom sections
+            if let Some(section) = e.get_custom_section(&section_id) {
+                let line: LineString<f64> = section
+                    .polyline
+                    .iter()
+                    .map(|p| (p.longitude, p.latitude))
+                    .collect();
+                return Some(polyline::encode_coordinates(line, 5).unwrap_or_default());
+            }
+
+            None
+        })
+        .flatten()
         .unwrap_or_default()
     }
 }

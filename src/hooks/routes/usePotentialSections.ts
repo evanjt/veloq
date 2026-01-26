@@ -6,15 +6,8 @@
  */
 
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { InteractionManager } from 'react-native';
 import { getRouteEngine } from '@/lib/native/routeEngine';
-import {
-  detectSectionsMultiscale,
-  gpsPointsToRoutePoints,
-  FfiSectionConfig,
-  type RouteGroup,
-  type ActivitySportType,
-} from 'veloqrs';
+import { gpsPointsToRoutePoints } from 'veloqrs';
 import { usePotentialSections as usePotentialSectionsStore } from '@/providers/PotentialSectionsStore';
 import type { PotentialSection } from '@/types';
 
@@ -100,17 +93,19 @@ export function usePotentialSections(
   }, [storedPotentials, sportType]);
 
   /**
-   * Run multi-scale section detection.
+   * Run potential section detection.
+   * Single FFI call - Rust loads all GPS tracks from SQLite internally.
+   * This replaces the old N+1 pattern that transferred ~100KB+ per activity.
    */
   const detect = useCallback(async () => {
     const engine = getRouteEngine();
     if (!engine || !isMountedRef.current) return;
 
-    const activityIds = engine.getActivityIds();
-    if (activityIds.length < minActivities) {
+    const activityCount = engine.getActivityIds().length;
+    if (activityCount < minActivities) {
       if (__DEV__) {
         console.log(
-          `[usePotentialSections] Not enough activities (${activityIds.length} < ${minActivities})`
+          `[usePotentialSections] Not enough activities (${activityCount} < ${minActivities})`
         );
       }
       return;
@@ -119,90 +114,21 @@ export function usePotentialSections(
     setIsDetecting(true);
 
     try {
-      // Build flat coordinate arrays for the new API
-      const ids: string[] = [];
-      const allCoords: number[] = [];
-      const offsets: number[] = [];
-      const activitySportTypes: ActivitySportType[] = [];
+      // Single FFI call - Rust loads all tracks from SQLite internally
+      const rawPotentials = engine.detectPotentials(sportType);
 
-      for (const id of activityIds) {
-        const track = engine.getGpsTrack(id);
-        if (track.length >= 4) {
-          ids.push(id);
-          offsets.push(allCoords.length / 2);
-          activitySportTypes.push({
-            activityId: id,
-            sportType: 'Ride', // Default, could be improved by storing sport type in engine
-          });
-
-          // GpsPoint[] has latitude/longitude properties
-          for (const point of track) {
-            allCoords.push(point.latitude, point.longitude);
-          }
-        }
-      }
-
-      if (ids.length === 0) {
-        if (__DEV__) {
-          console.log('[usePotentialSections] No valid GPS tracks found');
-        }
-        setIsDetecting(false);
-        return;
-      }
-
-      // Get route groups for linking sections
-      const rawGroups: RouteGroup[] = engine.getGroups();
-
-      // Filter and sanitize groups - FFI requires all string fields to be non-null/non-empty
-      const groups = rawGroups
-        .filter(
-          (g) =>
-            g.groupId != null &&
-            g.groupId !== '' &&
-            g.representativeId != null &&
-            g.representativeId !== '' &&
-            g.activityIds != null &&
-            g.activityIds.length > 0
-        )
-        .map((g) => ({
-          ...g,
-          // Ensure sportType is never null/empty - default to 'Ride' if missing
-          sportType: g.sportType || 'Ride',
-        }));
-
-      // Create default section config
-      const config = FfiSectionConfig.create({
-        proximityThreshold: 50,
-        minSectionLength: 200,
-        maxSectionLength: 5000,
-        minActivities: 2,
-        clusterTolerance: 80,
-        samplePoints: 50,
-        detectionMode: 'discovery',
-        includePotentials: true,
-        scalePresets: [],
-        preserveHierarchy: false,
-      });
-
-      // Run multi-scale detection
-      const result = detectSectionsMultiscale(
-        ids,
-        allCoords,
-        offsets,
-        activitySportTypes,
-        groups,
-        config
-      );
-
-      // Convert native PotentialSection to app type (GpsPoint -> RoutePoint)
-      // FfiPotentialSection doesn't have visitCount, derive from activityIds length
-      const potentials: PotentialSection[] = result.potentials.map((p) => ({
-        ...p,
+      // Convert to app format (snake_case to camelCase, GpsPoint to RoutePoint)
+      const potentials: PotentialSection[] = rawPotentials.map((p) => ({
+        id: p.id,
+        sportType: p.sport_type,
         polyline: gpsPointsToRoutePoints(p.polyline),
-        visitCount: p.activityIds.length,
+        activityIds: p.activity_ids,
+        visitCount: p.activity_ids.length,
+        distanceMeters: p.distance_meters,
+        confidence: p.confidence,
+        scale: p.scale,
       }));
 
-      // Store potentials
       if (isMountedRef.current) {
         await setPotentials(potentials);
         if (__DEV__) {
@@ -218,7 +144,7 @@ export function usePotentialSections(
         setIsDetecting(false);
       }
     }
-  }, [minActivities, setPotentials]);
+  }, [minActivities, sportType, setPotentials]);
 
   // Auto-detect is now DISABLED on page load.
   // Potential section detection runs during GPS sync in useGpsDataFetcher.ts

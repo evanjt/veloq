@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { memo, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -18,7 +18,12 @@ interface SectionPopupProps {
   onViewDetails?: () => void;
 }
 
-export function SectionPopup({ section, bottom, onClose, onViewDetails }: SectionPopupProps) {
+export const SectionPopup = memo(function SectionPopup({
+  section,
+  bottom,
+  onClose,
+  onViewDetails,
+}: SectionPopupProps) {
   const { t } = useTranslation();
   const config = getActivityTypeConfig(section.sportType);
 
@@ -86,7 +91,7 @@ export function SectionPopup({ section, bottom, onClose, onViewDetails }: Sectio
       )}
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   popup: {

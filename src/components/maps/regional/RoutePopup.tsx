@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { memo, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
@@ -28,7 +28,12 @@ interface RoutePopupProps {
   onViewDetails?: () => void;
 }
 
-export function RoutePopup({ route, bottom, onClose, onViewDetails }: RoutePopupProps) {
+export const RoutePopup = memo(function RoutePopup({
+  route,
+  bottom,
+  onClose,
+  onViewDetails,
+}: RoutePopupProps) {
   const { t } = useTranslation();
   const config = getActivityTypeConfig(route.type);
 
@@ -91,7 +96,7 @@ export function RoutePopup({ route, bottom, onClose, onViewDetails }: RoutePopup
       )}
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   popup: {

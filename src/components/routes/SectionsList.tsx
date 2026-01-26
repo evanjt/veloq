@@ -7,9 +7,8 @@
  */
 
 import React, { useCallback, useMemo, useState } from 'react';
-import { useSyncDateRange } from '@/providers/SyncDateRangeStore';
 import { View, StyleSheet, FlatList, Platform, TouchableOpacity } from 'react-native';
-import { useTheme } from '@/hooks';
+import { useTheme, useEngineStats } from '@/hooks';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -63,15 +62,16 @@ export function SectionsList({ sportType }: SectionsListProps) {
 
   const { createSection } = useCustomSections();
 
-  // Get cached date range for footer
-  const syncOldest = useSyncDateRange((s) => s.oldest);
-  const syncNewest = useSyncDateRange((s) => s.newest);
+  // Get cached date range from engine stats (actual cached data, not sync request range)
+  const engineStats = useEngineStats();
   const cacheDays = useMemo(() => {
-    if (!syncOldest || !syncNewest) return 90; // default
-    return Math.ceil(
-      (new Date(syncNewest).getTime() - new Date(syncOldest).getTime()) / (1000 * 60 * 60 * 24)
-    );
-  }, [syncOldest, syncNewest]);
+    const { oldestDate, newestDate } = engineStats;
+    if (!oldestDate || !newestDate) return 90; // default when no data
+    // Dates are Unix timestamps in seconds (bigint from Rust i64)
+    const oldest = Number(oldestDate);
+    const newest = Number(newestDate);
+    return Math.ceil((newest - oldest) / (60 * 60 * 24));
+  }, [engineStats]);
 
   // Get route group summaries to compute routeIds for custom sections
   // Uses lightweight query-on-demand pattern (no memory bloat)

@@ -57,7 +57,13 @@ import {
   persistentEngineGetStats,
   persistentEngineGetCustomSectionsJson,
   persistentEngineAddCustomSection,
+  persistentEngineCreateSectionFromIndices,
+  persistentEngineDetectPotentials,
   persistentEngineRemoveCustomSection,
+  encodeCoordinatesToPolyline,
+  decodePolylineToCoordinates,
+  persistentEngineGetGpsTrackEncoded,
+  persistentEngineGetSectionPolylineEncoded,
   persistentEngineMatchCustomSection,
   persistentEngineGetCustomSectionMatches,
   persistentEngineExtractSectionTrace,
@@ -165,6 +171,29 @@ export interface CustomSectionMatch {
    * Optional for backward compatibility - will be populated when available.
    */
   trace?: RoutePoint[];
+}
+
+/**
+ * Raw potential section from Rust (uses GpsPoint polyline, not RoutePoint).
+ * Caller should convert polyline using gpsPointsToRoutePoints().
+ */
+export interface RawPotentialSection {
+  /** Unique section ID */
+  id: string;
+  /** Sport type ("Run", "Ride", etc.) */
+  sport_type: string;
+  /** GPS points defining the section (Rust format: latitude/longitude) */
+  polyline: GpsPoint[];
+  /** Activity IDs that traverse this potential section (1-2) */
+  activity_ids: string[];
+  /** Number of times traversed (1-2) */
+  visit_count: number;
+  /** Section length in meters */
+  distance_meters: number;
+  /** Confidence score (0.0-1.0) */
+  confidence: number;
+  /** Scale at which this was detected: "short", "medium", "long" */
+  scale: string;
 }
 
 /**
@@ -981,6 +1010,45 @@ class RouteEngineClient {
   }
 
   /**
+   * Create a custom section from activity indices.
+   * GPS track is loaded from SQLite internally - no coordinate transfer needed.
+   * This is more efficient than addCustomSection when you have indices.
+   * @returns The created CustomSection, or null on error
+   */
+  createSectionFromIndices(
+    activityId: string,
+    startIndex: number,
+    endIndex: number,
+    sportType: string,
+    name?: string
+  ): CustomSection | null {
+    validateId(activityId, 'activity ID');
+    const json = persistentEngineCreateSectionFromIndices(
+      activityId,
+      startIndex,
+      endIndex,
+      sportType,
+      name ?? null
+    );
+    if (!json) return null;
+    const section = safeJsonParse<CustomSection>(json, null as unknown as CustomSection);
+    if (section) {
+      this.notify('sections');
+    }
+    return section;
+  }
+
+  /**
+   * Detect potential sections using GPS tracks from SQLite.
+   * Single FFI call - all loading happens in Rust (no N+1 pattern).
+   * Returns raw potentials with GpsPoint polylines.
+   */
+  detectPotentials(sportFilter?: string): RawPotentialSection[] {
+    const json = persistentEngineDetectPotentials(sportFilter ?? null);
+    return safeJsonParse<RawPotentialSection[]>(json, []);
+  }
+
+  /**
    * Remove a custom section.
    */
   removeCustomSection(sectionId: string): boolean {
@@ -1017,6 +1085,29 @@ class RouteEngineClient {
     return flatCoordsToPoints(flatCoords);
   }
 
+  // ==========================================================================
+  // Encoded Polyline Methods (~60% smaller than raw coordinates)
+  // ==========================================================================
+
+  /**
+   * Get GPS track as Google-encoded polyline string.
+   * ~60% smaller than flat coordinate arrays.
+   * Decode with @mapbox/polyline or similar library.
+   */
+  getGpsTrackEncoded(activityId: string): string {
+    validateId(activityId, 'activity ID');
+    return persistentEngineGetGpsTrackEncoded(activityId);
+  }
+
+  /**
+   * Get section polyline as Google-encoded string.
+   * Works for both auto-detected and custom sections.
+   */
+  getSectionPolylineEncoded(sectionId: string): string {
+    validateId(sectionId, 'section ID');
+    return persistentEngineGetSectionPolylineEncoded(sectionId);
+  }
+
   /**
    * Subscribe to engine events.
    */
@@ -1049,3 +1140,23 @@ class RouteEngineClient {
 
 // Export the singleton instance for backward compatibility
 export const routeEngine = RouteEngineClient.getInstance();
+
+// =============================================================================
+// Standalone Polyline Encoding Functions
+// Use these for encoding/decoding outside the RouteEngineClient
+// =============================================================================
+
+/**
+ * Encode flat coordinates [lat, lng, lat, lng, ...] to Google polyline string.
+ * ~60% smaller than raw coordinate arrays.
+ */
+export function encodeToPolyline(coords: number[]): string {
+  return encodeCoordinatesToPolyline(coords);
+}
+
+/**
+ * Decode Google polyline string to flat coordinates [lat, lng, lat, lng, ...].
+ */
+export function decodeFromPolyline(encoded: string): number[] {
+  return decodePolylineToCoordinates(encoded);
+}

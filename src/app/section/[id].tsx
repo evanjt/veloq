@@ -4,7 +4,6 @@
  */
 
 import React, { useMemo, useCallback, useState, useEffect, useRef, memo } from 'react';
-import { useSyncDateRange } from '@/providers/SyncDateRangeStore';
 import {
   View,
   ScrollView,
@@ -31,6 +30,7 @@ import {
   useCustomSections,
   useTheme,
   useMetricSystem,
+  useEngineStats,
   type ActivitySectionRecord,
 } from '@/hooks';
 import { useSectionDetail, useGroupSummaries } from '@/hooks/routes/useRouteEngine';
@@ -292,15 +292,16 @@ export default function SectionDetailScreen() {
   const shared = createSharedStyles(isDark);
   const insets = useSafeAreaInsets();
 
-  // Get cached date range for footer
-  const syncOldest = useSyncDateRange((s) => s.oldest);
-  const syncNewest = useSyncDateRange((s) => s.newest);
+  // Get cached date range from engine stats (actual cached data, not sync request range)
+  const engineStats = useEngineStats();
   const cacheDays = useMemo(() => {
-    if (!syncOldest || !syncNewest) return 90; // default
-    return Math.ceil(
-      (new Date(syncNewest).getTime() - new Date(syncOldest).getTime()) / (1000 * 60 * 60 * 24)
-    );
-  }, [syncOldest, syncNewest]);
+    const { oldestDate, newestDate } = engineStats;
+    if (!oldestDate || !newestDate) return 90; // default when no data
+    // Dates are Unix timestamps in seconds (bigint from Rust i64)
+    const oldest = Number(oldestDate);
+    const newest = Number(newestDate);
+    return Math.ceil((newest - oldest) / (60 * 60 * 24));
+  }, [engineStats]);
 
   const [highlightedActivityId, setHighlightedActivityId] = useState<string | null>(null);
   const [highlightedActivityPoints, setHighlightedActivityPoints] = useState<

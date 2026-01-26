@@ -968,7 +968,8 @@ export function RegionalMapView({
   // Show 3D view when enabled
   const show3D = is3DMode && can3D;
 
-  // iOS tap handler - uses screen coordinates directly since MapView.onPress doesn't work with Fabric
+  // iOS tap handler - uses queryRenderedFeaturesAtPoint for O(1) hit detection
+  // instead of iterating all activities with getPointInView (which was O(n) FFI calls)
   const handleiOSTap = useCallback(
     async (screenX: number, screenY: number) => {
       if (!showActivities || isHeatmapMode) {
@@ -976,56 +977,63 @@ export function RegionalMapView({
         return;
       }
 
-      // Find nearest marker by screen distance
-      let nearestActivity: (typeof activities)[0] | null = null;
-      let nearestDistance = Infinity;
+      // Query the marker hit area layer directly - single FFI call instead of O(n)
+      // MapLibre handles spatial indexing internally (R-tree), returns features at tap point
+      const zoom = currentZoomLevel.current;
+      // Expand query rect based on zoom (matches CircleLayer radius interpolation)
+      const hitRadius = zoom < 4 ? 18 : zoom < 6 ? 16 : zoom < 10 ? 14 : 12;
+      const bbox: [number, number, number, number] = [
+        screenX - hitRadius,
+        screenY - hitRadius,
+        screenX + hitRadius,
+        screenY + hitRadius,
+      ];
 
-      for (const activity of activities) {
-        const center = activityCenters[activity.id];
-        if (!center) continue;
+      const features = await mapRef.current?.queryRenderedFeaturesInRect(
+        bbox,
+        undefined,
+        ['marker-hitarea']
+      );
 
-        const markerScreenPos = await mapRef.current?.getPointInView(center);
-        if (!markerScreenPos) continue;
+      if (features && features.features.length > 0) {
+        // Find the feature closest to tap point (in case multiple overlap)
+        let nearestFeature = features.features[0];
+        if (features.features.length > 1) {
+          let nearestDist = Infinity;
+          for (const f of features.features) {
+            if (f.geometry.type !== 'Point') continue;
+            const coords = f.geometry.coordinates as [number, number];
+            const screenPos = await mapRef.current?.getPointInView(coords);
+            if (!screenPos) continue;
+            const dx = screenX - screenPos[0];
+            const dy = screenY - screenPos[1];
+            const dist = dx * dx + dy * dy;
+            if (dist < nearestDist) {
+              nearestDist = dist;
+              nearestFeature = f;
+            }
+          }
+        }
 
-        const dx = screenX - markerScreenPos[0];
-        const dy = screenY - markerScreenPos[1];
-        const distance = Math.sqrt(dx * dx + dy * dy);
-
-        if (distance < nearestDistance) {
-          nearestDistance = distance;
-          nearestActivity = activity;
+        const activityId = nearestFeature.properties?.id;
+        if (activityId) {
+          const activity = activities.find((a) => a.id === activityId);
+          if (activity) {
+            console.log('[iOS tap] HIT via queryRenderedFeatures:', activityId);
+            handleMarkerTap(activity);
+            return;
+          }
         }
       }
 
-      // Zoom-dependent threshold: larger at world zoom (markers clustered), smaller at city zoom
-      // currentZoomLevel is tracked via handleRegionDidChange
-      const zoom = currentZoomLevel.current;
-      const PIXEL_THRESHOLD = zoom < 4 ? 80 : zoom < 8 ? 60 : zoom < 12 ? 44 : 30;
-
-      console.log(
-        '[iOS tap] nearest:',
-        nearestActivity?.id,
-        'dist:',
-        nearestDistance.toFixed(0),
-        'threshold:',
-        PIXEL_THRESHOLD,
-        'selected:',
-        selected?.activity?.id
-      );
-
-      if (nearestActivity && nearestDistance < PIXEL_THRESHOLD) {
-        console.log('[iOS tap] HIT - selecting:', nearestActivity.id);
-        handleMarkerTap(nearestActivity);
-      } else if (selected) {
+      // No marker hit - clear selection if any
+      if (selected) {
         console.log('[iOS tap] MISS - clearing selection');
         setSelected(null);
-      } else {
-        console.log('[iOS tap] MISS - nothing selected');
       }
     },
     [
       activities,
-      activityCenters,
       handleMarkerTap,
       selected,
       setSelected,

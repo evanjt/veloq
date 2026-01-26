@@ -1,5 +1,5 @@
-import React, { useMemo, useState, useCallback, useEffect } from 'react';
-import { View, StyleSheet, ActivityIndicator } from 'react-native';
+import React, { useMemo, useState, useCallback, useEffect, useRef } from 'react';
+import { View, StyleSheet, ActivityIndicator, Platform } from 'react-native';
 
 // Exported for compatibility but no longer used for scroll tracking
 export function notifyMapScroll(_visibleIndex: number) {
@@ -31,6 +31,13 @@ export function ActivityMapPreview({ activity, height = 160, index = 0 }: Activi
   const mapStyle = getStyleForActivity(activity.type);
   const activityColor = getActivityColor(activity.type);
   const [mapReady, setMapReady] = useState(false);
+  const [mapError, setMapError] = useState(false);
+
+  // Map retry mechanism for transient failures
+  const [mapKey, setMapKey] = useState(0);
+  const retryCountRef = useRef(0);
+  const MAX_RETRIES = 2;
+  const RETRY_DELAY_MS = 500;
 
   // Stagger showing maps - always render MapView but delay removing loading overlay
   // This prevents overwhelming tile requests while allowing proper MapView initialization
@@ -45,7 +52,26 @@ export function ActivityMapPreview({ activity, height = 160, index = 0 }: Activi
 
   const handleMapFullyRendered = useCallback(() => {
     setMapReady(true);
+    setMapError(false);
   }, []);
+
+  // Handle map load failure - retry on both platforms, then show error state
+  const handleMapLoadError = useCallback(() => {
+    if (retryCountRef.current < MAX_RETRIES) {
+      retryCountRef.current += 1;
+      console.log(
+        `[ActivityMapPreview] Load failed for ${activity.id}, retrying (${retryCountRef.current}/${MAX_RETRIES})...`
+      );
+      setTimeout(() => {
+        setMapKey((k) => k + 1);
+      }, RETRY_DELAY_MS * retryCountRef.current);
+    } else {
+      // Retries exhausted - show error state instead of infinite spinner
+      console.warn(`[ActivityMapPreview] Map load failed for ${activity.id} after ${MAX_RETRIES} retries`);
+      setMapError(true);
+      setMapReady(true); // Remove loading overlay
+    }
+  }, [activity.id]);
 
   // Check if activity has GPS data available
   const hasGpsData = activity.stream_types?.includes('latlng');
@@ -180,6 +206,7 @@ export function ActivityMapPreview({ activity, height = 160, index = 0 }: Activi
       testID={mapReady ? `activity-map-preview-ready-${activity.id}` : undefined}
     >
       <MapView
+        key={`map-preview-${activity.id}-${mapKey}`}
         style={styles.map}
         mapStyle={styleUrl}
         logoEnabled={false}
@@ -190,6 +217,7 @@ export function ActivityMapPreview({ activity, height = 160, index = 0 }: Activi
         rotateEnabled={false}
         pitchEnabled={false}
         onDidFinishLoadingMap={handleMapFullyRendered}
+        onDidFailLoadingMap={handleMapLoadError}
       >
         <Camera
           defaultSettings={{
@@ -243,6 +271,12 @@ export function ActivityMapPreview({ activity, height = 160, index = 0 }: Activi
       {(!mapReady || !showMapContent) && (
         <View style={[styles.loadingOverlay, { backgroundColor: activityColor + '10' }]}>
           <ActivityIndicator size="small" color={activityColor} />
+        </View>
+      )}
+      {/* Error overlay - shows when map fails to load */}
+      {mapError && (
+        <View style={[styles.loadingOverlay, { backgroundColor: activityColor + '20' }]}>
+          <MaterialCommunityIcons name="map-marker-alert" size={24} color={activityColor} />
         </View>
       )}
     </View>

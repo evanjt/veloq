@@ -6,9 +6,8 @@
 import { useCallback, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getRouteEngine } from '@/lib/native/routeEngine';
-import { gpsPointsToRoutePoints, routePointsToGpsPoints, type GpsPoint } from 'veloqrs';
+import { gpsPointsToRoutePoints, type GpsPoint } from 'veloqrs';
 import { useSupersededSections } from '@/providers';
-import { simplifyPolyline } from '@/lib/utils/geometry';
 import type {
   CustomSection,
   CustomSectionMatch,
@@ -47,8 +46,8 @@ export interface UseCustomSectionsResult {
 }
 
 export interface CreateSectionParams {
-  /** GPS points for the section */
-  polyline: RoutePoint[];
+  /** GPS points for the section (DEPRECATED - Rust loads from SQLite via indices) */
+  polyline?: RoutePoint[];
   /** Start index in source activity */
   startIndex: number;
   /** End index in source activity */
@@ -57,28 +56,10 @@ export interface CreateSectionParams {
   sourceActivityId: string;
   /** Sport type */
   sportType: string;
-  /** Distance in meters */
-  distanceMeters: number;
+  /** Distance in meters (optional - calculated by Rust if not provided) */
+  distanceMeters?: number;
   /** Optional custom name (auto-generated if not provided) */
   name?: string;
-}
-
-/**
- * Generate a unique ID for a custom section
- */
-function generateId(): string {
-  return `custom_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-}
-
-/**
- * Generate a unique section name
- */
-function generateSectionName(existingNames: Set<string>): string {
-  let index = 1;
-  while (existingNames.has(`Custom Section ${index}`)) {
-    index++;
-  }
-  return `Custom Section ${index}`;
 }
 
 /**
@@ -221,7 +202,7 @@ export function useCustomSections(options: UseCustomSectionsOptions = {}): UseCu
     await queryClient.invalidateQueries({ queryKey: QUERY_KEY });
   }, [queryClient]);
 
-  // Create a new section using Rust engine
+  // Create a new section using Rust engine (index-based - no coordinate transfer)
   const createSection = useCallback(
     async (params: CreateSectionParams): Promise<CustomSection> => {
       const engine = getRouteEngine();
@@ -229,58 +210,42 @@ export function useCustomSections(options: UseCustomSectionsOptions = {}): UseCu
         throw new Error('Route engine not initialized');
       }
 
-      // Simplify polyline to reduce storage size while preserving shape
-      // Use 5m tolerance - captures road curves without excess points
-      const simplifiedPolyline = simplifyPolyline(params.polyline, 5);
+      // Use index-based creation - Rust loads GPS track from SQLite internally
+      // This eliminates ~100KB polyline transfer across FFI boundary
+      const rustSection = engine.createSectionFromIndices(
+        params.sourceActivityId,
+        params.startIndex,
+        params.endIndex,
+        params.sportType,
+        params.name
+      );
+
+      if (!rustSection) {
+        throw new Error('Failed to create section');
+      }
 
       if (__DEV__) {
         console.log(
-          `[useCustomSections] Simplified ${params.polyline.length} → ${simplifiedPolyline.length} points`
+          `[useCustomSections] Created section ${rustSection.id} (${rustSection.polyline.length} points, ${rustSection.distanceMeters.toFixed(0)}m)`
         );
       }
 
-      // Get existing names for unique name generation
-      const existingSections = engine.getCustomSections();
-      const existingNames = new Set(existingSections.map((s) => s.name));
-      const name = params.name || generateSectionName(existingNames);
-
+      // Convert GpsPoint polyline to RoutePoint format for app use
       const section: CustomSection = {
-        id: generateId(),
-        name,
-        polyline: simplifiedPolyline,
-        startIndex: params.startIndex,
-        endIndex: params.endIndex,
-        sourceActivityId: params.sourceActivityId,
-        sportType: params.sportType,
-        distanceMeters: params.distanceMeters,
-        createdAt: new Date().toISOString(),
+        ...rustSection,
+        polyline: gpsPointsToRoutePoints(rustSection.polyline as unknown as GpsPoint[]),
       };
-
-      // Convert RoutePoints to GpsPoints for Rust engine and pass as JSON string
-      // Rust expects latitude/longitude format, so we convert and stringify
-      const engineSectionJson = JSON.stringify({
-        ...section,
-        polyline: routePointsToGpsPoints(section.polyline),
-      });
-
-      // Add to Rust engine (which handles storage and matching)
-      const success = engine.addCustomSection(engineSectionJson);
-      if (!success) {
-        throw new Error('Failed to add custom section');
-      }
 
       // Compute which auto-detected sections this custom section supersedes
       // This pre-computation avoids expensive overlap calculations during UI navigation
-      // Note: Use original polyline for overlap (not simplified) for accuracy
       try {
         const autoSections = engine.getSections();
         // Convert GpsPoint polylines to RoutePoint for overlap calculation
-        // Only extract the fields needed for overlap calculation
         const autoSectionsForOverlap = autoSections.map((s) => ({
           id: s.id,
           polyline: gpsPointsToRoutePoints(s.polyline),
         }));
-        const supersededIds = findSupersededSections(params.polyline, autoSectionsForOverlap);
+        const supersededIds = findSupersededSections(section.polyline, autoSectionsForOverlap);
         if (supersededIds.length > 0) {
           await useSupersededSections.getState().setSuperseded(section.id, supersededIds);
           if (__DEV__) {

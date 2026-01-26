@@ -1,5 +1,4 @@
 import React, { useMemo, useCallback, useState, useEffect, useRef } from 'react';
-import { useSyncDateRange } from '@/providers/SyncDateRangeStore';
 import {
   View,
   ScrollView,
@@ -24,6 +23,7 @@ import {
   useRoutePerformances,
   useTheme,
   useMetricSystem,
+  useEngineStats,
 } from '@/hooks';
 import { useGroupDetail } from '@/hooks/routes/useRouteEngine';
 import { getAllRouteDisplayNames } from '@/hooks/routes/useRouteGroups';
@@ -236,15 +236,16 @@ export default function RouteDetailScreen() {
   const shared = createSharedStyles(isDark);
   const insets = useSafeAreaInsets();
 
-  // Get cached date range for footer
-  const oldest = useSyncDateRange((s) => s.oldest);
-  const newest = useSyncDateRange((s) => s.newest);
+  // Get cached date range from engine stats (actual cached data, not sync request range)
+  const engineStats = useEngineStats();
   const cacheDays = useMemo(() => {
-    if (!oldest || !newest) return 90; // default
-    return Math.ceil(
-      (new Date(newest).getTime() - new Date(oldest).getTime()) / (1000 * 60 * 60 * 24)
-    );
-  }, [oldest, newest]);
+    const { oldestDate, newestDate } = engineStats;
+    if (!oldestDate || !newestDate) return 90; // default when no data
+    // Dates are Unix timestamps in seconds (bigint from Rust i64)
+    const oldest = Number(oldestDate);
+    const newest = Number(newestDate);
+    return Math.ceil((newest - oldest) / (60 * 60 * 24));
+  }, [engineStats]);
 
   // State for highlighted activity
   const [highlightedActivityId, setHighlightedActivityId] = useState<string | null>(null);
