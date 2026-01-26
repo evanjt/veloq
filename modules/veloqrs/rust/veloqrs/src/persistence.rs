@@ -42,9 +42,9 @@ use rstar::{AABB, RTree, RTreeObject};
 
 #[cfg(feature = "persistence")]
 use crate::{
-    ActivityMatchInfo, ActivityMetrics, Bounds, FrequentSection, GpsPoint, MatchConfig, RouteGroup,
-    RoutePerformance, RoutePerformanceResult, RouteSignature, SectionConfig, SectionLap,
-    SectionPerformanceRecord, SectionPerformanceResult, geo_utils,
+    ActivityMatchInfo, ActivityMetrics, Bounds, DirectionStats, FrequentSection, GpsPoint,
+    MatchConfig, RouteGroup, RoutePerformance, RoutePerformanceResult, RouteSignature,
+    SectionConfig, SectionLap, SectionPerformanceRecord, SectionPerformanceResult, geo_utils,
 };
 
 #[cfg(feature = "persistence")]
@@ -3306,6 +3306,8 @@ impl PersistentRouteEngine {
                     best_record: None,
                     best_forward_record: None,
                     best_reverse_record: None,
+                    forward_stats: None,
+                    reverse_stats: None,
                 };
             }
         };
@@ -3444,11 +3446,55 @@ impl PersistentRouteEngine {
             })
             .cloned();
 
+        // Compute forward direction stats
+        let forward_records: Vec<_> = records
+            .iter()
+            .filter(|r| r.direction == "same" || r.direction == "forward")
+            .collect();
+        let forward_stats = if forward_records.is_empty() {
+            None
+        } else {
+            let count = forward_records.len() as u32;
+            let avg_time = forward_records.iter().map(|r| r.best_time).sum::<f64>() / count as f64;
+            let last_activity = forward_records
+                .iter()
+                .max_by(|a, b| a.activity_date.cmp(&b.activity_date))
+                .map(|r| r.activity_date);
+            Some(DirectionStats {
+                avg_time: Some(avg_time),
+                last_activity,
+                count,
+            })
+        };
+
+        // Compute reverse direction stats
+        let reverse_records: Vec<_> = records
+            .iter()
+            .filter(|r| r.direction == "reverse" || r.direction == "backward")
+            .collect();
+        let reverse_stats = if reverse_records.is_empty() {
+            None
+        } else {
+            let count = reverse_records.len() as u32;
+            let avg_time = reverse_records.iter().map(|r| r.best_time).sum::<f64>() / count as f64;
+            let last_activity = reverse_records
+                .iter()
+                .max_by(|a, b| a.activity_date.cmp(&b.activity_date))
+                .map(|r| r.activity_date);
+            Some(DirectionStats {
+                avg_time: Some(avg_time),
+                last_activity,
+                count,
+            })
+        };
+
         SectionPerformanceResult {
             records,
             best_record,
             best_forward_record,
             best_reverse_record,
+            forward_stats,
+            reverse_stats,
         }
     }
 
@@ -3464,6 +3510,8 @@ impl PersistentRouteEngine {
                     best_record: None,
                     best_forward_record: None,
                     best_reverse_record: None,
+                    forward_stats: None,
+                    reverse_stats: None,
                 };
             }
         };
@@ -3584,11 +3632,55 @@ impl PersistentRouteEngine {
             })
             .cloned();
 
+        // Compute forward direction stats
+        let forward_records: Vec<_> = records
+            .iter()
+            .filter(|r| r.direction == "same" || r.direction == "forward")
+            .collect();
+        let forward_stats = if forward_records.is_empty() {
+            None
+        } else {
+            let count = forward_records.len() as u32;
+            let avg_time = forward_records.iter().map(|r| r.best_time).sum::<f64>() / count as f64;
+            let last_activity = forward_records
+                .iter()
+                .max_by(|a, b| a.activity_date.cmp(&b.activity_date))
+                .map(|r| r.activity_date);
+            Some(DirectionStats {
+                avg_time: Some(avg_time),
+                last_activity,
+                count,
+            })
+        };
+
+        // Compute reverse direction stats
+        let reverse_records: Vec<_> = records
+            .iter()
+            .filter(|r| r.direction == "reverse" || r.direction == "backward")
+            .collect();
+        let reverse_stats = if reverse_records.is_empty() {
+            None
+        } else {
+            let count = reverse_records.len() as u32;
+            let avg_time = reverse_records.iter().map(|r| r.best_time).sum::<f64>() / count as f64;
+            let last_activity = reverse_records
+                .iter()
+                .max_by(|a, b| a.activity_date.cmp(&b.activity_date))
+                .map(|r| r.activity_date);
+            Some(DirectionStats {
+                avg_time: Some(avg_time),
+                last_activity,
+                count,
+            })
+        };
+
         SectionPerformanceResult {
             records,
             best_record,
             best_forward_record,
             best_reverse_record,
+            forward_stats,
+            reverse_stats,
         }
     }
 
@@ -3612,6 +3704,8 @@ impl PersistentRouteEngine {
                     best: None,
                     best_forward: None,
                     best_reverse: None,
+                    forward_stats: None,
+                    reverse_stats: None,
                     current_rank: None,
                 };
             }
@@ -3713,11 +3807,51 @@ impl PersistentRouteEngine {
                 .map(|idx| (idx + 1) as u32)
         });
 
+        // Compute forward direction stats
+        let forward_perfs: Vec<_> = performances
+            .iter()
+            .filter(|p| p.direction == "same" || p.direction == "forward")
+            .collect();
+        let forward_stats = if forward_perfs.is_empty() {
+            None
+        } else {
+            let count = forward_perfs.len() as u32;
+            let avg_time =
+                forward_perfs.iter().map(|p| p.duration as f64).sum::<f64>() / count as f64;
+            let last_activity = forward_perfs.iter().max_by_key(|p| p.date).map(|p| p.date);
+            Some(DirectionStats {
+                avg_time: Some(avg_time),
+                last_activity,
+                count,
+            })
+        };
+
+        // Compute reverse direction stats
+        let reverse_perfs: Vec<_> = performances
+            .iter()
+            .filter(|p| p.direction == "reverse" || p.direction == "backward")
+            .collect();
+        let reverse_stats = if reverse_perfs.is_empty() {
+            None
+        } else {
+            let count = reverse_perfs.len() as u32;
+            let avg_time =
+                reverse_perfs.iter().map(|p| p.duration as f64).sum::<f64>() / count as f64;
+            let last_activity = reverse_perfs.iter().max_by_key(|p| p.date).map(|p| p.date);
+            Some(DirectionStats {
+                avg_time: Some(avg_time),
+                last_activity,
+                count,
+            })
+        };
+
         RoutePerformanceResult {
             performances,
             best,
             best_forward,
             best_reverse,
+            forward_stats,
+            reverse_stats,
             current_rank,
         }
     }

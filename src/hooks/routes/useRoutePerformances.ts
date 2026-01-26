@@ -49,6 +49,13 @@ export interface DirectionBestRecord {
   activityDate: Date;
 }
 
+/** Per-direction summary statistics */
+export interface DirectionStats {
+  avgTime: number | null;
+  lastActivity: Date | null;
+  count: number;
+}
+
 interface UseRoutePerformancesResult {
   /** Route group info */
   routeGroup: RouteGroup | null;
@@ -62,6 +69,10 @@ interface UseRoutePerformancesResult {
   bestForwardRecord: DirectionBestRecord | null;
   /** Best performance in reverse direction */
   bestReverseRecord: DirectionBestRecord | null;
+  /** Summary stats for forward direction */
+  forwardStats: DirectionStats | null;
+  /** Summary stats for reverse direction */
+  reverseStats: DirectionStats | null;
   /** Current activity's rank (1 = fastest) */
   currentRank: number | null;
 }
@@ -152,13 +163,23 @@ export function useRoutePerformances(
   }, [engineGroup, activityId]);
 
   // Build performances from Activity objects (API data) + match info from Rust
-  const { performances, best, bestForwardRecord, bestReverseRecord, currentRank } = useMemo(() => {
+  const {
+    performances,
+    best,
+    bestForwardRecord,
+    bestReverseRecord,
+    forwardStats,
+    reverseStats,
+    currentRank,
+  } = useMemo(() => {
     if (!engineGroup || !activities || activities.length === 0) {
       return {
         performances: [],
         best: null,
         bestForwardRecord: null,
         bestReverseRecord: null,
+        forwardStats: null,
+        reverseStats: null,
         currentRank: null,
       };
     }
@@ -235,11 +256,33 @@ export function useRoutePerformances(
       }
     }
 
+    // Compute forward direction stats
+    const fwdStats: DirectionStats | null =
+      forwardPoints.length > 0
+        ? {
+            avgTime: forwardPoints.reduce((sum, p) => sum + p.duration, 0) / forwardPoints.length,
+            lastActivity: new Date(Math.max(...forwardPoints.map((p) => p.date.getTime()))),
+            count: forwardPoints.length,
+          }
+        : null;
+
+    // Compute reverse direction stats
+    const revStats: DirectionStats | null =
+      reversePoints.length > 0
+        ? {
+            avgTime: reversePoints.reduce((sum, p) => sum + p.duration, 0) / reversePoints.length,
+            lastActivity: new Date(Math.max(...reversePoints.map((p) => p.date.getTime()))),
+            count: reversePoints.length,
+          }
+        : null;
+
     return {
       performances: points,
       best: bestPoint,
       bestForwardRecord: bestForward,
       bestReverseRecord: bestReverse,
+      forwardStats: fwdStats,
+      reverseStats: revStats,
       currentRank: rank,
     };
   }, [engineGroup, activities, activityId, matchInfoMap]);
@@ -251,6 +294,8 @@ export function useRoutePerformances(
     best,
     bestForwardRecord,
     bestReverseRecord,
+    forwardStats,
+    reverseStats,
     currentRank,
   };
 }

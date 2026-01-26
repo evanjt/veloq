@@ -64,8 +64,19 @@ interface UseSectionPerformancesResult {
   bestForwardRecord: ActivitySectionRecord | null;
   /** Best record in reverse direction */
   bestReverseRecord: ActivitySectionRecord | null;
+  /** Summary stats for forward direction */
+  forwardStats: DirectionStats | null;
+  /** Summary stats for reverse direction */
+  reverseStats: DirectionStats | null;
   /** Refetch all streams */
   refetch: () => void;
+}
+
+/** Per-direction summary statistics from Rust */
+export interface DirectionStats {
+  avgTime: number | null;
+  lastActivity: Date | null;
+  count: number;
 }
 
 interface Activity {
@@ -180,163 +191,192 @@ export function useSectionPerformances(
 
   // Get performance records from Rust engine
   // Rust auto-loads time streams from SQLite if not in memory
-  const { records, bestRecord, bestForwardRecord, bestReverseRecord } = useMemo(() => {
-    if (!section || !activities || !fetchComplete) {
-      return { records: [], bestRecord: null, bestForwardRecord: null, bestReverseRecord: null };
-    }
+  const { records, bestRecord, bestForwardRecord, bestReverseRecord, forwardStats, reverseStats } =
+    useMemo(() => {
+      const emptyResult = {
+        records: [] as ActivitySectionRecord[],
+        bestRecord: null,
+        bestForwardRecord: null,
+        bestReverseRecord: null,
+        forwardStats: null,
+        reverseStats: null,
+      };
 
-    try {
-      // Get calculated performances from Rust engine
-      // Rust auto-loads time streams from SQLite for any missing from memory
-      const resultJson = routeEngine.getSectionPerformances(section.id);
-      if (!resultJson) {
-        return { records: [], bestRecord: null, bestForwardRecord: null, bestReverseRecord: null };
+      if (!section || !activities || !fetchComplete) {
+        return emptyResult;
       }
 
-      // Parse the JSON response
-      const result = JSON.parse(resultJson);
-      if (!result || !result.records) {
-        // Fall back to generating basic records from section data
-        const recordList: ActivitySectionRecord[] = activities.map((a) => {
-          const portion = section.activityPortions?.find((p) => p.activityId === a.id);
-          const direction = (portion?.direction || 'same') as 'same' | 'reverse';
-          const sectionDistance = portion?.distanceMeters || section.distanceMeters;
+      try {
+        // Get calculated performances from Rust engine
+        // Rust auto-loads time streams from SQLite for any missing from memory
+        const resultJson = routeEngine.getSectionPerformances(section.id);
+        if (!resultJson) {
+          return emptyResult;
+        }
+
+        // Parse the JSON response
+        const result = JSON.parse(resultJson);
+        if (!result || !result.records) {
+          // Fall back to generating basic records from section data
+          const recordList: ActivitySectionRecord[] = activities.map((a) => {
+            const portion = section.activityPortions?.find((p) => p.activityId === a.id);
+            const direction = (portion?.direction || 'same') as 'same' | 'reverse';
+            const sectionDistance = portion?.distanceMeters || section.distanceMeters;
+
+            return {
+              activityId: a.id,
+              activityName: a.name,
+              activityDate: new Date(a.start_date_local),
+              laps: [],
+              lapCount: 1,
+              bestTime: 0,
+              bestPace: 0,
+              avgTime: 0,
+              avgPace: 0,
+              direction,
+              sectionDistance,
+            };
+          });
 
           return {
-            activityId: a.id,
-            activityName: a.name,
-            activityDate: new Date(a.start_date_local),
-            laps: [],
-            lapCount: 1,
-            bestTime: 0,
-            bestPace: 0,
-            avgTime: 0,
-            avgPace: 0,
-            direction,
-            sectionDistance,
+            records: recordList,
+            bestRecord: recordList[0] || null,
+            bestForwardRecord: null,
+            bestReverseRecord: null,
+            forwardStats: null,
+            reverseStats: null,
           };
-        });
+        }
+
+        // Convert to ActivitySectionRecord format (add Date objects)
+        const recordList: ActivitySectionRecord[] = (result.records || []).map(
+          (r: {
+            activityId: string;
+            activityName: string;
+            activityDate: number;
+            laps: Array<{
+              id: string;
+              activityId: string;
+              time: number;
+              pace: number;
+              distance: number;
+              direction: string;
+              startIndex: number;
+              endIndex: number;
+            }>;
+            lapCount: number;
+            bestTime: number;
+            bestPace: number;
+            avgTime: number;
+            avgPace: number;
+            direction: string;
+            sectionDistance: number;
+          }) => ({
+            activityId: r.activityId,
+            activityName: r.activityName,
+            activityDate: new Date(r.activityDate * 1000), // Convert Unix timestamp
+            laps: (r.laps || []).map((l) => ({
+              id: l.id,
+              activityId: l.activityId,
+              time: l.time,
+              pace: l.pace,
+              distance: l.distance,
+              direction: l.direction as 'same' | 'reverse',
+              startIndex: l.startIndex,
+              endIndex: l.endIndex,
+            })),
+            lapCount: r.lapCount,
+            bestTime: r.bestTime,
+            bestPace: r.bestPace,
+            avgTime: r.avgTime,
+            avgPace: r.avgPace,
+            direction: r.direction as 'same' | 'reverse',
+            sectionDistance: r.sectionDistance,
+          })
+        );
+
+        // Helper to parse a best record from JSON
+        const parseBestRecord = (
+          record: {
+            activityId: string;
+            activityName: string;
+            activityDate: number;
+            laps: Array<{
+              id: string;
+              activityId: string;
+              time: number;
+              pace: number;
+              distance: number;
+              direction: string;
+              startIndex: number;
+              endIndex: number;
+            }>;
+            lapCount: number;
+            bestTime: number;
+            bestPace: number;
+            avgTime: number;
+            avgPace: number;
+            direction: string;
+            sectionDistance: number;
+          } | null
+        ): ActivitySectionRecord | null => {
+          if (!record) return null;
+          return {
+            activityId: record.activityId,
+            activityName: record.activityName,
+            activityDate: new Date(record.activityDate * 1000),
+            laps: (record.laps || []).map((l) => ({
+              id: l.id,
+              activityId: l.activityId,
+              time: l.time,
+              pace: l.pace,
+              distance: l.distance,
+              direction: l.direction as 'same' | 'reverse',
+              startIndex: l.startIndex,
+              endIndex: l.endIndex,
+            })),
+            lapCount: record.lapCount,
+            bestTime: record.bestTime,
+            bestPace: record.bestPace,
+            avgTime: record.avgTime,
+            avgPace: record.avgPace,
+            direction: record.direction as 'same' | 'reverse',
+            sectionDistance: record.sectionDistance,
+          };
+        };
+
+        const best = parseBestRecord(result.bestRecord);
+        const bestForward = parseBestRecord(result.bestForwardRecord);
+        const bestReverse = parseBestRecord(result.bestReverseRecord);
+
+        // Parse direction stats from Rust
+        const parseDirectionStats = (
+          stats: { avgTime?: number; lastActivity?: number; count?: number } | null | undefined
+        ): DirectionStats | null => {
+          if (!stats) return null;
+          return {
+            avgTime: stats.avgTime ?? null,
+            lastActivity: stats.lastActivity ? new Date(stats.lastActivity) : null,
+            count: stats.count ?? 0,
+          };
+        };
+
+        const fwdStats = parseDirectionStats(result.forwardStats);
+        const revStats = parseDirectionStats(result.reverseStats);
 
         return {
           records: recordList,
-          bestRecord: recordList[0] || null,
-          bestForwardRecord: null,
-          bestReverseRecord: null,
+          bestRecord: best,
+          bestForwardRecord: bestForward,
+          bestReverseRecord: bestReverse,
+          forwardStats: fwdStats,
+          reverseStats: revStats,
         };
+      } catch {
+        // Engine may not have data yet - return empty
+        return emptyResult;
       }
-
-      // Convert to ActivitySectionRecord format (add Date objects)
-      const recordList: ActivitySectionRecord[] = (result.records || []).map(
-        (r: {
-          activityId: string;
-          activityName: string;
-          activityDate: number;
-          laps: Array<{
-            id: string;
-            activityId: string;
-            time: number;
-            pace: number;
-            distance: number;
-            direction: string;
-            startIndex: number;
-            endIndex: number;
-          }>;
-          lapCount: number;
-          bestTime: number;
-          bestPace: number;
-          avgTime: number;
-          avgPace: number;
-          direction: string;
-          sectionDistance: number;
-        }) => ({
-          activityId: r.activityId,
-          activityName: r.activityName,
-          activityDate: new Date(r.activityDate * 1000), // Convert Unix timestamp
-          laps: (r.laps || []).map((l) => ({
-            id: l.id,
-            activityId: l.activityId,
-            time: l.time,
-            pace: l.pace,
-            distance: l.distance,
-            direction: l.direction as 'same' | 'reverse',
-            startIndex: l.startIndex,
-            endIndex: l.endIndex,
-          })),
-          lapCount: r.lapCount,
-          bestTime: r.bestTime,
-          bestPace: r.bestPace,
-          avgTime: r.avgTime,
-          avgPace: r.avgPace,
-          direction: r.direction as 'same' | 'reverse',
-          sectionDistance: r.sectionDistance,
-        })
-      );
-
-      // Helper to parse a best record from JSON
-      const parseBestRecord = (
-        record: {
-          activityId: string;
-          activityName: string;
-          activityDate: number;
-          laps: Array<{
-            id: string;
-            activityId: string;
-            time: number;
-            pace: number;
-            distance: number;
-            direction: string;
-            startIndex: number;
-            endIndex: number;
-          }>;
-          lapCount: number;
-          bestTime: number;
-          bestPace: number;
-          avgTime: number;
-          avgPace: number;
-          direction: string;
-          sectionDistance: number;
-        } | null
-      ): ActivitySectionRecord | null => {
-        if (!record) return null;
-        return {
-          activityId: record.activityId,
-          activityName: record.activityName,
-          activityDate: new Date(record.activityDate * 1000),
-          laps: (record.laps || []).map((l) => ({
-            id: l.id,
-            activityId: l.activityId,
-            time: l.time,
-            pace: l.pace,
-            distance: l.distance,
-            direction: l.direction as 'same' | 'reverse',
-            startIndex: l.startIndex,
-            endIndex: l.endIndex,
-          })),
-          lapCount: record.lapCount,
-          bestTime: record.bestTime,
-          bestPace: record.bestPace,
-          avgTime: record.avgTime,
-          avgPace: record.avgPace,
-          direction: record.direction as 'same' | 'reverse',
-          sectionDistance: record.sectionDistance,
-        };
-      };
-
-      const best = parseBestRecord(result.bestRecord);
-      const bestForward = parseBestRecord(result.bestForwardRecord);
-      const bestReverse = parseBestRecord(result.bestReverseRecord);
-
-      return {
-        records: recordList,
-        bestRecord: best,
-        bestForwardRecord: bestForward,
-        bestReverseRecord: bestReverse,
-      };
-    } catch {
-      // Engine may not have data yet - return empty
-      return { records: [], bestRecord: null, bestForwardRecord: null, bestReverseRecord: null };
-    }
-  }, [section, fetchComplete, activities]);
+    }, [section, fetchComplete, activities]);
 
   const refetch = useCallback(() => {
     setFetchKey((k) => k + 1);
@@ -350,6 +390,8 @@ export function useSectionPerformances(
     bestRecord,
     bestForwardRecord,
     bestReverseRecord,
+    forwardStats,
+    reverseStats,
     refetch,
   };
 }

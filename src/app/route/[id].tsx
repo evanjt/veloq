@@ -301,6 +301,8 @@ export default function RouteDetailScreen() {
     best: bestPerformance,
     bestForwardRecord,
     bestReverseRecord,
+    forwardStats,
+    reverseStats,
     currentRank,
   } = useRoutePerformances(id, engineGroup?.groupId, allActivities);
 
@@ -540,60 +542,6 @@ export default function RouteDetailScreen() {
       lastActivity: lastActivityDate,
     };
   }, [performances, bestPerformance]);
-
-  // Per-direction summary stats for lane headers
-  const { forwardStats, reverseStats } = useMemo((): {
-    forwardStats: DirectionSummaryStats | null;
-    reverseStats: DirectionSummaryStats | null;
-  } => {
-    // Filter by direction - "same" and "partial" are forward
-    const forwardPoints = performances.filter(
-      (p) => p.direction === 'same' || p.direction === 'partial'
-    );
-    const reversePoints = performances.filter((p) => p.direction === 'reverse');
-
-    // Compute forward stats
-    let forwardStats: DirectionSummaryStats | null = null;
-    if (forwardPoints.length > 0) {
-      const forwardDurations = forwardPoints
-        .map((p) => p.duration)
-        .filter((d): d is number => Number.isFinite(d) && d > 0);
-      const forwardAvg =
-        forwardDurations.length > 0
-          ? forwardDurations.reduce((sum, d) => sum + d, 0) / forwardDurations.length
-          : null;
-      const forwardDates = forwardPoints.map((p) => p.date.getTime());
-      const forwardLast = forwardDates.length > 0 ? new Date(Math.max(...forwardDates)) : null;
-
-      forwardStats = {
-        avgTime: forwardAvg,
-        lastActivity: forwardLast,
-        count: forwardPoints.length,
-      };
-    }
-
-    // Compute reverse stats
-    let reverseStats: DirectionSummaryStats | null = null;
-    if (reversePoints.length > 0) {
-      const reverseDurations = reversePoints
-        .map((p) => p.duration)
-        .filter((d): d is number => Number.isFinite(d) && d > 0);
-      const reverseAvg =
-        reverseDurations.length > 0
-          ? reverseDurations.reduce((sum, d) => sum + d, 0) / reverseDurations.length
-          : null;
-      const reverseDates = reversePoints.map((p) => p.date.getTime());
-      const reverseLast = reverseDates.length > 0 ? new Date(Math.max(...reverseDates)) : null;
-
-      reverseStats = {
-        avgTime: reverseAvg,
-        lastActivity: reverseLast,
-        count: reversePoints.length,
-      };
-    }
-
-    return { forwardStats, reverseStats };
-  }, [performances]);
 
   // Final routeGroup with signature populated from consensus points
   const routeGroup = useMemo(() => {
