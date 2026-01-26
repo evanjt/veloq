@@ -587,6 +587,7 @@
   },
   "sections": {
     "activities": "活动",
+    "avg": "平均",
     "averageTime": "平均时间",
     "best": "最佳",
     "bestPace": "最佳配速",
@@ -603,6 +604,7 @@
     "duplicateNameMessage": "请选择一个不同的名称。每个区段必须有唯一的名称。",
     "duplicateNameTitle": "名称已存在",
     "forward": "Forward",
+    "last": "最后",
     "lastActivity": "最后活动",
     "noActivitiesFound": "未找到活动",
     "performanceOverTime": "历史表现",

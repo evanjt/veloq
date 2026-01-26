@@ -587,6 +587,7 @@
   },
   "sections": {
     "activities": "Aktiviteter",
+    "avg": "Gns",
     "averageTime": "Gennemsnitstid",
     "best": "Bedste",
     "bestPace": "Bedste tempo",
@@ -603,6 +604,7 @@
     "duplicateNameMessage": "Vælg venligst et andet navn. Hver sektion skal have et unikt navn.",
     "duplicateNameTitle": "Navn findes allerede",
     "forward": "Forward",
+    "last": "Sidste",
     "lastActivity": "Seneste aktivitet",
     "noActivitiesFound": "Ingen aktiviteter fundet",
     "performanceOverTime": "Præstation over tid",

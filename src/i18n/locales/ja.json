@@ -587,6 +587,7 @@
   },
   "sections": {
     "activities": "アクティビティ",
+    "avg": "平均",
     "averageTime": "平均タイム",
     "best": "ベスト",
     "bestPace": "ベストペース",
@@ -603,6 +604,7 @@
     "duplicateNameMessage": "別の名前を選択してください。各セクションには一意の名前が必要です。",
     "duplicateNameTitle": "名前が既に存在します",
     "forward": "Forward",
+    "last": "最終",
     "lastActivity": "最後のアクティビティ",
     "noActivitiesFound": "アクティビティが見つかりません",
     "performanceOverTime": "時系列パフォーマンス",

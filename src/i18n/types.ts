@@ -727,8 +727,10 @@ export interface TranslationResource {
     noActivitiesFound: string;
     sectionNamePlaceholder: string;
     bestTime: string;
+    avg: string;
     averageTime: string;
     totalTraversals: string;
+    last: string;
     lastActivity: string;
     defaultName: string;
     deleteSection: string;

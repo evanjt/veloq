@@ -587,6 +587,7 @@
   },
   "sections": {
     "activities": "Aktivitäten",
+    "avg": "Ø",
     "averageTime": "Durchschnittszeit",
     "best": "Beste",
     "bestPace": "Bestes Tempo",
@@ -603,6 +604,7 @@
     "duplicateNameMessage": "Bitte wähle einen anderen Namen. Jeder Abschnitt muss einen eindeutigen Namen haben.",
     "duplicateNameTitle": "Name bereits vorhanden",
     "forward": "Forward",
+    "last": "Letzte",
     "lastActivity": "Letzte Aktivität",
     "noActivitiesFound": "Keine Aktivitäten gefunden",
     "performanceOverTime": "Leistung über Zeit",

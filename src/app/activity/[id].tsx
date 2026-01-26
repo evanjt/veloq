@@ -48,7 +48,7 @@ import {
   RoutePerformanceSection,
   MiniTraceView,
 } from '@/components';
-import { DataRangeFooter } from '@/components/routes';
+import { DataRangeFooter, SectionMiniPreview } from '@/components/routes';
 import type { SectionOverlay } from '@/components/maps/ActivityMapView';
 import { SwipeableTabs, type SwipeableTab } from '@/components/ui';
 import type {
@@ -1244,27 +1244,12 @@ export default function ActivityDetailScreen() {
                             <View
                               style={[styles.sectionPreview, isDark && styles.sectionPreviewDark]}
                             >
-                              {(() => {
-                                // Get full section with polyline in RoutePoint format
-                                const fullSection = allFrequentSections.find(
-                                  (s) => s.id === match.section.id
-                                );
-                                const sectionPolyline = fullSection?.polyline;
-                                return sectionPolyline && sectionPolyline.length > 1 ? (
-                                  <MiniTraceView
-                                    primaryPoints={sectionPolyline}
-                                    primaryColor={style.color}
-                                    referenceColor={style.color}
-                                    size={48}
-                                  />
-                                ) : (
-                                  <MaterialCommunityIcons
-                                    name="road-variant"
-                                    size={24}
-                                    color={colors.primary}
-                                  />
-                                );
-                              })()}
+                              <SectionMiniPreview
+                                sectionId={match.section.id}
+                                color={style.color}
+                                size={48}
+                                isDark={isDark}
+                              />
                             </View>
 
                             {/* Section info */}
@@ -1383,24 +1368,13 @@ export default function ActivityDetailScreen() {
                             <View
                               style={[styles.sectionPreview, isDark && styles.sectionPreviewDark]}
                             >
-                              {(() => {
-                                // Custom sections have polyline directly
-                                const sectionPolyline = section.polyline;
-                                return sectionPolyline && sectionPolyline.length > 1 ? (
-                                  <MiniTraceView
-                                    primaryPoints={sectionPolyline}
-                                    primaryColor={style.color}
-                                    referenceColor={style.color}
-                                    size={48}
-                                  />
-                                ) : (
-                                  <MaterialCommunityIcons
-                                    name="road-variant"
-                                    size={24}
-                                    color={colors.primary}
-                                  />
-                                );
-                              })()}
+                              <SectionMiniPreview
+                                sectionId={section.id}
+                                polyline={section.polyline}
+                                color={style.color}
+                                size={48}
+                                isDark={isDark}
+                              />
                             </View>
 
                             {/* Section info */}

@@ -587,6 +587,7 @@
   },
   "sections": {
     "activities": "Activiteiten",
+    "avg": "Gem",
     "averageTime": "Gemiddelde tijd",
     "best": "Beste",
     "bestPace": "Beste tempo",
@@ -603,6 +604,7 @@
     "duplicateNameMessage": "Kies een andere naam. Elke sectie moet een unieke naam hebben.",
     "duplicateNameTitle": "Naam bestaat al",
     "forward": "Forward",
+    "last": "Laatste",
     "lastActivity": "Laatste activiteit",
     "noActivitiesFound": "Geen activiteiten gevonden",
     "performanceOverTime": "Prestaties door de tijd",

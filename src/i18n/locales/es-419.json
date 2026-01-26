@@ -587,6 +587,7 @@
   },
   "sections": {
     "activities": "Actividades",
+    "avg": "Prom",
     "averageTime": "Tiempo Promedio",
     "best": "Mejor",
     "bestPace": "Mejor ritmo",
@@ -603,6 +604,7 @@
     "duplicateNameMessage": "Por favor, elige un nombre diferente. Cada sección debe tener un nombre único.",
     "duplicateNameTitle": "Nombre ya existe",
     "forward": "Forward",
+    "last": "Últ",
     "lastActivity": "Última Actividad",
     "noActivitiesFound": "No se encontraron actividades",
     "performanceOverTime": "Rendimiento a lo Largo del Tiempo",

@@ -221,6 +221,10 @@ export function useCustomSections(options: UseCustomSectionsOptions = {}): UseCu
         params.name
       );
 
+      if (!rustSection) {
+        throw new Error('Failed to create section: no result from engine');
+      }
+
       if (__DEV__) {
         console.log(
           `[useCustomSections] Created section ${rustSection.id} (${rustSection.polyline.length} points, ${rustSection.distanceMeters.toFixed(0)}m)`

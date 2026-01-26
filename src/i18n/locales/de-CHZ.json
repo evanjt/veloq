@@ -587,6 +587,7 @@
   },
   "sections": {
     "activities": "Aktivitäte",
+    "avg": "Ø",
     "averageTime": "Schnitt-Ziit",
     "best": "Bescht",
     "bestPace": "Beschts Tempo",
@@ -603,6 +604,7 @@
     "duplicateNameMessage": "Bitte wähl en andere Name. Jede Abschnitt muess en eigene Name ha.",
     "duplicateNameTitle": "Name gits scho",
     "forward": "Forward",
+    "last": "Letscht",
     "lastActivity": "Letschti Aktivität",
     "noActivitiesFound": "Kei Aktivitäte gfunde",
     "performanceOverTime": "Leistig über Ziit",

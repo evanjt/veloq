@@ -573,6 +573,7 @@
   },
   "sections": {
     "activities": "Activities",
+    "avg": "Avg",
     "averageTime": "Average Time",
     "best": "PB",
     "bestPace": "Best pace",
@@ -589,6 +590,7 @@
     "duplicateNameMessage": "Give it another name, mate. Each section needs a unique one.",
     "duplicateNameTitle": "Name's Already Taken",
     "forward": "Forward",
+    "last": "Last",
     "lastActivity": "Last Activity",
     "noActivitiesFound": "No activities found, mate",
     "performanceOverTime": "How you're tracking",

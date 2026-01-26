@@ -135,9 +135,8 @@ export const SectionRow = memo(function SectionRow({
   // Lazy-load polyline if not provided (e.g., when using SectionSummary)
   // This is fast - Rust query with LRU caching
   // Note: Check length, not truthiness - empty array [] is truthy but means "not loaded"
-  const { polyline: lazyPolyline } = useSectionPolyline(
-    section.polyline?.length ? null : section.id
-  );
+  const shouldLazyLoad = !section.polyline?.length;
+  const { polyline: lazyPolyline } = useSectionPolyline(shouldLazyLoad ? section.id : null);
 
   // Use provided polyline or lazy-loaded one
   // Note: Check length, not truthiness - empty array [] is truthy

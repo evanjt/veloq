@@ -38,7 +38,11 @@ import { getAllSectionDisplayNames } from '@/hooks/routes/useUnifiedSections';
 import { createSharedStyles } from '@/styles';
 import { useDisabledSections } from '@/providers';
 import { SectionMapView, MiniTraceView, DataRangeFooter } from '@/components/routes';
-import { UnifiedPerformanceChart, type ChartSummaryStats } from '@/components/routes/performance';
+import {
+  UnifiedPerformanceChart,
+  type ChartSummaryStats,
+  type DirectionSummaryStats,
+} from '@/components/routes/performance';
 import { getRouteEngine } from '@/lib/native/routeEngine';
 import {
   formatDistance,
@@ -986,6 +990,58 @@ export default function SectionDetailScreen() {
     };
   }, [bestTimeValue, averageTime, chartData.length, lastActivityDate]);
 
+  // Per-direction summary stats for lane headers
+  const { forwardStats, reverseStats } = useMemo((): {
+    forwardStats: DirectionSummaryStats | null;
+    reverseStats: DirectionSummaryStats | null;
+  } => {
+    // Filter by direction
+    const forwardPoints = chartData.filter((d) => d.direction === 'same');
+    const reversePoints = chartData.filter((d) => d.direction === 'reverse');
+
+    // Compute forward stats
+    let forwardStats: DirectionSummaryStats | null = null;
+    if (forwardPoints.length > 0) {
+      const forwardTimes = forwardPoints
+        .map((d) => d.sectionTime)
+        .filter((t): t is number => t !== undefined && t > 0);
+      const forwardAvg =
+        forwardTimes.length > 0
+          ? forwardTimes.reduce((sum, t) => sum + t, 0) / forwardTimes.length
+          : null;
+      const forwardDates = forwardPoints.map((d) => d.date.getTime());
+      const forwardLast = forwardDates.length > 0 ? new Date(Math.max(...forwardDates)) : null;
+
+      forwardStats = {
+        avgTime: forwardAvg,
+        lastActivity: forwardLast,
+        count: forwardPoints.length,
+      };
+    }
+
+    // Compute reverse stats
+    let reverseStats: DirectionSummaryStats | null = null;
+    if (reversePoints.length > 0) {
+      const reverseTimes = reversePoints
+        .map((d) => d.sectionTime)
+        .filter((t): t is number => t !== undefined && t > 0);
+      const reverseAvg =
+        reverseTimes.length > 0
+          ? reverseTimes.reduce((sum, t) => sum + t, 0) / reverseTimes.length
+          : null;
+      const reverseDates = reversePoints.map((d) => d.date.getTime());
+      const reverseLast = reverseDates.length > 0 ? new Date(Math.max(...reverseDates)) : null;
+
+      reverseStats = {
+        avgTime: reverseAvg,
+        lastActivity: reverseLast,
+        count: reversePoints.length,
+      };
+    }
+
+    return { forwardStats, reverseStats };
+  }, [chartData]);
+
   if (!section) {
     return (
       <View style={[styles.container, isDark && styles.containerDark]}>
@@ -1185,6 +1241,8 @@ export default function SectionDetailScreen() {
                 summaryStats={summaryStats}
                 bestForwardRecord={bestForwardRecord}
                 bestReverseRecord={bestReverseRecord}
+                forwardStats={forwardStats}
+                reverseStats={reverseStats}
               />
             </View>
           )}

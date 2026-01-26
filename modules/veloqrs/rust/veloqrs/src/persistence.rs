@@ -2218,7 +2218,14 @@ impl PersistentRouteEngine {
                     let data_blob: Vec<u8> = row.get(0)?;
                     let full: serde_json::Value = match serde_json::from_slice(&data_blob) {
                         Ok(v) => v,
-                        Err(_) => return Ok(None),
+                        Err(e) => {
+                            log::error!(
+                                "tracematch: get_section_polyline JSON parse error for {}: {}",
+                                section_id,
+                                e
+                            );
+                            return Ok(None);
+                        }
                     };
 
                     let coords: Vec<f64> = full["polyline"]

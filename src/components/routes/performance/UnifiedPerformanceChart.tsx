@@ -54,8 +54,11 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 
 const LANE_HEIGHT = 80;
 
+/** Format date with 2-digit year (e.g., "Jan 15 '24") */
 function formatShortDate(date: Date): string {
-  return formatShortDateLib(date);
+  const base = formatShortDateLib(date);
+  const year = date.getFullYear().toString().slice(-2);
+  return `${base} '${year}`;
 }
 
 /** Format date for axis labels - includes year as 2-digit suffix */
@@ -81,6 +84,16 @@ export interface DirectionBestRecord {
   activityDate: Date;
 }
 
+/** Per-direction summary stats for lane header display */
+export interface DirectionSummaryStats {
+  /** Average time across all traversals in this direction */
+  avgTime: number | null;
+  /** Date of most recent traversal in this direction */
+  lastActivity: Date | null;
+  /** Number of traversals in this direction */
+  count: number;
+}
+
 export interface UnifiedPerformanceChartProps {
   chartData: (PerformanceDataPoint & { x: number })[];
   activityType: ActivityType;
@@ -102,6 +115,10 @@ export interface UnifiedPerformanceChartProps {
   bestForwardRecord?: DirectionBestRecord | null;
   /** Best record in reverse direction (for lane header PR display) */
   bestReverseRecord?: DirectionBestRecord | null;
+  /** Summary stats for forward direction (avgTime, lastActivity, count) */
+  forwardStats?: DirectionSummaryStats | null;
+  /** Summary stats for reverse direction (avgTime, lastActivity, count) */
+  reverseStats?: DirectionSummaryStats | null;
 }
 
 interface LaneData {
@@ -128,6 +145,8 @@ export function UnifiedPerformanceChart({
   embedded = false,
   bestForwardRecord,
   bestReverseRecord,
+  forwardStats,
+  reverseStats,
 }: UnifiedPerformanceChartProps) {
   const { t } = useTranslation();
   const showPace = isRunningActivity(activityType);
@@ -1001,111 +1020,9 @@ export function UnifiedPerformanceChart({
     );
   }
 
-  // Swim lanes mode (both directions)
+  // Swim lanes mode (both directions) - stats are now shown per-lane
   return (
     <View style={[!embedded && styles.container, !embedded && isDark && styles.containerDark]}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={[styles.title, isDark && styles.textLight]}>
-          {t('sections.performanceOverTime')}
-        </Text>
-        <View style={styles.legend}>
-          {variant === 'activity' && currentIndex !== undefined && currentIndex >= 0 && (
-            <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: colors.chartCyan }]} />
-              <Text style={[styles.legendText, isDark && styles.textMuted]}>
-                {t('sections.current')}
-              </Text>
-            </View>
-          )}
-          <View style={styles.legendItem}>
-            <View style={[styles.legendDot, { backgroundColor: colors.chartGold }]} />
-            <Text style={[styles.legendText, isDark && styles.textMuted]}>
-              {t('sections.best')}
-            </Text>
-          </View>
-        </View>
-      </View>
-
-      {/* Summary stats */}
-      {summaryStats && summaryStats.totalActivities > 0 && (
-        <View style={styles.summaryRow}>
-          {variant === 'activity' ? (
-            <>
-              <View style={styles.summaryItem}>
-                <Text style={[styles.summaryValue, { color: colors.chartCyan }]}>
-                  {summaryStats.currentTime ? formatDuration(summaryStats.currentTime) : '-'}
-                </Text>
-                <Text style={[styles.summaryLabel, isDark && styles.textMuted]}>
-                  {t('sections.current')}
-                </Text>
-              </View>
-              <View style={styles.summaryItem}>
-                <Text style={[styles.summaryValue, { color: colors.chartGold }]}>
-                  {summaryStats.bestTime ? formatDuration(summaryStats.bestTime) : '-'}
-                </Text>
-                <Text style={[styles.summaryLabel, isDark && styles.textMuted]}>
-                  {t('sections.best')}
-                </Text>
-              </View>
-              <View style={styles.summaryItem}>
-                <Text style={[styles.summaryValue, isDark && styles.textLight]}>
-                  {summaryStats.bestDate ? formatShortDate(summaryStats.bestDate) : '-'}
-                </Text>
-                <Text style={[styles.summaryLabel, isDark && styles.textMuted]}>
-                  {t('routes.bestOn')}
-                </Text>
-              </View>
-              {timeRangeDisplay && (
-                <View style={styles.summaryItem}>
-                  <Text style={[styles.summaryValue, isDark && styles.textLight]}>
-                    {timeRangeDisplay.value}
-                  </Text>
-                  <Text style={[styles.summaryLabel, isDark && styles.textMuted]}>
-                    {timeRangeDisplay.label}
-                  </Text>
-                </View>
-              )}
-            </>
-          ) : (
-            <>
-              <View style={styles.summaryItem}>
-                <Text style={[styles.summaryValue, { color: colors.chartGold }]}>
-                  {summaryStats.bestTime ? formatDuration(summaryStats.bestTime) : '-'}
-                </Text>
-                <Text style={[styles.summaryLabel, isDark && styles.textMuted]}>
-                  {t('sections.bestTime')}
-                </Text>
-              </View>
-              <View style={styles.summaryItem}>
-                <Text style={[styles.summaryValue, isDark && styles.textLight]}>
-                  {summaryStats.avgTime ? formatDuration(summaryStats.avgTime) : '-'}
-                </Text>
-                <Text style={[styles.summaryLabel, isDark && styles.textMuted]}>
-                  {t('sections.averageTime')}
-                </Text>
-              </View>
-              <View style={styles.summaryItem}>
-                <Text style={[styles.summaryValue, isDark && styles.textLight]}>
-                  {summaryStats.lastActivity ? formatShortDate(summaryStats.lastActivity) : '-'}
-                </Text>
-                <Text style={[styles.summaryLabel, isDark && styles.textMuted]}>
-                  {t('sections.lastActivity')}
-                </Text>
-              </View>
-              <View style={styles.summaryItem}>
-                <Text style={[styles.summaryValue, isDark && styles.textLight]}>
-                  {summaryStats.totalActivities}
-                </Text>
-                <Text style={[styles.summaryLabel, isDark && styles.textMuted]}>
-                  {t('sections.traversals')}
-                </Text>
-              </View>
-            </>
-          )}
-        </View>
-      )}
-
       {/* Forward Lane - hidden if no forward data */}
       {hasForward && (
         <>
@@ -1130,13 +1047,34 @@ export function UnifiedPerformanceChart({
                     {forwardLane.points.length}
                   </Text>
                 </View>
-                {/* PR display */}
+              </View>
+              {/* Inline stats - separate container for wrapping */}
+              <View style={styles.inlineStatsContainer}>
                 {bestForwardRecord && (
-                  <View style={styles.prBadge}>
-                    <MaterialCommunityIcons name="trophy" size={12} color={colors.chartGold} />
-                    <Text style={styles.prTime}>{formatDuration(bestForwardRecord.bestTime)}</Text>
-                    <Text style={[styles.prDate, isDark && styles.textMuted]}>
-                      · {formatShortDate(bestForwardRecord.activityDate)}
+                  <View style={[styles.inlineStatPill, styles.prPill]}>
+                    <MaterialCommunityIcons name="trophy" size={10} color={colors.chartGold} />
+                    <Text style={styles.prStatValue}>
+                      {formatDuration(bestForwardRecord.bestTime)}
+                    </Text>
+                  </View>
+                )}
+                {forwardStats?.avgTime != null && (
+                  <View style={[styles.inlineStatPill, isDark && styles.inlineStatPillDark]}>
+                    <Text style={[styles.statPillLabel, isDark && styles.statPillLabelDark]}>
+                      {t('sections.avg')}
+                    </Text>
+                    <Text style={[styles.statPillValue, isDark && styles.statPillValueDark]}>
+                      {formatDuration(forwardStats.avgTime)}
+                    </Text>
+                  </View>
+                )}
+                {forwardStats?.lastActivity && (
+                  <View style={[styles.inlineStatPill, isDark && styles.inlineStatPillDark]}>
+                    <Text style={[styles.statPillLabel, isDark && styles.statPillLabelDark]}>
+                      {t('sections.last')}
+                    </Text>
+                    <Text style={[styles.statPillValue, isDark && styles.statPillValueDark]}>
+                      {formatShortDate(forwardStats.lastActivity)}
                     </Text>
                   </View>
                 )}
@@ -1202,13 +1140,34 @@ export function UnifiedPerformanceChart({
                     {reverseLane.points.length}
                   </Text>
                 </View>
-                {/* PR display */}
+              </View>
+              {/* Inline stats - separate container for wrapping */}
+              <View style={styles.inlineStatsContainer}>
                 {bestReverseRecord && (
-                  <View style={styles.prBadge}>
-                    <MaterialCommunityIcons name="trophy" size={12} color={colors.chartGold} />
-                    <Text style={styles.prTime}>{formatDuration(bestReverseRecord.bestTime)}</Text>
-                    <Text style={[styles.prDate, isDark && styles.textMuted]}>
-                      · {formatShortDate(bestReverseRecord.activityDate)}
+                  <View style={[styles.inlineStatPill, styles.prPill]}>
+                    <MaterialCommunityIcons name="trophy" size={10} color={colors.chartGold} />
+                    <Text style={styles.prStatValue}>
+                      {formatDuration(bestReverseRecord.bestTime)}
+                    </Text>
+                  </View>
+                )}
+                {reverseStats?.avgTime != null && (
+                  <View style={[styles.inlineStatPill, isDark && styles.inlineStatPillDark]}>
+                    <Text style={[styles.statPillLabel, isDark && styles.statPillLabelDark]}>
+                      {t('sections.avg')}
+                    </Text>
+                    <Text style={[styles.statPillValue, isDark && styles.statPillValueDark]}>
+                      {formatDuration(reverseStats.avgTime)}
+                    </Text>
+                  </View>
+                )}
+                {reverseStats?.lastActivity && (
+                  <View style={[styles.inlineStatPill, isDark && styles.inlineStatPillDark]}>
+                    <Text style={[styles.statPillLabel, isDark && styles.statPillLabelDark]}>
+                      {t('sections.last')}
+                    </Text>
+                    <Text style={[styles.statPillValue, isDark && styles.statPillValueDark]}>
+                      {formatShortDate(reverseStats.lastActivity)}
                     </Text>
                   </View>
                 )}
@@ -1479,6 +1438,53 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
   },
+  // Inline stats in lane headers - responsive pill layout
+  inlineStatsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 4,
+    flexShrink: 1,
+    marginRight: 8,
+  },
+  inlineStatPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+    backgroundColor: colors.surface,
+  },
+  inlineStatPillDark: {
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  prPill: {
+    backgroundColor: colors.chartGold + '20',
+  },
+  prStatValue: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: colors.chartGold,
+  },
+  statPillLabel: {
+    fontSize: 9,
+    fontWeight: '500',
+    color: colors.textMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
+  },
+  statPillLabelDark: {
+    color: 'rgba(255, 255, 255, 0.5)',
+  },
+  statPillValue: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: colors.textPrimary,
+  },
+  statPillValueDark: {
+    color: 'rgba(255, 255, 255, 0.9)',
+  },
   prBadge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1493,6 +1499,28 @@ const styles = StyleSheet.create({
   prDate: {
     fontSize: 11,
     color: colors.textMuted,
+  },
+  laneStatsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 12,
+    paddingBottom: 8,
+  },
+  laneStat: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  laneStatLabel: {
+    fontSize: 11,
+    color: colors.textMuted,
+  },
+  laneStatValue: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: colors.textPrimary,
   },
   laneHeaderInScroll: {
     borderTopWidth: StyleSheet.hairlineWidth,

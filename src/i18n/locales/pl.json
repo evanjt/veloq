@@ -587,6 +587,7 @@
   },
   "sections": {
     "activities": "Aktywnosci",
+    "avg": "Śr",
     "averageTime": "Średni Czas",
     "best": "Najlepsza",
     "bestPace": "Najlepsze tempo",
@@ -603,6 +604,7 @@
     "duplicateNameMessage": "Proszę wybrać inną nazwę. Każda sekcja musi mieć unikalną nazwę.",
     "duplicateNameTitle": "Nazwa już istnieje",
     "forward": "Forward",
+    "last": "Ost",
     "lastActivity": "Ostatnia Aktywność",
     "noActivitiesFound": "Nie znaleziono aktywnosci",
     "performanceOverTime": "Wyniki w czasie",

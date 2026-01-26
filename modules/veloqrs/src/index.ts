@@ -88,10 +88,11 @@ import {
   type GroupSummary,
   type DownloadProgressResult,
   FfiSectionConfig,
-  type FfiHeatmapResult,
-  type FfiHeatmapCell,
-  type FfiCellQueryResult,
-  type FfiActivityHeatmapData,
+  // TODO: Heatmap types not yet generated - uncomment after Rust rebuild
+  // type FfiHeatmapResult,
+  // type FfiHeatmapCell,
+  // type FfiCellQueryResult,
+  // type FfiActivityHeatmapData,
   type MapActivityComplete,
 } from './generated/veloqrs';
 
@@ -101,10 +102,11 @@ export type GpsPoint = FfiGpsPoint;
 export type RouteGroup = FfiRouteGroup;
 export type FrequentSection = FfiFrequentSection;
 export type SectionConfig = FfiSectionConfig;
-export type HeatmapResult = FfiHeatmapResult;
-export type HeatmapCell = FfiHeatmapCell;
-export type CellQueryResult = FfiCellQueryResult;
-export type ActivityHeatmapData = FfiActivityHeatmapData;
+// TODO: Heatmap types not yet generated - uncomment after Rust rebuild
+// export type HeatmapResult = FfiHeatmapResult;
+// export type HeatmapCell = FfiHeatmapCell;
+// export type CellQueryResult = FfiCellQueryResult;
+// export type ActivityHeatmapData = FfiActivityHeatmapData;
 // These are already exported without Ffi prefix:
 export type { PersistentEngineStats, SectionSummary, GroupSummary, DownloadProgressResult, MapActivityComplete };
 
@@ -1028,7 +1030,7 @@ class RouteEngineClient {
       startIndex,
       endIndex,
       sportType,
-      name ?? null
+      name
     );
     if (!json) return null;
     const section = safeJsonParse<CustomSection>(json, null as unknown as CustomSection);
@@ -1044,7 +1046,7 @@ class RouteEngineClient {
    * Returns raw potentials with GpsPoint polylines.
    */
   detectPotentials(sportFilter?: string): RawPotentialSection[] {
-    const json = persistentEngineDetectPotentials(sportFilter ?? null);
+    const json = persistentEngineDetectPotentials(sportFilter);
     return safeJsonParse<RawPotentialSection[]>(json, []);
   }
 

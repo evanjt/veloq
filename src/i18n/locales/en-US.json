@@ -573,6 +573,7 @@
   },
   "sections": {
     "activities": "Activities",
+    "avg": "Avg",
     "averageTime": "Average Time",
     "best": "Best",
     "bestPace": "Best pace",
@@ -589,6 +590,7 @@
     "disableSectionConfirm": "This section will be hidden from activity details. You can re-enable it later from the sections list.",
     "disabled": "Disabled",
     "forward": "Forward",
+    "last": "Last",
     "lastActivity": "Last Activity",
     "noActivitiesFound": "No activities found",
     "performanceOverTime": "Performance Over Time",
