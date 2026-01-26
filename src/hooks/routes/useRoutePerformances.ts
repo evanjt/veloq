@@ -122,30 +122,37 @@ export function useRoutePerformances(
   }, [engineGroup, groupIndex]);
 
   // Get match info from Rust engine (checkpoint-based matching)
-  // This provides accurate percentages reflecting how well each activity matches the route
-  const matchInfoMap = useMemo((): Map<string, RustMatchInfo> => {
-    if (!engineGroup) return new Map();
+  // Get route performance data from Rust engine
+  // This provides match info, direction stats, and current rank
+  const rustData = useMemo((): {
+    matchInfoMap: Map<string, RustMatchInfo>;
+    forwardStats: DirectionStats | null;
+    reverseStats: DirectionStats | null;
+    currentRank: number | null;
+  } => {
+    const emptyResult = {
+      matchInfoMap: new Map<string, RustMatchInfo>(),
+      forwardStats: null,
+      reverseStats: null,
+      currentRank: null,
+    };
+
+    if (!engineGroup) return emptyResult;
 
     try {
       const engine = getRouteEngine();
-      if (!engine) return new Map();
+      if (!engine) return emptyResult;
 
-      // Get match data from Rust engine (includes direction and match_percentage)
+      // Get full performance data from Rust engine
       const json = engine.getRoutePerformances(engineGroup.groupId, activityId || '');
-      console.log('[useRoutePerformances] Raw JSON from engine:', json?.substring(0, 500));
-      if (!json) return new Map();
+      if (!json) return emptyResult;
 
       const parsed = JSON.parse(json);
       const performances = parsed.performances || [];
-      console.log('[useRoutePerformances] Parsed performances count:', performances.length);
-      if (performances.length > 0) {
-        console.log('[useRoutePerformances] First perf:', JSON.stringify(performances[0]));
-      }
 
-      // Build lookup map by activity ID (note: Rust uses camelCase via serde)
+      // Build lookup map by activity ID
       const map = new Map<string, RustMatchInfo>();
       for (const perf of performances) {
-        // Check for both undefined and null (Option<f64> serializes as null when None)
         if (perf.matchPercentage != null) {
           map.set(perf.activityId, {
             activityId: perf.activityId,
@@ -154,33 +161,40 @@ export function useRoutePerformances(
           });
         }
       }
-      console.log('[useRoutePerformances] Match info map size:', map.size);
-      return map;
+
+      // Parse direction stats from Rust
+      const parseStats = (
+        stats: { avgTime?: number; lastActivity?: number; count?: number } | null | undefined
+      ): DirectionStats | null => {
+        if (!stats) return null;
+        return {
+          avgTime: stats.avgTime ?? null,
+          lastActivity: stats.lastActivity ? new Date(stats.lastActivity) : null,
+          count: stats.count ?? 0,
+        };
+      };
+
+      return {
+        matchInfoMap: map,
+        forwardStats: parseStats(parsed.forwardStats),
+        reverseStats: parseStats(parsed.reverseStats),
+        currentRank: parsed.currentRank ?? null,
+      };
     } catch {
-      // Fallback if engine unavailable or JSON parsing fails
-      return new Map();
+      return emptyResult;
     }
   }, [engineGroup, activityId]);
 
+  const { matchInfoMap, forwardStats: rustForwardStats, reverseStats: rustReverseStats } = rustData;
+
   // Build performances from Activity objects (API data) + match info from Rust
-  const {
-    performances,
-    best,
-    bestForwardRecord,
-    bestReverseRecord,
-    forwardStats,
-    reverseStats,
-    currentRank,
-  } = useMemo(() => {
+  const { performances, best, bestForwardRecord, bestReverseRecord } = useMemo(() => {
     if (!engineGroup || !activities || activities.length === 0) {
       return {
         performances: [],
         best: null,
         bestForwardRecord: null,
         bestReverseRecord: null,
-        forwardStats: null,
-        reverseStats: null,
-        currentRank: null,
       };
     }
 
@@ -246,44 +260,11 @@ export function useRoutePerformances(
       ? { bestTime: bestReversePoint.duration, activityDate: bestReversePoint.date }
       : null;
 
-    // Calculate current rank (1 = fastest)
-    let rank: number | null = null;
-    if (activityId && points.length > 0) {
-      const sortedBySpeed = [...points].sort((a, b) => b.speed - a.speed);
-      const idx = sortedBySpeed.findIndex((p) => p.activityId === activityId);
-      if (idx >= 0) {
-        rank = idx + 1;
-      }
-    }
-
-    // Compute forward direction stats
-    const fwdStats: DirectionStats | null =
-      forwardPoints.length > 0
-        ? {
-            avgTime: forwardPoints.reduce((sum, p) => sum + p.duration, 0) / forwardPoints.length,
-            lastActivity: new Date(Math.max(...forwardPoints.map((p) => p.date.getTime()))),
-            count: forwardPoints.length,
-          }
-        : null;
-
-    // Compute reverse direction stats
-    const revStats: DirectionStats | null =
-      reversePoints.length > 0
-        ? {
-            avgTime: reversePoints.reduce((sum, p) => sum + p.duration, 0) / reversePoints.length,
-            lastActivity: new Date(Math.max(...reversePoints.map((p) => p.date.getTime()))),
-            count: reversePoints.length,
-          }
-        : null;
-
     return {
       performances: points,
       best: bestPoint,
       bestForwardRecord: bestForward,
       bestReverseRecord: bestReverse,
-      forwardStats: fwdStats,
-      reverseStats: revStats,
-      currentRank: rank,
     };
   }, [engineGroup, activities, activityId, matchInfoMap]);
 
@@ -294,8 +275,8 @@ export function useRoutePerformances(
     best,
     bestForwardRecord,
     bestReverseRecord,
-    forwardStats,
-    reverseStats,
-    currentRank,
+    forwardStats: rustForwardStats,
+    reverseStats: rustReverseStats,
+    currentRank: rustData.currentRank,
   };
 }
