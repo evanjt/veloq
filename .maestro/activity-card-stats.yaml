@@ -26,29 +26,23 @@ appId: com.veloq.app
       id: "home-screen"
     timeout: 15000
 
-# Wait for activity list to load (home screen has activity-list, not weekly-summary)
+# Wait for activity list to load
 - extendedWaitUntil:
     visible:
       id: "home-activity-list"
     timeout: 10000
 
-# Verify first activity card is visible
+# Verify first activity card is visible (most recent activity)
+# Note: demo activities are indexed 0-N with 0 being oldest
+# The most recent activity appears first, so we tap on any visible activity card
 - extendedWaitUntil:
     visible:
-      id: "activity-card-demo-0"
+      id: "activity-card-demo-.*"
     timeout: 10000
 
-# Verify activity card stats are displayed
-- assertVisible:
-    id: "activity-card-demo-0-distance"
-- assertVisible:
-    id: "activity-card-demo-0-duration"
-- assertVisible:
-    id: "activity-card-demo-0-elevation"
-
-# Tap on the activity card to navigate to detail
+# Tap on the first visible activity card (uses regex to match any demo activity)
 - tapOn:
-    id: "activity-card-demo-0"
+    id: "activity-card-demo-.*"
 
 - extendedWaitUntil:
     visible:

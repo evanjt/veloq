@@ -306,6 +306,7 @@ export function WeeklySummary({ activities }: WeeklySummaryProps) {
             {TIME_RANGE_IDS.map((rangeId) => (
               <TouchableOpacity
                 key={rangeId}
+                testID={`weekly-summary-range-${rangeId}`}
                 style={[
                   styles.timeRangeButton,
                   isDark && styles.timeRangeButtonDark,

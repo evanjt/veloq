@@ -25,12 +25,10 @@ interface UseMapGeoJSONResult {
   sectionsGeoJSON: GeoJSON.FeatureCollection | null;
 }
 
-// Calculate marker size based on distance
-function getMarkerSize(distance: number): number {
-  if (distance < 5000) return 20; // < 5km
-  if (distance < 15000) return 24; // 5-15km
-  if (distance < 30000) return 28; // 15-30km
-  return 32; // > 30km
+const MARKER_SIZE = 24;
+
+function getMarkerSize(_distance: number): number {
+  return MARKER_SIZE;
 }
 
 export function useMapGeoJSON({

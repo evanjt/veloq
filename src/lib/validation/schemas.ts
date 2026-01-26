@@ -27,39 +27,74 @@ import type { ActivityType } from '@/types';
 /** Valid map style values */
 const MapStyleSchema = z.enum(['light', 'dark', 'satellite']);
 
-/** Activity type validation (standard fitness sport types) */
+/**
+ * Activity type validation (standard fitness sport types).
+ * Keep in sync with ActivityType in src/types/activity.ts
+ */
 const ActivityTypeSchema = z.enum([
+  // Cycling
   'Ride',
+  'VirtualRide',
+  'EBikeRide',
+  'MountainBikeRide',
+  'GravelRide',
+  'Velomobile',
+  'Handcycle',
+  // Running
   'Run',
-  'Swim',
+  'VirtualRun',
+  'TrailRun',
+  'Treadmill',
+  // Walking/Hiking
   'Walk',
   'Hike',
-  'VirtualRide',
-  'VirtualRun',
-  'Workout',
-  'Yoga',
+  // Swimming
+  'Swim',
+  'OpenWaterSwim',
+  // Snow sports
   'AlpineSki',
-  'BackcountrySki',
-  'Canoeing',
-  'Crossfit',
-  'EBikeRide',
-  'Elliptical',
-  'IceSkate',
-  'InlineSkate',
-  'Kayaking',
-  'Kitesurf',
   'NordicSki',
-  'RockClimbing',
-  'RollerSki',
-  'Rowing',
+  'BackcountrySki',
   'Snowboard',
   'Snowshoe',
-  'StairStepper',
-  'StandUpPaddling',
+  'RollerSki',
+  // Water sports
+  'Rowing',
+  'VirtualRow',
+  'Kayaking',
+  'Canoeing',
   'Surfing',
-  'WeightTraining',
+  'Kitesurf',
   'Windsurf',
+  'StandUpPaddling',
+  'Sail',
+  // Skating
+  'IceSkate',
+  'InlineSkate',
+  'Skateboard',
+  // Gym/Fitness
+  'Workout',
+  'WeightTraining',
+  'Yoga',
+  'Pilates',
+  'Crossfit',
+  'Elliptical',
+  'StairStepper',
+  'HighIntensityIntervalTraining',
+  // Racket sports
+  'Tennis',
+  'Badminton',
+  'Pickleball',
+  'Racquetball',
+  'Squash',
+  'TableTennis',
+  // Other sports
+  'Soccer',
+  'Golf',
+  'RockClimbing',
   'Wheelchair',
+  // Catch-all
+  'Other',
 ]);
 
 /**

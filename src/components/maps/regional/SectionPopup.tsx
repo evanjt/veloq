@@ -7,6 +7,7 @@ import { typography } from '@/theme/typography';
 import { spacing, layout } from '@/theme/spacing';
 import { shadows } from '@/theme/shadows';
 import { getActivityTypeConfig } from '../ActivityTypeFilter';
+import { getActivityIcon } from '@/lib/utils/activityUtils';
 import { getRouteEngine } from '@/lib/native/routeEngine';
 import type { FrequentSection } from '@/types';
 
@@ -54,7 +55,11 @@ export function SectionPopup({ section, bottom, onClose, onViewDetails }: Sectio
 
       <View style={styles.popupStats}>
         <View style={styles.popupStat}>
-          <Ionicons name={config.icon} size={20} color={config.color} />
+          <MaterialCommunityIcons
+            name={getActivityIcon(section.sportType)}
+            size={20}
+            color={config.color}
+          />
           <Text style={styles.popupStatValue}>{section.sportType}</Text>
         </View>
         <View style={styles.popupStat}>

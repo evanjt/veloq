@@ -1,5 +1,10 @@
 import React, { useMemo, useState, useCallback, useEffect } from 'react';
-import { View, StyleSheet, ActivityIndicator, InteractionManager } from 'react-native';
+import { View, StyleSheet, ActivityIndicator } from 'react-native';
+
+// Exported for compatibility but no longer used for scroll tracking
+export function notifyMapScroll(_visibleIndex: number) {
+  // No-op - using simple staggered loading instead
+}
 import {
   MapView,
   Camera,
@@ -18,25 +23,25 @@ import type { Activity } from '@/types';
 interface ActivityMapPreviewProps {
   activity: Activity;
   height?: number;
+  index?: number;
 }
 
-export function ActivityMapPreview({ activity, height = 160 }: ActivityMapPreviewProps) {
+export function ActivityMapPreview({ activity, height = 160, index = 0 }: ActivityMapPreviewProps) {
   const { getStyleForActivity } = useMapPreferences();
   const mapStyle = getStyleForActivity(activity.type);
   const activityColor = getActivityColor(activity.type);
   const [mapReady, setMapReady] = useState(false);
 
-  // Tile loading fix: Stagger map rendering to avoid overwhelming connection limits
-  // Mobile platforms limit concurrent connections per host (~4-5), causing tiles to fail
-  // when many MapViews load simultaneously. Wait for interactions to complete before rendering.
-  const [shouldRenderMap, setShouldRenderMap] = useState(false);
+  // Stagger showing maps - always render MapView but delay removing loading overlay
+  // This prevents overwhelming tile requests while allowing proper MapView initialization
+  const [showMapContent, setShowMapContent] = useState(index === 0); // First map shows immediately
 
   useEffect(() => {
-    const handle = InteractionManager.runAfterInteractions(() => {
-      setShouldRenderMap(true);
-    });
-    return () => handle.cancel();
-  }, []);
+    if (index === 0) return; // First map already visible
+    const delay = index * 150; // 150ms, 300ms, 450ms...
+    const timeout = setTimeout(() => setShowMapContent(true), delay);
+    return () => clearTimeout(timeout);
+  }, [index]);
 
   const handleMapFullyRendered = useCallback(() => {
     setMapReady(true);
@@ -61,6 +66,49 @@ export function ActivityMapPreview({ activity, height = 160 }: ActivityMapPrevie
   }, [coordinates]);
 
   const bounds = useMemo(() => getMapLibreBounds(validCoordinates), [validCoordinates]);
+
+  // Calculate center and zoom from bounds instead of using bounds directly
+  // This fixes the FlatList issue where Camera bounds fail when map is off-screen
+  // (native layer reports 64x64px size, causing zoom calculations to fail)
+  const { center, zoomLevel } = useMemo(() => {
+    if (!bounds) return { center: null, zoomLevel: 10 };
+
+    // Calculate center
+    const centerLng = (bounds.ne[0] + bounds.sw[0]) / 2;
+    const centerLat = (bounds.ne[1] + bounds.sw[1]) / 2;
+
+    // Validate center coordinates
+    if (!isFinite(centerLng) || !isFinite(centerLat)) {
+      return { center: null, zoomLevel: 10 };
+    }
+
+    // Calculate zoom level based on bounds span
+    // Using Mercator projection: zoom ≈ log2(360 / lonSpan) or log2(180 / latSpan)
+    const latSpan = Math.abs(bounds.ne[1] - bounds.sw[1]);
+    const lngSpan = Math.abs(bounds.ne[0] - bounds.sw[0]);
+
+    // Handle single-point or very small activities
+    if (latSpan < 0.0001 && lngSpan < 0.0001) {
+      return {
+        center: [centerLng, centerLat] as [number, number],
+        zoomLevel: 15, // Default zoom for single point
+      };
+    }
+
+    // Add padding factor (smaller view = need to zoom out more)
+    const paddingFactor = 1.5;
+    const latZoom = Math.log2(180 / (latSpan * paddingFactor || 0.001));
+    const lngZoom = Math.log2(360 / (lngSpan * paddingFactor || 0.001));
+
+    // Use the smaller zoom (shows more area) and clamp to reasonable range
+    const calculatedZoom = Math.min(latZoom, lngZoom);
+    const clampedZoom = Math.max(1, Math.min(18, isFinite(calculatedZoom) ? calculatedZoom : 10));
+
+    return {
+      center: [centerLng, centerLat] as [number, number],
+      zoomLevel: clampedZoom,
+    };
+  }, [bounds]);
 
   // iOS crash fix: Always return valid GeoJSON, never null
   // Using minimal valid LineString to avoid MapLibre "Invalid geometry" warnings
@@ -117,8 +165,8 @@ export function ActivityMapPreview({ activity, height = 160 }: ActivityMapPrevie
     );
   }
 
-  // Loading streams or no bounds, or waiting for staggered render on iOS
-  if (isLoading || !bounds || validCoordinates.length === 0 || !shouldRenderMap) {
+  // Loading streams or no bounds
+  if (isLoading || !bounds || validCoordinates.length === 0) {
     return (
       <View style={[styles.placeholder, { height, backgroundColor: activityColor + '10' }]}>
         <ActivityIndicator size="small" color={activityColor} />
@@ -132,7 +180,7 @@ export function ActivityMapPreview({ activity, height = 160 }: ActivityMapPrevie
       testID={mapReady ? `activity-map-preview-ready-${activity.id}` : undefined}
     >
       <MapView
-        style={[styles.map, { opacity: mapReady ? 1 : 0 }]}
+        style={styles.map}
         mapStyle={styleUrl}
         logoEnabled={false}
         attributionEnabled={false}
@@ -141,13 +189,13 @@ export function ActivityMapPreview({ activity, height = 160 }: ActivityMapPrevie
         zoomEnabled={false}
         rotateEnabled={false}
         pitchEnabled={false}
-        onDidFinishRenderingMapFully={handleMapFullyRendered}
+        onDidFinishLoadingMap={handleMapFullyRendered}
       >
         <Camera
           defaultSettings={{
             bounds: {
-              ne: [bounds.ne[0], bounds.ne[1]],
-              sw: [bounds.sw[0], bounds.sw[1]],
+              ne: bounds ? [bounds.ne[0], bounds.ne[1]] : [0, 0],
+              sw: bounds ? [bounds.sw[0], bounds.sw[1]] : [0, 0],
             },
             padding: { paddingTop: 30, paddingRight: 30, paddingBottom: 30, paddingLeft: 30 },
             animationMode: 'moveTo',
@@ -191,6 +239,12 @@ export function ActivityMapPreview({ activity, height = 160 }: ActivityMapPrevie
           </MarkerView>
         )}
       </MapView>
+      {/* Loading overlay - shows while map is rendering or content is staggered */}
+      {(!mapReady || !showMapContent) && (
+        <View style={[styles.loadingOverlay, { backgroundColor: activityColor + '10' }]}>
+          <ActivityIndicator size="small" color={activityColor} />
+        </View>
+      )}
     </View>
   );
 }
@@ -202,6 +256,11 @@ const styles = StyleSheet.create({
   },
   map: {
     flex: 1,
+  },
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   placeholder: {
     justifyContent: 'center',

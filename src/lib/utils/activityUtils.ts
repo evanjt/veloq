@@ -18,26 +18,72 @@ export type MaterialIconName = ComponentProps<typeof MaterialCommunityIcons>['na
  *
  * Maps each activity type to a corresponding MaterialCommunityIcons icon name.
  * Activities with no specific mapping fall back to 'heart-pulse'.
+ *
+ * Keep in sync with ActivityType in src/types/activity.ts
  */
 const ACTIVITY_ICONS = {
+  // Cycling
   Ride: 'bike',
+  VirtualRide: 'bike',
+  EBikeRide: 'bike-fast',
+  MountainBikeRide: 'bike',
+  GravelRide: 'bike',
+  Velomobile: 'go-kart',
+  Handcycle: 'bicycle-cargo',
+  // Running
   Run: 'run',
-  Swim: 'swim',
-  OpenWaterSwim: 'swim',
+  VirtualRun: 'run',
+  TrailRun: 'run-fast',
+  Treadmill: 'run',
+  // Walking/Hiking
   Walk: 'walk',
   Hike: 'hiking',
-  VirtualRide: 'bike',
-  VirtualRun: 'run',
-  Workout: 'dumbbell',
-  WeightTraining: 'weight-lifter',
-  Yoga: 'yoga',
-  Snowboard: 'snowboard',
+  // Swimming
+  Swim: 'swim',
+  OpenWaterSwim: 'swim',
+  // Snow sports
   AlpineSki: 'ski',
   NordicSki: 'ski-cross-country',
   BackcountrySki: 'ski',
+  Snowboard: 'snowboard',
+  Snowshoe: 'shoe-print',
+  RollerSki: 'ski',
+  // Water sports
   Rowing: 'rowing',
+  VirtualRow: 'rowing',
   Kayaking: 'kayaking',
   Canoeing: 'kayaking',
+  Surfing: 'surfing',
+  Kitesurf: 'kitesurfing',
+  Windsurf: 'sail-boat',
+  StandUpPaddling: 'surfing',
+  Sail: 'sail-boat',
+  // Skating
+  IceSkate: 'skate',
+  InlineSkate: 'rollerblade',
+  Skateboard: 'skateboard',
+  // Gym/Fitness
+  Workout: 'dumbbell',
+  WeightTraining: 'weight-lifter',
+  Yoga: 'yoga',
+  Pilates: 'yoga',
+  Crossfit: 'dumbbell',
+  Elliptical: 'orbit-variant',
+  StairStepper: 'stairs',
+  HighIntensityIntervalTraining: 'timer-outline',
+  // Racket sports
+  Tennis: 'tennis',
+  Badminton: 'badminton',
+  Pickleball: 'tennis',
+  Racquetball: 'tennis',
+  Squash: 'tennis',
+  TableTennis: 'table-tennis',
+  // Other sports
+  Soccer: 'soccer',
+  Golf: 'golf',
+  RockClimbing: 'carabiner',
+  Wheelchair: 'wheelchair-accessibility',
+  // Catch-all
   Other: 'heart-pulse',
 } as const satisfies Record<string, MaterialIconName>;
 
@@ -47,7 +93,7 @@ const ACTIVITY_ICONS = {
  * Returns the MaterialCommunityIcons icon name for displaying activity types.
  * Falls back to 'heart-pulse' for unknown activity types.
  *
- * @param type - Activity type
+ * @param type - Activity type (accepts string for flexibility with API data)
  * @returns MaterialCommunityIcons icon name
  *
  * @example
@@ -57,7 +103,7 @@ const ACTIVITY_ICONS = {
  * getActivityIcon('Other'); // 'heart-pulse'
  * ```
  */
-export function getActivityIcon(type: ActivityType): MaterialIconName {
+export function getActivityIcon(type: ActivityType | string): MaterialIconName {
   return ACTIVITY_ICONS[type as keyof typeof ACTIVITY_ICONS] ?? 'heart-pulse';
 }
 

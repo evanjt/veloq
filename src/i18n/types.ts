@@ -968,12 +968,16 @@ export interface TranslationResource {
     showRoutes: string;
     hideRoutes: string;
     activityTypes: {
-      ride: string;
-      run: string;
-      swim: string;
-      walk: string;
+      gym: string;
       hike: string;
       other: string;
+      racket: string;
+      ride: string;
+      run: string;
+      snow: string;
+      swim: string;
+      walk: string;
+      water: string;
     };
   };
 

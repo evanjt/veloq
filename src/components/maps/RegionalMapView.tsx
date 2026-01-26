@@ -1166,7 +1166,11 @@ export function RegionalMapView({
                       ...shadows.elevated,
                     }}
                   >
-                    <Ionicons name={config.icon} size={iconSize} color={colors.textOnDark} />
+                    <MaterialCommunityIcons
+                      name={config.icon}
+                      size={iconSize}
+                      color={colors.textOnDark}
+                    />
                   </View>
                 </MarkerView>
               );

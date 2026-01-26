@@ -33,12 +33,16 @@ function formatLocation(activity: Activity): string | null {
 
 interface ActivityCardProps {
   activity: Activity;
+  index?: number;
 }
 
 // Breakpoint for narrow screens (icon-only mode for stats)
 const NARROW_SCREEN_WIDTH = 380;
 
-export const ActivityCard = React.memo(function ActivityCard({ activity }: ActivityCardProps) {
+export const ActivityCard = React.memo(function ActivityCard({
+  activity,
+  index,
+}: ActivityCardProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const isMetric = useMetricSystem();
@@ -116,7 +120,7 @@ export const ActivityCard = React.memo(function ActivityCard({ activity }: Activ
 
         {/* Map preview with stats overlay */}
         <View style={styles.mapContainer}>
-          <ActivityMapPreview activity={activity} height={220} />
+          <ActivityMapPreview activity={activity} height={220} index={index} />
           {/* Stats overlay at bottom of map */}
           <View style={styles.statsOverlay}>
             <View style={styles.statPill}>

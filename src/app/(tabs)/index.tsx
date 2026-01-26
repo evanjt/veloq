@@ -32,7 +32,7 @@ import type { Activity } from '@/types';
 import { useSportPreference, SPORT_COLORS, useDashboardPreferences } from '@/providers';
 import type { MetricId } from '@/providers';
 import { formatPaceCompact, formatSwimPace } from '@/lib';
-import { ActivityCard } from '@/components/activity/ActivityCard';
+import { ActivityCard, notifyMapScroll } from '@/components/activity';
 import { ActivityCardSkeleton, NetworkErrorState, ErrorStatePreset } from '@/components/ui';
 import { SummaryCard } from '@/components/home';
 import { useScrollVisibilitySafe } from '@/providers';
@@ -425,7 +425,27 @@ export default function FeedScreen() {
     });
   }, [summaryCard.supportingMetrics, quickStats, formColor, sportMetrics, t]);
 
-  const renderActivity = ({ item }: { item: Activity }) => <ActivityCard activity={item} />;
+  const renderActivity = ({ item, index }: { item: Activity; index: number }) => (
+    <ActivityCard activity={item} index={index} />
+  );
+
+  // Notify map previews when items become visible for lazy loading
+  const handleViewableItemsChanged = useCallback(
+    ({ viewableItems }: { viewableItems: Array<{ index: number | null }> }) => {
+      const maxIndex = Math.max(...viewableItems.map((item) => item.index ?? 0));
+      if (maxIndex >= 0) {
+        notifyMapScroll(maxIndex);
+      }
+    },
+    []
+  );
+
+  const viewabilityConfig = useMemo(
+    () => ({
+      itemVisiblePercentThreshold: 20,
+    }),
+    []
+  );
 
   const navigateToSettings = () => router.push('/settings' as Href);
 
@@ -650,6 +670,8 @@ export default function FeedScreen() {
         maxToRenderPerBatch={Platform.OS === 'ios' ? 15 : 10}
         windowSize={Platform.OS === 'ios' ? 21 : 11}
         initialNumToRender={10}
+        onViewableItemsChanged={handleViewableItemsChanged}
+        viewabilityConfig={viewabilityConfig}
       />
     </ScreenSafeAreaView>
   );

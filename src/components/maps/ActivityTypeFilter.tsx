@@ -1,14 +1,25 @@
 import React, { useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { Ionicons } from '@expo/vector-icons';
-import { colors } from '@/theme/colors';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { colors, activityTypeColors } from '@/theme/colors';
 import { typography } from '@/theme/typography';
 import { spacing, layout } from '@/theme/spacing';
 import type { ActivityType } from '@/types';
+import type { MaterialIconName } from '@/lib/utils/activityUtils';
 
 // Activity type label keys for translation
-type ActivityLabelKey = 'ride' | 'run' | 'swim' | 'walk' | 'hike' | 'other';
+type ActivityLabelKey =
+  | 'ride'
+  | 'run'
+  | 'swim'
+  | 'walk'
+  | 'hike'
+  | 'snow'
+  | 'water'
+  | 'gym'
+  | 'racket'
+  | 'other';
 
 // Main activity categories (matching theme colors)
 // Note: Labels are translation keys (maps.activityTypes.{key})
@@ -16,46 +27,100 @@ export const ACTIVITY_CATEGORIES: Record<
   string,
   {
     color: string;
-    icon: keyof typeof Ionicons.glyphMap;
+    icon: MaterialIconName;
     labelKey: ActivityLabelKey; // Translation key suffix (e.g., 'ride' -> maps.activityTypes.ride)
     types: string[]; // API types that belong to this category
   }
 > = {
   Ride: {
     color: colors.ride,
-    icon: 'bicycle',
+    icon: 'bike',
     labelKey: 'ride',
-    types: ['Ride', 'VirtualRide', 'EBikeRide', 'MountainBikeRide', 'GravelRide', 'Velomobile'],
+    types: [
+      'Ride',
+      'VirtualRide',
+      'EBikeRide',
+      'MountainBikeRide',
+      'GravelRide',
+      'Velomobile',
+      'Handcycle',
+    ],
   },
   Run: {
     color: colors.run,
-    icon: 'walk',
+    icon: 'run',
     labelKey: 'run',
     types: ['Run', 'TrailRun', 'VirtualRun', 'Treadmill'],
   },
   Swim: {
     color: colors.swim,
-    icon: 'water',
+    icon: 'swim',
     labelKey: 'swim',
     types: ['Swim', 'OpenWaterSwim'],
   },
   Walk: {
     color: colors.walk,
-    icon: 'footsteps',
+    icon: 'walk',
     labelKey: 'walk',
     types: ['Walk'],
   },
   Hike: {
     color: colors.hike,
-    icon: 'trail-sign',
+    icon: 'hiking',
     labelKey: 'hike',
-    types: ['Hike'],
+    types: ['Hike', 'Snowshoe'],
+  },
+  Snow: {
+    color: activityTypeColors.AlpineSki,
+    icon: 'ski',
+    labelKey: 'snow',
+    types: ['AlpineSki', 'NordicSki', 'BackcountrySki', 'Snowboard', 'RollerSki'],
+  },
+  Water: {
+    color: activityTypeColors.Rowing || '#06B6D4',
+    icon: 'rowing',
+    labelKey: 'water',
+    types: [
+      'Rowing',
+      'VirtualRow',
+      'Kayaking',
+      'Canoeing',
+      'Surfing',
+      'Kitesurf',
+      'Windsurf',
+      'StandUpPaddling',
+      'Sail',
+    ],
+  },
+  Gym: {
+    color: colors.workout,
+    icon: 'dumbbell',
+    labelKey: 'gym',
+    types: [
+      'Workout',
+      'WeightTraining',
+      'Yoga',
+      'Pilates',
+      'Crossfit',
+      'Elliptical',
+      'StairStepper',
+      'HighIntensityIntervalTraining',
+      'IceSkate',
+      'InlineSkate',
+      'Skateboard',
+    ],
+  },
+  Racket: {
+    color: activityTypeColors.Tennis || '#22C55E',
+    icon: 'tennis',
+    labelKey: 'racket',
+    types: ['Tennis', 'Badminton', 'Pickleball', 'Racquetball', 'Squash', 'TableTennis'],
   },
   Other: {
-    color: colors.workout,
-    icon: 'fitness',
+    color: colors.textSecondary,
+    icon: 'heart-pulse',
     labelKey: 'other',
-    types: [], // Catch-all for anything not in other categories
+    types: ['Soccer', 'Golf', 'RockClimbing', 'Wheelchair'], // Named types that don't fit elsewhere + catch-all
   },
 };
 
@@ -156,7 +221,7 @@ export function ActivityTypeFilter({
               ]}
               onPress={() => toggleType(type)}
             >
-              <Ionicons
+              <MaterialCommunityIcons
                 name={config.icon}
                 size={16}
                 color={isSelected ? colors.surface : config.color}

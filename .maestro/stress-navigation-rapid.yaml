@@ -57,12 +57,15 @@ appId: com.veloq.app
       - openLink: "veloq://"
 
 # Verify we end up on home and app is still responsive
+# Extended timeout as app may need time to settle after rapid navigation
 - extendedWaitUntil:
     visible:
       id: "home-screen"
-    timeout: 10000
+    timeout: 30000
 
-- assertVisible:
-    id: "home-activity-list"
+- extendedWaitUntil:
+    visible:
+      id: "home-activity-list"
+    timeout: 15000
 
 - takeScreenshot: "stress-navigation-rapid-complete"

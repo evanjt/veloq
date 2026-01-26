@@ -6,31 +6,71 @@ import type { ActivityType } from './activity';
 
 /**
  * Valid activity types for type checking.
- * Keep in sync with ActivityType union.
+ * Keep in sync with ActivityType union in src/types/activity.ts
  */
 const VALID_ACTIVITY_TYPES = new Set<string>([
+  // Cycling
   'Ride',
+  'VirtualRide',
+  'EBikeRide',
+  'MountainBikeRide',
+  'GravelRide',
+  'Velomobile',
+  'Handcycle',
+  // Running
   'Run',
-  'Swim',
+  'VirtualRun',
+  'TrailRun',
+  'Treadmill',
+  // Walking/Hiking
   'Walk',
   'Hike',
-  'VirtualRide',
-  'VirtualRun',
-  'Workout',
-  'WeightTraining',
-  'Yoga',
-  'Snowboard',
+  // Swimming
+  'Swim',
+  'OpenWaterSwim',
+  // Snow sports
   'AlpineSki',
   'NordicSki',
   'BackcountrySki',
+  'Snowboard',
+  'Snowshoe',
+  'RollerSki',
+  // Water sports
   'Rowing',
+  'VirtualRow',
   'Kayaking',
   'Canoeing',
-  'OpenWaterSwim',
-  'TrailRun',
-  'Snowshoe',
+  'Surfing',
+  'Kitesurf',
+  'Windsurf',
+  'StandUpPaddling',
+  'Sail',
+  // Skating
+  'IceSkate',
+  'InlineSkate',
+  'Skateboard',
+  // Gym/Fitness
+  'Workout',
+  'WeightTraining',
+  'Yoga',
+  'Pilates',
+  'Crossfit',
+  'Elliptical',
+  'StairStepper',
+  'HighIntensityIntervalTraining',
+  // Racket sports
   'Tennis',
+  'Badminton',
+  'Pickleball',
+  'Racquetball',
+  'Squash',
+  'TableTennis',
+  // Other sports
+  'Soccer',
+  'Golf',
   'RockClimbing',
+  'Wheelchair',
+  // Catch-all
   'Other',
 ]);
 

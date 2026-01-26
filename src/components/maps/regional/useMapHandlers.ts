@@ -14,6 +14,7 @@ import { LocationManager } from '@maplibre/maplibre-react-native';
 const LOCATION_CACHE_MAX_AGE_MS = 30000; // 30 seconds
 import { normalizeBounds, activitySpatialIndex, mapBoundsToViewport } from '@/lib';
 import { intervalsApi } from '@/api';
+import { getRouteEngine } from '@/lib/native/routeEngine';
 import type { ActivityBoundsItem } from '@/types';
 import type { FrequentSection } from '@/types';
 import type { SelectedActivity } from './ActivityPopup';
@@ -51,7 +52,7 @@ interface UseMapHandlersOptions {
 }
 
 interface UseMapHandlersResult {
-  handleMarkerTap: (activity: ActivityBoundsItem) => Promise<void>;
+  handleMarkerTap: (activity: ActivityBoundsItem) => void;
   handleClosePopup: () => void;
   handleViewDetails: () => void;
   handleZoomToActivity: () => void;
@@ -101,25 +102,55 @@ export function useMapHandlers({
 }: UseMapHandlersOptions): UseMapHandlersResult {
   const router = useRouter();
 
-  // Handle marker tap - no auto-zoom to prevent jarring camera movements
-  const handleMarkerTap = useCallback(
-    async (activity: ActivityBoundsItem) => {
-      console.log('[handleMarkerTap] tapped activity:', activity.id);
-      // Set loading state - don't zoom, just show the popup
-      setSelected({ activity, mapData: null, isLoading: true });
+  // Ref to access current selected without adding it as callback dependency
+  // This keeps callbacks stable for React.memo optimization
+  const selectedRef = useRef(selected);
+  selectedRef.current = selected;
 
-      try {
-        // Fetch full map data (with coordinates)
-        const mapData = await intervalsApi.getActivityMap(activity.id, false);
-        console.log('[handleMarkerTap] mapData received:', {
-          hasLatlngs: !!mapData?.latlngs,
-          latlngsLength: mapData?.latlngs?.length,
-        });
-        setSelected({ activity, mapData, isLoading: false });
-      } catch (err) {
-        console.log('[handleMarkerTap] error fetching mapData:', err);
-        setSelected({ activity, mapData: null, isLoading: false });
-      }
+  // Handle marker tap - no auto-zoom to prevent jarring camera movements
+  // Uses local cached GPS data from Rust engine for instant response
+  // PERF: Show popup immediately, load route data after
+  const handleMarkerTap = useCallback(
+    (activity: ActivityBoundsItem) => {
+      // Show popup immediately with activity info (no route yet)
+      setSelected({
+        activity,
+        mapData: { bounds: activity.bounds, latlngs: null, route: null, weather: null },
+        routeCoords: undefined,
+        isLoading: true,
+      });
+
+      // Load route data after popup is shown (non-blocking)
+      requestAnimationFrame(() => {
+        const engine = getRouteEngine();
+        const localTrack = engine?.getSimplifiedGpsTrack(activity.id);
+
+        if (localTrack && localTrack.length > 0) {
+          // Convert directly to GeoJSON format [lng, lat][]
+          const routeCoords: [number, number][] = [];
+          for (const p of localTrack) {
+            if (Number.isFinite(p.latitude) && Number.isFinite(p.longitude)) {
+              routeCoords.push([p.longitude, p.latitude]);
+            }
+          }
+          setSelected({
+            activity,
+            mapData: { bounds: activity.bounds, latlngs: null, route: null, weather: null },
+            routeCoords,
+            isLoading: false,
+          });
+        } else {
+          // Fallback to API if local data not available
+          intervalsApi
+            .getActivityMap(activity.id, false)
+            .then((mapData) => {
+              setSelected({ activity, mapData, isLoading: false });
+            })
+            .catch(() => {
+              setSelected({ activity, mapData: null, isLoading: false });
+            });
+        }
+      });
     },
     [setSelected]
   );
@@ -129,19 +160,21 @@ export function useMapHandlers({
     setSelected(null);
   }, [setSelected]);
 
-  // Navigate to activity detail
+  // Navigate to activity detail - uses ref for stable callback
   const handleViewDetails = useCallback(() => {
-    if (selected) {
-      router.push(`/activity/${selected.activity.id}`);
+    const current = selectedRef.current;
+    if (current) {
+      router.push(`/activity/${current.activity.id}`);
       setSelected(null);
     }
-  }, [selected, router, setSelected]);
+  }, [router, setSelected]);
 
-  // Zoom to selected activity bounds
+  // Zoom to selected activity bounds - uses ref for stable callback
   const handleZoomToActivity = useCallback(() => {
-    if (!selected) return;
+    const current = selectedRef.current;
+    if (!current) return;
 
-    const normalized = normalizeBounds(selected.activity.bounds);
+    const normalized = normalizeBounds(current.activity.bounds);
     const ne: [number, number] = [normalized.maxLng, normalized.maxLat];
     const sw: [number, number] = [normalized.minLng, normalized.minLat];
 
@@ -151,7 +184,16 @@ export function useMapHandlers({
       [100, 60, 280, 60], // [top, right, bottom, left]
       500
     );
-  }, [selected, cameraRef]);
+
+    // Release camera from fitBounds tracking state after animation completes
+    // Without this, MapLibre may keep snapping back to the bounds
+    setTimeout(() => {
+      cameraRef.current?.setCamera({
+        animationDuration: 0,
+        animationMode: 'moveTo',
+      });
+    }, 600);
+  }, [cameraRef]);
 
   // Handle marker tap via ShapeSource press (Android only)
   const handleMarkerPress = useCallback(
@@ -419,6 +461,15 @@ export function useMapHandlers({
       [100, 60, 280, 60], // [top, right, bottom, left]
       500
     );
+
+    // Release camera from fitBounds tracking state after animation completes
+    // Without this, MapLibre keeps snapping back to the bounds on user interaction
+    setTimeout(() => {
+      cameraRef.current?.setCamera({
+        animationDuration: 0,
+        animationMode: 'moveTo',
+      });
+    }, 600);
   }, [activities, cameraRef]);
 
   return {

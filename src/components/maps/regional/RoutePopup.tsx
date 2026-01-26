@@ -7,6 +7,7 @@ import { typography } from '@/theme/typography';
 import { spacing, layout } from '@/theme/spacing';
 import { shadows } from '@/theme/shadows';
 import { getActivityTypeConfig } from '../ActivityTypeFilter';
+import { getActivityIcon } from '@/lib/utils/activityUtils';
 import { formatDuration } from '@/lib';
 import { getRouteEngine } from '@/lib/native/routeEngine';
 import type { ActivityType } from '@/types';
@@ -61,8 +62,12 @@ export function RoutePopup({ route, bottom, onClose, onViewDetails }: RoutePopup
 
       <View style={styles.popupStats}>
         <View style={styles.popupStat}>
-          <Ionicons name={config.icon} size={20} color={config.color} />
-          <Text style={styles.popupStatValue}>{route.sportType}</Text>
+          <MaterialCommunityIcons
+            name={getActivityIcon(route.type)}
+            size={20}
+            color={config.color}
+          />
+          <Text style={styles.popupStatValue}>{route.type}</Text>
         </View>
         {route.bestTime && route.bestTime > 0 && (
           <View style={styles.popupStat}>

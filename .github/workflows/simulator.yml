@@ -106,8 +106,8 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ios/build/Build/Products/${{ matrix.config }}-iphonesimulator/Veloq.app
-          # v12: Build Rust from source (submodule)
-          key: ios-app-v12-${{ matrix.config }}-${{ steps.version.outputs.source_hash }}
+          # v13: New Architecture enabled (react-native-reanimated 4.x requirement)
+          key: ios-app-v13-${{ matrix.config }}-${{ steps.version.outputs.source_hash }}
 
       # Build Rust for iOS simulator (aarch64 for Apple Silicon, x86_64 for Intel)
       - name: Setup Rust
@@ -214,9 +214,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ios
-          # v12: Build Rust from source (submodule)
-          key: ios-sim-prebuild-v12-${{ runner.os }}-${{ hashFiles('app.json', 'package.json', 'package-lock.json', 'plugins/**', 'modules/veloqrs/ios/**', 'modules/veloqrs/package.json') }}
-          restore-keys: ios-sim-prebuild-v11-${{ runner.os }}-
+          # v13: New Architecture enabled (react-native-reanimated 4.x requirement)
+          key: ios-sim-prebuild-v13-${{ runner.os }}-${{ hashFiles('app.json', 'package.json', 'package-lock.json', 'plugins/**', 'modules/veloqrs/ios/**', 'modules/veloqrs/package.json') }}
+          restore-keys: ios-sim-prebuild-v13-${{ runner.os }}-
 
       - name: Expo Prebuild
         if: steps.app-cache.outputs.cache-hit != 'true' && steps.ios-prebuild-cache.outputs.cache-hit != 'true'
@@ -229,9 +229,9 @@ jobs:
           path: |
             ios/Pods
             ~/Library/Caches/CocoaPods
-          # v10: Build Rust from source (submodule)
-          key: pods-sim-v10-${{ runner.os }}-${{ hashFiles('ios/Podfile.lock') }}
-          restore-keys: pods-sim-v9-${{ runner.os }}-
+          # v11: New Architecture enabled (react-native-reanimated 4.x requirement)
+          key: pods-sim-v11-${{ runner.os }}-${{ hashFiles('ios/Podfile.lock') }}
+          restore-keys: pods-sim-v11-${{ runner.os }}-
 
       - name: Install CocoaPods
         if: steps.app-cache.outputs.cache-hit != 'true'
@@ -365,8 +365,8 @@ jobs:
         uses: actions/cache@v4
         with:
           path: android/app/build/outputs/apk/release/app-release.apk
-          # v7: Maestro doesn't need androidTest APK
-          key: android-release-apk-v7-${{ steps.version.outputs.source_hash }}
+          # v8: New Architecture enabled (react-native-reanimated 4.x requirement)
+          key: android-release-apk-v8-${{ steps.version.outputs.source_hash }}
 
       - name: Cache Android prebuild
         if: steps.apk-cache.outputs.cache-hit != 'true'
@@ -374,8 +374,8 @@ jobs:
         uses: actions/cache@v4
         with:
           path: android
-          # v6: Removed Detox plugin
-          key: android-release-prebuild-v6-${{ runner.os }}-${{ hashFiles('app.json', 'package.json', 'modules/veloqrs/android/**', 'modules/veloqrs/package.json') }}
+          # v7: New Architecture enabled (react-native-reanimated 4.x requirement)
+          key: android-release-prebuild-v7-${{ runner.os }}-${{ hashFiles('app.json', 'package.json', 'modules/veloqrs/android/**', 'modules/veloqrs/package.json') }}
 
       - name: Expo Prebuild
         if: steps.apk-cache.outputs.cache-hit != 'true' && steps.android-prebuild-cache.outputs.cache-hit != 'true'

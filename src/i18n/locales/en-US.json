@@ -388,12 +388,16 @@
   "maps": {
     "activitiesCount": "{{count}} activities",
     "activityTypes": {
+      "gym": "Gym",
       "hike": "Hike",
       "other": "Other",
+      "racket": "Racket",
       "ride": "Ride",
       "run": "Run",
+      "snow": "Snow",
       "swim": "Swim",
-      "walk": "Walk"
+      "walk": "Walk",
+      "water": "Water"
     },
     "allClear": "All",
     "cached": "Cached",

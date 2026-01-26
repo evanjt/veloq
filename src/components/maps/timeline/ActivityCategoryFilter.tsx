@@ -1,6 +1,6 @@
 import React, { useMemo, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { colors, darkColors } from '@/theme/colors';
 import { typography } from '@/theme/typography';
@@ -109,7 +109,7 @@ export function ActivityCategoryFilter({
             ]}
             onPress={() => toggleCategory(category)}
           >
-            <Ionicons
+            <MaterialCommunityIcons
               name={config.icon}
               size={14}
               color={isSelected ? colors.surface : config.color}

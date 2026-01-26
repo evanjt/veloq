@@ -1,26 +1,73 @@
+/**
+ * Activity types supported by intervals.icu (based on Strava API types).
+ * Keep in sync with:
+ * - src/lib/validation/schemas.ts (ActivityTypeSchema)
+ * - src/types/routes.ts (VALID_ACTIVITY_TYPES)
+ * - src/lib/utils/activityUtils.ts (ACTIVITY_ICONS)
+ */
 export type ActivityType =
+  // Cycling
   | 'Ride'
+  | 'VirtualRide'
+  | 'EBikeRide'
+  | 'MountainBikeRide'
+  | 'GravelRide'
+  | 'Velomobile'
+  | 'Handcycle'
+  // Running
   | 'Run'
-  | 'Swim'
+  | 'VirtualRun'
+  | 'TrailRun'
+  | 'Treadmill'
+  // Walking/Hiking
   | 'Walk'
   | 'Hike'
-  | 'VirtualRide'
-  | 'VirtualRun'
-  | 'Workout'
-  | 'WeightTraining'
-  | 'Yoga'
-  | 'Snowboard'
+  // Swimming
+  | 'Swim'
+  | 'OpenWaterSwim'
+  // Snow sports
   | 'AlpineSki'
   | 'NordicSki'
   | 'BackcountrySki'
+  | 'Snowboard'
+  | 'Snowshoe'
+  | 'RollerSki'
+  // Water sports
   | 'Rowing'
+  | 'VirtualRow'
   | 'Kayaking'
   | 'Canoeing'
-  | 'OpenWaterSwim'
-  | 'TrailRun'
-  | 'Snowshoe'
+  | 'Surfing'
+  | 'Kitesurf'
+  | 'Windsurf'
+  | 'StandUpPaddling'
+  | 'Sail'
+  // Skating
+  | 'IceSkate'
+  | 'InlineSkate'
+  | 'Skateboard'
+  // Gym/Fitness
+  | 'Workout'
+  | 'WeightTraining'
+  | 'Yoga'
+  | 'Pilates'
+  | 'Crossfit'
+  | 'Elliptical'
+  | 'StairStepper'
+  | 'HighIntensityIntervalTraining'
+  // Racket sports
   | 'Tennis'
+  | 'Badminton'
+  | 'Pickleball'
+  | 'Racquetball'
+  | 'Squash'
+  | 'TableTennis'
+  // Other sports
+  | 'Soccer'
+  | 'Golf'
   | 'RockClimbing'
+  | 'Wheelchair'
+  // Catch-all
   | 'Other';
 
 export interface Activity {
