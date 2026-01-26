@@ -6,9 +6,19 @@
  * so no expensive on-the-fly computation is needed here.
  */
 
-import React, { useCallback, useMemo, useState } from 'react';
-import { View, StyleSheet, FlatList, Platform, TouchableOpacity } from 'react-native';
-import { useTheme, useEngineStats } from '@/hooks';
+import React, { useCallback, useMemo, useState, useRef } from 'react';
+import {
+  View,
+  StyleSheet,
+  FlatList,
+  Platform,
+  TouchableOpacity,
+  Alert,
+  Animated,
+} from 'react-native';
+import Swipeable from 'react-native-gesture-handler/Swipeable';
+import { RectButton } from 'react-native-gesture-handler';
+import { useTheme, useCacheDays } from '@/hooks';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -21,6 +31,7 @@ import { PotentialSectionCard } from './PotentialSectionCard';
 import { DataRangeFooter } from './DataRangeFooter';
 import { useCustomSections } from '@/hooks/routes/useCustomSections';
 import { useSectionDismissals } from '@/providers/SectionDismissalsStore';
+import { useDisabledSections } from '@/providers/DisabledSectionsStore';
 import { debug } from '@/lib';
 import type { UnifiedSection, FrequentSection } from '@/types';
 
@@ -43,7 +54,7 @@ export function SectionsList({ sportType }: SectionsListProps) {
   const [hiddenFilters, setHiddenFilters] = useState<HiddenFilters>({
     custom: false,
     auto: false,
-    disabled: false,
+    disabled: true, // Hidden sections are hidden by default
   });
 
   const {
@@ -60,18 +71,15 @@ export function SectionsList({ sportType }: SectionsListProps) {
     includePotentials: true,
   });
 
-  const { createSection } = useCustomSections();
+  const { createSection, removeSection } = useCustomSections();
+  const { disable, enable } = useDisabledSections();
 
-  // Get cached date range from engine stats (actual cached data, not sync request range)
-  const engineStats = useEngineStats();
-  const cacheDays = useMemo(() => {
-    const { oldestDate, newestDate } = engineStats;
-    if (!oldestDate || !newestDate) return 90; // default when no data
-    // Dates are Unix timestamps in seconds (bigint from Rust i64)
-    const oldest = Number(oldestDate);
-    const newest = Number(newestDate);
-    return Math.ceil((newest - oldest) / (60 * 60 * 24));
-  }, [engineStats]);
+  // Track open swipeable refs to close them when another opens
+  const swipeableRefs = useRef<Map<string, Swipeable | null>>(new Map());
+  const openSwipeableRef = useRef<string | null>(null);
+
+  // Get cached date range from sync store (consolidated calculation)
+  const cacheDays = useCacheDays();
 
   // Get route group summaries to compute routeIds for custom sections
   // Uses lightweight query-on-demand pattern (no memory bloat)
@@ -290,25 +298,25 @@ export function SectionsList({ sportType }: SectionsListProps) {
             <TouchableOpacity
               style={[
                 styles.countBadge,
-                styles.disabledBadge,
-                hiddenFilters.disabled && styles.countBadgeHidden,
+                hiddenFilters.disabled ? styles.showHiddenBadge : styles.disabledBadge,
               ]}
               onPress={() => handleFilterPress('disabled')}
               activeOpacity={0.7}
             >
               <MaterialCommunityIcons
-                name="eye-off"
+                name={hiddenFilters.disabled ? 'eye' : 'eye-off'}
                 size={12}
-                color={hiddenFilters.disabled ? colors.textDisabled : colors.warning}
+                color={hiddenFilters.disabled ? colors.primary : colors.warning}
               />
               <Text
                 style={[
                   styles.countText,
-                  { color: hiddenFilters.disabled ? colors.textDisabled : colors.warning },
-                  hiddenFilters.disabled && styles.countTextHidden,
+                  { color: hiddenFilters.disabled ? colors.primary : colors.warning },
                 ]}
               >
-                {disabledCount} {t('sections.disabled')}
+                {hiddenFilters.disabled
+                  ? t('routes.showHidden', { count: disabledCount })
+                  : `${disabledCount} ${t('sections.disabled')}`}
               </Text>
             </TouchableOpacity>
           )}
@@ -375,29 +383,141 @@ export function SectionsList({ sportType }: SectionsListProps) {
     [activityToRouteIds]
   );
 
+  // Close any open swipeable when another opens
+  const handleSwipeableOpen = useCallback((id: string) => {
+    if (openSwipeableRef.current && openSwipeableRef.current !== id) {
+      const previousSwipeable = swipeableRefs.current.get(openSwipeableRef.current);
+      previousSwipeable?.close();
+    }
+    openSwipeableRef.current = id;
+  }, []);
+
+  // Handle hide/show action for auto sections
+  const handleToggleHide = useCallback(
+    async (item: UnifiedSection) => {
+      const swipeable = swipeableRefs.current.get(item.id);
+      swipeable?.close();
+
+      if (item.isDisabled) {
+        await enable(item.id);
+      } else {
+        await disable(item.id);
+      }
+    },
+    [disable, enable]
+  );
+
+  // Handle delete action for custom sections
+  const handleDelete = useCallback(
+    (item: UnifiedSection) => {
+      const swipeable = swipeableRefs.current.get(item.id);
+      swipeable?.close();
+
+      Alert.alert(t('sections.deleteSection'), t('sections.deleteSectionConfirm'), [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('common.delete'),
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await removeSection(item.id);
+            } catch (error) {
+              log.error('Failed to delete section:', error);
+            }
+          },
+        },
+      ]);
+    },
+    [removeSection, t]
+  );
+
+  // Render swipe actions (right side)
+  const renderRightActions = useCallback(
+    (
+      item: UnifiedSection,
+      _progress: Animated.AnimatedInterpolation<number>,
+      dragX: Animated.AnimatedInterpolation<number>
+    ) => {
+      const isCustom = item.source === 'custom';
+      const isDisabled = item.isDisabled;
+
+      // Animate opacity based on drag distance
+      const opacity = dragX.interpolate({
+        inputRange: [-80, -40, 0],
+        outputRange: [1, 0.8, 0],
+        extrapolate: 'clamp',
+      });
+
+      if (isCustom) {
+        // Delete action for custom sections
+        return (
+          <Animated.View style={[styles.swipeAction, styles.deleteAction, { opacity }]}>
+            <RectButton style={styles.swipeActionButton} onPress={() => handleDelete(item)}>
+              <MaterialCommunityIcons name="delete" size={24} color={colors.textOnDark} />
+              <Text style={styles.swipeActionText}>{t('common.delete')}</Text>
+            </RectButton>
+          </Animated.View>
+        );
+      }
+
+      // Hide/Show action for auto sections
+      return (
+        <Animated.View
+          style={[
+            styles.swipeAction,
+            isDisabled ? styles.showAction : styles.hideAction,
+            { opacity },
+          ]}
+        >
+          <RectButton style={styles.swipeActionButton} onPress={() => handleToggleHide(item)}>
+            <MaterialCommunityIcons
+              name={isDisabled ? 'eye' : 'eye-off'}
+              size={24}
+              color={colors.textOnDark}
+            />
+            <Text style={styles.swipeActionText}>
+              {isDisabled ? t('common.show') : t('common.hide')}
+            </Text>
+          </RectButton>
+        </Animated.View>
+      );
+    },
+    [handleDelete, handleToggleHide, t]
+  );
+
   const renderItem = useCallback(
     ({ item }: { item: UnifiedSection }) => {
       const frequentSection = toFrequentSection(item);
       return (
-        <View style={item.isDisabled ? styles.disabledSection : undefined}>
-          <SectionRow section={frequentSection} onPress={() => handleSectionPress(item)} />
-          {/* Show source badge for custom sections */}
-          {item.source === 'custom' && (
-            <View style={styles.sourceBadge}>
-              <Text style={styles.sourceBadgeText}>{t('routes.custom')}</Text>
-            </View>
-          )}
-          {/* Show disabled badge */}
-          {item.isDisabled && (
-            <View style={styles.disabledIndicator}>
-              <MaterialCommunityIcons name="eye-off" size={12} color={colors.warning} />
-              <Text style={styles.disabledIndicatorText}>{t('sections.disabled')}</Text>
-            </View>
-          )}
-        </View>
+        <Swipeable
+          ref={(ref) => {
+            swipeableRefs.current.set(item.id, ref);
+          }}
+          renderRightActions={(progress, dragX) => renderRightActions(item, progress, dragX)}
+          onSwipeableOpen={() => handleSwipeableOpen(item.id)}
+          overshootRight={false}
+          friction={2}
+        >
+          <View style={[styles.swipeableContent, item.isDisabled && styles.disabledSection]}>
+            <SectionRow section={frequentSection} onPress={() => handleSectionPress(item)} />
+            {/* Show source badge for custom sections */}
+            {item.source === 'custom' && (
+              <View style={styles.sourceBadge}>
+                <Text style={styles.sourceBadgeText}>{t('routes.custom')}</Text>
+              </View>
+            )}
+            {/* Show disabled badge */}
+            {item.isDisabled && (
+              <View style={styles.disabledIndicator}>
+                <MaterialCommunityIcons name="eye-off" size={12} color={colors.warning} />
+                <Text style={styles.disabledIndicatorText}>{t('sections.disabled')}</Text>
+              </View>
+            )}
+          </View>
+        </Swipeable>
       );
     },
-    [handleSectionPress, toFrequentSection, t]
+    [handleSectionPress, handleSwipeableOpen, renderRightActions, toFrequentSection, t]
   );
 
   const renderFooter = () => {
@@ -507,6 +627,9 @@ const styles = StyleSheet.create({
   disabledBadge: {
     backgroundColor: colors.warning + '20',
   },
+  showHiddenBadge: {
+    backgroundColor: colors.primary + '20',
+  },
   countBadgeHidden: {
     backgroundColor: colors.gray200,
     opacity: 0.7,
@@ -561,5 +684,34 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '600',
     color: colors.warning,
+  },
+  swipeableContent: {
+    backgroundColor: colors.surface,
+  },
+  swipeAction: {
+    width: 80,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  swipeActionButton: {
+    flex: 1,
+    width: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  swipeActionText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.textOnDark,
+  },
+  deleteAction: {
+    backgroundColor: colors.error,
+  },
+  hideAction: {
+    backgroundColor: colors.warning,
+  },
+  showAction: {
+    backgroundColor: colors.success,
   },
 });

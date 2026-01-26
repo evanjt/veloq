@@ -60,6 +60,10 @@ interface UseSectionPerformancesResult {
   error: string | null;
   /** Best overall record (fastest time) */
   bestRecord: ActivitySectionRecord | null;
+  /** Best record in forward/same direction */
+  bestForwardRecord: ActivitySectionRecord | null;
+  /** Best record in reverse direction */
+  bestReverseRecord: ActivitySectionRecord | null;
   /** Refetch all streams */
   refetch: () => void;
 }
@@ -176,9 +180,9 @@ export function useSectionPerformances(
 
   // Get performance records from Rust engine
   // Rust auto-loads time streams from SQLite if not in memory
-  const { records, bestRecord } = useMemo(() => {
+  const { records, bestRecord, bestForwardRecord, bestReverseRecord } = useMemo(() => {
     if (!section || !activities || !fetchComplete) {
-      return { records: [], bestRecord: null };
+      return { records: [], bestRecord: null, bestForwardRecord: null, bestReverseRecord: null };
     }
 
     try {
@@ -186,7 +190,7 @@ export function useSectionPerformances(
       // Rust auto-loads time streams from SQLite for any missing from memory
       const resultJson = routeEngine.getSectionPerformances(section.id);
       if (!resultJson) {
-        return { records: [], bestRecord: null };
+        return { records: [], bestRecord: null, bestForwardRecord: null, bestReverseRecord: null };
       }
 
       // Parse the JSON response
@@ -213,7 +217,12 @@ export function useSectionPerformances(
           };
         });
 
-        return { records: recordList, bestRecord: recordList[0] || null };
+        return {
+          records: recordList,
+          bestRecord: recordList[0] || null,
+          bestForwardRecord: null,
+          bestReverseRecord: null,
+        };
       }
 
       // Convert to ActivitySectionRecord format (add Date objects)
@@ -263,46 +272,69 @@ export function useSectionPerformances(
         })
       );
 
-      const best: ActivitySectionRecord | null = result.bestRecord
-        ? {
-            activityId: result.bestRecord.activityId,
-            activityName: result.bestRecord.activityName,
-            activityDate: new Date(result.bestRecord.activityDate * 1000),
-            laps: (result.bestRecord.laps || []).map(
-              (l: {
-                id: string;
-                activityId: string;
-                time: number;
-                pace: number;
-                distance: number;
-                direction: string;
-                startIndex: number;
-                endIndex: number;
-              }) => ({
-                id: l.id,
-                activityId: l.activityId,
-                time: l.time,
-                pace: l.pace,
-                distance: l.distance,
-                direction: l.direction as 'same' | 'reverse',
-                startIndex: l.startIndex,
-                endIndex: l.endIndex,
-              })
-            ),
-            lapCount: result.bestRecord.lapCount,
-            bestTime: result.bestRecord.bestTime,
-            bestPace: result.bestRecord.bestPace,
-            avgTime: result.bestRecord.avgTime,
-            avgPace: result.bestRecord.avgPace,
-            direction: result.bestRecord.direction as 'same' | 'reverse',
-            sectionDistance: result.bestRecord.sectionDistance,
-          }
-        : null;
+      // Helper to parse a best record from JSON
+      const parseBestRecord = (
+        record: {
+          activityId: string;
+          activityName: string;
+          activityDate: number;
+          laps: Array<{
+            id: string;
+            activityId: string;
+            time: number;
+            pace: number;
+            distance: number;
+            direction: string;
+            startIndex: number;
+            endIndex: number;
+          }>;
+          lapCount: number;
+          bestTime: number;
+          bestPace: number;
+          avgTime: number;
+          avgPace: number;
+          direction: string;
+          sectionDistance: number;
+        } | null
+      ): ActivitySectionRecord | null => {
+        if (!record) return null;
+        return {
+          activityId: record.activityId,
+          activityName: record.activityName,
+          activityDate: new Date(record.activityDate * 1000),
+          laps: (record.laps || []).map((l) => ({
+            id: l.id,
+            activityId: l.activityId,
+            time: l.time,
+            pace: l.pace,
+            distance: l.distance,
+            direction: l.direction as 'same' | 'reverse',
+            startIndex: l.startIndex,
+            endIndex: l.endIndex,
+          })),
+          lapCount: record.lapCount,
+          bestTime: record.bestTime,
+          bestPace: record.bestPace,
+          avgTime: record.avgTime,
+          avgPace: record.avgPace,
+          direction: record.direction as 'same' | 'reverse',
+          sectionDistance: record.sectionDistance,
+        };
+      };
 
-      return { records: recordList, bestRecord: best };
+      const best = parseBestRecord(result.bestRecord);
+      const bestForward = parseBestRecord(result.bestForwardRecord);
+      const bestReverse = parseBestRecord(result.bestReverseRecord);
+
+      return {
+        records: recordList,
+        bestRecord: best,
+        bestForwardRecord: bestForward,
+        bestReverseRecord: bestReverse,
+      };
     } catch {
       // Engine may not have data yet - return empty
-      return { records: [], bestRecord: null };
+      return { records: [], bestRecord: null, bestForwardRecord: null, bestReverseRecord: null };
     }
   }, [section, fetchComplete, activities]);
 
@@ -316,6 +348,8 @@ export function useSectionPerformances(
     isFetchingFromApi: isLoading,
     error,
     bestRecord,
+    bestForwardRecord,
+    bestReverseRecord,
     refetch,
   };
 }

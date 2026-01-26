@@ -1,6 +1,6 @@
 /**
  * Control button stack for RegionalMapView.
- * Contains 3D toggle, compass, location, heatmap, and sections controls.
+ * Contains 3D toggle, compass, location, and layer controls.
  */
 
 import React from 'react';
@@ -11,7 +11,6 @@ import { colors, darkColors } from '@/theme/colors';
 import { spacing } from '@/theme/spacing';
 import { shadows } from '@/theme/shadows';
 import { CompassArrow } from '@/components/ui';
-import type { HeatmapResult } from '@/hooks/useHeatmap';
 import type { FrequentSection } from '@/types';
 
 interface MapControlStackProps {
@@ -23,18 +22,18 @@ interface MapControlStackProps {
   is3DMode: boolean;
   /** Whether 3D can be enabled (has route data) */
   can3D: boolean;
-  /** Whether heatmap mode is enabled */
-  isHeatmapMode: boolean;
   /** Whether activities are visible */
   showActivities: boolean;
   /** Whether sections are visible */
   showSections: boolean;
   /** Whether routes are visible */
   showRoutes: boolean;
+  /** Whether heatmap mode is enabled */
+  isHeatmapMode: boolean;
+  /** Whether heatmap tiles exist */
+  heatmapReady: boolean;
   /** Whether user location is active */
   userLocationActive: boolean;
-  /** Heatmap data (for showing heatmap toggle) */
-  heatmap: HeatmapResult | null;
   /** Sections data (for showing sections toggle) */
   sections: FrequentSection[];
   /** Number of routes (for showing routes toggle) */
@@ -49,14 +48,14 @@ interface MapControlStackProps {
   onResetOrientation: () => void;
   /** Callback to get user location */
   onGetLocation: () => void;
-  /** Callback to toggle heatmap */
-  onToggleHeatmap: () => void;
   /** Callback to toggle activities */
   onToggleActivities: () => void;
   /** Callback to toggle sections */
   onToggleSections: () => void;
   /** Callback to toggle routes */
   onToggleRoutes: () => void;
+  /** Callback to toggle heatmap */
+  onToggleHeatmap: () => void;
   /** Callback to fit all activities in view */
   onFitAll: () => void;
 }
@@ -66,12 +65,12 @@ export function MapControlStack({
   isDark,
   is3DMode,
   can3D,
-  isHeatmapMode,
   showActivities,
   showSections,
   showRoutes,
+  isHeatmapMode,
+  heatmapReady,
   userLocationActive,
-  heatmap,
   sections,
   routeCount,
   activityCount,
@@ -79,10 +78,10 @@ export function MapControlStack({
   onToggle3D,
   onResetOrientation,
   onGetLocation,
-  onToggleHeatmap,
   onToggleActivities,
   onToggleSections,
   onToggleRoutes,
+  onToggleHeatmap,
   onFitAll,
 }: MapControlStackProps) {
   const { t } = useTranslation();
@@ -122,6 +121,34 @@ export function MapControlStack({
           }
         />
       </TouchableOpacity>
+
+      {/* Heatmap Toggle - shows activity trace heatmap */}
+      {activityCount > 0 && (
+        <TouchableOpacity
+          testID="map-toggle-heatmap"
+          style={[
+            styles.controlButton,
+            isDark && styles.controlButtonDark,
+            isHeatmapMode && styles.controlButtonActive,
+          ]}
+          onPress={onToggleHeatmap}
+          activeOpacity={0.8}
+          accessibilityLabel={
+            isHeatmapMode
+              ? t('maps.hideHeatmap', 'Hide heatmap')
+              : t('maps.showHeatmap', 'Show heatmap')
+          }
+          accessibilityRole="button"
+        >
+          <MaterialCommunityIcons
+            name={heatmapReady ? 'fire' : 'fire-off'}
+            size={22}
+            color={
+              isHeatmapMode ? colors.textOnDark : isDark ? colors.textOnDark : colors.textSecondary
+            }
+          />
+        </TouchableOpacity>
+      )}
 
       {/* North Arrow - tap to reset orientation */}
       <TouchableOpacity
@@ -195,32 +222,8 @@ export function MapControlStack({
         )}
       </View>
 
-      {/* Heatmap toggle - only shown when heatmap data is available */}
-      {heatmap && heatmap.cells.length > 0 && (
-        <TouchableOpacity
-          testID="map-toggle-heatmap"
-          style={[
-            styles.controlButton,
-            isDark && styles.controlButtonDark,
-            isHeatmapMode && styles.controlButtonActive,
-          ]}
-          onPress={onToggleHeatmap}
-          activeOpacity={0.8}
-          accessibilityLabel={isHeatmapMode ? 'Show activities' : 'Show heatmap'}
-          accessibilityRole="button"
-        >
-          <MaterialCommunityIcons
-            name="fire"
-            size={22}
-            color={
-              isHeatmapMode ? colors.textOnDark : isDark ? colors.textOnDark : colors.textSecondary
-            }
-          />
-        </TouchableOpacity>
-      )}
-
       {/* Combined layer toggles (activities/sections/routes) - stacked when multiple exist */}
-      {!isHeatmapMode && (activityCount > 0 || sections.length > 0 || routeCount > 0) && (
+      {(activityCount > 0 || sections.length > 0 || routeCount > 0) && (
         <View style={[styles.layerToggleContainer, isDark && styles.layerToggleContainerDark]}>
           {/* Activities toggle */}
           {activityCount > 0 && (

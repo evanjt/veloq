@@ -23,7 +23,7 @@ import {
   useRoutePerformances,
   useTheme,
   useMetricSystem,
-  useEngineStats,
+  useCacheDays,
 } from '@/hooks';
 import { useGroupDetail } from '@/hooks/routes/useRouteEngine';
 import { getAllRouteDisplayNames } from '@/hooks/routes/useRouteGroups';
@@ -236,16 +236,8 @@ export default function RouteDetailScreen() {
   const shared = createSharedStyles(isDark);
   const insets = useSafeAreaInsets();
 
-  // Get cached date range from engine stats (actual cached data, not sync request range)
-  const engineStats = useEngineStats();
-  const cacheDays = useMemo(() => {
-    const { oldestDate, newestDate } = engineStats;
-    if (!oldestDate || !newestDate) return 90; // default when no data
-    // Dates are Unix timestamps in seconds (bigint from Rust i64)
-    const oldest = Number(oldestDate);
-    const newest = Number(newestDate);
-    return Math.ceil((newest - oldest) / (60 * 60 * 24));
-  }, [engineStats]);
+  // Get cached date range from sync store (consolidated calculation)
+  const cacheDays = useCacheDays();
 
   // State for highlighted activity
   const [highlightedActivityId, setHighlightedActivityId] = useState<string | null>(null);
@@ -304,6 +296,8 @@ export default function RouteDetailScreen() {
   const {
     performances,
     best: bestPerformance,
+    bestForwardRecord,
+    bestReverseRecord,
     currentRank,
   } = useRoutePerformances(id, engineGroup?.groupId, allActivities);
 
@@ -722,6 +716,8 @@ export default function RouteDetailScreen() {
                 onActivitySelect={handleActivitySelect}
                 summaryStats={summaryStats}
                 selectedActivityId={highlightedActivityId}
+                bestForwardRecord={bestForwardRecord}
+                bestReverseRecord={bestReverseRecord}
               />
             </View>
           )}

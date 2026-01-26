@@ -213,7 +213,12 @@
     "retry": "Reintentar",
     "save": "Guardar",
     "search": "Buscar",
-    "syncing": "Sincronizando..."
+    "syncing": "Sincronizando...",
+    "creating": "Creating...",
+    "hide": "Hide",
+    "hideDetails": "Hide details",
+    "show": "Show",
+    "showDetails": "Show details for developer"
   },
   "demo": {
     "banner": "Modo Demo",
@@ -407,7 +412,11 @@
       "ride": "Bicicleta",
       "run": "Carrera",
       "swim": "Natación",
-      "walk": "Caminata"
+      "walk": "Caminata",
+      "gym": "Gym",
+      "racket": "Racket",
+      "snow": "Snow",
+      "water": "Water"
     },
     "allClear": "Todos",
     "cached": "En caché",
@@ -438,7 +447,9 @@
     "tapSelectStart": "Toca para seleccionar punto de inicio",
     "toggleStyle": "Cambiar estilo del mapa",
     "viewDetails": "Ver detalles",
-    "zoomToActivity": "Zoom a la actividad"
+    "zoomToActivity": "Zoom a la actividad",
+    "hideHeatmap": "Hide heatmap",
+    "showHeatmap": "Show heatmap"
   },
   "metrics": {
     "activityCount": "Actividades",
@@ -556,7 +567,11 @@
     "thisPace": "Este ritmo",
     "thisSpeed": "Esta velocidad",
     "visits": "visitas",
-    "waiting": "Esperando..."
+    "waiting": "Esperando...",
+    "showHidden": "Show {{count}} hidden",
+    "gpsTrackNotSynced": "GPS data not available. Please wait for sync to complete and try again.",
+    "invalidSectionRange": "Invalid selection range. Please try selecting a different portion.",
+    "shareDetailsWithDeveloper": "Copy details and share with developer if reporting issue"
   },
   "routesScreen": {
     "analysingRoutes": "Analizando rutas {{current}}/{{total}}",
@@ -685,7 +700,10 @@
     "unitsMetric": "Métrico",
     "unitsMetricHint": "Distancias en kilómetros, elevación en metros, temperatura en Celsius",
     "version": "Versión",
-    "viewRoutes": "Ver rutas"
+    "viewRoutes": "Ver rutas",
+    "heatmapTiles": "Heatmap Tiles",
+    "tiles": "tiles",
+    "notGenerated": "Not generated"
   },
   "stats": {
     "activities": "Actividades",

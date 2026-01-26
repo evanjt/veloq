@@ -213,7 +213,12 @@
     "retry": "Erneut versuchen",
     "save": "Speichern",
     "search": "Suchen",
-    "syncing": "Synchronisiere..."
+    "syncing": "Synchronisiere...",
+    "creating": "Creating...",
+    "hide": "Hide",
+    "hideDetails": "Hide details",
+    "show": "Show",
+    "showDetails": "Show details for developer"
   },
   "demo": {
     "banner": "Demo-Modus",
@@ -407,7 +412,11 @@
       "ride": "Radfahrt",
       "run": "Lauf",
       "swim": "Schwimmen",
-      "walk": "Gehen"
+      "walk": "Gehen",
+      "gym": "Gym",
+      "racket": "Racket",
+      "snow": "Snow",
+      "water": "Water"
     },
     "allClear": "Alle",
     "cached": "Zwischengespeichert",
@@ -438,7 +447,9 @@
     "tapSelectStart": "Tippen, um Startpunkt zu wählen",
     "toggleStyle": "Kartenstil wechseln",
     "viewDetails": "Details anzeigen",
-    "zoomToActivity": "Auf Aktivität zoomen"
+    "zoomToActivity": "Auf Aktivität zoomen",
+    "hideHeatmap": "Hide heatmap",
+    "showHeatmap": "Show heatmap"
   },
   "metrics": {
     "activityCount": "Aktivitäten",
@@ -556,7 +567,11 @@
     "thisPace": "Dieses Tempo",
     "thisSpeed": "Diese Geschwindigkeit",
     "visits": "Besuche",
-    "waiting": "Warte..."
+    "waiting": "Warte...",
+    "showHidden": "Show {{count}} hidden",
+    "gpsTrackNotSynced": "GPS data not available. Please wait for sync to complete and try again.",
+    "invalidSectionRange": "Invalid selection range. Please try selecting a different portion.",
+    "shareDetailsWithDeveloper": "Copy details and share with developer if reporting issue"
   },
   "routesScreen": {
     "analysingRoutes": "Analysiere Routen {{current}}/{{total}}",
@@ -685,7 +700,10 @@
     "unitsMetric": "Metrisch",
     "unitsMetricHint": "Entfernungen in Kilometern, Höhe in Metern, Temperatur in Celsius",
     "version": "Version",
-    "viewRoutes": "Routen anzeigen"
+    "viewRoutes": "Routen anzeigen",
+    "heatmapTiles": "Heatmap Tiles",
+    "tiles": "tiles",
+    "notGenerated": "Not generated"
   },
   "stats": {
     "activities": "Aktivitäten",

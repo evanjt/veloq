@@ -282,8 +282,10 @@ export const SectionMapView = memo(function SectionMapView({
       pitchEnabled={false}
     >
       <Camera
-        bounds={{ ne: bounds.ne, sw: bounds.sw }}
-        padding={{ paddingTop: 40, paddingRight: 40, paddingBottom: 40, paddingLeft: 40 }}
+        defaultSettings={{
+          bounds: { ne: bounds.ne, sw: bounds.sw },
+          padding: { paddingTop: 40, paddingRight: 40, paddingBottom: 40, paddingLeft: 40 },
+        }}
       />
 
       {/* Shadow track (full activity route) */}

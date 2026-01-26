@@ -33,11 +33,15 @@ export function RoutePerformanceSection({
   // Need a long time range to capture all activities in the route group
   const { data: activities = [] } = useActivities({ days: 365 * 3 });
 
-  const { routeGroup, performances, isLoading, best, currentRank } = useRoutePerformances(
-    activityId,
-    undefined,
-    activities
-  );
+  const {
+    routeGroup,
+    performances,
+    isLoading,
+    best,
+    bestForwardRecord,
+    bestReverseRecord,
+    currentRank,
+  } = useRoutePerformances(activityId, undefined, activities);
 
   const activityColor = getActivityColor(activityType);
 
@@ -204,6 +208,8 @@ export function RoutePerformanceSection({
           currentIndex={currentIndex}
           variant="activity"
           embedded
+          bestForwardRecord={bestForwardRecord}
+          bestReverseRecord={bestReverseRecord}
         />
       ) : (
         <View style={styles.firstRunHint}>

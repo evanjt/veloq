@@ -213,7 +213,12 @@
     "retry": "Tentar novamente",
     "save": "Salvar",
     "search": "Buscar",
-    "syncing": "Sincronizando..."
+    "syncing": "Sincronizando...",
+    "creating": "Creating...",
+    "hide": "Hide",
+    "hideDetails": "Hide details",
+    "show": "Show",
+    "showDetails": "Show details for developer"
   },
   "demo": {
     "banner": "Modo Demo",
@@ -407,7 +412,11 @@
       "ride": "Bicicleta",
       "run": "Corrida",
       "swim": "Natacao",
-      "walk": "Caminhada"
+      "walk": "Caminhada",
+      "gym": "Gym",
+      "racket": "Racket",
+      "snow": "Snow",
+      "water": "Water"
     },
     "allClear": "Todos",
     "cached": "Em cache",
@@ -438,7 +447,9 @@
     "tapSelectStart": "Toque para selecionar o ponto inicial",
     "toggleStyle": "Alternar estilo do mapa",
     "viewDetails": "Ver detalhes",
-    "zoomToActivity": "Zoom na atividade"
+    "zoomToActivity": "Zoom na atividade",
+    "hideHeatmap": "Hide heatmap",
+    "showHeatmap": "Show heatmap"
   },
   "metrics": {
     "activityCount": "Atividades",
@@ -556,7 +567,11 @@
     "thisPace": "Este ritmo",
     "thisSpeed": "Esta velocidade",
     "visits": "visitas",
-    "waiting": "Aguardando..."
+    "waiting": "Aguardando...",
+    "showHidden": "Show {{count}} hidden",
+    "gpsTrackNotSynced": "GPS data not available. Please wait for sync to complete and try again.",
+    "invalidSectionRange": "Invalid selection range. Please try selecting a different portion.",
+    "shareDetailsWithDeveloper": "Copy details and share with developer if reporting issue"
   },
   "routesScreen": {
     "analysingRoutes": "Analisando rotas {{current}}/{{total}}",
@@ -685,7 +700,10 @@
     "unitsMetric": "Métrico",
     "unitsMetricHint": "Distâncias em quilômetros, elevação em metros, temperatura em Celsius",
     "version": "Versao",
-    "viewRoutes": "Ver rotas"
+    "viewRoutes": "Ver rotas",
+    "heatmapTiles": "Heatmap Tiles",
+    "tiles": "tiles",
+    "notGenerated": "Not generated"
   },
   "stats": {
     "activities": "Atividades",

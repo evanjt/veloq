@@ -454,189 +454,83 @@ impl From<tracematch::MultiScaleSectionResult> for FfiMultiScaleSectionResult {
 }
 
 // ============================================================================
-// Heatmap Types
+// Tile Generation Types
 // ============================================================================
 
-/// Heatmap bounds for FFI
+/// Configuration for tile generation
 #[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
 #[serde(rename_all = "camelCase")]
-pub struct FfiHeatmapBounds {
-    pub min_lat: f64,
-    pub max_lat: f64,
-    pub min_lng: f64,
-    pub max_lng: f64,
+pub struct FfiTileConfig {
+    /// Line color RGBA (0-255 each)
+    pub line_color_r: u8,
+    pub line_color_g: u8,
+    pub line_color_b: u8,
+    pub line_color_a: u8,
+    /// Line width in pixels
+    pub line_width: f32,
+    /// Minimum zoom level
+    pub min_zoom: u8,
+    /// Maximum zoom level
+    pub max_zoom: u8,
 }
 
-impl From<tracematch::HeatmapBounds> for FfiHeatmapBounds {
-    fn from(b: tracematch::HeatmapBounds) -> Self {
-        Self {
-            min_lat: b.min_lat,
-            max_lat: b.max_lat,
-            min_lng: b.min_lng,
-            max_lng: b.max_lng,
-        }
-    }
-}
-
-impl From<FfiHeatmapBounds> for tracematch::HeatmapBounds {
-    fn from(b: FfiHeatmapBounds) -> Self {
-        Self {
-            min_lat: b.min_lat,
-            max_lat: b.max_lat,
-            min_lng: b.min_lng,
-            max_lng: b.max_lng,
-        }
-    }
-}
-
-/// Heatmap config for FFI
-#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
-#[serde(rename_all = "camelCase")]
-pub struct FfiHeatmapConfig {
-    pub cell_size_meters: f64,
-    pub bounds: Option<FfiHeatmapBounds>,
-}
-
-impl From<FfiHeatmapConfig> for tracematch::HeatmapConfig {
-    fn from(c: FfiHeatmapConfig) -> Self {
-        Self {
-            cell_size_meters: c.cell_size_meters,
-            bounds: c.bounds.map(tracematch::HeatmapBounds::from),
-        }
-    }
-}
-
-impl Default for FfiHeatmapConfig {
+impl Default for FfiTileConfig {
     fn default() -> Self {
-        let c = tracematch::HeatmapConfig::default();
+        let config = crate::tiles::TileConfig::default();
         Self {
-            cell_size_meters: c.cell_size_meters,
-            bounds: c.bounds.map(FfiHeatmapBounds::from),
+            line_color_r: config.line_color[0],
+            line_color_g: config.line_color[1],
+            line_color_b: config.line_color[2],
+            line_color_a: config.line_color[3],
+            line_width: config.line_width,
+            min_zoom: config.min_zoom,
+            max_zoom: config.max_zoom,
         }
     }
 }
 
-/// Route reference for FFI
-#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
-#[serde(rename_all = "camelCase")]
-pub struct FfiRouteRef {
-    pub route_id: String,
-    pub activity_count: u32,
-    pub name: Option<String>,
-}
-
-impl From<tracematch::RouteRef> for FfiRouteRef {
-    fn from(r: tracematch::RouteRef) -> Self {
+impl From<FfiTileConfig> for crate::tiles::TileConfig {
+    fn from(c: FfiTileConfig) -> Self {
         Self {
-            route_id: r.route_id,
-            activity_count: r.activity_count,
-            name: r.name,
+            line_color: [c.line_color_r, c.line_color_g, c.line_color_b, c.line_color_a],
+            line_width: c.line_width,
+            background_color: [0, 0, 0, 0],
+            min_zoom: c.min_zoom,
+            max_zoom: c.max_zoom,
         }
     }
 }
 
-/// Heatmap cell for FFI
-#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
-#[serde(rename_all = "camelCase")]
-pub struct FfiHeatmapCell {
-    pub row: i32,
-    pub col: i32,
-    pub center_lat: f64,
-    pub center_lng: f64,
-    pub density: f32,
-    pub visit_count: u32,
-    pub route_refs: Vec<FfiRouteRef>,
-    pub unique_route_count: u32,
-    pub activity_ids: Vec<String>,
-    pub first_visit: Option<i64>,
-    pub last_visit: Option<i64>,
-    pub is_common_path: bool,
+/// Result of tile generation
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiTileResult {
+    /// PNG data as bytes
+    pub png_data: Vec<u8>,
+    /// Tile zoom level
+    pub z: u8,
+    /// Tile X coordinate
+    pub x: u32,
+    /// Tile Y coordinate
+    pub y: u32,
 }
 
-impl From<tracematch::HeatmapCell> for FfiHeatmapCell {
-    fn from(c: tracematch::HeatmapCell) -> Self {
+impl From<crate::tiles::TileResult> for FfiTileResult {
+    fn from(t: crate::tiles::TileResult) -> Self {
         Self {
-            row: c.row,
-            col: c.col,
-            center_lat: c.center_lat,
-            center_lng: c.center_lng,
-            density: c.density,
-            visit_count: c.visit_count,
-            route_refs: c.route_refs.into_iter().map(FfiRouteRef::from).collect(),
-            unique_route_count: c.unique_route_count,
-            activity_ids: c.activity_ids,
-            first_visit: c.first_visit,
-            last_visit: c.last_visit,
-            is_common_path: c.is_common_path,
+            png_data: t.png_data,
+            z: t.z,
+            x: t.x,
+            y: t.y,
         }
     }
 }
 
-/// Heatmap result for FFI
-#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
-#[serde(rename_all = "camelCase")]
-pub struct FfiHeatmapResult {
-    pub cells: Vec<FfiHeatmapCell>,
-    pub bounds: FfiHeatmapBounds,
-    pub cell_size_meters: f64,
-    pub grid_rows: u32,
-    pub grid_cols: u32,
-    pub max_density: f32,
-    pub total_routes: u32,
-    pub total_activities: u32,
-}
-
-impl From<tracematch::HeatmapResult> for FfiHeatmapResult {
-    fn from(r: tracematch::HeatmapResult) -> Self {
-        Self {
-            cells: r.cells.into_iter().map(FfiHeatmapCell::from).collect(),
-            bounds: FfiHeatmapBounds::from(r.bounds),
-            cell_size_meters: r.cell_size_meters,
-            grid_rows: r.grid_rows,
-            grid_cols: r.grid_cols,
-            max_density: r.max_density,
-            total_routes: r.total_routes,
-            total_activities: r.total_activities,
-        }
-    }
-}
-
-/// Activity heatmap data for FFI
-#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
-#[serde(rename_all = "camelCase")]
-pub struct FfiActivityHeatmapData {
-    pub activity_id: String,
-    pub route_id: Option<String>,
-    pub route_name: Option<String>,
-    pub timestamp: Option<i64>,
-}
-
-impl From<FfiActivityHeatmapData> for tracematch::ActivityHeatmapData {
-    fn from(d: FfiActivityHeatmapData) -> Self {
-        Self {
-            activity_id: d.activity_id,
-            route_id: d.route_id,
-            route_name: d.route_name,
-            timestamp: d.timestamp,
-        }
-    }
-}
-
-/// Cell query result for FFI
-#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
-#[serde(rename_all = "camelCase")]
-pub struct FfiCellQueryResult {
-    pub cell: FfiHeatmapCell,
-    pub suggested_label: String,
-}
-
-impl From<tracematch::CellQueryResult> for FfiCellQueryResult {
-    fn from(r: tracematch::CellQueryResult) -> Self {
-        Self {
-            cell: FfiHeatmapCell::from(r.cell),
-            suggested_label: r.suggested_label,
-        }
-    }
+/// Tile coordinate for batch operations
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiTileCoord {
+    pub z: u8,
+    pub x: u32,
+    pub y: u32,
 }
 
 // ============================================================================

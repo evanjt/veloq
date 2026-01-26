@@ -18,19 +18,16 @@ import { getRouteEngine } from '@/lib/native/routeEngine';
 import type { ActivityBoundsItem } from '@/types';
 import type { FrequentSection } from '@/types';
 import type { SelectedActivity } from './ActivityPopup';
-import type { CellQueryResult, HeatmapResult } from '@/hooks/useHeatmap';
 import type { Map3DWebViewRef } from '../Map3DWebView';
 
 interface UseMapHandlersOptions {
   activities: ActivityBoundsItem[];
   sections: FrequentSection[];
-  heatmap: HeatmapResult | null;
-  queryCell: (lat: number, lng: number) => CellQueryResult | null;
   selected: SelectedActivity | null;
   setSelected: (value: SelectedActivity | null) => void;
   isHeatmapMode: boolean;
   setIsHeatmapMode: (value: boolean | ((prev: boolean) => boolean)) => void;
-  setSelectedCell: (value: CellQueryResult | null) => void;
+  heatmapReady?: boolean;
   setSelectedSection: (value: FrequentSection | null) => void;
   showActivities: boolean;
   setShowActivities: (value: boolean | ((prev: boolean) => boolean)) => void;
@@ -59,7 +56,6 @@ interface UseMapHandlersResult {
   handleMarkerPress: (event: OnPressEvent) => void;
   handleMapPress: () => void;
   handleSectionPress: (event: OnPressEvent) => void;
-  handleHeatmapCellPress: (row: number, col: number) => void;
   handleRegionIsChanging: (feature: GeoJSON.Feature) => void;
   handleRegionDidChange: (feature: GeoJSON.Feature) => void;
   handleGetLocation: () => Promise<void>;
@@ -74,13 +70,11 @@ interface UseMapHandlersResult {
 export function useMapHandlers({
   activities,
   sections,
-  heatmap,
-  queryCell,
   selected,
   setSelected,
   isHeatmapMode,
   setIsHeatmapMode,
-  setSelectedCell,
+  heatmapReady = false,
   setSelectedSection,
   showActivities,
   setShowActivities,
@@ -123,7 +117,7 @@ export function useMapHandlers({
       // Load route data after popup is shown (non-blocking)
       requestAnimationFrame(() => {
         const engine = getRouteEngine();
-        const localTrack = engine?.getSimplifiedGpsTrack(activity.id);
+        const localTrack = engine?.getGpsTrack(activity.id);
 
         if (localTrack && localTrack.length > 0) {
           // Convert directly to GeoJSON format [lng, lat][]
@@ -235,19 +229,6 @@ export function useMapHandlers({
       }
     },
     [sections, setSelectedSection]
-  );
-
-  // Handle heatmap cell press
-  const handleHeatmapCellPress = useCallback(
-    (row: number, col: number) => {
-      if (!heatmap) return;
-      const cell = heatmap.cells.find((c) => c.row === row && c.col === col);
-      if (cell) {
-        const result = queryCell(cell.centerLat, cell.centerLng);
-        setSelectedCell(result);
-      }
-    },
-    [heatmap, queryCell, setSelectedCell]
   );
 
   // Handle map region change to update compass (real-time during gesture)
@@ -363,16 +344,13 @@ export function useMapHandlers({
     }
   }, [cameraRef, setUserLocation]);
 
-  // Toggle heatmap mode
+  // Toggle heatmap mode - tiles are auto-generated after sync
   const toggleHeatmap = useCallback(() => {
     setIsHeatmapMode((current) => !current);
     if (!isHeatmapMode) {
       setSelected(null);
     }
-    if (isHeatmapMode) {
-      setSelectedCell(null);
-    }
-  }, [isHeatmapMode, setIsHeatmapMode, setSelected, setSelectedCell]);
+  }, [isHeatmapMode, setIsHeatmapMode, setSelected]);
 
   // Toggle activities visibility - clear selection when hiding
   const toggleActivities = useCallback(() => {
@@ -480,7 +458,6 @@ export function useMapHandlers({
     handleMarkerPress,
     handleMapPress,
     handleSectionPress,
-    handleHeatmapCellPress,
     handleRegionIsChanging,
     handleRegionDidChange,
     handleGetLocation,

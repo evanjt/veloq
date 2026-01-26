@@ -213,7 +213,12 @@
     "retry": "Nomol, gäll!",
     "save": "Spichere",
     "search": "Sueche",
-    "syncing": "Synchronisiere..."
+    "syncing": "Synchronisiere...",
+    "creating": "Creating...",
+    "hide": "Hide",
+    "hideDetails": "Hide details",
+    "show": "Show",
+    "showDetails": "Show details for developer"
   },
   "demo": {
     "banner": "Demo-Modus",
@@ -407,7 +412,11 @@
       "ride": "Velotour",
       "run": "Rännerei",
       "swim": "Schwümme",
-      "walk": "Spaziergang"
+      "walk": "Spaziergang",
+      "gym": "Gym",
+      "racket": "Racket",
+      "snow": "Snow",
+      "water": "Water"
     },
     "allClear": "Alli",
     "cached": "Im Cache",
@@ -438,7 +447,9 @@
     "tapSelectStart": "Tipp für Startpunkt",
     "toggleStyle": "Stil wächsle",
     "viewDetails": "Details luege",
-    "zoomToActivity": "Uf Aktivität zoome"
+    "zoomToActivity": "Uf Aktivität zoome",
+    "hideHeatmap": "Hide heatmap",
+    "showHeatmap": "Show heatmap"
   },
   "metrics": {
     "activityCount": "Aktivitäten",
@@ -556,7 +567,11 @@
     "thisPace": "Das Tempo",
     "thisSpeed": "Die Speed",
     "visits": "Bsüech",
-    "waiting": "Momäntli..."
+    "waiting": "Momäntli...",
+    "showHidden": "Show {{count}} hidden",
+    "gpsTrackNotSynced": "GPS data not available. Please wait for sync to complete and try again.",
+    "invalidSectionRange": "Invalid selection range. Please try selecting a different portion.",
+    "shareDetailsWithDeveloper": "Copy details and share with developer if reporting issue"
   },
   "routesScreen": {
     "analysingRoutes": "Analysiere {{current}}/{{total}}",
@@ -685,7 +700,10 @@
     "unitsMetric": "Metrisch",
     "unitsMetricHint": "Distanze i Kilometer, Höchi i Meter, Temperatur i Celsius",
     "version": "Version",
-    "viewRoutes": "Route zeige"
+    "viewRoutes": "Route zeige",
+    "heatmapTiles": "Heatmap Tiles",
+    "tiles": "tiles",
+    "notGenerated": "Not generated"
   },
   "stats": {
     "activities": "Aktivitäte",

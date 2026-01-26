@@ -43,6 +43,12 @@ export interface RoutePerformancePoint {
   matchPercentage?: number;
 }
 
+/** Per-direction best record for UI display */
+export interface DirectionBestRecord {
+  bestTime: number;
+  activityDate: Date;
+}
+
 interface UseRoutePerformancesResult {
   /** Route group info */
   routeGroup: RouteGroup | null;
@@ -52,6 +58,10 @@ interface UseRoutePerformancesResult {
   isLoading: boolean;
   /** Best performance (fastest average speed) */
   best: RoutePerformancePoint | null;
+  /** Best performance in forward/same direction */
+  bestForwardRecord: DirectionBestRecord | null;
+  /** Best performance in reverse direction */
+  bestReverseRecord: DirectionBestRecord | null;
   /** Current activity's rank (1 = fastest) */
   currentRank: number | null;
 }
@@ -142,9 +152,15 @@ export function useRoutePerformances(
   }, [engineGroup, activityId]);
 
   // Build performances from Activity objects (API data) + match info from Rust
-  const { performances, best, currentRank } = useMemo(() => {
+  const { performances, best, bestForwardRecord, bestReverseRecord, currentRank } = useMemo(() => {
     if (!engineGroup || !activities || activities.length === 0) {
-      return { performances: [], best: null, currentRank: null };
+      return {
+        performances: [],
+        best: null,
+        bestForwardRecord: null,
+        bestReverseRecord: null,
+        currentRank: null,
+      };
     }
 
     // Filter to activities in this route group
@@ -183,11 +199,31 @@ export function useRoutePerformances(
     // Sort by date (oldest first for charting)
     points.sort((a, b) => a.date.getTime() - b.date.getTime());
 
-    // Find best (fastest speed)
+    // Find best (fastest speed) - overall
     const bestPoint =
       points.length > 0
         ? points.reduce((best, p) => (p.speed > best.speed ? p : best), points[0])
         : null;
+
+    // Find best forward (direction is "same" or "forward")
+    const forwardPoints = points.filter((p) => p.direction === 'same' || p.direction === 'partial');
+    const bestForwardPoint =
+      forwardPoints.length > 0
+        ? forwardPoints.reduce((best, p) => (p.speed > best.speed ? p : best), forwardPoints[0])
+        : null;
+    const bestForward: DirectionBestRecord | null = bestForwardPoint
+      ? { bestTime: bestForwardPoint.duration, activityDate: bestForwardPoint.date }
+      : null;
+
+    // Find best reverse
+    const reversePoints = points.filter((p) => p.direction === 'reverse');
+    const bestReversePoint =
+      reversePoints.length > 0
+        ? reversePoints.reduce((best, p) => (p.speed > best.speed ? p : best), reversePoints[0])
+        : null;
+    const bestReverse: DirectionBestRecord | null = bestReversePoint
+      ? { bestTime: bestReversePoint.duration, activityDate: bestReversePoint.date }
+      : null;
 
     // Calculate current rank (1 = fastest)
     let rank: number | null = null;
@@ -202,6 +238,8 @@ export function useRoutePerformances(
     return {
       performances: points,
       best: bestPoint,
+      bestForwardRecord: bestForward,
+      bestReverseRecord: bestReverse,
       currentRank: rank,
     };
   }, [engineGroup, activities, activityId, matchInfoMap]);
@@ -211,6 +249,8 @@ export function useRoutePerformances(
     performances,
     isLoading: false,
     best,
+    bestForwardRecord,
+    bestReverseRecord,
     currentRank,
   };
 }

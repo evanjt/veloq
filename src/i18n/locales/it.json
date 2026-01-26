@@ -213,7 +213,12 @@
     "retry": "Riprova",
     "save": "Salva",
     "search": "Cerca",
-    "syncing": "Sincronizzazione..."
+    "syncing": "Sincronizzazione...",
+    "creating": "Creating...",
+    "hide": "Hide",
+    "hideDetails": "Hide details",
+    "show": "Show",
+    "showDetails": "Show details for developer"
   },
   "demo": {
     "banner": "Modalita Demo",
@@ -407,7 +412,11 @@
       "ride": "Bici",
       "run": "Corsa",
       "swim": "Nuoto",
-      "walk": "Camminata"
+      "walk": "Camminata",
+      "gym": "Gym",
+      "racket": "Racket",
+      "snow": "Snow",
+      "water": "Water"
     },
     "allClear": "Tutti",
     "cached": "In cache",
@@ -438,7 +447,9 @@
     "tapSelectStart": "Tocca per selezionare il punto di partenza",
     "toggleStyle": "Cambia stile mappa",
     "viewDetails": "Vedi dettagli",
-    "zoomToActivity": "Zoom sull'attivita"
+    "zoomToActivity": "Zoom sull'attivita",
+    "hideHeatmap": "Hide heatmap",
+    "showHeatmap": "Show heatmap"
   },
   "metrics": {
     "activityCount": "Attività",
@@ -556,7 +567,11 @@
     "thisPace": "Questo passo",
     "thisSpeed": "Questa velocita",
     "visits": "visite",
-    "waiting": "In attesa..."
+    "waiting": "In attesa...",
+    "showHidden": "Show {{count}} hidden",
+    "gpsTrackNotSynced": "GPS data not available. Please wait for sync to complete and try again.",
+    "invalidSectionRange": "Invalid selection range. Please try selecting a different portion.",
+    "shareDetailsWithDeveloper": "Copy details and share with developer if reporting issue"
   },
   "routesScreen": {
     "analysingRoutes": "Analisi percorsi {{current}}/{{total}}",
@@ -685,7 +700,10 @@
     "unitsMetric": "Metrico",
     "unitsMetricHint": "Distanze in chilometri, altitudine in metri, temperatura in Celsius",
     "version": "Versione",
-    "viewRoutes": "Visualizza percorsi"
+    "viewRoutes": "Visualizza percorsi",
+    "heatmapTiles": "Heatmap Tiles",
+    "tiles": "tiles",
+    "notGenerated": "Not generated"
   },
   "stats": {
     "activities": "Attivita",

@@ -55,6 +55,7 @@ export {
 } from './charts';
 export { getLatestFTP, getLatestEFTP } from './activities';
 export { useOldestActivityDate } from './useOldestActivityDate';
+export { useCacheDays } from './useCacheDays';
 
 // Route hooks (already organized)
 export { useRouteGroups } from './routes/useRouteGroups';
@@ -70,8 +71,12 @@ export {
 } from './routes/useSectionPerformances';
 export { useCustomSections, useCustomSection } from './routes/useCustomSections';
 export { useUnifiedSections } from './routes/useUnifiedSections';
-export { useHeatmap, type UseHeatmapOptions, type UseHeatmapResult } from './useHeatmap';
-export { useEngineMapActivities } from './maps';
+export {
+  useEngineMapActivities,
+  useHeatmapTiles,
+  useHeatmapTileSource,
+  getTileUrlTemplate,
+} from './maps';
 
 // Route Engine hooks (stateful Rust backend)
 export {

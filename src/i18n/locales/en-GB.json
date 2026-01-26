@@ -213,7 +213,12 @@
     "retry": "Retry",
     "save": "Save",
     "search": "Search",
-    "syncing": "Syncing..."
+    "syncing": "Syncing...",
+    "creating": "Creating...",
+    "hide": "Hide",
+    "hideDetails": "Hide details",
+    "show": "Show",
+    "showDetails": "Show details for developer"
   },
   "demo": {
     "banner": "Demo Mode",
@@ -407,7 +412,11 @@
       "ride": "Ride",
       "run": "Run",
       "swim": "Swim",
-      "walk": "Walk"
+      "walk": "Walk",
+      "gym": "Gym",
+      "racket": "Racket",
+      "snow": "Snow",
+      "water": "Water"
     },
     "allClear": "All",
     "cached": "Cached",
@@ -438,7 +447,9 @@
     "tapSelectStart": "Tap to select start point",
     "toggleStyle": "Toggle map style",
     "viewDetails": "View Details",
-    "zoomToActivity": "Zoom to activity"
+    "zoomToActivity": "Zoom to activity",
+    "hideHeatmap": "Hide heatmap",
+    "showHeatmap": "Show heatmap"
   },
   "metrics": {
     "activityCount": "Activities",
@@ -556,7 +567,11 @@
     "thisSpeed": "This speed",
     "visits": "visits",
     "waiting": "Waiting...",
-    "pr": "PR"
+    "pr": "PR",
+    "showHidden": "Show {{count}} hidden",
+    "gpsTrackNotSynced": "GPS data not available. Please wait for sync to complete and try again.",
+    "invalidSectionRange": "Invalid selection range. Please try selecting a different portion.",
+    "shareDetailsWithDeveloper": "Copy details and share with developer if reporting issue"
   },
   "routesScreen": {
     "analysingRoutes": "Analysing routes {{current}}/{{total}}",
@@ -685,7 +700,10 @@
     "unitsMetric": "Metric",
     "unitsMetricHint": "Distances in kilometres, elevation in metres, temperature in Celsius",
     "version": "Version",
-    "viewRoutes": "View Routes"
+    "viewRoutes": "View Routes",
+    "heatmapTiles": "Heatmap Tiles",
+    "tiles": "tiles",
+    "notGenerated": "Not generated"
   },
   "stats": {
     "activities": "Activities",

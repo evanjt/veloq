@@ -213,7 +213,12 @@
     "retry": "Tentar novamente",
     "save": "Guardar",
     "search": "Pesquisar",
-    "syncing": "Sincronizando..."
+    "syncing": "Sincronizando...",
+    "creating": "Creating...",
+    "hide": "Hide",
+    "hideDetails": "Hide details",
+    "show": "Show",
+    "showDetails": "Show details for developer"
   },
   "demo": {
     "banner": "Modo Demo",
@@ -407,7 +412,11 @@
       "ride": "Bicicleta",
       "run": "Corrida",
       "swim": "Natacao",
-      "walk": "Andar"
+      "walk": "Andar",
+      "gym": "Gym",
+      "racket": "Racket",
+      "snow": "Snow",
+      "water": "Water"
     },
     "allClear": "Todos",
     "cached": "Em cache",
@@ -438,7 +447,9 @@
     "tapSelectStart": "Toque para selecionar ponto de início",
     "toggleStyle": "Alternar estilo do mapa",
     "viewDetails": "Ver detalhes",
-    "zoomToActivity": "Ampliar para atividade"
+    "zoomToActivity": "Ampliar para atividade",
+    "hideHeatmap": "Hide heatmap",
+    "showHeatmap": "Show heatmap"
   },
   "metrics": {
     "activityCount": "Atividades",
@@ -556,7 +567,11 @@
     "thisPace": "Este ritmo",
     "thisSpeed": "Esta velocidade",
     "visits": "visitas",
-    "waiting": "A aguardar..."
+    "waiting": "A aguardar...",
+    "showHidden": "Show {{count}} hidden",
+    "gpsTrackNotSynced": "GPS data not available. Please wait for sync to complete and try again.",
+    "invalidSectionRange": "Invalid selection range. Please try selecting a different portion.",
+    "shareDetailsWithDeveloper": "Copy details and share with developer if reporting issue"
   },
   "routesScreen": {
     "analysingRoutes": "A analisar percursos {{current}}/{{total}}",
@@ -685,7 +700,10 @@
     "unitsMetric": "Métrico",
     "unitsMetricHint": "Distâncias em quilómetros, elevação em metros, temperatura em Celsius",
     "version": "Versao",
-    "viewRoutes": "Ver percursos"
+    "viewRoutes": "Ver percursos",
+    "heatmapTiles": "Heatmap Tiles",
+    "tiles": "tiles",
+    "notGenerated": "Not generated"
   },
   "stats": {
     "activities": "Atividades",

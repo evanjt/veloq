@@ -44,6 +44,9 @@ rstar = "0.12"
 geo = "0.29"
 polyline = "0.11"  # Google polyline encoding (~60% smaller than raw coords)
 
+# Tile generation
+image = { version = "0.25", default-features = false, features = ["png"] }
+
 [target.'cfg(target_os = "android")'.dependencies]
 android_logger = "0.14"
 

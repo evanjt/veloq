@@ -75,6 +75,12 @@ export interface ChartSummaryStats {
   bestDate?: Date | null;
 }
 
+/** Per-direction best record for display in lane header */
+export interface DirectionBestRecord {
+  bestTime: number;
+  activityDate: Date;
+}
+
 export interface UnifiedPerformanceChartProps {
   chartData: (PerformanceDataPoint & { x: number })[];
   activityType: ActivityType;
@@ -92,6 +98,10 @@ export interface UnifiedPerformanceChartProps {
   currentIndex?: number;
   variant?: 'route' | 'activity';
   embedded?: boolean;
+  /** Best record in forward/same direction (for lane header PR display) */
+  bestForwardRecord?: DirectionBestRecord | null;
+  /** Best record in reverse direction (for lane header PR display) */
+  bestReverseRecord?: DirectionBestRecord | null;
 }
 
 interface LaneData {
@@ -116,6 +126,8 @@ export function UnifiedPerformanceChart({
   currentIndex,
   variant = 'route',
   embedded = false,
+  bestForwardRecord,
+  bestReverseRecord,
 }: UnifiedPerformanceChartProps) {
   const { t } = useTranslation();
   const showPace = isRunningActivity(activityType);
@@ -1094,114 +1106,146 @@ export function UnifiedPerformanceChart({
         </View>
       )}
 
-      {/* Forward Lane Header (fixed) */}
-      <View style={[styles.lane, isDark && styles.laneDark]}>
-        <Pressable
-          style={[styles.laneHeader, isDark && styles.laneHeaderDark]}
-          onPress={toggleForward}
-        >
-          <View style={styles.laneHeaderLeft}>
-            <MaterialCommunityIcons
-              name="arrow-right"
-              size={16}
-              color={activityColor}
-              style={styles.directionIcon}
-            />
-            <Text style={[styles.laneTitle, isDark && styles.textLight]}>
-              {t('sections.forward')}
-            </Text>
-            <View style={[styles.countBadge, { backgroundColor: activityColor + '20' }]}>
-              <Text style={[styles.countText, { color: activityColor }]}>
-                {forwardLane.points.length}
-              </Text>
-            </View>
-          </View>
-          <MaterialCommunityIcons
-            name={forwardExpanded ? 'chevron-up' : 'chevron-down'}
-            size={20}
-            color={isDark ? darkColors.textMuted : colors.textMuted}
-          />
-        </Pressable>
-      </View>
-
-      {/* Forward Lane Chart (scrollable with gesture handling) */}
-      {forwardExpanded && (
-        <GestureDetector gesture={composedGesture}>
-          <ScrollView
-            ref={forwardScrollRef}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            scrollEnabled={isScrollable && !isScrubbing}
-            onScroll={handleForwardScroll}
-            scrollEventThrottle={16}
-            decelerationRate={0.999}
-            nestedScrollEnabled={true}
-          >
-            <Animated.View style={{ height: LANE_HEIGHT, width: chartWidth }}>
-              {renderLaneChart(forwardLane, activityColor, 'forward')}
-              {/* Crosshair */}
-              <Animated.View
-                style={[styles.crosshair, crosshairStyle, isDark && styles.crosshairDark]}
-                pointerEvents="none"
+      {/* Forward Lane - hidden if no forward data */}
+      {hasForward && (
+        <>
+          {/* Forward Lane Header (fixed) */}
+          <View style={[styles.lane, isDark && styles.laneDark]}>
+            <Pressable
+              style={[styles.laneHeader, isDark && styles.laneHeaderDark]}
+              onPress={toggleForward}
+            >
+              <View style={styles.laneHeaderLeft}>
+                <MaterialCommunityIcons
+                  name="arrow-right"
+                  size={16}
+                  color={activityColor}
+                  style={styles.directionIcon}
+                />
+                <Text style={[styles.laneTitle, isDark && styles.textLight]}>
+                  {t('sections.forward')}
+                </Text>
+                <View style={[styles.countBadge, { backgroundColor: activityColor + '20' }]}>
+                  <Text style={[styles.countText, { color: activityColor }]}>
+                    {forwardLane.points.length}
+                  </Text>
+                </View>
+                {/* PR display */}
+                {bestForwardRecord && (
+                  <View style={styles.prBadge}>
+                    <MaterialCommunityIcons name="trophy" size={12} color={colors.chartGold} />
+                    <Text style={styles.prTime}>{formatDuration(bestForwardRecord.bestTime)}</Text>
+                    <Text style={[styles.prDate, isDark && styles.textMuted]}>
+                      · {formatShortDate(bestForwardRecord.activityDate)}
+                    </Text>
+                  </View>
+                )}
+              </View>
+              <MaterialCommunityIcons
+                name={forwardExpanded ? 'chevron-up' : 'chevron-down'}
+                size={20}
+                color={isDark ? darkColors.textMuted : colors.textMuted}
               />
-            </Animated.View>
-          </ScrollView>
-        </GestureDetector>
+            </Pressable>
+          </View>
+
+          {/* Forward Lane Chart (scrollable with gesture handling) */}
+          {forwardExpanded && (
+            <GestureDetector gesture={composedGesture}>
+              <ScrollView
+                ref={forwardScrollRef}
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                scrollEnabled={isScrollable && !isScrubbing}
+                onScroll={handleForwardScroll}
+                scrollEventThrottle={16}
+                decelerationRate={0.999}
+                nestedScrollEnabled={true}
+              >
+                <Animated.View style={{ height: LANE_HEIGHT, width: chartWidth }}>
+                  {renderLaneChart(forwardLane, activityColor, 'forward')}
+                  {/* Crosshair */}
+                  <Animated.View
+                    style={[styles.crosshair, crosshairStyle, isDark && styles.crosshairDark]}
+                    pointerEvents="none"
+                  />
+                </Animated.View>
+              </ScrollView>
+            </GestureDetector>
+          )}
+        </>
       )}
 
-      {/* Reverse Lane Header (fixed) */}
-      <View style={[styles.lane, isDark && styles.laneDark]}>
-        <Pressable
-          style={[styles.laneHeader, isDark && styles.laneHeaderDark]}
-          onPress={toggleReverse}
-        >
-          <View style={styles.laneHeaderLeft}>
-            <MaterialCommunityIcons
-              name="arrow-left"
-              size={16}
-              color={colors.reverseDirection}
-              style={styles.directionIcon}
-            />
-            <Text style={[styles.laneTitle, isDark && styles.textLight]}>
-              {t('sections.reverse')}
-            </Text>
-            <View style={[styles.countBadge, { backgroundColor: colors.reverseDirection + '20' }]}>
-              <Text style={[styles.countText, { color: colors.reverseDirection }]}>
-                {reverseLane.points.length}
-              </Text>
-            </View>
-          </View>
-          <MaterialCommunityIcons
-            name={reverseExpanded ? 'chevron-up' : 'chevron-down'}
-            size={20}
-            color={isDark ? darkColors.textMuted : colors.textMuted}
-          />
-        </Pressable>
-      </View>
-
-      {/* Reverse Lane Chart (scrollable with gesture handling, synced with forward) */}
-      {reverseExpanded && (
-        <GestureDetector gesture={composedGesture}>
-          <ScrollView
-            ref={reverseScrollRef}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            scrollEnabled={isScrollable && !isScrubbing}
-            onScroll={handleReverseScroll}
-            scrollEventThrottle={16}
-            decelerationRate={0.999}
-            nestedScrollEnabled={true}
-          >
-            <Animated.View style={{ height: LANE_HEIGHT, width: chartWidth }}>
-              {renderLaneChart(reverseLane, colors.reverseDirection, 'reverse')}
-              {/* Crosshair */}
-              <Animated.View
-                style={[styles.crosshair, crosshairStyle, isDark && styles.crosshairDark]}
-                pointerEvents="none"
+      {/* Reverse Lane - hidden if no reverse data */}
+      {hasReverse && (
+        <>
+          {/* Reverse Lane Header (fixed) */}
+          <View style={[styles.lane, isDark && styles.laneDark]}>
+            <Pressable
+              style={[styles.laneHeader, isDark && styles.laneHeaderDark]}
+              onPress={toggleReverse}
+            >
+              <View style={styles.laneHeaderLeft}>
+                <MaterialCommunityIcons
+                  name="arrow-left"
+                  size={16}
+                  color={colors.reverseDirection}
+                  style={styles.directionIcon}
+                />
+                <Text style={[styles.laneTitle, isDark && styles.textLight]}>
+                  {t('sections.reverse')}
+                </Text>
+                <View
+                  style={[styles.countBadge, { backgroundColor: colors.reverseDirection + '20' }]}
+                >
+                  <Text style={[styles.countText, { color: colors.reverseDirection }]}>
+                    {reverseLane.points.length}
+                  </Text>
+                </View>
+                {/* PR display */}
+                {bestReverseRecord && (
+                  <View style={styles.prBadge}>
+                    <MaterialCommunityIcons name="trophy" size={12} color={colors.chartGold} />
+                    <Text style={styles.prTime}>{formatDuration(bestReverseRecord.bestTime)}</Text>
+                    <Text style={[styles.prDate, isDark && styles.textMuted]}>
+                      · {formatShortDate(bestReverseRecord.activityDate)}
+                    </Text>
+                  </View>
+                )}
+              </View>
+              <MaterialCommunityIcons
+                name={reverseExpanded ? 'chevron-up' : 'chevron-down'}
+                size={20}
+                color={isDark ? darkColors.textMuted : colors.textMuted}
               />
-            </Animated.View>
-          </ScrollView>
-        </GestureDetector>
+            </Pressable>
+          </View>
+
+          {/* Reverse Lane Chart (scrollable with gesture handling, synced with forward) */}
+          {reverseExpanded && (
+            <GestureDetector gesture={composedGesture}>
+              <ScrollView
+                ref={reverseScrollRef}
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                scrollEnabled={isScrollable && !isScrubbing}
+                onScroll={handleReverseScroll}
+                scrollEventThrottle={16}
+                decelerationRate={0.999}
+                nestedScrollEnabled={true}
+              >
+                <Animated.View style={{ height: LANE_HEIGHT, width: chartWidth }}>
+                  {renderLaneChart(reverseLane, colors.reverseDirection, 'reverse')}
+                  {/* Crosshair */}
+                  <Animated.View
+                    style={[styles.crosshair, crosshairStyle, isDark && styles.crosshairDark]}
+                    pointerEvents="none"
+                  />
+                </Animated.View>
+              </ScrollView>
+            </GestureDetector>
+          )}
+        </>
       )}
 
       {/* Time axis - scrolls with charts, two rows: dates on top, gap markers below */}
@@ -1434,6 +1478,21 @@ const styles = StyleSheet.create({
   countText: {
     fontSize: 11,
     fontWeight: '700',
+  },
+  prBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginLeft: 8,
+  },
+  prTime: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.chartGold,
+  },
+  prDate: {
+    fontSize: 11,
+    color: colors.textMuted,
   },
   laneHeaderInScroll: {
     borderTopWidth: StyleSheet.hairlineWidth,

@@ -213,7 +213,12 @@
     "retry": "重试",
     "save": "保存",
     "search": "搜索",
-    "syncing": "同步中..."
+    "syncing": "同步中...",
+    "creating": "Creating...",
+    "hide": "Hide",
+    "hideDetails": "Hide details",
+    "show": "Show",
+    "showDetails": "Show details for developer"
   },
   "demo": {
     "banner": "演示模式",
@@ -407,7 +412,11 @@
       "ride": "骑行",
       "run": "跑步",
       "swim": "游泳",
-      "walk": "步行"
+      "walk": "步行",
+      "gym": "Gym",
+      "racket": "Racket",
+      "snow": "Snow",
+      "water": "Water"
     },
     "allClear": "全部",
     "cached": "已缓存",
@@ -438,7 +447,9 @@
     "tapSelectStart": "点击选择起点",
     "toggleStyle": "切换地图样式",
     "viewDetails": "查看详情",
-    "zoomToActivity": "缩放至活动"
+    "zoomToActivity": "缩放至活动",
+    "hideHeatmap": "Hide heatmap",
+    "showHeatmap": "Show heatmap"
   },
   "metrics": {
     "activityCount": "活动",
@@ -556,7 +567,11 @@
     "thisPace": "此配速",
     "thisSpeed": "此速度",
     "visits": "访问",
-    "waiting": "等待中..."
+    "waiting": "等待中...",
+    "showHidden": "Show {{count}} hidden",
+    "gpsTrackNotSynced": "GPS data not available. Please wait for sync to complete and try again.",
+    "invalidSectionRange": "Invalid selection range. Please try selecting a different portion.",
+    "shareDetailsWithDeveloper": "Copy details and share with developer if reporting issue"
   },
   "routesScreen": {
     "analysingRoutes": "正在分析路线 {{current}}/{{total}}",
@@ -685,7 +700,10 @@
     "unitsMetric": "公制",
     "unitsMetricHint": "距离用公里，海拔用米，温度用摄氏度",
     "version": "版本",
-    "viewRoutes": "查看路线"
+    "viewRoutes": "查看路线",
+    "heatmapTiles": "Heatmap Tiles",
+    "tiles": "tiles",
+    "notGenerated": "Not generated"
   },
   "stats": {
     "activities": "活动",

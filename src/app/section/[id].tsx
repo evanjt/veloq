@@ -30,7 +30,7 @@ import {
   useCustomSections,
   useTheme,
   useMetricSystem,
-  useEngineStats,
+  useCacheDays,
   type ActivitySectionRecord,
 } from '@/hooks';
 import { useSectionDetail, useGroupSummaries } from '@/hooks/routes/useRouteEngine';
@@ -292,16 +292,8 @@ export default function SectionDetailScreen() {
   const shared = createSharedStyles(isDark);
   const insets = useSafeAreaInsets();
 
-  // Get cached date range from engine stats (actual cached data, not sync request range)
-  const engineStats = useEngineStats();
-  const cacheDays = useMemo(() => {
-    const { oldestDate, newestDate } = engineStats;
-    if (!oldestDate || !newestDate) return 90; // default when no data
-    // Dates are Unix timestamps in seconds (bigint from Rust i64)
-    const oldest = Number(oldestDate);
-    const newest = Number(newestDate);
-    return Math.ceil((newest - oldest) / (60 * 60 * 24));
-  }, [engineStats]);
+  // Get cached date range from sync store (consolidated calculation)
+  const cacheDays = useCacheDays();
 
   const [highlightedActivityId, setHighlightedActivityId] = useState<string | null>(null);
   const [highlightedActivityPoints, setHighlightedActivityPoints] = useState<
@@ -791,10 +783,12 @@ export default function SectionDetailScreen() {
 
   // Fetch actual section performance times from activity streams
   // This loads in the background - we show estimated times first, then update when ready
-  const { records: performanceRecords, isLoading: isLoadingRecords } = useSectionPerformances(
-    section,
-    sectionActivities
-  );
+  const {
+    records: performanceRecords,
+    isLoading: isLoadingRecords,
+    bestForwardRecord,
+    bestReverseRecord,
+  } = useSectionPerformances(section, sectionActivities);
 
   // Show loading indicator while fetching performance data (but don't block the UI)
   const hasPerformanceData = performanceRecords && performanceRecords.length > 0;
@@ -1189,6 +1183,8 @@ export default function SectionDetailScreen() {
                 onScrubChange={handleScrubChange}
                 selectedActivityId={highlightedActivityId}
                 summaryStats={summaryStats}
+                bestForwardRecord={bestForwardRecord}
+                bestReverseRecord={bestReverseRecord}
               />
             </View>
           )}

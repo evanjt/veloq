@@ -1367,6 +1367,82 @@ impl PersistentRouteEngine {
         .ok()
     }
 
+    /// Get all GPS tracks from database for tile generation.
+    /// Returns a vector of track point arrays, suitable for heatmap rendering.
+    pub fn get_all_tracks(&self) -> Vec<Vec<GpsPoint>> {
+        log::info!("[get_all_tracks] Starting query...");
+
+        let mut stmt = match self.db.prepare("SELECT track_data FROM gps_tracks") {
+            Ok(s) => s,
+            Err(e) => {
+                log::error!("[get_all_tracks] Failed to prepare statement: {:?}", e);
+                return Vec::new();
+            }
+        };
+
+        let rows = stmt.query_map([], |row| {
+            let track_blob: Vec<u8> = row.get(0)?;
+            let blob_len = track_blob.len();
+            let track = rmp_serde::from_slice::<Vec<GpsPoint>>(&track_blob).unwrap_or_default();
+            log::debug!("[get_all_tracks] Blob {} bytes -> {} points", blob_len, track.len());
+            Ok(track)
+        });
+
+        match rows {
+            Ok(iter) => {
+                let mut success_count = 0;
+                let mut error_count = 0;
+                let mut empty_count = 0;
+                let mut total_points = 0usize;
+                let mut sample_points: Vec<(f64, f64)> = Vec::new();
+
+                let result: Vec<Vec<GpsPoint>> = iter
+                    .filter_map(|r| match r {
+                        Ok(track) => {
+                            if track.is_empty() {
+                                empty_count += 1;
+                                None
+                            } else {
+                                // Sample first few points from first track
+                                if success_count == 0 && sample_points.len() < 5 {
+                                    for point in track.iter().take(5) {
+                                        sample_points.push((point.latitude, point.longitude));
+                                    }
+                                }
+                                total_points += track.len();
+                                success_count += 1;
+                                Some(track)
+                            }
+                        }
+                        Err(e) => {
+                            error_count += 1;
+                            log::warn!("[get_all_tracks] Row error: {:?}", e);
+                            None
+                        }
+                    })
+                    .collect();
+
+                log::info!(
+                    "[get_all_tracks] Results: {} tracks, {} total points, {} errors, {} empty",
+                    success_count, total_points, error_count, empty_count
+                );
+
+                if !sample_points.is_empty() {
+                    log::info!(
+                        "[get_all_tracks] Sample points from first track: {:?}",
+                        sample_points
+                    );
+                }
+
+                result
+            }
+            Err(e) => {
+                log::error!("[get_all_tracks] Query failed: {:?}", e);
+                Vec::new()
+            }
+        }
+    }
+
     // ========================================================================
     // Time Streams (for section performance calculations)
     // ========================================================================
@@ -3221,6 +3297,8 @@ impl PersistentRouteEngine {
                 return SectionPerformanceResult {
                     records: vec![],
                     best_record: None,
+                    best_forward_record: None,
+                    best_reverse_record: None,
                 };
             }
         };
@@ -3327,9 +3405,31 @@ impl PersistentRouteEngine {
         // Sort by date
         records.sort_by_key(|r| r.activity_date);
 
-        // Find best record (fastest time)
+        // Find best record (fastest time) - overall
         let best_record = records
             .iter()
+            .min_by(|a, b| {
+                a.best_time
+                    .partial_cmp(&b.best_time)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })
+            .cloned();
+
+        // Find best forward record (direction is "same" or "forward")
+        let best_forward_record = records
+            .iter()
+            .filter(|r| r.direction == "same" || r.direction == "forward")
+            .min_by(|a, b| {
+                a.best_time
+                    .partial_cmp(&b.best_time)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })
+            .cloned();
+
+        // Find best reverse record
+        let best_reverse_record = records
+            .iter()
+            .filter(|r| r.direction == "reverse" || r.direction == "backward")
             .min_by(|a, b| {
                 a.best_time
                     .partial_cmp(&b.best_time)
@@ -3340,6 +3440,8 @@ impl PersistentRouteEngine {
         SectionPerformanceResult {
             records,
             best_record,
+            best_forward_record,
+            best_reverse_record,
         }
     }
 
@@ -3353,6 +3455,8 @@ impl PersistentRouteEngine {
                 return SectionPerformanceResult {
                     records: vec![],
                     best_record: None,
+                    best_forward_record: None,
+                    best_reverse_record: None,
                 };
             }
         };
@@ -3441,9 +3545,31 @@ impl PersistentRouteEngine {
         // Sort by date
         records.sort_by_key(|r| r.activity_date);
 
-        // Find best record (fastest time)
+        // Find best record (fastest time) - overall
         let best_record = records
             .iter()
+            .min_by(|a, b| {
+                a.best_time
+                    .partial_cmp(&b.best_time)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })
+            .cloned();
+
+        // Find best forward record (direction is "same" or "forward")
+        let best_forward_record = records
+            .iter()
+            .filter(|r| r.direction == "same" || r.direction == "forward")
+            .min_by(|a, b| {
+                a.best_time
+                    .partial_cmp(&b.best_time)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })
+            .cloned();
+
+        // Find best reverse record
+        let best_reverse_record = records
+            .iter()
+            .filter(|r| r.direction == "reverse" || r.direction == "backward")
             .min_by(|a, b| {
                 a.best_time
                     .partial_cmp(&b.best_time)
@@ -3454,6 +3580,8 @@ impl PersistentRouteEngine {
         SectionPerformanceResult {
             records,
             best_record,
+            best_forward_record,
+            best_reverse_record,
         }
     }
 
@@ -3475,6 +3603,8 @@ impl PersistentRouteEngine {
                 return RoutePerformanceResult {
                     performances: vec![],
                     best: None,
+                    best_forward: None,
+                    best_reverse: None,
                     current_rank: None,
                 };
             }
@@ -3530,9 +3660,31 @@ impl PersistentRouteEngine {
         // Sort by date (oldest first for charting)
         performances.sort_by_key(|p| p.date);
 
-        // Find best (fastest speed)
+        // Find best (fastest speed) - overall
         let best = performances
             .iter()
+            .max_by(|a, b| {
+                a.speed
+                    .partial_cmp(&b.speed)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })
+            .cloned();
+
+        // Find best forward (direction is "same" or "forward")
+        let best_forward = performances
+            .iter()
+            .filter(|p| p.direction == "same" || p.direction == "forward")
+            .max_by(|a, b| {
+                a.speed
+                    .partial_cmp(&b.speed)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })
+            .cloned();
+
+        // Find best reverse
+        let best_reverse = performances
+            .iter()
+            .filter(|p| p.direction == "reverse" || p.direction == "backward")
             .max_by(|a, b| {
                 a.speed
                     .partial_cmp(&b.speed)
@@ -3557,6 +3709,8 @@ impl PersistentRouteEngine {
         RoutePerformanceResult {
             performances,
             best,
+            best_forward,
+            best_reverse,
             current_rank,
         }
     }
@@ -4300,15 +4454,16 @@ pub mod persistent_engine_ffi {
                 .map(|m| (m.id.clone(), m.sport_type.clone()))
                 .collect();
 
-            // Get existing groups
-            let groups = e.get_groups();
-
             // Create config with potentials enabled and lower threshold
+            // Clone section_config BEFORE get_groups() to avoid borrow conflict
             let config = SectionConfig {
                 include_potentials: true,
                 min_activities: 1, // Low threshold to find potential sections
                 ..e.section_config.clone()
             };
+
+            // Get existing groups (after config is cloned)
+            let groups = e.get_groups();
 
             log::info!(
                 "tracematch: [PersistentEngine] Detecting potentials from {} tracks",
@@ -4397,7 +4552,8 @@ pub mod persistent_engine_ffi {
 
     /// Create a custom section from activity indices.
     /// Loads GPS track from SQLite internally - no coordinate transfer needed.
-    /// Returns JSON of the created section, or empty string on error.
+    /// Returns JSON: `{"ok": true, "section": {...}}` on success,
+    /// or `{"ok": false, "error": "message"}` on failure.
     #[uniffi::export]
     pub fn persistent_engine_create_section_from_indices(
         activity_id: String,
@@ -4443,18 +4599,29 @@ pub mod persistent_engine_ffi {
                     }
                 });
 
-                serde_json::to_string(&section).unwrap_or_default()
+                // Return success result with section data
+                serde_json::json!({
+                    "ok": true,
+                    "section": section
+                }).to_string()
             }
             Some(Err(e)) => {
                 log::error!(
                     "tracematch: [PersistentEngine] Failed to create section from indices: {}",
                     e
                 );
-                String::new()
+                // Return error result with message
+                serde_json::json!({
+                    "ok": false,
+                    "error": e
+                }).to_string()
             }
             None => {
                 log::error!("tracematch: [PersistentEngine] Engine not initialized");
-                String::new()
+                serde_json::json!({
+                    "ok": false,
+                    "error": "Engine not initialized"
+                }).to_string()
             }
         }
     }

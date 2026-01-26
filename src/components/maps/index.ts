@@ -10,9 +10,7 @@ export {
 } from './ActivityTypeFilter';
 export { Map3DWebView, type Map3DWebViewRef } from './Map3DWebView';
 export { BaseMapView, type BaseMapViewProps } from './BaseMapView';
-export { HeatmapLayer } from './HeatmapLayer';
-export { HeatmapCellPopup } from './HeatmapCellPopup';
-export { ActivityPopup, HeatmapCellInfo, SectionPopup } from './regional';
+export { ActivityPopup, SectionPopup } from './regional';
 export * from './mapStyles';
 
 // Extracted components from ActivityMapView

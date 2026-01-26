@@ -212,6 +212,7 @@ export function useCustomSections(options: UseCustomSectionsOptions = {}): UseCu
 
       // Use index-based creation - Rust loads GPS track from SQLite internally
       // This eliminates ~100KB polyline transfer across FFI boundary
+      // Note: createSectionFromIndices throws on error with message from Rust
       const rustSection = engine.createSectionFromIndices(
         params.sourceActivityId,
         params.startIndex,
@@ -219,10 +220,6 @@ export function useCustomSections(options: UseCustomSectionsOptions = {}): UseCu
         params.sportType,
         params.name
       );
-
-      if (!rustSection) {
-        throw new Error('Failed to create section');
-      }
 
       if (__DEV__) {
         console.log(

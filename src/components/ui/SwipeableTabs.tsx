@@ -46,6 +46,8 @@ interface SwipeableTabsProps {
   isDark: boolean;
   /** One child per tab */
   children: React.ReactNode[];
+  /** Whether swipe gesture is enabled (default: true) */
+  gestureEnabled?: boolean;
 }
 
 export function SwipeableTabs({
@@ -54,6 +56,7 @@ export function SwipeableTabs({
   onTabChange,
   isDark,
   children,
+  gestureEnabled = true,
 }: SwipeableTabsProps) {
   const tabCount = tabs.length;
   const maxOffset = -SCREEN_WIDTH * (tabCount - 1);
@@ -92,6 +95,7 @@ export function SwipeableTabs({
   const panGesture = useMemo(
     () =>
       Gesture.Pan()
+        .enabled(gestureEnabled)
         .activeOffsetX([-GESTURE_ACTIVATION_OFFSET, GESTURE_ACTIVATION_OFFSET])
         .onUpdate((event) => {
           'worklet';
@@ -140,6 +144,7 @@ export function SwipeableTabs({
       tabs,
       tabCount,
       maxOffset,
+      gestureEnabled,
     ]
   );
 

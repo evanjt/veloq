@@ -316,8 +316,10 @@ export function RouteMapView({
       onPress={onPress}
     >
       <Camera
-        bounds={{ ne: bounds.ne, sw: bounds.sw }}
-        padding={{ paddingTop: 40, paddingRight: 40, paddingBottom: 40, paddingLeft: 40 }}
+        defaultSettings={{
+          bounds: { ne: bounds.ne, sw: bounds.sw },
+          padding: { paddingTop: 40, paddingRight: 40, paddingBottom: 40, paddingLeft: 40 },
+        }}
       />
 
       {/* Faded individual activity traces (render first, behind everything) */}

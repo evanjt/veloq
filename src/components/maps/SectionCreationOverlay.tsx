@@ -29,7 +29,26 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
-export type CreationState = 'idle' | 'selectingStart' | 'selectingEnd' | 'confirming' | 'complete';
+export type CreationState =
+  | 'idle'
+  | 'selectingStart'
+  | 'selectingEnd'
+  | 'confirming'
+  | 'complete'
+  | 'creating'
+  | 'error';
+
+/** Error details for debugging */
+export interface SectionCreationError {
+  /** User-friendly error message */
+  message: string;
+  /** Technical error from Rust/system */
+  technicalDetails?: string;
+  /** Activity ID for debugging */
+  activityId?: string;
+  /** Start/end indices for debugging */
+  indices?: { start: number; end: number };
+}
 
 interface SectionCreationOverlayProps {
   /** Current creation state */
@@ -44,12 +63,16 @@ interface SectionCreationOverlayProps {
   sectionDistance: number | null;
   /** Number of GPS points in the selected section */
   sectionPointCount: number | null;
+  /** Error details when state is 'error' */
+  error?: SectionCreationError | null;
   /** Called when user confirms the section */
   onConfirm: () => void;
   /** Called when user cancels creation */
   onCancel: () => void;
   /** Called to reset selection */
   onReset: () => void;
+  /** Called to dismiss error and retry */
+  onDismissError?: () => void;
 }
 
 /**
@@ -87,14 +110,17 @@ export function SectionCreationOverlay({
   coordinateCount,
   sectionDistance,
   sectionPointCount,
+  error,
   onConfirm,
   onCancel,
   onReset,
+  onDismissError,
 }: SectionCreationOverlayProps) {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const isMetric = useMetricSystem();
   const [expanded, setExpanded] = useState(false);
+  const [showTechnicalDetails, setShowTechnicalDetails] = useState(false);
 
   const getStatusIcon = (): keyof typeof MaterialCommunityIcons.glyphMap => {
     switch (state) {
@@ -105,6 +131,10 @@ export function SectionCreationOverlay({
         return 'flag-checkered';
       case 'complete':
         return 'check-circle';
+      case 'creating':
+        return 'loading';
+      case 'error':
+        return 'alert-circle';
       default:
         return 'flag-outline';
     }
@@ -122,6 +152,10 @@ export function SectionCreationOverlay({
           return formatDistance(sectionDistance, isMetric);
         }
         return t('maps.sectionSelected' as never);
+      case 'creating':
+        return t('common.creating' as never);
+      case 'error':
+        return error?.message || t('routes.sectionCreationFailed' as never);
       default:
         return '';
     }
@@ -143,46 +177,144 @@ export function SectionCreationOverlay({
   };
 
   const isComplete = state === 'complete';
+  const isCreating = state === 'creating';
+  const isError = state === 'error';
   const hasSelection = startIndex !== null;
-  const statusColor = isComplete ? getSectionSizeColor(sectionPointCount) : colors.primary;
+
+  // Determine status color based on state
+  const getStatusColor = () => {
+    if (isError) return colors.error;
+    if (isCreating) return colors.primary;
+    if (isComplete) return getSectionSizeColor(sectionPointCount);
+    return colors.primary;
+  };
+  const statusColor = getStatusColor();
   const sizeWarning = isComplete ? getSectionSizeWarning(sectionPointCount) : null;
+
+  // Auto-expand on error to show details
+  const shouldExpand = expanded || isError;
 
   return (
     <View style={styles.container} pointerEvents="box-none">
       {/* Compact bottom bar */}
       <View style={[styles.bottomBar, { paddingBottom: Math.max(insets.bottom, spacing.sm) }]}>
-        {/* Cancel button */}
+        {/* Cancel/Retry button */}
         <TouchableOpacity
-          style={[styles.iconButton, styles.cancelButton]}
-          onPress={onCancel}
+          style={[styles.iconButton, isError ? styles.retryButton : styles.cancelButton]}
+          onPress={isError && onDismissError ? onDismissError : onCancel}
           activeOpacity={0.8}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
-          <MaterialCommunityIcons name="close" size={22} color={colors.textOnDark} />
+          <MaterialCommunityIcons
+            name={isError ? 'refresh' : 'close'}
+            size={22}
+            color={colors.textOnDark}
+          />
         </TouchableOpacity>
 
         {/* Center status pill - expandable */}
         <TouchableOpacity
-          style={[styles.statusPill, expanded && styles.statusPillExpanded]}
+          style={[
+            styles.statusPill,
+            shouldExpand && styles.statusPillExpanded,
+            isError && styles.statusPillError,
+          ]}
           onPress={toggleExpanded}
           activeOpacity={0.9}
+          disabled={isCreating}
         >
           <View style={styles.statusRow}>
-            <MaterialCommunityIcons name={getStatusIcon()} size={18} color={statusColor} />
-            <Text style={[styles.statusText, isComplete && { color: statusColor }]}>
+            {isCreating ? (
+              <Animated.View style={styles.spinner}>
+                <MaterialCommunityIcons name="loading" size={18} color={statusColor} />
+              </Animated.View>
+            ) : (
+              <MaterialCommunityIcons name={getStatusIcon()} size={18} color={statusColor} />
+            )}
+            <Text
+              style={[styles.statusText, { color: statusColor }]}
+              numberOfLines={isError ? 2 : 1}
+            >
               {getStatusText()}
             </Text>
-            {(hasSelection || isComplete) && (
+            {!isCreating && (hasSelection || isComplete || isError) && (
               <MaterialCommunityIcons
-                name={expanded ? 'chevron-down' : 'chevron-up'}
+                name={shouldExpand ? 'chevron-down' : 'chevron-up'}
                 size={16}
                 color={colors.textSecondary}
               />
             )}
           </View>
 
-          {/* Expanded details */}
-          {expanded && hasSelection && (
+          {/* Error details - expanded */}
+          {shouldExpand && isError && error && (
+            <View style={styles.expandedContent}>
+              {/* Technical details toggle */}
+              <TouchableOpacity
+                style={styles.technicalToggle}
+                onPress={() => setShowTechnicalDetails(!showTechnicalDetails)}
+              >
+                <MaterialCommunityIcons name="bug-outline" size={14} color={colors.textSecondary} />
+                <Text style={styles.technicalToggleText}>
+                  {showTechnicalDetails
+                    ? t('common.hideDetails' as never)
+                    : t('common.showDetails' as never)}
+                </Text>
+                <MaterialCommunityIcons
+                  name={showTechnicalDetails ? 'chevron-up' : 'chevron-down'}
+                  size={14}
+                  color={colors.textSecondary}
+                />
+              </TouchableOpacity>
+
+              {showTechnicalDetails && (
+                <View style={styles.technicalDetails}>
+                  {error.technicalDetails && (
+                    <View style={styles.detailRow}>
+                      <MaterialCommunityIcons
+                        name="code-tags"
+                        size={14}
+                        color={colors.textSecondary}
+                      />
+                      <Text style={styles.technicalText} selectable>
+                        {error.technicalDetails}
+                      </Text>
+                    </View>
+                  )}
+                  {error.activityId && (
+                    <View style={styles.detailRow}>
+                      <MaterialCommunityIcons
+                        name="identifier"
+                        size={14}
+                        color={colors.textSecondary}
+                      />
+                      <Text style={styles.technicalText} selectable>
+                        ID: {error.activityId}
+                      </Text>
+                    </View>
+                  )}
+                  {error.indices && (
+                    <View style={styles.detailRow}>
+                      <MaterialCommunityIcons
+                        name="arrow-expand-horizontal"
+                        size={14}
+                        color={colors.textSecondary}
+                      />
+                      <Text style={styles.technicalText}>
+                        Range: {error.indices.start} → {error.indices.end}
+                      </Text>
+                    </View>
+                  )}
+                  <Text style={styles.helpText}>
+                    {t('routes.shareDetailsWithDeveloper' as never)}
+                  </Text>
+                </View>
+              )}
+            </View>
+          )}
+
+          {/* Expanded details - normal selection */}
+          {shouldExpand && hasSelection && !isError && (
             <View style={styles.expandedContent}>
               {getProgress() && (
                 <View style={styles.detailRow}>
@@ -217,7 +349,7 @@ export function SectionCreationOverlay({
           )}
         </TouchableOpacity>
 
-        {/* Create button - only when complete */}
+        {/* Create button - only when complete, or cancel on error */}
         {isComplete ? (
           <TouchableOpacity
             style={[styles.iconButton, styles.confirmButton]}
@@ -226,6 +358,15 @@ export function SectionCreationOverlay({
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
             <MaterialCommunityIcons name="check" size={22} color={colors.textOnDark} />
+          </TouchableOpacity>
+        ) : isError ? (
+          <TouchableOpacity
+            style={[styles.iconButton, styles.cancelButton]}
+            onPress={onCancel}
+            activeOpacity={0.8}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <MaterialCommunityIcons name="close" size={22} color={colors.textOnDark} />
           </TouchableOpacity>
         ) : (
           <View style={styles.iconButtonPlaceholder} />
@@ -264,6 +405,9 @@ const styles = StyleSheet.create({
   cancelButton: {
     backgroundColor: colors.error,
   },
+  retryButton: {
+    backgroundColor: colors.primary,
+  },
   confirmButton: {
     backgroundColor: colors.success,
   },
@@ -280,6 +424,13 @@ const styles = StyleSheet.create({
   statusPillExpanded: {
     borderRadius: layout.borderRadius,
   },
+  statusPillError: {
+    borderWidth: 1,
+    borderColor: colors.error,
+  },
+  spinner: {
+    // Placeholder for spinner animation if needed
+  },
   statusRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -290,6 +441,7 @@ const styles = StyleSheet.create({
     ...typography.body,
     fontWeight: '600',
     color: colors.textPrimary,
+    flexShrink: 1,
   },
   expandedContent: {
     marginTop: spacing.sm,
@@ -300,7 +452,7 @@ const styles = StyleSheet.create({
   },
   detailRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: spacing.xs,
   },
   warningRow: {
@@ -325,5 +477,36 @@ const styles = StyleSheet.create({
     ...typography.caption,
     color: colors.primary,
     fontWeight: '600',
+  },
+  technicalToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingVertical: spacing.xs,
+  },
+  technicalToggleText: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    flex: 1,
+  },
+  technicalDetails: {
+    backgroundColor: 'rgba(0, 0, 0, 0.03)',
+    borderRadius: spacing.xs,
+    padding: spacing.sm,
+    gap: spacing.xs,
+  },
+  technicalText: {
+    ...typography.caption,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+    fontSize: 11,
+    color: colors.textSecondary,
+    flex: 1,
+  },
+  helpText: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    fontStyle: 'italic',
+    marginTop: spacing.xs,
+    textAlign: 'center',
   },
 });

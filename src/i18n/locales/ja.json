@@ -213,7 +213,12 @@
     "retry": "再試行",
     "save": "保存",
     "search": "検索",
-    "syncing": "同期中..."
+    "syncing": "同期中...",
+    "creating": "Creating...",
+    "hide": "Hide",
+    "hideDetails": "Hide details",
+    "show": "Show",
+    "showDetails": "Show details for developer"
   },
   "demo": {
     "banner": "デモモード",
@@ -407,7 +412,11 @@
       "ride": "ライド",
       "run": "ラン",
       "swim": "スイム",
-      "walk": "ウォーク"
+      "walk": "ウォーク",
+      "gym": "Gym",
+      "racket": "Racket",
+      "snow": "Snow",
+      "water": "Water"
     },
     "allClear": "すべて",
     "cached": "キャッシュ済み",
@@ -438,7 +447,9 @@
     "tapSelectStart": "タップして開始点を選択",
     "toggleStyle": "マップスタイルを切り替え",
     "viewDetails": "詳細を表示",
-    "zoomToActivity": "アクティビティにズーム"
+    "zoomToActivity": "アクティビティにズーム",
+    "hideHeatmap": "Hide heatmap",
+    "showHeatmap": "Show heatmap"
   },
   "metrics": {
     "activityCount": "アクティビティ",
@@ -556,7 +567,11 @@
     "thisPace": "このペース",
     "thisSpeed": "この速度",
     "visits": "訪問",
-    "waiting": "待機中..."
+    "waiting": "待機中...",
+    "showHidden": "Show {{count}} hidden",
+    "gpsTrackNotSynced": "GPS data not available. Please wait for sync to complete and try again.",
+    "invalidSectionRange": "Invalid selection range. Please try selecting a different portion.",
+    "shareDetailsWithDeveloper": "Copy details and share with developer if reporting issue"
   },
   "routesScreen": {
     "analysingRoutes": "ルート分析中 {{current}}/{{total}}",
@@ -685,7 +700,10 @@
     "unitsMetric": "メートル法",
     "unitsMetricHint": "距離はキロメートル、標高はメートル、温度は摂氏",
     "version": "バージョン",
-    "viewRoutes": "ルートを表示"
+    "viewRoutes": "ルートを表示",
+    "heatmapTiles": "Heatmap Tiles",
+    "tiles": "tiles",
+    "notGenerated": "Not generated"
   },
   "stats": {
     "activities": "アクティビティ",

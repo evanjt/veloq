@@ -213,7 +213,12 @@
     "retry": "Réessayer",
     "save": "Enregistrer",
     "search": "Rechercher",
-    "syncing": "Synchronisation..."
+    "syncing": "Synchronisation...",
+    "creating": "Creating...",
+    "hide": "Hide",
+    "hideDetails": "Hide details",
+    "show": "Show",
+    "showDetails": "Show details for developer"
   },
   "demo": {
     "banner": "Mode Démo",
@@ -407,7 +412,11 @@
       "ride": "Vélo",
       "run": "Course",
       "swim": "Natation",
-      "walk": "Marche"
+      "walk": "Marche",
+      "gym": "Gym",
+      "racket": "Racket",
+      "snow": "Snow",
+      "water": "Water"
     },
     "allClear": "Tous",
     "cached": "En cache",
@@ -438,7 +447,9 @@
     "tapSelectStart": "Appuyez pour sélectionner le point de départ",
     "toggleStyle": "Changer le style de carte",
     "viewDetails": "Voir les détails",
-    "zoomToActivity": "Zoom sur l'activité"
+    "zoomToActivity": "Zoom sur l'activité",
+    "hideHeatmap": "Hide heatmap",
+    "showHeatmap": "Show heatmap"
   },
   "metrics": {
     "activityCount": "Activités",
@@ -556,7 +567,11 @@
     "thisPace": "Cette allure",
     "thisSpeed": "Cette vitesse",
     "visits": "visites",
-    "waiting": "En attente..."
+    "waiting": "En attente...",
+    "showHidden": "Show {{count}} hidden",
+    "gpsTrackNotSynced": "GPS data not available. Please wait for sync to complete and try again.",
+    "invalidSectionRange": "Invalid selection range. Please try selecting a different portion.",
+    "shareDetailsWithDeveloper": "Copy details and share with developer if reporting issue"
   },
   "routesScreen": {
     "analysingRoutes": "Analyse des parcours {{current}}/{{total}}",
@@ -685,7 +700,10 @@
     "unitsMetric": "Métrique",
     "unitsMetricHint": "Distances en kilomètres, altitude en mètres, température en Celsius",
     "version": "Version",
-    "viewRoutes": "Voir les parcours"
+    "viewRoutes": "Voir les parcours",
+    "heatmapTiles": "Heatmap Tiles",
+    "tiles": "tiles",
+    "notGenerated": "Not generated"
   },
   "stats": {
     "activities": "Activités",

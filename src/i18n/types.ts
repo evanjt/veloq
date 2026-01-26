@@ -166,9 +166,12 @@ export interface TranslationResource {
     retry: string;
     cancel: string;
     save: string;
+    create: string;
     delete: string;
     disable: string;
     enable: string;
+    hide: string;
+    show: string;
     confirm: string;
     back: string;
     next: string;
@@ -178,6 +181,9 @@ export interface TranslationResource {
     noResults: string;
     pullToRefresh: string;
     or: string;
+    creating: string;
+    showDetails: string;
+    hideDetails: string;
   };
 
   navigation: {
@@ -304,6 +310,9 @@ export interface TranslationResource {
     total: string;
     database: string;
     dateRange: string;
+    heatmapTiles: string;
+    tiles: string;
+    notGenerated: string;
     noData: string;
     lastSynced: string;
     bounds: string;
@@ -625,6 +634,7 @@ export interface TranslationResource {
     pr: string;
     routesFound: string;
     sameDirection: string;
+    showHidden: string;
     reverse: string;
     partial: string;
     overlap: string;
@@ -682,8 +692,11 @@ export interface TranslationResource {
     sectionCreated: string;
     sectionCreatedDescription: string;
     sectionCreationFailed: string;
+    gpsTrackNotSynced: string;
+    invalidSectionRange: string;
     sectionTooLarge: string;
     sectionTooLargeWithHint: string;
+    shareDetailsWithDeveloper: string;
     legendSection: string;
     legendYourEffort: string;
     legendFullActivity: string;

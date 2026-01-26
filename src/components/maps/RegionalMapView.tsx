@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useTheme } from '@/hooks';
+import { useTheme, useHeatmapTileSource } from '@/hooks';
 import {
   MapView,
   Camera,
@@ -10,6 +10,8 @@ import {
   ShapeSource,
   LineLayer,
   CircleLayer,
+  RasterSource,
+  RasterLayer,
   type MapViewRef,
 } from '@maplibre/maplibre-react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -34,13 +36,10 @@ import {
   getCombinedSatelliteAttribution,
 } from './mapStyles';
 import type { ActivityBoundsItem } from '@/types';
-import { HeatmapLayer } from './HeatmapLayer';
-import { useHeatmap, type CellQueryResult } from '@/hooks/useHeatmap';
 import { useEngineSections, useRouteSignatures, useRouteGroups } from '@/hooks/routes';
 import type { FrequentSection, ActivityType } from '@/types';
 import {
   ActivityPopup,
-  HeatmapCellInfo,
   SectionPopup,
   RoutePopup,
   MapControlStack,
@@ -91,6 +90,12 @@ export function RegionalMapView({
   const { t } = useTranslation();
   const router = useRouter();
   const { isDark: systemIsDark } = useTheme();
+  const {
+    tilesExist: heatmapReady,
+    tilesDirectory,
+    minZoom: heatmapMinZoom,
+    maxZoom: heatmapMaxZoom,
+  } = useHeatmapTileSource();
   const [showActivities, setShowActivities] = useState(true);
   const insets = useSafeAreaInsets();
   const systemStyle: MapStyleType = systemIsDark ? 'dark' : 'light';
@@ -104,7 +109,6 @@ export function RegionalMapView({
   const [visibleActivityIds, setVisibleActivityIds] = useState<Set<string> | null>(null);
   const [currentZoom, setCurrentZoom] = useState(10);
   const [currentCenter, setCurrentCenter] = useState<[number, number] | null>(null);
-  const [selectedCell, setSelectedCell] = useState<CellQueryResult | null>(null);
   const [selectedSection, setSelectedSection] = useState<FrequentSection | null>(null);
   const [selectedRoute, setSelectedRoute] = useState<{
     id: string;
@@ -145,9 +149,6 @@ export function RegionalMapView({
 
   // Get route signatures from Rust engine for trace rendering
   const routeSignatures = useRouteSignatures();
-
-  // Heatmap data from route matching cache
-  const { heatmap, queryCell } = useHeatmap();
 
   // Frequent sections from route matching (with polylines loaded)
   // useEngineSections loads full section data from Rust engine including polylines
@@ -360,7 +361,6 @@ export function RegionalMapView({
     handleMarkerPress,
     handleMapPress,
     handleSectionPress,
-    handleHeatmapCellPress,
     handleRegionIsChanging,
     handleRegionDidChange,
     handleGetLocation,
@@ -373,13 +373,11 @@ export function RegionalMapView({
   } = useMapHandlers({
     activities,
     sections,
-    heatmap,
-    queryCell,
     selected,
     setSelected,
     isHeatmapMode,
     setIsHeatmapMode,
-    setSelectedCell,
+    heatmapReady,
     setSelectedSection,
     showActivities,
     setShowActivities,
@@ -419,6 +417,14 @@ export function RegionalMapView({
       setSelectedRoute(null);
     }
   }, [showRoutes, selectedRoute]);
+
+  // Debug heatmap tile loading
+  useEffect(() => {
+    if (__DEV__ && isHeatmapMode) {
+      const tileUrl = `${tilesDirectory}/{z}/{x}/{y}.png`;
+      console.log(`[RegionalMapView] Heatmap mode ON, ready=${heatmapReady}, tileUrl=${tileUrl}`);
+    }
+  }, [isHeatmapMode, heatmapReady, tilesDirectory]);
 
   // Toggle map style (cycles through light → dark → satellite)
   const toggleStyle = () => {
@@ -989,11 +995,9 @@ export function RegionalMapView({
         screenY + hitRadius,
       ];
 
-      const features = await mapRef.current?.queryRenderedFeaturesInRect(
-        bbox,
-        undefined,
-        ['marker-hitarea']
-      );
+      const features = await mapRef.current?.queryRenderedFeaturesInRect(bbox, undefined, [
+        'marker-hitarea',
+      ]);
 
       if (features && features.features.length > 0) {
         // Find the feature closest to tap point (in case multiple overlap)
@@ -1128,6 +1132,25 @@ export function RegionalMapView({
             animationDuration={0}
             followUserLocation={false}
           />
+
+          {/* Heatmap tile layer - pre-rendered raster tiles for all activity traces */}
+          {/* Tiles generated at zoom 0-16, covering world view to street level */}
+          {isHeatmapMode && heatmapReady && tilesDirectory && (
+            <RasterSource
+              id="heatmap-tiles"
+              tileUrlTemplates={[`${tilesDirectory}/{z}/{x}/{y}.png`]}
+              minZoomLevel={0}
+              maxZoomLevel={16}
+              tileSize={256}
+            >
+              <RasterLayer
+                id="heatmap-layer"
+                style={{
+                  rasterOpacity: 0.85,
+                }}
+              />
+            </RasterSource>
+          )}
 
           {/* Activity markers - visual only, taps handled by ShapeSource rendered later */}
           {/* CRITICAL: Always render MarkerViews to avoid iOS crash during reconciliation */}
@@ -1341,14 +1364,7 @@ export function RegionalMapView({
             />
           </ShapeSource>
 
-          {/* Heatmap layer - iOS crash fix: always render, control via visible prop */}
-          <HeatmapLayer
-            heatmap={heatmap}
-            onCellPress={handleHeatmapCellPress}
-            opacity={0.7}
-            highlightCommonPaths={true}
-            visible={isHeatmapMode && !!heatmap}
-          />
+          {/* TODO: Heatmap tile layer will be added here */}
 
           {/* GPS traces - simplified routes shown when zoomed in (hidden in heatmap mode) */}
           {/* CRITICAL: Always render ShapeSource to avoid iOS MapLibre crash */}
@@ -1547,12 +1563,12 @@ export function RegionalMapView({
         isDark={isDark}
         is3DMode={is3DMode}
         can3D={can3D}
-        isHeatmapMode={isHeatmapMode}
         showActivities={showActivities}
         showSections={showSections}
         showRoutes={showRoutes}
+        isHeatmapMode={isHeatmapMode}
+        heatmapReady={heatmapReady}
         userLocationActive={!!userLocation}
-        heatmap={heatmap}
         sections={sections}
         routeCount={routeGroups.length}
         activityCount={activities.length}
@@ -1560,10 +1576,10 @@ export function RegionalMapView({
         onToggle3D={toggle3D}
         onResetOrientation={resetOrientation}
         onGetLocation={handleGetLocation}
-        onToggleHeatmap={toggleHeatmap}
         onToggleActivities={toggleActivities}
         onToggleSections={toggleSections}
         onToggleRoutes={toggleRoutes}
+        onToggleHeatmap={toggleHeatmap}
         onFitAll={handleFitAll}
       />
       {/* Attribution */}
@@ -1580,14 +1596,6 @@ export function RegionalMapView({
           onZoom={handleZoomToActivity}
           onClose={handleClosePopup}
           onViewDetails={handleViewDetails}
-        />
-      )}
-      {/* Heatmap cell popup - shows when a heatmap cell is selected */}
-      {isHeatmapMode && selectedCell && (
-        <HeatmapCellInfo
-          cell={selectedCell}
-          bottom={insets.bottom + 200}
-          onClose={() => setSelectedCell(null)}
         />
       )}
       {/* Section popup - shows when a section is tapped */}

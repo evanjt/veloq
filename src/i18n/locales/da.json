@@ -213,7 +213,12 @@
     "retry": "Prøv igen",
     "save": "Gem",
     "search": "Søg",
-    "syncing": "Synkroniserer..."
+    "syncing": "Synkroniserer...",
+    "creating": "Creating...",
+    "hide": "Hide",
+    "hideDetails": "Hide details",
+    "show": "Show",
+    "showDetails": "Show details for developer"
   },
   "demo": {
     "banner": "Demotilstand",
@@ -407,7 +412,11 @@
       "ride": "Cykeltur",
       "run": "Løbetur",
       "swim": "Svømmetur",
-      "walk": "Gåtur"
+      "walk": "Gåtur",
+      "gym": "Gym",
+      "racket": "Racket",
+      "snow": "Snow",
+      "water": "Water"
     },
     "allClear": "Alle",
     "cached": "Cachelagret",
@@ -438,7 +447,9 @@
     "tapSelectStart": "Tryk for at vælge startpunkt",
     "toggleStyle": "Skift kortstil",
     "viewDetails": "Vis detaljer",
-    "zoomToActivity": "Zoom til aktivitet"
+    "zoomToActivity": "Zoom til aktivitet",
+    "hideHeatmap": "Hide heatmap",
+    "showHeatmap": "Show heatmap"
   },
   "metrics": {
     "activityCount": "Aktiviteter",
@@ -556,7 +567,11 @@
     "thisPace": "Dette tempo",
     "thisSpeed": "Denne hastighed",
     "visits": "besøg",
-    "waiting": "Venter..."
+    "waiting": "Venter...",
+    "showHidden": "Show {{count}} hidden",
+    "gpsTrackNotSynced": "GPS data not available. Please wait for sync to complete and try again.",
+    "invalidSectionRange": "Invalid selection range. Please try selecting a different portion.",
+    "shareDetailsWithDeveloper": "Copy details and share with developer if reporting issue"
   },
   "routesScreen": {
     "analysingRoutes": "Analyserer ruter {{current}}/{{total}}",
@@ -685,7 +700,10 @@
     "unitsMetric": "Metrisk",
     "unitsMetricHint": "Afstande i kilometer, højde i meter, temperatur i Celsius",
     "version": "Version",
-    "viewRoutes": "Vis ruter"
+    "viewRoutes": "Vis ruter",
+    "heatmapTiles": "Heatmap Tiles",
+    "tiles": "tiles",
+    "notGenerated": "Not generated"
   },
   "stats": {
     "activities": "Aktiviteter",

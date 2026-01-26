@@ -152,7 +152,11 @@ import { useMapPreferences } from '@/providers';
 import { BaseMapView } from './BaseMapView';
 import { Map3DWebView, type Map3DWebViewRef } from './Map3DWebView';
 import { CompassArrow } from '@/components/ui';
-import { SectionCreationOverlay, type CreationState } from './SectionCreationOverlay';
+import {
+  SectionCreationOverlay,
+  type CreationState,
+  type SectionCreationError,
+} from './SectionCreationOverlay';
 import {
   type MapStyleType,
   getMapStyle,
@@ -260,6 +264,9 @@ function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: numbe
   return R * c;
 }
 
+// Re-export SectionCreationError for consumers
+export type { SectionCreationError } from './SectionCreationOverlay';
+
 /** Result of section creation */
 export interface SectionCreationResult {
   /** GPS points for the section */
@@ -293,10 +300,16 @@ interface ActivityMapViewProps {
   onAttributionChange?: (attribution: string) => void;
   /** Enable section creation mode */
   creationMode?: boolean;
+  /** Current section creation state (parent-controlled) */
+  creationState?: CreationState;
+  /** Error details for section creation */
+  creationError?: SectionCreationError | null;
   /** Called when a section is created */
   onSectionCreated?: (result: SectionCreationResult) => void;
   /** Called when section creation is cancelled */
   onCreationCancelled?: () => void;
+  /** Called to dismiss error and retry */
+  onCreationErrorDismiss?: () => void;
   /** Route overlay coordinates to show (e.g., matched route trace) */
   routeOverlay?: LatLng[] | null;
   /** Section overlays for sections tab - all matched sections with activity portions */
@@ -319,8 +332,11 @@ export function ActivityMapView({
   onStyleChange,
   onAttributionChange,
   creationMode = false,
+  creationState: externalCreationState,
+  creationError,
   onSectionCreated,
   onCreationCancelled,
+  onCreationErrorDismiss,
   routeOverlay,
   sectionOverlays,
   highlightedSectionId,
@@ -445,6 +461,9 @@ export function ActivityMapView({
     }
   }, [userOverride, initialStyle, mapStyle, preferredStyle]);
 
+  // Track previous external creation state to detect transitions
+  const prevExternalCreationStateRef = useRef<CreationState | undefined>(externalCreationState);
+
   // Reset section creation state when mode changes
   useEffect(() => {
     if (creationMode) {
@@ -453,6 +472,26 @@ export function ActivityMapView({
       setEndIndex(null);
     }
   }, [creationMode]);
+
+  // Reset internal state ONLY when transitioning from 'error' to undefined (user clicked retry)
+  // Do NOT reset when transitioning from 'creating' to undefined (success path)
+  useEffect(() => {
+    const wasError = prevExternalCreationStateRef.current === 'error';
+    const nowUndefined = externalCreationState === undefined;
+
+    if (creationMode && wasError && nowUndefined) {
+      // External error state was cleared (user dismissed error), reset to allow new selection
+      if (__DEV__) {
+        console.log('[ActivityMapView] Resetting selection after error dismissal');
+      }
+      setCreationState('selectingStart');
+      setStartIndex(null);
+      setEndIndex(null);
+    }
+
+    // Track previous state for next render
+    prevExternalCreationStateRef.current = externalCreationState;
+  }, [creationMode, externalCreationState]);
 
   const toggleMapStyle = useCallback(() => {
     setUserOverride(true);
@@ -573,6 +612,35 @@ export function ActivityMapView({
     [enableFullscreen, openFullscreen, creationMode, creationState, startIndex, validCoordinates]
   );
 
+  // iOS tap handler - converts screen coordinates to map coordinates
+  // MapView.onPress doesn't fire reliably on iOS with Fabric architecture
+  const handleiOSTap = useCallback(
+    async (screenX: number, screenY: number) => {
+      if (!mapRef.current) return;
+
+      try {
+        // Convert screen coordinates to map coordinates [lng, lat]
+        const coords = await mapRef.current.getCoordinateFromView([screenX, screenY]);
+        if (!coords || coords.length < 2) return;
+
+        // Create a GeoJSON feature and call handleMapPress
+        const feature: GeoJSON.Feature = {
+          type: 'Feature',
+          properties: {},
+          geometry: {
+            type: 'Point',
+            coordinates: coords,
+          },
+        };
+
+        handleMapPress(feature);
+      } catch {
+        // Silently fail - tap handling is best effort
+      }
+    },
+    [handleMapPress]
+  );
+
   // Section creation handlers
   const handleCreationConfirm = useCallback(() => {
     if (startIndex === null || endIndex === null) return;
@@ -642,6 +710,12 @@ export function ActivityMapView({
 
   // Camera ref for programmatic control
   const cameraRef = useRef<React.ElementRef<typeof Camera>>(null);
+
+  // Map ref for getCoordinateFromView (iOS tap handling)
+  const mapRef = useRef<React.ElementRef<typeof MapView>>(null);
+
+  // Track touch start for iOS tap detection (MapView.onPress doesn't fire on iOS with Fabric)
+  const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
 
   // Reset bearing to north
   const resetOrientation = useCallback(() => {
@@ -1058,7 +1132,42 @@ export function ActivityMapView({
 
   return (
     <View style={[styles.outerContainer, { height }]}>
-      <View style={styles.container}>
+      <View
+        style={styles.container}
+        onTouchStart={
+          Platform.OS === 'ios'
+            ? (e) => {
+                touchStartRef.current = {
+                  x: e.nativeEvent.locationX,
+                  y: e.nativeEvent.locationY,
+                  time: Date.now(),
+                };
+              }
+            : undefined
+        }
+        onTouchEnd={
+          Platform.OS === 'ios'
+            ? (e) => {
+                const start = touchStartRef.current;
+                if (!start) return;
+
+                const dx = Math.abs(e.nativeEvent.locationX - start.x);
+                const dy = Math.abs(e.nativeEvent.locationY - start.y);
+                const duration = Date.now() - start.time;
+
+                // Only treat as tap if: short duration, minimal movement
+                const isTap = duration < 300 && dx < 10 && dy < 10;
+                // Don't handle taps in fullscreen or 3D mode
+                const shouldHandle = !isFullscreen && !(is3DMode && is3DReady);
+
+                if (isTap && shouldHandle) {
+                  handleiOSTap(e.nativeEvent.locationX, e.nativeEvent.locationY);
+                }
+                touchStartRef.current = null;
+              }
+            : undefined
+        }
+      >
         {/* 2D Map layer - hidden when 3D is ready */}
         <View
           style={[
@@ -1068,6 +1177,7 @@ export function ActivityMapView({
           ]}
         >
           <MapView
+            ref={mapRef}
             key={`activity-map-${mapKey}`}
             style={[styles.map, { opacity: mapReady ? 1 : 0 }]}
             mapStyle={mapStyleValue}
@@ -1080,7 +1190,7 @@ export function ActivityMapView({
             pitchEnabled={false}
             onRegionIsChanging={handleRegionIsChanging}
             onRegionDidChange={handleRegionDidChange}
-            onPress={handleMapPress}
+            onPress={Platform.OS === 'android' ? handleMapPress : undefined}
             onDidFailLoadingMap={handleMapLoadError}
             onDidFinishLoadingMap={handleMapFinishLoading}
           >
@@ -1146,13 +1256,13 @@ export function ActivityMapView({
                     ? ['case', ['==', ['get', 'id'], highlightedSectionId], '#F59E0B', '#DC2626']
                     : '#DC2626',
                   lineWidth: highlightedSectionId
-                    ? ['case', ['==', ['get', 'id'], highlightedSectionId], 8, 6]
+                    ? ['case', ['==', ['get', 'id'], highlightedSectionId], 5, 6]
                     : 6,
                   lineCap: 'round',
                   lineJoin: 'round',
                   lineOpacity: sectionOverlaysGeoJSON
                     ? highlightedSectionId
-                      ? ['case', ['==', ['get', 'id'], highlightedSectionId], 1, 0.4]
+                      ? ['case', ['==', ['get', 'id'], highlightedSectionId], 0.5, 0.3]
                       : 0.8
                     : 0,
                 }}
@@ -1166,13 +1276,13 @@ export function ActivityMapView({
                     ? ['case', ['==', ['get', 'id'], highlightedSectionId], '#F59E0B', '#DC2626']
                     : '#DC2626',
                   lineWidth: highlightedSectionId
-                    ? ['case', ['==', ['get', 'id'], highlightedSectionId], 6, 4]
+                    ? ['case', ['==', ['get', 'id'], highlightedSectionId], 4, 4]
                     : 4,
                   lineCap: 'round',
                   lineJoin: 'round',
                   lineOpacity: sectionOverlaysGeoJSON
                     ? highlightedSectionId
-                      ? ['case', ['==', ['get', 'id'], highlightedSectionId], 1, 0.4]
+                      ? ['case', ['==', ['get', 'id'], highlightedSectionId], 0.6, 0.3]
                       : 1
                     : 0,
                 }}
@@ -1234,38 +1344,40 @@ export function ActivityMapView({
             </ShapeSource>
 
             {/* Section creation: start marker */}
-            {/* CRITICAL: Always render to avoid Fabric crash - control visibility via opacity */}
-            <MarkerView
-              coordinate={
-                sectionStartPoint
-                  ? [sectionStartPoint.longitude, sectionStartPoint.latitude]
-                  : [0, 0]
-              }
-            >
-              <View style={[styles.markerContainer, { opacity: sectionStartPoint ? 1 : 0 }]}>
-                <View style={[styles.marker, styles.sectionStartMarker]}>
-                  <MaterialCommunityIcons name="flag" size={14} color={colors.textOnDark} />
+            {/* Key forces re-creation when position changes - MapLibre may not update coordinates properly */}
+            {creationMode && sectionStartPoint && (
+              <MarkerView
+                key={`section-start-${startIndex}`}
+                coordinate={[sectionStartPoint.longitude, sectionStartPoint.latitude]}
+                allowOverlap={true}
+              >
+                <View style={styles.markerContainer}>
+                  <View style={[styles.marker, styles.sectionStartMarker]}>
+                    <MaterialCommunityIcons
+                      name="flag-outline"
+                      size={14}
+                      color={colors.textOnDark}
+                    />
+                  </View>
                 </View>
-              </View>
-            </MarkerView>
+              </MarkerView>
+            )}
 
             {/* Section creation: end marker */}
-            {/* CRITICAL: Always render to avoid Fabric crash - control visibility via opacity */}
-            <MarkerView
-              coordinate={
-                sectionEndPoint ? [sectionEndPoint.longitude, sectionEndPoint.latitude] : [0, 0]
-              }
-            >
-              <View style={[styles.markerContainer, { opacity: sectionEndPoint ? 1 : 0 }]}>
-                <View style={[styles.marker, styles.sectionEndMarker]}>
-                  <MaterialCommunityIcons
-                    name="flag-checkered"
-                    size={14}
-                    color={colors.textOnDark}
-                  />
+            {/* Key forces re-creation when position changes - MapLibre may not update coordinates properly */}
+            {creationMode && sectionEndPoint && (
+              <MarkerView
+                key={`section-end-${endIndex}`}
+                coordinate={[sectionEndPoint.longitude, sectionEndPoint.latitude]}
+                allowOverlap={true}
+              >
+                <View style={styles.markerContainer}>
+                  <View style={[styles.marker, styles.sectionEndMarker]}>
+                    <MaterialCommunityIcons name="flag" size={14} color={colors.textOnDark} />
+                  </View>
                 </View>
-              </View>
-            </MarkerView>
+              </MarkerView>
+            )}
 
             {/* Numbered markers at center of each section, offset to the side */}
             {/* CRITICAL: Always render ALL markers - never return null to avoid iOS Fabric crash */}
@@ -1596,15 +1708,17 @@ export function ActivityMapView({
       {/* Section creation overlay */}
       {creationMode && (
         <SectionCreationOverlay
-          state={creationState}
+          state={externalCreationState ?? creationState}
           startIndex={startIndex}
           endIndex={endIndex}
           coordinateCount={validCoordinates.length}
           sectionDistance={sectionDistance}
           sectionPointCount={sectionPointCount}
+          error={creationError}
           onConfirm={handleCreationConfirm}
           onCancel={handleCreationCancel}
           onReset={handleCreationReset}
+          onDismissError={onCreationErrorDismiss}
         />
       )}
     </View>
@@ -1660,10 +1774,10 @@ const styles = StyleSheet.create({
     backgroundColor: colors.error,
   },
   sectionStartMarker: {
-    backgroundColor: colors.success,
+    backgroundColor: '#00BCD4', // Cyan - distinct from activity start (green)
   },
   sectionEndMarker: {
-    backgroundColor: colors.primary,
+    backgroundColor: '#9C27B0', // Purple - distinct from activity end (red)
   },
   highlightMarker: {
     width: 24,
