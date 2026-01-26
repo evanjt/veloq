@@ -9,8 +9,6 @@
  */
 
 import { useCallback } from 'react';
-import * as FileSystem from 'expo-file-system/legacy';
-import { useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { i18n } from '@/i18n';
 import { getNativeModule } from '@/lib/native/routeEngine';
 import {
@@ -23,11 +21,9 @@ import {
   takeBackgroundFetchResults,
   startFetchAndStore,
   takeFetchAndStoreResult,
-  ffiGenerateAndSaveTiles,
   type RouteGroup,
   type ActivitySportType,
   type ActivitySportMapping,
-  type FfiTileConfig,
 } from 'veloqrs';
 import { getStoredCredentials, getSyncGeneration } from '@/providers';
 import { usePotentialSections as usePotentialSectionsStore } from '@/providers/PotentialSectionsStore';
@@ -183,61 +179,7 @@ async function runPotentialSectionDetection(
  * ```
  */
 
-/** Directory for heatmap tiles - URI format for Expo FileSystem */
-const HEATMAP_TILES_DIR_URI = `${FileSystem.documentDirectory}heatmap-tiles`;
-
-/** Directory for heatmap tiles - filesystem path for Rust FFI (no file:// prefix) */
-const HEATMAP_TILES_DIR_PATH = HEATMAP_TILES_DIR_URI.replace('file://', '');
-
-/** Default tile configuration - zoom 0-16 covers world view to street level */
-const DEFAULT_TILE_CONFIG: FfiTileConfig = {
-  lineColorR: 252,
-  lineColorG: 76,
-  lineColorB: 2,
-  lineColorA: 180,
-  lineWidth: 2.0,
-  minZoom: 0,
-  maxZoom: 16,
-};
-
-/**
- * Generate heatmap tiles after sync/section detection completes.
- * Runs in background and doesn't block the sync completion.
- */
-async function generateHeatmapTilesInBackground(queryClient: QueryClient): Promise<void> {
-  if (__DEV__) {
-    console.log('[Heatmap] Starting tile generation...');
-  }
-  try {
-    // Ensure tiles directory exists (FileSystem needs URI)
-    const dirInfo = await FileSystem.getInfoAsync(HEATMAP_TILES_DIR_URI);
-    if (!dirInfo.exists) {
-      await FileSystem.makeDirectoryAsync(HEATMAP_TILES_DIR_URI, { intermediates: true });
-    }
-
-    // Generate and save tiles using direct FFI function
-    // (Rust needs filesystem path, not file:// URI)
-    const result = ffiGenerateAndSaveTiles(HEATMAP_TILES_DIR_PATH, DEFAULT_TILE_CONFIG);
-    if (__DEV__) {
-      console.log(
-        `[Heatmap] Generated ${result.tilesSaved} tiles from ${result.tracksProcessed} tracks ` +
-          `(${result.generationTimeMs}ms generation, ${result.saveTimeMs}ms save)`
-      );
-    }
-
-    // Invalidate tiles query so UI updates
-    queryClient.invalidateQueries({ queryKey: ['heatmap-tiles-exist'] });
-  } catch (error) {
-    if (__DEV__) {
-      console.warn('[Heatmap] Tile generation failed:', error);
-    }
-    // Don't rethrow - heatmap generation is non-critical
-  }
-}
-
 export function useGpsDataFetcher() {
-  const queryClient = useQueryClient();
-
   /**
    * Fetch GPS data from demo fixtures.
    *
@@ -436,9 +378,6 @@ export function useGpsDataFetcher() {
         if (isMountedRef.current && !abortSignal.aborted) {
           await runPotentialSectionDetection(nativeModule, updateProgress);
         }
-
-        // Generate heatmap tiles in background (non-blocking)
-        generateHeatmapTilesInBackground(queryClient);
 
         if (isMountedRef.current) {
           updateProgress({
@@ -752,10 +691,6 @@ export function useGpsDataFetcher() {
           await new Promise((resolve) => setTimeout(resolve, 0));
           await runPotentialSectionDetection(nativeModule, updateProgress);
         }
-
-        // Generate heatmap tiles in background (non-blocking)
-        // Only runs after tracks are actually added to the engine
-        generateHeatmapTilesInBackground(queryClient);
       }
 
       // Final progress update

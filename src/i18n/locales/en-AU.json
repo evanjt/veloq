@@ -332,21 +332,6 @@
     "optimal": "Sweet spot",
     "transition": "Getting there"
   },
-  "heatmap": {
-    "lastVisit": "Last time here",
-    "routesLabel": "Routes:",
-    "showActivities": "Show 'em",
-    "uniqueRoutes": "{{count}} different routes",
-    "visitedTimes": "Been here {{count}} times"
-  },
-  "heatmapScreen": {
-    "activitiesCount": "{{count}} activities",
-    "generatingHeatmap": "Cooking up the heatmap...",
-    "goToRoutes": "Go to Routes",
-    "noActivityData": "No activity data yet",
-    "processFirstHint": "Crunch some activities in the Routes screen first to see your heatmap.",
-    "title": "Heatmap"
-  },
   "licenses": {
     "footer": "Tap any licence badge to suss out the full licence text. Tap the link icon to check out the project repo.",
     "intro": "Veloq is built with open-source software. This screen lists the third-party libraries and their licences.",
@@ -407,7 +392,6 @@
     "allClear": "The lot",
     "cached": "Stashed",
     "clear": "Clear",
-    "closeHeatmapPopup": "Close heatmap popup",
     "closeMap": "Chuck it closed",
     "closePopup": "Close that",
     "closeRoutePopup": "Close route popup",
@@ -433,9 +417,7 @@
     "tapSelectStart": "Tap to pick the start",
     "toggleStyle": "Switch up the map style",
     "viewDetails": "Have a look",
-    "zoomToActivity": "Zoom in on that",
-    "hideHeatmap": "Hide heatmap",
-    "showHeatmap": "Show heatmap"
+    "zoomToActivity": "Zoom in on that"
   },
   "metrics": {
     "activityCount": "Activities",
@@ -454,7 +436,6 @@
     "activities": "Your stuff",
     "feed": "The feed",
     "fitness": "Fitness",
-    "heatmap": "Heatmap",
     "map": "Map",
     "routes": "Routes",
     "settings": "Settings",
@@ -688,10 +669,7 @@
     "unitsMetric": "Metric",
     "unitsMetricHint": "Distances in kilometres, elevation in metres, temperature in Celsius",
     "version": "Version",
-    "viewRoutes": "Check out Routes",
-    "heatmapTiles": "Heatmap Tiles",
-    "tiles": "tiles",
-    "notGenerated": "Not generated"
+    "viewRoutes": "Check out Routes"
   },
   "stats": {
     "activities": "Activities",
@@ -805,7 +783,6 @@
     "discoverRoutes": "Find your usual haunts",
     "fetchingGps": "Grabbing tracks: {{current}}/{{total}}",
     "groupingRoutes": "Grouping routes...",
-    "heatmap": "Heatmap",
     "potentialMatches": "Found {{count}} potential matches",
     "routes": "Routes",
     "routesFromActivities": "{{routes}} routes from {{activities}} activities",

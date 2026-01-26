@@ -344,23 +344,6 @@
     "optimal": "Optimal",
     "transition": "Übergang"
   },
-  "heatmap": {
-    "lastVisit": "Letschte Bsuech",
-    "routesLabel": "Route:",
-    "showActivities": "Aktivitäte zeige",
-    "uniqueRoutes": "{{count}} verschiedeni Route",
-    "visitedTimes": "{{count}}x bsuecht"
-  },
-  "heatmapScreen": {
-    "activitiesCount": "{{count}} Aktivitäte",
-    "dataRangeHint": "Based on {{duration}} of activity data",
-    "expandInSettings": "Expand in Settings",
-    "generatingHeatmap": "Heatmap am mache...",
-    "goToRoutes": "Zu Route",
-    "noActivityData": "Kei Date da",
-    "processFirstHint": "Mach zerscht es paar Route, denn chunts.",
-    "title": "Heatmap"
-  },
   "licenses": {
     "footer": "Tipp uf es Lizenz-Badge um de voll Text z gseh. Tipp ufs Link-Symbol um s Projekt-Repository z bsueche.",
     "intro": "Veloq isch mit Open-Source-Software baut. Die Siite zeigt d Drittabieter-Bibliotheke und ihri Lizenze.",
@@ -421,7 +404,6 @@
     "allClear": "Alli",
     "cached": "Im Cache",
     "clear": "Lösche",
-    "closeHeatmapPopup": "Heatmap-Popup schliesse",
     "closeMap": "Charte zuemache",
     "closePopup": "Zuemache",
     "closeRoutePopup": "Route-Popup schliesse",
@@ -447,9 +429,7 @@
     "tapSelectStart": "Tipp für Startpunkt",
     "toggleStyle": "Stil wächsle",
     "viewDetails": "Details luege",
-    "zoomToActivity": "Uf Aktivität zoome",
-    "hideHeatmap": "Hide heatmap",
-    "showHeatmap": "Show heatmap"
+    "zoomToActivity": "Uf Aktivität zoome"
   },
   "metrics": {
     "activityCount": "Aktivitäten",
@@ -468,7 +448,6 @@
     "activities": "Aktivitäte",
     "feed": "S Nöischte",
     "fitness": "Fitness",
-    "heatmap": "Heatmap",
     "map": "Charte",
     "routes": "Route",
     "settings": "Istellige",
@@ -702,10 +681,7 @@
     "unitsMetric": "Metrisch",
     "unitsMetricHint": "Distanze i Kilometer, Höchi i Meter, Temperatur i Celsius",
     "version": "Version",
-    "viewRoutes": "Route zeige",
-    "heatmapTiles": "Heatmap Tiles",
-    "tiles": "tiles",
-    "notGenerated": "Not generated"
+    "viewRoutes": "Route zeige"
   },
   "stats": {
     "activities": "Aktivitäte",
@@ -819,7 +795,6 @@
     "discoverRoutes": "Find dini Lieblingsroute!",
     "fetchingGps": "GPS lade: {{current}}/{{total}}",
     "groupingRoutes": "Route am gruppiere...",
-    "heatmap": "Heatmap",
     "potentialMatches": "{{count}} möglichs gfunde!",
     "routes": "Route",
     "routesFromActivities": "{{routes}} Route us {{activities}} Aktivitäte",

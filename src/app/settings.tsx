@@ -25,7 +25,6 @@ import {
   useOldestActivityDate,
   useTheme,
   useUnifiedSections,
-  useHeatmapTileSource,
 } from '@/hooks';
 import * as FileSystem from 'expo-file-system/legacy';
 import { TimelineSlider } from '@/components/maps';
@@ -395,13 +394,6 @@ export default function SettingsScreen() {
     routes: 0,
   });
 
-  // Heatmap tile stats
-  const { tilesExist, tilesDirectory } = useHeatmapTileSource();
-  const [tileStats, setTileStats] = useState<{ count: number; size: number }>({
-    count: 0,
-    size: 0,
-  });
-
   // Fetch cache sizes on mount and when caches change
   // Note: callback is intentionally stable (no deps) - it always fetches fresh data
   const refreshCacheSizes = useCallback(async () => {
@@ -409,55 +401,9 @@ export default function SettingsScreen() {
     setCacheSizes({ routes });
   }, []);
 
-  // Fetch tile stats (count files and total size)
-  const refreshTileStats = useCallback(async () => {
-    if (!tilesDirectory) {
-      setTileStats({ count: 0, size: 0 });
-      return;
-    }
-    try {
-      const dirInfo = await FileSystem.getInfoAsync(tilesDirectory);
-      if (!dirInfo.exists) {
-        setTileStats({ count: 0, size: 0 });
-        return;
-      }
-
-      // Recursively count PNG files and calculate size
-      let totalCount = 0;
-      let totalSize = 0;
-
-      const scanDir = async (dirPath: string) => {
-        const contents = await FileSystem.readDirectoryAsync(dirPath);
-        for (const item of contents) {
-          const itemPath = `${dirPath}/${item}`;
-          const itemInfo = await FileSystem.getInfoAsync(itemPath);
-          if (itemInfo.exists) {
-            if ('isDirectory' in itemInfo && itemInfo.isDirectory) {
-              await scanDir(itemPath);
-            } else if (item.endsWith('.png')) {
-              totalCount++;
-              if ('size' in itemInfo && typeof itemInfo.size === 'number') {
-                totalSize += itemInfo.size;
-              }
-            }
-          }
-        }
-      };
-
-      await scanDir(tilesDirectory);
-      setTileStats({ count: totalCount, size: totalSize });
-    } catch {
-      setTileStats({ count: 0, size: 0 });
-    }
-  }, [tilesDirectory]);
-
   useEffect(() => {
     refreshCacheSizes();
   }, [refreshCacheSizes, cacheStats.totalActivities, routeProcessedCount]);
-
-  useEffect(() => {
-    refreshTileStats();
-  }, [refreshTileStats, tilesExist]);
 
   // Get reset function from SyncDateRangeStore
   const resetSyncDateRange = useSyncDateRange((s) => s.reset);
@@ -478,17 +424,7 @@ export default function SettingsScreen() {
             // as that would emit a second 'syncReset' event and trigger duplicate syncs
             await clearCache();
 
-            // 3. Clear heatmap tiles
-            if (tilesDirectory) {
-              const tilesDirInfo = await FileSystem.getInfoAsync(tilesDirectory);
-              if (tilesDirInfo.exists) {
-                await FileSystem.deleteAsync(tilesDirectory, { idempotent: true });
-              }
-            }
-            // Invalidate tiles exist query
-            queryClient.invalidateQueries({ queryKey: ['heatmap-tiles-exist'] });
-
-            // 4. REMOVE queries entirely (not just clear) - prevents old date ranges persisting
+            // 3. REMOVE queries entirely (not just clear) - prevents old date ranges persisting
             queryClient.removeQueries({ queryKey: ['activities'] });
             queryClient.removeQueries({ queryKey: ['wellness'] });
             queryClient.removeQueries({ queryKey: ['powerCurve'] });
@@ -496,7 +432,7 @@ export default function SettingsScreen() {
             queryClient.removeQueries({ queryKey: ['athlete'] });
             await AsyncStorage.removeItem('veloq-query-cache');
 
-            // 5. Refetch with new 90-day range
+            // 4. Refetch with new 90-day range
             // Note: GlobalDataSync automatically triggers GPS sync when activities are refetched
             queryClient.refetchQueries({ queryKey: ['activities'] });
             queryClient.refetchQueries({ queryKey: ['wellness'] });
@@ -504,9 +440,8 @@ export default function SettingsScreen() {
             queryClient.refetchQueries({ queryKey: ['paceCurve'] });
             queryClient.refetchQueries({ queryKey: ['athlete'] });
 
-            // Refresh cache sizes and tile stats
+            // Refresh cache sizes
             refreshCacheSizes();
-            refreshTileStats();
           } catch {
             Alert.alert(t('alerts.error'), t('alerts.failedToClear'));
           }
@@ -1025,17 +960,6 @@ export default function SettingsScreen() {
             </Text>
             <Text style={[styles.infoValue, isDark && styles.textLight]}>
               {formatBytes(cacheSizes.routes)}
-            </Text>
-          </View>
-
-          <View style={[styles.infoRow, isDark && styles.infoRowDark]}>
-            <Text style={[styles.infoLabel, isDark && styles.textMuted]}>
-              {t('settings.heatmapTiles')}
-            </Text>
-            <Text style={[styles.infoValue, isDark && styles.textLight]}>
-              {tileStats.count > 0
-                ? `${tileStats.count} ${t('settings.tiles')} (${formatBytes(tileStats.size)})`
-                : t('settings.notGenerated')}
             </Text>
           </View>
 

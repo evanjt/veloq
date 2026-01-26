@@ -71,12 +71,7 @@ export {
 } from './routes/useSectionPerformances';
 export { useCustomSections, useCustomSection } from './routes/useCustomSections';
 export { useUnifiedSections } from './routes/useUnifiedSections';
-export {
-  useEngineMapActivities,
-  useHeatmapTiles,
-  useHeatmapTileSource,
-  getTileUrlTemplate,
-} from './maps';
+export { useEngineMapActivities } from './maps';
 
 // Route Engine hooks (stateful Rust backend)
 export {

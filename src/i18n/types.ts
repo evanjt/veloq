@@ -193,7 +193,6 @@ export interface TranslationResource {
     training: string;
     wellness: string;
     routes: string;
-    heatmap: string;
     map: string;
     settings: string;
     activities: string;
@@ -310,9 +309,6 @@ export interface TranslationResource {
     total: string;
     database: string;
     dateRange: string;
-    heatmapTiles: string;
-    tiles: string;
-    notGenerated: string;
     noData: string;
     lastSynced: string;
     bounds: string;
@@ -565,7 +561,6 @@ export interface TranslationResource {
     title: string;
     routes: string;
     sections: string;
-    heatmap: string;
     disabledInSettings: string;
     potentialMatches: string;
     checkingActivities: string;
@@ -606,15 +601,6 @@ export interface TranslationResource {
     powerCurveInfo: string;
     ref: string;
     garminNote: string;
-  };
-
-  heatmapScreen: {
-    title: string;
-    noActivityData: string;
-    processFirstHint: string;
-    goToRoutes: string;
-    generatingHeatmap: string;
-    activitiesCount: string;
   };
 
   licenses: {
@@ -994,13 +980,6 @@ export interface TranslationResource {
       walk: string;
       water: string;
     };
-  };
-
-  heatmap: {
-    visitedTimes: string;
-    uniqueRoutes: string;
-    lastVisit: string;
-    showActivities: string;
   };
 }
 

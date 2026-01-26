@@ -344,23 +344,6 @@
     "optimal": "最適",
     "transition": "移行"
   },
-  "heatmap": {
-    "lastVisit": "最終訪問",
-    "routesLabel": "ルート:",
-    "showActivities": "アクティビティを表示",
-    "uniqueRoutes": "{{count}}ユニークルート",
-    "visitedTimes": "{{count}}回訪問"
-  },
-  "heatmapScreen": {
-    "activitiesCount": "{{count}}件のアクティビティ",
-    "dataRangeHint": "Based on {{duration}} of activity data",
-    "expandInSettings": "Expand in Settings",
-    "generatingHeatmap": "ヒートマップを生成中...",
-    "goToRoutes": "ルートへ",
-    "noActivityData": "アクティビティデータなし",
-    "processFirstHint": "ヒートマップを生成するには、まずルート画面でアクティビティを処理してください。",
-    "title": "ヒートマップ"
-  },
   "licenses": {
     "footer": "ライセンスバッジをタップすると、完全なライセンステキストが表示されます。リンクアイコンをタップすると、プロジェクトリポジトリにアクセスできます。",
     "intro": "Veloqはオープンソースソフトウェアで構築されています。この画面では、サードパーティライブラリとそのライセンスを一覧表示しています。",
@@ -421,7 +404,6 @@
     "allClear": "すべて",
     "cached": "キャッシュ済み",
     "clear": "クリア",
-    "closeHeatmapPopup": "ヒートマップポップアップを閉じる",
     "closeMap": "マップを閉じる",
     "closePopup": "アクティビティポップアップを閉じる",
     "closeRoutePopup": "ルートポップアップを閉じる",
@@ -447,9 +429,7 @@
     "tapSelectStart": "タップして開始点を選択",
     "toggleStyle": "マップスタイルを切り替え",
     "viewDetails": "詳細を表示",
-    "zoomToActivity": "アクティビティにズーム",
-    "hideHeatmap": "Hide heatmap",
-    "showHeatmap": "Show heatmap"
+    "zoomToActivity": "アクティビティにズーム"
   },
   "metrics": {
     "activityCount": "アクティビティ",
@@ -468,7 +448,6 @@
     "activities": "アクティビティ",
     "feed": "フィード",
     "fitness": "フィットネス",
-    "heatmap": "ヒートマップ",
     "map": "マップ",
     "routes": "ルート",
     "settings": "設定",
@@ -702,10 +681,7 @@
     "unitsMetric": "メートル法",
     "unitsMetricHint": "距離はキロメートル、標高はメートル、温度は摂氏",
     "version": "バージョン",
-    "viewRoutes": "ルートを表示",
-    "heatmapTiles": "Heatmap Tiles",
-    "tiles": "tiles",
-    "notGenerated": "Not generated"
+    "viewRoutes": "ルートを表示"
   },
   "stats": {
     "activities": "アクティビティ",
@@ -819,7 +795,6 @@
     "discoverRoutes": "よく通るルートを発見",
     "fetchingGps": "トラック取得中: {{current}}/{{total}}",
     "groupingRoutes": "ルートをグループ化中...",
-    "heatmap": "ヒートマップ",
     "potentialMatches": "{{count}}件の候補を発見",
     "routes": "ルート",
     "routesFromActivities": "{{activities}}件のアクティビティから{{routes}}ルート",

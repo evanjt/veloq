@@ -344,23 +344,6 @@
     "optimal": "Otimo",
     "transition": "Transicao"
   },
-  "heatmap": {
-    "lastVisit": "Ultima visita",
-    "routesLabel": "Rotas:",
-    "showActivities": "Mostrar atividades",
-    "uniqueRoutes": "{{count}} rotas unicas",
-    "visitedTimes": "Visitado {{count}} vezes"
-  },
-  "heatmapScreen": {
-    "activitiesCount": "{{count}} atividades",
-    "dataRangeHint": "Based on {{duration}} of activity data",
-    "expandInSettings": "Expand in Settings",
-    "generatingHeatmap": "Gerando mapa de calor...",
-    "goToRoutes": "Ir para Rotas",
-    "noActivityData": "Sem dados de atividade",
-    "processFirstHint": "Processe primeiro algumas atividades na tela Rotas para gerar um mapa de calor.",
-    "title": "Mapa de calor"
-  },
   "licenses": {
     "footer": "Toque em qualquer selo de licenca para ver o texto completo. Toque no icone de link para visitar o repositorio do projeto.",
     "intro": "O Veloq e construido com software de codigo aberto. Esta tela lista as bibliotecas de terceiros e suas licencas.",
@@ -421,7 +404,6 @@
     "allClear": "Todos",
     "cached": "Em cache",
     "clear": "Limpar",
-    "closeHeatmapPopup": "Fechar popup de mapa de calor",
     "closeMap": "Fechar mapa",
     "closePopup": "Fechar popup de atividade",
     "closeRoutePopup": "Fechar popup de rota",
@@ -447,9 +429,7 @@
     "tapSelectStart": "Toque para selecionar o ponto inicial",
     "toggleStyle": "Alternar estilo do mapa",
     "viewDetails": "Ver detalhes",
-    "zoomToActivity": "Zoom na atividade",
-    "hideHeatmap": "Hide heatmap",
-    "showHeatmap": "Show heatmap"
+    "zoomToActivity": "Zoom na atividade"
   },
   "metrics": {
     "activityCount": "Atividades",
@@ -468,7 +448,6 @@
     "activities": "Atividades",
     "feed": "Feed",
     "fitness": "Forma",
-    "heatmap": "Mapa de calor",
     "map": "Mapa",
     "routes": "Rotas",
     "settings": "Configuracoes",
@@ -702,10 +681,7 @@
     "unitsMetric": "Métrico",
     "unitsMetricHint": "Distâncias em quilômetros, elevação em metros, temperatura em Celsius",
     "version": "Versao",
-    "viewRoutes": "Ver rotas",
-    "heatmapTiles": "Heatmap Tiles",
-    "tiles": "tiles",
-    "notGenerated": "Not generated"
+    "viewRoutes": "Ver rotas"
   },
   "stats": {
     "activities": "Atividades",
@@ -819,7 +795,6 @@
     "discoverRoutes": "Descubra suas rotas comuns",
     "fetchingGps": "Obtendo trilhas: {{current}}/{{total}}",
     "groupingRoutes": "Agrupando rotas...",
-    "heatmap": "Mapa de calor",
     "potentialMatches": "Encontradas {{count}} correspondencias potenciais",
     "routes": "Rotas",
     "routesFromActivities": "{{routes}} rotas de {{activities}} atividades",

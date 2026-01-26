@@ -344,23 +344,6 @@
     "optimal": "Optimo",
     "transition": "Transicion"
   },
-  "heatmap": {
-    "lastVisit": "Ultima visita",
-    "routesLabel": "Rutas:",
-    "showActivities": "Mostrar actividades",
-    "uniqueRoutes": "{{count}} rutas unicas",
-    "visitedTimes": "Visitado {{count}} veces"
-  },
-  "heatmapScreen": {
-    "activitiesCount": "{{count}} actividades",
-    "dataRangeHint": "Based on {{duration}} of activity data",
-    "expandInSettings": "Expand in Settings",
-    "generatingHeatmap": "Generando mapa de calor...",
-    "goToRoutes": "Ir a Rutas",
-    "noActivityData": "Sin datos de actividad",
-    "processFirstHint": "Procesa algunas actividades en la pantalla de Rutas primero para generar un mapa de calor.",
-    "title": "Mapa de calor"
-  },
   "licenses": {
     "footer": "Toca cualquier insignia de licencia para ver el texto completo. Toca el icono de enlace para visitar el repositorio del proyecto.",
     "intro": "Veloq esta construido con software de codigo abierto. Esta pantalla lista las bibliotecas de terceros y sus licencias.",
@@ -421,7 +404,6 @@
     "allClear": "Todos",
     "cached": "En cache",
     "clear": "Limpiar",
-    "closeHeatmapPopup": "Cerrar popup de mapa de calor",
     "closeMap": "Cerrar mapa",
     "closePopup": "Cerrar popup de actividad",
     "closeRoutePopup": "Cerrar popup de ruta",
@@ -447,9 +429,7 @@
     "tapSelectStart": "Toca para seleccionar punto de inicio",
     "toggleStyle": "Cambiar estilo del mapa",
     "viewDetails": "Ver detalles",
-    "zoomToActivity": "Zoom a la actividad",
-    "hideHeatmap": "Hide heatmap",
-    "showHeatmap": "Show heatmap"
+    "zoomToActivity": "Zoom a la actividad"
   },
   "metrics": {
     "activityCount": "Actividades",
@@ -468,7 +448,6 @@
     "activities": "Actividades",
     "feed": "Inicio",
     "fitness": "Condicion fisica",
-    "heatmap": "Mapa de calor",
     "map": "Mapa",
     "routes": "Rutas",
     "settings": "Configuracion",
@@ -702,10 +681,7 @@
     "unitsMetric": "Métrico",
     "unitsMetricHint": "Distancias en kilómetros, elevación en metros, temperatura en Celsius",
     "version": "Version",
-    "viewRoutes": "Ver rutas",
-    "heatmapTiles": "Heatmap Tiles",
-    "tiles": "tiles",
-    "notGenerated": "Not generated"
+    "viewRoutes": "Ver rutas"
   },
   "stats": {
     "activities": "Actividades",
@@ -819,7 +795,6 @@
     "discoverRoutes": "Descubre tus rutas habituales",
     "fetchingGps": "Obteniendo trazas: {{current}}/{{total}}",
     "groupingRoutes": "Agrupando rutas...",
-    "heatmap": "Mapa de calor",
     "potentialMatches": "Encontradas {{count}} coincidencias potenciales",
     "routes": "Rutas",
     "routesFromActivities": "{{routes}} rutas de {{activities}} actividades",

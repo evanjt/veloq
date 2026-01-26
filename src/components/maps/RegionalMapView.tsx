@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useTheme, useHeatmapTileSource } from '@/hooks';
+import { useTheme } from '@/hooks';
 import {
   MapView,
   Camera,
@@ -10,8 +10,6 @@ import {
   ShapeSource,
   LineLayer,
   CircleLayer,
-  RasterSource,
-  RasterLayer,
   type MapViewRef,
 } from '@maplibre/maplibre-react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -90,19 +88,12 @@ export function RegionalMapView({
   const { t } = useTranslation();
   const router = useRouter();
   const { isDark: systemIsDark } = useTheme();
-  const {
-    tilesExist: heatmapReady,
-    tilesDirectory,
-    minZoom: heatmapMinZoom,
-    maxZoom: heatmapMaxZoom,
-  } = useHeatmapTileSource();
   const [showActivities, setShowActivities] = useState(true);
   const insets = useSafeAreaInsets();
   const systemStyle: MapStyleType = systemIsDark ? 'dark' : 'light';
   const [mapStyle, setMapStyle] = useState<MapStyleType>(systemStyle);
   const [selected, setSelected] = useState<SelectedActivity | null>(null);
   const [is3DMode, setIs3DMode] = useState(false);
-  const [isHeatmapMode, setIsHeatmapMode] = useState(false);
   const [showSections, setShowSections] = useState(false);
   const [showRoutes, setShowRoutes] = useState(false);
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
@@ -364,7 +355,6 @@ export function RegionalMapView({
     handleRegionIsChanging,
     handleRegionDidChange,
     handleGetLocation,
-    toggleHeatmap,
     toggleActivities,
     toggleSections,
     toggleRoutes,
@@ -375,9 +365,6 @@ export function RegionalMapView({
     sections,
     selected,
     setSelected,
-    isHeatmapMode,
-    setIsHeatmapMode,
-    heatmapReady,
     setSelectedSection,
     showActivities,
     setShowActivities,
@@ -417,14 +404,6 @@ export function RegionalMapView({
       setSelectedRoute(null);
     }
   }, [showRoutes, selectedRoute]);
-
-  // Debug heatmap tile loading
-  useEffect(() => {
-    if (__DEV__ && isHeatmapMode) {
-      const tileUrl = `${tilesDirectory}/{z}/{x}/{y}.png`;
-      console.log(`[RegionalMapView] Heatmap mode ON, ready=${heatmapReady}, tileUrl=${tileUrl}`);
-    }
-  }, [isHeatmapMode, heatmapReady, tilesDirectory]);
 
   // Toggle map style (cycles through light → dark → satellite)
   const toggleStyle = () => {
@@ -978,7 +957,7 @@ export function RegionalMapView({
   // instead of iterating all activities with getPointInView (which was O(n) FFI calls)
   const handleiOSTap = useCallback(
     async (screenX: number, screenY: number) => {
-      if (!showActivities || isHeatmapMode) {
+      if (!showActivities) {
         if (selected) setSelected(null);
         return;
       }
@@ -1036,15 +1015,7 @@ export function RegionalMapView({
         setSelected(null);
       }
     },
-    [
-      activities,
-      handleMarkerTap,
-      selected,
-      setSelected,
-      showActivities,
-      isHeatmapMode,
-      currentZoomLevel,
-    ]
+    [activities, handleMarkerTap, selected, setSelected, showActivities, currentZoomLevel]
   );
 
   // Track touch start for iOS tap detection (to distinguish taps from gestures)
@@ -1133,25 +1104,6 @@ export function RegionalMapView({
             followUserLocation={false}
           />
 
-          {/* Heatmap tile layer - pre-rendered raster tiles for all activity traces */}
-          {/* Tiles generated at zoom 0-16, covering world view to street level */}
-          {isHeatmapMode && heatmapReady && tilesDirectory && (
-            <RasterSource
-              id="heatmap-tiles"
-              tileUrlTemplates={[`${tilesDirectory}/{z}/{x}/{y}.png`]}
-              minZoomLevel={0}
-              maxZoomLevel={16}
-              tileSize={256}
-            >
-              <RasterLayer
-                id="heatmap-layer"
-                style={{
-                  rasterOpacity: 0.85,
-                }}
-              />
-            </RasterSource>
-          )}
-
           {/* Activity markers - visual only, taps handled by ShapeSource rendered later */}
           {/* CRITICAL: Always render MarkerViews to avoid iOS crash during reconciliation */}
           {/* Use opacity to hide instead of conditional rendering */}
@@ -1171,7 +1123,7 @@ export function RegionalMapView({
               // Larger icon ratio to fill more of the marker
               const iconSize = isSelected ? size * 0.75 : size * 0.7;
               // Hide markers when activities toggle is off or in heatmap mode
-              const isVisible = showActivities && !isHeatmapMode;
+              const isVisible = showActivities;
 
               return (
                 <MarkerView
@@ -1213,11 +1165,7 @@ export function RegionalMapView({
           <ShapeSource
             id="activity-markers-hitarea"
             shape={markersGeoJSON}
-            onPress={
-              Platform.OS === 'android' && !isHeatmapMode && showActivities
-                ? handleMarkerPress
-                : undefined
-            }
+            onPress={Platform.OS === 'android' && showActivities ? handleMarkerPress : undefined}
             hitbox={{ width: 36, height: 36 }}
           >
             {/* Invisible circles for hit detection - Android only, sized to match visual markers */}
@@ -1225,7 +1173,7 @@ export function RegionalMapView({
               id="marker-hitarea"
               style={{
                 circleRadius:
-                  Platform.OS === 'android' && !isHeatmapMode && showActivities
+                  Platform.OS === 'android' && showActivities
                     ? [
                         'interpolate',
                         ['linear'],
@@ -1258,7 +1206,7 @@ export function RegionalMapView({
             <LineLayer
               id="routesLine"
               style={{
-                visibility: showRoutes && !isHeatmapMode ? 'visible' : 'none',
+                visibility: showRoutes ? 'visible' : 'none',
                 lineColor: '#9C27B0',
                 lineWidth: [
                   'case',
@@ -1316,17 +1264,16 @@ export function RegionalMapView({
                       4, // Fixed width for unselected (can't use zoom interpolate here)
                     ]
                   : ['interpolate', ['linear'], ['zoom'], 10, 3, 14, 5, 18, 7],
-                lineOpacity:
-                  showSections && !isHeatmapMode
-                    ? selectedSection
-                      ? [
-                          'case',
-                          ['==', ['get', 'id'], selectedSection.id],
-                          1, // Full opacity when selected
-                          0.85,
-                        ]
-                      : 0.85
-                    : 0,
+                lineOpacity: showSections
+                  ? selectedSection
+                    ? [
+                        'case',
+                        ['==', ['get', 'id'], selectedSection.id],
+                        1, // Full opacity when selected
+                        0.85,
+                      ]
+                    : 0.85
+                  : 0,
                 lineCap: 'round',
                 lineJoin: 'round',
               }}
@@ -1346,17 +1293,16 @@ export function RegionalMapView({
                       6, // Fixed width for unselected (can't use zoom interpolate here)
                     ]
                   : ['interpolate', ['linear'], ['zoom'], 10, 5, 14, 7, 18, 9],
-                lineOpacity:
-                  showSections && !isHeatmapMode
-                    ? selectedSection
-                      ? [
-                          'case',
-                          ['==', ['get', 'id'], selectedSection.id],
-                          0.6, // More visible when selected
-                          0.4,
-                        ]
-                      : 0.4
-                    : 0,
+                lineOpacity: showSections
+                  ? selectedSection
+                    ? [
+                        'case',
+                        ['==', ['get', 'id'], selectedSection.id],
+                        0.6, // More visible when selected
+                        0.4,
+                      ]
+                    : 0.4
+                  : 0,
                 lineCap: 'round',
                 lineJoin: 'round',
               }}
@@ -1364,9 +1310,7 @@ export function RegionalMapView({
             />
           </ShapeSource>
 
-          {/* TODO: Heatmap tile layer will be added here */}
-
-          {/* GPS traces - simplified routes shown when zoomed in (hidden in heatmap mode) */}
+          {/* GPS traces - simplified routes shown when zoomed in */}
           {/* CRITICAL: Always render ShapeSource to avoid iOS MapLibre crash */}
           <ShapeSource id="activity-traces" shape={tracesGeoJSON}>
             <LineLayer
@@ -1382,7 +1326,7 @@ export function RegionalMapView({
                   2,
                 ],
                 // Fabric crash fix: Control visibility via opacity, not feature count
-                lineOpacity: showTraces && !isHeatmapMode ? 0.4 : 0,
+                lineOpacity: showTraces ? 0.4 : 0,
                 lineCap: 'round',
                 lineJoin: 'round',
               }}
@@ -1420,7 +1364,7 @@ export function RegionalMapView({
           {/* pointerEvents="none" is CRITICAL for Android - Pressable breaks marker positioning */}
           {/* Tap the section polyline to select (handled by ShapeSource onPress) */}
           {sectionMarkers.map((marker) => {
-            const isVisible = showSections && !isHeatmapMode;
+            const isVisible = showSections;
             const isSelected = selectedSection?.id === marker.id;
 
             return (
@@ -1457,7 +1401,7 @@ export function RegionalMapView({
           {/* pointerEvents="none" is CRITICAL for Android - Pressable breaks marker positioning */}
           {/* Tap the route polyline to select (handled by ShapeSource onPress) */}
           {routeMarkers.map((marker) => {
-            const isVisible = showRoutes && !isHeatmapMode;
+            const isVisible = showRoutes;
             const isSelected = selectedRoute?.id === marker.id;
 
             return (
@@ -1566,8 +1510,6 @@ export function RegionalMapView({
         showActivities={showActivities}
         showSections={showSections}
         showRoutes={showRoutes}
-        isHeatmapMode={isHeatmapMode}
-        heatmapReady={heatmapReady}
         userLocationActive={!!userLocation}
         sections={sections}
         routeCount={routeGroups.length}
@@ -1579,7 +1521,6 @@ export function RegionalMapView({
         onToggleActivities={toggleActivities}
         onToggleSections={toggleSections}
         onToggleRoutes={toggleRoutes}
-        onToggleHeatmap={toggleHeatmap}
         onFitAll={handleFitAll}
       />
       {/* Attribution */}

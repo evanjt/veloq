@@ -344,23 +344,6 @@
     "optimal": "Optimau",
     "transition": "Übergang"
   },
-  "heatmap": {
-    "lastVisit": "Letscht Mau",
-    "routesLabel": "Route:",
-    "showActivities": "Aktivitäte zeige",
-    "uniqueRoutes": "{{count}} verschiedeni Route",
-    "visitedTimes": "{{count}} Mau bsuecht"
-  },
-  "heatmapScreen": {
-    "activitiesCount": "{{count}} Aktivitäte",
-    "dataRangeHint": "Based on {{duration}} of activity data",
-    "expandInSettings": "Expand in Settings",
-    "generatingHeatmap": "Bim Heatmap mache...",
-    "goToRoutes": "Zu Route",
-    "noActivityData": "Kei Date da",
-    "processFirstHint": "Mach zersch es paar Route, de chunnts.",
-    "title": "Heatmap"
-  },
   "licenses": {
     "footer": "Tipp uf es Lizänz-Badge um dr voui Tekscht z gseh. Tipp ufs Link-Symbol um s Projekt-Repository z bsueche.",
     "intro": "Veloq isch mit Open-Source-Software bout. Die Site zeigt d Drittabieter-Bibliotheke u ihri Lizänze.",
@@ -421,7 +404,6 @@
     "allClear": "Aui",
     "cached": "Im Cache",
     "clear": "Lösche",
-    "closeHeatmapPopup": "Heatmap-Popup schliesse",
     "closeMap": "Charte zuemache",
     "closePopup": "Zuemache",
     "closeRoutePopup": "Route-Popup schliesse",
@@ -447,9 +429,7 @@
     "tapSelectStart": "Tipp für Startpunkt",
     "toggleStyle": "Stiu wächsle",
     "viewDetails": "Detaus aluege",
-    "zoomToActivity": "Uf Aktivität zoome",
-    "hideHeatmap": "Hide heatmap",
-    "showHeatmap": "Show heatmap"
+    "zoomToActivity": "Uf Aktivität zoome"
   },
   "metrics": {
     "activityCount": "Aktivitäten",
@@ -468,7 +448,6 @@
     "activities": "Aktivitäte",
     "feed": "S Nöischte",
     "fitness": "Fitness",
-    "heatmap": "Heatmap",
     "map": "Charte",
     "routes": "Route",
     "settings": "Ystellige",
@@ -702,10 +681,7 @@
     "unitsMetric": "Metrisch",
     "unitsMetricHint": "Distanze i Kilometer, Höchi i Meter, Temperatur i Celsius",
     "version": "Version",
-    "viewRoutes": "Route zeige",
-    "heatmapTiles": "Heatmap Tiles",
-    "tiles": "tiles",
-    "notGenerated": "Not generated"
+    "viewRoutes": "Route zeige"
   },
   "stats": {
     "activities": "Aktivitäte",
@@ -819,7 +795,6 @@
     "discoverRoutes": "Fing dyni Lieblingsroute!",
     "fetchingGps": "GPS lade: {{current}}/{{total}}",
     "groupingRoutes": "Bim Route gruppiere...",
-    "heatmap": "Heatmap",
     "potentialMatches": "{{count}} möglechs gfunge, gäu!",
     "routes": "Route",
     "routesFromActivities": "{{routes}} Route us {{activities}} Aktivitäte",

@@ -344,23 +344,6 @@
     "optimal": "最佳区间",
     "transition": "过渡期"
   },
-  "heatmap": {
-    "lastVisit": "上次访问",
-    "routesLabel": "路线:",
-    "showActivities": "显示活动",
-    "uniqueRoutes": "{{count}} 条独特路线",
-    "visitedTimes": "访问 {{count}} 次"
-  },
-  "heatmapScreen": {
-    "activitiesCount": "{{count}} 个活动",
-    "dataRangeHint": "Based on {{duration}} of activity data",
-    "expandInSettings": "Expand in Settings",
-    "generatingHeatmap": "正在生成热力图...",
-    "goToRoutes": "前往路线",
-    "noActivityData": "无活动数据",
-    "processFirstHint": "首先在路线页面处理一些活动以生成热力图。",
-    "title": "热力图"
-  },
   "licenses": {
     "footer": "点击任何许可证徽章查看完整许可证文本。点击链接图标访问项目仓库。",
     "intro": "Veloq使用开源软件构建。此屏幕列出了第三方库及其许可证。",
@@ -421,7 +404,6 @@
     "allClear": "全部",
     "cached": "已缓存",
     "clear": "清除",
-    "closeHeatmapPopup": "关闭热力图弹窗",
     "closeMap": "关闭地图",
     "closePopup": "关闭活动弹窗",
     "closeRoutePopup": "关闭路线弹窗",
@@ -447,9 +429,7 @@
     "tapSelectStart": "点击选择起点",
     "toggleStyle": "切换地图样式",
     "viewDetails": "查看详情",
-    "zoomToActivity": "缩放至活动",
-    "hideHeatmap": "Hide heatmap",
-    "showHeatmap": "Show heatmap"
+    "zoomToActivity": "缩放至活动"
   },
   "metrics": {
     "activityCount": "活动",
@@ -468,7 +448,6 @@
     "activities": "活动",
     "feed": "动态",
     "fitness": "体能",
-    "heatmap": "热力图",
     "map": "地图",
     "routes": "路线",
     "settings": "设置",
@@ -702,10 +681,7 @@
     "unitsMetric": "公制",
     "unitsMetricHint": "距离用公里，海拔用米，温度用摄氏度",
     "version": "版本",
-    "viewRoutes": "查看路线",
-    "heatmapTiles": "Heatmap Tiles",
-    "tiles": "tiles",
-    "notGenerated": "Not generated"
+    "viewRoutes": "查看路线"
   },
   "stats": {
     "activities": "活动",
@@ -819,7 +795,6 @@
     "discoverRoutes": "发现您的常用路线",
     "fetchingGps": "获取轨迹: {{current}}/{{total}}",
     "groupingRoutes": "正在分组路线...",
-    "heatmap": "热力图",
     "potentialMatches": "发现 {{count}} 个潜在匹配",
     "routes": "路线",
     "routesFromActivities": "从 {{activities}} 个活动中发现 {{routes}} 条路线",

@@ -23,10 +23,6 @@ pub use persistence::{
 pub mod http;
 pub use http::{ActivityFetcher, ActivityMapResult, MapBounds};
 
-// Tile generation for heatmaps
-pub mod tiles;
-pub use tiles::{TileConfig, TileResult, generate_tile, generate_all_tiles, tiles_for_tracks};
-
 // FFI bindings for mobile platforms
 pub mod ffi;
 

@@ -344,23 +344,6 @@
     "optimal": "Optymalna",
     "transition": "Przejsciowa"
   },
-  "heatmap": {
-    "lastVisit": "Ostatnia wizyta",
-    "routesLabel": "Trasy:",
-    "showActivities": "Pokaz aktywnosci",
-    "uniqueRoutes": "{{count}} unikalnych tras",
-    "visitedTimes": "Odwiedzono {{count}} razy"
-  },
-  "heatmapScreen": {
-    "activitiesCount": "{{count}} aktywnosci",
-    "dataRangeHint": "Based on {{duration}} of activity data",
-    "expandInSettings": "Expand in Settings",
-    "generatingHeatmap": "Generowanie mapy ciepla...",
-    "goToRoutes": "Przejdz do Tras",
-    "noActivityData": "Brak danych aktywnosci",
-    "processFirstHint": "Najpierw przetworz aktywnosci na ekranie Tras, aby wygenerowac mape ciepla.",
-    "title": "Mapa ciepla"
-  },
   "licenses": {
     "footer": "Dotknij dowolnej plakietki licencji, aby zobaczyc pelny tekst. Dotknij ikony linku, aby odwiedzic repozytorium projektu.",
     "intro": "Veloq jest zbudowany z oprogramowania open-source. Ten ekran wyswietla biblioteki innych firm i ich licencje.",
@@ -421,7 +404,6 @@
     "allClear": "Wszystkie",
     "cached": "W pamieci",
     "clear": "Wyczysc",
-    "closeHeatmapPopup": "Zamknij popup mapy ciepła",
     "closeMap": "Zamknij mape",
     "closePopup": "Zamknij okno aktywnosci",
     "closeRoutePopup": "Zamknij popup trasy",
@@ -447,9 +429,7 @@
     "tapSelectStart": "Dotknij, aby wybrać punkt początkowy",
     "toggleStyle": "Zmien styl mapy",
     "viewDetails": "Zobacz szczegoly",
-    "zoomToActivity": "Przybliz do aktywnosci",
-    "hideHeatmap": "Hide heatmap",
-    "showHeatmap": "Show heatmap"
+    "zoomToActivity": "Przybliz do aktywnosci"
   },
   "metrics": {
     "activityCount": "Aktywności",
@@ -468,7 +448,6 @@
     "activities": "Aktywnosci",
     "feed": "Aktywnosci",
     "fitness": "Kondycja",
-    "heatmap": "Mapa ciepla",
     "map": "Mapa",
     "routes": "Trasy",
     "settings": "Ustawienia",
@@ -702,10 +681,7 @@
     "unitsMetric": "Metryczne",
     "unitsMetricHint": "Dystanse w kilometrach, wysokość w metrach, temperatura w Celsjuszach",
     "version": "Wersja",
-    "viewRoutes": "Zobacz trasy",
-    "heatmapTiles": "Heatmap Tiles",
-    "tiles": "tiles",
-    "notGenerated": "Not generated"
+    "viewRoutes": "Zobacz trasy"
   },
   "stats": {
     "activities": "Aktywnosci",
@@ -819,7 +795,6 @@
     "discoverRoutes": "Odkryj swoje czeste trasy",
     "fetchingGps": "Pobieranie śladów: {{current}}/{{total}}",
     "groupingRoutes": "Grupowanie tras...",
-    "heatmap": "Mapa ciepla",
     "potentialMatches": "Znaleziono {{count}} potencjalnych dopasowań",
     "routes": "Trasy",
     "routesFromActivities": "{{routes}} tras z {{activities}} aktywnosci",

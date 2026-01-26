@@ -25,9 +25,6 @@ interface UseMapHandlersOptions {
   sections: FrequentSection[];
   selected: SelectedActivity | null;
   setSelected: (value: SelectedActivity | null) => void;
-  isHeatmapMode: boolean;
-  setIsHeatmapMode: (value: boolean | ((prev: boolean) => boolean)) => void;
-  heatmapReady?: boolean;
   setSelectedSection: (value: FrequentSection | null) => void;
   showActivities: boolean;
   setShowActivities: (value: boolean | ((prev: boolean) => boolean)) => void;
@@ -59,7 +56,6 @@ interface UseMapHandlersResult {
   handleRegionIsChanging: (feature: GeoJSON.Feature) => void;
   handleRegionDidChange: (feature: GeoJSON.Feature) => void;
   handleGetLocation: () => Promise<void>;
-  toggleHeatmap: () => void;
   toggleActivities: () => void;
   toggleSections: () => void;
   toggleRoutes: () => void;
@@ -72,9 +68,6 @@ export function useMapHandlers({
   sections,
   selected,
   setSelected,
-  isHeatmapMode,
-  setIsHeatmapMode,
-  heatmapReady = false,
   setSelectedSection,
   showActivities,
   setShowActivities,
@@ -344,14 +337,6 @@ export function useMapHandlers({
     }
   }, [cameraRef, setUserLocation]);
 
-  // Toggle heatmap mode - tiles are auto-generated after sync
-  const toggleHeatmap = useCallback(() => {
-    setIsHeatmapMode((current) => !current);
-    if (!isHeatmapMode) {
-      setSelected(null);
-    }
-  }, [isHeatmapMode, setIsHeatmapMode, setSelected]);
-
   // Toggle activities visibility - clear selection when hiding
   const toggleActivities = useCallback(() => {
     setShowActivities((current) => {
@@ -461,7 +446,6 @@ export function useMapHandlers({
     handleRegionIsChanging,
     handleRegionDidChange,
     handleGetLocation,
-    toggleHeatmap,
     toggleActivities,
     toggleSections,
     toggleRoutes,

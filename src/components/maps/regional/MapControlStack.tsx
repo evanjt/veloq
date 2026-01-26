@@ -28,10 +28,6 @@ interface MapControlStackProps {
   showSections: boolean;
   /** Whether routes are visible */
   showRoutes: boolean;
-  /** Whether heatmap mode is enabled */
-  isHeatmapMode: boolean;
-  /** Whether heatmap tiles exist */
-  heatmapReady: boolean;
   /** Whether user location is active */
   userLocationActive: boolean;
   /** Sections data (for showing sections toggle) */
@@ -54,8 +50,6 @@ interface MapControlStackProps {
   onToggleSections: () => void;
   /** Callback to toggle routes */
   onToggleRoutes: () => void;
-  /** Callback to toggle heatmap */
-  onToggleHeatmap: () => void;
   /** Callback to fit all activities in view */
   onFitAll: () => void;
 }
@@ -68,8 +62,6 @@ export function MapControlStack({
   showActivities,
   showSections,
   showRoutes,
-  isHeatmapMode,
-  heatmapReady,
   userLocationActive,
   sections,
   routeCount,
@@ -81,7 +73,6 @@ export function MapControlStack({
   onToggleActivities,
   onToggleSections,
   onToggleRoutes,
-  onToggleHeatmap,
   onFitAll,
 }: MapControlStackProps) {
   const { t } = useTranslation();
@@ -121,34 +112,6 @@ export function MapControlStack({
           }
         />
       </TouchableOpacity>
-
-      {/* Heatmap Toggle - shows activity trace heatmap */}
-      {activityCount > 0 && (
-        <TouchableOpacity
-          testID="map-toggle-heatmap"
-          style={[
-            styles.controlButton,
-            isDark && styles.controlButtonDark,
-            isHeatmapMode && styles.controlButtonActive,
-          ]}
-          onPress={onToggleHeatmap}
-          activeOpacity={0.8}
-          accessibilityLabel={
-            isHeatmapMode
-              ? t('maps.hideHeatmap', 'Hide heatmap')
-              : t('maps.showHeatmap', 'Show heatmap')
-          }
-          accessibilityRole="button"
-        >
-          <MaterialCommunityIcons
-            name={heatmapReady ? 'fire' : 'fire-off'}
-            size={22}
-            color={
-              isHeatmapMode ? colors.textOnDark : isDark ? colors.textOnDark : colors.textSecondary
-            }
-          />
-        </TouchableOpacity>
-      )}
 
       {/* North Arrow - tap to reset orientation */}
       <TouchableOpacity

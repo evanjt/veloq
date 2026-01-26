@@ -295,7 +295,9 @@ export function UnifiedPerformanceChart({
 
   // Calculate X positions with gap compression
   interface GapWithPosition {
-    xPosition: number;
+    xPosition: number; // Center position
+    startX: number; // Left edge position
+    endX: number; // Right edge position
     gapDays: number;
     gapIndex: number;
     isExpanded: boolean;
@@ -425,6 +427,8 @@ export function UnifiedPerformanceChart({
       const afterX = convertDateToX(gap.endDate);
       return {
         xPosition: (beforeX + afterX) / 2,
+        startX: beforeX,
+        endX: afterX,
         gapDays: gap.gapDays,
         gapIndex: idx,
         isExpanded: expandedGaps.has(idx),
@@ -808,23 +812,61 @@ export function UnifiedPerformanceChart({
           </Text>
         </View>
 
-        {/* Vertical gap lines - use global gaps so lines appear in both lanes */}
+        {/* Gap indicators - show edges and fill when expanded */}
         {gaps.length > 0 && (
           <View style={styles.gapLinesOverlay} pointerEvents="none">
             {gaps.map((gap, idx) => {
               const chartContentW = chartWidth - CHART_PADDING_LEFT - CHART_PADDING_RIGHT;
-              // Use global gap position, add small offset (+4px) to align with visual center
-              const pixelX = CHART_PADDING_LEFT + gap.xPosition * chartContentW + 4;
-              return (
-                <View
-                  key={`gap-line-${idx}`}
-                  style={[
-                    styles.gapVerticalLine,
-                    isDark && styles.gapVerticalLineDark,
-                    { left: pixelX },
-                  ]}
-                />
-              );
+              const startPixelX = CHART_PADDING_LEFT + gap.startX * chartContentW;
+              const endPixelX = CHART_PADDING_LEFT + gap.endX * chartContentW;
+              const gapWidth = endPixelX - startPixelX;
+
+              if (gap.isExpanded) {
+                // Expanded: show two edge lines with tinted fill and day count
+                const lineColor = isDark ? '#666666' : '#999999';
+
+                return (
+                  <View key={`gap-expanded-${idx}`}>
+                    {/* Left edge line */}
+                    <View
+                      style={[
+                        styles.gapEdgeLine,
+                        { left: startPixelX, backgroundColor: lineColor },
+                      ]}
+                    />
+                    {/* Tinted fill area */}
+                    <View
+                      style={[
+                        styles.gapExpandedFill,
+                        isDark && styles.gapExpandedFillDark,
+                        { left: startPixelX + 1, width: Math.max(0, gapWidth - 2) },
+                      ]}
+                    >
+                      {/* Day count label */}
+                      <Text style={[styles.gapDayCount, isDark && styles.gapDayCountDark]}>
+                        {gap.gapDays}d
+                      </Text>
+                    </View>
+                    {/* Right edge line */}
+                    <View
+                      style={[styles.gapEdgeLine, { left: endPixelX, backgroundColor: lineColor }]}
+                    />
+                  </View>
+                );
+              } else {
+                // Compressed: single center line
+                const pixelX = CHART_PADDING_LEFT + gap.xPosition * chartContentW + 4;
+                return (
+                  <View
+                    key={`gap-line-${idx}`}
+                    style={[
+                      styles.gapVerticalLine,
+                      isDark && styles.gapVerticalLineDark,
+                      { left: pixelX },
+                    ]}
+                  />
+                );
+              }
             })}
           </View>
         )}
@@ -1688,6 +1730,48 @@ const styles = StyleSheet.create({
   gapVerticalLineDark: {
     borderLeftColor: '#888888',
     opacity: 0.5,
+  },
+  gapEdgeLine: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    width: 0,
+    borderLeftWidth: 1.5,
+    opacity: 0.7,
+  },
+  gapHatchArea: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    overflow: 'hidden',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  gapHatchLine: {
+    position: 'absolute',
+    width: 1,
+    height: '200%',
+    opacity: 0.4,
+    transform: [{ rotate: '45deg' }],
+  },
+  gapDayCountContainer: {
+    position: 'absolute',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  gapDayCount: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.textMuted,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  gapDayCountDark: {
+    color: '#ffffff',
+    backgroundColor: 'rgba(40, 40, 40, 0.95)',
   },
   gapMarkersOverlay: {
     ...StyleSheet.absoluteFillObject,

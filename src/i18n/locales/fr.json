@@ -344,23 +344,6 @@
     "optimal": "Optimal",
     "transition": "Transition"
   },
-  "heatmap": {
-    "lastVisit": "Dernière visite",
-    "routesLabel": "Routes:",
-    "showActivities": "Afficher les activités",
-    "uniqueRoutes": "{{count}} parcours uniques",
-    "visitedTimes": "Visité {{count}} fois"
-  },
-  "heatmapScreen": {
-    "activitiesCount": "{{count}} activités",
-    "dataRangeHint": "Based on {{duration}} of activity data",
-    "expandInSettings": "Expand in Settings",
-    "generatingHeatmap": "Génération de la carte thermique...",
-    "goToRoutes": "Aller aux Parcours",
-    "noActivityData": "Aucune donnée d'activité",
-    "processFirstHint": "Traitez d'abord quelques activités dans l'écran Parcours pour générer une carte thermique.",
-    "title": "Carte thermique"
-  },
   "licenses": {
     "footer": "Appuyez sur un badge de licence pour voir le texte complet. Appuyez sur l'icône de lien pour visiter le dépôt du projet.",
     "intro": "Veloq est construit avec des logiciels open-source. Cet écran liste les bibliothèques tierces et leurs licences.",
@@ -421,7 +404,6 @@
     "allClear": "Tous",
     "cached": "En cache",
     "clear": "Effacer",
-    "closeHeatmapPopup": "Fermer la popup de carte thermique",
     "closeMap": "Fermer la carte",
     "closePopup": "Fermer le popup d'activité",
     "closeRoutePopup": "Fermer la popup de route",
@@ -447,9 +429,7 @@
     "tapSelectStart": "Appuyez pour sélectionner le point de départ",
     "toggleStyle": "Changer le style de carte",
     "viewDetails": "Voir les détails",
-    "zoomToActivity": "Zoom sur l'activité",
-    "hideHeatmap": "Hide heatmap",
-    "showHeatmap": "Show heatmap"
+    "zoomToActivity": "Zoom sur l'activité"
   },
   "metrics": {
     "activityCount": "Activités",
@@ -468,7 +448,6 @@
     "activities": "Activités",
     "feed": "Fil",
     "fitness": "Forme",
-    "heatmap": "Carte thermique",
     "map": "Carte",
     "routes": "Parcours",
     "settings": "Paramètres",
@@ -702,10 +681,7 @@
     "unitsMetric": "Métrique",
     "unitsMetricHint": "Distances en kilomètres, altitude en mètres, température en Celsius",
     "version": "Version",
-    "viewRoutes": "Voir les parcours",
-    "heatmapTiles": "Heatmap Tiles",
-    "tiles": "tiles",
-    "notGenerated": "Not generated"
+    "viewRoutes": "Voir les parcours"
   },
   "stats": {
     "activities": "Activités",
@@ -819,7 +795,6 @@
     "discoverRoutes": "Découvrez vos parcours habituels",
     "fetchingGps": "Récupération des traces : {{current}}/{{total}}",
     "groupingRoutes": "Regroupement des parcours...",
-    "heatmap": "Carte thermique",
     "potentialMatches": "{{count}} correspondances potentielles trouvées",
     "routes": "Parcours",
     "routesFromActivities": "{{routes}} parcours de {{activities}} activités",

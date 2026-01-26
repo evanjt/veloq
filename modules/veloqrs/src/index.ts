@@ -2,7 +2,7 @@
  * Route Matcher Native Module
  *
  * Auto-generated Turbo Module bindings via uniffi-bindgen-react-native.
- * Provides high-performance route matching, section detection, and heatmap generation.
+ * Provides high-performance route matching and section detection.
  */
 
 // Import the Turbo Module to install JSI bindings
@@ -88,11 +88,6 @@ import {
   type GroupSummary,
   type DownloadProgressResult,
   FfiSectionConfig,
-  // TODO: Heatmap types not yet generated - uncomment after Rust rebuild
-  // type FfiHeatmapResult,
-  // type FfiHeatmapCell,
-  // type FfiCellQueryResult,
-  // type FfiActivityHeatmapData,
   type MapActivityComplete,
 } from './generated/veloqrs';
 
@@ -102,11 +97,6 @@ export type GpsPoint = FfiGpsPoint;
 export type RouteGroup = FfiRouteGroup;
 export type FrequentSection = FfiFrequentSection;
 export type SectionConfig = FfiSectionConfig;
-// TODO: Heatmap types not yet generated - uncomment after Rust rebuild
-// export type HeatmapResult = FfiHeatmapResult;
-// export type HeatmapCell = FfiHeatmapCell;
-// export type CellQueryResult = FfiCellQueryResult;
-// export type ActivityHeatmapData = FfiActivityHeatmapData;
 // These are already exported without Ffi prefix:
 export type { PersistentEngineStats, SectionSummary, GroupSummary, DownloadProgressResult, MapActivityComplete };
 

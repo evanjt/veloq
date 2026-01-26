@@ -344,23 +344,6 @@
     "optimal": "Optimal",
     "transition": "Transition"
   },
-  "heatmap": {
-    "lastVisit": "Last visit",
-    "routesLabel": "Routes:",
-    "showActivities": "Show Activities",
-    "uniqueRoutes": "{{count}} unique routes",
-    "visitedTimes": "Visited {{count}} times"
-  },
-  "heatmapScreen": {
-    "activitiesCount": "{{count}} activities",
-    "dataRangeHint": "Based on {{duration}} of activity data",
-    "expandInSettings": "Expand in Settings",
-    "generatingHeatmap": "Generating heatmap...",
-    "goToRoutes": "Go to Routes",
-    "noActivityData": "No Activity Data",
-    "processFirstHint": "Process some activities in the Routes screen first to generate a heatmap.",
-    "title": "Heatmap"
-  },
   "licenses": {
     "footer": "Tap any licence badge to view the full licence text. Tap the link icon to visit the project repository.",
     "intro": "Veloq is built with open-source software. This screen lists the third-party libraries and their licences.",
@@ -421,7 +404,6 @@
     "allClear": "All",
     "cached": "Cached",
     "clear": "Clear",
-    "closeHeatmapPopup": "Close heatmap popup",
     "closeMap": "Close map",
     "closePopup": "Close activity popup",
     "closeRoutePopup": "Close route popup",
@@ -447,9 +429,7 @@
     "tapSelectStart": "Tap to select start point",
     "toggleStyle": "Toggle map style",
     "viewDetails": "View Details",
-    "zoomToActivity": "Zoom to activity",
-    "hideHeatmap": "Hide heatmap",
-    "showHeatmap": "Show heatmap"
+    "zoomToActivity": "Zoom to activity"
   },
   "metrics": {
     "activityCount": "Activities",
@@ -468,7 +448,6 @@
     "activities": "Activities",
     "feed": "Feed",
     "fitness": "Fitness",
-    "heatmap": "Heatmap",
     "map": "Map",
     "routes": "Routes",
     "settings": "Settings",
@@ -702,10 +681,7 @@
     "unitsMetric": "Metric",
     "unitsMetricHint": "Distances in kilometres, elevation in metres, temperature in Celsius",
     "version": "Version",
-    "viewRoutes": "View Routes",
-    "heatmapTiles": "Heatmap Tiles",
-    "tiles": "tiles",
-    "notGenerated": "Not generated"
+    "viewRoutes": "View Routes"
   },
   "stats": {
     "activities": "Activities",
@@ -819,7 +795,6 @@
     "discoverRoutes": "Discover your common routes",
     "fetchingGps": "Fetching tracks: {{current}}/{{total}}",
     "groupingRoutes": "Grouping routes...",
-    "heatmap": "Heatmap",
     "potentialMatches": "Found {{count}} potential matches",
     "routes": "Routes",
     "routesFromActivities": "{{routes}} routes from {{activities}} activities",

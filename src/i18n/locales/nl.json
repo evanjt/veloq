@@ -344,23 +344,6 @@
     "optimal": "Optimaal",
     "transition": "Overgang"
   },
-  "heatmap": {
-    "lastVisit": "Laatste bezoek",
-    "routesLabel": "Routes:",
-    "showActivities": "Activiteiten tonen",
-    "uniqueRoutes": "{{count}} unieke routes",
-    "visitedTimes": "{{count}} keer bezocht"
-  },
-  "heatmapScreen": {
-    "activitiesCount": "{{count}} activiteiten",
-    "dataRangeHint": "Based on {{duration}} of activity data",
-    "expandInSettings": "Expand in Settings",
-    "generatingHeatmap": "Heatmap genereren...",
-    "goToRoutes": "Naar Routes",
-    "noActivityData": "Geen activiteitsgegevens",
-    "processFirstHint": "Verwerk eerst enkele activiteiten in het Routes-scherm om een heatmap te genereren.",
-    "title": "Heatmap"
-  },
   "licenses": {
     "footer": "Tik op een licentiebadge om de volledige licentietekst te bekijken. Tik op het linkpictogram om de projectrepository te bezoeken.",
     "intro": "Veloq is gebouwd met open-source software. Dit scherm toont de bibliotheken van derden en hun licenties.",
@@ -421,7 +404,6 @@
     "allClear": "Alle",
     "cached": "Gecached",
     "clear": "Wissen",
-    "closeHeatmapPopup": "Heatmap-popup sluiten",
     "closeMap": "Kaart sluiten",
     "closePopup": "Activiteit-popup sluiten",
     "closeRoutePopup": "Route-popup sluiten",
@@ -447,9 +429,7 @@
     "tapSelectStart": "Tik om startpunt te selecteren",
     "toggleStyle": "Kaartstijl wisselen",
     "viewDetails": "Details bekijken",
-    "zoomToActivity": "Inzoomen op activiteit",
-    "hideHeatmap": "Hide heatmap",
-    "showHeatmap": "Show heatmap"
+    "zoomToActivity": "Inzoomen op activiteit"
   },
   "metrics": {
     "activityCount": "Activiteiten",
@@ -468,7 +448,6 @@
     "activities": "Activiteiten",
     "feed": "Feed",
     "fitness": "Fitness",
-    "heatmap": "Heatmap",
     "map": "Kaart",
     "routes": "Routes",
     "settings": "Instellingen",
@@ -702,10 +681,7 @@
     "unitsMetric": "Metrisch",
     "unitsMetricHint": "Afstanden in kilometers, hoogte in meters, temperatuur in Celsius",
     "version": "Versie",
-    "viewRoutes": "Routes bekijken",
-    "heatmapTiles": "Heatmap Tiles",
-    "tiles": "tiles",
-    "notGenerated": "Not generated"
+    "viewRoutes": "Routes bekijken"
   },
   "stats": {
     "activities": "Activiteiten",
@@ -819,7 +795,6 @@
     "discoverRoutes": "Ontdek je veelgebruikte routes",
     "fetchingGps": "Sporen laden: {{current}}/{{total}}",
     "groupingRoutes": "Routes groeperen...",
-    "heatmap": "Heatmap",
     "potentialMatches": "{{count}} potentiële overeenkomsten gevonden",
     "routes": "Routes",
     "routesFromActivities": "{{routes}} routes van {{activities}} activiteiten",

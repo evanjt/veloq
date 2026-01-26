@@ -344,23 +344,6 @@
     "optimal": "Optimal",
     "transition": "Overgang"
   },
-  "heatmap": {
-    "lastVisit": "Sidste besøg",
-    "routesLabel": "Ruter:",
-    "showActivities": "Vis aktiviteter",
-    "uniqueRoutes": "{{count}} unikke ruter",
-    "visitedTimes": "Besøgt {{count}} gange"
-  },
-  "heatmapScreen": {
-    "activitiesCount": "{{count}} aktiviteter",
-    "dataRangeHint": "Based on {{duration}} of activity data",
-    "expandInSettings": "Expand in Settings",
-    "generatingHeatmap": "Genererer varmekort...",
-    "goToRoutes": "Gå til Ruter",
-    "noActivityData": "Ingen aktivitetsdata",
-    "processFirstHint": "Behandl nogle aktiviteter på Ruter-skærmen først for at generere et varmekort.",
-    "title": "Varmekort"
-  },
   "licenses": {
     "footer": "Tryk pa et licensmærke for at se den fulde licenstekst. Tryk pa linkikonet for at besøge projektets repository.",
     "intro": "Veloq er bygget med open source-software. Denne skærm viser tredjepartsbiblioteker og deres licenser.",
@@ -421,7 +404,6 @@
     "allClear": "Alle",
     "cached": "Cachelagret",
     "clear": "Ryd",
-    "closeHeatmapPopup": "Luk heatmap-popup",
     "closeMap": "Luk kort",
     "closePopup": "Luk aktivitets-popup",
     "closeRoutePopup": "Luk rute-popup",
@@ -447,9 +429,7 @@
     "tapSelectStart": "Tryk for at vælge startpunkt",
     "toggleStyle": "Skift kortstil",
     "viewDetails": "Vis detaljer",
-    "zoomToActivity": "Zoom til aktivitet",
-    "hideHeatmap": "Hide heatmap",
-    "showHeatmap": "Show heatmap"
+    "zoomToActivity": "Zoom til aktivitet"
   },
   "metrics": {
     "activityCount": "Aktiviteter",
@@ -468,7 +448,6 @@
     "activities": "Aktiviteter",
     "feed": "Feed",
     "fitness": "Fitness",
-    "heatmap": "Varmekort",
     "map": "Kort",
     "routes": "Ruter",
     "settings": "Indstillinger",
@@ -702,10 +681,7 @@
     "unitsMetric": "Metrisk",
     "unitsMetricHint": "Afstande i kilometer, højde i meter, temperatur i Celsius",
     "version": "Version",
-    "viewRoutes": "Vis ruter",
-    "heatmapTiles": "Heatmap Tiles",
-    "tiles": "tiles",
-    "notGenerated": "Not generated"
+    "viewRoutes": "Vis ruter"
   },
   "stats": {
     "activities": "Aktiviteter",
@@ -819,7 +795,6 @@
     "discoverRoutes": "Opdag dine almindelige ruter",
     "fetchingGps": "Henter spor: {{current}}/{{total}}",
     "groupingRoutes": "Grupperer ruter...",
-    "heatmap": "Varmekort",
     "potentialMatches": "Fandt {{count}} potentielle match",
     "routes": "Ruter",
     "routesFromActivities": "{{routes}} ruter fra {{activities}} aktiviteter",
