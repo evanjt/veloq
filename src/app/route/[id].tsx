@@ -14,6 +14,7 @@ import {
 import { Text, ActivityIndicator } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router, Href } from 'expo-router';
+import { logScreenRender } from '@/lib/debug/renderTimer';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -28,6 +29,7 @@ import {
 import { useGroupDetail } from '@/hooks/routes/useRouteEngine';
 import { getAllRouteDisplayNames } from '@/hooks/routes/useRouteGroups';
 import { createSharedStyles } from '@/styles';
+import { TAB_BAR_SAFE_PADDING } from '@/components/ui';
 
 // Lazy load native module to avoid bundler errors
 function getRouteEngine() {
@@ -232,6 +234,13 @@ function ActivityRow({
 }
 
 export default function RouteDetailScreen() {
+  // Performance timing
+  const perfEndRef = useRef<(() => void) | null>(null);
+  perfEndRef.current = logScreenRender('RouteDetailScreen');
+  useEffect(() => {
+    perfEndRef.current?.();
+  });
+
   const { t } = useTranslation();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { isDark, colors: themeColors } = useTheme();
@@ -828,7 +837,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: spacing.xl,
+    paddingBottom: spacing.xl + TAB_BAR_SAFE_PADDING,
   },
   // Hero section styles
   heroSection: {

@@ -175,7 +175,12 @@
     "routeAnalysisComplete": "Route analysis complete",
     "syncFailed": "Synkronisering fejlede",
     "syncResetDiscarded": "Sync nulstillet - resultater kasseret",
-    "syncingActivities": "Synkroniserer aktiviteter"
+    "syncingActivities": "Synkroniserer aktiviteter",
+    "downloadingActivities": "Downloading activities...",
+    "processingGpsTracks": "Processing GPS tracks...",
+    "analyzingRouteGroups": "Analyzing routes...",
+    "detectingSectionsProgress": "Detecting sections... {{percent}}%",
+    "syncComplete": "Sync complete"
   },
   "chartTypes": {
     "alt": "Alt",
@@ -595,7 +600,13 @@
     "sectionNamePlaceholder": "Sektionsnavn",
     "sectionNotFound": "Sektion ikke fundet",
     "totalTraversals": "Samlede gennemkørsler",
-    "traversals": "gennemkørsler"
+    "traversals": "gennemkørsler",
+    "reference": "Reference",
+    "setAsReference": "Set as Reference",
+    "setAsReferenceConfirm": "Use this activity as the reference? The section's consensus line on the map will be based on this activity's GPS trace.",
+    "resetReference": "Reset Reference",
+    "resetReferenceConfirm": "Reset to automatic reference selection? The best representative activity will be chosen automatically.",
+    "referenceUpdated": "Reference activity updated"
   },
   "settings": {
     "account": "Konto",

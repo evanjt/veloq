@@ -55,17 +55,24 @@ interface FetchDeps {
 const MIN_ACTIVITIES_FOR_POTENTIAL_DETECTION = 10;
 
 /**
- * Phase weights for overall progress calculation.
- * These roughly correspond to how long each phase takes.
+ * Phase weights for section detection progress calculation.
+ * Maps Rust detection phases to 0-100% progress within the section detection stage.
+ *
+ * Rust emits phases: "loading", "detecting", "complete"
+ * Legacy phases (building_rtrees, etc.) are kept for backwards compatibility.
  */
 const PHASE_WEIGHTS: Record<string, { start: number; weight: number }> = {
+  // Current Rust phases
   loading: { start: 0, weight: 10 },
+  detecting: { start: 10, weight: 85 }, // Main detection work
+  complete: { start: 100, weight: 0 },
+
+  // Legacy detailed phases (kept for backwards compatibility)
   building_rtrees: { start: 10, weight: 5 },
   finding_overlaps: { start: 15, weight: 40 },
   clustering: { start: 55, weight: 10 },
   building_sections: { start: 65, weight: 20 },
   postprocessing: { start: 85, weight: 15 },
-  complete: { start: 100, weight: 0 },
 };
 
 // Track the last known progress to prevent backwards jumps

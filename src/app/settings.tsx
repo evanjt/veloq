@@ -9,7 +9,8 @@ import {
   LayoutChangeEvent,
 } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
-import { ScreenSafeAreaView } from '@/components/ui';
+import { ScreenSafeAreaView, TAB_BAR_SAFE_PADDING } from '@/components/ui';
+import { logScreenRender } from '@/lib/debug/renderTimer';
 import { router, Href, useLocalSearchParams } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { SegmentedButtons, Switch } from 'react-native-paper';
@@ -130,6 +131,13 @@ function formatBytes(bytes: number): string {
 }
 
 export default function SettingsScreen() {
+  // Performance timing
+  const perfEndRef = useRef<(() => void) | null>(null);
+  perfEndRef.current = logScreenRender('SettingsScreen');
+  useEffect(() => {
+    perfEndRef.current?.();
+  });
+
   const { t, i18n } = useTranslation();
   const { isDark } = useTheme();
   const [themePreference, setThemePreferenceState] = useState<ThemePreference>('system');
@@ -387,7 +395,7 @@ export default function SettingsScreen() {
         .length,
       totalQueries: queries.length,
     };
-  }, [queryClient, cacheStats.totalActivities]); // Re-compute when activities change
+  }, [queryClient]); // Only recompute when queryClient changes, not on every activity sync
 
   // Cache sizes state (only routes database now, bounds/GPS are in SQLite)
   const [cacheSizes, setCacheSizes] = useState<{ routes: number }>({
@@ -1283,7 +1291,7 @@ const styles = StyleSheet.create({
     backgroundColor: darkColors.background,
   },
   content: {
-    paddingBottom: spacing.xl,
+    paddingBottom: spacing.xl + TAB_BAR_SAFE_PADDING,
   },
   header: {
     flexDirection: 'row',

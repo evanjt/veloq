@@ -20,6 +20,7 @@ import {
 import { Text, ActivityIndicator } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
+import { logScreenRender } from '@/lib/debug/renderTimer';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -33,11 +34,12 @@ import {
   useCacheDays,
   type ActivitySectionRecord,
 } from '@/hooks';
-import { useSectionDetail, useGroupSummaries } from '@/hooks/routes/useRouteEngine';
+import { useGroupSummaries, useSectionDetail } from '@/hooks/routes/useRouteEngine';
 import { getAllSectionDisplayNames } from '@/hooks/routes/useUnifiedSections';
 import { createSharedStyles } from '@/styles';
 import { useDisabledSections } from '@/providers';
 import { SectionMapView, MiniTraceView, DataRangeFooter } from '@/components/routes';
+import { TAB_BAR_SAFE_PADDING } from '@/components/ui';
 import {
   UnifiedPerformanceChart,
   type ChartSummaryStats,
@@ -93,8 +95,12 @@ interface ActivityRowProps {
   rank?: number;
   /** Best time in seconds (for delta calculation) */
   bestTime?: number;
+  /** Is this the reference (medoid) activity for the section? */
+  isReference?: boolean;
   /** Stable callback for highlight - receives activity ID, pass null to clear */
   onHighlightChange?: (activityId: string | null) => void;
+  /** Callback for long-press to set as reference */
+  onSetAsReference?: (activityId: string) => void;
 }
 
 // Memoized activity row to prevent unnecessary re-renders
@@ -112,7 +118,9 @@ const ActivityRow = memo(function ActivityRow({
   isBest = false,
   rank,
   bestTime,
+  isReference = false,
   onHighlightChange,
+  onSetAsReference,
 }: ActivityRowProps) {
   const { t } = useTranslation();
   const handlePress = useCallback(() => {
@@ -127,6 +135,10 @@ const ActivityRow = memo(function ActivityRow({
   const handlePressOut = useCallback(() => {
     onHighlightChange?.(null);
   }, [onHighlightChange]);
+
+  const handleLongPress = useCallback(() => {
+    onSetAsReference?.(activity.id);
+  }, [onSetAsReference, activity.id]);
 
   const isReverse = direction === 'reverse';
   const traceColor = isHighlighted
@@ -182,6 +194,8 @@ const ActivityRow = memo(function ActivityRow({
       onPress={handlePress}
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
+      onLongPress={handleLongPress}
+      delayLongPress={500}
       style={({ pressed }) => [
         styles.activityRow,
         isDark && styles.activityRowDark,
@@ -216,6 +230,13 @@ const ActivityRow = memo(function ActivityRow({
             <View style={[styles.prBadge, { backgroundColor: colors.primary }]}>
               <MaterialCommunityIcons name="trophy" size={12} color={colors.textOnDark} />
               <Text style={styles.prText}>{t('routes.pr')}</Text>
+            </View>
+          )}
+          {/* Reference badge for medoid activity */}
+          {isReference && (
+            <View style={[styles.referenceBadge, isDark && styles.referenceBadgeDark]}>
+              <MaterialCommunityIcons name="star" size={10} color={colors.chartCyan} />
+              <Text style={styles.referenceText}>{t('sections.reference')}</Text>
             </View>
           )}
           {/* Rank badge for non-best performances (top 10) */}
@@ -281,6 +302,13 @@ const ActivityRow = memo(function ActivityRow({
 });
 
 export default function SectionDetailScreen() {
+  // Performance timing
+  const perfEndRef = useRef<(() => void) | null>(null);
+  perfEndRef.current = logScreenRender('SectionDetailScreen');
+  useEffect(() => {
+    perfEndRef.current?.();
+  });
+
   // Defer map loading until after interactions complete for faster perceived load
   useEffect(() => {
     const handle = InteractionManager.runAfterInteractions(() => {
@@ -325,12 +353,42 @@ export default function SectionDetailScreen() {
   const [customName, setCustomName] = useState<string | null>(null);
   const nameInputRef = useRef<TextInput>(null);
 
+  // State for overriding the reference activity (for immediate UI update)
+  const [overrideReferenceId, setOverrideReferenceId] = useState<string | null>(null);
+  // Key to force section data refresh after reference change
+  const [sectionRefreshKey, setSectionRefreshKey] = useState(0);
+
   // Get section from engine (auto-detected) or custom sections storage
   // Custom section IDs start with "custom_" (e.g., "custom_1767268142052_qyfoos8")
   const isCustomId = id?.startsWith('custom_');
 
-  // For auto-detected sections, use useSectionDetail which fetches full data on-demand (with LRU caching)
-  const { section: engineSection } = useSectionDetail(!isCustomId ? id : null);
+  // For auto-detected sections, use useSectionDetail
+  // We create a composite key with sectionRefreshKey to force re-fetch when reference changes
+  const sectionIdWithRefresh = !isCustomId && id ? `${id}#${sectionRefreshKey}` : null;
+  const { section: rawEngineSection } = useSectionDetail(!isCustomId ? id : null);
+
+  // Force re-computation when refresh key changes by including it in the memo
+  const engineSection = useMemo(() => {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const _forceRefresh = sectionIdWithRefresh;
+    if (!rawEngineSection || isCustomId) return null;
+
+    // Re-fetch fresh data from engine when refresh key changes
+    if (sectionRefreshKey > 0) {
+      const engine = getRouteEngine();
+      if (engine && id) {
+        const fresh = engine.getSectionById(id);
+        if (fresh) {
+          return {
+            ...rawEngineSection,
+            polyline: fresh.polyline.map((p) => ({ lat: p.latitude, lng: p.longitude })),
+            representativeActivityId: fresh.representativeActivityId,
+          };
+        }
+      }
+    }
+    return rawEngineSection;
+  }, [rawEngineSection, isCustomId, sectionIdWithRefresh, sectionRefreshKey, id]);
 
   // Pass the full ID - custom sections are stored with the "custom_" prefix
   const { section: customSection } = useCustomSection(isCustomId ? id : undefined);
@@ -583,6 +641,60 @@ export default function SectionDetailScreen() {
       },
     ]);
   }, [id, isCustomId, removeSection, t]);
+
+  // Get the effective reference activity ID (override takes precedence)
+  const effectiveReferenceId = overrideReferenceId ?? section?.representativeActivityId;
+
+  // Handle setting an activity as the reference (medoid) for this section
+  const handleSetAsReference = useCallback(
+    (activityId: string) => {
+      if (!id) return;
+
+      const engine = getRouteEngine();
+      if (!engine) return;
+
+      // Check if this activity is already the reference
+      const currentRef = effectiveReferenceId;
+      const isUserDefinedRef = engine.isSectionReferenceUserDefined(id);
+
+      if (currentRef === activityId && isUserDefinedRef) {
+        // Already the user-defined reference - offer to reset
+        Alert.alert(t('sections.resetReference'), t('sections.resetReferenceConfirm'), [
+          { text: t('common.cancel'), style: 'cancel' },
+          {
+            text: t('common.reset'),
+            onPress: () => {
+              const success = engine.resetSectionReference(id);
+              if (success) {
+                // Reset to automatic - clear override to use section's original
+                setOverrideReferenceId(null);
+                // Force section data refresh to get recalculated polyline
+                setSectionRefreshKey((k) => k + 1);
+              }
+            },
+          },
+        ]);
+      } else {
+        // Set as new reference
+        Alert.alert(t('sections.setAsReference'), t('sections.setAsReferenceConfirm'), [
+          { text: t('common.cancel'), style: 'cancel' },
+          {
+            text: t('common.confirm'),
+            onPress: () => {
+              const success = engine.setSectionReference(id, activityId);
+              if (success) {
+                // Update local state immediately for responsive UI
+                setOverrideReferenceId(activityId);
+                // Force section data refresh to get updated polyline
+                setSectionRefreshKey((k) => k + 1);
+              }
+            },
+          },
+        ]);
+      }
+    },
+    [id, t, effectiveReferenceId]
+  );
 
   // Handle disabling/enabling an auto-detected section
   const handleToggleDisable = useCallback(() => {
@@ -1222,6 +1334,7 @@ export default function SectionDetailScreen() {
                 const isBest = bestActivityId === activity.id;
                 const rank = rankMap.get(activity.id);
                 const activityTracePoints = sectionWithTraces?.activityTraces?.[activity.id];
+                const isReference = effectiveReferenceId === activity.id;
 
                 return (
                   <React.Fragment key={activity.id}>
@@ -1240,7 +1353,9 @@ export default function SectionDetailScreen() {
                       isBest={isBest}
                       rank={rank}
                       bestTime={bestTimeValue}
+                      isReference={isReference}
                       onHighlightChange={handleRowHighlightChange}
+                      onSetAsReference={handleSetAsReference}
                     />
                   </React.Fragment>
                 );
@@ -1276,10 +1391,10 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: spacing.xl,
+    paddingBottom: spacing.xl + TAB_BAR_SAFE_PADDING,
   },
   flatListContent: {
-    paddingBottom: spacing.xl,
+    paddingBottom: spacing.xl + TAB_BAR_SAFE_PADDING,
   },
   activitiesCardWrapper: {
     marginHorizontal: spacing.md,
@@ -1592,6 +1707,23 @@ const styles = StyleSheet.create({
     fontSize: typography.label.fontSize,
     fontWeight: '700',
     color: colors.textOnDark,
+  },
+  referenceBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: layout.borderRadiusSm,
+    backgroundColor: colors.chartCyan + '20',
+    gap: 2,
+  },
+  referenceBadgeDark: {
+    backgroundColor: colors.chartCyan + '30',
+  },
+  referenceText: {
+    fontSize: typography.label.fontSize,
+    fontWeight: '600',
+    color: colors.chartCyan,
   },
   rankBadge: {
     paddingHorizontal: 6,

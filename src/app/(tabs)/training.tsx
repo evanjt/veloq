@@ -1,7 +1,8 @@
-import React, { useMemo, useState, useCallback } from 'react';
+import React, { useMemo, useState, useCallback, useRef, useEffect } from 'react';
 import { View, ScrollView, StyleSheet, TouchableOpacity, RefreshControl } from 'react-native';
 import { Text, IconButton, ActivityIndicator } from 'react-native-paper';
-import { ScreenSafeAreaView } from '@/components/ui';
+import { ScreenSafeAreaView, TAB_BAR_SAFE_PADDING } from '@/components/ui';
+import { logScreenRender } from '@/lib/debug/renderTimer';
 import { router, Href } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -18,6 +19,13 @@ import { colors, darkColors, spacing, layout, typography, opacity } from '@/them
 import { createSharedStyles } from '@/styles';
 
 export default function TrainingScreen() {
+  // Performance timing
+  const perfEndRef = useRef<(() => void) | null>(null);
+  perfEndRef.current = logScreenRender('TrainingScreen');
+  useEffect(() => {
+    perfEndRef.current?.();
+  });
+
   const { t } = useTranslation();
   const { isDark, colors: themeColors } = useTheme();
   const shared = createSharedStyles(isDark);
@@ -231,6 +239,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: layout.screenPadding,
     paddingTop: spacing.sm,
+    paddingBottom: layout.screenPadding + TAB_BAR_SAFE_PADDING,
   },
   card: {
     backgroundColor: colors.surface,

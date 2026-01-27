@@ -18,7 +18,6 @@ import {
   MapPreferencesProvider,
   NetworkProvider,
   TopSafeAreaProvider,
-  ScrollVisibilityProvider,
   initializeTheme,
   useAuthStore,
   initializeSportPreference,
@@ -37,7 +36,7 @@ import {
   DemoBanner,
   GlobalDataSync,
   OfflineBanner,
-  FloatingMenu,
+  BottomTabBar,
 } from '@/components/ui';
 
 // Lazy load native module to avoid bundler errors
@@ -220,35 +219,33 @@ export default function RootLayout() {
                   animated
                 />
                 <AuthGate>
-                  <ScrollVisibilityProvider>
-                    <OfflineBanner />
-                    <GlobalDataSync />
-                    <DemoBanner />
-                    <CacheLoadingBanner />
-                    <Stack
-                      screenOptions={{
-                        headerShown: false,
-                        // iOS: Use default animation for native feel with gesture support
-                        // Android: Slide from right for Material Design
-                        animation: Platform.OS === 'ios' ? 'default' : 'slide_from_right',
-                        // Enable swipe-back gesture on both platforms
-                        gestureEnabled: true,
-                        gestureDirection: 'horizontal',
-                        // iOS: Blur effect for any translucent headers
-                        headerBlurEffect: Platform.OS === 'ios' ? 'prominent' : undefined,
-                        headerTransparent: Platform.OS === 'ios',
+                  <OfflineBanner />
+                  <GlobalDataSync />
+                  <DemoBanner />
+                  <CacheLoadingBanner />
+                  <Stack
+                    screenOptions={{
+                      headerShown: false,
+                      // iOS: Use default animation for native feel with gesture support
+                      // Android: Slide from right for Material Design
+                      animation: Platform.OS === 'ios' ? 'default' : 'slide_from_right',
+                      // Enable swipe-back gesture on both platforms
+                      gestureEnabled: true,
+                      gestureDirection: 'horizontal',
+                      // iOS: Blur effect for any translucent headers
+                      headerBlurEffect: Platform.OS === 'ios' ? 'prominent' : undefined,
+                      headerTransparent: Platform.OS === 'ios',
+                    }}
+                  >
+                    {/* Tabs group - no animation, instant switching */}
+                    <Stack.Screen
+                      name="(tabs)"
+                      options={{
+                        animation: 'none',
                       }}
-                    >
-                      {/* Tabs group - no animation, instant switching */}
-                      <Stack.Screen
-                        name="(tabs)"
-                        options={{
-                          animation: 'none',
-                        }}
-                      />
-                    </Stack>
-                    <FloatingMenu />
-                  </ScrollVisibilityProvider>
+                    />
+                  </Stack>
+                  <BottomTabBar />
                 </AuthGate>
               </PaperProvider>
             </MapPreferencesProvider>

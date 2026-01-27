@@ -28,6 +28,9 @@ import Animated, {
   useSharedValue,
   useAnimatedStyle,
   useAnimatedReaction,
+  useAnimatedRef,
+  useAnimatedScrollHandler,
+  scrollTo,
   runOnJS,
 } from 'react-native-reanimated';
 import {
@@ -161,65 +164,81 @@ export function UnifiedPerformanceChart({
   // Gesture tracking for scrubbing
   const touchX = useSharedValue(-1);
   const scrollOffsetX = useSharedValue(0); // Track scroll position for accurate scrub positioning
-  const forwardScrollRef = useRef<ScrollView>(null);
-  const reverseScrollRef = useRef<ScrollView>(null);
-  const timeAxisScrollRef = useRef<ScrollView>(null);
+  const forwardScrollRef = useAnimatedRef<Animated.ScrollView>();
+  const reverseScrollRef = useAnimatedRef<Animated.ScrollView>();
+  const timeAxisScrollRef = useAnimatedRef<Animated.ScrollView>();
   const lastNotifiedIdx = useRef<number>(-1);
-  const isScrolling = useRef<'forward' | 'reverse' | 'timeAxis' | null>(null);
+  const activeScroller = useSharedValue<number>(0); // 0=none, 1=forward, 2=reverse, 3=timeAxis
 
-  // Sync scroll between lanes and time axis
-  const syncScroll = useCallback((x: number, source: 'forward' | 'reverse' | 'timeAxis') => {
-    if (source !== 'forward') forwardScrollRef.current?.scrollTo({ x, animated: false });
-    if (source !== 'reverse') reverseScrollRef.current?.scrollTo({ x, animated: false });
-    if (source !== 'timeAxis') timeAxisScrollRef.current?.scrollTo({ x, animated: false });
-  }, []);
-
-  const handleForwardScroll = useCallback(
-    (event: { nativeEvent: { contentOffset: { x: number } } }) => {
-      const offsetX = event.nativeEvent.contentOffset.x;
-      scrollOffsetX.value = offsetX; // Track for scrubbing
-      if (isScrolling.current && isScrolling.current !== 'forward') return;
-      isScrolling.current = 'forward';
-      syncScroll(offsetX, 'forward');
-      setTimeout(() => {
-        isScrolling.current = null;
-      }, 50);
+  // All scroll handlers run on UI thread - no JS bridge
+  const handleForwardScroll = useAnimatedScrollHandler({
+    onScroll: (event) => {
+      'worklet';
+      const offsetX = event.contentOffset.x;
+      scrollOffsetX.value = offsetX;
+      if (activeScroller.value === 0 || activeScroller.value === 1) {
+        activeScroller.value = 1;
+        scrollTo(reverseScrollRef, offsetX, 0, false);
+        scrollTo(timeAxisScrollRef, offsetX, 0, false);
+      }
     },
-    [syncScroll, scrollOffsetX]
-  );
-
-  const handleReverseScroll = useCallback(
-    (event: { nativeEvent: { contentOffset: { x: number } } }) => {
-      const offsetX = event.nativeEvent.contentOffset.x;
-      scrollOffsetX.value = offsetX; // Track for scrubbing
-      if (isScrolling.current && isScrolling.current !== 'reverse') return;
-      isScrolling.current = 'reverse';
-      syncScroll(offsetX, 'reverse');
-      setTimeout(() => {
-        isScrolling.current = null;
-      }, 50);
+    onEndDrag: () => {
+      'worklet';
+      activeScroller.value = 0;
     },
-    [syncScroll, scrollOffsetX]
-  );
-
-  const handleTimeAxisScroll = useCallback(
-    (event: { nativeEvent: { contentOffset: { x: number } } }) => {
-      if (isScrolling.current && isScrolling.current !== 'timeAxis') return;
-      isScrolling.current = 'timeAxis';
-      syncScroll(event.nativeEvent.contentOffset.x, 'timeAxis');
-      setTimeout(() => {
-        isScrolling.current = null;
-      }, 50);
+    onMomentumEnd: () => {
+      'worklet';
+      activeScroller.value = 0;
     },
-    [syncScroll]
-  );
+  });
+
+  const handleReverseScroll = useAnimatedScrollHandler({
+    onScroll: (event) => {
+      'worklet';
+      const offsetX = event.contentOffset.x;
+      scrollOffsetX.value = offsetX;
+      if (activeScroller.value === 0 || activeScroller.value === 2) {
+        activeScroller.value = 2;
+        scrollTo(forwardScrollRef, offsetX, 0, false);
+        scrollTo(timeAxisScrollRef, offsetX, 0, false);
+      }
+    },
+    onEndDrag: () => {
+      'worklet';
+      activeScroller.value = 0;
+    },
+    onMomentumEnd: () => {
+      'worklet';
+      activeScroller.value = 0;
+    },
+  });
+
+  const handleTimeAxisScroll = useAnimatedScrollHandler({
+    onScroll: (event) => {
+      'worklet';
+      const offsetX = event.contentOffset.x;
+      if (activeScroller.value === 0 || activeScroller.value === 3) {
+        activeScroller.value = 3;
+        scrollTo(forwardScrollRef, offsetX, 0, false);
+        scrollTo(reverseScrollRef, offsetX, 0, false);
+      }
+    },
+    onEndDrag: () => {
+      'worklet';
+      activeScroller.value = 0;
+    },
+    onMomentumEnd: () => {
+      'worklet';
+      activeScroller.value = 0;
+    },
+  });
 
   // Lane expansion state
   const [forwardExpanded, setForwardExpanded] = useState(true);
   const [reverseExpanded, setReverseExpanded] = useState(true);
 
   // Gap compression settings
-  const GAP_THRESHOLD_DAYS = 30; // Gaps larger than this get compressed
+  const GAP_THRESHOLD_DAYS = 14; // Gaps larger than this get compressed
   const COMPRESSED_GAP_DAYS = 5; // Visual width of compressed gap
 
   // State for individually expanded gaps (by index)
@@ -435,27 +454,18 @@ export function UnifiedPerformanceChart({
       };
     });
 
-    // Generate time axis labels - monthly labels plus gap boundaries
+    // Generate time axis labels - data points, gap boundaries, and monthly markers
     const labels: { date: Date; position: number }[] = [];
 
     const firstDate = sortedDates[0].date;
     const lastDate = sortedDates[sortedDates.length - 1].date;
 
-    // Generate monthly labels (first of each month between first and last date)
-    const currentMonth = new Date(firstDate.getFullYear(), firstDate.getMonth(), 1);
-    while (currentMonth <= lastDate) {
-      // Only add if within range (at least close to first date)
-      if (currentMonth >= firstDate || currentMonth.getMonth() === firstDate.getMonth()) {
-        labels.push({
-          date: new Date(currentMonth),
-          position: convertDateToX(currentMonth),
-        });
-      }
-      // Move to next month
-      currentMonth.setMonth(currentMonth.getMonth() + 1);
-    }
+    // Add labels at actual data points (most important!)
+    sortedDates.forEach(({ date }) => {
+      labels.push({ date, position: convertDateToX(date) });
+    });
 
-    // Add labels at gap boundaries (before and after each gap) for context
+    // Add labels at gap boundaries for context
     gapsWithPositions.forEach((gap, idx) => {
       const gapInfo = detectedGaps[idx];
       if (gapInfo) {
@@ -464,10 +474,22 @@ export function UnifiedPerformanceChart({
       }
     });
 
-    // Remove duplicates (labels too close together) and sort by position
-    // Need at least ~70px between labels to avoid overlap (labels are ~50px wide)
+    // Add monthly markers if range > 3 months
+    const monthsInRange =
+      (lastDate.getFullYear() - firstDate.getFullYear()) * 12 +
+      (lastDate.getMonth() - firstDate.getMonth());
+    if (monthsInRange > 3) {
+      const currentMonth = new Date(firstDate.getFullYear(), firstDate.getMonth() + 1, 1);
+      while (currentMonth <= lastDate) {
+        labels.push({ date: new Date(currentMonth), position: convertDateToX(currentMonth) });
+        currentMonth.setMonth(currentMonth.getMonth() + 1);
+      }
+    }
+
+    // Remove duplicates and sort by position
+    // Reduce spacing to 50px to show more labels
     const chartContentW = chartWidth - CHART_PADDING_LEFT - CHART_PADDING_RIGHT;
-    const minSpacing = 70 / chartContentW; // Convert pixels to normalized position
+    const minSpacing = 50 / chartContentW;
     const uniqueLabels = labels
       .sort((a, b) => a.position - b.position)
       .filter(
@@ -498,8 +520,7 @@ export function UnifiedPerformanceChart({
 
     const calculateLaneStats = (
       points: (PerformanceDataPoint & { x: number })[],
-      indices: number[],
-      globalBestIndex: number
+      indices: number[]
     ): LaneData => {
       if (points.length === 0) {
         return {
@@ -512,8 +533,9 @@ export function UnifiedPerformanceChart({
         };
       }
 
-      // Use global best - only mark PR if it's in this lane
-      const globalBestLocalIdx = indices.indexOf(globalBestIndex);
+      // Find best (fastest) within THIS lane
+      let laneBestIdx = -1;
+      let laneBestSpeed = -Infinity;
       let current = -1;
       let min = Infinity;
       let max = -Infinity;
@@ -522,13 +544,18 @@ export function UnifiedPerformanceChart({
         if (currentIndex !== undefined && indices[idx] === currentIndex) current = idx;
         min = Math.min(min, p.speed);
         max = Math.max(max, p.speed);
+        // Track fastest in this lane
+        if (p.speed > laneBestSpeed) {
+          laneBestSpeed = p.speed;
+          laneBestIdx = idx;
+        }
       });
 
       const padding = (max - min) * 0.2 || 0.5;
       return {
         points,
         originalIndices: indices,
-        bestIndex: globalBestLocalIdx,
+        bestIndex: laneBestIdx,
         currentIndex: current,
         minSpeed: min - padding,
         maxSpeed: max + padding,
@@ -536,10 +563,10 @@ export function UnifiedPerformanceChart({
     };
 
     return {
-      forwardLane: calculateLaneStats(forwardPoints, forwardIndices, bestIndex),
-      reverseLane: calculateLaneStats(reversePoints, reverseIndices, bestIndex),
+      forwardLane: calculateLaneStats(forwardPoints, forwardIndices),
+      reverseLane: calculateLaneStats(reversePoints, reverseIndices),
     };
-  }, [chartData, currentIndex, dateToX, bestIndex]);
+  }, [chartData, currentIndex, dateToX]);
 
   const hasForward = forwardLane.points.length > 0;
   const hasReverse = reverseLane.points.length > 0;
@@ -617,11 +644,12 @@ export function UnifiedPerformanceChart({
   );
 
   // Animated reaction to update selection when touchX changes
+  // Only react to touchX changes, read scrollOffset inside callback
   useAnimatedReaction(
-    () => ({ x: touchX.value, scroll: scrollOffsetX.value }),
-    (current) => {
-      if (current.x >= 0) {
-        runOnJS(updateSelectionFromTouch)(current.x, current.scroll);
+    () => touchX.value,
+    (x) => {
+      if (x >= 0) {
+        runOnJS(updateSelectionFromTouch)(x, scrollOffsetX.value);
       }
     },
     [updateSelectionFromTouch]
@@ -710,169 +738,156 @@ export function UnifiedPerformanceChart({
 
   if (chartData.length < 1) return null;
 
-  const renderLaneChart = (lane: LaneData, color: string, direction: 'forward' | 'reverse') => {
-    if (lane.points.length === 0) return null;
+  const renderLaneChart = useCallback(
+    (lane: LaneData, color: string, direction: 'forward' | 'reverse') => {
+      if (lane.points.length === 0) return null;
 
-    return (
-      <View style={styles.laneChart}>
-        <View style={StyleSheet.absoluteFill}>
-          <CartesianChart
-            data={lane.points as unknown as Record<string, unknown>[]}
-            xKey={'x' as never}
-            yKeys={['speed'] as never}
-            domain={{
-              x: [0, 1], // Normalized date range (0-1)
-              y: [lane.minSpeed, lane.maxSpeed],
-            }}
-            padding={{ left: 40, right: 20, top: 16, bottom: 12 }}
-          >
-            {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-            {
-              (({ points }: any) => (
-                <>
-                  {/* No connecting lines - dots are positioned by date */}
-                  {/* Data points */}
-                  {points.speed.map((point: any, idx: number) => {
-                    if (point.x == null || point.y == null) return null;
-                    const dataPoint = lane.points[idx];
-                    const isBest = idx === lane.bestIndex;
-                    const isCurrent = idx === lane.currentIndex;
-                    const isSelected = selectedPoint?.id === dataPoint.id;
+      return (
+        <View style={styles.laneChart}>
+          <View style={StyleSheet.absoluteFill}>
+            <CartesianChart
+              data={lane.points as unknown as Record<string, unknown>[]}
+              xKey={'x' as never}
+              yKeys={['speed'] as never}
+              domain={{
+                x: [0, 1], // Normalized date range (0-1)
+                y: [lane.minSpeed, lane.maxSpeed],
+              }}
+              padding={{ left: 40, right: 20, top: 16, bottom: 12 }}
+            >
+              {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+              {
+                (({ points }: any) => (
+                  <>
+                    {/* No connecting lines - dots are positioned by date */}
+                    {/* Data points - no selection state to avoid re-renders */}
+                    {points.speed.map((point: any, idx: number) => {
+                      if (point.x == null || point.y == null) return null;
+                      const isBest = idx === lane.bestIndex;
+                      const isCurrent = idx === lane.currentIndex;
 
-                    // Best point (gold ring with colored center)
-                    if (isBest && !isCurrent && !isSelected) {
+                      // Best point (gold ring with colored center)
+                      if (isBest && !isCurrent) {
+                        return (
+                          <React.Fragment key={`point-${idx}`}>
+                            <Circle cx={point.x} cy={point.y} r={8} color={colors.chartGold} />
+                            <Circle cx={point.x} cy={point.y} r={5} color={color} />
+                          </React.Fragment>
+                        );
+                      }
+
+                      // Current point (cyan ring with colored center)
+                      if (isCurrent) {
+                        return (
+                          <React.Fragment key={`point-${idx}`}>
+                            <Circle cx={point.x} cy={point.y} r={9} color={colors.chartCyan} />
+                            <Circle cx={point.x} cy={point.y} r={5} color={color} />
+                          </React.Fragment>
+                        );
+                      }
+
+                      // Regular point
                       return (
-                        <React.Fragment key={`point-${idx}`}>
-                          <Circle cx={point.x} cy={point.y} r={8} color={colors.chartGold} />
-                          <Circle cx={point.x} cy={point.y} r={5} color={color} />
-                        </React.Fragment>
+                        <Circle
+                          key={`point-${idx}`}
+                          cx={point.x}
+                          cy={point.y}
+                          r={5}
+                          color={color}
+                        />
                       );
-                    }
-
-                    // Current point (cyan ring with colored center)
-                    if (isCurrent && !isSelected) {
-                      return (
-                        <React.Fragment key={`point-${idx}`}>
-                          <Circle cx={point.x} cy={point.y} r={9} color={colors.chartCyan} />
-                          <Circle cx={point.x} cy={point.y} r={5} color={color} />
-                        </React.Fragment>
-                      );
-                    }
-
-                    // Selected point (larger with colored center)
-                    if (isSelected) {
-                      return (
-                        <React.Fragment key={`point-${idx}`}>
-                          <Circle cx={point.x} cy={point.y} r={10} color={colors.chartCyan} />
-                          <Circle cx={point.x} cy={point.y} r={6} color={color} />
-                        </React.Fragment>
-                      );
-                    }
-
-                    // Regular point
-                    return (
-                      <Circle key={`point-${idx}`} cx={point.x} cy={point.y} r={5} color={color} />
-                    );
-                  })}
-                </>
-              )) as any
-            }
-          </CartesianChart>
-        </View>
-
-        {/* Tap targets for each point */}
-        <View style={styles.tapTargetContainer} pointerEvents="box-none">
-          {lane.points.map((point, idx) => {
-            // Use the point's normalized X position (0-1 range based on date)
-            const xPercent = point.x;
-            return (
-              <Pressable
-                key={`tap-${idx}`}
-                style={[
-                  styles.tapTarget,
-                  {
-                    left: `${xPercent * 100}%`,
-                    transform: [{ translateX: -20 }],
-                  },
-                ]}
-                onPress={() => handlePointPress(point)}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              />
-            );
-          })}
-        </View>
-
-        {/* Y-axis labels */}
-        <View style={styles.yAxisOverlay} pointerEvents="none">
-          <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
-            {formatSpeedValue(lane.maxSpeed)}
-          </Text>
-          <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
-            {formatSpeedValue(lane.minSpeed)}
-          </Text>
-        </View>
-
-        {/* Gap indicators - show edges and fill when expanded */}
-        {gaps.length > 0 && (
-          <View style={styles.gapLinesOverlay} pointerEvents="none">
-            {gaps.map((gap, idx) => {
-              const chartContentW = chartWidth - CHART_PADDING_LEFT - CHART_PADDING_RIGHT;
-              const startPixelX = CHART_PADDING_LEFT + gap.startX * chartContentW;
-              const endPixelX = CHART_PADDING_LEFT + gap.endX * chartContentW;
-              const gapWidth = endPixelX - startPixelX;
-
-              if (gap.isExpanded) {
-                // Expanded: show two edge lines with tinted fill and day count
-                const lineColor = isDark ? '#666666' : '#999999';
-
-                return (
-                  <View key={`gap-expanded-${idx}`}>
-                    {/* Left edge line */}
-                    <View
-                      style={[
-                        styles.gapEdgeLine,
-                        { left: startPixelX, backgroundColor: lineColor },
-                      ]}
-                    />
-                    {/* Tinted fill area */}
-                    <View
-                      style={[
-                        styles.gapExpandedFill,
-                        isDark && styles.gapExpandedFillDark,
-                        { left: startPixelX + 1, width: Math.max(0, gapWidth - 2) },
-                      ]}
-                    >
-                      {/* Day count label */}
-                      <Text style={[styles.gapDayCount, isDark && styles.gapDayCountDark]}>
-                        {gap.gapDays}d
-                      </Text>
-                    </View>
-                    {/* Right edge line */}
-                    <View
-                      style={[styles.gapEdgeLine, { left: endPixelX, backgroundColor: lineColor }]}
-                    />
-                  </View>
-                );
-              } else {
-                // Compressed: single center line
-                const pixelX = CHART_PADDING_LEFT + gap.xPosition * chartContentW + 4;
-                return (
-                  <View
-                    key={`gap-line-${idx}`}
-                    style={[
-                      styles.gapVerticalLine,
-                      isDark && styles.gapVerticalLineDark,
-                      { left: pixelX },
-                    ]}
-                  />
-                );
+                    })}
+                  </>
+                )) as any
               }
+            </CartesianChart>
+          </View>
+
+          {/* Tap targets for each point */}
+          <View style={styles.tapTargetContainer} pointerEvents="box-none">
+            {lane.points.map((point, idx) => {
+              // Use the point's normalized X position (0-1 range based on date)
+              const xPercent = point.x;
+              return (
+                <Pressable
+                  key={`tap-${idx}`}
+                  style={[
+                    styles.tapTarget,
+                    {
+                      left: `${xPercent * 100}%`,
+                      transform: [{ translateX: -20 }],
+                    },
+                  ]}
+                  onPress={() => handlePointPress(point)}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                />
+              );
             })}
           </View>
-        )}
-      </View>
-    );
-  };
+
+          {/* Y-axis labels */}
+          <View style={styles.yAxisOverlay} pointerEvents="none">
+            <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
+              {formatSpeedValue(lane.maxSpeed)}
+            </Text>
+            <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
+              {formatSpeedValue(lane.minSpeed)}
+            </Text>
+          </View>
+
+          {/* Gap indicators - show edges and fill when expanded */}
+          {gaps.length > 0 && (
+            <View style={styles.gapLinesOverlay} pointerEvents="none">
+              {gaps.map((gap, idx) => {
+                const chartContentW = chartWidth - CHART_PADDING_LEFT - CHART_PADDING_RIGHT;
+                const startPixelX = CHART_PADDING_LEFT + gap.startX * chartContentW;
+                const endPixelX = CHART_PADDING_LEFT + gap.endX * chartContentW;
+                const gapWidth = endPixelX - startPixelX;
+
+                if (gap.isExpanded) {
+                  // Expanded: show two edge lines (label is in time axis below)
+                  const lineColor = isDark ? '#666666' : '#999999';
+
+                  return (
+                    <View key={`gap-expanded-${idx}`}>
+                      {/* Left edge line */}
+                      <View
+                        style={[
+                          styles.gapEdgeLine,
+                          { left: startPixelX, backgroundColor: lineColor },
+                        ]}
+                      />
+                      {/* Right edge line */}
+                      <View
+                        style={[
+                          styles.gapEdgeLine,
+                          { left: endPixelX, backgroundColor: lineColor },
+                        ]}
+                      />
+                    </View>
+                  );
+                } else {
+                  // Compressed: single center line
+                  const pixelX = CHART_PADDING_LEFT + gap.xPosition * chartContentW + 4;
+                  return (
+                    <View
+                      key={`gap-line-${idx}`}
+                      style={[
+                        styles.gapVerticalLine,
+                        isDark && styles.gapVerticalLineDark,
+                        { left: pixelX },
+                      ]}
+                    />
+                  );
+                }
+              })}
+            </View>
+          )}
+        </View>
+      );
+    },
+    [handlePointPress, formatSpeedValue, isDark, gaps, chartWidth]
+  );
 
   // Single direction mode (no swim lanes needed)
   if (!showSwimLanes) {
@@ -1074,6 +1089,7 @@ export function UnifiedPerformanceChart({
               style={[styles.laneHeader, isDark && styles.laneHeaderDark]}
               onPress={toggleForward}
             >
+              {/* Left: Direction + count */}
               <View style={styles.laneHeaderLeft}>
                 <MaterialCommunityIcons
                   name="arrow-right"
@@ -1090,37 +1106,36 @@ export function UnifiedPerformanceChart({
                   </Text>
                 </View>
               </View>
-              {/* Inline stats - separate container for wrapping */}
-              <View style={styles.inlineStatsContainer}>
-                {bestForwardRecord && (
-                  <View style={[styles.inlineStatPill, styles.prPill]}>
-                    <MaterialCommunityIcons name="trophy" size={10} color={colors.chartGold} />
-                    <Text style={styles.prStatValue}>
+              {/* Middle: Avg · Last */}
+              <View style={styles.laneHeaderMiddle}>
+                {forwardStats?.avgTime != null && (
+                  <Text style={[styles.headerStatText, isDark && styles.headerStatTextDark]}>
+                    {formatDuration(forwardStats.avgTime)} avg
+                  </Text>
+                )}
+                {forwardStats?.avgTime != null && forwardStats?.lastActivity && (
+                  <Text style={[styles.headerStatSep, isDark && styles.headerStatSepDark]}>·</Text>
+                )}
+                {forwardStats?.lastActivity && (
+                  <Text style={[styles.headerStatText, isDark && styles.headerStatTextDark]}>
+                    {formatShortDate(forwardStats.lastActivity)}
+                  </Text>
+                )}
+              </View>
+              {/* Right: PR with date below */}
+              {bestForwardRecord && (
+                <View style={styles.prBadgeStacked}>
+                  <View style={styles.prBadgeRow}>
+                    <MaterialCommunityIcons name="trophy" size={12} color={colors.chartGold} />
+                    <Text style={styles.prBadgeTime}>
                       {formatDuration(bestForwardRecord.bestTime)}
                     </Text>
                   </View>
-                )}
-                {forwardStats?.avgTime != null && (
-                  <View style={[styles.inlineStatPill, isDark && styles.inlineStatPillDark]}>
-                    <Text style={[styles.statPillLabel, isDark && styles.statPillLabelDark]}>
-                      {t('sections.avg')}
-                    </Text>
-                    <Text style={[styles.statPillValue, isDark && styles.statPillValueDark]}>
-                      {formatDuration(forwardStats.avgTime)}
-                    </Text>
-                  </View>
-                )}
-                {forwardStats?.lastActivity && (
-                  <View style={[styles.inlineStatPill, isDark && styles.inlineStatPillDark]}>
-                    <Text style={[styles.statPillLabel, isDark && styles.statPillLabelDark]}>
-                      {t('sections.last')}
-                    </Text>
-                    <Text style={[styles.statPillValue, isDark && styles.statPillValueDark]}>
-                      {formatShortDate(forwardStats.lastActivity)}
-                    </Text>
-                  </View>
-                )}
-              </View>
+                  <Text style={styles.prBadgeDateSmall}>
+                    {formatShortDate(bestForwardRecord.activityDate)}
+                  </Text>
+                </View>
+              )}
               <MaterialCommunityIcons
                 name={forwardExpanded ? 'chevron-up' : 'chevron-down'}
                 size={20}
@@ -1131,27 +1146,29 @@ export function UnifiedPerformanceChart({
 
           {/* Forward Lane Chart (scrollable with gesture handling) */}
           {forwardExpanded && (
-            <GestureDetector gesture={composedGesture}>
-              <ScrollView
-                ref={forwardScrollRef}
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                scrollEnabled={isScrollable && !isScrubbing}
-                onScroll={handleForwardScroll}
-                scrollEventThrottle={16}
-                decelerationRate={0.999}
-                nestedScrollEnabled={true}
-              >
-                <Animated.View style={{ height: LANE_HEIGHT, width: chartWidth }}>
-                  {renderLaneChart(forwardLane, activityColor, 'forward')}
-                  {/* Crosshair */}
-                  <Animated.View
-                    style={[styles.crosshair, crosshairStyle, isDark && styles.crosshairDark]}
-                    pointerEvents="none"
-                  />
-                </Animated.View>
-              </ScrollView>
-            </GestureDetector>
+            <>
+              <GestureDetector gesture={composedGesture}>
+                <Animated.ScrollView
+                  ref={forwardScrollRef}
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  scrollEnabled={isScrollable && !isScrubbing}
+                  onScroll={handleForwardScroll}
+                  scrollEventThrottle={8}
+                  decelerationRate={0.999}
+                  nestedScrollEnabled={true}
+                >
+                  <Animated.View style={{ height: LANE_HEIGHT, width: chartWidth }}>
+                    {renderLaneChart(forwardLane, activityColor, 'forward')}
+                    {/* Crosshair */}
+                    <Animated.View
+                      style={[styles.crosshair, crosshairStyle, isDark && styles.crosshairDark]}
+                      pointerEvents="none"
+                    />
+                  </Animated.View>
+                </Animated.ScrollView>
+              </GestureDetector>
+            </>
           )}
         </>
       )}
@@ -1165,6 +1182,7 @@ export function UnifiedPerformanceChart({
               style={[styles.laneHeader, isDark && styles.laneHeaderDark]}
               onPress={toggleReverse}
             >
+              {/* Left: Direction + count */}
               <View style={styles.laneHeaderLeft}>
                 <MaterialCommunityIcons
                   name="arrow-left"
@@ -1183,37 +1201,36 @@ export function UnifiedPerformanceChart({
                   </Text>
                 </View>
               </View>
-              {/* Inline stats - separate container for wrapping */}
-              <View style={styles.inlineStatsContainer}>
-                {bestReverseRecord && (
-                  <View style={[styles.inlineStatPill, styles.prPill]}>
-                    <MaterialCommunityIcons name="trophy" size={10} color={colors.chartGold} />
-                    <Text style={styles.prStatValue}>
+              {/* Middle: Avg · Last */}
+              <View style={styles.laneHeaderMiddle}>
+                {reverseStats?.avgTime != null && (
+                  <Text style={[styles.headerStatText, isDark && styles.headerStatTextDark]}>
+                    {formatDuration(reverseStats.avgTime)} avg
+                  </Text>
+                )}
+                {reverseStats?.avgTime != null && reverseStats?.lastActivity && (
+                  <Text style={[styles.headerStatSep, isDark && styles.headerStatSepDark]}>·</Text>
+                )}
+                {reverseStats?.lastActivity && (
+                  <Text style={[styles.headerStatText, isDark && styles.headerStatTextDark]}>
+                    {formatShortDate(reverseStats.lastActivity)}
+                  </Text>
+                )}
+              </View>
+              {/* Right: PR with date below */}
+              {bestReverseRecord && (
+                <View style={styles.prBadgeStacked}>
+                  <View style={styles.prBadgeRow}>
+                    <MaterialCommunityIcons name="trophy" size={12} color={colors.chartGold} />
+                    <Text style={styles.prBadgeTime}>
                       {formatDuration(bestReverseRecord.bestTime)}
                     </Text>
                   </View>
-                )}
-                {reverseStats?.avgTime != null && (
-                  <View style={[styles.inlineStatPill, isDark && styles.inlineStatPillDark]}>
-                    <Text style={[styles.statPillLabel, isDark && styles.statPillLabelDark]}>
-                      {t('sections.avg')}
-                    </Text>
-                    <Text style={[styles.statPillValue, isDark && styles.statPillValueDark]}>
-                      {formatDuration(reverseStats.avgTime)}
-                    </Text>
-                  </View>
-                )}
-                {reverseStats?.lastActivity && (
-                  <View style={[styles.inlineStatPill, isDark && styles.inlineStatPillDark]}>
-                    <Text style={[styles.statPillLabel, isDark && styles.statPillLabelDark]}>
-                      {t('sections.last')}
-                    </Text>
-                    <Text style={[styles.statPillValue, isDark && styles.statPillValueDark]}>
-                      {formatShortDate(reverseStats.lastActivity)}
-                    </Text>
-                  </View>
-                )}
-              </View>
+                  <Text style={styles.prBadgeDateSmall}>
+                    {formatShortDate(bestReverseRecord.activityDate)}
+                  </Text>
+                </View>
+              )}
               <MaterialCommunityIcons
                 name={reverseExpanded ? 'chevron-up' : 'chevron-down'}
                 size={20}
@@ -1224,39 +1241,41 @@ export function UnifiedPerformanceChart({
 
           {/* Reverse Lane Chart (scrollable with gesture handling, synced with forward) */}
           {reverseExpanded && (
-            <GestureDetector gesture={composedGesture}>
-              <ScrollView
-                ref={reverseScrollRef}
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                scrollEnabled={isScrollable && !isScrubbing}
-                onScroll={handleReverseScroll}
-                scrollEventThrottle={16}
-                decelerationRate={0.999}
-                nestedScrollEnabled={true}
-              >
-                <Animated.View style={{ height: LANE_HEIGHT, width: chartWidth }}>
-                  {renderLaneChart(reverseLane, colors.reverseDirection, 'reverse')}
-                  {/* Crosshair */}
-                  <Animated.View
-                    style={[styles.crosshair, crosshairStyle, isDark && styles.crosshairDark]}
-                    pointerEvents="none"
-                  />
-                </Animated.View>
-              </ScrollView>
-            </GestureDetector>
+            <>
+              <GestureDetector gesture={composedGesture}>
+                <Animated.ScrollView
+                  ref={reverseScrollRef}
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  scrollEnabled={isScrollable && !isScrubbing}
+                  onScroll={handleReverseScroll}
+                  scrollEventThrottle={8}
+                  decelerationRate={0.999}
+                  nestedScrollEnabled={true}
+                >
+                  <Animated.View style={{ height: LANE_HEIGHT, width: chartWidth }}>
+                    {renderLaneChart(reverseLane, colors.reverseDirection, 'reverse')}
+                    {/* Crosshair */}
+                    <Animated.View
+                      style={[styles.crosshair, crosshairStyle, isDark && styles.crosshairDark]}
+                      pointerEvents="none"
+                    />
+                  </Animated.View>
+                </Animated.ScrollView>
+              </GestureDetector>
+            </>
           )}
         </>
       )}
 
       {/* Time axis - scrolls with charts, two rows: dates on top, gap markers below */}
-      <ScrollView
+      <Animated.ScrollView
         ref={timeAxisScrollRef}
         horizontal
         showsHorizontalScrollIndicator={isScrollable}
         scrollEnabled={isScrollable}
         onScroll={handleTimeAxisScroll}
-        scrollEventThrottle={16}
+        scrollEventThrottle={8}
         decelerationRate={0.999}
         nestedScrollEnabled={true}
         style={styles.timeAxisScroll}
@@ -1282,32 +1301,71 @@ export function UnifiedPerformanceChart({
           {/* Gap markers row (bottom) - icon above day count */}
           {gaps.map((gap, idx) => {
             const chartContentW = chartWidth - CHART_PADDING_LEFT - CHART_PADDING_RIGHT;
-            // Match the +4 offset used by vertical lines, then center the 24px marker
-            const pixelX = CHART_PADDING_LEFT + gap.xPosition * chartContentW + 4;
-            return (
-              <Pressable
-                key={`gap-${idx}`}
-                style={[
-                  styles.gapMarkerInAxisBottom,
-                  isDark && styles.gapMarkerInAxisDark,
-                  { left: pixelX - 12 },
-                ]}
-                onPress={() => toggleGap(gap.gapIndex)}
-                hitSlop={{ top: 5, bottom: 5, left: 10, right: 10 }}
-              >
-                <MaterialCommunityIcons
-                  name={gap.isExpanded ? 'arrow-collapse-horizontal' : 'arrow-expand-horizontal'}
-                  size={10}
-                  color={isDark ? darkColors.textMuted : colors.textMuted}
-                />
-                <Text style={[styles.gapMarkerText, isDark && styles.gapMarkerTextDark]}>
-                  {gap.gapDays}d
-                </Text>
-              </Pressable>
-            );
+
+            if (gap.isExpanded) {
+              // Expanded: span full width of gap
+              const startPixelX = CHART_PADDING_LEFT + gap.startX * chartContentW;
+              const endPixelX = CHART_PADDING_LEFT + gap.endX * chartContentW;
+              const gapPixelWidth = endPixelX - startPixelX;
+
+              return (
+                <Pressable
+                  key={`gap-${idx}`}
+                  style={[
+                    styles.gapMarkerExpanded,
+                    isDark && styles.gapMarkerExpandedDark,
+                    { left: startPixelX, width: gapPixelWidth },
+                  ]}
+                  onPress={() => toggleGap(gap.gapIndex)}
+                >
+                  <MaterialCommunityIcons
+                    name="arrow-collapse-horizontal"
+                    size={12}
+                    color={isDark ? '#aaa' : '#666'}
+                  />
+                  <Text
+                    style={[
+                      styles.gapMarkerExpandedText,
+                      isDark && styles.gapMarkerExpandedTextDark,
+                    ]}
+                  >
+                    {gap.gapDays}d
+                  </Text>
+                  <MaterialCommunityIcons
+                    name="arrow-collapse-horizontal"
+                    size={12}
+                    color={isDark ? '#aaa' : '#666'}
+                  />
+                </Pressable>
+              );
+            } else {
+              // Compressed: centered small marker
+              const pixelX = CHART_PADDING_LEFT + gap.xPosition * chartContentW + 4;
+              return (
+                <Pressable
+                  key={`gap-${idx}`}
+                  style={[
+                    styles.gapMarkerInAxisBottom,
+                    isDark && styles.gapMarkerInAxisDark,
+                    { left: pixelX - 12 },
+                  ]}
+                  onPress={() => toggleGap(gap.gapIndex)}
+                  hitSlop={{ top: 5, bottom: 5, left: 10, right: 10 }}
+                >
+                  <MaterialCommunityIcons
+                    name="arrow-expand-horizontal"
+                    size={10}
+                    color={isDark ? darkColors.textMuted : colors.textMuted}
+                  />
+                  <Text style={[styles.gapMarkerText, isDark && styles.gapMarkerTextDark]}>
+                    {gap.gapDays}d
+                  </Text>
+                </Pressable>
+              );
+            }
           })}
         </View>
-      </ScrollView>
+      </Animated.ScrollView>
 
       {/* Tooltip */}
       <View style={styles.tooltipContainer}>
@@ -1462,6 +1520,42 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
   },
+  laneHeaderMiddle: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+  },
+  headerStatText: {
+    fontSize: 11,
+    color: colors.textMuted,
+  },
+  headerStatTextDark: {
+    color: darkColors.textMuted,
+  },
+  headerStatSep: {
+    fontSize: 11,
+    color: colors.textMuted,
+    opacity: 0.5,
+  },
+  headerStatSepDark: {
+    color: darkColors.textMuted,
+  },
+  prBadgeStacked: {
+    alignItems: 'flex-end',
+    marginRight: 8,
+  },
+  prBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+  },
+  prBadgeDateSmall: {
+    fontSize: 9,
+    color: colors.chartGold,
+    opacity: 0.7,
+  },
   directionIcon: {
     marginRight: 2,
   },
@@ -1509,6 +1603,17 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.chartGold,
   },
+  prStatSeparator: {
+    fontSize: 10,
+    color: colors.chartGold,
+    opacity: 0.6,
+  },
+  prStatDate: {
+    fontSize: 10,
+    fontWeight: '500',
+    color: colors.chartGold,
+    opacity: 0.7,
+  },
   statPillLabel: {
     fontSize: 9,
     fontWeight: '500',
@@ -1526,6 +1631,48 @@ const styles = StyleSheet.create({
   },
   statPillValueDark: {
     color: 'rgba(255, 255, 255, 0.9)',
+  },
+  prBadgeCompact: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginLeft: 'auto',
+    marginRight: 8,
+  },
+  prBadgeTime: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.chartGold,
+  },
+  statsBar: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 16,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    backgroundColor: colors.surface,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+  },
+  statsBarDark: {
+    backgroundColor: darkColors.surface,
+    borderTopColor: darkColors.border,
+  },
+  statsBarItem: {
+    fontSize: 12,
+    color: colors.textSecondary,
+  },
+  statsBarItemDark: {
+    color: darkColors.textSecondary,
+  },
+  statsBarLabel: {
+    fontWeight: '500',
+    color: colors.textMuted,
+  },
+  statsBarSeparator: {
+    fontSize: 12,
+    color: colors.textMuted,
+    opacity: 0.5,
   },
   prBadge: {
     flexDirection: 'row',
@@ -1714,6 +1861,33 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     opacity: 0.9,
   },
+  gapMarkerExpanded: {
+    position: 'absolute',
+    top: 18,
+    height: 22,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    paddingHorizontal: 4,
+    backgroundColor: colors.surface,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: colors.border,
+    opacity: 0.9,
+  },
+  gapMarkerExpandedDark: {
+    backgroundColor: darkColors.surfaceElevated,
+    borderColor: darkColors.border,
+  },
+  gapMarkerExpandedText: {
+    fontSize: 9,
+    fontWeight: '500',
+    color: colors.textMuted,
+  },
+  gapMarkerExpandedTextDark: {
+    color: darkColors.textMuted,
+  },
   gapLinesOverlay: {
     ...StyleSheet.absoluteFillObject,
     pointerEvents: 'none',
@@ -1735,43 +1909,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 0,
     bottom: 0,
-    width: 0,
-    borderLeftWidth: 1.5,
-    opacity: 0.7,
-  },
-  gapHatchArea: {
-    position: 'absolute',
-    top: 0,
-    bottom: 0,
-    overflow: 'hidden',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  gapHatchLine: {
-    position: 'absolute',
-    width: 1,
-    height: '200%',
-    opacity: 0.4,
-    transform: [{ rotate: '45deg' }],
-  },
-  gapDayCountContainer: {
-    position: 'absolute',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  gapDayCount: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: colors.textMuted,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-    overflow: 'hidden',
-  },
-  gapDayCountDark: {
-    color: '#ffffff',
-    backgroundColor: 'rgba(40, 40, 40, 0.95)',
+    width: 2,
   },
   gapMarkersOverlay: {
     ...StyleSheet.absoluteFillObject,

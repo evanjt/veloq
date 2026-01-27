@@ -1,8 +1,9 @@
-import React, { useEffect, useState, useMemo, useCallback } from 'react';
+import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text, IconButton } from 'react-native-paper';
 import { ScreenSafeAreaView } from '@/components/ui';
 import { router, useLocalSearchParams } from 'expo-router';
+import { logScreenRender } from '@/lib/debug/renderTimer';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { RoutesList, SectionsList, DateRangeSummary } from '@/components';
@@ -27,6 +28,13 @@ type TabType = 'routes' | 'sections';
 const log = debug.create('Routes');
 
 export default function RoutesScreen() {
+  // Performance timing
+  const perfEndRef = useRef<(() => void) | null>(null);
+  perfEndRef.current = logScreenRender('RoutesScreen');
+  useEffect(() => {
+    perfEndRef.current?.();
+  });
+
   const { t } = useTranslation();
   const { isDark, colors: themeColors } = useTheme();
   const shared = createSharedStyles(isDark);

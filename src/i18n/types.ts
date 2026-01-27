@@ -184,6 +184,7 @@ export interface TranslationResource {
     creating: string;
     showDetails: string;
     hideDetails: string;
+    reset: string;
   };
 
   navigation: {
@@ -727,6 +728,12 @@ export interface TranslationResource {
     disableSectionConfirm: string;
     disabled: string;
     forward: string;
+    reference: string;
+    setAsReference: string;
+    setAsReferenceConfirm: string;
+    resetReference: string;
+    resetReferenceConfirm: string;
+    referenceUpdated: string;
   };
 
   errorState: {

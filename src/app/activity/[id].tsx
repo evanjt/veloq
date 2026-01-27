@@ -13,7 +13,8 @@ import {
 } from 'react-native';
 import { Text, IconButton, ActivityIndicator } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ScreenSafeAreaView } from '@/components/ui';
+import { ScreenSafeAreaView, TAB_BAR_SAFE_PADDING } from '@/components/ui';
+import { logScreenRender } from '@/lib/debug/renderTimer';
 import { useLocalSearchParams, router, type Href } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -36,7 +37,6 @@ import { createSharedStyles } from '@/styles';
 import { useCustomSections } from '@/hooks/routes/useCustomSections';
 import { useRouteMatch } from '@/hooks/routes/useRouteMatch';
 import { useSectionMatches, type SectionMatch } from '@/hooks/routes/useSectionMatches';
-import { useFrequentSections } from '@/hooks/routes/useFrequentSections';
 import { routeEngine } from 'veloqrs';
 import { intervalsApi } from '@/api';
 import {
@@ -104,6 +104,13 @@ const DEFAULT_CHART: Record<string, ChartTypeId> = {
 };
 
 export default function ActivityDetailScreen() {
+  // Performance timing
+  const perfEndRef = useRef<(() => void) | null>(null);
+  perfEndRef.current = logScreenRender('ActivityDetailScreen');
+  useEffect(() => {
+    perfEndRef.current?.();
+  });
+
   const { t } = useTranslation();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { isDark, colors: themeColors } = useTheme();
@@ -357,9 +364,6 @@ export default function ActivityDetailScreen() {
   // Get auto-detected sections from engine that include this activity
   const { sections: engineSectionMatches, count: engineSectionCount } = useSectionMatches(id);
 
-  // Get all sections with full polyline data
-  const { sections: allFrequentSections } = useFrequentSections({ minVisits: 1 });
-
   // Filter custom sections that match this activity
   // Include sections where this is the source activity OR where matches include this activity
   const customMatchedSections = useMemo(() => {
@@ -415,9 +419,8 @@ export default function ActivityDetailScreen() {
     const traces: Record<string, { latitude: number; longitude: number }[]> = {};
 
     for (const section of combinedSections) {
-      // Get the polyline - prefer from allFrequentSections (converted format)
-      const fullSection = allFrequentSections.find((s) => s.id === section.id);
-      const polyline = fullSection?.polyline || section.polyline || [];
+      // Use section polyline directly (already has data from engine)
+      const polyline = section.polyline || [];
 
       if (polyline.length < 2) continue;
 
@@ -458,12 +461,10 @@ export default function ActivityDetailScreen() {
 
     // Process engine-detected sections
     for (const match of engineSectionMatches) {
-      // Get full section data from allFrequentSections (has converted RoutePoint polyline and activityTraces)
-      const fullSection = allFrequentSections.find((s) => s.id === match.section.id);
-      const polylineSource = fullSection?.polyline || match.section.polyline || [];
+      // Use section polyline directly (already has data from engine)
+      const polylineSource = match.section.polyline || [];
 
       // Handle both RoutePoint ({lat, lng}) and GpsPoint ({latitude, longitude}) formats
-      // fullSection.polyline has lat/lng, match.section.polyline has latitude/longitude
       const sectionPolyline = polylineSource.map(
         (p: { lat?: number; lng?: number; latitude?: number; longitude?: number }) => ({
           latitude: p.lat ?? p.latitude ?? 0,
@@ -483,8 +484,7 @@ export default function ActivityDetailScreen() {
         activityPortion = computedTrace;
       } else {
         // Try activityTraces from section data
-        const activityTrace =
-          fullSection?.activityTraces?.[id!] || match.section.activityTraces?.[id!];
+        const activityTrace = match.section.activityTraces?.[id!];
         if (activityTrace && activityTrace.length > 0) {
           // Convert RoutePoint to LatLng format
           activityPortion = activityTrace.map(
@@ -556,7 +556,6 @@ export default function ActivityDetailScreen() {
     customMatchedSections,
     coordinates,
     id,
-    allFrequentSections,
     computedActivityTraces,
   ]);
 
@@ -1815,7 +1814,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   tabScrollContent: {
-    paddingBottom: spacing.xl,
+    paddingBottom: spacing.xl + TAB_BAR_SAFE_PADDING,
   },
 
   // No route match styles

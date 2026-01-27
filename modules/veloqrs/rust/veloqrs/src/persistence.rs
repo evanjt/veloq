@@ -44,7 +44,8 @@ use rstar::{AABB, RTree, RTreeObject};
 use crate::{
     ActivityMatchInfo, ActivityMetrics, Bounds, DirectionStats, FrequentSection, GpsPoint,
     MatchConfig, RouteGroup, RoutePerformance, RoutePerformanceResult, RouteSignature,
-    SectionConfig, SectionLap, SectionPerformanceRecord, SectionPerformanceResult, geo_utils,
+    SectionConfig, SectionLap, SectionPerformanceRecord, SectionPerformanceResult, SectionPortion,
+    geo_utils,
 };
 
 #[cfg(feature = "persistence")]
@@ -232,9 +233,146 @@ impl SectionDetectionHandle {
     }
 }
 
+/// Result of matching an activity track against existing sections.
+/// This is used for incremental section updates when a new activity is added.
+///
+/// Note: overlap_points is not included because Vec<GpsPoint> can't be
+/// exported via UniFFI. Use start_index/end_index to extract from original track.
+#[cfg(feature = "persistence")]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, uniffi::Record)]
+pub struct ActivitySectionMatch {
+    /// Section ID that was matched
+    pub section_id: String,
+    /// Section name (if set)
+    pub section_name: Option<String>,
+    /// Distance of the overlapping portion in meters
+    pub overlap_distance: f64,
+    /// Start index in the original track
+    pub start_index: u32,
+    /// End index in the original track
+    pub end_index: u32,
+    /// Match quality (0.0 to 1.0)
+    pub match_quality: f64,
+    /// Whether the activity goes in the same direction as the section
+    pub same_direction: bool,
+}
+
+/// Internal version of ActivitySectionMatch that includes overlap points.
+/// Used within Rust code but not exposed via FFI.
+#[cfg(feature = "persistence")]
+#[derive(Debug, Clone)]
+struct ActivitySectionMatchInternal {
+    pub section_id: String,
+    pub section_name: Option<String>,
+    pub overlap_points: Vec<GpsPoint>,
+    pub overlap_distance: f64,
+    pub start_index: u32,
+    pub end_index: u32,
+    pub match_quality: f64,
+    pub same_direction: bool,
+}
+
 // ============================================================================
 // Helper Functions for Background Threads
 // ============================================================================
+
+/// Generate current timestamp in ISO 8601 format.
+/// Uses Unix epoch time since chrono is not a dependency.
+#[cfg(feature = "persistence")]
+fn current_timestamp_iso() -> String {
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    let duration = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default();
+
+    let secs = duration.as_secs();
+
+    // Convert to ISO 8601 format (simplified, always UTC)
+    // Format: YYYY-MM-DDTHH:MM:SSZ
+    let days_since_epoch = secs / 86400;
+    let secs_today = secs % 86400;
+    let hours = secs_today / 3600;
+    let mins = (secs_today % 3600) / 60;
+    let secs_final = secs_today % 60;
+
+    // Calculate year, month, day from days since epoch (1970-01-01)
+    // This is a simplified calculation
+    let mut days = days_since_epoch as i64;
+    let mut year = 1970;
+
+    loop {
+        let days_in_year = if is_leap_year(year) { 366 } else { 365 };
+        if days < days_in_year {
+            break;
+        }
+        days -= days_in_year;
+        year += 1;
+    }
+
+    let mut month = 1;
+    let days_in_months: [i64; 12] = if is_leap_year(year) {
+        [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+    } else {
+        [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+    };
+
+    for &dim in &days_in_months {
+        if days < dim {
+            break;
+        }
+        days -= dim;
+        month += 1;
+    }
+
+    let day = days + 1;
+
+    format!(
+        "{:04}-{:02}-{:02}T{:02}:{:02}:{:02}Z",
+        year, month, day, hours, mins, secs_final
+    )
+}
+
+#[cfg(feature = "persistence")]
+fn is_leap_year(year: i64) -> bool {
+    (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0)
+}
+
+/// Compute Average Minimum Distance (AMD) between two traces.
+/// For each point in trace1, find minimum distance to any point in trace2.
+/// AMD = average of these minimum distances.
+/// Used for medoid calculation in section updates.
+#[cfg(feature = "persistence")]
+fn compute_amd(trace1: &[GpsPoint], trace2: &[GpsPoint]) -> f64 {
+    if trace1.is_empty() || trace2.is_empty() {
+        return f64::MAX;
+    }
+
+    // Sample points for efficiency (every 5th point)
+    let step = 5.max(1);
+    let mut total_min_dist = 0.0;
+    let mut count = 0;
+
+    for (i, p1) in trace1.iter().enumerate() {
+        if i % step != 0 {
+            continue;
+        }
+
+        let min_dist = trace2
+            .iter()
+            .map(|p2| geo_utils::haversine_distance(p1, p2))
+            .fold(f64::MAX, f64::min);
+
+        total_min_dist += min_dist;
+        count += 1;
+    }
+
+    if count == 0 {
+        f64::MAX
+    } else {
+        total_min_dist / count as f64
+    }
+}
 
 /// Load route groups from SQLite database.
 /// Used by background threads that have their own DB connection.
@@ -518,12 +656,26 @@ impl PersistentRouteEngine {
                 FOREIGN KEY (activity_id) REFERENCES activities(id) ON DELETE CASCADE
             );
 
+            -- Overlap cache for section detection
+            -- Caches pairwise overlap results to avoid O(N²) recalculation
+            -- activity_a < activity_b lexicographically to avoid duplicates
+            CREATE TABLE IF NOT EXISTS overlap_cache (
+                activity_a TEXT NOT NULL,
+                activity_b TEXT NOT NULL,
+                has_overlap INTEGER NOT NULL,
+                overlap_data BLOB,
+                computed_at INTEGER NOT NULL,
+                PRIMARY KEY (activity_a, activity_b)
+            );
+
             -- Indexes
             CREATE INDEX IF NOT EXISTS idx_activities_sport ON activities(sport_type);
             CREATE INDEX IF NOT EXISTS idx_activities_bounds ON activities(min_lat, max_lat, min_lng, max_lng);
             CREATE INDEX IF NOT EXISTS idx_groups_sport ON route_groups(sport_type);
             CREATE INDEX IF NOT EXISTS idx_activity_matches_route ON activity_matches(route_id);
             CREATE INDEX IF NOT EXISTS idx_custom_section_matches_section ON custom_section_matches(section_id);
+            CREATE INDEX IF NOT EXISTS idx_overlap_cache_a ON overlap_cache(activity_a);
+            CREATE INDEX IF NOT EXISTS idx_overlap_cache_b ON overlap_cache(activity_b);
 
             -- Enable foreign keys
             PRAGMA foreign_keys = ON;
@@ -2431,6 +2583,521 @@ impl PersistentRouteEngine {
             let data_blob = serde_json::to_vec(section).unwrap_or_default();
             stmt.execute(params![section.id, data_blob])?;
         }
+
+        Ok(())
+    }
+
+    // ========================================================================
+    // Overlap Cache
+    // ========================================================================
+
+    /// Order activity IDs lexicographically for consistent cache keys.
+    fn order_activity_ids<'a>(id_a: &'a str, id_b: &'a str) -> (&'a str, &'a str) {
+        if id_a < id_b {
+            (id_a, id_b)
+        } else {
+            (id_b, id_a)
+        }
+    }
+
+    /// Get cached overlap result for two activities.
+    /// Returns:
+    ///   Some(Some(overlap_data)) - cached, has overlap with data
+    ///   Some(None) - cached, no overlap exists
+    ///   None - not cached, needs computation
+    pub fn get_cached_overlap(&self, id_a: &str, id_b: &str) -> Option<Option<Vec<u8>>> {
+        let (a, b) = Self::order_activity_ids(id_a, id_b);
+
+        let mut stmt = self
+            .db
+            .prepare_cached("SELECT has_overlap, overlap_data FROM overlap_cache WHERE activity_a = ? AND activity_b = ?")
+            .ok()?;
+
+        match stmt.query_row(params![a, b], |row| {
+            let has_overlap: i32 = row.get(0)?;
+            let data: Option<Vec<u8>> = row.get(1)?;
+            Ok((has_overlap, data))
+        }) {
+            Ok((1, data)) => Some(data), // Has overlap, return the data (or None if no data stored)
+            Ok((0, _)) => Some(None),    // Cached as no overlap
+            Ok(_) => Some(None),         // Invalid value, treat as no overlap
+            Err(_) => None,              // Not in cache
+        }
+    }
+
+    /// Store overlap result in cache.
+    /// overlap_data should be None if no overlap, Some(serialized_data) if overlap exists.
+    pub fn cache_overlap(&self, id_a: &str, id_b: &str, overlap_data: Option<&[u8]>) {
+        let (a, b) = Self::order_activity_ids(id_a, id_b);
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs() as i64;
+
+        let has_overlap = if overlap_data.is_some() { 1 } else { 0 };
+
+        let _ = self.db.execute(
+            "INSERT OR REPLACE INTO overlap_cache (activity_a, activity_b, has_overlap, overlap_data, computed_at) VALUES (?, ?, ?, ?, ?)",
+            params![a, b, has_overlap, overlap_data, now],
+        );
+    }
+
+    /// Invalidate cached overlaps for an activity (when GPS track changes).
+    pub fn invalidate_overlap_cache_for_activity(&self, activity_id: &str) {
+        let _ = self.db.execute(
+            "DELETE FROM overlap_cache WHERE activity_a = ? OR activity_b = ?",
+            params![activity_id, activity_id],
+        );
+    }
+
+    /// Get count of cached overlaps (for debugging/stats).
+    pub fn get_overlap_cache_count(&self) -> u32 {
+        self.db
+            .query_row("SELECT COUNT(*) FROM overlap_cache", [], |row| row.get(0))
+            .unwrap_or(0)
+    }
+
+    /// Clear all cached overlaps.
+    pub fn clear_overlap_cache(&self) {
+        let _ = self.db.execute("DELETE FROM overlap_cache", []);
+    }
+
+    // ========================================================================
+    // Incremental Section Updates
+    // ========================================================================
+
+    /// Match a new activity's track against existing sections.
+    /// Returns sections that the activity overlaps with, along with the matching track portion.
+    /// This is O(S) where S = number of sections, much faster than full O(N²) re-detection.
+    ///
+    /// Uses tracematch's find_sections_in_route() which is optimized for this purpose.
+    pub fn match_activity_to_sections(
+        &self,
+        activity_id: &str,
+        track: &[GpsPoint],
+    ) -> Vec<ActivitySectionMatch> {
+        if track.is_empty() || self.sections.is_empty() {
+            return vec![];
+        }
+
+        // Use internal version and convert to FFI-friendly format
+        let internal_matches = self.match_activity_to_sections_internal(activity_id, track);
+
+        let matches: Vec<ActivitySectionMatch> = internal_matches
+            .into_iter()
+            .map(|m| ActivitySectionMatch {
+                section_id: m.section_id,
+                section_name: m.section_name,
+                overlap_distance: m.overlap_distance,
+                start_index: m.start_index,
+                end_index: m.end_index,
+                match_quality: m.match_quality,
+                same_direction: m.same_direction,
+            })
+            .collect();
+
+        log::info!(
+            "tracematch: [IncrementalUpdate] Activity {} matches {} existing sections",
+            activity_id,
+            matches.len()
+        );
+
+        matches
+    }
+
+    /// Internal version that returns overlap points for use in add_activity_to_section.
+    fn match_activity_to_sections_internal(
+        &self,
+        activity_id: &str,
+        track: &[GpsPoint],
+    ) -> Vec<ActivitySectionMatchInternal> {
+        if track.is_empty() || self.sections.is_empty() {
+            return vec![];
+        }
+
+        // Use tracematch's find_sections_in_route - it handles R-tree building and matching
+        let raw_matches = tracematch::find_sections_in_route(track, &self.sections, &self.section_config);
+
+        // Convert to internal format with overlap points
+        raw_matches
+            .into_iter()
+            .filter_map(|m| {
+                // Skip if activity is already in this section
+                let section = self.sections.iter().find(|s| s.id == m.section_id)?;
+                if section.activity_ids.contains(&activity_id.to_string()) {
+                    return None;
+                }
+
+                // Extract the overlapping portion of the track
+                let start = m.start_index as usize;
+                let end = (m.end_index as usize).min(track.len());
+                if start >= end {
+                    return None;
+                }
+
+                let overlap_points: Vec<GpsPoint> = track[start..end].to_vec();
+
+                // Compute distance of overlap
+                let overlap_distance: f64 = overlap_points
+                    .windows(2)
+                    .map(|w| geo_utils::haversine_distance(&w[0], &w[1]))
+                    .sum();
+
+                Some(ActivitySectionMatchInternal {
+                    section_id: m.section_id,
+                    section_name: section.name.clone(),
+                    overlap_points,
+                    overlap_distance,
+                    start_index: m.start_index as u32,
+                    end_index: m.end_index as u32,
+                    match_quality: m.match_quality,
+                    same_direction: m.same_direction,
+                })
+            })
+            .collect()
+    }
+
+    /// Match activity to sections and add it to all matching sections.
+    /// This is the main entry point for incremental section updates.
+    /// Returns the number of sections the activity was added to.
+    pub fn match_and_add_activity_to_sections(
+        &mut self,
+        activity_id: &str,
+        track: &[GpsPoint],
+    ) -> u32 {
+        let matches = self.match_activity_to_sections_internal(activity_id, track);
+        let mut added_count = 0;
+
+        for m in matches {
+            if let Ok(()) = self.add_activity_to_section(
+                &m.section_id,
+                activity_id,
+                m.overlap_points,
+                m.same_direction,
+            ) {
+                added_count += 1;
+            }
+        }
+
+        added_count
+    }
+
+    /// Add an activity to an existing section and recalculate the medoid.
+    /// This is the incremental update path - much faster than full re-detection.
+    ///
+    /// # Arguments
+    /// * `section_id` - The section to add the activity to
+    /// * `activity_id` - The activity being added
+    /// * `overlap_points` - GPS points from the activity that overlap with the section
+    /// * `same_direction` - Whether the activity travels in the same direction as the section
+    pub fn add_activity_to_section(
+        &mut self,
+        section_id: &str,
+        activity_id: &str,
+        overlap_points: Vec<GpsPoint>,
+        same_direction: bool,
+    ) -> Result<(), String> {
+        // Find the section
+        let section = self
+            .sections
+            .iter_mut()
+            .find(|s| s.id == section_id)
+            .ok_or_else(|| format!("Section {} not found", section_id))?;
+
+        // Don't modify user-defined sections automatically
+        if section.is_user_defined {
+            return Err(format!(
+                "Section {} is user-defined, cannot auto-update",
+                section_id
+            ));
+        }
+
+        // Check if activity is already in section
+        if section.activity_ids.contains(&activity_id.to_string()) {
+            return Err(format!(
+                "Activity {} already in section {}",
+                activity_id, section_id
+            ));
+        }
+
+        // Add activity
+        section.activity_ids.push(activity_id.to_string());
+        section.visit_count += 1;
+
+        // Store the activity's trace
+        section
+            .activity_traces
+            .insert(activity_id.to_string(), overlap_points.clone());
+
+        // Compute distance of the overlap
+        let overlap_distance: f64 = overlap_points
+            .windows(2)
+            .map(|w| geo_utils::haversine_distance(&w[0], &w[1]))
+            .sum();
+
+        // Add portion metadata
+        // Note: start_index/end_index are relative to the overlap, not full track
+        let direction = if same_direction { "same" } else { "reverse" }.to_string();
+        section.activity_portions.push(SectionPortion {
+            activity_id: activity_id.to_string(),
+            start_index: 0,
+            end_index: overlap_points.len().saturating_sub(1) as u32,
+            distance_meters: overlap_distance,
+            direction,
+        });
+
+        // Recalculate medoid if we have enough traces
+        self.recalculate_section_medoid(section_id)?;
+
+        // Update version and timestamp
+        if let Some(section) = self.sections.iter_mut().find(|s| s.id == section_id) {
+            section.version += 1;
+            section.updated_at = Some(current_timestamp_iso());
+            section.observation_count = section.activity_ids.len() as u32;
+        }
+
+        // Save to DB
+        self.save_sections()
+            .map_err(|e| format!("Failed to save sections: {}", e))?;
+
+        log::info!(
+            "tracematch: [IncrementalUpdate] Added activity {} to section {}, now has {} activities",
+            activity_id,
+            section_id,
+            self.sections
+                .iter()
+                .find(|s| s.id == section_id)
+                .map(|s| s.activity_ids.len())
+                .unwrap_or(0)
+        );
+
+        Ok(())
+    }
+
+    /// Recalculate the medoid (most representative trace) for a section.
+    /// The medoid is the trace with minimum total AMD to all other traces.
+    /// This is cheap: O(N²) pairwise comparisons but N is typically small (≤10 traces per section).
+    fn recalculate_section_medoid(&mut self, section_id: &str) -> Result<(), String> {
+        // First, extract all the data we need without holding a borrow
+        let (is_user_defined, traces_data, old_medoid) = {
+            let section = self
+                .sections
+                .iter()
+                .find(|s| s.id == section_id)
+                .ok_or_else(|| format!("Section {} not found", section_id))?;
+
+            // Don't recalculate if user manually set the medoid
+            if section.is_user_defined {
+                return Ok(());
+            }
+
+            // Clone the traces data so we can release the borrow
+            let traces: Vec<(String, Vec<GpsPoint>)> = section
+                .activity_traces
+                .iter()
+                .map(|(k, v)| (k.clone(), v.clone()))
+                .collect();
+
+            (
+                section.is_user_defined,
+                traces,
+                section.representative_activity_id.clone(),
+            )
+        };
+
+        if is_user_defined {
+            return Ok(());
+        }
+
+        if traces_data.is_empty() {
+            return Ok(());
+        }
+
+        if traces_data.len() == 1 {
+            // Only one trace - it's the medoid by default
+            let activity_id = &traces_data[0].0;
+            if let Some(section) = self.sections.iter_mut().find(|s| s.id == section_id) {
+                section.representative_activity_id = activity_id.clone();
+            }
+            return Ok(());
+        }
+
+        // For small sets, compute full pairwise AMD
+        // For larger sets (>10), use sampling
+        let use_sampling = traces_data.len() > 10;
+        let sample_size = if use_sampling { 5 } else { traces_data.len() };
+
+        let mut best_activity_id = traces_data[0].0.clone();
+        let mut best_total_amd = f64::MAX;
+
+        for (i, (activity_id, trace_i)) in traces_data.iter().enumerate() {
+            let mut total_amd = 0.0;
+
+            // Compare to all others (or sample)
+            let compare_indices: Vec<usize> = if use_sampling {
+                // Sample random indices (excluding self)
+                use std::collections::HashSet;
+                let mut indices = HashSet::new();
+                let mut rng_seed = i as u64;
+                while indices.len() < sample_size && indices.len() < traces_data.len() - 1 {
+                    rng_seed = rng_seed.wrapping_mul(1103515245).wrapping_add(12345);
+                    let idx = (rng_seed as usize) % traces_data.len();
+                    if idx != i {
+                        indices.insert(idx);
+                    }
+                }
+                indices.into_iter().collect()
+            } else {
+                (0..traces_data.len()).filter(|&j| j != i).collect()
+            };
+
+            for j in compare_indices {
+                let trace_j = &traces_data[j].1;
+                total_amd += compute_amd(trace_i, trace_j);
+            }
+
+            if total_amd < best_total_amd {
+                best_total_amd = total_amd;
+                best_activity_id = activity_id.clone();
+            }
+        }
+
+        // Update section with new medoid
+        if let Some(section) = self.sections.iter_mut().find(|s| s.id == section_id) {
+            section.representative_activity_id = best_activity_id.clone();
+
+            if old_medoid != best_activity_id {
+                log::info!(
+                    "tracematch: [Medoid] Section {} medoid changed: {} -> {}",
+                    section_id,
+                    old_medoid,
+                    best_activity_id
+                );
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Set user-defined medoid for a section.
+    /// When user manually selects a reference activity, we store this choice
+    /// and skip automatic medoid recalculation for this section.
+    /// Also updates the section's polyline to match the new reference activity's trace.
+    pub fn set_section_reference(
+        &mut self,
+        section_id: &str,
+        activity_id: &str,
+    ) -> Result<(), String> {
+        // First, get the new reference activity's trace (need to do this before borrowing section mutably)
+        let new_polyline = {
+            let section = self
+                .sections
+                .iter()
+                .find(|s| s.id == section_id)
+                .ok_or_else(|| format!("Section {} not found", section_id))?;
+
+            // Verify the activity is in this section
+            if !section.activity_ids.contains(&activity_id.to_string()) {
+                return Err(format!(
+                    "Activity {} is not in section {}",
+                    activity_id, section_id
+                ));
+            }
+
+            // Get the activity's trace from activity_traces
+            // If not in activity_traces, try to extract it from the GPS track
+            if let Some(trace) = section.activity_traces.get(activity_id) {
+                Some(trace.clone())
+            } else {
+                // Try to extract from stored GPS track
+                if let Some(track) = self.get_gps_track(activity_id) {
+                    // Use extract_all_activity_traces with a single-element map
+                    let mut track_map = std::collections::HashMap::new();
+                    track_map.insert(activity_id.to_string(), track);
+                    let traces = tracematch::sections::extract_all_activity_traces(
+                        &[activity_id.to_string()],
+                        &section.polyline,
+                        &track_map,
+                    );
+                    traces.get(activity_id).cloned()
+                } else {
+                    None
+                }
+            }
+        };
+
+        // Now update the section
+        let section = self
+            .sections
+            .iter_mut()
+            .find(|s| s.id == section_id)
+            .ok_or_else(|| format!("Section {} not found", section_id))?;
+
+        section.representative_activity_id = activity_id.to_string();
+        section.is_user_defined = true;
+        section.version += 1;
+        section.updated_at = Some(current_timestamp_iso());
+
+        // Update polyline if we have a new trace
+        if let Some(polyline) = new_polyline {
+            log::info!(
+                "tracematch: [Medoid] Updating section {} polyline with {} points from activity {}",
+                section_id,
+                polyline.len(),
+                activity_id
+            );
+            section.polyline = polyline;
+        }
+
+        // Save to DB
+        self.save_sections()
+            .map_err(|e| format!("Failed to save sections: {}", e))?;
+
+        // Invalidate the LRU cache entry so get_section_by_id returns fresh data
+        self.section_cache.pop(&section_id.to_string());
+
+        log::info!(
+            "tracematch: [Medoid] Section {} reference set to {} (user-defined)",
+            section_id,
+            activity_id
+        );
+
+        Ok(())
+    }
+
+    /// Reset section to automatic medoid calculation.
+    /// Clears the user-defined flag and recalculates the medoid.
+    pub fn reset_section_reference(&mut self, section_id: &str) -> Result<(), String> {
+        {
+            let section = self
+                .sections
+                .iter_mut()
+                .find(|s| s.id == section_id)
+                .ok_or_else(|| format!("Section {} not found", section_id))?;
+
+            section.is_user_defined = false;
+        }
+
+        // Recalculate medoid
+        self.recalculate_section_medoid(section_id)?;
+
+        // Update metadata
+        if let Some(section) = self.sections.iter_mut().find(|s| s.id == section_id) {
+            section.version += 1;
+            section.updated_at = Some(current_timestamp_iso());
+        }
+
+        // Save to DB
+        self.save_sections()
+            .map_err(|e| format!("Failed to save sections: {}", e))?;
+
+        // Invalidate the LRU cache entry so get_section_by_id returns fresh data
+        self.section_cache.pop(&section_id.to_string());
+
+        log::info!(
+            "tracematch: [Medoid] Section {} reference reset to automatic",
+            section_id
+        );
 
         Ok(())
     }
@@ -4821,6 +5488,122 @@ pub mod persistent_engine_ffi {
             serde_json::to_string(&matches).unwrap_or_else(|_| "[]".to_string())
         })
         .unwrap_or_else(|| "[]".to_string())
+    }
+
+    // ========================================================================
+    // Section Reference (Medoid) Management
+    // ========================================================================
+
+    /// Set the reference activity for a section.
+    /// This marks the section as user-defined and prevents automatic medoid recalculation.
+    ///
+    /// Returns true if successful, false if the section or activity was not found.
+    #[uniffi::export]
+    pub fn persistent_engine_set_section_reference(
+        section_id: String,
+        activity_id: String,
+    ) -> bool {
+        with_persistent_engine(|e| {
+            match e.set_section_reference(&section_id, &activity_id) {
+                Ok(()) => {
+                    info!(
+                        "tracematch: [PersistentEngine] Set section {} reference to {}",
+                        section_id, activity_id
+                    );
+                    true
+                }
+                Err(err) => {
+                    info!(
+                        "tracematch: [PersistentEngine] Failed to set section reference: {}",
+                        err
+                    );
+                    false
+                }
+            }
+        })
+        .unwrap_or(false)
+    }
+
+    /// Reset a section's reference to automatic medoid calculation.
+    /// This clears the user-defined flag and recalculates the medoid.
+    ///
+    /// Returns true if successful, false if the section was not found.
+    #[uniffi::export]
+    pub fn persistent_engine_reset_section_reference(section_id: String) -> bool {
+        with_persistent_engine(|e| {
+            match e.reset_section_reference(&section_id) {
+                Ok(()) => {
+                    info!(
+                        "tracematch: [PersistentEngine] Reset section {} reference to automatic",
+                        section_id
+                    );
+                    true
+                }
+                Err(err) => {
+                    info!(
+                        "tracematch: [PersistentEngine] Failed to reset section reference: {}",
+                        err
+                    );
+                    false
+                }
+            }
+        })
+        .unwrap_or(false)
+    }
+
+    /// Get the reference (medoid) activity ID for a section.
+    /// Returns the activity ID or None if the section is not found.
+    #[uniffi::export]
+    pub fn persistent_engine_get_section_reference(section_id: String) -> Option<String> {
+        with_persistent_engine(|e| {
+            e.sections
+                .iter()
+                .find(|s| s.id == section_id)
+                .map(|s| s.representative_activity_id.clone())
+        })
+        .flatten()
+    }
+
+    /// Check if a section's reference was user-defined (vs automatic).
+    #[uniffi::export]
+    pub fn persistent_engine_is_section_reference_user_defined(section_id: String) -> bool {
+        with_persistent_engine(|e| {
+            e.sections
+                .iter()
+                .find(|s| s.id == section_id)
+                .map(|s| s.is_user_defined)
+                .unwrap_or(false)
+        })
+        .unwrap_or(false)
+    }
+
+    /// Match an activity to existing sections and add it to all matching ones.
+    /// This is the main entry point for incremental section updates.
+    ///
+    /// Returns the number of sections the activity was added to.
+    #[uniffi::export]
+    pub fn persistent_engine_match_and_add_activity_to_sections(activity_id: String) -> u32 {
+        with_persistent_engine(|e| {
+            // Get the activity's GPS track
+            let track = match e.get_gps_track(&activity_id) {
+                Some(t) => t,
+                None => {
+                    info!(
+                        "tracematch: [PersistentEngine] No GPS track for activity {}",
+                        activity_id
+                    );
+                    return 0;
+                }
+            };
+
+            let count = e.match_and_add_activity_to_sections(&activity_id, &track);
+            info!(
+                "tracematch: [PersistentEngine] Activity {} added to {} sections",
+                activity_id, count
+            );
+            count
+        })
+        .unwrap_or(0)
     }
 
     /// Extract the GPS trace for an activity that overlaps with a section polyline.

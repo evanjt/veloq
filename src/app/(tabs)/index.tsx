@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useCallback } from 'react';
+import React, { useMemo, useState, useCallback, useEffect, useRef } from 'react';
 import {
   View,
   FlatList,
@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { Text } from 'react-native-paper';
 import { ScreenSafeAreaView } from '@/components/ui';
+import { logScreenRender, PERF_DEBUG } from '@/lib/debug/renderTimer';
 import { router, Href } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -33,9 +34,13 @@ import { useSportPreference, SPORT_COLORS, useDashboardPreferences } from '@/pro
 import type { MetricId } from '@/providers';
 import { formatPaceCompact, formatSwimPace } from '@/lib';
 import { ActivityCard, notifyMapScroll } from '@/components/activity';
-import { ActivityCardSkeleton, NetworkErrorState, ErrorStatePreset } from '@/components/ui';
+import {
+  ActivityCardSkeleton,
+  NetworkErrorState,
+  ErrorStatePreset,
+  TAB_BAR_SAFE_PADDING,
+} from '@/components/ui';
 import { SummaryCard } from '@/components/home';
-import { useScrollVisibilitySafe } from '@/providers';
 import { useNetwork } from '@/providers';
 import { colors, darkColors, opacity, spacing, layout, typography, shadows } from '@/theme';
 import { createSharedStyles } from '@/styles';
@@ -61,6 +66,13 @@ const ACTIVITY_TYPE_GROUPS = {
 const ALL_TYPES = Object.values(ACTIVITY_TYPE_GROUPS).flat();
 
 export default function FeedScreen() {
+  // Performance timing
+  const perfEndRef = useRef<(() => void) | null>(null);
+  perfEndRef.current = logScreenRender('FeedScreen');
+  useEffect(() => {
+    perfEndRef.current?.();
+  });
+
   const { t } = useTranslation();
   const { isDark, colors: themeColors } = useTheme();
   const shared = createSharedStyles(isDark);
@@ -72,7 +84,6 @@ export default function FeedScreen() {
   const { primarySport } = useSportPreference();
   const { data: sportSettings } = useSportSettings();
   const { isOnline } = useNetwork();
-  const { onScroll: onScrollForMenu } = useScrollVisibilitySafe();
 
   // Dashboard preferences for summary card
   const { summaryCard } = useDashboardPreferences();
@@ -662,9 +673,6 @@ export default function FeedScreen() {
         onEndReached={handleEndReached}
         onEndReachedThreshold={0.5}
         showsVerticalScrollIndicator={false}
-        // Scroll handler for floating menu visibility
-        onScroll={onScrollForMenu}
-        scrollEventThrottle={16}
         // iOS scroll performance optimizations
         removeClippedSubviews={Platform.OS === 'ios'}
         maxToRenderPerBatch={Platform.OS === 'ios' ? 15 : 10}
@@ -837,7 +845,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   listContent: {
-    paddingBottom: spacing.xl,
+    paddingBottom: spacing.xl + TAB_BAR_SAFE_PADDING,
   },
   loadingContainer: {
     flex: 1,

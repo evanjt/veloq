@@ -33,13 +33,13 @@ const asyncStoragePersister = createAsyncStoragePersister({
   serialize: (data) => {
     try {
       const serialized = JSON.stringify(data);
-      // If cache is over 1MB, clear it and return empty
+      // If cache is over 1MB, clear it and return empty (use cached string to avoid object creation)
       if (serialized.length > 1024 * 1024) {
-        return JSON.stringify({ clientState: { queries: [], mutations: [] } });
+        return '{"clientState":{"queries":[],"mutations":[]}}';
       }
       return serialized;
     } catch {
-      return JSON.stringify({ clientState: { queries: [], mutations: [] } });
+      return '{"clientState":{"queries":[],"mutations":[]}}';
     }
   },
 });

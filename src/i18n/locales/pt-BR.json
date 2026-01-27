@@ -175,7 +175,12 @@
     "routeAnalysisComplete": "Route analysis complete",
     "syncFailed": "Falha na sincronização",
     "syncResetDiscarded": "Sincronização reiniciada - resultados descartados",
-    "syncingActivities": "Sincronizando atividades"
+    "syncingActivities": "Sincronizando atividades",
+    "downloadingActivities": "Downloading activities...",
+    "processingGpsTracks": "Processing GPS tracks...",
+    "analyzingRouteGroups": "Analyzing routes...",
+    "detectingSectionsProgress": "Detecting sections... {{percent}}%",
+    "syncComplete": "Sync complete"
   },
   "chartTypes": {
     "alt": "Alt",
@@ -595,7 +600,13 @@
     "sectionNamePlaceholder": "Nome do trecho",
     "sectionNotFound": "Trecho nao encontrado",
     "totalTraversals": "Total de Travessias",
-    "traversals": "travessias"
+    "traversals": "travessias",
+    "reference": "Reference",
+    "setAsReference": "Set as Reference",
+    "setAsReferenceConfirm": "Use this activity as the reference? The section's consensus line on the map will be based on this activity's GPS trace.",
+    "resetReference": "Reset Reference",
+    "resetReferenceConfirm": "Reset to automatic reference selection? The best representative activity will be chosen automatically.",
+    "referenceUpdated": "Reference activity updated"
   },
   "settings": {
     "account": "Conta",

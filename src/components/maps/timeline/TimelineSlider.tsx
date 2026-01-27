@@ -503,16 +503,15 @@ export function TimelineSlider({
           </View>
         )}
 
-        {/* Activity count */}
-        <View style={styles.countContainer}>
+        {/* Activity count and legend row */}
+        <View style={styles.footerRow}>
           <Text style={[styles.countLabel, isDark && styles.countLabelDark]}>
             {isLoading
               ? t('common.loading')
               : t('maps.activitiesCount', { count: activityCount || 0 })}
           </Text>
+          {showLegend && <TimelineLegend isDark={isDark} compact />}
         </View>
-
-        {showLegend && <TimelineLegend isDark={isDark} />}
       </View>
     </View>
   );
@@ -650,7 +649,9 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     fontWeight: '500',
   },
-  countContainer: {
+  footerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
     marginTop: spacing.xs,
   },

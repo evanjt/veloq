@@ -175,7 +175,12 @@
     "routeAnalysisComplete": "Route analysis complete",
     "syncFailed": "同步失败",
     "syncResetDiscarded": "同步已重置 - 结果已丢弃",
-    "syncingActivities": "正在同步活动"
+    "syncingActivities": "正在同步活动",
+    "downloadingActivities": "Downloading activities...",
+    "processingGpsTracks": "Processing GPS tracks...",
+    "analyzingRouteGroups": "Analyzing routes...",
+    "detectingSectionsProgress": "Detecting sections... {{percent}}%",
+    "syncComplete": "Sync complete"
   },
   "chartTypes": {
     "alt": "Alt",
@@ -595,7 +600,13 @@
     "sectionNamePlaceholder": "路段名称",
     "sectionNotFound": "未找到路段",
     "totalTraversals": "总通过次数",
-    "traversals": "次通过"
+    "traversals": "次通过",
+    "reference": "Reference",
+    "setAsReference": "Set as Reference",
+    "setAsReferenceConfirm": "Use this activity as the reference? The section's consensus line on the map will be based on this activity's GPS trace.",
+    "resetReference": "Reset Reference",
+    "resetReferenceConfirm": "Reset to automatic reference selection? The best representative activity will be chosen automatically.",
+    "referenceUpdated": "Reference activity updated"
   },
   "settings": {
     "account": "账户",

@@ -1100,6 +1100,65 @@ class RouteEngineClient {
     return persistentEngineGetSectionPolylineEncoded(sectionId);
   }
 
+  // ==========================================================================
+  // Section Reference (Medoid) Methods
+  // Uses dynamic require to avoid ESLint removing "unused" imports
+  // ==========================================================================
+
+  /**
+   * Set the reference activity for a section (user-defined medoid).
+   * This also updates the section's polyline to match the reference activity's trace.
+   * @returns true if successful, false otherwise
+   */
+  setSectionReference(sectionId: string, activityId: string): boolean {
+    validateId(sectionId, 'section ID');
+    validateId(activityId, 'activity ID');
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const generated = require('./generated/veloqrs');
+    const result = generated.persistentEngineSetSectionReference(sectionId, activityId) as boolean;
+    if (result) {
+      this.notify('sections');
+    }
+    return result;
+  }
+
+  /**
+   * Reset a section's reference to automatic (algorithm-selected medoid).
+   * @returns true if successful, false otherwise
+   */
+  resetSectionReference(sectionId: string): boolean {
+    validateId(sectionId, 'section ID');
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const generated = require('./generated/veloqrs');
+    const result = generated.persistentEngineResetSectionReference(sectionId) as boolean;
+    if (result) {
+      this.notify('sections');
+    }
+    return result;
+  }
+
+  /**
+   * Get the current reference activity ID for a section.
+   * @returns The activity ID that is the current reference (medoid), or undefined if not found
+   */
+  getSectionReference(sectionId: string): string | undefined {
+    validateId(sectionId, 'section ID');
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const generated = require('./generated/veloqrs');
+    return generated.persistentEngineGetSectionReference(sectionId) as string | undefined;
+  }
+
+  /**
+   * Check if a section's reference is user-defined (vs auto-selected).
+   * @returns true if user manually set the reference, false if algorithm-selected
+   */
+  isSectionReferenceUserDefined(sectionId: string): boolean {
+    validateId(sectionId, 'section ID');
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const generated = require('./generated/veloqrs');
+    return generated.persistentEngineIsSectionReferenceUserDefined(sectionId) as boolean;
+  }
+
   /**
    * Subscribe to engine events.
    */

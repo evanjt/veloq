@@ -4,7 +4,8 @@ import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { RegionalMapView, TimelineSlider, SyncProgressBanner } from '@/components/maps';
-import { ComponentErrorBoundary } from '@/components/ui';
+import { ComponentErrorBoundary, TAB_BAR_SAFE_PADDING } from '@/components/ui';
+import { logScreenRender } from '@/lib/debug/renderTimer';
 import {
   useActivityBoundsCache,
   useOldestActivityDate,
@@ -21,6 +22,13 @@ import { formatLocalDate } from '@/lib';
 const FILTER_DEBOUNCE_MS = 100;
 
 export default function MapScreen() {
+  // Performance timing
+  const perfEndRef = useRef<(() => void) | null>(null);
+  perfEndRef.current = logScreenRender('MapScreen');
+  useEffect(() => {
+    perfEndRef.current?.();
+  });
+
   const { t } = useTranslation();
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -286,7 +294,7 @@ export default function MapScreen() {
       <View
         style={[
           styles.sliderContainer,
-          { paddingBottom: insets.bottom },
+          { paddingBottom: TAB_BAR_SAFE_PADDING },
           isDark && styles.sliderContainerDark,
         ]}
         pointerEvents="box-none"

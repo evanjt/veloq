@@ -349,14 +349,14 @@ export function useSectionPerformances(
         const bestForward = parseBestRecord(result.bestForwardRecord);
         const bestReverse = parseBestRecord(result.bestReverseRecord);
 
-        // Parse direction stats from Rust
+        // Parse direction stats from Rust (timestamps are in seconds, JS needs ms)
         const parseDirectionStats = (
           stats: { avgTime?: number; lastActivity?: number; count?: number } | null | undefined
         ): DirectionStats | null => {
           if (!stats) return null;
           return {
             avgTime: stats.avgTime ?? null,
-            lastActivity: stats.lastActivity ? new Date(stats.lastActivity) : null,
+            lastActivity: stats.lastActivity ? new Date(stats.lastActivity * 1000) : null,
             count: stats.count ?? 0,
           };
         };

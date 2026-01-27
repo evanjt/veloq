@@ -7,13 +7,15 @@ import { spacing } from '@/theme/spacing';
 
 interface TimelineLegendProps {
   isDark?: boolean;
+  /** Compact mode - no border, less spacing */
+  compact?: boolean;
 }
 
-export function TimelineLegend({ isDark = false }: TimelineLegendProps) {
+export function TimelineLegend({ isDark = false, compact = false }: TimelineLegendProps) {
   const { t } = useTranslation();
 
   return (
-    <View style={[styles.legend, isDark && styles.legendDark]}>
+    <View style={[styles.legend, isDark && styles.legendDark, compact && styles.legendCompact]}>
       <View style={styles.legendItem}>
         <View style={[styles.legendSwatch, styles.legendSelected]} />
         <Text style={[styles.legendText, isDark && styles.legendTextDark]}>
@@ -76,6 +78,13 @@ const styles = StyleSheet.create({
   legendText: {
     fontSize: typography.micro.fontSize,
     color: colors.textSecondary,
+  },
+  // Compact mode
+  legendCompact: {
+    marginTop: 0,
+    paddingTop: 0,
+    borderTopWidth: 0,
+    gap: spacing.sm,
   },
   // Dark mode
   legendDark: {

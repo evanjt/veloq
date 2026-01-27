@@ -8,15 +8,16 @@ import { View, StyleSheet, Dimensions } from 'react-native';
 import { Text } from 'react-native-paper';
 import { CartesianChart, Line } from 'victory-native';
 import { Circle } from '@shopify/react-native-skia';
-import { Gesture, GestureDetector, ScrollView } from 'react-native-gesture-handler';
-import {
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import Animated, {
   useSharedValue,
   useDerivedValue,
   useAnimatedStyle,
   useAnimatedReaction,
+  useAnimatedScrollHandler,
+  useAnimatedRef,
   runOnJS,
 } from 'react-native-reanimated';
-import Animated from 'react-native-reanimated';
 import { colors, darkColors, spacing, typography } from '@/theme';
 import { CHART_CONFIG } from '@/constants';
 import type { RoutePerformancePoint } from '@/hooks/routes/useRoutePerformances';
@@ -70,7 +71,7 @@ export function PerformanceChart({
   const lastNotifiedIdx = useRef<number | null>(null);
   const isActiveRef = useRef(false);
   const isPersistedRef = useRef(false);
-  const scrollViewRef = useRef<ScrollView>(null);
+  const scrollViewRef = useAnimatedRef<Animated.ScrollView>();
 
   // Prepare chart data
   const chartData = useMemo(() => {
@@ -187,13 +188,13 @@ export function PerformanceChart({
     }
   }, [onTooltipUpdate]);
 
-  // Track scroll position for accurate scrubbing
-  const handleScroll = useCallback(
-    (event: { nativeEvent: { contentOffset: { x: number } } }) => {
-      scrollOffsetX.value = event.nativeEvent.contentOffset.x;
+  // Track scroll position for accurate scrubbing - runs on UI thread
+  const handleScroll = useAnimatedScrollHandler({
+    onScroll: (event) => {
+      'worklet';
+      scrollOffsetX.value = event.contentOffset.x;
     },
-    [scrollOffsetX]
-  );
+  });
 
   // Gesture handlers - pan with long press, accounting for scroll offset
   const panGesture = Gesture.Pan()
@@ -243,14 +244,14 @@ export function PerformanceChart({
   return (
     <GestureDetector gesture={gesture}>
       <View style={styles.chartScrollContainer}>
-        <ScrollView
+        <Animated.ScrollView
           ref={scrollViewRef}
           horizontal
           showsHorizontalScrollIndicator={needsScroll}
           scrollEnabled={needsScroll}
           contentContainerStyle={{ width: chartWidth }}
           onScroll={handleScroll}
-          scrollEventThrottle={16}
+          scrollEventThrottle={8}
         >
           <View style={[styles.chartContainer, { width: chartWidth }]}>
             <CartesianChart
@@ -380,7 +381,7 @@ export function PerformanceChart({
               )}
             </View>
           </View>
-        </ScrollView>
+        </Animated.ScrollView>
       </View>
     </GestureDetector>
   );

@@ -41,11 +41,12 @@ export function ActivityMapPreview({ activity, height = 160, index = 0 }: Activi
 
   // Stagger showing maps - always render MapView but delay removing loading overlay
   // This prevents overwhelming tile requests while allowing proper MapView initialization
-  const [showMapContent, setShowMapContent] = useState(index === 0); // First map shows immediately
+  // All maps get a minimum delay to give native MapView time to render and call onDidFinishRenderingMapFully
+  const [showMapContent, setShowMapContent] = useState(false);
 
   useEffect(() => {
-    if (index === 0) return; // First map already visible
-    const delay = index * 150; // 150ms, 300ms, 450ms...
+    // First map gets 100ms grace period, subsequent maps get index * 150ms stagger
+    const delay = index === 0 ? 100 : index * 150;
     const timeout = setTimeout(() => setShowMapContent(true), delay);
     return () => clearTimeout(timeout);
   }, [index]);
@@ -67,7 +68,9 @@ export function ActivityMapPreview({ activity, height = 160, index = 0 }: Activi
       }, RETRY_DELAY_MS * retryCountRef.current);
     } else {
       // Retries exhausted - show error state instead of infinite spinner
-      console.warn(`[ActivityMapPreview] Map load failed for ${activity.id} after ${MAX_RETRIES} retries`);
+      console.warn(
+        `[ActivityMapPreview] Map load failed for ${activity.id} after ${MAX_RETRIES} retries`
+      );
       setMapError(true);
       setMapReady(true); // Remove loading overlay
     }
@@ -216,7 +219,7 @@ export function ActivityMapPreview({ activity, height = 160, index = 0 }: Activi
         zoomEnabled={false}
         rotateEnabled={false}
         pitchEnabled={false}
-        onDidFinishLoadingMap={handleMapFullyRendered}
+        onDidFinishRenderingMapFully={handleMapFullyRendered}
         onDidFailLoadingMap={handleMapLoadError}
       >
         <Camera

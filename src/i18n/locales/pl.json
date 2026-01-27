@@ -175,7 +175,12 @@
     "routeAnalysisComplete": "Route analysis complete",
     "syncFailed": "Synchronizacja nie powiodła się",
     "syncResetDiscarded": "Sync zresetowana - wyniki odrzucone",
-    "syncingActivities": "Synchronizacja aktywnosci"
+    "syncingActivities": "Synchronizacja aktywnosci",
+    "downloadingActivities": "Downloading activities...",
+    "processingGpsTracks": "Processing GPS tracks...",
+    "analyzingRouteGroups": "Analyzing routes...",
+    "detectingSectionsProgress": "Detecting sections... {{percent}}%",
+    "syncComplete": "Sync complete"
   },
   "chartTypes": {
     "alt": "Alt",
@@ -595,7 +600,13 @@
     "sectionNamePlaceholder": "Nazwa odcinka",
     "sectionNotFound": "Nie znaleziono odcinka",
     "totalTraversals": "Łączna Liczba Przejazdów",
-    "traversals": "przejazdy"
+    "traversals": "przejazdy",
+    "reference": "Reference",
+    "setAsReference": "Set as Reference",
+    "setAsReferenceConfirm": "Use this activity as the reference? The section's consensus line on the map will be based on this activity's GPS trace.",
+    "resetReference": "Reset Reference",
+    "resetReferenceConfirm": "Reset to automatic reference selection? The best representative activity will be chosen automatically.",
+    "referenceUpdated": "Reference activity updated"
   },
   "settings": {
     "account": "Konto",

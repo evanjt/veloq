@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
   View,
   ScrollView,
@@ -9,7 +9,8 @@ import {
   Pressable,
 } from 'react-native';
 import { Text, IconButton, ActivityIndicator } from 'react-native-paper';
-import { ScreenSafeAreaView } from '@/components/ui';
+import { ScreenSafeAreaView, TAB_BAR_SAFE_PADDING } from '@/components/ui';
+import { logScreenRender } from '@/lib/debug/renderTimer';
 import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { WellnessDashboard, WellnessTrendsChart } from '@/components/wellness';
@@ -27,6 +28,13 @@ const TIME_RANGES: { id: TimeRange; label: string }[] = [
 ];
 
 export default function WellnessScreen() {
+  // Performance timing
+  const perfEndRef = useRef<(() => void) | null>(null);
+  perfEndRef.current = logScreenRender('WellnessScreen');
+  useEffect(() => {
+    perfEndRef.current?.();
+  });
+
   const { t } = useTranslation();
   const { isDark, colors: themeColors } = useTheme();
   const shared = createSharedStyles(isDark);
@@ -221,6 +229,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: layout.screenPadding,
     paddingTop: spacing.sm,
+    paddingBottom: layout.screenPadding + TAB_BAR_SAFE_PADDING,
   },
   card: {
     backgroundColor: colors.surface,

@@ -175,7 +175,12 @@
     "routeAnalysisComplete": "Route analysis complete",
     "syncFailed": "Sync failed",
     "syncResetDiscarded": "Sync reset - results discarded",
-    "syncingActivities": "Grabbing activities"
+    "syncingActivities": "Grabbing activities",
+    "downloadingActivities": "Downloading activities...",
+    "processingGpsTracks": "Processing GPS tracks...",
+    "analyzingRouteGroups": "Analyzing routes...",
+    "detectingSectionsProgress": "Detecting sections... {{percent}}%",
+    "syncComplete": "Sync complete"
   },
   "chartTypes": {
     "cad": "Cad",
@@ -583,7 +588,13 @@
     "sectionNamePlaceholder": "Section name",
     "sectionNotFound": "Can't find that section",
     "totalTraversals": "Total Traversals",
-    "traversals": "times through"
+    "traversals": "times through",
+    "reference": "Reference",
+    "setAsReference": "Set as Reference",
+    "setAsReferenceConfirm": "Use this activity as the reference? The section's consensus line on the map will be based on this activity's GPS trace.",
+    "resetReference": "Reset Reference",
+    "resetReferenceConfirm": "Reset to automatic reference selection? The best representative activity will be chosen automatically.",
+    "referenceUpdated": "Reference activity updated"
   },
   "settings": {
     "account": "Your Account",

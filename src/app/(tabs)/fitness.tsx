@@ -1,7 +1,8 @@
-import React, { useState, useCallback, useEffect, useMemo } from 'react';
+import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { View, ScrollView, StyleSheet, TouchableOpacity, RefreshControl } from 'react-native';
 import { Text, IconButton, ActivityIndicator } from 'react-native-paper';
-import { ScreenSafeAreaView } from '@/components/ui';
+import { ScreenSafeAreaView, TAB_BAR_SAFE_PADDING } from '@/components/ui';
+import { logScreenRender } from '@/lib/debug/renderTimer';
 import { router } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { useSharedValue } from 'react-native-reanimated';
@@ -49,6 +50,13 @@ const timeRangeToDays = (range: TimeRange): number => {
 };
 
 export default function FitnessScreen() {
+  // Performance timing
+  const perfEndRef = useRef<(() => void) | null>(null);
+  perfEndRef.current = logScreenRender('FitnessScreen');
+  useEffect(() => {
+    perfEndRef.current?.();
+  });
+
   const { t } = useTranslation();
   const { isDark, colors: themeColors } = useTheme();
   const shared = createSharedStyles(isDark);
@@ -437,6 +445,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: layout.screenPadding,
     paddingTop: spacing.sm,
+    paddingBottom: layout.screenPadding + TAB_BAR_SAFE_PADDING,
   },
   statsCard: {
     backgroundColor: colors.surface,

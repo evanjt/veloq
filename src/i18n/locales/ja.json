@@ -175,7 +175,12 @@
     "routeAnalysisComplete": "Route analysis complete",
     "syncFailed": "同期に失敗しました",
     "syncResetDiscarded": "同期がリセットされました - 結果は破棄されました",
-    "syncingActivities": "アクティビティを同期中"
+    "syncingActivities": "アクティビティを同期中",
+    "downloadingActivities": "Downloading activities...",
+    "processingGpsTracks": "Processing GPS tracks...",
+    "analyzingRouteGroups": "Analyzing routes...",
+    "detectingSectionsProgress": "Detecting sections... {{percent}}%",
+    "syncComplete": "Sync complete"
   },
   "chartTypes": {
     "alt": "Alt",
@@ -595,7 +600,13 @@
     "sectionNamePlaceholder": "区間名",
     "sectionNotFound": "区間が見つかりません",
     "totalTraversals": "合計通過回数",
-    "traversals": "通過回数"
+    "traversals": "通過回数",
+    "reference": "Reference",
+    "setAsReference": "Set as Reference",
+    "setAsReferenceConfirm": "Use this activity as the reference? The section's consensus line on the map will be based on this activity's GPS trace.",
+    "resetReference": "Reset Reference",
+    "resetReferenceConfirm": "Reset to automatic reference selection? The best representative activity will be chosen automatically.",
+    "referenceUpdated": "Reference activity updated"
   },
   "settings": {
     "account": "アカウント",
