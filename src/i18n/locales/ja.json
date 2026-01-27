@@ -603,9 +603,9 @@
     "traversals": "通過回数",
     "reference": "Reference",
     "setAsReference": "Set as Reference",
-    "setAsReferenceConfirm": "Use this activity as the reference? The section's consensus line on the map will be based on this activity's GPS trace.",
+    "setAsReferenceConfirm": "このアクティビティを基準として使用しますか？\n\nこの区間はすべてのアクティビティと再照合されます。これにより、この区間のアクティビティが追加または削除される場合があります。",
     "resetReference": "Reset Reference",
-    "resetReferenceConfirm": "Reset to automatic reference selection? The best representative activity will be chosen automatically.",
+    "resetReferenceConfirm": "自動基準選択にリセットしますか？\n\nこの区間はすべてのアクティビティと再照合されます。これにより、この区間のアクティビティが追加または削除される場合があります。",
     "referenceUpdated": "Reference activity updated"
   },
   "settings": {

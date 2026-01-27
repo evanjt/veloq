@@ -603,9 +603,9 @@
     "traversals": "attraversamenti",
     "reference": "Reference",
     "setAsReference": "Set as Reference",
-    "setAsReferenceConfirm": "Use this activity as the reference? The section's consensus line on the map will be based on this activity's GPS trace.",
+    "setAsReferenceConfirm": "Usare questa attività come riferimento?\n\nIl tratto verrà riconfrontato con tutte le tue attività. Questo potrebbe aggiungere o rimuovere attività da questo tratto.",
     "resetReference": "Reset Reference",
-    "resetReferenceConfirm": "Reset to automatic reference selection? The best representative activity will be chosen automatically.",
+    "resetReferenceConfirm": "Ripristinare la selezione automatica del riferimento?\n\nIl tratto verrà riconfrontato con tutte le tue attività. Questo potrebbe aggiungere o rimuovere attività da questo tratto.",
     "referenceUpdated": "Reference activity updated"
   },
   "settings": {

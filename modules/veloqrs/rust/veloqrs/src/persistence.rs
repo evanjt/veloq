@@ -2979,6 +2979,101 @@ impl PersistentRouteEngine {
         Ok(())
     }
 
+    /// Re-match all cached activities against a section's current polyline.
+    /// This is called after changing the reference activity to rebuild the activity list.
+    /// Only matches activities with the same sport type as the section.
+    /// Returns (added_count, removed_count).
+    fn rematch_section_activities(&mut self, section_id: &str) -> Result<(usize, usize), String> {
+        // Get the section for matching (clone to avoid borrow issues)
+        let target_section = self
+            .sections
+            .iter()
+            .find(|s| s.id == section_id)
+            .ok_or_else(|| format!("Section {} not found", section_id))?
+            .clone();
+
+        if target_section.polyline.is_empty() {
+            return Ok((0, 0));
+        }
+
+        let section_sport_type = &target_section.sport_type;
+        log::info!(
+            "tracematch: [Rematch] Section {} sport_type: {}",
+            section_id,
+            section_sport_type
+        );
+
+        // Create a single-element slice for find_sections_in_route
+        let section_slice = [target_section.clone()];
+
+        // Get activity IDs filtered by sport type
+        let activity_ids_for_sport: Vec<String> = self
+            .activity_metadata
+            .values()
+            .filter(|m| &m.sport_type == section_sport_type)
+            .map(|m| m.id.clone())
+            .collect();
+
+        log::info!(
+            "tracematch: [Rematch] Found {} activities with sport_type {}",
+            activity_ids_for_sport.len(),
+            section_sport_type
+        );
+
+        let mut new_activity_ids: Vec<String> = Vec::new();
+        let mut new_activity_traces: std::collections::HashMap<String, Vec<GpsPoint>> =
+            std::collections::HashMap::new();
+
+        for activity_id in &activity_ids_for_sport {
+            // Get the GPS track for this activity
+            let track = match self.get_gps_track(activity_id) {
+                Some(t) if t.len() >= 3 => t,
+                _ => continue,
+            };
+
+            // Use find_sections_in_route to check if this activity matches the section
+            let matches = tracematch::find_sections_in_route(&track, &section_slice, &self.section_config);
+
+            if let Some(m) = matches.first() {
+                // Found a match - extract the matching portion
+                let start = m.start_index as usize;
+                let end = (m.end_index as usize).min(track.len());
+                if start < end && m.match_quality >= 0.5 {
+                    new_activity_ids.push(activity_id.clone());
+
+                    // Extract the trace portion that matches the section
+                    let trace: Vec<GpsPoint> = track[start..end].to_vec();
+                    new_activity_traces.insert(activity_id.clone(), trace);
+                }
+            }
+        }
+
+        // Get old activity IDs for comparison
+        let old_activity_ids: std::collections::HashSet<String> = {
+            let section = self.sections.iter().find(|s| s.id == section_id).unwrap();
+            section.activity_ids.iter().cloned().collect()
+        };
+
+        let new_activity_ids_set: std::collections::HashSet<String> =
+            new_activity_ids.iter().cloned().collect();
+
+        let added = new_activity_ids_set
+            .difference(&old_activity_ids)
+            .count();
+        let removed = old_activity_ids
+            .difference(&new_activity_ids_set)
+            .count();
+
+        // Update the section
+        if let Some(section) = self.sections.iter_mut().find(|s| s.id == section_id) {
+            section.activity_ids = new_activity_ids;
+            section.activity_traces = new_activity_traces;
+            section.visit_count = section.activity_ids.len() as u32;
+        }
+
+        Ok((added, removed))
+    }
+
     /// Set user-defined medoid for a section.
     /// When user manually selects a reference activity, we store this choice
     /// and skip automatic medoid recalculation for this section.
@@ -3049,6 +3144,15 @@ impl PersistentRouteEngine {
             section.polyline = polyline;
         }
 
+        // Re-match all cached activities against the updated section polyline
+        let (added, removed) = self.rematch_section_activities(section_id)?;
+        log::info!(
+            "tracematch: [Medoid] Section {} re-matched: {} added, {} removed",
+            section_id,
+            added,
+            removed
+        );
+
         // Save to DB
         self.save_sections()
             .map_err(|e| format!("Failed to save sections: {}", e))?;
@@ -3080,6 +3184,15 @@ impl PersistentRouteEngine {
 
         // Recalculate medoid
         self.recalculate_section_medoid(section_id)?;
+
+        // Re-match all cached activities against the updated section polyline
+        let (added, removed) = self.rematch_section_activities(section_id)?;
+        log::info!(
+            "tracematch: [Medoid] Section {} re-matched: {} added, {} removed",
+            section_id,
+            added,
+            removed
+        );
 
         // Update metadata
         if let Some(section) = self.sections.iter_mut().find(|s| s.id == section_id) {

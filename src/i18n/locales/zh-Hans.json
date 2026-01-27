@@ -603,9 +603,9 @@
     "traversals": "次通过",
     "reference": "Reference",
     "setAsReference": "Set as Reference",
-    "setAsReferenceConfirm": "Use this activity as the reference? The section's consensus line on the map will be based on this activity's GPS trace.",
+    "setAsReferenceConfirm": "将此活动用作参考？\n\n该路段将与您的所有活动重新匹配。这可能会从该路段中添加或删除活动。",
     "resetReference": "Reset Reference",
-    "resetReferenceConfirm": "Reset to automatic reference selection? The best representative activity will be chosen automatically.",
+    "resetReferenceConfirm": "重置为自动参考选择？\n\n该路段将与您的所有活动重新匹配。这可能会从该路段中添加或删除活动。",
     "referenceUpdated": "Reference activity updated"
   },
   "settings": {

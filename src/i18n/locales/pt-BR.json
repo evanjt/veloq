@@ -603,9 +603,9 @@
     "traversals": "travessias",
     "reference": "Reference",
     "setAsReference": "Set as Reference",
-    "setAsReferenceConfirm": "Use this activity as the reference? The section's consensus line on the map will be based on this activity's GPS trace.",
+    "setAsReferenceConfirm": "Usar esta atividade como referência?\n\nO trecho será novamente comparado com todas as suas atividades. Isso pode adicionar ou remover atividades deste trecho.",
     "resetReference": "Reset Reference",
-    "resetReferenceConfirm": "Reset to automatic reference selection? The best representative activity will be chosen automatically.",
+    "resetReferenceConfirm": "Restaurar seleção automática de referência?\n\nO trecho será novamente comparado com todas as suas atividades. Isso pode adicionar ou remover atividades deste trecho.",
     "referenceUpdated": "Reference activity updated"
   },
   "settings": {

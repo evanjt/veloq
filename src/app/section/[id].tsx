@@ -374,15 +374,17 @@ export default function SectionDetailScreen() {
     if (!rawEngineSection || isCustomId) return null;
 
     // Re-fetch fresh data from engine when refresh key changes
+    // IMPORTANT: Use ALL fresh data, not just polyline - activityIds may have changed
     if (sectionRefreshKey > 0) {
       const engine = getRouteEngine();
       if (engine && id) {
         const fresh = engine.getSectionById(id);
         if (fresh) {
+          // Map polyline coordinates from lat/lng to RoutePoint format
+          // and use ALL fresh data to get updated activityIds, visitCount, etc.
           return {
-            ...rawEngineSection,
+            ...fresh,
             polyline: fresh.polyline.map((p) => ({ lat: p.latitude, lng: p.longitude })),
-            representativeActivityId: fresh.representativeActivityId,
           };
         }
       }
