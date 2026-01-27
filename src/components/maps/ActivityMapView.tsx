@@ -1431,7 +1431,9 @@ export function ActivityMapView({
             {/* Section creation: start marker */}
             {/* CRITICAL: Always render to avoid camera reset when marker appears */}
             {/* Use activity start as fallback to stay within map bounds (not [0,0]) */}
+            {/* Key includes startIndex to force position update (stable when null) */}
             <MarkerView
+              key={`section-start-${startIndex ?? 'none'}`}
               coordinate={
                 sectionStartPoint
                   ? [sectionStartPoint.longitude, sectionStartPoint.latitude]
@@ -1456,7 +1458,9 @@ export function ActivityMapView({
             {/* Section creation: end marker */}
             {/* CRITICAL: Always render to avoid camera reset when marker appears */}
             {/* Use activity end as fallback to stay within map bounds (not [0,0]) */}
+            {/* Key includes endIndex to force position update (stable when null) */}
             <MarkerView
+              key={`section-end-${endIndex ?? 'none'}`}
               coordinate={
                 sectionEndPoint
                   ? [sectionEndPoint.longitude, sectionEndPoint.latitude]
