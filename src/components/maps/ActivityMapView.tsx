@@ -368,6 +368,10 @@ export function ActivityMapView({
   // Track when map is ready to receive camera commands
   const [mapReady, setMapReady] = useState(false);
 
+  // DEBUG: Track render count
+  const renderCountRef = useRef(0);
+  renderCountRef.current += 1;
+
   const handleMapLoadError = useCallback(() => {
     if (Platform.OS === 'ios' && retryCountRef.current < MAX_RETRIES) {
       retryCountRef.current += 1;
@@ -382,16 +386,23 @@ export function ActivityMapView({
   }, []);
 
   // Track pending initial bounds to apply on map load
-  const pendingInitialBoundsRef = useRef<{ ne: [number, number]; sw: [number, number] } | null>(
-    null
-  );
 
   // Handle map finishing loading - now safe to apply camera commands
   // Also restore camera position if we saved one before style change
   const handleMapFinishLoading = useCallback(() => {
+    if (__DEV__) {
+      console.log('[ActivityMapView:Camera] handleMapFinishLoading called', {
+        hasPendingRestore: !!pendingCameraRestoreRef.current,
+        pendingCenter: pendingCameraRestoreRef.current?.center,
+        pendingZoom: pendingCameraRestoreRef.current?.zoom,
+      });
+    }
     // Restore camera position after style change
     if (pendingCameraRestoreRef.current) {
       const { center, zoom } = pendingCameraRestoreRef.current;
+      if (__DEV__) {
+        console.log('[ActivityMapView:Camera] RESTORING position via setCamera', { center, zoom });
+      }
       cameraRef.current?.setCamera({
         centerCoordinate: center,
         zoomLevel: zoom,
@@ -399,44 +410,57 @@ export function ActivityMapView({
         animationMode: 'moveTo',
       });
       pendingCameraRestoreRef.current = null;
-    } else if (pendingInitialBoundsRef.current) {
-      // Apply initial bounds on first load - use setCamera with moveTo to avoid animation
-      // (fitBounds hardcodes easeTo which always animates)
-      cameraRef.current?.setCamera({
-        bounds: {
-          ne: pendingInitialBoundsRef.current.ne,
-          sw: pendingInitialBoundsRef.current.sw,
-        },
-        padding: {
-          paddingTop: 50,
-          paddingRight: 50,
-          paddingBottom: 50,
-          paddingLeft: 50,
-        },
-        animationDuration: 0,
-        animationMode: 'moveTo',
-      });
     }
+    // Initial bounds are applied via effect when mapReady becomes true
     // Small delay to let camera settle before showing map
+    if (__DEV__) {
+      console.log('[ActivityMapView:Camera] Setting mapReady=true in 50ms');
+    }
     setTimeout(() => setMapReady(true), 50);
   }, []);
 
   // Track if we need to restore camera after style change
   const pendingCameraRestoreRef = useRef<{ center: [number, number]; zoom: number } | null>(null);
 
-  // Reset retry count and map ready state when style changes (map reloads)
-  // Save current camera position to restore after reload
+  // Track if this is the initial mount (used to skip position save on first render)
+  const isInitialMountRef = useRef(true);
+
+  // Reset retry count, map ready state when style changes (map reloads)
+  // Save current camera position to restore after reload (only if we have a position)
   useEffect(() => {
+    if (__DEV__) {
+      console.log('[ActivityMapView:Camera] Style/Key change effect', {
+        mapStyle,
+        mapKey,
+        isInitialMount: isInitialMountRef.current,
+        currentCenter: currentCenterRef.current,
+        currentZoom: currentZoomRef.current,
+      });
+    }
     retryCountRef.current = 0;
-    // Save current camera position before style change resets it
-    if (currentCenterRef.current && currentZoomRef.current) {
+
+    // On style change (not initial mount), save current position for restoration
+    // This preserves user's zoom/pan when switching map styles
+    if (!isInitialMountRef.current && currentCenterRef.current && currentZoomRef.current) {
       pendingCameraRestoreRef.current = {
         center: currentCenterRef.current,
         zoom: currentZoomRef.current,
       };
+      if (__DEV__) {
+        console.log(
+          '[ActivityMapView:Camera] Saved position for restore',
+          pendingCameraRestoreRef.current
+        );
+      }
+    }
+
+    // Mark initial mount as done after first effect run
+    isInitialMountRef.current = false;
+    if (__DEV__) {
+      console.log('[ActivityMapView:Camera] Setting mapReady=false');
     }
     setMapReady(false);
-  }, [mapStyle]);
+  }, [mapStyle, mapKey]);
 
   // Parse and validate coordinates early so they're available for callbacks
   const coordinates = useMemo(() => {
@@ -466,6 +490,12 @@ export function ActivityMapView({
 
   // Reset section creation state when mode changes
   useEffect(() => {
+    if (__DEV__) {
+      console.log('[ActivityMapView:Camera] creationMode effect', {
+        creationMode,
+        renderCount: renderCountRef.current,
+      });
+    }
     if (creationMode) {
       setCreationState('selectingStart');
       setStartIndex(null);
@@ -567,6 +597,13 @@ export function ActivityMapView({
   // This properly distinguishes taps from zoom/pan gestures
   const handleMapPress = useCallback(
     (feature: GeoJSON.Feature) => {
+      if (__DEV__) {
+        console.log('[ActivityMapView:Camera] handleMapPress', {
+          creationMode,
+          creationState,
+          featureType: feature?.geometry?.type,
+        });
+      }
       // In creation mode, handle point selection
       if (creationMode && feature?.geometry?.type === 'Point') {
         const [lng, lat] = feature.geometry.coordinates as [number, number];
@@ -589,15 +626,27 @@ export function ActivityMapView({
         }
 
         if (creationState === 'selectingStart') {
+          if (__DEV__) {
+            console.log('[ActivityMapView:Camera] Setting startIndex', { nearestIndex });
+          }
           setStartIndex(nearestIndex);
           setCreationState('selectingEnd');
         } else if (creationState === 'selectingEnd') {
           // Ensure end is after start
           if (nearestIndex <= (startIndex ?? 0)) {
             // Swap them
+            if (__DEV__) {
+              console.log('[ActivityMapView:Camera] Swapping start/end', {
+                nearestIndex,
+                startIndex,
+              });
+            }
             setEndIndex(startIndex);
             setStartIndex(nearestIndex);
           } else {
+            if (__DEV__) {
+              console.log('[ActivityMapView:Camera] Setting endIndex', { nearestIndex });
+            }
             setEndIndex(nearestIndex);
           }
           setCreationState('complete');
@@ -736,34 +785,47 @@ export function ActivityMapView({
 
   const bounds = useMemo(() => getMapLibreBounds(validCoordinates), [validCoordinates]);
 
-  // Stable initial camera settings - computed once when bounds first become available
-  // This prevents the map from animating when coordinates update (e.g., streams load after polyline)
-  const initialBoundsRef = useRef<{ ne: [number, number]; sw: [number, number] } | null>(null);
-  if (bounds && !initialBoundsRef.current) {
-    initialBoundsRef.current = bounds;
-    pendingInitialBoundsRef.current = bounds;
+  // Track if initial camera position has been applied (prevents re-centering on re-renders)
+  // This is the key to preventing the camera from snapping back when entering creation mode
+  const initialCameraAppliedRef = useRef(false);
+
+  // DEBUG: Log render with key state
+  if (__DEV__) {
+    console.log('[ActivityMapView] RENDER #' + renderCountRef.current, {
+      mapReady,
+      creationMode,
+      creationState,
+      startIndex,
+      endIndex,
+      mapKey,
+      mapStyle,
+      coordCount: validCoordinates.length,
+      initialCameraApplied: initialCameraAppliedRef.current,
+    });
   }
 
-  // Create a stable key for the current activity's coordinates
-  // This detects when we're viewing a different activity
-  const coordinatesKey = useMemo(() => {
-    if (validCoordinates.length === 0) return '';
-    const first = validCoordinates[0];
-    const last = validCoordinates[validCoordinates.length - 1];
-    return `${validCoordinates.length}-${first.latitude.toFixed(5)}-${first.longitude.toFixed(5)}-${last.latitude.toFixed(5)}-${last.longitude.toFixed(5)}`;
-  }, [validCoordinates]);
-
-  // Track which coordinatesKey we've applied bounds for
-  // NOTE: Do NOT reset this when style changes - we want to preserve camera position
-  const appliedBoundsKeyRef = useRef<string>('');
-
-  // Apply bounds imperatively when coordinates change (different activity)
-  // Using imperative API ensures Camera props stay consistent across re-renders
-  // Wait for mapReady to avoid race condition where setCamera is called before map is initialized
-  // NOTE: Use setCamera with moveTo instead of fitBounds - fitBounds hardcodes easeTo which animates
+  // Apply initial bounds ONCE via imperative setCamera - no declarative props
+  // This avoids MapLibre's re-render behavior that can reset camera position
   useEffect(() => {
-    if (mapReady && bounds && coordinatesKey && coordinatesKey !== appliedBoundsKeyRef.current) {
-      cameraRef.current?.setCamera({
+    if (__DEV__) {
+      console.log('[ActivityMapView:Camera] Initial bounds effect check', {
+        alreadyApplied: initialCameraAppliedRef.current,
+        mapReady,
+        hasBounds: !!bounds,
+        hasCameraRef: !!cameraRef.current,
+      });
+    }
+    if (initialCameraAppliedRef.current) {
+      if (__DEV__) {
+        console.log('[ActivityMapView:Camera] Skipping - already applied');
+      }
+      return;
+    }
+    if (mapReady && bounds && cameraRef.current) {
+      if (__DEV__) {
+        console.log('[ActivityMapView:Camera] APPLYING initial bounds via setCamera', bounds);
+      }
+      cameraRef.current.setCamera({
         bounds: { ne: bounds.ne, sw: bounds.sw },
         padding: {
           paddingTop: 50,
@@ -774,9 +836,9 @@ export function ActivityMapView({
         animationDuration: 0,
         animationMode: 'moveTo',
       });
-      appliedBoundsKeyRef.current = coordinatesKey;
+      initialCameraAppliedRef.current = true;
     }
-  }, [mapReady, bounds, coordinatesKey]);
+  }, [mapReady, bounds]);
 
   // GeoJSON LineString requires minimum 2 coordinates - invalid data causes iOS crash:
   // -[__NSArrayM insertObject:atIndex:]: object cannot be nil (MLRNMapView.m:207)
@@ -1027,8 +1089,30 @@ export function ActivityMapView({
   const isDark = isDarkStyle(mapStyle);
 
   // Track current map viewport for dynamic attribution using refs to avoid re-renders during gestures
-  const currentCenterRef = useRef<[number, number] | null>(null);
-  const currentZoomRef = useRef(12);
+  // Initialize center from bounds if available (prevents camera jump on first render)
+  const boundsCenter = useMemo((): [number, number] | null => {
+    if (!bounds) return null;
+    const centerLng = (bounds.ne[0] + bounds.sw[0]) / 2;
+    const centerLat = (bounds.ne[1] + bounds.sw[1]) / 2;
+    return [centerLng, centerLat];
+  }, [bounds]);
+
+  const currentCenterRef = useRef<[number, number] | null>(boundsCenter);
+  const currentZoomRef = useRef(14); // Start at reasonable zoom, will be updated by onRegionDidChange
+
+  // Update ref initial value if bounds becomes available after mount
+  if (boundsCenter && !currentCenterRef.current) {
+    currentCenterRef.current = boundsCenter;
+  }
+
+  // DEBUG: Log camera ref values
+  if (__DEV__) {
+    console.log('[ActivityMapView:Camera] Camera ref values', {
+      center: currentCenterRef.current,
+      zoom: currentZoomRef.current,
+      boundsCenter,
+    });
+  }
   const attributionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Ref to update attribution without causing parent re-render
   const attributionRef = useRef<AttributionOverlayRef>(null);
@@ -1081,6 +1165,14 @@ export function ActivityMapView({
         const centerLng = (swLng + neLng) / 2;
         const centerLat = (swLat + neLat) / 2;
         currentCenterRef.current = [centerLng, centerLat];
+      }
+
+      // DEBUG: Log significant zoom changes (to track camera resets)
+      if (__DEV__ && zoomLevel !== undefined) {
+        console.log('[ActivityMapView:Camera] onRegionDidChange', {
+          zoomLevel: zoomLevel.toFixed(2),
+          center: currentCenterRef.current,
+        });
       }
 
       // Debounce attribution update to avoid interfering with map gestures
@@ -1194,24 +1286,17 @@ export function ActivityMapView({
             onDidFailLoadingMap={handleMapLoadError}
             onDidFinishLoadingMap={handleMapFinishLoading}
           >
+            {/* Camera with ref for programmatic control */}
+            {/* CRITICAL: Provide stable position props to prevent MapLibre from resetting */}
+            {/* When Camera has no position, MapLibre may default to fitting bounds on re-render */}
+            {/* We track position in refs and feed it back to keep camera stable */}
             <Camera
               ref={cameraRef}
-              defaultSettings={
-                initialBoundsRef.current
-                  ? {
-                      bounds: { ne: initialBoundsRef.current.ne, sw: initialBoundsRef.current.sw },
-                      padding: {
-                        paddingTop: 50,
-                        paddingRight: 50,
-                        paddingBottom: 50,
-                        paddingLeft: 50,
-                      },
-                      animationMode: 'moveTo',
-                      animationDuration: 0,
-                    }
-                  : undefined
-              }
-              // Additional bounds updates applied imperatively via fitBounds() when activity changes
+              centerCoordinate={currentCenterRef.current ?? undefined}
+              zoomLevel={currentZoomRef.current}
+              animationDuration={0}
+              animationMode="moveTo"
+              followUserLocation={false}
             />
 
             {/* Route overlay (matched route trace) - rendered first so activity line is on top */}
@@ -1344,40 +1429,54 @@ export function ActivityMapView({
             </ShapeSource>
 
             {/* Section creation: start marker */}
-            {/* Key forces re-creation when position changes - MapLibre may not update coordinates properly */}
-            {creationMode && sectionStartPoint && (
-              <MarkerView
-                key={`section-start-${startIndex}`}
-                coordinate={[sectionStartPoint.longitude, sectionStartPoint.latitude]}
-                allowOverlap={true}
+            {/* CRITICAL: Always render to avoid camera reset when marker appears */}
+            {/* Use activity start as fallback to stay within map bounds (not [0,0]) */}
+            <MarkerView
+              coordinate={
+                sectionStartPoint
+                  ? [sectionStartPoint.longitude, sectionStartPoint.latitude]
+                  : startPoint
+                    ? [startPoint.longitude, startPoint.latitude]
+                    : [0, 0]
+              }
+              allowOverlap={true}
+            >
+              <View
+                style={[
+                  styles.markerContainer,
+                  { opacity: creationMode && sectionStartPoint ? 1 : 0 },
+                ]}
               >
-                <View style={styles.markerContainer}>
-                  <View style={[styles.marker, styles.sectionStartMarker]}>
-                    <MaterialCommunityIcons
-                      name="flag-outline"
-                      size={14}
-                      color={colors.textOnDark}
-                    />
-                  </View>
+                <View style={[styles.marker, styles.sectionStartMarker]}>
+                  <MaterialCommunityIcons name="flag-outline" size={14} color={colors.textOnDark} />
                 </View>
-              </MarkerView>
-            )}
+              </View>
+            </MarkerView>
 
             {/* Section creation: end marker */}
-            {/* Key forces re-creation when position changes - MapLibre may not update coordinates properly */}
-            {creationMode && sectionEndPoint && (
-              <MarkerView
-                key={`section-end-${endIndex}`}
-                coordinate={[sectionEndPoint.longitude, sectionEndPoint.latitude]}
-                allowOverlap={true}
+            {/* CRITICAL: Always render to avoid camera reset when marker appears */}
+            {/* Use activity end as fallback to stay within map bounds (not [0,0]) */}
+            <MarkerView
+              coordinate={
+                sectionEndPoint
+                  ? [sectionEndPoint.longitude, sectionEndPoint.latitude]
+                  : endPoint
+                    ? [endPoint.longitude, endPoint.latitude]
+                    : [0, 0]
+              }
+              allowOverlap={true}
+            >
+              <View
+                style={[
+                  styles.markerContainer,
+                  { opacity: creationMode && sectionEndPoint ? 1 : 0 },
+                ]}
               >
-                <View style={styles.markerContainer}>
-                  <View style={[styles.marker, styles.sectionEndMarker]}>
-                    <MaterialCommunityIcons name="flag" size={14} color={colors.textOnDark} />
-                  </View>
+                <View style={[styles.marker, styles.sectionEndMarker]}>
+                  <MaterialCommunityIcons name="flag" size={14} color={colors.textOnDark} />
                 </View>
-              </MarkerView>
-            )}
+              </View>
+            </MarkerView>
 
             {/* Numbered markers at center of each section, offset to the side */}
             {/* CRITICAL: Always render ALL markers - never return null to avoid iOS Fabric crash */}

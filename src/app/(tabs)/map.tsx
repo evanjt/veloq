@@ -114,10 +114,18 @@ export default function MapScreen() {
 
       // Debounce the expensive sync operation
       syncDebounceRef.current = setTimeout(() => {
-        syncDateRange(formatLocalDate(start), formatLocalDate(end));
+        // Only request sync if the range extends beyond what's already synced
+        // This prevents unnecessary API calls when selecting a range within cached data
+        const requestedStart = formatLocalDate(start);
+        const requestedEnd = formatLocalDate(end);
+        const needsExpansion = requestedStart < syncOldest || requestedEnd > syncNewest;
+
+        if (needsExpansion) {
+          syncDateRange(requestedStart, requestedEnd);
+        }
       }, FILTER_DEBOUNCE_MS);
     },
-    [syncDateRange]
+    [syncDateRange, syncOldest, syncNewest]
   );
 
   // Clean up debounce timer on unmount

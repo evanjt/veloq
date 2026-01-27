@@ -8,6 +8,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useSyncDateRange } from '@/providers';
 import { clearAllGpsTracks, clearBoundsCache } from '@/lib/storage/gpsStorage';
 import { getRouteEngine } from '@/lib/native/routeEngine';
+import { formatLocalDate } from '@/lib';
 
 export interface SyncProgress {
   completed: number;
@@ -55,7 +56,7 @@ export function useActivityBoundsCache(): UseActivityBoundsCacheReturn {
     status: 'idle',
   });
 
-  // Initialize activity count synchronously from engine
+  // Initialize activity count and date range synchronously from engine
   const [activityCount, setActivityCount] = useState(() => {
     try {
       const engine = getRouteEngine();
@@ -63,6 +64,26 @@ export function useActivityBoundsCache(): UseActivityBoundsCacheReturn {
     } catch {
       return 0;
     }
+  });
+
+  // Track engine's actual date range (from persisted data)
+  const [engineDateRange, setEngineDateRange] = useState<{
+    oldest: string | null;
+    newest: string | null;
+  }>(() => {
+    try {
+      const engine = getRouteEngine();
+      const stats = engine?.getStats();
+      if (stats?.oldestDate && stats?.newestDate) {
+        return {
+          oldest: formatLocalDate(new Date(Number(stats.oldestDate) * 1000)),
+          newest: formatLocalDate(new Date(Number(stats.newestDate) * 1000)),
+        };
+      }
+    } catch {
+      // Ignore
+    }
+    return { oldest: null, newest: null };
   });
 
   const queryClient = useQueryClient();
@@ -82,34 +103,49 @@ export function useActivityBoundsCache(): UseActivityBoundsCacheReturn {
     const engine = getRouteEngine();
     if (!engine) return;
 
-    // Initial count
-    setActivityCount(engine.getActivityCount());
+    // Helper to update both count and date range from engine stats
+    const updateFromEngine = () => {
+      const eng = getRouteEngine();
+      if (!eng) {
+        setActivityCount(0);
+        setEngineDateRange({ oldest: null, newest: null });
+        return;
+      }
+      setActivityCount(eng.getActivityCount());
+      const stats = eng.getStats();
+      if (stats?.oldestDate && stats?.newestDate) {
+        setEngineDateRange({
+          oldest: formatLocalDate(new Date(Number(stats.oldestDate) * 1000)),
+          newest: formatLocalDate(new Date(Number(stats.newestDate) * 1000)),
+        });
+      } else {
+        setEngineDateRange({ oldest: null, newest: null });
+      }
+    };
+
+    // Initial update
+    updateFromEngine();
 
     // Subscribe to updates
     const unsubscribe = engine.subscribe('activities', () => {
       if (!isMountedRef.current) return;
-      const eng = getRouteEngine();
-      setActivityCount(eng ? eng.getActivityCount() : 0);
+      updateFromEngine();
     });
 
     return unsubscribe;
   }, []);
 
-  // Get date range from sync store
-  const syncOldest = useSyncDateRange((s) => s.oldest);
-  const syncNewest = useSyncDateRange((s) => s.newest);
-
-  // Cache statistics from engine (date range from sync store)
+  // Cache statistics from engine (date range from engine's actual data)
   const cacheStats: CacheStats = useMemo(() => {
     return {
       totalActivities: activityCount,
       lastSync: lastSyncTimestamp,
       isSyncing: progress.status === 'syncing',
-      // Use sync date range - represents the date range we've synced
-      oldestDate: activityCount > 0 ? syncOldest : null,
-      newestDate: activityCount > 0 ? syncNewest : null,
+      // Use engine's actual date range - represents what's actually cached
+      oldestDate: engineDateRange.oldest,
+      newestDate: engineDateRange.newest,
     };
-  }, [activityCount, progress.status, lastSyncTimestamp, syncOldest, syncNewest]);
+  }, [activityCount, progress.status, lastSyncTimestamp, engineDateRange]);
 
   // Expand the global sync date range
   const expandRange = useSyncDateRange((s) => s.expandRange);
@@ -130,6 +166,7 @@ export function useActivityBoundsCache(): UseActivityBoundsCacheReturn {
     await Promise.all([clearAllGpsTracks(), clearBoundsCache()]);
 
     setActivityCount(0);
+    setEngineDateRange({ oldest: null, newest: null });
   }, []);
 
   const sync = useCallback(

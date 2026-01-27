@@ -28,7 +28,9 @@ import {
   initializeDisabledSections,
   initializeUnitPreference,
   initializeDashboardPreferences,
+  useSyncDateRange,
 } from '@/providers';
+import { formatLocalDate } from '@/lib';
 import { initializeI18n } from '@/i18n';
 import { lightTheme, darkTheme, colors, darkColors } from '@/theme';
 import {
@@ -86,6 +88,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   const routeParts = useSegments();
   const router = useRouter();
   const { isAuthenticated, isLoading } = useAuthStore();
+  const expandRange = useSyncDateRange((s) => s.expandRange);
 
   // Initialize Rust route engine with persistent storage when authenticated
   // Data persists in SQLite - GPS tracks, routes, sections load instantly
@@ -117,9 +120,25 @@ function AuthGate({ children }: { children: React.ReactNode }) {
             );
           }
         }
+
+        // Initialize SyncDateRangeStore from engine's actual cached data
+        // This ensures the slider reflects what's actually persisted after app restart
+        if (success) {
+          const stats = engine.getStats();
+          if (stats?.oldestDate && stats?.newestDate) {
+            const oldestDateStr = formatLocalDate(new Date(Number(stats.oldestDate) * 1000));
+            const newestDateStr = formatLocalDate(new Date(Number(stats.newestDate) * 1000));
+            expandRange(oldestDateStr, newestDateStr);
+            if (__DEV__) {
+              console.log(
+                `[SyncDateRange] Initialized from engine: ${oldestDateStr} - ${newestDateStr}`
+              );
+            }
+          }
+        }
       }
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, expandRange]);
 
   useEffect(() => {
     if (isLoading) return;

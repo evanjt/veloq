@@ -1085,10 +1085,15 @@ impl PersistentRouteEngine {
              DELETE FROM route_groups;
              DELETE FROM gps_tracks;
              DELETE FROM signatures;
-             DELETE FROM activities;",
+             DELETE FROM activities;
+             DELETE FROM activity_metrics;
+             DELETE FROM activity_matches;
+             DELETE FROM time_streams;
+             DELETE FROM overlap_cache;",
         )?;
 
         self.activity_metadata.clear();
+        self.activity_metrics.clear();
         self.spatial_index = RTree::new();
         self.signature_cache.clear();
         self.consensus_cache.clear();

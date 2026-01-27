@@ -5,17 +5,19 @@
  * Shows a banner at the top of the screen when syncing is in progress.
  */
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useMemo } from 'react';
 import { View, StyleSheet, Platform, Animated, Easing } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSegments } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { useActivities, useRouteDataSync } from '@/hooks';
 import { useAuthStore, useRouteSettings, useSyncDateRange } from '@/providers';
 import { colors, opacity } from '@/theme';
 
 export function GlobalDataSync() {
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const routeParts = useSegments();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
@@ -63,9 +65,16 @@ export function GlobalDataSync() {
   // Animated value for indeterminate progress bar
   const indeterminateAnim = useRef(new Animated.Value(0)).current;
 
-  // Run indeterminate animation when in fetching phase (no real-time progress available)
+  // Run indeterminate animation when in fetching phase or computing phase with no granular progress
+  // The section detection algorithm doesn't report incremental progress, so show pulsing animation
+  const isComputingWithoutProgress =
+    progress.status === 'computing' && (progress.total === 0 || progress.completed === 0);
+
   useEffect(() => {
-    if (shouldShowBanner && (progress.status === 'fetching' || (isFetching && !isSyncing))) {
+    if (
+      shouldShowBanner &&
+      (progress.status === 'fetching' || (isFetching && !isSyncing) || isComputingWithoutProgress)
+    ) {
       // Loop animation for indeterminate state
       const animation = Animated.loop(
         Animated.timing(indeterminateAnim, {
@@ -80,7 +89,14 @@ export function GlobalDataSync() {
     } else {
       indeterminateAnim.setValue(0);
     }
-  }, [shouldShowBanner, progress.status, isFetching, isSyncing, indeterminateAnim]);
+  }, [
+    shouldShowBanner,
+    progress.status,
+    isFetching,
+    isSyncing,
+    indeterminateAnim,
+    isComputingWithoutProgress,
+  ]);
 
   if (!shouldShowBanner) {
     return null;
@@ -94,35 +110,34 @@ export function GlobalDataSync() {
     progress.total > 0 ? Math.round((progress.completed / progress.total) * 100) : 0;
 
   // Determine status text based on current operation
-  const statusText = (() => {
+  // Use same translation keys as map screen for consistency
+  const statusText: string = useMemo(() => {
     // Activity list fetching (before GPS sync starts)
     if (isFetching && !isSyncing) {
-      return 'Fetching activities...';
+      return t('mapScreen.loadingActivities' as never) as string;
     }
     // GPS sync in progress - show real-time progress from Rust callbacks
     if (progress.status === 'fetching') {
-      // Show real progress when available (callback updates completed count)
+      // Translation keys don't include placeholders, so we append progress manually
+      const baseText = t('routesScreen.downloadingGps' as never) as string;
       if (progress.total > 0 && progress.completed > 0) {
-        return `Downloading GPS data... ${progressPercent}%`;
+        return `${baseText}... ${progressPercent}%`;
       }
-      return progress.total > 0
-        ? `Downloading GPS data for ${progress.total} activities...`
-        : progress.message || 'Downloading GPS data...';
+      return progress.total > 0 ? `${baseText}...` : progress.message || `${baseText}...`;
     }
     if (progress.status === 'processing') {
-      return progress.total > 0
-        ? `Processing ${progress.total} routes...`
-        : progress.message || 'Processing routes...';
+      return progress.message || (t('cache.processingRoutes' as never) as string);
     }
     if (progress.status === 'computing') {
-      return progress.message || 'Detecting route sections...';
+      // Use the message from Rust (includes percentage) or fallback
+      return progress.message || (t('routesScreen.computingRoutes' as never) as string);
     }
     // Fallback for any other syncing state
     if (isSyncing) {
-      return progress.message || `Syncing... ${progressPercent}%`;
+      return progress.message || (t('common.loading') as string);
     }
-    return 'Syncing...';
-  })();
+    return t('common.loading') as string;
+  }, [isFetching, isSyncing, progress, progressPercent, t]);
 
   // Determine icon based on current operation
   const iconName = (() => {
@@ -142,9 +157,11 @@ export function GlobalDataSync() {
   })();
 
   // Determine if we should show indeterminate progress
-  // (when fetching activities list OR GPS data with no completed count yet)
+  // (when fetching activities list OR GPS data with no completed count yet OR computing without granular progress)
   const showIndeterminate =
-    (isFetching && !isSyncing) || (progress.status === 'fetching' && progress.completed === 0);
+    (isFetching && !isSyncing) ||
+    (progress.status === 'fetching' && progress.completed === 0) ||
+    isComputingWithoutProgress;
 
   // Animated width for indeterminate progress bar (slides across)
   const indeterminateLeft = indeterminateAnim.interpolate({

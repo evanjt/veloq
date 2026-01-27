@@ -608,6 +608,7 @@ export function UnifiedPerformanceChart({
 
   // Update selection based on touch X position (for scrubbing)
   // Takes the touch X relative to the visible area and the current scroll offset
+  // Searches ALL data points across both lanes - user wants cross-lane scrubbing
   const updateSelectionFromTouch = useCallback(
     (x: number, scrollOffset: number) => {
       if (chartData.length === 0) return;
@@ -616,7 +617,7 @@ export function UnifiedPerformanceChart({
       const chartX = x + scrollOffset - CHART_PADDING_LEFT;
       const normalizedX = Math.max(0, Math.min(1, chartX / chartContentWidth));
 
-      // Find the closest data point by comparing normalized X (date-based) positions
+      // Find the closest data point across ALL lanes by comparing normalized X positions
       let closestIdx = 0;
       let closestDist = Infinity;
       chartData.forEach((point, idx) => {
@@ -742,6 +743,11 @@ export function UnifiedPerformanceChart({
     (lane: LaneData, color: string, direction: 'forward' | 'reverse') => {
       if (lane.points.length === 0) return null;
 
+      // Find selected point index in this lane
+      const selectedLaneIdx = selectedPoint
+        ? lane.points.findIndex((p) => p.activityId === selectedPoint.activityId)
+        : -1;
+
       return (
         <View style={styles.laneChart}>
           <View style={StyleSheet.absoluteFill}>
@@ -760,11 +766,22 @@ export function UnifiedPerformanceChart({
                 (({ points }: any) => (
                   <>
                     {/* No connecting lines - dots are positioned by date */}
-                    {/* Data points - no selection state to avoid re-renders */}
+                    {/* Data points */}
                     {points.speed.map((point: any, idx: number) => {
                       if (point.x == null || point.y == null) return null;
                       const isBest = idx === lane.bestIndex;
                       const isCurrent = idx === lane.currentIndex;
+                      const isSelected = idx === selectedLaneIdx;
+
+                      // Selected point (cyan ring like PR gold ring)
+                      if (isSelected) {
+                        return (
+                          <React.Fragment key={`point-${idx}`}>
+                            <Circle cx={point.x} cy={point.y} r={8} color={colors.chartCyan} />
+                            <Circle cx={point.x} cy={point.y} r={5} color={color} />
+                          </React.Fragment>
+                        );
+                      }
 
                       // Best point (gold ring with colored center)
                       if (isBest && !isCurrent) {
@@ -886,7 +903,7 @@ export function UnifiedPerformanceChart({
         </View>
       );
     },
-    [handlePointPress, formatSpeedValue, isDark, gaps, chartWidth]
+    [handlePointPress, formatSpeedValue, isDark, gaps, chartWidth, selectedPoint]
   );
 
   // Single direction mode (no swim lanes needed)

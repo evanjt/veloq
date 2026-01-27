@@ -623,8 +623,14 @@ class RouteEngineClient {
    * Rust now outputs camelCase directly via serde(rename_all = "camelCase").
    */
   getGroups(): RouteGroup[] {
+    const _start = __DEV__ ? performance.now() : 0;
     const json = persistentEngineGetGroupsJson();
     const groups = safeJsonParse<RouteGroup[]>(json, []);
+    if (__DEV__) {
+      const dur = performance.now() - _start;
+      const icon = dur > 100 ? '🔴' : dur > 50 ? '🟡' : '🟢';
+      console.log(`${icon} [FFI] getGroups: ${dur.toFixed(1)}ms`);
+    }
 
     // Debug: Log any groups with null/undefined sportType
     if (__DEV__) {
@@ -655,8 +661,15 @@ class RouteEngineClient {
    * Get sections parsed from JSON.
    */
   getSections(): FrequentSection[] {
+    const _start = __DEV__ ? performance.now() : 0;
     const json = persistentEngineGetSectionsJson();
-    return safeJsonParse<FrequentSection[]>(json, []);
+    const result = safeJsonParse<FrequentSection[]>(json, []);
+    if (__DEV__) {
+      const dur = performance.now() - _start;
+      const icon = dur > 100 ? '🔴' : dur > 50 ? '🟡' : '🟢';
+      console.log(`${icon} [FFI] getSections: ${dur.toFixed(1)}ms`);
+    }
+    return result;
   }
 
   // ========================================================================
@@ -684,16 +697,30 @@ class RouteEngineClient {
    * Use this for list views where you only need metadata.
    */
   getSectionSummaries(): SectionSummary[] {
+    const _start = __DEV__ ? performance.now() : 0;
     const json = persistentEngineGetSectionSummariesJson();
-    return safeJsonParse<SectionSummary[]>(json, []);
+    const result = safeJsonParse<SectionSummary[]>(json, []);
+    if (__DEV__) {
+      const dur = performance.now() - _start;
+      const icon = dur > 100 ? '🔴' : dur > 50 ? '🟡' : '🟢';
+      console.log(`${icon} [FFI] getSectionSummaries: ${dur.toFixed(1)}ms`);
+    }
+    return result;
   }
 
   /**
    * Get section summaries filtered by sport type.
    */
   getSectionSummariesForSport(sportType: string): SectionSummary[] {
+    const _start = __DEV__ ? performance.now() : 0;
     const json = persistentEngineGetSectionSummariesForSportJson(sportType);
-    return safeJsonParse<SectionSummary[]>(json, []);
+    const result = safeJsonParse<SectionSummary[]>(json, []);
+    if (__DEV__) {
+      const dur = performance.now() - _start;
+      const icon = dur > 100 ? '🔴' : dur > 50 ? '🟡' : '🟢';
+      console.log(`${icon} [FFI] getSectionSummariesForSport(${sportType}): ${dur.toFixed(1)}ms`);
+    }
+    return result;
   }
 
   /**
