@@ -1050,11 +1050,22 @@ class RouteEngineClient {
       name
     );
     if (!json) return null;
-    const section = safeJsonParse<CustomSection>(json, null as unknown as CustomSection);
-    if (section) {
-      this.notify('sections');
+
+    // Rust returns {"ok": true, "section": {...}} or {"ok": false, "error": "..."}
+    const response = safeJsonParse<{ ok: boolean; section?: CustomSection; error?: string }>(
+      json,
+      { ok: false }
+    );
+
+    if (!response.ok || !response.section) {
+      if (response.error) {
+        throw new Error(response.error);
+      }
+      return null;
     }
-    return section;
+
+    this.notify('sections');
+    return response.section;
   }
 
   /**

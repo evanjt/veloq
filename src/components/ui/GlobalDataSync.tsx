@@ -98,10 +98,6 @@ export function GlobalDataSync() {
     isComputingWithoutProgress,
   ]);
 
-  if (!shouldShowBanner) {
-    return null;
-  }
-
   // Calculate banner height for notch/Dynamic Island
   const topPadding =
     Platform.OS === 'android' ? Math.max(insets.top, 24) : Math.max(insets.top, 20);
@@ -111,6 +107,7 @@ export function GlobalDataSync() {
 
   // Determine status text based on current operation
   // Use same translation keys as map screen for consistency
+  // NOTE: Must be before early return to satisfy Rules of Hooks
   const statusText: string = useMemo(() => {
     // Activity list fetching (before GPS sync starts)
     if (isFetching && !isSyncing) {
@@ -138,6 +135,10 @@ export function GlobalDataSync() {
     }
     return t('common.loading') as string;
   }, [isFetching, isSyncing, progress, progressPercent, t]);
+
+  if (!shouldShowBanner) {
+    return null;
+  }
 
   // Determine icon based on current operation
   const iconName = (() => {
