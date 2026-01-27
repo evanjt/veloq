@@ -498,7 +498,13 @@ export function SectionsList({ sportType }: SectionsListProps) {
           overshootRight={false}
           friction={2}
         >
-          <View style={[styles.swipeableContent, item.isDisabled && styles.disabledSection]}>
+          <View
+            style={[
+              styles.swipeableContent,
+              isDark && styles.swipeableContentDark,
+              item.isDisabled && styles.disabledSection,
+            ]}
+          >
             <SectionRow section={frequentSection} onPress={() => handleSectionPress(item)} />
             {/* Show source badge for custom sections */}
             {item.source === 'custom' && (
@@ -687,6 +693,9 @@ const styles = StyleSheet.create({
   },
   swipeableContent: {
     backgroundColor: colors.surface,
+  },
+  swipeableContentDark: {
+    backgroundColor: darkColors.background,
   },
   swipeAction: {
     width: 80,

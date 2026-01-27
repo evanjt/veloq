@@ -635,7 +635,7 @@ impl PersistentRouteEngine {
                 created_at TEXT NOT NULL
             );
 
-            -- Custom section matches
+            -- Custom section matches (supports multiple traversals per activity)
             CREATE TABLE IF NOT EXISTS custom_section_matches (
                 section_id TEXT NOT NULL,
                 activity_id TEXT NOT NULL,
@@ -643,7 +643,7 @@ impl PersistentRouteEngine {
                 end_index INTEGER NOT NULL,
                 direction TEXT NOT NULL,
                 distance_meters REAL NOT NULL,
-                PRIMARY KEY (section_id, activity_id),
+                PRIMARY KEY (section_id, activity_id, start_index),
                 FOREIGN KEY (section_id) REFERENCES custom_sections(id) ON DELETE CASCADE
             );
 
@@ -707,6 +707,82 @@ impl PersistentRouteEngine {
             )?;
             log::info!("[PersistentEngine] Migrated activities table: added metadata columns");
         }
+
+        // Migrate custom_section_matches to support multiple traversals per activity
+        // Old schema: PRIMARY KEY (section_id, activity_id)
+        // New schema: PRIMARY KEY (section_id, activity_id, start_index)
+        Self::migrate_custom_section_matches(conn)?;
+
+        Ok(())
+    }
+
+    /// Migrate custom_section_matches table to support multiple traversals per activity.
+    fn migrate_custom_section_matches(conn: &Connection) -> SqlResult<()> {
+        // Check if table exists at all
+        let table_exists: bool = conn
+            .prepare("SELECT 1 FROM custom_section_matches LIMIT 0")
+            .is_ok();
+
+        if !table_exists {
+            return Ok(()); // Table will be created with new schema
+        }
+
+        // Check the primary key structure by looking at table info
+        // If start_index is NOT part of the primary key, we need to migrate
+        let mut stmt = conn.prepare("PRAGMA table_info(custom_section_matches)")?;
+        let columns: Vec<(String, i32)> = stmt
+            .query_map([], |row| {
+                let name: String = row.get(1)?;
+                let pk: i32 = row.get(5)?; // pk column (0 = not pk, >0 = pk position)
+                Ok((name, pk))
+            })?
+            .filter_map(|r| r.ok())
+            .collect();
+
+        // Check if start_index has pk > 0
+        let start_index_is_pk = columns
+            .iter()
+            .any(|(name, pk)| name == "start_index" && *pk > 0);
+
+        if start_index_is_pk {
+            return Ok(()); // Already migrated
+        }
+
+        log::info!(
+            "[PersistentEngine] Migrating custom_section_matches to support multiple traversals"
+        );
+
+        // Recreate table with new schema
+        conn.execute_batch(
+            r#"
+            -- Create new table with updated primary key
+            CREATE TABLE custom_section_matches_new (
+                section_id TEXT NOT NULL,
+                activity_id TEXT NOT NULL,
+                start_index INTEGER NOT NULL,
+                end_index INTEGER NOT NULL,
+                direction TEXT NOT NULL,
+                distance_meters REAL NOT NULL,
+                PRIMARY KEY (section_id, activity_id, start_index),
+                FOREIGN KEY (section_id) REFERENCES custom_sections(id) ON DELETE CASCADE
+            );
+
+            -- Copy existing data
+            INSERT INTO custom_section_matches_new
+            SELECT section_id, activity_id, start_index, end_index, direction, distance_meters
+            FROM custom_section_matches;
+
+            -- Drop old table and rename new one
+            DROP TABLE custom_section_matches;
+            ALTER TABLE custom_section_matches_new RENAME TO custom_section_matches;
+
+            -- Recreate index
+            CREATE INDEX IF NOT EXISTS idx_custom_section_matches_section
+            ON custom_section_matches(section_id);
+            "#,
+        )?;
+
+        log::info!("[PersistentEngine] Migration complete: custom_section_matches now supports multiple traversals");
 
         Ok(())
     }
@@ -3733,23 +3809,25 @@ impl PersistentRouteEngine {
     // ========================================================================
 
     /// Match a custom section against an activity's GPS track.
-    /// Returns match info if the activity traverses the section, None otherwise.
+    /// Returns ALL traversals of the section (supports out-and-back, track laps).
     pub fn match_custom_section(
         &self,
         section: &crate::CustomSection,
         activity_id: &str,
         track: &[GpsPoint],
         config: &crate::CustomSectionMatchConfig,
-    ) -> Option<crate::CustomSectionMatch> {
+    ) -> Vec<crate::CustomSectionMatch> {
         if track.len() < 2 || section.polyline.len() < 2 {
-            return None;
+            return Vec::new();
         }
 
         let section_start = &section.polyline[0];
         let section_end = &section.polyline[section.polyline.len() - 1];
 
-        // Try matching in "same" direction first
-        if let Some(m) = self.try_match_direction(
+        let mut all_matches = Vec::new();
+
+        // Find ALL "same" direction matches
+        let same_matches = self.find_all_direction_matches(
             section,
             activity_id,
             track,
@@ -3757,12 +3835,11 @@ impl PersistentRouteEngine {
             section_end,
             "same",
             config,
-        ) {
-            return Some(m);
-        }
+        );
+        all_matches.extend(same_matches);
 
-        // Try matching in "reverse" direction
-        self.try_match_direction(
+        // Find ALL "reverse" direction matches
+        let reverse_matches = self.find_all_direction_matches(
             section,
             activity_id,
             track,
@@ -3770,11 +3847,124 @@ impl PersistentRouteEngine {
             section_start,
             "reverse",
             config,
-        )
+        );
+        all_matches.extend(reverse_matches);
+
+        // Sort by start_index (time order) and dedupe overlapping ranges
+        all_matches.sort_by_key(|m| m.start_index);
+        self.dedupe_overlapping_matches(all_matches)
     }
 
-    /// Try to match a section in a specific direction.
+    /// Find ALL matches for a section in a specific direction.
+    /// Used to detect multiple traversals (out-and-back, track laps).
     #[allow(clippy::too_many_arguments)]
+    fn find_all_direction_matches(
+        &self,
+        section: &crate::CustomSection,
+        activity_id: &str,
+        track: &[GpsPoint],
+        start: &GpsPoint,
+        end: &GpsPoint,
+        direction: &str,
+        config: &crate::CustomSectionMatchConfig,
+    ) -> Vec<crate::CustomSectionMatch> {
+        let mut matches = Vec::new();
+        let mut used_ranges: Vec<(usize, usize)> = Vec::new();
+
+        // Find ALL points near section start
+        let start_candidates: Vec<(usize, f64)> = track
+            .iter()
+            .enumerate()
+            .filter_map(|(i, p)| {
+                let dist = geo_utils::haversine_distance(start, p);
+                if dist <= config.proximity_threshold {
+                    Some((i, dist))
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        for (start_idx, _) in &start_candidates {
+            let start_idx = *start_idx;
+
+            // Skip if this start is already covered by a previous match
+            if used_ranges
+                .iter()
+                .any(|(s, e)| start_idx >= *s && start_idx < *e)
+            {
+                continue;
+            }
+
+            // Find potential end point (search after start)
+            let (end_idx, end_dist) = self.find_nearest_point_index(track, end, start_idx + 1);
+            if end_dist > config.proximity_threshold {
+                continue;
+            }
+
+            // Validate that start comes before end
+            if end_idx <= start_idx {
+                continue;
+            }
+
+            // Calculate coverage
+            let coverage = self.calculate_coverage(
+                track,
+                &section.polyline,
+                start_idx,
+                end_idx,
+                direction,
+                config.proximity_threshold,
+            );
+            if coverage < config.min_coverage {
+                continue;
+            }
+
+            // Calculate distance of matched portion
+            let distance_meters = self.calculate_track_distance(track, start_idx, end_idx);
+
+            matches.push(crate::CustomSectionMatch {
+                activity_id: activity_id.to_string(),
+                start_index: start_idx as u32,
+                end_index: end_idx as u32,
+                direction: direction.to_string(),
+                distance_meters,
+            });
+
+            // Mark this range as used
+            used_ranges.push((start_idx, end_idx));
+        }
+
+        matches
+    }
+
+    /// Remove overlapping matches, keeping earlier ones (first traversal wins).
+    fn dedupe_overlapping_matches(
+        &self,
+        matches: Vec<crate::CustomSectionMatch>,
+    ) -> Vec<crate::CustomSectionMatch> {
+        let mut result: Vec<crate::CustomSectionMatch> = Vec::new();
+
+        for m in matches {
+            let overlaps = result.iter().any(|existing| {
+                let m_start = m.start_index as usize;
+                let m_end = m.end_index as usize;
+                let e_start = existing.start_index as usize;
+                let e_end = existing.end_index as usize;
+                m_start < e_end && m_end > e_start
+            });
+
+            if !overlaps {
+                result.push(m);
+            }
+        }
+
+        result
+    }
+
+    /// Try to match a section in a specific direction (legacy single-match version).
+    #[allow(clippy::too_many_arguments)]
+    #[allow(dead_code)]
     fn try_match_direction(
         &self,
         section: &crate::CustomSection,
@@ -3957,6 +4147,15 @@ impl PersistentRouteEngine {
             activity_ids.len()
         );
 
+        // Clear old matches for these activities before re-matching
+        // This ensures we don't accumulate stale data from previous matching attempts
+        for activity_id in activity_ids {
+            let _ = self.db.execute(
+                "DELETE FROM custom_section_matches WHERE section_id = ? AND activity_id = ?",
+                params![section_id, activity_id],
+            );
+        }
+
         for activity_id in activity_ids {
             // Load the GPS track for this activity
             let track: Vec<GpsPoint> = match self.get_gps_track(activity_id) {
@@ -3970,12 +4169,15 @@ impl PersistentRouteEngine {
                 }
             };
 
-            if let Some(match_info) =
-                self.match_custom_section(&section, activity_id, &track, config)
-            {
+            // Find ALL traversals of this section in the activity
+            let activity_matches =
+                self.match_custom_section(&section, activity_id, &track, config);
+
+            for match_info in activity_matches {
                 log::info!(
-                    "[CustomSectionMatch] MATCHED activity {} ({}m, direction: {})",
+                    "[CustomSectionMatch] MATCHED activity {} traversal at {} ({}m, direction: {})",
                     activity_id,
+                    match_info.start_index,
                     match_info.distance_meters as i32,
                     match_info.direction
                 );
