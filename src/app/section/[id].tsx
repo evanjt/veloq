@@ -19,6 +19,7 @@ import {
 } from 'react-native';
 import { Text, ActivityIndicator } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useQueryClient } from '@tanstack/react-query';
 import { useLocalSearchParams, router } from 'expo-router';
 import { logScreenRender } from '@/lib/debug/renderTimer';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -395,6 +396,7 @@ export default function SectionDetailScreen() {
   // Pass the full ID - custom sections are stored with the "custom_" prefix
   const { section: customSection } = useCustomSection(isCustomId ? id : undefined);
   const { removeSection, renameSection } = useCustomSections();
+  const queryClient = useQueryClient();
 
   // Get route group summaries to compute routeIds for custom sections
   // Note: Group summaries don't include activityIds to save memory
@@ -474,6 +476,8 @@ export default function SectionDetailScreen() {
         visitCount: activityIds.length,
         distanceMeters: customSection.distanceMeters,
         name: customSection.name,
+        // Custom sections use sourceActivityId as their reference (like representativeActivityId for auto-detected)
+        representativeActivityId: customSection.sourceActivityId,
       } as FrequentSection;
     }
 
@@ -672,6 +676,10 @@ export default function SectionDetailScreen() {
                 setOverrideReferenceId(null);
                 // Force section data refresh to get recalculated polyline
                 setSectionRefreshKey((k) => k + 1);
+                // For custom sections, also invalidate the React Query cache
+                if (isCustomId) {
+                  queryClient.invalidateQueries({ queryKey: ['customSections'] });
+                }
               }
             },
           },
@@ -697,6 +705,11 @@ export default function SectionDetailScreen() {
                 setOverrideReferenceId(activityId);
                 // Force section data refresh to get updated polyline
                 setSectionRefreshKey((k) => k + 1);
+                // For custom sections, also invalidate the React Query cache
+                // so useCustomSection refetches the updated data from Rust
+                if (isCustomId) {
+                  queryClient.invalidateQueries({ queryKey: ['customSections'] });
+                }
               } else {
                 // Show error if operation failed
                 Alert.alert(
@@ -709,7 +722,7 @@ export default function SectionDetailScreen() {
         ]);
       }
     },
-    [id, t, effectiveReferenceId]
+    [id, t, effectiveReferenceId, isCustomId, queryClient]
   );
 
   // Handle disabling/enabling an auto-detected section
