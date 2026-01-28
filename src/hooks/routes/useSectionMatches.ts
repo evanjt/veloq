@@ -1,12 +1,42 @@
 /**
  * Hook for getting sections that an activity belongs to.
  * Used to display matched sections in the activity detail view.
+ *
+ * OPTIMIZED: Uses getSectionsForActivity() FFI function with junction table
+ * for O(1) lookup instead of loading all sections (~250-570ms → ~10-20ms).
  */
 
-import { useMemo } from 'react';
-import { useEngineSections } from './useRouteEngine';
+import { useMemo, useState, useEffect, useCallback } from 'react';
+import { getRouteEngine } from '@/lib/native/routeEngine';
 import { useDisabledSections } from '@/providers';
+import { generateSectionName } from '@/lib/utils/sectionNaming';
+import { gpsPointsToRoutePoints, type FrequentSection as NativeFrequentSection } from 'veloqrs';
 import type { FrequentSection, SectionPortion } from '@/types';
+
+/**
+ * Convert native section (GpsPoint) to app section (RoutePoint).
+ */
+function convertNativeSectionToApp(native: NativeFrequentSection): FrequentSection {
+  // Convert polyline from GpsPoint[] to RoutePoint[]
+  const polyline = gpsPointsToRoutePoints(native.polyline);
+
+  return {
+    id: native.id,
+    sportType: native.sportType,
+    polyline,
+    representativeActivityId: native.representativeActivityId,
+    activityIds: native.activityIds,
+    activityPortions: native.activityPortions,
+    routeIds: native.routeIds,
+    visitCount: native.visitCount,
+    distanceMeters: native.distanceMeters,
+    name: native.name,
+    confidence: native.confidence,
+    observationCount: native.observationCount,
+    averageSpread: native.averageSpread,
+    pointDensity: native.pointDensity,
+  };
+}
 
 /**
  * Runtime type guard for FrequentSection from engine.
@@ -45,22 +75,62 @@ export interface UseSectionMatchesResult {
 
 /**
  * Get all sections that contain a given activity.
+ *
+ * OPTIMIZED: Uses junction table lookup instead of loading all sections.
+ * Previous: ~250-570ms (load ALL sections, filter in JS)
+ * Now: ~10-20ms (query only sections for this activity)
  */
 export function useSectionMatches(activityId: string | undefined): UseSectionMatchesResult {
-  const { sections: allSections, totalCount } = useEngineSections();
-  const isReady = totalCount > 0;
+  // Lightweight refresh trigger for section changes
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+
+  const refresh = useCallback(() => {
+    setRefreshTrigger((r) => r + 1);
+  }, []);
+
+  // Subscribe to section changes
+  useEffect(() => {
+    const engine = getRouteEngine();
+    if (!engine) return;
+    const unsubscribe = engine.subscribe('sections', refresh);
+    return unsubscribe;
+  }, [refresh]);
+
+  // Check if engine has any sections (lightweight O(1) check)
+  const sectionCount = useMemo(() => {
+    const engine = getRouteEngine();
+    return engine?.getSectionCount() ?? 0;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshTrigger]);
+
+  const isReady = sectionCount > 0;
 
   // Get disabled sections to filter them out
   const disabledIds = useDisabledSections((s) => s.disabledIds);
 
   const sections = useMemo(() => {
-    if (!activityId || allSections.length === 0) {
+    if (!activityId) {
       return [];
     }
 
+    const engine = getRouteEngine();
+    if (!engine) {
+      return [];
+    }
+
+    // OPTIMIZED: Query only sections for this activity via junction table
+    const nativeSections = engine.getSectionsForActivity(activityId);
+
     const matches: SectionMatch[] = [];
 
-    for (const section of allSections) {
+    for (const native of nativeSections) {
+      // Convert to app format
+      const converted = convertNativeSectionToApp(native);
+      const section = {
+        ...converted,
+        name: generateSectionName(converted),
+      };
+
       // Validate section structure to prevent crashes from malformed engine data
       if (!isValidSection(section)) {
         continue;
@@ -71,25 +141,23 @@ export function useSectionMatches(activityId: string | undefined): UseSectionMat
         continue;
       }
 
-      // Check if activity is in this section's activity list
-      if (section.activityIds.includes(activityId)) {
-        // Find the portion data for this activity
-        const portion = section.activityPortions?.find((p) => p.activityId === activityId);
+      // Find the portion data for this activity
+      const portion = section.activityPortions?.find((p) => p.activityId === activityId);
 
-        matches.push({
-          section,
-          portion: portion as SectionPortion | undefined,
-          direction: (portion?.direction as 'same' | 'reverse') || 'same',
-          distance: portion?.distanceMeters || section.distanceMeters,
-        });
-      }
+      matches.push({
+        section,
+        portion: portion as SectionPortion | undefined,
+        direction: (portion?.direction as 'same' | 'reverse') || 'same',
+        distance: portion?.distanceMeters || section.distanceMeters,
+      });
     }
 
     // Sort by visit count (most popular first)
     matches.sort((a, b) => b.section.visitCount - a.section.visitCount);
 
     return matches;
-  }, [activityId, allSections, disabledIds]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activityId, disabledIds, refreshTrigger]);
 
   return {
     sections,

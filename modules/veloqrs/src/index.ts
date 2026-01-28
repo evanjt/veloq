@@ -35,6 +35,7 @@ import {
   persistentEngineGetGroupsJson,
   persistentEngineGetSectionsJson,
   persistentEngineGetSectionCount,
+  persistentEngineGetSectionsForActivity,
   persistentEngineGetGroupCount,
   persistentEngineGetSectionSummariesJson,
   persistentEngineGetSectionSummariesForSportJson,
@@ -682,6 +683,23 @@ class RouteEngineClient {
    */
   getSectionCount(): number {
     return persistentEngineGetSectionCount();
+  }
+
+  /**
+   * Get sections for a specific activity.
+   * Uses junction table for O(1) lookup instead of deserializing all sections.
+   * Much faster than getSections() when you only need sections for one activity.
+   */
+  getSectionsForActivity(activityId: string): FrequentSection[] {
+    const _start = __DEV__ ? performance.now() : 0;
+    const json = persistentEngineGetSectionsForActivity(activityId);
+    const result = safeJsonParse<FrequentSection[]>(json, []);
+    if (__DEV__) {
+      const dur = performance.now() - _start;
+      const icon = dur > 100 ? '🔴' : dur > 50 ? '🟡' : '🟢';
+      console.log(`${icon} [FFI] getSectionsForActivity(${activityId}): ${dur.toFixed(1)}ms`);
+    }
+    return result;
   }
 
   /**

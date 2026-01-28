@@ -587,6 +587,15 @@ impl PersistentRouteEngine {
                 data BLOB NOT NULL
             );
 
+            -- Junction table for section-activity relationships
+            -- Enables O(1) lookup of sections by activity ID
+            CREATE TABLE IF NOT EXISTS section_activities (
+                section_id TEXT NOT NULL,
+                activity_id TEXT NOT NULL,
+                PRIMARY KEY (section_id, activity_id),
+                FOREIGN KEY (section_id) REFERENCES sections(id) ON DELETE CASCADE
+            );
+
             -- Custom route names (user-defined)
             CREATE TABLE IF NOT EXISTS route_names (
                 route_id TEXT PRIMARY KEY,
@@ -676,6 +685,7 @@ impl PersistentRouteEngine {
             CREATE INDEX IF NOT EXISTS idx_custom_section_matches_section ON custom_section_matches(section_id);
             CREATE INDEX IF NOT EXISTS idx_overlap_cache_a ON overlap_cache(activity_a);
             CREATE INDEX IF NOT EXISTS idx_overlap_cache_b ON overlap_cache(activity_b);
+            CREATE INDEX IF NOT EXISTS idx_section_activities_activity ON section_activities(activity_id);
 
             -- Enable foreign keys
             PRAGMA foreign_keys = ON;
@@ -767,10 +777,8 @@ impl PersistentRouteEngine {
                 FOREIGN KEY (section_id) REFERENCES custom_sections(id) ON DELETE CASCADE
             );
 
-            -- Copy existing data
-            INSERT INTO custom_section_matches_new
-            SELECT section_id, activity_id, start_index, end_index, direction, distance_meters
-            FROM custom_section_matches;
+            -- Don't copy existing data - we want to re-match with the new multi-traversal logic
+            -- Old matches only had one traversal per activity, new logic finds all traversals
 
             -- Drop old table and rename new one
             DROP TABLE custom_section_matches;
@@ -782,7 +790,7 @@ impl PersistentRouteEngine {
             "#,
         )?;
 
-        log::info!("[PersistentEngine] Migration complete: custom_section_matches now supports multiple traversals");
+        log::info!("[PersistentEngine] Migration complete: custom_section_matches cleared for re-matching with multi-traversal support");
 
         Ok(())
     }
@@ -2135,6 +2143,46 @@ impl PersistentRouteEngine {
             .unwrap_or(0)
     }
 
+    /// Get sections for a specific activity.
+    /// Uses junction table for O(1) lookup instead of deserializing all sections.
+    pub fn get_sections_for_activity(&self, activity_id: &str) -> Vec<FrequentSection> {
+        let mut stmt = match self.db.prepare(
+            "SELECT s.data FROM sections s
+             INNER JOIN section_activities sa ON s.id = sa.section_id
+             WHERE sa.activity_id = ?",
+        ) {
+            Ok(stmt) => stmt,
+            Err(e) => {
+                log::error!(
+                    "tracematch: [PersistentEngine] get_sections_for_activity prepare error: {}",
+                    e
+                );
+                return Vec::new();
+            }
+        };
+
+        let sections: Vec<FrequentSection> = stmt
+            .query_map(params![activity_id], |row| {
+                let data: Vec<u8> = row.get(0)?;
+                Ok(data)
+            })
+            .ok()
+            .map(|rows| {
+                rows.filter_map(|r| r.ok())
+                    .filter_map(|data| serde_json::from_slice(&data).ok())
+                    .collect()
+            })
+            .unwrap_or_default();
+
+        log::info!(
+            "tracematch: [PersistentEngine] get_sections_for_activity({}) returned {} sections",
+            activity_id,
+            sections.len()
+        );
+
+        sections
+    }
+
     /// Get group count directly from SQLite (no data loading).
     /// This is O(1) and doesn't require loading groups into memory.
     pub fn get_group_count(&self) -> u32 {
@@ -2654,15 +2702,24 @@ impl PersistentRouteEngine {
     fn save_sections(&self) -> SqlResult<()> {
         // Clear existing
         self.db.execute("DELETE FROM sections", [])?;
+        self.db.execute("DELETE FROM section_activities", [])?;
 
         // Insert new (serialize entire section as JSON)
-        let mut stmt = self
+        let mut section_stmt = self
             .db
             .prepare("INSERT INTO sections (id, data) VALUES (?, ?)")?;
+        let mut junction_stmt = self
+            .db
+            .prepare("INSERT INTO section_activities (section_id, activity_id) VALUES (?, ?)")?;
 
         for section in &self.sections {
             let data_blob = serde_json::to_vec(section).unwrap_or_default();
-            stmt.execute(params![section.id, data_blob])?;
+            section_stmt.execute(params![section.id, data_blob])?;
+
+            // Populate junction table for fast activity-based lookup
+            for activity_id in &section.activity_ids {
+                junction_stmt.execute(params![section.id, activity_id])?;
+            }
         }
 
         Ok(())
@@ -3810,6 +3867,7 @@ impl PersistentRouteEngine {
 
     /// Match a custom section against an activity's GPS track.
     /// Returns ALL traversals of the section (supports out-and-back, track laps).
+    /// Uses the same matching logic as auto-detected sections (tracematch library).
     pub fn match_custom_section(
         &self,
         section: &crate::CustomSection,
@@ -3821,224 +3879,27 @@ impl PersistentRouteEngine {
             return Vec::new();
         }
 
-        let section_start = &section.polyline[0];
-        let section_end = &section.polyline[section.polyline.len() - 1];
-
-        let mut all_matches = Vec::new();
-
-        // Find ALL "same" direction matches
-        let same_matches = self.find_all_direction_matches(
-            section,
-            activity_id,
-            track,
-            section_start,
-            section_end,
-            "same",
-            config,
-        );
-        all_matches.extend(same_matches);
-
-        // Find ALL "reverse" direction matches
-        let reverse_matches = self.find_all_direction_matches(
-            section,
-            activity_id,
-            track,
-            section_end,
-            section_start,
-            "reverse",
-            config,
-        );
-        all_matches.extend(reverse_matches);
-
-        // Sort by start_index (time order) and dedupe overlapping ranges
-        all_matches.sort_by_key(|m| m.start_index);
-        self.dedupe_overlapping_matches(all_matches)
-    }
-
-    /// Find ALL matches for a section in a specific direction.
-    /// Used to detect multiple traversals (out-and-back, track laps).
-    #[allow(clippy::too_many_arguments)]
-    fn find_all_direction_matches(
-        &self,
-        section: &crate::CustomSection,
-        activity_id: &str,
-        track: &[GpsPoint],
-        start: &GpsPoint,
-        end: &GpsPoint,
-        direction: &str,
-        config: &crate::CustomSectionMatchConfig,
-    ) -> Vec<crate::CustomSectionMatch> {
-        let mut matches = Vec::new();
-        let mut used_ranges: Vec<(usize, usize)> = Vec::new();
-
-        // Find ALL points near section start
-        let start_candidates: Vec<(usize, f64)> = track
-            .iter()
-            .enumerate()
-            .filter_map(|(i, p)| {
-                let dist = geo_utils::haversine_distance(start, p);
-                if dist <= config.proximity_threshold {
-                    Some((i, dist))
-                } else {
-                    None
-                }
-            })
-            .collect();
-
-        for (start_idx, _) in &start_candidates {
-            let start_idx = *start_idx;
-
-            // Skip if this start is already covered by a previous match
-            if used_ranges
-                .iter()
-                .any(|(s, e)| start_idx >= *s && start_idx < *e)
-            {
-                continue;
-            }
-
-            // Find potential end point (search after start)
-            let (end_idx, end_dist) = self.find_nearest_point_index(track, end, start_idx + 1);
-            if end_dist > config.proximity_threshold {
-                continue;
-            }
-
-            // Validate that start comes before end
-            if end_idx <= start_idx {
-                continue;
-            }
-
-            // Calculate coverage
-            let coverage = self.calculate_coverage(
-                track,
-                &section.polyline,
-                start_idx,
-                end_idx,
-                direction,
-                config.proximity_threshold,
-            );
-            if coverage < config.min_coverage {
-                continue;
-            }
-
-            // Calculate distance of matched portion
-            let distance_meters = self.calculate_track_distance(track, start_idx, end_idx);
-
-            matches.push(crate::CustomSectionMatch {
-                activity_id: activity_id.to_string(),
-                start_index: start_idx as u32,
-                end_index: end_idx as u32,
-                direction: direction.to_string(),
-                distance_meters,
-            });
-
-            // Mark this range as used
-            used_ranges.push((start_idx, end_idx));
-        }
-
-        matches
-    }
-
-    /// Remove overlapping matches, keeping earlier ones (first traversal wins).
-    fn dedupe_overlapping_matches(
-        &self,
-        matches: Vec<crate::CustomSectionMatch>,
-    ) -> Vec<crate::CustomSectionMatch> {
-        let mut result: Vec<crate::CustomSectionMatch> = Vec::new();
-
-        for m in matches {
-            let overlaps = result.iter().any(|existing| {
-                let m_start = m.start_index as usize;
-                let m_end = m.end_index as usize;
-                let e_start = existing.start_index as usize;
-                let e_end = existing.end_index as usize;
-                m_start < e_end && m_end > e_start
-            });
-
-            if !overlaps {
-                result.push(m);
-            }
-        }
-
-        result
-    }
-
-    /// Try to match a section in a specific direction (legacy single-match version).
-    #[allow(clippy::too_many_arguments)]
-    #[allow(dead_code)]
-    fn try_match_direction(
-        &self,
-        section: &crate::CustomSection,
-        activity_id: &str,
-        track: &[GpsPoint],
-        start: &GpsPoint,
-        end: &GpsPoint,
-        direction: &str,
-        config: &crate::CustomSectionMatchConfig,
-    ) -> Option<crate::CustomSectionMatch> {
-        // Find potential start point
-        let (start_idx, start_dist) = self.find_nearest_point_index(track, start, 0);
-        if start_dist > config.proximity_threshold {
-            log::debug!(
-                "[CustomSectionMatch] {} FAIL: start too far ({:.1}m > {:.1}m threshold)",
-                activity_id,
-                start_dist,
-                config.proximity_threshold
-            );
-            return None;
-        }
-
-        // Find potential end point (search after start)
-        let (end_idx, end_dist) = self.find_nearest_point_index(track, end, start_idx);
-        if end_dist > config.proximity_threshold {
-            log::debug!(
-                "[CustomSectionMatch] {} FAIL: end too far ({:.1}m > {:.1}m threshold)",
-                activity_id,
-                end_dist,
-                config.proximity_threshold
-            );
-            return None;
-        }
-
-        // Validate that start comes before end
-        if end_idx <= start_idx {
-            log::debug!(
-                "[CustomSectionMatch] {} FAIL: end before start (start_idx={}, end_idx={})",
-                activity_id,
-                start_idx,
-                end_idx
-            );
-            return None;
-        }
-
-        // Calculate coverage
-        let coverage = self.calculate_coverage(
+        // Use the same matching function as auto-detected sections
+        let spans = tracematch::sections::find_all_section_spans_in_route(
             track,
             &section.polyline,
-            start_idx,
-            end_idx,
-            direction,
             config.proximity_threshold,
         );
-        if coverage < config.min_coverage {
-            log::debug!(
-                "[CustomSectionMatch] {} FAIL: low coverage ({:.1}% < {:.1}% required)",
-                activity_id,
-                coverage * 100.0,
-                config.min_coverage * 100.0
-            );
-            return None;
-        }
 
-        // Calculate distance of matched portion
-        let distance_meters = self.calculate_track_distance(track, start_idx, end_idx);
-
-        Some(crate::CustomSectionMatch {
-            activity_id: activity_id.to_string(),
-            start_index: start_idx as u32,
-            end_index: end_idx as u32,
-            direction: direction.to_string(),
-            distance_meters,
-        })
+        // Convert spans to CustomSectionMatch
+        spans
+            .into_iter()
+            .map(|(start, end, _quality, same_direction)| {
+                let distance_meters = self.calculate_track_distance(track, start, end);
+                crate::CustomSectionMatch {
+                    activity_id: activity_id.to_string(),
+                    start_index: start as u32,
+                    end_index: end as u32,
+                    direction: if same_direction { "same" } else { "reverse" }.to_string(),
+                    distance_meters,
+                }
+            })
+            .collect()
     }
 
     /// Find the index of the nearest point in a track to a given point.
@@ -5275,6 +5136,17 @@ pub mod persistent_engine_ffi {
     #[uniffi::export]
     pub fn persistent_engine_get_section_count() -> u32 {
         with_persistent_engine(|e| e.get_section_count()).unwrap_or(0)
+    }
+
+    /// Get sections for a specific activity as JSON.
+    /// Uses junction table for O(1) lookup instead of deserializing all sections.
+    #[uniffi::export]
+    pub fn persistent_engine_get_sections_for_activity(activity_id: String) -> String {
+        with_persistent_engine(|e| {
+            let sections = e.get_sections_for_activity(&activity_id);
+            serde_json::to_string(&sections).unwrap_or_else(|_| "[]".to_string())
+        })
+        .unwrap_or_else(|| "[]".to_string())
     }
 
     /// Get group count directly from SQLite (no data loading).
