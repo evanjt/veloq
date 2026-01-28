@@ -10,6 +10,13 @@ jest.mock("expo-secure-store", () => ({
   getItemAsync: jest.fn().mockResolvedValue(null),
   setItemAsync: jest.fn().mockResolvedValue(undefined),
   deleteItemAsync: jest.fn().mockResolvedValue(undefined),
+  // Keychain accessibility constants (must match expo-secure-store)
+  WHEN_UNLOCKED: 0,
+  AFTER_FIRST_UNLOCK: 1,
+  ALWAYS: 2,
+  WHEN_UNLOCKED_THIS_DEVICE_ONLY: 3,
+  AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY: 4,
+  ALWAYS_THIS_DEVICE_ONLY: 5,
 }));
 
 // Silence console warnings during tests

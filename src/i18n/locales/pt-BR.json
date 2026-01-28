@@ -604,6 +604,7 @@
     "reference": "Reference",
     "setAsReference": "Set as Reference",
     "setAsReferenceConfirm": "Usar esta atividade como referência?\n\nO trecho será novamente comparado com todas as suas atividades. Isso pode adicionar ou remover atividades deste trecho.",
+    "setReferenceError": "Falha ao definir referência. A seção ou atividade pode ter mudado. Por favor, tente novamente.",
     "resetReference": "Reset Reference",
     "resetReferenceConfirm": "Restaurar seleção automática de referência?\n\nO trecho será novamente comparado com todas as suas atividades. Isso pode adicionar ou remover atividades deste trecho.",
     "referenceUpdated": "Reference activity updated"

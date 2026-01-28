@@ -683,12 +683,26 @@ export default function SectionDetailScreen() {
           {
             text: t('common.confirm'),
             onPress: () => {
+              console.log(
+                '[SetReference] Attempting to set reference:',
+                'sectionId=',
+                id,
+                'activityId=',
+                activityId
+              );
               const success = engine.setSectionReference(id, activityId);
+              console.log('[SetReference] Result:', success);
               if (success) {
                 // Update local state immediately for responsive UI
                 setOverrideReferenceId(activityId);
                 // Force section data refresh to get updated polyline
                 setSectionRefreshKey((k) => k + 1);
+              } else {
+                // Show error if operation failed
+                Alert.alert(
+                  t('common.error'),
+                  t('sections.setReferenceError', 'Failed to set reference. Please try again.')
+                );
               }
             },
           },

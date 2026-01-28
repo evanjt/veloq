@@ -604,6 +604,7 @@
     "reference": "Reference",
     "setAsReference": "Set as Reference",
     "setAsReferenceConfirm": "このアクティビティを基準として使用しますか？\n\nこの区間はすべてのアクティビティと再照合されます。これにより、この区間のアクティビティが追加または削除される場合があります。",
+    "setReferenceError": "リファレンスの設定に失敗しました。セクションまたはアクティビティが変更された可能性があります。もう一度お試しください。",
     "resetReference": "Reset Reference",
     "resetReferenceConfirm": "自動基準選択にリセットしますか？\n\nこの区間はすべてのアクティビティと再照合されます。これにより、この区間のアクティビティが追加または削除される場合があります。",
     "referenceUpdated": "Reference activity updated"

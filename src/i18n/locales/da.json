@@ -604,6 +604,7 @@
     "reference": "Reference",
     "setAsReference": "Set as Reference",
     "setAsReferenceConfirm": "Brug denne aktivitet som reference?\n\nSektionen vil blive matchet igen mod alle dine aktiviteter. Dette kan tilføje eller fjerne aktiviteter fra denne sektion.",
+    "setReferenceError": "Kunne ikke angive reference. Afsnittet eller aktiviteten kan have ændret sig. Prøv igen.",
     "resetReference": "Reset Reference",
     "resetReferenceConfirm": "Nulstil til automatisk referencevalg?\n\nSektionen vil blive matchet igen mod alle dine aktiviteter. Dette kan tilføje eller fjerne aktiviteter fra denne sektion.",
     "referenceUpdated": "Reference activity updated"

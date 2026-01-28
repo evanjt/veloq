@@ -604,6 +604,7 @@
     "reference": "Reference",
     "setAsReference": "Set as Reference",
     "setAsReferenceConfirm": "Deze activiteit als referentie gebruiken?\n\nDe sectie wordt opnieuw gematcht met al je activiteiten. Dit kan activiteiten toevoegen aan of verwijderen uit deze sectie.",
+    "setReferenceError": "Referentie instellen mislukt. De sectie of activiteit is mogelijk gewijzigd. Probeer het opnieuw.",
     "resetReference": "Reset Reference",
     "resetReferenceConfirm": "Terugzetten naar automatische referentieselectie?\n\nDe sectie wordt opnieuw gematcht met al je activiteiten. Dit kan activiteiten toevoegen aan of verwijderen uit deze sectie.",
     "referenceUpdated": "Reference activity updated"

@@ -1077,6 +1077,16 @@ impl PersistentRouteEngine {
             count
         );
 
+        // Log section IDs for debugging
+        if !self.sections.is_empty() {
+            let section_ids: Vec<&str> = self.sections.iter().take(10).map(|s| s.id.as_str()).collect();
+            log::info!(
+                "tracematch: [PersistentEngine] First {} section IDs: {:?}",
+                section_ids.len(),
+                section_ids
+            );
+        }
+
         self.sections_dirty = false;
         Ok(())
     }
@@ -3216,11 +3226,46 @@ impl PersistentRouteEngine {
     /// When user manually selects a reference activity, we store this choice
     /// and skip automatic medoid recalculation for this section.
     /// Also updates the section's polyline to match the new reference activity's trace.
+    /// Works for both auto-detected (FrequentSection) and custom sections.
     pub fn set_section_reference(
         &mut self,
         section_id: &str,
         activity_id: &str,
     ) -> Result<(), String> {
+        // Handle custom sections separately (they have a different storage mechanism)
+        if section_id.starts_with("custom_") {
+            return self.set_custom_section_reference(section_id, activity_id);
+        }
+
+        // If section not in memory, try to load it from SQLite
+        // This can happen if sections were loaded via get_section_by_id (cache-only) but not into self.sections
+        if !self.sections.iter().any(|s| s.id == section_id) {
+            log::info!(
+                "tracematch: [Medoid] Section {} not in memory ({} sections loaded), attempting to load from SQLite",
+                section_id,
+                self.sections.len()
+            );
+
+            // Query SQLite directly
+            if let Ok(data_blob) = self.db.query_row(
+                "SELECT data FROM sections WHERE id = ?",
+                params![section_id],
+                |row| row.get::<_, Vec<u8>>(0),
+            ) {
+                if let Ok(section) = serde_json::from_slice::<FrequentSection>(&data_blob) {
+                    log::info!(
+                        "tracematch: [Medoid] Loaded section {} from SQLite, adding to memory",
+                        section_id
+                    );
+                    self.sections.push(section);
+                } else {
+                    return Err(format!("Section {} failed to deserialize from SQLite", section_id));
+                }
+            } else {
+                return Err(format!("Section {} not found in SQLite", section_id));
+            }
+        }
+
         // First, get the new reference activity's trace (need to do this before borrowing section mutably)
         let new_polyline = {
             let section = self
@@ -3310,6 +3355,28 @@ impl PersistentRouteEngine {
     /// Reset section to automatic medoid calculation.
     /// Clears the user-defined flag and recalculates the medoid.
     pub fn reset_section_reference(&mut self, section_id: &str) -> Result<(), String> {
+        // If section not in memory, try to load it from SQLite
+        if !self.sections.iter().any(|s| s.id == section_id) {
+            log::info!(
+                "tracematch: [Medoid] Section {} not in memory, attempting to load from SQLite for reset",
+                section_id
+            );
+
+            if let Ok(data_blob) = self.db.query_row(
+                "SELECT data FROM sections WHERE id = ?",
+                params![section_id],
+                |row| row.get::<_, Vec<u8>>(0),
+            ) {
+                if let Ok(section) = serde_json::from_slice::<FrequentSection>(&data_blob) {
+                    self.sections.push(section);
+                } else {
+                    return Err(format!("Section {} failed to deserialize from SQLite", section_id));
+                }
+            } else {
+                return Err(format!("Section {} not found in SQLite", section_id));
+            }
+        }
+
         {
             let section = self
                 .sections
@@ -3348,6 +3415,147 @@ impl PersistentRouteEngine {
         log::info!(
             "tracematch: [Medoid] Section {} reference reset to automatic",
             section_id
+        );
+
+        Ok(())
+    }
+
+    /// Set reference activity for a custom section.
+    /// Updates the source_activity_id and extracts the new polyline from the activity's GPS track.
+    fn set_custom_section_reference(
+        &mut self,
+        section_id: &str,
+        activity_id: &str,
+    ) -> Result<(), String> {
+        log::info!(
+            "tracematch: [CustomSection] Setting reference for {} to activity {}",
+            section_id,
+            activity_id
+        );
+
+        // Load the custom section from SQLite
+        let custom_section = self
+            .get_custom_section(section_id)
+            .ok_or_else(|| format!("Custom section {} not found", section_id))?;
+
+        // Get the new activity's GPS track
+        let track = self
+            .get_gps_track(activity_id)
+            .ok_or_else(|| format!("GPS track for activity {} not found", activity_id))?;
+
+        // Find where this activity traverses the section
+        // Use the same matching logic as regular section matching
+        let config = crate::CustomSectionMatchConfig::default();
+        let matches = self.match_custom_section(&custom_section, activity_id, &track, &config);
+
+        if matches.is_empty() {
+            return Err(format!(
+                "Activity {} does not traverse custom section {}",
+                activity_id, section_id
+            ));
+        }
+
+        // Use the first match to extract the new polyline
+        let first_match = &matches[0];
+        let start_idx = first_match.start_index as usize;
+        let end_idx = first_match.end_index as usize;
+
+        // Extract the new polyline from the activity's track
+        let new_polyline: Vec<GpsPoint> = if start_idx < end_idx && end_idx <= track.len() {
+            track[start_idx..end_idx].to_vec()
+        } else if end_idx < start_idx && start_idx <= track.len() {
+            // Reverse direction - extract and reverse
+            let mut points: Vec<GpsPoint> = track[end_idx..start_idx].to_vec();
+            points.reverse();
+            points
+        } else {
+            return Err(format!(
+                "Invalid match indices: start={}, end={}, track_len={}",
+                start_idx,
+                end_idx,
+                track.len()
+            ));
+        };
+
+        if new_polyline.len() < 2 {
+            return Err("Extracted polyline is too short".to_string());
+        }
+
+        // Calculate new distance
+        let new_distance = self.calculate_track_distance(&new_polyline, 0, new_polyline.len() - 1);
+
+        // Serialize the new polyline
+        let polyline_json =
+            serde_json::to_string(&new_polyline).unwrap_or_else(|_| "[]".to_string());
+
+        // Update the custom section in SQLite
+        self.db
+            .execute(
+                "UPDATE custom_sections
+             SET source_activity_id = ?, polyline_json = ?, start_index = ?, end_index = ?, distance_meters = ?
+             WHERE id = ?",
+                params![
+                    activity_id,
+                    polyline_json,
+                    first_match.start_index,
+                    first_match.end_index,
+                    new_distance,
+                    section_id
+                ],
+            )
+            .map_err(|e| format!("Failed to update custom section: {}", e))?;
+
+        log::info!(
+            "tracematch: [CustomSection] Updated {} with new reference activity {}, polyline has {} points",
+            section_id,
+            activity_id,
+            new_polyline.len()
+        );
+
+        // Clear existing matches since the polyline changed
+        self.db
+            .execute(
+                "DELETE FROM custom_section_matches WHERE section_id = ?",
+                params![section_id],
+            )
+            .map_err(|e| format!("Failed to clear old matches: {}", e))?;
+
+        // Re-match all activities against the updated section
+        // First, get the updated section
+        let updated_section = self
+            .get_custom_section(section_id)
+            .ok_or_else(|| format!("Failed to reload custom section {}", section_id))?;
+
+        // Get all activity IDs
+        let activity_ids: Vec<String> = self
+            .db
+            .prepare("SELECT id FROM activities")
+            .ok()
+            .and_then(|mut stmt| {
+                stmt.query_map([], |row| row.get(0))
+                    .ok()
+                    .map(|iter| iter.filter_map(|r| r.ok()).collect())
+            })
+            .unwrap_or_default();
+
+        // Match against all activities
+        let mut match_count = 0;
+        for aid in &activity_ids {
+            if let Some(track) = self.get_gps_track(aid) {
+                let matches = self.match_custom_section(&updated_section, aid, &track, &config);
+                for m in matches {
+                    if self.add_custom_section_match(section_id, &m).is_ok() {
+                        match_count += 1;
+                    }
+                }
+            }
+        }
+
+        log::info!(
+            "tracematch: [CustomSection] Re-matched {} against {} activities, found {} matches",
+            section_id,
+            activity_ids.len(),
+            match_count
         );
 
         Ok(())
@@ -3977,8 +4185,16 @@ impl PersistentRouteEngine {
         start_idx: usize,
         end_idx: usize,
     ) -> f64 {
+        if track.is_empty() || start_idx >= track.len() {
+            return 0.0;
+        }
+        // Clamp end_idx to valid range (we need at least 2 points to compute distance)
+        let safe_end = end_idx.min(track.len().saturating_sub(1));
+        if safe_end <= start_idx {
+            return 0.0;
+        }
         let mut total_distance = 0.0;
-        for i in start_idx..end_idx {
+        for i in start_idx..safe_end {
             total_distance += geo_utils::haversine_distance(&track[i], &track[i + 1]);
         }
         total_distance
@@ -5696,6 +5912,20 @@ pub mod persistent_engine_ffi {
         activity_id: String,
     ) -> bool {
         with_persistent_engine(|e| {
+            // Debug: Log state before attempting
+            let section_count = e.sections.len();
+            let section_exists = e.sections.iter().any(|s| s.id == section_id);
+            let activity_in_section = e
+                .sections
+                .iter()
+                .find(|s| s.id == section_id)
+                .map(|s| s.activity_ids.contains(&activity_id))
+                .unwrap_or(false);
+            info!(
+                "tracematch: [SetReference] Attempting: section={}, activity={}, sections_in_memory={}, section_found={}, activity_in_section={}",
+                section_id, activity_id, section_count, section_exists, activity_in_section
+            );
+
             match e.set_section_reference(&section_id, &activity_id) {
                 Ok(()) => {
                     info!(
@@ -5713,7 +5943,10 @@ pub mod persistent_engine_ffi {
                 }
             }
         })
-        .unwrap_or(false)
+        .unwrap_or_else(|| {
+            info!("tracematch: [SetReference] FAILED: Engine not initialized or lock failed");
+            false
+        })
     }
 
     /// Reset a section's reference to automatic medoid calculation.
@@ -6239,5 +6472,135 @@ mod tests {
         assert_eq!(engine.activity_count(), 1);
         assert!(!engine.has_activity("test-1"));
         assert!(engine.has_activity("test-2"));
+    }
+
+    // ==========================================================================
+    // Set Section Reference Tests (TDD for issue: custom sections don't work)
+    // ==========================================================================
+
+    /// Helper: Create a minimal FrequentSection for testing
+    fn create_test_frequent_section(
+        id: &str,
+        representative_activity_id: &str,
+        activity_ids: Vec<String>,
+        polyline: Vec<GpsPoint>,
+    ) -> FrequentSection {
+        FrequentSection {
+            id: id.to_string(),
+            name: Some(format!("Test Section {}", id)),
+            sport_type: "cycling".to_string(),
+            polyline,
+            representative_activity_id: representative_activity_id.to_string(),
+            activity_ids: activity_ids.clone(),
+            activity_portions: activity_ids
+                .iter()
+                .enumerate()
+                .map(|(i, aid)| crate::SectionPortion {
+                    activity_id: aid.clone(),
+                    start_index: 0,
+                    end_index: 49,
+                    distance_meters: 5000.0,
+                    direction: "same".to_string(),
+                })
+                .collect(),
+            route_ids: vec![],
+            visit_count: activity_ids.len() as u32,
+            distance_meters: 5000.0,
+            activity_traces: std::collections::HashMap::new(),
+            confidence: 0.8,
+            observation_count: activity_ids.len() as u32,
+            average_spread: 10.0,
+            point_density: vec![activity_ids.len() as u32; 50],
+            scale: Some("medium".to_string()),
+            version: 1,
+            is_user_defined: false,
+            created_at: Some("2026-01-28T00:00:00Z".to_string()),
+            updated_at: None,
+            stability: 0.7,
+        }
+    }
+
+    /// Test: set_section_reference works for auto-detected (FrequentSection) sections
+    #[test]
+    fn test_set_section_reference_autodetected_section() {
+        let mut engine = PersistentRouteEngine::in_memory().unwrap();
+
+        // Add two activities with the same route
+        let coords = sample_coords();
+        engine
+            .add_activity("activity-1".to_string(), coords.clone(), "cycling".to_string())
+            .unwrap();
+        engine
+            .add_activity("activity-2".to_string(), coords.clone(), "cycling".to_string())
+            .unwrap();
+
+        // Create and apply a FrequentSection with activity-1 as the representative
+        let section = create_test_frequent_section(
+            "sec_cycling_1",
+            "activity-1",
+            vec!["activity-1".to_string(), "activity-2".to_string()],
+            coords.clone(),
+        );
+        engine.apply_sections(vec![section]).unwrap();
+
+        // Verify initial state
+        let sections = engine.get_sections();
+        assert_eq!(sections.len(), 1);
+        assert_eq!(sections[0].representative_activity_id, "activity-1");
+        assert!(!sections[0].is_user_defined);
+
+        // Set activity-2 as the new reference
+        let result = engine.set_section_reference("sec_cycling_1", "activity-2");
+        assert!(result.is_ok(), "set_section_reference should succeed for auto-detected sections");
+
+        // Verify the reference was changed
+        let sections = engine.get_sections();
+        assert_eq!(sections[0].representative_activity_id, "activity-2");
+        assert!(sections[0].is_user_defined);
+        assert_eq!(sections[0].version, 2);
+    }
+
+    /// Test: set_section_reference works for custom sections (unified implementation)
+    #[test]
+    fn test_set_section_reference_custom_section() {
+        let mut engine = PersistentRouteEngine::in_memory().unwrap();
+
+        // Add activities
+        let coords = sample_coords();
+        engine
+            .add_activity("activity-1".to_string(), coords.clone(), "cycling".to_string())
+            .unwrap();
+        engine
+            .add_activity("activity-2".to_string(), coords.clone(), "cycling".to_string())
+            .unwrap();
+
+        // Create a CustomSection
+        let custom_section = crate::CustomSection {
+            id: "custom_1234567890_abc".to_string(),
+            name: "My Custom Section".to_string(),
+            polyline: coords.clone(),
+            source_activity_id: "activity-1".to_string(),
+            start_index: 0,
+            end_index: 49,
+            sport_type: "cycling".to_string(),
+            distance_meters: 5000.0,
+            created_at: "2026-01-28T00:00:00Z".to_string(),
+        };
+        engine.add_custom_section(&custom_section).unwrap();
+
+        // Set activity-2 as the new reference - THIS SHOULD WORK
+        let result = engine.set_section_reference("custom_1234567890_abc", "activity-2");
+        assert!(
+            result.is_ok(),
+            "set_section_reference should work for custom sections after unification"
+        );
+
+        // Verify the reference was changed
+        let custom_sections = engine.get_custom_sections();
+        assert_eq!(custom_sections.len(), 1);
+        assert_eq!(
+            custom_sections[0].source_activity_id, "activity-2",
+            "Custom section's source_activity_id should be updated"
+        );
     }
 }

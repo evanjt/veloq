@@ -604,6 +604,7 @@
     "reference": "Reference",
     "setAsReference": "Set as Reference",
     "setAsReferenceConfirm": "Użyć tej aktywności jako referencji?\n\nOdcinek zostanie ponownie dopasowany do wszystkich Twoich aktywności. Może to dodać lub usunąć aktywności z tego odcinka.",
+    "setReferenceError": "Nie udało się ustawić odniesienia. Sekcja lub aktywność mogła się zmienić. Spróbuj ponownie.",
     "resetReference": "Reset Reference",
     "resetReferenceConfirm": "Przywrócić automatyczny wybór referencji?\n\nOdcinek zostanie ponownie dopasowany do wszystkich Twoich aktywności. Może to dodać lub usunąć aktywności z tego odcinka.",
     "referenceUpdated": "Reference activity updated"

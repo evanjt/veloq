@@ -604,6 +604,7 @@
     "reference": "Reference",
     "setAsReference": "Set as Reference",
     "setAsReferenceConfirm": "Die Aktivität als Referänz bruuche?\n\nDe Abschnitt wird neu mit allne dine Aktivitäte abgliche. Das chan Aktivitäte dezuetuä oder ussenäh.",
+    "setReferenceError": "Referenz konnte nicht gesetzt werden. Der Abschnitt oder die Aktivität hat sich möglicherweise geändert. Bitte versuchen Sie es erneut.",
     "resetReference": "Reset Reference",
     "resetReferenceConfirm": "Zrugg uf automatischi Referänzuswahl?\n\nDe Abschnitt wird neu mit allne dine Aktivitäte abgliche. Das chan Aktivitäte dezuetuä oder ussenäh.",
     "referenceUpdated": "Reference activity updated"

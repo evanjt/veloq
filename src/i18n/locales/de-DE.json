@@ -604,6 +604,7 @@
     "reference": "Reference",
     "setAsReference": "Set as Reference",
     "setAsReferenceConfirm": "Diese Aktivität als Referenz verwenden?\n\nDer Abschnitt wird erneut mit all deinen Aktivitäten abgeglichen. Dabei können Aktivitäten hinzugefügt oder entfernt werden.",
+    "setReferenceError": "Referenz konnte nicht gesetzt werden. Der Abschnitt oder die Aktivität hat sich möglicherweise geändert. Bitte versuchen Sie es erneut.",
     "resetReference": "Reset Reference",
     "resetReferenceConfirm": "Auf automatische Referenzauswahl zurücksetzen?\n\nDer Abschnitt wird erneut mit all deinen Aktivitäten abgeglichen. Dabei können Aktivitäten hinzugefügt oder entfernt werden.",
     "referenceUpdated": "Reference activity updated"

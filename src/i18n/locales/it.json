@@ -604,6 +604,7 @@
     "reference": "Reference",
     "setAsReference": "Set as Reference",
     "setAsReferenceConfirm": "Usare questa attività come riferimento?\n\nIl tratto verrà riconfrontato con tutte le tue attività. Questo potrebbe aggiungere o rimuovere attività da questo tratto.",
+    "setReferenceError": "Impossibile impostare il riferimento. La sezione o l'attività potrebbe essere cambiata. Per favore riprova.",
     "resetReference": "Reset Reference",
     "resetReferenceConfirm": "Ripristinare la selezione automatica del riferimento?\n\nIl tratto verrà riconfrontato con tutte le tue attività. Questo potrebbe aggiungere o rimuovere attività da questo tratto.",
     "referenceUpdated": "Reference activity updated"

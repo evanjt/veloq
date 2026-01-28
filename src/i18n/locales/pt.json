@@ -604,6 +604,7 @@
     "reference": "Reference",
     "setAsReference": "Set as Reference",
     "setAsReferenceConfirm": "Usar esta atividade como referência?\n\nO troco será novamente comparado com todas as suas atividades. Isto pode adicionar ou remover atividades deste troco.",
+    "setReferenceError": "Falha ao definir referência. A seção ou atividade pode ter mudado. Por favor, tente novamente.",
     "resetReference": "Reset Reference",
     "resetReferenceConfirm": "Repor seleção automática de referência?\n\nO troco será novamente comparado com todas as suas atividades. Isto pode adicionar ou remover atividades deste troco.",
     "referenceUpdated": "Reference activity updated"
