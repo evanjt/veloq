@@ -366,15 +366,23 @@ export default function ActivityDetailScreen() {
 
   // Filter custom sections that match this activity
   // Include sections where this is the source activity OR where matches include this activity
+  // IMPORTANT: Exclude sections already in engineSectionMatches (unified table now contains both)
   const customMatchedSections = useMemo(() => {
     if (!id) return [];
+    // Get IDs from engine sections to avoid duplicates
+    const engineSectionIds = new Set(engineSectionMatches.map((m) => m.section.id));
     return sections.filter(
       (section) =>
-        section.sourceActivityId === id || section.matches.some((match) => match.activityId === id)
+        // Must not already be in engine sections (avoid duplicates)
+        !engineSectionIds.has(section.id) &&
+        // And must match this activity
+        (section.sourceActivityId === id ||
+          section.activityIds?.includes(id) ||
+          section.matches?.some((match) => match.activityId === id))
     );
-  }, [sections, id]);
+  }, [sections, id, engineSectionMatches]);
 
-  // Total section count (auto-detected + custom)
+  // Total section count (auto-detected + custom, deduplicated)
   const totalSectionCount = engineSectionCount + customMatchedSections.length;
 
   // Computed activity traces for this activity on each section
@@ -407,10 +415,16 @@ export default function ActivityDetailScreen() {
       return;
     }
 
+    // Deduplicate sections by ID (custom sections might appear in both lists)
+    const seenIds = new Set<string>();
     const combinedSections = [
       ...engineSectionMatches.map((m) => m.section),
       ...customMatchedSections,
-    ];
+    ].filter((section) => {
+      if (seenIds.has(section.id)) return false;
+      seenIds.add(section.id);
+      return true;
+    });
     if (combinedSections.length === 0) {
       setComputedActivityTraces({});
       return;
@@ -458,9 +472,14 @@ export default function ActivityDetailScreen() {
     if (coordinates.length === 0) return null;
 
     const overlays: SectionOverlay[] = [];
+    const processedIds = new Set<string>();
 
     // Process engine-detected sections
     for (const match of engineSectionMatches) {
+      // Skip if already processed (deduplication)
+      if (processedIds.has(match.section.id)) continue;
+      processedIds.add(match.section.id);
+
       // Use section polyline directly (already has data from engine)
       const polylineSource = match.section.polyline || [];
 
@@ -512,6 +531,10 @@ export default function ActivityDetailScreen() {
 
     // Process custom sections
     for (const section of customMatchedSections) {
+      // Skip if already processed (deduplication - custom sections may appear in engine results)
+      if (processedIds.has(section.id)) continue;
+      processedIds.add(section.id);
+
       const sectionPolyline = section.polyline.map((p) => ({
         latitude: p.lat,
         longitude: p.lng,
@@ -524,7 +547,7 @@ export default function ActivityDetailScreen() {
         activityPortion = computedTrace;
       } else {
         // Fall back to using indices
-        const activityMatch = section.matches.find((m) => m.activityId === id);
+        const activityMatch = section.matches?.find((m) => m.activityId === id);
         if (activityMatch?.startIndex != null && activityMatch?.endIndex != null) {
           // Use match indices
           const start = Math.max(0, activityMatch.startIndex);
@@ -532,7 +555,11 @@ export default function ActivityDetailScreen() {
           if (end > start) {
             activityPortion = coordinates.slice(start, end + 1);
           }
-        } else if (section.sourceActivityId === id) {
+        } else if (
+          section.sourceActivityId === id &&
+          section.startIndex != null &&
+          section.endIndex != null
+        ) {
           // This is the source activity - use the section's original indices
           const start = Math.max(0, section.startIndex);
           const end = Math.min(coordinates.length - 1, section.endIndex);
@@ -625,10 +652,16 @@ export default function ActivityDetailScreen() {
     }
     for (const section of customMatchedSections) {
       // Include source activity
-      ids.add(section.sourceActivityId);
+      if (section.sourceActivityId) {
+        ids.add(section.sourceActivityId);
+      }
       // Include matched activities
-      for (const m of section.matches) {
+      for (const m of section.matches ?? []) {
         ids.add(m.activityId);
+      }
+      // Include activity IDs from the section
+      for (const activityId of section.activityIds ?? []) {
+        ids.add(activityId);
       }
     }
     return Array.from(ids);
@@ -1262,12 +1295,25 @@ export default function ActivityDetailScreen() {
                                 </Text>
                                 <View
                                   style={[
-                                    styles.autoDetectedBadge,
-                                    isDark && styles.autoDetectedBadgeDark,
+                                    match.section.sectionType === 'custom'
+                                      ? styles.customBadge
+                                      : styles.autoDetectedBadge,
+                                    isDark &&
+                                      (match.section.sectionType === 'custom'
+                                        ? styles.customBadgeDark
+                                        : styles.autoDetectedBadgeDark),
                                   ]}
                                 >
-                                  <Text style={styles.autoDetectedText}>
-                                    {t('routes.autoDetected')}
+                                  <Text
+                                    style={
+                                      match.section.sectionType === 'custom'
+                                        ? styles.customBadgeText
+                                        : styles.autoDetectedText
+                                    }
+                                  >
+                                    {match.section.sectionType === 'custom'
+                                      ? t('routes.custom')
+                                      : t('routes.autoDetected')}
                                   </Text>
                                 </View>
                               </View>
@@ -1392,7 +1438,7 @@ export default function ActivityDetailScreen() {
                                 </View>
                               </View>
                               {(() => {
-                                const activityMatch = section.matches.find(
+                                const activityMatch = section.matches?.find(
                                   (m) => m.activityId === id
                                 );
                                 // Use match or section's original indices for source activity
@@ -1405,9 +1451,10 @@ export default function ActivityDetailScreen() {
                                   sectionTime != null && bestTime != null
                                     ? formatTimeDelta(sectionTime, bestTime)
                                     : null;
-                                // Count visits: matches + 1 if this is the source activity
+                                // Count visits: matches + activityIds + 1 if this is the source activity
                                 const visitCount =
-                                  section.matches.length +
+                                  (section.matches?.length ?? 0) +
+                                  (section.activityIds?.length ?? 0) +
                                   (section.sourceActivityId === id && !activityMatch ? 1 : 0);
                                 return (
                                   <>

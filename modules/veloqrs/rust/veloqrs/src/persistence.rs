@@ -542,6 +542,8 @@ impl PersistentRouteEngine {
             M::up(include_str!("migrations/001_initial_schema.sql")),
             // M2: Unified sections table (migrates blob-based sections to column-based)
             M::up(include_str!("migrations/002_unified_sections.sql")),
+            // M3: Drop legacy section_names table (names now in sections.name column)
+            M::up(include_str!("migrations/003_drop_section_names.sql")),
         ])
     }
 
@@ -2042,6 +2044,13 @@ impl PersistentRouteEngine {
         &self.sections
     }
 
+    /// Update a section's name in memory (for immediate visibility after rename).
+    pub fn update_section_name_in_memory(&mut self, section_id: &str, name: &str) {
+        if let Some(section) = self.sections.iter_mut().find(|s| s.id == section_id) {
+            section.name = Some(name.to_string());
+        }
+    }
+
     /// Get sections as JSON string.
     pub fn get_sections_json(&self) -> String {
         log::info!(
@@ -2071,7 +2080,24 @@ impl PersistentRouteEngine {
     /// Queries SQLite and extracts only summary fields, skipping heavy data like
     /// polylines, activityTraces, and pointDensity.
     pub fn get_section_summaries(&self) -> Vec<SectionSummary> {
-        let mut stmt = match self.db.prepare("SELECT id, data FROM sections") {
+        // First get activity counts per section from junction table
+        let activity_counts: HashMap<String, u32> = {
+            let mut stmt = match self.db.prepare(
+                "SELECT section_id, COUNT(*) FROM section_activities GROUP BY section_id"
+            ) {
+                Ok(s) => s,
+                Err(_) => return Vec::new(),
+            };
+            stmt.query_map([], |row| Ok((row.get::<_, String>(0)?, row.get::<_, u32>(1)?)))
+                .ok()
+                .map(|iter| iter.filter_map(|r| r.ok()).collect())
+                .unwrap_or_default()
+        };
+
+        let mut stmt = match self.db.prepare(
+            "SELECT id, name, sport_type, distance_meters, confidence, scale, polyline_json
+             FROM sections"
+        ) {
             Ok(s) => s,
             Err(e) => {
                 log::error!(
@@ -2085,67 +2111,59 @@ impl PersistentRouteEngine {
         let results: Vec<SectionSummary> = stmt
             .query_map([], |row| {
                 let id: String = row.get(0)?;
-                let data_blob: Vec<u8> = row.get(1)?;
+                let polyline_json: String = row.get(6)?;
 
-                // Parse JSON to extract only summary fields
-                let full: serde_json::Value = match serde_json::from_slice(&data_blob) {
-                    Ok(v) => v,
-                    Err(_) => return Ok(None),
-                };
-
-                // Extract activity count from activityIds array length
-                let activity_count = full["activityIds"]
-                    .as_array()
-                    .map(|a| a.len() as u32)
-                    .unwrap_or(0);
-
-                // Extract bounds from polyline if present (first and last points)
-                let bounds = full["polyline"].as_array().and_then(|points| {
-                    if points.len() < 2 {
-                        return None;
-                    }
-                    let mut min_lat = f64::MAX;
-                    let mut max_lat = f64::MIN;
-                    let mut min_lng = f64::MAX;
-                    let mut max_lng = f64::MIN;
-
-                    for point in points {
-                        if let (Some(lat), Some(lng)) =
-                            (point["latitude"].as_f64(), point["longitude"].as_f64())
-                        {
-                            min_lat = min_lat.min(lat);
-                            max_lat = max_lat.max(lat);
-                            min_lng = min_lng.min(lng);
-                            max_lng = max_lng.max(lng);
+                // Extract bounds from polyline
+                let bounds = serde_json::from_str::<Vec<serde_json::Value>>(&polyline_json)
+                    .ok()
+                    .and_then(|points| {
+                        if points.len() < 2 {
+                            return None;
                         }
-                    }
+                        let mut min_lat = f64::MAX;
+                        let mut max_lat = f64::MIN;
+                        let mut min_lng = f64::MAX;
+                        let mut max_lng = f64::MIN;
 
-                    if min_lat < f64::MAX {
-                        Some(crate::FfiBounds {
-                            min_lat,
-                            max_lat,
-                            min_lng,
-                            max_lng,
-                        })
-                    } else {
-                        None
-                    }
-                });
+                        for point in &points {
+                            if let (Some(lat), Some(lng)) =
+                                (point["latitude"].as_f64(), point["longitude"].as_f64())
+                            {
+                                min_lat = min_lat.min(lat);
+                                max_lat = max_lat.max(lat);
+                                min_lng = min_lng.min(lng);
+                                max_lng = max_lng.max(lng);
+                            }
+                        }
 
-                Ok(Some(SectionSummary {
+                        if min_lat < f64::MAX {
+                            Some(crate::FfiBounds {
+                                min_lat,
+                                max_lat,
+                                min_lng,
+                                max_lng,
+                            })
+                        } else {
+                            None
+                        }
+                    });
+
+                let activity_count = activity_counts.get(&id).copied().unwrap_or(0);
+
+                Ok(SectionSummary {
                     id,
-                    name: full["name"].as_str().map(String::from),
-                    sport_type: full["sportType"].as_str().unwrap_or("").to_string(),
-                    visit_count: full["visitCount"].as_u64().unwrap_or(0) as u32,
-                    distance_meters: full["distanceMeters"].as_f64().unwrap_or(0.0),
+                    name: row.get(1)?,
+                    sport_type: row.get(2)?,
+                    visit_count: activity_count,
+                    distance_meters: row.get(3)?,
                     activity_count,
-                    confidence: full["confidence"].as_f64().unwrap_or(0.0),
-                    scale: full["scale"].as_str().map(String::from),
+                    confidence: row.get::<_, Option<f64>>(4)?.unwrap_or(0.0),
+                    scale: row.get(5)?,
                     bounds,
-                }))
+                })
             })
             .ok()
-            .map(|iter| iter.filter_map(|r| r.ok()).flatten().collect())
+            .map(|iter| iter.filter_map(|r| r.ok()).collect())
             .unwrap_or_default();
 
         log::info!(
@@ -2248,19 +2266,68 @@ impl PersistentRouteEngine {
             return Some(section.clone());
         }
 
-        // Query SQLite
+        // Get activity IDs from junction table
+        let activity_ids: Vec<String> = {
+            let mut stmt = match self.db.prepare(
+                "SELECT activity_id FROM section_activities WHERE section_id = ?"
+            ) {
+                Ok(s) => s,
+                Err(_) => return None,
+            };
+            stmt.query_map(params![section_id], |row| row.get(0))
+                .ok()?
+                .filter_map(|r| r.ok())
+                .collect()
+        };
+
+        // Query SQLite with new schema
         let result: Option<FrequentSection> = self
             .db
             .query_row(
-                "SELECT data FROM sections WHERE id = ?",
+                "SELECT id, section_type, name, sport_type, polyline_json, distance_meters,
+                        representative_activity_id, confidence, observation_count, average_spread,
+                        point_density_json, scale, version, is_user_defined, stability,
+                        created_at, updated_at
+                 FROM sections WHERE id = ?",
                 params![section_id],
                 |row| {
-                    let data_blob: Vec<u8> = row.get(0)?;
-                    Ok(serde_json::from_slice(&data_blob).ok())
+                    let id: String = row.get(0)?;
+                    let polyline_json: String = row.get(4)?;
+                    let point_density_json: Option<String> = row.get(10)?;
+                    let representative_activity_id: Option<String> = row.get(6)?;
+
+                    let polyline: Vec<GpsPoint> = serde_json::from_str(&polyline_json)
+                        .unwrap_or_default();
+                    let point_density: Vec<u32> = point_density_json
+                        .and_then(|j| serde_json::from_str(&j).ok())
+                        .unwrap_or_default();
+
+                    Ok(FrequentSection {
+                        id,
+                        name: row.get(2)?,
+                        sport_type: row.get(3)?,
+                        polyline,
+                        representative_activity_id: representative_activity_id.unwrap_or_default(),
+                        activity_ids: activity_ids.clone(),
+                        activity_portions: vec![],
+                        route_ids: vec![],
+                        visit_count: activity_ids.len() as u32,
+                        distance_meters: row.get(5)?,
+                        activity_traces: std::collections::HashMap::new(),
+                        confidence: row.get::<_, Option<f64>>(7)?.unwrap_or(0.0),
+                        observation_count: row.get::<_, Option<u32>>(8)?.unwrap_or(0),
+                        average_spread: row.get::<_, Option<f64>>(9)?.unwrap_or(0.0),
+                        point_density,
+                        scale: row.get(11)?,
+                        version: row.get::<_, Option<u32>>(12)?.unwrap_or(1),
+                        is_user_defined: row.get::<_, Option<i32>>(13)?.unwrap_or(0) != 0,
+                        stability: row.get::<_, Option<f64>>(14)?.unwrap_or(0.0),
+                        created_at: row.get(15)?,
+                        updated_at: row.get(16)?,
+                    })
                 },
             )
-            .ok()
-            .flatten();
+            .ok();
 
         // Cache for future access
         if let Some(ref section) = result {
@@ -2369,11 +2436,11 @@ impl PersistentRouteEngine {
         let result: Option<Vec<f64>> = self
             .db
             .query_row(
-                "SELECT data FROM sections WHERE id = ?",
+                "SELECT polyline_json FROM sections WHERE id = ?",
                 params![section_id],
                 |row| {
-                    let data_blob: Vec<u8> = row.get(0)?;
-                    let full: serde_json::Value = match serde_json::from_slice(&data_blob) {
+                    let polyline_json: String = row.get(0)?;
+                    let points: Vec<serde_json::Value> = match serde_json::from_str(&polyline_json) {
                         Ok(v) => v,
                         Err(e) => {
                             log::error!(
@@ -2385,19 +2452,14 @@ impl PersistentRouteEngine {
                         }
                     };
 
-                    let coords: Vec<f64> = full["polyline"]
-                        .as_array()
-                        .map(|points| {
-                            points
-                                .iter()
-                                .flat_map(|p| {
-                                    let lat = p["latitude"].as_f64().unwrap_or(0.0);
-                                    let lng = p["longitude"].as_f64().unwrap_or(0.0);
-                                    vec![lat, lng]
-                                })
-                                .collect()
+                    let coords: Vec<f64> = points
+                        .iter()
+                        .flat_map(|p| {
+                            let lat = p["latitude"].as_f64().unwrap_or(0.0);
+                            let lng = p["longitude"].as_f64().unwrap_or(0.0);
+                            vec![lat, lng]
                         })
-                        .unwrap_or_default();
+                        .collect();
 
                     Ok(Some(coords))
                 },
@@ -3179,14 +3241,14 @@ impl PersistentRouteEngine {
     // Section Names
     // ========================================================================
 
-    /// Set a custom name for a section.
-    /// Pass None to clear the custom name.
+    /// Set the name for a section.
+    /// Pass None to clear the name.
     pub fn set_section_name(&mut self, section_id: &str, name: Option<&str>) -> SqlResult<()> {
         match name {
             Some(n) => {
                 self.db.execute(
-                    "INSERT OR REPLACE INTO section_names (section_id, custom_name) VALUES (?, ?)",
-                    params![section_id, n],
+                    "UPDATE sections SET name = ? WHERE id = ?",
+                    params![n, section_id],
                 )?;
                 // Update in-memory section
                 if let Some(section) = self.sections.iter_mut().find(|s| s.id == section_id) {
@@ -3195,7 +3257,7 @@ impl PersistentRouteEngine {
             }
             None => {
                 self.db.execute(
-                    "DELETE FROM section_names WHERE section_id = ?",
+                    "UPDATE sections SET name = NULL WHERE id = ?",
                     params![section_id],
                 )?;
                 // Update in-memory section
@@ -3207,7 +3269,7 @@ impl PersistentRouteEngine {
         Ok(())
     }
 
-    /// Get the custom name for a section (if any).
+    /// Get the name for a section (if any).
     pub fn get_section_name(&self, section_id: &str) -> Option<String> {
         // Check in-memory sections first
         self.sections
@@ -3216,7 +3278,7 @@ impl PersistentRouteEngine {
             .and_then(|s| s.name.clone())
     }
 
-    /// Get all custom section names.
+    /// Get all section names.
     pub fn get_all_section_names(&self) -> HashMap<String, String> {
         self.sections
             .iter()
@@ -4005,8 +4067,17 @@ pub mod persistent_engine_ffi {
         .unwrap_or_else(|| "{}".to_string())
     }
 
-    /// Set a custom name for a section.
-    /// Pass empty string to clear the custom name.
+    /// Get all section names as JSON.
+    #[uniffi::export]
+    pub fn persistent_engine_get_all_section_names_json() -> String {
+        with_persistent_engine(|e| {
+            serde_json::to_string(&e.get_all_section_names()).unwrap_or_else(|_| "{}".to_string())
+        })
+        .unwrap_or_else(|| "{}".to_string())
+    }
+
+    /// Set the name for a section.
+    /// Pass empty string to clear the name.
     #[uniffi::export]
     pub fn persistent_engine_set_section_name(section_id: String, name: String) {
         let name_opt = if name.is_empty() {
@@ -4019,22 +4090,13 @@ pub mod persistent_engine_ffi {
         });
     }
 
-    /// Get the custom name for a section.
-    /// Returns empty string if no custom name is set.
+    /// Get the name for a section.
+    /// Returns empty string if no name is set.
     #[uniffi::export]
     pub fn persistent_engine_get_section_name(section_id: String) -> String {
         with_persistent_engine(|e| e.get_section_name(&section_id))
             .flatten()
             .unwrap_or_default()
-    }
-
-    /// Get all custom section names as JSON.
-    #[uniffi::export]
-    pub fn persistent_engine_get_all_section_names_json() -> String {
-        with_persistent_engine(|e| {
-            serde_json::to_string(&e.get_all_section_names()).unwrap_or_else(|_| "{}".to_string())
-        })
-        .unwrap_or_else(|| "{}".to_string())
     }
 
     /// Set activity metrics for performance calculations.

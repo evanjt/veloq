@@ -149,11 +149,14 @@ export function useUnifiedSections(
         seenIds.add(custom.id);
         result.push({
           id: custom.id,
+          sectionType: 'custom',
           name: custom.name || '',
           polyline: custom.polyline,
           sportType: custom.sportType,
           distanceMeters: custom.distanceMeters,
+          activityIds: custom.activityIds || [],
           visitCount: custom.visitCount || custom.activityIds?.length || 1,
+          createdAt: custom.createdAt || new Date().toISOString(),
           source: 'custom',
         });
       }
@@ -171,11 +174,14 @@ export function useUnifiedSections(
         seenIds.add(engine.id);
         result.push({
           id: engine.id,
+          sectionType: 'auto',
           name: generateSectionName(engine),
           polyline: engine.polyline, // Empty for list view, lazy-loaded in SectionRow
           sportType: engine.sportType,
           distanceMeters: engine.distanceMeters,
+          activityIds: engine.activityIds || [],
           visitCount: engine.visitCount,
+          createdAt: engine.createdAt || new Date().toISOString(),
           source: 'auto',
           isDisabled: isDisabled(engine.id),
           engineData: engine, // Lightweight - no polyline/activityTraces
@@ -206,11 +212,14 @@ export function useUnifiedSections(
 
           result.push({
             id: potential.id,
+            sectionType: 'auto',
             name: `Suggested: ${potential.sportType} (${distanceStr})`,
             polyline: potential.polyline,
             sportType: potential.sportType,
             distanceMeters: potential.distanceMeters,
+            activityIds: potential.activityIds || [],
             visitCount: potential.visitCount,
+            createdAt: new Date().toISOString(),
             source: 'potential',
             potentialData: potential,
           });
@@ -225,9 +234,9 @@ export function useUnifiedSections(
       if (!a.isDisabled && b.isDisabled) return -1;
 
       // Source priority
-      const sourcePriority = { custom: 0, auto: 1, potential: 2 };
-      const aPriority = sourcePriority[a.source];
-      const bPriority = sourcePriority[b.source];
+      const sourcePriority: Record<string, number> = { custom: 0, auto: 1, potential: 2 };
+      const aPriority = sourcePriority[a.source ?? 'auto'] ?? 1;
+      const bPriority = sourcePriority[b.source ?? 'auto'] ?? 1;
 
       if (aPriority !== bPriority) return aPriority - bPriority;
 

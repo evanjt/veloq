@@ -81,20 +81,19 @@ describe('DashboardPreferencesStore', () => {
     });
 
     /**
-     * BUG TEST: Negative fromIndex
-     *
-     * splice(-1, 1) removes the LAST element (JavaScript behavior).
-     * This may not be the intended behavior.
+     * Negative indices should be treated as invalid and result in no-op.
+     * Previously splice(-1, 1) would remove the LAST element - that was a bug.
      */
-    it('negative fromIndex removes last element (unexpected behavior)', () => {
+    it('negative fromIndex should no-op (bounds checking)', () => {
       const enabledBefore = useDashboardPreferences.getState().getEnabledMetrics();
-      const lastId = enabledBefore[enabledBefore.length - 1].id;
+      const orderBefore = enabledBefore.map((m) => m.id);
 
       useDashboardPreferences.getState().reorderMetrics(-1, 0);
 
       const enabledAfter = useDashboardPreferences.getState().getEnabledMetrics();
-      // Due to splice(-1, 1) behavior, last element was moved to index 0
-      expect(enabledAfter[0].id).toBe(lastId);
+      const orderAfter = enabledAfter.map((m) => m.id);
+      // Should be unchanged - negative index is invalid
+      expect(orderAfter).toEqual(orderBefore);
     });
 
     /**

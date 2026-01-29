@@ -383,10 +383,27 @@ export default function SectionDetailScreen() {
         if (fresh) {
           // Map polyline coordinates from lat/lng to RoutePoint format
           // and use ALL fresh data to get updated activityIds, visitCount, etc.
+          // Also cast activityPortions direction and ensure required fields
+          const freshAny = fresh as unknown as Record<string, unknown>;
+          const sectionType: 'auto' | 'custom' =
+            typeof freshAny.sectionType === 'string' && freshAny.sectionType === 'custom'
+              ? 'custom'
+              : 'auto';
+          const createdAt =
+            typeof freshAny.createdAt === 'string' ? freshAny.createdAt : new Date().toISOString();
           return {
             ...fresh,
-            polyline: fresh.polyline.map((p) => ({ lat: p.latitude, lng: p.longitude })),
-          };
+            sectionType,
+            polyline: fresh.polyline.map((p: { latitude: number; longitude: number }) => ({
+              lat: p.latitude,
+              lng: p.longitude,
+            })),
+            activityPortions: fresh.activityPortions?.map((p) => ({
+              ...p,
+              direction: (p.direction === 'reverse' ? 'reverse' : 'same') as 'same' | 'reverse',
+            })),
+            createdAt,
+          } as FrequentSection;
         }
       }
     }
@@ -423,17 +440,19 @@ export default function SectionDetailScreen() {
 
     // Check if it's a custom section and convert to FrequentSection shape
     if (customSection) {
-      // Include source activity if not already in matches
-      const matchActivityIds = customSection.matches.map((m) => m.activityId);
-      const includeSourceActivity = !matchActivityIds.includes(customSection.sourceActivityId);
+      // Include source activity if not already in matches or activityIds
+      const matchActivityIds = customSection.matches?.map((m) => m.activityId) ?? [];
+      const allActivityIds = [...matchActivityIds, ...(customSection.activityIds ?? [])];
+      const includeSourceActivity =
+        customSection.sourceActivityId && !allActivityIds.includes(customSection.sourceActivityId);
 
       const activityIds = includeSourceActivity
-        ? [customSection.sourceActivityId, ...matchActivityIds]
-        : matchActivityIds;
+        ? [customSection.sourceActivityId!, ...allActivityIds]
+        : allActivityIds;
 
       const activityPortions = [
         // Include source activity portion if not in matches
-        ...(includeSourceActivity
+        ...(includeSourceActivity && customSection.sourceActivityId
           ? [
               {
                 activityId: customSection.sourceActivityId,
@@ -445,7 +464,7 @@ export default function SectionDetailScreen() {
             ]
           : []),
         // Include all match portions
-        ...customSection.matches.map((m) => ({
+        ...(customSection.matches ?? []).map((m) => ({
           activityId: m.activityId,
           startIndex: m.startIndex,
           endIndex: m.endIndex,
@@ -490,6 +509,11 @@ export default function SectionDetailScreen() {
   const sectionWithTraces = useMemo(() => {
     if (!section) return null;
 
+    // Cast to access optional activityTraces property (may not exist on all section types)
+    const sectionAny = section as unknown as {
+      activityTraces?: Record<string, RoutePoint[]>;
+    };
+
     // Always prefer computed traces (from extractSectionTrace) over pre-computed ones
     // Pre-computed activityTraces from Rust may use simple index slicing which creates
     // straight lines when the activity takes a different path between section entry/exit
@@ -501,8 +525,11 @@ export default function SectionDetailScreen() {
     }
 
     // Fall back to engine's activityTraces if we haven't computed our own yet
-    if (section.activityTraces && Object.keys(section.activityTraces).length > 0) {
-      return section;
+    if (sectionAny.activityTraces && Object.keys(sectionAny.activityTraces).length > 0) {
+      return {
+        ...section,
+        activityTraces: sectionAny.activityTraces,
+      };
     }
 
     return section;
@@ -527,7 +554,7 @@ export default function SectionDetailScreen() {
 
     // Convert polyline to JSON string for Rust engine (do this once)
     const polylineJson = JSON.stringify(
-      section.polyline.map((p) => ({
+      section.polyline.map((p: { lat: number; lng: number }) => ({
         latitude: p.lat,
         longitude: p.lng,
       }))
@@ -567,16 +594,13 @@ export default function SectionDetailScreen() {
     };
   }, [section]);
 
-  // Load custom section name from Rust engine on mount
+  // Load custom section name from section data on mount
+  // Section names are now stored directly in the section.name field
   useEffect(() => {
-    if (id) {
-      const engine = getRouteEngine();
-      const name = engine?.getSectionName(id);
-      if (name) {
-        setCustomName(name);
-      }
+    if (section?.name) {
+      setCustomName(section.name);
     }
-  }, [id]);
+  }, [section?.name]);
 
   // Handle starting to edit the section name
   const handleStartEditing = useCallback(() => {
@@ -943,7 +967,7 @@ export default function SectionDetailScreen() {
   // Map of activity portions for direction lookup
   const portionMap = useMemo(() => {
     if (!section?.activityPortions) return new Map();
-    return new Map(section.activityPortions.map((p) => [p.activityId, p]));
+    return new Map(section.activityPortions.map((p: { activityId: string }) => [p.activityId, p]));
   }, [section?.activityPortions]);
 
   // Map of performance records for fast lookup (avoid .find() in render loop)
@@ -1292,7 +1316,7 @@ export default function SectionDetailScreen() {
               </Text>
               <Text style={styles.heroStatDivider}>·</Text>
               <Text style={styles.heroStat}>
-                {section.routeIds.length} {t('sections.routesCount')}
+                {section.routeIds?.length ?? 0} {t('sections.routesCount')}
               </Text>
             </View>
           </View>

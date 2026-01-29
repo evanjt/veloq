@@ -307,6 +307,9 @@ impl PersistentRouteEngine {
             return Err(format!("Section not found: {}", section_id));
         }
 
+        // Update in-memory section for immediate visibility
+        self.update_section_name_in_memory(section_id, name);
+
         Ok(())
     }
 

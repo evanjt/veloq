@@ -281,7 +281,18 @@ describe('RouteSettingsStore', () => {
   // ============================================================
 
   describe('AsyncStorage Error Handling', () => {
-    it('setEnabled catches write errors and does not update state', async () => {
+    /**
+     * NOTE: The store now uses OPTIMISTIC UPDATES to fix the parallel updates race condition.
+     * State updates immediately (synchronously), then persistence happens asynchronously.
+     * If persistence fails, state IS updated but storage may be out of sync.
+     *
+     * This is a deliberate tradeoff:
+     * - Pro: Fixes race condition where parallel updates lose changes
+     * - Con: State and storage can briefly diverge on write errors
+     * - Mitigation: App restart will reload from storage (last successful write)
+     */
+
+    it('setEnabled uses optimistic update - state changes even if write fails', async () => {
       const mockSetItem = AsyncStorage.setItem as jest.Mock;
       mockSetItem.mockRejectedValueOnce(new Error('Write failed'));
 
@@ -292,14 +303,12 @@ describe('RouteSettingsStore', () => {
 
       await useRouteSettings.getState().setEnabled(false);
 
-      // State should remain unchanged because write failed
-      // Note: Current implementation DOES update state even on error
-      // This test documents actual behavior
+      // State IS updated (optimistic) even though write failed
       const state = useRouteSettings.getState();
-      expect(state.settings.enabled).toBe(true); // Should stay true
+      expect(state.settings.enabled).toBe(false); // State updated optimistically
     });
 
-    it('setRetentionDays catches write errors and does not update state', async () => {
+    it('setRetentionDays uses optimistic update - state changes even if write fails', async () => {
       const mockSetItem = AsyncStorage.setItem as jest.Mock;
       mockSetItem.mockRejectedValueOnce(new Error('Write failed'));
 
@@ -310,11 +319,12 @@ describe('RouteSettingsStore', () => {
 
       await useRouteSettings.getState().setRetentionDays(90);
 
+      // State IS updated (optimistic) even though write failed
       const state = useRouteSettings.getState();
-      expect(state.settings.retentionDays).toBe(0); // Should stay 0
+      expect(state.settings.retentionDays).toBe(90); // State updated optimistically
     });
 
-    it('setAutoCleanupEnabled catches write errors and does not update state', async () => {
+    it('setAutoCleanupEnabled uses optimistic update - state changes even if write fails', async () => {
       const mockSetItem = AsyncStorage.setItem as jest.Mock;
       mockSetItem.mockRejectedValueOnce(new Error('Write failed'));
 
@@ -325,8 +335,9 @@ describe('RouteSettingsStore', () => {
 
       await useRouteSettings.getState().setAutoCleanupEnabled(true);
 
+      // State IS updated (optimistic) even though write failed
       const state = useRouteSettings.getState();
-      expect(state.settings.autoCleanupEnabled).toBe(false); // Should stay false
+      expect(state.settings.autoCleanupEnabled).toBe(true); // State updated optimistically
     });
   });
 

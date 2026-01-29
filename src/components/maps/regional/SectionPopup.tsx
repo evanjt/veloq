@@ -8,7 +8,6 @@ import { spacing, layout } from '@/theme/spacing';
 import { shadows } from '@/theme/shadows';
 import { getActivityTypeConfig } from '../ActivityTypeFilter';
 import { getActivityIcon } from '@/lib/utils/activityUtils';
-import { getRouteEngine } from '@/lib/native/routeEngine';
 import type { FrequentSection } from '@/types';
 
 interface SectionPopupProps {
@@ -27,11 +26,8 @@ export const SectionPopup = memo(function SectionPopup({
   const { t } = useTranslation();
   const config = getActivityTypeConfig(section.sportType);
 
-  // Get custom name from Rust engine (single source of truth)
+  // Get display name from section data (name is now stored directly in section)
   const displayName = useMemo(() => {
-    const engine = getRouteEngine();
-    const customName = engine?.getSectionName(section.id);
-    if (customName) return customName;
     if (section.name) return section.name;
     return t('sections.defaultName', { number: section.id.slice(-6) }) as string;
   }, [section.id, section.name, t]);
@@ -73,7 +69,7 @@ export const SectionPopup = memo(function SectionPopup({
         </View>
         <View style={styles.popupStat}>
           <MaterialCommunityIcons name="map-marker-path" size={20} color={colors.chartAmber} />
-          <Text style={styles.popupStatValue}>{section.routeIds.length} routes</Text>
+          <Text style={styles.popupStatValue}>{section.routeIds?.length ?? 0} routes</Text>
         </View>
       </View>
 

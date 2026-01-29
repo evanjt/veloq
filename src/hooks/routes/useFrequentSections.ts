@@ -36,12 +36,26 @@ export interface UseFrequentSectionsResult {
 /**
  * Convert SectionSummary to FrequentSection-like object.
  * Polylines are lazy-loaded via useSectionPolyline in SectionRow.
+ * Note: SectionSummary from veloqrs may not have sectionType/createdAt fields
+ * (old PersistentEngine type vs new unified Section type).
  */
 function summaryToFrequentSection(
   summary: SectionSummary
 ): FrequentSection & { activityCount: number } {
+  // Handle both old and new SectionSummary types
+  const summaryAny = summary as unknown as Record<string, unknown>;
+  const sectionType =
+    typeof summaryAny.sectionType === 'string'
+      ? summaryAny.sectionType === 'custom'
+        ? 'custom'
+        : 'auto'
+      : 'auto';
+  const createdAt =
+    typeof summaryAny.createdAt === 'string' ? summaryAny.createdAt : new Date().toISOString();
+
   return {
     id: summary.id,
+    sectionType,
     name: summary.name,
     sportType: summary.sportType,
     polyline: [], // Lazy-loaded via useSectionPolyline
@@ -51,6 +65,7 @@ function summaryToFrequentSection(
     distanceMeters: summary.distanceMeters,
     confidence: summary.confidence,
     activityCount: summary.activityCount, // Preserve for display
+    createdAt,
   };
 }
 

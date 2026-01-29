@@ -400,6 +400,8 @@ export interface Section {
   endIndex?: number;
 
   // Legacy fields for backward compatibility (deprecated)
+  /** @deprecated Use activityIds and activityPortions instead */
+  matches?: ActivitySectionRecord[];
   /** @deprecated Use activityIds and query traces separately */
   activityTraces?: Record<string, RoutePoint[]>;
   /** @deprecated Portion data for each activity */

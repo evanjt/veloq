@@ -98,7 +98,20 @@ export const useDashboardPreferences = create<DashboardPreferencesState>((set, g
 
   setMetricEnabled: (id, enabled) => {
     set((state) => {
-      const newMetrics = state.metrics.map((m) => (m.id === id ? { ...m, enabled } : m));
+      const newMetrics = state.metrics.map((m) => {
+        if (m.id === id) {
+          if (enabled && !m.enabled) {
+            // Re-enabling: assign next sequential order after all currently enabled metrics
+            const maxEnabledOrder = state.metrics
+              .filter((metric) => metric.enabled && metric.id !== id)
+              .reduce((max, metric) => Math.max(max, metric.order), -1);
+            return { ...m, enabled, order: maxEnabledOrder + 1 };
+          }
+          // Disabling or no change: just toggle enabled
+          return { ...m, enabled };
+        }
+        return m;
+      });
       // Persist
       persistPreferences(newMetrics);
       return { metrics: newMetrics };
@@ -110,6 +123,16 @@ export const useDashboardPreferences = create<DashboardPreferencesState>((set, g
       const enabledMetrics = [...state.metrics]
         .filter((m) => m.enabled)
         .sort((a, b) => a.order - b.order);
+
+      // Bounds checking: no-op if indices are out of range
+      if (
+        fromIndex < 0 ||
+        fromIndex >= enabledMetrics.length ||
+        toIndex < 0 ||
+        toIndex >= enabledMetrics.length
+      ) {
+        return state; // Return unchanged state for invalid indices
+      }
 
       // Reorder within enabled metrics
       const [moved] = enabledMetrics.splice(fromIndex, 1);

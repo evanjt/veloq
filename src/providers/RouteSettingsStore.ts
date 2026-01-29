@@ -30,7 +30,7 @@ const DEFAULT_SETTINGS: RouteSettings = {
  * Type guard for RouteSettings
  */
 function isRouteSettings(value: unknown): value is RouteSettings {
-  if (typeof value !== 'object' || value === null) return false;
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return false;
   const obj = value as Record<string, unknown>;
   // enabled is optional in partial, so just check it's boolean if present
   if ('enabled' in obj && typeof obj.enabled !== 'boolean') return false;
@@ -74,39 +74,48 @@ export const useRouteSettings = create<RouteSettingsState>((set, get) => ({
   },
 
   setEnabled: async (enabled: boolean) => {
-    const newSettings = { ...get().settings, enabled };
-    try {
-      await AsyncStorage.setItem(ROUTE_SETTINGS_KEY, JSON.stringify(newSettings));
-      set({ settings: newSettings });
-    } catch (error) {
-      log.error('Failed to save settings:', error);
-    }
+    // Use functional update to ensure we read the latest state (fixes race condition)
+    set((state) => {
+      const newSettings = { ...state.settings, enabled };
+      // Persist asynchronously - errors logged but don't block state update
+      AsyncStorage.setItem(ROUTE_SETTINGS_KEY, JSON.stringify(newSettings)).catch((error) => {
+        log.error('Failed to save settings:', error);
+      });
+      return { settings: newSettings };
+    });
   },
 
   setRetentionDays: async (days: number) => {
     // Validate retention days (0 = keep all, 30-365 for cleanup)
     const validatedDays = days === 0 ? 0 : Math.max(30, Math.min(365, days));
-    const newSettings = { ...get().settings, retentionDays: validatedDays };
-    try {
-      await AsyncStorage.setItem(ROUTE_SETTINGS_KEY, JSON.stringify(newSettings));
-      set({ settings: newSettings });
-      log.log(
-        `Retention period set to ${validatedDays === 0 ? 'keep all' : `${validatedDays} days`}`
-      );
-    } catch (error) {
-      log.error('Failed to save retention days:', error);
-    }
+
+    // Use functional update to ensure we read the latest state (fixes race condition)
+    set((state) => {
+      const newSettings = { ...state.settings, retentionDays: validatedDays };
+      // Persist asynchronously - errors logged but don't block state update
+      AsyncStorage.setItem(ROUTE_SETTINGS_KEY, JSON.stringify(newSettings)).catch((error) => {
+        log.error('Failed to save retention days:', error);
+      });
+      return { settings: newSettings };
+    });
+
+    log.log(
+      `Retention period set to ${validatedDays === 0 ? 'keep all' : `${validatedDays} days`}`
+    );
   },
 
   setAutoCleanupEnabled: async (enabled: boolean) => {
-    const newSettings = { ...get().settings, autoCleanupEnabled: enabled };
-    try {
-      await AsyncStorage.setItem(ROUTE_SETTINGS_KEY, JSON.stringify(newSettings));
-      set({ settings: newSettings });
-      log.log(`Auto cleanup ${enabled ? 'enabled' : 'disabled'}`);
-    } catch (error) {
-      log.error('Failed to save auto cleanup setting:', error);
-    }
+    // Use functional update to ensure we read the latest state (fixes race condition)
+    set((state) => {
+      const newSettings = { ...state.settings, autoCleanupEnabled: enabled };
+      // Persist asynchronously - errors logged but don't block state update
+      AsyncStorage.setItem(ROUTE_SETTINGS_KEY, JSON.stringify(newSettings)).catch((error) => {
+        log.error('Failed to save auto cleanup setting:', error);
+      });
+      return { settings: newSettings };
+    });
+
+    log.log(`Auto cleanup ${enabled ? 'enabled' : 'disabled'}`);
   },
 }));
 

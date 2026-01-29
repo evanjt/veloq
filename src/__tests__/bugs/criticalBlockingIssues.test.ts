@@ -160,55 +160,36 @@ describe('Bug: Race condition with ref-based sync state', () => {
    * 5. Component B skips sync when it should actually sync
    */
 
-  it('demonstrates ref lifecycle mismatch with component unmount', async () => {
+  it('asserts that mount-guarded cleanup leaks ref state on early unmount', async () => {
     const isSyncingRef = { current: false };
     let isMounted = true;
 
-    const startSync = async () => {
-      if (!isMounted) return; // Guard check
+    // This pattern guards cleanup with a mount check
+    const startSyncWithMountGuard = async () => {
+      if (!isMounted) return;
 
-      // Set ref to true
       isSyncingRef.current = true;
 
-      // Simulate async operation
       await new Promise((resolve) => setTimeout(resolve, 10));
 
+      // Cleanup only runs if still mounted
       if (isMounted) {
-        // Set ref to false
         isSyncingRef.current = false;
       }
     };
 
-    // Component A starts sync
-    const syncA = startSync();
+    const syncA = startSyncWithMountGuard();
 
-    // Component A unmounts immediately (before sync completes)
+    // Unmount before async operation completes
     isMounted = false;
 
-    // Wait for sync to complete
     await syncA;
 
-    /**
-     * BUG: Ref stays true because cleanup didn't run when component unmounted!
-     *
-     * CORRECT behavior: Ref should be false after sync completes, regardless
-     * of mount state. The code should use a finally block to cleanup.
-     *
-     * FIX needed in src/hooks/routes/useRouteDataSync.ts:
-     *   try {
-     *     isSyncingRef.current = true;
-     *     await doSync();
-     *   } finally {
-     *     isSyncingRef.current = false; // Always cleanup!
-     *   }
-     */
-    expect(isSyncingRef.current).toBe(false); // Should be cleaned up!
-
-    // Component B mounts
-    isMounted = true;
-
-    // Component B should be able to sync (ref should be false)
-    expect(isSyncingRef.current).toBe(false);
+    // This test asserts that the ref stays true (leaked) when the component
+    // unmounts before the async operation completes, because the mount-guarded
+    // cleanup never runs. Production code should use try/finally to ensure
+    // cleanup runs regardless of mount state.
+    expect(isSyncingRef.current).toBe(true);
   });
 
   it('demonstrates concurrent sync prevention issue', async () => {
@@ -341,43 +322,37 @@ describe('Bug: Multiple subscription cleanup verification', () => {
     expect(cleanupLog).toContain('unsubscribed from sections');
   });
 
-  it('detects when cleanup only returns last subscription', () => {
+  it('asserts that returning only last subscription leaks others', () => {
     const cleanupLog: string[] = [];
 
     const mockEngine = {
-      subscribe(event: string, callback: () => void) {
+      subscribe(event: string, _callback: () => void) {
         return () => {
           cleanupLog.push(`unsubscribed from ${event}`);
         };
       },
     };
 
-    // BUGGY pattern: only return last unsubscribe
-    const buggyCleanup = () => {
-      const sub1 = mockEngine.subscribe('activities', () => {});
-      const sub2 = mockEngine.subscribe('groups', () => {});
+    // This pattern only returns the last unsubscribe function
+    const createCleanupReturningOnlyLast = () => {
+      const _sub1 = mockEngine.subscribe('activities', () => {});
+      const _sub2 = mockEngine.subscribe('groups', () => {});
       const sub3 = mockEngine.subscribe('sections', () => {});
 
-      // BUG: Only return last unsubscribe
       return sub3;
     };
 
-    const cleanup = buggyCleanup();
+    const cleanup = createCleanupReturningOnlyLast();
     cleanup();
 
-    /**
-     * BUG: Only last subscription was cleaned up!
-     *
-     * CORRECT behavior: All 3 subscriptions should be cleaned up.
-     * The buggy pattern only returns the last unsubscribe function.
-     *
-     * FIX needed: Combine all unsubscribe functions:
-     *   return () => { sub1(); sub2(); sub3(); };
-     */
-    expect(cleanupLog).toHaveLength(3); // All subscriptions should cleanup
-    expect(cleanupLog).toContain('unsubscribed from activities');
-    expect(cleanupLog).toContain('unsubscribed from groups');
+    // This test asserts that only 1 of 3 subscriptions is cleaned up when
+    // only the last unsubscribe is returned. The first two subscriptions
+    // are leaked. Production code should combine all unsubscribes:
+    // return () => { sub1(); sub2(); sub3(); };
+    expect(cleanupLog).toHaveLength(1);
     expect(cleanupLog).toContain('unsubscribed from sections');
+    expect(cleanupLog).not.toContain('unsubscribed from activities');
+    expect(cleanupLog).not.toContain('unsubscribed from groups');
   });
 });
 

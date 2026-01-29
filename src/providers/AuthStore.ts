@@ -16,6 +16,14 @@ const API_KEY_STORAGE_KEY = 'intervals_api_key';
 const ATHLETE_ID_STORAGE_KEY = 'intervals_athlete_id';
 const ACCESS_TOKEN_STORAGE_KEY = 'intervals_access_token';
 
+/**
+ * Validates that a credential is non-null and non-empty after trimming.
+ * Empty strings and whitespace-only strings are invalid.
+ */
+function isValidCredential(credential: string | null): credential is string {
+  return credential !== null && credential.trim().length > 0;
+}
+
 // Demo mode athlete ID
 export const DEMO_ATHLETE_ID = 'demo';
 
@@ -81,10 +89,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       let authMethod: AuthMethod = null;
       let isAuthenticated = false;
 
-      if (accessToken && athleteId) {
+      if (isValidCredential(accessToken) && isValidCredential(athleteId)) {
         authMethod = 'oauth';
         isAuthenticated = true;
-      } else if (apiKey && athleteId) {
+      } else if (isValidCredential(apiKey) && isValidCredential(athleteId)) {
         authMethod = 'apiKey';
         isAuthenticated = true;
       } else {
@@ -101,9 +109,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       }
 
       set({
-        apiKey,
-        accessToken,
-        athleteId,
+        apiKey: isValidCredential(apiKey) ? apiKey.trim() : null,
+        accessToken: isValidCredential(accessToken) ? accessToken.trim() : null,
+        athleteId: isValidCredential(athleteId) ? athleteId.trim() : null,
         isAuthenticated,
         isLoading: false,
         isDemoMode: false,
@@ -120,11 +128,22 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   setCredentials: async (apiKey: string, athleteId: string) => {
+    // Trim and validate credentials
+    const trimmedApiKey = apiKey?.trim() ?? '';
+    const trimmedAthleteId = athleteId?.trim() ?? '';
+
+    if (!isValidCredential(trimmedApiKey) || !isValidCredential(trimmedAthleteId)) {
+      if (__DEV__) {
+        console.warn('[AuthStore] Invalid credentials - empty or whitespace only');
+      }
+      return;
+    }
+
     await Promise.all([
-      SecureStore.setItemAsync(API_KEY_STORAGE_KEY, apiKey, {
+      SecureStore.setItemAsync(API_KEY_STORAGE_KEY, trimmedApiKey, {
         keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
       }),
-      SecureStore.setItemAsync(ATHLETE_ID_STORAGE_KEY, athleteId, {
+      SecureStore.setItemAsync(ATHLETE_ID_STORAGE_KEY, trimmedAthleteId, {
         keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
       }),
       // Clear OAuth token when using API key auth
@@ -132,9 +151,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     ]);
 
     set({
-      apiKey,
+      apiKey: trimmedApiKey,
       accessToken: null,
-      athleteId,
+      athleteId: trimmedAthleteId,
       isAuthenticated: true,
       isDemoMode: false,
       authMethod: 'apiKey',
@@ -142,11 +161,22 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   setOAuthCredentials: async (accessToken: string, athleteId: string, athleteName?: string) => {
+    // Trim and validate credentials
+    const trimmedAccessToken = accessToken?.trim() ?? '';
+    const trimmedAthleteId = athleteId?.trim() ?? '';
+
+    if (!isValidCredential(trimmedAccessToken) || !isValidCredential(trimmedAthleteId)) {
+      if (__DEV__) {
+        console.warn('[AuthStore] Invalid OAuth credentials - empty or whitespace only');
+      }
+      return;
+    }
+
     await Promise.all([
-      SecureStore.setItemAsync(ACCESS_TOKEN_STORAGE_KEY, accessToken, {
+      SecureStore.setItemAsync(ACCESS_TOKEN_STORAGE_KEY, trimmedAccessToken, {
         keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
       }),
-      SecureStore.setItemAsync(ATHLETE_ID_STORAGE_KEY, athleteId, {
+      SecureStore.setItemAsync(ATHLETE_ID_STORAGE_KEY, trimmedAthleteId, {
         keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
       }),
       // Clear API key when using OAuth
@@ -154,14 +184,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     ]);
 
     set({
-      accessToken,
+      accessToken: trimmedAccessToken,
       apiKey: null,
-      athleteId,
+      athleteId: trimmedAthleteId,
       isAuthenticated: true,
       isDemoMode: false,
       authMethod: 'oauth',
       // Set basic athlete info if provided
-      athlete: athleteName ? ({ id: athleteId, name: athleteName } as Athlete) : null,
+      athlete: athleteName ? ({ id: trimmedAthleteId, name: athleteName } as Athlete) : null,
     });
   },
 

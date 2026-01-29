@@ -138,13 +138,16 @@ export function useCustomSections(options: UseCustomSectionsOptions = {}): UseCu
       const sections = engine.getSectionsByType('custom');
 
       // Convert polylines to RoutePoint format
-      return sections.map(
-        (s): Section => ({
-          ...s,
-          polyline: gpsPointsToRoutePoints(s.polyline as unknown as GpsPoint[]),
-          sectionType: 'custom',
-        })
-      );
+      return sections.map((s) => ({
+        ...s,
+        polyline: gpsPointsToRoutePoints(s.polyline as unknown as GpsPoint[]),
+        sectionType: 'custom' as const,
+        createdAt: s.createdAt || new Date().toISOString(),
+        activityPortions: s.activityPortions?.map((p) => ({
+          ...p,
+          direction: (p.direction === 'reverse' ? 'reverse' : 'same') as 'same' | 'reverse',
+        })),
+      })) as Section[];
     },
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
@@ -198,11 +201,16 @@ export function useCustomSections(options: UseCustomSectionsOptions = {}): UseCu
         throw new Error('Section created but could not be retrieved');
       }
 
-      const result: Section = {
+      const result = {
         ...section,
         polyline: gpsPointsToRoutePoints(section.polyline as unknown as GpsPoint[]),
-        sectionType: 'custom',
-      };
+        sectionType: 'custom' as const,
+        createdAt: section.createdAt || new Date().toISOString(),
+        activityPortions: section.activityPortions?.map((p) => ({
+          ...p,
+          direction: (p.direction === 'reverse' ? 'reverse' : 'same') as 'same' | 'reverse',
+        })),
+      } as Section;
 
       if (__DEV__) {
         console.log(

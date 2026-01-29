@@ -20,13 +20,25 @@ function convertNativeSectionToApp(native: NativeFrequentSection): FrequentSecti
   // Convert polyline from GpsPoint[] to RoutePoint[]
   const polyline = gpsPointsToRoutePoints(native.polyline);
 
+  // Use actual section type from database (auto or custom)
+  // Fall back to 'auto' if not present for backwards compatibility
+  const sectionType =
+    (native as unknown as { sectionType?: 'auto' | 'custom' }).sectionType || 'auto';
+
+  // Cast activityPortions direction from string to union type
+  const activityPortions = native.activityPortions?.map((p) => ({
+    ...p,
+    direction: (p.direction === 'reverse' ? 'reverse' : 'same') as 'same' | 'reverse',
+  }));
+
   return {
     id: native.id,
+    sectionType,
     sportType: native.sportType,
     polyline,
     representativeActivityId: native.representativeActivityId,
     activityIds: native.activityIds,
-    activityPortions: native.activityPortions,
+    activityPortions,
     routeIds: native.routeIds,
     visitCount: native.visitCount,
     distanceMeters: native.distanceMeters,
@@ -35,6 +47,7 @@ function convertNativeSectionToApp(native: NativeFrequentSection): FrequentSecti
     observationCount: native.observationCount,
     averageSpread: native.averageSpread,
     pointDensity: native.pointDensity,
+    createdAt: new Date().toISOString(),
   };
 }
 

@@ -94,25 +94,27 @@ export function MapPreferencesProvider({ children }: { children: ReactNode }) {
     await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(newPrefs));
   }, []);
 
-  // Set default style - uses functional update to avoid preferences in deps
+  // Set default style - persist inside callback to fix React 18 batching issue
   const setDefaultStyle = useCallback(
     async (style: MapStyleType) => {
-      let newPrefs: MapPreferences | null = null;
       setPreferences((prev) => {
-        newPrefs = { ...prev, defaultStyle: style };
+        const newPrefs = { ...prev, defaultStyle: style };
+        // Persist inside callback where newPrefs is captured correctly
+        // (React 18 batching defers setState, so external access to newPrefs would be null)
+        savePreferences(newPrefs).catch((error) => {
+          if (__DEV__) {
+            console.warn('[MapPreferences] Failed to persist:', error);
+          }
+        });
         return newPrefs;
       });
-      if (newPrefs) {
-        await savePreferences(newPrefs);
-      }
     },
     [savePreferences]
   );
 
-  // Set activity type style
+  // Set activity type style - persist inside callback to fix React 18 batching issue
   const setActivityTypeStyle = useCallback(
     async (activityType: ActivityType, style: MapStyleType | null) => {
-      let newPrefs: MapPreferences | null = null;
       setPreferences((prev) => {
         const newStyles = { ...prev.activityTypeStyles };
         if (style === null) {
@@ -120,20 +122,22 @@ export function MapPreferencesProvider({ children }: { children: ReactNode }) {
         } else {
           newStyles[activityType] = style;
         }
-        newPrefs = { ...prev, activityTypeStyles: newStyles };
+        const newPrefs = { ...prev, activityTypeStyles: newStyles };
+        // Persist inside callback where newPrefs is captured correctly
+        savePreferences(newPrefs).catch((error) => {
+          if (__DEV__) {
+            console.warn('[MapPreferences] Failed to persist:', error);
+          }
+        });
         return newPrefs;
       });
-      if (newPrefs) {
-        await savePreferences(newPrefs);
-      }
     },
     [savePreferences]
   );
 
-  // Set style for a group of activity types (batch update)
+  // Set style for a group of activity types (batch update) - persist inside callback
   const setActivityGroupStyle = useCallback(
     async (activityTypes: ActivityType[], style: MapStyleType | null) => {
-      let newPrefs: MapPreferences | null = null;
       setPreferences((prev) => {
         const newStyles = { ...prev.activityTypeStyles };
         for (const activityType of activityTypes) {
@@ -143,12 +147,15 @@ export function MapPreferencesProvider({ children }: { children: ReactNode }) {
             newStyles[activityType] = style;
           }
         }
-        newPrefs = { ...prev, activityTypeStyles: newStyles };
+        const newPrefs = { ...prev, activityTypeStyles: newStyles };
+        // Persist inside callback where newPrefs is captured correctly
+        savePreferences(newPrefs).catch((error) => {
+          if (__DEV__) {
+            console.warn('[MapPreferences] Failed to persist:', error);
+          }
+        });
         return newPrefs;
       });
-      if (newPrefs) {
-        await savePreferences(newPrefs);
-      }
     },
     [savePreferences]
   );

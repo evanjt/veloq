@@ -301,8 +301,10 @@ export function useRouteDataSync(
 
     const unsubscribe = nativeModule.routeEngine.subscribe('syncReset', () => {
       // Reset GLOBAL syncing state so next sync can proceed
+      // Note: Don't directly mutate isSyncingRef.current here - resetGlobalSyncState()
+      // handles the global mutex, and each component's local ref should be managed
+      // through markSyncComplete() in its own sync lifecycle
       resetGlobalSyncState();
-      isSyncingRef.current = false;
       // Increment trigger to force useEffect to re-run after activities are refetched
       setSyncTrigger((prev) => prev + 1);
     });

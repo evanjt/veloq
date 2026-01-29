@@ -55,12 +55,6 @@ CREATE TABLE IF NOT EXISTS route_names (
     custom_name TEXT NOT NULL
 );
 
--- Custom section names (user-defined)
-CREATE TABLE IF NOT EXISTS section_names (
-    section_id TEXT PRIMARY KEY,
-    custom_name TEXT NOT NULL
-);
-
 -- Per-activity match info within route groups
 CREATE TABLE IF NOT EXISTS activity_matches (
     route_id TEXT NOT NULL,

@@ -3,7 +3,6 @@
  * Generates display names for sections based on custom names or auto-generation.
  */
 
-import { getRouteEngine } from '@/lib/native/routeEngine';
 import { resolveIsMetric } from '@/providers';
 import { formatDistance } from '@/lib/utils/format';
 
@@ -20,18 +19,11 @@ interface SectionNameData {
 
 /**
  * Generate a display name for a section.
- * Checks Rust engine first (authoritative source), then falls back to section.name,
- * finally generates a name from sport type and distance.
+ * Uses section.name if present (already contains custom name from Rust),
+ * otherwise generates a name from sport type and distance.
  */
 export function generateSectionName(section: SectionNameData): string {
-  // Check Rust engine for custom name first (authoritative source)
-  const engine = getRouteEngine();
-  if (engine) {
-    const rustName = engine.getSectionName(section.id);
-    if (rustName) return rustName;
-  }
-
-  // Fall back to section.name if present
+  // Use section.name if present (includes custom names from Rust engine)
   if (section.name) return section.name;
 
   // Auto-generate from sport type and distance

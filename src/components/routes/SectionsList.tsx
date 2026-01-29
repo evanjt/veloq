@@ -151,12 +151,10 @@ export function SectionsList({ sportType }: SectionsListProps) {
       log.log('Promoting potential section:', section.id);
       try {
         await createSection({
-          polyline: section.polyline,
           startIndex: 0,
           endIndex: section.polyline.length - 1,
           sourceActivityId: section.potentialData.activityIds[0] ?? 'unknown',
           sportType: section.sportType,
-          distanceMeters: section.distanceMeters,
         });
       } catch (error) {
         log.error('Failed to promote section:', error);
@@ -350,13 +348,15 @@ export function SectionsList({ sportType }: SectionsListProps) {
         return section.engineData;
       }
       // Otherwise, construct a compatible object (for custom sections)
-      // Include source activity if not already in matches
-      const matchActivityIds = section.customData?.matches.map((m) => m.activityId) ?? [];
+      // Include source activity if not already in matches or activityIds
+      const matchActivityIds = section.customData?.matches?.map((m) => m.activityId) ?? [];
+      const sectionActivityIds = section.customData?.activityIds ?? [];
+      const allActivityIds = [...new Set([...matchActivityIds, ...sectionActivityIds])];
       const sourceActivityId = section.customData?.sourceActivityId;
       const activityIds =
-        sourceActivityId && !matchActivityIds.includes(sourceActivityId)
-          ? [sourceActivityId, ...matchActivityIds]
-          : matchActivityIds;
+        sourceActivityId && !allActivityIds.includes(sourceActivityId)
+          ? [sourceActivityId, ...allActivityIds]
+          : allActivityIds;
 
       // Compute routeIds by finding which routes contain this section's activities
       const routeIdSet = new Set<string>();
@@ -371,6 +371,7 @@ export function SectionsList({ sportType }: SectionsListProps) {
 
       return {
         id: section.id,
+        sectionType: section.sectionType || 'custom',
         sportType: section.sportType,
         polyline: section.polyline,
         activityIds,
@@ -378,6 +379,7 @@ export function SectionsList({ sportType }: SectionsListProps) {
         visitCount: activityIds.length,
         distanceMeters: section.distanceMeters,
         name: section.name,
+        createdAt: section.createdAt || new Date().toISOString(),
       };
     },
     [activityToRouteIds]
