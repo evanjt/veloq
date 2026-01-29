@@ -7,6 +7,8 @@
 use crate::ffi_types::{
     FfiMultiScaleSectionResult, FfiRouteGroup, FfiScalePreset, FfiSectionConfig,
 };
+use crate::sections;
+pub mod sections;
 use crate::{elapsed_ms, init_logging};
 use log::info;
 use std::time::Instant;
@@ -127,7 +129,9 @@ pub fn ffi_detect_sections_multiscale(
     let detect_start = Instant::now();
     let tm_groups: Vec<tracematch::RouteGroup> = groups.into_iter().map(Into::into).collect();
     let tm_config: tracematch::SectionConfig = config.into();
-    let result = tracematch::sections::detect_sections_multiscale(&tracks, &sport_map, &tm_groups, &tm_config);
+    let result = tracematch::sections::detect_sections_multiscale(
+        &tracks, &sport_map, &tm_groups, &tm_config,
+    );
     info!(
         "[RUST: detect_sections_multiscale] Detection complete: {} raw sections, {} raw potentials ({} ms)",
         result.sections.len(),
@@ -750,7 +754,6 @@ pub fn start_fetch_and_store(
 
 static FETCH_AND_STORE_RESULT: std::sync::Mutex<Option<FetchAndStoreResult>> =
     std::sync::Mutex::new(None);
-
 
 fn store_fetch_and_store_result(result: FetchAndStoreResult) {
     if let Ok(mut guard) = FETCH_AND_STORE_RESULT.lock() {

@@ -159,7 +159,11 @@ impl From<FfiRouteSignature> for tracematch::RouteSignature {
     fn from(s: FfiRouteSignature) -> Self {
         Self {
             activity_id: s.activity_id,
-            points: s.points.into_iter().map(tracematch::GpsPoint::from).collect(),
+            points: s
+                .points
+                .into_iter()
+                .map(tracematch::GpsPoint::from)
+                .collect(),
             total_distance: s.total_distance,
             start_point: tracematch::GpsPoint::from(s.start_point),
             end_point: tracematch::GpsPoint::from(s.end_point),
@@ -286,7 +290,11 @@ impl From<FfiSectionConfig> for tracematch::SectionConfig {
             sample_points: c.sample_points,
             detection_mode: c.detection_mode,
             include_potentials: c.include_potentials,
-            scale_presets: c.scale_presets.into_iter().map(tracematch::ScalePreset::from).collect(),
+            scale_presets: c
+                .scale_presets
+                .into_iter()
+                .map(tracematch::ScalePreset::from)
+                .collect(),
             preserve_hierarchy: c.preserve_hierarchy,
         }
     }
@@ -304,7 +312,11 @@ impl Default for FfiSectionConfig {
             sample_points: c.sample_points,
             detection_mode: c.detection_mode,
             include_potentials: c.include_potentials,
-            scale_presets: c.scale_presets.into_iter().map(FfiScalePreset::from).collect(),
+            scale_presets: c
+                .scale_presets
+                .into_iter()
+                .map(FfiScalePreset::from)
+                .collect(),
             preserve_hierarchy: c.preserve_hierarchy,
         }
     }
@@ -368,7 +380,11 @@ impl From<tracematch::FrequentSection> for FfiFrequentSection {
             polyline: s.polyline.into_iter().map(FfiGpsPoint::from).collect(),
             representative_activity_id: s.representative_activity_id,
             activity_ids: s.activity_ids,
-            activity_portions: s.activity_portions.into_iter().map(FfiSectionPortion::from).collect(),
+            activity_portions: s
+                .activity_portions
+                .into_iter()
+                .map(FfiSectionPortion::from)
+                .collect(),
             route_ids: s.route_ids,
             visit_count: s.visit_count,
             distance_meters: s.distance_meters,
@@ -446,8 +462,16 @@ pub struct FfiMultiScaleSectionResult {
 impl From<tracematch::MultiScaleSectionResult> for FfiMultiScaleSectionResult {
     fn from(r: tracematch::MultiScaleSectionResult) -> Self {
         Self {
-            sections: r.sections.into_iter().map(FfiFrequentSection::from).collect(),
-            potentials: r.potentials.into_iter().map(FfiPotentialSection::from).collect(),
+            sections: r
+                .sections
+                .into_iter()
+                .map(FfiFrequentSection::from)
+                .collect(),
+            potentials: r
+                .potentials
+                .into_iter()
+                .map(FfiPotentialSection::from)
+                .collect(),
             stats: FfiDetectionStats::from(r.stats),
         }
     }

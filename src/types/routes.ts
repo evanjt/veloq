@@ -574,3 +574,60 @@ export interface PerformanceDataPoint {
   /** Number of laps/traversals - sections only */
   lapCount?: number;
 }
+
+export type SectionType = 'auto' | 'custom';
+
+export interface UnifiedSection {
+  id: string;
+  sectionType: SectionType;
+
+  name?: string;
+
+  polyline: RoutePoint[];
+  distanceMeters: number;
+
+  sportType: string;
+
+  sourceActivityId?: string;
+  startIndex?: number;
+  endIndex?: number;
+
+  activityIds: string[];
+  visitCount: number;
+
+  representativeActivityId?: string;
+
+  confidence?: number;
+  observationCount?: number;
+  averageSpread?: number;
+  pointDensity?: number[];
+  scale?: string;
+  version?: number;
+  isUserDefined?: boolean;
+  stability?: number;
+
+  createdAt: string;
+  updatedAt?: string;
+
+  routeIds?: string[];
+
+  activityPortions?: ActivitySectionRecord[];
+}
+
+export interface ActivitySectionRecord {
+  activityId: string;
+  startIndex: number;
+  endIndex: number;
+  distanceMeters: number;
+  direction: 'same' | 'reverse';
+}
+
+export interface CreateSectionParams {
+  sportType: string;
+  polyline: RoutePoint[];
+  distanceMeters: number;
+  name?: string;
+  sourceActivityId?: string;
+  startIndex?: number;
+  endIndex?: number;
+}
