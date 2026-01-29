@@ -4014,12 +4014,6 @@ pub mod persistent_engine_ffi {
             .unwrap_or_else(|| "[]".to_string())
     }
 
-    /// Get route groups as JSON.
-    #[uniffi::export]
-    pub fn persistent_engine_get_groups_json() -> String {
-        with_persistent_engine(|e| e.get_groups_json()).unwrap_or_else(|| "[]".to_string())
-    }
-
     /// Set a custom name for a route.
     /// Pass empty string to clear the custom name.
     #[uniffi::export]
@@ -4146,19 +4140,12 @@ pub mod persistent_engine_ffi {
         .unwrap_or_else(|| "{}".to_string())
     }
 
-    /// Get sections as JSON.
-    #[uniffi::export]
-    pub fn persistent_engine_get_sections_json() -> String {
-        with_persistent_engine(|e| e.get_sections_json()).unwrap_or_else(|| "[]".to_string())
-    }
-
     /// Get section count directly from SQLite (no data loading).
     #[uniffi::export]
     pub fn persistent_engine_get_section_count() -> u32 {
         with_persistent_engine(|e| e.get_section_count()).unwrap_or(0)
     }
 
-    /// Get sections for a specific activity as JSON.
     /// Get group count directly from SQLite (no data loading).
     #[uniffi::export]
     pub fn persistent_engine_get_group_count() -> u32 {
@@ -4167,50 +4154,62 @@ pub mod persistent_engine_ffi {
 
     /// Get lightweight section summaries without polyline data.
     #[uniffi::export]
-    pub fn persistent_engine_get_section_summaries_json() -> String {
-        with_persistent_engine(|e| {
-            let summaries = e.get_section_summaries();
-            serde_json::to_string(&summaries).unwrap_or_else(|_| "[]".to_string())
-        })
-        .unwrap_or_else(|| "[]".to_string())
+    pub fn persistent_engine_get_section_summaries() -> Vec<SectionSummary> {
+        with_persistent_engine(|e| e.get_section_summaries()).unwrap_or_default()
     }
 
     /// Get section summaries filtered by sport type.
     #[uniffi::export]
-    pub fn persistent_engine_get_section_summaries_for_sport_json(sport_type: String) -> String {
-        with_persistent_engine(|e| {
-            let summaries = e.get_section_summaries_for_sport(&sport_type);
-            serde_json::to_string(&summaries).unwrap_or_else(|_| "[]".to_string())
-        })
-        .unwrap_or_else(|| "[]".to_string())
+    pub fn persistent_engine_get_section_summaries_for_sport(sport_type: String) -> Vec<SectionSummary> {
+        with_persistent_engine(|e| e.get_section_summaries_for_sport(&sport_type)).unwrap_or_default()
     }
 
     /// Get lightweight group summaries without full activity ID lists.
     #[uniffi::export]
-    pub fn persistent_engine_get_group_summaries_json() -> String {
+    pub fn persistent_engine_get_group_summaries() -> Vec<GroupSummary> {
+        with_persistent_engine(|e| e.get_group_summaries()).unwrap_or_default()
+    }
+
+    /// Get all sections with full data (including polylines).
+    #[uniffi::export]
+    pub fn persistent_engine_get_sections() -> Vec<crate::FfiFrequentSection> {
         with_persistent_engine(|e| {
-            let summaries = e.get_group_summaries();
-            serde_json::to_string(&summaries).unwrap_or_else(|_| "[]".to_string())
+            e.get_sections()
+                .iter()
+                .cloned()
+                .map(crate::FfiFrequentSection::from)
+                .collect()
         })
-        .unwrap_or_else(|| "[]".to_string())
+        .unwrap_or_default()
+    }
+
+    /// Get all route groups.
+    #[uniffi::export]
+    pub fn persistent_engine_get_groups() -> Vec<crate::FfiRouteGroup> {
+        with_persistent_engine(|e| {
+            e.get_groups()
+                .iter()
+                .cloned()
+                .map(crate::FfiRouteGroup::from)
+                .collect()
+        })
+        .unwrap_or_default()
     }
 
     /// Get a single section by ID (full data with polyline).
     #[uniffi::export]
-    pub fn persistent_engine_get_section_by_id_json(section_id: String) -> Option<String> {
+    pub fn persistent_engine_get_section_by_id(section_id: String) -> Option<crate::FfiFrequentSection> {
         with_persistent_engine(|e| {
-            e.get_section_by_id(&section_id)
-                .and_then(|s| serde_json::to_string(&s).ok())
+            e.get_section_by_id(&section_id).map(crate::FfiFrequentSection::from)
         })
         .flatten()
     }
 
     /// Get a single group by ID (full data with activity IDs).
     #[uniffi::export]
-    pub fn persistent_engine_get_group_by_id_json(group_id: String) -> Option<String> {
+    pub fn persistent_engine_get_group_by_id(group_id: String) -> Option<crate::FfiRouteGroup> {
         with_persistent_engine(|e| {
-            e.get_group_by_id(&group_id)
-                .and_then(|g| serde_json::to_string(&g).ok())
+            e.get_group_by_id(&group_id).map(crate::FfiRouteGroup::from)
         })
         .flatten()
     }

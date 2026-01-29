@@ -40,6 +40,17 @@ const log = debug.create('SectionsList');
 interface SectionsListProps {
   /** Filter by sport type */
   sportType?: string;
+  /** Pre-fetched data from parent to avoid duplicate FFI calls */
+  prefetchedData?: {
+    sections: UnifiedSection[];
+    count: number;
+    autoCount: number;
+    customCount: number;
+    potentialCount: number;
+    disabledCount: number;
+    isLoading: boolean;
+    error: Error | null;
+  };
 }
 
 type HiddenFilters = {
@@ -48,7 +59,7 @@ type HiddenFilters = {
   disabled: boolean;
 };
 
-export function SectionsList({ sportType }: SectionsListProps) {
+export function SectionsList({ sportType, prefetchedData }: SectionsListProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const [hiddenFilters, setHiddenFilters] = useState<HiddenFilters>({
@@ -57,6 +68,16 @@ export function SectionsList({ sportType }: SectionsListProps) {
     disabled: true, // Hidden sections are hidden by default
   });
 
+  // Only call hook if data not pre-fetched from parent
+  // This avoids duplicate FFI calls when parent already fetched data
+  const hookData = useUnifiedSections({
+    sportType,
+    includeCustom: true,
+    includePotentials: true,
+  });
+
+  // Use pre-fetched data if provided, otherwise use hook data
+  const data = prefetchedData ?? hookData;
   const {
     sections: unifiedSections,
     count: totalCount,
@@ -65,11 +86,7 @@ export function SectionsList({ sportType }: SectionsListProps) {
     potentialCount,
     disabledCount,
     isLoading,
-  } = useUnifiedSections({
-    sportType,
-    includeCustom: true,
-    includePotentials: true,
-  });
+  } = data;
 
   const { createSection, removeSection } = useCustomSections();
   const { disable, enable } = useDisabledSections();

@@ -68,8 +68,13 @@ export default function RoutesScreen() {
   // Get route groups to count (use minActivities: 2 to match the list)
   const { groups: routeGroups } = useRouteGroups({ minActivities: 2 });
 
-  // Get unified sections count (auto-detected + custom)
-  const { count: totalSections } = useUnifiedSections();
+  // Get unified sections data (auto-detected + custom)
+  // Fetch with full options here, pass to SectionsList to avoid duplicate FFI calls
+  const unifiedSectionsData = useUnifiedSections({
+    includeCustom: true,
+    includePotentials: true,
+  });
+  const { count: totalSections } = unifiedSectionsData;
 
   // Tab state - initialize from URL param if provided
   const [activeTab, setActiveTab] = useState<TabType>(() =>
@@ -309,7 +314,7 @@ export default function RoutesScreen() {
         isDark={isDark}
       >
         <RoutesList onRefresh={handleRefresh} isRefreshing={isRefreshing} />
-        <SectionsList />
+        <SectionsList prefetchedData={unifiedSectionsData} />
       </SwipeableTabs>
     </ScreenSafeAreaView>
   );

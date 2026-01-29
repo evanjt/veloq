@@ -294,24 +294,27 @@ export function useUnifiedSection(sectionId: string | undefined): {
  * Get all section display names (custom or auto-generated).
  * Used for uniqueness validation when renaming sections.
  * Returns a map of sectionId -> displayName for all sections.
+ *
+ * Uses getSectionSummaries() instead of getSections() for better performance -
+ * summaries contain all fields needed for name generation without loading full polylines.
  */
 export function getAllSectionDisplayNames(): Record<string, string> {
   const engine = getRouteEngine();
   if (!engine) return {};
 
-  // Get all sections (both auto and custom are now in unified table)
-  const sections = engine.getSections();
+  // Use summaries instead of full sections - faster since no polyline data
+  const summaries = engine.getSectionSummaries();
   const customNames = engine.getAllSectionNames();
   const result: Record<string, string> = {};
 
-  for (const section of sections) {
+  for (const summary of summaries) {
     // Use custom name if set, otherwise use name from section or generate one
-    if (customNames[section.id]) {
-      result[section.id] = customNames[section.id];
-    } else if (section.name) {
-      result[section.id] = section.name;
+    if (customNames[summary.id]) {
+      result[summary.id] = customNames[summary.id];
+    } else if (summary.name) {
+      result[summary.id] = summary.name;
     } else {
-      result[section.id] = generateSectionName(section);
+      result[summary.id] = generateSectionName(summary);
     }
   }
 

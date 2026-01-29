@@ -32,16 +32,17 @@ import {
   persistentEngineStartSectionDetection,
   persistentEnginePollSections,
   persistentEngineCancelSectionDetection,
-  persistentEngineGetGroupsJson,
-  persistentEngineGetSectionsJson,
+  // Direct type returns (no JSON serialization)
+  persistentEngineGetGroups,
+  persistentEngineGetSections,
   persistentEngineGetSectionCount,
   getSectionsForActivityJson,
   persistentEngineGetGroupCount,
-  persistentEngineGetSectionSummariesJson,
-  persistentEngineGetSectionSummariesForSportJson,
-  persistentEngineGetGroupSummariesJson,
-  persistentEngineGetSectionByIdJson,
-  persistentEngineGetGroupByIdJson,
+  persistentEngineGetSectionSummaries,
+  persistentEngineGetSectionSummariesForSport,
+  persistentEngineGetGroupSummaries,
+  persistentEngineGetSectionById,
+  persistentEngineGetGroupById,
   persistentEngineGetSectionPolyline,
   persistentEngineGetAllActivityBoundsJson,
   persistentEngineSetRouteName,
@@ -589,58 +590,27 @@ class RouteEngineClient {
   }
 
   /**
-   * Get groups as JSON.
-   */
-  getGroupsJson(): string {
-    return persistentEngineGetGroupsJson();
-  }
-
-  /**
-   * Get groups parsed from JSON.
-   * Rust now outputs camelCase directly via serde(rename_all = "camelCase").
+   * Get all route groups.
+   * Returns structured types directly from Rust (no JSON serialization).
    */
   getGroups(): RouteGroup[] {
     const _start = __DEV__ ? performance.now() : 0;
-    const json = persistentEngineGetGroupsJson();
-    const groups = safeJsonParse<RouteGroup[]>(json, []);
+    const groups = persistentEngineGetGroups();
     if (__DEV__) {
       const dur = performance.now() - _start;
       const icon = dur > 100 ? '🔴' : dur > 50 ? '🟡' : '🟢';
       console.log(`${icon} [FFI] getGroups: ${dur.toFixed(1)}ms`);
     }
-
-    // Debug: Log any groups with null/undefined sportType
-    if (__DEV__) {
-      const invalidGroups = groups.filter((g) => g.sportType == null);
-      if (invalidGroups.length > 0) {
-        console.warn(
-          `[RouteMatcher] ${invalidGroups.length} groups have null sportType:`,
-          invalidGroups.map((g) => ({
-            groupId: g.groupId,
-            activityIds: g.activityIds.slice(0, 3),
-            sportType: g.sportType,
-          }))
-        );
-      }
-    }
-
     return groups;
   }
 
   /**
-   * Get sections as JSON.
-   */
-  getSectionsJson(): string {
-    return persistentEngineGetSectionsJson();
-  }
-
-  /**
-   * Get sections parsed from JSON.
+   * Get all sections with full data.
+   * Returns structured types directly from Rust (no JSON serialization).
    */
   getSections(): FrequentSection[] {
     const _start = __DEV__ ? performance.now() : 0;
-    const json = persistentEngineGetSectionsJson();
-    const result = safeJsonParse<FrequentSection[]>(json, []);
+    const result = persistentEngineGetSections();
     if (__DEV__) {
       const dur = performance.now() - _start;
       const icon = dur > 100 ? '🔴' : dur > 50 ? '🟡' : '🟢';
@@ -688,12 +658,11 @@ class RouteEngineClient {
 
   /**
    * Get lightweight section summaries without polyline data.
-   * Use this for list views where you only need metadata.
+   * Returns structured types directly from Rust (no JSON serialization).
    */
   getSectionSummaries(): SectionSummary[] {
     const _start = __DEV__ ? performance.now() : 0;
-    const json = persistentEngineGetSectionSummariesJson();
-    const result = safeJsonParse<SectionSummary[]>(json, []);
+    const result = persistentEngineGetSectionSummaries();
     if (__DEV__) {
       const dur = performance.now() - _start;
       const icon = dur > 100 ? '🔴' : dur > 50 ? '🟡' : '🟢';
@@ -704,11 +673,11 @@ class RouteEngineClient {
 
   /**
    * Get section summaries filtered by sport type.
+   * Returns structured types directly from Rust (no JSON serialization).
    */
   getSectionSummariesForSport(sportType: string): SectionSummary[] {
     const _start = __DEV__ ? performance.now() : 0;
-    const json = persistentEngineGetSectionSummariesForSportJson(sportType);
-    const result = safeJsonParse<SectionSummary[]>(json, []);
+    const result = persistentEngineGetSectionSummariesForSport(sportType);
     if (__DEV__) {
       const dur = performance.now() - _start;
       const icon = dur > 100 ? '🔴' : dur > 50 ? '🟡' : '🟢';
@@ -719,41 +688,28 @@ class RouteEngineClient {
 
   /**
    * Get lightweight group summaries without full activity ID lists.
-   * Use this for list views where you only need metadata.
+   * Returns structured types directly from Rust (no JSON serialization).
    */
   getGroupSummaries(): GroupSummary[] {
-    const json = persistentEngineGetGroupSummariesJson();
-    return safeJsonParse<GroupSummary[]>(json, []);
+    return persistentEngineGetGroupSummaries();
   }
 
   /**
    * Get a single section by ID with full data (including polyline).
-   * Use this for detail pages where you need complete section data.
+   * Returns structured type directly from Rust (no JSON serialization).
    */
   getSectionById(sectionId: string): FrequentSection | null {
     validateId(sectionId, 'section ID');
-    const json = persistentEngineGetSectionByIdJson(sectionId);
-    if (!json) return null;
-    try {
-      return JSON.parse(json) as FrequentSection;
-    } catch {
-      return null;
-    }
+    return persistentEngineGetSectionById(sectionId) ?? null;
   }
 
   /**
    * Get a single group by ID with full data (including activity IDs).
-   * Use this for detail pages where you need complete group data.
+   * Returns structured type directly from Rust (no JSON serialization).
    */
   getGroupById(groupId: string): RouteGroup | null {
     validateId(groupId, 'group ID');
-    const json = persistentEngineGetGroupByIdJson(groupId);
-    if (!json) return null;
-    try {
-      return JSON.parse(json) as RouteGroup;
-    } catch {
-      return null;
-    }
+    return persistentEngineGetGroupById(groupId) ?? null;
   }
 
   /**
