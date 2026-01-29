@@ -480,7 +480,7 @@ describe('RouteSettingsStore', () => {
       // Should use clean defaults with NO numeric keys from array
       expect(state.settings).toEqual(DEFAULT_SETTINGS);
       // Should NOT have array indices leaked into settings
-      expect((state.settings as Record<string, unknown>)['0']).toBeUndefined();
+      expect((state.settings as unknown as Record<string, unknown>)['0']).toBeUndefined();
     });
 
     it('rejects object with extra invalid properties gracefully', async () => {

@@ -221,7 +221,7 @@ describe('API Error Handling', () => {
   describe('Session Expiry Detection', () => {
     it('only triggers session expiry for OAuth 401 responses', () => {
       const isUnauthorized = true;
-      const authMethod = 'oauth';
+      const authMethod: string = 'oauth';
 
       const shouldHandleSessionExpiry = isUnauthorized && authMethod === 'oauth';
 
@@ -230,7 +230,7 @@ describe('API Error Handling', () => {
 
     it('does not trigger session expiry for API key 401 responses', () => {
       const isUnauthorized = true;
-      const authMethod = 'apiKey';
+      const authMethod: string = 'apiKey';
 
       const shouldHandleSessionExpiry = isUnauthorized && authMethod === 'oauth';
 
@@ -239,7 +239,7 @@ describe('API Error Handling', () => {
 
     it('does not trigger session expiry for demo mode', () => {
       const isUnauthorized = true;
-      const authMethod = 'demo';
+      const authMethod: string = 'demo';
 
       const shouldHandleSessionExpiry = isUnauthorized && authMethod === 'oauth';
 
@@ -321,7 +321,7 @@ describe('API Error Handling', () => {
     });
 
     it('does not retry 400 Bad Request', () => {
-      const status = 400;
+      const status: number = 400;
       const errorCode = '';
       const NETWORK_ERROR_CODES = ['ERR_NETWORK', 'ECONNABORTED', 'ETIMEDOUT'];
 
@@ -333,7 +333,7 @@ describe('API Error Handling', () => {
     });
 
     it('does not retry 403 Forbidden', () => {
-      const status = 403;
+      const status: number = 403;
       const errorCode = '';
       const NETWORK_ERROR_CODES = ['ERR_NETWORK', 'ECONNABORTED', 'ETIMEDOUT'];
 
@@ -345,7 +345,7 @@ describe('API Error Handling', () => {
     });
 
     it('does not retry 500 Internal Server Error', () => {
-      const status = 500;
+      const status: number = 500;
       const errorCode = '';
       const NETWORK_ERROR_CODES = ['ERR_NETWORK', 'ECONNABORTED', 'ETIMEDOUT'];
 
@@ -418,7 +418,7 @@ describe('API Error Handling', () => {
 
     it('handles null error.response gracefully', () => {
       // Network errors may have no response
-      const errorResponse = undefined;
+      const errorResponse = undefined as { status: number } | undefined;
       const status = errorResponse?.status;
       const isRateLimitError = status === 429;
       expect(isRateLimitError).toBe(false);

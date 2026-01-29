@@ -318,7 +318,7 @@ describe('DashboardPreferencesStore', () => {
      */
     it('accepts invalid supportingMetrics without validation (BUG)', () => {
       useDashboardPreferences.getState().setSummaryCardPreferences({
-        supportingMetrics: ['invalid1', 'invalid2'] as MetricId[],
+        supportingMetrics: ['invalid1', 'invalid2'] as unknown as MetricId[],
       });
 
       const { summaryCard } = useDashboardPreferences.getState();
