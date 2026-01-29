@@ -98,23 +98,23 @@ describe('DashboardPreferencesStore', () => {
     });
 
     /**
-     * BUG FOUND: fromIndex beyond array length causes crash
+     * BUG: fromIndex beyond array length causes crash
      *
      * splice(100, 1) on array of 4 returns empty array, moved = undefined.
      * Then findIndex callback tries to access em.id on undefined, causing TypeError.
      *
-     * This is a critical bug - invalid input causes unhandled exception.
+     * FIX: Add bounds checking before splice operation.
      */
-    it('fromIndex beyond array length causes crash (BUG - should throw or handle gracefully)', () => {
+    it('should handle out-of-bounds fromIndex gracefully', () => {
       const enabledBefore = useDashboardPreferences.getState().getEnabledMetrics();
       expect(enabledBefore.length).toBe(4);
 
-      // BUG: This crashes with "Cannot read properties of undefined (reading 'id')"
-      expect(() => {
-        useDashboardPreferences.getState().reorderMetrics(100, 0);
-      }).toThrow(TypeError);
+      // Should NOT crash - should either no-op or clamp index
+      useDashboardPreferences.getState().reorderMetrics(100, 0);
 
-      // TODO: Fix by adding bounds checking before splice
+      // State should remain unchanged (graceful handling)
+      const enabledAfter = useDashboardPreferences.getState().getEnabledMetrics();
+      expect(enabledAfter.length).toBe(4);
     });
 
     it('order values are sequential after valid reorder', () => {
@@ -163,13 +163,15 @@ describe('DashboardPreferencesStore', () => {
     });
 
     /**
-     * BUG FOUND: disable → reorder → re-enable produces duplicate order values
+     * BUG: disable → reorder → re-enable produces duplicate order values
      *
      * After re-enabling a metric, it doesn't get recalculated order.
      * setMetricEnabled() only sets enabled=true, doesn't update order.
      * Result: orders become [0, 1, 2, 2] instead of [0, 1, 2, 3].
+     *
+     * FIX: setMetricEnabled should assign new sequential order when re-enabling.
      */
-    it('disable → reorder → re-enable produces duplicate order values (BUG)', () => {
+    it('disable → reorder → re-enable should produce sequential order values', () => {
       // Disable FTP (currently at index 2)
       useDashboardPreferences.getState().setMetricEnabled('ftp', false);
 
@@ -183,14 +185,11 @@ describe('DashboardPreferencesStore', () => {
       const ids = enabled.map((m) => m.id);
       expect(ids).toContain('ftp');
 
-      // BUG: Order values are NOT sequential - there are duplicates
+      // Order values should be sequential with NO duplicates
       const orders = enabled.map((m) => m.order).sort((a, b) => a - b);
-      const uniqueOrders = new Set(orders);
-
-      // This assertion documents the bug - should have 4 unique orders but doesn't
-      expect(uniqueOrders.size).toBeLessThan(enabled.length);
-
-      // TODO: Fix setMetricEnabled to assign new sequential order when re-enabling
+      orders.forEach((order, index) => {
+        expect(order).toBe(index);
+      });
     });
 
     it('disabling all metrics leaves getEnabledMetrics() empty', () => {

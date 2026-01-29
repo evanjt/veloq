@@ -1,3 +1,20 @@
+[package]
+name = "veloqrs"
+version = "0.0.10"
+edition = "2024"
+authors = ["Evan Thomas <evan@evanjt.com>"]
+license = "Apache-2.0"
+publish = false
+
+[lib]
+name = "veloqrs"
+crate-type = ["rlib", "staticlib", "cdylib"]
+
+[features]
+default = ["persistence", "http", "ffi"]
+persistence = []
+http = []
+ffi = []
 
 [dependencies]
 # Core algorithm library
@@ -9,30 +26,24 @@ uniffi = { version = "0.29", features = ["cli"] }
 # Persistence
 rusqlite = { version = "0.31", features = ["bundled"] }
 rmp-serde = "1.1"
+
+# HTTP client
+reqwest = { version = "0.12", features = ["json", "rustls-tls"], default-features = false }
 tokio = { version = "1", features = ["rt-multi-thread", "sync"] }
 futures = "0.3"
 base64 = "0.22"
+
+# Common
+log = "0.4"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+chrono = "0.4"
+once_cell = "1.19"
 lru = "0.12"
 rayon = "1.10"
 rstar = "0.12"
 geo = "0.29"
 polyline = "0.11"
-
-once_cell = "1.19"
-log = "0.4"
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-chrono = "0.4"
-
-# Common
-elapsed_ms = { path = ".", version = "0.1" }
-
-# HTTP client
-reqwest = { version = "0.12", features = ["json", "rustls-tls"], default-features = false }
-tokio = { version = "1", features = ["rt-multi-thread", "sync"] }
-
-# Sections module (unification - 2026-01-28)
-sections = { path = ".", version = "0.1" }
 
 [target.'cfg(target_os = "android")'.dependencies]
 android_logger = "0.14"

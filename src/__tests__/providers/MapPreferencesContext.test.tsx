@@ -140,7 +140,7 @@ describe('MapPreferencesContext', () => {
     });
 
     /**
-     * BUG FOUND: Persistence never executes due to React batching
+     * BUG: Persistence never executes due to React batching
      *
      * The code assumes setState callback runs synchronously:
      *   let newPrefs = null;
@@ -149,8 +149,10 @@ describe('MapPreferencesContext', () => {
      *
      * With React 18's automatic batching, the callback is deferred,
      * so `newPrefs` is still null when the if-check runs.
+     *
+     * FIX: Use useRef or useEffect to persist after state update.
      */
-    it('FAILS to persist due to React batching bug (BUG)', async () => {
+    it('should persist changes to AsyncStorage', async () => {
       const { result } = renderHook(() => useMapPreferences(), { wrapper });
 
       await waitFor(() => {
@@ -163,13 +165,12 @@ describe('MapPreferencesContext', () => {
         await result.current.setDefaultStyle('satellite');
       });
 
-      // BUG: setItem is never called because newPrefs is null when checked
-      expect(setItemSpy).not.toHaveBeenCalled();
+      // setItem SHOULD be called to persist the change
+      expect(setItemSpy).toHaveBeenCalledWith(
+        STORAGE_KEY,
+        expect.stringContaining('"defaultStyle":"satellite"')
+      );
 
-      // State IS updated (React works), but persistence fails
-      expect(result.current.preferences.defaultStyle).toBe('satellite');
-
-      // TODO: Fix by using useRef or moving persistence inside the setState callback
       setItemSpy.mockRestore();
     });
 
@@ -261,9 +262,10 @@ describe('MapPreferencesContext', () => {
     });
 
     /**
-     * BUG FOUND: Same React batching bug as setDefaultStyle
+     * BUG: Same React batching bug as setDefaultStyle - persistence never runs.
+     * FIX: Use useRef or useEffect to persist after state update.
      */
-    it('FAILS to persist due to React batching bug (BUG)', async () => {
+    it('should persist activity type style to AsyncStorage', async () => {
       const { result } = renderHook(() => useMapPreferences(), { wrapper });
 
       await waitFor(() => {
@@ -276,11 +278,11 @@ describe('MapPreferencesContext', () => {
         await result.current.setActivityTypeStyle('Run', 'satellite');
       });
 
-      // BUG: setItem is never called
-      expect(setItemSpy).not.toHaveBeenCalled();
-
-      // State IS updated
-      expect(result.current.preferences.activityTypeStyles.Run).toBe('satellite');
+      // setItem SHOULD be called
+      expect(setItemSpy).toHaveBeenCalledWith(
+        STORAGE_KEY,
+        expect.stringContaining('"Run":"satellite"')
+      );
 
       setItemSpy.mockRestore();
     });
@@ -330,9 +332,10 @@ describe('MapPreferencesContext', () => {
     });
 
     /**
-     * BUG FOUND: Same React batching bug affects batch updates
+     * BUG: Same React batching bug affects batch updates - persistence never runs.
+     * FIX: Use useRef or useEffect to persist after state update.
      */
-    it('FAILS to persist batch update due to React batching bug (BUG)', async () => {
+    it('should persist batch update to AsyncStorage', async () => {
       const { result } = renderHook(() => useMapPreferences(), { wrapper });
 
       await waitFor(() => {
@@ -345,13 +348,11 @@ describe('MapPreferencesContext', () => {
         await result.current.setActivityGroupStyle(['Ride', 'Run', 'Swim'], 'satellite');
       });
 
-      // BUG: setItem is never called
-      expect(setItemSpy).not.toHaveBeenCalled();
-
-      // State IS updated correctly
-      expect(result.current.preferences.activityTypeStyles.Ride).toBe('satellite');
-      expect(result.current.preferences.activityTypeStyles.Run).toBe('satellite');
-      expect(result.current.preferences.activityTypeStyles.Swim).toBe('satellite');
+      // setItem SHOULD be called with all three activity types
+      expect(setItemSpy).toHaveBeenCalledWith(
+        STORAGE_KEY,
+        expect.stringContaining('"Ride":"satellite"')
+      );
 
       setItemSpy.mockRestore();
     });

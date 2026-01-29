@@ -401,16 +401,15 @@ describe('RouteSettingsStore', () => {
     });
 
     /**
-     * BUG FOUND: Parallel updates have race condition
+     * BUG: Parallel updates have race condition
      *
      * Each setter does: get().settings -> modify -> write -> setState
      * When run in parallel, all read the SAME initial state, so only one
      * setter's changes survive (whichever finishes last).
      *
-     * This test documents the ACTUAL (buggy) behavior. In a future fix,
-     * setters should use functional updates or mutex to prevent this.
+     * FIX: Use functional updates or mutex to prevent race condition.
      */
-    it('parallel updates have race condition (BUG: only last writer wins)', async () => {
+    it('parallel updates should preserve all changes', async () => {
       const store = useRouteSettings.getState();
 
       await Promise.all([
@@ -420,18 +419,10 @@ describe('RouteSettingsStore', () => {
       ]);
 
       const state = useRouteSettings.getState();
-      // BUG: Due to race condition, we can't predict final state
-      // At minimum one setter's value should be present
-      const changesApplied = [
-        state.settings.enabled === false,
-        state.settings.retentionDays === 90,
-        state.settings.autoCleanupEnabled === true,
-      ].filter(Boolean).length;
-
-      // At least one change should apply (the last one to finish)
-      expect(changesApplied).toBeGreaterThanOrEqual(1);
-
-      // TODO: Fix race condition - then this test should expect all 3 changes
+      // All three changes should be preserved
+      expect(state.settings.enabled).toBe(false);
+      expect(state.settings.retentionDays).toBe(90);
+      expect(state.settings.autoCleanupEnabled).toBe(true);
     });
   });
 
@@ -461,29 +452,24 @@ describe('RouteSettingsStore', () => {
     });
 
     /**
-     * BUG FOUND: Type guard doesn't reject arrays
+     * BUG: Type guard doesn't reject arrays
      *
      * `typeof [] === 'object'` is true, so arrays pass the type guard.
      * Then `{ ...DEFAULT_SETTINGS, ...[1,2,3] }` produces an object with
      * numeric keys (0, 1, 2) alongside the default settings.
      *
-     * This test documents the ACTUAL (buggy) behavior. The type guard
-     * should check `Array.isArray(value)` to properly reject arrays.
+     * FIX: Add `Array.isArray(value)` check to type guard.
      */
-    it('does not properly reject array value (BUG: array indices leak into settings)', async () => {
+    it('should reject array values and use defaults', async () => {
       await AsyncStorage.setItem(ROUTE_SETTINGS_KEY, '[1, 2, 3]');
 
       await initializeRouteSettings();
 
       const state = useRouteSettings.getState();
-      // BUG: Array is merged into settings, adding numeric keys
-      expect(state.settings.enabled).toBe(DEFAULT_SETTINGS.enabled);
-      expect(state.settings.retentionDays).toBe(DEFAULT_SETTINGS.retentionDays);
-      expect(state.settings.autoCleanupEnabled).toBe(DEFAULT_SETTINGS.autoCleanupEnabled);
-      // These shouldn't exist but do due to bug
-      expect((state.settings as Record<string, unknown>)['0']).toBe(1);
-
-      // TODO: Fix type guard to check Array.isArray(value)
+      // Should use clean defaults with NO numeric keys from array
+      expect(state.settings).toEqual(DEFAULT_SETTINGS);
+      // Should NOT have array indices leaked into settings
+      expect((state.settings as Record<string, unknown>)['0']).toBeUndefined();
     });
 
     it('rejects object with extra invalid properties gracefully', async () => {

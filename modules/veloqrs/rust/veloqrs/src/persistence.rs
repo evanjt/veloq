@@ -444,7 +444,7 @@ fn load_groups_from_db(conn: &Connection) -> Vec<RouteGroup> {
 #[cfg(feature = "persistence")]
 pub struct PersistentRouteEngine {
     /// Database connection
-    db: Connection,
+    pub(crate) db: Connection,
 
     /// Database path (for spawning background threads)
     db_path: String,
@@ -586,11 +586,6 @@ impl PersistentRouteEngine {
                 id TEXT PRIMARY KEY,
                 data BLOB NOT NULL
             );
-
-            -- Unification: Add section_type discriminator
-            ALTER TABLE sections ADD COLUMN section_type TEXT DEFAULT 'auto';
-            UPDATE sections SET section_type = 'custom' WHERE id LIKE 'custom_%';
-            CREATE INDEX IF NOT EXISTS idx_sections_type ON sections(section_type);
 
             -- Junction table for section-activity relationships
             -- Enables O(1) lookup of sections by activity ID
@@ -1293,238 +1288,3483 @@ impl PersistentRouteEngine {
             self.groups_dirty = true;
             self.sections_dirty = true;
             log::info!("tracematch: [PersistentEngine] Marked for re-computation (cache expanded)");
+        }
     }
 
     // ========================================================================
-    // Unified Section Types and Functions
+    // Database Storage
     // ========================================================================
 
-    /// Get all sections (both auto and custom) with optional filtering.
-    /// Single unified query replacing get_sections_json() and get_custom_sections_json().
-    pub fn get_sections_unified(
-        &self,
-        sport_type: Option<&str>,
-        min_visits: Option<u32>,
-        include_matches: bool,
-    ) -> Vec<UnifiedSection> {
-        let mut result = Vec::new();
-
-        let mut sql = String::from(
-            "SELECT id, section_type, name, polyline_json, sport_type, distance_meters,
-                    source_activity_id, start_index, end_index, visit_count,
-                    representative_activity_id, confidence, observation_count, average_spread,
-                    point_density, scale, version, is_user_defined, stability,
-                    created_at, updated_at, route_ids
-             FROM sections"
-        );
-
-        let mut params = Vec::new();
-
-        if let Some(sport) = sport_type {
-            sql.push_str(" WHERE sport_type = ?");
-            params.push(sport.to_string());
-        }
-
-        if let Some(min) = min_visits {
-            if sql.contains("WHERE") {
-                sql.push_str(" AND visit_count >= ?");
-            } else {
-                sql.push_str(" WHERE visit_count >= ?");
-            }
-            params.push(min.to_string());
-        }
-
-        let mut stmt = self.db.prepare(&sql).ok()?;
-
-        while let Ok(row) = stmt.next() {
-            let polyline_json: String = row.get(6).ok().unwrap_or_default();
-            let polyline: Vec<GpsPoint> = serde_json::from_str(&polyline_json)
-                .unwrap_or_default();
-
-            let point_density: Option<Vec<u32>> = row.get(15).ok()
-                .and_then(|pd: String| serde_json::from_str(&pd).ok());
-
-            let route_ids: Option<Vec<String>> = row.get(20).ok()
-                .and_then(|rids: String| serde_json::from_str(&rids).ok());
-
-            let mut section = UnifiedSection {
-                id: row.get(0).ok().unwrap_or_default(),
-                section_type: row.get::<String>(1).ok()
-                    .and_then(|st| match st.as_str() {
-                        "auto" => Some(SectionType::Auto),
-                        "custom" => Some(SectionType::Custom),
-                        _ => None,
-                    })
-                    .unwrap_or(SectionType::Auto),
-                name: row.get::<String>(2).ok(),
-                polyline,
-                sport_type: row.get(8).ok().unwrap_or_default(),
-                distance_meters: row.get(9).ok().unwrap_or(0.0),
-                source_activity_id: row.get::<String>(10).ok(),
-                start_index: row.get::<u32>(11).ok(),
-                end_index: row.get::<u32>(12).ok(),
-                visit_count: row.get(13).ok().unwrap_or(0),
-                representative_activity_id: row.get::<String>(14).ok(),
-                confidence: row.get::<f64>(15).ok(),
-                observation_count: row.get::<u32>(16).ok(),
-                average_spread: row.get::<f64>(17).ok(),
-                point_density,
-                scale: row.get::<String>(19).ok(),
-                version: row.get::<u32>(21).ok().unwrap_or(0),
-                is_user_defined: row.get::<i64>(22).ok().unwrap_or(0) != 0,
-                stability: row.get::<f64>(23).ok(),
-                created_at: row.get(24).ok().unwrap_or_default(),
-                updated_at: row.get::<String>(25).ok(),
-                route_ids,
-                activity_portions: if include_matches {
-                    self.get_section_activities(&row.get::<String>(0).ok().unwrap_or_default())
-                } else {
-                    None
-                },
-            };
-
-            result.push(section);
-        }
-
-        result
-    }
-
-    /// Get activity portions for a section.
-    fn get_section_activities(&self, section_id: &str) -> Option<Vec<SectionPortion>> {
-        let mut stmt = self.db.prepare(
-            "SELECT activity_id, start_index, end_index, direction, distance_meters
-             FROM section_activities WHERE section_id = ? ORDER BY activity_id"
-        ).ok()?;
-
-        let mut portions = Vec::new();
-        while let Ok(row) = stmt.next() {
-            portions.push(SectionPortion {
-                activity_id: row.get(0).ok().unwrap_or_default(),
-                start_index: row.get(1).ok().unwrap_or(0),
-                end_index: row.get(2).ok().unwrap_or(0),
-                distance_meters: row.get(3).ok().unwrap_or(0.0),
-                direction: row.get::<String>(4).ok().unwrap_or("same".to_string()),
-            });
-        }
-
-        Some(portions)
-    }
-
-    /// Get a single section by ID (works for both auto and custom).
-    pub fn get_section_by_id_unified(&self, section_id: &str) -> Option<UnifiedSection> {
-        let sections = self.get_sections_unified(None, None, false);
-        sections.into_iter().find(|s| s.id == section_id)
-    }
-
-    /// Create a section (works for both auto and custom).
-    /// For custom: user provides start/end indices
-    /// For auto: engine detects automatically
-    pub fn create_section_unified(
-        &mut self,
-        params: CreateSectionParams,
-    ) -> Result<String, String> {
-        let id = if params.source_activity_id.is_some() {
-            format!("custom_{}", chrono_timestamp())
-        } else {
-            format!("section_{}", generate_hash())
-        };
-
-        let section_type = if params.source_activity_id.is_some() {
-            SectionType::Custom
-        } else {
-            SectionType::Auto
-        };
-
-        let polyline_json = serde_json::to_string(&params.polyline)
-            .map_err(|e| format!("Failed to serialize polyline: {}", e))?;
-
-        let point_density_json = params.point_density
-            .map(|pd| serde_json::to_string(pd).ok())
-            .flatten();
-
-        let route_ids_json = params.route_ids
-            .map(|rids| serde_json::to_string(rids).ok())
-            .flatten();
-
+    fn store_activity(&self, id: &str, sport_type: &str, bounds: &Bounds) -> SqlResult<()> {
         self.db.execute(
-            "INSERT INTO sections (id, section_type, name, polyline_json, sport_type,
-                                  distance_meters, source_activity_id, start_index, end_index,
-                                  visit_count, created_at, point_density, route_ids)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?)",
+            "INSERT OR REPLACE INTO activities (id, sport_type, min_lat, max_lat, min_lng, max_lng)
+             VALUES (?, ?, ?, ?, ?, ?)",
             params![
-                &id,
-                match section_type {
-                    SectionType::Auto => "auto",
-                    SectionType::Custom => "custom",
-                },
-                params.name,
-                &polyline_json,
-                &params.sport_type,
-                params.distance_meters,
-                params.source_activity_id,
-                params.start_index,
-                params.end_index,
-                current_timestamp_iso(),
-                point_density_json,
-                route_ids_json,
+                id,
+                sport_type,
+                bounds.min_lat,
+                bounds.max_lat,
+                bounds.min_lng,
+                bounds.max_lng
             ],
         )?;
-
-        Ok(id)
+        Ok(())
     }
 
-    /// Create section parameters.
-    #[derive(Debug, Clone)]
-    pub struct CreateSectionParams {
-        pub sport_type: String,
-        pub polyline: Vec<GpsPoint>,
-        pub distance_meters: f64,
-        pub name: Option<String>,
-        pub source_activity_id: Option<String>,
-        pub start_index: Option<u32>,
-        pub end_index: Option<u32>,
-        pub point_density: Option<Vec<u32>>,
-        pub route_ids: Option<Vec<String>>,
+    /// Update activity metadata (date, name, distance, duration).
+    /// Called after GPS sync to add metadata from intervals.icu API.
+    pub fn update_activity_metadata(
+        &self,
+        id: &str,
+        start_date: Option<i64>,
+        name: Option<&str>,
+        distance_meters: Option<f64>,
+        duration_secs: Option<i64>,
+    ) -> SqlResult<()> {
+        self.db.execute(
+            "UPDATE activities SET start_date = ?, name = ?, distance_meters = ?, duration_secs = ? WHERE id = ?",
+            params![start_date, name, distance_meters, duration_secs, id],
+        )?;
+        Ok(())
     }
 
-    /// Remove or disable section based on type.
-    /// Custom sections: DELETE from database
-    /// Auto sections: Optionally disable (or delete entirely)
-    pub fn remove_or_disable_section(
-        &mut self,
-        section_id: &str,
-        disable_only: bool,
-    ) -> Result<(), String> {
-        let section = self
-            .get_section_by_id_unified(section_id)
-            .ok_or_else(|| format!("Section {} not found", section_id))?;
+    fn store_gps_track(&self, id: &str, coords: &[GpsPoint]) -> SqlResult<()> {
+        let track_data = rmp_serde::to_vec(coords).unwrap_or_default();
+        self.db.execute(
+            "INSERT OR REPLACE INTO gps_tracks (activity_id, track_data, point_count)
+             VALUES (?, ?, ?)",
+            params![id, track_data, coords.len() as i64],
+        )?;
+        Ok(())
+    }
 
-        match section.section_type {
-            SectionType::Custom => {
-                self.db.execute("DELETE FROM sections WHERE id = ?", params![section_id])?;
-                self.db.execute("DELETE FROM section_names WHERE section_id = ?", params![section_id])?;
-                self.db.execute("DELETE FROM section_activities WHERE section_id = ?", params![section_id])?;
-            }
-            SectionType::Auto => {
-                if disable_only {
-                    self.db.execute(
-                        "INSERT OR REPLACE INTO disabled_sections (section_id) VALUES (?)",
-                        params![section_id],
-                    )?;
-                } else {
-                    self.db.execute("DELETE FROM sections WHERE id = ?", params![section_id])?;
-                    self.db.execute("DELETE FROM section_names WHERE section_id = ?", params![section_id])?;
-                    self.db.execute("DELETE FROM section_activities WHERE section_id = ?", params![section_id])?;
+    fn store_signature(&self, id: &str, sig: &RouteSignature) -> SqlResult<()> {
+        let points_blob = rmp_serde::to_vec(&sig.points).unwrap_or_default();
+        self.db.execute(
+            "INSERT OR REPLACE INTO signatures (activity_id, points, start_point_lat, start_point_lng, end_point_lat, end_point_lng, total_distance, point_count)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            params![
+                id,
+                points_blob,
+                sig.start_point.latitude,
+                sig.start_point.longitude,
+                sig.end_point.latitude,
+                sig.end_point.longitude,
+                sig.total_distance,
+                sig.points.len() as i64
+            ],
+        )?;
+        Ok(())
+    }
+
+    fn rebuild_spatial_index(&mut self) {
+        let entries: Vec<ActivityBoundsEntry> = self
+            .activity_metadata
+            .values()
+            .map(|m| ActivityBoundsEntry {
+                activity_id: m.id.clone(),
+                bounds: m.bounds,
+            })
+            .collect();
+        self.spatial_index = RTree::bulk_load(entries);
+    }
+
+    // ========================================================================
+    // Queries
+    // ========================================================================
+
+    /// Get activity count.
+    pub fn activity_count(&self) -> usize {
+        self.activity_metadata.len()
+    }
+
+    /// Get all activity bounds info as JSON for map display.
+    /// Returns array of { id, bounds, activityType, distance }.
+    pub fn get_all_activity_bounds_json(&self) -> String {
+        #[derive(serde::Serialize)]
+        #[serde(rename_all = "camelCase")]
+        struct BoundsInfo {
+            id: String,
+            bounds: [[f64; 2]; 2], // [[minLat, minLng], [maxLat, maxLng]]
+            activity_type: String,
+            distance: f64,
+        }
+
+        let infos: Vec<BoundsInfo> = self
+            .activity_metadata
+            .values()
+            .map(|m| {
+                // Get distance from metrics if available, otherwise 0
+                let distance = self
+                    .activity_metrics
+                    .get(&m.id)
+                    .map(|metrics| metrics.distance)
+                    .unwrap_or(0.0);
+
+                BoundsInfo {
+                    id: m.id.clone(),
+                    bounds: [
+                        [m.bounds.min_lat, m.bounds.min_lng],
+                        [m.bounds.max_lat, m.bounds.max_lng],
+                    ],
+                    activity_type: m.sport_type.clone(),
+                    distance,
                 }
+            })
+            .collect();
+
+        serde_json::to_string(&infos).unwrap_or_else(|_| "[]".to_string())
+    }
+
+    /// Get all activity IDs.
+    pub fn get_activity_ids(&self) -> Vec<String> {
+        self.activity_metadata.keys().cloned().collect()
+    }
+
+    /// Check if an activity exists.
+    pub fn has_activity(&self, id: &str) -> bool {
+        self.activity_metadata.contains_key(id)
+    }
+
+    /// Query activities within a viewport.
+    pub fn query_viewport(&self, bounds: &Bounds) -> Vec<String> {
+        let search_bounds = AABB::from_corners(
+            [bounds.min_lng, bounds.min_lat],
+            [bounds.max_lng, bounds.max_lat],
+        );
+
+        self.spatial_index
+            .locate_in_envelope_intersecting(&search_bounds)
+            .map(|b| b.activity_id.clone())
+            .collect()
+    }
+
+    /// Get all activities with complete metadata for map display.
+    /// Queries the database for metadata fields (date, name, distance, duration).
+    pub fn get_all_map_activities_complete(&self) -> Vec<MapActivityComplete> {
+        let mut stmt = match self.db.prepare(
+            "SELECT id, sport_type, min_lat, max_lat, min_lng, max_lng,
+                    COALESCE(start_date, 0) as start_date,
+                    COALESCE(name, '') as name,
+                    COALESCE(distance_meters, 0.0) as distance_meters,
+                    COALESCE(duration_secs, 0) as duration_secs
+             FROM activities"
+        ) {
+            Ok(s) => s,
+            Err(e) => {
+                log::error!("[PersistentEngine] Failed to prepare query: {}", e);
+                return Vec::new();
+            }
+        };
+
+        let results = stmt.query_map([], |row| {
+            Ok(MapActivityComplete {
+                activity_id: row.get(0)?,
+                sport_type: row.get(1)?,
+                bounds: crate::FfiBounds {
+                    min_lat: row.get(2)?,
+                    max_lat: row.get(3)?,
+                    min_lng: row.get(4)?,
+                    max_lng: row.get(5)?,
+                },
+                date: row.get(6)?,
+                name: row.get(7)?,
+                distance: row.get(8)?,
+                duration: row.get(9)?,
+            })
+        });
+
+        match results {
+            Ok(rows) => rows.filter_map(|r| r.ok()).collect(),
+            Err(e) => {
+                log::error!("[PersistentEngine] Failed to query activities: {}", e);
+                Vec::new()
+            }
+        }
+    }
+
+    /// Get activities filtered by date range and sport types.
+    /// - start_ts: Unix timestamp (seconds) for start of range
+    /// - end_ts: Unix timestamp (seconds) for end of range
+    /// - sport_types: Optional list of sport types to include (empty = all)
+    pub fn get_map_activities_filtered(
+        &self,
+        start_ts: i64,
+        end_ts: i64,
+        sport_types: &[String],
+    ) -> Vec<MapActivityComplete> {
+        // Build query based on filters
+        let base_query = "SELECT id, sport_type, min_lat, max_lat, min_lng, max_lng,
+                                 COALESCE(start_date, 0) as start_date,
+                                 COALESCE(name, '') as name,
+                                 COALESCE(distance_meters, 0.0) as distance_meters,
+                                 COALESCE(duration_secs, 0) as duration_secs
+                          FROM activities
+                          WHERE (start_date IS NULL OR (start_date >= ? AND start_date <= ?))";
+
+        let query = if sport_types.is_empty() {
+            base_query.to_string()
+        } else {
+            let placeholders = sport_types.iter().map(|_| "?").collect::<Vec<_>>().join(",");
+            format!("{} AND sport_type IN ({})", base_query, placeholders)
+        };
+
+        let mut stmt = match self.db.prepare(&query) {
+            Ok(s) => s,
+            Err(e) => {
+                log::error!("[PersistentEngine] Failed to prepare filtered query: {}", e);
+                return Vec::new();
+            }
+        };
+
+        // Build params
+        let mut params: Vec<Box<dyn rusqlite::ToSql>> = vec![
+            Box::new(start_ts),
+            Box::new(end_ts),
+        ];
+        for sport in sport_types {
+            params.push(Box::new(sport.clone()));
+        }
+        let param_refs: Vec<&dyn rusqlite::ToSql> = params.iter().map(|p| p.as_ref()).collect();
+
+        let results = stmt.query_map(param_refs.as_slice(), |row| {
+            Ok(MapActivityComplete {
+                activity_id: row.get(0)?,
+                sport_type: row.get(1)?,
+                bounds: crate::FfiBounds {
+                    min_lat: row.get(2)?,
+                    max_lat: row.get(3)?,
+                    min_lng: row.get(4)?,
+                    max_lng: row.get(5)?,
+                },
+                date: row.get(6)?,
+                name: row.get(7)?,
+                distance: row.get(8)?,
+                duration: row.get(9)?,
+            })
+        });
+
+        match results {
+            Ok(rows) => rows.filter_map(|r| r.ok()).collect(),
+            Err(e) => {
+                log::error!("[PersistentEngine] Failed to query filtered activities: {}", e);
+                Vec::new()
+            }
+        }
+    }
+
+    /// Get a signature, loading from DB if not cached.
+    pub fn get_signature(&mut self, id: &str) -> Option<RouteSignature> {
+        // Check cache first
+        if let Some(sig) = self.signature_cache.get(&id.to_string()) {
+            return Some(sig.clone());
+        }
+
+        // Load from database
+        let sig = self.load_signature_from_db(id)?;
+        self.signature_cache.put(id.to_string(), sig.clone());
+        Some(sig)
+    }
+
+    fn load_signature_from_db(&self, id: &str) -> Option<RouteSignature> {
+        let mut stmt = self
+            .db
+            .prepare(
+                "SELECT points, start_point_lat, start_point_lng, end_point_lat, end_point_lng, total_distance
+                 FROM signatures WHERE activity_id = ?",
+            )
+            .ok()?;
+
+        stmt.query_row(params![id], |row| {
+            let points_blob: Vec<u8> = row.get(0)?;
+            let points: Vec<GpsPoint> = rmp_serde::from_slice(&points_blob).unwrap_or_default();
+            let start_point = GpsPoint::new(row.get(1)?, row.get(2)?);
+            let end_point = GpsPoint::new(row.get(3)?, row.get(4)?);
+            let total_distance: f64 = row.get(5)?;
+
+            // Compute bounds and center from points
+            let bounds = Bounds::from_points(&points).unwrap_or(Bounds {
+                min_lat: 0.0,
+                max_lat: 0.0,
+                min_lng: 0.0,
+                max_lng: 0.0,
+            });
+            let center = bounds.center();
+
+            Ok(RouteSignature {
+                activity_id: id.to_string(),
+                points,
+                total_distance,
+                start_point,
+                end_point,
+                bounds,
+                center,
+            })
+        })
+        .ok()
+    }
+
+    /// Get GPS track from database (on-demand, never cached).
+    pub fn get_gps_track(&self, id: &str) -> Option<Vec<GpsPoint>> {
+        let mut stmt = self
+            .db
+            .prepare("SELECT track_data FROM gps_tracks WHERE activity_id = ?")
+            .ok()?;
+
+        stmt.query_row(params![id], |row| {
+            let track_blob: Vec<u8> = row.get(0)?;
+            Ok(rmp_serde::from_slice(&track_blob).unwrap_or_default())
+        })
+        .ok()
+    }
+
+    /// Get all GPS tracks from database for tile generation.
+    /// Returns a vector of track point arrays, suitable for heatmap rendering.
+    pub fn get_all_tracks(&self) -> Vec<Vec<GpsPoint>> {
+        log::info!("[get_all_tracks] Starting query...");
+
+        let mut stmt = match self.db.prepare("SELECT track_data FROM gps_tracks") {
+            Ok(s) => s,
+            Err(e) => {
+                log::error!("[get_all_tracks] Failed to prepare statement: {:?}", e);
+                return Vec::new();
+            }
+        };
+
+        let rows = stmt.query_map([], |row| {
+            let track_blob: Vec<u8> = row.get(0)?;
+            let blob_len = track_blob.len();
+            let track = rmp_serde::from_slice::<Vec<GpsPoint>>(&track_blob).unwrap_or_default();
+            log::debug!("[get_all_tracks] Blob {} bytes -> {} points", blob_len, track.len());
+            Ok(track)
+        });
+
+        match rows {
+            Ok(iter) => {
+                let mut success_count = 0;
+                let mut error_count = 0;
+                let mut empty_count = 0;
+                let mut total_points = 0usize;
+                let mut sample_points: Vec<(f64, f64)> = Vec::new();
+
+                let result: Vec<Vec<GpsPoint>> = iter
+                    .filter_map(|r| match r {
+                        Ok(track) => {
+                            if track.is_empty() {
+                                empty_count += 1;
+                                None
+                            } else {
+                                // Sample first few points from first track
+                                if success_count == 0 && sample_points.len() < 5 {
+                                    for point in track.iter().take(5) {
+                                        sample_points.push((point.latitude, point.longitude));
+                                    }
+                                }
+                                total_points += track.len();
+                                success_count += 1;
+                                Some(track)
+                            }
+                        }
+                        Err(e) => {
+                            error_count += 1;
+                            log::warn!("[get_all_tracks] Row error: {:?}", e);
+                            None
+                        }
+                    })
+                    .collect();
+
+                log::info!(
+                    "[get_all_tracks] Results: {} tracks, {} total points, {} errors, {} empty",
+                    success_count, total_points, error_count, empty_count
+                );
+
+                if !sample_points.is_empty() {
+                    log::info!(
+                        "[get_all_tracks] Sample points from first track: {:?}",
+                        sample_points
+                    );
+                }
+
+                result
+            }
+            Err(e) => {
+                log::error!("[get_all_tracks] Query failed: {:?}", e);
+                Vec::new()
+            }
+        }
+    }
+
+    // ========================================================================
+    // Time Streams (for section performance calculations)
+    // ========================================================================
+
+    /// Store time stream to database.
+    fn store_time_stream(&self, activity_id: &str, times: &[u32]) -> SqlResult<()> {
+        let times_blob = rmp_serde::to_vec(times).unwrap_or_default();
+        self.db.execute(
+            "INSERT OR REPLACE INTO time_streams (activity_id, times, point_count)
+             VALUES (?, ?, ?)",
+            params![activity_id, times_blob, times.len() as i64],
+        )?;
+        Ok(())
+    }
+
+    /// Load time stream from database.
+    fn load_time_stream(&self, activity_id: &str) -> Option<Vec<u32>> {
+        let mut stmt = self
+            .db
+            .prepare("SELECT times FROM time_streams WHERE activity_id = ?")
+            .ok()?;
+
+        stmt.query_row(params![activity_id], |row| {
+            let times_blob: Vec<u8> = row.get(0)?;
+            Ok(rmp_serde::from_slice(&times_blob).unwrap_or_default())
+        })
+        .ok()
+    }
+
+    /// Check which activities are missing time streams (not in memory or SQLite).
+    /// Returns list of activity IDs that need to be fetched from the API.
+    pub fn get_activities_missing_time_streams(&self, activity_ids: &[String]) -> Vec<String> {
+        if activity_ids.is_empty() {
+            return Vec::new();
+        }
+
+        // First filter out any that are already in memory
+        let not_in_memory: Vec<&String> = activity_ids
+            .iter()
+            .filter(|id| !self.time_streams.contains_key(*id))
+            .collect();
+
+        if not_in_memory.is_empty() {
+            return Vec::new();
+        }
+
+        // Check SQLite for the remaining ones
+        let placeholders: Vec<&str> = not_in_memory.iter().map(|_| "?").collect();
+        let query = format!(
+            "SELECT activity_id FROM time_streams WHERE activity_id IN ({})",
+            placeholders.join(",")
+        );
+
+        let mut stmt = match self.db.prepare(&query) {
+            Ok(s) => s,
+            Err(_) => {
+                // On error, return all that aren't in memory
+                return not_in_memory.into_iter().cloned().collect();
+            }
+        };
+
+        // Bind all activity IDs as parameters
+        let params: Vec<&dyn rusqlite::ToSql> = not_in_memory
+            .iter()
+            .map(|s| *s as &dyn rusqlite::ToSql)
+            .collect();
+
+        let cached_in_sqlite: std::collections::HashSet<String> = stmt
+            .query_map(params.as_slice(), |row| row.get::<_, String>(0))
+            .map(|rows| rows.filter_map(|r| r.ok()).collect())
+            .unwrap_or_default();
+
+        // Return IDs that are NOT in memory AND NOT in SQLite
+        not_in_memory
+            .into_iter()
+            .filter(|id| !cached_in_sqlite.contains(*id))
+            .cloned()
+            .collect()
+    }
+
+    /// Check if a specific activity has a time stream (in memory or SQLite).
+    pub fn has_time_stream(&self, activity_id: &str) -> bool {
+        // First check memory cache
+        if self.time_streams.contains_key(activity_id) {
+            return true;
+        }
+        // Then check SQLite
+        let mut stmt = match self
+            .db
+            .prepare("SELECT 1 FROM time_streams WHERE activity_id = ? LIMIT 1")
+        {
+            Ok(s) => s,
+            Err(_) => return false,
+        };
+        stmt.exists(params![activity_id]).unwrap_or(false)
+    }
+
+    /// Ensure time stream is loaded into memory (from SQLite if needed).
+    /// Returns true if the time stream is available.
+    fn ensure_time_stream_loaded(&mut self, activity_id: &str) -> bool {
+        // Already in memory?
+        if self.time_streams.contains_key(activity_id) {
+            return true;
+        }
+        // Try to load from SQLite
+        if let Some(times) = self.load_time_stream(activity_id) {
+            self.time_streams.insert(activity_id.to_string(), times);
+            return true;
+        }
+        false
+    }
+
+    // ========================================================================
+    // Route Groups
+    // ========================================================================
+
+    /// Get route groups, recomputing if dirty.
+    pub fn get_groups(&mut self) -> &[RouteGroup] {
+        if self.groups_dirty {
+            self.recompute_groups();
+        }
+        &self.groups
+    }
+
+    /// Recompute route groups.
+    fn recompute_groups(&mut self) {
+        use std::time::Instant;
+        let total_start = Instant::now();
+        log::info!("[RUST: PERF] recompute_groups: starting...");
+
+        // Phase 1: Load all signatures (this will use cache where possible)
+        let sig_start = Instant::now();
+        let activity_ids: Vec<String> = self.activity_metadata.keys().cloned().collect();
+        let mut signatures = Vec::with_capacity(activity_ids.len());
+
+        for id in &activity_ids {
+            if let Some(sig) = self.get_signature(id) {
+                signatures.push(sig);
+            }
+        }
+        let sig_ms = sig_start.elapsed().as_millis();
+
+        log::info!(
+            "[RUST: PERF] Phase 1 - Load signatures: {} from {} activities in {}ms",
+            signatures.len(),
+            activity_ids.len(),
+            sig_ms
+        );
+
+        // Phase 2: Group signatures and capture match info (uses parallel rayon)
+        let group_start = Instant::now();
+        let result = tracematch::group_signatures_parallel_with_matches(&signatures, &self.match_config);
+
+        let group_ms = group_start.elapsed().as_millis();
+        log::info!(
+            "[RUST: PERF] Phase 2 - Group signatures: {} groups in {}ms (uses simplified signatures)",
+            result.groups.len(),
+            group_ms
+        );
+
+        self.groups = result.groups;
+        self.activity_matches = result.activity_matches;
+
+        // Phase 3: Recalculate match percentages using ORIGINAL GPS tracks (not simplified signatures)
+        // This captures actual GPS variation that was smoothed out by Douglas-Peucker
+        // NOTE: This is the BOTTLENECK - see PERF logs inside this function
+        self.recalculate_match_percentages_from_tracks();
+
+        // Log match info computed
+        let total_matches: usize = self.activity_matches.values().map(|v| v.len()).sum();
+        log::info!(
+            "[RUST: PERF] Phase 3 complete: {} groups with {} total match entries",
+            self.groups.len(),
+            total_matches
+        );
+
+        // Populate sport_type for each group from the representative activity
+        for group in &mut self.groups {
+            if let Some(meta) = self.activity_metadata.get(&group.representative_id) {
+                group.sport_type = if meta.sport_type.is_empty() {
+                    "Ride".to_string() // Default for empty sport type
+                } else {
+                    meta.sport_type.clone()
+                };
+            } else {
+                // Representative activity not found - use default
+                group.sport_type = "Ride".to_string();
+            }
+        }
+
+        // Phase 4: Save to database
+        let save_start = Instant::now();
+        self.save_groups().ok();
+        let save_ms = save_start.elapsed().as_millis();
+        self.groups_dirty = false;
+
+        let total_ms = total_start.elapsed().as_millis();
+        log::info!("[RUST: PERF] Phase 4 - Save groups: {}ms", save_ms);
+        log::info!(
+            "[RUST: PERF] recompute_groups TOTAL: {}ms (signatures={}ms + grouping={}ms + AMD_recalc=see_above + save={}ms)",
+            total_ms,
+            sig_ms,
+            group_ms,
+            save_ms
+        );
+    }
+
+    /// Recalculate match percentages using original GPS tracks instead of simplified signatures.
+    /// Uses AMD (Average Minimum Distance) for accurate track comparison.
+    fn recalculate_match_percentages_from_tracks(&mut self) {
+        use crate::matching::{amd_to_percentage, average_min_distance};
+        use std::collections::HashMap;
+        use std::time::Instant;
+
+        let func_start = Instant::now();
+
+        // PERF ASSESSMENT: This function is a BOTTLENECK
+        // - Loads ALL GPS tracks from SQLite (I/O bound)
+        // - Does pairwise AMD calculations SEQUENTIALLY (CPU bound, O(n*m) per pair)
+        // - Could be parallelized with rayon but requires restructuring
+        log::info!(
+            "tracematch: [PERF] recalculate_match_percentages: SEQUENTIAL pairwise AMD - {} groups",
+            self.groups.len()
+        );
+
+        // First pass: collect all activity IDs and load tracks
+        // PERF: I/O bound - loads tracks SEQUENTIALLY from SQLite
+        let load_start = Instant::now();
+        let mut tracks: HashMap<String, Vec<GpsPoint>> = HashMap::new();
+        let mut total_points_loaded: usize = 0;
+
+        for group in &self.groups {
+            // Load representative track
+            if let Some(track) = self.load_gps_track_from_db(&group.representative_id)
+                && track.len() >= 2
+            {
+                total_points_loaded += track.len();
+                tracks.insert(group.representative_id.clone(), track);
+            }
+
+            // Load all activity tracks in this group
+            if let Some(matches) = self.activity_matches.get(&group.group_id) {
+                for match_info in matches {
+                    if !tracks.contains_key(&match_info.activity_id)
+                        && let Some(track) = self.load_gps_track_from_db(&match_info.activity_id)
+                        && track.len() >= 2
+                    {
+                        total_points_loaded += track.len();
+                        tracks.insert(match_info.activity_id.clone(), track);
+                    }
+                }
+            }
+        }
+        let load_ms = load_start.elapsed().as_millis();
+        log::info!(
+            "[RUST: PERF] Track loading: {} tracks, {} total points in {}ms (SEQUENTIAL I/O)",
+            tracks.len(),
+            total_points_loaded,
+            load_ms
+        );
+
+        // Second pass: recalculate match percentages using AMD
+        // PERF: CPU bound - O(n*m) distance calculations per pair
+        // OPTIMIZATION 1: Skip self-comparisons (activity == representative)
+        // OPTIMIZATION 2: Parallelize with rayon
+        let calc_start = Instant::now();
+
+        // Collect work items for parallel processing
+        let mut work_items: Vec<(String, String, Vec<GpsPoint>, Vec<GpsPoint>)> = Vec::new();
+        let mut skipped_self = 0u32;
+
+        for group in &self.groups {
+            let rep_track = match tracks.get(&group.representative_id) {
+                Some(t) => t,
+                None => continue,
+            };
+
+            if let Some(matches) = self.activity_matches.get(&group.group_id) {
+                for match_info in matches {
+                    // OPTIMIZATION: Skip self-comparisons - always 100% match
+                    if match_info.activity_id == group.representative_id {
+                        skipped_self += 1;
+                        continue;
+                    }
+
+                    let activity_track = match tracks.get(&match_info.activity_id) {
+                        Some(t) => t,
+                        None => continue,
+                    };
+
+                    work_items.push((
+                        group.group_id.clone(),
+                        match_info.activity_id.clone(),
+                        activity_track.clone(),
+                        rep_track.clone(),
+                    ));
+                }
+            }
+        }
+
+        log::info!(
+            "[RUST: PERF] AMD work: {} pairs to compute, {} self-comparisons skipped",
+            work_items.len(),
+            skipped_self
+        );
+
+        // Parallel AMD calculation using rayon
+        use rayon::prelude::*;
+
+        let results: Vec<(String, String, f64, usize, usize)> = work_items
+            .par_iter()
+            .map(|(group_id, activity_id, activity_track, rep_track)| {
+                let amd_1_to_2 = average_min_distance(activity_track, rep_track);
+                let amd_2_to_1 = average_min_distance(rep_track, activity_track);
+                let avg_amd = (amd_1_to_2 + amd_2_to_1) / 2.0;
+                (
+                    group_id.clone(),
+                    activity_id.clone(),
+                    avg_amd,
+                    activity_track.len(),
+                    rep_track.len(),
+                )
+            })
+            .collect();
+
+        let amd_calculations = (results.len() * 2) as u32;
+
+        // Apply results back to activity_matches
+        for (group_id, activity_id, avg_amd, activity_len, rep_len) in results {
+            let new_percentage = amd_to_percentage(
+                avg_amd,
+                self.match_config.perfect_threshold,
+                self.match_config.zero_threshold,
+            );
+
+            if let Some(matches) = self.activity_matches.get_mut(&group_id)
+                && let Some(match_info) = matches.iter_mut().find(|m| m.activity_id == activity_id)
+            {
+                log::debug!(
+                    "tracematch: recalc match % for {}: {:.1}% -> {:.1}% (AMD: {:.1}m, {} vs {} points)",
+                    activity_id,
+                    match_info.match_percentage,
+                    new_percentage,
+                    avg_amd,
+                    activity_len,
+                    rep_len
+                );
+                match_info.match_percentage = new_percentage;
+            }
+        }
+
+        let calc_ms = calc_start.elapsed().as_millis();
+        let total_ms = func_start.elapsed().as_millis();
+        log::info!(
+            "[RUST: PERF] AMD calculations: {} calls in {}ms (PARALLEL with rayon)",
+            amd_calculations,
+            calc_ms
+        );
+        log::info!(
+            "[RUST: PERF] recalculate_match_percentages TOTAL: {}ms (load={}ms + calc={}ms)",
+            total_ms,
+            load_ms,
+            calc_ms
+        );
+    }
+
+    /// Load original GPS track from database (separate function to avoid borrow issues)
+    fn load_gps_track_from_db(&self, activity_id: &str) -> Option<Vec<GpsPoint>> {
+        let mut stmt = self
+            .db
+            .prepare("SELECT track_data FROM gps_tracks WHERE activity_id = ?")
+            .ok()?;
+
+        stmt.query_row(params![activity_id], |row| {
+            let data: Vec<u8> = row.get(0)?;
+            Ok(rmp_serde::from_slice(&data).ok())
+        })
+        .ok()
+        .flatten()
+    }
+
+    fn save_groups(&self) -> SqlResult<()> {
+        // Clear existing groups and matches
+        self.db.execute("DELETE FROM route_groups", [])?;
+        self.db.execute("DELETE FROM activity_matches", [])?;
+
+        // Insert groups
+        let mut stmt = self.db.prepare(
+            "INSERT INTO route_groups (id, representative_id, activity_ids, sport_type,
+                                        bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        )?;
+
+        for group in &self.groups {
+            let activity_ids_json = serde_json::to_string(&group.activity_ids).unwrap_or_default();
+            stmt.execute(params![
+                group.group_id,
+                group.representative_id,
+                activity_ids_json,
+                group.sport_type,
+                group.bounds.map(|b| b.min_lat),
+                group.bounds.map(|b| b.max_lat),
+                group.bounds.map(|b| b.min_lng),
+                group.bounds.map(|b| b.max_lng),
+            ])?;
+        }
+
+        // Insert activity matches
+        let mut match_stmt = self.db.prepare(
+            "INSERT INTO activity_matches (route_id, activity_id, match_percentage, direction)
+             VALUES (?, ?, ?, ?)",
+        )?;
+
+        for (route_id, matches) in &self.activity_matches {
+            for m in matches {
+                match_stmt.execute(params![
+                    route_id,
+                    m.activity_id,
+                    m.match_percentage,
+                    m.direction,
+                ])?;
             }
         }
 
         Ok(())
     }
+
+    /// Get groups as JSON string.
+    pub fn get_groups_json(&mut self) -> String {
+        let groups = self.get_groups();
+        serde_json::to_string(groups).unwrap_or_else(|_| "[]".to_string())
+    }
+
+    // ========================================================================
+    // Sections (Background Detection)
+    // ========================================================================
+
+    /// Get sections (must call detect_sections first or load from DB).
+    pub fn get_sections(&self) -> &[FrequentSection] {
+        &self.sections
+    }
+
+    /// Get sections as JSON string.
+    pub fn get_sections_json(&self) -> String {
+        log::info!(
+            "tracematch: [PersistentEngine] get_sections_json called, {} sections in memory",
+            self.sections.len()
+        );
+        serde_json::to_string(&self.sections).unwrap_or_else(|_| "[]".to_string())
+    }
+
+    /// Get section count directly from SQLite (no data loading).
+    /// This is O(1) and doesn't require loading sections into memory.
+    pub fn get_section_count(&self) -> u32 {
+        self.db
+            .query_row("SELECT COUNT(*) FROM sections", [], |row| row.get(0))
+            .unwrap_or(0)
+    }
+
+    /// Get group count directly from SQLite (no data loading).
+    /// This is O(1) and doesn't require loading groups into memory.
+    pub fn get_group_count(&self) -> u32 {
+        self.db
+            .query_row("SELECT COUNT(*) FROM route_groups", [], |row| row.get(0))
+            .unwrap_or(0)
+    }
+
+    /// Get lightweight section summaries without polyline data.
+    /// Queries SQLite and extracts only summary fields, skipping heavy data like
+    /// polylines, activityTraces, and pointDensity.
+    pub fn get_section_summaries(&self) -> Vec<SectionSummary> {
+        let mut stmt = match self.db.prepare("SELECT id, data FROM sections") {
+            Ok(s) => s,
+            Err(e) => {
+                log::error!(
+                    "tracematch: [PersistentEngine] Failed to prepare section summaries query: {}",
+                    e
+                );
+                return Vec::new();
+            }
+        };
+
+        let results: Vec<SectionSummary> = stmt
+            .query_map([], |row| {
+                let id: String = row.get(0)?;
+                let data_blob: Vec<u8> = row.get(1)?;
+
+                // Parse JSON to extract only summary fields
+                let full: serde_json::Value = match serde_json::from_slice(&data_blob) {
+                    Ok(v) => v,
+                    Err(_) => return Ok(None),
+                };
+
+                // Extract activity count from activityIds array length
+                let activity_count = full["activityIds"]
+                    .as_array()
+                    .map(|a| a.len() as u32)
+                    .unwrap_or(0);
+
+                // Extract bounds from polyline if present (first and last points)
+                let bounds = full["polyline"].as_array().and_then(|points| {
+                    if points.len() < 2 {
+                        return None;
+                    }
+                    let mut min_lat = f64::MAX;
+                    let mut max_lat = f64::MIN;
+                    let mut min_lng = f64::MAX;
+                    let mut max_lng = f64::MIN;
+
+                    for point in points {
+                        if let (Some(lat), Some(lng)) =
+                            (point["latitude"].as_f64(), point["longitude"].as_f64())
+                        {
+                            min_lat = min_lat.min(lat);
+                            max_lat = max_lat.max(lat);
+                            min_lng = min_lng.min(lng);
+                            max_lng = max_lng.max(lng);
+                        }
+                    }
+
+                    if min_lat < f64::MAX {
+                        Some(crate::FfiBounds {
+                            min_lat,
+                            max_lat,
+                            min_lng,
+                            max_lng,
+                        })
+                    } else {
+                        None
+                    }
+                });
+
+                Ok(Some(SectionSummary {
+                    id,
+                    name: full["name"].as_str().map(String::from),
+                    sport_type: full["sportType"].as_str().unwrap_or("").to_string(),
+                    visit_count: full["visitCount"].as_u64().unwrap_or(0) as u32,
+                    distance_meters: full["distanceMeters"].as_f64().unwrap_or(0.0),
+                    activity_count,
+                    confidence: full["confidence"].as_f64().unwrap_or(0.0),
+                    scale: full["scale"].as_str().map(String::from),
+                    bounds,
+                }))
+            })
+            .ok()
+            .map(|iter| iter.filter_map(|r| r.ok()).flatten().collect())
+            .unwrap_or_default();
+
+        log::info!(
+            "tracematch: [PersistentEngine] get_section_summaries returned {} summaries",
+            results.len()
+        );
+        results
+    }
+
+    /// Get section summaries filtered by sport type.
+    pub fn get_section_summaries_for_sport(&self, sport_type: &str) -> Vec<SectionSummary> {
+        self.get_section_summaries()
+            .into_iter()
+            .filter(|s| s.sport_type == sport_type)
+            .collect()
+    }
+
+    /// Get lightweight group summaries without full activity ID lists.
+    pub fn get_group_summaries(&self) -> Vec<GroupSummary> {
+        let mut stmt = match self.db.prepare(
+            "SELECT id, representative_id, sport_type, activity_ids,
+                    bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng
+             FROM route_groups",
+        ) {
+            Ok(s) => s,
+            Err(e) => {
+                log::error!(
+                    "tracematch: [PersistentEngine] Failed to prepare group summaries query: {}",
+                    e
+                );
+                return Vec::new();
+            }
+        };
+
+        // Load custom names
+        let custom_names = self.get_all_route_names();
+
+        let results: Vec<GroupSummary> = stmt
+            .query_map([], |row| {
+                let group_id: String = row.get(0)?;
+                let representative_id: String = row.get(1)?;
+                let sport_type: String = row.get(2)?;
+                let activity_ids_json: String = row.get(3)?;
+
+                // Parse activity_ids just to get count
+                let activity_count: u32 = serde_json::from_str::<Vec<String>>(&activity_ids_json)
+                    .map(|ids| ids.len() as u32)
+                    .unwrap_or(0);
+
+                // Build bounds if present
+                let bounds = if let (Some(min_lat), Some(max_lat), Some(min_lng), Some(max_lng)) = (
+                    row.get::<_, Option<f64>>(4)?,
+                    row.get::<_, Option<f64>>(5)?,
+                    row.get::<_, Option<f64>>(6)?,
+                    row.get::<_, Option<f64>>(7)?,
+                ) {
+                    Some(crate::FfiBounds {
+                        min_lat,
+                        max_lat,
+                        min_lng,
+                        max_lng,
+                    })
+                } else {
+                    None
+                };
+
+                // Look up custom name
+                let custom_name = custom_names.get(&group_id).cloned();
+
+                Ok(GroupSummary {
+                    group_id,
+                    representative_id,
+                    sport_type,
+                    activity_count,
+                    custom_name,
+                    bounds,
+                })
+            })
+            .ok()
+            .map(|iter| iter.filter_map(|r| r.ok()).collect())
+            .unwrap_or_default();
+
+        log::info!(
+            "tracematch: [PersistentEngine] get_group_summaries returned {} summaries",
+            results.len()
+        );
+        results
+    }
+
+    /// Get a single section by ID with LRU caching.
+    /// Returns the full FrequentSection with polyline data.
+    /// Uses LRU cache to avoid repeated SQLite queries for hot sections.
+    pub fn get_section_by_id(&mut self, section_id: &str) -> Option<FrequentSection> {
+        // Check LRU cache first
+        if let Some(section) = self.section_cache.get(&section_id.to_string()) {
+            log::debug!(
+                "tracematch: [PersistentEngine] get_section_by_id cache hit for {}",
+                section_id
+            );
+            return Some(section.clone());
+        }
+
+        // Query SQLite
+        let result: Option<FrequentSection> = self
+            .db
+            .query_row(
+                "SELECT data FROM sections WHERE id = ?",
+                params![section_id],
+                |row| {
+                    let data_blob: Vec<u8> = row.get(0)?;
+                    Ok(serde_json::from_slice(&data_blob).ok())
+                },
+            )
+            .ok()
+            .flatten();
+
+        // Cache for future access
+        if let Some(ref section) = result {
+            self.section_cache
+                .put(section_id.to_string(), section.clone());
+            log::info!(
+                "tracematch: [PersistentEngine] get_section_by_id found and cached section {}",
+                section_id
+            );
+        } else {
+            log::info!(
+                "tracematch: [PersistentEngine] get_section_by_id: section {} not found",
+                section_id
+            );
+        }
+
+        result
+    }
+
+    /// Get a single group by ID with LRU caching.
+    /// Returns the full RouteGroup with activity IDs.
+    /// Uses LRU cache to avoid repeated SQLite queries for hot groups.
+    pub fn get_group_by_id(&mut self, group_id: &str) -> Option<RouteGroup> {
+        // Check LRU cache first
+        if let Some(group) = self.group_cache.get(&group_id.to_string()) {
+            log::debug!(
+                "tracematch: [PersistentEngine] get_group_by_id cache hit for {}",
+                group_id
+            );
+            return Some(group.clone());
+        }
+
+        let custom_names = self.get_all_route_names();
+
+        let result: Option<RouteGroup> = self
+            .db
+            .query_row(
+                "SELECT id, representative_id, activity_ids, sport_type,
+                        bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng
+                 FROM route_groups WHERE id = ?",
+                params![group_id],
+                |row| {
+                    let id: String = row.get(0)?;
+                    let representative_id: String = row.get(1)?;
+                    let activity_ids_json: String = row.get(2)?;
+                    let sport_type: String = row.get(3)?;
+
+                    let activity_ids: Vec<String> =
+                        serde_json::from_str(&activity_ids_json).unwrap_or_default();
+
+                    let bounds =
+                        if let (Some(min_lat), Some(max_lat), Some(min_lng), Some(max_lng)) = (
+                            row.get::<_, Option<f64>>(4)?,
+                            row.get::<_, Option<f64>>(5)?,
+                            row.get::<_, Option<f64>>(6)?,
+                            row.get::<_, Option<f64>>(7)?,
+                        ) {
+                            Some(Bounds {
+                                min_lat,
+                                max_lat,
+                                min_lng,
+                                max_lng,
+                            })
+                        } else {
+                            None
+                        };
+
+                    let custom_name = custom_names.get(&id).cloned();
+
+                    Ok(RouteGroup {
+                        group_id: id,
+                        representative_id,
+                        activity_ids,
+                        sport_type,
+                        bounds,
+                        custom_name,
+                        best_time: None,
+                        avg_time: None,
+                        best_pace: None,
+                        best_activity_id: None,
+                    })
+                },
+            )
+            .ok();
+
+        // Cache for future access
+        if let Some(ref group) = result {
+            self.group_cache.put(group_id.to_string(), group.clone());
+            log::info!(
+                "tracematch: [PersistentEngine] get_group_by_id found and cached group {}",
+                group_id
+            );
+        } else {
+            log::info!(
+                "tracematch: [PersistentEngine] get_group_by_id: group {} not found",
+                group_id
+            );
+        }
+
+        result
+    }
+
+    /// Get section polyline only (flat coordinates for map rendering).
+    /// Returns [lat1, lng1, lat2, lng2, ...] or empty vec if not found.
+    pub fn get_section_polyline(&self, section_id: &str) -> Vec<f64> {
+        let result: Option<Vec<f64>> = self
+            .db
+            .query_row(
+                "SELECT data FROM sections WHERE id = ?",
+                params![section_id],
+                |row| {
+                    let data_blob: Vec<u8> = row.get(0)?;
+                    let full: serde_json::Value = match serde_json::from_slice(&data_blob) {
+                        Ok(v) => v,
+                        Err(e) => {
+                            log::error!(
+                                "tracematch: get_section_polyline JSON parse error for {}: {}",
+                                section_id,
+                                e
+                            );
+                            return Ok(None);
+                        }
+                    };
+
+                    let coords: Vec<f64> = full["polyline"]
+                        .as_array()
+                        .map(|points| {
+                            points
+                                .iter()
+                                .flat_map(|p| {
+                                    let lat = p["latitude"].as_f64().unwrap_or(0.0);
+                                    let lng = p["longitude"].as_f64().unwrap_or(0.0);
+                                    vec![lat, lng]
+                                })
+                                .collect()
+                        })
+                        .unwrap_or_default();
+
+                    Ok(Some(coords))
+                },
+            )
+            .ok()
+            .flatten();
+
+        result.unwrap_or_default()
+    }
+
+    /// Start section detection in a background thread.
+    ///
+    /// Returns a handle that can be polled for completion and progress.
+    ///
+    /// Note: This method is designed to be non-blocking on the calling thread.
+    /// All heavy operations (groups loading, track loading, detection) happen
+    /// in the background thread to keep the UI responsive.
+    pub fn detect_sections_background(
+        &mut self,
+        sport_filter: Option<String>,
+    ) -> SectionDetectionHandle {
+        let (tx, rx) = mpsc::channel();
+        let db_path = self.db_path.clone();
+        let section_config = self.section_config.clone();
+
+        // Create shared progress tracker
+        let progress = SectionDetectionProgress::new();
+        let progress_clone = progress.clone();
+
+        // Ensure groups are computed before section detection.
+        // This is necessary because:
+        // 1. Route groups are a core feature - users expect to see their routes
+        // 2. Sections need groups to be linked to activities
+        // 3. Without groups, the Routes tab shows "0 routes"
+        //
+        // This call may trigger recomputation if groups_dirty = true (after addActivities).
+        // The recomputation loads signatures and runs grouping algorithm.
+        // For 54 activities, this typically takes < 1 second.
+        if self.groups_dirty {
+            log::info!(
+                "tracematch: [SectionDetection] Computing route groups before section detection..."
+            );
+            let start = std::time::Instant::now();
+            let _ = self.get_groups(); // This triggers recomputation and saves to DB
+            log::info!(
+                "tracematch: [SectionDetection] Route groups computed in {:?}",
+                start.elapsed()
+            );
+        }
+
+        // Build sport type map - lightweight, just copying metadata
+        let sport_map: HashMap<String, String> = self
+            .activity_metadata
+            .values()
+            .map(|m| (m.id.clone(), m.sport_type.clone()))
+            .collect();
+
+        // Filter activity IDs by sport - lightweight
+        let activity_ids: Vec<String> = if let Some(ref sport) = sport_filter {
+            self.activity_metadata
+                .values()
+                .filter(|m| &m.sport_type == sport)
+                .map(|m| m.id.clone())
+                .collect()
+        } else {
+            self.activity_metadata.keys().cloned().collect()
+        };
+
+        // Set initial loading phase
+        progress.set_phase("loading", activity_ids.len() as u32);
+
+        thread::spawn(move || {
+            log::info!(
+                "tracematch: [SectionDetection] Background thread started with {} activity IDs",
+                activity_ids.len()
+            );
+
+            // Open separate connection for background thread
+            let conn = match Connection::open(&db_path) {
+                Ok(c) => c,
+                Err(e) => {
+                    log::info!("tracematch: [SectionDetection] Failed to open DB: {:?}", e);
+                    tx.send(Vec::new()).ok();
+                    return;
+                }
+            };
+
+            // Load groups from DB inside the thread (non-blocking on main thread)
+            let groups = load_groups_from_db(&conn);
+            log::info!(
+                "tracematch: [SectionDetection] Loaded {} groups from DB",
+                groups.len()
+            );
+
+            // Set loading phase with total count
+            progress_clone.set_phase("loading", activity_ids.len() as u32);
+
+            // Load GPS tracks from DB with progress updates
+            let mut tracks_loaded = 0;
+            let mut tracks_empty = 0;
+            let tracks: Vec<(String, Vec<GpsPoint>)> = activity_ids
+                .iter()
+                .filter_map(|id| {
+                    progress_clone.increment();
+                    let mut stmt = conn
+                        .prepare("SELECT track_data FROM gps_tracks WHERE activity_id = ?")
+                        .ok()?;
+                    let track: Vec<GpsPoint> = stmt
+                        .query_row(params![id], |row| {
+                            let blob: Vec<u8> = row.get(0)?;
+                            Ok(rmp_serde::from_slice(&blob).unwrap_or_default())
+                        })
+                        .ok()?;
+                    if track.is_empty() {
+                        tracks_empty += 1;
+                        return None; // Skip empty tracks
+                    }
+                    tracks_loaded += 1;
+                    Some((id.clone(), track))
+                })
+                .collect();
+
+            log::info!(
+                "tracematch: [SectionDetection] Loaded {} tracks ({} empty/missing) from {} activity IDs",
+                tracks_loaded,
+                tracks_empty,
+                activity_ids.len()
+            );
+
+            if tracks.is_empty() {
+                log::info!("tracematch: [SectionDetection] No tracks loaded, skipping detection");
+                progress_clone.set_phase("complete", 0);
+                tx.send(Vec::new()).ok();
+                return;
+            }
+
+            // Log track point counts for debugging
+            let total_points: usize = tracks.iter().map(|(_, t)| t.len()).sum();
+            log::info!(
+                "tracematch: [SectionDetection] Total GPS points: {}, avg per track: {}",
+                total_points,
+                total_points / tracks.len().max(1)
+            );
+
+            // Detect sections using multi-scale algorithm
+            progress_clone.set_phase("detecting", tracks.len() as u32);
+            let result = tracematch::sections::detect_sections_multiscale(
+                &tracks,
+                &sport_map,
+                &groups,
+                &section_config,
+            );
+
+            log::info!(
+                "tracematch: [SectionDetection] Detection complete: {} sections, {} potentials",
+                result.sections.len(),
+                result.potentials.len()
+            );
+
+            progress_clone.set_phase("complete", 0);
+            tx.send(result.sections).ok();
+        });
+
+        SectionDetectionHandle {
+            receiver: rx,
+            progress,
+        }
+    }
+
+    /// Apply completed section detection results.
+    pub fn apply_sections(&mut self, sections: Vec<FrequentSection>) -> SqlResult<()> {
+        self.sections = sections;
+        self.save_sections()?;
+        self.sections_dirty = false;
+        Ok(())
+    }
+
+    fn save_sections(&self) -> SqlResult<()> {
+        // Clear existing
+        self.db.execute("DELETE FROM sections", [])?;
+        self.db.execute("DELETE FROM section_activities", [])?;
+
+        // Insert new (serialize entire section as JSON)
+        let mut section_stmt = self
+            .db
+            .prepare("INSERT INTO sections (id, data) VALUES (?, ?)")?;
+        let mut junction_stmt = self
+            .db
+            .prepare("INSERT INTO section_activities (section_id, activity_id) VALUES (?, ?)")?;
+
+        for section in &self.sections {
+            let data_blob = serde_json::to_vec(section).unwrap_or_default();
+            section_stmt.execute(params![section.id, data_blob])?;
+
+            // Populate junction table for fast activity-based lookup
+            for activity_id in &section.activity_ids {
+                junction_stmt.execute(params![section.id, activity_id])?;
+            }
+        }
+
+        Ok(())
+    }
+
+    // ========================================================================
+    // Overlap Cache
+    // ========================================================================
+
+    /// Order activity IDs lexicographically for consistent cache keys.
+    fn order_activity_ids<'a>(id_a: &'a str, id_b: &'a str) -> (&'a str, &'a str) {
+        if id_a < id_b {
+            (id_a, id_b)
+        } else {
+            (id_b, id_a)
+        }
+    }
+
+    /// Get cached overlap result for two activities.
+    /// Returns:
+    ///   Some(Some(overlap_data)) - cached, has overlap with data
+    ///   Some(None) - cached, no overlap exists
+    ///   None - not cached, needs computation
+    pub fn get_cached_overlap(&self, id_a: &str, id_b: &str) -> Option<Option<Vec<u8>>> {
+        let (a, b) = Self::order_activity_ids(id_a, id_b);
+
+        let mut stmt = self
+            .db
+            .prepare_cached("SELECT has_overlap, overlap_data FROM overlap_cache WHERE activity_a = ? AND activity_b = ?")
+            .ok()?;
+
+        match stmt.query_row(params![a, b], |row| {
+            let has_overlap: i32 = row.get(0)?;
+            let data: Option<Vec<u8>> = row.get(1)?;
+            Ok((has_overlap, data))
+        }) {
+            Ok((1, data)) => Some(data), // Has overlap, return the data (or None if no data stored)
+            Ok((0, _)) => Some(None),    // Cached as no overlap
+            Ok(_) => Some(None),         // Invalid value, treat as no overlap
+            Err(_) => None,              // Not in cache
+        }
+    }
+
+    /// Store overlap result in cache.
+    /// overlap_data should be None if no overlap, Some(serialized_data) if overlap exists.
+    pub fn cache_overlap(&self, id_a: &str, id_b: &str, overlap_data: Option<&[u8]>) {
+        let (a, b) = Self::order_activity_ids(id_a, id_b);
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs() as i64;
+
+        let has_overlap = if overlap_data.is_some() { 1 } else { 0 };
+
+        let _ = self.db.execute(
+            "INSERT OR REPLACE INTO overlap_cache (activity_a, activity_b, has_overlap, overlap_data, computed_at) VALUES (?, ?, ?, ?, ?)",
+            params![a, b, has_overlap, overlap_data, now],
+        );
+    }
+
+    /// Invalidate cached overlaps for an activity (when GPS track changes).
+    pub fn invalidate_overlap_cache_for_activity(&self, activity_id: &str) {
+        let _ = self.db.execute(
+            "DELETE FROM overlap_cache WHERE activity_a = ? OR activity_b = ?",
+            params![activity_id, activity_id],
+        );
+    }
+
+    /// Get count of cached overlaps (for debugging/stats).
+    pub fn get_overlap_cache_count(&self) -> u32 {
+        self.db
+            .query_row("SELECT COUNT(*) FROM overlap_cache", [], |row| row.get(0))
+            .unwrap_or(0)
+    }
+
+    /// Clear all cached overlaps.
+    pub fn clear_overlap_cache(&self) {
+        let _ = self.db.execute("DELETE FROM overlap_cache", []);
+    }
+
+    // ========================================================================
+    // Incremental Section Updates
+    // ========================================================================
+
+    /// Match a new activity's track against existing sections.
+    /// Returns sections that the activity overlaps with, along with the matching track portion.
+    /// This is O(S) where S = number of sections, much faster than full O(N²) re-detection.
+    ///
+    /// Uses tracematch's find_sections_in_route() which is optimized for this purpose.
+    pub fn match_activity_to_sections(
+        &self,
+        activity_id: &str,
+        track: &[GpsPoint],
+    ) -> Vec<ActivitySectionMatch> {
+        if track.is_empty() || self.sections.is_empty() {
+            return vec![];
+        }
+
+        // Use internal version and convert to FFI-friendly format
+        let internal_matches = self.match_activity_to_sections_internal(activity_id, track);
+
+        let matches: Vec<ActivitySectionMatch> = internal_matches
+            .into_iter()
+            .map(|m| ActivitySectionMatch {
+                section_id: m.section_id,
+                section_name: m.section_name,
+                overlap_distance: m.overlap_distance,
+                start_index: m.start_index,
+                end_index: m.end_index,
+                match_quality: m.match_quality,
+                same_direction: m.same_direction,
+            })
+            .collect();
+
+        log::info!(
+            "tracematch: [IncrementalUpdate] Activity {} matches {} existing sections",
+            activity_id,
+            matches.len()
+        );
+
+        matches
+    }
+
+    /// Internal version that returns overlap points for use in add_activity_to_section.
+    fn match_activity_to_sections_internal(
+        &self,
+        activity_id: &str,
+        track: &[GpsPoint],
+    ) -> Vec<ActivitySectionMatchInternal> {
+        if track.is_empty() || self.sections.is_empty() {
+            return vec![];
+        }
+
+        // Use tracematch's find_sections_in_route - it handles R-tree building and matching
+        let raw_matches = tracematch::find_sections_in_route(track, &self.sections, &self.section_config);
+
+        // Convert to internal format with overlap points
+        raw_matches
+            .into_iter()
+            .filter_map(|m| {
+                // Skip if activity is already in this section
+                let section = self.sections.iter().find(|s| s.id == m.section_id)?;
+                if section.activity_ids.contains(&activity_id.to_string()) {
+                    return None;
+                }
+
+                // Extract the overlapping portion of the track
+                let start = m.start_index as usize;
+                let end = (m.end_index as usize).min(track.len());
+                if start >= end {
+                    return None;
+                }
+
+                let overlap_points: Vec<GpsPoint> = track[start..end].to_vec();
+
+                // Compute distance of overlap
+                let overlap_distance: f64 = overlap_points
+                    .windows(2)
+                    .map(|w| geo_utils::haversine_distance(&w[0], &w[1]))
+                    .sum();
+
+                Some(ActivitySectionMatchInternal {
+                    section_id: m.section_id,
+                    section_name: section.name.clone(),
+                    overlap_points,
+                    overlap_distance,
+                    start_index: m.start_index as u32,
+                    end_index: m.end_index as u32,
+                    match_quality: m.match_quality,
+                    same_direction: m.same_direction,
+                })
+            })
+            .collect()
+    }
+
+    /// Match activity to sections and add it to all matching sections.
+    /// This is the main entry point for incremental section updates.
+    /// Returns the number of sections the activity was added to.
+    pub fn match_and_add_activity_to_sections(
+        &mut self,
+        activity_id: &str,
+        track: &[GpsPoint],
+    ) -> u32 {
+        let matches = self.match_activity_to_sections_internal(activity_id, track);
+        let mut added_count = 0;
+
+        for m in matches {
+            if let Ok(()) = self.add_activity_to_section(
+                &m.section_id,
+                activity_id,
+                m.overlap_points,
+                m.same_direction,
+            ) {
+                added_count += 1;
+            }
+        }
+
+        added_count
+    }
+
+    /// Add an activity to an existing section and recalculate the medoid.
+    /// This is the incremental update path - much faster than full re-detection.
+    ///
+    /// # Arguments
+    /// * `section_id` - The section to add the activity to
+    /// * `activity_id` - The activity being added
+    /// * `overlap_points` - GPS points from the activity that overlap with the section
+    /// * `same_direction` - Whether the activity travels in the same direction as the section
+    pub fn add_activity_to_section(
+        &mut self,
+        section_id: &str,
+        activity_id: &str,
+        overlap_points: Vec<GpsPoint>,
+        same_direction: bool,
+    ) -> Result<(), String> {
+        // Find the section
+        let section = self
+            .sections
+            .iter_mut()
+            .find(|s| s.id == section_id)
+            .ok_or_else(|| format!("Section {} not found", section_id))?;
+
+        // Don't modify user-defined sections automatically
+        if section.is_user_defined {
+            return Err(format!(
+                "Section {} is user-defined, cannot auto-update",
+                section_id
+            ));
+        }
+
+        // Check if activity is already in section
+        if section.activity_ids.contains(&activity_id.to_string()) {
+            return Err(format!(
+                "Activity {} already in section {}",
+                activity_id, section_id
+            ));
+        }
+
+        // Add activity
+        section.activity_ids.push(activity_id.to_string());
+        section.visit_count += 1;
+
+        // Store the activity's trace
+        section
+            .activity_traces
+            .insert(activity_id.to_string(), overlap_points.clone());
+
+        // Compute distance of the overlap
+        let overlap_distance: f64 = overlap_points
+            .windows(2)
+            .map(|w| geo_utils::haversine_distance(&w[0], &w[1]))
+            .sum();
+
+        // Add portion metadata
+        // Note: start_index/end_index are relative to the overlap, not full track
+        let direction = if same_direction { "same" } else { "reverse" }.to_string();
+        section.activity_portions.push(SectionPortion {
+            activity_id: activity_id.to_string(),
+            start_index: 0,
+            end_index: overlap_points.len().saturating_sub(1) as u32,
+            distance_meters: overlap_distance,
+            direction,
+        });
+
+        // Recalculate medoid if we have enough traces
+        self.recalculate_section_medoid(section_id)?;
+
+        // Update version and timestamp
+        if let Some(section) = self.sections.iter_mut().find(|s| s.id == section_id) {
+            section.version += 1;
+            section.updated_at = Some(current_timestamp_iso());
+            section.observation_count = section.activity_ids.len() as u32;
+        }
+
+        // Save to DB
+        self.save_sections()
+            .map_err(|e| format!("Failed to save sections: {}", e))?;
+
+        log::info!(
+            "tracematch: [IncrementalUpdate] Added activity {} to section {}, now has {} activities",
+            activity_id,
+            section_id,
+            self.sections
+                .iter()
+                .find(|s| s.id == section_id)
+                .map(|s| s.activity_ids.len())
+                .unwrap_or(0)
+        );
+
+        Ok(())
+    }
+
+    /// Recalculate the medoid (most representative trace) for a section.
+    /// The medoid is the trace with minimum total AMD to all other traces.
+    /// This is cheap: O(N²) pairwise comparisons but N is typically small (≤10 traces per section).
+    fn recalculate_section_medoid(&mut self, section_id: &str) -> Result<(), String> {
+        // First, extract all the data we need without holding a borrow
+        let (is_user_defined, traces_data, old_medoid) = {
+            let section = self
+                .sections
+                .iter()
+                .find(|s| s.id == section_id)
+                .ok_or_else(|| format!("Section {} not found", section_id))?;
+
+            // Don't recalculate if user manually set the medoid
+            if section.is_user_defined {
+                return Ok(());
+            }
+
+            // Clone the traces data so we can release the borrow
+            let traces: Vec<(String, Vec<GpsPoint>)> = section
+                .activity_traces
+                .iter()
+                .map(|(k, v)| (k.clone(), v.clone()))
+                .collect();
+
+            (
+                section.is_user_defined,
+                traces,
+                section.representative_activity_id.clone(),
+            )
+        };
+
+        if is_user_defined {
+            return Ok(());
+        }
+
+        if traces_data.is_empty() {
+            return Ok(());
+        }
+
+        if traces_data.len() == 1 {
+            // Only one trace - it's the medoid by default
+            let activity_id = &traces_data[0].0;
+            if let Some(section) = self.sections.iter_mut().find(|s| s.id == section_id) {
+                section.representative_activity_id = activity_id.clone();
+            }
+            return Ok(());
+        }
+
+        // For small sets, compute full pairwise AMD
+        // For larger sets (>10), use sampling
+        let use_sampling = traces_data.len() > 10;
+        let sample_size = if use_sampling { 5 } else { traces_data.len() };
+
+        let mut best_activity_id = traces_data[0].0.clone();
+        let mut best_total_amd = f64::MAX;
+
+        for (i, (activity_id, trace_i)) in traces_data.iter().enumerate() {
+            let mut total_amd = 0.0;
+
+            // Compare to all others (or sample)
+            let compare_indices: Vec<usize> = if use_sampling {
+                // Sample random indices (excluding self)
+                use std::collections::HashSet;
+                let mut indices = HashSet::new();
+                let mut rng_seed = i as u64;
+                while indices.len() < sample_size && indices.len() < traces_data.len() - 1 {
+                    rng_seed = rng_seed.wrapping_mul(1103515245).wrapping_add(12345);
+                    let idx = (rng_seed as usize) % traces_data.len();
+                    if idx != i {
+                        indices.insert(idx);
+                    }
+                }
+                indices.into_iter().collect()
+            } else {
+                (0..traces_data.len()).filter(|&j| j != i).collect()
+            };
+
+            for j in compare_indices {
+                let trace_j = &traces_data[j].1;
+                total_amd += compute_amd(trace_i, trace_j);
+            }
+
+            if total_amd < best_total_amd {
+                best_total_amd = total_amd;
+                best_activity_id = activity_id.clone();
+            }
+        }
+
+        // Update section with new medoid
+        if let Some(section) = self.sections.iter_mut().find(|s| s.id == section_id) {
+            section.representative_activity_id = best_activity_id.clone();
+
+            if old_medoid != best_activity_id {
+                log::info!(
+                    "tracematch: [Medoid] Section {} medoid changed: {} -> {}",
+                    section_id,
+                    old_medoid,
+                    best_activity_id
+                );
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Re-match all cached activities against a section's current polyline.
+    /// This is called after changing the reference activity to rebuild the activity list.
+    /// Only matches activities with the same sport type as the section.
+    /// Returns (added_count, removed_count).
+    fn rematch_section_activities(&mut self, section_id: &str) -> Result<(usize, usize), String> {
+        // Get the section for matching (clone to avoid borrow issues)
+        let target_section = self
+            .sections
+            .iter()
+            .find(|s| s.id == section_id)
+            .ok_or_else(|| format!("Section {} not found", section_id))?
+            .clone();
+
+        if target_section.polyline.is_empty() {
+            return Ok((0, 0));
+        }
+
+        let section_sport_type = &target_section.sport_type;
+        log::info!(
+            "tracematch: [Rematch] Section {} sport_type: {}",
+            section_id,
+            section_sport_type
+        );
+
+        // Create a single-element slice for find_sections_in_route
+        let section_slice = [target_section.clone()];
+
+        // Get activity IDs filtered by sport type
+        let activity_ids_for_sport: Vec<String> = self
+            .activity_metadata
+            .values()
+            .filter(|m| &m.sport_type == section_sport_type)
+            .map(|m| m.id.clone())
+            .collect();
+
+        log::info!(
+            "tracematch: [Rematch] Found {} activities with sport_type {}",
+            activity_ids_for_sport.len(),
+            section_sport_type
+        );
+
+        let mut new_activity_ids: Vec<String> = Vec::new();
+        let mut new_activity_traces: std::collections::HashMap<String, Vec<GpsPoint>> =
+            std::collections::HashMap::new();
+
+        for activity_id in &activity_ids_for_sport {
+            // Get the GPS track for this activity
+            let track = match self.get_gps_track(activity_id) {
+                Some(t) if t.len() >= 3 => t,
+                _ => continue,
+            };
+
+            // Use find_sections_in_route to check if this activity matches the section
+            let matches = tracematch::find_sections_in_route(&track, &section_slice, &self.section_config);
+
+            if let Some(m) = matches.first() {
+                // Found a match - extract the matching portion
+                let start = m.start_index as usize;
+                let end = (m.end_index as usize).min(track.len());
+                if start < end && m.match_quality >= 0.5 {
+                    new_activity_ids.push(activity_id.clone());
+
+                    // Extract the trace portion that matches the section
+                    let trace: Vec<GpsPoint> = track[start..end].to_vec();
+                    new_activity_traces.insert(activity_id.clone(), trace);
+                }
+            }
+        }
+
+        // Get old activity IDs for comparison
+        let old_activity_ids: std::collections::HashSet<String> = {
+            let section = self.sections.iter().find(|s| s.id == section_id).unwrap();
+            section.activity_ids.iter().cloned().collect()
+        };
+
+        let new_activity_ids_set: std::collections::HashSet<String> =
+            new_activity_ids.iter().cloned().collect();
+
+        let added = new_activity_ids_set
+            .difference(&old_activity_ids)
+            .count();
+        let removed = old_activity_ids
+            .difference(&new_activity_ids_set)
+            .count();
+
+        // Update the section
+        if let Some(section) = self.sections.iter_mut().find(|s| s.id == section_id) {
+            section.activity_ids = new_activity_ids;
+            section.activity_traces = new_activity_traces;
+            section.visit_count = section.activity_ids.len() as u32;
+        }
+
+        Ok((added, removed))
+    }
+
+    /// Set reference activity for a custom section (LEGACY - to be removed).
+    /// Updates the source_activity_id and extracts the new polyline from the activity's GPS track.
+    fn set_custom_section_reference(
+        &mut self,
+        section_id: &str,
+        activity_id: &str,
+    ) -> Result<(), String> {
+        log::info!(
+            "tracematch: [CustomSection] Setting reference for {} to activity {}",
+            section_id,
+            activity_id
+        );
+
+        // Load the custom section from SQLite
+        let custom_section = self
+            .get_custom_section(section_id)
+            .ok_or_else(|| format!("Custom section {} not found", section_id))?;
+
+        // Get the new activity's GPS track
+        let track = self
+            .get_gps_track(activity_id)
+            .ok_or_else(|| format!("GPS track for activity {} not found", activity_id))?;
+
+        // Find where this activity traverses the section
+        // Use the same matching logic as regular section matching
+        let config = crate::CustomSectionMatchConfig::default();
+        let matches = self.match_custom_section(&custom_section, activity_id, &track, &config);
+
+        if matches.is_empty() {
+            return Err(format!(
+                "Activity {} does not traverse custom section {}",
+                activity_id, section_id
+            ));
+        }
+
+        // Use the first match to extract the new polyline
+        let first_match = &matches[0];
+        let start_idx = first_match.start_index as usize;
+        let end_idx = first_match.end_index as usize;
+
+        // Extract the new polyline from the activity's track
+        let new_polyline: Vec<GpsPoint> = if start_idx < end_idx && end_idx <= track.len() {
+            track[start_idx..end_idx].to_vec()
+        } else if end_idx < start_idx && start_idx <= track.len() {
+            // Reverse direction - extract and reverse
+            let mut points: Vec<GpsPoint> = track[end_idx..start_idx].to_vec();
+            points.reverse();
+            points
+        } else {
+            return Err(format!(
+                "Invalid match indices: start={}, end={}, track_len={}",
+                start_idx,
+                end_idx,
+                track.len()
+            ));
+        };
+
+        if new_polyline.len() < 2 {
+            return Err("Extracted polyline is too short".to_string());
+        }
+
+        // Calculate new distance
+        let new_distance = self.calculate_track_distance(&new_polyline, 0, new_polyline.len() - 1);
+
+        // Serialize the new polyline
+        let polyline_json =
+            serde_json::to_string(&new_polyline).unwrap_or_else(|_| "[]".to_string());
+
+        // Update the custom section in SQLite
+        self.db
+            .execute(
+                "UPDATE custom_sections
+             SET source_activity_id = ?, polyline_json = ?, start_index = ?, end_index = ?, distance_meters = ?
+             WHERE id = ?",
+                params![
+                    activity_id,
+                    polyline_json,
+                    first_match.start_index,
+                    first_match.end_index,
+                    new_distance,
+                    section_id
+                ],
+            )
+            .map_err(|e| format!("Failed to update custom section: {}", e))?;
+
+        log::info!(
+            "tracematch: [CustomSection] Updated {} with new reference activity {}, polyline has {} points",
+            section_id,
+            activity_id,
+            new_polyline.len()
+        );
+
+        // Clear existing matches since the polyline changed
+        self.db
+            .execute(
+                "DELETE FROM custom_section_matches WHERE section_id = ?",
+                params![section_id],
+            )
+            .map_err(|e| format!("Failed to clear old matches: {}", e))?;
+
+        // Re-match all activities against the updated section
+        // First, get the updated section
+        let updated_section = self
+            .get_custom_section(section_id)
+            .ok_or_else(|| format!("Failed to reload custom section {}", section_id))?;
+
+        // Get all activity IDs
+        let activity_ids: Vec<String> = self
+            .db
+            .prepare("SELECT id FROM activities")
+            .ok()
+            .and_then(|mut stmt| {
+                stmt.query_map([], |row| row.get(0))
+                    .ok()
+                    .map(|iter| iter.filter_map(|r| r.ok()).collect())
+            })
+            .unwrap_or_default();
+
+        // Match against all activities
+        let mut match_count = 0;
+        for aid in &activity_ids {
+            if let Some(track) = self.get_gps_track(aid) {
+                let matches = self.match_custom_section(&updated_section, aid, &track, &config);
+                for m in matches {
+                    if self.add_custom_section_match(section_id, &m).is_ok() {
+                        match_count += 1;
+                    }
+                }
+            }
+        }
+
+        log::info!(
+            "tracematch: [CustomSection] Re-matched {} against {} activities, found {} matches",
+            section_id,
+            activity_ids.len(),
+            match_count
+        );
+
+        Ok(())
+    }
+
+    // ========================================================================
+    // Consensus Routes
+    // ========================================================================
+
+    /// Get consensus route for a group, with caching.
+    pub fn get_consensus_route(&mut self, group_id: &str) -> Option<Vec<GpsPoint>> {
+        // Check cache
+        if let Some(consensus) = self.consensus_cache.get(&group_id.to_string()) {
+            return Some(consensus.clone());
+        }
+
+        // Find the group and extract activity IDs (to release the mutable borrow)
+        let activity_ids = {
+            let groups = self.get_groups();
+            let group = groups.iter().find(|g| g.group_id == group_id)?;
+            if group.activity_ids.is_empty() {
+                return None;
+            }
+            group.activity_ids.clone()
+        };
+
+        // Get tracks for this group (now we can borrow self again)
+        let tracks: Vec<Vec<GpsPoint>> = activity_ids
+            .iter()
+            .filter_map(|id| self.get_gps_track(id))
+            .collect();
+
+        if tracks.is_empty() {
+            return None;
+        }
+
+        // Compute medoid (most representative track)
+        let consensus = self.compute_medoid_track(&tracks);
+
+        // Cache result
+        self.consensus_cache
+            .put(group_id.to_string(), consensus.clone());
+
+        Some(consensus)
+    }
+
+    fn compute_medoid_track(&self, tracks: &[Vec<GpsPoint>]) -> Vec<GpsPoint> {
+        if tracks.is_empty() {
+            return vec![];
+        }
+        if tracks.len() == 1 {
+            return tracks[0].clone();
+        }
+
+        // Find track with minimum total distance to all others
+        let mut best_idx = 0;
+        let mut best_total_dist = f64::MAX;
+
+        for (i, track_i) in tracks.iter().enumerate() {
+            let total_dist: f64 = tracks
+                .iter()
+                .enumerate()
+                .filter(|(j, _)| *j != i)
+                .map(|(_, track_j)| self.track_distance(track_i, track_j))
+                .sum();
+
+            if total_dist < best_total_dist {
+                best_total_dist = total_dist;
+                best_idx = i;
+            }
+        }
+
+        tracks[best_idx].clone()
+    }
+
+    fn track_distance(&self, track1: &[GpsPoint], track2: &[GpsPoint]) -> f64 {
+        if track1.is_empty() || track2.is_empty() {
+            return f64::MAX;
+        }
+
+        let sample_size = 20.min(track1.len().min(track2.len()));
+        let step1 = track1.len() / sample_size;
+        let step2 = track2.len() / sample_size;
+
+        let sampled1: Vec<&GpsPoint> = (0..sample_size).map(|i| &track1[i * step1]).collect();
+        let sampled2: Vec<&GpsPoint> = (0..sample_size).map(|i| &track2[i * step2]).collect();
+
+        sampled1
+            .iter()
+            .map(|p1| {
+                sampled2
+                    .iter()
+                    .map(|p2| geo_utils::haversine_distance(p1, p2))
+                    .fold(f64::MAX, f64::min)
+            })
+            .sum::<f64>()
+            / sample_size as f64
+    }
+
+    // ========================================================================
+    // Route Names
+    // ========================================================================
+
+    /// Set a custom name for a route.
+    /// Pass None to clear the custom name.
+    pub fn set_route_name(&mut self, route_id: &str, name: Option<&str>) -> SqlResult<()> {
+        match name {
+            Some(n) => {
+                self.db.execute(
+                    "INSERT OR REPLACE INTO route_names (route_id, custom_name) VALUES (?, ?)",
+                    params![route_id, n],
+                )?;
+                // Update in-memory group
+                if let Some(group) = self.groups.iter_mut().find(|g| g.group_id == route_id) {
+                    group.custom_name = Some(n.to_string());
+                }
+            }
+            None => {
+                self.db.execute(
+                    "DELETE FROM route_names WHERE route_id = ?",
+                    params![route_id],
+                )?;
+                // Update in-memory group
+                if let Some(group) = self.groups.iter_mut().find(|g| g.group_id == route_id) {
+                    group.custom_name = None;
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// Get the custom name for a route (if any).
+    pub fn get_route_name(&self, route_id: &str) -> Option<String> {
+        // Check in-memory groups first
+        self.groups
+            .iter()
+            .find(|g| g.group_id == route_id)
+            .and_then(|g| g.custom_name.clone())
+    }
+
+    /// Get all custom route names.
+    pub fn get_all_route_names(&self) -> HashMap<String, String> {
+        self.groups
+            .iter()
+            .filter_map(|g| {
+                g.custom_name
+                    .as_ref()
+                    .map(|n| (g.group_id.clone(), n.clone()))
+            })
+            .collect()
+    }
+
+    // ========================================================================
+    // Section Names
+    // ========================================================================
+
+    /// Set a custom name for a section.
+    /// Pass None to clear the custom name.
+    pub fn set_section_name(&mut self, section_id: &str, name: Option<&str>) -> SqlResult<()> {
+        match name {
+            Some(n) => {
+                self.db.execute(
+                    "INSERT OR REPLACE INTO section_names (section_id, custom_name) VALUES (?, ?)",
+                    params![section_id, n],
+                )?;
+                // Update in-memory section
+                if let Some(section) = self.sections.iter_mut().find(|s| s.id == section_id) {
+                    section.name = Some(n.to_string());
+                }
+            }
+            None => {
+                self.db.execute(
+                    "DELETE FROM section_names WHERE section_id = ?",
+                    params![section_id],
+                )?;
+                // Update in-memory section
+                if let Some(section) = self.sections.iter_mut().find(|s| s.id == section_id) {
+                    section.name = None;
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// Get the custom name for a section (if any).
+    pub fn get_section_name(&self, section_id: &str) -> Option<String> {
+        // Check in-memory sections first
+        self.sections
+            .iter()
+            .find(|s| s.id == section_id)
+            .and_then(|s| s.name.clone())
+    }
+
+    /// Get all custom section names.
+    pub fn get_all_section_names(&self) -> HashMap<String, String> {
+        self.sections
+            .iter()
+            .filter_map(|s| s.name.as_ref().map(|n| (s.id.clone(), n.clone())))
+            .collect()
+    }
+
+    // ========================================================================
+    // Custom Sections CRUD
+    // ========================================================================
+
+    /// Add a custom section.
+    pub fn add_custom_section(&mut self, section: &crate::CustomSection) -> SqlResult<bool> {
+        let polyline_json =
+            serde_json::to_string(&section.polyline).unwrap_or_else(|_| "[]".to_string());
+
+        self.db.execute(
+            "INSERT OR REPLACE INTO custom_sections
+             (id, name, polyline_json, source_activity_id, start_index, end_index,
+              sport_type, distance_meters, created_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            params![
+                &section.id,
+                &section.name,
+                &polyline_json,
+                &section.source_activity_id,
+                section.start_index,
+                section.end_index,
+                &section.sport_type,
+                section.distance_meters,
+                &section.created_at,
+            ],
+        )?;
+
+        // Also set the section name in the section_names table
+        self.db.execute(
+            "INSERT OR REPLACE INTO section_names (section_id, custom_name) VALUES (?, ?)",
+            params![&section.id, &section.name],
+        )?;
+
+        Ok(true)
+    }
+
+    /// Remove a custom section.
+    pub fn remove_custom_section(&mut self, section_id: &str) -> SqlResult<bool> {
+        // Delete matches first (FK will cascade but explicit is clearer)
+        self.db.execute(
+            "DELETE FROM custom_section_matches WHERE section_id = ?",
+            params![section_id],
+        )?;
+
+        // Delete the section
+        let rows = self.db.execute(
+            "DELETE FROM custom_sections WHERE id = ?",
+            params![section_id],
+        )?;
+
+        // Also remove from section_names
+        self.db.execute(
+            "DELETE FROM section_names WHERE section_id = ?",
+            params![section_id],
+        )?;
+
+        Ok(rows > 0)
+    }
+
+    /// Get all custom sections.
+    pub fn get_custom_sections(&self) -> Vec<crate::CustomSection> {
+        let mut stmt = match self.db.prepare(
+            "SELECT id, name, polyline_json, source_activity_id, start_index, end_index,
+                    sport_type, distance_meters, created_at
+             FROM custom_sections",
+        ) {
+            Ok(s) => s,
+            Err(_) => return Vec::new(),
+        };
+
+        let result: Vec<crate::CustomSection> = stmt
+            .query_map([], |row| {
+                let polyline_json: String = row.get(2)?;
+                let polyline: Vec<crate::GpsPoint> =
+                    serde_json::from_str(&polyline_json).unwrap_or_default();
+
+                Ok(crate::CustomSection {
+                    id: row.get(0)?,
+                    name: row.get(1)?,
+                    polyline,
+                    source_activity_id: row.get(3)?,
+                    start_index: row.get(4)?,
+                    end_index: row.get(5)?,
+                    sport_type: row.get(6)?,
+                    distance_meters: row.get(7)?,
+                    created_at: row.get(8)?,
+                })
+            })
+            .ok()
+            .map(|iter| iter.filter_map(|r| r.ok()).collect())
+            .unwrap_or_default();
+
+        result
+    }
+
+    /// Get a custom section by ID.
+    pub fn get_custom_section(&self, section_id: &str) -> Option<crate::CustomSection> {
+        let mut stmt = match self.db.prepare(
+            "SELECT id, name, polyline_json, source_activity_id, start_index, end_index,
+                    sport_type, distance_meters, created_at
+             FROM custom_sections WHERE id = ?",
+        ) {
+            Ok(s) => s,
+            Err(_) => return None,
+        };
+
+        stmt.query_row(params![section_id], |row| {
+            let polyline_json: String = row.get(2)?;
+            let polyline: Vec<crate::GpsPoint> =
+                serde_json::from_str(&polyline_json).unwrap_or_default();
+
+            Ok(crate::CustomSection {
+                id: row.get(0)?,
+                name: row.get(1)?,
+                polyline,
+                source_activity_id: row.get(3)?,
+                start_index: row.get(4)?,
+                end_index: row.get(5)?,
+                sport_type: row.get(6)?,
+                distance_meters: row.get(7)?,
+                created_at: row.get(8)?,
+            })
+        })
+        .ok()
+    }
+
+    /// Get all custom sections as JSON.
+    pub fn get_custom_sections_json(&self) -> String {
+        serde_json::to_string(&self.get_custom_sections()).unwrap_or_else(|_| "[]".to_string())
+    }
+
+    /// Create a custom section from activity indices.
+    /// Loads GPS track from SQLite and slices it - no coordinate transfer needed.
+    pub fn create_custom_section_from_indices(
+        &mut self,
+        activity_id: &str,
+        start_index: u32,
+        end_index: u32,
+        sport_type: &str,
+        name: Option<&str>,
+    ) -> Result<crate::CustomSection, String> {
+        // 1. Load GPS track from SQLite
+        let track = self
+            .get_gps_track(activity_id)
+            .ok_or_else(|| format!("GPS track not found for activity {}", activity_id))?;
+
+        // 2. Validate indices
+        if start_index >= end_index || end_index as usize > track.len() {
+            return Err(format!(
+                "Invalid indices: {}..{} for track of length {}",
+                start_index,
+                end_index,
+                track.len()
+            ));
+        }
+
+        // 3. Slice and simplify polyline
+        let slice = &track[start_index as usize..end_index as usize];
+        let simplified = crate::algorithms::douglas_peucker(slice, 0.00005); // ~5m tolerance
+
+        // 4. Calculate distance
+        let distance = tracematch::matching::calculate_route_distance(&simplified);
+
+        // 5. Generate ID
+        let id = format!(
+            "custom_{}_{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_millis(),
+            &activity_id[..8.min(activity_id.len())]
+        );
+
+        // 6. Generate unique name if not provided
+        let section_name = name.map(String::from).unwrap_or_else(|| {
+            let existing: std::collections::HashSet<String> = self
+                .get_custom_sections()
+                .iter()
+                .map(|s| s.name.clone())
+                .collect();
+            let mut idx = 1;
+            loop {
+                let candidate = format!("Custom Section {}", idx);
+                if !existing.contains(&candidate) {
+                    return candidate;
+                }
+                idx += 1;
+            }
+        });
+
+        // 7. Create timestamp (ISO 8601)
+        let created_at = {
+            let duration = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default();
+            let secs = duration.as_secs();
+            // Manual ISO 8601 format: 2024-01-26T12:34:56Z
+            let days = secs / 86400;
+            let time = secs % 86400;
+            let hours = time / 3600;
+            let mins = (time % 3600) / 60;
+            let secs_rem = time % 60;
+            // Calculate year/month/day from days since 1970
+            let mut year = 1970i32;
+            let mut remaining_days = days as i32;
+            loop {
+                let days_in_year = if year % 4 == 0 && (year % 100 != 0 || year % 400 == 0) {
+                    366
+                } else {
+                    365
+                };
+                if remaining_days < days_in_year {
+                    break;
+                }
+                remaining_days -= days_in_year;
+                year += 1;
+            }
+            let is_leap = year % 4 == 0 && (year % 100 != 0 || year % 400 == 0);
+            let days_in_month = [
+                31,
+                if is_leap { 29 } else { 28 },
+                31,
+                30,
+                31,
+                30,
+                31,
+                31,
+                30,
+                31,
+                30,
+                31,
+            ];
+            let mut month = 1;
+            for &dim in &days_in_month {
+                if remaining_days < dim {
+                    break;
+                }
+                remaining_days -= dim;
+                month += 1;
+            }
+            let day = remaining_days + 1;
+            format!(
+                "{:04}-{:02}-{:02}T{:02}:{:02}:{:02}Z",
+                year, month, day, hours, mins, secs_rem
+            )
+        };
+
+        let section = crate::CustomSection {
+            id,
+            name: section_name,
+            polyline: simplified,
+            source_activity_id: activity_id.to_string(),
+            start_index,
+            end_index,
+            sport_type: sport_type.to_string(),
+            distance_meters: distance,
+            created_at,
+        };
+
+        // 8. Store in database
+        self.add_custom_section(&section)
+            .map_err(|e| format!("Failed to store section: {:?}", e))?;
+
+        Ok(section)
+    }
+
+    /// Add a match for a custom section.
+    pub fn add_custom_section_match(
+        &mut self,
+        section_id: &str,
+        match_info: &crate::CustomSectionMatch,
+    ) -> SqlResult<()> {
+        self.db.execute(
+            "INSERT OR REPLACE INTO custom_section_matches
+             (section_id, activity_id, start_index, end_index, direction, distance_meters)
+             VALUES (?, ?, ?, ?, ?, ?)",
+            params![
+                section_id,
+                &match_info.activity_id,
+                match_info.start_index,
+                match_info.end_index,
+                &match_info.direction,
+                match_info.distance_meters,
+            ],
+        )?;
+        Ok(())
+    }
+
+    /// Get matches for a custom section.
+    pub fn get_custom_section_matches(&self, section_id: &str) -> Vec<crate::CustomSectionMatch> {
+        let mut stmt = match self.db.prepare(
+            "SELECT activity_id, start_index, end_index, direction, distance_meters
+             FROM custom_section_matches WHERE section_id = ?",
+        ) {
+            Ok(s) => s,
+            Err(_) => return Vec::new(),
+        };
+
+        stmt.query_map(params![section_id], |row| {
+            Ok(crate::CustomSectionMatch {
+                activity_id: row.get(0)?,
+                start_index: row.get(1)?,
+                end_index: row.get(2)?,
+                direction: row.get(3)?,
+                distance_meters: row.get(4)?,
+            })
+        })
+        .ok()
+        .map(|iter| iter.filter_map(|r| r.ok()).collect())
+        .unwrap_or_default()
+    }
+
+    // ========================================================================
+    // Custom Section Matching
+    // ========================================================================
+
+    /// Match a custom section against an activity's GPS track.
+    /// Returns ALL traversals of the section (supports out-and-back, track laps).
+    /// Uses the same matching logic as auto-detected sections (tracematch library).
+    pub fn match_custom_section(
+        &self,
+        section: &crate::CustomSection,
+        activity_id: &str,
+        track: &[GpsPoint],
+        config: &crate::CustomSectionMatchConfig,
+    ) -> Vec<crate::CustomSectionMatch> {
+        if track.len() < 2 || section.polyline.len() < 2 {
+            return Vec::new();
+        }
+
+        // Use the same matching function as auto-detected sections
+        let spans = tracematch::sections::find_all_section_spans_in_route(
+            track,
+            &section.polyline,
+            config.proximity_threshold,
+        );
+
+        // Convert spans to CustomSectionMatch
+        spans
+            .into_iter()
+            .map(|(start, end, _quality, same_direction)| {
+                let distance_meters = self.calculate_track_distance(track, start, end);
+                crate::CustomSectionMatch {
+                    activity_id: activity_id.to_string(),
+                    start_index: start as u32,
+                    end_index: end as u32,
+                    direction: if same_direction { "same" } else { "reverse" }.to_string(),
+                    distance_meters,
+                }
+            })
+            .collect()
+    }
+
+    /// Find the index of the nearest point in a track to a given point.
+    fn find_nearest_point_index(
+        &self,
+        track: &[GpsPoint],
+        point: &GpsPoint,
+        start_idx: usize,
+    ) -> (usize, f64) {
+        let mut nearest_idx = start_idx;
+        let mut nearest_dist = f64::INFINITY;
+
+        for (i, p) in track.iter().enumerate().skip(start_idx) {
+            let dist = geo_utils::haversine_distance(point, p);
+            if dist < nearest_dist {
+                nearest_dist = dist;
+                nearest_idx = i;
+            }
+        }
+
+        (nearest_idx, nearest_dist)
+    }
+
+    /// Calculate what percentage of the section is covered by the activity track.
+    fn calculate_coverage(
+        &self,
+        track: &[GpsPoint],
+        section_polyline: &[GpsPoint],
+        start_idx: usize,
+        end_idx: usize,
+        direction: &str,
+        proximity_threshold: f64,
+    ) -> f64 {
+        // Sample points along the section
+        let sample_count = std::cmp::min(20, section_polyline.len());
+        let sample_step = std::cmp::max(1, section_polyline.len() / sample_count);
+
+        let mut covered_points = 0;
+        let mut total_points = 0;
+
+        // Get the section polyline in the right order based on direction
+        let ordered_section: Vec<&GpsPoint> = if direction == "same" {
+            section_polyline.iter().collect()
+        } else {
+            section_polyline.iter().rev().collect()
+        };
+
+        for (i, section_point) in ordered_section.iter().enumerate() {
+            if i % sample_step != 0 {
+                continue;
+            }
+            total_points += 1;
+
+            // Check if any track point is within proximity
+            let is_covered = track[start_idx..=end_idx]
+                .iter()
+                .any(|p| geo_utils::haversine_distance(section_point, p) <= proximity_threshold);
+
+            if is_covered {
+                covered_points += 1;
+            }
+        }
+
+        if total_points > 0 {
+            covered_points as f64 / total_points as f64
+        } else {
+            0.0
+        }
+    }
+
+    /// Calculate distance along a track between two indices.
+    fn calculate_track_distance(
+        &self,
+        track: &[GpsPoint],
+        start_idx: usize,
+        end_idx: usize,
+    ) -> f64 {
+        if track.is_empty() || start_idx >= track.len() {
+            return 0.0;
+        }
+        // Clamp end_idx to valid range (we need at least 2 points to compute distance)
+        let safe_end = end_idx.min(track.len().saturating_sub(1));
+        if safe_end <= start_idx {
+            return 0.0;
+        }
+        let mut total_distance = 0.0;
+        for i in start_idx..safe_end {
+            total_distance += geo_utils::haversine_distance(&track[i], &track[i + 1]);
+        }
+        total_distance
+    }
+
+    /// Match a custom section against multiple activities and store results.
+    pub fn match_custom_section_against_activities(
+        &mut self,
+        section_id: &str,
+        activity_ids: &[String],
+        config: &crate::CustomSectionMatchConfig,
+    ) -> Vec<crate::CustomSectionMatch> {
+        let section = match self.get_custom_section(section_id) {
+            Some(s) => s,
+            None => return Vec::new(),
+        };
+
+        let mut matches = Vec::new();
+        let mut activities_with_tracks = 0;
+        let mut activities_without_tracks = 0;
+
+        log::info!(
+            "[CustomSectionMatch] Matching section {} ({} points, {}m) against {} activities",
+            section_id,
+            section.polyline.len(),
+            section.distance_meters as i32,
+            activity_ids.len()
+        );
+
+        // Clear old matches for these activities before re-matching
+        // This ensures we don't accumulate stale data from previous matching attempts
+        for activity_id in activity_ids {
+            let _ = self.db.execute(
+                "DELETE FROM custom_section_matches WHERE section_id = ? AND activity_id = ?",
+                params![section_id, activity_id],
+            );
+        }
+
+        for activity_id in activity_ids {
+            // Load the GPS track for this activity
+            let track: Vec<GpsPoint> = match self.get_gps_track(activity_id) {
+                Some(t) if t.len() >= 2 => {
+                    activities_with_tracks += 1;
+                    t
+                }
+                _ => {
+                    activities_without_tracks += 1;
+                    continue;
+                }
+            };
+
+            // Find ALL traversals of this section in the activity
+            let activity_matches =
+                self.match_custom_section(&section, activity_id, &track, config);
+
+            for match_info in activity_matches {
+                log::info!(
+                    "[CustomSectionMatch] MATCHED activity {} traversal at {} ({}m, direction: {})",
+                    activity_id,
+                    match_info.start_index,
+                    match_info.distance_meters as i32,
+                    match_info.direction
+                );
+                // Store the match
+                let _ = self.add_custom_section_match(section_id, &match_info);
+                matches.push(match_info);
+            }
+        }
+
+        log::info!(
+            "[CustomSectionMatch] Result: {} matches from {} activities ({} with tracks, {} without)",
+            matches.len(),
+            activity_ids.len(),
+            activities_with_tracks,
+            activities_without_tracks
+        );
+
+        matches
+    }
+
+    // ========================================================================
+    // Activity Metrics & Route Performances
+    // ========================================================================
+
+    /// Set activity metrics for performance calculations.
+    /// This persists the metrics to the database and keeps them in memory.
+    pub fn set_activity_metrics(&mut self, metrics: Vec<ActivityMetrics>) -> SqlResult<()> {
+        // Insert or replace in database
+        let mut stmt = self.db.prepare(
+            "INSERT OR REPLACE INTO activity_metrics
+             (activity_id, name, date, distance, moving_time, elapsed_time,
+              elevation_gain, avg_hr, avg_power, sport_type)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        )?;
+
+        for m in &metrics {
+            stmt.execute(params![
+                &m.activity_id,
+                &m.name,
+                m.date,
+                m.distance,
+                m.moving_time,
+                m.elapsed_time,
+                m.elevation_gain,
+                m.avg_hr.map(|v| v as i32),
+                m.avg_power.map(|v| v as i32),
+                &m.sport_type,
+            ])?;
+        }
+
+        // Update in-memory cache
+        for m in metrics {
+            self.activity_metrics.insert(m.activity_id.clone(), m);
+        }
+
+        Ok(())
+    }
+
+    /// Get activity metrics for a specific activity.
+    pub fn get_activity_metrics(&self, activity_id: &str) -> Option<&ActivityMetrics> {
+        self.activity_metrics.get(activity_id)
+    }
+
+    /// Set time streams for activities from flat buffer.
+    /// Time streams are cumulative seconds at each GPS point, used for section performance calculations.
+    /// Persists to SQLite for offline access.
+    pub fn set_time_streams_flat(
+        &mut self,
+        activity_ids: &[String],
+        all_times: &[u32],
+        offsets: &[u32],
+    ) {
+        let mut persisted_count = 0;
+        for (i, activity_id) in activity_ids.iter().enumerate() {
+            let start = offsets[i] as usize;
+            let end = offsets
+                .get(i + 1)
+                .map(|&o| o as usize)
+                .unwrap_or(all_times.len());
+            let times = all_times[start..end].to_vec();
+
+            // Persist to SQLite for offline access
+            if self.store_time_stream(activity_id, &times).is_ok() {
+                persisted_count += 1;
+            }
+
+            // Also keep in memory for fast access
+            self.time_streams.insert(activity_id.clone(), times);
+        }
+        log::debug!(
+            "tracematch: [PersistentEngine] Set time streams for {} activities ({} persisted to SQLite)",
+            activity_ids.len(),
+            persisted_count
+        );
+    }
+
+    /// Get section performances with accurate time calculations.
+    /// Uses time streams to calculate actual traversal times.
+    /// Supports both engine-detected sections and custom sections.
+    /// Auto-loads time streams from SQLite if not in memory.
+    pub fn get_section_performances(&mut self, section_id: &str) -> SectionPerformanceResult {
+        // Check if this is a custom section
+        if section_id.starts_with("custom_") {
+            return self.get_custom_section_performances(section_id);
+        }
+
+        // Find the engine-detected section
+        let section = match self.sections.iter().find(|s| s.id == section_id) {
+            Some(s) => s.clone(),
+            None => {
+                return SectionPerformanceResult {
+                    records: vec![],
+                    best_record: None,
+                    best_forward_record: None,
+                    best_reverse_record: None,
+                    forward_stats: None,
+                    reverse_stats: None,
+                };
+            }
+        };
+
+        // Auto-load time streams from SQLite for all activities in this section
+        let activity_ids: Vec<String> = section
+            .activity_portions
+            .iter()
+            .map(|p| p.activity_id.clone())
+            .collect::<std::collections::HashSet<_>>()
+            .into_iter()
+            .collect();
+
+        for activity_id in &activity_ids {
+            self.ensure_time_stream_loaded(activity_id);
+        }
+
+        // Group portions by activity
+        let mut portions_by_activity: HashMap<&str, Vec<&crate::SectionPortion>> = HashMap::new();
+        for portion in &section.activity_portions {
+            portions_by_activity
+                .entry(&portion.activity_id)
+                .or_default()
+                .push(portion);
+        }
+
+        // Build performance records
+        let mut records: Vec<SectionPerformanceRecord> = portions_by_activity
+            .iter()
+            .filter_map(|(activity_id, portions)| {
+                let metrics = self.activity_metrics.get(*activity_id)?;
+                let times = self.time_streams.get(*activity_id)?;
+
+                let laps: Vec<SectionLap> = portions
+                    .iter()
+                    .enumerate()
+                    .filter_map(|(i, portion)| {
+                        let start_idx = portion.start_index as usize;
+                        let end_idx = portion.end_index as usize;
+
+                        if start_idx >= times.len() || end_idx >= times.len() {
+                            return None;
+                        }
+
+                        let lap_time = (times[end_idx] as f64 - times[start_idx] as f64).abs();
+                        if lap_time <= 0.0 {
+                            return None;
+                        }
+
+                        let pace = portion.distance_meters / lap_time;
+
+                        Some(SectionLap {
+                            id: format!("{}_lap{}", activity_id, i),
+                            activity_id: activity_id.to_string(),
+                            time: lap_time,
+                            pace,
+                            distance: portion.distance_meters,
+                            direction: portion.direction.clone(),
+                            start_index: portion.start_index,
+                            end_index: portion.end_index,
+                        })
+                    })
+                    .collect();
+
+                if laps.is_empty() {
+                    return None;
+                }
+
+                let lap_count = laps.len() as u32;
+                let best_time = laps
+                    .iter()
+                    .map(|l| l.time)
+                    .min_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
+                    .unwrap_or(0.0);
+                let best_pace = laps
+                    .iter()
+                    .map(|l| l.pace)
+                    .max_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
+                    .unwrap_or(0.0);
+                let avg_time = laps.iter().map(|l| l.time).sum::<f64>() / lap_count as f64;
+                let avg_pace = laps.iter().map(|l| l.pace).sum::<f64>() / lap_count as f64;
+                let direction = laps
+                    .first()
+                    .map(|l| l.direction.clone())
+                    .unwrap_or_else(|| "same".to_string());
+                let section_distance = section.distance_meters;
+
+                Some(SectionPerformanceRecord {
+                    activity_id: activity_id.to_string(),
+                    activity_name: metrics.name.clone(),
+                    activity_date: metrics.date,
+                    laps,
+                    lap_count,
+                    best_time,
+                    best_pace,
+                    avg_time,
+                    avg_pace,
+                    direction,
+                    section_distance,
+                })
+            })
+            .collect();
+
+        // Sort by date
+        records.sort_by_key(|r| r.activity_date);
+
+        // Find best record (fastest time) - overall
+        let best_record = records
+            .iter()
+            .min_by(|a, b| {
+                a.best_time
+                    .partial_cmp(&b.best_time)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })
+            .cloned();
+
+        // Find best forward record (direction is "same" or "forward")
+        let best_forward_record = records
+            .iter()
+            .filter(|r| r.direction == "same" || r.direction == "forward")
+            .min_by(|a, b| {
+                a.best_time
+                    .partial_cmp(&b.best_time)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })
+            .cloned();
+
+        // Find best reverse record
+        let best_reverse_record = records
+            .iter()
+            .filter(|r| r.direction == "reverse" || r.direction == "backward")
+            .min_by(|a, b| {
+                a.best_time
+                    .partial_cmp(&b.best_time)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })
+            .cloned();
+
+        // Compute forward direction stats
+        let forward_records: Vec<_> = records
+            .iter()
+            .filter(|r| r.direction == "same" || r.direction == "forward")
+            .collect();
+        let forward_stats = if forward_records.is_empty() {
+            None
+        } else {
+            let count = forward_records.len() as u32;
+            let avg_time = forward_records.iter().map(|r| r.best_time).sum::<f64>() / count as f64;
+            let last_activity = forward_records
+                .iter()
+                .max_by(|a, b| a.activity_date.cmp(&b.activity_date))
+                .map(|r| r.activity_date);
+            Some(DirectionStats {
+                avg_time: Some(avg_time),
+                last_activity,
+                count,
+            })
+        };
+
+        // Compute reverse direction stats
+        let reverse_records: Vec<_> = records
+            .iter()
+            .filter(|r| r.direction == "reverse" || r.direction == "backward")
+            .collect();
+        let reverse_stats = if reverse_records.is_empty() {
+            None
+        } else {
+            let count = reverse_records.len() as u32;
+            let avg_time = reverse_records.iter().map(|r| r.best_time).sum::<f64>() / count as f64;
+            let last_activity = reverse_records
+                .iter()
+                .max_by(|a, b| a.activity_date.cmp(&b.activity_date))
+                .map(|r| r.activity_date);
+            Some(DirectionStats {
+                avg_time: Some(avg_time),
+                last_activity,
+                count,
+            })
+        };
+
+        SectionPerformanceResult {
+            records,
+            best_record,
+            best_forward_record,
+            best_reverse_record,
+            forward_stats,
+            reverse_stats,
+        }
+    }
+
+    /// Get performances for a custom section.
+    /// Combines source activity and all matched activities.
+    fn get_custom_section_performances(&mut self, section_id: &str) -> SectionPerformanceResult {
+        // Get the custom section
+        let custom_section = match self.get_custom_section(section_id) {
+            Some(s) => s,
+            None => {
+                return SectionPerformanceResult {
+                    records: vec![],
+                    best_record: None,
+                    best_forward_record: None,
+                    best_reverse_record: None,
+                    forward_stats: None,
+                    reverse_stats: None,
+                };
+            }
+        };
+
+        // Get all matches for this custom section
+        let matches = self.get_custom_section_matches(section_id);
+
+        // Auto-load time streams from SQLite for all activities
+        let mut activity_ids: Vec<String> = vec![custom_section.source_activity_id.clone()];
+        activity_ids.extend(matches.iter().map(|m| m.activity_id.clone()));
+        for activity_id in &activity_ids {
+            self.ensure_time_stream_loaded(activity_id);
+        }
+
+        // Build portions: source activity + matched activities
+        let mut portions: Vec<(String, u32, u32, f64, String)> = Vec::new();
+
+        // Add source activity
+        portions.push((
+            custom_section.source_activity_id.clone(),
+            custom_section.start_index,
+            custom_section.end_index,
+            custom_section.distance_meters,
+            "same".to_string(),
+        ));
+
+        // Add matched activities
+        for m in &matches {
+            portions.push((
+                m.activity_id.clone(),
+                m.start_index,
+                m.end_index,
+                m.distance_meters,
+                m.direction.clone(),
+            ));
+        }
+
+        // Build performance records
+        let mut records: Vec<SectionPerformanceRecord> = portions
+            .iter()
+            .filter_map(|(activity_id, start_idx, end_idx, distance, direction)| {
+                let metrics = self.activity_metrics.get(activity_id)?;
+                let times = self.time_streams.get(activity_id)?;
+
+                let start = *start_idx as usize;
+                let end = *end_idx as usize;
+
+                if start >= times.len() || end >= times.len() {
+                    return None;
+                }
+
+                let lap_time = (times[end] as f64 - times[start] as f64).abs();
+                if lap_time <= 0.0 {
+                    return None;
+                }
+
+                let pace = distance / lap_time;
+
+                let lap = SectionLap {
+                    id: format!("{}_lap0", activity_id),
+                    activity_id: activity_id.clone(),
+                    time: lap_time,
+                    pace,
+                    distance: *distance,
+                    direction: direction.clone(),
+                    start_index: *start_idx,
+                    end_index: *end_idx,
+                };
+
+                Some(SectionPerformanceRecord {
+                    activity_id: activity_id.clone(),
+                    activity_name: metrics.name.clone(),
+                    activity_date: metrics.date,
+                    laps: vec![lap.clone()],
+                    lap_count: 1,
+                    best_time: lap_time,
+                    best_pace: pace,
+                    avg_time: lap_time,
+                    avg_pace: pace,
+                    direction: direction.clone(),
+                    section_distance: custom_section.distance_meters,
+                })
+            })
+            .collect();
+
+        // Sort by date
+        records.sort_by_key(|r| r.activity_date);
+
+        // Find best record (fastest time) - overall
+        let best_record = records
+            .iter()
+            .min_by(|a, b| {
+                a.best_time
+                    .partial_cmp(&b.best_time)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })
+            .cloned();
+
+        // Find best forward record (direction is "same" or "forward")
+        let best_forward_record = records
+            .iter()
+            .filter(|r| r.direction == "same" || r.direction == "forward")
+            .min_by(|a, b| {
+                a.best_time
+                    .partial_cmp(&b.best_time)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })
+            .cloned();
+
+        // Find best reverse record
+        let best_reverse_record = records
+            .iter()
+            .filter(|r| r.direction == "reverse" || r.direction == "backward")
+            .min_by(|a, b| {
+                a.best_time
+                    .partial_cmp(&b.best_time)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })
+            .cloned();
+
+        // Compute forward direction stats
+        let forward_records: Vec<_> = records
+            .iter()
+            .filter(|r| r.direction == "same" || r.direction == "forward")
+            .collect();
+        let forward_stats = if forward_records.is_empty() {
+            None
+        } else {
+            let count = forward_records.len() as u32;
+            let avg_time = forward_records.iter().map(|r| r.best_time).sum::<f64>() / count as f64;
+            let last_activity = forward_records
+                .iter()
+                .max_by(|a, b| a.activity_date.cmp(&b.activity_date))
+                .map(|r| r.activity_date);
+            Some(DirectionStats {
+                avg_time: Some(avg_time),
+                last_activity,
+                count,
+            })
+        };
+
+        // Compute reverse direction stats
+        let reverse_records: Vec<_> = records
+            .iter()
+            .filter(|r| r.direction == "reverse" || r.direction == "backward")
+            .collect();
+        let reverse_stats = if reverse_records.is_empty() {
+            None
+        } else {
+            let count = reverse_records.len() as u32;
+            let avg_time = reverse_records.iter().map(|r| r.best_time).sum::<f64>() / count as f64;
+            let last_activity = reverse_records
+                .iter()
+                .max_by(|a, b| a.activity_date.cmp(&b.activity_date))
+                .map(|r| r.activity_date);
+            Some(DirectionStats {
+                avg_time: Some(avg_time),
+                last_activity,
+                count,
+            })
+        };
+
+        SectionPerformanceResult {
+            records,
+            best_record,
+            best_forward_record,
+            best_reverse_record,
+            forward_stats,
+            reverse_stats,
+        }
+    }
+
+    /// Get route performances for all activities in a group.
+    /// Uses stored activity_matches for match percentages instead of hardcoding 100%.
+    pub fn get_route_performances(
+        &self,
+        route_group_id: &str,
+        current_activity_id: Option<&str>,
+    ) -> RoutePerformanceResult {
+        // Find the group
+        let group = match self.groups.iter().find(|g| g.group_id == route_group_id) {
+            Some(g) => g,
+            None => {
+                log::debug!(
+                    "tracematch: get_route_performances: group {} not found",
+                    route_group_id
+                );
+                return RoutePerformanceResult {
+                    performances: vec![],
+                    best: None,
+                    best_forward: None,
+                    best_reverse: None,
+                    forward_stats: None,
+                    reverse_stats: None,
+                    current_rank: None,
+                };
+            }
+        };
+
+        // Get match info for this route
+        let match_info = self.activity_matches.get(route_group_id);
+        log::debug!(
+            "tracematch: get_route_performances: group {} has {} activities, match_info: {}",
+            route_group_id,
+            group.activity_ids.len(),
+            match_info.map(|m| m.len()).unwrap_or(0)
+        );
+
+        // Build performances from metrics
+        let mut performances: Vec<RoutePerformance> = group
+            .activity_ids
+            .iter()
+            .filter_map(|id| {
+                let metrics = self.activity_metrics.get(id)?;
+                let speed = if metrics.moving_time > 0 {
+                    metrics.distance / metrics.moving_time as f64
+                } else {
+                    0.0
+                };
+
+                // Look up match info for this activity (optional - may not exist for old data)
+                let match_data =
+                    match_info.and_then(|matches| matches.iter().find(|m| m.activity_id == *id));
+                let match_percentage = match_data.map(|m| m.match_percentage);
+                let direction = match_data
+                    .map(|m| m.direction.clone())
+                    .unwrap_or_else(|| "same".to_string());
+
+                Some(RoutePerformance {
+                    activity_id: id.clone(),
+                    name: metrics.name.clone(),
+                    date: metrics.date,
+                    speed,
+                    duration: metrics.elapsed_time,
+                    moving_time: metrics.moving_time,
+                    distance: metrics.distance,
+                    elevation_gain: metrics.elevation_gain,
+                    avg_hr: metrics.avg_hr,
+                    avg_power: metrics.avg_power,
+                    is_current: current_activity_id == Some(id.as_str()),
+                    direction,
+                    match_percentage,
+                })
+            })
+            .collect();
+
+        // Sort by date (oldest first for charting)
+        performances.sort_by_key(|p| p.date);
+
+        // Find best (fastest speed) - overall
+        let best = performances
+            .iter()
+            .max_by(|a, b| {
+                a.speed
+                    .partial_cmp(&b.speed)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })
+            .cloned();
+
+        // Find best forward (direction is "same" or "forward")
+        let best_forward = performances
+            .iter()
+            .filter(|p| p.direction == "same" || p.direction == "forward")
+            .max_by(|a, b| {
+                a.speed
+                    .partial_cmp(&b.speed)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })
+            .cloned();
+
+        // Find best reverse
+        let best_reverse = performances
+            .iter()
+            .filter(|p| p.direction == "reverse" || p.direction == "backward")
+            .max_by(|a, b| {
+                a.speed
+                    .partial_cmp(&b.speed)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })
+            .cloned();
+
+        // Calculate current rank (1 = fastest)
+        let current_rank = current_activity_id.and_then(|current_id| {
+            let mut by_speed = performances.clone();
+            by_speed.sort_by(|a, b| {
+                b.speed
+                    .partial_cmp(&a.speed)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            });
+            by_speed
+                .iter()
+                .position(|p| p.activity_id == current_id)
+                .map(|idx| (idx + 1) as u32)
+        });
+
+        // Compute forward direction stats
+        let forward_perfs: Vec<_> = performances
+            .iter()
+            .filter(|p| p.direction == "same" || p.direction == "forward")
+            .collect();
+        let forward_stats = if forward_perfs.is_empty() {
+            None
+        } else {
+            let count = forward_perfs.len() as u32;
+            let avg_time =
+                forward_perfs.iter().map(|p| p.duration as f64).sum::<f64>() / count as f64;
+            let last_activity = forward_perfs.iter().max_by_key(|p| p.date).map(|p| p.date);
+            Some(DirectionStats {
+                avg_time: Some(avg_time),
+                last_activity,
+                count,
+            })
+        };
+
+        // Compute reverse direction stats
+        let reverse_perfs: Vec<_> = performances
+            .iter()
+            .filter(|p| p.direction == "reverse" || p.direction == "backward")
+            .collect();
+        let reverse_stats = if reverse_perfs.is_empty() {
+            None
+        } else {
+            let count = reverse_perfs.len() as u32;
+            let avg_time =
+                reverse_perfs.iter().map(|p| p.duration as f64).sum::<f64>() / count as f64;
+            let last_activity = reverse_perfs.iter().max_by_key(|p| p.date).map(|p| p.date);
+            Some(DirectionStats {
+                avg_time: Some(avg_time),
+                last_activity,
+                count,
+            })
+        };
+
+        RoutePerformanceResult {
+            performances,
+            best,
+            best_forward,
+            best_reverse,
+            forward_stats,
+            reverse_stats,
+            current_rank,
+        }
+    }
+
+    /// Get route performances as JSON string.
+    pub fn get_route_performances_json(
+        &self,
+        route_group_id: &str,
+        current_activity_id: Option<&str>,
+    ) -> String {
+        let result = self.get_route_performances(route_group_id, current_activity_id);
+        serde_json::to_string(&result).unwrap_or_else(|_| "{}".to_string())
+    }
+
+    // ========================================================================
+    // Configuration
+    // ========================================================================
+
+    /// Set match configuration (invalidates computed groups).
+    pub fn set_match_config(&mut self, config: MatchConfig) {
+        self.match_config = config;
+        self.signature_cache.clear(); // Signatures depend on config
+        self.groups_dirty = true;
+        self.sections_dirty = true;
+    }
+
+    /// Set section configuration.
+    pub fn set_section_config(&mut self, config: SectionConfig) {
+        self.section_config = config;
+        self.sections_dirty = true;
+    }
+
+    // ========================================================================
+    // Statistics
+    // ========================================================================
+
+    /// Get engine statistics.
+    pub fn stats(&self) -> PersistentEngineStats {
+        // Count GPS tracks in database
+        let gps_track_count: u32 = self
+            .db
+            .query_row("SELECT COUNT(*) FROM gps_tracks", [], |row| row.get(0))
+            .unwrap_or(0);
+
+        // Get oldest and newest activity dates from activity_metrics table (always has dates)
+        let (oldest_date, newest_date): (Option<i64>, Option<i64>) = self
+            .db
+            .query_row(
+                "SELECT MIN(date), MAX(date) FROM activity_metrics",
+                [],
+                |row| Ok((row.get(0).ok(), row.get(1).ok())),
+            )
+            .unwrap_or((None, None));
+
+        PersistentEngineStats {
+            activity_count: self.activity_metadata.len() as u32,
+            signature_cache_size: self.signature_cache.len() as u32,
+            consensus_cache_size: self.consensus_cache.len() as u32,
+            group_count: self.groups.len() as u32,
+            section_count: self.sections.len() as u32,
+            groups_dirty: self.groups_dirty,
+            sections_dirty: self.sections_dirty,
+            gps_track_count,
+            oldest_date,
+            newest_date,
+        }
+    }
 }
 
-// ============================================================================
-// Global Singleton for FFI
+/// Statistics for the persistent engine.
+#[cfg(feature = "persistence")]
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct PersistentEngineStats {
+    pub activity_count: u32,
+    pub signature_cache_size: u32,
+    pub consensus_cache_size: u32,
+    pub group_count: u32,
+    pub section_count: u32,
+    pub groups_dirty: bool,
+    pub sections_dirty: bool,
+    pub gps_track_count: u32,
+    /// Oldest activity date (Unix timestamp in seconds), or None if no activities
+    pub oldest_date: Option<i64>,
+    /// Newest activity date (Unix timestamp in seconds), or None if no activities
+    pub newest_date: Option<i64>,
+}
+
 // ============================================================================
 // Global Singleton for FFI
 // ============================================================================
@@ -1870,155 +5110,13 @@ pub mod persistent_engine_ffi {
         with_persistent_engine(|e| e.get_sections_json()).unwrap_or_else(|| "[]".to_string())
     }
 
-    /// Get all sections with optional type filter.
-    /// Single unified query replacing get_sections_json() and get_custom_sections_json().
-    pub fn get_sections_with_type(
-        &self,
-        section_type: Option<&str>,
-    ) -> Vec<crate::FfiFrequentSection> {
-        let mut sql = String::from(
-            "SELECT id, name, sport_type, polyline, distance_meters,
-                representative_activity_id, activity_ids, visit_count, confidence,
-                observation_count, average_spread, point_density, scale, version,
-                is_user_defined, stability, created_at, updated_at, route_ids
-         FROM sections"
-        );
-
-        let mut params = Vec::new();
-
-        if let Some(st) = section_type {
-            sql.push_str(" WHERE section_type = ?");
-            params.push(st.to_string());
-        }
-
-        let mut stmt = self.db.prepare(&sql).ok()?;
-        let mut result = Vec::new();
-
-        while let Ok(row) = stmt.next() {
-            let data_blob: String = row.get(11).ok().unwrap_or_default();
-
-            let section = crate::FfiFrequentSection {
-                id: row.get(0).ok().unwrap_or_default(),
-                name: row.get(1).ok(),
-                sport_type: row.get(2).ok().unwrap_or_default(),
-                polyline: serde_json::from_str(&data_blob).unwrap_or_default(),
-                distance_meters: row.get(3).ok().unwrap_or(0.0),
-                representative_activity_id: row.get(4).ok().unwrap_or_default(),
-                activity_ids: serde_json::from_str(
-                        &row.get::<String>(5).ok().unwrap_or_default()
-                    ).unwrap_or_default(),
-                visit_count: row.get(6).ok().unwrap_or(0),
-                confidence: row.get(7).ok(),
-                observation_count: row.get(8).ok(),
-                average_spread: row.get(9).ok(),
-                point_density: serde_json::from_str(
-                        &row.get::<String>(10).ok().unwrap_or_default()
-                    ).ok(),
-                scale: row.get::<String>(11).ok(),
-                version: row.get::<u32>(12).ok().unwrap_or(0),
-                is_user_defined: row.get::<i64>(13).ok().unwrap_or(0) != 0,
-                stability: row.get::<f64>(14).ok(),
-                created_at: row.get(15).ok().unwrap_or_default(),
-                updated_at: row.get::<String>(16).ok(),
-                route_ids: serde_json::from_str(
-                        &row.get::<String>(17).ok().unwrap_or_default()
-                    ).ok(),
-            };
-
-            result.push(section);
-        }
-
-        result
-    }
-
-    /// Get section count by type.
-    pub fn get_section_count_by_type(&self, section_type: Option<&str>) -> u32 {
-        let mut sql = String::from("SELECT COUNT(*) FROM sections");
-
-        let mut params = Vec::new();
-
-        if let Some(st) = section_type {
-            sql.push_str(" WHERE section_type = ?");
-            params.push(st.to_string());
-        }
-
-        self.db
-            .prepare(&sql)
-            .ok()?
-            .query_row(params.as_slice(), |row| row.get(0))
-            .unwrap_or(0)
-    }
-
-    /// Create a section (works for both auto and custom).
-    /// For custom: user provides source_activity_id
-    /// For auto: engine creates automatically (source_activity_id = None)
-    pub fn create_section_unified(
-        &mut self,
-        params: CreateSectionParams,
-    ) -> Result<String, String> {
-        let id = if let Some(src_id) = &params.source_activity_id {
-            format!("custom_{}", chrono_timestamp())
-        } else {
-            format!("section_{}", generate_hash())
-        };
-
-        let section_type = if params.source_activity_id.is_some() {
-            "custom"
-        } else {
-            "auto"
-        };
-
-        let polyline_json = serde_json::to_string(&params.polyline)
-            .map_err(|e| format!("Failed to serialize polyline: {}", e))?;
-
-        self.db.execute(
-            "INSERT INTO sections (id, section_type, name, sport_type, polyline_json, distance_meters,
-                                  source_activity_id, visit_count, created_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)",
-            params![
-                &id,
-                section_type,
-                params.name.unwrap_or_default(),
-                &params.sport_type,
-                &polyline_json,
-                params.distance_meters,
-                &params.source_activity_id,
-                current_timestamp_iso(),
-            ],
-        )?;
-
-        Ok(id)
-    }
-
-    /// Create section parameters.
-    #[derive(Debug, Clone)]
-    pub struct CreateSectionParams {
-        pub sport_type: String,
-        pub polyline: Vec<GpsPoint>,
-        pub distance_meters: f64,
-        pub name: Option<String>,
-        pub source_activity_id: Option<String>,
-    }
-}
-
-        self.db
-            .prepare(&sql)
-            .ok()?
-            .query_row(params.as_slice(), |row| row.get(0))
-            .unwrap_or(0)
+    /// Get section count directly from SQLite (no data loading).
+    #[uniffi::export]
+    pub fn persistent_engine_get_section_count() -> u32 {
+        with_persistent_engine(|e| e.get_section_count()).unwrap_or(0)
     }
 
     /// Get sections for a specific activity as JSON.
-    /// Uses junction table for O(1) lookup instead of deserializing all sections.
-    #[uniffi::export]
-    pub fn persistent_engine_get_sections_for_activity(activity_id: String) -> String {
-        with_persistent_engine(|e| {
-            let sections = e.get_sections_for_activity(&activity_id);
-            serde_json::to_string(&sections).unwrap_or_else(|_| "[]".to_string())
-        })
-        .unwrap_or_else(|| "[]".to_string())
-    }
-
     /// Get group count directly from SQLite (no data loading).
     #[uniffi::export]
     pub fn persistent_engine_get_group_count() -> u32 {
@@ -2356,304 +5454,6 @@ pub mod persistent_engine_ffi {
             serde_json::to_string(&result.potentials).unwrap_or_else(|_| "[]".to_string())
         })
         .unwrap_or_else(|| "[]".to_string())
-    }
-
-    // ========================================================================
-    // Custom Section FFI
-    // ========================================================================
-
-    /// Add a custom section from JSON.
-    #[uniffi::export]
-    pub fn persistent_engine_add_custom_section(section_json: String) -> bool {
-        let section: crate::CustomSection = match serde_json::from_str(&section_json) {
-            Ok(s) => s,
-            Err(e) => {
-                log::error!(
-                    "tracematch: [PersistentEngine] Failed to parse custom section: {:?}",
-                    e
-                );
-                return false;
-            }
-        };
-
-        let section_id = section.id.clone();
-
-        let added = with_persistent_engine(|e| match e.add_custom_section(&section) {
-            Ok(success) => {
-                info!(
-                    "tracematch: [PersistentEngine] Added custom section: {}",
-                    section.id
-                );
-                success
-            }
-            Err(e) => {
-                log::error!(
-                    "tracematch: [PersistentEngine] Failed to add custom section: {:?}",
-                    e
-                );
-                false
-            }
-        })
-        .unwrap_or(false);
-
-        // If section was added successfully, immediately match it against all activities
-        if added {
-            with_persistent_engine(|e| {
-                let activity_ids = e.get_activity_ids();
-                if !activity_ids.is_empty() {
-                    let config = crate::CustomSectionMatchConfig::default();
-                    let matches = e.match_custom_section_against_activities(
-                        &section_id,
-                        &activity_ids,
-                        &config,
-                    );
-                    info!(
-                        "tracematch: [PersistentEngine] Matched custom section {} against {} activities, found {} matches",
-                        section_id,
-                        activity_ids.len(),
-                        matches.len()
-                    );
-                }
-            });
-        }
-
-        added
-    }
-
-    /// Create a custom section from activity indices.
-    /// Loads GPS track from SQLite internally - no coordinate transfer needed.
-    /// Returns JSON: `{"ok": true, "section": {...}}` on success,
-    /// or `{"ok": false, "error": "message"}` on failure.
-    #[uniffi::export]
-    pub fn persistent_engine_create_section_from_indices(
-        activity_id: String,
-        start_index: u32,
-        end_index: u32,
-        sport_type: String,
-        name: Option<String>,
-    ) -> String {
-        let result = with_persistent_engine(|e| {
-            e.create_custom_section_from_indices(
-                &activity_id,
-                start_index,
-                end_index,
-                &sport_type,
-                name.as_deref(),
-            )
-        });
-
-        match result {
-            Some(Ok(section)) => {
-                let section_id = section.id.clone();
-                info!(
-                    "tracematch: [PersistentEngine] Created section from indices: {} ({}→{} of {})",
-                    section_id, start_index, end_index, activity_id
-                );
-
-                // Match against all activities
-                with_persistent_engine(|e| {
-                    let activity_ids = e.get_activity_ids();
-                    if !activity_ids.is_empty() {
-                        let config = crate::CustomSectionMatchConfig::default();
-                        let matches = e.match_custom_section_against_activities(
-                            &section_id,
-                            &activity_ids,
-                            &config,
-                        );
-                        info!(
-                            "tracematch: [PersistentEngine] Matched section {} against {} activities, found {} matches",
-                            section_id,
-                            activity_ids.len(),
-                            matches.len()
-                        );
-                    }
-                });
-
-                // Return success result with section data
-                serde_json::json!({
-                    "ok": true,
-                    "section": section
-                }).to_string()
-            }
-            Some(Err(e)) => {
-                log::error!(
-                    "tracematch: [PersistentEngine] Failed to create section from indices: {}",
-                    e
-                );
-                // Return error result with message
-                serde_json::json!({
-                    "ok": false,
-                    "error": e
-                }).to_string()
-            }
-            None => {
-                log::error!("tracematch: [PersistentEngine] Engine not initialized");
-                serde_json::json!({
-                    "ok": false,
-                    "error": "Engine not initialized"
-                }).to_string()
-            }
-        }
-    }
-
-    /// Remove a custom section.
-    #[uniffi::export]
-    pub fn persistent_engine_remove_custom_section(section_id: String) -> bool {
-        with_persistent_engine(|e| match e.remove_custom_section(&section_id) {
-            Ok(success) => {
-                info!(
-                    "tracematch: [PersistentEngine] Removed custom section: {}",
-                    section_id
-                );
-                success
-            }
-            Err(e) => {
-                log::error!(
-                    "tracematch: [PersistentEngine] Failed to remove custom section: {:?}",
-                    e
-                );
-                false
-            }
-        })
-        .unwrap_or(false)
-    }
-
-    /// Get all custom sections as JSON.
-    #[uniffi::export]
-    pub fn persistent_engine_get_custom_sections_json() -> String {
-        with_persistent_engine(|e| e.get_custom_sections_json()).unwrap_or_else(|| "[]".to_string())
-    }
-
-    /// Match a custom section against activities.
-    /// Returns JSON array of matches.
-    #[uniffi::export]
-    pub fn persistent_engine_match_custom_section(
-        section_id: String,
-        activity_ids: Vec<String>,
-    ) -> String {
-        let config = crate::CustomSectionMatchConfig::default();
-
-        with_persistent_engine(|e| {
-            let matches =
-                e.match_custom_section_against_activities(&section_id, &activity_ids, &config);
-            serde_json::to_string(&matches).unwrap_or_else(|_| "[]".to_string())
-        })
-        .unwrap_or_else(|| "[]".to_string())
-    }
-
-    /// Get matches for a custom section.
-    /// Returns JSON array of matches.
-    #[uniffi::export]
-    pub fn persistent_engine_get_custom_section_matches(section_id: String) -> String {
-        with_persistent_engine(|e| {
-            let matches = e.get_custom_section_matches(&section_id);
-            serde_json::to_string(&matches).unwrap_or_else(|_| "[]".to_string())
-        })
-        .unwrap_or_else(|| "[]".to_string())
-    }
-
-    // ========================================================================
-    // Section Reference (Medoid) Management
-    // ========================================================================
-
-    /// Set the reference activity for a section.
-    /// This marks the section as user-defined and prevents automatic medoid recalculation.
-    ///
-    /// Returns true if successful, false if the section or activity was not found.
-    #[uniffi::export]
-    pub fn persistent_engine_set_section_reference(
-        section_id: String,
-        activity_id: String,
-    ) -> bool {
-        with_persistent_engine(|e| {
-            // Debug: Log state before attempting
-            let section_count = e.sections.len();
-            let section_exists = e.sections.iter().any(|s| s.id == section_id);
-            let activity_in_section = e
-                .sections
-                .iter()
-                .find(|s| s.id == section_id)
-                .map(|s| s.activity_ids.contains(&activity_id))
-                .unwrap_or(false);
-            info!(
-                "tracematch: [SetReference] Attempting: section={}, activity={}, sections_in_memory={}, section_found={}, activity_in_section={}",
-                section_id, activity_id, section_count, section_exists, activity_in_section
-            );
-
-            match e.set_section_reference(&section_id, &activity_id) {
-                Ok(()) => {
-                    info!(
-                        "tracematch: [PersistentEngine] Set section {} reference to {}",
-                        section_id, activity_id
-                    );
-                    true
-                }
-                Err(err) => {
-                    info!(
-                        "tracematch: [PersistentEngine] Failed to set section reference: {}",
-                        err
-                    );
-                    false
-                }
-            }
-        })
-        .unwrap_or_else(|| {
-            info!("tracematch: [SetReference] FAILED: Engine not initialized or lock failed");
-            false
-        })
-    }
-
-    /// Reset a section's reference to automatic medoid calculation.
-    /// This clears the user-defined flag and recalculates the medoid.
-    ///
-    /// Returns true if successful, false if the section was not found.
-    #[uniffi::export]
-    pub fn persistent_engine_reset_section_reference(section_id: String) -> bool {
-        with_persistent_engine(|e| {
-            match e.reset_section_reference(&section_id) {
-                Ok(()) => {
-                    info!(
-                        "tracematch: [PersistentEngine] Reset section {} reference to automatic",
-                        section_id
-                    );
-                    true
-                }
-                Err(err) => {
-                    info!(
-                        "tracematch: [PersistentEngine] Failed to reset section reference: {}",
-                        err
-                    );
-                    false
-                }
-            }
-        })
-        .unwrap_or(false)
-    }
-
-    /// Get the reference (medoid) activity ID for a section.
-    /// Returns the activity ID or None if the section is not found.
-    #[uniffi::export]
-    pub fn persistent_engine_get_section_reference(section_id: String) -> Option<String> {
-        with_persistent_engine(|e| {
-            e.sections
-                .iter()
-                .find(|s| s.id == section_id)
-                .map(|s| s.representative_activity_id.clone())
-        })
-        .flatten()
-    }
-
-    /// Check if a section's reference was user-defined (vs automatic).
-    #[uniffi::export]
-    pub fn persistent_engine_is_section_reference_user_defined(section_id: String) -> bool {
-        with_persistent_engine(|e| {
-            e.sections
-                .iter()
-                .find(|s| s.id == section_id)
-                .map(|s| s.is_user_defined)
-                .unwrap_or(false)
-        })
-        .unwrap_or(false)
     }
 
     /// Match an activity to existing sections and add it to all matching ones.
@@ -3204,7 +6004,7 @@ mod tests {
         assert!(!sections[0].is_user_defined);
 
         // Set activity-2 as the new reference
-        let result = engine.set_section_reference("sec_cycling_1", "activity-2");
+        let result = engine.set_section_reference_legacy("sec_cycling_1", "activity-2");
         assert!(result.is_ok(), "set_section_reference should succeed for auto-detected sections");
 
         // Verify the reference was changed
@@ -3243,7 +6043,7 @@ mod tests {
         engine.add_custom_section(&custom_section).unwrap();
 
         // Set activity-2 as the new reference - THIS SHOULD WORK
-        let result = engine.set_section_reference("custom_1234567890_abc", "activity-2");
+        let result = engine.set_section_reference_legacy("custom_1234567890_abc", "activity-2");
         assert!(
             result.is_ok(),
             "set_section_reference should work for custom sections after unification"

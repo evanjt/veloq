@@ -188,19 +188,27 @@ describe('Bug: Race condition with ref-based sync state', () => {
     // Wait for sync to complete
     await syncA;
 
-    // BUG: Ref is still true because cleanup didn't run!
-    // This demonstrates the issue - ref stays true even after sync completes
-    expect(isSyncingRef.current).toBe(true);
+    /**
+     * BUG: Ref stays true because cleanup didn't run when component unmounted!
+     *
+     * CORRECT behavior: Ref should be false after sync completes, regardless
+     * of mount state. The code should use a finally block to cleanup.
+     *
+     * FIX needed in src/hooks/routes/useRouteDataSync.ts:
+     *   try {
+     *     isSyncingRef.current = true;
+     *     await doSync();
+     *   } finally {
+     *     isSyncingRef.current = false; // Always cleanup!
+     *   }
+     */
+    expect(isSyncingRef.current).toBe(false); // Should be cleaned up!
 
     // Component B mounts
     isMounted = true;
 
-    // Component B thinks sync is in progress (ref is stale)
-    // This is the bug - Component B will skip syncing unnecessarily
-    expect(isSyncingRef.current).toBe(true);
-
-    // FIX: Component should cleanup ref in finally block
-    isSyncingRef.current = false;
+    // Component B should be able to sync (ref should be false)
+    expect(isSyncingRef.current).toBe(false);
   });
 
   it('demonstrates concurrent sync prevention issue', async () => {
@@ -357,10 +365,19 @@ describe('Bug: Multiple subscription cleanup verification', () => {
     const cleanup = buggyCleanup();
     cleanup();
 
-    // Only last subscription was cleaned up!
-    expect(cleanupLog).toHaveLength(1);
-    expect(cleanupLog[0]).toBe('unsubscribed from sections');
-    // activities and groups are still subscribed (memory leak!)
+    /**
+     * BUG: Only last subscription was cleaned up!
+     *
+     * CORRECT behavior: All 3 subscriptions should be cleaned up.
+     * The buggy pattern only returns the last unsubscribe function.
+     *
+     * FIX needed: Combine all unsubscribe functions:
+     *   return () => { sub1(); sub2(); sub3(); };
+     */
+    expect(cleanupLog).toHaveLength(3); // All subscriptions should cleanup
+    expect(cleanupLog).toContain('unsubscribed from activities');
+    expect(cleanupLog).toContain('unsubscribed from groups');
+    expect(cleanupLog).toContain('unsubscribed from sections');
   });
 });
 

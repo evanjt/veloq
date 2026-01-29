@@ -7,8 +7,6 @@
 use crate::ffi_types::{
     FfiMultiScaleSectionResult, FfiRouteGroup, FfiScalePreset, FfiSectionConfig,
 };
-use crate::sections;
-pub mod sections;
 use crate::{elapsed_ms, init_logging};
 use log::info;
 use std::time::Instant;

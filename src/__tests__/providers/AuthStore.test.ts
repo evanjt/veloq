@@ -527,14 +527,20 @@ describe('AuthStore', () => {
 
       await useAuthStore.getState().initialize();
 
-      // Empty strings are truthy in JS, but should NOT be valid credentials
-      // This tests the actual behavior - empty strings ARE treated as valid
-      // If this test fails, it means the store has been updated to reject empty strings
+      /**
+       * BUG: Empty strings ARE accepted as valid credentials
+       *
+       * CORRECT behavior: Empty strings should NOT be valid credentials.
+       * The store should treat empty strings as "no credential" and
+       * NOT set isAuthenticated to true.
+       *
+       * FIX needed in AuthStore: Check string length, not just existence
+       *   if (apiKey && apiKey.trim().length > 0) { ... }
+       */
       const state = useAuthStore.getState();
-      // Current behavior: empty strings ARE accepted (this may be a bug)
-      // Update this assertion if the behavior changes
-      expect(state.apiKey).toBe('');
-      expect(state.athleteId).toBe('');
+      // Should NOT accept empty strings as valid credentials
+      expect(state.apiKey).toBeNull();
+      expect(state.athleteId).toBeNull();
     });
 
     it('handles whitespace-only credentials', async () => {
@@ -546,10 +552,20 @@ describe('AuthStore', () => {
 
       await useAuthStore.getState().initialize();
 
-      // Current behavior: whitespace is NOT trimmed
+      /**
+       * BUG: Whitespace-only API key is accepted as valid
+       *
+       * CORRECT behavior:
+       * - Whitespace-only apiKey should be treated as null (invalid)
+       * - athleteId with surrounding whitespace should be trimmed OR rejected
+       *
+       * FIX needed: Trim credentials and check for empty after trim
+       */
       const state = useAuthStore.getState();
-      expect(state.apiKey).toBe('   ');
-      expect(state.athleteId).toBe('  i123  ');
+      // Whitespace-only apiKey should NOT be valid
+      expect(state.apiKey).toBeNull();
+      // athleteId should be trimmed OR null (whitespace-only)
+      expect(state.athleteId).toBe('i123'); // Trimmed
     });
 
     it('setAthlete updates athlete without affecting auth state', () => {
