@@ -41,7 +41,7 @@ impl PersistentRouteEngine {
                     end_index INTEGER,
 
                     -- Timestamps
-                    created_at TEXT NOT NULL,
+                    created_at TEXT NOT NULL DEFAULT (datetime('now')),
                     updated_at TEXT
                 );
 

@@ -1630,6 +1630,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "rusqlite_migration"
+version = "1.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "55709bc01054c69e2f1cefdc886642b5e6376a8db3c86f761be0c423eebf178b"
+dependencies = [
+ "log",
+ "rusqlite",
+]
+
+[[package]]
 name = "rustc-hash"
 version = "2.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2286,6 +2296,7 @@ dependencies = [
  "rmp-serde",
  "rstar",
  "rusqlite",
+ "rusqlite_migration",
  "serde",
  "serde_json",
  "tokio",

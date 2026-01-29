@@ -38,6 +38,9 @@ use std::thread;
 use rusqlite::{Connection, Result as SqlResult, params};
 
 #[cfg(feature = "persistence")]
+use rusqlite_migration::{Migrations, M};
+
+#[cfg(feature = "persistence")]
 use rstar::{AABB, RTree, RTreeObject};
 
 #[cfg(feature = "persistence")]
@@ -50,6 +53,9 @@ use crate::{
 
 #[cfg(feature = "persistence")]
 use lru::LruCache;
+
+#[cfg(feature = "persistence")]
+use chrono::Utc;
 
 // ============================================================================
 // Types
@@ -499,8 +505,8 @@ impl PersistentRouteEngine {
 
     /// Create a new persistent engine with the given database path.
     pub fn new(db_path: &str) -> SqlResult<Self> {
-        let db = Connection::open(db_path)?;
-        Self::init_schema(&db)?;
+        let mut db = Connection::open(db_path)?;
+        Self::init_schema(&mut db)?;
 
         Ok(Self {
             db,
@@ -528,168 +534,144 @@ impl PersistentRouteEngine {
         Self::new(":memory:")
     }
 
-    /// Initialize the database schema.
-    fn init_schema(conn: &Connection) -> SqlResult<()> {
-        conn.execute_batch(
-            r#"
-            -- Activity metadata (always loaded)
-            CREATE TABLE IF NOT EXISTS activities (
-                id TEXT PRIMARY KEY,
-                sport_type TEXT NOT NULL,
-                min_lat REAL NOT NULL,
-                max_lat REAL NOT NULL,
-                min_lng REAL NOT NULL,
-                max_lng REAL NOT NULL,
-                created_at INTEGER DEFAULT (strftime('%s', 'now')),
-                -- Extended metadata for map display (added 2026-01-25)
-                start_date INTEGER,           -- Unix timestamp (seconds)
-                name TEXT,                    -- Activity name
-                distance_meters REAL,         -- Total distance in meters
-                duration_secs INTEGER         -- Total duration in seconds
-            );
+    /// Get the database migrations.
+    /// Each migration is applied in order, tracked in `__rusqlite_migrations` table.
+    fn migrations() -> Migrations<'static> {
+        Migrations::new(vec![
+            // M1: Initial schema (uses IF NOT EXISTS for compatibility with pre-migration databases)
+            M::up(include_str!("migrations/001_initial_schema.sql")),
+            // M2: Unified sections table (migrates blob-based sections to column-based)
+            M::up(include_str!("migrations/002_unified_sections.sql")),
+        ])
+    }
 
-            -- Signatures stored separately (LRU cached)
-            CREATE TABLE IF NOT EXISTS signatures (
-                activity_id TEXT PRIMARY KEY,
-                points BLOB NOT NULL,
-                start_point_lat REAL NOT NULL,
-                start_point_lng REAL NOT NULL,
-                end_point_lat REAL NOT NULL,
-                end_point_lng REAL NOT NULL,
-                total_distance REAL NOT NULL,
-                point_count INTEGER NOT NULL,
-                FOREIGN KEY (activity_id) REFERENCES activities(id) ON DELETE CASCADE
-            );
+    /// Initialize the database schema using migrations.
+    fn init_schema(conn: &mut Connection) -> SqlResult<()> {
+        // Handle pre-migration databases: if tables exist but no migration state,
+        // we need to migrate the old blob-based sections before running migrations
+        Self::migrate_legacy_sections(conn)?;
 
-            -- Full GPS tracks (loaded on-demand only)
-            CREATE TABLE IF NOT EXISTS gps_tracks (
-                activity_id TEXT PRIMARY KEY,
-                track_data BLOB NOT NULL,
-                point_count INTEGER NOT NULL,
-                FOREIGN KEY (activity_id) REFERENCES activities(id) ON DELETE CASCADE
-            );
+        // Run all pending migrations
+        Self::migrations()
+            .to_latest(conn)
+            .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(
+                std::io::Error::new(std::io::ErrorKind::Other, e.to_string())
+            )))?;
 
-            -- Computed route groups (persisted)
-            CREATE TABLE IF NOT EXISTS route_groups (
-                id TEXT PRIMARY KEY,
-                representative_id TEXT NOT NULL,
-                activity_ids TEXT NOT NULL,
-                sport_type TEXT NOT NULL,
-                bounds_min_lat REAL,
-                bounds_max_lat REAL,
-                bounds_min_lng REAL,
-                bounds_max_lng REAL
-            );
-
-            -- Detected sections (persisted as JSON blob for simplicity)
-            CREATE TABLE IF NOT EXISTS sections (
-                id TEXT PRIMARY KEY,
-                data BLOB NOT NULL
-            );
-
-            -- Junction table for section-activity relationships
-            -- Enables O(1) lookup of sections by activity ID
-            CREATE TABLE IF NOT EXISTS section_activities (
-                section_id TEXT NOT NULL,
-                activity_id TEXT NOT NULL,
-                PRIMARY KEY (section_id, activity_id),
-                FOREIGN KEY (section_id) REFERENCES sections(id) ON DELETE CASCADE
-            );
-
-            -- Custom route names (user-defined)
-            CREATE TABLE IF NOT EXISTS route_names (
-                route_id TEXT PRIMARY KEY,
-                custom_name TEXT NOT NULL
-            );
-
-            -- Custom section names (user-defined)
-            CREATE TABLE IF NOT EXISTS section_names (
-                section_id TEXT PRIMARY KEY,
-                custom_name TEXT NOT NULL
-            );
-
-            -- Per-activity match info within route groups
-            CREATE TABLE IF NOT EXISTS activity_matches (
-                route_id TEXT NOT NULL,
-                activity_id TEXT NOT NULL,
-                match_percentage REAL NOT NULL,
-                direction TEXT NOT NULL,
-                PRIMARY KEY (route_id, activity_id)
-            );
-
-            -- Activity metrics for performance calculations
-            CREATE TABLE IF NOT EXISTS activity_metrics (
-                activity_id TEXT PRIMARY KEY,
-                name TEXT NOT NULL,
-                date INTEGER NOT NULL,
-                distance REAL NOT NULL,
-                moving_time INTEGER NOT NULL,
-                elapsed_time INTEGER NOT NULL,
-                elevation_gain REAL NOT NULL,
-                avg_hr INTEGER,
-                avg_power INTEGER,
-                sport_type TEXT NOT NULL
-            );
-
-            -- Time streams for section performance calculations
-            -- Stores cumulative seconds at each GPS point
-            CREATE TABLE IF NOT EXISTS time_streams (
-                activity_id TEXT PRIMARY KEY,
-                times BLOB NOT NULL,
-                point_count INTEGER NOT NULL,
-                FOREIGN KEY (activity_id) REFERENCES activities(id) ON DELETE CASCADE
-            );
-
-            -- Overlap cache for section detection
-            -- Caches pairwise overlap results to avoid O(N²) recalculation
-            -- activity_a < activity_b lexicographically to avoid duplicates
-            CREATE TABLE IF NOT EXISTS overlap_cache (
-                activity_a TEXT NOT NULL,
-                activity_b TEXT NOT NULL,
-                has_overlap INTEGER NOT NULL,
-                overlap_data BLOB,
-                computed_at INTEGER NOT NULL,
-                PRIMARY KEY (activity_a, activity_b)
-            );
-
-            -- Indexes
-            CREATE INDEX IF NOT EXISTS idx_activities_sport ON activities(sport_type);
-            CREATE INDEX IF NOT EXISTS idx_activities_bounds ON activities(min_lat, max_lat, min_lng, max_lng);
-            CREATE INDEX IF NOT EXISTS idx_groups_sport ON route_groups(sport_type);
-            CREATE INDEX IF NOT EXISTS idx_activity_matches_route ON activity_matches(route_id);
-            CREATE INDEX IF NOT EXISTS idx_overlap_cache_a ON overlap_cache(activity_a);
-            CREATE INDEX IF NOT EXISTS idx_overlap_cache_b ON overlap_cache(activity_b);
-            CREATE INDEX IF NOT EXISTS idx_section_activities_activity ON section_activities(activity_id);
-
-            -- Enable foreign keys
-            PRAGMA foreign_keys = ON;
-        "#,
-        )?;
-
-        // Run migrations for existing databases
+        // Post-migration: add columns that may be missing from older schemas
         Self::migrate_schema(conn)?;
 
         Ok(())
     }
 
-    /// Migrate schema for existing databases (add new columns if missing).
+    /// Migrate legacy blob-based sections to the new format.
+    /// This runs BEFORE the migration system to handle pre-migration databases.
+    fn migrate_legacy_sections(conn: &Connection) -> SqlResult<()> {
+        // Check if sections table exists with old blob-based schema
+        let has_old_schema = conn
+            .prepare("SELECT data FROM sections LIMIT 0")
+            .is_ok();
+
+        if !has_old_schema {
+            return Ok(()); // Either new DB or already migrated
+        }
+
+        log::info!("tracematch: [Migration] Detected legacy blob-based sections, migrating...");
+
+        // Load old sections from blob format
+        let old_sections: Vec<(String, Vec<String>, serde_json::Value)> = {
+            let mut stmt = conn.prepare("SELECT id, data FROM sections")?;
+            stmt.query_map([], |row| {
+                let id: String = row.get(0)?;
+                let data_blob: Vec<u8> = row.get(1)?;
+                let json: serde_json::Value = serde_json::from_slice(&data_blob)
+                    .unwrap_or(serde_json::Value::Null);
+                let activity_ids: Vec<String> = json.get("activity_ids")
+                    .and_then(|v| serde_json::from_value(v.clone()).ok())
+                    .unwrap_or_default();
+                Ok((id, activity_ids, json))
+            })?
+            .filter_map(|r| r.ok())
+            .filter(|(id, _, _)| !id.is_empty())
+            .collect()
+        };
+
+        log::info!(
+            "tracematch: [Migration] Loaded {} sections from legacy schema",
+            old_sections.len()
+        );
+
+        // Drop old tables
+        conn.execute_batch(
+            "DROP TABLE IF EXISTS section_activities;
+             DROP TABLE IF EXISTS sections;"
+        )?;
+
+        // Create new schema (same as 002_unified_sections.sql)
+        conn.execute_batch(include_str!("migrations/002_unified_sections.sql"))?;
+
+        // Migrate data
+        for (id, activity_ids, json) in &old_sections {
+            let polyline_json = json.get("polyline")
+                .map(|v| v.to_string())
+                .unwrap_or_else(|| "[]".to_string());
+
+            conn.execute(
+                "INSERT INTO sections (
+                    id, section_type, name, sport_type, polyline_json, distance_meters,
+                    representative_activity_id, confidence, observation_count, average_spread,
+                    point_density_json, scale, version, is_user_defined, stability, created_at
+                ) VALUES (?, 'auto', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))",
+                params![
+                    id,
+                    json.get("name").and_then(|v| v.as_str()),
+                    json.get("sport_type").and_then(|v| v.as_str()).unwrap_or(""),
+                    polyline_json,
+                    json.get("distance_meters").and_then(|v| v.as_f64()).unwrap_or(0.0),
+                    json.get("representative_activity_id").and_then(|v| v.as_str()),
+                    json.get("confidence").and_then(|v| v.as_f64()),
+                    json.get("observation_count").and_then(|v| v.as_u64()).map(|v| v as i64),
+                    json.get("average_spread").and_then(|v| v.as_f64()),
+                    json.get("point_density").map(|v| v.to_string()),
+                    json.get("scale").and_then(|v| v.as_str()),
+                    json.get("version").and_then(|v| v.as_u64()).unwrap_or(1) as i64,
+                    if json.get("is_user_defined").and_then(|v| v.as_bool()).unwrap_or(false) { 1 } else { 0 },
+                    json.get("stability").and_then(|v| v.as_f64()),
+                ],
+            )?;
+
+            // Migrate activity associations
+            for activity_id in activity_ids {
+                conn.execute(
+                    "INSERT OR IGNORE INTO section_activities (section_id, activity_id) VALUES (?, ?)",
+                    params![id, activity_id],
+                )?;
+            }
+        }
+
+        log::info!(
+            "tracematch: [Migration] Successfully migrated {} sections to new schema",
+            old_sections.len()
+        );
+
+        Ok(())
+    }
+
+    /// Post-migration schema updates (add columns to existing tables).
     fn migrate_schema(conn: &Connection) -> SqlResult<()> {
-        // Check if start_date column exists
+        // Check if start_date column exists in activities
         let has_start_date: bool = conn
             .prepare("SELECT start_date FROM activities LIMIT 0")
             .is_ok();
 
         if !has_start_date {
-            // Add new columns to activities table
             conn.execute_batch(
-                r#"
-                ALTER TABLE activities ADD COLUMN start_date INTEGER;
-                ALTER TABLE activities ADD COLUMN name TEXT;
-                ALTER TABLE activities ADD COLUMN distance_meters REAL;
-                ALTER TABLE activities ADD COLUMN duration_secs INTEGER;
-                "#,
+                "ALTER TABLE activities ADD COLUMN start_date INTEGER;
+                 ALTER TABLE activities ADD COLUMN name TEXT;
+                 ALTER TABLE activities ADD COLUMN distance_meters REAL;
+                 ALTER TABLE activities ADD COLUMN duration_secs INTEGER;"
             )?;
-            log::info!("[PersistentEngine] Migrated activities table: added metadata columns");
+            log::info!("tracematch: [Migration] Added metadata columns to activities table");
         }
 
         Ok(())
@@ -926,46 +908,70 @@ impl PersistentRouteEngine {
             count
         );
 
-        let mut stmt = self.db.prepare("SELECT id, data FROM sections")?;
+        // Load activity IDs for each section from junction table
+        let section_activity_ids: HashMap<String, Vec<String>> = {
+            let mut stmt = self.db.prepare(
+                "SELECT section_id, activity_id FROM section_activities ORDER BY section_id"
+            )?;
+            let mut map: HashMap<String, Vec<String>> = HashMap::new();
+            let rows = stmt.query_map([], |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+            })?;
+            for row in rows.flatten() {
+                map.entry(row.0).or_default().push(row.1);
+            }
+            map
+        };
+
+        let mut stmt = self.db.prepare(
+            "SELECT id, section_type, name, sport_type, polyline_json, distance_meters,
+                    representative_activity_id, confidence, observation_count, average_spread,
+                    point_density_json, scale, version, is_user_defined, stability,
+                    created_at, updated_at
+             FROM sections WHERE section_type = 'auto'"
+        )?;
 
         self.sections = stmt
             .query_map([], |row| {
                 let id: String = row.get(0)?;
-                let data_blob: Vec<u8> = row.get(1)?;
-                let section: FrequentSection =
-                    serde_json::from_slice(&data_blob).unwrap_or_else(|e| {
-                        log::info!(
-                            "tracematch: [PersistentEngine] Failed to deserialize section {}: {:?}",
-                            id,
-                            e
-                        );
-                        // Return a default/empty section if deserialization fails
-                        FrequentSection {
-                            id: String::new(),
-                            name: None,
-                            sport_type: String::new(),
-                            polyline: vec![],
-                            representative_activity_id: String::new(),
-                            activity_ids: vec![],
-                            activity_portions: vec![],
-                            route_ids: vec![],
-                            visit_count: 0,
-                            distance_meters: 0.0,
-                            activity_traces: std::collections::HashMap::new(),
-                            confidence: 0.0,
-                            observation_count: 0,
-                            average_spread: 0.0,
-                            point_density: vec![],
-                            scale: None,
-                            // Evolution fields
-                            version: 1,
-                            is_user_defined: false,
-                            created_at: None,
-                            updated_at: None,
-                            stability: 0.0,
-                        }
-                    });
-                Ok(section)
+                let polyline_json: String = row.get(4)?;
+                let point_density_json: Option<String> = row.get(10)?;
+                let representative_activity_id: Option<String> = row.get(6)?;
+
+                let polyline: Vec<GpsPoint> = serde_json::from_str(&polyline_json)
+                    .unwrap_or_default();
+                let point_density: Vec<u32> = point_density_json
+                    .and_then(|j| serde_json::from_str(&j).ok())
+                    .unwrap_or_default();
+
+                let activity_ids = section_activity_ids.get(&id)
+                    .cloned()
+                    .unwrap_or_default();
+                let visit_count = activity_ids.len() as u32;
+
+                Ok(FrequentSection {
+                    id,
+                    name: row.get(2)?,
+                    sport_type: row.get(3)?,
+                    polyline,
+                    representative_activity_id: representative_activity_id.unwrap_or_default(),
+                    activity_ids,
+                    activity_portions: vec![],
+                    route_ids: vec![],
+                    visit_count,
+                    distance_meters: row.get(5)?,
+                    activity_traces: std::collections::HashMap::new(),
+                    confidence: row.get::<_, Option<f64>>(7)?.unwrap_or(0.0),
+                    observation_count: row.get::<_, Option<u32>>(8)?.unwrap_or(0),
+                    average_spread: row.get::<_, Option<f64>>(9)?.unwrap_or(0.0),
+                    point_density,
+                    scale: row.get(11)?,
+                    version: row.get::<_, Option<u32>>(12)?.unwrap_or(1),
+                    is_user_defined: row.get::<_, Option<i32>>(13)?.unwrap_or(0) != 0,
+                    stability: row.get::<_, Option<f64>>(14)?.unwrap_or(0.0),
+                    created_at: row.get(15)?,
+                    updated_at: row.get(16)?,
+                })
             })?
             .filter_map(|r| r.ok())
             .filter(|s: &FrequentSection| !s.id.is_empty())
@@ -2570,21 +2576,55 @@ impl PersistentRouteEngine {
     }
 
     fn save_sections(&self) -> SqlResult<()> {
-        // Clear existing
-        self.db.execute("DELETE FROM sections", [])?;
-        self.db.execute("DELETE FROM section_activities", [])?;
+        // Clear existing auto sections (keep custom sections)
+        self.db.execute("DELETE FROM section_activities WHERE section_id IN (SELECT id FROM sections WHERE section_type = 'auto')", [])?;
+        self.db.execute("DELETE FROM sections WHERE section_type = 'auto'", [])?;
 
-        // Insert new (serialize entire section as JSON)
-        let mut section_stmt = self
-            .db
-            .prepare("INSERT INTO sections (id, data) VALUES (?, ?)")?;
+        // Insert auto-detected sections with new schema
+        let mut section_stmt = self.db.prepare(
+            "INSERT INTO sections (
+                id, section_type, name, sport_type, polyline_json, distance_meters,
+                representative_activity_id, confidence, observation_count, average_spread,
+                point_density_json, scale, version, is_user_defined, stability, created_at, updated_at
+            ) VALUES (?, 'auto', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+        )?;
         let mut junction_stmt = self
             .db
             .prepare("INSERT INTO section_activities (section_id, activity_id) VALUES (?, ?)")?;
 
         for section in &self.sections {
-            let data_blob = serde_json::to_vec(section).unwrap_or_default();
-            section_stmt.execute(params![section.id, data_blob])?;
+            let polyline_json = serde_json::to_string(&section.polyline)
+                .unwrap_or_else(|_| "[]".to_string());
+            let point_density_json = if section.point_density.is_empty() {
+                None
+            } else {
+                serde_json::to_string(&section.point_density).ok()
+            };
+            let created_at = section.created_at.clone()
+                .unwrap_or_else(|| Utc::now().to_rfc3339());
+
+            section_stmt.execute(params![
+                section.id,
+                section.name,
+                section.sport_type,
+                polyline_json,
+                section.distance_meters,
+                if section.representative_activity_id.is_empty() {
+                    None
+                } else {
+                    Some(&section.representative_activity_id)
+                },
+                section.confidence,
+                section.observation_count,
+                section.average_spread,
+                point_density_json,
+                section.scale,
+                section.version,
+                if section.is_user_defined { 1 } else { 0 },
+                section.stability,
+                created_at,
+                section.updated_at,
+            ])?;
 
             // Populate junction table for fast activity-based lookup
             for activity_id in &section.activity_ids {

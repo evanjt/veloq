@@ -73,7 +73,20 @@ pub fn create_section(
     start_index: Option<u32>,
     end_index: Option<u32>,
 ) -> String {
-    let polyline = serde_json::from_str(&polyline_json).unwrap_or_default();
+    info!(
+        "tracematch: [sections] Creating section: sport={}, distance={:.0}m, source={:?}, range={:?}-{:?}, polyline_len={}",
+        sport_type, distance_meters, source_activity_id, start_index, end_index, polyline_json.len()
+    );
+
+    let polyline: Vec<tracematch::GpsPoint> = match serde_json::from_str(&polyline_json) {
+        Ok(p) => p,
+        Err(e) => {
+            info!("tracematch: [sections] Failed to parse polyline JSON: {}", e);
+            return String::new();
+        }
+    };
+
+    info!("tracematch: [sections] Parsed {} GPS points", polyline.len());
 
     let params = CreateSectionParams {
         sport_type,
@@ -85,8 +98,22 @@ pub fn create_section(
         end_index,
     };
 
-    with_persistent_engine(|e| e.create_section(params).unwrap_or_default())
-        .unwrap_or_default()
+    let result = with_persistent_engine(|e| e.create_section(params));
+
+    match result {
+        Some(Ok(id)) => {
+            info!("tracematch: [sections] Created section: {}", id);
+            id
+        }
+        Some(Err(e)) => {
+            info!("tracematch: [sections] Failed to create section: {}", e);
+            String::new()
+        }
+        None => {
+            info!("tracematch: [sections] Engine not available");
+            String::new()
+        }
+    }
 }
 
 /// Rename a section.
