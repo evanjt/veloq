@@ -523,6 +523,9 @@ impl PersistentRouteEngine {
         // we need to migrate the old blob-based sections before running migrations
         Self::migrate_legacy_sections(conn)?;
 
+        // Migrate legacy section_names table if it exists (must run before SQL migrations)
+        Self::migrate_legacy_section_names(conn)?;
+
         // Run all pending migrations
         Self::migrations()
             .to_latest(conn)
@@ -625,6 +628,40 @@ impl PersistentRouteEngine {
             "tracematch: [Migration] Successfully migrated {} sections to new schema",
             old_sections.len()
         );
+
+        Ok(())
+    }
+
+    /// Migrate custom section names from legacy section_names table.
+    /// This table stored user-overridden names separately from the blob data.
+    fn migrate_legacy_section_names(conn: &Connection) -> SqlResult<()> {
+        // Check if legacy section_names table exists
+        let table_exists = conn
+            .prepare("SELECT 1 FROM section_names LIMIT 0")
+            .is_ok();
+
+        if !table_exists {
+            return Ok(()); // Table doesn't exist, nothing to migrate
+        }
+
+        log::info!("tracematch: [Migration] Migrating legacy section_names table...");
+
+        // Update sections with custom names from the legacy table
+        let count = conn.execute(
+            "UPDATE sections
+             SET name = (SELECT custom_name FROM section_names WHERE section_names.section_id = sections.id)
+             WHERE name IS NULL
+               AND EXISTS (SELECT 1 FROM section_names WHERE section_names.section_id = sections.id)",
+            [],
+        )?;
+
+        log::info!(
+            "tracematch: [Migration] Updated {} sections with custom names",
+            count
+        );
+
+        // Drop the legacy table
+        conn.execute("DROP TABLE IF EXISTS section_names", [])?;
 
         Ok(())
     }

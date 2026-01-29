@@ -1,12 +1,6 @@
 -- Migration 003: Drop legacy section_names table
 -- Section names are now stored directly in the sections.name column
+-- Note: section_names only exists for pre-migration databases, not fresh installs
 
--- Migrate any existing names from section_names to sections
--- (Only updates sections where name is NULL to avoid overwriting)
-UPDATE sections
-SET name = (SELECT custom_name FROM section_names WHERE section_names.section_id = sections.id)
-WHERE name IS NULL
-  AND EXISTS (SELECT 1 FROM section_names WHERE section_names.section_id = sections.id);
-
--- Drop the legacy table
+-- Drop the legacy table if it exists (no-op for fresh installs)
 DROP TABLE IF EXISTS section_names;
