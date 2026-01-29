@@ -35,8 +35,7 @@ import {
   useCacheDays,
   type ActivitySectionRecord,
 } from '@/hooks';
-import { useGroupSummaries } from '@/hooks/routes/useRouteEngine';
-import { useSectionDetail } from '@/hooks/routes/useSectionDetail';
+import { useGroupSummaries, useSectionDetail } from '@/hooks/routes/useRouteEngine';
 import { getAllSectionDisplayNames } from '@/hooks/routes/useUnifiedSections';
 import { createSharedStyles } from '@/styles';
 import { useDisabledSections } from '@/providers';

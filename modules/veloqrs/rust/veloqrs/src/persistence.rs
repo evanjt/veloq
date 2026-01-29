@@ -5701,7 +5701,7 @@ mod tests {
         assert!(!sections[0].is_user_defined);
 
         // Set activity-2 as the new reference
-        let result = engine.set_section_reference_legacy("sec_cycling_1", "activity-2");
+        let result = engine.set_section_reference("sec_cycling_1", "activity-2");
         assert!(result.is_ok(), "set_section_reference should succeed for auto-detected sections");
 
         // Verify the reference was changed
@@ -5711,7 +5711,7 @@ mod tests {
         assert_eq!(sections[0].version, 2);
     }
 
-    /// Test: set_section_reference works for custom sections (unified implementation)
+    /// Test: set_section_reference works for custom sections
     #[test]
     fn test_set_section_reference_custom_section() {
         let mut engine = PersistentRouteEngine::in_memory().unwrap();
@@ -5739,11 +5739,11 @@ mod tests {
         };
         engine.add_custom_section(&custom_section).unwrap();
 
-        // Set activity-2 as the new reference - THIS SHOULD WORK
-        let result = engine.set_section_reference_legacy("custom_1234567890_abc", "activity-2");
+        // Set activity-2 as the new reference
+        let result = engine.set_section_reference("custom_1234567890_abc", "activity-2");
         assert!(
             result.is_ok(),
-            "set_section_reference should work for custom sections after unification"
+            "set_section_reference should work for custom sections"
         );
 
         // Verify the reference was changed

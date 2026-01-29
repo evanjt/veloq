@@ -90,6 +90,5 @@ export { useRouteDataSync } from './routes/useRouteDataSync';
 export { useRouteReoptimization } from './routes/useRouteReoptimization';
 export { useRetentionCleanup } from './routes/useRetentionCleanup';
 
-// Unified section hooks (combines custom + auto sections)
-export { useSections } from './routes/useSections';
-export { useSectionDetail } from './routes/useSectionDetail';
+// Section detail hook from route engine
+export { useSectionDetail } from './routes/useRouteEngine';
