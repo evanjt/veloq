@@ -19,6 +19,14 @@ jest.mock("expo-secure-store", () => ({
   ALWAYS_THIS_DEVICE_ONLY: 5,
 }));
 
+// Mock expo-localization for device locale simulation
+// Note: i18next is NOT mocked - we test real integration
+jest.mock("expo-localization", () => ({
+  getLocales: jest.fn(() => [
+    { languageTag: "en-US", languageCode: "en", regionCode: "US" },
+  ]),
+}));
+
 // Silence console warnings during tests
 global.console = {
   ...console,
