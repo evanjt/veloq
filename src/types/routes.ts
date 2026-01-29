@@ -331,297 +331,165 @@ export const DEFAULT_ROUTE_MATCH_CONFIG: RouteMatchConfig = {
 };
 
 // =============================================================================
-// Frequent Sections
+// Sections (Unified auto-detected + custom sections)
 // =============================================================================
+
+/** Section type discriminator */
+export type SectionType = 'auto' | 'custom';
+
+/**
+ * A unified section (auto-detected or custom).
+ * Replaces FrequentSection and CustomSection with a single type.
+ */
+export interface Section {
+  /** Unique section ID */
+  id: string;
+  /** Section type: 'auto' for detected sections, 'custom' for user-created */
+  sectionType: SectionType;
+  /** Section name */
+  name?: string;
+  /** Sport type (e.g., "Ride", "Run") */
+  sportType: string;
+  /** GPS points defining the section */
+  polyline: RoutePoint[];
+  /** Section length in meters */
+  distanceMeters: number;
+  /** Activity that provides the representative polyline */
+  representativeActivityId?: string;
+  /** Activity IDs that traverse this section */
+  activityIds: string[];
+  /** Number of times traversed */
+  visitCount: number;
+
+  // Auto-specific metadata (null for custom sections)
+  /** Confidence score (0.0-1.0) based on observation density */
+  confidence?: number;
+  /** Number of tracks used to compute consensus */
+  observationCount?: number;
+  /** Average spread from consensus line (meters) */
+  averageSpread?: number;
+  /** Per-point observation density */
+  pointDensity?: number[];
+  /** Detection scale: "short", "medium", "long" */
+  scale?: string;
+
+  // Version tracking
+  /** Section version (increments on update) */
+  version?: number;
+  /** Whether reference is user-defined */
+  isUserDefined?: boolean;
+  /** Stability score */
+  stability?: number;
+
+  // Timestamps
+  /** ISO timestamp when section was created */
+  createdAt: string;
+  /** ISO timestamp when section was last updated */
+  updatedAt?: string;
+
+  // Associations
+  /** Route group IDs that include this section */
+  routeIds?: string[];
+
+  // Custom-specific fields (null for auto sections)
+  /** Activity ID this custom section was created from */
+  sourceActivityId?: string;
+  /** Start index in source activity's GPS track */
+  startIndex?: number;
+  /** End index in source activity's GPS track */
+  endIndex?: number;
+
+  // Legacy fields for backward compatibility (deprecated)
+  /** @deprecated Use activityIds and query traces separately */
+  activityTraces?: Record<string, RoutePoint[]>;
+  /** @deprecated Portion data for each activity */
+  activityPortions?: ActivitySectionRecord[];
+  /** @deprecated Use sectionType instead */
+  source?: 'auto' | 'custom' | 'potential';
+  /** @deprecated Section disabling is now handled differently */
+  isDisabled?: boolean;
+  /** @deprecated Use section fields directly */
+  engineData?: Section;
+  /** @deprecated Use section fields directly */
+  customData?: Section;
+  /** @deprecated Potentials are now separate */
+  potentialData?: PotentialSection;
+}
+
+/**
+ * A potential section detected from limited activity overlaps.
+ * These are suggestions that users can promote to full sections.
+ */
+export interface PotentialSection {
+  id: string;
+  sportType: string;
+  polyline: RoutePoint[];
+  activityIds: string[];
+  visitCount: number;
+  distanceMeters: number;
+  confidence: number;
+  scale: string;
+}
+
+/** Backward compatibility aliases */
+export type FrequentSection = Section;
+export type CustomSection = Section;
+export type UnifiedSection = Section;
+
+/**
+ * Lightweight section summary (no polyline).
+ */
+export interface SectionSummary {
+  id: string;
+  sectionType: SectionType;
+  name?: string;
+  sportType: string;
+  distanceMeters: number;
+  visitCount: number;
+  representativeActivityId?: string;
+  createdAt: string;
+}
 
 /**
  * Each activity's portion of a section (for pace comparison).
  */
-export interface SectionPortion {
+export interface ActivitySectionRecord {
   /** Activity ID */
   activityId: string;
-  /** Start index into the activity's FULL GPS track */
+  /** Start index into the activity's GPS track */
   startIndex: number;
-  /** End index into the activity's FULL GPS track */
+  /** End index into the activity's GPS track */
   endIndex: number;
   /** Distance of this portion in meters */
   distanceMeters: number;
   /** Direction relative to representative: "same" or "reverse" */
-  direction: string;
+  direction: 'same' | 'reverse';
 }
 
-/**
- * A frequently-traveled road section with adaptive consensus representation.
- * The polyline is refined from all overlapping GPS tracks using weighted averaging.
- * As more tracks are observed, the consensus polyline converges to the true path.
- */
-export interface FrequentSection {
-  /** Unique section ID */
-  id: string;
-  /** Sport type this section is for ("Run", "Ride", etc.) */
-  sportType: string;
-  /** The consensus polyline - refined from all overlapping tracks */
-  polyline: RoutePoint[];
-  /** Which activity provided the initial representative polyline (medoid) */
-  representativeActivityId?: string;
-  /** Activity IDs that traverse this section */
-  activityIds: string[];
-  /** Each activity's portion (start/end indices, distance, direction) for pace comparison */
-  activityPortions?: SectionPortion[];
-  /** Route group IDs that include this section */
-  routeIds: string[];
-  /** Total number of traversals */
-  visitCount: number;
-  /** Section length in meters */
-  distanceMeters: number;
-  /** Display name (auto-generated or user-set) */
-  name?: string;
-  /** Pre-computed GPS traces for each activity's overlapping portion
-   * Key is activity ID, value is the GPS points within proximity of section */
-  activityTraces?: Record<string, RoutePoint[]>;
-  /** Confidence score (0.0-1.0) based on observation density and track alignment.
-   * Higher confidence = more tracks observed with tighter consensus. */
-  confidence?: number;
-  /** Number of tracks used to compute the consensus polyline */
-  observationCount?: number;
-  /** Average spread (meters) of track observations from the consensus line.
-   * Lower spread = more consistent track alignment. */
-  averageSpread?: number;
-  /** Per-point observation density (how many activities pass through each point).
-   * Used for detecting high-traffic portions that may be split into separate sections. */
-  pointDensity?: number[];
-}
+/** Backward compatibility alias */
+export type SectionPortion = ActivitySectionRecord;
 
 /** Configuration for section detection */
 export interface SectionConfig {
-  /** Maximum distance between tracks to consider overlapping (meters). Default: 30m */
   proximityThreshold: number;
-  /** Minimum overlap length to consider a section (meters). Default: 200m */
   minSectionLength: number;
-  /** Maximum section length (meters) - prevents sections from becoming full routes. Default: 5000m */
   maxSectionLength: number;
-  /** Minimum number of activities that must share an overlap. Default: 3 */
   minActivities: number;
-  /** Tolerance for clustering similar overlaps (meters). Default: 50m */
   clusterTolerance: number;
-  /** Number of sample points for polyline normalization. Default: 50 */
   samplePoints: number;
 }
 
 /** Default section detection configuration */
 export const DEFAULT_SECTION_CONFIG: SectionConfig = {
-  proximityThreshold: 50, // 50m - handles GPS error + wide roads + opposite sides
+  proximityThreshold: 50,
   minSectionLength: 200,
   maxSectionLength: 5000,
   minActivities: 3,
-  clusterTolerance: 80, // 80m for clustering similar overlaps
+  clusterTolerance: 80,
   samplePoints: 50,
 };
 
-// =============================================================================
-// Custom Sections (User-Created)
-// =============================================================================
-
-/**
- * A user-created custom section.
- * Created by selecting a portion of an activity's GPS track.
- */
-export interface CustomSection {
-  /** Unique section ID */
-  id: string;
-  /** User-defined or auto-generated name */
-  name: string;
-  /** GPS points defining the section */
-  polyline: RoutePoint[];
-  /** Start index in the source activity's GPS track */
-  startIndex: number;
-  /** End index in the source activity's GPS track */
-  endIndex: number;
-  /** Activity ID this section was created from */
-  sourceActivityId: string;
-  /** Sport type (e.g., "Ride", "Run") */
-  sportType: string;
-  /** Section length in meters */
-  distanceMeters: number;
-  /** ISO timestamp when the section was created */
-  createdAt: string;
-}
-
-/**
- * Match result for a custom section against an activity.
- */
-export interface CustomSectionMatch {
-  /** Activity ID that matches this section */
-  activityId: string;
-  /** Start index in the activity's GPS track where section starts */
-  startIndex: number;
-  /** End index in the activity's GPS track where section ends */
-  endIndex: number;
-  /** Direction: 'same' or 'reverse' relative to section definition */
-  direction: 'same' | 'reverse';
-  /** Distance of the matched portion in meters */
-  distanceMeters: number;
-  /**
-   * Extracted GPS points that are actually near the section polyline.
-   * Use this for visualization instead of slicing by indices to avoid
-   * "straight line" artifacts from points that deviate from the section.
-   * Optional for backward compatibility - will be populated when available.
-   */
-  trace?: RoutePoint[];
-}
-
-/**
- * Custom section with its activity matches pre-loaded.
- */
-export interface CustomSectionWithMatches extends CustomSection {
-  /** Activity matches for this section */
-  matches: CustomSectionMatch[];
-}
-
-// =============================================================================
-// Potential Sections (Auto-detected suggestions)
-// =============================================================================
-
-/**
- * A potential section detected from 1-2 activity overlaps.
- * These are suggestions that users can promote to full sections.
- */
-export interface PotentialSection {
-  /** Unique section ID */
-  id: string;
-  /** Sport type ("Run", "Ride", etc.) */
-  sportType: string;
-  /** GPS points defining the section */
-  polyline: RoutePoint[];
-  /** Activity IDs that traverse this potential section (1-2) */
-  activityIds: string[];
-  /** Number of times traversed (1-2) */
-  visitCount: number;
-  /** Section length in meters */
-  distanceMeters: number;
-  /** Confidence score (0.0-1.0), lower than FrequentSection */
-  confidence: number;
-  /** Scale at which this was detected: "short", "medium", "long" */
-  scale: string;
-}
-
-// =============================================================================
-// Unified Section (combines auto + custom + potential)
-// =============================================================================
-
-/**
- * A unified section combining auto-detected, custom, and potential sections.
- * Used by the UI to display all section types in one list.
- */
-export interface UnifiedSection {
-  /** Unique section ID */
-  id: string;
-  /** Section name */
-  name: string;
-  /** GPS points defining the section */
-  polyline: RoutePoint[];
-  /** Sport type */
-  sportType: string;
-  /** Section length in meters */
-  distanceMeters: number;
-  /** Number of times traversed */
-  visitCount: number;
-  /** Source type: where this section came from */
-  source: 'auto' | 'custom' | 'potential';
-  /** Whether this section is disabled (hidden from activity details) */
-  isDisabled?: boolean;
-  /** For custom sections: the full custom section data */
-  customData?: CustomSectionWithMatches;
-  /** For auto sections: the full engine section data */
-  engineData?: FrequentSection;
-  /** For potential sections: the potential section data */
-  potentialData?: PotentialSection;
-}
-
-/**
- * Unified data point for performance charts.
- * Used by both route and section detail pages for consistent chart rendering.
- */
-export interface PerformanceDataPoint {
-  /** Unique ID for this data point */
-  id: string;
-  /** Activity ID this point belongs to */
-  activityId: string;
-  /** Speed in m/s */
-  speed: number;
-  /** Date of the activity */
-  date: Date;
-  /** Activity name */
-  activityName: string;
-  /** Direction (same/reverse) */
-  direction: 'same' | 'reverse';
-  /** Points for this lap/traversal (for map highlighting) */
-  lapPoints?: RoutePoint[];
-
-  // Route-specific fields
-  /** Match percentage (0-100) - routes only */
-  matchPercentage?: number;
-  /** Lap number (1 if single lap per activity) - routes only */
-  lapNumber?: number;
-  /** Total laps in this activity - routes only */
-  totalLaps?: number;
-
-  // Section-specific fields
-  /** Section time in seconds - sections only */
-  sectionTime?: number;
-  /** Section distance in meters - sections only */
-  sectionDistance?: number;
-  /** Number of laps/traversals - sections only */
-  lapCount?: number;
-}
-
-export type SectionType = 'auto' | 'custom';
-
-export interface UnifiedSection {
-  id: string;
-  sectionType: SectionType;
-
-  name?: string;
-
-  polyline: RoutePoint[];
-  distanceMeters: number;
-
-  sportType: string;
-
-  sourceActivityId?: string;
-  startIndex?: number;
-  endIndex?: number;
-
-  activityIds: string[];
-  visitCount: number;
-
-  representativeActivityId?: string;
-
-  confidence?: number;
-  observationCount?: number;
-  averageSpread?: number;
-  pointDensity?: number[];
-  scale?: string;
-  version?: number;
-  isUserDefined?: boolean;
-  stability?: number;
-
-  createdAt: string;
-  updatedAt?: string;
-
-  routeIds?: string[];
-
-  activityPortions?: ActivitySectionRecord[];
-}
-
-export interface ActivitySectionRecord {
-  activityId: string;
-  startIndex: number;
-  endIndex: number;
-  distanceMeters: number;
-  direction: 'same' | 'reverse';
-}
-
+/** Parameters for creating a section */
 export interface CreateSectionParams {
   sportType: string;
   polyline: RoutePoint[];
@@ -630,4 +498,23 @@ export interface CreateSectionParams {
   sourceActivityId?: string;
   startIndex?: number;
   endIndex?: number;
+}
+
+/**
+ * Unified data point for performance charts.
+ */
+export interface PerformanceDataPoint {
+  id: string;
+  activityId: string;
+  speed: number;
+  date: Date;
+  activityName: string;
+  direction: 'same' | 'reverse';
+  lapPoints?: RoutePoint[];
+  matchPercentage?: number;
+  lapNumber?: number;
+  totalLaps?: number;
+  sectionTime?: number;
+  sectionDistance?: number;
+  lapCount?: number;
 }
