@@ -48,7 +48,12 @@
     "maestro:all:seq": "for f in .maestro/smoke.yaml .maestro/auth-*.yaml .maestro/navigation-*.yaml .maestro/home-*.yaml .maestro/fitness-*.yaml .maestro/wellness-*.yaml .maestro/routes-*.yaml .maestro/sections-*.yaml .maestro/stats-*.yaml .maestro/activity-*.yaml .maestro/map-*.yaml .maestro/settings-*.yaml .maestro/data-*.yaml; do maestro test \"$f\" || exit 1; done",
     "store:changelog": "npx tsx scripts/store-metadata.ts changelog",
     "store:sync": "npx tsx scripts/store-metadata.ts sync-metadata",
-    "store:locales": "npx tsx scripts/store-metadata.ts list-locales"
+    "store:locales": "npx tsx scripts/store-metadata.ts list-locales",
+    "ffi:manifest": "npx tsx scripts/extract-ffi-exports.ts",
+    "ffi:check": "npx tsx scripts/extract-ffi-exports.ts --check",
+    "ffi:test": "jest --config config/jest.config.js --testPathPattern=ffiBinding",
+    "ffi:usage": "npx tsx scripts/ffi-usage-report.ts",
+    "ffi:unused": "npx tsx scripts/ffi-usage-report.ts --unused"
   },
   "dependencies": {
     "@expo/ngrok": "^4.1.3",
