@@ -21,6 +21,18 @@ if [ -d "$MODULE_DIR/android/src/main/jniLibs" ]; then
   rm -rf "$MODULE_DIR/android/src/main/jniLibs"
 fi
 
+# Android Gradle build output
+if [ -d "$MODULE_DIR/android/build" ]; then
+  echo "  Removing android/build/"
+  rm -rf "$MODULE_DIR/android/build"
+fi
+
+# Android CMake build cache
+if [ -d "$MODULE_DIR/android/.cxx" ]; then
+  echo "  Removing android/.cxx/"
+  rm -rf "$MODULE_DIR/android/.cxx"
+fi
+
 # Generated TypeScript bindings
 if [ -d "$MODULE_DIR/src/generated" ]; then
   echo "  Removing src/generated/"
@@ -50,4 +62,9 @@ if [ -d "$MODULE_DIR/ios/cpp" ]; then
   rm -rf "$MODULE_DIR/ios/cpp"
 fi
 
-echo "✅ Clean complete. Run 'npx expo run:android' to rebuild from scratch."
+if [ -d "$MODULE_DIR/ios/build" ]; then
+  echo "  Removing ios/build/"
+  rm -rf "$MODULE_DIR/ios/build"
+fi
+
+echo "✅ Clean complete. Run 'npx expo run:android' or 'npx expo run:ios' to rebuild from scratch."

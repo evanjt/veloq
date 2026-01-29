@@ -116,7 +116,7 @@ export function useUnifiedSections(
     sections: customSections,
     isLoading: customLoading,
     error: customError,
-  } = useCustomSections({ sportType, includeMatches: true });
+  } = useCustomSections({ sportType });
 
   // Load potential sections from storage (pre-computed during GPS sync)
   const { potentials: rawPotentials } = usePotentialSections({ sportType });
@@ -149,13 +149,12 @@ export function useUnifiedSections(
         seenIds.add(custom.id);
         result.push({
           id: custom.id,
-          name: custom.name,
+          name: custom.name || '',
           polyline: custom.polyline,
           sportType: custom.sportType,
           distanceMeters: custom.distanceMeters,
-          visitCount: custom.matches.length + 1, // +1 for source activity
+          visitCount: custom.visitCount || custom.activityIds?.length || 1,
           source: 'custom',
-          customData: custom,
         });
       }
     }
@@ -291,25 +290,20 @@ export function getAllSectionDisplayNames(): Record<string, string> {
   const engine = getRouteEngine();
   if (!engine) return {};
 
+  // Get all sections (both auto and custom are now in unified table)
   const sections = engine.getSections();
   const customNames = engine.getAllSectionNames();
-  const customSections = engine.getCustomSections();
   const result: Record<string, string> = {};
 
-  // Auto-detected sections
   for (const section of sections) {
-    // Use custom name from engine if set, otherwise generate name
+    // Use custom name if set, otherwise use name from section or generate one
     if (customNames[section.id]) {
       result[section.id] = customNames[section.id];
+    } else if (section.name) {
+      result[section.id] = section.name;
     } else {
       result[section.id] = generateSectionName(section);
     }
-  }
-
-  // Custom sections (user-created)
-  for (const section of customSections) {
-    // Custom sections always have a name (required at creation)
-    result[section.id] = section.name;
   }
 
   return result;

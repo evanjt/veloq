@@ -56,18 +56,17 @@ import {
   persistentEngineSetActivityMetrics,
   persistentEngineQueryViewport,
   persistentEngineGetStats,
-  persistentEngineGetCustomSectionsJson,
-  persistentEngineAddCustomSection,
-  persistentEngineCreateSectionFromIndices,
   persistentEngineDetectPotentials,
-  persistentEngineRemoveCustomSection,
   encodeCoordinatesToPolyline,
   decodePolylineToCoordinates,
   persistentEngineGetGpsTrackEncoded,
   persistentEngineGetSectionPolylineEncoded,
-  persistentEngineMatchCustomSection,
-  persistentEngineGetCustomSectionMatches,
   persistentEngineExtractSectionTrace,
+  // Unified section functions (replace legacy custom_sections)
+  createSection as ffiCreateSection,
+  deleteSection as ffiDeleteSection,
+  getSectionsJson as ffiGetSectionsJson,
+  getSectionJson as ffiGetSectionJson,
   persistentEngineGetSectionPerformancesJson,
   persistentEngineSetTimeStreamsFlat,
   persistentEngineGetActivitiesMissingTimeStreams,
@@ -141,29 +140,6 @@ export interface CustomSection {
   distanceMeters: number;
   /** ISO timestamp when the section was created */
   createdAt: string;
-}
-
-/**
- * Match result for a custom section against an activity.
- */
-export interface CustomSectionMatch {
-  /** Activity ID that matches this section */
-  activityId: string;
-  /** Start index in the activity's GPS track where section starts */
-  startIndex: number;
-  /** End index in the activity's GPS track where section ends */
-  endIndex: number;
-  /** Direction: 'same' or 'reverse' relative to section definition */
-  direction: 'same' | 'reverse';
-  /** Distance of the matched portion in meters */
-  distanceMeters: number;
-  /**
-   * Extracted GPS points that are actually near the section polyline.
-   * Use this for visualization instead of slicing by indices to avoid
-   * "straight line" artifacts from points that deviate from the section.
-   * Optional for backward compatibility - will be populated when available.
-   */
-  trace?: RoutePoint[];
 }
 
 /**
@@ -1022,35 +998,23 @@ class RouteEngineClient {
     return persistentEngineGetStats();
   }
 
+  // ==========================================================================
+  // Unified Section Operations (replaces legacy custom_sections)
+  // ==========================================================================
+
   /**
-   * Get custom sections.
+   * Get sections by type.
+   * @param sectionType - 'auto', 'custom', or undefined for all sections
    */
-  getCustomSections(): CustomSection[] {
-    const json = persistentEngineGetCustomSectionsJson();
-    return safeJsonParse<CustomSection[]>(json, []);
+  getSectionsByType(sectionType?: 'auto' | 'custom'): FrequentSection[] {
+    const json = ffiGetSectionsJson(sectionType);
+    return safeJsonParse<FrequentSection[]>(json, []);
   }
 
   /**
-   * Add a custom section.
-   * Accepts either a CustomSection object or JSON string.
-   * Validates the section data including size limits before passing to Rust.
-   * @throws Error if validation fails (invalid fields, size > 100KB, etc.)
-   */
-  addCustomSection(section: CustomSection | string): boolean {
-    // Validate the section data (handles both object and JSON string input)
-    // This throws descriptive errors if validation fails
-    const validated = validateCustomSection(section);
-    const sectionJson = JSON.stringify(validated);
-    const result = persistentEngineAddCustomSection(sectionJson);
-    this.notify('sections');
-    return result;
-  }
-
-  /**
-   * Create a custom section from activity indices.
+   * Create a section from activity indices.
    * GPS track is loaded from SQLite internally - no coordinate transfer needed.
-   * This is more efficient than addCustomSection when you have indices.
-   * @returns The created CustomSection, or null on error
+   * @returns The section ID, or empty string on error
    */
   createSectionFromIndices(
     activityId: string,
@@ -1058,32 +1022,76 @@ class RouteEngineClient {
     endIndex: number,
     sportType: string,
     name?: string
-  ): CustomSection | null {
+  ): string {
     validateId(activityId, 'activity ID');
-    const json = persistentEngineCreateSectionFromIndices(
-      activityId,
-      startIndex,
-      endIndex,
-      sportType,
-      name
-    );
-    if (!json) return null;
 
-    // Rust returns {"ok": true, "section": {...}} or {"ok": false, "error": "..."}
-    const response = safeJsonParse<{ ok: boolean; section?: CustomSection; error?: string }>(
-      json,
-      { ok: false }
-    );
-
-    if (!response.ok || !response.section) {
-      if (response.error) {
-        throw new Error(response.error);
-      }
-      return null;
+    // Load GPS track to compute polyline
+    const track = this.getGpsTrack(activityId);
+    if (!track || track.length === 0) {
+      throw new Error(`No GPS track found for activity ${activityId}`);
     }
 
-    this.notify('sections');
-    return response.section;
+    // Extract the section of the track
+    const sectionTrack = track.slice(startIndex, endIndex + 1);
+    if (sectionTrack.length < 2) {
+      throw new Error('Section must have at least 2 points');
+    }
+
+    // Calculate distance
+    const distanceMeters = this.calculateTrackDistance(sectionTrack);
+
+    // Create section via unified FFI
+    const sectionId = ffiCreateSection(
+      sportType,
+      JSON.stringify(sectionTrack),
+      distanceMeters,
+      name || undefined,
+      activityId,
+      startIndex,
+      endIndex
+    );
+
+    if (sectionId) {
+      this.notify('sections');
+    }
+
+    return sectionId;
+  }
+
+  /**
+   * Calculate distance of a GPS track in meters.
+   */
+  private calculateTrackDistance(track: GpsPoint[]): number {
+    let distance = 0;
+    for (let i = 1; i < track.length; i++) {
+      const p1 = track[i - 1];
+      const p2 = track[i];
+      // Haversine formula
+      const R = 6371000;
+      const dLat = ((p2.latitude - p1.latitude) * Math.PI) / 180;
+      const dLon = ((p2.longitude - p1.longitude) * Math.PI) / 180;
+      const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos((p1.latitude * Math.PI) / 180) *
+          Math.cos((p2.latitude * Math.PI) / 180) *
+          Math.sin(dLon / 2) *
+          Math.sin(dLon / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      distance += R * c;
+    }
+    return distance;
+  }
+
+  /**
+   * Delete a section (works for both auto and custom sections).
+   */
+  deleteSection(sectionId: string): boolean {
+    validateId(sectionId, 'section ID');
+    const result = ffiDeleteSection(sectionId);
+    if (result) {
+      this.notify('sections');
+    }
+    return result;
   }
 
   /**
@@ -1094,34 +1102,6 @@ class RouteEngineClient {
   detectPotentials(sportFilter?: string): RawPotentialSection[] {
     const json = persistentEngineDetectPotentials(sportFilter);
     return safeJsonParse<RawPotentialSection[]>(json, []);
-  }
-
-  /**
-   * Remove a custom section.
-   */
-  removeCustomSection(sectionId: string): boolean {
-    validateId(sectionId, 'section ID');
-    const result = persistentEngineRemoveCustomSection(sectionId);
-    this.notify('sections');
-    return result;
-  }
-
-  /**
-   * Get custom section matches.
-   */
-  getCustomSectionMatches(sectionId: string): CustomSectionMatch[] {
-    validateId(sectionId, 'section ID');
-    const json = persistentEngineGetCustomSectionMatches(sectionId);
-    return safeJsonParse<CustomSectionMatch[]>(json, []);
-  }
-
-  /**
-   * Match a custom section against activities.
-   */
-  matchCustomSection(sectionId: string, activityIds: string[]): CustomSectionMatch[] {
-    validateId(sectionId, 'section ID');
-    const json = persistentEngineMatchCustomSection(sectionId, activityIds);
-    return safeJsonParse<CustomSectionMatch[]>(json, []);
   }
 
   /**
