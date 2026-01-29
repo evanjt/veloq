@@ -1151,7 +1151,7 @@ class RouteEngineClient {
     validateId(activityId, 'activity ID');
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const generated = require('./generated/veloqrs');
-    const result = generated.persistentEngineSetSectionReference(sectionId, activityId) as boolean;
+    const result = generated.setSectionReference(sectionId, activityId) as boolean;
     if (result) {
       this.notify('sections');
     }
@@ -1166,7 +1166,7 @@ class RouteEngineClient {
     validateId(sectionId, 'section ID');
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const generated = require('./generated/veloqrs');
-    const result = generated.persistentEngineResetSectionReference(sectionId) as boolean;
+    const result = generated.resetSectionReference(sectionId) as boolean;
     if (result) {
       this.notify('sections');
     }
@@ -1181,7 +1181,7 @@ class RouteEngineClient {
     validateId(sectionId, 'section ID');
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const generated = require('./generated/veloqrs');
-    return generated.persistentEngineGetSectionReference(sectionId) as string | undefined;
+    return generated.getSectionReference(sectionId) as string | undefined;
   }
 
   /**
@@ -1192,7 +1192,7 @@ class RouteEngineClient {
     validateId(sectionId, 'section ID');
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const generated = require('./generated/veloqrs');
-    return generated.persistentEngineIsSectionReferenceUserDefined(sectionId) as boolean;
+    return generated.isSectionReferenceUserDefined(sectionId) as boolean;
   }
 
   /**

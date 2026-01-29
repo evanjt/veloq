@@ -307,6 +307,9 @@ impl PersistentRouteEngine {
             return Err(format!("Section not found: {}", section_id));
         }
 
+        // Invalidate cache so next fetch gets fresh data
+        self.invalidate_section_cache(section_id);
+
         // Update in-memory section for immediate visibility
         self.update_section_name_in_memory(section_id, name);
 
@@ -395,6 +398,9 @@ impl PersistentRouteEngine {
             )
             .map_err(|e| format!("Failed to mark section as user-defined: {}", e))?;
 
+        // Invalidate cache so next fetch gets fresh data
+        self.invalidate_section_cache(section_id);
+
         Ok(())
     }
 
@@ -407,6 +413,9 @@ impl PersistentRouteEngine {
                 params![section_id],
             )
             .map_err(|e| format!("Failed to reset section reference: {}", e))?;
+
+        // Invalidate cache so next fetch gets fresh data
+        self.invalidate_section_cache(section_id);
 
         Ok(())
     }
@@ -422,6 +431,9 @@ impl PersistentRouteEngine {
         if rows == 0 {
             return Err(format!("Section not found: {}", section_id));
         }
+
+        // Invalidate cache
+        self.invalidate_section_cache(section_id);
 
         Ok(())
     }
@@ -545,6 +557,9 @@ impl PersistentRouteEngine {
         for activity_id in &section.activity_ids {
             self.add_section_activity(&section.id, activity_id)?;
         }
+
+        // Invalidate cache so next fetch gets fresh data
+        self.invalidate_section_cache(&section.id);
 
         Ok(())
     }

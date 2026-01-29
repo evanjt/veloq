@@ -19,50 +19,23 @@
 //!    - Computed route groups
 //!    - Detected sections
 
-#[cfg(feature = "persistence")]
 use std::collections::HashMap;
-
-#[cfg(feature = "persistence")]
 use std::sync::mpsc;
-
-#[cfg(feature = "persistence")]
 use std::sync::atomic::{AtomicU32, Ordering};
-
-#[cfg(feature = "persistence")]
 use std::sync::Arc;
-
-#[cfg(feature = "persistence")]
 use std::thread;
-
-#[cfg(feature = "persistence")]
 use rusqlite::{Connection, Result as SqlResult, params};
-
-#[cfg(feature = "persistence")]
 use rusqlite_migration::{Migrations, M};
-
-#[cfg(feature = "persistence")]
 use rstar::{AABB, RTree, RTreeObject};
-
-#[cfg(feature = "persistence")]
 use crate::{
     ActivityMatchInfo, ActivityMetrics, Bounds, DirectionStats, FrequentSection, GpsPoint,
     MatchConfig, RouteGroup, RoutePerformance, RoutePerformanceResult, RouteSignature,
     SectionConfig, SectionLap, SectionPerformanceRecord, SectionPerformanceResult, SectionPortion,
     geo_utils,
 };
-
-#[cfg(feature = "persistence")]
 use lru::LruCache;
-
-#[cfg(feature = "persistence")]
 use chrono::Utc;
 
-// ============================================================================
-// Types
-// ============================================================================
-
-/// Lightweight activity metadata kept always in memory.
-#[cfg(feature = "persistence")]
 #[derive(Debug, Clone)]
 pub struct ActivityMetadata {
     pub id: String,
@@ -71,14 +44,12 @@ pub struct ActivityMetadata {
 }
 
 /// Bounds wrapper for R-tree spatial indexing.
-#[cfg(feature = "persistence")]
 #[derive(Debug, Clone)]
 pub struct ActivityBoundsEntry {
     pub activity_id: String,
     pub bounds: Bounds,
 }
 
-#[cfg(feature = "persistence")]
 impl RTreeObject for ActivityBoundsEntry {
     type Envelope = AABB<[f64; 2]>;
 
@@ -92,7 +63,7 @@ impl RTreeObject for ActivityBoundsEntry {
 
 /// Lightweight section metadata for list views (no polyline data).
 /// Used to avoid loading full section data with polylines when only summary info is needed.
-#[cfg(feature = "persistence")]
+
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, uniffi::Record)]
 pub struct SectionSummary {
     /// Unique section ID
@@ -117,7 +88,7 @@ pub struct SectionSummary {
 
 /// Lightweight group metadata for list views.
 /// Used to avoid loading full group data with activity ID arrays when only summary info is needed.
-#[cfg(feature = "persistence")]
+
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, uniffi::Record)]
 pub struct GroupSummary {
     /// Unique group ID
@@ -136,7 +107,7 @@ pub struct GroupSummary {
 
 /// Complete activity data for map display.
 /// Contains both spatial bounds and metadata for filtering and display.
-#[cfg(feature = "persistence")]
+
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, uniffi::Record)]
 pub struct MapActivityComplete {
     /// Activity ID
@@ -158,7 +129,7 @@ pub struct MapActivityComplete {
 }
 
 /// Progress state for section detection, shared between threads.
-#[cfg(feature = "persistence")]
+
 #[derive(Debug, Clone)]
 pub struct SectionDetectionProgress {
     /// Current phase: "loading", "building_rtrees", "finding_overlaps", "clustering", "building_sections", "postprocessing"
@@ -169,7 +140,7 @@ pub struct SectionDetectionProgress {
     pub total: Arc<AtomicU32>,
 }
 
-#[cfg(feature = "persistence")]
+
 impl SectionDetectionProgress {
     pub fn new() -> Self {
         Self {
@@ -202,7 +173,7 @@ impl SectionDetectionProgress {
     }
 }
 
-#[cfg(feature = "persistence")]
+
 impl Default for SectionDetectionProgress {
     fn default() -> Self {
         Self::new()
@@ -210,14 +181,14 @@ impl Default for SectionDetectionProgress {
 }
 
 /// Handle for background section detection.
-#[cfg(feature = "persistence")]
+
 pub struct SectionDetectionHandle {
     receiver: mpsc::Receiver<Vec<FrequentSection>>,
     /// Shared progress state
     pub progress: SectionDetectionProgress,
 }
 
-#[cfg(feature = "persistence")]
+
 impl SectionDetectionHandle {
     /// Check if detection is complete (non-blocking).
     pub fn try_recv(&self) -> Option<Vec<FrequentSection>> {
@@ -244,7 +215,7 @@ impl SectionDetectionHandle {
 ///
 /// Note: overlap_points is not included because Vec<GpsPoint> can't be
 /// exported via UniFFI. Use start_index/end_index to extract from original track.
-#[cfg(feature = "persistence")]
+
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, uniffi::Record)]
 pub struct ActivitySectionMatch {
     /// Section ID that was matched
@@ -265,12 +236,11 @@ pub struct ActivitySectionMatch {
 
 /// Internal version of ActivitySectionMatch that includes overlap points.
 /// Used within Rust code but not exposed via FFI.
-#[cfg(feature = "persistence")]
+
 #[derive(Debug, Clone)]
 struct ActivitySectionMatchInternal {
     pub section_id: String,
     pub section_name: Option<String>,
-    pub overlap_points: Vec<GpsPoint>,
     pub overlap_distance: f64,
     pub start_index: u32,
     pub end_index: u32,
@@ -284,7 +254,7 @@ struct ActivitySectionMatchInternal {
 
 /// Generate current timestamp in ISO 8601 format.
 /// Uses Unix epoch time since chrono is not a dependency.
-#[cfg(feature = "persistence")]
+
 fn current_timestamp_iso() -> String {
     use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -339,7 +309,7 @@ fn current_timestamp_iso() -> String {
     )
 }
 
-#[cfg(feature = "persistence")]
+
 fn is_leap_year(year: i64) -> bool {
     (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0)
 }
@@ -348,7 +318,7 @@ fn is_leap_year(year: i64) -> bool {
 /// For each point in trace1, find minimum distance to any point in trace2.
 /// AMD = average of these minimum distances.
 /// Used for medoid calculation in section updates.
-#[cfg(feature = "persistence")]
+
 fn compute_amd(trace1: &[GpsPoint], trace2: &[GpsPoint]) -> f64 {
     if trace1.is_empty() || trace2.is_empty() {
         return f64::MAX;
@@ -382,7 +352,7 @@ fn compute_amd(trace1: &[GpsPoint], trace2: &[GpsPoint]) -> f64 {
 
 /// Load route groups from SQLite database.
 /// Used by background threads that have their own DB connection.
-#[cfg(feature = "persistence")]
+
 fn load_groups_from_db(conn: &Connection) -> Vec<RouteGroup> {
     let mut stmt = match conn.prepare(
         "SELECT id, representative_id, activity_ids, sport_type,
@@ -447,7 +417,7 @@ fn load_groups_from_db(conn: &Connection) -> Vec<RouteGroup> {
 ///
 /// Only loads lightweight metadata into memory. Signatures are LRU cached,
 /// and GPS tracks are loaded on-demand only when needed for section detection.
-#[cfg(feature = "persistence")]
+
 pub struct PersistentRouteEngine {
     /// Database connection
     pub(crate) db: Connection,
@@ -497,7 +467,7 @@ pub struct PersistentRouteEngine {
     section_config: SectionConfig,
 }
 
-#[cfg(feature = "persistence")]
+
 impl PersistentRouteEngine {
     // ========================================================================
     // Initialization
@@ -2347,6 +2317,12 @@ impl PersistentRouteEngine {
         result
     }
 
+    /// Invalidate a section in the LRU cache.
+    /// Call this after modifying a section to ensure fresh data on next fetch.
+    pub fn invalidate_section_cache(&mut self, section_id: &str) {
+        self.section_cache.pop(&section_id.to_string());
+    }
+
     /// Get a single group by ID with LRU caching.
     /// Returns the full RouteGroup with activity IDs.
     /// Uses LRU cache to avoid repeated SQLite queries for hot groups.
@@ -2838,17 +2814,15 @@ impl PersistentRouteEngine {
                     return None;
                 }
 
-                // Extract the overlapping portion of the track
+                // Extract the overlapping portion of the track for distance calculation
                 let start = m.start_index as usize;
                 let end = (m.end_index as usize).min(track.len());
                 if start >= end {
                     return None;
                 }
 
-                let overlap_points: Vec<GpsPoint> = track[start..end].to_vec();
-
                 // Compute distance of overlap
-                let overlap_distance: f64 = overlap_points
+                let overlap_distance: f64 = track[start..end]
                     .windows(2)
                     .map(|w| geo_utils::haversine_distance(&w[0], &w[1]))
                     .sum();
@@ -2856,7 +2830,6 @@ impl PersistentRouteEngine {
                 Some(ActivitySectionMatchInternal {
                     section_id: m.section_id,
                     section_name: section.name.clone(),
-                    overlap_points,
                     overlap_distance,
                     start_index: m.start_index as u32,
                     end_index: m.end_index as u32,
@@ -2865,31 +2838,6 @@ impl PersistentRouteEngine {
                 })
             })
             .collect()
-    }
-
-    /// Match activity to sections and add it to all matching sections.
-    /// This is the main entry point for incremental section updates.
-    /// Returns the number of sections the activity was added to.
-    pub fn match_and_add_activity_to_sections(
-        &mut self,
-        activity_id: &str,
-        track: &[GpsPoint],
-    ) -> u32 {
-        let matches = self.match_activity_to_sections_internal(activity_id, track);
-        let mut added_count = 0;
-
-        for m in matches {
-            if let Ok(()) = self.add_activity_to_section(
-                &m.section_id,
-                activity_id,
-                m.overlap_points,
-                m.same_direction,
-            ) {
-                added_count += 1;
-            }
-        }
-
-        added_count
     }
 
     /// Add an activity to an existing section and recalculate the medoid.
@@ -3805,7 +3753,7 @@ impl PersistentRouteEngine {
 }
 
 /// Statistics for the persistent engine.
-#[cfg(feature = "persistence")]
+
 #[derive(Debug, Clone, uniffi::Record)]
 pub struct PersistentEngineStats {
     pub activity_count: u32,
@@ -3826,22 +3774,22 @@ pub struct PersistentEngineStats {
 // Global Singleton for FFI
 // ============================================================================
 
-#[cfg(feature = "persistence")]
+
 use std::sync::Mutex;
 
-#[cfg(feature = "persistence")]
+
 use once_cell::sync::Lazy;
 
 /// Global persistent engine instance.
 ///
 /// This singleton allows FFI calls to access a shared persistent engine
 /// without passing state back and forth across the FFI boundary.
-#[cfg(feature = "persistence")]
+
 pub static PERSISTENT_ENGINE: Lazy<Mutex<Option<PersistentRouteEngine>>> =
     Lazy::new(|| Mutex::new(None));
 
 /// Get a lock on the global persistent engine.
-#[cfg(feature = "persistence")]
+
 pub fn with_persistent_engine<F, R>(f: F) -> Option<R>
 where
     F: FnOnce(&mut PersistentRouteEngine) -> R,
@@ -4287,26 +4235,6 @@ pub mod persistent_engine_ffi {
         .unwrap_or_default()
     }
 
-    /// Get simplified GPS track for an activity as flat coordinates.
-    /// Uses Douglas-Peucker algorithm to reduce points for fast map rendering.
-    /// Tolerance of 0.00005 (~5m) gives good visual fidelity with ~50-200 points.
-    #[uniffi::export]
-    pub fn persistent_engine_get_simplified_gps_track(activity_id: String) -> Vec<f64> {
-        with_persistent_engine(|e| {
-            e.get_gps_track(&activity_id)
-                .map(|points| {
-                    // Use Douglas-Peucker simplification
-                    let simplified = crate::algorithms::douglas_peucker(&points, 0.00005);
-                    simplified
-                        .iter()
-                        .flat_map(|p| vec![p.latitude, p.longitude])
-                        .collect()
-                })
-                .unwrap_or_default()
-        })
-        .unwrap_or_default()
-    }
-
     /// Get engine statistics.
     #[uniffi::export]
     pub fn persistent_engine_get_stats() -> Option<PersistentEngineStats> {
@@ -4492,35 +4420,6 @@ pub mod persistent_engine_ffi {
         .unwrap_or_else(|| "[]".to_string())
     }
 
-    /// Match an activity to existing sections and add it to all matching ones.
-    /// This is the main entry point for incremental section updates.
-    ///
-    /// Returns the number of sections the activity was added to.
-    #[uniffi::export]
-    pub fn persistent_engine_match_and_add_activity_to_sections(activity_id: String) -> u32 {
-        with_persistent_engine(|e| {
-            // Get the activity's GPS track
-            let track = match e.get_gps_track(&activity_id) {
-                Some(t) => t,
-                None => {
-                    info!(
-                        "tracematch: [PersistentEngine] No GPS track for activity {}",
-                        activity_id
-                    );
-                    return 0;
-                }
-            };
-
-            let count = e.match_and_add_activity_to_sections(&activity_id, &track);
-            info!(
-                "tracematch: [PersistentEngine] Activity {} added to {} sections",
-                activity_id, count
-            );
-            count
-        })
-        .unwrap_or(0)
-    }
-
     /// Extract the GPS trace for an activity that overlaps with a section polyline.
     /// Returns a flat array of [lat, lng, lat, lng, ...] or empty if no overlap.
     #[uniffi::export]
@@ -4664,78 +4563,6 @@ pub mod persistent_engine_ffi {
                         duration: metrics.moving_time,
                         bounds: meta.bounds.into(),
                     })
-                })
-                .collect()
-        })
-        .unwrap_or_default()
-    }
-
-    /// Get activities within a viewport, returning minimal data for map rendering.
-    /// More efficient than loading full activity metrics.
-    #[uniffi::export]
-    pub fn persistent_engine_get_map_activities_in_viewport(
-        min_lat: f64,
-        max_lat: f64,
-        min_lng: f64,
-        max_lng: f64,
-    ) -> Vec<MapActivityData> {
-        with_persistent_engine(|e| {
-            let viewport = Bounds { min_lat, max_lat, min_lng, max_lng };
-            let activity_ids = e.query_viewport(&viewport);
-
-            activity_ids
-                .iter()
-                .filter_map(|id| {
-                    let meta = e.activity_metadata.get(id)?;
-                    Some(MapActivityData {
-                        activity_id: id.clone(),
-                        sport_type: meta.sport_type.clone(),
-                        bounds: meta.bounds.into(),
-                    })
-                })
-                .collect()
-        })
-        .unwrap_or_default()
-    }
-
-    /// Get recent activities with metrics, sorted by date descending.
-    /// Efficient for Feed screen - pre-computed, no client-side iteration needed.
-    #[uniffi::export]
-    pub fn persistent_engine_get_recent_activities_json(limit: u32) -> String {
-        with_persistent_engine(|e| {
-            // Get all activity metrics and sort by date descending
-            let mut metrics: Vec<&ActivityMetrics> = e.activity_metrics.values().collect();
-            metrics.sort_by(|a, b| b.date.cmp(&a.date));
-
-            // Take only the requested limit
-            let recent: Vec<_> = metrics
-                .into_iter()
-                .take(limit as usize)
-                .map(|m| crate::FfiActivityMetrics::from(m.clone()))
-                .collect();
-
-            serde_json::to_string(&recent).unwrap_or_else(|_| "[]".to_string())
-        })
-        .unwrap_or_else(|| "[]".to_string())
-    }
-
-    /// Get total count of activities with metrics stored in the engine.
-    #[uniffi::export]
-    pub fn persistent_engine_get_metrics_count() -> u32 {
-        with_persistent_engine(|e| e.activity_metrics.len() as u32).unwrap_or(0)
-    }
-
-    /// Get all activity bounds as a vector of MapActivityData.
-    /// Useful for map rendering - returns all activities with minimal data.
-    #[uniffi::export]
-    pub fn persistent_engine_get_all_map_activities() -> Vec<MapActivityData> {
-        with_persistent_engine(|e| {
-            e.activity_metadata
-                .iter()
-                .map(|(id, meta)| MapActivityData {
-                    activity_id: id.clone(),
-                    sport_type: meta.sport_type.clone(),
-                    bounds: meta.bounds.into(),
                 })
                 .collect()
         })
