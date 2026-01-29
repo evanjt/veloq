@@ -178,3 +178,47 @@ pub fn get_section_json(section_id: String) -> String {
 pub fn init_sections_schema() -> bool {
     with_persistent_engine(|e| e.init_sections_schema().is_ok()).unwrap_or(false)
 }
+
+/// Get the reference activity ID for a section.
+///
+/// # Arguments
+/// * `section_id` - Section ID to query
+///
+/// # Returns
+/// The representative_activity_id, or empty string if not found
+#[uniffi::export]
+pub fn get_section_reference(section_id: String) -> String {
+    with_persistent_engine(|e| {
+        e.get_section(&section_id)
+            .and_then(|s| s.representative_activity_id)
+    })
+    .flatten()
+    .unwrap_or_default()
+}
+
+/// Check if a section's reference is user-defined (vs algorithm-selected).
+///
+/// # Arguments
+/// * `section_id` - Section ID to query
+///
+/// # Returns
+/// true if user manually set the reference, false if algorithm-selected
+#[uniffi::export]
+pub fn is_section_reference_user_defined(section_id: String) -> bool {
+    with_persistent_engine(|e| e.get_section(&section_id).map(|s| s.is_user_defined))
+        .flatten()
+        .unwrap_or(false)
+}
+
+/// Reset a section's reference to automatic (algorithm-selected).
+/// Sets is_user_defined to false.
+///
+/// # Arguments
+/// * `section_id` - Section ID to reset
+///
+/// # Returns
+/// true on success, false on error
+#[uniffi::export]
+pub fn reset_section_reference(section_id: String) -> bool {
+    with_persistent_engine(|e| e.reset_section_reference(&section_id).is_ok()).unwrap_or(false)
+}

@@ -384,6 +384,27 @@ impl PersistentRouteEngine {
         // Add to junction table
         self.add_section_activity(section_id, activity_id)?;
 
+        // Mark as user-defined
+        self.db
+            .execute(
+                "UPDATE sections SET is_user_defined = 1 WHERE id = ?",
+                params![section_id],
+            )
+            .map_err(|e| format!("Failed to mark section as user-defined: {}", e))?;
+
+        Ok(())
+    }
+
+    /// Reset a section's reference to automatic (algorithm-selected).
+    /// Sets is_user_defined to false.
+    pub fn reset_section_reference(&mut self, section_id: &str) -> Result<(), String> {
+        self.db
+            .execute(
+                "UPDATE sections SET is_user_defined = 0 WHERE id = ?",
+                params![section_id],
+            )
+            .map_err(|e| format!("Failed to reset section reference: {}", e))?;
+
         Ok(())
     }
 
