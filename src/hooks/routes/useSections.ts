@@ -1,7 +1,7 @@
 import { useMemo, useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getRouteEngine } from '@/lib/native/routeEngine';
-import type { UnifiedSection } from '@/types';
+import type { UnifiedSection, RoutePoint } from '@/types';
 
 export interface UseSectionsOptions {
   sectionType?: 'auto' | 'custom' | undefined;
