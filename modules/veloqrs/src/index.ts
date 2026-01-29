@@ -35,7 +35,7 @@ import {
   persistentEngineGetGroupsJson,
   persistentEngineGetSectionsJson,
   persistentEngineGetSectionCount,
-  persistentEngineGetSectionsForActivity,
+  getSectionsForActivityJson,
   persistentEngineGetGroupCount,
   persistentEngineGetSectionSummariesJson,
   persistentEngineGetSectionSummariesForSportJson,
@@ -668,7 +668,7 @@ class RouteEngineClient {
    */
   getSectionsForActivity(activityId: string): FrequentSection[] {
     const _start = __DEV__ ? performance.now() : 0;
-    const json = persistentEngineGetSectionsForActivity(activityId);
+    const json = getSectionsForActivityJson(activityId);
     const result = safeJsonParse<FrequentSection[]>(json, []);
     if (__DEV__) {
       const dur = performance.now() - _start;
