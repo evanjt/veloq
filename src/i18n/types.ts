@@ -694,6 +694,8 @@ export interface TranslationResource {
     overYears: string;
     dataRangeHint: string;
     expandInSettings: string;
+    routeWord: string;
+    sectionWord: string;
   };
 
   sections: {

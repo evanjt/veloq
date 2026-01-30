@@ -440,13 +440,16 @@ export default function SettingsScreen() {
             queryClient.removeQueries({ queryKey: ['athlete'] });
             await AsyncStorage.removeItem('veloq-query-cache');
 
-            // 4. Refetch with new 90-day range
-            // Note: GlobalDataSync automatically triggers GPS sync when activities are refetched
-            queryClient.refetchQueries({ queryKey: ['activities'] });
-            queryClient.refetchQueries({ queryKey: ['wellness'] });
-            queryClient.refetchQueries({ queryKey: ['powerCurve'] });
-            queryClient.refetchQueries({ queryKey: ['paceCurve'] });
-            queryClient.refetchQueries({ queryKey: ['athlete'] });
+            // 4. Invalidate queries to trigger fresh fetches
+            // NOTE: Don't use refetchQueries here - the current component closure still has
+            // the OLD syncOldest/syncNewest values before React re-renders. By invalidating
+            // instead, we let the queries become stale, and when GlobalDataSync re-renders
+            // with the NEW 90-day range from the store, it will create fresh queries.
+            queryClient.invalidateQueries({ queryKey: ['wellness'] });
+            queryClient.invalidateQueries({ queryKey: ['powerCurve'] });
+            queryClient.invalidateQueries({ queryKey: ['paceCurve'] });
+            queryClient.invalidateQueries({ queryKey: ['athlete'] });
+            // Activities will be auto-fetched by GlobalDataSync with new 90-day range
 
             // Refresh cache sizes
             refreshCacheSizes();
