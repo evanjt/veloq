@@ -436,9 +436,9 @@ export function RegionalMapView({
   // GPS TRACE RENDERING - Show simplified routes when zoomed in
   // ===========================================
   // Uses route signatures (simplified ~100 point tracks) for performance
-  // Only renders when zoom > TRACE_ZOOM_THRESHOLD
+  // Only renders when zoom > TRACE_ZOOM_THRESHOLD AND activities are visible
 
-  const showTraces = currentZoom >= TRACE_ZOOM_THRESHOLD;
+  const showTraces = currentZoom >= TRACE_ZOOM_THRESHOLD && showActivities;
 
   // ===========================================
   // 120HZ OPTIMIZATION: Stable traces GeoJSON
@@ -878,13 +878,27 @@ export function RegionalMapView({
   const selectedActivityId = selected?.activity.id ?? null;
 
   // Build route GeoJSON for selected activity
-  // Uses the same coordinate conversion as ActivityMapView for consistency
+  // Uses pre-computed routeCoords (from Rust engine) if available, falls back to mapData.latlngs (from API)
   // CRITICAL: Always render ShapeSource to avoid Fabric crash - use empty FeatureCollection when no data
   const routeGeoJSON = useMemo((): GeoJSON.FeatureCollection | GeoJSON.Feature => {
     const emptyCollection: GeoJSON.FeatureCollection = {
       type: 'FeatureCollection',
       features: [],
     };
+
+    // Priority 1: Use pre-computed routeCoords from Rust engine (already in [lng, lat] format)
+    if (selected?.routeCoords && selected.routeCoords.length >= 2) {
+      return {
+        type: 'Feature' as const,
+        properties: {},
+        geometry: {
+          type: 'LineString' as const,
+          coordinates: selected.routeCoords,
+        },
+      };
+    }
+
+    // Priority 2: Fall back to mapData.latlngs from API
     if (!selected?.mapData?.latlngs) return emptyCollection;
 
     // Filter out null values first
@@ -930,7 +944,7 @@ export function RegionalMapView({
         coordinates: validCoords,
       },
     };
-  }, [selected?.mapData, selected?.activity.id]);
+  }, [selected?.routeCoords, selected?.mapData, selected?.activity.id]);
 
   // Helper to check if routeGeoJSON has data
   const routeHasData =
@@ -938,15 +952,22 @@ export function RegionalMapView({
     (routeGeoJSON.type === 'FeatureCollection' && routeGeoJSON.features.length > 0);
 
   // Get 3D route coordinates from selected activity (if any)
+  // Uses pre-computed routeCoords if available, falls back to mapData.latlngs
   // Filter NaN/Infinity to prevent invalid GeoJSON in Map3DWebView
   const route3DCoords = useMemo(() => {
+    // Priority 1: Use pre-computed routeCoords (already in [lng, lat] format)
+    if (selected?.routeCoords && selected.routeCoords.length > 0) {
+      return selected.routeCoords;
+    }
+
+    // Priority 2: Fall back to mapData.latlngs
     if (!selected?.mapData?.latlngs) return [];
 
     return selected.mapData.latlngs
       .filter((c): c is [number, number] => c !== null)
       .filter(([lat, lng]) => Number.isFinite(lat) && Number.isFinite(lng))
       .map(([lat, lng]) => [lng, lat] as [number, number]); // Convert to [lng, lat]
-  }, [selected?.mapData]);
+  }, [selected?.routeCoords, selected?.mapData]);
 
   // 3D is available when we have any activities (terrain can be shown without a specific route)
   const can3D = activities.length > 0;

@@ -12,12 +12,6 @@ import { SyncProgressBanner } from './SyncProgressBanner';
 import { TimelineLegend } from './TimelineLegend';
 import { ActivityCategoryFilter } from './ActivityCategoryFilter';
 
-interface SyncProgress {
-  completed: number;
-  total: number;
-  message?: string;
-}
-
 interface TimelineSliderProps {
   /** Minimum date (oldest activity) */
   minDate: Date;
@@ -33,8 +27,6 @@ interface TimelineSliderProps {
   isLoading?: boolean;
   /** Activity count in selected range */
   activityCount?: number;
-  /** Sync progress for background sync */
-  syncProgress?: SyncProgress | null;
   /** Oldest date in cache */
   cachedOldest?: Date | null;
   /** Newest date in cache */
@@ -57,6 +49,8 @@ interface TimelineSliderProps {
   fixedEnd?: boolean;
   /** Only allow start handle to move left (expand range, never contract) (default: false) */
   expandOnly?: boolean;
+  /** Show sync progress banner (default: true) - set false when global banner is visible */
+  showSyncBanner?: boolean;
 }
 
 // Larger touch area for handles
@@ -76,7 +70,6 @@ export function TimelineSlider({
   onRangeChange,
   isLoading,
   activityCount,
-  syncProgress,
   cachedOldest,
   cachedNewest,
   selectedTypes,
@@ -88,6 +81,7 @@ export function TimelineSlider({
   showLegend = true,
   fixedEnd = false,
   expandOnly = false,
+  showSyncBanner = true,
 }: TimelineSliderProps) {
   const { t } = useTranslation();
   const [trackWidth, setTrackWidth] = useState(0);
@@ -380,12 +374,8 @@ export function TimelineSlider({
 
   return (
     <View style={styles.wrapper} testID="timeline-slider">
-      <SyncProgressBanner
-        completed={syncProgress?.completed ?? 0}
-        total={syncProgress?.total ?? 0}
-        message={syncProgress?.message}
-        visible={!!syncProgress}
-      />
+      {/* SyncProgressBanner manages its own state via hooks - no props needed */}
+      {showSyncBanner && <SyncProgressBanner />}
 
       <View style={[styles.container, isDark && styles.containerDark]}>
         {/* Activity category filter */}

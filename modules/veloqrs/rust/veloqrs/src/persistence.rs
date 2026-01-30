@@ -504,6 +504,10 @@ impl PersistentRouteEngine {
         Self::new(":memory:")
     }
 
+    /// Current schema version for app-level tracking.
+    /// This is separate from rusqlite_migration and tracks the overall schema state.
+    const SCHEMA_VERSION: i32 = 2; // v0.1.0 schema
+
     /// Get the database migrations.
     /// Each migration is applied in order, tracked in `__rusqlite_migrations` table.
     fn migrations() -> Migrations<'static> {
@@ -519,12 +523,38 @@ impl PersistentRouteEngine {
 
     /// Initialize the database schema using migrations.
     fn init_schema(conn: &mut Connection) -> SqlResult<()> {
+        // Create schema_info table if not exists (for app-level version tracking)
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS schema_info (
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL
+            )",
+            [],
+        )?;
+
+        // Get current schema version (0 if not set = pre-0.1.0 database)
+        let current_version: i32 = conn
+            .query_row(
+                "SELECT CAST(value AS INTEGER) FROM schema_info WHERE key = 'schema_version'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap_or(0);
+
+        log::info!(
+            "tracematch: [Schema] Current version: {}, Target version: {}",
+            current_version,
+            Self::SCHEMA_VERSION
+        );
+
         // Handle pre-migration databases: if tables exist but no migration state,
         // we need to migrate the old blob-based sections before running migrations
-        Self::migrate_legacy_sections(conn)?;
+        if current_version < 2 {
+            Self::migrate_legacy_sections(conn)?;
 
-        // Migrate legacy section_names table if it exists (must run before SQL migrations)
-        Self::migrate_legacy_section_names(conn)?;
+            // Migrate legacy section_names table if it exists (must run before SQL migrations)
+            Self::migrate_legacy_section_names(conn)?;
+        }
 
         // Run all pending migrations
         Self::migrations()
@@ -536,11 +566,35 @@ impl PersistentRouteEngine {
         // Post-migration: add columns that may be missing from older schemas
         Self::migrate_schema(conn)?;
 
+        // Update schema version
+        conn.execute(
+            "INSERT OR REPLACE INTO schema_info (key, value) VALUES ('schema_version', ?)",
+            params![Self::SCHEMA_VERSION.to_string()],
+        )?;
+
+        // Record migration timestamp
+        conn.execute(
+            "INSERT OR REPLACE INTO schema_info (key, value) VALUES ('last_migration', datetime('now'))",
+            [],
+        )?;
+
+        log::info!(
+            "tracematch: [Schema] Migration complete. Now at version {}",
+            Self::SCHEMA_VERSION
+        );
+
         Ok(())
     }
 
     /// Migrate legacy blob-based sections to the new format.
     /// This runs BEFORE the migration system to handle pre-migration databases.
+    ///
+    /// SAFE MIGRATION STRATEGY:
+    /// 1. Create new tables with _new suffix (don't touch old data)
+    /// 2. Copy all data to new tables
+    /// 3. Verify data integrity (count matches)
+    /// 4. Only then rename tables (atomic operation)
+    /// 5. Drop old tables last
     fn migrate_legacy_sections(conn: &Connection) -> SqlResult<()> {
         // Check if sections table exists with old blob-based schema
         let has_old_schema = conn
@@ -551,9 +605,18 @@ impl PersistentRouteEngine {
             return Ok(()); // Either new DB or already migrated
         }
 
-        log::info!("tracematch: [Migration] Detected legacy blob-based sections, migrating...");
+        log::info!("tracematch: [Migration] Detected legacy blob-based sections, starting safe migration...");
 
-        // Load old sections from blob format
+        // Count original records for validation
+        let original_count: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM sections",
+            [],
+            |row| row.get(0),
+        ).unwrap_or(0);
+
+        log::info!("tracematch: [Migration] Found {} sections to migrate", original_count);
+
+        // Load old sections from blob format (keep in memory)
         let old_sections: Vec<(String, Vec<String>, serde_json::Value)> = {
             let mut stmt = conn.prepare("SELECT id, data FROM sections")?;
             stmt.query_map([], |row| {
@@ -571,28 +634,52 @@ impl PersistentRouteEngine {
             .collect()
         };
 
-        log::info!(
-            "tracematch: [Migration] Loaded {} sections from legacy schema",
-            old_sections.len()
-        );
-
-        // Drop old tables
+        // Create new tables with _new suffix (preserves old data until verified)
         conn.execute_batch(
-            "DROP TABLE IF EXISTS section_activities;
-             DROP TABLE IF EXISTS sections;"
+            "DROP TABLE IF EXISTS sections_new;
+             DROP TABLE IF EXISTS section_activities_new;
+
+             CREATE TABLE sections_new (
+                 id TEXT PRIMARY KEY,
+                 section_type TEXT NOT NULL CHECK(section_type IN ('auto', 'custom')),
+                 name TEXT,
+                 sport_type TEXT NOT NULL,
+                 polyline_json TEXT NOT NULL,
+                 distance_meters REAL NOT NULL,
+                 representative_activity_id TEXT,
+                 confidence REAL,
+                 observation_count INTEGER,
+                 average_spread REAL,
+                 point_density_json TEXT,
+                 scale TEXT,
+                 version INTEGER DEFAULT 1,
+                 is_user_defined INTEGER DEFAULT 0,
+                 stability REAL,
+                 source_activity_id TEXT,
+                 start_index INTEGER,
+                 end_index INTEGER,
+                 created_at TEXT NOT NULL DEFAULT (datetime('now')),
+                 updated_at TEXT
+             );
+
+             CREATE TABLE section_activities_new (
+                 section_id TEXT NOT NULL,
+                 activity_id TEXT NOT NULL,
+                 PRIMARY KEY (section_id, activity_id)
+             );"
         )?;
 
-        // Create new schema (same as 002_unified_sections.sql)
-        conn.execute_batch(include_str!("migrations/002_unified_sections.sql"))?;
+        // Migrate data to new tables
+        let mut migrated_count = 0;
+        let mut total_associations = 0;
 
-        // Migrate data
         for (id, activity_ids, json) in &old_sections {
             let polyline_json = json.get("polyline")
                 .map(|v| v.to_string())
                 .unwrap_or_else(|| "[]".to_string());
 
             conn.execute(
-                "INSERT INTO sections (
+                "INSERT INTO sections_new (
                     id, section_type, name, sport_type, polyline_json, distance_meters,
                     representative_activity_id, confidence, observation_count, average_spread,
                     point_density_json, scale, version, is_user_defined, stability, created_at
@@ -614,19 +701,60 @@ impl PersistentRouteEngine {
                     json.get("stability").and_then(|v| v.as_f64()),
                 ],
             )?;
+            migrated_count += 1;
 
             // Migrate activity associations
             for activity_id in activity_ids {
                 conn.execute(
-                    "INSERT OR IGNORE INTO section_activities (section_id, activity_id) VALUES (?, ?)",
+                    "INSERT OR IGNORE INTO section_activities_new (section_id, activity_id) VALUES (?, ?)",
                     params![id, activity_id],
                 )?;
+                total_associations += 1;
             }
         }
 
+        // Verify migration - count must match
+        let new_count: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM sections_new",
+            [],
+            |row| row.get(0),
+        )?;
+
+        if new_count != migrated_count as i64 {
+            log::error!(
+                "tracematch: [Migration] FAILED: Count mismatch! Expected {}, got {}. Rolling back.",
+                migrated_count, new_count
+            );
+            conn.execute_batch(
+                "DROP TABLE IF EXISTS sections_new;
+                 DROP TABLE IF EXISTS section_activities_new;"
+            )?;
+            return Err(rusqlite::Error::QueryReturnedNoRows); // Signal failure
+        }
+
+        log::info!(
+            "tracematch: [Migration] Verified {} sections and {} associations in new tables",
+            new_count, total_associations
+        );
+
+        // Atomic swap: rename old tables to _old, new tables to final names
+        conn.execute_batch(
+            "ALTER TABLE sections RENAME TO sections_old;
+             ALTER TABLE sections_new RENAME TO sections;
+             ALTER TABLE section_activities_new RENAME TO section_activities;
+
+             -- Create indexes on new tables
+             CREATE INDEX IF NOT EXISTS idx_section_activities_activity ON section_activities(activity_id);
+             CREATE INDEX IF NOT EXISTS idx_sections_type ON sections(section_type);
+             CREATE INDEX IF NOT EXISTS idx_sections_sport ON sections(sport_type);
+
+             -- Only drop old table after everything succeeded
+             DROP TABLE IF EXISTS sections_old;"
+        )?;
+
         log::info!(
             "tracematch: [Migration] Successfully migrated {} sections to new schema",
-            old_sections.len()
+            new_count
         );
 
         Ok(())

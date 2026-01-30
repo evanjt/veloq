@@ -50,7 +50,8 @@ export default function MapScreen() {
   const { data: apiOldestDate } = useOldestActivityDate();
 
   // Fetch activities for the current sync range (triggers GlobalDataSync)
-  const { isFetching: isFetchingActivities } = useActivities({
+  // Use isLoading (not isFetching) to avoid showing banner during background refetches
+  const { isLoading: isLoadingActivities } = useActivities({
     oldest: syncOldest,
     newest: syncNewest,
     includeStats: false,
@@ -61,13 +62,12 @@ export default function MapScreen() {
   const oldestSyncedDate = cacheStats.oldestDate;
   const newestSyncedDate = cacheStats.newestDate;
 
-  // Read GPS sync progress from shared store (GlobalDataSync is the single sync coordinator)
-  const gpsSyncProgress = useSyncDateRange((s) => s.gpsSyncProgress);
+  // Only subscribe to boolean sync state (not progress object which updates frequently)
   const isGpsSyncing = useSyncDateRange((s) => s.isGpsSyncing);
 
-  // Combined syncing state
+  // Combined syncing state - uses booleans only to avoid frequent re-renders
   const isSyncing =
-    progress.status === 'syncing' || isGpsSyncing || isFetchingActivities || isFetchingExtended;
+    progress.status === 'syncing' || isGpsSyncing || isLoadingActivities || isFetchingExtended;
 
   // Selected date range (default: last 90 days)
   const [startDate, setStartDate] = useState<Date>(() => {
@@ -150,119 +150,6 @@ export default function MapScreen() {
     return { minDateForSlider: minDate, maxDateForSlider: now };
   }, [apiOldestDate, startDate]);
 
-  // Compute sync progress for timeline display
-  // Unified progress across all phases (0-100%) for smooth animation
-  // Phase weights: Loading=10%, Syncing bounds=20%, Downloading GPS=30%, Analyzing=40%
-  const timelineSyncProgress = useMemo(() => {
-    // Phase 1: Loading activities from API (0-10%)
-    if (isFetchingActivities || isFetchingExtended) {
-      // Indeterminate progress during initial load
-      return {
-        completed: 5,
-        total: 100,
-        message: t('mapScreen.loadingActivities') as string,
-      };
-    }
-
-    // Phase 2: Syncing activity bounds/GPS cache (10-30%)
-    if (progress.status === 'syncing') {
-      const phaseProgress = progress.total > 0 ? progress.completed / progress.total : 0;
-      const overallProgress = Math.round(10 + phaseProgress * 20);
-      return {
-        completed: overallProgress,
-        total: 100,
-        message: t('maps.syncingActivities', {
-          completed: progress.completed,
-          total: progress.total,
-        }) as string,
-      };
-    }
-
-    // Phase 3a: Downloading GPS data (30-60%)
-    if (isGpsSyncing && gpsSyncProgress.status === 'fetching') {
-      const phaseProgress =
-        gpsSyncProgress.total > 0 ? gpsSyncProgress.completed / gpsSyncProgress.total : 0;
-      const overallProgress = Math.round(30 + phaseProgress * 30);
-      return {
-        completed: overallProgress,
-        total: 100,
-        message: t('routesScreen.downloadingGps', {
-          completed: gpsSyncProgress.completed,
-          total: gpsSyncProgress.total,
-        }) as string,
-      };
-    }
-
-    // Phase 3b: Computing routes/sections (60-100%)
-    if (gpsSyncProgress.status === 'computing') {
-      const phaseProgress =
-        gpsSyncProgress.total > 0 ? gpsSyncProgress.completed / gpsSyncProgress.total : 0;
-      const overallProgress = Math.round(60 + phaseProgress * 40);
-      return {
-        completed: overallProgress,
-        total: 100,
-        message: gpsSyncProgress.message || (t('routesScreen.computingRoutes') as string),
-      };
-    }
-
-    return null;
-  }, [isFetchingActivities, isFetchingExtended, progress, isGpsSyncing, gpsSyncProgress, t]);
-
-  // Compute loading screen progress (unified 0-100% like timelineSyncProgress)
-  const loadingProgress = useMemo(() => {
-    // Phase 1: Loading activities from API (0-10%)
-    if (isFetchingActivities || isFetchingExtended) {
-      return {
-        completed: 5,
-        total: 100,
-        message: t('mapScreen.loadingActivities') as string,
-      };
-    }
-
-    // Phase 2: Syncing activity bounds/GPS cache (10-30%)
-    if (progress.status === 'syncing') {
-      const phaseProgress = progress.total > 0 ? progress.completed / progress.total : 0;
-      const overallProgress = Math.round(10 + phaseProgress * 20);
-      return {
-        completed: overallProgress,
-        total: 100,
-        message: t('maps.syncingActivities', {
-          completed: progress.completed,
-          total: progress.total,
-        }) as string,
-      };
-    }
-
-    // Phase 3a: Downloading GPS data (30-60%)
-    if (isGpsSyncing && gpsSyncProgress.status === 'fetching') {
-      const phaseProgress =
-        gpsSyncProgress.total > 0 ? gpsSyncProgress.completed / gpsSyncProgress.total : 0;
-      const overallProgress = Math.round(30 + phaseProgress * 30);
-      return {
-        completed: overallProgress,
-        total: 100,
-        message: t('routesScreen.downloadingGps', {
-          completed: gpsSyncProgress.completed,
-          total: gpsSyncProgress.total,
-        }) as string,
-      };
-    }
-
-    // Phase 3b: Computing routes/sections (60-100%)
-    if (gpsSyncProgress.status === 'computing') {
-      const phaseProgress =
-        gpsSyncProgress.total > 0 ? gpsSyncProgress.completed / gpsSyncProgress.total : 0;
-      const overallProgress = Math.round(60 + phaseProgress * 40);
-      return {
-        completed: overallProgress,
-        total: 100,
-        message: gpsSyncProgress.message || (t('routesScreen.computingRoutes') as string),
-      };
-    }
-
-    return null;
-  }, [isFetchingActivities, isFetchingExtended, progress, isGpsSyncing, gpsSyncProgress, t]);
-
   // Show loading state if not ready
   if (!isReady) {
     return (
@@ -275,12 +162,7 @@ export default function MapScreen() {
           {t('mapScreen.loadingActivities')}
         </Text>
         <View style={styles.loadingBannerContainer}>
-          <SyncProgressBanner
-            completed={loadingProgress?.completed ?? 0}
-            total={loadingProgress?.total ?? 100}
-            message={loadingProgress?.message}
-            visible={!!loadingProgress}
-          />
+          <SyncProgressBanner />
         </View>
       </View>
     );
@@ -321,7 +203,6 @@ export default function MapScreen() {
           onRangeChange={handleRangeChange}
           isLoading={isSyncing}
           activityCount={filteredActivities.length}
-          syncProgress={timelineSyncProgress}
           cachedOldest={oldestSyncedDate ? new Date(oldestSyncedDate) : null}
           cachedNewest={newestSyncedDate ? new Date(newestSyncedDate) : null}
           selectedTypes={selectedTypes}

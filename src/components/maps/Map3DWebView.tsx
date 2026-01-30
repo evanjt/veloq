@@ -1,4 +1,11 @@
-import React, { useMemo, useRef, useImperativeHandle, forwardRef } from 'react';
+import React, {
+  useMemo,
+  useRef,
+  useImperativeHandle,
+  forwardRef,
+  useEffect,
+  useCallback,
+} from 'react';
 import { View, StyleSheet } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { colors, darkColors } from '@/theme/colors';
@@ -47,6 +54,10 @@ interface Map3DWebViewPropsInternal extends Map3DWebViewProps {
  * 3D terrain map using MapLibre GL JS in a WebView.
  * Uses free AWS Terrain Tiles (no API key required).
  * Supports light, dark, and satellite base styles.
+ *
+ * ARCHITECTURE NOTE: GeoJSON layers are updated dynamically via injectJavaScript
+ * to avoid WebView reloads when toggling visibility. Only mapStyle changes trigger
+ * a full reload, which preserves camera position via savedCamera.
  */
 export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInternal>(
   function Map3DWebView(
@@ -67,28 +78,144 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
     ref
   ) {
     const webViewRef = useRef<WebView>(null);
+    const mapReadyRef = useRef(false);
+    // Track camera state for restoration after style changes
+    const savedCameraRef = useRef<{
+      center: [number, number];
+      zoom: number;
+      bearing: number;
+      pitch: number;
+    } | null>(null);
+
+    // Store GeoJSON data in refs to avoid stale closures
+    const routesGeoJSONRef = useRef(routesGeoJSON);
+    const sectionsGeoJSONRef = useRef(sectionsGeoJSON);
+    const tracesGeoJSONRef = useRef(tracesGeoJSON);
+
+    // Keep refs in sync with props
+    useEffect(() => {
+      routesGeoJSONRef.current = routesGeoJSON;
+      sectionsGeoJSONRef.current = sectionsGeoJSON;
+      tracesGeoJSONRef.current = tracesGeoJSON;
+    }, [routesGeoJSON, sectionsGeoJSON, tracesGeoJSON]);
+
+    // Update GeoJSON layers dynamically without reloading WebView
+    // Reads from refs to avoid stale closure issues
+    const updateLayers = useCallback(() => {
+      if (!webViewRef.current || !mapReadyRef.current) return;
+
+      const routesJSON = routesGeoJSONRef.current
+        ? JSON.stringify(routesGeoJSONRef.current)
+        : 'null';
+      const sectionsJSON = sectionsGeoJSONRef.current
+        ? JSON.stringify(sectionsGeoJSONRef.current)
+        : 'null';
+      const tracesJSON = tracesGeoJSONRef.current
+        ? JSON.stringify(tracesGeoJSONRef.current)
+        : 'null';
+
+      webViewRef.current.injectJavaScript(`
+        (function() {
+          if (!window.map || !window.map.isStyleLoaded()) return;
+
+          const routesData = ${routesJSON};
+          const sectionsData = ${sectionsJSON};
+          const tracesData = ${tracesJSON};
+
+          // Update routes layer
+          if (window.map.getSource('routes-source')) {
+            if (routesData && routesData.features && routesData.features.length > 0) {
+              window.map.getSource('routes-source').setData(routesData);
+              window.map.setLayoutProperty('routes-layer', 'visibility', 'visible');
+            } else {
+              window.map.setLayoutProperty('routes-layer', 'visibility', 'none');
+            }
+          } else if (routesData && routesData.features && routesData.features.length > 0) {
+            window.map.addSource('routes-source', { type: 'geojson', data: routesData });
+            window.map.addLayer({
+              id: 'routes-layer',
+              type: 'line',
+              source: 'routes-source',
+              layout: { 'line-join': 'round', 'line-cap': 'round' },
+              paint: { 'line-color': ['get', 'color'], 'line-width': 3, 'line-opacity': 0.7 },
+            });
+          }
+
+          // Update sections layer
+          if (window.map.getSource('sections-source')) {
+            if (sectionsData && sectionsData.features && sectionsData.features.length > 0) {
+              window.map.getSource('sections-source').setData(sectionsData);
+              window.map.setLayoutProperty('sections-layer', 'visibility', 'visible');
+            } else {
+              window.map.setLayoutProperty('sections-layer', 'visibility', 'none');
+            }
+          } else if (sectionsData && sectionsData.features && sectionsData.features.length > 0) {
+            window.map.addSource('sections-source', { type: 'geojson', data: sectionsData });
+            window.map.addLayer({
+              id: 'sections-layer',
+              type: 'line',
+              source: 'sections-source',
+              layout: { 'line-join': 'round', 'line-cap': 'round' },
+              paint: { 'line-color': '#FFD700', 'line-width': 4, 'line-opacity': 0.8 },
+            });
+          }
+
+          // Update traces layer
+          if (window.map.getSource('traces-source')) {
+            if (tracesData && tracesData.features && tracesData.features.length > 0) {
+              window.map.getSource('traces-source').setData(tracesData);
+              window.map.setLayoutProperty('traces-layer', 'visibility', 'visible');
+            } else {
+              window.map.setLayoutProperty('traces-layer', 'visibility', 'none');
+            }
+          } else if (tracesData && tracesData.features && tracesData.features.length > 0) {
+            window.map.addSource('traces-source', { type: 'geojson', data: tracesData });
+            window.map.addLayer({
+              id: 'traces-layer',
+              type: 'line',
+              source: 'traces-source',
+              layout: { 'line-join': 'round', 'line-cap': 'round' },
+              paint: { 'line-color': ['get', 'color'], 'line-width': 2, 'line-opacity': 0.6 },
+            });
+          }
+        })();
+        true;
+      `);
+    }, []);
 
     // Handle messages from WebView
-    const handleMessage = (event: { nativeEvent: { data: string } }) => {
-      try {
-        const data = JSON.parse(event.nativeEvent.data);
-        // Validate message structure before using
-        if (typeof data !== 'object' || data === null || typeof data.type !== 'string') {
-          return;
+    const handleMessage = useCallback(
+      (event: { nativeEvent: { data: string } }) => {
+        try {
+          const data = JSON.parse(event.nativeEvent.data);
+          // Validate message structure before using
+          if (typeof data !== 'object' || data === null || typeof data.type !== 'string') {
+            return;
+          }
+          if (data.type === 'mapReady') {
+            mapReadyRef.current = true;
+            onMapReady?.();
+            // Update layers after map is ready
+            updateLayers();
+          } else if (data.type === 'bearingChange' && typeof data.bearing === 'number') {
+            onBearingChange?.(data.bearing);
+          } else if (data.type === 'cameraState' && data.camera) {
+            // Save camera state for restoration
+            savedCameraRef.current = data.camera;
+          }
+        } catch {
+          // Ignore parse errors
         }
-        if (data.type === 'mapReady' && onMapReady) {
-          onMapReady();
-        } else if (
-          data.type === 'bearingChange' &&
-          onBearingChange &&
-          typeof data.bearing === 'number'
-        ) {
-          onBearingChange(data.bearing);
-        }
-      } catch {
-        // Ignore parse errors
+      },
+      [onMapReady, onBearingChange, updateLayers]
+    );
+
+    // Update layers when GeoJSON props change (without reloading WebView)
+    useEffect(() => {
+      if (mapReadyRef.current) {
+        updateLayers();
       }
-    };
+    }, [routesGeoJSON, sectionsGeoJSON, tracesGeoJSON, updateLayers]);
 
     // Expose reset method to parent
     useImperativeHandle(
@@ -126,13 +253,24 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
     const hasRoute = coordinates.length > 0;
 
     // Generate the HTML for the WebView
+    // IMPORTANT: Only depends on style-related props, NOT GeoJSON data
+    // GeoJSON layers are updated dynamically via injectJavaScript
     const html = useMemo(() => {
+      // Reset map ready state when HTML regenerates
+      mapReadyRef.current = false;
+
       const coordsJSON = JSON.stringify(coordinates);
       const boundsJSON = bounds ? JSON.stringify(bounds) : 'null';
-      const centerJSON = initialCenter ? JSON.stringify(initialCenter) : 'null';
-      const routesJSON = routesGeoJSON ? JSON.stringify(routesGeoJSON) : 'null';
-      const sectionsJSON = sectionsGeoJSON ? JSON.stringify(sectionsGeoJSON) : 'null';
-      const tracesJSON = tracesGeoJSON ? JSON.stringify(tracesGeoJSON) : 'null';
+      // Use saved camera position if available (from previous style), otherwise use initial
+      const savedCamera = savedCameraRef.current;
+      const centerJSON = savedCamera
+        ? JSON.stringify(savedCamera.center)
+        : initialCenter
+          ? JSON.stringify(initialCenter)
+          : 'null';
+      const zoomValue = savedCamera ? savedCamera.zoom : initialZoom;
+      const bearingValue = savedCamera ? savedCamera.bearing : 0;
+      const pitchValue = savedCamera ? savedCamera.pitch : initialPitch;
       const isSatellite = mapStyle === 'satellite';
       const isDark = mapStyle === 'dark' || mapStyle === 'satellite';
 
@@ -164,28 +302,29 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
     const coordinates = ${coordsJSON};
     const bounds = ${boundsJSON};
     const center = ${centerJSON};
-    const routesData = ${routesJSON};
-    const sectionsData = ${sectionsJSON};
-    const tracesData = ${tracesJSON};
+    const savedZoom = ${zoomValue};
+    const savedBearing = ${bearingValue};
+    const savedPitch = ${pitchValue};
     const isSatellite = ${isSatellite};
 
     // Create map with appropriate style
-    // Use bounds if available (from route), otherwise use center/zoom
+    // Use saved camera state if available, otherwise use bounds or center/zoom
     const mapOptions = {
       container: 'map',
       style: ${styleConfig},
-      pitch: ${initialPitch},
+      pitch: savedPitch,
       maxPitch: 85,
-      bearing: 0,
+      bearing: savedBearing,
       attributionControl: false,
     };
 
-    if (bounds) {
+    // Only use bounds for initial load (no saved camera)
+    if (bounds && !${!!savedCamera}) {
       mapOptions.bounds = [bounds.sw, bounds.ne];
       mapOptions.fitBoundsOptions = { padding: 50 };
     } else if (center) {
       mapOptions.center = center;
-      mapOptions.zoom = ${initialZoom};
+      mapOptions.zoom = savedZoom;
     } else {
       mapOptions.center = [0, 0];
       mapOptions.zoom = 2;
@@ -194,6 +333,22 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
     window.map = new maplibregl.Map(mapOptions);
 
     const map = window.map;
+
+    // Track camera changes and save state for restoration
+    function saveCameraState() {
+      if (window.ReactNativeWebView) {
+        const center = map.getCenter();
+        window.ReactNativeWebView.postMessage(JSON.stringify({
+          type: 'cameraState',
+          camera: {
+            center: [center.lng, center.lat],
+            zoom: map.getZoom(),
+            bearing: map.getBearing(),
+            pitch: map.getPitch()
+          }
+        }));
+      }
+    }
 
     // Track bearing changes and notify React Native
     map.on('rotate', () => {
@@ -204,6 +359,12 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
         }));
       }
     });
+
+    // Save camera state on any movement
+    map.on('moveend', saveCameraState);
+    map.on('zoomend', saveCameraState);
+    map.on('rotateend', saveCameraState);
+    map.on('pitchend', saveCameraState);
 
     map.on('load', () => {
       // Notify React Native that map is ready
@@ -306,74 +467,8 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
         });
       }
 
-      // Add routes layer (grouped routes from activities)
-      if (routesData && routesData.features && routesData.features.length > 0) {
-        map.addSource('routes-source', {
-          type: 'geojson',
-          data: routesData,
-        });
-
-        map.addLayer({
-          id: 'routes-layer',
-          type: 'line',
-          source: 'routes-source',
-          layout: {
-            'line-join': 'round',
-            'line-cap': 'round',
-          },
-          paint: {
-            'line-color': ['get', 'color'],
-            'line-width': 3,
-            'line-opacity': 0.7,
-          },
-        });
-      }
-
-      // Add sections layer (frequent sections)
-      if (sectionsData && sectionsData.features && sectionsData.features.length > 0) {
-        map.addSource('sections-source', {
-          type: 'geojson',
-          data: sectionsData,
-        });
-
-        map.addLayer({
-          id: 'sections-layer',
-          type: 'line',
-          source: 'sections-source',
-          layout: {
-            'line-join': 'round',
-            'line-cap': 'round',
-          },
-          paint: {
-            'line-color': '#FFD700',
-            'line-width': 4,
-            'line-opacity': 0.8,
-          },
-        });
-      }
-
-      // Add traces layer (GPS traces when zoomed in)
-      if (tracesData && tracesData.features && tracesData.features.length > 0) {
-        map.addSource('traces-source', {
-          type: 'geojson',
-          data: tracesData,
-        });
-
-        map.addLayer({
-          id: 'traces-layer',
-          type: 'line',
-          source: 'traces-source',
-          layout: {
-            'line-join': 'round',
-            'line-cap': 'round',
-          },
-          paint: {
-            'line-color': ['get', 'color'],
-            'line-width': 2,
-            'line-opacity': 0.6,
-          },
-        });
-      }
+      // GeoJSON layers (routes, sections, traces) are added dynamically via injectJavaScript
+      // after mapReady message is received by React Native
     });
   </script>
 </body>
@@ -388,9 +483,7 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       routeColor,
       initialPitch,
       terrainExaggeration,
-      routesGeoJSON,
-      sectionsGeoJSON,
-      tracesGeoJSON,
+      // NOTE: GeoJSON props are NOT dependencies - they're updated via injectJavaScript
     ]);
 
     return (

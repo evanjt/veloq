@@ -5,6 +5,179 @@ All notable changes to Veloq will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.0] - 2026-01-30
+
+This release contains significant architectural improvements including a 10x faster initial sync, a new SQLite migration system, and major FFI refactoring. Users upgrading from v0.0.7 may need to re-sync their data if migrations fail.
+
+### Added
+
+- **Imperial/Metric Unit Selection**
+  - Auto-detect units from intervals.icu user settings
+  - Manual override available in app settings
+  - All section and route statistics display in chosen units
+  - Fixes issue #12
+
+- **Per-Direction Statistics on Sections**
+  - Section headers now show stats for forward and reverse directions separately
+  - Responsive pill styling for direction indicators
+  - Direction stats computation moved to Rust for performance
+  - Fixes issue #10
+
+- **SQLite Migration System**
+  - Database migrations for schema updates between versions
+  - Enables safe upgrades without data loss
+  - Foundation for future schema changes
+
+- **3rd Party Licenses Screen**
+  - View all open source licenses used in the app
+  - Accessible from settings
+
+- **Chart Improvements**
+  - Y-axis labels on activity charts
+  - Average line indicator
+  - Tooltip on chart scrubbing
+
+- **Map Enhancements**
+  - Combined common markers in global map view
+  - Zoom-out feature for map overview
+  - Improved map attribution visibility
+  - Map markers return when camera is stable
+
+- **E2E Testing with Maestro**
+  - Replaced Detox with Maestro for E2E testing
+  - 28 test flows covering all major features
+  - Deterministic demo test IDs
+  - Map tests for zoom, 3D, activity/route/section selection
+  - Marker interaction tests
+
+- **Test Coverage Expansion**
+  - Tests for Zustand stores (SyncDateRange, RouteSettings, DashboardPreferences, MapPreferences, Language)
+  - AuthStore validation and error handling tests
+  - FFI usage validation tests
+
+- **Translations**
+  - Performance pill choice translations
+  - Improved i18n coverage
+
+### Changed
+
+- **10x Faster Initial Sync**
+  - Single FFI call with progress polling replaces batched approach
+  - Optimized useMemo dependencies to prevent re-renders during sync
+  - Download progress wrapper function for status updates
+
+- **FFI Refactoring (JSON to Structs)**
+  - Converted 5+ JSON-parsing FFI functions to typed structs
+  - Removed JSON serialization from section summaries
+  - Better type safety at FFI boundary
+  - Regenerated FFI manifest with new types
+
+- **Section Storage Unification**
+  - Unified section handling in SQLite schema
+  - Optimized calls to avoid serializing all sections on every request
+  - Refactored section logic for consistency
+  - Custom section reference line customization
+
+- **MapLibre v10**
+  - Downgraded from v11 to v10 for cross-platform stability
+  - Fixed map rendering on both iOS and Android
+  - Re-enabled React Native new architecture
+
+- **Tracematch Submodule v0.1.0**
+  - Updated to pure algorithms release
+  - Rearranged files for veloqrs binding structure
+  - Polyline encoding and index-based section creation in Rust engine
+
+- **Navigation**
+  - Changed from pages to tabs navigation pattern
+  - Hero card replaces pill bar on home screen
+
+- **Build System Improvements**
+  - Rust builds automatically during `expo run:android`
+  - Build system cleans and generates on expo run
+  - Updated rebuild script to remove build files
+  - CI/CD improvements
+
+- **Code Cleanup**
+  - Removed legacy code and dead code
+  - Fixed outdated and broken tests
+  - Removed duplicate imports
+
+### Fixed
+
+- **Section Bugs**
+  - Fixed section persistence issues
+  - Fixed section creation workflow
+  - Fixed custom section reference logic
+  - Fixed section reference changing on startup
+  - Fixed startup SQL error related to sections
+  - Fixed section naming issue #9
+  - Fixed background color in sections list
+  - Fixed polygon preview in section list
+
+- **Map Fixes**
+  - Fixed map rendering in FlatList components
+  - Fixed global map on Android (changed from pressable buttons)
+  - Fixed iOS map tapping at extreme zoom levels
+  - Fixed marker clicking on iOS
+  - Fixed attribution switching in all maps
+  - Fixed MapLibre crashes when switching states
+
+- **Timeline Scrubbing**
+  - Fixed scrubbing in season comparison view
+  - Fixed scrubbing in section list within activity detail view
+  - Fixed yearly scrubbing problem
+
+- **iOS Specific**
+  - Fixed iOS build issues
+  - Removed dotted lines (incompatible with iOS)
+  - Removed extra "x" in filter on iOS
+
+- **Camera and Navigation**
+  - Fixed camera snapping when adding sections
+  - Fixed double engine loading when entering demo mode
+
+- **Imperial Units**
+  - Fixed imperial calculations for tracematch results
+
+- **Translations**
+  - Fixed translation string issues
+
+- **Build and Binding Fixes**
+  - Fixed binding imports
+  - Fixed return types in FFI
+  - Fixed TypeScript check on bindings
+  - Fixed TSX errors
+
+### Removed
+
+- **Heatmap Feature**
+  - Removed heatmap generation and display
+  - Updated tracematch submodule to remove heatmap source
+
+- **Push Notifications Reference**
+  - Removed mention of push notifications (feature was not implemented)
+  - Reduced memory usage overall
+
+- **Detox**
+  - Replaced with Maestro for E2E testing
+
+### Breaking Changes
+
+Users upgrading from v0.0.7 may need to re-sync their data if the SQLite migrations fail. The migration system will attempt to upgrade the database automatically, but in rare cases with corrupted data, a fresh sync may be required. To re-sync:
+
+1. Go to Settings
+2. Tap "Clear Cache"
+3. Re-sync your data from intervals.icu
+
+---
+
+## [0.0.7] - 2026-01-21
+
+Internal release for v0.0.5 changelogs.
+
+---
+
 ## [0.0.5] - 2026-01-21
 
 ### Added

@@ -768,27 +768,9 @@ export default function SettingsScreen() {
           </Text>
         </View>
         <View style={[styles.section, isDark && styles.sectionDark]}>
-          {/* Sync Status Banners */}
-          {progress.status === 'syncing' && (
-            <View style={styles.syncBanner}>
-              <MaterialCommunityIcons name="sync" size={18} color={colors.textOnDark} />
-              <Text style={styles.syncBannerText}>
-                {progress.message || `Syncing ${progress.completed}/${progress.total}`}
-              </Text>
-            </View>
-          )}
-          {isRouteProcessing && (
-            <View style={[styles.syncBanner, { backgroundColor: colors.chartPurple }]}>
-              <MaterialCommunityIcons name="map-marker-path" size={18} color={colors.textOnDark} />
-              <Text style={styles.syncBannerText}>
-                {routeProgress.message ||
-                  `Analysing ${routeProgress.current}/${routeProgress.total}`}
-              </Text>
-            </View>
-          )}
-
           {/* Timeline Slider for date range selection - simplified for settings */}
           {/* fixedEnd: right handle locked at "now", expandOnly: left handle can only move left */}
+          {/* Sync progress is shown via global CacheLoadingBanner at top of screen */}
           <TimelineSlider
             minDate={minDateForSlider}
             maxDate={maxDateForSlider}
@@ -797,13 +779,13 @@ export default function SettingsScreen() {
             onRangeChange={handleRangeChange}
             isLoading={isSyncing}
             activityCount={cacheStats.totalActivities}
-            syncProgress={null}
             cachedOldest={null}
             cachedNewest={null}
             isDark={isDark}
             showActivityFilter={false}
             showCachedRange={false}
             showLegend={false}
+            showSyncBanner={false}
             fixedEnd={true}
             expandOnly={true}
           />
@@ -1332,19 +1314,6 @@ const styles = StyleSheet.create({
   },
   sectionDark: {
     backgroundColor: darkColors.surfaceCard,
-  },
-  syncBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.primary,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    gap: spacing.sm,
-  },
-  syncBannerText: {
-    color: colors.textOnDark,
-    fontSize: 14,
-    fontWeight: '500',
   },
   statRow: {
     flexDirection: 'row',

@@ -435,6 +435,43 @@ jobs:
       - name: Install cargo-ndk
         run: cargo install cargo-ndk
 
+      # Build for host FIRST to generate bindings BEFORE cache restoration
+      - name: Build Rust for host (binding generation)
+        working-directory: modules/veloqrs/rust
+        run: |
+          # Build for Linux host to generate bindings
+          cargo build --release -p veloqrs
+          echo "✓ Built for host platform"
+
+      - name: Generate UniFFI Bindings
+        working-directory: modules/veloqrs/rust
+        run: |
+          # Generate TypeScript/C++ bindings from host library
+          # This MUST happen BEFORE prebuild cache restoration and Gradle build
+          npx uniffi-bindgen-react-native generate jsi bindings \
+            --ts-dir ../src/generated \
+            --cpp-dir ../cpp/generated \
+            --library \
+            target/release/libveloqrs.so
+          echo "✓ Generated UniFFI bindings"
+          ls -la ../cpp/ ../cpp/generated/
+
+      # Verify C++ files exist before proceeding (safety check)
+      - name: Verify C++ bindings exist
+        run: |
+          echo "=== Verifying C++ bindings ==="
+          MISSING=""
+          [ ! -f "modules/veloqrs/cpp/veloqrs.h" ] && MISSING="$MISSING cpp/veloqrs.h"
+          [ ! -f "modules/veloqrs/cpp/veloqrs.cpp" ] && MISSING="$MISSING cpp/veloqrs.cpp"
+          [ ! -f "modules/veloqrs/cpp/generated/veloqrs.hpp" ] && MISSING="$MISSING cpp/generated/veloqrs.hpp"
+          [ ! -f "modules/veloqrs/cpp/generated/veloqrs.cpp" ] && MISSING="$MISSING cpp/generated/veloqrs.cpp"
+          if [ -n "$MISSING" ]; then
+            echo "::error::Missing C++ files:$MISSING"
+            echo "This indicates binding generation failed. Check the 'Generate UniFFI Bindings' step."
+            exit 1
+          fi
+          echo "✓ All C++ bindings present"
+
       - name: Build Rust libraries for Android
         working-directory: modules/veloqrs/rust
         run: |
@@ -777,6 +814,24 @@ jobs:
           cp modules/veloqrs/cpp/generated/veloqrs.cpp modules/veloqrs/ios/cpp/ 2>/dev/null || true
           echo "✓ Copied C++ files to module ios/cpp/"
           ls -la modules/veloqrs/ios/cpp/
+
+      # Verify C++ files exist before proceeding (safety check)
+      - name: Verify C++ bindings exist
+        run: |
+          echo "=== Verifying C++ bindings ==="
+          MISSING=""
+          [ ! -f "modules/veloqrs/cpp/veloqrs.h" ] && MISSING="$MISSING cpp/veloqrs.h"
+          [ ! -f "modules/veloqrs/cpp/veloqrs.cpp" ] && MISSING="$MISSING cpp/veloqrs.cpp"
+          [ ! -f "modules/veloqrs/cpp/generated/veloqrs.hpp" ] && MISSING="$MISSING cpp/generated/veloqrs.hpp"
+          [ ! -f "modules/veloqrs/cpp/generated/veloqrs.cpp" ] && MISSING="$MISSING cpp/generated/veloqrs.cpp"
+          [ ! -f "modules/veloqrs/ios/cpp/veloqrs.h" ] && MISSING="$MISSING ios/cpp/veloqrs.h"
+          [ ! -f "modules/veloqrs/ios/cpp/veloqrs.cpp" ] && MISSING="$MISSING ios/cpp/veloqrs.cpp"
+          if [ -n "$MISSING" ]; then
+            echo "::error::Missing C++ files:$MISSING"
+            echo "This indicates binding generation failed. Check the 'Generate UniFFI bindings for iOS' step."
+            exit 1
+          fi
+          echo "✓ All C++ bindings present"
 
       - name: Cache iOS prebuild
         id: ios-prebuild-cache
