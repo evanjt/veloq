@@ -18,8 +18,8 @@ const MENU_ITEMS = [
   { key: 'feed', icon: 'home-outline', route: '/', label: 'Feed' },
   { key: 'fitness', icon: 'chart-line', route: '/fitness', label: 'Fitness' },
   { key: 'map', icon: 'map-outline', route: '/map', label: 'Map' },
-  { key: 'training', icon: 'calendar-outline', route: '/training', label: 'Training' },
-  { key: 'wellness', icon: 'heart-outline', route: '/wellness', label: 'Wellness' },
+  { key: 'routes', icon: 'map-marker-path', route: '/routes', label: 'Routes' },
+  { key: 'health', icon: 'heart-pulse', route: '/training', label: 'Health' },
 ] as const;
 
 // Dimensions

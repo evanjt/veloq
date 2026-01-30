@@ -97,14 +97,14 @@ export function SummaryCard({
                 onError={() => setProfileImageError(true)}
               />
             ) : (
-              <MaterialCommunityIcons name="account" size={18} color={themeColors.textSecondary} />
+              <MaterialCommunityIcons name="account" size={22} color={themeColors.textSecondary} />
             )}
           </View>
           {/* Gear badge */}
           <View style={[styles.gearBadge, isDark && styles.gearBadgeDark]}>
             <MaterialCommunityIcons
               name="cog"
-              size={8}
+              size={10}
               color={isDark ? darkColors.textSecondary : colors.textSecondary}
             />
           </View>
@@ -195,16 +195,16 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
 
-  // Profile photo - smaller
+  // Profile photo with gear badge
   profileTouchArea: {
-    width: 36,
-    height: 36,
+    width: 44,
+    height: 44,
     position: 'relative',
   },
   profilePhoto: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     overflow: 'hidden',
     backgroundColor: colors.divider,
     justifyContent: 'center',
@@ -220,9 +220,9 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 0,
     right: 0,
-    width: 14,
-    height: 14,
-    borderRadius: 7,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
     backgroundColor: colors.surface,
     justifyContent: 'center',
     alignItems: 'center',

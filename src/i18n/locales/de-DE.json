@@ -453,12 +453,16 @@
     "activities": "Aktivitäten",
     "feed": "Feed",
     "fitness": "Fitness",
+    "health": "Gesundheit",
     "map": "Karte",
     "routes": "Routen",
     "settings": "Einstellungen",
     "stats": "Statistiken",
     "training": "Training",
     "wellness": "Wohlbefinden"
+  },
+  "healthScreen": {
+    "title": "Gesundheit"
   },
   "routeDetail": {
     "avgTime": "Ø Zeit",

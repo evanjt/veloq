@@ -453,12 +453,16 @@
     "activities": "Actividades",
     "feed": "Inicio",
     "fitness": "Condicion fisica",
+    "health": "Salud",
     "map": "Mapa",
     "routes": "Rutas",
     "settings": "Configuracion",
     "stats": "Estadisticas",
     "training": "Entrenamiento",
     "wellness": "Bienestar"
+  },
+  "healthScreen": {
+    "title": "Salud"
   },
   "routeDetail": {
     "avgTime": "Tiempo promedio",

@@ -453,12 +453,16 @@
     "activities": "Activiteiten",
     "feed": "Feed",
     "fitness": "Fitness",
+    "health": "Gezondheid",
     "map": "Kaart",
     "routes": "Routes",
     "settings": "Instellingen",
     "stats": "Statistieken",
     "training": "Training",
     "wellness": "Welzijn"
+  },
+  "healthScreen": {
+    "title": "Gezondheid"
   },
   "routeDetail": {
     "avgTime": "Gem. tijd",

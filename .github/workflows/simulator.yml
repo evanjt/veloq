@@ -106,8 +106,8 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ios/build/Build/Products/${{ matrix.config }}-iphonesimulator/Veloq.app
-          # v13: New Architecture enabled (react-native-reanimated 4.x requirement)
-          key: ios-app-v13-${{ matrix.config }}-${{ steps.version.outputs.source_hash }}
+          # v1: Clean slate - invalidated all old caches
+          key: ios-app-v1-${{ matrix.config }}-${{ steps.version.outputs.source_hash }}
 
       # Always setup Rust and generate bindings if building (app-cache miss)
       # This ensures C++ files exist before any cache restoration that might reference them
@@ -242,9 +242,8 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ios
-          # v13: New Architecture enabled (react-native-reanimated 4.x requirement)
-          key: ios-sim-prebuild-v13-${{ runner.os }}-${{ hashFiles('app.json', 'package.json', 'package-lock.json', 'plugins/**', 'modules/veloqrs/ios/**', 'modules/veloqrs/package.json') }}
-          restore-keys: ios-sim-prebuild-v13-${{ runner.os }}-
+          # v1: Clean slate - no restore-keys fallback to prevent stale cache issues
+          key: ios-prebuild-v1-${{ runner.os }}-${{ hashFiles('app.json', 'package.json', 'package-lock.json', 'plugins/**', 'modules/veloqrs/ios/**', 'modules/veloqrs/package.json') }}
 
       - name: Expo Prebuild
         if: steps.app-cache.outputs.cache-hit != 'true' && steps.ios-prebuild-cache.outputs.cache-hit != 'true'
@@ -257,9 +256,8 @@ jobs:
           path: |
             ios/Pods
             ~/Library/Caches/CocoaPods
-          # v11: New Architecture enabled (react-native-reanimated 4.x requirement)
-          key: pods-sim-v11-${{ runner.os }}-${{ hashFiles('ios/Podfile.lock') }}
-          restore-keys: pods-sim-v11-${{ runner.os }}-
+          # v1: Clean slate - includes module sources in key, no restore-keys
+          key: pods-v1-${{ runner.os }}-${{ hashFiles('ios/Podfile.lock', 'modules/veloqrs/ios/**') }}
 
       - name: Install CocoaPods
         if: steps.app-cache.outputs.cache-hit != 'true'
@@ -393,8 +391,8 @@ jobs:
         uses: actions/cache@v4
         with:
           path: android/app/build/outputs/apk/release/app-release.apk
-          # v8: New Architecture enabled (react-native-reanimated 4.x requirement)
-          key: android-release-apk-v8-${{ steps.version.outputs.source_hash }}
+          # v1: Clean slate
+          key: android-apk-v1-${{ steps.version.outputs.source_hash }}
 
       # Setup Rust and generate bindings BEFORE prebuild cache restoration
       # This ensures C++ files exist before CMakeLists.txt references them
@@ -474,8 +472,8 @@ jobs:
         uses: actions/cache@v4
         with:
           path: android
-          # v7: New Architecture enabled (react-native-reanimated 4.x requirement)
-          key: android-release-prebuild-v7-${{ runner.os }}-${{ hashFiles('app.json', 'package.json', 'modules/veloqrs/android/**', 'modules/veloqrs/package.json') }}
+          # v1: Clean slate
+          key: android-prebuild-v1-${{ runner.os }}-${{ hashFiles('app.json', 'package.json', 'modules/veloqrs/android/**', 'modules/veloqrs/package.json') }}
 
       - name: Expo Prebuild
         if: steps.apk-cache.outputs.cache-hit != 'true' && steps.android-prebuild-cache.outputs.cache-hit != 'true'

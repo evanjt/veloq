@@ -453,12 +453,16 @@
     "activities": "Aktiviteter",
     "feed": "Feed",
     "fitness": "Fitness",
+    "health": "Sundhed",
     "map": "Kort",
     "routes": "Ruter",
     "settings": "Indstillinger",
     "stats": "Statistik",
     "training": "Træning",
     "wellness": "Velvære"
+  },
+  "healthScreen": {
+    "title": "Sundhed"
   },
   "routeDetail": {
     "avgTime": "Gns. tid",

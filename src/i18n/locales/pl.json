@@ -453,12 +453,16 @@
     "activities": "Aktywnosci",
     "feed": "Aktywnosci",
     "fitness": "Kondycja",
+    "health": "Zdrowie",
     "map": "Mapa",
     "routes": "Trasy",
     "settings": "Ustawienia",
     "stats": "Statystyki",
     "training": "Trening",
     "wellness": "Zdrowie"
+  },
+  "healthScreen": {
+    "title": "Zdrowie"
   },
   "routeDetail": {
     "avgTime": "Śr. czas",

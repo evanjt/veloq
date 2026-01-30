@@ -99,6 +99,12 @@ android {
     }
   }
 
+  // Handle duplicate libveloqrs.so from jniLibs and CMake IMPORTED target
+  // The Rust library is in jniLibs, CMake imports it for linking - both get picked up
+  packagingOptions {
+    pickFirst '**/libveloqrs.so'
+  }
+
   lintOptions {
     disable "GradleCompatible"
   }

@@ -441,12 +441,16 @@
     "activities": "Your stuff",
     "feed": "The feed",
     "fitness": "Fitness",
+    "health": "Health",
     "map": "Map",
     "routes": "Routes",
     "settings": "Settings",
     "stats": "Numbers",
     "training": "Training",
     "wellness": "How ya goin'"
+  },
+  "healthScreen": {
+    "title": "Health"
   },
   "routeDetail": {
     "avgTime": "Avg Time",

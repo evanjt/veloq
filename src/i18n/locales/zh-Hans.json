@@ -453,12 +453,16 @@
     "activities": "活动",
     "feed": "动态",
     "fitness": "体能",
+    "health": "健康",
     "map": "地图",
     "routes": "路线",
     "settings": "设置",
     "stats": "统计",
     "training": "训练",
     "wellness": "健康"
+  },
+  "healthScreen": {
+    "title": "健康"
   },
   "routeDetail": {
     "avgTime": "平均时间",

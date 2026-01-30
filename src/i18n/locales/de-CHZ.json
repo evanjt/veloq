@@ -453,12 +453,16 @@
     "activities": "Aktivitäte",
     "feed": "S Nöischte",
     "fitness": "Fitness",
+    "health": "Gsundheit",
     "map": "Charte",
     "routes": "Route",
     "settings": "Istellige",
     "stats": "Zahle",
     "training": "Training",
     "wellness": "Wohlsii"
+  },
+  "healthScreen": {
+    "title": "Gsundheit"
   },
   "routeDetail": {
     "avgTime": "Ø Ziit",

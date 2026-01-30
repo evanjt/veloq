@@ -23,6 +23,11 @@ function daysFromToday(days: number): string {
 
 describe('SyncDateRangeStore', () => {
   beforeEach(() => {
+    // Use fake timers with a fixed system time to ensure consistent date calculations
+    jest.useFakeTimers();
+    // Set a fixed time at noon UTC to avoid date boundary issues
+    jest.setSystemTime(new Date('2025-01-30T12:00:00Z'));
+
     // Reset store to initial state
     const defaultOldest = daysFromToday(-90);
     const defaultNewest = daysFromToday(0);
@@ -43,8 +48,6 @@ describe('SyncDateRangeStore', () => {
       isExpansionLocked: false,
       syncGeneration: 0,
     });
-
-    jest.useFakeTimers();
   });
 
   afterEach(() => {

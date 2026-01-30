@@ -453,12 +453,16 @@
     "activities": "アクティビティ",
     "feed": "フィード",
     "fitness": "フィットネス",
+    "health": "健康",
     "map": "マップ",
     "routes": "ルート",
     "settings": "設定",
     "stats": "統計",
     "training": "トレーニング",
     "wellness": "ウェルネス"
+  },
+  "healthScreen": {
+    "title": "健康"
   },
   "routeDetail": {
     "avgTime": "平均時間",

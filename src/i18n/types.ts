@@ -193,6 +193,7 @@ export interface TranslationResource {
     stats: string;
     training: string;
     wellness: string;
+    health: string;
     routes: string;
     map: string;
     settings: string;
@@ -556,6 +557,10 @@ export interface TranslationResource {
   wellnessScreen: {
     title: string;
     trends: string;
+  };
+
+  healthScreen: {
+    title: string;
   };
 
   trainingScreen: {
