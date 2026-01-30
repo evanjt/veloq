@@ -6,6 +6,7 @@
 import { useCallback, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getRouteEngine } from '@/lib/native/routeEngine';
+import { computePolylineOverlap } from '@/lib/utils/geometry';
 import { gpsPointsToRoutePoints, type GpsPoint } from 'veloqrs';
 import { useSupersededSections } from '@/providers';
 import type { Section, RoutePoint } from '@/types';
@@ -54,44 +55,6 @@ export interface CreateSectionParams {
  * If a custom section overlaps >80% with an auto section, the auto section is hidden.
  */
 const OVERLAP_THRESHOLD = 0.8;
-
-/**
- * Compute overlap between two polylines.
- * Returns 0-1 representing the fraction of polylineA points that are close to polylineB.
- */
-function computePolylineOverlap(
-  polylineA: RoutePoint[],
-  polylineB: RoutePoint[],
-  thresholdMeters = 50
-): number {
-  if (polylineA.length === 0 || polylineB.length === 0) return 0;
-
-  const R = 6371000; // Earth radius in meters
-  let matchedCount = 0;
-
-  for (const pointA of polylineA) {
-    for (const pointB of polylineB) {
-      // Simplified Haversine
-      const dLat = ((pointB.lat - pointA.lat) * Math.PI) / 180;
-      const dLon = ((pointB.lng - pointA.lng) * Math.PI) / 180;
-      const a =
-        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-        Math.cos((pointA.lat * Math.PI) / 180) *
-          Math.cos((pointB.lat * Math.PI) / 180) *
-          Math.sin(dLon / 2) *
-          Math.sin(dLon / 2);
-      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-      const distance = R * c;
-
-      if (distance <= thresholdMeters) {
-        matchedCount++;
-        break;
-      }
-    }
-  }
-
-  return matchedCount / polylineA.length;
-}
 
 /**
  * Find auto-detected sections that significantly overlap with a custom section.

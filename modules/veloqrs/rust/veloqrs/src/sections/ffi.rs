@@ -6,22 +6,24 @@ use super::{CreateSectionParams, SectionType};
 use crate::persistence::with_persistent_engine;
 use log::info;
 
-/// Get sections as JSON with optional type filter.
+/// Get sections with optional type filter.
 ///
 /// # Arguments
 /// * `section_type` - Optional filter: "auto", "custom", or None for all
 ///
 /// # Returns
-/// JSON array of Section objects
+/// Vec of FfiSection objects
 #[uniffi::export]
-pub fn get_sections_json(section_type: Option<String>) -> String {
+pub fn get_sections(section_type: Option<String>) -> Vec<crate::FfiSection> {
     let st = section_type.as_deref().and_then(SectionType::from_str);
 
     with_persistent_engine(|e| {
-        let sections = e.get_sections_by_type(st);
-        serde_json::to_string(&sections).unwrap_or_else(|_| "[]".to_string())
+        e.get_sections_by_type(st)
+            .into_iter()
+            .map(crate::FfiSection::from)
+            .collect()
     })
-    .unwrap_or_else(|| "[]".to_string())
+    .unwrap_or_default()
 }
 
 /// Get section count by type.
@@ -180,6 +182,27 @@ pub fn get_sections_for_activity_json(activity_id: String) -> String {
         serde_json::to_string(&sections).unwrap_or_else(|_| "[]".to_string())
     })
     .unwrap_or_else(|| "[]".to_string())
+}
+
+/// Get sections for a specific activity.
+///
+/// Uses junction table for efficient lookup.
+/// Returns structured data instead of JSON string.
+///
+/// # Arguments
+/// * `activity_id` - Activity ID to find sections for
+///
+/// # Returns
+/// Vec of sections containing the activity
+#[uniffi::export]
+pub fn get_sections_for_activity(activity_id: String) -> Vec<crate::FfiSection> {
+    with_persistent_engine(|e| {
+        e.get_sections_for_activity(&activity_id)
+            .into_iter()
+            .map(crate::FfiSection::from)
+            .collect()
+    })
+    .unwrap_or_default()
 }
 
 /// Get a single section by ID.

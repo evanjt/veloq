@@ -7,8 +7,24 @@
 import { useMemo } from 'react';
 import { useEngineGroups } from './useRouteEngine';
 import { getRouteEngine } from '@/lib/native/routeEngine';
-import type { Activity, RouteGroup, MatchDirection } from '@/types';
+import type { Activity, RouteGroup, MatchDirection, DirectionStats } from '@/types';
 import { toActivityType } from '@/types';
+import type { RoutePerformanceResult } from 'veloqrs';
+
+/**
+ * Convert FFI DirectionStats to TypeScript DirectionStats.
+ * Converts Unix timestamp (seconds) to JS Date.
+ */
+function toDirectionStats(
+  ffi: { avgTime?: number | null; lastActivity?: number | null; count: number } | null | undefined
+): DirectionStats | null {
+  if (!ffi) return null;
+  return {
+    avgTime: ffi.avgTime ?? null,
+    lastActivity: ffi.lastActivity ? new Date(ffi.lastActivity * 1000) : null,
+    count: ffi.count,
+  };
+}
 
 /** Match info returned from the Rust engine (uses camelCase from serde) */
 interface RustMatchInfo {
@@ -47,13 +63,6 @@ export interface RoutePerformancePoint {
 export interface DirectionBestRecord {
   bestTime: number;
   activityDate: Date;
-}
-
-/** Per-direction summary statistics */
-export interface DirectionStats {
-  avgTime: number | null;
-  lastActivity: Date | null;
-  count: number;
 }
 
 interface UseRoutePerformancesResult {
@@ -121,8 +130,7 @@ export function useRoutePerformances(
     };
   }, [engineGroup, groupIndex]);
 
-  // Get match info from Rust engine (checkpoint-based matching)
-  // Get route performance data from Rust engine
+  // Get route performance data from Rust engine (typed, no JSON parsing)
   // This provides match info, direction stats, and current rank
   const rustData = useMemo((): {
     matchInfoMap: Map<string, RustMatchInfo>;
@@ -143,12 +151,12 @@ export function useRoutePerformances(
       const engine = getRouteEngine();
       if (!engine) return emptyResult;
 
-      // Get full performance data from Rust engine
-      const json = engine.getRoutePerformances(engineGroup.groupId, activityId || '');
-      if (!json) return emptyResult;
-
-      const parsed = JSON.parse(json);
-      const performances = parsed.performances || [];
+      // Get typed performance data directly from Rust engine
+      const result: RoutePerformanceResult = engine.getRoutePerformances(
+        engineGroup.groupId,
+        activityId || ''
+      );
+      const performances = result.performances || [];
 
       // Build lookup map by activity ID
       const map = new Map<string, RustMatchInfo>();
@@ -162,23 +170,11 @@ export function useRoutePerformances(
         }
       }
 
-      // Parse direction stats from Rust (timestamps are in seconds, JS needs ms)
-      const parseStats = (
-        stats: { avgTime?: number; lastActivity?: number; count?: number } | null | undefined
-      ): DirectionStats | null => {
-        if (!stats) return null;
-        return {
-          avgTime: stats.avgTime ?? null,
-          lastActivity: stats.lastActivity ? new Date(stats.lastActivity * 1000) : null,
-          count: stats.count ?? 0,
-        };
-      };
-
       return {
         matchInfoMap: map,
-        forwardStats: parseStats(parsed.forwardStats),
-        reverseStats: parseStats(parsed.reverseStats),
-        currentRank: parsed.currentRank ?? null,
+        forwardStats: toDirectionStats(result.forwardStats),
+        reverseStats: toDirectionStats(result.reverseStats),
+        currentRank: result.currentRank ?? null,
       };
     } catch {
       return emptyResult;

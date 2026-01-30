@@ -1292,45 +1292,6 @@ impl PersistentRouteEngine {
     pub fn activity_count(&self) -> usize {
         self.activity_metadata.len()
     }
-
-    /// Get all activity bounds info as JSON for map display.
-    /// Returns array of { id, bounds, activityType, distance }.
-    pub fn get_all_activity_bounds_json(&self) -> String {
-        #[derive(serde::Serialize)]
-        #[serde(rename_all = "camelCase")]
-        struct BoundsInfo {
-            id: String,
-            bounds: [[f64; 2]; 2], // [[minLat, minLng], [maxLat, maxLng]]
-            activity_type: String,
-            distance: f64,
-        }
-
-        let infos: Vec<BoundsInfo> = self
-            .activity_metadata
-            .values()
-            .map(|m| {
-                // Get distance from metrics if available, otherwise 0
-                let distance = self
-                    .activity_metrics
-                    .get(&m.id)
-                    .map(|metrics| metrics.distance)
-                    .unwrap_or(0.0);
-
-                BoundsInfo {
-                    id: m.id.clone(),
-                    bounds: [
-                        [m.bounds.min_lat, m.bounds.min_lng],
-                        [m.bounds.max_lat, m.bounds.max_lng],
-                    ],
-                    activity_type: m.sport_type.clone(),
-                    distance,
-                }
-            })
-            .collect();
-
-        serde_json::to_string(&infos).unwrap_or_else(|_| "[]".to_string())
-    }
-
     /// Get all activity IDs.
     pub fn get_activity_ids(&self) -> Vec<String> {
         self.activity_metadata.keys().cloned().collect()
@@ -2056,15 +2017,6 @@ impl PersistentRouteEngine {
         if let Some(section) = self.sections.iter_mut().find(|s| s.id == section_id) {
             section.name = Some(name.to_string());
         }
-    }
-
-    /// Get sections as JSON string.
-    pub fn get_sections_json(&self) -> String {
-        log::info!(
-            "tracematch: [PersistentEngine] get_sections_json called, {} sections in memory",
-            self.sections.len()
-        );
-        serde_json::to_string(&self.sections).unwrap_or_else(|_| "[]".to_string())
     }
 
     /// Get section count directly from SQLite (no data loading).
@@ -3724,16 +3676,6 @@ impl PersistentRouteEngine {
         }
     }
 
-    /// Get route performances as JSON string.
-    pub fn get_route_performances_json(
-        &self,
-        route_group_id: &str,
-        current_activity_id: Option<&str>,
-    ) -> String {
-        let result = self.get_route_performances(route_group_id, current_activity_id);
-        serde_json::to_string(&result).unwrap_or_else(|_| "{}".to_string())
-    }
-
     // ========================================================================
     // Configuration
     // ========================================================================
@@ -4007,13 +3949,6 @@ pub mod persistent_engine_ffi {
         with_persistent_engine(|e| e.activity_count() as u32).unwrap_or(0)
     }
 
-    /// Get all activity bounds info as JSON for map display.
-    #[uniffi::export]
-    pub fn persistent_engine_get_all_activity_bounds_json() -> String {
-        with_persistent_engine(|e| e.get_all_activity_bounds_json())
-            .unwrap_or_else(|| "[]".to_string())
-    }
-
     /// Set a custom name for a route.
     /// Pass empty string to clear the custom name.
     #[uniffi::export]
@@ -4035,24 +3970,6 @@ pub mod persistent_engine_ffi {
         with_persistent_engine(|e| e.get_route_name(&route_id))
             .flatten()
             .unwrap_or_default()
-    }
-
-    /// Get all custom route names as JSON.
-    #[uniffi::export]
-    pub fn persistent_engine_get_all_route_names_json() -> String {
-        with_persistent_engine(|e| {
-            serde_json::to_string(&e.get_all_route_names()).unwrap_or_else(|_| "{}".to_string())
-        })
-        .unwrap_or_else(|| "{}".to_string())
-    }
-
-    /// Get all section names as JSON.
-    #[uniffi::export]
-    pub fn persistent_engine_get_all_section_names_json() -> String {
-        with_persistent_engine(|e| {
-            serde_json::to_string(&e.get_all_section_names()).unwrap_or_else(|_| "{}".to_string())
-        })
-        .unwrap_or_else(|| "{}".to_string())
     }
 
     /// Set the name for a section.
@@ -4114,30 +4031,95 @@ pub mod persistent_engine_ffi {
             .unwrap_or(activity_ids)
     }
 
-    /// Get section performances as JSON.
-    /// Returns accurate time-based section traversal data.
+    // ========================================================================
+    // Non-JSON FFI Functions (Clean FFI Boundary)
+    // ========================================================================
+
+    /// Get all activity bounds info for map display.
+    /// Returns structured data instead of JSON string.
     #[uniffi::export]
-    pub fn persistent_engine_get_section_performances_json(section_id: String) -> String {
+    pub fn persistent_engine_get_all_activity_bounds() -> Vec<crate::FfiActivityBoundsInfo> {
         with_persistent_engine(|e| {
-            let result = e.get_section_performances(&section_id);
-            serde_json::to_string(&result)
-                .unwrap_or_else(|_| r#"{"records":[],"best_record":null}"#.to_string())
+            e.activity_metadata
+                .values()
+                .map(|m| {
+                    let distance = e
+                        .activity_metrics
+                        .get(&m.id)
+                        .map(|metrics| metrics.distance)
+                        .unwrap_or(0.0);
+
+                    crate::FfiActivityBoundsInfo {
+                        id: m.id.clone(),
+                        min_lat: m.bounds.min_lat,
+                        min_lng: m.bounds.min_lng,
+                        max_lat: m.bounds.max_lat,
+                        max_lng: m.bounds.max_lng,
+                        activity_type: m.sport_type.clone(),
+                        distance,
+                    }
+                })
+                .collect()
         })
-        .unwrap_or_else(|| r#"{"records":[],"best_record":null}"#.to_string())
+        .unwrap_or_default()
     }
 
-    /// Get route performances as JSON.
+    /// Get all custom route names.
+    /// Returns a HashMap instead of JSON string.
     #[uniffi::export]
-    pub fn persistent_engine_get_route_performances_json(
+    pub fn persistent_engine_get_all_route_names() -> std::collections::HashMap<String, String> {
+        with_persistent_engine(|e| e.get_all_route_names()).unwrap_or_default()
+    }
+
+    /// Get all section names.
+    /// Returns a HashMap instead of JSON string.
+    #[uniffi::export]
+    pub fn persistent_engine_get_all_section_names() -> std::collections::HashMap<String, String> {
+        with_persistent_engine(|e| e.get_all_section_names()).unwrap_or_default()
+    }
+
+    /// Get section performances.
+    /// Returns structured data instead of JSON string.
+    #[uniffi::export]
+    pub fn persistent_engine_get_section_performances(
+        section_id: String,
+    ) -> crate::FfiSectionPerformanceResult {
+        with_persistent_engine(|e| {
+            crate::FfiSectionPerformanceResult::from(e.get_section_performances(&section_id))
+        })
+        .unwrap_or_else(|| crate::FfiSectionPerformanceResult {
+            records: vec![],
+            best_record: None,
+            best_forward_record: None,
+            best_reverse_record: None,
+            forward_stats: None,
+            reverse_stats: None,
+        })
+    }
+
+    /// Get route performances.
+    /// Returns structured data instead of JSON string.
+    #[uniffi::export]
+    pub fn persistent_engine_get_route_performances(
         route_group_id: String,
         current_activity_id: Option<String>,
-    ) -> String {
+    ) -> crate::FfiRoutePerformanceResult {
         with_persistent_engine(|e| {
             // Ensure groups are recomputed if dirty (this populates activity_matches)
             let _ = e.get_groups();
-            e.get_route_performances_json(&route_group_id, current_activity_id.as_deref())
+            crate::FfiRoutePerformanceResult::from(
+                e.get_route_performances(&route_group_id, current_activity_id.as_deref()),
+            )
         })
-        .unwrap_or_else(|| "{}".to_string())
+        .unwrap_or_else(|| crate::FfiRoutePerformanceResult {
+            performances: vec![],
+            best: None,
+            best_forward: None,
+            best_reverse: None,
+            forward_stats: None,
+            reverse_stats: None,
+            current_rank: None,
+        })
     }
 
     /// Get section count directly from SQLite (no data loading).

@@ -13,22 +13,14 @@ import { i18n } from '@/i18n';
 import { getNativeModule } from '@/lib/native/routeEngine';
 import {
   routeEngine,
-  detectSectionsMultiscale,
-  gpsPointsToRoutePoints,
-  SectionConfig,
-  startBackgroundFetch,
   getDownloadProgress,
-  takeBackgroundFetchResults,
   startFetchAndStore,
   takeFetchAndStoreResult,
-  type RouteGroup,
-  type ActivitySportType,
   type ActivitySportMapping,
 } from 'veloqrs';
 import { getStoredCredentials, getSyncGeneration } from '@/providers';
-import { usePotentialSections as usePotentialSectionsStore } from '@/providers/PotentialSectionsStore';
 import { toActivityMetrics } from '@/lib/utils/activityMetrics';
-import type { Activity, PotentialSection } from '@/types';
+import type { Activity } from '@/types';
 import type { SyncProgress } from './useRouteSyncProgress';
 
 export interface GpsFetchResult {
@@ -48,11 +40,6 @@ interface FetchDeps {
   /** Function to update progress state */
   updateProgress: (updater: SyncProgress | ((prev: SyncProgress) => SyncProgress)) => void;
 }
-
-/**
- * Minimum number of activities before running potential section detection.
- */
-const MIN_ACTIVITIES_FOR_POTENTIAL_DETECTION = 10;
 
 /**
  * Phase weights for section detection progress calculation.
@@ -135,28 +122,6 @@ function getSectionDetectionMessage(phase: string, completed: number, total: num
 
   const percent = calculateOverallProgress(phase, completed, total);
   return i18n.t('cache.analyzingRoutesProgress', { percent });
-}
-
-/**
- * Run potential section detection and store results.
- *
- * NOTE: This is intentionally SKIPPED during initial sync to keep the sync fast.
- * Potential sections (1-2 activity overlaps) are a nice-to-have feature that
- * can be detected lazily when the user views the Routes screen.
- *
- * The full implementation has been moved to a separate lazy detection system.
- * This stub is kept to maintain the API signature for callers.
- */
-async function runPotentialSectionDetection(
-  _nativeModule: ReturnType<typeof getNativeModule>,
-  _updateProgress?: (p: SyncProgress) => void
-): Promise<void> {
-  // Skip potential section detection during sync to keep it fast
-  // This operation is expensive (54+ FFI calls for getGpsTrack + synchronous detection)
-  // and blocks the UI. Potential sections can be detected lazily when viewing Routes screen.
-  if (__DEV__) {
-    console.log('[runPotentialSectionDetection] Skipping during sync for performance');
-  }
 }
 
 /**
@@ -380,11 +345,6 @@ export function useGpsDataFetcher() {
 
         // Section detection complete - refresh groups now that they're computed
         routeEngine.triggerRefresh('groups');
-
-        // Run potential section detection after regular detection completes
-        if (isMountedRef.current && !abortSignal.aborted) {
-          await runPotentialSectionDetection(nativeModule, updateProgress);
-        }
 
         if (isMountedRef.current) {
           updateProgress({
@@ -692,12 +652,6 @@ export function useGpsDataFetcher() {
 
         // Section detection complete - refresh groups now that they're computed
         routeEngine.triggerRefresh('groups');
-
-        // Run potential section detection
-        if (isMountedRef.current && !abortSignal.aborted) {
-          await new Promise((resolve) => setTimeout(resolve, 0));
-          await runPotentialSectionDetection(nativeModule, updateProgress);
-        }
       }
 
       // Final progress update

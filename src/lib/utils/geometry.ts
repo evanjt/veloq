@@ -3,6 +3,57 @@
  */
 
 /**
+ * Haversine distance between two points in meters.
+ */
+export function haversineDistance(
+  point1: { lat: number; lng: number },
+  point2: { lat: number; lng: number }
+): number {
+  const R = 6371000; // Earth radius in meters
+  const dLat = ((point2.lat - point1.lat) * Math.PI) / 180;
+  const dLon = ((point2.lng - point1.lng) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((point1.lat * Math.PI) / 180) *
+      Math.cos((point2.lat * Math.PI) / 180) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+/**
+ * Compute overlap between two polylines.
+ * Returns 0-1 representing the fraction of polylineA points that are close to polylineB.
+ *
+ * @param polylineA - First polyline
+ * @param polylineB - Second polyline
+ * @param thresholdMeters - Distance threshold for considering points as matching (default 50m)
+ * @returns Overlap ratio (0-1)
+ */
+export function computePolylineOverlap(
+  polylineA: Array<{ lat: number; lng: number }>,
+  polylineB: Array<{ lat: number; lng: number }>,
+  thresholdMeters = 50
+): number {
+  if (polylineA.length === 0 || polylineB.length === 0) return 0;
+
+  let matchedCount = 0;
+
+  for (const pointA of polylineA) {
+    for (const pointB of polylineB) {
+      const distance = haversineDistance(pointA, pointB);
+      if (distance <= thresholdMeters) {
+        matchedCount++;
+        break;
+      }
+    }
+  }
+
+  return matchedCount / polylineA.length;
+}
+
+/**
  * Calculate perpendicular distance from a point to a line segment.
  * Uses equirectangular approximation for conversion to meters.
  */

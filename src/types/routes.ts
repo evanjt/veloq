@@ -520,3 +520,38 @@ export interface PerformanceDataPoint {
   sectionDistance?: number;
   lapCount?: number;
 }
+
+/**
+ * Per-direction summary statistics from Rust engine.
+ * Used by both section and route performance hooks.
+ */
+export interface DirectionStats {
+  avgTime: number | null;
+  lastActivity: Date | null;
+  count: number;
+}
+
+/**
+ * Raw direction stats from Rust (before Date conversion).
+ * Used internally for parsing JSON responses.
+ */
+export interface RawDirectionStats {
+  avgTime?: number;
+  lastActivity?: number; // Unix timestamp in seconds
+  count?: number;
+}
+
+/**
+ * Parse direction stats from Rust engine response.
+ * Converts Unix timestamps (seconds) to JS Date objects.
+ */
+export function parseDirectionStats(
+  stats: RawDirectionStats | null | undefined
+): DirectionStats | null {
+  if (!stats) return null;
+  return {
+    avgTime: stats.avgTime ?? null,
+    lastActivity: stats.lastActivity ? new Date(stats.lastActivity * 1000) : null,
+    count: stats.count ?? 0,
+  };
+}

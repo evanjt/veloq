@@ -1,7 +1,22 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { intervalsApi } from '@/api';
-import { routeEngine } from 'veloqrs';
-import type { FrequentSection, ActivityStreams } from '@/types';
+import { routeEngine, type SectionPerformanceResult } from 'veloqrs';
+import type { FrequentSection, ActivityStreams, DirectionStats } from '@/types';
+
+/**
+ * Convert FFI DirectionStats to TypeScript DirectionStats.
+ * Converts Unix timestamp (seconds) to JS Date.
+ */
+function toDirectionStats(
+  ffi: { avgTime?: number | null; lastActivity?: number | null; count: number } | null | undefined
+): DirectionStats | null {
+  if (!ffi) return null;
+  return {
+    avgTime: ffi.avgTime ?? null,
+    lastActivity: ffi.lastActivity ? new Date(ffi.lastActivity * 1000) : null,
+    count: ffi.count,
+  };
+}
 
 /**
  * Individual lap/traversal of a section
@@ -70,13 +85,6 @@ interface UseSectionPerformancesResult {
   reverseStats: DirectionStats | null;
   /** Refetch all streams */
   refetch: () => void;
-}
-
-/** Per-direction summary statistics from Rust */
-export interface DirectionStats {
-  avgTime: number | null;
-  lastActivity: Date | null;
-  count: number;
 }
 
 interface Activity {
@@ -195,11 +203,11 @@ export function useSectionPerformances(
     useMemo(() => {
       const emptyResult = {
         records: [] as ActivitySectionRecord[],
-        bestRecord: null,
-        bestForwardRecord: null,
-        bestReverseRecord: null,
-        forwardStats: null,
-        reverseStats: null,
+        bestRecord: null as ActivitySectionRecord | null,
+        bestForwardRecord: null as ActivitySectionRecord | null,
+        bestReverseRecord: null as ActivitySectionRecord | null,
+        forwardStats: null as DirectionStats | null,
+        reverseStats: null as DirectionStats | null,
       };
 
       if (!section || !activities || !fetchComplete) {
@@ -207,170 +215,46 @@ export function useSectionPerformances(
       }
 
       try {
-        // Get calculated performances from Rust engine
-        // Rust auto-loads time streams from SQLite for any missing from memory
-        const resultJson = routeEngine.getSectionPerformances(section.id);
-        if (!resultJson) {
-          return emptyResult;
-        }
+        // Get typed performance result directly from Rust engine (no JSON parsing)
+        const result: SectionPerformanceResult = routeEngine.getSectionPerformances(section.id);
 
-        // Parse the JSON response
-        const result = JSON.parse(resultJson);
-        if (!result || !result.records) {
-          // Fall back to generating basic records from section data
-          const recordList: ActivitySectionRecord[] = activities.map((a) => {
-            const portion = section.activityPortions?.find((p) => p.activityId === a.id);
-            const direction = (portion?.direction || 'same') as 'same' | 'reverse';
-            const sectionDistance = portion?.distanceMeters || section.distanceMeters;
-
-            return {
-              activityId: a.id,
-              activityName: a.name,
-              activityDate: new Date(a.start_date_local),
-              laps: [],
-              lapCount: 1,
-              bestTime: 0,
-              bestPace: 0,
-              avgTime: 0,
-              avgPace: 0,
-              direction,
-              sectionDistance,
-            };
-          });
-
-          return {
-            records: recordList,
-            bestRecord: recordList[0] || null,
-            bestForwardRecord: null,
-            bestReverseRecord: null,
-            forwardStats: null,
-            reverseStats: null,
-          };
-        }
-
-        // Convert to ActivitySectionRecord format (add Date objects)
-        const recordList: ActivitySectionRecord[] = (result.records || []).map(
-          (r: {
-            activityId: string;
-            activityName: string;
-            activityDate: number;
-            laps: Array<{
-              id: string;
-              activityId: string;
-              time: number;
-              pace: number;
-              distance: number;
-              direction: string;
-              startIndex: number;
-              endIndex: number;
-            }>;
-            lapCount: number;
-            bestTime: number;
-            bestPace: number;
-            avgTime: number;
-            avgPace: number;
-            direction: string;
-            sectionDistance: number;
-          }) => ({
-            activityId: r.activityId,
-            activityName: r.activityName,
-            activityDate: new Date(r.activityDate * 1000), // Convert Unix timestamp
-            laps: (r.laps || []).map((l) => ({
-              id: l.id,
-              activityId: l.activityId,
-              time: l.time,
-              pace: l.pace,
-              distance: l.distance,
-              direction: l.direction as 'same' | 'reverse',
-              startIndex: l.startIndex,
-              endIndex: l.endIndex,
-            })),
-            lapCount: r.lapCount,
-            bestTime: r.bestTime,
-            bestPace: r.bestPace,
-            avgTime: r.avgTime,
-            avgPace: r.avgPace,
-            direction: r.direction as 'same' | 'reverse',
-            sectionDistance: r.sectionDistance,
-          })
-        );
-
-        // Helper to parse a best record from JSON
-        const parseBestRecord = (
-          record: {
-            activityId: string;
-            activityName: string;
-            activityDate: number;
-            laps: Array<{
-              id: string;
-              activityId: string;
-              time: number;
-              pace: number;
-              distance: number;
-              direction: string;
-              startIndex: number;
-              endIndex: number;
-            }>;
-            lapCount: number;
-            bestTime: number;
-            bestPace: number;
-            avgTime: number;
-            avgPace: number;
-            direction: string;
-            sectionDistance: number;
-          } | null
-        ): ActivitySectionRecord | null => {
-          if (!record) return null;
-          return {
-            activityId: record.activityId,
-            activityName: record.activityName,
-            activityDate: new Date(record.activityDate * 1000),
-            laps: (record.laps || []).map((l) => ({
-              id: l.id,
-              activityId: l.activityId,
-              time: l.time,
-              pace: l.pace,
-              distance: l.distance,
-              direction: l.direction as 'same' | 'reverse',
-              startIndex: l.startIndex,
-              endIndex: l.endIndex,
-            })),
-            lapCount: record.lapCount,
-            bestTime: record.bestTime,
-            bestPace: record.bestPace,
-            avgTime: record.avgTime,
-            avgPace: record.avgPace,
-            direction: record.direction as 'same' | 'reverse',
-            sectionDistance: record.sectionDistance,
-          };
-        };
-
-        const best = parseBestRecord(result.bestRecord);
-        const bestForward = parseBestRecord(result.bestForwardRecord);
-        const bestReverse = parseBestRecord(result.bestReverseRecord);
-
-        // Parse direction stats from Rust (timestamps are in seconds, JS needs ms)
-        const parseDirectionStats = (
-          stats: { avgTime?: number; lastActivity?: number; count?: number } | null | undefined
-        ): DirectionStats | null => {
-          if (!stats) return null;
-          return {
-            avgTime: stats.avgTime ?? null,
-            lastActivity: stats.lastActivity ? new Date(stats.lastActivity * 1000) : null,
-            count: stats.count ?? 0,
-          };
-        };
-
-        const fwdStats = parseDirectionStats(result.forwardStats);
-        const revStats = parseDirectionStats(result.reverseStats);
+        // Convert FFI record to ActivitySectionRecord (Date conversion)
+        const toActivityRecord = (
+          r: SectionPerformanceResult['records'][0]
+        ): ActivitySectionRecord => ({
+          activityId: r.activityId,
+          activityName: r.activityName,
+          activityDate: new Date(r.activityDate * 1000), // Unix timestamp to Date
+          laps: (r.laps || []).map((l) => ({
+            id: l.id,
+            activityId: l.activityId,
+            time: l.time,
+            pace: l.pace,
+            distance: l.distance,
+            direction: l.direction as 'same' | 'reverse',
+            startIndex: l.startIndex,
+            endIndex: l.endIndex,
+          })),
+          lapCount: r.lapCount,
+          bestTime: r.bestTime,
+          bestPace: r.bestPace,
+          avgTime: r.avgTime,
+          avgPace: r.avgPace,
+          direction: r.direction as 'same' | 'reverse',
+          sectionDistance: r.sectionDistance,
+        });
 
         return {
-          records: recordList,
-          bestRecord: best,
-          bestForwardRecord: bestForward,
-          bestReverseRecord: bestReverse,
-          forwardStats: fwdStats,
-          reverseStats: revStats,
+          records: result.records.map(toActivityRecord),
+          bestRecord: result.bestRecord ? toActivityRecord(result.bestRecord) : null,
+          bestForwardRecord: result.bestForwardRecord
+            ? toActivityRecord(result.bestForwardRecord)
+            : null,
+          bestReverseRecord: result.bestReverseRecord
+            ? toActivityRecord(result.bestReverseRecord)
+            : null,
+          forwardStats: toDirectionStats(result.forwardStats),
+          reverseStats: toDirectionStats(result.reverseStats),
         };
       } catch {
         // Engine may not have data yet - return empty

@@ -7,7 +7,6 @@
 
 // Import the Turbo Module to install JSI bindings
 import NativeVeloqrs from './NativeVeloqrs';
-import { validateCustomSection } from '@/lib/validation/schemas';
 
 // Install the Rust crate into the JS runtime (installs NativeVeloqrs on globalThis)
 const installed = NativeVeloqrs.installRustCrate();
@@ -32,11 +31,10 @@ import {
   persistentEngineStartSectionDetection,
   persistentEnginePollSections,
   persistentEngineCancelSectionDetection,
-  // Direct type returns (no JSON serialization)
+  // Direct type returns
   persistentEngineGetGroups,
   persistentEngineGetSections,
   persistentEngineGetSectionCount,
-  getSectionsForActivityJson,
   persistentEngineGetGroupCount,
   persistentEngineGetSectionSummaries,
   persistentEngineGetSectionSummariesForSport,
@@ -44,16 +42,12 @@ import {
   persistentEngineGetSectionById,
   persistentEngineGetGroupById,
   persistentEngineGetSectionPolyline,
-  persistentEngineGetAllActivityBoundsJson,
   persistentEngineSetRouteName,
   persistentEngineSetSectionName,
   persistentEngineGetRouteName,
   persistentEngineGetSectionName,
-  persistentEngineGetAllRouteNamesJson,
-  persistentEngineGetAllSectionNamesJson,
   persistentEngineGetGpsTrack,
   persistentEngineGetConsensusRoute,
-  persistentEngineGetRoutePerformancesJson,
   persistentEngineSetActivityMetrics,
   persistentEngineQueryViewport,
   persistentEngineGetStats,
@@ -63,12 +57,9 @@ import {
   persistentEngineGetGpsTrackEncoded,
   persistentEngineGetSectionPolylineEncoded,
   persistentEngineExtractSectionTrace,
-  // Unified section functions (replace legacy custom_sections)
+  // Unified section functions
   createSection as ffiCreateSection,
   deleteSection as ffiDeleteSection,
-  getSectionsJson as ffiGetSectionsJson,
-  getSectionJson as ffiGetSectionJson,
-  persistentEngineGetSectionPerformancesJson,
   persistentEngineSetTimeStreamsFlat,
   persistentEngineGetActivitiesMissingTimeStreams,
   persistentEngineGetAllMapActivitiesComplete,
@@ -78,6 +69,14 @@ import {
   fetchActivityMaps,
   fetchActivityMapsWithProgress as generatedFetchWithProgress,
   getDownloadProgress as ffiGetDownloadProgress,
+  // Direct-return functions (no JSON parsing needed)
+  getSectionsForActivity as ffiGetSectionsForActivity,
+  getSections as ffiGetSections,
+  persistentEngineGetAllActivityBounds,
+  persistentEngineGetAllRouteNames,
+  persistentEngineGetAllSectionNames,
+  persistentEngineGetRoutePerformances,
+  persistentEngineGetSectionPerformances,
   type FetchProgressCallback,
   type PersistentEngineStats,
   type FfiActivityMetrics,
@@ -85,6 +84,9 @@ import {
   type FfiRouteGroup,
   type FfiFrequentSection,
   type FfiActivityMapResult,
+  type FfiActivityBoundsInfo,
+  type FfiSectionPerformanceResult,
+  type FfiRoutePerformanceResult,
   type SectionSummary,
   type GroupSummary,
   type DownloadProgressResult,
@@ -98,6 +100,9 @@ export type GpsPoint = FfiGpsPoint;
 export type RouteGroup = FfiRouteGroup;
 export type FrequentSection = FfiFrequentSection;
 export type SectionConfig = FfiSectionConfig;
+export type ActivityBoundsInfo = FfiActivityBoundsInfo;
+export type SectionPerformanceResult = FfiSectionPerformanceResult;
+export type RoutePerformanceResult = FfiRoutePerformanceResult;
 // These are already exported without Ffi prefix:
 export type { PersistentEngineStats, SectionSummary, GroupSummary, DownloadProgressResult, MapActivityComplete };
 
@@ -145,24 +150,16 @@ export interface CustomSection {
 
 /**
  * Raw potential section from Rust (uses GpsPoint polyline, not RoutePoint).
- * Caller should convert polyline using gpsPointsToRoutePoints().
+ * Internal type - not exported. Caller should convert polyline using gpsPointsToRoutePoints().
  */
-export interface RawPotentialSection {
-  /** Unique section ID */
+interface RawPotentialSection {
   id: string;
-  /** Sport type ("Run", "Ride", etc.) */
   sport_type: string;
-  /** GPS points defining the section (Rust format: latitude/longitude) */
   polyline: GpsPoint[];
-  /** Activity IDs that traverse this potential section (1-2) */
   activity_ids: string[];
-  /** Number of times traversed (1-2) */
   visit_count: number;
-  /** Section length in meters */
   distance_meters: number;
-  /** Confidence score (0.0-1.0) */
   confidence: number;
-  /** Scale at which this was detected: "short", "medium", "long" */
   scale: string;
 }
 
@@ -177,71 +174,6 @@ const MAX_NAME_LENGTH = 255;
  * Blocks: null, bell, backspace, form feed, vertical tab, escape, etc.
  */
 const CONTROL_CHAR_REGEX = /[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/;
-
-/**
- * Convert snake_case keys to camelCase.
- * Handles both flat and nested objects/arrays.
- */
-function snakeToCamel(obj: unknown): unknown {
-  if (Array.isArray(obj)) {
-    return obj.map(snakeToCamel);
-  }
-  if (obj !== null && typeof obj === 'object') {
-    const result: Record<string, unknown> = {};
-    for (const [key, value] of Object.entries(obj)) {
-      const camelKey = key.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
-      result[camelKey] = snakeToCamel(value);
-    }
-    return result;
-  }
-  return obj;
-}
-
-/**
- * Check if an object has snake_case keys (indicating old Rust binary).
- * Only checks top-level keys for performance.
- */
-function hasSnakeCaseKeys(obj: unknown): boolean {
-  if (obj !== null && typeof obj === 'object' && !Array.isArray(obj)) {
-    return Object.keys(obj).some((key) => key.includes('_'));
-  }
-  if (Array.isArray(obj) && obj.length > 0) {
-    return hasSnakeCaseKeys(obj[0]);
-  }
-  return false;
-}
-
-/**
- * Safely parse JSON with error handling.
- * Returns the fallback value if parsing fails or input is null/undefined.
- * Automatically transforms snake_case to camelCase for backward compatibility
- * with older Rust binaries that don't have serde(rename_all = "camelCase").
- *
- * @param json - The JSON string to parse
- * @param fallback - The fallback value to return on error
- * @returns The parsed value or fallback
- */
-function safeJsonParse<T>(json: string | null | undefined, fallback: T): T {
-  if (json === null || json === undefined || json === '') {
-    return fallback;
-  }
-  try {
-    const parsed = JSON.parse(json);
-    // Transform snake_case to camelCase if needed (backward compat with old binaries)
-    if (hasSnakeCaseKeys(parsed)) {
-      return snakeToCamel(parsed) as T;
-    }
-    return parsed as T;
-  } catch (error) {
-    if (__DEV__) {
-      console.error(
-        '[RouteMatcher] JSON parse error:',
-        error instanceof Error ? error.message : String(error)
-      );
-    }
-    return fallback;
-  }
-}
 
 /**
  * Validate a user-provided name string.
@@ -343,33 +275,12 @@ export const detectSectionsMultiscale = ffiDetectSectionsMultiscale;
 export const getDefaultScalePresets = defaultScalePresets;
 
 /**
- * Progress event from Rust HTTP fetch operations.
+ * Progress event from fetch operations.
  */
 export interface FetchProgressEvent {
   completed: number;
   total: number;
 }
-
-/**
- * Add a listener for fetch progress events.
- * @deprecated Use fetchActivityMapsWithProgress with onProgress callback instead.
- * This global listener approach is no longer needed - pass callback directly to fetch function.
- */
-export function addFetchProgressListener(_callback: (event: FetchProgressEvent) => void): {
-  remove: () => void;
-} {
-  if (__DEV__) {
-    console.warn(
-      '[RouteMatcher] addFetchProgressListener is deprecated. Use fetchActivityMapsWithProgress with onProgress callback instead.'
-    );
-  }
-  return { remove: () => {} };
-}
-
-/**
- * Alias for EngineStats - backward compatibility.
- */
-export type EngineStats = PersistentEngineStats;
 
 /**
  * Fetch activity maps with optional progress reporting.
@@ -594,14 +505,7 @@ class RouteEngineClient {
    * Returns structured types directly from Rust (no JSON serialization).
    */
   getGroups(): RouteGroup[] {
-    const _start = __DEV__ ? performance.now() : 0;
-    const groups = persistentEngineGetGroups();
-    if (__DEV__) {
-      const dur = performance.now() - _start;
-      const icon = dur > 100 ? '🔴' : dur > 50 ? '🟡' : '🟢';
-      console.log(`${icon} [FFI] getGroups: ${dur.toFixed(1)}ms`);
-    }
-    return groups;
+    return persistentEngineGetGroups();
   }
 
   /**
@@ -609,14 +513,7 @@ class RouteEngineClient {
    * Returns structured types directly from Rust (no JSON serialization).
    */
   getSections(): FrequentSection[] {
-    const _start = __DEV__ ? performance.now() : 0;
-    const result = persistentEngineGetSections();
-    if (__DEV__) {
-      const dur = performance.now() - _start;
-      const icon = dur > 100 ? '🔴' : dur > 50 ? '🟡' : '🟢';
-      console.log(`${icon} [FFI] getSections: ${dur.toFixed(1)}ms`);
-    }
-    return result;
+    return persistentEngineGetSections();
   }
 
   // ========================================================================
@@ -637,15 +534,7 @@ class RouteEngineClient {
    * Much faster than getSections() when you only need sections for one activity.
    */
   getSectionsForActivity(activityId: string): FrequentSection[] {
-    const _start = __DEV__ ? performance.now() : 0;
-    const json = getSectionsForActivityJson(activityId);
-    const result = safeJsonParse<FrequentSection[]>(json, []);
-    if (__DEV__) {
-      const dur = performance.now() - _start;
-      const icon = dur > 100 ? '🔴' : dur > 50 ? '🟡' : '🟢';
-      console.log(`${icon} [FFI] getSectionsForActivity(${activityId}): ${dur.toFixed(1)}ms`);
-    }
-    return result;
+    return ffiGetSectionsForActivity(activityId);
   }
 
   /**
@@ -661,14 +550,7 @@ class RouteEngineClient {
    * Returns structured types directly from Rust (no JSON serialization).
    */
   getSectionSummaries(): SectionSummary[] {
-    const _start = __DEV__ ? performance.now() : 0;
-    const result = persistentEngineGetSectionSummaries();
-    if (__DEV__) {
-      const dur = performance.now() - _start;
-      const icon = dur > 100 ? '🔴' : dur > 50 ? '🟡' : '🟢';
-      console.log(`${icon} [FFI] getSectionSummaries: ${dur.toFixed(1)}ms`);
-    }
-    return result;
+    return persistentEngineGetSectionSummaries();
   }
 
   /**
@@ -676,14 +558,7 @@ class RouteEngineClient {
    * Returns structured types directly from Rust (no JSON serialization).
    */
   getSectionSummariesForSport(sportType: string): SectionSummary[] {
-    const _start = __DEV__ ? performance.now() : 0;
-    const result = persistentEngineGetSectionSummariesForSport(sportType);
-    if (__DEV__) {
-      const dur = performance.now() - _start;
-      const icon = dur > 100 ? '🔴' : dur > 50 ? '🟡' : '🟢';
-      console.log(`${icon} [FFI] getSectionSummariesForSport(${sportType}): ${dur.toFixed(1)}ms`);
-    }
-    return result;
+    return persistentEngineGetSectionSummariesForSport(sportType);
   }
 
   /**
@@ -733,39 +608,23 @@ class RouteEngineClient {
 
   /**
    * Get all activity bounds.
-   * Rust returns array of {id, bounds: [[minLat, minLng], [maxLat, maxLng]], activityType, distance}
+   * Returns a Map of activityId -> bounds.
    */
   getAllActivityBounds(): Map<
     string,
     { minLat: number; maxLat: number; minLng: number; maxLng: number }
   > {
-    const json = persistentEngineGetAllActivityBoundsJson();
-    interface RustBoundsInfo {
-      id: string;
-      bounds: [[number, number], [number, number]]; // [[minLat, minLng], [maxLat, maxLng]]
-      activityType: string;
-      distance: number;
-    }
-    const arr = safeJsonParse<RustBoundsInfo[]>(json, []);
-
-    // Debug: Log first item's raw JSON structure to verify Rust output format
-    if (__DEV__ && arr.length > 0) {
-      const sample = arr[0];
-      console.log(
-        `[RouteEngine.getAllActivityBounds] Sample raw bounds from Rust: id=${sample.id}, bounds=${JSON.stringify(sample.bounds)}`
-      );
-    }
-
+    const boundsArray = persistentEngineGetAllActivityBounds();
     const result = new Map<
       string,
       { minLat: number; maxLat: number; minLng: number; maxLng: number }
     >();
-    for (const item of arr) {
+    for (const item of boundsArray) {
       result.set(item.id, {
-        minLat: item.bounds[0][0],
-        minLng: item.bounds[0][1],
-        maxLat: item.bounds[1][0],
-        maxLng: item.bounds[1][1],
+        minLat: item.minLat,
+        minLng: item.minLng,
+        maxLat: item.maxLat,
+        maxLng: item.maxLng,
       });
     }
     return result;
@@ -839,8 +698,7 @@ class RouteEngineClient {
    * Returns a map of routeId -> customName for all routes with custom names.
    */
   getAllRouteNames(): Record<string, string> {
-    const json = persistentEngineGetAllRouteNamesJson();
-    return json ? JSON.parse(json) : {};
+    return persistentEngineGetAllRouteNames();
   }
 
   /**
@@ -848,8 +706,7 @@ class RouteEngineClient {
    * Returns a map of sectionId -> customName for all sections with custom names.
    */
   getAllSectionNames(): Record<string, string> {
-    const json = persistentEngineGetAllSectionNamesJson();
-    return json ? JSON.parse(json) : {};
+    return persistentEngineGetAllSectionNames();
   }
 
   /**
@@ -881,23 +738,30 @@ class RouteEngineClient {
 
   /**
    * Get route performances.
+   * Returns structured performance data directly (no JSON parsing).
    */
-  getRoutePerformances(routeGroupId: string, currentActivityId: string): string {
+  getRoutePerformances(
+    routeGroupId: string,
+    currentActivityId: string
+  ): FfiRoutePerformanceResult {
     validateId(routeGroupId, 'route group ID');
-    // currentActivityId can be empty string to get all performances
     if (currentActivityId !== '') {
       validateId(currentActivityId, 'activity ID');
     }
-    return persistentEngineGetRoutePerformancesJson(routeGroupId, currentActivityId);
+    return persistentEngineGetRoutePerformances(
+      routeGroupId,
+      currentActivityId || undefined
+    );
   }
 
   /**
    * Get section performances with accurate time-based calculations.
    * Uses time streams to calculate actual traversal times for each section lap.
    * Supports both engine-detected sections and custom sections.
+   * Returns structured performance data directly (no JSON parsing).
    */
-  getSectionPerformances(sectionId: string): string {
-    return persistentEngineGetSectionPerformancesJson(sectionId);
+  getSectionPerformances(sectionId: string): FfiSectionPerformanceResult {
+    return persistentEngineGetSectionPerformances(sectionId);
   }
 
   /**
@@ -963,8 +827,7 @@ class RouteEngineClient {
    * @param sectionType - 'auto', 'custom', or undefined for all sections
    */
   getSectionsByType(sectionType?: 'auto' | 'custom'): FrequentSection[] {
-    const json = ffiGetSectionsJson(sectionType);
-    return safeJsonParse<FrequentSection[]>(json, []);
+    return ffiGetSections(sectionType);
   }
 
   /**
@@ -1057,7 +920,12 @@ class RouteEngineClient {
    */
   detectPotentials(sportFilter?: string): RawPotentialSection[] {
     const json = persistentEngineDetectPotentials(sportFilter);
-    return safeJsonParse<RawPotentialSection[]>(json, []);
+    if (!json) return [];
+    try {
+      return JSON.parse(json) as RawPotentialSection[];
+    } catch {
+      return [];
+    }
   }
 
   /**

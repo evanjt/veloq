@@ -13,6 +13,7 @@ import { useSectionDismissals } from '@/providers/SectionDismissalsStore';
 import { useSupersededSections, useDisabledSections } from '@/providers';
 import { getRouteEngine } from '@/lib/native/routeEngine';
 import { generateSectionName } from '@/lib/utils/sectionNaming';
+import { computePolylineOverlap } from '@/lib/utils/geometry';
 import type { FrequentSection, UnifiedSection, RoutePoint } from '@/types';
 
 // Re-export for backwards compatibility
@@ -44,45 +45,6 @@ export interface UseUnifiedSectionsResult {
   isLoading: boolean;
   /** Error state */
   error: Error | null;
-}
-
-/**
- * Compute overlap between two polylines.
- * Only used for potential sections (not for custom/auto overlap which is pre-computed).
- * Returns 0-1 representing the fraction of overlap.
- */
-function computePolylineOverlap(
-  polylineA: RoutePoint[],
-  polylineB: RoutePoint[],
-  threshold = 50 // meters
-): number {
-  if (polylineA.length === 0 || polylineB.length === 0) return 0;
-
-  const R = 6371000; // Earth radius in meters
-
-  let matchedCount = 0;
-  for (const pointA of polylineA) {
-    for (const pointB of polylineB) {
-      // Simplified Haversine
-      const dLat = ((pointB.lat - pointA.lat) * Math.PI) / 180;
-      const dLon = ((pointB.lng - pointA.lng) * Math.PI) / 180;
-      const a =
-        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-        Math.cos((pointA.lat * Math.PI) / 180) *
-          Math.cos((pointB.lat * Math.PI) / 180) *
-          Math.sin(dLon / 2) *
-          Math.sin(dLon / 2);
-      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-      const distance = R * c;
-
-      if (distance <= threshold) {
-        matchedCount++;
-        break; // This point matches, move to next
-      }
-    }
-  }
-
-  return matchedCount / polylineA.length;
 }
 
 /**
