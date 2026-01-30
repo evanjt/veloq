@@ -2,21 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { intervalsApi } from '@/api';
 import { routeEngine, type SectionPerformanceResult } from 'veloqrs';
 import type { FrequentSection, ActivityStreams, DirectionStats } from '@/types';
-
-/**
- * Convert FFI DirectionStats to TypeScript DirectionStats.
- * Converts Unix timestamp (seconds) to JS Date.
- */
-function toDirectionStats(
-  ffi: { avgTime?: number | null; lastActivity?: number | null; count: number } | null | undefined
-): DirectionStats | null {
-  if (!ffi) return null;
-  return {
-    avgTime: ffi.avgTime ?? null,
-    lastActivity: ffi.lastActivity ? new Date(ffi.lastActivity * 1000) : null,
-    count: ffi.count,
-  };
-}
+import { toDirectionStats, castDirection, fromUnixSeconds } from '@/lib/utils/ffiConversions';
 
 /**
  * Individual lap/traversal of a section
@@ -224,14 +210,14 @@ export function useSectionPerformances(
         ): ActivitySectionRecord => ({
           activityId: r.activityId,
           activityName: r.activityName,
-          activityDate: new Date(r.activityDate * 1000), // Unix timestamp to Date
+          activityDate: fromUnixSeconds(r.activityDate) ?? new Date(),
           laps: (r.laps || []).map((l) => ({
             id: l.id,
             activityId: l.activityId,
             time: l.time,
             pace: l.pace,
             distance: l.distance,
-            direction: l.direction as 'same' | 'reverse',
+            direction: castDirection(l.direction),
             startIndex: l.startIndex,
             endIndex: l.endIndex,
           })),
@@ -240,7 +226,7 @@ export function useSectionPerformances(
           bestPace: r.bestPace,
           avgTime: r.avgTime,
           avgPace: r.avgPace,
-          direction: r.direction as 'same' | 'reverse',
+          direction: castDirection(r.direction),
           sectionDistance: r.sectionDistance,
         });
 

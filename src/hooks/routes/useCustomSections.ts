@@ -101,15 +101,14 @@ export function useCustomSections(options: UseCustomSectionsOptions = {}): UseCu
       const sections = engine.getSectionsByType('custom');
 
       // Convert polylines to RoutePoint format
+      // Note: FfiSection doesn't have activityPortions - it's optional in the app type
       return sections.map((s) => ({
         ...s,
         polyline: gpsPointsToRoutePoints(s.polyline as unknown as GpsPoint[]),
         sectionType: 'custom' as const,
         createdAt: s.createdAt || new Date().toISOString(),
-        activityPortions: s.activityPortions?.map((p) => ({
-          ...p,
-          direction: (p.direction === 'reverse' ? 'reverse' : 'same') as 'same' | 'reverse',
-        })),
+        // FfiSection doesn't have activityPortions
+        activityPortions: undefined,
       })) as Section[];
     },
     staleTime: 1000 * 60 * 5, // 5 minutes

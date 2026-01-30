@@ -547,23 +547,6 @@ impl From<crate::sections::Section> for FfiSection {
 }
 
 // ============================================================================
-// Activity Bounds Types
-// ============================================================================
-
-/// Activity bounds information for FFI.
-/// Replaces the JSON-returning `persistent_engine_get_all_activity_bounds_json()`.
-#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
-#[serde(rename_all = "camelCase")]
-pub struct FfiActivityBoundsInfo {
-    pub id: String,
-    pub min_lat: f64,
-    pub min_lng: f64,
-    pub max_lat: f64,
-    pub max_lng: f64,
-    pub activity_type: String,
-    pub distance: f64,
-}
-
 // ============================================================================
 // Performance Types
 // ============================================================================
@@ -819,22 +802,6 @@ pub fn default_scale_presets() -> Vec<FfiScalePreset> {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn test_ffi_activity_bounds_info_creation() {
-        let info = FfiActivityBoundsInfo {
-            id: "test_123".to_string(),
-            min_lat: 40.0,
-            min_lng: -74.0,
-            max_lat: 41.0,
-            max_lng: -73.0,
-            activity_type: "Ride".to_string(),
-            distance: 10000.0,
-        };
-        assert_eq!(info.id, "test_123");
-        assert_eq!(info.activity_type, "Ride");
-        assert_eq!(info.distance, 10000.0);
-    }
 
     #[test]
     fn test_ffi_direction_stats_from_tracematch() {

@@ -3922,21 +3922,6 @@ pub mod persistent_engine_ffi {
             }
         });
     }
-
-    /// Remove activities by ID.
-    #[uniffi::export]
-    pub fn persistent_engine_remove_activities(activity_ids: Vec<String>) {
-        info!(
-            "tracematch: [PersistentEngine] Removing {} activities",
-            activity_ids.len()
-        );
-        with_persistent_engine(|engine| {
-            for id in &activity_ids {
-                engine.remove_activity(id).ok();
-            }
-        });
-    }
-
     /// Get all activity IDs.
     #[uniffi::export]
     pub fn persistent_engine_get_activity_ids() -> Vec<String> {
@@ -3987,14 +3972,6 @@ pub mod persistent_engine_ffi {
     }
 
     /// Get the name for a section.
-    /// Returns empty string if no name is set.
-    #[uniffi::export]
-    pub fn persistent_engine_get_section_name(section_id: String) -> String {
-        with_persistent_engine(|e| e.get_section_name(&section_id))
-            .flatten()
-            .unwrap_or_default()
-    }
-
     /// Set activity metrics for performance calculations.
     #[uniffi::export]
     pub fn persistent_engine_set_activity_metrics(metrics: Vec<crate::FfiActivityMetrics>) {
@@ -4034,35 +4011,6 @@ pub mod persistent_engine_ffi {
     // ========================================================================
     // Non-JSON FFI Functions (Clean FFI Boundary)
     // ========================================================================
-
-    /// Get all activity bounds info for map display.
-    /// Returns structured data instead of JSON string.
-    #[uniffi::export]
-    pub fn persistent_engine_get_all_activity_bounds() -> Vec<crate::FfiActivityBoundsInfo> {
-        with_persistent_engine(|e| {
-            e.activity_metadata
-                .values()
-                .map(|m| {
-                    let distance = e
-                        .activity_metrics
-                        .get(&m.id)
-                        .map(|metrics| metrics.distance)
-                        .unwrap_or(0.0);
-
-                    crate::FfiActivityBoundsInfo {
-                        id: m.id.clone(),
-                        min_lat: m.bounds.min_lat,
-                        min_lng: m.bounds.min_lng,
-                        max_lat: m.bounds.max_lat,
-                        max_lng: m.bounds.max_lng,
-                        activity_type: m.sport_type.clone(),
-                        distance,
-                    }
-                })
-                .collect()
-        })
-        .unwrap_or_default()
-    }
 
     /// Get all custom route names.
     /// Returns a HashMap instead of JSON string.
@@ -4352,16 +4300,6 @@ pub mod persistent_engine_ffi {
         }
     }
 
-    /// Cancel any running section detection.
-    #[uniffi::export]
-    pub fn persistent_engine_cancel_section_detection() {
-        let mut handle_guard = SECTION_DETECTION_HANDLE.lock().unwrap();
-        if handle_guard.is_some() {
-            *handle_guard = None;
-            info!("tracematch: [PersistentEngine] Section detection cancelled");
-        }
-    }
-
     /// Detect potential sections using GPS tracks from SQLite.
     /// This eliminates the N+1 FFI call pattern - single call, all loading internal.
     /// Returns JSON array of potential sections.
@@ -4627,46 +4565,6 @@ pub mod persistent_engine_ffi {
             .unwrap_or_default()
     }
 
-    /// Get GPS track as encoded polyline string.
-    /// Much smaller than flat coordinate arrays.
-    #[uniffi::export]
-    pub fn persistent_engine_get_gps_track_encoded(activity_id: String) -> String {
-        use geo::LineString;
-
-        with_persistent_engine(|e| {
-            e.get_gps_track(&activity_id).map(|track| {
-                let line: LineString<f64> = track
-                    .iter()
-                    .map(|p| (p.longitude, p.latitude))
-                    .collect();
-                polyline::encode_coordinates(line, 5).unwrap_or_default()
-            })
-        })
-        .flatten()
-        .unwrap_or_default()
-    }
-
-    /// Get section polyline as encoded string.
-    #[uniffi::export]
-    pub fn persistent_engine_get_section_polyline_encoded(section_id: String) -> String {
-        use geo::LineString;
-
-        with_persistent_engine(|e| {
-            // Find section in unified sections table (both auto-detected and custom)
-            if let Some(section) = e.sections.iter().find(|s| s.id == section_id) {
-                let line: LineString<f64> = section
-                    .polyline
-                    .iter()
-                    .map(|p| (p.longitude, p.latitude))
-                    .collect();
-                return Some(polyline::encode_coordinates(line, 5).unwrap_or_default());
-            }
-
-            None
-        })
-        .flatten()
-        .unwrap_or_default()
-    }
 }
 
 // ============================================================================

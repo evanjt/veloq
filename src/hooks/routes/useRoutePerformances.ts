@@ -10,21 +10,7 @@ import { getRouteEngine } from '@/lib/native/routeEngine';
 import type { Activity, RouteGroup, MatchDirection, DirectionStats } from '@/types';
 import { toActivityType } from '@/types';
 import type { RoutePerformanceResult } from 'veloqrs';
-
-/**
- * Convert FFI DirectionStats to TypeScript DirectionStats.
- * Converts Unix timestamp (seconds) to JS Date.
- */
-function toDirectionStats(
-  ffi: { avgTime?: number | null; lastActivity?: number | null; count: number } | null | undefined
-): DirectionStats | null {
-  if (!ffi) return null;
-  return {
-    avgTime: ffi.avgTime ?? null,
-    lastActivity: ffi.lastActivity ? new Date(ffi.lastActivity * 1000) : null,
-    count: ffi.count,
-  };
-}
+import { toDirectionStats } from '@/lib/utils/ffiConversions';
 
 /** Match info returned from the Rust engine (uses camelCase from serde) */
 interface RustMatchInfo {

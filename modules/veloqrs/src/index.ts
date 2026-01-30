@@ -25,12 +25,10 @@ import {
   persistentEngineAddActivities,
   persistentEngineGetActivityIds,
   persistentEngineGetActivityCount,
-  persistentEngineRemoveActivities,
   persistentEngineCleanupOldActivities,
   persistentEngineMarkForRecomputation,
   persistentEngineStartSectionDetection,
   persistentEnginePollSections,
-  persistentEngineCancelSectionDetection,
   // Direct type returns
   persistentEngineGetGroups,
   persistentEngineGetSections,
@@ -45,7 +43,6 @@ import {
   persistentEngineSetRouteName,
   persistentEngineSetSectionName,
   persistentEngineGetRouteName,
-  persistentEngineGetSectionName,
   persistentEngineGetGpsTrack,
   persistentEngineGetConsensusRoute,
   persistentEngineSetActivityMetrics,
@@ -54,8 +51,6 @@ import {
   persistentEngineDetectPotentials,
   encodeCoordinatesToPolyline,
   decodePolylineToCoordinates,
-  persistentEngineGetGpsTrackEncoded,
-  persistentEngineGetSectionPolylineEncoded,
   persistentEngineExtractSectionTrace,
   // Unified section functions
   createSection as ffiCreateSection,
@@ -72,7 +67,6 @@ import {
   // Direct-return functions (no JSON parsing needed)
   getSectionsForActivity as ffiGetSectionsForActivity,
   getSections as ffiGetSections,
-  persistentEngineGetAllActivityBounds,
   persistentEngineGetAllRouteNames,
   persistentEngineGetAllSectionNames,
   persistentEngineGetRoutePerformances,
@@ -83,8 +77,8 @@ import {
   type FfiGpsPoint,
   type FfiRouteGroup,
   type FfiFrequentSection,
+  type FfiSection,
   type FfiActivityMapResult,
-  type FfiActivityBoundsInfo,
   type FfiSectionPerformanceResult,
   type FfiRoutePerformanceResult,
   type SectionSummary,
@@ -99,8 +93,8 @@ export type ActivityMetrics = FfiActivityMetrics;
 export type GpsPoint = FfiGpsPoint;
 export type RouteGroup = FfiRouteGroup;
 export type FrequentSection = FfiFrequentSection;
+export type Section = FfiSection;
 export type SectionConfig = FfiSectionConfig;
-export type ActivityBoundsInfo = FfiActivityBoundsInfo;
 export type SectionPerformanceResult = FfiSectionPerformanceResult;
 export type RoutePerformanceResult = FfiRoutePerformanceResult;
 // These are already exported without Ffi prefix:
@@ -374,10 +368,7 @@ class RouteEngineClient {
    */
   clear(): void {
     persistentEngineClear();
-    this.notify('activities');
-    this.notify('groups');
-    this.notify('sections');
-    this.notify('syncReset');
+    this.notifyAll('activities', 'groups', 'sections', 'syncReset');
   }
 
   /**
@@ -390,9 +381,8 @@ class RouteEngineClient {
     sportTypes: string[]
   ): Promise<void> {
     persistentEngineAddActivities(activityIds, allCoords, offsets, sportTypes);
-    this.notify('activities');
-    // Notify groups so UI can refresh route counts (groups are computed lazily)
-    this.notify('groups');
+    // Notify activities and groups (groups are computed lazily)
+    this.notifyAll('activities', 'groups');
   }
 
   /**
@@ -410,22 +400,12 @@ class RouteEngineClient {
   }
 
   /**
-   * Remove activities from the engine.
-   */
-  removeActivities(activityIds: string[]): void {
-    persistentEngineRemoveActivities(activityIds);
-    this.notify('activities');
-  }
-
-  /**
    * Cleanup old activities.
    */
   cleanupOldActivities(retentionDays: number): number {
     const deleted = persistentEngineCleanupOldActivities(retentionDays);
     if (deleted > 0) {
-      this.notify('activities');
-      this.notify('groups');
-      this.notify('sections');
+      this.notifyAll('activities', 'groups', 'sections');
     }
     return deleted;
   }
@@ -455,13 +435,6 @@ class RouteEngineClient {
       this.notify('sections');
     }
     return status;
-  }
-
-  /**
-   * Cancel section detection.
-   */
-  cancelSectionDetection(): void {
-    persistentEngineCancelSectionDetection();
   }
 
   /**
@@ -533,7 +506,7 @@ class RouteEngineClient {
    * Uses junction table for O(1) lookup instead of deserializing all sections.
    * Much faster than getSections() when you only need sections for one activity.
    */
-  getSectionsForActivity(activityId: string): FrequentSection[] {
+  getSectionsForActivity(activityId: string): Section[] {
     return ffiGetSectionsForActivity(activityId);
   }
 
@@ -594,40 +567,7 @@ class RouteEngineClient {
   getSectionPolyline(sectionId: string): GpsPoint[] {
     validateId(sectionId, 'section ID');
     const flatCoords = persistentEngineGetSectionPolyline(sectionId);
-    // Convert flat [lat1, lng1, lat2, lng2, ...] to GpsPoint[]
-    const points: GpsPoint[] = [];
-    for (let i = 0; i < flatCoords.length; i += 2) {
-      points.push({
-        latitude: flatCoords[i],
-        longitude: flatCoords[i + 1],
-        elevation: undefined,
-      });
-    }
-    return points;
-  }
-
-  /**
-   * Get all activity bounds.
-   * Returns a Map of activityId -> bounds.
-   */
-  getAllActivityBounds(): Map<
-    string,
-    { minLat: number; maxLat: number; minLng: number; maxLng: number }
-  > {
-    const boundsArray = persistentEngineGetAllActivityBounds();
-    const result = new Map<
-      string,
-      { minLat: number; maxLat: number; minLng: number; maxLng: number }
-    >();
-    for (const item of boundsArray) {
-      result.set(item.id, {
-        minLat: item.minLat,
-        minLng: item.minLng,
-        maxLat: item.maxLat,
-        maxLng: item.maxLng,
-      });
-    }
-    return result;
+    return flatCoordsToPoints(flatCoords);
   }
 
   /**
@@ -686,19 +626,12 @@ class RouteEngineClient {
   }
 
   /**
-   * Get section name.
-   */
-  getSectionName(sectionId: string): string {
-    validateId(sectionId, 'section ID');
-    return persistentEngineGetSectionName(sectionId);
-  }
-
-  /**
    * Get all custom route names.
    * Returns a map of routeId -> customName for all routes with custom names.
    */
   getAllRouteNames(): Record<string, string> {
-    return persistentEngineGetAllRouteNames();
+    const map = persistentEngineGetAllRouteNames();
+    return Object.fromEntries(map);
   }
 
   /**
@@ -706,7 +639,8 @@ class RouteEngineClient {
    * Returns a map of sectionId -> customName for all sections with custom names.
    */
   getAllSectionNames(): Record<string, string> {
-    return persistentEngineGetAllSectionNames();
+    const map = persistentEngineGetAllSectionNames();
+    return Object.fromEntries(map);
   }
 
   /**
@@ -826,7 +760,7 @@ class RouteEngineClient {
    * Get sections by type.
    * @param sectionType - 'auto', 'custom', or undefined for all sections
    */
-  getSectionsByType(sectionType?: 'auto' | 'custom'): FrequentSection[] {
+  getSectionsByType(sectionType?: 'auto' | 'custom'): Section[] {
     return ffiGetSections(sectionType);
   }
 
@@ -938,29 +872,6 @@ class RouteEngineClient {
   }
 
   // ==========================================================================
-  // Encoded Polyline Methods (~60% smaller than raw coordinates)
-  // ==========================================================================
-
-  /**
-   * Get GPS track as Google-encoded polyline string.
-   * ~60% smaller than flat coordinate arrays.
-   * Decode with @mapbox/polyline or similar library.
-   */
-  getGpsTrackEncoded(activityId: string): string {
-    validateId(activityId, 'activity ID');
-    return persistentEngineGetGpsTrackEncoded(activityId);
-  }
-
-  /**
-   * Get section polyline as Google-encoded string.
-   * Works for both auto-detected and custom sections.
-   */
-  getSectionPolylineEncoded(sectionId: string): string {
-    validateId(sectionId, 'section ID');
-    return persistentEngineGetSectionPolylineEncoded(sectionId);
-  }
-
-  // ==========================================================================
   // Section Reference (Medoid) Methods
   // Uses dynamic require to avoid ESLint removing "unused" imports
   // ==========================================================================
@@ -1038,6 +949,14 @@ class RouteEngineClient {
    */
   private notify(event: string): void {
     this.listeners.get(event)?.forEach((cb) => cb());
+  }
+
+  /**
+   * Notify listeners of multiple events.
+   * Use this to batch notifications when multiple data types are affected.
+   */
+  private notifyAll(...events: string[]): void {
+    events.forEach((event) => this.notify(event));
   }
 
   /**

@@ -13,6 +13,7 @@ import { useEffect, useState, useCallback, useMemo } from 'react';
 import * as FileSystem from 'expo-file-system/legacy';
 import { getRouteEngine } from '@/lib/native/routeEngine';
 import { generateSectionName } from '@/lib/utils/sectionNaming';
+import { convertActivityPortions } from '@/lib/utils/ffiConversions';
 import {
   gpsPointsToRoutePoints,
   type RouteGroup,
@@ -105,23 +106,14 @@ export function createEngineHook<T>(
  * Convert native section (GpsPoint) to app section (RoutePoint).
  */
 function convertNativeSectionToApp(native: NativeFrequentSection): FrequentSection {
-  // Convert polyline from GpsPoint[] to RoutePoint[]
-  const polyline = gpsPointsToRoutePoints(native.polyline);
-
-  // Cast activityPortions direction from string to union type
-  const activityPortions = native.activityPortions?.map((p) => ({
-    ...p,
-    direction: (p.direction === 'reverse' ? 'reverse' : 'same') as 'same' | 'reverse',
-  }));
-
   return {
     id: native.id,
     sectionType: 'auto',
     sportType: native.sportType,
-    polyline,
+    polyline: gpsPointsToRoutePoints(native.polyline),
     representativeActivityId: native.representativeActivityId,
     activityIds: native.activityIds,
-    activityPortions,
+    activityPortions: convertActivityPortions(native.activityPortions),
     routeIds: native.routeIds,
     visitCount: native.visitCount,
     distanceMeters: native.distanceMeters,

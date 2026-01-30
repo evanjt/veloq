@@ -10,44 +10,39 @@ import { useMemo, useState, useEffect, useCallback } from 'react';
 import { getRouteEngine } from '@/lib/native/routeEngine';
 import { useDisabledSections } from '@/providers';
 import { generateSectionName } from '@/lib/utils/sectionNaming';
-import { gpsPointsToRoutePoints, type FrequentSection as NativeFrequentSection } from 'veloqrs';
+import { gpsPointsToRoutePoints, type Section as NativeSection } from 'veloqrs';
 import type { FrequentSection, SectionPortion } from '@/types';
 
 /**
- * Convert native section (GpsPoint) to app section (RoutePoint).
+ * Convert native section (FfiSection) to app section (FrequentSection).
+ * FfiSection is the unified type for both auto and custom sections.
+ * Note: FfiSection does not have activityPortions - those are looked up separately.
  */
-function convertNativeSectionToApp(native: NativeFrequentSection): FrequentSection {
+function convertNativeSectionToApp(native: NativeSection): FrequentSection {
   // Convert polyline from GpsPoint[] to RoutePoint[]
   const polyline = gpsPointsToRoutePoints(native.polyline);
 
   // Use actual section type from database (auto or custom)
-  // Fall back to 'auto' if not present for backwards compatibility
-  const sectionType =
-    (native as unknown as { sectionType?: 'auto' | 'custom' }).sectionType || 'auto';
-
-  // Cast activityPortions direction from string to union type
-  const activityPortions = native.activityPortions?.map((p) => ({
-    ...p,
-    direction: (p.direction === 'reverse' ? 'reverse' : 'same') as 'same' | 'reverse',
-  }));
+  const sectionType = (native.sectionType === 'custom' ? 'custom' : 'auto') as 'auto' | 'custom';
 
   return {
     id: native.id,
     sectionType,
     sportType: native.sportType,
     polyline,
-    representativeActivityId: native.representativeActivityId,
+    representativeActivityId: native.representativeActivityId ?? '',
     activityIds: native.activityIds,
-    activityPortions,
-    routeIds: native.routeIds,
+    // FfiSection doesn't have activityPortions - it's looked up via junction table
+    activityPortions: undefined,
+    routeIds: native.routeIds ?? [],
     visitCount: native.visitCount,
     distanceMeters: native.distanceMeters,
-    name: native.name,
-    confidence: native.confidence,
-    observationCount: native.observationCount,
-    averageSpread: native.averageSpread,
-    pointDensity: native.pointDensity,
-    createdAt: new Date().toISOString(),
+    name: native.name ?? undefined,
+    confidence: native.confidence ?? 0,
+    observationCount: native.observationCount ?? 0,
+    averageSpread: native.averageSpread ?? 0,
+    pointDensity: native.pointDensity ?? [],
+    createdAt: native.createdAt || new Date().toISOString(),
   };
 }
 

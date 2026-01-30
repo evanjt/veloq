@@ -722,9 +722,7 @@ export default function ActivityDetailScreen() {
     (sectionId: string): number | undefined => {
       if (!performanceDataReady) return undefined;
       try {
-        const resultJson = routeEngine.getSectionPerformances(sectionId);
-        if (!resultJson) return undefined;
-        const result = JSON.parse(resultJson);
+        const result = routeEngine.getSectionPerformances(sectionId);
         return result?.bestRecord?.bestTime;
       } catch {
         return undefined;
