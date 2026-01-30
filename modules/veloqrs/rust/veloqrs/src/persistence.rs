@@ -1063,6 +1063,27 @@ impl PersistentRouteEngine {
             .filter_map(|r| r.ok())
             .collect();
 
+        // Clean up orphaned route_names (names for routes that no longer exist)
+        let current_group_ids: std::collections::HashSet<&str> =
+            self.groups.iter().map(|g| g.group_id.as_str()).collect();
+
+        let orphaned_ids: Vec<String> = names.keys()
+            .filter(|id| !current_group_ids.contains(id.as_str()))
+            .cloned()
+            .collect();
+
+        if !orphaned_ids.is_empty() {
+            log::info!(
+                "tracematch: [PersistentEngine] load_route_names: Cleaning up {} orphaned route names",
+                orphaned_ids.len()
+            );
+            let mut delete_stmt = self.db.prepare("DELETE FROM route_names WHERE route_id = ?")?;
+            for id in &orphaned_ids {
+                delete_stmt.execute(params![id])?;
+                names.remove(id);
+            }
+        }
+
         // Migration: Generate names for groups that don't have names yet
         let groups_without_names: Vec<(String, String)> = self
             .groups
@@ -1079,15 +1100,14 @@ impl PersistentRouteEngine {
 
             let route_word = get_route_word();
 
-            // Find the highest existing number for each sport type
-            let mut sport_counters: HashMap<String, u32> = HashMap::new();
+            // Collect which numbers are already taken for each sport type
+            let mut taken_numbers: HashMap<String, std::collections::HashSet<u32>> = HashMap::new();
             for name in names.values() {
                 for sport in ["Ride", "Run", "Hike", "Walk", "Swim", "VirtualRide", "VirtualRun"] {
                     let prefix = format!("{} {} ", sport, route_word);
                     if name.starts_with(&prefix) {
                         if let Ok(num) = name[prefix.len()..].parse::<u32>() {
-                            let counter = sport_counters.entry(sport.to_string()).or_insert(0);
-                            *counter = (*counter).max(num);
+                            taken_numbers.entry(sport.to_string()).or_default().insert(num);
                         }
                     }
                 }
@@ -1098,12 +1118,25 @@ impl PersistentRouteEngine {
                 .db
                 .prepare("INSERT OR IGNORE INTO route_names (route_id, custom_name) VALUES (?, ?)")?;
 
+            // Track next available number for each sport type
+            let mut sport_counters: HashMap<String, u32> = HashMap::new();
+
             for (group_id, sport_type) in groups_without_names {
+                let taken = taken_numbers.entry(sport_type.clone()).or_default();
                 let counter = sport_counters.entry(sport_type.clone()).or_insert(0);
-                *counter += 1;
+
+                // Find next available number (skip taken numbers)
+                loop {
+                    *counter += 1;
+                    if !taken.contains(counter) {
+                        break;
+                    }
+                }
+
                 let new_name = format!("{} {} {}", sport_type, route_word, counter);
                 insert_stmt.execute(params![&group_id, &new_name])?;
-                names.insert(group_id, new_name);
+                names.insert(group_id, new_name.clone());
+                taken.insert(*counter); // Mark this number as taken
             }
         }
 
@@ -1246,16 +1279,15 @@ impl PersistentRouteEngine {
 
         let section_word = get_section_word();
 
-        // Find the highest existing number for each sport type
-        let mut sport_counters: HashMap<String, u32> = HashMap::new();
+        // Collect which numbers are already taken for each sport type
+        let mut taken_numbers: HashMap<String, std::collections::HashSet<u32>> = HashMap::new();
         for section in &self.sections {
             if let Some(ref name) = section.name {
                 for sport in ["Ride", "Run", "Hike", "Walk", "Swim", "VirtualRide", "VirtualRun"] {
                     let prefix = format!("{} {} ", sport, section_word);
                     if name.starts_with(&prefix) {
                         if let Ok(num) = name[prefix.len()..].parse::<u32>() {
-                            let counter = sport_counters.entry(sport.to_string()).or_insert(0);
-                            *counter = (*counter).max(num);
+                            taken_numbers.entry(sport.to_string()).or_default().insert(num);
                         }
                     }
                 }
@@ -1267,11 +1299,24 @@ impl PersistentRouteEngine {
             .db
             .prepare("UPDATE sections SET name = ? WHERE id = ?")?;
 
+        // Track next available number for each sport type
+        let mut sport_counters: HashMap<String, u32> = HashMap::new();
+
         for (section_id, sport_type) in &sections_without_names {
+            let taken = taken_numbers.entry(sport_type.clone()).or_default();
             let counter = sport_counters.entry(sport_type.clone()).or_insert(0);
-            *counter += 1;
+
+            // Find next available number (skip taken numbers)
+            loop {
+                *counter += 1;
+                if !taken.contains(counter) {
+                    break;
+                }
+            }
+
             let new_name = format!("{} {} {}", sport_type, section_word, counter);
             update_stmt.execute(params![&new_name, section_id])?;
+            taken.insert(*counter); // Mark this number as taken
 
             // Update in-memory section
             if let Some(section) = self.sections.iter_mut().find(|s| &s.id == section_id) {
@@ -2245,19 +2290,45 @@ impl PersistentRouteEngine {
                 .collect()
         };
 
-        // Track highest number per sport type to generate unique names
-        let route_word = get_route_word();
-        let mut sport_counters: HashMap<String, u32> = HashMap::new();
+        // Clean up orphaned route_names (names for routes that no longer exist)
+        let current_group_ids: std::collections::HashSet<&str> =
+            self.groups.iter().map(|g| g.group_id.as_str()).collect();
 
-        // Find the highest existing number for each sport type from route_names
+        let orphaned_ids: Vec<String> = existing_names.keys()
+            .filter(|id| !current_group_ids.contains(id.as_str()))
+            .cloned()
+            .collect();
+
+        if !orphaned_ids.is_empty() {
+            log::info!(
+                "tracematch: [PersistentEngine] Cleaning up {} orphaned route names",
+                orphaned_ids.len()
+            );
+            let mut delete_stmt = self.db.prepare("DELETE FROM route_names WHERE route_id = ?")?;
+            for id in &orphaned_ids {
+                delete_stmt.execute(params![id])?;
+            }
+        }
+
+        // Rebuild existing_names after cleanup
+        let existing_names: HashMap<String, String> = {
+            let mut stmt = self.db.prepare("SELECT route_id, custom_name FROM route_names")?;
+            stmt.query_map([], |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?)))?
+                .filter_map(|r| r.ok())
+                .collect()
+        };
+
+        let route_word = get_route_word();
+
+        // Collect which numbers are already taken for each sport type (from user-renamed routes)
+        // Only count names that follow the auto-generated pattern (e.g., "Run Route 1")
+        let mut taken_numbers: HashMap<String, std::collections::HashSet<u32>> = HashMap::new();
         for name in existing_names.values() {
-            // Try to parse names like "Ride Route 5" to extract the number
             for sport in ["Ride", "Run", "Hike", "Walk", "Swim", "VirtualRide", "VirtualRun"] {
                 let prefix = format!("{} {} ", sport, route_word);
                 if name.starts_with(&prefix) {
                     if let Ok(num) = name[prefix.len()..].parse::<u32>() {
-                        let counter = sport_counters.entry(sport.to_string()).or_insert(0);
-                        *counter = (*counter).max(num);
+                        taken_numbers.entry(sport.to_string()).or_default().insert(num);
                     }
                 }
             }
@@ -2275,7 +2346,18 @@ impl PersistentRouteEngine {
             "INSERT OR IGNORE INTO route_names (route_id, custom_name) VALUES (?, ?)"
         )?;
 
-        for group in &self.groups {
+        // Sort groups by sport type and activity count (most activities first)
+        // This ensures consistent, predictable numbering
+        let mut sorted_groups: Vec<&tracematch::RouteGroup> = self.groups.iter().collect();
+        sorted_groups.sort_by(|a, b| {
+            a.sport_type.cmp(&b.sport_type)
+                .then_with(|| b.activity_ids.len().cmp(&a.activity_ids.len()))
+        });
+
+        // Track next available number for each sport type (for sequential assignment)
+        let mut sport_counters: HashMap<String, u32> = HashMap::new();
+
+        for group in sorted_groups {
             let activity_ids_json = serde_json::to_string(&group.activity_ids).unwrap_or_default();
             stmt.execute(params![
                 group.group_id,
@@ -2290,10 +2372,20 @@ impl PersistentRouteEngine {
 
             // Generate unique name if route doesn't already have one
             if !existing_names.contains_key(&group.group_id) {
+                let taken = taken_numbers.entry(group.sport_type.clone()).or_default();
                 let counter = sport_counters.entry(group.sport_type.clone()).or_insert(0);
-                *counter += 1;
+
+                // Find next available number (skip taken numbers)
+                loop {
+                    *counter += 1;
+                    if !taken.contains(counter) {
+                        break;
+                    }
+                }
+
                 let new_name = format!("{} {} {}", group.sport_type, route_word, counter);
                 name_stmt.execute(params![group.group_id, new_name])?;
+                taken.insert(*counter); // Mark this number as taken
             }
         }
 
@@ -2935,19 +3027,16 @@ impl PersistentRouteEngine {
                 .collect()
         };
 
-        // Track highest number per sport type to generate unique section names
         let section_word = get_section_word();
-        let mut sport_counters: HashMap<String, u32> = HashMap::new();
 
-        // Find the highest existing number for each sport type from existing names
+        // Collect which numbers are already taken for each sport type (from custom/user-renamed sections)
+        let mut taken_numbers: HashMap<String, std::collections::HashSet<u32>> = HashMap::new();
         for name in existing_names.values() {
-            // Try to parse names like "Ride Section 5" to extract the number
             for sport in ["Ride", "Run", "Hike", "Walk", "Swim", "VirtualRide", "VirtualRun"] {
                 let prefix = format!("{} {} ", sport, section_word);
                 if name.starts_with(&prefix) {
                     if let Ok(num) = name[prefix.len()..].parse::<u32>() {
-                        let counter = sport_counters.entry(sport.to_string()).or_insert(0);
-                        *counter = (*counter).max(num);
+                        taken_numbers.entry(sport.to_string()).or_default().insert(num);
                     }
                 }
             }
@@ -2965,7 +3054,17 @@ impl PersistentRouteEngine {
             .db
             .prepare("INSERT INTO section_activities (section_id, activity_id) VALUES (?, ?)")?;
 
-        for section in &self.sections {
+        // Sort sections by sport type and activity count for consistent numbering
+        let mut sorted_sections: Vec<&FrequentSection> = self.sections.iter().collect();
+        sorted_sections.sort_by(|a, b| {
+            a.sport_type.cmp(&b.sport_type)
+                .then_with(|| b.activity_ids.len().cmp(&a.activity_ids.len()))
+        });
+
+        // Track next available number for each sport type (for sequential assignment)
+        let mut sport_counters: HashMap<String, u32> = HashMap::new();
+
+        for section in sorted_sections {
             let polyline_json = serde_json::to_string(&section.polyline)
                 .unwrap_or_else(|_| "[]".to_string());
             let point_density_json = if section.point_density.is_empty() {
@@ -2984,10 +3083,21 @@ impl PersistentRouteEngine {
                 // Section already has a name (e.g., from detection)
                 section.name.clone()
             } else {
-                // Generate unique name
+                // Generate unique sequential name
+                let taken = taken_numbers.entry(section.sport_type.clone()).or_default();
                 let counter = sport_counters.entry(section.sport_type.clone()).or_insert(0);
-                *counter += 1;
-                Some(format!("{} {} {}", section.sport_type, section_word, counter))
+
+                // Find next available number (skip taken numbers)
+                loop {
+                    *counter += 1;
+                    if !taken.contains(counter) {
+                        break;
+                    }
+                }
+
+                let new_name = format!("{} {} {}", section.sport_type, section_word, counter);
+                taken.insert(*counter); // Mark this number as taken
+                Some(new_name)
             };
 
             section_stmt.execute(params![
