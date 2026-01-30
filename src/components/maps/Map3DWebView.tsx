@@ -15,6 +15,9 @@ import { getCombinedSatelliteStyle, SATELLITE_SOURCES } from './mapStyles';
 import { DARK_MATTER_STYLE } from './darkMatterStyle';
 import { SWITZERLAND_SIMPLE } from './countryBoundaries';
 
+// Stable empty array to prevent unnecessary re-renders when coordinates prop is undefined
+const EMPTY_COORDS: [number, number][] = [];
+
 interface Map3DWebViewProps {
   /** Route coordinates as [lng, lat] pairs (optional - if not provided, just shows terrain) */
   coordinates?: [number, number][];
@@ -62,7 +65,7 @@ interface Map3DWebViewPropsInternal extends Map3DWebViewProps {
 export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInternal>(
   function Map3DWebView(
     {
-      coordinates = [],
+      coordinates = EMPTY_COORDS,
       mapStyle,
       routeColor = colors.primary,
       initialPitch = 60,
@@ -92,6 +95,11 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
     const sectionsGeoJSONRef = useRef(sectionsGeoJSON);
     const tracesGeoJSONRef = useRef(tracesGeoJSON);
 
+    // Store initial center/zoom in refs - only used on first render
+    // This prevents HTML regeneration when parent updates these values
+    const initialCenterRef = useRef(initialCenter);
+    const initialZoomRef = useRef(initialZoom);
+
     // Keep refs in sync with props
     useEffect(() => {
       routesGeoJSONRef.current = routesGeoJSON;
@@ -101,6 +109,7 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
 
     // Update GeoJSON layers dynamically without reloading WebView
     // Reads from refs to avoid stale closure issues
+    // Uses retry mechanism to handle style loading race conditions
     const updateLayers = useCallback(() => {
       if (!webViewRef.current || !mapReadyRef.current) return;
 
@@ -116,68 +125,107 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
 
       webViewRef.current.injectJavaScript(`
         (function() {
-          if (!window.map || !window.map.isStyleLoaded()) return;
+          var retryCount = 0;
+          var maxRetries = 5;
 
-          const routesData = ${routesJSON};
-          const sectionsData = ${sectionsJSON};
-          const tracesData = ${tracesJSON};
+          function addOrUpdateLayers() {
+            if (!window.map) return;
 
-          // Update routes layer
-          if (window.map.getSource('routes-source')) {
-            if (routesData && routesData.features && routesData.features.length > 0) {
-              window.map.getSource('routes-source').setData(routesData);
-              window.map.setLayoutProperty('routes-layer', 'visibility', 'visible');
-            } else {
-              window.map.setLayoutProperty('routes-layer', 'visibility', 'none');
+            // If style isn't loaded yet or map is still loading, wait
+            if (!window.map.isStyleLoaded() || !window.map.loaded()) {
+              retryCount++;
+              if (retryCount <= maxRetries) {
+                console.log('[3D] Style/tiles not ready, retry ' + retryCount + '/' + maxRetries);
+                setTimeout(addOrUpdateLayers, 200 * retryCount);
+              } else {
+                console.log('[3D] Max retries reached, forcing layer update');
+                window.map.once('idle', addOrUpdateLayers);
+              }
+              return;
             }
-          } else if (routesData && routesData.features && routesData.features.length > 0) {
-            window.map.addSource('routes-source', { type: 'geojson', data: routesData });
-            window.map.addLayer({
-              id: 'routes-layer',
-              type: 'line',
-              source: 'routes-source',
-              layout: { 'line-join': 'round', 'line-cap': 'round' },
-              paint: { 'line-color': ['get', 'color'], 'line-width': 3, 'line-opacity': 0.7 },
-            });
+
+            const routesData = ${routesJSON};
+            const sectionsData = ${sectionsJSON};
+            const tracesData = ${tracesJSON};
+
+            // Helper to safely add or update a layer
+            function updateLayer(sourceId, layerId, data, layerConfig) {
+              const sourceExists = !!window.map.getSource(sourceId);
+              const hasData = data && data.features && data.features.length > 0;
+
+              try {
+                if (sourceExists) {
+                  if (hasData) {
+                    window.map.getSource(sourceId).setData(data);
+                    window.map.setLayoutProperty(layerId, 'visibility', 'visible');
+                  } else {
+                    window.map.setLayoutProperty(layerId, 'visibility', 'none');
+                  }
+                } else if (hasData) {
+                  window.map.addSource(sourceId, { type: 'geojson', data: data });
+                  window.map.addLayer(layerConfig);
+                }
+              } catch (e) {
+                console.warn('Layer error:', sourceId, e);
+              }
+            }
+
+            // Helper to add layer with outline for visibility on all map styles
+            function addLayerWithOutline(sourceId, layerId, data, lineColor, lineWidth, lineOpacity) {
+              const sourceExists = !!window.map.getSource(sourceId);
+              const hasData = data && data.features && data.features.length > 0;
+              const outlineId = layerId + '-outline';
+
+              try {
+                if (sourceExists) {
+                  if (hasData) {
+                    window.map.getSource(sourceId).setData(data);
+                    window.map.setLayoutProperty(outlineId, 'visibility', 'visible');
+                    window.map.setLayoutProperty(layerId, 'visibility', 'visible');
+                  } else {
+                    window.map.setLayoutProperty(outlineId, 'visibility', 'none');
+                    window.map.setLayoutProperty(layerId, 'visibility', 'none');
+                  }
+                } else if (hasData) {
+                  window.map.addSource(sourceId, { type: 'geojson', data: data });
+                  // Add outline first (renders behind)
+                  window.map.addLayer({
+                    id: outlineId,
+                    type: 'line',
+                    source: sourceId,
+                    layout: { 'line-join': 'round', 'line-cap': 'round' },
+                    paint: { 'line-color': '#FFFFFF', 'line-width': lineWidth + 2, 'line-opacity': lineOpacity * 0.6 },
+                  });
+                  // Add main line on top
+                  window.map.addLayer({
+                    id: layerId,
+                    type: 'line',
+                    source: sourceId,
+                    layout: { 'line-join': 'round', 'line-cap': 'round' },
+                    paint: { 'line-color': lineColor, 'line-width': lineWidth, 'line-opacity': lineOpacity },
+                  });
+                }
+              } catch (e) {
+                console.warn('Layer error:', sourceId, e);
+              }
+            }
+
+            // Update routes layer (with outline for visibility) - purple to match 2D
+            addLayerWithOutline('routes-source', 'routes-layer', routesData, '#9C27B0', 3, 0.8);
+
+            // Update sections layer - vibrant green for visibility on all map styles
+            // Don't use sportType color as it may fall back to dark gray
+            addLayerWithOutline('sections-source', 'sections-layer', sectionsData, '#4CAF50', 5, 0.9);
+
+            // Update traces layer (activity GPS tracks) - use color from GeoJSON
+            addLayerWithOutline('traces-source', 'traces-layer', tracesData, ['get', 'color'], 2, 0.7);
+
+            console.log('[3D] Layers updated - routes:', routesData?.features?.length || 0,
+                        'sections:', sectionsData?.features?.length || 0,
+                        'traces:', tracesData?.features?.length || 0);
           }
 
-          // Update sections layer
-          if (window.map.getSource('sections-source')) {
-            if (sectionsData && sectionsData.features && sectionsData.features.length > 0) {
-              window.map.getSource('sections-source').setData(sectionsData);
-              window.map.setLayoutProperty('sections-layer', 'visibility', 'visible');
-            } else {
-              window.map.setLayoutProperty('sections-layer', 'visibility', 'none');
-            }
-          } else if (sectionsData && sectionsData.features && sectionsData.features.length > 0) {
-            window.map.addSource('sections-source', { type: 'geojson', data: sectionsData });
-            window.map.addLayer({
-              id: 'sections-layer',
-              type: 'line',
-              source: 'sections-source',
-              layout: { 'line-join': 'round', 'line-cap': 'round' },
-              paint: { 'line-color': '#FFD700', 'line-width': 4, 'line-opacity': 0.8 },
-            });
-          }
-
-          // Update traces layer
-          if (window.map.getSource('traces-source')) {
-            if (tracesData && tracesData.features && tracesData.features.length > 0) {
-              window.map.getSource('traces-source').setData(tracesData);
-              window.map.setLayoutProperty('traces-layer', 'visibility', 'visible');
-            } else {
-              window.map.setLayoutProperty('traces-layer', 'visibility', 'none');
-            }
-          } else if (tracesData && tracesData.features && tracesData.features.length > 0) {
-            window.map.addSource('traces-source', { type: 'geojson', data: tracesData });
-            window.map.addLayer({
-              id: 'traces-layer',
-              type: 'line',
-              source: 'traces-source',
-              layout: { 'line-join': 'round', 'line-cap': 'round' },
-              paint: { 'line-color': ['get', 'color'], 'line-width': 2, 'line-opacity': 0.6 },
-            });
-          }
+          addOrUpdateLayers();
         })();
         true;
       `);
@@ -195,8 +243,8 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
           if (data.type === 'mapReady') {
             mapReadyRef.current = true;
             onMapReady?.();
-            // Update layers after map is ready
-            updateLayers();
+            // Update layers after map is ready - small delay ensures style is fully settled
+            setTimeout(() => updateLayers(), 100);
           } else if (data.type === 'bearingChange' && typeof data.bearing === 'number') {
             onBearingChange?.(data.bearing);
           } else if (data.type === 'cameraState' && data.camera) {
@@ -262,13 +310,14 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       const coordsJSON = JSON.stringify(coordinates);
       const boundsJSON = bounds ? JSON.stringify(bounds) : 'null';
       // Use saved camera position if available (from previous style), otherwise use initial
+      // Read from refs to avoid HTML regeneration when parent updates center/zoom
       const savedCamera = savedCameraRef.current;
       const centerJSON = savedCamera
         ? JSON.stringify(savedCamera.center)
-        : initialCenter
-          ? JSON.stringify(initialCenter)
+        : initialCenterRef.current
+          ? JSON.stringify(initialCenterRef.current)
           : 'null';
-      const zoomValue = savedCamera ? savedCamera.zoom : initialZoom;
+      const zoomValue = savedCamera ? savedCamera.zoom : (initialZoomRef.current ?? 12);
       const bearingValue = savedCamera ? savedCamera.bearing : 0;
       const pitchValue = savedCamera ? savedCamera.pitch : initialPitch;
       const isSatellite = mapStyle === 'satellite';
@@ -477,8 +526,8 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
     }, [
       coordinates,
       bounds,
-      initialCenter,
-      initialZoom,
+      // NOTE: initialCenter and initialZoom are stored in refs to prevent HTML regeneration
+      // when parent updates these values (e.g., from 2D map interactions)
       mapStyle,
       routeColor,
       initialPitch,

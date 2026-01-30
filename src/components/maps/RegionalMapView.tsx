@@ -1098,7 +1098,8 @@ export function RegionalMapView({
           initialZoom={currentZoom}
           routesGeoJSON={showRoutes ? (routesGeoJSON ?? undefined) : undefined}
           sectionsGeoJSON={showSections ? (sectionsGeoJSON ?? undefined) : undefined}
-          tracesGeoJSON={showTraces ? (tracesGeoJSON ?? undefined) : undefined}
+          // In 3D mode, use showActivities directly (no zoom check - 3D doesn't track zoom)
+          tracesGeoJSON={showActivities ? (tracesGeoJSON ?? undefined) : undefined}
         />
       ) : (
         <MapView
