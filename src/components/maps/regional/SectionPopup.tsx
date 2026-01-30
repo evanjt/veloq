@@ -1,4 +1,4 @@
-import React, { memo, useMemo } from 'react';
+import React, { memo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -26,11 +26,8 @@ export const SectionPopup = memo(function SectionPopup({
   const { t } = useTranslation();
   const config = getActivityTypeConfig(section.sportType);
 
-  // Get display name from section data (name is now stored directly in section)
-  const displayName = useMemo(() => {
-    if (section.name) return section.name;
-    return t('sections.defaultName', { number: section.id.slice(-6) }) as string;
-  }, [section.id, section.name, t]);
+  // Names are stored in Rust (user-set or auto-generated on creation/migration)
+  const displayName = section.name ?? section.id;
 
   return (
     <View testID="section-popup" style={[styles.popup, { bottom }]}>

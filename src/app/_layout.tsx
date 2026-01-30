@@ -31,7 +31,7 @@ import {
   useSyncDateRange,
 } from '@/providers';
 import { formatLocalDate } from '@/lib';
-import { initializeI18n } from '@/i18n';
+import { initializeI18n, i18n } from '@/i18n';
 import { lightTheme, darkTheme, colors, darkColors } from '@/theme';
 import {
   CacheLoadingBanner,
@@ -119,6 +119,13 @@ function AuthGate({ children }: { children: React.ReactNode }) {
                 'Route features will be disabled until app restart.'
             );
           }
+        }
+
+        // Set name translations for auto-generated route/section names
+        if (success) {
+          const routeWord = i18n.t('routes.routeWord');
+          const sectionWord = i18n.t('routes.sectionWord');
+          engine.setNameTranslations(routeWord, sectionWord);
         }
 
         // Initialize SyncDateRangeStore from engine's actual cached data

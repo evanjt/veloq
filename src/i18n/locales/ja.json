@@ -552,6 +552,8 @@
     "thisSpeed": "この速度",
     "visits": "訪問",
     "waiting": "待機中...",
+    "routeWord": "ルート",
+    "sectionWord": "セクション",
     "showHidden": "Show {{count}} hidden",
     "gpsTrackNotSynced": "GPS data not available. Please wait for sync to complete and try again.",
     "invalidSectionRange": "Invalid selection range. Please try selecting a different portion.",

@@ -22,7 +22,7 @@
 use std::collections::HashMap;
 use std::sync::mpsc;
 use std::sync::atomic::{AtomicU32, Ordering};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex, RwLock};
 use std::thread;
 use rusqlite::{Connection, Result as SqlResult, params};
 use rusqlite_migration::{Migrations, M};
@@ -35,6 +35,47 @@ use crate::{
 };
 use lru::LruCache;
 use chrono::Utc;
+use once_cell::sync::Lazy;
+
+// ============================================================================
+// Name Translation Support
+// ============================================================================
+
+/// Translations for auto-generated route/section names.
+/// Set by TypeScript with i18n values.
+struct NameTranslations {
+    route_word: String,
+    section_word: String,
+}
+
+impl Default for NameTranslations {
+    fn default() -> Self {
+        Self {
+            route_word: "Route".to_string(),
+            section_word: "Section".to_string(),
+        }
+    }
+}
+
+/// Global storage for name translations, set from TypeScript.
+static NAME_TRANSLATIONS: Lazy<RwLock<NameTranslations>> =
+    Lazy::new(|| RwLock::new(NameTranslations::default()));
+
+/// Get the current route word for name generation.
+fn get_route_word() -> String {
+    NAME_TRANSLATIONS
+        .read()
+        .map(|t| t.route_word.clone())
+        .unwrap_or_else(|_| "Route".to_string())
+}
+
+/// Get the current section word for name generation.
+fn get_section_word() -> String {
+    NAME_TRANSLATIONS
+        .read()
+        .map(|t| t.section_word.clone())
+        .unwrap_or_else(|_| "Section".to_string())
+}
 
 #[derive(Debug, Clone)]
 pub struct ActivityMetadata {
@@ -1009,17 +1050,62 @@ impl PersistentRouteEngine {
     }
 
     /// Load custom route names and apply them to groups.
+    /// Also generates names for any groups that don't have names yet (migration).
     fn load_route_names(&mut self) -> SqlResult<()> {
         let mut stmt = self
             .db
             .prepare("SELECT route_id, custom_name FROM route_names")?;
 
-        let names: HashMap<String, String> = stmt
+        let mut names: HashMap<String, String> = stmt
             .query_map([], |row| {
                 Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
             })?
             .filter_map(|r| r.ok())
             .collect();
+
+        // Migration: Generate names for groups that don't have names yet
+        let groups_without_names: Vec<(String, String)> = self
+            .groups
+            .iter()
+            .filter(|g| !names.contains_key(&g.group_id))
+            .map(|g| (g.group_id.clone(), g.sport_type.clone()))
+            .collect();
+
+        if !groups_without_names.is_empty() {
+            log::info!(
+                "tracematch: [PersistentEngine] Migrating {} routes without names",
+                groups_without_names.len()
+            );
+
+            let route_word = get_route_word();
+
+            // Find the highest existing number for each sport type
+            let mut sport_counters: HashMap<String, u32> = HashMap::new();
+            for name in names.values() {
+                for sport in ["Ride", "Run", "Hike", "Walk", "Swim", "VirtualRide", "VirtualRun"] {
+                    let prefix = format!("{} {} ", sport, route_word);
+                    if name.starts_with(&prefix) {
+                        if let Ok(num) = name[prefix.len()..].parse::<u32>() {
+                            let counter = sport_counters.entry(sport.to_string()).or_insert(0);
+                            *counter = (*counter).max(num);
+                        }
+                    }
+                }
+            }
+
+            // Generate and insert names for groups without names
+            let mut insert_stmt = self
+                .db
+                .prepare("INSERT OR IGNORE INTO route_names (route_id, custom_name) VALUES (?, ?)")?;
+
+            for (group_id, sport_type) in groups_without_names {
+                let counter = sport_counters.entry(sport_type.clone()).or_insert(0);
+                *counter += 1;
+                let new_name = format!("{} {} {}", sport_type, route_word, counter);
+                insert_stmt.execute(params![&group_id, &new_name])?;
+                names.insert(group_id, new_name);
+            }
+        }
 
         // Apply names to groups
         for group in &mut self.groups {
@@ -1060,59 +1146,62 @@ impl PersistentRouteEngine {
             map
         };
 
-        let mut stmt = self.db.prepare(
-            "SELECT id, section_type, name, sport_type, polyline_json, distance_meters,
-                    representative_activity_id, confidence, observation_count, average_spread,
-                    point_density_json, scale, version, is_user_defined, stability,
-                    created_at, updated_at
-             FROM sections WHERE section_type = 'auto'"
-        )?;
+        // Scope the statement to release the borrow before migrate_section_names
+        {
+            let mut stmt = self.db.prepare(
+                "SELECT id, section_type, name, sport_type, polyline_json, distance_meters,
+                        representative_activity_id, confidence, observation_count, average_spread,
+                        point_density_json, scale, version, is_user_defined, stability,
+                        created_at, updated_at
+                 FROM sections WHERE section_type = 'auto'"
+            )?;
 
-        self.sections = stmt
-            .query_map([], |row| {
-                let id: String = row.get(0)?;
-                let polyline_json: String = row.get(4)?;
-                let point_density_json: Option<String> = row.get(10)?;
-                let representative_activity_id: Option<String> = row.get(6)?;
+            self.sections = stmt
+                .query_map([], |row| {
+                    let id: String = row.get(0)?;
+                    let polyline_json: String = row.get(4)?;
+                    let point_density_json: Option<String> = row.get(10)?;
+                    let representative_activity_id: Option<String> = row.get(6)?;
 
-                let polyline: Vec<GpsPoint> = serde_json::from_str(&polyline_json)
-                    .unwrap_or_default();
-                let point_density: Vec<u32> = point_density_json
-                    .and_then(|j| serde_json::from_str(&j).ok())
-                    .unwrap_or_default();
+                    let polyline: Vec<GpsPoint> = serde_json::from_str(&polyline_json)
+                        .unwrap_or_default();
+                    let point_density: Vec<u32> = point_density_json
+                        .and_then(|j| serde_json::from_str(&j).ok())
+                        .unwrap_or_default();
 
-                let activity_ids = section_activity_ids.get(&id)
-                    .cloned()
-                    .unwrap_or_default();
-                let visit_count = activity_ids.len() as u32;
+                    let activity_ids = section_activity_ids.get(&id)
+                        .cloned()
+                        .unwrap_or_default();
+                    let visit_count = activity_ids.len() as u32;
 
-                Ok(FrequentSection {
-                    id,
-                    name: row.get(2)?,
-                    sport_type: row.get(3)?,
-                    polyline,
-                    representative_activity_id: representative_activity_id.unwrap_or_default(),
-                    activity_ids,
-                    activity_portions: vec![],
-                    route_ids: vec![],
-                    visit_count,
-                    distance_meters: row.get(5)?,
-                    activity_traces: std::collections::HashMap::new(),
-                    confidence: row.get::<_, Option<f64>>(7)?.unwrap_or(0.0),
-                    observation_count: row.get::<_, Option<u32>>(8)?.unwrap_or(0),
-                    average_spread: row.get::<_, Option<f64>>(9)?.unwrap_or(0.0),
-                    point_density,
-                    scale: row.get(11)?,
-                    version: row.get::<_, Option<u32>>(12)?.unwrap_or(1),
-                    is_user_defined: row.get::<_, Option<i32>>(13)?.unwrap_or(0) != 0,
-                    stability: row.get::<_, Option<f64>>(14)?.unwrap_or(0.0),
-                    created_at: row.get(15)?,
-                    updated_at: row.get(16)?,
-                })
-            })?
-            .filter_map(|r| r.ok())
-            .filter(|s: &FrequentSection| !s.id.is_empty())
-            .collect();
+                    Ok(FrequentSection {
+                        id,
+                        name: row.get(2)?,
+                        sport_type: row.get(3)?,
+                        polyline,
+                        representative_activity_id: representative_activity_id.unwrap_or_default(),
+                        activity_ids,
+                        activity_portions: vec![],
+                        route_ids: vec![],
+                        visit_count,
+                        distance_meters: row.get(5)?,
+                        activity_traces: std::collections::HashMap::new(),
+                        confidence: row.get::<_, Option<f64>>(7)?.unwrap_or(0.0),
+                        observation_count: row.get::<_, Option<u32>>(8)?.unwrap_or(0),
+                        average_spread: row.get::<_, Option<f64>>(9)?.unwrap_or(0.0),
+                        point_density,
+                        scale: row.get(11)?,
+                        version: row.get::<_, Option<u32>>(12)?.unwrap_or(1),
+                        is_user_defined: row.get::<_, Option<i32>>(13)?.unwrap_or(0) != 0,
+                        stability: row.get::<_, Option<f64>>(14)?.unwrap_or(0.0),
+                        created_at: row.get(15)?,
+                        updated_at: row.get(16)?,
+                    })
+                })?
+                .filter_map(|r| r.ok())
+                .filter(|s: &FrequentSection| !s.id.is_empty())
+                .collect();
+        }
 
         log::info!(
             "tracematch: [PersistentEngine] Loaded {} sections into memory (from {} in DB)",
@@ -1130,7 +1219,71 @@ impl PersistentRouteEngine {
             );
         }
 
+        // Migration: Generate names for sections that don't have names yet
+        self.migrate_section_names()?;
+
         self.sections_dirty = false;
+        Ok(())
+    }
+
+    /// Migration: Generate names for sections that don't have names.
+    fn migrate_section_names(&mut self) -> SqlResult<()> {
+        let sections_without_names: Vec<(String, String)> = self
+            .sections
+            .iter()
+            .filter(|s| s.name.is_none())
+            .map(|s| (s.id.clone(), s.sport_type.clone()))
+            .collect();
+
+        if sections_without_names.is_empty() {
+            return Ok(());
+        }
+
+        log::info!(
+            "tracematch: [PersistentEngine] Migrating {} sections without names",
+            sections_without_names.len()
+        );
+
+        let section_word = get_section_word();
+
+        // Find the highest existing number for each sport type
+        let mut sport_counters: HashMap<String, u32> = HashMap::new();
+        for section in &self.sections {
+            if let Some(ref name) = section.name {
+                for sport in ["Ride", "Run", "Hike", "Walk", "Swim", "VirtualRide", "VirtualRun"] {
+                    let prefix = format!("{} {} ", sport, section_word);
+                    if name.starts_with(&prefix) {
+                        if let Ok(num) = name[prefix.len()..].parse::<u32>() {
+                            let counter = sport_counters.entry(sport.to_string()).or_insert(0);
+                            *counter = (*counter).max(num);
+                        }
+                    }
+                }
+            }
+        }
+
+        // Generate and update names for sections without names
+        let mut update_stmt = self
+            .db
+            .prepare("UPDATE sections SET name = ? WHERE id = ?")?;
+
+        for (section_id, sport_type) in &sections_without_names {
+            let counter = sport_counters.entry(sport_type.clone()).or_insert(0);
+            *counter += 1;
+            let new_name = format!("{} {} {}", sport_type, section_word, counter);
+            update_stmt.execute(params![&new_name, section_id])?;
+
+            // Update in-memory section
+            if let Some(section) = self.sections.iter_mut().find(|s| &s.id == section_id) {
+                section.name = Some(new_name);
+            }
+        }
+
+        log::info!(
+            "tracematch: [PersistentEngine] Generated names for {} sections",
+            sections_without_names.len()
+        );
+
         Ok(())
     }
 
@@ -2084,11 +2237,42 @@ impl PersistentRouteEngine {
         self.db.execute("DELETE FROM route_groups", [])?;
         self.db.execute("DELETE FROM activity_matches", [])?;
 
+        // Load existing route names to preserve user-set names
+        let existing_names: HashMap<String, String> = {
+            let mut stmt = self.db.prepare("SELECT route_id, custom_name FROM route_names")?;
+            stmt.query_map([], |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?)))?
+                .filter_map(|r| r.ok())
+                .collect()
+        };
+
+        // Track highest number per sport type to generate unique names
+        let route_word = get_route_word();
+        let mut sport_counters: HashMap<String, u32> = HashMap::new();
+
+        // Find the highest existing number for each sport type from route_names
+        for name in existing_names.values() {
+            // Try to parse names like "Ride Route 5" to extract the number
+            for sport in ["Ride", "Run", "Hike", "Walk", "Swim", "VirtualRide", "VirtualRun"] {
+                let prefix = format!("{} {} ", sport, route_word);
+                if name.starts_with(&prefix) {
+                    if let Ok(num) = name[prefix.len()..].parse::<u32>() {
+                        let counter = sport_counters.entry(sport.to_string()).or_insert(0);
+                        *counter = (*counter).max(num);
+                    }
+                }
+            }
+        }
+
         // Insert groups
         let mut stmt = self.db.prepare(
             "INSERT INTO route_groups (id, representative_id, activity_ids, sport_type,
                                         bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        )?;
+
+        // Prepare statement for inserting new route names
+        let mut name_stmt = self.db.prepare(
+            "INSERT OR IGNORE INTO route_names (route_id, custom_name) VALUES (?, ?)"
         )?;
 
         for group in &self.groups {
@@ -2103,6 +2287,14 @@ impl PersistentRouteEngine {
                 group.bounds.map(|b| b.min_lng),
                 group.bounds.map(|b| b.max_lng),
             ])?;
+
+            // Generate unique name if route doesn't already have one
+            if !existing_names.contains_key(&group.group_id) {
+                let counter = sport_counters.entry(group.sport_type.clone()).or_insert(0);
+                *counter += 1;
+                let new_name = format!("{} {} {}", group.sport_type, route_word, counter);
+                name_stmt.execute(params![group.group_id, new_name])?;
+            }
         }
 
         // Insert activity matches
@@ -2735,6 +2927,32 @@ impl PersistentRouteEngine {
         self.db.execute("DELETE FROM section_activities WHERE section_id IN (SELECT id FROM sections WHERE section_type = 'auto')", [])?;
         self.db.execute("DELETE FROM sections WHERE section_type = 'auto'", [])?;
 
+        // Load existing section names to preserve user-set names (from custom sections)
+        let existing_names: HashMap<String, String> = {
+            let mut stmt = self.db.prepare("SELECT id, name FROM sections WHERE name IS NOT NULL")?;
+            stmt.query_map([], |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?)))?
+                .filter_map(|r| r.ok())
+                .collect()
+        };
+
+        // Track highest number per sport type to generate unique section names
+        let section_word = get_section_word();
+        let mut sport_counters: HashMap<String, u32> = HashMap::new();
+
+        // Find the highest existing number for each sport type from existing names
+        for name in existing_names.values() {
+            // Try to parse names like "Ride Section 5" to extract the number
+            for sport in ["Ride", "Run", "Hike", "Walk", "Swim", "VirtualRide", "VirtualRun"] {
+                let prefix = format!("{} {} ", sport, section_word);
+                if name.starts_with(&prefix) {
+                    if let Ok(num) = name[prefix.len()..].parse::<u32>() {
+                        let counter = sport_counters.entry(sport.to_string()).or_insert(0);
+                        *counter = (*counter).max(num);
+                    }
+                }
+            }
+        }
+
         // Insert auto-detected sections with new schema
         let mut section_stmt = self.db.prepare(
             "INSERT INTO sections (
@@ -2758,9 +2976,23 @@ impl PersistentRouteEngine {
             let created_at = section.created_at.clone()
                 .unwrap_or_else(|| Utc::now().to_rfc3339());
 
+            // Determine the name to use: preserve existing names, generate new ones
+            let name_to_save: Option<String> = if let Some(existing) = existing_names.get(&section.id) {
+                // Preserve user-set or previously generated name
+                Some(existing.clone())
+            } else if section.name.is_some() {
+                // Section already has a name (e.g., from detection)
+                section.name.clone()
+            } else {
+                // Generate unique name
+                let counter = sport_counters.entry(section.sport_type.clone()).or_insert(0);
+                *counter += 1;
+                Some(format!("{} {} {}", section.sport_type, section_word, counter))
+            };
+
             section_stmt.execute(params![
                 section.id,
-                section.name,
+                name_to_save,
                 section.sport_type,
                 polyline_json,
                 section.distance_meters,
@@ -3290,16 +3522,20 @@ impl PersistentRouteEngine {
             .and_then(|g| g.custom_name.clone())
     }
 
-    /// Get all custom route names.
+    /// Get all custom route names from the database.
     pub fn get_all_route_names(&self) -> HashMap<String, String> {
-        self.groups
-            .iter()
-            .filter_map(|g| {
-                g.custom_name
-                    .as_ref()
-                    .map(|n| (g.group_id.clone(), n.clone()))
-            })
-            .collect()
+        // Query the database directly to ensure we get the latest names
+        let mut result = HashMap::new();
+        if let Ok(mut stmt) = self.db.prepare("SELECT route_id, custom_name FROM route_names") {
+            if let Ok(rows) = stmt.query_map([], |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+            }) {
+                for row in rows.flatten() {
+                    result.insert(row.0, row.1);
+                }
+            }
+        }
+        result
     }
 
     // ========================================================================
@@ -3881,12 +4117,6 @@ pub struct PersistentEngineStats {
 // Global Singleton for FFI
 // ============================================================================
 
-
-use std::sync::Mutex;
-
-
-use once_cell::sync::Lazy;
-
 /// Global persistent engine instance.
 ///
 /// This singleton allows FFI calls to access a shared persistent engine
@@ -3956,6 +4186,25 @@ pub mod persistent_engine_ffi {
             .lock()
             .map(|guard| guard.is_some())
             .unwrap_or(false)
+    }
+
+    /// Set translations for auto-generated route/section names.
+    /// Call this after i18n is initialized and whenever language changes.
+    ///
+    /// # Arguments
+    /// * `route_word` - Translated word for "Route" (e.g., "Route", "Ruta", "Strecke")
+    /// * `section_word` - Translated word for "Section" (e.g., "Section", "Sección", "Abschnitt")
+    #[uniffi::export]
+    pub fn persistent_engine_set_name_translations(route_word: String, section_word: String) {
+        log::info!(
+            "tracematch: [PersistentEngine] Setting name translations: route='{}', section='{}'",
+            route_word,
+            section_word
+        );
+        if let Ok(mut translations) = NAME_TRANSLATIONS.write() {
+            translations.route_word = route_word;
+            translations.section_word = section_word;
+        }
     }
 
     /// Clear all persistent engine state.

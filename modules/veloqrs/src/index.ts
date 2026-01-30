@@ -42,6 +42,7 @@ import {
   persistentEngineGetSectionPolyline,
   persistentEngineSetRouteName,
   persistentEngineSetSectionName,
+  persistentEngineSetNameTranslations,
   persistentEngineGetRouteName,
   persistentEngineGetGpsTrack,
   persistentEngineGetConsensusRoute,
@@ -615,6 +616,14 @@ class RouteEngineClient {
     validateName(name, 'section name');
     persistentEngineSetSectionName(sectionId, name);
     this.notify('sections');
+  }
+
+  /**
+   * Set translation words for auto-generated route/section names.
+   * Called after i18n initialization and when language changes.
+   */
+  setNameTranslations(routeWord: string, sectionWord: string): void {
+    persistentEngineSetNameTranslations(routeWord, sectionWord);
   }
 
   /**

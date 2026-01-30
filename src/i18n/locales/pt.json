@@ -552,6 +552,8 @@
     "thisSpeed": "Esta velocidade",
     "visits": "visitas",
     "waiting": "A aguardar...",
+    "routeWord": "Rota",
+    "sectionWord": "Seccao",
     "showHidden": "Show {{count}} hidden",
     "gpsTrackNotSynced": "GPS data not available. Please wait for sync to complete and try again.",
     "invalidSectionRange": "Invalid selection range. Please try selecting a different portion.",

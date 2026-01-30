@@ -552,6 +552,8 @@
     "thisSpeed": "Deze snelheid",
     "visits": "bezoeken",
     "waiting": "Wachten...",
+    "routeWord": "Route",
+    "sectionWord": "Sectie",
     "showHidden": "Show {{count}} hidden",
     "gpsTrackNotSynced": "GPS data not available. Please wait for sync to complete and try again.",
     "invalidSectionRange": "Invalid selection range. Please try selecting a different portion.",

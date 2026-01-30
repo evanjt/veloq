@@ -27,7 +27,7 @@ import {
   useCacheDays,
 } from '@/hooks';
 import { useGroupDetail } from '@/hooks/routes/useRouteEngine';
-import { getAllRouteDisplayNames } from '@/hooks/routes/useRouteGroups';
+import { getAllRouteDisplayNames, getRouteDisplayName } from '@/hooks/routes/useRouteGroups';
 import { createSharedStyles } from '@/styles';
 import { TAB_BAR_SAFE_PADDING } from '@/components/ui';
 
@@ -320,13 +320,13 @@ export default function RouteDetailScreen() {
 
   // Create a compatible routeGroup object with expected properties
   // Note: Native RouteGroup uses groupId, sportType, customName (different from extended type)
+  // Names are stored in Rust (user-set or auto-generated on creation/migration)
   const routeGroupBase = useMemo(() => {
     if (!engineGroup) return null;
-    const sportType = engineGroup.sportType || 'Ride';
     return {
       id: engineGroup.groupId,
-      name: engineGroup.customName || `${sportType} Route`, // Use custom name or auto-generate
-      type: toActivityType(sportType),
+      name: engineGroup.customName ?? engineGroup.groupId,
+      type: toActivityType(engineGroup.sportType || 'Ride'),
       activityIds: engineGroup.activityIds,
       activityCount: engineGroup.activityIds.length,
       firstDate: '', // Not available from engine

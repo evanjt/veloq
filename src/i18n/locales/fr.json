@@ -552,6 +552,8 @@
     "thisSpeed": "Cette vitesse",
     "visits": "visites",
     "waiting": "En attente...",
+    "routeWord": "Itineraire",
+    "sectionWord": "Section",
     "showHidden": "Show {{count}} hidden",
     "gpsTrackNotSynced": "GPS data not available. Please wait for sync to complete and try again.",
     "invalidSectionRange": "Invalid selection range. Please try selecting a different portion.",

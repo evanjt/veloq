@@ -552,6 +552,8 @@
     "thisSpeed": "此速度",
     "visits": "访问",
     "waiting": "等待中...",
+    "routeWord": "路线",
+    "sectionWord": "路段",
     "showHidden": "Show {{count}} hidden",
     "gpsTrackNotSynced": "GPS data not available. Please wait for sync to complete and try again.",
     "invalidSectionRange": "Invalid selection range. Please try selecting a different portion.",

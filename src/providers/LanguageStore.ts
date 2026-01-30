@@ -1,6 +1,13 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
-import { SUPPORTED_LOCALES, type SupportedLocale, getDeviceLocale, changeLanguage } from '@/i18n';
+import {
+  SUPPORTED_LOCALES,
+  type SupportedLocale,
+  getDeviceLocale,
+  changeLanguage,
+  i18n,
+} from '@/i18n';
+import { getRouteEngine } from '@/lib/native/routeEngine';
 
 const STORAGE_KEY = 'veloq-language-preference';
 
@@ -63,6 +70,14 @@ export const useLanguageStore = create<LanguageState>((set) => ({
     // Resolve to the appropriate locale (handles English variants based on device region)
     const effectiveLocale = resolveLanguageToLocale(language);
     await changeLanguage(effectiveLocale);
+
+    // Update Rust engine with new translations for auto-generated names
+    const engine = getRouteEngine();
+    if (engine) {
+      const routeWord = i18n.t('routes.routeWord');
+      const sectionWord = i18n.t('routes.sectionWord');
+      engine.setNameTranslations(routeWord, sectionWord);
+    }
 
     set({ language });
   },

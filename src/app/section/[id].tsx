@@ -1291,10 +1291,9 @@ export default function SectionDetailScreen() {
                   style={styles.nameEditTouchable}
                   activeOpacity={0.7}
                 >
+                  {/* Names are stored in Rust (user-set or auto-generated on creation/migration) */}
                   <Text style={styles.heroSectionName} numberOfLines={1}>
-                    {customName ||
-                      section.name ||
-                      t('sections.defaultName', { number: section.id.split('_').pop() })}
+                    {customName ?? section.name ?? section.id}
                   </Text>
                   <MaterialCommunityIcons
                     name="pencil"

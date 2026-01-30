@@ -91,11 +91,10 @@ export function useRouteGroups(options: UseRouteGroupsOptions = {}): UseRouteGro
     // Convert summaries to extended format
     // NOTE: Signature is NOT loaded here to avoid blocking render with sync FFI calls.
     // Use useConsensusRoute hook to load signature lazily when needed.
-    const extended: RouteGroupExtended[] = summaries.map((g, index) => {
-      const sportType = g.sportType || 'Ride';
+    // Names are now stored persistently in Rust and available via customName
 
-      // Use custom name from summary if set, otherwise generate default
-      const name = g.customName || `${sportType} Route ${index + 1}`;
+    const extended: RouteGroupExtended[] = summaries.map((g) => {
+      const sportType = g.sportType || 'Ride';
 
       return {
         id: g.groupId,
@@ -103,7 +102,8 @@ export function useRouteGroups(options: UseRouteGroupsOptions = {}): UseRouteGro
         activityIds: [], // Not loaded in summaries - use useGroupDetail for full data
         sportType: g.sportType,
         bounds: g.bounds ?? null,
-        name,
+        // Names are stored in Rust (user-set or auto-generated on creation/migration)
+        name: g.customName ?? g.groupId,
         activityCount: g.activityCount,
         type: toActivityType(sportType),
         // Signature loaded lazily via useConsensusRoute to avoid blocking render
@@ -133,7 +133,7 @@ export function useRouteGroups(options: UseRouteGroupsOptions = {}): UseRouteGro
         sorted.sort((a, b) => b.activityCount - a.activityCount);
         break;
       case 'name':
-        sorted.sort((a, b) => a.id.localeCompare(b.id));
+        sorted.sort((a, b) => a.name.localeCompare(b.name));
         break;
       // 'recent' would require dates which aren't in the engine yet
       default:
@@ -154,7 +154,8 @@ export function useRouteGroups(options: UseRouteGroupsOptions = {}): UseRouteGro
 }
 
 /**
- * Get all route display names (custom or auto-generated).
+ * Get all route display names.
+ * Names are now stored persistently in Rust (user-set or auto-generated on creation).
  * Used for uniqueness validation when renaming routes.
  * Returns a map of routeId -> displayName for all routes.
  */
@@ -162,15 +163,23 @@ export function getAllRouteDisplayNames(): Record<string, string> {
   const engine = getRouteEngine();
   if (!engine) return {};
 
-  // Use lightweight summaries instead of full groups
+  // Use lightweight summaries - names are stored in customName field
   const summaries = engine.getGroupSummaries();
-  const result: Record<string, string> = {};
 
-  summaries.forEach((summary, index) => {
-    const sportType = summary.sportType || 'Ride';
-    // Use custom name if set, otherwise generate default name
-    result[summary.groupId] = summary.customName || `${sportType} Route ${index + 1}`;
-  });
+  const result: Record<string, string> = {};
+  for (const summary of summaries) {
+    // Names are stored in Rust (user-set or auto-generated on creation/migration)
+    result[summary.groupId] = summary.customName ?? summary.groupId;
+  }
 
   return result;
+}
+
+/**
+ * Get the display name for a specific route by ID.
+ * Computes the index based on sorted position within sport type.
+ */
+export function getRouteDisplayName(routeId: string): string | null {
+  const allNames = getAllRouteDisplayNames();
+  return allNames[routeId] ?? null;
 }

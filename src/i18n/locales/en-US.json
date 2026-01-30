@@ -516,6 +516,8 @@
     "scaleLong": "Long",
     "scaleMedium": "Medium",
     "scaleShort": "Short",
+    "routeWord": "Route",
+    "sectionWord": "Section",
     "showHidden": "Show {{count}} hidden",
     "sectionCreated": "Section created",
     "sectionCreatedDescription": "Your section has been created and activities matched",
