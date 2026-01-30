@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { View, TouchableOpacity, StyleSheet, Animated } from 'react-native';
+import { View, TouchableOpacity, StyleSheet, Animated, ActivityIndicator } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { colors, darkColors } from '@/theme/colors';
@@ -30,6 +30,8 @@ interface MapControlStackProps {
   showRoutes: boolean;
   /** Whether user location is active */
   userLocationActive: boolean;
+  /** Whether location is currently being fetched */
+  locationLoading: boolean;
   /** Sections data (for showing sections toggle) */
   sections: FrequentSection[];
   /** Number of routes (for showing routes toggle) */
@@ -63,6 +65,7 @@ export function MapControlStack({
   showSections,
   showRoutes,
   userLocationActive,
+  locationLoading,
   sections,
   routeCount,
   activityCount,
@@ -143,22 +146,30 @@ export function MapControlStack({
             userLocationActive && styles.controlButtonActive,
             styles.dualButtonTop,
           ]}
-          onPress={onGetLocation}
-          activeOpacity={0.8}
+          onPress={locationLoading ? undefined : onGetLocation}
+          activeOpacity={locationLoading ? 1 : 0.8}
+          disabled={locationLoading}
           accessibilityLabel={t('maps.goToLocation')}
           accessibilityRole="button"
         >
-          <MaterialCommunityIcons
-            name="crosshairs-gps"
-            size={18}
-            color={
-              userLocationActive
-                ? colors.textOnDark
-                : isDark
+          {locationLoading ? (
+            <ActivityIndicator
+              size="small"
+              color={isDark ? colors.textOnDark : colors.textSecondary}
+            />
+          ) : (
+            <MaterialCommunityIcons
+              name="crosshairs-gps"
+              size={18}
+              color={
+                userLocationActive
                   ? colors.textOnDark
-                  : colors.textSecondary
-            }
-          />
+                  : isDark
+                    ? colors.textOnDark
+                    : colors.textSecondary
+              }
+            />
+          )}
         </TouchableOpacity>
         {/* Divider line */}
         <View style={[styles.dualButtonDivider, isDark && styles.dualButtonDividerDark]} />

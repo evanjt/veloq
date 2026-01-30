@@ -126,6 +126,7 @@ import {
   Animated,
   Text,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import {
@@ -348,6 +349,7 @@ export function ActivityMapView({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [is3DMode, setIs3DMode] = useState(false);
   const [is3DReady, setIs3DReady] = useState(false);
+  const [locationLoading, setLocationLoading] = useState(false);
   const map3DRef = useRef<Map3DWebViewRef>(null);
   const map3DOpacity = useRef(new Animated.Value(0)).current;
 
@@ -564,14 +566,20 @@ export function ActivityMapView({
   // Get user location and refocus camera
   const handleGetLocation = useCallback(async () => {
     try {
+      setLocationLoading(true);
+
       const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') return;
+      if (status !== 'granted') {
+        setLocationLoading(false);
+        return;
+      }
 
       const location = await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.Balanced,
       });
 
       const coords: [number, number] = [location.coords.longitude, location.coords.latitude];
+      setLocationLoading(false);
 
       cameraRef.current?.setCamera({
         centerCoordinate: coords,
@@ -579,6 +587,7 @@ export function ActivityMapView({
         animationDuration: 500,
       });
     } catch {
+      setLocationLoading(false);
       // Silently fail
     }
   }, []);
@@ -1680,15 +1689,23 @@ export function ActivityMapView({
           {/* GPS location */}
           <TouchableOpacity
             style={[styles.controlButton, isDark && styles.controlButtonDark]}
-            onPress={handleGetLocation}
-            activeOpacity={0.6}
+            onPress={locationLoading ? undefined : handleGetLocation}
+            activeOpacity={locationLoading ? 1 : 0.6}
+            disabled={locationLoading}
             hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
           >
-            <MaterialCommunityIcons
-              name="crosshairs-gps"
-              size={22}
-              color={isDark ? colors.textOnDark : colors.textSecondary}
-            />
+            {locationLoading ? (
+              <ActivityIndicator
+                size="small"
+                color={isDark ? colors.textOnDark : colors.textSecondary}
+              />
+            ) : (
+              <MaterialCommunityIcons
+                name="crosshairs-gps"
+                size={22}
+                color={isDark ? colors.textOnDark : colors.textSecondary}
+              />
+            )}
           </TouchableOpacity>
         </View>
       )}

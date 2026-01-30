@@ -97,6 +97,7 @@ export function RegionalMapView({
   const [showSections, setShowSections] = useState(false);
   const [showRoutes, setShowRoutes] = useState(false);
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
+  const [locationLoading, setLocationLoading] = useState(false);
   const [visibleActivityIds, setVisibleActivityIds] = useState<Set<string> | null>(null);
   const [currentZoom, setCurrentZoom] = useState(10);
   const [currentCenter, setCurrentCenter] = useState<[number, number] | null>(null);
@@ -375,6 +376,7 @@ export function RegionalMapView({
     setSelectedRoute,
     userLocation,
     setUserLocation,
+    setLocationLoading,
     setVisibleActivityIds,
     setCurrentZoom,
     setCurrentCenter,
@@ -1533,6 +1535,7 @@ export function RegionalMapView({
         showSections={showSections}
         showRoutes={showRoutes}
         userLocationActive={!!userLocation}
+        locationLoading={locationLoading}
         sections={sections}
         routeCount={routeGroups.length}
         activityCount={activities.length}

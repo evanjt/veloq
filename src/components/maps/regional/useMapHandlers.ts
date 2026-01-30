@@ -35,6 +35,7 @@ interface UseMapHandlersOptions {
   setSelectedRoute: (value: null) => void;
   userLocation: [number, number] | null;
   setUserLocation: (value: [number, number] | null) => void;
+  setLocationLoading: (value: boolean) => void;
   setVisibleActivityIds: (value: Set<string> | null) => void;
   setCurrentZoom: (value: number) => void;
   setCurrentCenter: (value: [number, number] | null) => void;
@@ -78,6 +79,7 @@ export function useMapHandlers({
   setSelectedRoute,
   userLocation,
   setUserLocation,
+  setLocationLoading,
   setVisibleActivityIds,
   setCurrentZoom,
   setCurrentCenter,
@@ -287,8 +289,11 @@ export function useMapHandlers({
   // Each press gets location, shows dot, centers map once
   const handleGetLocation = useCallback(async () => {
     try {
+      setLocationLoading(true);
+
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
+        setLocationLoading(false);
         return;
       }
 
@@ -311,6 +316,7 @@ export function useMapHandlers({
 
       // Show the dot at user's location
       setUserLocation(coords);
+      setLocationLoading(false);
 
       // Center map on location (one-time, no tracking)
       cameraRef.current?.setCamera({
@@ -333,9 +339,10 @@ export function useMapHandlers({
         });
       }, 600);
     } catch {
+      setLocationLoading(false);
       // Silently fail - location is optional
     }
-  }, [cameraRef, setUserLocation]);
+  }, [cameraRef, setUserLocation, setLocationLoading]);
 
   // Toggle activities visibility - clear selection when hiding
   const toggleActivities = useCallback(() => {
