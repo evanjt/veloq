@@ -454,7 +454,11 @@ jobs:
             --library \
             target/release/libveloqrs.so
           echo "✓ Generated UniFFI bindings"
-          ls -la ../cpp/ ../cpp/generated/
+
+          # Generate turbo-module wrapper files (cpp/veloqrs.h, cpp/veloqrs.cpp)
+          cd .. && npx uniffi-bindgen-react-native generate jsi turbo-module veloqrs
+          echo "✓ Generated turbo-module wrapper"
+          ls -la cpp/ cpp/generated/
 
       # Verify C++ files exist before proceeding (safety check)
       - name: Verify C++ bindings exist
@@ -804,7 +808,11 @@ jobs:
             --library \
             target/release/libveloqrs.dylib
           echo "✓ Generated bindings"
-          ls -la ../cpp/ ../cpp/generated/
+
+          # Generate turbo-module wrapper files (cpp/veloqrs.h, cpp/veloqrs.cpp)
+          cd .. && npx uniffi-bindgen-react-native generate jsi turbo-module veloqrs
+          echo "✓ Generated turbo-module wrapper"
+          ls -la cpp/ cpp/generated/
 
       - name: Copy C++ files for iOS build
         run: |
