@@ -515,10 +515,32 @@ async function runPreBuildSetup(platform) {
 }
 
 /**
+ * Detect platform from command line arguments or environment.
+ */
+function detectPlatform() {
+  // Check environment variable first
+  if (process.env.EXPO_PLATFORM) {
+    return process.env.EXPO_PLATFORM;
+  }
+
+  // Check command line for run:ios or run:android
+  const args = process.argv.join(" ");
+  if (args.includes("run:ios") || args.includes("--platform ios")) {
+    return "ios";
+  }
+  if (args.includes("run:android") || args.includes("--platform android")) {
+    return "android";
+  }
+
+  // Default to ios since this is primarily for iOS builds
+  return "ios";
+}
+
+/**
  * Main plugin function.
  */
 module.exports = function withVeloqrs(config) {
-  const platform = process.env.EXPO_PLATFORM || "android";
+  const platform = detectPlatform();
 
   try {
     const result = spawnSync(
