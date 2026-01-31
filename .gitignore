@@ -53,12 +53,13 @@ modules/veloqrs/ios/Frameworks/
 
 # UniFFI generated bindings (generated fresh in CI, not committed)
 modules/veloqrs/src/generated/
-modules/veloqrs/cpp/
+modules/veloqrs/cpp/generated/
 modules/veloqrs/android/src/main/java/uniffi/
 modules/veloqrs/ios/Generated/
 modules/veloqrs/ios/cpp/
 
 # NOTE: These files ARE committed (hand-written or project-specific):
+# - modules/veloqrs/cpp/veloqrs.cpp, veloqrs.h (wrapper files)
 # - modules/veloqrs/android/CMakeLists.txt, build.gradle
 # - modules/veloqrs/android/src/main/java/com/veloq/*.kt
 # - modules/veloqrs/android/cpp-adapter.cpp

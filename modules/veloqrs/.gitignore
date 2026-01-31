@@ -1,7 +1,5 @@
-# Generated C++ bindings
+# Generated C++ bindings (but NOT the wrapper files veloqrs.cpp/veloqrs.h which are needed)
 cpp/generated/
-cpp/veloqrs.cpp
-cpp/veloqrs.h
 
 # Generated TypeScript bindings
 src/generated/
