@@ -76,6 +76,12 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Setup Homebrew PATH
+        run: |
+          echo "/opt/homebrew/bin" >> $GITHUB_PATH
+          echo "/opt/homebrew/sbin" >> $GITHUB_PATH
+          echo "/usr/local/bin" >> $GITHUB_PATH
+
       - name: Setup Xcode
         if: runner.environment == 'github-hosted'
         uses: maxim-lobanov/setup-xcode@v1
@@ -435,6 +441,11 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
+
+      - name: Setup Homebrew PATH
+        run: |
+          echo "/opt/homebrew/bin" >> $GITHUB_PATH
+          echo "/opt/homebrew/sbin" >> $GITHUB_PATH
 
       - uses: actions/setup-node@v4
         with:
