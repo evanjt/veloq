@@ -175,12 +175,12 @@ jobs:
           cargo build --release --target aarch64-apple-ios-sim -p veloqrs
           cargo build --release --target x86_64-apple-ios -p veloqrs
 
-          # Create universal library
+          # Create universal library (named veloqrs_ffi to match podspec -lveloqrs_ffi)
           mkdir -p ../ios/Frameworks/VeloqrsFFI.xcframework/ios-arm64_x86_64-simulator
           lipo -create \
             target/aarch64-apple-ios-sim/release/libveloqrs.a \
             target/x86_64-apple-ios/release/libveloqrs.a \
-            -output ../ios/Frameworks/VeloqrsFFI.xcframework/ios-arm64_x86_64-simulator/libveloqrs.a
+            -output ../ios/Frameworks/VeloqrsFFI.xcframework/ios-arm64_x86_64-simulator/libveloqrs_ffi.a
 
           # Create Info.plist for XCFramework
           cat > ../ios/Frameworks/VeloqrsFFI.xcframework/Info.plist << 'PLIST'
@@ -194,7 +194,7 @@ jobs:
                 <key>LibraryIdentifier</key>
                 <string>ios-arm64_x86_64-simulator</string>
                 <key>LibraryPath</key>
-                <string>libveloqrs.a</string>
+                <string>libveloqrs_ffi.a</string>
                 <key>SupportedArchitectures</key>
                 <array>
                   <string>arm64</string>

@@ -762,12 +762,16 @@ jobs:
           done
 
           # Create fat library for simulator (arm64 + x86_64)
+          # Library is renamed to veloqrs_ffi to match podspec -lveloqrs_ffi
           echo "Creating fat library for simulator..."
           mkdir -p target/sim-fat
           lipo -create \
             target/aarch64-apple-ios-sim/release/libveloqrs.a \
             target/x86_64-apple-ios/release/libveloqrs.a \
-            -output target/sim-fat/libveloqrs.a
+            -output target/sim-fat/libveloqrs_ffi.a
+
+          # Copy device library with correct name
+          cp target/aarch64-apple-ios/release/libveloqrs.a target/aarch64-apple-ios/release/libveloqrs_ffi.a
 
           # Create XCFramework
           echo "Creating XCFramework..."
@@ -775,8 +779,8 @@ jobs:
           rm -rf ../ios/Frameworks/VeloqrsFFI.xcframework
 
           xcodebuild -create-xcframework \
-            -library target/aarch64-apple-ios/release/libveloqrs.a \
-            -library target/sim-fat/libveloqrs.a \
+            -library target/aarch64-apple-ios/release/libveloqrs_ffi.a \
+            -library target/sim-fat/libveloqrs_ffi.a \
             -output ../ios/Frameworks/VeloqrsFFI.xcframework
 
           echo "✓ XCFramework created"
