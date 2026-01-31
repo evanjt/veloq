@@ -557,13 +557,13 @@ jobs:
             fi
           done
 
-          # Verify VeloqModule.kt (JNI-based TurboModule wrapper - committed in repo)
+          # Verify VeloqrsModule.kt (JNI-based TurboModule wrapper - committed in repo)
           # NOTE: We do NOT use veloqrs.kt from releases (that's JNA-based, JVM-only)
-          VELOQ_MODULE="modules/veloqrs/android/src/main/java/com/veloq/VeloqModule.kt"
+          VELOQ_MODULE="modules/veloqrs/android/src/main/java/com/veloq/VeloqrsModule.kt"
           if [ -f "$VELOQ_MODULE" ]; then
-            echo "✓ VeloqModule.kt (JNI): $VELOQ_MODULE"
+            echo "✓ VeloqrsModule.kt (JNI): $VELOQ_MODULE"
           else
-            echo "✗ VeloqModule.kt not found - this should be committed in the repo"
+            echo "✗ VeloqrsModule.kt not found - this should be committed in the repo"
             all_ok=false
           fi
 

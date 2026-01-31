@@ -146,11 +146,10 @@ jobs:
             target/release/libveloqrs.dylib
           echo "✓ Generated UniFFI bindings"
 
-          # Generate turbo-module wrapper files (cpp/veloqrs.h, cpp/veloqrs.cpp)
-          # These bridge React Native to the generated bindings
-          cd .. && npx uniffi-bindgen-react-native generate jsi turbo-module veloqrs
-          echo "✓ Generated turbo-module wrapper"
-          ls -la cpp/ cpp/generated/
+          # NOTE: Turbo-module wrapper files (cpp/veloqrs.h, cpp/veloqrs.cpp) are
+          # committed to the repo and don't need regeneration
+          echo "✓ Using committed turbo-module wrapper files"
+          ls -la ../cpp/ ../cpp/generated/
 
       - name: Setup C++ files for CocoaPods
         if: steps.app-cache.outputs.cache-hit != 'true'
@@ -435,11 +434,10 @@ jobs:
             target/release/libveloqrs.so
           echo "✓ Generated UniFFI bindings"
 
-          # Generate turbo-module wrapper files (cpp/veloqrs.h, cpp/veloqrs.cpp)
-          # These bridge React Native to the generated bindings
-          cd .. && npx uniffi-bindgen-react-native generate jsi turbo-module veloqrs
-          echo "✓ Generated turbo-module wrapper"
-          ls -la cpp/ cpp/generated/
+          # NOTE: Turbo-module wrapper files (cpp/veloqrs.h, cpp/veloqrs.cpp) are
+          # committed to the repo and don't need regeneration
+          echo "✓ Using committed turbo-module wrapper files"
+          ls -la ../cpp/ ../cpp/generated/
 
       - name: Build Rust for Android
         if: steps.apk-cache.outputs.cache-hit != 'true'

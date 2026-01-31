@@ -101,10 +101,11 @@ android {
 
   // Handle duplicate libveloqrs.so from jniLibs and CMake IMPORTED target
   // The Rust library is in jniLibs, CMake imports it for linking - both get picked up
-  // Using new packaging DSL (AGP 7.0+) for library module native lib merging
+  // Using new packaging DSL (AGP 8.0+) for library module native lib merging
   packaging {
     jniLibs {
-      pickFirsts.add("**/libveloqrs.so")
+      // pickFirst resolves the duplicate by using the first one found
+      pickFirsts += ["**/libveloqrs.so"]
     }
   }
 
