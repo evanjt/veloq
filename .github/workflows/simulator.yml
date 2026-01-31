@@ -523,7 +523,7 @@ jobs:
     needs: android-release
     if: ${{ !inputs.skip_e2e }}
     name: E2E Android (Maestro)
-    runs-on: macos-latest  # macOS required for reliable Android emulator (HVF acceleration)
+    runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
@@ -544,6 +544,12 @@ jobs:
           curl -Ls "https://get.maestro.mobile.dev" | bash
           echo "$HOME/.maestro/bin" >> $GITHUB_PATH
 
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
       - name: Run Maestro tests
         uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -551,8 +557,8 @@ jobs:
           target: default
           arch: x86_64
           ram-size: 2048M
-          emulator-boot-timeout: 300
-          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
+          emulator-boot-timeout: 600
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -accel on
           disable-animations: true
           script: |
             export PATH="$HOME/.maestro/bin:$PATH"
@@ -560,8 +566,8 @@ jobs:
             # Install APK
             adb install /tmp/android-artifact/app-release.apk
 
-            # Wait for app to be ready
-            sleep 5
+            # Give app time to install and emulator to stabilize
+            sleep 10
 
             # Run smoke test
             mkdir -p screenshots
