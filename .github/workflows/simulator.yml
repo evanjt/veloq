@@ -146,9 +146,20 @@ jobs:
             target/release/libveloqrs.dylib
           echo "✓ Generated UniFFI bindings"
 
+          # Save custom iOS files BEFORE turbo-module generation (it overwrites them)
+          cp ../ios/Veloqrs.h ../ios/Veloqrs.h.custom
+          cp ../ios/Veloqrs.mm ../ios/Veloqrs.mm.custom
+
           # Generate turbo-module wrapper files (cpp/veloqrs.h, cpp/veloqrs.cpp)
+          # Note: This also generates ios/Veloqrs.{h,mm} which we don't want
           cd .. && npx uniffi-bindgen-react-native generate jsi turbo-module veloqrs
           echo "✓ Generated turbo-module wrapper"
+
+          # Restore custom iOS files (the generated ones use NativeVeloqrsSpec which isn't available)
+          mv ios/Veloqrs.h.custom ios/Veloqrs.h
+          mv ios/Veloqrs.mm.custom ios/Veloqrs.mm
+          echo "✓ Restored custom iOS files"
+
           ls -la cpp/ cpp/generated/
 
       - name: Setup C++ files for CocoaPods
