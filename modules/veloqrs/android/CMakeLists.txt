@@ -37,9 +37,10 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fstack-protector-all")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror")
 
-# Rust library path - use linker flags instead of linking directly
-# to prevent AGP from auto-packaging (jniLibs already handles packaging)
-set(RUST_LIB_DIR ${CMAKE_SOURCE_DIR}/src/main/jniLibs/${ANDROID_ABI})
+# Don't link against libveloqrs.so at compile time - it causes duplicate library errors
+# because AGP packages both jniLibs AND CMake-linked libraries.
+# Instead, Android's runtime linker resolves symbols when both .so files are loaded.
+# See: https://developer.android.com/r/tools/jniLibs-vs-imported-targets
 
 # Add ReactAndroid libraries, being careful to account for different versions.
 find_package(ReactAndroid REQUIRED CONFIG)
@@ -69,9 +70,8 @@ target_link_libraries(
   ReactAndroid::jsi
   ${LOGCAT}
 )
-# Link Rust library via linker flags (not target_link_libraries)
-# This prevents CMake from copying it to the build output (jniLibs handles packaging)
+# Allow undefined symbols from libveloqrs.so - resolved at runtime by Android's linker
+# when System.loadLibrary("veloqrs") is called before System.loadLibrary("veloqrs_jni")
 target_link_options(veloqrs_jni PRIVATE
-  -L${RUST_LIB_DIR}
-  -lveloqrs
+  -Wl,--allow-shlib-undefined
 )
