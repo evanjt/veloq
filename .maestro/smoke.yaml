@@ -4,16 +4,17 @@
 appId: com.veloq.app
 ---
 - launchApp:
-    clearState: false
+    clearState: true
 
-# If on login screen, enter demo mode
-- runFlow:
-    when:
-      visible:
-        id: "login-demo-button"
-    commands:
-      - tapOn:
-          id: "login-demo-button"
+# Wait for login screen to appear
+- extendedWaitUntil:
+    visible:
+      id: "login-screen"
+    timeout: 30000
+
+# Enter demo mode
+- tapOn:
+    id: "login-demo-button"
 
 # Verify home screen loads
 - extendedWaitUntil:

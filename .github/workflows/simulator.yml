@@ -478,6 +478,8 @@ jobs:
           xcrun simctl install "${{ steps.simulator.outputs.udid }}" ios/build/Build/Products/Release-iphonesimulator/Veloq.app
 
       - name: Run Maestro tests
+        env:
+          MAESTRO_DRIVER_STARTUP_TIMEOUT: 120000
         run: |
           export PATH="$HOME/.maestro/bin:$PATH"
           mkdir -p screenshots
