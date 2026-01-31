@@ -211,9 +211,7 @@ jobs:
 
       - name: Install CocoaPods
         if: steps.app-cache.outputs.cache-hit != 'true'
-        run: |
-          gem install cocoapods
-          cd ios && pod install
+        run: cd ios && pod install
 
       - name: Initialize simulator
         if: steps.app-cache.outputs.cache-hit != 'true'
