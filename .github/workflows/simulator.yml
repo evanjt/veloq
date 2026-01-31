@@ -22,7 +22,7 @@ jobs:
   # ============================================
   changes:
     name: Detect Changes
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     outputs:
       ios: ${{ steps.filter.outputs.ios }}
       android: ${{ steps.filter.outputs.android }}
@@ -63,7 +63,7 @@ jobs:
   ios-simulator:
     needs: changes
     name: iOS ${{ matrix.config }}
-    runs-on: [self-hosted, macOS]
+    runs-on: macos-26
     timeout-minutes: 60
     strategy:
       fail-fast: false
@@ -76,14 +76,7 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Setup Homebrew PATH
-        run: |
-          echo "/opt/homebrew/bin" >> $GITHUB_PATH
-          echo "/opt/homebrew/sbin" >> $GITHUB_PATH
-          echo "/usr/local/bin" >> $GITHUB_PATH
-
       - name: Setup Xcode
-        if: runner.environment == 'github-hosted'
         uses: maxim-lobanov/setup-xcode@v1
         with:
           xcode-version: '26.2'
@@ -217,7 +210,9 @@ jobs:
 
       - name: Install CocoaPods
         if: steps.app-cache.outputs.cache-hit != 'true'
-        run: cd ios && pod install
+        run: |
+          gem install cocoapods
+          cd ios && pod install
 
       - name: Initialize simulator
         if: steps.app-cache.outputs.cache-hit != 'true'
@@ -303,7 +298,7 @@ jobs:
   android-release:
     needs: changes
     name: Android Release
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     timeout-minutes: 60
     outputs:
       artifact_name: ${{ steps.version.outputs.artifact_name }}
@@ -402,7 +397,7 @@ jobs:
           cp .github/ci-init.gradle ~/.gradle/init.gradle
 
       - name: Free disk space
-        if: steps.apk-cache.outputs.cache-hit != 'true' && runner.environment == 'github-hosted'
+        if: steps.apk-cache.outputs.cache-hit != 'true'
         run: |
           sudo rm -rf /usr/local/lib/android/sdk/ndk
           sudo rm -rf /usr/local/lib/android/sdk/build-tools/3[0-3]*
@@ -437,15 +432,10 @@ jobs:
     needs: ios-simulator
     if: ${{ !inputs.skip_e2e }}
     name: E2E iOS (Maestro)
-    runs-on: [self-hosted, macOS]
+    runs-on: macos-26
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
-
-      - name: Setup Homebrew PATH
-        run: |
-          echo "/opt/homebrew/bin" >> $GITHUB_PATH
-          echo "/opt/homebrew/sbin" >> $GITHUB_PATH
 
       - uses: actions/setup-node@v4
         with:
@@ -465,12 +455,9 @@ jobs:
           mkdir -p ios/build/Build/Products/Release-iphonesimulator
           unzip /tmp/ios-artifact/Veloq.app.zip -d ios/build/Build/Products/Release-iphonesimulator/
 
-      - name: Setup Maestro
+      - name: Install Maestro
         run: |
-          # Install if not present, add to PATH
-          if [ ! -f "$HOME/.maestro/bin/maestro" ]; then
-            curl -Ls "https://get.maestro.mobile.dev" | bash
-          fi
+          curl -Ls "https://get.maestro.mobile.dev" | bash
           echo "$HOME/.maestro/bin" >> $GITHUB_PATH
 
       - name: Find and boot simulator
@@ -536,13 +523,15 @@ jobs:
     needs: android-release
     if: ${{ !inputs.skip_e2e }}
     name: E2E Android (Maestro)
-    runs-on: [self-hosted, Linux]
+    runs-on: ubuntu-latest
     timeout-minutes: 30
-    env:
-      ANDROID_AVD_HOME: ${{ github.workspace }}/.android/avd
-      ANDROID_SDK_ROOT: /opt/android-sdk
     steps:
       - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
 
       - name: Download APK
         uses: actions/download-artifact@v4
@@ -550,71 +539,39 @@ jobs:
           name: ${{ needs.android-release.outputs.artifact_name }}
           path: /tmp/android-artifact
 
-      - name: Setup Android SDK PATH
+      - name: Install Maestro
         run: |
-          # Add Android SDK to PATH (assumes pre-installed on self-hosted)
-          echo "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin" >> $GITHUB_PATH
-          echo "$ANDROID_SDK_ROOT/platform-tools" >> $GITHUB_PATH
-          echo "$ANDROID_SDK_ROOT/emulator" >> $GITHUB_PATH
+          curl -Ls "https://get.maestro.mobile.dev" | bash
+          echo "$HOME/.maestro/bin" >> $GITHUB_PATH
 
-      - name: Create AVD (if not exists)
+      - name: Enable KVM
         run: |
-          mkdir -p $ANDROID_AVD_HOME
-          # Create AVD if it doesn't exist
-          if [ ! -d "$ANDROID_AVD_HOME/veloq_test.avd" ]; then
-            echo "Creating new AVD..."
-            echo "no" | avdmanager create avd -n veloq_test -k "system-images;android-34;google_apis;x86_64" -d pixel_6
-            # Configure for high performance
-            AVD_CONFIG="$ANDROID_AVD_HOME/veloq_test.avd/config.ini"
-            cat >> "$AVD_CONFIG" << EOF
-          hw.ramSize=16384
-          hw.cpu.ncore=8
-          disk.dataPartition.size=8G
-          vm.heapSize=512
-          hw.gpu.enabled=yes
-          hw.gpu.mode=swiftshader_indirect
-          EOF
-          else
-            echo "Using existing AVD"
-          fi
-
-      - name: Start emulator
-        run: |
-          # Start emulator with optimized settings (20GB RAM, 8 cores)
-          emulator -avd veloq_test \
-            -no-window \
-            -no-audio \
-            -no-boot-anim \
-            -gpu swiftshader_indirect \
-            -memory 20480 \
-            -cores 8 \
-            -accel on \
-            -no-snapshot \
-            -wipe-data &
-
-          # Wait for emulator to boot
-          echo "Waiting for emulator to boot..."
-          adb wait-for-device
-
-          # Wait for boot completion
-          timeout 300 bash -c 'while [[ "$(adb shell getprop sys.boot_completed 2>/dev/null)" != "1" ]]; do sleep 2; done'
-          echo "Emulator booted!"
-
-          # Disable animations
-          adb shell settings put global window_animation_scale 0
-          adb shell settings put global transition_animation_scale 0
-          adb shell settings put global animator_duration_scale 0
-
-      - name: Install APK
-        run: |
-          adb install /tmp/android-artifact/app-release.apk
-          sleep 5
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
 
       - name: Run Maestro tests
-        run: |
-          export PATH="$HOME/.maestro/bin:$PATH"
-          mkdir -p screenshots
-          maestro test .maestro/smoke.yaml --format junit --output maestro-report.xml --no-ansi
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 29
+          target: default
+          arch: x86_64
+          ram-size: 2048M
+          emulator-boot-timeout: 600
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -accel on
+          disable-animations: true
+          script: |
+            export PATH="$HOME/.maestro/bin:$PATH"
+
+            # Install APK
+            adb install /tmp/android-artifact/app-release.apk
+
+            # Give app time to install and emulator to stabilize
+            sleep 10
+
+            # Run smoke test
+            mkdir -p screenshots
+            maestro test .maestro/smoke.yaml --format junit --output maestro-report.xml --no-ansi
 
       - name: Collect screenshots
         if: always()
